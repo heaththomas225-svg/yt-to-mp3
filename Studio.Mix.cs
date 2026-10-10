@@ -88,11 +88,11 @@ static class Presets
 
     public static void DeleteUser(string type, string name) { try { File.Delete(Path.Combine(Root, type, name + ".txt")); } catch { } }
 
-    public static void Apply(Fx fx, string data) { fx.ResetDefaults(); fx.Deserialize(data); fx.Reset(); }
+    public static void Apply(Fx fx, string data) { var e = StudioEngine.Current; object gate = e != null ? e.Sync : new object(); lock (gate) { fx.ResetDefaults(); fx.Deserialize(data); fx.Reset(); } }
 
     public static Fx Make(string type, string data)
     {
-        var f = FxRegistry.Create(type); f.Prepare(StudioEngine.SR); if (!string.IsNullOrEmpty(data)) f.Deserialize(data); return f;
+        var f = FxRegistry.Create(type); if (f == null) return null; f.Prepare(StudioEngine.SR); if (!string.IsNullOrEmpty(data)) f.Deserialize(data); return f;
     }
 
     // ---------- vocal chain presets (original sound-design, broad style inspirations only) ----------
@@ -384,7 +384,7 @@ static class AutoMix
                 }
                 else rep.Add("Pitch correction: " + (enhance ? "key not detected, left bypassed" : "off (vocal enhancement not selected)") + ".");
             }
-            voc.Fx.Clear(); foreach (var f in chain) voc.Fx.Add(f);
+            lock (eng.Sync) { voc.Fx.Clear(); voc.Fx.AddRange(chain); }
         }
 
         // ---- beat chain ----
@@ -400,13 +400,13 @@ static class AutoMix
             }
             if (duck != null) { duck.Set("amount", (float)DuckAmount[si]); rep.Add("Ducking: beat dips " + DuckAmount[si].ToString("0.0") + " dB (mid band only, bass untouched) when the vocal is present."); }
             if (voc == null) { var d = Find(chain, "duck"); if (d != null) d.Bypass = true; }
-            beat.Fx.Clear(); foreach (var f in chain) beat.Fx.Add(f);
+            lock (eng.Sync) { beat.Fx.Clear(); beat.Fx.AddRange(chain); }
         }
 
         // ---- levels: render each chain alone, set faders ----
         progress("Balancing levels...");
         double tb = -18.0; float[] oL, oR;
-        eng.ResetStates();
+        lock (eng.Sync) eng.ResetStates();
         if (beat != null)
         {
             beat.VolDb = 0; beat.Pan = 0;
@@ -432,7 +432,7 @@ static class AutoMix
             float cut = (float)(mix.TruePeakDb + 1.5); foreach (var t in eng.Tracks) if (t == voc || t == beat) t.VolDb -= cut;
             rep.Add("Headroom: mix peaked at " + mix.TruePeakDb.ToString("0.0") + " dB true peak, lowered both faders by " + cut.ToString("0.0") + " dB.");
         }
-        eng.ResetStates();
+        lock (eng.Sync) eng.ResetStates();
         rep.Add("Result: mix before mastering is about " + (mix.I - Math.Max(0, mix.TruePeakDb + 1.5)).ToString("0.0") + " LUFS. Use the MASTERING tab for the final loudness.");
         rep.Add("Every setting above is a normal plugin parameter or fader you can edit.");
         return rep;
@@ -467,26 +467,35 @@ static class ProjectIO
 
     public static void RestoreMix(StudioEngine eng, string s)
     {
+        // build everything first (plugin loads can take seconds), then swap under the lock and dispose the old plugins afterwards
+        Track[] trs; lock (eng.Sync) trs = eng.Tracks.ToArray();
+        var newFx = new List<Fx>[trs.Length]; for (int k = 0; k < newFx.Length; k++) newFx[k] = new List<Fx>();
+        var newMaster = new List<Fx>(); var tmix = new List<string[]>(); string[] master = null;
+        foreach (var line in s.Split('\n'))
+        {
+            if (line.Length == 0) continue; var p = line.Split(new[] { '|' }, 6);
+            try
+            {
+                if (p[0] == "master") { F(p[1]); F(p[3]); master = p; }
+                else if (p[0] == "tmix") { int i = int.Parse(p[1]); if (i < trs.Length) tmix.Add(p); }
+                else if (p[0] == "fx") { int i = int.Parse(p[1]); if (i < trs.Length) { var f = Presets.Make(p[2], p.Length > 4 ? p[4] : ""); if (f != null) { f.Bypass = p[3] == "1"; var vf = f as InstrumentFx; if (vf != null) vf.Owner = trs[i]; newFx[i].Add(f); } } }
+                else if (p[0] == "mfx") { var q = line.Split(new[] { '|' }, 4); var f = Presets.Make(q[1], q.Length > 3 ? q[3] : ""); if (f != null) { f.Bypass = q[2] == "1"; newMaster.Add(f); } }
+            }
+            catch { }
+        }
+        var old = new List<Fx>();
         lock (eng.Sync)
         {
-            foreach (var t in eng.Tracks) { foreach (var of in t.Fx) if (of is IDisposable) { try { ((IDisposable)of).Dispose(); } catch { } } t.Fx.Clear(); }
-            foreach (var of in eng.MasterFx) if (of is IDisposable) { try { ((IDisposable)of).Dispose(); } catch { } }
-            eng.MasterFx.Clear();
-            foreach (var line in s.Split('\n'))
-            {
-                if (line.Length == 0) continue; var p = line.Split(new[] { '|' }, 6);
-                try
-                {
-                    if (p[0] == "master") { eng.MasterVolDb = F(p[1]); eng.MasterBypass = p[2] == "1"; eng.AbMatchDb = F(p[3]); }
-                    else if (p[0] == "tmix") { int i = int.Parse(p[1]); if (i < eng.Tracks.Count) { var t = eng.Tracks[i]; t.VolDb = F(p[2]); t.Pan = F(p[3]); t.Mute = p[4] == "1"; t.Solo = p[5] == "1"; } }
-                    else if (p[0] == "fx") { int i = int.Parse(p[1]); if (i < eng.Tracks.Count) { var f = Presets.Make(p[2], p.Length > 4 ? p[4] : ""); if (f != null) { f.Bypass = p[3] == "1"; var vf = f as InstrumentFx; if (vf != null) vf.Owner = eng.Tracks[i]; eng.Tracks[i].Fx.Add(f); } } }
-                    else if (p[0] == "mfx") { var q = line.Split(new[] { '|' }, 4); var f = Presets.Make(q[1], q.Length > 3 ? q[3] : ""); if (f != null) { f.Bypass = q[2] == "1"; eng.MasterFx.Add(f); } }
-                }
-                catch { }
-            }
+            foreach (var t in eng.Tracks) { old.AddRange(t.Fx); t.Fx.Clear(); }
+            old.AddRange(eng.MasterFx); eng.MasterFx.Clear();
+            for (int k = 0; k < trs.Length; k++) if (eng.Tracks.Contains(trs[k])) trs[k].Fx.AddRange(newFx[k]);
+            eng.MasterFx.AddRange(newMaster);
+            if (master != null) { eng.MasterVolDb = F(master[1]); eng.MasterBypass = master[2] == "1"; eng.AbMatchDb = F(master[3]); }
+            foreach (var p in tmix) { try { int i = int.Parse(p[1]); var t = trs[i]; t.VolDb = F(p[2]); t.Pan = F(p[3]); t.Mute = p[4] == "1"; t.Solo = p[5] == "1"; } catch { } }
             if (eng.MasterFx.Count == 0) eng.InitMasterChain();
             eng.ResetStates();
         }
+        foreach (var of in old) if (of is IDisposable) { try { ((IDisposable)of).Dispose(); } catch { } }
     }
     static float F(string s) { float v; return float.TryParse(s, NumberStyles.Float, CI, out v) ? v : 0; }
 

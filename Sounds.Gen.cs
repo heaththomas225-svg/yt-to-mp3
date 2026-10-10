@@ -255,7 +255,7 @@ static class SoundGen
             long on = (long)Math.Round(n[0] * spb), off = (long)Math.Round((n[0] + n[1]) * spb); tr.Midi.Add(new MidiEv { Frame = on, S = 0x90, D1 = (byte)n[2], D2 = (byte)Math.Max(1, Math.Min(127, n[3])) }); tr.Midi.Add(new MidiEv { Frame = Math.Max(on + 1, off), S = 0x80, D1 = (byte)n[2], D2 = 0 });
         }
         tr.Midi.Sort((a, b) => a.Frame != b.Frame ? a.Frame.CompareTo(b.Frame) : (a.S == 0x80 ? -1 : 1).CompareTo(b.S == 0x80 ? -1 : 1));
-        double keep = Fx.ProjectBpm; Fx.ProjectBpm = bpm;
+        double keep = Fx.RenderBpm; Fx.RenderBpm = bpm;
         try
         {
             var bl = new float[256]; var br = new float[256];
@@ -264,7 +264,7 @@ static class SoundGen
                 int c = Math.Min(256, total - p); Array.Clear(bl, 0, c); Array.Clear(br, 0, c); fx.BeginBlock(tr, p, c, true); fx.Process(bl, br, c); Array.Copy(bl, 0, l, p, c); Array.Copy(br, 0, r, p, c);
             }
         }
-        finally { Fx.ProjectBpm = keep; }
+        finally { Fx.RenderBpm = keep; }
         var o = new Buf(total); o.L = l; o.R = r; return o;
     }
 

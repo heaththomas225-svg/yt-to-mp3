@@ -402,7 +402,7 @@ class SynthFx : InstrumentFx
 
     void RenderBlock(int start, int len)
     {
-        double bpm = Fx.ProjectBpm, dtc = len / (double)SR;
+        double bpm = Fx.Bpm, dtc = len / (double)SR;
         for (int k = 0; k < 4; k++) { gLfo[k] = Frac(gLfo[k] + LfoHz(k, bpm) * dtc); }
         double volLin = DspMath.DbToLin(vol);
         bool anySolo = (op[0].On && op[0].Solo) || (op[1].On && op[1].Solo) || (op[2].On && op[2].Solo) || (subOn && subSolo) || (nzOn && nzSolo);

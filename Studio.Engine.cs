@@ -342,7 +342,7 @@ class Track
     public volatile float PeakL, PeakR, RmsL, RmsR; public volatile bool Clipped;
     public float[] TapPre = new float[8192], TapPost = new float[8192]; public volatile int TapPos;
     internal float[] tl = new float[8192], tr = new float[8192];
-    internal float[] dlyL = new float[1 << 17], dlyR = new float[1 << 17]; internal long dlyW;
+    internal float[] dlyL = new float[1 << 17], dlyR = new float[1 << 17]; internal long dlyW; internal bool fxIdle;
 
     public int Latency() { int s = 0; for (int i = 0; i < Fx.Count; i++) if (!Fx[i].Bypass) s += Fx[i].Latency; return s; }
     public long EndFrame { get { if (Clip != null) return Offset + UsedLength; if (Instrument && Midi.Count > 0) { lock (Midi) return Midi[Midi.Count - 1].Frame + 44100L * 3; } return 0; } }
@@ -424,27 +424,35 @@ class StudioEngine
 
         // vocal dry signal -> sidechain ring (time aligned on the timeline)
         if (voc != null && voc.Clip != null)
+        {
+            var vc = voc.Clip; long voff = voc.Offset, vcs = voc.ClipStart, vcf = voc.ClipFrames; float[] vL = vc == null ? null : vc.L, vR = vc == null ? null : (vc.R ?? vc.L);
+            long vavail = vL == null ? 0 : Math.Max(0, vL.Length - vcs), vlen = vcf < 0 ? vavail : Math.Min(vcf, vavail);
             for (int i = 0; i < n; i++)
             {
-                long idx = pos + i - voc.Offset, vlen = voc.UsedLength; int w = (int)((pos + i) & (scRL.Length - 1));
-                bool inside = voc.Clip.L != null && idx >= 0 && idx < vlen;
-                scRL[w] = inside ? voc.Clip.L[idx + voc.ClipStart] : 0; scRR[w] = inside ? voc.Clip.R[idx + voc.ClipStart] : 0;
+                long idx = pos + i - voff; int w = (int)((pos + i) & (scRL.Length - 1));
+                bool inside = vL != null && idx >= 0 && idx < vlen && idx + vcs < vL.Length && idx + vcs < vR.Length;
+                scRL[w] = inside ? vL[idx + vcs] : 0; scRR[w] = inside ? vR[idx + vcs] : 0;
             }
+        }
 
         foreach (var t in list)
         {
             if (t.Clip == null && !t.Instrument) continue;
             if (n > t.tl.Length) { t.tl = new float[n]; t.tr = new float[n]; }
-            long ulen = t.UsedLength;
+            bool audible = !o.MuteSolo || (!t.Mute && (!soloActive || t.Solo));
+            bool idle = !audible && !o.Dry;   // muted / not soloed: skip the plugin chain (the output is discarded anyway)
+            var tclip = o.NoClips ? null : t.Clip; long toff = t.Offset, tcs = t.ClipStart, tcf = t.ClipFrames; float[] cl = tclip == null ? null : tclip.L, cr = tclip == null ? null : (tclip.R ?? tclip.L);
+            long tavail = cl == null ? 0 : Math.Max(0, cl.Length - tcs), ulen = tcf < 0 ? tavail : Math.Min(tcf, tavail);
             for (int i = 0; i < n; i++)
             {
-                long idx = pos + i - t.Offset;
-                var tclip = o.NoClips ? null : t.Clip;
-                if (tclip != null && tclip.L != null && idx >= 0 && idx < ulen) { t.tl[i] = tclip.L[idx + t.ClipStart]; t.tr[i] = tclip.R[idx + t.ClipStart]; } else { t.tl[i] = 0; t.tr[i] = 0; }
+                long idx = pos + i - toff, k = idx + tcs;
+                if (cl != null && idx >= 0 && idx < ulen && k < cl.Length && k < cr.Length) { t.tl[i] = cl[k]; t.tr[i] = cr[k]; } else { t.tl[i] = 0; t.tr[i] = 0; }
             }
+            if (!idle && t.fxIdle) { for (int f = 0; f < t.Fx.Count; f++) t.Fx[f].Reset(); Array.Clear(t.dlyL, 0, t.dlyL.Length); Array.Clear(t.dlyR, 0, t.dlyR.Length); t.fxIdle = false; }
             if (meters) PushTap(t.TapPre, t, false, t.tl, t.tr, n);
             int latSoFar = 0;
-            if (!o.Dry)
+            if (idle) { if (!t.fxIdle) { t.fxIdle = true; for (int f = 0; f < t.Fx.Count; f++) t.Fx[f].GR = 0; } }
+            else if (!o.Dry)
                 for (int f = 0; f < t.Fx.Count; f++)
                 {
                     var fx = t.Fx[f]; if (fx.Bypass) continue;
@@ -460,7 +468,7 @@ class StudioEngine
                 }
             // plugin delay compensation
             int d = o.Dry ? 0 : maxLat - t.Latency(); int mask = t.dlyL.Length - 1;
-            if (maxLat > 0)
+            if (maxLat > 0 && !idle)
                 for (int i = 0; i < n; i++)
                 {
                     long w = t.dlyW + i; t.dlyL[w & mask] = t.tl[i]; t.dlyR[w & mask] = t.tr[i];
@@ -469,7 +477,6 @@ class StudioEngine
             t.dlyW += n;
             if (meters) PushTap(t.TapPost, t, true, t.tl, t.tr, n);
 
-            bool audible = !o.MuteSolo || (!t.Mute && (!soloActive || t.Solo));
             float g = o.Fader ? DspMath.DbToLin(t.VolDb) : 1f, gl, gr; PanGains(o.Fader ? t.Pan : 0, out gl, out gr);
             double sl = 0, sr = 0; float pl = 0, pr = 0; bool clip = false;
             for (int i = 0; i < n; i++)
@@ -530,10 +537,13 @@ class StudioEngine
     static readonly RenderOpts Live = new RenderOpts();
 
     // Real-time callback used by the audio device
+    public volatile bool Rendering; readonly object renderGate = new object();
     public void RenderRealtime(float[] oL, float[] oR, int n)
     {
+        if (Rendering) { Array.Clear(oL, 0, n); Array.Clear(oR, 0, n); return; }
         lock (Sync)
         {
+            if (Rendering) { Array.Clear(oL, 0, n); Array.Clear(oR, 0, n); return; }
             if (!Playing)
             {
                 if (unchecked(Environment.TickCount - LiveUntil) < 0)   // a note is being played on an instrument: only the instrument tracks sound
@@ -608,22 +618,27 @@ class StudioEngine
     public void RenderStream(long start, long frames, RenderOpts o, Action<float> prog, Action<float[], float[], int, int> sink, Func<bool> cancelled)
     {
         Playing = false;
-        lock (Sync)
+        lock (renderGate)
         {
-            ResetStates();
-            foreach (var t in Tracks) foreach (var f in t.Fx) { try { f.PrepareOffline(); } catch { } }
-            foreach (var f in MasterFx) { try { f.PrepareOffline(); } catch { } }
-            int lat = RenderLatency(o); long total = frames + lat, done = 0, emitted = 0; float[] bl = new float[4096], br = new float[4096];
-            while (done < total && emitted < frames)
+            Rendering = true;   // the live callback outputs silence meanwhile; Sync is only held per block so the UI and Cancel stay responsive
+            try
             {
-                if (cancelled != null && cancelled()) break;
-                int n = (int)Math.Min(4096, total - done);
-                Mix(start + done, n, o, bl, br, false, 0);
-                int skip = (int)Math.Max(0, Math.Min(n, lat - done)), cnt = (int)Math.Min(n - skip, frames - emitted);
-                if (cnt > 0) { sink(bl, br, skip, cnt); emitted += cnt; }
-                done += n; if (prog != null) prog((float)Math.Min(1.0, (double)done / total));
+                int lat; lock (Sync) { ResetStates(); lat = RenderLatency(o); }
+                foreach (var t in Tracks.ToArray()) foreach (var f in t.Fx.ToArray()) { try { f.PrepareOffline(); } catch { } }   // e.g. wait for a convolution reverb's impulse response
+                foreach (var f in MasterFx.ToArray()) { try { f.PrepareOffline(); } catch { } }
+                long total = frames + lat, done = 0, emitted = 0; float[] bl = new float[4096], br = new float[4096];
+                while (done < total && emitted < frames)
+                {
+                    if (cancelled != null && cancelled()) break;
+                    int n = (int)Math.Min(4096, total - done);
+                    lock (Sync) Mix(start + done, n, o, bl, br, false, 0);
+                    int skip = (int)Math.Max(0, Math.Min(n, lat - done)), cnt = (int)Math.Min(n - skip, frames - emitted);
+                    if (cnt > 0) { sink(bl, br, skip, cnt); emitted += cnt; }
+                    done += n; if (prog != null) prog((float)Math.Min(1.0, (double)done / total));
+                }
+                lock (Sync) { ResetStates(); Lufs.Reset(); }
             }
-            ResetStates(); Lufs.Reset();
+            finally { Rendering = false; }
         }
         Playing = false;   // exporting / analysing always leaves the transport stopped
     }
@@ -678,7 +693,7 @@ class WaveOutPlayer : IDisposable
 
     void Fill(int i)
     {
-        render(fl, fr, Frames);
+        try { render(fl, fr, Frames); } catch { Array.Clear(fl, 0, Frames); Array.Clear(fr, 0, Frames); }
         float gn = Gain; if (gn != 1f) for (int k = 0; k < Frames; k++) { fl[k] *= gn; fr[k] *= gn; }
         for (int k = 0; k < Frames; k++)
         {

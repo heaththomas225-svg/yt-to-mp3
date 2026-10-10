@@ -9,7 +9,7 @@ static class PackBuilder
     {
         var pack = new SoundPack { Id = rec.Id, Name = rec.Name, Section = rec.Section, Genre = rec.Genre, Sub = rec.Sub, Description = rec.Desc, License = SoundLibrary.LicenceText, Hue = rec.Hue };
         try { if (Directory.Exists(pack.Dir)) Directory.Delete(pack.Dir, true); } catch { }
-        var w = new PackWriter(pack, rec.Seed, progress, cancel); double keepBpm = Fx.ProjectBpm;
+        var w = new PackWriter(pack, rec.Seed, progress, cancel);
         try
         {
             var st = StyleFor(rec); var kit = DrumKit.Make(st, rec.Seed + 1); var ctx = new Ctx { Rec = rec, W = w, Style = st, Kit = kit, R = new Rnd(rec.Seed + 7) };
@@ -25,7 +25,6 @@ static class PackBuilder
             if (rec.Has("kit")) Songstarter(ctx);
         }
         catch (OperationCanceledException) { try { Directory.Delete(pack.Dir, true); } catch { } return null; }
-        finally { Fx.ProjectBpm = keepBpm; }
         pack.Installed = true; SoundLibrary.WritePack(pack); return pack;
     }
 

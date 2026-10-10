@@ -119,6 +119,8 @@ public abstract class Fx
     public int SR = 44100;
     protected volatile bool dirty = true;
     public static double ProjectBpm = 90;
+    [ThreadStatic] public static double RenderBpm;
+    public static double Bpm { get { return RenderBpm > 0 ? RenderBpm : ProjectBpm; } }
 
     public virtual void PrepareOffline() { }   // offline render: wait for background builds (e.g. convolution IR) so the first block is complete
     public virtual int Latency { get { return 0; } }
@@ -577,7 +579,7 @@ class Delay : Fx
     {
         int len = SR * 2 + 16; if (bl == null || bl.Length != len) { bl = new float[len]; br = new float[len]; }
         int sy = (int)Get("sync"); double ms = Get("time");
-        if (sy > 0) ms = 60000.0 / ProjectBpm * SyncBeats[sy];
+        if (sy > 0) ms = 60000.0 / Bpm * SyncBeats[sy];
         dl = (int)Math.Max(1, Math.Min(len - 2, ms * 0.001 * SR));
         mode = (int)Get("mode"); dr = mode == 1 ? (int)(dl * 1.12) : dl;
         fb = Get("fb") / 100.0; mix = Get("mix") / 100.0;
