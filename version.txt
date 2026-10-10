@@ -1,7 +1,3 @@
-3.2.1
+3.3.0
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-NEW: renamed Purphex (the studio is Purphex Music)
-NEW: Bass Lab synthesizer + fine-tunable Bass Boost
-NEW: DAW tools: split, trim, move, duplicate, undo/redo, BPM + grid, metronome
-CHANGE: Analyze whole mix moves the mastering EQ; split tracks are named after the song
-Fix: Auto Mix works before splitting; toolbar text overlap; updates within seconds
+Easier editing: drag a clip anywhere to move it, hover labels and cursors, a button row on the selected track (Up, Dn, move, split, trim, copy, delete), drag tracks up or down

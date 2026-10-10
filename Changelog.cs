@@ -7,10 +7,16 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.2.1";
+    public const string Latest = "3.3.0";
 
     public const string Text =
-@"3.2.1  Purphex (complete build)
+@"3.3.0  Easier editing
+ + Drag a clip anywhere to move it. A click still puts the needle.
+ + Hover cues: the cursor changes, clips light up with grips on their ends, and a label next to the mouse says what a drag will do.
+ + The selected track has a button row: Up, Dn, move a grid step, Split, trim start, trim end, Copy, Del.
+ + Drag a track name up or down to change the order of the tracks.
+
+3.2.1  Purphex (complete build)
  + This update completes 3.2.0: Analyze whole mix now moves the Mastering EQ, and split tracks are named after the song.
 
 3.2.0  Purphex: Bass Lab and DAW tools

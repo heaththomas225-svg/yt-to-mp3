@@ -272,7 +272,7 @@ partial class StudioForm : Form
 
     void PaintAll(PaintEventArgs e)
     {
-        hintNow = "";
+        hintNow = ""; bubble = "";
         var g = e.Graphics; g.SmoothingMode = SmoothingMode.AntiAlias; g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
         regs.Clear();
         var full = new RectangleF(0, 0, ClientSize.Width, ClientSize.Height);
@@ -280,6 +280,7 @@ partial class StudioForm : Form
         if (tab == 0) PaintMix(g); else PaintMastering(g);
         PaintToolbar(g); PaintTransport(g);
         if (browserOpen) PaintBrowser(g);
+        PaintBubble(g);
         if (hintNow.Length > 0 && !busy) { var hr = Rc(ClientSize.Width / 2 - 340, ClientSize.Height - 36, 680, 26); FillRR(g, Color.FromArgb(235, 30, 16, 58), hr, 8); StrokeRR(g, Edge, hr, 8, 1); Txt(g, hintNow, 13, Ink, hr, StringAlignment.Center, false); }
         if (busy) PaintBusy(g);
         if ((DateTime.Now - toastAt).TotalSeconds < 3.5 && toast.Length > 0)
@@ -435,6 +436,7 @@ partial class StudioForm : Form
             var lane = Rc(HeadW, y, tl.Width, LaneH); using (var br = new SolidBrush(i % 2 == 0 ? Lane : Lane2)) g.FillRectangle(br, lane);
             if (tr.Instrument) PaintMidi(g, tr, lane); else PaintWave(g, tr, lane, sel);
             var lr = LaneReg(lane, tr); int idx = i;
+            PaintLaneTools(g, tr, lane);
             PaintHeader(g, tr, i, Rc(0, y, HeadW, LaneH), sel);
             using (var pen = new Pen(Color.FromArgb(70, 140, 85, 210))) g.DrawLine(pen, 0, y + LaneH, tl.Right, y + LaneH);
         }
@@ -499,6 +501,7 @@ partial class StudioForm : Form
         g.Clip = oldClip; g.SmoothingMode = SmoothingMode.AntiAlias;
         if (cr.Width > 0) StrokeRR(g, Color.FromArgb(sel ? 190 : 90, c), cr, 6, 1);
         Txt(g, tr.Name, 12, Color.FromArgb(200, 255, 255, 255), Rc(Math.Max(lane.X, x0) + 8, lane.Y + 6, 300, 16), StringAlignment.Near, true);
+        PaintClipChrome(g, tr, lane, cr, sel);
     }
 
     float[] Hold(Track t) { float[] h; if (!hold.TryGetValue(t, out h)) { h = new float[4]; hold[t] = h; } return h; }
@@ -513,7 +516,8 @@ partial class StudioForm : Form
         FillRR(g, Color.FromArgb(120, Color.FromArgb(tr.Color)), Rc(r.X + 160, r.Y + 8, 46, 18), 9); Txt(g, role, 10, Color.White, Rc(r.X + 160, r.Y + 8, 46, 18), StringAlignment.Center, true);
         int ti = i; var tk = tr;
         Btn(g, Rc(r.Right - 30, r.Y + 7, 22, 22), "x", 3, () => RemoveTrack(tk), 13);
-        var nameReg = Reg(Rc(r.X + 4, r.Y + 4, 150, 26), () => { selTrack = ti; selFx = -1; }); nameReg.OnDouble = () => RenameTrack(tk); nameReg.OnRight = () => RenameTrack(tk);
+        var nameReg = Reg(Rc(r.X + 4, r.Y + 4, 150, 26), () => HeaderDown(tk)); nameReg.OnDrag = pt => HeaderDrag(tk, pt); nameReg.OnDouble = () => RenameTrack(tk); nameReg.OnRight = () => RenameTrack(tk);
+        if (Hot(Rc(r.X + 4, r.Y + 4, 150, 26))) bubble = "Drag up or down to reorder.  Double-click to rename."; bubblePt = MousePos;
         // M / S
         Btn(g, Rc(r.X + 12, r.Y + 36, 34, 28), "M", tk.Mute ? 4 : 0, () => ToggleMute(tk), 14);
         Btn(g, Rc(r.X + 52, r.Y + 36, 34, 28), "S", tk.Solo ? 4 : 0, () => ToggleSolo(tk), 14);
@@ -737,6 +741,7 @@ partial class StudioForm : Form
     protected override void OnMouseMove(MouseEventArgs e)
     {
         base.OnMouseMove(e); MousePos = e.Location; lastInput = DateTime.Now;
+        { var cur = CursorAt(MousePos); if (Cursor != cur) Cursor = cur; }
         if (dragReg != null && dragReg.OnDrag != null) dragReg.OnDrag(e.Location);
         else hover = TopRegion(e.Location);
     }
