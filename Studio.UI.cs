@@ -901,7 +901,7 @@ partial class StudioForm : Form
         if (user.Count > 0) { m.Items.Add(new ToolStripSeparator()); foreach (var kv in user) { string data = kv.Value; string nm = kv.Key; var it = new ToolStripMenuItem("My: " + nm); it.Click += (a, b) => Presets.Apply(f, data); it.DropDownItems.Add("Delete").Click += (a, b) => Presets.DeleteUser(f.Type, nm); m.Items.Add(it); } }
         m.Items.Add(new ToolStripSeparator());
         m.Items.Add("Save current settings as preset...").Click += (a, b) => { string nm = Ask("Preset name:", f.Title + " custom"); if (nm != null) { Presets.SaveUser(f.Type, nm, f); Toast("Preset saved"); } };
-        m.Items.Add("Reset to defaults").Click += (a, b) => { f.ResetDefaults(); f.Reset(); };
+        m.Items.Add("Reset to defaults").Click += (a, b) => { lock (eng.Sync) { f.ResetDefaults(); f.Reset(); } };
         m.Show(this, new Point((int)MousePos.X, (int)MousePos.Y));
     }
 
