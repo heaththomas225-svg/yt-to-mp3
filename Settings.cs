@@ -81,8 +81,13 @@ class SettingsForm : Form
             if (d.ShowDialog(this) != DialogResult.OK) return;
             if (!UserBackground.IsImage(d.FileName) && App.FfmpegPath() == null) { MessageBox.Show(this, "Videos need ffmpeg, which is installed the first time you convert something. Convert any link once, then pick the video again. (Pictures work right away.)", "Background"); return; }
             UserBackground.Set(d.FileName);
-            if (UserBackground.Active && !UserBackground.IsVideo && UserBackground.Still(Math.Max(16, app.ClientSize.Width), Math.Max(16, app.ClientSize.Height)) == null)
-            { MessageBox.Show(this, "That file couldn't be opened as a picture: " + UserBackground.Error, "Background"); UserBackground.Set(""); }
+            if (UserBackground.Active && !UserBackground.IsVideo)
+            {
+                string perr = null;
+                try { using (var fs = new FileStream(d.FileName, FileMode.Open, FileAccess.Read, FileShare.ReadWrite)) using (var im = Image.FromStream(fs, false, false)) { var sz = im.Size; } }   // header check only; the real decode happens on the background thread
+                catch (Exception ex) { perr = ex.Message; }
+                if (perr != null) { MessageBox.Show(this, "That file couldn't be opened as a picture: " + perr, "Background"); UserBackground.Set(""); }
+            }
             Refresh2();
         }
     }
