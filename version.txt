@@ -1,2 +1,2 @@
-2.3.0
+2.5.0
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
