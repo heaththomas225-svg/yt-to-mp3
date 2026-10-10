@@ -7,10 +7,15 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.0.9";
+    public const string Latest = "3.0.10";
 
     public const string Text =
-@"3.0.9  Effect list fix
+@"3.0.10  More help
+ + NEW hover hints: point at any button in the Music Studio and a plain-English explanation appears at the bottom.
+ + NEW Help guides: Settings, full screen and shortcuts, Full song vs Vocals only vs Beat only, rename and Save as, the Add Effect list, and the sample plugin.
+ + CLEARER: Create sample plugin now explains it is a template for developers and offers to build it so you can try it.
+
+3.0.9  Effect list fix
  + FIX: the Add effect list now stops at its last row instead of scrolling forever.
 
 3.0.8  Rename and Save as
