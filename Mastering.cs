@@ -467,12 +467,12 @@ class MasterForm : Form
         ApplyZoom();
         for (int i = 0; i < 10; i++) leaves.Add(NewLeaf(true));
         for (int i = 0; i < 30; i++) spores.Add(NewSpore(true));
-        timer.Interval = 33; timer.Tick += (s, e) => { if (moving || Win.AnyMoving) return; t += 0.033f; StepAnim(); Invalidate(); };
+        timer.Interval = 33; timer.Tick += (s, e) => { if (moving || Win.AnyMoving) return; if (ActiveForm != this && (++idleTick & 3) != 0) return; t += 0.033f; StepAnim(); Invalidate(); };
         timer.Start();
         FormClosed += (s, e) => { timer.Stop(); timer.Dispose(); if (ms.On) { ms.On = false; app.SaveSettings(); } };   // closing the Mastering window turns mastering off
     }
 
-    volatile bool moving;
+    int idleTick; volatile bool moving;
     protected override void WndProc(ref Message m)
     {
         Win.TrackMove(ref m); if (m.Msg == 0x231) moving = true; else if (m.Msg == 0x232) moving = false;
@@ -607,16 +607,10 @@ class MasterForm : Form
             float cx = 1400 * (0.3f + 0.4f * i) + (float)Math.Sin(t * 0.4f + i * 2) * 90;
             float cy = 880 * (0.35f + 0.3f * i) + (float)Math.Cos(t * 0.3f + i) * 70;
             float rad = 330 + (float)Math.Sin(t * 0.9f + i) * 40;
-            using (var gp = new GraphicsPath())
-            {
-                gp.AddEllipse(cx - rad, cy - rad, rad * 2, rad * 2);
-                using (var pg = new PathGradientBrush(gp))
-                {
-                    pg.CenterColor = Color.FromArgb(70, 150, 60, 240);
-                    pg.SurroundColors = new[] { Color.FromArgb(0, 150, 60, 240) };
-                    g.FillPath(pg, gp);
-                }
-            }
+            var gb = Glow(); var o1 = g.CompositingQuality; var o2 = g.PixelOffsetMode; var o3 = g.SmoothingMode; var o4 = g.InterpolationMode;
+            g.CompositingQuality = CompositingQuality.HighSpeed; g.PixelOffsetMode = PixelOffsetMode.HighSpeed; g.SmoothingMode = SmoothingMode.HighSpeed; g.InterpolationMode = InterpolationMode.NearestNeighbor;
+            g.DrawImage(gb, new RectangleF(cx - rad, cy - rad, rad * 2, rad * 2), new RectangleF(0, 0, gb.Width, gb.Height), GraphicsUnit.Pixel);
+            g.CompositingQuality = o1; g.PixelOffsetMode = o2; g.SmoothingMode = o3; g.InterpolationMode = o4;
         }
         leaves.Sort((a, b) => a.S.CompareTo(b.S));
         foreach (var l in leaves) App.DrawLeaf(g, l);
@@ -632,6 +626,19 @@ class MasterForm : Form
         PaintDynamics(g);
         PaintSpread(g);
         PaintBottom(g);
+    }
+
+    static Bitmap glowBmp;
+    static Bitmap Glow()
+    {
+        if (glowBmp != null) return glowBmp;
+        var bmp = new Bitmap(256, 256, System.Drawing.Imaging.PixelFormat.Format32bppPArgb);
+        using (var bg = Graphics.FromImage(bmp)) using (var gp = new GraphicsPath())
+        {
+            bg.SmoothingMode = SmoothingMode.AntiAlias; gp.AddEllipse(0, 0, 256, 256);
+            using (var pg = new PathGradientBrush(gp)) { pg.CenterColor = Color.FromArgb(70, 150, 60, 240); pg.SurroundColors = new[] { Color.FromArgb(0, 150, 60, 240) }; bg.FillPath(pg, gp); }
+        }
+        glowBmp = bmp; return bmp;
     }
 
     void PaintTopBar(Graphics g)
