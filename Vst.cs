@@ -43,6 +43,7 @@ class VstPlugin : IVstHosted
     IntPtr lib, eff; VstDispatch disp; VstProcess proc; VstSetParam setP; VstGetParam getP; bool disposed;
     public string Name = "", Vendor = "", Path = ""; public int NumParams, NumIn, NumOut, Flags, UniqueId; public int SampleRate = 44100;
     public bool IsSynth { get { return (Flags & FlagIsSynth) != 0 || NumIn == 0; } }
+    public int Latency { get { return disposed ? 0 : Math.Max(0, Math.Min(1 << 16, Marshal.ReadInt32(eff, 80))); } }   // AEffect.initialDelay, read live (audioMasterIOChanged can change it)
     public bool HasEditor { get { return (Flags & FlagHasEditor) != 0; } }
     public bool HasChunks { get { return (Flags & FlagProgramChunks) != 0; } }
     public bool EditorOpen;
@@ -258,6 +259,7 @@ class VstPlugin : IVstHosted
 class VstFx : InstrumentFx, IDisposable
 {
     public IVstHosted Plugin; public string File = "";
+    public override int Latency { get { return Plugin == null ? 0 : Plugin.Latency; } }
     VstWindow window;
     const int MaxParams = 128;
 

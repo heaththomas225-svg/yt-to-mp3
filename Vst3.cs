@@ -20,6 +20,7 @@ interface IVstHosted : IDisposable
     string ParamName(int i); float GetParam(int i); void SetParam(int i, float v);
     byte[] GetChunk(); void SetChunk(byte[] data); void SendMidi(List<KeyValuePair<int, MidiEv>> ev); void Process(float[] l, float[] r, int n);
     Size GetEditorSize(); void OpenEditor(IntPtr hwnd); void CloseEditor(); void EditorIdle();
+    int Latency { get; }
 }
 
 static class VstLoader
@@ -118,7 +119,9 @@ class Vst3Plugin : IVstHosted
     string name = "", vendor = "", path = ""; int numIn, numOut, sampleRate = 44100; bool synth, hasEditor; Size editorSize = new Size(640, 480);
     readonly List<uint> paramIds = new List<uint>(); readonly List<string> paramNames = new List<string>();
     readonly object callLock = new object();
-    D_IP processFn; D_IUD setParamFn;
+    D_IP processFn; D_IUD setParamFn; D_U latFn; volatile int latency;
+    public int Latency { get { return disposed ? 0 : latency; } }
+    void RefreshLatency() { if (latFn == null) return; try { latency = (int)Math.Max(0u, Math.Min(latFn(processor), 1u << 16)); } catch { } }
     IntPtr[] inBuf = new IntPtr[2], outBuf = new IntPtr[2]; IntPtr inArr, outArr, inBus, outBus, procData, procCtx, evBuf, outEvBuf, setup;
     ComObject host, handler, frame, inEvents, outEvents, inChanges, outChanges; ComObject[] queues = new ComObject[MaxChanges]; readonly Dictionary<IntPtr, int> queueIndex = new Dictionary<IntPtr, int>();
     int evCount, changeCount; readonly uint[] chId = new uint[MaxChanges]; readonly double[] chVal = new double[MaxChanges];
@@ -184,6 +187,8 @@ class Vst3Plugin : IVstHosted
             if (Vst3.Fn<D_IP>(processor, 7)(processor, setup) != 0) throw new Exception("The plugin didn't accept this sample rate or block size.");
             Vst3.Fn<D_IB>(component, 11)(component, 1); Vst3.Fn<D_IB>(processor, 8)(processor, 1);
             processFn = Vst3.Fn<D_IP>(processor, 9);
+            try { latFn = Vst3.Fn<D_U>(processor, 6); } catch { latFn = null; }
+            RefreshLatency();
             BuildBuffers(); ReadParams(); ProbeEditor();
             if (name.Length == 0) name = System.IO.Path.GetFileNameWithoutExtension(path);
         }
@@ -339,6 +344,7 @@ class Vst3Plugin : IVstHosted
             Marshal.WriteInt32(outBus, 0, 2); Marshal.WriteInt64(outBus, 8, 0);
             for (int i = 0; i < 2; i++) ZeroMem(outBuf[i], c);
             processFn(processor, procData);
+            RefreshLatency();
             lock (pending) changeCount = 0;
             if (scrL == null) { scrL = new float[MaxBlock]; scrR = new float[MaxBlock]; }
             Marshal.Copy(outBuf[0], scrL, 0, c); Marshal.Copy(outBuf[1], scrR, 0, c);
