@@ -7,10 +7,13 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.11.0";
+    public const string Latest = "3.11.1";
 
     public const string Text =
-@"3.11.0  Move around like BandLab, thinner tracks, add track, VST3
+@"3.11.1  Steadier vocal removal on long songs
+ + FIXED: songs split into pieces for vocal removal are now levelled by the whole song instead of each piece alone, so the stems match at the joins.
+
+3.11.0  Move around like BandLab, thinner tracks, add track, VST3
  + NEW Purphex Music: the mouse wheel moves along the song when your tracks fit on screen, Ctrl + wheel zooms, and there is a zoom slider in the toolbar.
  + NEW an overview bar along the bottom shows the whole song: drag its lit window to move, drag its ends to zoom, double-click to fit. The middle mouse button drags the view, touch pads can swipe sideways.
  + NEW tracks are thinner (Alt + wheel changes the height) and zooming now stops at sensible limits instead of breaking the display.

@@ -137,11 +137,16 @@ except Exception:
     pass
 VI = model.sources.index('vocals')
 
-def run_model(wav, overlap, show):
-    ref = wav.mean(0); sd = ref.std() + 1e-8; wav = (wav - ref.mean()) / sd
+def run_model(wav, overlap, show, stats=None):
+    # the level the model sees must be the same for every piece of a long song, so the pieces match at the seams: stats = (mean, std) of the WHOLE song
+    if stats is None:
+        ref = wav.mean(0); mu = float(ref.mean()); sd = float(ref.std()) + 1e-8
+    else:
+        mu, sd = stats
+    wav = (wav - mu) / sd
     with torch.no_grad():
         out = apply_model(model, wav[None], device='cpu', shifts=1, split=True, overlap=overlap, progress=show, num_workers=0)[0]
-    out = out * sd + ref.mean()
+    out = out * sd + mu
     v = out[VI]; i = out.sum(0) - v
     return v.cpu().numpy().T, i.cpu().numpy().T
 
@@ -150,6 +155,14 @@ def read(inp, start, dur):
     if start is not None:
         kw['seek_time'] = start; kw['duration'] = dur
     return AudioFile(inp).read(**kw)
+
+def song_stats(inp, total):
+    s = 0.0; s2 = 0.0; n = 0; p = 0.0
+    while p < total - 0.01:
+        d = min(120.0, total - p); x = read(inp, p, d).mean(0).double()
+        s += float(x.sum()); s2 += float((x * x).sum()); n += x.numel(); p += d
+    mu = s / max(1, n); var = max(0.0, s2 / max(1, n) - mu * mu)
+    return (mu, var ** 0.5 + 1e-8)
 
 def open_wav(path, big):
     return sf.SoundFile(path, 'w', samplerate=SR, channels=2, subtype='FLOAT', format='RF64' if big else 'WAV')
@@ -169,13 +182,14 @@ for line in sys.stdin:
         else:
             # long song: process it in chunks with a crossfaded overlap, writing as we go, so memory stays small
             OV = 4.0; ovn = int(OV * SR); big = total > 2400
+            stats = song_stats(inp, total)
             wv = open_wav(vp, big); wi = open_wav(ip, big)
             pos = 0.0; tail_v = None; tail_i = None; first = True
             while True:
                 d = min(CH, total - pos)
                 if total - (pos + d) < 2 * OV: d = total - pos
                 last = (pos + d >= total - 0.01)
-                v, i = run_model(read(inp, pos, d), overlap, False)
+                v, i = run_model(read(inp, pos, d), overlap, False, stats)
                 n = v.shape[0]
                 if first:
                     cut = n if last else n - ovn
