@@ -136,10 +136,11 @@ partial class StudioForm : Form
         base.WndProc(ref m);
     }
 
+    bool autoFit = true; int lastFitW; long lastFitLen;   // while true, the song keeps filling the track area (full screen, resizing, new recordings)
     void FitView()
     {
-        long len = Math.Max(eng.EndFrame, StudioEngine.SR * 10); float w = Math.Max(400, ClientSize.Width - 250 - 380 - 20);
-        spp = Math.Max(1, len / (double)w); scroll = 0;
+        long len = Math.Max(eng.EndFrame, StudioEngine.SR * 10); float w = Math.Max(400, TimelineRect().Width - 24);
+        spp = Math.Max(1, len / (double)w); scroll = 0; autoFit = true;
     }
 
     void Tick()
@@ -426,6 +427,7 @@ partial class StudioForm : Form
     {
         float top = ToolH + TransH; var tl = TimelineRect();
         int n = eng.Tracks.Count;
+        if (autoFit && (lastFitW != (int)tl.Width || lastFitLen != eng.EndFrame) && tl.Width > 100) { FitView(); lastFitW = (int)tl.Width; lastFitLen = eng.EndFrame; }
         // clamp selection
         if (selTrack >= n) selTrack = Math.Max(0, n - 1);
         // ruler
@@ -465,6 +467,7 @@ partial class StudioForm : Form
         var wr = new HitReg { R = Rc(HeadW, top, tl.Width, ClientSize.Height - top) };
         wr.OnWheel = d =>
         {
+            if ((ModifierKeys & (Keys.Control | Keys.Shift)) != 0 && (ModifierKeys & Keys.Alt) == 0) autoFit = false;
             if ((ModifierKeys & Keys.Alt) != 0 || ((ModifierKeys & Keys.Control) != 0 && (ModifierKeys & Keys.Shift) != 0)) { LaneH = Math.Max(80, Math.Min(420, LaneH + (d > 0 ? 24 : -24))); vscroll = Math.Max(0, Math.Min(vscroll, Math.Max(0, n * LaneH - (ClientSize.Height - top - RulerH - 20)))); }
             else if ((ModifierKeys & Keys.Control) != 0) { double f = d > 0 ? 0.7 : 1.43; double cur = scroll + (MousePos.X - HeadW) * spp; spp = Math.Max(0.5, Math.Min(Math.Max(20000.0, eng.EndFrame / 200.0), spp * f)); scroll = Math.Max(0, (long)(cur - (MousePos.X - HeadW) * spp)); }
             else if ((ModifierKeys & Keys.Shift) != 0) scroll = Math.Max(0, scroll - (long)(d * 0.5 * tl.Width * spp / 10));
@@ -500,20 +503,30 @@ partial class StudioForm : Form
         long clipStart = tr.Offset, clipEnd = tr.Offset + tr.UsedLength;
         float x0 = lane.X + (float)((clipStart - scroll) / spp), x1 = lane.X + (float)((clipEnd - scroll) / spp);
         var cr = RectangleF.Intersect(Rc(x0, lane.Y + 5, x1 - x0, lane.Height - 10), lane); if (cr.Width > 0) { using (var p = RR(cr, 6)) using (var gb = new LinearGradientBrush(cr, Color.FromArgb(sel ? 70 : 44, c), Color.FromArgb(sel ? 14 : 8, c), 90f)) g.FillPath(gb, p); }
-        g.SmoothingMode = SmoothingMode.None; var oldClip = g.Clip; if (cr.Width > 0) g.SetClip(cr, CombineMode.Intersect); else g.SetClip(Rectangle.Empty);
-        using (var pen = new Pen(Color.FromArgb(audible ? 50 : 16, c.R, c.G, c.B), 3f))
-            for (int i = 0; i < px; i++)
+        if (cr.Width > 4)
+        {
+            // heartbeat-style line: one clean zig-zag through the peaks (a point every few pixels), blue > track colour > purple, with a soft glow
+            var gst0 = g.Save(); g.SetClip(cr, CombineMode.Intersect); g.SmoothingMode = SmoothingMode.AntiAlias;
+            int i0 = Math.Max(0, (int)(cr.X - lane.X)), i1 = Math.Min(px, (int)Math.Ceiling(cr.Right - lane.X)); int step = Math.Max(8, Math.Min(20, px / 110));
+            var pts = new List<PointF>(); pts.Add(new PointF(cr.X, cy));
+            for (int i = i0; i < i1; i += step)
             {
-                if (wmx[i] == 0 && wmn[i] == 0) continue; float a = cy - Math.Min(1f, wmx[i]) * amp, b = cy - Math.Max(-1f, wmn[i]) * amp; if (b - a < 1) b = a + 1;
-                g.DrawLine(pen, lane.X + i, a - 1, lane.X + i, b + 1);
+                float mx = 0, mn = 0; bool any = false; for (int j = i; j < Math.Min(i1, i + step); j++) { if (wmx[j] == 0 && wmn[j] == 0) continue; any = true; if (wmx[j] > mx) mx = wmx[j]; if (wmn[j] < mn) mn = wmn[j]; }
+                float x = lane.X + i + step / 2f; if (!any) { pts.Add(new PointF(x, cy)); continue; }
+                Func<float, float> sh = v => (float)(Math.Sign(v) * Math.Pow(Math.Min(1f, Math.Abs(v)), 0.85));
+                pts.Add(new PointF(x - step * 0.22f, cy - sh(mx) * amp)); pts.Add(new PointF(x + step * 0.22f, cy - sh(mn) * amp));
             }
-        using (var pen = new Pen(Color.FromArgb(audible ? 230 : 90, c.R, c.G, c.B)))
-            for (int i = 0; i < px; i++)
+            pts.Add(new PointF(cr.Right, cy));
+            using (var pen = new Pen(Color.FromArgb(audible ? 60 : 20, 120, 150, 255), 1f)) g.DrawLine(pen, cr.X, cy, cr.Right, cy);
+            var bounds = new RectangleF(cr.X - 1, cr.Y, Math.Max(2, cr.Width + 2), cr.Height); int al = audible ? 255 : 100;
+            using (var gb = new LinearGradientBrush(bounds, Color.FromArgb(al, 70, 150, 255), Color.FromArgb(al, 190, 90, 255), 0f))
             {
-                if (wmx[i] == 0 && wmn[i] == 0) continue; float a = cy - Math.Min(1f, wmx[i]) * amp, b = cy - Math.Max(-1f, wmn[i]) * amp; if (b - a < 1) b = a + 1;
-                g.DrawLine(pen, lane.X + i, a, lane.X + i, b);
+                gb.InterpolationColors = new ColorBlend(3) { Colors = new[] { Color.FromArgb(al, 70, 150, 255), Color.FromArgb(al, c), Color.FromArgb(al, 190, 90, 255) }, Positions = new[] { 0f, 0.5f, 1f } };
+                using (var gl = new LinearGradientBrush(bounds, Color.Blue, Color.Purple, 0f)) { gl.InterpolationColors = new ColorBlend(3) { Colors = new[] { Color.FromArgb(audible ? 46 : 14, 70, 150, 255), Color.FromArgb(audible ? 46 : 14, c), Color.FromArgb(audible ? 46 : 14, 190, 90, 255) }, Positions = new[] { 0f, 0.5f, 1f } }; using (var pen = new Pen(gl, 7f)) { pen.LineJoin = LineJoin.Round; if (pts.Count > 1) g.DrawLines(pen, pts.ToArray()); } }
+                using (var pen = new Pen(gb, 2.2f)) { pen.LineJoin = LineJoin.Round; if (pts.Count > 1) g.DrawLines(pen, pts.ToArray()); }
             }
-        g.Clip = oldClip; g.SmoothingMode = SmoothingMode.AntiAlias;
+            g.Restore(gst0);
+        }
         if (cr.Width > 0) { var gst = g.Save(); g.SetClip(lane, CombineMode.Intersect); float lv = Math.Max(tr.PeakL, tr.PeakR); Glow(g, c, cr, 6, (sel ? 1.2f : 0.8f) + Math.Min(0.6f, lv * 0.9f), 5); g.Restore(gst); }
         Txt(g, tr.Name, 12, Color.FromArgb(200, 255, 255, 255), Rc(Math.Max(lane.X, x0) + 8, lane.Y + 6, 300, 16), StringAlignment.Near, true);
         PaintClipChrome(g, tr, lane, cr, sel);

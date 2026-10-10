@@ -17,7 +17,7 @@ partial class SynthCanvas
     List<int> SlotsOn(int dest)
     {
         var l = new List<int>(); if (dest <= 0) return l;
-        for (int i = 1; i <= 8; i++) if ((int)P("m" + i + "d").Val == dest && (int)P("m" + i + "s").Val != 0 && P("m" + i + "e").Val > 0.5) l.Add(i);
+        for (int i = 1; i <= 16; i++) if ((int)P("m" + i + "d").Val == dest && (int)P("m" + i + "s").Val != 0 && P("m" + i + "e").Val > 0.5) l.Add(i);
         return l;
     }
     static float RingScale(int dest) { return dest == 1 || dest == 17 || dest == 20 || (dest >= 27 && dest <= 29) ? 0.5f : 1f; }
@@ -46,8 +46,8 @@ partial class SynthCanvas
     {
         int src = dragSrc; dragSrc = 0; if (target == null || target.P == null) { dropMsg = "Drop it on a knob."; dropMsgAt = DateTime.Now; return; }
         int dest = DestOf(target.P.Id); if (dest == 0) { dropMsg = target.P.Name + " can't be modulated yet. Use the MATRIX page for the full list."; dropMsgAt = DateTime.Now; return; }
-        int slot = -1; for (int i = 1; i <= 8; i++) if ((int)P("m" + i + "s").Val == src && (int)P("m" + i + "d").Val == dest) { slot = i; break; }
-        if (slot < 0) for (int i = 1; i <= 8; i++) if ((int)P("m" + i + "s").Val == 0 || (int)P("m" + i + "d").Val == 0) { slot = i; break; }
+        int slot = -1; for (int i = 1; i <= 16; i++) if ((int)P("m" + i + "s").Val == src && (int)P("m" + i + "d").Val == dest) { slot = i; break; }
+        if (slot < 0) for (int i = 1; i <= 16; i++) if ((int)P("m" + i + "s").Val == 0 || (int)P("m" + i + "d").Val == 0) { slot = i; break; }
         if (slot < 0) { dropMsg = "All 8 matrix slots are in use. Remove one on the MATRIX page."; dropMsgAt = DateTime.Now; return; }
         SetVal(P("m" + slot + "s"), src); SetVal(P("m" + slot + "d"), dest); SetVal(P("m" + slot + "e"), 1); if (Math.Abs(P("m" + slot + "a").Val) < 1) SetVal(P("m" + slot + "a"), 50);
         dropMsg = dragName + " now moves " + target.P.Name + ". Ctrl + drag the knob to set how much."; dropMsgAt = DateTime.Now;
