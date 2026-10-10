@@ -86,6 +86,9 @@ class SynthFx : InstrumentFx
     bool subOn, nzOn, parallel, subMute, subSolo, nzMute, nzSolo; int subWave, subOct, nzType, subRoute, nzRoute; double subLvl, subPan, nzLvl, nzPan, vol, glide, bendRange, tune, vsens; int mode; double[] macro = new double[4];
     int[] mSrc = new int[8], mDst = new int[8], mPol = new int[8]; bool[] mOn = new bool[8]; double[] mAmt = new double[8];
     bool dstOn, chOn, dlOn, rvOn, bbOn; int maxV = 8;
+    public static readonly string[] FxNames = { "Distortion", "Saturation", "Compressor", "EQ", "Phaser", "Flanger", "Chorus", "Delay", "Reverb", "Stereo width", "Bass boost" };
+    public static readonly string[] FxOnIds = { "dston", "saton", "cpon", "eqon", "phon", "flon", "chon", "dlon", "rvon", "wdon", "bbon" };
+    readonly bool[] fxOn = new bool[11]; readonly int[] fxOrder = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 }; float[] dryL = new float[8192], dryR = new float[8192]; double eqMix = 1, wdMix = 1;
 
     // ---- voices ----
     class Voice
@@ -103,6 +106,7 @@ class SynthFx : InstrumentFx
     readonly List<int> held = new List<int>(); bool sustain; double bend; List<KeyValuePair<int, MidiEv>> pending = new List<KeyValuePair<int, MidiEv>>();
     float[] outL = new float[8192], outR = new float[8192];
     Distortion dist = new Distortion(); Chorus chor = new Chorus(); Delay dly = new Delay(); Reverb rev = new Reverb(); BassBoost boost = new BassBoost();
+    Saturation sat = new Saturation(); Compressor comp = new Compressor(); ParametricEq eq = new ParametricEq(); Phaser phs = new Phaser(); Flanger fln = new Flanger(); Widener wid = new Widener();
     SynthWindow window; public string PresetName = "Wobble Bass";
     public volatile float OutPeakL, OutPeakR; public readonly float[] SrcPeak = new float[5];   // level meters (OSC A, B, C, SUB, NOISE)
     readonly float[] blockPeak = new float[5];
@@ -112,9 +116,16 @@ class SynthFx : InstrumentFx
         Type = "synth"; Title = "Bass Lab"; Category = "Instruments"; Blurb = "Wavetable synthesizer for bass and leads: warp, FM, filters, wobble LFOs, bass boost";
         for (int i = 0; i < NV; i++) voices[i] = new Voice();
         Wavetables.WarmUp();
-        BuildParams(); SynthPresets.Apply(this, SynthPresets.Names[0]); dirty = true;
+        BuildParams(); SynthPresets.Apply(this, SynthPresets.Names[0], false); dirty = true;
     }
     public override bool IsInstrument { get { return true; } }
+    // settings that belong to you and your playing, not to a sound: they stay the same when you change preset and when the app restarts
+    public static readonly string[] GlobalIds = { "voices", "tune", "bend", "vsens" };
+    static string GlobalFile { get { return System.IO.Path.Combine(StudioEnv.DataDir, "synthglobal.txt"); } }
+    public void SaveGlobals() { try { var sb = new System.Text.StringBuilder(); foreach (var id in GlobalIds) sb.Append(id).Append('=').Append(Get(id).ToString("R", CultureInfo.InvariantCulture)).Append(';'); System.IO.Directory.CreateDirectory(StudioEnv.DataDir); System.IO.File.WriteAllText(GlobalFile, sb.ToString()); } catch { } }
+    public void ApplyGlobals() { try { if (!System.IO.File.Exists(GlobalFile)) return; foreach (var part in System.IO.File.ReadAllText(GlobalFile).Split(';')) { int e = part.IndexOf('='); float v; if (e > 0 && float.TryParse(part.Substring(e + 1), NumberStyles.Float, CultureInfo.InvariantCulture, out v)) { string id = part.Substring(0, e); if (Array.IndexOf(GlobalIds, id) >= 0) Set(id, v); } } } catch { } }
+    // everything back to factory: knobs, the four LFO shapes and the three drawn waves
+    public void ResetAll(bool customWaves = true) { ResetDefaults(); foreach (var c in LfoCurves) c.Load("Sine"); if (customWaves) for (int i = 0; i < 3; i++) Wavetables.SetCustom(i, new[] { Wavetables.DefaultFrame() }); }
 
     void BuildParams()
     {
@@ -162,6 +173,13 @@ class SynthFx : InstrumentFx
         AddC("dlon", "Delay", SynthTables.OffOn, 0); AddC("dlsync", "Time sync", Delay.Syncs, 3); AddP("dlfb", "Feedback", 0, 95, 30, "%"); AddP("dlmix", "Mix", 0, 100, 20, "%");
         AddC("rvon", "Reverb", SynthTables.OffOn, 0); AddP("rvsize", "Size", 0, 100, 45, "%"); AddP("rvdamp", "Damping", 0, 100, 55, "%"); AddP("rvmix", "Mix", 0, 100, 15, "%");
         AddC("bbon", "Bass boost", SynthTables.OffOn, 1); AddP("bbfreq", "Frequency", 30, 200, 60, "Hz"); AddP("bbgain", "Boost", 0, 24, 6, "dB"); AddP("bbq", "Width (Q)", 0.3f, 2f, 0.7f, ""); AddP("bbharm", "Harmonics", 0, 100, 20, "%"); AddP("bbtight", "Tighten", 10, 60, 22, "Hz");
+        AddC("saton", "Saturation", SynthTables.OffOn, 0); AddC("satmode", "Character", new[] { "Tape", "Tube", "Soft clip" }, 0); AddP("satdrive", "Drive", 0, 30, 8, "dB"); AddP("sattone", "Tone", 500, 20000, 12000, "Hz"); AddP("satmix", "Mix", 0, 100, 100, "%");
+        AddC("cpon", "Compressor", SynthTables.OffOn, 0); AddP("cpthr", "Threshold", -60, 0, -18, "dB"); AddP("cpratio", "Ratio", 1, 20, 3, ":1"); AddP("cpatt", "Attack", 0.1f, 200, 10, "ms"); AddP("cprel", "Release", 10, 1500, 120, "ms"); AddP("cpmake", "Makeup", 0, 24, 3, "dB"); AddP("cpmix", "Mix", 0, 100, 100, "%");
+        AddC("eqon", "EQ", SynthTables.OffOn, 0); AddP("eqlf", "Low freq", 30, 400, 100, "Hz"); AddP("eqlg", "Low gain", -18, 18, 0, "dB"); AddP("eqmf", "Mid freq", 100, 8000, 1000, "Hz"); AddP("eqmg", "Mid gain", -18, 18, 0, "dB"); AddP("eqmq", "Mid width (Q)", 0.2f, 6, 1, ""); AddP("eqhf", "High freq", 2000, 18000, 8000, "Hz"); AddP("eqhg", "High gain", -18, 18, 0, "dB"); AddP("eqmix", "Mix", 0, 100, 100, "%");
+        AddC("phon", "Phaser", SynthTables.OffOn, 0); AddP("phrate", "Rate", 0.05f, 8, 0.4f, "Hz"); AddP("phdepth", "Depth", 0, 100, 70, "%"); AddP("phfb", "Feedback", 0, 90, 40, "%"); AddC("phstages", "Stages", new[] { "4", "6", "8", "12" }, 0); AddP("phmix", "Mix", 0, 100, 50, "%");
+        AddC("flon", "Flanger", SynthTables.OffOn, 0); AddP("flrate", "Rate", 0.05f, 6, 0.3f, "Hz"); AddP("fldepth", "Depth", 0, 100, 60, "%"); AddP("fldelay", "Delay", 0.2f, 6, 1.5f, "ms"); AddP("flfb", "Feedback", -90, 90, 45, "%"); AddP("flmix", "Mix", 0, 100, 50, "%");
+        AddC("wdon", "Stereo width", SynthTables.OffOn, 0); AddP("wdwidth", "Width", 0, 200, 140, "%"); AddP("wdbass", "Mono below", 0, 400, 120, "Hz"); AddP("wdmix", "Mix", 0, 100, 100, "%");
+        for (int i = 0; i < 11; i++) AddP("fo" + i, "Chain slot " + (i + 1), 0, 10, i, "");
     }
 
     // ---- patches: the hand-drawn wavetables travel inside the patch text; patches saved before the filter slopes existed are converted ----
@@ -226,13 +244,21 @@ class SynthFx : InstrumentFx
         dly.Prepare(SR); dly.Set("mode", 2); dly.Set("sync", Get("dlsync")); dly.Set("fb", Get("dlfb")); dly.Set("mix", Get("dlmix"));
         rev.Prepare(SR); rev.Set("size", Get("rvsize")); rev.Set("damp", Get("rvdamp")); rev.Set("mix", Get("rvmix"));
         boost.Prepare(SR); boost.Set("freq", Get("bbfreq")); boost.Set("gain", Get("bbgain")); boost.Set("q", Get("bbq")); boost.Set("harm", Get("bbharm")); boost.Set("tight", Get("bbtight"));
+        sat.Prepare(SR); sat.Set("mode", Get("satmode")); sat.Set("drive", Get("satdrive")); sat.Set("tone", Get("sattone")); sat.Set("mix", Get("satmix")); sat.Set("out", 0);
+        comp.Prepare(SR); comp.Set("thr", Get("cpthr")); comp.Set("ratio", Get("cpratio")); comp.Set("att", Get("cpatt")); comp.Set("rel", Get("cprel")); comp.Set("makeup", Get("cpmake")); comp.Set("mix", Get("cpmix"));
+        eq.Prepare(SR); for (int b = 0; b < 6; b++) eq.Set("b" + b + "_on", b < 3 ? 1 : 0); eq.Set("b0_t", 1); eq.Set("b0_f", Get("eqlf")); eq.Set("b0_g", Get("eqlg")); eq.Set("b1_t", 0); eq.Set("b1_f", Get("eqmf")); eq.Set("b1_g", Get("eqmg")); eq.Set("b1_q", Get("eqmq")); eq.Set("b2_t", 2); eq.Set("b2_f", Get("eqhf")); eq.Set("b2_g", Get("eqhg")); eqMix = Get("eqmix") / 100.0;
+        phs.Prepare(SR); phs.Set("rate", Get("phrate")); phs.Set("depth", Get("phdepth")); phs.Set("fb", Get("phfb")); phs.Set("stages", Get("phstages")); phs.Set("mix", Get("phmix"));
+        fln.Prepare(SR); fln.Set("rate", Get("flrate")); fln.Set("depth", Get("fldepth")); fln.Set("delay", Get("fldelay")); fln.Set("fb", Get("flfb")); fln.Set("mix", Get("flmix"));
+        wid.Prepare(SR); wid.Set("width", Get("wdwidth")); wid.Set("bass", Get("wdbass")); wdMix = Get("wdmix") / 100.0;
+        for (int e = 0; e < 11; e++) fxOn[e] = Get(FxOnIds[e]) > 0.5;
+        { var seen = new bool[11]; bool ok = true; var tmp = new int[11]; for (int s = 0; s < 11; s++) { int v = (int)Math.Round(Get("fo" + s)); if (v < 0 || v > 10 || seen[v]) { ok = false; break; } seen[v] = true; tmp[s] = v; } for (int s = 0; s < 11; s++) fxOrder[s] = ok ? tmp[s] : s; }
     }
 
     public override void Reset()
     {
         base.Reset();
         foreach (var v in voices) { v.On = false; v.Released = false; for (int i = 0; i < 4; i++) { v.Env[i] = 0; v.Stage[i] = 0; } Array.Clear(v.F, 0, v.F.Length); foreach (var c in v.Comb) Array.Clear(c, 0, c.Length); }
-        held.Clear(); sustain = false; dist.Reset(); chor.Reset(); dly.Reset(); rev.Reset(); boost.Reset();
+        held.Clear(); sustain = false; dist.Reset(); chor.Reset(); dly.Reset(); rev.Reset(); boost.Reset(); sat.Reset(); comp.Reset(); eq.Reset(); phs.Reset(); fln.Reset(); wid.Reset();
     }
 
     protected override void OnEvents(List<KeyValuePair<int, MidiEv>> ev) { pending = ev; }
@@ -334,13 +360,19 @@ class SynthFx : InstrumentFx
         while (ei < ev.Count) { Midi(ev[ei].Value); ei++; }
         ApplyGlobalMods();
         // effects on the summed voices
-        if (dstOn) dist.Process(outL, outR, n);
-        if (chOn) chor.Process(outL, outR, n);
-        if (dlOn) dly.Process(outL, outR, n);
-        if (rvOn) rev.Process(outL, outR, n);
-        if (bbOn) boost.Process(outL, outR, n);
+        for (int s = 0; s < 11; s++) RunFx(fxOrder[s], n);
         float pl = 0, pr = 0; for (int i = 0; i < n; i++) { float a = Soft(outL[i]), b = Soft(outR[i]); l[i] += a; r[i] += b; if (Math.Abs(a) > pl) pl = Math.Abs(a); if (Math.Abs(b) > pr) pr = Math.Abs(b); }
         OutPeakL = Math.Max(pl, OutPeakL * 0.85f); OutPeakR = Math.Max(pr, OutPeakR * 0.85f); for (int i = 0; i < 5; i++) SrcPeak[i] = Math.Max(blockPeak[i], SrcPeak[i] * 0.85f);
+    }
+    // one slot of the chain (the order is set by the fo0..fo10 knobs); effects without their own mix get a wet/dry blend here
+    void RunFx(int e, int n)
+    {
+        if (!fxOn[e]) return; Fx f = null; double wet = 1;
+        switch (e) { case 0: f = dist; break; case 1: f = sat; break; case 2: f = comp; break; case 3: f = eq; wet = eqMix; break; case 4: f = phs; break; case 5: f = fln; break; case 6: f = chor; break; case 7: f = dly; break; case 8: f = rev; break; case 9: f = wid; wet = wdMix; break; default: f = boost; break; }
+        if (wet >= 0.999) { f.Process(outL, outR, n); return; }
+        if (n > dryL.Length) { dryL = new float[n]; dryR = new float[n]; }
+        Array.Copy(outL, dryL, n); Array.Copy(outR, dryR, n); f.Process(outL, outR, n);
+        float w = (float)wet; for (int i = 0; i < n; i++) { outL[i] = dryL[i] + (outL[i] - dryL[i]) * w; outR[i] = dryR[i] + (outR[i] - dryR[i]) * w; }
     }
     static readonly string[] GKeys = { "drive", "mix", "mix", "mix", "fb", "mix", "size", "gain", "depth", "rate" }, GIds = { "dstdrive", "dstmix", "chmix", "dlmix", "dlfb", "rvmix", "rvsize", "bbgain", "chdepth", "chrate" };
     readonly bool[] gWas = new bool[10];

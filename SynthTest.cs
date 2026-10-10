@@ -127,7 +127,7 @@ static class Y
             Check("high notes are band-limited (no aliasing)", alias / fund < 0.01, "alias level " + (alias / fund).ToString("0.0000") + " of the fundamental");
             // drawn waveforms
             var sine = new short[256]; var saw = new short[256]; for (int i = 0; i < 256; i++) { sine[i] = (short)(Math.Sin(2 * Math.PI * i / 256.0) * 30000); saw[i] = (short)((2.0 * i / 256 - 1) * 30000); }
-            Wavetables.SetCustom(0, new[] { sine, saw }); var cw = clean(); cw.Set("atbl", Wavetables.CustomBase); cw.Set("awt", 0); double c0 = H(cw, 45, 110, 2) / H(cw, 45, 110, 1); cw.Set("awt", 100); double c1 = H(cw, 45, 110, 2) / H(cw, 45, 110, 1);
+            var cw = clean(); Wavetables.SetCustom(0, new[] { sine, saw }); cw.Set("atbl", Wavetables.CustomBase); cw.Set("awt", 0); double c0 = H(cw, 45, 110, 2) / H(cw, 45, 110, 1); cw.Set("awt", 100); double c1 = H(cw, 45, 110, 2) / H(cw, 45, 110, 1);
             Check("a drawn wave plays: frame 1 (sine) is pure, frame 2 (saw) is rich", c0 < 0.02 && c1 > 0.4, "2nd harmonic " + c0.ToString("0.00") + " then " + c1.ToString("0.00"));
             string ser2 = cw.Serialize(); Wavetables.SetCustom(0, new[] { Wavetables.DefaultFrame() }); var cw2 = new SynthFx(); cw2.Prepare(44100); cw2.Deserialize(ser2); var back = Wavetables.GetCustom(0);
             Check("drawn waves are saved inside the patch", ser2.Contains("wtc1=") && back != null && back.Length == 2 && back[1][10] == saw[10], back == null ? "none" : back.Length + " frames restored");
@@ -222,6 +222,49 @@ static class Y
             var pi = Render(pn(true, 2, 27), new[] { 45 }, 24000, -1); Check("Negative polarity flips the direction (now to the left)", Rms(pi[0], 8000, 24000) > Rms(pi[1], 8000, 24000) * 20, "L " + Rms(pi[0], 8000, 24000).ToString("0.000") + ", R " + Rms(pi[1], 8000, 24000).ToString("0.0000"));
             Func<bool, double> dm = on => { var f = pn(on, 0, 35); f.Set("dston", 1); f.Set("dstmode", 2); f.Set("dstdrive", 30); f.Set("dstmix", 0); f.Set("awt", 50); var oo = Render(f, new[] { 45 }, 24000, -1); return Rms(oo[0], 8000, 24000); };
             double dry = dm(false), wet = dm(true); Check("modulation reaches the effects: a macro on Distortion mix changes the sound", Math.Abs(wet - dry) > dry * 0.1, "dry " + dry.ToString("0.000") + ", modulated " + wet.ToString("0.000"));
+        }
+        // 8f. presets: library, user presets, initialise, global settings
+        {
+            string miss = ""; foreach (var ct in SynthPresets.Categories) if (SynthPresets.InCategory(ct).Count < 1) miss += ct + " "; int minc = 99; foreach (var ct in SynthPresets.Categories) if (ct != "Init") minc = Math.Min(minc, SynthPresets.InCategory(ct).Count);
+            Check("the preset library covers every style with at least 3 each", miss.Length == 0 && minc >= 3 && SynthPresets.Names.Length >= 45, SynthPresets.Names.Length + " presets, fewest in a style: " + minc + (miss.Length > 0 ? ", empty: " + miss : ""));
+            var pf = New("Riddim Chug"); pf.LfoCurves[2].Pts[1].Y = 0.3f; pf.LfoCurves[2].Rebuild(); pf.Set("fo0", 4); pf.Set("fo4", 0); pf.Set("m6s", 3); pf.Set("m6d", 27); pf.Set("m6a", -33); string uname = "ZZ test preset"; try { SynthPresets.DeleteUser(uname); SynthPresets.DeleteUser("ZZ renamed"); SynthPresets.DeleteUser(uname + " copy"); } catch { }
+            SynthPresets.SaveUser(pf, uname); var ld = new SynthFx(); ld.Prepare(44100); SynthPresets.Apply(ld, uname);
+            bool same = ld.Serialize() == pf.Serialize(); Check("a saved preset loads back identical (knobs, LFO shapes, matrix, effect order)", same && ld.Get("m6a") == -33 && ld.Get("fo0") == 4 && Math.Abs(ld.LfoCurves[2].Pts[1].Y - 0.3f) < 0.01f, same ? "identical" : "differs");
+            string dup = SynthPresets.DuplicateUser(uname); SynthPresets.RenameUser(dup, "ZZ renamed"); bool listed = SynthPresets.UserNames().Contains("ZZ renamed") && !SynthPresets.UserNames().Contains(dup);
+            SynthPresets.DeleteUser("ZZ renamed"); SynthPresets.DeleteUser(uname); Check("presets can be duplicated, renamed and deleted", listed && !SynthPresets.UserNames().Contains("ZZ renamed") && !SynthPresets.UserNames().Contains(uname), "ok");
+            bool refused = false; try { SynthPresets.SaveUser(pf, "Init"); } catch { refused = true; } Check("a built-in preset name cannot be overwritten", refused, "");
+            ld.Set("m6s", 4); ld.LfoCurves[0].Load("Saw up"); Wavetables.SetCustom(0, new[] { new short[256], new short[256] }); SynthPresets.Initialise(ld);
+            Check("Initialise patch clears knobs, LFO shapes, drawn waves and the modulation matrix", ld.Get("m6s") == 0 && ld.Get("fo0") == 0 && ld.LfoCurves[0].Pts.Count == 3 && Wavetables.GetCustom(0).Length == 1 && ld.PresetName == "Init", "name " + ld.PresetName);
+            var gf = New("Init"); gf.Set("voices", 3); gf.Set("tune", 20); gf.SaveGlobals(); var g2 = new SynthFx(); g2.Prepare(44100); SynthPresets.Apply(g2, "Deep Sub");
+            Check("global settings (voice limit, tuning) survive a preset change and a restart", g2.Get("voices") == 3 && g2.Get("tune") == 20, "voices " + g2.Get("voices") + ", tune " + g2.Get("tune"));
+            gf.Set("voices", 8); gf.Set("tune", 0); gf.Set("bend", 2); gf.Set("vsens", 60); gf.SaveGlobals();
+        }
+        // 8e. envelopes: plucks die away on a held key, sustains hold, release fades after the key goes up
+        {
+            Func<float, float, float, float, float[][]> en = (a, d, s, r) => { var f = New("Init"); f.Set("bbon", 0); f.Set("e1a", a); f.Set("e1d", d); f.Set("e1s", s); f.Set("e1r", r); return Render(f, new[] { 45 }, 66150, 44100); };
+            var pl = en(1, 150, 0, 200); var su = en(1, 150, 80, 200); var lo = en(400, 150, 80, 200);
+            double plEarly = Rms(pl[0], 500, 2500), plLate = Rms(pl[0], 30000, 40000), suLate = Rms(su[0], 30000, 40000), suRel = Rms(su[0], 56000, 66000), atk0 = Rms(lo[0], 0, 1500), atk1 = Rms(lo[0], 20000, 30000);
+            Check("pluck envelope (sustain 0) dies away while the key is still held", plEarly > 0.02 && plLate < plEarly * 0.05, "start " + plEarly.ToString("0.000") + ", 0.7 s later " + plLate.ToString("0.0000"));
+            Check("sustain envelope holds while the key is down and fades after release", suLate > 0.02 && suRel < suLate * 0.02, "held " + suLate.ToString("0.000") + ", after release " + suRel.ToString("0.00000"));
+            Check("a slow attack fades the note in", atk1 > atk0 * 5, "first 30 ms " + atk0.ToString("0.0000") + ", later " + atk1.ToString("0.000"));
+        }
+        // 8d. effect chain
+        {
+            Func<SynthFx> baseFx = () => { var f = New("Init"); f.Set("awt", 50); f.Set("bbon", 0); f.Set("e1s", 100); f.Set("e1d", 8000); f.Set("f1cut", 3000); return f; };
+            var plain = Render(baseFx(), new[] { 45, 52 }, 30000, -1); var plainL = baseFx(); plainL.Set("apan", -100); var plainP = Render(plainL, new[] { 45, 52 }, 30000, -1);
+            string[] names = { "Distortion", "Saturation", "Compressor", "EQ", "Phaser", "Flanger", "Chorus", "Delay", "Reverb", "Stereo width" }; string[] ons = { "dston", "saton", "cpon", "eqon", "phon", "flon", "chon", "dlon", "rvon", "wdon" };
+            for (int e = 0; e < ons.Length; e++)
+            {
+                var f = baseFx(); f.Set(ons[e], 1); if (e == 3) { f.Set("eqlg", 12); f.Set("eqhg", -12); } if (e == 9) { f.Set("wdwidth", 0); f.Set("apan", -100); } if (e == 2) { f.Set("cpthr", -40); f.Set("cpratio", 12); }
+                var o2 = Render(f, new[] { 45, 52 }, 30000, -1); double diff = 0, pkx = 0; bool badx = false; for (int i = 8000; i < 30000; i++) { double d = o2[0][i] - (e == 9 ? plainP : plain)[0][i]; diff += d * d; float a = Math.Abs(o2[0][i]); if (float.IsNaN(a) || float.IsInfinity(a)) badx = true; pkx = Math.Max(pkx, a); }
+                diff = Math.Sqrt(diff / 22000); Check(names[e] + " in the chain changes the sound and stays in range", !badx && diff > 0.002 && pkx <= 1.0001, "difference " + diff.ToString("0.0000") + ", peak " + pkx.ToString("0.00"));
+            }
+            Func<bool, float[][]> ord = swap => { var f = baseFx(); f.Set("saton", 1); f.Set("satdrive", 24); f.Set("eqon", 1); f.Set("eqlg", 15); if (swap) { f.Set("fo1", 3); f.Set("fo3", 1); } return Render(f, new[] { 45 }, 30000, -1); };
+            var oax = ord(false); var obx = ord(true); double odx = 0; for (int i = 8000; i < 30000; i++) odx += Math.Abs(oax[0][i] - obx[0][i]); odx /= 22000;
+            Check("changing the order of the chain changes the sound", odx > 0.003, "average difference " + odx.ToString("0.0000"));
+            var off = baseFx(); off.Set("saton", 1); off.Set("satdrive", 24); off.Set("satmix", 0); var oox = Render(off, new[] { 45, 52 }, 30000, -1); double mdx = 0; for (int i = 8000; i < 30000; i++) mdx += Math.Abs(oox[0][i] - plain[0][i]); mdx /= 22000;
+            Check("wet/dry at 0% leaves the sound untouched", mdx < 0.002, "difference " + mdx.ToString("0.00000"));
+            var sv = baseFx(); sv.Set("fo0", 5); sv.Set("fo5", 0); var sv2 = new SynthFx(); sv2.Deserialize(sv.Serialize()); Check("the effect order is saved in the patch", sv2.Get("fo0") == 5 && sv2.Get("fo5") == 0, "slot 1 = " + sv2.Get("fo0"));
         }
         // 9. THE PIANO: a key press must reach the real sound device without pressing PLAY first, and a held note must stop on release / panic
         {

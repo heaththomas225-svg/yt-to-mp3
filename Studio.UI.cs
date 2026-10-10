@@ -27,7 +27,7 @@ partial class StudioForm : Form
     float t;
 
     // theme (the app's deep purple, darker and calmer for a work surface)
-    static readonly Color Bg0 = Color.FromArgb(13, 8, 24), Bg1 = Color.FromArgb(26, 14, 46), Panel = Color.FromArgb(235, 24, 15, 42), Lane = Color.FromArgb(255, 20, 12, 36), Lane2 = Color.FromArgb(255, 25, 15, 43);
+    static readonly Color Bg0 = Color.FromArgb(7, 4, 16), Bg1 = Color.FromArgb(18, 8, 36), Panel = Color.FromArgb(235, 18, 10, 34), Lane = Color.FromArgb(255, 11, 6, 22), Lane2 = Color.FromArgb(255, 15, 8, 29);
     static readonly Color Edge = Color.FromArgb(120, 140, 85, 210), Ink = Color.FromArgb(240, 232, 255), Accent = Color.FromArgb(178, 108, 255), Accent2 = Color.FromArgb(236, 92, 226);
     static readonly Color Violet = Color.FromArgb(118, 52, 212), BtnC = Color.FromArgb(70, 40, 120), Good = Color.FromArgb(120, 230, 160), Warn = Color.FromArgb(255, 190, 90), Bad = Color.FromArgb(255, 100, 140);
     static readonly Color DimC = Color.FromArgb(165, 148, 190);
@@ -168,7 +168,8 @@ partial class StudioForm : Form
     bool NeedsFrame0() { return eng.Playing || (DateTime.Now - lastInput).TotalMilliseconds < 1500; }
 
     // ---------------- geometry ----------------
-    const int ToolH = 70, TransH = 86, HeadW = 250, PanelW = 380, LaneH = 128, RulerH = 28;
+    const int ToolH = 70, TransH = 86, HeadW = 250, PanelW = 380, RulerH = 28;
+    int LaneH = 128;   // track height: Alt + mouse wheel makes the tracks taller so the waveform shows more detail
     RectangleF TimelineRect() { return new RectangleF(HeadW, ToolH + TransH + RulerH, Math.Max(100, ClientSize.Width - HeadW - PanelW), Math.Max(100, ClientSize.Height - ToolH - TransH - RulerH - 6)); }
 
     // ---------------- drawing helpers ----------------
@@ -239,6 +240,7 @@ partial class StudioForm : Form
         }
         else FillRR(g, c, r, 6);
         StrokeRR(g, Color.FromArgb(style == 2 ? 200 : 110, 200, 150, 255), r, style == 2 ? 8 : 6, 1);
+        if (style == 4) Glow(g, Accent2, r, 8, 0.8f, 3); else if (Hot(r)) Glow(g, NeonCyan, r, 8, 0.7f, 3); else if (style == 2) Glow(g, NeonViolet, r, 8, 0.5f, 3);
         Txt(g, text, px, Color.White, r, StringAlignment.Center, style == 2 || style == 1);
         return Reg(r, down);
     }
@@ -338,7 +340,7 @@ partial class StudioForm : Form
     {
         float W = ClientSize.Width;
         using (var br = new SolidBrush(Color.FromArgb(245, 18, 10, 34))) g.FillRectangle(br, 0, 0, W, ToolH);
-        using (var pen = new Pen(Edge)) g.DrawLine(pen, 0, ToolH, W, ToolH);
+        NeonRule(g, 0, ToolH, W);
         float y = 12, h = 46;
         // right group first (fixed sizes from the right edge), then the left group is squeezed to fit what is left
         float rx = W - 14; string[] rn = { "EXPORT", "Help", "Full", "Open", "Save", "Save as" }; float[] rw = { 112, 64, 64, 80, 80, 88 };
@@ -377,7 +379,7 @@ partial class StudioForm : Form
     {
         float y0 = ToolH, W = ClientSize.Width;
         using (var br = new SolidBrush(Color.FromArgb(240, 22, 12, 40))) g.FillRectangle(br, 0, y0, W, TransH);
-        using (var pen = new Pen(Edge)) g.DrawLine(pen, 0, y0 + TransH, W, y0 + TransH);
+        NeonRule(g, 0, y0 + TransH, W);
         float x = 14, y = y0 + 8, h = 36;
         Btn(g, Rc(x, y, 44, h), "|<", 0, () => { eng.Seek(0); scroll = 0; }, 15); x += 50;
         Btn(g, Rc(x, y, 70, h), eng.Playing ? "PAUSE" : "PLAY", eng.Playing ? 4 : 1, () => { if (eng.Playing) eng.Pause(); else PlayGuard(); }, 14); x += 76;
@@ -442,6 +444,7 @@ partial class StudioForm : Form
             var lr = LaneReg(lane, tr); int idx = i;
             PaintLaneTools(g, tr, lane);
             PaintHeader(g, tr, i, Rc(0, y, HeadW, LaneH), sel);
+            NeonLaneChrome(g, tr, Rc(0, y, HeadW, LaneH), lane, sel);
             using (var pen = new Pen(Color.FromArgb(70, 140, 85, 210))) g.DrawLine(pen, 0, y + LaneH, tl.Right, y + LaneH);
         }
         { float ey = Math.Max(y, top + RulerH); if (ey < ClientSize.Height) { var em = Reg(Rc(HeadW, ey, tl.Width, ClientSize.Height - ey), () => { toolsTrack = null; eng.Seek(Math.Max(0, Snap(scroll + (long)((MousePos.X - HeadW) * spp)))); }); em.OnDrag = pt => eng.Seek(Math.Max(0, Snap(scroll + (long)((pt.X - HeadW) * spp)))); } }
@@ -457,12 +460,13 @@ partial class StudioForm : Form
         PaintGrid(g, tl, top + RulerH, ClientSize.Height);
         // playhead
         float px = HeadW + (float)((dispPos - scroll) / spp);
-        if (px >= HeadW && px <= tl.Right) { using (var pen = new Pen(Accent2, 2)) g.DrawLine(pen, px, top, px, ClientSize.Height); using (var b = new SolidBrush(Accent2)) g.FillPolygon(b, new[] { new PointF(px - 7, top), new PointF(px + 7, top), new PointF(px, top + 12) }); }
+        if (px >= HeadW && px <= tl.Right) { GlowLine(g, NeonPink, px, top, px, ClientSize.Height, 1f); using (var b = new SolidBrush(Color.White)) g.FillPolygon(b, new[] { new PointF(px - 7, top), new PointF(px + 7, top), new PointF(px, top + 12) }); }
         // wheel: scroll / zoom
         var wr = new HitReg { R = Rc(HeadW, top, tl.Width, ClientSize.Height - top) };
         wr.OnWheel = d =>
         {
-            if ((ModifierKeys & Keys.Control) != 0) { double f = d > 0 ? 0.8 : 1.25; double cur = scroll + (MousePos.X - HeadW) * spp; spp = Math.Max(2, Math.Min(Math.Max(20000.0, eng.EndFrame / 200.0), spp * f)); scroll = Math.Max(0, (long)(cur - (MousePos.X - HeadW) * spp)); }
+            if ((ModifierKeys & Keys.Alt) != 0 || ((ModifierKeys & Keys.Control) != 0 && (ModifierKeys & Keys.Shift) != 0)) { LaneH = Math.Max(80, Math.Min(420, LaneH + (d > 0 ? 24 : -24))); vscroll = Math.Max(0, Math.Min(vscroll, Math.Max(0, n * LaneH - (ClientSize.Height - top - RulerH - 20)))); }
+            else if ((ModifierKeys & Keys.Control) != 0) { double f = d > 0 ? 0.7 : 1.43; double cur = scroll + (MousePos.X - HeadW) * spp; spp = Math.Max(0.5, Math.Min(Math.Max(20000.0, eng.EndFrame / 200.0), spp * f)); scroll = Math.Max(0, (long)(cur - (MousePos.X - HeadW) * spp)); }
             else if ((ModifierKeys & Keys.Shift) != 0) scroll = Math.Max(0, scroll - (long)(d * 0.5 * tl.Width * spp / 10));
             else vscroll = Math.Max(0, Math.Min(Math.Max(0, n * LaneH - (ClientSize.Height - top - RulerH - 20)), vscroll - d * 40));
         };
@@ -492,11 +496,17 @@ partial class StudioForm : Form
         PeakCache pc; if (!peakCache.TryGetValue(tr, out pc)) { pc = new PeakCache(); peakCache[tr] = pc; }
         if (pc.Clip != tr.Clip || pc.Start != scroll - tr.Offset + tr.ClipStart || pc.Spp != spp || pc.Px != px || pc.Len != tr.UsedLength) { if (pc.Mn == null || pc.Mn.Length < px) { pc.Mn = new float[px + 64]; pc.Mx = new float[px + 64]; } tr.Clip.GetPeaks(scroll - tr.Offset + tr.ClipStart, spp, px, pc.Mn, pc.Mx); pc.Clip = tr.Clip; pc.Start = scroll - tr.Offset + tr.ClipStart; pc.Spp = spp; pc.Px = px; pc.Len = tr.UsedLength; }
         var wmn = pc.Mn; var wmx = pc.Mx;
-        Color c = Color.FromArgb(tr.Color); bool audible = !tr.Mute; float cy = lane.Y + lane.Height / 2, amp = lane.Height * 0.42f;
+        Color c = Neon(tr.Color); bool audible = !tr.Mute; float cy = lane.Y + lane.Height / 2, amp = lane.Height * 0.42f;
         long clipStart = tr.Offset, clipEnd = tr.Offset + tr.UsedLength;
         float x0 = lane.X + (float)((clipStart - scroll) / spp), x1 = lane.X + (float)((clipEnd - scroll) / spp);
-        var cr = RectangleF.Intersect(Rc(x0, lane.Y + 5, x1 - x0, lane.Height - 10), lane); if (cr.Width > 0) { FillRR(g, Color.FromArgb(sel ? 40 : 24, c), cr, 6); }
+        var cr = RectangleF.Intersect(Rc(x0, lane.Y + 5, x1 - x0, lane.Height - 10), lane); if (cr.Width > 0) { using (var p = RR(cr, 6)) using (var gb = new LinearGradientBrush(cr, Color.FromArgb(sel ? 70 : 44, c), Color.FromArgb(sel ? 14 : 8, c), 90f)) g.FillPath(gb, p); }
         g.SmoothingMode = SmoothingMode.None; var oldClip = g.Clip; if (cr.Width > 0) g.SetClip(cr, CombineMode.Intersect); else g.SetClip(Rectangle.Empty);
+        using (var pen = new Pen(Color.FromArgb(audible ? 50 : 16, c.R, c.G, c.B), 3f))
+            for (int i = 0; i < px; i++)
+            {
+                if (wmx[i] == 0 && wmn[i] == 0) continue; float a = cy - Math.Min(1f, wmx[i]) * amp, b = cy - Math.Max(-1f, wmn[i]) * amp; if (b - a < 1) b = a + 1;
+                g.DrawLine(pen, lane.X + i, a - 1, lane.X + i, b + 1);
+            }
         using (var pen = new Pen(Color.FromArgb(audible ? 230 : 90, c.R, c.G, c.B)))
             for (int i = 0; i < px; i++)
             {
@@ -504,7 +514,7 @@ partial class StudioForm : Form
                 g.DrawLine(pen, lane.X + i, a, lane.X + i, b);
             }
         g.Clip = oldClip; g.SmoothingMode = SmoothingMode.AntiAlias;
-        if (cr.Width > 0) StrokeRR(g, Color.FromArgb(sel ? 190 : 90, c), cr, 6, 1);
+        if (cr.Width > 0) { var gst = g.Save(); g.SetClip(lane, CombineMode.Intersect); float lv = Math.Max(tr.PeakL, tr.PeakR); Glow(g, c, cr, 6, (sel ? 1.2f : 0.8f) + Math.Min(0.6f, lv * 0.9f), 5); g.Restore(gst); }
         Txt(g, tr.Name, 12, Color.FromArgb(200, 255, 255, 255), Rc(Math.Max(lane.X, x0) + 8, lane.Y + 6, 300, 16), StringAlignment.Near, true);
         PaintClipChrome(g, tr, lane, cr, sel);
     }
@@ -514,11 +524,11 @@ partial class StudioForm : Form
     void PaintHeader(Graphics g, Track tr, int i, RectangleF r, bool sel)
     {
         using (var br = new SolidBrush(sel ? Color.FromArgb(255, 40, 22, 74) : Color.FromArgb(255, 26, 15, 46))) g.FillRectangle(br, r);
-        using (var pen = new Pen(sel ? Accent : Color.FromArgb(90, 140, 85, 210), sel ? 2 : 1)) g.DrawRectangle(pen, r.X + 1, r.Y + 1, r.Width - 2, r.Height - 2);
-        var dot = Rc(r.X + 12, r.Y + 12, 10, 10); using (var b = new SolidBrush(Color.FromArgb(tr.Color))) g.FillEllipse(b, dot);
+        using (var pen = new Pen(sel ? Color.FromArgb(200, Neon(tr.Color)) : Color.FromArgb(70, Neon(tr.Color)), sel ? 1.6f : 1f)) g.DrawRectangle(pen, r.X + 1, r.Y + 1, r.Width - 2, r.Height - 2);
+        Led(g, Neon(tr.Color), r.X + 20, r.Y + 17, 5, !tr.Mute);
         Txt(g, tr.Name, 15, Ink, Rc(r.X + 28, r.Y + 6, 130, 22), StringAlignment.Near, true);
         string role = tr.Instrument ? "SYNTH" : (tr.Role == "vocal" ? "VOCAL" : (tr.Role == "beat" ? "BEAT" : (tr.Role == "song" ? "SONG" : "AUDIO")));
-        FillRR(g, Color.FromArgb(120, Color.FromArgb(tr.Color)), Rc(r.X + 160, r.Y + 8, 46, 18), 9); Txt(g, role, 10, Color.White, Rc(r.X + 160, r.Y + 8, 46, 18), StringAlignment.Center, true);
+        FillRR(g, Color.FromArgb(90, Neon(tr.Color)), Rc(r.X + 160, r.Y + 8, 46, 18), 9); StrokeRR(g, Color.FromArgb(200, Neon(tr.Color)), Rc(r.X + 160, r.Y + 8, 46, 18), 9, 1); Txt(g, role, 10, Color.White, Rc(r.X + 160, r.Y + 8, 46, 18), StringAlignment.Center, true);
         int ti = i; var tk = tr;
         Btn(g, Rc(r.Right - 30, r.Y + 7, 22, 22), "x", 3, () => RemoveTrack(tk), 13);
         var nameReg = Reg(Rc(r.X + 4, r.Y + 4, 150, 26), () => HeaderDown(tk)); nameReg.OnDrag = pt => HeaderDrag(tk, pt); nameReg.OnDouble = () => RenameTrack(tk); nameReg.OnRight = () => RenameTrack(tk);
@@ -556,8 +566,7 @@ partial class StudioForm : Form
         for (int c = 0; c < 2; c++)
         {
             float v = pk[c]; h[c] = Math.Max(v, h[c] * 0.93f); float db = h[c] > 0 ? (float)(20 * Math.Log10(h[c])) : -90; float f = Clamp01((db + 54) / 54f);
-            var mr = Rc(r.Right - 28 + c * 11, r.Y + 36, 8, 76); FillRR(g, Color.FromArgb(200, 8, 4, 18), mr, 3);
-            if (f > 0.01f) { Color col = db > -1 ? Bad : (db > -8 ? Warn : Good); FillRR(g, col, Rc(mr.X, mr.Bottom - mr.Height * f, mr.Width, mr.Height * f), 3); }
+            var mr = Rc(r.Right - 28 + c * 11, r.Y + 36, 8, 76); LedMeter(g, mr, f);
         }
         if (tr.Clipped) { FillRR(g, Bad, Rc(r.Right - 30, r.Y + 114, 24, 8), 3); Reg(Rc(r.Right - 30, r.Y + 112, 24, 12), () => tr.Clipped = false); }
         long offMs = tr.Offset * 1000 / StudioEngine.SR; Txt(g, "offset " + offMs + " ms", 10, DimC, Rc(r.X + 146, r.Y + 114, 70, 14), StringAlignment.Near, false);
