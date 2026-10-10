@@ -211,7 +211,7 @@ partial class StudioForm : Form
     {
         // Background jobs (Auto Mix, separation, presets) change the track and effect lists while we draw; a stale index must never reach the user as a crash.
         try { PaintAll(e); }
-        catch (ArgumentOutOfRangeException) { paintErrors++; }
+        catch (ArgumentException) { paintErrors++; }
         catch (InvalidOperationException) { paintErrors++; }
         catch (NullReferenceException) { paintErrors++; }
     }
@@ -244,7 +244,7 @@ partial class StudioForm : Form
             {
                 bg.SmoothingMode = SmoothingMode.AntiAlias; var full = new RectangleF(0, 0, w, h);
                 backVer = UserBackground.Version; var still = Prefs.BgStudio ? UserBackground.Fresh(w, h) : null;
-                if (still != null) { bg.DrawImageUnscaled(still, 0, 0); still.Dispose(); using (var dm = new SolidBrush(Color.FromArgb(Math.Max(150, Prefs.BgDim * 255 / 100 + 70), 6, 2, 16))) bg.FillRectangle(dm, full); }
+                if (still != null) { bg.DrawImageUnscaled(still, 0, 0); still.Dispose(); using (var dm = new SolidBrush(Color.FromArgb(Math.Min(255, Math.Max(150, Prefs.BgDim * 255 / 100 + 70)), 6, 2, 16))) bg.FillRectangle(dm, full); }
                 else
                 {
                     using (var br = new LinearGradientBrush(full, Bg0, Bg1, 80f)) bg.FillRectangle(br, full);
@@ -288,6 +288,7 @@ partial class StudioForm : Form
         float rx = ClientSize.Width - 14;
         rx -= 112; Btn(g, Rc(rx, y, 112, h), "EXPORT", 1, () => ExportClick(), 16);
         rx -= 70; Btn(g, Rc(rx, y + 4, 64, h - 8), "Help", 2, () => app.ShowHelp(null), 14);
+        rx -= 70; Btn(g, Rc(rx, y + 4, 64, h - 8), Win.IsFullscreen(this) ? "Window" : "Full", 0, () => Win.ToggleFullscreen(this), 13);
         rx -= 86; Btn(g, Rc(rx, y + 4, 80, h - 8), "Open", 0, () => OpenClick(), 14);
         rx -= 86; Btn(g, Rc(rx, y + 4, 80, h - 8), "Save", 0, () => SaveClick(false), 14);
         Txt(g, projName, 13, DimC, Rc(rx - 210, y, 200, h), StringAlignment.Far, false);
@@ -564,7 +565,7 @@ partial class StudioForm : Form
         FillRR(g, Color.FromArgb(252, 26, 14, 48), browserBox, 14); StrokeRR(g, Accent, browserBox, 14, 1.5f); var wr = new HitReg { R = browserBox, OnWheel = d => browserScroll = Math.Max(0, browserScroll - d * 40) }; regs.Add(wr); Reg(browserBox, () => { });
         Txt(g, "Add effect", 20, Ink, Rc(x + 20, y + 12, 300, 30), StringAlignment.Near, true);
         Btn(g, Rc(x + w - 60, y + 14, 40, 28), "X", 3, () => browserOpen = false, 14);
-        Btn(g, Rc(x + w - 196, y + 14, 130, 28), "Plugins...", 1, () => { browserOpen = false; new PluginManagerForm(() => app.ExtraFilter, s => { app.ExtraFilter = s; app.SaveSettings(); }).ShowDialog(this); }, 12);
+        Btn(g, Rc(x + w - 196, y + 14, 130, 28), "Plugins...", 1, () => { browserOpen = false; new PluginManagerForm(() => app.ExtraFilter, s => { app.ExtraFilter = s; app.SaveSettings(); }).Show(this); }, 12);
         var sb = Rc(x + 20, y + 52, w - 40, 36); FillRR(g, Color.FromArgb(220, 10, 5, 24), sb, 8); StrokeRR(g, Edge, sb, 8, 1);
         Txt(g, browserQuery.Length == 0 ? "Type to search: EQ, compressor, reverb, exciter, pitch, ..." : browserQuery + ((int)(t * 2) % 2 == 0 ? "|" : ""), 15, browserQuery.Length == 0 ? DimC : Ink, Rc(sb.X + 12, sb.Y, sb.Width - 20, sb.Height), StringAlignment.Near, false);
         var list = new List<FxRegistry.Info>(); string q = browserQuery.ToLowerInvariant().Trim();

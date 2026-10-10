@@ -14,8 +14,8 @@ class SettingsForm : Form
 
     public SettingsForm(App app)
     {
-        this.app = app; Text = "Settings"; FormBorderStyle = FormBorderStyle.FixedDialog; MaximizeBox = false; MinimizeBox = false; ShowInTaskbar = false;
-        StartPosition = FormStartPosition.CenterParent; BackColor = Color.FromArgb(10, 4, 20); ForeColor = Ink; ClientSize = new Size(560, 600); Font = new Font("Segoe UI", 10f);
+        this.app = app; Text = "Settings"; FormBorderStyle = FormBorderStyle.Sizable; MaximizeBox = true; MinimizeBox = true; ShowInTaskbar = true;
+        StartPosition = FormStartPosition.CenterParent; ShowInTaskbar = true; BackColor = Color.FromArgb(10, 4, 20); ForeColor = Ink; ClientSize = new Size(560, 600); Font = new Font("Segoe UI", 10f);
         Win.Dark(this); DoubleBuffered = true;
         int y = 14;
         Header("Background", ref y);
@@ -57,6 +57,8 @@ class SettingsForm : Form
         var open = Btn("Open settings folder", 20, y, 180, Color.FromArgb(70, 40, 120)); open.Click += (s, e) => { try { Process.Start("explorer.exe", app.DataFolder); } catch { } };
         var reset = Btn("Reset appearance and audio", 210, y, 220, Color.FromArgb(150, 40, 80)); reset.Click += (s, e) => ResetAll();
         var done = Btn("Done", 460, y, 80, Color.FromArgb(140, 60, 220)); done.Click += (s, e) => Close();
+        AutoScroll = true; AutoScrollMinSize = new Size(540, y + 76);   // everything stays reachable on small screens or high display scaling
+        ClientSize = new Size(576, Math.Min(640, Screen.PrimaryScreen.WorkingArea.Height - 100));
         Refresh2();
     }
 

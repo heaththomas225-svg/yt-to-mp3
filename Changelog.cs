@@ -7,10 +7,17 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.0.5";
+    public const string Latest = "3.0.6";
 
     public const string Text =
-@"3.0.5  Mastering and effects panel
+@"3.0.6  Full screen and windows
+ + NEW full screen: press F11 in the main window, Music Studio, Settings, Help and more (Esc leaves it). The Studio also has a Full button.
+ + CHANGE: Settings, Help, Plugins and Phone mode no longer lock the other windows, so you can use and move any window while they are open.
+ + FIX: Settings scrolls when the screen is small.
+ + FIX: Studio crash when the background darkness was set high.
+ + FIX: background painting glitch (parts of the window showing the desktop) after changing the picture.
+
+3.0.5  Mastering and effects panel
  + CHANGE: the Mastering button is now Master a song. It opens the Music Studio Mastering tab, where you add your own song, master it and export it. The old Mastering Assistant for downloads is still in Menu.
  + FIX: the effects panel in the Studio only scrolls as far as its content (no more endless scrolling).
 

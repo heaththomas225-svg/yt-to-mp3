@@ -46,7 +46,7 @@ static class PhoneUi
         copy.Click += (s, e) => { try { Clipboard.SetText("http://" + best + ":" + ps.Port + "/?c=" + ps.Code); copy.Text = "Copied"; } catch { } };
         ok.Click += (s, e) => f.Close(); f.AcceptButton = ok; f.Controls.AddRange(new Control[] { fw, copy, ok });
         try { Clipboard.SetText("http://" + best + ":" + ps.Port + "/?c=" + ps.Code); } catch { }
-        f.ShowDialog(owner);
+        f.Show(owner);
     }
 }
 

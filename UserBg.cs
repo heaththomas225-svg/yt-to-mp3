@@ -68,8 +68,14 @@ static class UserBackground
         var bm = new Bitmap(w, h, PixelFormat.Format32bppPArgb);
         double sc = Math.Max(w / (double)src.Width, h / (double)src.Height); float sw = (float)(w / sc), sh = (float)(h / sc);
         float sx = (src.Width - sw) / 2f, sy = (src.Height - sh) / 2f;
-        using (var g = Graphics.FromImage(bm)) { g.InterpolationMode = InterpolationMode.HighQualityBicubic; g.DrawImage(src, new RectangleF(0, 0, w, h), new RectangleF(sx, sy, sw, sh), GraphicsUnit.Pixel); }
+        using (var g = Graphics.FromImage(bm)) { g.Clear(Color.Black); g.InterpolationMode = InterpolationMode.HighQualityBicubic; g.PixelOffsetMode = PixelOffsetMode.Half; g.DrawImage(src, new RectangleF(0, 0, w, h), new RectangleF(sx, sy, sw, sh), GraphicsUnit.Pixel); }
         return bm;
+    }
+
+    // A private, darkened copy for the background layer (caller owns it).
+    public static Bitmap Baked(int w, int h)
+    {
+        var b = Fresh(w, h); if (b != null) Dim(b); return b;
     }
 
     // A private copy (caller disposes), used by other windows so they never disturb the main window's cache.
@@ -178,7 +184,7 @@ static class UserBackground
 
     public static void Set(string path)
     {
-        StopVideo(); lock (fl) { if (still != null) { still.Dispose(); still = null; } stillPath = ""; }
+        StopVideo(); lock (fl) { still = null; stillPath = ""; }
         Prefs.BgPath = path ?? ""; Version++; Prefs.Changed();
     }
 }
