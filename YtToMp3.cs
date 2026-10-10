@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.IO;
+using System.Linq;
 using System.IO.Compression;
 using System.Net;
 using System.Net.Cache;
@@ -36,7 +37,7 @@ class Job
 partial class App : Form
 {
     // ---- Auto-update settings ----
-    const string Version = "3.0.1";
+    const string Version = "3.0.2";
     // Plain-text manifest: line 1 = newest version, line 2 = direct exe download URL.
     const string UpdateManifestUrl = "https://raw.githubusercontent.com/heaththomas225-svg/yt-to-mp3/main/version.txt";
 
@@ -99,7 +100,7 @@ partial class App : Form
     internal string LastFile;
     internal int MZoomPct = 75;
     MasterForm mf;
-    Button mastBtn = new Button(), vocalBtn = new Button(), phoneBtn = new Button(), whatsBtn = new Button(), prevNormBtn = new Button(), helpBtn = new Button(); string seenVer = ""; internal string ExtraFilter = "";
+    Button mastBtn = new Button(), vocalBtn = new Button(), phoneBtn = new Button(), whatsBtn = new Button(), prevNormBtn = new Button(), helpBtn = new Button(); string seenVer = ""; internal string ExtraFilter = ""; Button settingsBtn = new Button();
     PhoneServer phone;
     internal StudioEngine StudioEng = new StudioEngine();
     StudioForm studioForm; Button studioBtn = new Button(), addMusicBtn = new Button();
@@ -145,14 +146,14 @@ partial class App : Form
         Text = "BandLab + YouTube to MP3 v" + Version;
         ClientSize = new Size(640, 690);
         MinimumSize = new Size(560, 640);
-        StudioEnv.Ffmpeg = FfmpegExe; StudioEnv.Ffprobe = FfprobeExe;
+        StudioEnv.Ffmpeg = FfmpegExe; StudioEnv.Ffprobe = FfprobeExe; UserBackground.Ffmpeg = FfmpegExe; Prefs.Changed = ApplyPrefs;
         Font = new Font("Segoe UI", 9.5f);
         Shown += (s, e) =>
         {
             new Thread(UpdateLoop) { IsBackground = true }.Start();
             if (seenVer != Changelog.Latest) BeginInvoke(new Action(() => { seenVer = Changelog.Latest; SaveSettings(); Changelog.Show(this); }));
         };
-        FormClosing += (s, e) => { SaveSettings(); KillCurrent(); if (phone != null) phone.Stop(); StudioEng.Shutdown(); Separator.KillWorker(); layerRun = false; frameLoop.Dispose(); };
+        FormClosing += (s, e) => { SaveSettings(); KillCurrent(); if (phone != null) phone.Stop(); StudioEng.Shutdown(); Separator.KillWorker(); layerRun = false; UserBackground.StopVideo(); frameLoop.Dispose(); };
 
         bg.Dock = DockStyle.Fill;
         bg.Paint += PaintBg;
@@ -215,9 +216,12 @@ partial class App : Form
         StyleBtn(whatsBtn, Color.FromArgb(60, 26, 110)); whatsBtn.Text = "Menu"; whatsBtn.SetBounds(560, 12, 64, 28);
         StyleBtn(helpBtn, Color.FromArgb(190, 60, 200)); helpBtn.Text = "Help"; helpBtn.SetBounds(488, 12, 66, 28); helpBtn.Anchor = AnchorStyles.Top | AnchorStyles.Right; helpBtn.Click += (s, e) => ShowHelp(null);
         tip.SetToolTip(helpBtn, "Guides for every feature, with Show me on screen tours (F1).");
+        StyleBtn(settingsBtn, Color.FromArgb(70, 40, 150)); settingsBtn.Text = "Settings"; settingsBtn.SetBounds(412, 12, 70, 28); settingsBtn.Anchor = AnchorStyles.Top | AnchorStyles.Right; settingsBtn.Click += (s, e) => ShowSettings();
+        tip.SetToolTip(settingsBtn, "Background picture or video, animation, audio and other options.");
         KeyPreview = true; KeyDown += (s, e) => { if (e.KeyCode == Keys.F1) { e.Handled = true; ShowHelp(null); } }; whatsBtn.Anchor = AnchorStyles.Top | AnchorStyles.Right; whatsBtn.Click += (s, e) =>
         {
             var m = Win.NewMenu();
+            m.Items.Add("Settings...").Click += (a, b) => ShowSettings();
             m.Items.Add("What's new").Click += (a, b) => Changelog.Show(this);
             m.Items.Add("Plugins and extensions...").Click += (a, b) => { new PluginManagerForm(() => ExtraFilter, v => { ExtraFilter = v; SaveSettings(); }).ShowDialog(this); };
             m.Items.Add("Open data folder").Click += (a, b) => { try { Directory.CreateDirectory(AppData); Process.Start("explorer.exe", "\"" + AppData + "\""); } catch { } };
@@ -260,10 +264,11 @@ partial class App : Form
         log.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
 
         bg.Controls.AddRange(new Control[] { links, fmt, sr, nameFmt, trimA, trimB, norm, playlist, openDone, animate,
-            mastBtn, vocalBtn, prevNormBtn, helpBtn, phoneBtn, studioBtn, addMusicBtn, whatsBtn, outDir, browse, go, cancel, log });
+            mastBtn, vocalBtn, prevNormBtn, helpBtn, settingsBtn, phoneBtn, studioBtn, addMusicBtn, whatsBtn, outDir, browse, go, cancel, log });
 
         fmt.SelectedIndex = 0; sr.SelectedIndex = 0; nameFmt.SelectedIndex = 0;
         LoadSettings();
+        ApplyPrefs();
         PluginHost.LoadEnabled();
         loading = false;
         HookAutoSave();
@@ -271,7 +276,7 @@ partial class App : Form
         Repopulate(); bg.Resize += (s, e) => Repopulate();
         Win.Dark(this); Win.DarkControl(links); Win.DarkControl(log); StyleTips();
 
-        StartLayerWorker(); frameLoop = new FrameLoop(this, Tick) { Slow = () => moving || WindowState == FormWindowState.Minimized || (ActiveForm != this && ActiveForm != studioForm) };
+        StartLayerWorker(); frameLoop = new FrameLoop(this, Tick) { Slow = () => moving || WindowState == FormWindowState.Minimized || (ActiveForm != this && ActiveForm != studioForm) }; ApplyPrefs();
     }
 
     // ---------- styling helpers ----------
@@ -308,6 +313,19 @@ partial class App : Form
         return l;
     }
 
+    // Applies the options from the Settings window to the running app.
+    internal void ApplyPrefs()
+    {
+        if (frameLoop != null) frameLoop.TargetFps = Math.Max(30, Math.Min(Prefs.FpsCap, FrameLoop.DisplayHz()));
+        WaveOutPlayer.Gain = Prefs.OutVol / 100f;
+        if (!Prefs.ShowFps) Text = "BandLab + YouTube to MP3 v" + Version;
+        if (!UserBackground.Active) UserBackground.StopVideo();
+        bg.Invalidate(); SaveSettings();
+    }
+    internal string DataFolder { get { Directory.CreateDirectory(AppData); return AppData; } }
+    internal static string FfmpegPath() { return FfmpegExe(); }
+    internal void ShowSettings() { using (var f = new SettingsForm(this)) f.ShowDialog(this); }
+
     // ---------- settings ----------
     bool loading = true;   // suppress saves while settings are being applied
 
@@ -324,7 +342,7 @@ partial class App : Form
                 "open=" + openDone.Checked, "anim=" + animate.Checked,
                 "x=" + b.X, "y=" + b.Y, "w=" + b.Width, "h=" + b.Height,
                 "max=" + (WindowState == FormWindowState.Maximized), "seen=" + seenVer, "ffilter=" + ExtraFilter,
-                "master=" + Master.Serialize(), "mzoom=" + MZoomPct });
+                "master=" + Master.Serialize(), "mzoom=" + MZoomPct }.Concat(Prefs.Lines()).ToArray());
         }
         catch { }
     }
@@ -369,6 +387,7 @@ partial class App : Form
                 else if (k == "seen") seenVer = v;
                 else if (k == "ffilter") ExtraFilter = v;
                 else if (k == "mzoom" && int.TryParse(v, out n) && n >= 40 && n <= 100) MZoomPct = n;
+                else Prefs.Parse(k, v);
             }
             // Restore the window only if it still lands on a connected screen.
             if (ww >= MinimumSize.Width && wh >= MinimumSize.Height)
@@ -422,7 +441,7 @@ partial class App : Form
         if (go.BackColor != gc) go.BackColor = gc;
         bg.Invalidate();
         fpsFrames++;
-        if (now >= nextFpsAt) { fpsShown = (int)(fpsFrames * 1000.0 / (now - (nextFpsAt - 1000)) + 0.5); fpsFrames = 0; nextFpsAt = now + 1000; Text = "BandLab + YouTube to MP3 v" + Version + "    " + fpsShown + " fps"; }
+        if (now >= nextFpsAt) { fpsShown = (int)(fpsFrames * 1000.0 / (now - (nextFpsAt - 1000)) + 0.5); fpsFrames = 0; nextFpsAt = now + 1000; Text = "BandLab + YouTube to MP3 v" + Version + (Prefs.ShowFps ? "    " + fpsShown + " fps" : ""); }
     }
     // Leaf outline built once and reused (drawing is the hot path of the animation).
     static readonly GraphicsPath[] LeafPaths = BuildLeafPaths();

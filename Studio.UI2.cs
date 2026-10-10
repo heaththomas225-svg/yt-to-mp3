@@ -20,7 +20,7 @@ partial class StudioForm
     void RunBusy(string text, bool cancelable, Action<Action<float>> work, Action<bool> done)
     {
         if (busy) return;
-        eng.Pause(); busy = true; busyText = text; busyPct = -1; cancelFlag = false; busyCancelable = cancelable; busyStart = DateTime.Now;
+        eng.Pause(); browserOpen = false; busy = true; busyText = text; busyPct = -1; cancelFlag = false; busyCancelable = cancelable; busyStart = DateTime.Now;
         new Thread(() =>
         {
             bool ok = true;
@@ -44,7 +44,7 @@ partial class StudioForm
         else { float cx = bar.X + (float)((t * 0.7) % 1.0) * (bar.Width - 90); using (var br = new LinearGradientBrush(Rc(cx, bar.Y, 90, bar.Height), Violet, Accent2, 0f)) using (var pth = RR(Rc(cx, bar.Y, 90, bar.Height), 7)) g.FillPath(br, pth); }
         double el = (DateTime.Now - busyStart).TotalSeconds; string eta = (p > 0.03f && p < 0.99f) ? "about " + FmtEta(el * (1 - p) / p) + " left" : (el > 2 ? "working for " + FmtEta(el) : "");
         Txt(g, eta, 13, DimC, Rc(x + 30, y + 96, w - 60, 20), StringAlignment.Center, false);
-        if (busyCancelable) Btn(g, Rc(x + w / 2 - 60, y + h - 50, 120, 34), "Cancel", 3, () => { cancelFlag = true; busyText = "Cancelling..."; }, 14);
+        if (busyCancelable) Btn(g, Rc(x + w / 2 - 60, y + h - 50, 120, 34), "Cancel (Esc)", 3, () => { cancelFlag = true; busyText = "Cancelling..."; }, 14).WhileBusy = true;
     }
 
     // ---------------- Add Music ----------------

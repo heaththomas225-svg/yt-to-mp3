@@ -548,6 +548,7 @@ class StudioEngine
         player = new WaveOutPlayer(RenderRealtime); player.Start();
     }
 
+    public void ReopenOutput() { bool was = Playing; if (player != null) { player.Dispose(); player = null; } if (was) { try { EnsurePlayer(); } catch { Playing = false; } } }
     public void Shutdown() { Playing = false; if (player != null) { player.Dispose(); player = null; } }
 
     // ---------------- offline render (export, analysis) ----------------
@@ -599,17 +600,29 @@ class WaveOutPlayer : IDisposable
     [DllImport("winmm.dll")] static extern int waveOutWrite(IntPtr h, IntPtr hdr, int size);
     [DllImport("winmm.dll")] static extern int waveOutReset(IntPtr h);
     [DllImport("winmm.dll")] static extern int waveOutClose(IntPtr h);
-    const int CALLBACK_EVENT = 0x50000, WHDR_DONE = 1, Frames = 1024, Buffers = 4;
+    const int CALLBACK_EVENT = 0x50000, WHDR_DONE = 1, Buffers = 4;
+    public static volatile float Gain = 1f;   // playback volume from Settings (exports are not affected)
+    public static int Device { get { return Prefs.OutDev; } }
+    readonly int Frames = Prefs.Buf == 0 ? 512 : (Prefs.Buf == 2 ? 2048 : 1024);
+    [DllImport("winmm.dll", CharSet = CharSet.Auto)] static extern int waveOutGetNumDevs();
+    [DllImport("winmm.dll", CharSet = CharSet.Auto)] static extern int waveOutGetDevCaps(IntPtr id, ref WAVEOUTCAPS caps, int size);
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Auto)] struct WAVEOUTCAPS { public ushort mid, pid; public uint ver; [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)] public string name; public uint formats; public ushort ch, res; public uint support; }
+    public static System.Collections.Generic.List<string> DeviceNames()
+    {
+        var l = new System.Collections.Generic.List<string>(); int n = waveOutGetNumDevs();
+        for (int i = 0; i < n; i++) { var c = new WAVEOUTCAPS(); if (waveOutGetDevCaps((IntPtr)i, ref c, Marshal.SizeOf(typeof(WAVEOUTCAPS))) == 0) l.Add(c.name); else l.Add("Device " + i); }
+        return l;
+    }
 
     Action<float[], float[], int> render; IntPtr hwo; IntPtr[] hdrs = new IntPtr[Buffers], data = new IntPtr[Buffers];
-    ManualResetEvent ev = new ManualResetEvent(false); Thread th; volatile bool run; float[] fl = new float[Frames], fr = new float[Frames]; short[] tmp = new short[Frames * 2];
+    ManualResetEvent ev = new ManualResetEvent(false); Thread th; volatile bool run; float[] fl, fr; short[] tmp;
 
-    public WaveOutPlayer(Action<float[], float[], int> render) { this.render = render; }
+    public WaveOutPlayer(Action<float[], float[], int> render) { this.render = render; fl = new float[Frames]; fr = new float[Frames]; tmp = new short[Frames * 2]; }
 
     public void Start()
     {
         var f = new WAVEFORMATEX { wFormatTag = 1, nChannels = 2, nSamplesPerSec = 44100, wBitsPerSample = 16, nBlockAlign = 4, nAvgBytesPerSec = 44100 * 4 };
-        int r = waveOutOpen(out hwo, -1, ref f, ev.SafeWaitHandle.DangerousGetHandle(), IntPtr.Zero, CALLBACK_EVENT);
+        int r = waveOutOpen(out hwo, Device, ref f, ev.SafeWaitHandle.DangerousGetHandle(), IntPtr.Zero, CALLBACK_EVENT);
         if (r != 0) throw new Exception("Couldn't open the audio output device (winmm error " + r + ").");
         for (int i = 0; i < Buffers; i++)
         {
@@ -624,6 +637,7 @@ class WaveOutPlayer : IDisposable
     void Fill(int i)
     {
         render(fl, fr, Frames);
+        float gn = Gain; if (gn != 1f) for (int k = 0; k < Frames; k++) { fl[k] *= gn; fr[k] *= gn; }
         for (int k = 0; k < Frames; k++)
         {
             float a = fl[k], b = fr[k]; if (a > 1) a = 1; else if (a < -1) a = -1; if (b > 1) b = 1; else if (b < -1) b = -1;
