@@ -50,20 +50,20 @@ static class Prefs
 // Custom background: a picture is cropped to fill the window ("cover"); a video is decoded by ffmpeg, cropped the same way, and looped.
 static class UserBackground
 {
-    static Bitmap still;                 // picture, or the first frame of a video, cropped to stillW x stillH
-    static int stillW, stillH, stillDim; static string stillPath = "";
+    static Bitmap srcBmp; static string srcStamp = ""; static readonly object srcLock = new object();   // decoded picture (or first frame of a video), shared by every window size
     static void Dim(Bitmap b) { if (Prefs.BgDim <= 0) return; using (var g = Graphics.FromImage(b)) using (var br = new SolidBrush(Color.FromArgb(Prefs.BgDim * 255 / 100, 4, 1, 12))) g.FillRectangle(br, 0, 0, b.Width, b.Height); }
     public static string Key(int w, int h) { return Prefs.BgPath + "|" + Prefs.BgDim + "|" + w + "x" + h + "|" + Version; }
     static Bitmap frame; static readonly object fl = new object();   // newest video frame
-    static Process proc; static Thread reader; static volatile bool run; static int vidW, vidH, vidDim; static string vidPath = "";
+    static Process proc; static Thread reader; static volatile bool run; static int vidW, vidH, pendW, pendH; static long pendAt, ffMissAt; static string vidPath = "";
     public static volatile int Version;  // bumps whenever the picture or video changes (other windows rebuild their cache)
     public static Func<string> Ffmpeg = delegate { return null; };
     public static string Error = "";
 
     static readonly string[] ImgExt = { ".png", ".jpg", ".jpeg", ".bmp", ".tif", ".tiff" };
     public static bool IsImage(string p) { return Array.IndexOf(ImgExt, Path.GetExtension(p ?? "").ToLowerInvariant()) >= 0; }
-    static long actChecked; static string actPath = ""; static bool actVal;
-    public static bool Active { get { string p = Prefs.BgPath; if (p.Length == 0) return false; long now = Environment.TickCount; if (p != actPath || now - actChecked > 1500) { actPath = p; actChecked = now; actVal = File.Exists(p); } return actVal; } }
+    static long actChecked; static string actPath = ""; static volatile bool actVal; static int actBusy;
+    // The file check for a new path is immediate; re-checks of the same path run on the pool so a sleeping network drive never stalls the UI thread.
+    public static bool Active { get { string p = Prefs.BgPath; if (p.Length == 0) return false; long now = Environment.TickCount; if (p != actPath) { actPath = p; actChecked = now; actVal = File.Exists(p); } else if (now - actChecked > 1500 && Interlocked.CompareExchange(ref actBusy, 1, 0) == 0) { actChecked = now; ThreadPool.QueueUserWorkItem(_ => { bool ex = false; try { ex = File.Exists(p); } catch { } if (Prefs.BgPath == p) actVal = ex; Interlocked.Exchange(ref actBusy, 0); }); } return actVal; } }
     public static bool IsVideo { get { return Active && !IsImage(Prefs.BgPath); } }
 
     // Cropped-to-fill copy of an image, scaled to w x h.
@@ -88,39 +88,40 @@ static class UserBackground
         if (!Active || w < 8 || h < 8) return null;
         try
         {
-            string src = Prefs.BgPath; if (!IsImage(src)) src = FirstFrame(src); if (src == null) return null;
-            using (var fs = new FileStream(src, FileMode.Open, FileAccess.Read, FileShare.ReadWrite)) using (var im = Image.FromStream(fs, false, false)) return Cover(im, w, h);
+            string path = Prefs.BgPath;
+            lock (srcLock) { var s = Source(path); return s == null ? null : Cover(s, w, h); }
         }
         catch (Exception ex) { Error = ex.Message; return null; }
     }
 
-    // A still picture for this window size (null when there is no custom background). Cached per size.
-    public static Bitmap Still(int w, int h)
+    // The decoded picture (capped at 3840 px), cached per file and modified time. Call with srcLock held.
+    static Bitmap Source(string path)
     {
-        if (!Active || w < 8 || h < 8) return null;
-        lock (fl)
+        string stamp = path + "|" + File.GetLastWriteTimeUtc(path).Ticks;
+        if (srcBmp != null && srcStamp == stamp) return srcBmp;
+        if (srcBmp != null) { srcBmp.Dispose(); srcBmp = null; } srcStamp = "";
+        string file = path; bool tmp = false;
+        if (!IsImage(path)) { file = FirstFrame(path); if (file == null) return null; tmp = true; }
+        try
         {
-            if (still != null && stillW == w && stillH == h && stillPath == Prefs.BgPath && stillDim == Prefs.BgDim) return still;
-            try
+            using (var fs = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.ReadWrite)) using (var im = Image.FromStream(fs, false, false))
             {
-                string src = Prefs.BgPath;
-                if (!IsImage(src)) src = FirstFrame(src);
-                if (src == null) return null;
-                using (var fs = new FileStream(src, FileMode.Open, FileAccess.Read, FileShare.ReadWrite)) using (var im = Image.FromStream(fs, false, false))
-                { var nb = Cover(im, w, h); Dim(nb); if (still != null) still.Dispose(); still = nb; }
-                stillW = w; stillH = h; stillPath = Prefs.BgPath; stillDim = Prefs.BgDim; return still;
+                int mx = Math.Max(im.Width, im.Height); double k = mx > 3840 ? 3840.0 / mx : 1.0;
+                int sw = Math.Max(1, (int)(im.Width * k)), sh = Math.Max(1, (int)(im.Height * k));
+                var bm = new Bitmap(sw, sh, PixelFormat.Format32bppPArgb);
+                using (var g = Graphics.FromImage(bm)) { g.Clear(Color.Black); g.InterpolationMode = InterpolationMode.HighQualityBicubic; g.PixelOffsetMode = PixelOffsetMode.Half; g.DrawImage(im, new Rectangle(0, 0, sw, sh)); }
+                srcBmp = bm; srcStamp = stamp; return bm;
             }
-            catch (Exception ex) { Error = ex.Message; return null; }
         }
+        finally { if (tmp) { try { File.Delete(file); } catch { } } }
     }
 
     static string FirstFrame(string video)
     {
         string ff = Ffmpeg(); if (ff == null) return null;
-        string o = Path.Combine(Path.GetTempPath(), "ytmp3_bg_first.png");
-        try { if (File.Exists(o)) File.Delete(o); } catch { }
+        string o = Path.Combine(Path.GetTempPath(), "ytmp3_bg_" + Guid.NewGuid().ToString("N") + ".png");
         using (var p = Process.Start(new ProcessStartInfo(ff, "-y -loglevel error -i \"" + video + "\" -frames:v 1 \"" + o + "\"") { UseShellExecute = false, CreateNoWindow = true }))
-            if (!p.WaitForExit(15000)) { try { p.Kill(); } catch { } return null; }
+            if (!p.WaitForExit(15000)) { try { p.Kill(); } catch { } try { File.Delete(o); } catch { } return null; }
         return File.Exists(o) ? o : null;
     }
 
@@ -128,14 +129,23 @@ static class UserBackground
     // Starts (or restarts, if the size changed) the looping decoder. The video is scaled and cropped by ffmpeg to the same aspect as the window.
     public static void EnsureVideo(int w, int h)
     {
-        if (!IsVideo || Ffmpeg() == null) { StopVideo(); return; }
+        if (!IsVideo) { StopVideo(); return; }
         // decode at no more than ~960 px wide; the picture is stretched to the window, which is fine behind a dimmed overlay
         double k = Math.Min(1.0, Math.Min(1600.0 / Math.Max(1, w), 900.0 / Math.Max(1, h))); int dw = Math.Max(16, ((int)(w * k)) & ~1), dh = Math.Max(16, ((int)(h * k)) & ~1);
-        if (run && dw == vidW && dh == vidH && vidPath == Prefs.BgPath && vidDim == Prefs.BgDim) return;
-        StopVideo(); vidW = dw; vidH = dh; vidPath = Prefs.BgPath; vidDim = Prefs.BgDim; double mul = 1.0 - Prefs.BgDim / 100.0 * 0.95;
+        if (run && dw == vidW && dh == vidH && vidPath == Prefs.BgPath) { pendW = 0; return; }
+        // a size change while running: keep drawing the current frame (stretched) and restart only once the size has settled
+        if (run && vidPath == Prefs.BgPath)
+        {
+            long nowT = Environment.TickCount;
+            if (dw != pendW || dh != pendH) { pendW = dw; pendH = dh; pendAt = nowT; return; }
+            if (nowT - pendAt < 300) return;
+        }
+        long nowF = Environment.TickCount; if (ffMissAt != 0 && nowF - ffMissAt < 5000) { StopVideo(); return; }
+        string ff = Ffmpeg(); if (ff == null) { ffMissAt = nowF == 0 ? 1 : nowF; StopVideo(); return; } ffMissAt = 0;
+        StopVideo(); vidW = dw; vidH = dh; vidPath = Prefs.BgPath; pendW = 0;
         try
         {
-            var psi = new ProcessStartInfo(Ffmpeg(), "-loglevel error -stream_loop -1 -re -i \"" + vidPath + "\" -an -vf \"scale=" + dw + ":" + dh + ":force_original_aspect_ratio=increase,crop=" + dw + ":" + dh + ",fps=24,format=bgra,lutrgb=r=val*" + mul.ToString("0.000", System.Globalization.CultureInfo.InvariantCulture) + ":g=val*" + mul.ToString("0.000", System.Globalization.CultureInfo.InvariantCulture) + ":b=val*" + mul.ToString("0.000", System.Globalization.CultureInfo.InvariantCulture) + "\" -f rawvideo -pix_fmt bgra pipe:1")
+            var psi = new ProcessStartInfo(ff, "-loglevel error -stream_loop -1 -re -i \"" + vidPath + "\" -an -vf \"scale=" + dw + ":" + dh + ":force_original_aspect_ratio=increase,crop=" + dw + ":" + dh + ",fps=24,format=bgra\" -f rawvideo -pix_fmt bgra pipe:1")
             { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true };
             proc = Process.Start(psi); var pr = proc; run = true;
             pr.ErrorDataReceived += (s, e) => { };
@@ -158,6 +168,7 @@ static class UserBackground
                 var bm = new Bitmap(w, h, PixelFormat.Format32bppPArgb);
                 var bd = bm.LockBits(new Rectangle(0, 0, w, h), ImageLockMode.WriteOnly, PixelFormat.Format32bppPArgb);
                 System.Runtime.InteropServices.Marshal.Copy(buf, 0, bd.Scan0, len); bm.UnlockBits(bd);
+                Dim(bm);   // darken here, off the UI thread, so the Darken slider needs no decoder restart
                 lock (fl) { var old = frame; frame = bm; if (old != null) old.Dispose(); }
             }
         }
@@ -188,7 +199,8 @@ static class UserBackground
 
     public static void Set(string path)
     {
-        StopVideo(); lock (fl) { still = null; stillPath = ""; }
+        StopVideo();
+        if (string.IsNullOrEmpty(path) && Monitor.TryEnter(srcLock)) { try { if (srcBmp != null) { srcBmp.Dispose(); srcBmp = null; srcStamp = ""; } } finally { Monitor.Exit(srcLock); } }   // free the cached picture when the background is removed
         Prefs.BgPath = path ?? ""; Version++; Prefs.Changed();
     }
 }
