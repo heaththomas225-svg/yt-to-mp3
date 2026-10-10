@@ -777,7 +777,7 @@ class Limiter : Fx
     int N;                       // lookahead (samples)
     float[] dl, dr, req, mn; double[] boxBuf; int pos; double boxSum; double relG = 1; float inG, ceil, relCoef; bool tp;
     float[] prevL = new float[12], prevR = new float[12]; float[][] phase = new float[3][];
-    public override int Latency { get { return N; } }
+    public override int Latency { get { return Math.Max(16, (int)(0.004 * SR)); } }   // known before the first block is processed, so delay compensation is right from the start
     public Limiter()
     {
         Type = "limiter"; Title = "Limiter";

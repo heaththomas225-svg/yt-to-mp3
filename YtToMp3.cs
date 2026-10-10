@@ -99,10 +99,27 @@ partial class App : Form
     internal string LastFile;
     internal int MZoomPct = 75;
     MasterForm mf;
-    Button mastBtn = new Button(), vocalBtn = new Button(), phoneBtn = new Button(), whatsBtn = new Button(), prevNormBtn = new Button(); string seenVer = ""; internal string ExtraFilter = "";
+    Button mastBtn = new Button(), vocalBtn = new Button(), phoneBtn = new Button(), whatsBtn = new Button(), prevNormBtn = new Button(), helpBtn = new Button(); string seenVer = ""; internal string ExtraFilter = "";
     PhoneServer phone;
     internal StudioEngine StudioEng = new StudioEngine();
     StudioForm studioForm; Button studioBtn = new Button(), addMusicBtn = new Button();
+
+    internal void ShowHelp(string topic)
+    {
+        using (var h = new HelpForm(id => true, id => { string tid = id; BeginInvoke(new Action(() => RunTour(tid))); }, topic)) h.ShowDialog(this);
+    }
+
+    void RunTour(string id)
+    {
+        Func<Control, Func<Rectangle>> R = c => (() => new Rectangle(c.Left, c.Top, c.Width, c.Height)); var s = new List<TourStep>();
+        if (id.StartsWith("studio")) { OpenStudio(); studioForm.RunTour(id); return; }
+        if (id == "start") { s.Add(new TourStep(R(links), "1. Paste a link", "Paste one or more YouTube or BandLab links here, or type words to search.")); s.Add(new TourStep(R(fmt), "2. Pick a format", "MP3 320 kbps is the best all-round choice.")); s.Add(new TourStep(R(go), "3. Press Convert", "Your file is saved in the Save to folder, which opens when it is done.")); }
+        else if (id == "normalize") { s.Add(new TourStep(R(norm), "Normalize loudness", "Tick this to bring downloads to a standard -14 LUFS loudness.")); s.Add(new TourStep(R(prevNormBtn), "Hear it first", "Press Hear to listen to a 30 second sample, original versus normalized, before you convert.")); }
+        else if (id == "vocal") { s.Add(new TourStep(R(vocalBtn), "Vocal remover", "Click this, then choose Remove vocals from a song, or Preview to hear a 30 second sample first.")); s.Add(new TourStep(R(outDir), "Where files go", "The instrumental and the vocals-only file are saved in this folder.")); }
+        else if (id == "phone") { s.Add(new TourStep(R(phoneBtn), "Phone mode", "Press this, then open the address it shows on your phone (same Wi-Fi). Use the firewall button if it will not open.")); }
+        else if (id == "masterassistant") { s.Add(new TourStep(R(mastBtn), "Mastering Assistant", "Opens the live EQ, loudness and width window. Turn on its power button and your downloads are processed.")); }
+        if (s.Count > 0) Tour.Run(this, s);
+    }
 
     void OpenStudio()
     {
@@ -195,7 +212,10 @@ partial class App : Form
         };
         StyleBtn(phoneBtn, Color.FromArgb(90, 36, 160)); phoneBtn.Text = "Phone mode: OFF";
         phoneBtn.SetBounds(172, 312, 150, 30);
-        StyleBtn(whatsBtn, Color.FromArgb(60, 26, 110)); whatsBtn.Text = "Menu"; whatsBtn.SetBounds(504, 12, 120, 28); whatsBtn.Anchor = AnchorStyles.Top | AnchorStyles.Right; whatsBtn.Click += (s, e) =>
+        StyleBtn(whatsBtn, Color.FromArgb(60, 26, 110)); whatsBtn.Text = "Menu"; whatsBtn.SetBounds(560, 12, 64, 28);
+        StyleBtn(helpBtn, Color.FromArgb(190, 60, 200)); helpBtn.Text = "Help"; helpBtn.SetBounds(488, 12, 66, 28); helpBtn.Anchor = AnchorStyles.Top | AnchorStyles.Right; helpBtn.Click += (s, e) => ShowHelp(null);
+        tip.SetToolTip(helpBtn, "Guides for every feature, with Show me on screen tours (F1).");
+        KeyPreview = true; KeyDown += (s, e) => { if (e.KeyCode == Keys.F1) { e.Handled = true; ShowHelp(null); } }; whatsBtn.Anchor = AnchorStyles.Top | AnchorStyles.Right; whatsBtn.Click += (s, e) =>
         {
             var m = Win.NewMenu();
             m.Items.Add("What's new").Click += (a, b) => Changelog.Show(this);
@@ -240,7 +260,7 @@ partial class App : Form
         log.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
 
         bg.Controls.AddRange(new Control[] { links, fmt, sr, nameFmt, trimA, trimB, norm, playlist, openDone, animate,
-            mastBtn, vocalBtn, prevNormBtn, phoneBtn, studioBtn, addMusicBtn, whatsBtn, outDir, browse, go, cancel, log });
+            mastBtn, vocalBtn, prevNormBtn, helpBtn, phoneBtn, studioBtn, addMusicBtn, whatsBtn, outDir, browse, go, cancel, log });
 
         fmt.SelectedIndex = 0; sr.SelectedIndex = 0; nameFmt.SelectedIndex = 0;
         LoadSettings();
@@ -775,6 +795,8 @@ partial class App : Form
         }) { IsBackground = true }.Start();
     }
 
+    static string FmtEta(double s) { if (s < 90) return (int)s + " s"; if (s < 5400) return (int)Math.Ceiling(s / 60) + " min"; return (s / 3600).ToString("0.0") + " h"; }
+
     void DoRemoveVocals(string file, string dir, int f, bool open)
     {
         if (FfmpegExe() == null) throw new Exception("ffmpeg isn't installed yet. Convert something once first (that installs ffmpeg).");
@@ -788,10 +810,10 @@ partial class App : Form
         if (cancelReq) { Log("Cancelled."); status = "Cancelled"; return; }
         status = "Separating vocals with AI (this can take a few minutes)..."; targetPct = lo;
         string baseName = Path.GetFileNameWithoutExtension(file), tmp = Path.Combine(Path.GetTempPath(), "yt2mp3_sep_" + Guid.NewGuid().ToString("N").Substring(0, 6));
-        string v, inst;
+        string v, inst; var swSep = Stopwatch.StartNew();
         try
         {
-            if (!Separator.Separate(file, tmp, baseName, "htdemucs", Log, p => { targetPct = lo + p * (hi - lo) * 0.92f; }, () => cancelReq, out v, out inst))
+            if (!Separator.Separate(file, tmp, baseName, "htdemucs", Log, p => { targetPct = lo + p * (hi - lo) * 0.92f; status = "Separating vocals with AI... " + (p > 0.04f ? "about " + FmtEta(swSep.Elapsed.TotalSeconds * (1 - p) / p) + " left" : "starting"); }, () => cancelReq, out v, out inst))
             { status = cancelReq ? "Cancelled" : "Failed"; return; }
             status = "Encoding..."; string ext = MasterDsp.FmtExt[f], tag = FmtTag[f]; int code;
             string outInst = Path.Combine(dir, baseName + " [instrumental " + tag + "]." + ext), outVoc = Path.Combine(dir, baseName + " [vocals " + tag + "]." + ext);

@@ -2,7 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.Diagnostics;
 using System.Text;
+using System.Threading;
 
 // ======================================================================
 //  Studio logic: presets, key detection, Auto Mix, project files, export.
@@ -540,28 +542,40 @@ static class Exporter
         if (dryBeat && beat != null) l.Add(new ExportItem { Label = "Dry instrumental", FileName = prefix + " - instrumental dry" + ext, Opts = new RenderOpts { Master = false, Dry = true, Fader = false, MuteSolo = false, Only = new List<Track> { beat } } });
         if (stems)
             foreach (var t in eng.Tracks)
-                if (t.Clip != null) l.Add(new ExportItem { Label = "Stem: " + t.Name, FileName = prefix + " - stem " + Safe(t.Name) + ext, Opts = new RenderOpts { Master = false, MuteSolo = false, Only = new List<Track> { t } } });
+                if (t.Clip != null && t.Clip.Loaded && !t.Mute) l.Add(new ExportItem { Label = "Stem: " + t.Name, FileName = prefix + " - stem " + Safe(t.Name) + ext, Opts = new RenderOpts { Master = false, MuteSolo = false, Only = new List<Track> { t } } });
         return l;
     }
 
     static string Safe(string s) { foreach (char c in Path.GetInvalidFileNameChars()) s = s.Replace(c, '_'); return s; }
 
-    // Renders one item and writes it. Returns the output path.
-    public static string Write(StudioEngine eng, ExportItem it, string dir, int fmt, Action<float> prog)
+    // Renders one item straight to disk in small blocks, so memory stays flat and hour-long songs export fine.
+    public static string Write(StudioEngine eng, ExportItem it, string dir, int fmt, Action<float> prog, Func<bool> cancelled = null)
     {
-        long frames = eng.EndFrame + StudioEngine.SR * 2; float[] l, r;
-        eng.Render(0, frames, it.Opts, prog, out l, out r);
-        string outp = Path.Combine(dir, Safe(it.FileName)); Directory.CreateDirectory(dir);
-        if (fmt <= 2) { WavIO.Write(outp, l, r, StudioEngine.SR, fmt == 0 ? 24 : (fmt == 1 ? 16 : 32)); return outp; }
+        long frames = eng.EndFrame + StudioEngine.SR * 2; Directory.CreateDirectory(dir);
+        string outp = Path.Combine(dir, Safe(it.FileName));
+        if (fmt <= 2)
+        {
+            int bits = fmt == 0 ? 24 : (fmt == 1 ? 16 : 32);
+            if (frames * 2L * (bits / 8) > 4000000000L) throw new Exception("WAV files are limited to about 4 GB (roughly 3.5 hours at 24-bit). Choose FLAC or MP3 for this length.");
+            using (var ws = new WavStream(outp, StudioEngine.SR, bits)) eng.RenderStream(0, frames, it.Opts, prog, (l, r, o, n) => ws.Write(l, r, o, n), cancelled);
+            if (cancelled != null && cancelled()) { try { File.Delete(outp); } catch { } throw new Exception("Export cancelled."); }
+            return outp;
+        }
         string ff = StudioEnv.Ffmpeg(); if (ff == null) throw new Exception("ffmpeg isn't installed yet (convert something once in the main window first).");
+        string enc = fmt == 3 ? "-c:a flac -compression_level 8 -sample_fmt s32 -bits_per_raw_sample 24" : (fmt == 4 ? "-c:a libmp3lame -b:a 320k" : "-c:a libmp3lame -q:a 0");
+        // Render to a temporary lossless WAV in small blocks (flat memory), then encode from the file.
         string tmp = Path.Combine(Path.GetTempPath(), "ytm_export_" + Guid.NewGuid().ToString("N").Substring(0, 8) + ".wav");
         try
         {
-            WavIO.Write(tmp, l, r, StudioEngine.SR, 32); int code;
-            string enc = fmt == 3 ? "-c:a flac -compression_level 8 -sample_fmt s32 -bits_per_raw_sample 24" : (fmt == 4 ? "-c:a libmp3lame -b:a 320k" : "-c:a libmp3lame -q:a 0");
-            string o = MasterDsp.RunCapture(ff, "-hide_banner -y -i \"" + tmp + "\" -vn " + enc + " \"" + outp + "\"", null, out code);
-            if (code != 0 || !File.Exists(outp)) throw new Exception("Encoding failed.\n" + o);
+            int tbits = frames * 2L * 4 > 3900000000L ? 24 : 32;
+            if (frames * 2L * (tbits / 8) > 4000000000L) throw new Exception("That is too long to export as one file (about 4 hours). Export in parts.");
+            using (var ws = new WavStream(tmp, StudioEngine.SR, tbits)) eng.RenderStream(0, frames, it.Opts, prog == null ? null : (Action<float>)(x => prog(x * 0.9f)), (l, r, o, n) => ws.Write(l, r, o, n), cancelled);
+            if (cancelled != null && cancelled()) throw new Exception("Export cancelled.");
+            int code; string o2 = MasterDsp.RunCapture(ff, "-hide_banner -y -i \"" + tmp + "\" -vn " + enc + " \"" + outp + "\"", null, out code);
+            if (code != 0 || !File.Exists(outp)) throw new Exception("Encoding failed.\n" + o2);
+            if (prog != null) prog(1f);
         }
+        catch { try { if (File.Exists(outp) && cancelled != null && cancelled()) File.Delete(outp); } catch { } throw; }
         finally { try { File.Delete(tmp); } catch { } }
         return outp;
     }
