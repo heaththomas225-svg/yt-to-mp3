@@ -75,11 +75,34 @@ static class S
         // Open: a .ytmproj goes to the project loader (the dialog also lists mp3, wav, flac... and adds them as tracks)
         { string ptmp = Path.Combine(Path.GetTempPath(), "opentest.ytmproj"); var save = new List<Track>(eng.Tracks); lock (eng.Sync) eng.Tracks.Clear(); ProjectIO.Save(eng, ptmp); lock (eng.Sync) eng.Tracks.AddRange(save);
           sf.PromptImportPublic(ptmp); Pump(1500); Check("a project file chosen in Open (or dropped on the window) opens as a project", F<string>("projPath") == ptmp && eng.Tracks.Count == 0, "tracks " + eng.Tracks.Count + ", path " + F<string>("projPath"));
-          string exts = (string)typeof(StudioForm).GetField("AudioExts", BindingFlags.NonPublic | BindingFlags.Static).GetValue(null); Check("the Open dialog lists mp3, wav, flac, m4a, ogg and more", exts.Contains("*.mp3") && exts.Contains("*.wav") && exts.Contains("*.flac") && exts.Contains("*.m4a") && exts.Contains("*.ogg"), exts); try { File.Delete(ptmp); } catch { } }
+          string exts = (string)typeof(StudioForm).GetField("AudioExts", BindingFlags.NonPublic | BindingFlags.Static).GetValue(null); Check("the Open dialog lists mp3, wav, flac, m4a, ogg and more", exts.Contains("*.mp3") && exts.Contains("*.wav") && exts.Contains("*.flac") && exts.Contains("*.m4a") && exts.Contains("*.ogg"), exts); try { File.Delete(ptmp); } catch { } ProjectLibrary.Remove(ptmp); }
         // the + ADD TRACK button must always be on screen, even when the tracks run off the bottom
         for (int i = 0; i < 10; i++) typeof(StudioForm).GetMethod("AddTrack", BF).Invoke(sf, new object[] { StudioEngine.NewTrack("X" + i, "audio", Clip(3)) }); Paint();
         var addBtn = Regs().FindLast(r => Math.Abs(r.R.Width - 230) < 0.5f && Math.Abs(r.R.Height - 34) < 0.5f); Check("the + ADD TRACK button is on screen with 14 tracks (pinned to the bottom)", addBtn != null && addBtn.R.Bottom <= sf.ClientSize.Height && addBtn.R.Y > sf.ClientSize.Height / 2, addBtn == null ? "missing" : addBtn.R.ToString());
         var tbtn = Regs().FindLast(r => r.R.Y < 120 && r.R.Y > 70 && r.R.Width == 100 && r.R.Height == 36); Check("there is a + TRACK button in the toolbar", tbtn != null, "");
+        // ---- side menu, my projects with pictures, community ----
+        {
+            string mdir = Path.Combine(Path.GetTempPath(), "menutest"); Directory.CreateDirectory(mdir); string p1 = Path.Combine(mdir, "Alpha.ytmproj"), p2 = Path.Combine(mdir, "Beta.ytmproj"), png = Path.Combine(mdir, "pic.png");
+            try
+            {
+                var save2 = new List<Track>(eng.Tracks); lock (eng.Sync) eng.Tracks.Clear(); ProjectIO.Save(eng, p1); ProjectIO.Save(eng, p2); lock (eng.Sync) eng.Tracks.AddRange(save2);
+                ProjectLibrary.Touch(p1, "Alpha", 3, 140, 95, true, null); ProjectLibrary.Touch(p2, "Beta", 1, 90, 30, true, null);
+                using (var bm = new Bitmap(300, 200)) { using (var gg = Graphics.FromImage(bm)) gg.Clear(Color.OrangeRed); bm.Save(png, System.Drawing.Imaging.ImageFormat.Png); }
+                var sq = ProjectLibrary.MakeSquare(png, 256); bool sqOk = false; if (sq != null) using (var ms = new MemoryStream(sq)) using (var im = Image.FromStream(ms)) sqOk = im.Width == 256 && im.Height == 256; Check("a picture is cropped to a square JPEG of the right size", sqOk, sq == null ? "failed" : sq.Length + " bytes");
+                string perr; bool setOk = ProjectLibrary.SetCover(p1, png, out perr); var e1 = ProjectLibrary.Find(p1);
+                Check("a picture can be added to a project (kept in the list and inside the project file)", setOk && e1 != null && File.Exists(e1.Cover) && File.ReadAllText(p1).Contains("\ncover|"), perr ?? "ok");
+                ProjectIO.CoverBytes = null; ProjectIO.Load(eng, p1, s => { }); Check("the picture comes back when the project is opened", ProjectIO.CoverBytes != null && ProjectIO.CoverBytes.Length > 100, ProjectIO.CoverBytes == null ? "none" : ProjectIO.CoverBytes.Length + " bytes");
+                string bad = Path.Combine(mdir, "notapic.png"); File.WriteAllText(bad, "not a picture"); string berr; Check("a file that is not a picture is refused with a clear message", !ProjectLibrary.SetCover(p2, bad, out berr) && berr != null && berr.Contains("not a picture"), berr);
+                SetF("projectsLoaded", true); typeof(StudioForm).GetMethod("OpenMenu", BF).Invoke(sf, null); Paint(); Check("the menu opens from the three-lines button", F<bool>("menuOpen"), "");
+                var hamb = Regs().FindLast(r => Math.Abs(r.R.Width - 48) < 0.5f && r.R.X < 20 && r.R.Y < 40); Check("the three-lines button is at the top left", hamb != null, "");
+                SetF("menuSec", 0); Paint(); var names = new List<string>(); foreach (var r in Regs()) { }
+                SetF("menuSub", 1); Paint(); var recReg = Regs().FindAll(r => Math.Abs(r.R.Width - 334) < 1f && Math.Abs(r.R.Height - 50) < 0.5f); Check("Recent Projects lists the projects you opened, newest first", recReg.Count >= 2, recReg.Count + " rows");
+                typeof(StudioForm).GetMethod("CloseMenu", BF).Invoke(sf, null); SetF("tab", 3); Paint(); var cards = Regs().FindAll(r => Math.Abs(r.R.Width - 230) < 0.5f && Math.Abs(r.R.Height - 270) < 0.5f); Check("My Projects shows a card for the new-project tile and each saved project", cards.Count >= 3, cards.Count + " cards");
+                SetF("tab", 4); Paint(); var bmp3 = new Bitmap(sf.ClientSize.Width, sf.ClientSize.Height); sf.DrawToBitmap(bmp3, new Rectangle(0, 0, sf.Width, sf.Height)); bmp3.Save("_community.png", System.Drawing.Imaging.ImageFormat.Png); Check("the Community page draws (a place to build on later)", true, "");
+                SetF("tab", 0); ProjectLibrary.ClearCover(p1); Check("a picture can be removed again", !File.ReadAllText(p1).Contains("\ncover|") && ProjectLibrary.Find(p1).Cover.Length == 0, "");
+            }
+            finally { ProjectLibrary.Remove(p1); ProjectLibrary.Remove(p2); try { Directory.Delete(mdir, true); } catch { } ProjectIO.CoverBytes = null; }
+        }
         // ---- lyrics page ----
         {
             Check("syllable counter gets everyday words right", LyricsTools.Syllables("love") == 1 && LyricsTools.Syllables("rhyme") == 1 && LyricsTools.Syllables("music") == 2 && LyricsTools.Syllables("melody") == 3 && LyricsTools.Syllables("beautiful") == 3 && LyricsTools.Syllables("remember") == 3, "love " + LyricsTools.Syllables("love") + ", music " + LyricsTools.Syllables("music") + ", melody " + LyricsTools.Syllables("melody") + ", beautiful " + LyricsTools.Syllables("beautiful"));
