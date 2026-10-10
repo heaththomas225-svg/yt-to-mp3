@@ -96,6 +96,7 @@ static class SynthPresets
     public static List<string> InCategory(string cat) { var l = new List<string>(); foreach (var e in All) if (e.Cat == cat) l.Add(e.Name); return l; }
     public static string CategoryOf(string name) { foreach (var e in All) if (e.Name == name) return e.Cat; return UserNames().Contains(name) ? "My presets" : ""; }
     static string Find(string name) { foreach (var e in All) if (e.Name == name) return e.Data; return null; }
+    public static string DataOf(string name) { return Find(name); }
 
     public static string Dir { get { return Path.Combine(StudioEnv.DataDir, "synthpresets"); } }
     static string FileFor(string name) { foreach (char c in Path.GetInvalidFileNameChars()) name = name.Replace(c, '_'); return Path.Combine(Dir, name.Trim() + ".txt"); }

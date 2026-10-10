@@ -95,6 +95,7 @@ static class S
                 string bad = Path.Combine(mdir, "notapic.png"); File.WriteAllText(bad, "not a picture"); string berr; Check("a file that is not a picture is refused with a clear message", !ProjectLibrary.SetCover(p2, bad, out berr) && berr != null && berr.Contains("not a picture"), berr);
                 SetF("projectsLoaded", true); typeof(StudioForm).GetMethod("OpenMenu", BF).Invoke(sf, null); Paint(); Check("the menu opens from the three-lines button", F<bool>("menuOpen"), "");
                 var hamb = Regs().FindLast(r => Math.Abs(r.R.Width - 48) < 0.5f && r.R.X < 20 && r.R.Y < 40); Check("the three-lines button is at the top left", hamb != null, "");
+                Check("when the menu opens nothing is expanded yet (you choose what to open)", F<int>("menuSec") == -1 && F<int>("menuSub") == -1, "section " + F<int>("menuSec"));
                 SetF("menuSec", 0); Paint(); var names = new List<string>(); foreach (var r in Regs()) { }
                 SetF("menuSub", 1); Paint(); var recReg = Regs().FindAll(r => Math.Abs(r.R.Width - 334) < 1f && Math.Abs(r.R.Height - 50) < 0.5f); Check("Recent Projects lists the projects you opened, newest first", recReg.Count >= 2, recReg.Count + " rows");
                 typeof(StudioForm).GetMethod("CloseMenu", BF).Invoke(sf, null); SetF("tab", 3); Paint(); var cards = Regs().FindAll(r => Math.Abs(r.R.Width - 230) < 0.5f && Math.Abs(r.R.Height - 270) < 0.5f); Check("My Projects shows a card for the new-project tile and each saved project", cards.Count >= 3, cards.Count + " cards");
