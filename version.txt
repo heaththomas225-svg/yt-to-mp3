@@ -1,2 +1,6 @@
-2.5.0
+3.0.0
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
+New: Music Studio with AI vocal/beat split, Auto-Tune, EQ, effects, mastering, export
+New: 8D Audio Tuner, plugin system, hear-before-you-convert previews
+New: type exact values anywhere; long songs and DJ mixes supported
+Faster vocal remover, redesigned phone page, new dark neon look and smoother animation

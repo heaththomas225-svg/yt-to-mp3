@@ -1,0 +1,385 @@
+using System;
+using System.Collections.Generic;
+using System.Drawing;
+using System.Drawing.Drawing2D;
+using System.Windows.Forms;
+
+// ======================================================================
+//  Help: searchable guides + "Show me on screen" guided tours (spotlight overlay on the real controls).
+// ======================================================================
+class HelpTopic
+{
+    public string Id, Category, Title, Body; public bool HasTour;
+    public HelpTopic(string id, string cat, string title, bool tour, string body) { Id = id; Category = cat; Title = title; HasTour = tour; Body = body; }
+}
+
+static class HelpContent
+{
+    public static readonly HelpTopic[] All = {
+        new HelpTopic("start", "Basics", "Convert a link to MP3", true, @"
+## What you need
+A YouTube, BandLab or other video / music link (or just words to search for).
+## Steps
+1. Paste the link into the big box at the top. You can paste several links, one per line or separated by commas.
+2. Pick a Format. MP3 320 kbps is the best all-round choice.
+3. Press Convert. The first time, the app downloads its tools once (a few minutes). After that it is quick.
+4. When it finishes your folder opens. Files are saved in the 'Save to' folder.
+TIP: No link? Type words such as an artist and song name. The app searches YouTube and converts the top result.
+TIP: Everything you change is remembered next time."),
+
+        new HelpTopic("formats", "Basics", "Formats and quality: which should I pick?", false, @"
+## The choices
+- MP3 320 kbps: plays everywhere, very good quality. Best default.
+- MP3 V0: variable quality, slightly smaller, same sound.
+- M4A (AAC 256): great on iPhone and Apple Music.
+- FLAC / WAV 24-bit: no extra compression loss, but the audio on YouTube is already compressed, so they sound the same as MP3 320 and are much bigger. Use them if you are going to edit or master the file.
+- Opus: smallest files for the quality.
+## Sample rate
+Leave it on Original unless your project needs 44.1 kHz or 48 kHz.
+## File names
+Every file is labelled with its format, for example 'Song [MP3 320k]', so you can keep track.
+TIP: A 'mastered' tag in the name means the Mastering Assistant processed it."),
+
+        new HelpTopic("bandlab", "Basics", "Using BandLab links", false, @"
+## What works
+Track, post, revision, album and collection links from BandLab (for example bandlab.com/post/...). Albums and collections convert every track automatically.
+## How to get the link
+1. Open the song on BandLab.
+2. Use Share and Copy link.
+3. Paste it into the app.
+## If it fails
+- Profile pages (bandlab.com/username) and some other page types are not supported by the downloader. Open the track itself and copy its link.
+- Private tracks need the share link, and may not download at all.
+TIP: You can mix YouTube and BandLab links in the same box."),
+
+        new HelpTopic("batch", "Basics", "Several songs, playlists and search words", false, @"
+## Many at once
+Paste several links (one per line, or separated by commas or spaces). They are converted one after another and the progress bar shows which one is running.
+## Playlists
+Tick 'Whole playlists' to convert every video in a playlist link. Leave it off to convert only the one video in the link.
+WARN: A link ending in list=LL is your Liked videos playlist. With 'Whole playlists' on, that converts all of them.
+## Cancel
+Press Cancel at any time. Files already finished are kept."),
+
+        new HelpTopic("trim", "Basics", "Cut just a section (trim)", false, @"
+## Steps
+1. Type a Trim start and/or Trim end such as 1:30 or 0:01:30.5.
+2. Convert. Only that part is downloaded and converted.
+TIP: Leave the end empty to go to the end of the song, or the start empty to begin at 0:00."),
+
+        new HelpTopic("normalize", "Basics", "Normalize loudness and the Hear preview", true, @"
+## What it does
+Brings every download to the same standard loudness (-14 LUFS, the level streaming services use). Quiet songs get louder, loud songs are controlled.
+## Listen before you convert
+1. Press the Hear button next to Normalize loudness.
+2. Pick a file (or say yes to use the first link in the box; it downloads a 30 second sample).
+3. A player opens. Click Original or Normalized to switch instantly while it plays and hear exactly what the setting does.
+4. Close the player, tick Normalize loudness if you like it, then Convert.
+TIP: Raise your volume the same for both versions. The numbers under each button show the real loudness."),
+
+        new HelpTopic("vocal", "Basics", "Remove vocals from a song", true, @"
+## Steps
+1. Press Vocal remover, then 'Remove vocals from a song'.
+2. The first time, say yes to the one-time download (about 0.5 GB). It stays on your PC.
+3. Choose the song. You get two files: an instrumental (no vocals) and a vocals-only file, in your chosen format.
+## Hear it first
+Choose 'Preview: hear a 30 second sample first'. You can switch between Original, Instrumental and Vocals on a short sample before committing to the whole song.
+## Speed
+- The AI model loads while you pick the file, and stays ready between songs.
+- Expect roughly half a song's length on a normal CPU (a 4 minute song is about 2 minutes). The progress bar shows the time left.
+- Long songs are processed in pieces so memory stays low.
+TIP: Cancel stops it safely."),
+
+        new HelpTopic("phone", "Basics", "Use it from your phone", true, @"
+## Steps
+1. Press Phone mode on the PC. A window shows an address like http://192.168.1.64:8765/?c=123456 (also copied to the clipboard).
+2. On your phone, connected to the SAME Wi-Fi as the PC, open that address in the browser.
+3. Paste a link, choose a format, press Convert, then Download. On iPhone use the share button, Save to Files.
+## If the page won't open
+- Press 'Allow in Windows Firewall' in the Phone mode window (Windows asks for permission once).
+- Check the phone is on the same Wi-Fi, not mobile data or a guest network.
+- If the PC lists several addresses, use the one that starts like your phone's (usually 192.168...). VPN addresses don't work.
+WARN: Phone mode is protected by the code at the end of the address. Turn it off when you're done.
+TIP: Keep the app open on the PC while you use it. The PC does the converting."),
+
+        new HelpTopic("masterassistant", "Basics", "Mastering Assistant (while converting)", true, @"
+## What it is
+A window with a live EQ curve, Auto EQ, Character, Loudness, Excite and Width controls that processes your downloads.
+## Steps
+1. Press the Mastering button to open it, then press the power button.
+2. Pick a preset from the top, or drag the EQ dots and turn the knobs.
+3. Convert as normal. Files come out processed and are labelled 'mastered'.
+TIP: Reanalyze shows a spectrum of a file so Auto EQ can suggest corrections.
+TIP: The same engine, plus much more, is in the Music Studio Mastering tab."),
+
+        new HelpTopic("studio-start", "Music Studio", "Add music and split vocals and beat", true, @"
+## Open it
+Press Music Studio (or ADD MUSIC) on the main window.
+## Steps
+1. Press ADD MUSIC and choose a file: MP3, WAV, FLAC, AIFF and more.
+2. Say what it is: Full song, Vocal recording, or Beat / instrumental.
+3. For a full song press SEPARATE VOCALS & BEAT. The AI makes two real files and shows them as two tracks, perfectly in sync. The first time it asks to download the AI (about 0.5 GB).
+4. Press PLAY (or Space). Use M and S to mute or solo either track.
+TIP: You can also add your own vocal and your own beat as separate tracks.
+TIP: Drag files onto the studio window to add them."),
+
+        new HelpTopic("studio-mix", "Music Studio", "Mixing: faders, mute / solo, pan, timing", false, @"
+## Each track has
+- Vol slider: the track level. Pan: left to right.
+- M (mute) and S (solo). Solo lets you hear only that track.
+- Offset arrows (< >) to nudge the track earlier or later (hold Shift for fine steps) if two recordings don't line up.
+- A level meter. A red mark means it clipped; click it to clear.
+## Timeline
+Click the ruler or a track to move the playhead. Scroll with the wheel, Ctrl + wheel to zoom, Shift + wheel to move sideways.
+TIP: Double-click a slider to reset it. Click a value to type an exact number."),
+
+        new HelpTopic("studio-autotune", "Music Studio", "Auto-Tune (pitch correction)", false, @"
+## Steps
+1. Select your vocal track, press Add Effect and choose Pitch Correction.
+2. Press Detect key (or choose the key and scale yourself).
+3. Press Hard Auto-Tune for the classic effect, or Natural for a subtle polish.
+## Controls
+- Retune speed: 0 is instant robotic tuning, higher is more natural.
+- Strength: how far to pull toward the note.
+- Natural: keeps vibrato (high) or flattens it (low).
+- The note buttons let you allow or forbid single notes.
+TIP: It only affects the vocal track. The beat is never tuned."),
+
+        new HelpTopic("studio-eq", "Music Studio", "EQ: shape the sound", false, @"
+## Steps
+1. Add Effect, then Parametric EQ, on the vocal or the beat. They are independent.
+2. Drag a dot to change frequency (left to right) and gain (up and down). Mouse wheel on a dot changes Q (how wide).
+3. Right-click a dot to turn the band off.
+4. Use High-pass to remove rumble and Low-pass to soften the top.
+5. Presets: Vocal Clarity, Warm, Bright, Bass Control, Clean Mix.
+TIP: The purple area behind the curve is a live spectrum so you can see what you're adjusting."),
+
+        new HelpTopic("studio-fx", "Music Studio", "Effects, presets and the rap vocal chains", false, @"
+## Add an effect
+Press Add Effect on a track, type to search, press Add. There are 18 including EQ, compressor, multiband, exciter, saturation, reverb, delay, chorus, de-esser, stereo imager, limiter, gate, noise reduction, pitch correction and 8D.
+## Edit it
+Click it in the list. Drag sliders or click a value to type. Bypass turns it off, Presets lists built-in and your own.
+## Whole-chain presets
+Chain presets lets you load Melodic, Emotional, Technical, Aggressive, Clean Studio or Wide Atmospheric vocal chains, or the instrumental chain. Every plugin stays editable. Save your own chain with 'Save this track's chain'.
+TIP: These are original sound-design starting points, not copies of any artist's settings."),
+
+        new HelpTopic("studio-8d", "Music Studio", "8D audio tuner", false, @"
+## What it does
+Makes the sound seem to circle around your head. Use headphones.
+## Steps
+1. Add Effect, then 8D Audio Tuner, on any track (or the master).
+2. Choose a preset such as Classic 8D (10 s), or set Rotation time yourself.
+3. Click or drag on the ring to park the sound at an angle and tune the position by ear.
+4. Press the Hold button to stay put, or Rotating to move again.
+## Controls
+Width, Depth (behind you gets darker and quieter), Ear delay, Keep bass centred, Room and Mix."),
+
+        new HelpTopic("studio-automix", "Music Studio", "Auto Mix", true, @"
+## Steps
+1. Make sure you have a vocal and a beat (separate a song or add your own).
+2. Choose a style next to the button: Natural, Clean Studio, Melodic Rap, Aggressive Rap or Technical Rap. The + means vocal enhancement is on.
+3. Press AUTO MIX. It analyses loudness, clipping and tone, builds a chain for each track, balances the volumes and shows exactly what it changed.
+4. Edit anything afterwards, or press Undo Auto Mix.
+TIP: It never changes your original files."),
+
+        new HelpTopic("studio-master", "Music Studio", "Mastering tab: loudness and A/B", false, @"
+## Steps
+1. Open the MASTERING tab. The chain (EQ, compressor, multiband, exciter, saturation, imager, limiter) works on the whole mix.
+2. Pick a mastering preset on the left or tweak each module.
+3. Press Analyze whole mix to see loudness before and after, then compare with A ORIGINAL and B MASTERED. Loudness match keeps them equally loud so you judge tone, not volume.
+4. Set a Target loudness and press 'Set loudness to target' to adjust the limiter automatically.
+## Meters
+Momentary, Short-term and Integrated LUFS, true peak, peak, gain reduction and clip detection."),
+
+        new HelpTopic("studio-export", "Music Studio", "Export and save projects", true, @"
+## Export
+1. Press EXPORT.
+2. Tick what you want: the finished mix, vocals only, instrumental only, dry versions, or every track as a stem.
+3. Choose WAV, FLAC or MP3 and a folder, then Export. Files are checked so nothing is replaced without asking.
+All files start at 0:00 with the same length, so they line up in any other music software.
+## Save and reopen
+Save stores everything: your tracks, plugin settings and alignment. Open brings it back.
+TIP: Even hour-long songs export with very little memory and you can cancel at any time."),
+
+        new HelpTopic("typing", "Music Studio", "Typing exact values", false, @"
+Click any number (volume, pan, offset, a plugin parameter, EQ frequency / gain / Q, target loudness, 8D angle) and a small box opens. Type the value and press Enter. Esc cancels.
+For pan type a number from -100 (left) to 100 (right), or L30 / R30 / C."),
+
+        new HelpTopic("plugins", "Advanced", "Plugins and custom ffmpeg filters", false, @"
+## Add your own effects
+1. Menu, then Plugins and extensions, then Open plugins folder.
+2. Drop a plugin .dll in, press Reload and tick it to approve it.
+3. It appears in the studio under Add Effect, Plugins.
+WARN: Plugins are programs. Only approve ones you trust.
+## Make one
+Press 'Create sample plugin (SDK)'. It writes a working example and a build script. See PLUGINS.md for the full guide.
+## Custom ffmpeg filter
+Enter any ffmpeg audio filter chain (for example aecho=0.8:0.88:60:0.4) and it is applied to every conversion. It is tested before saving. LV2 plugins can be used through ffmpeg's lv2 filter.
+VST plugins are not supported."),
+
+        new HelpTopic("long", "Advanced", "Long songs and DJ mixes", false, @"
+- Loading streams the file, so even hour-long mixes load in seconds with a progress bar.
+- Vocal separation processes long songs in overlapping pieces, so memory stays low. A time-left estimate is shown.
+- Export streams to disk. WAV is limited to about 4 GB (roughly 3.5 hours at 24-bit); use FLAC or MP3 beyond that.
+- After separating a long song its original track is unloaded from memory. Un-mute it and it loads back from disk.
+TIP: Zoom out with Ctrl + wheel to see the whole mix."),
+
+        new HelpTopic("updates", "Advanced", "Updates and what's new", false, @"
+The app checks for new versions every 20 seconds while it is open. When one appears a card pops up with what is new: press Update now and it restarts by itself, or Later.
+Menu, then What's new shows the full changelog. The title bar shows the current frame rate.
+TIP: Your settings and projects are kept across updates."),
+
+        new HelpTopic("trouble", "Advanced", "Troubleshooting", false, @"
+## 'ffmpeg isn't installed yet'
+Convert any link once. The first conversion installs the tools.
+## A YouTube link gives a 403 error
+Let the app finish its first-run setup (it installs a small JavaScript runtime). Try again; the downloader also updates itself.
+## Phone can't connect
+See 'Use it from your phone': firewall button, same Wi-Fi, correct address.
+## No sound in the studio
+Check Windows output device and that the track isn't muted or soloed elsewhere. Press Space to play.
+## It feels slow
+The animation adapts automatically, or untick 'Animated background'. For separation, close other heavy programs.
+## Something else
+Menu, then Open data folder shows settings, tools and the plugins folder.") };
+}
+
+// ----------------------------------------------------------------------
+class HelpForm : Form
+{
+    readonly Func<string, bool> canTour; readonly Action<string> runTour; ListBox list; TextBox search; RichTextBox view; Button show; List<HelpTopic> shown = new List<HelpTopic>();
+    public HelpForm(Func<string, bool> canTour, Action<string> runTour, string selectId)
+    {
+        this.canTour = canTour; this.runTour = runTour;
+        Text = "Help"; FormBorderStyle = FormBorderStyle.Sizable; StartPosition = FormStartPosition.CenterParent; MinimumSize = new Size(820, 520); ClientSize = new Size(960, 640);
+        BackColor = Color.FromArgb(10, 4, 20); ForeColor = Color.FromArgb(240, 232, 255); Font = new Font("Segoe UI", 10f); Win.Dark(this); ShowInTaskbar = false;
+        search = new TextBox { Left = 14, Top = 14, Width = 270, BackColor = Color.FromArgb(8, 4, 16), ForeColor = Color.FromArgb(240, 232, 255), BorderStyle = BorderStyle.FixedSingle, Anchor = AnchorStyles.Top | AnchorStyles.Left };
+        search.TextChanged += (s, e) => Fill(null); Controls.Add(search);
+        Controls.Add(new Label { Text = "Search help (for example: phone, vocals, eq)", Left = 14, Top = 40, Width = 270, Height = 18, ForeColor = Color.FromArgb(150, 130, 190), Font = new Font("Segoe UI", 8.5f) });
+        list = new ListBox { Left = 14, Top = 64, Width = 270, Height = 520, DrawMode = DrawMode.OwnerDrawFixed, ItemHeight = 28, BackColor = Color.FromArgb(8, 4, 16), ForeColor = Color.FromArgb(240, 232, 255), BorderStyle = BorderStyle.FixedSingle, Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left };
+        list.DrawItem += DrawItem; list.SelectedIndexChanged += (s, e) => ShowTopic(); Controls.Add(list); Win.DarkControl(list);
+        view = new RichTextBox { Left = 298, Top = 14, Width = 648, Height = 570, ReadOnly = true, BackColor = Color.FromArgb(8, 4, 16), ForeColor = Color.FromArgb(240, 232, 255), BorderStyle = BorderStyle.FixedSingle, Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right, DetectUrls = false, Cursor = Cursors.Arrow };
+        Controls.Add(view); Win.DarkControl(view);
+        show = new Button { Text = "Show me on screen", Left = 298, Top = 596, Width = 220, Height = 34, FlatStyle = FlatStyle.Flat, BackColor = Color.FromArgb(190, 60, 200), ForeColor = Color.White, Cursor = Cursors.Hand, Anchor = AnchorStyles.Bottom | AnchorStyles.Left, Visible = false };
+        show.FlatAppearance.BorderColor = Color.FromArgb(220, 140, 255); show.Click += (s, e) => { var t = Current(); if (t != null) { Close(); runTour(t.Id); } }; Controls.Add(show);
+        var close = new Button { Text = "Close", Left = 846, Top = 596, Width = 100, Height = 34, FlatStyle = FlatStyle.Flat, BackColor = Color.FromArgb(118, 52, 212), ForeColor = Color.White, Cursor = Cursors.Hand, Anchor = AnchorStyles.Bottom | AnchorStyles.Right };
+        close.FlatAppearance.BorderColor = Color.FromArgb(190, 120, 255); close.Click += (s, e) => Close(); Controls.Add(close);
+        Fill(selectId);
+    }
+
+    HelpTopic Current() { return list.SelectedIndex >= 0 && list.SelectedIndex < shown.Count ? shown[list.SelectedIndex] : null; }
+
+    void Fill(string selectId)
+    {
+        string q = search.Text.Trim().ToLowerInvariant(); shown.Clear(); list.Items.Clear(); int sel = 0;
+        foreach (var t in HelpContent.All)
+            if (q.Length == 0 || t.Title.ToLowerInvariant().Contains(q) || t.Body.ToLowerInvariant().Contains(q) || t.Category.ToLowerInvariant().Contains(q))
+            { if (selectId != null && t.Id == selectId) sel = shown.Count; shown.Add(t); list.Items.Add(t.Title); }
+        if (shown.Count > 0) list.SelectedIndex = sel; else { view.Clear(); view.Text = "Nothing matches that. Try a shorter word."; show.Visible = false; }
+    }
+
+    void DrawItem(object s, DrawItemEventArgs e)
+    {
+        if (e.Index < 0 || e.Index >= shown.Count) return; bool sel = (e.State & DrawItemState.Selected) != 0; var t = shown[e.Index];
+        using (var b = new SolidBrush(sel ? Color.FromArgb(104, 48, 196) : Color.FromArgb(8, 4, 16))) e.Graphics.FillRectangle(b, e.Bounds);
+        bool first = e.Index == 0 || shown[e.Index - 1].Category != t.Category;
+        TextRenderer.DrawText(e.Graphics, t.Title, Font, new Rectangle(e.Bounds.X + 10, e.Bounds.Y, e.Bounds.Width - 14, e.Bounds.Height), Color.FromArgb(240, 232, 255), TextFormatFlags.VerticalCenter | TextFormatFlags.Left | TextFormatFlags.EndEllipsis);
+        if (t.HasTour) TextRenderer.DrawText(e.Graphics, "▶", new Font("Segoe UI", 8f), new Rectangle(e.Bounds.Right - 20, e.Bounds.Y, 18, e.Bounds.Height), Color.FromArgb(236, 120, 230), TextFormatFlags.VerticalCenter);
+        if (first) using (var pen = new Pen(Color.FromArgb(120, 190, 120, 255))) e.Graphics.DrawLine(pen, e.Bounds.X, e.Bounds.Y, e.Bounds.Right, e.Bounds.Y);
+    }
+
+    void ShowTopic()
+    {
+        var t = Current(); if (t == null) return; view.Clear();
+        Add(t.Category.ToUpperInvariant(), 9, true, Color.FromArgb(236, 120, 230)); Add(t.Title, 20, true, Color.FromArgb(225, 190, 255)); Add("", 6, false, Color.White);
+        int n = 0;
+        foreach (var raw in t.Body.Replace("\r\n", "\n").Split('\n'))
+        {
+            string l = raw.TrimEnd(); if (l.Trim().Length == 0) continue;
+            if (l.StartsWith("## ")) { n = 0; Add("", 4, false, Color.White); Add(l.Substring(3), 13, true, Color.FromArgb(190, 140, 255)); }
+            else if (l.Length > 2 && char.IsDigit(l[0]) && l[1] == '.') { n++; Add("  " + l, 11, false, Color.FromArgb(240, 232, 255)); }
+            else if (l.StartsWith("- ")) Add("  • " + l.Substring(2), 11, false, Color.FromArgb(240, 232, 255));
+            else if (l.StartsWith("TIP:")) Add("  Tip: " + l.Substring(4).Trim(), 11, false, Color.FromArgb(120, 230, 160));
+            else if (l.StartsWith("WARN:")) Add("  Careful: " + l.Substring(5).Trim(), 11, false, Color.FromArgb(255, 190, 90));
+            else Add(l, 11, false, Color.FromArgb(215, 205, 235));
+        }
+        view.SelectionStart = 0; view.ScrollToCaret(); show.Visible = t.HasTour && canTour(t.Id);
+    }
+
+    void Add(string text, float size, bool bold, Color c)
+    {
+        view.SelectionStart = view.TextLength; view.SelectionLength = 0; view.SelectionFont = new Font("Segoe UI", size, bold ? FontStyle.Bold : FontStyle.Regular); view.SelectionColor = c; view.AppendText(text + "\n");
+    }
+}
+
+// ----------------------------------------------------------------------
+class TourStep { public Func<Rectangle> Target; public string Title, Text; public TourStep(Func<Rectangle> t, string title, string text) { Target = t; Title = title; Text = text; } }
+
+// Dims the owner window with a glowing hole around the control being explained (you can click through the hole), plus a Next / Back card.
+class Tour
+{
+    readonly Form owner; readonly List<TourStep> steps; int idx; Form shade, card; System.Windows.Forms.Timer tm = new System.Windows.Forms.Timer { Interval = 33 }; float t; Label title, text, count; Button back, next;
+    Rectangle holeScreen;
+
+    public static void Run(Form owner, List<TourStep> steps) { if (steps.Count == 0) return; new Tour(owner, steps).Start(); }
+    Tour(Form owner, List<TourStep> steps) { this.owner = owner; this.steps = steps; }
+
+    static GraphicsPath Round(Rectangle r, int rad) { var p = new GraphicsPath(); int d = rad * 2; p.AddArc(r.X, r.Y, d, d, 180, 90); p.AddArc(r.Right - d, r.Y, d, d, 270, 90); p.AddArc(r.Right - d, r.Bottom - d, d, d, 0, 90); p.AddArc(r.X, r.Bottom - d, d, d, 90, 90); p.CloseFigure(); return p; }
+
+    void Start()
+    {
+        shade = new Form { FormBorderStyle = FormBorderStyle.None, ShowInTaskbar = false, StartPosition = FormStartPosition.Manual, BackColor = Color.Black, Opacity = 0.66, Owner = owner };
+        typeof(Form).GetProperty("DoubleBuffered", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance).SetValue(shade, true, null);
+        shade.Paint += (s, e) =>
+        {
+            var g = e.Graphics; g.SmoothingMode = SmoothingMode.AntiAlias; var h = new Rectangle(holeScreen.X - shade.Left, holeScreen.Y - shade.Top, holeScreen.Width, holeScreen.Height);
+            float pulse = (float)(Math.Sin(t * 4) * 0.5 + 0.5);
+            using (var p = Round(Rectangle.Inflate(h, 6, 6), 12))
+            {
+                using (var pen = new Pen(Color.FromArgb((int)(60 + 90 * pulse), 236, 92, 226), 14f)) g.DrawPath(pen, p);
+                using (var pen = new Pen(Color.FromArgb(255, 245, 190, 255), 2.5f)) g.DrawPath(pen, p);
+            }
+        };
+        card = new Form { FormBorderStyle = FormBorderStyle.None, ShowInTaskbar = false, StartPosition = FormStartPosition.Manual, BackColor = Color.FromArgb(18, 8, 38), Size = new Size(380, 190), Owner = owner, KeyPreview = true };
+        card.Paint += (s, e) => { using (var pen = new Pen(Color.FromArgb(220, 190, 110, 255), 2)) e.Graphics.DrawRectangle(pen, 1, 1, card.Width - 3, card.Height - 3); };
+        title = new Label { Left = 16, Top = 12, Width = 348, Height = 28, Font = new Font("Segoe UI Semibold", 13f), ForeColor = Color.FromArgb(236, 150, 235), BackColor = card.BackColor };
+        text = new Label { Left = 16, Top = 44, Width = 348, Height = 80, Font = new Font("Segoe UI", 10f), ForeColor = Color.FromArgb(240, 232, 255), BackColor = card.BackColor };
+        count = new Label { Left = 16, Top = 160, Width = 80, Height = 20, ForeColor = Color.FromArgb(160, 140, 200), BackColor = card.BackColor };
+        back = Mk("Back", 130, 148, 70, () => Go(-1)); next = Mk("Next", 206, 148, 90, () => Go(1)); var skip = Mk("Close", 302, 148, 62, () => End());
+        card.Controls.AddRange(new Control[] { title, text, count });
+        card.KeyDown += (s, e) => { if (e.KeyCode == Keys.Escape) End(); else if (e.KeyCode == Keys.Right || e.KeyCode == Keys.Enter) Go(1); else if (e.KeyCode == Keys.Left) Go(-1); };
+        owner.LocationChanged += Follow; owner.SizeChanged += Follow; owner.FormClosed += (s, e) => End();
+        tm.Tick += (s, e) => { t += 0.033f; shade.Invalidate(); }; tm.Start();
+        Show();
+    }
+
+    Button Mk(string txt, int x, int y, int w, Action a)
+    {
+        var b = new Button { Text = txt, Left = x, Top = y, Width = w, Height = 32, FlatStyle = FlatStyle.Flat, BackColor = Color.FromArgb(118, 52, 212), ForeColor = Color.White, Cursor = Cursors.Hand };
+        b.FlatAppearance.BorderColor = Color.FromArgb(190, 120, 255); b.Click += (s, e) => a(); card.Controls.Add(b); return b;
+    }
+
+    void Follow(object s, EventArgs e) { Layout(); }
+    void Go(int d) { idx += d; if (idx < 0) idx = 0; if (idx >= steps.Count) { End(); return; } Layout(); }
+
+    void Show() { Layout(); shade.Show(owner); card.Show(owner); card.Focus(); }
+
+    void Layout()
+    {
+        if (shade == null || shade.IsDisposed) return; var s = steps[idx];
+        var cr = owner.RectangleToScreen(owner.ClientRectangle); shade.Bounds = cr;
+        var tr = s.Target(); holeScreen = owner.RectangleToScreen(tr);
+        var full = new Region(new Rectangle(0, 0, cr.Width, cr.Height)); using (var p = Round(new Rectangle(holeScreen.X - cr.X - 2, holeScreen.Y - cr.Y - 2, holeScreen.Width + 4, holeScreen.Height + 4), 10)) full.Exclude(p); shade.Region = full;
+        title.Text = s.Title; text.Text = s.Text; count.Text = (idx + 1) + " of " + steps.Count; back.Enabled = idx > 0; next.Text = idx == steps.Count - 1 ? "Done" : "Next";
+        // put the card below the highlighted control if it fits, otherwise above
+        var scr = Screen.FromRectangle(cr).WorkingArea; int cx = Math.Max(scr.Left + 8, Math.Min(holeScreen.Left, scr.Right - card.Width - 8)), cy = holeScreen.Bottom + 16;
+        if (cy + card.Height > scr.Bottom - 8) cy = holeScreen.Top - card.Height - 16; if (cy < scr.Top + 8) cy = Math.Max(scr.Top + 8, holeScreen.Bottom - card.Height - 8);
+        card.Location = new Point(cx, cy); shade.Invalidate();
+    }
+
+    void End()
+    {
+        try { tm.Stop(); owner.LocationChanged -= Follow; owner.SizeChanged -= Follow; if (shade != null) shade.Close(); if (card != null) card.Close(); } catch { }
+        shade = null; card = null;
+    }
+}

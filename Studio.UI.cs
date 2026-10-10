@@ -42,7 +42,7 @@ partial class StudioForm : Form
     // browser overlay
     bool browserOpen; string browserQuery = ""; bool browserMaster; int browserTrack; float browserScroll;
     // busy overlay
-    volatile bool busy; string busyText = ""; volatile float busyPct = -1; volatile bool cancelFlag; bool busyCancelable;
+    DateTime busyStart; volatile bool busy; string busyText = ""; volatile float busyPct = -1; volatile bool cancelFlag; bool busyCancelable;
     string projPath = "", projName = "Untitled project";
     string toast = ""; DateTime toastAt = DateTime.MinValue;
     float lufsPeakHold = -120;
@@ -196,6 +196,16 @@ partial class StudioForm : Form
         }
     }
 
+    // guided tours for the studio (rectangles match the toolbar / panel layout)
+    internal void RunTour(string id)
+    {
+        var s = new List<TourStep>(); float W = ClientSize.Width;
+        if (id == "studio-start") { s.Add(new TourStep(() => new Rectangle(14, 12, 168, 46), "1. Add music", "Press ADD MUSIC and choose a song, vocal or beat. You can also drop files on this window.")); s.Add(new TourStep(() => new Rectangle(192, 12, 262, 46), "2. Split a full song", "Select the song track, then press this. The AI makes real VOCAL and INSTRUMENTAL tracks, perfectly in sync.")); s.Add(new TourStep(() => new Rectangle(14, 78, 330, 36), "3. Play", "Press PLAY (or Space). Use M and S on each track to mute or solo.")); }
+        else if (id == "studio-automix") { s.Add(new TourStep(() => new Rectangle(594, 16, 154, 38), "Pick a style", "Natural, Clean Studio, Melodic, Aggressive or Technical. The + means vocal enhancement is on.")); s.Add(new TourStep(() => new Rectangle(464, 12, 130, 46), "Press AUTO MIX", "It balances levels, builds a chain per track and lists every change. Undo mix reverts it.")); }
+        else if (id == "studio-export") { s.Add(new TourStep(() => new Rectangle((int)W - 126, 12, 112, 46), "Export", "Choose the finished mix, vocals only, instrumental, dry versions or stems, in WAV, FLAC or MP3.")); s.Add(new TourStep(() => new Rectangle((int)W - 392, 16, 80, 38), "Save your project", "Save keeps tracks, plugin settings and alignment so you can reopen it later.")); }
+        if (s.Count > 0) Tour.Run(this, s);
+    }
+
     internal void Toast(string s) { toast = s; toastAt = DateTime.Now; }
 
     // ---------------- toolbar ----------------
@@ -212,6 +222,7 @@ partial class StudioForm : Form
         Btn(g, Rc(x, y + 4, 76, h - 8), "Undo mix", 0, () => { if (AutoMix.LastSnapshot != null) { AutoMix.Undo(eng); Toast("Auto Mix undone"); } }, 13);
         float rx = ClientSize.Width - 14;
         rx -= 112; Btn(g, Rc(rx, y, 112, h), "EXPORT", 1, () => ExportClick(), 16);
+        rx -= 70; Btn(g, Rc(rx, y + 4, 64, h - 8), "Help", 2, () => app.ShowHelp(null), 14);
         rx -= 86; Btn(g, Rc(rx, y + 4, 80, h - 8), "Open", 0, () => OpenClick(), 14);
         rx -= 86; Btn(g, Rc(rx, y + 4, 80, h - 8), "Save", 0, () => SaveClick(false), 14);
         Txt(g, projName, 13, DimC, Rc(rx - 210, y, 200, h), StringAlignment.Far, false);
@@ -309,7 +320,7 @@ partial class StudioForm : Form
         var wr = new HitReg { R = Rc(HeadW, top, tl.Width, ClientSize.Height - top) };
         wr.OnWheel = d =>
         {
-            if ((ModifierKeys & Keys.Control) != 0) { double f = d > 0 ? 0.8 : 1.25; double cur = scroll + (MousePos.X - HeadW) * spp; spp = Math.Max(2, Math.Min(20000, spp * f)); scroll = Math.Max(0, (long)(cur - (MousePos.X - HeadW) * spp)); }
+            if ((ModifierKeys & Keys.Control) != 0) { double f = d > 0 ? 0.8 : 1.25; double cur = scroll + (MousePos.X - HeadW) * spp; spp = Math.Max(2, Math.Min(Math.Max(20000.0, eng.EndFrame / 200.0), spp * f)); scroll = Math.Max(0, (long)(cur - (MousePos.X - HeadW) * spp)); }
             else if ((ModifierKeys & Keys.Shift) != 0) scroll = Math.Max(0, scroll - (long)(d * 0.5 * tl.Width * spp / 10));
             else vscroll = Math.Max(0, Math.Min(Math.Max(0, n * LaneH - (ClientSize.Height - top - RulerH - 20)), vscroll - d * 40));
         };
@@ -319,14 +330,14 @@ partial class StudioForm : Form
 
     void PaintRuler(Graphics g, RectangleF r)
     {
-        double[] steps = { 0.1, 0.25, 0.5, 1, 2, 5, 10, 15, 30, 60, 120, 300 }; double secPerPx = spp / StudioEngine.SR, want = 90 * secPerPx, major = 300;
+        double[] steps = { 0.1, 0.25, 0.5, 1, 2, 5, 10, 15, 30, 60, 120, 300, 600, 900, 1800, 3600 }; double secPerPx = spp / StudioEngine.SR, want = 90 * secPerPx, major = 3600;
         foreach (var s in steps) if (s >= want) { major = s; break; }
         double t0 = scroll / (double)StudioEngine.SR, first = Math.Floor(t0 / major) * major;
         using (var pen = new Pen(Color.FromArgb(120, 190, 140, 255)))
             for (double s = first; ; s += major)
             {
                 float x = r.X + (float)((s - t0) / secPerPx); if (x > r.Right) break; if (x < r.X) continue;
-                g.DrawLine(pen, x, r.Bottom - 10, x, r.Bottom); Txt(g, Fmt(s).Substring(0, s >= 60 || major >= 1 ? 5 : 8), 11, DimC, Rc(x + 3, r.Y + 2, 60, 16), StringAlignment.Near, false);
+                g.DrawLine(pen, x, r.Bottom - 10, x, r.Bottom); Txt(g, major >= 1 ? ((int)(s / 60)) + ":" + ((int)(s % 60)).ToString("00") : Fmt(s).Substring(0, 8), 11, DimC, Rc(x + 3, r.Y + 2, 60, 16), StringAlignment.Near, false);
             }
     }
 
@@ -366,8 +377,8 @@ partial class StudioForm : Form
         Btn(g, Rc(r.Right - 30, r.Y + 7, 22, 22), "x", 3, () => RemoveTrack(tk), 13);
         Reg(Rc(r.X + 4, r.Y + 4, 150, 26), () => { selTrack = ti; selFx = -1; });
         // M / S
-        Btn(g, Rc(r.X + 12, r.Y + 36, 34, 28), "M", tk.Mute ? 4 : 0, () => tk.Mute = !tk.Mute, 14);
-        Btn(g, Rc(r.X + 52, r.Y + 36, 34, 28), "S", tk.Solo ? 4 : 0, () => tk.Solo = !tk.Solo, 14);
+        Btn(g, Rc(r.X + 12, r.Y + 36, 34, 28), "M", tk.Mute ? 4 : 0, () => ToggleMute(tk), 14);
+        Btn(g, Rc(r.X + 52, r.Y + 36, 34, 28), "S", tk.Solo ? 4 : 0, () => ToggleSolo(tk), 14);
         // add effect + count
         Btn(g, Rc(r.X + 94, r.Y + 36, 112, 28), "+ Add Effect" + (tk.Fx.Count > 0 ? " (" + tk.Fx.Count + ")" : ""), 1, () => OpenBrowser(false, ti), 12);
         // fader
@@ -526,6 +537,7 @@ partial class StudioForm : Form
             return base.ProcessCmdKey(ref msg, k);
         }
         if (busy) return base.ProcessCmdKey(ref msg, k);
+        if (k == Keys.F1) { app.ShowHelp(null); return true; }
         if (k == Keys.Space) { if (eng.Playing) eng.Pause(); else PlayGuard(); return true; }
         if (k == Keys.Home) { eng.Seek(0); scroll = 0; return true; }
         if (k == (Keys.Control | Keys.S)) { SaveClick(false); return true; }

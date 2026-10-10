@@ -17,40 +17,76 @@ static class StudioEnv
     public static string DataDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "YtToMp3");
 }
 
-// ---------------- audio clip (always 44.1 kHz stereo float in memory) ----------------
+// ---------------- audio clip (44.1 kHz stereo float in memory; decoded as a stream so very long files work) ----------------
 class AudioClip
 {
-    public float[] L, R; public string Path = "", Name = "";
-    public int Length { get { return L == null ? 0 : L.Length; } }
+    public float[] L, R; public string Path = "", Name = ""; int len;
+    public int Length { get { return len; } }
+    public bool Loaded { get { return L != null; } }
     const int Bin = 256; float[] pmin, pmax;
 
-    public static AudioClip FromFile(string path)
+    public static double ProbeSeconds(string path)
+    {
+        try
+        {
+            string fp = StudioEnv.Ffprobe == null ? null : StudioEnv.Ffprobe(); if (fp == null) return 0;
+            var psi = new ProcessStartInfo(fp, "-v error -show_entries format=duration -of csv=p=0 \"" + path + "\"") { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true };
+            using (var p = Process.Start(psi))
+            {
+                string s = p.StandardOutput.ReadToEnd().Trim(); p.WaitForExit(); double d;
+                return double.TryParse(s.Split(new[] { ',', '\r', '\n' })[0], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out d) ? d : 0;
+            }
+        }
+        catch { return 0; }
+    }
+
+    // Streams ffmpeg's output straight into the sample arrays: no 2 GB buffer limit, progress and cancel supported.
+    public static AudioClip FromFile(string path, Action<float> progress = null, Func<bool> cancelled = null)
     {
         string ff = StudioEnv.Ffmpeg();
         if (ff == null) throw new Exception("ffmpeg isn't installed yet. Convert something once in the main window first (it installs ffmpeg).");
+        double dur = ProbeSeconds(path); long expect = dur > 0 ? (long)(dur * 44100.0) + 8820 : 0;
+        int cap = (int)Math.Max(44100L * 5, Math.Min(expect, int.MaxValue - 8192));
+        var l = new float[cap]; var r = new float[cap]; int count = 0;
         var psi = new ProcessStartInfo(ff, "-v error -i \"" + path + "\" -vn -ac 2 -ar 44100 -f f32le -")
         { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true };
-        var ms = new MemoryStream();
         string err = "";
         using (var p = Process.Start(psi))
         {
             var et = new Thread(() => { try { err = p.StandardError.ReadToEnd(); } catch { } }) { IsBackground = true };
             et.Start();
-            p.StandardOutput.BaseStream.CopyTo(ms);
+            var stream = p.StandardOutput.BaseStream; var buf = new byte[1 << 18]; var fb = new float[buf.Length / 4]; int carry = 0, read;
+            while ((read = stream.Read(buf, carry, buf.Length - carry)) > 0)
+            {
+                if (cancelled != null && cancelled()) { try { p.Kill(); } catch { } throw new Exception("Cancelled."); }
+                int total = carry + read, frames = total / 8;
+                if (count + frames > l.Length)
+                {
+                    long nc = Math.Min((long)int.MaxValue - 8192, Math.Max((long)l.Length * 3 / 2, (long)count + frames));
+                    if (nc < (long)count + frames) throw new Exception("That file is too long to load (limit about 13 hours).");
+                    Array.Resize(ref l, (int)nc); Array.Resize(ref r, (int)nc);
+                }
+                Buffer.BlockCopy(buf, 0, fb, 0, frames * 8);
+                for (int i = 0; i < frames; i++) { l[count + i] = fb[i * 2]; r[count + i] = fb[i * 2 + 1]; }
+                count += frames; carry = total - frames * 8; if (carry > 0) Buffer.BlockCopy(buf, frames * 8, buf, 0, carry);
+                if (progress != null && expect > 0) progress(Math.Min(1f, count / (float)expect));
+            }
             p.WaitForExit(); et.Join(2000);
-            if (p.ExitCode != 0 || ms.Length < 8) throw new Exception("Couldn't read that audio file." + (err.Length > 0 ? "\n" + err.Trim() : ""));
+            if (p.ExitCode != 0 || count < 1) throw new Exception("Couldn't read that audio file." + (err.Length > 0 ? "\n" + err.Trim() : ""));
         }
-        byte[] b = ms.GetBuffer(); int frames = (int)(ms.Length / 8);
-        var c = new AudioClip { L = new float[frames], R = new float[frames], Path = path, Name = System.IO.Path.GetFileNameWithoutExtension(path) };
-        for (int i = 0; i < frames; i++) { c.L[i] = BitConverter.ToSingle(b, i * 8); c.R[i] = BitConverter.ToSingle(b, i * 8 + 4); }
+        var c = new AudioClip { L = l, R = r, len = count, Path = path, Name = System.IO.Path.GetFileNameWithoutExtension(path) };
         c.BuildPeaks();
         return c;
     }
 
     public static AudioClip FromArrays(float[] l, float[] r, string name)
     {
-        var c = new AudioClip { L = l, R = r, Name = name }; c.BuildPeaks(); return c;
+        var c = new AudioClip { L = l, R = r, len = l.Length, Name = name }; c.BuildPeaks(); return c;
     }
+
+    // Frees the sample memory but keeps the waveform overview, so long songs don't hog RAM once they've been split.
+    public void Unload() { if (pmin != null) { L = null; R = null; } }
+    public void Reload(Action<float> progress, Func<bool> cancelled) { var c = FromFile(Path, progress, cancelled); L = c.L; R = c.R; len = c.len; }
 
     public void BuildPeaks()
     {
@@ -70,13 +106,14 @@ class AudioClip
     // min / max per pixel for waveform drawing. start/spp in frames (start may be negative).
     public void GetPeaks(long start, double spp, int pixels, float[] mn, float[] mx)
     {
+        bool direct = L != null;
         for (int p = 0; p < pixels; p++)
         {
             long a = start + (long)(p * spp), b = start + (long)((p + 1) * spp); if (b <= a) b = a + 1;
             if (b <= 0 || a >= Length) { mn[p] = 0; mx[p] = 0; continue; }
             if (a < 0) a = 0; if (b > Length) b = Length;
             float lo = 1e9f, hi = -1e9f;
-            if (b - a >= Bin * 2)
+            if (b - a >= Bin * 2 || !direct)
             {
                 int ba = (int)(a / Bin), bb = (int)((b + Bin - 1) / Bin);
                 for (int k = ba; k < bb && k < pmin.Length; k++) { if (pmin[k] < lo) lo = pmin[k]; if (pmax[k] > hi) hi = pmax[k]; }
@@ -91,46 +128,58 @@ class AudioClip
         }
     }
 }
-
-// ---------------- WAV writer (16 / 24 / 32-bit float) ----------------
-static class WavIO
+// ---------------- WAV writer (16 / 24 / 32-bit float), streaming so any length works up to the 4 GB WAV limit ----------------
+class WavStream : IDisposable
 {
-    public static void Write(string path, float[] l, float[] r, int sr, int bits)
+    FileStream f; BinaryWriter w; readonly int bits, bytes; long dataLen; readonly Random rnd = new Random(1); readonly byte[] buf; int bi;
+
+    public WavStream(string path, int sr, int bits)
     {
-        int n = l.Length, bytes = bits / 8, dataLen = n * 2 * bytes;
-        using (var f = new FileStream(path, FileMode.Create, FileAccess.Write))
-        using (var w = new BinaryWriter(f))
+        this.bits = bits; bytes = bits / 8; buf = new byte[4096 * 2 * bytes + 16];
+        f = new FileStream(path, FileMode.Create, FileAccess.Write); w = new BinaryWriter(f);
+        w.Write(new[] { 'R', 'I', 'F', 'F' }); w.Write(0); w.Write(new[] { 'W', 'A', 'V', 'E', 'f', 'm', 't', ' ' });
+        w.Write(16); w.Write((short)(bits == 32 ? 3 : 1)); w.Write((short)2); w.Write(sr); w.Write(sr * 2 * bytes); w.Write((short)(2 * bytes)); w.Write((short)bits);
+        w.Write(new[] { 'd', 'a', 't', 'a' }); w.Write(0);
+    }
+
+    public void Write(float[] l, float[] r, int off, int n)
+    {
+        for (int i = off; i < off + n; i++)
         {
-            w.Write(new[] { 'R', 'I', 'F', 'F' }); w.Write(36 + dataLen); w.Write(new[] { 'W', 'A', 'V', 'E', 'f', 'm', 't', ' ' });
-            w.Write(16); w.Write((short)(bits == 32 ? 3 : 1)); w.Write((short)2); w.Write(sr); w.Write(sr * 2 * bytes); w.Write((short)(2 * bytes)); w.Write((short)bits);
-            w.Write(new[] { 'd', 'a', 't', 'a' }); w.Write(dataLen);
-            var rnd = new Random(1); var buf = new byte[4096 * 2 * bytes]; int bi = 0;
-            for (int i = 0; i < n; i++)
+            for (int c = 0; c < 2; c++)
             {
-                for (int c = 0; c < 2; c++)
+                float x = c == 0 ? l[i] : r[i];
+                if (bits == 32) { var bb = BitConverter.GetBytes(x); Buffer.BlockCopy(bb, 0, buf, bi, 4); bi += 4; }
+                else if (bits == 24)
                 {
-                    float x = c == 0 ? l[i] : r[i];
-                    if (bits == 32) { var bb = BitConverter.GetBytes(x); Buffer.BlockCopy(bb, 0, buf, bi, 4); bi += 4; }
-                    else if (bits == 24)
-                    {
-                        double d = (rnd.NextDouble() - rnd.NextDouble()) / 8388608.0;   // TPDF dither (~1 LSB)
-                        int v = (int)Math.Round(Math.Max(-1, Math.Min(0.9999999, x + d)) * 8388607.0);
-                        buf[bi++] = (byte)v; buf[bi++] = (byte)(v >> 8); buf[bi++] = (byte)(v >> 16);
-                    }
-                    else
-                    {
-                        double d = (rnd.NextDouble() - rnd.NextDouble()) / 32768.0;
-                        int v = (int)Math.Round(Math.Max(-1, Math.Min(0.99997, x + d)) * 32767.0);
-                        buf[bi++] = (byte)v; buf[bi++] = (byte)(v >> 8);
-                    }
+                    double d = (rnd.NextDouble() - rnd.NextDouble()) / 8388608.0;   // TPDF dither (~1 LSB)
+                    int v = (int)Math.Round(Math.Max(-1, Math.Min(0.9999999, x + d)) * 8388607.0);
+                    buf[bi++] = (byte)v; buf[bi++] = (byte)(v >> 8); buf[bi++] = (byte)(v >> 16);
                 }
-                if (bi >= buf.Length - 8) { w.Write(buf, 0, bi); bi = 0; }
+                else
+                {
+                    double d = (rnd.NextDouble() - rnd.NextDouble()) / 32768.0;
+                    int v = (int)Math.Round(Math.Max(-1, Math.Min(0.99997, x + d)) * 32767.0);
+                    buf[bi++] = (byte)v; buf[bi++] = (byte)(v >> 8);
+                }
             }
-            if (bi > 0) w.Write(buf, 0, bi);
+            if (bi >= buf.Length - 16) { w.Write(buf, 0, bi); dataLen += bi; bi = 0; }
         }
+    }
+
+    public void Dispose()
+    {
+        if (f == null) return;
+        if (bi > 0) { w.Write(buf, 0, bi); dataLen += bi; bi = 0; }
+        long d = Math.Min(dataLen, 0xFFFFFFF0L - 36);
+        f.Seek(4, SeekOrigin.Begin); w.Write((uint)(36 + d)); f.Seek(40, SeekOrigin.Begin); w.Write((uint)d); w.Close(); f = null;
     }
 }
 
+static class WavIO
+{
+    public static void Write(string path, float[] l, float[] r, int sr, int bits) { using (var s = new WavStream(path, sr, bits)) s.Write(l, r, 0, l.Length); }
+}
 // ---------------- loudness (ITU-R BS.1770 / EBU R128) ----------------
 class KWeight
 {
@@ -366,7 +415,7 @@ class StudioEngine
             for (int i = 0; i < n; i++)
             {
                 long idx = pos + i - voc.Offset; int w = (int)((pos + i) & (scRL.Length - 1));
-                scRL[w] = (idx >= 0 && idx < voc.Clip.Length) ? voc.Clip.L[idx] : 0; scRR[w] = (idx >= 0 && idx < voc.Clip.Length) ? voc.Clip.R[idx] : 0;
+                scRL[w] = (voc.Clip.L != null && idx >= 0 && idx < voc.Clip.Length) ? voc.Clip.L[idx] : 0; scRR[w] = (voc.Clip.L != null && idx >= 0 && idx < voc.Clip.Length) ? voc.Clip.R[idx] : 0;
             }
 
         foreach (var t in list)
@@ -376,7 +425,7 @@ class StudioEngine
             for (int i = 0; i < n; i++)
             {
                 long idx = pos + i - t.Offset;
-                if (idx >= 0 && idx < t.Clip.Length) { t.tl[i] = t.Clip.L[idx]; t.tr[i] = t.Clip.R[idx]; } else { t.tl[i] = 0; t.tr[i] = 0; }
+                if (t.Clip.L != null && idx >= 0 && idx < t.Clip.Length) { t.tl[i] = t.Clip.L[idx]; t.tr[i] = t.Clip.R[idx]; } else { t.tl[i] = 0; t.tr[i] = 0; }
             }
             if (meters) PushTap(t.TapPre, t, false, t.tl, t.tr, n);
             int latSoFar = 0;
@@ -511,30 +560,34 @@ class StudioEngine
 
     public void Render(long start, long frames, RenderOpts o, Action<float> prog, out float[] oL, out float[] oR)
     {
-        bool wasPlaying = Playing; Playing = false;
+        var L = new float[frames]; var R = new float[frames]; long w = 0;
+        RenderStream(start, frames, o, prog, (bl, br, off, n) => { Array.Copy(bl, off, L, w, n); Array.Copy(br, off, R, w, n); w += n; }, null);
+        oL = L; oR = R;
+    }
+
+    // Renders in small blocks and hands each one to `sink` (so exports of very long songs use almost no memory).
+    // The first `latency` frames are plugin delay and are dropped, which keeps every stem sample-aligned with the timeline.
+    public void RenderStream(long start, long frames, RenderOpts o, Action<float> prog, Action<float[], float[], int, int> sink, Func<bool> cancelled)
+    {
+        Playing = false;
         lock (Sync)
         {
             ResetStates();
-            int lat = RenderLatency(o); long total = frames + lat;
-            oL = new float[frames]; oR = new float[frames];
-            float[] bl = new float[2048], br = new float[2048]; long done = 0;
-            // state of the plugins starts clean; the first `lat` frames are plugin delay and are discarded
-            while (done < total)
+            int lat = RenderLatency(o); long total = frames + lat, done = 0, emitted = 0; float[] bl = new float[4096], br = new float[4096];
+            while (done < total && emitted < frames)
             {
-                int n = (int)Math.Min(2048, total - done);
+                if (cancelled != null && cancelled()) break;
+                int n = (int)Math.Min(4096, total - done);
                 Mix(start + done, n, o, bl, br, false, 0);
-                for (int i = 0; i < n; i++)
-                {
-                    long dst = done + i - lat; if (dst >= 0 && dst < frames) { oL[dst] = bl[i]; oR[dst] = br[i]; }
-                }
-                done += n; if (prog != null && (done & 0x3FFFF) < 2048) prog((float)done / total);
+                int skip = (int)Math.Max(0, Math.Min(n, lat - done)), cnt = (int)Math.Min(n - skip, frames - emitted);
+                if (cnt > 0) { sink(bl, br, skip, cnt); emitted += cnt; }
+                done += n; if (prog != null) prog((float)Math.Min(1.0, (double)done / total));
             }
             ResetStates(); Lufs.Reset();
         }
         Playing = false;   // exporting / analysing always leaves the transport stopped
     }
 }
-
 // ---------------- winmm output ----------------
 class WaveOutPlayer : IDisposable
 {

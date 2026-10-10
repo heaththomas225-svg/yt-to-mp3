@@ -20,7 +20,7 @@ partial class StudioForm
     void RunBusy(string text, bool cancelable, Action<Action<float>> work, Action<bool> done)
     {
         if (busy) return;
-        eng.Pause(); busy = true; busyText = text; busyPct = -1; cancelFlag = false; busyCancelable = cancelable;
+        eng.Pause(); busy = true; busyText = text; busyPct = -1; cancelFlag = false; busyCancelable = cancelable; busyStart = DateTime.Now;
         new Thread(() =>
         {
             bool ok = true;
@@ -42,6 +42,8 @@ partial class StudioForm
         float p = busyPct;
         if (p >= 0) { float f = Clamp01(p); if (f > 0.01f) using (var br = new LinearGradientBrush(bar, Violet, Accent2, 0f)) using (var pth = RR(Rc(bar.X, bar.Y, bar.Width * f, bar.Height), 7)) g.FillPath(br, pth); }
         else { float cx = bar.X + (float)((t * 0.7) % 1.0) * (bar.Width - 90); using (var br = new LinearGradientBrush(Rc(cx, bar.Y, 90, bar.Height), Violet, Accent2, 0f)) using (var pth = RR(Rc(cx, bar.Y, 90, bar.Height), 7)) g.FillPath(br, pth); }
+        double el = (DateTime.Now - busyStart).TotalSeconds; string eta = (p > 0.03f && p < 0.99f) ? "about " + FmtEta(el * (1 - p) / p) + " left" : (el > 2 ? "working for " + FmtEta(el) : "");
+        Txt(g, eta, 13, DimC, Rc(x + 30, y + 96, w - 60, 20), StringAlignment.Center, false);
         if (busyCancelable) Btn(g, Rc(x + w / 2 - 60, y + h - 50, 120, 34), "Cancel", 3, () => { cancelFlag = true; busyText = "Cancelling..."; }, 14);
     }
 
@@ -67,7 +69,7 @@ partial class StudioForm
     internal void ImportFile(string path, string role)
     {
         AudioClip clip = null;
-        RunBusy("Loading " + Path.GetFileName(path) + "...", false, p => { clip = AudioClip.FromFile(path); }, ok =>
+        RunBusy("Loading " + Path.GetFileName(path) + "...", true, p => { clip = AudioClip.FromFile(path, p, () => cancelFlag); }, ok =>
         {
             if (!ok || clip == null) return;
             string nm = role == "vocal" ? "Vocals" : (role == "beat" ? "Instrumental" : clip.Name);
@@ -107,6 +109,7 @@ partial class StudioForm
             if (!ok || vc == null || ic == null) return;
             var tv = StudioEngine.NewTrack("Vocals", "vocal", vc); var tb = StudioEngine.NewTrack("Instrumental", "beat", ic); tv.Offset = off; tb.Offset = off;
             st.Mute = true; if (!st.Name.EndsWith("(original)")) st.Name += " (original)";
+            if (st.Clip != null && st.Clip.Length > StudioEngine.SR * 600) st.Clip.Unload();   // long originals leave memory; reloaded if you un-mute them
             lock (eng.Sync) { eng.Tracks.Add(tv); eng.Tracks.Add(tb); } selTrack = eng.Tracks.Count - 2; selFx = -1;
             Toast("Separated: vocals and instrumental are ready, perfectly in sync. Stems saved in " + outDir);
         });
@@ -154,7 +157,7 @@ partial class StudioForm
             for (int i = 0; i < n; i++)
             {
                 if (cancelFlag) throw new Exception("Export cancelled."); int ii = i; busyText = "Exporting " + (i + 1) + " of " + n + ": " + plan[i].Label;
-                done.Add(Exporter.Write(eng, plan[i], s.Dir, s.Fmt, p => prog((ii + p) / n)));
+                done.Add(Exporter.Write(eng, plan[i], s.Dir, s.Fmt, p => prog((ii + p) / n), () => cancelFlag));
             }
         }, ok =>
         {
@@ -190,6 +193,20 @@ partial class StudioForm
             if (!ok) return; projPath = path; projName = Path.GetFileNameWithoutExtension(path); selTrack = 0; selFx = -1; FitView();
             if (warn != null && warn.Count > 0) MessageBox.Show(this, string.Join("\n", warn.ToArray()), "Some audio files are missing"); else Toast("Project opened");
         });
+    }
+
+    static string FmtEta(double s) { if (s < 90) return (int)s + " s"; if (s < 5400) return (int)Math.Ceiling(s / 60) + " min"; return (s / 3600).ToString("0.0", CultureInfo.InvariantCulture) + " h"; }
+
+    // A long original that was unloaded after separation is read back from disk when you un-mute / solo it.
+    void ToggleMute(Track tk)
+    {
+        if (tk.Mute && tk.Clip != null && !tk.Clip.Loaded) { RunBusy("Loading " + tk.Name + " back into memory...", true, p => tk.Clip.Reload(p, () => cancelFlag), ok => { if (ok) tk.Mute = false; }); return; }
+        tk.Mute = !tk.Mute;
+    }
+    void ToggleSolo(Track tk)
+    {
+        if (!tk.Solo && tk.Clip != null && !tk.Clip.Loaded) { RunBusy("Loading " + tk.Name + " back into memory...", true, p => tk.Clip.Reload(p, () => cancelFlag), ok => { if (ok) tk.Solo = true; }); return; }
+        tk.Solo = !tk.Solo;
     }
 
     internal string Ask(string prompt, string def) { return StudioDialogs.Ask(this, prompt, def); }

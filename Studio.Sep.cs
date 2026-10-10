@@ -130,25 +130,70 @@ try:
     model = get_model('htdemucs'); model.eval()
 except Exception as e:
     print('ERR|startup: %s' % e, flush=True); sys.exit(1)
+SR = model.samplerate
+VI = model.sources.index('vocals')
+
+def run_model(wav, overlap, show):
+    ref = wav.mean(0); sd = ref.std() + 1e-8; wav = (wav - ref.mean()) / sd
+    with torch.no_grad():
+        out = apply_model(model, wav[None], device='cpu', shifts=1, split=True, overlap=overlap, progress=show, num_workers=0)[0]
+    out = out * sd + ref.mean()
+    v = out[VI]; i = out.sum(0) - v
+    return v.cpu().numpy().T, i.cpu().numpy().T
+
+def read(inp, start, dur):
+    kw = dict(streams=0, samplerate=SR, channels=model.audio_channels)
+    if start is not None:
+        kw['seek_time'] = start; kw['duration'] = dur
+    return AudioFile(inp).read(**kw)
+
+def open_wav(path, big):
+    return sf.SoundFile(path, 'w', samplerate=SR, channels=2, subtype='FLOAT', format='RF64' if big else 'WAV')
+
 print('READY', flush=True)
 for line in sys.stdin:
     line = line.strip()
     if not line.startswith('JOB|'): continue
     try:
-        _, inp, outdir, overlap = line.split('|', 3)
-        wav = AudioFile(inp).read(streams=0, samplerate=model.samplerate, channels=model.audio_channels)
-        ref = wav.mean(0); sd = ref.std() + 1e-8; wav = (wav - ref.mean()) / sd
-        with torch.no_grad():
-            out = apply_model(model, wav[None], device='cpu', shifts=1, split=True, overlap=float(overlap), progress=True, num_workers=0)[0]
-        out = out * sd + ref.mean()
-        vi = model.sources.index('vocals'); vocals = out[vi]; inst = out.sum(0) - vocals
+        _, inp, outdir, overlap, dur, chunk = line.split('|', 5)
+        overlap = float(overlap); total = float(dur); CH = float(chunk)
         os.makedirs(outdir, exist_ok=True)
-        sf.write(os.path.join(outdir, 'vocals.wav'), vocals.cpu().numpy().T, model.samplerate, subtype='FLOAT')
-        sf.write(os.path.join(outdir, 'no_vocals.wav'), inst.cpu().numpy().T, model.samplerate, subtype='FLOAT')
+        vp = os.path.join(outdir, 'vocals.wav'); ip = os.path.join(outdir, 'no_vocals.wav')
+        if CH <= 0 or total <= 0 or total <= CH * 1.3:
+            v, i = run_model(read(inp, None, None), overlap, True)
+            sf.write(vp, v, SR, subtype='FLOAT'); sf.write(ip, i, SR, subtype='FLOAT')
+        else:
+            # long song: process it in chunks with a crossfaded overlap, writing as we go, so memory stays small
+            OV = 4.0; ovn = int(OV * SR); big = total > 2400
+            wv = open_wav(vp, big); wi = open_wav(ip, big)
+            pos = 0.0; tail_v = None; tail_i = None; first = True
+            while True:
+                d = min(CH, total - pos)
+                if total - (pos + d) < 2 * OV: d = total - pos
+                last = (pos + d >= total - 0.01)
+                v, i = run_model(read(inp, pos, d), overlap, False)
+                n = v.shape[0]
+                if first:
+                    cut = n if last else n - ovn
+                    wv.write(v[:cut]); wi.write(i[:cut])
+                else:
+                    k = min(ovn, n, tail_v.shape[0])
+                    w = np.linspace(0.0, 1.0, k, dtype=np.float32)[:, None]
+                    wv.write(tail_v[:k] * (1 - w) + v[:k] * w); wi.write(tail_i[:k] * (1 - w) + i[:k] * w)
+                    cut = n if last else n - ovn
+                    if cut > k:
+                        wv.write(v[k:cut]); wi.write(i[k:cut])
+                if not last:
+                    tail_v = v[n - ovn:]; tail_i = i[n - ovn:]
+                first = False
+                sys.stderr.write('%d%%|\n' % int(min(99, (pos + d) / total * 100))); sys.stderr.flush()
+                if last: break
+                pos += d - OV
+            wv.close(); wi.close()
         print('DONE|ok', flush=True)
     except Exception as e:
         print('ERR|%s' % e, flush=True)
-";
+";    public static int ChunkOverride;   // seconds; for tests (0 = automatic: chunks of 240 s for songs over 10 minutes)
     static Process wproc; static StreamWriter win; static volatile bool wready; static volatile string wresult; static volatile Action<float> wprog;
     static DateTime wlast = DateTime.Now; static volatile bool wbusy; static readonly object wlock = new object(); static System.Threading.Timer idleTimer;
     static readonly Regex PctRx = new Regex(@"(\d+)%\|");
@@ -183,6 +228,8 @@ for line in sys.stdin:
         lock (wlock) { try { if (wproc != null && !wproc.HasExited) Kill(wproc); } catch { } wproc = null; wready = false; }
     }
 
+    static void MoveOver(string from, string to) { try { if (File.Exists(to)) File.Delete(to); File.Move(from, to); } catch { File.Copy(from, to, true); } }
+
     // 1 = ok, 0 = worker unusable (caller falls back), -1 = cancelled
     static int SeparateWorker(string input, string outDir, string baseName, Action<string> log, Action<float> prog, Func<bool> cancelled, out string vocalsPath, out string instPath)
     {
@@ -199,7 +246,8 @@ for line in sys.stdin:
                 Thread.Sleep(100);
             }
             wbusy = true; wresult = null; wprog = prog; Directory.CreateDirectory(outDir);
-            win.WriteLine("JOB|" + input + "|" + tmp + "|0.1"); win.Flush();
+            double dur = AudioClip.ProbeSeconds(input); if (dur > 600) log("Long song (" + (int)(dur / 60) + " min): processing it in chunks to keep memory low.");
+            win.WriteLine("JOB|" + input + "|" + tmp + "|0.1|" + dur.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture) + "|" + (ChunkOverride > 0 ? ChunkOverride : (dur > 600 ? 240 : 0))); win.Flush();
             while (wresult == null)
             {
                 if (cancelled()) { KillWorker(); return -1; }
@@ -211,7 +259,7 @@ for line in sys.stdin:
             string v = Path.Combine(tmp, "vocals.wav"), i = Path.Combine(tmp, "no_vocals.wav");
             if (!File.Exists(v) || !File.Exists(i)) return 0;
             vocalsPath = Path.Combine(outDir, baseName + " - vocals.wav"); instPath = Path.Combine(outDir, baseName + " - instrumental.wav");
-            File.Copy(v, vocalsPath, true); File.Copy(i, instPath, true); prog(1f); return 1;
+            MoveOver(v, vocalsPath); MoveOver(i, instPath); prog(1f); return 1;
         }
         catch (Exception ex) { log("Worker error: " + ex.Message); return 0; }
         finally { wbusy = false; wprog = null; try { if (Directory.Exists(tmp)) Directory.Delete(tmp, true); } catch { } }
