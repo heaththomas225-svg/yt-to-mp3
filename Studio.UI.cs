@@ -127,7 +127,7 @@ partial class StudioForm : Form
     }
     protected override void WndProc(ref Message m)
     {
-        if (m.Msg == 0x231) moving = true; else if (m.Msg == 0x232) moving = false;
+        Win.TrackMove(ref m); if (m.Msg == 0x231) moving = true; else if (m.Msg == 0x232) moving = false;
         base.WndProc(ref m);
     }
 
@@ -206,7 +206,17 @@ partial class StudioForm : Form
     static string Db(double v) { return double.IsNaN(v) || v < -99 ? "-inf" : v.ToString("0.0", CultureInfo.InvariantCulture); }
 
     // ---------------- main paint ----------------
+    int paintErrors;
     protected override void OnPaint(PaintEventArgs e)
+    {
+        // Background jobs (Auto Mix, separation, presets) change the track and effect lists while we draw; a stale index must never reach the user as a crash.
+        try { PaintAll(e); }
+        catch (ArgumentOutOfRangeException) { paintErrors++; }
+        catch (InvalidOperationException) { paintErrors++; }
+        catch (NullReferenceException) { paintErrors++; }
+    }
+
+    void PaintAll(PaintEventArgs e)
     {
         var g = e.Graphics; g.SmoothingMode = SmoothingMode.AntiAlias; g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
         regs.Clear();
@@ -481,13 +491,14 @@ partial class StudioForm : Form
         using (var pen = new Pen(Edge)) g.DrawLine(pen, x, y, x, y + h);
         Reg(pr, () => { });
         if (eng.Tracks.Count == 0) { Txt(g, "Select a track to edit its plugins", 14, DimC, pr, StringAlignment.Center, false); return; }
-        var tr = eng.Tracks[Math.Min(selTrack, eng.Tracks.Count - 1)];
+        var tr = eng.Tracks[Math.Max(0, Math.Min(selTrack, eng.Tracks.Count - 1))];
         Txt(g, "Plugins: " + tr.Name, 16, Ink, Rc(x + 14, y + 8, w - 28, 26), StringAlignment.Near, true);
-        float ly = y + 40 - panelScroll; int n = tr.Fx.Count; g.SetClip(Rc(x, y + 36, w, h - 36));
+        Fx[] fxs; lock (eng.Sync) fxs = tr.Fx.ToArray();
+        float ly = y + 40 - panelScroll; int n = fxs.Length; g.SetClip(Rc(x, y + 36, w, h - 36));
         if (selFx >= n) selFx = -1;
         for (int i = 0; i < n; i++, ly += 32)
         {
-            var f = tr.Fx[i]; int fi = i; bool sel = i == selFx;
+            var f = fxs[i]; int fi = i; bool sel = i == selFx;
             var row = Rc(x + 10, ly, w - 20, 28); FillRR(g, sel ? Color.FromArgb(200, 80, 40, 150) : Color.FromArgb(150, 40, 22, 74), row, 6); if (sel) StrokeRR(g, Accent, row, 6, 1.2f);
             Reg(row, () => selFx = fi);
             var dotr = Rc(row.X + 8, row.Y + 7, 14, 14); using (var b = new SolidBrush(f.Bypass ? Color.FromArgb(90, 90, 70, 110) : Good)) g.FillEllipse(b, dotr);
@@ -496,23 +507,23 @@ partial class StudioForm : Form
             if (f.GR > 0.2f) Txt(g, "-" + f.GR.ToString("0.0"), 11, Warn, Rc(row.Right - 120, row.Y, 40, 28), StringAlignment.Far, false);
             Btn(g, Rc(row.Right - 76, row.Y + 3, 22, 22), "^", 0, () => MoveFx(tr, fi, -1), 11);
             Btn(g, Rc(row.Right - 52, row.Y + 3, 22, 22), "v", 0, () => MoveFx(tr, fi, 1), 11);
-            Btn(g, Rc(row.Right - 28, row.Y + 3, 22, 22), "x", 3, () => { lock (eng.Sync) tr.Fx.RemoveAt(fi); selFx = -1; }, 12);
+            Btn(g, Rc(row.Right - 28, row.Y + 3, 22, 22), "x", 3, () => { lock (eng.Sync) { if (fi < tr.Fx.Count) tr.Fx.RemoveAt(fi); } selFx = -1; }, 12);
         }
         int ti = Array.IndexOf(eng.Tracks.ToArray(), tr);
         Btn(g, Rc(x + 10, ly + 2, 150, 30), "+ Add Effect", 1, () => OpenBrowser(false, ti), 14);
         Btn(g, Rc(x + 168, ly + 2, 200, 30), "Chain presets...", 0, () => ChainMenu(tr), 14);
         float ey = ly + 42;
         float edH = Math.Max(ClientSize.Height - (ly + panelScroll + 42) - 6, 560);
-        if (selFx >= 0 && selFx < tr.Fx.Count) PaintEditor(g, tr.Fx[selFx], Rc(x + 6, ey, w - 12, edH), tr);
+        if (selFx >= 0 && selFx < n) PaintEditor(g, fxs[selFx], Rc(x + 6, ey, w - 12, edH), tr);
         else Txt(g, "Click a plugin to edit it", 13, DimC, Rc(x, ey, w, 40), StringAlignment.Center, false);
         g.ResetClip();
-        float contentBottom = ly + panelScroll + 42 + ((selFx >= 0 && selFx < tr.Fx.Count) ? edH : 60), maxScroll = Math.Max(0, contentBottom - (y + h) + 6); panelScroll = Math.Min(panelScroll, maxScroll);
+        float contentBottom = ly + panelScroll + 42 + ((selFx >= 0 && selFx < n) ? edH : 60), maxScroll = Math.Max(0, contentBottom - (y + h) + 6); panelScroll = Math.Min(panelScroll, maxScroll);
         regs.Insert(0, new HitReg { R = Rc(x, y + 36, w, h - 36), OnWheel = d => panelScroll = Math.Max(0, Math.Min(maxScroll, panelScroll - d * 50)) });
     }
 
     void MoveFx(Track tr, int i, int d)
     {
-        int j = i + d; if (j < 0 || j >= tr.Fx.Count) return; lock (eng.Sync) { var f = tr.Fx[i]; tr.Fx.RemoveAt(i); tr.Fx.Insert(j, f); } selFx = j;
+        int j = i + d; if (j < 0 || j >= tr.Fx.Count) return; lock (eng.Sync) { if (i >= tr.Fx.Count) return; var f = tr.Fx[i]; tr.Fx.RemoveAt(i); tr.Fx.Insert(j, f); } selFx = j;
     }
 
     void ChainMenu(Track tr)

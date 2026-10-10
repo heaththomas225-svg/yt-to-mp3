@@ -37,7 +37,7 @@ class Job
 partial class App : Form
 {
     // ---- Auto-update settings ----
-    const string Version = "3.0.2";
+    const string Version = "3.0.3";
     // Plain-text manifest: line 1 = newest version, line 2 = direct exe download URL.
     const string UpdateManifestUrl = "https://raw.githubusercontent.com/heaththomas225-svg/yt-to-mp3/main/version.txt";
 
@@ -276,7 +276,7 @@ partial class App : Form
         Repopulate(); bg.Resize += (s, e) => Repopulate();
         Win.Dark(this); Win.DarkControl(links); Win.DarkControl(log); StyleTips();
 
-        StartLayerWorker(); frameLoop = new FrameLoop(this, Tick) { Slow = () => moving || WindowState == FormWindowState.Minimized || (ActiveForm != this && ActiveForm != studioForm) }; ApplyPrefs();
+        StartLayerWorker(); frameLoop = new FrameLoop(this, Tick) { Slow = () => moving || Win.AnyMoving || WindowState == FormWindowState.Minimized || (ActiveForm != this && ActiveForm != studioForm) }; ApplyPrefs();
     }
 
     // ---------- styling helpers ----------
@@ -409,13 +409,14 @@ partial class App : Form
     volatile bool moving;   // true while the window is being dragged or resized: no animation work then, so dragging stays as smooth as any native window
     protected override void WndProc(ref Message m)
     {
+        Win.TrackMove(ref m);
         if (m.Msg == 0x231) moving = true; else if (m.Msg == 0x232) moving = false;   // WM_ENTERSIZEMOVE / WM_EXITSIZEMOVE
         base.WndProc(ref m);
     }
 
     void Tick()
     {
-        double now = clock.Elapsed.TotalMilliseconds; if (moving) { lastClock = now; return; } float dt = (float)Math.Min(0.05, Math.Max(0.0005, (now - lastClock) / 1000.0)); lastClock = now;
+        double now = clock.Elapsed.TotalMilliseconds; if (moving || Win.AnyMoving) { lastClock = now; return; } float dt = (float)Math.Min(0.05, Math.Max(0.0005, (now - lastClock) / 1000.0)); lastClock = now;
         t += dt; float k30 = dt * 30f;   // the motion constants below were tuned per 1/30 s
         if (animate.Checked)
         {

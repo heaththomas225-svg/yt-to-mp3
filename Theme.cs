@@ -9,6 +9,8 @@ using System.Windows.Forms;
 // ======================================================================
 static class Win
 {
+    public static volatile bool AnyMoving;   // true while any of our windows is being dragged or resized: every animation pauses so the drag stays smooth
+    public static void TrackMove(ref Message m) { if (m.Msg == 0x231) AnyMoving = true; else if (m.Msg == 0x232) AnyMoving = false; }
     [DllImport("dwmapi.dll")] static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int val, int size);
     [DllImport("uxtheme.dll", CharSet = CharSet.Unicode)] static extern int SetWindowTheme(IntPtr h, string app, string ids);
 

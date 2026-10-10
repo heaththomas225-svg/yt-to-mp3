@@ -467,9 +467,16 @@ class MasterForm : Form
         ApplyZoom();
         for (int i = 0; i < 10; i++) leaves.Add(NewLeaf(true));
         for (int i = 0; i < 30; i++) spores.Add(NewSpore(true));
-        timer.Interval = 33; timer.Tick += (s, e) => { t += 0.033f; StepAnim(); Invalidate(); };
+        timer.Interval = 33; timer.Tick += (s, e) => { if (moving || Win.AnyMoving) return; t += 0.033f; StepAnim(); Invalidate(); };
         timer.Start();
-        FormClosed += (s, e) => { timer.Stop(); timer.Dispose(); };
+        FormClosed += (s, e) => { timer.Stop(); timer.Dispose(); if (ms.On) { ms.On = false; app.SaveSettings(); } };   // closing the Mastering window turns mastering off
+    }
+
+    volatile bool moving;
+    protected override void WndProc(ref Message m)
+    {
+        Win.TrackMove(ref m); if (m.Msg == 0x231) moving = true; else if (m.Msg == 0x232) moving = false;
+        base.WndProc(ref m);
     }
 
     void ApplyZoom() { ClientSize = new Size((int)(1400 * z), (int)(880 * z)); }

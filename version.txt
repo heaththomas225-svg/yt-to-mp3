@@ -1,5 +1,5 @@
-3.0.2
+3.0.3
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-New: Settings button - custom picture or video background (auto-cropped, remembered)
-New: audio volume, output device and buffer size
-Fix: Music Studio Cancel button works while a job runs; smoother playhead and much lighter drawing
+Fix: Music Studio "index out of range" crash after Auto Mix or effect changes
+Fix: dragging any window is smooth (all animation pauses while a window moves)
+Change: closing the Mastering window turns mastering off
