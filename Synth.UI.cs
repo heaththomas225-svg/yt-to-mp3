@@ -389,26 +389,6 @@ partial class SynthCanvas : Control
         if (k > 1) QuickAssign(g, Rc(kx - 30, pn.Y + 150, 480, 100), 5 + (k - 2), "Envelope " + k);
     }
 
-    void PaintLfo(Graphics g, RectangleF pn, int k)
-    {
-        var disp = Rc(pn.X + 12, pn.Y + 12, 420, 250); Fill(g, Disp, disp, 6); int shape = (int)P("l" + k + "shape").Val; var pts = new List<PointF>(); int N = 200; bool uni = P("l" + k + "uni").Val > 0.5f;
-        double sm = P("l" + k + "smooth").Val / 100.0; var rnd = new Random(k * 31); double hold = 0, last = 0;
-        for (int i = 0; i <= N; i++)
-        {
-            double p = (i / (double)N * 2) % 1.0, y; if (i > 0 && p < ((i - 1) / (double)N * 2) % 1.0) hold = rnd.NextDouble() * 2 - 1;
-            switch (shape) { case 0: y = Math.Sin(6.283185307179586 * p); break; case 1: y = 4 * Math.Abs(p - 0.5) - 1; break; case 2: y = 2 * p - 1; break; case 3: y = 1 - 2 * p; break; case 4: y = p < 0.5 ? 1 : -1; break; case 5: y = hold; break; default: y = Math.Abs(Math.Sin(3.141592653589793 * p)) * 2 - 1; break; }
-            if (uni) y = y * 0.5 - 0.5; if (sm > 0) { last += (y - last) * (1 - sm * 0.92); y = last; }
-            pts.Add(new PointF(disp.X + 10 + (disp.Width - 20) * i / (float)N, disp.Y + disp.Height / 2 - (float)y * (disp.Height / 2 - 24)));
-        }
-        using (var pen = new Pen(Color.FromArgb(40, 150, 130, 200))) { g.DrawLine(pen, disp.X + 10, disp.Y + disp.Height / 2, disp.Right - 10, disp.Y + disp.Height / 2); }
-        using (var pen = new Pen(Good, 2.5f)) g.DrawLines(pen, pts.ToArray());
-        int sy = (int)P("l" + k + "sync").Val; double bpm = Fx.ProjectBpm, hz = sy == 0 ? P("l" + k + "rate").Val : bpm / 60.0 / SynthTables.SyncBeats[sy];
-        Txt(g, "LFO " + k + ":  " + SynthTables.LfoShapes[shape] + ",  " + (sy == 0 ? hz.ToString("0.00") + " Hz" : SynthTables.Syncs[sy] + " note  =  " + hz.ToString("0.00") + " Hz at " + bpm.ToString("0") + " BPM"), 11, Ink, Rc(disp.X + 10, disp.Y + 4, disp.Width - 20, 16), StringAlignment.Near, true);
-        float x = pn.X + 450; Choose(g, "l" + k + "shape", Rc(x, pn.Y + 14, 120, 22), Acc); Choose(g, "l" + k + "sync", Rc(x + 126, pn.Y + 14, 120, 22), Acc2); Choose(g, "l" + k + "retrig", Rc(x + 252, pn.Y + 14, 120, 22), Acc); Choose(g, "l" + k + "uni", Rc(x + 378, pn.Y + 14, 120, 22), Acc);
-        Knob(g, "l" + k + "rate", x + 40, pn.Y + 90, sy == 0 ? "RATE (Hz)" : "RATE (sync on)", Acc2, 22); Knob(g, "l" + k + "phase", x + 160, pn.Y + 90, "PHASE", Acc, 22); Knob(g, "l" + k + "smooth", x + 280, pn.Y + 90, "SMOOTH", Acc, 22); Knob(g, "l" + k + "fade", x + 400, pn.Y + 90, "FADE IN", Acc, 22);
-        QuickAssign(g, Rc(x - 6, pn.Y + 150, 520, 110), k, "LFO " + k);
-    }
-
     // "Send to" shortcut: finds (or makes) the matrix slot that connects this source to a destination.
     void QuickAssign(Graphics g, RectangleF r, int srcIndex, string name)
     {

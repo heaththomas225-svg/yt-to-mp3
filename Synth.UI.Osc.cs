@@ -167,7 +167,7 @@ partial class SynthCanvas
     // ---------- the wave drawing window ----------
     void OpenWaveEditor(string s)
     {
-        int slot = 0; var tbl = P(s + "tbl"); if (tbl.Val >= Wavetables.CustomBase) slot = (int)tbl.Val - Wavetables.CustomBase; else { SetVal(tbl, Wavetables.CustomBase); }
+        int slot = 0; var tbl = P(s + "tbl"); if (tbl.Val >= Wavetables.CustomBase && tbl.Val < Wavetables.CustomBase + 3) slot = (int)tbl.Val - Wavetables.CustomBase; else { SetVal(tbl, Wavetables.CustomBase); }
         SetVal(P(s + "src"), 0); var f = new WaveEditorForm(fx, slot, s); f.Show(FindForm()); Poke();
     }
 }

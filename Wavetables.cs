@@ -61,7 +61,7 @@ static class Wavetables
 {
     // the Source menu: Wavetable (scan the frames of the chosen table) or one fixed shape
     public static readonly string[] Sources = { "Wavetable", "Sine", "Triangle", "Saw", "Square", "Pulse 25%", "Pulse 10%", "Half sine", "Rectified sine", "Organ" };
-    public static readonly string[] TableNames = { "Basic Shapes", "Saw to Square", "Vowels", "Growl", "Organ Drawbars", "Digital Bell", "Harmonic Sweep", "PWM", "Metallic", "Custom 1", "Custom 2", "Custom 3" };
+    public static readonly string[] TableNames = { "Basic Shapes", "Saw to Square", "Vowels", "Growl", "Organ Drawbars", "Digital Bell", "Harmonic Sweep", "PWM", "Metallic", "Custom 1", "Custom 2", "Custom 3", "Sine", "Sawtooth", "Square", "Pulse 25%", "Triangle" };
     public const int CustomBase = 9;
     static readonly Dictionary<string, WTable> cache = new Dictionary<string, WTable>();
     static readonly object lk = new object();
@@ -95,7 +95,7 @@ static class Wavetables
 
     public static WTable Table(int index)
     {
-        if (index >= CustomBase) return CustomTable(index - CustomBase);
+        if (index >= CustomBase && index < CustomBase + 3) return CustomTable(index - CustomBase);
         string key = "table" + index; lock (lk) { WTable t; if (cache.TryGetValue(key, out t)) return t; t = BuildFactory(index); cache[key] = t; return t; }
     }
 
@@ -104,6 +104,7 @@ static class Wavetables
         var t = new WTable(TableNames[index]); int H = WTable.Harm;
         switch (index)
         {
+            case 12: case 13: case 14: case 15: case 16: { var a = new double[H + 1]; var p = new double[H + 1]; Shape(new[] { 0, 2, 3, 4, 1 }[index - 12], a, p); t.AddFrame(a, p); break; }
             case 0: foreach (int k in new[] { 0, 1, 2, 3, 4 }) { var a = new double[H + 1]; var p = new double[H + 1]; Shape(k, a, p); t.AddFrame(a, p); } break;
             case 1: for (int f = 0; f < 16; f++) { double m = f / 15.0; var a = new double[H + 1]; var p = new double[H + 1]; for (int h = 1; h <= H; h++) a[h] = (h % 2 == 1 ? 1.0 : -(1 - m)) / h; t.AddFrame(a, p); } break;
             case 2:
@@ -138,7 +139,7 @@ static class Wavetables
     public static void WarmUp()
     {
         if (warming) return; warming = true;
-        var th = new System.Threading.Thread(() => { try { for (int i = 1; i < Sources.Length; i++) ForSource(i).Prepare(); for (int i = 0; i < CustomBase; i++) Table(i).Prepare(); } catch { } }) { IsBackground = true, Priority = System.Threading.ThreadPriority.BelowNormal };
+        var th = new System.Threading.Thread(() => { try { for (int i = 1; i < Sources.Length; i++) ForSource(i).Prepare(); for (int i = 0; i < TableNames.Length; i++) if (i < CustomBase || i >= CustomBase + 3) Table(i).Prepare(); } catch { } }) { IsBackground = true, Priority = System.Threading.ThreadPriority.BelowNormal };
         th.Start();
     }
     public static short[] DefaultFrame() { var f = new short[256]; for (int i = 0; i < 256; i++) f[i] = (short)(Math.Sin(2 * Math.PI * i / 256.0) * 30000); return f; }
