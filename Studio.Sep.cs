@@ -131,6 +131,10 @@ try:
 except Exception as e:
     print('ERR|startup: %s' % e, flush=True); sys.exit(1)
 SR = model.samplerate
+try:
+    torch.set_num_threads(max(1, (os.cpu_count() or 4) - 2))   # leave two cores free so the app and the audio stay smooth while separating
+except Exception:
+    pass
 VI = model.sources.index('vocals')
 
 def run_model(wav, overlap, show):
@@ -217,7 +221,7 @@ for line in sys.stdin:
             wready = false; wresult = null; wproc = new Process { StartInfo = psi };
             wproc.OutputDataReceived += (s, e) => { if (e.Data == null) return; if (e.Data == "READY") wready = true; else if (e.Data.StartsWith("DONE|") || e.Data.StartsWith("ERR|")) wresult = e.Data; };
             wproc.ErrorDataReceived += (s, e) => { if (e.Data == null) return; var m = PctRx.Match(e.Data); var pr = wprog; if (m.Success && pr != null) pr(Math.Min(0.98f, int.Parse(m.Groups[1].Value) / 100f)); };
-            wproc.Start(); wproc.BeginOutputReadLine(); wproc.BeginErrorReadLine(); win = wproc.StandardInput; wlast = DateTime.Now;
+            wproc.Start(); try { wproc.PriorityClass = ProcessPriorityClass.BelowNormal; } catch { } wproc.BeginOutputReadLine(); wproc.BeginErrorReadLine(); win = wproc.StandardInput; wlast = DateTime.Now;
             if (idleTimer == null) idleTimer = new System.Threading.Timer(_ => { if (!wbusy && (DateTime.Now - wlast).TotalMinutes > 10) KillWorker(); }, null, 60000, 60000);
         }
         return true;

@@ -291,7 +291,9 @@ partial class StudioForm : Form
         rx -= 70; Btn(g, Rc(rx, y + 4, 64, h - 8), Win.IsFullscreen(this) ? "Window" : "Full", 0, () => Win.ToggleFullscreen(this), 13);
         rx -= 86; Btn(g, Rc(rx, y + 4, 80, h - 8), "Open", 0, () => OpenClick(), 14);
         rx -= 86; Btn(g, Rc(rx, y + 4, 80, h - 8), "Save", 0, () => SaveClick(false), 14);
-        Txt(g, projName, 13, DimC, Rc(rx - 210, y, 200, h), StringAlignment.Far, false);
+        rx -= 94; Btn(g, Rc(rx, y + 4, 88, h - 8), "Save as", 0, () => SaveClick(true), 14);
+        var pn = Rc(rx - 210, y, 200, h); Txt(g, projName, 13, Hot(pn) ? Ink : DimC, pn, StringAlignment.Far, false);
+        Reg(pn, () => { }).OnDouble = RenameProject; regs[regs.Count - 1].OnRight = RenameProject;
     }
 
     void AutoMixMenu()
@@ -445,7 +447,7 @@ partial class StudioForm : Form
         FillRR(g, Color.FromArgb(120, Color.FromArgb(tr.Color)), Rc(r.X + 160, r.Y + 8, 46, 18), 9); Txt(g, role, 10, Color.White, Rc(r.X + 160, r.Y + 8, 46, 18), StringAlignment.Center, true);
         int ti = i; var tk = tr;
         Btn(g, Rc(r.Right - 30, r.Y + 7, 22, 22), "x", 3, () => RemoveTrack(tk), 13);
-        Reg(Rc(r.X + 4, r.Y + 4, 150, 26), () => { selTrack = ti; selFx = -1; });
+        var nameReg = Reg(Rc(r.X + 4, r.Y + 4, 150, 26), () => { selTrack = ti; selFx = -1; }); nameReg.OnDouble = () => RenameTrack(tk); nameReg.OnRight = () => RenameTrack(tk);
         // M / S
         Btn(g, Rc(r.X + 12, r.Y + 36, 34, 28), "M", tk.Mute ? 4 : 0, () => ToggleMute(tk), 14);
         Btn(g, Rc(r.X + 52, r.Y + 36, 34, 28), "S", tk.Solo ? 4 : 0, () => ToggleSolo(tk), 14);
@@ -478,6 +480,24 @@ partial class StudioForm : Form
         if (tr.Clipped) { FillRR(g, Bad, Rc(r.Right - 30, r.Y + 114, 24, 8), 3); Reg(Rc(r.Right - 30, r.Y + 112, 24, 12), () => tr.Clipped = false); }
         long offMs = tr.Offset * 1000 / StudioEngine.SR; Txt(g, "offset " + offMs + " ms", 10, DimC, Rc(r.X + 146, r.Y + 114, 70, 14), StringAlignment.Near, false);
         ValueEdit(Rc(r.X + 146, r.Y + 112, 70, 16), offMs.ToString(), s => { float v; if (ParseNum(s, out v)) tk.Offset = (long)(v * StudioEngine.SR / 1000.0); });
+    }
+
+    void RenameTrack(Track tr)
+    {
+        string nm = Ask("Track name:", tr.Name); if (nm == null) return;
+        tr.Name = nm.Trim(); Toast("Renamed to " + tr.Name);
+    }
+
+    void RenameProject()
+    {
+        string nm = Ask("Project name:", projName == "Untitled project" ? "My song" : projName); if (nm == null) return;
+        foreach (char c in Path.GetInvalidFileNameChars()) nm = nm.Replace(c, '_'); nm = nm.Trim(); if (nm.Length == 0) return;
+        if (!string.IsNullOrEmpty(projPath) && File.Exists(projPath))
+        {
+            try { string np = Path.Combine(Path.GetDirectoryName(projPath), nm + ".ytmproj"); if (!File.Exists(np)) { File.Move(projPath, np); projPath = np; } else { Toast("A project with that name already exists here."); return; } }
+            catch (Exception ex) { Toast("Couldn't rename the file: " + ex.Message); return; }
+        }
+        projName = nm; Toast("Project renamed to " + nm);
     }
 
     void RemoveTrack(Track tr)
@@ -621,6 +641,8 @@ partial class StudioForm : Form
         if (k == Keys.F1) { app.ShowHelp(null); return true; }
         if (k == Keys.Space) { if (eng.Playing) eng.Pause(); else PlayGuard(); return true; }
         if (k == Keys.Home) { eng.Seek(0); scroll = 0; return true; }
+        if (k == (Keys.Control | Keys.Shift | Keys.S)) { SaveClick(true); return true; }
+        if (k == Keys.F2 && selTrack < eng.Tracks.Count) { RenameTrack(eng.Tracks[selTrack]); return true; }
         if (k == (Keys.Control | Keys.S)) { SaveClick(false); return true; }
         if (k == (Keys.Control | Keys.O)) { OpenClick(); return true; }
         return base.ProcessCmdKey(ref msg, k);

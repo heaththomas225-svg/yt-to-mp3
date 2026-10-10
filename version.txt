@@ -1,4 +1,4 @@
-3.0.7
+3.0.8
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Fix: update notes can scroll and are no longer cut off
-Clearer wording when adding music: only Full song splits vocals from the beat
+New: rename tracks (double-click the name or F2) and rename the project; Save as button (Ctrl+Shift+S)
+Smoother: separating vocals leaves CPU free so the app and audio do not slow down
