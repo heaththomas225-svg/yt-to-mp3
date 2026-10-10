@@ -29,8 +29,10 @@ static class VstNative
 
 class MidiEv { public long Frame; public byte S, D1, D2; }
 
-class VstPlugin : IDisposable
+class VstPlugin : IVstHosted
 {
+    string IVstHosted.Name { get { return Name; } } string IVstHosted.Vendor { get { return Vendor; } } string IVstHosted.Path { get { return Path; } } int IVstHosted.NumParams { get { return NumParams; } } bool IVstHosted.EditorOpen { get { return EditorOpen; } }
+    public static void RaiseSize(object p, int w, int h) { var e = SizeWindowRequested; if (e != null) e(p, w, h); }
     // AEffect (x64) field offsets
     const int OffMagic = 0, OffDispatcher = 8, OffSetParam = 24, OffGetParam = 32, OffNumPrograms = 40, OffNumParams = 44, OffNumIn = 48, OffNumOut = 52, OffFlags = 56, OffUniqueId = 112, OffProcessReplacing = 120;
     const int effOpen = 0, effClose = 1, effSetSampleRate = 10, effSetBlockSize = 11, effMainsChanged = 12, effEditGetRect = 13, effEditOpen = 14, effEditClose = 15, effEditIdle = 19,
@@ -51,7 +53,7 @@ class VstPlugin : IDisposable
     static readonly VstHostCb hostCb = HostCallback;   // kept alive for the life of the process
     static IntPtr timeInfo = Marshal.AllocHGlobal(256);
     public static volatile int HostSampleRate = 44100; public static long HostPos; public static double HostBpm = 90; public static bool HostPlaying;
-    public static event Action<VstPlugin, int, int> SizeWindowRequested;
+    public static event Action<object, int, int> SizeWindowRequested;
     static readonly Dictionary<IntPtr, VstPlugin> byEffect = new Dictionary<IntPtr, VstPlugin>();
 
     // ---- loading ----
@@ -62,7 +64,7 @@ class VstPlugin : IDisposable
         IntPtr h = VstNative.LoadLibrary(path);
         if (h == IntPtr.Zero) throw new Exception("Windows couldn't load " + System.IO.Path.GetFileName(path) + " (error " + Marshal.GetLastWin32Error() + "). It may be a 32-bit plugin, or it needs another program's files.");
         IntPtr entry = VstNative.GetProcAddress(h, "VSTPluginMain"); if (entry == IntPtr.Zero) entry = VstNative.GetProcAddress(h, "main");
-        if (entry == IntPtr.Zero) { VstNative.FreeLibrary(h); throw new Exception(System.IO.Path.GetFileName(path) + " isn't a VST2 plugin (VST3 .vst3 files aren't supported yet)."); }
+        if (entry == IntPtr.Zero) { VstNative.FreeLibrary(h); throw new Exception(System.IO.Path.GetFileName(path) + " isn't a VST2 plugin."); }
         try { var p = FromEntry(entry, path, sr); p.lib = h; return p; }
         catch { VstNative.FreeLibrary(h); throw; }
     }
@@ -255,11 +257,11 @@ class VstPlugin : IDisposable
 // An instrument or effect VST as an ordinary effect in a track's chain.
 class VstFx : InstrumentFx, IDisposable
 {
-    public VstPlugin Plugin; public string File = "";
+    public IVstHosted Plugin; public string File = "";
     VstWindow window;
     const int MaxParams = 128;
 
-    public VstFx(VstPlugin p, string file)
+    public VstFx(IVstHosted p, string file)
     {
         Plugin = p; File = file; Type = "vst:" + System.IO.Path.GetFileName(file); Title = p.Name; Category = p.IsSynth ? "Instruments" : "Plugins"; Blurb = (p.IsSynth ? "VST instrument" : "VST effect") + (p.Vendor.Length > 0 ? " by " + p.Vendor : "");
         int n = Math.Min(p.NumParams, MaxParams);
@@ -338,7 +340,7 @@ class VstWindow : Form, IKeySink
         Deactivate += (s, e) => ReleaseAll();
     }
 
-    void OnSizeRequest(VstPlugin p, int w, int h) { if (p != fx.Plugin || IsDisposed) return; try { BeginInvoke(new Action(() => Resize2(w, h))); } catch { } }
+    void OnSizeRequest(object p, int w, int h) { if (p != (object)fx.Plugin || IsDisposed) return; try { BeginInvoke(new Action(() => Resize2(w, h))); } catch { } }
     void Resize2(int w, int h)
     {
         host.SetBounds(0, 0, Math.Max(100, w), Math.Max(60, h)); int ph = piano.Visible ? piano.Height : 0;

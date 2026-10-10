@@ -292,10 +292,11 @@ partial class StudioForm
         Btn(g, Rc(x, y, 58, h), "UNDO", 0, () => DoUndo(), 11); x += 62;
         Btn(g, Rc(x, y, 58, h), "REDO", 0, () => DoRedo(), 11); x += 70;
         Btn(g, Rc(x, y, 30, h), "-", 0, () => ZoomBy(1.4), 14); x += 34; Btn(g, Rc(x, y, 30, h), "+", 0, () => ZoomBy(0.7), 14); x += 34; Btn(g, Rc(x, y, 44, h), "FIT", 0, () => { FitView(); }, 11); x += 50; Btn(g, Rc(x, y, 50, h), "NEW", 0, () => NewProject(), 11);
+        if (x + 190 < ClientSize.Width) { Txt(g, "zoom", 11, DimC, Rc(x, y + 6, 36, 18), StringAlignment.Near, false); float zf = Clamp01((float)(1 - Math.Log(spp / MinSpp) / Math.Log(MaxSpp / MinSpp))); var zs = Slider(g, Rc(x + 38, y + 6, 130, 18), zf, f => ZoomTo(MinSpp * Math.Pow(MaxSpp / MinSpp, 1 - f)), NeonCyan); zs.OnDouble = () => FitView(); var zd = zs.OnDown; zs.OnDown = () => { var tz = TimelineRect(); zoomAnchor = Math.Max(0, Math.Min(eng.EndFrame, scroll + tz.Width / 2 * spp)); if (zd != null) zd(); }; }
     }
     void ZoomBy(double f)
     {
         autoFit = false;
-        var tl = TimelineRect(); double cur = scroll + tl.Width / 2 * spp; spp = Math.Max(2, Math.Min(Math.Max(20000.0, eng.EndFrame / 200.0), spp * f)); scroll = Math.Max(0, (long)(cur - tl.Width / 2 * spp));
+        var tl = TimelineRect(); double cur = scroll + tl.Width / 2 * spp; spp = Math.Max(MinSpp, Math.Min(MaxSpp, spp * f)); scroll = Math.Max(0, (long)(cur - tl.Width / 2 * spp));
     }
 }

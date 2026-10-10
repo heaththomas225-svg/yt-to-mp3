@@ -6,8 +6,9 @@ using System.Windows.Forms;
 // Purphex Music: VST instrument tracks (for example Vital): add one, play it, record what you play, and hear it in the mix and exports.
 partial class StudioForm
 {
-    void AddInstrumentClick()
+    void AddInstrumentClick(bool keepInsert = false)
     {
+        if (!keepInsert) nextInsert = -1;
         var items = new List<FxRegistry.Info>(); foreach (var i in FxRegistry.All) if (i.Category == "Instruments") items.Add(i);
         if (items.Count == 0)
         {

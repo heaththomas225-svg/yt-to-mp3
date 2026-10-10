@@ -133,6 +133,7 @@ partial class StudioForm : Form
     protected override void WndProc(ref Message m)
     {
         Win.TrackMove(ref m); if (m.Msg == 0x231) moving = true; else if (m.Msg == 0x232) moving = false;
+        if (m.Msg == 0x020E && tab == 0) { int dlt = (short)(((long)m.WParam >> 16) & 0xFFFF); ScrollView(dlt / 120.0 * 0.15); Invalidate(); }   // touch pad: swipe sideways
         base.WndProc(ref m);
     }
 
@@ -170,7 +171,7 @@ partial class StudioForm : Form
 
     // ---------------- geometry ----------------
     const int ToolH = 70, TransH = 86, HeadW = 250, PanelW = 380, RulerH = 28;
-    int LaneH = 128;   // track height: Alt + mouse wheel makes the tracks taller so the waveform shows more detail
+    int LaneH = 104;   // track height: Alt + mouse wheel makes the tracks taller so the waveform shows more detail
     RectangleF TimelineRect() { return new RectangleF(HeadW, ToolH + TransH + RulerH, Math.Max(100, ClientSize.Width - HeadW - PanelW), Math.Max(100, ClientSize.Height - ToolH - TransH - RulerH - 6)); }
 
     // ---------------- drawing helpers ----------------
@@ -447,6 +448,7 @@ partial class StudioForm : Form
             PaintLaneTools(g, tr, lane);
             PaintHeader(g, tr, i, Rc(0, y, HeadW, LaneH), sel);
             NeonLaneChrome(g, tr, Rc(0, y, HeadW, LaneH), lane, sel);
+            AddTrackZone(g, y, i);
             using (var pen = new Pen(Color.FromArgb(70, 140, 85, 210))) g.DrawLine(pen, 0, y + LaneH, tl.Right, y + LaneH);
         }
         { float ey = Math.Max(y, top + RulerH); if (ey < ClientSize.Height) { var em = Reg(Rc(HeadW, ey, tl.Width, ClientSize.Height - ey), () => { toolsTrack = null; eng.Seek(Math.Max(0, Snap(scroll + (long)((MousePos.X - HeadW) * spp)))); }); em.OnDrag = pt => eng.Seek(Math.Max(0, Snap(scroll + (long)((pt.X - HeadW) * spp)))); } }
@@ -463,14 +465,16 @@ partial class StudioForm : Form
         // playhead
         float px = HeadW + (float)((dispPos - scroll) / spp);
         if (px >= HeadW && px <= tl.Right) { GlowLine(g, NeonPink, px, top, px, ClientSize.Height, 1f); using (var b = new SolidBrush(Color.White)) g.FillPolygon(b, new[] { new PointF(px - 7, top), new PointF(px + 7, top), new PointF(px, top + 12) }); }
+        PaintOverview(g, tl);
         // wheel: scroll / zoom
         var wr = new HitReg { R = Rc(HeadW, top, tl.Width, ClientSize.Height - top) };
         wr.OnWheel = d =>
         {
-            if ((ModifierKeys & (Keys.Control | Keys.Shift)) != 0 && (ModifierKeys & Keys.Alt) == 0) autoFit = false;
-            if ((ModifierKeys & Keys.Alt) != 0 || ((ModifierKeys & Keys.Control) != 0 && (ModifierKeys & Keys.Shift) != 0)) { LaneH = Math.Max(80, Math.Min(420, LaneH + (d > 0 ? 24 : -24))); vscroll = Math.Max(0, Math.Min(vscroll, Math.Max(0, n * LaneH - (ClientSize.Height - top - RulerH - 20)))); }
-            else if ((ModifierKeys & Keys.Control) != 0) { double f = d > 0 ? 0.7 : 1.43; double cur = scroll + (MousePos.X - HeadW) * spp; spp = Math.Max(0.5, Math.Min(Math.Max(20000.0, eng.EndFrame / 200.0), spp * f)); scroll = Math.Max(0, (long)(cur - (MousePos.X - HeadW) * spp)); }
-            else if ((ModifierKeys & Keys.Shift) != 0) scroll = Math.Max(0, scroll - (long)(d * 0.5 * tl.Width * spp / 10));
+            if ((ModifierKeys & Keys.Control) != 0 && (ModifierKeys & Keys.Alt) == 0 && (ModifierKeys & Keys.Shift) == 0) autoFit = false;
+            if ((ModifierKeys & Keys.Alt) != 0 || ((ModifierKeys & Keys.Control) != 0 && (ModifierKeys & Keys.Shift) != 0)) { LaneH = Math.Max(64, Math.Min(420, LaneH + (d > 0 ? 16 : -16))); vscroll = Math.Max(0, Math.Min(vscroll, Math.Max(0, n * LaneH - (ClientSize.Height - top - RulerH - 20)))); }
+            else if ((ModifierKeys & Keys.Control) != 0) { double f = d > 0 ? 0.7 : 1.43; double cur = scroll + (MousePos.X - HeadW) * spp; spp = Math.Max(MinSpp, Math.Min(MaxSpp, spp * f)); scroll = Math.Max(0, (long)(cur - (MousePos.X - HeadW) * spp)); }
+            else if ((ModifierKeys & Keys.Shift) != 0) ScrollView(-d * 0.25);
+            else if (n * LaneH <= ClientSize.Height - top - RulerH - 40 || MousePos.Y < top + RulerH) ScrollView(-d * 0.25);   // everything fits vertically: the wheel moves along the song (like BandLab)
             else vscroll = Math.Max(0, Math.Min(Math.Max(0, n * LaneH - (ClientSize.Height - top - RulerH - 20)), vscroll - d * 40));
         };
         regs.Insert(0, wr);
@@ -522,8 +526,8 @@ partial class StudioForm : Form
             using (var gb = new LinearGradientBrush(bounds, Color.FromArgb(al, 70, 150, 255), Color.FromArgb(al, 190, 90, 255), 0f))
             {
                 gb.InterpolationColors = new ColorBlend(3) { Colors = new[] { Color.FromArgb(al, 70, 150, 255), Color.FromArgb(al, c), Color.FromArgb(al, 190, 90, 255) }, Positions = new[] { 0f, 0.5f, 1f } };
-                using (var gl = new LinearGradientBrush(bounds, Color.Blue, Color.Purple, 0f)) { gl.InterpolationColors = new ColorBlend(3) { Colors = new[] { Color.FromArgb(audible ? 46 : 14, 70, 150, 255), Color.FromArgb(audible ? 46 : 14, c), Color.FromArgb(audible ? 46 : 14, 190, 90, 255) }, Positions = new[] { 0f, 0.5f, 1f } }; using (var pen = new Pen(gl, 7f)) { pen.LineJoin = LineJoin.Round; if (pts.Count > 1) g.DrawLines(pen, pts.ToArray()); } }
-                using (var pen = new Pen(gb, 2.2f)) { pen.LineJoin = LineJoin.Round; if (pts.Count > 1) g.DrawLines(pen, pts.ToArray()); }
+                using (var gl = new LinearGradientBrush(bounds, Color.Blue, Color.Purple, 0f)) { gl.InterpolationColors = new ColorBlend(3) { Colors = new[] { Color.FromArgb(audible ? 46 : 14, 70, 150, 255), Color.FromArgb(audible ? 46 : 14, c), Color.FromArgb(audible ? 46 : 14, 190, 90, 255) }, Positions = new[] { 0f, 0.5f, 1f } }; using (var pen = new Pen(gl, 5.5f)) { pen.LineJoin = LineJoin.Round; if (pts.Count > 1) g.DrawLines(pen, pts.ToArray()); } }
+                using (var pen = new Pen(gb, 1.8f)) { pen.LineJoin = LineJoin.Round; if (pts.Count > 1) g.DrawLines(pen, pts.ToArray()); }
             }
             g.Restore(gst0);
         }
@@ -536,6 +540,7 @@ partial class StudioForm : Form
 
     void PaintHeader(Graphics g, Track tr, int i, RectangleF r, bool sel)
     {
+        bool compact = r.Height < 112; float py = compact ? 84 : 94, vy = compact ? 62 : 70;
         using (var br = new SolidBrush(sel ? Color.FromArgb(255, 40, 22, 74) : Color.FromArgb(255, 26, 15, 46))) g.FillRectangle(br, r);
         using (var pen = new Pen(sel ? Color.FromArgb(200, Neon(tr.Color)) : Color.FromArgb(70, Neon(tr.Color)), sel ? 1.6f : 1f)) g.DrawRectangle(pen, r.X + 1, r.Y + 1, r.Width - 2, r.Height - 2);
         Led(g, Neon(tr.Color), r.X + 20, r.Y + 17, 5, !tr.Mute);
@@ -553,37 +558,39 @@ partial class StudioForm : Form
         Btn(g, Rc(r.X + 94, r.Y + 36, tk.Instrument ? 74 : 112, 28), tk.Instrument ? "+ Effect" : "+ Add Effect" + (tk.Fx.Count > 0 ? " (" + tk.Fx.Count + ")" : ""), 1, () => OpenBrowser(false, ti), 12);
         // fader
         float frac = Clamp01((tk.VolDb + 48f) / 54f);
-        Txt(g, "Vol", 11, DimC, Rc(r.X + 12, r.Y + 70, 28, 18), StringAlignment.Near, false);
-        var fs = Slider(g, Rc(r.X + 40, r.Y + 70, 100, 18), frac, f => tk.VolDb = f < 0.003f ? -48f : (float)Math.Round(f * 54f - 48f, 1), Accent2);
+        Txt(g, "Vol", 11, DimC, Rc(r.X + 12, r.Y + vy, 28, 18), StringAlignment.Near, false);
+        var fs = Slider(g, Rc(r.X + 40, r.Y + vy, 100, 18), frac, f => tk.VolDb = f < 0.003f ? -48f : (float)Math.Round(f * 54f - 48f, 1), Accent2);
         fs.OnDouble = () => tk.VolDb = 0;
-        Txt(g, (tk.VolDb <= -47.9f ? "-inf" : tk.VolDb.ToString("+0.0;-0.0;0.0")) + " dB", 12, Ink, Rc(r.X + 146, r.Y + 70, 68, 18), StringAlignment.Near, false);
-        ValueEdit(Rc(r.X + 146, r.Y + 70, 68, 18), tk.VolDb <= -47.9f ? "-inf" : Num(tk.VolDb), s => { float v; if (ParseNum(s, out v)) tk.VolDb = v <= -47.9f ? -48f : Math.Min(12f, v); });
+        Txt(g, (tk.VolDb <= -47.9f ? "-inf" : tk.VolDb.ToString("+0.0;-0.0;0.0")) + " dB", 12, Ink, Rc(r.X + 146, r.Y + vy, 68, 18), StringAlignment.Near, false);
+        ValueEdit(Rc(r.X + 146, r.Y + vy, 68, 18), tk.VolDb <= -47.9f ? "-inf" : Num(tk.VolDb), s => { float v; if (ParseNum(s, out v)) tk.VolDb = v <= -47.9f ? -48f : Math.Min(12f, v); });
         // pan
-        Txt(g, "Pan", 11, DimC, Rc(r.X + 12, r.Y + 94, 28, 18), StringAlignment.Near, false);
-        var ps = Slider(g, Rc(r.X + 40, r.Y + 94, 100, 18), (tk.Pan + 1) / 2, f => tk.Pan = (float)Math.Round(f * 2 - 1, 2));
+        Txt(g, "Pan", 11, DimC, Rc(r.X + 12, r.Y + py, 28, 18), StringAlignment.Near, false);
+        var ps = Slider(g, Rc(r.X + 40, r.Y + py, 100, 18), (tk.Pan + 1) / 2, f => tk.Pan = (float)Math.Round(f * 2 - 1, 2));
         ps.OnDouble = () => tk.Pan = 0;
-        Txt(g, tk.Pan == 0 ? "C" : (tk.Pan < 0 ? "L" + (int)(-tk.Pan * 100) : "R" + (int)(tk.Pan * 100)), 12, Ink, Rc(r.X + 146, r.Y + 94, 30, 18), StringAlignment.Near, false);
-        ValueEdit(Rc(r.X + 146, r.Y + 94, 30, 18), Num(tk.Pan * 100), s => { string u = s.Trim().ToUpperInvariant(); float v; if (u.StartsWith("C")) tk.Pan = 0; else if (ParseNum(u, out v)) { if (u.StartsWith("L")) v = -Math.Abs(v); else if (u.StartsWith("R")) v = Math.Abs(v); tk.Pan = Math.Max(-1f, Math.Min(1f, v / 100f)); } });
+        Txt(g, tk.Pan == 0 ? "C" : (tk.Pan < 0 ? "L" + (int)(-tk.Pan * 100) : "R" + (int)(tk.Pan * 100)), 12, Ink, Rc(r.X + 146, r.Y + py, 30, 18), StringAlignment.Near, false);
+        ValueEdit(Rc(r.X + 146, r.Y + py, 30, 18), Num(tk.Pan * 100), s => { string u = s.Trim().ToUpperInvariant(); float v; if (u.StartsWith("C")) tk.Pan = 0; else if (ParseNum(u, out v)) { if (u.StartsWith("L")) v = -Math.Abs(v); else if (u.StartsWith("R")) v = Math.Abs(v); tk.Pan = Math.Max(-1f, Math.Min(1f, v / 100f)); } });
         // nudge
         if (tk.Instrument)
         {
-            Btn(g, Rc(r.X + 176, r.Y + 92, 52, 22), "Piano", 1, () => { var vf = tk.Fx.Count > 0 ? tk.Fx[0] as InstrumentFx : null; if (vf != null) { vf.Owner = tk; vf.ShowWindow(this); } }, 11);
+            Btn(g, Rc(r.X + 176, r.Y + py - 2, 52, 22), "Piano", 1, () => { var vf = tk.Fx.Count > 0 ? tk.Fx[0] as InstrumentFx : null; if (vf != null) { vf.Owner = tk; vf.ShowWindow(this); } }, 11);
             Btn(g, Rc(r.X + 174, r.Y + 36, 32, 28), "C", 0, () => { if (MessageBox.Show(this, "Delete every recorded note on \"" + tk.Name + "\"?", "Clear notes", MessageBoxButtons.YesNo) == DialogResult.Yes) lock (tk.Midi) tk.Midi.Clear(); }, 12);
         }
         else {
-        Btn(g, Rc(r.X + 178, r.Y + 93, 20, 20), "<", 0, () => tk.Offset -= (ModifierKeys & Keys.Shift) != 0 ? 44 : 441, 12);
-        Btn(g, Rc(r.X + 199, r.Y + 93, 20, 20), ">", 0, () => tk.Offset += (ModifierKeys & Keys.Shift) != 0 ? 44 : 441, 12);
+        Btn(g, Rc(r.X + 178, r.Y + py - 1, 20, 20), "<", 0, () => tk.Offset -= (ModifierKeys & Keys.Shift) != 0 ? 44 : 441, 12);
+        Btn(g, Rc(r.X + 199, r.Y + py - 1, 20, 20), ">", 0, () => tk.Offset += (ModifierKeys & Keys.Shift) != 0 ? 44 : 441, 12);
         }
         // meters (peak with hold)
         var h = Hold(tr); float[] pk = { tr.PeakL, tr.PeakR };
         for (int c = 0; c < 2; c++)
         {
             float v = pk[c]; h[c] = Math.Max(v, h[c] * 0.93f); float db = h[c] > 0 ? (float)(20 * Math.Log10(h[c])) : -90; float f = Clamp01((db + 54) / 54f);
-            var mr = Rc(r.Right - 28 + c * 11, r.Y + 36, 8, 76); LedMeter(g, mr, f);
+            var mr = Rc(r.Right - 28 + c * 11, r.Y + 36, 8, Math.Min(76f, r.Height - 44)); LedMeter(g, mr, f);
         }
+        if (!compact) {
         if (tr.Clipped) { FillRR(g, Bad, Rc(r.Right - 30, r.Y + 114, 24, 8), 3); Reg(Rc(r.Right - 30, r.Y + 112, 24, 12), () => tr.Clipped = false); }
         long offMs = tr.Offset * 1000 / StudioEngine.SR; Txt(g, "offset " + offMs + " ms", 10, DimC, Rc(r.X + 146, r.Y + 114, 70, 14), StringAlignment.Near, false);
         ValueEdit(Rc(r.X + 146, r.Y + 112, 70, 16), offMs.ToString(), s => { float v; if (ParseNum(s, out v)) tk.Offset = (long)(v * StudioEngine.SR / 1000.0); });
+        }
     }
 
     void RenameTrack(Track tr)
@@ -768,20 +775,22 @@ partial class StudioForm : Form
     protected override void OnMouseMove(MouseEventArgs e)
     {
         base.OnMouseMove(e); MousePos = e.Location; lastInput = DateTime.Now;
+        if (panning) { MiddleMove(e.Location); return; }
         { var cur = CursorAt(MousePos); if (Cursor != cur) Cursor = cur; }
         if (dragReg != null && dragReg.OnDrag != null) dragReg.OnDrag(e.Location);
         else hover = TopRegion(e.Location);
     }
     protected override void OnMouseDown(MouseEventArgs e)
     {
-        base.OnMouseDown(e); lastInput = DateTime.Now; Focus(); MousePos = e.Location; var r = TopRegion(e.Location); if (r == null) return;
+        base.OnMouseDown(e); lastInput = DateTime.Now; Focus(); MousePos = e.Location; if (e.Button == MouseButtons.Middle && tab == 0 && TimelineRect().Contains(e.Location)) { MiddleDown(e.Location); return; }
+        var r = TopRegion(e.Location); if (r == null) return;
         if (busy && !r.WhileBusy) return;   // while a job runs only the Cancel button works
         if (e.Button == MouseButtons.Right) { if (r.OnRight != null) r.OnRight(); return; }
         if (e.Clicks == 2 && r.OnDouble != null) { r.OnDouble(); return; }
         if (r.OnDown != null) r.OnDown();
         if (r.OnDrag != null) dragReg = r;
     }
-    protected override void OnMouseUp(MouseEventArgs e) { base.OnMouseUp(e); lastInput = DateTime.Now; dragReg = null; }
+    protected override void OnMouseUp(MouseEventArgs e) { base.OnMouseUp(e); lastInput = DateTime.Now; dragReg = null; zoomAnchor = 0; if (panning) { panning = false; Cursor = Cursors.Default; } }
     protected override void OnMouseWheel(MouseEventArgs e)
     {
         base.OnMouseWheel(e); MousePos = e.Location; lastInput = DateTime.Now; for (int i = regs.Count - 1; i >= 0; i--) if (regs[i].R.Contains(e.Location) && regs[i].OnWheel != null) { regs[i].OnWheel(e.Delta > 0 ? 1 : -1); return; }

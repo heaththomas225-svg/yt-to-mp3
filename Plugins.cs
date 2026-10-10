@@ -46,12 +46,17 @@ public static class PluginHost
         try
         {
             Directory.CreateDirectory(Dir);
-            var files = new List<string>(Directory.GetFiles(Dir, "*.dll")); var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase); foreach (var f0 in files) seen.Add(Path.GetFileName(f0));
+            var files = new List<string>(Directory.GetFiles(Dir, "*.dll")); files.AddRange(Directory.GetFiles(Dir, "*.vst3")); var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase); foreach (var f0 in files) seen.Add(Path.GetFileName(f0));
             foreach (var vd in VstFolders())
             {
                 try
                 {
-                    var more = new List<string>(Directory.GetFiles(vd, "*.dll")); foreach (var sd in Directory.GetDirectories(vd)) more.AddRange(Directory.GetFiles(sd, "*.dll"));
+                    var more = new List<string>(Directory.GetFiles(vd, "*.dll")); more.AddRange(Directory.GetFiles(vd, "*.vst3"));
+                    foreach (var sd in Directory.GetDirectories(vd))
+                    {
+                        if (sd.EndsWith(".vst3", StringComparison.OrdinalIgnoreCase)) { string inner = Path.Combine(sd, "Contents", "x86_64-win", Path.GetFileName(sd)); if (System.IO.File.Exists(inner)) more.Add(inner); continue; }
+                        more.AddRange(Directory.GetFiles(sd, "*.dll")); more.AddRange(Directory.GetFiles(sd, "*.vst3"));
+                    }
                     foreach (var f1 in more) if (seen.Add(Path.GetFileName(f1))) files.Add(f1);
                 }
                 catch { }
@@ -61,7 +66,7 @@ public static class PluginHost
                 bool inDir = string.Equals(Path.GetDirectoryName(f), Dir, StringComparison.OrdinalIgnoreCase);
                 var p = new PluginInfo { Path = f, File = inDir ? Path.GetFileName(f) : f, Name = Path.GetFileNameWithoutExtension(f) };
                 try { p.Hash = HashOf(f); } catch (Exception ex) { p.Error = ex.Message; }
-                try { AssemblyName.GetAssemblyName(f); } catch (BadImageFormatException) { p.Native = true; } catch { }   // VST / native audio plugins are not .NET
+                if (f.EndsWith(".vst3", StringComparison.OrdinalIgnoreCase)) p.Native = true; else try { AssemblyName.GetAssemblyName(f); } catch (BadImageFormatException) { p.Native = true; } catch { }   // VST / native audio plugins are not .NET
                 string h; p.Enabled = ap.TryGetValue(p.File, out h) && h == p.Hash;
                 PluginInfo l; if (loaded.TryGetValue(p.File, out l) && l.Hash == p.Hash) { p.Loaded = true; p.Types = l.Types; }
                 list.Add(p);
@@ -82,23 +87,23 @@ public static class PluginHost
         var l = new List<string>();
         string pf = Environment.GetEnvironmentVariable("ProgramFiles") ?? @"C:\Program Files";
         string cf = Environment.GetEnvironmentVariable("CommonProgramFiles") ?? @"C:\Program Files\Common Files";
-        foreach (var d in new[] { Path.Combine(cf, "VST2"), Path.Combine(cf, "VSTPlugins"), Path.Combine(pf, "VSTPlugins"), Path.Combine(pf, "Steinberg", "VSTPlugins"), Path.Combine(pf, "VstPlugins") })
+        foreach (var d in new[] { Path.Combine(cf, "VST3"), Path.Combine(cf, "VST2"), Path.Combine(cf, "VSTPlugins"), Path.Combine(pf, "VSTPlugins"), Path.Combine(pf, "Steinberg", "VSTPlugins"), Path.Combine(pf, "VstPlugins") })
             if (Directory.Exists(d) && !l.Contains(d)) l.Add(d);
         return l;
     }
 
-    static readonly Dictionary<string, VstPlugin> vstProbe = new Dictionary<string, VstPlugin>(StringComparer.OrdinalIgnoreCase);
+    static readonly Dictionary<string, IVstHosted> vstProbe = new Dictionary<string, IVstHosted>(StringComparer.OrdinalIgnoreCase);
     static void LoadVst(PluginInfo p, List<string> log)
     {
         string path = p.Path.Length > 0 ? p.Path : Path.Combine(Dir, p.File);
-        var probe = VstPlugin.Load(path, StudioEngine.SR);   // also tells us its name and whether it is an instrument
+        var probe = VstLoader.Load(path, StudioEngine.SR);   // also tells us its name and whether it is an instrument
         lock (vstProbe) vstProbe[path] = probe;
         string tid = "vst:" + Path.GetFileName(path); bool synth = probe.IsSynth;
         FxRegistry.Register(new FxRegistry.Info(tid, probe.Name + " (VST)", synth ? "Instruments" : "Plugins", (synth ? "VST instrument" : "VST effect") + (probe.Vendor.Length > 0 ? " by " + probe.Vendor : "")),
             () =>
             {
-                VstPlugin inst; lock (vstProbe) { vstProbe.TryGetValue(path, out inst); vstProbe.Remove(path); }
-                if (inst == null) inst = VstPlugin.Load(path, StudioEngine.SR);
+                IVstHosted inst; lock (vstProbe) { vstProbe.TryGetValue(path, out inst); vstProbe.Remove(path); }
+                if (inst == null) inst = VstLoader.Load(path, StudioEngine.SR);
                 var f = new VstFx(inst, path); f.Prepare(StudioEngine.SR); return f;
             });
         p.Types.Add(tid); p.Loaded = true; loaded[p.File] = p;
@@ -191,7 +196,7 @@ class PluginManagerForm : Form
         Text = "Plugins and extensions"; FormBorderStyle = FormBorderStyle.FixedDialog; StartPosition = FormStartPosition.CenterParent; MaximizeBox = false; MinimizeBox = false; ShowInTaskbar = false;
         BackColor = Color.FromArgb(10, 4, 20); ForeColor = Color.FromArgb(240, 232, 255); ClientSize = new Size(700, 600); Font = new Font("Segoe UI", 10f); Win.Dark(this);
         Controls.Add(new Label { Text = "Studio effect plugins", Left = 18, Top = 14, Width = 400, Height = 26, Font = new Font("Segoe UI Semibold", 13f), ForeColor = Color.FromArgb(225, 190, 255) });
-        Controls.Add(new Label { Text = "Your installed VST2 plugins (for example Vital) are listed here automatically. Tick one and it loads at once: instruments appear under + INSTRUMENT in Purphex Music, effects under + Add Effect > PLUGINS. You can also copy a .dll into the plugins folder. Plugins are programs: only tick ones you trust.", Left = 18, Top = 44, Width = 664, Height = 50, ForeColor = Color.FromArgb(170, 150, 200) });
+        Controls.Add(new Label { Text = "Your installed VST2 and VST3 plugins (for example Vital) are listed here automatically. Tick one and it loads at once: instruments appear under + INSTRUMENT in Purphex Music, effects under + Add Effect > PLUGINS. You can also copy a .dll into the plugins folder. Plugins are programs: only tick ones you trust.", Left = 18, Top = 44, Width = 664, Height = 50, ForeColor = Color.FromArgb(170, 150, 200) });
         list = new Panel { Left = 18, Top = 100, Width = 664, Height = 200, AutoScroll = true, BackColor = Color.FromArgb(8, 4, 16), BorderStyle = BorderStyle.FixedSingle }; Controls.Add(list); Win.DarkControl(list);
         Mk("Open plugins folder", 18, 310, 170, () => { Directory.CreateDirectory(PluginHost.Dir); Process.Start("explorer.exe", "\"" + PluginHost.Dir + "\""); });
         Mk("Reload", 196, 310, 110, () => { Reload(true); });
