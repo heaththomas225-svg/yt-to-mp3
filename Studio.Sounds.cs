@@ -124,10 +124,10 @@ partial class StudioForm
 
     void PaintSoundRow(Graphics g, SoundItem s, RectangleF r)
     {
-        bool sel = s == sndSel, hot = Hot(r); FillRR(g, sel ? Color.FromArgb(150, 80, 44, 150) : (hot ? Color.FromArgb(130, 60, 34, 110) : Color.FromArgb(90, 34, 20, 64)), r, 8); if (sel) StrokeRR(g, NeonCyan, r, 8, 1.4f);
+        bool sel = s == sndSel, hot = Hot(r), sex = s.Exists; FillRR(g, sel ? Color.FromArgb(150, 80, 44, 150) : (hot ? Color.FromArgb(130, 60, 34, 110) : Color.FromArgb(90, 34, 20, 64)), r, 8); if (sel) StrokeRR(g, NeonCyan, r, 8, 1.4f);
         var tile = Rc(r.X + 6, r.Y + 6, 38, 38); DrawPackTile(g, tile, SoundLibrary.Pack(s.PackId), s.PackName);
-        Txt(g, s.Name.Replace(s.PackName + " - ", ""), 12, s.Exists ? Ink : Color.FromArgb(255, 140, 140), Rc(r.X + 50, r.Y + 5, 250, 20), StringAlignment.Near, sel);
-        Txt(g, s.PackName + "  ·  " + s.Type + (s.Exists ? "" : "  (file missing)"), 10, DimC, Rc(r.X + 50, r.Y + 26, 250, 18), StringAlignment.Near, false);
+        Txt(g, s.Name.Replace(s.PackName + " - ", ""), 12, sex ? Ink : Color.FromArgb(255, 140, 140), Rc(r.X + 50, r.Y + 5, 250, 20), StringAlignment.Near, sel);
+        Txt(g, s.PackName + "  ·  " + s.Type + (sex ? "" : "  (file missing)"), 10, DimC, Rc(r.X + 50, r.Y + 26, 250, 18), StringAlignment.Near, false);
         // little wave
         var wr = Rc(r.X + 304, r.Y + 10, 90, 30); if (s.Peaks != null && s.Peaks.Length > 0) { using (var pen = new Pen(Color.FromArgb(sel ? 230 : 150, Neon(GroupColour(s.Group))), 1f)) for (int i = 0; i < wr.Width; i += 2) { float v = s.Peaks[Math.Min(s.Peaks.Length - 1, (int)(i / wr.Width * s.Peaks.Length))] / 255f * wr.Height / 2; g.DrawLine(pen, wr.X + i, wr.Y + wr.Height / 2 - v, wr.X + i, wr.Y + wr.Height / 2 + v); } }
         Txt(g, s.Bpm > 0 ? s.Bpm.ToString("0") : "-", 11, s.Bpm > 0 ? Ink : DimC, Rc(r.X + 400, r.Y, 40, r.Height), StringAlignment.Center, false); Txt(g, s.Key.Length > 0 ? s.Key : "-", 11, s.Key.Length > 0 ? Ink : DimC, Rc(r.X + 440, r.Y, 62, r.Height), StringAlignment.Center, false); Txt(g, s.Dur > 0 ? s.Dur.ToString("0.0") + "s" : "", 10, DimC, Rc(r.X + 502, r.Y, 46, r.Height), StringAlignment.Center, false);
@@ -136,10 +136,11 @@ partial class StudioForm
         var sr = Reg(star, () => { SoundLibrary.ToggleFav(s); sndDirty = sndFilter.OnlyFav; sndDrag = null; }); if (Hot(star)) { bubble = fav ? "Remove from favourites" : "Add to favourites"; bubblePt = MousePos; }
     }
 
+    static Bitmap logoSmall;
     void DrawPackTile(Graphics g, RectangleF r, SoundPack p, string name)
     {
         int hue = p != null ? p.Hue : 280; var gs = g.Save(); g.SetClip(r, CombineMode.Intersect); ProjectLibrary.DrawArt(g, r, name, hue); g.Restore(gs); using (var pen = new Pen(Color.FromArgb(160, NeonViolet), 1.2f)) g.DrawRectangle(pen, r.X, r.Y, r.Width, r.Height);
-        var lg = AppLogo.Logo; if (lg != null) { var q = Rc(r.Right - 15, r.Bottom - 15, 14, 14); g.DrawImage(lg, q); }
+        if (logoSmall == null) { var lg = AppLogo.Logo; if (lg != null) { try { logoSmall = new Bitmap(28, 28, System.Drawing.Imaging.PixelFormat.Format32bppPArgb); using (var lgg = Graphics.FromImage(logoSmall)) { lgg.InterpolationMode = InterpolationMode.HighQualityBicubic; lgg.DrawImage(lg, new Rectangle(0, 0, 28, 28)); } } catch { logoSmall = null; } } } if (logoSmall != null) { var q = Rc(r.Right - 15, r.Bottom - 15, 14, 14); g.DrawImage(logoSmall, q); }
     }
 
     void SelectSound(SoundItem s, bool play) { sndSel = s; if (play && SoundLibrary.AutoPlay && s.IsAudio) Auditioner.Play(s, m => Toast(m)); else if (play && s.Kind == "midi") Toast("MIDI: drag it onto an instrument track to load its notes."); }

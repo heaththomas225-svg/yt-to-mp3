@@ -12,7 +12,9 @@ using System.Text;
 class ProjectEntry
 {
     public string Path = "", Name = "", Cover = ""; public DateTime Updated, Opened; public int Tracks; public double Bpm, Seconds;
-    public bool Missing { get { return !File.Exists(Path); } }
+    int chkAt; bool miss, chk;
+    public bool Missing { get { int now = Environment.TickCount; if (!chk || unchecked(now - chkAt) > 2000) { miss = !File.Exists(Path); chk = true; chkAt = now; } return miss; } }
+    public void Recheck() { chk = false; }
 }
 
 static class ProjectLibrary
@@ -63,7 +65,7 @@ static class ProjectLibrary
         lock (lk)
         {
             var e = Find(path); if (e == null) { e = new ProjectEntry { Path = path }; Entries.Add(e); }
-            e.Name = name; e.Tracks = tracks; e.Bpm = bpm; e.Seconds = seconds; e.Opened = DateTime.Now; if (saved) e.Updated = DateTime.Now; else if (e.Updated.Ticks == 0) { try { e.Updated = File.GetLastWriteTime(path); } catch { } }
+            e.Recheck(); e.Name = name; e.Tracks = tracks; e.Bpm = bpm; e.Seconds = seconds; e.Opened = DateTime.Now; if (saved) e.Updated = DateTime.Now; else if (e.Updated.Ticks == 0) { try { e.Updated = File.GetLastWriteTime(path); } catch { } }
             if (coverJpeg != null && coverJpeg.Length > 0) { try { Directory.CreateDirectory(CoversDir); string cp = Path_(path); File.WriteAllBytes(cp, coverJpeg); e.Cover = cp; Forget(cp); } catch { } }
             else if (e.Cover.Length > 0 && !File.Exists(e.Cover)) e.Cover = "";
         }
@@ -145,7 +147,19 @@ static class ProjectLibrary
 
     // loaded pictures are kept so the lists draw fast
     static readonly Dictionary<string, Bitmap> cache = new Dictionary<string, Bitmap>(StringComparer.OrdinalIgnoreCase);
-    static void Forget(string path) { lock (cache) { Bitmap b; if (path != null && cache.TryGetValue(path, out b)) { cache.Remove(path); try { b.Dispose(); } catch { } } } }
+    static readonly Dictionary<string, Bitmap> scaled = new Dictionary<string, Bitmap>();
+    static void Forget(string path) { lock (cache) { Bitmap b; if (path != null && cache.TryGetValue(path, out b)) { cache.Remove(path); try { b.Dispose(); } catch { } } if (path != null) { var ks = new List<string>(); foreach (var k in scaled.Keys) if (k.StartsWith(path + "|", StringComparison.OrdinalIgnoreCase)) ks.Add(k); foreach (var k in ks) { try { scaled[k].Dispose(); } catch { } scaled.Remove(k); } } } }
+    // the picture pre-scaled once to the size it is drawn at (null when there is no picture)
+    public static Bitmap Scaled(string path, int w, int h, InterpolationMode mode)
+    {
+        var src = Picture(path); if (src == null || w < 1 || h < 1) return null;
+        lock (cache)
+        {
+            string key = path + "|" + w + "|" + h; Bitmap b; if (scaled.TryGetValue(key, out b)) return b;
+            if (scaled.Count > 60) { foreach (var kv in scaled) { try { kv.Value.Dispose(); } catch { } } scaled.Clear(); }
+            try { b = new Bitmap(w, h, PixelFormat.Format32bppPArgb); using (var gg = Graphics.FromImage(b)) { gg.InterpolationMode = mode; gg.PixelOffsetMode = PixelOffsetMode.HighQuality; gg.DrawImage(src, new Rectangle(0, 0, w, h)); } scaled[key] = b; return b; } catch { return null; }
+        }
+    }
     public static Bitmap Picture(string path)
     {
         if (string.IsNullOrEmpty(path)) return null;
@@ -157,9 +171,26 @@ static class ProjectLibrary
     }
 
     // artwork for a project with no picture: colours picked from its name
+    static readonly Dictionary<string, Bitmap> artCache = new Dictionary<string, Bitmap>();
     public static void DrawArt(Graphics g, RectangleF r, string name, int seed)
     {
-        int h = Math.Abs((name ?? "").GetHashCode() + seed) % 360; Color a = FromHsv(h, 0.75, 0.55), b = FromHsv((h + 70) % 360, 0.85, 0.28);
+        int w = (int)Math.Round(r.Width), hh = (int)Math.Round(r.Height); if (w < 1 || hh < 1) return;
+        string key = (name ?? "") + "|" + seed + "|" + w + "|" + hh; Bitmap bm;
+        lock (artCache)
+        {
+            if (!artCache.TryGetValue(key, out bm))
+            {
+                if (artCache.Count > 200) { foreach (var kv in artCache) { try { kv.Value.Dispose(); } catch { } } artCache.Clear(); }
+                bm = new Bitmap(w, hh, PixelFormat.Format32bppPArgb);
+                using (var bg = Graphics.FromImage(bm)) { bg.SmoothingMode = SmoothingMode.AntiAlias; bg.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAlias; DrawArtRaw(bg, new RectangleF(0, 0, w, hh), name, seed); }
+                artCache[key] = bm;
+            }
+            var oi = g.InterpolationMode; var po = g.PixelOffsetMode; g.InterpolationMode = InterpolationMode.NearestNeighbor; g.PixelOffsetMode = PixelOffsetMode.Half; g.DrawImage(bm, new Rectangle((int)Math.Round(r.X), (int)Math.Round(r.Y), w, hh)); g.InterpolationMode = oi; g.PixelOffsetMode = po;
+        }
+    }
+    static void DrawArtRaw(Graphics g, RectangleF r, string name, int seed)
+    {
+        int h =Math.Abs((name ?? "").GetHashCode() + seed) % 360; Color a = FromHsv(h, 0.75, 0.55), b = FromHsv((h + 70) % 360, 0.85, 0.28);
         using (var br = new LinearGradientBrush(r, a, b, 55f)) g.FillRectangle(br, r);
         using (var pen = new Pen(Color.FromArgb(46, 255, 255, 255), 1.5f)) { for (int i = 1; i < 6; i++) { float yy = r.Y + r.Height * i / 6f; g.DrawLine(pen, r.X, yy, r.Right, yy); } }
         var rnd = new Random(h); using (var pen = new Pen(Color.FromArgb(150, 255, 255, 255), 2f)) { var pts = new List<PointF>(); for (int i = 0; i <= 24; i++) { float u = i / 24f; float amp = (float)(Math.Sin(u * Math.PI) * (0.18 + 0.22 * rnd.NextDouble())); pts.Add(new PointF(r.X + r.Width * u, r.Y + r.Height * 0.62f + (i % 2 == 0 ? -1 : 1) * amp * r.Height * 0.5f)); } g.DrawLines(pen, pts.ToArray()); }
