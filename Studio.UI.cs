@@ -672,10 +672,11 @@ partial class StudioForm : Form
     // Exact height of an effect editor, so the panel scrolls only as far as its content (no endless blank space).
     static float EditorHeight(Fx f)
     {
-        int n = 0; foreach (var p in f.P) n++;
-        if (f.Type == "eq") return 640;
-        if (f.Type == "8d") return 34 + 190 + Math.Max(0, n - 2) * 30 + 24;
-        if (f.Type == "pitch") return 34 + 200 + Math.Max(0, n - 3) * 30 + 24;
+        int n = 0; { var hid = f.Hidden.Length > 0 ? new List<string>(f.Hidden.Split(',')) : new List<string>(); foreach (var p in f.P) if (!hid.Contains(p.Id)) n++; }
+        if (f is ParametricEq) return 640;
+        if (f is Spatial8D) return 34 + 190 + Math.Max(0, n - 2) * 30 + 24;
+        if (f is ConvFx) return 34 + 52 + n * 30 + 24;
+        if (f is PitchCorrector) return 34 + 200 + Math.Max(0, n - 3) * 30 + 24;
         return 34 + n * 30 + 24;
     }
 
@@ -715,13 +716,12 @@ partial class StudioForm : Form
         Reg(sb, () => { });
         if (browserQuery.Length > 0) Btn(g, Rc(sb.Right - 32, sb.Y + 6, 24, 24), "x", 3, () => { browserQuery = ""; browserScroll = 0; }, 12);
         Txt(g, browserQuery.Length == 0 ? (((int)(t * 2) % 2 == 0 ? "|" : " ") + "  Search here - just start typing: EQ, reverb, pitch...") : browserQuery + ((int)(t * 2) % 2 == 0 ? "|" : ""), 15, browserQuery.Length == 0 ? DimC : Ink, Rc(sb.X + 12, sb.Y, sb.Width - 50, sb.Height), StringAlignment.Near, false);
-        var list = new List<FxRegistry.Info>(); string q = browserQuery.ToLowerInvariant().Trim();
-        foreach (var i in FxRegistry.All) { if (i.Type == "gain") continue; if (q.Length == 0 || i.Name.ToLowerInvariant().Contains(q) || i.Category.ToLowerInvariant().Contains(q) || i.Blurb.ToLowerInvariant().Contains(q) || i.Type.Contains(q)) list.Add(i); }
-        // exact height of the list, so it can never be scrolled past its last row
-        { var ordered = new List<FxRegistry.Info>(); foreach (var i3 in list) if (i3.Category == "Plugins") ordered.Add(i3); foreach (var i3 in list) if (i3.Category != "Plugins") ordered.Add(i3); list = ordered; }   // your own plugins first
+        var list = BrowserList(); string q = browserQuery.ToLowerInvariant().Trim();
+        { var cb = Rc(x + 20, y + 94, 250, 26); Btn(g, cb, "Category: " + (browserCat.Length == 0 ? "All" : browserCat), browserCat.Length == 0 ? 0 : 4, () => CategoryMenu(), 12); Txt(g, list.Count + (list.Count == 1 ? " effect" : " effects"), 12, DimC, Rc(x + 280, y + 94, 200, 26), StringAlignment.Near, false); }
+        float listTop = y + 128;
         float listH = 0; { string lc = ""; foreach (var i2 in list) { if (i2.Category != lc) { lc = i2.Category; listH += 20; } listH += 48; } }
-        float browserMax = Math.Max(0, listH - (h - 106) + 8); browserMaxF = browserMax; browserScroll = Math.Max(0, Math.Min(browserMax, browserScroll));
-        float ry = y + 100 - browserScroll; g.SetClip(Rc(x + 10, y + 96, w - 20, h - 106));
+        float browserMax = Math.Max(0, listH - (h - (listTop - y) - 10) + 8); browserMaxF = browserMax; browserScroll = Math.Max(0, Math.Min(browserMax, browserScroll));
+        float ry = listTop - browserScroll; g.SetClip(Rc(x + 10, listTop - 4, w - 20, h - (listTop - y) - 10));
         string lastCat = "";
         foreach (var info in list)
         {
@@ -736,7 +736,23 @@ partial class StudioForm : Form
         g.ResetClip();
         Txt(g, "Enter adds the first match  -  Esc closes  -  your plugins are listed first", 11, DimC, Rc(x + 20, y + h - 22, w - 40, 18), StringAlignment.Near, false);
     }
-    RectangleF browserBox; float browserMaxF;
+    RectangleF browserBox; float browserMaxF; string browserCat = "";
+
+    // the effects that match the search and category, grouped by category (your own plugins first)
+    List<FxRegistry.Info> BrowserList()
+    {
+        var list = new List<FxRegistry.Info>(); string q = browserQuery.ToLowerInvariant().Trim();
+        foreach (var i in FxRegistry.All) { if (i.Type == "gain") continue; if (browserCat.Length > 0 && i.Category != browserCat) continue; if (q.Length == 0 || i.Name.ToLowerInvariant().Contains(q) || i.Category.ToLowerInvariant().Contains(q) || i.Blurb.ToLowerInvariant().Contains(q) || i.Type.Contains(q)) list.Add(i); }
+        var order = new List<string>(); order.Add("Plugins"); foreach (var i in FxRegistry.All) if (!order.Contains(i.Category)) order.Add(i.Category);
+        var res = new List<FxRegistry.Info>(); foreach (var c in order) foreach (var i in list) if (i.Category == c) res.Add(i); return res;
+    }
+    void CategoryMenu()
+    {
+        var m = Win.NewMenu(); var it0 = new ToolStripMenuItem("All effects") { Checked = browserCat.Length == 0 }; it0.Click += (a, b) => { browserCat = ""; browserScroll = 0; }; m.Items.Add(it0); m.Items.Add(new ToolStripSeparator());
+        var cats = new List<string>(); var counts = new Dictionary<string, int>(); foreach (var i in FxRegistry.All) { if (i.Type == "gain") continue; if (!counts.ContainsKey(i.Category)) { counts[i.Category] = 0; cats.Add(i.Category); } counts[i.Category]++; }
+        foreach (var c in cats) { string cc = c; var it = new ToolStripMenuItem(c + "  (" + counts[c] + ")") { Checked = browserCat == c }; it.Click += (a, b) => { browserCat = cc; browserScroll = 0; }; m.Items.Add(it); }
+        m.Show(this, new Point((int)MousePos.X, (int)MousePos.Y));
+    }
 
     void AddFx(string type)
     {
@@ -764,8 +780,7 @@ partial class StudioForm : Form
             if (k == Keys.Escape) { browserOpen = false; return true; }
             if (k == Keys.Enter)
             {
-                string q = browserQuery.ToLowerInvariant().Trim();
-                foreach (var i in FxRegistry.All) { if (i.Type == "gain") continue; if (q.Length == 0 || i.Name.ToLowerInvariant().Contains(q) || i.Category.ToLowerInvariant().Contains(q) || i.Blurb.ToLowerInvariant().Contains(q)) { AddFx(i.Type); break; } }
+                var first = BrowserList(); if (first.Count > 0) AddFx(first[0].Type);
                 return true;
             }
             return base.ProcessCmdKey(ref msg, k);
@@ -828,10 +843,11 @@ partial class StudioForm : Form
         Btn(g, Rc(a.Right - 80, y, 70, 24), "Presets", 1, () => PresetMenu(f), 12);
         y += 34;
         var vstf = f as InstrumentFx; if (vstf != null) { Btn(g, Rc(a.X + 10, y - 2, a.Width - 20, 32), vstf.WindowLabel, 2, () => { vstf.Owner = tr; vstf.ShowWindow(this); }, 14); y += 38; }
-        var skip = new List<string>();
-        if (f.Type == "eq") { PaintEqEditor(g, (ParametricEq)f, Rc(a.X + 6, y, a.Width - 12, a.Bottom - y - 4), tr == null ? null : tr.TapPost, tr == null ? 0 : tr.TapPos); return; }
-        if (f.Type == "8d") { y = Paint8dEditor(g, (Spatial8D)f, Rc(a.X + 6, y, a.Width - 12, 190)); skip.AddRange(new[] { "hold", "angle" }); }
-        if (f.Type == "pitch") { y = PaintPitchEditor(g, (PitchCorrector)f, tr, Rc(a.X + 6, y, a.Width - 12, 200)); skip.AddRange(new[] { "key", "scale", "mask" }); }
+        var skip = new List<string>(); if (f.Hidden.Length > 0) skip.AddRange(f.Hidden.Split(','));
+        if (f is ParametricEq) { PaintEqEditor(g, (ParametricEq)f, Rc(a.X + 6, y, a.Width - 12, a.Bottom - y - 4), tr == null ? null : tr.TapPost, tr == null ? 0 : tr.TapPos); return; }
+        var cvx = f as ConvFx; if (cvx != null) { var lb = Rc(a.X + 10, y - 2, a.Width - 20, 30); Btn(g, lb, "Load your own impulse response...", 2, () => { using (var d = new OpenFileDialog { Title = "Choose an impulse response (a recording of a space or speaker)", Filter = "Audio|*.wav;*.mp3;*.flac;*.ogg;*.aiff|All files|*.*" }) if (d.ShowDialog(this) == DialogResult.OK) cvx.UserPath = d.FileName; }, 12); y += 34; Txt(g, cvx.IrNote.Length > 0 ? "Using: " + cvx.IrNote : "", 11, DimC, Rc(a.X + 14, y - 4, a.Width - 28, 16), StringAlignment.Near, false); y += 18; }
+        if (f is Spatial8D) { y = Paint8dEditor(g, (Spatial8D)f, Rc(a.X + 6, y, a.Width - 12, 190)); skip.AddRange(new[] { "hold", "angle" }); }
+        if (f is PitchCorrector) { y = PaintPitchEditor(g, (PitchCorrector)f, tr, Rc(a.X + 6, y, a.Width - 12, 200)); skip.AddRange(new[] { "key", "scale", "mask" }); }
         PaintParams(g, f, Rc(a.X + 6, y, a.Width - 12, a.Bottom - y - 4), skip);
     }
 

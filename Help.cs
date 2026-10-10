@@ -408,6 +408,20 @@ If a site only has a lower quality than you picked, you get the best it has.
 - A few sites need you to be signed in or block downloads. The log shows the reason.
 - Only download what you have the right to keep."),
 
+        new HelpTopic("studio-plugins", "Purphex Music", "The built-in plugin library (pitch, voice, echo, reverb, EQ...)", false, @"
+## Adding effects
+Select a track and press + Add Effect (or use the master chain). The list now holds over a hundred named effects. Use the Category button to pick a group, or just type: telephone, demon, plate, tape echo, notch...
+## What is in it
+- Pitch & Voice: pitch shifters (up to four voices), formant shifter, octave up and down, doublers, harmonizers, unison, detune, pitch glide, hard tune and robot pitch.
+- Telephone & Distortion: telephone, radio, walkie-talkie, megaphone, police radio, lo-fi, saturation (tube, tape, soft), overdrive, clippers, fuzz, bitcrusher, ring modulator, frequency shifter, comb filter, vocoder, talkbox, robot, demon and monster voices.
+- Echo & Reverb: slapback, tape, analog, ping-pong, multi-tap, reverse, ducking and tempo-synced delays; room, hall, plate, chamber, spring, shimmer, gated, reverse and ambient reverbs; early reflections; convolution reverb (with your own impulse-response files).
+- EQ & Clarity: graphic, channel, vintage and analog EQ, dynamic EQ, linear-phase EQ, tilt, shelves, notch, formant (vowel) filter, mid-side EQ, vocal presence, air, mud remover, harshness reducer, resonance suppressor, spectral shaper and automatic EQ.
+## Good to know
+- Every effect is real signal processing that runs on your computer. Several named effects can share one engine with different starting settings, and some chain two or three engines together.
+- Parameters you do not need are hidden. Double-click a slider to go back to the starting value of that effect.
+- Pitch and delay-based effects can add a small delay; Purphex lines the tracks up for you.
+- The fixed-interval harmonizers add the notes you choose (they do not follow your key)."),
+
         new HelpTopic("studio-sounds", "Purphex Music", "Purphex Sounds: the sample browser and sound packs", false, @"
 ## Opening it
 Press SOUNDS (next to MIC) or Tools > Purphex Sounds. A panel opens on the right of the Mix page. Press it again, or the x, to close it.

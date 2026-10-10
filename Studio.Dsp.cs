@@ -167,6 +167,9 @@ public abstract class Fx
     }
 
     public void ResetDefaults() { foreach (var p in P) p.Val = p.Def; dirty = true; }
+    public string Hidden = "";        // comma-separated parameter ids the editor does not show (they still work and are saved)
+    // Built-in plugin variants: set the starting values and make them the defaults (double-click resets to them).
+    public void SetPreset(string s) { Deserialize(s); foreach (var p in P) p.Def = p.Val; dirty = true; }
 }
 
 // ---------------- compressor core (shared) ----------------
@@ -946,7 +949,8 @@ public static class FxRegistry
     static readonly List<Info> extra = new List<Info>(); static readonly Dictionary<string, Func<Fx>> factories = new Dictionary<string, Func<Fx>>();
     // Plugins call this (the host does it for you when a plugin DLL is loaded).
     public static void Register(Info info, Func<Fx> factory) { lock (extra) { extra.RemoveAll(i => i.Type == info.Type); extra.Add(info); factories[info.Type] = factory; } }
-    public static bool IsBuiltin(string type) { foreach (var i in Builtin) if (i.Type == type) return true; return false; }
+    public static bool IsBuiltin(string type) { foreach (var i in Builtin) if (i.Type == type) return true; return PluginLibrary.IsLibrary(type); }
+    static FxRegistry() { PluginLibrary.RegisterAll(); }   // the named built-in plugin library
     public static readonly Info[] Builtin = {
         new Info("eq", "Parametric EQ", "EQ", "6 bands, shelves, high-pass / low-pass, draggable curve"),
         new Info("comp", "Compressor", "Dynamics", "Soft-knee compressor with sidechain filter"),

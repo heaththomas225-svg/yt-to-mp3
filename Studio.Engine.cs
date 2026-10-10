@@ -448,7 +448,7 @@ class StudioEngine
                 for (int f = 0; f < t.Fx.Count; f++)
                 {
                     var fx = t.Fx[f]; if (fx.Bypass) continue;
-                    bool needsSc = fx.Type == "duck" || (fx.Type == "comp" && fx.Get("ext") > 0.5f);
+                    bool needsSc = fx is Ducker || (fx is Compressor && fx.Get("ext") > 0.5f);
                     if (needsSc && voc != null && voc != t)
                     {
                         for (int i = 0; i < n; i++) { int w = (int)((pos + i - latSoFar) & (scRL.Length - 1)); scL[i] = scRL[w]; scR[i] = scRR[w]; }
