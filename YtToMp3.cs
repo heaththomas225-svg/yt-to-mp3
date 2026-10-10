@@ -25,7 +25,7 @@ class Spore { public float X, Y, R, VY, Phase; }
 class App : Form
 {
     // ---- Auto-update settings ----
-    const string Version = "1.1.0";
+    const string Version = "1.2.0";
     // Plain-text manifest: line 1 = newest version, line 2 = direct exe download URL.
     const string UpdateManifestUrl = "https://raw.githubusercontent.com/heaththomas225-svg/yt-to-mp3/main/version.txt";
 
@@ -70,6 +70,7 @@ class App : Form
 
         bg.Dock = DockStyle.Fill;
         bg.Paint += PaintBg;
+        bg.Resize += (s, e) => CenterCard();
         Controls.Add(bg);
 
         StyleBox(url); url.SetBounds(16, 90, 528, 28);
@@ -467,14 +468,47 @@ class App : Form
             if (new Version(lines[0].Trim()) <= new Version(Version)) return;
             string newVer = lines[0].Trim(), dl = lines[1].Trim();
 
-            BeginInvoke(new Action(() =>
-            {
-                if (MessageBox.Show(this, "Version " + newVer + " is available (you have " + Version + ").\nUpdate now?",
-                    "Update available", MessageBoxButtons.YesNo, MessageBoxIcon.Information) != DialogResult.Yes) return;
-                ApplyUpdate(dl);
-            }));
+            BeginInvoke(new Action(() => ShowUpdateCard(newVer, dl)));
         }
         catch { /* offline or bad manifest: ignore silently */ }
+    }
+
+    // In-app update popup (a card over the window instead of a separate message box).
+    Panel card;
+    void ShowUpdateCard(string newVer, string dl)
+    {
+        if (card != null) return;
+        card = new Panel { Size = new Size(380, 150), BackColor = Color.FromArgb(34, 12, 64), BorderStyle = BorderStyle.FixedSingle };
+        var title = MakeLabel("Update available", new Font("Segoe UI Semibold", 13f), Color.FromArgb(225, 190, 255), 16, 14, 348, 28);
+        var msg = MakeLabel("Version " + newVer + " is ready (you have " + Version + ").\nUpdate now? The app restarts automatically.", Font, Ink, 16, 50, 348, 40);
+        var yes = new Button(); StyleBtn(yes, Color.FromArgb(130, 45, 220)); yes.Text = "Update now"; yes.SetBounds(16, 100, 170, 34);
+        var no = new Button(); StyleBtn(no, Color.FromArgb(60, 26, 100)); no.Text = "Later"; no.SetBounds(194, 100, 170, 34);
+        yes.Click += (s, e) => { HideCard(); ApplyUpdate(dl); };
+        no.Click += (s, e) => HideCard();
+        card.Controls.AddRange(new Control[] { title, msg, yes, no });
+        bg.Controls.Add(card);
+        CenterCard();
+        card.BringToFront();
+        Activate();
+    }
+
+    static Label MakeLabel(string text, Font f, Color c, int x, int y, int w, int h)
+    {
+        var l = new Label { Text = text, Font = f, ForeColor = c, AutoSize = false };
+        l.SetBounds(x, y, w, h);
+        return l;
+    }
+
+    void HideCard()
+    {
+        if (card == null) return;
+        bg.Controls.Remove(card); card.Dispose(); card = null;
+    }
+
+    void CenterCard()
+    {
+        if (card != null)
+            card.Location = new Point((bg.ClientSize.Width - card.Width) / 2, Math.Max(10, (bg.ClientSize.Height - card.Height) / 2 - 20));
     }
 
     void ApplyUpdate(string downloadUrl)
