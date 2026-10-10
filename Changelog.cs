@@ -7,10 +7,17 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.16.0";
+    public const string Latest = "3.17.0";
 
     public const string Text =
-@"3.16.0  Built-in plugin library
+@"3.17.0  Flex Pitch, the whole plugin library, faster and safer
+ + NEW FLEX PITCH: select a recording and press FLEX. Every note appears as a block on a piano-roll grid: drag a note up or down to re-tune it, steady its pitch (Drift), shrink or exaggerate the vibrato, change its volume or formant, correct all notes to a key and scale, split and join notes. The track plays your edits live, and DONE saves the edited audio with the project. Undo and Original bring the recording back.
+ + 100 more built-in plugins, so all 218 you listed are now in: Vocal Tools, Creative and Bass & EDM (granular, spectral freeze, tape stop, beat repeat, step modulators, risers and impacts, OTT-style dynamics, phaser and flangers, amp and cabinet simulators and more).
+ + FPS counter: switch it on in Settings (or View menu in Purphex Music) and a small badge shows the frame rate on every screen.
+ + New 120 fps option in Settings (it needs a 120 Hz or faster screen).
+ + A full code review found and fixed many problems: effects that could build up or stall, audio glitches while moving a control, extra drawing work in the studio and the converter window, saving settings too often while dragging the window, and more.
+
+3.16.0  Built-in plugin library
  + About 115 named effects are now built in, grouped as Pitch & Voice, Telephone & Distortion, Echo & Reverb and EQ & Clarity. Add them from + Add Effect and pick a Category.
  + New engines behind them: a phase-vocoder pitch shifter with up to four voices and formant control, a classic low-delay shifter, formant shifter, frequency shifter, vocoder, comb resonators, a waveshaper with oversampling, a bit crusher, an echo with tape, ping-pong, multi-tap, reverse and ducking, a feedback-network reverb (room, hall, plate, chamber, spring, shimmer, gated, reverse), convolution reverb with your own impulse responses, dynamic EQ, linear-phase EQ, a vowel filter, a resonance suppressor, a spectral shaper and an automatic EQ.
  + The effect list can be filtered by category, and effects hide the settings they do not need.
