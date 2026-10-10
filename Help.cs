@@ -408,6 +408,27 @@ If a site only has a lower quality than you picked, you get the best it has.
 - A few sites need you to be signed in or block downloads. The log shows the reason.
 - Only download what you have the right to keep."),
 
+        new HelpTopic("studio-flex", "Purphex Music", "Flex Pitch: edit the notes of a vocal", false, @"
+## What it does
+Flex Pitch listens to a recording of one voice (or one instrument) and shows every note as a block on a piano-roll grid. Drag a block up or down to change that note's pitch. The track plays your edits straight away, and the length and timing stay exactly as they were.
+## Opening it
+Select the track, then press FLEX in the tool row (or Tools > Flex Pitch). The recording is analysed (a few seconds for a song-length take) and the timeline zooms to it. Flex Pitch works best on a single voice or instrument, not a full mix: use Split vocals + beat first.
+## Editing notes
+- Drag a note up or down: it snaps to whole semitones. Hold Alt to move freely.
+- Click a note to select it; Shift-click adds more; drag a box around notes to select several; Ctrl+A selects all.
+- Drag the left or right edge of a note to change where it starts or ends.
+- Double-click a note to reset it. Right-click for more: split, join, snap to the nearest note, steady the pitch, take out the vibrato.
+- The white line inside each note is the real pitch of the voice (drift and vibrato), after your edits.
+## The note controls (left side)
+Pitch (semitones) and Fine (cents) move the note. Drift removes slow wandering of the pitch. Vibrato makes the fast wobble smaller (0%) or bigger (200%). Gain changes the volume of the note. Formant makes the voice darker or brighter without changing the pitch. Double-click a slider to reset it.
+## Correct pitch
+Choose a key and scale (the button next to Correct pitch), set Amount, then press Correct pitch: the selected notes (or all notes) snap to the nearest note in that scale. 100% is hard and exact; lower values keep some of the natural feel.
+## Finishing
+DONE keeps your edits. The edited audio is saved as a new WAV file in the Purphex data folder and your project points to it. Original puts the recording back as it was. Undo also brings the original back.
+## Good to know
+- Notes are shown where the recording is on the timeline, so you can see the lanes above while you work.
+- Very fast singing, whispers, and noisy recordings may give fewer notes. Use the Split tool, or drag note edges, to fix a note that was cut in the wrong place."),
+
         new HelpTopic("studio-plugins", "Purphex Music", "The built-in plugin library (pitch, voice, echo, reverb, EQ...)", false, @"
 ## Adding effects
 Select a track and press + Add Effect (or use the master chain). The list now holds over a hundred named effects. Use the Category button to pick a group, or just type: telephone, demon, plate, tape echo, notch...

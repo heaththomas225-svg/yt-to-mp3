@@ -93,7 +93,7 @@ class PitchShiftFx : Fx
             c.mag[k] = m; c.freq[k] = k + d * OVER / (2 * Math.PI);
         }
         bool needEnv = false; for (int v = 0; v < V; v++) if (Math.Abs(fratio[v] - ratio[v]) > 0.002 && Get("l" + (v + 1)) > 0) needEnv = true;
-        if (needEnv) { Dsp2.Envelope(c.mag, N, Math.Max(10, (int)(SR / 520.0)), c.tre, c.tim, c.env); for (int k = 0; k <= H; k++) c.flat[k] = c.mag[k] / Math.Max(1e-7, c.env[k]); }
+        if (needEnv) { Dsp2.Envelope(c.mag, N, Math.Max(10, (int)(SR / 520.0)), c.tre, c.tim, c.env, SR); for (int k = 0; k <= H; k++) c.flat[k] = c.mag[k] / Math.Max(1e-7, c.env[k]); }
         for (int v = 0; v < V; v++)
         {
             if (Get("l" + (v + 1)) <= 0) continue; double r = ratio[v]; bool env = Math.Abs(fratio[v] - r) > 0.002; if (Math.Abs(r - 1) < 1e-4 && !env) continue;
@@ -220,7 +220,7 @@ class FormantFx : Fx
     void Spec(double[] re, double[] im)
     {
         int H = N / 2; for (int k = 0; k <= H; k++) mag[k] = Math.Sqrt(re[k] * re[k] + im[k] * im[k]);
-        Dsp2.Envelope(mag, N, Q, tre, tim, env);
+        Dsp2.Envelope(mag, N, Q, tre, tim, env, SR);
         for (int k = 0; k <= H; k++)
         {
             double e0 = Math.Max(1e-7, env[k]), e1 = Dsp2.EnvAt(env, H, k / ratio); double g = e1 / e0; g = Math.Max(0.03, Math.Min(25, g));

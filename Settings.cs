@@ -34,9 +34,10 @@ class SettingsForm : Form
         studioChk = Chk("Also use it behind Purphex Music", 20, ref y); studioChk.CheckedChanged += (s, e) => { if (!setting) { Prefs.BgStudio = studioChk.Checked; UserBackground.Version++; Prefs.Changed(); } };
         y += 6; Header("Animation", ref y);
         Controls.Add(new Label { Text = "Frame rate limit", Left = 20, Top = y + 3, Width = 150, ForeColor = Ink });
-        fpsBox = Combo(180, y, 120, new[] { "30 fps (lightest)", "60 fps (smooth)" }); fpsBox.SelectedIndexChanged += (s, e) => { if (!setting) { Prefs.FpsCap = fpsBox.SelectedIndex == 0 ? 30 : 60; Prefs.Changed(); } };
+        fpsBox = Combo(180, y, 190, new[] { "30 fps (lightest)", "60 fps (smooth)", "120 fps (fastest screens)" }); fpsBox.SelectedIndexChanged += (s, e) => { if (!setting) { Prefs.FpsCap = fpsBox.SelectedIndex == 0 ? 30 : (fpsBox.SelectedIndex == 2 ? 120 : 60); Prefs.Changed(); } };
         y += 38;
-        fpsChk = Chk("Show the frame rate in the title bar", 20, ref y); fpsChk.CheckedChanged += (s, e) => { if (!setting) { Prefs.ShowFps = fpsChk.Checked; Prefs.Changed(); } };
+        Controls.Add(new Label { Text = "Your screen refreshes " + FrameLoop.DisplayHz() + " times a second, so that is the most you will see. 120 fps needs a 120 Hz (or faster) screen and a quicker PC.", Left = 20, Top = y - 6, Width = 480, Height = 34, ForeColor = Color.FromArgb(150, 140, 190) }); y += 30;
+        fpsChk = Chk("Show the frame rate (title bar and a badge on every screen)", 20, ref y); fpsChk.CheckedChanged += (s, e) => { if (!setting) { Prefs.ShowFps = fpsChk.Checked; Prefs.Changed(); } };
         y += 6; Header("Audio (Purphex Music playback)", ref y);
         volBar = new TrackBar { Left = 130, Top = y - 4, Width = 300, Minimum = 0, Maximum = 100, TickFrequency = 10, BackColor = BackColor };
         volNum = new NumericUpDown { Left = 440, Top = y, Width = 64, Minimum = 0, Maximum = 100 }; StyleNum(volNum);
@@ -97,7 +98,7 @@ class SettingsForm : Form
         setting = true;
         bgName.Text = UserBackground.Active ? (UserBackground.IsVideo ? "Video: " : "Picture: ") + Prefs.BgPath : "None - using the animated purple leaves";
         dimBar.Value = Prefs.BgDim; dimNum.Value = Prefs.BgDim; leavesChk.Checked = Prefs.BgLeaves; studioChk.Checked = Prefs.BgStudio;
-        fpsBox.SelectedIndex = Prefs.FpsCap == 30 ? 0 : 1; fpsChk.Checked = Prefs.ShowFps;
+        fpsBox.SelectedIndex = Prefs.FpsCap == 30 ? 0 : (Prefs.FpsCap >= 120 ? 2 : 1); fpsChk.Checked = Prefs.ShowFps;
         { int ii = Prefs.InDev.Length == 0 ? 0 : inBox.Items.IndexOf(Prefs.InDev); inBox.SelectedIndex = Math.Max(0, ii); }
         volBar.Value = Prefs.OutVol; volNum.Value = Prefs.OutVol; devBox.SelectedIndex = Math.Max(0, Math.Min(devBox.Items.Count - 1, Prefs.OutDev + 1)); bufBox.SelectedIndex = Prefs.Buf;
         setting = false;

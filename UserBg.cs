@@ -38,7 +38,7 @@ static class Prefs
             case "outvol": if (int.TryParse(v, out n)) OutVol = Math.Max(0, Math.Min(100, n)); return true;
             case "outdev": if (int.TryParse(v, out n)) OutDev = n; return true;
             case "buf": if (int.TryParse(v, out n)) Buf = Math.Max(0, Math.Min(2, n)); return true;
-            case "fpscap": if (int.TryParse(v, out n)) FpsCap = n >= 60 ? 60 : 30; return true;
+            case "fpscap": if (int.TryParse(v, out n)) FpsCap = n >= 120 ? 120 : (n >= 60 ? 60 : 30); return true;
             case "showfps": if (bool.TryParse(v, out b)) ShowFps = b; return true;
             case "midiin": MidiDev = v; return true;
             case "indev": InDev = v; return true;

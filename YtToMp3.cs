@@ -331,6 +331,7 @@ partial class App : Form
     internal void ApplyPrefs()
     {
         if (frameLoop != null) frameLoop.TargetFps = Math.Max(30, Math.Min(Prefs.FpsCap, FrameLoop.DisplayHz()));
+        try { var sfm = studioForm as StudioForm; if (sfm != null && !sfm.IsDisposed) sfm.ApplyFps(); } catch { }
         WaveOutPlayer.Gain = Prefs.OutVol / 100f;
         if (!Prefs.ShowFps) Text = "Purphex  v" + Version;
         if (!UserBackground.Active) UserBackground.StopVideo();

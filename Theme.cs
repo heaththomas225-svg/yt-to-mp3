@@ -207,6 +207,27 @@ class FrameLoop : IDisposable
 
     public void Dispose() { run = false; try { th.Join(300); } catch { } try { timeEndPeriod(1); } catch { } }
 }
+// Counts painted frames and draws a small badge: used in the converter window and on every Purphex Music screen.
+sealed class FpsCounter
+{
+    int frames; long t0 = System.Diagnostics.Stopwatch.GetTimestamp(); public int Fps; static int hz;
+    public void Frame()
+    {
+        long now = System.Diagnostics.Stopwatch.GetTimestamp(); frames++; double s = (now - t0) / (double)System.Diagnostics.Stopwatch.Frequency;
+        if (s >= 0.5) { Fps = (int)(frames / s + 0.5); frames = 0; t0 = now; }
+    }
+    public void Draw(Graphics g, float right, float bottom, bool idle)
+    {
+        if (!Prefs.ShowFps) return; if (hz == 0) hz = FrameLoop.DisplayHz(); int target = Math.Min(Prefs.FpsCap, hz); string text = idle ? "idle" : Fps + " FPS";
+        Color c = idle ? Color.FromArgb(150, 140, 190) : (Fps >= target * 0.85 ? Color.FromArgb(110, 255, 150) : (Fps >= target * 0.45 ? Color.FromArgb(255, 210, 80) : Color.FromArgb(255, 100, 120)));
+        var f = GfxCache.Font(12, true); var sz = g.MeasureString(text, f); float w = sz.Width + 30, h = 22; var r = new RectangleF(right - w, bottom - h, w, h);
+        var oldS = g.SmoothingMode; g.SmoothingMode = SmoothingMode.AntiAlias;
+        using (var b = new SolidBrush(Color.FromArgb(210, 8, 4, 20))) g.FillRectangle(b, r); using (var p = new Pen(Color.FromArgb(180, c), 1.2f)) g.DrawRectangle(p, r.X, r.Y, r.Width, r.Height);
+        using (var b = new SolidBrush(c)) { g.FillEllipse(b, r.X + 8, r.Y + 7, 8, 8); g.DrawString(text, f, b, r.X + 21, r.Y + 3); }
+        g.SmoothingMode = oldS;
+    }
+}
+
 // Shared drawing resources. Creating a Font / StringFormat for every piece of text on every frame was the main cost of the custom-drawn windows.
 static class GfxCache
 {

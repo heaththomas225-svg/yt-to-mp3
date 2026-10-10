@@ -23,7 +23,7 @@ class EchoFx : Fx
         AddP("fb", "Repeats (feedback)", 0, 98, 40, "%"); AddP("lc", "Low cut", 20, 2000, 150, "Hz"); AddP("hc", "High cut", 500, 20000, 6500, "Hz"); AddP("sat", "Saturation", 0, 100, 0, "%");
         AddP("mod", "Wobble depth", 0, 20, 0, "ms"); AddP("modr", "Wobble rate", 0.05f, 8, 0.7f, "Hz"); AddP("wow", "Tape drift", 0, 100, 0, "%"); AddP("diff", "Smear (diffusion)", 0, 100, 0, "%");
         AddP("duck", "Duck while singing", 0, 100, 0, "%"); AddP("duckr", "Duck recovery", 20, 1500, 250, "ms"); AddP("width", "Width", 0, 200, 100, "%");
-        AddP("rev", "Reverb on repeats", 0, 100, 0, "%"); AddP("revsize", "Reverb size", 0, 100, 55, "%"); AddP("decay", "Tap fade (multi-tap)", 20, 100, 70, "%"); AddP("mix", "Echo level", 0, 100, 35, "%");
+        AddP("rev", "Reverb on repeats", 0, 100, 0, "%"); AddP("revsize", "Reverb size", 0, 100, 55, "%"); AddP("decay", "Tap fade (multi-tap)", 20, 100, 70, "%"); AddP("dry", "Original sound", 0, 100, 100, "%"); AddP("mix", "Echo level", 0, 100, 35, "%");
     }
     protected override void Update()
     {
@@ -40,7 +40,7 @@ class EchoFx : Fx
     float Allpass(int i, float x, float g) { var b = ap[i]; int L = apLen[i]; int rd = apw[i] - L; if (rd < 0) rd += b.Length; float d = b[rd]; float y = -g * x + d; b[apw[i]] = x + g * y; if (++apw[i] >= b.Length) apw[i] = 0; return y; }
     public override void Process(float[] l, float[] r, int n)
     {
-        CheckDirty(); int mode = (int)Get("mode"); double fb = Get("fb") / 100.0, sat = Get("sat") / 100.0, satD = 1 + sat * 3.5; double mix = Get("mix") / 100.0, duck = Get("duck") / 100.0, width = Get("width") / 100.0;
+        CheckDirty(); int mode = (int)Get("mode"); double fb = Get("fb") / 100.0, sat = Get("sat") / 100.0, satD = 1 + sat * 3.5; double mix = Get("mix") / 100.0, duck = Get("duck") / 100.0, width = Get("width") / 100.0, dryG = Get("dry") / 100.0;
         double modD = Get("mod") * 0.001 * SR, modR = Get("modr") / SR, wow = Get("wow") / 100.0 * 0.0016 * SR; double diff = Get("diff") / 100.0 * 0.6; double revA = Get("rev") / 100.0; double decay = Get("decay") / 100.0;
         double tgtL = Target(0), tgtR = Target(mode == 1 ? Get("offset") / 100.0 * 0.5 : 0); if (dLs == 0) { dLs = tgtL; dRs = tgtR; }
         double duckA = DspMath.Tc(5, SR), duckR = DspMath.Tc(Get("duckr"), SR); bool useDiff = diff > 0.01; bool filt = true;
@@ -89,7 +89,7 @@ class EchoFx : Fx
         for (int i = 0; i < n; i++)
         {
             float a = wetL[i], b = wetR[i]; if (Math.Abs(width - 1) > 0.01) { float m = (a + b) * 0.5f, s = (a - b) * 0.5f * (float)width; a = m + s; b = m - s; }
-            l[i] = Dsp2.Sanitize(l[i] + a * (float)mix); r[i] = Dsp2.Sanitize(r[i] + b * (float)mix);
+            l[i] = Dsp2.Sanitize(l[i] * (float)dryG + a * (float)mix); r[i] = Dsp2.Sanitize(r[i] * (float)dryG + b * (float)mix);
         }
     }
 }

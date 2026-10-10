@@ -16,14 +16,22 @@ using System.Windows.Forms;
 // ======================================================================
 class HitReg
 {
-    public RectangleF R; public Action OnDown, OnRight, OnDouble; public Action<PointF> OnDrag; public Action<int> OnWheel; public bool WhileBusy;
+    public RectangleF R; public Action OnDown, OnRight, OnDouble, OnUp; public Action<PointF> OnDrag; public Action<int> OnWheel; public bool WhileBusy;
 }
 
 partial class StudioForm : Form
 {
     internal App app; internal StudioEngine eng;
     readonly List<HitReg> regs = new List<HitReg>(); HitReg hover, dragReg;
-    System.Windows.Forms.Timer timer = new System.Windows.Forms.Timer();
+    System.Windows.Forms.Timer timer = new System.Windows.Forms.Timer(); FrameLoop studioLoop; readonly FpsCounter fpsc = new FpsCounter(); double lastTickMs, lastStepMs; readonly System.Diagnostics.Stopwatch studioClock = System.Diagnostics.Stopwatch.StartNew(); bool lastIdle;
+    internal void ApplyFps() { if (studioLoop != null) studioLoop.TargetFps = Math.Max(30, Math.Min(Prefs.FpsCap, FrameLoop.DisplayHz())); }
+    double FrameGapMs { get { return 1000.0 / Math.Max(30, Math.Min(Prefs.FpsCap, FrameLoop.DisplayHz())) - 1.5; } }
+    // one step of the studio loop: housekeeping about 60 times a second, drawing as fast as the chosen frame rate allows
+    void FrameStep()
+    {
+        if (moving) return; double now = studioClock.Elapsed.TotalMilliseconds; if (now - lastTickMs >= 15) { lastTickMs = now; Tick(); }
+        if (NeedsFrame()) { double dt = (now - lastStepMs) / 1000.0; lastStepMs = now; if (dt > 0.1) dt = 0.033; if (dt < 0.001) dt = 0.001; t += (float)dt; Invalidate(); }
+    }
     float t;
 
     // theme (the app's deep purple, darker and calmer for a work surface)
@@ -93,11 +101,11 @@ partial class StudioForm : Form
         ClientSize = new Size(1360, 800); MinimumSize = new Size(1240, 680);
         DoubleBuffered = true; KeyPreview = true; AllowDrop = true;
         SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw | ControlStyles.Selectable, true);
-        timer.Interval = 16; timer.Tick += (s, e) => { if (moving) return; Tick(); if (NeedsFrame()) { t += 0.033f; Invalidate(); } }; timer.Start();
+        studioLoop = new FrameLoop(this, FrameStep) { Slow = () => WindowState == FormWindowState.Minimized }; ApplyFps();
         InstrumentFx.Recorder = OnMidiNote;
         MinimumSize = new Size(1240, 640);
-        FormClosed += (s, e) => { DisposeRetired(); Auditioner.Shutdown(); };
-        FormClosed += (s, e) => { timer.Stop(); eng.Pause(); };
+        FormClosed += (s, e) => { flexOpen = false; DisposeRetired(); Auditioner.Shutdown(); };
+        FormClosed += (s, e) => { timer.Stop(); if (studioLoop != null) studioLoop.Dispose(); eng.Pause(); };
         DragEnter += (s, e) => { if (e.Data.GetDataPresent(DataFormats.FileDrop)) { e.Effect = DragDropEffects.Copy; dragOver = true; Invalidate(); } };
         DragOver += (s, e) => { if (e.Data.GetDataPresent(DataFormats.FileDrop)) { e.Effect = DragDropEffects.Copy; if (!dragOver) { dragOver = true; Invalidate(); } } };
         DragLeave += (s, e) => { dragOver = false; Invalidate(); };
@@ -115,7 +123,7 @@ partial class StudioForm : Form
         bool anim = eng.Playing || busy || browserOpen || dragReg != null || (now - lastInput).TotalMilliseconds < 600 || (now - toastAt).TotalSeconds < 3.7;
         double gap = (now - lastFrame).TotalMilliseconds;
         // a slow computer redraws less often (paint time x3) so the window never starves the audio
-        if (!(anim ? gap >= Math.Max(30, Math.Min(250, paintMs * 3)) : gap >= 250)) return false;
+        lastIdle = !anim; if (!(anim ? gap >= Math.Max(FrameGapMs, Math.Min(250, paintMs * 3)) : gap >= 250)) return false;
         lastFrame = now; return true;
     }
     // Smooth playhead: the audio position moves in 23 ms blocks and runs ahead of what you hear, so the needle is a clock that follows it.
@@ -148,9 +156,9 @@ partial class StudioForm : Form
 
     void Tick()
     {
-        UpdatePlayhead(); Auditioner.Tick();
+        UpdatePlayhead(); Auditioner.Tick(); FlexTick();
         if (mic != null && !eng.Playing) StopMic();
-        { string tt = "Purphex Music  -  " + projName; if (Text != tt) Text = tt; }
+        { string tt = "Purphex Music  -  " + projName + (Prefs.ShowFps ? "    " + (lastIdle ? "idle" : fpsc.Fps + " fps") : ""); if (Text != tt) Text = tt; }
         if (eng.Playing)
         {
             int u = WaveOutPlayer.Underruns;
@@ -220,6 +228,7 @@ partial class StudioForm : Form
         { "REC", "Arm recording: press PLAY, then play notes on an instrument window and they are recorded onto its track." }, { "* REC", "Recording is armed. Press again to turn it off." },
         { "Piano", "Open the instrument window: its own controls plus a piano you can play." }, { "C", "Clear the recorded notes on this instrument track." },
         { "+ Effect", "Add an effect to this instrument track (EQ, reverb...)." },
+        { "FLEX", "Flex Pitch: see every note of the selected recording and drag notes up or down to re-tune them, steady the pitch, take out vibrato, change volume and formants." },
         { "SPLIT", "Cut the selected track in two at the needle (key B). Each piece can be moved and trimmed." },
         { "TRIM <", "Cut the start of the selected clip off at the needle." }, { "TRIM >", "Cut the end of the selected clip off at the needle." },
         { "DUP", "Make a copy of the selected track." }, { "DEL", "Delete the selected track (Undo brings it back)." },
@@ -295,6 +304,7 @@ partial class StudioForm : Form
         if (soundBox != null && soundBox.Visible && !(soundsOpen && tab == 0)) soundBox.Visible = false;
         PaintMenu(g);
         PaintBubble(g);
+        fpsc.Frame(); if (Prefs.ShowFps) fpsc.Draw(g, ClientSize.Width - 8, ClientSize.Height - 6, lastIdle);
         if (hintNow.Length > 0 && !busy) { var hr = Rc(ClientSize.Width / 2 - 340, ClientSize.Height - 36, 680, 26); FillRR(g, Color.FromArgb(235, 30, 16, 58), hr, 8); StrokeRR(g, Edge, hr, 8, 1); Txt(g, hintNow, 13, Ink, hr, StringAlignment.Center, false); }
         if (busy) PaintBusy(g);
         if ((DateTime.Now - toastAt).TotalSeconds < 3.5 && toast.Length > 0)
@@ -493,6 +503,7 @@ partial class StudioForm : Form
         };
         regs.Insert(0, wr);
         if (soundsOpen) PaintSoundsPanel(g); else PaintPluginPanel(g);
+        if (flexOpen) PaintFlex(g);
     }
 
     void PaintRuler(Graphics g, RectangleF r)
@@ -775,6 +786,7 @@ partial class StudioForm : Form
         if (editBox != null && editBox.Visible) return base.ProcessCmdKey(ref msg, k);
         if (ActiveControl is TextBoxBase && ((Control)ActiveControl).Visible) return base.ProcessCmdKey(ref msg, k);   // typing in the lyrics page: every key belongs to the text box
         if (menuOpen && k == Keys.Escape) { CloseMenu(); return true; }
+        if (flexOpen && !menuOpen && !browserOpen && FlexKey(k)) return true;
         if (browserOpen)
         {
             if (k == Keys.Escape) { browserOpen = false; return true; }
@@ -821,7 +833,7 @@ partial class StudioForm : Form
         if (r.OnDown != null) r.OnDown();
         if (r.OnDrag != null) dragReg = r;
     }
-    protected override void OnMouseUp(MouseEventArgs e) { base.OnMouseUp(e); lastInput = DateTime.Now; dragReg = null; zoomAnchor = 0; if (sndDrag != null) { if (sndDragging) DropSampleAt(e.Location); sndDrag = null; sndDragging = false; } if (panning) { panning = false; Cursor = Cursors.Default; } }
+    protected override void OnMouseUp(MouseEventArgs e) { base.OnMouseUp(e); lastInput = DateTime.Now; if (dragReg != null && dragReg.OnUp != null) { try { dragReg.OnUp(); } catch { } } dragReg = null; zoomAnchor = 0; if (sndDrag != null) { if (sndDragging) DropSampleAt(e.Location); sndDrag = null; sndDragging = false; } if (panning) { panning = false; Cursor = Cursors.Default; } }
     protected override void OnMouseWheel(MouseEventArgs e)
     {
         base.OnMouseWheel(e); MousePos = e.Location; lastInput = DateTime.Now; for (int i = regs.Count - 1; i >= 0; i--) if (regs[i].R.Contains(e.Location) && regs[i].OnWheel != null) { regs[i].OnWheel(e.Delta > 0 ? 1 : -1); return; }

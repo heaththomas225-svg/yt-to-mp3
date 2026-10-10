@@ -177,6 +177,7 @@ partial class StudioForm
     void SaveClick(bool asNew)
     {
         if (eng.Tracks.Count == 0) { Toast("Nothing to save yet."); return; }
+        FlexCommitIfOpen();
         string path = projPath;
         if (asNew || string.IsNullOrEmpty(path))
         {

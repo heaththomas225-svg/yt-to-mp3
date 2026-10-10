@@ -94,6 +94,29 @@ public static class PluginLibrary
             case "ressup": return new ResSupFx();
             case "specshape": return new SpectralShaperFx();
             case "autoeq": return new AutoEqFx();
+            case "rider": return new VocalRiderFx();
+            case "align": return new AlignFx();
+            case "breath": return new BreathFx();
+            case "plosive": return new PlosiveFx();
+            case "vociso": return new VocalIsoFx();
+            case "transient": return new TransientFx();
+            case "declick": return new DeclickFx();
+            case "chop": return new ChopFx();
+            case "freeze": return new FreezeFx();
+            case "grain": return new GranularFx();
+            case "specfx": return new SpecCreateFx();
+            case "fm": return new FmFx();
+            case "tapestop": return new TapeStopFx();
+            case "scratch": return new ScratchFx();
+            case "repeat": return new RepeatFx();
+            case "mod": return new ModFx();
+            case "gen": return new GenFx();
+            case "sub": return new SubFx();
+            case "mbdist": return new MBDistFx();
+            case "ott": return new OttFx();
+            case "phaser": return new PhaserFx();
+            case "flanger": return new FlangerFx();
+            case "amp": return new AmpFx();
         }
         return FxRegistry.Create(id);
     }
@@ -117,6 +140,7 @@ class ChainFx : Fx
         foreach (var s in st) lat += s.Latency;
     }
     public override int Latency { get { int t = 0; foreach (var s in stages) t += s.Latency; return t; } }
+    public override bool WantsSidechain { get { foreach (var s in stages) if (s.WantsSidechain) return true; return false; } }
     protected override void Update()
     {
         for (int i = 0; i < stages.Count; i++) foreach (var p in stages[i].P) { var mine = Find("s" + (i + 1) + "." + p.Id); if (mine != null && mine.Val != p.Val) stages[i].Set(p.Id, mine.Val); }
@@ -158,11 +182,18 @@ static class Dsp2
         return ((c3 * f + c2) * f + c1) * f + c0;
     }
     // smooth spectral envelope (linear magnitude) from a magnitude spectrum, by cepstral liftering. mag has N/2+1 bins.
-    public static void Envelope(double[] mag, int N, int Q, double[] re, double[] im, double[] env)
+    public static void Envelope(double[] mag, int N, int Q, double[] re, double[] im, double[] env, int sr = 0)
     {
         int H = N / 2;
-        for (int k = 0; k <= H; k++) { re[k] = Math.Log(mag[k] + 1e-9); im[k] = 0; if (k > 0 && k < H) { re[N - k] = re[k]; im[N - k] = 0; } }
+        double mx = 0; for (int k = 0; k <= H; k++) if (mag[k] > mx) mx = mag[k]; double fl = mx * 0.004 + 1e-9;   // a small floor so the deep gaps between harmonics do not drag the envelope down
+        for (int k = 0; k <= H; k++) { re[k] = Math.Log(mag[k] + fl); im[k] = 0; if (k > 0 && k < H) { re[N - k] = re[k]; im[N - k] = 0; } }
         Fft.Transform(re, im, true);   // real cepstrum
+        if (sr > 0)
+        {
+            // the pitch shows up as a peak in the cepstrum: cut the smoothing just below it so the harmonics never leak into the envelope
+            int lo = Math.Max(8, sr / 1200), hi = Math.Min(N / 2 - 1, sr / 60); int bi = -1; double bv = 0.10; for (int n = lo; n <= hi; n++) if (re[n] > bv) { bv = re[n]; bi = n; }
+            if (bi > 0) Q = Math.Max(10, Math.Min(Q, (int)(bi * 0.36)));
+        }
         for (int n = 0; n < N; n++) { double w = (n <= Q || n >= N - Q) ? 1.0 : 0.0; re[n] *= w; im[n] = 0; }
         Fft.Transform(re, im, false);
         for (int k = 0; k <= H; k++) env[k] = Math.Exp(Math.Max(-18, Math.Min(18, re[k])));
@@ -197,4 +228,51 @@ class Lfo2
         }
     }
     public double Phase { get { return ph; } }
+}
+
+// ======================================================================
+//  More shared pieces
+// ======================================================================
+
+// state-variable filter with cached coefficients (stable at any cutoff). mode 0 low-pass, 1 band-pass, 2 high-pass, 3 notch
+sealed class Svf2
+{
+    float ic1, ic2, a1, a2, a3, k; double lastF = -1, lastQ = -1; int lastSr;
+    public void Reset() { ic1 = ic2 = 0; }
+    public void Set(double f, double q, int sr)
+    {
+        if (f == lastF && q == lastQ && sr == lastSr) return; lastF = f; lastQ = q; lastSr = sr;
+        double g = Math.Tan(Math.PI * Math.Max(8.0, Math.Min(f, sr * 0.49)) / sr); k = (float)(1.0 / Math.Max(0.3, q));
+        a1 = (float)(1.0 / (1.0 + g * (g + k))); a2 = (float)(g * a1); a3 = (float)(g * a2);
+    }
+    public float Tick(float x, int mode)
+    {
+        float v3 = x - ic2, v1 = a1 * ic1 + a2 * v3, v2 = ic2 + a2 * ic1 + a3 * v3; ic1 = 2f * v1 - ic1; ic2 = 2f * v2 - ic2;
+        switch (mode) { case 0: return v2; case 1: return v1 * k; case 2: return x - k * v1 - v2; default: return x - k * v1; }
+    }
+}
+
+// a pair of all-pass chains that makes an in-phase and a 90 degree signal from one input (used for single-sideband shifting)
+sealed class HilbertCh
+{
+    static readonly double[] A1 = { 0.6923878, 0.9360654322959, 0.9882295226860, 0.9987488452737 }, A2 = { 0.4021921162426, 0.8561710882420, 0.9722909545651, 0.9952884791278 };
+    readonly double[] x1a = new double[4], x2a = new double[4], y1a = new double[4], y2a = new double[4], x1b = new double[4], x2b = new double[4], y1b = new double[4], y2b = new double[4]; double d;
+    static double Run(double[] a, double[] x1, double[] x2, double[] y1, double[] y2, double x)
+    {
+        for (int k = 0; k < 4; k++) { double a2 = a[k] * a[k]; double y = a2 * (x + y2[k]) - x2[k]; x2[k] = x1[k]; x1[k] = x; y2[k] = y1[k]; y1[k] = y; x = y; }
+        return x;
+    }
+    public void Tick(double x, out double i, out double q) { double y1 = Run(A1, x1a, x2a, y1a, y2a, x), y2 = Run(A2, x1b, x2b, y1b, y2b, x); i = d; d = y1; q = y2; }
+    public void Reset() { Array.Clear(x1a, 0, 4); Array.Clear(x2a, 0, 4); Array.Clear(y1a, 0, 4); Array.Clear(y2a, 0, 4); Array.Clear(x1b, 0, 4); Array.Clear(x2b, 0, 4); Array.Clear(y1b, 0, 4); Array.Clear(y2b, 0, 4); d = 0; }
+}
+
+// base for effects that follow the song position (slicers, gates, pumps, risers)
+abstract class SyncFx : Fx
+{
+    protected long bp; protected bool tr; protected long freeCnt;
+    public override void BeginBlock(object track, long pos, int n, bool transport) { bp = pos; tr = transport; }
+    protected double BeatAt(int i) { long s = tr ? bp + i : freeCnt + i; return s / (double)SR * Math.Max(20, Fx.ProjectBpm) / 60.0; }
+    protected void EndBlock(int n) { freeCnt += n; }
+    protected static uint Hash(uint a, uint b) { uint h = a * 2654435761u ^ (b + 0x9E3779B9u) * 2246822519u; h ^= h >> 15; h *= 2246822519u; h ^= h >> 13; h *= 3266489917u; h ^= h >> 16; return h; }
+    protected static double U01(uint h) { return (h & 0xFFFFFF) / 16777216.0; }
 }
