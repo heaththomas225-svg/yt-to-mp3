@@ -48,8 +48,10 @@ partial class StudioForm
     }
 
     // ---------------- Add Music ----------------
-    internal void AddMusicClick()
+    int nextInsert = -1;   // where the next track added should go (-1 = at the end); set by the + ADD TRACK strips between tracks
+    internal void AddMusicClick(bool keepInsert = false)
     {
+        if (!keepInsert) nextInsert = -1;
         using (var d = new OpenFileDialog())
         {
             d.Title = "Add music: choose a song, a vocal recording or a beat / instrumental"; d.Multiselect = true;
@@ -80,7 +82,8 @@ partial class StudioForm
     void AddTrack(Track t)
     {
         PushUndo();
-        bool first = eng.Tracks.Count == 0; lock (eng.Sync) eng.Tracks.Add(t); selTrack = eng.Tracks.Count - 1; selFx = -1; if (first) FitView();
+        bool first = eng.Tracks.Count == 0; int at = nextInsert >= 0 && nextInsert <= eng.Tracks.Count ? nextInsert : eng.Tracks.Count; nextInsert = -1;
+        lock (eng.Sync) eng.Tracks.Insert(at, t); selTrack = at; selFx = -1; if (first) FitView();
     }
 
     // ---------------- Separate vocals & beat ----------------

@@ -259,9 +259,9 @@ You can ignore it. The built-in effects already cover EQ, compression, reverb, A
 
         new HelpTopic("vst", "Advanced", "Use VST plugins and instruments (like Vital)", false, @"
 ## What works
-64-bit VST2 plugins: instruments (synths such as Vital) and effects. VST3 (.vst3) and 32-bit plugins are not supported.
+64-bit VST2 plugins (.dll) and, new and experimental, VST3 plugins (.vst3): instruments (synths such as Vital) and effects. 32-bit plugins are not supported. VST3 support was tested with a stand-in plugin only, so if a particular .vst3 will not load, use its VST2 version if it has one.
 ## Set it up
-1. Menu, then Plugins and extensions. Plugins installed in the usual VST2 folders are listed automatically (or copy the .dll into the plugins folder).
+1. Menu, then Plugins and extensions. Plugins installed in the usual VST2 and VST3 folders are listed automatically (or copy the .dll into the plugins folder).
 2. Tick the plugin. It loads at once (a big one can take a few seconds the first time).
 ## Use an instrument
 1. In Purphex Music press + INSTRUMENT and choose it. A track and the plugin's own window appear.
@@ -273,7 +273,7 @@ Open + Add Effect on a track and pick it under PLUGINS (it is listed first). Pre
 ## Good to know
 - Recorded notes play in the mix and in every export.
 - Only tick plugins you trust: a VST plugin is a program that runs on your computer.
-- If a plugin will not load, it is usually 32-bit or VST3."),
+- If a plugin will not load, it is usually 32-bit, or a VST3 that this app does not understand yet."),
 
         new HelpTopic("daw", "Music Studio", "Edit like a DAW: split, trim, move, duplicate, undo, tempo grid", false, @"
 ## Cut a track in two (split)
@@ -411,11 +411,15 @@ If a site only has a lower quality than you picked, you get the best it has.
         new HelpTopic("studio-neon", "Purphex Music", "The neon look, zooming and taller tracks", false, @"
 ## The look
 Every track has its own glowing colour. The outline of its clip, the light strip beside it, the little LED and the level meter all use it, and the glow gets brighter with the volume.
-## See the waveform in detail
-- Ctrl + mouse wheel zooms in and out of the timeline around your mouse. Zoom in far enough and you can see single notes and waves.
-- Alt + mouse wheel makes every track taller (or shorter), so the waveform and notes are bigger.
-- Shift + mouse wheel scrolls left and right. The plain wheel scrolls up and down.
-- FIT in the toolbar shows the whole song again."),
+## Move along the song and zoom (like BandLab)
+- Mouse wheel: when all your tracks fit on screen the wheel moves along the song; when you have more tracks than fit, it scrolls up and down (and Shift + wheel moves along).
+- Ctrl + mouse wheel zooms in and out around the mouse. The zoom slider in the toolbar does the same (drag right to zoom in; double-click it to see the whole song).
+- The overview bar along the bottom shows the whole song with a lit window for what you see. Drag the window to move, drag its ends to zoom, click outside it to jump, double-click it to fit the whole song.
+- Hold the middle mouse button and drag to move the view in any direction. On a touch pad, swipe sideways.
+- Alt + mouse wheel makes the tracks taller or thinner.
+- FIT in the toolbar shows the whole song again. After FIT the song fills the area by itself, including in full screen.
+## Add a track exactly where you want it
+Move the mouse to the line between two tracks (or above the first, or under the last) in the track list. A + ADD TRACK HERE button appears. Press it to add music or an instrument at that spot."),
 
         new HelpTopic("makesong", "Music Studio", "Record and make a song (instruments, microphone, piano roll)", false, @"
 ## Make music with an instrument

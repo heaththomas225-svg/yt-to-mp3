@@ -7,10 +7,18 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.10.0";
+    public const string Latest = "3.11.0";
 
     public const string Text =
-@"3.10.0  Heartbeat waveforms, help pages, more modulation
+@"3.11.0  Move around like BandLab, thinner tracks, add track, VST3
+ + NEW Purphex Music: the mouse wheel moves along the song when your tracks fit on screen, Ctrl + wheel zooms, and there is a zoom slider in the toolbar.
+ + NEW an overview bar along the bottom shows the whole song: drag its lit window to move, drag its ends to zoom, double-click to fit. The middle mouse button drags the view, touch pads can swipe sideways.
+ + NEW tracks are thinner (Alt + wheel changes the height) and zooming now stops at sensible limits instead of breaking the display.
+ + NEW + ADD TRACK HERE: hover the line between tracks (or above the first, or below the last) to add music or an instrument at that spot.
+ + NEW (experimental) VST3 plugin support next to VST2. Tested with a stand-in plugin only.
+ + NEW the Bass Lab and Purphex Music screens are now checked by automated mouse tests.
+
+3.10.0  Heartbeat waveforms, help pages, more modulation
  + NEW Purphex Music: audio tracks now draw as one clean glowing line (blue, your track colour, purple) with a point every few pixels, so the shape is easy to read.
  + NEW the song fills the track area by itself after FIT, including in full screen and when you resize the window. Zooming or scrolling yourself turns that off until you press FIT.
  + NEW Bass Lab: 16 matrix slots (two pages) and 62 targets. FM and ring amounts, sub and noise pan, saturation, phaser, flanger, stereo width and EQ can be modulated.
