@@ -33,7 +33,7 @@ class Job
 class App : Form
 {
     // ---- Auto-update settings ----
-    const string Version = "2.1.0";
+    const string Version = "2.1.1";
     // Plain-text manifest: line 1 = newest version, line 2 = direct exe download URL.
     const string UpdateManifestUrl = "https://raw.githubusercontent.com/heaththomas225-svg/yt-to-mp3/main/version.txt";
 
@@ -123,7 +123,8 @@ class App : Form
         StyleBox(trimA); trimA.SetBounds(16, 240, 100, 26); Lbl(trimA, "Trim start  (m:ss)");
         StyleBox(trimB); trimB.SetBounds(126, 240, 100, 26); Lbl(trimB, "Trim end  (m:ss)");
         StyleChk(norm, "Normalize loudness (-14 LUFS)", 240, 240, 220);
-        StyleChk(playlist, "Download whole playlists", 470, 240, 154);
+        StyleChk(playlist, "Whole playlists", 470, 240, 154);
+        tip.SetToolTip(playlist, "If a link points at a playlist, convert every video in it.");
 
         StyleChk(openDone, "Open folder when done", 16, 276, 200);
         StyleChk(animate, "Animated background", 240, 276, 200);
