@@ -64,11 +64,16 @@ class SynthWindow : Form, IKeySink
         canvas = new SynthCanvas(fx, this) { Dock = DockStyle.Fill };
         piano = new PianoPanel(this, 49) { Dock = DockStyle.Bottom, Height = 124 };
         Controls.Add(canvas); Controls.Add(piano); ClientSize = new Size(1240, 640 + 124);
+        Activated += (s, e) => { MidiInput.Target = fx; };
+        Shown += (s, e) => { MidiInput.Target = fx; if (Prefs.MidiDev.Length > 0 && MidiInput.OpenName != Prefs.MidiDev) MidiInput.Open(Prefs.MidiDev); var se = StudioEngine.Current; if (se != null) se.EnsureAudio(); };
         tick = new Timer { Interval = 33 }; tick.Tick += (s, e) => { if (!Win.AnyMoving) canvas.Step(); }; tick.Start();
+        FormClosed += (s, e) => { if (MidiInput.Target == fx) MidiInput.Target = null; };
         FormClosing += (s, e) => { tick.Stop(); ReleaseAll(); };
         Deactivate += (s, e) => ReleaseAll();
     }
 
+    public void PanicAll() { down.Clear(); fx.Panic(); piano.Invalidate(); }
+    public void TestSound() { fx.NoteOn(48, 100); var t = new Timer { Interval = 700 }; t.Tick += (s, e) => { t.Stop(); t.Dispose(); fx.NoteOff(48); }; t.Start(); }
     public void KeyOn(int note, int vel) { if (!down.Add(note)) return; fx.NoteOn(note, vel); var f = InstrumentFx.Recorder; if (f != null) f(track, true, note, vel); piano.Invalidate(); }
     public void KeyOff(int note) { if (!down.Remove(note)) return; fx.NoteOff(note); var f = InstrumentFx.Recorder; if (f != null) f(track, false, note, 0); piano.Invalidate(); }
     void ReleaseAll() { foreach (var n in new List<int>(down)) KeyOff(n); }
@@ -226,13 +231,15 @@ class SynthCanvas : Control
             x += r.Width + 4;
         }
         // preset box
-        var pb = Rc(620, 6, 360, 50); Fill(g, Panel, pb, 8); Stroke(g, Edge, pb, 8, 1);
+        var pb = Rc(620, 6, 270, 50); Fill(g, Panel, pb, 8); Stroke(g, Edge, pb, 8, 1);
         Txt(g, (modified ? "* " : "") + fx.PresetName, 15, Acc, Rc(pb.X + 12, pb.Y + 4, pb.Width - 90, 24), StringAlignment.Near, true);
-        Txt(g, "Click the name for all presets. " + fx.ActiveVoices + " voice" + (fx.ActiveVoices == 1 ? "" : "s") + " playing.", 10, Dim, Rc(pb.X + 12, pb.Y + 28, pb.Width - 24, 16), StringAlignment.Near, false);
+        { var se = StudioEngine.Current; string st = se != null ? se.AudioStatus : "Audio: no engine"; bool bad = st.IndexOf("unavailable", StringComparison.OrdinalIgnoreCase) >= 0; Txt(g, fx.ActiveVoices + " voice" + (fx.ActiveVoices == 1 ? "" : "s") + "  |  " + st, 10, bad ? Color.FromArgb(255, 140, 150) : Dim, Rc(pb.X + 12, pb.Y + 28, pb.Width - 24, 16), StringAlignment.Near, false); }
         var nameR = Rc(pb.X, pb.Y, pb.Width - 84, pb.Height); var nr = Add(nameR); nr.Tip = "Choose a preset, or save your own"; nr.Down = pt => PresetMenu(pt);
         var prev = Rc(pb.Right - 78, pb.Y + 10, 30, 30); var next = Rc(pb.Right - 44, pb.Y + 10, 30, 30);
         Fill(g, Hot(prev) ? PanelHi : Color.FromArgb(20, 11, 38), prev, 5); Txt(g, "<", 15, Ink, prev, StringAlignment.Center, true); Add(prev).Down = pt => StepPreset(-1);
         Fill(g, Hot(next) ? PanelHi : Color.FromArgb(20, 11, 38), next, 5); Txt(g, ">", 15, Ink, next, StringAlignment.Center, true); Add(next).Down = pt => StepPreset(1);
+        var pnc = Rc(896, 6, 88, 50); Fill(g, Hot(pnc) ? Color.FromArgb(160, 40, 80) : Color.FromArgb(120, 30, 62), pnc, 8); Stroke(g, Acc2, pnc, 8, 1.5f); Txt(g, "PANIC", 14, Ink, Rc(pnc.X, pnc.Y + 6, pnc.Width, 24), StringAlignment.Center, true); Txt(g, "all notes off", 9, Ink, Rc(pnc.X, pnc.Y + 30, pnc.Width, 14), StringAlignment.Center, false);
+        var pnr = Add(pnc); pnr.Tip = "Panic: stops every note and every ringing tail right now."; pnr.Down = pt => win.PanicAll();
         // quick bass boost
         var bb = Rc(990, 6, 150, 50); Fill(g, Panel, bb, 8); Stroke(g, Edge, bb, 8, 1);
         Power(g, "bbon", Rc(bb.X + 4, bb.Y + 4, 24, 24)); Txt(g, "BASS BOOST", 10, Ink, Rc(bb.X + 4, bb.Y + 30, 80, 16), StringAlignment.Near, true);
@@ -402,11 +409,33 @@ class SynthCanvas : Control
     void PaintGlobal(Graphics g)
     {
         var r = Rc(8, 66, W - 16, 252); Fill(g, Panel, r, 8); Stroke(g, Edge, r, 8, 1);
-        Txt(g, "GLOBAL", 12, Ink, Rc(r.X + 12, r.Y + 4, 200, 20), StringAlignment.Near, true);
-        float x = r.X + 70, y = r.Y + 80; Knob(g, "vol", x, y, "VOLUME", Acc, 24); Knob(g, "glide", x + 130, y, "GLIDE", Acc2, 24); Knob(g, "bend", x + 260, y, "BEND RANGE", Acc, 24); Knob(g, "tune", x + 390, y, "FINE TUNE", Acc, 24); Knob(g, "vsens", x + 520, y, "VELOCITY", Acc, 24);
-        Choose(g, "mode", Rc(r.X + 40, r.Y + 160, 200, 26), Acc, "Voices: ");
-        Txt(g, "Poly = chords.  Mono = one note at a time (best for bass).  Legato = mono, glides between overlapping notes without retriggering.", 11, Dim, Rc(r.X + 260, r.Y + 158, 700, 32), StringAlignment.Near, false);
-        Txt(g, "Tip: the Wobble Bass preset uses LFO 1 (rate 1/8, synced to the song tempo) on Filter 1 cutoff. Change the LFO rate below, or open the MATRIX page.", 11, Dim, Rc(r.X + 40, r.Y + 205, 1100, 32), StringAlignment.Near, false);
+        Txt(g, "GLOBAL: voices, playing, tuning, MIDI and audio", 12, Ink, Rc(r.X + 12, r.Y + 4, 600, 20), StringAlignment.Near, true);
+        float x = r.X + 60, y = r.Y + 70;
+        Knob(g, "vol", x, y, "VOLUME", Acc, 22); Knob(g, "voices", x + 105, y, "VOICE LIMIT", Acc2, 22); Knob(g, "glide", x + 210, y, "GLIDE", Acc2, 22); Knob(g, "bend", x + 315, y, "BEND RANGE", Acc, 22); Knob(g, "tune", x + 420, y, "MASTER TUNE", Acc, 22); Knob(g, "vsens", x + 525, y, "VELOCITY", Acc, 22);
+        Choose(g, "mode", Rc(r.X + 20, r.Y + 130, 190, 26), Acc, "Voices: ");
+        Txt(g, "Poly = chords.  Mono = one note at a time (best for bass).  Legato = mono, notes glide into each other without retriggering. Glide sets how slowly the pitch slides.", 11, Dim, Rc(r.X + 220, r.Y + 126, 520, 34), StringAlignment.Near, false);
+        // ---- audio + MIDI + panic ----
+        var ap = Rc(r.X + 760, r.Y + 28, r.Width - 780, 100); Fill(g, Color.FromArgb(24, 13, 46), ap, 8); Stroke(g, Edge, ap, 8, 1);
+        var eng = StudioEngine.Current; string audio = eng != null ? eng.AudioStatus : "Audio: no engine"; bool bad = audio.IndexOf("unavailable", StringComparison.OrdinalIgnoreCase) >= 0;
+        Txt(g, audio, 12, bad ? Color.FromArgb(255, 140, 150) : Good, Rc(ap.X + 10, ap.Y + 6, ap.Width - 20, 18), StringAlignment.Near, true);
+        Txt(g, fx.ActiveVoices + " of " + (int)P("voices").Val + " voices in use", 12, Ink, Rc(ap.X + 10, ap.Y + 26, ap.Width - 20, 18), StringAlignment.Near, false);
+        Txt(g, MidiInput.Status + (MidiInput.OpenName.Length > 0 ? "  (" + MidiInput.Received + " messages)" : ""), 11, MidiInput.Status.StartsWith("MIDI: listening") ? Good : Dim, Rc(ap.X + 10, ap.Y + 46, ap.Width - 20, 32), StringAlignment.Near, false);
+        var test = Rc(ap.X + 10, ap.Y + 72, 120, 24); Fill(g, Hot(test) ? PanelHi : Color.FromArgb(18, 10, 34), test, 5); Stroke(g, Acc, test, 5, 1); Txt(g, "Test sound", 12, Ink, test, StringAlignment.Center, true);
+        var tr = Add(test); tr.Tip = "Plays a short note so you can check that you hear Bass Lab."; tr.Down = pt => win.TestSound();
+        var pan = Rc(ap.X + 138, ap.Y + 72, 110, 24); Fill(g, Hot(pan) ? Color.FromArgb(150, 40, 80) : Color.FromArgb(110, 30, 60), pan, 5); Stroke(g, Acc2, pan, 5, 1); Txt(g, "PANIC", 12, Ink, pan, StringAlignment.Center, true);
+        var pr = Add(pan); pr.Tip = "Stops every note and every ringing tail right now."; pr.Down = pt => win.PanicAll();
+        var md = Rc(r.X + 20, r.Y + 176, 330, 26); Fill(g, Hot(md) ? PanelHi : Color.FromArgb(20, 11, 38), md, 5); Stroke(g, Acc, md, 5, 1);
+        Txt(g, "MIDI keyboard: " + (Prefs.MidiDev.Length == 0 ? "Off" : Prefs.MidiDev), 12, Ink, Rc(md.X + 8, md.Y, md.Width - 24, md.Height), StringAlignment.Near, false); Txt(g, "v", 9, Dim, Rc(md.Right - 16, md.Y, 12, md.Height), StringAlignment.Center, false);
+        var mr = Add(md); mr.Tip = "Choose a plugged-in MIDI keyboard or controller. Notes, pitch bend and sustain pedal work."; mr.Down = pt => MidiMenu(md);
+        Txt(g, "Computer keyboard: A S D F G H J = white keys, W E T Y U = black keys, Z / X = octave.  Mouse: click and hold a piano key (lower on the key = louder).", 11, Dim, Rc(r.X + 20, r.Y + 212, 1100, 30), StringAlignment.Near, false);
+    }
+    void MidiMenu(RectangleF at)
+    {
+        var m = Win.NewMenu(); var devs = MidiInput.Devices();
+        var off = new ToolStripMenuItem("Off") { Checked = Prefs.MidiDev.Length == 0 }; off.Click += (a, b) => { Prefs.MidiDev = ""; MidiInput.Open(""); Prefs.Changed(); Poke(); }; m.Items.Add(off);
+        foreach (var d in devs) { string dn = d; var it = new ToolStripMenuItem(d) { Checked = Prefs.MidiDev == d }; it.Click += (a, b) => { Prefs.MidiDev = dn; MidiInput.Target = fx; MidiInput.Open(dn); Prefs.Changed(); Poke(); }; m.Items.Add(it); }
+        if (devs.Count == 0) m.Items.Add("(no MIDI device found: plug one in and open this menu again)").Enabled = false;
+        m.Show(this, new Point((int)(at.X * scale + ox), (int)(at.Bottom * scale + oy)));
     }
 
     // ---------- modulation section ----------

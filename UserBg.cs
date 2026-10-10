@@ -18,11 +18,12 @@ static class Prefs
     public static int Buf = 1;               // playback buffer: 0 low latency, 1 normal, 2 safe
     public static int FpsCap = 60;           // animation frame rate cap: 30 or 60
     public static bool ShowFps = false;      // show the frame rate in the title bar
+    public static string MidiDev = "";       // the MIDI keyboard Bass Lab listens to ("" = off)
     public static Action Changed = delegate { };
 
     public static string[] Lines()
     {
-        return new[] { "bgpath=" + BgPath, "bgdim=" + BgDim, "bgleaves=" + BgLeaves, "bgstudio=" + BgStudio, "outvol=" + OutVol, "outdev=" + OutDev, "buf=" + Buf, "fpscap=" + FpsCap, "showfps=" + ShowFps };
+        return new[] { "bgpath=" + BgPath, "bgdim=" + BgDim, "bgleaves=" + BgLeaves, "bgstudio=" + BgStudio, "outvol=" + OutVol, "outdev=" + OutDev, "buf=" + Buf, "fpscap=" + FpsCap, "showfps=" + ShowFps, "midiin=" + MidiDev };
     }
     public static bool Parse(string k, string v)
     {
@@ -38,6 +39,7 @@ static class Prefs
             case "buf": if (int.TryParse(v, out n)) Buf = Math.Max(0, Math.Min(2, n)); return true;
             case "fpscap": if (int.TryParse(v, out n)) FpsCap = n >= 60 ? 60 : 30; return true;
             case "showfps": if (bool.TryParse(v, out b)) ShowFps = b; return true;
+            case "midiin": MidiDev = v; return true;
         }
         return false;
     }

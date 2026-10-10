@@ -101,6 +101,28 @@ static class Y
         double pre = Rms(L, 0, 11000), mid = Rms(L, 14000, 32000), post = Rms(L, 40000, 44000);
         Check("synth track plays recorded notes in a mix/export", pre < 1e-4 && mid > 0.03 && post < mid * 0.1, "before " + pre.ToString("0.0000") + ", during " + mid.ToString("0.000") + ", after " + post.ToString("0.0000"));
         Check("synth appears in the Add Instrument list", Array.Exists(FxRegistry.All, i => i.Type == "synth" && i.Category == "Instruments") && Array.Exists(FxRegistry.All, i => i.Type == "bassboost"), "");
+        // 9. THE PIANO: a key press must reach the real sound device without pressing PLAY first, and a held note must stop on release / panic
+        {
+            var e2 = new StudioEngine(); var t2 = StudioEngine.NewTrack("Bass", "inst", null); t2.Instrument = true; var s2 = New("Deep Sub"); s2.Owner = t2; t2.Fx.Add(s2); e2.Tracks.Add(t2);
+            s2.NoteOn(45, 110); double peak = 0; for (int i = 0; i < 25; i++) { System.Threading.Thread.Sleep(20); peak = Math.Max(peak, Math.Max(e2.MasterPeakL, e2.MasterPeakR)); }
+            Check("piano key makes sound on the real audio device without pressing PLAY", peak > 0.01, "output level reached " + peak.ToString("0.000") + "; audio: " + e2.AudioStatus);
+            s2.Panic(); System.Threading.Thread.Sleep(250); double afterPanic = Math.Max(e2.MasterPeakL, e2.MasterPeakR);
+            Check("panic stops every note at once", afterPanic < 0.002, "level after panic " + afterPanic.ToString("0.0000"));
+            s2.NoteOn(45, 110); s2.NoteOn(52, 110); System.Threading.Thread.Sleep(300); double two = Math.Max(e2.MasterPeakL, e2.MasterPeakR); s2.NoteOff(45); s2.NoteOff(52); System.Threading.Thread.Sleep(1500); double rel = Math.Max(e2.MasterPeakL, e2.MasterPeakR);
+            Check("notes held then released fade out (no stuck note)", two > 0.01 && rel < two * 0.1, "held " + two.ToString("0.000") + ", 1.5 s after release " + rel.ToString("0.0000"));
+            e2.Shutdown();
+        }
+        // 10. MIDI input decoding, device listing, voice limit
+        {
+            var fm = New("Init"); fm.Owner = null; MidiInput.Target = fm; MidiInput.Handle(0x90u | (60u << 8) | (100u << 16)); var res = Render(fm, new int[0], 8192, -1); double lvl = Rms(res[0], 4000, 8192);
+            Check("a MIDI note-on message plays a note", lvl > 0.005 && fm.ActiveVoices == 1, "level " + lvl.ToString("0.000") + ", voices " + fm.ActiveVoices);
+            MidiInput.Handle(0x80u | (60u << 8)); Render(fm, new int[0], 44100, -1); Check("a MIDI note-off message releases it", fm.ActiveVoices == 0, "voices left " + fm.ActiveVoices);
+            MidiInput.Handle(0xE0u | (0u << 8) | (96u << 16)); MidiInput.Handle(0xB0u | (64u << 8) | (127u << 16)); MidiInput.Target = null;
+            var devs = MidiInput.Devices(); Check("MIDI devices can be listed without errors", devs != null, devs.Count + " device(s) found on this PC: " + string.Join(", ", devs.ToArray()));
+            bool ok = !MidiInput.Open("Not A Real Device") && MidiInput.Status.Length > 0; Check("opening a missing MIDI device gives a clear message", ok, MidiInput.Status);
+            var lim = New("Init"); lim.Set("voices", 2); Render(lim, new[] { 40, 44, 47, 52 }, 4096, -1); Check("the voice limit is respected", lim.ActiveVoices <= 2, lim.ActiveVoices + " voices sounding with a limit of 2");
+            var mono = New("Init"); mono.Set("mode", 1); Render(mono, new[] { 40, 44, 47 }, 4096, -1); Check("mono mode plays one note at a time", mono.ActiveVoices == 1, mono.ActiveVoices + " voice(s)");
+        }
         Console.WriteLine(fails == 0 ? "=== synth checks passed ===" : "=== " + fails + " failed ===");
         Environment.Exit(fails == 0 ? 0 : 1);
     }

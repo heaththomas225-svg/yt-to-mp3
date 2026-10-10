@@ -333,6 +333,8 @@ class VstWindow : Form, IKeySink
         FormClosing += (s, e) => { if (idle != null) idle.Stop(); ReleaseAll(); try { fx.Plugin.CloseEditor(); } catch { } };
         VstPlugin.SizeWindowRequested += OnSizeRequest;
         FormClosed += (s, e) => VstPlugin.SizeWindowRequested -= OnSizeRequest;
+        Activated += (s, e) => { MidiInput.Target = fx; };
+        FormClosed += (s, e) => { if (MidiInput.Target == fx) MidiInput.Target = null; };
         Deactivate += (s, e) => ReleaseAll();
     }
 
@@ -398,6 +400,10 @@ class PianoPanel : Panel
             }
     }
     int Hit(Point p) { for (int pass = 0; pass < 2; pass++) for (int i = 0; i < Keys3; i++) { bool black; var r = KeyRect(i, out black); if ((pass == 0) != black && r.Contains(p)) return i; } return -1; }
-    protected override void OnMouseDown(MouseEventArgs e) { base.OnMouseDown(e); int i = Hit(e.Location); if (i >= 0) { mouseNote = w.BaseNote + i; w.KeyOn(mouseNote, 100); Invalidate(); } }
+    protected override void OnMouseDown(MouseEventArgs e)
+    {
+        base.OnMouseDown(e); int i = Hit(e.Location);
+        if (i >= 0) { bool bk; var kr = KeyRect(i, out bk); int vel = (int)Math.Max(30, Math.Min(127, 35 + 92 * (e.Y - kr.Y) / Math.Max(1, kr.Height))); mouseNote = w.BaseNote + i; w.KeyOn(mouseNote, vel); Invalidate(); }   // lower on the key = louder
+    }
     protected override void OnMouseUp(MouseEventArgs e) { base.OnMouseUp(e); if (mouseNote >= 0) { w.KeyOff(mouseNote); mouseNote = -1; Invalidate(); } }
 }

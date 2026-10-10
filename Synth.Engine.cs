@@ -66,7 +66,7 @@ static class SynthTables
 
 class SynthFx : InstrumentFx
 {
-    const int NV = 8, CTRL = 16;
+    const int NV = 16, CTRL = 16;
     static readonly string[] OscIds = { "a", "b", "c" };
 
     // ---- cached parameters (read once when something changes) ----
@@ -77,7 +77,7 @@ class SynthFx : InstrumentFx
     OscP[] op = { new OscP(), new OscP(), new OscP() }; FiltP[] fp = { new FiltP(), new FiltP() }; EnvP[] ep = { new EnvP(), new EnvP(), new EnvP(), new EnvP() }; LfoP[] lp = { new LfoP(), new LfoP(), new LfoP(), new LfoP() };
     bool subOn, nzOn, parallel; int subWave, subOct, nzType; double subLvl, nzLvl, vol, glide, bendRange, tune, vsens; int mode; double[] macro = new double[4];
     int[] mSrc = new int[8], mDst = new int[8]; double[] mAmt = new double[8];
-    bool dstOn, chOn, dlOn, rvOn, bbOn;
+    bool dstOn, chOn, dlOn, rvOn, bbOn; int maxV = 8;
 
     // ---- voices ----
     class Voice
@@ -109,7 +109,8 @@ class SynthFx : InstrumentFx
     void BuildParams()
     {
         AddP("vol", "Volume", -30, 6, -8, "dB"); AddP("glide", "Glide", 0, 1000, 0, "ms"); AddP("bend", "Bend range", 0, 24, 2, "st");
-        AddC("mode", "Voices", new[] { "Poly", "Mono", "Legato" }, 0); AddP("tune", "Fine tune", -100, 100, 0, "ct"); AddP("vsens", "Velocity", 0, 100, 60, "%");
+        AddC("mode", "Voices", new[] { "Poly", "Mono", "Legato" }, 0); AddP("voices", "Voice limit", 1, 16, 8, "");
+        AddP("tune", "Fine tune", -100, 100, 0, "ct"); AddP("vsens", "Velocity", 0, 100, 60, "%");
         foreach (var x in OscIds)
         {
             AddC(x + "on", "On", SynthTables.OffOn, x == "a" ? 1 : 0); AddP(x + "wt", "Wave", 0, 100, 50, "%"); AddP(x + "oct", "Octave", -3, 3, 0, ""); AddP(x + "sem", "Semi", -12, 12, 0, "");
@@ -150,6 +151,7 @@ class SynthFx : InstrumentFx
 
     protected override void Update()
     {
+        maxV = Math.Max(1, Math.Min(NV, (int)Math.Round(Get("voices"))));
         vol = Get("vol"); glide = Get("glide"); bendRange = Get("bend"); mode = (int)Get("mode"); tune = Get("tune"); vsens = Get("vsens") / 100.0;
         for (int i = 0; i < 3; i++)
         {
@@ -223,9 +225,9 @@ class SynthFx : InstrumentFx
     Voice AllocVoice(int note)
     {
         if (mode != 0) return voices[0];
-        foreach (var v in voices) if (!v.On) return v;
-        Voice best = null; foreach (var v in voices) if (v.Released && (best == null || v.Age < best.Age)) best = v;
-        if (best == null) foreach (var v in voices) if (best == null || v.Age < best.Age) best = v;
+        for (int i = 0; i < maxV; i++) if (!voices[i].On) return voices[i];
+        Voice best = null; for (int i = 0; i < maxV; i++) { var v = voices[i]; if (v.Released && (best == null || v.Age < best.Age)) best = v; }
+        if (best == null) for (int i = 0; i < maxV; i++) { var v = voices[i]; if (best == null || v.Age < best.Age) best = v; }
         for (int i = 0; i < 4; i++) { best.Env[i] = 0; }   // stolen: restart cleanly
         best.On = false; return best;
     }
@@ -382,7 +384,7 @@ class SynthFx : InstrumentFx
                 double res = Math.Max(0, Math.Min(1, F.Res + dst[k == 0 ? 18 : 21])); fk[k] = 2 - 1.96 * res;
                 fdr[k] = 1 + Math.Max(0, Math.Min(1, F.Drive + (k == 0 ? dst[19] : 0))) * 7;
             }
-            double gain = volLin * velAmp * 0.8 * Math.Max(0, 1 + dst[1]);
+            double gain = volLin * velAmp * 0.55 * Math.Max(0, 1 + dst[1]);
             double pan = Math.Max(-1, Math.Min(1, dst[23]));
             // ---- per-sample ----
             for (int i = 0; i < len; i++)
