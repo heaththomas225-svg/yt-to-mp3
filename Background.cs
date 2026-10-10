@@ -22,6 +22,7 @@ partial class App
     Stopwatch frameWatch = new Stopwatch(); double frameMs = 6; int perfTick, quality;
     SizeF titleSize;
     volatile Bitmap atmoFront, overlayFront; volatile int reqW, reqH; volatile bool layerRun = true; Thread layerThread;
+    int lastW, lastH; float lastT; Lab[] lastLab; string lastSub = "", lastCKey = "", failKey = "";
     readonly List<Bitmap> graveyard = new List<Bitmap>(); Lab[] labSnap = new Lab[0]; volatile string subtitle = "";
 
     static readonly Color[] LeafPal = {
@@ -121,7 +122,11 @@ partial class App
             try
             {
                 Bitmap a = null; bool custom = UserBackground.Active;
-                if (custom) { string key = UserBackground.Key(W, H); if (key != atmoKey || atmoFront == null) { var s = UserBackground.Baked(W, H); if (s != null) { a = s; atmoKey = key; } else { a = BuildAtmosphere(W, H); atmoKey = ""; } } }
+                // nothing that feeds the layers changed (e.g. "Animated background" is off, so t is frozen): keep the finished bitmaps
+                string ckey = custom ? UserBackground.Key(W, H) : ""; float tNow = t; var labNow = labSnap; string subNow = subtitle;
+                if (atmoFront != null && overlayFront != null && W == lastW && H == lastH && tNow == lastT && ReferenceEquals(labNow, lastLab) && subNow == lastSub && ckey == lastCKey) { Thread.Sleep(40); continue; }
+                lastW = W; lastH = H; lastT = tNow; lastLab = labNow; lastSub = subNow; lastCKey = ckey;
+                if (custom) { string key = ckey; if (key != atmoKey || atmoFront == null) { Bitmap s = null; if (key != failKey) { s = UserBackground.Baked(W, H); if (s == null) failKey = key; } if (s != null) { a = s; atmoKey = key; failKey = ""; } else { a = BuildAtmosphere(W, H); atmoKey = ""; } } }
                 else { a = BuildAtmosphere(W, H); atmoKey = ""; }
                 var o = BuildOverlay(W, H);
                 var oldA = atmoFront; var oldO = overlayFront; if (a != null) atmoFront = a; else oldA = null; overlayFront = o;
@@ -276,7 +281,7 @@ partial class App
 
         string title = "Purphex";
         g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
-        var logoPic = AppLogo.Logo; if (logoPic != null) { var oldI = g.InterpolationMode; g.InterpolationMode = InterpolationMode.HighQualityBicubic; g.DrawImage(logoPic, new Rectangle(12, 4, 42, 42)); g.InterpolationMode = oldI; }
+        var logoPic = AppLogo.Small; if (logoPic != null) g.DrawImage(logoPic, new Rectangle(12, 4, 42, 42));
         var titleState = g.Save(); if (logoPic != null) g.TranslateTransform(46, 0);
         using (var f = new Font("Segoe UI Black", 21f))
         {
