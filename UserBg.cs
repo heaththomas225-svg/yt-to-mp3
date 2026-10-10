@@ -47,16 +47,19 @@ static class Prefs
 static class UserBackground
 {
     static Bitmap still;                 // picture, or the first frame of a video, cropped to stillW x stillH
-    static int stillW, stillH; static string stillPath = "";
+    static int stillW, stillH, stillDim; static string stillPath = "";
+    static void Dim(Bitmap b) { if (Prefs.BgDim <= 0) return; using (var g = Graphics.FromImage(b)) using (var br = new SolidBrush(Color.FromArgb(Prefs.BgDim * 255 / 100, 4, 1, 12))) g.FillRectangle(br, 0, 0, b.Width, b.Height); }
+    public static string Key(int w, int h) { return Prefs.BgPath + "|" + Prefs.BgDim + "|" + w + "x" + h + "|" + Version; }
     static Bitmap frame; static readonly object fl = new object();   // newest video frame
-    static Process proc; static Thread reader; static volatile bool run; static int vidW, vidH; static string vidPath = "";
+    static Process proc; static Thread reader; static volatile bool run; static int vidW, vidH, vidDim; static string vidPath = "";
     public static volatile int Version;  // bumps whenever the picture or video changes (other windows rebuild their cache)
     public static Func<string> Ffmpeg = delegate { return null; };
     public static string Error = "";
 
     static readonly string[] ImgExt = { ".png", ".jpg", ".jpeg", ".bmp", ".tif", ".tiff" };
     public static bool IsImage(string p) { return Array.IndexOf(ImgExt, Path.GetExtension(p ?? "").ToLowerInvariant()) >= 0; }
-    public static bool Active { get { return Prefs.BgPath.Length > 0 && File.Exists(Prefs.BgPath); } }
+    static long actChecked; static string actPath = ""; static bool actVal;
+    public static bool Active { get { string p = Prefs.BgPath; if (p.Length == 0) return false; long now = Environment.TickCount; if (p != actPath || now - actChecked > 1500) { actPath = p; actChecked = now; actVal = File.Exists(p); } return actVal; } }
     public static bool IsVideo { get { return Active && !IsImage(Prefs.BgPath); } }
 
     // Cropped-to-fill copy of an image, scaled to w x h.
@@ -87,15 +90,15 @@ static class UserBackground
         if (!Active || w < 8 || h < 8) return null;
         lock (fl)
         {
-            if (still != null && stillW == w && stillH == h && stillPath == Prefs.BgPath) return still;
+            if (still != null && stillW == w && stillH == h && stillPath == Prefs.BgPath && stillDim == Prefs.BgDim) return still;
             try
             {
                 string src = Prefs.BgPath;
                 if (!IsImage(src)) src = FirstFrame(src);
                 if (src == null) return null;
                 using (var fs = new FileStream(src, FileMode.Open, FileAccess.Read, FileShare.ReadWrite)) using (var im = Image.FromStream(fs, false, false))
-                { var nb = Cover(im, w, h); if (still != null) still.Dispose(); still = nb; }
-                stillW = w; stillH = h; stillPath = Prefs.BgPath; return still;
+                { var nb = Cover(im, w, h); Dim(nb); if (still != null) still.Dispose(); still = nb; }
+                stillW = w; stillH = h; stillPath = Prefs.BgPath; stillDim = Prefs.BgDim; return still;
             }
             catch (Exception ex) { Error = ex.Message; return null; }
         }
@@ -117,12 +120,12 @@ static class UserBackground
     {
         if (!IsVideo || Ffmpeg() == null) { StopVideo(); return; }
         // decode at no more than ~960 px wide; the picture is stretched to the window, which is fine behind a dimmed overlay
-        double k = Math.Min(1.0, 960.0 / Math.Max(1, w)); int dw = Math.Max(16, ((int)(w * k)) & ~1), dh = Math.Max(16, ((int)(h * k)) & ~1);
-        if (run && dw == vidW && dh == vidH && vidPath == Prefs.BgPath) return;
-        StopVideo(); vidW = dw; vidH = dh; vidPath = Prefs.BgPath;
+        double k = Math.Min(1.0, Math.Min(1600.0 / Math.Max(1, w), 900.0 / Math.Max(1, h))); int dw = Math.Max(16, ((int)(w * k)) & ~1), dh = Math.Max(16, ((int)(h * k)) & ~1);
+        if (run && dw == vidW && dh == vidH && vidPath == Prefs.BgPath && vidDim == Prefs.BgDim) return;
+        StopVideo(); vidW = dw; vidH = dh; vidPath = Prefs.BgPath; vidDim = Prefs.BgDim; double mul = 1.0 - Prefs.BgDim / 100.0 * 0.95;
         try
         {
-            var psi = new ProcessStartInfo(Ffmpeg(), "-loglevel error -stream_loop -1 -re -i \"" + vidPath + "\" -an -vf \"scale=" + dw + ":" + dh + ":force_original_aspect_ratio=increase,crop=" + dw + ":" + dh + ",fps=24\" -f rawvideo -pix_fmt bgra pipe:1")
+            var psi = new ProcessStartInfo(Ffmpeg(), "-loglevel error -stream_loop -1 -re -i \"" + vidPath + "\" -an -vf \"scale=" + dw + ":" + dh + ":force_original_aspect_ratio=increase,crop=" + dw + ":" + dh + ",fps=24,format=bgra,lutrgb=r=val*" + mul.ToString("0.000", System.Globalization.CultureInfo.InvariantCulture) + ":g=val*" + mul.ToString("0.000", System.Globalization.CultureInfo.InvariantCulture) + ":b=val*" + mul.ToString("0.000", System.Globalization.CultureInfo.InvariantCulture) + "\" -f rawvideo -pix_fmt bgra pipe:1")
             { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true };
             proc = Process.Start(psi); var pr = proc; run = true;
             pr.ErrorDataReceived += (s, e) => { };
@@ -159,17 +162,18 @@ static class UserBackground
         lock (fl) { if (frame != null) { frame.Dispose(); frame = null; } }
     }
 
-    // Draws the newest video frame (or the picture) filling w x h. Returns false when there is nothing to draw.
-    public static bool Draw(Graphics g, int w, int h)
+    // UI thread, never blocks: draws the newest (already darkened) video frame. Returns false until the first frame has arrived.
+    public static bool DrawVideo(Graphics g, int w, int h)
     {
-        if (!Active) return false;
-        if (IsVideo)
+        if (!IsVideo) return false;
+        EnsureVideo(w, h);
+        lock (fl)
         {
-            EnsureVideo(w, h);
-            lock (fl) { if (frame != null) { g.DrawImage(frame, 0, 0, w, h); return true; } }
+            if (frame == null) return false;
+            if (frame.Width == w && frame.Height == h) { g.CompositingMode = CompositingMode.SourceCopy; g.DrawImageUnscaled(frame, 0, 0); g.CompositingMode = CompositingMode.SourceOver; }
+            else { g.InterpolationMode = InterpolationMode.Bilinear; g.DrawImage(frame, 0, 0, w, h); }
+            return true;
         }
-        var s = Still(w, h); if (s == null) return false;
-        g.CompositingMode = CompositingMode.SourceCopy; g.DrawImageUnscaled(s, 0, 0); g.CompositingMode = CompositingMode.SourceOver; return true;
     }
 
     public static void Set(string path)

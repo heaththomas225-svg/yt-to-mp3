@@ -2,6 +2,11 @@
 
 What changed in each version of **BandLab + YouTube to MP3**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.0.4  Speed
+
+- Animated leaves drawn about 10x faster (about 6 ms per frame, steady 60 fps). This was the main cause of the lag.
+- Custom picture and video backgrounds no longer glitch while loading and cost almost nothing.
+
 ## 3.0.3  Stability
 
 - FIX Music Studio crash (index out of range) after Auto Mix or effect changes.

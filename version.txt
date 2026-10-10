@@ -1,5 +1,4 @@
-3.0.3
+3.0.4
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Fix: Music Studio "index out of range" crash after Auto Mix or effect changes
-Fix: dragging any window is smooth (all animation pauses while a window moves)
-Change: closing the Mastering window turns mastering off
+Faster: animated leaves now draw about 10x faster (about 6 ms a frame, steady 60 fps)
+Fix: custom picture/video backgrounds no longer glitch while loading and no longer slow the app
