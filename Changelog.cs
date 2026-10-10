@@ -7,10 +7,13 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.0.12";
+    public const string Latest = "3.0.13";
 
     public const string Text =
-@"3.0.12  Smooth playback
+@"3.0.13  Search box
+ + FIX: the Add Effect search box clearly shows it is ready to type (glowing border, blinking cursor) and has a clear button.
+
+3.0.12  Smooth playback
  + FIX: Music Studio playback stays smooth on slower computers: bigger audio safety buffer, a top-priority audio thread, and the window redraws less often when your computer is busy.
  + NEW: if the sound ever starts breaking up, the app makes the playback buffer bigger by itself and tells you (Settings > Audio).
  + CLEARER: VST and other native plugins (for example Vital) are listed as not supported instead of showing an error.

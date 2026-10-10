@@ -1,4 +1,3 @@
-3.0.12
+3.0.13
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Fix: Music Studio playback keeps playing smoothly on slower computers (bigger audio safety buffer, top-priority audio thread, window redraws less when the computer is busy, buffer grows by itself if sound breaks up)
-Clearer: VST / native plugins like Vital are shown as not supported instead of an error
+Fix: the Add Effect search box now clearly shows it is active (glowing border, blinking caret, clear button)
