@@ -2,3 +2,4 @@
 *.png
 _*
 obj/
+_audit/

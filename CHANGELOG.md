@@ -2,6 +2,13 @@
 
 What changed in each version of **Purphex**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.17.0  Flex Pitch, the whole plugin library, faster and safer
+
+- Flex Pitch: edit the notes of a recording on a piano-roll (pitch, fine, drift, vibrato, gain, formant, correct to scale, split/join); live re-tuning; kept with the project.
+- All 218 listed plugins are built in (Vocal Tools, Creative, Bass & EDM added).
+- FPS counter badge on every screen; 120 fps option.
+- Performance and stability fixes from a full review of the app and the website.
+
 ## 3.16.0  Built-in plugin library
 
 - About 115 named effects: Pitch & Voice, Telephone & Distortion, Echo & Reverb, EQ & Clarity (pitch shifters, formant, vocoder, tape / ping-pong / reverse echoes, plate / hall / spring / shimmer / gated reverbs, convolution reverb, dynamic and linear-phase EQ, resonance suppressor and more).

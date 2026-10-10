@@ -431,11 +431,14 @@ DONE keeps your edits. The edited audio is saved as a new WAV file in the Purphe
 
         new HelpTopic("studio-plugins", "Purphex Music", "The built-in plugin library (pitch, voice, echo, reverb, EQ...)", false, @"
 ## Adding effects
-Select a track and press + Add Effect (or use the master chain). The list now holds over a hundred named effects. Use the Category button to pick a group, or just type: telephone, demon, plate, tape echo, notch...
+Select a track and press + Add Effect (or use the master chain). The list now holds over two hundred named effects. Use the Category button to pick a group, or just type: telephone, demon, plate, tape echo, notch...
 ## What is in it
 - Pitch & Voice: pitch shifters (up to four voices), formant shifter, octave up and down, doublers, harmonizers, unison, detune, pitch glide, hard tune and robot pitch.
 - Telephone & Distortion: telephone, radio, walkie-talkie, megaphone, police radio, lo-fi, saturation (tube, tape, soft), overdrive, clippers, fuzz, bitcrusher, ring modulator, frequency shifter, comb filter, vocoder, talkbox, robot, demon and monster voices.
 - Echo & Reverb: slapback, tape, analog, ping-pong, multi-tap, reverse, ducking and tempo-synced delays; room, hall, plate, chamber, spring, shimmer, gated, reverse and ambient reverbs; early reflections; convolution reverb (with your own impulse-response files).
+- Vocal Tools: vocal rider, alignment, breath control, plosive reducer, vocal isolation, transient shaper, chopper, stutter and glitch vocal, freeze, reverse, stacking, harmonies, clarity enhancer and spectral repair.
+- Creative: granular synth, delay and reverb, spectral freeze / blur / delay, wavefolder, FM, resonator banks, impulse-response loader, tape stop and vinyl stop, scratch, beat repeat and stutter edit, rhythmic gate and filter, auto-pan, tremolo, sidechain pump, envelope follower, and risers, impacts, sub drops, whooshes and textures that lock to your bars.
+- Bass & EDM: wobble, LFO, acid, envelope and step filters, sub-bass generators, bass enhancer, multiband distortion, OTT-style dynamics, phaser, flangers (including barber-pole), amp and cabinet simulators, volume shaper, gate sequencer and the modulators.
 - EQ & Clarity: graphic, channel, vintage and analog EQ, dynamic EQ, linear-phase EQ, tilt, shelves, notch, formant (vowel) filter, mid-side EQ, vocal presence, air, mud remover, harshness reducer, resonance suppressor, spectral shaper and automatic EQ.
 ## Good to know
 - Every effect is real signal processing that runs on your computer. Several named effects can share one engine with different starting settings, and some chain two or three engines together.
