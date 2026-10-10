@@ -444,6 +444,7 @@ partial class StudioForm : Form
             PaintHeader(g, tr, i, Rc(0, y, HeadW, LaneH), sel);
             using (var pen = new Pen(Color.FromArgb(70, 140, 85, 210))) g.DrawLine(pen, 0, y + LaneH, tl.Right, y + LaneH);
         }
+        { float ey = Math.Max(y, top + RulerH); if (ey < ClientSize.Height) { var em = Reg(Rc(HeadW, ey, tl.Width, ClientSize.Height - ey), () => { toolsTrack = null; eng.Seek(Math.Max(0, Snap(scroll + (long)((MousePos.X - HeadW) * spp)))); }); em.OnDrag = pt => eng.Seek(Math.Max(0, Snap(scroll + (long)((pt.X - HeadW) * spp)))); } }
         if (n == 0)
         {
             var r0 = Rc(HeadW + 40, top + RulerH + 60, tl.Width - 80, 150);

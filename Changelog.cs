@@ -7,10 +7,15 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.5.0";
+    public const string Latest = "3.5.1";
 
     public const string Text =
-@"3.5.0  Record and make songs
+@"3.5.1  Calmer editing
+ + Clicking a track now only selects it. The needle moves only when you click the ruler or the empty area under the tracks.
+ + The button row (Up, Dn, move, Split, trim, Copy, Del) and the clip grips appear only on the track you clicked.
+ + NEW Changelog button on the main window. Updates no longer pop up the list by themselves; a star on the button shows when there is something new.
+
+3.5.0  Record and make songs
  + NEW MIC button: record a microphone onto a new vocal track while the song plays. Takes are lined up with the beat and saved as files. Pick the input in Settings.
  + NEW piano roll (the Notes button on an instrument track, or double-click it): draw, move, resize and delete notes, snap to the grid.
  + CHANGE: REC now starts the song by itself when you play your first note.
