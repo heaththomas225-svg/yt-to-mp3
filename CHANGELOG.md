@@ -2,6 +2,11 @@
 
 What changed in each version of **BandLab + YouTube to MP3**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.0.7  Update notes
+
+- Update notes scroll and wrap.
+- Clearer Add Music choices.
+
 ## 3.0.6  Full screen and windows
 
 - F11 full screen in every resizable window (Esc leaves).

@@ -37,7 +37,7 @@ class Job
 partial class App : Form
 {
     // ---- Auto-update settings ----
-    const string Version = "3.0.6";
+    const string Version = "3.0.7";
     // Plain-text manifest: line 1 = newest version, line 2 = direct exe download URL.
     const string UpdateManifestUrl = "https://raw.githubusercontent.com/heaththomas225-svg/yt-to-mp3/main/version.txt";
 
@@ -973,7 +973,7 @@ partial class App : Form
             using (var wc = new WebClient())
             {
                 string[] lines = wc.DownloadString(UpdateManifestUrl + "?t=" + DateTime.UtcNow.Ticks).Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
-                if (lines.Length > 2 && lines[0].Trim() == newVer) for (int i = 2; i < lines.Length && notes.Count < 8; i++) notes.Add(lines[i].Trim());
+                if (lines.Length > 2 && lines[0].Trim() == newVer) for (int i = 2; i < lines.Length && notes.Count < 14; i++) notes.Add(lines[i].Trim());
             }
         }
         catch { }
@@ -984,7 +984,10 @@ partial class App : Form
     void ShowUpdateCard(string newVer, string dl, List<string> notes)
     {
         if (card != null) return;
-        int nh = notes.Count > 0 ? notes.Count * 20 + 30 : 0;
+        var nfont = new Font("Segoe UI", 9.5f); string ntext = string.Join("\n", notes.ToArray());
+        int ntH = notes.Count > 0 ? TextRenderer.MeasureText(ntext, nfont, new Size(404, 0), TextFormatFlags.WordBreak).Height + 8 : 0;
+        int npH = Math.Min(ntH, Math.Max(120, Math.Min(230, bg.ClientSize.Height - 330)));   // taller notes scroll inside the card instead of being cut off
+        int nh = notes.Count > 0 ? npH + 30 : 0;
         card = new Panel { Size = new Size(470, 160 + nh), BackColor = Color.FromArgb(14, 7, 28), BorderStyle = BorderStyle.FixedSingle };
         var title = MakeLabel("Update available", new Font("Segoe UI Semibold", 14f), Color.FromArgb(225, 190, 255), 16, 14, 430, 28);
         var msg = MakeLabel("Version " + newVer + " is ready (you have " + Version + ").\nUpdate now? The app restarts automatically.", Font, Ink, 16, 48, 430, 40);
@@ -992,7 +995,9 @@ partial class App : Form
         if (notes.Count > 0)
         {
             ctl.Add(MakeLabel("What's new", new Font("Segoe UI Semibold", 10.5f), Color.FromArgb(236, 120, 230), 16, 94, 200, 22));
-            ctl.Add(MakeLabel(string.Join("\n", notes.ToArray()), new Font("Segoe UI", 9.5f), Ink, 16, 116, 438, notes.Count * 20 + 4));
+            var np = new Panel { Left = 16, Top = 116, Width = 438, Height = npH, AutoScroll = true, BackColor = card.BackColor };
+            var nl = new Label { Text = ntext, Font = nfont, ForeColor = Ink, BackColor = card.BackColor, AutoSize = true, MaximumSize = new Size(404, 0), Left = 0, Top = 0 };
+            np.Controls.Add(nl); np.MouseEnter += (s, e) => np.Focus(); nl.MouseEnter += (s, e) => np.Focus(); ctl.Add(np);
         }
         var yes = new Button(); StyleBtn(yes, Color.FromArgb(130, 45, 220)); yes.Text = "Update now"; yes.SetBounds(16, 108 + nh, 205, 36);
         var no = new Button(); StyleBtn(no, Color.FromArgb(60, 26, 100)); no.Text = "Later"; no.SetBounds(235, 108 + nh, 205, 36);

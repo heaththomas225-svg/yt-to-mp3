@@ -1,5 +1,4 @@
-3.0.6
+3.0.7
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-New: full screen (F11) for every resizable window
-Change: Settings, Help, Plugins and Phone windows no longer block the other windows
-Fix: Studio crash when changing the background darkness; Settings scrolls; background paint glitch
+Fix: update notes can scroll and are no longer cut off
+Clearer wording when adding music: only Full song splits vocals from the beat
