@@ -267,7 +267,7 @@ WARN: Plugins are programs. Only approve ones you trust.
 Press 'Create sample plugin (SDK)'. It writes a working example and a build script. See PLUGINS.md for the full guide.
 ## Custom ffmpeg filter
 Enter any ffmpeg audio filter chain (for example aecho=0.8:0.88:60:0.4) and it is applied to every conversion. It is tested before saving. LV2 plugins can be used through ffmpeg's lv2 filter.
-VST plugins are not supported."),
+VST plugins (for example Vital, Serum or Kontakt, which are .dll, .vst or .vst3 files) are NOT supported: they are a different kind of plugin that needs a full plugin host. The Plugins window shows them as unsupported. Only .NET effect plugins made for this app (see Create sample plugin) can be used."),
 
         new HelpTopic("long", "Advanced", "Long songs and DJ mixes", false, @"
 - Loading streams the file, so even hour-long mixes load in seconds with a progress bar.

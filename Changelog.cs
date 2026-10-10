@@ -7,10 +7,15 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.0.11";
+    public const string Latest = "3.0.12";
 
     public const string Text =
-@"3.0.11  Plugins are easier
+@"3.0.12  Smooth playback
+ + FIX: Music Studio playback stays smooth on slower computers: bigger audio safety buffer, a top-priority audio thread, and the window redraws less often when your computer is busy.
+ + NEW: if the sound ever starts breaking up, the app makes the playback buffer bigger by itself and tells you (Settings > Audio).
+ + CLEARER: VST and other native plugins (for example Vital) are listed as not supported instead of showing an error.
+
+3.0.11  Plugins are easier
  + CHANGE: ticking a plugin loads it straight away (no Reload needed) and tells you where to find it.
  + CHANGE: your own plugins are listed first in the Music Studio Add Effect list, under PLUGINS.
 

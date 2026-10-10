@@ -2,6 +2,11 @@
 
 What changed in each version of **BandLab + YouTube to MP3**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.0.12  Smooth playback
+
+- Studio playback robust on slow computers; buffer grows automatically if sound breaks up.
+- VST / native plugins shown as unsupported instead of an error.
+
 ## 3.0.11  Plugins are easier
 
 - Ticking a plugin loads it at once; plugins are listed first in Add Effect.
