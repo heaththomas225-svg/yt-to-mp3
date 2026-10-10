@@ -45,6 +45,7 @@ class PitchShiftFx : Fx
         public double[][] sumPh = new double[V][], outR = new double[V][]; public float[][] vdl = new float[V][]; public int vw;
         public double[] sre, sim, smag, sfreq;
     }
+    float[] pgl = new float[V], pgr = new float[V], plv = new float[V]; int[] pdly = new int[V];
     Ch[] ch = new Ch[2]; long count; Lfo2 lfo = new Lfo2(); double modOff; double[] ratio = new double[V], fratio = new double[V];
     public PitchShiftFx()
     {
@@ -61,10 +62,11 @@ class PitchShiftFx : Fx
         AddC("mshape", "Pitch movement", MShapes, 0); AddP("mrate", "Movement rate", 0.05f, 20, 0.5f, "Hz"); AddP("mdepth", "Movement depth", 0, 24, 2, "st");
         AddP("mix", "Mix", 0, 100, 100, "%");
     }
-    public override int Latency { get { return N > 0 ? N - 1 : 2047; } }
+    public override int Latency { get { int q = (int)Get("quality"); return (q == 0 ? 1024 : (q == 2 ? 4096 : 2048)) - 1; } }
     void Init()
     {
         int q = (int)Get("quality"); int n = q == 0 ? 1024 : (q == 2 ? 4096 : 2048); if (inited && n == N) return;
+        if (n == N && ch[0] != null) { for (int c = 0; c < 2; c++) { var x = ch[c]; x.w = 0; x.vw = 0; Array.Clear(x.inRing, 0, x.inRing.Length); Array.Clear(x.lastPh, 0, x.lastPh.Length); Array.Clear(x.mag, 0, x.mag.Length); Array.Clear(x.freq, 0, x.freq.Length); Array.Clear(x.flat, 0, x.flat.Length); Array.Clear(x.env, 0, x.env.Length); Array.Clear(x.tre, 0, x.tre.Length); Array.Clear(x.tim, 0, x.tim.Length); Array.Clear(x.sre, 0, x.sre.Length); Array.Clear(x.sim, 0, x.sim.Length); Array.Clear(x.smag, 0, x.smag.Length); Array.Clear(x.sfreq, 0, x.sfreq.Length); for (int v = 0; v < V; v++) { Array.Clear(x.sumPh[v], 0, x.sumPh[v].Length); Array.Clear(x.outR[v], 0, x.outR[v].Length); Array.Clear(x.vdl[v], 0, x.vdl[v].Length); } } count = 0; inited = true; return; }
         N = n; H = N / 2; Hop = N / OVER; win = new double[N]; for (int i = 0; i < N; i++) win[i] = 0.5 - 0.5 * Math.Cos(2 * Math.PI * i / N);
         double s = 0; for (int k = 0; k < OVER; k++) { double v = win[(k * Hop) % N]; s += v * v; } scale = 1.0 / s;
         for (int c = 0; c < 2; c++)
@@ -117,7 +119,7 @@ class PitchShiftFx : Fx
     public override void Process(float[] l, float[] r, int n)
     {
         CheckDirty(); if (!inited) Init();
-        double mix = Get("mix") / 100.0; float[] gl = new float[V], gr = new float[V], lv = new float[V]; int[] dly = new int[V];
+        double mix = Get("mix") / 100.0; float[] gl = pgl, gr = pgr, lv = plv; int[] dly = pdly;
         for (int v = 0; v < V; v++) { lv[v] = Get("l" + (v + 1)) / 100f; double pan = Get("pan" + (v + 1)) / 100.0; gl[v] = (float)Math.Min(1, 1 - pan); gr[v] = (float)Math.Min(1, 1 + pan); dly[v] = (int)(Get("d" + (v + 1)) * 0.001 * SR); }
         for (int i = 0; i < n; i++)
         {
@@ -216,7 +218,7 @@ class FormantFx : Fx
         inited = true;
     }
     protected override void Update() { Init(); ratio = Math.Pow(2, Get("shift") / 12.0); mixv = Get("mix") / 100.0; gainDb = Get("tilt"); Q = Math.Max(10, (int)(SR / 520.0)); }
-    public override void Reset() { base.Reset(); if (inited) { st[0].Reset(); st[1].Reset(); } }
+    public override void Reset() { base.Reset(); if (inited) { st[0].Reset(); st[1].Reset(); } if (ringL != null) { Array.Clear(ringL, 0, ringL.Length); Array.Clear(ringR, 0, ringR.Length); } rw = 0; }
     void Spec(double[] re, double[] im)
     {
         int H = N / 2; for (int k = 0; k <= H; k++) mag[k] = Math.Sqrt(re[k] * re[k] + im[k] * im[k]);

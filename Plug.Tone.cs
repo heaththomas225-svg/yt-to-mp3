@@ -216,7 +216,7 @@ class CombFx : Fx
 {
     public static readonly string[] Chords = { "Single note", "Octave", "Fifth", "Octave + fifth", "Major chord", "Minor chord", "Sus4", "Major 7th" };
     static readonly int[][] Sems = { new[] { 0 }, new[] { 0, 12 }, new[] { 0, 7 }, new[] { 0, 7, 12 }, new[] { 0, 4, 7 }, new[] { 0, 3, 7 }, new[] { 0, 5, 7 }, new[] { 0, 4, 7, 11 } };
-    const int MAXV = 4; float[][][] buf = new float[2][][]; int[] wp = new int[2]; double[,] lpS = new double[2, MAXV]; int len; double env;
+    const int MAXV = 4; float[][][] buf = new float[2][][]; int[] wp = new int[2]; double[,] lpS = new double[2, MAXV]; int len; double env; double[,] dTmp = new double[2, MAXV];
     public CombFx()
     {
         Type = "comb"; Title = "Comb Filter"; Category = "Creative";
@@ -230,7 +230,7 @@ class CombFx : Fx
     {
         CheckDirty(); int mode = (int)Get("mode"); double f0 = Get("freq"); if (Get("snap") > 0.5f) { double m = 69 + 12 * Math.Log(f0 / 440.0, 2); f0 = 440 * Math.Pow(2, (Math.Round(m) - 69) / 12.0); }
         f0 *= Math.Pow(2, Get("fine") / 1200.0); var sems = Sems[(int)Get("chord")]; int nv = sems.Length; double fb = Get("fb") / 100.0, spread = Get("spread"), dyn = Get("dyn") / 100.0, mix = Get("mix") / 100.0;
-        double dampA = 1 - Math.Exp(-2 * Math.PI * Get("damp") / SR); double[,] D = new double[2, MAXV];
+        double dampA = 1 - Math.Exp(-2 * Math.PI * Get("damp") / SR); double[,] D = dTmp; Array.Clear(D, 0, D.Length);
         for (int c = 0; c < 2; c++) for (int v = 0; v < nv; v++) { double f = f0 * Math.Pow(2, sems[v] / 12.0) * Math.Pow(2, (c == 0 ? -spread : spread) / 1200.0); D[c, v] = Math.Max(2, Math.Min(len - 3, SR / f)); }
         double norm = 1.0 / (1.0 + Math.Abs(fb) * (mode == 0 ? 1.0 : 0.6)) * (nv > 1 ? 1.0 / Math.Sqrt(nv) * 1.2 : 1.0);
         for (int i = 0; i < n; i++)
