@@ -201,6 +201,7 @@ static class T
         }
 
         EngineTests();
+        MixTests();
 
         Console.WriteLine();
         Console.WriteLine("=== " + pass + " passed, " + fail + " failed ===");
@@ -287,6 +288,122 @@ static class T
             Check("realtime: audio device plays and the playhead advances", p > SR * 1.0 && p < SR * 2.2, "position after 1.5 s = " + (p / (double)SR).ToString("0.00") + " s");
         }
         catch (Exception ex) { Console.WriteLine("SKIP  realtime device test: " + ex.Message); }
+    }
+
+    // synthetic vocal: voiced notes (with formant-ish harmonics) in bursts + a little hiss; and a bass/noise "beat"
+    static AudioClip SynthVocal(int seconds)
+    {
+        int n = SR * seconds; var x = new float[n]; var rnd = new Random(11); double[] notes = { 220, 261.63, 329.63, 293.66, 246.94, 220, 329.63, 261.63 };
+        double ph = 0;
+        for (int i = 0; i < n; i++)
+        {
+            int seg = i / (SR / 2); bool on = (seg % 4) != 3; double f = notes[seg % notes.Length]; ph += 2 * Math.PI * f / SR;
+            double v = 0; for (int h = 1; h <= 12; h++) v += Math.Sin(h * ph) / h;
+            double env = on ? Math.Min(1.0, (i % (SR / 2)) / 1500.0) : 0;
+            x[i] = (float)(0.22 * v * env + 0.0008 * (rnd.NextDouble() * 2 - 1));
+        }
+        return AudioClip.FromArrays(x, (float[])x.Clone(), "SynthVocal");
+    }
+    static AudioClip SynthBeat(int seconds)
+    {
+        int n = SR * seconds; var l = new float[n]; var r = new float[n]; var rnd = new Random(5);
+        for (int i = 0; i < n; i++)
+        {
+            double t = i / (double)SR, kick = Math.Sin(2 * Math.PI * (55 + 80 * Math.Exp(-(t % 0.5) * 30)) * t) * Math.Exp(-(t % 0.5) * 9);
+            double hat = ((i % (SR / 4)) < 600 ? (rnd.NextDouble() * 2 - 1) * 0.18 : 0), pad = 0.06 * Math.Sin(2 * Math.PI * 130.8 * t) + 0.05 * Math.Sin(2 * Math.PI * 196 * t);
+            l[i] = (float)(0.6 * kick + hat + pad); r[i] = (float)(0.6 * kick + hat * 0.8 + pad * 1.1);
+        }
+        return AudioClip.FromArrays(l, r, "SynthBeat");
+    }
+
+    static void MixTests()
+    {
+        // ---- every rap chain builds, sounds finite and keeps level sane ----
+        {
+            bool fin = true; string d = ""; var v = SynthVocal(6);
+            foreach (var name in Presets.ChainNames)
+            {
+                var chain = Presets.BuildChain(name); var l = (float[])v.L.Clone(); var r = (float[])v.R.Clone();
+                int lat = 0; foreach (var f in chain) { f.Prepare(SR); f.Reset(); if (!f.Bypass) lat += f.Latency; }
+                for (int i = 0; i < l.Length; i += 512) { int n = Math.Min(512, l.Length - i); var a = new float[n]; var b = new float[n]; Array.Copy(l, i, a, 0, n); Array.Copy(r, i, b, 0, n); foreach (var f in chain) if (!f.Bypass) f.Process(a, b, n); Array.Copy(a, 0, l, i, n); Array.Copy(b, 0, r, i, n); }
+                foreach (var s in l) if (float.IsNaN(s) || float.IsInfinity(s) || Math.Abs(s) > 20) fin = false;
+                d += name + ":" + chain.Count + "fx/" + lat + "smp ";
+            }
+            Check("presets: all 6 rap chains build and process cleanly", fin, d);
+            bool presetOk = true; foreach (var kv in new[] { "eq", "comp", "exciter", "reverb", "delay", "pitch", "limiter", "deess", "duck", "mbcomp", "denoise" }) foreach (var p in Presets.For(kv)) { var f = Presets.Make(kv, p.Value); if (f == null) presetOk = false; }
+            Check("presets: every built-in plugin preset loads", presetOk, "");
+        }
+
+        // ---- key detection ----
+        {
+            var v = SynthVocal(24); int key, scale; double conf; bool ok = KeyDetect.Detect(v, out key, out scale, out conf);
+            // the melody uses A B? -> notes A3 C4 E4 D4 B3: contained in A minor / C major
+            bool right = ok && ((key == 9 && scale == 2) || (key == 0 && scale == 1) || (key == 7 && scale == 1));
+            Check("key detection: A-minor melody -> A minor / C major family", right, ok ? PitchCorrector.Keys[key] + (scale == 2 ? " minor" : " major") + " conf " + conf.ToString("0.00") : "no key found");
+        }
+
+        // ---- Auto Mix on a synthetic vocal + beat ----
+        {
+            var eng = new StudioEngine(); string tmp = System.IO.Path.GetTempPath();
+            var vc = SynthVocal(14); var bc = SynthBeat(14);
+            eng.Tracks.Add(StudioEngine.NewTrack("Vocals", "vocal", vc)); eng.Tracks.Add(StudioEngine.NewTrack("Beat", "beat", bc));
+            var rep = AutoMix.Run(eng, "Natural", true, delegate (string s) { });
+            Check("auto mix: produces a report and sets plugins", rep.Count >= 6 && eng.Tracks[0].Fx.Count >= 4 && eng.Tracks[1].Fx.Count >= 6, rep.Count + " lines, vocal " + eng.Tracks[0].Fx.Count + " fx, beat " + eng.Tracks[1].Fx.Count + " fx");
+            float[] vl, vr, bl, br;
+            eng.Render(0, SR * 14, new RenderOpts { Master = false, MuteSolo = false, Only = new List<Track> { eng.Tracks[0] } }, null, out vl, out vr);
+            eng.Render(0, SR * 14, new RenderOpts { Master = false, MuteSolo = false, Only = new List<Track> { eng.Tracks[1] } }, null, out bl, out br);
+            var lv = Loudness.Measure(vl, vr, SR, 0, vl.Length); var lb = Loudness.Measure(bl, br, SR, 0, bl.Length);
+            double diff = lv.I - lb.I;
+            Check("auto mix: vocal sits ~2 LU above the beat (Natural)", Math.Abs(diff - 2.0) < 2.5, "vocal " + lv.I.ToString("0.0") + " LUFS, beat " + lb.I.ToString("0.0") + " LUFS, diff " + diff.ToString("0.0"));
+            float[] ml, mr; eng.Render(0, SR * 14, new RenderOpts { Master = false }, null, out ml, out mr); var lm = Loudness.Measure(ml, mr, SR, 0, ml.Length);
+            Check("auto mix: leaves headroom before mastering", lm.TruePeakDb <= -1.0, "mix true peak " + lm.TruePeakDb.ToString("0.0") + " dB, " + lm.I.ToString("0.0") + " LUFS");
+            // original audio untouched
+            var refV = SynthVocal(14); double dmax = 0; for (int i = 0; i < vc.Length; i += 97) dmax = Math.Max(dmax, Math.Abs(vc.L[i] - refV.L[i]));
+            Check("auto mix: original clips are untouched", dmax == 0, "max diff " + dmax);
+            AutoMix.Undo(eng); Check("auto mix: undo restores the previous mixer state", eng.Tracks[0].Fx.Count == 0 && Math.Abs(eng.Tracks[0].VolDb) < 1e-6, "vocal fx after undo: " + eng.Tracks[0].Fx.Count);
+        }
+
+        // ---- project save / load round trip with plugin settings and alignment ----
+        {
+            string dir = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "ytm_proj_test"); System.IO.Directory.CreateDirectory(dir);
+            var eng = new StudioEngine(); var v = SynthVocal(5); var b = SynthBeat(5);
+            string vp = System.IO.Path.Combine(dir, "v.wav"), bp = System.IO.Path.Combine(dir, "b.wav"); WavIO.Write(vp, v.L, v.R, SR, 24); WavIO.Write(bp, b.L, b.R, SR, 24);
+            var tv = StudioEngine.NewTrack("Vocals", "vocal", AudioClip.FromFile(vp)); tv.Offset = 4410; tv.VolDb = -2.5f; tv.Pan = 0.2f;
+            var tb = StudioEngine.NewTrack("Beat", "beat", AudioClip.FromFile(bp)); tb.Mute = true;
+            tv.Fx.Add(Presets.Make("pitch", "key=9;scale=2;speed=12;strength=88;natural=33")); tv.Fx[0].Bypass = true; tv.Fx.Add(Presets.Make("eq", "b2_g=3.5;b2_f=1234"));
+            tb.Fx.Add(Presets.Make("duck", "amount=5.5")); eng.Tracks.Add(tv); eng.Tracks.Add(tb); eng.MasterFx[1].Set("thr", -9.5f); eng.MasterVolDb = -1.5f;
+            string pf = System.IO.Path.Combine(dir, "t.ytmproj"); ProjectIO.Save(eng, pf);
+            var e2 = new StudioEngine(); var warn = ProjectIO.Load(e2, pf, delegate (string s) { });
+            bool same = ProjectIO.SerializeMix(eng) == ProjectIO.SerializeMix(e2) && e2.Tracks.Count == 2 && e2.Tracks[0].Offset == 4410 && e2.Tracks[0].Clip != null && Math.Abs(e2.Tracks[0].Clip.Length - tv.Clip.Length) < 2;
+            string sa = ProjectIO.SerializeMix(eng), sb2 = ProjectIO.SerializeMix(e2), firstDiff = ""; { var la = sa.Split((char)10); var lb = sb2.Split((char)10); for (int q = 0; q < Math.Max(la.Length, lb.Length); q++) { string x1 = q < la.Length ? la[q] : "<none>", x2 = q < lb.Length ? lb[q] : "<none>"; if (x1 != x2) { firstDiff = " DIFF: [" + x1 + "] vs [" + x2 + "]"; break; } } }
+            Check("project: save + reopen keeps plugins, faders, mute and track alignment" + firstDiff, same && warn.Count == 0, "tracks " + e2.Tracks.Count + ", offset " + e2.Tracks[0].Offset + ", master comp thr " + e2.MasterFx[1].Get("thr"));
+        }
+
+        // ---- export: formats, sync, dry vs processed ----
+        {
+            var eng = new StudioEngine(); var v = SynthVocal(6); var b = SynthBeat(6); string dir = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "ytm_export_test");
+            if (System.IO.Directory.Exists(dir)) System.IO.Directory.Delete(dir, true);
+            var tv = StudioEngine.NewTrack("Vocals", "vocal", v); var tb = StudioEngine.NewTrack("Beat", "beat", b); eng.Tracks.Add(tv); eng.Tracks.Add(tb);
+            foreach (var f in Presets.BuildChain("Melodic Rap")) tv.Fx.Add(f); foreach (var f in Presets.BeatChain()) tb.Fx.Add(f);
+            var plan = Exporter.Plan(eng, true, true, true, true, true, true, true, "Song", 0);
+            Check("export: plan lists every requested file", plan.Count == 8, plan.Count + " files (mix x2, vocals x2, beat x2, stems x2)");
+            bool allOk = true; string detail = "";
+            foreach (var it in plan) { try { string p = Exporter.Write(eng, it, dir, 0, null); long len = new System.IO.FileInfo(p).Length; if (len < 100000) allOk = false; } catch (Exception ex) { allOk = false; detail += ex.Message; } }
+            Check("export: every WAV file is written", allOk, detail + System.IO.Directory.GetFiles(dir).Length + " files");
+            var dryV = AudioClip.FromFile(System.IO.Path.Combine(dir, "Song - vocals dry.wav")); double dm = 0; for (int i = 5000; i < v.Length - 100000; i += 31) dm = Math.Max(dm, Math.Abs(dryV.L[i] - v.L[i]));
+            Check("export: dry vocals are the untouched original audio", dm < 0.0002, "max difference " + dm.ToString("0.000000"));
+            var proV = AudioClip.FromFile(System.IO.Path.Combine(dir, "Song - vocals processed.wav")); double dp = 0; for (int i = 5000; i < v.Length - 100000; i += 31) dp = Math.Max(dp, Math.Abs(proV.L[i] - v.L[i]));
+            Check("export: processed vocals really contain the effects", dp > 0.02, "max difference from dry " + dp.ToString("0.000"));
+            // sync: onset of processed vocal vs dry vocal (first sample above threshold)
+            int onD = -1, onP = -1; for (int i = 0; i < v.Length; i++) { if (onD < 0 && Math.Abs(dryV.L[i]) > 0.02f) onD = i; if (onP < 0 && Math.Abs(proV.L[i]) > 0.02f) onP = i; }
+            Check("export: processed stem stays time-aligned with the dry stem", onD >= 0 && Math.Abs(onD - onP) < 700, "onset dry " + onD + " vs processed " + onP + " frames");
+            if (StudioEnv.Ffmpeg() != null)
+            {
+                string[] extra = { "flac", "mp3" }; int[] fm = { 3, 4 }; bool encOk = true; string d2 = "";
+                for (int k = 0; k < 2; k++) { var one = Exporter.Plan(eng, true, false, false, false, false, false, false, "Enc" + k, fm[k]); try { string p = Exporter.Write(eng, one[0], dir, fm[k], null); var back = AudioClip.FromFile(p); d2 += extra[k] + ":" + (back.Length / (double)SR).ToString("0.0") + "s "; if (back.Length < SR * 6) encOk = false; } catch (Exception ex) { encOk = false; d2 += ex.Message; } }
+                Check("export: FLAC and MP3 encode and decode back", encOk, d2);
+            }
+        }
     }
 
     // standard deviation of instantaneous pitch (cents) of a periodic signal, from zero crossings
