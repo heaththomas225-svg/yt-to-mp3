@@ -29,12 +29,13 @@ class Job
 {
     public string[] Items; public string Dir, TrimA, TrimB;
     public int Fmt, Sr, Name; public bool Playlist, Normalize, OpenDone;
+    public MasterSettings Master;   // null when mastering is off
 }
 
 class App : Form
 {
     // ---- Auto-update settings ----
-    const string Version = "2.3.0";
+    const string Version = "2.5.0";
     // Plain-text manifest: line 1 = newest version, line 2 = direct exe download URL.
     const string UpdateManifestUrl = "https://raw.githubusercontent.com/heaththomas225-svg/yt-to-mp3/main/version.txt";
 
@@ -42,7 +43,7 @@ class App : Form
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "YtToMp3");
     static string Tools = Path.Combine(AppData, "tools");
     static string SettingsFile = Path.Combine(AppData, "settings.txt");
-    static string YtDlp = Path.Combine(Tools, "yt-dlp.exe");
+    internal static string YtDlp = Path.Combine(Tools, "yt-dlp.exe");
     static string FfmpegDir = Path.Combine(Tools, "ffmpeg");
     static string DenoDir = Path.Combine(Tools, "deno");
 
@@ -54,6 +55,19 @@ class App : Form
     static readonly string[] FmtQual = { "320K", "0", null, null, "256K", null };
     static readonly bool[] FmtArt = { true, true, false, true, true, false };
     static readonly string[] FmtCodec = { null, null, "-c:a pcm_s24le", null, null, null };
+    static readonly string[] FmtTag = { "MP3 320k", "MP3 V0", "WAV 24bit", "FLAC", "AAC 256k", "Opus" };
+
+    // Label put in every file name so you can tell what settings produced it.
+    static string FormatTag(int fmt, int srIdx, MasterSettings m, bool normalized)
+    {
+        string s = FmtTag[fmt];
+        if (srIdx == 1) s += " 44.1k"; else if (srIdx == 2) s += " 48k";
+        if (m != null)
+            s += m.Comp ? " mastered matched" : " mastered " + m.Loud.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture) + "LUFS";
+        else if (normalized) s += " -14LUFS";
+        return s;
+    }
+
     static readonly string[] SrNames = { "Original", "44.1 kHz", "48 kHz" };
     static readonly string[] SrArgs = { null, "-ar 44100", "-ar 48000" };
     static readonly string[] NameNames = { "Title", "Artist - Title", "Title [video id]" };
@@ -76,6 +90,16 @@ class App : Form
     Process cur;
     string status = "";
     Panel card;
+    float pctScale = 1f;
+
+    // shared with the mastering window
+    internal MasterSettings Master = new MasterSettings();
+    internal MasterAnalysis LastAn;
+    internal string LastFile;
+    internal int MZoomPct = 75;
+    MasterForm mf;
+    Button mastBtn = new Button(), vocalBtn = new Button(), phoneBtn = new Button();
+    PhoneServer phone;
 
     static readonly Color Ink = Color.FromArgb(235, 225, 255);
     static readonly Color Field = Color.FromArgb(30, 12, 56);
@@ -93,11 +117,12 @@ class App : Form
     App()
     {
         Text = "BandLab + YouTube to MP3 v" + Version;
-        ClientSize = new Size(640, 650);
-        MinimumSize = new Size(560, 600);
+        ClientSize = new Size(640, 690);
+        MinimumSize = new Size(560, 640);
+        StudioEnv.Ffmpeg = FfmpegExe; StudioEnv.Ffprobe = FfprobeExe;
         Font = new Font("Segoe UI", 9.5f);
         Shown += (s, e) => new Thread(UpdateLoop) { IsBackground = true }.Start();
-        FormClosing += (s, e) => { SaveSettings(); KillCurrent(); };
+        FormClosing += (s, e) => { SaveSettings(); KillCurrent(); if (phone != null) phone.Stop(); };
 
         bg.Dock = DockStyle.Fill;
         bg.Paint += PaintBg;
@@ -131,13 +156,31 @@ class App : Form
         StyleChk(animate, "Animated background", 240, 276, 200);
         openDone.Checked = true; animate.Checked = true;
 
+        StyleBtn(mastBtn, Color.FromArgb(90, 36, 160)); mastBtn.Text = "Mastering: OFF";
+        mastBtn.SetBounds(464, 274, 160, 30); mastBtn.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+        tip.SetToolTip(mastBtn, "Open the Mastering Assistant: custom EQ, auto EQ, loudness, stereo width.");
+        mastBtn.Click += (s, e) =>
+        {
+            if (mf == null || mf.IsDisposed) { mf = new MasterForm(this); mf.Show(this); }
+            else { mf.Activate(); }
+        };
+
         // output folder
-        StyleBox(outDir); outDir.SetBounds(16, 322, 536, 28);
+        StyleBtn(vocalBtn, Color.FromArgb(90, 36, 160)); vocalBtn.Text = "Vocal remover...";
+        vocalBtn.SetBounds(16, 312, 200, 30);
+        tip.SetToolTip(vocalBtn, "Pick a song and get an instrumental (no vocals) plus a vocals-only file, made by an AI model.");
+        vocalBtn.Click += (s, e) => RemoveVocals();
+        StyleBtn(phoneBtn, Color.FromArgb(90, 36, 160)); phoneBtn.Text = "Phone mode: OFF";
+        phoneBtn.SetBounds(224, 312, 200, 30);
+        tip.SetToolTip(phoneBtn, "Use this app from your phone (same Wi-Fi): open a web page, paste a link, download the file.");
+        phoneBtn.Click += (s, e) => TogglePhone();
+
+        StyleBox(outDir); outDir.SetBounds(16, 358, 536, 28);
         outDir.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
         outDir.Text = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyMusic), "yt2mp3");
         Lbl(outDir, "Save to");
         StyleBtn(browse, Color.FromArgb(70, 30, 120)); browse.Text = "Browse...";
-        browse.SetBounds(560, 321, 64, 30); browse.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+        browse.SetBounds(560, 357, 64, 30); browse.Anchor = AnchorStyles.Top | AnchorStyles.Right;
         browse.Click += (s, e) =>
         {
             using (var d = new FolderBrowserDialog())
@@ -146,20 +189,20 @@ class App : Form
 
         StyleBtn(go, Color.FromArgb(120, 40, 210)); go.Text = "Convert";
         go.Font = new Font("Segoe UI Semibold", 11f);
-        go.SetBounds(16, 362, 500, 42); go.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+        go.SetBounds(16, 398, 500, 42); go.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
         go.Click += (s, e) => Start();
 
         StyleBtn(cancel, Color.FromArgb(110, 30, 70)); cancel.Text = "Cancel"; cancel.Enabled = false;
-        cancel.SetBounds(524, 362, 100, 42); cancel.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+        cancel.SetBounds(524, 398, 100, 42); cancel.Anchor = AnchorStyles.Top | AnchorStyles.Right;
         cancel.Click += (s, e) => { cancelReq = true; KillCurrent(); Log("Cancelling..."); };
 
         log.Multiline = true; log.ReadOnly = true; log.ScrollBars = ScrollBars.Vertical;
         StyleBox(log); log.Font = new Font("Consolas", 8.5f);
-        log.SetBounds(16, 456, 608, 180);
+        log.SetBounds(16, 492, 608, 180);
         log.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
 
         bg.Controls.AddRange(new Control[] { links, fmt, sr, nameFmt, trimA, trimB, norm, playlist, openDone, animate,
-            outDir, browse, go, cancel, log });
+            mastBtn, vocalBtn, phoneBtn, outDir, browse, go, cancel, log });
 
         fmt.SelectedIndex = 0; sr.SelectedIndex = 0; nameFmt.SelectedIndex = 0;
         LoadSettings();
@@ -211,7 +254,7 @@ class App : Form
     // ---------- settings ----------
     bool loading = true;   // suppress saves while settings are being applied
 
-    void SaveSettings()
+    internal void SaveSettings()
     {
         if (loading) return;
         try
@@ -223,7 +266,8 @@ class App : Form
                 "dir=" + outDir.Text, "norm=" + norm.Checked, "playlist=" + playlist.Checked,
                 "open=" + openDone.Checked, "anim=" + animate.Checked,
                 "x=" + b.X, "y=" + b.Y, "w=" + b.Width, "h=" + b.Height,
-                "max=" + (WindowState == FormWindowState.Maximized) });
+                "max=" + (WindowState == FormWindowState.Maximized),
+                "master=" + Master.Serialize(), "mzoom=" + MZoomPct });
         }
         catch { }
     }
@@ -264,6 +308,8 @@ class App : Form
                 else if (k == "w" && int.TryParse(v, out n)) ww = n;
                 else if (k == "h" && int.TryParse(v, out n)) wh = n;
                 else if (k == "max" && bool.TryParse(v, out b)) wmax = b;
+                else if (k == "master") Master.Parse(v);
+                else if (k == "mzoom" && int.TryParse(v, out n) && n >= 40 && n <= 100) MZoomPct = n;
             }
             // Restore the window only if it still lands on a connected screen.
             if (ww >= MinimumSize.Width && wh >= MinimumSize.Height)
@@ -332,6 +378,7 @@ class App : Form
             }
         }
         shownPct += (targetPct - shownPct) * 0.15f;
+        mastBtn.Text = Master.On ? "Mastering: ON" : "Mastering: OFF";
 
         float k = (float)(Math.Sin(t * 2.5f) * 0.5 + 0.5);
         go.BackColor = busy ? Color.FromArgb(70, 30, 120)
@@ -339,7 +386,7 @@ class App : Form
         bg.Invalidate();
     }
 
-    void DrawLeaf(Graphics g, Leaf l)
+    internal static void DrawLeaf(Graphics g, Leaf l)
     {
         float[] ang = { 0, -38, 38, -72, 72, -104, 104 };
         float[] len = { 100, 88, 88, 66, 66, 42, 42 };
@@ -433,7 +480,7 @@ class App : Form
             foreach (var kv in lbls) g.DrawString(kv.Value, f, b, kv.Key.Left, kv.Key.Top - 18);
         }
 
-        var bar = new Rectangle(16, 416, r.Width - 32, 16);
+        var bar = new Rectangle(16, 452, r.Width - 32, 16);
         using (var tb = new SolidBrush(Color.FromArgb(150, 20, 8, 40)))
             g.FillRectangle(tb, bar);
         int fw = (int)(bar.Width * Math.Max(0, Math.Min(100, shownPct)) / 100f);
@@ -454,7 +501,7 @@ class App : Form
         if (status.Length > 0)
             using (var f = new Font("Segoe UI", 8.5f))
             using (var b = new SolidBrush(Color.FromArgb(220, 230, 210, 255)))
-                g.DrawString(status, f, b, 16, 434);
+                g.DrawString(status, f, b, 16, 470);
     }
 
     // ---------- helpers ----------
@@ -506,6 +553,29 @@ class App : Form
         if (!Directory.Exists(dir)) return null;
         foreach (var f in Directory.GetFiles(dir, name, SearchOption.AllDirectories)) return f;
         return null;
+    }
+
+    internal static string DenoDirPath { get { return DenoDir; } }
+    internal static string FindFilePublic(string dir, string name) { return FindFile(dir, name); }
+    internal static string FfmpegExe() { return FindFile(FfmpegDir, "ffmpeg.exe"); }
+    internal static string FfprobeExe() { return FindFile(FfmpegDir, "ffprobe.exe"); }
+
+    // Most recently written audio file in a folder (used so "Reanalyze" knows what you just made).
+    static string NewestAudio(string dir)
+    {
+        string best = null; DateTime bt = DateTime.MinValue;
+        try
+        {
+            foreach (var f in Directory.GetFiles(dir))
+            {
+                string x = Path.GetExtension(f).ToLowerInvariant();
+                if (x != ".mp3" && x != ".wav" && x != ".flac" && x != ".m4a" && x != ".opus") continue;
+                var w = File.GetLastWriteTime(f);
+                if (w > bt) { bt = w; best = f; }
+            }
+        }
+        catch { }
+        return best;
     }
 
     // ---- BandLab helpers ----
@@ -574,7 +644,8 @@ class App : Form
         {
             Items = items.ToArray(), Dir = outDir.Text.Trim(), TrimA = a, TrimB = b,
             Fmt = fmt.SelectedIndex, Sr = sr.SelectedIndex, Name = nameFmt.SelectedIndex,
-            Playlist = playlist.Checked, Normalize = norm.Checked, OpenDone = openDone.Checked
+            Playlist = playlist.Checked, Normalize = norm.Checked, OpenDone = openDone.Checked,
+            Master = Master.On ? Master.Clone() : null
         };
         SaveSettings();
         cancelReq = false;
@@ -636,18 +707,35 @@ class App : Form
         }
 
         // shared yt-dlp arguments from the chosen options
-        var ppa = new List<string>();
-        if (SrArgs[job.Sr] != null) ppa.Add(SrArgs[job.Sr]);
-        if (FmtCodec[job.Fmt] != null) ppa.Add(FmtCodec[job.Fmt]);
-        if (job.Normalize) ppa.Add("-af loudnorm=I=-14:TP=-1:LRA=11");
+        bool mastering = job.Master != null;
+        string tag = FormatTag(job.Fmt, job.Sr, job.Master, job.Normalize && !mastering);
+        string tmpDir = Path.Combine(job.Dir, ".yt2mp3_tmp");
+        string common;
+        if (mastering)
+        {
+            // Mastering works from a lossless WAV intermediate, then encodes once to the chosen format.
+            common = "-x --audio-format wav --newline --windows-filenames --embed-metadata "
+                + "--ffmpeg-location \"" + Path.GetDirectoryName(ff) + "\" "
+                + (deno != null ? "--js-runtimes \"deno:" + deno + "\" " : "");
+            if (job.Normalize) Log("Note: mastering is on, so the plain \"Normalize loudness\" option is ignored.");
+        }
+        else
+        {
+            var ppa = new List<string>();
+            if (SrArgs[job.Sr] != null) ppa.Add(SrArgs[job.Sr]);
+            if (FmtCodec[job.Fmt] != null) ppa.Add(FmtCodec[job.Fmt]);
+            if (job.Normalize) ppa.Add("-af loudnorm=I=-14:TP=-1:LRA=11");
 
-        string common = "-x --audio-format " + FmtExt[job.Fmt]
-            + (FmtQual[job.Fmt] != null ? " --audio-quality " + FmtQual[job.Fmt] : "")
-            + " --newline --windows-filenames --embed-metadata "
-            + (FmtArt[job.Fmt] ? "--embed-thumbnail --convert-thumbnails jpg " : "")
-            + (ppa.Count > 0 ? "--postprocessor-args \"ExtractAudio:" + string.Join(" ", ppa.ToArray()) + "\" " : "")
-            + "--ffmpeg-location \"" + Path.GetDirectoryName(ff) + "\" "
-            + (deno != null ? "--js-runtimes \"deno:" + deno + "\" " : "");
+            common = "-x --audio-format " + FmtExt[job.Fmt]
+                + (FmtQual[job.Fmt] != null ? " --audio-quality " + FmtQual[job.Fmt] : "")
+                + " --newline --windows-filenames --embed-metadata "
+                + (FmtArt[job.Fmt] ? "--embed-thumbnail --convert-thumbnails jpg " : "")
+                + (ppa.Count > 0 ? "--postprocessor-args \"ExtractAudio:" + string.Join(" ", ppa.ToArray()) + "\" " : "")
+                + "--ffmpeg-location \"" + Path.GetDirectoryName(ff) + "\" "
+                + (deno != null ? "--js-runtimes \"deno:" + deno + "\" " : "");
+        }
+        pctScale = mastering ? 0.6f : 1f;
+        Log("Output label: [" + tag + "]");
         if (job.TrimA.Length > 0 || job.TrimB.Length > 0)
             common += "--download-sections \"*" + (job.TrimA.Length > 0 ? job.TrimA : "0") + "-"
                 + (job.TrimB.Length > 0 ? job.TrimB : "inf") + "\" --force-keyframes-at-cuts ";
@@ -670,18 +758,139 @@ class App : Form
             else if (coll) Log("BandLab album/collection detected: converting every track.");
             // BandLab albums/collections are always playlists; otherwise honor the checkbox.
             string pl = (job.Playlist || coll) ? "--yes-playlist --ignore-errors " : "--no-playlist ";
-            string args = common + pl + "-o \"" + Path.Combine(job.Dir, NameTpl[job.Name] + ".%(ext)s") + "\" \"" + target + "\"";
+            string tpl = mastering ? NameTpl[job.Name] : NameTpl[job.Name] + " [" + tag + "]";
+            if (mastering)
+            {
+                Directory.CreateDirectory(tmpDir);
+                foreach (var old in Directory.GetFiles(tmpDir)) { try { File.Delete(old); } catch { } }
+            }
+            string args = common + pl + "-o \"" + Path.Combine(mastering ? tmpDir : job.Dir, tpl + ".%(ext)s") + "\" \"" + target + "\"";
             int code = RunProc(YtDlp, args, true);
             if (cancelReq) break;
-            if (code == 0) ok++; else { fail++; Log("Failed (exit " + code + ")."); }
+            if (code != 0) { fail++; Log("Failed (exit " + code + ")."); }
+            else if (!mastering) ok++;
+            else
+            {
+                var wavs = Directory.GetFiles(tmpDir, "*.wav");
+                if (wavs.Length == 0) { fail++; Log("No audio was produced."); }
+                foreach (var w in wavs)
+                {
+                    if (cancelReq) break;
+                    status = "Mastering: " + Path.GetFileNameWithoutExtension(w);
+                    Log("Mastering " + Path.GetFileName(w));
+                    MasterAnalysis res;
+                    string outp = MasterDsp.Master(w, job.Dir, job.Master, job.Fmt, job.Sr, tag, Log,
+                        p => { cur = p; }, () => cancelReq,
+                        pr => { targetPct = (itemIdx * 100f + 60f + 40f * pr) / Math.Max(1, itemTotal); }, out res);
+                    if (outp != null)
+                    {
+                        ok++; LastFile = outp; if (res != null) LastAn = res;
+                        try { File.Delete(w); } catch { }
+                        Log("Saved: " + Path.GetFileName(outp));
+                    }
+                    else if (!cancelReq)
+                    {
+                        fail++;
+                        try { File.Move(w, Path.Combine(job.Dir, Path.GetFileName(w))); } catch { }
+                        Log("Mastering failed; kept the unmastered WAV in your folder.");
+                    }
+                }
+            }
             SetItemPct(100);
         }
+        pctScale = 1f;
+        try { if (Directory.Exists(tmpDir) && Directory.GetFiles(tmpDir).Length == 0) Directory.Delete(tmpDir); } catch { }
+        if (!mastering && ok > 0) { string nf = NewestAudio(job.Dir); if (nf != null) LastFile = nf; }
 
         if (cancelReq) { Log("Cancelled."); status = "Cancelled"; return; }
         targetPct = 100; status = "Done: " + ok + " converted" + (fail > 0 ? ", " + fail + " failed" : "");
         Log(status + ". Saved to " + job.Dir);
         if (ok > 0 && job.OpenDone) Process.Start("explorer.exe", "\"" + job.Dir + "\"");
         Thread.Sleep(1500);
+    }
+
+    // ---------- vocal remover (AI source separation) ----------
+    void RemoveVocals()
+    {
+        if (busy) return;
+        if (!Separator.Installed)
+        {
+            if (MessageBox.Show(this,
+                "The vocal remover uses an AI model (Demucs, MIT licence) that runs on your PC.\n\n" +
+                "One-time download: about 0.5 GB (a private copy of Python, PyTorch and the model). It's stored in your AppData folder and nothing is installed system-wide.\n\n" +
+                "Download and set it up now?", "Vocal remover setup", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
+        }
+        string file;
+        using (var d = new OpenFileDialog())
+        {
+            d.Title = "Choose a song to remove the vocals from";
+            d.Filter = "Audio|*.mp3;*.wav;*.flac;*.m4a;*.aac;*.ogg;*.opus;*.aiff;*.aif|All files|*.*";
+            try { if (LastFile != null && File.Exists(LastFile)) d.InitialDirectory = Path.GetDirectoryName(LastFile); } catch { }
+            if (d.ShowDialog(this) != DialogResult.OK) return;
+            file = d.FileName;
+        }
+        int f = fmt.SelectedIndex; string dir = outDir.Text.Trim(); bool open = openDone.Checked;
+        if (dir.Length == 0) { MessageBox.Show(this, "Choose a folder to save to."); return; }
+        cancelReq = false; SetBusy(true);
+        new Thread(() =>
+        {
+            try { DoRemoveVocals(file, dir, f, open); }
+            catch (Exception ex) { Log("ERROR: " + ex.Message); status = "Failed"; }
+            finally { SetBusy(false); }
+        }) { IsBackground = true }.Start();
+    }
+
+    void DoRemoveVocals(string file, string dir, int f, bool open)
+    {
+        if (FfmpegExe() == null) throw new Exception("ffmpeg isn't installed yet. Convert something once first (that installs ffmpeg).");
+        Directory.CreateDirectory(dir); itemIdx = 0; itemTotal = 1; pctScale = 1f;
+        bool installNow = !Separator.Installed; float lo = 0f, hi = 100f;
+        if (installNow)
+        {
+            status = "Setting up the vocal remover (one time)..."; lo = 50f; targetPct = 0;
+            Separator.Install(Log, p => { targetPct = p * 50f; }, () => cancelReq);
+        }
+        if (cancelReq) { Log("Cancelled."); status = "Cancelled"; return; }
+        status = "Separating vocals with AI (this can take a few minutes)..."; targetPct = lo;
+        string baseName = Path.GetFileNameWithoutExtension(file), tmp = Path.Combine(Path.GetTempPath(), "yt2mp3_sep_" + Guid.NewGuid().ToString("N").Substring(0, 6));
+        string v, inst;
+        try
+        {
+            if (!Separator.Separate(file, tmp, baseName, "htdemucs", Log, p => { targetPct = lo + p * (hi - lo) * 0.92f; }, () => cancelReq, out v, out inst))
+            { status = cancelReq ? "Cancelled" : "Failed"; return; }
+            status = "Encoding..."; string ext = MasterDsp.FmtExt[f], tag = FmtTag[f]; int code;
+            string outInst = Path.Combine(dir, baseName + " [instrumental " + tag + "]." + ext), outVoc = Path.Combine(dir, baseName + " [vocals " + tag + "]." + ext);
+            string ff = FfmpegExe();
+            MasterDsp.RunCapture(ff, "-hide_banner -y -i \"" + inst + "\" -vn " + MasterDsp.FmtEnc[f] + " \"" + outInst + "\"", p => { cur = p; }, out code);
+            if (code != 0 || !File.Exists(outInst)) throw new Exception("Couldn't encode the instrumental.");
+            MasterDsp.RunCapture(ff, "-hide_banner -y -i \"" + v + "\" -vn " + MasterDsp.FmtEnc[f] + " \"" + outVoc + "\"", p => { cur = p; }, out code);
+            if (code != 0 || !File.Exists(outVoc)) throw new Exception("Couldn't encode the vocals.");
+            LastFile = outInst; targetPct = 100; status = "Done";
+            Log("Saved: " + Path.GetFileName(outInst)); Log("Saved: " + Path.GetFileName(outVoc));
+            if (open) Process.Start("explorer.exe", "\"" + dir + "\"");
+            Thread.Sleep(1200);
+        }
+        finally { try { Directory.Delete(tmp, true); } catch { } }
+    }
+
+    // ---------- phone mode ----------
+    void TogglePhone()
+    {
+        if (phone != null)
+        {
+            phone.Stop(); phone = null; phoneBtn.Text = "Phone mode: OFF"; Log("Phone mode turned off."); return;
+        }
+        var ps = new PhoneServer { Log = Log }; string err;
+        if (!ps.Start(out err)) { MessageBox.Show(this, "Couldn't start phone mode: " + err + "\n\nAnother program may be using port 8765.", "Phone mode"); return; }
+        phone = ps; phoneBtn.Text = "Phone mode: ON";
+        string url = ps.Url;
+        try { Clipboard.SetText(url); } catch { }
+        Log("Phone mode is ON. On your phone (same Wi-Fi) open:"); Log("  " + url);
+        MessageBox.Show(this,
+            "Phone mode is on. On your phone (connected to the same Wi-Fi), open this address in the browser:\n\n" + url +
+            "\n\n(It's been copied to your clipboard. The code at the end keeps other people on your Wi-Fi out.)\n\n" +
+            "If Windows asks about the firewall, choose Allow for Private networks. Keep this app open while you use it, and turn phone mode off when you're done.",
+            "Phone mode", MessageBoxButtons.OK, MessageBoxIcon.Information);
     }
 
     int RunProc(string exe, string args, bool progress)
@@ -702,7 +911,7 @@ class App : Form
                 double v;
                 if (double.TryParse(e.Data.Substring(st, i - st),
                     System.Globalization.NumberStyles.Float,
-                    System.Globalization.CultureInfo.InvariantCulture, out v)) SetItemPct((float)v);
+                    System.Globalization.CultureInfo.InvariantCulture, out v)) SetItemPct((float)v * pctScale);
             }
             Log(e.Data);
         };

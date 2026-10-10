@@ -1,0 +1,307 @@
+using System;
+using System.Collections.Generic;
+
+// Headless numeric tests for the Studio DSP. Build:
+//   csc /out:StudioTest.exe Studio.Dsp.cs Studio.Pitch.cs StudioTest.cs
+static class T
+{
+    const int SR = 44100; static int pass, fail;
+
+    static void Check(string name, bool ok, string detail)
+    {
+        if (ok) pass++; else fail++;
+        Console.WriteLine((ok ? "PASS  " : "FAIL  ") + name + "   " + detail);
+    }
+
+    static void Run(Fx fx, float[] l, float[] r, int block)
+    {
+        fx.Prepare(SR); fx.Reset();
+        for (int i = 0; i < l.Length; i += block)
+        {
+            int n = Math.Min(block, l.Length - i);
+            float[] bl = new float[n], br = new float[n];
+            Array.Copy(l, i, bl, 0, n); Array.Copy(r, i, br, 0, n);
+            fx.Process(bl, br, n);
+            Array.Copy(bl, 0, l, i, n); Array.Copy(br, 0, r, i, n);
+        }
+    }
+
+    static double RmsDb(float[] x, int a, int b) { double s = 0; for (int i = a; i < b; i++) s += x[i] * x[i]; return 10 * Math.Log10(s / (b - a) + 1e-20); }
+    static double PeakAbs(float[] x, int a, int b) { double p = 0; for (int i = a; i < b; i++) p = Math.Max(p, Math.Abs(x[i])); return p; }
+
+    // dominant frequency by zero-crossing (clean periodic signals)
+    static double ZeroCrossHz(float[] x, int a, int b)
+    {
+        int first = -1, last = -1, cnt = 0;
+        for (int i = a + 1; i < b; i++)
+            if (x[i - 1] <= 0 && x[i] > 0)
+            {
+                double frac = -x[i - 1] / (x[i] - x[i - 1]); double pos = i - 1 + frac;
+                if (first < 0) first = (int)(pos * 1000); last = (int)(pos * 1000); cnt++;
+                if (cnt == 1) { zc0 = pos; } zc1 = pos; zcn = cnt;
+            }
+        return zcn > 1 ? (zcn - 1) * SR / (zc1 - zc0) : 0;
+    }
+    static double zc0, zc1; static int zcn;
+
+    static double MagAt(float[] x, int a, int len, double f)
+    {
+        double re = 0, im = 0; for (int i = 0; i < len; i++) { double w = 0.5 - 0.5 * Math.Cos(2 * Math.PI * i / len); double ph = 2 * Math.PI * f * i / SR; re += x[a + i] * w * Math.Cos(ph); im -= x[a + i] * w * Math.Sin(ph); }
+        return 20 * Math.Log10(Math.Sqrt(re * re + im * im) / len * 4 + 1e-12);
+    }
+
+    static float[] Sine(double f, double amp, int n, double ph0 = 0) { var x = new float[n]; for (int i = 0; i < n; i++) x[i] = (float)(amp * Math.Sin(2 * Math.PI * f * i / SR + ph0)); return x; }
+
+    // harmonic "voice-like" signal with optional vibrato (cents) and constant base frequency
+    static float[] Voice(double f, int n, double vibCents, double vibHz)
+    {
+        var x = new float[n]; double ph = 0;
+        for (int i = 0; i < n; i++)
+        {
+            double fi = f * Math.Pow(2, vibCents * Math.Sin(2 * Math.PI * vibHz * i / SR) / 1200.0);
+            ph += 2 * Math.PI * fi / SR; double v = 0;
+            for (int h = 1; h <= 10; h++) v += Math.Sin(h * ph) / h;
+            x[i] = (float)(0.25 * v);
+        }
+        return x;
+    }
+
+    static float[] Copy(float[] a) { return (float[])a.Clone(); }
+
+    static void PitchTest(string name, double inHz, int key, int scale, double speed, double strength, double natural, double expectHz, double tolHz)
+    {
+        int n = SR * 4; var l = Voice(inHz, n, 0, 5); var r = Copy(l);
+        var fx = new PitchCorrector(); fx.Set("key", key); fx.Set("scale", scale); fx.ApplyScale(); fx.Set("speed", (float)speed); fx.Set("strength", (float)strength); fx.Set("natural", (float)natural);
+        Run(fx, l, r, 512);
+        double hz = ZeroCrossHz(l, SR * 2, SR * 3 + 20000);
+        Check(name, Math.Abs(hz - expectHz) <= tolHz, "in " + inHz + " Hz -> out " + hz.ToString("0.00") + " Hz (want " + expectHz.ToString("0.00") + ")");
+    }
+
+    static void Main()
+    {
+        // ---------- pitch correction ----------
+        double A4 = 440;
+        PitchTest("pitch: 450 Hz -> A4 (A major, hard)", 450, 9, 1, 0, 100, 0, A4, 2.0);
+        PitchTest("pitch: 330 Hz -> E4 (A major)", 330, 9, 1, 0, 100, 0, 329.63, 1.5);
+        PitchTest("pitch: 475 Hz -> B4 (A major snaps up)", 475, 9, 1, 0, 100, 0, 493.88, 3.0);
+        PitchTest("pitch: 460 Hz -> A4 (A major, nearer than B)", 460, 9, 1, 0, 100, 0, 440.0, 2.0);
+        PitchTest("pitch: 460 Hz -> A#4 (chromatic)", 460, 0, 0, 0, 100, 0, 466.16, 2.5);
+        PitchTest("pitch: strength 0 leaves pitch alone", 450, 9, 1, 0, 0, 0, 450, 2.0);
+        PitchTest("pitch: 50% strength lands halfway (cents)", 452.4, 9, 1, 0, 50, 0, 446.1, 2.5);
+        {   // natural=100 keeps the vibrato, hard removes it
+            int n = SR * 5; var a = Voice(446, n, 40, 5.5); var b = Copy(a); var a2 = Copy(a); var b2 = Copy(a);
+            var fn = new PitchCorrector(); fn.Set("key", 9); fn.Set("scale", 1); fn.ApplyScale(); fn.Set("speed", 80); fn.Set("natural", 100);
+            var fh = new PitchCorrector(); fh.Set("key", 9); fh.Set("scale", 1); fh.ApplyScale(); fh.Set("speed", 0); fh.Set("natural", 0);
+            Run(fn, a, b, 512); Run(fh, a2, b2, 512);
+            double dn = CentsSpread(a), dh = CentsSpread(a2);
+            Check("pitch: natural mode keeps vibrato, hard flattens it", dn > dh * 2 && dn > 12, "cents spread natural " + dn.ToString("0.0") + " vs hard " + dh.ToString("0.0"));
+        }
+
+        // ---------- EQ ----------
+        {
+            int n = SR * 2; var l = Sine(1000, 0.1, n); var r = Copy(l); var fx = new ParametricEq();
+            fx.Set("b2_g", 6); fx.Set("b2_f", 1000); fx.Set("b2_q", 1.0f);
+            Run(fx, l, r, 512); double g = RmsDb(l, SR, n) - RmsDb(Sine(1000, 0.1, n), SR, n);
+            Check("eq: +6 dB bell at 1 kHz", Math.Abs(g - 6) < 0.3, "gain " + g.ToString("0.00") + " dB");
+            var lo = Sine(100, 0.1, n); var lo2 = Copy(lo); var fh = new ParametricEq(); fh.Set("hp_on", 1); fh.Set("hp_f", 1000); fh.Set("hp_s", 1);
+            Run(fh, lo, lo2, 512); double att = RmsDb(lo, SR, n) - RmsDb(Sine(100, 0.1, n), SR, n);
+            Check("eq: 24 dB/oct high-pass @1k cuts 100 Hz", att < -35, "attenuation " + att.ToString("0.0") + " dB");
+            var fresp = new ParametricEq(); fresp.Prepare(SR); fresp.Set("b2_g", 6);
+            Check("eq: response curve matches (peak ~ +6 dB)", Math.Abs(fresp.ResponseDb(1000) - 6) < 0.2, "curve " + fresp.ResponseDb(1000).ToString("0.00"));
+        }
+
+        // ---------- compressor ----------
+        {
+            int n = SR * 3; var l = Sine(1000, 0.5, n); var r = Copy(l); var fx = new Compressor();
+            fx.Set("thr", -20); fx.Set("ratio", 4); fx.Set("knee", 0); fx.Set("att", 1); fx.Set("rel", 100);
+            Run(fx, l, r, 512);
+            double outDb = RmsDb(l, SR * 2, n); double inDb = RmsDb(Sine(1000, 0.5, n), SR * 2, n);
+            // input peak -6.02 dBFS: expected reduction = (-6.02 - -20) * (1 - 1/4) = 10.5 dB
+            Check("comp: ~10.5 dB reduction at 4:1", Math.Abs((inDb - outDb) - 10.5) < 0.8, "reduction " + (inDb - outDb).ToString("0.00") + " dB, meter " + fx.GR.ToString("0.0"));
+        }
+
+        // ---------- multiband flatness ----------
+        {
+            int n = SR * 2; bool ok = true; string d = "";
+            foreach (double f in new double[] { 60, 150, 400, 1200, 5000, 12000 })
+            {
+                var l = Sine(f, 0.1, n); var r = Copy(l); var fx = new MultibandComp();
+                for (int b = 0; b < 3; b++) { fx.Set("t" + b, 0); fx.Set("r" + b, 1); }
+                Run(fx, l, r, 512); double g = RmsDb(l, SR, n) - RmsDb(Sine(f, 0.1, n), SR, n);
+                d += f + "Hz:" + g.ToString("0.00") + " "; if (Math.Abs(g) > 0.35) ok = false;
+            }
+            Check("multiband: crossovers sum flat (no compression)", ok, d);
+        }
+
+        // ---------- limiter ----------
+        {
+            int n = SR * 2; var l = new float[n]; var rnd = new Random(3);
+            for (int i = 0; i < n; i++) l[i] = (float)((rnd.NextDouble() * 2 - 1) * (i % 8000 < 400 ? 2.2 : 0.6));
+            var r = Copy(l); var fx = new Limiter(); fx.Set("ceil", -1);
+            Run(fx, l, r, 512);
+            double pk = Math.Max(PeakAbs(l, 4000, n), PeakAbs(r, 4000, n));
+            Check("limiter: output never exceeds -1 dB ceiling", pk <= 0.8913 * 1.002, "peak " + pk.ToString("0.0000") + " (ceiling 0.8913)  latency " + fx.Latency + " smp");
+        }
+
+        // ---------- exciter ----------
+        {
+            int n = SR * 2; var l = Sine(4000, 0.2, n); var r = Copy(l); var fx = new Exciter(); fx.Set("drive", 16); fx.Set("harm", 100); fx.Set("mix", 100);
+            Run(fx, l, r, 512);
+            double h3 = MagAt(l, SR, 8192, 12000), h3in = MagAt(Sine(4000, 0.2, n), SR, 8192, 12000);
+            Check("exciter: generates harmonics (12 kHz)", h3 - h3in > 25, "12k: " + h3in.ToString("0.0") + " -> " + h3.ToString("0.0") + " dB");
+            var l2 = Sine(1000, 0.2, n); var r2 = Copy(l2); Run(fx, l2, r2, 512);
+            Check("exciter: leaves sub-range (1 kHz) mostly untouched", Math.Abs(RmsDb(l2, SR, n) - RmsDb(Sine(1000, 0.2, n), SR, n)) < 1.0, "delta " + (RmsDb(l2, SR, n) - RmsDb(Sine(1000, 0.2, n), SR, n)).ToString("0.00"));
+        }
+
+        // ---------- widener / de-esser / ducker / denoise / delay / reverb ----------
+        {
+            int n = SR; var l = Sine(500, 0.3, n); var r = Sine(500, 0.3, n, 1.2); var fx = new Widener(); fx.Set("width", 0); fx.Set("bass", 0);
+            Run(fx, l, r, 512); double diff = 0; for (int i = 0; i < n; i++) diff += Math.Abs(l[i] - r[i]);
+            Check("widener: width 0 = mono", diff / n < 1e-4, "L-R " + (diff / n).ToString("0.000000"));
+        }
+        {
+            int n = SR * 2; var l = Sine(7000, 0.3, n); var r = Copy(l); var fx = new DeEsser(); fx.Set("freq", 7000); fx.Set("thr", -30); fx.Set("range", 12);
+            Run(fx, l, r, 512); double red = RmsDb(Sine(7000, 0.3, n), SR, n) - RmsDb(l, SR, n);
+            var l2 = Sine(500, 0.3, n); var r2 = Copy(l2); Run(fx, l2, r2, 512); double keep = RmsDb(Sine(500, 0.3, n), SR, n) - RmsDb(l2, SR, n);
+            Check("de-esser: cuts 7 kHz, spares 500 Hz", red > 6 && Math.Abs(keep) < 1.0, "7k reduced " + red.ToString("0.0") + " dB, 500 Hz changed " + keep.ToString("0.00") + " dB");
+        }
+        {
+            int n = SR * 2; var l = Sine(800, 0.3, n); var r = Copy(l); var sc = Sine(600, 0.5, n); var fx = new Ducker(); fx.Set("amount", 9); fx.Set("band", 0);
+            fx.ScL = sc; fx.ScR = Copy(sc);
+            Run(fx, l, r, n);   // one block so sidechain matches
+            double red = RmsDb(Sine(800, 0.3, n), SR, n) - RmsDb(l, SR, n);
+            Check("ducker: sidechain lowers the beat", red > 6, "reduced " + red.ToString("0.0") + " dB");
+        }
+        {
+            int n = SR * 6; var rnd = new Random(7); var l = new float[n]; var r = new float[n];
+            for (int i = 0; i < n; i++) { double nz = (rnd.NextDouble() * 2 - 1) * 0.01; double s = i > SR * 3 ? 0.2 * Math.Sin(2 * Math.PI * 1000 * i / SR) : 0; l[i] = (float)(nz + s); r[i] = l[i]; }
+            var fx = new NoiseReduction(); fx.Set("amount", 24); Run(fx, l, r, 512);
+            double noiseBefore = 20 * Math.Log10(0.01 / Math.Sqrt(3)), noiseAfter = RmsDb(l, SR * 2, SR * 3 - 2000);
+            Check("denoise: reduces steady noise", noiseBefore - noiseAfter > 8, "noise " + noiseBefore.ToString("0.0") + " -> " + noiseAfter.ToString("0.0") + " dBFS");
+            double tone = RmsDb(l, SR * 4, SR * 5) - RmsDb(Sine(1000, 0.2, SR), 0, SR);
+            Check("denoise: keeps the signal", Math.Abs(tone) < 3, "tone change " + tone.ToString("0.0") + " dB");
+        }
+        {
+            int n = SR * 2; var l = new float[n]; var r = new float[n]; l[0] = 1; r[0] = 1; var fx = new Delay(); fx.Set("mode", 1); fx.Set("time", 250); fx.Set("fb", 0); fx.Set("mix", 100); fx.Set("lc", 20); fx.Set("hc", 20000);
+            Run(fx, l, r, 512); int idx = 0; double mx = 0; for (int i = 100; i < n; i++) if (Math.Abs(l[i]) > mx) { mx = Math.Abs(l[i]); idx = i; }
+            Check("delay: echo arrives at 250 ms", Math.Abs(idx - 0.25 * SR) < 40, "echo at " + (idx * 1000.0 / SR).ToString("0.0") + " ms");
+        }
+        {
+            int n = SR * 3; var l = new float[n]; var r = new float[n]; l[0] = 1; r[0] = 1; var fx = new Reverb(); fx.Set("mix", 50);
+            Run(fx, l, r, 512); double tail = RmsDb(l, SR / 2, SR), early = RmsDb(l, 1000, 6000); bool finite = true; foreach (var v in l) if (float.IsNaN(v) || float.IsInfinity(v)) finite = false;
+            Check("reverb: produces a decaying tail, stays finite", finite && tail > -90 && tail < early, "tail " + tail.ToString("0.0") + " dB, early " + early.ToString("0.0") + " dB");
+        }
+        {
+            bool fin = true; foreach (var t in new[] { "chorus", "sat", "dist", "gate", "gain" })
+            {
+                int n = SR; var l = Sine(300, 0.5, n); var r = Copy(l); var fx = FxRegistry.Create(t); Run(fx, l, r, 512);
+                foreach (var v in l) if (float.IsNaN(v) || float.IsInfinity(v)) fin = false;
+            }
+            Check("chorus / saturation / distortion / gate / gain: finite output", fin, "");
+        }
+
+        EngineTests();
+
+        Console.WriteLine();
+        Console.WriteLine("=== " + pass + " passed, " + fail + " failed ===");
+        Environment.Exit(fail == 0 ? 0 : 1);
+    }
+
+    static int PeakIndex(float[] x) { int bi = 0; float bv = 0; for (int i = 0; i < x.Length; i++) if (Math.Abs(x[i]) > bv) { bv = Math.Abs(x[i]); bi = i; } return bi; }
+
+    static void EngineTests()
+    {
+        string ffdir = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "YtToMp3", "tools", "ffmpeg");
+        string ff = null;
+        if (System.IO.Directory.Exists(ffdir)) foreach (var f in System.IO.Directory.GetFiles(ffdir, "ffmpeg.exe", System.IO.SearchOption.AllDirectories)) { ff = f; break; }
+        StudioEnv.Ffmpeg = delegate { return ff; };
+
+        // ---- loudness ----
+        {
+            int n = SR * 8; var l = Sine(1000, 0.1, n); var r = Copy(l); var res = Loudness.Measure(l, r, SR, 0, n);
+            Check("loudness: -20 dBFS stereo 1 kHz sine = -20 LUFS", Math.Abs(res.I - (-20.0)) < 0.2, "measured " + res.I.ToString("0.00") + " LUFS");
+            var tl = new float[SR]; for (int i = 0; i < tl.Length; i++) tl[i] = (float)(Math.Sin(2 * Math.PI * 11025 * i / SR + Math.PI / 4));
+            var tr = Copy(tl); var rt = Loudness.Measure(tl, tr, SR, 0, tl.Length);
+            Check("true peak: catches inter-sample peak (sample peak -3 dB)", rt.TruePeakDb > -0.8 && rt.PeakDb < -2.5, "sample " + rt.PeakDb.ToString("0.00") + " dB, true " + rt.TruePeakDb.ToString("0.00") + " dB");
+        }
+
+        // ---- decode through ffmpeg ----
+        if (ff != null)
+        {
+            string wav = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "mastertest", "Test Song.wav");
+            if (System.IO.File.Exists(wav))
+            {
+                var c = AudioClip.FromFile(wav);
+                Check("decode: ffmpeg loads a WAV as 44.1k stereo float", Math.Abs(c.Length - SR * 20) < 2000, "frames " + c.Length + " (~20 s)");
+            }
+            // write a 24-bit wav and read it back through ffmpeg
+            string tmp = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "stu_rt.wav");
+            var s1 = Sine(440, 0.5, SR * 2); WavIO.Write(tmp, s1, s1, SR, 24); var back = AudioClip.FromFile(tmp);
+            double e = 0; for (int i = 4000; i < 80000; i++) e = Math.Max(e, Math.Abs(back.L[i] - s1[i]));
+            Check("export: 24-bit WAV round-trips", e < 0.0002, "max error " + e.ToString("0.000000")); System.IO.File.Delete(tmp);
+        }
+
+        // ---- engine: sync / solo / mute / fader / PDC ----
+        {
+            var eng = new StudioEngine(); foreach (var f in eng.MasterFx) f.Bypass = true;
+            int n = SR * 3; var voc = new float[n]; var beat = new float[n]; voc[SR] = 0.8f; beat[SR] = 0.8f;
+            var vt = StudioEngine.NewTrack("Vocals", "vocal", AudioClip.FromArrays(voc, Copy(voc), "v")); var bt = StudioEngine.NewTrack("Beat", "beat", AudioClip.FromArrays(beat, Copy(beat), "b"));
+            eng.Tracks.Add(vt); eng.Tracks.Add(bt);
+            var pc = new PitchCorrector(); pc.Prepare(SR); vt.Fx.Add(pc);        // 3072-sample latency
+            var o = new RenderOpts(); float[] oL, oR;
+            eng.Render(0, n, o, null, out oL, out oR);
+            // two impulses (vocal path delayed by PDC, beat path delayed to match) must land together
+            int cnt = 0, first = -1; for (int i = 0; i < n; i++) if (Math.Abs(oL[i]) > 0.3f) { cnt++; if (first < 0) first = i; }
+            Check("sync: plugin latency is compensated (impulses align)", first >= 0 && Math.Abs(first - SR) <= 2, "output impulse at frame " + first + " (expected " + SR + "), latency " + eng.RenderLatency(o));
+            // solo vocal only
+            vt.Solo = true; eng.Render(0, n, o, null, out oL, out oR); double pk = 0; for (int i = 0; i < n; i++) pk = Math.Max(pk, Math.Abs(oL[i]));
+            Check("solo: only the vocal remains", pk > 0.3 && pk < 1.0, "peak " + pk.ToString("0.00")); vt.Solo = false;
+            bt.Mute = true; vt.Mute = true; eng.Render(0, n, o, null, out oL, out oR); pk = 0; for (int i = 0; i < n; i++) pk = Math.Max(pk, Math.Abs(oL[i]));
+            Check("mute: silence when everything is muted", pk < 1e-6, "peak " + pk); vt.Mute = false; bt.Mute = false;
+            // fader -6 dB and pan
+            var sine = Sine(1000, 0.4, n); var solo = new StudioEngine(); foreach (var f in solo.MasterFx) f.Bypass = true;
+            var tt = StudioEngine.NewTrack("T", "other", AudioClip.FromArrays(sine, Copy(sine), "s")); tt.VolDb = -6; tt.Pan = 1; solo.Tracks.Add(tt);
+            solo.Render(0, n, o, null, out oL, out oR);
+            Check("fader/pan: -6 dB and hard right silences left", RmsDb(oL, SR, n) < -90 && Math.Abs((RmsDb(oR, SR, n) - RmsDb(sine, SR, n)) + 6.02) < 0.1, "L " + RmsDb(oL, SR, n).ToString("0.0") + " dB, R delta " + (RmsDb(oR, SR, n) - RmsDb(sine, SR, n)).ToString("0.00"));
+            // dry render ignores plugins and faders
+            var dry = new RenderOpts { Dry = true, Fader = false, Master = false }; solo.Render(0, n, dry, null, out oL, out oR);
+            Check("dry render: original audio untouched", Math.Abs(RmsDb(oL, SR, n) - RmsDb(sine, SR, n)) < 0.01, "delta " + (RmsDb(oL, SR, n) - RmsDb(sine, SR, n)).ToString("0.000"));
+        }
+
+        // ---- mastering chain limiter on the master bus ----
+        {
+            var eng = new StudioEngine(); int n = SR * 4; var rnd = new Random(5); var x = new float[n];
+            for (int i = 0; i < n; i++) x[i] = (float)(0.6 * Math.Sin(2 * Math.PI * 80 * i / SR) + 0.5 * (rnd.NextDouble() * 2 - 1));
+            eng.Tracks.Add(StudioEngine.NewTrack("M", "other", AudioClip.FromArrays(x, Copy(x), "m")));
+            float[] oL, oR; eng.Render(0, n, new RenderOpts(), null, out oL, out oR);
+            var res = Loudness.Measure(oL, oR, SR, 0, n);
+            Check("master chain: true peak stays under -1 dB", res.TruePeakDb <= -0.8, "true peak " + res.TruePeakDb.ToString("0.00") + " dB, " + res.I.ToString("0.0") + " LUFS");
+        }
+
+        // ---- real-time device ----
+        try
+        {
+            var eng = new StudioEngine(); var s1 = Sine(440, 0.2, SR * 3);
+            eng.Tracks.Add(StudioEngine.NewTrack("T", "other", AudioClip.FromArrays(s1, Copy(s1), "t")));
+            eng.Play(); System.Threading.Thread.Sleep(1500); long p = eng.Pos; eng.Stop(); eng.Shutdown();
+            Check("realtime: audio device plays and the playhead advances", p > SR * 1.0 && p < SR * 2.2, "position after 1.5 s = " + (p / (double)SR).ToString("0.00") + " s");
+        }
+        catch (Exception ex) { Console.WriteLine("SKIP  realtime device test: " + ex.Message); }
+    }
+
+    // standard deviation of instantaneous pitch (cents) of a periodic signal, from zero crossings
+    static double CentsSpread(float[] x)
+    {
+        var per = new List<double>(); double last = -1;
+        for (int i = SR * 2 + 1; i < x.Length - 1000; i++)
+            if (x[i - 1] <= 0 && x[i] > 0)
+            {
+                double pos = i - 1 + (-x[i - 1] / (x[i] - x[i - 1]));
+                if (last > 0) per.Add(1200 * Math.Log(SR / (pos - last)) / Math.Log(2));
+                last = pos;
+            }
+        if (per.Count < 10) return 0;
+        double m = 0; foreach (var c in per) m += c; m /= per.Count; double v = 0; foreach (var c in per) v += (c - m) * (c - m);
+        return Math.Sqrt(v / per.Count);
+    }
+}
