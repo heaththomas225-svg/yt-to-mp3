@@ -37,7 +37,7 @@ class Job
 partial class App : Form
 {
     // ---- Auto-update settings ----
-    const string Version = "3.14.0";
+    const string Version = "3.14.1";
     // Plain-text manifest: line 1 = newest version, line 2 = direct exe download URL.
     const string UpdateManifestUrl = "https://raw.githubusercontent.com/heaththomas225-svg/yt-to-mp3/main/version.txt";
 
@@ -1076,6 +1076,7 @@ partial class App : Form
                 try { File.Delete(old); } catch { }
                 File.Move(exe, old);          // a running exe can be renamed, not overwritten
                 File.Move(tmp, exe);
+                try { string named = Path.Combine(Path.GetDirectoryName(exe), "Purphex Music.exe"); if (!string.Equals(exe, named, StringComparison.OrdinalIgnoreCase)) File.Copy(exe, named, true); } catch { }   // the program is now called Purphex Music: older copies get a file with the new name next to them
                 SaveSettings();
                 Process.Start(exe);
                 Environment.Exit(0);

@@ -11,7 +11,7 @@ Windows app that turns BandLab / YouTube (and other yt-dlp supported) links into
 - **Plugins:** drop plugin .dll files into the plugins folder (see [PLUGINS.md](PLUGINS.md)); custom ffmpeg filter for conversions.
 - **Hear before you convert:** preview loudness normalization and the vocal remover on a 30 s sample.
 
-Download `YtToMp3.exe` from the [latest release](https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest).
+Download `Purphex Music.exe` (GitHub shows it as `Purphex.Music.exe`) from the [latest release](https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest).
 
 ## Downloaded on first use (not bundled)
 | Component | Used for | Licence | Size |

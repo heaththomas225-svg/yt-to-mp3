@@ -1,3 +1,3 @@
-3.14.0
+3.14.1
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Purphex emblem icon and logo, renamed Purphex, single MP3 option, converted links leave the box, clickable drop box
+Program file renamed Purphex Music.exe; sound library engine groundwork

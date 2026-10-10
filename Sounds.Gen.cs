@@ -41,11 +41,13 @@ class Rnd
 // a state-variable filter (Chamberlin), one channel
 struct Svf
 {
-    float lo, bd; public void Reset() { lo = bd = 0; }
+    float ic1, ic2; public void Reset() { ic1 = ic2 = 0; }
+    // a topology-preserving state-variable filter: stays stable at any cutoff, up to the top of the spectrum
     public float Process(float x, float freq, float q, int mode)   // mode 0 low-pass, 1 band-pass, 2 high-pass
     {
-        float f = 2f * (float)Math.Sin(Math.PI * Math.Min(freq, 18000f) / 44100f); float damp = 1f / Math.Max(0.5f, q);
-        lo += f * bd; float hi = x - lo - damp * bd; bd += f * hi; return mode == 0 ? lo : (mode == 1 ? bd : hi);
+        float g = (float)Math.Tan(Math.PI * Math.Max(10f, Math.Min(freq, 20000f)) / 44100.0), k = 1f / Math.Max(0.4f, q);
+        float a1 = 1f / (1f + g * (g + k)), a2 = g * a1, a3 = g * a2; float v3 = x - ic2, v1 = a1 * ic1 + a2 * v3, v2 = ic2 + a2 * ic1 + a3 * v3; ic1 = 2f * v1 - ic1; ic2 = 2f * v2 - ic2;
+        return mode == 0 ? v2 : (mode == 1 ? v1 : x - k * v1 - v2);
     }
 }
 
