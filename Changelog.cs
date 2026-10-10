@@ -7,10 +7,16 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.0.7";
+    public const string Latest = "3.0.8";
 
     public const string Text =
-@"3.0.7  Update notes
+@"3.0.8  Rename and Save as
+ + NEW rename tracks: double-click a track name, right-click it, or press F2. Click the project name to rename the project.
+ + NEW Save as button (Ctrl+Shift+S) next to Save.
+ + SMOOTHER: separating vocals now leaves two CPU cores free, so the app and playback stay smooth while it works.
+ + Tracks are unlimited; the only limit is your computer memory.
+
+3.0.7  Update notes
  + FIX: the update window now wraps and scrolls its notes instead of cutting them off.
  + CLEARER: when adding music, only Full song removes the music. Vocals only and Beat only just label the track.
 

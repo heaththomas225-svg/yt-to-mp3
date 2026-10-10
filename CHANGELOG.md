@@ -2,6 +2,12 @@
 
 What changed in each version of **BandLab + YouTube to MP3**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.0.8  Rename and Save as
+
+- Rename tracks (double-click, right-click or F2) and the project.
+- Save as button (Ctrl+Shift+S).
+- Separating vocals leaves CPU free so the app stays smooth.
+
 ## 3.0.7  Update notes
 
 - Update notes scroll and wrap.
