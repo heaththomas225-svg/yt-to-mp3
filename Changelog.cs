@@ -7,10 +7,17 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.0.1";
+    public const string Latest = "3.0.2";
 
     public const string Text =
-@"3.0.1  Smoothness + effects fix
+@"3.0.2  Settings, backgrounds and Studio speed
+ + NEW Settings button: use your own picture or video as the background. It is cropped to fill the window automatically and remembered after you close the app.
+ + NEW audio controls: playback volume, output device and buffer size. Exports are never affected.
+ + NEW frame rate limit and optional fps display.
+ + FIX Music Studio: Cancel (or Esc) now works while a job runs, so the window can no longer get stuck.
+ + Music Studio is much lighter: text drawing cached, background cached, only redraws when something changes, smooth playhead needle, faster scrolling.
+
+3.0.1  Smoothness + effects fix
  + FIX Music Studio: the Add buttons in the effect browser did nothing; fixed.
  + Dragging or resizing a window is now smooth: animation pauses while you move it.
  + Animation capped at 60 fps so the interface stays responsive.

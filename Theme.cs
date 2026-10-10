@@ -170,3 +170,21 @@ class FrameLoop : IDisposable
 
     public void Dispose() { run = false; try { th.Join(300); } catch { } try { timeEndPeriod(1); } catch { } }
 }
+// Shared drawing resources. Creating a Font / StringFormat for every piece of text on every frame was the main cost of the custom-drawn windows.
+static class GfxCache
+{
+    static readonly System.Collections.Generic.Dictionary<int, Font> fonts = new System.Collections.Generic.Dictionary<int, Font>();
+    static readonly System.Collections.Generic.Dictionary<int, StringFormat> fmts = new System.Collections.Generic.Dictionary<int, StringFormat>();
+    public static Font Font(float px, bool bold)
+    {
+        int k = (int)(px * 10) * 2 + (bold ? 1 : 0); Font f;
+        lock (fonts) { if (!fonts.TryGetValue(k, out f)) { f = new Font("Segoe UI", px, bold ? FontStyle.Bold : FontStyle.Regular, GraphicsUnit.Pixel); fonts[k] = f; } }
+        return f;
+    }
+    public static StringFormat Fmt(StringAlignment ha, bool ellipsis)
+    {
+        int k = (int)ha * 2 + (ellipsis ? 1 : 0); StringFormat s;
+        lock (fmts) { if (!fmts.TryGetValue(k, out s)) { s = new StringFormat { Alignment = ha, LineAlignment = StringAlignment.Center, FormatFlags = StringFormatFlags.NoWrap, Trimming = ellipsis ? StringTrimming.EllipsisCharacter : StringTrimming.None }; fmts[k] = s; } }
+        return s;
+    }
+}

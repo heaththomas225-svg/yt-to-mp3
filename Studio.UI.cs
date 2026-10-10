@@ -16,7 +16,7 @@ using System.Windows.Forms;
 // ======================================================================
 class HitReg
 {
-    public RectangleF R; public Action OnDown, OnRight, OnDouble; public Action<PointF> OnDrag; public Action<int> OnWheel;
+    public RectangleF R; public Action OnDown, OnRight, OnDouble; public Action<PointF> OnDrag; public Action<int> OnWheel; public bool WhileBusy;
 }
 
 partial class StudioForm : Form
@@ -92,7 +92,7 @@ partial class StudioForm : Form
         ClientSize = new Size(1360, 800); MinimumSize = new Size(1100, 680);
         DoubleBuffered = true; KeyPreview = true; AllowDrop = true;
         SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw | ControlStyles.Selectable, true);
-        timer.Interval = 33; timer.Tick += (s, e) => { if (moving) return; t += 0.033f; Tick(); Invalidate(); }; timer.Start();
+        timer.Interval = 16; timer.Tick += (s, e) => { if (moving) return; Tick(); if (NeedsFrame()) { t += 0.033f; Invalidate(); } }; timer.Start();
         FormClosed += (s, e) => { timer.Stop(); eng.Pause(); };
         DragEnter += (s, e) => { if (e.Data.GetDataPresent(DataFormats.FileDrop)) e.Effect = DragDropEffects.Copy; };
         DragDrop += (s, e) => { var fl = (string[])e.Data.GetData(DataFormats.FileDrop); foreach (var f in fl) PromptImport(f); };
@@ -100,6 +100,31 @@ partial class StudioForm : Form
     }
 
     volatile bool moving;
+    // Redraw only when something is changing; an idle studio costs nothing. Input times are stamped so hover and drags stay live.
+    DateTime lastInput = DateTime.Now, lastFrame = DateTime.MinValue; int lastW, lastH;
+    bool NeedsFrame()
+    {
+        var now = DateTime.Now;
+        if (ClientSize.Width != lastW || ClientSize.Height != lastH) { lastW = ClientSize.Width; lastH = ClientSize.Height; lastFrame = now; return true; }
+        bool anim = eng.Playing || busy || browserOpen || dragReg != null || (now - lastInput).TotalMilliseconds < 600 || (now - toastAt).TotalSeconds < 3.7;
+        double gap = (now - lastFrame).TotalMilliseconds;
+        if (!(anim ? gap >= 30 : gap >= 250)) return false;
+        lastFrame = now; return true;
+    }
+    // Smooth playhead: the audio position moves in 23 ms blocks and runs ahead of what you hear, so the needle is a clock that follows it.
+    double dispPos, lastClockS; readonly System.Diagnostics.Stopwatch playClock = System.Diagnostics.Stopwatch.StartNew();
+    long DispPos { get { return (long)dispPos; } }
+    void UpdatePlayhead()
+    {
+        double nowS = playClock.Elapsed.TotalSeconds, dt = Math.Min(0.1, nowS - lastClockS); lastClockS = nowS;
+        if (eng.Playing)
+        {
+            double target = Math.Max(0, eng.Pos - 3600);
+            if (Math.Abs(dispPos - target) > 9000) dispPos = target;
+            else { dispPos += dt * StudioEngine.SR; dispPos += (target - dispPos) * Math.Min(1.0, dt * 8); }
+        }
+        else dispPos = eng.Pos;
+    }
     protected override void WndProc(ref Message m)
     {
         if (m.Msg == 0x231) moving = true; else if (m.Msg == 0x232) moving = false;
@@ -114,13 +139,16 @@ partial class StudioForm : Form
 
     void Tick()
     {
+        UpdatePlayhead();
         if (eng.Playing)
         {
-            float w = TimelineRect().Width; long x = (long)((eng.Pos - scroll) / spp);
-            if (x > w * 0.92f || x < 0) scroll = Math.Max(0, eng.Pos - (long)(w * 0.08 * spp));
+            float w = TimelineRect().Width; long x = (long)((DispPos - scroll) / spp);
+            if (x > w * 0.92f || x < 0) scroll = Math.Max(0, DispPos - (long)(w * 0.08 * spp));
         }
-        UpdateSpectrum();
+        if (NeedsFrame0()) UpdateSpectrum();
     }
+
+    bool NeedsFrame0() { return eng.Playing || (DateTime.Now - lastInput).TotalMilliseconds < 1500; }
 
     // ---------------- geometry ----------------
     const int ToolH = 70, TransH = 52, HeadW = 250, PanelW = 380, LaneH = 128, RulerH = 28;
@@ -136,10 +164,7 @@ partial class StudioForm : Form
     static void StrokeRR(Graphics g, Color c, RectangleF r, float rad, float w) { using (var p = RR(r, rad)) using (var pen = new Pen(c, w)) g.DrawPath(pen, p); }
     static void Txt(Graphics g, string s, float px, Color c, RectangleF r, StringAlignment ha, bool bold)
     {
-        using (var f = new Font("Segoe UI", px, bold ? FontStyle.Bold : FontStyle.Regular, GraphicsUnit.Pixel))
-        using (var b = new SolidBrush(c))
-        using (var sf = new StringFormat { Alignment = ha, LineAlignment = StringAlignment.Center, FormatFlags = StringFormatFlags.NoWrap, Trimming = StringTrimming.EllipsisCharacter })
-            g.DrawString(s, f, b, r, sf);
+        using (var b = new SolidBrush(c)) g.DrawString(s, GfxCache.Font(px, bold), b, r, GfxCache.Fmt(ha, true));
     }
     static RectangleF Rc(float x, float y, float w, float h) { return new RectangleF(x, y, w, h); }
     static float Clamp01(float v) { return v < 0 ? 0 : (v > 1 ? 1 : v); }
@@ -186,12 +211,7 @@ partial class StudioForm : Form
         var g = e.Graphics; g.SmoothingMode = SmoothingMode.AntiAlias; g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
         regs.Clear();
         var full = new RectangleF(0, 0, ClientSize.Width, ClientSize.Height);
-        using (var br = new LinearGradientBrush(full, Bg0, Bg1, 80f)) g.FillRectangle(br, full);
-        using (var gp = new GraphicsPath())
-        {
-            float rad = 420 + (float)Math.Sin(t * 0.6) * 30; gp.AddEllipse(ClientSize.Width * 0.7f - rad, 80 - rad, rad * 2, rad * 2);
-            using (var pg = new PathGradientBrush(gp)) { pg.CenterColor = Color.FromArgb(46, 150, 60, 240); pg.SurroundColors = new[] { Color.FromArgb(0, 150, 60, 240) }; g.FillPath(pg, gp); }
-        }
+        DrawBackdrop(g);
         if (tab == 0) PaintMix(g); else PaintMastering(g);
         PaintToolbar(g); PaintTransport(g);
         if (browserOpen) PaintBrowser(g);
@@ -201,6 +221,32 @@ partial class StudioForm : Form
             var tr = Rc(ClientSize.Width / 2 - 260, ClientSize.Height - 70, 520, 38); FillRR(g, Color.FromArgb(240, 40, 20, 80), tr, 10); StrokeRR(g, Accent, tr, 10, 1.2f);
             Txt(g, toast, 15, Ink, tr, StringAlignment.Center, false);
         }
+    }
+
+    Bitmap backdrop; int backVer = -1;
+    void DrawBackdrop(Graphics g)
+    {
+        int w = Math.Max(1, ClientSize.Width), h = Math.Max(1, ClientSize.Height);
+        if (backdrop == null || backdrop.Width != w || backdrop.Height != h || backVer != UserBackground.Version)
+        {
+            if (backdrop != null) backdrop.Dispose(); backdrop = new Bitmap(w, h, System.Drawing.Imaging.PixelFormat.Format32bppPArgb);
+            using (var bg = Graphics.FromImage(backdrop))
+            {
+                bg.SmoothingMode = SmoothingMode.AntiAlias; var full = new RectangleF(0, 0, w, h);
+                backVer = UserBackground.Version; var still = Prefs.BgStudio ? UserBackground.Fresh(w, h) : null;
+                if (still != null) { bg.DrawImageUnscaled(still, 0, 0); still.Dispose(); using (var dm = new SolidBrush(Color.FromArgb(Math.Max(150, Prefs.BgDim * 255 / 100 + 70), 6, 2, 16))) bg.FillRectangle(dm, full); }
+                else
+                {
+                    using (var br = new LinearGradientBrush(full, Bg0, Bg1, 80f)) bg.FillRectangle(br, full);
+                    using (var gp = new GraphicsPath())
+                    {
+                    float rad = 420; gp.AddEllipse(w * 0.7f - rad, 80 - rad, rad * 2, rad * 2);
+                    using (var pg = new PathGradientBrush(gp)) { pg.CenterColor = Color.FromArgb(46, 150, 60, 240); pg.SurroundColors = new[] { Color.FromArgb(0, 150, 60, 240) }; bg.FillPath(pg, gp); }
+                    }
+                }
+            }
+        }
+        g.CompositingMode = CompositingMode.SourceCopy; g.DrawImageUnscaled(backdrop, 0, 0); g.CompositingMode = CompositingMode.SourceOver;
     }
 
     // guided tours for the studio (rectangles match the toolbar / panel layout)
@@ -255,7 +301,7 @@ partial class StudioForm : Form
         Btn(g, Rc(x, y, 70, h), eng.Playing ? "PAUSE" : "PLAY", eng.Playing ? 4 : 1, () => { if (eng.Playing) eng.Pause(); else PlayGuard(); }, 14); x += 76;
         Btn(g, Rc(x, y, 56, h), "STOP", 0, () => { eng.Stop(); scroll = 0; }, 14); x += 62;
         Btn(g, Rc(x, y, 62, h), "LOOP", eng.Loop ? 4 : 0, () => eng.Loop = !eng.Loop, 14); x += 72;
-        double sec = eng.Pos / (double)StudioEngine.SR, tot = eng.EndFrame / (double)StudioEngine.SR;
+        double sec = dispPos / StudioEngine.SR, tot = eng.EndFrame / (double)StudioEngine.SR;
         var tr = Rc(x, y, 210, h); FillRR(g, Color.FromArgb(200, 8, 4, 18), tr, 6); StrokeRR(g, Edge, tr, 6, 1);
         Txt(g, Fmt(sec) + "  /  " + Fmt(tot), 19, Accent, tr, StringAlignment.Center, true); x += 222;
         Txt(g, "Space = play / pause", 11, DimC, Rc(x, y, 160, h), StringAlignment.Near, false);
@@ -303,6 +349,7 @@ partial class StudioForm : Form
         g.SetClip(Rc(0, top + RulerH, ClientSize.Width - PanelW, ClientSize.Height - top - RulerH));
         for (int i = 0; i < n; i++, y += LaneH)
         {
+            if (y + LaneH < top + RulerH || y > ClientSize.Height) continue;
             var tr = eng.Tracks[i]; bool sel = i == selTrack;
             var lane = Rc(HeadW, y, tl.Width, LaneH); using (var br = new SolidBrush(i % 2 == 0 ? Lane : Lane2)) g.FillRectangle(br, lane);
             PaintWave(g, tr, lane, sel);
@@ -321,7 +368,7 @@ partial class StudioForm : Form
         }
         g.ResetClip();
         // playhead
-        float px = HeadW + (float)((eng.Pos - scroll) / spp);
+        float px = HeadW + (float)((dispPos - scroll) / spp);
         if (px >= HeadW && px <= tl.Right) { using (var pen = new Pen(Accent2, 2)) g.DrawLine(pen, px, top, px, ClientSize.Height); using (var b = new SolidBrush(Accent2)) g.FillPolygon(b, new[] { new PointF(px - 7, top), new PointF(px + 7, top), new PointF(px, top + 12) }); }
         // wheel: scroll / zoom
         var wr = new HitReg { R = Rc(HeadW, top, tl.Width, ClientSize.Height - top) };
@@ -348,12 +395,15 @@ partial class StudioForm : Form
             }
     }
 
-    float[] wmn = new float[4096], wmx = new float[4096];
+    class PeakCache { public AudioClip Clip; public long Start, Len; public double Spp; public int Px; public float[] Mn, Mx; }
+    readonly Dictionary<Track, PeakCache> peakCache = new Dictionary<Track, PeakCache>();
     void PaintWave(Graphics g, Track tr, RectangleF lane, bool sel)
     {
         if (tr.Clip == null) return;
-        int px = (int)lane.Width; if (px > wmn.Length) { wmn = new float[px + 64]; wmx = new float[px + 64]; }
-        tr.Clip.GetPeaks(scroll - tr.Offset, spp, px, wmn, wmx);
+        int px = (int)lane.Width;
+        PeakCache pc; if (!peakCache.TryGetValue(tr, out pc)) { pc = new PeakCache(); peakCache[tr] = pc; }
+        if (pc.Clip != tr.Clip || pc.Start != scroll - tr.Offset || pc.Spp != spp || pc.Px != px || pc.Len != tr.Clip.Length) { if (pc.Mn == null || pc.Mn.Length < px) { pc.Mn = new float[px + 64]; pc.Mx = new float[px + 64]; } tr.Clip.GetPeaks(scroll - tr.Offset, spp, px, pc.Mn, pc.Mx); pc.Clip = tr.Clip; pc.Start = scroll - tr.Offset; pc.Spp = spp; pc.Px = px; pc.Len = tr.Clip.Length; }
+        var wmn = pc.Mn; var wmx = pc.Mx;
         Color c = Color.FromArgb(tr.Color); bool audible = !tr.Mute; float cy = lane.Y + lane.Height / 2, amp = lane.Height * 0.42f;
         long clipStart = tr.Offset, clipEnd = tr.Offset + tr.Clip.Length;
         float x0 = lane.X + (float)((clipStart - scroll) / spp), x1 = lane.X + (float)((clipEnd - scroll) / spp);
@@ -524,12 +574,13 @@ partial class StudioForm : Form
 
     protected override void OnKeyPress(KeyPressEventArgs e)
     {
-        base.OnKeyPress(e);
+        base.OnKeyPress(e); lastInput = DateTime.Now;
         if (browserOpen) { if (e.KeyChar == '\b') { if (browserQuery.Length > 0) browserQuery = browserQuery.Substring(0, browserQuery.Length - 1); } else if (!char.IsControl(e.KeyChar)) browserQuery += e.KeyChar; e.Handled = true; }
     }
 
     protected override bool ProcessCmdKey(ref Message msg, Keys k)
     {
+        lastInput = DateTime.Now;
         if (editBox != null && editBox.Visible) return base.ProcessCmdKey(ref msg, k);
         if (browserOpen)
         {
@@ -542,7 +593,7 @@ partial class StudioForm : Form
             }
             return base.ProcessCmdKey(ref msg, k);
         }
-        if (busy) return base.ProcessCmdKey(ref msg, k);
+        if (busy) { if (k == Keys.Escape && busyCancelable) { cancelFlag = true; busyText = "Cancelling..."; return true; } return base.ProcessCmdKey(ref msg, k); }
         if (k == Keys.F1) { app.ShowHelp(null); return true; }
         if (k == Keys.Space) { if (eng.Playing) eng.Pause(); else PlayGuard(); return true; }
         if (k == Keys.Home) { eng.Seek(0); scroll = 0; return true; }
@@ -556,23 +607,23 @@ partial class StudioForm : Form
 
     protected override void OnMouseMove(MouseEventArgs e)
     {
-        base.OnMouseMove(e); MousePos = e.Location;
+        base.OnMouseMove(e); MousePos = e.Location; lastInput = DateTime.Now;
         if (dragReg != null && dragReg.OnDrag != null) dragReg.OnDrag(e.Location);
         else hover = TopRegion(e.Location);
     }
     protected override void OnMouseDown(MouseEventArgs e)
     {
-        base.OnMouseDown(e); Focus(); MousePos = e.Location; var r = TopRegion(e.Location); if (r == null) return;
-        if (busy) { return; }
+        base.OnMouseDown(e); lastInput = DateTime.Now; Focus(); MousePos = e.Location; var r = TopRegion(e.Location); if (r == null) return;
+        if (busy && !r.WhileBusy) return;   // while a job runs only the Cancel button works
         if (e.Button == MouseButtons.Right) { if (r.OnRight != null) r.OnRight(); return; }
         if (e.Clicks == 2 && r.OnDouble != null) { r.OnDouble(); return; }
         if (r.OnDown != null) r.OnDown();
         if (r.OnDrag != null) dragReg = r;
     }
-    protected override void OnMouseUp(MouseEventArgs e) { base.OnMouseUp(e); dragReg = null; }
+    protected override void OnMouseUp(MouseEventArgs e) { base.OnMouseUp(e); lastInput = DateTime.Now; dragReg = null; }
     protected override void OnMouseWheel(MouseEventArgs e)
     {
-        base.OnMouseWheel(e); MousePos = e.Location; for (int i = regs.Count - 1; i >= 0; i--) if (regs[i].R.Contains(e.Location) && regs[i].OnWheel != null) { regs[i].OnWheel(e.Delta > 0 ? 1 : -1); return; }
+        base.OnMouseWheel(e); MousePos = e.Location; lastInput = DateTime.Now; for (int i = regs.Count - 1; i >= 0; i--) if (regs[i].R.Contains(e.Location) && regs[i].OnWheel != null) { regs[i].OnWheel(e.Delta > 0 ? 1 : -1); return; }
     }
     protected override void OnMouseLeave(EventArgs e) { base.OnMouseLeave(e); hover = null; }
 

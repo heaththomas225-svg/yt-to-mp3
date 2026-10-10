@@ -229,13 +229,16 @@ partial class App
         var atmo = atmoFront; var ov = overlayFront;
 
         g.CompositingQuality = CompositingQuality.HighSpeed; g.PixelOffsetMode = PixelOffsetMode.HighSpeed; g.SmoothingMode = SmoothingMode.HighSpeed;
-        if (atmo != null && atmo.Width == r.Width && atmo.Height == r.Height)
+        bool custom = false;
+        if (UserBackground.Active) { custom = UserBackground.Draw(g, r.Width, r.Height); if (custom && Prefs.BgDim > 0) using (var dm = new SolidBrush(Color.FromArgb(Prefs.BgDim * 255 / 100, 4, 1, 12))) g.FillRectangle(dm, r); }
+        if (custom) { }
+        else if (atmo != null && atmo.Width == r.Width && atmo.Height == r.Height)
         {
             g.CompositingMode = CompositingMode.SourceCopy; g.DrawImageUnscaled(atmo, 0, 0); g.CompositingMode = CompositingMode.SourceOver;
         }
         else using (var br = new LinearGradientBrush(r, Color.FromArgb(3, 1, 8), Color.FromArgb(26, 6, 54), 72f)) g.FillRectangle(br, r);
 
-        if (anim && sprites != null)
+        if (anim && sprites != null && (!custom || Prefs.BgLeaves))
         {
             g.InterpolationMode = InterpolationMode.Bilinear;
             leaves.Sort((a, b) => a.S.CompareTo(b.S));

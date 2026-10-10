@@ -2,6 +2,14 @@
 
 What changed in each version of **BandLab + YouTube to MP3**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.0.2  Settings, backgrounds and Studio speed
+
+- NEW Settings button: custom picture or video background (auto-cropped, remembered), darken slider, leaves on or off.
+- NEW audio controls: playback volume, output device, buffer size. Exports are not affected.
+- NEW frame rate limit and optional fps display.
+- FIX Music Studio: Cancel (or Esc) works while a job runs.
+- Music Studio is much lighter and the playhead is smooth.
+
 ## 3.0.1  Smoothness + effects fix
 
 - FIX Music Studio: the Add buttons in the effect browser did nothing; fixed.

@@ -537,10 +537,7 @@ class MasterForm : Form
 
     static void Txt(Graphics g, string s, float px, Color c, RectangleF r, StringAlignment ha, bool bold)
     {
-        using (var f = new Font("Segoe UI", px, bold ? FontStyle.Bold : FontStyle.Regular, GraphicsUnit.Pixel))
-        using (var b = new SolidBrush(c))
-        using (var sf = new StringFormat { Alignment = ha, LineAlignment = StringAlignment.Center, FormatFlags = StringFormatFlags.NoWrap })
-            g.DrawString(s, f, b, r, sf);
+        using (var b = new SolidBrush(c)) g.DrawString(s, GfxCache.Font(px, bold), b, r, GfxCache.Fmt(ha, false));
     }
 
     static RectangleF At(float cx, float cy, float w, float h) { return new RectangleF(cx - w / 2, cy - h / 2, w, h); }
