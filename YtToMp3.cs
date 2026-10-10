@@ -34,7 +34,7 @@ class Job
 class App : Form
 {
     // ---- Auto-update settings ----
-    const string Version = "2.2.1";
+    const string Version = "2.3.0";
     // Plain-text manifest: line 1 = newest version, line 2 = direct exe download URL.
     const string UpdateManifestUrl = "https://raw.githubusercontent.com/heaththomas225-svg/yt-to-mp3/main/version.txt";
 
@@ -163,6 +163,8 @@ class App : Form
 
         fmt.SelectedIndex = 0; sr.SelectedIndex = 0; nameFmt.SelectedIndex = 0;
         LoadSettings();
+        loading = false;
+        HookAutoSave();
 
         for (int i = 0; i < 16; i++) leaves.Add(NewLeaf(true));
         for (int i = 0; i < 40; i++) spores.Add(NewSpore(true));
@@ -207,21 +209,40 @@ class App : Form
     }
 
     // ---------- settings ----------
+    bool loading = true;   // suppress saves while settings are being applied
+
     void SaveSettings()
     {
+        if (loading) return;
         try
         {
             Directory.CreateDirectory(AppData);
+            Rectangle b = WindowState == FormWindowState.Normal ? Bounds : RestoreBounds;
             File.WriteAllLines(SettingsFile, new[] {
                 "fmt=" + fmt.SelectedIndex, "sr=" + sr.SelectedIndex, "name=" + nameFmt.SelectedIndex,
                 "dir=" + outDir.Text, "norm=" + norm.Checked, "playlist=" + playlist.Checked,
-                "open=" + openDone.Checked, "anim=" + animate.Checked });
+                "open=" + openDone.Checked, "anim=" + animate.Checked,
+                "x=" + b.X, "y=" + b.Y, "w=" + b.Width, "h=" + b.Height,
+                "max=" + (WindowState == FormWindowState.Maximized) });
         }
         catch { }
     }
 
+    // Save the moment anything changes, so nothing is lost on a crash or an update restart.
+    void HookAutoSave()
+    {
+        EventHandler h = (s, e) => SaveSettings();
+        fmt.SelectedIndexChanged += h; sr.SelectedIndexChanged += h; nameFmt.SelectedIndexChanged += h;
+        norm.CheckedChanged += h; playlist.CheckedChanged += h;
+        openDone.CheckedChanged += h; animate.CheckedChanged += h;
+        outDir.TextChanged += h;
+        ResizeEnd += h;
+        LocationChanged += (s, e) => { if (WindowState == FormWindowState.Normal) SaveSettings(); };
+    }
+
     void LoadSettings()
     {
+        int wx = 0, wy = 0, ww = 0, wh = 0; bool wmax = false;
         try
         {
             if (!File.Exists(SettingsFile)) return;
@@ -238,6 +259,23 @@ class App : Form
                 else if (k == "playlist" && bool.TryParse(v, out b)) playlist.Checked = b;
                 else if (k == "open" && bool.TryParse(v, out b)) openDone.Checked = b;
                 else if (k == "anim" && bool.TryParse(v, out b)) animate.Checked = b;
+                else if (k == "x" && int.TryParse(v, out n)) wx = n;
+                else if (k == "y" && int.TryParse(v, out n)) wy = n;
+                else if (k == "w" && int.TryParse(v, out n)) ww = n;
+                else if (k == "h" && int.TryParse(v, out n)) wh = n;
+                else if (k == "max" && bool.TryParse(v, out b)) wmax = b;
+            }
+            // Restore the window only if it still lands on a connected screen.
+            if (ww >= MinimumSize.Width && wh >= MinimumSize.Height)
+            {
+                var rect = new Rectangle(wx, wy, ww, wh);
+                foreach (var scr in Screen.AllScreens)
+                    if (scr.WorkingArea.IntersectsWith(rect))
+                    {
+                        StartPosition = FormStartPosition.Manual; Bounds = rect;
+                        if (wmax) WindowState = FormWindowState.Maximized;
+                        break;
+                    }
             }
         }
         catch { }
@@ -778,6 +816,7 @@ class App : Form
                 try { File.Delete(old); } catch { }
                 File.Move(exe, old);          // a running exe can be renamed, not overwritten
                 File.Move(tmp, exe);
+                SaveSettings();
                 Process.Start(exe);
                 Environment.Exit(0);
             }
