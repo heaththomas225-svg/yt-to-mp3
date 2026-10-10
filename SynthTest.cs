@@ -108,6 +108,8 @@ static class Y
             Func<SynthFx, int, double, double> h2 = (f, src, dummy) => 0;
             Func<SynthFx, int, double, int, double> H = (f, note, f0, harm) => { var cp = new SynthFx(); cp.Prepare(44100); cp.Deserialize(f.Serialize()); var o2 = Render(cp, new[] { note }, 30000, -1); return mag(o2[0], 6000, 22050, f0 * harm); };
             // fixed shapes: sine has no 2nd harmonic, saw has a strong one, square has none (only odd harmonics)
+            { var tw = clean(); tw.Set("atbl", 13); double sw1x = H(tw, 45, 110, 1), sw2x = H(tw, 45, 110, 2); tw.Set("atbl", 14); double q1 = H(tw, 45, 110, 1), q2 = H(tw, 45, 110, 2), q3 = H(tw, 45, 110, 3);
+              Check("wavetable list has a Sawtooth (strong 2nd harmonic) and a Square (odd only)", Wavetables.TableNames[13] == "Sawtooth" && Wavetables.TableNames[14] == "Square" && sw2x / sw1x > 0.4 && q2 / q1 < 0.05 && q3 / q1 > 0.28, "saw 2nd/1st " + (sw2x / sw1x).ToString("0.00") + ", square 2nd " + (q2 / q1).ToString("0.000") + ", 3rd " + (q3 / q1).ToString("0.00")); }
             var s1 = clean(); s1.Set("asrc", 1); double sine1 = H(s1, 45, 110, 1), sine2 = H(s1, 45, 110, 2);
             var s2 = clean(); s2.Set("asrc", 3); double saw1 = H(s2, 45, 110, 1), saw2 = H(s2, 45, 110, 2);
             var s3 = clean(); s3.Set("asrc", 4); double sq1 = H(s3, 45, 110, 1), sq2 = H(s3, 45, 110, 2), sq3 = H(s3, 45, 110, 3);
@@ -134,8 +136,8 @@ static class Y
             var fm = clean(); fm.Set("asrc", 1); fm.Set("bon", 1); fm.Set("bsrc", 1); fm.Set("blvl", 0); fm.Set("afm", 60); double fmv = H(fm, 45, 110, 2) / H(fm, 45, 110, 1);
             Check("FM adds sidebands (a silent modulator oscillator still modulates)", plain < 0.01 && fmv > 0.1, "2nd harmonic: " + plain.ToString("0.000") + " without FM, " + fmv.ToString("0.00") + " with FM");
             var rg = clean(); rg.Set("asrc", 1); rg.Set("bon", 1); rg.Set("bsrc", 1); rg.Set("boct", 1); rg.Set("blvl", 0); rg.Set("arm", 100); var orr = Render(rg, new[] { 45 }, 30000, -1);
-            double q1 = mag(orr[0], 6000, 22050, 110), q2 = mag(orr[0], 6000, 22050, 220), q3 = mag(orr[0], 6000, 22050, 330);
-            Check("ring modulation: sine x sine an octave up leaves the 1st and 3rd harmonics, not the 2nd", q1 > 0.05 && q3 > 0.05 && q2 < 0.1 * q1, "110 Hz " + q1.ToString("0.00") + ", 220 Hz " + q2.ToString("0.00") + ", 330 Hz " + q3.ToString("0.00"));
+            double sq1x = mag(orr[0], 6000, 22050, 110), sq2x = mag(orr[0], 6000, 22050, 220), sq3x = mag(orr[0], 6000, 22050, 330);
+            Check("ring modulation: sine x sine an octave up leaves the 1st and 3rd harmonics, not the 2nd", sq1x > 0.05 && sq3x > 0.05 && sq2x < 0.1 * sq1x, "110 Hz " + sq1x.ToString("0.00") + ", 220 Hz " + sq2x.ToString("0.00") + ", 330 Hz " + sq3x.ToString("0.00"));
             var wp = clean(); wp.Set("asrc", 3); wp.Set("awarp", 3); wp.Set("awamt", 80); double warped = H(wp, 45, 110, 3) / H(wp, 45, 110, 1); var wn = clean(); wn.Set("asrc", 3); double unw = H(wn, 45, 110, 3) / H(wn, 45, 110, 1);
             Check("WARP (fold) changes the harmonics", Math.Abs(warped - unw) > 0.1, "3rd harmonic ratio " + unw.ToString("0.00") + " -> " + warped.ToString("0.00"));
             var un = clean(); un.Set("asrc", 3); un.Set("auni", 5); un.Set("adet", 40); var ou = Render(un, new[] { 45 }, 120000, -1); double beating = 0; for (int i = 4000; i + 4410 < 120000; i += 2205) beating += Math.Abs(Rms(ou[0], i, i + 2205) - Rms(ou[0], i + 2205, i + 4410)); var os = Render(clean(), new[] { 45 }, 120000, -1); double steady = 0; for (int i = 4000; i + 4410 < 120000; i += 2205) steady += Math.Abs(Rms(os[0], i, i + 2205) - Rms(os[0], i + 2205, i + 4410));
@@ -192,6 +194,21 @@ static class Y
             // key tracking: with 100% tracking the cutoff follows the note
             var kt0 = flt(0, 1, 500); var kt1 = flt(0, 1, 500); kt1.Set("f1key", 100); var oa = Render(kt0, new[] { 81 }, 30000, -1); var ob = Render(kt1, new[] { 81 }, 30000, -1); double fo = 440 * Math.Pow(2, (81 - 69) / 12.0);
             Check("key tracking opens the filter on high notes", Rms(ob[0], 6000, 30000) > Rms(oa[0], 6000, 30000) * 3, "level " + Rms(oa[0], 6000, 30000).ToString("0.000") + " -> " + Rms(ob[0], 6000, 30000).ToString("0.000"));
+        }
+        // 8b. drawn LFO shapes
+        {
+            Func<string, bool, SynthFx> lf = (shape, loop) => { var f = New("Init"); f.Set("awt", 50); f.Set("f1on", 1); f.Set("f1type", 0); f.Set("f1slope", 1); f.Set("f1cut", 700); f.Set("f1res", 0); f.Set("f1drive", 0); f.Set("bbon", 0); f.Set("e1s", 100); f.Set("e1d", 8000);
+                f.LfoCurves[0].Load(shape); f.Set("l1shape", 7); f.Set("l1sync", 0); f.Set("l1rate", 2); f.Set("l1retrig", 1); f.Set("l1loop", loop ? 1 : 0); f.Set("m1s", 1); f.Set("m1d", 17); f.Set("m1a", 100); return f; };
+            Func<float[], double, double, double> brt = (x, t0, t1) => { double e = 0; int a = (int)(t0 * 44100), b = (int)(t1 * 44100); for (int i = a + 1; i < b; i++) { double d = x[i] - x[i - 1]; e += d * d; } return Math.Sqrt(e / (b - a)); };
+            var sqw = Render(lf("Square", true), new[] { 40 }, 44100, -1);
+            double hi = brt(sqw[0], 0.05, 0.2), lo = brt(sqw[0], 0.30, 0.45), hi2 = brt(sqw[0], 0.55, 0.7);
+            Check("a drawn square LFO opens then closes the filter exactly where the shape says", hi > lo * 2 && hi2 > lo * 2, "open " + hi.ToString("0.0000") + ", closed " + lo.ToString("0.0000") + ", open again " + hi2.ToString("0.0000"));
+            var os = Render(lf("Saw up", false), new[] { 40 }, 44100, -1); double early = brt(os[0], 0.02, 0.08), late1 = brt(os[0], 0.65, 0.75), late2 = brt(os[0], 0.9, 1.0);
+            Check("one-shot LFO plays the shape once and holds its end", late1 > early * 2 && Math.Abs(late1 - late2) < late1 * 0.2, "start " + early.ToString("0.0000") + ", then " + late1.ToString("0.0000") + " / " + late2.ToString("0.0000"));
+            var sx0 = lf("Wobble 2", true); sx0.LfoCurves[0].Pts[2].Y = 0.8f; sx0.LfoCurves[0].Rebuild(); string sx = sx0.Serialize(); var dst2 = New("Init"); dst2.Deserialize(sx);
+            bool same = true; for (int i = 0; i <= 1000; i += 37) if (Math.Abs(sx0.LfoCurves[0].Lut[i] - dst2.LfoCurves[0].Lut[i]) > 0.002) same = false;
+            Check("a drawn LFO shape is saved in the patch and restored exactly", sx.Contains("lc1=") && same && dst2.LfoCurves[0].Pts.Count == sx0.LfoCurves[0].Pts.Count, dst2.LfoCurves[0].Pts.Count + " points restored");
+            var cv = new LfoCurve(); cv.Load("Triangle"); Check("the on-screen curve and the audio table agree (triangle peaks at 1 in the middle, -1 at the ends)", Math.Abs(cv.Read(0.5) - 1) < 0.01 && Math.Abs(cv.Read(0) + 1) < 0.01 && Math.Abs(cv.Read(0.25)) < 0.01, "mid " + cv.Read(0.5).ToString("0.00") + ", start " + cv.Read(0).ToString("0.00") + ", quarter " + cv.Read(0.25).ToString("0.00"));
         }
         // 9. THE PIANO: a key press must reach the real sound device without pressing PLAY first, and a held note must stop on release / panic
         {

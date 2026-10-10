@@ -53,7 +53,7 @@ static class SynthTables
     public static readonly string[] FilterTypes = { "Low-pass", "High-pass", "Band-pass", "Notch", "Peak", "Low shelf", "High shelf", "Comb +", "Comb -", "Formant" };
     public static readonly string[] Slopes = { "12 dB", "24 dB", "36 dB", "48 dB" };
     public static readonly string[] Routes = { "Filter 1", "Filter 2", "Both", "Direct" };
-    public static readonly string[] LfoShapes = { "Sine", "Triangle", "Saw up", "Saw down", "Square", "Random", "Wub" };
+    public static readonly string[] LfoShapes = { "Sine", "Triangle", "Saw up", "Saw down", "Square", "Random", "Wub", "Custom (drawn)" };
     public static readonly string[] Syncs = { "Hz", "4 bars", "2 bars", "1 bar", "1/2", "1/4", "1/4 dot", "1/4 trip", "1/8", "1/8 dot", "1/8 trip", "1/16", "1/16 dot", "1/16 trip", "1/32" };
     public static readonly double[] SyncBeats = { 0, 16, 8, 4, 2, 1, 1.5, 2.0 / 3, 0.5, 0.75, 1.0 / 3, 0.25, 0.375, 1.0 / 6, 0.125 };
     public static readonly string[] Sources = { "None", "LFO 1", "LFO 2", "LFO 3", "LFO 4", "Env 2", "Env 3", "Env 4", "Velocity", "Key", "Macro 1", "Macro 2", "Macro 3", "Macro 4" };
@@ -74,7 +74,8 @@ class SynthFx : InstrumentFx
     class OscP { public bool On, Mute, Solo; public double Wt, Oct, Sem, Fin, Lvl, Pan, Uni, Det, Blend, Phase, WarpAmt, Fm, Rm; public int Warp, Src, Tbl, Route; }
     class FiltP { public bool On; public int Type, Stages; public double Cut, Res, Drive, Key, Gain; }
     class EnvP { public double A, D, S, R; }
-    class LfoP { public int Shape, Sync; public double Rate, Phase, Smooth, Fade; public bool Retrig, Uni; }
+    class LfoP { public int Shape, Sync; public double Rate, Phase, Smooth, Fade; public bool Retrig, Uni, Loop = true; }
+    public readonly LfoCurve[] LfoCurves = { new LfoCurve(), new LfoCurve(), new LfoCurve(), new LfoCurve() };   // the drawn shape of each LFO (used when its Shape is Custom)
     OscP[] op = { new OscP(), new OscP(), new OscP() }; FiltP[] fp = { new FiltP(), new FiltP() }; EnvP[] ep = { new EnvP(), new EnvP(), new EnvP(), new EnvP() }; LfoP[] lp = { new LfoP(), new LfoP(), new LfoP(), new LfoP() };
     bool subOn, nzOn, parallel, subMute, subSolo, nzMute, nzSolo; int subWave, subOct, nzType, subRoute, nzRoute; double subLvl, subPan, nzLvl, nzPan, vol, glide, bendRange, tune, vsens; int mode; double[] macro = new double[4];
     int[] mSrc = new int[8], mDst = new int[8]; double[] mAmt = new double[8];
@@ -88,7 +89,7 @@ class SynthFx : InstrumentFx
         public double[] F = new double[64];                  // filter state: [filter * 32 + stage * 4 + ch * 2 + {0,1}]
         public float[][] Comb = { new float[2048], new float[2048], new float[2048], new float[2048] }; public int[] CombW = new int[4];
         public double[] Env = new double[4]; public int[] Stage = new int[4];
-        public double[] Lfo = new double[4], LfoVal = new double[4], LfoHold = new double[4]; public double[] LfoSm = new double[4]; public double Time;
+        public double[] Lfo = new double[4], LfoVal = new double[4], LfoHold = new double[4]; public double[] LfoSm = new double[4], LfoAcc = new double[4]; public double Time;
         public double Pink0, Pink1, Pink2, Brown, PrevW;
     }
     Voice[] voices = new Voice[NV];
@@ -143,7 +144,7 @@ class SynthFx : InstrumentFx
         {
             AddC("l" + k + "shape", "Shape", SynthTables.LfoShapes, 0); AddC("l" + k + "sync", "Rate sync", SynthTables.Syncs, k == 1 ? 8 : (k == 2 ? 5 : 0));
             AddP("l" + k + "rate", "Rate", 0.05f, 40, 2, "Hz"); AddP("l" + k + "phase", "Phase", 0, 100, 0, "%"); AddP("l" + k + "smooth", "Smooth", 0, 100, 0, "%");
-            AddC("l" + k + "retrig", "Start", new[] { "Free", "Retrigger" }, 1); AddP("l" + k + "fade", "Fade in", 0, 3000, 0, "ms"); AddC("l" + k + "uni", "Range", new[] { "Bipolar", "Unipolar" }, 0);
+            AddC("l" + k + "retrig", "Start", new[] { "Free", "Retrigger" }, 1); AddP("l" + k + "fade", "Fade in", 0, 3000, 0, "ms"); AddC("l" + k + "uni", "Range", new[] { "Bipolar", "Unipolar" }, 0); AddC("l" + k + "loop", "Loop", new[] { "One-shot", "Loop" }, 1);
         }
         for (int k = 1; k <= 4; k++) AddP("mac" + k, "Macro " + k, 0, 100, 0, "%");
         for (int i = 1; i <= 8; i++)
@@ -162,6 +163,7 @@ class SynthFx : InstrumentFx
     {
         string s = base.Serialize();
         for (int i = 0; i < 3; i++) { string c = Wavetables.SerializeCustom(i); if (c.Length > 0) s += ";wtc" + (i + 1) + "=" + c; }
+        for (int i = 0; i < 4; i++) s += ";lc" + (i + 1) + "=" + LfoCurves[i].Serialize();
         return s;
     }
     public override void Deserialize(string s)
@@ -172,6 +174,7 @@ class SynthFx : InstrumentFx
         {
             int e = part.IndexOf('='); if (e < 1) continue; string k = part.Substring(0, e), v = part.Substring(e + 1);
             if (k.StartsWith("wtc") && k.Length == 4) { int slot; if (int.TryParse(k.Substring(3), out slot) && slot >= 1 && slot <= 3) Wavetables.DeserializeCustom(slot - 1, v); continue; }
+            if (k.Length == 3 && k.StartsWith("lc")) { int li; if (int.TryParse(k.Substring(2), out li) && li >= 1 && li <= 4) LfoCurves[li - 1].Parse(v); continue; }
             if ((k == "f1type" && !hasSlope1) || (k == "f2type" && !hasSlope2))
             {
                 float old; if (float.TryParse(v, NumberStyles.Float, CultureInfo.InvariantCulture, out old))
@@ -208,7 +211,7 @@ class SynthFx : InstrumentFx
         for (int k = 0; k < 4; k++)
         {
             var l = lp[k]; string p = "l" + (k + 1); l.Shape = (int)Get(p + "shape"); l.Sync = (int)Get(p + "sync"); l.Rate = Get(p + "rate"); l.Phase = Get(p + "phase") / 100.0; l.Smooth = Get(p + "smooth") / 100.0;
-            l.Retrig = Get(p + "retrig") > 0.5; l.Fade = Get(p + "fade"); l.Uni = Get(p + "uni") > 0.5; macro[k] = Get("mac" + (k + 1)) / 100.0;
+            l.Retrig = Get(p + "retrig") > 0.5; l.Fade = Get(p + "fade"); l.Uni = Get(p + "uni") > 0.5; l.Loop = Get(p + "loop") > 0.5; macro[k] = Get("mac" + (k + 1)) / 100.0;
         }
         for (int i = 0; i < 8; i++) { mSrc[i] = (int)Get("m" + (i + 1) + "s"); mDst[i] = (int)Get("m" + (i + 1) + "d"); mAmt[i] = Get("m" + (i + 1) + "a") / 100.0; }
         dstOn = Get("dston") > 0.5; chOn = Get("chon") > 0.5; dlOn = Get("dlon") > 0.5; rvOn = Get("rvon") > 0.5; bbOn = Get("bbon") > 0.5;
@@ -238,7 +241,7 @@ class SynthFx : InstrumentFx
         if (!legatoOverlap)
         {
             v.Time = 0; for (int i = 0; i < 4; i++) { v.Stage[i] = 1; if (!v.On) v.Env[i] = 0; }
-            for (int k = 0; k < 4; k++) { if (lp[k].Retrig) { v.Lfo[k] = lp[k].Phase; v.LfoSm[k] = 0; v.LfoHold[k] = RandBi(); } }
+            for (int k = 0; k < 4; k++) { if (lp[k].Retrig) { v.Lfo[k] = lp[k].Phase; v.LfoAcc[k] = 0; v.LfoSm[k] = 0; v.LfoHold[k] = RandBi(); } }
             for (int o = 0; o < 3; o++) for (int u = 0; u < 7; u++) v.Ph[o, u] = op[o].Phase + (u == 0 ? 0 : RandUni() * (op[o].Phase > 0 ? 0 : 1));
             if (!v.On) { Array.Clear(v.F, 0, v.F.Length); foreach (var c in v.Comb) Array.Clear(c, 0, c.Length); }
         }
@@ -290,7 +293,7 @@ class SynthFx : InstrumentFx
         var t = src == 0 ? Wavetables.Table(tbl) : Wavetables.ForSource(src); double pw = Wavetables.WarpPhase(warp, wamt, p); int mip = 1;
         return Wavetables.WarpOut(warp, wamt, t.Read(wt, pw, mip));
     }
-    static double LfoShape(int shape, double p, double hold)
+    public static double LfoShape(int shape, double p, double hold, LfoCurve curve)
     {
         switch (shape)
         {
@@ -300,10 +303,13 @@ class SynthFx : InstrumentFx
             case 3: return 1 - 2 * p;
             case 4: return p < 0.5 ? 1 : -1;
             case 5: return hold;
+            case 7: return curve.Read(p);
             default: return Math.Abs(Math.Sin(3.141592653589793 * p)) * 2 - 1;   // Wub: rectified sine, two humps per cycle
         }
     }
 
+    public double LfoPhaseUi(int k) { return Frac(gLfo[k] + lp[k].Phase); }   // where the LFO is now, for the playback marker
+    public double LfoHzUi(int k) { return LfoHz(k, Fx.ProjectBpm); }
     double LfoHz(int k, double bpm) { var l = lp[k]; if (l.Sync == 0) return l.Rate; return bpm / 60.0 / SynthTables.SyncBeats[l.Sync]; }
 
     // ---------------- rendering ----------------
@@ -359,9 +365,10 @@ class SynthFx : InstrumentFx
                 if (lf.Retrig)
                 {
                     double before = v.Lfo[k]; v.Lfo[k] = Frac(before + hz * dtc); if (v.Lfo[k] < before) v.LfoHold[k] = RandBi(); ph = v.Lfo[k];
+                    if (!lf.Loop) { v.LfoAcc[k] += hz * dtc; ph = Math.Min(0.99999, lf.Phase + v.LfoAcc[k]); }   // one-shot: play the shape once and hold its end
                 }
                 else { ph = Frac(gLfo[k] + lf.Phase); if (ph < Frac(gLfo[k] - hz * dtc + lf.Phase) && lf.Shape == 5) v.LfoHold[k] = RandBi(); }
-                double x = LfoShape(lf.Shape, ph, v.LfoHold[k]);
+                double x = LfoShape(lf.Shape, ph, v.LfoHold[k], LfoCurves[k]);
                 if (lf.Uni) x = (x + 1) * 0.5;
                 if (lf.Smooth > 0) { double a = 1 - Math.Exp(-dtc / (0.002 + lf.Smooth * 0.15)); v.LfoSm[k] += (x - v.LfoSm[k]) * a; x = v.LfoSm[k]; }
                 if (lf.Fade > 0) x *= Math.Min(1.0, v.Time * 1000.0 / lf.Fade);

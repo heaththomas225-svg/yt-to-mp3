@@ -7,10 +7,17 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.6.0";
+    public const string Latest = "3.7.0";
 
     public const string Text =
-@"3.6.0  Bass Lab: wavetables, mixer and filters
+@"3.7.0  Bass Lab: draw your own LFO
+ + NEW wavetable list now has Sine, Sawtooth, Square, Pulse 25% and Triangle. The Sub oscillator offers sine, triangle, square and saw.
+ + NEW LFO editor: click the picture to add points, drag them, right-click to delete, double-click to make a point round, drag the diamond between points to bend the line.
+ + NEW shape presets (sine, saw, stepped, random, three wobbles) you can reshape. Each of the 4 LFOs keeps its own drawn shape, saved with the patch.
+ + NEW one-shot mode (play the shape once and hold), snap-to-grid, and a marker that follows the real LFO while notes play.
+ + The picture shows exactly what moves the sound, including smoothing and unipolar range.
+
+3.6.0  Bass Lab: wavetables, mixer and filters
  + NEW wavetable oscillators: pick a source (sine, triangle, saw, square, pulses, organ...) or a wavetable (9 factory tables) and scan its frames with WAVE. Band-limited, so high notes stay clean.
  + NEW DRAW WAVE: draw your own waveform, or up to 8 frames to scan between. Saved with the patch.
  + NEW warp types (Sync, Bend, Fold, Mirror, Asym, Crush), FM and ring modulation between oscillators.
