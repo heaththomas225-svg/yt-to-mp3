@@ -15,7 +15,7 @@ class EchoFx : Fx
     static readonly string[] Modes = { "Mono", "Stereo", "Ping-pong", "Multi-tap", "Reverse" };
     float[] bl, br; int len, w; double dLs, dRs, envIn, duckG = 1, lfoPh, wowPh, wowV, wowT; Random rnd = new Random(9);
     Biquad hpf = new Biquad(), lpf = new Biquad(); float[][] ap = new float[4][]; int[] apw = new int[4]; int[] apLen = { 241, 383, 277, 421 };
-    int revCnt; int[] gws = new int[2]; double fbl, fbr; float[] wetL = new float[0], wetR = new float[0]; ReverbFx rv; int revInit;
+    int revCnt; int[] gws = new int[2]; double fbl, fbr; float[] wetL = new float[0], wetR = new float[0], tl2 = new float[0], tr2 = new float[0]; ReverbFx rv; int revInit;
     public EchoFx()
     {
         Type = "echo"; Title = "Echo"; Category = "Echo & Reverb";
@@ -41,7 +41,7 @@ class EchoFx : Fx
     public override void Process(float[] l, float[] r, int n)
     {
         CheckDirty(); int mode = (int)Get("mode"); double fb = Get("fb") / 100.0, sat = Get("sat") / 100.0, satD = 1 + sat * 3.5; double mix = Get("mix") / 100.0, duck = Get("duck") / 100.0, width = Get("width") / 100.0, dryG = Get("dry") / 100.0;
-        double modD = Get("mod") * 0.001 * SR, modR = Get("modr") / SR, wow = Get("wow") / 100.0 * 0.0016 * SR; double diff = Get("diff") / 100.0 * 0.6; double revA = Get("rev") / 100.0; double decay = Get("decay") / 100.0;
+        double modD = Get("mod") * 0.001 * SR, modR = Get("modr") / SR, wow = Get("wow") / 100.0 * 0.0016 * SR; double diff = Get("diff") / 100.0 * 0.6; double revA = Get("rev") / 100.0; double decay = Get("decay") / 100.0; double tapNorm = mode == 3 ? 1.0 / (1.0 + 0.9 * decay * decay) : 1.0; float mk = (float)(1 + sat * 0.6);
         double tgtL = Target(0), tgtR = Target(mode == 1 ? Get("offset") / 100.0 * 0.5 : 0); if (dLs == 0) { dLs = tgtL; dRs = tgtR; }
         double duckA = DspMath.Tc(5, SR), duckR = DspMath.Tc(Get("duckr"), SR); bool useDiff = diff > 0.01; bool filt = true;
         if (wetL.Length < n) { wetL = new float[n]; wetR = new float[n]; }
@@ -66,26 +66,28 @@ class EchoFx : Fx
             }
             else { oL = tl; oR = tr; }
             // what goes round the loop: filtered, saturated, smeared
+            if (!(Math.Abs(oL) < 16f)) oL = 0f; if (!(Math.Abs(oR) < 16f)) oR = 0f;
             float fL = oL, fR = oR;
             if (filt) { fL = lpf.TickL(hpf.TickL(fL)); fR = lpf.TickR(hpf.TickR(fR)); }
-            if (sat > 0) { fL = (float)(Math.Tanh(fL * satD) / satD * (1 + sat * 0.6)); fR = (float)(Math.Tanh(fR * satD) / satD * (1 + sat * 0.6)); }
+            if (sat > 0) { fL = (float)(Math.Tanh(fL * satD) / satD); fR = (float)(Math.Tanh(fR * satD) / satD); }
             if (useDiff) { fL = Allpass(0, Allpass(1, fL, (float)diff), (float)diff); fR = Allpass(2, Allpass(3, fR, (float)diff), (float)diff); }
-            float wl = fL, wr = fR; if (mode == 3) { wl = fL; wr = fR; }
+            float wl = fL * mk, wr = fR * mk;
             // write
             switch (mode)
             {
                 case 0: bl[w] = mono + (float)(fbl * fb); br[w] = mono + (float)(fbr * fb); break;
                 case 1: bl[w] = inL + (float)(fbl * fb); br[w] = inR + (float)(fbr * fb); break;
                 case 2: bl[w] = mono + (float)(fbr * fb); br[w] = (float)(fbl * fb); break;
+                case 3: bl[w] = mono + (float)(fbl * fb); br[w] = bl[w]; break;
                 default: bl[w] = inL + (float)(fbl * fb); br[w] = inR + (float)(fbr * fb); break;
             }
-            if (mode == 3) { fbl = fL; fbr = fR; } else { fbl = fL; fbr = fR; }
+            fbl = fL * tapNorm; fbr = fR * tapNorm;
             if (mode == 4) { fbl = fL * 0.5; fbr = fR * 0.5; }
             // ducking
             double ax = Math.Abs(mono); envIn = ax > envIn ? ax + (envIn - ax) * duckA : ax + (envIn - ax) * duckR; double tg = 1 - duck * Math.Min(1.0, envIn * 3.5); duckG += (tg - duckG) * 0.01;
             wetL[i] = (float)(wl * duckG); wetR[i] = (float)(wr * duckG); if (++w >= len) w = 0;
         }
-        if (revA > 0.001 && rv != null) { var tl2 = new float[n]; var tr2 = new float[n]; Array.Copy(wetL, tl2, n); Array.Copy(wetR, tr2, n); rv.BeginBlock(null, 0, n, true); rv.Process(tl2, tr2, n); for (int i = 0; i < n; i++) { wetL[i] += tl2[i] * (float)revA; wetR[i] += tr2[i] * (float)revA; } }
+        if (revA > 0.001 && rv != null) { if (tl2.Length < n) { tl2 = new float[n]; tr2 = new float[n]; } Array.Copy(wetL, tl2, n); Array.Copy(wetR, tr2, n); rv.BeginBlock(null, 0, n, true); rv.Process(tl2, tr2, n); for (int i = 0; i < n; i++) { float rvL = tl2[i] - wetL[i], rvR = tr2[i] - wetR[i]; wetL[i] += rvL * (float)revA; wetR[i] += rvR * (float)revA; } }
         for (int i = 0; i < n; i++)
         {
             float a = wetL[i], b = wetR[i]; if (Math.Abs(width - 1) > 0.01) { float m = (a + b) * 0.5f, s = (a - b) * 0.5f * (float)width; a = m + s; b = m - s; }
@@ -147,14 +149,20 @@ class ReverbFx : Fx
         for (int h = 1; h < 8; h <<= 1) for (int i = 0; i < 8; i += h << 1) for (int j = i; j < i + h; j++) { double x = a[j], z = a[j + h]; a[j] = x + z; a[j + h] = x - z; }
     }
     float Ap(int i, float x, float g) { var b = apb[i]; int L = (int)(ApLen[i] * SR / 44100.0); int rd = apw[i] - L; if (rd < 0) rd += b.Length; float d = b[rd]; float yy = -g * x + d; b[apw[i]] = x + g * yy; if (++apw[i] >= b.Length) apw[i] = 0; return yy; }
-    public override void Process(float[] l, float[] r, int n)
+    const int Chunk = 512; float[] chL = new float[Chunk], chR = new float[Chunk];
+    public override void Process(float[] l, float[] r, int n)   // fixed 512-sample chunks keep the shimmer feedback delay independent of the host block size
+    {
+        if (n <= Chunk) { ProcessChunk(l, r, n); return; }
+        for (int o = 0; o < n; o += Chunk) { int m = Math.Min(Chunk, n - o); Array.Copy(l, o, chL, 0, m); Array.Copy(r, o, chR, 0, m); ProcessChunk(chL, chR, m); Array.Copy(chL, 0, l, o, m); Array.Copy(chR, 0, r, o, m); }
+    }
+    void ProcessChunk(float[] l, float[] r, int n)
     {
         CheckDirty(); if (!built) Build(); int mode = (int)Get("mode"); double k = SR / 44100.0; double scale = ModeScale[mode] * (0.35 + Get("size") / 100.0 * 1.9);
         double dampA = 1 - Math.Exp(-2 * Math.PI * Get("damp") / SR); float diffG = (float)(Get("diff") / 100.0 * ModeDiff[mode] * 0.95); double modD = Get("mod") / 100.0 * 7 * k; double erL = Get("er") / 100.0, tailL = Get("tail") / 100.0; int preS = (int)(Get("pre") * 0.001 * SR);
         double mix = Get("mix") / 100.0, width = Get("width") / 100.0; bool gate = Get("gate") > 0.5f, rev = Get("rev") > 0.5f, frz = Get("freeze") > 0.5f; double duck = Get("duck") / 100.0; double shim = Get("shim") / 100.0;
         double gthr = Math.Pow(10, Get("gthr") / 20.0), gholdS = Get("ghold") * 0.001 * SR, grelA = DspMath.Tc(Get("grel"), SR), atkA = DspMath.Tc(3, SR); double duckA = DspMath.Tc(5, SR), duckR = DspMath.Tc(Get("duckr"), SR);
         int rtS = (int)Math.Max(2000, Math.Min(rbL.Length - 16, Get("rtime") * 0.001 * SR)); double spDrive = Get("spring") / 100.0; if (shBuf.Length < n) { shBuf = new float[n]; shBufR = new float[n]; tmpL = new float[n]; tmpR = new float[n]; }
-        double[] outL = new double[1], outR = new double[1];
+        double es = Math.Sqrt(Math.Max(0.3, scale)), tc60 = DspMath.Tc(60, SR);
         for (int i = 0; i < n; i++)
         {
             float inL = l[i], inR = r[i], mono = (inL + inR) * 0.5f; double wetL = 0, wetR = 0;
@@ -164,7 +172,7 @@ class ReverbFx : Fx
             erB[erW] = mono; double eL = 0, eR = 0; if (erL > 0.001)
                 for (int t = 0; t < 8; t++)
                 {
-                    double es = Math.Sqrt(Math.Max(0.3, scale)); int a = (int)(erTL[t] * es * 0.001 * SR), b = (int)(erTR[t] * es * 0.001 * SR); a = Math.Min(a, erB.Length - 2); b = Math.Min(b, erB.Length - 2); int ra = erW - a; if (ra < 0) ra += erB.Length; int rb = erW - b; if (rb < 0) rb += erB.Length; eL += erB[ra] * erG[t]; eR += erB[rb] * erG[t];
+                    int a = (int)(erTL[t] * es * 0.001 * SR), b = (int)(erTR[t] * es * 0.001 * SR); a = Math.Min(a, erB.Length - 2); b = Math.Min(b, erB.Length - 2); int ra = erW - a; if (ra < 0) ra += erB.Length; int rb = erW - b; if (rb < 0) rb += erB.Length; eL += erB[ra] * erG[t]; eR += erB[rb] * erG[t];
                 }
             if (++erW >= erB.Length) erW = 0; eL *= erL * 0.5; eR *= erL * 0.5;
             if (tailL > 0.001 && mode != 4)
@@ -177,7 +185,7 @@ class ReverbFx : Fx
                     double v = Dsp2.Hermite(ln[j], ln[j].Length, rp); lpS[j] += dampA * (v - lpS[j]); y[j] = lpS[j] * gain[j];
                     wetL += y[j] * ((j & 1) == 0 ? 1 : -1) * (j < 4 ? 1 : -1 * 0 + 1) * 0.5; wetR += y[j] * ((j & 2) == 0 ? 1 : -1) * 0.5;
                 }
-                double[] t8 = (double[])y.Clone(); Wht8(t8); double hn = 0.35355339;
+                Wht8(y); double[] t8 = y; double hn = 0.35355339;
                 for (int j = 0; j < NL; j++) { double z = t8[j] * hn + xi * (j % 2 == 0 ? 0.5 : 0.45) * (frz ? 0 : 1); if (z > 8) z = 8; if (z < -8) z = -8; ln[j][wp[j]] = (float)z; if (++wp[j] >= ln[j].Length) wp[j] = 0; }
                 wetL *= 0.6; wetR *= 0.6;
             }
@@ -193,7 +201,7 @@ class ReverbFx : Fx
             }
             wetL = wetL * tailL + eL; wetR = wetR * tailL + eR;
             // gate (reverb of a snare cut off short)
-            double ax = Math.Abs(mono); envI = ax > envI ? ax + (envI - ax) * atkA : ax + (envI - ax) * DspMath.Tc(60, SR);
+            double ax = Math.Abs(mono); envI = ax > envI ? ax + (envI - ax) * atkA : ax + (envI - ax) * tc60;
             if (gate) { if (envI > gthr) { hold = gholdS; gateG += (1 - gateG) * 0.05; } else if (hold > 0) { hold -= 1; gateG += (1 - gateG) * 0.05; } else gateG *= grelA; wetL *= gateG; wetR *= gateG; }
             // reverse tail
             if (rev)
@@ -213,7 +221,7 @@ class ReverbFx : Fx
             if (Math.Abs(width - 1) > 0.01) { float m = (a + b) * 0.5f, s = (a - b) * 0.5f * (float)width; a = m + s; b = m - s; }
             l[i] = Dsp2.Sanitize(l[i] + a * (float)mix); r[i] = Dsp2.Sanitize(r[i] + b * (float)mix);
         }
-        if (shim > 0 && sh != null) { var cl = new float[n]; var cr = new float[n]; Array.Copy(tmpL, cl, n); Array.Copy(tmpR, cr, n); sh.BeginBlock(null, 0, n, true); sh.Process(cl, cr, n); for (int i = 0; i < n; i++) shBuf[i] = (cl[i] + cr[i]) * 0.5f; }
+        if (shim > 0 && sh != null) { sh.BeginBlock(null, 0, n, true); sh.Process(tmpL, tmpR, n); for (int i = 0; i < n; i++) shBuf[i] = (tmpL[i] + tmpR[i]) * 0.5f; }
     }
 }
 
@@ -275,6 +283,7 @@ class Convolver
             Fft.Transform(re, im, false); hRe[p] = re; hIm[p] = im; xRe[p] = new double[2 * P]; xIm[p] = new double[2 * P];
         }
     }
+    public void Reset() { for (int p = 0; p < parts; p++) { Array.Clear(xRe[p], 0, 2 * P); Array.Clear(xIm[p], 0, 2 * P); } Array.Clear(tail, 0, P); xi = 0; }
     // one block of exactly P samples
     public void Process(float[] inB, float[] outB)
     {
@@ -295,7 +304,7 @@ class Convolver
 class ConvFx : Fx
 {
     class Rig { public Convolver cl, cr; }
-    volatile Rig rig; volatile int version; int builtVersion = -1; string userPath = ""; string loadedSig = "";
+    volatile Rig rig; volatile int version; int builtVersion = -1; string userPath = ""; string loadedSig = ""; volatile ManualResetEventSlim pending;
     float[] inL = new float[Convolver.P], inR = new float[Convolver.P], outL = new float[Convolver.P], outR = new float[Convolver.P], oqL = new float[Convolver.P], oqR = new float[Convolver.P], dryL = new float[Convolver.P], dryR = new float[Convolver.P]; int fill; int rd; bool primed;
     Biquad lc = new Biquad(), hc = new Biquad(); public string IrNote = "";
     public ConvFx()
@@ -316,7 +325,7 @@ class ConvFx : Fx
     protected override void Update()
     {
         lc.Set(Biquad.HighPass, SR, Get("lc"), 0.7071, 0); hc.Set(Biquad.LowPass, SR, Math.Min(Get("hc"), SR * 0.45), 0.7071, 0);
-        string sig = (int)Get("ir") + "|" + (int)Get("len") + "|" + (int)Get("pre") + "|" + SR + "|" + userPath; if (sig == loadedSig) return; loadedSig = sig; int v = ++version; int idx = (int)Get("ir"); double lenP = Get("len") / 100.0; double pre = Get("pre"); int sr = SR; string path = userPath;
+        string sig = (int)Get("ir") + "|" + (int)Get("len") + "|" + (int)Get("pre") + "|" + SR + "|" + userPath; if (sig == loadedSig) return; loadedSig = sig; int v = ++version; int idx = (int)Get("ir"); double lenP = Get("len") / 100.0; double pre = Get("pre"); int sr = SR; string path = userPath; var pend = new ManualResetEventSlim(false); pending = pend;
         ThreadPool.QueueUserWorkItem(o =>
         {
             try
@@ -330,12 +339,14 @@ class ConvFx : Fx
                 else { IrLib.Make(idx, sr, out L, out R); IrNote = IrLib.Names[idx]; if (sr != 44100 && false) { } }
                 int n = Math.Max(Convolver.P, (int)(L.Length * lenP)); int p = (int)(pre * 0.001 * sr); var a = new float[n + p]; var b = new float[n + p];
                 for (int i = 0; i < n && i < L.Length; i++) { float f = i > n * 0.85 ? (float)((n - i) / (n * 0.15)) : 1f; a[i + p] = L[i] * f; b[i + p] = R[i] * f; }
-                if (v != version) return; rig = new Rig { cl = new Convolver(a), cr = new Convolver(b) };
+                if (v != version) return; var nr = new Rig { cl = new Convolver(a), cr = new Convolver(b) }; if (v == version) rig = nr;
             }
-            catch (Exception ex) { IrNote = "Error: " + ex.Message; }
+            catch (Exception ex) { IrNote = "Error: " + ex.Message; loadedSig = ""; }
+            finally { pend.Set(); }
         });
     }
-    public override void Reset() { base.Reset(); fill = 0; rd = 0; primed = false; Array.Clear(outL, 0, outL.Length); Array.Clear(outR, 0, outR.Length); Array.Clear(oqL, 0, oqL.Length); Array.Clear(oqR, 0, oqR.Length); Array.Clear(dryL, 0, dryL.Length); Array.Clear(dryR, 0, dryR.Length); lc.Reset(); hc.Reset(); loadedSig = ""; MarkDirty(); }
+    public override void PrepareOffline() { CheckDirty(); var e = pending; if (e != null) e.Wait(); }
+    public override void Reset() { base.Reset(); fill = 0; rd = 0; primed = false; Array.Clear(outL, 0, outL.Length); Array.Clear(outR, 0, outR.Length); Array.Clear(oqL, 0, oqL.Length); Array.Clear(oqR, 0, oqR.Length); Array.Clear(dryL, 0, dryL.Length); Array.Clear(dryR, 0, dryR.Length); lc.Reset(); hc.Reset(); var rg = rig; if (rg != null) { rg.cl.Reset(); rg.cr.Reset(); } }
     public override void Process(float[] l, float[] r, int n)
     {
         CheckDirty(); var rg = rig; float wet = (float)(Get("mix") / 100.0), dry = (float)(Get("dry") / 100.0); double width = Get("width") / 100.0; int P = Convolver.P;
