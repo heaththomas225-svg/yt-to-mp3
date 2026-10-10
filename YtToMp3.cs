@@ -37,7 +37,7 @@ class Job
 partial class App : Form
 {
     // ---- Auto-update settings ----
-    const string Version = "3.0.11";
+    const string Version = "3.0.12";
     // Plain-text manifest: line 1 = newest version, line 2 = direct exe download URL.
     const string UpdateManifestUrl = "https://raw.githubusercontent.com/heaththomas225-svg/yt-to-mp3/main/version.txt";
 
@@ -417,6 +417,7 @@ partial class App : Form
     }
 
     // ---------- animation ----------
+    int idleTick;
     volatile bool moving;   // true while the window is being dragged or resized: no animation work then, so dragging stays as smooth as any native window
     protected override void WndProc(ref Message m)
     {
@@ -427,7 +428,8 @@ partial class App : Form
 
     void Tick()
     {
-        double now = clock.Elapsed.TotalMilliseconds; if (moving || Win.AnyMoving) { lastClock = now; return; } float dt = (float)Math.Min(0.05, Math.Max(0.0005, (now - lastClock) / 1000.0)); lastClock = now;
+        double now = clock.Elapsed.TotalMilliseconds; if (moving || Win.AnyMoving) { lastClock = now; return; }
+        if (ActiveForm != this && ActiveForm != null && (++idleTick % 4) != 0) { lastClock = now; return; } float dt = (float)Math.Min(0.05, Math.Max(0.0005, (now - lastClock) / 1000.0)); lastClock = now;
         t += dt; float k30 = dt * 30f;   // the motion constants below were tuned per 1/30 s
         if (animate.Checked)
         {

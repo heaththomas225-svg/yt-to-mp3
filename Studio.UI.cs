@@ -108,7 +108,8 @@ partial class StudioForm : Form
         if (ClientSize.Width != lastW || ClientSize.Height != lastH) { lastW = ClientSize.Width; lastH = ClientSize.Height; lastFrame = now; return true; }
         bool anim = eng.Playing || busy || browserOpen || dragReg != null || (now - lastInput).TotalMilliseconds < 600 || (now - toastAt).TotalSeconds < 3.7;
         double gap = (now - lastFrame).TotalMilliseconds;
-        if (!(anim ? gap >= 30 : gap >= 250)) return false;
+        // a slow computer redraws less often (paint time x3) so the window never starves the audio
+        if (!(anim ? gap >= Math.Max(30, Math.Min(250, paintMs * 3)) : gap >= 250)) return false;
         lastFrame = now; return true;
     }
     // Smooth playhead: the audio position moves in 23 ms blocks and runs ahead of what you hear, so the needle is a clock that follows it.
@@ -119,7 +120,7 @@ partial class StudioForm : Form
         double nowS = playClock.Elapsed.TotalSeconds, dt = Math.Min(0.1, nowS - lastClockS); lastClockS = nowS;
         if (eng.Playing)
         {
-            double target = Math.Max(0, eng.Pos - 3600);
+            double target = Math.Max(0, eng.Pos - WaveOutPlayer.QueuedFrames + 512);
             if (Math.Abs(dispPos - target) > 9000) dispPos = target;
             else { dispPos += dt * StudioEngine.SR; dispPos += (target - dispPos) * Math.Min(1.0, dt * 8); }
         }
@@ -140,6 +141,16 @@ partial class StudioForm : Form
     void Tick()
     {
         UpdatePlayhead();
+        if (eng.Playing)
+        {
+            int u = WaveOutPlayer.Underruns;
+            if ((DateTime.Now - underSince).TotalSeconds > 6) { underSince = DateTime.Now; lastUnder = u; }
+            else if (u - lastUnder >= 3 && Prefs.Buf < 2)
+            {
+                Prefs.Buf++; lastUnder = u; underSince = DateTime.Now; eng.ReopenOutput(); Prefs.Changed();
+                Toast("The sound was breaking up, so I made the playback buffer bigger (Settings > Audio).");
+            }
+        }
         if (eng.Playing)
         {
             float w = TimelineRect().Width; long x = (long)((DispPos - scroll) / spp);
@@ -231,14 +242,16 @@ partial class StudioForm : Form
     static string Db(double v) { return double.IsNaN(v) || v < -99 ? "-inf" : v.ToString("0.0", CultureInfo.InvariantCulture); }
 
     // ---------------- main paint ----------------
-    int paintErrors;
+    int paintErrors; double paintMs = 8; int lastUnder; DateTime underSince = DateTime.Now;
     protected override void OnPaint(PaintEventArgs e)
     {
         // Background jobs (Auto Mix, separation, presets) change the track and effect lists while we draw; a stale index must never reach the user as a crash.
+        var pw = System.Diagnostics.Stopwatch.StartNew();
         try { PaintAll(e); }
         catch (ArgumentException) { paintErrors++; }
         catch (InvalidOperationException) { paintErrors++; }
         catch (NullReferenceException) { paintErrors++; }
+        paintMs = paintMs * 0.8 + pw.Elapsed.TotalMilliseconds * 0.2;
     }
 
     void PaintAll(PaintEventArgs e)

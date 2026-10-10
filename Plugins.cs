@@ -14,7 +14,7 @@ using System.Windows.Forms;
 //  disabled again automatically if the file changes). A crashing plugin is switched off, not the app.
 // ======================================================================
 public class PluginInfo
-{
+{ public bool Native;
     public string File = "", Hash = "", Name = "", Error = ""; public bool Enabled, Loaded; public List<string> Types = new List<string>();
 }
 
@@ -50,6 +50,7 @@ public static class PluginHost
             {
                 var p = new PluginInfo { File = Path.GetFileName(f), Name = Path.GetFileNameWithoutExtension(f) };
                 try { p.Hash = HashOf(f); } catch (Exception ex) { p.Error = ex.Message; }
+                try { AssemblyName.GetAssemblyName(f); } catch (BadImageFormatException) { p.Native = true; } catch { }   // VST / native audio plugins are not .NET
                 string h; p.Enabled = ap.TryGetValue(p.File, out h) && h == p.Hash;
                 PluginInfo l; if (loaded.TryGetValue(p.File, out l) && l.Hash == p.Hash) { p.Loaded = true; p.Types = l.Types; }
                 list.Add(p);
@@ -61,6 +62,7 @@ public static class PluginHost
 
     public static void SetEnabled(PluginInfo p, bool on)
     {
+        if (p.Native) return;
         var ap = ReadApprovals(); if (on) ap[p.File] = p.Hash; else ap.Remove(p.File); WriteApprovals(ap); p.Enabled = on;
     }
 
@@ -70,6 +72,7 @@ public static class PluginHost
         var log = new List<string>();
         foreach (var p in Scan())
         {
+            if (p.Native) continue;
             if (!p.Enabled || p.Loaded) continue;
             try
             {
@@ -201,6 +204,10 @@ class PluginManagerForm : Form
         if (ps.Count == 0) list.Controls.Add(new Label { Text = "No plugins found yet. Folder: " + PluginHost.Dir, Left = 8, Top = 8, Width = 620, Height = 40, ForeColor = Color.FromArgb(170, 150, 200) });
         foreach (var p in ps)
         {
+            if (p.Native)
+            {
+                list.Controls.Add(new Label { Left = 8, Top = y, Width = 640, Height = 54, ForeColor = Color.FromArgb(255, 170, 120), Text = p.Name + "  -  this is a VST / native audio plugin (for example a synth like Vital). It can NOT be used here: this app only loads its own .NET effect plugins. It is safe to delete the file." }); y += 60; continue;
+            }
             var cb = new DarkCheck { Left = 6, Top = y, Width = 640, Height = 30, Checked = p.Enabled, Text = p.Name + (p.Loaded ? "   (ready: Music Studio > + Add Effect > PLUGINS)" : (p.Enabled ? "   (approved: press Reload)" : "   (not approved)")) + (p.Error.Length > 0 ? "   ERROR: " + p.Error : "") };
             var pi = p; cb.CheckedChanged += (s, e) =>
             {

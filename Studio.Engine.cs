@@ -600,7 +600,10 @@ class WaveOutPlayer : IDisposable
     [DllImport("winmm.dll")] static extern int waveOutWrite(IntPtr h, IntPtr hdr, int size);
     [DllImport("winmm.dll")] static extern int waveOutReset(IntPtr h);
     [DllImport("winmm.dll")] static extern int waveOutClose(IntPtr h);
-    const int CALLBACK_EVENT = 0x50000, WHDR_DONE = 1, Buffers = 4;
+    const int CALLBACK_EVENT = 0x50000, WHDR_DONE = 1;
+    public static volatile int Underruns;       // times the sound card ran out of audio (heard as stutter)
+    public static volatile int QueuedFrames = 4096;   // audio waiting in the buffers: how far the sound lags behind the render position
+    readonly int Buffers = Prefs.Buf == 0 ? 4 : 8;   // more, smaller buffers: the same 23 ms steps but much more slack when the computer is busy
     public static volatile float Gain = 1f;   // playback volume from Settings (exports are not affected)
     public static int Device { get { return Prefs.OutDev; } }
     readonly int Frames = Prefs.Buf == 0 ? 512 : (Prefs.Buf == 2 ? 2048 : 1024);
@@ -614,10 +617,10 @@ class WaveOutPlayer : IDisposable
         return l;
     }
 
-    Action<float[], float[], int> render; IntPtr hwo; IntPtr[] hdrs = new IntPtr[Buffers], data = new IntPtr[Buffers];
+    Action<float[], float[], int> render; IntPtr hwo; IntPtr[] hdrs, data;
     ManualResetEvent ev = new ManualResetEvent(false); Thread th; volatile bool run; float[] fl, fr; short[] tmp;
 
-    public WaveOutPlayer(Action<float[], float[], int> render) { this.render = render; fl = new float[Frames]; fr = new float[Frames]; tmp = new short[Frames * 2]; }
+    public WaveOutPlayer(Action<float[], float[], int> render) { this.render = render; hdrs = new IntPtr[Buffers]; data = new IntPtr[Buffers]; QueuedFrames = Buffers * Frames; fl = new float[Frames]; fr = new float[Frames]; tmp = new short[Frames * 2]; }
 
     public void Start()
     {
@@ -631,7 +634,7 @@ class WaveOutPlayer : IDisposable
             Marshal.StructureToPtr(h, hdrs[i], false); waveOutPrepareHeader(hwo, hdrs[i], Marshal.SizeOf(typeof(WAVEHDR)));
             Fill(i);
         }
-        run = true; th = new Thread(Loop) { IsBackground = true, Priority = ThreadPriority.AboveNormal }; th.Start();
+        run = true; th = new Thread(Loop) { IsBackground = true, Priority = ThreadPriority.Highest, Name = "audio" }; th.Start();
     }
 
     void Fill(int i)
@@ -653,6 +656,8 @@ class WaveOutPlayer : IDisposable
         while (run)
         {
             ev.WaitOne(30); ev.Reset();
+            int ready = 0; for (int i = 0; i < Buffers; i++) { var hh = (WAVEHDR)Marshal.PtrToStructure(hdrs[i], typeof(WAVEHDR)); if ((hh.dwFlags & WHDR_DONE) != 0) ready++; }
+            if (ready >= Buffers) Underruns++;   // every buffer had already been played: the sound card was starved
             for (int i = 0; i < Buffers && run; i++)
             {
                 var h = (WAVEHDR)Marshal.PtrToStructure(hdrs[i], typeof(WAVEHDR));
