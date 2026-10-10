@@ -335,7 +335,7 @@ partial class App : Form
         WaveOutPlayer.Gain = Prefs.OutVol / 100f;
         if (!Prefs.ShowFps) Text = "Purphex  v" + Version;
         if (!UserBackground.Active) UserBackground.StopVideo();
-        bg.Invalidate(); SaveSettings();
+        bg.Invalidate(); RequestSave();
     }
     internal string DataFolder { get { Directory.CreateDirectory(AppData); return AppData; } }
     internal static string FfmpegPath() { return FfmpegExe(); }
@@ -349,6 +349,15 @@ partial class App : Form
 
     // ---------- settings ----------
     bool loading = true;   // suppress saves while settings are being applied
+
+    // Debounced save for things that change many times in a row (typing, slider drags).
+    System.Windows.Forms.Timer saveTimer;
+    internal void RequestSave()
+    {
+        if (loading) return;
+        if (saveTimer == null) { saveTimer = new System.Windows.Forms.Timer { Interval = 500 }; saveTimer.Tick += (s, e) => { saveTimer.Stop(); SaveSettings(); }; }
+        saveTimer.Stop(); saveTimer.Start();
+    }
 
     internal void SaveSettings()
     {
@@ -375,9 +384,8 @@ partial class App : Form
         fmt.SelectedIndexChanged += h; sr.SelectedIndexChanged += h; nameFmt.SelectedIndexChanged += h;
         norm.CheckedChanged += h; playlist.CheckedChanged += h;
         openDone.CheckedChanged += h; animate.CheckedChanged += h;
-        outDir.TextChanged += h;
+        outDir.TextChanged += (s, e) => RequestSave();
         ResizeEnd += h;
-        LocationChanged += (s, e) => { if (WindowState == FormWindowState.Normal) SaveSettings(); };
     }
 
     void LoadSettings()
@@ -440,9 +448,11 @@ partial class App : Form
 
     void Tick()
     {
-        double now = clock.Elapsed.TotalMilliseconds; if (moving || Win.AnyMoving) { lastClock = now; return; }
+        double now = clock.Elapsed.TotalMilliseconds; minimizedNow = WindowState == FormWindowState.Minimized;
+        if (minimizedNow) { lastClock = now; reqW = reqH = 0; UserBackground.StopVideo(); return; }
+        if (moving || Win.AnyMoving) { lastClock = now; return; }
         if (ActiveForm != this && ActiveForm != null && (++idleTick % 4) != 0) { lastClock = now; return; } float dt = (float)Math.Min(0.05, Math.Max(0.0005, (now - lastClock) / 1000.0)); lastClock = now;
-        t += dt; float k30 = dt * 30f;   // the motion constants below were tuned per 1/30 s
+        if (animate.Checked) t += dt; float k30 = dt * 30f;   // the motion constants below were tuned per 1/30 s
         if (animate.Checked)
         {
             foreach (var l in leaves)
@@ -551,7 +561,7 @@ partial class App : Form
     static string FindFile(string dir, string name)
     {
         if (!Directory.Exists(dir)) return null;
-        foreach (var f in Directory.GetFiles(dir, name, SearchOption.AllDirectories)) return f;
+        foreach (var f in Directory.EnumerateFiles(dir, name, SearchOption.AllDirectories)) return f;
         return null;
     }
 
@@ -967,11 +977,12 @@ partial class App : Form
     string dismissedVer = "";
     volatile bool updating = false;
 
+    volatile bool minimizedNow;
     void UpdateLoop()
     {
         while (true)
         {
-            try { CheckForUpdate(); } catch { }
+            try { if (!minimizedNow) CheckForUpdate(); } catch { }
             Thread.Sleep(UpdateCheckSeconds * 1000);
         }
     }
