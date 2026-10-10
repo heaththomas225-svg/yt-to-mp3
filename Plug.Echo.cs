@@ -304,7 +304,7 @@ class Convolver
 class ConvFx : Fx
 {
     class Rig { public Convolver cl, cr; }
-    volatile Rig rig; volatile int version; int builtVersion = -1; string userPath = ""; string loadedSig = "";
+    volatile Rig rig; volatile int version; int builtVersion = -1; string userPath = ""; string loadedSig = ""; volatile ManualResetEventSlim pending;
     float[] inL = new float[Convolver.P], inR = new float[Convolver.P], outL = new float[Convolver.P], outR = new float[Convolver.P], oqL = new float[Convolver.P], oqR = new float[Convolver.P], dryL = new float[Convolver.P], dryR = new float[Convolver.P]; int fill; int rd; bool primed;
     Biquad lc = new Biquad(), hc = new Biquad(); public string IrNote = "";
     public ConvFx()
@@ -325,7 +325,7 @@ class ConvFx : Fx
     protected override void Update()
     {
         lc.Set(Biquad.HighPass, SR, Get("lc"), 0.7071, 0); hc.Set(Biquad.LowPass, SR, Math.Min(Get("hc"), SR * 0.45), 0.7071, 0);
-        string sig = (int)Get("ir") + "|" + (int)Get("len") + "|" + (int)Get("pre") + "|" + SR + "|" + userPath; if (sig == loadedSig) return; loadedSig = sig; int v = ++version; int idx = (int)Get("ir"); double lenP = Get("len") / 100.0; double pre = Get("pre"); int sr = SR; string path = userPath;
+        string sig = (int)Get("ir") + "|" + (int)Get("len") + "|" + (int)Get("pre") + "|" + SR + "|" + userPath; if (sig == loadedSig) return; loadedSig = sig; int v = ++version; int idx = (int)Get("ir"); double lenP = Get("len") / 100.0; double pre = Get("pre"); int sr = SR; string path = userPath; var pend = new ManualResetEventSlim(false); pending = pend;
         ThreadPool.QueueUserWorkItem(o =>
         {
             try
@@ -342,8 +342,10 @@ class ConvFx : Fx
                 if (v != version) return; var nr = new Rig { cl = new Convolver(a), cr = new Convolver(b) }; if (v == version) rig = nr;
             }
             catch (Exception ex) { IrNote = "Error: " + ex.Message; loadedSig = ""; }
+            finally { pend.Set(); }
         });
     }
+    public override void PrepareOffline() { CheckDirty(); var e = pending; if (e != null) e.Wait(); }
     public override void Reset() { base.Reset(); fill = 0; rd = 0; primed = false; Array.Clear(outL, 0, outL.Length); Array.Clear(outR, 0, outR.Length); Array.Clear(oqL, 0, oqL.Length); Array.Clear(oqR, 0, oqR.Length); Array.Clear(dryL, 0, dryL.Length); Array.Clear(dryR, 0, dryR.Length); lc.Reset(); hc.Reset(); var rg = rig; if (rg != null) { rg.cl.Reset(); rg.cr.Reset(); } }
     public override void Process(float[] l, float[] r, int n)
     {
