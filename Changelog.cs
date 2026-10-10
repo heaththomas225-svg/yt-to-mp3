@@ -7,10 +7,14 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.14.0";
+    public const string Latest = "3.14.1";
 
     public const string Text =
-@"3.14.0  Purphex
+@"3.14.1  The program is called Purphex Music
+ + The program file is now Purphex Music.exe. When an older copy updates itself, it also leaves a Purphex Music.exe next to it (your shortcut keeps working).
+ + Behind the scenes: the sound library engine (used for the coming Purphex Sounds) and a steadier filter for sound design.
+
+3.14.0  Purphex
  + NEW the Purphex emblem is the program icon, the default profile picture and the logo in the main window.
  + The app is simply called Purphex now.
  + One MP3 choice: the duplicate MP3 V0 entry is gone, MP3 320 kbps stays (your saved format choice is carried over).
