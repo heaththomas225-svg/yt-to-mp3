@@ -109,7 +109,7 @@ partial class StudioForm
         if (t == null || t.Clip == null) { Toast("Select an audio track first."); return; } long rel = at - t.Offset, used = t.UsedLength;
         if (rel < 800 || rel > used - 800) { Toast("Put the needle inside the clip first (click the ruler), then trim."); return; }
         PushUndo();
-        if (start) { t.Offset = at; t.ClipStart += rel; t.ClipFrames = t.ClipFrames < 0 ? -1 : used - rel; }
+        if (start) { lock (eng.Sync) { t.Offset = at; t.ClipStart += rel; t.ClipFrames = t.ClipFrames < 0 ? -1 : used - rel; } }
         else t.ClipFrames = rel;
         Toast(start ? "Start trimmed" : "End trimmed");
     }
@@ -171,7 +171,7 @@ partial class StudioForm
         if (laneMode == 2)
         {
             long newStart = Snap(l0Offset + delta); long d = newStart - l0Offset; d = Math.Max(-l0ClipStart, Math.Min(l0Used - 1000, d)); if (l0Offset + d < 0) d = -l0Offset;
-            tr.Offset = l0Offset + d; tr.ClipStart = l0ClipStart + d; tr.ClipFrames = l0ClipFrames < 0 ? -1 : l0Used - d;
+            lock (eng.Sync) { tr.Offset = l0Offset + d; tr.ClipStart = l0ClipStart + d; tr.ClipFrames = l0ClipFrames < 0 ? -1 : l0Used - d; }
         }
         else
         {

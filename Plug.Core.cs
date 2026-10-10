@@ -172,7 +172,7 @@ static class Dsp2
 {
     public static readonly string[] SyncNames = { "Free", "1/1", "1/2", "1/2 dotted", "1/4", "1/4 dotted", "1/4 triplet", "1/8", "1/8 dotted", "1/8 triplet", "1/16", "1/16 dotted", "1/16 triplet", "1/32" };
     public static readonly double[] SyncBeats = { 0, 4, 2, 3, 1, 1.5, 2.0 / 3.0, 0.5, 0.75, 1.0 / 3.0, 0.25, 0.375, 1.0 / 6.0, 0.125 };
-    public static double BeatsToSec(double beats) { return 60.0 / Math.Max(20, Fx.ProjectBpm) * beats; }
+    public static double BeatsToSec(double beats) { return 60.0 / Math.Max(20, Fx.Bpm) * beats; }
     public static float Sanitize(float v) { return float.IsNaN(v) || float.IsInfinity(v) ? 0f : v; }
     public static float Hermite(float[] b, int len, double pos)   // 4-point cubic read from a circular buffer (pos = fractional index)
     {
@@ -271,7 +271,7 @@ abstract class SyncFx : Fx
 {
     protected long bp; protected bool tr; protected long freeCnt;
     public override void BeginBlock(object track, long pos, int n, bool transport) { bp = pos; tr = transport; }
-    protected double BeatAt(int i) { long s = tr ? bp + i : freeCnt + i; return s / (double)SR * Math.Max(20, Fx.ProjectBpm) / 60.0; }
+    protected double BeatAt(int i) { long s = tr ? bp + i : freeCnt + i; return s / (double)SR * Math.Max(20, Fx.Bpm) / 60.0; }
     protected void EndBlock(int n) { freeCnt += n; }
     protected static uint Hash(uint a, uint b) { uint h = a * 2654435761u ^ (b + 0x9E3779B9u) * 2246822519u; h ^= h >> 15; h *= 2246822519u; h ^= h >> 13; h *= 3266489917u; h ^= h >> 16; return h; }
     protected static double U01(uint h) { return (h & 0xFFFFFF) / 16777216.0; }
