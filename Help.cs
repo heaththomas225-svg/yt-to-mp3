@@ -283,8 +283,11 @@ Open + Add Effect on a track and pick it under PLUGINS (it is listed first). Pre
 - Drag the left or right END of a clip to shorten it. The audio is never deleted, you can drag it back out.
 - Or put the needle inside the clip and press TRIM < (cuts the start off here) or TRIM > (cuts the end off here).
 ## Move a clip
-Drag the clip by its name bar (the top strip with the name) left or right.
+Drag the clip anywhere left or right (the cursor turns into a move cross). A plain click still just puts the needle there.
+## Move a track up or down
+Drag the track name on the left up or down, or use the Up and Dn buttons on the selected track.
 ## More
+- The selected track has a row of buttons at its top right: Up, Dn (change the row), << and >> (move the clip one grid step), Split, <Trim, Trim>, Copy and Del. Point at any button, clip end or clip to see what it does.
 - Right-click a track for split, trim, duplicate, rename and delete.
 - DUP copies the selected track, DEL deletes it (key Delete). UNDO / REDO (Ctrl+Z / Ctrl+Y) bring edits back.
 ## Tempo and grid

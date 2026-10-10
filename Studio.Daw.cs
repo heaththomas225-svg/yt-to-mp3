@@ -99,7 +99,7 @@ partial class StudioForm
         if (t.Clip == null || t.Instrument) { Toast("Splitting works on audio tracks."); return; }
         long rel = at - t.Offset, used = t.UsedLength; if (rel < 800 || rel > used - 800) { Toast("Move the needle into the clip first (click on the track), then split."); return; }
         PushUndo(); var right = CloneTrack(t, " (2)"); right.Offset = at; right.ClipStart = t.ClipStart + rel; right.ClipFrames = used - rel; t.ClipFrames = rel;
-        InsertAfter(t, right); Toast("Split in two. Drag the name bar to move a piece, drag its ends to trim.");
+        InsertAfter(t, right); Toast("Split in two. Drag a piece to move it, drag its ends to trim.");
     }
     void TrimStartHere(Track t) { TrimAt(t, Snap(DispPos), true); }
     void TrimEndHere(Track t) { TrimAt(t, Snap(DispPos), false); }
@@ -125,11 +125,29 @@ partial class StudioForm
     void DisposeRetired() { foreach (var f in retired) { var d = f as IDisposable; if (d != null) { try { d.Dispose(); } catch { } } } retired.Clear(); }
 
     // ---------- mouse on a lane: seek, move the clip (name bar), trim (ends) ----------
-    int laneMode; PointF laneStart; long l0Offset, l0ClipStart, l0ClipFrames, l0Used;
+    int laneMode; bool laneMoved; PointF laneStart; long l0Offset, l0ClipStart, l0ClipFrames, l0Used;
+    // 0 = empty space (seek), 1 = on the clip (move), 2 = left end (trim start), 3 = right end (trim end)
+    int ZoneAt(Track tr, RectangleF lane, PointF p)
+    {
+        if (tr.Clip == null || tr.Instrument || !lane.Contains(p)) return 0;
+        float x0 = lane.X + (float)((tr.Offset - scroll) / spp), x1 = x0 + (float)(tr.UsedLength / spp), w = x1 - x0;
+        if (w > 20 && Math.Abs(p.X - x0) <= 8) return 2; if (w > 20 && Math.Abs(p.X - x1) <= 8) return 3; if (p.X > x0 && p.X < x1 && p.Y > lane.Y + 4 && p.Y < lane.Bottom - 4) return 1; return 0;
+    }
+    static readonly string[] ZoneText = { "Click: put the needle here", "Drag: move this clip", "Drag: trim the start", "Drag: trim the end" };
+    internal Cursor CursorAt(PointF p)
+    {
+        if (tab != 0 || busy || browserOpen) return Cursors.Default; float top = ToolH + TransH + RulerH - vscroll; var tl = TimelineRect();
+        for (int i = 0; i < eng.Tracks.Count; i++)
+        {
+            var lane = Rc(HeadW, top + i * LaneH, tl.Width, LaneH); if (!lane.Contains(p)) continue;
+            int z = ZoneAt(eng.Tracks[i], lane, p); if (laneMode != 0 && dragReg != null) z = laneMode; return z == 1 ? Cursors.SizeAll : (z >= 2 ? Cursors.SizeWE : Cursors.IBeam);
+        }
+        if (p.X < HeadW && p.Y > top) return Cursors.Hand; return Cursors.Default;
+    }
     HitReg LaneReg(RectangleF lane, Track tr)
     {
         var lr = Reg(lane, () => LaneDown(tr, lane)); lr.OnDrag = pt => LaneDrag(tr, pt); lr.OnRight = () => LaneMenu(tr);
-        if (Hot(lane)) hintNow = "Click = put the needle here.  Drag the clip's name bar = move it.  Drag a clip's end = trim it.  Right-click = split, trim, duplicate, delete.";
+        if (Hot(lane)) hintNow = "Drag a clip to move it.  Drag its ends to trim.  Click = put the needle.  Right-click = split, trim, copy, delete.  The buttons at the top right of the selected track do the same.";
         return lr;
     }
     void LaneDown(Track tr, RectangleF lane)
@@ -137,9 +155,9 @@ partial class StudioForm
         selTrack = Math.Max(0, eng.Tracks.IndexOf(tr)); selFx = -1; laneMode = 0; laneStart = MousePos;
         if (tr.Clip != null && !tr.Instrument)
         {
-            float x0 = lane.X + (float)((tr.Offset - scroll) / spp), x1 = x0 + (float)(tr.UsedLength / spp); float mx = MousePos.X, my = MousePos.Y;
-            if (Math.Abs(mx - x0) <= 7 && x1 - x0 > 20) laneMode = 2; else if (Math.Abs(mx - x1) <= 7 && x1 - x0 > 20) laneMode = 3; else if (mx > x0 && mx < x1 && my < lane.Y + 26) laneMode = 1;
-            if (laneMode != 0) { PushUndo(); l0Offset = tr.Offset; l0ClipStart = tr.ClipStart; l0ClipFrames = tr.ClipFrames; l0Used = tr.UsedLength; return; }
+            laneMode = ZoneAt(tr, lane, MousePos); laneMoved = false;
+            if (laneMode >= 2) { PushUndo(); laneMoved = true; l0Offset = tr.Offset; l0ClipStart = tr.ClipStart; l0ClipFrames = tr.ClipFrames; l0Used = tr.UsedLength; return; }
+            if (laneMode == 1) { l0Offset = tr.Offset; l0ClipStart = tr.ClipStart; l0ClipFrames = tr.ClipFrames; l0Used = tr.UsedLength; eng.Seek(Math.Max(0, Snap(scroll + (long)((MousePos.X - HeadW) * spp)))); return; }   // a click puts the needle, a drag moves the clip
         }
         eng.Seek(Math.Max(0, Snap(scroll + (long)((MousePos.X - HeadW) * spp))));
     }
@@ -147,7 +165,7 @@ partial class StudioForm
     {
         if (laneMode == 0) { eng.Seek(Math.Max(0, Snap(scroll + (long)((pt.X - HeadW) * spp)))); return; }
         long delta = (long)((pt.X - laneStart.X) * spp);
-        if (laneMode == 1) { tr.Offset = Math.Max(0, Snap(l0Offset + delta)); return; }
+        if (laneMode == 1) { if (!laneMoved) { if (Math.Abs(pt.X - laneStart.X) < 4) return; PushUndo(); laneMoved = true; } tr.Offset = Math.Max(0, Snap(l0Offset + delta)); return; }
         long avail = Math.Max(0, tr.Clip.Length - l0ClipStart);
         if (laneMode == 2)
         {
@@ -171,6 +189,71 @@ partial class StudioForm
         m.Items.Add("Rename...  (F2)").Click += (a, b) => RenameTrack(tr);
         m.Items.Add("Delete track").Click += (a, b) => DeleteTrackQuiet(tr);
         m.Show(this, new Point((int)MousePos.X, (int)MousePos.Y));
+    }
+
+    // what the mouse is over on a clip: edge grips and a highlight, plus a label next to the cursor
+    string bubble = ""; PointF bubblePt;
+    void PaintClipChrome(Graphics g, Track tr, RectangleF lane, RectangleF cr, bool sel)
+    {
+        if (cr.Width < 6 || tr.Instrument) return; bool over = lane.Contains(MousePos) && hover != null && hover.R == lane; int zone = over ? (dragReg != null && laneMode != 0 ? laneMode : ZoneAt(tr, lane, MousePos)) : -1;
+        if (!(sel || over)) return; var c = Color.FromArgb(tr.Color);
+        if (zone == 1) { using (var b = new SolidBrush(Color.FromArgb(34, 255, 255, 255))) g.FillRectangle(b, cr); StrokeRR(g, Color.FromArgb(230, 255, 255, 255), cr, 6, 1.6f); }
+        float gh = Math.Min(46, cr.Height - 16), gy = cr.Y + (cr.Height - gh) / 2; bool leftEdge = cr.X > lane.X - 1, rightEdge = cr.Right < lane.Right - 1;
+        if (leftEdge || zone == 2) { var r = Rc(cr.X + 1, gy, 9, gh); FillRR(g, Color.FromArgb(zone == 2 ? 250 : 175, zone == 2 ? Color.White : c), r, 4); Txt(g, "<", 11, Color.FromArgb(10, 4, 20), r, StringAlignment.Center, true); }
+        if (rightEdge || zone == 3) { var r = Rc(cr.Right - 10, gy, 9, gh); FillRR(g, Color.FromArgb(zone == 3 ? 250 : 175, zone == 3 ? Color.White : c), r, 4); Txt(g, ">", 11, Color.FromArgb(10, 4, 20), r, StringAlignment.Center, true); }
+        if (zone >= 0 && zone < ZoneText.Length) { bubble = ZoneText[zone]; bubblePt = MousePos; }
+    }
+    void PaintLaneTools(Graphics g, Track tr, RectangleF lane)
+    {
+        if (lane.Width < 640 || Selected != tr) return;
+        string[] n = tr.Instrument ? new[] { "Up", "Dn", "Copy", "Del" } : new[] { "Up", "Dn", "<<", ">>", "Split", "<Trim", "Trim>", "Copy", "Del" };
+        float w = 46, gap = 3, tot = n.Length * (w + gap) - gap, x = lane.Right - tot - 8, y = lane.Y + 6;
+        FillRR(g, Color.FromArgb(205, 12, 6, 26), Rc(x - 5, y - 3, tot + 10, 28), 8);
+        for (int i = 0; i < n.Length; i++)
+        {
+            string label = n[i]; var r = Rc(x + i * (w + gap), y, w, 22); Action act;
+            switch (label)
+            {
+                case "Up": act = () => MoveTrackBy(tr, -1); break; case "Dn": act = () => MoveTrackBy(tr, 1); break;
+                case "<<": act = () => MoveClip(tr, -1); break; case ">>": act = () => MoveClip(tr, 1); break; case "Split": act = () => SplitTrack(tr, Snap(DispPos)); break;
+                case "<Trim": act = () => TrimStartHere(tr); break; case "Trim>": act = () => TrimEndHere(tr); break; case "Copy": act = () => DuplicateTrack(tr); break; default: act = () => DeleteTrackQuiet(tr); break;
+            }
+            Btn(g, r, label, label == "Del" ? 3 : (label == "Split" ? 1 : 0), act, 11);
+            if (Hot(r))
+            {
+                bubble = label == "Up" ? "Move this track up one row" : label == "Dn" ? "Move this track down one row" : label == "<<" ? "Move this clip one grid step earlier" : label == ">>" ? "Move this clip one grid step later" : label == "Split" ? "Split at the needle (key B)" : label == "<Trim" ? "Cut the start off at the needle" : label == "Trim>" ? "Cut the end off at the needle" : label == "Copy" ? "Duplicate this track" : "Delete this track (Undo brings it back)";
+                bubblePt = MousePos;
+            }
+        }
+    }
+    void MoveClip(Track tr, int dir)
+    {
+        if (tr.Clip == null) return; PushUndo(); double g = GridFrames;
+        tr.Offset = Math.Max(0, snapOn ? (long)(Math.Round(tr.Offset / g) * g + dir * g) : tr.Offset + (long)(dir * StudioEngine.SR / 10));
+    }
+    void MoveTrackBy(Track tr, int dir)
+    {
+        int i = eng.Tracks.IndexOf(tr), j = i + dir; if (i < 0 || j < 0 || j >= eng.Tracks.Count) return; PushUndo();
+        lock (eng.Sync) { eng.Tracks.RemoveAt(i); eng.Tracks.Insert(j, tr); } selTrack = j;
+    }
+    // dragging a track's header up or down changes its row
+    bool headerUndo;
+    void HeaderDown(Track tr) { selTrack = Math.Max(0, eng.Tracks.IndexOf(tr)); selFx = -1; headerUndo = false; }
+    void HeaderDrag(Track tr, PointF pt)
+    {
+        int i = eng.Tracks.IndexOf(tr); if (i < 0) return; float top = ToolH + TransH + RulerH - vscroll;
+        int target = (int)Math.Floor((pt.Y - top) / LaneH); target = Math.Max(0, Math.Min(eng.Tracks.Count - 1, target)); if (target == i) return;
+        if (!headerUndo) { PushUndo(); headerUndo = true; }
+        lock (eng.Sync) { eng.Tracks.RemoveAt(i); eng.Tracks.Insert(target, tr); } selTrack = target;
+    }
+    void PaintBubble(Graphics g)
+    {
+        string t = bubble; if (t.Length == 0) return;
+        using (var f = new Font("Segoe UI", 12f, FontStyle.Regular, GraphicsUnit.Pixel))
+        {
+            var sz = g.MeasureString(t, f); float w = sz.Width + 18, h = 26; float x = Math.Min(ClientSize.Width - w - 6, bubblePt.X + 16), y = Math.Min(ClientSize.Height - h - 6, bubblePt.Y + 22); var r = Rc(x, y, w, h);
+            FillRR(g, Color.FromArgb(240, 30, 16, 58), r, 8); StrokeRR(g, Accent, r, 8, 1.2f); Txt(g, t, 12, Ink, r, StringAlignment.Center, false);
+        }
     }
 
     // ---------- tempo ----------
