@@ -223,6 +223,15 @@ static class Y
             Func<bool, double> dm = on => { var f = pn(on, 0, 35); f.Set("dston", 1); f.Set("dstmode", 2); f.Set("dstdrive", 30); f.Set("dstmix", 0); f.Set("awt", 50); var oo = Render(f, new[] { 45 }, 24000, -1); return Rms(oo[0], 8000, 24000); };
             double dry = dm(false), wet = dm(true); Check("modulation reaches the effects: a macro on Distortion mix changes the sound", Math.Abs(wet - dry) > dry * 0.1, "dry " + dry.ToString("0.000") + ", modulated " + wet.ToString("0.000"));
         }
+        // 8c2. the extra targets and the second page of matrix slots
+        {
+            Func<bool, SynthFx> fm = on => { var f = New("Init"); f.Set("bbon", 0); f.Set("asrc", 1); f.Set("bon", 1); f.Set("bsrc", 1); f.Set("boct", 1); f.Set("blvl", 0); f.Set("mac1", 100); f.Set("m16s", 10); f.Set("m16d", on ? 44 : 0); f.Set("m16a", 100); return f; };
+            Func<SynthFx, double> h2 = f => { var cp = new SynthFx(); cp.Prepare(44100); cp.Deserialize(f.Serialize()); var o3 = Render(cp, new[] { 45 }, 30000, -1); return Rms(o3[0], 8000, 30000); };
+            var fa = fm(false); var fb = fm(true); var oA = Render(fa, new[] { 45 }, 30000, -1); var oB = Render(fb, new[] { 45 }, 30000, -1); double dd = 0; for (int i = 8000; i < 30000; i++) dd += Math.Abs(oA[0][i] - oB[0][i]); dd /= 22000;
+            Check("slot 16 works, and a macro on Osc A FM changes the tone even with a silent modulator", dd > 0.01, "average difference " + dd.ToString("0.000"));
+            var ph = New("Init"); ph.Set("bbon", 0); ph.Set("phon", 1); ph.Set("phmix", 0); ph.Set("mac1", 100); ph.Set("m1s", 10); ph.Set("m1d", 56); ph.Set("m1a", 100); var pm = Render(ph, new[] { 45 }, 30000, -1); var ph0 = New("Init"); ph0.Set("bbon", 0); ph0.Set("phon", 1); ph0.Set("phmix", 0); var pz = Render(ph0, new[] { 45 }, 30000, -1); double pd = 0; for (int i = 8000; i < 30000; i++) pd += Math.Abs(pm[0][i] - pz[0][i]); pd /= 22000;
+            Check("modulation reaches the phaser mix (a macro makes the dry sound turn into the phased one)", pd > 0.003, "average difference " + pd.ToString("0.0000"));
+        }
         // 8f. presets: library, user presets, initialise, global settings
         {
             string miss = ""; foreach (var ct in SynthPresets.Categories) if (SynthPresets.InCategory(ct).Count < 1) miss += ct + " "; int minc = 99; foreach (var ct in SynthPresets.Categories) if (ct != "Init") minc = Math.Min(minc, SynthPresets.InCategory(ct).Count);

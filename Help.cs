@@ -296,13 +296,13 @@ Drag the track name on the left up or down, or use the Up and Dn buttons on the 
 - CLICK plays a metronome while the song plays.
 - The tempo also drives the synth's tempo-synced wobbles and delays.
 ## Zoom
-Mouse wheel + Ctrl zooms, or use - + FIT."),
+Mouse wheel + Ctrl zooms, Alt + wheel makes tracks taller, or use - + FIT. After FIT the song fills the track area by itself, even in full screen. See the neon look page."),
 
         new HelpTopic("basslab", "Music Studio", "Bass Lab: make bass and wobbles (the built-in synth)", false, @"
 ## Open it
 In Purphex Music press + INSTRUMENT and choose Bass Lab (synthesizer). A track and the Bass Lab window open. Play with your keyboard (A S D F G H J = white keys, W E T Y U = black keys, Z / X = octave) or click the piano.
 ## Pick a sound
-Click the preset name at the top (or the < > arrows): Wobble Bass, Reese, Growl, Deep Sub, Pluck, Acid, Lead, Pad. Save your own from the same menu.
+Click the preset name at the top (or the < > arrows) to open the preset browser: 54 presets in 13 styles, plus your own. See the Presets help page.
 ## Make a wobble in 3 clicks
 1. Open the bottom panel tab LFO 1.
 2. Press 'Filter 1 cutoff' in WOBBLE IT (or 'Osc A warp' for a growl, 'Volume' for a tremolo).
@@ -311,8 +311,8 @@ Your tempo comes from the BPM in the studio, so the wobble stays in time with th
 ## The pages
 - OSC: three wavetable oscillators. SOURCE picks Wavetable or a fixed shape (sine, triangle, saw, square, pulses, half and rectified sine, organ). With Wavetable, the table menu picks Basic Shapes, Saw to Square, Vowels, Growl, Organ Drawbars, Digital Bell, Harmonic Sweep, PWM, Metallic or your own Custom 1-3, and WAVE scans between the frames of the table. WARP bends the wave (Sync, Bend, Fold, Mirror, Asym, Crush). FM and RING let the next oscillator (A is shaped by B, B by C, C by A) modulate this one, even when its level is 0. DRAW WAVE opens an editor to draw your own wave and up to 8 frames. UNISON, DETUNE and BLEND make it fat. Then a sub oscillator, noise (white, pink, brown, blue, crackle) and two filters.
 - MIX: level, pan, MUTE, SOLO, level meter and a Goes-to menu for each source (Filter 1, Filter 2, Both, or Direct to the output), plus the master volume and output meters.
-- FX: distortion, chorus, delay, reverb and BASS BOOST.
-- MATRIX: connect anything to anything: a source (LFO, envelope, velocity, macro) to a destination with an amount.
+- FX: a chain of 11 effects you can switch on and reorder (see the effect chain help page), including BASS BOOST.
+- MATRIX: 16 connections from a source (LFO, envelope, velocity, key, macro) to any of 62 targets, each with an amount, polarity, on and off. The quick way is to drag the DRAG chip onto a knob (see the make anything move page).
 - GLOBAL: volume, glide, voices (Poly / Mono / Legato), bend range.
 ## Filters
 Two filters with types Low-pass, High-pass, Band-pass, Notch, Peak, Low shelf, High shelf, Comb + and -, and Formant (vowels). Slope 12, 24, 36 or 48 dB per octave. The curve shows exactly what the filter does; drag it left and right for cutoff, up and down for resonance. Serial runs Filter 1 into Filter 2; Parallel runs them side by side. KEY makes the cutoff follow the note.
@@ -321,6 +321,101 @@ Turn it on with the BASS BOOST switch at the top. On the FX page drag the dot on
 ## Tips
 - Every knob: drag up/down, mouse wheel for small steps (Shift = finer), double-click to type, right-click to reset.
 - Hold REC in the studio and play to record your notes onto the track."),
+
+        new HelpTopic("basslab-lfo", "Music Studio", "Bass Lab: draw your own LFO shape", false, @"
+## What an LFO does
+An LFO is a slow wave that moves a knob for you. Aim it at the filter and you get a wobble. Bass Lab has four, LFO 1 to LFO 4, in the tabs at the bottom.
+## Draw the shape
+- Click on empty space in the picture to add a point.
+- Drag a point to move it. Right-click a point to delete it.
+- Double-click a point to make it round (smooth) or sharp again.
+- Drag the small diamond between two points to bend that stretch of the line.
+- If a ready-made shape is showing (sine, saw...), your first click turns it into a drawn shape you can edit.
+- SHAPE PRESETS has sine, triangle, saws, square, pulse, stepped, random steps, smooth random and three wobbles. SNAP puts points on the grid.
+## Speed and options
+- Rate: pick a note length (1/8, 1 bar...) to stay in time with the song, or Hz for a free speed.
+- Start: Retrigger restarts the shape on every note, Free keeps it running.
+- Range: Bipolar swings both ways around the knob, Unipolar only goes up.
+- Loop: One-shot plays the shape once and holds its end, Loop repeats.
+- PHASE shifts where it starts, SMOOTH rounds off the corners, FADE IN brings it in slowly.
+The picture shows exactly what moves the sound (including smooth and range). While you play, a white marker follows the real LFO.
+Each LFO keeps its own drawn shape and it is saved in the patch."),
+
+        new HelpTopic("basslab-mod", "Music Studio", "Bass Lab: make anything move (drag and drop, matrix)", false, @"
+## Drag and drop (quickest)
+1. Find the DRAG chip on an LFO, an envelope (ENV 2 to ENV 4) or a MACRO.
+2. Press on it and drag it onto any knob, then let go.
+3. A coloured ring appears around the knob: that is how far the source moves it.
+4. Hold Ctrl and drag the knob up or down to make the ring bigger or smaller (or negative).
+If the knob cannot be moved by a source, a message tells you. There are 62 targets: oscillator wave, warp, level, fine tune, pan, blend, FM and ring amounts, sub and noise, both filters, volume, pan and the effects (distortion, saturation, chorus, phaser, flanger, delay, reverb, EQ, stereo width, bass boost).
+## The matrix page
+MATRIX shows all 32 connections (16 slots, two pages: SLOTS 1-8 and SLOTS 9-16). Each row: source, target, amount, polarity, an ON switch and an X to remove it.
+- Bipolar: the source swings both ways. Positive: it only pushes up. Negative: it only pushes down.
+- ON / OFF switches a connection without losing it.
+- X clears the row.
+## Effects follow the newest note
+Targets in the effects (for example Reverb mix) follow whichever note you played last."),
+
+        new HelpTopic("basslab-env", "Music Studio", "Bass Lab: envelopes (shape every note)", false, @"
+## What they are
+An envelope shapes a sound over time: how fast it starts (ATTACK), how fast it falls (DECAY), where it rests while you hold the key (SUSTAIN) and how it fades after you let go (RELEASE).
+- ENV 1 always shapes the volume. A pluck has sustain 0 and a short decay. A pad has a slow attack and a long release.
+- ENV 2, 3 and 4 are free: drag their DRAG chip onto any knob.
+## Edit the picture
+Drag the three dots: the first sets ATTACK, the second sets DECAY (left and right) and SUSTAIN (up and down), the third sets RELEASE. The knobs on the right do the same and let you type exact values (double-click)."),
+
+        new HelpTopic("basslab-fx", "Music Studio", "Bass Lab: the effect chain", false, @"
+## The chain
+On the FX page you see 11 boxes in a row. Sound goes through them from left to right: Distortion, Saturation, Compressor, EQ, Phaser, Flanger, Chorus, Delay, Reverb, Stereo width and Bass boost.
+- Click a box to edit it below.
+- Click the light in the box to switch it on or off.
+- The < and > buttons in a box move it earlier or later. Order matters: distortion before reverb sounds different from reverb before distortion.
+## Wet / dry
+Every effect has a WET/DRY knob: 0 is the untouched sound, 100 is all effect.
+## Good habits
+- Saturation and Compressor first keep the bass solid. Reverb and Delay last keep it clean.
+- The Compressor has a MAKEUP knob to win back the volume it takes away.
+- STEREO WIDTH keeps bass below MONO BELOW in the middle so it stays strong on speakers.
+Your order and every setting are saved with the patch and with your presets."),
+
+        new HelpTopic("basslab-presets", "Music Studio", "Bass Lab: presets, saving and starting fresh", false, @"
+## Open the browser
+Click the preset name at the top of Bass Lab (or use the < > arrows to step through them).
+- Left: 13 styles (Wobble, Reese, Growl, Dubstep, DnB, Neuro, Riddim, Sub, Lead, Pluck, Pad, Keys, SFX), plus My presets.
+- Right: the presets in that style. Click one to load it.
+## Your own presets
+- SAVE AS... keeps the current sound under a name you choose. It stores everything: oscillators and drawn waves, filters, envelopes, LFO shapes, modulation, the effect chain and voice settings.
+- DUPLICATE makes a copy you can change.
+- RENAME and DELETE work on your own presets (the built-in ones are protected).
+- INITIALISE PATCH resets everything to a plain, clean sound to start from scratch.
+## Remembered between sessions
+Voice limit, master tuning, bend range and velocity are yours, not the sound's: they stay the same when you change preset and when you restart the app. Presets live in your data folder (Menu > Open data folder > synthpresets)."),
+
+        new HelpTopic("download-video", "Basics", "Download videos (MP4) from YouTube and other sites", false, @"
+## How
+1. Paste a link. It can be YouTube, BandLab, or almost any video or music page (1000+ sites). A direct link to a video file works too.
+2. In Format choose a VIDEO entry: MP4 best quality (up to 4K and beyond), 1440p, 1080p, 720p, 480p, 360p, or MKV best quality.
+3. Press Convert. The finished video is saved in your Save to folder.
+## Which quality?
+- Best quality: the biggest picture the site offers.
+- 1080p / 720p: smaller files, plays everywhere.
+- MKV: keeps the original picture and sound without re-encoding. Some players need VLC.
+If a site only has a lower quality than you picked, you get the best it has.
+## Good to know
+- Trim start and end work for video too.
+- Sample rate and Normalize loudness are for audio, so they switch off when you pick a video format.
+- Playlists: tick Whole playlists to take every video.
+- A few sites need you to be signed in or block downloads. The log shows the reason.
+- Only download what you have the right to keep."),
+
+        new HelpTopic("studio-neon", "Purphex Music", "The neon look, zooming and taller tracks", false, @"
+## The look
+Every track has its own glowing colour. The outline of its clip, the light strip beside it, the little LED and the level meter all use it, and the glow gets brighter with the volume.
+## See the waveform in detail
+- Ctrl + mouse wheel zooms in and out of the timeline around your mouse. Zoom in far enough and you can see single notes and waves.
+- Alt + mouse wheel makes every track taller (or shorter), so the waveform and notes are bigger.
+- Shift + mouse wheel scrolls left and right. The plain wheel scrolls up and down.
+- FIT in the toolbar shows the whole song again."),
 
         new HelpTopic("makesong", "Music Studio", "Record and make a song (instruments, microphone, piano roll)", false, @"
 ## Make music with an instrument

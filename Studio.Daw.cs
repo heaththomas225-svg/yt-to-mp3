@@ -295,6 +295,7 @@ partial class StudioForm
     }
     void ZoomBy(double f)
     {
+        autoFit = false;
         var tl = TimelineRect(); double cur = scroll + tl.Width / 2 * spp; spp = Math.Max(2, Math.Min(Math.Max(20000.0, eng.EndFrame / 200.0), spp * f)); scroll = Math.Max(0, (long)(cur - tl.Width / 2 * spp));
     }
 }

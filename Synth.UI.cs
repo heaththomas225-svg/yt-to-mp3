@@ -61,7 +61,7 @@ partial class SynthCanvas : Control
 {
     class Reg { public RectangleF R; public Action<PointF> Down; public Action<float, float> Drag; public Action<int> Wheel; public Action Double; public Action Right; public string Tip = ""; public Param P; public bool Log; public float Step; }
     readonly SynthFx fx; readonly SynthWindow win; readonly List<Reg> regs = new List<Reg>(); Reg hover, active; PointF mouse, downPt; float downFrac; DateTime lastInput = DateTime.Now; bool modified;
-    int tab, modTab = 4; const float W = 1240, H = 716; float scale = 1, ox, oy;
+    int tab, modTab = 4, matPage; const float W = 1240, H = 716; float scale = 1, ox, oy;
     public bool Typing;
     static readonly Color Bg0 = Color.FromArgb(13, 7, 26), Bg1 = Color.FromArgb(26, 13, 48), Panel = Color.FromArgb(30, 17, 56), PanelHi = Color.FromArgb(44, 26, 80), Edge = Color.FromArgb(96, 62, 160), Ink = Color.FromArgb(240, 232, 255), Dim = Color.FromArgb(150, 132, 190),
         Acc = Color.FromArgb(188, 120, 255), Acc2 = Color.FromArgb(236, 92, 226), Good = Color.FromArgb(120, 232, 150), Disp = Color.FromArgb(14, 8, 28);
@@ -253,10 +253,11 @@ partial class SynthCanvas : Control
     void PaintMatrix(Graphics g)
     {
         var r = Rc(8, 66, W - 16, 252); Fill(g, Panel, r, 8); Stroke(g, Edge, r, 8, 1);
-        Txt(g, "MOD MATRIX: pick a source (an LFO, envelope, velocity, macro...), pick what it moves, and how much.  This is how you build wobbles.", 12, Ink, Rc(r.X + 12, r.Y + 4, r.Width - 24, 20), StringAlignment.Near, true);
-        for (int i = 1; i <= 8; i++)
+        Txt(g, "MOD MATRIX (16 slots): pick a source, pick what it moves, and how much.", 12, Ink, Rc(r.X + 12, r.Y + 4, r.Width - 24, 20), StringAlignment.Near, true);
+        for (int pgi = 0; pgi < 2; pgi++) { int pp = pgi; var pb = Rc(r.Right - 250 + pgi * 122, r.Y + 3, 116, 22); bool sel = matPage == pp; Fill(g, sel ? PanelHi : Panel, pb, 5); Stroke(g, sel ? Acc : Edge, pb, 5, sel ? 2 : 1); Txt(g, pp == 0 ? "SLOTS 1-8" : "SLOTS 9-16", 11, sel ? Ink : Dim, pb, StringAlignment.Center, sel); var pr = Add(pb); pr.Tip = "Show matrix slots " + (pp * 8 + 1) + " to " + (pp * 8 + 8); pr.Down = pt => { matPage = pp; }; }
+        for (int row = 1; row <= 8; row++)
         {
-            float y = r.Y + 28 + (i - 1) * 27; Txt(g, i.ToString(), 12, Dim, Rc(r.X + 12, y, 20, 24), StringAlignment.Center, true);
+            int i = matPage * 8 + row; float y = r.Y + 28 + (row - 1) * 27; Txt(g, i.ToString(), 12, Dim, Rc(r.X + 12, y, 20, 24), StringAlignment.Center, true);
             Choose(g, "m" + i + "s", Rc(r.X + 40, y + 2, 190, 22), Acc); Txt(g, "->", 13, Dim, Rc(r.X + 232, y, 30, 24), StringAlignment.Center, true); Choose(g, "m" + i + "d", Rc(r.X + 264, y + 2, 220, 22), Acc2);
             var p = P("m" + i + "a"); var sr = Rc(r.X + 510, y + 2, 300, 22); var reg = Add(sr); reg.P = p; reg.Tip = "Amount: drag, wheel, or double-click to type (negative flips it)";
             Fill(g, Color.FromArgb(18, 10, 34), sr, 5); float f = (p.Val - p.Min) / (p.Max - p.Min); float mid = sr.X + sr.Width / 2; float vx = sr.X + sr.Width * f;
@@ -323,7 +324,7 @@ partial class SynthCanvas : Control
     void QuickAssign(Graphics g, RectangleF r, int srcIndex, string name)
     {
         Fill(g, Color.FromArgb(24, 13, 46), r, 8); Stroke(g, Edge, r, 8, 1);
-        int slot = -1; for (int i = 1; i <= 8; i++) if ((int)P("m" + i + "s").Val == srcIndex && (int)P("m" + i + "d").Val != 0) { slot = i; break; }
+        int slot = -1; for (int i = 1; i <= 16; i++) if ((int)P("m" + i + "s").Val == srcIndex && (int)P("m" + i + "d").Val != 0) { slot = i; break; }
         Txt(g, "WOBBLE IT: send " + name + " to", 12, Ink, Rc(r.X + 10, r.Y + 6, 240, 20), StringAlignment.Near, true);
         string[] quick = { "Filter 1 cutoff", "Osc A warp", "Volume", "All pitch", "Osc A wave", "Unison detune" }; int[] qd = { 17, 9, 1, 5, 6, 22 };
         for (int i = 0; i < quick.Length; i++)
@@ -336,8 +337,8 @@ partial class SynthCanvas : Control
     }
     int SlotFor(int src)
     {
-        for (int i = 1; i <= 8; i++) if ((int)P("m" + i + "s").Val == src && (int)P("m" + i + "d").Val != 0) return i;
-        for (int i = 1; i <= 8; i++) if ((int)P("m" + i + "d").Val == 0 || (int)P("m" + i + "s").Val == 0) return i;
+        for (int i = 1; i <= 16; i++) if ((int)P("m" + i + "s").Val == src && (int)P("m" + i + "d").Val != 0) return i;
+        for (int i = 1; i <= 16; i++) if ((int)P("m" + i + "d").Val == 0 || (int)P("m" + i + "s").Val == 0) return i;
         return 8;
     }
 

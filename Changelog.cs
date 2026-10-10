@@ -7,10 +7,16 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.9.0";
+    public const string Latest = "3.10.0";
 
     public const string Text =
-@"3.9.0  YouTube MP3 Converter By Phurex
+@"3.10.0  Heartbeat waveforms, help pages, more modulation
+ + NEW Purphex Music: audio tracks now draw as one clean glowing line (blue, your track colour, purple) with a point every few pixels, so the shape is easy to read.
+ + NEW the song fills the track area by itself after FIT, including in full screen and when you resize the window. Zooming or scrolling yourself turns that off until you press FIT.
+ + NEW Bass Lab: 16 matrix slots (two pages) and 62 targets. FM and ring amounts, sub and noise pan, saturation, phaser, flanger, stereo width and EQ can be modulated.
+ + NEW Help: pages for video downloads, the neon studio and zooming, the LFO drawing, modulation, envelopes, the effect chain and presets.
+
+3.9.0  YouTube MP3 Converter By Phurex
  + NEW video downloads: pick an MP4 format (best quality up to 4K and beyond, 1440p, 1080p, 720p, 480p, 360p) or MKV best quality. Works with links from YouTube and 1000+ other sites, not just music.
  + NEW the app is now called YouTube MP3 Converter By Phurex, with a cleaner, easier to read main window.
  + NEW Purphex Music: neon look with glowing track outlines, LED level meters and light strips in each track colour.
