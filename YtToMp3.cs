@@ -34,7 +34,7 @@ class Job
 class App : Form
 {
     // ---- Auto-update settings ----
-    const string Version = "2.2.0";
+    const string Version = "2.2.1";
     // Plain-text manifest: line 1 = newest version, line 2 = direct exe download URL.
     const string UpdateManifestUrl = "https://raw.githubusercontent.com/heaththomas225-svg/yt-to-mp3/main/version.txt";
 
@@ -494,6 +494,29 @@ class App : Form
         return "ytsearch1:" + s;
     }
 
+    // Pull links out of the box however they're separated (new lines, commas, spaces).
+    // A line with no http(s) links is a bare-domain list ("a.com/x, b.com/y") or a search term.
+    static List<string> ParseItems(string text)
+    {
+        var items = new List<string>();
+        foreach (var raw in text.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries))
+        {
+            string line = raw.Trim();
+            if (line.Length == 0) continue;
+            var ms = Regex.Matches(line, @"https?://[^\s,;]+");
+            if (ms.Count > 0) { foreach (Match m in ms) items.Add(m.Value); continue; }
+            string[] parts = line.Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries);
+            bool allDomains = parts.Length > 1;
+            for (int i = 0; i < parts.Length; i++)
+            {
+                parts[i] = parts[i].Trim();
+                if (!Regex.IsMatch(parts[i], @"^(www\.)?[a-z0-9-]+(\.[a-z0-9-]+)+/\S*$", RegexOptions.IgnoreCase)) allDomains = false;
+            }
+            if (allDomains) items.AddRange(parts); else items.Add(line);
+        }
+        return items;
+    }
+
     static bool ValidTime(string s)
     {
         return s.Length == 0 || Regex.IsMatch(s, @"^\d+(:\d{1,2}){0,2}(\.\d+)?$");
@@ -503,9 +526,7 @@ class App : Form
     void Start()
     {
         if (busy) return;
-        var items = new List<string>();
-        foreach (var l in links.Text.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries))
-            if (l.Trim().Length > 0) items.Add(l.Trim());
+        var items = ParseItems(links.Text);
         if (items.Count == 0) { MessageBox.Show(this, "Paste at least one link (or type a search) first."); return; }
         string a = trimA.Text.Trim(), b = trimB.Text.Trim();
         if (!ValidTime(a) || !ValidTime(b)) { MessageBox.Show(this, "Trim times look like 1:30 or 0:01:30.5"); return; }
