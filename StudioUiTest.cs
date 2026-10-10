@@ -130,7 +130,12 @@ static class S
             var lb = F<TextBox>("lyricBox"); Check("the lyrics page shows the saved text in a real text box", lb != null && lb.Visible && lb.Text.Contains("searching for a light"), lb == null ? "none" : lb.Text.Length + " chars");
             lb.SelectionStart = lb.Text.Length; Paint(); Check("the text box is big and fits inside the window", lb.Left >= 0 && lb.Right <= sf.ClientSize.Width && lb.Height > 300, lb.Bounds.ToString());
             var bmp2 = new Bitmap(sf.ClientSize.Width, sf.ClientSize.Height); sf.DrawToBitmap(bmp2, new Rectangle(0, 0, sf.Width, sf.Height)); bmp2.Save("_lyrics.png", System.Drawing.Imaging.ImageFormat.Png);
+            typeof(StudioForm).GetMethod("OpenMenu", BF).Invoke(sf, null); Paint(); Check("while the side menu is open the lyric text boxes step aside (nothing overlaps)", !lb.Visible, "");
+            typeof(StudioForm).GetMethod("CloseMenu", BF).Invoke(sf, null); Paint(); Check("and they come back when the menu closes", lb.Visible, "");
+            SetF("tab", 3); Paint(); var dawBtn = Regs().Find(r => r.R.Y > 140 && r.R.Y < 180 && r.R.Width == 62 && r.R.Height == 30); Check("the track-editing buttons are not drawn on other pages", dawBtn == null && !lb.Visible, "");
             SetF("tab", 0); Paint(); Check("leaving the page hides its text boxes", !lb.Visible, "");
+            typeof(App).GetMethod("OpenStudio", BF).Invoke(app, null); Pump(300); var real = (Form)typeof(App).GetField("studioForm", BF).GetValue(app);
+            Check("Purphex Music opened from the converter is its own window (not owned by it), so either one can be brought to the front", real != null && real.Owner == null && real.ShowInTaskbar, real == null ? "not opened" : (real.Owner == null ? "independent" : "owned")); if (real != null) real.Close();
         }
         var bmp = new Bitmap(sf.ClientSize.Width, sf.ClientSize.Height); sf.DrawToBitmap(bmp, new Rectangle(0, 0, sf.Width, sf.Height)); bmp.Save("_studio_ui.png", System.Drawing.Imaging.ImageFormat.Png);
         eng.Shutdown(); Console.WriteLine(fails == 0 ? "=== studio UI checks passed ===" : "=== " + fails + " FAILED ==="); Environment.Exit(fails == 0 ? 0 : 1);

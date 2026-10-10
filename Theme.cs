@@ -66,6 +66,12 @@ static class Win
         if (c.IsHandleCreated) a(); else c.HandleCreated += delegate { a(); };
     }
 
+    // brings a window to the front, restoring it if it was minimised
+    public static void Bring(Form f)
+    {
+        if (f == null || f.IsDisposed) return; if (!f.Visible) f.Show(); if (f.WindowState == FormWindowState.Minimized) f.WindowState = FormWindowState.Normal; f.Activate(); f.BringToFront();
+    }
+
     public static ContextMenuStrip NewMenu()
     {
         var m = new ContextMenuStrip { Renderer = new DarkRenderer(), BackColor = Color.FromArgb(16, 8, 32), ForeColor = Color.FromArgb(240, 232, 255), ShowImageMargin = false, Font = new Font("Segoe UI", 10f) };

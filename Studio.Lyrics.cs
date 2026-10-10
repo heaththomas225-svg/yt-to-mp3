@@ -63,7 +63,7 @@ partial class StudioForm
 
     void PaintLyrics(Graphics g)
     {
-        SyncLyricUi(true);
+        SyncLyricUi(!(menuOpen || browserOpen || busy));   // real text boxes sit above everything drawn by hand, so they step aside while a menu or popup is open
         float W = ClientSize.Width, H = ClientSize.Height, top = ToolH + TransH, w = Math.Min(1100, W - 64), x = (W - w) / 2;
         Txt(g, "LYRICS", 16, Ink, Rc(x, top + 10, 130, 28), StringAlignment.Near, true); Txt(g, "title", 11, DimC, Rc(x + 74, top + 16, 60, 16), StringAlignment.Near, false);
         string[] sec = { "Verse", "Chorus", "Pre-chorus", "Bridge", "Hook", "Intro", "Outro" }; float sx = x, sy = top + 50;

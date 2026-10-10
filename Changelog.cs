@@ -7,10 +7,19 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.14.1";
+    public const string Latest = "3.14.2";
 
     public const string Text =
-@"3.14.1  The program is called Purphex Music
+@"3.14.2  Safer for antivirus programs
+ + The program now carries proper version information (name, publisher, version) and a manifest that says it needs no administrator rights.
+ + Updates are checked against a SHA-256 published with each release, and only accepted from this project's releases page.
+ + yt-dlp, ffmpeg and Deno are checked against the checksums their own projects publish before they are used.
+ + The optional Phone mode firewall step now shows its window instead of hiding it.
+ + New SECURITY.md explains everything the program does and how to report a false positive to Malwarebytes.
+ + FIXED windows getting stuck behind each other: Purphex Music, Settings, Help and Mastering are now their own windows, so you can click any of them (or its taskbar button) to bring it to the front. Closing the converter closes the others. The side menu has a Converter window entry in View.
+ + FIXED overlapping: the lyric text boxes now step aside when the side menu or a popup is open, and the track-editing buttons only show on the track view.
+
+3.14.1  The program is called Purphex Music
  + The program file is now Purphex Music.exe. When an older copy updates itself, it also leaves a Purphex Music.exe next to it (your shortcut keeps working).
  + Behind the scenes: the sound library engine (used for the coming Purphex Sounds) and a steadier filter for sound design.
 
