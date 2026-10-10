@@ -122,7 +122,7 @@ class PhoneServer
         {
             string args = add ? "advfirewall firewall add rule name=\"" + FwRule + "\" dir=in action=allow protocol=TCP localport=" + Port + " profile=any"
                               : "advfirewall firewall delete rule name=\"" + FwRule + "\"";
-            var psi = new ProcessStartInfo("netsh", args) { UseShellExecute = true, Verb = "runas", WindowStyle = ProcessWindowStyle.Hidden };
+            var psi = new ProcessStartInfo("netsh", args) { UseShellExecute = true, Verb = "runas", WindowStyle = ProcessWindowStyle.Normal };
             using (var p = Process.Start(psi)) { p.WaitForExit(); }
             return null;
         }

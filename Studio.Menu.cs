@@ -46,6 +46,7 @@ partial class StudioForm
                 I("Metronome on / off", () => { CloseMenu(); eng.Metronome = !eng.Metronome; }); I("Mastering", () => GoTab(1)); I("Add an instrument...", () => { CloseMenu(); AddInstrumentClick(); }); I("Add a track...", () => { CloseMenu(); ShowAddTrackMenuMain(); });
                 break;
             case 3:
+                I("Converter window (downloads)", () => { CloseMenu(); Win.Bring(app); });
                 I("Mix (tracks)", () => GoTab(0)); I("Mastering", () => GoTab(1)); I("Lyrics", () => GoTab(2)); I("My Projects", () => GoTab(3));
                 I("Fit the whole song", () => { CloseMenu(); tab = 0; FitView(); }); I("Thin tracks", () => { CloseMenu(); LaneH = 84; }); I("Normal tracks", () => { CloseMenu(); LaneH = 104; }); I("Tall tracks", () => { CloseMenu(); LaneH = 168; });
                 I(Win.IsFullscreen(this) ? "Leave full screen" : "Full screen", () => { CloseMenu(); Win.ToggleFullscreen(this); });

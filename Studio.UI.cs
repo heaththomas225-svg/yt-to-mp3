@@ -412,7 +412,7 @@ partial class StudioForm : Form
         Btn(g, Rc(tx, y, 106, h), "MIX", tab == 0 ? 4 : 0, () => tab = 0, 14);
         Btn(g, Rc(tx + 112, y, 106, h), "MASTERING", tab == 1 ? 4 : 0, () => tab = 1, 13);
         Btn(g, Rc(tx + 224, y, 90, h), "LYRICS", tab == 2 ? 4 : 0, () => tab = 2, 13);
-        PaintDawBar(g, y0 + 52, W);
+        if (tab == 0) PaintDawBar(g, y0 + 52, W);   // the editing tools only belong to the track view
     }
 
     static string Fmt(double s) { int m = (int)(s / 60); double r = s - m * 60; return m.ToString("00") + ":" + r.ToString("00.00", CultureInfo.InvariantCulture); }

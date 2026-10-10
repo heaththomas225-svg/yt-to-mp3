@@ -37,7 +37,7 @@ class Job
 partial class App : Form
 {
     // ---- Auto-update settings ----
-    const string Version = "3.14.1";
+    const string Version = "3.14.2";
     // Plain-text manifest: line 1 = newest version, line 2 = direct exe download URL.
     const string UpdateManifestUrl = "https://raw.githubusercontent.com/heaththomas225-svg/yt-to-mp3/main/version.txt";
 
@@ -114,7 +114,7 @@ partial class App : Form
     {
         // not modal: you can keep using and moving the other windows while Help is open
         if (helpForm != null && !helpForm.IsDisposed) helpForm.Close();
-        helpForm = new HelpForm(id => true, id => { string tid = id; BeginInvoke(new Action(() => RunTour(tid))); }, topic); helpForm.Show(this);
+        helpForm = new HelpForm(id => true, id => { string tid = id; BeginInvoke(new Action(() => RunTour(tid))); }, topic); helpForm.Show(); Win.Bring(helpForm);   // its own window (no owner), so it can never end up hidden behind another one
     }
 
     void RunTour(string id)
@@ -131,8 +131,8 @@ partial class App : Form
 
     void OpenStudio()
     {
-        if (studioForm == null || studioForm.IsDisposed) { studioForm = new StudioForm(this); studioForm.Show(this); }
-        else { studioForm.Activate(); if (studioForm.WindowState == FormWindowState.Minimized) studioForm.WindowState = FormWindowState.Normal; }
+        if (studioForm == null || studioForm.IsDisposed) { studioForm = new StudioForm(this); studioForm.Show(); Win.Bring(studioForm); }   // an independent window: click either window and it comes to the front
+        else Win.Bring(studioForm);
     }
 
     static readonly Color Ink = Color.FromArgb(235, 225, 255);
@@ -161,6 +161,7 @@ partial class App : Form
             BeginInvoke(new Action(() => { try { PluginHost.LoadEnabled(); } catch { } }));   // on the UI thread (VST plugins expect it), after the window is visible
             new Thread(UpdateLoop) { IsBackground = true }.Start();
         };
+        FormClosing += (s, e) => { var others = new List<Form>(); foreach (Form of in Application.OpenForms) if (of != this) others.Add(of); foreach (var of2 in others) { try { of2.Close(); } catch { } } };   // closing the main window closes the others
         FormClosing += (s, e) => { SaveSettings(); KillCurrent(); if (phone != null) phone.Stop(); StudioEng.Shutdown(); Separator.KillWorker(); layerRun = false; UserBackground.StopVideo(); frameLoop.Dispose(); };
 
         bg.Dock = DockStyle.Fill;
@@ -233,9 +234,9 @@ partial class App : Form
             var m = Win.NewMenu();
             m.Items.Add("Settings...").Click += (a, b) => ShowSettings();
             m.Items.Add("Full screen  (F11)").Click += (a, b) => Win.ToggleFullscreen(this);
-            m.Items.Add("Mastering for downloads (Purphex Mastering)...").Click += (a, b) => { if (mf == null || mf.IsDisposed) { mf = new MasterForm(this); mf.Show(this); } else mf.Activate(); };
+            m.Items.Add("Mastering for downloads (Purphex Mastering)...").Click += (a, b) => { if (mf == null || mf.IsDisposed) { mf = new MasterForm(this); mf.Show(); Win.Bring(mf); } else Win.Bring(mf); };
             m.Items.Add("What's new").Click += (a, b) => Changelog.Show(this);
-            m.Items.Add("Plugins and extensions...").Click += (a, b) => { new PluginManagerForm(() => ExtraFilter, v => { ExtraFilter = v; SaveSettings(); }).Show(this); };
+            m.Items.Add("Plugins and extensions...").Click += (a, b) => { new PluginManagerForm(() => ExtraFilter, v => { ExtraFilter = v; SaveSettings(); }).Show(); };
             m.Items.Add("Open data folder").Click += (a, b) => { try { Directory.CreateDirectory(AppData); Process.Start("explorer.exe", "\"" + AppData + "\""); } catch { } };
             m.Show(whatsBtn, new Point(0, whatsBtn.Height));
         };
@@ -341,8 +342,8 @@ partial class App : Form
     internal void ShowSettings()
     {
         // not modal: the other windows stay usable (and movable) while Settings is open
-        if (settingsForm == null || settingsForm.IsDisposed) { settingsForm = new SettingsForm(this); settingsForm.Show(this); }
-        else { settingsForm.Activate(); if (settingsForm.WindowState == FormWindowState.Minimized) settingsForm.WindowState = FormWindowState.Normal; }
+        if (settingsForm == null || settingsForm.IsDisposed) { settingsForm = new SettingsForm(this); settingsForm.Show(); Win.Bring(settingsForm); }
+        else Win.Bring(settingsForm);
     }
 
     // ---------- settings ----------
@@ -688,6 +689,7 @@ partial class App : Form
         {
             Log("First run: downloading yt-dlp...");
             Download("https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe", YtDlp, "Downloading yt-dlp...");
+            Verify(YtDlp, "https://github.com/yt-dlp/yt-dlp/releases/latest/download/SHA2-256SUMS", "yt-dlp.exe");
         }
         else
         {
@@ -701,6 +703,7 @@ partial class App : Form
             Log("First run: downloading ffmpeg (~100 MB, one time)...");
             string zip = Path.Combine(Tools, "ffmpeg.zip");
             Download("https://github.com/yt-dlp/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip", zip, "Downloading ffmpeg...");
+            Verify(zip, "https://github.com/yt-dlp/FFmpeg-Builds/releases/download/latest/checksums.sha256", "ffmpeg-master-latest-win64-gpl.zip");
             status = "Unpacking ffmpeg..."; targetPct = 100;
             if (Directory.Exists(FfmpegDir)) Directory.Delete(FfmpegDir, true);
             ZipFile.ExtractToDirectory(zip, FfmpegDir);
@@ -718,6 +721,7 @@ partial class App : Form
                 Log("First run: downloading Deno (JavaScript runtime YouTube needs)...");
                 string zip = Path.Combine(Tools, "deno.zip");
                 Download("https://github.com/denoland/deno/releases/latest/download/deno-x86_64-pc-windows-msvc.zip", zip, "Downloading Deno...");
+                Verify(zip, "https://github.com/denoland/deno/releases/latest/download/deno-x86_64-pc-windows-msvc.zip.sha256sum", "deno-x86_64-pc-windows-msvc.zip");
                 if (Directory.Exists(DenoDir)) Directory.Delete(DenoDir, true);
                 ZipFile.ExtractToDirectory(zip, DenoDir);
                 File.Delete(zip);
@@ -975,6 +979,7 @@ partial class App : Form
     {
         if (updating || card != null) return;
         string newVer = null, dl = LatestExeUrl;
+        updateSha = "";
         try
         {
             // /releases/latest redirects to /releases/tag/vX.Y.Z. It is uncached and doesn't use
@@ -1015,7 +1020,7 @@ partial class App : Form
             using (var wc = new WebClient())
             {
                 string[] lines = wc.DownloadString(UpdateManifestUrl + "?t=" + DateTime.UtcNow.Ticks).Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
-                if (lines.Length > 2 && lines[0].Trim() == newVer) for (int i = 2; i < lines.Length && notes.Count < 14; i++) notes.Add(lines[i].Trim());
+                if (lines.Length > 2 && lines[0].Trim() == newVer) for (int i = 2; i < lines.Length && notes.Count < 14; i++) { string ln = lines[i].Trim(); if (ln.StartsWith("sha256=", StringComparison.OrdinalIgnoreCase)) updateSha = ln.Substring(7).Trim().ToLowerInvariant(); else notes.Add(ln); }
             }
         }
         catch { }
@@ -1063,8 +1068,37 @@ partial class App : Form
             card.Location = new Point((bg.ClientSize.Width - card.Width) / 2, Math.Max(10, (bg.ClientSize.Height - card.Height) / 2 - 20));
     }
 
+    // checks a tool we downloaded against the checksum its publisher posts next to it; a file that does not match is deleted and never run
+    internal static string CheckSum(string file, string sumsUrl, string name)
+    {
+        try
+        {
+            string text; var req = (HttpWebRequest)WebRequest.Create(sumsUrl); req.UserAgent = "Purphex"; req.Timeout = 15000; using (var rs = req.GetResponse()) using (var sr = new StreamReader(rs.GetResponseStream())) text = sr.ReadToEnd();
+            string actual = Sha256Of(file);
+            var hm = Regex.Match(text, @"(?im)^\s*Hash\s*:\s*([0-9a-f]{64})");   // Deno posts its checksum in PowerShell's Get-FileHash layout
+            if (hm.Success) return string.Equals(hm.Groups[1].Value, actual, StringComparison.OrdinalIgnoreCase) ? null : "does not match its published checksum";
+            foreach (var raw in text.Split(new[] { (char)10 }, StringSplitOptions.RemoveEmptyEntries))
+            {
+                var p = raw.Trim().Split(new[] { ' ', '*', (char)9 }, StringSplitOptions.RemoveEmptyEntries);
+                if (p.Length == 1 && p[0].Length == 64 && text.Trim().Length < 130) return string.Equals(p[0], actual, StringComparison.OrdinalIgnoreCase) ? null : "does not match its published checksum";
+                if (p.Length >= 2 && p[0].Length == 64 && string.Equals(p[1], name, StringComparison.OrdinalIgnoreCase)) return string.Equals(p[0], actual, StringComparison.OrdinalIgnoreCase) ? null : "does not match its published checksum";
+            }
+        }
+        catch { }
+        return null;   // no checksum available (offline, or not listed): carry on
+    }
+    void Verify(string file, string sumsUrl, string name)
+    {
+        string bad = CheckSum(file, sumsUrl, name); if (bad == null) { Log("Checked " + name + " against its published checksum: ok."); return; }
+        try { File.Delete(file); } catch { }
+        throw new Exception(name + " " + bad + ", so it was deleted and not used. Try again; if it keeps happening, check your connection or antivirus.");
+    }
+    string updateSha = "";   // the SHA-256 the release publishes for its program file; a download that does not match is thrown away
+    static string Sha256Of(string file) { using (var sha = System.Security.Cryptography.SHA256.Create()) using (var fs = File.OpenRead(file)) return BitConverter.ToString(sha.ComputeHash(fs)).Replace("-", "").ToLowerInvariant(); }
     void ApplyUpdate(string downloadUrl)
     {
+        if (!downloadUrl.StartsWith("https://github.com/heaththomas225-svg/yt-to-mp3/", StringComparison.OrdinalIgnoreCase)) { Log("Update refused: the download address is not this project's release page."); return; }
+        string expectSha = updateSha;
         updating = true; SetBusy(true); Log("Downloading update...");
         new Thread(() =>
         {
@@ -1073,6 +1107,7 @@ partial class App : Form
             {
                 Download(downloadUrl, tmp, "Downloading update...");
                 if (new FileInfo(tmp).Length < 10000) throw new Exception("Downloaded file looks invalid.");
+                if (expectSha.Length > 0 && Sha256Of(tmp) != expectSha) { try { File.Delete(tmp); } catch { } throw new Exception("The downloaded update does not match the checksum the release publishes, so it was thrown away and not installed."); }
                 try { File.Delete(old); } catch { }
                 File.Move(exe, old);          // a running exe can be renamed, not overwritten
                 File.Move(tmp, exe);
