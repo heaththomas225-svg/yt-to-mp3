@@ -1,4 +1,4 @@
-3.2.0
+3.2.1
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
 NEW: renamed Purphex (the studio is Purphex Music)
 NEW: Bass Lab synthesizer + fine-tunable Bass Boost
