@@ -71,7 +71,7 @@ class ShaperFx : Fx
         os1.Set(Biquad.LowPass, fsr, SR * 0.44, 0.7071, 0); os2.Set(Biquad.LowPass, fsr, SR * 0.44, 0.54, 0); lowSplit.Set(Biquad.LowPass, SR, Math.Max(30, Get("split")), 0.7071, 0);
     }
     public override void Reset() { base.Reset(); pre.Reset(); tone.Reset(); os1.Reset(); os2.Reset(); lowSplit.Reset(); dcL = dcR = prevL = prevR = prevInL = prevInR = 0; }
-    static double Sh(double x, int m)
+    internal static double Sh(double x, int m)
     {
         switch (m)
         {

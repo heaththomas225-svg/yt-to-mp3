@@ -225,11 +225,12 @@ partial class App
     }
 
     // Per-frame work on the UI thread: blit finished layers, draw sprites, title and progress bar.
+    readonly FpsCounter fpsMain = new FpsCounter();
     string atmoKey = ""; internal static int PaintN; internal static double PaintMs;
     void PaintBg(object sender, PaintEventArgs e)
     {
         // If anything goes wrong mid-paint, never leave a hole that shows the desktop through the window.
-        try { PaintBgCore(sender, e); }
+        try { PaintBgCore(sender, e); fpsMain.Frame(); if (Prefs.ShowFps) fpsMain.Draw(e.Graphics, bg.Width - 10, bg.Height - 8, false); }
         catch (Exception) { try { using (var b = new SolidBrush(Color.FromArgb(8, 3, 18))) e.Graphics.FillRectangle(b, e.ClipRectangle); } catch { } }
     }
 
