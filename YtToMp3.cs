@@ -33,7 +33,7 @@ class Job
 class App : Form
 {
     // ---- Auto-update settings ----
-    const string Version = "2.0.0";
+    const string Version = "2.1.0";
     // Plain-text manifest: line 1 = newest version, line 2 = direct exe download URL.
     const string UpdateManifestUrl = "https://raw.githubusercontent.com/heaththomas225-svg/yt-to-mp3/main/version.txt";
 
@@ -95,7 +95,7 @@ class App : Form
         ClientSize = new Size(640, 650);
         MinimumSize = new Size(560, 600);
         Font = new Font("Segoe UI", 9.5f);
-        Shown += (s, e) => new Thread(CheckForUpdate) { IsBackground = true }.Start();
+        Shown += (s, e) => new Thread(UpdateLoop) { IsBackground = true }.Start();
         FormClosing += (s, e) => { SaveSettings(); KillCurrent(); };
 
         bg.Dock = DockStyle.Fill;
@@ -626,21 +626,56 @@ class App : Form
     }
 
     // ---------- self-update ----------
+    // Runs for the life of the app: checks right away, then every few minutes, so an update
+    // published while the app is open pops up live instead of waiting for a restart.
+    const int UpdateCheckMinutes = 5;
+    const string LatestReleaseApi = "https://api.github.com/repos/heaththomas225-svg/yt-to-mp3/releases/latest";
+    const string LatestExeUrl = "https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe";
+    string dismissedVer = "";
+    volatile bool updating = false;
+
+    void UpdateLoop()
+    {
+        while (true)
+        {
+            try { CheckForUpdate(); } catch { }
+            Thread.Sleep(UpdateCheckMinutes * 60 * 1000);
+        }
+    }
+
     void CheckForUpdate()
     {
-        if (UpdateManifestUrl.Length == 0) return;
+        if (updating || card != null) return;
+        string newVer = null, dl = LatestExeUrl;
         try
         {
-            string[] lines;
+            // The releases API reflects a new release within a minute or so.
             using (var wc = new WebClient())
-                lines = wc.DownloadString(UpdateManifestUrl + "?t=" + DateTime.UtcNow.Ticks)
-                          .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
-            if (lines.Length < 2) return;
-            if (new Version(lines[0].Trim()) <= new Version(Version)) return;
-            string newVer = lines[0].Trim(), dl = lines[1].Trim();
-            BeginInvoke(new Action(() => ShowUpdateCard(newVer, dl)));
+            {
+                wc.Headers[HttpRequestHeader.UserAgent] = "YtToMp3";
+                var m = Regex.Match(wc.DownloadString(LatestReleaseApi), "\"tag_name\"\\s*:\\s*\"v?([0-9][0-9.]*)\"");
+                if (m.Success) newVer = m.Groups[1].Value;
+            }
         }
-        catch { /* offline or bad manifest: ignore silently */ }
+        catch { }
+        if (newVer == null && UpdateManifestUrl.Length > 0)
+        {
+            try
+            {
+                using (var wc = new WebClient())
+                {
+                    string[] lines = wc.DownloadString(UpdateManifestUrl + "?t=" + DateTime.UtcNow.Ticks)
+                        .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+                    if (lines.Length >= 2) { newVer = lines[0].Trim(); dl = lines[1].Trim(); }
+                }
+            }
+            catch { }
+        }
+        if (newVer == null) return;   // offline or unreadable: try again next round
+        System.Version nv;
+        if (!System.Version.TryParse(newVer, out nv) || nv <= new System.Version(Version)) return;
+        if (newVer == dismissedVer) return;   // user said "Later" for this one
+        BeginInvoke(new Action(() => ShowUpdateCard(newVer, dl)));
     }
 
     // In-app update popup (a card over the window instead of a separate message box).
@@ -653,7 +688,7 @@ class App : Form
         var yes = new Button(); StyleBtn(yes, Color.FromArgb(130, 45, 220)); yes.Text = "Update now"; yes.SetBounds(16, 100, 170, 34);
         var no = new Button(); StyleBtn(no, Color.FromArgb(60, 26, 100)); no.Text = "Later"; no.SetBounds(194, 100, 170, 34);
         yes.Click += (s, e) => { HideCard(); ApplyUpdate(dl); };
-        no.Click += (s, e) => HideCard();
+        no.Click += (s, e) => { dismissedVer = newVer; HideCard(); };
         card.Controls.AddRange(new Control[] { title, msg, yes, no });
         bg.Controls.Add(card);
         CenterCard();
@@ -675,7 +710,7 @@ class App : Form
 
     void ApplyUpdate(string downloadUrl)
     {
-        SetBusy(true); Log("Downloading update...");
+        updating = true; SetBusy(true); Log("Downloading update...");
         new Thread(() =>
         {
             string exe = Application.ExecutablePath, tmp = exe + ".new", old = exe + ".old";
@@ -693,6 +728,7 @@ class App : Form
             {
                 try { if (File.Exists(old) && !File.Exists(exe)) File.Move(old, exe); } catch { }
                 Log("Update failed: " + ex.Message);
+                updating = false;
                 SetBusy(false);
             }
         }) { IsBackground = true }.Start();
