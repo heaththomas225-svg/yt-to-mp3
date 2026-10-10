@@ -273,8 +273,10 @@ partial class App
         g.SmoothingMode = SmoothingMode.AntiAlias;
         if (ov != null && ov.Width == r.Width && ov.Height == r.Height) g.DrawImageUnscaled(ov, 0, 0);
 
-        string title = "YouTube MP3 Converter";
+        string title = "Purphex";
         g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
+        var logoPic = AppLogo.Logo; if (logoPic != null) { var oldI = g.InterpolationMode; g.InterpolationMode = InterpolationMode.HighQualityBicubic; g.DrawImage(logoPic, new Rectangle(12, 4, 42, 42)); g.InterpolationMode = oldI; }
+        var titleState = g.Save(); if (logoPic != null) g.TranslateTransform(46, 0);
         using (var f = new Font("Segoe UI Black", 21f))
         {
             if (titleSize.Width < 1) titleSize = g.MeasureString(title, f);
@@ -283,8 +285,8 @@ partial class App
             float sh = anim ? (t * 90) % (titleSize.Width * 2) : 0;
             using (var b = new LinearGradientBrush(new RectangleF(16 - sh, 10, titleSize.Width * 2, titleSize.Height), Color.FromArgb(245, 225, 255), Color.FromArgb(180, 100, 255), 0f))
             { b.WrapMode = WrapMode.TileFlipX; g.DrawString(title, f, b, 16, 10); }
-            using (var f3 = new Font("Segoe UI Semibold", 12f)) using (var b3 = new SolidBrush(Color.FromArgb(240, 110, 235))) g.DrawString("By Phurex", f3, b3, 22 + titleSize.Width, 20);
         }
+        g.Restore(titleState);
 
         var bar = new Rectangle(16, 470, r.Width - 32, 14);
         using (var tb = new SolidBrush(Color.FromArgb(200, 4, 2, 10))) g.FillRectangle(tb, bar);

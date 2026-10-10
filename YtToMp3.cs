@@ -37,7 +37,7 @@ class Job
 partial class App : Form
 {
     // ---- Auto-update settings ----
-    const string Version = "3.13.1";
+    const string Version = "3.14.0";
     // Plain-text manifest: line 1 = newest version, line 2 = direct exe download URL.
     const string UpdateManifestUrl = "https://raw.githubusercontent.com/heaththomas225-svg/yt-to-mp3/main/version.txt";
 
@@ -51,17 +51,17 @@ partial class App : Form
 
     // ---- Output formats: name, container, quality arg, can embed cover art, extra ffmpeg args ----
     static readonly string[] FmtNames = {
-        "MP3  320 kbps (CBR)", "MP3  V0 (VBR, ~245 kbps)", "WAV  24-bit PCM", "FLAC  (lossless container)",
+        "MP3  320 kbps (best MP3 quality)", "WAV  24-bit PCM", "FLAC  (lossless container)",
         "M4A  AAC 256 kbps", "Opus  (best quality per size)",
         "MP4  VIDEO  best quality (up to 4K+)", "MP4  VIDEO  1440p", "MP4  VIDEO  1080p", "MP4  VIDEO  720p", "MP4  VIDEO  480p", "MP4  VIDEO  360p", "MKV  VIDEO  best quality (no re-encode)" };
     // video entries: the tallest picture to accept (9999 = no limit) and the container; 0 = an audio format
-    static readonly int[] FmtVid = { 0, 0, 0, 0, 0, 0, 9999, 1440, 1080, 720, 480, 360, 9999 };
-    static readonly string[] FmtBox = { null, null, null, null, null, null, "mp4", "mp4", "mp4", "mp4", "mp4", "mp4", "mkv" };
-    static readonly string[] FmtExt = { "mp3", "mp3", "wav", "flac", "m4a", "opus", "mp4", "mp4", "mp4", "mp4", "mp4", "mp4", "mkv" };
-    static readonly string[] FmtQual = { "320K", "0", null, null, "256K", null, null, null, null, null, null, null, null };
-    static readonly bool[] FmtArt = { true, true, false, true, true, false, false, false, false, false, false, false, false };
-    static readonly string[] FmtCodec = { null, null, "-c:a pcm_s24le", null, null, null, null, null, null, null, null, null, null };
-    static readonly string[] FmtTag = { "MP3 320k", "MP3 V0", "WAV 24bit", "FLAC", "AAC 256k", "Opus", "MP4 best", "MP4 1440p", "MP4 1080p", "MP4 720p", "MP4 480p", "MP4 360p", "MKV best" };
+    static readonly int[] FmtVid = { 0, 0, 0, 0, 0, 9999, 1440, 1080, 720, 480, 360, 9999 };
+    static readonly string[] FmtBox = { null, null, null, null, null, "mp4", "mp4", "mp4", "mp4", "mp4", "mp4", "mkv" };
+    static readonly string[] FmtExt = { "mp3", "wav", "flac", "m4a", "opus", "mp4", "mp4", "mp4", "mp4", "mp4", "mp4", "mkv" };
+    static readonly string[] FmtQual = { "320K", null, null, "256K", null, null, null, null, null, null, null, null };
+    static readonly bool[] FmtArt = { true, false, true, true, false, false, false, false, false, false, false, false };
+    static readonly string[] FmtCodec = { null, "-c:a pcm_s24le", null, null, null, null, null, null, null, null, null, null };
+    static readonly string[] FmtTag = { "MP3 320k", "WAV 24bit", "FLAC", "AAC 256k", "Opus", "MP4 best", "MP4 1440p", "MP4 1080p", "MP4 720p", "MP4 480p", "MP4 360p", "MKV best" };
 
     // Label put in every file name so you can tell what settings produced it.
     static string FormatTag(int fmt, int srIdx, MasterSettings m, bool normalized)
@@ -150,7 +150,7 @@ partial class App : Form
 
     App()
     {
-        Text = "YouTube MP3 Converter By Phurex  v" + Version;
+        Text = "Purphex  v" + Version;
         ClientSize = new Size(640, 712);
         MinimumSize = new Size(560, 640);
         StudioEnv.Ffmpeg = FfmpegExe; StudioEnv.Ffprobe = FfprobeExe; UserBackground.Ffmpeg = FfmpegExe; Prefs.Changed = ApplyPrefs;
@@ -180,7 +180,7 @@ partial class App : Form
         tip.SetToolTip(fmt, "YouTube audio is already lossy (about 128-160 kbps).\nWAV / FLAC keep it intact from that point on, but can't restore lost quality.");
         fmt.SelectedIndexChanged += (s, e) =>
         {
-            bool vid = FmtVid[Math.Max(0, fmt.SelectedIndex)] > 0; sr.Enabled = !vid; norm.Enabled = !vid; prevNormBtn.Enabled = !vid; if (vid) Log("Video mode: your file keeps the original picture and sound. Pick a quality in the Format list."); if (fmt.SelectedIndex == 2 || fmt.SelectedIndex == 3)
+            bool vid = FmtVid[Math.Max(0, fmt.SelectedIndex)] > 0; sr.Enabled = !vid; norm.Enabled = !vid; prevNormBtn.Enabled = !vid; if (vid) Log("Video mode: your file keeps the original picture and sound. Pick a quality in the Format list."); if (fmt.SelectedIndex == 1 || fmt.SelectedIndex == 2)
                 Log("Note: source audio from YouTube is lossy; WAV/FLAC won't add quality, they just avoid a second lossy encode.");
         };
 
@@ -331,7 +331,7 @@ partial class App : Form
     {
         if (frameLoop != null) frameLoop.TargetFps = Math.Max(30, Math.Min(Prefs.FpsCap, FrameLoop.DisplayHz()));
         WaveOutPlayer.Gain = Prefs.OutVol / 100f;
-        if (!Prefs.ShowFps) Text = "YouTube MP3 Converter By Phurex  v" + Version;
+        if (!Prefs.ShowFps) Text = "Purphex  v" + Version;
         if (!UserBackground.Active) UserBackground.StopVideo();
         bg.Invalidate(); SaveSettings();
     }
@@ -356,7 +356,7 @@ partial class App : Form
             Directory.CreateDirectory(AppData);
             Rectangle b = WindowState == FormWindowState.Normal ? Bounds : RestoreBounds;
             File.WriteAllLines(SettingsFile, new[] {
-                "fmt=" + fmt.SelectedIndex, "sr=" + sr.SelectedIndex, "name=" + nameFmt.SelectedIndex,
+                "fmt=" + fmt.SelectedIndex, "fmtv=2", "sr=" + sr.SelectedIndex, "name=" + nameFmt.SelectedIndex,
                 "dir=" + outDir.Text, "norm=" + norm.Checked, "playlist=" + playlist.Checked,
                 "open=" + openDone.Checked, "anim=" + animate.Checked,
                 "x=" + b.X, "y=" + b.Y, "w=" + b.Width, "h=" + b.Height,
@@ -380,7 +380,7 @@ partial class App : Form
 
     void LoadSettings()
     {
-        int wx = 0, wy = 0, ww = 0, wh = 0; bool wmax = false;
+        int wx = 0, wy = 0, ww = 0, wh = 0, savedFmt = -1, fmtVer = 1; bool wmax = false;
         try
         {
             if (!File.Exists(SettingsFile)) return;
@@ -389,7 +389,8 @@ partial class App : Form
                 int i = line.IndexOf('='); if (i < 1) continue;
                 string k = line.Substring(0, i), v = line.Substring(i + 1);
                 int n; bool b;
-                if (k == "fmt" && int.TryParse(v, out n) && n >= 0 && n < fmt.Items.Count) fmt.SelectedIndex = n;
+                if (k == "fmt" && int.TryParse(v, out n) && n >= 0) savedFmt = n;
+                else if (k == "fmtv") fmtVer = 2;
                 else if (k == "sr" && int.TryParse(v, out n) && n >= 0 && n < sr.Items.Count) sr.SelectedIndex = n;
                 else if (k == "name" && int.TryParse(v, out n) && n >= 0 && n < nameFmt.Items.Count) nameFmt.SelectedIndex = n;
                 else if (k == "dir" && v.Length > 0) outDir.Text = v;
@@ -408,6 +409,7 @@ partial class App : Form
                 else if (k == "mzoom" && int.TryParse(v, out n) && n >= 40 && n <= 100) MZoomPct = n;
                 else Prefs.Parse(k, v);
             }
+            if (savedFmt >= 0) { if (fmtVer < 2) savedFmt = savedFmt <= 1 ? 0 : savedFmt - 1; if (savedFmt < fmt.Items.Count) fmt.SelectedIndex = savedFmt; }   // the list lost its MP3 V0 entry: older saved choices move up one
             // Restore the window only if it still lands on a connected screen.
             if (ww >= MinimumSize.Width && wh >= MinimumSize.Height)
             {
@@ -462,7 +464,7 @@ partial class App : Form
         if (go.BackColor != gc) go.BackColor = gc;
         bg.Invalidate();
         fpsFrames++;
-        if (now >= nextFpsAt) { fpsShown = (int)(fpsFrames * 1000.0 / (now - (nextFpsAt - 1000)) + 0.5); fpsFrames = 0; nextFpsAt = now + 1000; Text = "YouTube MP3 Converter By Phurex  v" + Version + (Prefs.ShowFps ? "    " + fpsShown + " fps" : ""); }
+        if (now >= nextFpsAt) { fpsShown = (int)(fpsFrames * 1000.0 / (now - (nextFpsAt - 1000)) + 0.5); fpsFrames = 0; nextFpsAt = now + 1000; Text = "Purphex  v" + Version + (Prefs.ShowFps ? "    " + fpsShown + " fps" : ""); }
     }
     // Leaf outline built once and reused (drawing is the hot path of the animation).
     static readonly GraphicsPath[] LeafPaths = BuildLeafPaths();
@@ -626,6 +628,27 @@ partial class App : Form
         return s.Length == 0 || Regex.IsMatch(s, @"^\d+(:\d{1,2}){0,2}(\.\d+)?$");
     }
 
+    // a link that was converted is taken out of the box (links that failed or were cancelled stay, so you can try again)
+    internal void RemoveLinkFromBox(string link)
+    {
+        if (string.IsNullOrEmpty(link)) return;
+        try
+        {
+            BeginInvoke(new Action(() =>
+            {
+                var lines = links.Text.Replace("\r\n", "\n").Split('\n'); var keep = new List<string>(); bool removed = false;
+                foreach (var raw in lines)
+                {
+                    string line = raw; int at = removed ? -1 : line.IndexOf(link, StringComparison.Ordinal);
+                    if (at >= 0) { removed = true; line = (line.Substring(0, at) + line.Substring(at + link.Length)).Trim(' ', '\t', ',', ';'); if (line.Length == 0) continue; }
+                    keep.Add(line);
+                }
+                if (removed) links.Text = string.Join("\r\n", keep.ToArray());
+            }));
+        }
+        catch { }
+    }
+
     // ---------- converting ----------
     void Start()
     {
@@ -778,7 +801,7 @@ partial class App : Form
             int code = RunProc(YtDlp, args, true);
             if (cancelReq) break;
             if (code != 0) { fail++; Log("Failed (exit " + code + ")."); }
-            else if (!mastering) ok++;
+            else if (!mastering) { ok++; RemoveLinkFromBox(link); }
             else
             {
                 var wavs = Directory.GetFiles(tmpDir, "*.wav");
@@ -794,7 +817,7 @@ partial class App : Form
                         pr => { targetPct = (itemIdx * 100f + 60f + 40f * pr) / Math.Max(1, itemTotal); }, out res);
                     if (outp != null)
                     {
-                        ok++; LastFile = outp; if (res != null) LastAn = res;
+                        ok++; RemoveLinkFromBox(link); LastFile = outp; if (res != null) LastAn = res;
                         try { File.Delete(w); } catch { }
                         Log("Saved: " + Path.GetFileName(outp));
                     }
@@ -840,7 +863,7 @@ partial class App : Form
             if (d.ShowDialog(this) != DialogResult.OK) return;
             file = d.FileName;
         }
-        int f = Math.Min(5, fmt.SelectedIndex); string dir = outDir.Text.Trim(); bool open = openDone.Checked;
+        int f = Math.Min(4, fmt.SelectedIndex); string dir = outDir.Text.Trim(); bool open = openDone.Checked;
         if (dir.Length == 0) { MessageBox.Show(this, "Choose a folder to save to."); return; }
         cancelReq = false; SetBusy(true);
         new Thread(() =>

@@ -96,9 +96,9 @@ static class MasterDsp
     static string N(double d) { return d.ToString("0.###", CI); }
 
     public static readonly string[] FmtEnc = {
-        "-c:a libmp3lame -b:a 320k", "-c:a libmp3lame -q:a 0", "-c:a pcm_s24le",
+        "-c:a libmp3lame -b:a 320k", "-c:a pcm_s24le",
         "-c:a flac", "-c:a aac -b:a 256k", "-c:a libopus -b:a 192k" };
-    public static readonly string[] FmtExt = { "mp3", "mp3", "wav", "flac", "m4a", "opus" };
+    public static readonly string[] FmtExt = { "mp3", "wav", "flac", "m4a", "opus" };
 
     // ---- biquad magnitude (RBJ cookbook) so the on-screen curve matches the filters ----
     public static double BiquadDb(int type, double f0, double gDb, double q, double f)

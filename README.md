@@ -1,4 +1,4 @@
-# BandLab + YouTube to MP3
+# Purphex
 
 Windows app that turns BandLab / YouTube (and other yt-dlp supported) links into audio files, with producer tools:
 

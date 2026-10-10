@@ -7,10 +7,17 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.13.1";
+    public const string Latest = "3.14.0";
 
     public const string Text =
-@"3.13.1  Side menu opens closed
+@"3.14.0  Purphex
+ + NEW the Purphex emblem is the program icon, the default profile picture and the logo in the main window.
+ + The app is simply called Purphex now.
+ + One MP3 choice: the duplicate MP3 V0 entry is gone, MP3 320 kbps stays (your saved format choice is carried over).
+ + A link that has been converted is removed from the box (links that failed stay so you can retry).
+ + Purphex Music: the Add your music box is a button that opens your files, and it lights up when you drag songs over the window to drop them.
+
+3.13.1  Side menu opens closed
  + FIXED: the side menu used to open with Project already expanded. It now opens with every section closed; click a section to open its list, click it again to close it.
 
 3.13.0  Side menu, My Projects and Community
