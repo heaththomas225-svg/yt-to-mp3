@@ -60,10 +60,10 @@ class SynthWindow : Form, IKeySink
     public SynthWindow(SynthFx fx, Track t)
     {
         this.fx = fx; track = t; Text = "Purphex Bass Lab"; BackColor = Color.FromArgb(10, 4, 20); ForeColor = Color.FromArgb(240, 232, 255); KeyPreview = true; StartPosition = FormStartPosition.CenterParent;
-        FormBorderStyle = FormBorderStyle.Sizable; MaximizeBox = true; MinimumSize = new Size(900, 640); Win.Dark(this);
+        FormBorderStyle = FormBorderStyle.Sizable; MaximizeBox = true; MinimumSize = new Size(900, 700); Win.Dark(this);
         canvas = new SynthCanvas(fx, this) { Dock = DockStyle.Fill };
         piano = new PianoPanel(this, 49) { Dock = DockStyle.Bottom, Height = 124 };
-        Controls.Add(canvas); Controls.Add(piano); ClientSize = new Size(1240, 640 + 124);
+        Controls.Add(canvas); Controls.Add(piano); ClientSize = new Size(1240, 716 + 124);
         Activated += (s, e) => { MidiInput.Target = fx; };
         Shown += (s, e) => { MidiInput.Target = fx; if (Prefs.MidiDev.Length > 0 && MidiInput.OpenName != Prefs.MidiDev) MidiInput.Open(Prefs.MidiDev); var se = StudioEngine.Current; if (se != null) se.EnsureAudio(); };
         tick = new Timer { Interval = 33 }; tick.Tick += (s, e) => { if (!Win.AnyMoving) canvas.Step(); }; tick.Start();
@@ -94,11 +94,11 @@ class SynthWindow : Form, IKeySink
     protected override void OnKeyUp(KeyEventArgs e) { base.OnKeyUp(e); int i = Array.IndexOf(KeyMap, e.KeyCode); if (i >= 0) KeyOff(12 * (octave + 1) + i); }
 }
 
-class SynthCanvas : Control
+partial class SynthCanvas : Control
 {
     class Reg { public RectangleF R; public Action<PointF> Down; public Action<float, float> Drag; public Action<int> Wheel; public Action Double; public Action Right; public string Tip = ""; public Param P; public bool Log; public float Step; }
     readonly SynthFx fx; readonly SynthWindow win; readonly List<Reg> regs = new List<Reg>(); Reg hover, active; PointF mouse, downPt; float downFrac; DateTime lastInput = DateTime.Now; bool modified;
-    int tab, modTab = 4; const float W = 1240, H = 640; float scale = 1, ox, oy;
+    int tab, modTab = 4; const float W = 1240, H = 716; float scale = 1, ox, oy;
     public bool Typing;
     static readonly Color Bg0 = Color.FromArgb(13, 7, 26), Bg1 = Color.FromArgb(26, 13, 48), Panel = Color.FromArgb(30, 17, 56), PanelHi = Color.FromArgb(44, 26, 80), Edge = Color.FromArgb(96, 62, 160), Ink = Color.FromArgb(240, 232, 255), Dim = Color.FromArgb(150, 132, 190),
         Acc = Color.FromArgb(188, 120, 255), Acc2 = Color.FromArgb(236, 92, 226), Good = Color.FromArgb(120, 232, 150), Disp = Color.FromArgb(14, 8, 28);
@@ -278,83 +278,6 @@ class SynthCanvas : Control
         Txt(g, title, 12, Ink, Rc(r.X + (powerId != null ? 26 : 10), r.Y, r.Width - 30, 24), StringAlignment.Near, true);
     }
 
-    void PaintOsc(Graphics g)
-    {
-        float y = 66, h = 252; float[] ws = { 108, 198, 198, 198, 120, 192, 192 }; float x = 8; var cols = new[] { Acc, Acc2 };
-        // SUB
-        var sub = Rc(x, y, ws[0], h); ModuleFrame(g, sub, "SUB", "subon"); DrawWaveShape(g, Rc(sub.X + 6, sub.Y + 30, sub.Width - 12, 90), 0, true);
-        Choose(g, "subwave", Rc(sub.X + 8, sub.Y + 126, sub.Width - 16, 20), Acc); Knob(g, "sublvl", sub.X + 30, sub.Y + 180, "LEVEL", Acc); NumBox(g, "suboct", Rc(sub.X + 62, sub.Y + 166, 40, 18), "OCT"); x += ws[0] + 3;
-        for (int o = 0; o < 3; o++)
-        {
-            string s = "abc"[o].ToString(); var r = Rc(x, y, ws[1 + o], h); ModuleFrame(g, r, "OSC " + s.ToUpper(), s + "on");
-            var disp = Rc(r.X + 6, r.Y + 28, r.Width - 12, 92); DrawWaveShape(g, disp, o, false);
-            Choose(g, s + "warp", Rc(r.X + 6, r.Y + 122, 82, 18), Acc2); NumBox(g, s + "oct", Rc(r.X + 92, r.Y + 122, 48, 18), "OCT"); NumBox(g, s + "sem", Rc(r.X + 142, r.Y + 122, 50, 18), "SEM");
-            float kx = r.X + 28, ky = r.Y + 168; float dx = 47;
-            Knob(g, s + "wt", kx, ky, "WAVE", Acc, 15); Knob(g, s + "wamt", kx + dx, ky, "WARP", Acc2, 15); Knob(g, s + "uni", kx + dx * 2, ky, "UNISON", Acc, 15); Knob(g, s + "det", kx + dx * 3, ky, "DETUNE", Acc, 15);
-            ky = r.Y + 224; Knob(g, s + "fin", kx, ky, "FINE", Acc, 13); Knob(g, s + "blend", kx + dx, ky, "BLEND", Acc, 13); Knob(g, s + "pan", kx + dx * 2, ky, "PAN", Acc, 13); Knob(g, s + "lvl", kx + dx * 3, ky, "LEVEL", Acc2, 13);
-            x += ws[1 + o] + 3;
-        }
-        var nz = Rc(x, y, ws[4], h); ModuleFrame(g, nz, "NOISE", "nzon"); DrawNoise(g, Rc(nz.X + 6, nz.Y + 30, nz.Width - 12, 90));
-        Choose(g, "nztype", Rc(nz.X + 8, nz.Y + 126, nz.Width - 16, 20), Acc); Knob(g, "nzlvl", nz.X + nz.Width / 2, nz.Y + 190, "LEVEL", Acc); x += ws[4] + 3;
-        for (int k = 1; k <= 2; k++)
-        {
-            var r = Rc(x, y, ws[4 + k], h); ModuleFrame(g, r, "FILTER " + k, "f" + k + "on");
-            DrawFilter(g, Rc(r.X + 6, r.Y + 28, r.Width - 12, 92), k);
-            Choose(g, "f" + k + "type", Rc(r.X + 6, r.Y + 124, k == 2 ? 100 : 120, 20), Acc2);
-            if (k == 2) Choose(g, "froute", Rc(r.X + 110, r.Y + 124, 76, 20), Acc); else NumBox(g, "f1key", Rc(r.X + 130, r.Y + 124, 56, 20), "KEY");
-            Knob(g, "f" + k + "cut", r.X + 40, r.Y + 188, "CUTOFF", Acc2, 17); Knob(g, "f" + k + "res", r.X + 96, r.Y + 188, "RES", Acc, 17); Knob(g, "f" + k + "drive", r.X + 152, r.Y + 188, "DRIVE", Acc, 17);
-            x += ws[4 + k] + 3;
-        }
-    }
-
-    void DrawWaveShape(Graphics g, RectangleF r, int osc, bool sub)
-    {
-        Fill(g, Disp, r, 5); var pts = new List<PointF>(); int N = 120;
-        double wt = 0; int warp = 0; double wamt = 0; bool on = true;
-        if (sub) { int sw = (int)P("subwave").Val; on = P("subon").Val > 0.5f; for (int i = 0; i <= N; i++) { double p = i / (double)N; double y = sw == 0 ? Math.Sin(6.283185307179586 * p) : (sw == 1 ? 4 * Math.Abs(p - 0.5) - 1 : (p < 0.5 ? 0.7 : -0.7)); pts.Add(new PointF(r.X + 4 + (r.Width - 8) * i / N, r.Y + r.Height / 2 - (float)y * (r.Height / 2 - 8))); } }
-        else
-        {
-            string s = "abc"[osc].ToString(); wt = P(s + "wt").Val / 100.0; warp = (int)P(s + "warp").Val; wamt = P(s + "wamt").Val / 100.0; on = P(s + "on").Val > 0.5f;
-            for (int i = 0; i <= N; i++) { double p = i / (double)N; double y = Math.Max(-1.2, Math.Min(1.2, SynthFx.OscSample(wt, warp, wamt, Math.Min(0.9999, p), 1.0 / N))); pts.Add(new PointF(r.X + 4 + (r.Width - 8) * i / N, r.Y + r.Height / 2 - (float)y * (r.Height / 2 - 8))); }
-        }
-        var c = on ? Color.FromArgb(120, 230, 150) : Color.FromArgb(90, 90, 110);
-        var poly = new List<PointF>(pts); poly.Add(new PointF(r.Right - 4, r.Bottom - 2)); poly.Add(new PointF(r.X + 4, r.Bottom - 2));
-        using (var b = new SolidBrush(Color.FromArgb(on ? 50 : 20, c))) g.FillPolygon(b, poly.ToArray());
-        using (var pen = new Pen(c, 2f)) g.DrawLines(pen, pts.ToArray()); using (var pen = new Pen(Color.FromArgb(40, 150, 130, 200))) g.DrawLine(pen, r.X + 4, r.Y + r.Height / 2, r.Right - 4, r.Y + r.Height / 2);
-    }
-    void DrawNoise(Graphics g, RectangleF r)
-    {
-        Fill(g, Disp, r, 5); var rnd = new Random(7); var pts = new List<PointF>(); bool on = P("nzon").Val > 0.5f; bool pink = P("nztype").Val > 0.5f; double v = 0;
-        for (int i = 0; i < 60; i++) { double w = rnd.NextDouble() * 2 - 1; v = pink ? v * 0.7 + w * 0.5 : w; pts.Add(new PointF(r.X + 4 + (r.Width - 8) * i / 59f, r.Y + r.Height / 2 - (float)Math.Max(-1, Math.Min(1, v)) * (r.Height / 2 - 10))); }
-        using (var pen = new Pen(on ? Color.FromArgb(120, 230, 150) : Color.FromArgb(90, 90, 110), 1.6f)) g.DrawLines(pen, pts.ToArray());
-    }
-    void DrawFilter(Graphics g, RectangleF r, int k)
-    {
-        Fill(g, Disp, r, 5); bool on = P("f" + k + "on").Val > 0.5f; int type = (int)P("f" + k + "type").Val; double fc = P("f" + k + "cut").Val, res = P("f" + k + "res").Val / 100.0, kk = 2 - 1.96 * res; var pts = new List<PointF>(); int N = 100;
-        for (int i = 0; i <= N; i++)
-        {
-            double f = 20 * Math.Pow(1000, i / (double)N), x = f / fc, re = 1 - x * x, im = kk * x, den = re * re + im * im, mag;
-            switch (type) { case 0: mag = 1 / Math.Sqrt(den); break; case 1: mag = 1 / den; break; case 2: mag = x * x / Math.Sqrt(den); break; case 3: mag = x / Math.Sqrt(den); break; default: mag = Math.Abs(re) / Math.Sqrt(den); break; }
-            double db = Math.Max(-36, Math.Min(24, 20 * Math.Log10(mag + 1e-9))); pts.Add(new PointF(r.X + 4 + (r.Width - 8) * i / (float)N, r.Bottom - 6 - (float)((db + 36) / 60.0) * (r.Height - 12)));
-        }
-        var c = on ? Color.FromArgb(236, 92, 226) : Color.FromArgb(90, 90, 110); var poly = new List<PointF>(pts); poly.Add(new PointF(r.Right - 4, r.Bottom - 2)); poly.Add(new PointF(r.X + 4, r.Bottom - 2));
-        using (var b = new SolidBrush(Color.FromArgb(on ? 55 : 20, c))) g.FillPolygon(b, poly.ToArray()); using (var pen = new Pen(c, 2f)) g.DrawLines(pen, pts.ToArray());
-    }
-
-    // ---------- MIX page ----------
-    void PaintMix(Graphics g)
-    {
-        var r = Rc(8, 66, W - 16, 252); Fill(g, Panel, r, 8); Stroke(g, Edge, r, 8, 1);
-        Txt(g, "MIXER  (every sound source feeds the filters; Serial = Filter 1 then Filter 2, Parallel = both side by side)", 12, Ink, Rc(r.X + 12, r.Y + 6, r.Width - 24, 20), StringAlignment.Near, true);
-        string[] ids = { "alvl", "blvl", "clvl", "sublvl", "nzlvl" }, names = { "OSC A", "OSC B", "OSC C", "SUB", "NOISE" }, ons = { "aon", "bon", "con", "subon", "nzon" };
-        for (int i = 0; i < 5; i++)
-        {
-            float cx = r.X + 90 + i * 150; Power(g, ons[i], Rc(cx - 12, r.Y + 36, 24, 24)); Txt(g, names[i], 12, Ink, Rc(cx - 50, r.Y + 62, 100, 18), StringAlignment.Center, true);
-            Knob(g, ids[i], cx, r.Y + 130, "LEVEL", Acc2, 24); if (i < 3) Knob(g, "abc"[i] + "pan", cx, r.Y + 205, "PAN", Acc, 16);
-        }
-        Choose(g, "froute", Rc(r.X + 850, r.Y + 60, 160, 24), Acc); Knob(g, "vol", r.X + 1100, r.Y + 130, "MAIN", Acc, 26);
-    }
-
     // ---------- FX page ----------
     void PaintFx(Graphics g)
     {
@@ -441,7 +364,7 @@ class SynthCanvas : Control
     // ---------- modulation section ----------
     void PaintMods(Graphics g)
     {
-        float y = 326;
+        float y = 404;
         var mac = Rc(8, y, 130, 306); Fill(g, Panel, mac, 8); Stroke(g, Edge, mac, 8, 1); Txt(g, "MACROS", 12, Ink, Rc(mac.X, mac.Y + 2, mac.Width, 20), StringAlignment.Center, true);
         for (int i = 0; i < 4; i++) Knob(g, "mac" + (i + 1), mac.X + 33 + (i % 2) * 64, mac.Y + 62 + (i / 2) * 100, "MACRO " + (i + 1), Acc2, 20);
         string[] tn = { "ENV 1", "ENV 2", "ENV 3", "ENV 4", "LFO 1", "LFO 2", "LFO 3", "LFO 4" }; float x = 144, tw = 144;

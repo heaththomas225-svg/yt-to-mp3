@@ -309,11 +309,13 @@ Click the preset name at the top (or the < > arrows): Wobble Bass, Reese, Growl,
 3. Turn the AMOUNT knob. Change the rate with the sync box: 1/8 = a wobble every eighth note of the song's tempo, 1/16 = twice as fast, 1 bar = slow and heavy. 'Hz' makes it free-running.
 Your tempo comes from the BPM in the studio, so the wobble stays in time with the beat.
 ## The pages
-- OSC: three oscillators (WAVE morphs sine > triangle > saw > square > pulse; WARP bends it for growl), unison for fat sounds, a sub oscillator, noise, two filters.
-- MIX: levels of every sound source.
+- OSC: three wavetable oscillators. SOURCE picks Wavetable or a fixed shape (sine, triangle, saw, square, pulses, half and rectified sine, organ). With Wavetable, the table menu picks Basic Shapes, Saw to Square, Vowels, Growl, Organ Drawbars, Digital Bell, Harmonic Sweep, PWM, Metallic or your own Custom 1-3, and WAVE scans between the frames of the table. WARP bends the wave (Sync, Bend, Fold, Mirror, Asym, Crush). FM and RING let the next oscillator (A is shaped by B, B by C, C by A) modulate this one, even when its level is 0. DRAW WAVE opens an editor to draw your own wave and up to 8 frames. UNISON, DETUNE and BLEND make it fat. Then a sub oscillator, noise (white, pink, brown, blue, crackle) and two filters.
+- MIX: level, pan, MUTE, SOLO, level meter and a Goes-to menu for each source (Filter 1, Filter 2, Both, or Direct to the output), plus the master volume and output meters.
 - FX: distortion, chorus, delay, reverb and BASS BOOST.
 - MATRIX: connect anything to anything: a source (LFO, envelope, velocity, macro) to a destination with an amount.
 - GLOBAL: volume, glide, voices (Poly / Mono / Legato), bend range.
+## Filters
+Two filters with types Low-pass, High-pass, Band-pass, Notch, Peak, Low shelf, High shelf, Comb + and -, and Formant (vowels). Slope 12, 24, 36 or 48 dB per octave. The curve shows exactly what the filter does; drag it left and right for cutoff, up and down for resonance. Serial runs Filter 1 into Filter 2; Parallel runs them side by side. KEY makes the cutoff follow the note.
 ## Bass boost (fine-tune it)
 Turn it on with the BASS BOOST switch at the top. On the FX page drag the dot on the graph: left / right = frequency, up / down = amount. Double-click a knob to type an exact number (for example 55 Hz and 8 dB). HARMONICS adds overtones so you can hear the bass on small speakers. TIGHTEN removes the rumble you cannot hear. There is also a stand-alone Bass Boost effect under + Add Effect.
 ## Tips

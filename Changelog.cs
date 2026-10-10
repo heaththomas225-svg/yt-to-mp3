@@ -7,10 +7,18 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.5.1";
+    public const string Latest = "3.6.0";
 
     public const string Text =
-@"3.5.1  Calmer editing
+@"3.6.0  Bass Lab: wavetables, mixer and filters
+ + NEW wavetable oscillators: pick a source (sine, triangle, saw, square, pulses, organ...) or a wavetable (9 factory tables) and scan its frames with WAVE. Band-limited, so high notes stay clean.
+ + NEW DRAW WAVE: draw your own waveform, or up to 8 frames to scan between. Saved with the patch.
+ + NEW warp types (Sync, Bend, Fold, Mirror, Asym, Crush), FM and ring modulation between oscillators.
+ + NEW MIX page: level, pan, mute, solo, meters and routing for every source, with master output meters.
+ + NEW filters: 10 types and 12 to 48 dB slopes, with a curve that matches the sound. Serial or parallel routing.
+ + NEW noise types: brown, blue and crackle.
+
+3.5.1  Calmer editing
  + Clicking a track now only selects it. The needle moves only when you click the ruler or the empty area under the tracks.
  + The button row (Up, Dn, move, Split, trim, Copy, Del) and the clip grips appear only on the track you clicked.
  + NEW Changelog button on the main window. Updates no longer pop up the list by themselves; a star on the button shows when there is something new.
