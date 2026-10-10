@@ -13,6 +13,7 @@ class WTable
 
     public WTable(string name) { Name = name; }
     public void AddFrame(double[] amp, double[] ph) { Amp.Add(amp); Ph.Add(ph); Frames = Amp.Count; mip = null; }
+    public void Prepare() { Ensure(); }   // builds all the single-cycle tables now (so the audio never waits for them)
 
     // single-cycle table of one frame with at most 'limit' harmonics (2049 floats, the last repeats the first)
     float[] Build(int frame, int limit)
@@ -104,7 +105,7 @@ static class Wavetables
         switch (index)
         {
             case 0: foreach (int k in new[] { 0, 1, 2, 3, 4 }) { var a = new double[H + 1]; var p = new double[H + 1]; Shape(k, a, p); t.AddFrame(a, p); } break;
-            case 1: for (int f = 0; f < 16; f++) { double m = f / 15.0; var a = new double[H + 1]; var p = new double[H + 1]; for (int h = 1; h <= H; h++) a[h] = (h % 2 == 1 ? 1 : 1 - m) * (h % 2 == 1 ? 1 : -1) / (double)h * (h % 2 == 1 ? 1 : 1); for (int h = 1; h <= H; h++) a[h] = (h % 2 == 1 ? 1.0 : -(1 - m)) / h; t.AddFrame(a, p); } break;
+            case 1: for (int f = 0; f < 16; f++) { double m = f / 15.0; var a = new double[H + 1]; var p = new double[H + 1]; for (int h = 1; h <= H; h++) a[h] = (h % 2 == 1 ? 1.0 : -(1 - m)) / h; t.AddFrame(a, p); } break;
             case 2:
                 {
                     double[][] F = { new[] { 800.0, 1150, 2900 }, new[] { 400.0, 1600, 2700 }, new[] { 270.0, 2300, 3000 }, new[] { 450.0, 800, 2830 }, new[] { 325.0, 700, 2530 } };   // A E I O U
@@ -126,7 +127,20 @@ static class Wavetables
     static readonly Dictionary<int, WTable> customCache = new Dictionary<int, WTable>(); static readonly int[] customVer = new int[3];
     public static int CustomVersion(int slot) { return customVer[slot]; }
     public static short[][] GetCustom(int slot) { return Custom[slot]; }
-    public static void SetCustom(int slot, short[][] frames) { lock (lk) { Custom[slot] = frames; customVer[slot]++; customCache.Remove(slot); } }
+    public static void SetCustom(int slot, short[][] frames)
+    {
+        // the new table is built completely before it replaces the old one, so playing notes switch over without a hiccup
+        var copy = new short[frames.Length][]; for (int i = 0; i < frames.Length; i++) copy[i] = (short[])frames[i].Clone();
+        var t = new WTable(TableNames[CustomBase + slot]); foreach (var fr in copy) AddDrawn(t, fr); t.Prepare();
+        lock (lk) { Custom[slot] = copy; customVer[slot]++; customCache[slot] = t; }
+    }
+    static bool warming;
+    public static void WarmUp()
+    {
+        if (warming) return; warming = true;
+        var th = new System.Threading.Thread(() => { try { for (int i = 1; i < Sources.Length; i++) ForSource(i).Prepare(); for (int i = 0; i < CustomBase; i++) Table(i).Prepare(); } catch { } }) { IsBackground = true, Priority = System.Threading.ThreadPriority.BelowNormal };
+        th.Start();
+    }
     public static short[] DefaultFrame() { var f = new short[256]; for (int i = 0; i < 256; i++) f[i] = (short)(Math.Sin(2 * Math.PI * i / 256.0) * 30000); return f; }
     static WTable CustomTable(int slot)
     {

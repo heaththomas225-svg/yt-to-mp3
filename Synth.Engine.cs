@@ -46,14 +46,13 @@ class BassBoost : Fx
 }
 
 // =====================================================================================================
-//  Bass Lab: a polyphonic synthesizer for bass and leads (3 oscillators with warp, sub, noise, 2 filters,
-//  4 envelopes, 4 tempo-synced LFOs, 8-slot mod matrix, 4 macros, effects, bass boost).
+//  Bass Lab: a polyphonic wavetable synthesizer for bass and leads.
 // =====================================================================================================
 static class SynthTables
 {
-    public static readonly string[] Waves = { "Sine", "Triangle", "Saw", "Square", "Pulse" };
-    public static readonly string[] Warps = { "Off", "Sync", "Bend", "Fold" };
-    public static readonly string[] FilterTypes = { "Low-pass 12", "Low-pass 24", "High-pass 12", "Band-pass", "Notch" };
+    public static readonly string[] FilterTypes = { "Low-pass", "High-pass", "Band-pass", "Notch", "Peak", "Low shelf", "High shelf", "Comb +", "Comb -", "Formant" };
+    public static readonly string[] Slopes = { "12 dB", "24 dB", "36 dB", "48 dB" };
+    public static readonly string[] Routes = { "Filter 1", "Filter 2", "Both", "Direct" };
     public static readonly string[] LfoShapes = { "Sine", "Triangle", "Saw up", "Saw down", "Square", "Random", "Wub" };
     public static readonly string[] Syncs = { "Hz", "4 bars", "2 bars", "1 bar", "1/2", "1/4", "1/4 dot", "1/4 trip", "1/8", "1/8 dot", "1/8 trip", "1/16", "1/16 dot", "1/16 trip", "1/32" };
     public static readonly double[] SyncBeats = { 0, 16, 8, 4, 2, 1, 1.5, 2.0 / 3, 0.5, 0.75, 1.0 / 3, 0.25, 0.375, 1.0 / 6, 0.125 };
@@ -61,6 +60,7 @@ static class SynthTables
     public static readonly string[] Dests = { "None", "Volume", "Osc A pitch", "Osc B pitch", "Osc C pitch", "All pitch", "Osc A wave", "Osc B wave", "Osc C wave", "Osc A warp", "Osc B warp", "Osc C warp",
         "Osc A level", "Osc B level", "Osc C level", "Sub level", "Noise level", "Filter 1 cutoff", "Filter 1 resonance", "Filter 1 drive", "Filter 2 cutoff", "Filter 2 resonance", "Unison detune", "Pan" };
     public static readonly string[] OffOn = { "Off", "On" };
+    public static readonly string[] NoiseTypes = { "White", "Pink", "Brown", "Blue", "Crackle" };
     public const int SrcNone = 0, SrcLfo1 = 1, SrcEnv2 = 5, SrcVel = 8, SrcKey = 9, SrcMacro1 = 10;
 }
 
@@ -68,14 +68,15 @@ class SynthFx : InstrumentFx
 {
     const int NV = 16, CTRL = 16;
     static readonly string[] OscIds = { "a", "b", "c" };
+    static readonly int[] ModSource = { 1, 2, 0 };   // oscillator A is modulated by B, B by C, C by A (FM and ring modulation)
 
     // ---- cached parameters (read once when something changes) ----
-    class OscP { public bool On; public double Wt, Oct, Sem, Fin, Lvl, Pan, Uni, Det, Blend, Phase, WarpAmt; public int Warp; }
-    class FiltP { public bool On; public int Type; public double Cut, Res, Drive, Key; }
+    class OscP { public bool On, Mute, Solo; public double Wt, Oct, Sem, Fin, Lvl, Pan, Uni, Det, Blend, Phase, WarpAmt, Fm, Rm; public int Warp, Src, Tbl, Route; }
+    class FiltP { public bool On; public int Type, Stages; public double Cut, Res, Drive, Key, Gain; }
     class EnvP { public double A, D, S, R; }
     class LfoP { public int Shape, Sync; public double Rate, Phase, Smooth, Fade; public bool Retrig, Uni; }
     OscP[] op = { new OscP(), new OscP(), new OscP() }; FiltP[] fp = { new FiltP(), new FiltP() }; EnvP[] ep = { new EnvP(), new EnvP(), new EnvP(), new EnvP() }; LfoP[] lp = { new LfoP(), new LfoP(), new LfoP(), new LfoP() };
-    bool subOn, nzOn, parallel; int subWave, subOct, nzType; double subLvl, nzLvl, vol, glide, bendRange, tune, vsens; int mode; double[] macro = new double[4];
+    bool subOn, nzOn, parallel, subMute, subSolo, nzMute, nzSolo; int subWave, subOct, nzType, subRoute, nzRoute; double subLvl, subPan, nzLvl, nzPan, vol, glide, bendRange, tune, vsens; int mode; double[] macro = new double[4];
     int[] mSrc = new int[8], mDst = new int[8]; double[] mAmt = new double[8];
     bool dstOn, chOn, dlOn, rvOn, bbOn; int maxV = 8;
 
@@ -83,25 +84,27 @@ class SynthFx : InstrumentFx
     class Voice
     {
         public bool On, Released, HeldBySustain; public int Note; public float Vel; public long Age; public double Cur;
-        public double[,] Ph = new double[3, 7]; public double SubPh;
-        public double[] F = new double[16];                  // filter state: [filter * 8 + stage * 4 + ch * 2 + {0,1}]
+        public double[,] Ph = new double[3, 7]; public double SubPh; public double[] LastOut = new double[3];
+        public double[] F = new double[64];                  // filter state: [filter * 32 + stage * 4 + ch * 2 + {0,1}]
+        public float[][] Comb = { new float[2048], new float[2048], new float[2048], new float[2048] }; public int[] CombW = new int[4];
         public double[] Env = new double[4]; public int[] Stage = new int[4];
         public double[] Lfo = new double[4], LfoVal = new double[4], LfoHold = new double[4]; public double[] LfoSm = new double[4]; public double Time;
-        public double Pink0, Pink1, Pink2;
-        public double Slave;
+        public double Pink0, Pink1, Pink2, Brown, PrevW;
     }
     Voice[] voices = new Voice[NV];
-    long ageCounter; double[] gLfo = new double[4]; Random rng = new Random(12345); uint nz = 2463534242;
+    long ageCounter; double[] gLfo = new double[4]; uint nz = 2463534242;
     readonly List<int> held = new List<int>(); bool sustain; double bend; List<KeyValuePair<int, MidiEv>> pending = new List<KeyValuePair<int, MidiEv>>();
     float[] outL = new float[8192], outR = new float[8192];
     Distortion dist = new Distortion(); Chorus chor = new Chorus(); Delay dly = new Delay(); Reverb rev = new Reverb(); BassBoost boost = new BassBoost();
     SynthWindow window; public string PresetName = "Wobble Bass";
-    public double[] DebugMod = new double[24];
+    public volatile float OutPeakL, OutPeakR; public readonly float[] SrcPeak = new float[5];   // level meters (OSC A, B, C, SUB, NOISE)
+    readonly float[] blockPeak = new float[5];
 
     public SynthFx()
     {
-        Type = "synth"; Title = "Bass Lab"; Category = "Instruments"; Blurb = "Synthesizer for bass and leads: wobble LFOs, warp, filters, bass boost";
+        Type = "synth"; Title = "Bass Lab"; Category = "Instruments"; Blurb = "Wavetable synthesizer for bass and leads: warp, FM, filters, wobble LFOs, bass boost";
         for (int i = 0; i < NV; i++) voices[i] = new Voice();
+        Wavetables.WarmUp();
         BuildParams(); SynthPresets.Apply(this, SynthPresets.Names[0]); dirty = true;
     }
     public override bool IsInstrument { get { return true; } }
@@ -109,21 +112,26 @@ class SynthFx : InstrumentFx
     void BuildParams()
     {
         AddP("vol", "Volume", -30, 6, -8, "dB"); AddP("glide", "Glide", 0, 1000, 0, "ms"); AddP("bend", "Bend range", 0, 24, 2, "st");
-        AddC("mode", "Voices", new[] { "Poly", "Mono", "Legato" }, 0); AddP("voices", "Voice limit", 1, 16, 8, "");
-        AddP("tune", "Fine tune", -100, 100, 0, "ct"); AddP("vsens", "Velocity", 0, 100, 60, "%");
+        AddC("mode", "Voices", new[] { "Poly", "Mono", "Legato" }, 0); AddP("voices", "Voice limit", 1, 16, 8, ""); AddP("tune", "Fine tune", -100, 100, 0, "ct"); AddP("vsens", "Velocity", 0, 100, 60, "%");
         foreach (var x in OscIds)
         {
-            AddC(x + "on", "On", SynthTables.OffOn, x == "a" ? 1 : 0); AddP(x + "wt", "Wave", 0, 100, 50, "%"); AddP(x + "oct", "Octave", -3, 3, 0, ""); AddP(x + "sem", "Semi", -12, 12, 0, "");
+            AddC(x + "on", "On", SynthTables.OffOn, x == "a" ? 1 : 0); AddC(x + "src", "Source", Wavetables.Sources, 0); AddC(x + "tbl", "Wavetable", Wavetables.TableNames, 0);
+            AddP(x + "wt", "Wave", 0, 100, 50, "%"); AddP(x + "oct", "Octave", -3, 3, 0, ""); AddP(x + "sem", "Semi", -12, 12, 0, "");
             AddP(x + "fin", "Fine", -100, 100, 0, "ct"); AddP(x + "lvl", "Level", 0, 100, 80, "%"); AddP(x + "pan", "Pan", -100, 100, 0, "");
             AddP(x + "uni", "Unison", 1, 7, 1, ""); AddP(x + "det", "Detune", 0, 100, 20, "ct"); AddP(x + "blend", "Blend", 0, 100, 70, "%"); AddP(x + "phase", "Phase", 0, 360, 0, "deg");
-            AddC(x + "warp", "Warp", SynthTables.Warps, 0); AddP(x + "wamt", "Warp amount", 0, 100, 0, "%");
+            AddC(x + "warp", "Warp", Wavetables.Warps, 0); AddP(x + "wamt", "Warp amount", 0, 100, 0, "%");
+            AddP(x + "fm", "FM", 0, 100, 0, "%"); AddP(x + "rm", "Ring mod", 0, 100, 0, "%");
+            AddC(x + "mute", "Mute", SynthTables.OffOn, 0); AddC(x + "solo", "Solo", SynthTables.OffOn, 0); AddC(x + "route", "Goes to", SynthTables.Routes, 0);
         }
-        AddC("subon", "Sub on", SynthTables.OffOn, 0); AddC("subwave", "Sub wave", new[] { "Sine", "Triangle", "Square" }, 0); AddP("suboct", "Sub octave", -2, 0, -1, ""); AddP("sublvl", "Sub level", 0, 100, 70, "%");
-        AddC("nzon", "Noise on", SynthTables.OffOn, 0); AddC("nztype", "Noise type", new[] { "White", "Pink" }, 1); AddP("nzlvl", "Noise level", 0, 100, 10, "%");
+        AddC("subon", "Sub on", SynthTables.OffOn, 0); AddC("subwave", "Sub wave", new[] { "Sine", "Triangle", "Square", "Saw" }, 0); AddP("suboct", "Sub octave", -2, 0, -1, ""); AddP("sublvl", "Sub level", 0, 100, 70, "%"); AddP("subpan", "Sub pan", -100, 100, 0, "");
+        AddC("submute", "Mute", SynthTables.OffOn, 0); AddC("subsolo", "Solo", SynthTables.OffOn, 0); AddC("subroute", "Goes to", SynthTables.Routes, 3);
+        AddC("nzon", "Noise on", SynthTables.OffOn, 0); AddC("nztype", "Noise type", SynthTables.NoiseTypes, 1); AddP("nzlvl", "Noise level", 0, 100, 10, "%"); AddP("nzpan", "Noise pan", -100, 100, 0, "");
+        AddC("nzmute", "Mute", SynthTables.OffOn, 0); AddC("nzsolo", "Solo", SynthTables.OffOn, 0); AddC("nzroute", "Goes to", SynthTables.Routes, 0);
         for (int k = 1; k <= 2; k++)
         {
-            AddC("f" + k + "on", "On", SynthTables.OffOn, k == 1 ? 1 : 0); AddC("f" + k + "type", "Type", SynthTables.FilterTypes, k == 1 ? 1 : 0);
+            AddC("f" + k + "on", "On", SynthTables.OffOn, k == 1 ? 1 : 0); AddC("f" + k + "type", "Type", SynthTables.FilterTypes, 0); AddC("f" + k + "slope", "Slope", SynthTables.Slopes, k == 1 ? 1 : 0);
             AddP("f" + k + "cut", "Cutoff", 20, 20000, k == 1 ? 900 : 8000, "Hz"); AddP("f" + k + "res", "Resonance", 0, 100, 25, "%"); AddP("f" + k + "drive", "Drive", 0, 100, 10, "%"); AddP("f" + k + "key", "Key track", 0, 100, 0, "%");
+            AddP("f" + k + "gain", "Gain (peak / shelf)", -18, 18, 6, "dB");
         }
         AddC("froute", "Routing", new[] { "Serial", "Parallel" }, 0);
         for (int k = 1; k <= 4; k++)
@@ -149,6 +157,34 @@ class SynthFx : InstrumentFx
         AddC("bbon", "Bass boost", SynthTables.OffOn, 1); AddP("bbfreq", "Frequency", 30, 200, 60, "Hz"); AddP("bbgain", "Boost", 0, 24, 6, "dB"); AddP("bbq", "Width (Q)", 0.3f, 2f, 0.7f, ""); AddP("bbharm", "Harmonics", 0, 100, 20, "%"); AddP("bbtight", "Tighten", 10, 60, 22, "Hz");
     }
 
+    // ---- patches: the hand-drawn wavetables travel inside the patch text; patches saved before the filter slopes existed are converted ----
+    public override string Serialize()
+    {
+        string s = base.Serialize();
+        for (int i = 0; i < 3; i++) { string c = Wavetables.SerializeCustom(i); if (c.Length > 0) s += ";wtc" + (i + 1) + "=" + c; }
+        return s;
+    }
+    public override void Deserialize(string s)
+    {
+        if (s == null) return;
+        var keep = new List<string>(); bool hasSlope1 = s.Contains("f1slope="), hasSlope2 = s.Contains("f2slope=");
+        foreach (var part in s.Split(';'))
+        {
+            int e = part.IndexOf('='); if (e < 1) continue; string k = part.Substring(0, e), v = part.Substring(e + 1);
+            if (k.StartsWith("wtc") && k.Length == 4) { int slot; if (int.TryParse(k.Substring(3), out slot) && slot >= 1 && slot <= 3) Wavetables.DeserializeCustom(slot - 1, v); continue; }
+            if ((k == "f1type" && !hasSlope1) || (k == "f2type" && !hasSlope2))
+            {
+                float old; if (float.TryParse(v, NumberStyles.Float, CultureInfo.InvariantCulture, out old))
+                {
+                    int o = (int)Math.Round(old), t = o == 1 ? 0 : (o >= 2 ? o - 1 : 0), sl = o == 1 ? 1 : 0; string f = k.Substring(0, 2);   // old: 0 LP12, 1 LP24, 2 HP, 3 BP, 4 Notch
+                    keep.Add(f + "type=" + t); keep.Add(f + "slope=" + sl); continue;
+                }
+            }
+            keep.Add(part);
+        }
+        base.Deserialize(string.Join(";", keep.ToArray()));
+    }
+
     protected override void Update()
     {
         maxV = Math.Max(1, Math.Min(NV, (int)Math.Round(Get("voices"))));
@@ -156,15 +192,16 @@ class SynthFx : InstrumentFx
         for (int i = 0; i < 3; i++)
         {
             string x = OscIds[i]; var o = op[i];
-            o.On = Get(x + "on") > 0.5; o.Wt = Get(x + "wt") / 100.0; o.Oct = Math.Round(Get(x + "oct")); o.Sem = Math.Round(Get(x + "sem")); o.Fin = Get(x + "fin"); o.Lvl = Get(x + "lvl") / 100.0;
+            o.On = Get(x + "on") > 0.5; o.Mute = Get(x + "mute") > 0.5; o.Solo = Get(x + "solo") > 0.5; o.Src = (int)Get(x + "src"); o.Tbl = (int)Get(x + "tbl"); o.Route = (int)Get(x + "route");
+            o.Wt = Get(x + "wt") / 100.0; o.Oct = Math.Round(Get(x + "oct")); o.Sem = Math.Round(Get(x + "sem")); o.Fin = Get(x + "fin"); o.Lvl = Get(x + "lvl") / 100.0;
             o.Pan = Get(x + "pan") / 100.0; o.Uni = Math.Max(1, Math.Min(7, Math.Round(Get(x + "uni")))); o.Det = Get(x + "det"); o.Blend = Get(x + "blend") / 100.0; o.Phase = Get(x + "phase") / 360.0;
-            o.Warp = (int)Get(x + "warp"); o.WarpAmt = Get(x + "wamt") / 100.0;
+            o.Warp = (int)Get(x + "warp"); o.WarpAmt = Get(x + "wamt") / 100.0; o.Fm = Get(x + "fm") / 100.0; o.Rm = Get(x + "rm") / 100.0;
         }
-        subOn = Get("subon") > 0.5; subWave = (int)Get("subwave"); subOct = (int)Math.Round(Get("suboct")); subLvl = Get("sublvl") / 100.0;
-        nzOn = Get("nzon") > 0.5; nzType = (int)Get("nztype"); nzLvl = Get("nzlvl") / 100.0;
+        subOn = Get("subon") > 0.5; subWave = (int)Get("subwave"); subOct = (int)Math.Round(Get("suboct")); subLvl = Get("sublvl") / 100.0; subPan = Get("subpan") / 100.0; subMute = Get("submute") > 0.5; subSolo = Get("subsolo") > 0.5; subRoute = (int)Get("subroute");
+        nzOn = Get("nzon") > 0.5; nzType = (int)Get("nztype"); nzLvl = Get("nzlvl") / 100.0; nzPan = Get("nzpan") / 100.0; nzMute = Get("nzmute") > 0.5; nzSolo = Get("nzsolo") > 0.5; nzRoute = (int)Get("nzroute");
         for (int k = 0; k < 2; k++)
         {
-            var f = fp[k]; string p = "f" + (k + 1); f.On = Get(p + "on") > 0.5; f.Type = (int)Get(p + "type"); f.Cut = Get(p + "cut"); f.Res = Get(p + "res") / 100.0; f.Drive = Get(p + "drive") / 100.0; f.Key = Get(p + "key") / 100.0;
+            var f = fp[k]; string p = "f" + (k + 1); f.On = Get(p + "on") > 0.5; f.Type = (int)Get(p + "type"); f.Stages = (int)Get(p + "slope") + 1; f.Cut = Get(p + "cut"); f.Res = Get(p + "res") / 100.0; f.Drive = Get(p + "drive") / 100.0; f.Key = Get(p + "key") / 100.0; f.Gain = DspMath.DbToLin(Get(p + "gain"));
         }
         parallel = Get("froute") > 0.5;
         for (int k = 0; k < 4; k++) { var e = ep[k]; string p = "e" + (k + 1); e.A = Get(p + "a"); e.D = Get(p + "d"); e.S = Get(p + "s") / 100.0; e.R = Get(p + "r"); }
@@ -185,7 +222,7 @@ class SynthFx : InstrumentFx
     public override void Reset()
     {
         base.Reset();
-        foreach (var v in voices) { v.On = false; v.Released = false; for (int i = 0; i < 4; i++) { v.Env[i] = 0; v.Stage[i] = 0; } Array.Clear(v.F, 0, v.F.Length); }
+        foreach (var v in voices) { v.On = false; v.Released = false; for (int i = 0; i < 4; i++) { v.Env[i] = 0; v.Stage[i] = 0; } Array.Clear(v.F, 0, v.F.Length); foreach (var c in v.Comb) Array.Clear(c, 0, c.Length); }
         held.Clear(); sustain = false; dist.Reset(); chor.Reset(); dly.Reset(); rev.Reset(); boost.Reset();
     }
 
@@ -203,7 +240,7 @@ class SynthFx : InstrumentFx
             v.Time = 0; for (int i = 0; i < 4; i++) { v.Stage[i] = 1; if (!v.On) v.Env[i] = 0; }
             for (int k = 0; k < 4; k++) { if (lp[k].Retrig) { v.Lfo[k] = lp[k].Phase; v.LfoSm[k] = 0; v.LfoHold[k] = RandBi(); } }
             for (int o = 0; o < 3; o++) for (int u = 0; u < 7; u++) v.Ph[o, u] = op[o].Phase + (u == 0 ? 0 : RandUni() * (op[o].Phase > 0 ? 0 : 1));
-            if (!v.On) { Array.Clear(v.F, 0, v.F.Length); }
+            if (!v.On) { Array.Clear(v.F, 0, v.F.Length); foreach (var c in v.Comb) Array.Clear(c, 0, c.Length); }
         }
         v.On = true;
     }
@@ -246,34 +283,12 @@ class SynthFx : InstrumentFx
     // ---------------- helpers ----------------
     double RandUni() { nz ^= nz << 13; nz ^= nz >> 17; nz ^= nz << 5; return (nz & 0xFFFFFF) / 16777216.0; }
     double RandBi() { return RandUni() * 2 - 1; }
-    static double Blep(double t, double dt) { if (t < dt) { t /= dt; return t + t - t * t - 1; } if (t > 1 - dt) { t = (t - 1) / dt; return t * t + t + t + 1; } return 0; }
     static double Frac(double x) { return x - Math.Floor(x); }
-    static double Shape(int k, double p, double dt)
+    // the oscillator as drawn in the window: same tables, same warp
+    public static double OscSample(int src, int tbl, double wt, int warp, double wamt, double p)
     {
-        switch (k)
-        {
-            case 0: return Math.Sin(6.283185307179586 * p);
-            case 1: return 4 * Math.Abs(p - 0.5) - 1;
-            case 2: return 2 * p - 1 - Blep(p, dt);
-            case 3: return (p < 0.5 ? 1.0 : -1.0) + Blep(p, dt) - Blep(Frac(p + 0.5), dt);
-            default: return (p < 0.25 ? 1.0 : -1.0) + Blep(p, dt) - Blep(Frac(p + 0.75), dt);
-        }
-    }
-    public static double Morph(double wt, double p, double dt)
-    {
-        double pos = Math.Max(0, Math.Min(0.99999, wt)) * 4; int i = (int)pos; double f = pos - i;
-        double a = Shape(i, p, dt); return f < 1e-4 ? a : a * (1 - f) + Shape(i + 1, p, dt) * f;
-    }
-    // one oscillator sample incl. warp (also used by the window's wave display)
-    public static double OscSample(double wt, int warp, double wamt, double p, double dt)
-    {
-        switch (warp)
-        {
-            case 1: { double ratio = 1 + wamt * 7; return Morph(wt, Frac(p * ratio), Math.Min(0.4, dt * ratio)); }
-            case 2: { double k = 1 + wamt * 3; return Morph(wt, Math.Pow(p, k), dt); }
-            case 3: { double y = Morph(wt, p, dt); return wamt < 0.001 ? y : Math.Sin(y * (1 + wamt * 5) * 1.5707963); }
-            default: return Morph(wt, p, dt);
-        }
+        var t = src == 0 ? Wavetables.Table(tbl) : Wavetables.ForSource(src); double pw = Wavetables.WarpPhase(warp, wamt, p); int mip = 1;
+        return Wavetables.WarpOut(warp, wamt, t.Read(wt, pw, mip));
     }
     static double LfoShape(int shape, double p, double hold)
     {
@@ -296,7 +311,7 @@ class SynthFx : InstrumentFx
     {
         CheckDirty();
         if (n > outL.Length) { outL = new float[n]; outR = new float[n]; }
-        Array.Clear(outL, 0, n); Array.Clear(outR, 0, n);
+        Array.Clear(outL, 0, n); Array.Clear(outR, 0, n); for (int i = 0; i < 5; i++) blockPeak[i] = 0;
         int pos = 0, ei = 0; var ev = pending; pending = new List<KeyValuePair<int, MidiEv>>();
         while (pos < n)
         {
@@ -311,19 +326,25 @@ class SynthFx : InstrumentFx
         if (dlOn) dly.Process(outL, outR, n);
         if (rvOn) rev.Process(outL, outR, n);
         if (bbOn) boost.Process(outL, outR, n);
-        for (int i = 0; i < n; i++) { l[i] += Soft(outL[i]); r[i] += Soft(outR[i]); }
+        float pl = 0, pr = 0; for (int i = 0; i < n; i++) { float a = Soft(outL[i]), b = Soft(outR[i]); l[i] += a; r[i] += b; if (Math.Abs(a) > pl) pl = Math.Abs(a); if (Math.Abs(b) > pr) pr = Math.Abs(b); }
+        OutPeakL = Math.Max(pl, OutPeakL * 0.85f); OutPeakR = Math.Max(pr, OutPeakR * 0.85f); for (int i = 0; i < 5; i++) SrcPeak[i] = Math.Max(blockPeak[i], SrcPeak[i] * 0.85f);
     }
     static float Soft(float x) { float a = Math.Abs(x); if (a < 0.8f) return x; float s = x < 0 ? -1f : 1f; return s * (0.8f + 0.2f * (float)Math.Tanh((a - 0.8f) / 0.2f)); }
 
     double[] src = new double[14], dst = new double[24];
-    double[] ofreq = new double[3], olvl = new double[3], owt = new double[3], owa = new double[3], fg = new double[2], fk = new double[2], fdr = new double[2], onrm = new double[3], opl = new double[3], opr = new double[3];
-    double[,] ufreq = new double[3, 7], ugl = new double[3, 7], ugr = new double[3, 7], uw = new double[3, 7];
+    double[] ofreq = new double[3], olvl = new double[3], owt = new double[3], owa = new double[3], onrm = new double[3], ounit = new double[3], opl = new double[3], opr = new double[3], oOut = new double[3];
+    bool[] oCompute = new bool[3], oAudible = new bool[3], oUsedAsMod = new bool[3]; WTable[] otbl = new WTable[3];
+    double[,] ufreq = new double[3, 7], ugl = new double[3, 7], ugr = new double[3, 7], uw = new double[3, 7]; int[,] umip = new int[3, 7];
+    double[] fg = new double[2], fk = new double[2], fdr = new double[2], fa1 = new double[2], fa2 = new double[2], fa3 = new double[2], fcut = new double[2], fb1 = new double[2], fb2 = new double[2], fb3 = new double[2];
+
+    static readonly double[][] VowelF = { new[] { 800.0, 1150, 2900 }, new[] { 400.0, 1600, 2700 }, new[] { 270.0, 2300, 3000 }, new[] { 450.0, 800, 2830 }, new[] { 325.0, 700, 2530 } };
 
     void RenderBlock(int start, int len)
     {
         double bpm = Fx.ProjectBpm, dtc = len / (double)SR;
         for (int k = 0; k < 4; k++) { gLfo[k] = Frac(gLfo[k] + LfoHz(k, bpm) * dtc); }
         double volLin = DspMath.DbToLin(vol);
+        bool anySolo = (op[0].On && op[0].Solo) || (op[1].On && op[1].Solo) || (op[2].On && op[2].Solo) || (subOn && subSolo) || (nzOn && nzSolo);
         foreach (var v in voices)
         {
             if (!v.On) continue;
@@ -354,102 +375,163 @@ class SynthFx : InstrumentFx
             if (glide > 0 && mode != 0) v.Cur += (v.Note - v.Cur) * (1 - Math.Exp(-len / (glide * 0.001 * SR))); else v.Cur = v.Note;
             double note = v.Cur + tune / 100.0 + bend * bendRange + dst[5] * 24.0;
             double velAmp = (1 - vsens) + vsens * v.Vel;
-            // ---- oscillator setup ----
+            // ---- oscillators: who is audible, who modulates whom ----
+            for (int o = 0; o < 3; o++) oUsedAsMod[o] = false;
+            for (int c = 0; c < 3; c++) if (op[c].On && (op[c].Fm > 0 || op[c].Rm > 0)) oUsedAsMod[ModSource[c]] = true;
             for (int o = 0; o < 3; o++)
             {
-                var P = op[o]; if (!P.On) { olvl[o] = 0; continue; }
-                double nn = note + P.Oct * 12 + P.Sem + P.Fin / 100.0 + dst[2 + o] * 24.0;
-                ofreq[o] = 440.0 * Math.Pow(2, (nn - 69) / 12.0);
-                olvl[o] = Math.Max(0, Math.Min(1, P.Lvl + dst[12 + o])); owt[o] = Math.Max(0, Math.Min(1, P.Wt + dst[6 + o])); owa[o] = Math.Max(0, Math.Min(1, P.WarpAmt + dst[9 + o]));
+                var P = op[o]; oAudible[o] = P.On && !P.Mute && (!anySolo || P.Solo); olvl[o] = oAudible[o] ? Math.Max(0, Math.Min(1, P.Lvl + dst[12 + o])) : 0; oCompute[o] = P.On && (olvl[o] > 0 || oUsedAsMod[o]);
+                if (!oCompute[o]) continue;
+                double nn = note + P.Oct * 12 + P.Sem + P.Fin / 100.0 + dst[2 + o] * 24.0; ofreq[o] = 440.0 * Math.Pow(2, (nn - 69) / 12.0);
+                owt[o] = Math.Max(0, Math.Min(1, P.Wt + dst[6 + o])); owa[o] = Math.Max(0, Math.Min(1, P.WarpAmt + dst[9 + o]));
+                otbl[o] = P.Src == 0 ? Wavetables.Table(P.Tbl) : Wavetables.ForSource(P.Src);
             }
             double detMod = Math.Max(0, 1 + dst[22]);
             for (int o = 0; o < 3; o++)
             {
-                if (olvl[o] <= 0) continue; var P = op[o]; int uni = (int)P.Uni; double wsum = 0;
+                if (!oCompute[o]) continue; var P = op[o]; int uni = (int)P.Uni; double wsum = 0;
+                double mult = 1 + (P.Warp == 1 ? owa[o] * 7 : (P.Warp == 2 || P.Warp == 4 ? owa[o] * 2 : 0)) + P.Fm * 2;   // warping and FM add harmonics: use a smaller (safer) table
                 for (int u = 0; u < uni; u++)
                 {
                     double rel = uni == 1 ? 0 : (u - (uni - 1) / 2.0) / ((uni - 1) / 2.0);
-                    ufreq[o, u] = ofreq[o] * Math.Pow(2, rel * P.Det * detMod / 1200.0);
+                    ufreq[o, u] = ofreq[o] * Math.Pow(2, rel * P.Det * detMod / 1200.0); umip[o, u] = WTable.MipFor(ufreq[o, u] * mult, SR);
                     double w = uni == 1 ? 1.0 : ((uni % 2 == 1 && u == (uni - 1) / 2) ? 1.0 : (uni % 2 == 1 ? P.Blend : 1.0)); uw[o, u] = w; wsum += w * w;
                     double pn = rel * 0.8; ugl[o, u] = Math.Sqrt(0.5 * (1 - pn)); ugr[o, u] = Math.Sqrt(0.5 * (1 + pn));
                 }
-                onrm[o] = olvl[o] / Math.Sqrt(wsum); opl[o] = Math.Sqrt(0.5 * (1 - P.Pan)) * 1.4142; opr[o] = Math.Sqrt(0.5 * (1 + P.Pan)) * 1.4142;
+                ounit[o] = 1 / Math.Sqrt(wsum); onrm[o] = olvl[o] * ounit[o]; opl[o] = Math.Sqrt(0.5 * (1 - P.Pan)) * 1.4142; opr[o] = Math.Sqrt(0.5 * (1 + P.Pan)) * 1.4142;
             }
-            double subF = 440.0 * Math.Pow(2, (note + subOct * 12 - 69) / 12.0), subL = Math.Max(0, Math.Min(1, subLvl + dst[15])), nzL = Math.Max(0, Math.Min(1, nzLvl + dst[16]));
+            double subF = 440.0 * Math.Pow(2, (note + subOct * 12 - 69) / 12.0);
+            bool subAud = subOn && !subMute && (!anySolo || subSolo), nzAud = nzOn && !nzMute && (!anySolo || nzSolo);
+            double subL = subAud ? Math.Max(0, Math.Min(1, subLvl + dst[15])) : 0, nzL = nzAud ? Math.Max(0, Math.Min(1, nzLvl + dst[16])) : 0;
+            double subPl = Math.Sqrt(0.5 * (1 - subPan)) * 1.4142, subPr = Math.Sqrt(0.5 * (1 + subPan)) * 1.4142, nzPl = Math.Sqrt(0.5 * (1 - nzPan)) * 1.4142, nzPr = Math.Sqrt(0.5 * (1 + nzPan)) * 1.4142;
             // ---- filter setup ----
             for (int k = 0; k < 2; k++)
             {
                 var F = fp[k]; double cut = F.Cut * Math.Pow(2, dst[k == 0 ? 17 : 20] * 5.0 + (v.Note - 60) / 12.0 * F.Key);
-                cut = Math.Max(20, Math.Min(SR * 0.45, cut)); fg[k] = Math.Tan(Math.PI * cut / SR);
+                cut = Math.Max(20, Math.Min(SR * 0.45, cut)); fcut[k] = cut; fg[k] = Math.Tan(Math.PI * cut / SR);
                 double res = Math.Max(0, Math.Min(1, F.Res + dst[k == 0 ? 18 : 21])); fk[k] = 2 - 1.96 * res;
                 fdr[k] = 1 + Math.Max(0, Math.Min(1, F.Drive + (k == 0 ? dst[19] : 0))) * 7;
+                fa1[k] = 1 / (1 + fg[k] * (fg[k] + fk[k])); fa2[k] = fg[k] * fa1[k]; fa3[k] = fg[k] * fa2[k];
+                double kb = 1.41421; fb1[k] = 1 / (1 + fg[k] * (fg[k] + kb)); fb2[k] = fg[k] * fb1[k]; fb3[k] = fg[k] * fb2[k];   // later stages: plain Butterworth, so the slope is clean
             }
             double gain = volLin * velAmp * 0.55 * Math.Max(0, 1 + dst[1]);
             double pan = Math.Max(-1, Math.Min(1, dst[23]));
+            double pl2 = Math.Sqrt(0.5 * (1 - pan)) * 1.4142, pr2 = Math.Sqrt(0.5 * (1 + pan)) * 1.4142;
             // ---- per-sample ----
             for (int i = 0; i < len; i++)
             {
-                double aenv = v.Env[0];
-                double sl = 0, sr = 0;
-                for (int o = 0; o < 3; o++)
+                double aenv = v.Env[0]; double b1l = 0, b1r = 0, b2l = 0, b2r = 0, dl = 0, dr = 0;
+                for (int oi = 2; oi >= 0; oi--)
                 {
-                    if (olvl[o] <= 0) continue; var P = op[o]; int uni = (int)P.Uni; double acc0 = 0, acc1 = 0;
+                    if (!oCompute[oi]) { oOut[oi] = 0; continue; }
+                    var P = op[oi]; int uni = (int)P.Uni; double acc0 = 0, acc1 = 0; var tb = otbl[oi];
+                    int m = ModSource[oi]; double ms = (P.Fm > 0 || P.Rm > 0) ? (oi == 2 ? v.LastOut[0] : oOut[m]) : 0; if (!op[m].On) ms = 0;
                     for (int u = 0; u < uni; u++)
                     {
-                        double dt = Math.Min(0.45, ufreq[o, u] / SR);
-                        double p = v.Ph[o, u] + dt; if (p >= 1) p -= 1; v.Ph[o, u] = p;
-                        double y = OscSample(owt[o], P.Warp, owa[o], p, dt) * uw[o, u];
-                        acc0 += y * ugl[o, u]; acc1 += y * ugr[o, u];
+                        double dt = Math.Min(0.45, ufreq[oi, u] / SR); double p = v.Ph[oi, u] + dt; if (p >= 1) p -= 1; v.Ph[oi, u] = p;
+                        double pp = p; if (P.Fm > 0) { pp = p + P.Fm * ms * 0.9; pp -= Math.Floor(pp); }
+                        double y = Wavetables.WarpOut(P.Warp, owa[oi], tb.Read(P.Src == 0 ? owt[oi] : 0, Wavetables.WarpPhase(P.Warp, owa[oi], pp), umip[oi, u]));
+                        if (P.Rm > 0) y = y * (1 - P.Rm) + y * ms * P.Rm;
+                        y *= uw[oi, u]; acc0 += y * ugl[oi, u]; acc1 += y * ugr[oi, u];
                     }
-                    sl += acc0 * onrm[o] * opl[o]; sr += acc1 * onrm[o] * opr[o];
+                    oOut[oi] = (acc0 + acc1) * 0.5 * ounit[oi];   // this oscillator on its own (before its level), the signal that FM / ring modulation uses
+                    if (olvl[oi] > 0)
+                    {
+                        double sl = acc0 * onrm[oi] * opl[oi], sr = acc1 * onrm[oi] * opr[oi]; double pk = Math.Max(Math.Abs(sl), Math.Abs(sr)); if (pk > blockPeak[oi]) blockPeak[oi] = (float)pk;
+                        Route(P.Route, sl, sr, ref b1l, ref b1r, ref b2l, ref b2r, ref dl, ref dr);
+                    }
                 }
-                if (subOn && subL > 0)
+                v.LastOut[0] = oOut[0]; v.LastOut[1] = oOut[1]; v.LastOut[2] = oOut[2];
+                if (subL > 0)
                 {
-                    v.SubPh += subF / SR; if (v.SubPh >= 1) v.SubPh -= 1; double sp = v.SubPh, sy = subWave == 0 ? Math.Sin(6.283185307179586 * sp) : (subWave == 1 ? 4 * Math.Abs(sp - 0.5) - 1 : (sp < 0.5 ? 0.7 : -0.7));
-                    sl += sy * subL * 0.8; sr += sy * subL * 0.8;
+                    v.SubPh += subF / SR; if (v.SubPh >= 1) v.SubPh -= 1; double sp = v.SubPh, sy = subWave == 0 ? Math.Sin(6.283185307179586 * sp) : (subWave == 1 ? 4 * Math.Abs(sp - 0.5) - 1 : (subWave == 2 ? (sp < 0.5 ? 0.7 : -0.7) : 2 * sp - 1));
+                    double sl = sy * subL * 0.8 * subPl, sr = sy * subL * 0.8 * subPr; if (Math.Max(Math.Abs(sl), Math.Abs(sr)) > blockPeak[3]) blockPeak[3] = (float)Math.Max(Math.Abs(sl), Math.Abs(sr));
+                    Route(subRoute, sl, sr, ref b1l, ref b1r, ref b2l, ref b2r, ref dl, ref dr);
                 }
-                if (nzOn && nzL > 0)
+                if (nzL > 0)
                 {
                     double w0 = RandBi(), nv = w0;
-                    if (nzType == 1) { v.Pink0 = 0.99765 * v.Pink0 + w0 * 0.0990460; v.Pink1 = 0.96300 * v.Pink1 + w0 * 0.2965164; v.Pink2 = 0.57000 * v.Pink2 + w0 * 1.0526913; nv = (v.Pink0 + v.Pink1 + v.Pink2 + w0 * 0.1848) * 0.25; }
-                    sl += nv * nzL * 0.5; sr += nv * nzL * 0.5;
-                }
-                // filters
-                double xl = sl, xr = sr;
-                if (fp[0].On || fp[1].On)
-                {
-                    double al = 0, ar = 0, bl = xl, br = xr;
-                    if (fp[0].On) { al = Filter(v, 0, fp[0].Type, fg[0], fk[0], fdr[0], xl, 0); ar = Filter(v, 0, fp[0].Type, fg[0], fk[0], fdr[0], xr, 1); }
-                    if (parallel) { if (fp[1].On) { bl = Filter(v, 1, fp[1].Type, fg[1], fk[1], fdr[1], xl, 0); br = Filter(v, 1, fp[1].Type, fg[1], fk[1], fdr[1], xr, 1); } xl = fp[0].On && fp[1].On ? (al + bl) * 0.5 : (fp[0].On ? al : bl); xr = fp[0].On && fp[1].On ? (ar + br) * 0.5 : (fp[0].On ? ar : br); }
-                    else
+                    switch (nzType)
                     {
-                        xl = fp[0].On ? al : xl; xr = fp[0].On ? ar : xr;
-                        if (fp[1].On) { xl = Filter(v, 1, fp[1].Type, fg[1], fk[1], fdr[1], xl, 0); xr = Filter(v, 1, fp[1].Type, fg[1], fk[1], fdr[1], xr, 1); }
+                        case 1: v.Pink0 = 0.99765 * v.Pink0 + w0 * 0.0990460; v.Pink1 = 0.96300 * v.Pink1 + w0 * 0.2965164; v.Pink2 = 0.57000 * v.Pink2 + w0 * 1.0526913; nv = (v.Pink0 + v.Pink1 + v.Pink2 + w0 * 0.1848) * 0.25; break;
+                        case 2: v.Brown = (v.Brown + 0.02 * w0) / 1.02; nv = v.Brown * 3.5; break;
+                        case 3: nv = (w0 - v.PrevW) * 0.7; v.PrevW = w0; break;
+                        case 4: nv = RandUni() < 0.0012 ? RandBi() * 1.5 : 0; break;
                     }
+                    double sl = nv * nzL * 0.5 * nzPl, sr = nv * nzL * 0.5 * nzPr; if (Math.Max(Math.Abs(sl), Math.Abs(sr)) > blockPeak[4]) blockPeak[4] = (float)Math.Max(Math.Abs(sl), Math.Abs(sr));
+                    Route(nzRoute, sl, sr, ref b1l, ref b1r, ref b2l, ref b2r, ref dl, ref dr);
                 }
-                // amp envelope (per sample, exponential smoothing keeps it click-free)
-                double g = gain * aenv; double pl2 = Math.Sqrt(0.5 * (1 - pan)) * 1.4142, pr2 = Math.Sqrt(0.5 * (1 + pan)) * 1.4142;
+                // filters: serial = filter 1 then filter 2 (sources routed to filter 2 join in front of it); parallel = side by side
+                double xl, xr;
+                double y1l = b1l, y1r = b1r;
+                if (fp[0].On) { y1l = Filt(v, 0, y1l, 0); y1r = Filt(v, 0, y1r, 1); }
+                if (parallel)
+                {
+                    double y2l = b2l, y2r = b2r; if (fp[1].On) { y2l = Filt(v, 1, y2l, 0); y2r = Filt(v, 1, y2r, 1); }
+                    xl = y1l + y2l; xr = y1r + y2r;
+                }
+                else
+                {
+                    xl = y1l + b2l; xr = y1r + b2r; if (fp[1].On) { xl = Filt(v, 1, xl, 0); xr = Filt(v, 1, xr, 1); }
+                }
+                xl += dl; xr += dr;
+                double g = gain * aenv;
                 outL[start + i] += (float)(xl * g * pl2); outR[start + i] += (float)(xr * g * pr2);
                 StepAmp(v);
             }
         }
     }
 
-    // state-variable filter (TPT), mono per call
-    double Filter(Voice v, int fi, int type, double g, double k, double drive, double x, int ch)
+    // where a sound source goes: filter 1, filter 2, both (in series that is just filter 1, which feeds filter 2), or straight to the output
+    void Route(int route, double l, double r, ref double b1l, ref double b1r, ref double b2l, ref double b2r, ref double dl, ref double dr)
     {
-        int b = fi * 8 + ch * 2; bool two = type == 1;
-        if (drive > 1.001) x = Math.Tanh(x * drive) / Math.Tanh(drive) * 1.0;
-        double y = Svf(v, b, type, g, k, x);
-        if (two) y = Svf(v, b + 4, type, g, k, y);
-        return y;
+        switch (route)
+        {
+            case 0: b1l += l; b1r += r; break;
+            case 1: b2l += l; b2r += r; break;
+            case 2: if (parallel) { b1l += l * 0.7071; b1r += r * 0.7071; b2l += l * 0.7071; b2r += r * 0.7071; } else { b1l += l; b1r += r; } break;
+            default: dl += l; dr += r; break;
+        }
     }
-    static double Svf(Voice v, int b, int type, double g, double k, double x)
+
+    // one filter, one channel. Types: low-pass, high-pass, band-pass, notch, peak, low shelf, high shelf, comb +, comb -, formant
+    double Filt(Voice v, int fi, double x, int ch)
     {
-        double a1 = 1 / (1 + g * (g + k)), a2 = g * a1, a3 = g * a2;
+        var F = fp[fi]; double drive = fdr[fi]; if (drive > 1.001) x = Math.Tanh(x * drive) / Math.Tanh(drive);
+        int b = fi * 32 + ch * 2, type = F.Type;
+        switch (type)
+        {
+            case 0: case 1: case 2: case 3:
+                {
+                    double y = x; int st = Math.Min(4, F.Stages);
+                    for (int s = 0; s < st; s++) y = Svf(v, b + s * 4, type, s == 0 ? fa1[fi] : fb1[fi], s == 0 ? fa2[fi] : fb2[fi], s == 0 ? fa3[fi] : fb3[fi], s == 0 ? fk[fi] : 1.41421, y);
+                    return y;
+                }
+            case 4: { double bp = Svf(v, b, 2, fa1[fi], fa2[fi], fa3[fi], fk[fi], x); return x + (F.Gain - 1) * fk[fi] * bp; }
+            case 5: { double lpv = Svf(v, b, 0, fa1[fi], fa2[fi], fa3[fi], 1.41421, x); return x + (F.Gain - 1) * lpv; }
+            case 6: { double hpv = Svf(v, b, 1, fa1[fi], fa2[fi], fa3[fi], 1.41421, x); return x + (F.Gain - 1) * hpv; }
+            case 7: case 8:
+                {
+                    int ci = fi * 2 + ch; var buf = v.Comb[ci]; int w = v.CombW[ci]; int d = (int)Math.Max(2, Math.Min(2040, SR / fcut[fi])); double fb = 0.2 + 0.74 * F.Res; if (type == 8) fb = -fb;
+                    double y = x + fb * buf[(w - d) & 2047]; if (y > 4) y = 4; else if (y < -4) y = -4; buf[w] = (float)y; v.CombW[ci] = (w + 1) & 2047; return y * (1 - 0.5 * Math.Abs(fb));
+                }
+            default:
+                {
+                    double pos = Math.Max(0, Math.Min(4, Math.Log(fcut[fi] / 20.0) / Math.Log(1000.0) * 4)); int v0 = (int)pos; if (v0 > 3) v0 = 3; double ft = pos - v0, y = 0;
+                    for (int k = 0; k < 3; k++)
+                    {
+                        double fr = VowelF[v0][k] * (1 - ft) + VowelF[v0 + 1][k] * ft, gg = Math.Tan(Math.PI * Math.Min(SR * 0.45, fr) / SR), kk = 0.18 + 0.5 * (1 - F.Res), a1 = 1 / (1 + gg * (gg + kk)), a2 = gg * a1, a3 = gg * a2;
+                        y += Svf(v, b + k * 4, 2, a1, a2, a3, kk, x) * kk * (k == 0 ? 1.4 : (k == 1 ? 1.0 : 0.7));
+                    }
+                    return y;
+                }
+        }
+    }
+    static double Svf(Voice v, int b, int type, double a1, double a2, double a3, double k, double x)
+    {
         double ic1 = v.F[b], ic2 = v.F[b + 1], v3 = x - ic2, v1 = a1 * ic1 + a2 * v3, v2 = ic2 + a2 * ic1 + a3 * v3;
         v.F[b] = 2 * v1 - ic1; v.F[b + 1] = 2 * v2 - ic2;
-        switch (type) { case 0: case 1: return v2; case 2: return x - k * v1 - v2; case 3: return v1; default: return x - k * v1; }
+        switch (type) { case 0: return v2; case 1: return x - k * v1 - v2; case 2: return v1; default: return x - k * v1; }
     }
 
     // ADSR: attack is linear, decay and release are exponential
