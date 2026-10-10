@@ -69,7 +69,7 @@ partial class StudioForm
         Txt(g, "LYRICS", 16, Ink, Rc(x, top + 10, 130, 28), StringAlignment.Near, true); Txt(g, "title", 11, DimC, Rc(x + 74, top + 16, 60, 16), StringAlignment.Near, false);
         string[] sec = { "Verse", "Chorus", "Pre-chorus", "Bridge", "Hook", "Intro", "Outro" }; float sx = x, sy = top + 50;
         foreach (var s0 in sec) { string s1 = s0; float bw = s0.Length > 6 ? 96 : 66; Btn(g, Rc(sx, sy, bw, 28), s0, 0, () => { InsertAtCaret("[" + s1 + "]\r\n", true); }, 11); sx += bw + 6; }
-        string txt = lyricBox != null ? lyricBox.Text : ""; int lines = 0; foreach (var l in txt.Split('\n')) if (l.Trim().Length > 0) lines++; int syl = LyricsTools.LineSyllables(txt);
+        if (lyricStatsDirty && lyricBox != null) { lyricStatsDirty = false; string txt = lyricBox.Text; int ln = 0; foreach (var l in txt.Split('\n')) if (l.Trim().Length > 0) ln++; statLines = ln; statSyl = LyricsTools.LineSyllables(txt); statWords = LyricsTools.Words(txt); }
         string cur = lyricBox != null ? CaretLine() : ""; int ci = lyricBox != null ? CaretLineIndex() + 1 : 0;
         Txt(g, statLines + " lines   " + statWords + " words   " + statSyl + " syllables      Line " + ci + ": " + LyricsTools.LineSyllables(cur) + " syllables", 12, DimC, Rc(x, H - 52, w * 0.6f, 20), StringAlignment.Near, false);
         Txt(g, "Saved with your project, and as a draft on this PC.", 11, DimC, Rc(x, H - 32, w * 0.6f, 18), StringAlignment.Near, false);
