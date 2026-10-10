@@ -119,7 +119,7 @@ Press Purphex Music (or ADD MUSIC) on the main window.
 1. Press ADD MUSIC and choose a file: MP3, WAV, FLAC, AIFF and more.
 2. Say what is IN the file: Full song with music, Vocals only, or Beat only. Only Full song gets split by the AI (see Full song, Vocals only, Beat only).
 
-3. For a full song press SEPARATE VOCALS & BEAT. The AI makes two real files and shows them as two tracks, perfectly in sync. The first time it asks to download the AI (about 0.5 GB).
+3. For a full song press SPLIT VOCALS + BEAT. The AI makes two real files and shows them as two tracks, perfectly in sync. The first time it asks to download the AI (about 0.5 GB).
 4. Press PLAY (or Space). Use M and S to mute or solo either track.
 TIP: You can also add your own vocal and your own beat as separate tracks.
 TIP: Drag files onto the studio window to add them."),
@@ -228,7 +228,7 @@ F1 = Help.  F11 = full screen.  Space = play / pause in the studio.  Ctrl+S = sa
         new HelpTopic("studio-roles", "Purphex Music", "Full song, Vocals only, Beat only: what do they mean?", false, @"
 When you add a file the studio asks what is IN the file. This is a label, it does not change the audio.
 ## Full song with music
-A normal finished song (vocals and music together). Choose this, then press SEPARATE VOCALS & BEAT and the AI makes a real vocals track and a real instrumental track.
+A normal finished song (vocals and music together). Choose this, then press SPLIT VOCALS + BEAT and the AI makes a real vocals track and a real instrumental track.
 ## Vocals only
 A file that already contains only a voice (an acapella, a rap or singing recording). Nothing is removed. If you pick this for a full song you will still hear the whole song.
 ## Beat only
@@ -408,7 +408,22 @@ If a site only has a lower quality than you picked, you get the best it has.
 - A few sites need you to be signed in or block downloads. The log shows the reason.
 - Only download what you have the right to keep."),
 
-        new HelpTopic("studio-neon", "Purphex Music", "The neon look, zooming and taller tracks", false, @"
+        new HelpTopic("studio-lyrics", "Purphex Music", "Lyrics page: write, find rhymes, ask the AI helper", false, @"
+## Write
+Press LYRICS at the top right of Purphex Music. Type your lyrics in the big box. The section buttons (Verse, Chorus, Pre-chorus, Bridge, Hook, Intro, Outro) put a label like [Verse] at the cursor. Under the box you see the lines, words and syllables, and the syllables of the line you are on, so your bars stay the same length.
+Your lyrics are saved inside your project (Save), and also as a draft on your PC as you type, so they are never lost.
+## Rhyme finder
+Type a word (or press Use last word of this line) and press Rhymes, Near (almost rhymes) or Meaning (words that mean something similar). Click a word to put it in your lyrics. This uses a free word service on the internet, so you need to be online.
+## AI writing helper
+1. Press AI KEY and paste your own key from console.anthropic.com. It is kept on your PC and protected for your Windows account only. (AI help uses your own account with that service; it may cost a little.)
+2. Optionally tell it what you want ('darker, about leaving home, 16 bars').
+3. Press a button: Continue (next lines), Rhyme better (alternatives for the line you are on), Rewrite selection, Feedback, Hook ideas, or Ask.
+4. Insert at cursor, Replace selection, or Copy the answer.
+Each time you press an AI button your lyrics and your request are sent to the AI service, and the app asks you first.
+## Export
+Copy puts the lyrics on the clipboard. Save .txt writes a text file. Clear empties the page."),
+
+        new HelpTopic("studio-neon","Purphex Music", "The neon look, zooming and taller tracks", false, @"
 ## The look
 Every track has its own glowing colour. The outline of its clip, the light strip beside it, the little LED and the level meter all use it, and the glow gets brighter with the volume.
 ## Move along the song and zoom (like BandLab)

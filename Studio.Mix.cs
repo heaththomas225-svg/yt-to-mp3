@@ -325,7 +325,7 @@ static class AutoMix
         if (voc == null && beat == null) foreach (var t in eng.Tracks) if (t.Clip != null && !t.Instrument && (t.Role == "song" || t.Role == "other")) { beat = t; fullSong = true; break; }
         if (voc == null && beat == null) { rep.Add("Nothing to mix: add a song, a vocal or a beat first."); return rep; }
         LastSnapshot = Snapshot(eng);
-        if (fullSong) rep.Add("This is a full song that has not been split, so it is mixed as ONE track (balance, tone and level only). For the best result press SEPARATE VOCALS & BEAT first, then Auto Mix balances the vocal and the beat against each other.");
+        if (fullSong) rep.Add("This is a full song that has not been split, so it is mixed as ONE track (balance, tone and level only). For the best result press SPLIT VOCALS + BEAT first, then Auto Mix balances the vocal and the beat against each other.");
         rep.Add("Style: " + style + (enhance ? " + vocal enhancement" : ""));
         rep.Add("Original audio files are never modified; this only sets plugins and faders (use Undo Auto Mix to revert).");
 
@@ -444,6 +444,7 @@ static class AutoMix
 // ---------------- project files + mix snapshots ----------------
 static class ProjectIO
 {
+    public static string Lyrics = "", LyricsTitle = "";   // the lyrics page; saved in the project file
     static readonly CultureInfo CI = CultureInfo.InvariantCulture;
     static string E(string s) { return (s ?? "").Replace("%", "%25").Replace("|", "%7C").Replace("\n", "%0A").Replace("\r", ""); }
     static string U(string s) { return s.Replace("%0A", "\n").Replace("%7C", "|").Replace("%25", "%"); }
@@ -498,6 +499,7 @@ static class ProjectIO
             sb.Append("track|").Append(E(t.Instrument ? "inst" : t.Role)).Append('|').Append(E(t.Name)).Append('|').Append(t.Offset).Append('|').Append(E(src)).Append('|').Append(t.Color).Append('|').Append(t.ClipStart).Append('|').Append(t.ClipFrames).Append('\n');
             if (t.Instrument && t.Midi.Count > 0) { sb.Append("midi|").Append(i).Append('|'); lock (t.Midi) foreach (var m in t.Midi) sb.Append(m.Frame).Append(':').Append(m.S).Append(':').Append(m.D1).Append(':').Append(m.D2).Append(';'); sb.Append('\n'); }
         }
+        if (Lyrics.Length > 0 || LyricsTitle.Length > 0) sb.Append("lyrics|").Append(Convert.ToBase64String(Encoding.UTF8.GetBytes(LyricsTitle))).Append('|').Append(Convert.ToBase64String(Encoding.UTF8.GetBytes(Lyrics))).Append((char)10);
         sb.Append(SerializeMix(eng)); File.WriteAllText(path, sb.ToString(), Encoding.UTF8);
     }
 
@@ -507,10 +509,12 @@ static class ProjectIO
         var warn = new List<string>(); var lines = File.ReadAllLines(path, Encoding.UTF8);
         if (lines.Length == 0 || !lines[0].StartsWith("YTMPROJ")) throw new Exception("That isn't a project file from this app.");
         string dir = Path.GetDirectoryName(path); var tracks = new List<Track>(); var mix = new StringBuilder();
+        Lyrics = ""; LyricsTitle = "";
         foreach (var line in lines)
         {
             var p = line.Split('|');
-            if (p[0] == "bpm" && p.Length > 1) { double b; if (double.TryParse(p[1], NumberStyles.Float, CI, out b)) Fx.ProjectBpm = b; }
+            if (p[0] == "lyrics" && p.Length >= 3) { try { LyricsTitle = Encoding.UTF8.GetString(Convert.FromBase64String(p[1])); Lyrics = Encoding.UTF8.GetString(Convert.FromBase64String(p[2])); } catch { } }
+            else if (p[0] == "bpm" && p.Length > 1) { double b; if (double.TryParse(p[1], NumberStyles.Float, CI, out b)) Fx.ProjectBpm = b; }
             else if (p[0] == "track" && p.Length >= 6)
             {
                 string src = U(p[4]), name = U(p[2]); Track t = StudioEngine.NewTrack(name, U(p[1]), null); t.Source = src; t.Instrument = U(p[1]) == "inst";

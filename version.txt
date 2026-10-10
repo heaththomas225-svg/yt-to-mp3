@@ -1,3 +1,3 @@
-3.11.1
+3.12.0
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Steadier vocal removal on long songs (levelled by the whole song)
+Lyrics page with rhyme finder, syllable counts and an AI writing helper; cleaner toolbar text

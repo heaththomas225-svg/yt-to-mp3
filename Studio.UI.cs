@@ -90,12 +90,12 @@ partial class StudioForm : Form
     {
         app = owner; eng = app.StudioEng; Win.Dark(this); InitEdit();
         Text = "Purphex Music"; StartPosition = FormStartPosition.CenterParent; BackColor = Bg0;
-        ClientSize = new Size(1360, 800); MinimumSize = new Size(1100, 680);
+        ClientSize = new Size(1360, 800); MinimumSize = new Size(1240, 680);
         DoubleBuffered = true; KeyPreview = true; AllowDrop = true;
         SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw | ControlStyles.Selectable, true);
         timer.Interval = 16; timer.Tick += (s, e) => { if (moving) return; Tick(); if (NeedsFrame()) { t += 0.033f; Invalidate(); } }; timer.Start();
         InstrumentFx.Recorder = OnMidiNote;
-        MinimumSize = new Size(1100, 640);
+        MinimumSize = new Size(1240, 640);
         FormClosed += (s, e) => { DisposeRetired(); };
         FormClosed += (s, e) => { timer.Stop(); eng.Pause(); };
         DragEnter += (s, e) => { if (e.Data.GetDataPresent(DataFormats.FileDrop)) e.Effect = DragDropEffects.Copy; };
@@ -196,7 +196,7 @@ partial class StudioForm : Form
     string hintNow = "";
     static readonly Dictionary<string, string> Hints = new Dictionary<string, string> {
         { "ADD MUSIC", "Add a song, a vocal recording or a beat. You can also drop files onto this window." },
-        { "SEPARATE VOCALS & BEAT", "Splits the selected FULL SONG into a vocals track and an instrumental track (AI)." },
+        { "SPLIT VOCALS + BEAT", "Splits the selected FULL SONG into a vocals track and an instrumental track (AI)." },
         { "AUTO MIX", "Balances the levels and builds an effect chain on every track, then lists what it changed." },
         { "Undo mix", "Puts everything back the way it was before Auto Mix." },
         { "EXPORT", "Save the finished mix, the vocals, the instrumental or all stems as WAV, FLAC or MP3." },
@@ -206,7 +206,7 @@ partial class StudioForm : Form
         { "Full", "Full screen (F11). Esc leaves it." }, { "Window", "Leave full screen (Esc)." },
         { "PLAY", "Play from the needle (Space)." }, { "PAUSE", "Pause (Space)." }, { "STOP", "Stop and go back to the start." }, { "|<", "Jump back to the start." },
         { "LOOP", "Repeat the song when it reaches the end." },
-        { "MIX", "The tracks, faders and effects." }, { "MASTERING", "Final loudness and polish on the whole mix, with LUFS meters and A/B compare." },
+        { "MIX", "The tracks, faders and effects." }, { "LYRICS", "Write your lyrics, find rhymes, and ask the AI helper for ideas." }, { "MASTERING", "Final loudness and polish on the whole mix, with LUFS meters and A/B compare." },
         { "+ Add Effect", "Pick an effect (EQ, compressor, reverb, Auto-Tune...) to add to this track." },
         { "+ Add Effect to master", "Add an effect to the final mix instead of one track." },
         { "Chain presets...", "Load a ready-made effect chain, for example a rap vocal chain." },
@@ -284,7 +284,8 @@ partial class StudioForm : Form
         regs.Clear();
         var full = new RectangleF(0, 0, ClientSize.Width, ClientSize.Height);
         DrawBackdrop(g);
-        if (tab == 0) PaintMix(g); else PaintMastering(g);
+        if (tab == 0) PaintMix(g); else if (tab == 2) PaintLyrics(g); else PaintMastering(g);
+        if (tab != 2) SyncLyricUi(false);
         PaintToolbar(g); PaintTransport(g);
         if (browserOpen) PaintBrowser(g);
         PaintBubble(g);
@@ -345,23 +346,23 @@ partial class StudioForm : Form
         NeonRule(g, 0, ToolH, W);
         float y = 12, h = 46;
         // right group first (fixed sizes from the right edge), then the left group is squeezed to fit what is left
-        float rx = W - 14; string[] rn = { "EXPORT", "Help", "Full", "Open", "Save", "Save as" }; float[] rw = { 112, 64, 64, 80, 80, 88 };
+        float rx = W - 14; string[] rn = { "EXPORT", "Help", "Full", "Open", "Save", "Save as" }; float[] rw = { 106, 58, 58, 72, 72, 84 };
         float rightStart = W - 14; for (int i = 0; i < rw.Length; i++) rightStart -= rw[i] + 6; rightStart += 6;
-        float avail = rightStart - 14 - 10, leftTotal = 168 + 262 + 130 + 150 + 76 + 36; float f = Math.Max(0.5f, Math.Min(1f, avail / leftTotal));
+        float avail = rightStart - 14 - 10, leftTotal = 156 + 232 + 126 + 140 + 84 + 36; float f = Math.Max(0.5f, Math.Min(1f, avail / leftTotal));
         float x = 14; float fp = Math.Max(11, 15 * f);
-        Btn(g, Rc(x, y, 168 * f, h), "ADD MUSIC", 2, () => AddMusicClick(), Math.Max(12, 17 * f)); x += 178 * f;
-        Btn(g, Rc(x, y, 262 * f, h), "SEPARATE VOCALS & BEAT", 1, () => SeparateClick(), Math.Max(10.5f, 14 * f)); x += 272 * f;
-        Btn(g, Rc(x, y, 130 * f, h), "AUTO MIX", 2, () => AutoMixClick(), Math.Max(12, 17 * f)); x += 136 * f;
-        Btn(g, Rc(x, y + 4, 150 * f, h - 8), amStyle + (amEnhance ? " +" : ""), 0, () => AutoMixMenu(), Math.Max(10.5f, 14 * f));
-        Txt(g, "style", 11, DimC, Rc(x + 4, y - 4, 60, 12), StringAlignment.Near, false); x += 160 * f;
-        Btn(g, Rc(x, y + 4, 76 * f, h - 8), "Undo mix", 0, () => { if (AutoMix.LastSnapshot != null) { AutoMix.Undo(eng); Toast("Auto Mix undone"); } }, Math.Max(10.5f, 13 * f)); x += 76 * f;
+        Btn(g, Rc(x, y, 156 * f, h), "ADD MUSIC", 2, () => AddMusicClick(), Math.Max(13, 16 * f)); x += 164 * f;
+        Btn(g, Rc(x, y, 232 * f, h), "SPLIT VOCALS + BEAT", 1, () => SeparateClick(), Math.Max(12, 14 * f)); x += 240 * f;
+        Btn(g, Rc(x, y, 126 * f, h), "AUTO MIX", 2, () => AutoMixClick(), Math.Max(13, 16 * f)); x += 132 * f;
+        Btn(g, Rc(x, y + 4, 140 * f, h - 8), amStyle + (amEnhance ? " +" : ""), 0, () => AutoMixMenu(), Math.Max(12, 13 * f));
+        Txt(g, "style", 11, DimC, Rc(x + 4, y - 4, 60, 12), StringAlignment.Near, false); x += 148 * f;
+        Btn(g, Rc(x, y + 4, 84 * f, h - 8), "Undo mix", 0, () => { if (AutoMix.LastSnapshot != null) { AutoMix.Undo(eng); Toast("Auto Mix undone"); } }, Math.Max(12, 13 * f)); x += 84 * f;
         float leftEnd = x;
-        Btn(g, Rc(rx - 112, y, 112, h), "EXPORT", 1, () => ExportClick(), 16); rx -= 118;
-        Btn(g, Rc(rx - 64, y + 4, 64, h - 8), "Help", 2, () => app.ShowHelp(null), 14); rx -= 70;
-        Btn(g, Rc(rx - 64, y + 4, 64, h - 8), Win.IsFullscreen(this) ? "Window" : "Full", 0, () => Win.ToggleFullscreen(this), 13); rx -= 70;
-        Btn(g, Rc(rx - 80, y + 4, 80, h - 8), "Open", 0, () => OpenClick(), 14); rx -= 86;
-        Btn(g, Rc(rx - 80, y + 4, 80, h - 8), "Save", 0, () => SaveClick(false), 14); rx -= 86;
-        Btn(g, Rc(rx - 88, y + 4, 88, h - 8), "Save as", 0, () => SaveClick(true), 14); rx -= 94;
+        Btn(g, Rc(rx - 106, y, 106, h), "EXPORT", 1, () => ExportClick(), 16); rx -= 112;
+        Btn(g, Rc(rx - 58, y + 4, 58, h - 8), "Help", 2, () => app.ShowHelp(null), 14); rx -= 64;
+        Btn(g, Rc(rx - 58, y + 4, 58, h - 8), Win.IsFullscreen(this) ? "Window" : "Full", 0, () => Win.ToggleFullscreen(this), 13); rx -= 64;
+        Btn(g, Rc(rx - 72, y + 4, 72, h - 8), "Open", 0, () => OpenClick(), 14); rx -= 78;
+        Btn(g, Rc(rx - 72, y + 4, 72, h - 8), "Save", 0, () => SaveClick(false), 14); rx -= 78;
+        Btn(g, Rc(rx - 84, y + 4, 84, h - 8), "Save as", 0, () => SaveClick(true), 14); rx -= 90;
         // project name only when there is clear room (it is always in the window title too)
         float room = rx - leftEnd - 12;
         if (room > 90) { var pn = Rc(leftEnd + 12, y, room, h); Txt(g, projName, 13, Hot(pn) ? Ink : DimC, pn, StringAlignment.Far, false); Reg(pn, () => { }).OnDouble = RenameProject; regs[regs.Count - 1].OnRight = RenameProject; }
@@ -395,7 +396,7 @@ partial class StudioForm : Form
         { bool rec = mic != null; double el = rec ? (DateTime.Now - micT0).TotalSeconds : 0; var mr = Rc(x, y, rec ? 128 : 60, h); Btn(g, mr, rec ? "* MIC  " + ((int)(el / 60)).ToString("00") + ":" + ((int)(el % 60)).ToString("00") : "MIC", rec ? 3 : 0, () => MicClick(), 13); if (rec) HBar(g, Rc(mr.X + 6, mr.Bottom - 7, mr.Width - 12, 5), mic.Level); x += mr.Width + 6; }
 
         // tabs on the right; master meters in whatever room is left between
-        float tx = W - 232;
+        float tx = W - 328;
         float mx = Math.Max(x + 16, W - PanelW - 300); float room = tx - 12 - mx;
         if (room >= 70)
         {
@@ -405,6 +406,7 @@ partial class StudioForm : Form
         }
         Btn(g, Rc(tx, y, 106, h), "MIX", tab == 0 ? 4 : 0, () => tab = 0, 14);
         Btn(g, Rc(tx + 112, y, 106, h), "MASTERING", tab == 1 ? 4 : 0, () => tab = 1, 13);
+        Btn(g, Rc(tx + 224, y, 90, h), "LYRICS", tab == 2 ? 4 : 0, () => tab = 2, 13);
         PaintDawBar(g, y0 + 52, W);
     }
 
@@ -457,7 +459,7 @@ partial class StudioForm : Form
             var r0 = Rc(HeadW + 40, top + RulerH + 60, tl.Width - 80, 150);
             FillRR(g, Color.FromArgb(110, 40, 20, 80), r0, 14); StrokeRR(g, Edge, r0, 14, 1);
             Txt(g, "Add your music to start", 26, Ink, Rc(r0.X, r0.Y + 14, r0.Width, 40), StringAlignment.Center, true);
-            Txt(g, "Press ADD MUSIC (or drop a song, vocal or beat here), then SEPARATE VOCALS & BEAT for a full song.", 15, DimC, Rc(r0.X, r0.Y + 62, r0.Width, 26), StringAlignment.Center, false);
+            Txt(g, "Press ADD MUSIC (or drop a song, vocal or beat here), then SPLIT VOCALS + BEAT for a full song.", 15, DimC, Rc(r0.X, r0.Y + 62, r0.Width, 26), StringAlignment.Center, false);
             Txt(g, "MP3, WAV, FLAC, AIFF, M4A, OGG, OPUS and more", 13, DimC, Rc(r0.X, r0.Y + 92, r0.Width, 24), StringAlignment.Center, false);
         }
         g.ResetClip();
@@ -743,6 +745,7 @@ partial class StudioForm : Form
     {
         lastInput = DateTime.Now;
         if (editBox != null && editBox.Visible) return base.ProcessCmdKey(ref msg, k);
+        if (ActiveControl is TextBoxBase && ((Control)ActiveControl).Visible) return base.ProcessCmdKey(ref msg, k);   // typing in the lyrics page: every key belongs to the text box
         if (browserOpen)
         {
             if (k == Keys.Escape) { browserOpen = false; return true; }
