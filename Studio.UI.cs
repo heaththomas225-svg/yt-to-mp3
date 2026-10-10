@@ -582,7 +582,7 @@ partial class StudioForm : Form
         using (var br = new SolidBrush(Color.FromArgb(170, 6, 3, 14))) g.FillRectangle(br, 0, 0, ClientSize.Width, ClientSize.Height);
         Reg(Rc(0, 0, ClientSize.Width, ClientSize.Height), () => { if (!browserBox.Contains(MousePos)) browserOpen = false; });
         float w = 620, h = Math.Min(560, ClientSize.Height - 80), x = (ClientSize.Width - w) / 2, y = 60; browserBox = Rc(x, y, w, h);
-        FillRR(g, Color.FromArgb(252, 26, 14, 48), browserBox, 14); StrokeRR(g, Accent, browserBox, 14, 1.5f); var wr = new HitReg { R = browserBox, OnWheel = d => browserScroll = Math.Max(0, browserScroll - d * 40) }; regs.Add(wr); Reg(browserBox, () => { });
+        FillRR(g, Color.FromArgb(252, 26, 14, 48), browserBox, 14); StrokeRR(g, Accent, browserBox, 14, 1.5f); var wr = new HitReg { R = browserBox, OnWheel = d => browserScroll = Math.Max(0, Math.Min(browserMaxF, browserScroll - d * 40)) }; regs.Add(wr); Reg(browserBox, () => { });
         Txt(g, "Add effect", 20, Ink, Rc(x + 20, y + 12, 300, 30), StringAlignment.Near, true);
         Btn(g, Rc(x + w - 60, y + 14, 40, 28), "X", 3, () => browserOpen = false, 14);
         Btn(g, Rc(x + w - 196, y + 14, 130, 28), "Plugins...", 1, () => { browserOpen = false; new PluginManagerForm(() => app.ExtraFilter, s => { app.ExtraFilter = s; app.SaveSettings(); }).Show(this); }, 12);
@@ -590,6 +590,9 @@ partial class StudioForm : Form
         Txt(g, browserQuery.Length == 0 ? "Type to search: EQ, compressor, reverb, exciter, pitch, ..." : browserQuery + ((int)(t * 2) % 2 == 0 ? "|" : ""), 15, browserQuery.Length == 0 ? DimC : Ink, Rc(sb.X + 12, sb.Y, sb.Width - 20, sb.Height), StringAlignment.Near, false);
         var list = new List<FxRegistry.Info>(); string q = browserQuery.ToLowerInvariant().Trim();
         foreach (var i in FxRegistry.All) { if (i.Type == "gain") continue; if (q.Length == 0 || i.Name.ToLowerInvariant().Contains(q) || i.Category.ToLowerInvariant().Contains(q) || i.Blurb.ToLowerInvariant().Contains(q) || i.Type.Contains(q)) list.Add(i); }
+        // exact height of the list, so it can never be scrolled past its last row
+        float listH = 0; { string lc = ""; foreach (var i2 in list) { if (i2.Category != lc) { lc = i2.Category; listH += 20; } listH += 48; } }
+        float browserMax = Math.Max(0, listH - (h - 106) + 8); browserMaxF = browserMax; browserScroll = Math.Max(0, Math.Min(browserMax, browserScroll));
         float ry = y + 100 - browserScroll; g.SetClip(Rc(x + 10, y + 96, w - 20, h - 106));
         string lastCat = "";
         foreach (var info in list)
@@ -605,7 +608,7 @@ partial class StudioForm : Form
         g.ResetClip();
         Txt(g, "Enter adds the first match  -  Esc closes", 11, DimC, Rc(x + 20, y + h - 22, w - 40, 18), StringAlignment.Near, false);
     }
-    RectangleF browserBox;
+    RectangleF browserBox; float browserMaxF;
 
     void AddFx(string type)
     {
@@ -721,7 +724,7 @@ partial class StudioForm : Form
             }
         }
         g.ResetClip();
-        var wr = new HitReg { R = a, OnWheel = d => genScroll = Math.Max(0, genScroll - d * 30) }; regs.Insert(0, wr);
+        if (maxScroll > 0) { var wr = new HitReg { R = a, OnWheel = d => genScroll = Math.Max(0, Math.Min(maxScroll, genScroll - d * 30)) }; regs.Insert(0, wr); }
     }
 
     void PresetMenu(Fx f)

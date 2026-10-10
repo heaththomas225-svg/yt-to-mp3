@@ -7,10 +7,13 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.0.8";
+    public const string Latest = "3.0.9";
 
     public const string Text =
-@"3.0.8  Rename and Save as
+@"3.0.9  Effect list fix
+ + FIX: the Add effect list now stops at its last row instead of scrolling forever.
+
+3.0.8  Rename and Save as
  + NEW rename tracks: double-click a track name, right-click it, or press F2. Click the project name to rename the project.
  + NEW Save as button (Ctrl+Shift+S) next to Save.
  + SMOOTHER: separating vocals now leaves two CPU cores free, so the app and playback stay smooth while it works.
