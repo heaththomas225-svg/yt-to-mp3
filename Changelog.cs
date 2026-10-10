@@ -7,10 +7,14 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.0.4";
+    public const string Latest = "3.0.5";
 
     public const string Text =
-@"3.0.4  Speed
+@"3.0.5  Mastering and effects panel
+ + CHANGE: the Mastering button is now Master a song. It opens the Music Studio Mastering tab, where you add your own song, master it and export it. The old Mastering Assistant for downloads is still in Menu.
+ + FIX: the effects panel in the Studio only scrolls as far as its content (no more endless scrolling).
+
+3.0.4  Speed
  + FASTER: the animated leaves are drawn about 10 times faster (about 6 ms a frame, steady 60 fps). This was the main cause of the lag.
  + FIX: custom picture and video backgrounds no longer glitch while loading, and are prepared in the background so they cost almost nothing.
 

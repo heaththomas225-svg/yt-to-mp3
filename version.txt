@@ -1,4 +1,4 @@
-3.0.4
+3.0.5
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Faster: animated leaves now draw about 10x faster (about 6 ms a frame, steady 60 fps)
-Fix: custom picture/video backgrounds no longer glitch while loading and no longer slow the app
+Change: "Master a song" opens the Music Studio mastering tab (add a song, master, export)
+Fix: effect panel in the Studio no longer scrolls endlessly
