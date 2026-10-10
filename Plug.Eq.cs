@@ -148,7 +148,7 @@ class ConvCore
     volatile Rig rig; readonly float[] inb = new float[Convolver.P], oq = new float[Convolver.P], dry = new float[Convolver.P]; int fill, rd;
     public void SetIr(float[] ir) { rig = new Rig { c = new Convolver(ir) }; }
     public bool Ready { get { return rig != null; } }
-    public void Reset() { fill = 0; rd = 0; Array.Clear(oq, 0, oq.Length); Array.Clear(inb, 0, inb.Length); Array.Clear(dry, 0, dry.Length); }
+    public void Reset() { fill = 0; rd = 0; Array.Clear(oq, 0, oq.Length); Array.Clear(inb, 0, inb.Length); Array.Clear(dry, 0, dry.Length); var rg = rig; if (rg != null) rg.c.Reset(); }
     // convolves one channel in place; output is delayed by Convolver.P samples. Until an IR exists the signal passes (delayed).
     public void Process(float[] x, int n)
     {
@@ -169,17 +169,17 @@ class LinEqFx : ParametricEq
     public override int Latency { get { return N / 2 + Convolver.P; } }
     protected override void Update()
     {
-        base.Update(); var vals = new StringBuilder2(); foreach (var p in P) vals.Add(p.Val); string s = vals.ToString() + SR; if (s == sig) return; sig = s; int v = ++ver; int sr = SR; var snap = new double[P.Count]; for (int i = 0; i < snap.Length; i++) snap[i] = P[i].Val; var dbs = new double[N / 2 + 1];
-        for (int k = 0; k <= N / 2; k++) dbs[k] = ResponseDb(Math.Max(1, k * (double)sr / N));
+        base.Update(); var vals = new StringBuilder2(); foreach (var p in P) vals.Add(p.Val); string s = vals.ToString() + SR; if (s == sig) return; sig = s; int v = ++ver; int sr = SR; var tmp = new ParametricEq(); tmp.SR = sr; for (int i = 0; i < P.Count && i < tmp.P.Count; i++) tmp.P[i].Val = P[i].Val;
         ThreadPool.QueueUserWorkItem(o =>
         {
             try
             {
+                if (v != ver) return; var dbs = new double[N / 2 + 1]; for (int k = 0; k <= N / 2; k++) dbs[k] = tmp.ResponseDb(Math.Max(1, k * (double)sr / N));
                 var re = new double[N]; var im = new double[N];
                 for (int k = 0; k <= N / 2; k++) { double m = Math.Pow(10, dbs[k] / 20.0); re[k] = m; if (k > 0 && k < N / 2) re[N - k] = m; }
                 Fft.Transform(re, im, true); var h = new float[N];
                 for (int i = 0; i < N; i++) { int src = (i - N / 2 + N) % N; double w = 0.5 - 0.5 * Math.Cos(2 * Math.PI * (i + 0.5) / N); h[i] = (float)(re[src] * w); }
-                if (v != ver) return; var a = new Convolver(h); cl.SetIr(h); cr.SetIr(h);
+                if (v != ver) return; cl.SetIr(h); cr.SetIr(h);
             }
             catch { }
         });
