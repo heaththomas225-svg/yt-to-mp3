@@ -2,6 +2,12 @@
 
 What changed in each version of **BandLab + YouTube to MP3**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.0.6  Full screen and windows
+
+- F11 full screen in every resizable window (Esc leaves).
+- Settings, Help, Plugins and Phone mode no longer block other windows.
+- Settings scrolls; Studio crash with high darkness fixed; background paint glitch fixed.
+
 ## 3.0.5  Mastering and effects panel
 
 - Master a song opens the Studio Mastering tab (add, master, export). The old Mastering Assistant for downloads is in Menu.

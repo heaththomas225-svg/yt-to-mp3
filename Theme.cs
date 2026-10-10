@@ -28,6 +28,34 @@ static class Win
             catch { }
         };
         if (f.IsHandleCreated) a(); else f.HandleCreated += delegate { a(); };
+        f.HandleCreated += delegate { HookFullscreen(f); };
+    }
+
+    // F11 toggles full screen (Esc leaves it) in every resizable window.
+    static readonly System.Collections.Generic.Dictionary<Form, Rectangle> fsBounds = new System.Collections.Generic.Dictionary<Form, Rectangle>();
+    static readonly System.Collections.Generic.Dictionary<Form, FormWindowState> fsState = new System.Collections.Generic.Dictionary<Form, FormWindowState>();
+    static readonly System.Collections.Generic.HashSet<Form> fsHooked = new System.Collections.Generic.HashSet<Form>();
+    public static bool IsFullscreen(Form f) { return fsBounds.ContainsKey(f); }
+    public static void HookFullscreen(Form f)
+    {
+        if (f.FormBorderStyle != FormBorderStyle.Sizable || !f.MaximizeBox || fsHooked.Contains(f)) return;
+        fsHooked.Add(f); f.KeyPreview = true;
+        f.KeyDown += (s, e) => { if (e.KeyCode == Keys.F11) { ToggleFullscreen(f); e.Handled = true; } else if (e.KeyCode == Keys.Escape && IsFullscreen(f)) { ToggleFullscreen(f); e.Handled = true; } };
+        f.FormClosed += (s, e) => { fsBounds.Remove(f); fsState.Remove(f); fsHooked.Remove(f); };
+    }
+    public static void ToggleFullscreen(Form f)
+    {
+        if (IsFullscreen(f))
+        {
+            f.FormBorderStyle = FormBorderStyle.Sizable; f.WindowState = FormWindowState.Normal; f.Bounds = fsBounds[f];
+            if (fsState[f] == FormWindowState.Maximized) f.WindowState = FormWindowState.Maximized;
+            fsBounds.Remove(f); fsState.Remove(f);
+        }
+        else
+        {
+            fsState[f] = f.WindowState; fsBounds[f] = f.WindowState == FormWindowState.Normal ? f.Bounds : f.RestoreBounds;
+            var scr = Screen.FromControl(f).Bounds; f.WindowState = FormWindowState.Normal; f.FormBorderStyle = FormBorderStyle.None; f.Bounds = scr;
+        }
     }
 
     // Dark scroll bars / list popups for a control.

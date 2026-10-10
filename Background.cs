@@ -121,7 +121,7 @@ partial class App
             try
             {
                 Bitmap a = null; bool custom = UserBackground.Active;
-                if (custom) { string key = UserBackground.Key(W, H); if (key != atmoKey || atmoFront == null) { var s = UserBackground.Still(W, H); if (s != null) { a = new Bitmap(s); atmoKey = key; } else { a = BuildAtmosphere(W, H); atmoKey = ""; } } }
+                if (custom) { string key = UserBackground.Key(W, H); if (key != atmoKey || atmoFront == null) { var s = UserBackground.Baked(W, H); if (s != null) { a = s; atmoKey = key; } else { a = BuildAtmosphere(W, H); atmoKey = ""; } } }
                 else { a = BuildAtmosphere(W, H); atmoKey = ""; }
                 var o = BuildOverlay(W, H);
                 var oldA = atmoFront; var oldO = overlayFront; if (a != null) atmoFront = a; else oldA = null; overlayFront = o;
@@ -226,6 +226,13 @@ partial class App
     // Per-frame work on the UI thread: blit finished layers, draw sprites, title and progress bar.
     string atmoKey = ""; internal static int PaintN; internal static double PaintMs;
     void PaintBg(object sender, PaintEventArgs e)
+    {
+        // If anything goes wrong mid-paint, never leave a hole that shows the desktop through the window.
+        try { PaintBgCore(sender, e); }
+        catch (Exception) { try { using (var b = new SolidBrush(Color.FromArgb(8, 3, 18))) e.Graphics.FillRectangle(b, e.ClipRectangle); } catch { } }
+    }
+
+    void PaintBgCore(object sender, PaintEventArgs e)
     {
         frameWatch.Restart(); PaintN++;
         var g = e.Graphics; var r = bg.ClientRectangle; if (r.Width < 10 || r.Height < 10) return;

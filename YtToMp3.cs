@@ -37,7 +37,7 @@ class Job
 partial class App : Form
 {
     // ---- Auto-update settings ----
-    const string Version = "3.0.5";
+    const string Version = "3.0.6";
     // Plain-text manifest: line 1 = newest version, line 2 = direct exe download URL.
     const string UpdateManifestUrl = "https://raw.githubusercontent.com/heaththomas225-svg/yt-to-mp3/main/version.txt";
 
@@ -105,9 +105,12 @@ partial class App : Form
     internal StudioEngine StudioEng = new StudioEngine();
     StudioForm studioForm; Button studioBtn = new Button(), addMusicBtn = new Button();
 
+    HelpForm helpForm;
     internal void ShowHelp(string topic)
     {
-        using (var h = new HelpForm(id => true, id => { string tid = id; BeginInvoke(new Action(() => RunTour(tid))); }, topic)) h.ShowDialog(this);
+        // not modal: you can keep using and moving the other windows while Help is open
+        if (helpForm != null && !helpForm.IsDisposed) helpForm.Close();
+        helpForm = new HelpForm(id => true, id => { string tid = id; BeginInvoke(new Action(() => RunTour(tid))); }, topic); helpForm.Show(this);
     }
 
     void RunTour(string id)
@@ -222,9 +225,10 @@ partial class App : Form
         {
             var m = Win.NewMenu();
             m.Items.Add("Settings...").Click += (a, b) => ShowSettings();
+            m.Items.Add("Full screen  (F11)").Click += (a, b) => Win.ToggleFullscreen(this);
             m.Items.Add("Mastering for downloads (Mastering Assistant)...").Click += (a, b) => { if (mf == null || mf.IsDisposed) { mf = new MasterForm(this); mf.Show(this); } else mf.Activate(); };
             m.Items.Add("What's new").Click += (a, b) => Changelog.Show(this);
-            m.Items.Add("Plugins and extensions...").Click += (a, b) => { new PluginManagerForm(() => ExtraFilter, v => { ExtraFilter = v; SaveSettings(); }).ShowDialog(this); };
+            m.Items.Add("Plugins and extensions...").Click += (a, b) => { new PluginManagerForm(() => ExtraFilter, v => { ExtraFilter = v; SaveSettings(); }).Show(this); };
             m.Items.Add("Open data folder").Click += (a, b) => { try { Directory.CreateDirectory(AppData); Process.Start("explorer.exe", "\"" + AppData + "\""); } catch { } };
             m.Show(whatsBtn, new Point(0, whatsBtn.Height));
         };
@@ -325,7 +329,13 @@ partial class App : Form
     }
     internal string DataFolder { get { Directory.CreateDirectory(AppData); return AppData; } }
     internal static string FfmpegPath() { return FfmpegExe(); }
-    internal void ShowSettings() { using (var f = new SettingsForm(this)) f.ShowDialog(this); }
+    SettingsForm settingsForm;
+    internal void ShowSettings()
+    {
+        // not modal: the other windows stay usable (and movable) while Settings is open
+        if (settingsForm == null || settingsForm.IsDisposed) { settingsForm = new SettingsForm(this); settingsForm.Show(this); }
+        else { settingsForm.Activate(); if (settingsForm.WindowState == FormWindowState.Minimized) settingsForm.WindowState = FormWindowState.Normal; }
+    }
 
     // ---------- settings ----------
     bool loading = true;   // suppress saves while settings are being applied
