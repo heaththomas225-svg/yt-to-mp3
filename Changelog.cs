@@ -7,10 +7,15 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.0.2";
+    public const string Latest = "3.0.3";
 
     public const string Text =
-@"3.0.2  Settings, backgrounds and Studio speed
+@"3.0.3  Stability
+ + FIX Music Studio no longer crashes with an index-out-of-range error after Auto Mix or effect changes.
+ + Dragging the Studio or Mastering window is smooth: all animation pauses while any window moves.
+ + Closing the Mastering window now turns mastering off.
+
+3.0.2  Settings, backgrounds and Studio speed
  + NEW Settings button: use your own picture or video as the background. It is cropped to fill the window automatically and remembered after you close the app.
  + NEW audio controls: playback volume, output device and buffer size. Exports are never affected.
  + NEW frame rate limit and optional fps display.

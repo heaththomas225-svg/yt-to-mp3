@@ -2,6 +2,12 @@
 
 What changed in each version of **BandLab + YouTube to MP3**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.0.3  Stability
+
+- FIX Music Studio crash (index out of range) after Auto Mix or effect changes.
+- Smooth dragging for Studio and Mastering windows.
+- Closing the Mastering window turns mastering off.
+
 ## 3.0.2  Settings, backgrounds and Studio speed
 
 - NEW Settings button: custom picture or video background (auto-cropped, remembered), darken slider, leaves on or off.
