@@ -206,7 +206,7 @@ partial class StudioForm : Form
         { "Full", "Full screen (F11). Esc leaves it." }, { "Window", "Leave full screen (Esc)." },
         { "PLAY", "Play from the needle (Space)." }, { "PAUSE", "Pause (Space)." }, { "STOP", "Stop and go back to the start." }, { "|<", "Jump back to the start." },
         { "LOOP", "Repeat the song when it reaches the end." },
-        { "MIX", "The tracks, faders and effects." }, { "LYRICS", "A page for writing your own lyrics, with line and syllable counts." }, { "MASTERING", "Final loudness and polish on the whole mix, with LUFS meters and A/B compare." },
+        { "MIX", "The tracks, faders and effects." }, { "+ TRACK", "Add a track: audio from your PC or an instrument, above or below the selected track or at the end." }, { "+ ADD TRACK", "Add a track at the end of the list." }, { "LYRICS", "A page for writing your own lyrics, with line and syllable counts." }, { "MASTERING", "Final loudness and polish on the whole mix, with LUFS meters and A/B compare." },
         { "+ Add Effect", "Pick an effect (EQ, compressor, reverb, Auto-Tune...) to add to this track." },
         { "+ Add Effect to master", "Add an effect to the final mix instead of one track." },
         { "Chain presets...", "Load a ready-made effect chain, for example a rap vocal chain." },
@@ -391,6 +391,7 @@ partial class StudioForm : Form
         double sec = dispPos / StudioEngine.SR, tot = eng.EndFrame / (double)StudioEngine.SR;
         var tr = Rc(x, y, 210, h); FillRR(g, Color.FromArgb(200, 8, 4, 18), tr, 6); StrokeRR(g, Edge, tr, 6, 1);
         Txt(g, Fmt(sec) + "  /  " + Fmt(tot), 19, Accent, tr, StringAlignment.Center, true); x += 222;
+        Btn(g, Rc(x, y, 100, h), "+ TRACK", 2, () => ShowAddTrackMenuMain(), 13); x += 106;
         Btn(g, Rc(x, y, 124, h), "+ INSTRUMENT", 1, () => AddInstrumentClick(), 12); x += 130;
         Btn(g, Rc(x, y, 70, h), recOn ? "* REC" : "REC", recOn ? 3 : 0, () => { recOn = !recOn; Toast(recOn ? "Recording is armed: press PLAY, then play notes on an instrument window." : "Recording off."); }, 13); x += 76;
         { bool rec = mic != null; double el = rec ? (DateTime.Now - micT0).TotalSeconds : 0; var mr = Rc(x, y, rec ? 128 : 60, h); Btn(g, mr, rec ? "* MIC  " + ((int)(el / 60)).ToString("00") + ":" + ((int)(el % 60)).ToString("00") : "MIC", rec ? 3 : 0, () => MicClick(), 13); if (rec) HBar(g, Rc(mr.X + 6, mr.Bottom - 7, mr.Width - 12, 5), mic.Level); x += mr.Width + 6; }
@@ -439,7 +440,7 @@ partial class StudioForm : Form
         var rr = Reg(ruler, () => { eng.Seek(scroll + (long)((MousePos.X - HeadW) * spp)); }); rr.OnDrag = pt => eng.Seek(Math.Max(0, scroll + (long)((pt.X - HeadW) * spp)));
 
         float y = top + RulerH - vscroll;
-        g.SetClip(Rc(0, top + RulerH, ClientSize.Width - PanelW, ClientSize.Height - top - RulerH));
+        g.SetClip(Rc(0, top + RulerH, ClientSize.Width - PanelW, ClientSize.Height - top - RulerH - 46));
         for (int i = 0; i < n; i++, y += LaneH)
         {
             if (y + LaneH < top + RulerH || y > ClientSize.Height) continue;
@@ -453,6 +454,7 @@ partial class StudioForm : Form
             AddTrackZone(g, y, i);
             using (var pen = new Pen(Color.FromArgb(70, 140, 85, 210))) g.DrawLine(pen, 0, y + LaneH, tl.Right, y + LaneH);
         }
+        AddTrackRow(g, Math.Max(y, top + RulerH), n);
         { float ey = Math.Max(y, top + RulerH); if (ey < ClientSize.Height) { var em = Reg(Rc(HeadW, ey, tl.Width, ClientSize.Height - ey), () => { toolsTrack = null; eng.Seek(Math.Max(0, Snap(scroll + (long)((MousePos.X - HeadW) * spp)))); }); em.OnDrag = pt => eng.Seek(Math.Max(0, Snap(scroll + (long)((pt.X - HeadW) * spp)))); } }
         if (n == 0)
         {
@@ -473,11 +475,11 @@ partial class StudioForm : Form
         wr.OnWheel = d =>
         {
             if ((ModifierKeys & Keys.Control) != 0 && (ModifierKeys & Keys.Alt) == 0 && (ModifierKeys & Keys.Shift) == 0) autoFit = false;
-            if ((ModifierKeys & Keys.Alt) != 0 || ((ModifierKeys & Keys.Control) != 0 && (ModifierKeys & Keys.Shift) != 0)) { LaneH = Math.Max(64, Math.Min(420, LaneH + (d > 0 ? 16 : -16))); vscroll = Math.Max(0, Math.Min(vscroll, Math.Max(0, n * LaneH - (ClientSize.Height - top - RulerH - 20)))); }
+            if ((ModifierKeys & Keys.Alt) != 0 || ((ModifierKeys & Keys.Control) != 0 && (ModifierKeys & Keys.Shift) != 0)) { LaneH = Math.Max(64, Math.Min(420, LaneH + (d > 0 ? 16 : -16))); vscroll = Math.Max(0, Math.Min(vscroll, Math.Max(0, n * LaneH - (ClientSize.Height - top - RulerH - 66)))); }
             else if ((ModifierKeys & Keys.Control) != 0) { double f = d > 0 ? 0.7 : 1.43; double cur = scroll + (MousePos.X - HeadW) * spp; spp = Math.Max(MinSpp, Math.Min(MaxSpp, spp * f)); scroll = Math.Max(0, (long)(cur - (MousePos.X - HeadW) * spp)); }
             else if ((ModifierKeys & Keys.Shift) != 0) ScrollView(-d * 0.25);
             else if (n * LaneH <= ClientSize.Height - top - RulerH - 40 || MousePos.Y < top + RulerH) ScrollView(-d * 0.25);   // everything fits vertically: the wheel moves along the song (like BandLab)
-            else vscroll = Math.Max(0, Math.Min(Math.Max(0, n * LaneH - (ClientSize.Height - top - RulerH - 20)), vscroll - d * 40));
+            else vscroll = Math.Max(0, Math.Min(Math.Max(0, n * LaneH - (ClientSize.Height - top - RulerH - 66)), vscroll - d * 40));
         };
         regs.Insert(0, wr);
         PaintPluginPanel(g);

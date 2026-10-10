@@ -72,6 +72,10 @@ static class S
         Check("a track added from a strip lands exactly there and is selected", eng.Tracks.Count == 3 && eng.Tracks[1].Name == "NEW" && F<int>("selTrack") == 1, string.Join(", ", eng.Tracks.ConvertAll(t => t.Name).ToArray()));
         typeof(StudioForm).GetMethod("AddTrack", BF).Invoke(sf, new object[] { StudioEngine.NewTrack("LAST", "audio", Clip(5)) });
         Check("a normal add still goes to the end", eng.Tracks[eng.Tracks.Count - 1].Name == "LAST", "");
+        // the + ADD TRACK button must always be on screen, even when the tracks run off the bottom
+        for (int i = 0; i < 10; i++) typeof(StudioForm).GetMethod("AddTrack", BF).Invoke(sf, new object[] { StudioEngine.NewTrack("X" + i, "audio", Clip(3)) }); Paint();
+        var addBtn = Regs().FindLast(r => Math.Abs(r.R.Width - 230) < 0.5f && Math.Abs(r.R.Height - 34) < 0.5f); Check("the + ADD TRACK button is on screen with 14 tracks (pinned to the bottom)", addBtn != null && addBtn.R.Bottom <= sf.ClientSize.Height && addBtn.R.Y > sf.ClientSize.Height / 2, addBtn == null ? "missing" : addBtn.R.ToString());
+        var tbtn = Regs().FindLast(r => r.R.Y < 120 && r.R.Y > 70 && r.R.Width == 100 && r.R.Height == 36); Check("there is a + TRACK button in the toolbar", tbtn != null, "");
         // ---- lyrics page ----
         {
             Check("syllable counter gets everyday words right", LyricsTools.Syllables("love") == 1 && LyricsTools.Syllables("rhyme") == 1 && LyricsTools.Syllables("music") == 2 && LyricsTools.Syllables("melody") == 3 && LyricsTools.Syllables("beautiful") == 3 && LyricsTools.Syllables("remember") == 3, "love " + LyricsTools.Syllables("love") + ", music " + LyricsTools.Syllables("music") + ", melody " + LyricsTools.Syllables("melody") + ", beautiful " + LyricsTools.Syllables("beautiful"));

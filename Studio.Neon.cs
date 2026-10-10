@@ -107,7 +107,7 @@ partial class StudioForm
             FillRR(g, Color.FromArgb(235, 14, 8, 30), pill, 10); Glow(g, NeonCyan, pill, 10, 0.9f, 3); Txt(g, "+ ADD TRACK HERE", 10, Ink, pill, StringAlignment.Center, true);
             bubble = "Add a track here: audio from your PC, or an instrument such as Bass Lab."; bubblePt = MousePos;
         }
-        else { using (var b = new SolidBrush(Color.FromArgb(70, NeonCyan))) g.FillEllipse(b, HeadW / 2f - 4, lineY - 4, 8, 8); }
+        else { var dot = Rc(HeadW / 2f - 8, lineY - 8, 16, 16); using (var b = new SolidBrush(Color.FromArgb(215, 12, 8, 28))) g.FillEllipse(b, dot); using (var pen = new Pen(Color.FromArgb(190, NeonCyan), 1.4f)) { g.DrawEllipse(pen, dot); g.DrawLine(pen, dot.X + 4, dot.Y + 8, dot.Right - 4, dot.Y + 8); g.DrawLine(pen, dot.X + 8, dot.Y + 4, dot.X + 8, dot.Bottom - 4); } }
         int at = insertIndex; Reg(zone, () => ShowAddTrackMenu(at));
     }
     void ShowAddTrackMenu(int at)
@@ -180,5 +180,26 @@ partial class StudioForm
     void ScrollView(double screens)
     {
         autoFit = false; var tl = TimelineRect(); double maxS = Math.Max(0, eng.EndFrame * 1.04 - tl.Width * spp); scroll = (long)Math.Max(0, Math.Min(maxS, scroll + screens * tl.Width * spp));
+    }
+}
+
+partial class StudioForm
+{
+    // the add-track button that is always on screen: right after the last track, or pinned to the bottom of the list when the tracks run off the screen
+    void AddTrackRow(Graphics g, float afterLastY, int n)
+    {
+        float by = Math.Min(afterLastY + 6, ClientSize.Height - 44); var r = Rc(10, by, HeadW - 20, 34);
+        FillRR(g, Color.FromArgb(235, 14, 8, 30), r, 8); Glow(g, NeonCyan, r, 8, Hot(r) ? 1.1f : 0.55f, 3);
+        Txt(g, "+ ADD TRACK", 13, Ink, r, StringAlignment.Center, true); int at = n; Reg(r, () => ShowAddTrackMenu(at));
+    }
+    // the + TRACK button in the toolbar: choose what to add and where it goes
+    void ShowAddTrackMenuMain()
+    {
+        var m = Win.NewMenu(); int n = eng.Tracks.Count, sel = n == 0 ? 0 : Math.Max(0, Math.Min(selTrack, n - 1));
+        string[] where = n == 0 ? new[] { "" } : new[] { "below the selected track", "above the selected track", "at the end" }; int[] idx = n == 0 ? new[] { 0 } : new[] { sel + 1, sel, n };
+        for (int i = 0; i < where.Length; i++) { int at = idx[i]; m.Items.Add("Add music / audio file " + where[i] + "...").Click += (a, b) => { nextInsert = at; AddMusicClick(true); }; }
+        m.Items.Add(new ToolStripSeparator());
+        for (int i = 0; i < where.Length; i++) { int at = idx[i]; m.Items.Add("Add an instrument " + where[i] + "...").Click += (a, b) => { nextInsert = at; AddInstrumentClick(true); }; }
+        m.Show(this, new Point((int)MousePos.X, (int)MousePos.Y));
     }
 }
