@@ -91,12 +91,12 @@ partial class StudioForm
 
     void DrawAvatar(Graphics g, RectangleF r)
     {
-        var gs = g.Save(); using (var p = new GraphicsPath()) { p.AddEllipse(r); g.SetClip(p, CombineMode.Intersect); var pic = ProjectLibrary.Picture(ProjectLibrary.AvatarPath) ?? AppLogo.Logo; if (pic != null) { g.InterpolationMode = InterpolationMode.HighQualityBicubic; g.DrawImage(pic, r); } else ProjectLibrary.DrawArt(g, r, ProjectLibrary.ProfileName, 7); }   // no picture chosen: the Purphex emblem
+        var gs = g.Save(); using (var p = new GraphicsPath()) { p.AddEllipse(r); g.SetClip(p, CombineMode.Intersect); var pic = ProjectLibrary.Scaled(ProjectLibrary.AvatarPath, (int)Math.Round(r.Width), (int)Math.Round(r.Height), InterpolationMode.HighQualityBicubic); if (pic != null) { g.InterpolationMode = InterpolationMode.NearestNeighbor; g.DrawImage(pic, new Rectangle((int)Math.Round(r.X), (int)Math.Round(r.Y), pic.Width, pic.Height)); } else if (AppLogo.Logo != null) { g.InterpolationMode = InterpolationMode.HighQualityBicubic; g.DrawImage(AppLogo.Logo, r); } else ProjectLibrary.DrawArt(g, r, ProjectLibrary.ProfileName, 7); }   // no picture chosen: the Purphex emblem
         g.Restore(gs); using (var pen = new Pen(Color.FromArgb(230, NeonCyan), 2f)) g.DrawEllipse(pen, r);
     }
     void DrawCover(Graphics g, RectangleF r, ProjectEntry e)
     {
-        var gs = g.Save(); g.SetClip(r, CombineMode.Intersect); var pic = e == null ? null : ProjectLibrary.Picture(e.Cover); if (pic != null) { g.InterpolationMode = InterpolationMode.HighQualityBilinear; g.DrawImage(pic, r); } else ProjectLibrary.DrawArt(g, r, e == null ? "Purphex" : e.Name, 0); g.Restore(gs);
+        var gs = g.Save(); g.SetClip(r, CombineMode.Intersect); var pic = e == null ? null : ProjectLibrary.Scaled(e.Cover, (int)Math.Round(r.Width), (int)Math.Round(r.Height), InterpolationMode.HighQualityBilinear); if (pic != null) { g.InterpolationMode = InterpolationMode.NearestNeighbor; g.DrawImage(pic, new Rectangle((int)Math.Round(r.X), (int)Math.Round(r.Y), pic.Width, pic.Height)); } else ProjectLibrary.DrawArt(g, r, e == null ? "Purphex" : e.Name, 0); g.Restore(gs);
     }
 
     // ---------------- the side menu ----------------
@@ -130,8 +130,8 @@ partial class StudioForm
             {
                 case 0: g.DrawRectangle(pen, r.X + 3, r.Y + 3, r.Width - 6, r.Height - 6); g.DrawLine(pen, r.X + 8, r.Y + 8, r.X + 8, r.Bottom - 8); g.DrawLine(pen, r.X + 8, r.Y + 8, r.Right - 8, r.Y + 6); break;
                 case 1: g.DrawLine(pen, r.X + 5, r.Bottom - 5, r.Right - 5, r.Y + 5); g.DrawLine(pen, r.X + 5, r.Bottom - 5, r.X + 5, r.Bottom - 10); g.DrawLine(pen, r.X + 5, r.Bottom - 5, r.X + 10, r.Bottom - 5); break;
-                case 2: g.DrawLine(pen, r.X + 4, r.Y + 6, r.Right - 4, r.Y + 6); g.DrawLine(pen, r.X + 4, r.Y + 12, r.Right - 4, r.Y + 12); g.DrawLine(pen, r.X + 4, r.Y + 18, r.Right - 4, r.Y + 18); g.FillEllipse(new SolidBrush(c), r.X + 7, r.Y + 3, 6, 6); g.FillEllipse(new SolidBrush(c), r.X + 15, r.Y + 9, 6, 6); g.FillEllipse(new SolidBrush(c), r.X + 9, r.Y + 15, 6, 6); break;
-                case 3: g.DrawEllipse(pen, r.X + 2, r.Y + 6, r.Width - 4, r.Height - 12); g.FillEllipse(new SolidBrush(c), r.X + 9, r.Y + 9, 6, 6); break;
+                case 2: g.DrawLine(pen, r.X + 4, r.Y + 6, r.Right - 4, r.Y + 6); g.DrawLine(pen, r.X + 4, r.Y + 12, r.Right - 4, r.Y + 12); g.DrawLine(pen, r.X + 4, r.Y + 18, r.Right - 4, r.Y + 18); using (var fb = new SolidBrush(c)) { g.FillEllipse(fb, r.X + 7, r.Y + 3, 6, 6); g.FillEllipse(fb, r.X + 15, r.Y + 9, 6, 6); g.FillEllipse(fb, r.X + 9, r.Y + 15, 6, 6); } break;
+                case 3: g.DrawEllipse(pen, r.X + 2, r.Y + 6, r.Width - 4, r.Height - 12); using (var fb = new SolidBrush(c)) g.FillEllipse(fb, r.X + 9, r.Y + 9, 6, 6); break;
                 case 4: g.DrawEllipse(pen, r.X + 3, r.Y + 3, 9, 9); g.DrawEllipse(pen, r.X + 12, r.Y + 3, 9, 9); g.DrawArc(pen, r.X + 2, r.Y + 11, 20, 14, 200, 140); break;
                 case 5: g.DrawEllipse(pen, r.X + 4, r.Y + 4, r.Width - 8, r.Height - 8); g.DrawEllipse(pen, r.X + 9, r.Y + 9, r.Width - 18, r.Height - 18); break;
                 case 6: g.DrawEllipse(pen, r.X + 2, r.Y + 2, r.Width - 4, r.Height - 4); Txt(g, "?", 14, c, r, StringAlignment.Center, true); break;
