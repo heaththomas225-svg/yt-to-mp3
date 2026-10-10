@@ -2,6 +2,10 @@
 
 What changed in each version of **BandLab + YouTube to MP3**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.0.11  Plugins are easier
+
+- Ticking a plugin loads it at once; plugins are listed first in Add Effect.
+
 ## 3.0.10  More help
 
 - Hover hints on Studio buttons; 6 new Help guides; the sample plugin explains itself and can build itself.
