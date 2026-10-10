@@ -1,3 +1,4 @@
-3.0.13
+3.1.0
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Fix: the Add Effect search box now clearly shows it is active (glowing border, blinking caret, clear button)
+NEW: VST plugin support: use VST2 instruments like Vital and VST2 effects (Menu > Plugins, tick the plugin)
+NEW: + INSTRUMENT tracks you can play with your keyboard, record (REC) and export

@@ -14,7 +14,7 @@ using System.Windows.Forms;
 //  disabled again automatically if the file changes). A crashing plugin is switched off, not the app.
 // ======================================================================
 public class PluginInfo
-{ public bool Native;
+{ public bool Native; public string Path = "";
     public string File = "", Hash = "", Name = "", Error = ""; public bool Enabled, Loaded; public List<string> Types = new List<string>();
 }
 
@@ -46,9 +46,20 @@ public static class PluginHost
         try
         {
             Directory.CreateDirectory(Dir);
-            foreach (var f in Directory.GetFiles(Dir, "*.dll"))
+            var files = new List<string>(Directory.GetFiles(Dir, "*.dll")); var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase); foreach (var f0 in files) seen.Add(Path.GetFileName(f0));
+            foreach (var vd in VstFolders())
             {
-                var p = new PluginInfo { File = Path.GetFileName(f), Name = Path.GetFileNameWithoutExtension(f) };
+                try
+                {
+                    var more = new List<string>(Directory.GetFiles(vd, "*.dll")); foreach (var sd in Directory.GetDirectories(vd)) more.AddRange(Directory.GetFiles(sd, "*.dll"));
+                    foreach (var f1 in more) if (seen.Add(Path.GetFileName(f1))) files.Add(f1);
+                }
+                catch { }
+            }
+            foreach (var f in files)
+            {
+                bool inDir = string.Equals(Path.GetDirectoryName(f), Dir, StringComparison.OrdinalIgnoreCase);
+                var p = new PluginInfo { Path = f, File = inDir ? Path.GetFileName(f) : f, Name = Path.GetFileNameWithoutExtension(f) };
                 try { p.Hash = HashOf(f); } catch (Exception ex) { p.Error = ex.Message; }
                 try { AssemblyName.GetAssemblyName(f); } catch (BadImageFormatException) { p.Native = true; } catch { }   // VST / native audio plugins are not .NET
                 string h; p.Enabled = ap.TryGetValue(p.File, out h) && h == p.Hash;
@@ -62,8 +73,36 @@ public static class PluginHost
 
     public static void SetEnabled(PluginInfo p, bool on)
     {
-        if (p.Native) return;
         var ap = ReadApprovals(); if (on) ap[p.File] = p.Hash; else ap.Remove(p.File); WriteApprovals(ap); p.Enabled = on;
+    }
+
+    // Where installed VST2 plugins usually live.
+    public static List<string> VstFolders()
+    {
+        var l = new List<string>();
+        string pf = Environment.GetEnvironmentVariable("ProgramFiles") ?? @"C:\Program Files";
+        string cf = Environment.GetEnvironmentVariable("CommonProgramFiles") ?? @"C:\Program Files\Common Files";
+        foreach (var d in new[] { Path.Combine(cf, "VST2"), Path.Combine(cf, "VSTPlugins"), Path.Combine(pf, "VSTPlugins"), Path.Combine(pf, "Steinberg", "VSTPlugins"), Path.Combine(pf, "VstPlugins") })
+            if (Directory.Exists(d) && !l.Contains(d)) l.Add(d);
+        return l;
+    }
+
+    static readonly Dictionary<string, VstPlugin> vstProbe = new Dictionary<string, VstPlugin>(StringComparer.OrdinalIgnoreCase);
+    static void LoadVst(PluginInfo p, List<string> log)
+    {
+        string path = p.Path.Length > 0 ? p.Path : Path.Combine(Dir, p.File);
+        var probe = VstPlugin.Load(path, StudioEngine.SR);   // also tells us its name and whether it is an instrument
+        lock (vstProbe) vstProbe[path] = probe;
+        string tid = "vst:" + Path.GetFileName(path); bool synth = probe.IsSynth;
+        FxRegistry.Register(new FxRegistry.Info(tid, probe.Name + " (VST)", synth ? "Instruments" : "Plugins", (synth ? "VST instrument" : "VST effect") + (probe.Vendor.Length > 0 ? " by " + probe.Vendor : "")),
+            () =>
+            {
+                VstPlugin inst; lock (vstProbe) { vstProbe.TryGetValue(path, out inst); vstProbe.Remove(path); }
+                if (inst == null) inst = VstPlugin.Load(path, StudioEngine.SR);
+                var f = new VstFx(inst, path); f.Prepare(StudioEngine.SR); return f;
+            });
+        p.Types.Add(tid); p.Loaded = true; loaded[p.File] = p;
+        log.Add("Loaded " + probe.Name + (synth ? " (instrument: use + INSTRUMENT in the Music Studio)" : " (effect: use + Add Effect > PLUGINS)"));
     }
 
     // Loads every approved plugin that isn't loaded yet. Returns a short log of what happened.
@@ -72,10 +111,10 @@ public static class PluginHost
         var log = new List<string>();
         foreach (var p in Scan())
         {
-            if (p.Native) continue;
             if (!p.Enabled || p.Loaded) continue;
             try
             {
+                if (p.Native) { LoadVst(p, log); continue; }
                 var asm = Assembly.LoadFrom(Path.Combine(Dir, p.File)); Type[] types;
                 try { types = asm.GetTypes(); } catch (ReflectionTypeLoadException ex) { types = Array.FindAll(ex.Types, t => t != null); }
                 foreach (var t in types)
@@ -152,7 +191,7 @@ class PluginManagerForm : Form
         Text = "Plugins and extensions"; FormBorderStyle = FormBorderStyle.FixedDialog; StartPosition = FormStartPosition.CenterParent; MaximizeBox = false; MinimizeBox = false; ShowInTaskbar = false;
         BackColor = Color.FromArgb(10, 4, 20); ForeColor = Color.FromArgb(240, 232, 255); ClientSize = new Size(700, 600); Font = new Font("Segoe UI", 10f); Win.Dark(this);
         Controls.Add(new Label { Text = "Studio effect plugins", Left = 18, Top = 14, Width = 400, Height = 26, Font = new Font("Segoe UI Semibold", 13f), ForeColor = Color.FromArgb(225, 190, 255) });
-        Controls.Add(new Label { Text = "Drop plugin .dll files into the plugins folder, press Reload, then tick a plugin to approve it. Plugins are programs: only enable ones you trust. They show up in the studio under Add Effect > Plugins.", Left = 18, Top = 44, Width = 664, Height = 50, ForeColor = Color.FromArgb(170, 150, 200) });
+        Controls.Add(new Label { Text = "Your installed VST2 plugins (for example Vital) are listed here automatically. Tick one and it loads at once: instruments appear under + INSTRUMENT in the Music Studio, effects under + Add Effect > PLUGINS. You can also copy a .dll into the plugins folder. Plugins are programs: only tick ones you trust.", Left = 18, Top = 44, Width = 664, Height = 50, ForeColor = Color.FromArgb(170, 150, 200) });
         list = new Panel { Left = 18, Top = 100, Width = 664, Height = 200, AutoScroll = true, BackColor = Color.FromArgb(8, 4, 16), BorderStyle = BorderStyle.FixedSingle }; Controls.Add(list); Win.DarkControl(list);
         Mk("Open plugins folder", 18, 310, 170, () => { Directory.CreateDirectory(PluginHost.Dir); Process.Start("explorer.exe", "\"" + PluginHost.Dir + "\""); });
         Mk("Reload", 196, 310, 110, () => { Reload(true); });
@@ -204,20 +243,22 @@ class PluginManagerForm : Form
         if (ps.Count == 0) list.Controls.Add(new Label { Text = "No plugins found yet. Folder: " + PluginHost.Dir, Left = 8, Top = 8, Width = 620, Height = 40, ForeColor = Color.FromArgb(170, 150, 200) });
         foreach (var p in ps)
         {
-            if (p.Native)
-            {
-                list.Controls.Add(new Label { Left = 8, Top = y, Width = 640, Height = 54, ForeColor = Color.FromArgb(255, 170, 120), Text = p.Name + "  -  this is a VST / native audio plugin (for example a synth like Vital). It can NOT be used here: this app only loads its own .NET effect plugins. It is safe to delete the file." }); y += 60; continue;
-            }
-            var cb = new DarkCheck { Left = 6, Top = y, Width = 640, Height = 30, Checked = p.Enabled, Text = p.Name + (p.Loaded ? "   (ready: Music Studio > + Add Effect > PLUGINS)" : (p.Enabled ? "   (approved: press Reload)" : "   (not approved)")) + (p.Error.Length > 0 ? "   ERROR: " + p.Error : "") };
+            var cb = new DarkCheck { Left = 6, Top = y, Width = 640, Height = 30, Checked = p.Enabled, Text = p.Name + (p.Native ? "   [VST]" : "") + (p.Loaded ? "   (" + ReadyText(p) + ")" : (p.Enabled ? "   (approved: press Reload)" : "   (not approved)")) + (p.Error.Length > 0 ? "   ERROR: " + p.Error : "") };
             var pi = p; cb.CheckedChanged += (s, e) =>
             {
                 bool on = cb.Checked; PluginHost.SetEnabled(pi, on);
                 if (!on) { msg.Text = "Disabled. It stays in the list until you restart the app."; return; }
                 // load it straight away so it is ready in the Music Studio without pressing anything else
-                BeginInvoke(new Action(() => { Reload(true); msg.Text = "Ready. Now open the Music Studio, press + Add Effect on a track and look under PLUGINS at the top (or type its name)."; }));
+                BeginInvoke(new Action(() => { msg.Text = "Loading... (big instruments can take a few seconds)"; Reload(true); if (pi.Loaded) msg.Text = "Ready: " + ReadyText(pi) + "."; }));
             };
             list.Controls.Add(cb); y += 34;
         }
+    }
+
+    static string ReadyText(PluginInfo p)
+    {
+        bool inst = false; foreach (var i in FxRegistry.All) if (p.Types.Contains(i.Type) && i.Category == "Instruments") inst = true;
+        return inst ? "ready: in the Music Studio press + INSTRUMENT" : "ready: Music Studio > + Add Effect > PLUGINS";
     }
 
     void TestFilter()

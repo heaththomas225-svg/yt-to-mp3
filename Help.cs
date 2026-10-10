@@ -257,6 +257,24 @@ Press Create sample plugin, then answer Yes to build it now. Press Reload, tick 
 ## If you do not write code
 You can ignore it. The built-in effects already cover EQ, compression, reverb, Auto-Tune and more."),
 
+        new HelpTopic("vst", "Advanced", "Use VST plugins and instruments (like Vital)", false, @"
+## What works
+64-bit VST2 plugins: instruments (synths such as Vital) and effects. VST3 (.vst3) and 32-bit plugins are not supported.
+## Set it up
+1. Menu, then Plugins and extensions. Plugins installed in the usual VST2 folders are listed automatically (or copy the .dll into the plugins folder).
+2. Tick the plugin. It loads at once (a big one can take a few seconds the first time).
+## Use an instrument
+1. In the Music Studio press + INSTRUMENT and choose it. A track and the plugin's own window appear.
+2. Play notes with your computer keyboard (A S D F G H J = white keys, W E T Y U = black keys, Z / X = octave) or click the piano at the bottom of its window. You hear it right away, even when the song is stopped.
+3. To record: press REC, press PLAY, then play. The notes appear as small bars on the track and play back every time. Press C on the track to clear them.
+4. Use the instrument's own window to change sounds. The sound you chose is saved with the project.
+## Use an effect
+Open + Add Effect on a track and pick it under PLUGINS (it is listed first). Press 'Open window' in the plugin panel to see its own controls.
+## Good to know
+- Recorded notes play in the mix and in every export.
+- Only tick plugins you trust: a VST plugin is a program that runs on your computer.
+- If a plugin will not load, it is usually 32-bit or VST3."),
+
         new HelpTopic("plugins", "Advanced", "Plugins and custom ffmpeg filters", false, @"
 ## Add your own effects
 1. Menu, then Plugins and extensions, then Open plugins folder.
@@ -267,7 +285,7 @@ WARN: Plugins are programs. Only approve ones you trust.
 Press 'Create sample plugin (SDK)'. It writes a working example and a build script. See PLUGINS.md for the full guide.
 ## Custom ffmpeg filter
 Enter any ffmpeg audio filter chain (for example aecho=0.8:0.88:60:0.4) and it is applied to every conversion. It is tested before saving. LV2 plugins can be used through ffmpeg's lv2 filter.
-VST plugins (for example Vital, Serum or Kontakt, which are .dll, .vst or .vst3 files) are NOT supported: they are a different kind of plugin that needs a full plugin host. The Plugins window shows them as unsupported. Only .NET effect plugins made for this app (see Create sample plugin) can be used."),
+64-bit VST2 plugins such as Vital are supported (see Use VST plugins and instruments). VST3 and 32-bit plugins are not. The sample plugin is for people who write their own effects."),
 
         new HelpTopic("long", "Advanced", "Long songs and DJ mixes", false, @"
 - Loading streams the file, so even hour-long mixes load in seconds with a progress bar.

@@ -136,13 +136,15 @@ public abstract class Fx
 
     // Called on the audio thread before processing when parameters changed.
     protected virtual void Update() { }
+    // Called just before Process for every block; instruments use it to receive MIDI. transport = the song is playing (or an export is running).
+    public virtual void BeginBlock(object track, long pos, int n, bool transport) { }
     public abstract void Process(float[] l, float[] r, int n);
     public virtual void Reset() { dirty = true; }
     public void Prepare(int sr) { SR = sr; dirty = true; }
 
     protected void CheckDirty() { if (dirty) { dirty = false; Update(); } }
 
-    public string Serialize()
+    public virtual string Serialize()
     {
         var sb = new StringBuilder();
         for (int i = 0; i < P.Count; i++)
@@ -153,7 +155,7 @@ public abstract class Fx
         return sb.ToString();
     }
 
-    public void Deserialize(string s)
+    public virtual void Deserialize(string s)
     {
         if (s == null) return;
         foreach (var part in s.Split(';'))
