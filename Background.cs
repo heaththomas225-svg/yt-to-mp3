@@ -120,8 +120,11 @@ partial class App
             double t0 = sw.Elapsed.TotalMilliseconds;
             try
             {
-                var a = BuildAtmosphere(W, H); var o = BuildOverlay(W, H);
-                var oldA = atmoFront; var oldO = overlayFront; atmoFront = a; overlayFront = o;
+                Bitmap a = null; bool custom = UserBackground.Active;
+                if (custom) { string key = UserBackground.Key(W, H); if (key != atmoKey || atmoFront == null) { var s = UserBackground.Still(W, H); if (s != null) { a = new Bitmap(s); atmoKey = key; } else { a = BuildAtmosphere(W, H); atmoKey = ""; } } }
+                else { a = BuildAtmosphere(W, H); atmoKey = ""; }
+                var o = BuildOverlay(W, H);
+                var oldA = atmoFront; var oldO = overlayFront; if (a != null) atmoFront = a; else oldA = null; overlayFront = o;
                 lock (graveyard) { if (oldA != null) graveyard.Add(oldA); if (oldO != null) graveyard.Add(oldO); while (graveyard.Count > 6) { var d = graveyard[0]; graveyard.RemoveAt(0); try { d.Dispose(); } catch { } } }
             }
             catch { }
@@ -221,17 +224,17 @@ partial class App
     }
 
     // Per-frame work on the UI thread: blit finished layers, draw sprites, title and progress bar.
+    string atmoKey = ""; internal static int PaintN; internal static double PaintMs;
     void PaintBg(object sender, PaintEventArgs e)
     {
-        frameWatch.Restart();
+        frameWatch.Restart(); PaintN++;
         var g = e.Graphics; var r = bg.ClientRectangle; if (r.Width < 10 || r.Height < 10) return;
         reqW = r.Width; reqH = r.Height; float W = r.Width, H = r.Height; bool anim = animate.Checked;
         var atmo = atmoFront; var ov = overlayFront;
 
         g.CompositingQuality = CompositingQuality.HighSpeed; g.PixelOffsetMode = PixelOffsetMode.HighSpeed; g.SmoothingMode = SmoothingMode.HighSpeed;
-        bool custom = false;
-        if (UserBackground.Active) { custom = UserBackground.Draw(g, r.Width, r.Height); if (custom && Prefs.BgDim > 0) using (var dm = new SolidBrush(Color.FromArgb(Prefs.BgDim * 255 / 100, 4, 1, 12))) g.FillRectangle(dm, r); }
-        if (custom) { }
+        bool custom = UserBackground.Active;
+        if (custom && UserBackground.DrawVideo(g, r.Width, r.Height)) { }
         else if (atmo != null && atmo.Width == r.Width && atmo.Height == r.Height)
         {
             g.CompositingMode = CompositingMode.SourceCopy; g.DrawImageUnscaled(atmo, 0, 0); g.CompositingMode = CompositingMode.SourceOver;
@@ -240,7 +243,7 @@ partial class App
 
         if (anim && sprites != null && (!custom || Prefs.BgLeaves))
         {
-            g.InterpolationMode = InterpolationMode.Bilinear;
+            g.InterpolationMode = InterpolationMode.NearestNeighbor;
             leaves.Sort((a, b) => a.S.CompareTo(b.S));
             for (int i = 0; i < leaves.Count; i++)
             {
@@ -290,7 +293,7 @@ partial class App
             using (var f = new Font("Segoe UI", 8.5f)) using (var b = new SolidBrush(Color.FromArgb(225, 230, 210, 255))) g.DrawString(status, f, b, 16, 471);
 
         // adaptive quality: step effects down on slower PCs, back up when there is headroom
-        frameMs = frameMs * 0.9 + frameWatch.Elapsed.TotalMilliseconds * 0.1;
+        PaintMs += frameWatch.Elapsed.TotalMilliseconds; frameMs = frameMs * 0.9 + frameWatch.Elapsed.TotalMilliseconds * 0.1;
         if (++perfTick % 40 == 0)
         {
             double budget = 1000.0 / Math.Max(30, frameLoop.TargetFps);
