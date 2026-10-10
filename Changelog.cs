@@ -7,10 +7,13 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.12.2";
+    public const string Latest = "3.12.3";
 
     public const string Text =
-@"3.12.2  Add Track is always visible
+@"3.12.3  Open finds your music
+ + FIXED: the Open button in Purphex Music only listed project files. It now lists mp3, wav, flac, m4a, ogg and other audio too: pick one or several and they are added as tracks (several at once now load one after the other instead of only the first). Project files dropped on the window open as projects.
+
+3.12.2  Add Track is always visible
  + FIXED: adding a track is no longer hidden. There is a + TRACK button in the toolbar (add music or an instrument below or above the selected track, or at the end), a + ADD TRACK button under the last track that stays pinned to the bottom of the list however many tracks you have, and a + circle on every line between tracks.
 
 3.12.1  Lyrics page is just for your own words

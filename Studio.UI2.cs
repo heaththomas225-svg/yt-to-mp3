@@ -61,9 +61,12 @@ partial class StudioForm
         }
     }
 
+    internal void PromptImportPublic(string p) { PromptImport(p); }
+    readonly Queue<string> importQueue = new Queue<string>();   // several files chosen at once are added one after the other
     internal void PromptImport(string path)
     {
-        if (busy) { Toast("Wait for the current job to finish"); return; }
+        if (path.EndsWith(".ytmproj", StringComparison.OrdinalIgnoreCase)) { OpenProjectPath(path); return; }
+        if (busy) { importQueue.Enqueue(path); Toast("Queued " + Path.GetFileName(path)); return; }
         string role = StudioDialogs.ChooseRole(this, Path.GetFileName(path)); if (role == null) return;
         ImportFile(path, role);
     }
@@ -73,9 +76,10 @@ partial class StudioForm
         AudioClip clip = null;
         RunBusy("Loading " + Path.GetFileName(path) + "...", true, p => { clip = AudioClip.FromFile(path, p, () => cancelFlag); }, ok =>
         {
-            if (!ok || clip == null) return;
+            if (!ok || clip == null) { if (importQueue.Count > 0) { string nx = importQueue.Dequeue(); BeginInvoke(new Action(() => PromptImport(nx))); } return; }
             string nm = role == "vocal" ? "Vocals" : (role == "beat" ? "Instrumental" : clip.Name);
             AddTrack(StudioEngine.NewTrack(nm, role, clip)); Toast("Added " + nm);
+            if (importQueue.Count > 0) { string nx = importQueue.Dequeue(); BeginInvoke(new Action(() => PromptImport(nx))); }
         });
     }
 
@@ -188,10 +192,17 @@ partial class StudioForm
         catch (Exception ex) { MessageBox.Show(this, ex.Message, "Save failed"); }
     }
 
+    const string AudioExts = "*.mp3;*.wav;*.flac;*.aiff;*.aif;*.m4a;*.aac;*.ogg;*.opus;*.wma;*.mp4;*.mkv;*.webm";
     void OpenClick()
     {
-        string path;
-        using (var d = new OpenFileDialog()) { d.Title = "Open project"; d.Filter = "Studio project (*.ytmproj)|*.ytmproj"; if (d.ShowDialog(this) != DialogResult.OK) return; path = d.FileName; }
+        string[] picked;
+        using (var d = new OpenFileDialog()) { d.Title = "Open a project, or add music (mp3, wav, flac...)"; d.Multiselect = true; d.Filter = "Projects and audio|*.ytmproj;" + AudioExts + "|Studio project (*.ytmproj)|*.ytmproj|Audio files|" + AudioExts + "|All files|*.*"; if (d.ShowDialog(this) != DialogResult.OK) return; picked = d.FileNames; }
+        foreach (var f in picked) if (f.EndsWith(".ytmproj", StringComparison.OrdinalIgnoreCase)) { OpenProjectPath(f); return; }
+        foreach (var f in picked) PromptImport(f);   // audio files are added as tracks
+    }
+    internal void OpenProjectPath(string path)
+    {
+        if (busy) { Toast("Wait for the current job to finish"); return; }
         List<string> warn = null;
         RunBusy("Opening project...", false, p => { warn = ProjectIO.Load(eng, path, s => busyText = s); }, ok =>
         {
