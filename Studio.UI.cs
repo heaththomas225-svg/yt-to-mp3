@@ -92,11 +92,18 @@ partial class StudioForm : Form
         ClientSize = new Size(1360, 800); MinimumSize = new Size(1100, 680);
         DoubleBuffered = true; KeyPreview = true; AllowDrop = true;
         SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw | ControlStyles.Selectable, true);
-        timer.Interval = 33; timer.Tick += (s, e) => { t += 0.033f; Tick(); Invalidate(); }; timer.Start();
+        timer.Interval = 33; timer.Tick += (s, e) => { if (moving) return; t += 0.033f; Tick(); Invalidate(); }; timer.Start();
         FormClosed += (s, e) => { timer.Stop(); eng.Pause(); };
         DragEnter += (s, e) => { if (e.Data.GetDataPresent(DataFormats.FileDrop)) e.Effect = DragDropEffects.Copy; };
         DragDrop += (s, e) => { var fl = (string[])e.Data.GetData(DataFormats.FileDrop); foreach (var f in fl) PromptImport(f); };
         FitView();
+    }
+
+    volatile bool moving;
+    protected override void WndProc(ref Message m)
+    {
+        if (m.Msg == 0x231) moving = true; else if (m.Msg == 0x232) moving = false;
+        base.WndProc(ref m);
     }
 
     void FitView()
@@ -481,7 +488,7 @@ partial class StudioForm : Form
         using (var br = new SolidBrush(Color.FromArgb(170, 6, 3, 14))) g.FillRectangle(br, 0, 0, ClientSize.Width, ClientSize.Height);
         Reg(Rc(0, 0, ClientSize.Width, ClientSize.Height), () => { if (!browserBox.Contains(MousePos)) browserOpen = false; });
         float w = 620, h = Math.Min(560, ClientSize.Height - 80), x = (ClientSize.Width - w) / 2, y = 60; browserBox = Rc(x, y, w, h);
-        FillRR(g, Color.FromArgb(252, 26, 14, 48), browserBox, 14); StrokeRR(g, Accent, browserBox, 14, 1.5f); Reg(browserBox, () => { });
+        FillRR(g, Color.FromArgb(252, 26, 14, 48), browserBox, 14); StrokeRR(g, Accent, browserBox, 14, 1.5f); var wr = new HitReg { R = browserBox, OnWheel = d => browserScroll = Math.Max(0, browserScroll - d * 40) }; regs.Add(wr); Reg(browserBox, () => { });
         Txt(g, "Add effect", 20, Ink, Rc(x + 20, y + 12, 300, 30), StringAlignment.Near, true);
         Btn(g, Rc(x + w - 60, y + 14, 40, 28), "X", 3, () => browserOpen = false, 14);
         Btn(g, Rc(x + w - 196, y + 14, 130, 28), "Plugins...", 1, () => { browserOpen = false; new PluginManagerForm(() => app.ExtraFilter, s => { app.ExtraFilter = s; app.SaveSettings(); }).ShowDialog(this); }, 12);
@@ -502,7 +509,6 @@ partial class StudioForm : Form
         }
         if (list.Count == 0) Txt(g, "No plugin matches \"" + browserQuery + "\"", 14, DimC, Rc(x, y + 140, w, 30), StringAlignment.Center, false);
         g.ResetClip();
-        var wr = new HitReg { R = browserBox, OnWheel = d => browserScroll = Math.Max(0, browserScroll - d * 40) }; regs.Add(wr);
         Txt(g, "Enter adds the first match  -  Esc closes", 11, DimC, Rc(x + 20, y + h - 22, w - 40, 18), StringAlignment.Near, false);
     }
     RectangleF browserBox;

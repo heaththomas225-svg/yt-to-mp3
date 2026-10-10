@@ -2,6 +2,12 @@
 
 What changed in each version of **BandLab + YouTube to MP3**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.0.1  Smoothness + effects fix
+
+- FIX Music Studio: the Add buttons in the effect browser did nothing; fixed.
+- Dragging or resizing a window is now smooth: animation pauses while you move it.
+- Animation capped at 60 fps so the interface stays responsive.
+
 ## 3.0.0  Music Studio
 
 - NEW Music Studio window (button: Music Studio / ADD MUSIC): add a song, vocal or beat and work on it like a mini Logic Pro.

@@ -7,10 +7,15 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.0.0";
+    public const string Latest = "3.0.1";
 
     public const string Text =
-@"3.0.0  Music Studio
+@"3.0.1  Smoothness + effects fix
+ + FIX Music Studio: the Add buttons in the effect browser did nothing; fixed.
+ + Dragging or resizing a window is now smooth: animation pauses while you move it.
+ + Animation capped at 60 fps so the interface stays responsive.
+
+3.0.0  Music Studio
  + NEW Music Studio window (button: Music Studio / ADD MUSIC): add a song, vocal or beat and work on it like a mini Logic Pro.
  + Separate a full song into real VOCAL and INSTRUMENTAL tracks with AI (Demucs), kept perfectly in sync. Or import your own vocal / beat.
  + Timeline with waveforms, mute / solo, volume faders, pan, level meters, nudge and zoom. Play everything together, solo either track.

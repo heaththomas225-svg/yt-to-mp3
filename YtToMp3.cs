@@ -36,7 +36,7 @@ class Job
 partial class App : Form
 {
     // ---- Auto-update settings ----
-    const string Version = "3.0.0";
+    const string Version = "3.0.1";
     // Plain-text manifest: line 1 = newest version, line 2 = direct exe download URL.
     const string UpdateManifestUrl = "https://raw.githubusercontent.com/heaththomas225-svg/yt-to-mp3/main/version.txt";
 
@@ -271,7 +271,7 @@ partial class App : Form
         Repopulate(); bg.Resize += (s, e) => Repopulate();
         Win.Dark(this); Win.DarkControl(links); Win.DarkControl(log); StyleTips();
 
-        StartLayerWorker(); frameLoop = new FrameLoop(this, Tick) { Slow = () => WindowState == FormWindowState.Minimized || (ActiveForm != this && ActiveForm != studioForm) };
+        StartLayerWorker(); frameLoop = new FrameLoop(this, Tick) { Slow = () => moving || WindowState == FormWindowState.Minimized || (ActiveForm != this && ActiveForm != studioForm) };
     }
 
     // ---------- styling helpers ----------
@@ -387,9 +387,16 @@ partial class App : Form
     }
 
     // ---------- animation ----------
+    volatile bool moving;   // true while the window is being dragged or resized: no animation work then, so dragging stays as smooth as any native window
+    protected override void WndProc(ref Message m)
+    {
+        if (m.Msg == 0x231) moving = true; else if (m.Msg == 0x232) moving = false;   // WM_ENTERSIZEMOVE / WM_EXITSIZEMOVE
+        base.WndProc(ref m);
+    }
+
     void Tick()
     {
-        double now = clock.Elapsed.TotalMilliseconds; float dt = (float)Math.Min(0.05, Math.Max(0.0005, (now - lastClock) / 1000.0)); lastClock = now;
+        double now = clock.Elapsed.TotalMilliseconds; if (moving) { lastClock = now; return; } float dt = (float)Math.Min(0.05, Math.Max(0.0005, (now - lastClock) / 1000.0)); lastClock = now;
         t += dt; float k30 = dt * 30f;   // the motion constants below were tuned per 1/30 s
         if (animate.Checked)
         {
@@ -413,7 +420,7 @@ partial class App : Form
         float k = (float)(Math.Sin(t * 2.5f) * 0.5 + 0.5); k = (float)Math.Round(k * 12) / 12f;
         Color gc = busy ? Color.FromArgb(70, 30, 120) : Color.FromArgb((int)(105 + 70 * k), (int)(35 + 30 * k), (int)(195 + 45 * k));
         if (go.BackColor != gc) go.BackColor = gc;
-        bg.Invalidate(); bg.Update();
+        bg.Invalidate();
         fpsFrames++;
         if (now >= nextFpsAt) { fpsShown = (int)(fpsFrames * 1000.0 / (now - (nextFpsAt - 1000)) + 0.5); fpsFrames = 0; nextFpsAt = now + 1000; Text = "BandLab + YouTube to MP3 v" + Version + "    " + fpsShown + " fps"; }
     }
