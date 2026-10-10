@@ -618,6 +618,7 @@ partial class StudioForm : Form
         var list = new List<FxRegistry.Info>(); string q = browserQuery.ToLowerInvariant().Trim();
         foreach (var i in FxRegistry.All) { if (i.Type == "gain") continue; if (q.Length == 0 || i.Name.ToLowerInvariant().Contains(q) || i.Category.ToLowerInvariant().Contains(q) || i.Blurb.ToLowerInvariant().Contains(q) || i.Type.Contains(q)) list.Add(i); }
         // exact height of the list, so it can never be scrolled past its last row
+        { var ordered = new List<FxRegistry.Info>(); foreach (var i3 in list) if (i3.Category == "Plugins") ordered.Add(i3); foreach (var i3 in list) if (i3.Category != "Plugins") ordered.Add(i3); list = ordered; }   // your own plugins first
         float listH = 0; { string lc = ""; foreach (var i2 in list) { if (i2.Category != lc) { lc = i2.Category; listH += 20; } listH += 48; } }
         float browserMax = Math.Max(0, listH - (h - 106) + 8); browserMaxF = browserMax; browserScroll = Math.Max(0, Math.Min(browserMax, browserScroll));
         float ry = y + 100 - browserScroll; g.SetClip(Rc(x + 10, y + 96, w - 20, h - 106));
@@ -633,7 +634,7 @@ partial class StudioForm : Form
         }
         if (list.Count == 0) Txt(g, "No plugin matches \"" + browserQuery + "\"", 14, DimC, Rc(x, y + 140, w, 30), StringAlignment.Center, false);
         g.ResetClip();
-        Txt(g, "Enter adds the first match  -  Esc closes", 11, DimC, Rc(x + 20, y + h - 22, w - 40, 18), StringAlignment.Near, false);
+        Txt(g, "Enter adds the first match  -  Esc closes  -  your plugins are listed first", 11, DimC, Rc(x + 20, y + h - 22, w - 40, 18), StringAlignment.Near, false);
     }
     RectangleF browserBox; float browserMaxF;
 

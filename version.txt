@@ -1,4 +1,3 @@
-3.0.10
+3.0.11
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-New: help hints when you hover buttons in the Music Studio, plus 6 new Help guides
-Clearer: the sample plugin explains what it is and can build itself so you can try it
+Change: ticking a plugin loads it straight away; your plugins are listed first in Add Effect

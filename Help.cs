@@ -261,7 +261,7 @@ You can ignore it. The built-in effects already cover EQ, compression, reverb, A
 ## Add your own effects
 1. Menu, then Plugins and extensions, then Open plugins folder.
 2. Drop a plugin .dll in, press Reload and tick it to approve it.
-3. It appears in the studio under Add Effect, Plugins.
+3. It loads at once. In the Music Studio press + Add Effect on a track; your plugins are listed first under PLUGINS (or type the name in the search box), then press Add. It is then an effect on that track like any other.
 WARN: Plugins are programs. Only approve ones you trust.
 ## Make one
 Press 'Create sample plugin (SDK)'. It writes a working example and a build script. See PLUGINS.md for the full guide.

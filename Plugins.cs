@@ -201,8 +201,14 @@ class PluginManagerForm : Form
         if (ps.Count == 0) list.Controls.Add(new Label { Text = "No plugins found yet. Folder: " + PluginHost.Dir, Left = 8, Top = 8, Width = 620, Height = 40, ForeColor = Color.FromArgb(170, 150, 200) });
         foreach (var p in ps)
         {
-            var cb = new DarkCheck { Left = 6, Top = y, Width = 640, Height = 30, Checked = p.Enabled, Text = p.Name + (p.Loaded ? "   (loaded: " + string.Join(", ", p.Types.ToArray()) + ")" : (p.Enabled ? "   (approved: press Reload)" : "   (not approved)")) + (p.Error.Length > 0 ? "   ERROR: " + p.Error : "") };
-            var pi = p; cb.CheckedChanged += (s, e) => { PluginHost.SetEnabled(pi, cb.Checked); msg.Text = cb.Checked ? "Approved. Press Reload to load it." : "Disabled. It stays loaded until you restart the app."; };
+            var cb = new DarkCheck { Left = 6, Top = y, Width = 640, Height = 30, Checked = p.Enabled, Text = p.Name + (p.Loaded ? "   (ready: Music Studio > + Add Effect > PLUGINS)" : (p.Enabled ? "   (approved: press Reload)" : "   (not approved)")) + (p.Error.Length > 0 ? "   ERROR: " + p.Error : "") };
+            var pi = p; cb.CheckedChanged += (s, e) =>
+            {
+                bool on = cb.Checked; PluginHost.SetEnabled(pi, on);
+                if (!on) { msg.Text = "Disabled. It stays in the list until you restart the app."; return; }
+                // load it straight away so it is ready in the Music Studio without pressing anything else
+                BeginInvoke(new Action(() => { Reload(true); msg.Text = "Ready. Now open the Music Studio, press + Add Effect on a track and look under PLUGINS at the top (or type its name)."; }));
+            };
             list.Controls.Add(cb); y += 34;
         }
     }
