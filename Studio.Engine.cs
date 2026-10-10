@@ -611,6 +611,8 @@ class StudioEngine
         lock (Sync)
         {
             ResetStates();
+            foreach (var t in Tracks) foreach (var f in t.Fx) { try { f.PrepareOffline(); } catch { } }
+            foreach (var f in MasterFx) { try { f.PrepareOffline(); } catch { } }
             int lat = RenderLatency(o); long total = frames + lat, done = 0, emitted = 0; float[] bl = new float[4096], br = new float[4096];
             while (done < total && emitted < frames)
             {

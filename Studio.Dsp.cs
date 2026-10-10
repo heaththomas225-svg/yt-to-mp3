@@ -120,6 +120,7 @@ public abstract class Fx
     protected volatile bool dirty = true;
     public static double ProjectBpm = 90;
 
+    public virtual void PrepareOffline() { }   // offline render: wait for background builds (e.g. convolution IR) so the first block is complete
     public virtual int Latency { get { return 0; } }
     public virtual bool WantsSidechain { get { return false; } }   // true: the host feeds the vocal track into ScL/ScR
     protected Param Add(Param p) { P.Add(p); return p; }
