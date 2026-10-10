@@ -135,3 +135,21 @@ static class SoundCatalog
         A("purphex-signature", "Purphex Signature Sounds", "Purphex", "Signature", "Signature", "dnb_roller", "reese,growl,wobble,sub,rubber,stab", "140,172,174", "F min,G min,A min", "Purphex, purple, powerful", "signature,purphex", "A hand-picked starter: drums, basses, loops and effects in the Purphex style.");
     }
 }
+
+// the shared toolkit: views over every installed pack (the same files appear in them, nothing is copied)
+static class SoundToolkit
+{
+    public class Set { public string Name; public SoundLibrary.Filter Filter; }
+    public static readonly List<Set> Sets = new List<Set>();
+    static void A(string name, SoundLibrary.Filter f) { Sets.Add(new Set { Name = name, Filter = f }); }
+    static SoundLibrary.Filter T(params string[] types) { return new SoundLibrary.Filter { AnyType = types }; }
+    static SoundLibrary.Filter G(string group, string kind = "") { return new SoundLibrary.Filter { Group = group, Kind = kind }; }
+    static SoundToolkit()
+    {
+        A("Ultimate Drum Arsenal", G("Drums")); A("Kick Collection", T("Kick")); A("Snare Collection", T("Snare", "Clap")); A("Hi-Hat Collection", T("Hi-Hat", "Open Hat")); A("Percussion Collection", T("Percussion", "Ride", "Cymbal"));
+        A("Bass One-Shots", G("Bass", "one-shot")); A("Bass Loops", T("Bass Loop")); A("Synth One-Shots", G("Synth", "one-shot")); A("Synth Loops", new SoundLibrary.Filter { Group = "Synth", Kind = "loop" });
+        A("Reese Bass Laboratory", T("Reese Bass")); A("Wobble Bass Laboratory", T("Wobble Bass")); A("Sub-Bass Collection", T("Sub Bass", "808")); A("Rave Stabs", T("Rave Stab", "Organ Stab", "Bass Stab"));
+        A("Vocal FX and Ad-Libs", G("Vocal")); A("Impacts and Transitions", T("Impact", "Transition", "Drop FX", "Sweep", "Reverse")); A("Risers and Downlifters", T("Riser", "Downlifter")); A("Atmospheres and Textures", T("Atmosphere", "Texture"));
+        A("MIDI Basslines", T("MIDI Bassline")); A("MIDI Melodies and Chords", T("MIDI Melody", "MIDI Chords")); A("Drum Fills", T("Drum Fill")); A("Songstarter Kits", G("Kits")); A("Purphex Signature Sounds", new SoundLibrary.Filter { Pack = "purphex-signature" });
+    }
+}

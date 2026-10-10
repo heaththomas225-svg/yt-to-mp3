@@ -94,7 +94,9 @@ static class SoundLibrary
     // ---- search ----
     public class Filter
     {
-        public string Text = "", Genre = "", Sub = "", Type = "", Group = "", Key = "", Kind = "", Pack = "", Mood = ""; public double BpmMin, BpmMax; public bool HalfDouble, OnlyFav, OnlyRecent; public string Collection = "";
+        public string Text = "", Genre = "", Sub = "", Type = "", Group = "", Key = "", Kind = "", Pack = "", Mood = ""; public double BpmMin, BpmMax; public bool HalfDouble, OnlyFav, OnlyRecent; public string Collection = ""; public string[] AnyType;
+        public bool IsEmpty { get { return Text.Length == 0 && Genre.Length == 0 && Sub.Length == 0 && Type.Length == 0 && Group.Length == 0 && Key.Length == 0 && Kind.Length == 0 && Pack.Length == 0 && Mood.Length == 0 && BpmMax <= 0 && !OnlyFav && !OnlyRecent && Collection.Length == 0 && AnyType == null; } }
+        public Filter Copy() { return (Filter)MemberwiseClone(); }
     }
     public static List<SoundItem> Search(Filter f)
     {
@@ -103,7 +105,7 @@ static class SoundLibrary
         {
             if (f.OnlyFav && !Favourites.Contains(s.Id)) continue; if (f.OnlyRecent && !Recent.Contains(s.Id)) continue; if (coll != null && !coll.Contains(s.Id)) continue; if (!string.IsNullOrEmpty(f.Collection) && coll == null) continue;
             if (f.Genre.Length > 0 && s.Genre != f.Genre) continue; if (f.Sub.Length > 0 && s.Sub != f.Sub) continue; if (f.Type.Length > 0 && s.Type != f.Type) continue; if (f.Group.Length > 0 && s.Group != f.Group) continue; if (f.Kind.Length > 0 && s.Kind != f.Kind) continue;
-            if (f.Pack.Length > 0 && s.PackId != f.Pack) continue; if (f.Mood.Length > 0 && s.Mood.IndexOf(f.Mood, StringComparison.OrdinalIgnoreCase) < 0) continue;
+            if (f.AnyType != null && Array.IndexOf(f.AnyType, s.Type) < 0) continue; if (f.Pack.Length > 0 && s.PackId != f.Pack) continue; if (f.Mood.Length > 0 && s.Mood.IndexOf(f.Mood, StringComparison.OrdinalIgnoreCase) < 0) continue;
             if (f.Key.Length > 0 && !KeyMatches(s.Key, f.Key)) continue;
             if (f.BpmMax > 0) { if (s.Bpm <= 0) continue; bool ok = s.Bpm >= f.BpmMin && s.Bpm <= f.BpmMax; if (!ok && f.HalfDouble) ok = (s.Bpm * 2 >= f.BpmMin && s.Bpm * 2 <= f.BpmMax) || (s.Bpm / 2 >= f.BpmMin && s.Bpm / 2 <= f.BpmMax); if (!ok) continue; }
             string hay = s.Search; bool all = true; foreach (var w in words) if (hay.IndexOf(w, StringComparison.Ordinal) < 0) { all = false; break; } if (!all) continue;

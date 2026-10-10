@@ -408,6 +408,27 @@ If a site only has a lower quality than you picked, you get the best it has.
 - A few sites need you to be signed in or block downloads. The log shows the reason.
 - Only download what you have the right to keep."),
 
+        new HelpTopic("studio-sounds", "Purphex Music", "Purphex Sounds: the sample browser and sound packs", false, @"
+## Opening it
+Press SOUNDS (next to MIC) or Tools > Purphex Sounds. A panel opens on the right of the Mix page. Press it again, or the x, to close it.
+## Getting sounds
+Sounds come in packs. Press Packs, pick a pack and press Install. The sounds are made on your computer by Purphex's own sound design in a few seconds: they are not recordings and not other people's samples. Installed packs show how many sounds and how much space they use. Remake rebuilds a pack, Remove deletes its files (you can install it again any time). Install all does a whole list.
+## Finding a sound
+- Type in the search box: a name, a pack, a style, a key or a tempo (for example: reese 174, F min, kick).
+- Genre, Style, Type, Key and BPM open lists to narrow it down. BPM can also match your project's tempo, and can include half and double time.
+- Toolkit gives ready-made sets (all kicks, all risers, vocal chops...).
+- Favourites, Recent, One-shots, Loops, MIDI and Collections are quick filters. Clear resets everything.
+## Hearing it
+Click a sound and it plays straight away (turn Autoplay off if you prefer to press Play). The big waveform shows where you are: click or drag it to jump. Loop repeats the sound, vol sets the preview volume.
+## Using it
+- Drag a sound from the list onto the timeline: it becomes a new track at the place you drop it, lined up with the grid when Snap is on.
+- Or double-click it, or press Add to timeline: it goes at the playhead.
+- MIDI files go onto an instrument track (drag them onto its lane): the notes appear there.
+- Bass Lab presets are added to Bass Lab's My presets.
+- If a loop's tempo differs from your project you are told.
+## Your own sounds
+Import adds your own samples (wav, mp3, flac, midi...) to the My samples pack, or a sound pack .zip. Right-click a sound or press Collection to put it in a collection of your own. Each pack keeps its licence: press Licence."),
+
         new HelpTopic("studio-menu", "Purphex Music", "The side menu, My Projects with pictures, and Community", false, @"
 ## The side menu
 Press the three-lines button at the top left of Purphex Music. Your picture and name are at the top (click the picture to change it, click the name to rename yourself). Click Project, Edit, Tools, View, Community, Settings, Help or Exit to open its list.

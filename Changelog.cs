@@ -7,10 +7,17 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.14.2";
+    public const string Latest = "3.15.0";
 
     public const string Text =
-@"3.14.2  Safer for antivirus programs
+@"3.15.0  Purphex Sounds: sample browser and sound packs
+ + NEW SOUNDS button in Purphex Music opens a sound browser: search by name, pack, style, key or tempo, filter by genre, style, type, key and BPM (with half and double time), plus favourites, recents and your own collections.
+ + Click any sound to hear it instantly, with a waveform you can click to jump, play / pause / stop, loop, autoplay and a preview volume.
+ + Drag a sound onto the timeline to make a track right where you drop it, or double-click to add it at the playhead. MIDI files fill an instrument track and synth presets go into Bass Lab.
+ + The pack manager installs, remakes and removes packs (about 100 packs: drum and bass, UK bassline, UK garage, electronic bass, rap and vocal, cinematic FX and Purphex Signature). Every sound is made on your computer by Purphex itself, with MIDI, stems, presets and a licence in each pack.
+ + Import your own samples or a pack .zip. New Toolkit sets (22) gather the same sounds by job: kicks, risers, vocal chops and more.
+
+3.14.2  Safer for antivirus programs
  + The program now carries proper version information (name, publisher, version) and a manifest that says it needs no administrator rights.
  + Updates are checked against a SHA-256 published with each release, and only accepted from this project's releases page.
  + yt-dlp, ffmpeg and Deno are checked against the checksums their own projects publish before they are used.
