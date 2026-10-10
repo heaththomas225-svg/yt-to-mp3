@@ -1,4 +1,4 @@
-3.15.0
+3.16.0
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Purphex Sounds: sample browser, instant preview, drag onto the timeline, pack manager with about 100 synthesised packs, collections and favourites.
-sha256=57485b35974cf67a4a8c726ae2b8e8844a9917b3ced55bc62e2d02e9258fc66e
+Built-in plugin library: about 115 named effects (pitch and voice, telephone and distortion, echo and reverb, EQ and clarity), category filter in the effect browser.
+sha256=3907e5a4d9447532ca877f86c9e2f9440106b11aa92f1a681bd177461700b5f7

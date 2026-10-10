@@ -7,10 +7,15 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.15.0";
+    public const string Latest = "3.16.0";
 
     public const string Text =
-@"3.15.0  Purphex Sounds: sample browser and sound packs
+@"3.16.0  Built-in plugin library
+ + About 115 named effects are now built in, grouped as Pitch & Voice, Telephone & Distortion, Echo & Reverb and EQ & Clarity. Add them from + Add Effect and pick a Category.
+ + New engines behind them: a phase-vocoder pitch shifter with up to four voices and formant control, a classic low-delay shifter, formant shifter, frequency shifter, vocoder, comb resonators, a waveshaper with oversampling, a bit crusher, an echo with tape, ping-pong, multi-tap, reverse and ducking, a feedback-network reverb (room, hall, plate, chamber, spring, shimmer, gated, reverse), convolution reverb with your own impulse responses, dynamic EQ, linear-phase EQ, a vowel filter, a resonance suppressor, a spectral shaper and an automatic EQ.
+ + The effect list can be filtered by category, and effects hide the settings they do not need.
+
+3.15.0  Purphex Sounds: sample browser and sound packs
  + NEW SOUNDS button in Purphex Music opens a sound browser: search by name, pack, style, key or tempo, filter by genre, style, type, key and BPM (with half and double time), plus favourites, recents and your own collections.
  + Click any sound to hear it instantly, with a waveform you can click to jump, play / pause / stop, loop, autoplay and a preview volume.
  + Drag a sound onto the timeline to make a track right where you drop it, or double-click to add it at the playhead. MIDI files fill an instrument track and synth presets go into Bass Lab.
