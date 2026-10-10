@@ -7,10 +7,17 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.3.0";
+    public const string Latest = "3.4.0";
 
     public const string Text =
-@"3.3.0  Easier editing
+@"3.4.0  Bass Lab piano fix
+ + FIX: the Bass Lab piano (and any instrument) now makes sound straight away. Before, the sound device was only opened when you pressed PLAY, so keys were silent until then. This is tested on the real sound device.
+ + NEW: PANIC button (top bar and GLOBAL page) stops every note and tail at once.
+ + NEW: voice limit, master tune, test sound button and live audio and voice status.
+ + NEW: MIDI keyboard input (pick your device on the GLOBAL page). Notes, pitch bend and sustain pedal work. A clear message appears when no device is found.
+ + NEW: piano velocity: click lower on a key for a louder note.
+
+3.3.0  Easier editing
  + Drag a clip anywhere to move it. A click still puts the needle.
  + Hover cues: the cursor changes, clips light up with grips on their ends, and a label next to the mouse says what a drag will do.
  + The selected track has a button row: Up, Dn, move a grid step, Split, trim start, trim end, Copy, Del.

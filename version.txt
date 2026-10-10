@@ -1,3 +1,4 @@
-3.3.0
+3.4.0
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Easier editing: drag a clip anywhere to move it, hover labels and cursors, a button row on the selected track (Up, Dn, move, split, trim, copy, delete), drag tracks up or down
+FIX: the Bass Lab piano makes sound (the sound device was only opened by PLAY)
+NEW: Panic button, voice limit, MIDI keyboard input, audio status, test sound, velocity on the piano

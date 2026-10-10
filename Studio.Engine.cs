@@ -352,6 +352,7 @@ class RenderOpts
 {
     public bool Master = true, Dry = false, Fader = true, MuteSolo = true;
     public List<Track> Only;    // null = all tracks
+    public bool NoClips;        // live playing while stopped: instruments only, the audio files stay silent
 }
 
 // ---------------- the engine ----------------
@@ -371,7 +372,15 @@ class StudioEngine
     float[] scL = new float[8192], scR = new float[8192];
     WaveOutPlayer player;
 
-    public StudioEngine() { InitMasterChain(); }
+    public static StudioEngine Current;   // the engine the instrument windows play through
+    public string AudioStatus = "Audio: not started yet";
+    public StudioEngine() { InitMasterChain(); Current = this; }
+    // Opens the sound device. The piano needs this too, not only PLAY.
+    public bool EnsureAudio()
+    {
+        try { EnsurePlayer(); AudioStatus = "Audio ready"; return true; }
+        catch (Exception ex) { AudioStatus = "Audio unavailable: " + ex.Message; return false; }
+    }
 
     public static Track NewTrack(string name, string role, AudioClip clip)
     {
@@ -430,7 +439,7 @@ class StudioEngine
             for (int i = 0; i < n; i++)
             {
                 long idx = pos + i - t.Offset;
-                var tclip = t.Clip;
+                var tclip = o.NoClips ? null : t.Clip;
                 if (tclip != null && tclip.L != null && idx >= 0 && idx < ulen) { t.tl[i] = tclip.L[idx + t.ClipStart]; t.tr[i] = tclip.R[idx + t.ClipStart]; } else { t.tl[i] = 0; t.tr[i] = 0; }
             }
             if (meters) PushTap(t.TapPre, t, false, t.tl, t.tr, n);
@@ -529,8 +538,9 @@ class StudioEngine
             {
                 if (unchecked(Environment.TickCount - LiveUntil) < 0)   // a note is being played on an instrument: only the instrument tracks sound
                 {
-                    var inst = new List<Track>(); foreach (var t in Tracks) if (t.Instrument) inst.Add(t);
-                    if (inst.Count > 0) { Mix(Pos, n, new RenderOpts { Only = inst }, oL, oR, true, 0); return; }
+                    var inst = new List<Track>();
+                    foreach (var t in Tracks) { bool has = t.Instrument; if (!has) foreach (var f in t.Fx) { var ifx = f as InstrumentFx; if (ifx != null && ifx.IsInstrument && !f.Bypass) has = true; } if (has) inst.Add(t); }
+                    if (inst.Count > 0) { Mix(Pos, n, new RenderOpts { Only = inst, NoClips = true }, oL, oR, true, 0); return; }
                 }
                 Array.Clear(oL, 0, n); Array.Clear(oR, 0, n); MasterPeakL = MasterPeakR = 0; foreach (var t in Tracks) { t.PeakL = t.PeakR = 0; } return;
             }

@@ -23,9 +23,11 @@ abstract class InstrumentFx : Fx
         lock (q) { if (live.Count < 256) live.Add(new MidiEv { S = status, D1 = d1, D2 = d2 }); }
         if (keepAlive) StudioEngine.LiveUntil = Environment.TickCount + (status == 0x80 ? 4000 : 8000);   // keep rendering while it rings out
     }
-    public void NoteOn(int note, int vel) { Midi(0x90, (byte)note, (byte)vel); }
+    public void NoteOn(int note, int vel) { var e = StudioEngine.Current; if (e != null) e.EnsureAudio(); Midi(0x90, (byte)note, (byte)vel); }
     public void NoteOff(int note) { Midi(0x80, (byte)note, 0); }
     public void AllNotesOff() { Midi(0xB0, 123, 0, false); Midi(0xB0, 120, 0, false); }
+    // Panic: every note and every ringing tail stops at once.
+    public void Panic() { Midi(0xB0, 123, 0, false); Midi(0xB0, 120, 0, false); Midi(0xB0, 64, 0, false); StudioEngine.LiveUntil = Environment.TickCount + 600; }
     public override void Reset() { base.Reset(); try { AllNotesOff(); } catch { } }
 
     protected virtual void OnBlock(long pos, int n, bool transport) { }
