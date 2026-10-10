@@ -151,7 +151,7 @@ class ChainFx : Fx
     public override void BeginBlock(object track, long pos, int n, bool transport) { foreach (var s in stages) s.BeginBlock(track, pos, n, transport); }
     public override void Process(float[] l, float[] r, int n)
     {
-        CheckDirty(); float mix = Get("mix") / 100f; int L = Latency;
+        CheckDirty(); float mix = Get("mix") / 100f; int L = Latency; if (dl == null || dlen <= L) { dlen = L + 8; dl = new float[dlen]; dr = new float[dlen]; dw = 0; }
         if (mix < 0.999f) { if (wl.Length < n) { wl = new float[n]; wr = new float[n]; } Array.Copy(l, wl, n); Array.Copy(r, wr, n); }
         foreach (var s in stages) { s.ScL = ScL; s.ScR = ScR; s.Process(l, r, n); }
         if (mix < 0.999f)

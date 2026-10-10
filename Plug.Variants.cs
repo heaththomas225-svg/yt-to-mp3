@@ -32,7 +32,7 @@ static partial class PluginTables
         A(PV, "Granular Pitch Shifter", "cshift", "win=8;p1=7;l1=100;dry=0;mix=100", "A rough, grainy pitch shifter with a digital, glitchy texture.", "p2,l2,fb,mshape,mrate,mdepth");
         A(PV, "Real-Time Pitch Shifter", "cshift", "win=14;p1=5;l1=100;dry=0;mix=100", "Very low delay (about 7 ms): good for playing live while you hear yourself.", "p2,l2,mshape,mrate,mdepth,fb");
         A(PV, "Pitch Glide", "cshift", "p1=0;l1=100;win=30;mshape=4;mrate=0.25;mdepth=12;dry=0;mix=100", "The pitch slides up or down again and again. Movement depth is how far, rate is how fast.", "p2,l2,fb");
-        A(PV, "Vocal Chorus Pitch", "pshift", "p1=0;c1=14;l1=70;pan1=-55;d1=14;p2=0;c2=-14;l2=70;pan2=55;d2=22;mshape=1;mrate=0.6;mdepth=0.12;mix=55", "A chorus made of gently moving pitch instead of a moving delay.", HV2);
+        A(PV, "Vocal Chorus Pitch", "pshift", "p1=0;c1=14;l1=70;pan1=-55;d1=14;p2=0;c2=-14;l2=70;pan2=55;d2=22;mshape=1;mrate=0.6;mdepth=0.12;mix=55", "A chorus made of gently moving pitch instead of a moving delay.", "p3,c3,l3,pan3,d3,p4,c4,l4,pan4,d4");
         A(PV, "Auto-Tune-Style Pitch Corrector", "pitch", "speed=18;strength=100;natural=20;mix=100", "Snaps the voice to the nearest note of your key at a fast, polished speed.");
         A(PV, "Hard Tune", "pitch", "speed=0;strength=100;natural=0;mix=100", "Instant note snapping: the classic stepped, robotic vocal effect.");
         A(PV, "Robot Pitch", "pitch", "speed=0;strength=100;natural=0;scale=0;mask=4095;mix=100", "Hard tunes every note to the chromatic scale for a flat, robotic voice.");

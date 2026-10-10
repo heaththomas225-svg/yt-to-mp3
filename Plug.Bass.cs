@@ -171,7 +171,7 @@ class FlangerFx : SyncFx
             {
                 double p = ph + c * off; p -= Math.Floor(p); double m = shape == 0 ? Math.Sin(p * 2 * Math.PI) : (p < 0.5 ? p * 4 - 1 : 3 - p * 4); double d = Math.Max(2, man + dep * m); var buf = c == 0 ? bl : br;
                 float del = Dsp2.Hermite(buf, len, w - d); double fbs = del;
-                if (bar > 0) { double ii, qq; hb[c].Tick(del, out ii, out qq); fbs = ii * Math.Cos(2 * Math.PI * shPh) - qq * Math.Sin(2 * Math.PI * shPh); }
+                if (bar > 0) { double ii, qq; hb[c].Tick(del, out ii, out qq); fbs = ii * Math.Cos(2 * Math.PI * shPh) + qq * Math.Sin(2 * Math.PI * shPh); }
                 buf[w] = (float)(io[c] + fbs * fb); ob[c] = del;
             }
             if (++w >= len) w = 0;

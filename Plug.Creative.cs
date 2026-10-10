@@ -79,7 +79,7 @@ class SpecCreateFx : StftFx
             // feedback: add the frame that is read back to the new one
             for (int k = 1; k < H; k++)
             {
-                int d = (int)(Math.Pow(k / (double)H, curve) * maxD); int rp = (p0 - d + RF * 2) % RF; double or = rr[rp][k], oi = ri[rp][k];
+                int d = 1 + (int)(Math.Pow(k / (double)H, curve) * maxD); int rp = (p0 - d + RF * 2) % RF; double or = rr[rp][k], oi = ri[rp][k];
                 rr[p0][k] = re[k] + or * fbk; ri[p0][k] = im[k] + oi * fbk; re[k] = or; im[k] = oi; re[N - k] = re[k]; im[N - k] = -im[k];
             }
             rr[p0][0] = re[0]; ri[p0][0] = 0; re[0] = 0; im[0] = 0; im[H] = 0; rpos[ch] = (p0 + 1) % RF;
@@ -90,21 +90,21 @@ class SpecCreateFx : StftFx
 // FM: the input drives a sine wave's phase (mode 1) or an oscillator wobbles the input's timing at audio rate (mode 2)
 class FmFx : Fx
 {
-    float[] bl, br; int len, w; double ph;
+    float[] bl, br; int len, w; double ph, envL, envR;
     public FmFx()
     {
         Type = "fm"; Title = "FM Effect"; Category = "Creative";
         AddC("mode", "Type", new[] { "Sound drives a sine (FM synthesis)", "Oscillator warps the sound (frequency modulation)" }, 0); AddP("freq", "Oscillator frequency", 1, 4000, 220, "Hz"); AddP("depth", "Depth", 0, 100, 50, "%"); AddP("fine", "Oscillator follows the sound", 0, 100, 0, "%"); AddP("mix", "Mix", 0, 100, 100, "%");
     }
     protected override void Update() { len = SR / 10 + 8; if (bl == null || bl.Length != len) { bl = new float[len]; br = new float[len]; w = 0; } }
-    public override void Reset() { base.Reset(); if (bl != null) { Array.Clear(bl, 0, len); Array.Clear(br, 0, len); } ph = 0; }
+    public override void Reset() { base.Reset(); if (bl != null) { Array.Clear(bl, 0, len); Array.Clear(br, 0, len); } ph = 0; envL = envR = 0; }
     public override void Process(float[] l, float[] r, int n)
     {
         CheckDirty(); int mode = (int)Get("mode"); double f = Get("freq"), depth = Get("depth") / 100.0, mix = Get("mix") / 100.0;
         for (int i = 0; i < n; i++)
         {
             ph += f / SR; ph -= Math.Floor(ph); float a, b;
-            if (mode == 0) { a = (float)(Math.Sin(2 * Math.PI * ph + depth * 8 * l[i]) * 0.7); b = (float)(Math.Sin(2 * Math.PI * ph + depth * 8 * r[i] + 0.3) * 0.7); }
+            if (mode == 0) { double al = Math.Abs(l[i]), ar = Math.Abs(r[i]); envL += (al - envL) * (al > envL ? 0.05 : 0.0008); envR += (ar - envR) * (ar > envR ? 0.05 : 0.0008); a = (float)(Math.Sin(2 * Math.PI * ph + depth * 8 * l[i]) * 0.7 * Math.Min(1.0, envL * 8)); b = (float)(Math.Sin(2 * Math.PI * ph + depth * 8 * r[i] + 0.3) * 0.7 * Math.Min(1.0, envR * 8)); }
             else { bl[w] = l[i]; br[w] = r[i]; double d = 3 + depth * 0.004 * SR * (0.5 + 0.5 * Math.Sin(2 * Math.PI * ph)); a = Dsp2.Hermite(bl, len, w - d); b = Dsp2.Hermite(br, len, w - d); if (++w >= len) w = 0; }
             l[i] = Dsp2.Sanitize((float)(l[i] + (a - l[i]) * mix)); r[i] = Dsp2.Sanitize((float)(r[i] + (b - r[i]) * mix));
         }
@@ -114,7 +114,7 @@ class FmFx : Fx
 // the tape (or record) slows to a halt, then spins back up. Press Stop it yourself or let it happen on the beat
 class TapeStopFx : SyncFx
 {
-    float[] bl, br; int len, w; long wAbs; double posAbs, prog; int state, xf;   // 0 live, 1 stopping, 2 stopped, 3 spinning up, 4 crossfading back to live
+    float[] bl, br; int len, w; long wAbs; double posAbs, prog, lastRate; int state, xf, tsub;   // 0 live, 1 stopping, 2 stopped, 3 spinning up, 4 crossfading back to live
     Biquad lpf = new Biquad();
     public TapeStopFx()
     {
@@ -123,15 +123,15 @@ class TapeStopFx : SyncFx
         AddP("stop", "Time to stop", 30, 3000, 700, "ms"); AddP("start", "Time to start again", 30, 3000, 350, "ms"); AddP("curve", "Curve", 0.4f, 3, 1.5f, ""); AddP("lp", "Darker as it slows", 0, 100, 40, "%");
     }
     protected override void Update() { len = SR * 4; if (bl == null || bl.Length != len) { bl = new float[len]; br = new float[len]; w = 0; wAbs = 0; } }
-    public override void Reset() { base.Reset(); if (bl != null) { Array.Clear(bl, 0, len); Array.Clear(br, 0, len); } state = 0; lpf.Reset(); wAbs = 0; w = 0; }
+    public override void Reset() { base.Reset(); if (bl != null) { Array.Clear(bl, 0, len); Array.Clear(br, 0, len); } state = 0; lpf.Reset(); wAbs = 0; w = 0; lastRate = 0; tsub = 0; }
     public override void Process(float[] l, float[] r, int n)
     {
         CheckDirty(); bool eng = Get("engage") > 0.5f, auto = Get("auto") > 0.5f; double every = Get("every"), hold = Get("hold"), stopS = Math.Max(16, Get("stop") * 0.001 * SR), startS = Math.Max(16, Get("start") * 0.001 * SR), curve = Get("curve"), lpA = Get("lp") / 100.0; int XF = (int)(0.02 * SR);
         for (int i = 0; i < n; i++)
         {
             bl[w] = l[i]; br[w] = r[i]; bool want = eng; if (auto && tr) want = want || (BeatAt(i) % every) >= every - hold;
-            if (want && (state == 0 || state == 4)) { state = 1; posAbs = wAbs - (state == 4 ? 0 : 0); prog = 0; }
-            if (!want && (state == 1 || state == 2)) { state = 3; prog = 0; if (wAbs - posAbs > len - 2000) posAbs = wAbs - (len - 2000); }
+            if (want && (state == 0 || state == 4)) { state = 1; posAbs = wAbs - 2; prog = 0; lastRate = 1; }
+            if (!want && (state == 1 || state == 2)) { state = 3; prog = lastRate > 0 ? Math.Pow(lastRate, curve) : 0; if (wAbs - posAbs > len - 2000) posAbs = wAbs - (len - 2000); }
             double rate = 1; float oL = l[i], oR = r[i];
             if (state == 1) { prog += 1.0 / stopS; rate = Math.Pow(Math.Max(0, 1 - prog), curve); if (prog >= 1) { state = 2; rate = 0; } }
             else if (state == 2) rate = 0;
@@ -142,7 +142,7 @@ class TapeStopFx : SyncFx
                 posAbs += rate; double rp = posAbs; int idx = (int)(((rp % len) + len) % len); double fr = rp - Math.Floor(rp);
                 double q = ((rp % len) + len) % len; oL = Dsp2.Hermite(bl, len, q); oR = Dsp2.Hermite(br, len, q);
                 float amp = state == 2 ? 0f : (float)Math.Min(1.0, rate * 10 + (state == 4 ? 1 : 0)); oL *= amp; oR *= amp;
-                double fc = 20000 * (1 - lpA) + (700 + 19300 * Math.Pow(rate, 0.7)) * lpA; lpf.Set(Biquad.LowPass, SR, fc, 0.7071, 0); oL = lpf.TickL(oL); oR = lpf.TickR(oR);
+                lastRate = rate; if ((tsub++ & 15) == 0) { double fc = 20000 * (1 - lpA) + (700 + 19300 * Math.Pow(rate, 0.7)) * lpA; lpf.Set(Biquad.LowPass, SR, fc, 0.7071, 0); } oL = lpf.TickL(oL); oR = lpf.TickR(oR);
                 if (state == 4) { xf++; float t = Math.Min(1f, xf / (float)XF); oL = oL * (1 - t) + l[i] * t; oR = oR * (1 - t) + r[i] * t; if (xf >= XF) state = 0; }
             }
             else { lpf.TickL(oL); lpf.TickR(oR); }
@@ -188,8 +188,8 @@ class ScratchFx : SyncFx
                         case 3: x = (ph * rate) % 1.0; break;
                         default: { double u = U01(Hash((uint)(ph * rate * 3), seed + (uint)idx)); x = u; break; }
                     }
-                    double p = w0 - sliceLen * depth * (1 - x) - 2; if (p < 0) p += len; double g = Math.Min(1.0, Math.Min(ph * 40.0, (1 - ph) * 40.0)) * amp;
-                    oL = Dsp2.Hermite(bl, len, p) * (float)g; oR = Dsp2.Hermite(br, len, p) * (float)g;
+                    double p = w0 - sliceLen * depth * (1 - x) - 2; if (p < 0) p += len; double ge = Math.Min(1.0, Math.Min(ph * 40.0, (1 - ph) * 40.0)), g = ge * amp;
+                    oL = inL * (float)(1 - ge) + Dsp2.Hermite(bl, len, p) * (float)g; oR = inR * (float)(1 - ge) + Dsp2.Hermite(br, len, p) * (float)g;
                 }
             }
             if (++w >= len) w = 0; l[i] = (float)(inL + (oL - inL) * mix); r[i] = (float)(inR + (oR - inR) * mix);
@@ -201,7 +201,7 @@ class ScratchFx : SyncFx
 // beat repeat / stutter edit: captures a slice and repeats it, each time quieter, higher and darker if you like
 class RepeatFx : SyncFx
 {
-    float[] bl, br; int len, w; int curBar = int.MinValue; bool active; int capStart, capLen; int repStart; int lastSlice = int.MinValue; double pitchRamp;
+    float[] bl, br; int len, w; int curBar = int.MinValue; bool active; int capStart, capLen; int repStart; int lastSlice = int.MinValue; double pitchRamp, cRate, cG; int cK = -1;
     public RepeatFx()
     {
         Type = "repeat"; Title = "Beat Repeat"; Category = "Creative";
@@ -214,7 +214,7 @@ class RepeatFx : SyncFx
     public override void Process(float[] l, float[] r, int n)
     {
         CheckDirty(); int sy = (int)Get("sync"); double rb = sy > 0 ? Dsp2.SyncBeats[sy] : 0.5; int mode = (int)Get("mode"); double chance = Get("chance") / 100.0, span = Get("grid"), decay = Get("decay"), ramp = Get("ramp"), dark = Get("dark") / 100.0, mix = Get("mix") / 100.0; uint seed = (uint)Get("seed");
-        int sliceLen = (int)Math.Max(64, 60.0 / Math.Max(20, Fx.ProjectBpm) * rb * SR);
+        int sliceLen = (int)Math.Max(64, 60.0 / Math.Max(20, Fx.ProjectBpm) * rb * SR); cK = -1;
         for (int i = 0; i < n; i++)
         {
             float inL = l[i], inR = r[i]; bl[w] = inL; br[w] = inR; float oL = inL, oR = inR;
@@ -229,7 +229,7 @@ class RepeatFx : SyncFx
                     default: on = (bar % 4) == 3 && inBar >= 2; break;
                 }
                 if (mode == 1 && on == false && U01(Hash((uint)bar, seed * 31u + 7)) < chance) { /* started earlier in the bar */ }
-                if (on && !active) { active = true; capStart = w; capLen = sliceLen; repStart = w; pitchRamp = 1; lpf.Set(Biquad.LowPass, SR, 20000, 0.7071, 0); }
+                if (on && !active) { active = true; capStart = w; capLen = sliceLen; repStart = w; pitchRamp = 1; lpf.Set(Biquad.LowPass, SR, 20000, 0.7071, 0); cK = -1; }
                 if (!on && active) active = false;
                 if (active)
                 {
@@ -237,9 +237,9 @@ class RepeatFx : SyncFx
                     if (k == 0) { /* first slice plays live while it is captured */ }
                     else
                     {
-                        double rate = Math.Pow(2, ramp * k / 12.0); double g = Math.Pow(10, -decay * k / 20.0); int p0 = (capStart + (int)(tt * rate) % capLen);
+                        if (k != cK) { cK = k; cRate = Math.Pow(2, ramp * k / 12.0); cG = Math.Pow(10, -decay * k / 20.0); if (dark > 0) { double fc0 = 20000 * Math.Pow(0.03, dark * Math.Min(1.0, k / 6.0)); lpf.Set(Biquad.LowPass, SR, Math.Max(200, fc0), 0.7071, 0); } } double rate = cRate; double g = cG; int p0 = (capStart + (int)(tt * rate) % capLen);
                         float x = bl[p0 % len], y = br[p0 % len]; float edge = Math.Min(1f, Math.Min(tt / 48f, (capLen - tt) / 48f)); if (edge < 0) edge = 0;
-                        if (dark > 0) { double fc = 20000 * Math.Pow(0.03, dark * Math.Min(1.0, k / 6.0)); lpf.Set(Biquad.LowPass, SR, Math.Max(200, fc), 0.7071, 0); x = lpf.TickL(x); y = lpf.TickR(y); }
+                        if (dark > 0) { x = lpf.TickL(x); y = lpf.TickR(y); }
                         oL = x * (float)g * edge + inL * (1 - edge) * 0; oR = y * (float)g * edge;
                     }
                 }
@@ -268,12 +268,12 @@ class ModFx : SyncFx
     }
     protected override void Update() { dlen = SR / 20 + 16; if (dbl.Length != dlen) { dbl = new float[dlen]; dbr = new float[dlen]; dw = 0; } }
     public override void Reset() { base.Reset(); foreach (var q in f) q.Reset(); lf[0].Reset(); lf[1].Reset(); sm[0] = sm[1] = 0; env[0] = env[1] = 0; if (dbl.Length > 0) { Array.Clear(dbl, 0, dlen); Array.Clear(dbr, 0, dlen); } fcache[0] = fcache[1] = 0; }
-    static readonly int[] ShapeMap = { 0, 1, 2, 3, 4, 5, 6 };
+    static readonly int[] ShapeMap = { 0, 1, 2, 3, 4, 5, 6 }; readonly float[] stepvF = new float[16];
     public override void Process(float[] l, float[] r, int n)
     {
         CheckDirty(); int src = (int)Get("src"), tgt = (int)Get("tgt"), shape = (int)Get("shape"), sy = (int)Get("sync"); double rate = Get("rate"), depth = Get("depth") / 100.0, phOff = Get("phase") / 360.0, mix = Get("mix") / 100.0; int ns = (int)Get("nsteps"); double smA = Get("smooth") <= 0 ? 1 : 1 - Math.Exp(-1.0 / (Get("smooth") * 0.001 * SR));
         double cycle = sy > 0 ? Dsp2.SyncBeats[sy] : 0; int ft = (int)Get("ftype"); double cut = Get("cut"), res = Get("res"), range = Get("range"); double ea = DspMath.Tc(Get("eatt"), SR), er = DspMath.Tc(Get("erel"), SR), esens = Get("esens") / 100.0 * 12 + 0.5; double pumpK = 2 + Get("pump") / 100.0 * 14, driveDb = Get("drive");
-        float[] stepv = new float[16]; for (int i = 0; i < 16; i++) stepv[i] = Get("s" + (i + 1)) / 100f; bool uni = src == 2 || src == 4 || src == 5 || src == 6 && false;
+        float[] stepv = stepvF; for (int i = 0; i < 16; i++) stepv[i] = Get("s" + (i + 1)) / 100f; bool uni = src == 2 || src == 4 || src == 5 || src == 6 && false;
         for (int i = 0; i < n; i++)
         {
             double beat = BeatAt(i); io[0] = l[i]; io[1] = r[i];
@@ -282,7 +282,7 @@ class ModFx : SyncFx
                 double ph = cycle > 0 ? (beat / (src == 1 ? cycle * ns : cycle)) : freePh; ph += c * phOff; ph -= Math.Floor(ph); double m01, mb;
                 switch (src)
                 {
-                    case 0: { double dph = cycle > 0 ? 0 : rate / SR; if (cycle > 0) { lf[c].Sync(ph); mb = lf[c].Tick(ShapeMap[shape], 0); } else mb = lf[c].Tick(ShapeMap[shape], dph); m01 = mb * 0.5 + 0.5; break; }
+                    case 0: { double dph = cycle > 0 ? 1.0 / (cycle * 60.0 / Math.Max(20, Fx.ProjectBpm) * SR) : rate / SR; lf[c].Sync(ph); mb = lf[c].Tick(ShapeMap[shape], dph); m01 = mb * 0.5 + 0.5; break; }
                     case 1: { int si = (int)(ph * ns) % ns; m01 = stepv[si]; mb = m01 * 2 - 1; break; }
                     case 2: { double a = Math.Abs(io[c]); env[c] += (a - env[c]) * (a > env[c] ? 1 - ea : 1 - er); m01 = Math.Min(1.0, env[c] * esens); mb = m01 * 2 - 1; break; }
                     case 3: { long rp = (long)Math.Floor(cycle > 0 ? beat / cycle * 1.0 : freePh * 4); if (rp != rndPh) { rndPh = rp; rndV = rnd.NextDouble(); } m01 = rndV; mb = m01 * 2 - 1; break; }
@@ -296,7 +296,7 @@ class ModFx : SyncFx
             switch (tgt)
             {
                 case 0: for (int c = 0; c < 2; c++) oo[c] = (float)(io[c] * (1 - depth * (1 - mv[c]))); break;
-                case 1: { double pos = depth * (mv[0] * 2 - 1); double a = (pos + 1) * Math.PI / 4; float gl = (float)(Math.Cos(a) * 1.4142), gr = (float)(Math.Sin(a) * 1.4142); oo[0] = io[0] * gl; oo[1] = io[1] * gr; break; }
+                case 1: { double posL = depth * (mv[0] * 2 - 1), posR = depth * (mv[1] * 2 - 1); float gl = (float)(Math.Cos((posL + 1) * Math.PI / 4) * 1.4142), gr = (float)(Math.Sin((posR + 1) * Math.PI / 4) * 1.4142); oo[0] = io[0] * gl; oo[1] = io[1] * gr; break; }
                 case 2:
                     for (int c = 0; c < 2; c++)
                     {
