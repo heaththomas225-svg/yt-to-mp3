@@ -1,4 +1,4 @@
-3.16.0
+3.17.0
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Built-in plugin library: about 115 named effects (pitch and voice, telephone and distortion, echo and reverb, EQ and clarity), category filter in the effect browser.
-sha256=3907e5a4d9447532ca877f86c9e2f9440106b11aa92f1a681bd177461700b5f7
+Flex Pitch, all 218 plugins, FPS counter and 120 fps option, many performance and stability fixes.
+sha256=65b8956bc0455e5f578869fa8bc2c782c45bd22ad1b9a58ef6e4abb234574236
