@@ -105,6 +105,7 @@ partial class StudioForm : Form
         InstrumentFx.Recorder = OnMidiNote;
         MinimumSize = new Size(1240, 640);
         FormClosed += (s, e) => { flexOpen = false; DisposeRetired(); Auditioner.Shutdown(); };
+        FormClosed += (s, e) => { if (backdrop != null) { backdrop.Dispose(); backdrop = null; } foreach (var pc0 in peakCache.Values) if (pc0.Img != null) pc0.Img.Dispose(); peakCache.Clear(); };
         FormClosed += (s, e) => { timer.Stop(); if (studioLoop != null) studioLoop.Dispose(); eng.Pause(); };
         DragEnter += (s, e) => { if (e.Data.GetDataPresent(DataFormats.FileDrop)) { e.Effect = DragDropEffects.Copy; dragOver = true; Invalidate(); } };
         DragOver += (s, e) => { if (e.Data.GetDataPresent(DataFormats.FileDrop)) { e.Effect = DragDropEffects.Copy; if (!dragOver) { dragOver = true; Invalidate(); } } };
@@ -114,16 +115,17 @@ partial class StudioForm : Form
     }
 
     volatile bool moving;
-    // Redraw only when something is changing; an idle studio costs nothing. Input times are stamped so hover and drags stay live.
-    DateTime lastInput = DateTime.Now, lastFrame = DateTime.MinValue; int lastW, lastH;
+    // Redraw only when something is changing; an idle studio repaints once a second (for loading and background state). Input times are stamped so hover and drags stay live.
+    DateTime lastInput = DateTime.Now, lastFrame = DateTime.MinValue, lastPlayAt = DateTime.MinValue; int lastW, lastH;
     bool NeedsFrame()
     {
         var now = DateTime.Now;
         if (ClientSize.Width != lastW || ClientSize.Height != lastH) { lastW = ClientSize.Width; lastH = ClientSize.Height; lastFrame = now; return true; }
-        bool anim = eng.Playing || busy || browserOpen || dragReg != null || (now - lastInput).TotalMilliseconds < 600 || (now - toastAt).TotalSeconds < 3.7;
+        if (eng.Playing) lastPlayAt = now;
+        bool anim = eng.Playing || busy || browserOpen || dragReg != null || (now - lastInput).TotalMilliseconds < 600 || (now - toastAt).TotalSeconds < 3.7 || (now - lastPlayAt).TotalMilliseconds < 1500 || installing.Length > 0 || mic != null || Auditioner.IsPlaying;   // the 1.5 s after playback lets the meters settle
         double gap = (now - lastFrame).TotalMilliseconds;
         // a slow computer redraws less often (paint time x3) so the window never starves the audio
-        lastIdle = !anim; if (!(anim ? gap >= Math.Max(FrameGapMs, Math.Min(250, paintMs * 3)) : gap >= 250)) return false;
+        lastIdle = !anim; if (!(anim ? gap >= Math.Max(FrameGapMs, Math.Min(250, paintMs * 3)) : gap >= 1000)) return false;
         lastFrame = now; return true;
     }
     // Smooth playhead: the audio position moves in 23 ms blocks and runs ahead of what you hear, so the needle is a clock that follows it.
@@ -174,7 +176,7 @@ partial class StudioForm : Form
             float w = TimelineRect().Width; long x = (long)((DispPos - scroll) / spp);
             if (x > w * 0.92f || x < 0) scroll = Math.Max(0, DispPos - (long)(w * 0.08 * spp));
         }
-        if (NeedsFrame0()) UpdateSpectrum();
+        if (NeedsFrame0() && Environment.TickCount - eqPaintTick < 600) UpdateSpectrum();
     }
 
     bool NeedsFrame0() { return eng.Playing || (DateTime.Now - lastInput).TotalMilliseconds < 1500; }
@@ -318,6 +320,7 @@ partial class StudioForm : Form
     void DrawBackdrop(Graphics g)
     {
         int w = Math.Max(1, ClientSize.Width), h = Math.Max(1, ClientSize.Height);
+        if (moving && backdrop != null) { g.CompositingMode = CompositingMode.SourceCopy; g.DrawImage(backdrop, 0, 0, w, h); g.CompositingMode = CompositingMode.SourceOver; return; }   // while a border is dragged, stretch the old picture; one real rebuild follows when the drag ends
         if (backdrop == null || backdrop.Width != w || backdrop.Height != h || backVer != UserBackground.Version)
         {
             if (backdrop != null) backdrop.Dispose(); backdrop = new Bitmap(w, h, System.Drawing.Imaging.PixelFormat.Format32bppPArgb);
@@ -448,6 +451,7 @@ partial class StudioForm : Form
     void PaintMix(Graphics g)
     {
         float top = ToolH + TransH; var tl = TimelineRect();
+        PruneTrackCaches();
         int n = eng.Tracks.Count;
         if (autoFit && (lastFitW != (int)tl.Width || lastFitLen != eng.EndFrame) && tl.Width > 100) { FitView(); lastFitW = (int)tl.Width; lastFitLen = eng.EndFrame; }
         // clamp selection
@@ -519,19 +523,23 @@ partial class StudioForm : Form
             }
     }
 
-    class PeakCache { public AudioClip Clip; public long Start, Len; public double Spp; public int Px; public float[] Mn, Mx; }
-    readonly Dictionary<Track, PeakCache> peakCache = new Dictionary<Track, PeakCache>();
-    void PaintWave(Graphics g, Track tr, RectangleF lane, bool sel)
+    // forget the pictures and meter holds of tracks that were deleted or replaced by opening another project (they would keep the decoded audio alive)
+    int pruneTick;
+    void PruneTrackCaches()
     {
-        if (tr.Clip == null) return;
-        int px = (int)lane.Width;
-        PeakCache pc; if (!peakCache.TryGetValue(tr, out pc)) { pc = new PeakCache(); peakCache[tr] = pc; }
-        if (pc.Clip != tr.Clip || pc.Start != scroll - tr.Offset + tr.ClipStart || pc.Spp != spp || pc.Px != px || pc.Len != tr.UsedLength) { if (pc.Mn == null || pc.Mn.Length < px) { pc.Mn = new float[px + 64]; pc.Mx = new float[px + 64]; } tr.Clip.GetPeaks(scroll - tr.Offset + tr.ClipStart, spp, px, pc.Mn, pc.Mx); pc.Clip = tr.Clip; pc.Start = scroll - tr.Offset + tr.ClipStart; pc.Spp = spp; pc.Px = px; pc.Len = tr.UsedLength; }
-        var wmn = pc.Mn; var wmx = pc.Mx;
-        Color c = Neon(tr.Color); bool audible = !tr.Mute; float cy = lane.Y + lane.Height / 2, amp = lane.Height * 0.42f;
-        long clipStart = tr.Offset, clipEnd = tr.Offset + tr.UsedLength;
-        float x0 = lane.X + (float)((clipStart - scroll) / spp), x1 = lane.X + (float)((clipEnd - scroll) / spp);
-        var cr = RectangleF.Intersect(Rc(x0, lane.Y + 5, x1 - x0, lane.Height - 10), lane); if (cr.Width > 0) { using (var p = RR(cr, 6)) using (var gb = new LinearGradientBrush(cr, Color.FromArgb(sel ? 70 : 44, c), Color.FromArgb(sel ? 14 : 8, c), 90f)) g.FillPath(gb, p); }
+        int now = Environment.TickCount; if (now - pruneTick < 2000 && pruneTick != 0) return; pruneTick = now;
+        Track[] cur; lock (eng.Sync) cur = eng.Tracks.ToArray();
+        List<Track> gone = null;
+        foreach (var k in peakCache.Keys) if (Array.IndexOf(cur, k) < 0) { if (gone == null) gone = new List<Track>(); gone.Add(k); }
+        if (gone != null) foreach (var k in gone) { var pc = peakCache[k]; if (pc.Img != null) pc.Img.Dispose(); peakCache.Remove(k); }
+        gone = null;
+        foreach (var k in hold.Keys) if (Array.IndexOf(cur, k) < 0) { if (gone == null) gone = new List<Track>(); gone.Add(k); }
+        if (gone != null) foreach (var k in gone) hold.Remove(k);
+    }
+    // the clip picture (fill + heartbeat line) for one lane, drawn in song-area coordinates; PaintWave caches it in a bitmap
+    void PaintWaveBody(Graphics g, RectangleF lane, RectangleF cr, Color c, bool audible, bool sel, float cy, float amp, int px, float[] wmn, float[] wmx)
+    {
+        if (cr.Width > 0) { using (var p = RR(cr, 6)) using (var gb = new LinearGradientBrush(cr, Color.FromArgb(sel ? 70 : 44, c), Color.FromArgb(sel ? 14 : 8, c), 90f)) g.FillPath(gb, p); }
         if (cr.Width > 4)
         {
             // heartbeat-style line: one clean zig-zag through the peaks (a point every few pixels), blue > track colour > purple, with a soft glow
@@ -555,6 +563,31 @@ partial class StudioForm : Form
                 using (var pen = new Pen(gb, 1.8f)) { pen.LineJoin = LineJoin.Round; if (pts.Count > 1) g.DrawLines(pen, pts.ToArray()); }
             }
             g.Restore(gst0);
+        }
+    }
+    class PeakCache { public AudioClip Clip; public long Start, Len; public double Spp; public int Px; public float[] Mn, Mx; public Bitmap Img; public int Ver, ImgVer, ImgCol; public RectangleF ImgLane, ImgCr; public bool ImgAud, ImgSel; }
+    readonly Dictionary<Track, PeakCache> peakCache = new Dictionary<Track, PeakCache>();
+    void PaintWave(Graphics g, Track tr, RectangleF lane, bool sel)
+    {
+        if (tr.Clip == null) return;
+        int px = (int)lane.Width;
+        PeakCache pc; if (!peakCache.TryGetValue(tr, out pc)) { pc = new PeakCache(); peakCache[tr] = pc; }
+        if (pc.Clip != tr.Clip || pc.Start != scroll - tr.Offset + tr.ClipStart || pc.Spp != spp || pc.Px != px || pc.Len != tr.UsedLength) { if (pc.Mn == null || pc.Mn.Length < px) { pc.Mn = new float[px + 64]; pc.Mx = new float[px + 64]; } tr.Clip.GetPeaks(scroll - tr.Offset + tr.ClipStart, spp, px, pc.Mn, pc.Mx); pc.Clip = tr.Clip; pc.Start = scroll - tr.Offset + tr.ClipStart; pc.Spp = spp; pc.Px = px; pc.Len = tr.UsedLength; pc.Ver++; }
+        var wmn = pc.Mn; var wmx = pc.Mx;
+        Color c = Neon(tr.Color); bool audible = !tr.Mute; float cy = lane.Y + lane.Height / 2, amp = lane.Height * 0.42f;
+        long clipStart = tr.Offset, clipEnd = tr.Offset + tr.UsedLength;
+        float x0 = lane.X + (float)((clipStart - scroll) / spp), x1 = lane.X + (float)((clipEnd - scroll) / spp);
+        var cr = RectangleF.Intersect(Rc(x0, lane.Y + 5, x1 - x0, lane.Height - 10), lane);
+        if (cr.Width > 0)
+        {
+            int ix = (int)Math.Floor(lane.X), iy = (int)Math.Floor(lane.Y), iw = Math.Max(1, (int)Math.Ceiling(lane.Right) - ix), ih = Math.Max(1, (int)Math.Ceiling(lane.Bottom) - iy);
+            if (pc.Img == null || pc.Img.Width != iw || pc.Img.Height != ih || pc.ImgVer != pc.Ver || pc.ImgLane != lane || pc.ImgCr != cr || pc.ImgAud != audible || pc.ImgSel != sel || pc.ImgCol != c.ToArgb())
+            {
+                if (pc.Img == null || pc.Img.Width != iw || pc.Img.Height != ih) { if (pc.Img != null) pc.Img.Dispose(); pc.Img = new Bitmap(iw, ih, System.Drawing.Imaging.PixelFormat.Format32bppPArgb); }
+                using (var ig = Graphics.FromImage(pc.Img)) { ig.Clear(Color.Transparent); ig.SmoothingMode = SmoothingMode.AntiAlias; ig.TranslateTransform(-ix, -iy); PaintWaveBody(ig, lane, cr, c, audible, sel, cy, amp, px, wmn, wmx); }
+                pc.ImgVer = pc.Ver; pc.ImgLane = lane; pc.ImgCr = cr; pc.ImgAud = audible; pc.ImgSel = sel; pc.ImgCol = c.ToArgb();
+            }
+            var gi = g.Save(); g.SetClip(lane, CombineMode.Intersect); g.DrawImageUnscaled(pc.Img, ix, iy); g.Restore(gi);
         }
         if (cr.Width > 0) { var gst = g.Save(); g.SetClip(lane, CombineMode.Intersect); float lv = Math.Max(tr.PeakL, tr.PeakR); Glow(g, c, cr, 6, (sel ? 1.2f : 0.8f) + Math.Min(0.6f, lv * 0.9f), 5); g.Restore(gst); }
         Txt(g, tr.Name, 12, Color.FromArgb(200, 255, 255, 255), Rc(Math.Max(lane.X, x0) + 8, lane.Y + 6, 300, 16), StringAlignment.Near, true);
@@ -712,7 +745,7 @@ partial class StudioForm : Form
     }
 
     // ---------------- effect browser (searchable) ----------------
-    internal void OpenBrowser(bool master, int track) { browserOpen = true; browserQuery = ""; browserMaster = master; browserTrack = track; browserScroll = 0; }
+    internal void OpenBrowser(bool master, int track) { browserOpen = true; browserQuery = ""; browserMaster = master; browserTrack = track; browserScroll = 0; blCache = null; }
 
     void PaintBrowser(Graphics g)
     {
@@ -727,21 +760,22 @@ partial class StudioForm : Form
         Reg(sb, () => { });
         if (browserQuery.Length > 0) Btn(g, Rc(sb.Right - 32, sb.Y + 6, 24, 24), "x", 3, () => { browserQuery = ""; browserScroll = 0; }, 12);
         Txt(g, browserQuery.Length == 0 ? (((int)(t * 2) % 2 == 0 ? "|" : " ") + "  Search here - just start typing: EQ, reverb, pitch...") : browserQuery + ((int)(t * 2) % 2 == 0 ? "|" : ""), 15, browserQuery.Length == 0 ? DimC : Ink, Rc(sb.X + 12, sb.Y, sb.Width - 50, sb.Height), StringAlignment.Near, false);
-        var list = BrowserList(); string q = browserQuery.ToLowerInvariant().Trim();
+        var list = BrowserList();
         { var cb = Rc(x + 20, y + 94, 250, 26); Btn(g, cb, "Category: " + (browserCat.Length == 0 ? "All" : browserCat), browserCat.Length == 0 ? 0 : 4, () => CategoryMenu(), 12); Txt(g, list.Count + (list.Count == 1 ? " effect" : " effects"), 12, DimC, Rc(x + 280, y + 94, 200, 26), StringAlignment.Near, false); }
         float listTop = y + 128;
         float listH = 0; { string lc = ""; foreach (var i2 in list) { if (i2.Category != lc) { lc = i2.Category; listH += 20; } listH += 48; } }
         float browserMax = Math.Max(0, listH - (h - (listTop - y) - 10) + 8); browserMaxF = browserMax; browserScroll = Math.Max(0, Math.Min(browserMax, browserScroll));
-        float ry = listTop - browserScroll; g.SetClip(Rc(x + 10, listTop - 4, w - 20, h - (listTop - y) - 10));
+        float ry = listTop - browserScroll; var clipR = Rc(x + 10, listTop - 4, w - 20, h - (listTop - y) - 10); g.SetClip(clipR);
         string lastCat = "";
         foreach (var info in list)
         {
-            if (info.Category != lastCat) { lastCat = info.Category; Txt(g, info.Category.ToUpperInvariant(), 11, Accent, Rc(x + 24, ry, 300, 18), StringAlignment.Near, true); ry += 20; }
-            var row = Rc(x + 18, ry, w - 36, 44); bool hot = Hot(row); FillRR(g, hot ? Color.FromArgb(220, 90, 50, 170) : Color.FromArgb(160, 44, 24, 80), row, 8);
+            if (info.Category != lastCat) { lastCat = info.Category; if (ry + 18 > clipR.Y && ry < clipR.Bottom) Txt(g, info.Category.ToUpperInvariant(), 11, Accent, Rc(x + 24, ry, 300, 18), StringAlignment.Near, true); ry += 20; }
+            if (ry + 44 < clipR.Y || ry > clipR.Bottom) { ry += 48; continue; }   // off screen: neither drawn nor given a click region (it would lie on top of the header)
+            var row = Rc(x + 18, ry, w - 36, 44); var vis = RectangleF.Intersect(row, clipR); bool hot = Hot(vis); FillRR(g, hot ? Color.FromArgb(220, 90, 50, 170) : Color.FromArgb(160, 44, 24, 80), row, 8);
             Txt(g, info.Name, 15, Ink, Rc(row.X + 14, row.Y + 3, row.Width - 120, 20), StringAlignment.Near, true);
             Txt(g, info.Blurb, 12, DimC, Rc(row.X + 14, row.Y + 22, row.Width - 120, 18), StringAlignment.Near, false);
-            string type = info.Type; Btn(g, Rc(row.Right - 86, row.Y + 8, 72, 28), "Add", 1, () => AddFx(type), 13);
-            Reg(row, () => AddFx(type)); ry += 48;
+            string type = info.Type; if (row.Y + 8 >= clipR.Y && row.Y + 36 <= clipR.Bottom) Btn(g, Rc(row.Right - 86, row.Y + 8, 72, 28), "Add", 1, () => AddFx(type), 13);
+            if (vis.Width > 0 && vis.Height > 0) Reg(vis, () => AddFx(type)); ry += 48;
         }
         if (list.Count == 0) Txt(g, "No plugin matches \"" + browserQuery + "\"", 14, DimC, Rc(x, y + 140, w, 30), StringAlignment.Center, false);
         g.ResetClip();
@@ -750,12 +784,14 @@ partial class StudioForm : Form
     RectangleF browserBox; float browserMaxF; string browserCat = "";
 
     // the effects that match the search and category, grouped by category (your own plugins first)
+    List<FxRegistry.Info> blCache; string blKey = "";
     List<FxRegistry.Info> BrowserList()
     {
-        var list = new List<FxRegistry.Info>(); string q = browserQuery.ToLowerInvariant().Trim();
-        foreach (var i in FxRegistry.All) { if (i.Type == "gain") continue; if (browserCat.Length > 0 && i.Category != browserCat) continue; if (q.Length == 0 || i.Name.ToLowerInvariant().Contains(q) || i.Category.ToLowerInvariant().Contains(q) || i.Blurb.ToLowerInvariant().Contains(q) || i.Type.Contains(q)) list.Add(i); }
-        var order = new List<string>(); order.Add("Plugins"); foreach (var i in FxRegistry.All) if (!order.Contains(i.Category)) order.Add(i.Category);
-        var res = new List<FxRegistry.Info>(); foreach (var c in order) foreach (var i in list) if (i.Category == c) res.Add(i); return res;
+        string key = browserQuery + "\n" + browserCat; if (blCache != null && key == blKey) return blCache;
+        var all = FxRegistry.All; var list = new List<FxRegistry.Info>(); string q = browserQuery.ToLowerInvariant().Trim();
+        foreach (var i in all) { if (i.Type == "gain") continue; if (browserCat.Length > 0 && i.Category != browserCat) continue; if (q.Length == 0 || i.Name.ToLowerInvariant().Contains(q) || i.Category.ToLowerInvariant().Contains(q) || i.Blurb.ToLowerInvariant().Contains(q) || i.Type.Contains(q)) list.Add(i); }
+        var order = new List<string>(); order.Add("Plugins"); foreach (var i in all) if (!order.Contains(i.Category)) order.Add(i.Category);
+        var res = new List<FxRegistry.Info>(); foreach (var c in order) foreach (var i in list) if (i.Category == c) res.Add(i); blCache = res; blKey = key; return res;
     }
     void CategoryMenu()
     {
@@ -906,20 +942,22 @@ partial class StudioForm : Form
     }
 
     // ---------------- spectrum ----------------
-    float[] specSrc; int specSrcPos;
+    float[] specSrc; int specSrcPos; static double[] hann; int eqPaintTick = -100000;
     void UpdateSpectrum()
     {
+        if (!eng.Playing) { for (int k = 0; k <= 2048; k++) spec[k] = spec[k] * 0.9 - 12; return; }   // nothing to analyse: just let the picture fall away
         float[] tap = null; int pos = 0;
         if (tab == 0 && eng.Tracks.Count > 0 && selTrack < eng.Tracks.Count) { var tr = eng.Tracks[selTrack]; tap = tr.TapPost; pos = tr.TapPos; }
         else if (tab == 1) { tap = eng.MasterTap; pos = eng.MasterTapPos; }
         if (tap == null) return;
         int N = 4096; double avg = 0;
-        for (int i = 0; i < N; i++) { double w = 0.5 - 0.5 * Math.Cos(2 * Math.PI * i / N); specRe[i] = tap[(pos - N + i + 8192 * 2) & 8191] * w; specIm[i] = 0; }
+        if (hann == null) { hann = new double[N]; for (int i = 0; i < N; i++) hann[i] = 0.5 - 0.5 * Math.Cos(2 * Math.PI * i / N); }
+        for (int i = 0; i < N; i++) { specRe[i] = tap[(pos - N + i + 8192 * 2) & 8191] * hann[i]; specIm[i] = 0; }
         Fft.Transform(specRe, specIm, false);
         for (int k = 0; k <= N / 2; k++)
         {
             double mag = Math.Sqrt(specRe[k] * specRe[k] + specIm[k] * specIm[k]) / (N / 4.0), db = 20 * Math.Log10(mag + 1e-9);
-            if (!eng.Playing) db = -120;
+
             spec[k] = db > spec[k] ? spec[k] * 0.4 + db * 0.6 : spec[k] * 0.9 + db * 0.1; avg += 0;
         }
     }
@@ -929,6 +967,7 @@ partial class StudioForm : Form
 
     void PaintEqEditor(Graphics g, ParametricEq eq, RectangleF a, float[] tap, int tapPos)
     {
+        eqPaintTick = Environment.TickCount;
         var plot = Rc(a.X + 28, a.Y + 4, a.Width - 36, Math.Min(230, a.Height * 0.52f));
         FillRR(g, Color.FromArgb(220, 8, 4, 20), plot, 8); StrokeRR(g, Edge, plot, 8, 1);
         Func<double, float> FX = f => plot.X + plot.Width * (float)(Math.Log10(f / 20.0) / 3.0);
@@ -952,7 +991,25 @@ partial class StudioForm : Form
         g.SetClip(plot);
         using (var br = new SolidBrush(Color.FromArgb(70, 150, 90, 255))) g.FillPolygon(br, pts.ToArray());
         // curve
-        var cp = new List<PointF>(); for (int px = 0; px <= (int)plot.Width; px += 2) { double f = 20 * Math.Pow(1000, px / plot.Width); cp.Add(new PointF(plot.X + px, GY(DspMath.Clamp(eq.ResponseDb(f), -18, 18)))); }
+        // same maths as ParametricEq.ResponseDb, but each filter is designed once per frame instead of once per pixel
+        var secC = new List<double[]>(); var secN = new List<int>();
+        if (eq.Get("hp_on") > 0.5f) { secC.Add(Biquad.Coeffs(Biquad.HighPass, eq.SR, eq.Get("hp_f"), 0.7071, 0)); secN.Add(eq.Get("hp_s") > 0.5f ? 2 : 1); }
+        if (eq.Get("lp_on") > 0.5f) { secC.Add(Biquad.Coeffs(Biquad.LowPass, eq.SR, eq.Get("lp_f"), 0.7071, 0)); secN.Add(eq.Get("lp_s") > 0.5f ? 2 : 1); }
+        for (int b = 0; b < ParametricEq.Bands; b++)
+        {
+            if (eq.Get("b" + b + "_on") < 0.5f) continue; int bt = (int)eq.Get("b" + b + "_t");
+            secC.Add(Biquad.Coeffs(bt == 1 ? Biquad.LowShelf : (bt == 2 ? Biquad.HighShelf : (bt == 3 ? Biquad.Notch : Biquad.Bell)), eq.SR, eq.Get("b" + b + "_f"), eq.Get("b" + b + "_q"), eq.Get("b" + b + "_g"))); secN.Add(1);
+        }
+        var cp = new List<PointF>(); for (int px = 0; px <= (int)plot.Width; px += 2)
+        {
+            double f = 20 * Math.Pow(1000, px / plot.Width), w0 = DspMath.TwoPi * f / eq.SR, c1 = Math.Cos(w0), s1 = Math.Sin(w0), c2 = Math.Cos(2 * w0), s2 = Math.Sin(2 * w0), prod = 1;
+            for (int k = 0; k < secC.Count; k++)
+            {
+                var c = secC[k]; double nr = c[0] + c[1] * c1 + c[2] * c2, ni = -(c[1] * s1 + c[2] * s2), dr = 1 + c[3] * c1 + c[4] * c2, di = -(c[3] * s1 + c[4] * s2);
+                double rr = (nr * nr + ni * ni) / (dr * dr + di * di); if (secN[k] == 2) rr *= rr; prod *= rr;
+            }
+            cp.Add(new PointF(plot.X + px, GY(DspMath.Clamp(10 * Math.Log10(prod + 1e-30), -18, 18))));
+        }
         using (var pen = new Pen(Color.FromArgb(70, Accent2), 8)) g.DrawLines(pen, cp.ToArray());
         using (var pen = new Pen(Accent2, 2.4f)) g.DrawLines(pen, cp.ToArray());
         g.ResetClip();
