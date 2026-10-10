@@ -152,10 +152,12 @@ partial class SynthCanvas : Control
         bool bipolar = p.Min < 0 && p.Max > 0 && !p.IsChoice; float zero = bipolar ? (0 - p.Min) / (p.Max - p.Min) : 0;
         float a0 = bipolar ? zero : 0, sweep = (f - a0) * 270f;
         using (var pen = new Pen(col, 3f)) { pen.StartCap = LineCap.Round; pen.EndCap = LineCap.Round; if (Math.Abs(sweep) > 0.5f) g.DrawArc(pen, ar, 135 + a0 * 270f, sweep); }
+        int dest = DestOf(id); var msl = SlotsOn(dest); if (msl.Count > 0) DrawModRing(g, ar, f, msl, dest);
         double ang = (135 + f * 270) * Math.PI / 180; using (var pen = new Pen(Ink, 2f)) { pen.StartCap = LineCap.Round; pen.EndCap = LineCap.Round; g.DrawLine(pen, cx + (float)Math.Cos(ang) * rad * 0.35f, cy + (float)Math.Sin(ang) * rad * 0.35f, cx + (float)Math.Cos(ang) * rad * 0.85f, cy + (float)Math.Sin(ang) * rad * 0.85f); }
         Txt(g, hot ? p.Text : label, hot ? 11 : 10, hot ? Ink : Dim, Rc(cx - 30, cy + rad + 3, 60, 14), StringAlignment.Center, hot);
+        float amt0 = msl.Count > 0 ? P("m" + msl[0] + "a").Val : 0; int sl0 = msl.Count > 0 ? msl[0] : 0;
         reg.Down = pt => { downPt = pt; downFrac = FracOf(p, log); };
-        reg.Drag = (dx, dy) => { float fine = (ModifierKeys & Keys.Shift) != 0 ? 0.25f : 1f; SetVal(p, FromFrac(p, log, downFrac - dy / 160f * fine)); };
+        reg.Drag = (dx, dy) => { if (sl0 > 0 && (ModifierKeys & Keys.Control) != 0) { SetVal(P("m" + sl0 + "a"), (float)Math.Round(Math.Max(-100, Math.Min(100, amt0 - dy * 0.6)))); return; } float fine = (ModifierKeys & Keys.Shift) != 0 ? 0.25f : 1f; SetVal(p, FromFrac(p, log, downFrac - dy / 160f * fine)); };
         reg.Wheel = d => { float step = p.IsChoice ? 1 : (p.Max - p.Min) / 50f * ((ModifierKeys & Keys.Shift) != 0 ? 0.2f : 1f); if (p.Id == "auni" || p.Id == "buni" || p.Id == "cuni") step = 1; SetVal(p, (float)Math.Round(p.Val + d * step, p.IsChoice || p.Max - p.Min < 20 ? 0 : 1)); };
         reg.Double = () => TypeValue(p); reg.Right = () => SetVal(p, p.Def);
     }
@@ -185,7 +187,7 @@ partial class SynthCanvas : Control
         var p = P(id); if (p == null || !p.IsChoice) return; var reg = Add(r); reg.P = p; reg.Tip = p.Name + ": click to choose, mouse wheel to step";
         Fill(g, Hot(r) ? PanelHi : Color.FromArgb(20, 11, 38), r, 5); Stroke(g, Color.FromArgb(Hot(r) ? 230 : 130, col), r, 5, 1);
         Txt(g, prefix + p.Text, 11, Ink, Rc(r.X + 5, r.Y, r.Width - 16, r.Height), StringAlignment.Near, false); Txt(g, "v", 9, Dim, Rc(r.Right - 14, r.Y, 12, r.Height), StringAlignment.Center, false);
-        reg.Down = pt => { var m = Win.NewMenu(); for (int i = 0; i < p.Choices.Length; i++) { int k = i; var it = new ToolStripMenuItem(p.Choices[i]) { Checked = (int)Math.Round(p.Val) == i }; it.Click += (a, b) => { SetVal(p, k); Poke(); }; m.Items.Add(it); } m.Show(this, new Point((int)(pt.X * scale + ox), (int)((r.Bottom) * scale + oy))); };
+        reg.Down = pt => { var m = Win.NewMenu(); for (int i = 0; i < p.Choices.Length; i++) { int k = i; var it = new ToolStripMenuItem(p.Choices[i]) { Checked = (int)Math.Round(p.Val) == i }; it.Click += (a, b) => { SetVal(p, k); Poke(); }; m.Items.Add(it); } ShowMenu(m, new Point((int)(pt.X * scale + ox), (int)((r.Bottom) * scale + oy))); };
         reg.Wheel = d => SetVal(p, (p.Val + (d > 0 ? 1 : -1) + p.Choices.Length) % p.Choices.Length);
     }
 
@@ -213,6 +215,7 @@ partial class SynthCanvas : Control
         PaintTop(g);
         switch (tab) { case 0: PaintOsc(g); break; case 1: PaintMix(g); break; case 2: PaintFx(g); break; case 3: PaintMatrix(g); break; default: PaintGlobal(g); break; }
         PaintMods(g);
+        PaintDragGhost(g);
         string tip = hover != null ? hover.Tip : ""; if (tip.Length > 0) { var tr = Rc(8, H - 22, W - 16, 18); Txt(g, tip, 11, Ink, tr, StringAlignment.Near, false); }
         g.ResetTransform();
     }
@@ -267,7 +270,7 @@ partial class SynthCanvas : Control
             try { SynthPresets.SaveUser(fx, s); modified = false; } catch (Exception ex) { MessageBox.Show(this, ex.Message, "Save preset"); }
             Poke();
         };
-        m.Show(this, new Point((int)(620 * scale + ox), (int)(56 * scale + oy)));
+        ShowMenu(m, new Point((int)(620 * scale + ox), (int)(56 * scale + oy)));
     }
 
     // ---------- OSC page ----------
@@ -320,10 +323,13 @@ partial class SynthCanvas : Control
         {
             float y = r.Y + 28 + (i - 1) * 27; Txt(g, i.ToString(), 12, Dim, Rc(r.X + 12, y, 20, 24), StringAlignment.Center, true);
             Choose(g, "m" + i + "s", Rc(r.X + 40, y + 2, 190, 22), Acc); Txt(g, "->", 13, Dim, Rc(r.X + 232, y, 30, 24), StringAlignment.Center, true); Choose(g, "m" + i + "d", Rc(r.X + 264, y + 2, 220, 22), Acc2);
-            var p = P("m" + i + "a"); var sr = Rc(r.X + 510, y + 2, 520, 22); var reg = Add(sr); reg.P = p; reg.Tip = "Amount: drag, wheel, or double-click to type (negative flips it)";
+            var p = P("m" + i + "a"); var sr = Rc(r.X + 510, y + 2, 300, 22); var reg = Add(sr); reg.P = p; reg.Tip = "Amount: drag, wheel, or double-click to type (negative flips it)";
             Fill(g, Color.FromArgb(18, 10, 34), sr, 5); float f = (p.Val - p.Min) / (p.Max - p.Min); float mid = sr.X + sr.Width / 2; float vx = sr.X + sr.Width * f;
             using (var b = new SolidBrush(Color.FromArgb(200, Acc2))) g.FillRectangle(b, Math.Min(mid, vx), sr.Y + 6, Math.Abs(vx - mid), sr.Height - 12); using (var pen = new Pen(Dim)) g.DrawLine(pen, mid, sr.Y + 3, mid, sr.Bottom - 3);
             Txt(g, p.Val.ToString("+0;-0;0", CultureInfo.InvariantCulture) + " %", 12, Ink, Rc(sr.Right + 10, y, 80, 24), StringAlignment.Near, true);
+            Choose(g, "m" + i + "p", Rc(sr.Right + 76, y + 2, 96, 22), Acc);
+            { int ii = i; var en = P("m" + i + "e"); bool on = en.Val > 0.5; var eb = Rc(sr.Right + 178, y + 2, 64, 22); Fill(g, on ? Color.FromArgb(130, Good) : Color.FromArgb(18, 10, 34), eb, 5); Stroke(g, on ? Good : Edge, eb, 5, 1); Txt(g, on ? "ON" : "OFF", 11, Ink, eb, StringAlignment.Center, on); var er = Add(eb); er.Tip = "Switch this connection on or off without losing it."; er.Down = pt => { SetVal(en, on ? 0 : 1); };
+              var xb = Rc(sr.Right + 248, y + 2, 26, 22); Fill(g, Hot(xb) ? Color.FromArgb(160, 200, 60, 90) : Color.FromArgb(18, 10, 34), xb, 5); Stroke(g, Edge, xb, 5, 1); Txt(g, "X", 11, Ink, xb, StringAlignment.Center, true); var xr = Add(xb); xr.Tip = "Remove this connection."; xr.Down = pt => { SetVal(P("m" + ii + "s"), 0); SetVal(P("m" + ii + "d"), 0); SetVal(P("m" + ii + "a"), 0); SetVal(en, 1); SetVal(P("m" + ii + "p"), 0); }; }
             reg.Down = pt => { SetVal(p, FromFrac(p, false, (pt.X - sr.X) / sr.Width)); }; reg.Drag = (dx, dy) => SetVal(p, (float)Math.Round(FromFrac(p, false, (mouse.X - sr.X) / sr.Width))); reg.Wheel = d => SetVal(p, p.Val + d * 2); reg.Double = () => TypeValue(p); reg.Right = () => SetVal(p, 0);
         }
     }
@@ -358,7 +364,7 @@ partial class SynthCanvas : Control
         var off = new ToolStripMenuItem("Off") { Checked = Prefs.MidiDev.Length == 0 }; off.Click += (a, b) => { Prefs.MidiDev = ""; MidiInput.Open(""); Prefs.Changed(); Poke(); }; m.Items.Add(off);
         foreach (var d in devs) { string dn = d; var it = new ToolStripMenuItem(d) { Checked = Prefs.MidiDev == d }; it.Click += (a, b) => { Prefs.MidiDev = dn; MidiInput.Target = fx; MidiInput.Open(dn); Prefs.Changed(); Poke(); }; m.Items.Add(it); }
         if (devs.Count == 0) m.Items.Add("(no MIDI device found: plug one in and open this menu again)").Enabled = false;
-        m.Show(this, new Point((int)(at.X * scale + ox), (int)(at.Bottom * scale + oy)));
+        ShowMenu(m, new Point((int)(at.X * scale + ox), (int)(at.Bottom * scale + oy)));
     }
 
     // ---------- modulation section ----------
@@ -366,7 +372,7 @@ partial class SynthCanvas : Control
     {
         float y = 404;
         var mac = Rc(8, y, 130, 306); Fill(g, Panel, mac, 8); Stroke(g, Edge, mac, 8, 1); Txt(g, "MACROS", 12, Ink, Rc(mac.X, mac.Y + 2, mac.Width, 20), StringAlignment.Center, true);
-        for (int i = 0; i < 4; i++) Knob(g, "mac" + (i + 1), mac.X + 33 + (i % 2) * 64, mac.Y + 62 + (i / 2) * 100, "MACRO " + (i + 1), Acc2, 20);
+        for (int i = 0; i < 4; i++) { Knob(g, "mac" + (i + 1), mac.X + 33 + (i % 2) * 64, mac.Y + 62 + (i / 2) * 100, "MACRO " + (i + 1), Acc2, 20); SourceChip(g, Rc(mac.X + 11 + (i % 2) * 64, mac.Y + 62 + (i / 2) * 100 + 38, 44, 14), 10 + i, "Macro " + (i + 1)); }
         string[] tn = { "ENV 1", "ENV 2", "ENV 3", "ENV 4", "LFO 1", "LFO 2", "LFO 3", "LFO 4" }; float x = 144, tw = 144;
         for (int i = 0; i < 8; i++)
         {
@@ -386,6 +392,7 @@ partial class SynthCanvas : Control
         var poly = new[] { p0, p1, p2, p3, p4 }; using (var b = new SolidBrush(Color.FromArgb(45, Acc2))) g.FillPolygon(b, poly); using (var pen = new Pen(Acc2, 2.5f)) g.DrawLines(pen, poly);
         Txt(g, k == 1 ? "AMPLITUDE ENVELOPE: how every note's volume rises, falls and fades out." : "ENVELOPE " + k + ": a shape that starts every note. Aim it at something in the MATRIX page (for example Filter 1 cutoff).", 11, Dim, Rc(disp.X + 10, disp.Y + 4, disp.Width - 20, 16), StringAlignment.Near, false);
         float kx = pn.X + 640; Knob(g, "e" + k + "a", kx, pn.Y + 80, "ATTACK", Acc2, 24); Knob(g, "e" + k + "d", kx + 120, pn.Y + 80, "DECAY", Acc2, 24); Knob(g, "e" + k + "s", kx + 240, pn.Y + 80, "SUSTAIN", Acc, 24); Knob(g, "e" + k + "r", kx + 360, pn.Y + 80, "RELEASE", Acc, 24);
+        if (k > 1) SourceChip(g, Rc(kx - 30, pn.Y + 124, 150, 22), 5 + (k - 2), "Envelope " + k);
         if (k > 1) QuickAssign(g, Rc(kx - 30, pn.Y + 150, 480, 100), 5 + (k - 2), "Envelope " + k);
     }
 
@@ -398,7 +405,7 @@ partial class SynthCanvas : Control
         string[] quick = { "Filter 1 cutoff", "Osc A warp", "Volume", "All pitch", "Osc A wave", "Unison detune" }; int[] qd = { 17, 9, 1, 5, 6, 22 };
         for (int i = 0; i < quick.Length; i++)
         {
-            int ii = i; var b = Rc(r.X + 10 + (i % 3) * 160, r.Y + 30 + (i / 3) * 28, 154, 24); bool cur = slot > 0 && (int)P("m" + slot + "d").Val == qd[i];
+            int ii = i; var b = Rc(r.X + 10 + (i % 3) * 138, r.Y + 30 + (i / 3) * 28, 132, 24); bool cur = slot > 0 && (int)P("m" + slot + "d").Val == qd[i];
             Fill(g, cur ? Color.FromArgb(120, Acc2) : (Hot(b) ? PanelHi : Color.FromArgb(18, 10, 34)), b, 5); Stroke(g, cur ? Acc2 : Edge, b, 5, 1); Txt(g, quick[i], 11, Ink, b, StringAlignment.Center, cur);
             var rg = Add(b); rg.Tip = "Aim " + name + " at: " + quick[i] + ". Then set how much with the amount knob."; rg.Down = pt => { int s = SlotFor(srcIndex); SetVal(P("m" + s + "s"), srcIndex); SetVal(P("m" + s + "d"), qd[ii]); if (Math.Abs(P("m" + s + "a").Val) < 1) SetVal(P("m" + s + "a"), 50); };
         }
@@ -427,7 +434,7 @@ partial class SynthCanvas : Control
         if (e.Clicks == 2 && r.Double != null) { r.Double(); return; }
         downPt = mouse; if (r.Down != null) r.Down(mouse); if (r.Drag != null) active = r; Poke();
     }
-    protected override void OnMouseUp(MouseEventArgs e) { base.OnMouseUp(e); active = null; Poke(); }
+    protected override void OnMouseUp(MouseEventArgs e) { base.OnMouseUp(e); mouse = ToLogical(e.Location); active = null; if (dragSrc != 0) DropOnKnob(HitTest(mouse)); Poke(); }
     protected override void OnMouseWheel(MouseEventArgs e) { base.OnMouseWheel(e); var r = HitTest(ToLogical(e.Location)); if (r != null && r.Wheel != null) { r.Wheel(e.Delta > 0 ? 1 : -1); Poke(); } }
     protected override void OnMouseLeave(EventArgs e) { base.OnMouseLeave(e); hover = null; Invalidate(); }
 }

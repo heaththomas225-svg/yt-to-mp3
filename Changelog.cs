@@ -7,10 +7,16 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.7.0";
+    public const string Latest = "3.8.0";
 
     public const string Text =
-@"3.7.0  Bass Lab: draw your own LFO
+@"3.8.0  Bass Lab: modulate almost any knob
+ + NEW drag and drop: grab DRAG on an LFO, envelope or macro and drop it on a knob. A coloured ring shows how far it moves the knob. Ctrl + drag the knob to change the amount.
+ + NEW 44 targets: oscillator fine, pan and blend, filter drive, and the effects (distortion, chorus, delay, reverb, bass boost).
+ + NEW matrix slots have Bipolar / Positive / Negative, an on/off switch and a remove button.
+ + FIXED the AMOUNT knob covering a button, and drop-down lists that stayed open (they now close when you pick, click away, or leave them).
+
+3.7.0  Bass Lab: draw your own LFO
  + NEW wavetable list now has Sine, Sawtooth, Square, Pulse 25% and Triangle. The Sub oscillator offers sine, triangle, square and saw.
  + NEW LFO editor: click the picture to add points, drag them, right-click to delete, double-click to make a point round, drag the diamond between points to bend the line.
  + NEW shape presets (sine, saw, stepped, random, three wobbles) you can reshape. Each of the 4 LFOs keeps its own drawn shape, saved with the patch.

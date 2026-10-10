@@ -58,7 +58,13 @@ static class SynthTables
     public static readonly double[] SyncBeats = { 0, 16, 8, 4, 2, 1, 1.5, 2.0 / 3, 0.5, 0.75, 1.0 / 3, 0.25, 0.375, 1.0 / 6, 0.125 };
     public static readonly string[] Sources = { "None", "LFO 1", "LFO 2", "LFO 3", "LFO 4", "Env 2", "Env 3", "Env 4", "Velocity", "Key", "Macro 1", "Macro 2", "Macro 3", "Macro 4" };
     public static readonly string[] Dests = { "None", "Volume", "Osc A pitch", "Osc B pitch", "Osc C pitch", "All pitch", "Osc A wave", "Osc B wave", "Osc C wave", "Osc A warp", "Osc B warp", "Osc C warp",
-        "Osc A level", "Osc B level", "Osc C level", "Sub level", "Noise level", "Filter 1 cutoff", "Filter 1 resonance", "Filter 1 drive", "Filter 2 cutoff", "Filter 2 resonance", "Unison detune", "Pan" };
+        "Osc A level", "Osc B level", "Osc C level", "Sub level", "Noise level", "Filter 1 cutoff", "Filter 1 resonance", "Filter 1 drive", "Filter 2 cutoff", "Filter 2 resonance", "Unison detune", "Pan",
+        "Osc A fine", "Osc B fine", "Osc C fine", "Osc A pan", "Osc B pan", "Osc C pan", "Osc A blend", "Osc B blend", "Osc C blend", "Filter 2 drive",
+        "FX Distortion drive", "FX Distortion mix", "FX Chorus mix", "FX Delay mix", "FX Delay feedback", "FX Reverb mix", "FX Reverb size", "FX Bass boost gain", "FX Chorus depth", "FX Chorus rate" };
+    // the knob each destination belongs to (null = not a knob), so a knob can show its modulation ring and accept a drop
+    public static readonly string[] DestParam = { null, "vol", null, null, null, null, "awt", "bwt", "cwt", "awamt", "bwamt", "cwamt", "alvl", "blvl", "clvl", "sublvl", "nzlvl", "f1cut", "f1res", "f1drive", "f2cut", "f2res", null, null,
+        "afin", "bfin", "cfin", "apan", "bpan", "cpan", "ablend", "bblend", "cblend", "f2drive", "dstdrive", "dstmix", "chmix", "dlmix", "dlfb", "rvmix", "rvsize", "bbgain", "chdepth", "chrate" };
+    public static readonly string[] Polarities = { "Bipolar", "Positive", "Negative" };
     public static readonly string[] OffOn = { "Off", "On" };
     public static readonly string[] NoiseTypes = { "White", "Pink", "Brown", "Blue", "Crackle" };
     public const int SrcNone = 0, SrcLfo1 = 1, SrcEnv2 = 5, SrcVel = 8, SrcKey = 9, SrcMacro1 = 10;
@@ -78,7 +84,7 @@ class SynthFx : InstrumentFx
     public readonly LfoCurve[] LfoCurves = { new LfoCurve(), new LfoCurve(), new LfoCurve(), new LfoCurve() };   // the drawn shape of each LFO (used when its Shape is Custom)
     OscP[] op = { new OscP(), new OscP(), new OscP() }; FiltP[] fp = { new FiltP(), new FiltP() }; EnvP[] ep = { new EnvP(), new EnvP(), new EnvP(), new EnvP() }; LfoP[] lp = { new LfoP(), new LfoP(), new LfoP(), new LfoP() };
     bool subOn, nzOn, parallel, subMute, subSolo, nzMute, nzSolo; int subWave, subOct, nzType, subRoute, nzRoute; double subLvl, subPan, nzLvl, nzPan, vol, glide, bendRange, tune, vsens; int mode; double[] macro = new double[4];
-    int[] mSrc = new int[8], mDst = new int[8]; double[] mAmt = new double[8];
+    int[] mSrc = new int[8], mDst = new int[8], mPol = new int[8]; bool[] mOn = new bool[8]; double[] mAmt = new double[8];
     bool dstOn, chOn, dlOn, rvOn, bbOn; int maxV = 8;
 
     // ---- voices ----
@@ -149,7 +155,7 @@ class SynthFx : InstrumentFx
         for (int k = 1; k <= 4; k++) AddP("mac" + k, "Macro " + k, 0, 100, 0, "%");
         for (int i = 1; i <= 8; i++)
         {
-            AddC("m" + i + "s", "Source", SynthTables.Sources, 0); AddC("m" + i + "d", "Destination", SynthTables.Dests, 0); AddP("m" + i + "a", "Amount", -100, 100, 0, "%");
+            AddC("m" + i + "s", "Source", SynthTables.Sources, 0); AddC("m" + i + "d", "Destination", SynthTables.Dests, 0); AddP("m" + i + "a", "Amount", -100, 100, 0, "%"); AddC("m" + i + "p", "Polarity", SynthTables.Polarities, 0); AddC("m" + i + "e", "Enabled", SynthTables.OffOn, 1);
         }
         AddC("dston", "Distortion", SynthTables.OffOn, 0); AddC("dstmode", "Type", new[] { "Hard clip", "Foldback", "Fuzz" }, 2); AddP("dstdrive", "Drive", 0, 40, 12, "dB"); AddP("dsttone", "Tone", 500, 16000, 6000, "Hz"); AddP("dstmix", "Mix", 0, 100, 50, "%");
         AddC("chon", "Chorus", SynthTables.OffOn, 0); AddP("chrate", "Rate", 0.05f, 5, 0.8f, "Hz"); AddP("chdepth", "Depth", 0, 10, 3, "ms"); AddP("chmix", "Mix", 0, 100, 35, "%");
@@ -213,7 +219,7 @@ class SynthFx : InstrumentFx
             var l = lp[k]; string p = "l" + (k + 1); l.Shape = (int)Get(p + "shape"); l.Sync = (int)Get(p + "sync"); l.Rate = Get(p + "rate"); l.Phase = Get(p + "phase") / 100.0; l.Smooth = Get(p + "smooth") / 100.0;
             l.Retrig = Get(p + "retrig") > 0.5; l.Fade = Get(p + "fade"); l.Uni = Get(p + "uni") > 0.5; l.Loop = Get(p + "loop") > 0.5; macro[k] = Get("mac" + (k + 1)) / 100.0;
         }
-        for (int i = 0; i < 8; i++) { mSrc[i] = (int)Get("m" + (i + 1) + "s"); mDst[i] = (int)Get("m" + (i + 1) + "d"); mAmt[i] = Get("m" + (i + 1) + "a") / 100.0; }
+        for (int i = 0; i < 8; i++) { mSrc[i] = (int)Get("m" + (i + 1) + "s"); mDst[i] = (int)Get("m" + (i + 1) + "d"); mAmt[i] = Get("m" + (i + 1) + "a") / 100.0; mPol[i] = (int)Get("m" + (i + 1) + "p"); mOn[i] = Get("m" + (i + 1) + "e") > 0.5; }
         dstOn = Get("dston") > 0.5; chOn = Get("chon") > 0.5; dlOn = Get("dlon") > 0.5; rvOn = Get("rvon") > 0.5; bbOn = Get("bbon") > 0.5;
         dist.Prepare(SR); dist.Set("mode", Get("dstmode")); dist.Set("drive", Get("dstdrive")); dist.Set("tone", Get("dsttone")); dist.Set("mix", Get("dstmix")); dist.Set("level", -3);
         chor.Prepare(SR); chor.Set("rate", Get("chrate")); chor.Set("depth", Get("chdepth")); chor.Set("mix", Get("chmix"));
@@ -317,7 +323,7 @@ class SynthFx : InstrumentFx
     {
         CheckDirty();
         if (n > outL.Length) { outL = new float[n]; outR = new float[n]; }
-        Array.Clear(outL, 0, n); Array.Clear(outR, 0, n); for (int i = 0; i < 5; i++) blockPeak[i] = 0;
+        gAge = 0; Array.Clear(gmod, 0, gmod.Length); Array.Clear(outL, 0, n); Array.Clear(outR, 0, n); for (int i = 0; i < 5; i++) blockPeak[i] = 0;
         int pos = 0, ei = 0; var ev = pending; pending = new List<KeyValuePair<int, MidiEv>>();
         while (pos < n)
         {
@@ -326,6 +332,7 @@ class SynthFx : InstrumentFx
             RenderBlock(pos, len); pos += len;
         }
         while (ei < ev.Count) { Midi(ev[ei].Value); ei++; }
+        ApplyGlobalMods();
         // effects on the summed voices
         if (dstOn) dist.Process(outL, outR, n);
         if (chOn) chor.Process(outL, outR, n);
@@ -335,10 +342,22 @@ class SynthFx : InstrumentFx
         float pl = 0, pr = 0; for (int i = 0; i < n; i++) { float a = Soft(outL[i]), b = Soft(outR[i]); l[i] += a; r[i] += b; if (Math.Abs(a) > pl) pl = Math.Abs(a); if (Math.Abs(b) > pr) pr = Math.Abs(b); }
         OutPeakL = Math.Max(pl, OutPeakL * 0.85f); OutPeakR = Math.Max(pr, OutPeakR * 0.85f); for (int i = 0; i < 5; i++) SrcPeak[i] = Math.Max(blockPeak[i], SrcPeak[i] * 0.85f);
     }
+    static readonly string[] GKeys = { "drive", "mix", "mix", "mix", "fb", "mix", "size", "gain", "depth", "rate" }, GIds = { "dstdrive", "dstmix", "chmix", "dlmix", "dlfb", "rvmix", "rvsize", "bbgain", "chdepth", "chrate" };
+    readonly bool[] gWas = new bool[10];
+    // modulation aimed at the effects: follows the newest sounding note
+    void ApplyGlobalMods()
+    {
+        Fx[] t = { dist, dist, chor, dly, dly, rev, rev, boost, chor, chor };
+        for (int q = 0; q < 10; q++)
+        {
+            double m = gmod[q]; if (Math.Abs(m) < 1e-9 && !gWas[q]) continue; var p = Find(GIds[q]); double val = Math.Max(p.Min, Math.Min(p.Max, p.Val + m * (p.Max - p.Min)));
+            t[q].Set(GKeys[q], (float)val); gWas[q] = Math.Abs(m) > 1e-9;
+        }
+    }
     static float Soft(float x) { float a = Math.Abs(x); if (a < 0.8f) return x; float s = x < 0 ? -1f : 1f; return s * (0.8f + 0.2f * (float)Math.Tanh((a - 0.8f) / 0.2f)); }
 
-    double[] src = new double[14], dst = new double[24];
-    double[] ofreq = new double[3], olvl = new double[3], owt = new double[3], owa = new double[3], onrm = new double[3], ounit = new double[3], opl = new double[3], opr = new double[3], oOut = new double[3];
+    double[] src = new double[14], dst = new double[44];
+    double[] oBlend = new double[3], oPan = new double[3], gmod = new double[10]; long gAge; double[] ofreq = new double[3], olvl = new double[3], owt = new double[3], owa = new double[3], onrm = new double[3], ounit = new double[3], opl = new double[3], opr = new double[3], oOut = new double[3];
     bool[] oCompute = new bool[3], oAudible = new bool[3], oUsedAsMod = new bool[3]; WTable[] otbl = new WTable[3];
     double[,] ufreq = new double[3, 7], ugl = new double[3, 7], ugr = new double[3, 7], uw = new double[3, 7]; int[,] umip = new int[3, 7];
     double[] fg = new double[2], fk = new double[2], fdr = new double[2], fa1 = new double[2], fa2 = new double[2], fa3 = new double[2], fcut = new double[2], fb1 = new double[2], fb2 = new double[2], fb3 = new double[2];
@@ -377,7 +396,8 @@ class SynthFx : InstrumentFx
             src[5] = v.Env[1]; src[6] = v.Env[2]; src[7] = v.Env[3]; src[8] = v.Vel; src[9] = Math.Max(-1, Math.Min(1, (v.Note - 60) / 36.0));
             for (int m = 0; m < 4; m++) src[10 + m] = macro[m];
             Array.Clear(dst, 0, dst.Length);
-            for (int s = 0; s < 8; s++) if (mSrc[s] != 0 && mDst[s] != 0) dst[mDst[s]] += src[mSrc[s]] * mAmt[s];
+            for (int s = 0; s < 8; s++) if (mOn[s] && mSrc[s] != 0 && mDst[s] != 0) { double x = src[mSrc[s]]; if (mPol[s] != 0) { if (mSrc[s] <= 4 || mSrc[s] == 9) x = (x + 1) * 0.5; if (mPol[s] == 2) x = -x; } dst[mDst[s]] += x * mAmt[s]; }
+            if (v.Age >= gAge) { gAge = v.Age; for (int q = 0; q < 10; q++) gmod[q] = dst[34 + q]; }
             // ---- glide / pitch ----
             if (glide > 0 && mode != 0) v.Cur += (v.Note - v.Cur) * (1 - Math.Exp(-len / (glide * 0.001 * SR))); else v.Cur = v.Note;
             double note = v.Cur + tune / 100.0 + bend * bendRange + dst[5] * 24.0;
@@ -389,8 +409,8 @@ class SynthFx : InstrumentFx
             {
                 var P = op[o]; oAudible[o] = P.On && !P.Mute && (!anySolo || P.Solo); olvl[o] = oAudible[o] ? Math.Max(0, Math.Min(1, P.Lvl + dst[12 + o])) : 0; oCompute[o] = P.On && (olvl[o] > 0 || oUsedAsMod[o]);
                 if (!oCompute[o]) continue;
-                double nn = note + P.Oct * 12 + P.Sem + P.Fin / 100.0 + dst[2 + o] * 24.0; ofreq[o] = 440.0 * Math.Pow(2, (nn - 69) / 12.0);
-                owt[o] = Math.Max(0, Math.Min(1, P.Wt + dst[6 + o])); owa[o] = Math.Max(0, Math.Min(1, P.WarpAmt + dst[9 + o]));
+                double nn = note + P.Oct * 12 + P.Sem + P.Fin / 100.0 + dst[2 + o] * 24.0 + dst[24 + o] * 12.0; ofreq[o] = 440.0 * Math.Pow(2, (nn - 69) / 12.0);
+                owt[o] = Math.Max(0, Math.Min(1, P.Wt + dst[6 + o])); owa[o] = Math.Max(0, Math.Min(1, P.WarpAmt + dst[9 + o])); oBlend[o] = Math.Max(0, Math.Min(1, P.Blend + dst[30 + o])); oPan[o] = Math.Max(-1, Math.Min(1, P.Pan + dst[27 + o]));
                 otbl[o] = P.Src == 0 ? Wavetables.Table(P.Tbl) : Wavetables.ForSource(P.Src);
             }
             double detMod = Math.Max(0, 1 + dst[22]);
@@ -402,10 +422,10 @@ class SynthFx : InstrumentFx
                 {
                     double rel = uni == 1 ? 0 : (u - (uni - 1) / 2.0) / ((uni - 1) / 2.0);
                     ufreq[o, u] = ofreq[o] * Math.Pow(2, rel * P.Det * detMod / 1200.0); umip[o, u] = WTable.MipFor(ufreq[o, u] * mult, SR);
-                    double w = uni == 1 ? 1.0 : ((uni % 2 == 1 && u == (uni - 1) / 2) ? 1.0 : (uni % 2 == 1 ? P.Blend : 1.0)); uw[o, u] = w; wsum += w * w;
+                    double w = uni == 1 ? 1.0 : ((uni % 2 == 1 && u == (uni - 1) / 2) ? 1.0 : (uni % 2 == 1 ? oBlend[o] : 1.0)); uw[o, u] = w; wsum += w * w;
                     double pn = rel * 0.8; ugl[o, u] = Math.Sqrt(0.5 * (1 - pn)); ugr[o, u] = Math.Sqrt(0.5 * (1 + pn));
                 }
-                ounit[o] = 1 / Math.Sqrt(wsum); onrm[o] = olvl[o] * ounit[o]; opl[o] = Math.Sqrt(0.5 * (1 - P.Pan)) * 1.4142; opr[o] = Math.Sqrt(0.5 * (1 + P.Pan)) * 1.4142;
+                ounit[o] = 1 / Math.Sqrt(wsum); onrm[o] = olvl[o] * ounit[o]; opl[o] = Math.Sqrt(0.5 * (1 - oPan[o])) * 1.4142; opr[o] = Math.Sqrt(0.5 * (1 + oPan[o])) * 1.4142;
             }
             double subF = 440.0 * Math.Pow(2, (note + subOct * 12 - 69) / 12.0);
             bool subAud = subOn && !subMute && (!anySolo || subSolo), nzAud = nzOn && !nzMute && (!anySolo || nzSolo);
@@ -417,7 +437,7 @@ class SynthFx : InstrumentFx
                 var F = fp[k]; double cut = F.Cut * Math.Pow(2, dst[k == 0 ? 17 : 20] * 5.0 + (v.Note - 60) / 12.0 * F.Key);
                 cut = Math.Max(20, Math.Min(SR * 0.45, cut)); fcut[k] = cut; fg[k] = Math.Tan(Math.PI * cut / SR);
                 double res = Math.Max(0, Math.Min(1, F.Res + dst[k == 0 ? 18 : 21])); fk[k] = 2 - 1.96 * res;
-                fdr[k] = 1 + Math.Max(0, Math.Min(1, F.Drive + (k == 0 ? dst[19] : 0))) * 7;
+                fdr[k] = 1 + Math.Max(0, Math.Min(1, F.Drive + (k == 0 ? dst[19] : dst[33]))) * 7;
                 fa1[k] = 1 / (1 + fg[k] * (fg[k] + fk[k])); fa2[k] = fg[k] * fa1[k]; fa3[k] = fg[k] * fa2[k];
                 double kb = 1.41421; fb1[k] = 1 / (1 + fg[k] * (fg[k] + kb)); fb2[k] = fg[k] * fb1[k]; fb3[k] = fg[k] * fb2[k];   // later stages: plain Butterworth, so the slope is clean
             }
