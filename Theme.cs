@@ -147,7 +147,7 @@ class FrameLoop : IDisposable
 
     public FrameLoop(Control owner, Action tick)
     {
-        this.owner = owner; this.tick = tick; TargetFps = Math.Max(60, Math.Min(120, DisplayHz()));
+        this.owner = owner; this.tick = tick; TargetFps = Math.Max(30, Math.Min(60, DisplayHz()));   // 60 is plenty for this style of animation and leaves the UI thread time to respond
         try { timeBeginPeriod(1); } catch { }
         th = new System.Threading.Thread(Loop) { IsBackground = true, Priority = System.Threading.ThreadPriority.AboveNormal }; th.Start();
     }
