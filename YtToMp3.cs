@@ -37,7 +37,7 @@ class Job
 partial class App : Form
 {
     // ---- Auto-update settings ----
-    const string Version = "3.5.0";
+    const string Version = "3.5.1";
     // Plain-text manifest: line 1 = newest version, line 2 = direct exe download URL.
     const string UpdateManifestUrl = "https://raw.githubusercontent.com/heaththomas225-svg/yt-to-mp3/main/version.txt";
 
@@ -100,7 +100,7 @@ partial class App : Form
     internal string LastFile;
     internal int MZoomPct = 75;
     MasterForm mf;
-    Button mastBtn = new Button(), vocalBtn = new Button(), phoneBtn = new Button(), whatsBtn = new Button(), prevNormBtn = new Button(), helpBtn = new Button(); string seenVer = ""; internal string ExtraFilter = ""; Button settingsBtn = new Button();
+    Button mastBtn = new Button(), vocalBtn = new Button(), phoneBtn = new Button(), whatsBtn = new Button(), prevNormBtn = new Button(), helpBtn = new Button(); string seenVer = ""; internal string ExtraFilter = ""; Button changeBtn = new Button(); Button settingsBtn = new Button();
     PhoneServer phone;
     internal StudioEngine StudioEng = new StudioEngine();
     StudioForm studioForm; Button studioBtn = new Button(), addMusicBtn = new Button();
@@ -156,7 +156,6 @@ partial class App : Form
             Activated += (s2, e2) => ThreadPool.QueueUserWorkItem(_ => { try { CheckForUpdate(); } catch { } });   // coming back to the app checks for a new version right away
             BeginInvoke(new Action(() => { try { PluginHost.LoadEnabled(); } catch { } }));   // on the UI thread (VST plugins expect it), after the window is visible
             new Thread(UpdateLoop) { IsBackground = true }.Start();
-            if (seenVer != Changelog.Latest) BeginInvoke(new Action(() => { seenVer = Changelog.Latest; SaveSettings(); Changelog.Show(this); }));
         };
         FormClosing += (s, e) => { SaveSettings(); KillCurrent(); if (phone != null) phone.Stop(); StudioEng.Shutdown(); Separator.KillWorker(); layerRun = false; UserBackground.StopVideo(); frameLoop.Dispose(); };
 
@@ -223,6 +222,8 @@ partial class App : Form
         tip.SetToolTip(helpBtn, "Guides for every feature, with Show me on screen tours (F1).");
         StyleBtn(settingsBtn, Color.FromArgb(70, 40, 150)); settingsBtn.Text = "Settings"; settingsBtn.SetBounds(412, 12, 70, 28); settingsBtn.Anchor = AnchorStyles.Top | AnchorStyles.Right; settingsBtn.Click += (s, e) => ShowSettings();
         tip.SetToolTip(settingsBtn, "Background picture or video, animation, audio and other options.");
+        StyleBtn(changeBtn, Color.FromArgb(60, 26, 110)); changeBtn.Text = "Changelog"; changeBtn.SetBounds(324, 12, 82, 28); changeBtn.Anchor = AnchorStyles.Top | AnchorStyles.Right; changeBtn.Click += (s, e) => { seenVer = Changelog.Latest; SaveSettings(); changeBtn.Text = "Changelog"; Changelog.Show(this); };
+        tip.SetToolTip(changeBtn, "See what changed in each version (nothing pops up by itself any more).");
         KeyPreview = true; KeyDown += (s, e) => { if (e.KeyCode == Keys.F1) { e.Handled = true; ShowHelp(null); } }; whatsBtn.Anchor = AnchorStyles.Top | AnchorStyles.Right; whatsBtn.Click += (s, e) =>
         {
             var m = Win.NewMenu();
@@ -271,11 +272,12 @@ partial class App : Form
         log.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
 
         bg.Controls.AddRange(new Control[] { links, fmt, sr, nameFmt, trimA, trimB, norm, playlist, openDone, animate,
-            mastBtn, vocalBtn, prevNormBtn, helpBtn, settingsBtn, phoneBtn, studioBtn, addMusicBtn, whatsBtn, outDir, browse, go, cancel, log });
+            mastBtn, vocalBtn, prevNormBtn, helpBtn, settingsBtn, changeBtn, phoneBtn, studioBtn, addMusicBtn, whatsBtn, outDir, browse, go, cancel, log });
 
         fmt.SelectedIndex = 0; sr.SelectedIndex = 0; nameFmt.SelectedIndex = 0;
         LoadSettings();
         ApplyPrefs();
+        if (seenVer != Changelog.Latest) changeBtn.Text = "Changelog *";   // a star shows there is something new to read
         // plugins load after the window is shown (see Shown)
         loading = false;
         HookAutoSave();

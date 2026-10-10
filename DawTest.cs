@@ -56,6 +56,22 @@ static class D
             string pj = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "rectest.ytmproj"); ProjectIO.Save(app.StudioEng, pj); var e4 = new StudioEngine(); ProjectIO.Load(e4, pj, s => { });
             Check("a project with a recording reopens with the recording", e4.Tracks.Count == 1 && e4.Tracks[0].Clip != null && Math.Abs(e4.Tracks[0].Clip.Length - fr) < 4000, e4.Tracks.Count == 1 && e4.Tracks[0].Clip != null ? e4.Tracks[0].Clip.Length + " frames" : "missing");
         }
+        // ---- clicking a track selects it (and shows its buttons) but never moves the needle; clicking off the tracks does ----
+        {
+            var bf2 = System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public;
+            var app2 = (App)Activator.CreateInstance(typeof(App), true); var l5 = new float[44100 * 30]; for (int i = 0; i < l5.Length; i++) l5[i] = (float)(0.3 * Math.Sin(i * 0.02)); var trk = StudioEngine.NewTrack("Song", "song", AudioClip.FromArrays(l5, (float[])l5.Clone(), "x")); app2.StudioEng.Tracks.Add(trk);
+            var sf2 = new StudioForm(app2); sf2.ClientSize = new System.Drawing.Size(1500, 700); sf2.Show(); sf2.Invalidate(); sf2.Update(); System.Windows.Forms.Application.DoEvents();
+            Action<string, int, int> mouse2 = (name, x, y) => typeof(StudioForm).GetMethod(name, bf2).Invoke(sf2, new object[] { new System.Windows.Forms.MouseEventArgs(System.Windows.Forms.MouseButtons.Left, 1, x, y, 0) });
+            Func<object> tools = () => typeof(StudioForm).GetField("toolsTrack", bf2).GetValue(sf2); app2.StudioEng.Seek(44100 * 3);
+            Check("before any click no track shows its buttons", tools() == null, "");
+            mouse2("OnMouseMove", 600, 250); mouse2("OnMouseDown", 600, 250); mouse2("OnMouseUp", 600, 250); sf2.Invalidate(); sf2.Update();
+            Check("clicking a clip does not move the needle", app2.StudioEng.Pos == 44100 * 3, "needle at " + (app2.StudioEng.Pos / 44100.0).ToString("0.00") + " s (was 3.00 s)");
+            Check("clicking a clip shows that track's buttons", tools() == trk, tools() == null ? "none" : "the clicked track");
+            mouse2("OnMouseMove", 700, 500); mouse2("OnMouseDown", 700, 500); mouse2("OnMouseUp", 700, 500);
+            Check("clicking the empty area below the tracks moves the needle there", Math.Abs(app2.StudioEng.Pos - 44100L * 3) > 44100, "needle at " + (app2.StudioEng.Pos / 44100.0).ToString("0.00") + " s");
+            Check("and hides the button row", tools() == null, "");
+            sf2.Dispose();
+        }
         // ---- piano roll: draw, resize, move and delete notes with the mouse ----
         {
             var eg = new StudioEngine(); var tr = StudioEngine.NewTrack("Keys", "inst", null); tr.Instrument = true; var sy = new SynthFx(); sy.Prepare(44100); sy.Owner = tr; tr.Fx.Add(sy); eg.Tracks.Add(tr);

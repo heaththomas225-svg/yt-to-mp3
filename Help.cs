@@ -277,17 +277,17 @@ Open + Add Effect on a track and pick it under PLUGINS (it is listed first). Pre
 
         new HelpTopic("daw", "Music Studio", "Edit like a DAW: split, trim, move, duplicate, undo, tempo grid", false, @"
 ## Cut a track in two (split)
-1. Click on the track to put the needle where you want the cut.
+1. Put the needle where you want the cut by clicking the ruler (the numbers above the tracks) or the empty area below the tracks. Clicking a track itself never moves the needle.
 2. Press SPLIT (or the key B). The track becomes two pieces. Each piece is its own track, so you can move it, mute it or put different effects on it.
 ## Shorten a track (trim)
 - Drag the left or right END of a clip to shorten it. The audio is never deleted, you can drag it back out.
 - Or put the needle inside the clip and press TRIM < (cuts the start off here) or TRIM > (cuts the end off here).
 ## Move a clip
-Drag the clip anywhere left or right (the cursor turns into a move cross). A plain click still just puts the needle there.
+Drag the clip anywhere left or right (the cursor turns into a move cross). A plain click just selects the clip: the needle stays where it is.
 ## Move a track up or down
 Drag the track name on the left up or down, or use the Up and Dn buttons on the selected track.
 ## More
-- The selected track has a row of buttons at its top right: Up, Dn (change the row), << and >> (move the clip one grid step), Split, <Trim, Trim>, Copy and Del. Point at any button, clip end or clip to see what it does.
+- Click a track to show a row of buttons at its top right (they hide again when you click the empty area): Up, Dn (change the row), << and >> (move the clip one grid step), Split, <Trim, Trim>, Copy and Del. Point at any button, clip end or clip to see what it does.
 - Right-click a track for split, trim, duplicate, rename and delete.
 - DUP copies the selected track, DEL deletes it (key Delete). UNDO / REDO (Ctrl+Z / Ctrl+Y) bring edits back.
 ## Tempo and grid
