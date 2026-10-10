@@ -17,7 +17,7 @@ static partial class PluginTables
         A(EQC, "Low-Pass Filter", "eq", "lp_on=1;lp_f=3500;lp_s=1", "Removes everything above a chosen frequency. 12 or 24 dB per octave.");
         A(EQC, "High-Pass Filter", "eq", "hp_on=1;hp_f=150;hp_s=1", "Removes everything below a chosen frequency (rumble, plosives, muddy lows).");
         A(EQC, "Notch Filter", "eq", "b2_t=3;b2_f=1000;b2_q=6;b2_g=0", "Cuts a very narrow frequency to remove a whistle, hum or ring. Set Freq with the band 3 handle.");
-        A(EQC, "Formant Filter", "vowel", "vowel=0;q=9;shape=1;rate=0.8;depth=2", "A talking filter that moves between the vowel sounds A E I O U: a voice-like wah for synths, bass and drums.");
+        A(EQC, "Formant Filter", "vowel", "vowel=2;q=9;shape=1;rate=0.8;depth=2", "A talking filter that moves between the vowel sounds A E I O U: a voice-like wah for synths, bass and drums.");
         A(EQC, "Tilt EQ", "tilt", "tilt=2;pivot=650", "One knob that makes a sound brighter or darker by tilting the whole spectrum around a pivot.");
         A(EQC, "Low Shelf EQ", "eq", "b0_f=120;b0_g=4;b0_q=0.7;b5_g=0", "Raises or lowers everything below a frequency.");
         A(EQC, "High Shelf EQ", "eq", "b5_f=9000;b5_g=4;b0_g=0", "Raises or lowers everything above a frequency: add air or take off harshness.");
