@@ -96,14 +96,14 @@ class BreathFx : Fx
 // lifts the high-pass filter for an instant when a "p" or "b" pops the microphone
 class PlosiveFx : Fx
 {
-    Biquad hp = new Biquad(); double fast, slow, x; int sub; double fc = 40;
+    Biquad hp = new Biquad(); double fast, slow, x; int sub; double fc = 40, pfc = -1;
     public PlosiveFx()
     {
         Type = "plosive"; Title = "Plosive Reducer"; Category = "Vocal Tools";
         AddP("amount", "Amount", 0, 100, 80, "%"); AddP("sens", "Sensitivity", 0, 100, 60, "%"); AddP("maxf", "Highest it cuts", 100, 400, 220, "Hz");
     }
     Biquad lp = new Biquad(); protected override void Update() { lp.Set(Biquad.LowPass, SR, 160, 0.7071, 0); }
-    public override void Reset() { base.Reset(); hp.Reset(); lp.Reset(); fast = slow = x = 0; fc = 40; }
+    public override void Reset() { base.Reset(); hp.Reset(); lp.Reset(); fast = slow = x = 0; fc = 40; pfc = -1; }
     public override void Process(float[] l, float[] r, int n)
     {
         CheckDirty(); double amount = Get("amount") / 100.0, thr = 3.2 - Get("sens") / 100.0 * 2.4, maxf = Get("maxf");
@@ -112,7 +112,7 @@ class PlosiveFx : Fx
         {
             double m = lp.TickL((l[i] + r[i]) * 0.5f); double a = Math.Abs(m); fast += (a - fast) * af; slow += (a - slow) * as_;
             double ratio = fast / (slow + 1e-5); double pop = ratio > thr && fast > 0.01 ? Math.Min(1, (ratio - thr) / thr) : 0; x = Math.Max(pop, x * rel);
-            if ((sub++ & 7) == 0) { fc = 30 + x * amount * (maxf - 30); hp.Set(Biquad.HighPass, SR, fc, 0.7071, 0); }
+            if ((sub++ & 7) == 0) { fc = 30 + x * amount * (maxf - 30); if (Math.Abs(fc - pfc) > 0.01) { pfc = fc; hp.Set(Biquad.HighPass, SR, fc, 0.7071, 0); } }
             if (x > 0.01) { l[i] = hp.TickL(l[i]); r[i] = hp.TickR(r[i]); } else { hp.TickL(l[i]); hp.TickR(r[i]); }
         }
     }
@@ -205,7 +205,7 @@ class DeclickFx : Fx
 // slices the sound on the beat and rearranges it: mutes, stutters, reverses and pitches slices at random but repeatably
 class ChopFx : SyncFx
 {
-    float[] bl, br; int len, w; int curIdx = int.MinValue; int action; int w0; double rate; int repN; double sliceLen; int tPos;
+    float[] bl, br; int len, w; int curIdx = int.MinValue; int action; int w0; double rate; int repN; double sliceLen; int tPos; float mg = 1f;
     public ChopFx()
     {
         Type = "chop"; Title = "Vocal Chopper"; Category = "Vocal Tools";
@@ -213,7 +213,7 @@ class ChopFx : SyncFx
         AddP("rep", "Stutter repeats", 2, 12, 4, ""); AddP("seed", "Pattern number", 0, 99, 1, ""); AddP("fade", "Edge fade", 0.2f, 10, 1.5f, "ms"); AddP("mix", "Mix", 0, 100, 100, "%");
     }
     protected override void Update() { len = SR * 4; if (bl == null || bl.Length != len) { bl = new float[len]; br = new float[len]; w = 0; } }
-    public override void Reset() { base.Reset(); if (bl != null) { Array.Clear(bl, 0, len); Array.Clear(br, 0, len); } curIdx = int.MinValue; }
+    public override void Reset() { base.Reset(); if (bl != null) { Array.Clear(bl, 0, len); Array.Clear(br, 0, len); } curIdx = int.MinValue; mg = 1f; }
     static readonly double[] Jumps = { 12, -12, 7, -5, 5, -7, 3, -3 };
     public override void Process(float[] l, float[] r, int n)
     {
@@ -233,11 +233,12 @@ class ChopFx : SyncFx
             if (action != 0)
             {
                 float gain = Math.Min(1f, Math.Min(t / (float)fade, (S - t) / (float)fade)); if (gain < 0) gain = 0;
-                if (action == 1) { oL = 0; oR = 0; }
-                else if (action == 2) { int R = Math.Max(64, S / repN); int p = (w0 + (t % R)) % len; oL = bl[p] * gain; oR = br[p] * gain; if (t < R) { oL = inL; oR = inR; } }
-                else if (action == 3) { int p = ((w0 - 1 - t) % len + len) % len; oL = bl[p] * gain; oR = br[p] * gain; }
-                else { double p = w0 - S + t * rate; oL = Dsp2.Hermite(bl, len, p) * gain; oR = Dsp2.Hermite(br, len, p) * gain; }
+                if (action == 1) { oL = inL; oR = inR; }
+                else if (action == 2) { int R = Math.Max(64, S / repN); int p = (w0 + (t % R)) % len; oL = inL * (1 - gain) + bl[p] * gain; oR = inR * (1 - gain) + br[p] * gain; if (t < R) { oL = inL; oR = inR; } }
+                else if (action == 3) { int p = ((w0 - 1 - t) % len + len) % len; oL = inL * (1 - gain) + bl[p] * gain; oR = inR * (1 - gain) + br[p] * gain; }
+                else { double p = w0 - S + t * rate; oL = inL * (1 - gain) + Dsp2.Hermite(bl, len, p) * gain; oR = inR * (1 - gain) + Dsp2.Hermite(br, len, p) * gain; }
             }
+            { float tg = action == 1 ? 0f : 1f, stp = 1f / fade; mg += Math.Max(-stp, Math.Min(stp, tg - mg)); oL *= mg; oR *= mg; }
             w = (w + 1) % len; l[i] = (float)(inL + (oL - inL) * mix); r[i] = (float)(inR + (oR - inR) * mix);
         }
         EndBlock(n);
