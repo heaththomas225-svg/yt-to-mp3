@@ -42,6 +42,7 @@ partial class StudioForm
                 I("Trim start here", () => { CloseMenu(); TrimStartHere(Selected); }); I("Trim end here", () => { CloseMenu(); TrimEndHere(Selected); }); I("Duplicate track", () => { CloseMenu(); DuplicateTrack(Selected); }); I("Delete track", () => { CloseMenu(); DeleteTrackQuiet(Selected); });
                 break;
             case 2:
+                I("Purphex Sounds (sample browser)", () => { CloseMenu(); OpenSounds(); }); I("Sound packs (install)", () => { CloseMenu(); OpenSounds(); packsOpen = true; packScroll = 0; });
                 I("Auto Mix", () => { CloseMenu(); AutoMixClick(); }); I("Split vocals + beat", () => { CloseMenu(); SeparateClick(); }); I("Detect BPM", () => { CloseMenu(); DetectBpmClick(); });
                 I("Metronome on / off", () => { CloseMenu(); eng.Metronome = !eng.Metronome; }); I("Mastering", () => GoTab(1)); I("Add an instrument...", () => { CloseMenu(); AddInstrumentClick(); }); I("Add a track...", () => { CloseMenu(); ShowAddTrackMenuMain(); });
                 break;

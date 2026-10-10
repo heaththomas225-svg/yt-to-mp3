@@ -1,4 +1,4 @@
-3.14.2
+3.15.0
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Safer for antivirus programs (version info, checksums, SECURITY.md); windows no longer get stuck behind each other
-sha256=acf3b232ee04c298a3a3f6a307c23a47aa820fa54bcc7ecf53245503c06b7140
+Purphex Sounds: sample browser, instant preview, drag onto the timeline, pack manager with about 100 synthesised packs, collections and favourites.
+sha256=57485b35974cf67a4a8c726ae2b8e8844a9917b3ced55bc62e2d02e9258fc66e

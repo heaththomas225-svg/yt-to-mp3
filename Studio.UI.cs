@@ -96,7 +96,7 @@ partial class StudioForm : Form
         timer.Interval = 16; timer.Tick += (s, e) => { if (moving) return; Tick(); if (NeedsFrame()) { t += 0.033f; Invalidate(); } }; timer.Start();
         InstrumentFx.Recorder = OnMidiNote;
         MinimumSize = new Size(1240, 640);
-        FormClosed += (s, e) => { DisposeRetired(); };
+        FormClosed += (s, e) => { DisposeRetired(); Auditioner.Shutdown(); };
         FormClosed += (s, e) => { timer.Stop(); eng.Pause(); };
         DragEnter += (s, e) => { if (e.Data.GetDataPresent(DataFormats.FileDrop)) { e.Effect = DragDropEffects.Copy; dragOver = true; Invalidate(); } };
         DragOver += (s, e) => { if (e.Data.GetDataPresent(DataFormats.FileDrop)) { e.Effect = DragDropEffects.Copy; if (!dragOver) { dragOver = true; Invalidate(); } } };
@@ -148,7 +148,7 @@ partial class StudioForm : Form
 
     void Tick()
     {
-        UpdatePlayhead();
+        UpdatePlayhead(); Auditioner.Tick();
         if (mic != null && !eng.Playing) StopMic();
         { string tt = "Purphex Music  -  " + projName; if (Text != tt) Text = tt; }
         if (eng.Playing)
@@ -172,7 +172,8 @@ partial class StudioForm : Form
     bool NeedsFrame0() { return eng.Playing || (DateTime.Now - lastInput).TotalMilliseconds < 1500; }
 
     // ---------------- geometry ----------------
-    const int ToolH = 70, TransH = 86, HeadW = 250, PanelW = 380, RulerH = 28;
+    const int ToolH = 70, TransH = 86, HeadW = 250, RulerH = 28;
+    int PanelW { get { return soundsOpen && tab == 0 ? 640 : 380; } }   // the right-hand panel is wider while the sound browser is open
     int LaneH = 104;   // track height: Alt + mouse wheel makes the tracks taller so the waveform shows more detail
     RectangleF TimelineRect() { return new RectangleF(HeadW, ToolH + TransH + RulerH, Math.Max(100, ClientSize.Width - HeadW - PanelW), Math.Max(100, ClientSize.Height - ToolH - TransH - RulerH - 6)); }
 
@@ -290,6 +291,8 @@ partial class StudioForm : Form
         if (tab != 2) SyncLyricUi(false);
         PaintToolbar(g); PaintTransport(g);
         if (browserOpen) PaintBrowser(g);
+        PaintSoundDrag(g); PaintPackManager(g);
+        if (soundBox != null && soundBox.Visible && !(soundsOpen && tab == 0)) soundBox.Visible = false;
         PaintMenu(g);
         PaintBubble(g);
         if (hintNow.Length > 0 && !busy) { var hr = Rc(ClientSize.Width / 2 - 340, ClientSize.Height - 36, 680, 26); FillRR(g, Color.FromArgb(235, 30, 16, 58), hr, 8); StrokeRR(g, Edge, hr, 8, 1); Txt(g, hintNow, 13, Ink, hr, StringAlignment.Center, false); }
@@ -399,6 +402,7 @@ partial class StudioForm : Form
         Btn(g, Rc(x, y, 124, h), "+ INSTRUMENT", 1, () => AddInstrumentClick(), 12); x += 130;
         Btn(g, Rc(x, y, 70, h), recOn ? "* REC" : "REC", recOn ? 3 : 0, () => { recOn = !recOn; Toast(recOn ? "Recording is armed: press PLAY, then play notes on an instrument window." : "Recording off."); }, 13); x += 76;
         { bool rec = mic != null; double el = rec ? (DateTime.Now - micT0).TotalSeconds : 0; var mr = Rc(x, y, rec ? 128 : 60, h); Btn(g, mr, rec ? "* MIC  " + ((int)(el / 60)).ToString("00") + ":" + ((int)(el % 60)).ToString("00") : "MIC", rec ? 3 : 0, () => MicClick(), 13); if (rec) HBar(g, Rc(mr.X + 6, mr.Bottom - 7, mr.Width - 12, 5), mic.Level); x += mr.Width + 6; }
+        Btn(g, Rc(x, y, 92, h), "SOUNDS", soundsOpen ? 4 : 0, () => { if (soundsOpen) CloseSounds(); else OpenSounds(); }, 12); x += 98;
 
         // tabs on the right; master meters in whatever room is left between
         float tx = W - 328;
@@ -488,7 +492,7 @@ partial class StudioForm : Form
             else vscroll = Math.Max(0, Math.Min(Math.Max(0, n * LaneH - (ClientSize.Height - top - RulerH - 66)), vscroll - d * 40));
         };
         regs.Insert(0, wr);
-        PaintPluginPanel(g);
+        if (soundsOpen) PaintSoundsPanel(g); else PaintPluginPanel(g);
     }
 
     void PaintRuler(Graphics g, RectangleF r)
@@ -802,7 +806,7 @@ partial class StudioForm : Form
         if (r.OnDown != null) r.OnDown();
         if (r.OnDrag != null) dragReg = r;
     }
-    protected override void OnMouseUp(MouseEventArgs e) { base.OnMouseUp(e); lastInput = DateTime.Now; dragReg = null; zoomAnchor = 0; if (panning) { panning = false; Cursor = Cursors.Default; } }
+    protected override void OnMouseUp(MouseEventArgs e) { base.OnMouseUp(e); lastInput = DateTime.Now; dragReg = null; zoomAnchor = 0; if (sndDrag != null) { if (sndDragging) DropSampleAt(e.Location); sndDrag = null; sndDragging = false; } if (panning) { panning = false; Cursor = Cursors.Default; } }
     protected override void OnMouseWheel(MouseEventArgs e)
     {
         base.OnMouseWheel(e); MousePos = e.Location; lastInput = DateTime.Now; for (int i = regs.Count - 1; i >= 0; i--) if (regs[i].R.Contains(e.Location) && regs[i].OnWheel != null) { regs[i].OnWheel(e.Delta > 0 ? 1 : -1); return; }

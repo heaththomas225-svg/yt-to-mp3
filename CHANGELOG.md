@@ -2,6 +2,12 @@
 
 What changed in each version of **Purphex**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.15.0  Purphex Sounds: sample browser and sound packs
+
+- New SOUNDS button: search and filter sounds (genre, style, type, key, BPM with half/double time), favourites, recents, collections.
+- Instant preview with waveform seek, loop, autoplay and volume. Drag onto the timeline or double-click to add; MIDI fills instrument tracks; presets go to Bass Lab.
+- Pack manager installs ~100 procedurally synthesised packs on your PC (no recordings, licence per pack). Import your own samples or a pack zip. 22 Toolkit sets.
+
 ## 3.2.0  Purphex: Bass Lab and DAW tools
 
 - Renamed Purphex (studio = Purphex Music).
