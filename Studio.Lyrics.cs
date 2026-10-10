@@ -27,12 +27,13 @@ partial class StudioForm
 {
     TextBox lyricBox, lyricTitle; System.Windows.Forms.Timer lyricSave; bool lyricUi; Size lyricLayout;
 
+    bool lyricStatsDirty = true; int statLines, statWords, statSyl;
     void EnsureLyricUi()
     {
         if (lyricUi) return; lyricUi = true;
         Func<bool, float, TextBox> mk = (multi, size) => { var t = new TextBox { Multiline = multi, Visible = false, BorderStyle = BorderStyle.FixedSingle, BackColor = Color.FromArgb(10, 5, 22), ForeColor = Ink, Font = new Font("Segoe UI", size), AcceptsReturn = multi, ScrollBars = multi ? ScrollBars.Vertical : ScrollBars.None }; Controls.Add(t); Win.DarkControl(t); return t; };
         lyricBox = mk(true, 15f); lyricBox.AcceptsTab = false; lyricTitle = mk(false, 13f);
-        lyricBox.TextChanged += (s, e) => { ProjectIO.Lyrics = lyricBox.Text; lyricSave.Stop(); lyricSave.Start(); };
+        lyricBox.TextChanged += (s, e) => { lyricStatsDirty = true; ProjectIO.Lyrics = lyricBox.Text; lyricSave.Stop(); lyricSave.Start(); };
         lyricTitle.TextChanged += (s, e) => { ProjectIO.LyricsTitle = lyricTitle.Text; lyricSave.Stop(); lyricSave.Start(); };
         lyricBox.KeyUp += (s, e) => Invalidate(); lyricBox.MouseUp += (s, e) => Invalidate();
         lyricSave = new System.Windows.Forms.Timer { Interval = 900 }; lyricSave.Tick += (s, e) => { lyricSave.Stop(); try { Directory.CreateDirectory(StudioEnv.DataDir); File.WriteAllText(Path.Combine(StudioEnv.DataDir, "lyrics-draft.txt"), ProjectIO.LyricsTitle + "\n" + ProjectIO.Lyrics, Encoding.UTF8); } catch { } };
@@ -45,7 +46,7 @@ partial class StudioForm
         if (!lyricUi) { if (!show) return; EnsureLyricUi(); }
         foreach (var c in new Control[] { lyricBox, lyricTitle }) if (c.Visible != show) c.Visible = show;
         if (!show) return;
-        string lyr = LyricsTools.ToBoxText(ProjectIO.Lyrics); if (lyricBox.Text != lyr && !lyricBox.Focused) lyricBox.Text = lyr;
+        if (!lyricBox.Focused) { string lyr = LyricsTools.ToBoxText(ProjectIO.Lyrics); if (lyricBox.Text != lyr) lyricBox.Text = lyr; }
         if (lyricTitle.Text != ProjectIO.LyricsTitle && !lyricTitle.Focused) lyricTitle.Text = ProjectIO.LyricsTitle;
         var sz = ClientSize; if (sz == lyricLayout) return; lyricLayout = sz;
         float top = ToolH + TransH, w = Math.Min(1100, sz.Width - 64), x = (sz.Width - w) / 2;
@@ -70,7 +71,7 @@ partial class StudioForm
         foreach (var s0 in sec) { string s1 = s0; float bw = s0.Length > 6 ? 96 : 66; Btn(g, Rc(sx, sy, bw, 28), s0, 0, () => { InsertAtCaret("[" + s1 + "]\r\n", true); }, 11); sx += bw + 6; }
         string txt = lyricBox != null ? lyricBox.Text : ""; int lines = 0; foreach (var l in txt.Split('\n')) if (l.Trim().Length > 0) lines++; int syl = LyricsTools.LineSyllables(txt);
         string cur = lyricBox != null ? CaretLine() : ""; int ci = lyricBox != null ? CaretLineIndex() + 1 : 0;
-        Txt(g, lines + " lines   " + LyricsTools.Words(txt) + " words   " + syl + " syllables      Line " + ci + ": " + LyricsTools.LineSyllables(cur) + " syllables", 12, DimC, Rc(x, H - 52, w * 0.6f, 20), StringAlignment.Near, false);
+        Txt(g, statLines + " lines   " + statWords + " words   " + statSyl + " syllables      Line " + ci + ": " + LyricsTools.LineSyllables(cur) + " syllables", 12, DimC, Rc(x, H - 52, w * 0.6f, 20), StringAlignment.Near, false);
         Txt(g, "Saved with your project, and as a draft on this PC.", 11, DimC, Rc(x, H - 32, w * 0.6f, 18), StringAlignment.Near, false);
         float bx = x + w - 3 * 84 + 6; Btn(g, Rc(bx, H - 54, 78, 30), "Copy", 0, () => { try { Clipboard.SetText(lyricBox.Text); Toast("Lyrics copied."); } catch { } }, 12);
         Btn(g, Rc(bx + 84, H - 54, 78, 30), "Save .txt", 0, () => { using (var d = new SaveFileDialog { Filter = "Text|*.txt", FileName = (lyricTitle.Text.Length > 0 ? lyricTitle.Text : "lyrics") + ".txt" }) if (d.ShowDialog(this) == DialogResult.OK) { File.WriteAllText(d.FileName, lyricBox.Text, Encoding.UTF8); Toast("Saved " + Path.GetFileName(d.FileName)); } }, 12);
