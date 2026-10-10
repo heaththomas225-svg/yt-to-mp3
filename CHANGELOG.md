@@ -2,6 +2,10 @@
 
 What changed in each version of **BandLab + YouTube to MP3**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.0.13  Search box
+
+- Add Effect search box shows it is active and has a clear button.
+
 ## 3.0.12  Smooth playback
 
 - Studio playback robust on slow computers; buffer grows automatically if sound breaks up.
