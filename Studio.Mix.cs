@@ -49,6 +49,7 @@ static class Presets
         { "widener", new[] { "Wide|width=140;bass=120", "Subtle|width=115;bass=120", "Mono-safe|width=100;bass=150" } },
         { "limiter", new[] { "Mastering -1 dB|ceil=-1;gain=3;rel=80", "Loud|ceil=-0.8;gain=7;rel=50", "Gentle|ceil=-1.5;gain=0;rel=120" } },
         { "duck", new[] { "Subtle 2 dB|amount=2", "Standard 4 dB|amount=4", "Heavy 7 dB|amount=7;band=0" } },
+        { "8d", new[] { "Classic 8D (10 s)|period=10;dir=0;width=100;depth=60;itd=80;room=15", "Slow orbit (20 s)|period=20;depth=70;room=20", "Fast spin (4 s)|period=4;depth=40;room=10", "Wide sweep (back and forth)|dir=2;period=12;width=100;depth=50", "Subtle width|period=16;width=40;depth=30;itd=50;room=10", "Hold: front|hold=1;angle=0", "Hold: right|hold=1;angle=90", "Hold: behind|hold=1;angle=180", "Hold: left|hold=1;angle=270" } },
         { "pitch", new[] {
             "Natural|speed=80;strength=70;natural=70", "Tight|speed=25;strength=100;natural=25",
             "Hard Auto-Tune|speed=0;strength=100;natural=0", "Subtle polish|speed=120;strength=40;natural=80" } },

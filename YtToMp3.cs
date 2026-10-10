@@ -21,7 +21,7 @@ class BgPanel : Panel
     }
 }
 
-class Leaf { public float X, Y, S, Rot, Spin, VY, Phase, Sway; public int A; public Color C; }
+class Leaf { public float X, Y, S, Rot, Spin, VY, Phase, Sway; public int A, CI; public Color C; }
 class Spore { public float X, Y, R, VY, Phase; }
 
 // Snapshot of the UI taken on the UI thread and handed to the worker thread.
@@ -30,12 +30,13 @@ class Job
     public string[] Items; public string Dir, TrimA, TrimB;
     public int Fmt, Sr, Name; public bool Playlist, Normalize, OpenDone;
     public MasterSettings Master;   // null when mastering is off
+    public string ExtraFilter = "";
 }
 
-class App : Form
+partial class App : Form
 {
     // ---- Auto-update settings ----
-    const string Version = "2.5.0";
+    const string Version = "3.0.0";
     // Plain-text manifest: line 1 = newest version, line 2 = direct exe download URL.
     const string UpdateManifestUrl = "https://raw.githubusercontent.com/heaththomas225-svg/yt-to-mp3/main/version.txt";
 
@@ -75,12 +76,12 @@ class App : Form
 
     BgPanel bg = new BgPanel();
     TextBox links = new TextBox(), outDir = new TextBox(), log = new TextBox(), trimA = new TextBox(), trimB = new TextBox();
-    ComboBox fmt = new ComboBox(), sr = new ComboBox(), nameFmt = new ComboBox();
-    CheckBox playlist = new CheckBox(), norm = new CheckBox(), openDone = new CheckBox(), animate = new CheckBox();
+    ComboBox fmt = new DarkCombo(), sr = new DarkCombo(), nameFmt = new DarkCombo();
+    CheckBox playlist = new DarkCheck(), norm = new DarkCheck(), openDone = new DarkCheck(), animate = new DarkCheck();
     Button go = new Button(), cancel = new Button(), browse = new Button();
     ToolTip tip = new ToolTip();
     List<KeyValuePair<Control, string>> lbls = new List<KeyValuePair<Control, string>>();
-    System.Windows.Forms.Timer timer = new System.Windows.Forms.Timer();
+    FrameLoop frameLoop; Stopwatch clock = Stopwatch.StartNew(); double lastClock, nextFpsAt = 1000; int fpsFrames, fpsShown;
     Random rnd = new Random();
     List<Leaf> leaves = new List<Leaf>();
     List<Spore> spores = new List<Spore>();
@@ -98,12 +99,20 @@ class App : Form
     internal string LastFile;
     internal int MZoomPct = 75;
     MasterForm mf;
-    Button mastBtn = new Button(), vocalBtn = new Button(), phoneBtn = new Button();
+    Button mastBtn = new Button(), vocalBtn = new Button(), phoneBtn = new Button(), whatsBtn = new Button(), prevNormBtn = new Button(); string seenVer = ""; internal string ExtraFilter = "";
     PhoneServer phone;
+    internal StudioEngine StudioEng = new StudioEngine();
+    StudioForm studioForm; Button studioBtn = new Button(), addMusicBtn = new Button();
+
+    void OpenStudio()
+    {
+        if (studioForm == null || studioForm.IsDisposed) { studioForm = new StudioForm(this); studioForm.Show(this); }
+        else { studioForm.Activate(); if (studioForm.WindowState == FormWindowState.Minimized) studioForm.WindowState = FormWindowState.Normal; }
+    }
 
     static readonly Color Ink = Color.FromArgb(235, 225, 255);
-    static readonly Color Field = Color.FromArgb(30, 12, 56);
-    static readonly Color Pill = Color.FromArgb(40, 16, 72);
+    static readonly Color Field = Color.FromArgb(8, 4, 16);
+    static readonly Color Pill = Color.FromArgb(14, 7, 28);
 
     [STAThread]
     static void Main()
@@ -121,8 +130,12 @@ class App : Form
         MinimumSize = new Size(560, 640);
         StudioEnv.Ffmpeg = FfmpegExe; StudioEnv.Ffprobe = FfprobeExe;
         Font = new Font("Segoe UI", 9.5f);
-        Shown += (s, e) => new Thread(UpdateLoop) { IsBackground = true }.Start();
-        FormClosing += (s, e) => { SaveSettings(); KillCurrent(); if (phone != null) phone.Stop(); };
+        Shown += (s, e) =>
+        {
+            new Thread(UpdateLoop) { IsBackground = true }.Start();
+            if (seenVer != Changelog.Latest) BeginInvoke(new Action(() => { seenVer = Changelog.Latest; SaveSettings(); Changelog.Show(this); }));
+        };
+        FormClosing += (s, e) => { SaveSettings(); KillCurrent(); if (phone != null) phone.Stop(); StudioEng.Shutdown(); Separator.KillWorker(); layerRun = false; frameLoop.Dispose(); };
 
         bg.Dock = DockStyle.Fill;
         bg.Paint += PaintBg;
@@ -148,7 +161,11 @@ class App : Form
         // trim + processing
         StyleBox(trimA); trimA.SetBounds(16, 240, 100, 26); Lbl(trimA, "Trim start  (m:ss)");
         StyleBox(trimB); trimB.SetBounds(126, 240, 100, 26); Lbl(trimB, "Trim end  (m:ss)");
-        StyleChk(norm, "Normalize loudness (-14 LUFS)", 240, 240, 220);
+        StyleChk(norm, "Normalize loudness", 240, 240, 172);
+        tip.SetToolTip(norm, "Brings every download to a standard -14 LUFS loudness (streaming level).");
+        StyleBtn(prevNormBtn, Color.FromArgb(60, 26, 110)); prevNormBtn.Text = "Hear"; prevNormBtn.SetBounds(416, 240, 50, 26);
+        tip.SetToolTip(prevNormBtn, "Listen to a 30 second sample, original vs normalized, before you convert.");
+        prevNormBtn.Click += (s, e) => PreviewNormalize();
         StyleChk(playlist, "Whole playlists", 470, 240, 154);
         tip.SetToolTip(playlist, "If a link points at a playlist, convert every video in it.");
 
@@ -167,11 +184,32 @@ class App : Form
 
         // output folder
         StyleBtn(vocalBtn, Color.FromArgb(90, 36, 160)); vocalBtn.Text = "Vocal remover...";
-        vocalBtn.SetBounds(16, 312, 200, 30);
+        vocalBtn.SetBounds(16, 312, 150, 30);
         tip.SetToolTip(vocalBtn, "Pick a song and get an instrumental (no vocals) plus a vocals-only file, made by an AI model.");
-        vocalBtn.Click += (s, e) => RemoveVocals();
+        vocalBtn.Click += (s, e) =>
+        {
+            var m = Win.NewMenu();
+            m.Items.Add("Remove vocals from a song...").Click += (a, b) => RemoveVocals();
+            m.Items.Add("Preview: hear a 30 second sample first...").Click += (a, b) => PreviewVocals();
+            m.Show(vocalBtn, new Point(0, vocalBtn.Height));
+        };
         StyleBtn(phoneBtn, Color.FromArgb(90, 36, 160)); phoneBtn.Text = "Phone mode: OFF";
-        phoneBtn.SetBounds(224, 312, 200, 30);
+        phoneBtn.SetBounds(172, 312, 150, 30);
+        StyleBtn(whatsBtn, Color.FromArgb(60, 26, 110)); whatsBtn.Text = "Menu"; whatsBtn.SetBounds(504, 12, 120, 28); whatsBtn.Anchor = AnchorStyles.Top | AnchorStyles.Right; whatsBtn.Click += (s, e) =>
+        {
+            var m = Win.NewMenu();
+            m.Items.Add("What's new").Click += (a, b) => Changelog.Show(this);
+            m.Items.Add("Plugins and extensions...").Click += (a, b) => { new PluginManagerForm(() => ExtraFilter, v => { ExtraFilter = v; SaveSettings(); }).ShowDialog(this); };
+            m.Items.Add("Open data folder").Click += (a, b) => { try { Directory.CreateDirectory(AppData); Process.Start("explorer.exe", "\"" + AppData + "\""); } catch { } };
+            m.Show(whatsBtn, new Point(0, whatsBtn.Height));
+        };
+        StyleBtn(studioBtn, Color.FromArgb(90, 36, 160)); studioBtn.Text = "Music Studio"; studioBtn.SetBounds(328, 312, 140, 30);
+        tip.SetToolTip(studioBtn, "Open the Logic-style studio: tracks, mixing, Auto-Tune, EQ, effects, mastering and export.");
+        studioBtn.Click += (s, e) => OpenStudio();
+        StyleBtn(addMusicBtn, Color.FromArgb(190, 60, 200)); addMusicBtn.Text = "ADD MUSIC"; addMusicBtn.Font = new Font("Segoe UI Semibold", 10.5f);
+        addMusicBtn.SetBounds(474, 312, 150, 30); addMusicBtn.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+        tip.SetToolTip(addMusicBtn, "Pick a song, vocal or beat from your PC and open it in the Music Studio.");
+        addMusicBtn.Click += (s, e) => { OpenStudio(); studioForm.AddMusicClick(); };
         tip.SetToolTip(phoneBtn, "Use this app from your phone (same Wi-Fi): open a web page, paste a link, download the file.");
         phoneBtn.Click += (s, e) => TogglePhone();
 
@@ -202,19 +240,18 @@ class App : Form
         log.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
 
         bg.Controls.AddRange(new Control[] { links, fmt, sr, nameFmt, trimA, trimB, norm, playlist, openDone, animate,
-            mastBtn, vocalBtn, phoneBtn, outDir, browse, go, cancel, log });
+            mastBtn, vocalBtn, prevNormBtn, phoneBtn, studioBtn, addMusicBtn, whatsBtn, outDir, browse, go, cancel, log });
 
         fmt.SelectedIndex = 0; sr.SelectedIndex = 0; nameFmt.SelectedIndex = 0;
         LoadSettings();
+        PluginHost.LoadEnabled();
         loading = false;
         HookAutoSave();
 
-        for (int i = 0; i < 16; i++) leaves.Add(NewLeaf(true));
-        for (int i = 0; i < 40; i++) spores.Add(NewSpore(true));
+        Repopulate(); bg.Resize += (s, e) => Repopulate();
+        Win.Dark(this); Win.DarkControl(links); Win.DarkControl(log); StyleTips();
 
-        timer.Interval = 33;
-        timer.Tick += (s, e) => Tick();
-        timer.Start();
+        StartLayerWorker(); frameLoop = new FrameLoop(this, Tick) { Slow = () => WindowState == FormWindowState.Minimized || (ActiveForm != this && ActiveForm != studioForm) };
     }
 
     // ---------- styling helpers ----------
@@ -266,7 +303,7 @@ class App : Form
                 "dir=" + outDir.Text, "norm=" + norm.Checked, "playlist=" + playlist.Checked,
                 "open=" + openDone.Checked, "anim=" + animate.Checked,
                 "x=" + b.X, "y=" + b.Y, "w=" + b.Width, "h=" + b.Height,
-                "max=" + (WindowState == FormWindowState.Maximized),
+                "max=" + (WindowState == FormWindowState.Maximized), "seen=" + seenVer, "ffilter=" + ExtraFilter,
                 "master=" + Master.Serialize(), "mzoom=" + MZoomPct });
         }
         catch { }
@@ -309,6 +346,8 @@ class App : Form
                 else if (k == "h" && int.TryParse(v, out n)) wh = n;
                 else if (k == "max" && bool.TryParse(v, out b)) wmax = b;
                 else if (k == "master") Master.Parse(v);
+                else if (k == "seen") seenVer = v;
+                else if (k == "ffilter") ExtraFilter = v;
                 else if (k == "mzoom" && int.TryParse(v, out n) && n >= 40 && n <= 100) MZoomPct = n;
             }
             // Restore the window only if it still lands on a connected screen.
@@ -328,182 +367,72 @@ class App : Form
     }
 
     // ---------- animation ----------
-    Leaf NewLeaf(bool anywhere)
-    {
-        Color[] pal = {
-            Color.FromArgb(170, 90, 255), Color.FromArgb(140, 60, 230),
-            Color.FromArgb(195, 125, 255), Color.FromArgb(120, 50, 200) };
-        var l = new Leaf();
-        l.S = 0.25f + (float)rnd.NextDouble() * 0.65f;
-        l.X = (float)rnd.NextDouble() * Math.Max(ClientSize.Width, 640);
-        l.Y = anywhere ? (float)rnd.NextDouble() * Math.Max(ClientSize.Height, 650) : -120 * l.S - 20;
-        l.Rot = (float)rnd.NextDouble() * 360;
-        l.Spin = ((float)rnd.NextDouble() - 0.5f) * 1.2f;
-        l.VY = 0.3f + l.S * 0.9f;
-        l.Phase = (float)rnd.NextDouble() * 6.28f;
-        l.Sway = 0.3f + (float)rnd.NextDouble() * 0.6f;
-        l.A = 30 + (int)(l.S * 70);
-        l.C = pal[rnd.Next(pal.Length)];
-        return l;
-    }
-
-    Spore NewSpore(bool anywhere)
-    {
-        var s = new Spore();
-        s.X = (float)rnd.NextDouble() * Math.Max(ClientSize.Width, 640);
-        s.Y = anywhere ? (float)rnd.NextDouble() * Math.Max(ClientSize.Height, 650) : ClientSize.Height + 5;
-        s.R = 1f + (float)rnd.NextDouble() * 2.5f;
-        s.VY = 0.2f + (float)rnd.NextDouble() * 0.7f;
-        s.Phase = (float)rnd.NextDouble() * 6.28f;
-        return s;
-    }
-
     void Tick()
     {
-        t += 0.033f;
+        double now = clock.Elapsed.TotalMilliseconds; float dt = (float)Math.Min(0.05, Math.Max(0.0005, (now - lastClock) / 1000.0)); lastClock = now;
+        t += dt; float k30 = dt * 30f;   // the motion constants below were tuned per 1/30 s
         if (animate.Checked)
         {
             foreach (var l in leaves)
             {
-                l.Y += l.VY;
-                l.X += (float)Math.Sin(t * 0.8f + l.Phase) * l.Sway;
-                l.Rot += l.Spin;
-                if (l.Y > ClientSize.Height + 120) { var n = NewLeaf(false); l.X = n.X; l.Y = n.Y; l.S = n.S; l.VY = n.VY; l.A = n.A; l.C = n.C; }
+                l.Y += l.VY * k30;
+                l.X += (float)Math.Sin(t * 0.8f + l.Phase) * l.Sway * k30;
+                l.Rot += l.Spin * k30;
+                if (l.Y > bg.Height + 120) { var n = NewLeaf(false); l.X = n.X; l.Y = n.Y; l.S = n.S; l.VY = n.VY; l.A = n.A; l.C = n.C; l.CI = n.CI; }
             }
             foreach (var s in spores)
             {
-                s.Y -= s.VY;
-                s.X += (float)Math.Sin(t + s.Phase) * 0.4f;
+                s.Y -= s.VY * k30;
+                s.X += (float)Math.Sin(t + s.Phase) * 0.4f * k30;
                 if (s.Y < -5) { var n = NewSpore(false); s.X = n.X; s.Y = n.Y; }
             }
         }
-        shownPct += (targetPct - shownPct) * 0.15f;
-        mastBtn.Text = Master.On ? "Mastering: ON" : "Mastering: OFF";
-
-        float k = (float)(Math.Sin(t * 2.5f) * 0.5 + 0.5);
-        go.BackColor = busy ? Color.FromArgb(70, 30, 120)
-            : Color.FromArgb((int)(105 + 70 * k), (int)(35 + 30 * k), (int)(195 + 45 * k));
-        bg.Invalidate();
+        shownPct += (targetPct - shownPct) * (1f - (float)Math.Pow(0.85, k30));
+        string mt = Master.On ? "Mastering: ON" : "Mastering: OFF"; if (mastBtn.Text != mt) mastBtn.Text = mt;
+        // pulse the Convert button, but only repaint the real control when the colour visibly changes
+        float k = (float)(Math.Sin(t * 2.5f) * 0.5 + 0.5); k = (float)Math.Round(k * 12) / 12f;
+        Color gc = busy ? Color.FromArgb(70, 30, 120) : Color.FromArgb((int)(105 + 70 * k), (int)(35 + 30 * k), (int)(195 + 45 * k));
+        if (go.BackColor != gc) go.BackColor = gc;
+        bg.Invalidate(); bg.Update();
+        fpsFrames++;
+        if (now >= nextFpsAt) { fpsShown = (int)(fpsFrames * 1000.0 / (now - (nextFpsAt - 1000)) + 0.5); fpsFrames = 0; nextFpsAt = now + 1000; Text = "BandLab + YouTube to MP3 v" + Version + "    " + fpsShown + " fps"; }
+    }
+    // Leaf outline built once and reused (drawing is the hot path of the animation).
+    static readonly GraphicsPath[] LeafPaths = BuildLeafPaths();
+    static readonly float[] LeafAng = { 0, -38, 38, -72, 72, -104, 104 }, LeafLen = { 100, 88, 88, 66, 66, 42, 42 };
+    static GraphicsPath[] BuildLeafPaths()
+    {
+        float[] len = { 100, 88, 88, 66, 66, 42, 42 }, wid = { 17, 15, 15, 12, 12, 8, 8 }; var ps = new GraphicsPath[7];
+        for (int i = 0; i < 7; i++)
+        {
+            float L = len[i], w = wid[i]; var p = new GraphicsPath();
+            p.AddBezier(0, 0, -w, -L * 0.30f, -w * 0.7f, -L * 0.80f, 0, -L);
+            p.AddBezier(0, -L, w * 0.7f, -L * 0.80f, w, -L * 0.30f, 0, 0); ps[i] = p;
+        }
+        return ps;
     }
 
-    internal static void DrawLeaf(Graphics g, Leaf l)
+    internal static void DrawLeaf(Graphics g, Leaf l, bool glow = false)
     {
-        float[] ang = { 0, -38, 38, -72, 72, -104, 104 };
-        float[] len = { 100, 88, 88, 66, 66, 42, 42 };
-        float[] wid = { 17, 15, 15, 12, 12, 8, 8 };
         var st = g.Save();
-        g.TranslateTransform(l.X, l.Y);
-        g.RotateTransform(l.Rot);
-        g.ScaleTransform(l.S, l.S);
+        g.TranslateTransform(l.X, l.Y); g.RotateTransform(l.Rot); g.ScaleTransform(l.S, l.S);
         using (var fill = new SolidBrush(Color.FromArgb(l.A, l.C)))
         using (var edge = new Pen(Color.FromArgb(Math.Min(255, l.A + 60), 225, 190, 255), 1.5f / l.S))
         using (var rib = new Pen(Color.FromArgb(l.A, 235, 215, 255), 1f / l.S))
+        using (var gp = glow ? new Pen(Color.FromArgb(34, l.C), 9f / l.S) : null)
         {
             for (int i = 0; i < 7; i++)
             {
-                var s2 = g.Save();
-                g.RotateTransform(ang[i]);
-                float L = len[i], w = wid[i];
-                using (var p = new GraphicsPath())
-                {
-                    p.AddBezier(0, 0, -w, -L * 0.30f, -w * 0.7f, -L * 0.80f, 0, -L);
-                    p.AddBezier(0, -L, w * 0.7f, -L * 0.80f, w, -L * 0.30f, 0, 0);
-                    g.FillPath(fill, p);
-                    g.DrawPath(edge, p);
-                }
-                g.DrawLine(rib, 0, 0, 0, -L * 0.9f);
+                var s2 = g.Save(); g.RotateTransform(LeafAng[i]);
+                if (glow) g.DrawPath(gp, LeafPaths[i]);
+                g.FillPath(fill, LeafPaths[i]); g.DrawPath(edge, LeafPaths[i]);
+                g.DrawLine(rib, 0, 0, 0, -LeafLen[i] * 0.9f);
                 g.Restore(s2);
             }
             g.DrawLine(edge, 0, 0, 0, 45);
         }
         g.Restore(st);
     }
-
-    void PaintBg(object sender, PaintEventArgs e)
-    {
-        var g = e.Graphics;
-        g.SmoothingMode = SmoothingMode.AntiAlias;
-        var r = bg.ClientRectangle;
-        if (r.Width < 10 || r.Height < 10) return;
-        bool anim = animate.Checked;
-
-        using (var br = new LinearGradientBrush(r, Color.FromArgb(14, 5, 30), Color.FromArgb(48, 12, 86), 70f))
-            g.FillRectangle(br, r);
-
-        if (anim)
-        {
-            for (int i = 0; i < 2; i++)
-            {
-                float cx = r.Width * (0.3f + 0.4f * i) + (float)Math.Sin(t * 0.4f + i * 2) * 60;
-                float cy = r.Height * (0.35f + 0.3f * i) + (float)Math.Cos(t * 0.3f + i) * 50;
-                float rad = 190 + (float)Math.Sin(t * 0.9f + i) * 25;
-                using (var gp = new GraphicsPath())
-                {
-                    gp.AddEllipse(cx - rad, cy - rad, rad * 2, rad * 2);
-                    using (var pg = new PathGradientBrush(gp))
-                    {
-                        pg.CenterColor = Color.FromArgb(70, 150, 60, 240);
-                        pg.SurroundColors = new[] { Color.FromArgb(0, 150, 60, 240) };
-                        g.FillPath(pg, gp);
-                    }
-                }
-            }
-            leaves.Sort((a, b) => a.S.CompareTo(b.S));
-            foreach (var l in leaves) DrawLeaf(g, l);
-            foreach (var s in spores)
-            {
-                int a = (int)(60 + 90 * (Math.Sin(t * 2 + s.Phase) * 0.5 + 0.5));
-                using (var b = new SolidBrush(Color.FromArgb(a, 215, 170, 255)))
-                    g.FillEllipse(b, s.X, s.Y, s.R * 2, s.R * 2);
-            }
-        }
-
-        string title = "BandLab + YouTube → MP3";
-        using (var f = new Font("Segoe UI Black", 24f))
-        {
-            float glow = anim ? (float)(Math.Sin(t * 2) * 0.5 + 0.5) : 0.4f;
-            for (int i = 4; i >= 1; i--)
-                using (var b = new SolidBrush(Color.FromArgb((int)(18 + 22 * glow), 190, 100, 255)))
-                {
-                    g.DrawString(title, f, b, 16 - i, 10 - i);
-                    g.DrawString(title, f, b, 16 + i, 10 + i);
-                }
-            var sz = g.MeasureString(title, f);
-            using (var b = new LinearGradientBrush(new RectangleF(16, 10, sz.Width, sz.Height),
-                Color.FromArgb(240, 220, 255), Color.FromArgb(185, 110, 255), 0f))
-                g.DrawString(title, f, b, 16, 10);
-        }
-        using (var f = new Font("Segoe UI", 9f))
-        using (var b = new SolidBrush(Color.FromArgb(190, 200, 170, 255)))
-        {
-            g.DrawString("Paste BandLab (track, post, album) or YouTube links. Pick format, sample rate, trim, batch.", f, b, 18, 54);
-            foreach (var kv in lbls) g.DrawString(kv.Value, f, b, kv.Key.Left, kv.Key.Top - 18);
-        }
-
-        var bar = new Rectangle(16, 452, r.Width - 32, 16);
-        using (var tb = new SolidBrush(Color.FromArgb(150, 20, 8, 40)))
-            g.FillRectangle(tb, bar);
-        int fw = (int)(bar.Width * Math.Max(0, Math.Min(100, shownPct)) / 100f);
-        if (fw > 2)
-        {
-            var fr = new Rectangle(bar.X, bar.Y, fw, bar.Height);
-            using (var fb = new LinearGradientBrush(fr, Color.FromArgb(150, 60, 240), Color.FromArgb(235, 90, 230), 0f))
-                g.FillRectangle(fb, fr);
-            float sx = bar.X + ((t * 120) % (fw + 60)) - 30;
-            var old = g.Clip;
-            g.SetClip(fr);
-            using (var sb = new SolidBrush(Color.FromArgb(70, 255, 255, 255)))
-                g.FillRectangle(sb, sx, bar.Y, 22, bar.Height);
-            g.Clip = old;
-        }
-        using (var pn = new Pen(Color.FromArgb(160, 190, 120, 255)))
-            g.DrawRectangle(pn, bar);
-        if (status.Length > 0)
-            using (var f = new Font("Segoe UI", 8.5f))
-            using (var b = new SolidBrush(Color.FromArgb(220, 230, 210, 255)))
-                g.DrawString(status, f, b, 16, 470);
-    }
-
     // ---------- helpers ----------
     void Log(string s)
     {
@@ -645,7 +574,8 @@ class App : Form
             Items = items.ToArray(), Dir = outDir.Text.Trim(), TrimA = a, TrimB = b,
             Fmt = fmt.SelectedIndex, Sr = sr.SelectedIndex, Name = nameFmt.SelectedIndex,
             Playlist = playlist.Checked, Normalize = norm.Checked, OpenDone = openDone.Checked,
-            Master = Master.On ? Master.Clone() : null
+            Master = Master.On ? Master.Clone() : null,
+            ExtraFilter = ExtraFilter
         };
         SaveSettings();
         cancelReq = false;
@@ -724,7 +654,11 @@ class App : Form
             var ppa = new List<string>();
             if (SrArgs[job.Sr] != null) ppa.Add(SrArgs[job.Sr]);
             if (FmtCodec[job.Fmt] != null) ppa.Add(FmtCodec[job.Fmt]);
-            if (job.Normalize) ppa.Add("-af loudnorm=I=-14:TP=-1:LRA=11");
+            {
+                string af = (job.ExtraFilter ?? "").Replace("\"", "").Trim(); if (af.StartsWith("-")) af = "";
+                if (job.Normalize) af += (af.Length > 0 ? "," : "") + "loudnorm=I=-14:TP=-1:LRA=11";
+                if (af.Length > 0) { ppa.Add("-af " + af); if ((job.ExtraFilter ?? "").Length > 0) Log("Custom ffmpeg filter: " + job.ExtraFilter); }
+            }
 
             common = "-x --audio-format " + FmtExt[job.Fmt]
                 + (FmtQual[job.Fmt] != null ? " --audio-quality " + FmtQual[job.Fmt] : "")
@@ -813,6 +747,7 @@ class App : Form
     void RemoveVocals()
     {
         if (busy) return;
+        Separator.Warmup();   // load the AI model while the file dialog is open
         if (!Separator.Installed)
         {
             if (MessageBox.Show(this,
@@ -883,14 +818,8 @@ class App : Form
         var ps = new PhoneServer { Log = Log }; string err;
         if (!ps.Start(out err)) { MessageBox.Show(this, "Couldn't start phone mode: " + err + "\n\nAnother program may be using port 8765.", "Phone mode"); return; }
         phone = ps; phoneBtn.Text = "Phone mode: ON";
-        string url = ps.Url;
-        try { Clipboard.SetText(url); } catch { }
-        Log("Phone mode is ON. On your phone (same Wi-Fi) open:"); Log("  " + url);
-        MessageBox.Show(this,
-            "Phone mode is on. On your phone (connected to the same Wi-Fi), open this address in the browser:\n\n" + url +
-            "\n\n(It's been copied to your clipboard. The code at the end keeps other people on your Wi-Fi out.)\n\n" +
-            "If Windows asks about the firewall, choose Allow for Private networks. Keep this app open while you use it, and turn phone mode off when you're done.",
-            "Phone mode", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        Log("Phone mode is ON. On your phone (same Wi-Fi) open:"); Log("  " + ps.Url);
+        PhoneUi.Show(this, ps);
     }
 
     int RunProc(string exe, string args, bool progress)
@@ -979,27 +908,43 @@ class App : Form
         System.Version nv;
         if (!System.Version.TryParse(newVer, out nv) || nv <= new System.Version(Version)) return;
         if (newVer == dismissedVer) return;   // user said "Later" for this one
-        BeginInvoke(new Action(() => ShowUpdateCard(newVer, dl)));
+        var notes = new List<string>();
+        try
+        {
+            using (var wc = new WebClient())
+            {
+                string[] lines = wc.DownloadString(UpdateManifestUrl + "?t=" + DateTime.UtcNow.Ticks).Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+                if (lines.Length > 2 && lines[0].Trim() == newVer) for (int i = 2; i < lines.Length && notes.Count < 8; i++) notes.Add(lines[i].Trim());
+            }
+        }
+        catch { }
+        BeginInvoke(new Action(() => ShowUpdateCard(newVer, dl, notes)));
     }
 
     // In-app update popup (a card over the window instead of a separate message box).
-    void ShowUpdateCard(string newVer, string dl)
+    void ShowUpdateCard(string newVer, string dl, List<string> notes)
     {
         if (card != null) return;
-        card = new Panel { Size = new Size(380, 150), BackColor = Color.FromArgb(34, 12, 64), BorderStyle = BorderStyle.FixedSingle };
-        var title = MakeLabel("Update available", new Font("Segoe UI Semibold", 13f), Color.FromArgb(225, 190, 255), 16, 14, 348, 28);
-        var msg = MakeLabel("Version " + newVer + " is ready (you have " + Version + ").\nUpdate now? The app restarts automatically.", Font, Ink, 16, 50, 348, 40);
-        var yes = new Button(); StyleBtn(yes, Color.FromArgb(130, 45, 220)); yes.Text = "Update now"; yes.SetBounds(16, 100, 170, 34);
-        var no = new Button(); StyleBtn(no, Color.FromArgb(60, 26, 100)); no.Text = "Later"; no.SetBounds(194, 100, 170, 34);
+        int nh = notes.Count > 0 ? notes.Count * 20 + 30 : 0;
+        card = new Panel { Size = new Size(470, 160 + nh), BackColor = Color.FromArgb(14, 7, 28), BorderStyle = BorderStyle.FixedSingle };
+        var title = MakeLabel("Update available", new Font("Segoe UI Semibold", 14f), Color.FromArgb(225, 190, 255), 16, 14, 430, 28);
+        var msg = MakeLabel("Version " + newVer + " is ready (you have " + Version + ").\nUpdate now? The app restarts automatically.", Font, Ink, 16, 48, 430, 40);
+        var ctl = new List<Control> { title, msg };
+        if (notes.Count > 0)
+        {
+            ctl.Add(MakeLabel("What's new", new Font("Segoe UI Semibold", 10.5f), Color.FromArgb(236, 120, 230), 16, 94, 200, 22));
+            ctl.Add(MakeLabel(string.Join("\n", notes.ToArray()), new Font("Segoe UI", 9.5f), Ink, 16, 116, 438, notes.Count * 20 + 4));
+        }
+        var yes = new Button(); StyleBtn(yes, Color.FromArgb(130, 45, 220)); yes.Text = "Update now"; yes.SetBounds(16, 108 + nh, 205, 36);
+        var no = new Button(); StyleBtn(no, Color.FromArgb(60, 26, 100)); no.Text = "Later"; no.SetBounds(235, 108 + nh, 205, 36);
         yes.Click += (s, e) => { HideCard(); ApplyUpdate(dl); };
         no.Click += (s, e) => { dismissedVer = newVer; HideCard(); };
-        card.Controls.AddRange(new Control[] { title, msg, yes, no });
+        ctl.Add(yes); ctl.Add(no); card.Controls.AddRange(ctl.ToArray());
         bg.Controls.Add(card);
         CenterCard();
         card.BringToFront();
         Activate();
     }
-
     void HideCard()
     {
         if (card == null) return;

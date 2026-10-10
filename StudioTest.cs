@@ -202,6 +202,7 @@ static class T
 
         EngineTests();
         MixTests();
+        PluginTests();
 
         Console.WriteLine();
         Console.WriteLine("=== " + pass + " passed, " + fail + " failed ===");
@@ -290,6 +291,68 @@ static class T
         catch (Exception ex) { Console.WriteLine("SKIP  realtime device test: " + ex.Message); }
     }
 
+    static void PluginTests()
+    {
+        // ---- 8D audio tuner ----
+        {
+            int n = SR * 2; var fx = new Spatial8D(); fx.Set("hold", 1); fx.Set("angle", 90); fx.Set("room", 0); fx.Set("bass", 0); fx.Set("mix", 100);
+            var l = Sine(1000, 0.3, n); var r = Copy(l); Run(fx, l, r, 512);
+            double gl = RmsDb(l, SR / 2, n), gr = RmsDb(r, SR / 2, n);
+            Check("8D: a sound parked on the right is louder in the right ear", gr - gl > 6, "right " + gr.ToString("0.0") + " dB vs left " + gl.ToString("0.0") + " dB");
+            // the far (left) ear hears it later: cross-correlate
+            int best = 0; double bv = -1; for (int lag = 0; lag < 60; lag++) { double s = 0; for (int i = SR; i < SR + 4000; i++) s += l[i + lag] * r[i]; if (s > bv) { bv = s; best = lag; } }
+            Check("8D: the far ear is delayed (interaural time difference)", best >= 10 && best <= 40, "left lags right by " + best + " samples = " + (best * 1000.0 / SR).ToString("0.00") + " ms");
+            var f2 = new Spatial8D(); f2.Set("hold", 1); f2.Set("angle", 180); f2.Set("room", 0); f2.Set("bass", 0); var a = Sine(8000, 0.3, n); var b = Copy(a); Run(f2, a, b, 512);
+            var f3 = new Spatial8D(); f3.Set("hold", 1); f3.Set("angle", 0); f3.Set("room", 0); f3.Set("bass", 0); var c = Sine(8000, 0.3, n); var d = Copy(c); Run(f3, c, d, 512);
+            Check("8D: behind you is quieter and darker than in front", RmsDb(c, SR / 2, n) - RmsDb(a, SR / 2, n) > 5, "front " + RmsDb(c, SR / 2, n).ToString("0.0") + " dB, behind " + RmsDb(a, SR / 2, n).ToString("0.0") + " dB (8 kHz)");
+            // rotation: left/right balance must swing both ways over one 4 s turn
+            int m = SR * 8; var f4 = new Spatial8D(); f4.Set("period", 4); f4.Set("room", 0); f4.Set("bass", 0); var x = Sine(500, 0.3, m); var y = Copy(x); Run(f4, x, y, 512);
+            double maxd = -99, mind = 99; for (int w = 0; w < 14; w++) { int s0 = w * (SR / 2) + SR / 4; double dd = RmsDb(y, s0, s0 + SR / 10) - RmsDb(x, s0, s0 + SR / 10); if (dd > maxd) maxd = dd; if (dd < mind) mind = dd; }
+            Check("8D: rotation swings the sound between the ears", maxd > 4 && mind < -4, "right-minus-left ranges " + mind.ToString("0.0") + " .. " + maxd.ToString("0.0") + " dB");
+        }
+
+        // ---- plugin SDK: compile a real plugin, approve it, load it ----
+        {
+            string dir = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "ytm_plug_test"); if (System.IO.Directory.Exists(dir)) System.IO.Directory.Delete(dir, true);
+            string savedDir = StudioEnv.DataDir; StudioEnv.DataDir = dir;
+            try
+            {
+                string exe = typeof(Fx).Assembly.Location, sdk = PluginHost.WriteSdk(exe); string csc = Environment.GetEnvironmentVariable("WINDIR") + @"\Microsoft.NET\Framework64\v4.0.30319\csc.exe"; int code;
+                MasterDsp.RunCapture(csc, "/nologo /target:library /out:\"" + System.IO.Path.Combine(PluginHost.Dir, "SampleTremolo.dll") + "\" /r:\"" + exe + "\" \"" + System.IO.Path.Combine(sdk, "SamplePlugin.cs") + "\"", null, out code);
+                Check("plugin SDK: the generated sample plugin compiles", code == 0 && System.IO.File.Exists(System.IO.Path.Combine(PluginHost.Dir, "SampleTremolo.dll")), "exit " + code);
+                var list = PluginHost.Scan();
+                Check("plugins: found but NOT enabled until you approve", list.Count == 1 && !list[0].Enabled && FxRegistry.Create("sample_tremolo") == null, list.Count + " found, enabled=" + (list.Count > 0 && list[0].Enabled));
+                PluginHost.SetEnabled(list[0], true); var log = PluginHost.LoadEnabled();
+                var fx = FxRegistry.Create("sample_tremolo");
+                Check("plugins: an approved plugin loads and appears in the effect list", fx != null && Array.Exists(FxRegistry.All, i => i.Type == "sample_tremolo"), string.Join("; ", log.ToArray()));
+                if (fx != null)
+                {
+                    fx.Prepare(SR); fx.Set("rate", 5); fx.Set("depth", 100); int n = SR * 2; var l = Sine(440, 0.5, n); var r = Copy(l); Run(fx, l, r, 512);
+                    double lo = 99, hi = -99; for (int w = 0; w < 18; w++) { double v = RmsDb(l, SR / 2 + w * 441, SR / 2 + w * 441 + 441); lo = Math.Min(lo, v); hi = Math.Max(hi, v); }
+                    Check("plugins: the loaded plugin really processes audio (tremolo)", hi - lo > 12, "level swings " + (hi - lo).ToString("0.0") + " dB");
+                    // it survives a project round trip by type id
+                    var eng = new StudioEngine(); var tr = StudioEngine.NewTrack("T", "other", AudioClip.FromArrays(Sine(300, 0.3, SR), Sine(300, 0.3, SR), "t")); tr.Fx.Add(fx); eng.Tracks.Add(tr);
+                    string mix = ProjectIO.SerializeMix(eng); var e2 = new StudioEngine(); e2.Tracks.Add(StudioEngine.NewTrack("T", "other", null)); ProjectIO.RestoreMix(e2, mix);
+                    Check("plugins: plugin settings are saved in projects and restored", e2.Tracks[0].Fx.Count == 1 && e2.Tracks[0].Fx[0].Type == "sample_tremolo", "restored " + e2.Tracks[0].Fx.Count + " fx");
+                }
+                // changing the file must revoke approval
+                string dll = System.IO.Path.Combine(PluginHost.Dir, "SampleTremolo.dll"); var bytes = System.IO.File.ReadAllBytes(dll); var more = new byte[bytes.Length + 4]; Array.Copy(bytes, more, bytes.Length); System.IO.File.WriteAllBytes(dll + ".tmp", more);
+                System.IO.File.Copy(dll + ".tmp", System.IO.Path.Combine(PluginHost.Dir, "Tampered.dll")); var l2 = PluginHost.Scan(); bool tamperedOff = true; foreach (var q in l2) if (q.File == "Tampered.dll" && q.Enabled) tamperedOff = false;
+                Check("plugins: a new or changed file is never auto-approved", tamperedOff, "Tampered.dll enabled=" + !tamperedOff);
+
+                // ---- a plugin that crashes must be switched off, not crash the engine ----
+                string crash = "public class Crashy : Fx { public Crashy() { Type = \"crashy\"; Title = \"Crashy\"; } public override void Process(float[] l, float[] r, int n) { throw new System.InvalidOperationException(\"boom\"); } }";
+                string cs = System.IO.Path.Combine(dir, "crash.cs"); System.IO.File.WriteAllText(cs, crash);
+                MasterDsp.RunCapture(csc, "/nologo /target:library /out:\"" + System.IO.Path.Combine(PluginHost.Dir, "Crashy.dll") + "\" /r:\"" + exe + "\" \"" + cs + "\"", null, out code);
+                foreach (var q in PluginHost.Scan()) if (q.File == "Crashy.dll") PluginHost.SetEnabled(q, true); PluginHost.LoadEnabled();
+                var cf = FxRegistry.Create("crashy"); var eng2 = new StudioEngine(); foreach (var f in eng2.MasterFx) f.Bypass = true;
+                var tr2 = StudioEngine.NewTrack("T", "other", AudioClip.FromArrays(Sine(300, 0.3, SR * 2), Sine(300, 0.3, SR * 2), "t")); tr2.Fx.Add(cf); eng2.Tracks.Add(tr2); float[] oL, oR; bool threw = false;
+                try { eng2.Render(0, SR * 2, new RenderOpts(), null, out oL, out oR); } catch { threw = true; }
+                Check("plugins: a crashing plugin is bypassed and reported, the engine keeps running", cf != null && !threw && cf.Bypass && cf.Error.Contains("boom"), "bypass=" + (cf != null && cf.Bypass) + ", error=\"" + (cf == null ? "" : cf.Error) + "\"");
+            }
+            finally { StudioEnv.DataDir = savedDir; }
+        }
+    }
     // synthetic vocal: voiced notes (with formant-ish harmonics) in bursts + a little hiss; and a bass/noise "beat"
     static AudioClip SynthVocal(int seconds)
     {

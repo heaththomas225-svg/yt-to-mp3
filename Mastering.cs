@@ -459,7 +459,7 @@ class MasterForm : Form
     {
         app = owner;
         z = Math.Max(0.4f, Math.Min(1.0f, app.MZoomPct / 100f));
-        Text = "Mastering Assistant";
+        Text = "Mastering Assistant"; Win.Dark(this);
         FormBorderStyle = FormBorderStyle.FixedSingle; MaximizeBox = false;
         StartPosition = FormStartPosition.CenterParent;
         DoubleBuffered = true;
@@ -963,7 +963,7 @@ class MasterForm : Form
 
     void CharMenu(Point at)
     {
-        var m = new ContextMenuStrip();
+        var m = Win.NewMenu();
         for (int i = 0; i < 4; i++)
         {
             int k = i; var it = new ToolStripMenuItem(MasterSettings.CharNames[i]) { Checked = ms.Character == i };
@@ -975,7 +975,7 @@ class MasterForm : Form
 
     void PresetMenu(Point at)
     {
-        var m = new ContextMenuStrip();
+        var m = Win.NewMenu();
         for (int i = 0; i < PresetNames.Length; i++)
         {
             int k = i; var it = new ToolStripMenuItem(PresetNames[i]) { Checked = presetName == PresetNames[i] };
@@ -987,7 +987,7 @@ class MasterForm : Form
 
     void ViewMenu(Point at)
     {
-        var m = new ContextMenuStrip();
+        var m = Win.NewMenu();
         foreach (int pct in new[] { 50, 60, 70, 75, 85, 100 })
         {
             int k = pct; var it = new ToolStripMenuItem(pct + "%") { Checked = app.MZoomPct == pct };
