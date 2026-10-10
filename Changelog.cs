@@ -7,10 +7,13 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.13.0";
+    public const string Latest = "3.13.1";
 
     public const string Text =
-@"3.13.0  Side menu, My Projects and Community
+@"3.13.1  Side menu opens closed
+ + FIXED: the side menu used to open with Project already expanded. It now opens with every section closed; click a section to open its list, click it again to close it.
+
+3.13.0  Side menu, My Projects and Community
  + NEW side menu (the three-lines button at the top left of Purphex Music) like BandLab: Project (New, Recent Projects, My Projects, Open, Save, Save as, Set project picture, Export), Edit, Tools, View, Community, Settings, Help and Exit.
  + NEW My Projects page: every project you save or open as a card with a picture (add your own with the camera button; it is kept inside the project file), newest first, with a menu to open, change the picture, show in folder or remove from the list.
  + NEW profile picture and name.
