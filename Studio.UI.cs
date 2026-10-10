@@ -206,7 +206,7 @@ partial class StudioForm : Form
         { "Full", "Full screen (F11). Esc leaves it." }, { "Window", "Leave full screen (Esc)." },
         { "PLAY", "Play from the needle (Space)." }, { "PAUSE", "Pause (Space)." }, { "STOP", "Stop and go back to the start." }, { "|<", "Jump back to the start." },
         { "LOOP", "Repeat the song when it reaches the end." },
-        { "MIX", "The tracks, faders and effects." }, { "LYRICS", "Write your lyrics, find rhymes, and ask the AI helper for ideas." }, { "MASTERING", "Final loudness and polish on the whole mix, with LUFS meters and A/B compare." },
+        { "MIX", "The tracks, faders and effects." }, { "LYRICS", "A page for writing your own lyrics, with line and syllable counts." }, { "MASTERING", "Final loudness and polish on the whole mix, with LUFS meters and A/B compare." },
         { "+ Add Effect", "Pick an effect (EQ, compressor, reverb, Auto-Tune...) to add to this track." },
         { "+ Add Effect to master", "Add an effect to the final mix instead of one track." },
         { "Chain presets...", "Load a ready-made effect chain, for example a rap vocal chain." },

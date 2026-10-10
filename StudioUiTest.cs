@@ -76,22 +76,13 @@ static class S
         {
             Check("syllable counter gets everyday words right", LyricsTools.Syllables("love") == 1 && LyricsTools.Syllables("rhyme") == 1 && LyricsTools.Syllables("music") == 2 && LyricsTools.Syllables("melody") == 3 && LyricsTools.Syllables("beautiful") == 3 && LyricsTools.Syllables("remember") == 3, "love " + LyricsTools.Syllables("love") + ", music " + LyricsTools.Syllables("music") + ", melody " + LyricsTools.Syllables("melody") + ", beautiful " + LyricsTools.Syllables("beautiful"));
             Check("a line's syllables are added up and the last word is found", LyricsTools.LineSyllables("I remember the music") == 7 && LyricsTools.LastWord("walking in the night!") == "night", LyricsTools.LineSyllables("I remember the music") + " syllables");
-            string body = LyricsTools.BuildRequest("be \"kind\"", "line one\nline \"two\"\\", 500);
-            Check("the AI request is valid JSON-style text with the model, system and message", body.Contains("\"model\":\"" + LyricsTools.Model + "\"") && body.Contains("be \\\"kind\\\"") && body.Contains("line one\\nline \\\"two\\\"\\\\") && body.Contains("\"max_tokens\":500"), body);
-            string perr; string rep = LyricsTools.ParseReply("{\"id\":\"x\",\"content\":[{\"type\":\"text\",\"text\":\"Line A\nLine \\\"B\\\" \u00e9\"}],\"usage\":{}}", out perr);
-            Check("an AI reply is read back with its line breaks, quotes and accents", rep == "Line A\nLine \"B\" \u00e9" && perr == null, rep);
-            LyricsTools.ParseReply("{\"type\":\"error\",\"error\":{\"type\":\"authentication_error\",\"message\":\"invalid x-api-key\"}}", out perr);
-            Check("an AI error message is passed on clearly", perr == "invalid x-api-key", perr);
-            if (!LyricsTools.HasKey) { LyricsTools.SetKey("sk-test-123"); bool ok = LyricsTools.GetKey() == "sk-test-123" && !File.ReadAllText(Path.Combine(StudioEnv.DataDir, "ai-key.bin"), System.Text.Encoding.Default).Contains("sk-test"); LyricsTools.SetKey(""); Check("the AI key is stored protected (not as readable text) and can be removed", ok && !LyricsTools.HasKey, ""); }
-            string rerr; var rl = LyricsTools.Rhymes("light", "rel_rhy", out rerr);
-            Check("the rhyme finder returns rhymes for 'light'" + (rerr != null && rl.Count == 0 ? " (skipped: offline)" : ""), (rerr != null && rl.Count == 0) || rl.Contains("night"), rl.Count + " words" + (rl.Count > 0 ? ", e.g. " + rl[0] : ""));
             // project round trip
             string tmp = Path.Combine(Path.GetTempPath(), "lyrictest.ytmproj"); ProjectIO.Lyrics = "[Verse]\nfirst line\nsecond \"line\" é"; ProjectIO.LyricsTitle = "My Song | test"; ProjectIO.Save(eng, tmp); ProjectIO.Lyrics = ""; ProjectIO.LyricsTitle = ""; ProjectIO.Load(eng, tmp, s => { });
             Check("lyrics are saved inside the project file and come back", ProjectIO.Lyrics == "[Verse]\nfirst line\nsecond \"line\" é" && ProjectIO.LyricsTitle == "My Song | test", ProjectIO.LyricsTitle); try { File.Delete(tmp); } catch { }
             // the page itself
             ProjectIO.Lyrics = "I walk alone in the night\nsearching for a light"; ProjectIO.LyricsTitle = "Night walk"; SetF("tab", 2); Paint(); Pump(200); Paint();
             var lb = F<TextBox>("lyricBox"); Check("the lyrics page shows the saved text in a real text box", lb != null && lb.Visible && lb.Text.Contains("searching for a light"), lb == null ? "none" : lb.Text.Length + " chars");
-            lb.SelectionStart = lb.Text.Length; Paint(); Check("the text box takes up most of the left side and does not overlap the tools", lb.Right < sf.ClientSize.Width / 2 + 40 && F<TextBox>("aiOut").Left > lb.Right, lb.Bounds + " / " + F<TextBox>("aiOut").Bounds);
+            lb.SelectionStart = lb.Text.Length; Paint(); Check("the text box is big and fits inside the window", lb.Left >= 0 && lb.Right <= sf.ClientSize.Width && lb.Height > 300, lb.Bounds.ToString());
             var bmp2 = new Bitmap(sf.ClientSize.Width, sf.ClientSize.Height); sf.DrawToBitmap(bmp2, new Rectangle(0, 0, sf.Width, sf.Height)); bmp2.Save("_lyrics.png", System.Drawing.Imaging.ImageFormat.Png);
             SetF("tab", 0); Paint(); Check("leaving the page hides its text boxes", !lb.Visible, "");
         }

@@ -408,20 +408,15 @@ If a site only has a lower quality than you picked, you get the best it has.
 - A few sites need you to be signed in or block downloads. The log shows the reason.
 - Only download what you have the right to keep."),
 
-        new HelpTopic("studio-lyrics", "Purphex Music", "Lyrics page: write, find rhymes, ask the AI helper", false, @"
+        new HelpTopic("studio-lyrics", "Purphex Music", "Lyrics page: write your own lyrics", false, @"
 ## Write
-Press LYRICS at the top right of Purphex Music. Type your lyrics in the big box. The section buttons (Verse, Chorus, Pre-chorus, Bridge, Hook, Intro, Outro) put a label like [Verse] at the cursor. Under the box you see the lines, words and syllables, and the syllables of the line you are on, so your bars stay the same length.
+Press LYRICS at the top right of Purphex Music. Type your lyrics in the big box. The section buttons (Verse, Chorus, Pre-chorus, Bridge, Hook, Intro, Outro) put a label like [Verse] at the cursor.
+Under the box you see the number of lines, words and syllables, and the syllables of the line you are on, so your bars stay the same length. The count is a good guess, not a dictionary, so a few words may be off by one.
+## Saving
 Your lyrics are saved inside your project (Save), and also as a draft on your PC as you type, so they are never lost.
-## Rhyme finder
-Type a word (or press Use last word of this line) and press Rhymes, Near (almost rhymes) or Meaning (words that mean something similar). Click a word to put it in your lyrics. This uses a free word service on the internet, so you need to be online.
-## AI writing helper
-1. Press AI KEY and paste your own key from console.anthropic.com. It is kept on your PC and protected for your Windows account only. (AI help uses your own account with that service; it may cost a little.)
-2. Optionally tell it what you want ('darker, about leaving home, 16 bars').
-3. Press a button: Continue (next lines), Rhyme better (alternatives for the line you are on), Rewrite selection, Feedback, Hook ideas, or Ask.
-4. Insert at cursor, Replace selection, or Copy the answer.
-Each time you press an AI button your lyrics and your request are sent to the AI service, and the app asks you first.
 ## Export
-Copy puts the lyrics on the clipboard. Save .txt writes a text file. Clear empties the page."),
+Copy puts the lyrics on the clipboard. Save .txt writes a text file. Clear empties the page.
+This page never writes or suggests lyrics for you: every word is yours."),
 
         new HelpTopic("studio-neon","Purphex Music", "The neon look, zooming and taller tracks", false, @"
 ## The look
