@@ -210,6 +210,19 @@ static class Y
             Check("a drawn LFO shape is saved in the patch and restored exactly", sx.Contains("lc1=") && same && dst2.LfoCurves[0].Pts.Count == sx0.LfoCurves[0].Pts.Count, dst2.LfoCurves[0].Pts.Count + " points restored");
             var cv = new LfoCurve(); cv.Load("Triangle"); Check("the on-screen curve and the audio table agree (triangle peaks at 1 in the middle, -1 at the ends)", Math.Abs(cv.Read(0.5) - 1) < 0.01 && Math.Abs(cv.Read(0) + 1) < 0.01 && Math.Abs(cv.Read(0.25)) < 0.01, "mid " + cv.Read(0.5).ToString("0.00") + ", start " + cv.Read(0).ToString("0.00") + ", quarter " + cv.Read(0.25).ToString("0.00"));
         }
+        // 8c. modulation on any knob
+        {
+            var mf = New("Init"); bool mapOk = SynthTables.DestParam.Length == SynthTables.Dests.Length; string badp = ""; foreach (var pid in SynthTables.DestParam) if (pid != null && mf.Find(pid) == null) { mapOk = false; badp += pid + " "; }
+            Check("every modulation target is matched to a real knob", mapOk, badp.Length == 0 ? SynthTables.Dests.Length + " targets" : "missing: " + badp);
+            Func<bool, int, int, SynthFx> pn = (on, pol, dest) => { var f = New("Init"); f.Set("bbon", 0); f.Set("apan", 0); f.Set("mac1", 100); f.Set("m1s", 10); f.Set("m1d", dest); f.Set("m1a", 100); f.Set("m1e", on ? 1 : 0); f.Set("m1p", pol); return f; };
+            var pr = Render(pn(true, 0, 27), new[] { 45 }, 24000, -1); double pL = Rms(pr[0], 8000, 24000), pR = Rms(pr[1], 8000, 24000);
+            Check("any knob can be modulated: a macro on Osc A pan sends the sound to the right", pR > pL * 20, "L " + pL.ToString("0.0000") + ", R " + pR.ToString("0.000"));
+            var po = Render(pn(false, 0, 27), new[] { 45 }, 24000, -1); double qL = Rms(po[0], 8000, 24000), qR = Rms(po[1], 8000, 24000);
+            Check("a matrix connection switched off does nothing", Math.Abs(qL - qR) < qL * 0.05, "L " + qL.ToString("0.000") + ", R " + qR.ToString("0.000"));
+            var pi = Render(pn(true, 2, 27), new[] { 45 }, 24000, -1); Check("Negative polarity flips the direction (now to the left)", Rms(pi[0], 8000, 24000) > Rms(pi[1], 8000, 24000) * 20, "L " + Rms(pi[0], 8000, 24000).ToString("0.000") + ", R " + Rms(pi[1], 8000, 24000).ToString("0.0000"));
+            Func<bool, double> dm = on => { var f = pn(on, 0, 35); f.Set("dston", 1); f.Set("dstmode", 2); f.Set("dstdrive", 30); f.Set("dstmix", 0); f.Set("awt", 50); var oo = Render(f, new[] { 45 }, 24000, -1); return Rms(oo[0], 8000, 24000); };
+            double dry = dm(false), wet = dm(true); Check("modulation reaches the effects: a macro on Distortion mix changes the sound", Math.Abs(wet - dry) > dry * 0.1, "dry " + dry.ToString("0.000") + ", modulated " + wet.ToString("0.000"));
+        }
         // 9. THE PIANO: a key press must reach the real sound device without pressing PLAY first, and a held note must stop on release / panic
         {
             var e2 = new StudioEngine(); var t2 = StudioEngine.NewTrack("Bass", "inst", null); t2.Instrument = true; var s2 = New("Deep Sub"); s2.Owner = t2; t2.Fx.Add(s2); e2.Tracks.Add(t2);
