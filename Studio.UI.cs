@@ -206,7 +206,7 @@ partial class StudioForm : Form
         { "Full", "Full screen (F11). Esc leaves it." }, { "Window", "Leave full screen (Esc)." },
         { "PLAY", "Play from the needle (Space)." }, { "PAUSE", "Pause (Space)." }, { "STOP", "Stop and go back to the start." }, { "|<", "Jump back to the start." },
         { "LOOP", "Repeat the song when it reaches the end." },
-        { "MIX", "The tracks, faders and effects." }, { "+ TRACK", "Add a track: audio from your PC or an instrument, above or below the selected track or at the end." }, { "+ ADD TRACK", "Add a track at the end of the list." }, { "LYRICS", "A page for writing your own lyrics, with line and syllable counts." }, { "MASTERING", "Final loudness and polish on the whole mix, with LUFS meters and A/B compare." },
+        { "MIX", "The tracks, faders and effects." }, { "≡", "Menu: new, open, recent projects, my projects with pictures, edit, tools, community, settings and help." }, { "+ TRACK", "Add a track: audio from your PC or an instrument, above or below the selected track or at the end." }, { "+ ADD TRACK", "Add a track at the end of the list." }, { "LYRICS", "A page for writing your own lyrics, with line and syllable counts." }, { "MASTERING", "Final loudness and polish on the whole mix, with LUFS meters and A/B compare." },
         { "+ Add Effect", "Pick an effect (EQ, compressor, reverb, Auto-Tune...) to add to this track." },
         { "+ Add Effect to master", "Add an effect to the final mix instead of one track." },
         { "Chain presets...", "Load a ready-made effect chain, for example a rap vocal chain." },
@@ -284,10 +284,11 @@ partial class StudioForm : Form
         regs.Clear();
         var full = new RectangleF(0, 0, ClientSize.Width, ClientSize.Height);
         DrawBackdrop(g);
-        if (tab == 0) PaintMix(g); else if (tab == 2) PaintLyrics(g); else PaintMastering(g);
+        if (tab == 0) PaintMix(g); else if (tab == 2) PaintLyrics(g); else if (tab == 3) PaintProjects(g); else if (tab == 4) PaintCommunity(g); else PaintMastering(g);
         if (tab != 2) SyncLyricUi(false);
         PaintToolbar(g); PaintTransport(g);
         if (browserOpen) PaintBrowser(g);
+        PaintMenu(g);
         PaintBubble(g);
         if (hintNow.Length > 0 && !busy) { var hr = Rc(ClientSize.Width / 2 - 340, ClientSize.Height - 36, 680, 26); FillRR(g, Color.FromArgb(235, 30, 16, 58), hr, 8); StrokeRR(g, Edge, hr, 8, 1); Txt(g, hintNow, 13, Ink, hr, StringAlignment.Center, false); }
         if (busy) PaintBusy(g);
@@ -348,8 +349,9 @@ partial class StudioForm : Form
         // right group first (fixed sizes from the right edge), then the left group is squeezed to fit what is left
         float rx = W - 14; string[] rn = { "EXPORT", "Help", "Full", "Open", "Save", "Save as" }; float[] rw = { 106, 58, 58, 72, 72, 84 };
         float rightStart = W - 14; for (int i = 0; i < rw.Length; i++) rightStart -= rw[i] + 6; rightStart += 6;
-        float avail = rightStart - 14 - 10, leftTotal = 156 + 232 + 126 + 140 + 84 + 36; float f = Math.Max(0.5f, Math.Min(1f, avail / leftTotal));
-        float x = 14; float fp = Math.Max(11, 15 * f);
+        float avail = rightStart - 70 - 10, leftTotal = 156 + 232 + 126 + 140 + 84 + 36; float f = Math.Max(0.5f, Math.Min(1f, avail / leftTotal));
+        float x = 70; float fp = Math.Max(11, 15 * f);
+        Btn(g, Rc(12, y, 48, h), "≡", 0, () => { if (menuOpen) CloseMenu(); else OpenMenu(); }, 24);
         Btn(g, Rc(x, y, 156 * f, h), "ADD MUSIC", 2, () => AddMusicClick(), Math.Max(13, 16 * f)); x += 164 * f;
         Btn(g, Rc(x, y, 232 * f, h), "SPLIT VOCALS + BEAT", 1, () => SeparateClick(), Math.Max(12, 14 * f)); x += 240 * f;
         Btn(g, Rc(x, y, 126 * f, h), "AUTO MIX", 2, () => AutoMixClick(), Math.Max(13, 16 * f)); x += 132 * f;
@@ -748,6 +750,7 @@ partial class StudioForm : Form
         lastInput = DateTime.Now;
         if (editBox != null && editBox.Visible) return base.ProcessCmdKey(ref msg, k);
         if (ActiveControl is TextBoxBase && ((Control)ActiveControl).Visible) return base.ProcessCmdKey(ref msg, k);   // typing in the lyrics page: every key belongs to the text box
+        if (menuOpen && k == Keys.Escape) { CloseMenu(); return true; }
         if (browserOpen)
         {
             if (k == Keys.Escape) { browserOpen = false; return true; }

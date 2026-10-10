@@ -7,10 +7,16 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.12.3";
+    public const string Latest = "3.13.0";
 
     public const string Text =
-@"3.12.3  Open finds your music
+@"3.13.0  Side menu, My Projects and Community
+ + NEW side menu (the three-lines button at the top left of Purphex Music) like BandLab: Project (New, Recent Projects, My Projects, Open, Save, Save as, Set project picture, Export), Edit, Tools, View, Community, Settings, Help and Exit.
+ + NEW My Projects page: every project you save or open as a card with a picture (add your own with the camera button; it is kept inside the project file), newest first, with a menu to open, change the picture, show in folder or remove from the list.
+ + NEW profile picture and name.
+ + NEW Community page (a place to build on later: it shows your profile and four Coming soon sections).
+
+3.12.3  Open finds your music
  + FIXED: the Open button in Purphex Music only listed project files. It now lists mp3, wav, flac, m4a, ogg and other audio too: pick one or several and they are added as tracks (several at once now load one after the other instead of only the first). Project files dropped on the window open as projects.
 
 3.12.2  Add Track is always visible

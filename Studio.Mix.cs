@@ -444,6 +444,7 @@ static class AutoMix
 // ---------------- project files + mix snapshots ----------------
 static class ProjectIO
 {
+    public static byte[] CoverBytes;   // the project's picture (a small JPEG), saved inside the project file
     public static string Lyrics = "", LyricsTitle = "";   // the lyrics page; saved in the project file
     static readonly CultureInfo CI = CultureInfo.InvariantCulture;
     static string E(string s) { return (s ?? "").Replace("%", "%25").Replace("|", "%7C").Replace("\n", "%0A").Replace("\r", ""); }
@@ -499,6 +500,7 @@ static class ProjectIO
             sb.Append("track|").Append(E(t.Instrument ? "inst" : t.Role)).Append('|').Append(E(t.Name)).Append('|').Append(t.Offset).Append('|').Append(E(src)).Append('|').Append(t.Color).Append('|').Append(t.ClipStart).Append('|').Append(t.ClipFrames).Append('\n');
             if (t.Instrument && t.Midi.Count > 0) { sb.Append("midi|").Append(i).Append('|'); lock (t.Midi) foreach (var m in t.Midi) sb.Append(m.Frame).Append(':').Append(m.S).Append(':').Append(m.D1).Append(':').Append(m.D2).Append(';'); sb.Append('\n'); }
         }
+        if (CoverBytes != null && CoverBytes.Length > 0) sb.Append("cover|").Append(Convert.ToBase64String(CoverBytes)).Append((char)10);
         if (Lyrics.Length > 0 || LyricsTitle.Length > 0) sb.Append("lyrics|").Append(Convert.ToBase64String(Encoding.UTF8.GetBytes(LyricsTitle))).Append('|').Append(Convert.ToBase64String(Encoding.UTF8.GetBytes(Lyrics))).Append((char)10);
         sb.Append(SerializeMix(eng)); File.WriteAllText(path, sb.ToString(), Encoding.UTF8);
     }
@@ -510,10 +512,12 @@ static class ProjectIO
         if (lines.Length == 0 || !lines[0].StartsWith("YTMPROJ")) throw new Exception("That isn't a project file from this app.");
         string dir = Path.GetDirectoryName(path); var tracks = new List<Track>(); var mix = new StringBuilder();
         Lyrics = ""; LyricsTitle = "";
+        CoverBytes = null;
         foreach (var line in lines)
         {
             var p = line.Split('|');
-            if (p[0] == "lyrics" && p.Length >= 3) { try { LyricsTitle = Encoding.UTF8.GetString(Convert.FromBase64String(p[1])); Lyrics = Encoding.UTF8.GetString(Convert.FromBase64String(p[2])); } catch { } }
+            if (p[0] == "cover" && p.Length >= 2) { try { CoverBytes = Convert.FromBase64String(p[1]); } catch { } }
+            else if (p[0] == "lyrics" && p.Length >= 3) { try { LyricsTitle = Encoding.UTF8.GetString(Convert.FromBase64String(p[1])); Lyrics = Encoding.UTF8.GetString(Convert.FromBase64String(p[2])); } catch { } }
             else if (p[0] == "bpm" && p.Length > 1) { double b; if (double.TryParse(p[1], NumberStyles.Float, CI, out b)) Fx.ProjectBpm = b; }
             else if (p[0] == "track" && p.Length >= 6)
             {

@@ -408,7 +408,22 @@ If a site only has a lower quality than you picked, you get the best it has.
 - A few sites need you to be signed in or block downloads. The log shows the reason.
 - Only download what you have the right to keep."),
 
-        new HelpTopic("studio-lyrics", "Purphex Music", "Lyrics page: write your own lyrics", false, @"
+        new HelpTopic("studio-menu", "Purphex Music", "The side menu, My Projects with pictures, and Community", false, @"
+## The side menu
+Press the three-lines button at the top left of Purphex Music. Your picture and name are at the top (click the picture to change it, click the name to rename yourself). Click Project, Edit, Tools, View, Community, Settings, Help or Exit to open its list.
+- Project: New Project, Recent Projects (the last ones you opened, with their pictures), My Projects, Open, Save, Save as, Set project picture, Export.
+- Edit: undo, redo, split, trim, duplicate and delete.
+- Tools: Auto Mix, split vocals and beat, detect BPM, metronome, mastering, add an instrument or track.
+- View: switch between Mix, Mastering, Lyrics and My Projects, fit the whole song, thin / normal / tall tracks, full screen.
+## My Projects
+Every project you save or open is remembered here, newest first, as a card with a picture. Click a card to open it. The camera button adds or changes the picture (choose a JPG, PNG, GIF or BMP: it is cropped to a square and kept inside the project file, so it travels with it). Right-click a card for more (show in folder, remove the picture, remove it from the list). The x only removes a project from this list: your file stays on your PC.
+Projects you saved in the usual folder before are found automatically.
+## Open also finds your music
+The Open button lists project files and audio (mp3, wav, flac, m4a, ogg...). Pick one or several songs and they are added as tracks.
+## Community
+A page that is reserved for the community side of Purphex. It is not built yet: it shows your profile (picture and name) and four boxes marked Coming soon (Feed, Following, Challenges, Collabs). Nothing you make is shared with anyone."),
+
+        new HelpTopic("studio-lyrics","Purphex Music", "Lyrics page: write your own lyrics", false, @"
 ## Write
 Press LYRICS at the top right of Purphex Music. Type your lyrics in the big box. The section buttons (Verse, Chorus, Pre-chorus, Bridge, Hook, Intro, Outro) put a label like [Verse] at the cursor.
 Under the box you see the number of lines, words and syllables, and the syllables of the line you are on, so your bars stay the same length. The count is a good guess, not a dictionary, so a few words may be off by one.

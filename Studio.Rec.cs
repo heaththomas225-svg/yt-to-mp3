@@ -60,6 +60,6 @@ partial class StudioForm
         if (mic != null) StopMic(); eng.Stop();
         lock (eng.Sync) { foreach (var t in eng.Tracks) retired.AddRange(t.Fx); eng.Tracks.Clear(); }
         foreach (var f in retired) { var ic = f as InstrumentFx; if (ic != null) ic.CloseWindow(); }
-        ProjectIO.Lyrics = ""; ProjectIO.LyricsTitle = ""; undo.Clear(); redo.Clear(); projPath = ""; projName = "Untitled project"; selTrack = 0; selFx = -1; scroll = 0; FitView(); Toast("New project. Add music, or press + INSTRUMENT to make something.");
+        ProjectIO.Lyrics = ""; ProjectIO.LyricsTitle = ""; ProjectIO.CoverBytes = null; undo.Clear(); redo.Clear(); projPath = ""; projName = "Untitled project"; selTrack = 0; selFx = -1; scroll = 0; FitView(); Toast("New project. Add music, or press + INSTRUMENT to make something.");
     }
 }

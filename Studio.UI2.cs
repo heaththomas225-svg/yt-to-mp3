@@ -188,7 +188,7 @@ partial class StudioForm
                 if (d.ShowDialog(this) != DialogResult.OK) return; path = d.FileName;
             }
         }
-        try { ProjectIO.Save(eng, path); projPath = path; projName = Path.GetFileNameWithoutExtension(path); Toast("Project saved"); }
+        try { ProjectIO.Save(eng, path); projPath = path; projName = Path.GetFileNameWithoutExtension(path); NoteProject(path, true); Toast("Project saved"); }
         catch (Exception ex) { MessageBox.Show(this, ex.Message, "Save failed"); }
     }
 
@@ -206,7 +206,7 @@ partial class StudioForm
         List<string> warn = null;
         RunBusy("Opening project...", false, p => { warn = ProjectIO.Load(eng, path, s => busyText = s); }, ok =>
         {
-            if (!ok) return; projPath = path; projName = Path.GetFileNameWithoutExtension(path); selTrack = 0; selFx = -1; FitView();
+            if (!ok) return; projPath = path; projName = Path.GetFileNameWithoutExtension(path); selTrack = 0; selFx = -1; FitView(); NoteProject(path, false);
             if (warn != null && warn.Count > 0) MessageBox.Show(this, string.Join("\n", warn.ToArray()), "Some audio files are missing"); else Toast("Project opened");
         });
     }
