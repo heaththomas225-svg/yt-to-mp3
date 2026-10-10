@@ -72,6 +72,10 @@ static class S
         Check("a track added from a strip lands exactly there and is selected", eng.Tracks.Count == 3 && eng.Tracks[1].Name == "NEW" && F<int>("selTrack") == 1, string.Join(", ", eng.Tracks.ConvertAll(t => t.Name).ToArray()));
         typeof(StudioForm).GetMethod("AddTrack", BF).Invoke(sf, new object[] { StudioEngine.NewTrack("LAST", "audio", Clip(5)) });
         Check("a normal add still goes to the end", eng.Tracks[eng.Tracks.Count - 1].Name == "LAST", "");
+        // Open: a .ytmproj goes to the project loader (the dialog also lists mp3, wav, flac... and adds them as tracks)
+        { string ptmp = Path.Combine(Path.GetTempPath(), "opentest.ytmproj"); var save = new List<Track>(eng.Tracks); lock (eng.Sync) eng.Tracks.Clear(); ProjectIO.Save(eng, ptmp); lock (eng.Sync) eng.Tracks.AddRange(save);
+          sf.PromptImportPublic(ptmp); Pump(1500); Check("a project file chosen in Open (or dropped on the window) opens as a project", F<string>("projPath") == ptmp && eng.Tracks.Count == 0, "tracks " + eng.Tracks.Count + ", path " + F<string>("projPath"));
+          string exts = (string)typeof(StudioForm).GetField("AudioExts", BindingFlags.NonPublic | BindingFlags.Static).GetValue(null); Check("the Open dialog lists mp3, wav, flac, m4a, ogg and more", exts.Contains("*.mp3") && exts.Contains("*.wav") && exts.Contains("*.flac") && exts.Contains("*.m4a") && exts.Contains("*.ogg"), exts); try { File.Delete(ptmp); } catch { } }
         // the + ADD TRACK button must always be on screen, even when the tracks run off the bottom
         for (int i = 0; i < 10; i++) typeof(StudioForm).GetMethod("AddTrack", BF).Invoke(sf, new object[] { StudioEngine.NewTrack("X" + i, "audio", Clip(3)) }); Paint();
         var addBtn = Regs().FindLast(r => Math.Abs(r.R.Width - 230) < 0.5f && Math.Abs(r.R.Height - 34) < 0.5f); Check("the + ADD TRACK button is on screen with 14 tracks (pinned to the bottom)", addBtn != null && addBtn.R.Bottom <= sf.ClientSize.Height && addBtn.R.Y > sf.ClientSize.Height / 2, addBtn == null ? "missing" : addBtn.R.ToString());
