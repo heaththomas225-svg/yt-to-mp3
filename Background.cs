@@ -101,7 +101,7 @@ partial class App
     void SnapLabels()
     {
         var l = new List<Lab>(); foreach (var kv in lbls) l.Add(new Lab { T = kv.Value, X = kv.Key.Left, Y = kv.Key.Top - 18 }); labSnap = l.ToArray();
-        subtitle = "Paste BandLab (track, post, album) or YouTube links. Pick format, sample rate, trim, batch.";
+        subtitle = "Download music or video from YouTube, BandLab and 1000+ other sites. Choose MP3 or MP4 and a quality.";
     }
 
     void StartLayerWorker()
@@ -151,13 +151,14 @@ partial class App
         using (var g = Graphics.FromImage(bmp))
         {
             g.SmoothingMode = SmoothingMode.AntiAlias; g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
-            var cards = new[] { new RectangleF(8, 64, W - 16, 106), new RectangleF(8, 172, W - 16, 134), new RectangleF(8, 308, W - 16, 38),
-                                new RectangleF(8, 350, W - 16, 96), new RectangleF(8, 450, W - 16, 38), new RectangleF(8, 490, W - 16, Math.Max(80, H - 498)) };
+            var cards = new[] { new RectangleF(8, 70, W - 16, 88), new RectangleF(8, 164, W - 16, 142), new RectangleF(8, 308, W - 16, 38),
+                                new RectangleF(8, 350, W - 16, 108), new RectangleF(8, 464, W - 16, 42), new RectangleF(8, 510, W - 16, Math.Max(80, H - 518)) };
             float tt = t; for (int i = 0; i < cards.Length; i++) Card(g, cards[i], i, tt);
-            using (var f = new Font("Segoe UI", 9f)) using (var b = new SolidBrush(Color.FromArgb(200, 205, 175, 255)))
+            using (var f = new Font("Segoe UI Semibold", 10f)) using (var b = new SolidBrush(Color.FromArgb(235, 222, 255))) using (var sb2 = new SolidBrush(Color.FromArgb(200, 0, 0, 0)))
+            using (var f2 = new Font("Segoe UI", 10f)) using (var b2 = new SolidBrush(Color.FromArgb(215, 200, 245)))
             {
-                g.DrawString(subtitle, f, b, 18, 54);
-                var ls = labSnap; foreach (var l in ls) g.DrawString(l.T, f, b, l.X, l.Y);
+                g.DrawString(subtitle, f2, sb2, 19, 49); g.DrawString(subtitle, f2, b2, 18, 48);
+                var ls = labSnap; foreach (var l in ls) { g.DrawString(l.T, f, sb2, l.X + 1, l.Y + 1); g.DrawString(l.T, f, b, l.X, l.Y); }
             }
         }
         return bmp;
@@ -182,7 +183,7 @@ partial class App
         float pulse = (float)(Math.Sin(tt * 1.7f + idx * 0.9f) * 0.5 + 0.5);
         using (var p = RoundRect(r, 14))
         {
-            using (var br = new LinearGradientBrush(r, Color.FromArgb(178, 4, 2, 10), Color.FromArgb(178, 20, 8, 42), 90f)) g.FillPath(br, p);
+            using (var br = new LinearGradientBrush(r, Color.FromArgb(238, 5, 3, 12), Color.FromArgb(238, 20, 9, 42), 90f)) g.FillPath(br, p);
             using (var pen = new Pen(Color.FromArgb((int)(16 + 26 * pulse), 190, 90, 255), 7f)) g.DrawPath(pen, p);
             using (var pen = new Pen(Color.FromArgb((int)(95 + 90 * pulse), 170, 100, 255), 1.4f)) g.DrawPath(pen, p);
         }
@@ -272,9 +273,9 @@ partial class App
         g.SmoothingMode = SmoothingMode.AntiAlias;
         if (ov != null && ov.Width == r.Width && ov.Height == r.Height) g.DrawImageUnscaled(ov, 0, 0);
 
-        string title = "Purphex";
+        string title = "YouTube MP3 Converter";
         g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
-        using (var f = new Font("Segoe UI Black", 24f))
+        using (var f = new Font("Segoe UI Black", 21f))
         {
             if (titleSize.Width < 1) titleSize = g.MeasureString(title, f);
             float glow = anim ? (float)(Math.Sin(t * 2) * 0.5 + 0.5) : 0.4f;
@@ -282,9 +283,10 @@ partial class App
             float sh = anim ? (t * 90) % (titleSize.Width * 2) : 0;
             using (var b = new LinearGradientBrush(new RectangleF(16 - sh, 10, titleSize.Width * 2, titleSize.Height), Color.FromArgb(245, 225, 255), Color.FromArgb(180, 100, 255), 0f))
             { b.WrapMode = WrapMode.TileFlipX; g.DrawString(title, f, b, 16, 10); }
+            using (var f3 = new Font("Segoe UI Semibold", 12f)) using (var b3 = new SolidBrush(Color.FromArgb(240, 110, 235))) g.DrawString("By Phurex", f3, b3, 22 + titleSize.Width, 20);
         }
 
-        var bar = new Rectangle(16, 454, r.Width - 32, 16);
+        var bar = new Rectangle(16, 470, r.Width - 32, 14);
         using (var tb = new SolidBrush(Color.FromArgb(200, 4, 2, 10))) g.FillRectangle(tb, bar);
         int fw = (int)(bar.Width * Math.Max(0, Math.Min(100, shownPct)) / 100f);
         if (fw > 2)
@@ -297,7 +299,7 @@ partial class App
         }
         using (var pn = new Pen(Color.FromArgb(170, 190, 120, 255))) g.DrawRectangle(pn, bar);
         if (status.Length > 0)
-            using (var f = new Font("Segoe UI", 8.5f)) using (var b = new SolidBrush(Color.FromArgb(225, 230, 210, 255))) g.DrawString(status, f, b, 16, 471);
+            using (var f = new Font("Segoe UI", 8.5f)) using (var b = new SolidBrush(Color.FromArgb(225, 230, 210, 255))) g.DrawString(status, f, b, 16, 486);
 
         // adaptive quality: step effects down on slower PCs, back up when there is headroom
         PaintMs += frameWatch.Elapsed.TotalMilliseconds; frameMs = frameMs * 0.9 + frameWatch.Elapsed.TotalMilliseconds * 0.1;

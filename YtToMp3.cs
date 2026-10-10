@@ -37,7 +37,7 @@ class Job
 partial class App : Form
 {
     // ---- Auto-update settings ----
-    const string Version = "3.8.0";
+    const string Version = "3.9.0";
     // Plain-text manifest: line 1 = newest version, line 2 = direct exe download URL.
     const string UpdateManifestUrl = "https://raw.githubusercontent.com/heaththomas225-svg/yt-to-mp3/main/version.txt";
 
@@ -52,12 +52,16 @@ partial class App : Form
     // ---- Output formats: name, container, quality arg, can embed cover art, extra ffmpeg args ----
     static readonly string[] FmtNames = {
         "MP3  320 kbps (CBR)", "MP3  V0 (VBR, ~245 kbps)", "WAV  24-bit PCM", "FLAC  (lossless container)",
-        "M4A  AAC 256 kbps", "Opus  (best quality per size)" };
-    static readonly string[] FmtExt = { "mp3", "mp3", "wav", "flac", "m4a", "opus" };
-    static readonly string[] FmtQual = { "320K", "0", null, null, "256K", null };
-    static readonly bool[] FmtArt = { true, true, false, true, true, false };
-    static readonly string[] FmtCodec = { null, null, "-c:a pcm_s24le", null, null, null };
-    static readonly string[] FmtTag = { "MP3 320k", "MP3 V0", "WAV 24bit", "FLAC", "AAC 256k", "Opus" };
+        "M4A  AAC 256 kbps", "Opus  (best quality per size)",
+        "MP4  VIDEO  best quality (up to 4K+)", "MP4  VIDEO  1440p", "MP4  VIDEO  1080p", "MP4  VIDEO  720p", "MP4  VIDEO  480p", "MP4  VIDEO  360p", "MKV  VIDEO  best quality (no re-encode)" };
+    // video entries: the tallest picture to accept (9999 = no limit) and the container; 0 = an audio format
+    static readonly int[] FmtVid = { 0, 0, 0, 0, 0, 0, 9999, 1440, 1080, 720, 480, 360, 9999 };
+    static readonly string[] FmtBox = { null, null, null, null, null, null, "mp4", "mp4", "mp4", "mp4", "mp4", "mp4", "mkv" };
+    static readonly string[] FmtExt = { "mp3", "mp3", "wav", "flac", "m4a", "opus", "mp4", "mp4", "mp4", "mp4", "mp4", "mp4", "mkv" };
+    static readonly string[] FmtQual = { "320K", "0", null, null, "256K", null, null, null, null, null, null, null, null };
+    static readonly bool[] FmtArt = { true, true, false, true, true, false, false, false, false, false, false, false, false };
+    static readonly string[] FmtCodec = { null, null, "-c:a pcm_s24le", null, null, null, null, null, null, null, null, null, null };
+    static readonly string[] FmtTag = { "MP3 320k", "MP3 V0", "WAV 24bit", "FLAC", "AAC 256k", "Opus", "MP4 best", "MP4 1440p", "MP4 1080p", "MP4 720p", "MP4 480p", "MP4 360p", "MKV best" };
 
     // Label put in every file name so you can tell what settings produced it.
     static string FormatTag(int fmt, int srIdx, MasterSettings m, bool normalized)
@@ -117,7 +121,7 @@ partial class App : Form
     {
         Func<Control, Func<Rectangle>> R = c => (() => new Rectangle(c.Left, c.Top, c.Width, c.Height)); var s = new List<TourStep>();
         if (id.StartsWith("studio")) { OpenStudio(); studioForm.RunTour(id); return; }
-        if (id == "start") { s.Add(new TourStep(R(links), "1. Paste a link", "Paste one or more YouTube or BandLab links here, or type words to search.")); s.Add(new TourStep(R(fmt), "2. Pick a format", "MP3 320 kbps is the best all-round choice.")); s.Add(new TourStep(R(go), "3. Press Convert", "Your file is saved in the Save to folder, which opens when it is done.")); }
+        if (id == "start") { s.Add(new TourStep(R(links), "1. Paste a link", "Paste one or more links here (YouTube, BandLab and 1000+ other video and music sites), or type words to search.")); s.Add(new TourStep(R(fmt), "2. Pick a format", "MP3 320 kbps is the best all-round choice.")); s.Add(new TourStep(R(go), "3. Press Convert", "Your file is saved in the Save to folder, which opens when it is done.")); }
         else if (id == "normalize") { s.Add(new TourStep(R(norm), "Normalize loudness", "Tick this to bring downloads to a standard -14 LUFS loudness.")); s.Add(new TourStep(R(prevNormBtn), "Hear it first", "Press Hear to listen to a 30 second sample, original versus normalized, before you convert.")); }
         else if (id == "vocal") { s.Add(new TourStep(R(vocalBtn), "Vocal remover", "Click this, then choose Remove vocals from a song, or Preview to hear a 30 second sample first.")); s.Add(new TourStep(R(outDir), "Where files go", "The instrumental and the vocals-only file are saved in this folder.")); }
         else if (id == "phone") { s.Add(new TourStep(R(phoneBtn), "Phone mode", "Press this, then open the address it shows on your phone (same Wi-Fi). Use the firewall button if it will not open.")); }
@@ -146,8 +150,8 @@ partial class App : Form
 
     App()
     {
-        Text = "Purphex v" + Version;
-        ClientSize = new Size(640, 690);
+        Text = "YouTube MP3 Converter By Phurex  v" + Version;
+        ClientSize = new Size(640, 712);
         MinimumSize = new Size(560, 640);
         StudioEnv.Ffmpeg = FfmpegExe; StudioEnv.Ffprobe = FfprobeExe; UserBackground.Ffmpeg = FfmpegExe; Prefs.Changed = ApplyPrefs;
         Font = new Font("Segoe UI", 9.5f);
@@ -166,17 +170,17 @@ partial class App : Form
 
         // links (batch queue)
         links.Multiline = true; links.ScrollBars = ScrollBars.Vertical; links.AcceptsReturn = true; StyleBox(links);
-        links.SetBounds(16, 94, 608, 64); links.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-        Lbl(links, "BandLab / YouTube links or search terms  (one per line)");
+        links.SetBounds(16, 96, 608, 54); links.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+        Lbl(links, "Paste video or music links, or type words to search  (one per line)");
 
         // format row
-        StyleCombo(fmt, FmtNames, 16, 186, 230); Lbl(fmt, "Format");
+        StyleCombo(fmt, FmtNames, 16, 186, 230); fmt.DropDownWidth = 330; Lbl(fmt, "Format");
         StyleCombo(sr, SrNames, 256, 186, 130); Lbl(sr, "Sample rate");
         StyleCombo(nameFmt, NameNames, 396, 186, 228); Lbl(nameFmt, "File name");
         tip.SetToolTip(fmt, "YouTube audio is already lossy (about 128-160 kbps).\nWAV / FLAC keep it intact from that point on, but can't restore lost quality.");
         fmt.SelectedIndexChanged += (s, e) =>
         {
-            if (fmt.SelectedIndex == 2 || fmt.SelectedIndex == 3)
+            bool vid = FmtVid[Math.Max(0, fmt.SelectedIndex)] > 0; sr.Enabled = !vid; norm.Enabled = !vid; prevNormBtn.Enabled = !vid; if (vid) Log("Video mode: your file keeps the original picture and sound. Pick a quality in the Format list."); if (fmt.SelectedIndex == 2 || fmt.SelectedIndex == 3)
                 Log("Note: source audio from YouTube is lossy; WAV/FLAC won't add quality, they just avoid a second lossy encode.");
         };
 
@@ -245,12 +249,12 @@ partial class App : Form
         tip.SetToolTip(phoneBtn, "Use this app from your phone (same Wi-Fi): open a web page, paste a link, download the file.");
         phoneBtn.Click += (s, e) => TogglePhone();
 
-        StyleBox(outDir); outDir.SetBounds(16, 358, 536, 28);
+        StyleBox(outDir); outDir.SetBounds(16, 372, 536, 28);
         outDir.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
         outDir.Text = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyMusic), "yt2mp3");
         Lbl(outDir, "Save to");
         StyleBtn(browse, Color.FromArgb(70, 30, 120)); browse.Text = "Browse...";
-        browse.SetBounds(560, 357, 64, 30); browse.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+        browse.SetBounds(560, 371, 64, 30); browse.Anchor = AnchorStyles.Top | AnchorStyles.Right;
         browse.Click += (s, e) =>
         {
             using (var d = new FolderBrowserDialog())
@@ -259,16 +263,16 @@ partial class App : Form
 
         StyleBtn(go, Color.FromArgb(120, 40, 210)); go.Text = "Convert";
         go.Font = new Font("Segoe UI Semibold", 11f);
-        go.SetBounds(16, 398, 500, 42); go.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+        go.SetBounds(16, 410, 500, 42); go.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
         go.Click += (s, e) => Start();
 
         StyleBtn(cancel, Color.FromArgb(110, 30, 70)); cancel.Text = "Cancel"; cancel.Enabled = false;
-        cancel.SetBounds(524, 398, 100, 42); cancel.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+        cancel.SetBounds(524, 410, 100, 42); cancel.Anchor = AnchorStyles.Top | AnchorStyles.Right;
         cancel.Click += (s, e) => { cancelReq = true; KillCurrent(); Log("Cancelling..."); };
 
         log.Multiline = true; log.ReadOnly = true; log.ScrollBars = ScrollBars.Vertical;
-        StyleBox(log); log.Font = new Font("Consolas", 8.5f);
-        log.SetBounds(16, 492, 608, 180);
+        StyleBox(log); log.Font = new Font("Consolas", 9f);
+        log.SetBounds(16, 514, 608, 180);
         log.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
 
         bg.Controls.AddRange(new Control[] { links, fmt, sr, nameFmt, trimA, trimB, norm, playlist, openDone, animate,
@@ -305,7 +309,7 @@ partial class App : Form
 
     static void StyleChk(CheckBox c, string text, int x, int y, int w)
     {
-        c.Text = text; c.SetBounds(x, y, w, 26); c.BackColor = Pill; c.ForeColor = Ink;
+        c.Text = text; c.SetBounds(x, y, w, 26); c.BackColor = Pill; c.ForeColor = Ink; c.Font = new Font("Segoe UI", 10f);
     }
 
     static void StyleBtn(Button b, Color c)
@@ -327,7 +331,7 @@ partial class App : Form
     {
         if (frameLoop != null) frameLoop.TargetFps = Math.Max(30, Math.Min(Prefs.FpsCap, FrameLoop.DisplayHz()));
         WaveOutPlayer.Gain = Prefs.OutVol / 100f;
-        if (!Prefs.ShowFps) Text = "Purphex v" + Version;
+        if (!Prefs.ShowFps) Text = "YouTube MP3 Converter By Phurex  v" + Version;
         if (!UserBackground.Active) UserBackground.StopVideo();
         bg.Invalidate(); SaveSettings();
     }
@@ -458,7 +462,7 @@ partial class App : Form
         if (go.BackColor != gc) go.BackColor = gc;
         bg.Invalidate();
         fpsFrames++;
-        if (now >= nextFpsAt) { fpsShown = (int)(fpsFrames * 1000.0 / (now - (nextFpsAt - 1000)) + 0.5); fpsFrames = 0; nextFpsAt = now + 1000; Text = "Purphex v" + Version + (Prefs.ShowFps ? "    " + fpsShown + " fps" : ""); }
+        if (now >= nextFpsAt) { fpsShown = (int)(fpsFrames * 1000.0 / (now - (nextFpsAt - 1000)) + 0.5); fpsFrames = 0; nextFpsAt = now + 1000; Text = "YouTube MP3 Converter By Phurex  v" + Version + (Prefs.ShowFps ? "    " + fpsShown + " fps" : ""); }
     }
     // Leaf outline built once and reused (drawing is the hot path of the animation).
     static readonly GraphicsPath[] LeafPaths = BuildLeafPaths();
@@ -700,11 +704,20 @@ partial class App : Form
         }
 
         // shared yt-dlp arguments from the chosen options
-        bool mastering = job.Master != null;
-        string tag = FormatTag(job.Fmt, job.Sr, job.Master, job.Normalize && !mastering);
+        bool video = FmtVid[job.Fmt] > 0; bool mastering = job.Master != null && !video;
+        if (video && job.Master != null) Log("Note: mastering and loudness are for audio formats, so they are skipped for video.");
+        string tag = video ? FmtTag[job.Fmt] : FormatTag(job.Fmt, job.Sr, job.Master, job.Normalize && !mastering);
         string tmpDir = Path.Combine(job.Dir, ".yt2mp3_tmp");
         string common;
-        if (mastering)
+        if (video)
+        {
+            int cap = FmtVid[job.Fmt]; string sel = cap >= 9999 ? "bv*+ba/b" : "bv*[height<=" + cap + "]+ba/b[height<=" + cap + "]/bv*+ba/b";
+            common = "-f \"" + sel + "\" -S \"res,vcodec:h264,acodec:m4a\" --merge-output-format " + FmtBox[job.Fmt] + " --newline --windows-filenames --embed-metadata "
+                + (FmtBox[job.Fmt] == "mp4" ? "--embed-thumbnail --convert-thumbnails jpg " : "")
+                + "--ffmpeg-location \"" + Path.GetDirectoryName(ff) + "\" " + (deno != null ? "--js-runtimes \"deno:" + deno + "\" " : "");
+            Log("Video download: " + FmtNames[job.Fmt].Replace("  ", " ") + ". Sample rate and loudness options only apply to audio.");
+        }
+        else if (mastering)
         {
             // Mastering works from a lossless WAV intermediate, then encodes once to the chosen format.
             common = "-x --audio-format wav --newline --windows-filenames --embed-metadata "
@@ -827,7 +840,7 @@ partial class App : Form
             if (d.ShowDialog(this) != DialogResult.OK) return;
             file = d.FileName;
         }
-        int f = fmt.SelectedIndex; string dir = outDir.Text.Trim(); bool open = openDone.Checked;
+        int f = Math.Min(5, fmt.SelectedIndex); string dir = outDir.Text.Trim(); bool open = openDone.Checked;
         if (dir.Length == 0) { MessageBox.Show(this, "Choose a folder to save to."); return; }
         cancelReq = false; SetBusy(true);
         new Thread(() =>

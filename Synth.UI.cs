@@ -9,43 +9,6 @@ using System.Windows.Forms;
 // =====================================================================================================
 //  Bass Lab presets: a preset is just "id=value;id=value" laid over the default patch.
 // =====================================================================================================
-static class SynthPresets
-{
-    public static readonly string[] Names = { "Wobble Bass", "Reese Bass", "Growl Bass", "Deep Sub", "Pluck Bass", "Acid Squelch", "Supersaw Lead", "Soft Pad", "Init" };
-    static readonly Dictionary<string, string> Data = new Dictionary<string, string>
-    {
-        { "Wobble Bass", "aon=1;awt=45;aoct=-1;auni=3;adet=14;alvl=85;bon=1;bwt=75;boct=-1;blvl=55;bfin=7;subon=1;suboct=-1;sublvl=65;f1on=1;f1type=1;f1cut=500;f1res=42;f1drive=25;e2a=0;e2d=420;e2s=0;" +
-            "m1s=5;m1d=17;m1a=25;m2s=1;m2d=17;m2a=58;m3s=2;m3d=9;m3a=22;m4s=10;m4d=17;m4a=60;m5s=11;m5d=18;m5a=35;l1sync=8;l1shape=0;l2sync=5;l2shape=6;bbon=1;bbfreq=55;bbgain=7;bbharm=25;dston=1;dstmode=2;dstdrive=9;dstmix=30;mac1=0;mac2=0" },
-        { "Reese Bass", "aon=1;awt=50;aoct=-1;auni=5;adet=26;alvl=80;bon=1;bwt=50;boct=-1;bfin=-14;buni=5;bdet=22;blvl=75;subon=1;sublvl=55;f1on=1;f1type=1;f1cut=650;f1res=18;f1drive=18;" +
-            "m1s=1;m1d=17;m1a=22;l1sync=3;l1shape=0;m2s=2;m2d=22;m2a=35;l2sync=2;l2shape=0;chon=1;chmix=35;bbon=1;bbfreq=52;bbgain=7;bbharm=18" },
-        { "Growl Bass", "aon=1;awt=60;aoct=-1;auni=3;adet=10;alvl=85;awarp=3;wamt=0;awamt=0;bon=1;bwt=40;boct=-1;blvl=60;subon=1;sublvl=60;f1on=1;f1type=1;f1cut=900;f1res=50;f1drive=40;" +
-            "m1s=1;m1d=9;m1a=65;l1sync=13;l1shape=0;m2s=2;m2d=17;m2a=55;l2sync=11;l2shape=6;m3s=5;m3d=10;m3a=30;e2d=300;e2s=0;dston=1;dstmode=1;dstdrive=14;dstmix=55;bbon=1;bbfreq=58;bbgain=8;bbharm=30" },
-        { "Deep Sub", "aon=1;awt=0;aoct=-1;auni=1;alvl=90;subon=1;subwave=0;suboct=-1;sublvl=60;f1on=1;f1type=1;f1cut=400;f1res=5;f1drive=0;e1a=4;e1d=300;e1s=90;e1r=200;bbon=1;bbfreq=45;bbgain=9;bbharm=22;bbq=0.9" },
-        { "Pluck Bass", "aon=1;awt=70;aoct=-1;auni=2;adet=8;alvl=85;bon=1;bwt=25;boct=0;blvl=35;subon=1;sublvl=55;f1on=1;f1type=1;f1cut=300;f1res=30;e1a=0;e1d=160;e1s=0;e1r=90;e2a=0;e2d=170;e2s=0;m1s=5;m1d=17;m1a=60;bbon=1;bbfreq=60;bbgain=6" },
-        { "Acid Squelch", "mode=2;glide=90;aon=1;awt=66;aoct=-1;auni=1;alvl=90;bon=0;subon=1;sublvl=45;f1on=1;f1type=1;f1cut=350;f1res=72;f1drive=35;e1d=300;e1s=70;e2a=0;e2d=260;e2s=10;m1s=5;m1d=17;m1a=55;m2s=1;m2d=17;m2a=20;l1sync=11;dston=1;dstmode=0;dstdrive=8;dstmix=25;bbon=1;bbfreq=62;bbgain=5" },
-        { "Supersaw Lead", "aon=1;awt=50;aoct=0;auni=7;adet=34;alvl=80;bon=1;bwt=50;boct=0;bfin=6;buni=5;bdet=26;blvl=60;subon=0;f1on=1;f1type=0;f1cut=6500;f1res=10;e1a=8;e1d=400;e1s=75;e1r=300;m1s=1;m1d=2;m1a=0;chon=1;chmix=30;dlon=1;dlsync=3;dlmix=22;rvon=1;rvmix=22;bbon=0" },
-        { "Soft Pad", "aon=1;awt=35;aoct=0;auni=5;adet=22;alvl=75;bon=1;bwt=60;boct=0;bfin=5;buni=3;bdet=18;blvl=50;subon=0;f1on=1;f1type=0;f1cut=2400;f1res=12;e1a=700;e1d=900;e1s=80;e1r=1100;m1s=1;m1d=17;m1a=18;l1sync=3;chon=1;chmix=40;rvon=1;rvsize=70;rvmix=30;bbon=0" },
-        { "Init", "aon=1;awt=0;aoct=0;auni=1;alvl=80;subon=0;f1on=0;f1cut=20000;bbon=0;e1a=2;e1d=300;e1s=100;e1r=120;vol=-10" }
-    };
-    public static string Dir { get { return Path.Combine(StudioEnv.DataDir, "synthpresets"); } }
-    public static void Apply(SynthFx fx, string name)
-    {
-        fx.ResetDefaults();
-        string d; if (Data.TryGetValue(name, out d)) fx.Deserialize(d);
-        else { try { string f = Path.Combine(Dir, name + ".txt"); if (File.Exists(f)) fx.Deserialize(File.ReadAllText(f)); } catch { } }
-        fx.PresetName = name; fx.MarkDirty(); fx.Reset();
-    }
-    public static List<string> UserNames()
-    {
-        var l = new List<string>(); try { if (Directory.Exists(Dir)) foreach (var f in Directory.GetFiles(Dir, "*.txt")) l.Add(Path.GetFileNameWithoutExtension(f)); } catch { }
-        l.Sort(); return l;
-    }
-    public static void SaveUser(SynthFx fx, string name)
-    {
-        foreach (char c in Path.GetInvalidFileNameChars()) name = name.Replace(c, '_');
-        Directory.CreateDirectory(Dir); File.WriteAllText(Path.Combine(Dir, name + ".txt"), fx.Serialize()); fx.PresetName = name;
-    }
-}
 
 // =====================================================================================================
 //  The Bass Lab window: a custom-drawn synth panel (same layout idea as the big wavetable synths: oscillators and
@@ -136,7 +99,7 @@ partial class SynthCanvas : Control
     float FromFrac(Param p, bool log, float f) { f = Math.Max(0, Math.Min(1, f)); return log ? (float)(p.Min * Math.Pow(p.Max / p.Min, f)) : p.Min + f * (p.Max - p.Min); }
     static bool IsLog(Param p) { return !p.IsChoice && p.Min > 0 && p.Max / p.Min >= 8; }
     Param P(string id) { return fx.Find(id); }
-    void SetVal(Param p, float v) { fx.Set(p.Id, v); modified = true; }
+    void SetVal(Param p, float v) { fx.Set(p.Id, v); modified = true; if (Array.IndexOf(SynthFx.GlobalIds, p.Id) >= 0) fx.SaveGlobals(); }
 
     // ---------- widgets ----------
     void Knob(Graphics g, string id, float cx, float cy, string label, Color col, float rad = 17)
@@ -215,6 +178,7 @@ partial class SynthCanvas : Control
         PaintTop(g);
         switch (tab) { case 0: PaintOsc(g); break; case 1: PaintMix(g); break; case 2: PaintFx(g); break; case 3: PaintMatrix(g); break; default: PaintGlobal(g); break; }
         PaintMods(g);
+        PaintPresetBrowser(g);
         PaintDragGhost(g);
         string tip = hover != null ? hover.Tip : ""; if (tip.Length > 0) { var tr = Rc(8, H - 22, W - 16, 18); Txt(g, tip, 11, Ink, tr, StringAlignment.Near, false); }
         g.ResetTransform();
@@ -257,21 +221,6 @@ partial class SynthCanvas : Control
         var all = new List<string>(SynthPresets.Names); all.AddRange(SynthPresets.UserNames()); int i = all.IndexOf(fx.PresetName); i = (i + d + all.Count) % all.Count;
         SynthPresets.Apply(fx, all[i]); modified = false;
     }
-    void PresetMenu(PointF pt)
-    {
-        var m = Win.NewMenu();
-        foreach (var n in SynthPresets.Names) { string nn = n; var it = new ToolStripMenuItem(n) { Checked = fx.PresetName == n }; it.Click += (a, b) => { SynthPresets.Apply(fx, nn); modified = false; Poke(); }; m.Items.Add(it); }
-        var us = SynthPresets.UserNames();
-        if (us.Count > 0) { m.Items.Add(new ToolStripSeparator()); foreach (var n in us) { string nn = n; var it = new ToolStripMenuItem("My: " + n) { Checked = fx.PresetName == n }; it.Click += (a, b) => { SynthPresets.Apply(fx, nn); modified = false; Poke(); }; m.Items.Add(it); } }
-        m.Items.Add(new ToolStripSeparator());
-        m.Items.Add("Save current sound as a preset...").Click += (a, b) =>
-        {
-            Typing = true; string s = StudioDialogs.Ask(FindForm(), "Preset name:", fx.PresetName == "Init" ? "My bass" : fx.PresetName + " 2"); Typing = false; if (s == null) return;
-            try { SynthPresets.SaveUser(fx, s); modified = false; } catch (Exception ex) { MessageBox.Show(this, ex.Message, "Save preset"); }
-            Poke();
-        };
-        ShowMenu(m, new Point((int)(620 * scale + ox), (int)(56 * scale + oy)));
-    }
 
     // ---------- OSC page ----------
     void ModuleFrame(Graphics g, RectangleF r, string title, string powerId)
@@ -282,20 +231,6 @@ partial class SynthCanvas : Control
     }
 
     // ---------- FX page ----------
-    void PaintFx(Graphics g)
-    {
-        float y = 66, h = 252, x = 8;
-        var d = Rc(x, y, 214, h); ModuleFrame(g, d, "DISTORTION", "dston"); Choose(g, "dstmode", Rc(d.X + 8, d.Y + 34, d.Width - 16, 20), Acc2);
-        Knob(g, "dstdrive", d.X + 56, d.Y + 110, "DRIVE", Acc2, 20); Knob(g, "dsttone", d.X + 156, d.Y + 110, "TONE", Acc, 20); Knob(g, "dstmix", d.X + 106, d.Y + 200, "MIX", Acc, 20); x += 217;
-        var c = Rc(x, y, 190, h); ModuleFrame(g, c, "CHORUS", "chon"); Knob(g, "chrate", c.X + 50, c.Y + 80, "RATE", Acc, 18); Knob(g, "chdepth", c.X + 140, c.Y + 80, "DEPTH", Acc, 18); Knob(g, "chmix", c.X + 95, c.Y + 170, "MIX", Acc2, 18); x += 193;
-        var dl = Rc(x, y, 190, h); ModuleFrame(g, dl, "DELAY", "dlon"); Choose(g, "dlsync", Rc(dl.X + 8, dl.Y + 34, dl.Width - 16, 20), Acc); Knob(g, "dlfb", dl.X + 50, dl.Y + 110, "FEEDBACK", Acc, 18); Knob(g, "dlmix", dl.X + 140, dl.Y + 110, "MIX", Acc2, 18); x += 193;
-        var rv = Rc(x, y, 190, h); ModuleFrame(g, rv, "REVERB", "rvon"); Knob(g, "rvsize", rv.X + 50, rv.Y + 80, "SIZE", Acc, 18); Knob(g, "rvdamp", rv.X + 140, rv.Y + 80, "DAMP", Acc, 18); Knob(g, "rvmix", rv.X + 95, rv.Y + 170, "MIX", Acc2, 18); x += 193;
-        // bass boost with a response graph you can drag
-        var bb = Rc(x, y, W - 8 - x, h); ModuleFrame(g, bb, "BASS BOOST", "bbon");
-        var gr = Rc(bb.X + 8, bb.Y + 30, bb.Width - 16, 100); DrawBoostGraph(g, gr);
-        float kx = bb.X + 34, ky = bb.Y + 190; float dx = (bb.Width - 50) / 5f;
-        Knob(g, "bbfreq", kx, ky, "FREQUENCY", Acc2, 17); Knob(g, "bbgain", kx + dx, ky, "BOOST", Acc2, 17); Knob(g, "bbq", kx + dx * 2, ky, "WIDTH", Acc, 17); Knob(g, "bbharm", kx + dx * 3, ky, "HARMONICS", Acc, 17); Knob(g, "bbtight", kx + dx * 4, ky, "TIGHTEN", Acc, 17);
-    }
     void DrawBoostGraph(Graphics g, RectangleF r)
     {
         Fill(g, Disp, r, 5); var f = P("bbfreq"); var gn = P("bbgain"); var q = P("bbq"); bool on = P("bbon").Val > 0.5f;
@@ -383,18 +318,6 @@ partial class SynthCanvas : Control
         if (modTab < 4) PaintEnv(g, pn, modTab + 1); else PaintLfo(g, pn, modTab - 3);
     }
 
-    void PaintEnv(Graphics g, RectangleF pn, int k)
-    {
-        var disp = Rc(pn.X + 12, pn.Y + 12, 560, 250); Fill(g, Disp, disp, 6);
-        double a = P("e" + k + "a").Val, d = P("e" + k + "d").Val, s = P("e" + k + "s").Val / 100.0, rr = P("e" + k + "r").Val;
-        double wa = Math.Sqrt(a + 20), wd = Math.Sqrt(d + 20), wh = Math.Sqrt(300), wr = Math.Sqrt(rr + 20), tot = wa + wd + wh + wr; float iw = disp.Width - 24, ih = disp.Height - 40; float x0 = disp.X + 12, yb = disp.Bottom - 14;
-        PointF p0 = new PointF(x0, yb), p1 = new PointF(x0 + (float)(wa / tot) * iw, yb - ih), p2 = new PointF(p1.X + (float)(wd / tot) * iw, yb - (float)s * ih), p3 = new PointF(p2.X + (float)(wh / tot) * iw, p2.Y), p4 = new PointF(p3.X + (float)(wr / tot) * iw, yb);
-        var poly = new[] { p0, p1, p2, p3, p4 }; using (var b = new SolidBrush(Color.FromArgb(45, Acc2))) g.FillPolygon(b, poly); using (var pen = new Pen(Acc2, 2.5f)) g.DrawLines(pen, poly);
-        Txt(g, k == 1 ? "AMPLITUDE ENVELOPE: how every note's volume rises, falls and fades out." : "ENVELOPE " + k + ": a shape that starts every note. Aim it at something in the MATRIX page (for example Filter 1 cutoff).", 11, Dim, Rc(disp.X + 10, disp.Y + 4, disp.Width - 20, 16), StringAlignment.Near, false);
-        float kx = pn.X + 640; Knob(g, "e" + k + "a", kx, pn.Y + 80, "ATTACK", Acc2, 24); Knob(g, "e" + k + "d", kx + 120, pn.Y + 80, "DECAY", Acc2, 24); Knob(g, "e" + k + "s", kx + 240, pn.Y + 80, "SUSTAIN", Acc, 24); Knob(g, "e" + k + "r", kx + 360, pn.Y + 80, "RELEASE", Acc, 24);
-        if (k > 1) SourceChip(g, Rc(kx - 30, pn.Y + 124, 150, 22), 5 + (k - 2), "Envelope " + k);
-        if (k > 1) QuickAssign(g, Rc(kx - 30, pn.Y + 150, 480, 100), 5 + (k - 2), "Envelope " + k);
-    }
 
     // "Send to" shortcut: finds (or makes) the matrix slot that connects this source to a destination.
     void QuickAssign(Graphics g, RectangleF r, int srcIndex, string name)

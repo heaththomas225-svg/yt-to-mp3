@@ -7,10 +7,18 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.8.0";
+    public const string Latest = "3.9.0";
 
     public const string Text =
-@"3.8.0  Bass Lab: modulate almost any knob
+@"3.9.0  YouTube MP3 Converter By Phurex
+ + NEW video downloads: pick an MP4 format (best quality up to 4K and beyond, 1440p, 1080p, 720p, 480p, 360p) or MKV best quality. Works with links from YouTube and 1000+ other sites, not just music.
+ + NEW the app is now called YouTube MP3 Converter By Phurex, with a cleaner, easier to read main window.
+ + NEW Purphex Music: neon look with glowing track outlines, LED level meters and light strips in each track colour.
+ + NEW Purphex Music: Alt + mouse wheel makes the tracks taller, Ctrl + mouse wheel zooms deeper into the waveform.
+ + NEW Bass Lab: draggable envelope graphs, an 11-slot effect chain (distortion, saturation, compressor, EQ, phaser, flanger, chorus, delay, reverb, stereo width, bass boost) you can reorder, and a preset browser with 54 presets in 13 styles.
+ + NEW Bass Lab presets: save, rename, duplicate, delete, and Initialise Patch. Voice limit and tuning are remembered between sessions.
+
+3.8.0  Bass Lab: modulate almost any knob
  + NEW drag and drop: grab DRAG on an LFO, envelope or macro and drop it on a knob. A coloured ring shows how far it moves the knob. Ctrl + drag the knob to change the amount.
  + NEW 44 targets: oscillator fine, pan and blend, filter drive, and the effects (distortion, chorus, delay, reverb, bass boost).
  + NEW matrix slots have Bipolar / Positive / Negative, an on/off switch and a remove button.

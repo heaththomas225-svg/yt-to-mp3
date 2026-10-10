@@ -60,7 +60,7 @@ partial class StudioForm
                 else if ((m.S & 0xF0) == 0x80 || ((m.S & 0xF0) == 0x90 && m.D2 == 0)) { long st; if (open.TryGetValue(note, out st)) { bars.Add(new float[] { st, m.Frame, note }); open.Remove(note); } }
             }
         foreach (var kv in open) bars.Add(new float[] { kv.Value, kv.Value + StudioEngine.SR / 2, kv.Key });
-        float range = Math.Max(12, hi - lo + 2); var col = Color.FromArgb(tr.Color); g.SetClip(lane);
+        float range = Math.Max(12, hi - lo + 2); var col = Neon(tr.Color); g.SetClip(lane);
         using (var br = new SolidBrush(Color.FromArgb(220, col)))
             foreach (var b in bars)
             {
