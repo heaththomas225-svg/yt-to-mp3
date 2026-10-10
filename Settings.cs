@@ -8,7 +8,7 @@ using System.Windows.Forms;
 class SettingsForm : Form
 {
     readonly App app; bool setting;
-    Label bgName; TrackBar dimBar, volBar; NumericUpDown dimNum, volNum; ComboBox devBox, bufBox, fpsBox;
+    Label bgName; TrackBar dimBar, volBar; NumericUpDown dimNum, volNum; ComboBox devBox, bufBox, fpsBox, inBox;
     CheckBox leavesChk, studioChk, fpsChk;
     static readonly Color Ink = Color.FromArgb(240, 232, 255), Dim = Color.FromArgb(160, 140, 200), Head = Color.FromArgb(236, 120, 230), Fld = Color.FromArgb(24, 12, 44);
 
@@ -52,6 +52,10 @@ class SettingsForm : Form
         bufBox = Combo(180, y, 360, new[] { "Low latency (11 ms) - fastest response", "Normal (23 ms)", "Safe (46 ms) - for slow computers or heavy effects" });
         bufBox.SelectedIndexChanged += (s, e) => { if (!setting) { Prefs.Buf = bufBox.SelectedIndex; Prefs.Changed(); app.StudioEng.ReopenOutput(); } };
         y += 38;
+        Controls.Add(new Label { Text = "Recording input", Left = 20, Top = y + 3, Width = 150, ForeColor = Ink });
+        inBox = Combo(180, y, 360, new string[0]); inBox.Items.Add("System default"); foreach (var n in AudioRecorder.Devices()) inBox.Items.Add(n);
+        inBox.SelectedIndexChanged += (s, e) => { if (!setting) { Prefs.InDev = inBox.SelectedIndex <= 0 ? "" : (string)inBox.SelectedItem; Prefs.Changed(); } };
+        y += 38;
         Note("Volume only changes what you hear while playing. Exported files are never affected.", ref y);
         y += 4; Header("General", ref y);
         var open = Btn("Open settings folder", 20, y, 180, Color.FromArgb(70, 40, 120)); open.Click += (s, e) => { try { Process.Start("explorer.exe", app.DataFolder); } catch { } };
@@ -94,6 +98,7 @@ class SettingsForm : Form
         bgName.Text = UserBackground.Active ? (UserBackground.IsVideo ? "Video: " : "Picture: ") + Prefs.BgPath : "None - using the animated purple leaves";
         dimBar.Value = Prefs.BgDim; dimNum.Value = Prefs.BgDim; leavesChk.Checked = Prefs.BgLeaves; studioChk.Checked = Prefs.BgStudio;
         fpsBox.SelectedIndex = Prefs.FpsCap == 30 ? 0 : 1; fpsChk.Checked = Prefs.ShowFps;
+        { int ii = Prefs.InDev.Length == 0 ? 0 : inBox.Items.IndexOf(Prefs.InDev); inBox.SelectedIndex = Math.Max(0, ii); }
         volBar.Value = Prefs.OutVol; volNum.Value = Prefs.OutVol; devBox.SelectedIndex = Math.Max(0, Math.Min(devBox.Items.Count - 1, Prefs.OutDev + 1)); bufBox.SelectedIndex = Prefs.Buf;
         setting = false;
     }

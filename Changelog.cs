@@ -7,10 +7,16 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.4.0";
+    public const string Latest = "3.5.0";
 
     public const string Text =
-@"3.4.0  Bass Lab piano fix
+@"3.5.0  Record and make songs
+ + NEW MIC button: record a microphone onto a new vocal track while the song plays. Takes are lined up with the beat and saved as files. Pick the input in Settings.
+ + NEW piano roll (the Notes button on an instrument track, or double-click it): draw, move, resize and delete notes, snap to the grid.
+ + CHANGE: REC now starts the song by itself when you play your first note.
+ + NEW button: start a fresh empty project.
+
+3.4.0  Bass Lab piano fix
  + FIX: the Bass Lab piano (and any instrument) now makes sound straight away. Before, the sound device was only opened when you pressed PLAY, so keys were silent until then. This is tested on the real sound device.
  + NEW: PANIC button (top bar and GLOBAL page) stops every note and tail at once.
  + NEW: voice limit, master tune, test sound button and live audio and voice status.

@@ -1,4 +1,3 @@
-3.4.0
+3.5.0
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-FIX: the Bass Lab piano makes sound (the sound device was only opened by PLAY)
-NEW: Panic button, voice limit, MIDI keyboard input, audio status, test sound, velocity on the piano
+NEW: record your voice with MIC, a piano roll to draw and edit notes, REC starts the song on your first note, NEW project

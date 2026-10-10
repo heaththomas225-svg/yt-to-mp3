@@ -320,6 +320,21 @@ Turn it on with the BASS BOOST switch at the top. On the FX page drag the dot on
 - Every knob: drag up/down, mouse wheel for small steps (Shift = finer), double-click to type, right-click to reset.
 - Hold REC in the studio and play to record your notes onto the track."),
 
+        new HelpTopic("makesong", "Music Studio", "Record and make a song (instruments, microphone, piano roll)", false, @"
+## Make music with an instrument
+1. Press + INSTRUMENT and choose Bass Lab (or a VST such as Vital). Play it with your computer keyboard (A S D F G H J = white keys, W E T Y U = black keys, Z / X = octave) or click the piano.
+2. To record your playing: press REC (it turns red), then play a key. The song starts by itself and your notes are recorded onto the track. Press STOP when you are done.
+3. Open the Notes button on the track (or double-click the track) for the piano roll: draw notes by dragging on the grid, drag a note to move it, drag its right end to resize it, right-click to delete it. Everything you draw plays right away. 'Snap notes to grid' tidies your timing.
+4. Set the tempo with BPM (or DETECT). Turn on CLICK for a metronome and SNAP to make everything land on the beat.
+## Record your voice or an instrument with a microphone
+1. Plug in a microphone. Use headphones, so the beat is not picked up by the microphone.
+2. Put the needle where you want to start and press MIC. The song plays while you record. Press MIC again, or STOP, to finish.
+3. The take appears as a new vocal track, lined up with the beat, and is saved in Music / yt2mp3 / Recordings. Choose which input to use in Settings, Recording input.
+4. Not happy? Press UNDO or DEL and record again.
+## Put it together
+Add beats with ADD MUSIC, layer instruments and recordings on their own tracks, move and split pieces, use AUTO MIX for a first balance, then EXPORT. NEW starts a fresh empty project, and Save keeps everything (notes, recordings and sounds).
+"),
+
         new HelpTopic("plugins", "Advanced", "Plugins and custom ffmpeg filters", false, @"
 ## Add your own effects
 1. Menu, then Plugins and extensions, then Open plugins folder.

@@ -146,7 +146,7 @@ partial class StudioForm
     }
     HitReg LaneReg(RectangleF lane, Track tr)
     {
-        var lr = Reg(lane, () => LaneDown(tr, lane)); lr.OnDrag = pt => LaneDrag(tr, pt); lr.OnRight = () => LaneMenu(tr);
+        var lr = Reg(lane, () => LaneDown(tr, lane)); lr.OnDrag = pt => LaneDrag(tr, pt); lr.OnRight = () => LaneMenu(tr); lr.OnDouble = () => { if (tr.Instrument) OpenRoll(tr); };
         if (Hot(lane)) hintNow = "Drag a clip to move it.  Drag its ends to trim.  Click = put the needle.  Right-click = split, trim, copy, delete.  The buttons at the top right of the selected track do the same.";
         return lr;
     }
@@ -180,6 +180,7 @@ partial class StudioForm
     void LaneMenu(Track tr)
     {
         selTrack = Math.Max(0, eng.Tracks.IndexOf(tr)); var m = Win.NewMenu(); long at = Snap(Math.Max(0, scroll + (long)((MousePos.X - HeadW) * spp)));
+        if (tr.Instrument) { m.Items.Add("Edit notes (piano roll)...").Click += (a, b) => OpenRoll(tr); m.Items.Add(new ToolStripSeparator()); }
         m.Items.Add("Split here (at the needle)").Click += (a, b) => SplitTrack(tr, Snap(DispPos));
         m.Items.Add("Split where I clicked").Click += (a, b) => SplitTrack(tr, at);
         m.Items.Add("Trim the start to the needle").Click += (a, b) => TrimStartHere(tr);
@@ -206,7 +207,7 @@ partial class StudioForm
     void PaintLaneTools(Graphics g, Track tr, RectangleF lane)
     {
         if (lane.Width < 640 || Selected != tr) return;
-        string[] n = tr.Instrument ? new[] { "Up", "Dn", "Copy", "Del" } : new[] { "Up", "Dn", "<<", ">>", "Split", "<Trim", "Trim>", "Copy", "Del" };
+        string[] n = tr.Instrument ? new[] { "Notes", "Up", "Dn", "Copy", "Del" } : new[] { "Up", "Dn", "<<", ">>", "Split", "<Trim", "Trim>", "Copy", "Del" };
         float w = 46, gap = 3, tot = n.Length * (w + gap) - gap, x = lane.Right - tot - 8, y = lane.Y + 6;
         FillRR(g, Color.FromArgb(205, 12, 6, 26), Rc(x - 5, y - 3, tot + 10, 28), 8);
         for (int i = 0; i < n.Length; i++)
@@ -214,6 +215,7 @@ partial class StudioForm
             string label = n[i]; var r = Rc(x + i * (w + gap), y, w, 22); Action act;
             switch (label)
             {
+                case "Notes": act = () => OpenRoll(tr); break;
                 case "Up": act = () => MoveTrackBy(tr, -1); break; case "Dn": act = () => MoveTrackBy(tr, 1); break;
                 case "<<": act = () => MoveClip(tr, -1); break; case ">>": act = () => MoveClip(tr, 1); break; case "Split": act = () => SplitTrack(tr, Snap(DispPos)); break;
                 case "<Trim": act = () => TrimStartHere(tr); break; case "Trim>": act = () => TrimEndHere(tr); break; case "Copy": act = () => DuplicateTrack(tr); break; default: act = () => DeleteTrackQuiet(tr); break;
@@ -221,7 +223,7 @@ partial class StudioForm
             Btn(g, r, label, label == "Del" ? 3 : (label == "Split" ? 1 : 0), act, 11);
             if (Hot(r))
             {
-                bubble = label == "Up" ? "Move this track up one row" : label == "Dn" ? "Move this track down one row" : label == "<<" ? "Move this clip one grid step earlier" : label == ">>" ? "Move this clip one grid step later" : label == "Split" ? "Split at the needle (key B)" : label == "<Trim" ? "Cut the start off at the needle" : label == "Trim>" ? "Cut the end off at the needle" : label == "Copy" ? "Duplicate this track" : "Delete this track (Undo brings it back)";
+                bubble = label == "Notes" ? "Open the piano roll: draw, move and delete the notes" : label == "Up" ? "Move this track up one row" : label == "Dn" ? "Move this track down one row" : label == "<<" ? "Move this clip one grid step earlier" : label == ">>" ? "Move this clip one grid step later" : label == "Split" ? "Split at the needle (key B)" : label == "<Trim" ? "Cut the start off at the needle" : label == "Trim>" ? "Cut the end off at the needle" : label == "Copy" ? "Duplicate this track" : "Delete this track (Undo brings it back)";
                 bubblePt = MousePos;
             }
         }
@@ -288,7 +290,7 @@ partial class StudioForm
         Btn(g, Rc(x, y, 50, h), "DEL", 3, () => DeleteTrackQuiet(Selected), 11); x += 64;
         Btn(g, Rc(x, y, 58, h), "UNDO", 0, () => DoUndo(), 11); x += 62;
         Btn(g, Rc(x, y, 58, h), "REDO", 0, () => DoRedo(), 11); x += 70;
-        Btn(g, Rc(x, y, 30, h), "-", 0, () => ZoomBy(1.4), 14); x += 34; Btn(g, Rc(x, y, 30, h), "+", 0, () => ZoomBy(0.7), 14); x += 34; Btn(g, Rc(x, y, 44, h), "FIT", 0, () => { FitView(); }, 11);
+        Btn(g, Rc(x, y, 30, h), "-", 0, () => ZoomBy(1.4), 14); x += 34; Btn(g, Rc(x, y, 30, h), "+", 0, () => ZoomBy(0.7), 14); x += 34; Btn(g, Rc(x, y, 44, h), "FIT", 0, () => { FitView(); }, 11); x += 50; Btn(g, Rc(x, y, 50, h), "NEW", 0, () => NewProject(), 11);
     }
     void ZoomBy(double f)
     {
