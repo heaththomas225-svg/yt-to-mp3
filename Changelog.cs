@@ -7,10 +7,14 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.11.1";
+    public const string Latest = "3.12.0";
 
     public const string Text =
-@"3.11.1  Steadier vocal removal on long songs
+@"3.12.0  Lyrics page, cleaner text
+ + NEW LYRICS page in Purphex Music: write lyrics, section labels, line / word / syllable counts, a rhyme finder, and an AI writing helper (continue, rhyme better, rewrite, feedback, hook ideas). The AI uses your own key, stored protected on your PC. Lyrics are saved in your project.
+ + FIXED squeezed text: the top toolbar buttons are wider with bigger labels (SEPARATE VOCALS is now SPLIT VOCALS + BEAT), the window cannot be made too small, labels in Bass Lab no longer get cut off, and the zoom slider no longer sits on the NEW button.
+
+3.11.1  Steadier vocal removal on long songs
  + FIXED: songs split into pieces for vocal removal are now levelled by the whole song instead of each piece alone, so the stems match at the joins.
 
 3.11.0  Move around like BandLab, thinner tracks, add track, VST3

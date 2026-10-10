@@ -56,7 +56,7 @@ partial class SynthCanvas
             Choose(g, "f" + k + "type", Rc(r.X + 6, r.Y + 122, 108, 20), Acc2); Choose(g, "f" + k + "slope", Rc(r.X + 118, r.Y + 122, 68, 20), Acc);
             if (k == 2) Choose(g, "froute", Rc(r.X + 6, r.Y + 146, 108, 20), Acc); NumBox(g, "f" + k + "key", Rc(r.X + 118, r.Y + 146, 68, 20), "KEY");
             Knob(g, "f" + k + "cut", r.X + 40, r.Y + 214, "CUTOFF", Acc2, 17); Knob(g, "f" + k + "res", r.X + 96, r.Y + 214, "RES", Acc, 17); Knob(g, "f" + k + "drive", r.X + 152, r.Y + 214, "DRIVE", Acc, 17);
-            Knob(g, "f" + k + "gain", r.X + 68, r.Y + 286, "GAIN", Acc, 14); Txt(g, "gain: peak and shelf only", 9, Dim, Rc(r.X + 92, r.Y + 276, 100, 24), StringAlignment.Near, false);
+            Knob(g, "f" + k + "gain", r.X + 68, r.Y + 286, "GAIN", Acc, 14); Txt(g, "for Peak and Shelf types", 9, Dim, Rc(r.X + 90, r.Y + 270, 120, 30), StringAlignment.Near, false);
             x += ws[4 + k] + 3;
         }
     }

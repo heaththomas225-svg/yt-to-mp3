@@ -105,7 +105,7 @@ partial class SynthCanvas
         var pr = Add(pb); pr.Tip = "Pick a ready-made shape: sine, saw, stepped, random, wobbles. You can then reshape it."; pr.Down = pt => { var m = Win.NewMenu(); foreach (var nm in LfoCurve.PresetNames) { string n2 = nm; var it = new ToolStripMenuItem(nm); it.Click += (s2, e2) => { fx.LfoCurves[k - 1].Load(n2); SetVal(P("l" + k + "shape"), 7); Poke(); }; m.Items.Add(it); } ShowMenu(m, new Point((int)(pb.X * scale + ox), (int)(pb.Bottom * scale + oy))); };
         var sb = Rc(x1 + 156, pn.Y + 42, 110, 24); Fill(g, lfoSnap ? Color.FromArgb(120, Acc2) : (Hot(sb) ? PanelHi : Color.FromArgb(18, 10, 34)), sb, 5); Stroke(g, lfoSnap ? Acc2 : Edge, sb, 5, 1); Txt(g, lfoSnap ? "SNAP: ON" : "SNAP: OFF", 11, Ink, sb, StringAlignment.Center, lfoSnap);
         var sr = Add(sb); sr.Tip = "Snap points to the grid when drawing."; sr.Down = pt => { lfoSnap = !lfoSnap; };
-        SourceChip(g, Rc(x1 + 272, pn.Y + 42, 150, 24), k, "LFO " + k); Knob(g, "l" + k + "rate", x1 + 40, pn.Y + 106, sy == 0 ? "RATE (Hz)" : "RATE (sync on)", Acc2, 22); Knob(g, "l" + k + "phase", x1 + 160, pn.Y + 106, "PHASE", Acc, 22); Knob(g, "l" + k + "smooth", x1 + 280, pn.Y + 106, "SMOOTH", Acc, 22); Knob(g, "l" + k + "fade", x1 + 400, pn.Y + 106, "FADE IN", Acc, 22);
+        SourceChip(g, Rc(x1 + 272, pn.Y + 42, 150, 24), k, "LFO " + k); Knob(g, "l" + k + "rate", x1 + 40, pn.Y + 106, sy == 0 ? "RATE Hz" : "RATE", Acc2, 22); Knob(g, "l" + k + "phase", x1 + 160, pn.Y + 106, "PHASE", Acc, 22); Knob(g, "l" + k + "smooth", x1 + 280, pn.Y + 106, "SMOOTH", Acc, 22); Knob(g, "l" + k + "fade", x1 + 400, pn.Y + 106, "FADE IN", Acc, 22);
         QuickAssign(g, Rc(x1 - 6, pn.Y + 156, 520, 108), k, "LFO " + k);
     }
 }

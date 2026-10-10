@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Reflection;
 using System.Windows.Forms;
+using System.IO;
 
 // Drives Purphex Music with synthetic mouse events: overview bar, middle-button panning, zoom limits, thin tracks, add-track strips.   csc /main:S ... StudioUiTest.cs
 static class S
@@ -71,6 +72,29 @@ static class S
         Check("a track added from a strip lands exactly there and is selected", eng.Tracks.Count == 3 && eng.Tracks[1].Name == "NEW" && F<int>("selTrack") == 1, string.Join(", ", eng.Tracks.ConvertAll(t => t.Name).ToArray()));
         typeof(StudioForm).GetMethod("AddTrack", BF).Invoke(sf, new object[] { StudioEngine.NewTrack("LAST", "audio", Clip(5)) });
         Check("a normal add still goes to the end", eng.Tracks[eng.Tracks.Count - 1].Name == "LAST", "");
+        // ---- lyrics page ----
+        {
+            Check("syllable counter gets everyday words right", LyricsTools.Syllables("love") == 1 && LyricsTools.Syllables("rhyme") == 1 && LyricsTools.Syllables("music") == 2 && LyricsTools.Syllables("melody") == 3 && LyricsTools.Syllables("beautiful") == 3 && LyricsTools.Syllables("remember") == 3, "love " + LyricsTools.Syllables("love") + ", music " + LyricsTools.Syllables("music") + ", melody " + LyricsTools.Syllables("melody") + ", beautiful " + LyricsTools.Syllables("beautiful"));
+            Check("a line's syllables are added up and the last word is found", LyricsTools.LineSyllables("I remember the music") == 7 && LyricsTools.LastWord("walking in the night!") == "night", LyricsTools.LineSyllables("I remember the music") + " syllables");
+            string body = LyricsTools.BuildRequest("be \"kind\"", "line one\nline \"two\"\\", 500);
+            Check("the AI request is valid JSON-style text with the model, system and message", body.Contains("\"model\":\"" + LyricsTools.Model + "\"") && body.Contains("be \\\"kind\\\"") && body.Contains("line one\\nline \\\"two\\\"\\\\") && body.Contains("\"max_tokens\":500"), body);
+            string perr; string rep = LyricsTools.ParseReply("{\"id\":\"x\",\"content\":[{\"type\":\"text\",\"text\":\"Line A\nLine \\\"B\\\" \u00e9\"}],\"usage\":{}}", out perr);
+            Check("an AI reply is read back with its line breaks, quotes and accents", rep == "Line A\nLine \"B\" \u00e9" && perr == null, rep);
+            LyricsTools.ParseReply("{\"type\":\"error\",\"error\":{\"type\":\"authentication_error\",\"message\":\"invalid x-api-key\"}}", out perr);
+            Check("an AI error message is passed on clearly", perr == "invalid x-api-key", perr);
+            if (!LyricsTools.HasKey) { LyricsTools.SetKey("sk-test-123"); bool ok = LyricsTools.GetKey() == "sk-test-123" && !File.ReadAllText(Path.Combine(StudioEnv.DataDir, "ai-key.bin"), System.Text.Encoding.Default).Contains("sk-test"); LyricsTools.SetKey(""); Check("the AI key is stored protected (not as readable text) and can be removed", ok && !LyricsTools.HasKey, ""); }
+            string rerr; var rl = LyricsTools.Rhymes("light", "rel_rhy", out rerr);
+            Check("the rhyme finder returns rhymes for 'light'" + (rerr != null && rl.Count == 0 ? " (skipped: offline)" : ""), (rerr != null && rl.Count == 0) || rl.Contains("night"), rl.Count + " words" + (rl.Count > 0 ? ", e.g. " + rl[0] : ""));
+            // project round trip
+            string tmp = Path.Combine(Path.GetTempPath(), "lyrictest.ytmproj"); ProjectIO.Lyrics = "[Verse]\nfirst line\nsecond \"line\" é"; ProjectIO.LyricsTitle = "My Song | test"; ProjectIO.Save(eng, tmp); ProjectIO.Lyrics = ""; ProjectIO.LyricsTitle = ""; ProjectIO.Load(eng, tmp, s => { });
+            Check("lyrics are saved inside the project file and come back", ProjectIO.Lyrics == "[Verse]\nfirst line\nsecond \"line\" é" && ProjectIO.LyricsTitle == "My Song | test", ProjectIO.LyricsTitle); try { File.Delete(tmp); } catch { }
+            // the page itself
+            ProjectIO.Lyrics = "I walk alone in the night\nsearching for a light"; ProjectIO.LyricsTitle = "Night walk"; SetF("tab", 2); Paint(); Pump(200); Paint();
+            var lb = F<TextBox>("lyricBox"); Check("the lyrics page shows the saved text in a real text box", lb != null && lb.Visible && lb.Text.Contains("searching for a light"), lb == null ? "none" : lb.Text.Length + " chars");
+            lb.SelectionStart = lb.Text.Length; Paint(); Check("the text box takes up most of the left side and does not overlap the tools", lb.Right < sf.ClientSize.Width / 2 + 40 && F<TextBox>("aiOut").Left > lb.Right, lb.Bounds + " / " + F<TextBox>("aiOut").Bounds);
+            var bmp2 = new Bitmap(sf.ClientSize.Width, sf.ClientSize.Height); sf.DrawToBitmap(bmp2, new Rectangle(0, 0, sf.Width, sf.Height)); bmp2.Save("_lyrics.png", System.Drawing.Imaging.ImageFormat.Png);
+            SetF("tab", 0); Paint(); Check("leaving the page hides its text boxes", !lb.Visible, "");
+        }
         var bmp = new Bitmap(sf.ClientSize.Width, sf.ClientSize.Height); sf.DrawToBitmap(bmp, new Rectangle(0, 0, sf.Width, sf.Height)); bmp.Save("_studio_ui.png", System.Drawing.Imaging.ImageFormat.Png);
         eng.Shutdown(); Console.WriteLine(fails == 0 ? "=== studio UI checks passed ===" : "=== " + fails + " FAILED ==="); Environment.Exit(fails == 0 ? 0 : 1);
     }
