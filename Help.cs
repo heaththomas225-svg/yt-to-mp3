@@ -30,7 +30,7 @@ TIP: Everything you change is remembered next time."),
         new HelpTopic("formats", "Basics", "Formats and quality: which should I pick?", false, @"
 ## The choices
 - MP3 320 kbps: plays everywhere, very good quality. Best default.
-- MP3 V0: variable quality, slightly smaller, same sound.
+
 - M4A (AAC 256): great on iPhone and Apple Music.
 - FLAC / WAV 24-bit: no extra compression loss, but the audio on YouTube is already compressed, so they sound the same as MP3 320 and are much bigger. Use them if you are going to edit or master the file.
 - Opus: smallest files for the quality.

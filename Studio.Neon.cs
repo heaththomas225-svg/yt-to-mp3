@@ -7,6 +7,7 @@ using System.Windows.Forms;
 // Neon look for Purphex Music: glowing outlines, LED meters and light strips in each track's colour.
 partial class StudioForm
 {
+    bool dragOver;   // files are being dragged over the window
     static readonly Dictionary<int, Color> neonCache = new Dictionary<int, Color>();
     // any stored track colour is pushed to full-bright neon so old projects glow too
     static Color Neon(int argb)

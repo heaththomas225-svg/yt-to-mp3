@@ -1,6 +1,6 @@
 ﻿# Changelog
 
-What changed in each version of **BandLab + YouTube to MP3**. The same notes are shown in the app (Menu > What's new) and in the update card.
+What changed in each version of **Purphex**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
 ## 3.2.0  Purphex: Bass Lab and DAW tools
 

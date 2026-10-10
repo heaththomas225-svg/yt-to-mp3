@@ -1,3 +1,3 @@
-3.13.1
+3.14.0
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Side menu opens with every section closed
+Purphex emblem icon and logo, renamed Purphex, single MP3 option, converted links leave the box, clickable drop box

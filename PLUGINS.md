@@ -1,4 +1,4 @@
-﻿# Writing plugins for BandLab + YouTube to MP3
+﻿# Writing plugins for Purphex
 
 The Music Studio can load extra effects from plugin `.dll` files. A plugin is a small C# class that derives from `Fx`.
 

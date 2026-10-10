@@ -548,7 +548,7 @@ class ExportItem { public string Label, FileName; public RenderOpts Opts; }
 
 static class Exporter
 {
-    public static readonly string[] Formats = { "WAV 24-bit", "WAV 16-bit", "WAV 32-bit float", "FLAC 24-bit", "MP3 320 kbps", "MP3 V0 (VBR)" };
+    public static readonly string[] Formats = { "WAV 24-bit", "WAV 16-bit", "WAV 32-bit float", "FLAC 24-bit", "MP3 320 kbps" };
     static readonly string[] Ext = { "wav", "wav", "wav", "flac", "mp3", "mp3" };
 
     public static string FileExt(int fmt) { return Ext[fmt]; }
@@ -584,7 +584,7 @@ static class Exporter
             return outp;
         }
         string ff = StudioEnv.Ffmpeg(); if (ff == null) throw new Exception("ffmpeg isn't installed yet (convert something once in the main window first).");
-        string enc = fmt == 3 ? "-c:a flac -compression_level 8 -sample_fmt s32 -bits_per_raw_sample 24" : (fmt == 4 ? "-c:a libmp3lame -b:a 320k" : "-c:a libmp3lame -q:a 0");
+        string enc = fmt == 3 ? "-c:a flac -compression_level 8 -sample_fmt s32 -bits_per_raw_sample 24" : "-c:a libmp3lame -b:a 320k";
         // Render to a temporary lossless WAV in small blocks (flat memory), then encode from the file.
         string tmp = Path.Combine(Path.GetTempPath(), "ytm_export_" + Guid.NewGuid().ToString("N").Substring(0, 8) + ".wav");
         try

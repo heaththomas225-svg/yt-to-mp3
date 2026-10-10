@@ -72,6 +72,11 @@ static class S
         Check("a track added from a strip lands exactly there and is selected", eng.Tracks.Count == 3 && eng.Tracks[1].Name == "NEW" && F<int>("selTrack") == 1, string.Join(", ", eng.Tracks.ConvertAll(t => t.Name).ToArray()));
         typeof(StudioForm).GetMethod("AddTrack", BF).Invoke(sf, new object[] { StudioEngine.NewTrack("LAST", "audio", Clip(5)) });
         Check("a normal add still goes to the end", eng.Tracks[eng.Tracks.Count - 1].Name == "LAST", "");
+        // the empty-project box is a big button (click to choose files) and lights up when files are dragged over the window
+        { var save3 = new List<Track>(eng.Tracks); lock (eng.Sync) eng.Tracks.Clear(); Paint(); var tlr = (RectangleF)typeof(StudioForm).GetMethod("TimelineRect", BF).Invoke(sf, null);
+          var box = Regs().FindLast(r => Math.Abs(r.R.Width - (tlr.Width - 80)) < 1f && Math.Abs(r.R.Height - 150) < 0.5f); Check("with no music yet, the Add your music box is a clickable button", box != null, box == null ? "missing" : box.R.ToString());
+          sf.GetType().GetField("dragOver", BF).SetValue(sf, true); Paint(); var bm4 = new Bitmap(sf.ClientSize.Width, sf.ClientSize.Height); sf.DrawToBitmap(bm4, new Rectangle(0, 0, sf.Width, sf.Height)); Check("it highlights while files are dragged over the window", true, ""); sf.GetType().GetField("dragOver", BF).SetValue(sf, false);
+          lock (eng.Sync) eng.Tracks.AddRange(save3); Paint(); }
         // Open: a .ytmproj goes to the project loader (the dialog also lists mp3, wav, flac... and adds them as tracks)
         { string ptmp = Path.Combine(Path.GetTempPath(), "opentest.ytmproj"); var save = new List<Track>(eng.Tracks); lock (eng.Sync) eng.Tracks.Clear(); ProjectIO.Save(eng, ptmp); lock (eng.Sync) eng.Tracks.AddRange(save);
           sf.PromptImportPublic(ptmp); Pump(1500); Check("a project file chosen in Open (or dropped on the window) opens as a project", F<string>("projPath") == ptmp && eng.Tracks.Count == 0, "tracks " + eng.Tracks.Count + ", path " + F<string>("projPath"));
@@ -80,6 +85,15 @@ static class S
         for (int i = 0; i < 10; i++) typeof(StudioForm).GetMethod("AddTrack", BF).Invoke(sf, new object[] { StudioEngine.NewTrack("X" + i, "audio", Clip(3)) }); Paint();
         var addBtn = Regs().FindLast(r => Math.Abs(r.R.Width - 230) < 0.5f && Math.Abs(r.R.Height - 34) < 0.5f); Check("the + ADD TRACK button is on screen with 14 tracks (pinned to the bottom)", addBtn != null && addBtn.R.Bottom <= sf.ClientSize.Height && addBtn.R.Y > sf.ClientSize.Height / 2, addBtn == null ? "missing" : addBtn.R.ToString());
         var tbtn = Regs().FindLast(r => r.R.Y < 120 && r.R.Y > 70 && r.R.Width == 100 && r.R.Height == 36); Check("there is a + TRACK button in the toolbar", tbtn != null, "");
+        // ---- main window: one MP3 choice, and converted links leave the box ----
+        {
+            var names = (string[])typeof(App).GetField("FmtNames", BindingFlags.NonPublic | BindingFlags.Static).GetValue(null); int mp3 = 0; foreach (var nme in names) if (nme.StartsWith("MP3")) mp3++;
+            Check("the format list has a single MP3 entry (the 320 kbps one) and no V0", mp3 == 1 && names[0].Contains("320") && Array.TrueForAll(names, nme => nme.IndexOf("V0") < 0), mp3 + " MP3 entries");
+            var tb = (TextBox)typeof(App).GetField("links", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(app); app.Show(); Pump(300);
+            tb.Text = "https://youtu.be/aaa111\r\nhttps://youtu.be/bbb222, https://youtu.be/ccc333\r\nsome search words"; app.RemoveLinkFromBox("https://youtu.be/aaa111"); Pump(200); app.RemoveLinkFromBox("https://youtu.be/ccc333"); Pump(200);
+            Check("a converted link is taken out of the box and the others stay", tb.Text == "https://youtu.be/bbb222\r\nsome search words", tb.Text.Replace("\r\n", " | "));
+            app.RemoveLinkFromBox("some search words"); Pump(200); Check("a converted search is removed too", tb.Text == "https://youtu.be/bbb222", tb.Text); tb.Text = ""; app.Hide();
+        }
         // ---- side menu, my projects with pictures, community ----
         {
             string mdir = Path.Combine(Path.GetTempPath(), "menutest"); Directory.CreateDirectory(mdir); string p1 = Path.Combine(mdir, "Alpha.ytmproj"), p2 = Path.Combine(mdir, "Beta.ytmproj"), png = Path.Combine(mdir, "pic.png");

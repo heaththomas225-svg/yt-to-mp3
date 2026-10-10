@@ -17,6 +17,7 @@ static class Win
     // Dark title bar with a near-black purple caption (Windows 10 2004+ / Windows 11; harmlessly ignored elsewhere).
     public static void Dark(Form f)
     {
+        try { if (AppLogo.Icon != null) f.Icon = AppLogo.Icon; } catch { }   // every window wears the Purphex emblem
         Action a = delegate ()
         {
             try

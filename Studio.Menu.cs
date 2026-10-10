@@ -89,7 +89,7 @@ partial class StudioForm
 
     void DrawAvatar(Graphics g, RectangleF r)
     {
-        var gs = g.Save(); using (var p = new GraphicsPath()) { p.AddEllipse(r); g.SetClip(p, CombineMode.Intersect); var pic = ProjectLibrary.Picture(ProjectLibrary.AvatarPath); if (pic != null) { g.InterpolationMode = InterpolationMode.HighQualityBilinear; g.DrawImage(pic, r); } else ProjectLibrary.DrawArt(g, r, ProjectLibrary.ProfileName, 7); }
+        var gs = g.Save(); using (var p = new GraphicsPath()) { p.AddEllipse(r); g.SetClip(p, CombineMode.Intersect); var pic = ProjectLibrary.Picture(ProjectLibrary.AvatarPath) ?? AppLogo.Logo; if (pic != null) { g.InterpolationMode = InterpolationMode.HighQualityBicubic; g.DrawImage(pic, r); } else ProjectLibrary.DrawArt(g, r, ProjectLibrary.ProfileName, 7); }   // no picture chosen: the Purphex emblem
         g.Restore(gs); using (var pen = new Pen(Color.FromArgb(230, NeonCyan), 2f)) g.DrawEllipse(pen, r);
     }
     void DrawCover(Graphics g, RectangleF r, ProjectEntry e)
