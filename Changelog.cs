@@ -7,10 +7,13 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.12.1";
+    public const string Latest = "3.12.2";
 
     public const string Text =
-@"3.12.1  Lyrics page is just for your own words
+@"3.12.2  Add Track is always visible
+ + FIXED: adding a track is no longer hidden. There is a + TRACK button in the toolbar (add music or an instrument below or above the selected track, or at the end), a + ADD TRACK button under the last track that stays pinned to the bottom of the list however many tracks you have, and a + circle on every line between tracks.
+
+3.12.1  Lyrics page is just for your own words
  + REMOVED the rhyme finder and the AI writing helper (and the AI key) from the Lyrics page. It is now a plain page for writing your own lyrics.
 
 3.12.0  Lyrics page, cleaner text

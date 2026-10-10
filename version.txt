@@ -1,3 +1,3 @@
-3.12.1
+3.12.2
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Lyrics page is now just for writing your own lyrics (rhyme finder and AI helper removed)
+Add Track buttons always visible (toolbar, pinned list button, plus circles between tracks)
