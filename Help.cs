@@ -106,7 +106,7 @@ TIP: Keep the app open on the PC while you use it. The PC does the converting.")
 ## What it is
 A window with a live EQ curve, Auto EQ, Character, Loudness, Excite and Width controls that processes your downloads.
 ## Steps
-1. Press the Mastering button to open it, then press the power button.
+1. Menu, then Mastering for downloads, opens it. Press the power button.
 2. Pick a preset from the top, or drag the EQ dots and turn the knobs.
 3. Convert as normal. Files come out processed and are labelled 'mastered'.
 TIP: Reanalyze shows a spectrum of a file so Auto EQ can suggest corrections.
@@ -117,7 +117,8 @@ TIP: The same engine, plus much more, is in the Music Studio Mastering tab."),
 Press Music Studio (or ADD MUSIC) on the main window.
 ## Steps
 1. Press ADD MUSIC and choose a file: MP3, WAV, FLAC, AIFF and more.
-2. Say what it is: Full song, Vocal recording, or Beat / instrumental.
+2. Say what is IN the file: Full song with music, Vocals only, or Beat only. Only Full song gets split by the AI (see Full song, Vocals only, Beat only).
+
 3. For a full song press SEPARATE VOCALS & BEAT. The AI makes two real files and shows them as two tracks, perfectly in sync. The first time it asks to download the AI (about 0.5 GB).
 4. Press PLAY (or Space). Use M and S to mute or solo either track.
 TIP: You can also add your own vocal and your own beat as separate tracks.
@@ -204,6 +205,57 @@ TIP: Even hour-long songs export with very little memory and you can cancel at a
         new HelpTopic("typing", "Music Studio", "Typing exact values", false, @"
 Click any number (volume, pan, offset, a plugin parameter, EQ frequency / gain / Q, target loudness, 8D angle) and a small box opens. Type the value and press Enter. Esc cancels.
 For pan type a number from -100 (left) to 100 (right), or L30 / R30 / C."),
+
+        new HelpTopic("settings", "Basics", "Settings: background, animation, audio", false, @"
+## Open it
+Press Settings (top right of the main window) or Menu, then Settings. Everything you change applies at once and is remembered next time.
+## Background
+Choose any picture or video. It is cropped to fill the window automatically. Darken makes it easier to read. 'Keep the leaves' puts the floating leaves on top. Remove puts the purple leaves back.
+## Animation
+Frame rate limit: 60 is smoothest, 30 is lightest on a slow computer. You can show the frame rate in the title bar.
+## Audio
+Volume and output device only change what you hear in the Music Studio. Playback buffer: Low latency reacts fastest but can crackle on slow computers; Safe never crackles. Exported files are never affected.
+TIP: Videos need ffmpeg, which is installed the first time you convert something."),
+
+        new HelpTopic("fullscreen", "Basics", "Full screen, moving windows and shortcuts", false, @"
+## Full screen
+Press F11 in the main window, Music Studio, Settings or Help. Press Esc (or F11 again) to leave. In the Music Studio there is also a Full button.
+## Windows
+Settings, Help and Plugins stay open without locking the other windows, so you can keep working and move any window.
+## Shortcuts
+F1 = Help.  F11 = full screen.  Space = play / pause in the studio.  Ctrl+S = save.  Ctrl+Shift+S = save as.  Ctrl+O = open project.  F2 = rename the selected track.  Esc = close a list or cancel a job."),
+
+        new HelpTopic("studio-roles", "Music Studio", "Full song, Vocals only, Beat only: what do they mean?", false, @"
+When you add a file the studio asks what is IN the file. This is a label, it does not change the audio.
+## Full song with music
+A normal finished song (vocals and music together). Choose this, then press SEPARATE VOCALS & BEAT and the AI makes a real vocals track and a real instrumental track.
+## Vocals only
+A file that already contains only a voice (an acapella, a rap or singing recording). Nothing is removed. If you pick this for a full song you will still hear the whole song.
+## Beat only
+A file that already contains only the music (an instrumental or beat).
+TIP: Not sure? Pick Full song and separate it."),
+
+        new HelpTopic("studio-rename", "Music Studio", "Rename tracks and projects, Save as", false, @"
+## Rename a track
+Double-click its name, right-click the name, or select it and press F2.
+## Rename the project
+Click the project name at the top right (next to Save). If the project was already saved the file is renamed too.
+## Save and Save as
+Save writes the project. Save as (or Ctrl+Shift+S) saves a copy under a new name so you can keep versions. Open reloads a project with all tracks and effect settings.
+TIP: You can add as many tracks as you like. Each loaded track uses computer memory (about 64 MB for a 3 minute song)."),
+
+        new HelpTopic("studio-browser", "Music Studio", "The Add Effect list", false, @"
+Press + Add Effect on a track (or on the Mastering tab for the master chain). Type to search, scroll with the mouse wheel, then press Add or Enter. Esc closes it.
+Effects are grouped: EQ, dynamics (compressor, limiter, gate), tone (exciter, saturation, distortion), space (reverb, delay, chorus), pitch (Auto-Tune, 8D) and your own plugins.
+In a track, effects run top to bottom. Use the ^ and v buttons to change the order, the green dot to bypass, and x to remove."),
+
+        new HelpTopic("sample-plugin", "Advanced", "What is the sample plugin?", false, @"
+## What it is
+'Create sample plugin' is for people who want to write their own effect. It is NOT an effect you can use straight away. It writes a small program template (a volume-wobble effect called Sample Tremolo) plus a build.bat that turns it into a plugin file.
+## If you want to try it
+Press Create sample plugin, then answer Yes to build it now. Press Reload, tick Sample Tremolo to approve it, then in the Music Studio use Add Effect, Plugins, Sample Tremolo.
+## If you do not write code
+You can ignore it. The built-in effects already cover EQ, compression, reverb, Auto-Tune and more."),
 
         new HelpTopic("plugins", "Advanced", "Plugins and custom ffmpeg filters", false, @"
 ## Add your own effects

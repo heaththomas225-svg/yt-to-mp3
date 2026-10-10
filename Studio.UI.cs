@@ -172,9 +172,34 @@ partial class StudioForm : Form
     HitReg Reg(RectangleF r, Action down) { var g = new HitReg { R = r, OnDown = down }; regs.Add(g); return g; }
     bool Hot(RectangleF r) { return hover != null && hover.R == r; }
 
+    // Plain-English hints shown at the bottom while the mouse is over a button.
+    string hintNow = "";
+    static readonly Dictionary<string, string> Hints = new Dictionary<string, string> {
+        { "ADD MUSIC", "Add a song, a vocal recording or a beat. You can also drop files onto this window." },
+        { "SEPARATE VOCALS & BEAT", "Splits the selected FULL SONG into a vocals track and an instrumental track (AI)." },
+        { "AUTO MIX", "Balances the levels and builds an effect chain on every track, then lists what it changed." },
+        { "Undo mix", "Puts everything back the way it was before Auto Mix." },
+        { "EXPORT", "Save the finished mix, the vocals, the instrumental or all stems as WAV, FLAC or MP3." },
+        { "Help", "Open the guides. Each one can show you on screen where to click." },
+        { "Open", "Open a saved project (Ctrl+O)." }, { "Save", "Save this project (Ctrl+S)." },
+        { "Save as", "Save a copy under a new name (Ctrl+Shift+S)." },
+        { "Full", "Full screen (F11). Esc leaves it." }, { "Window", "Leave full screen (Esc)." },
+        { "PLAY", "Play from the needle (Space)." }, { "PAUSE", "Pause (Space)." }, { "STOP", "Stop and go back to the start." }, { "|<", "Jump back to the start." },
+        { "LOOP", "Repeat the song when it reaches the end." },
+        { "MIX", "The tracks, faders and effects." }, { "MASTERING", "Final loudness and polish on the whole mix, with LUFS meters and A/B compare." },
+        { "+ Add Effect", "Pick an effect (EQ, compressor, reverb, Auto-Tune...) to add to this track." },
+        { "+ Add Effect to master", "Add an effect to the final mix instead of one track." },
+        { "Chain presets...", "Load a ready-made effect chain, for example a rap vocal chain." },
+        { "Bypass", "Turn this effect off without removing it." }, { "Presets", "Load or save settings for this effect." },
+        { "^", "Move this effect up (it runs earlier)." }, { "v", "Move this effect down (it runs later)." },
+        { "x", "Remove it." }, { "M", "Mute this track." }, { "S", "Solo: hear only this track." },
+        { "Add", "Add this effect." }, { "Cancel (Esc)", "Stop the current job." }
+    };
+
     // style: 0 normal, 1 accent, 2 hot gradient, 3 danger, 4 toggle-on
     HitReg Btn(Graphics g, RectangleF r, string text, int style, Action down, float px = 15)
     {
+        if (Hot(r)) { string hh; if (Hints.TryGetValue(text, out hh)) hintNow = hh; }
         Color c = style == 1 ? Violet : (style == 3 ? Color.FromArgb(150, 40, 80) : (style == 4 ? Color.FromArgb(150, 70, 230) : BtnC));
         if (Hot(r)) c = Color.FromArgb(Math.Min(255, c.R + 28), Math.Min(255, c.G + 22), Math.Min(255, c.B + 30));
         if (style == 2)
@@ -218,6 +243,7 @@ partial class StudioForm : Form
 
     void PaintAll(PaintEventArgs e)
     {
+        hintNow = "";
         var g = e.Graphics; g.SmoothingMode = SmoothingMode.AntiAlias; g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
         regs.Clear();
         var full = new RectangleF(0, 0, ClientSize.Width, ClientSize.Height);
@@ -225,6 +251,7 @@ partial class StudioForm : Form
         if (tab == 0) PaintMix(g); else PaintMastering(g);
         PaintToolbar(g); PaintTransport(g);
         if (browserOpen) PaintBrowser(g);
+        if (hintNow.Length > 0 && !busy) { var hr = Rc(ClientSize.Width / 2 - 340, ClientSize.Height - 36, 680, 26); FillRR(g, Color.FromArgb(235, 30, 16, 58), hr, 8); StrokeRR(g, Edge, hr, 8, 1); Txt(g, hintNow, 13, Ink, hr, StringAlignment.Center, false); }
         if (busy) PaintBusy(g);
         if ((DateTime.Now - toastAt).TotalSeconds < 3.5 && toast.Length > 0)
         {

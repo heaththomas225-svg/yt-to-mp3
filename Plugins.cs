@@ -153,7 +153,7 @@ class PluginManagerForm : Form
         list = new Panel { Left = 18, Top = 100, Width = 664, Height = 200, AutoScroll = true, BackColor = Color.FromArgb(8, 4, 16), BorderStyle = BorderStyle.FixedSingle }; Controls.Add(list); Win.DarkControl(list);
         Mk("Open plugins folder", 18, 310, 170, () => { Directory.CreateDirectory(PluginHost.Dir); Process.Start("explorer.exe", "\"" + PluginHost.Dir + "\""); });
         Mk("Reload", 196, 310, 110, () => { Reload(true); });
-        Mk("Create sample plugin (SDK)", 314, 310, 210, () => { string d = PluginHost.WriteSdk(Application.ExecutablePath); msg.Text = "SDK written to " + d + ". Run build.bat there."; Process.Start("explorer.exe", "\"" + d + "\""); });
+        Mk("Create sample plugin (for developers)", 314, 310, 290, MakeSample);
         msg = new Label { Left = 18, Top = 352, Width = 664, Height = 40, ForeColor = Color.FromArgb(120, 230, 160) }; Controls.Add(msg);
 
         Controls.Add(new Label { Text = "Custom ffmpeg filter for conversions (advanced)", Left = 18, Top = 400, Width = 500, Height = 26, Font = new Font("Segoe UI Semibold", 13f), ForeColor = Color.FromArgb(225, 190, 255) });
@@ -169,6 +169,29 @@ class PluginManagerForm : Form
     {
         var b = new Button { Text = text, Left = x, Top = y, Width = w, Height = 32, FlatStyle = FlatStyle.Flat, BackColor = Color.FromArgb(118, 52, 212), ForeColor = Color.White, Cursor = Cursors.Hand };
         b.FlatAppearance.BorderColor = Color.FromArgb(190, 120, 255); b.Click += (s, e) => click(); Controls.Add(b); return b;
+    }
+
+    void MakeSample()
+    {
+        string d = PluginHost.WriteSdk(Application.ExecutablePath);
+        string ask = "This creates a TEMPLATE for people who write their own effects. It is not something you can use straight away.\n\n"
+            + "It writes the source code of a simple effect (Sample Tremolo: a volume wobble) plus a build.bat that turns it into a plugin.\n\n"
+            + "Files are in:\n" + d + "\n\nBuild it now so you can try it in the Music Studio?";
+        var a = MessageBox.Show(this, ask, "Sample plugin", MessageBoxButtons.YesNo, MessageBoxIcon.Information);
+        if (a != DialogResult.Yes) { msg.Text = "Sample source written to " + d + " (open build.bat there to build it)."; try { Process.Start("explorer.exe", "\"" + d + "\""); } catch { } return; }
+        try
+        {
+            string csc = Path.Combine(Environment.GetEnvironmentVariable("WINDIR") ?? @"C:\Windows","Microsoft.NET", "Framework64", "v4.0.30319", "csc.exe");
+            string args = "/nologo /target:library /out:\"" + Path.Combine(PluginHost.Dir, "SampleTremolo.dll") + "\" /r:\"" + Application.ExecutablePath + "\" SamplePlugin.cs";
+            var psi = new ProcessStartInfo(csc, args) { WorkingDirectory = d, UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true };
+            using (var p = Process.Start(psi))
+            {
+                string o = p.StandardOutput.ReadToEnd() + p.StandardError.ReadToEnd(); p.WaitForExit(30000);
+                if (p.ExitCode != 0) { msg.Text = "Build failed: " + o.Trim(); return; }
+            }
+            Reload(true); msg.Text = "Built. Tick Sample Tremolo in the list to approve it, then in the Music Studio use Add Effect > Plugins > Sample Tremolo.";
+        }
+        catch (Exception ex) { msg.Text = "Couldn't build: " + ex.Message; }
     }
 
     void Reload(bool load)
