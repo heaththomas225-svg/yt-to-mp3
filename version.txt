@@ -1,4 +1,7 @@
-3.1.0
+3.2.0
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-NEW: VST plugin support: use VST2 instruments like Vital and VST2 effects (Menu > Plugins, tick the plugin)
-NEW: + INSTRUMENT tracks you can play with your keyboard, record (REC) and export
+NEW: renamed Purphex (the studio is Purphex Music)
+NEW: Bass Lab synthesizer + fine-tunable Bass Boost
+NEW: DAW tools: split, trim, move, duplicate, undo/redo, BPM + grid, metronome
+CHANGE: Analyze whole mix moves the mastering EQ; split tracks are named after the song
+Fix: Auto Mix works before splitting; toolbar text overlap; updates within seconds

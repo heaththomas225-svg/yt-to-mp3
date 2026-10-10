@@ -37,7 +37,7 @@ class Job
 partial class App : Form
 {
     // ---- Auto-update settings ----
-    const string Version = "3.1.0";
+    const string Version = "3.2.0";
     // Plain-text manifest: line 1 = newest version, line 2 = direct exe download URL.
     const string UpdateManifestUrl = "https://raw.githubusercontent.com/heaththomas225-svg/yt-to-mp3/main/version.txt";
 
@@ -121,7 +121,7 @@ partial class App : Form
         else if (id == "normalize") { s.Add(new TourStep(R(norm), "Normalize loudness", "Tick this to bring downloads to a standard -14 LUFS loudness.")); s.Add(new TourStep(R(prevNormBtn), "Hear it first", "Press Hear to listen to a 30 second sample, original versus normalized, before you convert.")); }
         else if (id == "vocal") { s.Add(new TourStep(R(vocalBtn), "Vocal remover", "Click this, then choose Remove vocals from a song, or Preview to hear a 30 second sample first.")); s.Add(new TourStep(R(outDir), "Where files go", "The instrumental and the vocals-only file are saved in this folder.")); }
         else if (id == "phone") { s.Add(new TourStep(R(phoneBtn), "Phone mode", "Press this, then open the address it shows on your phone (same Wi-Fi). Use the firewall button if it will not open.")); }
-        else if (id == "masterassistant") { s.Add(new TourStep(R(mastBtn), "Mastering Assistant", "Opens the live EQ, loudness and width window. Turn on its power button and your downloads are processed.")); }
+        else if (id == "masterassistant") { s.Add(new TourStep(R(mastBtn), "Purphex Mastering", "Opens the live EQ, loudness and width window. Turn on its power button and your downloads are processed.")); }
         if (s.Count > 0) Tour.Run(this, s);
     }
 
@@ -146,13 +146,14 @@ partial class App : Form
 
     App()
     {
-        Text = "BandLab + YouTube to MP3 v" + Version;
+        Text = "Purphex v" + Version;
         ClientSize = new Size(640, 690);
         MinimumSize = new Size(560, 640);
         StudioEnv.Ffmpeg = FfmpegExe; StudioEnv.Ffprobe = FfprobeExe; UserBackground.Ffmpeg = FfmpegExe; Prefs.Changed = ApplyPrefs;
         Font = new Font("Segoe UI", 9.5f);
         Shown += (s, e) =>
         {
+            Activated += (s2, e2) => ThreadPool.QueueUserWorkItem(_ => { try { CheckForUpdate(); } catch { } });   // coming back to the app checks for a new version right away
             BeginInvoke(new Action(() => { try { PluginHost.LoadEnabled(); } catch { } }));   // on the UI thread (VST plugins expect it), after the window is visible
             new Thread(UpdateLoop) { IsBackground = true }.Start();
             if (seenVer != Changelog.Latest) BeginInvoke(new Action(() => { seenVer = Changelog.Latest; SaveSettings(); Changelog.Show(this); }));
@@ -197,7 +198,7 @@ partial class App : Form
 
         StyleBtn(mastBtn, Color.FromArgb(90, 36, 160)); mastBtn.Text = "Mastering: OFF";
         mastBtn.SetBounds(464, 274, 160, 30); mastBtn.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-        tip.SetToolTip(mastBtn, "Master your own song: opens the Music Studio on its Mastering tab, where you can add a song, master it and export it.");
+        tip.SetToolTip(mastBtn, "Master your own song: opens Purphex Music on its Mastering tab, where you can add a song, master it and export it.");
         mastBtn.Text = "Master a song";
         mastBtn.Click += (s, e) =>
         {
@@ -227,18 +228,18 @@ partial class App : Form
             var m = Win.NewMenu();
             m.Items.Add("Settings...").Click += (a, b) => ShowSettings();
             m.Items.Add("Full screen  (F11)").Click += (a, b) => Win.ToggleFullscreen(this);
-            m.Items.Add("Mastering for downloads (Mastering Assistant)...").Click += (a, b) => { if (mf == null || mf.IsDisposed) { mf = new MasterForm(this); mf.Show(this); } else mf.Activate(); };
+            m.Items.Add("Mastering for downloads (Purphex Mastering)...").Click += (a, b) => { if (mf == null || mf.IsDisposed) { mf = new MasterForm(this); mf.Show(this); } else mf.Activate(); };
             m.Items.Add("What's new").Click += (a, b) => Changelog.Show(this);
             m.Items.Add("Plugins and extensions...").Click += (a, b) => { new PluginManagerForm(() => ExtraFilter, v => { ExtraFilter = v; SaveSettings(); }).Show(this); };
             m.Items.Add("Open data folder").Click += (a, b) => { try { Directory.CreateDirectory(AppData); Process.Start("explorer.exe", "\"" + AppData + "\""); } catch { } };
             m.Show(whatsBtn, new Point(0, whatsBtn.Height));
         };
-        StyleBtn(studioBtn, Color.FromArgb(90, 36, 160)); studioBtn.Text = "Music Studio"; studioBtn.SetBounds(328, 312, 140, 30);
+        StyleBtn(studioBtn, Color.FromArgb(90, 36, 160)); studioBtn.Text = "Purphex Music"; studioBtn.SetBounds(328, 312, 140, 30);
         tip.SetToolTip(studioBtn, "Open the Logic-style studio: tracks, mixing, Auto-Tune, EQ, effects, mastering and export.");
         studioBtn.Click += (s, e) => OpenStudio();
         StyleBtn(addMusicBtn, Color.FromArgb(190, 60, 200)); addMusicBtn.Text = "ADD MUSIC"; addMusicBtn.Font = new Font("Segoe UI Semibold", 10.5f);
         addMusicBtn.SetBounds(474, 312, 150, 30); addMusicBtn.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-        tip.SetToolTip(addMusicBtn, "Pick a song, vocal or beat from your PC and open it in the Music Studio.");
+        tip.SetToolTip(addMusicBtn, "Pick a song, vocal or beat from your PC and open it in Purphex Music.");
         addMusicBtn.Click += (s, e) => { OpenStudio(); studioForm.AddMusicClick(); };
         tip.SetToolTip(phoneBtn, "Use this app from your phone (same Wi-Fi): open a web page, paste a link, download the file.");
         phoneBtn.Click += (s, e) => TogglePhone();
@@ -324,7 +325,7 @@ partial class App : Form
     {
         if (frameLoop != null) frameLoop.TargetFps = Math.Max(30, Math.Min(Prefs.FpsCap, FrameLoop.DisplayHz()));
         WaveOutPlayer.Gain = Prefs.OutVol / 100f;
-        if (!Prefs.ShowFps) Text = "BandLab + YouTube to MP3 v" + Version;
+        if (!Prefs.ShowFps) Text = "Purphex v" + Version;
         if (!UserBackground.Active) UserBackground.StopVideo();
         bg.Invalidate(); SaveSettings();
     }
@@ -455,7 +456,7 @@ partial class App : Form
         if (go.BackColor != gc) go.BackColor = gc;
         bg.Invalidate();
         fpsFrames++;
-        if (now >= nextFpsAt) { fpsShown = (int)(fpsFrames * 1000.0 / (now - (nextFpsAt - 1000)) + 0.5); fpsFrames = 0; nextFpsAt = now + 1000; Text = "BandLab + YouTube to MP3 v" + Version + (Prefs.ShowFps ? "    " + fpsShown + " fps" : ""); }
+        if (now >= nextFpsAt) { fpsShown = (int)(fpsFrames * 1000.0 / (now - (nextFpsAt - 1000)) + 0.5); fpsFrames = 0; nextFpsAt = now + 1000; Text = "Purphex v" + Version + (Prefs.ShowFps ? "    " + fpsShown + " fps" : ""); }
     }
     // Leaf outline built once and reused (drawing is the hot path of the animation).
     static readonly GraphicsPath[] LeafPaths = BuildLeafPaths();
@@ -917,7 +918,7 @@ partial class App : Form
     // ---------- self-update ----------
     // Runs for the life of the app: checks right away, then every few minutes, so an update
     // published while the app is open pops up live instead of waiting for a restart.
-    const int UpdateCheckSeconds = 20;
+    const int UpdateCheckSeconds = 4;
     const string LatestReleasePage = "https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest";
     const string LatestExeUrl = "https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe";
     string dismissedVer = "";

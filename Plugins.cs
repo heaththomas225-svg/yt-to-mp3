@@ -102,7 +102,7 @@ public static class PluginHost
                 var f = new VstFx(inst, path); f.Prepare(StudioEngine.SR); return f;
             });
         p.Types.Add(tid); p.Loaded = true; loaded[p.File] = p;
-        log.Add("Loaded " + probe.Name + (synth ? " (instrument: use + INSTRUMENT in the Music Studio)" : " (effect: use + Add Effect > PLUGINS)"));
+        log.Add("Loaded " + probe.Name + (synth ? " (instrument: use + INSTRUMENT in Purphex Music)" : " (effect: use + Add Effect > PLUGINS)"));
     }
 
     // Loads every approved plugin that isn't loaded yet. Returns a short log of what happened.
@@ -191,7 +191,7 @@ class PluginManagerForm : Form
         Text = "Plugins and extensions"; FormBorderStyle = FormBorderStyle.FixedDialog; StartPosition = FormStartPosition.CenterParent; MaximizeBox = false; MinimizeBox = false; ShowInTaskbar = false;
         BackColor = Color.FromArgb(10, 4, 20); ForeColor = Color.FromArgb(240, 232, 255); ClientSize = new Size(700, 600); Font = new Font("Segoe UI", 10f); Win.Dark(this);
         Controls.Add(new Label { Text = "Studio effect plugins", Left = 18, Top = 14, Width = 400, Height = 26, Font = new Font("Segoe UI Semibold", 13f), ForeColor = Color.FromArgb(225, 190, 255) });
-        Controls.Add(new Label { Text = "Your installed VST2 plugins (for example Vital) are listed here automatically. Tick one and it loads at once: instruments appear under + INSTRUMENT in the Music Studio, effects under + Add Effect > PLUGINS. You can also copy a .dll into the plugins folder. Plugins are programs: only tick ones you trust.", Left = 18, Top = 44, Width = 664, Height = 50, ForeColor = Color.FromArgb(170, 150, 200) });
+        Controls.Add(new Label { Text = "Your installed VST2 plugins (for example Vital) are listed here automatically. Tick one and it loads at once: instruments appear under + INSTRUMENT in Purphex Music, effects under + Add Effect > PLUGINS. You can also copy a .dll into the plugins folder. Plugins are programs: only tick ones you trust.", Left = 18, Top = 44, Width = 664, Height = 50, ForeColor = Color.FromArgb(170, 150, 200) });
         list = new Panel { Left = 18, Top = 100, Width = 664, Height = 200, AutoScroll = true, BackColor = Color.FromArgb(8, 4, 16), BorderStyle = BorderStyle.FixedSingle }; Controls.Add(list); Win.DarkControl(list);
         Mk("Open plugins folder", 18, 310, 170, () => { Directory.CreateDirectory(PluginHost.Dir); Process.Start("explorer.exe", "\"" + PluginHost.Dir + "\""); });
         Mk("Reload", 196, 310, 110, () => { Reload(true); });
@@ -218,7 +218,7 @@ class PluginManagerForm : Form
         string d = PluginHost.WriteSdk(Application.ExecutablePath);
         string ask = "This creates a TEMPLATE for people who write their own effects. It is not something you can use straight away.\n\n"
             + "It writes the source code of a simple effect (Sample Tremolo: a volume wobble) plus a build.bat that turns it into a plugin.\n\n"
-            + "Files are in:\n" + d + "\n\nBuild it now so you can try it in the Music Studio?";
+            + "Files are in:\n" + d + "\n\nBuild it now so you can try it in Purphex Music?";
         var a = MessageBox.Show(this, ask, "Sample plugin", MessageBoxButtons.YesNo, MessageBoxIcon.Information);
         if (a != DialogResult.Yes) { msg.Text = "Sample source written to " + d + " (open build.bat there to build it)."; try { Process.Start("explorer.exe", "\"" + d + "\""); } catch { } return; }
         try
@@ -231,7 +231,7 @@ class PluginManagerForm : Form
                 string o = p.StandardOutput.ReadToEnd() + p.StandardError.ReadToEnd(); p.WaitForExit(30000);
                 if (p.ExitCode != 0) { msg.Text = "Build failed: " + o.Trim(); return; }
             }
-            Reload(true); msg.Text = "Built. Tick Sample Tremolo in the list to approve it, then in the Music Studio use Add Effect > Plugins > Sample Tremolo.";
+            Reload(true); msg.Text = "Built. Tick Sample Tremolo in the list to approve it, then in Purphex Music use Add Effect > Plugins > Sample Tremolo.";
         }
         catch (Exception ex) { msg.Text = "Couldn't build: " + ex.Message; }
     }
@@ -248,7 +248,7 @@ class PluginManagerForm : Form
             {
                 bool on = cb.Checked; PluginHost.SetEnabled(pi, on);
                 if (!on) { msg.Text = "Disabled. It stays in the list until you restart the app."; return; }
-                // load it straight away so it is ready in the Music Studio without pressing anything else
+                // load it straight away so it is ready in Purphex Music without pressing anything else
                 BeginInvoke(new Action(() => { msg.Text = "Loading... (big instruments can take a few seconds)"; Reload(true); if (pi.Loaded) msg.Text = "Ready: " + ReadyText(pi) + "."; }));
             };
             list.Controls.Add(cb); y += 34;
@@ -258,7 +258,7 @@ class PluginManagerForm : Form
     static string ReadyText(PluginInfo p)
     {
         bool inst = false; foreach (var i in FxRegistry.All) if (p.Types.Contains(i.Type) && i.Category == "Instruments") inst = true;
-        return inst ? "ready: in the Music Studio press + INSTRUMENT" : "ready: Music Studio > + Add Effect > PLUGINS";
+        return inst ? "ready: in Purphex Music press + INSTRUMENT" : "ready: Purphex Music > + Add Effect > PLUGINS";
     }
 
     void TestFilter()

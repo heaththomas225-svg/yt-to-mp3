@@ -221,7 +221,7 @@ class VstPlugin : IDisposable
                 case 17: return (IntPtr)MaxBlock;                 // audioMasterGetBlockSize
                 case 23: return IntPtr.Zero;                      // audioMasterGetCurrentProcessLevel: unsupported
                 case 32: PutString(ptr, "YtToMp3"); return (IntPtr)1;
-                case 33: PutString(ptr, "Music Studio"); return (IntPtr)1;
+                case 33: PutString(ptr, "Purphex Music"); return (IntPtr)1;
                 case 34: return (IntPtr)1000;
                 case 37:                                          // audioMasterCanDo
                     { string s = Marshal.PtrToStringAnsi(ptr) ?? ""; return (s == "sendVstEvents" || s == "sendVstMidiEvent" || s == "sizeWindow" || s == "supplyIdle" || s == "receiveVstTimeInfo") ? (IntPtr)1 : (IntPtr)(-1); }
@@ -253,13 +253,11 @@ class VstPlugin : IDisposable
 }
 
 // An instrument or effect VST as an ordinary effect in a track's chain.
-class VstFx : Fx, IDisposable
+class VstFx : InstrumentFx, IDisposable
 {
     public VstPlugin Plugin; public string File = "";
-    readonly object q = new object(); readonly List<MidiEv> live = new List<MidiEv>(); bool wasTransport;
     VstWindow window;
     const int MaxParams = 128;
-    public Track Owner;
 
     public VstFx(VstPlugin p, string file)
     {
@@ -269,49 +267,17 @@ class VstFx : Fx, IDisposable
         dirty = false;
     }
 
-    public bool IsInstrument { get { return Plugin.IsSynth; } }
-
-    // ---- live MIDI (keyboard / piano) ----
-    public void Midi(byte status, byte d1, byte d2, bool keepAlive = true)
-    {
-        lock (q) { if (live.Count < 256) live.Add(new MidiEv { S = status, D1 = d1, D2 = d2 }); }
-        if (keepAlive) StudioEngine.LiveUntil = Environment.TickCount + (status == 0x80 ? 4000 : 8000);   // keep rendering while it rings out
-    }
-    public void NoteOn(int note, int vel) { Midi(0x90, (byte)note, (byte)vel); }
-    public void NoteOff(int note) { Midi(0x80, (byte)note, 0); }
-    public void AllNotesOff() { Midi(0xB0, 123, 0, false); Midi(0xB0, 120, 0, false); }
-
-    // Called by the engine just before Process for this block.
-    public override void BeginBlock(object track, long pos, int n, bool transport)
-    {
-        var t = track as Track;
-        VstPlugin.HostPos = pos; VstPlugin.HostPlaying = transport; VstPlugin.HostSampleRate = SR;
-        var ev = new List<KeyValuePair<int, MidiEv>>();
-        if (!transport && wasTransport) ev.Add(new KeyValuePair<int, MidiEv>(0, new MidiEv { S = 0xB0, D1 = 123, D2 = 0 }));   // stopped: let go of every held note (first, so a note played right now still sounds)
-        lock (q) { foreach (var m in live) ev.Add(new KeyValuePair<int, MidiEv>(0, m)); live.Clear(); }
-        wasTransport = transport;
-        if (transport && t != null && t.Midi.Count > 0)
-            lock (t.Midi)
-            {
-                int lo = 0, hi = t.Midi.Count;   // first event at or after pos
-                while (lo < hi) { int mid = (lo + hi) / 2; if (t.Midi[mid].Frame < pos) lo = mid + 1; else hi = mid; }
-                for (int i = lo; i < t.Midi.Count && t.Midi[i].Frame < pos + n; i++) ev.Add(new KeyValuePair<int, MidiEv>((int)(t.Midi[i].Frame - pos), t.Midi[i]));
-            }
-        if (ev.Count > 0)
-        {
-            var idx = new Dictionary<MidiEv, int>(); for (int i = 0; i < ev.Count; i++) idx[ev[i].Value] = i;
-            ev.Sort((a, b) => { int c = a.Key.CompareTo(b.Key); return c != 0 ? c : idx[a.Value].CompareTo(idx[b.Value]); });   // in time order, same-time events keep their order
-            Plugin.SendMidi(ev);
-        }
-    }
+    public override bool IsInstrument { get { return Plugin.IsSynth; } }
+    public override bool HasWindow { get { return Plugin.HasEditor; } }
+    public override string WindowLabel { get { return Plugin.HasEditor ? "Open " + Title + " window" : "(this plugin has no window)"; } }
+    protected override void OnBlock(long pos, int n, bool transport) { VstPlugin.HostPos = pos; VstPlugin.HostPlaying = transport; VstPlugin.HostSampleRate = SR; }
+    protected override void OnEvents(List<KeyValuePair<int, MidiEv>> events) { if (events.Count > 0) Plugin.SendMidi(events); }
 
     public override void Process(float[] l, float[] r, int n)
     {
         if (dirty) { dirty = false; for (int i = 0; i < P.Count; i++) { int idx; if (P[i].Id.Length > 1 && int.TryParse(P[i].Id.Substring(1), out idx)) Plugin.SetParam(idx, P[i].Val); } }
         Plugin.Process(l, r, n);
     }
-
-    public override void Reset() { base.Reset(); try { AllNotesOff(); } catch { } }
 
     // The saved state is the plugin's own patch data (so a Vital preset survives saving the project).
     public override string Serialize()
@@ -326,18 +292,18 @@ class VstFx : Fx, IDisposable
     }
 
     // ---- editor window ----
-    public void ShowWindow(IWin32Window owner)
+    public override void ShowWindow(IWin32Window owner)
     {
         if (window != null && !window.IsDisposed) { window.Activate(); window.WindowState = FormWindowState.Normal; return; }
         window = new VstWindow(this, Owner); window.Show(owner);
     }
-    public void CloseWindow() { try { if (window != null && !window.IsDisposed) window.Close(); } catch { } window = null; }
+    public override void CloseWindow() { try { if (window != null && !window.IsDisposed) window.Close(); } catch { } window = null; }
 
     public void Dispose() { CloseWindow(); try { Plugin.Dispose(); } catch { } }
 }
 
 // The plugin's own window (its real interface) plus a keyboard for playing instruments.
-class VstWindow : Form
+class VstWindow : Form, IKeySink
 {
     readonly VstFx fx; readonly Track track; Panel host; PianoPanel piano; Timer idle; int octave = 4; readonly HashSet<int> down = new HashSet<int>();
     static readonly Keys[] KeyMap = { Keys.A, Keys.W, Keys.S, Keys.E, Keys.D, Keys.F, Keys.T, Keys.G, Keys.Y, Keys.H, Keys.U, Keys.J, Keys.K, Keys.O, Keys.L, Keys.P, Keys.Oemtilde };
@@ -378,10 +344,9 @@ class VstWindow : Form
     }
 
     // ---- playing notes ----
-    internal void KeyOn(int note, int vel) { if (!down.Add(note)) return; fx.NoteOn(note, vel); var f = Recorder; if (f != null) f(track, true, note, vel); }
-    internal void KeyOff(int note) { if (!down.Remove(note)) return; fx.NoteOff(note); var f = Recorder; if (f != null) f(track, false, note, 0); }
+    public void KeyOn(int note, int vel) { if (!down.Add(note)) return; fx.NoteOn(note, vel); var f = InstrumentFx.Recorder; if (f != null) f(track, true, note, vel); }
+    public void KeyOff(int note) { if (!down.Remove(note)) return; fx.NoteOff(note); var f = InstrumentFx.Recorder; if (f != null) f(track, false, note, 0); }
     void ReleaseAll() { foreach (var n in new List<int>(down)) KeyOff(n); piano.Invalidate(); }
-    public static Action<Track, bool, int, int> Recorder;   // the studio records notes while armed
 
     protected override bool ProcessCmdKey(ref Message msg, Keys k)
     {
@@ -399,15 +364,15 @@ class VstWindow : Form
         base.OnKeyUp(e);
         int i = Array.IndexOf(KeyMap, e.KeyCode); if (i >= 0) { KeyOff(12 * (octave + 1) + i); piano.Invalidate(); }
     }
-    internal int BaseNote { get { return 12 * (octave + 1); } }
-    internal bool IsDown(int note) { return down.Contains(note); }
-    internal int Octave { get { return octave; } set { octave = Math.Max(0, Math.Min(8, value)); } }
+    public int BaseNote { get { return 12 * (octave + 1); } }
+    public bool IsDown(int note) { return down.Contains(note); }
+    public int Octave { get { return octave; } set { octave = Math.Max(0, Math.Min(8, value)); } }
 }
 
 class PianoPanel : Panel
 {
-    readonly VstWindow w; int mouseNote = -1; const int Keys3 = 36;   // three octaves of keys
-    public PianoPanel(VstWindow w) { this.w = w; DoubleBuffered = true; BackColor = Color.FromArgb(14, 7, 30); }
+    readonly IKeySink w; int mouseNote = -1; int Keys3 = 36;   // three octaves of keys
+    public PianoPanel(IKeySink w, int keys = 36) { this.w = w; Keys3 = keys; DoubleBuffered = true; BackColor = Color.FromArgb(14, 7, 30); }
     static bool Black(int semi) { int s = semi % 12; return s == 1 || s == 3 || s == 6 || s == 8 || s == 10; }
 
     RectangleF KeyRect(int i, out bool black)

@@ -9,7 +9,7 @@ using System.Threading;
 using System.Windows.Forms;
 
 // ======================================================================
-//  Music Studio window (part 2): actions (import, separate, auto mix, export, save/open),
+//  Purphex Music window (part 2): actions (import, separate, auto mix, export, save/open),
 //  busy overlay, mastering tab, and small dialogs.
 // ======================================================================
 class ExportSettings { public bool MixMastered = true, MixDry, ProcVocal, ProcBeat, DryVocal, DryBeat, Stems; public int Fmt; public string Dir = "", Prefix = ""; }
@@ -79,6 +79,7 @@ partial class StudioForm
 
     void AddTrack(Track t)
     {
+        PushUndo();
         bool first = eng.Tracks.Count == 0; lock (eng.Sync) eng.Tracks.Add(t); selTrack = eng.Tracks.Count - 1; selFx = -1; if (first) FitView();
     }
 
@@ -107,7 +108,7 @@ partial class StudioForm
         }, ok =>
         {
             if (!ok || vc == null || ic == null) return;
-            var tv = StudioEngine.NewTrack("Vocals", "vocal", vc); var tb = StudioEngine.NewTrack("Instrumental", "beat", ic); tv.Offset = off; tb.Offset = off;
+            string sname = st.Name; var tv = StudioEngine.NewTrack(sname + " - Vocals", "vocal", vc); var tb = StudioEngine.NewTrack(sname + " - Instrumental", "beat", ic); tv.Offset = off; tb.Offset = off; tv.ClipStart = tb.ClipStart = st.ClipStart; tv.ClipFrames = tb.ClipFrames = st.ClipFrames;
             st.Mute = true; if (!st.Name.EndsWith("(original)")) st.Name += " (original)";
             if (st.Clip != null && st.Clip.Length > StudioEngine.SR * 600) st.Clip.Unload();   // long originals leave memory; reloaded if you un-mute them
             lock (eng.Sync) { eng.Tracks.Add(tv); eng.Tracks.Add(tb); } selTrack = eng.Tracks.Count - 2; selFx = -1;
@@ -131,7 +132,8 @@ partial class StudioForm
     void AutoMixClick()
     {
         bool hasV = false, hasB = false; foreach (var t in eng.Tracks) { if (t.Role == "vocal" && t.Clip != null) hasV = true; if (t.Role == "beat" && t.Clip != null) hasB = true; }
-        if (!hasV && !hasB) { Toast("Add (or separate) a vocal and a beat first."); return; }
+        bool hasSong = false; foreach (var t in eng.Tracks) if (t.Clip != null && !t.Instrument && (t.Role == "song" || t.Role == "other")) hasSong = true;
+        if (!hasV && !hasB && !hasSong) { Toast("Add a song, a vocal or a beat first."); return; }
         List<string> rep = null; string style = amStyle; bool enh = amEnhance;
         RunBusy("Auto Mix: analysing loudness, tone and clipping...", false, p => { rep = AutoMix.Run(eng, style, enh, s => busyText = "Auto Mix: " + s); }, ok =>
         {
@@ -296,13 +298,42 @@ partial class StudioForm
     void AnalyzeMaster()
     {
         if (eng.Tracks.Count == 0) { Toast("Add music first."); return; }
-        long frames = Math.Min(eng.EndFrame, StudioEngine.SR * 240); LoudnessResult a = null, b = null;
-        RunBusy("Measuring the mix with and without mastering...", false, prog =>
+        long frames = Math.Min(eng.EndFrame, StudioEngine.SR * 240); LoudnessResult a = null, b = null; TrackStats tone = null;
+        RunBusy("Measuring the loudness and tone of the mix...", false, prog =>
         {
             float[] l, r; bool was = eng.MasterBypass;
-            eng.Render(0, frames, new RenderOpts { Master = false }, null, out l, out r); a = Loudness.Measure(l, r, StudioEngine.SR, 0, l.Length); prog(0.5f);
+            eng.Render(0, frames, new RenderOpts { Master = false }, null, out l, out r); a = Loudness.Measure(l, r, StudioEngine.SR, 0, l.Length); tone = AutoMix.Analyze(AudioClip.FromArrays(l, r, "mix")); prog(0.5f);
             eng.MasterBypass = false; eng.Render(0, frames, new RenderOpts { Master = true }, null, out l, out r); b = Loudness.Measure(l, r, StudioEngine.SR, 0, l.Length); eng.MasterBypass = was; prog(1f);
-        }, ok => { if (ok) { abOrig = a; abMast = b; ApplyMatch(); Toast("Analysis done"); } });
+        }, ok => { if (ok) { abOrig = a; abMast = b; ApplyMatch(); ToneFromAnalysis(tone, a, b); } });
+    }
+
+    // How far each tone region is from a balanced mix, and the EQ gain (dB) that corrects it, for master bands 1, 2, 4, 5, 6.
+    internal static double[] MasterToneGains(TrackStats st, out double[] deviation)
+    {
+        double[] T = { 5, 4.5, 3.5, 2, 0.5, 0, -1.5, -3, -5, -8, -13 }; var dev = new double[11]; for (int b = 0; b < 11; b++) dev[b] = st.BandDb[b] - T[b];
+        deviation = new[] { (dev[0] + dev[1]) / 2, (dev[2] + dev[3]) / 2, (dev[7] + dev[8]) / 2, dev[9], dev[10] }; var g = new double[5];
+        for (int i = 0; i < 5; i++) { double d = deviation[i]; g[i] = Math.Abs(d) < 1.5 ? 0 : Math.Max(-4, Math.Min(4, -0.55 * (d - Math.Sign(d) * 1.5))); }
+        return g;
+    }
+
+    // The analysis also shapes the master Parametric EQ: the mix's tone is compared with a typical balanced mix and the EQ bands move to correct it (you see the curve change).
+    void ToneFromAnalysis(TrackStats st, LoudnessResult before, LoudnessResult after)
+    {
+        var lines = new List<string>(); Fx eq = null; foreach (var f in eng.MasterFx) if (f.Type == "eq") { eq = f; break; }
+        lines.Add("Loudness: the mix is " + before.I.ToString("0.0") + " LUFS before mastering and " + after.I.ToString("0.0") + " LUFS after (true peak " + after.TruePeakDb.ToString("0.0") + " dBTP).");
+        if (eq == null || st == null) { lines.Add("There is no Parametric EQ in the master chain, so no tone changes were made."); StudioDialogs.Report(this, "Mix analysis", lines, null); return; }
+        double[] dv; double[] gains = MasterToneGains(st, out dv); int[] band = { 0, 1, 3, 4, 5 }; string[] nm = { "bass (100-160 Hz)", "low-mids (250-400 Hz, where mud lives)", "presence (2.5-4 kHz)", "upper-mids (6 kHz)", "air (10 kHz)" };
+        string snap = eq.Serialize(); bool any = false;
+        for (int i = 0; i < 5; i++)
+        {
+            float ng = (float)gains[i]; float old = eq.Get("b" + band[i] + "_g"); eq.Set("b" + band[i] + "_on", 1); eq.Set("b" + band[i] + "_g", ng);
+            if (Math.Abs(ng) > 0.05) { any = true; lines.Add("EQ band " + (band[i] + 1) + ": " + (ng > 0 ? "+" : "") + ng.ToString("0.0") + " dB. The " + nm[i] + " is " + Math.Abs(dv[i]).ToString("0.0") + " dB " + (dv[i] > 0 ? "above" : "below") + " a balanced mix."); }
+            else lines.Add("EQ band " + (band[i] + 1) + ": 0 dB. The " + nm[i] + " is already balanced.");
+        }
+        eq.Bypass = false; selMaster = eng.MasterFx.IndexOf(eq); tab = 1;
+        lines.Add(any ? "The Parametric EQ curve in the Mastering chain now shows these moves. You can edit any band by hand." : "The tone is already balanced, so the EQ was left flat.");
+        lines.Add("Next: press 'Set loudness to target' to bring the loudness up with the limiter.");
+        StudioDialogs.Report(this, "Mix analysis: loudness and tone", lines, () => { eq.Deserialize(snap); Toast("EQ changes undone"); });
     }
 
     void AutoLoudness()

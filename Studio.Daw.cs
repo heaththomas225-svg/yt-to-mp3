@@ -1,0 +1,214 @@
+using System;
+using System.Collections.Generic;
+using System.Drawing;
+using System.Drawing.Drawing2D;
+using System.Globalization;
+using System.Windows.Forms;
+
+// Purphex Music: the editing layer that makes the studio a DAW: split, trim, move, duplicate, undo / redo, tempo + grid snapping, metronome.
+static class Tempo
+{
+    // Finds the tempo (BPM) of a clip from the rhythm of its loudness changes. Returns 0 when it can't tell.
+    public static double Detect(AudioClip clip, long startFrame, double maxSeconds)
+    {
+        if (clip == null || clip.L == null) return 0; int sr = StudioEngine.SR, hop = 256; long len = clip.Length;
+        long from = Math.Max(0, Math.Min(startFrame, len)), to = Math.Min(len, from + (long)(maxSeconds * sr)); if (to - from < sr * 4) { from = 0; to = Math.Min(len, (long)(maxSeconds * sr)); }
+        int n = (int)((to - from) / hop); if (n < 400) return 0;
+        var e = new double[n]; for (int i = 0; i < n; i++) { double s = 0; long b = from + (long)i * hop; for (int k = 0; k < hop; k++) { double v = (clip.L[b + k] + clip.R[b + k]) * 0.5; s += v * v; } e[i] = Math.Sqrt(s / hop); }
+        var on = new double[n]; double mean = 0; for (int i = 1; i < n; i++) { on[i] = Math.Max(0, e[i] - e[i - 1]); mean += on[i]; } mean /= n; for (int i = 0; i < n; i++) on[i] = Math.Max(0, on[i] - mean * 0.5);
+        double hopSec = hop / (double)sr; int lagMin = (int)(60.0 / 190 / hopSec), lagMax = (int)(60.0 / 55 / hopSec); double best = 0; int bestLag = 0; var acf = new double[lagMax + 2];
+        for (int lag = lagMin; lag <= lagMax; lag++) { double a = 0; for (int i = lag; i < n; i++) a += on[i] * on[i - lag]; a /= (n - lag); acf[lag] = a; }
+        for (int lag = lagMin; lag <= lagMax; lag++)
+        {
+            double a = acf[lag] + 0.5 * (2 * lag <= lagMax ? acf[2 * lag] : 0);   // a beat is also supported by the bar that is twice as long
+            double bpm = 60.0 / (lag * hopSec); double w = bpm >= 75 && bpm <= 160 ? 1.0 : 0.85; a *= w;
+            if (a > best) { best = a; bestLag = lag; }
+        }
+        if (bestLag == 0 || best <= 0) return 0;
+        // refine around the peak with a parabola
+        double l0 = acf[Math.Max(lagMin, bestLag - 1)], l1 = acf[bestLag], l2 = acf[Math.Min(lagMax, bestLag + 1)], den = l0 - 2 * l1 + l2, off = Math.Abs(den) < 1e-12 ? 0 : 0.5 * (l0 - l2) / den; off = Math.Max(-1, Math.Min(1, off));
+        double bp = 60.0 / ((bestLag + off) * hopSec); while (bp < 70) bp *= 2; while (bp > 170) bp /= 2; return Math.Round(bp * 10) / 10.0;
+    }
+}
+
+partial class StudioForm
+{
+    // ---------- state ----------
+    bool snapOn = true; int gridIdx = 2; static readonly string[] GridNames = { "1/1 bar", "1/2", "1/4 beat", "1/8", "1/16" }; static readonly double[] GridBeats = { 4, 2, 1, 0.5, 0.25 };
+    readonly List<Fx> retired = new List<Fx>();   // effects of deleted tracks stay alive so Undo can bring the track back
+    class TS { public long Offset, ClipStart, ClipFrames; public float Vol, Pan; public bool Mute, Solo; public string Name; }
+    class Snapshot { public List<Track> Order = new List<Track>(); public Dictionary<Track, TS> St = new Dictionary<Track, TS>(); }
+    readonly List<Snapshot> undo = new List<Snapshot>(), redo = new List<Snapshot>();
+
+    Snapshot TakeSnapshot()
+    {
+        var s = new Snapshot(); foreach (var t in eng.Tracks.ToArray()) { s.Order.Add(t); s.St[t] = new TS { Offset = t.Offset, ClipStart = t.ClipStart, ClipFrames = t.ClipFrames, Vol = t.VolDb, Pan = t.Pan, Mute = t.Mute, Solo = t.Solo, Name = t.Name }; }
+        return s;
+    }
+    void PushUndo() { undo.Add(TakeSnapshot()); if (undo.Count > 60) undo.RemoveAt(0); redo.Clear(); }
+    void Restore(Snapshot s)
+    {
+        lock (eng.Sync)
+        {
+            eng.Tracks.Clear(); eng.Tracks.AddRange(s.Order);
+            foreach (var t in s.Order) { var d = s.St[t]; t.Offset = d.Offset; t.ClipStart = d.ClipStart; t.ClipFrames = d.ClipFrames; t.VolDb = d.Vol; t.Pan = d.Pan; t.Mute = d.Mute; t.Solo = d.Solo; t.Name = d.Name; }
+        }
+        selTrack = Math.Max(0, Math.Min(selTrack, eng.Tracks.Count - 1)); selFx = -1;
+    }
+    void DoUndo() { if (undo.Count == 0) { Toast("Nothing to undo."); return; } redo.Add(TakeSnapshot()); var s = undo[undo.Count - 1]; undo.RemoveAt(undo.Count - 1); Restore(s); Toast("Undone"); }
+    void DoRedo() { if (redo.Count == 0) { Toast("Nothing to redo."); return; } undo.Add(TakeSnapshot()); var s = redo[redo.Count - 1]; redo.RemoveAt(redo.Count - 1); Restore(s); Toast("Redone"); }
+
+    // ---------- grid ----------
+    double GridFrames { get { return StudioEngine.SR * 60.0 / Math.Max(20, Fx.ProjectBpm) * GridBeats[gridIdx]; } }
+    long Snap(long frame) { if (!snapOn) return frame; double g = GridFrames; return (long)(Math.Round(frame / g) * g); }
+
+    void PaintGrid(Graphics g, RectangleF tl, float top, float bottom)
+    {
+        if (!snapOn) return; double gf = GridFrames, bar = StudioEngine.SR * 60.0 / Math.Max(20, Fx.ProjectBpm) * 4; if (gf / spp < 6) { gf *= 4; if (gf / spp < 6) return; }
+        long first = (long)(Math.Floor(scroll / gf) * gf); g.SetClip(Rc(tl.X, top, tl.Width, bottom - top));
+        using (var thin = new Pen(Color.FromArgb(28, 190, 150, 255))) using (var thick = new Pen(Color.FromArgb(64, 210, 170, 255)))
+            for (double f = first; ; f += gf)
+            {
+                float x = tl.X + (float)((f - scroll) / spp); if (x > tl.Right) break; if (x < tl.X) continue;
+                bool isBar = Math.Abs(f / bar - Math.Round(f / bar)) < 0.0005; g.DrawLine(isBar ? thick : thin, x, top, x, bottom);
+            }
+        g.ResetClip();
+    }
+
+    // ---------- editing the selected track ----------
+    Track Selected { get { return selTrack >= 0 && selTrack < eng.Tracks.Count ? eng.Tracks[selTrack] : null; } }
+
+    Fx CloneFx(Fx f)
+    {
+        try { var c = FxRegistry.Create(f.Type); if (c == null) return null; c.Prepare(StudioEngine.SR); c.Deserialize(f.Serialize()); c.Bypass = f.Bypass; var ic = c as InstrumentFx; if (ic != null) { } return c; }
+        catch { return null; }
+    }
+    Track CloneTrack(Track t, string suffix)
+    {
+        var n = StudioEngine.NewTrack(t.Name + suffix, t.Role, t.Clip); n.Instrument = t.Instrument; n.Offset = t.Offset; n.ClipStart = t.ClipStart; n.ClipFrames = t.ClipFrames; n.Color = t.Color; n.VolDb = t.VolDb; n.Pan = t.Pan; n.Mute = t.Mute; n.Source = t.Source;
+        lock (t.Midi) foreach (var m in t.Midi) n.Midi.Add(new MidiEv { Frame = m.Frame, S = m.S, D1 = m.D1, D2 = m.D2 });
+        foreach (var f in t.Fx) { var c = CloneFx(f); if (c != null) { var ic = c as InstrumentFx; if (ic != null) ic.Owner = n; n.Fx.Add(c); } }
+        return n;
+    }
+    void InsertAfter(Track after, Track n) { lock (eng.Sync) { int i = eng.Tracks.IndexOf(after); eng.Tracks.Insert(i < 0 ? eng.Tracks.Count : i + 1, n); } selTrack = eng.Tracks.IndexOf(n); selFx = -1; }
+
+    void SplitSelected() { SplitTrack(Selected, Snap(DispPos)); }
+    void SplitTrack(Track t, long at)
+    {
+        if (t == null) { Toast("Select a track first."); return; }
+        if (t.Clip == null || t.Instrument) { Toast("Splitting works on audio tracks."); return; }
+        long rel = at - t.Offset, used = t.UsedLength; if (rel < 800 || rel > used - 800) { Toast("Move the needle into the clip first (click on the track), then split."); return; }
+        PushUndo(); var right = CloneTrack(t, " (2)"); right.Offset = at; right.ClipStart = t.ClipStart + rel; right.ClipFrames = used - rel; t.ClipFrames = rel;
+        InsertAfter(t, right); Toast("Split in two. Drag the name bar to move a piece, drag its ends to trim.");
+    }
+    void TrimStartHere(Track t) { TrimAt(t, Snap(DispPos), true); }
+    void TrimEndHere(Track t) { TrimAt(t, Snap(DispPos), false); }
+    void TrimAt(Track t, long at, bool start)
+    {
+        if (t == null || t.Clip == null) { Toast("Select an audio track first."); return; } long rel = at - t.Offset, used = t.UsedLength;
+        if (rel < 800 || rel > used - 800) { Toast("Put the needle inside the clip to trim there."); return; }
+        PushUndo();
+        if (start) { t.Offset = at; t.ClipStart += rel; t.ClipFrames = t.ClipFrames < 0 ? -1 : used - rel; }
+        else t.ClipFrames = rel;
+        Toast(start ? "Start trimmed" : "End trimmed");
+    }
+    void DuplicateTrack(Track t)
+    {
+        if (t == null) return; PushUndo(); var n = CloneTrack(t, " copy"); InsertAfter(t, n); Toast("Duplicated");
+    }
+    void DeleteTrackQuiet(Track t)
+    {
+        if (t == null) return; PushUndo(); lock (eng.Sync) { eng.Tracks.Remove(t); retired.AddRange(t.Fx); } selTrack = Math.Max(0, Math.Min(selTrack, eng.Tracks.Count - 1)); selFx = -1;
+        foreach (var f in t.Fx) { var ic = f as InstrumentFx; if (ic != null) ic.CloseWindow(); }
+        Toast("Deleted (Undo brings it back)");
+    }
+    void DisposeRetired() { foreach (var f in retired) { var d = f as IDisposable; if (d != null) { try { d.Dispose(); } catch { } } } retired.Clear(); }
+
+    // ---------- mouse on a lane: seek, move the clip (name bar), trim (ends) ----------
+    int laneMode; PointF laneStart; long l0Offset, l0ClipStart, l0ClipFrames, l0Used;
+    HitReg LaneReg(RectangleF lane, Track tr)
+    {
+        var lr = Reg(lane, () => LaneDown(tr, lane)); lr.OnDrag = pt => LaneDrag(tr, pt); lr.OnRight = () => LaneMenu(tr);
+        if (Hot(lane)) hintNow = "Click = put the needle here.  Drag the clip's name bar = move it.  Drag a clip's end = trim it.  Right-click = split, trim, duplicate, delete.";
+        return lr;
+    }
+    void LaneDown(Track tr, RectangleF lane)
+    {
+        selTrack = Math.Max(0, eng.Tracks.IndexOf(tr)); selFx = -1; laneMode = 0; laneStart = MousePos;
+        if (tr.Clip != null && !tr.Instrument)
+        {
+            float x0 = lane.X + (float)((tr.Offset - scroll) / spp), x1 = x0 + (float)(tr.UsedLength / spp); float mx = MousePos.X, my = MousePos.Y;
+            if (Math.Abs(mx - x0) <= 7 && x1 - x0 > 20) laneMode = 2; else if (Math.Abs(mx - x1) <= 7 && x1 - x0 > 20) laneMode = 3; else if (mx > x0 && mx < x1 && my < lane.Y + 26) laneMode = 1;
+            if (laneMode != 0) { PushUndo(); l0Offset = tr.Offset; l0ClipStart = tr.ClipStart; l0ClipFrames = tr.ClipFrames; l0Used = tr.UsedLength; return; }
+        }
+        eng.Seek(Math.Max(0, Snap(scroll + (long)((MousePos.X - HeadW) * spp))));
+    }
+    void LaneDrag(Track tr, PointF pt)
+    {
+        if (laneMode == 0) { eng.Seek(Math.Max(0, Snap(scroll + (long)((pt.X - HeadW) * spp)))); return; }
+        long delta = (long)((pt.X - laneStart.X) * spp);
+        if (laneMode == 1) { tr.Offset = Math.Max(0, Snap(l0Offset + delta)); return; }
+        long avail = Math.Max(0, tr.Clip.Length - l0ClipStart);
+        if (laneMode == 2)
+        {
+            long newStart = Snap(l0Offset + delta); long d = newStart - l0Offset; d = Math.Max(-l0ClipStart, Math.Min(l0Used - 1000, d)); if (l0Offset + d < 0) d = -l0Offset;
+            tr.Offset = l0Offset + d; tr.ClipStart = l0ClipStart + d; tr.ClipFrames = l0ClipFrames < 0 ? -1 : l0Used - d;
+        }
+        else
+        {
+            long end = Snap(l0Offset + l0Used + delta); long used = Math.Max(1000, Math.Min(avail, end - l0Offset)); tr.ClipFrames = used >= avail ? (l0ClipFrames < 0 ? -1 : used) : used;
+        }
+    }
+    void LaneMenu(Track tr)
+    {
+        selTrack = Math.Max(0, eng.Tracks.IndexOf(tr)); var m = Win.NewMenu(); long at = Snap(Math.Max(0, scroll + (long)((MousePos.X - HeadW) * spp)));
+        m.Items.Add("Split here (at the needle)").Click += (a, b) => SplitTrack(tr, Snap(DispPos));
+        m.Items.Add("Split where I clicked").Click += (a, b) => SplitTrack(tr, at);
+        m.Items.Add("Trim the start to the needle").Click += (a, b) => TrimStartHere(tr);
+        m.Items.Add("Trim the end to the needle").Click += (a, b) => TrimEndHere(tr);
+        m.Items.Add(new ToolStripSeparator());
+        m.Items.Add("Duplicate track").Click += (a, b) => DuplicateTrack(tr);
+        m.Items.Add("Rename...  (F2)").Click += (a, b) => RenameTrack(tr);
+        m.Items.Add("Delete track").Click += (a, b) => DeleteTrackQuiet(tr);
+        m.Show(this, new Point((int)MousePos.X, (int)MousePos.Y));
+    }
+
+    // ---------- tempo ----------
+    void DetectBpmClick()
+    {
+        Track t = null; var s = Selected; if (s != null && s.Clip != null && !s.Instrument) t = s; if (t == null) foreach (var x in eng.Tracks) if (x.Clip != null && !x.Instrument && (x.Role == "beat" || x.Role == "song")) { t = x; break; }
+        if (t == null) foreach (var x in eng.Tracks) if (x.Clip != null && !x.Instrument) { t = x; break; }
+        if (t == null) { Toast("Add a song or a beat first."); return; }
+        double bpm = 0; var clip = t.Clip; long st = t.ClipStart + (long)(StudioEngine.SR * 8); string nm = t.Name;
+        RunBusy("Finding the tempo of " + nm + "...", false, p => { bpm = Tempo.Detect(clip, st, 70); }, ok =>
+        {
+            if (!ok) return; if (bpm <= 0) { Toast("Couldn't hear a steady beat. Type the BPM instead (click the number)."); return; }
+            Fx.ProjectBpm = bpm; Toast("Tempo: " + bpm.ToString("0.0") + " BPM (the grid, the metronome and the synth's tempo-synced wobbles follow it)");
+        });
+    }
+
+    // ---------- the strip under the transport ----------
+    void PaintDawBar(Graphics g, float y0, float W)
+    {
+        float x = 14, y = y0 + 3, h = 30;
+        Txt(g, "BPM", 11, DimC, Rc(x, y, 34, h), StringAlignment.Near, true); x += 34;
+        var bb = Rc(x, y, 64, h); FillRR(g, Color.FromArgb(200, 8, 4, 18), bb, 6); StrokeRR(g, Hot(bb) ? Accent : Edge, bb, 6, 1); Txt(g, Fx.ProjectBpm.ToString("0.#", CultureInfo.InvariantCulture), 15, Ink, bb, StringAlignment.Center, true);
+        ValueEdit(bb, Fx.ProjectBpm.ToString("0.#", CultureInfo.InvariantCulture), s => { float v; if (ParseNum(s, out v) && v >= 20 && v <= 300) Fx.ProjectBpm = v; }); x += 70;
+        Btn(g, Rc(x, y, 62, h), "DETECT", 0, () => DetectBpmClick(), 11); x += 68;
+        Btn(g, Rc(x, y, 56, h), snapOn ? "SNAP" : "snap", snapOn ? 4 : 0, () => snapOn = !snapOn, 12); x += 60;
+        Btn(g, Rc(x, y, 76, h), GridNames[gridIdx], 0, () => { var m = Win.NewMenu(); for (int i = 0; i < GridNames.Length; i++) { int k = i; m.Items.Add(GridNames[i]).Click += (a, b) => { gridIdx = k; snapOn = true; }; } m.Show(this, new Point((int)MousePos.X, (int)MousePos.Y)); }, 11); x += 82;
+        Btn(g, Rc(x, y, 62, h), eng.Metronome ? "CLICK" : "click", eng.Metronome ? 4 : 0, () => eng.Metronome = !eng.Metronome, 12); x += 76;
+        Btn(g, Rc(x, y, 62, h), "SPLIT", 1, () => SplitSelected(), 12); x += 66;
+        Btn(g, Rc(x, y, 62, h), "TRIM <", 0, () => TrimStartHere(Selected), 11); x += 66;
+        Btn(g, Rc(x, y, 62, h), "TRIM >", 0, () => TrimEndHere(Selected), 11); x += 66;
+        Btn(g, Rc(x, y, 50, h), "DUP", 0, () => DuplicateTrack(Selected), 11); x += 54;
+        Btn(g, Rc(x, y, 50, h), "DEL", 3, () => DeleteTrackQuiet(Selected), 11); x += 64;
+        Btn(g, Rc(x, y, 58, h), "UNDO", 0, () => DoUndo(), 11); x += 62;
+        Btn(g, Rc(x, y, 58, h), "REDO", 0, () => DoRedo(), 11); x += 70;
+        Btn(g, Rc(x, y, 30, h), "-", 0, () => ZoomBy(1.4), 14); x += 34; Btn(g, Rc(x, y, 30, h), "+", 0, () => ZoomBy(0.7), 14); x += 34; Btn(g, Rc(x, y, 44, h), "FIT", 0, () => { FitView(); }, 11);
+    }
+    void ZoomBy(double f)
+    {
+        var tl = TimelineRect(); double cur = scroll + tl.Width / 2 * spp; spp = Math.Max(2, Math.Min(Math.Max(20000.0, eng.EndFrame / 200.0), spp * f)); scroll = Math.Max(0, (long)(cur - tl.Width / 2 * spp));
+    }
+}

@@ -334,6 +334,8 @@ class Track
 {
     public string Name = "Track", Role = "other", Source = "";
     public bool Instrument; public readonly List<MidiEv> Midi = new List<MidiEv>();   // an instrument track has no audio file: a VST instrument plays recorded notes
+    public long ClipStart; public long ClipFrames = -1;   // the part of the audio file that is used (after splitting / trimming); -1 = to the end
+    public long UsedLength { get { if (Clip == null) return 0; long avail = Math.Max(0, Clip.Length - ClipStart); return ClipFrames < 0 ? avail : Math.Min(ClipFrames, avail); } }
     public AudioClip Clip; public long Offset;
     public float VolDb, Pan; public bool Mute, Solo; public int Color;
     public List<Fx> Fx = new List<Fx>();
@@ -343,7 +345,7 @@ class Track
     internal float[] dlyL = new float[1 << 17], dlyR = new float[1 << 17]; internal long dlyW;
 
     public int Latency() { int s = 0; for (int i = 0; i < Fx.Count; i++) if (!Fx[i].Bypass) s += Fx[i].Latency; return s; }
-    public long EndFrame { get { if (Clip != null) return Offset + Clip.Length; if (Instrument && Midi.Count > 0) { lock (Midi) return Midi[Midi.Count - 1].Frame + 44100L * 3; } return 0; } }
+    public long EndFrame { get { if (Clip != null) return Offset + UsedLength; if (Instrument && Midi.Count > 0) { lock (Midi) return Midi[Midi.Count - 1].Frame + 44100L * 3; } return 0; } }
 }
 
 class RenderOpts
@@ -415,19 +417,21 @@ class StudioEngine
         if (voc != null && voc.Clip != null)
             for (int i = 0; i < n; i++)
             {
-                long idx = pos + i - voc.Offset; int w = (int)((pos + i) & (scRL.Length - 1));
-                scRL[w] = (voc.Clip.L != null && idx >= 0 && idx < voc.Clip.Length) ? voc.Clip.L[idx] : 0; scRR[w] = (voc.Clip.L != null && idx >= 0 && idx < voc.Clip.Length) ? voc.Clip.R[idx] : 0;
+                long idx = pos + i - voc.Offset, vlen = voc.UsedLength; int w = (int)((pos + i) & (scRL.Length - 1));
+                bool inside = voc.Clip.L != null && idx >= 0 && idx < vlen;
+                scRL[w] = inside ? voc.Clip.L[idx + voc.ClipStart] : 0; scRR[w] = inside ? voc.Clip.R[idx + voc.ClipStart] : 0;
             }
 
         foreach (var t in list)
         {
             if (t.Clip == null && !t.Instrument) continue;
             if (n > t.tl.Length) { t.tl = new float[n]; t.tr = new float[n]; }
+            long ulen = t.UsedLength;
             for (int i = 0; i < n; i++)
             {
                 long idx = pos + i - t.Offset;
                 var tclip = t.Clip;
-                if (tclip != null && tclip.L != null && idx >= 0 && idx < tclip.Length) { t.tl[i] = tclip.L[idx]; t.tr[i] = tclip.R[idx]; } else { t.tl[i] = 0; t.tr[i] = 0; }
+                if (tclip != null && tclip.L != null && idx >= 0 && idx < ulen) { t.tl[i] = tclip.L[idx + t.ClipStart]; t.tr[i] = tclip.R[idx + t.ClipStart]; } else { t.tl[i] = 0; t.tr[i] = 0; }
             }
             if (meters) PushTap(t.TapPre, t, false, t.tl, t.tr, n);
             int latSoFar = 0;
@@ -512,6 +516,7 @@ class StudioEngine
         if (advance) MasterTapPos = (p + n) & 8191;
     }
 
+    public volatile bool Metronome;   // click on every beat while the song plays
     public static volatile int LiveUntil;   // Environment.TickCount until which instruments keep sounding even though the song is stopped
     static readonly RenderOpts Live = new RenderOpts();
 
@@ -530,9 +535,20 @@ class StudioEngine
                 Array.Clear(oL, 0, n); Array.Clear(oR, 0, n); MasterPeakL = MasterPeakR = 0; foreach (var t in Tracks) { t.PeakL = t.PeakR = 0; } return;
             }
             Mix(Pos, n, Live, oL, oR, true, 0);
+            if (Metronome) Click(Pos, n, oL, oR);
             Pos += n;
             long end = EndFrame + SR * 2;   // allow reverb / delay tails
             if (Pos >= end) { if (Loop) { Pos = 0; ResetStates(); } else { Playing = false; Pos = end; } }
+        }
+    }
+
+    void Click(long pos, int n, float[] oL, float[] oR)
+    {
+        double beat = SR * 60.0 / Math.Max(20, Fx.ProjectBpm); long bar = (long)(beat * 4);
+        for (int i = 0; i < n; i++)
+        {
+            long p = pos + i; long inBeat = (long)(p - Math.Floor(p / beat) * beat); if (inBeat > 2400) continue;
+            bool accent = (long)(p - Math.Floor(p / (double)bar) * bar) < 2400; double f = accent ? 1900 : 1250; float v = (float)(Math.Sin(2 * Math.PI * f * inBeat / SR) * Math.Exp(-inBeat / 380.0) * (accent ? 0.35 : 0.22)); oL[i] += v; oR[i] += v;
         }
     }
 

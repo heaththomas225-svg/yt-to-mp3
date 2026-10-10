@@ -12,7 +12,7 @@ using System.Windows.Forms;
 
 // ======================================================================
 //  Mastering: settings, analysis + ffmpeg processing chain, and the
-//  custom-drawn "Mastering Assistant" style window (purple theme).
+//  custom-drawn "Purphex Mastering" style window (purple theme).
 // ======================================================================
 
 class MasterSettings
@@ -459,7 +459,7 @@ class MasterForm : Form
     {
         app = owner;
         z = Math.Max(0.4f, Math.Min(1.0f, app.MZoomPct / 100f));
-        Text = "Mastering Assistant"; Win.Dark(this);
+        Text = "Purphex Mastering"; Win.Dark(this);
         FormBorderStyle = FormBorderStyle.FixedSingle; MaximizeBox = false;
         StartPosition = FormStartPosition.CenterParent;
         DoubleBuffered = true;
@@ -638,7 +638,7 @@ class MasterForm : Form
     {
         using (var br = new SolidBrush(Color.FromArgb(215, Chrome))) g.FillRectangle(br, 0, 0, 1400, 125);
         using (var pen = new Pen(Color.FromArgb(140, 150, 80, 220))) g.DrawLine(pen, 0, 125, 1400, 125);
-        Txt(g, "Mastering Assistant", 22, White, new RectangleF(400, 6, 600, 30), StringAlignment.Center, true);
+        Txt(g, "Purphex Mastering", 22, White, new RectangleF(400, 6, 600, 30), StringAlignment.Center, true);
 
         // power button (pulses while on)
         var pc = At(49, 78, 52, 52);
@@ -826,7 +826,7 @@ class MasterForm : Form
     {
         using (var br = new SolidBrush(Color.FromArgb(215, Chrome))) g.FillRectangle(br, 0, 832, 1400, 48);
         using (var pen = new Pen(Color.FromArgb(140, 150, 80, 220))) g.DrawLine(pen, 0, 832, 1400, 832);
-        string cap = analyzing ? analyzeText : "Mastering Assistant";
+        string cap = analyzing ? analyzeText : "Purphex Mastering";
         Txt(g, cap, 24, analyzing ? Accent : White, new RectangleF(300, 836, 800, 40), StringAlignment.Center, false);
 
         FillRR(g, Color.FromArgb(150, 52, 28, 92), ReanR, 6);

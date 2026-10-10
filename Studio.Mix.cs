@@ -321,8 +321,11 @@ static class AutoMix
     {
         var rep = new List<string>(); int si = Math.Max(0, Array.IndexOf(Styles, style));
         Track voc = null, beat = null; foreach (var t in eng.Tracks) { if (t.Clip == null) continue; if (t.Role == "vocal" && voc == null) voc = t; else if (t.Role == "beat" && beat == null) beat = t; }
-        if (voc == null && beat == null) { rep.Add("Nothing to mix: add (or separate) a vocal and a beat first."); return rep; }
+        bool fullSong = false;
+        if (voc == null && beat == null) foreach (var t in eng.Tracks) if (t.Clip != null && !t.Instrument && (t.Role == "song" || t.Role == "other")) { beat = t; fullSong = true; break; }
+        if (voc == null && beat == null) { rep.Add("Nothing to mix: add a song, a vocal or a beat first."); return rep; }
         LastSnapshot = Snapshot(eng);
+        if (fullSong) rep.Add("This is a full song that has not been split, so it is mixed as ONE track (balance, tone and level only). For the best result press SEPARATE VOCALS & BEAT first, then Auto Mix balances the vocal and the beat against each other.");
         rep.Add("Style: " + style + (enhance ? " + vocal enhancement" : ""));
         rep.Add("Original audio files are never modified; this only sets plugins and faders (use Undo Auto Mix to revert).");
 
@@ -392,7 +395,7 @@ static class AutoMix
             double[] dev = new double[11]; for (int b = 0; b < 11; b++) dev[b] = bs.BandDb[b] - BeatTarget[b];
             double mud = (dev[2] + dev[3]) / 2; if (eq != null)
             {
-                eq.Set("b3_g", (float)Pocket[si]); rep.Add("Beat EQ: " + Pocket[si].ToString("0.0") + " dB pocket at 2.5 kHz so the vocal sits on top.");
+                eq.Set("b3_g", fullSong ? 0f : (float)Pocket[si]); if (!fullSong) rep.Add("Beat EQ: " + Pocket[si].ToString("0.0") + " dB pocket at 2.5 kHz so the vocal sits on top.");
                 if (mud > 2) { double g = Math.Min(4, 0.6 * mud); eq.Set("b1_g", (float)-g); rep.Add("Beat EQ: " + (-g).ToString("0.0") + " dB cut near 300 Hz (muddy by " + mud.ToString("0.0") + " dB)."); }
             }
             if (duck != null) { duck.Set("amount", (float)DuckAmount[si]); rep.Add("Ducking: beat dips " + DuckAmount[si].ToString("0.0") + " dB (mid band only, bass untouched) when the vocal is present."); }
@@ -474,7 +477,7 @@ static class ProjectIO
                 {
                     if (p[0] == "master") { eng.MasterVolDb = F(p[1]); eng.MasterBypass = p[2] == "1"; eng.AbMatchDb = F(p[3]); }
                     else if (p[0] == "tmix") { int i = int.Parse(p[1]); if (i < eng.Tracks.Count) { var t = eng.Tracks[i]; t.VolDb = F(p[2]); t.Pan = F(p[3]); t.Mute = p[4] == "1"; t.Solo = p[5] == "1"; } }
-                    else if (p[0] == "fx") { int i = int.Parse(p[1]); if (i < eng.Tracks.Count) { var f = Presets.Make(p[2], p.Length > 4 ? p[4] : ""); if (f != null) { f.Bypass = p[3] == "1"; var vf = f as VstFx; if (vf != null) vf.Owner = eng.Tracks[i]; eng.Tracks[i].Fx.Add(f); } } }
+                    else if (p[0] == "fx") { int i = int.Parse(p[1]); if (i < eng.Tracks.Count) { var f = Presets.Make(p[2], p.Length > 4 ? p[4] : ""); if (f != null) { f.Bypass = p[3] == "1"; var vf = f as InstrumentFx; if (vf != null) vf.Owner = eng.Tracks[i]; eng.Tracks[i].Fx.Add(f); } } }
                     else if (p[0] == "mfx") { var q = line.Split(new[] { '|' }, 4); var f = Presets.Make(q[1], q.Length > 3 ? q[3] : ""); if (f != null) { f.Bypass = q[2] == "1"; eng.MasterFx.Add(f); } }
                 }
                 catch { }
@@ -492,7 +495,7 @@ static class ProjectIO
         for (int i = 0; i < eng.Tracks.Count; i++)
         {
             var t = eng.Tracks[i]; string src = t.Clip != null ? t.Clip.Path : t.Source;
-            sb.Append("track|").Append(E(t.Instrument ? "inst" : t.Role)).Append('|').Append(E(t.Name)).Append('|').Append(t.Offset).Append('|').Append(E(src)).Append('|').Append(t.Color).Append('\n');
+            sb.Append("track|").Append(E(t.Instrument ? "inst" : t.Role)).Append('|').Append(E(t.Name)).Append('|').Append(t.Offset).Append('|').Append(E(src)).Append('|').Append(t.Color).Append('|').Append(t.ClipStart).Append('|').Append(t.ClipFrames).Append('\n');
             if (t.Instrument && t.Midi.Count > 0) { sb.Append("midi|").Append(i).Append('|'); lock (t.Midi) foreach (var m in t.Midi) sb.Append(m.Frame).Append(':').Append(m.S).Append(':').Append(m.D1).Append(':').Append(m.D2).Append(';'); sb.Append('\n'); }
         }
         sb.Append(SerializeMix(eng)); File.WriteAllText(path, sb.ToString(), Encoding.UTF8);
@@ -512,6 +515,7 @@ static class ProjectIO
             {
                 string src = U(p[4]), name = U(p[2]); Track t = StudioEngine.NewTrack(name, U(p[1]), null); t.Source = src; t.Instrument = U(p[1]) == "inst";
                 long off; long.TryParse(p[3], out off); t.Offset = off; int col; if (int.TryParse(p[5], out col)) t.Color = col;
+                if (p.Length >= 8) { long cs, cf; if (long.TryParse(p[6], out cs)) t.ClipStart = cs; if (long.TryParse(p[7], out cf)) t.ClipFrames = cf; }
                 if (t.Instrument) { }
                 else if (File.Exists(src)) { progress("Loading " + Path.GetFileName(src) + "..."); t.Clip = AudioClip.FromFile(src); }
                 else warn.Add("Missing audio file for \"" + name + "\": " + src);

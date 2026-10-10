@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Windows.Forms;
 
-// Music Studio: VST instrument tracks (for example Vital): add one, play it, record what you play, and hear it in the mix and exports.
+// Purphex Music: VST instrument tracks (for example Vital): add one, play it, record what you play, and hear it in the mix and exports.
 partial class StudioForm
 {
     void AddInstrumentClick()
@@ -21,8 +21,8 @@ partial class StudioForm
 
     void AddInstrument(string type)
     {
-        VstFx f = null;
-        RunBusy("Starting the instrument (the first start of a big plugin can take a few seconds)...", false, p => { f = FxRegistry.Create(type) as VstFx; }, ok =>
+        InstrumentFx f = null;
+        RunBusy("Starting the instrument (the first start of a big plugin can take a few seconds)...", false, p => { f = FxRegistry.Create(type) as InstrumentFx; }, ok =>
         {
             if (!ok || f == null) { Toast("That instrument couldn't be started."); return; }
             var t = StudioEngine.NewTrack(f.Title, "inst", null); t.Instrument = true; t.Color = unchecked((int)0xFFFFB84D); f.Owner = t;

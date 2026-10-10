@@ -10,7 +10,7 @@ using System.Threading;
 using System.Windows.Forms;
 
 // ======================================================================
-//  Music Studio window (part 1): infrastructure, toolbar, transport, mix view,
+//  Purphex Music window (part 1): infrastructure, toolbar, transport, mix view,
 //  plugin panel, effect browser, generic / EQ / pitch editors.
 //  Custom-drawn in the app's purple theme; every control is hit-tested through "regions".
 // ======================================================================
@@ -89,12 +89,14 @@ partial class StudioForm : Form
     public StudioForm(App owner)
     {
         app = owner; eng = app.StudioEng; Win.Dark(this); InitEdit();
-        Text = "Music Studio"; StartPosition = FormStartPosition.CenterParent; BackColor = Bg0;
+        Text = "Purphex Music"; StartPosition = FormStartPosition.CenterParent; BackColor = Bg0;
         ClientSize = new Size(1360, 800); MinimumSize = new Size(1100, 680);
         DoubleBuffered = true; KeyPreview = true; AllowDrop = true;
         SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw | ControlStyles.Selectable, true);
         timer.Interval = 16; timer.Tick += (s, e) => { if (moving) return; Tick(); if (NeedsFrame()) { t += 0.033f; Invalidate(); } }; timer.Start();
-        VstWindow.Recorder = OnMidiNote;
+        InstrumentFx.Recorder = OnMidiNote;
+        MinimumSize = new Size(1100, 640);
+        FormClosed += (s, e) => { DisposeRetired(); };
         FormClosed += (s, e) => { timer.Stop(); eng.Pause(); };
         DragEnter += (s, e) => { if (e.Data.GetDataPresent(DataFormats.FileDrop)) e.Effect = DragDropEffects.Copy; };
         DragDrop += (s, e) => { var fl = (string[])e.Data.GetData(DataFormats.FileDrop); foreach (var f in fl) PromptImport(f); };
@@ -143,6 +145,7 @@ partial class StudioForm : Form
     void Tick()
     {
         UpdatePlayhead();
+        { string tt = "Purphex Music  -  " + projName; if (Text != tt) Text = tt; }
         if (eng.Playing)
         {
             int u = WaveOutPlayer.Underruns;
@@ -164,7 +167,7 @@ partial class StudioForm : Form
     bool NeedsFrame0() { return eng.Playing || (DateTime.Now - lastInput).TotalMilliseconds < 1500; }
 
     // ---------------- geometry ----------------
-    const int ToolH = 70, TransH = 52, HeadW = 250, PanelW = 380, LaneH = 128, RulerH = 28;
+    const int ToolH = 70, TransH = 86, HeadW = 250, PanelW = 380, LaneH = 128, RulerH = 28;
     RectangleF TimelineRect() { return new RectangleF(HeadW, ToolH + TransH + RulerH, Math.Max(100, ClientSize.Width - HeadW - PanelW), Math.Max(100, ClientSize.Height - ToolH - TransH - RulerH - 6)); }
 
     // ---------------- drawing helpers ----------------
@@ -210,6 +213,13 @@ partial class StudioForm : Form
         { "REC", "Arm recording: press PLAY, then play notes on an instrument window and they are recorded onto its track." }, { "* REC", "Recording is armed. Press again to turn it off." },
         { "Piano", "Open the instrument window: its own controls plus a piano you can play." }, { "C", "Clear the recorded notes on this instrument track." },
         { "+ Effect", "Add an effect to this instrument track (EQ, reverb...)." },
+        { "SPLIT", "Cut the selected track in two at the needle (key B). Each piece can be moved and trimmed." },
+        { "TRIM <", "Cut the start of the selected clip off at the needle." }, { "TRIM >", "Cut the end of the selected clip off at the needle." },
+        { "DUP", "Make a copy of the selected track." }, { "DEL", "Delete the selected track (Undo brings it back)." },
+        { "UNDO", "Undo the last edit (Ctrl+Z)." }, { "REDO", "Redo (Ctrl+Y)." }, { "DETECT", "Listen to the song and set the BPM for you." },
+        { "SNAP", "Moves, trims and cuts snap to the beat grid. Click to turn off." }, { "snap", "Snap to the beat grid is off. Click to turn it on." },
+        { "CLICK", "Metronome on. Click to turn off." }, { "click", "Play a metronome click while the song plays." },
+        { "-", "Zoom out." }, { "+", "Zoom in." }, { "FIT", "Zoom to fit the whole song." },
         { "Add", "Add this effect." }, { "Cancel (Esc)", "Stop the current job." }
     };
 
@@ -322,24 +332,31 @@ partial class StudioForm : Form
     // ---------------- toolbar ----------------
     void PaintToolbar(Graphics g)
     {
-        using (var br = new SolidBrush(Color.FromArgb(245, 18, 10, 34))) g.FillRectangle(br, 0, 0, ClientSize.Width, ToolH);
-        using (var pen = new Pen(Edge)) g.DrawLine(pen, 0, ToolH, ClientSize.Width, ToolH);
-        float x = 14, y = 12, h = 46;
-        Btn(g, Rc(x, y, 168, h), "ADD MUSIC", 2, () => AddMusicClick(), 17); x += 178;
-        Btn(g, Rc(x, y, 262, h), "SEPARATE VOCALS & BEAT", 1, () => SeparateClick(), 14); x += 272;
-        Btn(g, Rc(x, y, 130, h), "AUTO MIX", 2, () => AutoMixClick(), 17); x += 136;
-        Btn(g, Rc(x, y + 4, 150, h - 8), amStyle + (amEnhance ? " +" : ""), 0, () => AutoMixMenu(), 14);
-        Txt(g, "style", 11, DimC, Rc(x + 4, y - 4, 60, 12), StringAlignment.Near, false); x += 160;
-        Btn(g, Rc(x, y + 4, 76, h - 8), "Undo mix", 0, () => { if (AutoMix.LastSnapshot != null) { AutoMix.Undo(eng); Toast("Auto Mix undone"); } }, 13);
-        float rx = ClientSize.Width - 14;
-        rx -= 112; Btn(g, Rc(rx, y, 112, h), "EXPORT", 1, () => ExportClick(), 16);
-        rx -= 70; Btn(g, Rc(rx, y + 4, 64, h - 8), "Help", 2, () => app.ShowHelp(null), 14);
-        rx -= 70; Btn(g, Rc(rx, y + 4, 64, h - 8), Win.IsFullscreen(this) ? "Window" : "Full", 0, () => Win.ToggleFullscreen(this), 13);
-        rx -= 86; Btn(g, Rc(rx, y + 4, 80, h - 8), "Open", 0, () => OpenClick(), 14);
-        rx -= 86; Btn(g, Rc(rx, y + 4, 80, h - 8), "Save", 0, () => SaveClick(false), 14);
-        rx -= 94; Btn(g, Rc(rx, y + 4, 88, h - 8), "Save as", 0, () => SaveClick(true), 14);
-        var pn = Rc(rx - 210, y, 200, h); Txt(g, projName, 13, Hot(pn) ? Ink : DimC, pn, StringAlignment.Far, false);
-        Reg(pn, () => { }).OnDouble = RenameProject; regs[regs.Count - 1].OnRight = RenameProject;
+        float W = ClientSize.Width;
+        using (var br = new SolidBrush(Color.FromArgb(245, 18, 10, 34))) g.FillRectangle(br, 0, 0, W, ToolH);
+        using (var pen = new Pen(Edge)) g.DrawLine(pen, 0, ToolH, W, ToolH);
+        float y = 12, h = 46;
+        // right group first (fixed sizes from the right edge), then the left group is squeezed to fit what is left
+        float rx = W - 14; string[] rn = { "EXPORT", "Help", "Full", "Open", "Save", "Save as" }; float[] rw = { 112, 64, 64, 80, 80, 88 };
+        float rightStart = W - 14; for (int i = 0; i < rw.Length; i++) rightStart -= rw[i] + 6; rightStart += 6;
+        float avail = rightStart - 14 - 10, leftTotal = 168 + 262 + 130 + 150 + 76 + 36; float f = Math.Max(0.5f, Math.Min(1f, avail / leftTotal));
+        float x = 14; float fp = Math.Max(11, 15 * f);
+        Btn(g, Rc(x, y, 168 * f, h), "ADD MUSIC", 2, () => AddMusicClick(), Math.Max(12, 17 * f)); x += 178 * f;
+        Btn(g, Rc(x, y, 262 * f, h), "SEPARATE VOCALS & BEAT", 1, () => SeparateClick(), Math.Max(10.5f, 14 * f)); x += 272 * f;
+        Btn(g, Rc(x, y, 130 * f, h), "AUTO MIX", 2, () => AutoMixClick(), Math.Max(12, 17 * f)); x += 136 * f;
+        Btn(g, Rc(x, y + 4, 150 * f, h - 8), amStyle + (amEnhance ? " +" : ""), 0, () => AutoMixMenu(), Math.Max(10.5f, 14 * f));
+        Txt(g, "style", 11, DimC, Rc(x + 4, y - 4, 60, 12), StringAlignment.Near, false); x += 160 * f;
+        Btn(g, Rc(x, y + 4, 76 * f, h - 8), "Undo mix", 0, () => { if (AutoMix.LastSnapshot != null) { AutoMix.Undo(eng); Toast("Auto Mix undone"); } }, Math.Max(10.5f, 13 * f)); x += 76 * f;
+        float leftEnd = x;
+        Btn(g, Rc(rx - 112, y, 112, h), "EXPORT", 1, () => ExportClick(), 16); rx -= 118;
+        Btn(g, Rc(rx - 64, y + 4, 64, h - 8), "Help", 2, () => app.ShowHelp(null), 14); rx -= 70;
+        Btn(g, Rc(rx - 64, y + 4, 64, h - 8), Win.IsFullscreen(this) ? "Window" : "Full", 0, () => Win.ToggleFullscreen(this), 13); rx -= 70;
+        Btn(g, Rc(rx - 80, y + 4, 80, h - 8), "Open", 0, () => OpenClick(), 14); rx -= 86;
+        Btn(g, Rc(rx - 80, y + 4, 80, h - 8), "Save", 0, () => SaveClick(false), 14); rx -= 86;
+        Btn(g, Rc(rx - 88, y + 4, 88, h - 8), "Save as", 0, () => SaveClick(true), 14); rx -= 94;
+        // project name only when there is clear room (it is always in the window title too)
+        float room = rx - leftEnd - 12;
+        if (room > 90) { var pn = Rc(leftEnd + 12, y, room, h); Txt(g, projName, 13, Hot(pn) ? Ink : DimC, pn, StringAlignment.Far, false); Reg(pn, () => { }).OnDouble = RenameProject; regs[regs.Count - 1].OnRight = RenameProject; }
     }
 
     void AutoMixMenu()
@@ -366,18 +383,20 @@ partial class StudioForm : Form
         var tr = Rc(x, y, 210, h); FillRR(g, Color.FromArgb(200, 8, 4, 18), tr, 6); StrokeRR(g, Edge, tr, 6, 1);
         Txt(g, Fmt(sec) + "  /  " + Fmt(tot), 19, Accent, tr, StringAlignment.Center, true); x += 222;
         Btn(g, Rc(x, y, 124, h), "+ INSTRUMENT", 1, () => AddInstrumentClick(), 12); x += 130;
-        Btn(g, Rc(x, y, 70, h), recOn ? "* REC" : "REC", recOn ? 3 : 0, () => { recOn = !recOn; Toast(recOn ? "Recording is armed: press PLAY, then play notes on an instrument window." : "Recording off."); }, 13);
+        Btn(g, Rc(x, y, 70, h), recOn ? "* REC" : "REC", recOn ? 3 : 0, () => { recOn = !recOn; Toast(recOn ? "Recording is armed: press PLAY, then play notes on an instrument window." : "Recording off."); }, 13); x += 76;
 
-        // master meters + LUFS
-        float mx = W - PanelW - 300; if (mx < 560) mx = 560;
-        float pl = Math.Max(eng.MasterPeakL, eng.MasterPeakR); float db = pl > 0 ? (float)(20 * Math.Log10(pl)) : -120;
-        Txt(g, "MASTER", 11, DimC, Rc(mx, y - 4, 60, 14), StringAlignment.Near, false);
-        HBar(g, Rc(mx, y + 12, 120, 8), eng.MasterPeakL); HBar(g, Rc(mx, y + 22, 120, 8), eng.MasterPeakR);
-        float lm = eng.Lufs.Momentary; Txt(g, "M " + Db(lm) + " LUFS", 13, Ink, Rc(mx + 128, y, 120, h), StringAlignment.Near, false);
-        // tabs
+        // tabs on the right; master meters in whatever room is left between
         float tx = W - 232;
+        float mx = Math.Max(x + 16, W - PanelW - 300); float room = tx - 12 - mx;
+        if (room >= 70)
+        {
+            Txt(g, "MASTER", 11, DimC, Rc(mx, y - 4, 60, 14), StringAlignment.Near, false);
+            float bw = Math.Min(120, room); HBar(g, Rc(mx, y + 12, bw, 8), eng.MasterPeakL); HBar(g, Rc(mx, y + 22, bw, 8), eng.MasterPeakR);
+            if (room >= 230) { float lm = eng.Lufs.Momentary; Txt(g, "M " + Db(lm) + " LUFS", 13, Ink, Rc(mx + 128, y, Math.Min(120, room - 128), h), StringAlignment.Near, false); }
+        }
         Btn(g, Rc(tx, y, 106, h), "MIX", tab == 0 ? 4 : 0, () => tab = 0, 14);
         Btn(g, Rc(tx + 112, y, 106, h), "MASTERING", tab == 1 ? 4 : 0, () => tab = 1, 13);
+        PaintDawBar(g, y0 + 52, W);
     }
 
     static string Fmt(double s) { int m = (int)(s / 60); double r = s - m * 60; return m.ToString("00") + ":" + r.ToString("00.00", CultureInfo.InvariantCulture); }
@@ -415,8 +434,7 @@ partial class StudioForm : Form
             var tr = eng.Tracks[i]; bool sel = i == selTrack;
             var lane = Rc(HeadW, y, tl.Width, LaneH); using (var br = new SolidBrush(i % 2 == 0 ? Lane : Lane2)) g.FillRectangle(br, lane);
             if (tr.Instrument) PaintMidi(g, tr, lane); else PaintWave(g, tr, lane, sel);
-            var lr = Reg(lane, () => { selTrack = Array.IndexOf(eng.Tracks.ToArray(), tr); selFx = -1; eng.Seek(Math.Max(0, scroll + (long)((MousePos.X - HeadW) * spp))); }); int idx = i;
-            lr.OnDrag = pt => eng.Seek(Math.Max(0, scroll + (long)((pt.X - HeadW) * spp)));
+            var lr = LaneReg(lane, tr); int idx = i;
             PaintHeader(g, tr, i, Rc(0, y, HeadW, LaneH), sel);
             using (var pen = new Pen(Color.FromArgb(70, 140, 85, 210))) g.DrawLine(pen, 0, y + LaneH, tl.Right, y + LaneH);
         }
@@ -429,6 +447,7 @@ partial class StudioForm : Form
             Txt(g, "MP3, WAV, FLAC, AIFF, M4A, OGG, OPUS and more", 13, DimC, Rc(r0.X, r0.Y + 92, r0.Width, 24), StringAlignment.Center, false);
         }
         g.ResetClip();
+        PaintGrid(g, tl, top + RulerH, ClientSize.Height);
         // playhead
         float px = HeadW + (float)((dispPos - scroll) / spp);
         if (px >= HeadW && px <= tl.Right) { using (var pen = new Pen(Accent2, 2)) g.DrawLine(pen, px, top, px, ClientSize.Height); using (var b = new SolidBrush(Accent2)) g.FillPolygon(b, new[] { new PointF(px - 7, top), new PointF(px + 7, top), new PointF(px, top + 12) }); }
@@ -464,20 +483,20 @@ partial class StudioForm : Form
         if (tr.Clip == null) return;
         int px = (int)lane.Width;
         PeakCache pc; if (!peakCache.TryGetValue(tr, out pc)) { pc = new PeakCache(); peakCache[tr] = pc; }
-        if (pc.Clip != tr.Clip || pc.Start != scroll - tr.Offset || pc.Spp != spp || pc.Px != px || pc.Len != tr.Clip.Length) { if (pc.Mn == null || pc.Mn.Length < px) { pc.Mn = new float[px + 64]; pc.Mx = new float[px + 64]; } tr.Clip.GetPeaks(scroll - tr.Offset, spp, px, pc.Mn, pc.Mx); pc.Clip = tr.Clip; pc.Start = scroll - tr.Offset; pc.Spp = spp; pc.Px = px; pc.Len = tr.Clip.Length; }
+        if (pc.Clip != tr.Clip || pc.Start != scroll - tr.Offset + tr.ClipStart || pc.Spp != spp || pc.Px != px || pc.Len != tr.UsedLength) { if (pc.Mn == null || pc.Mn.Length < px) { pc.Mn = new float[px + 64]; pc.Mx = new float[px + 64]; } tr.Clip.GetPeaks(scroll - tr.Offset + tr.ClipStart, spp, px, pc.Mn, pc.Mx); pc.Clip = tr.Clip; pc.Start = scroll - tr.Offset + tr.ClipStart; pc.Spp = spp; pc.Px = px; pc.Len = tr.UsedLength; }
         var wmn = pc.Mn; var wmx = pc.Mx;
         Color c = Color.FromArgb(tr.Color); bool audible = !tr.Mute; float cy = lane.Y + lane.Height / 2, amp = lane.Height * 0.42f;
-        long clipStart = tr.Offset, clipEnd = tr.Offset + tr.Clip.Length;
+        long clipStart = tr.Offset, clipEnd = tr.Offset + tr.UsedLength;
         float x0 = lane.X + (float)((clipStart - scroll) / spp), x1 = lane.X + (float)((clipEnd - scroll) / spp);
         var cr = RectangleF.Intersect(Rc(x0, lane.Y + 5, x1 - x0, lane.Height - 10), lane); if (cr.Width > 0) { FillRR(g, Color.FromArgb(sel ? 40 : 24, c), cr, 6); }
-        g.SmoothingMode = SmoothingMode.None;
+        g.SmoothingMode = SmoothingMode.None; var oldClip = g.Clip; if (cr.Width > 0) g.SetClip(cr, CombineMode.Intersect); else g.SetClip(Rectangle.Empty);
         using (var pen = new Pen(Color.FromArgb(audible ? 230 : 90, c.R, c.G, c.B)))
             for (int i = 0; i < px; i++)
             {
                 if (wmx[i] == 0 && wmn[i] == 0) continue; float a = cy - Math.Min(1f, wmx[i]) * amp, b = cy - Math.Max(-1f, wmn[i]) * amp; if (b - a < 1) b = a + 1;
                 g.DrawLine(pen, lane.X + i, a, lane.X + i, b);
             }
-        g.SmoothingMode = SmoothingMode.AntiAlias;
+        g.Clip = oldClip; g.SmoothingMode = SmoothingMode.AntiAlias;
         if (cr.Width > 0) StrokeRR(g, Color.FromArgb(sel ? 190 : 90, c), cr, 6, 1);
         Txt(g, tr.Name, 12, Color.FromArgb(200, 255, 255, 255), Rc(Math.Max(lane.X, x0) + 8, lane.Y + 6, 300, 16), StringAlignment.Near, true);
     }
@@ -516,7 +535,7 @@ partial class StudioForm : Form
         // nudge
         if (tk.Instrument)
         {
-            Btn(g, Rc(r.X + 176, r.Y + 92, 52, 22), "Piano", 1, () => { var vf = tk.Fx.Count > 0 ? tk.Fx[0] as VstFx : null; if (vf != null) { vf.Owner = tk; vf.ShowWindow(this); } }, 11);
+            Btn(g, Rc(r.X + 176, r.Y + 92, 52, 22), "Piano", 1, () => { var vf = tk.Fx.Count > 0 ? tk.Fx[0] as InstrumentFx : null; if (vf != null) { vf.Owner = tk; vf.ShowWindow(this); } }, 11);
             Btn(g, Rc(r.X + 174, r.Y + 36, 32, 28), "C", 0, () => { if (MessageBox.Show(this, "Delete every recorded note on \"" + tk.Name + "\"?", "Clear notes", MessageBoxButtons.YesNo) == DialogResult.Yes) lock (tk.Midi) tk.Midi.Clear(); }, 12);
         }
         else {
@@ -557,8 +576,7 @@ partial class StudioForm : Form
     void RemoveTrack(Track tr)
     {
         if (MessageBox.Show(this, "Remove \"" + tr.Name + "\" from the project? (Your audio file on disk is not touched.)", "Remove track", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
-        lock (eng.Sync) { eng.Tracks.Remove(tr); foreach (var rf in tr.Fx) if (rf is IDisposable) { try { ((IDisposable)rf).Dispose(); } catch { } } }
-        selFx = -1;
+        DeleteTrackQuiet(tr);
     }
 
     // ---------------- plugin panel (right side) ----------------
@@ -673,7 +691,7 @@ partial class StudioForm : Form
         var f = FxRegistry.Create(type); if (f == null) return; f.Prepare(StudioEngine.SR);
         if (type == "duck") { var v = eng.VocalTrack(); if (v == null) Toast("The ducker listens to a vocal track; add or separate a vocal first."); }
         if (browserMaster) { lock (eng.Sync) eng.MasterFx.Add(f); selMaster = eng.MasterFx.Count - 1; }
-        else if (browserTrack >= 0 && browserTrack < eng.Tracks.Count) { var tr = eng.Tracks[browserTrack]; var vfx = f as VstFx; if (vfx != null) vfx.Owner = tr; lock (eng.Sync) tr.Fx.Add(f); selTrack = browserTrack; selFx = tr.Fx.Count - 1; }
+        else if (browserTrack >= 0 && browserTrack < eng.Tracks.Count) { var tr = eng.Tracks[browserTrack]; var vfx = f as InstrumentFx; if (vfx != null) vfx.Owner = tr; lock (eng.Sync) tr.Fx.Add(f); selTrack = browserTrack; selFx = tr.Fx.Count - 1; }
         browserOpen = false; Toast(f.Title + " added");
     }
 
@@ -704,6 +722,10 @@ partial class StudioForm : Form
         if (k == Keys.Home) { eng.Seek(0); scroll = 0; return true; }
         if (k == (Keys.Control | Keys.Shift | Keys.S)) { SaveClick(true); return true; }
         if (k == Keys.F2 && selTrack < eng.Tracks.Count) { RenameTrack(eng.Tracks[selTrack]); return true; }
+        if (k == (Keys.Control | Keys.Z)) { DoUndo(); return true; }
+        if (k == (Keys.Control | Keys.Y) || k == (Keys.Control | Keys.Shift | Keys.Z)) { DoRedo(); return true; }
+        if (k == Keys.B) { SplitSelected(); return true; }
+        if (k == Keys.Delete && Selected != null && Selected.Clip != null) { DeleteTrackQuiet(Selected); return true; }
         if (k == (Keys.Control | Keys.S)) { SaveClick(false); return true; }
         if (k == (Keys.Control | Keys.O)) { OpenClick(); return true; }
         return base.ProcessCmdKey(ref msg, k);
@@ -748,7 +770,7 @@ partial class StudioForm : Form
         Btn(g, Rc(a.Right - 150, y, 66, 24), f.Bypass ? "Bypassed" : "Bypass", f.Bypass ? 4 : 0, () => f.Bypass = !f.Bypass, 11);
         Btn(g, Rc(a.Right - 80, y, 70, 24), "Presets", 1, () => PresetMenu(f), 12);
         y += 34;
-        var vstf = f as VstFx; if (vstf != null) { Btn(g, Rc(a.X + 10, y - 2, a.Width - 20, 32), vstf.Plugin.HasEditor ? "Open " + vstf.Title + " window" : "(this plugin has no window)", 2, () => { vstf.Owner = tr; vstf.ShowWindow(this); }, 14); y += 38; }
+        var vstf = f as InstrumentFx; if (vstf != null) { Btn(g, Rc(a.X + 10, y - 2, a.Width - 20, 32), vstf.WindowLabel, 2, () => { vstf.Owner = tr; vstf.ShowWindow(this); }, 14); y += 38; }
         var skip = new List<string>();
         if (f.Type == "eq") { PaintEqEditor(g, (ParametricEq)f, Rc(a.X + 6, y, a.Width - 12, a.Bottom - y - 4), tr == null ? null : tr.TapPost, tr == null ? 0 : tr.TapPos); return; }
         if (f.Type == "8d") { y = Paint8dEditor(g, (Spatial8D)f, Rc(a.X + 6, y, a.Width - 12, 190)); skip.AddRange(new[] { "hold", "angle" }); }

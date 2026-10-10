@@ -323,7 +323,7 @@ class PhoneServer
 <meta name='theme-color' content='#05020c'><meta name='color-scheme' content='dark'>
 <meta name='apple-mobile-web-app-capable' content='yes'><meta name='mobile-web-app-capable' content='yes'>
 <meta name='apple-mobile-web-app-status-bar-style' content='black-translucent'><meta name='apple-mobile-web-app-title' content='MP3'>
-<title>BandLab + YouTube to MP3</title>
+<title>Purphex</title>
 <style>
 :root{--ink:#f3eaff;--dim:#a893d6;--acc:#b66cff;--acc2:#ee5ee0;--edge:rgba(170,110,255,.38)}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -393,7 +393,7 @@ a.dl{display:block;margin-top:12px;padding:14px;border-radius:14px;text-align:ce
 <svg class='lf' style='left:74%;width:70px;height:58px;animation-duration:30s;animation-delay:-20s;opacity:.45'><use href='#lf'/></svg>
 <svg class='lf' style='left:90%;animation-duration:23s;animation-delay:-6s'><use href='#lf'/></svg></div>
 <main class='wrap'>
-<h1>BandLab + YouTube &rarr; MP3</h1><p class='sub'>Runs on your PC. Paste a link, get the file on your phone.</p>
+<h1>Purphex</h1><p class='sub'>Runs on your PC. Paste a link, get the file on your phone.</p>
 <section class='card'><label for='links'>Links or search words</label>
 <textarea id='links' rows='3' placeholder='https://youtu.be/...   or   bandlab.com/post/...' autocapitalize='off' autocorrect='off' spellcheck='false'></textarea>
 <div class='row'><button class='ghost' id='paste' type='button'>Paste</button><button class='ghost' id='clear' type='button'>Clear</button></div></section>
