@@ -6,6 +6,7 @@ using System.Drawing.Drawing2D;
 using System.IO;
 using System.IO.Compression;
 using System.Net;
+using System.Net.Cache;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Windows.Forms;
@@ -33,7 +34,7 @@ class Job
 class App : Form
 {
     // ---- Auto-update settings ----
-    const string Version = "2.1.1";
+    const string Version = "2.2.0";
     // Plain-text manifest: line 1 = newest version, line 2 = direct exe download URL.
     const string UpdateManifestUrl = "https://raw.githubusercontent.com/heaththomas225-svg/yt-to-mp3/main/version.txt";
 
@@ -91,7 +92,7 @@ class App : Form
 
     App()
     {
-        Text = "YouTube to MP3 v" + Version;
+        Text = "BandLab + YouTube to MP3 v" + Version;
         ClientSize = new Size(640, 650);
         MinimumSize = new Size(560, 600);
         Font = new Font("Segoe UI", 9.5f);
@@ -106,7 +107,7 @@ class App : Form
         // links (batch queue)
         links.Multiline = true; links.ScrollBars = ScrollBars.Vertical; links.AcceptsReturn = true; StyleBox(links);
         links.SetBounds(16, 94, 608, 64); links.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-        Lbl(links, "Links or search terms  (one per line, batch supported)");
+        Lbl(links, "BandLab / YouTube links or search terms  (one per line)");
 
         // format row
         StyleCombo(fmt, FmtNames, 16, 186, 230); Lbl(fmt, "Format");
@@ -372,7 +373,7 @@ class App : Form
             }
         }
 
-        string title = "YouTube → MP3";
+        string title = "BandLab + YouTube → MP3";
         using (var f = new Font("Segoe UI Black", 24f))
         {
             float glow = anim ? (float)(Math.Sin(t * 2) * 0.5 + 0.5) : 0.4f;
@@ -390,7 +391,7 @@ class App : Form
         using (var f = new Font("Segoe UI", 9f))
         using (var b = new SolidBrush(Color.FromArgb(190, 200, 170, 255)))
         {
-            g.DrawString("Audio extraction for producers: pick format, sample rate, trim and batch", f, b, 18, 54);
+            g.DrawString("Paste BandLab (track, post, album) or YouTube links. Pick format, sample rate, trim, batch.", f, b, 18, 54);
             foreach (var kv in lbls) g.DrawString(kv.Value, f, b, kv.Key.Left, kv.Key.Top - 18);
         }
 
@@ -467,6 +468,30 @@ class App : Form
         if (!Directory.Exists(dir)) return null;
         foreach (var f in Directory.GetFiles(dir, name, SearchOption.AllDirectories)) return f;
         return null;
+    }
+
+    // ---- BandLab helpers ----
+    // yt-dlp's BandLab extractors accept /track|post|revision/<id>, /embed/?id=, and
+    // albums/collections (optionally under a username). Profile pages aren't supported.
+    static bool IsBandlab(string s) { return s.IndexOf("bandlab.com", StringComparison.OrdinalIgnoreCase) >= 0; }
+
+    static bool BandlabSupported(string s)
+    {
+        return Regex.IsMatch(s, @"bandlab\.com/(track|post|revision)/[0-9a-f_-]+|bandlab\.com/embed/|bandlab\.com/(\w+/)?(albums|collections)/[0-9a-f-]+",
+            RegexOptions.IgnoreCase);
+    }
+
+    static bool BandlabCollection(string s)
+    {
+        return Regex.IsMatch(s, @"bandlab\.com/(\w+/)?(albums|collections)/|bandlab\.com/embed/collection", RegexOptions.IgnoreCase);
+    }
+
+    // Link, bare domain link ("bandlab.com/post/..."), or plain text (-> YouTube search).
+    static string NormalizeTarget(string s)
+    {
+        if (s.IndexOf("://") >= 0) return s;
+        if (Regex.IsMatch(s, @"^(www\.)?[a-z0-9-]+(\.[a-z0-9-]+)+(/|$)", RegexOptions.IgnoreCase)) return "https://" + s;
+        return "ytsearch1:" + s;
     }
 
     static bool ValidTime(string s)
@@ -563,8 +588,7 @@ class App : Form
             + (FmtArt[job.Fmt] ? "--embed-thumbnail --convert-thumbnails jpg " : "")
             + (ppa.Count > 0 ? "--postprocessor-args \"ExtractAudio:" + string.Join(" ", ppa.ToArray()) + "\" " : "")
             + "--ffmpeg-location \"" + Path.GetDirectoryName(ff) + "\" "
-            + (deno != null ? "--js-runtimes \"deno:" + deno + "\" " : "")
-            + (job.Playlist ? "--yes-playlist --ignore-errors " : "--no-playlist ");
+            + (deno != null ? "--js-runtimes \"deno:" + deno + "\" " : "");
         if (job.TrimA.Length > 0 || job.TrimB.Length > 0)
             common += "--download-sections \"*" + (job.TrimA.Length > 0 ? job.TrimA : "0") + "-"
                 + (job.TrimB.Length > 0 ? job.TrimB : "inf") + "\" --force-keyframes-at-cuts ";
@@ -575,14 +599,19 @@ class App : Form
         {
             if (cancelReq) break;
             itemIdx = i;
-            string link = job.Items[i], target = link;
-            // Plain text instead of a link -> search YouTube and take the top result.
-            if (link.IndexOf("://") < 0 && link.IndexOf("www.", StringComparison.OrdinalIgnoreCase) < 0)
-                target = "ytsearch1:" + link;
+            string link = job.Items[i];
+            string target = NormalizeTarget(link);   // plain text -> YouTube search, top result
+            bool bl = IsBandlab(target), coll = bl && BandlabCollection(target);
 
             status = "Item " + (i + 1) + " of " + itemTotal + ": " + (link.Length > 60 ? link.Substring(0, 60) + "..." : link);
             Log("--- " + (i + 1) + "/" + itemTotal + ": " + link);
-            string args = common + "-o \"" + Path.Combine(job.Dir, NameTpl[job.Name] + ".%(ext)s") + "\" \"" + target + "\"";
+            if (bl && !BandlabSupported(target))
+                Log("Heads up: that BandLab link isn't a direct track/post/album link, so it may fail. "
+                    + "Open the track on BandLab, use Share > Copy link (bandlab.com/post/...), and paste that.");
+            else if (coll) Log("BandLab album/collection detected: converting every track.");
+            // BandLab albums/collections are always playlists; otherwise honor the checkbox.
+            string pl = (job.Playlist || coll) ? "--yes-playlist --ignore-errors " : "--no-playlist ";
+            string args = common + pl + "-o \"" + Path.Combine(job.Dir, NameTpl[job.Name] + ".%(ext)s") + "\" \"" + target + "\"";
             int code = RunProc(YtDlp, args, true);
             if (cancelReq) break;
             if (code == 0) ok++; else { fail++; Log("Failed (exit " + code + ")."); }
@@ -629,8 +658,8 @@ class App : Form
     // ---------- self-update ----------
     // Runs for the life of the app: checks right away, then every few minutes, so an update
     // published while the app is open pops up live instead of waiting for a restart.
-    const int UpdateCheckMinutes = 5;
-    const string LatestReleaseApi = "https://api.github.com/repos/heaththomas225-svg/yt-to-mp3/releases/latest";
+    const int UpdateCheckSeconds = 20;
+    const string LatestReleasePage = "https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest";
     const string LatestExeUrl = "https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe";
     string dismissedVer = "";
     volatile bool updating = false;
@@ -640,7 +669,7 @@ class App : Form
         while (true)
         {
             try { CheckForUpdate(); } catch { }
-            Thread.Sleep(UpdateCheckMinutes * 60 * 1000);
+            Thread.Sleep(UpdateCheckSeconds * 1000);
         }
     }
 
@@ -650,11 +679,17 @@ class App : Form
         string newVer = null, dl = LatestExeUrl;
         try
         {
-            // The releases API reflects a new release within a minute or so.
-            using (var wc = new WebClient())
+            // /releases/latest redirects to /releases/tag/vX.Y.Z. It is uncached and doesn't use
+            // the API rate limit, so we can poll every few seconds and see a release right away.
+            var req = (HttpWebRequest)WebRequest.Create(LatestReleasePage);
+            req.UserAgent = "YtToMp3";
+            req.Method = "HEAD";
+            req.AllowAutoRedirect = false;
+            req.Timeout = 10000;
+            req.CachePolicy = new RequestCachePolicy(RequestCacheLevel.BypassCache);
+            using (var resp = (HttpWebResponse)req.GetResponse())
             {
-                wc.Headers[HttpRequestHeader.UserAgent] = "YtToMp3";
-                var m = Regex.Match(wc.DownloadString(LatestReleaseApi), "\"tag_name\"\\s*:\\s*\"v?([0-9][0-9.]*)\"");
+                var m = Regex.Match(resp.Headers["Location"] ?? "", "/tag/v?([0-9][0-9.]*)$");
                 if (m.Success) newVer = m.Groups[1].Value;
             }
         }
