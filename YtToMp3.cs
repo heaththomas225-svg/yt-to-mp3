@@ -37,7 +37,7 @@ class Job
 partial class App : Form
 {
     // ---- Auto-update settings ----
-    const string Version = "3.0.13";
+    const string Version = "3.1.0";
     // Plain-text manifest: line 1 = newest version, line 2 = direct exe download URL.
     const string UpdateManifestUrl = "https://raw.githubusercontent.com/heaththomas225-svg/yt-to-mp3/main/version.txt";
 
@@ -153,6 +153,7 @@ partial class App : Form
         Font = new Font("Segoe UI", 9.5f);
         Shown += (s, e) =>
         {
+            BeginInvoke(new Action(() => { try { PluginHost.LoadEnabled(); } catch { } }));   // on the UI thread (VST plugins expect it), after the window is visible
             new Thread(UpdateLoop) { IsBackground = true }.Start();
             if (seenVer != Changelog.Latest) BeginInvoke(new Action(() => { seenVer = Changelog.Latest; SaveSettings(); Changelog.Show(this); }));
         };
@@ -274,7 +275,7 @@ partial class App : Form
         fmt.SelectedIndex = 0; sr.SelectedIndex = 0; nameFmt.SelectedIndex = 0;
         LoadSettings();
         ApplyPrefs();
-        PluginHost.LoadEnabled();
+        // plugins load after the window is shown (see Shown)
         loading = false;
         HookAutoSave();
 

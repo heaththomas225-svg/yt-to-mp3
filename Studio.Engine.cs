@@ -333,6 +333,7 @@ static class Loudness
 class Track
 {
     public string Name = "Track", Role = "other", Source = "";
+    public bool Instrument; public readonly List<MidiEv> Midi = new List<MidiEv>();   // an instrument track has no audio file: a VST instrument plays recorded notes
     public AudioClip Clip; public long Offset;
     public float VolDb, Pan; public bool Mute, Solo; public int Color;
     public List<Fx> Fx = new List<Fx>();
@@ -342,7 +343,7 @@ class Track
     internal float[] dlyL = new float[1 << 17], dlyR = new float[1 << 17]; internal long dlyW;
 
     public int Latency() { int s = 0; for (int i = 0; i < Fx.Count; i++) if (!Fx[i].Bypass) s += Fx[i].Latency; return s; }
-    public long EndFrame { get { return Clip == null ? 0 : Offset + Clip.Length; } }
+    public long EndFrame { get { if (Clip != null) return Offset + Clip.Length; if (Instrument && Midi.Count > 0) { lock (Midi) return Midi[Midi.Count - 1].Frame + 44100L * 3; } return 0; } }
 }
 
 class RenderOpts
@@ -420,12 +421,13 @@ class StudioEngine
 
         foreach (var t in list)
         {
-            if (t.Clip == null) continue;
+            if (t.Clip == null && !t.Instrument) continue;
             if (n > t.tl.Length) { t.tl = new float[n]; t.tr = new float[n]; }
             for (int i = 0; i < n; i++)
             {
                 long idx = pos + i - t.Offset;
-                if (t.Clip.L != null && idx >= 0 && idx < t.Clip.Length) { t.tl[i] = t.Clip.L[idx]; t.tr[i] = t.Clip.R[idx]; } else { t.tl[i] = 0; t.tr[i] = 0; }
+                var tclip = t.Clip;
+                if (tclip != null && tclip.L != null && idx >= 0 && idx < tclip.Length) { t.tl[i] = tclip.L[idx]; t.tr[i] = tclip.R[idx]; } else { t.tl[i] = 0; t.tr[i] = 0; }
             }
             if (meters) PushTap(t.TapPre, t, false, t.tl, t.tr, n);
             int latSoFar = 0;
@@ -440,7 +442,7 @@ class StudioEngine
                         fx.ScL = scL; fx.ScR = scR;
                     }
                     else { fx.ScL = null; fx.ScR = null; }
-                    try { fx.Process(t.tl, t.tr, n); } catch (Exception ex) { fx.Error = ex.Message; fx.Bypass = true; }
+                    try { fx.BeginBlock(t, pos, n, !meters || Playing); fx.Process(t.tl, t.tr, n); } catch (Exception ex) { fx.Error = ex.Message; fx.Bypass = true; }
                     latSoFar += fx.Latency;
                 }
             // plugin delay compensation
@@ -510,6 +512,7 @@ class StudioEngine
         if (advance) MasterTapPos = (p + n) & 8191;
     }
 
+    public static volatile int LiveUntil;   // Environment.TickCount until which instruments keep sounding even though the song is stopped
     static readonly RenderOpts Live = new RenderOpts();
 
     // Real-time callback used by the audio device
@@ -517,7 +520,15 @@ class StudioEngine
     {
         lock (Sync)
         {
-            if (!Playing) { Array.Clear(oL, 0, n); Array.Clear(oR, 0, n); MasterPeakL = MasterPeakR = 0; foreach (var t in Tracks) { t.PeakL = t.PeakR = 0; } return; }
+            if (!Playing)
+            {
+                if (unchecked(Environment.TickCount - LiveUntil) < 0)   // a note is being played on an instrument: only the instrument tracks sound
+                {
+                    var inst = new List<Track>(); foreach (var t in Tracks) if (t.Instrument) inst.Add(t);
+                    if (inst.Count > 0) { Mix(Pos, n, new RenderOpts { Only = inst }, oL, oR, true, 0); return; }
+                }
+                Array.Clear(oL, 0, n); Array.Clear(oR, 0, n); MasterPeakL = MasterPeakR = 0; foreach (var t in Tracks) { t.PeakL = t.PeakR = 0; } return;
+            }
             Mix(Pos, n, Live, oL, oR, true, 0);
             Pos += n;
             long end = EndFrame + SR * 2;   // allow reverb / delay tails

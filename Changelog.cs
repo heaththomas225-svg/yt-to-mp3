@@ -7,10 +7,17 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.0.13";
+    public const string Latest = "3.1.0";
 
     public const string Text =
-@"3.0.13  Search box
+@"3.1.0  VST plugins and instruments
+ + NEW: VST plugin support. 64-bit VST2 instruments (like Vital) and effects now work. Menu > Plugins and extensions lists the VST2 plugins installed on your PC; tick one and it loads.
+ + NEW: + INSTRUMENT in the Music Studio adds a track for a VST instrument, opens its own window with a piano, and lets you play it with your keyboard.
+ + NEW: REC records the notes you play while the song plays. They play back in the mix and in every export, and are saved with the project.
+ + VST effects appear under + Add Effect > PLUGINS with an Open window button.
+ + Not supported yet: VST3 (.vst3) and 32-bit plugins.
+
+3.0.13  Search box
  + FIX: the Add Effect search box clearly shows it is ready to type (glowing border, blinking cursor) and has a clear button.
 
 3.0.12  Smooth playback

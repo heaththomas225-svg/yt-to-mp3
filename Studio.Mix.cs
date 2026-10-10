@@ -464,7 +464,9 @@ static class ProjectIO
     {
         lock (eng.Sync)
         {
-            foreach (var t in eng.Tracks) t.Fx.Clear(); eng.MasterFx.Clear();
+            foreach (var t in eng.Tracks) { foreach (var of in t.Fx) if (of is IDisposable) { try { ((IDisposable)of).Dispose(); } catch { } } t.Fx.Clear(); }
+            foreach (var of in eng.MasterFx) if (of is IDisposable) { try { ((IDisposable)of).Dispose(); } catch { } }
+            eng.MasterFx.Clear();
             foreach (var line in s.Split('\n'))
             {
                 if (line.Length == 0) continue; var p = line.Split(new[] { '|' }, 6);
@@ -472,7 +474,7 @@ static class ProjectIO
                 {
                     if (p[0] == "master") { eng.MasterVolDb = F(p[1]); eng.MasterBypass = p[2] == "1"; eng.AbMatchDb = F(p[3]); }
                     else if (p[0] == "tmix") { int i = int.Parse(p[1]); if (i < eng.Tracks.Count) { var t = eng.Tracks[i]; t.VolDb = F(p[2]); t.Pan = F(p[3]); t.Mute = p[4] == "1"; t.Solo = p[5] == "1"; } }
-                    else if (p[0] == "fx") { int i = int.Parse(p[1]); if (i < eng.Tracks.Count) { var f = Presets.Make(p[2], p.Length > 4 ? p[4] : ""); if (f != null) { f.Bypass = p[3] == "1"; eng.Tracks[i].Fx.Add(f); } } }
+                    else if (p[0] == "fx") { int i = int.Parse(p[1]); if (i < eng.Tracks.Count) { var f = Presets.Make(p[2], p.Length > 4 ? p[4] : ""); if (f != null) { f.Bypass = p[3] == "1"; var vf = f as VstFx; if (vf != null) vf.Owner = eng.Tracks[i]; eng.Tracks[i].Fx.Add(f); } } }
                     else if (p[0] == "mfx") { var q = line.Split(new[] { '|' }, 4); var f = Presets.Make(q[1], q.Length > 3 ? q[3] : ""); if (f != null) { f.Bypass = q[2] == "1"; eng.MasterFx.Add(f); } }
                 }
                 catch { }
@@ -490,7 +492,8 @@ static class ProjectIO
         for (int i = 0; i < eng.Tracks.Count; i++)
         {
             var t = eng.Tracks[i]; string src = t.Clip != null ? t.Clip.Path : t.Source;
-            sb.Append("track|").Append(E(t.Role)).Append('|').Append(E(t.Name)).Append('|').Append(t.Offset).Append('|').Append(E(src)).Append('|').Append(t.Color).Append('\n');
+            sb.Append("track|").Append(E(t.Instrument ? "inst" : t.Role)).Append('|').Append(E(t.Name)).Append('|').Append(t.Offset).Append('|').Append(E(src)).Append('|').Append(t.Color).Append('\n');
+            if (t.Instrument && t.Midi.Count > 0) { sb.Append("midi|").Append(i).Append('|'); lock (t.Midi) foreach (var m in t.Midi) sb.Append(m.Frame).Append(':').Append(m.S).Append(':').Append(m.D1).Append(':').Append(m.D2).Append(';'); sb.Append('\n'); }
         }
         sb.Append(SerializeMix(eng)); File.WriteAllText(path, sb.ToString(), Encoding.UTF8);
     }
@@ -507,11 +510,18 @@ static class ProjectIO
             if (p[0] == "bpm" && p.Length > 1) { double b; if (double.TryParse(p[1], NumberStyles.Float, CI, out b)) Fx.ProjectBpm = b; }
             else if (p[0] == "track" && p.Length >= 6)
             {
-                string src = U(p[4]), name = U(p[2]); Track t = StudioEngine.NewTrack(name, U(p[1]), null); t.Source = src;
+                string src = U(p[4]), name = U(p[2]); Track t = StudioEngine.NewTrack(name, U(p[1]), null); t.Source = src; t.Instrument = U(p[1]) == "inst";
                 long off; long.TryParse(p[3], out off); t.Offset = off; int col; if (int.TryParse(p[5], out col)) t.Color = col;
-                if (File.Exists(src)) { progress("Loading " + Path.GetFileName(src) + "..."); t.Clip = AudioClip.FromFile(src); }
+                if (t.Instrument) { }
+                else if (File.Exists(src)) { progress("Loading " + Path.GetFileName(src) + "..."); t.Clip = AudioClip.FromFile(src); }
                 else warn.Add("Missing audio file for \"" + name + "\": " + src);
                 tracks.Add(t);
+            }
+            else if (p[0] == "midi" && p.Length >= 3)
+            {
+                int ti; if (int.TryParse(p[1], out ti) && ti >= 0 && ti < tracks.Count)
+                    foreach (var part in p[2].Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries))
+                    { var q = part.Split(':'); long fr; int s, d1, d2; if (q.Length == 4 && long.TryParse(q[0], out fr) && int.TryParse(q[1], out s) && int.TryParse(q[2], out d1) && int.TryParse(q[3], out d2)) tracks[ti].Midi.Add(new MidiEv { Frame = fr, S = (byte)s, D1 = (byte)d1, D2 = (byte)d2 }); }
             }
             else if (p[0] == "master" || p[0] == "tmix" || p[0] == "fx" || p[0] == "mfx") mix.Append(line).Append('\n');
         }
@@ -542,7 +552,7 @@ static class Exporter
         if (dryBeat && beat != null) l.Add(new ExportItem { Label = "Dry instrumental", FileName = prefix + " - instrumental dry" + ext, Opts = new RenderOpts { Master = false, Dry = true, Fader = false, MuteSolo = false, Only = new List<Track> { beat } } });
         if (stems)
             foreach (var t in eng.Tracks)
-                if (t.Clip != null && t.Clip.Loaded && !t.Mute) l.Add(new ExportItem { Label = "Stem: " + t.Name, FileName = prefix + " - stem " + Safe(t.Name) + ext, Opts = new RenderOpts { Master = false, MuteSolo = false, Only = new List<Track> { t } } });
+                if (((t.Clip != null && t.Clip.Loaded) || t.Instrument) && !t.Mute) l.Add(new ExportItem { Label = "Stem: " + t.Name, FileName = prefix + " - stem " + Safe(t.Name) + ext, Opts = new RenderOpts { Master = false, MuteSolo = false, Only = new List<Track> { t } } });
         return l;
     }
 
