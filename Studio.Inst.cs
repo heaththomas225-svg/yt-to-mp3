@@ -34,8 +34,10 @@ partial class StudioForm
     // Notes played in an instrument window are recorded onto its track while the song plays and REC is armed.
     void OnMidiNote(Track t, bool on, int note, int vel)
     {
-        if (!recOn || t == null || !eng.Playing || !t.Instrument) return;
-        long frame = Math.Max(0, (long)dispPos);
+        if (!recOn || t == null || !t.Instrument) return;
+        long frame;
+        if (!eng.Playing) { frame = eng.Pos; try { BeginInvoke(new Action(() => { if (!eng.Playing) PlayGuard(); })); } catch { } }   // the first note starts the song and is recorded at the needle
+        else frame = Math.Max(0, (long)dispPos);
         var ev = new MidiEv { Frame = frame, S = (byte)(on ? 0x90 : 0x80), D1 = (byte)note, D2 = (byte)(on ? vel : 0) };
         lock (t.Midi)
         {

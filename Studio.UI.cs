@@ -145,6 +145,7 @@ partial class StudioForm : Form
     void Tick()
     {
         UpdatePlayhead();
+        if (mic != null && !eng.Playing) StopMic();
         { string tt = "Purphex Music  -  " + projName; if (Text != tt) Text = tt; }
         if (eng.Playing)
         {
@@ -220,6 +221,8 @@ partial class StudioForm : Form
         { "SNAP", "Moves, trims and cuts snap to the beat grid. Click to turn off." }, { "snap", "Snap to the beat grid is off. Click to turn it on." },
         { "CLICK", "Metronome on. Click to turn off." }, { "click", "Play a metronome click while the song plays." },
         { "-", "Zoom out." }, { "+", "Zoom in." }, { "FIT", "Zoom to fit the whole song." },
+        { "MIC", "Record from your microphone onto a new track (use headphones). Press again, or STOP, to finish." },
+        { "NEW", "Start a new empty project." },
         { "Add", "Add this effect." }, { "Cancel (Esc)", "Stop the current job." }
     };
 
@@ -385,6 +388,7 @@ partial class StudioForm : Form
         Txt(g, Fmt(sec) + "  /  " + Fmt(tot), 19, Accent, tr, StringAlignment.Center, true); x += 222;
         Btn(g, Rc(x, y, 124, h), "+ INSTRUMENT", 1, () => AddInstrumentClick(), 12); x += 130;
         Btn(g, Rc(x, y, 70, h), recOn ? "* REC" : "REC", recOn ? 3 : 0, () => { recOn = !recOn; Toast(recOn ? "Recording is armed: press PLAY, then play notes on an instrument window." : "Recording off."); }, 13); x += 76;
+        { bool rec = mic != null; double el = rec ? (DateTime.Now - micT0).TotalSeconds : 0; var mr = Rc(x, y, rec ? 128 : 60, h); Btn(g, mr, rec ? "* MIC  " + ((int)(el / 60)).ToString("00") + ":" + ((int)(el % 60)).ToString("00") : "MIC", rec ? 3 : 0, () => MicClick(), 13); if (rec) HBar(g, Rc(mr.X + 6, mr.Bottom - 7, mr.Width - 12, 5), mic.Level); x += mr.Width + 6; }
 
         // tabs on the right; master meters in whatever room is left between
         float tx = W - 232;
