@@ -13,11 +13,17 @@ using System.Windows.Forms;
 // ======================================================================
 class PreviewForm : Form
 {
-    readonly StudioEngine eng = new StudioEngine(); readonly List<string> names = new List<string>(); readonly List<string> info = new List<string>();
+    readonly StudioEngine prevCur = StudioEngine.Current; readonly StudioEngine eng = new StudioEngine(); readonly Font waveFont = new Font("Segoe UI Semibold", 10f); long lastPos = -1; readonly List<string> names = new List<string>(); readonly List<string> info = new List<string>();
     int sel; Panel wave; System.Windows.Forms.Timer tm = new System.Windows.Forms.Timer { Interval = 33 }; Button playBtn; Label timeLbl; List<Button> srcBtns = new List<Button>();
     readonly float[] wmn = new float[2048], wmx = new float[2048]; bool loop = true;
 
-    public PreviewForm(string title, string subtitle, List<KeyValuePair<string, AudioClip>> sources)
+    public static string Describe(AudioClip c)
+    {
+        var r = Loudness.Measure(c.L, c.R, StudioEngine.SR, 0, c.Length);
+        return double.IsInfinity(r.I) ? "silent" : r.I.ToString("0.0", CultureInfo.InvariantCulture) + " LUFS, peak " + r.TruePeakDb.ToString("0.0", CultureInfo.InvariantCulture) + " dB";
+    }
+
+    public PreviewForm(string title, string subtitle, List<KeyValuePair<string, AudioClip>> sources, List<string> infos)
     {
         Text = title; FormBorderStyle = FormBorderStyle.FixedDialog; StartPosition = FormStartPosition.CenterParent; MaximizeBox = false; MinimizeBox = false;
         BackColor = Color.FromArgb(10, 4, 20); ForeColor = Color.FromArgb(240, 232, 255); ClientSize = new Size(620, 400); Font = new Font("Segoe UI", 10f); DoubleBuffered = true;
@@ -26,8 +32,7 @@ class PreviewForm : Form
         foreach (var kv in sources)
         {
             var tr = StudioEngine.NewTrack(kv.Key, "other", kv.Value); tr.Mute = true; eng.Tracks.Add(tr); names.Add(kv.Key);
-            var r = Loudness.Measure(kv.Value.L, kv.Value.R, StudioEngine.SR, 0, kv.Value.Length);
-            info.Add(double.IsInfinity(r.I) ? "silent" : r.I.ToString("0.0", CultureInfo.InvariantCulture) + " LUFS, peak " + r.TruePeakDb.ToString("0.0", CultureInfo.InvariantCulture) + " dB");
+            info.Add(infos[names.Count - 1]);
         }
         Controls.Add(new Label { Text = title, Left = 18, Top = 14, Width = 580, Height = 28, Font = new Font("Segoe UI Semibold", 14f), ForeColor = Color.FromArgb(225, 190, 255) });
         Controls.Add(new Label { Text = subtitle, Left = 18, Top = 44, Width = 584, Height = 36, ForeColor = Color.FromArgb(170, 150, 200) });
@@ -46,8 +51,8 @@ class PreviewForm : Form
         Mk("Close", 502, 326, 100, () => Close());
         Controls.Add(new Label { Text = "Space = play / pause.  Click a version to switch instantly while it plays. Nothing is saved from this preview.", Left = 18, Top = 366, Width = 584, Height = 24, ForeColor = Color.FromArgb(150, 130, 180), Font = new Font("Segoe UI", 8.5f) });
         Select(sources.Count > 1 ? 1 : 0);
-        tm.Tick += (s, e) => { UpdateUi(); wave.Invalidate(); }; tm.Start();
-        FormClosed += (s, e) => { tm.Stop(); eng.Pause(); eng.Shutdown(); };
+        tm.Tick += (s, e) => { UpdateUi(); if (eng.Playing || eng.Pos != lastPos) { lastPos = eng.Pos; wave.Invalidate(); } }; tm.Start();
+        FormClosed += (s, e) => { tm.Stop(); eng.Pause(); eng.Shutdown(); if (StudioEngine.Current == eng) StudioEngine.Current = prevCur; waveFont.Dispose(); };
         KeyPreview = true; KeyDown += (s, e) => { if (e.KeyCode == Keys.Space) { Toggle(); e.Handled = true; e.SuppressKeyPress = true; } };
         Shown += (s, e) => { try { eng.Play(); } catch (Exception ex) { MessageBox.Show(this, ex.Message); } };
     }
@@ -79,7 +84,7 @@ class PreviewForm : Form
         clip.GetPeaks(0, spp, w, wmn, wmx); float cy = wave.Height / 2f, amp = wave.Height * 0.44f;
         using (var pen = new Pen(Color.FromArgb(220, 190, 120, 255))) for (int i = 0; i < w; i++) { float a = cy - Math.Min(1f, wmx[i]) * amp, b = cy - Math.Max(-1f, wmn[i]) * amp; if (b - a < 1) b = a + 1; g.DrawLine(pen, i, a, i, b); }
         float px = (float)(eng.Pos / (double)Math.Max(1, clip.Length) * w); using (var pen = new Pen(Color.FromArgb(236, 92, 226), 2)) g.DrawLine(pen, px, 0, px, wave.Height);
-        TextRenderer.DrawText(g, names[sel], new Font("Segoe UI Semibold", 10f), new Point(8, 6), Color.FromArgb(230, 200, 255));
+        TextRenderer.DrawText(g, names[sel], waveFont, new Point(8, 6), Color.FromArgb(230, 200, 255));
     }
 }
 
@@ -134,11 +139,11 @@ partial class App
                 string nw = Path.Combine(tmp, "norm.wav");
                 MasterDsp.RunCapture(FfmpegExe(), "-hide_banner -y -i \"" + ex + "\" -af loudnorm=I=-14:TP=-1:LRA=11 -ar 44100 -ac 2 \"" + nw + "\"", p => { cur = p; }, out code);
                 if (code != 0 || !File.Exists(nw)) throw new Exception("Normalization failed.");
-                orig = AudioClip.FromFile(ex); norm = AudioClip.FromFile(nw); targetPct = 100; status = "Ready";
+                orig = AudioClip.FromFile(ex); norm = AudioClip.FromFile(nw); var inf = new List<string> { PreviewForm.Describe(orig), PreviewForm.Describe(norm) }; targetPct = 100; status = "Ready";
                 BeginInvoke(new Action(() =>
                 {
-                    var f = new PreviewForm("Preview: loudness normalization", "Switch between the original and the version normalized to -14 LUFS (this is what Normalize loudness does to your download). Raise your volume the same for both.",
-                        new List<KeyValuePair<string, AudioClip>> { new KeyValuePair<string, AudioClip>("Original", orig), new KeyValuePair<string, AudioClip>("Normalized -14 LUFS", norm) });
+                    using (var f = new PreviewForm("Preview: loudness normalization", "Switch between the original and the version normalized to -14 LUFS (this is what Normalize loudness does to your download). Raise your volume the same for both.",
+                        new List<KeyValuePair<string, AudioClip>> { new KeyValuePair<string, AudioClip>("Original", orig), new KeyValuePair<string, AudioClip>("Normalized -14 LUFS", norm) }, inf))
                     f.ShowDialog(this);
                 }));
             }
@@ -161,11 +166,11 @@ partial class App
             {
                 string ex = MakeExcerpt(src, tmp); status = "Separating the 30 s sample with AI..."; targetPct = 0; string v, i;
                 if (!Separator.Separate(ex, tmp, "preview", "htdemucs", Log, p => { targetPct = p * 90f; }, () => cancelReq, out v, out i)) throw new Exception(cancelReq ? "Cancelled." : "Separation failed.");
-                var o = AudioClip.FromFile(ex); var ic = AudioClip.FromFile(i); var vc = AudioClip.FromFile(v); targetPct = 100; status = "Ready";
+                var o = AudioClip.FromFile(ex); var ic = AudioClip.FromFile(i); var vc = AudioClip.FromFile(v); var inf = new List<string> { PreviewForm.Describe(o), PreviewForm.Describe(ic), PreviewForm.Describe(vc) }; targetPct = 100; status = "Ready";
                 BeginInvoke(new Action(() =>
                 {
-                    var f = new PreviewForm("Preview: vocal remover", "Listen to the 30-second sample as the original, the instrumental (vocals removed) and the vocals alone. This is the same AI that runs on the full song.",
-                        new List<KeyValuePair<string, AudioClip>> { new KeyValuePair<string, AudioClip>("Original", o), new KeyValuePair<string, AudioClip>("Instrumental", ic), new KeyValuePair<string, AudioClip>("Vocals only", vc) });
+                    using (var f = new PreviewForm("Preview: vocal remover", "Listen to the 30-second sample as the original, the instrumental (vocals removed) and the vocals alone. This is the same AI that runs on the full song.",
+                        new List<KeyValuePair<string, AudioClip>> { new KeyValuePair<string, AudioClip>("Original", o), new KeyValuePair<string, AudioClip>("Instrumental", ic), new KeyValuePair<string, AudioClip>("Vocals only", vc) }, inf))
                     f.ShowDialog(this);
                 }));
             }
