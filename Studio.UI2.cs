@@ -342,8 +342,8 @@ static class StudioDialogs
     {
         string result = null; var f = Make("What is this file?", 520, 250);
         f.Controls.Add(new Label { Text = fileName, Left = 20, Top = 16, Width = 480, Height = 24, ForeColor = Color.FromArgb(200, 170, 255), Font = new Font("Segoe UI Semibold", 10.5f) });
-        f.Controls.Add(new Label { Text = "Tell the studio what to do with it:", Left = 20, Top = 44, Width = 480, Height = 22 });
-        var b1 = B("Full song  (separate into vocals + beat)", 20, 76, 480, 40, Color.FromArgb(118, 52, 212)); var b2 = B("Vocal recording  (acapella / rap / singing)", 20, 122, 480, 40, Color.FromArgb(150, 50, 160)); var b3 = B("Beat / instrumental", 20, 168, 480, 40, Color.FromArgb(70, 40, 120));
+        f.Controls.Add(new Label { Text = "Pick what is IN this file. Only the first option removes music; the others just label it.", Left = 20, Top = 44, Width = 480, Height = 22 });
+        var b1 = B("Full song with music  (AI splits it into vocals + beat)", 20, 76, 480, 40, Color.FromArgb(118, 52, 212)); var b2 = B("Vocals only  (acapella: the file has NO music)", 20, 122, 480, 40, Color.FromArgb(150, 50, 160)); var b3 = B("Beat / instrumental", 20, 168, 480, 40, Color.FromArgb(70, 40, 120));
         b1.Click += (s, e) => { result = "song"; f.Close(); }; b2.Click += (s, e) => { result = "vocal"; f.Close(); }; b3.Click += (s, e) => { result = "beat"; f.Close(); };
         f.Controls.AddRange(new Control[] { b1, b2, b3 }); f.Controls.Add(new Label { Text = "Your original file is never changed.", Left = 20, Top = 216, Width = 480, Height = 22, ForeColor = Color.FromArgb(170, 150, 190) });
         f.ShowDialog(owner); return result;

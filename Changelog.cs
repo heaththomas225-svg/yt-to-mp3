@@ -7,10 +7,14 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.0.6";
+    public const string Latest = "3.0.7";
 
     public const string Text =
-@"3.0.6  Full screen and windows
+@"3.0.7  Update notes
+ + FIX: the update window now wraps and scrolls its notes instead of cutting them off.
+ + CLEARER: when adding music, only Full song removes the music. Vocals only and Beat only just label the track.
+
+3.0.6  Full screen and windows
  + NEW full screen: press F11 in the main window, Music Studio, Settings, Help and more (Esc leaves it). The Studio also has a Full button.
  + CHANGE: Settings, Help, Plugins and Phone mode no longer lock the other windows, so you can use and move any window while they are open.
  + FIX: Settings scrolls when the screen is small.
