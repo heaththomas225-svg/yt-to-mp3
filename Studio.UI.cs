@@ -269,6 +269,8 @@ partial class StudioForm : Form
         if (s.Count > 0) Tour.Run(this, s);
     }
 
+    internal void ShowMastering() { tab = 1; lastInput = DateTime.Now; if (eng.Tracks.Count == 0) Toast("Add your song with ADD MUSIC, set the mastering chain here, then EXPORT."); }
+
     internal void Toast(string s) { toast = s; toastAt = DateTime.Now; }
 
     // ---------------- toolbar ----------------
@@ -513,12 +515,22 @@ partial class StudioForm : Form
         Btn(g, Rc(x + 10, ly + 2, 150, 30), "+ Add Effect", 1, () => OpenBrowser(false, ti), 14);
         Btn(g, Rc(x + 168, ly + 2, 200, 30), "Chain presets...", 0, () => ChainMenu(tr), 14);
         float ey = ly + 42;
-        float edH = Math.Max(ClientSize.Height - (ly + panelScroll + 42) - 6, 560);
+        float edH = (selFx >= 0 && selFx < n) ? EditorHeight(fxs[selFx]) : 60;
         if (selFx >= 0 && selFx < n) PaintEditor(g, fxs[selFx], Rc(x + 6, ey, w - 12, edH), tr);
         else Txt(g, "Click a plugin to edit it", 13, DimC, Rc(x, ey, w, 40), StringAlignment.Center, false);
         g.ResetClip();
         float contentBottom = ly + panelScroll + 42 + ((selFx >= 0 && selFx < n) ? edH : 60), maxScroll = Math.Max(0, contentBottom - (y + h) + 6); panelScroll = Math.Min(panelScroll, maxScroll);
         regs.Insert(0, new HitReg { R = Rc(x, y + 36, w, h - 36), OnWheel = d => panelScroll = Math.Max(0, Math.Min(maxScroll, panelScroll - d * 50)) });
+    }
+
+    // Exact height of an effect editor, so the panel scrolls only as far as its content (no endless blank space).
+    static float EditorHeight(Fx f)
+    {
+        int n = 0; foreach (var p in f.P) n++;
+        if (f.Type == "eq") return 640;
+        if (f.Type == "8d") return 34 + 190 + Math.Max(0, n - 2) * 30 + 24;
+        if (f.Type == "pitch") return 34 + 200 + Math.Max(0, n - 3) * 30 + 24;
+        return 34 + n * 30 + 24;
     }
 
     void MoveFx(Track tr, int i, int d)

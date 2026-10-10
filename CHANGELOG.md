@@ -2,6 +2,11 @@
 
 What changed in each version of **BandLab + YouTube to MP3**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.0.5  Mastering and effects panel
+
+- Master a song opens the Studio Mastering tab (add, master, export). The old Mastering Assistant for downloads is in Menu.
+- Effects panel no longer scrolls endlessly.
+
 ## 3.0.4  Speed
 
 - Animated leaves drawn about 10x faster (about 6 ms per frame, steady 60 fps). This was the main cause of the lag.

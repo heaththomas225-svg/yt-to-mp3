@@ -37,7 +37,7 @@ class Job
 partial class App : Form
 {
     // ---- Auto-update settings ----
-    const string Version = "3.0.4";
+    const string Version = "3.0.5";
     // Plain-text manifest: line 1 = newest version, line 2 = direct exe download URL.
     const string UpdateManifestUrl = "https://raw.githubusercontent.com/heaththomas225-svg/yt-to-mp3/main/version.txt";
 
@@ -193,11 +193,11 @@ partial class App : Form
 
         StyleBtn(mastBtn, Color.FromArgb(90, 36, 160)); mastBtn.Text = "Mastering: OFF";
         mastBtn.SetBounds(464, 274, 160, 30); mastBtn.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-        tip.SetToolTip(mastBtn, "Open the Mastering Assistant: custom EQ, auto EQ, loudness, stereo width.");
+        tip.SetToolTip(mastBtn, "Master your own song: opens the Music Studio on its Mastering tab, where you can add a song, master it and export it.");
+        mastBtn.Text = "Master a song";
         mastBtn.Click += (s, e) =>
         {
-            if (mf == null || mf.IsDisposed) { mf = new MasterForm(this); mf.Show(this); }
-            else { mf.Activate(); }
+            OpenStudio(); studioForm.ShowMastering();
         };
 
         // output folder
@@ -222,6 +222,7 @@ partial class App : Form
         {
             var m = Win.NewMenu();
             m.Items.Add("Settings...").Click += (a, b) => ShowSettings();
+            m.Items.Add("Mastering for downloads (Mastering Assistant)...").Click += (a, b) => { if (mf == null || mf.IsDisposed) { mf = new MasterForm(this); mf.Show(this); } else mf.Activate(); };
             m.Items.Add("What's new").Click += (a, b) => Changelog.Show(this);
             m.Items.Add("Plugins and extensions...").Click += (a, b) => { new PluginManagerForm(() => ExtraFilter, v => { ExtraFilter = v; SaveSettings(); }).ShowDialog(this); };
             m.Items.Add("Open data folder").Click += (a, b) => { try { Directory.CreateDirectory(AppData); Process.Start("explorer.exe", "\"" + AppData + "\""); } catch { } };
@@ -435,8 +436,7 @@ partial class App : Form
             }
         }
         shownPct += (targetPct - shownPct) * (1f - (float)Math.Pow(0.85, k30));
-        string mt = Master.On ? "Mastering: ON" : "Mastering: OFF"; if (mastBtn.Text != mt) mastBtn.Text = mt;
-        // pulse the Convert button, but only repaint the real control when the colour visibly changes
+                // pulse the Convert button, but only repaint the real control when the colour visibly changes
         float k = (float)(Math.Sin(t * 2.5f) * 0.5 + 0.5); k = (float)Math.Round(k * 12) / 12f;
         Color gc = busy ? Color.FromArgb(70, 30, 120) : Color.FromArgb((int)(105 + 70 * k), (int)(35 + 30 * k), (int)(195 + 45 * k));
         if (go.BackColor != gc) go.BackColor = gc;
