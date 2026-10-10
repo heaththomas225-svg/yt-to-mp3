@@ -38,7 +38,7 @@ TIP: Everything you change is remembered next time."),
 Leave it on Original unless your project needs 44.1 kHz or 48 kHz.
 ## File names
 Every file is labelled with its format, for example 'Song [MP3 320k]', so you can keep track.
-TIP: A 'mastered' tag in the name means the Mastering Assistant processed it."),
+TIP: A 'mastered' tag in the name means the Purphex Mastering processed it."),
 
         new HelpTopic("bandlab", "Basics", "Using BandLab links", false, @"
 ## What works
@@ -102,7 +102,7 @@ TIP: Cancel stops it safely."),
 WARN: Phone mode is protected by the code at the end of the address. Turn it off when you're done.
 TIP: Keep the app open on the PC while you use it. The PC does the converting."),
 
-        new HelpTopic("masterassistant", "Basics", "Mastering Assistant (while converting)", true, @"
+        new HelpTopic("masterassistant", "Basics", "Purphex Mastering (while converting)", true, @"
 ## What it is
 A window with a live EQ curve, Auto EQ, Character, Loudness, Excite and Width controls that processes your downloads.
 ## Steps
@@ -110,11 +110,11 @@ A window with a live EQ curve, Auto EQ, Character, Loudness, Excite and Width co
 2. Pick a preset from the top, or drag the EQ dots and turn the knobs.
 3. Convert as normal. Files come out processed and are labelled 'mastered'.
 TIP: Reanalyze shows a spectrum of a file so Auto EQ can suggest corrections.
-TIP: The same engine, plus much more, is in the Music Studio Mastering tab."),
+TIP: The same engine, plus much more, is in Purphex Music Mastering tab."),
 
-        new HelpTopic("studio-start", "Music Studio", "Add music and split vocals and beat", true, @"
+        new HelpTopic("studio-start", "Purphex Music", "Add music and split vocals and beat", true, @"
 ## Open it
-Press Music Studio (or ADD MUSIC) on the main window.
+Press Purphex Music (or ADD MUSIC) on the main window.
 ## Steps
 1. Press ADD MUSIC and choose a file: MP3, WAV, FLAC, AIFF and more.
 2. Say what is IN the file: Full song with music, Vocals only, or Beat only. Only Full song gets split by the AI (see Full song, Vocals only, Beat only).
@@ -124,7 +124,7 @@ Press Music Studio (or ADD MUSIC) on the main window.
 TIP: You can also add your own vocal and your own beat as separate tracks.
 TIP: Drag files onto the studio window to add them."),
 
-        new HelpTopic("studio-mix", "Music Studio", "Mixing: faders, mute / solo, pan, timing", false, @"
+        new HelpTopic("studio-mix", "Purphex Music", "Mixing: faders, mute / solo, pan, timing", false, @"
 ## Each track has
 - Vol slider: the track level. Pan: left to right.
 - M (mute) and S (solo). Solo lets you hear only that track.
@@ -134,7 +134,7 @@ TIP: Drag files onto the studio window to add them."),
 Click the ruler or a track to move the playhead. Scroll with the wheel, Ctrl + wheel to zoom, Shift + wheel to move sideways.
 TIP: Double-click a slider to reset it. Click a value to type an exact number."),
 
-        new HelpTopic("studio-autotune", "Music Studio", "Auto-Tune (pitch correction)", false, @"
+        new HelpTopic("studio-autotune", "Purphex Music", "Auto-Tune (pitch correction)", false, @"
 ## Steps
 1. Select your vocal track, press Add Effect and choose Pitch Correction.
 2. Press Detect key (or choose the key and scale yourself).
@@ -146,7 +146,7 @@ TIP: Double-click a slider to reset it. Click a value to type an exact number.")
 - The note buttons let you allow or forbid single notes.
 TIP: It only affects the vocal track. The beat is never tuned."),
 
-        new HelpTopic("studio-eq", "Music Studio", "EQ: shape the sound", false, @"
+        new HelpTopic("studio-eq", "Purphex Music", "EQ: shape the sound", false, @"
 ## Steps
 1. Add Effect, then Parametric EQ, on the vocal or the beat. They are independent.
 2. Drag a dot to change frequency (left to right) and gain (up and down). Mouse wheel on a dot changes Q (how wide).
@@ -155,7 +155,7 @@ TIP: It only affects the vocal track. The beat is never tuned."),
 5. Presets: Vocal Clarity, Warm, Bright, Bass Control, Clean Mix.
 TIP: The purple area behind the curve is a live spectrum so you can see what you're adjusting."),
 
-        new HelpTopic("studio-fx", "Music Studio", "Effects, presets and the rap vocal chains", false, @"
+        new HelpTopic("studio-fx", "Purphex Music", "Effects, presets and the rap vocal chains", false, @"
 ## Add an effect
 Press Add Effect on a track, type to search, press Add. There are 18 including EQ, compressor, multiband, exciter, saturation, reverb, delay, chorus, de-esser, stereo imager, limiter, gate, noise reduction, pitch correction and 8D.
 ## Edit it
@@ -164,7 +164,7 @@ Click it in the list. Drag sliders or click a value to type. Bypass turns it off
 Chain presets lets you load Melodic, Emotional, Technical, Aggressive, Clean Studio or Wide Atmospheric vocal chains, or the instrumental chain. Every plugin stays editable. Save your own chain with 'Save this track's chain'.
 TIP: These are original sound-design starting points, not copies of any artist's settings."),
 
-        new HelpTopic("studio-8d", "Music Studio", "8D audio tuner", false, @"
+        new HelpTopic("studio-8d", "Purphex Music", "8D audio tuner", false, @"
 ## What it does
 Makes the sound seem to circle around your head. Use headphones.
 ## Steps
@@ -175,7 +175,7 @@ Makes the sound seem to circle around your head. Use headphones.
 ## Controls
 Width, Depth (behind you gets darker and quieter), Ear delay, Keep bass centred, Room and Mix."),
 
-        new HelpTopic("studio-automix", "Music Studio", "Auto Mix", true, @"
+        new HelpTopic("studio-automix", "Purphex Music", "Auto Mix", true, @"
 ## Steps
 1. Make sure you have a vocal and a beat (separate a song or add your own).
 2. Choose a style next to the button: Natural, Clean Studio, Melodic Rap, Aggressive Rap or Technical Rap. The + means vocal enhancement is on.
@@ -183,7 +183,7 @@ Width, Depth (behind you gets darker and quieter), Ear delay, Keep bass centred,
 4. Edit anything afterwards, or press Undo Auto Mix.
 TIP: It never changes your original files."),
 
-        new HelpTopic("studio-master", "Music Studio", "Mastering tab: loudness and A/B", false, @"
+        new HelpTopic("studio-master", "Purphex Music", "Mastering tab: loudness and A/B", false, @"
 ## Steps
 1. Open the MASTERING tab. The chain (EQ, compressor, multiband, exciter, saturation, imager, limiter) works on the whole mix.
 2. Pick a mastering preset on the left or tweak each module.
@@ -192,7 +192,7 @@ TIP: It never changes your original files."),
 ## Meters
 Momentary, Short-term and Integrated LUFS, true peak, peak, gain reduction and clip detection."),
 
-        new HelpTopic("studio-export", "Music Studio", "Export and save projects", true, @"
+        new HelpTopic("studio-export", "Purphex Music", "Export and save projects", true, @"
 ## Export
 1. Press EXPORT.
 2. Tick what you want: the finished mix, vocals only, instrumental only, dry versions, or every track as a stem.
@@ -202,7 +202,7 @@ All files start at 0:00 with the same length, so they line up in any other music
 Save stores everything: your tracks, plugin settings and alignment. Open brings it back.
 TIP: Even hour-long songs export with very little memory and you can cancel at any time."),
 
-        new HelpTopic("typing", "Music Studio", "Typing exact values", false, @"
+        new HelpTopic("typing", "Purphex Music", "Typing exact values", false, @"
 Click any number (volume, pan, offset, a plugin parameter, EQ frequency / gain / Q, target loudness, 8D angle) and a small box opens. Type the value and press Enter. Esc cancels.
 For pan type a number from -100 (left) to 100 (right), or L30 / R30 / C."),
 
@@ -214,18 +214,18 @@ Choose any picture or video. It is cropped to fill the window automatically. Dar
 ## Animation
 Frame rate limit: 60 is smoothest, 30 is lightest on a slow computer. You can show the frame rate in the title bar.
 ## Audio
-Volume and output device only change what you hear in the Music Studio. Playback buffer: Low latency reacts fastest but can crackle on slow computers; Safe never crackles. Exported files are never affected.
+Volume and output device only change what you hear in Purphex Music. Playback buffer: Low latency reacts fastest but can crackle on slow computers; Safe never crackles. Exported files are never affected.
 TIP: Videos need ffmpeg, which is installed the first time you convert something."),
 
         new HelpTopic("fullscreen", "Basics", "Full screen, moving windows and shortcuts", false, @"
 ## Full screen
-Press F11 in the main window, Music Studio, Settings or Help. Press Esc (or F11 again) to leave. In the Music Studio there is also a Full button.
+Press F11 in the main window, Purphex Music, Settings or Help. Press Esc (or F11 again) to leave. In Purphex Music there is also a Full button.
 ## Windows
 Settings, Help and Plugins stay open without locking the other windows, so you can keep working and move any window.
 ## Shortcuts
 F1 = Help.  F11 = full screen.  Space = play / pause in the studio.  Ctrl+S = save.  Ctrl+Shift+S = save as.  Ctrl+O = open project.  F2 = rename the selected track.  Esc = close a list or cancel a job."),
 
-        new HelpTopic("studio-roles", "Music Studio", "Full song, Vocals only, Beat only: what do they mean?", false, @"
+        new HelpTopic("studio-roles", "Purphex Music", "Full song, Vocals only, Beat only: what do they mean?", false, @"
 When you add a file the studio asks what is IN the file. This is a label, it does not change the audio.
 ## Full song with music
 A normal finished song (vocals and music together). Choose this, then press SEPARATE VOCALS & BEAT and the AI makes a real vocals track and a real instrumental track.
@@ -235,7 +235,7 @@ A file that already contains only a voice (an acapella, a rap or singing recordi
 A file that already contains only the music (an instrumental or beat).
 TIP: Not sure? Pick Full song and separate it."),
 
-        new HelpTopic("studio-rename", "Music Studio", "Rename tracks and projects, Save as", false, @"
+        new HelpTopic("studio-rename", "Purphex Music", "Rename tracks and projects, Save as", false, @"
 ## Rename a track
 Double-click its name, right-click the name, or select it and press F2.
 ## Rename the project
@@ -244,7 +244,7 @@ Click the project name at the top right (next to Save). If the project was alrea
 Save writes the project. Save as (or Ctrl+Shift+S) saves a copy under a new name so you can keep versions. Open reloads a project with all tracks and effect settings.
 TIP: You can add as many tracks as you like. Each loaded track uses computer memory (about 64 MB for a 3 minute song)."),
 
-        new HelpTopic("studio-browser", "Music Studio", "The Add Effect list", false, @"
+        new HelpTopic("studio-browser", "Purphex Music", "The Add Effect list", false, @"
 Press + Add Effect on a track (or on the Mastering tab for the master chain). Type to search, scroll with the mouse wheel, then press Add or Enter. Esc closes it.
 Effects are grouped: EQ, dynamics (compressor, limiter, gate), tone (exciter, saturation, distortion), space (reverb, delay, chorus), pitch (Auto-Tune, 8D) and your own plugins.
 In a track, effects run top to bottom. Use the ^ and v buttons to change the order, the green dot to bypass, and x to remove."),
@@ -253,7 +253,7 @@ In a track, effects run top to bottom. Use the ^ and v buttons to change the ord
 ## What it is
 'Create sample plugin' is for people who want to write their own effect. It is NOT an effect you can use straight away. It writes a small program template (a volume-wobble effect called Sample Tremolo) plus a build.bat that turns it into a plugin file.
 ## If you want to try it
-Press Create sample plugin, then answer Yes to build it now. Press Reload, tick Sample Tremolo to approve it, then in the Music Studio use Add Effect, Plugins, Sample Tremolo.
+Press Create sample plugin, then answer Yes to build it now. Press Reload, tick Sample Tremolo to approve it, then in Purphex Music use Add Effect, Plugins, Sample Tremolo.
 ## If you do not write code
 You can ignore it. The built-in effects already cover EQ, compression, reverb, Auto-Tune and more."),
 
@@ -264,7 +264,7 @@ You can ignore it. The built-in effects already cover EQ, compression, reverb, A
 1. Menu, then Plugins and extensions. Plugins installed in the usual VST2 folders are listed automatically (or copy the .dll into the plugins folder).
 2. Tick the plugin. It loads at once (a big one can take a few seconds the first time).
 ## Use an instrument
-1. In the Music Studio press + INSTRUMENT and choose it. A track and the plugin's own window appear.
+1. In Purphex Music press + INSTRUMENT and choose it. A track and the plugin's own window appear.
 2. Play notes with your computer keyboard (A S D F G H J = white keys, W E T Y U = black keys, Z / X = octave) or click the piano at the bottom of its window. You hear it right away, even when the song is stopped.
 3. To record: press REC, press PLAY, then play. The notes appear as small bars on the track and play back every time. Press C on the track to clear them.
 4. Use the instrument's own window to change sounds. The sound you chose is saved with the project.
@@ -275,11 +275,53 @@ Open + Add Effect on a track and pick it under PLUGINS (it is listed first). Pre
 - Only tick plugins you trust: a VST plugin is a program that runs on your computer.
 - If a plugin will not load, it is usually 32-bit or VST3."),
 
+        new HelpTopic("daw", "Music Studio", "Edit like a DAW: split, trim, move, duplicate, undo, tempo grid", false, @"
+## Cut a track in two (split)
+1. Click on the track to put the needle where you want the cut.
+2. Press SPLIT (or the key B). The track becomes two pieces. Each piece is its own track, so you can move it, mute it or put different effects on it.
+## Shorten a track (trim)
+- Drag the left or right END of a clip to shorten it. The audio is never deleted, you can drag it back out.
+- Or put the needle inside the clip and press TRIM < (cuts the start off here) or TRIM > (cuts the end off here).
+## Move a clip
+Drag the clip by its name bar (the top strip with the name) left or right.
+## More
+- Right-click a track for split, trim, duplicate, rename and delete.
+- DUP copies the selected track, DEL deletes it (key Delete). UNDO / REDO (Ctrl+Z / Ctrl+Y) bring edits back.
+## Tempo and grid
+- BPM: click the number and type the tempo, or press DETECT and the studio listens to your song and sets it.
+- SNAP makes moves, trims and cuts land exactly on the beat. The grid button picks the size (bar, 1/2, beat, 1/8, 1/16).
+- CLICK plays a metronome while the song plays.
+- The tempo also drives the synth's tempo-synced wobbles and delays.
+## Zoom
+Mouse wheel + Ctrl zooms, or use - + FIT."),
+
+        new HelpTopic("basslab", "Music Studio", "Bass Lab: make bass and wobbles (the built-in synth)", false, @"
+## Open it
+In Purphex Music press + INSTRUMENT and choose Bass Lab (synthesizer). A track and the Bass Lab window open. Play with your keyboard (A S D F G H J = white keys, W E T Y U = black keys, Z / X = octave) or click the piano.
+## Pick a sound
+Click the preset name at the top (or the < > arrows): Wobble Bass, Reese, Growl, Deep Sub, Pluck, Acid, Lead, Pad. Save your own from the same menu.
+## Make a wobble in 3 clicks
+1. Open the bottom panel tab LFO 1.
+2. Press 'Filter 1 cutoff' in WOBBLE IT (or 'Osc A warp' for a growl, 'Volume' for a tremolo).
+3. Turn the AMOUNT knob. Change the rate with the sync box: 1/8 = a wobble every eighth note of the song's tempo, 1/16 = twice as fast, 1 bar = slow and heavy. 'Hz' makes it free-running.
+Your tempo comes from the BPM in the studio, so the wobble stays in time with the beat.
+## The pages
+- OSC: three oscillators (WAVE morphs sine > triangle > saw > square > pulse; WARP bends it for growl), unison for fat sounds, a sub oscillator, noise, two filters.
+- MIX: levels of every sound source.
+- FX: distortion, chorus, delay, reverb and BASS BOOST.
+- MATRIX: connect anything to anything: a source (LFO, envelope, velocity, macro) to a destination with an amount.
+- GLOBAL: volume, glide, voices (Poly / Mono / Legato), bend range.
+## Bass boost (fine-tune it)
+Turn it on with the BASS BOOST switch at the top. On the FX page drag the dot on the graph: left / right = frequency, up / down = amount. Double-click a knob to type an exact number (for example 55 Hz and 8 dB). HARMONICS adds overtones so you can hear the bass on small speakers. TIGHTEN removes the rumble you cannot hear. There is also a stand-alone Bass Boost effect under + Add Effect.
+## Tips
+- Every knob: drag up/down, mouse wheel for small steps (Shift = finer), double-click to type, right-click to reset.
+- Hold REC in the studio and play to record your notes onto the track."),
+
         new HelpTopic("plugins", "Advanced", "Plugins and custom ffmpeg filters", false, @"
 ## Add your own effects
 1. Menu, then Plugins and extensions, then Open plugins folder.
 2. Drop a plugin .dll in, press Reload and tick it to approve it.
-3. It loads at once. In the Music Studio press + Add Effect on a track; your plugins are listed first under PLUGINS (or type the name in the search box), then press Add. It is then an effect on that track like any other.
+3. It loads at once. In Purphex Music press + Add Effect on a track; your plugins are listed first under PLUGINS (or type the name in the search box), then press Add. It is then an effect on that track like any other.
 WARN: Plugins are programs. Only approve ones you trust.
 ## Make one
 Press 'Create sample plugin (SDK)'. It writes a working example and a build script. See PLUGINS.md for the full guide.

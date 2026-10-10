@@ -272,7 +272,7 @@ partial class App
         g.SmoothingMode = SmoothingMode.AntiAlias;
         if (ov != null && ov.Width == r.Width && ov.Height == r.Height) g.DrawImageUnscaled(ov, 0, 0);
 
-        string title = "BandLab + YouTube → MP3";
+        string title = "Purphex";
         g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
         using (var f = new Font("Segoe UI Black", 24f))
         {

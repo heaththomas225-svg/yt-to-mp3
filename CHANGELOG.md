@@ -2,6 +2,12 @@
 
 What changed in each version of **BandLab + YouTube to MP3**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.2.0  Purphex: Bass Lab and DAW tools
+
+- Renamed Purphex (studio = Purphex Music).
+- Bass Lab synthesizer + Bass Boost; split/trim/move/duplicate/undo, BPM + grid, metronome.
+- Auto Mix works before splitting; layout fixes; updates within seconds.
+
 ## 3.1.0  VST plugins and instruments
 
 - VST2 instruments (Vital) and effects supported; + INSTRUMENT tracks with keyboard, REC and export.

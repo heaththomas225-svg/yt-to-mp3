@@ -7,10 +7,21 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.1.0";
+    public const string Latest = "3.2.0";
 
     public const string Text =
-@"3.1.0  VST plugins and instruments
+@"3.2.0  Purphex: Bass Lab and DAW tools
+ + NEW NAME: the app is now Purphex. The studio is Purphex Music.
+ + NEW Bass Lab: a built-in synthesizer for bass and leads. Three warping oscillators, sub, noise, two filters, four envelopes, four tempo-synced LFOs (wobbles), a mod matrix, macros, effects and its own piano. Add it with + INSTRUMENT.
+ + NEW Bass Boost: a fine-tunable low-end boost (frequency, amount, width, harmonics, tighten). In Bass Lab, and as a stand-alone effect.
+ + NEW DAW tools: SPLIT a track at the needle, TRIM it, drag clips to move them, DUP, DEL, UNDO and REDO, BPM with DETECT, beat-grid SNAP and a metronome.
+ + CHANGE: Analyze whole mix now also listens to the tone of your mix and moves the Mastering Parametric EQ to balance it (bass, mud, presence, air). The curve changes and a list tells you what moved, with Undo.
+ + CHANGE: after splitting vocals and beat, the tracks are named after the song, for example "My Song - Vocals" and "My Song - Instrumental".
+ + FIX: Auto Mix now works on a full song before it is split into vocals and beat.
+ + FIX: toolbar and transport text no longer overlap at any window width.
+ + FASTER updates: the app checks for a new version every few seconds and when you come back to it.
+
+3.1.0  VST plugins and instruments
  + NEW: VST plugin support. 64-bit VST2 instruments (like Vital) and effects now work. Menu > Plugins and extensions lists the VST2 plugins installed on your PC; tick one and it loads.
  + NEW: + INSTRUMENT in the Music Studio adds a track for a VST instrument, opens its own window with a piano, and lets you play it with your keyboard.
  + NEW: REC records the notes you play while the song plays. They play back in the mix and in every export, and are saved with the project.

@@ -31,13 +31,13 @@ class SettingsForm : Form
         dimNum.ValueChanged += (s, e) => { if (setting) return; dimBar.Value = (int)dimNum.Value; Prefs.BgDim = (int)dimNum.Value; Prefs.Changed(); };
         y += 46;
         leavesChk = Chk("Keep the floating leaves on top of my background", 20, ref y); leavesChk.CheckedChanged += (s, e) => { if (!setting) { Prefs.BgLeaves = leavesChk.Checked; Prefs.Changed(); } };
-        studioChk = Chk("Also use it behind the Music Studio", 20, ref y); studioChk.CheckedChanged += (s, e) => { if (!setting) { Prefs.BgStudio = studioChk.Checked; UserBackground.Version++; Prefs.Changed(); } };
+        studioChk = Chk("Also use it behind Purphex Music", 20, ref y); studioChk.CheckedChanged += (s, e) => { if (!setting) { Prefs.BgStudio = studioChk.Checked; UserBackground.Version++; Prefs.Changed(); } };
         y += 6; Header("Animation", ref y);
         Controls.Add(new Label { Text = "Frame rate limit", Left = 20, Top = y + 3, Width = 150, ForeColor = Ink });
         fpsBox = Combo(180, y, 120, new[] { "30 fps (lightest)", "60 fps (smooth)" }); fpsBox.SelectedIndexChanged += (s, e) => { if (!setting) { Prefs.FpsCap = fpsBox.SelectedIndex == 0 ? 30 : 60; Prefs.Changed(); } };
         y += 38;
         fpsChk = Chk("Show the frame rate in the title bar", 20, ref y); fpsChk.CheckedChanged += (s, e) => { if (!setting) { Prefs.ShowFps = fpsChk.Checked; Prefs.Changed(); } };
-        y += 6; Header("Audio (Music Studio playback)", ref y);
+        y += 6; Header("Audio (Purphex Music playback)", ref y);
         volBar = new TrackBar { Left = 130, Top = y - 4, Width = 300, Minimum = 0, Maximum = 100, TickFrequency = 10, BackColor = BackColor };
         volNum = new NumericUpDown { Left = 440, Top = y, Width = 64, Minimum = 0, Maximum = 100 }; StyleNum(volNum);
         Controls.Add(new Label { Text = "Volume (%)", Left = 20, Top = y + 2, Width = 100, ForeColor = Ink }); Controls.Add(volBar); Controls.Add(volNum);

@@ -12,8 +12,8 @@ static class Prefs
     public static string BgPath = "";        // image or video used as the background ("" = animated leaves only)
     public static int BgDim = 45;            // 0..90, how much the background is darkened so the controls stay readable
     public static bool BgLeaves = true;      // keep the floating leaves on top of a custom background
-    public static bool BgStudio = true;      // also use the background (still) in the Music Studio
-    public static int OutVol = 100;          // Music Studio playback volume, percent (does not change exported files)
+    public static bool BgStudio = true;      // also use the background (still) in Purphex Music
+    public static int OutVol = 100;          // Purphex Music playback volume, percent (does not change exported files)
     public static int OutDev = -1;           // winmm device id (-1 = system default)
     public static int Buf = 1;               // playback buffer: 0 low latency, 1 normal, 2 safe
     public static int FpsCap = 60;           // animation frame rate cap: 30 or 60
