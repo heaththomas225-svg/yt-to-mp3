@@ -120,7 +120,118 @@ static class Separator
 
     // Splits a song into real VOCAL and INSTRUMENTAL audio files (two-stem Demucs).
     // Returns false on failure. Output WAV files are 32-bit float, same length as the input.
+    // ---------------- warm worker: the model stays loaded between songs ----------------
+    const string WorkerPy = @"import sys, os
+try:
+    import torch, numpy as np, soundfile as sf
+    from demucs.pretrained import get_model
+    from demucs.apply import apply_model
+    from demucs.audio import AudioFile
+    model = get_model('htdemucs'); model.eval()
+except Exception as e:
+    print('ERR|startup: %s' % e, flush=True); sys.exit(1)
+print('READY', flush=True)
+for line in sys.stdin:
+    line = line.strip()
+    if not line.startswith('JOB|'): continue
+    try:
+        _, inp, outdir, overlap = line.split('|', 3)
+        wav = AudioFile(inp).read(streams=0, samplerate=model.samplerate, channels=model.audio_channels)
+        ref = wav.mean(0); sd = ref.std() + 1e-8; wav = (wav - ref.mean()) / sd
+        with torch.no_grad():
+            out = apply_model(model, wav[None], device='cpu', shifts=1, split=True, overlap=float(overlap), progress=True, num_workers=0)[0]
+        out = out * sd + ref.mean()
+        vi = model.sources.index('vocals'); vocals = out[vi]; inst = out.sum(0) - vocals
+        os.makedirs(outdir, exist_ok=True)
+        sf.write(os.path.join(outdir, 'vocals.wav'), vocals.cpu().numpy().T, model.samplerate, subtype='FLOAT')
+        sf.write(os.path.join(outdir, 'no_vocals.wav'), inst.cpu().numpy().T, model.samplerate, subtype='FLOAT')
+        print('DONE|ok', flush=True)
+    except Exception as e:
+        print('ERR|%s' % e, flush=True)
+";
+    static Process wproc; static StreamWriter win; static volatile bool wready; static volatile string wresult; static volatile Action<float> wprog;
+    static DateTime wlast = DateTime.Now; static volatile bool wbusy; static readonly object wlock = new object(); static System.Threading.Timer idleTimer;
+    static readonly Regex PctRx = new Regex(@"(\d+)%\|");
+
+    // Start loading the model in the background (call when the user opens the vocal remover).
+    public static void Warmup() { if (!Installed) return; new Thread(() => { try { EnsureWorker(); } catch { } }) { IsBackground = true }.Start(); }
+
+    static bool EnsureWorker()
+    {
+        lock (wlock)
+        {
+            if (wproc != null && !wproc.HasExited) return true;
+            if (!Installed) return false;
+            File.WriteAllText(Path.Combine(Root, "demucs_worker.py"), WorkerPy);
+            var psi = new ProcessStartInfo(PyExe, "-u \"" + Path.Combine(Root, "demucs_worker.py") + "\"")
+            {
+                UseShellExecute = false, CreateNoWindow = true, RedirectStandardInput = true, RedirectStandardOutput = true, RedirectStandardError = true, WorkingDirectory = Root,
+                StandardOutputEncoding = System.Text.Encoding.UTF8, StandardErrorEncoding = System.Text.Encoding.UTF8
+            };
+            foreach (var kv in Env()) psi.EnvironmentVariables[kv.Key] = kv.Value;
+            wready = false; wresult = null; wproc = new Process { StartInfo = psi };
+            wproc.OutputDataReceived += (s, e) => { if (e.Data == null) return; if (e.Data == "READY") wready = true; else if (e.Data.StartsWith("DONE|") || e.Data.StartsWith("ERR|")) wresult = e.Data; };
+            wproc.ErrorDataReceived += (s, e) => { if (e.Data == null) return; var m = PctRx.Match(e.Data); var pr = wprog; if (m.Success && pr != null) pr(Math.Min(0.98f, int.Parse(m.Groups[1].Value) / 100f)); };
+            wproc.Start(); wproc.BeginOutputReadLine(); wproc.BeginErrorReadLine(); win = wproc.StandardInput; wlast = DateTime.Now;
+            if (idleTimer == null) idleTimer = new System.Threading.Timer(_ => { if (!wbusy && (DateTime.Now - wlast).TotalMinutes > 10) KillWorker(); }, null, 60000, 60000);
+        }
+        return true;
+    }
+
+    public static void KillWorker()
+    {
+        lock (wlock) { try { if (wproc != null && !wproc.HasExited) Kill(wproc); } catch { } wproc = null; wready = false; }
+    }
+
+    // 1 = ok, 0 = worker unusable (caller falls back), -1 = cancelled
+    static int SeparateWorker(string input, string outDir, string baseName, Action<string> log, Action<float> prog, Func<bool> cancelled, out string vocalsPath, out string instPath)
+    {
+        vocalsPath = null; instPath = null;
+        string tmp = Path.Combine(outDir, ".sep_tmp_" + Guid.NewGuid().ToString("N").Substring(0, 6));
+        try
+        {
+            if (!EnsureWorker()) return 0;
+            var sw = Stopwatch.StartNew(); bool said = false;
+            while (!wready)
+            {
+                if (cancelled()) return -1; if (wproc == null || wproc.HasExited) return 0; if (sw.Elapsed.TotalSeconds > 240) return 0;
+                if (!said && sw.Elapsed.TotalSeconds > 1) { log("Loading the AI model (a few seconds)..."); said = true; }
+                Thread.Sleep(100);
+            }
+            wbusy = true; wresult = null; wprog = prog; Directory.CreateDirectory(outDir);
+            win.WriteLine("JOB|" + input + "|" + tmp + "|0.1"); win.Flush();
+            while (wresult == null)
+            {
+                if (cancelled()) { KillWorker(); return -1; }
+                if (wproc == null || wproc.HasExited) return 0;
+                Thread.Sleep(120);
+            }
+            wlast = DateTime.Now; string r = wresult;
+            if (!r.StartsWith("DONE|")) { log("Worker: " + r); return 0; }
+            string v = Path.Combine(tmp, "vocals.wav"), i = Path.Combine(tmp, "no_vocals.wav");
+            if (!File.Exists(v) || !File.Exists(i)) return 0;
+            vocalsPath = Path.Combine(outDir, baseName + " - vocals.wav"); instPath = Path.Combine(outDir, baseName + " - instrumental.wav");
+            File.Copy(v, vocalsPath, true); File.Copy(i, instPath, true); prog(1f); return 1;
+        }
+        catch (Exception ex) { log("Worker error: " + ex.Message); return 0; }
+        finally { wbusy = false; wprog = null; try { if (Directory.Exists(tmp)) Directory.Delete(tmp, true); } catch { } }
+    }
+
+    // Splits a song into real VOCAL and INSTRUMENTAL audio files. Uses the warm worker when possible.
     public static bool Separate(string input, string outDir, string baseName, string model, Action<string> log, Action<float> prog, Func<bool> cancelled,
+        out string vocalsPath, out string instPath)
+    {
+        vocalsPath = null; instPath = null;
+        if (model == "htdemucs" && input.IndexOf('|') < 0 && outDir.IndexOf('|') < 0)
+        {
+            string v, i; int r = SeparateWorker(input, outDir, baseName, log, prog, cancelled, out v, out i);
+            if (r == 1) { vocalsPath = v; instPath = i; return true; }
+            if (r == -1) { log("Cancelled."); return false; }
+            log("(fast worker unavailable, using the standard path)");
+        }
+        return SeparateCli(input, outDir, baseName, model, log, prog, cancelled, out vocalsPath, out instPath);
+    }
+    static bool SeparateCli(string input, string outDir, string baseName, string model, Action<string> log, Action<float> prog, Func<bool> cancelled,
         out string vocalsPath, out string instPath)
     {
         vocalsPath = null; instPath = null;
@@ -128,7 +239,7 @@ static class Separator
         try
         {
             log("Running AI separation (" + model + ")...  first run also downloads the model (~80 MB).");
-            string args = "-m demucs.separate -n " + model + " --two-stems=vocals --float32 -o \"" + tmp + "\" --filename \"{stem}.{ext}\" \"" + input + "\"";
+            string args = "-m demucs.separate -n " + model + " --two-stems=vocals --float32 --overlap 0.1 -o \"" + tmp + "\" --filename \"{stem}.{ext}\" \"" + input + "\"";
             var rx = new Regex(@"(\d+)%\|");
             int code = Exec(PyExe, args, l =>
             {

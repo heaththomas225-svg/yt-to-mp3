@@ -8,6 +8,47 @@ using System.Net.Sockets;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
+using System.Windows.Forms;
+using System.Drawing;
+
+// Setup dialog for phone mode: shows the address(es), explains the firewall, and can add the firewall rule.
+static class PhoneUi
+{
+    public static void Show(IWin32Window owner, PhoneServer ps)
+    {
+        var f = new Form { Text = "Phone mode", FormBorderStyle = FormBorderStyle.FixedDialog, StartPosition = FormStartPosition.CenterParent, MaximizeBox = false, MinimizeBox = false, ShowInTaskbar = false, BackColor = Color.FromArgb(24, 12, 44), ForeColor = Color.FromArgb(240, 232, 255), ClientSize = new Size(600, 470), Font = new Font("Segoe UI", 10f) };
+        Win.Dark(f); var cands = PhoneServer.Candidates(); string best = cands.Count > 0 ? cands[0].Ip : "127.0.0.1";
+        var sb = new StringBuilder();
+        sb.Append("Phone mode is ON.\r\n\r\nOn your phone, connected to the SAME Wi-Fi / router as this PC (not mobile data), open this address in the browser:\r\n\r\n");
+        sb.Append("    http://" + best + ":" + ps.Port + "/?c=" + ps.Code + "\r\n\r\n");
+        if (cands.Count > 1)
+        {
+            sb.Append("If that doesn't open, this PC has other network addresses. Try the one that starts like your phone's Wi-Fi address (for example 192.168.x.x):\r\n");
+            foreach (var c in cands) sb.Append("    " + c.Ip + "   (" + c.Alias + ")\r\n");
+            sb.Append("   (VPN adapters such as Radmin, Tailscale or VMware are not reachable from a phone.)\r\n\r\n");
+        }
+        sb.Append("Still not loading? Windows Firewall blocks other devices by default, especially when your network is set to \"Public\". Press the green button below to allow it (Windows will ask for administrator permission). Also make sure your router isn't using \"guest network\" or \"AP/client isolation\".");
+        var tb = new TextBox { Left = 16, Top = 14, Width = 568, Height = 330, Multiline = true, ReadOnly = true, ScrollBars = ScrollBars.Vertical, BackColor = Color.FromArgb(34, 16, 62), ForeColor = Color.FromArgb(240, 232, 255), BorderStyle = BorderStyle.FixedSingle, Text = sb.ToString() };
+        f.Controls.Add(tb);
+        Func<string, int, int, int, Color, Button> mk = (text, x, y, w, col) => { var b = new Button { Text = text, Left = x, Top = y, Width = w, Height = 38, FlatStyle = FlatStyle.Flat, BackColor = col, ForeColor = Color.White, Cursor = Cursors.Hand }; b.FlatAppearance.BorderColor = Color.FromArgb(190, 120, 255); return b; };
+        var fw = mk(ps.FirewallRuleExists() ? "Firewall: already allowed (click to remove)" : "Allow in Windows Firewall", 16, 356, 568, Color.FromArgb(28, 130, 90));
+        var copy = mk("Copy address", 16, 404, 270, Color.FromArgb(118, 52, 212)); var ok = mk("OK", 314, 404, 270, Color.FromArgb(70, 40, 120));
+        string status = "";
+        fw.Click += (s, e) =>
+        {
+            bool exists = ps.FirewallRuleExists(); string err = ps.SetFirewallRule(!exists);
+            bool now = ps.FirewallRuleExists();
+            if (err != null) MessageBox.Show(f, err, "Phone mode");
+            else if (!exists && now) { fw.Text = "Firewall: allowed (click to remove)"; MessageBox.Show(f, "Done. Windows Firewall now allows connections to port " + ps.Port + ". Try the address on your phone again.", "Phone mode"); }
+            else if (exists && !now) { fw.Text = "Allow in Windows Firewall"; }
+            else MessageBox.Show(f, "Windows didn't apply the change. You can add it yourself: open Windows Defender Firewall with Advanced Security > Inbound Rules > New Rule > Port > TCP " + ps.Port + " > Allow.", "Phone mode");
+        };
+        copy.Click += (s, e) => { try { Clipboard.SetText("http://" + best + ":" + ps.Port + "/?c=" + ps.Code); copy.Text = "Copied"; } catch { } };
+        ok.Click += (s, e) => f.Close(); f.AcceptButton = ok; f.Controls.AddRange(new Control[] { fw, copy, ok });
+        try { Clipboard.SetText("http://" + best + ":" + ps.Port + "/?c=" + ps.Code); } catch { }
+        f.ShowDialog(owner);
+    }
+}
 
 // ======================================================================
 //  Phone mode: a tiny web server inside the app. A phone on the same Wi-Fi opens
@@ -28,23 +69,71 @@ class PhoneServer
     readonly object lk = new object(); int running;
     public Action<string> Log = delegate { };
 
-    public static string LocalIp()
+    public class NetCand { public string Alias, Ip; public int Score; }
+
+    // Addresses this PC has, best first. VPN / virtual adapters (Radmin, VMware, Hyper-V, WSL, Tailscale...) are
+    // pushed to the bottom because a phone on your Wi-Fi can't reach them.
+    public static List<NetCand> Candidates()
     {
+        var l = new List<NetCand>();
         try
         {
+            var bad = new Regex("vpn|virtual|vmware|vbox|hyper-v|vethernet|tap-|tun|wireguard|tailscale|zerotier|radmin|bluetooth|loopback|pseudo|docker|wsl|npcap|hamachi|nordlynx", RegexOptions.IgnoreCase);
             foreach (NetworkInterface ni in NetworkInterface.GetAllNetworkInterfaces())
             {
-                if (ni.OperationalStatus != OperationalStatus.Up || ni.NetworkInterfaceType == NetworkInterfaceType.Loopback) continue;
-                var props = ni.GetIPProperties(); if (props.GatewayAddresses.Count == 0) continue;
+                if (ni.OperationalStatus != OperationalStatus.Up || ni.NetworkInterfaceType == NetworkInterfaceType.Loopback || ni.NetworkInterfaceType == NetworkInterfaceType.Tunnel) continue;
+                var props = ni.GetIPProperties();
                 foreach (UnicastIPAddressInformation ua in props.UnicastAddresses)
-                    if (ua.Address.AddressFamily == AddressFamily.InterNetwork) return ua.Address.ToString();
+                {
+                    if (ua.Address.AddressFamily != AddressFamily.InterNetwork) continue; string ip = ua.Address.ToString(); if (ip.StartsWith("169.254") || ip.StartsWith("127.")) continue;
+                    int s = 0; var b = ua.Address.GetAddressBytes();
+                    if (b[0] == 192 && b[1] == 168) s = 100; else if (b[0] == 10) s = 80; else if (b[0] == 172 && b[1] >= 16 && b[1] <= 31) s = 70; else s = 5;
+                    if (bad.IsMatch(ni.Name) || bad.IsMatch(ni.Description)) s = Math.Min(s, 3);
+                    if (ni.NetworkInterfaceType == NetworkInterfaceType.Wireless80211 || ni.NetworkInterfaceType == NetworkInterfaceType.Ethernet) s += 5;
+                    if (props.GatewayAddresses.Count > 0) s += 10;
+                    l.Add(new NetCand { Alias = ni.Name, Ip = ip, Score = s });
+                }
             }
         }
         catch { }
-        return "127.0.0.1";
+        l.Sort((a, c) => c.Score.CompareTo(a.Score));
+        return l;
     }
 
+    public static string LocalIp() { var c = Candidates(); return c.Count > 0 ? c[0].Ip : "127.0.0.1"; }
+
     public string Url { get { return "http://" + LocalIp() + ":" + Port + "/?c=" + Code; } }
+
+    public const string FwRule = "YouTube to MP3 phone mode";
+    public bool FirewallRuleExists()
+    {
+        try
+        {
+            var psi = new ProcessStartInfo("netsh", "advfirewall firewall show rule name=\"" + FwRule + "\"") { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true };
+            using (var p = Process.Start(psi)) { p.StandardOutput.ReadToEnd(); p.WaitForExit(); return p.ExitCode == 0; }
+        }
+        catch { return false; }
+    }
+
+    // Asks Windows for administrator permission (UAC) and adds an inbound allow rule for this port.
+    public string SetFirewallRule(bool add)
+    {
+        try
+        {
+            string args = add ? "advfirewall firewall add rule name=\"" + FwRule + "\" dir=in action=allow protocol=TCP localport=" + Port + " profile=any"
+                              : "advfirewall firewall delete rule name=\"" + FwRule + "\"";
+            var psi = new ProcessStartInfo("netsh", args) { UseShellExecute = true, Verb = "runas", WindowStyle = ProcessWindowStyle.Hidden };
+            using (var p = Process.Start(psi)) { p.WaitForExit(); }
+            return null;
+        }
+        catch (System.ComponentModel.Win32Exception) { return "Permission was declined, so the firewall wasn't changed."; }
+        catch (Exception ex) { return ex.Message; }
+    }
+
+    // wrong-code throttle per remote address
+    readonly Dictionary<string, int> fails = new Dictionary<string, int>(); readonly Dictionary<string, DateTime> blocked = new Dictionary<string, DateTime>();
+    bool IsBlocked(string ip) { lock (lk) { DateTime t; if (blocked.TryGetValue(ip, out t)) { if (DateTime.Now < t) return true; blocked.Remove(ip); fails.Remove(ip); } return false; } }
+    void Fail(string ip) { lock (lk) { int n; fails.TryGetValue(ip, out n); n++; fails[ip] = n; if (n >= 15) blocked[ip] = DateTime.Now.AddMinutes(10); } }
 
     public bool Start(out string error)
     {
@@ -95,8 +184,10 @@ class PhoneServer
         try
         {
             c.ReceiveTimeout = 8000; c.SendTimeout = 60000;
+            string remote = ""; try { remote = ((IPEndPoint)c.Client.RemoteEndPoint).Address.ToString(); } catch { }
             using (c) using (var ns = c.GetStream())
             {
+                if (IsBlocked(remote)) return;
                 var buf = new List<byte>(); var one = new byte[1]; int headEnd = -1;
                 while (buf.Count < 16384 && headEnd < 0)
                 {
@@ -118,7 +209,7 @@ class PhoneServer
                     body = Encoding.UTF8.GetString(bb, 0, got);
                 }
                 var q = ParseQuery(query);
-                string code; if (!q.TryGetValue("c", out code) || code != Code) { Send(ns, 403, "text/plain", Encoding.UTF8.GetBytes("Wrong or missing code. Open the exact link shown in the app."), null); return; }
+                string code; if (!q.TryGetValue("c", out code) || code != Code) { Fail(remote); Send(ns, 403, "text/plain", Encoding.UTF8.GetBytes("Wrong or missing code. Open the exact link shown in the app."), null); return; }
 
                 if (method == "GET" && (path == "/" || path == "/index.html")) { Send(ns, 200, "text/html; charset=utf-8", Encoding.UTF8.GetBytes(Page), null); return; }
                 if (method == "POST" && path == "/convert") { Convert(ns, ParseQuery(body)); return; }
@@ -228,55 +319,138 @@ class PhoneServer
 
     // ---------- the mobile page ----------
     const string Page = @"<!doctype html><html lang='en'><head><meta charset='utf-8'>
-<meta name='viewport' content='width=device-width,initial-scale=1,viewport-fit=cover'><meta name='theme-color' content='#0e051e'><title>YouTube to MP3</title>
+<meta name='viewport' content='width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no'>
+<meta name='theme-color' content='#05020c'><meta name='color-scheme' content='dark'>
+<meta name='apple-mobile-web-app-capable' content='yes'><meta name='mobile-web-app-capable' content='yes'>
+<meta name='apple-mobile-web-app-status-bar-style' content='black-translucent'><meta name='apple-mobile-web-app-title' content='MP3'>
+<title>BandLab + YouTube to MP3</title>
 <style>
-:root{color-scheme:dark}*{box-sizing:border-box}
-body{margin:0;min-height:100vh;color:#efe6ff;font:16px -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:radial-gradient(900px 500px at 20% -10%,#4a1c8a55,transparent),linear-gradient(165deg,#0e051e,#2a0f52)}
-.wrap{max-width:560px;margin:0 auto;padding:22px 16px calc(40px + env(safe-area-inset-bottom))}
-h1{font-size:28px;margin:6px 0 2px;background:linear-gradient(90deg,#f3e0ff,#b96eff);-webkit-background-clip:text;background-clip:text;color:transparent}
-p.sub{margin:0 0 18px;color:#bba6e0;font-size:14px}
-label{display:block;font-size:13px;color:#bba6e0;margin:14px 0 6px}
-textarea,select{width:100%;background:#1c0b38;color:#efe6ff;border:1px solid #6b3fb3;border-radius:12px;padding:12px;font:inherit}
-textarea{min-height:84px;resize:vertical}
-.row{display:flex;gap:10px;align-items:center;margin-top:12px;font-size:15px}.row input{width:20px;height:20px}
-button{width:100%;margin-top:18px;padding:15px;border:0;border-radius:14px;font:600 17px inherit;color:#fff;background:linear-gradient(90deg,#7c34d6,#c04ad8);box-shadow:0 6px 22px #7c34d655}
-button:active{transform:scale(.99)}
-.card{margin-top:14px;padding:14px;border-radius:14px;background:#24104a99;border:1px solid #5f3a9e}
-.card b{display:block;word-break:break-word;font-size:15px}.card small{color:#bba6e0}
-.bar{height:8px;border-radius:5px;background:#12062a;margin:10px 0 6px;overflow:hidden}.bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#9a52ff,#ee5ee0);transition:width .5s}
-a.dl{display:block;margin-top:10px;padding:12px;text-align:center;border-radius:12px;background:#34d399;color:#05261a;font-weight:700;text-decoration:none}
-.err{color:#ff8fb8}.note{margin-top:24px;font-size:12px;color:#8f7bb8;line-height:1.5}
-</style></head><body><div class='wrap'>
+:root{--ink:#f3eaff;--dim:#a893d6;--acc:#b66cff;--acc2:#ee5ee0;--edge:rgba(170,110,255,.38)}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:#05020c;color:var(--ink);font:16px/1.4 -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;-webkit-text-size-adjust:100%}
+body{min-height:100vh;min-height:100dvh;overflow-x:hidden;touch-action:manipulation}
+.fx{position:fixed;left:0;top:0;width:100%;height:100%;z-index:-1;overflow:hidden;background:radial-gradient(120% 80% at 50% 0%,#1d0a3d 0%,#05020c 62%)}
+.orb{position:absolute;width:80vmax;height:80vmax;border-radius:50%;opacity:.5;will-change:transform;transform:translate3d(0,0,0)}
+.o1{background:radial-gradient(circle,#8a3cff 0%,rgba(138,60,255,0) 62%);left:-35vmax;top:-30vmax;animation:d1 19s ease-in-out infinite alternate}
+.o2{background:radial-gradient(circle,#ee4ed8 0%,rgba(238,78,216,0) 62%);right:-40vmax;top:15vh;animation:d2 24s ease-in-out infinite alternate}
+.o3{background:radial-gradient(circle,#4a3cff 0%,rgba(74,60,255,0) 62%);left:-15vmax;bottom:-45vmax;animation:d3 28s ease-in-out infinite alternate}
+@keyframes d1{to{transform:translate3d(32vmax,20vmax,0) scale(1.15)}}
+@keyframes d2{to{transform:translate3d(-30vmax,-14vh,0) scale(.9)}}
+@keyframes d3{to{transform:translate3d(28vmax,-16vmax,0) scale(1.2)}}
+.lf{position:absolute;top:-130px;width:90px;height:75px;opacity:.55;will-change:transform;animation:fall 22s linear infinite}
+@keyframes fall{0%{transform:translate3d(0,0,0) rotate(0deg)}50%{transform:translate3d(28px,60vh,0) rotate(180deg)}100%{transform:translate3d(-10px,125vh,0) rotate(360deg)}}
+.wrap{max-width:560px;margin:0 auto;padding:calc(18px + env(safe-area-inset-top)) 16px calc(118px + env(safe-area-inset-bottom))}
+h1{margin:6px 0 4px;font-size:30px;line-height:1.1;letter-spacing:-.3px;font-weight:800;background:linear-gradient(90deg,#f6e6ff,#b66cff 55%,#ee5ee0);-webkit-background-clip:text;background-clip:text;color:transparent}
+.sub{margin:0 0 18px;color:var(--dim);font-size:14px}
+.card{margin-top:14px;padding:16px;border-radius:20px;background:rgba(16,7,32,.72);border:1px solid var(--edge);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);box-shadow:0 0 0 1px rgba(255,255,255,.02) inset,0 10px 40px rgba(110,40,220,.18)}
+label,.lab{display:block;font-size:12px;letter-spacing:.9px;text-transform:uppercase;color:var(--dim);margin:0 0 8px;font-weight:600}
+textarea{width:100%;min-height:92px;resize:none;background:#0a0416;color:var(--ink);border:1px solid rgba(150,90,230,.55);border-radius:14px;padding:13px 14px;font:16px/1.4 inherit;font-family:inherit;outline:none;-webkit-appearance:none}
+textarea:focus{border-color:var(--acc2);box-shadow:0 0 0 3px rgba(238,94,224,.2)}
+textarea::placeholder{color:#7e6aa8}
+.row{display:flex;gap:10px;margin-top:10px}
+.ghost{flex:1;padding:12px;border-radius:12px;border:1px solid var(--edge);background:rgba(40,18,80,.55);color:var(--ink);font-size:15px;font-weight:600;font-family:inherit}
+.ghost:active{background:rgba(110,50,200,.5)}
+.seg{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.seg button{padding:13px 0;border-radius:13px;border:1px solid var(--edge);background:rgba(30,12,60,.7);color:var(--dim);font-size:15px;font-weight:700;font-family:inherit;transition:transform .12s,background .2s,color .2s}
+.seg button.on{background:linear-gradient(135deg,#7c34d6,#c04ad8);color:#fff;border-color:transparent;box-shadow:0 6px 20px rgba(150,60,230,.45)}
+.seg button:active{transform:scale(.96)}
+small{color:var(--dim);font-size:12.5px}
+#fmtnote{display:block;margin-top:9px}
+.sw{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:16px;padding-top:14px;border-top:1px solid rgba(150,90,230,.2)}
+.sw span{font-size:15.5px;font-weight:600}.sw small{display:block;font-weight:400}
+.toggle{flex:none;width:56px;height:32px;border-radius:16px;border:1px solid var(--edge);background:#150a2c;position:relative;padding:0;transition:background .25s}
+.toggle i{position:absolute;left:3px;top:3px;width:24px;height:24px;border-radius:50%;background:#c9b5f2;transition:transform .25s cubic-bezier(.3,1.4,.5,1),background .25s;will-change:transform}
+.toggle.on{background:linear-gradient(135deg,#7c34d6,#c04ad8);border-color:transparent}
+.toggle.on i{transform:translate3d(24px,0,0);background:#fff}
+.bar{position:fixed;left:0;right:0;bottom:0;padding:26px 16px calc(14px + env(safe-area-inset-bottom));background:linear-gradient(to top,#05020c 55%,rgba(5,2,12,0));z-index:5}
+.cta{display:block;width:100%;max-width:560px;margin:0 auto;padding:18px;border:0;border-radius:18px;font-size:19px;font-weight:800;letter-spacing:.3px;color:#fff;font-family:inherit;background:linear-gradient(100deg,#7c34d6,#c04ad8 60%,#ee5ee0);box-shadow:0 10px 34px rgba(170,60,230,.5);position:relative;overflow:hidden}
+.cta:active{transform:scale(.985)}
+.cta:after{content:'';position:absolute;top:0;left:0;width:40%;height:100%;background:linear-gradient(100deg,rgba(255,255,255,0),rgba(255,255,255,.28),rgba(255,255,255,0));transform:translate3d(-150%,0,0) skewX(-18deg);animation:shine 3.2s ease-in-out infinite;will-change:transform}
+@keyframes shine{0%,55%{transform:translate3d(-150%,0,0) skewX(-18deg)}100%{transform:translate3d(380%,0,0) skewX(-18deg)}}
+.job{margin-top:12px;padding:15px;border-radius:18px;background:rgba(22,9,46,.8);border:1px solid var(--edge);animation:pop .35s cubic-bezier(.2,1.2,.4,1)}
+@keyframes pop{from{opacity:0;transform:translate3d(0,14px,0) scale(.97)}to{opacity:1;transform:none}}
+.jt{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.jt b{font-size:15px;word-break:break-word;font-weight:700}
+.pill{flex:none;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;padding:4px 9px;border-radius:999px;background:rgba(150,90,230,.3);color:#e4d2ff}
+.pill.ok{background:rgba(60,210,140,.2);color:#7df0b8}.pill.bad{background:rgba(255,90,140,.2);color:#ff9bb8}
+.pb{height:8px;border-radius:5px;background:#0d0620;margin:12px 0 8px;overflow:hidden}
+.pb i{display:block;height:100%;width:100%;transform-origin:0 50%;transform:scaleX(0);background:linear-gradient(90deg,#8a3cff,#ee5ee0);transition:transform .7s linear;will-change:transform}
+.pb.ind i{width:40%;transform:none;animation:ind 1.3s ease-in-out infinite}
+@keyframes ind{0%{transform:translate3d(-110%,0,0)}100%{transform:translate3d(260%,0,0)}}
+a.dl{display:block;margin-top:12px;padding:14px;border-radius:14px;text-align:center;text-decoration:none;font-weight:800;font-size:16px;color:#032a1a;background:linear-gradient(100deg,#3ee0a0,#7df0b8)}
+.err{color:#ff9bb8}.note{margin:26px 4px 0;font-size:12px;color:#8a76b4;line-height:1.55}
+.hist{margin-top:18px}.hist h2{font-size:12px;letter-spacing:.9px;text-transform:uppercase;color:var(--dim);margin:0 0 4px;font-weight:600}
+@media (prefers-reduced-motion:reduce){.orb,.lf,.cta:after{animation:none}}
+</style></head><body>
+<div class='fx'><i class='orb o1'></i><i class='orb o2'></i><i class='orb o3'></i>
+<svg width='0' height='0' style='position:absolute'><defs><symbol id='lf' viewBox='-110 -110 220 170'><g fill='rgba(170,100,255,.55)' stroke='rgba(235,200,255,.8)' stroke-width='2'>
+<path d='M0 0C-17-30-12-80 0-100C12-80 17-30 0 0Z'/><path d='M0 0C-15-26-11-70 0-88C11-70 15-26 0 0Z' transform='rotate(-38)'/><path d='M0 0C-15-26-11-70 0-88C11-70 15-26 0 0Z' transform='rotate(38)'/>
+<path d='M0 0C-12-20-8-52 0-66C8-52 12-20 0 0Z' transform='rotate(-72)'/><path d='M0 0C-12-20-8-52 0-66C8-52 12-20 0 0Z' transform='rotate(72)'/>
+<path d='M0 0C-8-12-6-32 0-42C6-32 8-12 0 0Z' transform='rotate(-104)'/><path d='M0 0C-8-12-6-32 0-42C6-32 8-12 0 0Z' transform='rotate(104)'/></g></symbol></defs></svg>
+<svg class='lf' style='left:6%;animation-duration:21s;animation-delay:-3s'><use href='#lf'/></svg>
+<svg class='lf' style='left:28%;width:60px;height:50px;animation-duration:27s;animation-delay:-14s;opacity:.4'><use href='#lf'/></svg>
+<svg class='lf' style='left:52%;width:110px;height:90px;animation-duration:24s;animation-delay:-9s'><use href='#lf'/></svg>
+<svg class='lf' style='left:74%;width:70px;height:58px;animation-duration:30s;animation-delay:-20s;opacity:.45'><use href='#lf'/></svg>
+<svg class='lf' style='left:90%;animation-duration:23s;animation-delay:-6s'><use href='#lf'/></svg></div>
+<main class='wrap'>
 <h1>BandLab + YouTube &rarr; MP3</h1><p class='sub'>Runs on your PC. Paste a link, get the file on your phone.</p>
-<label for='links'>Links or search words (one per line)</label><textarea id='links' placeholder='https://youtu.be/... or bandlab.com/post/...'></textarea>
-<label for='fmt'>Format</label><select id='fmt'><option value='0'>MP3 (320 kbps)</option><option value='4'>M4A / AAC (256 kbps)</option><option value='3'>FLAC (lossless)</option><option value='2'>WAV (24-bit)</option></select>
-<div class='row'><input type='checkbox' id='nv'><label for='nv' style='margin:0;font-size:15px;color:#efe6ff'>Remove vocals (instrumental only)</label></div>
-<button id='go'>Convert</button><div id='jobs'></div>
-<p class='note'>Files are made on your PC and sent over your Wi-Fi. On iPhone, tap Download, then Save to Files from the share menu. Only download things you have the right to.</p>
-</div><script>
-var C=new URLSearchParams(location.search).get('c')||'';
+<section class='card'><label for='links'>Links or search words</label>
+<textarea id='links' rows='3' placeholder='https://youtu.be/...   or   bandlab.com/post/...' autocapitalize='off' autocorrect='off' spellcheck='false'></textarea>
+<div class='row'><button class='ghost' id='paste' type='button'>Paste</button><button class='ghost' id='clear' type='button'>Clear</button></div></section>
+<section class='card'><span class='lab'>Format</span>
+<div class='seg' id='seg'><button type='button' data-v='0' class='on'>MP3</button><button type='button' data-v='4'>M4A</button><button type='button' data-v='3'>FLAC</button><button type='button' data-v='2'>WAV</button></div>
+<small id='fmtnote'>MP3 320 kbps, plays everywhere</small>
+<div class='sw'><span>Remove vocals<small>Instrumental only (AI, takes a few minutes)</small></span><button type='button' class='toggle' id='nv' role='switch' aria-checked='false'><i></i></button></div></section>
+<section id='jobs'></section><section class='hist' id='hist'></section>
+<p class='note'>Files are made on your PC and sent over your Wi-Fi. On iPhone: tap Download, then use the share button to Save to Files. Only download things you have the right to.</p>
+</main>
+<div class='bar'><button class='cta' id='go' type='button'>Convert</button></div>
+<script>
+var C=new URLSearchParams(location.search).get('c')||'',fmt='0',nv=0,notes={'0':'MP3 320 kbps, plays everywhere','4':'AAC 256 kbps, best for iPhone Music','3':'FLAC, lossless and large','2':'WAV 24-bit, biggest files'};
+function $(i){return document.getElementById(i)}
 function u(p){return p+(p.indexOf('?')<0?'?':'&')+'c='+encodeURIComponent(C)}
 function esc(s){return String(s).replace(/[&<>]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c]})}
+function buzz(n){try{if(navigator.vibrate)navigator.vibrate(n)}catch(e){}}
+try{var sv=JSON.parse(localStorage.getItem('ytm')||'{}');if(sv.fmt){fmt=sv.fmt}if(sv.nv){nv=1}}catch(e){}
+function paintOpts(){var bs=$('seg').children;for(var i=0;i<bs.length;i++)bs[i].className=bs[i].getAttribute('data-v')===fmt?'on':'';$('fmtnote').textContent=notes[fmt];$('nv').className='toggle'+(nv?' on':'');$('nv').setAttribute('aria-checked',nv?'true':'false')}
+function saveOpts(){try{localStorage.setItem('ytm',JSON.stringify({fmt:fmt,nv:nv}))}catch(e){}}
+$('seg').onclick=function(e){var v=e.target.getAttribute&&e.target.getAttribute('data-v');if(v===null||v===undefined)return;fmt=v;paintOpts();saveOpts();buzz(8)};
+$('nv').onclick=function(){nv=nv?0:1;paintOpts();saveOpts();buzz(8)};
+$('clear').onclick=function(){$('links').value='';$('links').focus()};
+$('paste').onclick=function(){
+  if(navigator.clipboard&&navigator.clipboard.readText){navigator.clipboard.readText().then(function(t){if(t)$('links').value=t;else $('links').focus()}).catch(function(){$('links').focus()})}
+  else{$('links').focus();$('links').select()}};
+paintOpts();
+function hist(){var h=[];try{h=JSON.parse(localStorage.getItem('ytmh')||'[]')}catch(e){}
+  if(!h.length){$('hist').innerHTML='';return}
+  var s='<h2>Recent</h2>';for(var i=0;i<h.length;i++){s+='<div class=job><div class=jt><b>'+esc(h[i].name)+'</b><span class=pill>saved</span></div><a class=dl href=\''+u('/file?id='+h[i].id)+'\' download>Download again</a></div>'}
+  $('hist').innerHTML=s}
+function remember(id,name){try{var h=JSON.parse(localStorage.getItem('ytmh')||'[]');h.unshift({id:id,name:name});h=h.slice(0,5);localStorage.setItem('ytmh',JSON.stringify(h))}catch(e){}hist()}
+hist();
 function track(id,label){
-  var d=document.createElement('div');d.className='card';d.innerHTML='<b>'+esc(label)+'</b><div class=bar><i></i></div><small>Starting...</small>';
-  document.getElementById('jobs').prepend(d);
-  var t=setInterval(function(){
+  var d=document.createElement('div');d.className='job';
+  d.innerHTML='<div class=jt><b>'+esc(label)+'</b><span class=pill>starting</span></div><div class=\'pb ind\'><i></i></div><small>Waiting for your PC...</small>';
+  $('jobs').insertBefore(d,$('jobs').firstChild);
+  var pill=d.querySelector('.pill'),pb=d.querySelector('.pb'),bar=d.querySelector('.pb i'),msg=d.querySelector('small');
+  function poll(){
     fetch(u('/status?id='+id)).then(function(r){return r.json()}).then(function(s){
-      d.querySelector('i').style.width=s.pct+'%';d.querySelector('small').textContent=s.msg||s.state;
-      if(s.state==='done'){clearInterval(t);d.querySelector('b').textContent=s.name;d.querySelector('small').textContent='Ready';
-        var a=document.createElement('a');a.className='dl';a.textContent='Download';a.href=u('/file?id='+id);a.setAttribute('download',s.name);d.appendChild(a)}
-      if(s.state==='error'){clearInterval(t);d.querySelector('small').innerHTML='<span class=err>'+esc(s.msg)+'</span>'}
-    }).catch(function(){})
-  },1200)}
-document.getElementById('go').onclick=function(){
-  var lines=document.getElementById('links').value.split(/\r?\n/).map(function(x){return x.trim()}).filter(Boolean);
-  if(!lines.length){alert('Paste a link first');return}
-  var fmt=document.getElementById('fmt').value,nv=document.getElementById('nv').checked?1:0;
+      if(s.pct>0){pb.className='pb';bar.style.transform='scaleX('+Math.min(1,s.pct/100)+')'}
+      msg.textContent=(s.msg||s.state)+(s.pct>0&&s.state==='running'?'  '+s.pct+'%':'');pill.textContent=s.state;
+      if(s.state==='done'){pb.className='pb';bar.style.transform='scaleX(1)';pill.className='pill ok';pill.textContent='ready';d.querySelector('b').textContent=s.name;msg.textContent='Ready to download';
+        var a=document.createElement('a');a.className='dl';a.textContent='Download';a.href=u('/file?id='+id);a.setAttribute('download',s.name);d.appendChild(a);remember(id,s.name);buzz([20,40,20]);return}
+      if(s.state==='error'){pb.style.display='none';pill.className='pill bad';pill.textContent='failed';msg.innerHTML='<span class=err>'+esc(s.msg)+'</span>';return}
+      setTimeout(poll,800)
+    }).catch(function(){msg.textContent='Reconnecting...';setTimeout(poll,1500)})}
+  poll()}
+$('go').onclick=function(){
+  var lines=$('links').value.split(/\r?\n/).map(function(x){return x.trim()}).filter(Boolean);
+  if(!lines.length){$('links').focus();buzz(30);return}
+  buzz(12);
   lines.forEach(function(l){
     fetch(u('/convert'),{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'link='+encodeURIComponent(l)+'&fmt='+fmt+'&novocal='+nv})
     .then(function(r){return r.json()}).then(function(j){
-      if(j.id)track(j.id,l);else{var d=document.createElement('div');d.className='card';d.innerHTML='<b>'+esc(l)+'</b><small class=err>'+esc(j.error||'Failed')+'</small>';document.getElementById('jobs').prepend(d)}
-    }).catch(function(){alert('Lost connection to the PC')})
-  })};
+      if(j.id)track(j.id,l);else{var d=document.createElement('div');d.className='job';d.innerHTML='<div class=jt><b>'+esc(l)+'</b><span class=\'pill bad\'>failed</span></div><small class=err>'+esc(j.error||'Failed')+'</small>';$('jobs').insertBefore(d,$('jobs').firstChild)}
+    }).catch(function(){alert('Lost connection to the PC')})});
+  $('links').value='';window.scrollTo({top:0,behavior:'smooth'})};
 </script></body></html>";
 }

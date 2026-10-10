@@ -391,7 +391,8 @@ class StudioEngine
                         fx.ScL = scL; fx.ScR = scR;
                     }
                     else { fx.ScL = null; fx.ScR = null; }
-                    fx.Process(t.tl, t.tr, n); latSoFar += fx.Latency;
+                    try { fx.Process(t.tl, t.tr, n); } catch (Exception ex) { fx.Error = ex.Message; fx.Bypass = true; }
+                    latSoFar += fx.Latency;
                 }
             // plugin delay compensation
             int d = o.Dry ? 0 : maxLat - t.Latency(); int mask = t.dlyL.Length - 1;
@@ -431,7 +432,8 @@ class StudioEngine
             if (useMaster)
                 for (int f = 0; f < MasterFx.Count; f++)
                 {
-                    var fx = MasterFx[f]; if (fx.Bypass) continue; fx.ScL = null; fx.ScR = null; fx.Process(mixL, mixR, n);
+                    var fx = MasterFx[f]; if (fx.Bypass) continue; fx.ScL = null; fx.ScR = null;
+                    try { fx.Process(mixL, mixR, n); } catch (Exception ex) { fx.Error = ex.Message; fx.Bypass = true; }
                     if (fx.GR > grMax) grMax = fx.GR;
                 }
             else if (meters && AbMatchDb != 0) { float am = DspMath.DbToLin(AbMatchDb); for (int i = 0; i < n; i++) { mixL[i] *= am; mixR[i] *= am; } }

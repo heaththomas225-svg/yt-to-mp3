@@ -8,7 +8,7 @@ using System.Text;
 //  Pure C#, no dependencies. Everything here is real signal processing.
 // ======================================================================
 
-static class DspMath
+public static class DspMath
 {
     public const double TwoPi = Math.PI * 2.0;
     public static float DbToLin(double db) { return (float)Math.Pow(10.0, db / 20.0); }
@@ -20,7 +20,7 @@ static class DspMath
 }
 
 // ---------------- biquad (RBJ cookbook), double precision, stereo state ----------------
-class Biquad
+public class Biquad
 {
     public const int Bell = 0, LowShelf = 1, HighShelf = 2, LowPass = 3, HighPass = 4, BandPass = 5, Notch = 6;
     public double b0 = 1, b1, b2, a1, a2;
@@ -89,7 +89,7 @@ class Biquad
 }
 
 // ---------------- parameters ----------------
-class Param
+public class Param
 {
     public string Id, Name, Unit = ""; public float Min, Max, Def, Val; public string[] Choices;
     public Param(string id, string name, float min, float max, float def, string unit)
@@ -109,9 +109,9 @@ class Param
 }
 
 // ---------------- effect base ----------------
-abstract class Fx
+public abstract class Fx
 {
-    public string Type = "", Title = "";
+    public string Type = "", Title = "", Category = "Plugins", Blurb = "", Error = "";   // Category / Blurb show in the effect browser; Error is set if the plugin crashes
     public bool Bypass;
     public List<Param> P = new List<Param>();
     public float[] ScL, ScR;          // external sidechain (vocal signal), may be null
@@ -843,6 +843,89 @@ class Limiter : Fx
     }
 }
 
+
+// ======================================================================
+//  8D Audio Tuner: makes the sound orbit around the listener's head (best on headphones).
+//  Cues used: left/right pan, interaural time difference, head-shadow low-pass on the far ear,
+//  and a "behind you" level + brightness drop. Bass can stay centred. Hold mode parks the
+//  source at a fixed angle so you can tune the position by ear.
+// ======================================================================
+class Spatial8D : Fx
+{
+    public volatile float AngleDeg;   // current source angle for the on-screen orbit (0 front, 90 right, 180 back, 270 left)
+    double phase; float[] dL = new float[256], dR = new float[256]; int dw; double lpFarL, lpFarR, lpBackL, lpBackR, bassState;
+    Reverb rv = new Reverb(); float[] sl = new float[4096], sr = new float[4096];
+    double period, width, depth, itd, bassHz, mix, startDeg, holdDeg; int dirMode; bool hold; float room;
+
+    public Spatial8D()
+    {
+        Type = "8d"; Title = "8D Audio Tuner";
+        AddP("period", "Rotation time", 1.5f, 60, 10, "s"); AddC("dir", "Direction", new[] { "Clockwise", "Counter-clockwise", "Back and forth" }, 0);
+        AddP("width", "Width", 0, 100, 100, "%"); AddP("depth", "Depth (behind = darker)", 0, 100, 60, "%"); AddP("itd", "Ear delay", 0, 100, 80, "%");
+        AddP("bass", "Keep bass centred below", 0, 300, 120, "Hz"); AddP("room", "Room", 0, 60, 15, "%");
+        AddP("start", "Start angle", 0, 360, 0, "deg"); AddC("hold", "Hold position", new[] { "Rotate", "Hold" }, 0); AddP("angle", "Hold angle", 0, 360, 0, "deg");
+        AddP("mix", "Mix", 0, 100, 100, "%");
+        rv.Prepare(StudioEngine.SR);
+    }
+
+    protected override void Update()
+    {
+        period = Get("period"); dirMode = (int)Get("dir"); width = Get("width") / 100.0; depth = Get("depth") / 100.0; itd = Get("itd") / 100.0;
+        bassHz = Get("bass"); mix = Get("mix") / 100.0; startDeg = Get("start"); hold = Get("hold") > 0.5f; holdDeg = Get("angle"); room = Get("room");
+        rv.Set("mix", room); rv.Set("size", 40); rv.Set("damp", 60); rv.Set("pre", 8); rv.Set("lc", 150); rv.Set("hc", 9000);
+    }
+
+    public override void Reset() { base.Reset(); Array.Clear(dL, 0, dL.Length); Array.Clear(dR, 0, dR.Length); lpFarL = lpFarR = lpBackL = lpBackR = bassState = 0; rv.Reset(); }
+
+    public override void Process(float[] l, float[] r, int n)
+    {
+        CheckDirty();
+        if (n > sl.Length) { sl = new float[n]; sr = new float[n]; }
+        double sr_ = SR, bassA = bassHz > 20 ? 1 - Math.Exp(-2 * Math.PI * bassHz / sr_) : 0;
+        double dPhase = period > 0 ? 1.0 / (period * sr_) : 0; if (dirMode == 1) dPhase = -dPhase;
+        double a = 0, aBack = 1, farA = 1, backA = 1; int blk = 0;
+        for (int i = 0; i < n; i++)
+        {
+            float inL = l[i], inR = r[i]; double m = 0.5 * (inL + inR), side = 0.5 * (inL - inR);
+            double bass = 0; if (bassA > 0) { bassState += bassA * (m - bassState); bass = bassState; m -= bass; }
+            // source angle
+            double ang;
+            if (hold) ang = holdDeg * Math.PI / 180.0;
+            else
+            {
+                phase += dPhase; if (phase > 1) phase -= 1; else if (phase < 0) phase += 1;
+                ang = startDeg * Math.PI / 180.0 + (dirMode == 2 ? Math.Sin(2 * Math.PI * phase) * Math.PI * 0.5 : 2 * Math.PI * phase);
+            }
+            double pan = Math.Sin(ang) * width, behind = (1 - Math.Cos(ang)) * 0.5;      // behind: 0 front .. 1 back
+            if ((i & 15) == 0)
+            {
+                // per-block coefficients: far-ear head shadow and behind darkening
+                double farFc = 18000 - 14500 * Math.Abs(pan) * (0.4 + 0.6 * depth); farA = 1 - Math.Exp(-2 * Math.PI * Math.Max(1500, farFc) / sr_);
+                double backFc = 20000 - 15000 * behind * depth; backA = 1 - Math.Exp(-2 * Math.PI * Math.Max(2500, backFc) / sr_);
+                AngleDeg = (float)((ang * 180 / Math.PI) % 360 + 360) % 360;
+            }
+            double gain = Math.Pow(10, -6.0 * behind * depth / 20.0);
+            double pl = Math.Cos((pan + 1) * Math.PI / 4), pr = Math.Sin((pan + 1) * Math.PI / 4);
+            // interaural time difference: the far ear hears it later
+            double delay = Math.Abs(pan) * itd * 0.00065 * sr_; int wi = dw & 255; dL[wi] = (float)m; dR[wi] = (float)m;
+            double dl = pan > 0 ? delay : 0, dr = pan < 0 ? delay : 0;
+            double xl = Tap(dL, dl), xr = Tap(dR, dr); dw++;
+            // head shadow (far ear) then behind darkening on both ears
+            if (pan > 0) { lpFarL += farA * (xl - lpFarL); xl = lpFarL; } else { lpFarR += farA * (xr - lpFarR); xr = lpFarR; }
+            lpBackL += backA * (xl - lpBackL); lpBackR += backA * (xr - lpBackR);
+            double wl = lpBackL * pl * 1.414 * gain + bass + side * 0.4, wr = lpBackR * pr * 1.414 * gain + bass - side * 0.4;
+            sl[i] = (float)wl; sr[i] = (float)wr;
+        }
+        if (room > 0.5f) rv.Process(sl, sr, n);
+        for (int i = 0; i < n; i++) { l[i] = (float)(l[i] * (1 - mix) + sl[i] * mix); r[i] = (float)(r[i] * (1 - mix) + sr[i] * mix); }
+    }
+
+    float Tap(float[] b, double delay)
+    {
+        double rp = dw - delay; int i0 = (int)Math.Floor(rp); double f = rp - i0; float a = b[i0 & 255], c = b[(i0 + 1) & 255];
+        return (float)(a * (1 - f) + c * f);
+    }
+}
 // ---------------- simple gain / pan utility (inserted automatically for trims) ----------------
 class GainFx : Fx
 {
@@ -854,10 +937,15 @@ class GainFx : Fx
 }
 
 // ---------------- plugin registry ----------------
-static class FxRegistry
+public static class FxRegistry
 {
     public class Info { public string Type, Name, Category, Blurb; public Info(string t, string n, string c, string b) { Type = t; Name = n; Category = c; Blurb = b; } }
-    public static readonly Info[] All = {
+    public static Info[] All { get { var l = new List<Info>(Builtin); lock (extra) l.AddRange(extra); return l.ToArray(); } }
+    static readonly List<Info> extra = new List<Info>(); static readonly Dictionary<string, Func<Fx>> factories = new Dictionary<string, Func<Fx>>();
+    // Plugins call this (the host does it for you when a plugin DLL is loaded).
+    public static void Register(Info info, Func<Fx> factory) { lock (extra) { extra.RemoveAll(i => i.Type == info.Type); extra.Add(info); factories[info.Type] = factory; } }
+    public static bool IsBuiltin(string type) { foreach (var i in Builtin) if (i.Type == type) return true; return false; }
+    public static readonly Info[] Builtin = {
         new Info("eq", "Parametric EQ", "EQ", "6 bands, shelves, high-pass / low-pass, draggable curve"),
         new Info("comp", "Compressor", "Dynamics", "Soft-knee compressor with sidechain filter"),
         new Info("mbcomp", "Multiband Compressor", "Dynamics", "3-band compressor with LR4 crossovers"),
@@ -874,6 +962,7 @@ static class FxRegistry
         new Info("widener", "Stereo Imager", "Space", "Mid/side width with bass mono"),
         new Info("denoise", "Noise Reduction", "Repair", "Spectral noise reduction"),
         new Info("pitch", "Pitch Correction", "Pitch", "Key / scale pitch correction (Auto-Tune style)"),
+        new Info("8d", "8D Audio Tuner", "Space", "Orbit the sound around your head (headphones)"),
         new Info("gain", "Gain", "Utility", "Simple gain trim") };
 
     public static Fx Create(string type)
@@ -896,8 +985,10 @@ static class FxRegistry
             case "widener": return new Widener();
             case "denoise": return new NoiseReduction();
             case "pitch": return new PitchCorrector();
+            case "8d": return new Spatial8D();
             case "gain": return new GainFx();
         }
+        Func<Fx> fac; lock (extra) { if (factories.TryGetValue(type, out fac)) { try { var f = fac(); if (f != null) f.Type = type; return f; } catch { return null; } } }
         return null;
     }
 }
