@@ -1,4 +1,4 @@
-3.17.0
+3.17.1
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Flex Pitch, all 218 plugins, FPS counter and 120 fps option, many performance and stability fixes.
-sha256=65b8956bc0455e5f578869fa8bc2c782c45bd22ad1b9a58ef6e4abb234574236
+New Track sheet: record voice, rap, speech, radio, guitar, bass; instruments, drums, loops; glitchy add-track strips removed
+sha256=703a64a3c796c636e3a262482abd5bdcc32fc103a4408266af181e5292939766

@@ -2,6 +2,11 @@
 
 What changed in each version of **Purphex**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.17.1  New Track sheet
+
+- + ADD TRACK opens a New Track sheet: record voice with AutoPitch, rap vocal, speech, radio voice, guitar or bass (effects already on the track), add an instrument, browse drum beats and loops, or import a file.
+- Removed the glitchy "add track here" strips between tracks.
+
 ## 3.17.0  Flex Pitch, the whole plugin library, faster and safer
 
 - Flex Pitch: edit the notes of a recording on a piano-roll (pitch, fine, drift, vibrato, gain, formant, correct to scale, split/join); live re-tuning; kept with the project.
