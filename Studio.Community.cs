@@ -2,6 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
+using System.Net;
+using System.Text.RegularExpressions;
+using System.Threading;
 using System.Windows.Forms;
 
 // Purphex Music: the Community page (left menu, feed of project cards with round neon art, right column with your profile, tags and activity),
@@ -9,7 +12,13 @@ using System.Windows.Forms;
 // Nothing here is faked: the cards are your own saved projects and the activity is your own saves until online sharing exists.
 partial class StudioForm
 {
-    int commFilter; float commScroll;
+    int commFilter; float commScroll; volatile string commInvite = ""; bool commInviteAsked;
+    // the Discord invite lives in the website's settings: ask the website once (in the background) so the app never needs updating when it changes
+    void FetchInvite()
+    {
+        if (commInviteAsked) return; commInviteAsked = true;
+        ThreadPool.QueueUserWorkItem(o => { try { using (var wc = new WebClient()) { wc.Headers["User-Agent"] = "PurphexMusic"; string j = wc.DownloadString("https://purphex-web-production.up.railway.app/api/community"); var m = Regex.Match(j, "\"discord\"\\s*:\\s*\"([^\"]*)\""); if (m.Success) { string u = m.Groups[1].Value.Replace("\\/", "/"); if (u.StartsWith("https://discord.gg/") || u.StartsWith("https://discord.com/invite/")) commInvite = u; } } } catch { } });
+    }
     static readonly string[] CommTabs = { "All", "Recent", "With picture" };
 
     static Color HueCol(double h, int a)
@@ -59,7 +68,8 @@ partial class StudioForm
         var ban = Rc(cx0, top + 16, cw, 92); FillRR(g, Color.FromArgb(210, 20, 10, 44), ban, 16); Glow(g, NeonViolet, ban, 16, 0.55f, 3);
         using (var pen = new Pen(Color.FromArgb(70, NeonCyan), 1.2f)) for (int i = 0; i < 9; i++) g.DrawBezier(pen, ban.Right - 330, ban.Y + 70, ban.Right - 240, ban.Y + 10 + i * 4, ban.Right - 150, ban.Bottom - 6 - i * 3, ban.Right - 20, ban.Y + 14 + i * 6);
         Txt(g, "COMMUNITY", 24, Ink, Rc(ban.X + 22, ban.Y + 12, 400, 36), StringAlignment.Near, true); Txt(g, "Discover. Share. Create. Together.", 14, DimC, Rc(ban.X + 22, ban.Y + 50, 420, 24), StringAlignment.Near, false);
-        var np = Rc(ban.Right - 190, ban.Y + 26, 168, 40); Btn(g, np, "+  New project", 2, () => { tab = 0; NewProject(); }, 14);
+        FetchInvite(); var np = Rc(ban.Right - 190, ban.Y + 26, 168, 40); Btn(g, np, "+  New project", 2, () => { tab = 0; NewProject(); }, 14);
+        if (commInvite.Length > 0 && ban.Width > 640) { string inv = commInvite; Btn(g, Rc(ban.Right - 372, ban.Y + 26, 172, 40), "Join the Discord", 1, () => { try { System.Diagnostics.Process.Start(inv); } catch { Toast("Could not open the link: " + inv); } }, 14); }
         // ---- filter tabs ----
         float ty = ban.Bottom + 14; float tx = cx0 + 4;
         for (int i = 0; i < CommTabs.Length; i++)

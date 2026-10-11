@@ -1,4 +1,4 @@
-3.17.3
+3.17.4
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Community redesign, simpler buses, recording and dragging fixes
-sha256=c4852956e5d77e31bb72a44818163c393ae6699c34658620fa394d87587ebcb0
+Discord button on Community, single frame-rate readout
+sha256=a7f9c9fe7cb08b8a32ac2065695727693d65b7fd96cde4993d542d0263f32867
