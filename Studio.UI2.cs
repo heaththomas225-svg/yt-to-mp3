@@ -102,6 +102,7 @@ partial class StudioForm
             "Separation setup", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
         string src = song.Clip.Path, baseName = Path.GetFileNameWithoutExtension(src); long off = song.Offset; Track st = song;
         string outDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyMusic), "yt2mp3", "Studio", baseName);
+        Separator.OfferTurbo(this);   // NVIDIA cards can run the AI several times faster (asks once)
         AudioClip vc = null, ic = null; bool installNow = !Separator.Installed;
         RunBusy("Separating vocals and beat with AI...\n(a few minutes on a slower PC, under a minute with a good graphics card)", true, prog =>
         {

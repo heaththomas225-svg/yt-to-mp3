@@ -5,6 +5,7 @@ using System.IO;
 using System.IO.Compression;
 using System.Net;
 using System.Text.RegularExpressions;
+using System.Windows.Forms;
 using System.Threading;
 
 // ======================================================================
@@ -94,10 +95,73 @@ static class Separator
         }
     }
 
+    // ---- the NVIDIA turbo engine: the CUDA build of PyTorch (about 2.5 GB to download), only installed when the PC has an NVIDIA card AND the user said yes ----
+    public static string CudaDir { get { return Path.Combine(Root, "cuda"); } }
+    static string CudaMarker { get { return Path.Combine(CudaDir, ".cuda_ready"); } }
+    static string CudaFailed { get { return Path.Combine(Root, ".cuda_failed"); } }
+    static string CudaDeclined { get { return Path.Combine(Root, ".cuda_declined"); } }
+    public static bool CudaReady { get { return File.Exists(CudaMarker) && !File.Exists(CudaFailed); } }
+    public static volatile bool WantCuda; static volatile bool cudaBad, offeredThisSession; public static bool CudaTestSkipAvail;   // CudaTestSkipAvail: tests only
+    static string nvName; static bool nvDone;
+    // the name of the NVIDIA graphics card, or "" when there is none (asks the NVIDIA driver tool, which is installed with the driver)
+    public static string Nvidia()
+    {
+        if (nvDone) return nvName; nvDone = true; nvName = "";
+        try
+        {
+            string exe = null; foreach (var c in new[] { Path.Combine(Environment.SystemDirectory, "nvidia-smi.exe"), @"C:\Program Files\NVIDIA Corporation\NVSMI\nvidia-smi.exe" }) if (File.Exists(c)) { exe = c; break; }
+            if (exe == null) return nvName;
+            var psi = new ProcessStartInfo(exe, "--query-gpu=name --format=csv,noheader") { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true };
+            using (var p = Process.Start(psi)) { string o = p.StandardOutput.ReadToEnd(); if (!p.WaitForExit(8000)) { try { p.Kill(); } catch { } return nvName; } if (p.ExitCode == 0) foreach (var line in o.Split('\n')) if (line.Trim().Length > 2) { nvName = line.Trim(); break; } }
+        }
+        catch { }
+        return nvName;
+    }
+    static double FreeGb() { try { return new DriveInfo(Path.GetPathRoot(Root)).AvailableFreeSpace / 1e9; } catch { return 0; } }
+    public static bool CudaOffer { get { return Installed && !CudaReady && !File.Exists(CudaFailed) && !File.Exists(CudaDeclined) && Nvidia().Length > 0 && FreeGb() >= 8; } }
+    // Ask once (per session) whether to install the NVIDIA turbo engine. Yes = it is installed during the next split; No = never ask again; Cancel = ask next time.
+    public static void OfferTurbo(IWin32Window owner)
+    {
+        try
+        {
+            if (offeredThisSession || !CudaOffer) return; offeredThisSession = true;
+            var r = MessageBox.Show(owner, "This PC has an NVIDIA graphics card (" + Nvidia() + ").\n\nVocal splitting can use it and run several times faster than it does now. That needs a one-time download of about 2.5 GB (about 5 GB on disk). The normal engine keeps working if you say no.\n\nInstall the turbo engine during this split?\n\nYes = install it now      No = never ask again      Cancel = ask me next time", "Faster splitting for NVIDIA", MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question);
+            if (r == DialogResult.Yes) WantCuda = true; else if (r == DialogResult.No) { try { File.WriteAllText(CudaDeclined, DateTime.Now.ToString("s")); } catch { } }
+        }
+        catch { }
+    }
+    public static void CudaInstall(Action<string> log, Action<float> prog, Func<bool> cancelled)
+    {
+        if (!File.Exists(PyExe) || File.Exists(CudaFailed)) return;
+        try
+        {
+            if (Directory.Exists(CudaDir)) { try { Directory.Delete(CudaDir, true); } catch { } }
+            Directory.CreateDirectory(CudaDir); log("Installing the NVIDIA turbo engine (one time, about 2.5 GB: this can take several minutes)..."); Diag("installing the NVIDIA engine for " + Nvidia());
+            float last = 0.02f; prog(last);
+            int code = Exec(PyExe, "-m pip install --target \"" + CudaDir + "\" torch==2.4.1 torchaudio==2.4.1 \"numpy<2\" --index-url https://download.pytorch.org/whl/cu121 --extra-index-url https://pypi.org/simple --no-warn-script-location --disable-pip-version-check",
+                l => { if (l.Contains("Downloading")) last = Math.Max(last, 0.1f); else if (l.Contains("Installing collected")) last = Math.Max(last, 0.85f); else if (l.Contains("Successfully")) last = 0.95f; prog(last); if (l.Contains("Downloading") || l.Contains("Installing") || l.Contains("Successfully") || l.Contains("ERROR")) log(l.Trim()); }, cancelled);
+            if (code == -999) { try { Directory.Delete(CudaDir, true); } catch { } return; }
+            if (code != 0) throw new Exception("pip exit " + code);
+            string outp = ""; string chk = "import sys; sys.path.insert(0, r'" + CudaDir + "'); import torch, torchaudio, demucs.separate; print('CUDA_PKG_OK', torch.__version__, torch.version.cuda, torch.cuda.is_available())";
+            code = Exec(PyExe, "-c \"" + chk + "\"", l => { outp += l + " "; }, cancelled);
+            if (code != 0 || !outp.Contains("CUDA_PKG_OK")) throw new Exception("the NVIDIA engine did not load: " + outp);
+            if (!outp.Contains("+cu")) throw new Exception("the download was not the NVIDIA build: " + outp);
+            if (!outp.Trim().EndsWith("True") && !CudaTestSkipAvail) throw new Exception("CUDA is not available on this PC (the NVIDIA driver may be too old: update it from nvidia.com). " + outp);
+            File.WriteAllText(CudaMarker, "ok"); prog(1f); log("The NVIDIA turbo engine is installed."); Diag("NVIDIA engine installed: " + outp.Trim());
+        }
+        catch (Exception ex)
+        {
+            log("(could not install the NVIDIA turbo engine: " + ex.Message + " The normal engines keep working.)"); Diag("NVIDIA engine failed: " + ex.Message);
+            try { Directory.Delete(CudaDir, true); } catch { }
+            try { File.WriteAllText(CudaFailed, ex.Message); } catch { }
+        }
+    }
+
     static Dictionary<string, string> Env(bool fast = false)
     {
         var env = new Dictionary<string, string>();
-        if (fast && !DisableFast && FastReady && !fastBad) { env["PX_FAST"] = FastDir; env["PX_ROOT"] = Root; }
+        if (fast && !DisableFast && CudaReady && !cudaBad) { env["PX_FAST"] = CudaDir; env["PX_CUDA"] = "1"; env["PX_ROOT"] = Root; }
+        else if (fast && !DisableFast && FastReady && !fastBad) { env["PX_FAST"] = FastDir; env["PX_ROOT"] = Root; }
         string ff = StudioEnv.Ffmpeg(); string ffDir = ff == null ? "" : Path.GetDirectoryName(ff);
         env["PATH"] = ffDir + ";" + Root + ";" + Path.Combine(Root, "Scripts") + ";" + Environment.GetEnvironmentVariable("PATH");
         env["TORCH_HOME"] = ModelDir; env["PYTHONUTF8"] = "1"; env["PYTHONIOENCODING"] = "utf-8"; env["PYTHONNOUSERSITE"] = "1";
@@ -221,10 +285,56 @@ def to_cpu():
         pass
     DEV = 'cpu'
 
+def pick_cuda():
+    # NVIDIA cards: the CUDA build of PyTorch (installed only when the user agreed). Used only if a quick test shows it is faster AND gives the same result as the processor
+    global DEV
+    if os.environ.get('PX_CUDA') != '1' or os.environ.get('PX_GPU', '1') != '1': return
+    try:
+        if not torch.cuda.is_available():
+            GPU['info'] = 'the NVIDIA engine is installed but CUDA is not available here (the graphics driver may be too old), so the processor is used'
+            return
+        name = str(torch.cuda.get_device_name(0)); key = 'cuda|' + name + '|' + torch.__version__
+        cache = os.path.join(os.environ.get('PX_ROOT', '.'), 'device-cuda.json'); use = None
+        try:
+            c = json.load(open(cache))
+            if c.get('key') == key: use = bool(c.get('use'))
+        except Exception:
+            pass
+        inner = model.models[0]
+        if use is False:
+            GPU['info'] = name + ' (CUDA): earlier test showed it is not faster, so the processor is used'
+            return
+        if use is True: GPU['info'] = name + ' (CUDA): earlier test passed'
+        if use is None:
+            seg = int(float(inner.segment) * SR); t = np.arange(seg) / SR; rs = np.random.RandomState(5)
+            x = sum(np.sin(2 * np.pi * f * t) * 0.1 for f in (110, 220, 330, 440, 880, 1760)) + rs.randn(seg) * 0.05
+            w = torch.tensor(np.stack([x, x * 0.9]), dtype=torch.float32)[None]; w = (w - w.mean()) / (w.std() + 1e-8)
+            with torch.no_grad():
+                inner(w); t0 = time.time(); ref = inner(w); tc = time.time() - t0
+            inner.to('cuda'); torch.backends.cudnn.benchmark = True
+            with torch.no_grad():
+                inner(w.to('cuda')); inner(w.to('cuda')); torch.cuda.synchronize(); t0 = time.time(); out = inner(w.to('cuda')).cpu(); torch.cuda.synchronize(); tg = time.time() - t0
+            rel = float((out - ref).pow(2).mean().sqrt() / (ref.pow(2).mean().sqrt() + 1e-9))
+            use = bool(tg < tc * 0.7 and rel < 0.02)
+            try: json.dump({'key': key, 'use': use, 'cpu': tc, 'gpu': tg, 'rel': rel}, open(cache, 'w'))
+            except Exception: pass
+            GPU['info'] = '%s (CUDA): one segment takes %.2fs on the processor and %.2fs on the graphics card (difference %.4f), graphics card used: %s' % (name, tc, tg, rel, use)
+        if use:
+            inner.to('cuda'); torch.backends.cudnn.benchmark = True; DEV = 'cuda'; GPU['name'] = name + ' (CUDA)'
+        else:
+            inner.to('cpu')
+    except Exception as e:
+        sys.stderr.write('cuda unavailable: %s\n' % e); sys.stderr.flush()
+        GPU['info'] = 'CUDA failed: %s' % e
+        try: model.models[0].to('cpu')
+        except Exception: pass
+        DEV = 'cpu'
+
 def pick_gpu():
     # use the graphics card (DirectML) only when a quick test shows it is clearly faster AND gives the same result as the processor
     global DEV
-    if not _fd or os.environ.get('PX_GPU', '1') != '1': return
+    if DEV != 'cpu': return
+    if not _fd or os.environ.get('PX_GPU', '1') != '1' or os.environ.get('PX_CUDA') == '1': return
     try:
         import torch_directml
         if torch_directml.device_count() < 1: return
@@ -270,6 +380,7 @@ def pick_gpu():
     except Exception as e:
         sys.stderr.write('gpu unavailable: %s\n' % e); sys.stderr.flush(); to_cpu()
 
+pick_cuda()
 pick_gpu()
 print('INFO|torch %s, %d threads, %s logical cores; %s' % (torch.__version__, torch.get_num_threads(), os.cpu_count(), GPU.get('info', '')), flush=True)
 print('DEVICE|%s' % (('gpu: ' + GPU.get('name', '')) if DEV != 'cpu' else 'cpu'), flush=True)
@@ -418,7 +529,7 @@ for line in sys.stdin:
                 Thread.Sleep(120);
             }
             wlast = DateTime.Now; string r = wresult; double took = jobSw.Elapsed.TotalSeconds;
-            Diag("app " + System.Reflection.Assembly.GetExecutingAssembly().GetName().Version + ", " + (FastReady && !fastBad && !DisableFast ? "fast engine" : "normal engine") + ", device " + Device + "; model ready after " + ready.ToString("0.0") + " s; song " + dur.ToString("0") + " s; first progress after " + (firstP < 0 ? 0 : firstP).ToString("0.0") + " s; total " + took.ToString("0.0") + " s = " + (dur / Math.Max(0.1, took)).ToString("0.0") + "x realtime; result " + (r.Length > 60 ? r.Substring(0, 60) : r));
+            Diag("app " + System.Reflection.Assembly.GetExecutingAssembly().GetName().Version + ", " + (DisableFast ? "normal engine" : (CudaReady && !cudaBad ? "NVIDIA engine" : (FastReady && !fastBad ? "fast engine" : "normal engine"))) + ", device " + Device + "; model ready after " + ready.ToString("0.0") + " s; song " + dur.ToString("0") + " s; first progress after " + (firstP < 0 ? 0 : firstP).ToString("0.0") + " s; total " + took.ToString("0.0") + " s = " + (dur / Math.Max(0.1, took)).ToString("0.0") + "x realtime; result " + (r.Length > 60 ? r.Substring(0, 60) : r));
             if (!r.StartsWith("DONE|")) { log("Worker: " + r); return 0; }
             string v = Path.Combine(tmp, "vocals.wav"), i = Path.Combine(tmp, "no_vocals.wav");
             if (!File.Exists(v) || !File.Exists(i)) return 0;
@@ -436,14 +547,25 @@ for line in sys.stdin:
         vocalsPath = null; instPath = null;
         if (model == "htdemucs" && input.IndexOf('|') < 0 && outDir.IndexOf('|') < 0)
         {
+            // the NVIDIA turbo engine, when the user agreed to it
+            if (WantCuda && CudaOffer)
+            {
+                CudaInstall(log, p => prog(p * 0.5f), cancelled); WantCuda = false; if (cancelled()) { log("Cancelled."); return false; }
+                KillWorker(); var inner0 = prog; prog = p => inner0(0.5f + p * 0.5f);
+            }
             // an engine installed before the fast stack existed gets it once, the first time it is used
-            if (Installed && !FastReady && !File.Exists(FastFailed))
+            if (Installed && !FastReady && !CudaReady && !File.Exists(FastFailed))
             {
                 FastInstall(log, p => prog(p * 0.15f), cancelled); if (cancelled()) { log("Cancelled."); return false; }
                 KillWorker();   // a worker started earlier (Warmup) used the old engine: start a new one with the fast stack
                 var inner = prog; prog = p => inner(0.15f + p * 0.85f);
             }
             string v, i; int r = SeparateWorker(input, outDir, baseName, log, prog, cancelled, out v, out i);
+            if (r == 0 && startupDied && CudaReady && !cudaBad)
+            {
+                cudaBad = true; try { File.WriteAllText(CudaFailed, "worker did not start"); } catch { } KillWorker(); log("(the NVIDIA engine did not start here; using the other engine)"); Diag("NVIDIA engine did not start");
+                r = SeparateWorker(input, outDir, baseName, log, prog, cancelled, out v, out i);
+            }
             if (r == 0 && startupDied && FastReady && !fastBad)
             {
                 // the faster engine would not start on this PC: remember that and use the normal one from now on

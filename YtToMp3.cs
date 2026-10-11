@@ -37,7 +37,7 @@ class Job
 partial class App : Form
 {
     // ---- Auto-update settings ----
-    const string Version = "3.18.1";
+    const string Version = "3.18.2";
     // Plain-text manifest: line 1 = newest version, line 2 = direct exe download URL.
     const string UpdateManifestUrl = "https://raw.githubusercontent.com/heaththomas225-svg/yt-to-mp3/main/version.txt";
 
@@ -890,6 +890,7 @@ partial class App : Form
         }
         int f = Math.Min(4, fmt.SelectedIndex); string dir = outDir.Text.Trim(); bool open = openDone.Checked;
         if (dir.Length == 0) { MessageBox.Show(this, "Choose a folder to save to."); return; }
+        Separator.OfferTurbo(this);   // NVIDIA cards can run the AI several times faster (asks once)
         cancelReq = false; SetBusy(true);
         new Thread(() =>
         {

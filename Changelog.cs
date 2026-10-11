@@ -7,10 +7,15 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.18.1";
+    public const string Latest = "3.18.2";
 
     public const string Text =
-@"3.18.1  Rapper Vocal Styles, a truthful time-left, faster start for splitting
+@"3.18.2  NVIDIA turbo engine for vocal splitting
+ + PCs with an NVIDIA graphics card can now run the vocal splitting on it with the CUDA version of PyTorch, which is several times faster than before. The app asks once before splitting: it needs a one-time download of about 2.5 GB (about 5 GB on disk). Say No and it never asks again; the normal engines keep working.
+ + The turbo engine tests itself the first time: it is only used if it is clearly faster than the processor and gives the same result. If it does not start, or CUDA is not available (for example an old graphics driver), the app quietly goes back to the faster DirectML or processor engine.
+ + The separation log (separation.log in the Purphex data folder) now also records which engine and graphics card each split used.
+
+3.18.1  Rapper Vocal Styles, a truthful time-left, faster start for splitting
  + New: Rapper Vocal Styles. 36 original plugin chains for rap vocals in 11 subgenres (Trap, Melodic Trap, Drill, Boom Bap, Old School, Grime and UK, Cloud and Lo-Fi, Rage and Hyper, Pop Rap, Phonk, Storytelling). Search, filter by subgenre, star your favourites, then Use (replace the plugins) or Add (put them after yours). Find it as Vocal Styles in the plugin panel or in Menu > Tools.
  + The time left while splitting vocals + beat is now accurate. It is worked out from how fast the splitting is going right now, not from the whole time so far (which included the start-up and was often several times too high).
  + Splitting starts loading the AI model as soon as you press Split vocals + beat, while you choose the track, so it starts working sooner.
