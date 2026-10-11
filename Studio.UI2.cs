@@ -86,7 +86,7 @@ partial class StudioForm
     void AddTrack(Track t)
     {
         PushUndo();
-        bool first = eng.Tracks.Count == 0; int at = nextInsert >= 0 && nextInsert <= eng.Tracks.Count ? nextInsert : eng.Tracks.Count; nextInsert = -1;
+        bool first = eng.Tracks.Count == 0; int at = nextInsert >= 0 && nextInsert <= eng.Tracks.Count ? nextInsert : eng.Tracks.Count; nextInsert = -1; at = t.IsBus ? eng.Tracks.Count : Math.Min(at, LaneCount);   // buses always sit after the tracks
         lock (eng.Sync) eng.Tracks.Insert(at, t); selTrack = at; selFx = -1; if (first) FitView();
     }
 

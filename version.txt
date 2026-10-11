@@ -1,4 +1,4 @@
-3.17.2
+3.17.3
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Buses, simple New Track sheet with empty raw audio tracks, MIDI track, roomier track headers
-sha256=82904ca6f3bdf95439b32bda7f8ef211cf4aea3b0f89d6f7e51503c4a0701753
+Community redesign, simpler buses, recording and dragging fixes
+sha256=c4852956e5d77e31bb72a44818163c393ae6699c34658620fa394d87587ebcb0

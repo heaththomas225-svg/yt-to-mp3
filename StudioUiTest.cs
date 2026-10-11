@@ -69,6 +69,16 @@ static class S
         Paint(); int strips = 0; foreach (var r in Regs()) if (Math.Abs(r.R.Width - 250) < 0.5f && Math.Abs(r.R.Height - 16) < 0.5f) strips++;
         Check("no glitchy add-track strips float between tracks any more", strips == 0, strips + " strips");
         { var cl = typeof(StudioForm).GetMethod("OpenNewTrackSheet", BF); cl.Invoke(sf, new object[] { 2 }); Paint(); Check("+ ADD TRACK opens the New Track sheet with the track types", F<bool>("ntOpen") && Regs().Count > 10, Regs().Count + " regions"); typeof(StudioForm).GetMethod("CloseNewTrackSheet", BF).Invoke(sf, null); Paint(); Check("and it closes again", !F<bool>("ntOpen"), ""); }
+        {   // an empty audio track takes the recording itself, and Up / Dn make a row when there is none
+            var MI = typeof(StudioForm).GetMethod("AddEmptyAudioTrack", BF); int n0 = eng.Tracks.Count; MI.Invoke(sf, null); var emp = eng.Tracks[eng.Tracks.Count - 1];
+            Check("New Track > Voice / Audio adds one empty raw track (no clip, no effects)", eng.Tracks.Count == n0 + 1 && emp.Clip == null && emp.Fx.Count == 0, "tracks " + eng.Tracks.Count);
+            var rec = typeof(StudioForm).GetMethod("AddRecording", BF); var pcm = new float[44100]; for (int i = 0; i < pcm.Length; i++) pcm[i] = (float)(0.2 * Math.Sin(i * 0.05));
+            rec.Invoke(sf, new object[] { pcm, pcm.Length, 0L });
+            Check("recording lands on that same empty track, not on a new one below", eng.Tracks.Count == n0 + 1 && emp.Clip != null && emp.Fx.Count == 0, "tracks " + eng.Tracks.Count);
+            var mv = typeof(StudioForm).GetMethod("MoveTrackBy", BF); int n1 = eng.Tracks.Count; mv.Invoke(sf, new object[] { eng.Tracks[eng.Tracks.Count - 1], 1 });
+            Check("Dn on the bottom track still moves it down, making an empty row below", eng.Tracks.Count == n1 + 1 && eng.Tracks[eng.Tracks.Count - 1].Clip != null && eng.Tracks[eng.Tracks.Count - 2].Clip == null, "tracks " + eng.Tracks.Count);
+            while (eng.Tracks.Count > n0) lock (eng.Sync) eng.Tracks.RemoveAt(eng.Tracks.Count - 1);
+        }
         SetF("nextInsert", 1); typeof(StudioForm).GetMethod("AddTrack", BF).Invoke(sf, new object[] { StudioEngine.NewTrack("NEW", "audio", Clip(5)) });
         Check("a track added from a strip lands exactly there and is selected", eng.Tracks.Count == 3 && eng.Tracks[1].Name == "NEW" && F<int>("selTrack") == 1, string.Join(", ", eng.Tracks.ConvertAll(t => t.Name).ToArray()));
         typeof(StudioForm).GetMethod("AddTrack", BF).Invoke(sf, new object[] { StudioEngine.NewTrack("LAST", "audio", Clip(5)) });

@@ -68,7 +68,7 @@ partial class StudioForm
     {
         var s = sndDrag; sndDrag = null; sndDragging = false; if (s == null) return; var tl = TimelineRect(); float top = ToolH + TransH + RulerH;
         if (p.X < HeadW || p.X > tl.Right || p.Y < top) { Toast("Drop it on the timeline (the area to the right of the track names)."); return; }
-        long frame = Snap(scroll + (long)((p.X - HeadW) * spp)); int lane = (int)((p.Y - top + vscroll) / LaneH); int at = lane >= eng.Tracks.Count ? eng.Tracks.Count : lane + 1;
+        long frame = Snap(scroll + (long)((p.X - HeadW) * spp)); int lane = (int)((p.Y - top + vscroll) / LaneH); int at = lane >= LaneCount ? LaneCount : lane + 1;
         string msg = AddSample(s, frame, s.Kind == "midi" ? lane : at); if (msg != null) Toast(msg);
     }
     void AddSampleAtNeedle(SoundItem s) { string msg = AddSample(s, Snap(DispPos), eng.Tracks.Count); if (msg != null) Toast(msg); }

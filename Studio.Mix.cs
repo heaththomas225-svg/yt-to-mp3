@@ -549,6 +549,7 @@ static class ProjectIO
             else if (p[0] == "master" || p[0] == "tmix" || p[0] == "fx" || p[0] == "mfx") mix.Append(line).Append('\n');
         }
         foreach (var rp in routes) { int ra, rb; if (int.TryParse(rp[1], out ra) && int.TryParse(rp[2], out rb) && ra >= 0 && rb >= 0 && ra < tracks.Count && rb < tracks.Count && tracks[rb].IsBus && ra != rb) tracks[ra].Out = tracks[rb]; }
+        { var ord = new List<Track>(); foreach (var q in tracks) if (!q.IsBus) ord.Add(q); foreach (var q in tracks) if (q.IsBus) ord.Add(q); tracks = ord; }   // buses go after the tracks
         lock (eng.Sync) { eng.Tracks.Clear(); eng.Tracks.AddRange(tracks); }
         RestoreMix(eng, mix.ToString()); eng.Seek(0);
         return warn;

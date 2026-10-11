@@ -460,7 +460,7 @@ static class T
             string dir = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "ytm_bus_test"); System.IO.Directory.CreateDirectory(dir); string wp = System.IO.Path.Combine(dir, "a.wav"); WavIO.Write(wp, c1.L, c1.R, SR, 24);
             var e3 = new StudioEngine(); var ta = StudioEngine.NewTrack("A", "audio", AudioClip.FromFile(wp)); var bb = StudioEngine.NewTrack("Bus 1", "bus", null); bb.IsBus = true; var em = StudioEngine.NewTrack("Audio 2", "audio", null); ta.Out = bb; e3.Tracks.Add(ta); e3.Tracks.Add(bb); e3.Tracks.Add(em);
             string pf = System.IO.Path.Combine(dir, "b.ytmproj"); ProjectIO.Save(e3, pf); var e4 = new StudioEngine(); var warn = ProjectIO.Load(e4, pf, delegate (string s) { });
-            Check("bus: a project keeps its buses, their routing and empty audio tracks (no missing-file warning)", e4.Tracks.Count == 3 && e4.Tracks[1].IsBus && e4.Tracks[0].Out == e4.Tracks[1] && !e4.Tracks[2].IsBus && e4.Tracks[2].Clip == null && warn.Count == 0, "tracks " + e4.Tracks.Count + ", warnings " + warn.Count);
+            Check("bus: a project keeps its buses, their routing and empty audio tracks (no missing-file warning)", e4.Tracks.Count == 3 && e4.Tracks[2].IsBus && e4.Tracks[0].Out == e4.Tracks[2] && !e4.Tracks[1].IsBus && e4.Tracks[1].Clip == null && warn.Count == 0, "tracks " + e4.Tracks.Count + ", warnings " + warn.Count);
         }
 
         // ---- export: formats, sync, dry vs processed ----
