@@ -37,7 +37,7 @@ class Job
 partial class App : Form
 {
     // ---- Auto-update settings ----
-    const string Version = "3.17.6";
+    const string Version = "3.17.7";
     // Plain-text manifest: line 1 = newest version, line 2 = direct exe download URL.
     const string UpdateManifestUrl = "https://raw.githubusercontent.com/heaththomas225-svg/yt-to-mp3/main/version.txt";
 
@@ -121,7 +121,7 @@ partial class App : Form
     {
         Func<Control, Func<Rectangle>> R = c => (() => new Rectangle(c.Left, c.Top, c.Width, c.Height)); var s = new List<TourStep>();
         if (id.StartsWith("studio")) { OpenStudio(); studioForm.RunTour(id); return; }
-        if (id == "start") { s.Add(new TourStep(R(links), "1. Paste a link", "Paste one or more links here (YouTube, BandLab and 1000+ other video and music sites), or type words to search.")); s.Add(new TourStep(R(fmt), "2. Pick a format", "MP3 320 kbps is the best all-round choice.")); s.Add(new TourStep(R(go), "3. Press Convert", "Your file is saved in the Save to folder, which opens when it is done.")); }
+        if (id == "start") { s.Add(new TourStep(R(links), "1. Paste a link", "Paste one or more links here (YouTube and 1000+ other video and music sites), or type words to search.")); s.Add(new TourStep(R(fmt), "2. Pick a format", "MP3 320 kbps is the best all-round choice.")); s.Add(new TourStep(R(go), "3. Press Convert", "Your file is saved in the Save to folder, which opens when it is done.")); }
         else if (id == "normalize") { s.Add(new TourStep(R(norm), "Normalize loudness", "Tick this to bring downloads to a standard -14 LUFS loudness.")); s.Add(new TourStep(R(prevNormBtn), "Hear it first", "Press Hear to listen to a 30 second sample, original versus normalized, before you convert.")); }
         else if (id == "vocal") { s.Add(new TourStep(R(vocalBtn), "Vocal remover", "Click this, then choose Remove vocals from a song, or Preview to hear a 30 second sample first.")); s.Add(new TourStep(R(outDir), "Where files go", "The instrumental and the vocals-only file are saved in this folder.")); }
         else if (id == "phone") { s.Add(new TourStep(R(phoneBtn), "Phone mode", "Press this, then open the address it shows on your phone (same Wi-Fi). Use the firewall button if it will not open.")); }
@@ -144,7 +144,7 @@ partial class App : Form
     {
         ServicePointManager.SecurityProtocol = (SecurityProtocolType)3072 | SecurityProtocolType.Tls;
         try { File.Delete(Application.ExecutablePath + ".old"); } catch { }
-        Application.EnableVisualStyles();
+        Application.EnableVisualStyles(); Win.WidenBuffers();
         Application.Run(new App());
     }
 
@@ -285,6 +285,7 @@ partial class App : Form
 
         bg.Controls.AddRange(new Control[] { links, fmt, sr, nameFmt, trimA, trimB, norm, playlist, openDone, animate,
             mastBtn, vocalBtn, prevNormBtn, helpBtn, settingsBtn, changeBtn, phoneBtn, studioBtn, addMusicBtn, whatsBtn, outDir, browse, go, cancel, log });
+        CaptureBase();   // the design positions, before any saved window size moves the anchored controls
 
         fmt.SelectedIndex = 0; sr.SelectedIndex = 0; nameFmt.SelectedIndex = 0;
         LoadSettings();
@@ -294,6 +295,7 @@ partial class App : Form
         loading = false;
         HookAutoSave();
 
+        ApplyScale(); bg.Resize += (s, e) => ApplyScale(); Shown += (s, e) => ApplyScale();   // text and controls follow the size of the window (must run before Repopulate below)
         Repopulate(); bg.Resize += (s, e) => Repopulate();
         Win.Dark(this); Win.DarkControl(links); Win.DarkControl(log); StyleTips();
 
@@ -876,6 +878,7 @@ partial class App : Form
                 "One-time download: about 0.5 GB (a private copy of Python, PyTorch and the model). It's stored in your AppData folder and nothing is installed system-wide.\n\n" +
                 "Download and set it up now?", "Vocal remover setup", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
         }
+        if (MessageBox.Show(this, "The vocal remover gives you three separate files in your save folder:\n\n  1. the VOCALS on their own\n  2. the BEAT (instrumental) on its own\n  3. the ORIGINAL song\n\nYour original file is not duplicated: if it is already in the save folder it is left exactly as it is, and it is never changed.\n\nPick a song now?", "Vocal remover", MessageBoxButtons.OKCancel, MessageBoxIcon.Information) != DialogResult.OK) return;
         string file;
         using (var d = new OpenFileDialog())
         {
@@ -923,6 +926,15 @@ partial class App : Form
             if (code != 0 || !File.Exists(outInst)) throw new Exception("Couldn't encode the instrumental.");
             MasterDsp.RunCapture(ff, "-hide_banner -y -i \"" + v + "\" -vn " + MasterDsp.FmtEnc[f] + " \"" + outVoc + "\"", p => { cur = p; }, out code);
             if (code != 0 || !File.Exists(outVoc)) throw new Exception("Couldn't encode the vocals.");
+            // the original goes alongside the two new files, but only once: never a copy of something that is already there
+            try
+            {
+                string outOrig = Path.Combine(dir, Path.GetFileName(file));
+                if (string.Equals(Path.GetFullPath(file), Path.GetFullPath(outOrig), StringComparison.OrdinalIgnoreCase)) Log("The original is already in the save folder: left as it is.");
+                else if (File.Exists(outOrig)) Log("A file called " + Path.GetFileName(outOrig) + " is already in the save folder: the original was not copied again.");
+                else { File.Copy(file, outOrig); Log("Saved: " + Path.GetFileName(outOrig) + " (the original)"); }
+            }
+            catch (Exception ex) { Log("Could not copy the original: " + ex.Message); }
             LastFile = outInst; targetPct = 100; status = "Done";
             Log("Saved: " + Path.GetFileName(outInst)); Log("Saved: " + Path.GetFileName(outVoc));
             if (open) Process.Start("explorer.exe", "\"" + dir + "\"");

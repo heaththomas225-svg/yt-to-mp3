@@ -18,7 +18,7 @@ static class HelpContent
     public static readonly HelpTopic[] All = {
         new HelpTopic("start", "Basics", "Convert a link to MP3", true, @"
 ## What you need
-A YouTube, BandLab or other video / music link (or just words to search for).
+A YouTube or other video / music link (or just words to search for).
 ## Steps
 1. Paste the link into the big box at the top. You can paste several links, one per line or separated by commas.
 2. Pick a Format. MP3 320 kbps is the best all-round choice.
@@ -40,17 +40,6 @@ Leave it on Original unless your project needs 44.1 kHz or 48 kHz.
 Every file is labelled with its format, for example 'Song [MP3 320k]', so you can keep track.
 TIP: A 'mastered' tag in the name means the Purphex Mastering processed it."),
 
-        new HelpTopic("bandlab", "Basics", "Using BandLab links", false, @"
-## What works
-Track, post, revision, album and collection links from BandLab (for example bandlab.com/post/...). Albums and collections convert every track automatically.
-## How to get the link
-1. Open the song on BandLab.
-2. Use Share and Copy link.
-3. Paste it into the app.
-## If it fails
-- Profile pages (bandlab.com/username) and some other page types are not supported by the downloader. Open the track itself and copy its link.
-- Private tracks need the share link, and may not download at all.
-TIP: You can mix YouTube and BandLab links in the same box."),
 
         new HelpTopic("batch", "Basics", "Several songs, playlists and search words", false, @"
 ## Many at once
@@ -292,7 +281,8 @@ Drag the track name on the left up or down, or use the Up and Dn buttons on the 
 - DUP copies the selected track, DEL deletes it (key Delete). UNDO / REDO (Ctrl+Z / Ctrl+Y) bring edits back.
 ## Tempo and grid
 - BPM: click the number and type the tempo, or press DETECT and the studio listens to your song and sets it.
-- SNAP makes moves, trims and cuts land exactly on the beat. The grid button picks the size (bar, 1/2, beat, 1/8, 1/16).
+- Moves, trims and cuts snap to the beat. The grid button picks the size (bar, 1/2, beat, 1/8, 1/16). Snap can be switched off in the Menu.
+- Detect Track key listens to the selected track and shows its musical key in a box on the screen.
 - 1 2 3 is the Count In: one bar of clicks before the song plays or records.
 - The tempo also drives the synth's tempo-synced wobbles and delays.
 ## Zoom
@@ -393,7 +383,7 @@ Voice limit, master tuning, bend range and velocity are yours, not the sound's: 
 
         new HelpTopic("download-video", "Basics", "Download videos (MP4) from YouTube and other sites", false, @"
 ## How
-1. Paste a link. It can be YouTube, BandLab, or almost any video or music page (1000+ sites). A direct link to a video file works too.
+1. Paste a link. It can be YouTube or almost any video or music page (1000+ sites). A direct link to a video file works too.
 2. In Format choose a VIDEO entry: MP4 best quality (up to 4K and beyond), 1440p, 1080p, 720p, 480p, 360p, or MKV best quality.
 3. Press Convert. The finished video is saved in your Save to folder.
 ## Which quality?
@@ -495,7 +485,7 @@ This page never writes or suggests lyrics for you: every word is yours."),
         new HelpTopic("studio-neon","Purphex Music", "The neon look, zooming and taller tracks", false, @"
 ## The look
 Every track has its own glowing colour. The outline of its clip, the light strip beside it, the little LED and the level meter all use it, and the glow gets brighter with the volume.
-## Move along the song and zoom (like BandLab)
+## Move along the song and zoom
 - Mouse wheel: when all your tracks fit on screen the wheel moves along the song; when you have more tracks than fit, it scrolls up and down (and Shift + wheel moves along).
 - Ctrl + mouse wheel zooms in and out around the mouse. The zoom slider in the toolbar does the same (drag right to zoom in; double-click it to see the whole song).
 - The overview bar along the bottom shows the whole song with a lit window for what you see. Drag the window to move, drag its ends to zoom, click outside it to jump, double-click it to fit the whole song.
@@ -510,7 +500,7 @@ Move the mouse to the line between two tracks (or above the first, or under the 
 1. Press + ADD TRACK and choose MIDI Track (Bass Lab) or Virtual Instruments (any VST plugin). Play it with your computer keyboard (A S D F G H J = white keys, W E T Y U = black keys, Z / X = octave) or click the piano.
 2. To record your playing: press REC (it turns red), then play a key. The song starts by itself and your notes are recorded onto the track. Press STOP when you are done.
 3. Open the Notes button on the track (or double-click the track) for the piano roll: draw notes by dragging on the grid, drag a note to move it, drag its right end to resize it, right-click to delete it. Everything you draw plays right away. 'Snap notes to grid' tidies your timing.
-4. Set the tempo with BPM (or DETECT). Turn on 1 2 3 (Count In) for a bar of clicks before it plays and SNAP to make everything land on the beat.
+4. Set the tempo with BPM (or DETECT). Turn on 1 2 3 (Count In) for a bar of clicks before it plays. Everything lands on the beat by itself (snap).
 ## Record your voice or an instrument with a microphone
 1. Plug in a microphone. Use headphones, so the beat is not picked up by the microphone.
 2. Put the needle where you want to start and press MIC. The song plays while you record. Press MIC again, or STOP, to finish.

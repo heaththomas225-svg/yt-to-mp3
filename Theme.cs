@@ -9,6 +9,20 @@ using System.Windows.Forms;
 // ======================================================================
 static class Win
 {
+    // A window painted bigger than WinForms' back-buffer limit gets a fresh buffer that was never cleared, and whatever was in that memory (even another window) showed through. A big limit keeps buffers cached and cleared.
+    public static void WidenBuffers() { try { BufferedGraphicsManager.Current.MaximumBuffer = new Size(8192, 4608); } catch { } }
+    // set every pixel fully opaque, so a background picture with a hole in it can never let the desktop (or another window) show through
+    public static void ForceOpaque(Bitmap b)
+    {
+        if (b == null) return; var pf = b.PixelFormat; if (pf != System.Drawing.Imaging.PixelFormat.Format32bppPArgb && pf != System.Drawing.Imaging.PixelFormat.Format32bppArgb) return;
+        try
+        {
+            var bd = b.LockBits(new Rectangle(0, 0, b.Width, b.Height), System.Drawing.Imaging.ImageLockMode.ReadWrite, pf); var row = new byte[Math.Abs(bd.Stride)];
+            try { for (int y = 0; y < b.Height; y++) { IntPtr p = new IntPtr(bd.Scan0.ToInt64() + (long)y * bd.Stride); System.Runtime.InteropServices.Marshal.Copy(p, row, 0, b.Width * 4); for (int x = 3; x < b.Width * 4; x += 4) row[x] = 255; System.Runtime.InteropServices.Marshal.Copy(row, 0, p, b.Width * 4); } }
+            finally { b.UnlockBits(bd); }
+        }
+        catch { }
+    }
     public static volatile bool AnyMoving;   // true while any of our windows is being dragged or resized: every animation pauses so the drag stays smooth
     public static void TrackMove(ref Message m) { if (m.Msg == 0x231) AnyMoving = true; else if (m.Msg == 0x232) AnyMoving = false; }
     [DllImport("dwmapi.dll")] static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int val, int size);

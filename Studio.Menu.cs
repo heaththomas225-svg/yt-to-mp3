@@ -44,7 +44,7 @@ partial class StudioForm
             case 2:
                 I("Flex Pitch (edit the notes of a recording)", () => { CloseMenu(); FlexOpen(); }); I("Purphex Sounds (sample browser)", () => { CloseMenu(); OpenSounds(); }); I("Sound packs (install)", () => { CloseMenu(); OpenSounds(); packsOpen = true; packScroll = 0; });
                 I("Auto Mix", () => { CloseMenu(); AutoMixClick(); }); I("Split vocals + beat", () => { CloseMenu(); SeparateClick(); }); I("Detect BPM", () => { CloseMenu(); DetectBpmClick(); });
-                I("Metronome on / off", () => { CloseMenu(); eng.Metronome = !eng.Metronome; }); I("Mastering", () => GoTab(1)); I("Add an instrument...", () => { CloseMenu(); AddInstrumentClick(); }); I("Add a track...", () => { CloseMenu(); ShowAddTrackMenuMain(); });
+                I("Metronome on / off", () => { CloseMenu(); eng.Metronome = !eng.Metronome; }); I(snapOn ? "Snap to the grid: on (click to turn off)" : "Snap to the grid: off (click to turn on)", () => { CloseMenu(); snapOn = !snapOn; Toast(snapOn ? "Snap to the grid is on." : "Snap to the grid is off."); }); I("Mastering", () => GoTab(1)); I("Add an instrument...", () => { CloseMenu(); AddInstrumentClick(); }); I("Add a track...", () => { CloseMenu(); ShowAddTrackMenuMain(); });
                 break;
             case 3:
                 I("Converter window (downloads)", () => { CloseMenu(); Win.Bring(app); }); I(Prefs.ShowFps ? "Hide the FPS counter" : "Show the FPS counter", () => { CloseMenu(); Prefs.ShowFps = !Prefs.ShowFps; Prefs.Changed(); });

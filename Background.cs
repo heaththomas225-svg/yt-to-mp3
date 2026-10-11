@@ -18,6 +18,22 @@ using System.Windows.Forms;
 partial class App
 {
     class Lab { public string T; public float X, Y; }
+    // The main window scales with its size: every control keeps its place and proportions, and all text grows or shrinks with it.
+    float uiX = 1, uiY = 1, uiS = 1; Size baseClient = new Size(640, 712); float fontScaleApplied = 1f;
+    readonly Dictionary<Control, Rectangle> baseBounds = new Dictionary<Control, Rectangle>(); readonly Dictionary<Control, Font> baseFonts = new Dictionary<Control, Font>(); readonly List<Font> scaledFonts = new List<Font>();
+    void CaptureBase() { baseClient = new Size(640, 712); /* the size the layout was designed for */ foreach (Control c in bg.Controls) { baseBounds[c] = c.Bounds; baseFonts[c] = c.Font; c.Anchor = AnchorStyles.Top | AnchorStyles.Left; } }
+    void ApplyScale()
+    {
+        if (baseBounds.Count == 0) return; int w = bg.ClientSize.Width, h = bg.ClientSize.Height; if (w < 120 || h < 120 || baseClient.Width < 1 || baseClient.Height < 1) return;
+        uiX = w / (float)baseClient.Width; uiY = h / (float)baseClient.Height; uiS = Math.Max(0.88f, Math.Min(2.2f, Math.Min(uiX, uiY))); bool refont = Math.Abs(uiS - fontScaleApplied) > 0.015f; var old = new List<Font>(scaledFonts); scaledFonts.Clear();
+        foreach (var kv in baseBounds)
+        {
+            var c = kv.Key; var b = kv.Value; c.SetBounds((int)Math.Round(b.X * uiX), (int)Math.Round(b.Y * uiY), (int)Math.Round(b.Width * uiX), (int)Math.Round(b.Height * uiY));
+            if (refont) { var f0 = baseFonts[c]; var nf = new Font(f0.FontFamily, f0.Size * uiS, f0.Style); c.Font = nf; scaledFonts.Add(nf); }
+        }
+        if (refont) { fontScaleApplied = uiS; foreach (var f in old) { try { f.Dispose(); } catch { } } } else scaledFonts.AddRange(old);
+        SnapLabels(); bg.Invalidate();
+    }
 
     Stopwatch frameWatch = new Stopwatch(); double frameMs = 6; int perfTick, quality;
     SizeF titleSize;
@@ -101,8 +117,8 @@ partial class App
 
     void SnapLabels()
     {
-        var l = new List<Lab>(); foreach (var kv in lbls) l.Add(new Lab { T = kv.Value, X = kv.Key.Left, Y = kv.Key.Top - 18 }); labSnap = l.ToArray();
-        subtitle = "Download music or video from YouTube, BandLab and 1000+ other sites. Choose MP3 or MP4 and a quality.";
+        var l = new List<Lab>(); foreach (var kv in lbls) l.Add(new Lab { T = kv.Value, X = kv.Key.Left, Y = kv.Key.Top - 18 * uiS }); labSnap = l.ToArray();
+        subtitle = "Download music or video from YouTube and 1000+ other sites. Choose MP3 or MP4 and a quality.";
     }
 
     void StartLayerWorker()
@@ -128,7 +144,7 @@ partial class App
                 lastW = W; lastH = H; lastT = tNow; lastLab = labNow; lastSub = subNow; lastCKey = ckey;
                 if (custom) { string key = ckey; if (key != atmoKey || atmoFront == null) { Bitmap s = null; if (key != failKey) { s = UserBackground.Baked(W, H); if (s == null) failKey = key; } if (s != null) { a = s; atmoKey = key; failKey = ""; } else { a = BuildAtmosphere(W, H); atmoKey = ""; } } }
                 else { a = BuildAtmosphere(W, H); atmoKey = ""; }
-                var o = BuildOverlay(W, H);
+                var o = BuildOverlay(W, H); Win.ForceOpaque(a);
                 var oldA = atmoFront; var oldO = overlayFront; if (a != null) atmoFront = a; else oldA = null; overlayFront = o;
                 lock (graveyard) { if (oldA != null) graveyard.Add(oldA); if (oldO != null) graveyard.Add(oldO); while (graveyard.Count > 6) { var d = graveyard[0]; graveyard.RemoveAt(0); try { d.Dispose(); } catch { } } }
             }
@@ -156,13 +172,14 @@ partial class App
         using (var g = Graphics.FromImage(bmp))
         {
             g.SmoothingMode = SmoothingMode.AntiAlias; g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
-            var cards = new[] { new RectangleF(8, 70, W - 16, 88), new RectangleF(8, 164, W - 16, 142), new RectangleF(8, 308, W - 16, 38),
-                                new RectangleF(8, 350, W - 16, 108), new RectangleF(8, 464, W - 16, 42), new RectangleF(8, 510, W - 16, Math.Max(80, H - 518)) };
+            float X = uiX, Y = uiY, S = uiS;
+            var cards = new[] { new RectangleF(8 * X, 70 * Y, W - 16 * X, 88 * Y), new RectangleF(8 * X, 164 * Y, W - 16 * X, 142 * Y), new RectangleF(8 * X, 308 * Y, W - 16 * X, 38 * Y),
+                                new RectangleF(8 * X, 350 * Y, W - 16 * X, 108 * Y), new RectangleF(8 * X, 464 * Y, W - 16 * X, 42 * Y), new RectangleF(8 * X, 510 * Y, W - 16 * X, Math.Max(80, H - 518 * Y)) };
             float tt = t; for (int i = 0; i < cards.Length; i++) Card(g, cards[i], i, tt);
-            using (var f = new Font("Segoe UI Semibold", 10f)) using (var b = new SolidBrush(Color.FromArgb(235, 222, 255))) using (var sb2 = new SolidBrush(Color.FromArgb(200, 0, 0, 0)))
-            using (var f2 = new Font("Segoe UI", 10f)) using (var b2 = new SolidBrush(Color.FromArgb(215, 200, 245)))
+            using (var f = new Font("Segoe UI Semibold", 10f * S)) using (var b = new SolidBrush(Color.FromArgb(235, 222, 255))) using (var sb2 = new SolidBrush(Color.FromArgb(200, 0, 0, 0)))
+            using (var f2 = new Font("Segoe UI", 10f * S)) using (var b2 = new SolidBrush(Color.FromArgb(215, 200, 245)))
             {
-                g.DrawString(subtitle, f2, sb2, 19, 49); g.DrawString(subtitle, f2, b2, 18, 48);
+                g.DrawString(subtitle, f2, sb2, 19 * X, 49 * Y); g.DrawString(subtitle, f2, b2, 18 * X, 48 * Y);
                 var ls = labSnap; foreach (var l in ls) { g.DrawString(l.T, f, sb2, l.X + 1, l.Y + 1); g.DrawString(l.T, f, b, l.X, l.Y); }
             }
         }
@@ -281,6 +298,7 @@ partial class App
 
         string title = "Purphex";
         g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
+        var scaleState = g.Save(); g.ScaleTransform(uiS, uiS);   // logo and title grow with the window
         var logoPic = AppLogo.Small; if (logoPic != null) g.DrawImage(logoPic, new Rectangle(12, 4, 42, 42));
         var titleState = g.Save(); if (logoPic != null) g.TranslateTransform(46, 0);
         using (var f = new Font("Segoe UI Black", 21f))
@@ -292,9 +310,9 @@ partial class App
             using (var b = new LinearGradientBrush(new RectangleF(16 - sh, 10, titleSize.Width * 2, titleSize.Height), Color.FromArgb(245, 225, 255), Color.FromArgb(180, 100, 255), 0f))
             { b.WrapMode = WrapMode.TileFlipX; g.DrawString(title, f, b, 16, 10); }
         }
-        g.Restore(titleState);
+        g.Restore(titleState); g.Restore(scaleState);
 
-        var bar = new Rectangle(16, 470, r.Width - 32, 14);
+        var bar = new Rectangle((int)(16 * uiX), (int)(470 * uiY), r.Width - (int)(32 * uiX), Math.Max(8, (int)(14 * uiS)));
         using (var tb = new SolidBrush(Color.FromArgb(200, 4, 2, 10))) g.FillRectangle(tb, bar);
         int fw = (int)(bar.Width * Math.Max(0, Math.Min(100, shownPct)) / 100f);
         if (fw > 2)
@@ -307,7 +325,7 @@ partial class App
         }
         using (var pn = new Pen(Color.FromArgb(170, 190, 120, 255))) g.DrawRectangle(pn, bar);
         if (status.Length > 0)
-            using (var f = new Font("Segoe UI", 8.5f)) using (var b = new SolidBrush(Color.FromArgb(225, 230, 210, 255))) g.DrawString(status, f, b, 16, 486);
+            using (var f = new Font("Segoe UI", 8.5f * uiS)) using (var b = new SolidBrush(Color.FromArgb(225, 230, 210, 255))) g.DrawString(status, f, b, 16 * uiX, bar.Bottom + 2 * uiS);
 
         // adaptive quality: step effects down on slower PCs, back up when there is headroom
         PaintMs += frameWatch.Elapsed.TotalMilliseconds; frameMs = frameMs * 0.9 + frameWatch.Elapsed.TotalMilliseconds * 0.1;

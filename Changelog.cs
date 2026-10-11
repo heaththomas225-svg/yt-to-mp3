@@ -7,10 +7,18 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.17.6";
+    public const string Latest = "3.17.7";
 
     public const string Text =
-@"3.17.6  Count In, key finder, shared rows, simpler toolbar, project cards
+@"3.17.7  Key box, vocal remover files, SNAP button replaced
+ + Detect Track key now tells you the key in a neon box in the middle of the screen (it tries the selected track, then the others, until it hears a clear key).
+ + Vocal remover (main window) explains that you get the vocals, the beat and the original as separate files, and the original is never copied twice.
+ + The main window scales with its size: text, buttons and boxes grow and shrink together, so a big window is no longer tiny controls in a big space.
+ + Fixed the main window sometimes showing pieces of another window when it was sized up (big back buffers, fully opaque backgrounds).
+ + The word BandLab is gone from the main window and the help (links from those sites still work).
+ + The SNAP button is gone: the 1 2 3 Count In button took its place. Snap stays on; the Menu can turn it off.
+
+3.17.6  Count In, key finder, shared rows, simpler toolbar, project cards
  + 1 2 3 is the Count In: one bar of clicks before it plays or records (recordings line up with the song).
  + Detect Track key replaces the Auto Mix style box: it finds the key of the selected track.
  + The toolbar lost + TRACK, + BUS and + INSTRUMENT (use + ADD TRACK under the tracks; buses are in each track Bus drop-down). Bass Lab is first in the effect list.

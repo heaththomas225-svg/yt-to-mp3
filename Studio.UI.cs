@@ -235,7 +235,7 @@ partial class StudioForm : Form
         { "TRIM <", "Cut the start of the selected clip off at the needle." }, { "TRIM >", "Cut the end of the selected clip off at the needle." },
         { "DUP", "Make a copy of the selected track." }, { "DEL", "Delete the selected track (Undo brings it back)." },
         { "UNDO", "Undo the last edit (Ctrl+Z)." }, { "REDO", "Redo (Ctrl+Y)." }, { "DETECT", "Listen to the song and set the BPM for you." }, { "Detect Track key", "Find the musical key of the selected track and show it." },
-        { "SNAP", "Moves, trims and cuts snap to the beat grid. Click to turn off." }, { "snap", "Snap to the beat grid is off. Click to turn it on." },
+        
         { "1 2 3", "Count In: one bar of clicks (1 2 3 4) before it plays or records." },
         { "-", "Zoom out." }, { "+", "Zoom in." }, { "FIT", "Zoom to fit the whole song." },
         { "MIC", "Record from your microphone onto a new track (use headphones). Press again, or STOP, to finish." },
@@ -306,7 +306,7 @@ partial class StudioForm : Form
         if (soundBox != null && soundBox.Visible && !(soundsOpen && tab == 0)) soundBox.Visible = false;
         PaintNewTrackSheet(g); PaintBusSheet(g);
         PaintMenu(g);
-        PaintBubble(g);
+        PaintBubble(g); PaintKeyBox(g);
         fpsc.Frame();
         if (hintNow.Length > 0 && !busy) { var hr = Rc(ClientSize.Width / 2 - 340, ClientSize.Height - 36, 680, 26); FillRR(g, Color.FromArgb(235, 30, 16, 58), hr, 8); StrokeRR(g, Edge, hr, 8, 1); Txt(g, hintNow, 13, Ink, hr, StringAlignment.Center, false); }
         if (busy) PaintBusy(g);
@@ -340,6 +340,7 @@ partial class StudioForm : Form
                     }
                 }
             }
+            Win.ForceOpaque(backdrop);   // no pixel may be see-through
         }
         g.CompositingMode = CompositingMode.SourceCopy; g.DrawImageUnscaled(backdrop, 0, 0); g.CompositingMode = CompositingMode.SourceOver;
     }
@@ -866,6 +867,7 @@ partial class StudioForm : Form
         lastInput = DateTime.Now;
         if (editBox != null && editBox.Visible) return base.ProcessCmdKey(ref msg, k);
         if (ActiveControl is TextBoxBase && ((Control)ActiveControl).Visible) return base.ProcessCmdKey(ref msg, k);   // typing in the lyrics page: every key belongs to the text box
+        if (keyOn && (k == Keys.Escape || k == Keys.Enter)) { keyOn = false; return true; }
         if (busOpen && k == Keys.Escape) { busOpen = false; return true; }
         if (ntOpen && k == Keys.Escape) { CloseNewTrackSheet(); return true; }
         if (menuOpen && k == Keys.Escape) { CloseMenu(); return true; }

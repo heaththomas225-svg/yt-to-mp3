@@ -2,6 +2,14 @@
 
 What changed in each version of **Purphex**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.17.7  Key box, vocal remover files, SNAP button replaced
+
+- Detect Track key shows the key in a neon box on screen.
+- Vocal remover: vocals, beat and original as separate files; the original is never duplicated.
+- The main window scales with its size (text and controls). Fixed pieces of another window showing through it when it was sized up.
+- Removed the BandLab wording from the main window and help.
+- SNAP button replaced by 1 2 3 (Count In); snap stays on (Menu can turn it off).
+
 ## 3.17.6  Count In, key finder, shared rows, simpler toolbar, project cards
 
 - 1 2 3 is the Count In (one bar of clicks before playing or recording). Detect Track key replaces the Auto Mix style box.

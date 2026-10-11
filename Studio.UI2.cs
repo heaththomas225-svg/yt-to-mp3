@@ -123,18 +123,6 @@ partial class StudioForm
     }
 
     // ---------------- key detection ----------------
-    // the toolbar button: find the key of the selected track (or the first one with audio)
-    void DetectTrackKey()
-    {
-        Track tr = Selected; if (tr == null || tr.Clip == null || tr.Instrument) { tr = null; foreach (var x in eng.Tracks) if (x.Clip != null && !x.Instrument) { tr = x; break; } }
-        if (tr == null) { Toast("Add a track with audio first."); return; }
-        int key = 0, scale = 1; double conf = 0; bool found = false; var t2 = tr;
-        RunBusy("Finding the key of " + t2.Name + "...", false, p => { found = KeyDetect.Detect(t2.Clip, out key, out scale, out conf); }, ok =>
-        {
-            if (!ok) return;
-            Toast(found ? "Key of " + t2.Name + ": " + PitchCorrector.Keys[key] + (scale == 2 ? " minor" : " major") + "  (confidence " + conf.ToString("0.00") + ")" : "Couldn't find a clear key (it needs notes with a clear pitch, like a voice or a melody).");
-        });
-    }
     void DetectKey(PitchCorrector pc, Track tr)
     {
         if (tr == null || tr.Clip == null) return; int key = 0, scale = 1; double conf = 0; bool found = false;

@@ -395,7 +395,7 @@ a.dl{display:block;margin-top:12px;padding:14px;border-radius:14px;text-align:ce
 <main class='wrap'>
 <h1>Purphex</h1><p class='sub'>Runs on your PC. Paste a link, get the file on your phone.</p>
 <section class='card'><label for='links'>Links or search words</label>
-<textarea id='links' rows='3' placeholder='https://youtu.be/...   or   bandlab.com/post/...' autocapitalize='off' autocorrect='off' spellcheck='false'></textarea>
+<textarea id='links' rows='3' placeholder='https://youtu.be/...' autocapitalize='off' autocorrect='off' spellcheck='false'></textarea>
 <div class='row'><button class='ghost' id='paste' type='button'>Paste</button><button class='ghost' id='clear' type='button'>Clear</button></div></section>
 <section class='card'><span class='lab'>Format</span>
 <div class='seg' id='seg'><button type='button' data-v='0' class='on'>MP3</button><button type='button' data-v='4'>M4A</button><button type='button' data-v='3'>FLAC</button><button type='button' data-v='2'>WAV</button></div>

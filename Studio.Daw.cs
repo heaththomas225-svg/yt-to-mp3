@@ -352,9 +352,8 @@ partial class StudioForm
         var bb = Rc(x, y, 64, h); FillRR(g, Color.FromArgb(200, 8, 4, 18), bb, 6); StrokeRR(g, Hot(bb) ? Accent : Edge, bb, 6, 1); Txt(g, Fx.ProjectBpm.ToString("0.#", CultureInfo.InvariantCulture), 15, Ink, bb, StringAlignment.Center, true);
         ValueEdit(bb, Fx.ProjectBpm.ToString("0.#", CultureInfo.InvariantCulture), s => { float v; if (ParseNum(s, out v) && v >= 20 && v <= 300) Fx.ProjectBpm = v; }); x += 70;
         Btn(g, Rc(x, y, 62, h), "DETECT", 0, () => DetectBpmClick(), 11); x += 68;
-        Btn(g, Rc(x, y, 56, h), snapOn ? "SNAP" : "snap", snapOn ? 4 : 0, () => snapOn = !snapOn, 12); x += 60;
+        Btn(g, Rc(x, y, 56, h), "1 2 3", eng.CountIn ? 4 : 0, () => { eng.CountIn = !eng.CountIn; Toast(eng.CountIn ? "Count In on: one bar of clicks before it plays or records." : "Count In off."); }, 12); x += 60;   // where SNAP used to be
         Btn(g, Rc(x, y, 76, h), GridNames[gridIdx], 0, () => { var m = Win.NewMenu(); for (int i = 0; i < GridNames.Length; i++) { int k = i; m.Items.Add(GridNames[i]).Click += (a, b) => { gridIdx = k; snapOn = true; }; } m.Show(this, new Point((int)MousePos.X, (int)MousePos.Y)); }, 11); x += 82;
-        Btn(g, Rc(x, y, 62, h), "1 2 3", eng.CountIn ? 4 : 0, () => { eng.CountIn = !eng.CountIn; Toast(eng.CountIn ? "Count In on: one bar of clicks before it plays or records." : "Count In off."); }, 12); x += 76;
         Btn(g, Rc(x, y, 62, h), "SPLIT", 1, () => SplitSelected(), 12); x += 66;
         Btn(g, Rc(x, y, 62, h), "TRIM <", 0, () => TrimStartHere(Selected), 11); x += 66;
         Btn(g, Rc(x, y, 62, h), "TRIM >", 0, () => TrimEndHere(Selected), 11); x += 66;
