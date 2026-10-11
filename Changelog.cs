@@ -7,10 +7,13 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.19.1";
+    public const string Latest = "3.19.2";
 
     public const string Text =
-@"3.19.1  Text fits its boxes everywhere
+@"3.19.2  Rapper Vocal Styles: one simple Use button
+ + Rapper Vocal Styles now has a single Use button on each style (the second Add button is gone, it was confusing). Use puts the style on the selected track and replaces its plugins, and Ctrl+Z puts them back.
+
+3.19.1  Text fits its boxes everywhere
  + The progress box while splitting vocals now grows to fit its message, and shrinks the text if the window is too small, so nothing runs off the edge.
  + Button labels that are too long for their button (for example SPLIT VOCALS + BEAT or AUTO MIX in a smaller window) now get a smaller size instead of being cut off.
  + Plugin settings keep their full names: the A (automate) button moved to the right end of each row, and the long names in Worldwide Echo and Melody Tune were shortened (Reverb, Duck on voice, Send pattern, Tune speed, Humanise).

@@ -423,7 +423,7 @@ Select the vocal track, then press Vocal Styles in the plugin panel (right side)
 ## Using it
 - Type to search by name, subgenre or description (for example drill, dark, warm, echo).
 - Press a subgenre button to show only that kind, or Favourites to see the ones you starred.
-- Use replaces the plugins on the track with the style. Add puts the style after the plugins that are already there.
+- Press Use to put the style on the selected track. It replaces the plugins that are on the track, and Ctrl+Z puts them back.
 - Press the star to keep a style as a favourite.
 - Every plugin stays fully editable afterwards, and Ctrl+Z undoes the change.
 ## Tips
