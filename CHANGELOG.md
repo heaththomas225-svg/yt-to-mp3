@@ -2,6 +2,13 @@
 
 What changed in each version of **Purphex**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.17.9  Audit fixes: safer saves, layers and rows, smoother buttons
+
+- Project, lyrics, settings and library files are now written safely (a crash or power cut mid-save can no longer leave a half-written file).
+- Duplicating or splitting a layer keeps it on the same row, and Split vocals + beat adds its tracks in the right place, so rows never get out of order.
+- Buttons ease in and out when you hover them, and the window has rounded corners on Windows 11.
+- The website is faster and works properly on phones (menu drawer fixed, no zoom when typing, pages are compressed).
+
 ## 3.17.8  Smoother dragging, Count In + Metronome, Grid size, track pickers, presets
 
 - Much smoother dragging (clip pictures cached while you hold them, no zoom re-fit, faster grid).

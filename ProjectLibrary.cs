@@ -52,8 +52,8 @@ static class ProjectLibrary
             {
                 Directory.CreateDirectory(StudioEnv.DataDir); var sb = new StringBuilder();
                 foreach (var e in Entries) sb.Append("P|").Append(e.Path.Replace("|", "/")).Append('|').Append(e.Name.Replace("|", "/")).Append('|').Append(e.Updated.Ticks).Append('|').Append(e.Opened.Ticks).Append('|').Append(e.Tracks).Append('|').Append(e.Bpm.ToString("0.##", CI)).Append('|').Append(e.Seconds.ToString("0.#", CI)).Append('|').Append(e.Cover).Append('|').Append((e.Desc ?? "").Replace("|", "/").Replace("\n", " ").Replace("\r", "")).Append('|').Append((e.Tags ?? "").Replace("|", "/")).Append('|').Append(e.Custom ? 1 : 0).Append('\n');
-                File.WriteAllText(ListFile, sb.ToString(), Encoding.UTF8);
-                File.WriteAllText(ProfileFile, "name=" + ProfileName + "\navatar=" + AvatarPath + "\n", Encoding.UTF8);
+                Win.WriteAtomic(ListFile, sb.ToString(), Encoding.UTF8);
+                Win.WriteAtomic(ProfileFile, "name=" + ProfileName + "\navatar=" + AvatarPath + "\n", Encoding.UTF8);
             }
             catch { }
     }

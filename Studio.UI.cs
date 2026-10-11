@@ -122,7 +122,7 @@ partial class StudioForm : Form
         var now = DateTime.Now;
         if (ClientSize.Width != lastW || ClientSize.Height != lastH) { lastW = ClientSize.Width; lastH = ClientSize.Height; lastFrame = now; return true; }
         if (eng.Playing) lastPlayAt = now;
-        bool anim = eng.Playing || busy || browserOpen || dragReg != null || (now - lastInput).TotalMilliseconds < 600 || animOff.Count > 0 || ghostOn || (now - toastAt).TotalSeconds < 3.7 || (now - lastPlayAt).TotalMilliseconds < 1500 || installing.Length > 0 || mic != null || Auditioner.IsPlaying;   // the 1.5 s after playback lets the meters settle
+        bool anim = eng.Playing || busy || browserOpen || dragReg != null || (now - lastInput).TotalMilliseconds < 600 || animOff.Count > 0 || ghostOn || btnAnim || (now - toastAt).TotalSeconds < 3.7 || (now - lastPlayAt).TotalMilliseconds < 1500 || installing.Length > 0 || mic != null || Auditioner.IsPlaying;   // the 1.5 s after playback lets the meters settle
         double gap = (now - lastFrame).TotalMilliseconds;
         // a slow computer redraws less often (paint time x3) so the window never starves the audio
         lastIdle = !anim; if (!(anim ? gap >= Math.Max(FrameGapMs, Math.Min(250, paintMs * 3)) : gap >= 1000)) return false;
@@ -244,19 +244,27 @@ partial class StudioForm : Form
     };
 
     // style: 0 normal, 1 accent, 2 hot gradient, 3 danger, 4 toggle-on
+    // buttons glide into their hover look instead of snapping (a little hover amount per button, 0 to 1)
+    readonly Dictionary<long, float> hoverT = new Dictionary<long, float>(); bool btnAnim;
+    float HoverAmount(RectangleF r, string text)
+    {
+        long key = ((long)(int)r.X << 42) ^ ((long)(int)r.Y << 24) ^ ((long)(int)r.Width << 8) ^ (long)(uint)text.GetHashCode(); float t; hoverT.TryGetValue(key, out t); float nt = Hot(r) ? t + (1 - t) * 0.4f : t * 0.7f;
+        if (nt < 0.015f) nt = 0; else if (nt > 0.985f) nt = 1; if (nt == 0) hoverT.Remove(key); else { if (hoverT.Count > 400) hoverT.Clear(); hoverT[key] = nt; if (nt < 1) btnAnim = true; } return nt;
+    }
     HitReg Btn(Graphics g, RectangleF r, string text, int style, Action down, float px = 15)
     {
         if (Hot(r)) { string hh; if (Hints.TryGetValue(text, out hh)) hintNow = hh; }
+        float ht = HoverAmount(r, text);
         Color c = style == 1 ? Violet : (style == 3 ? Color.FromArgb(150, 40, 80) : (style == 4 ? Color.FromArgb(150, 70, 230) : BtnC));
-        if (Hot(r)) c = Color.FromArgb(Math.Min(255, c.R + 28), Math.Min(255, c.G + 22), Math.Min(255, c.B + 30));
+        if (ht > 0) c = Color.FromArgb(Math.Min(255, c.R + (int)(28 * ht)), Math.Min(255, c.G + (int)(22 * ht)), Math.Min(255, c.B + (int)(30 * ht)));
         if (style == 2)
         {
             using (var p = RR(r, 8)) using (var br = new LinearGradientBrush(r, Color.FromArgb(150, 60, 240), Color.FromArgb(236, 92, 226), 0f)) g.FillPath(br, p);
-            if (Hot(r)) FillRR(g, Color.FromArgb(40, 255, 255, 255), r, 8);
+            if (ht > 0) FillRR(g, Color.FromArgb((int)(40 * ht), 255, 255, 255), r, 8);
         }
         else FillRR(g, c, r, 6);
         StrokeRR(g, Color.FromArgb(style == 2 ? 200 : 110, 200, 150, 255), r, style == 2 ? 8 : 6, 1);
-        if (style == 4) Glow(g, Accent2, r, 8, 0.8f, 3); else if (Hot(r)) Glow(g, NeonCyan, r, 8, 0.7f, 3); else if (style == 2) Glow(g, NeonViolet, r, 8, 0.5f, 3);
+        if (style == 4) Glow(g, Accent2, r, 8, 0.8f, 3); else if (ht > 0.03f) Glow(g, NeonCyan, r, 8, 0.7f * ht, 3); else if (style == 2) Glow(g, NeonViolet, r, 8, 0.5f, 3);
         Txt(g, text, px, Color.White, r, StringAlignment.Center, style == 2 || style == 1);
         return Reg(r, down);
     }
@@ -293,7 +301,7 @@ partial class StudioForm : Form
 
     void PaintAll(PaintEventArgs e)
     {
-        hintNow = ""; bubble = "";
+        hintNow = ""; bubble = ""; btnAnim = false;
         var g = e.Graphics; g.SmoothingMode = SmoothingMode.AntiAlias; g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
         regs.Clear();
         var full = new RectangleF(0, 0, ClientSize.Width, ClientSize.Height);

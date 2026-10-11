@@ -532,7 +532,7 @@ static class ProjectIO
         }
         if (CoverBytes != null && CoverBytes.Length > 0) sb.Append("cover|").Append(Convert.ToBase64String(CoverBytes)).Append((char)10);
         if (Lyrics.Length > 0 || LyricsTitle.Length > 0) sb.Append("lyrics|").Append(Convert.ToBase64String(Encoding.UTF8.GetBytes(LyricsTitle))).Append('|').Append(Convert.ToBase64String(Encoding.UTF8.GetBytes(Lyrics))).Append((char)10);
-        sb.Append(SerializeMix(eng)); File.WriteAllText(path, sb.ToString(), Encoding.UTF8);
+        sb.Append(SerializeMix(eng)); Win.WriteAtomic(path, sb.ToString(), Encoding.UTF8);
     }
 
     // Loads clips through ffmpeg (slow part), then restores plugin settings and track alignment.

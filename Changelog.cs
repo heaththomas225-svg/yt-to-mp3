@@ -7,10 +7,16 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.17.8";
+    public const string Latest = "3.17.9";
 
     public const string Text =
-@"3.17.8  Smoother dragging, Count In + Metronome, Grid size, track pickers, presets
+@"3.17.9  Audit fixes: safer saves, layers and rows, smoother buttons
+ + Project, lyrics, settings and library files are now written safely (a crash or power cut mid-save can no longer leave a half-written file).
+ + Duplicating or splitting a layer keeps it on the same row, and Split vocals + beat adds its tracks in the right place, so rows never get out of order.
+ + Buttons ease in and out when you hover them, and the window has rounded corners on Windows 11.
+ + The website is faster and works properly on phones (menu drawer fixed, no zoom when typing, pages are compressed).
+
+3.17.8  Smoother dragging, Count In + Metronome, Grid size, track pickers, presets
  + Dragging a clip or track is much smoother: the clip picture is no longer redrawn every frame, the zoom stops re-fitting while you hold something, and the grid draws faster.
  + COUNT IN (with the big 1 2 3 4 on screen) and a METRONOME button that really turns the click on and off.
  + Grid size button: says what it is, explains itself when hovered, lights up the grid lines when you change it, and shows a snap guide while you drag.

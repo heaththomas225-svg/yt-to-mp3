@@ -79,6 +79,19 @@ static class S
             Check("Dn on the bottom track still moves it down, making an empty row below", eng.Tracks.Count == n1 + 1 && eng.Tracks[eng.Tracks.Count - 1].Clip != null && eng.Tracks[eng.Tracks.Count - 2].Clip == null, "tracks " + eng.Tracks.Count);
             while (eng.Tracks.Count > n0) lock (eng.Sync) eng.Tracks.RemoveAt(eng.Tracks.Count - 1);
         }
+        {   // the order rule: every row first, then the layers, then the buses, whatever we do (this once broke after Separate / Duplicate)
+            Func<string> order = () => { int phase = 0; foreach (var t in eng.Tracks) { int k = t.IsBus ? 2 : (t.Host != null ? 1 : 0); if (k < phase) return "bad order at " + t.Name; phase = k; } return ""; };
+            var bf = BF; var tOrder = StudioEngine.NewTrack("OrdA", "audio", Clip(6)); lock (eng.Sync) eng.Tracks.Insert((int)typeof(StudioForm).GetProperty("LaneCount", bf).GetValue(sf, null), tOrder);
+            var bus1 = (Track)typeof(StudioForm).GetMethod("AddBus", bf).Invoke(sf, null); Check("order: adding a bus keeps the rows first", order() == "", order());
+            var tL = StudioEngine.NewTrack("OrdB", "audio", Clip(6)); lock (eng.Sync) eng.Tracks.Insert((int)typeof(StudioForm).GetProperty("LaneCount", bf).GetValue(sf, null), tL);
+            Check("order: a row added when a bus exists lands before the bus", order() == "", order());
+            typeof(StudioForm).GetMethod("MergeRows", bf).Invoke(sf, new object[] { tL, tOrder }); Check("order: sharing a row moves the track after the rows but before the bus", order() == "", order());
+            typeof(StudioForm).GetMethod("DuplicateTrack", bf).Invoke(sf, new object[] { tL }); Check("order: duplicating a track that shares a row keeps the rule (the copy shares the row too)", order() == "" && eng.Tracks.FindAll(t => t.Host == tOrder).Count == 2, order());
+            typeof(StudioForm).GetMethod("SplitTrack", bf).Invoke(sf, new object[] { tOrder, tOrder.Offset + 2 * StudioEngine.SR }); Check("order: splitting keeps the rule", order() == "", order());
+            typeof(StudioForm).GetMethod("DoUndo", bf).Invoke(sf, null); Check("order: undo keeps the rule", order() == "", order()); typeof(StudioForm).GetMethod("DoRedo", bf).Invoke(sf, null); Check("order: redo keeps the rule", order() == "", order());
+            typeof(StudioForm).GetMethod("DeleteTrackQuiet", bf).Invoke(sf, new object[] { tOrder }); Check("order: deleting a row removes its layers and keeps the rule", order() == "" && !eng.Tracks.Exists(t => t.Host == tOrder), order());
+            typeof(StudioForm).GetMethod("DeleteTrackQuiet", bf).Invoke(sf, new object[] { bus1 }); typeof(StudioForm).GetMethod("DeleteTrackQuiet", bf).Invoke(sf, new object[] { tL });
+        }
         {   // different kinds of track can share one row (nothing is pushed up or down)
             var lane0 = F<int>("LaneH"); int n0 = eng.Tracks.Count, rows0 = (int)typeof(StudioForm).GetProperty("LaneCount", BF).GetValue(sf, null);
             var ta = StudioEngine.NewTrack("HostRow", "audio", Clip(3)); lock (eng.Sync) eng.Tracks.Add(ta); rows0++; n0++; var extra = StudioEngine.NewTrack("Layered", "audio", Clip(3)); lock (eng.Sync) eng.Tracks.Add(extra);

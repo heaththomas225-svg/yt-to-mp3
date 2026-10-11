@@ -37,7 +37,7 @@ class Job
 partial class App : Form
 {
     // ---- Auto-update settings ----
-    const string Version = "3.17.8";
+    const string Version = "3.17.9";
     // Plain-text manifest: line 1 = newest version, line 2 = direct exe download URL.
     const string UpdateManifestUrl = "https://raw.githubusercontent.com/heaththomas225-svg/yt-to-mp3/main/version.txt";
 
@@ -375,13 +375,13 @@ partial class App : Form
         {
             Directory.CreateDirectory(AppData);
             Rectangle b = WindowState == FormWindowState.Normal ? Bounds : RestoreBounds;
-            File.WriteAllLines(SettingsFile, new[] {
+            Win.WriteAtomic(SettingsFile, string.Join("\r\n", new[] {
                 "fmt=" + fmt.SelectedIndex, "fmtv=2", "sr=" + sr.SelectedIndex, "name=" + nameFmt.SelectedIndex,
                 "dir=" + outDir.Text, "norm=" + norm.Checked, "playlist=" + playlist.Checked,
                 "open=" + openDone.Checked, "anim=" + animate.Checked,
                 "x=" + b.X, "y=" + b.Y, "w=" + b.Width, "h=" + b.Height,
                 "max=" + (WindowState == FormWindowState.Maximized), "seen=" + seenVer, "ffilter=" + ExtraFilter,
-                "master=" + Master.Serialize(), "mzoom=" + MZoomPct }.Concat(Prefs.Lines()).ToArray());
+                "master=" + Master.Serialize(), "mzoom=" + MZoomPct }.Concat(Prefs.Lines()).ToArray()) + Environment.NewLine, System.Text.Encoding.UTF8);
         }
         catch { }
     }

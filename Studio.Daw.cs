@@ -92,7 +92,7 @@ partial class StudioForm
         foreach (var f in t.Fx) { var c = CloneFx(f); if (c != null) { var ic = c as InstrumentFx; if (ic != null) ic.Owner = n; n.Fx.Add(c); } }
         return n;
     }
-    void InsertAfter(Track after, Track n) { lock (eng.Sync) { int i = eng.Tracks.IndexOf(after); eng.Tracks.Insert(i < 0 ? eng.Tracks.Count : i + 1, n); } selTrack = eng.Tracks.IndexOf(n); selFx = -1; }
+    void InsertAfter(Track after, Track n) { n.Host = after.Host; n.Out = after.Out; lock (eng.Sync) { int i = eng.Tracks.IndexOf(after); eng.Tracks.Insert(i < 0 ? FirstBusIndex() : i + 1, n); } selTrack = Math.Max(0, eng.Tracks.IndexOf(n.Host ?? n)); selFx = -1; }   // a copy of a layer stays a layer; rows stay before layers and buses
 
     void SplitSelected() { SplitTrack(Selected, Snap(DispPos)); }
     void SplitTrack(Track t, long at)

@@ -115,7 +115,7 @@ partial class StudioForm
             string sname = st.Name; var tv = StudioEngine.NewTrack(sname + " - Vocals", "vocal", vc); var tb = StudioEngine.NewTrack(sname + " - Instrumental", "beat", ic); tv.Offset = off; tb.Offset = off; tv.ClipStart = tb.ClipStart = st.ClipStart; tv.ClipFrames = tb.ClipFrames = st.ClipFrames;
             st.Mute = true; if (!st.Name.EndsWith("(original)")) st.Name += " (original)";
             if (st.Clip != null && st.Clip.Length > StudioEngine.SR * 600) st.Clip.Unload();   // long originals leave memory; reloaded if you un-mute them
-            lock (eng.Sync) { eng.Tracks.Add(tv); eng.Tracks.Add(tb); } selTrack = eng.Tracks.Count - 2; selFx = -1;
+            lock (eng.Sync) { int ins = LaneCount; eng.Tracks.Insert(ins, tv); eng.Tracks.Insert(ins + 1, tb); } selTrack = eng.Tracks.IndexOf(tv); selFx = -1;   // the new tracks go with the other rows, never after the buses
             Toast("Separated: vocals and instrumental are ready, perfectly in sync. Stems saved in " + outDir);
         });
     }

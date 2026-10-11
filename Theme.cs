@@ -16,6 +16,12 @@ static class Win
     static int lastRepaint;
     public static void PaintPending(Control c) { try { if (c != null && c.IsHandleCreated) RedrawWindow(c.Handle, IntPtr.Zero, IntPtr.Zero, 0x0080 | 0x0100); } catch { } }   // RDW_ALLCHILDREN | RDW_UPDATENOW
     public static void RepaintAll(Control c) { try { if (c != null && c.IsHandleCreated && unchecked(Environment.TickCount - lastRepaint) > 60) { lastRepaint = Environment.TickCount; RedrawWindow(c.Handle, IntPtr.Zero, IntPtr.Zero, 0x0001 | 0x0080 | 0x0100); } } catch { } }   // + RDW_INVALIDATE
+    // Saves that cannot half-finish: the text goes to a side file first and replaces the real one only when it is all written (a crash, a full disk or a power cut can no longer leave a broken project, list or settings file behind).
+    public static void WriteAtomic(string path, string text, System.Text.Encoding enc)
+    {
+        string tmp = path + ".tmp"; System.IO.File.WriteAllText(tmp, text, enc);
+        if (System.IO.File.Exists(path)) { try { System.IO.File.Replace(tmp, path, null); } catch { System.IO.File.Copy(tmp, path, true); try { System.IO.File.Delete(tmp); } catch { } } } else System.IO.File.Move(tmp, path);
+    }
     public static void WidenBuffers() { try { BufferedGraphicsManager.Current.MaximumBuffer = new Size(8192, 4608); } catch { } }
     // set every pixel fully opaque, so a background picture with a hole in it can never let the desktop (or another window) show through
     public static void ForceOpaque(Bitmap b)
@@ -45,6 +51,7 @@ static class Win
                 int one = 1; DwmSetWindowAttribute(f.Handle, 20, ref one, 4); DwmSetWindowAttribute(f.Handle, 19, ref one, 4);
                 int cap = 10 | (4 << 8) | (20 << 16), txt = 235 | (225 << 8) | (255 << 16), border = 110 | (60 << 8) | (190 << 16);
                 DwmSetWindowAttribute(f.Handle, 35, ref cap, 4); DwmSetWindowAttribute(f.Handle, 36, ref txt, 4); DwmSetWindowAttribute(f.Handle, 34, ref border, 4);
+                int round = 2; DwmSetWindowAttribute(f.Handle, 33, ref round, 4);   // Windows 11: softly rounded window corners
             }
             catch { }
         };

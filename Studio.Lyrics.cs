@@ -36,7 +36,7 @@ partial class StudioForm
         lyricBox.TextChanged += (s, e) => { lyricStatsDirty = true; ProjectIO.Lyrics = lyricBox.Text; lyricSave.Stop(); lyricSave.Start(); };
         lyricTitle.TextChanged += (s, e) => { ProjectIO.LyricsTitle = lyricTitle.Text; lyricSave.Stop(); lyricSave.Start(); };
         lyricBox.KeyUp += (s, e) => Invalidate(); lyricBox.MouseUp += (s, e) => Invalidate();
-        lyricSave = new System.Windows.Forms.Timer { Interval = 900 }; lyricSave.Tick += (s, e) => { lyricSave.Stop(); try { Directory.CreateDirectory(StudioEnv.DataDir); File.WriteAllText(Path.Combine(StudioEnv.DataDir, "lyrics-draft.txt"), ProjectIO.LyricsTitle + "\n" + ProjectIO.Lyrics, Encoding.UTF8); } catch { } };
+        lyricSave = new System.Windows.Forms.Timer { Interval = 900 }; lyricSave.Tick += (s, e) => { lyricSave.Stop(); try { Directory.CreateDirectory(StudioEnv.DataDir); Win.WriteAtomic(Path.Combine(StudioEnv.DataDir, "lyrics-draft.txt"), ProjectIO.LyricsTitle + "\n" + ProjectIO.Lyrics, Encoding.UTF8); } catch { } };
         if (ProjectIO.Lyrics.Length == 0 && ProjectIO.LyricsTitle.Length == 0) { try { string f = Path.Combine(StudioEnv.DataDir, "lyrics-draft.txt"); if (File.Exists(f)) { string all = File.ReadAllText(f, Encoding.UTF8); int nl = all.IndexOf('\n'); if (nl >= 0) { ProjectIO.LyricsTitle = all.Substring(0, nl); ProjectIO.Lyrics = all.Substring(nl + 1); } } } catch { } }
     }
 

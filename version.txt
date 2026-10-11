@@ -1,4 +1,4 @@
-3.17.8
+
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Smoother dragging, Count In and Metronome, Grid size, track pickers, bus presets
-sha256=06db087bac555a34ead02594b5d45021524ebaad8f74a45531028ba06df95e64
+
+sha256=0a8f075f8dc1a2d3421523c75868ba52703735b8428a5da50f08c0e342e0c2cf
