@@ -1,4 +1,4 @@
-3.17.4
+3.17.5
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Discord button on Community, single frame-rate readout
-sha256=a7f9c9fe7cb08b8a32ac2065695727693d65b7fd96cde4993d542d0263f32867
+Hologram drag for tracks and clips, no What-is-this-file question
+sha256=

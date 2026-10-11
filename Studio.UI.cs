@@ -122,7 +122,7 @@ partial class StudioForm : Form
         var now = DateTime.Now;
         if (ClientSize.Width != lastW || ClientSize.Height != lastH) { lastW = ClientSize.Width; lastH = ClientSize.Height; lastFrame = now; return true; }
         if (eng.Playing) lastPlayAt = now;
-        bool anim = eng.Playing || busy || browserOpen || dragReg != null || (now - lastInput).TotalMilliseconds < 600 || (now - toastAt).TotalSeconds < 3.7 || (now - lastPlayAt).TotalMilliseconds < 1500 || installing.Length > 0 || mic != null || Auditioner.IsPlaying;   // the 1.5 s after playback lets the meters settle
+        bool anim = eng.Playing || busy || browserOpen || dragReg != null || (now - lastInput).TotalMilliseconds < 600 || animOff.Count > 0 || ghostOn || (now - toastAt).TotalSeconds < 3.7 || (now - lastPlayAt).TotalMilliseconds < 1500 || installing.Length > 0 || mic != null || Auditioner.IsPlaying;   // the 1.5 s after playback lets the meters settle
         double gap = (now - lastFrame).TotalMilliseconds;
         // a slow computer redraws less often (paint time x3) so the window never starves the audio
         lastIdle = !anim; if (!(anim ? gap >= Math.Max(FrameGapMs, Math.Min(250, paintMs * 3)) : gap >= 1000)) return false;
@@ -453,7 +453,7 @@ partial class StudioForm : Form
     void PaintMix(Graphics g)
     {
         float top = ToolH + TransH; var tl = TimelineRect();
-        PruneTrackCaches();
+        PruneTrackCaches(); StepAnim(GhostDt());
         int n = LaneCount;   // buses are not lanes: they live in the Buses sheet and in each track's Bus drop-down
         if (autoFit && (lastFitW != (int)tl.Width || lastFitLen != eng.EndFrame) && tl.Width > 100) { FitView(); lastFitW = (int)tl.Width; lastFitLen = eng.EndFrame; }
         // clamp selection
@@ -468,15 +468,17 @@ partial class StudioForm : Form
         for (int i = 0; i < n; i++, y += LaneH)
         {
             if (y + LaneH < top + RulerH || y > ClientSize.Height) continue;
-            var tr = eng.Tracks[i]; bool sel = i == selTrack;
-            var lane = Rc(HeadW, y, tl.Width, LaneH); using (var br = new SolidBrush(i % 2 == 0 ? Lane : Lane2)) g.FillRectangle(br, lane);
+            var tr = eng.Tracks[i]; bool sel = i == selTrack; float ys = y + AnimOff(tr);   // ys: where this row is drawn right now (it slides when rows swap)
+            var lane = Rc(HeadW, ys, tl.Width, LaneH); using (var br = new SolidBrush(i % 2 == 0 ? Lane : Lane2)) g.FillRectangle(br, lane);
             if (tr.IsBus) PaintBusLane(g, tr, lane); else if (tr.Instrument) PaintMidi(g, tr, lane); else if (tr.Clip == null) PaintEmptyLane(g, tr, lane); else PaintWave(g, tr, lane, sel);
             var lr = LaneReg(lane, tr); int idx = i;
             PaintLaneTools(g, tr, lane);
-            PaintHeader(g, tr, i, Rc(0, y, HeadW, LaneH), sel);
-            NeonLaneChrome(g, tr, Rc(0, y, HeadW, LaneH), lane, sel);
-            using (var pen = new Pen(Color.FromArgb(70, 140, 85, 210))) g.DrawLine(pen, 0, y + LaneH, tl.Right, y + LaneH);
+            PaintHeader(g, tr, i, Rc(0, ys, HeadW, LaneH), sel);
+            NeonLaneChrome(g, tr, Rc(0, ys, HeadW, LaneH), lane, sel);
+            using (var pen = new Pen(Color.FromArgb(70, 140, 85, 210))) g.DrawLine(pen, 0, ys + LaneH, tl.Right, ys + LaneH);
+            PaintGhostSlot(g, tr, Rc(0, ys, tl.Right, LaneH));
         }
+        PaintGhost(g, tl, top);
         AddTrackRow(g, Math.Max(y, top + RulerH), n);
         { float ey = Math.Max(y, top + RulerH); if (ey < ClientSize.Height) { var em = Reg(Rc(HeadW, ey, tl.Width, ClientSize.Height - ey), () => { toolsTrack = null; eng.Seek(Math.Max(0, Snap(scroll + (long)((MousePos.X - HeadW) * spp)))); }); em.OnDrag = pt => eng.Seek(Math.Max(0, Snap(scroll + (long)((pt.X - HeadW) * spp)))); } }
         if (n == 0)
@@ -608,7 +610,7 @@ partial class StudioForm : Form
         var pill = Rc(r.X + 186, r.Y + 8, 52, 18); FillRR(g, Color.FromArgb(90, Neon(tr.Color)), pill, 9); StrokeRR(g, Color.FromArgb(200, Neon(tr.Color)), pill, 9, 1); Txt(g, role, 10, Color.White, pill, StringAlignment.Center, true);
         int ti = i; var tk = tr;
         Btn(g, Rc(r.Right - 34, r.Y + 7, 22, 22), "x", 3, () => RemoveTrack(tk), 13);
-        var nameReg = Reg(Rc(r.X + 4, r.Y + 4, 176, 26), () => HeaderDown(tk)); nameReg.OnDrag = pt => HeaderDrag(tk, pt); nameReg.OnDouble = () => RenameTrack(tk); nameReg.OnRight = () => RenameTrack(tk);
+        var nameReg = Reg(Rc(r.X + 4, r.Y + 4, 176, 26), () => HeaderDown(tk)); nameReg.OnDrag = pt => HeaderDrag(tk, pt); nameReg.OnUp = () => GhostEnd(); nameReg.OnDouble = () => RenameTrack(tk); nameReg.OnRight = () => RenameTrack(tk);
         if (Hot(Rc(r.X + 4, r.Y + 4, 176, 26))) bubble = "Drag up or down to reorder.  Double-click to rename."; bubblePt = MousePos;
         // M / S, + Add Effect, Out
         float bh = 30;

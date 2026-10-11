@@ -148,7 +148,7 @@ partial class StudioForm
     }
     HitReg LaneReg(RectangleF lane, Track tr)
     {
-        var lr = Reg(lane, () => LaneDown(tr, lane)); lr.OnDrag = pt => LaneDrag(tr, pt); lr.OnUp = () => LaneDrop(tr); lr.OnRight = () => LaneMenu(tr); lr.OnDouble = () => { if (tr.Instrument) OpenRoll(tr); };
+        var lr = Reg(lane, () => LaneDown(tr, lane)); lr.OnDrag = pt => LaneDrag(tr, pt); lr.OnUp = () => { LaneDrop(tr); GhostEnd(); }; lr.OnRight = () => LaneMenu(tr); lr.OnDouble = () => { if (tr.Instrument) OpenRoll(tr); };
         if (Hot(lane)) hintNow = "Click a track to select it and show its buttons.  Drag a clip to move it, drag its ends to trim.  Click the ruler or the empty area to move the needle.  Right-click = split, trim, copy, delete.";
         return lr;
     }
@@ -159,14 +159,14 @@ partial class StudioForm
         {
             laneMode = ZoneAt(tr, lane, MousePos); laneMoved = false;
             if (laneMode >= 2) { PushUndo(); laneMoved = true; l0Offset = tr.Offset; l0ClipStart = tr.ClipStart; l0ClipFrames = tr.ClipFrames; l0Used = tr.UsedLength; return; }
-            if (laneMode == 1) { l0Offset = tr.Offset; l0ClipStart = tr.ClipStart; l0ClipFrames = tr.ClipFrames; l0Used = tr.UsedLength; return; }   // clicking a clip selects it, dragging moves it: the needle stays where it is
+            if (laneMode == 1) { GhostGrab(tr); l0Offset = tr.Offset; l0ClipStart = tr.ClipStart; l0ClipFrames = tr.ClipFrames; l0Used = tr.UsedLength; return; }   // clicking a clip selects it, dragging moves it: the needle stays where it is
         }
     }
     void LaneDrag(Track tr, PointF pt)
     {
         if (laneMode == 0) return;
         long delta = (long)((pt.X - laneStart.X) * spp);
-        if (laneMode == 1) { if (!laneMoved) { if (Math.Abs(pt.X - laneStart.X) < 4) return; PushUndo(); laneMoved = true; } tr.Offset = Math.Max(0, Snap(l0Offset + delta)); return; }
+        if (laneMode == 1) { if (!laneMoved) { if (Math.Abs(pt.X - laneStart.X) < 4 && Math.Abs(pt.Y - laneStart.Y) < 4) return; PushUndo(); laneMoved = true; } GhostStart(tr, 0); tr.Offset = Math.Max(0, Snap(l0Offset + delta)); return; }
         long avail = Math.Max(0, tr.Clip.Length - l0ClipStart);
         if (laneMode == 2)
         {
@@ -254,16 +254,18 @@ partial class StudioForm
     {
         int i = eng.Tracks.IndexOf(tr); if (i < 0) return; PushUndo();
         if (i + dir < 0 || i + dir >= LaneCount) { lock (eng.Sync) eng.Tracks.Insert(dir < 0 ? 0 : LaneCount, EmptyAudioTrack()); if (dir < 0) i++; }   // nothing there yet: make an empty track so it can still move
-        int j = i + dir; lock (eng.Sync) { eng.Tracks.RemoveAt(i); eng.Tracks.Insert(j, tr); } selTrack = j;
+        int j = i + dir; AnimShift(tr, -dir); AnimShift(eng.Tracks[j], dir); lock (eng.Sync) { eng.Tracks.RemoveAt(i); eng.Tracks.Insert(j, tr); } selTrack = j;
     }
     // dragging a track's header up or down changes its row
     bool headerUndo;
-    void HeaderDown(Track tr) { selTrack = Math.Max(0, eng.Tracks.IndexOf(tr)); selFx = -1; headerUndo = false; toolsTrack = tr; }
+    void HeaderDown(Track tr) { selTrack = Math.Max(0, eng.Tracks.IndexOf(tr)); selFx = -1; headerUndo = false; toolsTrack = tr; GhostGrab(tr); }
     void HeaderDrag(Track tr, PointF pt)
     {
         int i = eng.Tracks.IndexOf(tr); if (i < 0) return; float top = ToolH + TransH + RulerH - vscroll;
         int target = (int)Math.Floor((pt.Y - top) / LaneH); target = Math.Max(0, Math.Min(LaneCount - 1, target)); if (target == i) return;
         if (!headerUndo) { PushUndo(); headerUndo = true; }
+        GhostStart(tr, 1);
+        for (int k = Math.Min(i, target); k <= Math.Max(i, target); k++) if (k != i && k < eng.Tracks.Count) AnimShift(eng.Tracks[k], target > i ? 1 : -1);   // the rows we pass slide one place
         lock (eng.Sync) { eng.Tracks.RemoveAt(i); eng.Tracks.Insert(target, tr); } selTrack = target;
     }
     void PaintBubble(Graphics g)

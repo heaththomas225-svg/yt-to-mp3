@@ -67,8 +67,7 @@ partial class StudioForm
     {
         if (path.EndsWith(".ytmproj", StringComparison.OrdinalIgnoreCase)) { OpenProjectPath(path); return; }
         if (busy) { importQueue.Enqueue(path); Toast("Queued " + Path.GetFileName(path)); return; }
-        string role = StudioDialogs.ChooseRole(this, Path.GetFileName(path)); if (role == null) return;
-        ImportFile(path, role);
+        ImportFile(path, "song");   // straight onto the chart: no "what is this file?" question
     }
 
     internal void ImportFile(string path, string role)
@@ -94,9 +93,9 @@ partial class StudioForm
     void SeparateClick()
     {
         Track song = null;
-        if (selTrack < eng.Tracks.Count && eng.Tracks[selTrack].Role == "song") song = eng.Tracks[selTrack];
-        if (song == null) foreach (var t in eng.Tracks) if (t.Role == "song") { song = t; break; }
-        if (song == null) { Toast("Add a full song first (ADD MUSIC, choose \"Full song\"), then separate it."); return; }
+        if (selTrack < eng.Tracks.Count && eng.Tracks[selTrack].Clip != null && !eng.Tracks[selTrack].Instrument && !eng.Tracks[selTrack].IsBus) song = eng.Tracks[selTrack];
+        if (song == null) foreach (var t in eng.Tracks) if (t.Clip != null && !t.Instrument && t.Role == "song") { song = t; break; }
+        if (song == null) { Toast("Add a song first (ADD MUSIC), select it, then split it."); return; }
         if (song.Clip == null || string.IsNullOrEmpty(song.Clip.Path) || !File.Exists(song.Clip.Path)) { MessageBox.Show(this, "That track's audio file couldn't be found on disk."); return; }
         if (StudioEnv.Ffmpeg() == null) { MessageBox.Show(this, "ffmpeg isn't installed yet. Convert something once in the main window first (that installs ffmpeg)."); return; }
         if (!Separator.Installed && MessageBox.Show(this,

@@ -7,10 +7,14 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.17.4";
+    public const string Latest = "3.17.5";
 
     public const string Text =
-@"3.17.4  Discord button, one frame-rate readout
+@"3.17.5  Dragging tracks, no import question
+ + Drag a track or clip and you see it: a see-through glowing copy follows the mouse smoothly, the slot it left stays marked, the row it will land on lights up (or shows + new track), and the other rows slide into place.
+ + ADD MUSIC puts the file straight on the chart. The "What is this file?" question is gone.
+
+3.17.4  Discord button, one frame-rate readout
  + Community page: Join the Discord button (the invite comes from the website, so it can change without an app update).
  + The extra frame-rate badge in the corner of the converter window is gone; the title bar shows it.
 
