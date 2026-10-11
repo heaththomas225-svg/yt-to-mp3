@@ -44,7 +44,6 @@ partial class StudioForm
     }
     // BACK only appears when it has somewhere to take you that is not home (HOME is its own button)
     bool ShowBack { get { for (int i = navStack.Count - 1; i >= 0; i--) { int t = navStack[i]; if (t == tab) continue; return t != 0; } return false; } }
-    bool ShowHome { get { return tab != 0; } }
 
     // ---------- REVERT: whenever something is applied (a preset, a style, a theme, AUTO MASTERING...) a bar offers to put everything back as it was ----------
     Action revertAction; string revertText = ""; DateTime revertUntil;

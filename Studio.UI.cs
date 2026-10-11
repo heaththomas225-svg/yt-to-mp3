@@ -108,7 +108,7 @@ partial class StudioForm : Form
         app = owner; eng = app.StudioEng; Win.Dark(this); InitEdit();
         Text = "Purphex Music"; StartPosition = FormStartPosition.CenterParent; BackColor = Bg0;
         ClientSize = new Size(1360, 800); MinimumSize = new Size(1240, 680);
-        DoubleBuffered = true; KeyPreview = true; AllowDrop = true;
+        DoubleBuffered = true; KeyPreview = true;   /* AllowDrop is switched on in OnHandleCreated (Studio.Crash.cs) so a refused registration cannot crash */
         SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw | ControlStyles.Selectable, true);
         studioLoop = new FrameLoop(this, FrameStep) { Slow = () => WindowState == FormWindowState.Minimized }; ApplyFps();
         InstrumentFx.Recorder = OnMidiNote;
@@ -586,9 +586,8 @@ partial class StudioForm : Form
 
         // tabs on the right; master meters in whatever room is left between
         float tx = W - 328;
-        float mx = Math.Max(x + 16, W - PanelW - 300); bool showBack = ShowBack, showHome = ShowHome; float room = tx - 12 - mx - (showBack ? 106 : 0) - (showHome ? 106 : 0); float bx0 = tx - 6;
+        float mx = Math.Max(x + 16, W - PanelW - 300); bool showBack = ShowBack; float room = tx - 12 - mx - (showBack ? 106 : 0);   /* no HOME here: the MIX tab is beside it */ float bx0 = tx - 6;
         if (showBack) { bx0 -= 100; Btn(g, Rc(bx0, y, 100, h), "BACK", 0, () => GoBack(), 14); bx0 -= 6; }
-        if (showHome) { bx0 -= 100; Btn(g, Rc(bx0, y, 100, h), "HOME", 2, () => GoHome(), 14); }
         if (room >= 70)
         {
             Txt(g, "MASTER", 11, DimC, Rc(mx, y - 4, 60, 14), StringAlignment.Near, false);

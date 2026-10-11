@@ -612,7 +612,7 @@ This page never writes or suggests lyrics for you: every word is yours."),
 
         new HelpTopic("studio-profile","Purphex Music", "Your profile, artists and following", false, @"
 ## Your profile
-1. Open the side menu and press Profile (or press GO TO YOUR PROFILE on the Community page).
+1. Press PROFILE at the top of the studio (or Profile in the side menu).
 2. Press CHOOSE BANNER for any picture and move it with the slider, press CHOOSE PICTURE for your round picture, and pick an accent colour.
 3. Press EDIT beside your name, bio, where you are, LINKS and genres. Any web address works as a link: your website, YouTube, SoundCloud, Spotify, Instagram, a shop.
 4. Your tracks are listed at the bottom with a play button each.
@@ -620,7 +620,7 @@ This page never writes or suggests lyrics for you: every word is yours."),
 1. Press PUBLISH MY PROFILE to put it in the community. It is shared under a secret key made on this PC (there is no sign-in). Press it again after you change something.
 2. MAKE IT PRIVATE takes it out of the community again.
 ## Find other producers
-1. Press SEARCH ARTISTS on the Community page. Type a name or a genre, and use SORT or FOLLOWING to change the list.
+1. Press ARTISTS at the top of the studio (or Artists in the side menu). Type a name or a genre, and use SORT or FOLLOWING to change the list.
 2. Click an artist to open their profile: banner, bio, links, tracks and followers.
 3. Press FOLLOW to follow them. The artists you follow show on your profile.
 TIP: Profile pictures are never buttons. Everything about editing your profile is on the PROFILE page."),
@@ -739,7 +739,7 @@ class HelpForm : Form
 
     // the buttons the guides talk about: the words in the text, and the button they point at (SHOW ME finds it on screen, whatever page it is on)
     static readonly string[][] UiLabels = {
-        new[] { "GO TO YOUR PROFILE", "GO TO YOUR PROFILE" }, new[] { "CHOOSE BANNER", "CHOOSE BANNER" }, new[] { "CHOOSE PICTURE", "CHOOSE PICTURE" }, new[] { "PUBLISH MY PROFILE", "PUBLISH MY PROFILE" }, new[] { "SEARCH ARTISTS", "SEARCH ARTISTS" },
+        new[] { "GO TO YOUR PROFILE", "PROFILE" }, new[] { "CHOOSE BANNER", "CHOOSE BANNER" }, new[] { "CHOOSE PICTURE", "CHOOSE PICTURE" }, new[] { "PUBLISH MY PROFILE", "PUBLISH MY PROFILE" }, new[] { "SEARCH ARTISTS", "ARTISTS" },
         new[] { "SPLIT VOCALS + BEAT", "SPLIT VOCALS + BEAT" }, new[] { "ADD MUSIC", "ADD MUSIC" }, new[] { "Add music", "ADD MUSIC" }, new[] { "AUTO MASTERING", "AUTO MASTERING" }, new[] { "VISUALISER", "VISUALISER" }, new[] { "AUTO LOUDNESS", "AUTO LOUDNESS" }, new[] { "PREVIEW MASTER", "PREVIEW MASTER" }, new[] { "AUTO MIX", "AUTO MIX" }, new[] { "UNDO MIX", "Undo mix" }, new[] { "Undo mix", "Undo mix" }, new[] { "Undo Auto Mix", "Undo mix" },
         new[] { "Detect Track key", "Detect Track key" }, new[] { "Detect key", "Detect Track key" }, new[] { "THIN TRACKS", "THIN TRACKS" }, new[] { "VOCAL STYLES", "VOCAL STYLES" }, new[] { "Vocal Styles", "VOCAL STYLES" }, new[] { "ADD EFFECT", "+ Add Effect" }, new[] { "Add Effect", "+ Add Effect" }, new[] { "Add effect", "+ Add Effect" },
         new[] { "RECYCLING BIN", "RECYCLING BIN" }, new[] { "ADD SECTIONS", "ADD SECTIONS" }, new[] { "COUNT IN", "COUNT IN" }, new[] { "METRONOME", "METRONOME" }, new[] { "GRID SIZE", "GRID SIZE" }, new[] { "DETECT BPM", "DETECT BPM" }, new[] { "MIDI REC", "MIDI REC" }, new[] { "EXPORT", "EXPORT" }, new[] { "SAVE AS", "Save as" }, new[] { "FULLSCREEN", "FULLSCREEN" },

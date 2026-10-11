@@ -189,7 +189,7 @@ partial class StudioForm
         float W = ClientSize.Width, y = 12, h = 46;
         using (var br = new SolidBrush(TM.C(255, 18, 10, 34))) g.FillRectangle(br, 0, 0, W, ToolH); NeonRule(g, 0, ToolH, W);
         Btn(g, Rc(12, y, 48, h), "≡", 0, () => { if (menuOpen) CloseMenu(); else OpenMenu(); }, 24);
-        Txt(g, "MASTERING", 18, Ink, Rc(76, y, 190, h), StringAlignment.Near, true); Btn(g, Rc(270, y + 4, 100, h - 8), "HOME", 2, () => GoHome(), 14); if (ShowBack) Btn(g, Rc(376, y + 4, 100, h - 8), "BACK", 0, () => GoBack(), 14);
+        Txt(g, "MASTERING", 18, Ink, Rc(76, y, 190, h), StringAlignment.Near, true); if (ShowBack) Btn(g, Rc(270, y + 4, 100, h - 8), "BACK", 0, () => GoBack(), 14);   /* no HOME: the MIX tab is on this page */
         float rx = W - 14;
         Btn(g, Rc(rx - 106, y, 106, h), "EXPORT", 1, () => ExportClick(), 16); rx -= 112;
         Btn(g, Rc(rx - 58, y + 4, 58, h - 8), "Help", 2, () => app.ShowHelp(null), 14); rx -= 64;
@@ -249,12 +249,10 @@ partial class StudioForm
         if (visStageOn)
         {
             float stageH = ep0.Height - minDrawer >= 226f ? Math.Min(ep0.Height * 0.5f, ep0.Height - minDrawer) : Math.Max(190f, Math.Min(ep0.Height * 0.36f, ep0.Height - 300f)); var sa = Rc(ep0.X, ep0.Y, ep0.Width, stageH); FillRR(g, TM.C(255, 5, 2, 12), sa, 12); PaintVisStage(g, RectangleF.Inflate(sa, -3, -3), false); Win.DrawNeonBox(g, sa, false);
-            bool narrowSa = sa.Width < 560; var fb = Rc(sa.Right - (narrowSa ? 104 : 150), sa.Y + 8, narrowSa ? 94 : 140, 28); Btn(g, fb, narrowSa ? "FULL PAGE" : "FULL VISUALISER", 2, () => tab = 5, 10); Hint2(fb, "Open the visualiser as a page of its own: the light show over everything, with the level meters and the loudness cards");
             ep = Rc(ep0.X, sa.Bottom + 8, ep0.Width, ep0.Bottom - sa.Bottom - 8);
         }
         FillRR(g, Panel, ep, 12); StrokeRR(g, Edge, ep, 12, 1);
         var t1 = Rc(ep.X + 10, ep.Y + 8, 170, 32); var t2 = Rc(t1.Right + 8, ep.Y + 8, 150, 32);
-        if (!visStageOn) { var t3 = Rc(t2.Right + 8, ep.Y + 8, 150, 32); Btn(g, t3, "VISUALISER", 1, () => tab = 5, 12); Hint2(t3, "Watch your music move: the full visualiser page"); }
         Btn(g, t1, "EQ & EFFECTS", mpTab == 0 ? 4 : 0, () => mpTab = 0, 12); Hint2(t1, "Edit the selected effect of the chain (the EQ shows your sound before and after)");
         Btn(g, t2, "PRESETS", mpTab == 1 ? 4 : 0, () => mpTab = 1, 12); Hint2(t2, "Master presets you can hear before you keep them: Bass Boost, Vocal Enhance, Warm Tape and more");
         var inner = Rc(ep.X + 4, ep.Y + 46, ep.Width - 8, ep.Height - 52);

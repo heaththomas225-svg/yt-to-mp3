@@ -212,6 +212,8 @@ static class S
             SetF("tab", 0); Paint(); Check("leaving the page hides its text boxes", !lb.Visible, "");
             typeof(App).GetMethod("OpenStudio", BF).Invoke(app, null); Pump(300); var real = (Form)typeof(App).GetField("studioForm", BF).GetValue(app);
             Check("Purphex Music opened from the converter is its own window (not owned by it), so either one can be brought to the front", real != null && real.Owner == null && real.ShowInTaskbar, real == null ? "not opened" : (real.Owner == null ? "independent" : "owned")); if (real != null) real.Close();
+            { string err = ""; try { Win.ToggleFullscreen(sf); Pump(150); Win.ToggleFullscreen(sf); Pump(150); for (int q = 0; q < 3; q++) { typeof(Control).GetMethod("RecreateHandle", BindingFlags.NonPublic | BindingFlags.Instance).Invoke(sf, null); Pump(60); } } catch (Exception ex) { err = ex.GetType().Name + ": " + (ex.InnerException != null ? ex.InnerException.Message : ex.Message); }
+              Check("the studio window can be rebuilt (full screen, themes) without a drag-and-drop crash, and still takes dropped files", err.Length == 0 && sf.IsHandleCreated && !sf.IsDisposed && sf.AllowDrop, err); }
         }
         var bmp = new Bitmap(sf.ClientSize.Width, sf.ClientSize.Height); sf.DrawToBitmap(bmp, new Rectangle(0, 0, sf.Width, sf.Height)); bmp.Save("_studio_ui.png", System.Drawing.Imaging.ImageFormat.Png);
         eng.Shutdown(); Console.WriteLine(fails == 0 ? "=== studio UI checks passed ===" : "=== " + fails + " FAILED ==="); Environment.Exit(fails == 0 ? 0 : 1);

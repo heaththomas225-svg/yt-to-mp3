@@ -150,7 +150,7 @@ static class BH
     [STAThread]
     static void Main(string[] args)
     {
-        bool quick = args.Length > 0 && args[0] == "quick"; mainThread = Thread.CurrentThread;
+        bool quick = args.Length > 0 && args[0] == "quick"; mainThread = Thread.CurrentThread; Edition.Override = Tier.Fantasy;
         StudioEnv.DataDir = Path.Combine(Path.GetTempPath(), "purphex_bughaul_" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(StudioEnv.DataDir); Prefs.OutVol = 0;
         Application.EnableVisualStyles(); Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException); Application.ThreadException += (s, e) => Problem("unhandled (" + curLabel + ")", e.Exception.GetType().Name + ": " + e.Exception.Message + " at " + (e.Exception.StackTrace ?? "").Split('\n')[0].Trim());
         app = (App)Activator.CreateInstance(typeof(App), true); eng = app.StudioEng; CommunityPresets.BaseUrl = "http://127.0.0.1:1";

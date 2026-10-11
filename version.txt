@@ -1,4 +1,4 @@
-3.26.0
+3.26.1
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Editions with padlocks, licence protection, privacy and publish-to-profile, tidier side menu, Mastering visualiser in every window size, no stale theme colours, downloads go to Downloads
-sha256=b8bf2cba79abd3c9d2c25668842527e52d2d815003aacee56ae69cf1b36e12cd
+Crash fixes (no more grey .NET box; problems go to crash.log) and fewer duplicate buttons
+sha256=25fcb56307cb9515e64eeb8f64a4c95c6ddc130e30decc86a8c5e6b1193603ae

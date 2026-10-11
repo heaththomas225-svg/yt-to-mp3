@@ -2,6 +2,13 @@
 
 What changed in each version of **Purphex**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.26.1  Crash fixes and fewer duplicate buttons
+
+- Fixed the grey Microsoft .NET Framework box that said DragDrop registration did not succeed. The studio window asks Windows to accept dropped files each time it is built; when Windows refused (after full screen, a theme change or another program holding it) the program crashed. Now it just carries on, and dropping files works again the next time the window is built.
+- Any other problem inside Purphex no longer shows the grey .NET box either. It is written to crash.log (in %LocalAppData%\YtToMp3, next to settings.txt) with the time, the version and the details, the program keeps running, and one plain message says so (the same problem is not shown again for a minute). If something keeps happening, send that file on the Discord and it can be fixed.
+- Fewer duplicate buttons. The Community page lost its left menu (Home, Artists and the others were already buttons at the top), the SEARCH ARTISTS button (ARTISTS is at the top) and the YOUR PROFILE card (PROFILE is at the top). MY PROJECTS, which was only reachable from that menu, is now a button in the Community header.
+- HOME is only shown where there is no MIX button on the screen: it is gone from the Lyrics, Mastering and My Projects pages (MIX does the same). Mastering has one VISUALISER button (the top bar one; the copy on the picture is gone) and one original or mastered switch (the A and B buttons on the left; the picture only shows which one you hear).
+
 ## 3.26.0  Editions: Free, Supporter and Fantasy, padlocks, licence protection, privacy for your projects and profile, themes for each edition
 
 - Purphex Music now has three editions. FREE is the MP3 and MP4 converter (links, search words, playlists, trim) and the vocal remover, for everyone, for ever. SUPPORTER (9.99 pounds a month, or 99.99 pounds a year which is 15 percent off) opens the whole studio: mixer, Auto Mix, mastering and the visualiser, plugins, sound packs, Bass Lab, Flex Pitch, themes, photo backgrounds, your profile and artists, and exports up to 192 kHz. FANTASY (449.99 pounds, once, for life) is everything in Supporter for ever, plus exports up to 384 kHz, themes and a border of its own and early builds. Everything is bought on purphexmusic.com: the app never takes a card.

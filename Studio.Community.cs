@@ -34,7 +34,7 @@ partial class StudioForm
         float W = ClientSize.Width, y = 12, h = 46;
         using (var br = new SolidBrush(TM.C(255, 18, 10, 34))) g.FillRectangle(br, 0, 0, W, ToolH); NeonRule(g, 0, ToolH, W);
         Btn(g, Rc(12, y, 48, h), "≡", 0, () => { if (menuOpen) CloseMenu(); else OpenMenu(); }, 24);
-        string title = tab == 3 ? "MY PROJECTS" : (tab == 6 ? "PROFILE" : (tab == 7 ? "ARTISTS" : "COMMUNITY")); Txt(g, title, 18, Ink, Rc(76, y, 190, h), StringAlignment.Near, true); Btn(g, Rc(270, y + 4, 100, h - 8), "HOME", 2, () => GoHome(), 14); if (ShowBack) Btn(g, Rc(376, y + 4, 100, h - 8), "BACK", 0, () => GoBack(), 14);
+        string title = tab == 3 ? "MY PROJECTS" : (tab == 6 ? "PROFILE" : (tab == 7 ? "ARTISTS" : "COMMUNITY")); Txt(g, title, 18, Ink, Rc(76, y, 190, h), StringAlignment.Near, true); if (tab != 3) Btn(g, Rc(270, y + 4, 100, h - 8), "HOME", 2, () => GoHome(), 14); if (ShowBack) Btn(g, Rc(tab == 3 ? 270 : 376, y + 4, 100, h - 8), "BACK", 0, () => GoBack(), 14);
         float rx = W - 14;
         Btn(g, Rc(rx - 58, y + 4, 58, h - 8), "Help", 2, () => app.ShowHelp(null), 14); rx -= 64;
         Btn(g, Rc(rx - 108, y + 4, 108, h - 8), Win.FullLabel(this), 0, () => Win.ToggleFullscreen(this), 12); rx -= 120;
@@ -49,26 +49,13 @@ partial class StudioForm
     void PaintCommunity(Graphics g)
     {
         float W = ClientSize.Width, H = ClientSize.Height, top = ToolH, Hb = H - (previewPath.Length > 0 ? 62 : 0); if (!projectsLoaded)   /* Hb: the bottom of the page when the preview bar is showing under it */ { projectsLoaded = true; ProjectLibrary.Load(); ProjectLibrary.Discover(); }
-        bool rail = W >= 1000, side = W >= 760; float sw = side ? 210 : 0, rw = rail ? 290 : 0; PaintLogoBackdrop(g, Rc(sw, top, W - sw - rw, H - top));
-        // ---- left menu ----
-        if (side)
-        {
-            var sb = Rc(0, top, sw, H - top); using (var br = new SolidBrush(TM.C(255, 14, 8, 28))) g.FillRectangle(br, sb); using (var pen = new Pen(Color.FromArgb(90, NeonViolet))) g.DrawLine(pen, sw, top, sw, H);
-            string[] nm = { "Home", "Community", "Artists", "My Projects" };
-            Action[] ac = { () => tab = 0, () => { }, () => OpenArtists(), () => GoTab(3) };
-            for (int i = 0; i < nm.Length; i++)
-            {
-                var r = Rc(12, top + 14 + i * 42, sw - 24, 37); bool on = i == 1; var act = ac[i];
-                if (on) { FillRR(g, TM.C(200, 92, 44, 190), r, 10); Glow(g, NeonViolet, r, 10, 0.7f, 3); } else if (Hot(r)) FillRR(g, TM.C(90, 70, 40, 130), r, 10);
-                Txt(g, nm[i], 15, on ? Ink : TM.C(255, 215, 205, 240), Rc(r.X + 16, r.Y, r.Width - 20, r.Height), StringAlignment.Near, on); Reg(r, () => act());
-            }
-        }
+        bool rail = W >= 1000; float sw = 0, rw = rail ? 290 : 0; PaintLogoBackdrop(g, Rc(sw, top, W - sw - rw, H - top));
         float cx0 = sw + 18, cw = W - sw - rw - 36 - (rail ? 18 : 0), cx1 = cx0 + cw;
         // ---- header banner ----
         var ban = Rc(cx0, top + 16, cw, 92); FillRR(g, TM.C(210, 20, 10, 44), ban, 16); Glow(g, NeonViolet, ban, 16, 0.55f, 3);
         using (var pen = new Pen(Color.FromArgb(70, NeonCyan), 1.2f)) for (int i = 0; i < 9; i++) g.DrawBezier(pen, ban.Right - 330, ban.Y + 70, ban.Right - 240, ban.Y + 10 + i * 4, ban.Right - 150, ban.Bottom - 6 - i * 3, ban.Right - 20, ban.Y + 14 + i * 6);
         Txt(g, "COMMUNITY", 24, Ink, Rc(ban.X + 22, ban.Y + 12, 400, 36), StringAlignment.Near, true); Txt(g, "DISCOVER. SHARE. CREATE. TOGETHER.", 14, DimC, Rc(ban.X + 22, ban.Y + 50, 420, 24), StringAlignment.Near, false);
-        FetchInvite(); var np = Rc(ban.Right - 190, ban.Y + 26, 168, 40); Btn(g, np, "+  New project", 2, () => { tab = 0; NewProject(); }, 14); if (ban.Width > 900) { var sa0 = Rc(ban.Right - 372, ban.Y + 26, 172, 40); Btn(g, sa0, "SEARCH ARTISTS", 1, () => OpenArtists(), 13); Hint2(sa0, "Find other producers, open their profiles and follow them"); }
+        FetchInvite(); var np = Rc(ban.Right - 190, ban.Y + 26, 168, 40); Btn(g, np, "+  New project", 2, () => { tab = 0; NewProject(); }, 14); if (ban.Width > 700) { var sa0 = Rc(ban.Right - 372, ban.Y + 26, 172, 40); Btn(g, sa0, "MY PROJECTS", 1, () => GoTab(3), 13); Hint2(sa0, "Open the projects you saved on this PC"); }
         if (commInvite.Length > 0 && ban.Width > 1080) { string inv = commInvite; Btn(g, Rc(ban.Right - 554, ban.Y + 26, 172, 40), "Join the Discord", 1, () => { try { System.Diagnostics.Process.Start(inv); } catch { Toast("Could not open the link: " + inv); } }, 14); }
         // ---- filter tabs ----
         float ty = ban.Bottom + 14; float tx = cx0 + 4;
@@ -115,12 +102,7 @@ partial class StudioForm
         if (rail)
         {
             float rx = cx1 + 18, ry = top + 16;
-            var p1 = Rc(rx, ry, rw, 170); FillRR(g, TM.C(185, 18, 10, 38), p1, 14); StrokeRR(g, Color.FromArgb(100, NeonViolet), p1, 14, 1);
-            Txt(g, "YOUR PROFILE", 12, Ink, Rc(p1.X + 16, p1.Y + 12, 200, 20), StringAlignment.Near, true);
-            var av = Rc(p1.X + 16, p1.Y + 40, 64, 64); DrawAvatar(g, av);   // a picture is never a button
-            Txt(g, ProjectLibrary.ProfileName, 17, Ink, Rc(p1.X + 92, p1.Y + 46, rw - 108, 26), StringAlignment.Near, true); Txt(g, all.Count + (all.Count == 1 ? " creation" : " creations"), 12, DimC, Rc(p1.X + 92, p1.Y + 74, rw - 108, 20), StringAlignment.Near, false);
-            { var gp = Rc(p1.X + 16, p1.Bottom - 54, rw - 32, 38); Btn(g, gp, "GO TO YOUR PROFILE", 2, () => { tab = 6; profScroll = 0; }, 13); Hint2(gp, "Edit your picture, banner, bio and genres, share your profile and see your tracks"); }
-            ry = p1.Bottom + 14; var p2 = Rc(rx, ry, rw, 156); FillRR(g, TM.C(185, 18, 10, 38), p2, 14); StrokeRR(g, Color.FromArgb(100, NeonViolet), p2, 14, 1);
+            var p2 = Rc(rx, ry, rw, 156); FillRR(g, TM.C(185, 18, 10, 38), p2, 14); StrokeRR(g, Color.FromArgb(100, NeonViolet), p2, 14, 1);
             Txt(g, "BROWSE SOUNDS BY TAG", 12, Ink, Rc(p2.X + 16, p2.Y + 12, 240, 20), StringAlignment.Near, true);
             string[] tags = { "dnb", "bassline", "garage", "trap", "rap", "bass", "drums", "synth", "vocal" }; float gx = p2.X + 14, gy = p2.Y + 42;
             foreach (var tg in tags)

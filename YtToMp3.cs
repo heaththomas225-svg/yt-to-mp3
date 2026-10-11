@@ -37,7 +37,7 @@ class Job
 partial class App : Form
 {
     // ---- Auto-update settings ----
-    const string Version = "3.26.0";
+    const string Version = "3.26.1";
     // Plain-text manifest: line 1 = newest version, line 2 = direct exe download URL.
     const string UpdateManifestUrl = "https://raw.githubusercontent.com/heaththomas225-svg/yt-to-mp3/main/version.txt";
 
@@ -180,7 +180,7 @@ partial class App : Form
     {
         ServicePointManager.SecurityProtocol = (SecurityProtocolType)3072 | SecurityProtocolType.Tls;
         try { File.Delete(Application.ExecutablePath + ".old"); } catch { }
-        Application.EnableVisualStyles(); Win.WidenBuffers();
+        Application.EnableVisualStyles(); Win.WidenBuffers(); CrashGuard.Install();   // a problem is logged to crash.log, not shown as the grey .NET box
         Application.Run(new App());
     }
 
