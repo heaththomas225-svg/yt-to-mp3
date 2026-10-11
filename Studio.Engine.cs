@@ -341,6 +341,10 @@ class Track
     public Track Host;   // set = this track shares the row of its Host (an audio clip, a MIDI instrument and more can live on one row)
     public bool IsBus, Armed; public Track Out;   // a bus has no audio of its own: it mixes the tracks sent to it (Out), runs its own plugins, then goes to the master. Armed = an empty audio track waiting for a recording
     public List<Fx> Fx = new List<Fx>();
+    public double Bpm; public bool BpmChecked;   // the tempo heard in this track (0 = none heard yet) and whether it has been listened to
+    public long FadeIn, FadeOut;   // frames: this clip fades in over its first FadeIn frames and out over its last FadeOut frames
+    public float ClipGainDb;       // the volume of this clip (piece) on its own, on top of the track fader
+    public bool Locked;            // locked in place (set on a row's own track: it covers every piece on the row)
     public List<AutoLane> Auto = new List<AutoLane>();   // automation: settings of the plugins above that follow a curve
     public volatile float PeakL, PeakR, RmsL, RmsR; public volatile bool Clipped;
     public float[] TapPre = new float[8192], TapPost = new float[8192]; public volatile int TapPos;
@@ -456,6 +460,17 @@ partial class StudioEngine
                 long idx = pos + i - toff, k = idx + tcs;
                 if (cl != null && idx >= 0 && idx < ulen && k < cl.Length && k < cr.Length) { t.tl[i] = cl[k]; t.tr[i] = cr[k]; } else { t.tl[i] = 0; t.tr[i] = 0; }
             }
+            if (!t.IsBus && !t.Instrument && cl != null && (t.ClipGainDb != 0f || t.FadeIn > 0 || t.FadeOut > 0))
+            {
+                float cg = DspMath.DbToLin(t.ClipGainDb); long fi = t.FadeIn, fo = t.FadeOut;
+                for (int i = 0; i < n; i++)
+                {
+                    long idx = pos + i - toff; if (idx < 0 || idx >= ulen) continue; float gg = cg;
+                    if (fi > 0 && idx < fi) gg *= (float)Math.Sin(idx / (double)fi * Math.PI / 2);
+                    if (fo > 0 && idx >= ulen - fo) gg *= (float)Math.Sin((ulen - idx) / (double)fo * Math.PI / 2);
+                    t.tl[i] *= gg; t.tr[i] *= gg;
+                }
+            }
             if (!idle && t.fxIdle) { for (int f = 0; f < t.Fx.Count; f++) t.Fx[f].Reset(); Array.Clear(t.dlyL, 0, t.dlyL.Length); Array.Clear(t.dlyR, 0, t.dlyR.Length); t.fxIdle = false; }
             if (meters) PushTap(t.TapPre, t, false, t.tl, t.tr, n);
             int latSoFar = 0;
@@ -565,7 +580,7 @@ partial class StudioEngine
                 }
                 Array.Clear(oL, 0, n); Array.Clear(oR, 0, n); MasterPeakL = MasterPeakR = 0; foreach (var t in Tracks) { t.PeakL = t.PeakR = 0; } return;
             }
-            if (countLeft > 0) { Array.Clear(oL, 0, n); Array.Clear(oR, 0, n); Click(LastCountFrames - countLeft, n, oL, oR); countLeft = Math.Max(0, countLeft - n); MasterPeakL = MasterPeakR = 0; return; }   // the count-in: only the clicks, the song waits
+            if (countLeft > 0) { Array.Clear(oL, 0, n); Array.Clear(oR, 0, n); Click(LastCountFrames - countLeft, n, oL, oR, LastCountFrames); countLeft = Math.Max(0, countLeft - n); MasterPeakL = MasterPeakR = 0; return; }   // the count-in: only the clicks, the song waits
             Mix(Pos, n, Live, oL, oR, true, 0);
             if (Metronome) Click(Pos, n, oL, oR);
             Pos += n;
@@ -574,12 +589,13 @@ partial class StudioEngine
         }
     }
 
-    void Click(long pos, int n, float[] oL, float[] oR)
+    void Click(long pos, int n, float[] oL, float[] oR, long limit = long.MaxValue)
     {
         double beat = SR * 60.0 / Math.Max(20, Fx.ProjectBpm); long bar = (long)(beat * 4);
         for (int i = 0; i < n; i++)
         {
-            long p = pos + i; long inBeat = (long)(p - Math.Floor(p / beat) * beat); if (inBeat > 2400) continue;
+            long p = pos + i; if (p >= limit) break;   // the count-in is exactly four beats: nothing may start a fifth click when the last block runs past the end
+            long inBeat = (long)(p - Math.Floor(p / beat) * beat); if (inBeat > 2400) continue;
             bool accent = (long)(p - Math.Floor(p / (double)bar) * bar) < 2400; double f = accent ? 1900 : 1250; float v = (float)(Math.Sin(2 * Math.PI * f * inBeat / SR) * Math.Exp(-inBeat / 380.0) * (accent ? 0.35 : 0.22)); oL[i] += v; oR[i] += v;
         }
     }

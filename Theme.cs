@@ -64,6 +64,9 @@ static class Win
     static readonly System.Collections.Generic.Dictionary<Form, FormWindowState> fsState = new System.Collections.Generic.Dictionary<Form, FormWindowState>();
     static readonly System.Collections.Generic.HashSet<Form> fsHooked = new System.Collections.Generic.HashSet<Form>();
     public static bool IsFullscreen(Form f) { return fsBounds.ContainsKey(f); }
+    // true when the window fills the screen in any way (our full screen, or maximised with the title bar button): the button then says MINIMISE
+    public static bool IsFull(Form f) { return IsFullscreen(f) || f.WindowState == FormWindowState.Maximized; }
+    public static string FullLabel(Form f) { return IsFull(f) ? "MINIMISE" : "FULLSCREEN"; }
     public static void HookFullscreen(Form f)
     {
         if (f.FormBorderStyle != FormBorderStyle.Sizable || !f.MaximizeBox || fsHooked.Contains(f)) return;
@@ -75,15 +78,28 @@ static class Win
     {
         if (IsFullscreen(f))
         {
-            f.FormBorderStyle = FormBorderStyle.Sizable; f.WindowState = FormWindowState.Normal; f.Bounds = fsBounds[f];
-            if (fsState[f] == FormWindowState.Maximized) f.WindowState = FormWindowState.Maximized;
-            fsBounds.Remove(f); fsState.Remove(f);
+            // always back to a normal window (never to maximised: that is what made it look like it was still full screen, just without the border)
+            Rectangle b = fsBounds[f]; fsBounds.Remove(f); fsState.Remove(f);
+            f.WindowState = FormWindowState.Normal; f.FormBorderStyle = FormBorderStyle.Sizable; f.Bounds = SaneBounds(f, b);
+        }
+        else if (f.WindowState == FormWindowState.Maximized)
+        {
+            Rectangle b = f.RestoreBounds; f.WindowState = FormWindowState.Normal; f.Bounds = SaneBounds(f, b);   // maximised with the title bar button: MINIMISE puts it back to a normal window
         }
         else
         {
             fsState[f] = f.WindowState; fsBounds[f] = f.WindowState == FormWindowState.Normal ? f.Bounds : f.RestoreBounds;
             var scr = Screen.FromControl(f).Bounds; f.WindowState = FormWindowState.Normal; f.FormBorderStyle = FormBorderStyle.None; f.Bounds = scr;
         }
+    }
+
+    // the window size to come back to: the old one, unless that was as big as the screen (then a comfortable size in the middle)
+    static Rectangle SaneBounds(Form f, Rectangle b)
+    {
+        var wa = Screen.FromControl(f).WorkingArea; int w = b.Width, h = b.Height;
+        if (w >= wa.Width - 40 || h >= wa.Height - 40 || w < 480 || h < 360) { w = (int)(wa.Width * 0.82); h = (int)(wa.Height * 0.84); b = new Rectangle(wa.X + (wa.Width - w) / 2, wa.Y + (wa.Height - h) / 2, w, h); }
+        else if (!wa.IntersectsWith(b)) b = new Rectangle(wa.X + (wa.Width - w) / 2, wa.Y + (wa.Height - h) / 2, w, h);
+        return b;
     }
 
     // Dark scroll bars / list popups for a control.
@@ -99,10 +115,55 @@ static class Win
         if (f == null || f.IsDisposed) return; if (!f.Visible) f.Show(); if (f.WindowState == FormWindowState.Minimized) f.WindowState = FormWindowState.Normal; f.Activate(); f.BringToFront();
     }
 
+    // ---- neon boxes: every text and number box in the app gets a thin glowing border (dark inside, bright text) ----
+    static readonly System.Runtime.CompilerServices.ConditionalWeakTable<Control, object> neonBoxes = new System.Runtime.CompilerServices.ConditionalWeakTable<Control, object>(), neonParents = new System.Runtime.CompilerServices.ConditionalWeakTable<Control, object>();
+    public static void NeonBox(Control c)
+    {
+        if (c == null) return; var tb = c as TextBoxBase; if (tb != null) tb.BorderStyle = BorderStyle.None; var nu = c as NumericUpDown; if (nu != null) nu.BorderStyle = BorderStyle.None;
+        c.BackColor = Color.FromArgb(10, 5, 24); c.ForeColor = Color.FromArgb(226, 250, 255);
+        object o; if (neonBoxes.TryGetValue(c, out o)) return; neonBoxes.Add(c, true);
+        Action<Control> hook = p => { if (p == null) return; object x; if (neonParents.TryGetValue(p, out x)) return; neonParents.Add(p, true); p.Paint += (s, e) => PaintNeonChildren(p, e.Graphics); p.Invalidate(); };
+        c.ParentChanged += (s, e) => hook(c.Parent); hook(c.Parent);
+        Action inv = () => { var p = c.Parent; if (p != null && p.IsHandleCreated) p.Invalidate(Rectangle.Inflate(c.Bounds, 14, 14)); };
+        c.GotFocus += (s, e) => inv(); c.LostFocus += (s, e) => inv(); c.VisibleChanged += (s, e) => inv(); c.Resize += (s, e) => inv(); c.Move += (s, e) => inv(); c.EnabledChanged += (s, e) => inv();
+    }
+    public static void PaintNeonChildren(Control parent, Graphics g)
+    {
+        var sm = g.SmoothingMode; g.SmoothingMode = SmoothingMode.AntiAlias;
+        foreach (Control c in parent.Controls) { object o; if (!c.Visible || !neonBoxes.TryGetValue(c, out o)) continue; DrawNeonBox(g, Rectangle.Inflate(c.Bounds, 5, 4), c.ContainsFocus, c.Enabled); }
+        g.SmoothingMode = sm;
+    }
+    static GraphicsPath NeonPath(RectangleF r, float rad)
+    {
+        var p = new GraphicsPath(); float d = Math.Min(rad * 2, Math.Min(r.Width, r.Height)); if (d < 1) { p.AddRectangle(r); return p; }
+        p.AddArc(r.X, r.Y, d, d, 180, 90); p.AddArc(r.Right - d, r.Y, d, d, 270, 90); p.AddArc(r.Right - d, r.Bottom - d, d, d, 0, 90); p.AddArc(r.X, r.Bottom - d, d, d, 90, 90); p.CloseFigure(); return p;
+    }
+    // a soft glow and a thin bright line; brighter and cyan while it is hot or being typed in
+    public static void DrawNeonBox(Graphics g, RectangleF r, bool hot, bool enabled = true)
+    {
+        var sm = g.SmoothingMode; g.SmoothingMode = SmoothingMode.AntiAlias;
+        using (var path = NeonPath(r, 7))
+        {
+            int a = hot ? 64 : 26; for (int i = 3; i >= 1; i--) using (var pen = new Pen(Color.FromArgb(Math.Max(4, a / i), 0, 229, 255), i * 3f)) g.DrawPath(pen, path);
+            using (var pen = new Pen(enabled ? (hot ? Color.FromArgb(255, 0, 229, 255) : Color.FromArgb(200, 150, 100, 255)) : Color.FromArgb(90, 120, 100, 160), hot ? 1.8f : 1.3f)) g.DrawPath(pen, path);
+        }
+        g.SmoothingMode = sm;
+    }
+
     public static ContextMenuStrip NewMenu()
     {
         var m = new ContextMenuStrip { Renderer = new DarkRenderer(), BackColor = Color.FromArgb(16, 8, 32), ForeColor = Color.FromArgb(240, 232, 255), ShowImageMargin = false, Font = new Font("Segoe UI", 10f) };
+        m.Opened += (s, e) => { MenuShownAt = Control.MousePosition; MenuAway = false; };
+        m.Closed += (s, e) => { if (e.CloseReason == ToolStripDropDownCloseReason.AppClicked) { MenuAway = true; MenuClosedAt = Environment.TickCount; } };
         return m;
+    }
+    // Clicking the same button again while its menu is open must close the menu, not open it a second time. The click that closes a menu
+    // also reaches the window, so the window asks here whether a click lands where the menu came from, right after it was closed that way.
+    static int MenuClosedAt; static Point MenuShownAt; static bool MenuAway;
+    public static bool ClickClosedMenu(Control c, RectangleF region)
+    {
+        if (!MenuAway || unchecked(Environment.TickCount - MenuClosedAt) > 400) { MenuAway = false; return false; }
+        MenuAway = false; return region.Contains(c.PointToClient(MenuShownAt));
     }
 
     class DarkColors : ProfessionalColorTable

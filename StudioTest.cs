@@ -492,6 +492,17 @@ static class T
             eng.Stop();
         }
 
+        // ---- Count In: exactly four clicks, whatever the tempo and block size ----
+        foreach (double bpm in new[] { 120.0, 117.0, 93.5 })
+            foreach (int blk in new[] { 441, 1000, 2048 })
+            {
+                var eng = new StudioEngine(); Fx.ProjectBpm = bpm; eng.Tracks.Add(StudioEngine.NewTrack("Z", "audio", AudioClip.FromArrays(new float[SR * 8], new float[SR * 8], "silent"))); eng.MasterBypass = true; eng.CountIn = true;
+                try { typeof(StudioEngine).GetMethod("Play").Invoke(eng, null); } catch { }
+                var l = new float[blk]; var r = new float[blk]; int clicks = 0, quiet = 100000; long total = 0, limit = (long)(SR * 60.0 / bpm * 4) + SR / 2;
+                while (total < limit) { eng.RenderRealtime(l, r, blk); for (int i = 0; i < blk; i++) { if (Math.Abs(l[i]) > 0.02f) { if (quiet > 6000) clicks++; quiet = 0; } else quiet++; } total += blk; }
+                Check("count in: exactly four clicks at " + bpm + " BPM with blocks of " + blk, clicks == 4, clicks + " clicks"); eng.Stop();
+            }
+
         // ---- project cards: sizes and tags ----
         Check("project size is shown in KB / MB / GB", ProjectLibrary.Size(512) == "512 B" && ProjectLibrary.Size(1536) == "1.5 KB" && ProjectLibrary.Size(5L * 1048576 + 262144) == "5.3 MB" && ProjectLibrary.Size(3L * 1073741824) == "3 GB", ProjectLibrary.Size(5L * 1048576 + 262144));
         Check("genre tags are cleaned: lower case, no hash, no repeats, at most 6", ProjectLibrary.CleanTags("#DnB, bassline  dnb;Dark #x1 y2 z3 w4") == "dnb bassline dark x1 y2 z3", ProjectLibrary.CleanTags("#DnB, bassline  dnb;Dark #x1 y2 z3 w4"));

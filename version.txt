@@ -1,4 +1,4 @@
-
+3.20.0
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-
-sha256=ad9d63165bb73a786e5177b800170daff8f266ab4ff08b65076ad63a3f6dfadb
+Clip tools, community presets, a recorder that waits for you, a neon needle and neon value boxes
+sha256=a9ae62e196065bf956dcd804c7d9aabaff7b4a34af87005acf564125e25f0796

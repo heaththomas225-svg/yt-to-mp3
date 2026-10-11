@@ -205,7 +205,7 @@ class PluginManagerForm : Form
 
         Controls.Add(new Label { Text = "Custom ffmpeg filter for conversions (advanced)", Left = 18, Top = 400, Width = 500, Height = 26, Font = new Font("Segoe UI Semibold", 13f), ForeColor = Color.FromArgb(225, 190, 255) });
         Controls.Add(new Label { Text = "Any ffmpeg audio filter chain is applied to each download (before loudness normalization). Examples: aecho=0.8:0.88:60:0.4   or   flanger   or   acrusher=bits=8   or   lv2=p=<plugin URI> to host an LV2 plugin you installed.", Left = 18, Top = 430, Width = 664, Height = 52, ForeColor = Color.FromArgb(170, 150, 200) });
-        filterBox = new TextBox { Left = 18, Top = 486, Width = 664, Text = getFilter(), BackColor = Color.FromArgb(8, 4, 16), ForeColor = Color.FromArgb(240, 232, 255), BorderStyle = BorderStyle.FixedSingle }; Controls.Add(filterBox);
+        filterBox = new TextBox { Left = 18, Top = 486, Width = 664, Text = getFilter(), BackColor = Color.FromArgb(8, 4, 16), ForeColor = Color.FromArgb(240, 232, 255), BorderStyle = BorderStyle.FixedSingle }; Win.NeonBox(filterBox); Controls.Add(filterBox);
         Mk("Test and save filter", 18, 520, 190, () => TestFilter());
         Mk("Clear", 216, 520, 90, () => { filterBox.Text = ""; setFilter(""); msg.Text = "Filter cleared."; });
         Mk("Close", 582, 548, 100, () => Close());

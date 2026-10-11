@@ -39,7 +39,7 @@ partial class StudioForm
                 break;
             case 1:
                 I("Undo", () => { CloseMenu(); DoUndo(); }).Key = "Ctrl+Z"; I("Redo", () => { CloseMenu(); DoRedo(); }).Key = "Ctrl+Y"; I("Split at the needle", () => { CloseMenu(); SplitSelected(); }).Key = "B";
-                I("Trim start here", () => { CloseMenu(); TrimStartHere(Selected); }); I("Trim end here", () => { CloseMenu(); TrimEndHere(Selected); }); I("Duplicate track", () => { CloseMenu(); DuplicateTrack(Selected); }); I("Delete track", () => { CloseMenu(); DeleteTrackQuiet(Selected); });
+                I("Cut a section out (CUT)", () => { CloseMenu(); CutClick(); }); I("Lock / unlock the selected track", () => { CloseMenu(); ToggleLock(); }); I("Duplicate track", () => { CloseMenu(); DuplicateTrack(Selected); }); I("Delete the selected piece", () => { CloseMenu(); DeleteClip(CurClip() ?? Selected); });
                 break;
             case 2:
                 I("Flex Pitch (edit the notes of a recording)", () => { CloseMenu(); FlexOpen(); }); I("Purphex Sounds (sample browser)", () => { CloseMenu(); OpenSounds(); }); I("Sound packs (install)", () => { CloseMenu(); OpenSounds(); packsOpen = true; packScroll = 0; });
@@ -51,7 +51,7 @@ partial class StudioForm
                 I("Converter window (downloads)", () => { CloseMenu(); Win.Bring(app); }); I(Prefs.ShowFps ? "Hide the FPS counter" : "Show the FPS counter", () => { CloseMenu(); Prefs.ShowFps = !Prefs.ShowFps; Prefs.Changed(); });
                 I("Mix (tracks)", () => GoTab(0)); I("Mastering", () => GoTab(1)); I("Lyrics", () => GoTab(2)); I("My Projects", () => GoTab(3));
                 I("Fit the whole song", () => { CloseMenu(); tab = 0; FitView(); }); I("Thin tracks", () => { CloseMenu(); LaneH = 84; }); I("Normal tracks", () => { CloseMenu(); LaneH = 104; }); I("Tall tracks", () => { CloseMenu(); LaneH = 168; });
-                I(Win.IsFullscreen(this) ? "Leave full screen" : "Full screen", () => { CloseMenu(); Win.ToggleFullscreen(this); });
+                I(Win.IsFull(this) ? "MINIMISE (back to a normal window)" : "FULLSCREEN", () => { CloseMenu(); Win.ToggleFullscreen(this); });
                 break;
             case 4:
                 I("Community", () => GoTab(4)); I("My profile (picture and name)", () => GoTab(4));

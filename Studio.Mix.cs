@@ -56,6 +56,17 @@ static class Presets
             "Natural|speed=80;strength=70;natural=70", "Tight|speed=25;strength=100;natural=25",
             "Hard Auto-Tune|speed=0;strength=100;natural=0", "Subtle polish|speed=120;strength=40;natural=80" } },
         { "denoise", new[] { "Light|amount=8;sens=1.4", "Medium|amount=14;sens=1.8", "Heavy|amount=22;sens=2.4" } },
+        { "bassboost", new[] {
+            "Clean Low End (all-round)|freq=80;gain=5;q=0.7;harm=10;tight=25;mix=100;level=-2",
+            "Subtle Lift|freq=100;gain=2.5;q=0.6;harm=5;tight=30;mix=100;level=-1",
+            "Warm & Round|freq=110;gain=4;q=0.5;harm=35;tight=30;mix=100;level=-1.5",
+            "Punchy Kick|freq=90;gain=6;q=1;harm=15;tight=28;mix=100;level=-2.5",
+            "Bass Guitar Body|freq=100;gain=4;q=0.8;harm=20;tight=40;mix=100;level=-1.5",
+            "Club Thump|freq=60;gain=8;q=0.9;harm=25;tight=24;mix=100;level=-3.5",
+            "Deep 808 Sub|freq=45;gain=9;q=0.8;harm=20;tight=18;mix=100;level=-4",
+            "Heavy Trap|freq=50;gain=11;q=0.9;harm=30;tight=20;mix=100;level=-5.5",
+            "Boom (blended in)|freq=55;gain=14;q=0.7;harm=25;tight=22;mix=45;level=-3",
+            "Small Speakers (adds harmonics)|freq=70;gain=3;q=0.7;harm=70;tight=35;mix=100;level=-1" } },
         { "gate", new[] { "Vocal gate|thr=-52;range=30;att=2;hold=80;rel=200", "Tight gate|thr=-40;range=50;att=1;hold=30;rel=120" } },
     };
 
@@ -207,14 +218,17 @@ static class Presets
     public static void SaveChain(string name, List<Fx> chain)
     {
         Directory.CreateDirectory(ChainDir); foreach (char ch in Path.GetInvalidFileNameChars()) name = name.Replace(ch, '_');
-        var sb = new StringBuilder(); foreach (var f in chain) sb.Append(f.Type).Append('|').Append(f.Bypass ? 1 : 0).Append('|').Append(f.Serialize()).Append('\n');
-        File.WriteAllText(Path.Combine(ChainDir, name + ".chain"), sb.ToString());
+        File.WriteAllText(Path.Combine(ChainDir, name + ".chain"), ChainText(chain));
     }
-    public static List<Fx> LoadChain(string name)
+    // a chain as text: one line per plugin,  type|bypass|settings  (what is saved to a file and what is shared with the community)
+    public static string ChainText(List<Fx> chain) { var sb = new StringBuilder(); foreach (var f in chain) sb.Append(f.Type).Append('|').Append(f.Bypass ? 1 : 0).Append('|').Append(f.Serialize()).Append('\n'); return sb.ToString(); }
+    public static List<Fx> LoadChain(string name) { return ChainFromText(File.ReadAllText(Path.Combine(ChainDir, name + ".chain"))); }
+    public static List<Fx> ChainFromText(string text)
     {
         var c = new List<Fx>();
-        foreach (var line in File.ReadAllLines(Path.Combine(ChainDir, name + ".chain")))
+        foreach (var line in (text ?? "").Replace("\r", "").Split('\n'))
         {
+            if (c.Count >= 24) break;
             var p = line.Split(new[] { '|' }, 3); if (p.Length < 3) continue;
             var f = Make(p[0], p[2]); if (f == null) continue; f.Bypass = p[1] == "1"; c.Add(f);
         }
@@ -532,6 +546,7 @@ static class ProjectIO
             var t = eng.Tracks[i]; string src = t.Clip != null ? t.Clip.Path : t.Source;
             sb.Append("track|").Append(E(t.Instrument ? "inst" : (t.IsBus ? "bus" : t.Role))).Append('|').Append(E(t.Name)).Append('|').Append(t.Offset).Append('|').Append(E(src)).Append('|').Append(t.Color).Append('|').Append(t.ClipStart).Append('|').Append(t.ClipFrames).Append('\n');
             if (t.Host != null && eng.Tracks.IndexOf(t.Host) >= 0) sb.Append("host|").Append(i).Append('|').Append(eng.Tracks.IndexOf(t.Host)).Append('\n');
+            if (t.FadeIn > 0 || t.FadeOut > 0 || t.ClipGainDb != 0f || t.Locked) sb.Append("clip|").Append(i).Append('|').Append(t.FadeIn).Append('|').Append(t.FadeOut).Append('|').Append(t.ClipGainDb.ToString("R", CI)).Append('|').Append(t.Locked ? 1 : 0).Append('\n');
             if (t.Out != null && eng.Tracks.IndexOf(t.Out) >= 0) sb.Append("route|").Append(i).Append('|').Append(eng.Tracks.IndexOf(t.Out)).Append('\n');
             if (t.Instrument && t.Midi.Count > 0) { sb.Append("midi|").Append(i).Append('|'); lock (t.Midi) foreach (var m in t.Midi) sb.Append(m.Frame).Append(':').Append(m.S).Append(':').Append(m.D1).Append(':').Append(m.D2).Append(';'); sb.Append('\n'); }
         }
@@ -570,6 +585,7 @@ static class ProjectIO
                     foreach (var part in p[2].Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries))
                     { var q = part.Split(':'); long fr; int s, d1, d2; if (q.Length == 4 && long.TryParse(q[0], out fr) && int.TryParse(q[1], out s) && int.TryParse(q[2], out d1) && int.TryParse(q[3], out d2)) tracks[ti].Midi.Add(new MidiEv { Frame = fr, S = (byte)s, D1 = (byte)d1, D2 = (byte)d2 }); }
             }
+            else if (p[0] == "clip" && p.Length >= 6) { int ci; long fiv, fov; if (int.TryParse(p[1], out ci) && ci >= 0 && ci < tracks.Count) { if (long.TryParse(p[2], out fiv)) tracks[ci].FadeIn = fiv; if (long.TryParse(p[3], out fov)) tracks[ci].FadeOut = fov; tracks[ci].ClipGainDb = F(p[4]); tracks[ci].Locked = p[5] == "1"; } }
             else if (p[0] == "route" && p.Length >= 3) routes.Add(p);
             else if (p[0] == "host" && p.Length >= 3) hosts.Add(p);
             else if (p[0] == "master" || p[0] == "tmix" || p[0] == "fx" || p[0] == "mfx" || p[0] == "auto") mix.Append(line).Append('\n');

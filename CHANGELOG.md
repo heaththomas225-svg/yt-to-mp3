@@ -2,6 +2,29 @@
 
 What changed in each version of **Purphex**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.20.0  Clip tools, community presets and a recorder that waits for you
+
+- Split a track as many times as you like: every piece stays on the same track. New CUT button (press it at the start and again at the end of a section to take that section out of every track and close the gap), FADE IN and FADE OUT with a round handle you drag to set the length, GAIN to set the volume of one piece, and LOCK to freeze a track so it cannot be moved, trimmed, split, cut or deleted until you unlock it.
+- The two Trim to the needle buttons and the floating row of little buttons on a clip are gone. DEL (and the Delete key) now removes just the selected piece.
+- Community presets: every Presets button now opens Community presets, a list of presets other producers shared (POPULAR, NEWEST, search). Press USE to try one, or SHARE MY CURRENT SETTINGS to give yours. It works for every plugin, for whole plugin chains and for Bass Lab sounds. Presets are checked before they are used, and a preset that several people report is hidden.
+- Bass Boost now has ten balanced presets (Clean Low End, Subtle Lift, Warm and Round, Punchy Kick, Bass Guitar Body, Club Thump, Deep 808 Sub, Heavy Trap, Boom and Small Speakers). Each one is tested to raise the low end without clipping.
+- Recording: MIC now arms the microphone (MIC READY) and nothing is recorded until you press PLAY, which says RECORD while armed. Count In comes first if it is on. The take goes onto the track you selected as another piece on that same track, instead of making a new track every time (a locked track is never recorded over).
+- Count In played five clicks for four numbers, because the last audio block ran one click past the end of the bar. It now plays exactly four clicks at any tempo, and a big Purphex logo sits behind the number in the middle of the count-in circle.
+- Clicking a button a second time now closes the list it opened (Grid Size, Presets and the other menus) instead of opening it again, and the GAIN button opens and closes its panel.
+- Flex Pitch has a scroll bar along the top, and your edits are saved automatically a moment after every change, so nothing is lost if you click away, press FLEX again or close the app.
+- A new slim bar along the bottom fits the grid: hold the left mouse button on the hexagon logo to scroll left and right, use the arrows at the ends, and while music plays the bar becomes a live visualiser with waves flowing out of the logo.
+- Grid Size (renamed), METRONOME in capitals, a close x on the Split vocals + beat and Detect Track key pickers, and the grid lines no longer jump out huge and bright over the tracks when you change the grid size. The hint bar now sits above the bottom bar.
+- New Track now has Beat / Instrumental, so a beat can live on its own track.
+- FULLSCREEN / MINIMISE: the button says what it will do, and MINIMISE always returns to a normal window with its border, even after you maximised with the title bar button.
+- Lyrics: new Open .txt button next to Save .txt to load lyrics from a text file (replace, or add to the end).
+- Settings: new Scan for updates button that checks right now and always tells you the result, even for an update you pressed Later on.
+- Select several clips: hold the left mouse button on empty space and drag a box. Every clip it touches lights up. Drag one to move them all together, press Delete (or DEL) to remove them all with one Ctrl+Z to bring them back, Esc to let go. The needle now moves only from the ruler at the top: clicking empty space no longer moves it.
+- Hover hints and messages: every button now shows a hint when you point at it (a lot of them had none), and long hints and messages grow to show the whole sentence instead of being cut off with three dots. Messages stay on screen long enough to read them.
+- The needle: the strip at the top that moves it now has its own neon border, and the needle is a glowing beam with a bright head. While music plays (or while you drag it) tiny neon sparks spit off the beam like fat in a hot pan.
+- Typing a number into a box: click anywhere else to confirm it (Enter still works and Esc cancels and closes it). A box you open by accident and click off leaves the value exactly as it was. Values are now neon boxes of their own, spaced well away from the sliders and the words so you cannot click them by accident, and every text and number box in the app has the same neon look. Bass Lab knobs use a small neon box that also confirms when you click away.
+- The tempo is found automatically for every track you add (nothing to press): each track header shows its BPM, and the first beat or song also sets the project tempo unless you set one yourself.
+- Phone mode was removed (the website covers it now).
+
 ## 3.19.2  Rapper Vocal Styles: one simple Use button
 
 - Rapper Vocal Styles now has a single Use button on each style (the second Add button is gone, it was confusing). Use puts the style on the selected track and replaces its plugins, and Ctrl+Z puts them back.

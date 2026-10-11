@@ -54,14 +54,15 @@ partial class StudioForm : Form
     string projPath = "", projName = "Untitled project";
     bool recOn;   // notes played on an instrument are recorded onto its track while the song plays
     string toast = ""; DateTime toastAt = DateTime.MinValue;
+    double ToastSecs { get { return Math.Max(3.5, Math.Min(11, 2.2 + toast.Length * 0.05)); } }   // a long message stays long enough to read
     float lufsPeakHold = -120;
-    TextBox editBox; Action<string> editApply;
+    TextBox editBox; Action<string> editApply; string editOrig = "";
     List<float> trail8 = new List<float>();
 
     void InitEdit()
     {
-        editBox = new TextBox { Visible = false, BorderStyle = BorderStyle.FixedSingle, BackColor = Color.FromArgb(10, 5, 22), ForeColor = Ink, Font = new Font("Segoe UI", 10f), TextAlign = HorizontalAlignment.Center };
-        Controls.Add(editBox);
+        editBox = new TextBox { Visible = false, BorderStyle = BorderStyle.None, BackColor = Color.FromArgb(10, 5, 22), ForeColor = Ink, Font = new Font("Segoe UI", 10.5f), TextAlign = HorizontalAlignment.Center };
+        Controls.Add(editBox); Win.NeonBox(editBox);
         editBox.KeyDown += (s, e) =>
         {
             if (e.KeyCode == Keys.Enter) { e.SuppressKeyPress = true; CommitEdit(true); }
@@ -70,21 +71,29 @@ partial class StudioForm : Form
         editBox.Leave += (s, e) => CommitEdit(true);
     }
 
-    // Click a value to type an exact number (Enter applies, Esc cancels).
+    // Click a value to type an exact number. Click anywhere else (or press Enter) to confirm it, Esc to cancel. Nothing changes if you did not type anything.
     void BeginEdit(RectangleF r, string text, Action<string> apply)
     {
-        editApply = apply; editBox.SetBounds((int)r.X - 4, (int)r.Y - 3, (int)Math.Max(78, r.Width) + 8, (int)Math.Max(24, r.Height) + 6);
-        editBox.Text = text; editBox.Visible = true; editBox.BringToFront(); editBox.Focus(); editBox.SelectAll();
+        if (editBox.Visible) CommitEdit(true);
+        editApply = apply; editOrig = text ?? ""; editBox.Text = editOrig; int bh = editBox.PreferredHeight; editBox.SetBounds((int)r.X + 3, (int)(r.Y + (r.Height - bh) / 2), (int)Math.Max(40, r.Width) - 6, bh);
+        editBox.Visible = true; editBox.BringToFront(); editBox.Focus(); editBox.SelectAll();
     }
 
     void CommitEdit(bool apply)
     {
         if (editBox == null || !editBox.Visible) return;
-        var a = editApply; string txt = editBox.Text; editBox.Visible = false; editApply = null; Focus();
-        if (apply && a != null) { try { a(txt); } catch { } }
+        var a = editApply; string txt = editBox.Text; bool changed = txt != editOrig; editBox.Visible = false; editApply = null; Focus(); Invalidate();
+        if (apply && changed && a != null) { try { a(txt); } catch { } }
     }
 
     HitReg ValueEdit(RectangleF r, string text, Action<string> apply) { return Reg(r, () => BeginEdit(r, text, apply)); }
+    // a value you can type over: a neon box with the number inside it (the click area is exactly the box, kept well away from the slider and the words)
+    HitReg ValueBox(Graphics g, RectangleF r, string shown, string editText, Action<string> apply, float px = 12, bool bold = false)
+    {
+        bool hot = Hot(r) && !(editBox != null && editBox.Visible); FillRR(g, hot ? Color.FromArgb(225, 22, 12, 50) : Color.FromArgb(205, 10, 5, 24), r, 7); Win.DrawNeonBox(g, r, hot);
+        Txt(g, shown, px, Ink, r, StringAlignment.Center, bold); if (hot) hintNow = "Click the box to type an exact value. Click anywhere else (or press Enter) to confirm, Esc to cancel.";
+        return Reg(r, () => BeginEdit(r, editText, apply));
+    }
 
     static bool ParseNum(string s, out float v)
     {
@@ -104,7 +113,7 @@ partial class StudioForm : Form
         studioLoop = new FrameLoop(this, FrameStep) { Slow = () => WindowState == FormWindowState.Minimized }; ApplyFps();
         InstrumentFx.Recorder = OnMidiNote;
         MinimumSize = new Size(1240, 640);
-        FormClosed += (s, e) => { flexOpen = false; DisposeRetired(); Auditioner.Shutdown(); };
+        FormClosed += (s, e) => { try { if (flexOpen) FlexClose(true); } catch { } flexOpen = false; DisposeRetired(); Auditioner.Shutdown(); };
         FormClosed += (s, e) => { if (backdrop != null) { backdrop.Dispose(); backdrop = null; } foreach (var pc0 in peakCache.Values) if (pc0.Img != null) pc0.Img.Dispose(); peakCache.Clear(); };
         FormClosed += (s, e) => { timer.Stop(); if (studioLoop != null) studioLoop.Dispose(); eng.Pause(); };
         DragEnter += (s, e) => { if (e.Data.GetDataPresent(DataFormats.FileDrop)) { e.Effect = DragDropEffects.Copy; dragOver = true; Invalidate(); } };
@@ -122,7 +131,7 @@ partial class StudioForm : Form
         var now = DateTime.Now;
         if (ClientSize.Width != lastW || ClientSize.Height != lastH) { lastW = ClientSize.Width; lastH = ClientSize.Height; lastFrame = now; return true; }
         if (eng.Playing) lastPlayAt = now;
-        bool anim = eng.Playing || busy || browserOpen || stylesOpen || autoOpen || dragReg != null || (now - lastInput).TotalMilliseconds < 600 || animOff.Count > 0 || ghostOn || btnAnim || (now - toastAt).TotalSeconds < 3.7 || (now - lastPlayAt).TotalMilliseconds < 1500 || installing.Length > 0 || mic != null || Auditioner.IsPlaying;   // the 1.5 s after playback lets the meters settle
+        bool anim = eng.Playing || busy || browserOpen || stylesOpen || autoOpen || dragReg != null || (now - lastInput).TotalMilliseconds < 600 || animOff.Count > 0 || ghostOn || btnAnim || (now - toastAt).TotalSeconds < ToastSecs + 0.2 || (now - lastPlayAt).TotalMilliseconds < 1500 || installing.Length > 0 || mic != null || Auditioner.IsPlaying;   // the 1.5 s after playback lets the meters settle
         double gap = (now - lastFrame).TotalMilliseconds;
         // a slow computer redraws less often (paint time x3) so the window never starves the audio
         lastIdle = !anim; if (!(anim ? gap >= Math.Max(FrameGapMs, Math.Min(250, paintMs * 3)) : gap >= 1000)) return false;
@@ -231,16 +240,60 @@ partial class StudioForm : Form
         { "Piano", "Open the instrument window: its own controls plus a piano you can play." }, { "C", "Clear the recorded notes on this instrument track." },
         { "+ Effect", "Add an effect to this instrument track (EQ, reverb...)." },
         { "FLEX", "Flex Pitch: see every note of the selected recording and drag notes up or down to re-tune them, steady the pitch, take out vibrato, change volume and formants." },
-        { "SPLIT", "Cut the selected track in two at the needle (key B). Each piece can be moved and trimmed." },
-        { "TRIM <", "Cut the start of the selected clip off at the needle." }, { "TRIM >", "Cut the end of the selected clip off at the needle." },
+        { "SPLIT", "Split the clip under the needle in two (key B). Split as many times as you like: each piece can be moved, trimmed, faded and given its own gain." },
         { "DUP", "Make a copy of the selected track." }, { "DEL", "Delete the selected track (Undo brings it back)." },
         { "UNDO", "Undo the last edit (Ctrl+Z)." }, { "REDO", "Redo (Ctrl+Y)." }, { "DETECT", "Listen to the song and set the BPM for you." }, { "Detect Track key", "Find the musical key of the selected track and show it." },
         
         { "COUNT IN", "Count In: when it is on, PLAY and recording first give you one bar of clicks (1 2 3 4) so you can get ready. The number shows on screen." }, { "METRONOME", "Metronome is ON: a click on every beat while the song plays. Click to turn it off." }, { "metronome", "Metronome is off. Click to turn on a click on every beat while the song plays." },
         { "-", "Zoom out." }, { "+", "Zoom in." }, { "FIT", "Zoom to fit the whole song." },
-        { "MIC", "Record from your microphone onto a new track (use headphones). Press again, or STOP, to finish." },
+        { "MIC", "Arm the microphone: nothing is recorded until you press PLAY (Count In gives you a bar first). It records onto the selected track. Use headphones." }, { "MIC READY", "The microphone is armed. Press PLAY to start recording, or press MIC again to cancel." }, { "RECORD", "Start recording now (the microphone is armed)." },
         { "NEW", "Start a new empty project." },
-        { "Add", "Add this effect." }, { "Cancel (Esc)", "Stop the current job." }
+        { "Add", "Add this effect." }, { "Cancel (Esc)", "Stop the current job." },
+        { "POPULAR", "Show the presets people use the most first." },
+        { "NEWEST", "Show the most recently shared presets first." },
+        { "TRY AGAIN", "Ask the Purphex community for the list again." },
+        { "USE", "Use this community preset now." },
+        { "Report", "Report this preset as spam or something that should not be shared. Presets reported by several people are hidden." },
+        { "SHARE MY CURRENT SETTINGS", "Share the sound you have set up right now with everyone. You choose the name. Only share sounds you made." },
+        { "Edit profile", "Change your producer name and picture." },
+        { "+  New project", "Start a new empty project." },
+        { "Join the Discord", "Open the Purphex Discord server in your browser." },
+        { "Change picture", "Choose a picture for your profile." },
+        { "Correct pitch", "Snap the selected notes (or all notes) to the nearest note of the chosen scale." },
+        { "Select all", "Select every note in the recording (Ctrl+A)." },
+        { "Reset note", "Put the selected notes back exactly as they were recorded." },
+        { "Original", "Go back to the original recording and clear every Flex Pitch edit." },
+        { "DONE (keep edits)", "Close Flex Pitch and keep your edits. They are also saved automatically as you work." },
+        { "Open .txt", "Load lyrics from a text file. You can replace what you have or add the file to the end." },
+        { "Save .txt", "Save these lyrics as a text file." },
+        { "Clear", "Empty the lyrics page (it asks first)." },
+        { "Copy", "Copy the lyrics to the clipboard." },
+        { "Back to the tracks", "Close this and go back to your tracks." },
+        { "+ New bus", "Make a new bus: a shared channel that several tracks can send to and share plugins on." },
+        { "Import", "Add your own sound files to the Sounds collection." },
+        { "Reset to 0", "Put this piece back to its normal volume (0 dB)." },
+        { "Flatten", "Remove the curve and keep the setting where it is now." },
+        { "Remove", "Remove this automation lane." },
+        { "SOUNDS", "Open or close the Purphex Sounds panel: drums, samples and the Bass Lab sounds." },
+        { "Vocal Styles", "Rapper Vocal Styles: pick a ready-made plugin chain for rap vocals and put it on this track." },
+        { "Plugins...", "Manage extra plugins (VST) that Purphex can load." },
+        { "Load your own impulse response...", "Load a recording of a real room or speaker to use as the reverb." },
+        { "Detect key", "Listen to this track and show its musical key." },
+        { "Natural", "Gentle, natural-sounding pitch correction." },
+        { "Hard Auto-Tune", "The classic hard Auto-Tune effect: notes snap instantly." },
+        { "Reset meters", "Clear the loudness meters and start measuring again." },
+        { "A  ORIGINAL", "Listen to the mix as it was before mastering." },
+        { "B  MASTERED", "Listen to the mix with the mastering chain on." },
+        { "Analyze whole mix", "Measure the loudness and tone of the whole mix and suggest EQ moves." },
+        { "Set loudness to target (adjusts the limiter)", "Raises or lowers the limiter on the master so the mix lands on the target loudness. The slider only picks the number: this button does the work." },
+        { "Install", "Download and install this pack." },
+        { "Browse", "Look through the sounds in this pack." },
+        { "Packs", "Show the sound packs you can install." },
+        { "Folder", "Open the folder that holds these sounds." },
+        { "Licence", "Read the licence for these sounds." },
+        { "Collection...", "Open your collection of favourite sounds." },
+        { "Remake", "Make this sound again with fresh random settings." },
+        { "Import...", "Add your own sound files." },
     };
 
     // style: 0 normal, 1 accent, 2 hot gradient, 3 danger, 4 toggle-on
@@ -303,7 +356,7 @@ partial class StudioForm : Form
 
     void PaintAll(PaintEventArgs e)
     {
-        hintNow = ""; bubble = ""; btnAnim = false;
+        hintNow = ""; bubble = ""; btnAnim = false; AutoBpmTick();
         var g = e.Graphics; g.SmoothingMode = SmoothingMode.AntiAlias; g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
         regs.Clear();
         var full = new RectangleF(0, 0, ClientSize.Width, ClientSize.Height);
@@ -314,16 +367,24 @@ partial class StudioForm : Form
         if (browserOpen) PaintBrowser(g);
         PaintSoundDrag(g); PaintPackManager(g);
         if (soundBox != null && soundBox.Visible && !(soundsOpen && tab == 0)) soundBox.Visible = false;
-        PaintNewTrackSheet(g); PaintBusSheet(g); PaintStylesSheet(g); PaintAutoSheet(g);
+        PaintCutMark(g); PaintNewTrackSheet(g); PaintBusSheet(g); PaintStylesSheet(g); PaintAutoSheet(g); PaintGainPanel(g); PaintPickSheet(g); PaintCommPresets(g); Win.PaintNeonChildren(this, g);
         PaintMenu(g);
         PaintBubble(g); PaintKeyBox(g); PaintCountIn(g);
         fpsc.Frame();
-        if (hintNow.Length > 0 && !busy) { var hr = Rc(ClientSize.Width / 2 - 340, ClientSize.Height - 36, 680, 26); FillRR(g, Color.FromArgb(235, 30, 16, 58), hr, 8); StrokeRR(g, Edge, hr, 8, 1); Txt(g, hintNow, 13, Ink, hr, StringAlignment.Center, false); }
+        float hintStackY = ClientSize.Height - (tab == 0 ? 56 : 10);
+        if (hintNow.Length > 0 && !busy)
+        {   // the hint box grows to hold the whole sentence (two or three lines when it is long) instead of cutting it off with ...
+            float hw = Math.Min(ClientSize.Width - 24, 1000), inner = hw - 28; var hf = GfxCache.Font(13, false); var hsz = g.MeasureString(hintNow, hf, (int)inner); float hh = Math.Max(26, hsz.Height + 10), bottom = ClientSize.Height - (tab == 0 ? 56 : 10);
+            var hr = Rc(ClientSize.Width / 2 - hw / 2, bottom - hh, hw, hh); FillRR(g, Color.FromArgb(240, 30, 16, 58), hr, 8); StrokeRR(g, Edge, hr, 8, 1);
+            using (var sf2 = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center }) using (var br2 = new SolidBrush(Ink)) g.DrawString(hintNow, hf, br2, new RectangleF(hr.X + 14, hr.Y, inner, hr.Height), sf2);
+            hintStackY = hr.Y - 8;
+        }
         if (busy) PaintBusy(g);
-        if ((DateTime.Now - toastAt).TotalSeconds < 3.5 && toast.Length > 0)
-        {
-            var tr = Rc(ClientSize.Width / 2 - 260, ClientSize.Height - 70, 520, 38); FillRR(g, Color.FromArgb(240, 40, 20, 80), tr, 10); StrokeRR(g, Accent, tr, 10, 1.2f);
-            Txt(g, toast, 15, Ink, tr, StringAlignment.Center, false);
+        if ((DateTime.Now - toastAt).TotalSeconds < ToastSecs && toast.Length > 0)
+        {   // the message box grows to hold the whole message (it used to cut long ones off with ...), and sits above the hint box
+            float tw = Math.Min(ClientSize.Width - 24, 780), inner = tw - 36; var tf = GfxCache.Font(15, false); var tsz = g.MeasureString(toast, tf, (int)inner); float th = Math.Max(38, tsz.Height + 16);
+            var tr = Rc(ClientSize.Width / 2 - tw / 2, hintStackY - th, tw, th); FillRR(g, Color.FromArgb(244, 40, 20, 80), tr, 10); StrokeRR(g, Accent, tr, 10, 1.2f);
+            using (var sf3 = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center }) using (var br3 = new SolidBrush(Ink)) g.DrawString(toast, tf, br3, new RectangleF(tr.X + 18, tr.Y, inner, tr.Height), sf3);
         }
     }
 
@@ -377,7 +438,7 @@ partial class StudioForm : Form
         NeonRule(g, 0, ToolH, W);
         float y = 12, h = 46;
         // right group first (fixed sizes from the right edge), then the left group is squeezed to fit what is left
-        float rx = W - 14; string[] rn = { "EXPORT", "Help", "Full", "Open", "Save", "Save as" }; float[] rw = { 106, 58, 58, 72, 72, 84 };
+        float rx = W - 14; string[] rn = { "EXPORT", "Help", "Full", "Open", "Save", "Save as" }; float[] rw = { 106, 58, 108, 72, 72, 84 };
         float rightStart = W - 14; for (int i = 0; i < rw.Length; i++) rightStart -= rw[i] + 6; rightStart += 6;
         float avail = rightStart - 70 - 10, leftTotal = 156 + 232 + 126 + 140 + 84 + 36; float f = Math.Max(0.5f, Math.Min(1f, avail / leftTotal));
         float x = 70; float fp = Math.Max(11, 15 * f);
@@ -390,7 +451,7 @@ partial class StudioForm : Form
         float leftEnd = x;
         Btn(g, Rc(rx - 106, y, 106, h), "EXPORT", 1, () => ExportClick(), 16); rx -= 112;
         Btn(g, Rc(rx - 58, y + 4, 58, h - 8), "Help", 2, () => app.ShowHelp(null), 14); rx -= 64;
-        Btn(g, Rc(rx - 58, y + 4, 58, h - 8), Win.IsFullscreen(this) ? "Window" : "Full", 0, () => Win.ToggleFullscreen(this), 13); rx -= 64;
+        Btn(g, Rc(rx - 108, y + 4, 108, h - 8), Win.FullLabel(this), 0, () => Win.ToggleFullscreen(this), 12); rx -= 114;
         Btn(g, Rc(rx - 72, y + 4, 72, h - 8), "Open", 0, () => OpenClick(), 14); rx -= 78;
         Btn(g, Rc(rx - 72, y + 4, 72, h - 8), "Save", 0, () => SaveClick(false), 14); rx -= 78;
         Btn(g, Rc(rx - 84, y + 4, 84, h - 8), "Save as", 0, () => SaveClick(true), 14); rx -= 90;
@@ -416,14 +477,14 @@ partial class StudioForm : Form
         NeonRule(g, 0, y0 + TransH, W);
         float x = 14, y = y0 + 8, h = 36;
         Btn(g, Rc(x, y, 44, h), "|<", 0, () => { eng.Seek(0); scroll = 0; }, 15); x += 50;
-        Btn(g, Rc(x, y, 70, h), eng.Playing ? "PAUSE" : "PLAY", eng.Playing ? 4 : 1, () => { if (eng.Playing) eng.Pause(); else PlayGuard(); }, 14); x += 76;
+        { bool armedGo = micArmed && mic == null; Btn(g, Rc(x, y, armedGo ? 96 : 70, h), armedGo ? "RECORD" : (eng.Playing ? "PAUSE" : "PLAY"), armedGo ? 3 : (eng.Playing ? 4 : 1), () => PlayToggle(), 14); x += armedGo ? 102 : 76; }
         Btn(g, Rc(x, y, 56, h), "STOP", 0, () => { eng.Stop(); scroll = 0; }, 14); x += 62;
         Btn(g, Rc(x, y, 62, h), "LOOP", eng.Loop ? 4 : 0, () => eng.Loop = !eng.Loop, 14); x += 72;
         double sec = dispPos / StudioEngine.SR, tot = eng.EndFrame / (double)StudioEngine.SR;
         var tr = Rc(x, y, 210, h); FillRR(g, Color.FromArgb(200, 8, 4, 18), tr, 6); StrokeRR(g, Edge, tr, 6, 1);
         Txt(g, Fmt(sec) + "  /  " + Fmt(tot), 19, Accent, tr, StringAlignment.Center, true); x += 222;
         Btn(g, Rc(x, y, 70, h), recOn ? "* REC" : "REC", recOn ? 3 : 0, () => { recOn = !recOn; Toast(recOn ? "Recording is armed: press PLAY, then play notes on an instrument window." : "Recording off."); }, 13); x += 76;
-        { bool rec = mic != null; double el = rec ? (DateTime.Now - micT0).TotalSeconds : 0; var mr = Rc(x, y, rec ? 128 : 60, h); Btn(g, mr, rec ? "* MIC  " + ((int)(el / 60)).ToString("00") + ":" + ((int)(el % 60)).ToString("00") : "MIC", rec ? 3 : 0, () => MicClick(), 13); if (rec) HBar(g, Rc(mr.X + 6, mr.Bottom - 7, mr.Width - 12, 5), mic.Level); x += mr.Width + 6; }
+        { bool rec = mic != null; double el = rec ? (eng.CountBeat > 0 ? 0 : Math.Max(0, (DateTime.Now - micT0).TotalSeconds - micLead / (double)StudioEngine.SR)) : 0; bool armed = micArmed && !rec; var mr = Rc(x, y, rec ? 128 : (armed ? 112 : 60), h); Btn(g, mr, armed ? "MIC READY" : (rec ? "* MIC  " + ((int)(el / 60)).ToString("00") + ":" + ((int)(el % 60)).ToString("00") : "MIC"), rec || armed ? 3 : 0, () => MicClick(), 13); if (rec) HBar(g, Rc(mr.X + 6, mr.Bottom - 7, mr.Width - 12, 5), mic.Level); x += mr.Width + 6; }
         Btn(g, Rc(x, y, 92, h), "SOUNDS", soundsOpen ? 4 : 0, () => { if (soundsOpen) CloseSounds(); else OpenSounds(); }, 12); x += 98;
 
         // tabs on the right; master meters in whatever room is left between
@@ -467,8 +528,8 @@ partial class StudioForm : Form
         if (selTrack >= n) selTrack = Math.Max(0, n - 1);
         // ruler
         var ruler = Rc(HeadW, top, tl.Width, RulerH); using (var br = new SolidBrush(Color.FromArgb(240, 18, 10, 34))) g.FillRectangle(br, ruler);
-        PaintRuler(g, ruler);
-        var rr = Reg(ruler, () => { eng.Seek(scroll + (long)((MousePos.X - HeadW) * spp)); }); rr.OnDrag = pt => eng.Seek(Math.Max(0, scroll + (long)((pt.X - HeadW) * spp)));
+        PaintRuler(g, ruler); PaintRulerNeon(g, ruler); if (Hot(ruler)) hintNow = "Drag here to move the needle. This strip at the top is the only place that moves it.";
+        var rr = Reg(ruler, () => { needleDrag = true; eng.Seek(scroll + (long)((MousePos.X - HeadW) * spp)); }); rr.OnDrag = pt => eng.Seek(Math.Max(0, scroll + (long)((pt.X - HeadW) * spp))); rr.OnUp = () => needleDrag = false;
 
         float y = top + RulerH - vscroll;
         g.SetClip(Rc(0, top + RulerH, ClientSize.Width - PanelW, ClientSize.Height - top - RulerH - 46));
@@ -476,11 +537,10 @@ partial class StudioForm : Form
         {
             if (y + LaneH < top + RulerH || y > ClientSize.Height) continue;
             var tr = eng.Tracks[i]; bool sel = i == selTrack; float ys = y + AnimOff(tr);   // ys: where this row is drawn right now (it slides when rows swap)
-            var lane = Rc(HeadW, ys, tl.Width, LaneH); using (var br = new SolidBrush(i % 2 == 0 ? Lane : Lane2)) g.FillRectangle(br, lane);
+            var lane = Rc(HeadW, ys, tl.Width, LaneH); using (var br = new SolidBrush(i % 2 == 0 ? Lane : Lane2)) g.FillRectangle(br, lane); PaintGrid(g, tl, ys, ys + LaneH);   // the grid sits UNDER the clips, inside each row
             if (tr.IsBus) PaintBusLane(g, tr, lane); else if (tr.Instrument) PaintMidi(g, tr, lane); else if (tr.Clip == null) PaintEmptyLane(g, tr, lane); else PaintWave(g, tr, lane, sel);
-            foreach (var lay in eng.Tracks) if (lay.Host == tr) { if (lay.Instrument) PaintMidi(g, lay, lane); else if (lay.Clip != null) PaintWave(g, lay, lane, sel); PaintLaneTools(g, lay, lane); }   // tracks sharing this row
+            foreach (var lay in eng.Tracks) if (lay.Host == tr) { if (lay.Instrument) PaintMidi(g, lay, lane); else if (lay.Clip != null) PaintWave(g, lay, lane, sel); }   // tracks sharing this row
             var lr = LaneReg(lane, tr); int idx = i;
-            PaintLaneTools(g, tr, lane);
             PaintHeader(g, tr, i, Rc(0, ys, HeadW, LaneH), sel);
             NeonLaneChrome(g, tr, Rc(0, ys, HeadW, LaneH), lane, sel);
             using (var pen = new Pen(Color.FromArgb(70, 140, 85, 210))) g.DrawLine(pen, 0, ys + LaneH, tl.Right, ys + LaneH);
@@ -488,7 +548,8 @@ partial class StudioForm : Form
         }
         PaintGhost(g, tl, top);
         AddTrackRow(g, Math.Max(y, top + RulerH), n);
-        { float ey = Math.Max(y, top + RulerH); if (ey < ClientSize.Height) { var em = Reg(Rc(HeadW, ey, tl.Width, ClientSize.Height - ey), () => { toolsTrack = null; eng.Seek(Math.Max(0, Snap(scroll + (long)((MousePos.X - HeadW) * spp)))); }); em.OnDrag = pt => eng.Seek(Math.Max(0, Snap(scroll + (long)((pt.X - HeadW) * spp)))); } }
+        { float ey = Math.Max(y, top + RulerH); if (ey < ClientSize.Height) { var em = Reg(Rc(HeadW, ey, tl.Width, ClientSize.Height - ey), () => { toolsTrack = null; MarqueeBegin(); }); em.OnDrag = pt => MarqueeTo(pt); em.OnUp = () => MarqueeEnd(); } }   // empty space: hold and drag a selection box (the needle moves from the ruler only)
+        PaintMarquee(g);
         if (n == 0)
         {
             var r0 = Rc(HeadW + 40, top + RulerH + 60, tl.Width - 80, 150);
@@ -500,10 +561,10 @@ partial class StudioForm : Form
             Reg(r0, () => AddMusicClick()); if (over) { bubble = "Click to choose music from your computer"; bubblePt = MousePos; }
         }
         g.ResetClip();
-        PaintGrid(g, tl, top + RulerH, ClientSize.Height);
+        { float gy = Math.Max(y, top + RulerH); PaintGrid(g, tl, gy, ClientSize.Height - 46, 0.5f); }   // the empty space under the last row
         // playhead
         float px = HeadW + (float)((dispPos - scroll) / spp);
-        if (px >= HeadW && px <= tl.Right) { GlowLine(g, NeonPink, px, top, px, ClientSize.Height, 1f); using (var b = new SolidBrush(Color.White)) g.FillPolygon(b, new[] { new PointF(px - 7, top), new PointF(px + 7, top), new PointF(px, top + 12) }); }
+        if (px >= HeadW && px <= tl.Right) PaintNeedle(g, px, top, ClientSize.Height, RulerH); else if (sparks.Count > 0) sparks.Clear();
         if (contentH > viewH + 1)
         {   // vertical scroll bar: drag it, or click along it
             var trk = Rc(tl.Right - 28, top + RulerH + 4, 20, viewH - 8); FillRR(g, Color.FromArgb(150, 8, 4, 20), trk, 10); StrokeRR(g, Color.FromArgb(90, NeonViolet), trk, 10, 1);
@@ -612,6 +673,7 @@ partial class StudioForm : Form
         }
         if (cr.Width > 0) { var gst = g.Save(); g.SetClip(lane, CombineMode.Intersect); float lv = Math.Max(tr.PeakL, tr.PeakR); Glow(g, c, cr, 6, (sel ? 1.2f : 0.8f) + Math.Min(0.6f, lv * 0.9f), 5); g.Restore(gst); }
         Txt(g, tr.Name, 12, Color.FromArgb(200, 255, 255, 255), Rc(Math.Max(lane.X, x0) + 8, lane.Y + 6, 300, 16), StringAlignment.Near, true);
+        PaintClipExtras(g, tr, lane, x0, x1, cr);
         PaintClipChrome(g, tr, lane, cr, sel);
     }
 
@@ -624,6 +686,7 @@ partial class StudioForm : Form
         using (var pen = new Pen(sel ? Color.FromArgb(200, Neon(tr.Color)) : Color.FromArgb(70, Neon(tr.Color)), sel ? 1.6f : 1f)) g.DrawRectangle(pen, r.X + 1, r.Y + 1, r.Width - 2, r.Height - 2);
         Led(g, Neon(tr.Color), r.X + 20, r.Y + 17, 5, !tr.Mute);
         Txt(g, tr.Name, 15, Ink, Rc(r.X + 28, r.Y + 6, 150, 22), StringAlignment.Near, true);
+        if (tr.Bpm > 0 && !bus) { var bt = Rc(r.X + 28, r.Y + 26, 120, 14); Txt(g, tr.Bpm.ToString("0.#") + " BPM", 10, Math.Abs(tr.Bpm - Fx.ProjectBpm) < 0.6 ? Color.FromArgb(150, 255, 190) : DimC, bt, StringAlignment.Near, false); if (Hot(bt)) hintNow = "The tempo heard in this track" + (Math.Abs(tr.Bpm - Fx.ProjectBpm) < 0.6 ? ", the same as the project." : ". The project is at " + Fx.ProjectBpm.ToString("0.#") + " BPM: press DETECT to use this track's tempo."); }
         string role = bus ? "BUS" : (tr.Instrument ? "SYNTH" : (tr.Role == "vocal" ? "VOCAL" : (tr.Role == "beat" ? "BEAT" : (tr.Role == "song" ? "SONG" : "AUDIO"))));
         int layers = 0; foreach (var lx in eng.Tracks) if (lx.Host == tr) layers++;
         if (layers > 0) { var chip = Rc(r.X + 186, r.Y + 27, 52, 15); FillRR(g, Hot(chip) ? Color.FromArgb(200, 90, 50, 170) : Color.FromArgb(150, 50, 30, 100), chip, 7); Txt(g, "+" + layers + " layer" + (layers == 1 ? "" : "s"), 9, Ink, chip, StringAlignment.Center, true); var hostTr = tr; Reg(chip, () => LayerMenu(hostTr)); if (Hot(chip)) { bubble = "Tracks sharing this row. Click to mute, separate or delete them."; bubblePt = MousePos; } }
@@ -649,23 +712,21 @@ partial class StudioForm : Form
         // fader
         float frac = Clamp01((tk.VolDb + 48f) / 54f);
         Txt(g, "Vol", 11, DimC, Rc(r.X + 12, r.Y + vy, 30, 18), StringAlignment.Near, false);
-        var fs = Slider(g, Rc(r.X + 44, r.Y + vy, 130, 18), frac, f => tk.VolDb = f < 0.003f ? -48f : (float)Math.Round(f * 54f - 48f, 1), Accent2);
+        var fs = Slider(g, Rc(r.X + 44, r.Y + vy, 112, 18), frac, f => tk.VolDb = f < 0.003f ? -48f : (float)Math.Round(f * 54f - 48f, 1), Accent2);
         fs.OnDouble = () => tk.VolDb = 0;
-        Txt(g, (tk.VolDb <= -47.9f ? "-inf" : tk.VolDb.ToString("+0.0;-0.0;0.0")) + " dB", 12, Ink, Rc(r.X + 182, r.Y + vy, 70, 18), StringAlignment.Near, false);
-        ValueEdit(Rc(r.X + 182, r.Y + vy, 70, 18), tk.VolDb <= -47.9f ? "-inf" : Num(tk.VolDb), s => { float v; if (ParseNum(s, out v)) tk.VolDb = v <= -47.9f ? -48f : Math.Min(12f, v); });
+        ValueBox(g, Rc(r.X + 172, r.Y + vy - 1, 80, 20), (tk.VolDb <= -47.9f ? "-inf" : tk.VolDb.ToString("+0.0;-0.0;0.0")) + " dB", tk.VolDb <= -47.9f ? "-inf" : Num(tk.VolDb), s => { float v; if (ParseNum(s, out v)) tk.VolDb = v <= -47.9f ? -48f : Math.Min(12f, v); });
         // pan
         Txt(g, "Pan", 11, DimC, Rc(r.X + 12, r.Y + py, 30, 18), StringAlignment.Near, false);
-        var ps = Slider(g, Rc(r.X + 44, r.Y + py, 130, 18), (tk.Pan + 1) / 2, f => tk.Pan = (float)Math.Round(f * 2 - 1, 2));
+        var ps = Slider(g, Rc(r.X + 44, r.Y + py, 112, 18), (tk.Pan + 1) / 2, f => tk.Pan = (float)Math.Round(f * 2 - 1, 2));
         ps.OnDouble = () => tk.Pan = 0;
-        Txt(g, tk.Pan == 0 ? "C" : (tk.Pan < 0 ? "L" + (int)(-tk.Pan * 100) : "R" + (int)(tk.Pan * 100)), 12, Ink, Rc(r.X + 182, r.Y + py, 34, 18), StringAlignment.Near, false);
-        ValueEdit(Rc(r.X + 182, r.Y + py, 34, 18), Num(tk.Pan * 100), s => { string u = s.Trim().ToUpperInvariant(); float v; if (u.StartsWith("C")) tk.Pan = 0; else if (ParseNum(u, out v)) { if (u.StartsWith("L")) v = -Math.Abs(v); else if (u.StartsWith("R")) v = Math.Abs(v); tk.Pan = Math.Max(-1f, Math.Min(1f, v / 100f)); } });
+        ValueBox(g, Rc(r.X + 172, r.Y + py - 1, 40, 20), tk.Pan == 0 ? "C" : (tk.Pan < 0 ? "L" + (int)(-tk.Pan * 100) : "R" + (int)(tk.Pan * 100)), Num(tk.Pan * 100), s => { string u = s.Trim().ToUpperInvariant(); float v; if (u.StartsWith("C")) tk.Pan = 0; else if (ParseNum(u, out v)) { if (u.StartsWith("L")) v = -Math.Abs(v); else if (u.StartsWith("R")) v = Math.Abs(v); tk.Pan = Math.Max(-1f, Math.Min(1f, v / 100f)); } });
         // right of the pan row: piano (instrument), arm (empty audio track), nudge (audio), nothing (bus)
         if (tk.Instrument)
-            Btn(g, Rc(r.X + 214, r.Y + py - 3, 44, 24), "Piano", 1, () => { var vf = tk.Fx.Count > 0 ? tk.Fx[0] as InstrumentFx : null; if (vf != null) { vf.Owner = tk; vf.ShowWindow(this); } }, 11);
+            Btn(g, Rc(r.X + 220, r.Y + py - 3, 40, 24), "Piano", 1, () => { var vf = tk.Fx.Count > 0 ? tk.Fx[0] as InstrumentFx : null; if (vf != null) { vf.Owner = tk; vf.ShowWindow(this); } }, 11);
         else if (!bus && tk.Clip != null)
         {
-            Btn(g, Rc(r.X + 216, r.Y + py - 1, 20, 22), "<", 0, () => tk.Offset -= (ModifierKeys & Keys.Shift) != 0 ? 44 : 441, 12);
-            Btn(g, Rc(r.X + 238, r.Y + py - 1, 20, 22), ">", 0, () => tk.Offset += (ModifierKeys & Keys.Shift) != 0 ? 44 : 441, 12);
+            Btn(g, Rc(r.X + 220, r.Y + py - 1, 18, 22), "<", 0, () => tk.Offset -= (ModifierKeys & Keys.Shift) != 0 ? 44 : 441, 12);
+            Btn(g, Rc(r.X + 241, r.Y + py - 1, 18, 22), ">", 0, () => tk.Offset += (ModifierKeys & Keys.Shift) != 0 ? 44 : 441, 12);
         }
         // meters (peak with hold)
         var h = Hold(tr); float[] pk = { tr.PeakL, tr.PeakR };
@@ -677,8 +738,8 @@ partial class StudioForm : Form
         if (!compact && tr.Clipped) { FillRR(g, Bad, Rc(r.Right - 30, r.Y + r.Height - 12, 24, 8), 3); Reg(Rc(r.Right - 30, r.Y + r.Height - 14, 24, 12), () => tr.Clipped = false); }
         if (r.Height >= 150 && !bus)
         {
-            long offMs = tr.Offset * 1000 / StudioEngine.SR; Txt(g, "offset " + offMs + " ms", 10, DimC, Rc(r.X + 182, r.Y + r.Height - 20, 76, 14), StringAlignment.Near, false);
-            ValueEdit(Rc(r.X + 182, r.Y + r.Height - 22, 76, 16), offMs.ToString(), s => { float v; if (ParseNum(s, out v)) tk.Offset = (long)(v * StudioEngine.SR / 1000.0); });
+            long offMs = tr.Offset * 1000 / StudioEngine.SR; Txt(g, "offset ms", 10, DimC, Rc(r.X + 150, r.Y + r.Height - 22, 62, 16), StringAlignment.Far, false);
+            ValueBox(g, Rc(r.X + 218, r.Y + r.Height - 25, 42, 19), offMs.ToString(), offMs.ToString(), s => { float v; if (ParseNum(s, out v)) tk.Offset = (long)(v * StudioEngine.SR / 1000.0); });
         }
     }
 
@@ -796,6 +857,7 @@ partial class StudioForm : Form
         var beat = new ToolStripMenuItem("Instrumental chain (EQ, comp, multiband, sat, exciter, imager, ducker, limiter)"); beat.Click += (a, b) => { lock (eng.Sync) { tr.Fx.Clear(); tr.Fx.AddRange(Presets.BeatChain()); } selFx = -1; Toast("Beat chain applied"); }; m.Items.Add(beat);
         var bus = new ToolStripMenuItem("Bus presets (echo, ad-lib, reverb)"); m.Items.Add(bus);
         for (int i = 0; i < Presets.BusNames.Length; i++) { string bn = Presets.BusNames[i]; var bi = new ToolStripMenuItem(bn) { ToolTipText = Presets.BusBlurbs[i] }; bi.Click += (a, b) => { lock (eng.Sync) { tr.Fx.Clear(); tr.Fx.AddRange(Presets.BuildBus(bn)); } selFx = -1; Toast(bn + " applied: " + Presets.BusBlurbs[Array.IndexOf(Presets.BusNames, bn)]); }; bus.DropDownItems.Add(bi); }
+        m.Items.Add("Community chains (download and use)...").Click += (a, b) => OpenCommunityPresets("chain", "Plugin chains", cp => { var c = Presets.ChainFromText(cp.Data); if (c.Count == 0) throw new InvalidOperationException("it holds no plugins you have"); PushUndo(); lock (eng.Sync) { tr.Fx.Clear(); tr.Fx.AddRange(c); } selFx = -1; }, () => tr.Fx.Count == 0 ? null : Presets.ChainText(tr.Fx), tr.Name + " chain");
         var mine = new ToolStripMenuItem("My saved chains"); m.Items.Add(mine);
         foreach (var nm0 in Presets.UserChains()) { string nm = nm0; var it = new ToolStripMenuItem(nm); it.Click += (a, b) => { var c = Presets.LoadChain(nm); lock (eng.Sync) { tr.Fx.Clear(); tr.Fx.AddRange(c); } selFx = -1; }; mine.DropDownItems.Add(it); }
         if (mine.DropDownItems.Count == 0) mine.DropDownItems.Add(new ToolStripMenuItem("(none yet)") { Enabled = false });
@@ -875,6 +937,7 @@ partial class StudioForm : Form
     protected override void OnKeyPress(KeyPressEventArgs e)
     {
         base.OnKeyPress(e); lastInput = DateTime.Now;
+        if (cpOpen) { CpKey(e.KeyChar); e.Handled = true; return; }
         if (stylesOpen) { if (e.KeyChar == '\b') { if (stylesQuery.Length > 0) { stylesQuery = stylesQuery.Substring(0, stylesQuery.Length - 1); stylesScroll = 0; } } else if (!char.IsControl(e.KeyChar)) { stylesQuery += e.KeyChar; stylesScroll = 0; } e.Handled = true; return; }
         if (browserOpen) { if (e.KeyChar == '\b') { if (browserQuery.Length > 0) browserQuery = browserQuery.Substring(0, browserQuery.Length - 1); } else if (!char.IsControl(e.KeyChar)) browserQuery += e.KeyChar; e.Handled = true; }
     }
@@ -882,7 +945,12 @@ partial class StudioForm : Form
     protected override bool ProcessCmdKey(ref Message msg, Keys k)
     {
         lastInput = DateTime.Now;
-        if (editBox != null && editBox.Visible) return base.ProcessCmdKey(ref msg, k);
+        if (editBox != null && editBox.Visible)
+        {   // Esc always closes a value box (even if it lost the keyboard), Enter confirms it
+            if (k == Keys.Escape) { CommitEdit(false); return true; }
+            if (k == Keys.Enter || k == Keys.Return) { CommitEdit(true); return true; }
+            return base.ProcessCmdKey(ref msg, k);
+        }
         if (ActiveControl is TextBoxBase && ((Control)ActiveControl).Visible) return base.ProcessCmdKey(ref msg, k);   // typing in the lyrics page: every key belongs to the text box
         if (keyOn && (k == Keys.Escape || k == Keys.Enter)) { keyOn = false; return true; }
         if (busOpen && k == Keys.Escape) { busOpen = false; return true; }
@@ -890,6 +958,11 @@ partial class StudioForm : Form
         if (menuOpen && k == Keys.Escape) { CloseMenu(); return true; }
         if (flexOpen && !menuOpen && !browserOpen && FlexKey(k)) return true;
         if (autoOpen) { if (k == Keys.Escape) { CloseAuto(); return true; } return base.ProcessCmdKey(ref msg, k); }
+        if (cpOpen) { if (k == Keys.Escape) { cpOpen = false; return true; } return base.ProcessCmdKey(ref msg, k); }
+        if (pickOpen) { if (k == Keys.Escape) { pickOpen = false; return true; } return base.ProcessCmdKey(ref msg, k); }
+        if (gainOpen) { if (k == Keys.Escape) { gainOpen = false; return true; } return base.ProcessCmdKey(ref msg, k); }
+        if (k == Keys.Escape && cutMark >= 0) { CutCancel(); return true; }
+        if (k == Keys.Escape && multiSel.Count > 0) { multiSel.Clear(); return true; }
         if (stylesOpen) { if (k == Keys.Escape) { stylesOpen = false; return true; } return base.ProcessCmdKey(ref msg, k); }
         if (browserOpen)
         {
@@ -903,14 +976,15 @@ partial class StudioForm : Form
         }
         if (busy) { if (k == Keys.Escape && busyCancelable) { cancelFlag = true; busyText = "Cancelling..."; return true; } return base.ProcessCmdKey(ref msg, k); }
         if (k == Keys.F1) { app.ShowHelp(null); return true; }
-        if (k == Keys.Space) { if (eng.Playing) eng.Pause(); else PlayGuard(); return true; }
+        if (k == Keys.Space) { PlayToggle(); return true; }
         if (k == Keys.Home) { eng.Seek(0); scroll = 0; return true; }
         if (k == (Keys.Control | Keys.Shift | Keys.S)) { SaveClick(true); return true; }
         if (k == Keys.F2 && selTrack < eng.Tracks.Count) { RenameTrack(eng.Tracks[selTrack]); return true; }
         if (k == (Keys.Control | Keys.Z)) { DoUndo(); return true; }
         if (k == (Keys.Control | Keys.Y) || k == (Keys.Control | Keys.Shift | Keys.Z)) { DoRedo(); return true; }
         if (k == Keys.B) { SplitSelected(); return true; }
-        if (k == Keys.Delete && Selected != null && Selected.Clip != null) { DeleteTrackQuiet(Selected); return true; }
+        if (k == Keys.Delete && multiSel.Count > 0) { DeleteSelectedClips(); return true; }
+        if (k == Keys.Delete && Selected != null && Selected.Clip != null) { DeleteClip(CurClip() ?? Selected); return true; }
         if (k == (Keys.Control | Keys.S)) { SaveClick(false); return true; }
         if (k == (Keys.Control | Keys.O)) { OpenClick(); return true; }
         return base.ProcessCmdKey(ref msg, k);
@@ -930,7 +1004,9 @@ partial class StudioForm : Form
     protected override void OnMouseDown(MouseEventArgs e)
     {
         base.OnMouseDown(e); lastInput = DateTime.Now; Focus(); MousePos = e.Location; if (e.Button == MouseButtons.Middle && tab == 0 && TimelineRect().Contains(e.Location)) { MiddleDown(e.Location); return; }
+        if (editBox != null && editBox.Visible) CommitEdit(true);   // clicking off a value box confirms what you typed
         var r = TopRegion(e.Location); if (r == null) return;
+        if (Win.ClickClosedMenu(this, r.R)) return;   // the click that just closed a menu is not also a click on the button that opened it
         if (busy && !r.WhileBusy) return;   // while a job runs only the Cancel button works
         if (e.Button == MouseButtons.Right) { if (r.OnRight != null) r.OnRight(); return; }
         if (e.Clicks == 2 && r.OnDouble != null) { r.OnDouble(); return; }
@@ -987,11 +1063,10 @@ partial class StudioForm : Form
             }
             else
             {
-                var sr = Rc(row.X + row.Width * 0.40f, row.Y + 4, row.Width * 0.60f - 70 - aw, rowH - 8);
+                var sr = Rc(row.X + row.Width * 0.40f, row.Y + 4, row.Width * 0.60f - 88 - aw, rowH - 8);
                 var rg = Slider(g, sr, PFrac(p), fr => { f.Set(pp.Id, PFromFrac(pp, fr)); }); rg.OnDouble = () => f.Set(pp.Id, pp.Def);
                 rg.OnWheel = d => f.Set(pp.Id, pp.Val + d * (pp.Max - pp.Min) / 100f);
-                Txt(g, p.Text, 12, Ink, Rc(sr.Right + 6, row.Y, 66, rowH), StringAlignment.Near, false);
-                ValueEdit(Rc(sr.Right + 6, row.Y, 66, rowH), Num(p.Val), s => { float v; if (ParseNum(s, out v)) f.Set(pp.Id, v); });
+                ValueBox(g, Rc(sr.Right + 14, row.Y + 3, 72, rowH - 6), p.Text, Num(p.Val), s => { float v; if (ParseNum(s, out v)) f.Set(pp.Id, v); });
             }
         }
         g.ResetClip();
@@ -1001,6 +1076,8 @@ partial class StudioForm : Form
     void PresetMenu(Fx f)
     {
         var m = Win.NewMenu();
+        m.Items.Add("Community presets (download and use)...").Click += (a, b) => OpenCommunityPresets("fx:" + f.Type, f.Title, cp => { lock (eng.Sync) { f.ResetDefaults(); f.Deserialize(cp.Data); f.Reset(); } }, () => f.Serialize(), f.Title + " custom");
+        m.Items.Add(new ToolStripSeparator());
         foreach (var kv in Presets.For(f.Type)) { string data = kv.Value; m.Items.Add(kv.Key).Click += (a, b) => Presets.Apply(f, data); }
         var user = Presets.User(f.Type);
         if (user.Count > 0) { m.Items.Add(new ToolStripSeparator()); foreach (var kv in user) { string data = kv.Value; string nm = kv.Key; var it = new ToolStripMenuItem("My: " + nm); it.Click += (a, b) => Presets.Apply(f, data); it.DropDownItems.Add("Delete").Click += (a, b) => Presets.DeleteUser(f.Type, nm); m.Items.Add(it); } }
@@ -1117,18 +1194,16 @@ partial class StudioForm : Form
         foreach (var id in new[] { "f", "g", "q" })
         {
             var p = eq.Find(pfx + id); var pp = p; Txt(g, id == "f" ? "Freq" : (id == "g" ? "Gain" : "Q"), 12, DimC, Rc(a.X + 6, y, 40, 24), StringAlignment.Near, false);
-            var sr = Rc(a.X + 48, y + 2, a.Width - 150, 20); var rg = Slider(g, sr, PFrac(p), fr => eq.Set(pp.Id, PFromFrac(pp, fr)), BandCol[s]); rg.OnDouble = () => eq.Set(pp.Id, pp.Def);
-            Txt(g, p.Text, 12, Ink, Rc(sr.Right + 8, y, 90, 24), StringAlignment.Near, false);
-            ValueEdit(Rc(sr.Right + 8, y, 90, 24), Num(p.Val), str => { float v; if (ParseNum(str, out v)) eq.Set(pp.Id, v); }); y += 28;
+            var sr = Rc(a.X + 48, y + 2, a.Width - 170, 20); var rg = Slider(g, sr, PFrac(p), fr => eq.Set(pp.Id, PFromFrac(pp, fr)), BandCol[s]); rg.OnDouble = () => eq.Set(pp.Id, pp.Def);
+            ValueBox(g, Rc(sr.Right + 14, y, 96, 24), p.Text, Num(p.Val), str => { float v; if (ParseNum(str, out v)) eq.Set(pp.Id, v); }); y += 28;
         }
         // HP / LP
         foreach (var kind in new[] { "hp", "lp" })
         {
             string k = kind; bool on = eq.Get(k + "_on") > 0.5f;
             Btn(g, Rc(a.X + 4, y, 70, 24), kind == "hp" ? "High-pass" : "Low-pass", on ? 4 : 0, () => eq.Set(k + "_on", on ? 0 : 1), 12);
-            var p = eq.Find(k + "_f"); var sr = Rc(a.X + 80, y + 2, a.Width - 200, 20); var rg = Slider(g, sr, PFrac(p), fr => eq.Set(k + "_f", PFromFrac(p, fr)), Accent); rg.OnDouble = () => eq.Set(k + "_f", p.Def);
-            Txt(g, p.Text, 12, Ink, Rc(sr.Right + 6, y, 60, 24), StringAlignment.Near, false);
-            ValueEdit(Rc(sr.Right + 6, y, 60, 24), Num(p.Val), str => { float v; if (ParseNum(str, out v)) eq.Set(k + "_f", v); });
+            var p = eq.Find(k + "_f"); var sr = Rc(a.X + 80, y + 2, a.Width - 218, 20); var rg = Slider(g, sr, PFrac(p), fr => eq.Set(k + "_f", PFromFrac(p, fr)), Accent); rg.OnDouble = () => eq.Set(k + "_f", p.Def);
+            ValueBox(g, Rc(sr.Right + 14, y, 70, 24), p.Text, Num(p.Val), str => { float v; if (ParseNum(str, out v)) eq.Set(k + "_f", v); });
             Btn(g, Rc(a.Right - 52, y, 48, 24), eq.Find(k + "_s").Text, 0, () => eq.Set(k + "_s", eq.Get(k + "_s") > 0.5f ? 0 : 1), 11); y += 28;
         }
     }

@@ -37,7 +37,7 @@ class Job
 partial class App : Form
 {
     // ---- Auto-update settings ----
-    const string Version = "3.19.2";
+    const string Version = "3.20.0";
     // Plain-text manifest: line 1 = newest version, line 2 = direct exe download URL.
     const string UpdateManifestUrl = "https://raw.githubusercontent.com/heaththomas225-svg/yt-to-mp3/main/version.txt";
 
@@ -104,8 +104,7 @@ partial class App : Form
     internal string LastFile;
     internal int MZoomPct = 75;
     MasterForm mf;
-    Button mastBtn = new Button(), vocalBtn = new Button(), phoneBtn = new Button(), whatsBtn = new Button(), prevNormBtn = new Button(), helpBtn = new Button(); string seenVer = ""; internal string ExtraFilter = ""; Button changeBtn = new Button(); Button settingsBtn = new Button();
-    PhoneServer phone;
+    Button mastBtn = new Button(), vocalBtn = new Button(), whatsBtn = new Button(), prevNormBtn = new Button(), helpBtn = new Button(); string seenVer = ""; internal string ExtraFilter = ""; Button changeBtn = new Button(); Button settingsBtn = new Button();
     internal StudioEngine StudioEng = new StudioEngine();
     StudioForm studioForm; Button studioBtn = new Button(), addMusicBtn = new Button();
 
@@ -124,7 +123,6 @@ partial class App : Form
         if (id == "start") { s.Add(new TourStep(R(links), "1. Paste a link", "Paste one or more links here (YouTube and 1000+ other video and music sites), or type words to search.")); s.Add(new TourStep(R(fmt), "2. Pick a format", "MP3 320 kbps is the best all-round choice.")); s.Add(new TourStep(R(go), "3. Press Convert", "Your file is saved in the Save to folder, which opens when it is done.")); }
         else if (id == "normalize") { s.Add(new TourStep(R(norm), "Normalize loudness", "Tick this to bring downloads to a standard -14 LUFS loudness.")); s.Add(new TourStep(R(prevNormBtn), "Hear it first", "Press Hear to listen to a 30 second sample, original versus normalized, before you convert.")); }
         else if (id == "vocal") { s.Add(new TourStep(R(vocalBtn), "Vocal remover", "Click this, then choose Remove vocals from a song, or Preview to hear a 30 second sample first.")); s.Add(new TourStep(R(outDir), "Where files go", "The instrumental and the vocals-only file are saved in this folder.")); }
-        else if (id == "phone") { s.Add(new TourStep(R(phoneBtn), "Phone mode", "Press this, then open the address it shows on your phone (same Wi-Fi). Use the firewall button if it will not open.")); }
         else if (id == "masterassistant") { s.Add(new TourStep(R(addMusicBtn), "Purphex Mastering", "Press ADD MUSIC, then Edit in Purphex Music. The Mastering tab there has the live EQ, loudness and width.")); }
         if (s.Count > 0) Tour.Run(this, s);
     }
@@ -162,7 +160,7 @@ partial class App : Form
             new Thread(UpdateLoop) { IsBackground = true }.Start();
         };
         FormClosing += (s, e) => { var others = new List<Form>(); foreach (Form of in Application.OpenForms) if (of != this) others.Add(of); foreach (var of2 in others) { try { of2.Close(); } catch { } } };   // closing the main window closes the others
-        FormClosing += (s, e) => { SaveSettings(); KillCurrent(); if (phone != null) phone.Stop(); StudioEng.Shutdown(); Separator.KillWorker(); layerRun = false; UserBackground.StopVideo(); frameLoop.Dispose(); };
+        FormClosing += (s, e) => { SaveSettings(); KillCurrent(); StudioEng.Shutdown(); Separator.KillWorker(); layerRun = false; UserBackground.StopVideo(); frameLoop.Dispose(); };
 
         bg.Dock = DockStyle.Fill;
         bg.Paint += PaintBg;
@@ -212,7 +210,7 @@ partial class App : Form
 
         // output folder
         StyleBtn(vocalBtn, Color.FromArgb(90, 36, 160)); vocalBtn.Text = "Vocal remover...";
-        vocalBtn.SetBounds(16, 312, 150, 30);
+        vocalBtn.SetBounds(16, 312, 190, 30);
         tip.SetToolTip(vocalBtn, "Pick a song and get an instrumental (no vocals) plus a vocals-only file, made by an AI model.");
         vocalBtn.Click += (s, e) =>
         {
@@ -221,8 +219,6 @@ partial class App : Form
             m.Items.Add("Preview: hear a 30 second sample first...").Click += (a, b) => PreviewVocals();
             m.Show(vocalBtn, new Point(0, vocalBtn.Height));
         };
-        StyleBtn(phoneBtn, Color.FromArgb(90, 36, 160)); phoneBtn.Text = "Phone mode: OFF";
-        phoneBtn.SetBounds(172, 312, 150, 30);
         StyleBtn(whatsBtn, Color.FromArgb(60, 26, 110)); whatsBtn.Text = "Menu"; whatsBtn.SetBounds(560, 12, 64, 28);
         StyleBtn(helpBtn, Color.FromArgb(190, 60, 200)); helpBtn.Text = "Help"; helpBtn.SetBounds(488, 12, 66, 28); helpBtn.Anchor = AnchorStyles.Top | AnchorStyles.Right; helpBtn.Click += (s, e) => ShowHelp(null);
         tip.SetToolTip(helpBtn, "Guides for every feature, with Show me on screen tours (F1).");
@@ -241,11 +237,11 @@ partial class App : Form
             m.Items.Add("Open data folder").Click += (a, b) => { try { Directory.CreateDirectory(AppData); Process.Start("explorer.exe", "\"" + AppData + "\""); } catch { } };
             m.Show(whatsBtn, new Point(0, whatsBtn.Height));
         };
-        StyleBtn(studioBtn, Color.FromArgb(90, 36, 160)); studioBtn.Text = "Purphex Music"; studioBtn.SetBounds(328, 312, 140, 30);
+        StyleBtn(studioBtn, Color.FromArgb(90, 36, 160)); studioBtn.Text = "Purphex Music"; studioBtn.SetBounds(212, 312, 190, 30);
         tip.SetToolTip(studioBtn, "Open the Logic-style studio: tracks, mixing, Auto-Tune, EQ, effects, mastering and export.");
         studioBtn.Click += (s, e) => OpenStudio();
         StyleBtn(addMusicBtn, Color.FromArgb(190, 60, 200)); addMusicBtn.Text = "ADD MUSIC"; addMusicBtn.Font = new Font("Segoe UI Semibold", 10.5f);
-        addMusicBtn.SetBounds(474, 312, 150, 30); addMusicBtn.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+        addMusicBtn.SetBounds(408, 312, 216, 30); addMusicBtn.Anchor = AnchorStyles.Top | AnchorStyles.Right;
         tip.SetToolTip(addMusicBtn, "Add music from your PC: edit it in Purphex Music, remove the vocals or the beat, or trim the start and end.");
         addMusicBtn.Click += (s, e) =>
         {
@@ -254,8 +250,6 @@ partial class App : Form
             else if (c == 2) vocalBtn.PerformClick();
             else if (c == 3) StudioDialogs.TrimFile(this, outDir.Text.Trim());
         };
-        tip.SetToolTip(phoneBtn, "Use this app from your phone (same Wi-Fi): open a web page, paste a link, download the file.");
-        phoneBtn.Click += (s, e) => TogglePhone();
 
         StyleBox(outDir); outDir.SetBounds(16, 372, 536, 28);
         outDir.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
@@ -284,7 +278,7 @@ partial class App : Form
         log.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
 
         bg.Controls.AddRange(new Control[] { links, fmt, sr, nameFmt, trimA, trimB, norm, playlist, openDone, animate,
-            mastBtn, vocalBtn, prevNormBtn, helpBtn, settingsBtn, changeBtn, phoneBtn, studioBtn, addMusicBtn, whatsBtn, outDir, browse, go, cancel, log });
+            mastBtn, vocalBtn, prevNormBtn, helpBtn, settingsBtn, changeBtn, studioBtn, addMusicBtn, whatsBtn, outDir, browse, go, cancel, log });
         CaptureBase();   // the design positions, before any saved window size moves the anchored controls
 
         fmt.SelectedIndex = 0; sr.SelectedIndex = 0; nameFmt.SelectedIndex = 0;
@@ -307,7 +301,7 @@ partial class App : Form
 
     static void StyleBox(TextBox b)
     {
-        b.BorderStyle = BorderStyle.FixedSingle; b.BackColor = Field; b.ForeColor = Ink;
+        b.BorderStyle = BorderStyle.FixedSingle; b.BackColor = Field; b.ForeColor = Ink; Win.NeonBox(b);
     }
 
     void StyleCombo(ComboBox c, string[] items, int x, int y, int w)
@@ -944,20 +938,6 @@ partial class App : Form
         finally { try { Directory.Delete(tmp, true); } catch { } }
     }
 
-    // ---------- phone mode ----------
-    void TogglePhone()
-    {
-        if (phone != null)
-        {
-            phone.Stop(); phone = null; phoneBtn.Text = "Phone mode: OFF"; Log("Phone mode turned off."); return;
-        }
-        var ps = new PhoneServer { Log = Log }; string err;
-        if (!ps.Start(out err)) { MessageBox.Show(this, "Couldn't start phone mode: " + err + "\n\nAnother program may be using port 8765.", "Phone mode"); return; }
-        phone = ps; phoneBtn.Text = "Phone mode: ON";
-        Log("Phone mode is ON. On your phone (same Wi-Fi) open:"); Log("  " + ps.Url);
-        PhoneUi.Show(this, ps);
-    }
-
     int RunProc(string exe, string args, bool progress)
     {
         var psi = new ProcessStartInfo(exe, args)
@@ -1007,9 +987,18 @@ partial class App : Form
         }
     }
 
-    void CheckForUpdate()
+    internal static string CurrentVersion { get { return Version; } }
+    // Settings > Scan for updates: looks right now (ignoring an earlier "Later") and always tells you what it found
+    internal void ScanForUpdates(Action<string> report)
     {
-        if (updating || card != null) return;
+        ThreadPool.QueueUserWorkItem(_ => { try { CheckForUpdate(true, report); } catch { report("Could not check for updates. Try again in a moment."); } });
+    }
+    void CheckForUpdate() { CheckForUpdate(false, null); }
+    void CheckForUpdate(bool manual, Action<string> report)
+    {
+        if (manual) dismissedVer = "";
+        if (updating) { if (manual) report("An update is already downloading."); return; }
+        if (card != null) { if (manual) { report("An update is waiting - its window is open in Purphex Music."); BeginInvoke(new Action(() => Win.Bring(this))); } return; }
         string newVer = null, dl = LatestExeUrl;
         updateSha = "";
         try
@@ -1042,9 +1031,10 @@ partial class App : Form
             }
             catch { }
         }
-        if (newVer == null) return;   // offline or unreadable: try again next round
+        if (newVer == null) { if (manual) report("Could not reach the update server. Check your internet connection and try again."); return; }   // offline or unreadable: try again next round
         System.Version nv;
-        if (!System.Version.TryParse(newVer, out nv) || nv <= new System.Version(Version)) return;
+        if (!System.Version.TryParse(newVer, out nv)) { if (manual) report("Could not read the newest version number. Try again in a moment."); return; }
+        if (nv <= new System.Version(Version)) { if (manual) report("You are up to date. Version " + Version + " is the newest."); return; }
         if (newVer == dismissedVer) return;   // user said "Later" for this one
         var notes = new List<string>();
         try
@@ -1056,7 +1046,8 @@ partial class App : Form
             }
         }
         catch { }
-        BeginInvoke(new Action(() => ShowUpdateCard(newVer, dl, notes)));
+        BeginInvoke(new Action(() => { ShowUpdateCard(newVer, dl, notes); if (manual) Win.Bring(this); }));
+        if (manual) report("Version " + newVer + " is available. The update window is open in Purphex Music.");
     }
 
     // In-app update popup (a card over the window instead of a separate message box).

@@ -125,15 +125,12 @@ partial class SynthCanvas : Control
         reg.Double = () => TypeValue(p); reg.Right = () => SetVal(p, p.Def);
     }
 
+    // double-click a knob: a small neon box next to the mouse. Enter or a click anywhere else confirms, Esc cancels.
     void TypeValue(Param p)
     {
         Typing = true;
-        try
-        {
-            string s = StudioDialogs.Ask(FindForm(), p.Name + (p.Unit.Length > 0 ? " (" + p.Unit + ")" : "") + " - type a value:", p.Val.ToString("0.##", CultureInfo.InvariantCulture)); if (s == null) return;
-            float v; if (float.TryParse(s.Trim().Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture, out v)) SetVal(p, v);
-        }
-        finally { Typing = false; Poke(); }
+        StudioDialogs.QuickValue(FindForm(), p.Name + (p.Unit.Length > 0 ? " (" + p.Unit + ")" : "") + ":", p.Val.ToString("0.##", CultureInfo.InvariantCulture),
+            s => { float v; if (float.TryParse(s.Trim().Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture, out v)) SetVal(p, v); }, () => { Typing = false; Poke(); });
     }
 
     void Power(Graphics g, string id, RectangleF r)

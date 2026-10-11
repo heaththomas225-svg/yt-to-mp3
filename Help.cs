@@ -79,18 +79,6 @@ Choose 'Preview: hear a 30 second sample first'. You can switch between Original
 - Long songs are processed in pieces so memory stays low.
 TIP: Cancel stops it safely."),
 
-        new HelpTopic("phone", "Basics", "Use it from your phone", true, @"
-## Steps
-1. Press Phone mode on the PC. A window shows an address like http://192.168.1.64:8765/?c=123456 (also copied to the clipboard).
-2. On your phone, connected to the SAME Wi-Fi as the PC, open that address in the browser.
-3. Paste a link, choose a format, press Convert, then Download. On iPhone use the share button, Save to Files.
-## If the page won't open
-- Press 'Allow in Windows Firewall' in the Phone mode window (Windows asks for permission once).
-- Check the phone is on the same Wi-Fi, not mobile data or a guest network.
-- If the PC lists several addresses, use the one that starts like your phone's (usually 192.168...). VPN addresses don't work.
-WARN: Phone mode is protected by the code at the end of the address. Turn it off when you're done.
-TIP: Keep the app open on the PC while you use it. The PC does the converting."),
-
         new HelpTopic("masterassistant", "Basics", "Purphex Mastering (while converting)", true, @"
 ## What it is
 A window with a live EQ curve, Auto EQ, Character, Loudness, Excite and Width controls that processes your downloads.
@@ -148,9 +136,14 @@ TIP: The purple area behind the curve is a live spectrum so you can see what you
 ## Add an effect
 Press Add Effect on a track, type to search, press Add. There are 18 including EQ, compressor, multiband, exciter, saturation, reverb, delay, chorus, de-esser, stereo imager, limiter, gate, noise reduction, pitch correction and 8D.
 ## Edit it
-Click it in the list. Drag sliders or click a value to type. Bypass turns it off, Presets lists built-in and your own.
+Click it in the list. Drag sliders, or click the neon box with the number to type an exact value: click anywhere else (or press Enter) to confirm it, press Esc to cancel. Bypass turns it off, Presets lists built-in and your own.
 ## Presets
 Presets lets you load Melodic, Emotional, Technical, Aggressive, Clean Studio or Wide Atmospheric vocal chains, the instrumental chain, or a bus preset (Echo bus, AdLib bus, Reverb bus). The Buses sheet has a Presets button for each bus. Every plugin stays editable. Save your own chain with 'Save this track's chain'.
+## Community presets
+Every Presets button (on a plugin, and the track Presets button for whole chains) starts with Community presets. A list opens with presets that other producers shared: POPULAR shows the most used first, NEWEST the latest, and you can type to search. Press USE to try one, press the x or Esc to close. Bass Lab has a Community style in its preset browser too.
+Press SHARE MY CURRENT SETTINGS to give your own sound to everyone (you choose the name; your producer name is shown as the author). Share only sounds you made. If something does not belong there, press Report: a preset that several people report is hidden.
+## Bass Boost presets
+Bass Boost comes with ten ready-made presets that are already balanced so the low end grows without clipping: Clean Low End, Subtle Lift, Warm and Round, Punchy Kick, Bass Guitar Body, Club Thump, Deep 808 Sub, Heavy Trap, Boom, and Small Speakers (adds harmonics so the bass can be heard on laptop speakers).
 TIP: These are original sound-design starting points, not copies of any artist's settings."),
 
         new HelpTopic("studio-8d", "Purphex Music", "8D audio tuner", false, @"
@@ -202,13 +195,15 @@ Press Settings (top right of the main window) or Menu, then Settings. Everything
 Choose any picture or video. It is cropped to fill the window automatically. Darken makes it easier to read. 'Keep the leaves' puts the floating leaves on top. Remove puts the purple leaves back.
 ## Animation
 Frame rate limit: 60 is smoothest, 30 is lightest on a slow computer. You can show the frame rate in the title bar.
+## Updates
+Scan for updates checks for a new version right now and always tells you what it found (you are up to date, or an update is ready and its window opens). It even shows an update you pressed Later on before.
 ## Audio
 Volume and output device only change what you hear in Purphex Music. Playback buffer: Low latency reacts fastest but can crackle on slow computers; Safe never crackles. Exported files are never affected.
 TIP: Videos need ffmpeg, which is installed the first time you convert something."),
 
         new HelpTopic("fullscreen", "Basics", "Full screen, moving windows and shortcuts", false, @"
 ## Full screen
-Press F11 in the main window, Purphex Music, Settings or Help. Press Esc (or F11 again) to leave. In Purphex Music there is also a Full button.
+Press F11 in the main window, Purphex Music, Settings or Help. Press Esc (or F11 again) to leave. In Purphex Music there is also a FULLSCREEN button that turns into MINIMISE: it always takes you back to a normal window with its border, even after you maximised with the title bar button.
 ## Windows
 Settings, Help and Plugins stay open without locking the other windows, so you can keep working and move any window.
 ## Shortcuts
@@ -266,24 +261,37 @@ Open + Add Effect on a track and pick it under PLUGINS (it is listed first). Pre
 
         new HelpTopic("daw", "Music Studio", "Edit like a DAW: split, trim, move, duplicate, undo, tempo grid", false, @"
 ## Cut a track in two (split)
-1. Put the needle where you want the cut by clicking the ruler (the numbers above the tracks) or the empty area below the tracks. Clicking a track itself never moves the needle.
-2. Press SPLIT (or the key B). The track becomes two pieces. Each piece is its own track, so you can move it, mute it or put different effects on it.
+1. Put the needle where you want the cut by clicking or dragging on the ruler (the numbers at the top of the tracks): the needle only moves from there. Clicking a track never moves it.
+2. Press SPLIT (or the key B). The track becomes two pieces on the SAME track. Split as many times as you like: there is no limit. Drag a piece to move it, or select it to give it its own fade, gain or plugins.
 ## Shorten a track (trim)
 - Drag the left or right END of a clip to shorten it. The audio is never deleted, you can drag it back out.
-- Or put the needle inside the clip and press TRIM < (cuts the start off here) or TRIM > (cuts the end off here).
+## Take a section out (CUT)
+1. Put the needle where the cut should start and press CUT. A pink flag marks the spot.
+2. Move the needle to where it should end and press CUT again. That section is removed from every track and the gap closes, so everything after it moves up. Esc cancels. Ctrl+Z undoes it.
+## Fade in and fade out
+Click a piece, then press FADE IN or FADE OUT. A round handle appears at the top of the clip: drag it to make the fade longer or shorter. Press the button again to remove the fade.
+## Gain (volume of one piece)
+Click a piece and press GAIN. A small panel opens with a slider from -30 to +12 dB that only changes that piece, on top of the track volume. Press GAIN again (or the x) to close it. Reset to 0 puts it back.
+## Lock a track in place
+Press LOCK to lock the selected track: it cannot be moved, trimmed, split, cut or deleted until you press UNLOCK, so you cannot nudge it by accident. A locked track is also left alone by CUT.
+## Select several clips
+Hold the left mouse button on empty space (between or below the tracks) and drag a box. Every clip the box touches lights up. Drag any lit clip to move them all together, press Delete (or DEL) to remove them, and press Esc or click empty space to let go. Locked tracks do not move or delete.
+## The needle
+The needle (the glowing line) moves only from the strip at the top of the tracks, which has a neon border so you can see where to grab it: click or drag there. While music plays, small neon sparks spit off the beam.
 ## Move a clip
 Drag the clip anywhere left or right (the cursor turns into a move cross). A plain click just selects the clip: the needle stays where it is.
 ## Move a track up or down
 Drag the track name on the left up or down, or use the Up and Dn buttons on the selected track.
 ## More
-- Click a track to show a row of buttons at its top right (they hide again when you click the empty area): Up, Dn (change the row), << and >> (move the clip one grid step), Split, <Trim, Trim>, Copy and Del. Point at any button, clip end or clip to see what it does.
-- Right-click a track for split, trim, duplicate, rename and delete.
-- DUP copies the selected track, DEL deletes it (key Delete). UNDO / REDO (Ctrl+Z / Ctrl+Y) bring edits back.
+- Point at any button, clip end or clip to see what it does.
+- Right-click a track for split, cut, fades, gain, lock, duplicate, rename and delete.
+- DUP copies the selected track. DEL (or the Delete key) deletes the selected piece; if the track has more pieces it keeps them. UNDO / REDO (Ctrl+Z / Ctrl+Y) bring edits back.
+- Clicking a button again closes the list or panel it opened.
 ## Tempo and grid
-- BPM: click the number and type the tempo, or press DETECT and the studio listens to your song and sets it.
-- Moves, trims and cuts snap to the beat. The Grid size button picks how fine the snapping is (bar, 1/2 bar, beat, 1/8 note, 1/16 note); the grid lines light up when you change it and while you drag. Snap can be switched off in the Menu.
+- BPM: the tempo is found by itself for every track you add (each track shows its BPM under its name, and the first beat or song sets the project tempo). To use your own, click the number and type it (a tempo you typed is never changed automatically), or press DETECT to listen to the selected track again.
+- Moves, trims and cuts snap to the beat. The Grid Size button picks how fine the snapping is (bar, 1/2 bar, beat, 1/8 note, 1/16 note); the grid lines brighten a little when you change it and while you drag. Snap can be switched off in the Menu.
 - Detect Track key listens to the selected track and shows its musical key in a box on the screen.
-- COUNT IN gives one bar of clicks (1 2 3 4, shown big on screen) before the song plays or records. METRONOME keeps a click going on every beat while it plays.
+- COUNT IN gives exactly four clicks (1 2 3 4, shown big on screen over the Purphex logo) before the song plays or records. METRONOME keeps a click going on every beat while it plays.
 - The tempo also drives the synth's tempo-synced wobbles and delays.
 ## Zoom
 Mouse wheel + Ctrl zooms, Alt + wheel makes tracks taller, or use - + FIT. After FIT the song fills the track area by itself, even in full screen. See the neon look page."),
@@ -470,6 +478,8 @@ Melody Tune, Natural Polish, Hard Tune, Trap Melody, Soft Harmony, Choir Stack, 
 Flex Pitch listens to a recording of one voice (or one instrument) and shows every note as a block on a piano-roll grid. Drag a block up or down to change that note's pitch. The track plays your edits straight away, and the length and timing stay exactly as they were.
 ## Opening it
 Select the track, then press FLEX in the tool row (or Tools > Flex Pitch). The recording is analysed (a few seconds for a song-length take) and the timeline zooms to it. Flex Pitch works best on a single voice or instrument, not a full mix: use Split vocals + beat first.
+## Scroll bar and saving
+A scroll bar runs along the top of Flex Pitch: drag the lit part to move along the recording, or click to jump. Your edits are saved by themselves a moment after every change (the top line says when), so nothing is lost if you click away, press FLEX again or close the app.
 ## Editing notes
 - Drag a note up or down: it snaps to whole semitones. Hold Alt to move freely.
 - Click a note to select it; Shift-click adds more; drag a box around notes to select several; Ctrl+A selects all.
@@ -546,7 +556,7 @@ Under the box you see the number of lines, words and syllables, and the syllable
 ## Saving
 Your lyrics are saved inside your project (Save), and also as a draft on your PC as you type, so they are never lost.
 ## Export
-Copy puts the lyrics on the clipboard. Save .txt writes a text file. Clear empties the page.
+Open .txt loads lyrics from a text file (replace what you have or add it to the end). Copy puts the lyrics on the clipboard. Save .txt writes a text file. Clear empties the page.
 This page never writes or suggests lyrics for you: every word is yours."),
 
         new HelpTopic("studio-neon","Purphex Music", "The neon look, zooming and taller tracks", false, @"
@@ -555,7 +565,7 @@ Every track has its own glowing colour. The outline of its clip, the light strip
 ## Move along the song and zoom
 - Mouse wheel: when all your tracks fit on screen the wheel moves along the song; when you have more tracks than fit, it scrolls up and down (and Shift + wheel moves along).
 - Ctrl + mouse wheel zooms in and out around the mouse. The zoom slider in the toolbar does the same (drag right to zoom in; double-click it to see the whole song).
-- The overview bar along the bottom shows the whole song with a lit window for what you see. Drag the window to move, drag its ends to zoom, click outside it to jump, double-click it to fit the whole song.
+- The slim bar along the bottom shows the whole song with a lit window for what you see. Drag the window to move, drag its ends to zoom, click outside it to jump, double-click it to fit the whole song. Hold the left mouse button on the hexagon logo in the middle and move left or right to scroll, or press and hold the arrows at either end. While music plays the bar turns into a live visualiser: the sound ripples out of the logo.
 - Hold the middle mouse button and drag to move the view in any direction. On a touch pad, swipe sideways.
 - Alt + mouse wheel makes the tracks taller or thinner.
 - FIT in the toolbar shows the whole song again. After FIT the song fills the area by itself, including in full screen.
@@ -570,9 +580,10 @@ Move the mouse to the line between two tracks (or above the first, or under the 
 4. Set the tempo with BPM (or DETECT). Turn on COUNT IN for a bar of clicks before it plays and METRONOME for a click on every beat. Everything lands on the beat by itself (snap).
 ## Record your voice or an instrument with a microphone
 1. Plug in a microphone. Use headphones, so the beat is not picked up by the microphone.
-2. Put the needle where you want to start and press MIC. The song plays while you record. Press MIC again, or STOP, to finish.
-3. The take appears as a new vocal track, lined up with the beat, and is saved in Music / yt2mp3 / Recordings. Choose which input to use in Settings, Recording input.
-4. Not happy? Press UNDO or DEL and record again.
+2. Click the track you want to record on, put the needle where you want to start and press MIC. The button turns red and says MIC READY: nothing is recorded yet.
+3. Press PLAY (the button now says RECORD) or the space bar when you are ready. With COUNT IN on you get four clicks first, then the song plays while you record. Press MIC again, or STOP, to finish. Press MIC a second time before you start to cancel.
+4. The take goes onto the track you selected, as another piece on that same track (an empty track takes it directly), lined up with the beat, and is saved in Music / yt2mp3 / Recordings. It never makes a new track by itself unless that track is locked. Choose which input to use in Settings, Recording input.
+5. Not happy? Press UNDO, or select the piece and press DEL, and record again.
 ## Put it together
 Add beats with ADD MUSIC, layer instruments and recordings on their own tracks, move and split pieces, use AUTO MIX for a first balance, then EXPORT. NEW starts a fresh empty project, and Save keeps everything (notes, recordings and sounds).
 "),
@@ -597,7 +608,7 @@ Enter any ffmpeg audio filter chain (for example aecho=0.8:0.88:60:0.4) and it i
 TIP: Zoom out with Ctrl + wheel to see the whole mix."),
 
         new HelpTopic("updates", "Advanced", "Updates and what's new", false, @"
-The app checks for new versions every 20 seconds while it is open. When one appears a card pops up with what is new: press Update now and it restarts by itself, or Later.
+The app checks for new versions every few seconds while it is open. You can also press Scan for updates in Settings at any time. When one appears a card pops up with what is new: press Update now and it restarts by itself, or Later.
 Menu, then What's new shows the full changelog. The title bar shows the current frame rate.
 TIP: Your settings and projects are kept across updates."),
 
@@ -606,8 +617,6 @@ TIP: Your settings and projects are kept across updates."),
 Convert any link once. The first conversion installs the tools.
 ## A YouTube link gives a 403 error
 Let the app finish its first-run setup (it installs a small JavaScript runtime). Try again; the downloader also updates itself.
-## Phone can't connect
-See 'Use it from your phone': firewall button, same Wi-Fi, correct address.
 ## No sound in the studio
 Check Windows output device and that the track isn't muted or soloed elsewhere. Press Space to play.
 ## It feels slow
@@ -625,12 +634,12 @@ class HelpForm : Form
         this.canTour = canTour; this.runTour = runTour;
         Text = "Help"; FormBorderStyle = FormBorderStyle.Sizable; StartPosition = FormStartPosition.CenterParent; MinimumSize = new Size(820, 520); ClientSize = new Size(960, 640);
         BackColor = Color.FromArgb(10, 4, 20); ForeColor = Color.FromArgb(240, 232, 255); Font = new Font("Segoe UI", 10f); Win.Dark(this); ShowInTaskbar = true;
-        search = new TextBox { Left = 14, Top = 14, Width = 270, BackColor = Color.FromArgb(8, 4, 16), ForeColor = Color.FromArgb(240, 232, 255), BorderStyle = BorderStyle.FixedSingle, Anchor = AnchorStyles.Top | AnchorStyles.Left };
+        search = new TextBox { Left = 14, Top = 14, Width = 270, BackColor = Color.FromArgb(8, 4, 16), ForeColor = Color.FromArgb(240, 232, 255), BorderStyle = BorderStyle.FixedSingle, Anchor = AnchorStyles.Top | AnchorStyles.Left }; Win.NeonBox(search);
         search.TextChanged += (s, e) => Fill(null); Controls.Add(search);
         Controls.Add(new Label { Text = "Search help (for example: phone, vocals, eq)", Left = 14, Top = 40, Width = 270, Height = 18, ForeColor = Color.FromArgb(150, 130, 190), Font = new Font("Segoe UI", 8.5f) });
         list = new ListBox { Left = 14, Top = 64, Width = 270, Height = 520, DrawMode = DrawMode.OwnerDrawFixed, ItemHeight = 28, BackColor = Color.FromArgb(8, 4, 16), ForeColor = Color.FromArgb(240, 232, 255), BorderStyle = BorderStyle.FixedSingle, Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left };
         list.DrawItem += DrawItem; list.SelectedIndexChanged += (s, e) => ShowTopic(); Controls.Add(list); Win.DarkControl(list);
-        view = new RichTextBox { Left = 298, Top = 14, Width = 648, Height = 570, ReadOnly = true, BackColor = Color.FromArgb(8, 4, 16), ForeColor = Color.FromArgb(240, 232, 255), BorderStyle = BorderStyle.FixedSingle, Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right, DetectUrls = false, Cursor = Cursors.Arrow };
+        view = new RichTextBox { Left = 298, Top = 14, Width = 648, Height = 570, ReadOnly = true, BackColor = Color.FromArgb(8, 4, 16), ForeColor = Color.FromArgb(240, 232, 255), BorderStyle = BorderStyle.FixedSingle, Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right, DetectUrls = false, Cursor = Cursors.Arrow }; Win.NeonBox(view);
         Controls.Add(view); Win.DarkControl(view);
         show = new Button { Text = "Show me on screen", Left = 298, Top = 596, Width = 220, Height = 34, FlatStyle = FlatStyle.Flat, BackColor = Color.FromArgb(190, 60, 200), ForeColor = Color.White, Cursor = Cursors.Hand, Anchor = AnchorStyles.Bottom | AnchorStyles.Left, Visible = false };
         show.FlatAppearance.BorderColor = Color.FromArgb(220, 140, 255); show.Click += (s, e) => { var t = Current(); if (t != null) { Close(); runTour(t.Id); } }; Controls.Add(show);

@@ -34,6 +34,21 @@ static class D
         string pf = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "dawtest.ytmproj"); System.IO.File.WriteAllBytes(System.IO.Path.Combine(System.IO.Path.GetTempPath(), "dawtest.wav"), new byte[0]);
         t.Source = "x"; ProjectIO.Save(eng, pf); var e2 = new StudioEngine(); ProjectIO.Load(e2, pf, s => { });
         Check("project keeps the trim and position", e2.Tracks.Count == 1 && e2.Tracks[0].ClipStart == sr * 2 && e2.Tracks[0].ClipFrames == sr && e2.Tracks[0].Offset == sr * 3, e2.Tracks.Count == 1 ? e2.Tracks[0].ClipStart + "/" + e2.Tracks[0].ClipFrames + "/" + e2.Tracks[0].Offset : "none");
+        // every built-in Bass Boost preset raises the low end against the rest, leaves the highs close to where they were, and keeps the level under control
+        {
+            Func<float[], double, int, double> mag = (x, hz, srr) => { double re = 0, im = 0; int st = srr / 2; for (int i = st; i < x.Length; i++) { re += x[i] * Math.Cos(2 * Math.PI * hz * i / srr); im += x[i] * Math.Sin(2 * Math.PI * hz * i / srr); } return Math.Sqrt(re * re + im * im) / (x.Length - st) * 2; };
+            var list = Presets.For("bassboost"); Check("Bass Boost has ready-made presets", list.Count >= 8, list.Count + " presets");
+            foreach (var kv in list)
+            {
+                var pm = new Dictionary<string, double>(); foreach (var part in kv.Value.Split(';')) { var q = part.Split('='); pm[q[0]] = double.Parse(q[1], System.Globalization.CultureInfo.InvariantCulture); }
+                double lowHz = pm["freq"] * 0.6; int n = sr * 2; var src = new float[n]; for (int i = 0; i < n; i++) src[i] = (float)(0.35 * Math.Sin(2 * Math.PI * lowHz * i / sr) + 0.12 * Math.Sin(2 * Math.PI * 300.0 * i / sr) + 0.1 * Math.Sin(2 * Math.PI * 2000.0 * i / sr));
+                double inLow = mag(src, lowHz, sr), inHigh = mag(src, 2000, sr), inPeak = 0; foreach (var v in src) inPeak = Math.Max(inPeak, Math.Abs(v));
+                var fx = Presets.Make("bassboost", kv.Value); var ol = (float[])src.Clone(); var orr = (float[])src.Clone(); fx.Process(ol, orr, n);
+                double gLow = 20 * Math.Log10(mag(ol, lowHz, sr) / inLow), gHigh = 20 * Math.Log10(mag(ol, 2000, sr) / inHigh), pk = 0; bool finite = true; foreach (var v in ol) { if (float.IsNaN(v) || float.IsInfinity(v)) finite = false; pk = Math.Max(pk, Math.Abs(v)); }
+                double m = pm["mix"] / 100.0, want = 0.5 * 20 * Math.Log10(1 - m + m * Math.Pow(10, pm["gain"] / 20)), balance = gLow - gHigh, pkDb = 20 * Math.Log10(pk / inPeak);
+                Check("Bass Boost \"" + kv.Key + "\": low end up " + balance.ToString("0.0") + " dB against the rest, highs " + gHigh.ToString("+0.0;-0.0") + " dB, peak " + pkDb.ToString("+0.0;-0.0") + " dB", finite && balance >= want && gHigh > -6.5 && gHigh < 0.6 && pkDb < 3.0 && pk < 0.99, "needs at least " + want.ToString("0.0") + " dB of lift");
+            }
+        }
         // Auto Mix works on a full song that has not been split
         var e3 = new StudioEngine(); var song = StudioEngine.NewTrack("Song", "song", BeatClip(100, 20)); e3.Tracks.Add(song);
         var rep = AutoMix.Run(e3, "Natural", false, s => { });
@@ -68,8 +83,10 @@ static class D
             Check("clicking a clip does not move the needle", app2.StudioEng.Pos == 44100 * 3, "needle at " + (app2.StudioEng.Pos / 44100.0).ToString("0.00") + " s (was 3.00 s)");
             Check("clicking a clip shows that track's buttons", tools() == trk, tools() == null ? "none" : "the clicked track");
             mouse2("OnMouseMove", 700, 500); mouse2("OnMouseDown", 700, 500); mouse2("OnMouseUp", 700, 500);
-            Check("clicking the empty area below the tracks moves the needle there", Math.Abs(app2.StudioEng.Pos - 44100L * 3) > 44100, "needle at " + (app2.StudioEng.Pos / 44100.0).ToString("0.00") + " s");
+            Check("clicking the empty area below the tracks does NOT move the needle (it only moves from the ruler)", app2.StudioEng.Pos == 44100L * 3, "needle at " + (app2.StudioEng.Pos / 44100.0).ToString("0.00") + " s");
             Check("and hides the button row", tools() == null, "");
+            mouse2("OnMouseMove", 700, 168); mouse2("OnMouseDown", 700, 168); mouse2("OnMouseUp", 700, 168);
+            Check("clicking the ruler at the top moves the needle there", Math.Abs(app2.StudioEng.Pos - 44100L * 3) > 44100, "needle at " + (app2.StudioEng.Pos / 44100.0).ToString("0.00") + " s");
             sf2.Dispose();
         }
         // ---- piano roll: draw, resize, move and delete notes with the mouse ----

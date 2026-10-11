@@ -102,35 +102,6 @@ partial class StudioForm
     double MaxSpp { get { return Math.Max(2000.0, eng.EndFrame * 1.15 / Math.Max(300, TimelineRect().Width)); } }   // the most zoomed-out level is the whole song in the window
     double zoomAnchor;
 
-    // The bar shows the whole song. The lit window is what you see: drag it to move, drag its ends to zoom, click outside it to jump, double-click to fit the whole song.
-    void PaintOverview(Graphics g, RectangleF tl)
-    {
-        var ob = Rc(HeadW, ClientSize.Height - 34, tl.Width, 28); double total = Math.Max(eng.EndFrame * 1.04, StudioEngine.SR * 10.0); float tw = ob.Width;
-        FillRR(g, Color.FromArgb(235, 9, 5, 20), ob, 10); StrokeRR(g, Color.FromArgb(110, NeonViolet), ob, 10, 1);
-        int n = LaneCount; if (n > 0)
-            for (int i = 0; i < n; i++)
-            {
-                var tr = eng.Tracks[i]; float a = ob.X + (float)(Math.Max(0, tr.Offset) / total * tw), b = ob.X + (float)(Math.Min(total, tr.Offset + Math.Max(1, tr.UsedLength)) / total * tw), th = (ob.Height - 6f) / n;
-                using (var br = new SolidBrush(Color.FromArgb(150, Neon(tr.Color)))) g.FillRectangle(br, a, ob.Y + 3 + i * th, Math.Max(2, b - a), Math.Max(1.5f, th - 1));
-            }
-        double win = tl.Width * spp; float x0 = ob.X + (float)(scroll / total * tw), ww = Math.Max(14f, (float)(win / total * tw)); x0 = Math.Max(ob.X, Math.Min(ob.Right - ww, x0));
-        var thumb = Rc(x0, ob.Y + 1, ww, ob.Height - 2); using (var br = new SolidBrush(Color.FromArgb(46, NeonCyan))) g.FillRectangle(br, thumb); Glow(g, NeonCyan, thumb, 5, 0.7f, 2);
-        using (var br = new SolidBrush(Color.FromArgb(220, NeonCyan))) { g.FillRectangle(br, thumb.X, thumb.Y + 3, 6, thumb.Height - 6); g.FillRectangle(br, thumb.Right - 6, thumb.Y + 3, 6, thumb.Height - 6); }
-        int mode = 0; double startScroll = scroll, startSpp = spp; float grab = 0;
-        var rg = Reg(ob, () =>
-        {
-            autoFit = false; float mx = MousePos.X; startScroll = scroll; startSpp = spp;
-            if (Math.Abs(mx - thumb.X) < 12) mode = 1; else if (Math.Abs(mx - thumb.Right) < 12) mode = 2; else { mode = 0; grab = mx >= thumb.X && mx <= thumb.Right ? mx - thumb.X : thumb.Width / 2; if (mx < thumb.X || mx > thumb.Right) Apply(mx - grab); }
-        });
-        rg.OnDouble = () => FitView();
-        rg.OnDrag = pt =>
-        {
-            float mx = pt.X;
-            if (mode == 0) Apply(mx - grab);
-            else if (mode == 2) { double w = Math.Max(30, mx - thumb.X) / tw * total; spp = Math.Max(MinSpp, Math.Min(MaxSpp, w / tl.Width)); }
-            else { double right = startScroll + tl.Width * startSpp; double nl = Math.Max(0, Math.Min(right - tl.Width * MinSpp, (mx - ob.X) / tw * total)); spp = Math.Max(MinSpp, Math.Min(MaxSpp, (right - nl) / tl.Width)); scroll = (long)Math.Max(0, right - tl.Width * spp); }
-        };
-    }
     void Apply(float thumbLeft)
     {
         var tl = TimelineRect(); double total = Math.Max(eng.EndFrame * 1.04, StudioEngine.SR * 10.0); var ob = Rc(HeadW, 0, tl.Width, 1);

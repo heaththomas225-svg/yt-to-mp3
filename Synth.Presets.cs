@@ -110,6 +110,8 @@ static class SynthPresets
         else { try { string f = FileFor(name); if (File.Exists(f)) fx.Deserialize(File.ReadAllText(f)); } catch { } }
         fx.ApplyGlobals(); fx.PresetName = name; fx.MarkDirty(); fx.Reset();
     }
+    // a sound that came from the community: the same clean slate first, then its settings
+    public static void ApplyData(SynthFx fx, string name, string data) { fx.ResetAll(true); fx.Deserialize(data); fx.ApplyGlobals(); fx.PresetName = name; fx.MarkDirty(); fx.Reset(); }
     public static void Initialise(SynthFx fx) { Apply(fx, "Init"); }
     public static bool IsFactory(string name) { return Find(name) != null; }
     public static bool Exists(string name) { return IsFactory(name) || File.Exists(FileFor(name)); }

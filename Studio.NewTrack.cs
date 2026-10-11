@@ -27,10 +27,19 @@ partial class StudioForm
         selTrack = eng.Tracks.IndexOf(t); Toast("Empty audio track added (raw, no effects). Press MIC to record onto it, or drop an audio file on it.");
     }
 
+    // an empty track meant for your beat / instrumental: it keeps the beat on its own row, apart from the vocals (drop the file on it or use ADD MUSIC)
+    void AddBeatTrack()
+    {
+        int k = 1; foreach (var x in eng.Tracks) if (!x.IsBus && !x.Instrument && x.Role == "beat") k++;
+        var t = StudioEngine.NewTrack(k == 1 ? "Beat" : "Beat " + k, "beat", null); nextInsert = NtInsertAt(); AddTrack(t);
+        selTrack = eng.Tracks.IndexOf(t); Toast("Beat / Instrumental track added. Drop your beat on it, or use ADD MUSIC, so the beat stays on its own track.");
+    }
+
     List<NtItem> NtItems()
     {
         Func<int, Color> C = v => Color.FromArgb(v >> 16 & 255, v >> 8 & 255, v & 255); var l = new List<NtItem>();
         l.Add(new NtItem { Title = "Voice / Audio", Sub = "Record or add audio. Raw, no effects", Col = C(0xF04438), Icon = 0, Do = () => { CloseNewTrackSheet(); AddEmptyAudioTrack(); } });
+        l.Add(new NtItem { Title = "Beat / Instrumental", Sub = "Keep your beat on its own track", Col = C(0x8B5CF6), Icon = 5, Do = () => { CloseNewTrackSheet(); AddBeatTrack(); } });
         l.Add(new NtItem { Title = "Virtual Instruments", Sub = "Bass Lab and VST plugins", Tag = "MIDI", Col = C(0x16C784), Icon = 2, Do = () => { nextInsert = NtInsertAt(); CloseNewTrackSheet(); AddInstrumentClick(true); } });
         l.Add(new NtItem { Title = "MIDI Track", Sub = "Play your own keyboard or instrument", Tag = "MIDI", Col = C(0x3B8CF5), Icon = 3, Do = () => { nextInsert = NtInsertAt(); CloseNewTrackSheet(); recOn = true; AddInstrument("synth"); } });
         return l;
@@ -45,6 +54,7 @@ partial class StudioForm
             {
                 case 0: g.DrawPath(pen, RR(Rc(cx - 5 * s, cy - 13 * s, 10 * s, 17 * s), 5 * s)); g.DrawArc(pen, cx - 10 * s, cy - 8 * s, 20 * s, 18 * s, 10, 160); g.DrawLine(pen, cx, cy + 10 * s, cx, cy + 14 * s); break;   // microphone
                 case 2: g.DrawPath(pen, RR(Rc(cx - 14 * s, cy - 8 * s, 28 * s, 18 * s), 3 * s)); for (int k = -1; k <= 1; k++) g.DrawLine(pen, cx + k * 7 * s, cy - 8 * s, cx + k * 7 * s, cy + 2 * s); break;   // keys
+                case 5: { float[] hs = { 8, 17, 12, 21, 10 }; for (int b2 = 0; b2 < hs.Length; b2++) g.DrawLine(pen, cx - 12 * s + b2 * 6 * s, cy + hs[b2] * s / 2, cx - 12 * s + b2 * 6 * s, cy - hs[b2] * s / 2); break; }   // beat bars
                 case 3: for (int a = 0; a < 3; a++) for (int b = 0; b < 3; b++) g.DrawEllipse(pen, cx - 12 * s + a * 9 * s, cy - 12 * s + b * 9 * s, 5 * s, 5 * s); break;   // pads
                 default: for (int k = -1; k <= 1; k++) g.DrawLine(pen, cx - 14 * s, cy + k * 8 * s, cx, cy); g.DrawLine(pen, cx, cy, cx + 14 * s, cy); g.DrawLine(pen, cx + 8 * s, cy - 5 * s, cx + 14 * s, cy); g.DrawLine(pen, cx + 8 * s, cy + 5 * s, cx + 14 * s, cy); break;   // lines merging into one
             }

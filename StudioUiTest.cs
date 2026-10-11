@@ -28,7 +28,7 @@ static class S
         Check("tracks are tall enough that the header is not squashed (132 px)", F<int>("LaneH") == 132, "lane height " + F<int>("LaneH"));
         double spp0 = F<double>("spp"); Check("the whole song fits the view at the start (auto-fit)", F<bool>("autoFit") && spp0 > 100, "frames per pixel " + spp0.ToString("0"));
         // overview bar: the 16 px strip with a double-click handler
-        var ob = Regs().FindLast(r => r.OnDouble != null && Math.Abs(r.R.Height - 28) < 0.5f && r.R.Y > 600); Check("the overview bar is on screen", ob != null, "");
+        var ob = Regs().FindLast(r => r.OnDouble != null && Math.Abs(r.R.Height - 34) < 0.5f && r.R.Y > 600); Check("the overview bar is on screen", ob != null, "");
         if (ob != null)
         {
             float right = ob.R.Right - 12; int y = (int)(ob.R.Y + 8);

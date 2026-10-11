@@ -31,7 +31,7 @@ partial class StudioForm
     void EnsureLyricUi()
     {
         if (lyricUi) return; lyricUi = true;
-        Func<bool, float, TextBox> mk = (multi, size) => { var t = new TextBox { Multiline = multi, Visible = false, BorderStyle = BorderStyle.FixedSingle, BackColor = Color.FromArgb(10, 5, 22), ForeColor = Ink, Font = new Font("Segoe UI", size), AcceptsReturn = multi, ScrollBars = multi ? ScrollBars.Vertical : ScrollBars.None }; Controls.Add(t); Win.DarkControl(t); return t; };
+        Func<bool, float, TextBox> mk = (multi, size) => { var t = new TextBox { Multiline = multi, Visible = false, BorderStyle = BorderStyle.FixedSingle, BackColor = Color.FromArgb(10, 5, 22), ForeColor = Ink, Font = new Font("Segoe UI", size), AcceptsReturn = multi, ScrollBars = multi ? ScrollBars.Vertical : ScrollBars.None }; Win.NeonBox(t); Controls.Add(t); Win.DarkControl(t); return t; };
         lyricBox = mk(true, 15f); lyricBox.AcceptsTab = false; lyricTitle = mk(false, 13f);
         lyricBox.TextChanged += (s, e) => { lyricStatsDirty = true; ProjectIO.Lyrics = lyricBox.Text; lyricSave.Stop(); lyricSave.Start(); };
         lyricTitle.TextChanged += (s, e) => { ProjectIO.LyricsTitle = lyricTitle.Text; lyricSave.Stop(); lyricSave.Start(); };
@@ -71,10 +71,31 @@ partial class StudioForm
         foreach (var s0 in sec) { string s1 = s0; float bw = s0.Length > 6 ? 96 : 66; Btn(g, Rc(sx, sy, bw, 28), s0, 0, () => { InsertAtCaret("[" + s1 + "]\r\n", true); }, 11); sx += bw + 6; }
         if (lyricStatsDirty && lyricBox != null) { lyricStatsDirty = false; string txt = lyricBox.Text; int ln = 0; foreach (var l in txt.Split('\n')) if (l.Trim().Length > 0) ln++; statLines = ln; statSyl = LyricsTools.LineSyllables(txt); statWords = LyricsTools.Words(txt); }
         string cur = lyricBox != null ? CaretLine() : ""; int ci = lyricBox != null ? CaretLineIndex() + 1 : 0;
-        Txt(g, statLines + " lines   " + statWords + " words   " + statSyl + " syllables      Line " + ci + ": " + LyricsTools.LineSyllables(cur) + " syllables", 12, DimC, Rc(x, H - 52, w * 0.6f, 20), StringAlignment.Near, false);
-        Txt(g, "Saved with your project, and as a draft on this PC.", 11, DimC, Rc(x, H - 32, w * 0.6f, 18), StringAlignment.Near, false);
-        float bx = x + w - 3 * 84 + 6; Btn(g, Rc(bx, H - 54, 78, 30), "Copy", 0, () => { try { Clipboard.SetText(lyricBox.Text); Toast("Lyrics copied."); } catch { } }, 12);
+        float stw = Math.Max(120f, x + w - 4 * 84 - 6 - x); Txt(g, statLines + " lines   " + statWords + " words   " + statSyl + " syllables      Line " + ci + ": " + LyricsTools.LineSyllables(cur) + " syllables", 12, DimC, Rc(x, H - 52, stw, 20), StringAlignment.Near, false);
+        Txt(g, "Saved with your project, and as a draft on this PC.", 11, DimC, Rc(x, H - 32, stw, 18), StringAlignment.Near, false);
+        float bx = x + w - 4 * 84 + 6; Btn(g, Rc(bx - 84, H - 54, 78, 30), "Open .txt", 0, () => OpenLyricsFile(), 12);
+        Btn(g, Rc(bx, H - 54, 78, 30), "Copy", 0, () => { try { Clipboard.SetText(lyricBox.Text); Toast("Lyrics copied."); } catch { } }, 12);
         Btn(g, Rc(bx + 84, H - 54, 78, 30), "Save .txt", 0, () => { using (var d = new SaveFileDialog { Filter = "Text|*.txt", FileName = (lyricTitle.Text.Length > 0 ? lyricTitle.Text : "lyrics") + ".txt" }) if (d.ShowDialog(this) == DialogResult.OK) { File.WriteAllText(d.FileName, lyricBox.Text, Encoding.UTF8); Toast("Saved " + Path.GetFileName(d.FileName)); } }, 12);
         Btn(g, Rc(bx + 168, H - 54, 78, 30), "Clear", 3, () => { if (lyricBox.Text.Length == 0 || MessageBox.Show(this, "Clear all the lyrics?", "Lyrics", MessageBoxButtons.YesNo) == DialogResult.Yes) lyricBox.Text = ""; }, 12);
+    }
+
+    // OPEN .TXT: load lyrics you wrote somewhere else (a notes app, a text file) into the writer
+    void OpenLyricsFile()
+    {
+        using (var d = new OpenFileDialog { Title = "Open lyrics", Filter = "Text files|*.txt|All files|*.*" })
+        {
+            if (d.ShowDialog(this) != DialogResult.OK) return; string text;
+            try { var fi = new FileInfo(d.FileName); if (fi.Length > 2 * 1024 * 1024) { Toast("That file is too big to be lyrics."); return; } text = File.ReadAllText(d.FileName, Encoding.UTF8); }
+            catch (Exception ex) { Toast("Could not open that file: " + ex.Message); return; }
+            string nl = Environment.NewLine; text = text.Replace("\r\n", "\n").Replace("\r", "\n").Replace("\n", nl); bool add = false;
+            if (lyricBox.Text.Trim().Length > 0)
+            {
+                var r = MessageBox.Show(this, "You already have lyrics here." + nl + nl + "Yes = replace them with this file" + nl + "No = add this file to the end" + nl + "Cancel = leave everything as it is", "Open lyrics", MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question);
+                if (r == DialogResult.Cancel) return; add = r == DialogResult.No;
+            }
+            lyricBox.Text = add ? lyricBox.Text.TrimEnd() + nl + nl + text : text;
+            if (lyricTitle.Text.Trim().Length == 0) lyricTitle.Text = Path.GetFileNameWithoutExtension(d.FileName);
+            Toast("Opened " + Path.GetFileName(d.FileName) + (add ? " (added to the end)." : "."));
+        }
     }
 }

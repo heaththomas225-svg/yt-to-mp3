@@ -37,7 +37,7 @@ partial class StudioForm
         Txt(g, tab == 3 ? "MY PROJECTS" : "COMMUNITY", 18, Ink, Rc(76, y, 300, h), StringAlignment.Near, true);
         float rx = W - 14;
         Btn(g, Rc(rx - 58, y + 4, 58, h - 8), "Help", 2, () => app.ShowHelp(null), 14); rx -= 64;
-        Btn(g, Rc(rx - 58, y + 4, 58, h - 8), Win.IsFullscreen(this) ? "Window" : "Full", 0, () => Win.ToggleFullscreen(this), 13); rx -= 70;
+        Btn(g, Rc(rx - 108, y + 4, 108, h - 8), Win.FullLabel(this), 0, () => Win.ToggleFullscreen(this), 12); rx -= 120;
         string[] tn = { "MIX", "MASTERING", "LYRICS" }; int[] ti = { 0, 1, 2 }; float[] tw = { 90, 124, 98 };
         for (int i = 2; i >= 0; i--) { int t = ti[i]; Btn(g, Rc(rx - tw[i], y, tw[i], h), tn[i], 0, () => tab = t, 13); rx -= tw[i] + 6; }
     }

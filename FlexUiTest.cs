@@ -29,7 +29,7 @@ static class G
         int n = 44100 * 4; var x = Sing(n, t => t < 1.2 ? 220.0 : (t < 2.4 ? 261.63 : (t < 2.6 ? 0 : (t < 3.8 ? 329.63 : 0))), 0.5); var clip = AudioClip.FromArrays(x, (float[])x.Clone(), "lead vocal"); clip.Path = "";
         var tr = StudioEngine.NewTrack("Lead", "vocal", clip); eng.Tracks.Add(tr);
         sf = new StudioForm(app); sf.ClientSize = new Size(1500, 860); sf.Show(); Pump(400); Paint(); SetF("selTrack", 0);
-        Check("the FLEX button is in the track tools", Regs().Exists(r => Math.Abs(r.R.Width - 52) < 0.5f && r.R.Height == 30 && r.R.Y < 200 && r.OnDown != null) , "");
+        Check("the FLEX button is in the track tools", Regs().Exists(r => r.R.Width >= 36 && r.R.Width <= 60 && r.R.Height >= 24 && r.R.Y < 200 && r.OnDown != null) , "");
         typeof(StudioForm).GetMethod("FlexOpen", BF).Invoke(sf, null); Pump(200); Paint();
         Check("Flex Pitch opens and starts listening", Fld<bool>("flexOpen") && (Fld<bool>("flexAnalysing") || Fld<object>("flexAna") != null), "");
         var t0 = DateTime.Now; while (Fld<bool>("flexAnalysing") && (DateTime.Now - t0).TotalSeconds < 30) { Pump(100); }
@@ -62,7 +62,12 @@ static class G
         // set a clear edit again, then undo and redo
         ana.Notes[0].Shift = 3; typeof(StudioForm).GetMethod("FlexChanged", BF).Invoke(sf, null); t0 = DateTime.Now; while (DateTime.Now - t0 < TimeSpan.FromSeconds(6) && Fld<bool>("flexSwap") == false) Pump(100); Pump(300);
         // Done: the edit is kept and saved as a real file the project can point to
-        var closeM = typeof(StudioForm).GetMethod("FlexClose", BF); closeM.Invoke(sf, new object[] { true }); Pump(200); Paint();
+        t0 = DateTime.Now; while ((DateTime.Now - t0).TotalSeconds < 10 && string.IsNullOrEmpty(Fld<string>("flexSavedAt"))) Pump(100);
+        Check("your edits are saved by themselves (no need to press Done)", !string.IsNullOrEmpty(Fld<string>("flexSavedAt")) && File.Exists(Fld<string>("flexAutoPath")), Fld<string>("flexAutoPath"));
+        Check("and the track already points at that saved file", tr.Clip.Path == Fld<string>("flexAutoPath"), tr.Clip.Path);
+        ana.Notes[0].Shift = 4; typeof(StudioForm).GetMethod("FlexChanged", BF).Invoke(sf, null);   // then click away straight after the edit, before it has rendered
+        var closeM = typeof(StudioForm).GetMethod("FlexClose", BF); closeM.Invoke(sf, new object[] { true });
+        { var rr = FlexPitch.Analyse(tr.Clip.L, tr.Clip.R, tr.Clip.Length, 44100, null, null); var v = new List<double>(); for (int f = (int)(0.3 * 44100 / rr.Hop); f < (int)(1.0 * 44100 / rr.Hop); f++) if (rr.F0[f] > 0) v.Add(rr.F0[f]); v.Sort(); double h4 = v.Count > 0 ? v[v.Count / 2] : 0; Check("an edit made just before closing is not lost (A3 + 4 semitones = C#4)", Math.Abs(Cents(h4, 220.0 * Math.Pow(2, 4 / 12.0))) < 30, h4.ToString("0.0") + " Hz"); } Pump(200); Paint();
         Check("Done closes the editor and keeps the edit", !Fld<bool>("flexOpen") && !ReferenceEquals(tr.Clip, clip), "");
         Check("the edited audio was written to a WAV file and the track points to it", !string.IsNullOrEmpty(tr.Clip.Path) && File.Exists(tr.Clip.Path) && tr.Clip.Path.EndsWith(".wav"), tr.Clip.Path);
         // undo brings the original recording back

@@ -23,7 +23,7 @@ partial class StudioForm
     void EnsureSoundBox()
     {
         if (soundBox != null) return;
-        soundBox = new TextBox { Visible = false, BorderStyle = BorderStyle.FixedSingle, BackColor = Color.FromArgb(10, 5, 22), ForeColor = Ink, Font = new Font("Segoe UI", 11f) }; Controls.Add(soundBox); Win.DarkControl(soundBox);
+        soundBox = new TextBox { Visible = false, BorderStyle = BorderStyle.FixedSingle, BackColor = Color.FromArgb(10, 5, 22), ForeColor = Ink, Font = new Font("Segoe UI", 11f) }; Win.NeonBox(soundBox); Controls.Add(soundBox); Win.DarkControl(soundBox);
         soundBox.TextChanged += (s, e) => { sndFilter.Text = soundBox.Text.Trim(); sndDirty = true; sndScroll = 0; Invalidate(); };
     }
     void RefreshSounds()

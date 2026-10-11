@@ -208,7 +208,7 @@ partial class StudioForm
         List<string> warn = null;
         RunBusy("Opening project...", false, p => { warn = ProjectIO.Load(eng, path, s => busyText = s); }, ok =>
         {
-            if (!ok) return; projPath = path; projName = Path.GetFileNameWithoutExtension(path); selTrack = 0; selFx = -1; undo.Clear(); redo.Clear(); FitView(); NoteProject(path, false);
+            if (!ok) return; bpmUserSet = true; projPath = path; projName = Path.GetFileNameWithoutExtension(path); selTrack = 0; selFx = -1; undo.Clear(); redo.Clear(); FitView(); NoteProject(path, false);
             if (warn != null && warn.Count > 0) MessageBox.Show(this, string.Join("\n", warn.ToArray()), "Some audio files are missing"); else Toast("Project opened");
         });
     }
@@ -303,8 +303,7 @@ partial class StudioForm
             Txt(g, "Mastering adds " + (abMast.I - abOrig.I).ToString("+0.0;-0.0") + " LU" + (matchOn ? "; A is raised by " + eng.AbMatchDb.ToString("0.0") + " dB so both play equally loud" : ""), 11, DimC, Rc(tb.X + 10, tb.Y + 52, tb.Width - 16, 20), StringAlignment.Near, false);
             yy += 86;
         }
-        Txt(g, "Target loudness", 13, DimC, Rc(ap.X + 14, yy, 150, 22), StringAlignment.Near, false); Txt(g, targetLufs.ToString("0.0") + " LUFS", 14, Ink, Rc(ap.Right - 110, yy, 96, 22), StringAlignment.Far, true);
-        ValueEdit(Rc(ap.Right - 110, yy, 96, 22), Num(targetLufs), s => { float v; if (ParseNum(s, out v)) targetLufs = Math.Max(-30f, Math.Min(-3f, v)); }); yy += 24;
+        Txt(g, "Target loudness", 13, DimC, Rc(ap.X + 14, yy, 150, 22), StringAlignment.Near, false); ValueBox(g, Rc(ap.Right - 128, yy - 3, 114, 26), targetLufs.ToString("0.0") + " LUFS", Num(targetLufs), s => { float v; if (ParseNum(s, out v)) targetLufs = Math.Max(-30f, Math.Min(-3f, v)); }); yy += 24;
         var ts = Slider(g, Rc(ap.X + 14, yy, 372, 22), (targetLufs + 20f) / 14f, f => targetLufs = (float)Math.Round(f * 14f - 20f, 1), Accent2); ts.OnDouble = () => targetLufs = -14; yy += 30;
         Btn(g, Rc(ap.X + 12, yy, 378, 34), "Set loudness to target (adjusts the limiter)", 2, () => AutoLoudness(), 13);
     }
@@ -405,9 +404,9 @@ static class StudioDialogs
     // Trim a file you pick: set where it starts and ends and save the cut as MP3 or WAV in the converter's save folder
     public static void TrimFile(IWin32Window owner, string outDir)
     {
-        var f = Make("Trim start and end", 540, 300); var tb = new TextBox { Left = 20, Top = 44, Width = 400, Height = 26, BackColor = Fld, ForeColor = Ink, BorderStyle = BorderStyle.FixedSingle }; var browse = B("Browse...", 430, 42, 90, 28, Color.FromArgb(70, 44, 140));
+        var f = Make("Trim start and end", 540, 300); var tb = new TextBox { Left = 20, Top = 44, Width = 400, Height = 26, BackColor = Fld, ForeColor = Ink, BorderStyle = BorderStyle.FixedSingle }; Win.NeonBox(tb); var browse = B("Browse...", 430, 42, 90, 28, Color.FromArgb(70, 44, 140));
         f.Controls.Add(new Label { Text = "File to trim", Left = 20, Top = 20, Width = 300, Height = 22 }); f.Controls.AddRange(new Control[] { tb, browse });
-        var a = new TextBox { Left = 20, Top = 106, Width = 110, Height = 26, BackColor = Fld, ForeColor = Ink, BorderStyle = BorderStyle.FixedSingle }; var b = new TextBox { Left = 150, Top = 106, Width = 110, Height = 26, BackColor = Fld, ForeColor = Ink, BorderStyle = BorderStyle.FixedSingle };
+        var a = new TextBox { Left = 20, Top = 106, Width = 110, Height = 26, BackColor = Fld, ForeColor = Ink, BorderStyle = BorderStyle.FixedSingle }; Win.NeonBox(a); var b = new TextBox { Left = 150, Top = 106, Width = 110, Height = 26, BackColor = Fld, ForeColor = Ink, BorderStyle = BorderStyle.FixedSingle }; Win.NeonBox(b);
         f.Controls.Add(new Label { Text = "Trim start  (m:ss)", Left = 20, Top = 82, Width = 130, Height = 22 }); f.Controls.Add(new Label { Text = "Trim end  (m:ss)", Left = 150, Top = 82, Width = 130, Height = 22 }); f.Controls.AddRange(new Control[] { a, b });
         var fmt = new ComboBox { Left = 290, Top = 106, Width = 230, DropDownStyle = ComboBoxStyle.DropDownList, BackColor = Fld, ForeColor = Ink, FlatStyle = FlatStyle.Flat }; fmt.Items.AddRange(new object[] { "MP3 320 kbps", "WAV 24-bit" }); fmt.SelectedIndex = 0;
         f.Controls.Add(new Label { Text = "Save as", Left = 290, Top = 82, Width = 130, Height = 22 }); f.Controls.Add(fmt);
@@ -445,11 +444,25 @@ static class StudioDialogs
         f.ShowDialog(owner); return result;
     }
 
+    // A small neon box to type a number into, next to the mouse. Enter or clicking anywhere else confirms it, Esc cancels. (Used by the Bass Lab knobs.)
+    public static void QuickValue(Form owner, string label, string def, Action<string> apply, Action closed)
+    {
+        var f = new Form { FormBorderStyle = FormBorderStyle.None, StartPosition = FormStartPosition.Manual, ShowInTaskbar = false, BackColor = Color.FromArgb(14, 7, 30), ClientSize = new Size(250, 78), KeyPreview = true };
+        var wa = Screen.FromPoint(Cursor.Position).WorkingArea; f.Location = new Point(Math.Max(wa.X, Math.Min(wa.Right - f.Width, Cursor.Position.X - 30)), Math.Max(wa.Y, Math.Min(wa.Bottom - f.Height, Cursor.Position.Y - 20)));
+        var lb = new Label { Text = label, Left = 14, Top = 8, Width = 224, Height = 20, ForeColor = Color.FromArgb(200, 170, 255), Font = new Font("Segoe UI", 9.5f), AutoEllipsis = true };
+        var tb = new TextBox { Left = 16, Top = 38, Width = 218, Text = def, TextAlign = HorizontalAlignment.Center, Font = new Font("Segoe UI", 11f) }; f.Controls.Add(lb); f.Controls.Add(tb); Win.NeonBox(tb);
+        f.Paint += (s, e) => { e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias; Win.DrawNeonBox(e.Graphics, new RectangleF(3, 3, f.Width - 7, f.Height - 7), true); };
+        bool done = false; Action<bool> finish = ok => { if (done) return; done = true; string t = tb.Text; try { f.Close(); } catch { } if (ok && t != def && apply != null) { try { apply(t); } catch { } } if (closed != null) closed(); };
+        tb.KeyDown += (s, e) => { if (e.KeyCode == Keys.Enter) { e.SuppressKeyPress = true; finish(true); } else if (e.KeyCode == Keys.Escape) { e.SuppressKeyPress = true; finish(false); } };
+        f.Deactivate += (s, e) => finish(true); f.Shown += (s, e) => { tb.Focus(); tb.SelectAll(); }; f.FormClosed += (s, e) => { if (!done) { done = true; if (closed != null) closed(); } };
+        f.Show(owner);
+    }
+
     public static string Ask(IWin32Window owner, string prompt, string def)
     {
         string result = null; var f = Make("Studio", 440, 140);
         f.Controls.Add(new Label { Text = prompt, Left = 16, Top = 14, Width = 400, Height = 22 });
-        var tb = new TextBox { Left = 16, Top = 42, Width = 404, Text = def, BackColor = Fld, ForeColor = Ink, BorderStyle = BorderStyle.FixedSingle }; f.Controls.Add(tb);
+        var tb = new TextBox { Left = 16, Top = 42, Width = 404, Text = def, BackColor = Fld, ForeColor = Ink, BorderStyle = BorderStyle.FixedSingle }; Win.NeonBox(tb); f.Controls.Add(tb);
         var ok = B("OK", 230, 86, 90, 32, Color.FromArgb(118, 52, 212)); var cancel = B("Cancel", 330, 86, 90, 32, Color.FromArgb(70, 40, 120));
         ok.Click += (s, e) => { if (tb.Text.Trim().Length > 0) { result = tb.Text.Trim(); f.Close(); } }; cancel.Click += (s, e) => f.Close(); f.AcceptButton = ok; f.Controls.AddRange(new Control[] { ok, cancel });
         f.ShowDialog(owner); return result;
@@ -458,7 +471,7 @@ static class StudioDialogs
     public static void Report(IWin32Window owner, string title, List<string> lines, Action undo)
     {
         var f = Make(title, 760, 520);
-        var tb = new TextBox { Left = 16, Top = 16, Width = 728, Height = 440, Multiline = true, ReadOnly = true, ScrollBars = ScrollBars.Vertical, BackColor = Fld, ForeColor = Ink, BorderStyle = BorderStyle.FixedSingle, Font = new Font("Segoe UI", 10f) };
+        var tb = new TextBox { Left = 16, Top = 16, Width = 728, Height = 440, Multiline = true, ReadOnly = true, ScrollBars = ScrollBars.Vertical, BackColor = Fld, ForeColor = Ink, BorderStyle = BorderStyle.FixedSingle, Font = new Font("Segoe UI", 10f) }; Win.NeonBox(tb);
         var sb = new StringBuilder(); foreach (var l in lines) sb.Append(" - ").Append(l).Append("\r\n\r\n"); tb.Text = sb.ToString(); f.Controls.Add(tb);
         var ok = B("Keep this mix", 590, 468, 154, 36, Color.FromArgb(118, 52, 212)); var un = B("Undo Auto Mix", 424, 468, 154, 36, Color.FromArgb(150, 40, 80));
         ok.Click += (s, e) => f.Close(); un.Click += (s, e) => { undo(); f.Close(); }; f.AcceptButton = ok; f.Controls.AddRange(new Control[] { ok, un });
@@ -475,9 +488,9 @@ static class StudioDialogs
         y += 6; f.Controls.Add(new Label { Text = "Format", Left = 16, Top = y + 4, Width = 70, Height = 22 });
         var fm = new DarkCombo { Left = 90, Top = y, Width = 250 }; fm.Items.AddRange(Exporter.Formats); fm.SelectedIndex = 0; f.Controls.Add(fm); y += 40;
         f.Controls.Add(new Label { Text = "Name", Left = 16, Top = y + 4, Width = 70, Height = 22 });
-        var nm = new TextBox { Left = 90, Top = y, Width = 440, Text = defName, BackColor = Fld, ForeColor = Ink, BorderStyle = BorderStyle.FixedSingle }; f.Controls.Add(nm); y += 38;
+        var nm = new TextBox { Left = 90, Top = y, Width = 440, Text = defName, BackColor = Fld, ForeColor = Ink, BorderStyle = BorderStyle.FixedSingle }; Win.NeonBox(nm); f.Controls.Add(nm); y += 38;
         f.Controls.Add(new Label { Text = "Folder", Left = 16, Top = y + 4, Width = 70, Height = 22 });
-        var dir = new TextBox { Left = 90, Top = y, Width = 350, Text = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyMusic), "yt2mp3", "Exports"), BackColor = Fld, ForeColor = Ink, BorderStyle = BorderStyle.FixedSingle }; f.Controls.Add(dir);
+        var dir = new TextBox { Left = 90, Top = y, Width = 350, Text = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyMusic), "yt2mp3", "Exports"), BackColor = Fld, ForeColor = Ink, BorderStyle = BorderStyle.FixedSingle }; Win.NeonBox(dir); f.Controls.Add(dir);
         var br = B("Browse...", 448, y - 2, 84, 28, Color.FromArgb(70, 40, 120)); br.Click += (s, e) => { using (var d = new FolderBrowserDialog()) if (d.ShowDialog() == DialogResult.OK) dir.Text = d.SelectedPath; }; f.Controls.Add(br); y += 42;
         f.Controls.Add(new Label { Text = "All files start at 0:00 with the same length, so stems line up in any DAW. Existing files are never replaced without asking.", Left = 16, Top = y, Width = 520, Height = 40, ForeColor = Color.FromArgb(170, 150, 190) });
         var ok = B("Export", 330, 508, 100, 34, Color.FromArgb(118, 52, 212)); var cancel = B("Cancel", 440, 508, 100, 34, Color.FromArgb(70, 40, 120));

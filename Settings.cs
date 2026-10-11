@@ -8,7 +8,7 @@ using System.Windows.Forms;
 class SettingsForm : Form
 {
     readonly App app; bool setting;
-    Label bgName; TrackBar dimBar, volBar; NumericUpDown dimNum, volNum; ComboBox devBox, bufBox, fpsBox, inBox;
+    Label bgName, updStatus; Button updBtn; TrackBar dimBar, volBar; NumericUpDown dimNum, volNum; ComboBox devBox, bufBox, fpsBox, inBox;
     CheckBox leavesChk, studioChk, fpsChk;
     static readonly Color Ink = Color.FromArgb(240, 232, 255), Dim = Color.FromArgb(160, 140, 200), Head = Color.FromArgb(236, 120, 230), Fld = Color.FromArgb(24, 12, 44);
 
@@ -25,7 +25,7 @@ class SettingsForm : Form
         var clear = Btn("Remove (use leaves)", 240, y, 170, Color.FromArgb(70, 40, 120)); clear.Click += (s, e) => { UserBackground.Set(""); Refresh2(); };
         y += 44;
         dimBar = new TrackBar { Left = 130, Top = y - 4, Width = 300, Minimum = 0, Maximum = 90, TickFrequency = 10, BackColor = BackColor };
-        dimNum = new NumericUpDown { Left = 440, Top = y, Width = 64, Minimum = 0, Maximum = 90 }; StyleNum(dimNum);
+        dimNum = new NumericUpDown { Left = 440, Top = y, Width = 64, Minimum = 0, Maximum = 90 }; Win.NeonBox(dimNum); StyleNum(dimNum);
         Controls.Add(new Label { Text = "Darken (%)", Left = 20, Top = y + 2, Width = 100, ForeColor = Ink }); Controls.Add(dimBar); Controls.Add(dimNum);
         dimBar.Scroll += (s, e) => { if (!setting) { dimNum.Value = dimBar.Value; } };
         dimNum.ValueChanged += (s, e) => { if (setting) return; dimBar.Value = (int)dimNum.Value; Prefs.BgDim = (int)dimNum.Value; Prefs.Changed(); };
@@ -40,7 +40,7 @@ class SettingsForm : Form
         fpsChk = Chk("Show the frame rate in the title bar", 20, ref y); fpsChk.CheckedChanged += (s, e) => { if (!setting) { Prefs.ShowFps = fpsChk.Checked; Prefs.Changed(); } };
         y += 6; Header("Audio (Purphex Music playback)", ref y);
         volBar = new TrackBar { Left = 130, Top = y - 4, Width = 300, Minimum = 0, Maximum = 100, TickFrequency = 10, BackColor = BackColor };
-        volNum = new NumericUpDown { Left = 440, Top = y, Width = 64, Minimum = 0, Maximum = 100 }; StyleNum(volNum);
+        volNum = new NumericUpDown { Left = 440, Top = y, Width = 64, Minimum = 0, Maximum = 100 }; Win.NeonBox(volNum); StyleNum(volNum);
         Controls.Add(new Label { Text = "Volume (%)", Left = 20, Top = y + 2, Width = 100, ForeColor = Ink }); Controls.Add(volBar); Controls.Add(volNum);
         volBar.Scroll += (s, e) => { if (!setting) volNum.Value = volBar.Value; };
         volNum.ValueChanged += (s, e) => { if (setting) return; volBar.Value = (int)volNum.Value; Prefs.OutVol = (int)volNum.Value; Prefs.Changed(); };
@@ -58,7 +58,16 @@ class SettingsForm : Form
         inBox.SelectedIndexChanged += (s, e) => { if (!setting) { Prefs.InDev = inBox.SelectedIndex <= 0 ? "" : (string)inBox.SelectedItem; Prefs.Changed(); } };
         y += 38;
         Note("Volume only changes what you hear while playing. Exported files are never affected.", ref y);
-        y += 4; Header("General", ref y);
+        y += 4; Header("Updates", ref y);
+        Controls.Add(new Label { Text = "You have version " + App.CurrentVersion + ". Purphex also checks by itself every few seconds while it is open.", Left = 20, Top = y, Width = 520, Height = 38, ForeColor = Dim, Font = new Font("Segoe UI", 9f) }); y += 40;
+        updBtn = Btn("Scan for updates", 20, y, 170, Color.FromArgb(140, 60, 220));
+        updStatus = new Label { Left = 200, Top = y, Width = 340, Height = 36, ForeColor = Ink, Font = new Font("Segoe UI", 9.5f), TextAlign = ContentAlignment.MiddleLeft }; Controls.Add(updStatus);
+        updBtn.Click += (s, e) =>
+        {
+            updBtn.Enabled = false; updStatus.ForeColor = Dim; updStatus.Text = "Checking...";
+            app.ScanForUpdates(msg => { try { BeginInvoke(new Action(() => { updBtn.Enabled = true; updStatus.ForeColor = msg.StartsWith("Could not") ? Color.FromArgb(255, 150, 150) : Color.FromArgb(150, 255, 170); updStatus.Text = msg; })); } catch { } });
+        };
+        y += 44; Header("General", ref y);
         var open = Btn("Open settings folder", 20, y, 180, Color.FromArgb(70, 40, 120)); open.Click += (s, e) => { try { Process.Start("explorer.exe", app.DataFolder); } catch { } };
         var reset = Btn("Reset appearance and audio", 210, y, 220, Color.FromArgb(150, 40, 80)); reset.Click += (s, e) => ResetAll();
         var done = Btn("Done", 460, y, 80, Color.FromArgb(140, 60, 220)); done.Click += (s, e) => Close();
@@ -72,7 +81,7 @@ class SettingsForm : Form
     Button Btn(string t, int x, int y, int w, Color c) { var b = new Button { Text = t, Left = x, Top = y, Width = w, Height = 32, FlatStyle = FlatStyle.Flat, BackColor = c, ForeColor = Color.White, Cursor = Cursors.Hand }; b.FlatAppearance.BorderColor = Color.FromArgb(200, 150, 255); Controls.Add(b); return b; }
     CheckBox Chk(string t, int x, ref int y) { var c = new DarkCheck { Text = t, Left = x, Top = y, Width = 520, Height = 24, ForeColor = Ink }; Controls.Add(c); y += 28; return c; }
     ComboBox Combo(int x, int y, int w, string[] items) { var c = new DarkCombo { Left = x, Top = y, Width = w, DropDownStyle = ComboBoxStyle.DropDownList }; c.Items.AddRange(items); Controls.Add(c); return c; }
-    static void StyleNum(NumericUpDown n) { n.BackColor = Fld; n.ForeColor = Ink; n.BorderStyle = BorderStyle.FixedSingle; }
+    static void StyleNum(NumericUpDown n) { n.BackColor = Fld; n.ForeColor = Ink; n.BorderStyle = BorderStyle.FixedSingle; Win.NeonBox(n); }
 
     void Pick()
     {
