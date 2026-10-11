@@ -74,6 +74,7 @@ partial class StudioForm
             g.ResetClip(); g.SetClip(Rc(0, laneTop, ClientSize.Width, areaBottom - laneTop), CombineMode.Intersect);
             using (var pen = new Pen(Color.FromArgb(235, NeonCyan), 1.8f)) g.DrawPath(pen, p);
         }
+        if (!header) { float gx = r.X; GlowLine(g, NeonCyan, gx, laneTop, gx, areaBottom, 1f); Txt(g, "snaps to the " + GridNames[gridIdx].ToLowerInvariant() + " grid", 10, NeonCyan, Rc(Math.Min(ClientSize.Width - 200, gx + 6), laneTop + 2, 190, 14), StringAlignment.Near, true); }   // the snap guide: where the clip starts
         if (header) Txt(g, tr.Name, 15, Color.FromArgb(235, 255, 255, 255), Rc(r.X + 30, r.Y + 8, 220, 22), StringAlignment.Near, true);
         else Txt(g, tr.Name, 13, Color.FromArgb(235, 255, 255, 255), Rc(r.X + 10, r.Y + 6, Math.Max(40, r.Width - 20), 20), StringAlignment.Near, true);
         g.Restore(gst);

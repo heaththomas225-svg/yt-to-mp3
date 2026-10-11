@@ -540,7 +540,8 @@ class StudioEngine
         if (advance) MasterTapPos = (p + n) & 8191;
     }
 
-    public volatile bool CountIn; public long LastCountFrames; long countLeft;   // Count In: one bar of clicks before playing or recording starts
+    public volatile bool CountIn; public long LastCountFrames; long countLeft;
+    public int CountBeat { get { long cl = countLeft, tot = LastCountFrames; if (cl <= 0 || tot <= 0 || !Playing) return 0; int b = 1 + (int)((tot - cl) * 4 / tot); return Math.Max(1, Math.Min(4, b)); } }   // which beat of the count-in (1 to 4) is sounding, 0 = not counting   // Count In: one bar of clicks before playing or recording starts
     public volatile bool Metronome;   // click on every beat while the song plays
     public static volatile int LiveUntil;   // Environment.TickCount until which instruments keep sounding even though the song is stopped
     static readonly RenderOpts Live = new RenderOpts();

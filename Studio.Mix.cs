@@ -105,6 +105,25 @@ static class Presets
         "Neutral polished starting point: gentle tuning, light compression, small room.",
         "Big and spacious: stereo chorus, wide imager, long reverb and ping-pong delay." };
 
+    // ---------- bus presets: an echoey bus, an ad-lib bus and a reverb bus (they work on any track, and are made for buses) ----------
+    public static readonly string[] BusNames = { "Echo bus", "AdLib bus", "Reverb bus" };
+    public static readonly string[] BusBlurbs = { "Echoey: a dotted-eighth ping-pong echo and a little room on everything sent to it.", "AdLib: bright, forward ad-libs with a short slap echo and a touch of space.", "Reverb: a big smooth room around everything sent to it." };
+    public static List<Fx> BuildBus(string name)
+    {
+        var c = new List<Fx>();
+        switch (name)
+        {
+            case "Echo bus":
+                c.Add(Make("eq", "hp_on=1;hp_f=180;hp_s=1;lp_on=1;lp_f=7500")); c.Add(Make("delay", "mode=2;sync=3;fb=48;hc=4200;mix=45")); c.Add(Make("reverb", "size=35;damp=60;pre=15;mix=14")); break;
+            case "AdLib bus":
+                c.Add(Make("eq", "hp_on=1;hp_f=260;hp_s=1;b3_f=4200;b3_g=3;b3_q=0.9;b5_f=11000;b5_g=2")); c.Add(Make("comp", "thr=-20;ratio=3;att=6;rel=90;knee=6;makeup=3")); c.Add(Make("delay", "mode=2;sync=2;fb=26;hc=4800;mix=32"));
+                c.Add(Make("reverb", "size=45;damp=50;pre=22;mix=22")); c.Add(Make("exciter", "drive=6;harm=35;flo=5500;fhi=16000;mix=20")); break;
+            case "Reverb bus":
+                c.Add(Make("eq", "hp_on=1;hp_f=220;hp_s=1;lp_on=1;lp_f=9500")); c.Add(Make("reverb", "size=82;damp=45;pre=30;mix=45")); break;
+        }
+        return c;
+    }
+
     // Original presets inspired by broad styles (melodic trap, emotional rap, technical rap...). They are not
     // copies of any artist's settings or of proprietary plugins.
     public static List<Fx> BuildChain(string name)

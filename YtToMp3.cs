@@ -37,7 +37,7 @@ class Job
 partial class App : Form
 {
     // ---- Auto-update settings ----
-    const string Version = "3.17.7";
+    const string Version = "3.17.8";
     // Plain-text manifest: line 1 = newest version, line 2 = direct exe download URL.
     const string UpdateManifestUrl = "https://raw.githubusercontent.com/heaththomas225-svg/yt-to-mp3/main/version.txt";
 
@@ -483,7 +483,7 @@ partial class App : Form
         float k = (float)(Math.Sin(t * 2.5f) * 0.5 + 0.5); k = (float)Math.Round(k * 12) / 12f;
         Color gc = busy ? Color.FromArgb(70, 30, 120) : Color.FromArgb((int)(105 + 70 * k), (int)(35 + 30 * k), (int)(195 + 45 * k));
         if (go.BackColor != gc) go.BackColor = gc;
-        bg.Invalidate();
+        bg.Invalidate(); if ((++paintTick & 7) == 0) Win.PaintPending(bg);   // give the controls on top their turn to repaint
         fpsFrames++;
         if (now >= nextFpsAt) { fpsShown = (int)(fpsFrames * 1000.0 / (now - (nextFpsAt - 1000)) + 0.5); fpsFrames = 0; nextFpsAt = now + 1000; Text = "Purphex  v" + Version + (Prefs.ShowFps ? "    " + fpsShown + " fps" : ""); }
     }

@@ -149,8 +149,8 @@ TIP: The purple area behind the curve is a live spectrum so you can see what you
 Press Add Effect on a track, type to search, press Add. There are 18 including EQ, compressor, multiband, exciter, saturation, reverb, delay, chorus, de-esser, stereo imager, limiter, gate, noise reduction, pitch correction and 8D.
 ## Edit it
 Click it in the list. Drag sliders or click a value to type. Bypass turns it off, Presets lists built-in and your own.
-## Whole-chain presets
-Chain presets lets you load Melodic, Emotional, Technical, Aggressive, Clean Studio or Wide Atmospheric vocal chains, or the instrumental chain. Every plugin stays editable. Save your own chain with 'Save this track's chain'.
+## Presets
+Presets lets you load Melodic, Emotional, Technical, Aggressive, Clean Studio or Wide Atmospheric vocal chains, the instrumental chain, or a bus preset (Echo bus, AdLib bus, Reverb bus). The Buses sheet has a Presets button for each bus. Every plugin stays editable. Save your own chain with 'Save this track's chain'.
 TIP: These are original sound-design starting points, not copies of any artist's settings."),
 
         new HelpTopic("studio-8d", "Purphex Music", "8D audio tuner", false, @"
@@ -281,9 +281,9 @@ Drag the track name on the left up or down, or use the Up and Dn buttons on the 
 - DUP copies the selected track, DEL deletes it (key Delete). UNDO / REDO (Ctrl+Z / Ctrl+Y) bring edits back.
 ## Tempo and grid
 - BPM: click the number and type the tempo, or press DETECT and the studio listens to your song and sets it.
-- Moves, trims and cuts snap to the beat. The grid button picks the size (bar, 1/2, beat, 1/8, 1/16). Snap can be switched off in the Menu.
+- Moves, trims and cuts snap to the beat. The Grid size button picks how fine the snapping is (bar, 1/2 bar, beat, 1/8 note, 1/16 note); the grid lines light up when you change it and while you drag. Snap can be switched off in the Menu.
 - Detect Track key listens to the selected track and shows its musical key in a box on the screen.
-- 1 2 3 is the Count In: one bar of clicks before the song plays or records.
+- COUNT IN gives one bar of clicks (1 2 3 4, shown big on screen) before the song plays or records. METRONOME keeps a click going on every beat while it plays.
 - The tempo also drives the synth's tempo-synced wobbles and delays.
 ## Zoom
 Mouse wheel + Ctrl zooms, Alt + wheel makes tracks taller, or use - + FIT. After FIT the song fills the track area by itself, even in full screen. See the neon look page."),
@@ -500,7 +500,7 @@ Move the mouse to the line between two tracks (or above the first, or under the 
 1. Press + ADD TRACK and choose MIDI Track (Bass Lab) or Virtual Instruments (any VST plugin). Play it with your computer keyboard (A S D F G H J = white keys, W E T Y U = black keys, Z / X = octave) or click the piano.
 2. To record your playing: press REC (it turns red), then play a key. The song starts by itself and your notes are recorded onto the track. Press STOP when you are done.
 3. Open the Notes button on the track (or double-click the track) for the piano roll: draw notes by dragging on the grid, drag a note to move it, drag its right end to resize it, right-click to delete it. Everything you draw plays right away. 'Snap notes to grid' tidies your timing.
-4. Set the tempo with BPM (or DETECT). Turn on 1 2 3 (Count In) for a bar of clicks before it plays. Everything lands on the beat by itself (snap).
+4. Set the tempo with BPM (or DETECT). Turn on COUNT IN for a bar of clicks before it plays and METRONOME for a click on every beat. Everything lands on the beat by itself (snap).
 ## Record your voice or an instrument with a microphone
 1. Plug in a microphone. Use headphones, so the beat is not picked up by the microphone.
 2. Put the needle where you want to start and press MIC. The song plays while you record. Press MIC again, or STOP, to finish.

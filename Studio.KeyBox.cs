@@ -12,23 +12,44 @@ partial class StudioForm
 
     void ShowKeyBox(bool found, string title, string sub, string note) { keyOn = true; keyFound = found; keyTitle = title; keySub = sub; keyNote = note; keyAt = Environment.TickCount; lastInput = DateTime.Now; }
 
-    void DetectTrackKey()
+    // asks which track, then listens to it
+    void PickTrackMenu(string title, Func<Track, bool> ok, Action<Track> pick)
     {
-        var cands = new List<Track>(); Track sel = Selected; if (sel != null && sel.Clip != null && !sel.Instrument && !sel.IsBus) cands.Add(sel);
-        var rest = new List<Track>(); foreach (var x in eng.Tracks) if (x.Clip != null && !x.Instrument && !x.IsBus && !cands.Contains(x)) rest.Add(x);
-        rest.Sort((a, b) => b.UsedLength.CompareTo(a.UsedLength)); cands.AddRange(rest);
-        if (cands.Count == 0) { ShowKeyBox(false, "No audio yet", "Add a track with music or a voice, then press Detect Track key again.", ""); return; }
+        var m = Win.NewMenu(); var head = m.Items.Add(title); head.Enabled = false; int n = 0; var sel = Selected;
+        foreach (var t0 in eng.Tracks.ToArray())
+        {
+            if (!ok(t0)) continue; var t = t0; n++; double sec = t.UsedLength / (double)StudioEngine.SR; string label = t.Name + "   (" + ((int)(sec / 60)) + ":" + ((int)(sec % 60)).ToString("00") + (t.Role == "vocal" ? ", vocal" : (t.Role == "beat" ? ", beat" : "")) + ")";
+            var it = new ToolStripMenuItem(label) { Checked = t == sel }; it.Click += (a, b) => pick(t); m.Items.Add(it);
+        }
+        if (n == 0) { Toast("There is no track with audio yet. Add a song or a recording first."); return; }
+        m.Show(this, new Point((int)MousePos.X, (int)MousePos.Y));
+    }
+    void DetectTrackKey() { PickTrackMenu("Detect the key of which track?", t => t.Clip != null && !t.Instrument && !t.IsBus, DetectTrackKeyOf); }
+    void DetectTrackKeyOf(Track chosen)
+    {
+        var cands = new List<Track> { chosen };
+        if (cands.Count == 0) return;
         int key = 0, scale = 1; double conf = 0; bool found = false; Track used = null;
-        RunBusy("Finding the key (listening to " + cands[0].Name + ")...", false, p =>
+        RunBusy("Finding the key of " + cands[0].Name + "...", false, p =>
         {
             foreach (var t in cands) { int k, s; double c; bool ok; try { ok = KeyDetect.Detect(t.Clip, out k, out s, out c); } catch { ok = false; k = 0; s = 1; c = 0; } if (ok) { found = true; key = k; scale = s; conf = c; used = t; break; } }
         }, ok =>
         {
             if (!ok) return;
-            if (!found) { ShowKeyBox(false, "No clear key", "I could not hear a clear key. It works best on notes with a clear pitch: a voice, a melody, a bass line.", "Try the track with the vocal or the melody."); return; }
+            if (!found) { ShowKeyBox(false, "No clear key", "I could not hear a clear key in " + cands[0].Name + ". It works best on notes with a clear pitch: a voice, a melody, a bass line.", "Try a different track (the vocal or the melody)."); return; }
             string name = PitchCorrector.Keys[key] + (scale == 2 ? " minor" : " major"), rel = scale == 2 ? PitchCorrector.Keys[(key + 3) % 12] + " major" : PitchCorrector.Keys[(key + 9) % 12] + " minor";
             ShowKeyBox(true, name, "Relative " + (scale == 2 ? "major" : "minor") + ": " + rel + "     Confidence " + (int)Math.Round(Math.Max(0, Math.Min(1, conf)) * 100) + "%", "Listened to: " + used.Name);
         });
+    }
+
+    // the big number on screen during the Count In
+    void PaintCountIn(Graphics g)
+    {
+        int beat = eng.CountBeat; if (beat <= 0) return; float W = ClientSize.Width, H = ClientSize.Height; double pulse = 0.5 + 0.5 * Math.Sin(Environment.TickCount / 90.0); lastInput = DateTime.Now;
+        var box = Rc(W / 2 - 150, H / 2 - 150, 300, 300); using (var b = new SolidBrush(Color.FromArgb(120, 3, 1, 10))) g.FillEllipse(b, box);
+        for (int i = 5; i >= 1; i--) using (var pen = new Pen(Color.FromArgb((int)((22 + 30 * pulse) / i * 2f) + 6, NeonPink), i * 5f)) g.DrawEllipse(pen, RectangleF.Inflate(box, i * 1.5f, i * 1.5f));
+        using (var pen = new Pen(NeonCyan, 3f)) g.DrawEllipse(pen, box);
+        Txt(g, beat.ToString(), 150, beat == 1 ? NeonPink : NeonCyan, Rc(box.X, box.Y + 20, box.Width, 200), StringAlignment.Center, true); Txt(g, "COUNT IN", 14, Ink, Rc(box.X, box.Bottom - 70, box.Width, 24), StringAlignment.Center, true);
     }
 
     void PaintKeyBox(Graphics g)

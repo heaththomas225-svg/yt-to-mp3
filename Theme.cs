@@ -10,6 +10,12 @@ using System.Windows.Forms;
 static class Win
 {
     // A window painted bigger than WinForms' back-buffer limit gets a fresh buffer that was never cleared, and whatever was in that memory (even another window) showed through. A big limit keeps buffers cached and cleared.
+    // The animated background repaints many times a second, and at a big size that can keep the window so busy that the buttons and boxes on top never get their turn to repaint
+    // (they showed as grey blocks). These make Windows paint every pending control right now.
+    [System.Runtime.InteropServices.DllImport("user32.dll")] static extern bool RedrawWindow(IntPtr h, IntPtr r, IntPtr rgn, uint flags);
+    static int lastRepaint;
+    public static void PaintPending(Control c) { try { if (c != null && c.IsHandleCreated) RedrawWindow(c.Handle, IntPtr.Zero, IntPtr.Zero, 0x0080 | 0x0100); } catch { } }   // RDW_ALLCHILDREN | RDW_UPDATENOW
+    public static void RepaintAll(Control c) { try { if (c != null && c.IsHandleCreated && unchecked(Environment.TickCount - lastRepaint) > 60) { lastRepaint = Environment.TickCount; RedrawWindow(c.Handle, IntPtr.Zero, IntPtr.Zero, 0x0001 | 0x0080 | 0x0100); } } catch { } }   // + RDW_INVALIDATE
     public static void WidenBuffers() { try { BufferedGraphicsManager.Current.MaximumBuffer = new Size(8192, 4608); } catch { } }
     // set every pixel fully opaque, so a background picture with a hole in it can never let the desktop (or another window) show through
     public static void ForceOpaque(Bitmap b)

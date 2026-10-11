@@ -17,7 +17,7 @@ partial class StudioForm
     void FetchInvite()
     {
         if (commInviteAsked) return; commInviteAsked = true;
-        ThreadPool.QueueUserWorkItem(o => { try { using (var wc = new WebClient()) { wc.Headers["User-Agent"] = "PurphexMusic"; string j = wc.DownloadString("https://purphex-web-production.up.railway.app/api/community"); var m = Regex.Match(j, "\"discord\"\\s*:\\s*\"([^\"]*)\""); if (m.Success) { string u = m.Groups[1].Value.Replace("\\/", "/"); if (u.StartsWith("https://discord.gg/") || u.StartsWith("https://discord.com/invite/")) commInvite = u; } } } catch { } });
+        ThreadPool.QueueUserWorkItem(o => { try { using (var wc = new WebClient()) { wc.Headers["User-Agent"] = "PurphexMusic"; string j = wc.DownloadString("https://purphexmusic.com/api/community"); var m = Regex.Match(j, "\"discord\"\\s*:\\s*\"([^\"]*)\""); if (m.Success) { string u = m.Groups[1].Value.Replace("\\/", "/"); if (u.StartsWith("https://discord.gg/") || u.StartsWith("https://discord.com/invite/")) commInvite = u; } } } catch { } });
     }
     static readonly string[] CommTabs = { "All", "Recent", "With picture" };
 

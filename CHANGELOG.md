@@ -2,6 +2,14 @@
 
 What changed in each version of **Purphex**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.17.8  Smoother dragging, Count In + Metronome, Grid size, track pickers, presets
+
+- Much smoother dragging (clip pictures cached while you hold them, no zoom re-fit, faster grid).
+- COUNT IN with the big on-screen count, and a working METRONOME button.
+- Grid size button with a description, visible grid lines and a snap guide. Detect Track key and Split vocals + beat ask which track.
+- Presets (was Chain presets) with Echo, AdLib and Reverb bus presets.
+- Main window repaints its buttons after resizing (no grey blocks in full screen).
+
 ## 3.17.7  Key box, vocal remover files, SNAP button replaced
 
 - Detect Track key shows the key in a neon box on screen.

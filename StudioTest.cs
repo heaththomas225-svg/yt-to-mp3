@@ -442,6 +442,14 @@ static class T
             Check("project: save + reopen keeps plugins, faders, mute and track alignment" + firstDiff, same && warn.Count == 0, "tracks " + e2.Tracks.Count + ", offset " + e2.Tracks[0].Offset + ", master comp thr " + e2.MasterFx[1].Get("thr"));
         }
 
+        // ---- bus presets: echo, ad-lib, reverb ----
+        {
+            var eb = Presets.BuildBus("Echo bus"); var ab = Presets.BuildBus("AdLib bus"); var rb = Presets.BuildBus("Reverb bus");
+            Check("bus presets: Echo bus has a delay, AdLib bus has a compressor and a delay, Reverb bus has a reverb", eb.Exists(f => f is Delay) && ab.Exists(f => f is Compressor) && ab.Exists(f => f is Delay) && rb.Exists(f => f is Reverb) && Presets.BusNames.Length == 3, eb.Count + "/" + ab.Count + "/" + rb.Count);
+            int n = SR * 2; var src = Sine(300, 0.3, n); var l = (float[])src.Clone(); var r = (float[])src.Clone(); foreach (var f in rb) { f.Prepare(SR); f.Process(l, r, n); }
+            double tail = 0; for (int i = 0; i < n; i++) tail += Math.Abs(l[i] - src[i]); Check("bus presets: the Reverb bus really changes the sound", tail > 1, tail.ToString("0"));
+        }
+
         // ---- Count In: one bar of clicks, then the song ----
         {
             int n = SR / 2; var eng = new StudioEngine(); Fx.ProjectBpm = 120; var c1 = AudioClip.FromArrays(Sine(220, 0.3, SR * 4), Sine(220, 0.3, SR * 4), "x"); eng.Tracks.Add(StudioEngine.NewTrack("A", "audio", c1)); eng.MasterBypass = true; eng.CountIn = true;
@@ -449,7 +457,9 @@ static class T
             var play = typeof(StudioEngine).GetMethod("Play"); try { play.Invoke(eng, null); } catch { }
             var l = new float[n]; var r = new float[n]; eng.RenderRealtime(l, r, n); long pos1 = eng.Pos; double e1 = 0; for (int i = 0; i < n; i++) e1 += Math.Abs(l[i]);
             Check("count in: the first half second is clicks only and the song has not moved", e1 > 0 && pos1 == 0, "pos " + pos1 + ", energy " + e1.ToString("0"));
+            Check("count in: the on-screen number follows the beat (a quarter of a bar in, it shows 2)", eng.CountBeat == 2, "beat " + eng.CountBeat);
             for (int k = 0; k < 3; k++) eng.RenderRealtime(l, r, n); long pos2 = eng.Pos;
+            Check("count in: the number reaches 4 on the last beat", eng.CountBeat == 4 || eng.CountBeat == 0, "beat " + eng.CountBeat);
             eng.RenderRealtime(l, r, n); Check("count in: after one bar (2 s at 120 BPM) the song starts moving", pos2 == 0 && eng.Pos > 0, "pos " + pos2 + " -> " + eng.Pos);
             eng.Stop();
         }

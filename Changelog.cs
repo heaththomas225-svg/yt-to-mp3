@@ -7,10 +7,18 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.17.7";
+    public const string Latest = "3.17.8";
 
     public const string Text =
-@"3.17.7  Key box, vocal remover files, SNAP button replaced
+@"3.17.8  Smoother dragging, Count In + Metronome, Grid size, track pickers, presets
+ + Dragging a clip or track is much smoother: the clip picture is no longer redrawn every frame, the zoom stops re-fitting while you hold something, and the grid draws faster.
+ + COUNT IN (with the big 1 2 3 4 on screen) and a METRONOME button that really turns the click on and off.
+ + Grid size button: says what it is, explains itself when hovered, lights up the grid lines when you change it, and shows a snap guide while you drag.
+ + Detect Track key and Split vocals + beat ask which track you want.
+ + Presets (was Chain presets) now has bus presets: Echo bus, AdLib bus and Reverb bus. The Buses sheet has a Presets button for each bus.
+ + The main window repaints all its buttons after resizing, so going full screen no longer leaves grey blocks.
+
+3.17.7  Key box, vocal remover files, SNAP button replaced
  + Detect Track key now tells you the key in a neon box in the middle of the screen (it tries the selected track, then the others, until it hears a clear key).
  + Vocal remover (main window) explains that you get the vocals, the beat and the original as separate files, and the original is never copied twice.
  + The main window scales with its size: text, buttons and boxes grow and shrink together, so a big window is no longer tiny controls in a big space.

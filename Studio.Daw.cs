@@ -34,7 +34,7 @@ static class Tempo
 partial class StudioForm
 {
     // ---------- state ----------
-    bool snapOn = true; int gridIdx = 2; static readonly string[] GridNames = { "1/1 bar", "1/2", "1/4 beat", "1/8", "1/16" }; static readonly double[] GridBeats = { 4, 2, 1, 0.5, 0.25 };
+    bool snapOn = true; int gridIdx = 2; static readonly string[] GridNames = { "Bar", "1/2 bar", "Beat", "1/8 note", "1/16 note" }; static readonly string[] GridWhy = { "every bar (4 beats)", "every half bar (2 beats)", "every beat", "every half beat (eighth note)", "every quarter beat (sixteenth note)" }; int gridFlashAt = -100000; static readonly double[] GridBeats = { 4, 2, 1, 0.5, 0.25 };
     readonly List<Fx> retired = new List<Fx>();   // effects of deleted tracks stay alive so Undo can bring the track back
     class TS { public long Offset, ClipStart, ClipFrames; public float Vol, Pan; public bool Mute, Solo; public string Name; public AudioClip Clip; public Track Host, Out; }
     class Snapshot { public List<Track> Order = new List<Track>(); public Dictionary<Track, TS> St = new Dictionary<Track, TS>(); }
@@ -65,15 +65,16 @@ partial class StudioForm
 
     void PaintGrid(Graphics g, RectangleF tl, float top, float bottom)
     {
-        if (!snapOn) return; double gf = GridFrames, bar = StudioEngine.SR * 60.0 / Math.Max(20, Fx.ProjectBpm) * 4; if (gf / spp < 6) { gf *= 4; if (gf / spp < 6) return; }
-        long first = (long)(Math.Floor(scroll / gf) * gf); g.SetClip(Rc(tl.X, top, tl.Width, bottom - top));
-        using (var thin = new Pen(Color.FromArgb(28, 190, 150, 255))) using (var thick = new Pen(Color.FromArgb(64, 210, 170, 255)))
+        if (!snapOn) return; double gf = GridFrames, bar = StudioEngine.SR * 60.0 / Math.Max(20, Fx.ProjectBpm) * 4; while (gf / spp < 7 && gf < bar * 64) gf *= 2;   // too close together to see: show every 2nd, 4th... line
+        bool flash = unchecked(Environment.TickCount - gridFlashAt) < 1800, active = flash || (dragReg != null && laneMoved) || ghostOn; if (flash) lastInput = DateTime.Now; int boost = active ? 70 : 0;
+        long first = (long)(Math.Floor(scroll / gf) * gf); g.SetClip(Rc(tl.X, top, tl.Width, bottom - top)); var smoothWas = g.SmoothingMode; g.SmoothingMode = SmoothingMode.None;   // straight vertical lines need no anti-aliasing (it made the grid the slowest part of a frame)
+        using (var thin = new Pen(Color.FromArgb(46 + boost, 190, 150, 255))) using (var thick = new Pen(Color.FromArgb(104 + boost, 210, 170, 255), active ? 2f : 1.3f))
             for (double f = first; ; f += gf)
             {
                 float x = tl.X + (float)((f - scroll) / spp); if (x > tl.Right) break; if (x < tl.X) continue;
                 bool isBar = Math.Abs(f / bar - Math.Round(f / bar)) < 0.0005; g.DrawLine(isBar ? thick : thin, x, top, x, bottom);
             }
-        g.ResetClip();
+        g.SmoothingMode = smoothWas; g.ResetClip();
     }
 
     // ---------- editing the selected track ----------
@@ -352,16 +353,18 @@ partial class StudioForm
         var bb = Rc(x, y, 64, h); FillRR(g, Color.FromArgb(200, 8, 4, 18), bb, 6); StrokeRR(g, Hot(bb) ? Accent : Edge, bb, 6, 1); Txt(g, Fx.ProjectBpm.ToString("0.#", CultureInfo.InvariantCulture), 15, Ink, bb, StringAlignment.Center, true);
         ValueEdit(bb, Fx.ProjectBpm.ToString("0.#", CultureInfo.InvariantCulture), s => { float v; if (ParseNum(s, out v) && v >= 20 && v <= 300) Fx.ProjectBpm = v; }); x += 70;
         Btn(g, Rc(x, y, 62, h), "DETECT", 0, () => DetectBpmClick(), 11); x += 68;
-        Btn(g, Rc(x, y, 56, h), "1 2 3", eng.CountIn ? 4 : 0, () => { eng.CountIn = !eng.CountIn; Toast(eng.CountIn ? "Count In on: one bar of clicks before it plays or records." : "Count In off."); }, 12); x += 60;   // where SNAP used to be
-        Btn(g, Rc(x, y, 76, h), GridNames[gridIdx], 0, () => { var m = Win.NewMenu(); for (int i = 0; i < GridNames.Length; i++) { int k = i; m.Items.Add(GridNames[i]).Click += (a, b) => { gridIdx = k; snapOn = true; }; } m.Show(this, new Point((int)MousePos.X, (int)MousePos.Y)); }, 11); x += 82;
-        Btn(g, Rc(x, y, 62, h), "SPLIT", 1, () => SplitSelected(), 12); x += 66;
-        Btn(g, Rc(x, y, 62, h), "TRIM <", 0, () => TrimStartHere(Selected), 11); x += 66;
-        Btn(g, Rc(x, y, 62, h), "TRIM >", 0, () => TrimEndHere(Selected), 11); x += 66;
-        Btn(g, Rc(x, y, 52, h), flexOpen ? "FLEX*" : "FLEX", flexOpen ? 4 : 1, () => { if (flexOpen) FlexClose(true); else FlexOpen(); }, 12); x += 56;
-        Btn(g, Rc(x, y, 50, h), "DUP", 0, () => DuplicateTrack(Selected), 11); x += 54;
-        Btn(g, Rc(x, y, 50, h), "DEL", 3, () => DeleteTrackQuiet(Selected), 11); x += 64;
-        Btn(g, Rc(x, y, 58, h), "UNDO", 0, () => DoUndo(), 11); x += 62;
-        Btn(g, Rc(x, y, 58, h), "REDO", 0, () => DoRedo(), 11); x += 70;
+        Btn(g, Rc(x, y, 76, h), "COUNT IN", eng.CountIn ? 4 : 0, () => { eng.CountIn = !eng.CountIn; Toast(eng.CountIn ? "Count In on: press PLAY (or record) and you get one bar of clicks, 1 2 3 4, before it starts." : "Count In off."); }, 10); x += 80;
+        Btn(g, Rc(x, y, 90, h), eng.Metronome ? "METRONOME" : "metronome", eng.Metronome ? 4 : 0, () => { eng.Metronome = !eng.Metronome; Toast(eng.Metronome ? "Metronome on: a click on every beat while it plays." : "Metronome off."); }, 10); x += 94;
+        var gbr = Rc(x, y, 122, h); Btn(g, gbr, "Grid size: " + GridNames[gridIdx], gridIdx == 2 ? 0 : 1, () => { var m = Win.NewMenu(); m.Items.Add("Grid size: clips, cuts and trims snap to...").Enabled = false; for (int i = 0; i < GridNames.Length; i++) { int k = i; var it = new ToolStripMenuItem(GridNames[i] + "   (" + GridWhy[i] + ")") { Checked = gridIdx == i }; it.Click += (a, b) => { gridIdx = k; snapOn = true; gridFlashAt = Environment.TickCount; Toast("Grid size: " + GridNames[k] + ". Everything now snaps to " + GridWhy[k] + ". The lines show where."); }; m.Items.Add(it); } m.Show(this, new Point((int)MousePos.X, (int)MousePos.Y)); }, 10);
+        if (Hot(gbr)) { hintNow = "Grid size: how finely clips, cuts and trims snap to the beat. Now: " + GridWhy[gridIdx] + ". Click to change it (the grid lines flash so you can see it)."; } x += 126;
+        Btn(g, Rc(x, y, 54, h), "SPLIT", 1, () => SplitSelected(), 11); x += 58;
+        Btn(g, Rc(x, y, 56, h), "TRIM <", 0, () => TrimStartHere(Selected), 10); x += 60;
+        Btn(g, Rc(x, y, 56, h), "TRIM >", 0, () => TrimEndHere(Selected), 10); x += 60;
+        Btn(g, Rc(x, y, 50, h), flexOpen ? "FLEX*" : "FLEX", flexOpen ? 4 : 1, () => { if (flexOpen) FlexClose(true); else FlexOpen(); }, 11); x += 54;
+        Btn(g, Rc(x, y, 44, h), "DUP", 0, () => DuplicateTrack(Selected), 10); x += 48;
+        Btn(g, Rc(x, y, 44, h), "DEL", 3, () => DeleteTrackQuiet(Selected), 10); x += 56;
+        Btn(g, Rc(x, y, 52, h), "UNDO", 0, () => DoUndo(), 10); x += 56;
+        Btn(g, Rc(x, y, 52, h), "REDO", 0, () => DoRedo(), 10); x += 60;
         Btn(g, Rc(x, y, 30, h), "-", 0, () => ZoomBy(1.4), 14); x += 34; Btn(g, Rc(x, y, 30, h), "+", 0, () => ZoomBy(0.7), 14); x += 34; Btn(g, Rc(x, y, 44, h), "FIT", 0, () => { FitView(); }, 11); x += 50; Btn(g, Rc(x, y, 50, h), "NEW", 0, () => NewProject(), 11);
         x += 56; if (x + 176 < ClientSize.Width - PanelW + 210) { Txt(g, "zoom", 11, DimC, Rc(x, y + 6, 36, 18), StringAlignment.Near, false); float zf = Clamp01((float)(1 - Math.Log(spp / MinSpp) / Math.Log(MaxSpp / MinSpp))); var zs = Slider(g, Rc(x + 38, y + 6, 130, 18), zf, f => ZoomTo(MinSpp * Math.Pow(MaxSpp / MinSpp, 1 - f)), NeonCyan); zs.OnDouble = () => FitView(); var zd = zs.OnDown; zs.OnDown = () => { var tz = TimelineRect(); zoomAnchor = Math.Max(0, Math.Min(eng.EndFrame, scroll + tz.Width / 2 * spp)); if (zd != null) zd(); }; }
     }

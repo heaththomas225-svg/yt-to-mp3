@@ -1,4 +1,4 @@
-3.17.7
+3.17.8
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Key box, scaling main window, no see-through, vocal remover files, BandLab wording removed, 1 2 3 replaces SNAP
-sha256=8b2f4abf5e848bede5f010b0b89e8dee7b97e4a55f5a89216dd6d2eb1bb4c3fe
+Smoother dragging, Count In and Metronome, Grid size, track pickers, bus presets
+sha256=06db087bac555a34ead02594b5d45021524ebaad8f74a45531028ba06df95e64

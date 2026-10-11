@@ -32,10 +32,10 @@ partial class App
             if (refont) { var f0 = baseFonts[c]; var nf = new Font(f0.FontFamily, f0.Size * uiS, f0.Style); c.Font = nf; scaledFonts.Add(nf); }
         }
         if (refont) { fontScaleApplied = uiS; foreach (var f in old) { try { f.Dispose(); } catch { } } } else scaledFonts.AddRange(old);
-        SnapLabels(); bg.Invalidate();
+        SnapLabels(); bg.Invalidate(true); Win.RepaintAll(bg);   // after a resize every control must repaint at once
     }
 
-    Stopwatch frameWatch = new Stopwatch(); double frameMs = 6; int perfTick, quality;
+    Stopwatch frameWatch = new Stopwatch(); double frameMs = 6; int perfTick, paintTick, quality;
     SizeF titleSize;
     volatile Bitmap atmoFront, overlayFront; volatile int reqW, reqH; volatile bool layerRun = true; Thread layerThread;
     int lastW, lastH; float lastT; Lab[] lastLab; string lastSub = "", lastCKey = "", failKey = "";

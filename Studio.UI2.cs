@@ -90,12 +90,10 @@ partial class StudioForm
     }
 
     // ---------------- Separate vocals & beat ----------------
-    void SeparateClick()
+    void SeparateClick() { PickTrackMenu("Split which track into vocals + beat?", t => t.Clip != null && !t.Instrument && !t.IsBus, SeparateTrack); }
+    void SeparateTrack(Track song)
     {
-        Track song = null;
-        if (selTrack < eng.Tracks.Count && eng.Tracks[selTrack].Clip != null && !eng.Tracks[selTrack].Instrument && !eng.Tracks[selTrack].IsBus) song = eng.Tracks[selTrack];
-        if (song == null) foreach (var t in eng.Tracks) if (t.Clip != null && !t.Instrument && t.Role == "song") { song = t; break; }
-        if (song == null) { Toast("Add a song first (ADD MUSIC), select it, then split it."); return; }
+        if (song == null) return;
         if (song.Clip == null || string.IsNullOrEmpty(song.Clip.Path) || !File.Exists(song.Clip.Path)) { MessageBox.Show(this, "That track's audio file couldn't be found on disk."); return; }
         if (StudioEnv.Ffmpeg() == null) { MessageBox.Show(this, "ffmpeg isn't installed yet. Convert something once in the main window first (that installs ffmpeg)."); return; }
         if (!Separator.Installed && MessageBox.Show(this,

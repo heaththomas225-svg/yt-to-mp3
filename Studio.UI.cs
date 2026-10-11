@@ -222,7 +222,7 @@ partial class StudioForm : Form
         { "MIX", "The tracks, faders and effects." }, { "≡", "Menu: new, open, recent projects, my projects with pictures, edit, tools, community, settings and help." }, { "+ TRACK", "Add a track: audio from your PC or an instrument, above or below the selected track or at the end." }, { "+ ADD TRACK", "Add a track at the end of the list." }, { "LYRICS", "A page for writing your own lyrics, with line and syllable counts." }, { "MASTERING", "Final loudness and polish on the whole mix, with LUFS meters and A/B compare." },
         { "+ Add Effect", "Pick an effect (EQ, compressor, reverb, Auto-Tune...) to add to this track." },
         { "+ Add Effect to master", "Add an effect to the final mix instead of one track." },
-        { "Chain presets...", "Load a ready-made effect chain, for example a rap vocal chain." },
+        { "Presets...", "Load a ready-made effect chain (a rap vocal chain, the instrumental chain or a bus preset like echo, ad-lib or reverb), or save your own." },
         { "Bypass", "Turn this effect off without removing it." }, { "Presets", "Load or save settings for this effect." },
         { "^", "Move this effect up (it runs earlier)." }, { "v", "Move this effect down (it runs later)." },
         { "x", "Remove it." }, { "M", "Mute this track." }, { "S", "Solo: hear only this track." },
@@ -236,7 +236,7 @@ partial class StudioForm : Form
         { "DUP", "Make a copy of the selected track." }, { "DEL", "Delete the selected track (Undo brings it back)." },
         { "UNDO", "Undo the last edit (Ctrl+Z)." }, { "REDO", "Redo (Ctrl+Y)." }, { "DETECT", "Listen to the song and set the BPM for you." }, { "Detect Track key", "Find the musical key of the selected track and show it." },
         
-        { "1 2 3", "Count In: one bar of clicks (1 2 3 4) before it plays or records." },
+        { "COUNT IN", "Count In: when it is on, PLAY and recording first give you one bar of clicks (1 2 3 4) so you can get ready. The number shows on screen." }, { "METRONOME", "Metronome is ON: a click on every beat while the song plays. Click to turn it off." }, { "metronome", "Metronome is off. Click to turn on a click on every beat while the song plays." },
         { "-", "Zoom out." }, { "+", "Zoom in." }, { "FIT", "Zoom to fit the whole song." },
         { "MIC", "Record from your microphone onto a new track (use headphones). Press again, or STOP, to finish." },
         { "NEW", "Start a new empty project." },
@@ -306,7 +306,7 @@ partial class StudioForm : Form
         if (soundBox != null && soundBox.Visible && !(soundsOpen && tab == 0)) soundBox.Visible = false;
         PaintNewTrackSheet(g); PaintBusSheet(g);
         PaintMenu(g);
-        PaintBubble(g); PaintKeyBox(g);
+        PaintBubble(g); PaintKeyBox(g); PaintCountIn(g);
         fpsc.Frame();
         if (hintNow.Length > 0 && !busy) { var hr = Rc(ClientSize.Width / 2 - 340, ClientSize.Height - 36, 680, 26); FillRR(g, Color.FromArgb(235, 30, 16, 58), hr, 8); StrokeRR(g, Edge, hr, 8, 1); Txt(g, hintNow, 13, Ink, hr, StringAlignment.Center, false); }
         if (busy) PaintBusy(g);
@@ -452,7 +452,7 @@ partial class StudioForm : Form
         float top = ToolH + TransH; var tl = TimelineRect();
         PruneTrackCaches(); StepAnim(GhostDt());
         int n = LaneCount; float viewH = ClientSize.Height - top - RulerH - 46, contentH = n * LaneH + 50; vscroll = Math.Max(0, Math.Min(vscroll, Math.Max(0, contentH - viewH)));   // never stuck scrolled past the tracks   // buses are not lanes: they live in the Buses sheet and in each track's Bus drop-down
-        if (autoFit && (lastFitW != (int)tl.Width || lastFitLen != eng.EndFrame) && tl.Width > 100) { FitView(); lastFitW = (int)tl.Width; lastFitLen = eng.EndFrame; }
+        if (autoFit && !ghostOn && (lastFitW != (int)tl.Width || lastFitLen != eng.EndFrame) && tl.Width > 100) { FitView(); lastFitW = (int)tl.Width; lastFitLen = eng.EndFrame; }
         // clamp selection
         if (selTrack >= n) selTrack = Math.Max(0, n - 1);
         // ruler
@@ -574,14 +574,15 @@ partial class StudioForm : Form
             g.Restore(gst0);
         }
     }
-    class PeakCache { public AudioClip Clip; public long Start, Len; public double Spp; public int Px; public float[] Mn, Mx; public Bitmap Img; public int Ver, ImgVer, ImgCol; public RectangleF ImgLane, ImgCr; public bool ImgAud, ImgSel; }
+    class PeakCache { public AudioClip Clip; public long Start, Len; public double Spp; public int Px; public float[] Mn, Mx; public Bitmap Img; public int Ver, ImgVer, ImgCol; public RectangleF ImgLane, ImgCr, ImgRel; public float ImgX0; public bool ImgAud, ImgSel; }
     readonly Dictionary<Track, PeakCache> peakCache = new Dictionary<Track, PeakCache>();
     void PaintWave(Graphics g, Track tr, RectangleF lane, bool sel)
     {
         if (tr.Clip == null) return;
         int px = (int)lane.Width;
         PeakCache pc; if (!peakCache.TryGetValue(tr, out pc)) { pc = new PeakCache(); peakCache[tr] = pc; }
-        if (pc.Clip != tr.Clip || pc.Start != scroll - tr.Offset + tr.ClipStart || pc.Spp != spp || pc.Px != px || pc.Len != tr.UsedLength) { if (pc.Mn == null || pc.Mn.Length < px) { pc.Mn = new float[px + 64]; pc.Mx = new float[px + 64]; } tr.Clip.GetPeaks(scroll - tr.Offset + tr.ClipStart, spp, px, pc.Mn, pc.Mx); pc.Clip = tr.Clip; pc.Start = scroll - tr.Offset + tr.ClipStart; pc.Spp = spp; pc.Px = px; pc.Len = tr.UsedLength; pc.Ver++; }
+        bool dragWave = ghostOn && ghostKind == 0 && ghostTrack == tr && pc.Img != null;   // while this clip is being dragged its finished picture is kept and just slid along (redrawing it every frame was the lag)
+        if (!dragWave && (pc.Clip != tr.Clip || pc.Start != scroll - tr.Offset + tr.ClipStart || pc.Spp != spp || pc.Px != px || pc.Len != tr.UsedLength)) { if (pc.Mn == null || pc.Mn.Length < px) { pc.Mn = new float[px + 64]; pc.Mx = new float[px + 64]; } tr.Clip.GetPeaks(scroll - tr.Offset + tr.ClipStart, spp, px, pc.Mn, pc.Mx); pc.Clip = tr.Clip; pc.Start = scroll - tr.Offset + tr.ClipStart; pc.Spp = spp; pc.Px = px; pc.Len = tr.UsedLength; pc.Ver++; }
         var wmn = pc.Mn; var wmx = pc.Mx;
         Color c = Neon(tr.Color); bool audible = !tr.Mute; float cy = lane.Y + lane.Height / 2, amp = lane.Height * 0.42f;
         long clipStart = tr.Offset, clipEnd = tr.Offset + tr.UsedLength;
@@ -590,13 +591,14 @@ partial class StudioForm : Form
         if (cr.Width > 0)
         {
             int ix = (int)Math.Floor(lane.X), iy = (int)Math.Floor(lane.Y), iw = Math.Max(1, (int)Math.Ceiling(lane.Right) - ix), ih = Math.Max(1, (int)Math.Ceiling(lane.Bottom) - iy);
-            if (pc.Img == null || pc.Img.Width != iw || pc.Img.Height != ih || pc.ImgVer != pc.Ver || pc.ImgLane != lane || pc.ImgCr != cr || pc.ImgAud != audible || pc.ImgSel != sel || pc.ImgCol != c.ToArgb())
+            var rel = new RectangleF(cr.X - lane.X, cr.Y - lane.Y, cr.Width, cr.Height);   // the picture only depends on where the clip is INSIDE the lane, so a lane that slides up or down (rows swapping) does not redraw it
+            if (!dragWave && (pc.Img == null || pc.Img.Width != iw || pc.Img.Height != ih || pc.ImgVer != pc.Ver || pc.ImgRel != rel || pc.ImgAud != audible || pc.ImgSel != sel || pc.ImgCol != c.ToArgb()))
             {
                 if (pc.Img == null || pc.Img.Width != iw || pc.Img.Height != ih) { if (pc.Img != null) pc.Img.Dispose(); pc.Img = new Bitmap(iw, ih, System.Drawing.Imaging.PixelFormat.Format32bppPArgb); }
                 using (var ig = Graphics.FromImage(pc.Img)) { ig.Clear(Color.Transparent); ig.SmoothingMode = SmoothingMode.AntiAlias; ig.TranslateTransform(-ix, -iy); PaintWaveBody(ig, lane, cr, c, audible, sel, cy, amp, px, wmn, wmx); }
-                pc.ImgVer = pc.Ver; pc.ImgLane = lane; pc.ImgCr = cr; pc.ImgAud = audible; pc.ImgSel = sel; pc.ImgCol = c.ToArgb();
+                pc.ImgVer = pc.Ver; pc.ImgRel = rel; pc.ImgX0 = x0; pc.ImgLane = lane; pc.ImgCr = cr; pc.ImgAud = audible; pc.ImgSel = sel; pc.ImgCol = c.ToArgb();
             }
-            var gi = g.Save(); g.SetClip(lane, CombineMode.Intersect); g.DrawImageUnscaled(pc.Img, ix, iy); g.Restore(gi);
+            var gi = g.Save(); g.SetClip(lane, CombineMode.Intersect); g.DrawImageUnscaled(pc.Img, ix + (dragWave ? (int)Math.Round(x0 - pc.ImgX0) : 0), iy); g.Restore(gi);
         }
         if (cr.Width > 0) { var gst = g.Save(); g.SetClip(lane, CombineMode.Intersect); float lv = Math.Max(tr.PeakL, tr.PeakR); Glow(g, c, cr, 6, (sel ? 1.2f : 0.8f) + Math.Min(0.6f, lv * 0.9f), 5); g.Restore(gst); }
         Txt(g, tr.Name, 12, Color.FromArgb(200, 255, 255, 255), Rc(Math.Max(lane.X, x0) + 8, lane.Y + 6, 300, 16), StringAlignment.Near, true);
@@ -748,7 +750,7 @@ partial class StudioForm : Form
         }
         int ti = Array.IndexOf(eng.Tracks.ToArray(), tr);
         Btn(g, Rc(x + 10, ly + 2, 150, 30), "+ Add Effect", 1, () => OpenBrowser(false, ti), 14);
-        Btn(g, Rc(x + 168, ly + 2, 200, 30), "Chain presets...", 0, () => ChainMenu(tr), 14);
+        Btn(g, Rc(x + 168, ly + 2, 200, 30), "Presets...", 0, () => ChainMenu(tr), 14);
         float ey = ly + 42;
         float edH = (selFx >= 0 && selFx < n) ? EditorHeight(fxs[selFx]) : 60;
         if (selFx >= 0 && selFx < n) PaintEditor(g, fxs[selFx], Rc(x + 6, ey, w - 12, edH), tr);
@@ -780,11 +782,13 @@ partial class StudioForm : Form
         var rap = new ToolStripMenuItem("Rap vocal presets (replace chain)"); m.Items.Add(rap);
         for (int i = 0; i < Presets.ChainNames.Length; i++) { string nm = Presets.ChainNames[i]; var it = new ToolStripMenuItem(nm) { ToolTipText = Presets.ChainBlurbs[i] }; it.Click += (a, b) => { lock (eng.Sync) { tr.Fx.Clear(); tr.Fx.AddRange(Presets.BuildChain(nm)); } selFx = -1; Toast(nm + " applied: every plugin is editable"); }; rap.DropDownItems.Add(it); }
         var beat = new ToolStripMenuItem("Instrumental chain (EQ, comp, multiband, sat, exciter, imager, ducker, limiter)"); beat.Click += (a, b) => { lock (eng.Sync) { tr.Fx.Clear(); tr.Fx.AddRange(Presets.BeatChain()); } selFx = -1; Toast("Beat chain applied"); }; m.Items.Add(beat);
+        var bus = new ToolStripMenuItem("Bus presets (echo, ad-lib, reverb)"); m.Items.Add(bus);
+        for (int i = 0; i < Presets.BusNames.Length; i++) { string bn = Presets.BusNames[i]; var bi = new ToolStripMenuItem(bn) { ToolTipText = Presets.BusBlurbs[i] }; bi.Click += (a, b) => { lock (eng.Sync) { tr.Fx.Clear(); tr.Fx.AddRange(Presets.BuildBus(bn)); } selFx = -1; Toast(bn + " applied: " + Presets.BusBlurbs[Array.IndexOf(Presets.BusNames, bn)]); }; bus.DropDownItems.Add(bi); }
         var mine = new ToolStripMenuItem("My saved chains"); m.Items.Add(mine);
         foreach (var nm0 in Presets.UserChains()) { string nm = nm0; var it = new ToolStripMenuItem(nm); it.Click += (a, b) => { var c = Presets.LoadChain(nm); lock (eng.Sync) { tr.Fx.Clear(); tr.Fx.AddRange(c); } selFx = -1; }; mine.DropDownItems.Add(it); }
         if (mine.DropDownItems.Count == 0) mine.DropDownItems.Add(new ToolStripMenuItem("(none yet)") { Enabled = false });
         m.Items.Add(new ToolStripSeparator());
-        m.Items.Add("Save this track's chain as a preset...").Click += (a, b) => { string nm = Ask("Name for this chain preset:", tr.Name + " chain"); if (nm != null) { Presets.SaveChain(nm, tr.Fx); Toast("Saved chain \"" + nm + "\""); } };
+        m.Items.Add("Save this track's plugins as a preset...").Click += (a, b) => { string nm = Ask("Name for this preset:", tr.Name + " chain"); if (nm != null) { Presets.SaveChain(nm, tr.Fx); Toast("Saved chain \"" + nm + "\""); } };
         m.Items.Add("Clear all plugins").Click += (a, b) => { lock (eng.Sync) tr.Fx.Clear(); selFx = -1; };
         m.Show(this, new Point((int)MousePos.X, (int)MousePos.Y));
     }
