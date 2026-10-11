@@ -80,20 +80,32 @@ partial class StudioForm
         // ---- the feed: round neon art cards (your saved projects) ----
         var all = ProjectLibrary.AllByEdited(); var list = new List<ProjectEntry>();
         foreach (var e in all) { if (commFilter == 1 && (DateTime.Now - e.Opened).TotalDays > 7) continue; if (commFilter == 2 && string.IsNullOrEmpty(e.Cover)) continue; list.Add(e); }
-        float fy = ty + 46, fh = H - fy; var area = Rc(cx0, fy, cw, fh); float cardW = 206, cardH = 262, gap = 14; int cols = Math.Max(1, (int)((cw + gap) / (cardW + gap))); float used = cols * cardW + (cols - 1) * gap, ox = cx0 + (cw - used) / 2;
+        float fy = ty + 46, fh = H - fy; var area = Rc(cx0, fy, cw, fh); float cardW = 206, cardH = 340, gap = 14; int cols = Math.Max(1, (int)((cw + gap) / (cardW + gap))); float used = cols * cardW + (cols - 1) * gap, ox = cx0 + (cw - used) / 2;
         int rows = (list.Count + cols - 1) / cols; float maxS = Math.Max(0, rows * (cardH + gap) - fh + 10); commScroll = Math.Max(0, Math.Min(maxS, commScroll));
         regs.Add(new HitReg { R = area, OnWheel = d => commScroll = Math.Max(0, Math.Min(maxS, commScroll - d * 70)) });
         var gs = g.Save(); g.SetClip(area, CombineMode.Intersect);
+        bool overlayOk = !menuOpen && !ntOpen && !busOpen && !busy;
         for (int i = 0; i < list.Count; i++)
         {
             var e = list[i]; float cx = ox + (i % cols) * (cardW + gap), cy = fy + (i / cols) * (cardH + gap) - commScroll; var card = Rc(cx, cy, cardW, cardH); if (card.Bottom < fy || card.Y > H) continue;
-            bool hot = Hot(card); FillRR(g, Color.FromArgb(hot ? 215 : 175, 18, 10, 38), card, 16); Glow(g, NeonViolet, card, 16, hot ? 0.8f : 0.3f, 3);
-            var art = Rc(card.X + (cardW - 150) / 2, card.Y + 14, 150, 150); DrawRoundArt(g, art, e);
-            Txt(g, e.Name, 15, Ink, Rc(card.X + 14, card.Y + 172, cardW - 28, 22), StringAlignment.Near, true);
-            var sa = Rc(card.X + 14, card.Y + 198, 18, 18); DrawAvatar(g, sa); Txt(g, ProjectLibrary.ProfileName, 12, DimC, Rc(card.X + 38, card.Y + 196, cardW - 52, 20), StringAlignment.Near, false);
-            string meta = e.Tracks + " tracks" + (e.Bpm > 0 ? "  -  " + e.Bpm.ToString("0") + " BPM" : "") + (e.Seconds > 1 ? "  -  " + ((int)(e.Seconds / 60)) + ":" + ((int)(e.Seconds % 60)).ToString("00") : ""); Txt(g, meta, 11, NeonCyan, Rc(card.X + 14, card.Y + 222, cardW - 28, 18), StringAlignment.Near, false);
-            Txt(g, "Edited " + ProjectLibrary.Ago(e.Updated), 11, DimC, Rc(card.X + 14, card.Y + 240, cardW - 28, 16), StringAlignment.Near, false);
-            string path = e.Path; bool miss = e.Missing; Reg(card, () => { if (!miss) { tab = 0; OpenProjectPath(path); } else Toast("That project file has moved or been deleted."); }).OnRight = () => ProjectCardMenu(path);
+            bool hot = overlayOk && area.Contains(MousePos) && card.Contains(MousePos); FillRR(g, Color.FromArgb(hot ? 215 : 175, 18, 10, 38), card, 16); Glow(g, NeonViolet, card, 16, hot ? 0.8f : 0.3f, 3);
+            float S = cardW - 28; var art = Rc(card.X + 14, card.Y + 14, S, S); DrawSquareArt(g, art, e);
+            string path = e.Path; bool miss = e.Missing; var open = Reg(card, () => { if (!miss) { tab = 0; OpenProjectPath(path); } else Toast("That project file has moved or been deleted."); }); open.OnRight = () => ProjectCardMenu(path);
+            Txt(g, e.Name, 15, Ink, Rc(card.X + 14, card.Y + S + 22, cardW - 28, 22), StringAlignment.Near, true);
+            var sa = Rc(card.X + 14, card.Y + S + 48, 18, 18); DrawAvatar(g, sa); Txt(g, ProjectLibrary.ProfileName, 12, DimC, Rc(card.X + 38, card.Y + S + 46, cardW - 52, 20), StringAlignment.Near, false);
+            string meta = e.Tracks + (e.Tracks == 1 ? " track" : " tracks") + (e.Bpm > 0 ? "  -  " + e.Bpm.ToString("0") + " BPM" : "") + (e.Seconds > 1 ? "  -  " + ((int)(e.Seconds / 60)) + ":" + ((int)(e.Seconds % 60)).ToString("00") : ""); Txt(g, meta, 11, NeonCyan, Rc(card.X + 14, card.Y + S + 70, cardW - 28, 16), StringAlignment.Near, false);
+            ProjectLibrary.MeasureAsync(e); Txt(g, "Size " + ProjectLibrary.Size(e.Bytes) + "  -  edited " + ProjectLibrary.Ago(e.Updated), 11, DimC, Rc(card.X + 14, card.Y + S + 88, cardW - 28, 16), StringAlignment.Near, false);
+            if (e.Tags.Length > 0) { float tx2 = card.X + 14; foreach (var tg in e.Tags.Split(' ')) { string lb = "#" + tg; float tw = 14 + lb.Length * 6.6f; if (tx2 + tw > card.Right - 12) break; var tr2 = Rc(tx2, card.Y + S + 108, tw, 18); FillRR(g, Color.FromArgb(110, 60, 36, 120), tr2, 9); Txt(g, lb, 10, Ink, tr2, StringAlignment.Center, false); tx2 += tw + 5; } }
+            if (e.Desc.Length > 0) Txt(g, e.Desc, 11, DimC, Rc(card.X + 14, card.Y + S + 130, cardW - 28, 32), StringAlignment.Near, false);
+            else if (hot) Txt(g, "Hover tools: rename, picture, description, tags", 10, Color.FromArgb(120, 150, 130, 190), Rc(card.X + 14, card.Y + S + 130, cardW - 28, 16), StringAlignment.Near, false);
+            if (hot)
+            {
+                // the hover tools sit over the picture
+                using (var b = new SolidBrush(Color.FromArgb(205, 6, 3, 18))) using (var p = RR(art, 12)) g.FillPath(b, p);
+                string[] bn = { "Open", "Rename", "Picture", "Describe", "Tags", "Folder" }; float bw = (S - 30) / 2f, bh = 36;
+                Action[] ba = { () => { if (!miss) { tab = 0; OpenProjectPath(path); } }, () => RenameEntry(e), () => PickCover(path), () => DescribeEntry(e), () => TagEntry(e), () => { try { System.Diagnostics.Process.Start("explorer.exe", "/select,\"" + path + "\""); } catch { } } };
+                for (int k = 0; k < 6; k++) { var br = Rc(art.X + 10 + (k % 2) * (bw + 10), art.Y + 12 + (k / 2) * (bh + 8), bw, bh); Action act = ba[k]; Btn(g, br, bn[k], k == 0 ? 2 : 1, () => act(), 12); }
+            }
         }
         g.Restore(gs);
         if (list.Count == 0) { Txt(g, commFilter == 0 ? "Nothing here yet. Make something, press Save, and it shows up as a card." : "No projects match this filter.", 14, DimC, Rc(cx0 + 10, fy + 40, cw - 20, 40), StringAlignment.Near, false); }
@@ -122,21 +134,41 @@ partial class StudioForm
         }
     }
 
-    // round neon artwork: the project picture inside a glowing ring, or a generated burst when it has none
-    void DrawRoundArt(Graphics g, RectangleF r, ProjectEntry e)
+    // project picture: the WHOLE picture in a square, wrapped in a neon glow (a generated burst when there is no picture)
+    void DrawSquareArt(Graphics g, RectangleF r, ProjectEntry e)
     {
         int seed = 17; foreach (char ch in e.Name ?? "") seed = seed * 31 + ch; var rnd = new Random(seed); double hue = rnd.Next(240, 330); Color c1 = HueCol(hue, 255), c2 = HueCol(hue + 40, 255);
-        var gs = g.Save(); using (var p = new GraphicsPath()) { p.AddEllipse(r); g.SetClip(p, CombineMode.Intersect); using (var br = new PathGradientBrush(p) { CenterColor = Color.FromArgb(255, 40, 14, 80), SurroundColors = new[] { Color.FromArgb(255, 6, 2, 16) } }) g.FillEllipse(br, r); }
-        bool pic = !string.IsNullOrEmpty(e.Cover) && ProjectLibrary.Scaled(e.Cover, (int)r.Width, (int)r.Height, InterpolationMode.HighQualityBilinear) != null;
-        if (pic) DrawCover(g, r, e);
-        else
+        double pulse = 0.5 + 0.5 * Math.Sin(Environment.TickCount / 600.0);
+        for (int i = 5; i >= 1; i--) using (var pen = new Pen(Color.FromArgb((int)((16 + 14 * pulse) / i * 2.4f) + 6, c1), i * 4f)) using (var p = RR(RectangleF.Inflate(r, i * 1.2f, i * 1.2f), 14 + i)) g.DrawPath(pen, p);
+        var gs = g.Save(); using (var p = RR(r, 14))
         {
-            float cx = r.X + r.Width / 2, cy = r.Y + r.Height / 2; using (var pen = new Pen(Color.FromArgb(200, c1), 1.6f))
-                for (int i = 0; i < 64; i++) { double a = i * Math.PI * 2 / 64; float len = 10 + (float)(rnd.NextDouble() * rnd.NextDouble() * 52); float r0 = 24; g.DrawLine(pen, cx + (float)Math.Cos(a) * r0, cy + (float)Math.Sin(a) * r0, cx + (float)Math.Cos(a) * (r0 + len), cy + (float)Math.Sin(a) * (r0 + len)); }
-            using (var pen = new Pen(Color.FromArgb(230, c2), 2.4f)) g.DrawEllipse(pen, cx - 22, cy - 22, 44, 44);
+            g.SetClip(p, CombineMode.Intersect); using (var br = new LinearGradientBrush(r, Color.FromArgb(255, 30, 12, 66), Color.FromArgb(255, 6, 2, 16), 90f)) g.FillRectangle(br, r);
+            bool pic = !string.IsNullOrEmpty(e.Cover) && ProjectLibrary.Scaled(e.Cover, (int)r.Width, (int)r.Height, InterpolationMode.HighQualityBilinear) != null;
+            if (pic) DrawCover(g, r, e);
+            else
+            {
+                float cx = r.X + r.Width / 2, cy = r.Y + r.Height / 2; using (var pen = new Pen(Color.FromArgb(200, c1), 1.6f))
+                    for (int i = 0; i < 72; i++) { double a = i * Math.PI * 2 / 72; float len = 8 + (float)(rnd.NextDouble() * rnd.NextDouble() * r.Width * 0.3); float r0 = r.Width * 0.16f; g.DrawLine(pen, cx + (float)Math.Cos(a) * r0, cy + (float)Math.Sin(a) * r0, cx + (float)Math.Cos(a) * (r0 + len), cy + (float)Math.Sin(a) * (r0 + len)); }
+                using (var pen = new Pen(Color.FromArgb(230, c2), 2.4f)) g.DrawEllipse(pen, cx - r.Width * 0.14f, cy - r.Width * 0.14f, r.Width * 0.28f, r.Width * 0.28f);
+            }
         }
         g.Restore(gs);
-        for (int i = 3; i >= 1; i--) using (var pen = new Pen(Color.FromArgb(50 / i + 20, c1), i * 3f)) g.DrawEllipse(pen, r);
-        using (var pen = new Pen(Color.FromArgb(235, c2), 2f)) g.DrawEllipse(pen, r);
+        using (var pen = new Pen(Color.FromArgb(240, c2), 2.2f)) using (var p = RR(r, 14)) g.DrawPath(pen, p);
+    }
+
+    void RenameEntry(ProjectEntry e)
+    {
+        string nm = Ask("Project name:", e.Name); if (nm == null) return; nm = nm.Trim(); if (nm.Length == 0) return;
+        e.Name = nm; e.Custom = true; if (string.Equals(e.Path, projPath, StringComparison.OrdinalIgnoreCase)) projName = nm; ProjectLibrary.Save(); Toast("Renamed to " + nm);
+    }
+    void DescribeEntry(ProjectEntry e)
+    {
+        string d = Ask("Description (one line, up to 140 characters):", e.Desc); if (d == null) return; d = d.Trim(); if (d.Length > 140) d = d.Substring(0, 140);
+        e.Desc = d; ProjectLibrary.Save(); Toast(d.Length == 0 ? "Description removed" : "Description saved");
+    }
+    void TagEntry(ProjectEntry e)
+    {
+        string t = Ask("Genre tags, separated by spaces or commas (for example: dnb bassline dark):", e.Tags); if (t == null) return;
+        e.Tags = ProjectLibrary.CleanTags(t); ProjectLibrary.Save(); Toast(e.Tags.Length == 0 ? "Tags removed" : "Tags saved: " + e.Tags);
     }
 }

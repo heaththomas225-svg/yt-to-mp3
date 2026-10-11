@@ -226,7 +226,7 @@ partial class StudioForm : Form
         { "Bypass", "Turn this effect off without removing it." }, { "Presets", "Load or save settings for this effect." },
         { "^", "Move this effect up (it runs earlier)." }, { "v", "Move this effect down (it runs later)." },
         { "x", "Remove it." }, { "M", "Mute this track." }, { "S", "Solo: hear only this track." },
-        { "+ INSTRUMENT", "Add a VST instrument (like Vital) as a track you can play with your keyboard. Set up plugins in Menu > Plugins." },
+
         { "REC", "Arm recording: press PLAY, then play notes on an instrument window and they are recorded onto its track." }, { "* REC", "Recording is armed. Press again to turn it off." },
         { "Piano", "Open the instrument window: its own controls plus a piano you can play." }, { "C", "Clear the recorded notes on this instrument track." },
         { "+ Effect", "Add an effect to this instrument track (EQ, reverb...)." },
@@ -234,9 +234,9 @@ partial class StudioForm : Form
         { "SPLIT", "Cut the selected track in two at the needle (key B). Each piece can be moved and trimmed." },
         { "TRIM <", "Cut the start of the selected clip off at the needle." }, { "TRIM >", "Cut the end of the selected clip off at the needle." },
         { "DUP", "Make a copy of the selected track." }, { "DEL", "Delete the selected track (Undo brings it back)." },
-        { "UNDO", "Undo the last edit (Ctrl+Z)." }, { "REDO", "Redo (Ctrl+Y)." }, { "DETECT", "Listen to the song and set the BPM for you." },
+        { "UNDO", "Undo the last edit (Ctrl+Z)." }, { "REDO", "Redo (Ctrl+Y)." }, { "DETECT", "Listen to the song and set the BPM for you." }, { "Detect Track key", "Find the musical key of the selected track and show it." },
         { "SNAP", "Moves, trims and cuts snap to the beat grid. Click to turn off." }, { "snap", "Snap to the beat grid is off. Click to turn it on." },
-        { "CLICK", "Metronome on. Click to turn off." }, { "click", "Play a metronome click while the song plays." },
+        { "1 2 3", "Count In: one bar of clicks (1 2 3 4) before it plays or records." },
         { "-", "Zoom out." }, { "+", "Zoom in." }, { "FIT", "Zoom to fit the whole song." },
         { "MIC", "Record from your microphone onto a new track (use headphones). Press again, or STOP, to finish." },
         { "NEW", "Start a new empty project." },
@@ -374,8 +374,7 @@ partial class StudioForm : Form
         Btn(g, Rc(x, y, 156 * f, h), "ADD MUSIC", 2, () => AddMusicClick(), Math.Max(13, 16 * f)); x += 164 * f;
         Btn(g, Rc(x, y, 232 * f, h), "SPLIT VOCALS + BEAT", 1, () => SeparateClick(), Math.Max(12, 14 * f)); x += 240 * f;
         Btn(g, Rc(x, y, 126 * f, h), "AUTO MIX", 2, () => AutoMixClick(), Math.Max(13, 16 * f)); x += 132 * f;
-        Btn(g, Rc(x, y + 4, 140 * f, h - 8), amStyle + (amEnhance ? " +" : ""), 0, () => AutoMixMenu(), Math.Max(12, 13 * f));
-        Txt(g, "style", 11, DimC, Rc(x + 4, y - 4, 60, 12), StringAlignment.Near, false); x += 148 * f;
+        Btn(g, Rc(x, y + 4, 140 * f, h - 8), "Detect Track key", 0, () => DetectTrackKey(), Math.Max(11, 12 * f)); x += 148 * f;
         Btn(g, Rc(x, y + 4, 84 * f, h - 8), "Undo mix", 0, () => { if (AutoMix.LastSnapshot != null) { AutoMix.Undo(eng); Toast("Auto Mix undone"); } }, Math.Max(12, 13 * f)); x += 84 * f;
         float leftEnd = x;
         Btn(g, Rc(rx - 106, y, 106, h), "EXPORT", 1, () => ExportClick(), 16); rx -= 112;
@@ -412,9 +411,6 @@ partial class StudioForm : Form
         double sec = dispPos / StudioEngine.SR, tot = eng.EndFrame / (double)StudioEngine.SR;
         var tr = Rc(x, y, 210, h); FillRR(g, Color.FromArgb(200, 8, 4, 18), tr, 6); StrokeRR(g, Edge, tr, 6, 1);
         Txt(g, Fmt(sec) + "  /  " + Fmt(tot), 19, Accent, tr, StringAlignment.Center, true); x += 222;
-        Btn(g, Rc(x, y, 100, h), "+ TRACK", 2, () => ShowAddTrackMenuMain(), 13); x += 106;
-        Btn(g, Rc(x, y, 70, h), "+ BUS", 2, () => OpenBusSheet(), 13); x += 76;
-        Btn(g, Rc(x, y, 124, h), "+ INSTRUMENT", 1, () => AddInstrumentClick(), 12); x += 130;
         Btn(g, Rc(x, y, 70, h), recOn ? "* REC" : "REC", recOn ? 3 : 0, () => { recOn = !recOn; Toast(recOn ? "Recording is armed: press PLAY, then play notes on an instrument window." : "Recording off."); }, 13); x += 76;
         { bool rec = mic != null; double el = rec ? (DateTime.Now - micT0).TotalSeconds : 0; var mr = Rc(x, y, rec ? 128 : 60, h); Btn(g, mr, rec ? "* MIC  " + ((int)(el / 60)).ToString("00") + ":" + ((int)(el % 60)).ToString("00") : "MIC", rec ? 3 : 0, () => MicClick(), 13); if (rec) HBar(g, Rc(mr.X + 6, mr.Bottom - 7, mr.Width - 12, 5), mic.Level); x += mr.Width + 6; }
         Btn(g, Rc(x, y, 92, h), "SOUNDS", soundsOpen ? 4 : 0, () => { if (soundsOpen) CloseSounds(); else OpenSounds(); }, 12); x += 98;
@@ -454,7 +450,7 @@ partial class StudioForm : Form
     {
         float top = ToolH + TransH; var tl = TimelineRect();
         PruneTrackCaches(); StepAnim(GhostDt());
-        int n = LaneCount;   // buses are not lanes: they live in the Buses sheet and in each track's Bus drop-down
+        int n = LaneCount; float viewH = ClientSize.Height - top - RulerH - 46, contentH = n * LaneH + 50; vscroll = Math.Max(0, Math.Min(vscroll, Math.Max(0, contentH - viewH)));   // never stuck scrolled past the tracks   // buses are not lanes: they live in the Buses sheet and in each track's Bus drop-down
         if (autoFit && (lastFitW != (int)tl.Width || lastFitLen != eng.EndFrame) && tl.Width > 100) { FitView(); lastFitW = (int)tl.Width; lastFitLen = eng.EndFrame; }
         // clamp selection
         if (selTrack >= n) selTrack = Math.Max(0, n - 1);
@@ -471,6 +467,7 @@ partial class StudioForm : Form
             var tr = eng.Tracks[i]; bool sel = i == selTrack; float ys = y + AnimOff(tr);   // ys: where this row is drawn right now (it slides when rows swap)
             var lane = Rc(HeadW, ys, tl.Width, LaneH); using (var br = new SolidBrush(i % 2 == 0 ? Lane : Lane2)) g.FillRectangle(br, lane);
             if (tr.IsBus) PaintBusLane(g, tr, lane); else if (tr.Instrument) PaintMidi(g, tr, lane); else if (tr.Clip == null) PaintEmptyLane(g, tr, lane); else PaintWave(g, tr, lane, sel);
+            foreach (var lay in eng.Tracks) if (lay.Host == tr) { if (lay.Instrument) PaintMidi(g, lay, lane); else if (lay.Clip != null) PaintWave(g, lay, lane, sel); PaintLaneTools(g, lay, lane); }   // tracks sharing this row
             var lr = LaneReg(lane, tr); int idx = i;
             PaintLaneTools(g, tr, lane);
             PaintHeader(g, tr, i, Rc(0, ys, HeadW, LaneH), sel);
@@ -496,6 +493,14 @@ partial class StudioForm : Form
         // playhead
         float px = HeadW + (float)((dispPos - scroll) / spp);
         if (px >= HeadW && px <= tl.Right) { GlowLine(g, NeonPink, px, top, px, ClientSize.Height, 1f); using (var b = new SolidBrush(Color.White)) g.FillPolygon(b, new[] { new PointF(px - 7, top), new PointF(px + 7, top), new PointF(px, top + 12) }); }
+        if (contentH > viewH + 1)
+        {   // vertical scroll bar: drag it, or click along it
+            var trk = Rc(tl.Right - 28, top + RulerH + 4, 20, viewH - 8); FillRR(g, Color.FromArgb(150, 8, 4, 20), trk, 10); StrokeRR(g, Color.FromArgb(90, NeonViolet), trk, 10, 1);
+            float thumbH = Math.Max(48, trk.Height * viewH / contentH), maxV = contentH - viewH, thumbY = trk.Y + (trk.Height - thumbH) * (maxV <= 0 ? 0 : vscroll / maxV); var thumb = Rc(trk.X, thumbY, trk.Width, thumbH);
+            FillRR(g, Hot(trk) ? Color.FromArgb(235, 0, 229, 255) : Color.FromArgb(185, 0, 229, 255), thumb, 10); Glow(g, NeonCyan, thumb, 10, 0.6f, 3);
+            Action<float> setV = my => { float f = (my - trk.Y - thumbH / 2) / Math.Max(1, trk.Height - thumbH); vscroll = Math.Max(0, Math.Min(maxV, f * maxV)); };
+            var sr = Reg(Rc(trk.X - 10, trk.Y, trk.Width + 16, trk.Height), () => setV(MousePos.Y)); sr.OnDrag = pt => setV(pt.Y);
+        }
         PaintOverview(g, tl);
         // wheel: scroll / zoom
         var wr = new HitReg { R = Rc(HeadW, top, tl.Width, ClientSize.Height - top) };
@@ -505,8 +510,8 @@ partial class StudioForm : Form
             if ((ModifierKeys & Keys.Alt) != 0 || ((ModifierKeys & Keys.Control) != 0 && (ModifierKeys & Keys.Shift) != 0)) { LaneH = Math.Max(64, Math.Min(420, LaneH + (d > 0 ? 16 : -16))); vscroll = Math.Max(0, Math.Min(vscroll, Math.Max(0, n * LaneH - (ClientSize.Height - top - RulerH - 66)))); }
             else if ((ModifierKeys & Keys.Control) != 0) { double f = d > 0 ? 0.7 : 1.43; double cur = scroll + (MousePos.X - HeadW) * spp; spp = Math.Max(MinSpp, Math.Min(MaxSpp, spp * f)); scroll = Math.Max(0, (long)(cur - (MousePos.X - HeadW) * spp)); }
             else if ((ModifierKeys & Keys.Shift) != 0) ScrollView(-d * 0.25);
-            else if (n * LaneH <= ClientSize.Height - top - RulerH - 40 || MousePos.Y < top + RulerH) ScrollView(-d * 0.25);   // everything fits vertically: the wheel moves along the song (like BandLab)
-            else vscroll = Math.Max(0, Math.Min(Math.Max(0, n * LaneH - (ClientSize.Height - top - RulerH - 66)), vscroll - d * 40));
+            else if (n * LaneH + 50 <= ClientSize.Height - top - RulerH - 46 || MousePos.Y < top + RulerH) ScrollView(-d * 0.25);   // everything fits vertically: the wheel moves along the song (like BandLab)
+            else vscroll = Math.Max(0, Math.Min(Math.Max(0, n * LaneH + 50 - (ClientSize.Height - top - RulerH - 46)), vscroll - d * 40));
         };
         regs.Insert(0, wr);
         if (soundsOpen) PaintSoundsPanel(g); else PaintPluginPanel(g);
@@ -607,10 +612,12 @@ partial class StudioForm : Form
         Led(g, Neon(tr.Color), r.X + 20, r.Y + 17, 5, !tr.Mute);
         Txt(g, tr.Name, 15, Ink, Rc(r.X + 28, r.Y + 6, 150, 22), StringAlignment.Near, true);
         string role = bus ? "BUS" : (tr.Instrument ? "SYNTH" : (tr.Role == "vocal" ? "VOCAL" : (tr.Role == "beat" ? "BEAT" : (tr.Role == "song" ? "SONG" : "AUDIO"))));
+        int layers = 0; foreach (var lx in eng.Tracks) if (lx.Host == tr) layers++;
+        if (layers > 0) { var chip = Rc(r.X + 186, r.Y + 27, 52, 15); FillRR(g, Hot(chip) ? Color.FromArgb(200, 90, 50, 170) : Color.FromArgb(150, 50, 30, 100), chip, 7); Txt(g, "+" + layers + " layer" + (layers == 1 ? "" : "s"), 9, Ink, chip, StringAlignment.Center, true); var hostTr = tr; Reg(chip, () => LayerMenu(hostTr)); if (Hot(chip)) { bubble = "Tracks sharing this row. Click to mute, separate or delete them."; bubblePt = MousePos; } }
         var pill = Rc(r.X + 186, r.Y + 8, 52, 18); FillRR(g, Color.FromArgb(90, Neon(tr.Color)), pill, 9); StrokeRR(g, Color.FromArgb(200, Neon(tr.Color)), pill, 9, 1); Txt(g, role, 10, Color.White, pill, StringAlignment.Center, true);
         int ti = i; var tk = tr;
         Btn(g, Rc(r.Right - 34, r.Y + 7, 22, 22), "x", 3, () => RemoveTrack(tk), 13);
-        var nameReg = Reg(Rc(r.X + 4, r.Y + 4, 176, 26), () => HeaderDown(tk)); nameReg.OnDrag = pt => HeaderDrag(tk, pt); nameReg.OnUp = () => GhostEnd(); nameReg.OnDouble = () => RenameTrack(tk); nameReg.OnRight = () => RenameTrack(tk);
+        var nameReg = Reg(Rc(r.X + 4, r.Y + 4, 176, 26), () => HeaderDown(tk)); nameReg.OnDrag = pt => HeaderDrag(tk, pt); nameReg.OnUp = () => { HeaderDrop(tk); GhostEnd(); }; nameReg.OnDouble = () => RenameTrack(tk); nameReg.OnRight = () => RenameTrack(tk);
         if (Hot(Rc(r.X + 4, r.Y + 4, 176, 26))) bubble = "Drag up or down to reorder.  Double-click to rename."; bubblePt = MousePos;
         // M / S, + Add Effect, Out
         float bh = 30;
@@ -675,7 +682,7 @@ partial class StudioForm : Form
     {
         int n = 1; bool used = true; while (used) { used = false; foreach (var x in eng.Tracks) if (x.IsBus && x.Name == "Bus " + n) { used = true; n++; break; } }
         var t = StudioEngine.NewTrack("Bus " + n, "bus", null); t.IsBus = true; t.Color = unchecked((int)0xFFFFD04D); int keepSel = selTrack; nextInsert = -1; AddTrack(t); selTrack = Math.Max(0, Math.Min(keepSel, LaneCount - 1));
-        Toast(t.Name + " added. Pick it from the Bus drop-down on any track. Levels and plugins: + BUS.");
+        Toast(t.Name + " added. Pick it from the Bus drop-down on any track. Levels and plugins: open the Bus drop-down on a track, then Edit buses.");
         return t;
     }
     void PaintBusLane(Graphics g, Track tr, RectangleF lane)
@@ -828,7 +835,8 @@ partial class StudioForm : Form
         var all = FxRegistry.All; var list = new List<FxRegistry.Info>(); string q = browserQuery.ToLowerInvariant().Trim();
         foreach (var i in all) { if (i.Type == "gain") continue; if (browserCat.Length > 0 && i.Category != browserCat) continue; if (q.Length == 0 || i.Name.ToLowerInvariant().Contains(q) || i.Category.ToLowerInvariant().Contains(q) || i.Blurb.ToLowerInvariant().Contains(q) || i.Type.Contains(q)) list.Add(i); }
         var order = new List<string>(); order.Add("Plugins"); foreach (var i in all) if (!order.Contains(i.Category)) order.Add(i.Category);
-        var res = new List<FxRegistry.Info>(); foreach (var c in order) foreach (var i in list) if (i.Category == c) res.Add(i); blCache = res; blKey = key; return res;
+        var res = new List<FxRegistry.Info>(); foreach (var c in order) foreach (var i in list) if (i.Category == c) res.Add(i); { var bl = res.Find(x => x.Type == "synth"); if (bl != null) { res.Remove(bl); res.Insert(0, bl); } }   // Bass Lab, the main instrument, is always first
+        blCache = res; blKey = key; return res;
     }
     void CategoryMenu()
     {

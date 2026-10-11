@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Windows.Forms;
 
-// Purphex Music: VST instrument tracks (for example Vital): add one, play it, record what you play, and hear it in the mix and exports.
+// Purphex Music: instrument tracks (Bass Lab, or any VST instrument): add one, play it, record what you play, and hear it in the mix and exports.
 partial class StudioForm
 {
     void AddInstrumentClick(bool keepInsert = false)
@@ -12,7 +12,7 @@ partial class StudioForm
         var items = new List<FxRegistry.Info>(); foreach (var i in FxRegistry.All) if (i.Category == "Instruments") items.Add(i);
         if (items.Count == 0)
         {
-            MessageBox.Show(this, "No VST instrument is set up yet.\n\nTo use one (for example Vital):\n  1. On the main window press Menu, then Plugins and extensions.\n  2. Your installed VST2 plugins are listed there (or press Open plugins folder and copy the .dll in).\n  3. Tick the instrument. It loads straight away.\n  4. Come back here and press + INSTRUMENT.\n\nOnly 64-bit VST2 plugins work (VST3 .vst3 files are not supported yet).", "Add instrument", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            MessageBox.Show(this, "No VST instrument is set up yet.\n\nTo use a VST instrument:\n  1. On the main window press Menu, then Plugins and extensions.\n  2. Your installed VST2 plugins are listed there (or press Open plugins folder and copy the .dll in).\n  3. Tick the instrument. It loads straight away.\n  4. Come back here and press + INSTRUMENT.\n\nOnly 64-bit VST2 plugins work (VST3 .vst3 files are not supported yet).", "Add instrument", MessageBoxButtons.OK, MessageBoxIcon.Information);
             return;
         }
         if (items.Count == 1) { AddInstrument(items[0].Type); return; }

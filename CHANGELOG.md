@@ -2,6 +2,16 @@
 
 What changed in each version of **Purphex**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.17.6  Count In, key finder, shared rows, simpler toolbar, project cards
+
+- 1 2 3 is the Count In (one bar of clicks before playing or recording). Detect Track key replaces the Auto Mix style box.
+- Toolbar: no more + TRACK, + BUS, + INSTRUMENT. Bass Lab is first in the effect list.
+- Split keeps both pieces on the same track; drop a clip or track onto any row to share it (overlapping). Vertical scroll bar and thicker scroll bars.
+
+- Project pictures show the whole picture in a square (no cropping) inside a neon glow.
+- Hover a project on Community for Open, Rename, Picture, Describe, Tags and Folder. Tags and description show on the card.
+- Cards show the size of the project and its audio (KB / MB / GB).
+
 ## 3.17.5  Dragging tracks, no import question
 
 - Dragging a track or clip shows a see-through glowing copy that follows the mouse smoothly; rows slide into place and the drop row lights up.

@@ -43,7 +43,7 @@ partial class StudioForm
         float[] l, r; int sr; string fmt; if (!SoundIO.Read(s.Path, out l, out r, out sr, out fmt)) return "Couldn't read " + s.Rel + ".";
         if (sr != StudioEngine.SR && sr > 0) { l = Resample(l, sr); r = Resample(r, sr); }
         var clip = AudioClip.FromArrays(l, r, s.Name); clip.Path = s.Path; var t = StudioEngine.NewTrack(s.Name, "audio", clip); t.Color = GroupColour(s.Group); t.Offset = Math.Max(0, frame);
-        bool first = eng.Tracks.Count == 0; if (first && s.Bpm > 0) Fx.ProjectBpm = s.Bpm; nextInsert = insertAt; AddTrack(t); SoundLibrary.MarkUsed(s);
+        bool first = eng.Tracks.Count == 0; if (first && s.Bpm > 0) Fx.ProjectBpm = s.Bpm; nextInsert = insertAt; PlaceDropped(t); SoundLibrary.MarkUsed(s);
         if (!first && s.Bpm > 0 && Math.Abs(s.Bpm - Fx.ProjectBpm) > 1.5) Toast("Added. This loop is " + s.Bpm.ToString("0") + " BPM and your project is " + Fx.ProjectBpm.ToString("0") + " BPM."); else Toast("Added " + s.Name);
         return null;
     }
@@ -52,7 +52,7 @@ partial class StudioForm
     // a MIDI file dropped on an instrument track puts its notes there
     string DropMidi(SoundItem s, long frame, int laneIndex)
     {
-        Track t = laneIndex >= 0 && laneIndex < eng.Tracks.Count ? eng.Tracks[laneIndex] : Selected; if (t == null || !t.Instrument) return "MIDI needs an instrument track: add one with + INSTRUMENT (for example Bass Lab) and drop the file on its lane.";
+        Track t = laneIndex >= 0 && laneIndex < eng.Tracks.Count ? eng.Tracks[laneIndex] : Selected; if (t == null || !t.Instrument) return "MIDI needs an instrument track: add one with + ADD TRACK > MIDI Track (for example Bass Lab) and drop the file on its lane.";
         double bpm; var notes = SoundIO.ReadMidi(s.Path, out bpm); if (notes.Count == 0) return "That MIDI file has no notes."; double spb = 60.0 / Fx.ProjectBpm * StudioEngine.SR; PushUndo();
         lock (t.Midi) { foreach (var n in notes) { long on = frame + (long)(n[0] * spb), off = frame + (long)((n[0] + n[1]) * spb); t.Midi.Add(new MidiEv { Frame = on, S = 0x90, D1 = (byte)n[2], D2 = (byte)Math.Max(1, Math.Min(127, n[3])) }); t.Midi.Add(new MidiEv { Frame = Math.Max(on + 1, off), S = 0x80, D1 = (byte)n[2], D2 = 0 }); } t.Midi.Sort((a, b) => a.Frame.CompareTo(b.Frame)); }
         selTrack = eng.Tracks.IndexOf(t); SoundLibrary.MarkUsed(s); Toast("Added " + notes.Count + " notes to " + t.Name); return null;
@@ -63,13 +63,27 @@ partial class StudioForm
         catch (Exception ex) { return "Couldn't install the preset: " + ex.Message; }
     }
 
+    Track dropHost;
+    // a sound dropped on a row goes onto that row (into an empty track, or overlapping what is already there); below the last row it makes a new track
+    void PlaceDropped(Track t)
+    {
+        var row = dropHost; dropHost = null;
+        if (row != null && row.Host == null && !row.IsBus && t.Clip != null)
+        {
+            if (row.Clip == null && !row.Instrument) { PushUndo(); lock (eng.Sync) { row.Clip = t.Clip; row.Source = t.Source; row.ClipStart = 0; row.ClipFrames = -1; row.Offset = t.Offset; row.Color = t.Color; if (row.Name.StartsWith("Audio ")) row.Name = t.Name; } selTrack = Math.Max(0, eng.Tracks.IndexOf(row)); return; }
+            t.Host = row; t.Out = row.Out; AddTrack(t); selTrack = Math.Max(0, eng.Tracks.IndexOf(row)); return;
+        }
+        AddTrack(t);
+    }
+
     // dropped from the browser onto the timeline
     void DropSampleAt(Point p)
     {
         var s = sndDrag; sndDrag = null; sndDragging = false; if (s == null) return; var tl = TimelineRect(); float top = ToolH + TransH + RulerH;
         if (p.X < HeadW || p.X > tl.Right || p.Y < top) { Toast("Drop it on the timeline (the area to the right of the track names)."); return; }
         long frame = Snap(scroll + (long)((p.X - HeadW) * spp)); int lane = (int)((p.Y - top + vscroll) / LaneH); int at = lane >= LaneCount ? LaneCount : lane + 1;
-        string msg = AddSample(s, frame, s.Kind == "midi" ? lane : at); if (msg != null) Toast(msg);
+        dropHost = lane >= 0 && lane < LaneCount ? eng.Tracks[lane] : null;   // dropped on a row: it goes on that row (overlapping whatever is there)
+        string msg = AddSample(s, frame, s.Kind == "midi" ? lane : at); dropHost = null; if (msg != null) Toast(msg);
     }
     void AddSampleAtNeedle(SoundItem s) { string msg = AddSample(s, Snap(DispPos), eng.Tracks.Count); if (msg != null) Toast(msg); }
 

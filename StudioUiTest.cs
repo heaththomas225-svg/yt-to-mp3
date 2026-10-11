@@ -28,7 +28,7 @@ static class S
         Check("tracks are tall enough that the header is not squashed (132 px)", F<int>("LaneH") == 132, "lane height " + F<int>("LaneH"));
         double spp0 = F<double>("spp"); Check("the whole song fits the view at the start (auto-fit)", F<bool>("autoFit") && spp0 > 100, "frames per pixel " + spp0.ToString("0"));
         // overview bar: the 16 px strip with a double-click handler
-        var ob = Regs().FindLast(r => r.OnDouble != null && Math.Abs(r.R.Height - 16) < 0.5f && r.R.Y > 600); Check("the overview bar is on screen", ob != null, "");
+        var ob = Regs().FindLast(r => r.OnDouble != null && Math.Abs(r.R.Height - 28) < 0.5f && r.R.Y > 600); Check("the overview bar is on screen", ob != null, "");
         if (ob != null)
         {
             float right = ob.R.Right - 12; int y = (int)(ob.R.Y + 8);
@@ -79,6 +79,21 @@ static class S
             Check("Dn on the bottom track still moves it down, making an empty row below", eng.Tracks.Count == n1 + 1 && eng.Tracks[eng.Tracks.Count - 1].Clip != null && eng.Tracks[eng.Tracks.Count - 2].Clip == null, "tracks " + eng.Tracks.Count);
             while (eng.Tracks.Count > n0) lock (eng.Sync) eng.Tracks.RemoveAt(eng.Tracks.Count - 1);
         }
+        {   // different kinds of track can share one row (nothing is pushed up or down)
+            var lane0 = F<int>("LaneH"); int n0 = eng.Tracks.Count, rows0 = (int)typeof(StudioForm).GetProperty("LaneCount", BF).GetValue(sf, null);
+            var ta = StudioEngine.NewTrack("HostRow", "audio", Clip(3)); lock (eng.Sync) eng.Tracks.Add(ta); rows0++; n0++; var extra = StudioEngine.NewTrack("Layered", "audio", Clip(3)); lock (eng.Sync) eng.Tracks.Add(extra);
+            typeof(StudioForm).GetMethod("MergeRows", BF).Invoke(sf, new object[] { extra, ta }); Paint();
+            int rows1 = (int)typeof(StudioForm).GetProperty("LaneCount", BF).GetValue(sf, null);
+            Check("dropping a track on another row makes it share that row (one row fewer, same tracks)", extra.Host == ta && rows1 == rows0 && eng.Tracks.Count == n0 + 1, "rows " + rows0 + " -> " + rows1);
+            Check("the shared track stays after the rows in the list", eng.Tracks.IndexOf(extra) >= rows1, "");
+            string dir = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "ytm_layer_test"); System.IO.Directory.CreateDirectory(dir); string pf = System.IO.Path.Combine(dir, "l.ytmproj"); ProjectIO.Save(eng, pf); var e2 = new StudioEngine(); ProjectIO.Load(e2, pf, delegate (string s) { });
+            Check("a project keeps which tracks share a row", e2.Tracks.Exists(t => t.Host != null && t.Name == "Layered"), "");
+            typeof(StudioForm).GetMethod("DeleteTrackQuiet", BF).Invoke(sf, new object[] { ta }); Check("deleting a row deletes the tracks layered on it", !eng.Tracks.Contains(extra), "");
+            var sp = StudioEngine.NewTrack("ToSplit", "audio", Clip(8)); lock (eng.Sync) eng.Tracks.Add(sp); int rowsB = (int)typeof(StudioForm).GetProperty("LaneCount", BF).GetValue(sf, null), cntB = eng.Tracks.Count;
+            typeof(StudioForm).GetMethod("SplitTrack", BF).Invoke(sf, new object[] { sp, sp.Offset + 4 * StudioEngine.SR });
+            Check("splitting keeps both pieces on the same row (no new track row)", (int)typeof(StudioForm).GetProperty("LaneCount", BF).GetValue(sf, null) == rowsB && eng.Tracks.Count == cntB + 1 && eng.Tracks.Exists(t => t.Host == sp), "");
+            lock (eng.Sync) { eng.Tracks.RemoveAll(t => t.Host == sp); eng.Tracks.Remove(sp); }
+        }
         SetF("nextInsert", 1); typeof(StudioForm).GetMethod("AddTrack", BF).Invoke(sf, new object[] { StudioEngine.NewTrack("NEW", "audio", Clip(5)) });
         Check("a track added from a strip lands exactly there and is selected", eng.Tracks.Count == 3 && eng.Tracks[1].Name == "NEW" && F<int>("selTrack") == 1, string.Join(", ", eng.Tracks.ConvertAll(t => t.Name).ToArray()));
         typeof(StudioForm).GetMethod("AddTrack", BF).Invoke(sf, new object[] { StudioEngine.NewTrack("LAST", "audio", Clip(5)) });
@@ -95,7 +110,7 @@ static class S
         // the + ADD TRACK button must always be on screen, even when the tracks run off the bottom
         for (int i = 0; i < 10; i++) typeof(StudioForm).GetMethod("AddTrack", BF).Invoke(sf, new object[] { StudioEngine.NewTrack("X" + i, "audio", Clip(3)) }); Paint();
         var addBtn = Regs().FindLast(r => Math.Abs(r.R.Width - 270) < 0.5f && Math.Abs(r.R.Height - 34) < 0.5f); Check("the + ADD TRACK button is on screen with 14 tracks (pinned to the bottom)", addBtn != null && addBtn.R.Bottom <= sf.ClientSize.Height && addBtn.R.Y > sf.ClientSize.Height / 2, addBtn == null ? "missing" : addBtn.R.ToString());
-        var tbtn = Regs().FindLast(r => r.R.Y < 120 && r.R.Y > 70 && r.R.Width == 100 && r.R.Height == 36); Check("there is a + TRACK button in the toolbar", tbtn != null, "");
+        Check("the toolbar has no extra + TRACK, + BUS or + INSTRUMENT buttons (ADD TRACK is under the tracks)", !Regs().Exists(r => r.R.Y < 120 && r.R.Y > 70 && r.R.Width == 100 && r.R.Height == 36), "");
         // ---- main window: one MP3 choice, and converted links leave the box ----
         {
             var names = (string[])typeof(App).GetField("FmtNames", BindingFlags.NonPublic | BindingFlags.Static).GetValue(null); int mp3 = 0; foreach (var nme in names) if (nme.StartsWith("MP3")) mp3++;

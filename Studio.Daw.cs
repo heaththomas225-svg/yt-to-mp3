@@ -36,13 +36,13 @@ partial class StudioForm
     // ---------- state ----------
     bool snapOn = true; int gridIdx = 2; static readonly string[] GridNames = { "1/1 bar", "1/2", "1/4 beat", "1/8", "1/16" }; static readonly double[] GridBeats = { 4, 2, 1, 0.5, 0.25 };
     readonly List<Fx> retired = new List<Fx>();   // effects of deleted tracks stay alive so Undo can bring the track back
-    class TS { public long Offset, ClipStart, ClipFrames; public float Vol, Pan; public bool Mute, Solo; public string Name; public AudioClip Clip; }
+    class TS { public long Offset, ClipStart, ClipFrames; public float Vol, Pan; public bool Mute, Solo; public string Name; public AudioClip Clip; public Track Host, Out; }
     class Snapshot { public List<Track> Order = new List<Track>(); public Dictionary<Track, TS> St = new Dictionary<Track, TS>(); }
     readonly List<Snapshot> undo = new List<Snapshot>(), redo = new List<Snapshot>();
 
     Snapshot TakeSnapshot()
     {
-        var s = new Snapshot(); foreach (var t in eng.Tracks.ToArray()) { s.Order.Add(t); s.St[t] = new TS { Offset = t.Offset, ClipStart = t.ClipStart, ClipFrames = t.ClipFrames, Clip = t.Clip, Vol = t.VolDb, Pan = t.Pan, Mute = t.Mute, Solo = t.Solo, Name = t.Name }; }
+        var s = new Snapshot(); foreach (var t in eng.Tracks.ToArray()) { s.Order.Add(t); s.St[t] = new TS { Offset = t.Offset, ClipStart = t.ClipStart, ClipFrames = t.ClipFrames, Clip = t.Clip, Vol = t.VolDb, Pan = t.Pan, Mute = t.Mute, Solo = t.Solo, Name = t.Name, Host = t.Host, Out = t.Out }; }
         return s;
     }
     void PushUndo() { undo.Add(TakeSnapshot()); if (undo.Count > 60) undo.RemoveAt(0); redo.Clear(); }
@@ -52,7 +52,7 @@ partial class StudioForm
         lock (eng.Sync)
         {
             eng.Tracks.Clear(); eng.Tracks.AddRange(s.Order);
-            foreach (var t in s.Order) { var d = s.St[t]; t.Clip = d.Clip; t.Offset = d.Offset; t.ClipStart = d.ClipStart; t.ClipFrames = d.ClipFrames; t.VolDb = d.Vol; t.Pan = d.Pan; t.Mute = d.Mute; t.Solo = d.Solo; t.Name = d.Name; }
+            foreach (var t in s.Order) { var d = s.St[t]; t.Clip = d.Clip; t.Offset = d.Offset; t.ClipStart = d.ClipStart; t.ClipFrames = d.ClipFrames; t.VolDb = d.Vol; t.Pan = d.Pan; t.Mute = d.Mute; t.Solo = d.Solo; t.Name = d.Name; t.Host = d.Host; t.Out = d.Out; }
         }
         selTrack = Math.Max(0, Math.Min(selTrack, eng.Tracks.Count - 1)); selFx = -1;
     }
@@ -99,8 +99,9 @@ partial class StudioForm
         if (t == null) { Toast("Select a track first."); return; }
         if (t.Clip == null || t.Instrument) { Toast("Splitting works on audio tracks."); return; }
         long rel = at - t.Offset, used = t.UsedLength; if (rel < 800 || rel > used - 800) { Toast("Move the needle into the clip first (click the ruler above the tracks), then split."); return; }
-        PushUndo(); var right = CloneTrack(t, " (2)"); right.Offset = at; right.ClipStart = t.ClipStart + rel; right.ClipFrames = used - rel; t.ClipFrames = rel;
-        InsertAfter(t, right); Toast("Split in two. Drag a piece to move it, drag its ends to trim.");
+        PushUndo(); var host = t.Host ?? t; var right = CloneTrack(t, " (2)"); right.Offset = at; right.ClipStart = t.ClipStart + rel; right.ClipFrames = used - rel; t.ClipFrames = rel;
+        right.Host = host; right.Out = host.Out; lock (eng.Sync) eng.Tracks.Insert(FirstBusIndex(), right);   // the new piece stays on the same row: no new track is made
+        selTrack = Math.Max(0, eng.Tracks.IndexOf(host)); toolsTrack = right; Toast("Split in two on the same track. Drag a piece to move it (even to another track), drag its ends to trim.");
     }
     void TrimStartHere(Track t) { TrimAt(t, Snap(DispPos), true); }
     void TrimEndHere(Track t) { TrimAt(t, Snap(DispPos), false); }
@@ -119,7 +120,7 @@ partial class StudioForm
     }
     void DeleteTrackQuiet(Track t)
     {
-        if (t == null) return; if (toolsTrack == t) toolsTrack = null; PushUndo(); lock (eng.Sync) { eng.Tracks.Remove(t); retired.AddRange(t.Fx); if (t.IsBus) foreach (var x in eng.Tracks) if (x.Out == t) x.Out = null; } selTrack = Math.Max(0, Math.Min(selTrack, eng.Tracks.Count - 1)); selFx = -1;
+        if (t == null) return; if (toolsTrack == t) toolsTrack = null; PushUndo(); lock (eng.Sync) { eng.Tracks.Remove(t); retired.AddRange(t.Fx); if (t.IsBus) foreach (var x in eng.Tracks) if (x.Out == t) x.Out = null; foreach (var lay in eng.Tracks.FindAll(x => x.Host == t)) { eng.Tracks.Remove(lay); retired.AddRange(lay.Fx); } } selTrack = Math.Max(0, Math.Min(selTrack, eng.Tracks.Count - 1)); selFx = -1;
         foreach (var f in t.Fx) { var ic = f as InstrumentFx; if (ic != null) ic.CloseWindow(); }
         Toast("Deleted (Undo brings it back)");
     }
@@ -148,13 +149,14 @@ partial class StudioForm
     }
     HitReg LaneReg(RectangleF lane, Track tr)
     {
-        var lr = Reg(lane, () => LaneDown(tr, lane)); lr.OnDrag = pt => LaneDrag(tr, pt); lr.OnUp = () => { LaneDrop(tr); GhostEnd(); }; lr.OnRight = () => LaneMenu(tr); lr.OnDouble = () => { if (tr.Instrument) OpenRoll(tr); };
+        Track cur = tr;   // the clip under the mouse: this row's own track or one of the tracks layered on it
+        var lr = Reg(lane, () => { cur = PickLayer(tr, MousePos); LaneDown(cur, lane); }); lr.OnDrag = pt => LaneDrag(cur, pt); lr.OnUp = () => { LaneDrop(cur); GhostEnd(); }; lr.OnRight = () => LaneMenu(tr); lr.OnDouble = () => { if (tr.Instrument) OpenRoll(tr); };
         if (Hot(lane)) hintNow = "Click a track to select it and show its buttons.  Drag a clip to move it, drag its ends to trim.  Click the ruler or the empty area to move the needle.  Right-click = split, trim, copy, delete.";
         return lr;
     }
     void LaneDown(Track tr, RectangleF lane)
     {
-        selTrack = Math.Max(0, eng.Tracks.IndexOf(tr)); selFx = -1; laneMode = 0; laneStart = MousePos; toolsTrack = tr;
+        selTrack = Math.Max(0, eng.Tracks.IndexOf(tr.Host ?? tr)); selFx = -1; laneMode = 0; laneStart = MousePos; toolsTrack = tr;
         if (tr.Clip != null && !tr.Instrument)
         {
             laneMode = ZoneAt(tr, lane, MousePos); laneMoved = false;
@@ -180,7 +182,7 @@ partial class StudioForm
     }
     void LaneMenu(Track tr)
     {
-        selTrack = Math.Max(0, eng.Tracks.IndexOf(tr)); var m = Win.NewMenu(); long at = Snap(Math.Max(0, scroll + (long)((MousePos.X - HeadW) * spp)));
+        selTrack = Math.Max(0, eng.Tracks.IndexOf(tr.Host ?? tr)); var m = Win.NewMenu(); long at = Snap(Math.Max(0, scroll + (long)((MousePos.X - HeadW) * spp)));
         if (tr.Instrument) { m.Items.Add("Edit notes (piano roll)...").Click += (a, b) => OpenRoll(tr); m.Items.Add(new ToolStripSeparator()); }
         m.Items.Add("Split here (at the needle)").Click += (a, b) => SplitTrack(tr, Snap(DispPos));
         m.Items.Add("Split where I clicked").Click += (a, b) => SplitTrack(tr, at);
@@ -234,16 +236,56 @@ partial class StudioForm
         int k = 1; foreach (var x in eng.Tracks) if (!x.IsBus && !x.Instrument) k++;
         return StudioEngine.NewTrack("Audio " + k, "audio", null);
     }
-    // letting go of a dragged clip on another row moves it there; below the last row (or onto a row that already has a clip) a new track is made for it
+    // letting go of a dragged clip on another row moves it there. On a row that already has something, the clip joins that row as a layer (nothing is pushed up or down); below the last row a new track is made.
+    Track PickLayer(Track host, PointF p)
+    {
+        Track best = host; foreach (var L in eng.Tracks) if (L.Host == host && !L.Instrument && L.Clip != null) { float x0 = HeadW + (float)((L.Offset - scroll) / spp), x1 = x0 + (float)(L.UsedLength / spp); if (p.X >= x0 - 8 && p.X <= x1 + 8) best = L; }
+        return best;
+    }
     void LaneDrop(Track src)
     {
         if (laneMode != 1 || !laneMoved || src.Clip == null || src.Instrument) return;
-        float top = ToolH + TransH + RulerH - vscroll; int row = (int)Math.Floor((MousePos.Y - top) / LaneH), from = eng.Tracks.IndexOf(src);
-        if (row < 0 || from < 0 || row == from || Math.Abs(MousePos.Y - laneStart.Y) < LaneH * 0.5f) return;
+        float top = ToolH + TransH + RulerH - vscroll; int row = (int)Math.Floor((MousePos.Y - top) / LaneH), fromRow = eng.Tracks.IndexOf(src.Host ?? src);
+        if (row < 0 || fromRow < 0 || row == fromRow || Math.Abs(MousePos.Y - laneStart.Y) < LaneH * 0.5f) return;
         Track dst = row < LaneCount ? eng.Tracks[row] : null; PushUndo();
-        if (dst == null || dst.Clip != null || dst.Instrument || dst.IsBus) { dst = EmptyAudioTrack(); int at = Math.Min(Math.Max(0, row), LaneCount); lock (eng.Sync) eng.Tracks.Insert(at, dst); }
-        lock (eng.Sync) { dst.Clip = src.Clip; dst.Source = src.Source; dst.ClipStart = src.ClipStart; dst.ClipFrames = src.ClipFrames; dst.Offset = src.Offset; if (dst.Role == "audio" && src.Role != "audio") dst.Role = src.Role; dst.Color = src.Color; if (dst.Name.StartsWith("Audio ")) dst.Name = src.Name; src.Clip = null; src.Source = ""; src.ClipStart = 0; src.ClipFrames = -1; src.Offset = 0; }
-        selTrack = eng.Tracks.IndexOf(dst); toolsTrack = dst; Toast("Moved to " + dst.Name);
+        bool occupied = dst != null && (dst.Clip != null || dst.Instrument);
+        if (dst == null) { dst = EmptyAudioTrack(); lock (eng.Sync) eng.Tracks.Insert(LaneCount, dst); occupied = false; }
+        if (occupied)
+        {
+            var L = EmptyAudioTrack(); L.Name = src.Name; L.Role = src.Role; L.Color = src.Color; L.Host = dst; L.Out = dst.Out; L.Clip = src.Clip; L.Source = src.Source; L.ClipStart = src.ClipStart; L.ClipFrames = src.ClipFrames; L.Offset = src.Offset;
+            lock (eng.Sync) eng.Tracks.Insert(FirstBusIndex(), L); dst = L;
+        }
+        else lock (eng.Sync) { dst.Clip = src.Clip; dst.Source = src.Source; dst.ClipStart = src.ClipStart; dst.ClipFrames = src.ClipFrames; dst.Offset = src.Offset; if (dst.Role == "audio" && src.Role != "audio") dst.Role = src.Role; dst.Color = src.Color; if (dst.Name.StartsWith("Audio ")) dst.Name = src.Name; }
+        lock (eng.Sync)
+        {
+            if (src.Host != null) { eng.Tracks.Remove(src); retired.AddRange(src.Fx); }   // a layer that was moved away is simply gone
+            else { src.Clip = null; src.Source = ""; src.ClipStart = 0; src.ClipFrames = -1; src.Offset = 0; }
+        }
+        selTrack = Math.Max(0, eng.Tracks.IndexOf(dst.Host ?? dst)); toolsTrack = dst; Toast(occupied ? "Added to the row of " + (dst.Host != null ? dst.Host.Name : dst.Name) + " (its + chip separates them)" : "Moved to " + dst.Name);
+    }
+    // a track dragged by its header: the middle of another row = share that row, near a boundary = move between rows. Nothing moves until you let go, so it is easy to aim.
+    int hdMode, hdRow, hdGap;
+    void MergeRows(Track src, Track dst)
+    {
+        if (src == dst || src.IsBus || dst.IsBus || src.Host != null) return; PushUndo();
+        lock (eng.Sync)
+        {
+            foreach (var x in eng.Tracks) if (x.Host == src) x.Host = dst;
+            src.Host = dst; src.Out = dst.Out; eng.Tracks.Remove(src); eng.Tracks.Insert(FirstBusIndex(), src);
+        }
+        selTrack = Math.Max(0, eng.Tracks.IndexOf(dst)); toolsTrack = null; Toast(src.Name + " now shares the row of " + dst.Name + ". Use the + chip on that row to separate them again.");
+    }
+    void LayerMenu(Track host)
+    {
+        var m = Win.NewMenu();
+        foreach (var l0 in eng.Tracks.ToArray()) if (l0.Host == host)
+        {
+            var L = l0; var sub = new ToolStripMenuItem(L.Name + (L.Instrument ? "  (MIDI)" : "")); m.Items.Add(sub);
+            sub.DropDownItems.Add(L.Mute ? "Unmute" : "Mute").Click += (a, b) => L.Mute = !L.Mute;
+            sub.DropDownItems.Add("Move to its own row").Click += (a, b) => { PushUndo(); lock (eng.Sync) { L.Host = null; eng.Tracks.Remove(L); eng.Tracks.Insert(LaneCount, L); } };
+            sub.DropDownItems.Add("Delete").Click += (a, b) => DeleteTrackQuiet(L);
+        }
+        m.Show(this, new Point((int)MousePos.X, (int)MousePos.Y));
     }
     void MoveClip(Track tr, int dir)
     {
@@ -252,19 +294,29 @@ partial class StudioForm
     }
     void MoveTrackBy(Track tr, int dir)
     {
+        if (tr.Host != null || tr.IsBus) { Toast("Drag it to another row instead."); return; }
         int i = eng.Tracks.IndexOf(tr); if (i < 0) return; PushUndo();
         if (i + dir < 0 || i + dir >= LaneCount) { lock (eng.Sync) eng.Tracks.Insert(dir < 0 ? 0 : LaneCount, EmptyAudioTrack()); if (dir < 0) i++; }   // nothing there yet: make an empty track so it can still move
         int j = i + dir; AnimShift(tr, -dir); AnimShift(eng.Tracks[j], dir); lock (eng.Sync) { eng.Tracks.RemoveAt(i); eng.Tracks.Insert(j, tr); } selTrack = j;
     }
-    // dragging a track's header up or down changes its row
+    // dragging a track's header: see HeaderDrag / HeaderDrop
     bool headerUndo;
-    void HeaderDown(Track tr) { selTrack = Math.Max(0, eng.Tracks.IndexOf(tr)); selFx = -1; headerUndo = false; toolsTrack = tr; GhostGrab(tr); }
+    void HeaderDown(Track tr) { selTrack = Math.Max(0, eng.Tracks.IndexOf(tr)); selFx = -1; headerUndo = false; toolsTrack = tr; hdMode = 0; GhostGrab(tr); }
     void HeaderDrag(Track tr, PointF pt)
     {
-        int i = eng.Tracks.IndexOf(tr); if (i < 0) return; float top = ToolH + TransH + RulerH - vscroll;
-        int target = (int)Math.Floor((pt.Y - top) / LaneH); target = Math.Max(0, Math.Min(LaneCount - 1, target)); if (target == i) return;
-        if (!headerUndo) { PushUndo(); headerUndo = true; }
-        GhostStart(tr, 1);
+        int i = eng.Tracks.IndexOf(tr); if (i < 0 || tr.Host != null) return; GhostStart(tr, 1);
+        float pos = (pt.Y - (ToolH + TransH + RulerH - vscroll)) / LaneH; int row = (int)Math.Floor(pos); float fr = pos - row; int n = LaneCount;
+        if (row >= n) { hdRow = n - 1; hdGap = n; hdMode = n - 1 == i ? 0 : 1; if (i == n - 1) hdMode = 0; return; }
+        if (row < 0) { hdRow = 0; hdGap = 0; hdMode = i == 0 ? 0 : 1; return; }
+        if (row == i) { hdMode = 0; return; }
+        if (fr > 0.28f && fr < 0.72f) { hdMode = 2; hdRow = row; return; }
+        hdMode = 1; hdGap = fr < 0.5f ? row : row + 1; int fin = hdGap > i ? hdGap - 1 : hdGap; if (fin == i) hdMode = 0;
+    }
+    void HeaderDrop(Track tr)
+    {
+        int mode = hdMode, i = eng.Tracks.IndexOf(tr); hdMode = 0; if (i < 0 || tr.Host != null) return;
+        if (mode == 2 && hdRow >= 0 && hdRow < LaneCount) { MergeRows(tr, eng.Tracks[hdRow]); return; }
+        if (mode != 1) return; int target = hdGap > i ? hdGap - 1 : hdGap; target = Math.Max(0, Math.Min(LaneCount - 1, target)); if (target == i) return; PushUndo();
         for (int k = Math.Min(i, target); k <= Math.Max(i, target); k++) if (k != i && k < eng.Tracks.Count) AnimShift(eng.Tracks[k], target > i ? 1 : -1);   // the rows we pass slide one place
         lock (eng.Sync) { eng.Tracks.RemoveAt(i); eng.Tracks.Insert(target, tr); } selTrack = target;
     }
@@ -302,7 +354,7 @@ partial class StudioForm
         Btn(g, Rc(x, y, 62, h), "DETECT", 0, () => DetectBpmClick(), 11); x += 68;
         Btn(g, Rc(x, y, 56, h), snapOn ? "SNAP" : "snap", snapOn ? 4 : 0, () => snapOn = !snapOn, 12); x += 60;
         Btn(g, Rc(x, y, 76, h), GridNames[gridIdx], 0, () => { var m = Win.NewMenu(); for (int i = 0; i < GridNames.Length; i++) { int k = i; m.Items.Add(GridNames[i]).Click += (a, b) => { gridIdx = k; snapOn = true; }; } m.Show(this, new Point((int)MousePos.X, (int)MousePos.Y)); }, 11); x += 82;
-        Btn(g, Rc(x, y, 62, h), eng.Metronome ? "CLICK" : "click", eng.Metronome ? 4 : 0, () => eng.Metronome = !eng.Metronome, 12); x += 76;
+        Btn(g, Rc(x, y, 62, h), "1 2 3", eng.CountIn ? 4 : 0, () => { eng.CountIn = !eng.CountIn; Toast(eng.CountIn ? "Count In on: one bar of clicks before it plays or records." : "Count In off."); }, 12); x += 76;
         Btn(g, Rc(x, y, 62, h), "SPLIT", 1, () => SplitSelected(), 12); x += 66;
         Btn(g, Rc(x, y, 62, h), "TRIM <", 0, () => TrimStartHere(Selected), 11); x += 66;
         Btn(g, Rc(x, y, 62, h), "TRIM >", 0, () => TrimEndHere(Selected), 11); x += 66;

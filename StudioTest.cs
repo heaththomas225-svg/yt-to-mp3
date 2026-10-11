@@ -442,6 +442,22 @@ static class T
             Check("project: save + reopen keeps plugins, faders, mute and track alignment" + firstDiff, same && warn.Count == 0, "tracks " + e2.Tracks.Count + ", offset " + e2.Tracks[0].Offset + ", master comp thr " + e2.MasterFx[1].Get("thr"));
         }
 
+        // ---- Count In: one bar of clicks, then the song ----
+        {
+            int n = SR / 2; var eng = new StudioEngine(); Fx.ProjectBpm = 120; var c1 = AudioClip.FromArrays(Sine(220, 0.3, SR * 4), Sine(220, 0.3, SR * 4), "x"); eng.Tracks.Add(StudioEngine.NewTrack("A", "audio", c1)); eng.MasterBypass = true; eng.CountIn = true;
+            typeof(StudioEngine).GetMethod("EnsurePlayer", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            var play = typeof(StudioEngine).GetMethod("Play"); try { play.Invoke(eng, null); } catch { }
+            var l = new float[n]; var r = new float[n]; eng.RenderRealtime(l, r, n); long pos1 = eng.Pos; double e1 = 0; for (int i = 0; i < n; i++) e1 += Math.Abs(l[i]);
+            Check("count in: the first half second is clicks only and the song has not moved", e1 > 0 && pos1 == 0, "pos " + pos1 + ", energy " + e1.ToString("0"));
+            for (int k = 0; k < 3; k++) eng.RenderRealtime(l, r, n); long pos2 = eng.Pos;
+            eng.RenderRealtime(l, r, n); Check("count in: after one bar (2 s at 120 BPM) the song starts moving", pos2 == 0 && eng.Pos > 0, "pos " + pos2 + " -> " + eng.Pos);
+            eng.Stop();
+        }
+
+        // ---- project cards: sizes and tags ----
+        Check("project size is shown in KB / MB / GB", ProjectLibrary.Size(512) == "512 B" && ProjectLibrary.Size(1536) == "1.5 KB" && ProjectLibrary.Size(5L * 1048576 + 262144) == "5.3 MB" && ProjectLibrary.Size(3L * 1073741824) == "3 GB", ProjectLibrary.Size(5L * 1048576 + 262144));
+        Check("genre tags are cleaned: lower case, no hash, no repeats, at most 6", ProjectLibrary.CleanTags("#DnB, bassline  dnb;Dark #x1 y2 z3 w4") == "dnb bassline dark x1 y2 z3", ProjectLibrary.CleanTags("#DnB, bassline  dnb;Dark #x1 y2 z3 w4"));
+
         // ---- buses: tracks sent to a bus are mixed and processed there, then go to the master ----
         {
             int n = SR * 2; var eng = new StudioEngine(); eng.MasterBypass = true;

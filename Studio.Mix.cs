@@ -507,6 +507,7 @@ static class ProjectIO
         {
             var t = eng.Tracks[i]; string src = t.Clip != null ? t.Clip.Path : t.Source;
             sb.Append("track|").Append(E(t.Instrument ? "inst" : (t.IsBus ? "bus" : t.Role))).Append('|').Append(E(t.Name)).Append('|').Append(t.Offset).Append('|').Append(E(src)).Append('|').Append(t.Color).Append('|').Append(t.ClipStart).Append('|').Append(t.ClipFrames).Append('\n');
+            if (t.Host != null && eng.Tracks.IndexOf(t.Host) >= 0) sb.Append("host|").Append(i).Append('|').Append(eng.Tracks.IndexOf(t.Host)).Append('\n');
             if (t.Out != null && eng.Tracks.IndexOf(t.Out) >= 0) sb.Append("route|").Append(i).Append('|').Append(eng.Tracks.IndexOf(t.Out)).Append('\n');
             if (t.Instrument && t.Midi.Count > 0) { sb.Append("midi|").Append(i).Append('|'); lock (t.Midi) foreach (var m in t.Midi) sb.Append(m.Frame).Append(':').Append(m.S).Append(':').Append(m.D1).Append(':').Append(m.D2).Append(';'); sb.Append('\n'); }
         }
@@ -520,7 +521,7 @@ static class ProjectIO
     {
         var warn = new List<string>(); var lines = File.ReadAllLines(path, Encoding.UTF8);
         if (lines.Length == 0 || !lines[0].StartsWith("YTMPROJ")) throw new Exception("That isn't a project file from this app.");
-        string dir = Path.GetDirectoryName(path); var tracks = new List<Track>(); var mix = new StringBuilder(); var routes = new List<string[]>();
+        string dir = Path.GetDirectoryName(path); var tracks = new List<Track>(); var mix = new StringBuilder(); var routes = new List<string[]>(); var hosts = new List<string[]>();
         Lyrics = ""; LyricsTitle = "";
         CoverBytes = null;
         foreach (var line in lines)
@@ -546,10 +547,13 @@ static class ProjectIO
                     { var q = part.Split(':'); long fr; int s, d1, d2; if (q.Length == 4 && long.TryParse(q[0], out fr) && int.TryParse(q[1], out s) && int.TryParse(q[2], out d1) && int.TryParse(q[3], out d2)) tracks[ti].Midi.Add(new MidiEv { Frame = fr, S = (byte)s, D1 = (byte)d1, D2 = (byte)d2 }); }
             }
             else if (p[0] == "route" && p.Length >= 3) routes.Add(p);
+            else if (p[0] == "host" && p.Length >= 3) hosts.Add(p);
             else if (p[0] == "master" || p[0] == "tmix" || p[0] == "fx" || p[0] == "mfx") mix.Append(line).Append('\n');
         }
         foreach (var rp in routes) { int ra, rb; if (int.TryParse(rp[1], out ra) && int.TryParse(rp[2], out rb) && ra >= 0 && rb >= 0 && ra < tracks.Count && rb < tracks.Count && tracks[rb].IsBus && ra != rb) tracks[ra].Out = tracks[rb]; }
-        { var ord = new List<Track>(); foreach (var q in tracks) if (!q.IsBus) ord.Add(q); foreach (var q in tracks) if (q.IsBus) ord.Add(q); tracks = ord; }   // buses go after the tracks
+        foreach (var hp in hosts) { int ha, hb; if (int.TryParse(hp[1], out ha) && int.TryParse(hp[2], out hb) && ha >= 0 && hb >= 0 && ha < tracks.Count && hb < tracks.Count && ha != hb && !tracks[hb].IsBus && !tracks[ha].IsBus) tracks[ha].Host = tracks[hb]; }
+        foreach (var q in tracks) if (q.Host != null && q.Host.Host != null) q.Host = q.Host.Host;   // one level only
+        { var ord = new List<Track>(); foreach (var q in tracks) if (!q.IsBus && q.Host == null) ord.Add(q); foreach (var q in tracks) if (!q.IsBus && q.Host != null) ord.Add(q); foreach (var q in tracks) if (q.IsBus) ord.Add(q); tracks = ord; }   // rows, then layers, then buses   // buses go after the tracks
         lock (eng.Sync) { eng.Tracks.Clear(); eng.Tracks.AddRange(tracks); }
         RestoreMix(eng, mix.ToString()); eng.Seek(0);
         return warn;

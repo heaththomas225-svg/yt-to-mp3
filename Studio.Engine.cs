@@ -338,6 +338,7 @@ class Track
     public long UsedLength { get { if (Clip == null) return 0; long avail = Math.Max(0, Clip.Length - ClipStart); return ClipFrames < 0 ? avail : Math.Min(ClipFrames, avail); } }
     public AudioClip Clip; public long Offset;
     public float VolDb, Pan; public bool Mute, Solo; public int Color;
+    public Track Host;   // set = this track shares the row of its Host (an audio clip, a MIDI instrument and more can live on one row)
     public bool IsBus, Armed; public Track Out;   // a bus has no audio of its own: it mixes the tracks sent to it (Out), runs its own plugins, then goes to the master. Armed = an empty audio track waiting for a recording
     public List<Fx> Fx = new List<Fx>();
     public volatile float PeakL, PeakR, RmsL, RmsR; public volatile bool Clipped;
@@ -539,6 +540,7 @@ class StudioEngine
         if (advance) MasterTapPos = (p + n) & 8191;
     }
 
+    public volatile bool CountIn; public long LastCountFrames; long countLeft;   // Count In: one bar of clicks before playing or recording starts
     public volatile bool Metronome;   // click on every beat while the song plays
     public static volatile int LiveUntil;   // Environment.TickCount until which instruments keep sounding even though the song is stopped
     static readonly RenderOpts Live = new RenderOpts();
@@ -561,6 +563,7 @@ class StudioEngine
                 }
                 Array.Clear(oL, 0, n); Array.Clear(oR, 0, n); MasterPeakL = MasterPeakR = 0; foreach (var t in Tracks) { t.PeakL = t.PeakR = 0; } return;
             }
+            if (countLeft > 0) { Array.Clear(oL, 0, n); Array.Clear(oR, 0, n); Click(LastCountFrames - countLeft, n, oL, oR); countLeft = Math.Max(0, countLeft - n); MasterPeakL = MasterPeakR = 0; return; }   // the count-in: only the clicks, the song waits
             Mix(Pos, n, Live, oL, oR, true, 0);
             if (Metronome) Click(Pos, n, oL, oR);
             Pos += n;
@@ -591,10 +594,10 @@ class StudioEngine
     public void Play()
     {
         EnsurePlayer();
-        lock (Sync) { if (Pos >= EndFrame + SR * 2) Pos = 0; Playing = true; }
+        lock (Sync) { if (Pos >= EndFrame + SR * 2) Pos = 0; if (!Playing) { if (CountIn) { LastCountFrames = (long)(SR * 60.0 / Math.Max(20, Fx.ProjectBpm) * 4); countLeft = LastCountFrames; } else { LastCountFrames = 0; countLeft = 0; } } Playing = true; }
     }
-    public void Pause() { Playing = false; }
-    public void Stop() { Playing = false; lock (Sync) { Pos = 0; ResetStates(); } }
+    public void Pause() { Playing = false; countLeft = 0; }
+    public void Stop() { Playing = false; lock (Sync) { Pos = 0; countLeft = 0; ResetStates(); } }
 
     void EnsurePlayer()
     {

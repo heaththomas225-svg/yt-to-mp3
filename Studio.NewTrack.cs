@@ -31,7 +31,7 @@ partial class StudioForm
     {
         Func<int, Color> C = v => Color.FromArgb(v >> 16 & 255, v >> 8 & 255, v & 255); var l = new List<NtItem>();
         l.Add(new NtItem { Title = "Voice / Audio", Sub = "Record or add audio. Raw, no effects", Col = C(0xF04438), Icon = 0, Do = () => { CloseNewTrackSheet(); AddEmptyAudioTrack(); } });
-        l.Add(new NtItem { Title = "Virtual Instruments", Sub = "Bass Lab, Vital and other VSTs", Tag = "MIDI", Col = C(0x16C784), Icon = 2, Do = () => { nextInsert = NtInsertAt(); CloseNewTrackSheet(); AddInstrumentClick(true); } });
+        l.Add(new NtItem { Title = "Virtual Instruments", Sub = "Bass Lab and VST plugins", Tag = "MIDI", Col = C(0x16C784), Icon = 2, Do = () => { nextInsert = NtInsertAt(); CloseNewTrackSheet(); AddInstrumentClick(true); } });
         l.Add(new NtItem { Title = "MIDI Track", Sub = "Play your own keyboard or instrument", Tag = "MIDI", Col = C(0x3B8CF5), Icon = 3, Do = () => { nextInsert = NtInsertAt(); CloseNewTrackSheet(); recOn = true; AddInstrument("synth"); } });
         return l;
     }
@@ -98,7 +98,8 @@ partial class StudioForm
 partial class StudioForm
 {
     bool busOpen; float busScroll;
-    int LaneCount { get { int c = 0; foreach (var t in eng.Tracks) if (!t.IsBus) c++; return c; } }
+    int LaneCount { get { int c = 0; foreach (var t in eng.Tracks) if (!t.IsBus && t.Host == null) c++; return c; } }   // rows on the timeline; layers and buses are kept after them in the list
+    int FirstBusIndex() { for (int i = 0; i < eng.Tracks.Count; i++) if (eng.Tracks[i].IsBus) return i; return eng.Tracks.Count; }
     void OpenBusSheet() { busOpen = true; busScroll = 0; ntOpen = false; }
 
     void PaintBusSheet(Graphics g)

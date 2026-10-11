@@ -21,7 +21,7 @@ partial class StudioForm
         if (animOff.Count == 0) return; float k = (float)Math.Exp(-dt * 14);
         foreach (var t in new List<Track>(animOff.Keys)) { float v = animOff[t] * k; if (Math.Abs(v) < 0.6f) animOff.Remove(t); else animOff[t] = v; }
     }
-    float SlotTop(Track t) { return ToolH + TransH + RulerH - vscroll + Math.Max(0, eng.Tracks.IndexOf(t)) * LaneH; }
+    float SlotTop(Track t) { return ToolH + TransH + RulerH - vscroll + Math.Max(0, eng.Tracks.IndexOf(t.Host ?? t)) * LaneH; }
     void GhostGrab(Track t) { ghostGrab = MousePos.Y - SlotTop(t); }
     void GhostStart(Track t, int kind) { if (!ghostOn || ghostTrack != t || ghostKind != kind) ghostInit = false; ghostOn = true; ghostTrack = t; ghostKind = kind; }
     void GhostEnd() { ghostOn = false; ghostTrack = null; ghostInit = false; }
@@ -36,7 +36,7 @@ partial class StudioForm
 
     void PaintGhost(Graphics g, RectangleF tl, float top)
     {
-        if (!ghostOn || ghostTrack == null) return; var tr = ghostTrack; int from = eng.Tracks.IndexOf(tr); if (from < 0) { GhostEnd(); return; }
+        if (!ghostOn || ghostTrack == null) return; var tr = ghostTrack; int from = eng.Tracks.IndexOf(tr.Host ?? tr); if (from < 0) { GhostEnd(); return; }
         bool header = ghostKind == 1; float h = header ? LaneH : LaneH - 14, laneTop = ToolH + TransH + RulerH, areaBottom = ClientSize.Height - 24;
         float want = MousePos.Y - ghostGrab + (header ? 0 : 7); want = Math.Max(laneTop - 4, Math.Min(areaBottom - h, want));
         if (!ghostInit) { ghostY = want; ghostInit = true; } else ghostY += (want - ghostY) * 0.38f;   // eases toward the mouse: a little glide instead of a snap
@@ -49,6 +49,15 @@ partial class StudioForm
             using (var b = new SolidBrush(Color.FromArgb(34, NeonCyan))) g.FillRectangle(b, land);
             using (var pen = new Pen(Color.FromArgb(220, NeonCyan), 1.6f) { DashStyle = fresh ? DashStyle.Dash : DashStyle.Solid }) g.DrawRectangle(pen, land.X + 1, land.Y + 1, land.Width - 2, land.Height - 2);
             Txt(g, fresh ? "+ new track" : "Drop here", 12, NeonCyan, Rc(land.X + 10, land.Y + 4, 160, 18), StringAlignment.Near, true);
+        }
+        if (header && hdMode == 2 && hdRow >= 0 && hdRow < LaneCount)
+        {
+            var land = Rc(0, slot0 + hdRow * LaneH, tl.Right, LaneH); using (var b = new SolidBrush(Color.FromArgb(40, NeonCyan))) g.FillRectangle(b, land);
+            using (var pen = new Pen(Color.FromArgb(230, NeonCyan), 2f)) g.DrawRectangle(pen, land.X + 1, land.Y + 1, land.Width - 2, land.Height - 2); Txt(g, "Share this row", 13, NeonCyan, Rc(HeadW + 12, land.Y + 6, 220, 20), StringAlignment.Near, true);
+        }
+        else if (header && hdMode == 1)
+        {
+            float ly = slot0 + hdGap * LaneH; GlowLine(g, NeonCyan, 0, ly, tl.Right, ly, 1.6f); Txt(g, "Move here", 12, NeonCyan, Rc(HeadW + 12, ly - 20, 160, 18), StringAlignment.Near, true);
         }
         RectangleF r;
         if (header) r = Rc(0, ghostY, tl.Right, h);

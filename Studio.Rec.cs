@@ -7,7 +7,7 @@ using System.Windows.Forms;
 // Purphex Music: record a microphone onto a new track, open the piano roll, start a new project.
 partial class StudioForm
 {
-    AudioRecorder mic; long micStart; int micCount; DateTime micT0;
+    AudioRecorder mic; long micLead; long micStart; int micCount; DateTime micT0;
 
     void MicClick() { if (mic != null) StopMic(); else StartMic(); }
 
@@ -21,7 +21,7 @@ partial class StudioForm
         int idx = Prefs.InDev.Length > 0 ? devs.IndexOf(Prefs.InDev) : -1; var r = new AudioRecorder();
         if (!r.Start(idx)) { MessageBox.Show(this, r.Error, "Record", MessageBoxButtons.OK, MessageBoxIcon.Warning); return; }
         mic = r; micT0 = DateTime.Now; micStart = eng.Playing ? (long)dispPos : eng.Pos;
-        if (!eng.Playing) PlayGuard();
+        micLead = 0; if (!eng.Playing) { PlayGuard(); micLead = eng.LastCountFrames; }   // with Count In the recording starts one bar before the song
         Toast("Recording from the microphone. Press MIC again (or STOP) when you are done. Use headphones so the beat is not recorded too.");
     }
 
@@ -29,7 +29,7 @@ partial class StudioForm
     {
         var r = mic; mic = null; if (r == null) return; int frames; float[] s = r.Stop(out frames); if (eng.Playing) eng.Pause();
         if (frames < 4410) { Toast("That recording was too short, so nothing was added."); return; }
-        try { var t = AddRecording(s, frames, micStart); Toast("Added " + t.Name + " (" + (frames / (double)StudioEngine.SR).ToString("0.0") + " s). It is saved in Music / yt2mp3 / Recordings."); }
+        try { var t = AddRecording(s, frames, micStart - micLead); Toast("Added " + t.Name + " (" + (frames / (double)StudioEngine.SR).ToString("0.0") + " s). It is saved in Music / yt2mp3 / Recordings."); }
         catch (Exception ex) { MessageBox.Show(this, "Couldn't save the recording: " + ex.Message, "Record"); }
     }
 
@@ -51,7 +51,7 @@ partial class StudioForm
 
     void OpenRoll(Track t)
     {
-        if (t == null || !t.Instrument) { Toast("Select an instrument track first (add one with + INSTRUMENT)."); return; }
+        if (t == null || !t.Instrument) { Toast("Select an instrument track first (add one with + ADD TRACK, then MIDI Track)."); return; }
         InstrumentFx ins = null; foreach (var f in t.Fx) { var i = f as InstrumentFx; if (i != null && i.IsInstrument) { ins = i; break; } }
         if (ins == null) { Toast("This track has no instrument."); return; }
         ins.Owner = t; var w = new PianoRollForm(t, ins, eng, () => { if (eng.Playing) eng.Pause(); else PlayGuard(); }); w.Show(this);

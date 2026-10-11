@@ -7,7 +7,7 @@ using System.Text;
 using System.Windows.Forms;
 
 // =====================================================================================================
-//  VST 2 plugin host (64-bit): effects and instruments such as Vital.
+//  VST 2 plugin host (64-bit): effects and instruments.
 //  Written against the public VST 2.4 binary interface. A plugin is a native .dll that exports
 //  VSTPluginMain (or main); the host hands it a callback and then talks to it through one "dispatcher".
 //  VST 3 (.vst3) and 32-bit plugins are not supported.
@@ -283,7 +283,7 @@ class VstFx : InstrumentFx, IDisposable
         Plugin.Process(l, r, n);
     }
 
-    // The saved state is the plugin's own patch data (so a Vital preset survives saving the project).
+    // The saved state is the plugin's own patch data (so a plugin preset survives saving the project).
     public override string Serialize()
     {
         var c = Plugin.GetChunk(); if (c != null) return "chunk=" + Convert.ToBase64String(c);

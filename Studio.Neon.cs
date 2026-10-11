@@ -105,8 +105,8 @@ partial class StudioForm
     // The bar shows the whole song. The lit window is what you see: drag it to move, drag its ends to zoom, click outside it to jump, double-click to fit the whole song.
     void PaintOverview(Graphics g, RectangleF tl)
     {
-        var ob = Rc(HeadW, ClientSize.Height - 20, tl.Width, 16); double total = Math.Max(eng.EndFrame * 1.04, StudioEngine.SR * 10.0); float tw = ob.Width;
-        FillRR(g, Color.FromArgb(235, 9, 5, 20), ob, 6); StrokeRR(g, Color.FromArgb(90, NeonViolet), ob, 6, 1);
+        var ob = Rc(HeadW, ClientSize.Height - 34, tl.Width, 28); double total = Math.Max(eng.EndFrame * 1.04, StudioEngine.SR * 10.0); float tw = ob.Width;
+        FillRR(g, Color.FromArgb(235, 9, 5, 20), ob, 10); StrokeRR(g, Color.FromArgb(110, NeonViolet), ob, 10, 1);
         int n = LaneCount; if (n > 0)
             for (int i = 0; i < n; i++)
             {
@@ -115,12 +115,12 @@ partial class StudioForm
             }
         double win = tl.Width * spp; float x0 = ob.X + (float)(scroll / total * tw), ww = Math.Max(14f, (float)(win / total * tw)); x0 = Math.Max(ob.X, Math.Min(ob.Right - ww, x0));
         var thumb = Rc(x0, ob.Y + 1, ww, ob.Height - 2); using (var br = new SolidBrush(Color.FromArgb(46, NeonCyan))) g.FillRectangle(br, thumb); Glow(g, NeonCyan, thumb, 5, 0.7f, 2);
-        using (var br = new SolidBrush(Color.FromArgb(220, NeonCyan))) { g.FillRectangle(br, thumb.X, thumb.Y + 2, 3, thumb.Height - 4); g.FillRectangle(br, thumb.Right - 3, thumb.Y + 2, 3, thumb.Height - 4); }
+        using (var br = new SolidBrush(Color.FromArgb(220, NeonCyan))) { g.FillRectangle(br, thumb.X, thumb.Y + 3, 6, thumb.Height - 6); g.FillRectangle(br, thumb.Right - 6, thumb.Y + 3, 6, thumb.Height - 6); }
         int mode = 0; double startScroll = scroll, startSpp = spp; float grab = 0;
         var rg = Reg(ob, () =>
         {
             autoFit = false; float mx = MousePos.X; startScroll = scroll; startSpp = spp;
-            if (Math.Abs(mx - thumb.X) < 8) mode = 1; else if (Math.Abs(mx - thumb.Right) < 8) mode = 2; else { mode = 0; grab = mx >= thumb.X && mx <= thumb.Right ? mx - thumb.X : thumb.Width / 2; if (mx < thumb.X || mx > thumb.Right) Apply(mx - grab); }
+            if (Math.Abs(mx - thumb.X) < 12) mode = 1; else if (Math.Abs(mx - thumb.Right) < 12) mode = 2; else { mode = 0; grab = mx >= thumb.X && mx <= thumb.Right ? mx - thumb.X : thumb.Width / 2; if (mx < thumb.X || mx > thumb.Right) Apply(mx - grab); }
         });
         rg.OnDouble = () => FitView();
         rg.OnDrag = pt =>

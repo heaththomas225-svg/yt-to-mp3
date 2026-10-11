@@ -107,7 +107,7 @@ public static class PluginHost
                 var f = new VstFx(inst, path); f.Prepare(StudioEngine.SR); return f;
             });
         p.Types.Add(tid); p.Loaded = true; loaded[p.File] = p;
-        log.Add("Loaded " + probe.Name + (synth ? " (instrument: use + INSTRUMENT in Purphex Music)" : " (effect: use + Add Effect > PLUGINS)"));
+        log.Add("Loaded " + probe.Name + (synth ? " (instrument: use + ADD TRACK, then Virtual Instruments, in Purphex Music)" : " (effect: use + Add Effect > PLUGINS)"));
     }
 
     // Loads every approved plugin that isn't loaded yet. Returns a short log of what happened.
@@ -196,7 +196,7 @@ class PluginManagerForm : Form
         Text = "Plugins and extensions"; FormBorderStyle = FormBorderStyle.FixedDialog; StartPosition = FormStartPosition.CenterParent; MaximizeBox = false; MinimizeBox = false; ShowInTaskbar = false;
         BackColor = Color.FromArgb(10, 4, 20); ForeColor = Color.FromArgb(240, 232, 255); ClientSize = new Size(700, 600); Font = new Font("Segoe UI", 10f); Win.Dark(this);
         Controls.Add(new Label { Text = "Studio effect plugins", Left = 18, Top = 14, Width = 400, Height = 26, Font = new Font("Segoe UI Semibold", 13f), ForeColor = Color.FromArgb(225, 190, 255) });
-        Controls.Add(new Label { Text = "Your installed VST2 and VST3 plugins (for example Vital) are listed here automatically. Tick one and it loads at once: instruments appear under + INSTRUMENT in Purphex Music, effects under + Add Effect > PLUGINS. You can also copy a .dll into the plugins folder. Plugins are programs: only tick ones you trust.", Left = 18, Top = 44, Width = 664, Height = 50, ForeColor = Color.FromArgb(170, 150, 200) });
+        Controls.Add(new Label { Text = "Your installed VST2 and VST3 plugins are listed here automatically. Tick one and it loads at once: instruments appear under + ADD TRACK > Virtual Instruments in Purphex Music, effects under + Add Effect > PLUGINS. You can also copy a .dll into the plugins folder. Plugins are programs: only tick ones you trust.", Left = 18, Top = 44, Width = 664, Height = 50, ForeColor = Color.FromArgb(170, 150, 200) });
         list = new Panel { Left = 18, Top = 100, Width = 664, Height = 200, AutoScroll = true, BackColor = Color.FromArgb(8, 4, 16), BorderStyle = BorderStyle.FixedSingle }; Controls.Add(list); Win.DarkControl(list);
         Mk("Open plugins folder", 18, 310, 170, () => { Directory.CreateDirectory(PluginHost.Dir); Process.Start("explorer.exe", "\"" + PluginHost.Dir + "\""); });
         Mk("Reload", 196, 310, 110, () => { Reload(true); });
@@ -263,7 +263,7 @@ class PluginManagerForm : Form
     static string ReadyText(PluginInfo p)
     {
         bool inst = false; foreach (var i in FxRegistry.All) if (p.Types.Contains(i.Type) && i.Category == "Instruments") inst = true;
-        return inst ? "ready: in Purphex Music press + INSTRUMENT" : "ready: Purphex Music > + Add Effect > PLUGINS";
+        return inst ? "ready: in Purphex Music press + ADD TRACK > Virtual Instruments" : "ready: Purphex Music > + Add Effect > PLUGINS";
     }
 
     void TestFilter()

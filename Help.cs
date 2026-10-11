@@ -257,14 +257,14 @@ Press Create sample plugin, then answer Yes to build it now. Press Reload, tick 
 ## If you do not write code
 You can ignore it. The built-in effects already cover EQ, compression, reverb, Auto-Tune and more."),
 
-        new HelpTopic("vst", "Advanced", "Use VST plugins and instruments (like Vital)", false, @"
+        new HelpTopic("vst", "Advanced", "Use VST plugins and instruments", false, @"
 ## What works
-64-bit VST2 plugins (.dll) and, new and experimental, VST3 plugins (.vst3): instruments (synths such as Vital) and effects. 32-bit plugins are not supported. VST3 support was tested with a stand-in plugin only, so if a particular .vst3 will not load, use its VST2 version if it has one.
+64-bit VST2 plugins (.dll) and, new and experimental, VST3 plugins (.vst3): instruments (synths) and effects. 32-bit plugins are not supported. VST3 support was tested with a stand-in plugin only, so if a particular .vst3 will not load, use its VST2 version if it has one.
 ## Set it up
 1. Menu, then Plugins and extensions. Plugins installed in the usual VST2 and VST3 folders are listed automatically (or copy the .dll into the plugins folder).
 2. Tick the plugin. It loads at once (a big one can take a few seconds the first time).
 ## Use an instrument
-1. In Purphex Music press + INSTRUMENT and choose it. A track and the plugin's own window appear.
+1. In Purphex Music press + ADD TRACK, then Virtual Instruments, and choose it. A track and the plugin's own window appear. (Bass Lab, the built-in synthesizer, is listed too and needs no setup.)
 2. Play notes with your computer keyboard (A S D F G H J = white keys, W E T Y U = black keys, Z / X = octave) or click the piano at the bottom of its window. You hear it right away, even when the song is stopped.
 3. To record: press REC, press PLAY, then play. The notes appear as small bars on the track and play back every time. Press C on the track to clear them.
 4. Use the instrument's own window to change sounds. The sound you chose is saved with the project.
@@ -293,14 +293,14 @@ Drag the track name on the left up or down, or use the Up and Dn buttons on the 
 ## Tempo and grid
 - BPM: click the number and type the tempo, or press DETECT and the studio listens to your song and sets it.
 - SNAP makes moves, trims and cuts land exactly on the beat. The grid button picks the size (bar, 1/2, beat, 1/8, 1/16).
-- CLICK plays a metronome while the song plays.
+- 1 2 3 is the Count In: one bar of clicks before the song plays or records.
 - The tempo also drives the synth's tempo-synced wobbles and delays.
 ## Zoom
 Mouse wheel + Ctrl zooms, Alt + wheel makes tracks taller, or use - + FIT. After FIT the song fills the track area by itself, even in full screen. See the neon look page."),
 
         new HelpTopic("basslab", "Music Studio", "Bass Lab: make bass and wobbles (the built-in synth)", false, @"
 ## Open it
-In Purphex Music press + INSTRUMENT and choose Bass Lab (synthesizer). A track and the Bass Lab window open. Play with your keyboard (A S D F G H J = white keys, W E T Y U = black keys, Z / X = octave) or click the piano.
+In Purphex Music press + ADD TRACK, then MIDI Track. A track and the Bass Lab window open. Play with your keyboard (A S D F G H J = white keys, W E T Y U = black keys, Z / X = octave) or click the piano.
 ## Pick a sound
 Click the preset name at the top (or the < > arrows) to open the preset browser: 54 presets in 13 styles, plus your own. See the Presets help page.
 ## Make a wobble in 3 clicks
@@ -507,10 +507,10 @@ Move the mouse to the line between two tracks (or above the first, or under the 
 
         new HelpTopic("makesong", "Music Studio", "Record and make a song (instruments, microphone, piano roll)", false, @"
 ## Make music with an instrument
-1. Press + INSTRUMENT and choose Bass Lab (or a VST such as Vital). Play it with your computer keyboard (A S D F G H J = white keys, W E T Y U = black keys, Z / X = octave) or click the piano.
+1. Press + ADD TRACK and choose MIDI Track (Bass Lab) or Virtual Instruments (any VST plugin). Play it with your computer keyboard (A S D F G H J = white keys, W E T Y U = black keys, Z / X = octave) or click the piano.
 2. To record your playing: press REC (it turns red), then play a key. The song starts by itself and your notes are recorded onto the track. Press STOP when you are done.
 3. Open the Notes button on the track (or double-click the track) for the piano roll: draw notes by dragging on the grid, drag a note to move it, drag its right end to resize it, right-click to delete it. Everything you draw plays right away. 'Snap notes to grid' tidies your timing.
-4. Set the tempo with BPM (or DETECT). Turn on CLICK for a metronome and SNAP to make everything land on the beat.
+4. Set the tempo with BPM (or DETECT). Turn on 1 2 3 (Count In) for a bar of clicks before it plays and SNAP to make everything land on the beat.
 ## Record your voice or an instrument with a microphone
 1. Plug in a microphone. Use headphones, so the beat is not picked up by the microphone.
 2. Put the needle where you want to start and press MIC. The song plays while you record. Press MIC again, or STOP, to finish.
@@ -530,7 +530,7 @@ WARN: Plugins are programs. Only approve ones you trust.
 Press 'Create sample plugin (SDK)'. It writes a working example and a build script. See PLUGINS.md for the full guide.
 ## Custom ffmpeg filter
 Enter any ffmpeg audio filter chain (for example aecho=0.8:0.88:60:0.4) and it is applied to every conversion. It is tested before saving. LV2 plugins can be used through ffmpeg's lv2 filter.
-64-bit VST2 plugins such as Vital are supported (see Use VST plugins and instruments). VST3 and 32-bit plugins are not. The sample plugin is for people who write their own effects."),
+64-bit VST2 plugins are supported (see Use VST plugins and instruments). VST3 and 32-bit plugins are not. The sample plugin is for people who write their own effects."),
 
         new HelpTopic("long", "Advanced", "Long songs and DJ mixes", false, @"
 - Loading streams the file, so even hour-long mixes load in seconds with a progress bar.

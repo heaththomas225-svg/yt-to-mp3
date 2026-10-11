@@ -7,10 +7,21 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.17.5";
+    public const string Latest = "3.17.6";
 
     public const string Text =
-@"3.17.5  Dragging tracks, no import question
+@"3.17.6  Count In, key finder, shared rows, simpler toolbar, project cards
+ + 1 2 3 is the Count In: one bar of clicks before it plays or records (recordings line up with the song).
+ + Detect Track key replaces the Auto Mix style box: it finds the key of the selected track.
+ + The toolbar lost + TRACK, + BUS and + INSTRUMENT (use + ADD TRACK under the tracks; buses are in each track Bus drop-down). Bass Lab is first in the effect list.
+ + Split keeps both pieces on the same track. Drop a clip or a track onto any row and it joins that row, overlapping what is there. Drag a track by its header: the middle of a row shares it, a boundary moves it. The + layers chip on a row separates them.
+ + A vertical scroll bar for the tracks and thicker scroll bars everywhere in the studio. Tracks can no longer get stuck above the view.
+ + Sounds dropped from the browser land on the row you drop them on.
+ + Project pictures show the whole picture in a square (nothing cropped) inside a neon glow. Pick a picture again to refit an old one.
+ + Hover a project on the Community page for tools: Open, Rename, Picture, Describe, Tags, Folder. Tags and the one-line description show on the card.
+ + Each card shows the size of the project and its audio in KB, MB or GB.
+
+3.17.5  Dragging tracks, no import question
  + Drag a track or clip and you see it: a see-through glowing copy follows the mouse smoothly, the slot it left stays marked, the row it will land on lights up (or shows + new track), and the other rows slide into place.
  + Inside Purphex Music, ADD MUSIC puts the file straight on the chart. The what-is-this-file question is gone.
  + Main window: ADD MUSIC now asks what you want: edit in Purphex Music, vocal remover, or trim the start and end of a file and save it as MP3 or WAV. The Master a song button is gone.

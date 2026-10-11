@@ -11,7 +11,8 @@ using System.Text;
 // Your projects: a list of every project you have saved or opened (with its picture), your recent projects, and your profile.
 class ProjectEntry
 {
-    public string Path = "", Name = "", Cover = ""; public DateTime Updated, Opened; public int Tracks; public double Bpm, Seconds;
+    public string Path = "", Name = "", Cover = "", Desc = "", Tags = ""; public DateTime Updated, Opened; public int Tracks; public double Bpm, Seconds;
+    public bool Custom; public long Bytes = -1; public bool SizeAsked;   // Custom: you renamed it (saving does not change the name back); Bytes: the project file plus the audio it uses
     int chkAt; bool miss, chk;
     public bool Missing { get { int now = Environment.TickCount; if (!chk || unchecked(now - chkAt) > 2000) { miss = !File.Exists(Path); chk = true; chkAt = now; } return miss; } }
     public void Recheck() { chk = false; }
@@ -37,7 +38,7 @@ static class ProjectLibrary
                     foreach (var line in File.ReadAllLines(ListFile, Encoding.UTF8))
                     {
                         var f = line.Split('|'); if (f.Length < 9 || f[0] != "P") continue; long u, o; int t; double b, s; long.TryParse(f[3], out u); long.TryParse(f[4], out o); int.TryParse(f[5], out t); double.TryParse(f[6], NumberStyles.Float, CI, out b); double.TryParse(f[7], NumberStyles.Float, CI, out s);
-                        Entries.Add(new ProjectEntry { Path = f[1], Name = f[2], Updated = new DateTime(Math.Max(0, u)), Opened = new DateTime(Math.Max(0, o)), Tracks = t, Bpm = b, Seconds = s, Cover = f[8] });
+                        Entries.Add(new ProjectEntry { Path = f[1], Name = f[2], Updated = new DateTime(Math.Max(0, u)), Opened = new DateTime(Math.Max(0, o)), Tracks = t, Bpm = b, Seconds = s, Cover = f[8], Desc = f.Length > 9 ? f[9] : "", Tags = f.Length > 10 ? f[10] : "", Custom = f.Length > 11 && f[11] == "1" });
                     }
             }
             catch { }
@@ -50,11 +51,36 @@ static class ProjectLibrary
             try
             {
                 Directory.CreateDirectory(StudioEnv.DataDir); var sb = new StringBuilder();
-                foreach (var e in Entries) sb.Append("P|").Append(e.Path.Replace("|", "/")).Append('|').Append(e.Name.Replace("|", "/")).Append('|').Append(e.Updated.Ticks).Append('|').Append(e.Opened.Ticks).Append('|').Append(e.Tracks).Append('|').Append(e.Bpm.ToString("0.##", CI)).Append('|').Append(e.Seconds.ToString("0.#", CI)).Append('|').Append(e.Cover).Append('\n');
+                foreach (var e in Entries) sb.Append("P|").Append(e.Path.Replace("|", "/")).Append('|').Append(e.Name.Replace("|", "/")).Append('|').Append(e.Updated.Ticks).Append('|').Append(e.Opened.Ticks).Append('|').Append(e.Tracks).Append('|').Append(e.Bpm.ToString("0.##", CI)).Append('|').Append(e.Seconds.ToString("0.#", CI)).Append('|').Append(e.Cover).Append('|').Append((e.Desc ?? "").Replace("|", "/").Replace("\n", " ").Replace("\r", "")).Append('|').Append((e.Tags ?? "").Replace("|", "/")).Append('|').Append(e.Custom ? 1 : 0).Append('\n');
                 File.WriteAllText(ListFile, sb.ToString(), Encoding.UTF8);
                 File.WriteAllText(ProfileFile, "name=" + ProfileName + "\navatar=" + AvatarPath + "\n", Encoding.UTF8);
             }
             catch { }
+    }
+
+    // the size of a project = the project file plus every audio file it uses (measured once, in the background)
+    public static void MeasureAsync(ProjectEntry e)
+    {
+        if (e.SizeAsked) return; e.SizeAsked = true; string path = e.Path;
+        System.Threading.ThreadPool.QueueUserWorkItem(o =>
+        {
+            long total = 0; try
+            {
+                if (!File.Exists(path)) { e.Bytes = 0; return; } total = new FileInfo(path).Length; var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                foreach (var line in File.ReadAllLines(path, Encoding.UTF8)) { if (!line.StartsWith("track|")) continue; var p = line.Split('|'); if (p.Length < 5) continue; string src = p[4].Replace("%0A", "\n").Replace("%7C", "|").Replace("%25", "%"); if (src.Length > 0 && File.Exists(src) && seen.Add(src)) total += new FileInfo(src).Length; }
+            }
+            catch { }
+            e.Bytes = total;
+        });
+    }
+    public static string Size(long b)
+    {
+        if (b < 0) return "..."; if (b < 1024) return b + " B"; if (b < 1024L * 1024) return (b / 1024.0).ToString("0.#", CI) + " KB"; if (b < 1024L * 1024 * 1024) return (b / 1048576.0).ToString("0.#", CI) + " MB"; return (b / 1073741824.0).ToString("0.##", CI) + " GB";
+    }
+    public static string CleanTags(string raw)
+    {
+        var l = new List<string>(); foreach (var t in (raw ?? "").Split(new[] { ' ', ',', ';', '#' }, StringSplitOptions.RemoveEmptyEntries)) { string x = t.Trim().ToLowerInvariant(); if (x.Length > 0 && x.Length <= 20 && !l.Contains(x) && l.Count < 6) l.Add(x); }
+        return string.Join(" ", l.ToArray());
     }
 
     public static ProjectEntry Find(string path) { lock (lk) return Entries.Find(e => string.Equals(e.Path, path, StringComparison.OrdinalIgnoreCase)); }
@@ -65,7 +91,7 @@ static class ProjectLibrary
         lock (lk)
         {
             var e = Find(path); if (e == null) { e = new ProjectEntry { Path = path }; Entries.Add(e); }
-            e.Recheck(); e.Name = name; e.Tracks = tracks; e.Bpm = bpm; e.Seconds = seconds; e.Opened = DateTime.Now; if (saved) e.Updated = DateTime.Now; else if (e.Updated.Ticks == 0) { try { e.Updated = File.GetLastWriteTime(path); } catch { } }
+            e.Recheck(); if (!e.Custom) e.Name = name; e.Bytes = -1; e.SizeAsked = false; e.Tracks = tracks; e.Bpm = bpm; e.Seconds = seconds; e.Opened = DateTime.Now; if (saved) e.Updated = DateTime.Now; else if (e.Updated.Ticks == 0) { try { e.Updated = File.GetLastWriteTime(path); } catch { } }
             if (coverJpeg != null && coverJpeg.Length > 0) { try { Directory.CreateDirectory(CoversDir); string cp = Path_(path); File.WriteAllBytes(cp, coverJpeg); e.Cover = cp; Forget(cp); } catch { } }
             else if (e.Cover.Length > 0 && !File.Exists(e.Cover)) e.Cover = "";
         }
@@ -103,7 +129,7 @@ static class ProjectLibrary
             using (src)
             using (var bmp = new Bitmap(size, size, PixelFormat.Format24bppRgb))
             {
-                using (var g = Graphics.FromImage(bmp)) { g.InterpolationMode = InterpolationMode.HighQualityBicubic; g.SmoothingMode = SmoothingMode.HighQuality; g.PixelOffsetMode = PixelOffsetMode.HighQuality; int side = Math.Min(src.Width, src.Height); var sr = new Rectangle((src.Width - side) / 2, (src.Height - side) / 2, side, side); g.DrawImage(src, new Rectangle(0, 0, size, size), sr, GraphicsUnit.Pixel); }
+                using (var g = Graphics.FromImage(bmp)) { g.InterpolationMode = InterpolationMode.HighQualityBicubic; g.SmoothingMode = SmoothingMode.HighQuality; g.PixelOffsetMode = PixelOffsetMode.HighQuality; using (var tiny = new Bitmap(12, 12)) { using (var tg = Graphics.FromImage(tiny)) { tg.InterpolationMode = InterpolationMode.HighQualityBilinear; tg.DrawImage(src, new Rectangle(0, 0, 12, 12)); } g.DrawImage(tiny, new Rectangle(-size / 6, -size / 6, size * 4 / 3, size * 4 / 3)); using (var dim = new SolidBrush(Color.FromArgb(150, 4, 2, 12))) g.FillRectangle(dim, 0, 0, size, size); }   /* a soft, dark copy of the picture fills the square */ double k = Math.Min(size / (double)src.Width, size / (double)src.Height); int dw = Math.Max(1, (int)(src.Width * k)), dh = Math.Max(1, (int)(src.Height * k)); g.DrawImage(src, new Rectangle((size - dw) / 2, (size - dh) / 2, dw, dh)); }   // the whole picture, never cropped
                 var codec = Array.Find(ImageCodecInfo.GetImageEncoders(), c => c.MimeType == "image/jpeg"); var ep = new EncoderParameters(1); ep.Param[0] = new EncoderParameter(System.Drawing.Imaging.Encoder.Quality, 88L);
                 using (var o = new MemoryStream()) { bmp.Save(o, codec, ep); return o.ToArray(); }
             }
