@@ -5,7 +5,8 @@ What changed in each version of **Purphex**. The same notes are shown in the app
 ## 3.17.5  Dragging tracks, no import question
 
 - Dragging a track or clip shows a see-through glowing copy that follows the mouse smoothly; rows slide into place and the drop row lights up.
-- ADD MUSIC puts the file straight on the chart (no "What is this file?" window).
+- Inside Purphex Music, ADD MUSIC puts the file straight on the chart (no "What is this file?" window).
+- Main window: ADD MUSIC asks what you want (edit in Purphex Music, vocal remover, or trim start and end and save as MP3 / WAV). The Master a song button is gone.
 
 ## 3.17.4  Discord button, one frame-rate readout
 

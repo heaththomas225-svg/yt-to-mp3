@@ -376,12 +376,61 @@ static class StudioDialogs
 {
     static readonly Color Bg = Color.FromArgb(24, 12, 44), Fld = Color.FromArgb(34, 16, 62), Ink = Color.FromArgb(240, 232, 255);
 
-    static Form Make(string title, int w, int h)
+    internal static Form Make(string title, int w, int h)
     {
         var f = new Form { Text = title, FormBorderStyle = FormBorderStyle.FixedDialog, StartPosition = FormStartPosition.CenterParent, MaximizeBox = false, MinimizeBox = false, ShowInTaskbar = false, BackColor = Bg, ForeColor = Ink, ClientSize = new Size(w, h), Font = new Font("Segoe UI", 10f) };
         Win.Dark(f); return f;
     }
-    static Button B(string text, int x, int y, int w, int h, Color c) { var b = new Button { Text = text, Left = x, Top = y, Width = w, Height = h, FlatStyle = FlatStyle.Flat, BackColor = c, ForeColor = Color.White, Cursor = Cursors.Hand }; b.FlatAppearance.BorderColor = Color.FromArgb(190, 120, 255); return b; }
+    internal static Button B(string text, int x, int y, int w, int h, Color c) { var b = new Button { Text = text, Left = x, Top = y, Width = w, Height = h, FlatStyle = FlatStyle.Flat, BackColor = c, ForeColor = Color.White, Cursor = Cursors.Hand }; b.FlatAppearance.BorderColor = Color.FromArgb(190, 120, 255); return b; }
+
+    // ADD MUSIC in the main window: what do you want to do with a song? 0 = cancelled, 1 = edit in the studio, 2 = vocal remover, 3 = trim
+    public static int AddMusicChoice(IWin32Window owner)
+    {
+        int result = 0; var f = Make("Add music", 520, 292);
+        f.Controls.Add(new Label { Text = "What do you want to do with your music?", Left = 20, Top = 16, Width = 480, Height = 24, ForeColor = Color.FromArgb(200, 170, 255), Font = new Font("Segoe UI Semibold", 11f) });
+        var b1 = B("Edit it in Purphex Music  (tracks, mixing, effects, mastering)", 20, 52, 480, 44, Color.FromArgb(118, 52, 212)); var b2 = B("Vocal remover  (take the vocals or the beat out of a song)", 20, 104, 480, 44, Color.FromArgb(160, 56, 170)); var b3 = B("Trim start and end  (cut it and save as MP3)", 20, 156, 480, 44, Color.FromArgb(70, 44, 140));
+        b1.Click += (s, e) => { result = 1; f.Close(); }; b2.Click += (s, e) => { result = 2; f.Close(); }; b3.Click += (s, e) => { result = 3; f.Close(); };
+        f.Controls.AddRange(new Control[] { b1, b2, b3 }); f.Controls.Add(new Label { Text = "Your original file is never changed.", Left = 20, Top = 214, Width = 480, Height = 22, ForeColor = Color.FromArgb(170, 150, 200) });
+        var cancel = B("Cancel", 400, 246, 100, 30, Color.FromArgb(60, 30, 90)); cancel.Click += (s, e) => f.Close(); f.Controls.Add(cancel);
+        f.ShowDialog(owner); return result;
+    }
+
+    static bool ParseClock(string t, out double sec)
+    {
+        sec = 0; t = (t ?? "").Trim(); if (t.Length == 0) return true; double total = 0; foreach (var part in t.Split(':')) { double v; if (!double.TryParse(part, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out v) || v < 0) return false; total = total * 60 + v; }
+        sec = total; return true;
+    }
+    // Trim a file you pick: set where it starts and ends and save the cut as MP3 or WAV in the converter's save folder
+    public static void TrimFile(IWin32Window owner, string outDir)
+    {
+        var f = Make("Trim start and end", 540, 300); var tb = new TextBox { Left = 20, Top = 44, Width = 400, Height = 26, BackColor = Fld, ForeColor = Ink, BorderStyle = BorderStyle.FixedSingle }; var browse = B("Browse...", 430, 42, 90, 28, Color.FromArgb(70, 44, 140));
+        f.Controls.Add(new Label { Text = "File to trim", Left = 20, Top = 20, Width = 300, Height = 22 }); f.Controls.AddRange(new Control[] { tb, browse });
+        var a = new TextBox { Left = 20, Top = 106, Width = 110, Height = 26, BackColor = Fld, ForeColor = Ink, BorderStyle = BorderStyle.FixedSingle }; var b = new TextBox { Left = 150, Top = 106, Width = 110, Height = 26, BackColor = Fld, ForeColor = Ink, BorderStyle = BorderStyle.FixedSingle };
+        f.Controls.Add(new Label { Text = "Trim start  (m:ss)", Left = 20, Top = 82, Width = 130, Height = 22 }); f.Controls.Add(new Label { Text = "Trim end  (m:ss)", Left = 150, Top = 82, Width = 130, Height = 22 }); f.Controls.AddRange(new Control[] { a, b });
+        var fmt = new ComboBox { Left = 290, Top = 106, Width = 230, DropDownStyle = ComboBoxStyle.DropDownList, BackColor = Fld, ForeColor = Ink, FlatStyle = FlatStyle.Flat }; fmt.Items.AddRange(new object[] { "MP3 320 kbps", "WAV 24-bit" }); fmt.SelectedIndex = 0;
+        f.Controls.Add(new Label { Text = "Save as", Left = 290, Top = 82, Width = 130, Height = 22 }); f.Controls.Add(fmt);
+        var note = new Label { Text = "Leave the start empty to begin at 0:00 and the end empty to keep everything to the end. Saved in: " + outDir, Left = 20, Top = 146, Width = 500, Height = 44, ForeColor = Color.FromArgb(170, 150, 200) }; f.Controls.Add(note);
+        var go = B("Trim and save", 20, 214, 250, 44, Color.FromArgb(118, 52, 212)); var close = B("Close", 420, 214, 100, 44, Color.FromArgb(60, 30, 90)); close.Click += (s, e) => f.Close(); f.Controls.AddRange(new Control[] { go, close });
+        browse.Click += (s, e) => { using (var d = new OpenFileDialog { Filter = "Audio and video|*.mp3;*.wav;*.flac;*.m4a;*.aac;*.ogg;*.opus;*.wma;*.mp4;*.webm;*.mkv|All files|*.*" }) if (d.ShowDialog(f) == DialogResult.OK) tb.Text = d.FileName; };
+        go.Click += (s, e) =>
+        {
+            string src = tb.Text.Trim().Trim('"'); double t0, t1; string ff = StudioEnv.Ffmpeg();
+            if (!System.IO.File.Exists(src)) { MessageBox.Show(f, "Choose the file to trim first.", "Trim"); return; }
+            if (!ParseClock(a.Text, out t0) || !ParseClock(b.Text, out t1)) { MessageBox.Show(f, "Times look like 1:30 or 0:01:30.5", "Trim"); return; }
+            if (b.Text.Trim().Length > 0 && t1 <= t0) { MessageBox.Show(f, "The end has to be after the start.", "Trim"); return; }
+            if (ff == null) { MessageBox.Show(f, "ffmpeg isn't installed yet. Convert something once first (that installs it).", "Trim"); return; }
+            string dir = string.IsNullOrEmpty(outDir) ? System.IO.Path.GetDirectoryName(src) : outDir; try { System.IO.Directory.CreateDirectory(dir); } catch { dir = System.IO.Path.GetDirectoryName(src); }
+            bool wav = fmt.SelectedIndex == 1; string baseName = System.IO.Path.GetFileNameWithoutExtension(src) + " (trimmed)", dst = System.IO.Path.Combine(dir, baseName + (wav ? ".wav" : ".mp3")); for (int n = 2; System.IO.File.Exists(dst); n++) dst = System.IO.Path.Combine(dir, baseName + " " + n + (wav ? ".wav" : ".mp3"));
+            var args = "-y -hide_banner -loglevel error " + (t0 > 0 ? "-ss " + t0.ToString(System.Globalization.CultureInfo.InvariantCulture) + " " : "") + "-i \"" + src + "\" " + (b.Text.Trim().Length > 0 ? "-t " + (t1 - t0).ToString(System.Globalization.CultureInfo.InvariantCulture) + " " : "") + "-vn " + (wav ? "-c:a pcm_s24le" : "-c:a libmp3lame -b:a 320k") + " \"" + dst + "\"";
+            go.Enabled = false; go.Text = "Working..."; string outPath = dst;
+            System.Threading.ThreadPool.QueueUserWorkItem(o =>
+            {
+                string err = ""; try { var p = new System.Diagnostics.Process { StartInfo = new System.Diagnostics.ProcessStartInfo(ff, args) { UseShellExecute = false, CreateNoWindow = true, RedirectStandardError = true } }; p.Start(); err = p.StandardError.ReadToEnd(); p.WaitForExit(); if (p.ExitCode != 0 && err.Length == 0) err = "ffmpeg stopped with code " + p.ExitCode; else if (p.ExitCode == 0) err = ""; } catch (Exception ex) { err = ex.Message; }
+                try { f.BeginInvoke(new Action(() => { go.Enabled = true; go.Text = "Trim and save"; if (err.Length > 0 || !System.IO.File.Exists(outPath)) MessageBox.Show(f, "Couldn't trim that file.\n\n" + err, "Trim"); else { try { System.Diagnostics.Process.Start("explorer.exe", "/select,\"" + outPath + "\""); } catch { } MessageBox.Show(f, "Saved: " + outPath, "Trim"); } })); } catch { }
+            });
+        };
+        f.ShowDialog(owner);
+    }
 
     public static string ChooseRole(IWin32Window owner, string fileName)
     {

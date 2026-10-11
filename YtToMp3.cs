@@ -125,7 +125,7 @@ partial class App : Form
         else if (id == "normalize") { s.Add(new TourStep(R(norm), "Normalize loudness", "Tick this to bring downloads to a standard -14 LUFS loudness.")); s.Add(new TourStep(R(prevNormBtn), "Hear it first", "Press Hear to listen to a 30 second sample, original versus normalized, before you convert.")); }
         else if (id == "vocal") { s.Add(new TourStep(R(vocalBtn), "Vocal remover", "Click this, then choose Remove vocals from a song, or Preview to hear a 30 second sample first.")); s.Add(new TourStep(R(outDir), "Where files go", "The instrumental and the vocals-only file are saved in this folder.")); }
         else if (id == "phone") { s.Add(new TourStep(R(phoneBtn), "Phone mode", "Press this, then open the address it shows on your phone (same Wi-Fi). Use the firewall button if it will not open.")); }
-        else if (id == "masterassistant") { s.Add(new TourStep(R(mastBtn), "Purphex Mastering", "Opens the live EQ, loudness and width window. Turn on its power button and your downloads are processed.")); }
+        else if (id == "masterassistant") { s.Add(new TourStep(R(addMusicBtn), "Purphex Mastering", "Press ADD MUSIC, then Edit in Purphex Music. The Mastering tab there has the live EQ, loudness and width.")); }
         if (s.Count > 0) Tour.Run(this, s);
     }
 
@@ -208,6 +208,7 @@ partial class App : Form
         {
             OpenStudio(); studioForm.ShowMastering();
         };
+        mastBtn.Visible = false;   // the main window is kept simple: mastering is on the Mastering tab inside Purphex Music
 
         // output folder
         StyleBtn(vocalBtn, Color.FromArgb(90, 36, 160)); vocalBtn.Text = "Vocal remover...";
@@ -245,8 +246,14 @@ partial class App : Form
         studioBtn.Click += (s, e) => OpenStudio();
         StyleBtn(addMusicBtn, Color.FromArgb(190, 60, 200)); addMusicBtn.Text = "ADD MUSIC"; addMusicBtn.Font = new Font("Segoe UI Semibold", 10.5f);
         addMusicBtn.SetBounds(474, 312, 150, 30); addMusicBtn.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-        tip.SetToolTip(addMusicBtn, "Pick a song, vocal or beat from your PC and open it in Purphex Music.");
-        addMusicBtn.Click += (s, e) => { OpenStudio(); studioForm.AddMusicClick(); };
+        tip.SetToolTip(addMusicBtn, "Add music from your PC: edit it in Purphex Music, remove the vocals or the beat, or trim the start and end.");
+        addMusicBtn.Click += (s, e) =>
+        {
+            int c = StudioDialogs.AddMusicChoice(this);
+            if (c == 1) { OpenStudio(); studioForm.AddMusicClick(); }
+            else if (c == 2) vocalBtn.PerformClick();
+            else if (c == 3) StudioDialogs.TrimFile(this, outDir.Text.Trim());
+        };
         tip.SetToolTip(phoneBtn, "Use this app from your phone (same Wi-Fi): open a web page, paste a link, download the file.");
         phoneBtn.Click += (s, e) => TogglePhone();
 

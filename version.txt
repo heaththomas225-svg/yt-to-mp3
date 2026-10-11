@@ -1,4 +1,4 @@
 3.17.5
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Hologram drag for tracks and clips, no What-is-this-file question
-sha256=
+Hologram drag, Add Music options, no Master a song button
+sha256=c005969289f75f452599b64570f027465eb493f6d2d60167b9bcaafca7535190

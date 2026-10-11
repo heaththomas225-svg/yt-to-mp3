@@ -12,7 +12,8 @@ static class Changelog
     public const string Text =
 @"3.17.5  Dragging tracks, no import question
  + Drag a track or clip and you see it: a see-through glowing copy follows the mouse smoothly, the slot it left stays marked, the row it will land on lights up (or shows + new track), and the other rows slide into place.
- + ADD MUSIC puts the file straight on the chart. The "What is this file?" question is gone.
+ + Inside Purphex Music, ADD MUSIC puts the file straight on the chart. The what-is-this-file question is gone.
+ + Main window: ADD MUSIC now asks what you want: edit in Purphex Music, vocal remover, or trim the start and end of a file and save it as MP3 or WAV. The Master a song button is gone.
 
 3.17.4  Discord button, one frame-rate readout
  + Community page: Join the Discord button (the invite comes from the website, so it can change without an app update).
