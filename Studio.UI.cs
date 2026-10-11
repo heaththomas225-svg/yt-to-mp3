@@ -396,9 +396,9 @@ partial class StudioForm : Form
         regs.Clear(); btnRects.Clear(); btnMap.Clear(); PopBegin(g);
         var full = new RectangleF(0, 0, ClientSize.Width, ClientSize.Height);
         DrawBackdrop(g);
-        if (tab == 0) PaintMix(g); else if (tab == 2) PaintLyrics(g); else if (tab == 3) PaintProjects(g); else if (tab == 4) PaintCommunity(g); else PaintMastering(g);
+        if (tab == 0) PaintMix(g); else if (tab == 2) PaintLyrics(g); else if (tab == 3) PaintProjects(g); else if (tab == 4) PaintCommunity(g); else if (tab == 5) PaintVisualiser(g); else PaintMastering(g);
         if (tab != 2) SyncLyricUi(false);
-        if (tab == 3 || tab == 4) { PaintSlimBar(g); PaintPreviewBar(g); } else if (tab == 1) PaintMasterBars(g); else { PaintToolbar(g); PaintTransport(g); }   // the Community and My Projects pages have no music controls
+        if (tab == 3 || tab == 4) { PaintSlimBar(g); PaintPreviewBar(g); } else if (tab == 5) PaintVisBar(g); else if (tab == 1) { PaintMasterBars(g); if (MasterBotRoom > 0) PaintMasterVizBar(g); } else { PaintToolbar(g); PaintTransport(g); }   // the Community and My Projects pages have no music controls
         if (browserOpen) { if (TxtAudit != null) TxtAudit.Clear(); PaintBrowser(g); }
         PaintSoundDrag(g); PaintPackManager(g);
         if (soundBox != null && soundBox.Visible && !(soundsOpen && tab == 0)) soundBox.Visible = false;
@@ -436,8 +436,9 @@ partial class StudioForm : Form
             using (var bg = Graphics.FromImage(backdrop))
             {
                 bg.SmoothingMode = SmoothingMode.AntiAlias; var full = new RectangleF(0, 0, w, h);
-                backVer = UserBackground.Version; var still = Prefs.BgStudio ? UserBackground.Fresh(w, h) : null;
-                if (still != null) { bg.DrawImageUnscaled(still, 0, 0); still.Dispose(); using (var dm = new SolidBrush(Color.FromArgb(Math.Min(255, Math.Max(150, Prefs.BgDim * 255 / 100 + 70)), 6, 2, 16))) bg.FillRectangle(dm, full); }
+                backVer = UserBackground.Version; var still = Prefs.BgStudio ? UserBackground.Fresh(w, h) : null; bool fromTheme = false;
+                { var tp = Themes.PhotoFit(w, h); if (tp != null) { if (still != null) still.Dispose(); still = tp; fromTheme = true; } }   // the theme's own photo covers the whole window
+                if (still != null) { bg.DrawImageUnscaled(still, 0, 0); still.Dispose(); using (var dm = new SolidBrush(Color.FromArgb(Math.Min(255, Math.Max(fromTheme ? 40 : 150, Prefs.BgDim * 255 / 100 + (fromTheme ? 0 : 70))), 6, 2, 16))) bg.FillRectangle(dm, full); }
                 else
                 {
                     using (var br = new LinearGradientBrush(full, Bg0, Bg1, 80f)) bg.FillRectangle(br, full);
@@ -1015,6 +1016,8 @@ partial class StudioForm : Form
             return base.ProcessCmdKey(ref msg, k);
         }
         if (busy) { if (k == Keys.Escape && busyCancelable) { cancelFlag = true; busyText = "Cancelling..."; return true; } return base.ProcessCmdKey(ref msg, k); }
+        if (k == Keys.Escape && tab == 5 && !menuOpen) { tab = 1; return true; }   // Esc leaves the visualiser
+        if (k == Keys.Space && tab == 3 && !ProjSearchActive && previewPath.Length > 0 && previewEng != null) { PreviewPauseToggle(); return true; }   // Space pauses the preview (the search box only takes keys after you click it)
         if (ProjSearchCmd(k)) return true; if (ProjSearchTakesKey(k)) return base.ProcessCmdKey(ref msg, k);
         if (k == Keys.F1) { app.ShowHelp(null); return true; }
         if (k == Keys.Space) { PlayToggle(); return true; }
@@ -1046,6 +1049,7 @@ partial class StudioForm : Form
     {
         base.OnMouseDown(e); lastInput = DateTime.Now; Focus(); MousePos = e.Location; if (e.Button == MouseButtons.Middle && tab == 0 && TimelineRect().Contains(e.Location)) { MiddleDown(e.Location); return; }
         if (editBox != null && editBox.Visible) CommitEdit(true);   // clicking off a value box confirms what you typed
+        if (tab == 3 && projSearchOn && !projSearchR.Contains(e.Location)) projSearchOn = false;   // clicking anywhere else lets go of the search box
         var r = TopRegion(e.Location); if (r == null) return;
         if (Win.ClickClosedMenu(this, r.R)) return;   // the click that just closed a menu is not also a click on the button that opened it
         if (busy && !r.WhileBusy) return;   // while a job runs only the Cancel button works

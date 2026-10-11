@@ -2,6 +2,17 @@
 
 What changed in each version of **Purphex**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.24.0  The Master Visualiser, your own photo as a theme, neon borders in the menu, unique theme colours and a Space bar that pauses in My Projects
+
+- The Master Visualiser: a page of its own for the music you are mastering. Open it with the VISUALISER button on the Mastering bar, the strip along the bottom of Mastering, or Menu > View > Master Visualiser. A ring of 96 light bars dances around the Purphex logo, which beats with your bass. A thin ring inside shows the sound before mastering. Every beat sends out a ring and a burst of sparks. A mirrored spectrum with peak dots runs along the bottom, left and right level meters stand at the sides, and cards show MOMENTARY and INTEGRATED loudness, TRUE PEAK and GAIN REDUCTION. At the top you can press PLAY, PREVIEW (the loudest 20 seconds on a loop with the mastering on) and switch HEAR: ORIGINAL / MASTERED while you watch. The song bar at the bottom jumps to any place when you click or drag it. Esc, BACK or MASTERING returns.
+- A visualiser strip along the bottom of Mastering, the same idea as the preview bar in My Projects: a black strip with the logo and moving waves, a play and pause button, the time, and a click-to-jump song bar. It appears when the window is tall enough (740 pixels or more) and makes room for itself, so nothing is covered.
+- Themes take any photo. IMPORT now opens a theme file or any picture of any size (a huge photo, a tiny one, a tall one): the picture becomes a theme and fills the whole studio window, cropped in the middle and never stretched. It keeps filling it when you minimise, come back or go fullscreen. PHOTO puts a picture behind any theme, NO PHOTO takes it off, SAVE keeps the picture next to the theme file so you can share both, and every theme card shows a small picture of its photo.
+- The themes are really different now. Toxic, Crimson, Red, Orange, Yellow, Green, Teal, Blue, Indigo, Violet and Pink each have their own colours instead of being nearly the same (Toxic is a hot acid yellow-green and Green is a deep forest green, for example).
+- Neon borders around everything in the side menu: the lists, the recent projects and the columns all glow in the colours of your theme.
+- BACK only shows when it has somewhere useful to take you. If going back would only take you home, the button stays hidden (HOME is its own button).
+- My Projects: Space now pauses and continues the preview (it used to jump into the search box). The search box only takes typing after you click it, and clicking anywhere else lets go of it. The preview bar has a pause button too.
+- Settings: scrolling the mouse wheel over the Settings window now scrolls it instead of changing the setting under the pointer.
+
 ## 3.23.0  A Mastering tab of its own, AUTO MASTERING, 67 master presets, themes you can import and share, REVERT, HOME and BACK, scroll bars everywhere and a Help that shows you
 
 - The Mastering tab is a little program of its own. The top bars show only what belongs to mastering: PLAY (its own play button), the time, PREVIEW MASTER, the master meter, and MIX / MASTERING / LYRICS, SAVE AS, SAVE, OPEN, FULLSCREEN, HELP and EXPORT. The track buttons are gone from it, so nothing can be pressed by accident.

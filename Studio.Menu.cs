@@ -49,7 +49,7 @@ partial class StudioForm
                 break;
             case 3:
                 I("Converter window", () => { CloseMenu(); Win.Bring(app); }); I(Prefs.ShowFps ? "Hide the FPS counter" : "Show the FPS counter", () => { CloseMenu(); Prefs.ShowFps = !Prefs.ShowFps; Prefs.Changed(); });
-                I("Mix (tracks)", () => GoTab(0)); I("Mastering", () => GoTab(1)); I("Lyrics", () => GoTab(2)); I("My Projects", () => GoTab(3));
+                I("Mix (tracks)", () => GoTab(0)); I("Mastering", () => GoTab(1)); I("Master Visualiser", () => GoTab(5)); I("Lyrics", () => GoTab(2)); I("My Projects", () => GoTab(3));
                 I("Fit the whole song", () => { CloseMenu(); tab = 0; FitView(); }); I("Thin tracks", () => { CloseMenu(); LaneH = 84; }); I("Normal tracks", () => { CloseMenu(); LaneH = 104; }); I("Tall tracks", () => { CloseMenu(); LaneH = 168; });
                 I(Win.IsFull(this) ? "MINIMISE (back to a normal window)" : "FULLSCREEN", () => { CloseMenu(); Win.ToggleFullscreen(this); });
                 break;
@@ -114,6 +114,7 @@ partial class StudioForm
         float w1 = 270, w2 = 310, w3 = 340; var c1 = Rc(0, 0, w1, H); using (var br = new LinearGradientBrush(c1, Color.FromArgb(252, 22, 12, 42), Color.FromArgb(252, 10, 5, 22), 90f)) g.FillRectangle(br, c1); Reg(c1, () => { });
         using (var pen = new Pen(Color.FromArgb(180, NeonViolet), 1.5f)) g.DrawLine(pen, w1, 0, w1, H);
         // header: your picture and name
+        Win.DrawNeonBox(g, Rc(8, 8, w1 - 16, 84), false);
         var av = Rc(18, 18, 64, 64); DrawAvatar(g, av); Reg(av, () => PickAvatar()).OnRight = () => AvatarMenu(); if (Hot(av)) bubble = "Click to change your picture. Right-click for more."; bubblePt = MousePos;
         if (ProjectLibrary.AvatarPath.Length > 0) { var ax = Rc(av.Right - 12, av.Y - 6, 22, 22); FillRR(g, Hot(ax) ? Color.FromArgb(255, 200, 50, 90) : Color.FromArgb(255, 140, 36, 70), ax, 11); Txt(g, "X", 11, Color.White, ax, StringAlignment.Center, true); Reg(ax, () => { ProjectLibrary.ClearAvatar(); Toast("Picture removed: the Purphex logo is your picture now."); }); if (Hot(ax)) { bubble = "Remove your picture (back to the Purphex logo)"; bubblePt = MousePos; } }
         Txt(g, ProjectLibrary.ProfileName, 16, Ink, Rc(94, 24, w1 - 106, 24), StringAlignment.Near, true); var nm = Rc(94, 24, w1 - 106, 24); Reg(nm, () => EditProfileName());
@@ -124,6 +125,7 @@ partial class StudioForm
         {
             int k = i; var r = Rc(10, y, w1 - 20, 46); bool sel = menuSec == i; bool last = i == MenuNames.Length - 1; if (last) { y += 10; r = Rc(10, y, w1 - 20, 46); }
             if (sel || Hot(r)) { FillRR(g, sel ? Color.FromArgb(150, 70, 38, 130) : Color.FromArgb(90, 60, 34, 110), r, 10); if (sel) Glow(g, NeonViolet, r, 10, 0.45f, 2); }
+            Win.DrawNeonBox(g, r, sel || Hot(r));
             var ic = Rc(r.X + 12, r.Y + 11, 24, 24); DrawMenuIcon(g, ic, i, sel); Txt(g, MenuNames[i], 15, sel ? Ink : Color.FromArgb(225, 215, 245), Rc(r.X + 50, r.Y, 150, r.Height), StringAlignment.Near, sel);
             if (!last) Txt(g, ">", 14, DimC, Rc(r.Right - 34, r.Y, 24, r.Height), StringAlignment.Center, true);
             Reg(r, () => { menuSec = menuSec == k ? -1 : k; menuSub = -1; if (k == MenuNames.Length - 1) { var it = MenuItems(k)[0]; it.Do(); } }); y += 54;
@@ -151,12 +153,13 @@ partial class StudioForm
     void PaintMenuColumn(Graphics g, float x, float w, float H)
     {
         var items = MenuItems(menuSec); float h = 24 + items.Count * 46 + 14; var col = Rc(x + 8, 96 + menuSec * 54 - 4, w, h); if (col.Bottom > H - 8) col.Y = Math.Max(8, H - 8 - col.Height);
-        FillRR(g, Color.FromArgb(252, 24, 14, 46), col, 12); StrokeRR(g, Color.FromArgb(200, NeonViolet), col, 12, 1.2f); Reg(col, () => { });
+        FillRR(g, Color.FromArgb(252, 24, 14, 46), col, 12); Win.DrawNeonBox(g, col, false); Reg(col, () => { });
         float y = col.Y + 12;
         for (int i = 0; i < items.Count; i++)
         {
             var it = items[i]; int k = i; var r = Rc(col.X + 8, y, w - 16, 42); bool hot = Hot(r) || (it.Sub && menuSub == i);
             if (hot) FillRR(g, Color.FromArgb(120, 76, 42, 140), r, 9);
+            Win.DrawNeonBox(g, r, hot);
             Txt(g, it.Text, 14, it.Disabled ? DimC : Ink, Rc(r.X + 14, r.Y, r.Width - (it.Key.Length > 0 ? 114 : (it.Sub ? 44 : 24)), r.Height), StringAlignment.Near, false);
             if (it.Key.Length > 0) Txt(g, it.Key, 11, DimC, Rc(r.Right - 110, r.Y, 100, r.Height), StringAlignment.Far, false);
             if (it.Sub) Txt(g, ">", 14, DimC, Rc(r.Right - 30, r.Y, 22, r.Height), StringAlignment.Center, true);
@@ -168,12 +171,12 @@ partial class StudioForm
     void PaintRecent(Graphics g, float x, float y, float w)
     {
         var rec = ProjectLibrary.Recent(8); float h = 20 + Math.Max(1, rec.Count) * 54 + 8; var col = Rc(x, Math.Min(y, ClientSize.Height - h - 8), w, h);
-        FillRR(g, Color.FromArgb(252, 24, 14, 46), col, 12); StrokeRR(g, Color.FromArgb(200, NeonCyan), col, 12, 1.2f); Reg(col, () => { });
+        FillRR(g, Color.FromArgb(252, 24, 14, 46), col, 12); Win.DrawNeonBox(g, col, false); Reg(col, () => { });
         if (rec.Count == 0) { Txt(g, "No recent projects yet. Save a project and it will show up here.", 12, DimC, Rc(col.X + 14, col.Y + 12, col.Width - 28, 40), StringAlignment.Near, false); return; }
         float yy = col.Y + 12;
         foreach (var e in rec)
         {
-            string p = e.Path; var r = Rc(col.X + 8, yy, w - 16, 50); if (Hot(r)) FillRR(g, Color.FromArgb(120, 76, 42, 140), r, 9); DrawCover(g, Rc(r.X + 6, r.Y + 5, 40, 40), e);
+            string p = e.Path; var r = Rc(col.X + 8, yy, w - 16, 50); if (Hot(r)) FillRR(g, Color.FromArgb(120, 76, 42, 140), r, 9); Win.DrawNeonBox(g, r, Hot(r)); DrawCover(g, Rc(r.X + 6, r.Y + 5, 40, 40), e);
             Txt(g, e.Name, 14, Ink, Rc(r.X + 56, r.Y + 4, r.Width - 64, 22), StringAlignment.Near, true); Txt(g, ProjectLibrary.Ago(e.Opened) + "  " + e.Tracks + " tracks", 11, DimC, Rc(r.X + 56, r.Y + 26, r.Width - 64, 18), StringAlignment.Near, false);
             var ee = e; Reg(r, () => { CloseMenu(); OpenProjectAsk(ee); }); yy += 54;
         }

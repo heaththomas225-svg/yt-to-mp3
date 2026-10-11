@@ -203,13 +203,14 @@ static class Win
         p.AddArc(r.X, r.Y, d, d, 180, 90); p.AddArc(r.Right - d, r.Y, d, d, 270, 90); p.AddArc(r.Right - d, r.Bottom - d, d, d, 0, 90); p.AddArc(r.X, r.Bottom - d, d, d, 90, 90); p.CloseFigure(); return p;
     }
     // a soft glow and a thin bright line; brighter and cyan while it is hot or being typed in
+    public static Color NeonHot = Color.FromArgb(0, 229, 255), NeonIdle = Color.FromArgb(150, 100, 255);   // the neon boxes follow the theme
     public static void DrawNeonBox(Graphics g, RectangleF r, bool hot, bool enabled = true)
     {
         var sm = g.SmoothingMode; g.SmoothingMode = SmoothingMode.AntiAlias;
         using (var path = NeonPath(r, 7))
         {
-            int a = hot ? 64 : 26; for (int i = 3; i >= 1; i--) using (var pen = new Pen(Color.FromArgb(Math.Max(4, a / i), 0, 229, 255), i * 3f)) g.DrawPath(pen, path);
-            using (var pen = new Pen(enabled ? (hot ? Color.FromArgb(255, 0, 229, 255) : Color.FromArgb(200, 150, 100, 255)) : Color.FromArgb(90, 120, 100, 160), hot ? 1.8f : 1.3f)) g.DrawPath(pen, path);
+            int a = hot ? 64 : 26; for (int i = 3; i >= 1; i--) using (var pen = new Pen(Color.FromArgb(Math.Max(4, a / i), NeonHot), i * 3f)) g.DrawPath(pen, path);
+            using (var pen = new Pen(enabled ? (hot ? Color.FromArgb(255, NeonHot) : Color.FromArgb(200, NeonIdle)) : Color.FromArgb(90, 120, 100, 160), hot ? 1.8f : 1.3f)) g.DrawPath(pen, path);
         }
         g.SmoothingMode = sm;
     }

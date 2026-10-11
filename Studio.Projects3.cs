@@ -7,7 +7,7 @@ using System.Windows.Forms;
 // My Projects: search, sort and filter (favourites, type) and the Recycling Bin (a removed project waits 30 days, then goes for good).
 partial class StudioForm
 {
-    string projSearch = "", projType = ""; int projSort; bool projFav, projBin, projSearchOn = true; float binScroll;
+    string projSearch = "", projType = ""; int projSort; bool projFav, projBin, projSearchOn; float binScroll; RectangleF projSearchR;   // the search box only takes typing after you click it
     Func<string, bool> binConfirmHook;   // a test answers for itself; the real program asks with a window before anything is deleted for good
     static readonly string[] SortNames = { "Newest edited", "Recently opened", "Name A to Z", "Name Z to A", "Most tracks", "Longest", "Oldest edited" };
     static readonly string[] TypeNames = { "Song", "Beat", "Vocals" };
@@ -77,7 +77,7 @@ partial class StudioForm
         var sb = Rc(24, y, Math.Max(180, Math.Min(420, bin.X - 24 - 20)), h); FillRR(g, Color.FromArgb(235, 14, 7, 32), sb, 9); Win.DrawNeonBox(g, sb, projSearchOn);
         double tm = Environment.TickCount / 1000.0; bool blink = ((int)(tm * 2) % 2) == 0 && projSearchOn;
         Txt(g, projSearch.Length == 0 ? (blink ? "|  " : "   ") + "SEARCH PROJECTS" : projSearch + (blink ? "|" : ""), 13, projSearch.Length == 0 ? DimC : Ink, Rc(sb.X + 14, sb.Y, sb.Width - 54, sb.Height), StringAlignment.Near, projSearch.Length > 0);
-        Reg(sb, () => projSearchOn = true); Hint2(sb, "Search your projects by name, tag or type (song, beat, vocals). Just start typing.");
+        projSearchR = sb; Reg(sb, () => projSearchOn = true); Hint2(sb, "Search your projects by name, tag or type (song, beat, vocals). Just start typing.");
         if (projSearch.Length > 0) { var x = Rc(sb.Right - 34, sb.Y + 5, 24, 24); Btn(g, x, "x", 3, () => { projSearch = ""; projScroll = 0; }, 12); Hint2(x, "Clear the search"); }
         float cx = sb.Right + 16, cw = bin.X - 10 - cx; if (cw > 110) Txt(g, (FiltersOn ? shown + " OF " + total : total.ToString()) + (total == 1 ? " PROJECT" : " PROJECTS"), 12, DimC, Rc(cx, y, cw, h), StringAlignment.Near, true);
         Btn(g, bin, "RECYCLING BIN" + (bn > 0 ? "  (" + bn + ")" : ""), bn > 0 ? 1 : 0, () => { ProjectLibrary.PurgeBin(DateTime.Now); projBin = true; binScroll = 0; }, 13); Hint2(bin, "Removed projects wait here for 30 days. Restore one, or delete it for good.");

@@ -39,10 +39,11 @@ partial class StudioForm
     void GoBack()
     {
         StopPreview(); projBin = false;
-        while (navStack.Count > 0) { int t = navStack[navStack.Count - 1]; navStack.RemoveAt(navStack.Count - 1); if (t == tab || t < 0 || t > 4) continue; navPopping = true; tab = t; return; }
+        while (navStack.Count > 0) { int t = navStack[navStack.Count - 1]; navStack.RemoveAt(navStack.Count - 1); if (t == tab || t < 0 || t > 5) continue; navPopping = true; tab = t; return; }
         GoHome();
     }
-    bool ShowBack { get { return navStack.Count > 0; } }
+    // BACK only appears when it has somewhere to take you that is not home (HOME is its own button)
+    bool ShowBack { get { for (int i = navStack.Count - 1; i >= 0; i--) { int t = navStack[i]; if (t == tab) continue; return t != 0; } return false; } }
     bool ShowHome { get { return tab != 0; } }
 
     // ---------- REVERT: whenever something is applied (a preset, a style, a theme, AUTO MASTERING...) a bar offers to put everything back as it was ----------

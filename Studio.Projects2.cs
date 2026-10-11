@@ -12,7 +12,13 @@ partial class StudioForm
 {
     // test seams: the real program asks with a window; a test answers for itself (and never plays sound or deletes a file)
     Func<ProjectEntry, bool> confirmOpenHook; Func<ProjectEntry, int> removeHook; Action<StudioEngine> previewPlayFn;
-    StudioEngine previewEng; string previewPath = "", previewName = ""; volatile bool previewLoading;
+    StudioEngine previewEng; string previewPath = "", previewName = ""; volatile bool previewLoading; bool previewPaused;
+    // Space (or the pause button on the bar) pauses and continues the preview
+    void PreviewPauseToggle()
+    {
+        var pe = previewEng; if (pe == null) return;
+        if (previewPaused) { previewPaused = false; try { pe.Play(); } catch { } } else { previewPaused = true; try { pe.Pause(); } catch { } }
+    }
 
     // clicking a project asks first (it used to send you into the project without a word)
     void OpenProjectAsk(ProjectEntry e)
@@ -65,15 +71,15 @@ partial class StudioForm
     }
     void StopPreview()
     {
-        var pe = previewEng; previewEng = null; previewPath = ""; previewName = ""; previewLoading = false;
+        var pe = previewEng; previewEng = null; previewPath = ""; previewName = ""; previewLoading = false; previewPaused = false;
         if (pe != null) { try { pe.Stop(); } catch { } try { pe.Shutdown(); } catch { } }
     }
     void PreviewHousekeeping()
     {
-        if (tab != 3) { projBin = false; projSearchOn = true; }
+        if (tab != 3) { projBin = false; projSearchOn = false; }
         if (previewPath.Length == 0) return;
         if (tab != 3 && tab != 4) { StopPreview(); return; }
-        if (previewEng != null && !previewEng.Playing && previewPlayFn == null) StopPreview();   // it reached the end
+        if (previewEng != null && !previewEng.Playing && previewPlayFn == null && !previewPaused) StopPreview();   // it reached the end
         if (eng.Playing) StopPreview();
     }
     // the strip along the bottom while a preview plays: the same design as the one under the tracks (solid black, the logo in the middle, waves flowing out of it)
@@ -82,8 +88,9 @@ partial class StudioForm
         if (previewPath.Length == 0) return; float W = ClientSize.Width, H = ClientSize.Height; var ob = Rc(24, H - 48, W - 48, 36); var pe = previewEng; bool playing = pe != null && (pe.Playing || previewPlayFn != null); lastInput = DateTime.Now;
         VizUpdate(playing, pe); FillRR(g, Color.Black, ob, 12); using (var pen = new Pen(Color.FromArgb(playing ? 230 : 150, NeonViolet), 1.3f)) { using (var p = RR(ob, 12)) g.DrawPath(pen, p); }
         Txt(g, (pe == null ? "LOADING " : "PREVIEW  ") + previewName, 11, NeonCyan, Rc(ob.X + 6, ob.Y - 20, Math.Min(520, ob.Width - 12), 18), StringAlignment.Near, true);
+        var pz = Rc(ob.X + 36, ob.Y + 5, 26, 26); FillRR(g, Hot(pz) ? Color.FromArgb(255, 70, 70, 170) : Color.FromArgb(255, 48, 44, 120), pz, 7); using (var pb = new SolidBrush(Color.White)) { if (previewPaused) g.FillPolygon(pb, new[] { new PointF(pz.X + 9, pz.Y + 6), new PointF(pz.X + 9, pz.Y + 20), new PointF(pz.X + 20, pz.Y + 13) }); else { g.FillRectangle(pb, pz.X + 8, pz.Y + 7, 4, 12); g.FillRectangle(pb, pz.X + 14, pz.Y + 7, 4, 12); } } Reg(pz, () => PreviewPauseToggle()); if (Hot(pz)) { bubble = previewPaused ? "Continue the preview (Space)" : "Pause the preview (Space)"; bubblePt = MousePos; }
         var stop = Rc(ob.X + 6, ob.Y + 5, 26, 26); FillRR(g, Hot(stop) ? Color.FromArgb(255, 160, 40, 80) : Color.FromArgb(255, 110, 30, 60), stop, 7); using (var b = new SolidBrush(Color.White)) g.FillRectangle(b, stop.X + 8, stop.Y + 8, 10, 10); Reg(stop, () => StopPreview()); if (Hot(stop)) { bubble = "Stop the preview"; bubblePt = MousePos; }
-        double dur = pe == null ? 0 : Math.Max(1, pe.EndFrame), pos = pe == null ? 0 : pe.Pos; var inner = Rc(ob.X + 40, ob.Y + 4, ob.Width - 40 - 112, ob.Height - 8); float cx = inner.X + inner.Width / 2, cy = ob.Y + ob.Height / 2;
+        double dur = pe == null ? 0 : Math.Max(1, pe.EndFrame), pos = pe == null ? 0 : pe.Pos; var inner = Rc(ob.X + 72, ob.Y + 4, ob.Width - 72 - 112, ob.Height - 8); float cx = inner.X + inner.Width / 2, cy = ob.Y + ob.Height / 2;
         float px = inner.X + (float)(Math.Min(1.0, pos / Math.Max(1, dur)) * inner.Width); using (var b = new SolidBrush(Color.FromArgb(60, 0, 110, 130))) g.FillRectangle(b, inner.X, inner.Y, Math.Max(0, px - inner.X), inner.Height); using (var pen = new Pen(Color.FromArgb(230, NeonCyan), 1.6f)) g.DrawLine(pen, px, inner.Y, px, inner.Bottom);
         float lh = ob.Height / 2 - 2, lhw = lh * 1.16f; cx = Math.Max(inner.X + lhw + 4, Math.Min(inner.Right - lhw - 4, px));   // the logo rides along with the song position
         if (playing)

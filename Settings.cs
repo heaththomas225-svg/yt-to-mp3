@@ -2,9 +2,25 @@ using System;
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Windows.Forms;
 
 // Settings window: background picture / video, animation, audio. Every change applies and is saved immediately.
+// the wheel never changes a setting: it scrolls the Settings page (a drop-down that is open still scrolls its own list)
+sealed class SettingsWheel : IMessageFilter
+{
+    readonly SettingsForm f; public SettingsWheel(SettingsForm f) { this.f = f; }
+    [DllImport("user32.dll")] static extern IntPtr WindowFromPoint(Point p);
+    public bool PreFilterMessage(ref Message m)
+    {
+        if (m.Msg != 0x20A || f.IsDisposed || !f.IsHandleCreated || !f.Visible) return false;
+        long lp = (long)m.LParam; var pt = new Point((short)(lp & 0xFFFF), (short)((lp >> 16) & 0xFFFF)); if (!f.Bounds.Contains(pt)) return false;
+        var under = Control.FromChildHandle(WindowFromPoint(pt)); if (under == null || !(under == f || f.Contains(under))) return false;
+        var cb = under as ComboBox; if (cb != null && cb.DroppedDown) return false; if (under.Parent is ComboBox && ((ComboBox)under.Parent).DroppedDown) return false;
+        int delta = (short)((long)m.WParam >> 16); f.WheelScroll(delta); return true;
+    }
+}
+
 class SettingsForm : Form
 {
     readonly App app; bool setting;
@@ -85,7 +101,11 @@ class SettingsForm : Form
         ClientSize = new Size(576, Math.Min(640, Screen.PrimaryScreen.WorkingArea.Height - 100));
         Win.CapsAll(this); updStatus.Tag = "nocaps"; bgName.Tag = "nocaps";
         Refresh2();
+        wheel = new SettingsWheel(this); Application.AddMessageFilter(wheel); FormClosed += (s2, e2) => { try { Application.RemoveMessageFilter(wheel); } catch { } };
     }
+    SettingsWheel wheel;
+    // the mouse wheel scrolls the page, whatever is under the pointer: it never changes a drop-down, a number or a slider by accident
+    internal void WheelScroll(int delta) { int cur = -AutoScrollPosition.Y; AutoScrollPosition = new Point(0, Math.Max(0, cur - delta / 2)); }
 
     void Header(string t, ref int y) { Controls.Add(new Label { Text = t, Left = 20, Top = y, Width = 520, Height = 26, Font = new Font("Segoe UI Semibold", 12.5f), ForeColor = Head }); y += 30; }
     void Note(string t, ref int y) { Controls.Add(new Label { Text = t, Left = 20, Top = y, Width = 520, Height = 46, ForeColor = Dim, Font = new Font("Segoe UI", 9f) }); y += 48; }

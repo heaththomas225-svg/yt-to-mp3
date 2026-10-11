@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Drawing.Drawing2D;
+using System.Drawing.Imaging;
 using System.Globalization;
 using System.IO;
 using System.Text;
@@ -11,7 +13,8 @@ using System.Windows.Forms;
 // shared in Community themes and downloaded. Every theme goes through the same clean-up, so a bad pick (a white background, a colour too dull to read) is tamed.
 sealed class ThemeDef
 {
-    public string Name = "", Blurb = "", Author = ""; public bool Custom, Rainbow;
+    public string Name = "", Blurb = "", Author = "", Photo = "", ImageHint = ""; public bool Custom, Rainbow;   // Photo: the background picture of this theme (a file on this PC), ImageHint: the picture named inside a theme file
+    public ThemeDef Copy() { return (ThemeDef)MemberwiseClone(); }
     public Color Violet, Cyan, Pink, Lime, Accent, Accent2, Btn, BtnC, EdgeC, Panel, Lane, Lane2, Bg0, Bg1;
     public static readonly string[] Keys = { "violet", "cyan", "pink", "lime", "accent", "accent2", "btn", "btnc", "edge", "panel", "lane", "lane2", "bg0", "bg1" };
     public static readonly string[] ShortKeys = { "primary", "secondary", "tertiary", "background" };
@@ -40,6 +43,12 @@ sealed class ThemeDef
     {
         return new ThemeDef { Name = name, Blurb = blurb, Violet = Hsl(h, 0.82, 0.64), Cyan = Hsl(h + 165, 0.95, 0.55), Pink = Hsl(h - 45, 0.92, 0.62), Lime = Hsl(h + 105, 0.85, 0.68), Accent = Hsl(h, 0.85, 0.70), Accent2 = Hsl(h - 35, 0.85, 0.66),
             Btn = Hsl(h, 0.62, 0.46), BtnC = Hsl(h, 0.40, 0.30), EdgeC = Hsl(h, 0.55, 0.56), Panel = Hsl(h, 0.45, 0.09), Lane = Hsl(h, 0.45, 0.05), Lane2 = Hsl(h, 0.45, 0.07), Bg0 = Hsl(h, 0.50, 0.035), Bg1 = Hsl(h, 0.50, 0.09) };
+    }
+    // a palette with its own four neon colours (h1 = the main one) and a background tint of its own
+    public static ThemeDef FromSpec(string name, string blurb, double h1, double h2, double h3, double h4, double bgHue, double bgSat)
+    {
+        return new ThemeDef { Name = name, Blurb = blurb, Violet = Hsl(h1, 0.86, 0.62), Cyan = Hsl(h2, 0.92, 0.56), Pink = Hsl(h3, 0.90, 0.62), Lime = Hsl(h4, 0.85, 0.66), Accent = Hsl(h1, 0.86, 0.72), Accent2 = Hsl(h3, 0.85, 0.66),
+            Btn = Hsl(h1, 0.62, 0.44), BtnC = Hsl(h1, 0.42, 0.28), EdgeC = Hsl(h1, 0.56, 0.56), Panel = Hsl(bgHue, bgSat, 0.095), Lane = Hsl(bgHue, bgSat, 0.05), Lane2 = Hsl(bgHue, bgSat, 0.07), Bg0 = Hsl(bgHue, bgSat, 0.035), Bg1 = Hsl(bgHue, bgSat, 0.11) };
     }
     // from a primary colour, an optional second and third accent and a background tint
     static ThemeDef FromBase(Color primary, Color secondary, Color tertiary, Color? background)
@@ -74,12 +83,12 @@ sealed class ThemeDef
     // a theme from its text (key=hex pairs split by ; or new lines; name= and author= lines are allowed). null + a reason when it is not a theme.
     public static ThemeDef FromText(string text, string fallbackName, out string error)
     {
-        error = null; if (string.IsNullOrWhiteSpace(text) || text.Length > 4000) { error = "That is not a theme."; return null; }
+        error = null; string imageHint = ""; if (string.IsNullOrWhiteSpace(text) || text.Length > 4000) { error = "That is not a theme."; return null; }
         var vals = new Dictionary<string, Color>(); string name = fallbackName ?? "", author = "";
         foreach (var raw in text.Replace("\r", "").Split(new[] { '\n', ';' }, StringSplitOptions.RemoveEmptyEntries))
         {
             int i = raw.IndexOf('='); if (i < 1) continue; string k = raw.Substring(0, i).Trim().ToLowerInvariant(), v = raw.Substring(i + 1).Trim();
-            if (k == "name") { name = Clean(v, 28); continue; } if (k == "author") { author = Clean(v, 24); continue; }
+            if (k == "name") { name = Clean(v, 28); continue; } if (k == "author") { author = Clean(v, 24); continue; } if (k == "image") { imageHint = Path.GetFileName(v.Replace('/', Path.DirectorySeparatorChar)); continue; }
             if (Array.IndexOf(Keys, k) < 0 && Array.IndexOf(ShortKeys, k) < 0) continue; Color c; if (!ParseHex(v, out c)) { error = "The colour for " + k + " is not a colour (use something like 8a5cff)."; return null; } vals[k] = c;
         }
         if (vals.Count < 3) { error = "A theme needs at least three colours (for example primary, secondary and background)."; return null; }
@@ -88,7 +97,7 @@ sealed class ThemeDef
         if (shortForm) t = FromBase(p0, vals.ContainsKey("secondary") ? s0 : ThemeDef.Hsl(Hue(p0) + 165, 0.9, 0.56), vals.ContainsKey("tertiary") ? t0 : ThemeDef.Hsl(Hue(p0) - 45, 0.9, 0.62), hasBg ? (Color?)b0 : null);
         else { Color v0; double h = vals.TryGetValue("violet", out v0) ? Hue(v0) : (vals.TryGetValue("accent", out v0) ? Hue(v0) : 270); t = FromHue("", "", h); }
         foreach (var k in Keys) { Color c; if (vals.TryGetValue(k, out c)) t.SetKey(k, c); }
-        t.Name = name.Length > 0 ? name : "My theme"; t.Author = author; t.Custom = true; t.Blurb = author.Length > 0 ? "By " + author + "." : "A custom theme."; return t.Cleaned();
+        t.Name = name.Length > 0 ? name : "My theme"; t.Author = author; t.Custom = true; t.ImageHint = imageHint; t.Blurb = author.Length > 0 ? "By " + author + "." : "A custom theme."; return t.Cleaned();
     }
     static double Hue(Color c) { double h, s, l; ToHsl(c, out h, out s, out l); return h; }
     public static string Clean(string s, int max)
@@ -110,14 +119,21 @@ static class Themes
         list.Add(new ThemeDef("Purphex", "The original neon purple, cyan and pink.", new[] { 150,90,255, 0,229,255, 255,43,214, 120,255,120, 178,108,255, 236,92,226, 118,52,212, 70,40,120, 140,85,210, 18,10,34, 11,6,22, 15,8,29, 7,4,16, 18,8,36 }));
         list.Add(new ThemeDef("Ocean", "Cool blues and teal, like a night sea.", new[] { 70,140,255, 0,229,255, 0,200,170, 120,255,200, 100,170,255, 40,210,200, 28,84,190, 24,56,110, 60,120,210, 8,14,32, 5,9,22, 8,13,29, 3,7,18, 7,16,38 }));
         list.Add(new ThemeDef("Sunset", "Hot orange, amber and pink.", new[] { 255,130,70, 255,205,70, 255,70,130, 255,230,120, 255,160,100, 255,90,140, 200,80,40, 112,50,40, 215,115,80, 32,13,13, 22,8,9, 29,11,11, 16,6,6, 38,14,14 }));
-        list.Add(new ThemeDef("Toxic", "Acid green and lime on black.", new[] { 80,225,110, 190,255,60, 0,255,200, 190,255,60, 120,240,130, 200,255,80, 40,150,60, 30,84,44, 80,200,110, 8,24,12, 5,16,8, 8,21,11, 3,12,6, 8,30,14 }));
-        list.Add(new ThemeDef("Crimson", "Deep red with a hot pink edge.", new[] { 255,70,90, 255,170,180, 255,40,160, 255,150,150, 255,105,125, 255,70,160, 190,40,62, 104,30,46, 210,70,92, 28,8,12, 19,5,8, 25,8,11, 14,4,6, 34,9,14 }));
         list.Add(new ThemeDef("Mono", "Clean white and grey, no colour at all.", new[] { 205,205,220, 255,255,255, 170,170,190, 220,220,230, 215,215,230, 165,165,185, 92,92,112, 52,52,66, 140,140,160, 16,16,20, 10,10,13, 14,14,18, 6,6,9, 20,20,26 }));
-        // one theme for every colour of the rainbow, and a rainbow that moves
-        list.Add(ThemeDef.FromHue("Red", "A clean, strong red.", 2)); list.Add(ThemeDef.FromHue("Orange", "Warm orange.", 26)); list.Add(ThemeDef.FromHue("Yellow", "Bright golden yellow.", 48)); list.Add(ThemeDef.FromHue("Green", "Fresh green.", 128));
-        list.Add(ThemeDef.FromHue("Teal", "Cool sea teal.", 178)); list.Add(ThemeDef.FromHue("Blue", "Deep electric blue.", 214)); list.Add(ThemeDef.FromHue("Indigo", "Midnight indigo.", 244)); list.Add(ThemeDef.FromHue("Violet", "Rich violet.", 275)); list.Add(ThemeDef.FromHue("Pink", "Soft rose pink.", 328));
+        // every colour of the rainbow, each with its own four neon colours and its own tint of background (and a Rainbow that moves)
+        list.Add(ThemeDef.FromSpec("Toxic", "Acid lime and hazard yellow with a purple warning glow.", 88, 62, 300, 130, 90, 0.6));
+        list.Add(ThemeDef.FromSpec("Crimson", "Wine red with gold and magenta.", 345, 45, 315, 15, 340, 0.6));
+        list.Add(ThemeDef.FromSpec("Red", "Fire red against electric blue.", 358, 215, 32, 55, 0, 0.65));
+        list.Add(ThemeDef.FromSpec("Orange", "Orange with teal and pink sparks.", 27, 168, 340, 70, 22, 0.55));
+        list.Add(ThemeDef.FromSpec("Yellow", "Golden yellow with violet.", 51, 262, 24, 100, 48, 0.5));
+        list.Add(ThemeDef.FromSpec("Green", "Emerald and mint on deep forest.", 146, 172, 42, 105, 152, 0.55));
+        list.Add(ThemeDef.FromSpec("Teal", "Sea teal with a pink flash.", 178, 205, 332, 140, 186, 0.55));
+        list.Add(ThemeDef.FromSpec("Blue", "Electric blue on deep navy.", 218, 248, 190, 165, 226, 0.65));
+        list.Add(ThemeDef.FromSpec("Indigo", "Midnight indigo with magenta.", 248, 292, 330, 205, 252, 0.6));
+        list.Add(ThemeDef.FromSpec("Violet", "Rich violet and magenta.", 283, 322, 205, 140, 288, 0.55));
+        list.Add(ThemeDef.FromSpec("Pink", "Rose pink with lilac and aqua.", 328, 275, 195, 155, 332, 0.5));
         var rb = ThemeDef.FromHue("Rainbow", "Every colour of the rainbow, slowly moving.", 0); rb.Rainbow = true; list.Add(rb);
-        LoadCustom();
+        LoadCustom(); LoadPhotoMap();
     }
     static void LoadCustom()
     {
@@ -147,20 +163,110 @@ static class Themes
     }
 
     // ---- custom themes: import, export, delete, share ----
-    public static string Import(string text, string fallbackName, out ThemeDef theme)
+    public static string Import(string text, string fallbackName, out ThemeDef theme, string sourceFolder = null)
     {
         Ensure(); string err; theme = ThemeDef.FromText(text, fallbackName, out err); if (theme == null) return err;
         string name = theme.Name; if (name.Length == 0) name = "My theme"; int n = 2; string baseName = name; while (IndexOfName(name) >= 0 && !list[IndexOfName(name)].Custom) name = baseName + " " + n++;
-        theme.Name = name; int existing = IndexOfName(name);
+        theme.Name = name; int existing = IndexOfName(name); string hint = theme.ImageHint; theme.ImageHint = "";
         try { Directory.CreateDirectory(Dir); File.WriteAllText(Path.Combine(Dir, SafeFile(name) + ".purphextheme"), ToFile(theme), Encoding.UTF8); } catch (Exception ex) { return "Could not save the theme: " + ex.Message; }
-        if (existing >= 0) list[existing] = theme; else list.Add(theme); return null;
+        if (existing >= 0) { theme.Photo = list[existing].Photo; list[existing] = theme; } else list.Add(theme);
+        if (hint.Length > 0 && sourceFolder != null) { string pf = Path.Combine(sourceFolder, hint); if (File.Exists(pf)) { string perr = SetPhoto(theme, pf); if (perr != null) return null; } }
+        try { File.WriteAllText(Path.Combine(Dir, SafeFile(theme.Name) + ".purphextheme"), ToFile(theme), Encoding.UTF8); } catch { }
+        return null;
     }
     static string SafeFile(string n) { var sb = new StringBuilder(); foreach (char c in n) sb.Append(char.IsLetterOrDigit(c) || c == ' ' || c == '-' ? c : '_'); string s = sb.ToString().Trim(); return s.Length == 0 ? "theme" : s; }
-    public static string ToFile(ThemeDef t) { return "# Purphex Music theme: one colour per line (rrggbb). Share it, edit it, import it.\nname=" + t.Name + "\n" + (t.Author.Length > 0 ? "author=" + t.Author + "\n" : "") + t.ToText().Replace(";", "\n") + "\n"; }
+    public static string ToFile(ThemeDef t) { return "# Purphex Music theme: one colour per line (rrggbb). Share it, edit it, import it.\nname=" + t.Name + "\n" + (t.Author.Length > 0 ? "author=" + t.Author + "\n" : "") + (t.Photo.Length > 0 ? "image=" + Path.GetFileName(t.Photo) + "\n" : "") + t.ToText().Replace(";", "\n") + "\n"; }
     public static bool Delete(ThemeDef t)
     {
         Ensure(); if (!t.Custom) return false; int i = list.IndexOf(t); if (i < 0) return false; bool wasCurrent = i == Index;
         try { string f = Path.Combine(Dir, SafeFile(t.Name) + ".purphextheme"); if (File.Exists(f)) File.Delete(f); } catch { }
+        if (t.Photo.Length > 0) { try { File.Delete(t.Photo); } catch { } t.Photo = ""; }
         list.RemoveAt(i); if (wasCurrent) Apply(0); else if (Index > i) Index--; return true;
+    }
+
+    // ---- pictures: any photo, any size, becomes the background of the whole studio ----
+    static string PhotoDir { get { return Path.Combine(Dir, "photos"); } } static string PhotoMapFile { get { return Path.Combine(Dir, "photos.txt"); } }
+    static void LoadPhotoMap()
+    {
+        try
+        {
+            if (!File.Exists(PhotoMapFile)) return;
+            foreach (var line in File.ReadAllLines(PhotoMapFile, Encoding.UTF8)) { int i = line.IndexOf('|'); if (i < 1) continue; int ti = IndexOfName(line.Substring(0, i)); string full = Path.Combine(PhotoDir, line.Substring(i + 1)); if (ti >= 0 && File.Exists(full)) list[ti].Photo = full; }
+        }
+        catch { }
+    }
+    static void SavePhotoMap() { try { Directory.CreateDirectory(Dir); var sb = new StringBuilder(); foreach (var t in list) if (t.Photo.Length > 0) sb.Append(t.Name).Append('|').Append(Path.GetFileName(t.Photo)).Append('\n'); File.WriteAllText(PhotoMapFile, sb.ToString(), Encoding.UTF8); } catch { } }
+    // reads any picture the PC can read (JPG, PNG, BMP, GIF, TIFF), scales a huge one down to at most 3840 pixels (a small one is kept: the studio stretches it to fill), saves it as a JPEG in the theme folder
+    static string SavePhoto(string imageFile, string baseName, out string error, out Color dominant, out double dominantSat)
+    {
+        error = null; dominant = Color.Gray; dominantSat = 0;
+        try
+        {
+            using (var fs = new FileStream(imageFile, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+            using (var src = Image.FromStream(fs, false, false))
+            {
+                int w = src.Width, h = src.Height; if (w < 1 || h < 1) { error = "That picture is empty."; return null; }
+                double k = Math.Min(1.0, 3840.0 / Math.Max(w, h)); int nw = Math.Max(1, (int)Math.Round(w * k)), nh = Math.Max(1, (int)Math.Round(h * k));
+                Directory.CreateDirectory(PhotoDir); string path = Path.Combine(PhotoDir, SafeFile(baseName) + "_" + (DateTime.Now.Ticks % 100000000) + ".jpg");
+                using (var bmp = new Bitmap(nw, nh, PixelFormat.Format24bppRgb))
+                {
+                    using (var g = Graphics.FromImage(bmp)) { g.InterpolationMode = InterpolationMode.HighQualityBicubic; g.PixelOffsetMode = PixelOffsetMode.HighQuality; g.Clear(Color.Black); g.DrawImage(src, 0, 0, nw, nh); }
+                    DominantOf(bmp, out dominant, out dominantSat);
+                    var enc = Array.Find(ImageCodecInfo.GetImageEncoders(), e => e.MimeType == "image/jpeg"); var ep = new EncoderParameters(1); ep.Param[0] = new EncoderParameter(System.Drawing.Imaging.Encoder.Quality, 90L);
+                    if (enc != null) bmp.Save(path, enc, ep); else bmp.Save(path, ImageFormat.Jpeg);
+                }
+                return path;
+            }
+        }
+        catch (OutOfMemoryException) { error = "That file is not a picture this program can read (use JPG, PNG, BMP, GIF or TIFF)."; return null; }
+        catch (ArgumentException) { error = "That file is not a picture this program can read (use JPG, PNG, BMP, GIF or TIFF)."; return null; }
+        catch (Exception ex) { error = "Could not use that picture: " + ex.Message; return null; }
+    }
+    // the colour the picture is mostly about (the average of its colourful pixels), and how colourful it is
+    static void DominantOf(Bitmap bmp, out Color c, out double sat)
+    {
+        c = Color.Gray; sat = 0; using (var small = new Bitmap(48, 48, PixelFormat.Format24bppRgb))
+        {
+            using (var g = Graphics.FromImage(small)) { g.InterpolationMode = InterpolationMode.HighQualityBilinear; g.DrawImage(bmp, 0, 0, 48, 48); }
+            double sx = 0, sy = 0, wsum = 0, ssum = 0, n = 0;
+            for (int y = 0; y < 48; y++) for (int x = 0; x < 48; x++) { var p = small.GetPixel(x, y); double h, s, l; ThemeDef.ToHsl(p, out h, out s, out l); double wgt = s * (1 - Math.Abs(2 * l - 1)); sx += Math.Cos(h * Math.PI / 180) * wgt; sy += Math.Sin(h * Math.PI / 180) * wgt; wsum += wgt; ssum += s; n++; }
+            sat = ssum / Math.Max(1, n); if (wsum < 1e-6) return; double ang = Math.Atan2(sy, sx) * 180 / Math.PI; if (ang < 0) ang += 360; c = ThemeDef.Hsl(ang, 0.8, 0.55);
+        }
+    }
+    // a picture for the theme in use (or any theme): it fills the whole studio window
+    public static string SetPhoto(ThemeDef t, string imageFile)
+    {
+        Ensure(); string err; Color dc; double ds; string saved = SavePhoto(imageFile, t.Name, out err, out dc, out ds); if (saved == null) return err;
+        string old = t.Photo; t.Photo = saved; SavePhotoMap(); if (old.Length > 0 && old != saved) { try { File.Delete(old); } catch { } }
+        UserBackground.Version++; return null;
+    }
+    public static void ClearPhoto(ThemeDef t)
+    {
+        Ensure(); if (t.Photo.Length == 0) return; try { File.Delete(t.Photo); } catch { } t.Photo = ""; SavePhotoMap(); UserBackground.Version++;
+    }
+    // import a photo as a whole new theme: its colours come from the picture, and the picture is the background
+    public static string ImportPhoto(string imageFile, out ThemeDef theme)
+    {
+        Ensure(); theme = null; string baseName = ThemeDef.Clean(Path.GetFileNameWithoutExtension(imageFile), 28); if (baseName.Length == 0) baseName = "My photo";
+        string err; Color dc; double ds; string saved = SavePhoto(imageFile, baseName, out err, out dc, out ds); if (saved == null) return err;
+        string name = baseName; int n = 2; while (IndexOfName(name) >= 0) name = baseName + " " + n++;
+        ThemeDef t; if (ds < 0.10) { var mono = list[IndexOfName("Mono")]; t = mono.Copy(); } else { double h, s, l; ThemeDef.ToHsl(dc, out h, out s, out l); t = ThemeDef.FromSpec(name, "", h, h + 155, h - 45, h + 95, h, 0.5).Cleaned(); }
+        t.Name = name; t.Custom = true; t.Rainbow = false; t.Blurb = "Made from your photo."; t.Photo = saved; t.Author = "";
+        try { Directory.CreateDirectory(Dir); File.WriteAllText(Path.Combine(Dir, SafeFile(name) + ".purphextheme"), ToFile(t), Encoding.UTF8); } catch (Exception ex) { return "Could not save the theme: " + ex.Message; }
+        list.Add(t); SavePhotoMap(); theme = t; return null;
+    }
+    // the photo of the theme in use, scaled to cover a window of this size (cropped in the middle, never stretched, no bars); null when the theme has none
+    static Bitmap photoSrc; static string photoSrcPath = "";
+    public static Bitmap PhotoFit(int w, int h)
+    {
+        var t = Current; if (t == null || t.Photo.Length == 0 || !File.Exists(t.Photo) || w < 2 || h < 2) return null;
+        try
+        {
+            if (photoSrc == null || photoSrcPath != t.Photo) { if (photoSrc != null) photoSrc.Dispose(); using (var fs = new FileStream(t.Photo, FileMode.Open, FileAccess.Read, FileShare.ReadWrite)) using (var im = Image.FromStream(fs, false, false)) photoSrc = new Bitmap(im); photoSrcPath = t.Photo; }
+            var bmp = new Bitmap(w, h, PixelFormat.Format32bppPArgb); double k = Math.Max(w / (double)photoSrc.Width, h / (double)photoSrc.Height); float dw = (float)(photoSrc.Width * k), dh = (float)(photoSrc.Height * k);
+            using (var g = Graphics.FromImage(bmp)) { g.InterpolationMode = InterpolationMode.HighQualityBicubic; g.PixelOffsetMode = PixelOffsetMode.HighQuality; g.DrawImage(photoSrc, (w - dw) / 2f, (h - dh) / 2f, dw, dh); }
+            return bmp;
+        }
+        catch { return null; }
     }
 }

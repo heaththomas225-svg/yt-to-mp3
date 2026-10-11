@@ -82,6 +82,15 @@ static class RenderT
                     SetF("tab", 0); Themes.Apply(0); SetF("themeOpen", true); Shot(tag + "-theme-sheet"); SetF("themeScroll", 260f); Shot(tag + "-theme-sheet-scrolled"); SetF("themeOpen", false); SetF("themeScroll", 0f);
                     Themes.Apply(Themes.IndexOf("Rainbow")); Shot(tag + "-theme-rainbow"); Themes.Apply(Themes.IndexOf("Emerald") < 0 ? 0 : Themes.IndexOf("Green")); Shot(tag + "-theme-green"); Themes.Apply(0);
                 }
+                // the Master Visualiser page and the strip along the bottom of Mastering (the levels are faked, nothing is played)
+                {
+                    int ov3 = Prefs.OutVol; Prefs.OutVol = 0; var tp = eng.MasterTap; var tpp = eng.MasterTapPre; var rnd = new Random(5);
+                    for (int i = 0; i < tp.Length; i++) { double bd = Math.Exp(-(i % 5512) / 1200.0); float s0 = (float)(0.55 * bd * Math.Sin(i * 0.012) + 0.25 * Math.Sin(i * 0.11) + 0.15 * Math.Sin(i * 0.43) + 0.08 * (rnd.NextDouble() - 0.5)); tp[i] = s0; tpp[i] = s0 * 0.6f; }
+                    eng.MasterTapPos = 4096; eng.Playing = true; SetF("tab", 1);
+                    { var vh = (float[])typeof(StudioForm).GetField("vizHist", BF).GetValue(sf); for (int i = 0; i < vh.Length; i++) vh[i] = (float)(0.25 + 0.5 * Math.Abs(Math.Sin(i * 0.11))); }
+                    Shot(tag + "-mastering-strip-playing"); eng.Playing = false; Shot(tag + "-mastering-strip-idle");
+                    SetF("tab", 5); Shot(tag + "-visualiser-idle"); eng.Playing = true; for (int i = 0; i < 40; i++) { sf.Invalidate(); sf.Update(); Application.DoEvents(); Pump(20); } Shot(tag + "-visualiser-playing"); eng.Playing = false; Prefs.OutVol = ov3; SetF("tab", 1);
+                }
                 SetF("tab", 1); Shot(tag + "-mastering-back"); SetF("tab", 2); Shot(tag + "-lyrics-back"); SetF("tab", 0);
                 // community presets sheet (a made-up list, the website is not asked)
                 CommunityPresets.BaseUrl = "http://127.0.0.1:1";

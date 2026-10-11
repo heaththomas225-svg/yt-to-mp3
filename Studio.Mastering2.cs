@@ -70,8 +70,8 @@ partial class StudioForm
     void MasterPreviewToggle() { if (mpActive) MasterPreviewStop(); else MasterPreviewStart(); }
     void MasterTick()
     {
-        if (tab != 1 && (mpBackup != null || amOpen)) { if (amOpen) AmCancel(); else if (mpBackup != null) PresetPutBack(); }
-        if (!mpActive) return; if (tab != 1 || !eng.Playing) { if (tab != 1 && eng.Playing) eng.Pause(); mpActive = false; return; }
+        if (tab != 1 && tab != 5 && (mpBackup != null || amOpen)) { if (amOpen) AmCancel(); else if (mpBackup != null) PresetPutBack(); }
+        if (!mpActive) return; if ((tab != 1 && tab != 5) || !eng.Playing) { if (tab != 1 && tab != 5 && eng.Playing) eng.Pause(); mpActive = false; return; }
         if (eng.Pos >= mpEnd || eng.Pos < mpStart - 4096) eng.Seek(mpStart);
     }
 
@@ -205,6 +205,7 @@ partial class StudioForm
         double sec = dispPos / StudioEngine.SR, tot = eng.EndFrame / (double)StudioEngine.SR; var tr = Rc(x, yy, 210, hh); FillRR(g, Color.FromArgb(200, 8, 4, 18), tr, 6); StrokeRR(g, Edge, tr, 6, 1);
         Txt(g, Fmt(sec) + "  /  " + Fmt(tot), 19, Accent, tr, StringAlignment.Center, true); x += 222;
         Btn(g, Rc(x, yy, 168, hh), mpActive ? "STOP PREVIEW" : "PREVIEW MASTER", mpActive ? 4 : 2, () => MasterPreviewToggle(), 13); Hint2(Rc(x, yy, 168, hh), "Hear your master: a loop of the loudest 20 seconds with the mastering chain on. Press again to stop."); x += 178;
+        { var vzb = Rc(x, yy, 118, hh); Btn(g, vzb, "VISUALISER", 1, () => tab = 5, 12); Hint2(vzb, "Open the Master Visualiser: a full page where your music moves"); x += 126; }
         float tx = W - 328; float mx = x + 10; float room = tx - 12 - mx;
         if (room >= 70) { Txt(g, "MASTER", 11, DimC, Rc(mx, yy - 4, 60, 14), StringAlignment.Near, false); float bw = Math.Min(120, room); HBar(g, Rc(mx, yy + 12, bw, 8), eng.MasterPeakL); HBar(g, Rc(mx, yy + 22, bw, 8), eng.MasterPeakR); if (room >= 230) { float lm = eng.Lufs.Momentary; Txt(g, "M " + Db(lm) + " LUFS", 13, Ink, Rc(mx + 128, yy, Math.Min(120, room - 128), hh), StringAlignment.Near, false); } }
         Btn(g, Rc(tx, yy, 106, hh), "MIX", 0, () => tab = 0, 14); Btn(g, Rc(tx + 112, yy, 106, hh), "MASTERING", 4, () => tab = 1, 13); Btn(g, Rc(tx + 224, yy, 90, hh), "LYRICS", 0, () => tab = 2, 13);
@@ -212,9 +213,10 @@ partial class StudioForm
 
     // ---------- the page ----------
     int mpTab; float mpScroll; string mpGroup = "";
+    int MasterBotRoom { get { return ClientSize.Height >= 740 ? 52 : 0; } }
     void PaintMastering(Graphics g)
     {
-        float top = ToolH + TransH + 10, W = ClientSize.Width, H = ClientSize.Height;
+        float top = ToolH + TransH + 10, W = ClientSize.Width, H = ClientSize.Height - MasterBotRoom;   // a tall window makes room for the visualiser strip along the bottom
         // ---- left: the chain and the A/B ----
         var lp = Rc(14, top, 270, H - top - 12); FillRR(g, Panel, lp, 12); StrokeRR(g, Edge, lp, 12, 1);
         Txt(g, "MASTERING CHAIN", 17, Ink, Rc(lp.X + 14, lp.Y + 8, 240, 26), StringAlignment.Near, true);
