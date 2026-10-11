@@ -73,6 +73,9 @@ partial class StudioForm
         Toast((fadeIn ? "Fade in" : "Fade out") + " added. Drag the round handle at the top of the clip to make it shorter or longer.");
     }
 
+    // after a trim: the two fades never add up to more than the clip
+    static void ClampFades(Track t) { long u = t.UsedLength, sum = t.FadeIn + t.FadeOut + t.FadeInDelay + t.FadeOutTail; if (u > 0 && sum > u) { double k = u / (double)sum; t.FadeIn = (long)(t.FadeIn * k); t.FadeOut = (long)(t.FadeOut * k); t.FadeInDelay = (long)(t.FadeInDelay * k); t.FadeOutTail = (long)(t.FadeOutTail * k); } }
+
     // ---------- lock ----------
     void ToggleLock()
     {
@@ -85,17 +88,17 @@ partial class StudioForm
     void OpenGain()
     {
         var c = CurClip(); if (c == null) { Toast("Click a clip first, then press GAIN."); return; }
-        gainClip = c; gainOpen = true; stylesOpen = false; autoOpen = false; browserOpen = false;
+        popOff.Remove("gain"); gainClip = c; gainOpen = true; stylesOpen = false; autoOpen = false; browserOpen = false;
     }
     void PaintGainPanel(Graphics g)
     {
         if (!gainOpen) return; var c = gainClip; if (c == null || !eng.Tracks.Contains(c)) { gainOpen = false; return; }
         float W = ClientSize.Width, H = ClientSize.Height; var all = Rc(0, 0, W, H); Reg(all, () => gainOpen = false);
-        float pw = 330, ph = 150; float px = Math.Max(8, Math.Min(W - pw - 8, gainAnchor.X + gainAnchor.Width / 2 - pw / 2)), py = gainAnchor.Bottom + 8; if (py + ph > H - 8) py = H - ph - 8; var box = Rc(px, py, pw, ph);
+        float pw = 330, ph = 150; float px = Math.Max(8, Math.Min(W - pw - 8, gainAnchor.X + gainAnchor.Width / 2 - pw / 2)), py = gainAnchor.Bottom + 8; if (py + ph > H - 8) py = H - ph - 8; var box = PopMove("gain", Rc(px, py, pw, ph), 44, 52);
         FillRR(g, Color.FromArgb(252, 18, 10, 38), box, 14); Glow(g, NeonViolet, box, 14, 0.7f, 4); StrokeRR(g, Color.FromArgb(180, NeonViolet), box, 14, 1.4f); Reg(box, () => { });
-        Txt(g, "Gain", 17, Ink, Rc(box.X + 16, box.Y + 10, 80, 26), StringAlignment.Near, true);
+        Txt(g, "GAIN", 17, Ink, Rc(box.X + 16, box.Y + 10, 80, 26), StringAlignment.Near, true);
         Txt(g, c.Name, 12, DimC, Rc(box.X + 70, box.Y + 14, box.Width - 130, 20), StringAlignment.Near, false);
-        var cl = Rc(box.Right - 42, box.Y + 8, 30, 30); FillRR(g, Hot(cl) ? Color.FromArgb(160, 70, 38, 130) : Color.FromArgb(110, 40, 24, 80), cl, 15); Txt(g, "x", 15, Ink, cl, StringAlignment.Center, true); Reg(cl, () => gainOpen = false);
+        var cl = Rc(box.Right - 42, box.Y + 8, 30, 30); FillRR(g, Hot(cl) ? Color.FromArgb(160, 70, 38, 130) : Color.FromArgb(110, 40, 24, 80), cl, 15); Txt(g, "X", 15, Ink, cl, StringAlignment.Center, true); Reg(cl, () => gainOpen = false);
         Txt(g, "Volume of just this piece, on top of the track fader.", 11, DimC, Rc(box.X + 16, box.Y + 44, box.Width - 32, 18), StringAlignment.Near, false);
         const float lo = -30f, hi = 12f; float frac = (c.ClipGainDb - lo) / (hi - lo);
         var sr = Rc(box.X + 18, box.Y + 74, box.Width - 36 - 84, 22);
@@ -107,14 +110,28 @@ partial class StudioForm
     }
 
     // ---------- CUT: take a section out of every track that is not locked ----------
+    // CUT: the selected piece (or every clip lit by a selection box) is DELETED and the pieces after it on that track move up to close the gap.
+    // (SPLIT is the one that makes two pieces: split where the part you do not want starts and ends, click that piece, press CUT.)
     void CutClick()
     {
-        if (eng.Tracks.Count == 0) { Toast("Add some music first."); return; }
-        long here = Snap(DispPos);
-        if (cutMark < 0) { cutMark = here; Toast("Cut starts at " + TimeText(here) + ". Move the needle to where the cut should END, then press CUT again. (Esc cancels)"); return; }
-        long a = Math.Min(cutMark, here), b = Math.Max(cutMark, here); cutMark = -1;
-        if (b - a < 2000) { Toast("Cut cancelled: the end of the cut has to be later than its start. Press CUT again to start over."); return; }
-        CutRange(a, b);
+        var picks = new List<Track>(); if (multiSel.Count > 0) picks.AddRange(multiSel); else { var c = CurClip(); if (c != null) picks.Add(c); }
+        picks.RemoveAll(t => !eng.Tracks.Contains(t) || t.Clip == null || t.Instrument);
+        if (picks.Count == 0) { Toast("Click the piece you want to cut out, then press CUT. (SPLIT the track where the part starts and ends first.)"); return; }
+        var ok = new List<Track>(); int locked = 0; foreach (var t in picks) { if (IsLocked(t)) locked++; else ok.Add(t); }
+        if (ok.Count == 0) { Toast("Locked: press UNLOCK before cutting this track."); return; }
+        PushUndo(); undoHold++; long total = 0;
+        try
+        {
+            ok.Sort((a, b) => b.Offset.CompareTo(a.Offset));   // from the end of the song backwards, so the places of the earlier ones do not change
+            foreach (var t in ok)
+            {
+                if (!eng.Tracks.Contains(t)) continue; var row = RowHost(t); long len = t.UsedLength, end = t.Offset + len; total += len; DeleteClip(t);
+                foreach (var p in eng.Tracks.ToArray()) if (RowHost(p) == row && p.Clip != null && !p.Instrument && p.Offset >= end - 2) p.Offset = Math.Max(0, p.Offset - len);
+            }
+        }
+        finally { undoHold--; }
+        multiSel.Clear(); toolsTrack = null; cutMark = -1;
+        Toast("Cut out " + ok.Count + (ok.Count == 1 ? " piece" : " pieces") + " (" + (total / (double)StudioEngine.SR).ToString("0.0") + " s): deleted, and the pieces after it moved up." + (locked > 0 ? " " + locked + " locked left alone." : "") + " Ctrl+Z undoes it.");
     }
     void CutCancel() { if (cutMark >= 0) { cutMark = -1; Toast("Cut cancelled"); } }
     void CutRange(long a, long b)
@@ -163,7 +180,7 @@ partial class StudioForm
         if (cutMark < 0 || tab != 0) return; var tl = TimelineRect(); float x = tl.X + (float)((cutMark - scroll) / spp); if (x < tl.X || x > tl.Right) return;
         float top = ToolH + TransH, bottom = tl.Bottom;
         using (var pen = new Pen(Color.FromArgb(235, 255, 80, 120), 2f) { DashStyle = DashStyle.Dash }) g.DrawLine(pen, x, top + RulerH - 4, x, bottom);
-        var flag = Rc(x - 1, top + 2, 70, 18); FillRR(g, Color.FromArgb(235, 255, 60, 110), flag, 5); Txt(g, "CUT START", 10, Color.White, flag, StringAlignment.Center, true);
+        var flag = Rc(x - 1, Math.Min(bottom, ClientSize.Height - 48) - 24, 70, 18); FillRR(g, Color.FromArgb(235, 255, 60, 110), flag, 5); Txt(g, "CUT START", 10, Color.White, flag, StringAlignment.Center, true);
     }
 
     // ---------- what is drawn on a clip: fades, gain tag, lock ----------
@@ -174,14 +191,14 @@ partial class StudioForm
         float top = cr.Y, bot = cr.Bottom, hgt = bot - top;
         if (tr.FadeIn > 0)
         {
-            float fw = (float)(tr.FadeIn / spp); var curve = new List<PointF>(); for (int i = 0; i <= 14; i++) { double u = i / 14.0; curve.Add(new PointF(x0 + (float)(u * fw), bot - (float)(Math.Sin(u * Math.PI / 2) * hgt))); }
-            var poly = new List<PointF>(curve); poly.Add(new PointF(x0 + fw, top)); poly.Add(new PointF(x0, top));
+            float fw = (float)(tr.FadeIn / spp), dl = (float)(tr.FadeInDelay / spp); var curve = new List<PointF>(); if (dl > 0.5f) curve.Add(new PointF(x0, bot)); for (int i = 0; i <= 24; i++) { double u = i / 24.0; curve.Add(new PointF(x0 + dl + (float)(u * fw), bot - Track.FadeCurve(u) * hgt)); }
+            var poly = new List<PointF>(curve); poly.Add(new PointF(x0 + dl + fw, top)); poly.Add(new PointF(x0, top));
             using (var b = new SolidBrush(Color.FromArgb(120, 6, 3, 16))) g.FillPolygon(b, poly.ToArray()); using (var pen = new Pen(Color.FromArgb(235, 0, 229, 255), 1.8f)) g.DrawLines(pen, curve.ToArray());
         }
         if (tr.FadeOut > 0)
         {
-            float fw = (float)(tr.FadeOut / spp); var curve = new List<PointF>(); for (int i = 0; i <= 14; i++) { double u = i / 14.0; curve.Add(new PointF(x1 - fw + (float)(u * fw), top + (float)(Math.Sin(u * Math.PI / 2) * hgt))); }
-            var poly = new List<PointF>(curve); poly.Add(new PointF(x1, top)); poly.Add(new PointF(x1 - fw, top));
+            float fw = (float)(tr.FadeOut / spp), tl2 = (float)(tr.FadeOutTail / spp); var curve = new List<PointF>(); for (int i = 0; i <= 24; i++) { double u = i / 24.0; curve.Add(new PointF(x1 - tl2 - fw + (float)(u * fw), bot - Track.FadeCurve(1 - u) * hgt)); } if (tl2 > 0.5f) curve.Add(new PointF(x1, bot));
+            var poly = new List<PointF>(curve); poly.Add(new PointF(x1, top)); poly.Add(new PointF(x1 - tl2 - fw, top));
             using (var b = new SolidBrush(Color.FromArgb(120, 6, 3, 16))) g.FillPolygon(b, poly.ToArray()); using (var pen = new Pen(Color.FromArgb(235, 0, 229, 255), 1.8f)) g.DrawLines(pen, curve.ToArray());
         }
         g.Restore(gs);

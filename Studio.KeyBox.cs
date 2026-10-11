@@ -25,25 +25,25 @@ partial class StudioForm
     {
         if (!pickOpen) return; float W = ClientSize.Width, H = ClientSize.Height; var all = Rc(0, 0, W, H);
         using (var b = new SolidBrush(Color.FromArgb(160, 3, 1, 10))) g.FillRectangle(b, all); Reg(all, () => pickOpen = false);
-        const float rowH = 60, head = 76; float sw = Math.Min(620, W - 24), sh = Math.Min(H - 40, head + 16 + pickList.Count * rowH); var sheet = Rc((W - sw) / 2, (H - sh) / 2, sw, sh);
+        const float rowH = 60, head = 76; float sw = Math.Min(620, W - 24), sh = Math.Min(H - 40, head + 16 + pickList.Count * rowH); var sheet = PopMove("pick", Rc((W - sw) / 2, (H - sh) / 2, sw, sh), 56, 70);
         FillRR(g, Color.FromArgb(252, 16, 10, 34), sheet, 20); Glow(g, NeonViolet, sheet, 20, 0.8f, 4); StrokeRR(g, Color.FromArgb(180, NeonViolet), sheet, 20, 1.5f); Reg(sheet, () => { });
         float tpx = 20; { float tw = g.MeasureString(pickTitle, GfxCache.Font(20, true)).Width; if (tw > sheet.Width - 90) tpx = Math.Max(12, 20 * (sheet.Width - 90) / tw); }
         Txt(g, pickTitle, tpx, Ink, Rc(sheet.X + 22, sheet.Y + 16, sheet.Width - 80, 32), StringAlignment.Near, true);
         Txt(g, "Click a track to choose it. The x in the corner (or Esc) closes this.", 12, DimC, Rc(sheet.X + 22, sheet.Y + 48, sheet.Width - 44, 20), StringAlignment.Near, false);
-        var close = Rc(sheet.Right - 50, sheet.Y + 14, 34, 34); FillRR(g, Hot(close) ? Color.FromArgb(200, 150, 50, 110) : Color.FromArgb(120, 70, 30, 90), close, 17); Txt(g, "x", 17, Ink, close, StringAlignment.Center, true); Reg(close, () => pickOpen = false);
-        float top = sheet.Y + head, areaH = sheet.Bottom - top - 10; var area = Rc(sheet.X, top, sheet.Width, areaH); float total = pickList.Count * rowH; pickScroll = Math.Max(0, Math.Min(Math.Max(0, total - areaH), pickScroll));
+        var close = Rc(sheet.Right - 50, sheet.Y + 14, 34, 34); FillRR(g, Hot(close) ? Color.FromArgb(200, 150, 50, 110) : Color.FromArgb(120, 70, 30, 90), close, 17); Txt(g, "X", 17, Ink, close, StringAlignment.Center, true); Reg(close, () => pickOpen = false);
+        float top = sheet.Y + head, areaH = sheet.Bottom - top - 10; var area = Rc(sheet.X, top, sheet.Width, areaH); float total = pickList.Count * rowH; pickScroll = Math.Max(0, Math.Min(Math.Max(0, total - areaH), pickScroll)); float vsw = total > areaH ? 54 : 0;
         regs.Add(new HitReg { R = area, OnWheel = d => pickScroll = Math.Max(0, Math.Min(Math.Max(0, total - areaH), pickScroll - d * 50)) });
         g.SetClip(area); var sel = Selected;
         for (int i = 0; i < pickList.Count; i++)
         {
-            var t = pickList[i]; var row = Rc(sheet.X + 12, top + i * rowH - pickScroll, sheet.Width - 24, rowH - 6); if (row.Bottom < top || row.Y > area.Bottom) continue;
+            var t = pickList[i]; var row = Rc(sheet.X + 12, top + i * rowH - pickScroll, sheet.Width - 24 - vsw, rowH - 6); if (row.Bottom < top || row.Y > area.Bottom) continue;
             bool hot = Hot(RectangleF.Intersect(row, area)) && area.Contains(MousePos); FillRR(g, hot ? Color.FromArgb(200, 70, 40, 130) : Color.FromArgb(150, 26, 15, 52), row, 12); StrokeRR(g, Color.FromArgb(hot ? 180 : 80, NeonViolet), row, 12, 1);
             double sec = t.UsedLength / (double)StudioEngine.SR; string sub = ((int)(sec / 60)) + ":" + ((int)(sec % 60)).ToString("00") + (t.Role == "vocal" ? "   vocal" : (t.Role == "beat" ? "   beat" : (t.Role == "song" ? "   full song" : ""))) + (t == sel ? "   (selected)" : "");
             float npx = 16; { float nw = g.MeasureString(t.Name, GfxCache.Font(16, true)).Width; if (nw > row.Width - 40) npx = Math.Max(11, 16 * (row.Width - 40) / nw); }
             Txt(g, t.Name, npx, Ink, Rc(row.X + 18, row.Y + 7, row.Width - 30, 24), StringAlignment.Near, true); Txt(g, sub, 12, DimC, Rc(row.X + 18, row.Y + 32, row.Width - 30, 18), StringAlignment.Near, false);
             var tt = t; var act = pickAct; Reg(RectangleF.Intersect(row, area), () => { pickOpen = false; act(tt); });
         }
-        g.ResetClip();
+        g.ResetClip(); VScroll(g, Rc(sheet.Right - 54, top, 42, areaH), total, areaH, () => pickScroll, v => pickScroll = v);
     }
     void DetectTrackKey() { PickTrackMenu("Detect the key of which track?", t => t.Clip != null && !t.Instrument && !t.IsBus, DetectTrackKeyOf); }
     void DetectTrackKeyOf(Track chosen)
@@ -63,26 +63,68 @@ partial class StudioForm
         });
     }
 
-    // the big number on screen during the Count In
-    // the Purphex logo, see-through, in the middle of the count-in circle (the number sits on top of it)
+    // the big number on screen during the Count In: the Purphex hexagon (the size of the logo) with a neon glow that pulses on every beat and neon sparks that burst off its edges
     static System.Drawing.Imaging.ImageAttributes countLogoAttr;
-    void PaintCountLogo(Graphics g, RectangleF box)
+    int cinBeat; double cinBeatAt, cinLast, cinAcc; readonly List<Spark> cinSparks = new List<Spark>(); readonly Random cinRnd = new Random(5);
+    void PaintCountLogo(Graphics g, float cx, float cy, GraphicsPath hex)
     {
         var lg = AppLogo.Logo; if (lg == null) return;
-        if (countLogoAttr == null) { countLogoAttr = new System.Drawing.Imaging.ImageAttributes(); countLogoAttr.SetColorMatrix(new System.Drawing.Imaging.ColorMatrix { Matrix33 = 0.72f }); }
-        float side = box.Width * 0.96f, aspect = lg.Width / (float)Math.Max(1, lg.Height), w = aspect >= 1 ? side : side * aspect, h = aspect >= 1 ? side / aspect : side;
-        var dst = Rectangle.Round(new RectangleF(box.X + (box.Width - w) / 2, box.Y + (box.Height - h) / 2 - 8, w, h)); var im = g.InterpolationMode; g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
-        var gsv = g.Save(); using (var cp = new System.Drawing.Drawing2D.GraphicsPath()) { cp.AddEllipse(RectangleF.Inflate(box, -5, -5)); g.SetClip(cp, System.Drawing.Drawing2D.CombineMode.Intersect); }
-        g.DrawImage(lg, dst, 0, 0, lg.Width, lg.Height, GraphicsUnit.Pixel, countLogoAttr); g.Restore(gsv); g.InterpolationMode = im;
+        if (countLogoAttr == null) { countLogoAttr = new System.Drawing.Imaging.ImageAttributes(); countLogoAttr.SetColorMatrix(new System.Drawing.Imaging.ColorMatrix { Matrix33 = 0.8f }); }
+        float side = 300f, aspect = lg.Width / (float)Math.Max(1, lg.Height), w = aspect >= 1 ? side : side * aspect, h = aspect >= 1 ? side / aspect : side;
+        var dst = Rectangle.Round(new RectangleF(cx - w / 2, cy - h / 2, w, h)); var im = g.InterpolationMode; g.InterpolationMode = InterpolationMode.HighQualityBicubic;
+        var gsv = g.Save(); g.SetClip(hex, CombineMode.Intersect); g.DrawImage(lg, dst, 0, 0, lg.Width, lg.Height, GraphicsUnit.Pixel, countLogoAttr); g.Restore(gsv); g.InterpolationMode = im;
     }
     void PaintCountIn(Graphics g)
     {
-        int beat = eng.CountBeat; if (beat <= 0) return; float W = ClientSize.Width, H = ClientSize.Height; double pulse = 0.5 + 0.5 * Math.Sin(Environment.TickCount / 90.0); lastInput = DateTime.Now;
-        var box = Rc(W / 2 - 150, H / 2 - 150, 300, 300); using (var b = new SolidBrush(Color.FromArgb(120, 3, 1, 10))) g.FillEllipse(b, box);
-        for (int i = 5; i >= 1; i--) using (var pen = new Pen(Color.FromArgb((int)((22 + 30 * pulse) / i * 2f) + 6, NeonPink), i * 5f)) g.DrawEllipse(pen, RectangleF.Inflate(box, i * 1.5f, i * 1.5f));
-        using (var pen = new Pen(NeonCyan, 3f)) g.DrawEllipse(pen, box);
-        PaintCountLogo(g, box);
-        Txt(g, beat.ToString(), 150, beat == 1 ? NeonPink : NeonCyan, Rc(box.X, box.Y + 20, box.Width, 200), StringAlignment.Center, true); Txt(g, "COUNT IN", 14, Ink, Rc(box.X, box.Bottom - 70, box.Width, 24), StringAlignment.Center, true);
+        int beat = eng.CountBeat; if (beat <= 0 && cinSparks.Count == 0) { cinBeat = 0; return; }
+        float W = ClientSize.Width, H = ClientSize.Height, cx = W / 2, cy = H / 2, hh = 104, hw = hh * 1.16f; double now = needleClock.Elapsed.TotalSeconds, dt = Math.Min(0.05, Math.Max(0, now - cinLast)); cinLast = now; lastInput = DateTime.Now;
+        var sm = g.SmoothingMode; g.SmoothingMode = SmoothingMode.AntiAlias; var verts = new[] { new PointF(cx - hw, cy), new PointF(cx - hw / 2, cy - hh), new PointF(cx + hw / 2, cy - hh), new PointF(cx + hw, cy), new PointF(cx + hw / 2, cy + hh), new PointF(cx - hw / 2, cy + hh) };
+        if (beat > 0 && beat != cinBeat) { cinBeat = beat; cinBeatAt = now; for (int i = 0; i < 34; i++) CinSpark(verts, cx, cy); }   // a burst of sparks on every beat
+        double pulse = beat > 0 ? Math.Exp(-(now - cinBeatAt) * 4.2) : 0;
+        if (beat > 0)
+        {
+            using (var hex = HexPath(cx, cy, hw, hh))
+            {
+                using (var b = new SolidBrush(Color.FromArgb(215, 6, 3, 16))) g.FillPath(b, hex);
+                PaintCountLogo(g, cx, cy, hex);
+                for (int i = 6; i >= 1; i--) using (var pen = new Pen(Color.FromArgb((int)Math.Min(255, (16 + 70 * pulse) / i * 2.2 + 6), NeonPink), i * 6f) { LineJoin = LineJoin.Round }) g.DrawPath(pen, hex);
+                for (int i = 3; i >= 1; i--) using (var pen = new Pen(Color.FromArgb((int)Math.Min(255, (30 + 60 * pulse) / i), NeonCyan), 2 + i * 3f) { LineJoin = LineJoin.Round }) g.DrawPath(pen, hex);
+                var rb = Rc(cx - hw, cy - hh, hw * 2, hh * 2); using (var gb = new LinearGradientBrush(rb, Color.FromArgb(0, 229, 255), Color.FromArgb(255, 43, 214), 25f)) using (var pen = new Pen(gb, 3.4f) { LineJoin = LineJoin.Round }) g.DrawPath(pen, hex);
+            }
+            DrawBigNumber(g, beat.ToString(), cx, cy, 150, beat == 1 ? NeonPink : NeonCyan);   // exactly in the middle of the hexagon (measured from the real shape of the digit)
+            Txt(g, "COUNT IN", 15, Ink, Rc(cx - 150, cy + hh + 12, 300, 26), StringAlignment.Center, true);
+        }
+        // the sparks
+        if (beat > 0) { cinAcc += 46 * dt; while (cinAcc >= 1 && cinSparks.Count < 160) { cinAcc -= 1; CinSpark(verts, cx, cy); } }
+        for (int i = cinSparks.Count - 1; i >= 0; i--)
+        {
+            var sp = cinSparks[i]; sp.VY += 300f * (float)dt; sp.X += sp.VX * (float)dt; sp.Y += sp.VY * (float)dt; sp.Life -= (float)dt;
+            if (sp.Life <= 0 || sp.Y > H + 40) { cinSparks.RemoveAt(i); continue; }
+            float a = Math.Max(0, Math.Min(1, sp.Life / sp.Max)); float rad = sp.R * (0.55f + 0.45f * a);
+            using (var b = new SolidBrush(Color.FromArgb((int)(70 * a), sp.C))) g.FillEllipse(b, sp.X - rad * 2.6f, sp.Y - rad * 2.6f, rad * 5.2f, rad * 5.2f);
+            using (var b = new SolidBrush(Color.FromArgb((int)(235 * a), sp.C))) g.FillEllipse(b, sp.X - rad, sp.Y - rad, rad * 2, rad * 2);
+            using (var b = new SolidBrush(Color.FromArgb((int)(255 * a), 255, 255, 255))) g.FillEllipse(b, sp.X - rad * 0.42f, sp.Y - rad * 0.42f, rad * 0.84f, rad * 0.84f);
+        }
+        g.SmoothingMode = sm;
+    }
+    // a big number whose picture (not its text box) is centred on a point, with a soft glow
+    void DrawBigNumber(Graphics g, string t, float cx, float cy, float em, Color c)
+    {
+        using (var gp = new GraphicsPath())
+        {
+            gp.AddString(t, GfxCache.Font(em, true).FontFamily, (int)FontStyle.Bold, em, PointF.Empty, StringFormat.GenericTypographic); var b = gp.GetBounds();
+            using (var m = new Matrix()) { m.Translate(cx - (b.X + b.Width / 2), cy - (b.Y + b.Height / 2)); gp.Transform(m); }
+            for (int i = 3; i >= 1; i--) using (var pen = new Pen(Color.FromArgb(34 / i + 8, c), i * 5f) { LineJoin = LineJoin.Round }) g.DrawPath(pen, gp);
+            using (var br = new SolidBrush(c)) g.FillPath(br, gp);
+        }
+    }
+    // one spark: it starts on the edge of the hexagon and flies straight out from it
+    void CinSpark(PointF[] v, float cx, float cy)
+    {
+        int e = cinRnd.Next(6); var p0 = v[e]; var p1 = v[(e + 1) % 6]; float t = (float)cinRnd.NextDouble(); float x = p0.X + (p1.X - p0.X) * t, y = p0.Y + (p1.Y - p0.Y) * t; float dx = x - cx, dy = y - cy, len = (float)Math.Sqrt(dx * dx + dy * dy); if (len < 1) return; dx /= len; dy /= len;
+        float sp = 70 + (float)cinRnd.NextDouble() * 190;
+        cinSparks.Add(new Spark { X = x, Y = y, VX = dx * sp + (float)(cinRnd.NextDouble() - 0.5) * 30, VY = dy * sp - 40 - (float)cinRnd.NextDouble() * 60, Max = 0.6f + (float)cinRnd.NextDouble() * 0.7f, R = 2.0f + (float)cinRnd.NextDouble() * 1.8f, C = SparkCols[cinRnd.Next(SparkCols.Length)], Life = 0 });
+        cinSparks[cinSparks.Count - 1].Life = cinSparks[cinSparks.Count - 1].Max;
     }
 
     void PaintKeyBox(Graphics g)
@@ -100,6 +142,6 @@ partial class StudioForm
         Txt(g, keyTitle, keyFound ? 54 : 34, c1, Rc(box.X + 14, box.Y + 48, box.Width - 28, keyFound ? 78 : 50), StringAlignment.Center, true);
         Txt(g, keySub, 14, Ink, Rc(box.X + 24, box.Y + (keyFound ? 130 : 100), box.Width - 48, keyFound ? 24 : 60), StringAlignment.Center, false);
         if (keyNote.Length > 0) Txt(g, keyNote, 12, DimC, Rc(box.X + 24, box.Y + (keyFound ? 158 : 150), box.Width - 48, 20), StringAlignment.Center, false);
-        Txt(g, "click anywhere to close", 11, Color.FromArgb(120, 150, 140, 190), Rc(box.X, box.Bottom - 30, box.Width, 18), StringAlignment.Center, false);
+        Txt(g, "CLICK ANYWHERE TO CLOSE", 11, Color.FromArgb(120, 150, 140, 190), Rc(box.X, box.Bottom - 30, box.Width, 18), StringAlignment.Center, false);
     }
 }

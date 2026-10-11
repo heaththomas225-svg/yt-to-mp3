@@ -66,9 +66,10 @@ partial class StudioForm
     {
         SyncLyricUi(!(menuOpen || browserOpen || busy));   // real text boxes sit above everything drawn by hand, so they step aside while a menu or popup is open
         float W = ClientSize.Width, H = ClientSize.Height, top = ToolH + TransH, w = Math.Min(1100, W - 64), x = (W - w) / 2;
-        Txt(g, "LYRICS", 16, Ink, Rc(x, top + 10, 130, 28), StringAlignment.Near, true); Txt(g, "title", 11, DimC, Rc(x + 74, top + 16, 60, 16), StringAlignment.Near, false);
+        Txt(g, "LYRICS", 16, Ink, Rc(x, top + 10, 130, 28), StringAlignment.Near, true); Txt(g, "TITLE", 11, DimC, Rc(x + 74, top + 16, 60, 16), StringAlignment.Near, false);
         string[] sec = { "Verse", "Chorus", "Pre-chorus", "Bridge", "Hook", "Intro", "Outro" }; float sx = x, sy = top + 50;
         foreach (var s0 in sec) { string s1 = s0; float bw = s0.Length > 6 ? 96 : 66; Btn(g, Rc(sx, sy, bw, 28), s0, 0, () => { InsertAtCaret("[" + s1 + "]\r\n", true); }, 11); sx += bw + 6; }
+        Btn(g, Rc(sx + 10, sy, 132, 28), "ADD SECTIONS", 2, () => AddLyricSections(), 11);
         if (lyricStatsDirty && lyricBox != null) { lyricStatsDirty = false; string txt = lyricBox.Text; int ln = 0; foreach (var l in txt.Split('\n')) if (l.Trim().Length > 0) ln++; statLines = ln; statSyl = LyricsTools.LineSyllables(txt); statWords = LyricsTools.Words(txt); }
         string cur = lyricBox != null ? CaretLine() : ""; int ci = lyricBox != null ? CaretLineIndex() + 1 : 0;
         float stw = Math.Max(120f, x + w - 4 * 84 - 6 - x); Txt(g, statLines + " lines   " + statWords + " words   " + statSyl + " syllables      Line " + ci + ": " + LyricsTools.LineSyllables(cur) + " syllables", 12, DimC, Rc(x, H - 52, stw, 20), StringAlignment.Near, false);
@@ -80,6 +81,7 @@ partial class StudioForm
     }
 
     // OPEN .TXT: load lyrics you wrote somewhere else (a notes app, a text file) into the writer
+    string sectionNote = "";
     void OpenLyricsFile()
     {
         using (var d = new OpenFileDialog { Title = "Open lyrics", Filter = "Text files|*.txt|All files|*.*" })
@@ -93,9 +95,10 @@ partial class StudioForm
                 var r = MessageBox.Show(this, "You already have lyrics here." + nl + nl + "Yes = replace them with this file" + nl + "No = add this file to the end" + nl + "Cancel = leave everything as it is", "Open lyrics", MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question);
                 if (r == DialogResult.Cancel) return; add = r == DialogResult.No;
             }
-            lyricBox.Text = add ? lyricBox.Text.TrimEnd() + nl + nl + text : text;
+            int nAdded; string secNote; text = LyricSections.Add(text, out nAdded, out secNote).Replace("\n", nl);   // a text file without parts gets [Verse 1], [Chorus]... put in
+            lyricBox.Text = add ? lyricBox.Text.TrimEnd() + nl + nl + text : text; if (nAdded > 0) sectionNote = secNote;
             if (lyricTitle.Text.Trim().Length == 0) lyricTitle.Text = Path.GetFileNameWithoutExtension(d.FileName);
-            Toast("Opened " + Path.GetFileName(d.FileName) + (add ? " (added to the end)." : "."));
+            Toast("Opened " + Path.GetFileName(d.FileName) + (add ? " (added to the end). " : ". ") + (sectionNote.Length > 0 ? sectionNote : "")); sectionNote = "";
         }
     }
 }

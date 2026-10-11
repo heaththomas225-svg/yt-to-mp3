@@ -14,13 +14,13 @@ partial class StudioForm
     readonly float[] vizHist = new float[300]; int vizHead; readonly float[] vizBand = new float[28]; long vizTick; float vizLevel;
     readonly double[] vzRe = new double[512], vzIm = new double[512]; static double[] vzHann;
 
-    void VizUpdate(bool playing)
-    {
-        long now = Environment.TickCount; float lvl = playing ? Math.Max(eng.MasterPeakL, eng.MasterPeakR) : 0f; vizLevel += (lvl - vizLevel) * 0.4f;
+    void VizUpdate(bool playing, StudioEngine src = null)
+    { var en = src ?? eng;
+        long now = Environment.TickCount; float lvl = playing ? Math.Max(en.MasterPeakL, en.MasterPeakR) : 0f; vizLevel += (lvl - vizLevel) * 0.4f;
         if (unchecked(now - vizTick) >= 15) { vizTick = now; vizHist[vizHead] = playing ? Math.Min(1f, vizLevel * 1.5f) : 0f; vizHead = (vizHead + 1) % vizHist.Length; }
         if (!playing) { for (int b = 0; b < vizBand.Length; b++) vizBand[b] *= 0.8f; return; }
         if (vzHann == null) { vzHann = new double[512]; for (int i = 0; i < 512; i++) vzHann[i] = 0.5 - 0.5 * Math.Cos(2 * Math.PI * i / 511); }
-        int p = (eng.MasterTapPos - 512) & 8191; var tap = eng.MasterTap; for (int i = 0; i < 512; i++) { vzRe[i] = tap[(p + i) & 8191] * vzHann[i]; vzIm[i] = 0; }
+        int p = (en.MasterTapPos - 512) & 8191; var tap = en.MasterTap; for (int i = 0; i < 512; i++) { vzRe[i] = tap[(p + i) & 8191] * vzHann[i]; vzIm[i] = 0; }
         Fft.Transform(vzRe, vzIm, false);
         for (int b = 0; b < vizBand.Length; b++)
         {
@@ -74,29 +74,71 @@ partial class StudioForm
         }
     }
 
+    // The vertical version of that scroll strip, for lists (styles, presets, effects...): solid black, arrows at both ends, the lit window shows where you are,
+    // and the logo in the middle is what you hold and drag (waves flow out of it while music plays).
+    int vHold; Func<float> vHoldGet; Action<float> vHoldSet; float vHoldMax;
+    void VScroll(Graphics g, RectangleF bar, float contentH, float viewH, Func<float> get, Action<float> set)
+    {
+        if (contentH <= viewH + 1 || bar.Height < 120) return; bool playing = eng.Playing; VizUpdate(playing); float max = contentH - viewH;
+        if (vHold != 0 && dragReg != null && vHoldSet != null) vHoldSet(Math.Max(0, Math.Min(vHoldMax, vHoldGet() + vHold * 8))); else vHold = 0;
+        FillRR(g, Color.Black, bar, 12); using (var pen = new Pen(Color.FromArgb(playing ? 230 : 150, NeonViolet), 1.3f)) { using (var p = RR(bar, 12)) g.DrawPath(pen, p); }
+        const float cap = 34; var inner = Rc(bar.X + 3, bar.Y + cap, bar.Width - 6, bar.Height - 2 * cap); float th = inner.Height, cx = bar.X + bar.Width / 2, cym = inner.Y + th / 2;
+        var up = Rc(bar.X, bar.Y, bar.Width, cap); var dn = Rc(bar.X, bar.Bottom - cap, bar.Width, cap); bool hu = Hot(up), hd = Hot(dn);
+        using (var pen = new Pen(Color.FromArgb(hu ? 255 : 200, NeonCyan), 2.2f) { LineJoin = LineJoin.Round, StartCap = LineCap.Round, EndCap = LineCap.Round }) for (int k = 0; k < 2; k++) g.DrawLines(pen, new[] { new PointF(cx - 6, up.Y + 18 + k * 6), new PointF(cx, up.Y + 12 + k * 6), new PointF(cx + 6, up.Y + 18 + k * 6) });
+        using (var pen = new Pen(Color.FromArgb(hd ? 255 : 200, NeonPink), 2.2f) { LineJoin = LineJoin.Round, StartCap = LineCap.Round, EndCap = LineCap.Round }) for (int k = 0; k < 2; k++) g.DrawLines(pen, new[] { new PointF(cx - 6, dn.Bottom - 18 - k * 6), new PointF(cx, dn.Bottom - 12 - k * 6), new PointF(cx + 6, dn.Bottom - 18 - k * 6) });
+        float tH = Math.Max(18f, th * viewH / contentH), ty = inner.Y + (max <= 0 ? 0 : Math.Max(0, Math.Min(1, get() / max)) * (th - tH)); var thumb = Rc(inner.X, ty, inner.Width, tH);
+        using (var br = new SolidBrush(Color.FromArgb(70, 0, 110, 130))) g.FillRectangle(br, thumb); using (var pen = new Pen(Color.FromArgb(200, NeonCyan), 1.4f)) { g.DrawLine(pen, thumb.X, thumb.Y, thumb.Right, thumb.Y); g.DrawLine(pen, thumb.X, thumb.Bottom, thumb.Right, thumb.Bottom); }
+        float lh = Math.Min(14f, bar.Width / 2 - 3), lhw = lh * 1.16f; var logoR = Rc(cx - lhw - 2, cym - lh - 2, lhw * 2 + 4, lh * 2 + 4);
+        if (playing)
+        {   // waves flow out of the logo, up and down the bar
+            var st = g.Save(); g.SetClip(inner, CombineMode.Intersect); int hl = vizHist.Length; float maxW = bar.Width / 2 - 4;
+            for (int c = 0; c < 90; c++)
+            {
+                float v = vizHist[(vizHead - 1 - c + hl * 4) % hl]; float amp = Math.Max(1f, v * maxW * (1f - c / 130f)); int al = (int)(235 * (1f - c / 100f)); if (al <= 4) break;
+                float yu = cym - lh - 4 - c * 2.2f, yd = cym + lh + 4 + c * 2.2f;
+                using (var pu = new Pen(Color.FromArgb(al, 0, 229, 255), 1.5f)) g.DrawLine(pu, cx - amp, yu, cx + amp, yu); using (var pd = new Pen(Color.FromArgb(al, 255, 43, 214), 1.5f)) g.DrawLine(pd, cx - amp, yd, cx + amp, yd);
+            }
+            g.Restore(st);
+        }
+        bool hotLogo = Hot(logoR) || (dragReg != null && dragReg.R == logoR); DrawLogo(g, cx, cym, lh, playing, hotLogo);
+        // the strip itself: click to jump, drag the lit window; arrows: click to step, hold to keep going; logo: hold and drag
+        Action<float> jump = my => set(Math.Max(0, Math.Min(max, (my - tH / 2 - inner.Y) / Math.Max(1, th - tH) * max)));
+        var rg = Reg(inner, () => jump(MousePos.Y)); rg.OnDrag = pt => jump(pt.Y);
+        var ru = Reg(up, () => { set(Math.Max(0, get() - 60)); vHold = -1; vHoldGet = get; vHoldSet = set; vHoldMax = max; }); ru.OnDrag = pt => { }; ru.OnUp = () => vHold = 0;
+        var rd = Reg(dn, () => { set(Math.Min(max, get() + 60)); vHold = 1; vHoldGet = get; vHoldSet = set; vHoldMax = max; }); rd.OnDrag = pt => { }; rd.OnUp = () => vHold = 0;
+        float downY = 0, downS = 0; var lg = Reg(logoR, () => { downY = MousePos.Y; downS = get(); }); lg.OnDrag = pt => set(Math.Max(0, Math.Min(max, downS + (pt.Y - downY) / Math.Max(1, th) * contentH)));
+        if (Hot(logoR)) { bubble = "Hold and drag to scroll the list"; bubblePt = MousePos; }
+    }
+
     // The bar shows the whole song. The lit window is what you see: hold the logo and drag to move it, drag the window's ends to zoom, click the bar to jump, double-click to fit the whole song.
     void PaintOverview(Graphics g, RectangleF tl)
     {
+        const float barH = 34; var ob = Rc(HeadW, ClientSize.Height - barH - 6, tl.Width, barH); double total = Math.Max(eng.EndFrame * 1.04, StudioEngine.SR * 10.0);
+        PaintScrollStrip(g, ob, total, 0, tl.Width, true);
+    }
+    // One scroll strip, used under the tracks and at the top of Flex Pitch: ob = the strip, total = the frames it stands for, baseFrame = the frame at its left end,
+    // viewW = the width in pixels of the part of the song you are looking at. Solid black, so nothing behind it can show through or flicker.
+    void PaintScrollStrip(Graphics g, RectangleF ob, double total, long baseFrame, float viewW, bool clips)
+    {
         bool playing = eng.Playing; VizUpdate(playing); if (scrollHold != 0 && dragReg != null) ScrollView(scrollHold * 0.012); else scrollHold = 0;   // a chevron held down keeps scrolling
-        const float barH = 34, cw = 44; var ob = Rc(HeadW, ClientSize.Height - barH - 6, tl.Width, barH); double total = Math.Max(eng.EndFrame * 1.04, StudioEngine.SR * 10.0);
-        FillRR(g, Color.FromArgb(240, 8, 4, 18), ob, 12);
-        using (var pen = new Pen(Color.FromArgb(playing ? 210 : 120, NeonViolet), 1.3f)) { using (var p = RR(ob, 12)) g.DrawPath(pen, p); }
-        if (playing) Glow(g, NeonViolet, ob, 12, 0.35f + Math.Min(0.5f, vizLevel), 3);
+        const float cw = 44;
+        FillRR(g, Color.Black, ob, 12);
+        using (var pen = new Pen(Color.FromArgb(playing ? 230 : 150, NeonViolet), 1.3f)) { using (var p = RR(ob, 12)) g.DrawPath(pen, p); }
         var inner = Rc(ob.X + cw, ob.Y + 3, ob.Width - 2 * cw, ob.Height - 6); float tw = inner.Width, cy = ob.Y + ob.Height / 2;
         // the clips, small and faint
-        int n = LaneCount; if (n > 0)
+        int n = clips ? LaneCount : 0; if (n > 0)
             for (int i = 0; i < n; i++)
             {
                 var tr = eng.Tracks[i]; float a = inner.X + (float)(Math.Max(0, tr.Offset) / total * tw), b = inner.X + (float)(Math.Min(total, tr.Offset + Math.Max(1, tr.UsedLength)) / total * tw), th = (inner.Height) / n;
                 using (var br = new SolidBrush(Color.FromArgb(playing ? 34 : 80, Neon(tr.Color)))) g.FillRectangle(br, a, inner.Y + i * th, Math.Max(2, b - a), Math.Max(1.5f, th - 1));
             }
         // the window you are looking at
-        double win = tl.Width * spp; float ww = Math.Max(16f, (float)(win / total * tw)), x0 = inner.X + (float)(scroll / total * tw); x0 = Math.Max(inner.X, Math.Min(inner.Right - ww, x0));
+        double win = viewW * spp; float ww = Math.Max(16f, (float)(win / total * tw)), x0 = inner.X + (float)((scroll - baseFrame) / total * tw); x0 = Math.Max(inner.X, Math.Min(inner.Right - ww, x0));
         var thumb = Rc(x0, inner.Y, ww, inner.Height);
-        using (var br = new SolidBrush(Color.FromArgb(playing ? 26 : 40, NeonCyan))) g.FillRectangle(br, thumb);
+        using (var br = new SolidBrush(Color.FromArgb(70, 0, 110, 130))) g.FillRectangle(br, thumb);
         using (var pen = new Pen(Color.FromArgb(200, NeonCyan), 1.4f)) { g.DrawLine(pen, thumb.X, thumb.Y, thumb.X, thumb.Bottom); g.DrawLine(pen, thumb.Right, thumb.Y, thumb.Right, thumb.Bottom); }
-        // the logo sits in the middle of the window
-        float lh = ob.Height / 2 - 2, lhw = lh * 1.16f; float logoCx = Math.Max(inner.X + lhw, Math.Min(inner.Right - lhw, thumb.X + thumb.Width / 2));
+        // the logo always sits in the middle of the bar (the lit window shows where you are; the logo is what you hold)
+        float lh = ob.Height / 2 - 2, lhw = lh * 1.16f; float logoCx = inner.X + tw / 2;
         // the waves that flow out of the logo along the bar
         if (playing)
         {
@@ -117,24 +159,24 @@ partial class StudioForm
         int mode = 0; double startScroll = scroll, startSpp = spp; float grab = 0; float inX = inner.X;
         var rg = Reg(Rc(inner.X, ob.Y, inner.Width, ob.Height), () =>
         {
-            autoFit = false; float mx = MousePos.X; startScroll = scroll; startSpp = spp;
-            if (Math.Abs(mx - thumb.X) < 10) mode = 1; else if (Math.Abs(mx - thumb.Right) < 10) mode = 2; else { mode = 0; grab = mx >= thumb.X && mx <= thumb.Right ? mx - thumb.X : thumb.Width / 2; if (mx < thumb.X || mx > thumb.Right) { double s = (mx - grab - inX) / tw * total; scroll = (long)Math.Max(0, Math.Min(Math.Max(0, total - win), s)); } }
+            autoFit = false; UserScrolled(); float mx = MousePos.X; startScroll = scroll; startSpp = spp;
+            if (Math.Abs(mx - thumb.X) < 10) mode = 1; else if (Math.Abs(mx - thumb.Right) < 10) mode = 2; else { mode = 0; grab = mx >= thumb.X && mx <= thumb.Right ? mx - thumb.X : thumb.Width / 2; if (mx < thumb.X || mx > thumb.Right) { double s = baseFrame + (mx - grab - inX) / tw * total; scroll = (long)Math.Max(0, Math.Min(Math.Max(0, baseFrame + total - win), s)); } }
         });
         rg.OnDouble = () => FitView();
         rg.OnDrag = pt =>
         {
             float mx = pt.X;
-            if (mode == 0) { double s = (mx - grab - inX) / tw * total; scroll = (long)Math.Max(0, Math.Min(Math.Max(0, total - win), s)); }
-            else if (mode == 2) { double w = Math.Max(30, mx - thumb.X) / tw * total; spp = Math.Max(MinSpp, Math.Min(MaxSpp, w / tl.Width)); }
-            else { double right = startScroll + tl.Width * startSpp; double nl = Math.Max(0, Math.Min(right - tl.Width * MinSpp, (mx - inX) / tw * total)); spp = Math.Max(MinSpp, Math.Min(MaxSpp, (right - nl) / tl.Width)); scroll = (long)Math.Max(0, right - tl.Width * spp); }
+            if (mode == 0) { double s = baseFrame + (mx - grab - inX) / tw * total; scroll = (long)Math.Max(0, Math.Min(Math.Max(0, baseFrame + total - win), s)); }
+            else if (mode == 2) { double w = Math.Max(30, mx - thumb.X) / tw * total; spp = Math.Max(MinSpp, Math.Min(MaxSpp, w / viewW)); }
+            else { double right = startScroll + viewW * startSpp; double nl = Math.Max(0, Math.Min(right - viewW * MinSpp, baseFrame + (mx - inX) / tw * total)); spp = Math.Max(MinSpp, Math.Min(MaxSpp, (right - nl) / viewW)); scroll = (long)Math.Max(0, right - viewW * spp); }
         };
-        var chL = Reg(lr, () => { autoFit = false; ScrollView(-0.15); scrollHold = -1; }); var chR = Reg(rr, () => { autoFit = false; ScrollView(0.15); scrollHold = 1; });
+        var chL = Reg(lr, () => { autoFit = false; UserScrolled(); ScrollView(-0.15); scrollHold = -1; }); var chR = Reg(rr, () => { autoFit = false; UserScrolled(); ScrollView(0.15); scrollHold = 1; });
         chL.OnDrag = pt => { }; chR.OnDrag = pt => { }; chL.OnUp = () => scrollHold = 0; chR.OnUp = () => scrollHold = 0;
         // the logo: hold left click on it and drag left or right to scroll
         var logoR = Rc(logoCx - lhw, cy - lh, lhw * 2, lh * 2); bool hotLogo = Hot(logoR) || (dragReg != null && dragReg.R == logoR);
         DrawLogo(g, logoCx, cy, lh, playing, hotLogo);
-        float grabX = 0; var lg = Reg(logoR, () => { autoFit = false; grabX = MousePos.X - logoCx; });
-        lg.OnDrag = pt => { double s = (pt.X - grabX - thumb.Width / 2 - inX) / tw * total; scroll = (long)Math.Max(0, Math.Min(Math.Max(0, total - win), s)); };
+        float downX = 0; long downScroll = 0; var lg = Reg(logoR, () => { autoFit = false; UserScrolled(); downX = MousePos.X; downScroll = scroll; });
+        lg.OnDrag = pt => { double s = downScroll + (pt.X - downX) / tw * total; scroll = (long)Math.Max(0, Math.Min(Math.Max(0, baseFrame + total - win), s)); };
         lg.OnDouble = () => FitView();
         if (Hot(logoR)) { bubble = "Hold and drag to scroll along the song"; bubblePt = MousePos; }
     }

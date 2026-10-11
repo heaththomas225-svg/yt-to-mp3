@@ -119,7 +119,7 @@ partial class StudioForm
     // ---- geometry ----
     int FlexPanelH() { return Math.Max(280, Math.Min(440, (int)((ClientSize.Height - ToolH - TransH) * 0.64))); }
     RectangleF FlexPanel() { float h = FlexPanelH(); return Rc(0, ClientSize.Height - h, ClientSize.Width - PanelW, h); }
-    RectangleF FlexNoteArea() { var p = FlexPanel(); return Rc(HeadW, p.Y + 48, p.Width - HeadW - 4, p.Height - 48 - 52); }
+    RectangleF FlexNoteArea() { var p = FlexPanel(); return Rc(HeadW, p.Y + 92, p.Width - HeadW - 4, p.Height - 92 - 52); }
     float flexRows = 24;   // how many semitones fit in the note area (zoom)
     float FlexRowH { get { var na = FlexNoteArea(); return Math.Max(13f, Math.Min(44f, na.Height / Math.Max(8f, flexRows))); } }
     float FlexX(double clipSample) { return HeadW + (float)((flexTrack.Offset + clipSample - scroll) / spp); }
@@ -131,15 +131,14 @@ partial class StudioForm
     // ---- painting ----
     void PaintFlex(Graphics g)
     {
-        FlexTick(); FlexAutoSaveTick(); var P = FlexPanel(); var na = FlexNoteArea(); var t = flexTrack; if (t == null) return; var gs0 = g.Save();
+        FlexTick(); FlexAutoSaveTick(); var P = FlexPanel(); if (TxtAudit != null) TxtAudit.RemoveAll(t0 => P.IntersectsWith(t0.Ink)); var na = FlexNoteArea(); var t = flexTrack; if (t == null) return; var gs0 = g.Save();
         using (var br = new SolidBrush(Color.FromArgb(255, 10, 5, 24))) g.FillRectangle(br, P);
         using (var pen = new Pen(Color.FromArgb(220, NeonViolet), 1.6f)) g.DrawLine(pen, P.X, P.Y, P.Right, P.Y); using (var glow = new Pen(Color.FromArgb(50, NeonCyan), 5f)) g.DrawLine(glow, P.X, P.Y + 1, P.Right, P.Y + 1);
         Reg(P, () => { }).OnWheel = d => { if (ModifierKeys == Keys.Control) { ZoomBy(d > 0 ? 0.8 : 1.25); autoFit = false; } else flexLow = Math.Max(0, Math.Min(110, flexLow + (d > 0 ? 3 : -3))); };
         PaintFlexInspector(g, P); FlexScrollBar(g, P, na);
         // header
-        Txt(g, "FLEX PITCH  -  " + t.Name, 13, Ink, Rc(na.X, P.Y + 22, 420, 22), StringAlignment.Near, true);
-        if (!flexAnalysing) { Btn(g, Rc(na.Right - 62, P.Y + 21, 26, 24), "-", 0, () => { double mid = flexLow + flexRows / 2; flexRows = Math.Min(60, flexRows * 1.25f); flexLow = (float)(mid - flexRows / 2); }, 13); Btn(g, Rc(na.Right - 32, P.Y + 21, 26, 24), "+", 0, () => { double mid = flexLow + flexRows / 2; flexRows = Math.Max(10, flexRows / 1.25f); flexLow = (float)(mid - flexRows / 2); }, 13); Txt(g, "pitch zoom", 10, DimC, Rc(na.Right - 140, P.Y + 24, 74, 18), StringAlignment.Far, false); }
-        Txt(g, flexAnalysing ? "Listening to the recording... " + (int)(flexPct * 100) + "%" : (flexSavedAt.Length > 0 ? "Edits saved automatically at " + flexSavedAt : (flexEdited ? "Saving your edits automatically..." : "Drag notes up or down (Alt = free)   Double-click = reset   Right-click = more")), 11, flexSavedAt.Length > 0 ? Color.FromArgb(150, 255, 150) : DimC, Rc(na.X + 330, P.Y + 24, na.Width - 480, 20), StringAlignment.Far, false);
+        Txt(g, "FLEX PITCH  -  " + t.Name, 13, Ink, Rc(na.X, P.Y + 66, 420, 22), StringAlignment.Near, true);
+        Txt(g, flexAnalysing ? "Listening to the recording... " + (int)(flexPct * 100) + "%" : (flexSavedAt.Length > 0 ? (na.Width - 300 > 200 ? "Saved automatically at " + flexSavedAt : (na.Width - 300 > 60 ? "Saved" : "")) : (flexEdited ? (na.Width - 300 > 200 ? "Saving automatically..." : "") : (na.Width - 300 > 450 ? "Drag notes up or down (Alt = free)   Double-click = reset   Right-click = more" : (na.Width - 300 > 150 ? "Drag notes up or down" : "")))), 11, flexSavedAt.Length > 0 ? Color.FromArgb(150, 255, 150) : DimC, Rc(na.X + 300, P.Y + 68, Math.Max(10, na.Width - 300), 20), StringAlignment.Far, false);
         // pitch rows
         var gc = g.Save(); g.SetClip(na); using (var bg = new SolidBrush(Color.FromArgb(235, 6, 3, 16))) g.FillRectangle(bg, na);
         int rows = (int)Math.Ceiling(na.Height / FlexRowH) + 1;
@@ -155,7 +154,7 @@ partial class StudioForm
         if (flexAnalysing || flexAna == null)
         {
             var pb = Rc(na.X + na.Width / 2 - 180, na.Y + na.Height / 2 - 14, 360, 18); FillRR(g, Color.FromArgb(220, 8, 4, 18), pb, 9); FillRR(g, NeonCyan, Rc(pb.X, pb.Y, Math.Max(10, pb.Width * flexPct), pb.Height), 9);
-            Txt(g, "Finding the notes in " + t.Name + "...", 13, Ink, Rc(na.X, pb.Y - 30, na.Width, 24), StringAlignment.Center, true); FlexWave(g, P, na); g.Restore(gs0); return;
+            Txt(g, "FINDING THE NOTES IN " + t.Name + "...", 13, Ink, Rc(na.X, pb.Y - 30, na.Width, 24), StringAlignment.Center, true); FlexWave(g, P, na); g.Restore(gs0); return;
         }
         // background: click = deselect / split tool, drag = marquee
         var bgReg = Reg(na, () => FlexBackgroundDown()); bgReg.OnDrag = pt => { flexNow = pt; flexMoved = true; }; bgReg.OnUp = () => FlexBackgroundUp(); bgReg.OnDouble = () => { };
@@ -185,20 +184,13 @@ partial class StudioForm
         g.Restore(ncl); FlexWave(g, P, na); g.Restore(gs0);
     }
 
-    // the scroll bar along the top of the editor: drag the lit part to move along the recording, click to jump
+    // the strip along the top of the editor: the same logo scroll strip as the one under the tracks (hold the logo and drag, arrows at the ends, waves out of the logo while music plays),
+    // with the zoom slider centred under it
     void FlexScrollBar(Graphics g, RectangleF P, RectangleF na)
     {
-        var t = flexTrack; if (t == null || flexLen <= 0) return; var bar = Rc(na.X, P.Y + 6, na.Width, 12);
-        FillRR(g, Color.FromArgb(235, 8, 4, 18), bar, 6); StrokeRR(g, Color.FromArgb(120, NeonViolet), bar, 6, 1);
-        double pad = flexLen * 0.06, start = t.Offset - pad, total = flexLen + 2 * pad, win = na.Width * spp;
-        float ww = Math.Min(bar.Width, Math.Max(30f, (float)(win / total * bar.Width))), x0 = bar.X + (float)((scroll - start) / total * bar.Width); x0 = Math.Max(bar.X, Math.Min(bar.Right - ww, x0));
-        var thumb = Rc(x0, bar.Y + 1, ww, bar.Height - 2); bool hot = Hot(Rc(bar.X, bar.Y - 3, bar.Width, bar.Height + 6));
-        FillRR(g, Color.FromArgb(hot ? 245 : 205, NeonCyan), thumb, 5); Glow(g, NeonCyan, thumb, 5, 0.5f, 2);
-        // the clip itself, small, so you can see where you are in it
-        using (var br = new SolidBrush(Color.FromArgb(70, NeonViolet))) { float a = bar.X + (float)((t.Offset - start) / total * bar.Width), b2 = bar.X + (float)((t.Offset + flexLen - start) / total * bar.Width); g.FillRectangle(br, Math.Max(bar.X + 2, a), bar.Y + 4, Math.Max(2, Math.Min(bar.Right - 2, b2) - Math.Max(bar.X + 2, a)), bar.Height - 8); }
-        float grab = 0; Action<float> setX = mx => { double sc = start + (mx - grab - bar.X) / bar.Width * total; scroll = (long)Math.Max(0, Math.Min(Math.Max(0, eng.EndFrame * 1.04 - win), sc)); autoFit = false; };
-        var rg = Reg(Rc(bar.X, bar.Y - 3, bar.Width, bar.Height + 6), () => { float mx = MousePos.X; grab = (mx >= thumb.X && mx <= thumb.Right) ? mx - thumb.X : ww / 2; setX(mx); }); rg.OnDrag = pt => setX(pt.X);
-        if (hot) { bubble = "Drag to scroll along the recording"; bubblePt = MousePos; }
+        var t = flexTrack; if (t == null || flexLen <= 0) return; double pad = flexLen * 0.06; long baseF = t.Offset - (long)pad; double total = flexLen + 2 * pad;
+        PaintScrollStrip(g, Rc(na.X, P.Y + 4, na.Width, 34), total, baseF, na.Width, false);
+        PaintZoomSlider(g, na.X + na.Width / 2 - 125, P.Y + 40, 200);
     }
 
     void FlexWave(Graphics g, RectangleF P, RectangleF na)
@@ -231,7 +223,7 @@ partial class StudioForm
         slider("Formant", -12, 12, n => n.Formant, (n, v) => n.Formant = v, "{0:+0.0;-0.0;0} st", 0);
         y += 4; float bw = (w - 6) / 2;
         Btn(g, Rc(x, y, bw, 26), "Correct pitch", 1, () => FlexCorrect(), 11); Btn(g, Rc(x + bw + 6, y, bw, 26), PitchCorrector.Keys[flexKey] + " " + (flexScale == 0 ? "chromatic" : PitchCorrector.Scales[flexScale].ToLowerInvariant()), 0, () => FlexScaleMenu(), 10); y += 30;
-        Txt(g, "Amount", 11, DimC, Rc(x, y, 52, 20), StringAlignment.Near, false); var ar = Rc(x + 54, y + 3, w - 54 - 52, 16); Slider(g, ar, flexAmount / 100f, f => flexAmount = (float)Math.Round(f * 100), NeonViolet).OnDouble = () => flexAmount = 100; Txt(g, ((int)flexAmount) + " %", 11, Ink, Rc(x + w - 50, y, 50, 20), StringAlignment.Far, false); y += 26;
+        Txt(g, "AMOUNT", 11, DimC, Rc(x, y, 52, 20), StringAlignment.Near, false); var ar = Rc(x + 54, y + 3, w - 54 - 52, 16); Slider(g, ar, flexAmount / 100f, f => flexAmount = (float)Math.Round(f * 100), NeonViolet).OnDouble = () => flexAmount = 100; Txt(g, ((int)flexAmount) + " %", 11, Ink, Rc(x + w - 50, y, 50, 20), StringAlignment.Far, false); y += 26;
         Btn(g, Rc(x, y, bw, 26), "Select all", 0, () => { lock (flexLk) { flexSel.Clear(); if (flexAna != null) flexSel.AddRange(flexAna.Notes.FindAll(n => !n.Deleted)); } }, 11); Btn(g, Rc(x + bw + 6, y, bw, 26), flexSplitTool ? "Split: ON" : "Split tool", flexSplitTool ? 4 : 0, () => flexSplitTool = !flexSplitTool, 11); y += 30;
         Btn(g, Rc(x, y, bw, 26), "Reset note", 0, () => { lock (flexLk) foreach (var n in flexSel) n.ResetEdits(); FlexChanged(); }, 11); Btn(g, Rc(x + bw + 6, y, bw, 26), "Original", 3, () => FlexRevert(), 11); y += 30;
         Btn(g, Rc(x, y, w, 30), "DONE (keep edits)", 2, () => FlexClose(true), 12);

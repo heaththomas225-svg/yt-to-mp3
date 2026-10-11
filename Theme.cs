@@ -115,6 +115,70 @@ static class Win
         if (f == null || f.IsDisposed) return; if (!f.Visible) f.Show(); if (f.WindowState == FormWindowState.Minimized) f.WindowState = FormWindowState.Normal; f.Activate(); f.BringToFront();
     }
 
+    // ---- the look of the writing: ALL CAPITALS in a bold, techy font (Bahnschrift, which every Windows 10 / 11 PC has; Segoe UI if it is missing) ----
+    static string uiFamily, uiBoldFamily;
+    public static string UiFamily { get { Fonts0(); return uiFamily; } }
+    public static string UiBoldFamily { get { Fonts0(); return uiBoldFamily; } }
+    static void Fonts0()
+    {
+        if (uiFamily != null) return;
+        bool ok = false; try { using (var f = new Font("Bahnschrift SemiBold", 10f)) ok = f.Name == "Bahnschrift SemiBold"; } catch { }
+        uiFamily = ok ? "Bahnschrift SemiBold" : "Segoe UI Semibold"; uiBoldFamily = ok ? "Bahnschrift" : "Segoe UI";
+    }
+    public static Font UiFont(float points, bool bold = false) { Fonts0(); return new Font(bold ? uiBoldFamily : uiFamily, points, bold ? FontStyle.Bold : FontStyle.Regular, GraphicsUnit.Point); }
+    // capitals, but units keep their usual spelling after a number (dB, Hz, kHz, ms)
+    public static string Up(string s)
+    {
+        if (string.IsNullOrEmpty(s)) return s; string u = s.ToUpperInvariant();
+        return System.Text.RegularExpressions.Regex.Replace(u, @"(?<=[0-9.]\s?)(DB|KHZ|HZ|MS)\b", m => m.Value == "DB" ? "dB" : (m.Value == "KHZ" ? "kHz" : (m.Value == "HZ" ? "Hz" : "ms")));
+    }
+
+    // Buttons, tick boxes and short labels of a window: capitals in the bold font (and they stay that way when the program changes their text later).
+    // Long sentences keep their normal letters so they stay easy to read.
+    public static void CapsAll(Control root)
+    {
+        foreach (Control c in root.Controls)
+        {
+            if (c is Button || c is CheckBox || c is RadioButton || c is Label || c is GroupBox)
+            {
+                if (!(c.Tag is string && (string)c.Tag == "nocaps"))
+                {
+                    var k = c; Action fix = () => { string t = k.Text; if (t != null && t.Length > 0 && t.Length <= 40 && t.IndexOf('\n') < 0) { string u = Up(t); if (u != t) k.Text = u; } };
+                    fix(); k.TextChanged += (s, e) => fix(); float pt = k.Font.SizeInPoints; bool bold = k.Font.Bold || k is Button; try { k.Font = UiFont(pt, bold && !(k is Label && pt < 10 && !k.Font.Bold)); } catch { }
+                }
+            }
+            if (c.HasChildren) CapsAll(c);
+        }
+    }
+
+    // A one-line box with an exact size (a plain one-line TextBox shrinks to the height of its text, which pulls its frame and the writing above it apart on some PCs).
+    // It is a one-line box in a multi-line control whose text is centred up and down.
+    [DllImport("user32.dll")] static extern IntPtr SendMessage(IntPtr h, int msg, IntPtr w, ref RECT r);
+    [StructLayout(LayoutKind.Sequential)] struct RECT { public int L, T, R, B; }
+    public static void FixedBox(TextBox tb)
+    {
+        tb.Multiline = true; tb.WordWrap = false; tb.AcceptsReturn = false; tb.ScrollBars = ScrollBars.None;
+        Action fit = () => { if (!tb.IsHandleCreated) return; int fh = TextRenderer.MeasureText("Ag", tb.Font).Height, top = Math.Max(1, (tb.ClientSize.Height - fh) / 2); var r = new RECT { L = 6, T = top, R = Math.Max(10, tb.ClientSize.Width - 6), B = Math.Max(top + 4, tb.ClientSize.Height - 1) }; SendMessage(tb.Handle, 0xB3, IntPtr.Zero, ref r); };
+        tb.HandleCreated += (s, e) => fit(); tb.SizeChanged += (s, e) => fit(); tb.FontChanged += (s, e) => fit();
+        tb.KeyPress += (s, e) => { if (e.KeyChar == '\r' || e.KeyChar == '\n') e.Handled = true; };
+    }
+
+    // Moves a file to the Recycle Bin (so deleting a project from Purphex can be undone from Windows).
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)] struct ShFile64 { public IntPtr hwnd; public uint wFunc; [MarshalAs(UnmanagedType.LPWStr)] public string pFrom; [MarshalAs(UnmanagedType.LPWStr)] public string pTo; public ushort fFlags; public int fAnyOperationsAborted; public IntPtr hNameMappings; [MarshalAs(UnmanagedType.LPWStr)] public string lpszProgressTitle; }
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode, Pack = 1)] struct ShFile32 { public IntPtr hwnd; public uint wFunc; [MarshalAs(UnmanagedType.LPWStr)] public string pFrom; [MarshalAs(UnmanagedType.LPWStr)] public string pTo; public ushort fFlags; public int fAnyOperationsAborted; public IntPtr hNameMappings; [MarshalAs(UnmanagedType.LPWStr)] public string lpszProgressTitle; }
+    [DllImport("shell32.dll", CharSet = CharSet.Unicode, EntryPoint = "SHFileOperationW")] static extern int ShOp64(ref ShFile64 f);
+    [DllImport("shell32.dll", CharSet = CharSet.Unicode, EntryPoint = "SHFileOperationW")] static extern int ShOp32(ref ShFile32 f);
+    public static bool Recycle(string path)
+    {
+        try
+        {
+            if (!System.IO.File.Exists(path)) return true; const ushort flags = 0x0040 | 0x0010 | 0x0004 | 0x0400;   // allow undo (Recycle Bin), no questions, no windows
+            int r; if (IntPtr.Size == 8) { var f = new ShFile64 { wFunc = 3, pFrom = path + "\0\0", fFlags = flags }; r = ShOp64(ref f); } else { var f = new ShFile32 { wFunc = 3, pFrom = path + "\0\0", fFlags = flags }; r = ShOp32(ref f); }
+            return r == 0 && !System.IO.File.Exists(path);
+        }
+        catch { return false; }
+    }
+
     // ---- neon boxes: every text and number box in the app gets a thin glowing border (dark inside, bright text) ----
     static readonly System.Runtime.CompilerServices.ConditionalWeakTable<Control, object> neonBoxes = new System.Runtime.CompilerServices.ConditionalWeakTable<Control, object>(), neonParents = new System.Runtime.CompilerServices.ConditionalWeakTable<Control, object>();
     public static void NeonBox(Control c)
@@ -130,7 +194,7 @@ static class Win
     public static void PaintNeonChildren(Control parent, Graphics g)
     {
         var sm = g.SmoothingMode; g.SmoothingMode = SmoothingMode.AntiAlias;
-        foreach (Control c in parent.Controls) { object o; if (!c.Visible || !neonBoxes.TryGetValue(c, out o)) continue; DrawNeonBox(g, Rectangle.Inflate(c.Bounds, 5, 4), c.ContainsFocus, c.Enabled); }
+        foreach (Control c in parent.Controls) { object o; if (!c.Visible || !neonBoxes.TryGetValue(c, out o)) continue; DrawNeonBox(g, Rectangle.Inflate(c.Bounds, 3, 2), c.ContainsFocus, c.Enabled); }
         g.SmoothingMode = sm;
     }
     static GraphicsPath NeonPath(RectangleF r, float rad)
@@ -153,6 +217,8 @@ static class Win
     public static ContextMenuStrip NewMenu()
     {
         var m = new ContextMenuStrip { Renderer = new DarkRenderer(), BackColor = Color.FromArgb(16, 8, 32), ForeColor = Color.FromArgb(240, 232, 255), ShowImageMargin = false, Font = new Font("Segoe UI", 10f) };
+        m.Font = UiFont(9.5f); Action<ToolStripItem> up = null; up = it => { if (!string.IsNullOrEmpty(it.Text) && it.Text.Length <= 70) it.Text = Up(it.Text); var mi = it as ToolStripMenuItem; if (mi != null) { mi.DropDown.ItemAdded += (s2, e2) => up(e2.Item); foreach (ToolStripItem sub in mi.DropDownItems) up(sub); } };
+        m.ItemAdded += (s, e) => up(e.Item);
         m.Opened += (s, e) => { MenuShownAt = Control.MousePosition; MenuAway = false; };
         m.Closed += (s, e) => { if (e.CloseReason == ToolStripDropDownCloseReason.AppClicked) { MenuAway = true; MenuClosedAt = Environment.TickCount; } };
         return m;
@@ -324,7 +390,7 @@ static class GfxCache
     public static Font Font(float px, bool bold)
     {
         int k = (int)(px * 10) * 2 + (bold ? 1 : 0); Font f;
-        lock (fonts) { if (!fonts.TryGetValue(k, out f)) { f = new Font("Segoe UI", px, bold ? FontStyle.Bold : FontStyle.Regular, GraphicsUnit.Pixel); fonts[k] = f; } }
+        lock (fonts) { if (!fonts.TryGetValue(k, out f)) { f = new Font(bold ? Win.UiBoldFamily : Win.UiFamily, px, bold ? FontStyle.Bold : FontStyle.Regular, GraphicsUnit.Pixel); fonts[k] = f; } }
         return f;
     }
     public static StringFormat Fmt(StringAlignment ha, bool ellipsis)

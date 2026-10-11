@@ -36,13 +36,13 @@ partial class StudioForm
     // ---------- state ----------
     bool snapOn = true; int gridIdx = 2; static readonly string[] GridNames = { "Bar", "1/2 bar", "Beat", "1/8 note", "1/16 note" }; static readonly string[] GridWhy = { "every bar (4 beats)", "every half bar (2 beats)", "every beat", "every half beat (eighth note)", "every quarter beat (sixteenth note)" }; int gridFlashAt = -100000; static readonly double[] GridBeats = { 4, 2, 1, 0.5, 0.25 };
     readonly List<Fx> retired = new List<Fx>();   // effects of deleted tracks stay alive so Undo can bring the track back
-    class TS { public long Offset, ClipStart, ClipFrames; public float Vol, Pan; public bool Mute, Solo; public string Name; public AudioClip Clip; public Track Host, Out; public List<Fx> Fx; public List<AutoLane> Auto; public long FadeIn, FadeOut; public float ClipGain; public bool Locked; }
+    class TS { public long Offset, ClipStart, ClipFrames; public float Vol, Pan; public bool Mute, Solo; public string Name; public AudioClip Clip; public Track Host, Out; public List<Fx> Fx; public List<AutoLane> Auto; public long FadeIn, FadeOut, FadeInDelay, FadeOutTail; public bool Mono; public float ClipGain; public bool Locked; }
     class Snapshot { public List<Track> Order = new List<Track>(); public Dictionary<Track, TS> St = new Dictionary<Track, TS>(); }
     readonly List<Snapshot> undo = new List<Snapshot>(), redo = new List<Snapshot>();
 
     Snapshot TakeSnapshot()
     {
-        var s = new Snapshot(); foreach (var t in eng.Tracks.ToArray()) { s.Order.Add(t); s.St[t] = new TS { Offset = t.Offset, ClipStart = t.ClipStart, ClipFrames = t.ClipFrames, Clip = t.Clip, Vol = t.VolDb, Pan = t.Pan, Mute = t.Mute, Solo = t.Solo, Name = t.Name, Host = t.Host, Out = t.Out, Fx = new List<Fx>(t.Fx), Auto = CloneLanes(t.Auto), FadeIn = t.FadeIn, FadeOut = t.FadeOut, ClipGain = t.ClipGainDb, Locked = t.Locked }; }
+        var s = new Snapshot(); foreach (var t in eng.Tracks.ToArray()) { s.Order.Add(t); s.St[t] = new TS { Offset = t.Offset, ClipStart = t.ClipStart, ClipFrames = t.ClipFrames, Clip = t.Clip, Vol = t.VolDb, Pan = t.Pan, Mute = t.Mute, Solo = t.Solo, Name = t.Name, Host = t.Host, Out = t.Out, Fx = new List<Fx>(t.Fx), Auto = CloneLanes(t.Auto), FadeIn = t.FadeIn, FadeOut = t.FadeOut, FadeInDelay = t.FadeInDelay, FadeOutTail = t.FadeOutTail, Mono = t.Mono, ClipGain = t.ClipGainDb, Locked = t.Locked }; }
         return s;
     }
     static List<AutoLane> CloneLanes(List<AutoLane> l) { var r = new List<AutoLane>(); foreach (var x in l) r.Add(x.CloneFor(x.Fx)); return r; }
@@ -53,7 +53,7 @@ partial class StudioForm
         lock (eng.Sync)
         {
             eng.Tracks.Clear(); eng.Tracks.AddRange(s.Order);
-            foreach (var t in s.Order) { var d = s.St[t]; t.Clip = d.Clip; t.Offset = d.Offset; t.ClipStart = d.ClipStart; t.ClipFrames = d.ClipFrames; t.VolDb = d.Vol; t.Pan = d.Pan; t.Mute = d.Mute; t.Solo = d.Solo; t.Name = d.Name; t.Host = d.Host; t.Out = d.Out; t.FadeIn = d.FadeIn; t.FadeOut = d.FadeOut; t.ClipGainDb = d.ClipGain; t.Locked = d.Locked; if (d.Fx != null) { t.Fx.Clear(); t.Fx.AddRange(d.Fx); } if (d.Auto != null) { t.Auto.Clear(); t.Auto.AddRange(CloneLanes(d.Auto)); } }
+            foreach (var t in s.Order) { var d = s.St[t]; t.EverHadClip = false; t.Clip = d.Clip; t.Offset = d.Offset; t.ClipStart = d.ClipStart; t.ClipFrames = d.ClipFrames; t.VolDb = d.Vol; t.Pan = d.Pan; t.Mute = d.Mute; t.Solo = d.Solo; t.Name = d.Name; t.Host = d.Host; t.Out = d.Out; t.FadeIn = d.FadeIn; t.FadeOut = d.FadeOut; t.FadeInDelay = d.FadeInDelay; t.FadeOutTail = d.FadeOutTail; t.Mono = d.Mono; t.ClipGainDb = d.ClipGain; t.Locked = d.Locked; if (d.Fx != null) { t.Fx.Clear(); t.Fx.AddRange(d.Fx); } if (d.Auto != null) { t.Auto.Clear(); t.Auto.AddRange(CloneLanes(d.Auto)); } }
         }
         selTrack = Math.Max(0, Math.Min(selTrack, eng.Tracks.Count - 1)); selFx = -1;
     }
@@ -89,7 +89,7 @@ partial class StudioForm
     }
     Track CloneTrack(Track t, string suffix)
     {
-        var n = StudioEngine.NewTrack(t.Name + suffix, t.Role, t.Clip); n.Instrument = t.Instrument; n.Offset = t.Offset; n.ClipStart = t.ClipStart; n.ClipFrames = t.ClipFrames; n.Color = t.Color; n.VolDb = t.VolDb; n.Pan = t.Pan; n.Mute = t.Mute; n.Source = t.Source; n.Bpm = t.Bpm; n.BpmChecked = t.BpmChecked; n.FadeIn = t.FadeIn; n.FadeOut = t.FadeOut; n.ClipGainDb = t.ClipGainDb;
+        var n = StudioEngine.NewTrack(t.Name + suffix, t.Role, t.Clip); n.Instrument = t.Instrument; n.Offset = t.Offset; n.ClipStart = t.ClipStart; n.ClipFrames = t.ClipFrames; n.Color = t.Color; n.VolDb = t.VolDb; n.Pan = t.Pan; n.Mute = t.Mute; n.Source = t.Source; n.Bpm = t.Bpm; n.BpmChecked = t.BpmChecked; n.FadeIn = t.FadeIn; n.FadeOut = t.FadeOut; n.FadeInDelay = t.FadeInDelay; n.FadeOutTail = t.FadeOutTail; n.Mono = t.Mono; n.ClipGainDb = t.ClipGainDb;
         lock (t.Midi) foreach (var m in t.Midi) n.Midi.Add(new MidiEv { Frame = m.Frame, S = m.S, D1 = m.D1, D2 = m.D2 });
         foreach (var f in t.Fx) { var c = CloneFx(f); if (c != null) { var ic = c as InstrumentFx; if (ic != null) ic.Owner = n; n.Fx.Add(c); } }
         return n;
@@ -103,7 +103,7 @@ partial class StudioForm
         if (IsLocked(t)) { Toast("Locked: press UNLOCK before splitting this track."); return; }
         long rel = at - t.Offset, used = t.UsedLength; if (rel < 800 || rel > used - 800) { Toast("Move the needle into the clip first (click the ruler above the tracks), then split."); return; }
         PushUndo(); var host = t.Host ?? t; var right = CloneTrack(t, " (2)"); right.Offset = at; right.ClipStart = t.ClipStart + rel; right.ClipFrames = used - rel; t.ClipFrames = rel;
-        right.FadeIn = 0; right.FadeOut = t.FadeOut; t.FadeOut = 0;   // the fade out belongs to the end of the clip, which is now the right piece
+        right.FadeIn = 0; right.FadeInDelay = 0; right.FadeOut = t.FadeOut; right.FadeOutTail = t.FadeOutTail; t.FadeOut = 0; t.FadeOutTail = 0;   // the fade out belongs to the end of the clip, which is now the right piece
         right.Host = host; right.Out = host.Out; lock (eng.Sync) eng.Tracks.Insert(FirstBusIndex(), right);   // the new piece stays on the same row: no new track is made
         selTrack = Math.Max(0, eng.Tracks.IndexOf(host)); toolsTrack = right; Toast("Split in two on the same track. Split as often as you like. Drag a piece to move it, drag its ends to trim.");
     }
@@ -127,16 +127,26 @@ partial class StudioForm
     {
         if (tr.Clip == null || tr.Instrument || !lane.Contains(p)) return 0;
         float x0 = lane.X + (float)((tr.Offset - scroll) / spp), x1 = x0 + (float)(tr.UsedLength / spp), w = x1 - x0;
-        if (w > 40 && toolsTrack == tr && Math.Abs(p.Y - (lane.Y + 12)) <= 10)   // the round fade handles at the top of the clip you selected
+        if (w > 40 && toolsTrack == tr)   // the round fade handles of the clip you selected: the top end of each fade (its length) and the bottom end (where it starts or stops)
         {
-            if (Math.Abs(p.X - (x0 + Math.Max(12f, (float)(tr.FadeIn / spp)))) <= 10) return 4;
-            if (Math.Abs(p.X - (x1 - Math.Max(12f, (float)(tr.FadeOut / spp)))) <= 10) return 5;
+            float dIn = (float)(tr.FadeInDelay / spp), dOut = (float)(tr.FadeOutTail / spp), by = lane.Bottom - 12;
+            if (Math.Abs(p.Y - (lane.Y + 12)) <= 11)
+            {
+                if (Math.Abs(p.X - (x0 + dIn + Math.Max(12f, (float)(tr.FadeIn / spp)))) <= 11) return 4;
+                if (Math.Abs(p.X - (x1 - dOut - Math.Max(12f, (float)(tr.FadeOut / spp)))) <= 11) return 5;
+            }
+            if (Math.Abs(p.Y - by) <= 11)
+            {
+                if (tr.FadeIn > 0 && Math.Abs(p.X - (x0 + dIn)) <= 11) return 6;
+                if (tr.FadeOut > 0 && Math.Abs(p.X - (x1 - dOut)) <= 11) return 7;
+            }
         }
         if (w > 20 && Math.Abs(p.X - x0) <= 8) return 2; if (w > 20 && Math.Abs(p.X - x1) <= 8) return 3; if (p.X > x0 && p.X < x1 && p.Y > lane.Y + 4 && p.Y < lane.Bottom - 4) return 1; return 0;
     }
-    static readonly string[] ZoneText = { "Click: select this track", "Drag: move this clip", "Drag: trim the start", "Drag: trim the end", "Drag: how long the fade in lasts", "Drag: how long the fade out lasts" };
+    static readonly string[] ZoneText = { "Click: select this track", "Drag: move this clip", "Drag: trim the start", "Drag: trim the end", "Drag: how long the fade in lasts", "Drag: how long the fade out lasts", "Drag: where the fade in starts (silence before it)", "Drag: where the fade out ends (silence after it)" };
     internal Cursor CursorAt(PointF p)
     {
+        foreach (var ph in popRects) if (ph.Contains(p)) return Cursors.SizeAll;   // the top strip of a pop-up box: drag to move it
         if (tab != 0 || busy || browserOpen) return Cursors.Default; float top = ToolH + TransH + RulerH - vscroll; var tl = TimelineRect();
         for (int i = 0; i < LaneCount; i++)
         {
@@ -148,7 +158,7 @@ partial class StudioForm
     HitReg LaneReg(RectangleF lane, Track tr)
     {
         Track cur = tr;   // the clip under the mouse: this row's own track or one of the tracks layered on it
-        var lr = Reg(lane, () => { cur = PickLayer(tr, MousePos); LaneDown(cur, lane); }); lr.OnDrag = pt => LaneDrag(cur, pt); lr.OnUp = () => { LaneDrop(cur); GhostEnd(); MarqueeEnd(); }; lr.OnRight = () => LaneMenu(tr); lr.OnDouble = () => { if (tr.Instrument) OpenRoll(tr); };
+        var lr = Reg(lane, () => { cur = PickLayer(tr, MousePos); LaneDown(cur, lane); }); lr.OnDrag = pt => LaneDrag(cur, pt); lr.OnUp = () => { LaneDrop(cur); GhostEnd(); MarqueeEnd(); }; lr.OnRight = () => LaneMenu(tr); lr.OnDouble = () => { var pc = PickLayer(tr, MousePos); int z = ZoneAt(pc, lane, MousePos); if (z >= 4) { if (IsLocked(pc)) return; PushUndo(); if (z == 4) { pc.FadeIn = 0; pc.FadeInDelay = 0; } else if (z == 5) { pc.FadeOut = 0; pc.FadeOutTail = 0; } else if (z == 6) pc.FadeInDelay = 0; else pc.FadeOutTail = 0; Toast(z >= 6 ? "Fade start moved back to the edge of the clip" : "Fade " + (z == 4 ? "in" : "out") + " removed"); } else if (tr.Instrument) OpenRoll(tr); };
         if (Hot(lane)) hintNow = "Click a track to select it and show its buttons.  Drag a clip to move it, drag its ends to trim.  Hold the left button on empty space and drag a box to select several clips.  Move the needle from the ruler at the top.  Right-click = split, cut, fades, gain, lock, delete.";
         return lr;
     }
@@ -160,7 +170,7 @@ partial class StudioForm
             laneMode = ZoneAt(tr, lane, MousePos); laneMoved = false; lockToldYou = false; laneLocked = IsLocked(tr) && laneMode >= 1 && laneMode <= 3;
             if (laneLocked) return;   // clicking a locked clip selects it, but it will not move (a message tells you when you try)
             if (laneMode >= 2) multiSel.Clear();
-            if (laneMode == 4 || laneMode == 5) { PushUndo(); laneMoved = true; return; }
+            if (laneMode >= 4) { PushUndo(); laneMoved = true; return; }
             if (laneMode >= 2) { PushUndo(); laneMoved = true; l0Offset = tr.Offset; l0ClipStart = tr.ClipStart; l0ClipFrames = tr.ClipFrames; l0Used = tr.UsedLength; return; }
             if (laneMode == 1) { if (!multiSel.Contains(tr)) multiSel.Clear(); groupOrig.Clear(); if (InGroup(tr)) foreach (var o in multiSel) groupOrig[o] = o.Offset; GhostGrab(tr); l0Offset = tr.Offset; l0ClipStart = tr.ClipStart; l0ClipFrames = tr.ClipFrames; l0Used = tr.UsedLength; return; }   // clicking a clip selects it, dragging moves it: the needle stays where it is
         }
@@ -169,11 +179,13 @@ partial class StudioForm
     {
         if (laneMode == 0) { MarqueeTo(pt); return; }
         if (laneLocked) { if (!lockToldYou && (Math.Abs(pt.X - laneStart.X) > 4 || Math.Abs(pt.Y - laneStart.Y) > 4)) { lockToldYou = true; Toast("This track is locked in place. Press UNLOCK in the toolbar to move it."); } return; }
-        if (laneMode == 4 || laneMode == 5)
+        if (laneMode >= 4)
         {
             long usedL = tr.UsedLength; float fx0 = HeadW + (float)((tr.Offset - scroll) / spp), fx1 = fx0 + (float)(usedL / spp);
-            if (laneMode == 4) { long v = (long)Math.Max(0, (pt.X - fx0) * spp); if (v < 1500) v = 0; tr.FadeIn = Math.Max(0, Math.Min(v, usedL - tr.FadeOut - 500)); }
-            else { long v = (long)Math.Max(0, (fx1 - pt.X) * spp); if (v < 1500) v = 0; tr.FadeOut = Math.Max(0, Math.Min(v, usedL - tr.FadeIn - 500)); }
+            if (laneMode == 4) { long v = (long)Math.Max(0, (pt.X - fx0) * spp) - tr.FadeInDelay; if (v < 1500) v = 0; tr.FadeIn = Math.Max(0, Math.Min(v, usedL - tr.FadeOut - tr.FadeInDelay - tr.FadeOutTail - 500)); }
+            else if (laneMode == 5) { long v = (long)Math.Max(0, (fx1 - pt.X) * spp) - tr.FadeOutTail; if (v < 1500) v = 0; tr.FadeOut = Math.Max(0, Math.Min(v, usedL - tr.FadeIn - tr.FadeInDelay - tr.FadeOutTail - 500)); }
+            else if (laneMode == 6) { long v = (long)Math.Max(0, (pt.X - fx0) * spp); if (v < 1500) v = 0; tr.FadeInDelay = Math.Max(0, Math.Min(v, usedL - tr.FadeIn - tr.FadeOut - tr.FadeOutTail - 500)); }
+            else { long v = (long)Math.Max(0, (fx1 - pt.X) * spp); if (v < 1500) v = 0; tr.FadeOutTail = Math.Max(0, Math.Min(v, usedL - tr.FadeIn - tr.FadeOut - tr.FadeInDelay - 500)); }
             return;
         }
         long delta = (long)((pt.X - laneStart.X) * spp);
@@ -182,11 +194,11 @@ partial class StudioForm
         if (laneMode == 2)
         {
             long newStart = Snap(l0Offset + delta); long d = newStart - l0Offset; d = Math.Max(-l0ClipStart, Math.Min(l0Used - 1000, d)); if (l0Offset + d < 0) d = -l0Offset;
-            lock (eng.Sync) { tr.Offset = l0Offset + d; tr.ClipStart = l0ClipStart + d; tr.ClipFrames = l0ClipFrames < 0 ? -1 : l0Used - d; }
+            lock (eng.Sync) { tr.Offset = l0Offset + d; tr.ClipStart = l0ClipStart + d; tr.ClipFrames = l0ClipFrames < 0 ? -1 : l0Used - d; } ClampFades(tr);
         }
         else
         {
-            long end = Snap(l0Offset + l0Used + delta); long used = Math.Max(1000, Math.Min(avail, end - l0Offset)); tr.ClipFrames = used >= avail ? (l0ClipFrames < 0 ? -1 : used) : used;
+            long end = Snap(l0Offset + l0Used + delta); long used = Math.Max(1000, Math.Min(avail, end - l0Offset)); tr.ClipFrames = used >= avail ? (l0ClipFrames < 0 ? -1 : used) : used; ClampFades(tr);
         }
     }
     void LaneMenu(Track tr)
@@ -196,7 +208,7 @@ partial class StudioForm
         var piece = PickLayer(tr, MousePos);
         m.Items.Add("Split here (at the needle)").Click += (a, b) => SplitSelected();
         m.Items.Add("Split where I clicked").Click += (a, b) => SplitTrack(piece, at);
-        m.Items.Add("Cut a section out (the CUT button)").Click += (a, b) => CutClick();
+        m.Items.Add("Cut this piece out (delete it and close the gap)").Click += (a, b) => { toolsTrack = piece; CutClick(); };
         m.Items.Add("Fade in: add / remove").Click += (a, b) => { toolsTrack = piece; ToggleFade(true); };
         m.Items.Add("Fade out: add / remove").Click += (a, b) => { toolsTrack = piece; ToggleFade(false); };
         m.Items.Add("Gain: the volume of this piece...").Click += (a, b) => { toolsTrack = piece; gainAnchor = Rc(MousePos.X - 40, MousePos.Y, 80, 10); OpenGain(); };
@@ -219,17 +231,18 @@ partial class StudioForm
         bool lockedClip = IsLocked(tr);
         if (toolsTrack == tr && cr.Width > 40)
         {   // the two round fade handles
-            float hx0 = lane.X + (float)((tr.Offset - scroll) / spp), hx1 = hx0 + (float)(tr.UsedLength / spp), hy = lane.Y + 12;
-            foreach (var hz in new[] { 4, 5 })
+            float hx0 = lane.X + (float)((tr.Offset - scroll) / spp), hx1 = hx0 + (float)(tr.UsedLength / spp), hy = lane.Y + 12, bhy = lane.Bottom - 12, dIn = (float)(tr.FadeInDelay / spp), dOut = (float)(tr.FadeOutTail / spp);
+            foreach (var hz in new[] { 4, 5, 6, 7 })
             {
-                float hx = hz == 4 ? hx0 + Math.Max(12f, (float)(tr.FadeIn / spp)) : hx1 - Math.Max(12f, (float)(tr.FadeOut / spp)); if (hx < lane.X - 10 || hx > lane.Right + 10) continue; bool hv = zone == hz; float rr = hv ? 7.5f : 6f;
-                using (var b = new SolidBrush(Color.FromArgb(hv ? 255 : 220, hv ? Color.White : Color.FromArgb(0, 229, 255)))) g.FillEllipse(b, hx - rr, hy - rr, rr * 2, rr * 2);
-                using (var pen = new Pen(Color.FromArgb(230, 10, 5, 25), 1.5f)) g.DrawEllipse(pen, hx - rr, hy - rr, rr * 2, rr * 2);
+                if (hz == 6 && tr.FadeIn <= 0) continue; if (hz == 7 && tr.FadeOut <= 0) continue;
+                float hx = hz == 4 ? hx0 + dIn + Math.Max(12f, (float)(tr.FadeIn / spp)) : (hz == 5 ? hx1 - dOut - Math.Max(12f, (float)(tr.FadeOut / spp)) : (hz == 6 ? hx0 + dIn : hx1 - dOut)); float hyy = hz >= 6 ? bhy : hy; if (hx < lane.X - 10 || hx > lane.Right + 10) continue; bool hv = zone == hz; float rr = hv ? 7.5f : (hz >= 6 ? 5f : 6f);
+                using (var b = new SolidBrush(Color.FromArgb(hv ? 255 : 220, hv ? Color.White : (hz >= 6 ? Color.FromArgb(255, 70, 225) : Color.FromArgb(0, 229, 255))))) g.FillEllipse(b, hx - rr, hyy - rr, rr * 2, rr * 2);
+                using (var pen = new Pen(Color.FromArgb(230, 10, 5, 25), 1.5f)) g.DrawEllipse(pen, hx - rr, hyy - rr, rr * 2, rr * 2);
             }
         }
         if (!lockedClip && (leftEdge || zone == 2)) { var r = Rc(cr.X + 1, gy, 9, gh); FillRR(g, Color.FromArgb(zone == 2 ? 250 : 175, zone == 2 ? Color.White : c), r, 4); Txt(g, "<", 11, Color.FromArgb(10, 4, 20), r, StringAlignment.Center, true); }
         if (!lockedClip && (rightEdge || zone == 3)) { var r = Rc(cr.Right - 10, gy, 9, gh); FillRR(g, Color.FromArgb(zone == 3 ? 250 : 175, zone == 3 ? Color.White : c), r, 4); Txt(g, ">", 11, Color.FromArgb(10, 4, 20), r, StringAlignment.Center, true); }
-        if (zone >= 0 && zone < ZoneText.Length) { bubble = ZoneText[zone]; bubblePt = MousePos; }
+        if (zone >= 0 && zone < ZoneText.Length) { bubble = ZoneText[zone] + (zone == 4 ? "  (" + (tr.FadeIn / (double)StudioEngine.SR).ToString("0.0") + " s, double-click removes it)" : (zone == 5 ? "  (" + (tr.FadeOut / (double)StudioEngine.SR).ToString("0.0") + " s, double-click removes it)" : (zone == 6 ? "  (" + (tr.FadeInDelay / (double)StudioEngine.SR).ToString("0.0") + " s of silence first, double-click resets)" : (zone == 7 ? "  (" + (tr.FadeOutTail / (double)StudioEngine.SR).ToString("0.0") + " s of silence at the end, double-click resets)" : "")))); bubblePt = MousePos; }
     }
     Track EmptyAudioTrack()
     {
@@ -348,6 +361,14 @@ partial class StudioForm
     }
 
     // ---------- the strip under the transport ----------
+    // ZOOM + its slider (the same one sits at the end of the editing row and under the scroll bar in Flex Pitch)
+    void PaintZoomSlider(Graphics g, float x, float y, float sliderW)
+    {
+        Txt(g, "ZOOM", 11, DimC, Rc(x, y + 6, 36, 18), StringAlignment.Near, false); float zf = Clamp01((float)(1 - Math.Log(spp / MinSpp) / Math.Log(MaxSpp / MinSpp)));
+        var zs = Slider(g, Rc(x + 38, y + 6, sliderW, 18), zf, f => ZoomTo(MinSpp * Math.Pow(MaxSpp / MinSpp, 1 - f)), NeonCyan); zs.OnDouble = () => FitView(); var zd = zs.OnDown;
+        zs.OnDown = () => { var tz = TimelineRect(); zoomAnchor = Math.Max(0, Math.Min(eng.EndFrame, scroll + tz.Width / 2 * spp)); if (zd != null) zd(); };
+        if (Hot(Rc(x, y + 6, sliderW + 38, 18))) hintNow = "Zoom in and out along the time. Double-click it to see the whole recording.";
+    }
     class DawBtn { public string Text, Hint = "", Key = ""; public float W, Px = 10, Gap = 4; public int Style; public Action Do, Right; }
     void PaintDawBar(Graphics g, float y0, float W)
     {
@@ -363,9 +384,7 @@ partial class StudioForm
         L.Add(new DawBtn { Text = "Grid Size", W = 76, Style = gridIdx == 2 ? 0 : 1, Key = "grid", Hint = "Grid Size: how finely clips, cuts and fades snap to the beat. Now: " + GridWhy[gridIdx] + ". Click to change it (the grid lines show briefly).",
             Do = () => { var m = Win.NewMenu(); m.Items.Add("Grid Size: clips and cuts snap to...").Enabled = false; for (int i = 0; i < GridNames.Length; i++) { int k = i; var it = new ToolStripMenuItem(GridNames[i] + "   (" + GridWhy[i] + ")") { Checked = gridIdx == i }; it.Click += (a, b) => { gridIdx = k; snapOn = true; gridFlashAt = Environment.TickCount; Toast("Grid Size: " + GridNames[k] + ". Everything now snaps to " + GridWhy[k] + "."); }; m.Items.Add(it); } m.Show(this, new Point((int)MousePos.X, (int)MousePos.Y)); } });
         L.Add(new DawBtn { Text = "SPLIT", W = 50, Style = 1, Do = () => SplitSelected(), Hint = "Split the clip under the needle in two (key B). Split as many times as you like." });
-        L.Add(new DawBtn { Text = cutMark >= 0 ? "CUT END" : "CUT", W = cutMark >= 0 ? 62 : 42, Style = cutMark >= 0 ? 4 : 1, Do = () => CutClick(), Right = () => CutCancel(), Hint = "Cut a section out: press CUT at the start, move the needle to the end, press CUT again. Every track that is not locked closes the gap." });
-        L.Add(new DawBtn { Text = "FADE IN", W = 58, Style = cc != null && cc.FadeIn > 0 ? 4 : 0, Do = () => ToggleFade(true), Hint = "Fade the selected clip in. Drag the round handle at the top left of the clip to change how long." });
-        L.Add(new DawBtn { Text = "FADE OUT", W = 64, Style = cc != null && cc.FadeOut > 0 ? 4 : 0, Do = () => ToggleFade(false), Hint = "Fade the selected clip out. Drag the round handle at the top right of the clip to change how long." });
+        L.Add(new DawBtn { Text = "CUT", W = 42, Style = 1, Do = () => CutClick(), Hint = "Cut the selected piece OUT: it is deleted and the pieces after it move up to close the gap. (SPLIT makes two pieces: split where the unwanted part starts and ends, click it, press CUT.) Ctrl+Z undoes it." });
         L.Add(new DawBtn { Text = "GAIN", W = 46, Style = cc != null && Math.Abs(cc.ClipGainDb) > 0.04f ? 4 : 0, Key = "gain", Do = () => { if (gainOpen) gainOpen = false; else OpenGain(); }, Hint = "The volume of the selected piece on its own (each piece of a split clip can have its own gain)." });
         L.Add(new DawBtn { Text = locked ? "UNLOCK" : "LOCK", W = locked ? 58 : 50, Style = locked ? 4 : 0, Do = () => ToggleLock(), Hint = "Lock the selected track in place so it cannot be moved, trimmed, split, cut or deleted until you unlock it." });
         L.Add(new DawBtn { Text = flexOpen ? "FLEX*" : "FLEX", W = 46, Style = flexOpen ? 4 : 1, Do = () => { if (flexOpen) FlexClose(true); else FlexOpen(); } });
@@ -383,7 +402,7 @@ partial class StudioForm
             var r = Rc(x, y, it.W * kf, h); var rg = Btn(g, r, it.Text, it.Style, it.Do, it.Px); if (it.Right != null) rg.OnRight = it.Right; if (it.Key == "gain") gainAnchor = r;
             if (Hot(r)) { string hh2; if (it.Hint.Length > 0) hintNow = it.Hint; else if (Hints.TryGetValue(it.Text.TrimEnd('*'), out hh2)) hintNow = hh2; } x += (it.W + it.Gap) * kf;
         }
-        x += 6; if (x + 176 < W - 20) { Txt(g, "zoom", 11, DimC, Rc(x, y + 6, 36, 18), StringAlignment.Near, false); float zf = Clamp01((float)(1 - Math.Log(spp / MinSpp) / Math.Log(MaxSpp / MinSpp))); var zs = Slider(g, Rc(x + 38, y + 6, 130, 18), zf, f => ZoomTo(MinSpp * Math.Pow(MaxSpp / MinSpp, 1 - f)), NeonCyan); zs.OnDouble = () => FitView(); var zd = zs.OnDown; zs.OnDown = () => { var tz = TimelineRect(); zoomAnchor = Math.Max(0, Math.Min(eng.EndFrame, scroll + tz.Width / 2 * spp)); if (zd != null) zd(); }; }
+        x += 6; if (x + 176 < W - 20) PaintZoomSlider(g, x, y, 130);
     }
     void ZoomBy(double f)
     {

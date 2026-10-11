@@ -66,11 +66,11 @@ partial class StudioForm
         if (!ntOpen) return; float W = ClientSize.Width, H = ClientSize.Height; var all = Rc(0, 0, W, H);
         using (var b = new SolidBrush(Color.FromArgb(150, 3, 1, 10))) g.FillRectangle(b, all); Reg(all, () => CloseNewTrackSheet());
         var items = NtItems(); const float rowH = 70; bool pick = eng.Tracks.Count > 0;
-        float sw = Math.Min(560, W - 24), sh = Math.Min(H - 40, 74 + (pick ? 42 : 0) + items.Count * rowH + 96); var sheet = Rc((W - sw) / 2, H - sh - 12, sw, sh);
+        float sw = Math.Min(560, W - 24), sh = Math.Min(H - 40, 74 + (pick ? 42 : 0) + items.Count * rowH + 96); var sheet = PopMove("newtrack", Rc((W - sw) / 2, H - sh - 12, sw, sh), 66, 70, false);
         FillRR(g, Color.FromArgb(252, 16, 10, 34), sheet, 24); Glow(g, NeonViolet, sheet, 24, 0.8f, 4); StrokeRR(g, Color.FromArgb(180, NeonViolet), sheet, 24, 1.5f); Reg(sheet, () => { });
         using (var b = new SolidBrush(Color.FromArgb(110, 150, 140, 190))) g.FillPath(b, RR(Rc(sheet.X + sw / 2 - 26, sheet.Y + 9, 52, 5), 2.5f));
-        Txt(g, "New Track", 24, Ink, Rc(sheet.X + 24, sheet.Y + 24, 240, 40), StringAlignment.Near, true);
-        var close = Rc(sheet.Right - 54, sheet.Y + 26, 34, 34); FillRR(g, Hot(close) ? Color.FromArgb(160, 70, 38, 130) : Color.FromArgb(110, 40, 24, 80), close, 17); Txt(g, "x", 16, Ink, close, StringAlignment.Center, true); Reg(close, () => CloseNewTrackSheet());
+        Txt(g, "NEW TRACK", 24, Ink, Rc(sheet.X + 24, sheet.Y + 24, 240, 40), StringAlignment.Near, true);
+        var close = Rc(sheet.Right - 54, sheet.Y + 26, 34, 34); FillRR(g, Hot(close) ? Color.FromArgb(160, 70, 38, 130) : Color.FromArgb(110, 40, 24, 80), close, 17); Txt(g, "X", 16, Ink, close, StringAlignment.Center, true); Reg(close, () => CloseNewTrackSheet());
         float y = sheet.Y + 74;
         if (pick)
         {
@@ -79,12 +79,12 @@ partial class StudioForm
             y += 42;
         }
         float bottomH = 84, top = y, areaH = sheet.Bottom - bottomH - top - 6; var area = Rc(sheet.X, top, sheet.Width, areaH);
-        float total = items.Count * rowH; ntScroll = Math.Max(0, Math.Min(Math.Max(0, total - areaH), ntScroll));
+        float total = items.Count * rowH; ntScroll = Math.Max(0, Math.Min(Math.Max(0, total - areaH), ntScroll)); float vsw = total > areaH ? 54 : 0;
         regs.Add(new HitReg { R = area, OnWheel = d => ntScroll = Math.Max(0, Math.Min(Math.Max(0, total - areaH), ntScroll - d * 60)) });
         g.SetClip(area);
         for (int i = 0; i < items.Count; i++)
         {
-            var it = items[i]; var row = Rc(sheet.X + 12, top + i * rowH - ntScroll, sheet.Width - 24, rowH - 6); if (row.Bottom < top || row.Y > area.Bottom) continue; bool hot = Hot(row) && area.Contains(MousePos);
+            var it = items[i]; var row = Rc(sheet.X + 12, top + i * rowH - ntScroll, sheet.Width - 24 - vsw, rowH - 6); if (row.Bottom < top || row.Y > area.Bottom) continue; bool hot = Hot(row) && area.Contains(MousePos);
             if (hot) FillRR(g, Color.FromArgb(120, 70, 40, 130), row, 14);
             var ic = Rc(row.X + 10, row.Y + 7, 52, 52); using (var b = new SolidBrush(it.Col)) g.FillEllipse(b, ic); NtIcon(g, ic, it.Icon);
             Txt(g, it.Title, 18, Ink, Rc(row.X + 78, row.Y + 8, 260, 26), StringAlignment.Near, false);
@@ -92,7 +92,7 @@ partial class StudioForm
             if (it.Tag.Length > 0) { SizeF ts; using (var f = new Font("Segoe UI", 13.5f)) ts = g.MeasureString(it.Title, f); var tg = Rc(row.X + 78 + ts.Width + 4, row.Y + 11, 44, 20); FillRR(g, Color.FromArgb(235, 235, 235), tg, 5); Txt(g, it.Tag, 11, Color.FromArgb(20, 14, 34), tg, StringAlignment.Center, true); }
             var act = it.Do; Reg(row, () => act());
         }
-        g.ResetClip();
+        g.ResetClip(); VScroll(g, Rc(sheet.Right - 54, top, 42, areaH), total, areaH, () => ntScroll, v => ntScroll = v);
         // the buttons along the bottom: Import, Sounds
         float bw = (sheet.Width - 24 - 12) / 2, by = sheet.Bottom - bottomH + 4;
         string[] bn = { "Import a file", "Sounds" }; Action[] ba = { () => { nextInsert = NtInsertAt(); CloseNewTrackSheet(); AddMusicClick(true); }, () => { CloseNewTrackSheet(); OpenSounds(); } };
@@ -117,18 +117,18 @@ partial class StudioForm
         if (!busOpen) return; float W = ClientSize.Width, H = ClientSize.Height; var all = Rc(0, 0, W, H);
         using (var b = new SolidBrush(Color.FromArgb(150, 3, 1, 10))) g.FillRectangle(b, all); Reg(all, () => busOpen = false);
         var buses = new List<Track>(); foreach (var t in eng.Tracks) if (t.IsBus) buses.Add(t);
-        const float rowH = 84; float sw = Math.Min(620, W - 24), sh = Math.Min(H - 40, 150 + Math.Max(1, buses.Count) * rowH); var sheet = Rc((W - sw) / 2, (H - sh) / 2, sw, sh);
+        const float rowH = 84; float sw = Math.Min(620, W - 24), sh = Math.Min(H - 40, 150 + Math.Max(1, buses.Count) * rowH); var sheet = PopMove("bus", Rc((W - sw) / 2, (H - sh) / 2, sw, sh), 54, 70);
         FillRR(g, Color.FromArgb(252, 16, 10, 34), sheet, 22); Glow(g, NeonViolet, sheet, 22, 0.8f, 4); StrokeRR(g, Color.FromArgb(180, NeonViolet), sheet, 22, 1.5f); Reg(sheet, () => { });
-        Txt(g, "Buses", 22, Ink, Rc(sheet.X + 22, sheet.Y + 16, 200, 34), StringAlignment.Near, true);
-        Txt(g, "A bus mixes the tracks sent to it and puts shared plugins on them. Choose it from the Bus drop-down on a track.", 12, DimC, Rc(sheet.X + 22, sheet.Y + 50, sheet.Width - 44, 20), StringAlignment.Near, false);
-        var close = Rc(sheet.Right - 52, sheet.Y + 16, 32, 32); FillRR(g, Hot(close) ? Color.FromArgb(160, 70, 38, 130) : Color.FromArgb(110, 40, 24, 80), close, 16); Txt(g, "x", 15, Ink, close, StringAlignment.Center, true); Reg(close, () => busOpen = false);
-        float top = sheet.Y + 80, areaH = sheet.Bottom - 66 - top; var area = Rc(sheet.X, top, sheet.Width, areaH); float total = buses.Count * rowH; busScroll = Math.Max(0, Math.Min(Math.Max(0, total - areaH), busScroll));
+        Txt(g, "BUSES", 22, Ink, Rc(sheet.X + 22, sheet.Y + 16, 200, 34), StringAlignment.Near, true);
+        TxtWrap(g, "A bus mixes the tracks sent to it and puts shared plugins on them. Choose it from the Bus drop-down on a track.", 12, DimC, Rc(sheet.X + 22, sheet.Y + 48, sheet.Width - 44, 34));
+        var close = Rc(sheet.Right - 52, sheet.Y + 16, 32, 32); FillRR(g, Hot(close) ? Color.FromArgb(160, 70, 38, 130) : Color.FromArgb(110, 40, 24, 80), close, 16); Txt(g, "X", 15, Ink, close, StringAlignment.Center, true); Reg(close, () => busOpen = false);
+        float top = sheet.Y + 86, areaH = sheet.Bottom - 66 - top; var area = Rc(sheet.X, top, sheet.Width, areaH); float total = buses.Count * rowH; busScroll = Math.Max(0, Math.Min(Math.Max(0, total - areaH), busScroll));
         regs.Add(new HitReg { R = area, OnWheel = d => busScroll = Math.Max(0, Math.Min(Math.Max(0, total - areaH), busScroll - d * 60)) });
         g.SetClip(area);
-        if (buses.Count == 0) Txt(g, "No buses yet. Press New bus.", 14, DimC, Rc(sheet.X + 22, top + 10, sheet.Width - 44, 24), StringAlignment.Near, false);
+        if (buses.Count == 0) Txt(g, "NO BUSES YET. PRESS NEW BUS.", 14, DimC, Rc(sheet.X + 22, top + 10, sheet.Width - 44, 24), StringAlignment.Near, false);
         for (int i = 0; i < buses.Count; i++)
         {
-            var bt = buses[i]; int bi = eng.Tracks.IndexOf(bt); var row = Rc(sheet.X + 14, top + i * rowH - busScroll, sheet.Width - 28, rowH - 8); if (row.Bottom < top || row.Y > area.Bottom) continue;
+            var bt = buses[i]; int bi = eng.Tracks.IndexOf(bt); var row = Rc(sheet.X + 14, top + i * rowH - busScroll, sheet.Width - 28 - (total > areaH ? 56 : 0), rowH - 8); if (row.Bottom < top || row.Y > area.Bottom) continue;
             FillRR(g, Color.FromArgb(150, 26, 15, 52), row, 12); StrokeRR(g, Color.FromArgb(90, NeonViolet), row, 12, 1);
             int cnt = 0; foreach (var x in eng.Tracks) if (x.Out == bt) cnt++;
             var nm = Rc(row.X + 14, row.Y + 8, 190, 24); Txt(g, bt.Name, 15, Ink, nm, StringAlignment.Near, true); Reg(nm, () => { }).OnDouble = () => RenameTrack(bt);
@@ -137,12 +137,12 @@ partial class StudioForm
             Btn(g, Rc(row.X + 376, row.Y + 8, 90, 28), "Presets", 1, () => { var pm = Win.NewMenu(); for (int pi = 0; pi < Presets.BusNames.Length; pi++) { string pn = Presets.BusNames[pi]; var pit = new ToolStripMenuItem(pn) { ToolTipText = Presets.BusBlurbs[pi] }; pit.Click += (a, b) => { lock (eng.Sync) { bt.Fx.Clear(); bt.Fx.AddRange(Presets.BuildBus(pn)); } Toast(pn + " applied to " + bt.Name + ": " + Presets.BusBlurbs[Array.IndexOf(Presets.BusNames, pn)]); }; pm.Items.Add(pit); } pm.Items.Add(new ToolStripSeparator()); pm.Items.Add("Clear all plugins").Click += (a, b) => { lock (eng.Sync) bt.Fx.Clear(); }; pm.Show(this, new Point((int)MousePos.X, (int)MousePos.Y)); }, 12);
             Btn(g, Rc(row.X + 250, row.Y + 8, 120, 28), "+ Effect" + (bt.Fx.Count > 0 ? " (" + bt.Fx.Count + ")" : ""), 1, () => { busOpen = false; OpenBrowser(false, bi); }, 12);
             Btn(g, Rc(row.Right - 44, row.Y + 8, 30, 28), "x", 3, () => { if (MessageBox.Show(this, "Delete \"" + bt.Name + "\"? Tracks sent to it go straight to the master.", "Delete bus", MessageBoxButtons.YesNo) == DialogResult.Yes) DeleteTrackQuiet(bt); }, 13);
-            float frac = Clamp01((bt.VolDb + 48f) / 54f); Txt(g, "Vol", 11, DimC, Rc(row.X + 14, row.Y + 52, 28, 18), StringAlignment.Near, false);
+            float frac = Clamp01((bt.VolDb + 48f) / 54f); Txt(g, "VOL", 11, DimC, Rc(row.X + 14, row.Y + 52, 28, 18), StringAlignment.Near, false);
             var fs = Slider(g, Rc(row.X + 44, row.Y + 52, 230, 18), frac, f => bt.VolDb = f < 0.003f ? -48f : (float)Math.Round(f * 54f - 48f, 1), Accent2); fs.OnDouble = () => bt.VolDb = 0;
             Txt(g, (bt.VolDb <= -47.9f ? "-inf" : bt.VolDb.ToString("+0.0;-0.0;0.0")) + " dB", 12, Ink, Rc(row.X + 282, row.Y + 52, 70, 18), StringAlignment.Near, false);
             HBar(g, Rc(row.Right - 150, row.Y + 54, 120, 6), bt.PeakL); HBar(g, Rc(row.Right - 150, row.Y + 63, 120, 6), bt.PeakR);
         }
-        g.ResetClip();
+        g.ResetClip(); VScroll(g, Rc(sheet.Right - 56, top, 42, areaH), total, areaH, () => busScroll, v => busScroll = v);
         var nb = Rc(sheet.X + 14, sheet.Bottom - 54, sheet.Width - 28, 40); Btn(g, nb, "+ New bus", 2, () => AddBus(), 14);
     }
 }

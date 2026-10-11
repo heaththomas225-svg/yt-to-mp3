@@ -1,4 +1,4 @@
-3.20.0
+3.21.0
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Clip tools, community presets, a recorder that waits for you, a neon needle and neon value boxes
-sha256=a9ae62e196065bf956dcd804c7d9aabaff7b4a34af87005acf564125e25f0796
+Capitals and bold font, STEREO/MONO, reworked CUT and fades, new projects page with preview, colour themes
+sha256=dd36978c5abd3100baf517db4c7e9e2fc5fc4264a406ab9b5cc0547a1276d788

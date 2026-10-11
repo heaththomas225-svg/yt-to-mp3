@@ -1,0 +1,103 @@
+using System;
+using System.Collections.Generic;
+using System.Drawing;
+using System.Drawing.Drawing2D;
+using System.IO;
+using System.Threading;
+using System.Windows.Forms;
+
+// My Projects and Community pages: asking before a project opens, removing a project (and optionally its file), pictures that default to the Purphex logo,
+// and a preview player: press PREVIEW on a project to hear it, with the bottom strip as a live visualiser (the logo in the middle, waves flowing out of it).
+partial class StudioForm
+{
+    // test seams: the real program asks with a window; a test answers for itself (and never plays sound or deletes a file)
+    Func<ProjectEntry, bool> confirmOpenHook; Func<ProjectEntry, int> removeHook; Func<string, bool> recycleFn = Win.Recycle; Action<StudioEngine> previewPlayFn;
+    StudioEngine previewEng; string previewPath = "", previewName = ""; volatile bool previewLoading;
+
+    // clicking a project asks first (it used to send you into the project without a word)
+    void OpenProjectAsk(ProjectEntry e)
+    {
+        if (e == null) return; if (e.Missing || !File.Exists(e.Path)) { Toast("That project file has moved or been deleted. Remove it from the list with the x."); return; }
+        bool ok = confirmOpenHook != null ? confirmOpenHook(e) : MessageBox.Show(this, "Open \"" + e.Name + "\" now?" + (eng.Tracks.Count > 0 ? "\n\nThe project that is open now will be closed (save it first if you changed it)." : ""), "Open project", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes;
+        if (!ok) return; StopPreview(); tab = 0; OpenProjectPath(e.Path);
+    }
+    // 0 = cancelled, 1 = off the list only, 2 = off the list and the file to the Recycle Bin
+    void RemoveProjectAsk(ProjectEntry e)
+    {
+        if (e == null) return; bool exists = File.Exists(e.Path); int r = removeHook != null ? removeHook(e) : StudioDialogs.RemoveProject(this, e.Name, e.Path, exists); if (r == 0) return;
+        if (string.Equals(previewPath, e.Path, StringComparison.OrdinalIgnoreCase)) StopPreview(); ProjectLibrary.Remove(e.Path);
+        if (r == 2 && exists) { bool ok = recycleFn(e.Path); Toast(ok ? "Removed from the list, and the file went to the Recycle Bin." : "Removed from the list, but the file could not be deleted (it may be open elsewhere)."); }
+        else Toast("Removed from the list (the file is still on your PC).");
+    }
+    // a project with no picture shows the Purphex logo, fitted inside the square
+    void DrawLogoArt(Graphics g, RectangleF r)
+    {
+        var gs = g.Save(); g.SetClip(r, CombineMode.Intersect); using (var br = new LinearGradientBrush(r, Color.FromArgb(255, 26, 11, 56), Color.FromArgb(255, 6, 2, 16), 90f)) g.FillRectangle(br, r);
+        var lg = AppLogo.Logo; if (lg != null) { float side = Math.Min(r.Width, r.Height) * 0.86f; float asp = lg.Width / (float)Math.Max(1, lg.Height), w = asp >= 1 ? side : side * asp, h = asp >= 1 ? side / asp : side; var im = g.InterpolationMode; g.InterpolationMode = InterpolationMode.HighQualityBicubic; g.DrawImage(lg, new RectangleF(r.X + (r.Width - w) / 2, r.Y + (r.Height - h) / 2, w, h)); g.InterpolationMode = im; }
+        g.Restore(gs);
+    }
+
+    // ---------- preview ----------
+    void PreviewToggle(ProjectEntry e)
+    {
+        if (e == null) return; if (string.Equals(previewPath, e.Path, StringComparison.OrdinalIgnoreCase)) { StopPreview(); return; }
+        if (e.Missing || !File.Exists(e.Path)) { Toast("That project file has moved or been deleted."); return; }
+        StopPreview(); if (eng.Playing) eng.Pause(); previewPath = e.Path; previewName = e.Name; previewLoading = true; string path = e.Path;
+        new Thread(() =>
+        {
+            StudioEngine pe = null; string err = null;
+            try
+            {   // loading a project writes into a few shared settings (tempo, lyrics, picture): keep yours exactly as they were
+                double bpm = Fx.ProjectBpm; string ly = ProjectIO.Lyrics, lt = ProjectIO.LyricsTitle; byte[] cv = ProjectIO.CoverBytes; pe = new StudioEngine();
+                try { ProjectIO.Load(pe, path, s => { }); } finally { Fx.ProjectBpm = bpm; ProjectIO.Lyrics = ly; ProjectIO.LyricsTitle = lt; ProjectIO.CoverBytes = cv; }
+            }
+            catch (Exception ex) { err = ex.Message; }
+            try
+            {
+                BeginInvoke(new Action(() =>
+                {
+                    if (!string.Equals(previewPath, path, StringComparison.OrdinalIgnoreCase) || err != null || pe == null || pe.EndFrame < 1000) { if (pe != null) { try { pe.Shutdown(); } catch { } } if (string.Equals(previewPath, path, StringComparison.OrdinalIgnoreCase)) { previewPath = ""; previewLoading = false; Toast(err != null ? "Could not open that project to preview it: " + err : "There is no audio in that project to preview."); } return; }
+                    previewEng = pe; previewLoading = false; try { if (previewPlayFn != null) previewPlayFn(pe); else pe.Play(); } catch (Exception ex2) { Toast("Could not play the preview: " + ex2.Message); StopPreview(); }
+                }));
+            }
+            catch { }
+        }) { IsBackground = true, Name = "project-preview" }.Start();
+    }
+    void StopPreview()
+    {
+        var pe = previewEng; previewEng = null; previewPath = ""; previewName = ""; previewLoading = false;
+        if (pe != null) { try { pe.Stop(); } catch { } try { pe.Shutdown(); } catch { } }
+    }
+    void PreviewHousekeeping()
+    {
+        if (previewPath.Length == 0) return;
+        if (tab != 3 && tab != 4) { StopPreview(); return; }
+        if (previewEng != null && !previewEng.Playing && previewPlayFn == null) StopPreview();   // it reached the end
+        if (eng.Playing) StopPreview();
+    }
+    // the strip along the bottom while a preview plays: the same design as the one under the tracks (solid black, the logo in the middle, waves flowing out of it)
+    void PaintPreviewBar(Graphics g)
+    {
+        if (previewPath.Length == 0) return; float W = ClientSize.Width, H = ClientSize.Height; var ob = Rc(24, H - 48, W - 48, 36); var pe = previewEng; bool playing = pe != null && (pe.Playing || previewPlayFn != null); lastInput = DateTime.Now;
+        VizUpdate(playing, pe); FillRR(g, Color.Black, ob, 12); using (var pen = new Pen(Color.FromArgb(playing ? 230 : 150, NeonViolet), 1.3f)) { using (var p = RR(ob, 12)) g.DrawPath(pen, p); }
+        Txt(g, (pe == null ? "LOADING " : "PREVIEW  ") + previewName, 11, NeonCyan, Rc(ob.X + 6, ob.Y - 20, Math.Min(520, ob.Width - 12), 18), StringAlignment.Near, true);
+        var stop = Rc(ob.X + 6, ob.Y + 5, 26, 26); FillRR(g, Hot(stop) ? Color.FromArgb(255, 160, 40, 80) : Color.FromArgb(255, 110, 30, 60), stop, 7); using (var b = new SolidBrush(Color.White)) g.FillRectangle(b, stop.X + 8, stop.Y + 8, 10, 10); Reg(stop, () => StopPreview()); if (Hot(stop)) { bubble = "Stop the preview"; bubblePt = MousePos; }
+        double dur = pe == null ? 0 : Math.Max(1, pe.EndFrame), pos = pe == null ? 0 : pe.Pos; var inner = Rc(ob.X + 40, ob.Y + 4, ob.Width - 40 - 112, ob.Height - 8); float cx = inner.X + inner.Width / 2, cy = ob.Y + ob.Height / 2;
+        float px = inner.X + (float)(Math.Min(1.0, pos / Math.Max(1, dur)) * inner.Width); using (var b = new SolidBrush(Color.FromArgb(60, 0, 110, 130))) g.FillRectangle(b, inner.X, inner.Y, Math.Max(0, px - inner.X), inner.Height); using (var pen = new Pen(Color.FromArgb(230, NeonCyan), 1.6f)) g.DrawLine(pen, px, inner.Y, px, inner.Bottom);
+        float lh = ob.Height / 2 - 2, lhw = lh * 1.16f;
+        if (playing)
+        {
+            var st = g.Save(); g.SetClip(inner, CombineMode.Intersect); float maxH = ob.Height / 2 - 4; int hl = vizHist.Length;
+            for (int c = 0; c < 190; c++)
+            {
+                float v = vizHist[(vizHead - 1 - c + hl * 4) % hl]; float amp = Math.Max(1f, v * maxH * (1f - c / 260f) * (0.75f + 0.25f * vizBand[(c * 3) % vizBand.Length])); int al = (int)(235 * (1f - c / 200f)); if (al <= 4) break;
+                float xl = cx - lhw - 6 - c * 2.2f, xr = cx + lhw + 6 + c * 2.2f;
+                using (var pl = new Pen(Color.FromArgb(al, 0, 229, 255), 1.5f)) g.DrawLine(pl, xl, cy - amp, xl, cy + amp); using (var pr = new Pen(Color.FromArgb(al, 255, 43, 214), 1.5f)) g.DrawLine(pr, xr, cy - amp, xr, cy + amp);
+            }
+            g.Restore(st);
+        }
+        DrawLogo(g, cx, cy, lh, playing, Hot(Rc(cx - lhw, cy - lh, lhw * 2, lh * 2)));
+        string tm = pe == null ? "" : ((int)(pos / StudioEngine.SR / 60)) + ":" + ((int)(pos / StudioEngine.SR % 60)).ToString("00") + " / " + ((int)(dur / StudioEngine.SR / 60)) + ":" + ((int)(dur / StudioEngine.SR % 60)).ToString("00"); Txt(g, tm, 12, Ink, Rc(ob.Right - 110, ob.Y, 100, ob.Height), StringAlignment.Far, true);
+        if (pe != null) { Action<float> seek = mx => { double f = Math.Max(0, Math.Min(1, (mx - inner.X) / inner.Width)); try { pe.Seek((long)(f * dur)); } catch { } }; var rg = Reg(inner, () => seek(MousePos.X)); rg.OnDrag = pt => seek(pt.X); if (Hot(inner)) { bubble = "Click to jump to a place in the preview"; bubblePt = MousePos; } }
+    }
+}

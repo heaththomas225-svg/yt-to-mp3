@@ -7,10 +7,40 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.20.0";
+    public const string Latest = "3.21.0";
 
     public const string Text =
-@"3.20.0  Clip tools, community presets and a recorder that waits for you
+@"3.21.0  Capitals and a bold font, STEREO / MONO, movable boxes, logo scroll strips, a reworked CUT and fades, a new projects page and colour themes
+ + All the writing is now in CAPITAL LETTERS in a bold, sharp font (Bahnschrift, which every Windows 10 and 11 PC has), in the studio, the main window, Settings, menus and dialogs. Long sentences keep normal letters so they stay easy to read. The main window was re-spaced so no writing touches a box or another label, and GRID SIZE is in capitals too.
+ + CUT now really cuts: click the piece you want gone, press CUT, and that piece is DELETED and the pieces after it move up to close the gap (SPLIT is the one that makes two pieces). It works on every piece lit by a selection box too, skips locked tracks, and Ctrl+Z puts it all back.
+ + Fades were reworked. The FADE IN and FADE OUT buttons are gone: click a clip and drag the round handles. The top handle sets how long the fade is; the new bottom handle moves where the fade starts (or where it ends), so you can leave silence before a fade in or after a fade out. Double-click a handle to remove or reset it. Fades follow a smooth S curve (no click at the start, no plunge at the end) and the picture on the clip is drawn from the very same curve, so what you see is what you hear.
+ + Every track has a STEREO / MONO button. MONO makes left and right the same sound; it is saved with the project.
+ + Pop-up boxes (Gain, the track pickers, New Track, Buses, Rapper Vocal Styles, Automation, Community presets, Add effect) can be dragged by their top strip to anywhere on the screen and stay where you put them.
+ + Lists now have a vertical scroll strip made like the one under the tracks: solid black, arrows at both ends, a lit window showing where you are and the logo in the middle to hold and drag. It is on Rapper Vocal Styles, Community presets, Add effect, New Track, Buses and the track pickers.
+ + The scroll strips are solid black so nothing behind them can flicker through. The strip under the tracks keeps its logo in the middle on every screen size, and the view no longer jumps back to the needle while music plays: scroll where you like, and it stays (click the ruler, press FIT or press PLAY again to follow the needle).
+ + Flex Pitch has the same logo scroll strip along its top (the waves come out of the logo) with the zoom slider from the editing row centred under it. The PITCH ZOOM buttons were removed.
+ + The transport: PLAY always says PLAY (it lights up while playing), MIC keeps its name and pulses red when it is ready (PLAY then starts the recording), and REC is now MIDI REC for recording from a MIDI keyboard.
+ + The Count In is now a glowing hexagon the size of the logo (the big circle is gone) with a neon glow that pulses on every beat and neon sparks that burst off its edges, like the sparks on the needle.
+ + A track that once held audio, has been emptied (its clip moved or deleted) and still has plugins switched on is removed by itself, with Ctrl+Z to bring it back. Tracks you made empty on purpose are never touched.
+ + Lyrics: Open .txt now puts [Verse 1], [Chorus], [Bridge] and so on in for you, and a new ADD SECTIONS button does the same for lyrics you are writing (parts you already labelled are left alone).
+ + A preset you save (a plugin preset, a plugin chain or a Bass Lab sound) is also shared to the Community presets automatically, so everyone can use it. A switch in Settings turns this off.
+ + The neon text boxes line up with their writing on every PC and window size, and typing boxes are fixed-size so the frame can never drift away from the text.
+ + The pointer (the needle) can only be moved from the ruler strip at the top, which now has a neon border so you can see where to grab it. The needle itself is a glowing neon beam and throws tiny neon sparks while it plays, like fat spitting in a pan. Clicking empty space in the tracks no longer moves it.
+ + Hold the left mouse button on empty space in the tracks and drag to draw a selection box: every piece it touches lights up, and CUT, DEL, LOCK and the other buttons work on all of them.
+ + Value boxes (the numbers on plugins and tracks) are neon boxes now, kept well apart from their names so you cannot click one by accident. Click anywhere else to confirm what you typed, press Enter to confirm, or press Esc to cancel.
+ + Every track works out its own tempo (BPM) by itself, whenever it gets sound, and shows it under the track name.
+ + Hint boxes and messages grow to fit all of their words instead of ending in dots, and every button has a hint now.
+ + The count in number is exactly in the middle of the hexagon (it is measured from the real shape of the digit, so it is centred on every PC).
+ + My Projects was reworked. Every project is a neon card with a square picture; if you have not chosen a picture the card shows the Purphex logo, and any picture you choose is cropped to fill the whole square (never stretched, never with empty bars). The same goes for your profile picture: it is the Purphex logo until you pick your own, and an X on it removes yours again.
+ + There is a BACK button on the projects pages (and on Community) and in the right-click menu of a project, so you never have to guess that MIX takes you back. The right-click menu has all the options: open, preview, rename, change or remove the picture, show in folder, remove from the list and BACK.
+ + Clicking a project now asks you to confirm before it opens, so you are never sent into a project by accident. The projects in the side menu Recent list ask too.
+ + REMOVE PICTURE (a button on each project and in its right-click menu) takes your picture off and brings the logo back.
+ + Removing a project asks what you want: take it off the list only, or also send the file to the Recycle Bin (so you can still get it back). Nothing is deleted for good.
+ + PREVIEW: press the play button on a project card to hear it without opening it. The bar along the bottom turns into a visualiser (logo in the middle, waves coming out of it) with the time, a STOP button and click to jump to a place in the song. Opening another page, pressing PLAY in the studio or pressing STOP ends it.
+ + THEMES: a new Theme tab in the side menu (and a Theme section in Settings) with six colour themes: Purphex, Ocean, Sunset, Toxic, Crimson and Mono. One choice recolours the glows, borders, buttons, the needle and the sparks in Purphex Music, Mastering and Bass Lab, and it is remembered next time.
+ + Side menu texts were shortened so none of them is ever cut off.
+
+3.20.0  Clip tools, community presets and a recorder that waits for you
  + Split a track as many times as you like: every piece stays on the same track. New CUT button (press it at the start and again at the end of a section to take that section out of every track and close the gap), FADE IN and FADE OUT with a round handle you drag to set the length, GAIN to set the volume of one piece, and LOCK to freeze a track so it cannot be moved, trimmed, split, cut or deleted until you unlock it.
  + The two Trim to the needle buttons and the floating row of little buttons on a clip are gone. DEL (and the Delete key) now removes just the selected piece.
  + Community presets: every Presets button now opens Community presets, a list of presets other producers shared (POPULAR, NEWEST, search). Press USE to try one, or SHARE MY CURRENT SETTINGS to give yours. It works for every plugin, for whole plugin chains and for Bass Lab sounds. Presets are checked before they are used, and a preset that several people report is hidden.

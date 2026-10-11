@@ -63,7 +63,8 @@ partial class SynthCanvas : Control
     readonly SynthFx fx; readonly SynthWindow win; readonly List<Reg> regs = new List<Reg>(); Reg hover, active; PointF mouse, downPt; float downFrac; DateTime lastInput = DateTime.Now; bool modified;
     int tab, modTab = 4, matPage; const float W = 1240, H = 716; float scale = 1, ox, oy;
     public bool Typing;
-    static readonly Color Bg0 = Color.FromArgb(13, 7, 26), Bg1 = Color.FromArgb(26, 13, 48), Panel = Color.FromArgb(30, 17, 56), PanelHi = Color.FromArgb(44, 26, 80), Edge = Color.FromArgb(96, 62, 160), Ink = Color.FromArgb(240, 232, 255), Dim = Color.FromArgb(150, 132, 190),
+    internal static void ApplyTheme(ThemeDef t) { Bg0 = Color.FromArgb(t.Bg0.R + 6, t.Bg0.G + 3, t.Bg0.B + 10); Bg1 = Color.FromArgb(t.Bg1.R + 8, t.Bg1.G + 5, t.Bg1.B + 12); Panel = Color.FromArgb(t.Panel.R + 12, t.Panel.G + 7, t.Panel.B + 22); PanelHi = Color.FromArgb(t.Panel.R + 26, t.Panel.G + 16, t.Panel.B + 46); Edge = Color.FromArgb(t.EdgeC.R * 2 / 3, t.EdgeC.G * 2 / 3, t.EdgeC.B * 3 / 4); Acc = t.Accent; Acc2 = t.Accent2; }
+    static Color Bg0 = Color.FromArgb(13, 7, 26), Bg1 = Color.FromArgb(26, 13, 48), Panel = Color.FromArgb(30, 17, 56), PanelHi = Color.FromArgb(44, 26, 80), Edge = Color.FromArgb(96, 62, 160), Ink = Color.FromArgb(240, 232, 255), Dim = Color.FromArgb(150, 132, 190),
         Acc = Color.FromArgb(188, 120, 255), Acc2 = Color.FromArgb(236, 92, 226), Good = Color.FromArgb(120, 232, 150), Disp = Color.FromArgb(14, 8, 28);
     static readonly Dictionary<string, string> Tips = new Dictionary<string, string> {
         { "f1cut", "Cutoff: how bright the sound is. Wobble comes from an LFO moving this." }, { "f1res", "Resonance: the 'wah' peak at the cutoff." }, { "f1drive", "Drive: pushes the filter input for a dirtier bass." },
@@ -146,7 +147,7 @@ partial class SynthCanvas : Control
     {
         var p = P(id); if (p == null || !p.IsChoice) return; var reg = Add(r); reg.P = p; reg.Tip = p.Name + ": click to choose, mouse wheel to step";
         Fill(g, Hot(r) ? PanelHi : Color.FromArgb(20, 11, 38), r, 5); Stroke(g, Color.FromArgb(Hot(r) ? 230 : 130, col), r, 5, 1);
-        Txt(g, prefix + p.Text, 11, Ink, Rc(r.X + 5, r.Y, r.Width - 16, r.Height), StringAlignment.Near, false); Txt(g, "v", 9, Dim, Rc(r.Right - 14, r.Y, 12, r.Height), StringAlignment.Center, false);
+        Txt(g, prefix + p.Text, 11, Ink, Rc(r.X + 5, r.Y, r.Width - 16, r.Height), StringAlignment.Near, false); Txt(g, "V", 9, Dim, Rc(r.Right - 14, r.Y, 12, r.Height), StringAlignment.Center, false);
         reg.Down = pt => { var m = Win.NewMenu(); for (int i = 0; i < p.Choices.Length; i++) { int k = i; var it = new ToolStripMenuItem(p.Choices[i]) { Checked = (int)Math.Round(p.Val) == i }; it.Click += (a, b) => { SetVal(p, k); Poke(); }; m.Items.Add(it); } ShowMenu(m, new Point((int)(pt.X * scale + ox), (int)((r.Bottom) * scale + oy))); };
         reg.Wheel = d => SetVal(p, (p.Val + (d > 0 ? 1 : -1) + p.Choices.Length) % p.Choices.Length);
     }
@@ -185,7 +186,7 @@ partial class SynthCanvas : Control
     {
         var logo = Rc(8, 6, 182, 50); Fill(g, Panel, logo, 8); Stroke(g, Edge, logo, 8, 1);
         using (var br = new LinearGradientBrush(logo, Acc, Acc2, 0f)) using (var f = new Font("Segoe UI Black", 19f, FontStyle.Bold, GraphicsUnit.Pixel)) g.DrawString("BASS LAB", f, br, logo.X + 14, logo.Y + 6);
-        Txt(g, "synth for bass + leads", 10, Dim, Rc(logo.X + 14, logo.Y + 30, 160, 14), StringAlignment.Near, false);
+        Txt(g, "SYNTH FOR BASS + LEADS", 10, Dim, Rc(logo.X + 14, logo.Y + 30, 160, 14), StringAlignment.Near, false);
         string[] tabs = { "OSC", "MIX", "FX", "MATRIX", "GLOBAL" }; float x = 200;
         for (int i = 0; i < tabs.Length; i++)
         {
@@ -202,7 +203,7 @@ partial class SynthCanvas : Control
         var prev = Rc(pb.Right - 78, pb.Y + 10, 30, 30); var next = Rc(pb.Right - 44, pb.Y + 10, 30, 30);
         Fill(g, Hot(prev) ? PanelHi : Color.FromArgb(20, 11, 38), prev, 5); Txt(g, "<", 15, Ink, prev, StringAlignment.Center, true); Add(prev).Down = pt => StepPreset(-1);
         Fill(g, Hot(next) ? PanelHi : Color.FromArgb(20, 11, 38), next, 5); Txt(g, ">", 15, Ink, next, StringAlignment.Center, true); Add(next).Down = pt => StepPreset(1);
-        var pnc = Rc(896, 6, 88, 50); Fill(g, Hot(pnc) ? Color.FromArgb(160, 40, 80) : Color.FromArgb(120, 30, 62), pnc, 8); Stroke(g, Acc2, pnc, 8, 1.5f); Txt(g, "PANIC", 14, Ink, Rc(pnc.X, pnc.Y + 6, pnc.Width, 24), StringAlignment.Center, true); Txt(g, "all notes off", 9, Ink, Rc(pnc.X, pnc.Y + 30, pnc.Width, 14), StringAlignment.Center, false);
+        var pnc = Rc(896, 6, 88, 50); Fill(g, Hot(pnc) ? Color.FromArgb(160, 40, 80) : Color.FromArgb(120, 30, 62), pnc, 8); Stroke(g, Acc2, pnc, 8, 1.5f); Txt(g, "PANIC", 14, Ink, Rc(pnc.X, pnc.Y + 6, pnc.Width, 24), StringAlignment.Center, true); Txt(g, "ALL NOTES OFF", 9, Ink, Rc(pnc.X, pnc.Y + 30, pnc.Width, 14), StringAlignment.Center, false);
         var pnr = Add(pnc); pnr.Tip = "Panic: stops every note and every ringing tail right now."; pnr.Down = pt => win.PanicAll();
         // quick bass boost
         var bb = Rc(990, 6, 150, 50); Fill(g, Panel, bb, 8); Stroke(g, Edge, bb, 8, 1);
@@ -282,12 +283,12 @@ partial class SynthCanvas : Control
         Txt(g, audio, 12, bad ? Color.FromArgb(255, 140, 150) : Good, Rc(ap.X + 10, ap.Y + 6, ap.Width - 20, 18), StringAlignment.Near, true);
         Txt(g, fx.ActiveVoices + " of " + (int)P("voices").Val + " voices in use", 12, Ink, Rc(ap.X + 10, ap.Y + 26, ap.Width - 20, 18), StringAlignment.Near, false);
         Txt(g, MidiInput.Status + (MidiInput.OpenName.Length > 0 ? "  (" + MidiInput.Received + " messages)" : ""), 11, MidiInput.Status.StartsWith("MIDI: listening") ? Good : Dim, Rc(ap.X + 10, ap.Y + 46, ap.Width - 20, 32), StringAlignment.Near, false);
-        var test = Rc(ap.X + 10, ap.Y + 72, 120, 24); Fill(g, Hot(test) ? PanelHi : Color.FromArgb(18, 10, 34), test, 5); Stroke(g, Acc, test, 5, 1); Txt(g, "Test sound", 12, Ink, test, StringAlignment.Center, true);
+        var test = Rc(ap.X + 10, ap.Y + 72, 120, 24); Fill(g, Hot(test) ? PanelHi : Color.FromArgb(18, 10, 34), test, 5); Stroke(g, Acc, test, 5, 1); Txt(g, "TEST SOUND", 12, Ink, test, StringAlignment.Center, true);
         var tr = Add(test); tr.Tip = "Plays a short note so you can check that you hear Bass Lab."; tr.Down = pt => win.TestSound();
         var pan = Rc(ap.X + 138, ap.Y + 72, 110, 24); Fill(g, Hot(pan) ? Color.FromArgb(150, 40, 80) : Color.FromArgb(110, 30, 60), pan, 5); Stroke(g, Acc2, pan, 5, 1); Txt(g, "PANIC", 12, Ink, pan, StringAlignment.Center, true);
         var pr = Add(pan); pr.Tip = "Stops every note and every ringing tail right now."; pr.Down = pt => win.PanicAll();
         var md = Rc(r.X + 20, r.Y + 176, 330, 26); Fill(g, Hot(md) ? PanelHi : Color.FromArgb(20, 11, 38), md, 5); Stroke(g, Acc, md, 5, 1);
-        Txt(g, "MIDI keyboard: " + (Prefs.MidiDev.Length == 0 ? "Off" : Prefs.MidiDev), 12, Ink, Rc(md.X + 8, md.Y, md.Width - 24, md.Height), StringAlignment.Near, false); Txt(g, "v", 9, Dim, Rc(md.Right - 16, md.Y, 12, md.Height), StringAlignment.Center, false);
+        Txt(g, "MIDI keyboard: " + (Prefs.MidiDev.Length == 0 ? "Off" : Prefs.MidiDev), 12, Ink, Rc(md.X + 8, md.Y, md.Width - 24, md.Height), StringAlignment.Near, false); Txt(g, "V", 9, Dim, Rc(md.Right - 16, md.Y, 12, md.Height), StringAlignment.Center, false);
         var mr = Add(md); mr.Tip = "Choose a plugged-in MIDI keyboard or controller. Notes, pitch bend and sustain pedal work."; mr.Down = pt => MidiMenu(md);
         Txt(g, "Computer keyboard: A S D F G H J = white keys, W E T Y U = black keys, Z / X = octave.  Mouse: click and hold a piano key (lower on the key = louder).", 11, Dim, Rc(r.X + 20, r.Y + 212, 1100, 30), StringAlignment.Near, false);
     }
@@ -330,7 +331,7 @@ partial class SynthCanvas : Control
             Fill(g, cur ? Color.FromArgb(120, Acc2) : (Hot(b) ? PanelHi : Color.FromArgb(18, 10, 34)), b, 5); Stroke(g, cur ? Acc2 : Edge, b, 5, 1); Txt(g, quick[i], 11, Ink, b, StringAlignment.Center, cur);
             var rg = Add(b); rg.Tip = "Aim " + name + " at: " + quick[i] + ". Then set how much with the amount knob."; rg.Down = pt => { int s = SlotFor(srcIndex); SetVal(P("m" + s + "s"), srcIndex); SetVal(P("m" + s + "d"), qd[ii]); if (Math.Abs(P("m" + s + "a").Val) < 1) SetVal(P("m" + s + "a"), 50); };
         }
-        if (slot > 0) { Knob(g, "m" + slot + "a", r.X + r.Width - 60, r.Y + 62, "AMOUNT", Acc2, 20); } else Txt(g, "(pick a target)", 11, Dim, Rc(r.X + r.Width - 130, r.Y + 52, 120, 20), StringAlignment.Center, false);
+        if (slot > 0) { Knob(g, "m" + slot + "a", r.X + r.Width - 60, r.Y + 62, "AMOUNT", Acc2, 20); } else Txt(g, "(PICK A TARGET)", 11, Dim, Rc(r.X + r.Width - 130, r.Y + 52, 120, 20), StringAlignment.Center, false);
     }
     int SlotFor(int src)
     {

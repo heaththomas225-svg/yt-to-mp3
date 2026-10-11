@@ -9,7 +9,7 @@ class SettingsForm : Form
 {
     readonly App app; bool setting;
     Label bgName, updStatus; Button updBtn; TrackBar dimBar, volBar; NumericUpDown dimNum, volNum; ComboBox devBox, bufBox, fpsBox, inBox;
-    CheckBox leavesChk, studioChk, fpsChk;
+    CheckBox leavesChk, studioChk, fpsChk, shareChk; ComboBox themeBox; Label themeNote;
     static readonly Color Ink = Color.FromArgb(240, 232, 255), Dim = Color.FromArgb(160, 140, 200), Head = Color.FromArgb(236, 120, 230), Fld = Color.FromArgb(24, 12, 44);
 
     public SettingsForm(App app)
@@ -32,6 +32,11 @@ class SettingsForm : Form
         y += 46;
         leavesChk = Chk("Keep the floating leaves on top of my background", 20, ref y); leavesChk.CheckedChanged += (s, e) => { if (!setting) { Prefs.BgLeaves = leavesChk.Checked; Prefs.Changed(); } };
         studioChk = Chk("Also use it behind Purphex Music", 20, ref y); studioChk.CheckedChanged += (s, e) => { if (!setting) { Prefs.BgStudio = studioChk.Checked; UserBackground.Version++; Prefs.Changed(); } };
+        y += 6; Header("Theme", ref y);
+        Controls.Add(new Label { Text = "Colour theme", Left = 20, Top = y + 3, Width = 150, ForeColor = Ink });
+        themeBox = Combo(180, y, 360, new string[0]); foreach (var td in Themes.All) themeBox.Items.Add(td.Name);
+        themeBox.SelectedIndexChanged += (s, e) => { if (setting || themeBox.SelectedIndex < 0) return; Themes.Apply(themeBox.SelectedIndex); themeNote.Text = Themes.Current.Blurb + " It changes the glow, borders and buttons in Purphex Music, Mastering and Bass Lab."; Prefs.Changed(); };
+        y += 38; themeNote = new Label { Left = 20, Top = y - 4, Width = 520, Height = 34, ForeColor = Dim, Font = new Font("Segoe UI", 9f) }; Controls.Add(themeNote); y += 36;
         y += 6; Header("Animation", ref y);
         Controls.Add(new Label { Text = "Frame rate limit", Left = 20, Top = y + 3, Width = 150, ForeColor = Ink });
         fpsBox = Combo(180, y, 190, new[] { "30 fps (lightest)", "60 fps (smooth)", "120 fps (fastest screens)" }); fpsBox.SelectedIndexChanged += (s, e) => { if (!setting) { Prefs.FpsCap = fpsBox.SelectedIndex == 0 ? 30 : (fpsBox.SelectedIndex == 2 ? 120 : 60); Prefs.Changed(); } };
@@ -67,17 +72,21 @@ class SettingsForm : Form
             updBtn.Enabled = false; updStatus.ForeColor = Dim; updStatus.Text = "Checking...";
             app.ScanForUpdates(msg => { try { BeginInvoke(new Action(() => { updBtn.Enabled = true; updStatus.ForeColor = msg.StartsWith("Could not") ? Color.FromArgb(255, 150, 150) : Color.FromArgb(150, 255, 170); updStatus.Text = msg; })); } catch { } });
         };
-        y += 44; Header("General", ref y);
+        y += 44; Header("Community presets", ref y);
+        shareChk = Chk("Share the presets I save with the community automatically", 20, ref y); shareChk.CheckedChanged += (s, e) => { if (!setting) { Prefs.ShareSaved = shareChk.Checked; Prefs.Changed(); } };
+        Note("When you save a preset (a plugin preset, a plugin chain or a Bass Lab sound) it also appears in Community presets for everyone to use, under your producer name. Turn this off to keep your presets only on this PC.", ref y);
+        y += 4; Header("General", ref y);
         var open = Btn("Open settings folder", 20, y, 180, Color.FromArgb(70, 40, 120)); open.Click += (s, e) => { try { Process.Start("explorer.exe", app.DataFolder); } catch { } };
-        var reset = Btn("Reset appearance and audio", 210, y, 220, Color.FromArgb(150, 40, 80)); reset.Click += (s, e) => ResetAll();
-        var done = Btn("Done", 460, y, 80, Color.FromArgb(140, 60, 220)); done.Click += (s, e) => Close();
+        var reset = Btn("Reset appearance and audio", 208, y, 244, Color.FromArgb(150, 40, 80)); reset.Click += (s, e) => ResetAll();
+        var done = Btn("Done", 462, y, 80, Color.FromArgb(140, 60, 220)); done.Click += (s, e) => Close();
         AutoScroll = true; AutoScrollMinSize = new Size(540, y + 76);   // everything stays reachable on small screens or high display scaling
         ClientSize = new Size(576, Math.Min(640, Screen.PrimaryScreen.WorkingArea.Height - 100));
+        Win.CapsAll(this); updStatus.Tag = "nocaps"; bgName.Tag = "nocaps";
         Refresh2();
     }
 
     void Header(string t, ref int y) { Controls.Add(new Label { Text = t, Left = 20, Top = y, Width = 520, Height = 26, Font = new Font("Segoe UI Semibold", 12.5f), ForeColor = Head }); y += 30; }
-    void Note(string t, ref int y) { Controls.Add(new Label { Text = t, Left = 20, Top = y, Width = 520, Height = 38, ForeColor = Dim, Font = new Font("Segoe UI", 9f) }); y += 40; }
+    void Note(string t, ref int y) { Controls.Add(new Label { Text = t, Left = 20, Top = y, Width = 520, Height = 46, ForeColor = Dim, Font = new Font("Segoe UI", 9f) }); y += 48; }
     Button Btn(string t, int x, int y, int w, Color c) { var b = new Button { Text = t, Left = x, Top = y, Width = w, Height = 32, FlatStyle = FlatStyle.Flat, BackColor = c, ForeColor = Color.White, Cursor = Cursors.Hand }; b.FlatAppearance.BorderColor = Color.FromArgb(200, 150, 255); Controls.Add(b); return b; }
     CheckBox Chk(string t, int x, ref int y) { var c = new DarkCheck { Text = t, Left = x, Top = y, Width = 520, Height = 24, ForeColor = Ink }; Controls.Add(c); y += 28; return c; }
     ComboBox Combo(int x, int y, int w, string[] items) { var c = new DarkCombo { Left = x, Top = y, Width = w, DropDownStyle = ComboBoxStyle.DropDownList }; c.Items.AddRange(items); Controls.Add(c); return c; }
@@ -103,7 +112,7 @@ class SettingsForm : Form
 
     void ResetAll()
     {
-        Prefs.BgDim = 45; Prefs.BgLeaves = true; Prefs.BgStudio = true; Prefs.OutVol = 100; Prefs.OutDev = -1; Prefs.Buf = 1; Prefs.FpsCap = 60; Prefs.ShowFps = false;
+        Prefs.BgDim = 45; Prefs.BgLeaves = true; Prefs.BgStudio = true; Prefs.ShareSaved = true; Prefs.OutVol = 100; Prefs.OutDev = -1; Prefs.Buf = 1; Prefs.FpsCap = 60; Prefs.ShowFps = false; Themes.Apply(0);
         UserBackground.Set(""); Refresh2(); app.StudioEng.ReopenOutput(); Prefs.Changed();
     }
 
@@ -111,7 +120,8 @@ class SettingsForm : Form
     {
         setting = true;
         bgName.Text = UserBackground.Active ? (UserBackground.IsVideo ? "Video: " : "Picture: ") + Prefs.BgPath : "None - using the animated purple leaves";
-        dimBar.Value = Prefs.BgDim; dimNum.Value = Prefs.BgDim; leavesChk.Checked = Prefs.BgLeaves; studioChk.Checked = Prefs.BgStudio;
+        dimBar.Value = Prefs.BgDim; dimNum.Value = Prefs.BgDim; leavesChk.Checked = Prefs.BgLeaves; studioChk.Checked = Prefs.BgStudio; shareChk.Checked = Prefs.ShareSaved;
+        themeBox.SelectedIndex = Themes.Index; themeNote.Text = Themes.Current.Blurb + " It changes the glow, borders and buttons in Purphex Music, Mastering and Bass Lab.";
         fpsBox.SelectedIndex = Prefs.FpsCap == 30 ? 0 : (Prefs.FpsCap >= 120 ? 2 : 1); fpsChk.Checked = Prefs.ShowFps;
         { int ii = Prefs.InDev.Length == 0 ? 0 : inBox.Items.IndexOf(Prefs.InDev); inBox.SelectedIndex = Math.Max(0, ii); }
         volBar.Value = Prefs.OutVol; volNum.Value = Prefs.OutVol; devBox.SelectedIndex = Math.Max(0, Math.Min(devBox.Items.Count - 1, Prefs.OutDev + 1)); bufBox.SelectedIndex = Prefs.Buf;

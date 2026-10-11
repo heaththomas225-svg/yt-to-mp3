@@ -117,7 +117,7 @@ partial class App
 
     void SnapLabels()
     {
-        var l = new List<Lab>(); foreach (var kv in lbls) l.Add(new Lab { T = kv.Value, X = kv.Key.Left, Y = kv.Key.Top - 18 * uiS }); labSnap = l.ToArray();
+        var l = new List<Lab>(); foreach (var kv in lbls) l.Add(new Lab { T = Win.Up(kv.Value), X = kv.Key.Left, Y = kv.Key.Top - 21 * uiS }); labSnap = l.ToArray();
         subtitle = "Download music or video from YouTube and 1000+ other sites. Choose MP3 or MP4 and a quality.";
     }
 
@@ -177,7 +177,7 @@ partial class App
             var cards = new[] { new RectangleF(8 * X, 70 * Y, W - 16 * X, 88 * Y), new RectangleF(8 * X, 164 * Y, W - 16 * X, 142 * Y), new RectangleF(8 * X, 308 * Y, W - 16 * X, 38 * Y),
                                 new RectangleF(8 * X, 350 * Y, W - 16 * X, 108 * Y), new RectangleF(8 * X, 464 * Y, W - 16 * X, 42 * Y), new RectangleF(8 * X, 510 * Y, W - 16 * X, Math.Max(80, H - 518 * Y)) };
             float tt = t; for (int i = 0; i < cards.Length; i++) Card(g, cards[i], i, tt);
-            using (var f = new Font("Segoe UI Semibold", 10f * S)) using (var b = new SolidBrush(Color.FromArgb(235, 222, 255))) using (var sb2 = new SolidBrush(Color.FromArgb(200, 0, 0, 0)))
+            using (var f = new Font(Win.UiFamily, 9.5f * S)) using (var b = new SolidBrush(Color.FromArgb(235, 222, 255))) using (var sb2 = new SolidBrush(Color.FromArgb(200, 0, 0, 0)))
             using (var f2 = new Font("Segoe UI", 10f * S)) using (var b2 = new SolidBrush(Color.FromArgb(215, 200, 245)))
             {
                 g.DrawString(subtitle, f2, sb2, 19 * X, 49 * Y); g.DrawString(subtitle, f2, b2, 18 * X, 48 * Y);

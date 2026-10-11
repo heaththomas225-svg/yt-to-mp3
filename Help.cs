@@ -266,20 +266,26 @@ Open + Add Effect on a track and pick it under PLUGINS (it is listed first). Pre
 ## Shorten a track (trim)
 - Drag the left or right END of a clip to shorten it. The audio is never deleted, you can drag it back out.
 ## Take a section out (CUT)
-1. Put the needle where the cut should start and press CUT. A pink flag marks the spot.
-2. Move the needle to where it should end and press CUT again. That section is removed from every track and the gap closes, so everything after it moves up. Esc cancels. Ctrl+Z undoes it.
+1. SPLIT the track where the part you do not want starts and where it ends, so it is a piece of its own.
+2. Click that piece and press CUT. The piece is deleted and the pieces after it move up to close the gap. (SPLIT makes two pieces; CUT removes one.) It also cuts every clip lit by a selection box, leaves locked tracks alone, and Ctrl+Z puts it back.
 ## Fade in and fade out
-Click a piece, then press FADE IN or FADE OUT. A round handle appears at the top of the clip: drag it to make the fade longer or shorter. Press the button again to remove the fade.
+Click a clip: round handles appear on it. Drag the top handle at the top left to fade in (the farther you drag it, the longer the fade) and the top handle at the top right to fade out. The small bottom handle on a fade moves where the fade starts (or ends), which leaves silence before a fade in or after a fade out. Double-click a handle to remove or reset it. The curve drawn on the clip is exactly the curve you hear.
 ## Gain (volume of one piece)
 Click a piece and press GAIN. A small panel opens with a slider from -30 to +12 dB that only changes that piece, on top of the track volume. Press GAIN again (or the x) to close it. Reset to 0 puts it back.
 ## Lock a track in place
 Press LOCK to lock the selected track: it cannot be moved, trimmed, split, cut or deleted until you press UNLOCK, so you cannot nudge it by accident. A locked track is also left alone by CUT.
 ## Select several clips
 Hold the left mouse button on empty space (between or below the tracks) and drag a box. Every clip the box touches lights up. Drag any lit clip to move them all together, press Delete (or DEL) to remove them, and press Esc or click empty space to let go. Locked tracks do not move or delete.
+## Moving the boxes
+Pop-up boxes (Gain, track pickers, New Track, Buses, Rapper Vocal Styles, Automation, Community presets, Add effect) have a strip along their top: drag it to put the box anywhere you like.
+## Long lists
+Lists have a vertical scroll strip like the one under the tracks: hold the logo and drag, click the arrows at the ends, or click along the strip.
 ## The needle
 The needle (the glowing line) moves only from the strip at the top of the tracks, which has a neon border so you can see where to grab it: click or drag there. While music plays, small neon sparks spit off the beam.
 ## Move a clip
 Drag the clip anywhere left or right (the cursor turns into a move cross). A plain click just selects the clip: the needle stays where it is.
+## Stereo or mono
+Every track has a STEREO / MONO button next to its Bus button. STEREO keeps left and right apart; MONO (the button lights up) makes both sides the same sound, which is handy for a voice or a bass, or to check how your mix sounds on a single speaker. It is saved with the project.
 ## Move a track up or down
 Drag the track name on the left up or down, or use the Up and Dn buttons on the selected track.
 ## More
@@ -536,13 +542,14 @@ Import adds your own samples (wav, mp3, flac, midi...) to the My samples pack, o
 
         new HelpTopic("studio-menu", "Purphex Music", "The side menu, My Projects with pictures, and Community", false, @"
 ## The side menu
-Press the three-lines button at the top left of Purphex Music. Your picture and name are at the top (click the picture to change it, click the name to rename yourself). Click Project, Edit, Tools, View, Community, Settings, Help or Exit to open its list.
+Press the three-lines button at the top left of Purphex Music. Your picture and name are at the top (click the picture to change it, click the name to rename yourself). Click Project, Edit, Tools, View, Community, Theme, Settings, Help or Exit to open its list.
 - Project: New Project, Recent Projects (the last ones you opened, with their pictures), My Projects, Open, Save, Save as, Set project picture, Export.
 - Edit: undo, redo, split, trim, duplicate and delete.
 - Tools: Auto Mix, split vocals and beat, detect BPM, metronome, mastering, add an instrument or track.
 - View: switch between Mix, Mastering, Lyrics and My Projects, fit the whole song, thin / normal / tall tracks, full screen.
+- Theme: pick one of six colour themes (Purphex, Ocean, Sunset, Toxic, Crimson, Mono). The whole program changes colour at once and remembers your choice. Settings has the same choice.
 ## My Projects
-Every project you save or open is remembered here, newest first, as a card with a picture. Click a card to open it. The camera button adds or changes the picture (choose a JPG, PNG, GIF or BMP: it is cropped to a square and kept inside the project file, so it travels with it). Right-click a card for more (show in folder, remove the picture, remove it from the list). The x only removes a project from this list: your file stays on your PC.
+Every project you save or open is remembered here, newest first, as a card with a picture. Click a card to open it: Purphex asks you to confirm first. The BACK button (top of the page, and in the right-click menu) takes you back to the tracks. The play button on a card PREVIEWS the project: you hear it without opening it and the bar along the bottom becomes a visualiser (press its square STOP button, or click the bar to jump). A project with no picture shows the Purphex logo; any picture is cropped to fill the square. The camera button adds or changes the picture (choose a JPG, PNG, GIF or BMP: it is cropped to a square and kept inside the project file, so it travels with it). The crossed camera button (or Remove picture in the right-click menu) takes your picture off again. Right-click a card for everything: open, preview, rename, change or remove the picture, show in folder, remove from the list and BACK. The x asks whether to take the project off this list only (your file stays on your PC) or to send the file to the Recycle Bin too.
 Projects you saved in the usual folder before are found automatically.
 ## Open also finds your music
 The Open button lists project files and audio (mp3, wav, flac, m4a, ogg...). Pick one or several songs and they are added as tracks.
@@ -556,7 +563,7 @@ Under the box you see the number of lines, words and syllables, and the syllable
 ## Saving
 Your lyrics are saved inside your project (Save), and also as a draft on your PC as you type, so they are never lost.
 ## Export
-Open .txt loads lyrics from a text file (replace what you have or add it to the end). Copy puts the lyrics on the clipboard. Save .txt writes a text file. Clear empties the page.
+ADD SECTIONS puts labels like [Verse 1], [Chorus], [Pre-chorus] and [Bridge] on the parts of your lyrics that have none yet (a part that comes back is the chorus; parts you labelled yourself are left alone; Ctrl+Z takes it back). Open .txt loads lyrics from a text file (replace what you have or add it to the end) and adds those labels for you. Copy puts the lyrics on the clipboard. Save .txt writes a text file. Clear empties the page.
 This page never writes or suggests lyrics for you: every word is yours."),
 
         new HelpTopic("studio-neon","Purphex Music", "The neon look, zooming and taller tracks", false, @"

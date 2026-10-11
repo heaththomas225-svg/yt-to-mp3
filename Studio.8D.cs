@@ -35,9 +35,9 @@ partial class StudioForm
         Btn(g, Rc(x0, a.Y + 10, w, 28), hold ? "Holding: tap to rotate" : "Rotating: tap to hold", hold ? 4 : 1, () => sp.Set("hold", hold ? 0 : 1), 12);
         string[] nm = { "Front", "Right", "Behind", "Left" }; float[] an = { 0, 90, 180, 270 };
         for (int i = 0; i < 4; i++) { int k = i; Btn(g, Rc(x0 + (i % 2) * (w / 2 + 2), a.Y + 46 + (i / 2) * 32, w / 2 - 2, 28), nm[i], 0, () => { sp.Set("angle", an[k]); sp.Set("hold", 1); }, 12); }
-        Txt(g, "Angle", 12, DimC, Rc(x0, a.Y + 114, 50, 22), StringAlignment.Near, false);
+        Txt(g, "ANGLE", 12, DimC, Rc(x0, a.Y + 114, 50, 22), StringAlignment.Near, false);
         ValueBox(g, Rc(x0 + 58, a.Y + 112, 84, 26), ((int)ang) + " deg", Num(ang), s => { float v; if (ParseNum(s, out v)) { sp.Set("angle", ((v % 360) + 360) % 360); sp.Set("hold", 1); } });
-        Txt(g, "Best with headphones. Click or drag the ring to place the sound.", 10, DimC, Rc(x0, a.Y + 142, w, 34), StringAlignment.Near, false);
+        TxtWrap(g, "Best with headphones. Click or drag the ring to place the sound.", 10, DimC, Rc(x0, a.Y + 142, w, 40));
         return a.Y + 192;
     }
 

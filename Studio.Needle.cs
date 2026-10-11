@@ -11,7 +11,7 @@ partial class StudioForm
     sealed class Spark { public float X, Y, VX, VY, Life, Max, R; public Color C; }
     readonly List<Spark> sparks = new List<Spark>(); readonly Random sparkRnd = new Random(11); readonly System.Diagnostics.Stopwatch needleClock = System.Diagnostics.Stopwatch.StartNew();
     double needleLast, sparkAcc; bool needleDrag;
-    static readonly Color[] SparkCols = { Color.FromArgb(255, 70, 225), Color.FromArgb(0, 229, 255), Color.FromArgb(255, 255, 255), Color.FromArgb(190, 130, 255), Color.FromArgb(255, 70, 225), Color.FromArgb(0, 229, 255) };
+    static Color[] SparkCols = { Color.FromArgb(255, 70, 225), Color.FromArgb(0, 229, 255), Color.FromArgb(255, 255, 255), Color.FromArgb(190, 130, 255), Color.FromArgb(255, 70, 225), Color.FromArgb(0, 229, 255) };
 
     // the strip at the top of the tracks: a neon border (it lights up under the mouse and while you drag)
     void PaintRulerNeon(Graphics g, RectangleF ruler)

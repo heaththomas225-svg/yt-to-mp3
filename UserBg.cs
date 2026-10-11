@@ -20,11 +20,13 @@ static class Prefs
     public static bool ShowFps = false;      // show the frame rate in the title bar
     public static string MidiDev = "";       // the MIDI keyboard Bass Lab listens to ("" = off)
     public static string InDev = "";         // recording input (microphone), "" = the Windows default
+    public static string Theme = "Purphex";   // the colour theme (Settings and the Theme tab)
+    public static bool ShareSaved = true;    // a preset you save is also shared with the Community presets (Settings can turn this off)
     public static Action Changed = delegate { };
 
     public static string[] Lines()
     {
-        return new[] { "bgpath=" + BgPath, "bgdim=" + BgDim, "bgleaves=" + BgLeaves, "bgstudio=" + BgStudio, "outvol=" + OutVol, "outdev=" + OutDev, "buf=" + Buf, "fpscap=" + FpsCap, "showfps=" + ShowFps, "midiin=" + MidiDev, "indev=" + InDev };
+        return new[] { "bgpath=" + BgPath, "bgdim=" + BgDim, "bgleaves=" + BgLeaves, "bgstudio=" + BgStudio, "outvol=" + OutVol, "outdev=" + OutDev, "buf=" + Buf, "fpscap=" + FpsCap, "showfps=" + ShowFps, "midiin=" + MidiDev, "indev=" + InDev, "sharesaved=" + ShareSaved, "theme=" + Theme };
     }
     public static bool Parse(string k, string v)
     {
@@ -42,6 +44,8 @@ static class Prefs
             case "showfps": if (bool.TryParse(v, out b)) ShowFps = b; return true;
             case "midiin": MidiDev = v; return true;
             case "indev": InDev = v; return true;
+            case "sharesaved": if (bool.TryParse(v, out b)) ShareSaved = b; return true;
+            case "theme": Theme = v; Themes.ApplyByName(v); return true;
         }
         return false;
     }

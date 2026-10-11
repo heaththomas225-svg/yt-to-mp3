@@ -546,7 +546,8 @@ static class ProjectIO
             var t = eng.Tracks[i]; string src = t.Clip != null ? t.Clip.Path : t.Source;
             sb.Append("track|").Append(E(t.Instrument ? "inst" : (t.IsBus ? "bus" : t.Role))).Append('|').Append(E(t.Name)).Append('|').Append(t.Offset).Append('|').Append(E(src)).Append('|').Append(t.Color).Append('|').Append(t.ClipStart).Append('|').Append(t.ClipFrames).Append('\n');
             if (t.Host != null && eng.Tracks.IndexOf(t.Host) >= 0) sb.Append("host|").Append(i).Append('|').Append(eng.Tracks.IndexOf(t.Host)).Append('\n');
-            if (t.FadeIn > 0 || t.FadeOut > 0 || t.ClipGainDb != 0f || t.Locked) sb.Append("clip|").Append(i).Append('|').Append(t.FadeIn).Append('|').Append(t.FadeOut).Append('|').Append(t.ClipGainDb.ToString("R", CI)).Append('|').Append(t.Locked ? 1 : 0).Append('\n');
+            if (t.Mono) sb.Append("mono|").Append(i).Append('\n');
+            if (t.FadeIn > 0 || t.FadeOut > 0 || t.FadeInDelay > 0 || t.FadeOutTail > 0 || t.ClipGainDb != 0f || t.Locked) sb.Append("clip|").Append(i).Append('|').Append(t.FadeIn).Append('|').Append(t.FadeOut).Append('|').Append(t.ClipGainDb.ToString("R", CI)).Append('|').Append(t.Locked ? 1 : 0).Append('|').Append(t.FadeInDelay).Append('|').Append(t.FadeOutTail).Append('\n');
             if (t.Out != null && eng.Tracks.IndexOf(t.Out) >= 0) sb.Append("route|").Append(i).Append('|').Append(eng.Tracks.IndexOf(t.Out)).Append('\n');
             if (t.Instrument && t.Midi.Count > 0) { sb.Append("midi|").Append(i).Append('|'); lock (t.Midi) foreach (var m in t.Midi) sb.Append(m.Frame).Append(':').Append(m.S).Append(':').Append(m.D1).Append(':').Append(m.D2).Append(';'); sb.Append('\n'); }
         }
@@ -585,7 +586,8 @@ static class ProjectIO
                     foreach (var part in p[2].Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries))
                     { var q = part.Split(':'); long fr; int s, d1, d2; if (q.Length == 4 && long.TryParse(q[0], out fr) && int.TryParse(q[1], out s) && int.TryParse(q[2], out d1) && int.TryParse(q[3], out d2)) tracks[ti].Midi.Add(new MidiEv { Frame = fr, S = (byte)s, D1 = (byte)d1, D2 = (byte)d2 }); }
             }
-            else if (p[0] == "clip" && p.Length >= 6) { int ci; long fiv, fov; if (int.TryParse(p[1], out ci) && ci >= 0 && ci < tracks.Count) { if (long.TryParse(p[2], out fiv)) tracks[ci].FadeIn = fiv; if (long.TryParse(p[3], out fov)) tracks[ci].FadeOut = fov; tracks[ci].ClipGainDb = F(p[4]); tracks[ci].Locked = p[5] == "1"; } }
+            else if (p[0] == "mono" && p.Length >= 2) { int mi; if (int.TryParse(p[1], out mi) && mi >= 0 && mi < tracks.Count) tracks[mi].Mono = true; }
+            else if (p[0] == "clip" && p.Length >= 6) { int ci; long fiv, fov; if (int.TryParse(p[1], out ci) && ci >= 0 && ci < tracks.Count) { if (long.TryParse(p[2], out fiv)) tracks[ci].FadeIn = fiv; if (long.TryParse(p[3], out fov)) tracks[ci].FadeOut = fov; tracks[ci].ClipGainDb = F(p[4]); tracks[ci].Locked = p[5] == "1"; long dlv, tlv; if (p.Length >= 8) { if (long.TryParse(p[6], out dlv)) tracks[ci].FadeInDelay = dlv; if (long.TryParse(p[7], out tlv)) tracks[ci].FadeOutTail = tlv; } } }
             else if (p[0] == "route" && p.Length >= 3) routes.Add(p);
             else if (p[0] == "host" && p.Length >= 3) hosts.Add(p);
             else if (p[0] == "master" || p[0] == "tmix" || p[0] == "fx" || p[0] == "mfx" || p[0] == "auto") mix.Append(line).Append('\n');

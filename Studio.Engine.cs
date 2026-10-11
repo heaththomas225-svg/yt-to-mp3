@@ -341,7 +341,13 @@ class Track
     public Track Host;   // set = this track shares the row of its Host (an audio clip, a MIDI instrument and more can live on one row)
     public bool IsBus, Armed; public Track Out;   // a bus has no audio of its own: it mixes the tracks sent to it (Out), runs its own plugins, then goes to the master. Armed = an empty audio track waiting for a recording
     public List<Fx> Fx = new List<Fx>();
+    public bool Mono;   // the track is summed to mono (left and right the same) after its plugins, before pan and the fader
+    public bool EverHadClip;   // it held audio at some point this session (so an emptied track with plugins can be tidied away)
     public double Bpm; public bool BpmChecked;   // the tempo heard in this track (0 = none heard yet) and whether it has been listened to
+    // The shape of every fade, 0 -> 1 over the fade (a fade out plays it backwards): an S curve, gentle at both ends, so a fade in starts without a click,
+    // a fade out dies away without a sudden plunge at the end, and the middle is a steady -6 dB. The picture on the clip is drawn from this same function.
+    public static float FadeCurve(double t) { if (t <= 0) return 0f; if (t >= 1) return 1f; return (float)(t * t * (3 - 2 * t)); }
+    public long FadeInDelay, FadeOutTail;   // frames of silence before a fade in starts / after a fade out has finished (the bottom point of a fade can be moved too)
     public long FadeIn, FadeOut;   // frames: this clip fades in over its first FadeIn frames and out over its last FadeOut frames
     public float ClipGainDb;       // the volume of this clip (piece) on its own, on top of the track fader
     public bool Locked;            // locked in place (set on a row's own track: it covers every piece on the row)
@@ -460,14 +466,16 @@ partial class StudioEngine
                 long idx = pos + i - toff, k = idx + tcs;
                 if (cl != null && idx >= 0 && idx < ulen && k < cl.Length && k < cr.Length) { t.tl[i] = cl[k]; t.tr[i] = cr[k]; } else { t.tl[i] = 0; t.tr[i] = 0; }
             }
-            if (!t.IsBus && !t.Instrument && cl != null && (t.ClipGainDb != 0f || t.FadeIn > 0 || t.FadeOut > 0))
+            if (!t.IsBus && !t.Instrument && cl != null && (t.ClipGainDb != 0f || t.FadeIn > 0 || t.FadeOut > 0 || t.FadeInDelay > 0 || t.FadeOutTail > 0))
             {
                 float cg = DspMath.DbToLin(t.ClipGainDb); long fi = t.FadeIn, fo = t.FadeOut;
+                long fd = t.FadeInDelay, ft = t.FadeOutTail;
+                if (fi + fo + fd + ft > ulen && ulen > 0) { double kk = ulen / (double)(fi + fo + fd + ft); fi = (long)(fi * kk); fo = (long)(fo * kk); fd = (long)(fd * kk); ft = (long)(ft * kk); }   // a clip trimmed shorter than its fades: they share what is left
                 for (int i = 0; i < n; i++)
                 {
                     long idx = pos + i - toff; if (idx < 0 || idx >= ulen) continue; float gg = cg;
-                    if (fi > 0 && idx < fi) gg *= (float)Math.Sin(idx / (double)fi * Math.PI / 2);
-                    if (fo > 0 && idx >= ulen - fo) gg *= (float)Math.Sin((ulen - idx) / (double)fo * Math.PI / 2);
+                    if (idx < fd) gg = 0; else if (fi > 0 && idx < fd + fi) gg *= Track.FadeCurve((idx - fd) / (double)fi);
+                    if (idx >= ulen - ft) gg = 0; else if (fo > 0 && idx >= ulen - ft - fo) gg *= Track.FadeCurve((ulen - ft - idx) / (double)fo);
                     t.tl[i] *= gg; t.tr[i] *= gg;
                 }
             }
@@ -498,6 +506,7 @@ partial class StudioEngine
                     if (d > 0) { t.tl[i] = t.dlyL[(w - d) & mask]; t.tr[i] = t.dlyR[(w - d) & mask]; }
                 }
             t.dlyW += n;
+            if (t.Mono && !idle) for (int i = 0; i < n; i++) { float mm = (t.tl[i] + t.tr[i]) * 0.5f; t.tl[i] = mm; t.tr[i] = mm; }
             if (meters) PushTap(t.TapPost, t, true, t.tl, t.tr, n);
 
             Track dest = !t.IsBus && t.Out != null && t.Out.IsBus && t.Out != t && (o.Only == null || o.Only.Contains(t.Out)) ? t.Out : null;

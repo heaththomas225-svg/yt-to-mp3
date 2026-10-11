@@ -110,6 +110,13 @@ static class CommunityPresets
         }
         catch { return "Could not reach the Purphex community. Check your internet connection."; }
     }
+    // Every preset you save is also given to the community (unless Settings has it turned off): saved in the background, and any trouble is quiet.
+    // done gets one sentence for the screen when it worked, or null when it could not be shared right now.
+    public static void AutoShare(string kind, string name, string data, string author, Action<string> done)
+    {
+        if (!Prefs.ShareSaved || !Safe(kind, data)) return; if (string.IsNullOrWhiteSpace(author)) author = "Producer";
+        ThreadPool.QueueUserWorkItem(o => { string err = Share(kind, name, author, data); if (done != null) { try { done(err == null ? "Saved, and shared with the community so everyone can use it." : (err.Contains("a lot of presets") ? "Saved. The community share limit for this hour is used up, so it was not shared." : null)); } catch { } } });
+    }
     public static void Tell(string what, string id) { ThreadPool.QueueUserWorkItem(o => { try { Http("POST", "/api/presets/" + what + "/" + Q(id), "{}"); } catch { } }); }
 }
 
@@ -159,11 +166,11 @@ partial class StudioForm
     {
         if (!cpOpen) return; float W = ClientSize.Width, H = ClientSize.Height; var all = Rc(0, 0, W, H);
         using (var b = new SolidBrush(Color.FromArgb(165, 3, 1, 10))) g.FillRectangle(b, all); Reg(all, () => cpOpen = false);
-        float sw = Math.Min(720, W - 24), sh = Math.Min(H - 24, 600); var sheet = Rc((W - sw) / 2, (H - sh) / 2, sw, sh);
+        float sw = Math.Min(720, W - 24), sh = Math.Min(H - 24, 600); var sheet = PopMove("comm", Rc((W - sw) / 2, (H - sh) / 2, sw, sh), 54, 70);
         FillRR(g, Color.FromArgb(252, 16, 10, 34), sheet, 20); Glow(g, NeonViolet, sheet, 20, 0.8f, 4); StrokeRR(g, Color.FromArgb(180, NeonViolet), sheet, 20, 1.5f); Reg(sheet, () => { });
         Txt(g, "COMMUNITY PRESETS", 18, Ink, Rc(sheet.X + 22, sheet.Y + 14, sheet.Width - 90, 28), StringAlignment.Near, true);
         Txt(g, cpTitle + "  -  made and shared by other producers. Click USE to try one.", 12, DimC, Rc(sheet.X + 22, sheet.Y + 44, sheet.Width - 90, 20), StringAlignment.Near, false);
-        var close = Rc(sheet.Right - 50, sheet.Y + 14, 34, 34); FillRR(g, Hot(close) ? Color.FromArgb(200, 150, 50, 110) : Color.FromArgb(120, 70, 30, 90), close, 17); Txt(g, "x", 17, Ink, close, StringAlignment.Center, true); Reg(close, () => cpOpen = false);
+        var close = Rc(sheet.Right - 50, sheet.Y + 14, 34, 34); FillRR(g, Hot(close) ? Color.FromArgb(200, 150, 50, 110) : Color.FromArgb(120, 70, 30, 90), close, 17); Txt(g, "X", 17, Ink, close, StringAlignment.Center, true); Reg(close, () => cpOpen = false);
         // sort tabs and search
         float y = sheet.Y + 74; Btn(g, Rc(sheet.X + 22, y, 104, 32), "POPULAR", cpSort == "popular" ? 4 : 0, () => { if (cpSort != "popular") { cpSort = "popular"; CpFetch(); } }, 12);
         Btn(g, Rc(sheet.X + 132, y, 96, 32), "NEWEST", cpSort == "new" ? 4 : 0, () => { if (cpSort != "new") { cpSort = "new"; CpFetch(); } }, 12);
@@ -172,23 +179,23 @@ partial class StudioForm
         double tm = Environment.TickCount / 1000.0; Txt(g, cpQuery.Length == 0 ? (((int)(tm * 2) % 2 == 0 ? "|" : " ") + "  Type to search by name or producer") : cpQuery + ((int)(tm * 2) % 2 == 0 ? "|" : " "), 13, cpQuery.Length == 0 ? DimC : Ink, Rc(sb.X + 12, sb.Y, sb.Width - 44, sb.Height), StringAlignment.Near, false);
         // the list
         var shown = new List<CommPreset>(); foreach (var p in cpList) if (cpQuery.Length == 0 || (p.Name + " " + p.Author).IndexOf(cpQuery, StringComparison.OrdinalIgnoreCase) >= 0) shown.Add(p);
-        const float rowH = 66; float top = y + 44, bottom = sheet.Bottom - 74; var area = Rc(sheet.X + 10, top, sheet.Width - 20, bottom - top); float total = shown.Count * rowH; cpScroll = Math.Max(0, Math.Min(Math.Max(0, total - area.Height), cpScroll));
+        const float rowH = 66; float top = y + 44, bottom = sheet.Bottom - 74; var area = Rc(sheet.X + 10, top, sheet.Width - 20, bottom - top); float total = shown.Count * rowH; cpScroll = Math.Max(0, Math.Min(Math.Max(0, total - area.Height), cpScroll)); float vsw = total > area.Height ? 54 : 0;
         regs.Add(new HitReg { R = area, OnWheel = d => cpScroll = Math.Max(0, Math.Min(Math.Max(0, total - area.Height), cpScroll - d * 50)) });
-        if (cpLoading) Txt(g, "Loading the community...", 14, DimC, Rc(area.X + 14, area.Y + 14, area.Width - 28, 26), StringAlignment.Near, false);
+        if (cpLoading) Txt(g, "LOADING THE COMMUNITY...", 14, DimC, Rc(area.X + 14, area.Y + 14, area.Width - 28, 26), StringAlignment.Near, false);
         else if (cpStatus.Length > 0) { Txt(g, cpStatus, 13, Color.FromArgb(255, 150, 150), Rc(area.X + 14, area.Y + 14, area.Width - 28, 40), StringAlignment.Near, false); Btn(g, Rc(area.X + 14, area.Y + 58, 120, 32), "TRY AGAIN", 1, () => CpFetch(), 12); }
         else if (shown.Count == 0) Txt(g, cpQuery.Length > 0 ? "Nothing matches that search." : "Nobody has shared one for this yet. Be the first: set the sound up and press SHARE below.", 13, DimC, Rc(area.X + 14, area.Y + 14, area.Width - 28, 44), StringAlignment.Near, false);
         var gs = g.Save(); g.SetClip(area, System.Drawing.Drawing2D.CombineMode.Intersect);
         for (int i = 0; i < shown.Count; i++)
         {
-            var p = shown[i]; var row = Rc(area.X + 2, area.Y + i * rowH - cpScroll, area.Width - 4, rowH - 6); if (row.Bottom < area.Y || row.Y > area.Bottom) continue;
+            var p = shown[i]; var row = Rc(area.X + 2, area.Y + i * rowH - cpScroll, area.Width - 4 - vsw, rowH - 6); if (row.Bottom < area.Y || row.Y > area.Bottom) continue;
             bool hot = Hot(RectangleF.Intersect(row, area)) && area.Contains(MousePos); FillRR(g, hot ? Color.FromArgb(200, 70, 40, 130) : Color.FromArgb(150, 26, 15, 52), row, 12); StrokeRR(g, Color.FromArgb(hot ? 180 : 80, NeonViolet), row, 12, 1);
             float tw = row.Width - 200; Txt(g, p.Name, 15, Ink, Rc(row.X + 16, row.Y + 8, tw, 24), StringAlignment.Near, true);
-            Txt(g, "by " + p.Author + "     " + p.Uses + (p.Uses == 1 ? " use" : " uses"), 12, DimC, Rc(row.X + 16, row.Y + 33, tw, 20), StringAlignment.Near, false);
+            Txt(g, "BY " + p.Author + "     " + p.Uses + (p.Uses == 1 ? " use" : " uses"), 12, DimC, Rc(row.X + 16, row.Y + 33, tw, 20), StringAlignment.Near, false);
             var pp = p; var useR = Rc(row.Right - 96, row.Y + 11, 84, 36); var repR = Rc(row.Right - 176, row.Y + 17, 70, 24);
             var ua = RectangleF.Intersect(useR, area); if (!ua.IsEmpty) Btn(g, useR, "USE", 2, () => CpUse(pp), 13);
             var ra = RectangleF.Intersect(repR, area); if (!ra.IsEmpty) Btn(g, repR, "Report", 0, () => { if (MessageBox.Show(this, "Report \"" + pp.Name + "\" as spam or something that should not be here?\n\nPresets that are reported by several people are hidden.", "Report preset", MessageBoxButtons.YesNo) == DialogResult.Yes) { CommunityPresets.Tell("report", pp.Id); Toast("Thanks, reported."); } }, 11);
         }
-        g.Restore(gs);
+        g.Restore(gs); VScroll(g, Rc(area.Right - 46, area.Y, 42, area.Height), total, area.Height, () => cpScroll, v => cpScroll = v);
         Btn(g, Rc(sheet.X + 22, sheet.Bottom - 58, 330, 40), "SHARE MY CURRENT SETTINGS", 1, () => CpShare(), 13);
         Txt(g, "Shared presets are public. Only share sounds you made.", 11, DimC, Rc(sheet.X + 366, sheet.Bottom - 58, sheet.Right - sheet.X - 366 - 22, 40), StringAlignment.Far, false);
     }

@@ -24,7 +24,8 @@ partial class StudioForm
         }
         neonCache[argb] = r; return r;
     }
-    static readonly Color NeonCyan = Color.FromArgb(0, 229, 255), NeonPink = Color.FromArgb(255, 43, 214), NeonViolet = Color.FromArgb(150, 90, 255), NeonLime = Color.FromArgb(120, 255, 120);
+    internal static void ApplyTheme(ThemeDef t) { NeonViolet = t.Violet; NeonCyan = t.Cyan; NeonPink = t.Pink; NeonLime = t.Lime; Accent = t.Accent; Accent2 = t.Accent2; Violet = t.Btn; BtnC = t.BtnC; Edge = Color.FromArgb(120, t.EdgeC); Panel = Color.FromArgb(235, t.Panel); Lane = Color.FromArgb(255, t.Lane); Lane2 = Color.FromArgb(255, t.Lane2); Bg0 = t.Bg0; Bg1 = t.Bg1; SparkCols = new[] { t.Pink, t.Cyan, Color.White, t.Accent, t.Pink, t.Cyan }; }
+    static Color NeonCyan = Color.FromArgb(0, 229, 255), NeonPink = Color.FromArgb(255, 43, 214), NeonViolet = Color.FromArgb(150, 90, 255), NeonLime = Color.FromArgb(120, 255, 120);
 
     // soft bloom around a rounded rectangle, then a crisp bright edge
     static void Glow(Graphics g, Color c, RectangleF r, float rad, float k, int spread)
@@ -126,7 +127,7 @@ partial class StudioForm
     // move the view along the song by a fraction of its width (wheel, touch pad, keys)
     void ScrollView(double screens)
     {
-        autoFit = false; var tl = TimelineRect(); double maxS = Math.Max(0, eng.EndFrame * 1.04 - tl.Width * spp); scroll = (long)Math.Max(0, Math.Min(maxS, scroll + screens * tl.Width * spp));
+        autoFit = false; if (scrollHold == 0) UserScrolled(); var tl = TimelineRect(); double maxS = Math.Max(0, eng.EndFrame * 1.04 - tl.Width * spp); scroll = (long)Math.Max(0, Math.Min(maxS, scroll + screens * tl.Width * spp));
     }
 }
 

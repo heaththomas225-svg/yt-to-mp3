@@ -233,15 +233,15 @@ partial class StudioForm
     //  MASTERING TAB
     // ======================================================================
     bool abMastered = true, matchOn = true; LoudnessResult abOrig, abMast; float targetLufs = -14;
-    static readonly string[] ModNames = { "Master EQ", "Compressor", "Multiband compressor", "Exciter", "Saturation", "Stereo imaging", "Limiter" };
+    static readonly string[] ModNames = { "Master EQ", "Compressor", "Multiband comp.", "Exciter", "Saturation", "Stereo imaging", "Limiter" };
 
     void PaintMastering(Graphics g)
     {
         float top = ToolH + TransH + 10, W = ClientSize.Width, H = ClientSize.Height;
         // ---- left: chain ----
         var lp = Rc(14, top, 270, H - top - 12); FillRR(g, Panel, lp, 12); StrokeRR(g, Edge, lp, 12, 1);
-        Txt(g, "Mastering chain", 17, Ink, Rc(lp.X + 14, lp.Y + 8, 240, 26), StringAlignment.Near, true);
-        Txt(g, "Processes the combined mix, after each track's own chain.", 11, DimC, Rc(lp.X + 14, lp.Y + 32, 244, 22), StringAlignment.Near, false);
+        Txt(g, "MASTERING CHAIN", 17, Ink, Rc(lp.X + 14, lp.Y + 8, 240, 26), StringAlignment.Near, true);
+        TxtWrap(g, "Processes the combined mix, after each track's own chain.", 11, DimC, Rc(lp.X + 14, lp.Y + 32, lp.Width - 28, 34));
         float y = lp.Y + 70; int n = eng.MasterFx.Count; if (selMaster >= n) selMaster = Math.Max(0, n - 1);
         for (int i = 0; i < n; i++, y += 44)
         {
@@ -254,7 +254,7 @@ partial class StudioForm
             if (i >= 7) Btn(g, Rc(row.Right - 30, row.Y + 9, 22, 22), "x", 3, () => { lock (eng.Sync) eng.MasterFx.RemoveAt(fi); }, 12);
         }
         Btn(g, Rc(lp.X + 10, y + 4, lp.Width - 20, 30), "+ Add Effect to master", 1, () => OpenBrowser(true, -1), 13); y += 44;
-        Txt(g, "Mastering presets", 12, DimC, Rc(lp.X + 14, y, 200, 18), StringAlignment.Near, true); y += 22;
+        Txt(g, "MASTERING PRESETS", 12, DimC, Rc(lp.X + 14, y, 200, 18), StringAlignment.Near, true); y += 22;
         for (int i = 0; i < Presets.MasterNames.Length; i++, y += 30)
         {
             int pi = i; Btn(g, Rc(lp.X + 10, y, lp.Width - 20, 26), Presets.MasterNames[i], 0, () => { Presets.ApplyMaster(eng, pi); targetLufs = Presets.MasterTargets[pi]; Toast(Presets.MasterNames[pi] + " applied"); }, 12);
@@ -267,7 +267,7 @@ partial class StudioForm
 
         // ---- right: analyser + A/B ----
         float rx = W - 416; var ap = Rc(rx, top, 402, H - top - 12); FillRR(g, Panel, ap, 12); StrokeRR(g, Edge, ap, 12, 1);
-        Txt(g, "Loudness analyser", 17, Ink, Rc(ap.X + 14, ap.Y + 8, 250, 26), StringAlignment.Near, true);
+        Txt(g, "LOUDNESS ANALYSER", 17, Ink, Rc(ap.X + 14, ap.Y + 8, 250, 26), StringAlignment.Near, true);
         Btn(g, Rc(ap.Right - 112, ap.Y + 8, 98, 26), "Reset meters", 0, () => { eng.Lufs.Reset(); }, 12);
         float yy = ap.Y + 44; var lu = eng.Lufs; lu.UpdateIntegrated();
         string[] lb = { "MOMENTARY", "SHORT-TERM", "INTEGRATED" }; float[] vv = { lu.Momentary, lu.ShortTerm, lu.Integrated };
@@ -278,18 +278,18 @@ partial class StudioForm
         }
         yy += 86;
         double tpDb = lu.TruePeakDb; bool tpBad = tpDb > -0.9;
-        var c1 = Rc(ap.X + 12, yy, 190, 62); FillRR(g, Color.FromArgb(150, 8, 4, 20), c1, 10); Txt(g, "TRUE PEAK (max)", 10, DimC, Rc(c1.X, c1.Y + 4, c1.Width, 14), StringAlignment.Center, true);
+        var c1 = Rc(ap.X + 12, yy, 190, 62); FillRR(g, Color.FromArgb(150, 8, 4, 20), c1, 10); Txt(g, "TRUE PEAK (MAX)", 10, DimC, Rc(c1.X, c1.Y + 4, c1.Width, 14), StringAlignment.Center, true);
         Txt(g, Db(tpDb) + " dBTP", 22, tpBad ? Bad : Good, Rc(c1.X, c1.Y + 20, c1.Width, 38), StringAlignment.Center, true);
         var c2 = Rc(ap.X + 210, yy, 180, 62); bool clip = lu.Clips > 0; FillRR(g, Color.FromArgb(150, 8, 4, 20), c2, 10); Txt(g, "CLIPPING", 10, DimC, Rc(c2.X, c2.Y + 4, c2.Width, 14), StringAlignment.Center, true);
         Txt(g, clip ? lu.Clips + " samples" : "none detected", 18, clip ? Bad : Good, Rc(c2.X, c2.Y + 20, c2.Width, 38), StringAlignment.Center, true);
         yy += 72;
-        Txt(g, "Peak L / R", 12, DimC, Rc(ap.X + 14, yy, 90, 18), StringAlignment.Near, false); HBar(g, Rc(ap.X + 100, yy + 2, 280, 8), eng.MasterPeakL); HBar(g, Rc(ap.X + 100, yy + 12, 280, 8), eng.MasterPeakR); yy += 26;
-        Txt(g, "Gain reduction", 12, DimC, Rc(ap.X + 14, yy, 100, 18), StringAlignment.Near, false);
+        Txt(g, "PEAK L / R", 12, DimC, Rc(ap.X + 14, yy, 90, 18), StringAlignment.Near, false); HBar(g, Rc(ap.X + 100, yy + 2, 280, 8), eng.MasterPeakL); HBar(g, Rc(ap.X + 100, yy + 12, 280, 8), eng.MasterPeakR); yy += 26;
+        Txt(g, "GAIN REDUCTION", 12, DimC, Rc(ap.X + 14, yy, 100, 18), StringAlignment.Near, false);
         float grf = Clamp01(eng.MasterGr / 18f); FillRR(g, Color.FromArgb(180, 8, 4, 18), Rc(ap.X + 100, yy + 4, 280, 10), 5); if (grf > 0.01f) FillRR(g, Warn, Rc(ap.X + 100, yy + 4, 280 * grf, 10), 5);
         Txt(g, eng.MasterGr.ToString("0.0") + " dB", 11, Ink, Rc(ap.X + 100, yy + 14, 100, 14), StringAlignment.Near, false); yy += 36;
 
         // A / B
-        Txt(g, "Original vs mastered (A/B)", 14, Ink, Rc(ap.X + 14, yy, 300, 22), StringAlignment.Near, true); yy += 28;
+        Txt(g, "ORIGINAL VS MASTERED (A/B)", 14, Ink, Rc(ap.X + 14, yy, 300, 22), StringAlignment.Near, true); yy += 28;
         Btn(g, Rc(ap.X + 12, yy, 186, 40), "A  ORIGINAL", !eng.MasterBypass ? 0 : 4, () => { eng.MasterBypass = true; ApplyMatch(); }, 14);
         Btn(g, Rc(ap.X + 204, yy, 186, 40), "B  MASTERED", eng.MasterBypass ? 0 : 4, () => { eng.MasterBypass = false; }, 14); yy += 48;
         Btn(g, Rc(ap.X + 12, yy, 186, 30), matchOn ? "Loudness match: ON" : "Loudness match: OFF", matchOn ? 4 : 0, () => { matchOn = !matchOn; ApplyMatch(); }, 12);
@@ -300,10 +300,10 @@ partial class StudioForm
             Txt(g, "", 11, DimC, tb, StringAlignment.Near, false);
             Txt(g, "Original: " + Db(abOrig.I) + " LUFS   true peak " + Db(abOrig.TruePeakDb) + " dB   range " + abOrig.LRA.ToString("0.0") + " LU", 12, Ink, Rc(tb.X + 10, tb.Y + 6, tb.Width - 16, 20), StringAlignment.Near, false);
             Txt(g, "Mastered: " + Db(abMast.I) + " LUFS   true peak " + Db(abMast.TruePeakDb) + " dB   range " + abMast.LRA.ToString("0.0") + " LU", 12, Accent, Rc(tb.X + 10, tb.Y + 28, tb.Width - 16, 20), StringAlignment.Near, false);
-            Txt(g, "Mastering adds " + (abMast.I - abOrig.I).ToString("+0.0;-0.0") + " LU" + (matchOn ? "; A is raised by " + eng.AbMatchDb.ToString("0.0") + " dB so both play equally loud" : ""), 11, DimC, Rc(tb.X + 10, tb.Y + 52, tb.Width - 16, 20), StringAlignment.Near, false);
+            Txt(g, "MASTERING ADDS " + (abMast.I - abOrig.I).ToString("+0.0;-0.0") + " LU" + (matchOn ? "; A is raised by " + eng.AbMatchDb.ToString("0.0") + " dB so both play equally loud" : ""), 11, DimC, Rc(tb.X + 10, tb.Y + 52, tb.Width - 16, 20), StringAlignment.Near, false);
             yy += 86;
         }
-        Txt(g, "Target loudness", 13, DimC, Rc(ap.X + 14, yy, 150, 22), StringAlignment.Near, false); ValueBox(g, Rc(ap.Right - 128, yy - 3, 114, 26), targetLufs.ToString("0.0") + " LUFS", Num(targetLufs), s => { float v; if (ParseNum(s, out v)) targetLufs = Math.Max(-30f, Math.Min(-3f, v)); }); yy += 24;
+        Txt(g, "TARGET LOUDNESS", 13, DimC, Rc(ap.X + 14, yy, 150, 22), StringAlignment.Near, false); ValueBox(g, Rc(ap.Right - 128, yy - 3, 114, 26), targetLufs.ToString("0.0") + " LUFS", Num(targetLufs), s => { float v; if (ParseNum(s, out v)) targetLufs = Math.Max(-30f, Math.Min(-3f, v)); }); yy += 24;
         var ts = Slider(g, Rc(ap.X + 14, yy, 372, 22), (targetLufs + 20f) / 14f, f => targetLufs = (float)Math.Round(f * 14f - 20f, 1), Accent2); ts.OnDouble = () => targetLufs = -14; yy += 30;
         Btn(g, Rc(ap.X + 12, yy, 378, 34), "Set loudness to target (adjusts the limiter)", 2, () => AutoLoudness(), 13);
     }
@@ -380,7 +380,7 @@ static class StudioDialogs
     internal static Form Make(string title, int w, int h)
     {
         var f = new Form { Text = title, FormBorderStyle = FormBorderStyle.FixedDialog, StartPosition = FormStartPosition.CenterParent, MaximizeBox = false, MinimizeBox = false, ShowInTaskbar = false, BackColor = Bg, ForeColor = Ink, ClientSize = new Size(w, h), Font = new Font("Segoe UI", 10f) };
-        Win.Dark(f); return f;
+        Win.Dark(f); f.Shown += (s, e) => Win.CapsAll(f); return f;
     }
     internal static Button B(string text, int x, int y, int w, int h, Color c) { var b = new Button { Text = text, Left = x, Top = y, Width = w, Height = h, FlatStyle = FlatStyle.Flat, BackColor = c, ForeColor = Color.White, Cursor = Cursors.Hand }; b.FlatAppearance.BorderColor = Color.FromArgb(190, 120, 255); return b; }
 
@@ -456,6 +456,18 @@ static class StudioDialogs
         tb.KeyDown += (s, e) => { if (e.KeyCode == Keys.Enter) { e.SuppressKeyPress = true; finish(true); } else if (e.KeyCode == Keys.Escape) { e.SuppressKeyPress = true; finish(false); } };
         f.Deactivate += (s, e) => finish(true); f.Shown += (s, e) => { tb.Focus(); tb.SelectAll(); }; f.FormClosed += (s, e) => { if (!done) { done = true; if (closed != null) closed(); } };
         f.Show(owner);
+    }
+
+    // Taking a project off the list: 0 = cancel, 1 = off the list only, 2 = off the list and the file to the Recycle Bin
+    public static int RemoveProject(IWin32Window owner, string name, string path, bool fileExists)
+    {
+        int result = 0; var f = Make("Remove project", 560, 250);
+        f.Controls.Add(new Label { Text = "Remove \"" + name + "\" from your projects?", Left = 20, Top = 16, Width = 520, Height = 26, ForeColor = Color.FromArgb(220, 190, 255), Font = new Font("Segoe UI Semibold", 12f), AutoEllipsis = true });
+        f.Controls.Add(new Label { Text = "This takes it off the list. The project file stays on your computer unless you tick the box below.", Left = 20, Top = 50, Width = 520, Height = 44, ForeColor = Ink });
+        var chk = new DarkCheck { Text = "Also delete the file from this computer (Recycle Bin)", Left = 20, Top = 104, Width = 520, Height = 28, ForeColor = Color.FromArgb(255, 170, 170), Enabled = fileExists }; f.Controls.Add(chk);
+        f.Controls.Add(new Label { Text = fileExists ? path : "The file was not found on this computer, so there is nothing to delete.", Left = 20, Top = 138, Width = 520, Height = 36, ForeColor = Color.FromArgb(150, 140, 190), Font = new Font("Segoe UI", 8.5f), AutoEllipsis = true });
+        var ok = B("Remove", 330, 190, 100, 34, Color.FromArgb(160, 40, 80)); var cancel = B("Cancel", 440, 190, 100, 34, Color.FromArgb(70, 40, 120));
+        ok.Click += (s, e) => { result = chk.Checked ? 2 : 1; f.Close(); }; cancel.Click += (s, e) => f.Close(); f.CancelButton = cancel; f.Controls.AddRange(new Control[] { ok, cancel }); f.ShowDialog(owner); return result;
     }
 
     public static string Ask(IWin32Window owner, string prompt, string def)

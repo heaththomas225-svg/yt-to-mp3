@@ -178,7 +178,7 @@ class PitchCorrector : Fx
         Type = "pitch"; Title = "Pitch Correction";
         AddC("key", "Key", Keys, 0); AddC("scale", "Scale", Scales, 1); AddP("mask", "Notes", 0, 4095, MaskFor(0, 1), "");
         AddP("speed", "Retune speed", 0, 400, 25, "ms"); AddP("strength", "Strength", 0, 100, 100, "%");
-        AddP("natural", "Natural (keep vibrato)", 0, 100, 40, "%"); AddC("range", "Voice range", Ranges, 1);
+        AddP("natural", "Keep vibrato", 0, 100, 40, "%"); AddC("range", "Voice range", Ranges, 1);
         AddP("detune", "Reference detune", -50, 50, 0, "cents"); AddP("mix", "Mix", 0, 100, 100, "%");
     }
 

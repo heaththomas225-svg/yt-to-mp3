@@ -159,7 +159,7 @@ static class S
           string exts = (string)typeof(StudioForm).GetField("AudioExts", BindingFlags.NonPublic | BindingFlags.Static).GetValue(null); Check("the Open dialog lists mp3, wav, flac, m4a, ogg and more", exts.Contains("*.mp3") && exts.Contains("*.wav") && exts.Contains("*.flac") && exts.Contains("*.m4a") && exts.Contains("*.ogg"), exts); try { File.Delete(ptmp); } catch { } ProjectLibrary.Remove(ptmp); }
         // the + ADD TRACK button must always be on screen, even when the tracks run off the bottom
         for (int i = 0; i < 10; i++) typeof(StudioForm).GetMethod("AddTrack", BF).Invoke(sf, new object[] { StudioEngine.NewTrack("X" + i, "audio", Clip(3)) }); Paint();
-        var addBtn = Regs().FindLast(r => Math.Abs(r.R.Width - 270) < 0.5f && Math.Abs(r.R.Height - 34) < 0.5f); Check("the + ADD TRACK button is on screen with 14 tracks (pinned to the bottom)", addBtn != null && addBtn.R.Bottom <= sf.ClientSize.Height && addBtn.R.Y > sf.ClientSize.Height / 2, addBtn == null ? "missing" : addBtn.R.ToString());
+        var addBtn = Regs().FindLast(r => Math.Abs(r.R.Width - 352) < 0.5f && Math.Abs(r.R.Height - 34) < 0.5f); Check("the + ADD TRACK button is on screen with 14 tracks (pinned to the bottom)", addBtn != null && addBtn.R.Bottom <= sf.ClientSize.Height && addBtn.R.Y > sf.ClientSize.Height / 2, addBtn == null ? "missing" : addBtn.R.ToString());
         Check("the toolbar has no extra + TRACK, + BUS or + INSTRUMENT buttons (ADD TRACK is under the tracks)", !Regs().Exists(r => r.R.Y < 120 && r.R.Y > 70 && r.R.Width == 100 && r.R.Height == 36), "");
         // ---- main window: one MP3 choice, and converted links leave the box ----
         {
@@ -188,7 +188,7 @@ static class S
                 Check("when the menu opens nothing is expanded yet (you choose what to open)", F<int>("menuSec") == -1 && F<int>("menuSub") == -1, "section " + F<int>("menuSec"));
                 SetF("menuSec", 0); Paint(); var names = new List<string>(); foreach (var r in Regs()) { }
                 SetF("menuSub", 1); Paint(); var recReg = Regs().FindAll(r => Math.Abs(r.R.Width - 334) < 1f && Math.Abs(r.R.Height - 50) < 0.5f); Check("Recent Projects lists the projects you opened, newest first", recReg.Count >= 2, recReg.Count + " rows");
-                typeof(StudioForm).GetMethod("CloseMenu", BF).Invoke(sf, null); SetF("tab", 3); Paint(); var cards = Regs().FindAll(r => Math.Abs(r.R.Width - 230) < 0.5f && Math.Abs(r.R.Height - 270) < 0.5f); Check("My Projects shows a card for the new-project tile and each saved project", cards.Count >= 3, cards.Count + " cards");
+                typeof(StudioForm).GetMethod("CloseMenu", BF).Invoke(sf, null); SetF("tab", 3); Paint(); var cards = Regs().FindAll(r => Math.Abs(r.R.Width - 230) < 0.5f && Math.Abs(r.R.Height - 322) < 0.5f); Check("My Projects shows a card for the new-project tile and each saved project", cards.Count >= 3, cards.Count + " cards");
                 SetF("tab", 4); Paint(); var bmp3 = new Bitmap(sf.ClientSize.Width, sf.ClientSize.Height); sf.DrawToBitmap(bmp3, new Rectangle(0, 0, sf.Width, sf.Height)); bmp3.Save("_community.png", System.Drawing.Imaging.ImageFormat.Png); Check("the Community page draws (a place to build on later)", true, "");
                 SetF("tab", 0); ProjectLibrary.ClearCover(p1); Check("a picture can be removed again", !File.ReadAllText(p1).Contains("\ncover|") && ProjectLibrary.Find(p1).Cover.Length == 0, "");
             }

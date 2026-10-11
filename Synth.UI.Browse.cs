@@ -36,7 +36,7 @@ partial class SynthCanvas
         var blocker = Add(all); blocker.Down = pt => { if (!box.Contains(pt)) browseOpen = false; };
         Txt(g, "PRESETS", 20, Ink, Rc(box.X + 20, box.Y + 10, 300, 30), StringAlignment.Near, true);
         Txt(g, "Current: " + (modified ? "* " : "") + fx.PresetName, 12, Dim, Rc(box.X + 20, box.Y + 40, 500, 18), StringAlignment.Near, false);
-        var close = Rc(box.Right - 100, box.Y + 14, 82, 28); Fill(g, Hot(close) ? PanelHi : Panel, close, 6); Stroke(g, Edge, close, 6, 1); Txt(g, "Close", 12, Ink, close, StringAlignment.Center, true); Add(close).Down = pt => { browseOpen = false; };
+        var close = Rc(box.Right - 100, box.Y + 14, 82, 28); Fill(g, Hot(close) ? PanelHi : Panel, close, 6); Stroke(g, Edge, close, 6, 1); Txt(g, "CLOSE", 12, Ink, close, StringAlignment.Center, true); Add(close).Down = pt => { browseOpen = false; };
 
         var cats = new List<string>(SynthPresets.Categories); cats.Insert(cats.Count - 1, "My presets"); cats.Insert(cats.Count - 1, "Community");
         float cx = box.X + 20, cy = box.Y + 72;
@@ -57,7 +57,7 @@ partial class SynthCanvas
         {
             string n = names[i]; var r = Rc(list.X + 8, list.Y + 6 + i * rowH - browseScroll, list.Width - 16, rowH - 4); if (r.Bottom < list.Y || r.Y > list.Bottom) continue;
             bool cur = n == fx.PresetName, hot = Hot(r); Fill(g, cur ? Color.FromArgb(150, 90, 50, 170) : (hot ? Color.FromArgb(150, 60, 34, 110) : Color.FromArgb(120, 44, 24, 80)), r, 7); if (cur) Stroke(g, Acc2, r, 7, 1.5f);
-            if (comm) { var cp1 = commList[i]; Txt(g, n, 14, Ink, Rc(r.X + 14, r.Y, r.Width * 0.55f, r.Height), StringAlignment.Near, false); Txt(g, "by " + cp1.Author + "   " + cp1.Uses + (cp1.Uses == 1 ? " use" : " uses"), 11, Dim, Rc(r.X + r.Width * 0.55f, r.Y, r.Width * 0.45f - 12, r.Height), StringAlignment.Far, false); var rgc = Add(r); rgc.Tip = "Click to use " + n; rgc.Down = pt => { if (!CommunityPresets.Safe("synth", cp1.Data)) { browseMsg = "That sound is not valid."; return; } try { SynthPresets.ApplyData(fx, cp1.Name, cp1.Data); modified = false; browseMsg = "Loaded " + cp1.Name + " by " + cp1.Author + ". Press SAVE AS to keep your own copy."; CommunityPresets.Tell("use", cp1.Id); } catch (Exception ex) { browseMsg = "Could not load it: " + ex.Message; } }; continue; }
+            if (comm) { var cp1 = commList[i]; Txt(g, n, 14, Ink, Rc(r.X + 14, r.Y, r.Width * 0.55f, r.Height), StringAlignment.Near, false); Txt(g, "BY " + cp1.Author + "   " + cp1.Uses + (cp1.Uses == 1 ? " use" : " uses"), 11, Dim, Rc(r.X + r.Width * 0.55f, r.Y, r.Width * 0.45f - 12, r.Height), StringAlignment.Far, false); var rgc = Add(r); rgc.Tip = "Click to use " + n; rgc.Down = pt => { if (!CommunityPresets.Safe("synth", cp1.Data)) { browseMsg = "That sound is not valid."; return; } try { SynthPresets.ApplyData(fx, cp1.Name, cp1.Data); modified = false; browseMsg = "Loaded " + cp1.Name + " by " + cp1.Author + ". Press SAVE AS to keep your own copy."; CommunityPresets.Tell("use", cp1.Id); } catch (Exception ex) { browseMsg = "Could not load it: " + ex.Message; } }; continue; }
             Txt(g, n, 14, Ink, Rc(r.X + 14, r.Y, r.Width - 28, r.Height), StringAlignment.Near, cur);
             var rg = Add(r); rg.Tip = "Click to load " + n; rg.Down = pt => { SynthPresets.Apply(fx, n); modified = false; browseMsg = "Loaded " + n; };
         }
@@ -68,7 +68,7 @@ partial class SynthCanvas
         bx = Action(g, "SAVE AS...", bx, by, 110, true, "Keep the current sound under a name.", () =>
         {
             string s = AskName("Preset name:", SynthPresets.IsFactory(fx.PresetName) ? "My " + fx.PresetName : fx.PresetName); if (s == null) return;
-            try { if (SynthPresets.UserNames().Contains(s.Trim()) && MessageBox.Show(this, "\"" + s.Trim() + "\" exists. Replace it?", "Save preset", MessageBoxButtons.YesNo) != DialogResult.Yes) return; SynthPresets.SaveUser(fx, s); modified = false; browseCat = "My presets"; browseMsg = "Saved " + s.Trim(); }
+            try { if (SynthPresets.UserNames().Contains(s.Trim()) && MessageBox.Show(this, "\"" + s.Trim() + "\" exists. Replace it?", "Save preset", MessageBoxButtons.YesNo) != DialogResult.Yes) return; SynthPresets.SaveUser(fx, s); modified = false; browseCat = "My presets"; browseMsg = "Saved " + s.Trim(); CommunityPresets.AutoShare("synth", s.Trim(), fx.Serialize(), ProjectLibrary.ProfileName, msg => { if (msg != null) { try { BeginInvoke(new Action(() => { browseMsg = msg; Poke(); })); } catch { } } }); }
             catch (Exception ex) { browseMsg = ex.Message; }
         });
         bx = Action(g, "SHARE", bx, by, 80, true, "Share the current sound with everyone in the Community category.", () =>

@@ -16,7 +16,7 @@ partial class StudioForm
         if (micArmed) { micArmed = false; Toast("Microphone is no longer armed."); return; }
         if (AudioRecorder.Devices().Count == 0) { StartMic(); return; }   // shows the "no microphone" message
         micArmed = true; var row = RecordTarget();
-        Toast("Microphone is armed" + (row != null ? " for " + row.Name : "") + ". Nothing is recorded yet: press PLAY (or the space bar) when you are ready" + (eng.CountIn ? ". Count In gives you one bar first." : ". Switch on COUNT IN if you want a bar of clicks first."));
+        Toast("The microphone is ready" + (row != null ? " for " + row.Name : "") + " (the MIC button pulses red). Nothing is recorded yet: press PLAY (or the space bar) when you are ready" + (eng.CountIn ? ". Count In gives you one bar first." : ". Switch on COUNT IN if you want a bar of clicks first."));
     }
     // PLAY / PAUSE and the space bar: with the microphone armed, PLAY is what starts the recording
     void PlayToggle()

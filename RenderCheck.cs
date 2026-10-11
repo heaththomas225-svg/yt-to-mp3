@@ -80,6 +80,20 @@ static class RenderT
                 // the count in (with the logo) and the armed microphone; nothing is played: the volume is 0
                 { int ov2 = Prefs.OutVol; Prefs.OutVol = 0; eng.LastCountFrames = 88200; typeof(StudioEngine).GetField("countLeft", BF).SetValue(eng, 60000L); eng.Playing = true; Shot(tag + "-count-in");
                   typeof(StudioEngine).GetField("countLeft", BF).SetValue(eng, 20000L); Shot(tag + "-count-in-4"); eng.Playing = false; typeof(StudioEngine).GetField("countLeft", BF).SetValue(eng, 0L); eng.LastCountFrames = 0; Prefs.OutVol = ov2; }
+                // the projects page (neon cards, the logo when there is no picture, a wide picture fitted into the square), the preview bar, the theme tab
+                {
+                    string pd = Path.Combine(Path.GetTempPath(), "render-projects"); Directory.CreateDirectory(pd); string wide = Path.Combine(pd, "wide.png");
+                    using (var wb = new Bitmap(900, 300)) { using (var wg = Graphics.FromImage(wb)) { wg.Clear(Color.FromArgb(40, 120, 200)); wg.FillEllipse(Brushes.OrangeRed, 40, 40, 220, 220); wg.FillRectangle(Brushes.Gold, 600, 20, 260, 260); } wb.Save(wide, ImageFormat.Png); }
+                    ProjectLibrary.Entries.Clear(); string[] pn = { "Summer drill beat", "Late night vocals with a very long project name", "Untitled", "Wobble bass test" };
+                    for (int i = 0; i < pn.Length; i++) { string fp = Path.Combine(pd, "p" + i + ".ypm"); File.WriteAllText(fp, "x"); ProjectLibrary.Entries.Add(new ProjectEntry { Path = fp, Name = pn[i], Cover = i == 1 ? wide : "", Updated = DateTime.Now.AddHours(-i * 30), Opened = DateTime.Now.AddHours(-i * 30), Tracks = 3 + i, Bpm = 120 + i * 7, Seconds = 100 + i * 30, Bytes = 1234567 * (i + 1), SizeAsked = true }); }
+                    SetF("projectsLoaded", true); SetF("tab", 3); Shot(tag + "-projects");
+                    SetF("tab", 4); SetF("projScroll", 0f); Shot(tag + "-community-page");
+                    SetF("tab", 3); typeof(StudioForm).GetField("previewPath", BF).SetValue(sf, ProjectLibrary.Entries[0].Path); typeof(StudioForm).GetField("previewName", BF).SetValue(sf, "Summer drill beat"); typeof(StudioForm).GetField("previewPlayFn", BF).SetValue(sf, (Action<StudioEngine>)(x => { }));
+                    Shot(tag + "-projects-preview-bar"); typeof(StudioForm).GetField("previewPath", BF).SetValue(sf, ""); typeof(StudioForm).GetField("previewPlayFn", BF).SetValue(sf, null);
+                    SetF("tab", 0); SetF("menuOpen", true); SetF("menuSec", 5); Shot(tag + "-menu-theme"); SetF("menuOpen", false);
+                    Themes.Apply(1); Shot(tag + "-theme-ocean"); Themes.Apply(2); Shot(tag + "-theme-sunset"); Themes.Apply(0);
+                    ProjectLibrary.Entries.Clear(); SetF("tab", 0);
+                }
                 SetF("micArmed", true); Shot(tag + "-mic-ready"); SetF("micArmed", false);
                 { SetF("toast", ""); Shot(tag + "-pre-hover"); var micBtn = ((IEnumerable)typeof(StudioForm).GetField("regs", BF).GetValue(sf)).Cast<HitReg>().ToList().Find(r => r.R.Y < 100 && r.R.Y > 70 && Math.Abs(r.R.Width - 60) < 1 && r.R.X > 400);
                   if (micBtn != null) { Hover((int)micBtn.R.X + 10, (int)micBtn.R.Y + 10); Shot(tag + "-hint-long-mic"); }
@@ -106,7 +120,9 @@ static class RenderT
               var b1 = new Bitmap(qd.ClientSize.Width, qd.ClientSize.Height); qd.DrawToBitmap(b1, new Rectangle(0, 0, qd.Width, qd.Height)); b1.Save(Path.Combine(outDir, "dialog-ask.png"), ImageFormat.Png); b1.Dispose(); qd.Close();
               StudioDialogs.QuickValue(host, "Frequency (Hz):", "70", x => { }, () => { }); Pump(500); var qf = Form.ActiveForm; if (qf != null && qf != host) { var b2 = new Bitmap(qf.ClientSize.Width, qf.ClientSize.Height); qf.DrawToBitmap(b2, new Rectangle(0, 0, qf.Width, qf.Height)); b2.Save(Path.Combine(outDir, "dialog-quickvalue.png"), ImageFormat.Png); b2.Dispose(); qf.Close(); } host.Close(); }
             // the main window (phone mode is gone) and Settings (with Scan for updates)
-            app.Show(); Pump(400); { var b = new Bitmap(app.ClientSize.Width, app.ClientSize.Height); app.DrawToBitmap(b, new Rectangle(Point.Empty, b.Size)); b.Save(Path.Combine(outDir, "main-window.png"), ImageFormat.Png); b.Dispose(); } app.Hide();
+            app.Show(); Pump(400);
+            foreach (var msz in new[] { new Size(640, 712), new Size(820, 900), new Size(1100, 1000), new Size(1500, 1000) }) { app.ClientSize = msz; Pump(500); var b0 = new Bitmap(app.ClientSize.Width, app.ClientSize.Height); app.DrawToBitmap(b0, new Rectangle(Point.Empty, b0.Size)); b0.Save(Path.Combine(outDir, "main-window-" + msz.Width + "x" + msz.Height + ".png"), ImageFormat.Png); b0.Dispose(); }
+            app.Hide();
             var st = new SettingsForm(app); st.Show(); Pump(400); { var b = new Bitmap(st.ClientSize.Width, st.ClientSize.Height); st.DrawToBitmap(b, new Rectangle(Point.Empty, b.Size)); b.Save(Path.Combine(outDir, "settings-top.png"), ImageFormat.Png); b.Dispose(); st.AutoScrollPosition = new Point(0, 2000); Pump(200); b = new Bitmap(st.ClientSize.Width, st.ClientSize.Height); st.DrawToBitmap(b, new Rectangle(Point.Empty, b.Size)); b.Save(Path.Combine(outDir, "settings-bottom.png"), ImageFormat.Png); b.Dispose(); } st.Close();
         }
         finally { foreach (var f in new[] { "settings.txt", "profile.txt", "projects.txt", "synthglobal.txt" }) { try { if (File.Exists(Path.Combine(bak, f))) File.Copy(Path.Combine(bak, f), Path.Combine(data, f), true); } catch { } } }

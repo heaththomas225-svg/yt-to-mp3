@@ -165,6 +165,8 @@ static class ProjectLibrary
         }
         catch { }
     }
+    // back to the Purphex logo
+    public static void ClearAvatar() { try { if (AvatarPath.Length > 0) { try { File.Delete(AvatarPath); } catch { } Forget(AvatarPath); AvatarPath = ""; Save(); } } catch { } }
     public static bool SetAvatar(string imageFile, out string error)
     {
         error = null; var b = MakeSquare(imageFile, 256); if (b == null) { error = "That file is not a picture Purphex can read (use a JPG, PNG, GIF or BMP)."; return false; }
@@ -183,7 +185,7 @@ static class ProjectLibrary
         {
             string key = path + "|" + w + "|" + h; Bitmap b; if (scaled.TryGetValue(key, out b)) return b;
             if (scaled.Count > 60) { foreach (var kv in scaled) { try { kv.Value.Dispose(); } catch { } } scaled.Clear(); }
-            try { b = new Bitmap(w, h, PixelFormat.Format32bppPArgb); using (var gg = Graphics.FromImage(b)) { gg.InterpolationMode = mode; gg.PixelOffsetMode = PixelOffsetMode.HighQuality; gg.DrawImage(src, new Rectangle(0, 0, w, h)); } scaled[key] = b; return b; } catch { return null; }
+            try { b = new Bitmap(w, h, PixelFormat.Format32bppPArgb); using (var gg = Graphics.FromImage(b)) { gg.InterpolationMode = mode; gg.PixelOffsetMode = PixelOffsetMode.HighQuality; float k = Math.Max(w / (float)src.Width, h / (float)src.Height), sw = w / k, sh = h / k; gg.DrawImage(src, new Rectangle(0, 0, w, h), (src.Width - sw) / 2, (src.Height - sh) / 2, sw, sh, GraphicsUnit.Pixel); } scaled[key] = b; return b; } catch { return null; }
         }
     }
     public static Bitmap Picture(string path)

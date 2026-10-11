@@ -411,12 +411,13 @@ class MasterForm : Form
     volatile bool analyzing = false; string analyzeText = "";
 
     // ---- purple theme (from the main window) ----
-    static readonly Color Accent = Color.FromArgb(190, 110, 255);
-    static readonly Color Accent2 = Color.FromArgb(235, 90, 230);
-    static readonly Color AccentHi = Color.FromArgb(232, 190, 255);
-    static readonly Color Violet = Color.FromArgb(124, 52, 214);
-    static readonly Color PanelC = Color.FromArgb(205, 28, 11, 54);
-    static readonly Color PanelEdge = Color.FromArgb(120, 150, 80, 220);
+    static Color Accent = Color.FromArgb(190, 110, 255);
+    static Color Accent2 = Color.FromArgb(235, 90, 230);
+    static Color AccentHi = Color.FromArgb(232, 190, 255);
+    static Color Violet = Color.FromArgb(124, 52, 214);
+    static Color PanelC = Color.FromArgb(205, 28, 11, 54);
+    static Color PanelEdge = Color.FromArgb(120, 150, 80, 220);
+    internal static void ApplyTheme(ThemeDef t) { Accent = t.Accent; Accent2 = t.Accent2; AccentHi = Color.FromArgb(Math.Min(255, t.Accent.R + 54), Math.Min(255, t.Accent.G + 54), Math.Min(255, t.Accent.B + 54)); Violet = t.Btn; PanelC = Color.FromArgb(205, t.Panel.R + 8, t.Panel.G + 4, t.Panel.B + 14); PanelEdge = Color.FromArgb(120, t.EdgeC); }
     static readonly Color Dim = Color.FromArgb(190, 175, 150, 215);
     static readonly Color White = Color.FromArgb(244, 236, 255);
     static readonly Color Chrome = Color.FromArgb(24, 10, 44);
@@ -551,6 +552,7 @@ class MasterForm : Form
 
     void Btn(Graphics g, RectangleF r, string text, bool on, Color onColor, Color textColor)
     {
+        text = Win.Up(text);
         FillRR(g, on ? onColor : Color.FromArgb(150, 52, 28, 92), r, 5);
         Txt(g, text, 17, textColor, r, StringAlignment.Center, false);
     }
@@ -645,7 +647,7 @@ class MasterForm : Form
     {
         using (var br = new SolidBrush(Color.FromArgb(215, Chrome))) g.FillRectangle(br, 0, 0, 1400, 125);
         using (var pen = new Pen(Color.FromArgb(140, 150, 80, 220))) g.DrawLine(pen, 0, 125, 1400, 125);
-        Txt(g, "Purphex Mastering", 22, White, new RectangleF(400, 6, 600, 30), StringAlignment.Center, true);
+        Txt(g, "PURPHEX MASTERING", 22, White, new RectangleF(400, 6, 600, 30), StringAlignment.Center, true);
 
         // power button (pulses while on)
         var pc = At(49, 78, 52, 52);
@@ -690,7 +692,7 @@ class MasterForm : Form
     void PaintLeft(Graphics g)
     {
         Panel(g, CharR);
-        Txt(g, "Character", 16, Dim, new RectangleF(CharR.X + 22, CharR.Y + 14, 150, 22), StringAlignment.Near, false);
+        Txt(g, "CHARACTER", 16, Dim, new RectangleF(CharR.X + 22, CharR.Y + 14, 150, 22), StringAlignment.Near, false);
         Txt(g, MasterSettings.CharNames[ms.Character], 21, Accent, new RectangleF(CharR.X + 22, CharR.Y + 38, 140, 32), StringAlignment.Near, true);
         using (var pen = new Pen(Accent, 2))
         {
@@ -707,7 +709,7 @@ class MasterForm : Form
         var hr = new RectangleF(SlX - 19, hy - 7, 38, 14);
         using (var gl = new SolidBrush(Color.FromArgb(60, Accent))) g.FillEllipse(gl, At(SlX, hy, 56, 30));
         FillRR(g, AccentHi, hr, 6);
-        Txt(g, "Auto EQ", 17, Dim, At(SlX, 711, 110, 24), StringAlignment.Center, false);
+        Txt(g, "AUTO EQ", 17, Dim, At(SlX, 711, 110, 24), StringAlignment.Center, false);
         Txt(g, ((int)ms.AutoEq) + " %", 22, Accent, At(SlX + 2, 735, 110, 28), StringAlignment.Center, false);
 
         // Custom EQ toggle
@@ -767,7 +769,7 @@ class MasterForm : Form
     void PaintDynamics(Graphics g)
     {
         Panel(g, DynR);
-        Txt(g, "Dynamics", 24, White, new RectangleF(853, 156, 200, 32), StringAlignment.Near, true);
+        Txt(g, "DYNAMICS", 24, White, new RectangleF(853, 156, 200, 32), StringAlignment.Near, true);
         Txt(g, ms.Comp ? "Matched" : "Loudness", 17, Dim, At(920, 212, 120, 24), StringAlignment.Center, false);
         Knob(g, KnobL, (ms.Loud + 20f) / 14f, false);
         Txt(g, ms.Comp ? "= input" : Num(ms.Loud, "0.0") + " LUFS", 16, Accent, At(920, 346, 130, 22), StringAlignment.Center, false);
@@ -775,7 +777,7 @@ class MasterForm : Form
 
         var an = app.LastAn;
         // true peak
-        Txt(g, "True Peak", 17, Dim, new RectangleF(1068, 200, 150, 24), StringAlignment.Near, false);
+        Txt(g, "TRUE PEAK", 17, Dim, new RectangleF(1068, 200, 150, 24), StringAlignment.Near, false);
         double tp = an == null ? double.NaN : an.TP;
         BarMeter(g, 1068, 231, 232, 7, tp, -60, 6); BarMeter(g, 1068, 243, 232, 7, tp, -60, 6);
         Txt(g, "-60", 15, Dim, At(1068, 273, 40, 20), StringAlignment.Near, false);
@@ -797,7 +799,7 @@ class MasterForm : Form
         Txt(g, "-60", 15, Dim, At(1068, 410, 40, 20), StringAlignment.Near, false);
         Txt(g, "0", 15, White, At(1300, 410, 24, 20), StringAlignment.Far, false);
 
-        Txt(g, "LU Range", 17, Dim, At(1180, 460, 110, 24), StringAlignment.Center, false);
+        Txt(g, "LU RANGE", 17, Dim, At(1180, 460, 110, 24), StringAlignment.Center, false);
         Txt(g, an == null ? "-" : Num(an.LRA, "0.0"), 18, Accent, At(1180, 484, 110, 24), StringAlignment.Center, false);
         Btn(g, StartR, "Start", false, Violet, Accent); Btn(g, ResetR, "Reset", false, Violet, Accent);
     }
@@ -805,12 +807,12 @@ class MasterForm : Form
     void PaintSpread(Graphics g)
     {
         Panel(g, SpreadR);
-        Txt(g, "Spread", 24, White, new RectangleF(853, 550, 200, 32), StringAlignment.Near, true);
-        Txt(g, "Width", 17, Dim, At(920, 606, 120, 24), StringAlignment.Center, false);
+        Txt(g, "SPREAD", 24, White, new RectangleF(853, 550, 200, 32), StringAlignment.Near, true);
+        Txt(g, "WIDTH", 17, Dim, At(920, 606, 120, 24), StringAlignment.Center, false);
         Knob(g, KnobW, ms.Width / 200f, true);
         Txt(g, ((int)ms.Width) + " %", 16, Accent, At(920, 742, 100, 22), StringAlignment.Center, false);
 
-        Txt(g, "Correlation", 17, Dim, new RectangleF(1068, 594, 150, 24), StringAlignment.Near, false);
+        Txt(g, "CORRELATION", 17, Dim, new RectangleF(1068, 594, 150, 24), StringAlignment.Near, false);
         var bar = new RectangleF(1068, 639, 232, 8);
         using (var br = new LinearGradientBrush(bar, Color.FromArgb(235, 70, 130), Color.FromArgb(120, 230, 150), 0f))
         {
@@ -843,7 +845,7 @@ class MasterForm : Form
             g.DrawLine(pen, ReanR.X + 20, ReanR.Y + 12, ReanR.X + 20, ReanR.Y + 30); g.DrawLine(pen, ReanR.X + 11, ReanR.Y + 21, ReanR.X + 29, ReanR.Y + 21);
             g.DrawLine(pen, ReanR.X + 28, ReanR.Y + 9, ReanR.X + 28, ReanR.Y + 15); g.DrawLine(pen, ReanR.X + 25, ReanR.Y + 12, ReanR.X + 31, ReanR.Y + 12);
         }
-        Txt(g, "Reanalyze", 18, Accent, new RectangleF(ReanR.X + 38, ReanR.Y, 90, ReanR.Height), StringAlignment.Near, false);
+        Txt(g, "REANALYZE", 18, Accent, new RectangleF(ReanR.X + 38, ReanR.Y, 90, ReanR.Height), StringAlignment.Near, false);
         Btn(g, BypassR, "Bypass", !ms.On, Violet, !ms.On ? White : Accent);
         FillRR(g, ms.Comp ? Color.FromArgb(200, 200, 70, 150) : Color.FromArgb(150, 90, 30, 90), LoudR, 6);
         Txt(g, "Loudness\nCompensation", 15, ms.Comp ? White : Pink, LoudR, StringAlignment.Center, false);

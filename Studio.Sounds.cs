@@ -118,7 +118,7 @@ partial class StudioForm
         float maxScroll = Math.Max(0, sndResults.Count * rowH - list.Height); sndScroll = Math.Max(0, Math.Min(maxScroll, sndScroll)); Reg(list, () => { }).OnWheel = d => { sndScroll = Math.Max(0, Math.Min(maxScroll, sndScroll - d * 52)); };
         if (installedPacks == 0 && sndResults.Count == 0)
         {
-            Txt(g, "No sounds yet", 18, Ink, Rc(list.X, list.Y + 30, list.Width, 28), StringAlignment.Center, true); Txt(g, "Open Packs and press Install. Each pack is made on your computer in a few seconds.", 12, DimC, Rc(list.X + 20, list.Y + 64, list.Width - 40, 40), StringAlignment.Center, false);
+            Txt(g, "NO SOUNDS YET", 18, Ink, Rc(list.X, list.Y + 30, list.Width, 28), StringAlignment.Center, true); Txt(g, "Open Packs and press Install. Each pack is made on your computer in a few seconds.", 12, DimC, Rc(list.X + 20, list.Y + 64, list.Width - 40, 40), StringAlignment.Center, false);
             Btn(g, Rc(list.X + list.Width / 2 - 90, list.Y + 112, 180, 34), "Open the packs", 1, () => { packsOpen = true; packScroll = 0; }, 13);
         }
         else if (sndResults.Count == 0) Txt(g, "Nothing matches. Clear a filter or change the search.", 13, DimC, Rc(list.X + 10, list.Y + 20, list.Width - 20, 30), StringAlignment.Near, false);
@@ -166,14 +166,14 @@ partial class StudioForm
         Txt(g, s.Name.Replace(s.PackName + " - ", ""), 13, Ink, Rc(r.X + 12, r.Y + 6, r.Width - 24, 20), StringAlignment.Near, true);
         var wf = Rc(r.X + 12, r.Y + 30, r.Width - 24, 56); FillRR(g, Color.FromArgb(200, 8, 4, 20), wf, 6);
         bool cur = Auditioner.Current == s && Auditioner.LeftSamples != null; var col = Neon(GroupColour(s.Group));
-        if (Auditioner.Loading && Auditioner.Current == s) Txt(g, "Loading...", 12, DimC, wf, StringAlignment.Center, false);
+        if (Auditioner.Loading && Auditioner.Current == s) Txt(g, "LOADING...", 12, DimC, wf, StringAlignment.Center, false);
         else if (s.Peaks != null && s.Peaks.Length > 0) using (var pen = new Pen(Color.FromArgb(220, col), 1.6f)) for (int i = 0; i < (int)wf.Width; i += 2) { float v = s.Peaks[Math.Min(s.Peaks.Length - 1, (int)(i / wf.Width * s.Peaks.Length))] / 255f * (wf.Height / 2 - 4); g.DrawLine(pen, wf.X + i, wf.Y + wf.Height / 2 - v, wf.X + i, wf.Y + wf.Height / 2 + v); }
         if (cur && Auditioner.Length > 0) { float px = wf.X + (float)(Auditioner.Seconds / Auditioner.Length) * wf.Width; using (var pen = new Pen(Color.White, 1.5f)) g.DrawLine(pen, px, wf.Y + 2, px, wf.Bottom - 2); }
         var wr = Reg(wf, () => { if (cur) Auditioner.Seek((MousePos.X - wf.X) / wf.Width); }); wr.OnDrag = pt => { if (cur) Auditioner.Seek((pt.X - wf.X) / wf.Width); };
         float cy = r.Y + 92; bool playing = cur && Auditioner.IsPlaying;
         Btn(g, Rc(r.X + 12, cy, 66, 28), playing ? "Pause" : "Play", 1, () => { if (cur) Auditioner.Toggle(); else if (s.IsAudio) Auditioner.Play(s, m => Toast(m)); }, 12); Btn(g, Rc(r.X + 82, cy, 50, 28), "Stop", 0, () => Auditioner.Stop(), 11);
         Chip(g, Rc(r.X + 136, cy, 56, 28), "Loop", SoundLibrary.LoopPreview, () => { SoundLibrary.LoopPreview = !SoundLibrary.LoopPreview; }); Chip(g, Rc(r.X + 196, cy, 78, 28), "Autoplay", SoundLibrary.AutoPlay, () => { SoundLibrary.AutoPlay = !SoundLibrary.AutoPlay; SoundLibrary.SaveUser(); });
-        Txt(g, "vol", 10, DimC, Rc(r.X + 282, cy + 6, 24, 16), StringAlignment.Near, false); var vs = Slider(g, Rc(r.X + 306, cy + 5, r.Width - 306 - 16 + r.X - r.X, 18), SoundLibrary.AuditionVolume, f => { SoundLibrary.AuditionVolume = f; }, NeonCyan); vs.OnDouble = () => SoundLibrary.AuditionVolume = 0.8f;
+        Txt(g, "VOL", 10, DimC, Rc(r.X + 282, cy + 6, 24, 16), StringAlignment.Near, false); var vs = Slider(g, Rc(r.X + 306, cy + 5, r.Width - 306 - 16 + r.X - r.X, 18), SoundLibrary.AuditionVolume, f => { SoundLibrary.AuditionVolume = f; }, NeonCyan); vs.OnDouble = () => SoundLibrary.AuditionVolume = 0.8f;
         float by = cy + 34; bool preset = s.Kind == "preset", midi = s.Kind == "midi";
         Btn(g, Rc(r.X + 12, by, 168, 30), preset ? "Add to Bass Lab" : (midi ? "Add to selected track" : "Add to timeline"), 2, () => { string m = midi ? DropMidi(s, Snap(DispPos), -1) : AddSample(s, Snap(DispPos), eng.Tracks.Count); if (m != null) Toast(m); }, 12);
         bool fav = SoundLibrary.Favourites.Contains(s.Id); Chip(g, Rc(r.X + 184, by, 96, 30), fav ? "★ Favourite" : "☆ Favourite", fav, () => { SoundLibrary.ToggleFav(s); sndDirty = sndFilter.OnlyFav; }); Btn(g, Rc(r.X + 284, by, 104, 30), "Collection...", 0, () => SoundMenu(s), 11);
@@ -278,7 +278,7 @@ partial class StudioForm
         var list = Rc(box.X + 16, box.Y + 112, box.Width - 32, box.Height - 112 - 70); var rows = new List<Recipe>(); foreach (var r in SoundCatalog.Recipes) { var ip = SoundLibrary.Pack(r.Id); bool inst = ip != null && ip.Items.Count > 0; if (packSection == "All" || (packSection == "Installed" ? inst : r.Section == packSection)) rows.Add(r); }
         float rowH = 66; float maxS = Math.Max(0, rows.Count * rowH - list.Height); packScroll = Math.Max(0, Math.Min(maxS, packScroll)); Reg(list, () => { }).OnWheel = d => { packScroll = Math.Max(0, Math.Min(maxS, packScroll - d * 66)); };
         var gs = g.Save(); g.SetClip(list, CombineMode.Intersect); int first = Math.Max(0, (int)(packScroll / rowH)), last = Math.Min(rows.Count - 1, first + (int)(list.Height / rowH) + 1);
-        if (rows.Count == 0) Txt(g, "Nothing here yet.", 14, DimC, Rc(list.X + 10, list.Y + 20, 400, 24), StringAlignment.Near, false);
+        if (rows.Count == 0) Txt(g, "NOTHING HERE YET.", 14, DimC, Rc(list.X + 10, list.Y + 20, 400, 24), StringAlignment.Near, false);
         for (int i = first; i <= last; i++)
         {
             var rec = rows[i]; var rr = Rc(list.X, list.Y + i * rowH - packScroll, list.Width, rowH - 4); var ip = SoundLibrary.Pack(rec.Id); bool inst = ip != null && ip.Items.Count > 0; bool busyNow = installing == rec.Id; bool queued; lock (installQ) queued = installQ.Contains(rec.Id);
@@ -286,7 +286,7 @@ partial class StudioForm
             Txt(g, rec.Name, 14, Ink, Rc(rr.X + 66, rr.Y + 6, rr.Width - 330, 22), StringAlignment.Near, true); Txt(g, rec.Genre + "  ·  " + rec.Sub + "  ·  " + rec.Mood, 10, DimC, Rc(rr.X + 66, rr.Y + 28, rr.Width - 330, 16), StringAlignment.Near, false); Txt(g, rec.Desc, 10, DimC, Rc(rr.X + 66, rr.Y + 44, rr.Width - 330, 16), StringAlignment.Near, false);
             float bx = rr.Right - 250;
             if (busyNow) { var pb = Rc(bx, rr.Y + 12, 170, 10); FillRR(g, Color.FromArgb(200, 8, 4, 18), pb, 5); FillRR(g, NeonCyan, Rc(pb.X, pb.Y, Math.Max(6, pb.Width * installPct), pb.Height), 5); Txt(g, ((int)(installPct * 100)) + "%  " + installNote, 10, DimC, Rc(bx, rr.Y + 26, 240, 16), StringAlignment.Near, false); Btn(g, Rc(bx + 176, rr.Y + 8, 66, 22), "Stop", 3, () => installCancel = true, 10); }
-            else if (queued) Txt(g, "Waiting...", 12, DimC, Rc(bx, rr.Y + 18, 240, 24), StringAlignment.Near, false);
+            else if (queued) Txt(g, "WAITING...", 12, DimC, Rc(bx, rr.Y + 18, 240, 24), StringAlignment.Near, false);
             else if (inst) { Txt(g, "Installed: " + ip.Items.Count + " sounds, " + PackSizeText(ip), 11, Color.FromArgb(120, 232, 150), Rc(bx, rr.Y + 8, 240, 18), StringAlignment.Near, false); Btn(g, Rc(bx, rr.Y + 30, 76, 26), "Browse", 1, () => { packsOpen = false; sndFilter.Pack = rec.Id; sndDirty = true; sndScroll = 0; }, 11); Btn(g, Rc(bx + 80, rr.Y + 30, 76, 26), "Remake", 0, () => StartInstall(rec), 11); Btn(g, Rc(bx + 160, rr.Y + 30, 76, 26), "Remove", 3, () => { if (MessageBox.Show(this, "Remove \"" + rec.Name + "\" and its files from this PC? You can install it again any time.", "Remove pack", MessageBoxButtons.YesNo) == DialogResult.Yes) { if (sndFilter.Pack == rec.Id) sndFilter.Pack = ""; if (sndSel != null && sndSel.PackId == rec.Id) { Auditioner.Stop(); sndSel = null; } SoundLibrary.RemovePack(rec.Id); sndDirty = true; packMsg = "Removed " + rec.Name; } }, 11); }
             else Btn(g, Rc(bx + 76, rr.Y + 16, 160, 32), "Install", 2, () => StartInstall(rec), 13);
         }

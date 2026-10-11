@@ -37,7 +37,7 @@ class Job
 partial class App : Form
 {
     // ---- Auto-update settings ----
-    const string Version = "3.20.0";
+    const string Version = "3.21.0";
     // Plain-text manifest: line 1 = newest version, line 2 = direct exe download URL.
     const string UpdateManifestUrl = "https://raw.githubusercontent.com/heaththomas225-svg/yt-to-mp3/main/version.txt";
 
@@ -169,13 +169,13 @@ partial class App : Form
 
         // links (batch queue)
         links.Multiline = true; links.ScrollBars = ScrollBars.Vertical; links.AcceptsReturn = true; StyleBox(links);
-        links.SetBounds(16, 96, 608, 54); links.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+        links.SetBounds(16, 98, 608, 54); links.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
         Lbl(links, "Paste video or music links, or type words to search  (one per line)");
 
         // format row
-        StyleCombo(fmt, FmtNames, 16, 186, 230); fmt.DropDownWidth = 330; Lbl(fmt, "Format");
-        StyleCombo(sr, SrNames, 256, 186, 130); Lbl(sr, "Sample rate");
-        StyleCombo(nameFmt, NameNames, 396, 186, 228); Lbl(nameFmt, "File name");
+        StyleCombo(fmt, FmtNames, 16, 190, 230); fmt.DropDownWidth = 330; Lbl(fmt, "Format");
+        StyleCombo(sr, SrNames, 256, 190, 130); Lbl(sr, "Sample rate");
+        StyleCombo(nameFmt, NameNames, 396, 190, 228); Lbl(nameFmt, "File name");
         tip.SetToolTip(fmt, "YouTube audio is already lossy (about 128-160 kbps).\nWAV / FLAC keep it intact from that point on, but can't restore lost quality.");
         fmt.SelectedIndexChanged += (s, e) =>
         {
@@ -184,18 +184,18 @@ partial class App : Form
         };
 
         // trim + processing
-        StyleBox(trimA); trimA.SetBounds(16, 240, 100, 26); Lbl(trimA, "Trim start  (m:ss)");
-        StyleBox(trimB); trimB.SetBounds(126, 240, 100, 26); Lbl(trimB, "Trim end  (m:ss)");
-        StyleChk(norm, "Normalize loudness", 240, 240, 172);
+        StyleBox(trimA); trimA.SetBounds(16, 246, 84, 28); Lbl(trimA, "Trim start"); tip.SetToolTip(trimA, "Where the file should start, like 1:30 (minutes:seconds). Leave empty to start at the beginning.");
+        StyleBox(trimB); trimB.SetBounds(108, 246, 84, 28); Lbl(trimB, "Trim end"); tip.SetToolTip(trimB, "Where the file should end, like 3:45 (minutes:seconds). Leave empty to go to the end.");
+        StyleChk(norm, "Normalize loudness", 200, 246, 192);
         tip.SetToolTip(norm, "Brings every download to a standard -14 LUFS loudness (streaming level).");
-        StyleBtn(prevNormBtn, Color.FromArgb(60, 26, 110)); prevNormBtn.Text = "Hear"; prevNormBtn.SetBounds(416, 240, 50, 26);
+        StyleBtn(prevNormBtn, Color.FromArgb(60, 26, 110)); prevNormBtn.Text = "Hear"; prevNormBtn.SetBounds(398, 246, 54, 28);
         tip.SetToolTip(prevNormBtn, "Listen to a 30 second sample, original vs normalized, before you convert.");
         prevNormBtn.Click += (s, e) => PreviewNormalize();
-        StyleChk(playlist, "Whole playlists", 470, 240, 154);
+        StyleChk(playlist, "Whole playlists", 458, 246, 166);
         tip.SetToolTip(playlist, "If a link points at a playlist, convert every video in it.");
 
-        StyleChk(openDone, "Open folder when done", 16, 276, 200);
-        StyleChk(animate, "Animated background", 240, 276, 200);
+        StyleChk(openDone, "Open folder when done", 16, 279, 214);
+        StyleChk(animate, "Animated background", 242, 279, 214);
         openDone.Checked = true; animate.Checked = true;
 
         StyleBtn(mastBtn, Color.FromArgb(90, 36, 160)); mastBtn.Text = "Mastering: OFF";
@@ -220,11 +220,11 @@ partial class App : Form
             m.Show(vocalBtn, new Point(0, vocalBtn.Height));
         };
         StyleBtn(whatsBtn, Color.FromArgb(60, 26, 110)); whatsBtn.Text = "Menu"; whatsBtn.SetBounds(560, 12, 64, 28);
-        StyleBtn(helpBtn, Color.FromArgb(190, 60, 200)); helpBtn.Text = "Help"; helpBtn.SetBounds(488, 12, 66, 28); helpBtn.Anchor = AnchorStyles.Top | AnchorStyles.Right; helpBtn.Click += (s, e) => ShowHelp(null);
+        StyleBtn(helpBtn, Color.FromArgb(190, 60, 200)); helpBtn.Text = "Help"; helpBtn.SetBounds(490, 12, 64, 28); helpBtn.Anchor = AnchorStyles.Top | AnchorStyles.Right; helpBtn.Click += (s, e) => ShowHelp(null);
         tip.SetToolTip(helpBtn, "Guides for every feature, with Show me on screen tours (F1).");
-        StyleBtn(settingsBtn, Color.FromArgb(70, 40, 150)); settingsBtn.Text = "Settings"; settingsBtn.SetBounds(412, 12, 70, 28); settingsBtn.Anchor = AnchorStyles.Top | AnchorStyles.Right; settingsBtn.Click += (s, e) => ShowSettings();
+        StyleBtn(settingsBtn, Color.FromArgb(70, 40, 150)); settingsBtn.Text = "Settings"; settingsBtn.SetBounds(400, 12, 84, 28); settingsBtn.Anchor = AnchorStyles.Top | AnchorStyles.Right; settingsBtn.Click += (s, e) => ShowSettings();
         tip.SetToolTip(settingsBtn, "Background picture or video, animation, audio and other options.");
-        StyleBtn(changeBtn, Color.FromArgb(60, 26, 110)); changeBtn.Text = "Changelog"; changeBtn.SetBounds(324, 12, 82, 28); changeBtn.Anchor = AnchorStyles.Top | AnchorStyles.Right; changeBtn.Click += (s, e) => { seenVer = Changelog.Latest; SaveSettings(); changeBtn.Text = "Changelog"; Changelog.Show(this); };
+        StyleBtn(changeBtn, Color.FromArgb(60, 26, 110)); changeBtn.Text = "Changelog"; changeBtn.SetBounds(290, 12, 104, 28); changeBtn.Anchor = AnchorStyles.Top | AnchorStyles.Right; changeBtn.Click += (s, e) => { seenVer = Changelog.Latest; SaveSettings(); changeBtn.Text = "Changelog"; Changelog.Show(this); };
         tip.SetToolTip(changeBtn, "See what changed in each version (nothing pops up by itself any more).");
         KeyPreview = true; KeyDown += (s, e) => { if (e.KeyCode == Keys.F1) { e.Handled = true; ShowHelp(null); } }; whatsBtn.Anchor = AnchorStyles.Top | AnchorStyles.Right; whatsBtn.Click += (s, e) =>
         {
@@ -251,12 +251,12 @@ partial class App : Form
             else if (c == 3) StudioDialogs.TrimFile(this, outDir.Text.Trim());
         };
 
-        StyleBox(outDir); outDir.SetBounds(16, 372, 536, 28);
+        StyleBox(outDir); outDir.SetBounds(16, 377, 520, 28);
         outDir.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
         outDir.Text = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyMusic), "yt2mp3");
         Lbl(outDir, "Save to");
         StyleBtn(browse, Color.FromArgb(70, 30, 120)); browse.Text = "Browse...";
-        browse.SetBounds(560, 371, 64, 30); browse.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+        browse.SetBounds(544, 376, 80, 30); browse.Anchor = AnchorStyles.Top | AnchorStyles.Right;
         browse.Click += (s, e) =>
         {
             using (var d = new FolderBrowserDialog())
@@ -265,11 +265,11 @@ partial class App : Form
 
         StyleBtn(go, Color.FromArgb(120, 40, 210)); go.Text = "Convert";
         go.Font = new Font("Segoe UI Semibold", 11f);
-        go.SetBounds(16, 410, 500, 42); go.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+        go.SetBounds(16, 414, 500, 40); go.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
         go.Click += (s, e) => Start();
 
         StyleBtn(cancel, Color.FromArgb(110, 30, 70)); cancel.Text = "Cancel"; cancel.Enabled = false;
-        cancel.SetBounds(524, 410, 100, 42); cancel.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+        cancel.SetBounds(524, 414, 100, 40); cancel.Anchor = AnchorStyles.Top | AnchorStyles.Right;
         cancel.Click += (s, e) => { cancelReq = true; KillCurrent(); Log("Cancelling..."); };
 
         log.Multiline = true; log.ReadOnly = true; log.ScrollBars = ScrollBars.Vertical;
@@ -279,6 +279,7 @@ partial class App : Form
 
         bg.Controls.AddRange(new Control[] { links, fmt, sr, nameFmt, trimA, trimB, norm, playlist, openDone, animate,
             mastBtn, vocalBtn, prevNormBtn, helpBtn, settingsBtn, changeBtn, studioBtn, addMusicBtn, whatsBtn, outDir, browse, go, cancel, log });
+        Win.CapsAll(bg);   // capitals in the bold font
         CaptureBase();   // the design positions, before any saved window size moves the anchored controls
 
         fmt.SelectedIndex = 0; sr.SelectedIndex = 0; nameFmt.SelectedIndex = 0;
@@ -301,7 +302,7 @@ partial class App : Form
 
     static void StyleBox(TextBox b)
     {
-        b.BorderStyle = BorderStyle.FixedSingle; b.BackColor = Field; b.ForeColor = Ink; Win.NeonBox(b);
+        b.BorderStyle = BorderStyle.FixedSingle; b.BackColor = Field; b.ForeColor = Ink; if (!b.Multiline) Win.FixedBox(b); Win.NeonBox(b);
     }
 
     void StyleCombo(ComboBox c, string[] items, int x, int y, int w)

@@ -870,8 +870,8 @@ class Spatial8D : Fx
     {
         Type = "8d"; Title = "8D Audio Tuner";
         AddP("period", "Rotation time", 1.5f, 60, 10, "s"); AddC("dir", "Direction", new[] { "Clockwise", "Counter-clockwise", "Back and forth" }, 0);
-        AddP("width", "Width", 0, 100, 100, "%"); AddP("depth", "Depth (behind = darker)", 0, 100, 60, "%"); AddP("itd", "Ear delay", 0, 100, 80, "%");
-        AddP("bass", "Keep bass centred below", 0, 300, 120, "Hz"); AddP("room", "Room", 0, 60, 15, "%");
+        AddP("width", "Width", 0, 100, 100, "%"); AddP("depth", "Behind = darker", 0, 100, 60, "%"); AddP("itd", "Ear delay", 0, 100, 80, "%");
+        AddP("bass", "Centre bass below", 0, 300, 120, "Hz"); AddP("room", "Room", 0, 60, 15, "%");
         AddP("start", "Start angle", 0, 360, 0, "deg"); AddC("hold", "Hold position", new[] { "Rotate", "Hold" }, 0); AddP("angle", "Hold angle", 0, 360, 0, "deg");
         AddP("mix", "Mix", 0, 100, 100, "%");
         rv.Prepare(StudioEngine.SR);

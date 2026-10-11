@@ -69,6 +69,12 @@ static class CP
         err = CommunityPresets.Share("fx:bassboost", "RATELIMIT", "Zed", "freq=60"); Check("a rate limit is explained in plain words", err != null && err.Contains("a lot of presets"), err);
         err = CommunityPresets.Share("fx:bassboost", "Bad", "Zed", "freq=<x>"); Check("an unsafe preset is never even sent", err != null && !lastBody.Contains("Bad"), err);
 
+        // ---- a saved preset is shared automatically (unless Settings has it off) ----
+        { Prefs.ShareSaved = true; lastBody = ""; string said = null; CommunityPresets.AutoShare("fx:bassboost", "Auto saved one", "freq=61;gain=6", "Zed", m => said = m); var w0 = DateTime.Now; while (said == null && (DateTime.Now - w0).TotalSeconds < 5) Pump(50);
+          Check("saving a preset also shares it with the community", lastBody.Contains("Auto saved one") && lastBody.Contains("freq=61;gain=6") && said != null && said.Contains("shared"), lastBody + " / " + said);
+          Prefs.ShareSaved = false; lastBody = ""; CommunityPresets.AutoShare("fx:bassboost", "Not shared", "freq=62;gain=6", "Zed", m => { }); Pump(700); Check("with the Settings switch off nothing is shared", lastBody == "", lastBody);
+          Prefs.ShareSaved = true; lastBody = ""; CommunityPresets.AutoShare("fx:bassboost", "Bad one", "freq=<x>", "Zed", m => { }); Pump(500); Check("an unsafe preset is never sent automatically either", lastBody == "", lastBody); }
+
         // ---- the sheet ----
         var app = (App)Activator.CreateInstance(typeof(App), true); var eng = app.StudioEng; foreach (var m in eng.MasterFx) m.Bypass = true;
         sf = new StudioForm(app); sf.ClientSize = new Size(1500, 800); sf.Show(); Pump(300); Paint();

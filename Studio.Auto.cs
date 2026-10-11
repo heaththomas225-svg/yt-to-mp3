@@ -125,11 +125,11 @@ partial class StudioForm
         var fx = autoLane.Fx; var prm = fx.Find(autoLane.Param); if (prm == null || !autoTrack.Fx.Contains(fx)) { autoOpen = false; return; }
         float W = ClientSize.Width, H = ClientSize.Height; var all = Rc(0, 0, W, H);
         using (var b = new SolidBrush(Color.FromArgb(160, 3, 1, 10))) g.FillRectangle(b, all); Reg(all, () => CloseAuto());
-        float sw = Math.Min(1040, W - 24), sh = Math.Min(480, H - 30); var sheet = Rc((W - sw) / 2, (H - sh) / 2, sw, sh);
+        float sw = Math.Min(1040, W - 24), sh = Math.Min(480, H - 30); var sheet = PopMove("auto", Rc((W - sw) / 2, (H - sh) / 2, sw, sh), 50, 70);
         FillRR(g, Color.FromArgb(252, 16, 10, 34), sheet, 22); Glow(g, NeonCyan, sheet, 22, 0.7f, 4); StrokeRR(g, Color.FromArgb(180, NeonCyan), sheet, 22, 1.5f); Reg(sheet, () => { });
-        Txt(g, "Automation", 20, Ink, Rc(sheet.X + 22, sheet.Y + 12, 200, 32), StringAlignment.Near, true);
+        Txt(g, "AUTOMATION", 20, Ink, Rc(sheet.X + 22, sheet.Y + 12, 200, 32), StringAlignment.Near, true);
         Txt(g, autoTrack.Name + "  >  " + fx.Title + "  >  " + prm.Name, 14, NeonCyan, Rc(sheet.X + 150, sheet.Y + 16, sheet.Width - 560, 26), StringAlignment.Near, false);
-        var close = Rc(sheet.Right - 50, sheet.Y + 12, 32, 32); FillRR(g, Hot(close) ? Color.FromArgb(160, 70, 38, 130) : Color.FromArgb(110, 40, 24, 80), close, 16); Txt(g, "x", 15, Ink, close, StringAlignment.Center, true); Reg(close, () => CloseAuto());
+        var close = Rc(sheet.Right - 50, sheet.Y + 12, 32, 32); FillRR(g, Hot(close) ? Color.FromArgb(160, 70, 38, 130) : Color.FromArgb(110, 40, 24, 80), close, 16); Txt(g, "X", 15, Ink, close, StringAlignment.Center, true); Reg(close, () => CloseAuto());
         var lane = autoLane;
         Chip(g, Rc(sheet.Right - 330, sheet.Y + 14, 110, 28), lane.On ? "Automation on" : "Automation off", lane.On, () => { lock (eng.Sync) lane.On = !lane.On; });
         Btn(g, Rc(sheet.Right - 214, sheet.Y + 14, 72, 28), "Flatten", 0, () => { PushUndo(); lock (eng.Sync) { float v = prm.Val; foreach (var pt in lane.Pts) pt.Value = v; } }, 12);
