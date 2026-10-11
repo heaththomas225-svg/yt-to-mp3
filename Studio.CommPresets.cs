@@ -54,15 +54,22 @@ static class MiniJson
 static class CommunityPresets
 {
     public static string BaseUrl = "https://purphexmusic.com";
-    static readonly Regex Safe0 = new Regex("^[A-Za-z0-9_.;=,:|\\-+ \\n]*$"), Kind0 = new Regex("^(fx:[a-z0-9_]{1,24}|chain|synth)$"), Key0 = new Regex("^[a-z0-9_]{1,24}$"), Num0 = new Regex("^-?[0-9]{1,12}(\\.[0-9]{1,12})?([eE][+-]?[0-9]{1,3})?$");
+    static readonly Regex Safe0 = new Regex("^[A-Za-z0-9_.;=,:|\\-+ \\n]*$"), Kind0 = new Regex("^(fx:[a-z0-9_]{1,24}|chain|synth|theme)$"), Key0 = new Regex("^[a-z0-9_]{1,24}$"), Num0 = new Regex("^-?[0-9]{1,12}(\\.[0-9]{1,12})?([eE][+-]?[0-9]{1,3})?$");
 
     // the same rules the website applies: only name=number pairs (a chain is lines of  plugin|bypass|pairs)
     public static bool Safe(string kind, string data)
     {
         if (kind == null || data == null || !Kind0.IsMatch(kind)) return false; data = data.Replace("\r\n", "\n").Replace("\r", "\n").Trim();
-        int max = kind.StartsWith("fx:") ? 3000 : (kind == "chain" ? 14000 : 30000); if (data.Length == 0 || data.Length > max || !Safe0.IsMatch(data)) return false;
+        int max = kind == "theme" ? 700 : (kind.StartsWith("fx:") ? 3000 : (kind == "chain" ? 14000 : 30000)); if (data.Length == 0 || data.Length > max || !Safe0.IsMatch(data)) return false;
         if (kind == "chain") { var lines = data.Split('\n'); if (lines.Length > 24) return false; foreach (var ln in lines) { var m = Regex.Match(ln, "^([a-z0-9_]{1,24})\\|([01])\\|(.*)$"); if (!m.Success) return false; if (m.Groups[3].Value.Length > 0 && !Pairs(m.Groups[3].Value, false)) return false; } return true; }
+        if (kind == "theme") return ThemeOk(data.Replace("\n", ""));
         return Pairs(kind == "synth" ? data.Replace("\n", "") : data, kind == "synth");
+    }
+    static bool ThemeOk(string data)
+    {
+        var parts = data.Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries); if (parts.Length < 3 || parts.Length > 18) return false; var seen = new HashSet<string>();
+        foreach (var p in parts) { int i = p.IndexOf('='); if (i < 1) return false; string k = p.Substring(0, i), v = p.Substring(i + 1); if (Array.IndexOf(ThemeDef.Keys, k) < 0 && Array.IndexOf(ThemeDef.ShortKeys, k) < 0) return false; if (!seen.Add(k) || !Regex.IsMatch(v, "^[0-9a-f]{6}$")) return false; }
+        return true;
     }
     static bool Pairs(string data, bool anyValue)
     {
@@ -122,7 +129,7 @@ static class CommunityPresets
 
 partial class StudioForm
 {
-    bool cpOpen, cpLoading; string cpKind = "", cpTitle = "", cpSort = "popular", cpQuery = "", cpStatus = "", cpDefName = ""; List<CommPreset> cpList = new List<CommPreset>(); float cpScroll; int cpGen;
+    readonly Dictionary<string, ThemeDef> cpThemes = new Dictionary<string, ThemeDef>(); bool cpOpen, cpLoading; string cpKind = "", cpTitle = "", cpSort = "popular", cpQuery = "", cpStatus = "", cpDefName = ""; List<CommPreset> cpList = new List<CommPreset>(); float cpScroll; int cpGen;
     Action<CommPreset> cpApply; Func<string> cpData;
 
     // one sheet for every kind of preset: what to ask the community for, what to do with the one you pick, and where your own settings come from
@@ -155,7 +162,9 @@ partial class StudioForm
     void CpUse(CommPreset p)
     {
         if (!CommunityPresets.Safe(p.Kind, p.Data)) { Toast("That preset is not valid."); return; }
+        var snapC = TakeSnapshot(); var chainC = SnapChain(); string themeC = Themes.Current.Name;
         try { if (cpApply != null) cpApply(p); } catch (Exception ex) { Toast("Could not use that preset: " + ex.Message); return; }
+        OfferRevert("\"" + p.Name + "\"", () => { Restore(snapC); RestoreChain(chainC); if (p.Kind == "theme") { Themes.Apply(Themes.IndexOf(themeC)); Prefs.Changed(); } });
         CommunityPresets.Tell("use", p.Id); cpOpen = false; Toast("Using \"" + p.Name + "\" by " + p.Author + ". Ctrl+Z undoes it.");
     }
     void CpKey(char c)
@@ -191,12 +200,13 @@ partial class StudioForm
             bool hot = Hot(RectangleF.Intersect(row, area)) && area.Contains(MousePos); FillRR(g, hot ? Color.FromArgb(200, 70, 40, 130) : Color.FromArgb(150, 26, 15, 52), row, 12); StrokeRR(g, Color.FromArgb(hot ? 180 : 80, NeonViolet), row, 12, 1);
             float tw = row.Width - 200; Txt(g, p.Name, 15, Ink, Rc(row.X + 16, row.Y + 8, tw, 24), StringAlignment.Near, true);
             Txt(g, "BY " + p.Author + "     " + p.Uses + (p.Uses == 1 ? " use" : " uses"), 12, DimC, Rc(row.X + 16, row.Y + 33, tw, 20), StringAlignment.Near, false);
+            if (p.Kind == "theme") { ThemeDef td; if (!cpThemes.TryGetValue(p.Id, out td)) { string terr; td = ThemeDef.FromText(p.Data, p.Name, out terr); cpThemes[p.Id] = td; } if (td != null) { Color[] sw6 = { td.Violet, td.Cyan, td.Pink, td.Lime, td.Accent, td.Btn }; for (int k = 0; k < 6; k++) { var dot = Rc(row.Right - 190 - (6 - k) * 24, row.Y + 19, 18, 18); using (var br = new SolidBrush(sw6[k])) g.FillEllipse(br, dot); using (var pen = new Pen(Color.FromArgb(90, 255, 255, 255), 1f)) g.DrawEllipse(pen, dot); } } }
             var pp = p; var useR = Rc(row.Right - 96, row.Y + 11, 84, 36); var repR = Rc(row.Right - 176, row.Y + 17, 70, 24);
             var ua = RectangleF.Intersect(useR, area); if (!ua.IsEmpty) Btn(g, useR, "USE", 2, () => CpUse(pp), 13);
             var ra = RectangleF.Intersect(repR, area); if (!ra.IsEmpty) Btn(g, repR, "Report", 0, () => { if (MessageBox.Show(this, "Report \"" + pp.Name + "\" as spam or something that should not be here?\n\nPresets that are reported by several people are hidden.", "Report preset", MessageBoxButtons.YesNo) == DialogResult.Yes) { CommunityPresets.Tell("report", pp.Id); Toast("Thanks, reported."); } }, 11);
         }
         g.Restore(gs); VScroll(g, Rc(area.Right - 46, area.Y, 42, area.Height), total, area.Height, () => cpScroll, v => cpScroll = v);
-        Btn(g, Rc(sheet.X + 22, sheet.Bottom - 58, 330, 40), "SHARE MY CURRENT SETTINGS", 1, () => CpShare(), 13);
+        Btn(g, Rc(sheet.X + 22, sheet.Bottom - 58, 330, 40), cpKind == "theme" ? "SHARE THE THEME I AM USING" : "SHARE MY CURRENT SETTINGS", 1, () => CpShare(), 13);
         Txt(g, "Shared presets are public. Only share sounds you made.", 11, DimC, Rc(sheet.X + 366, sheet.Bottom - 58, sheet.Right - sheet.X - 366 - 22, 40), StringAlignment.Far, false);
     }
 }

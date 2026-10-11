@@ -143,8 +143,9 @@ partial class StudioForm
         if (eng.Tracks.Count == 0) { Toast("Add or select a track first."); return; }
         var tr = eng.Tracks[Math.Max(0, Math.Min(selTrack, eng.Tracks.Count - 1))];
         var chain = VocalStyles.Build(s); if (chain.Count == 0) { Toast("That style could not be built."); return; }
-        PushUndo();
+        var snapS = TakeSnapshot(); PushUndo();
         lock (eng.Sync) { if (replace) tr.Fx.Clear(); tr.Fx.AddRange(chain); }
+        OfferRevert(s.Name + " on " + tr.Name, () => Restore(snapS));
         selFx = -1; stylesOpen = false; Toast(s.Name + (replace ? " applied to " : " added to ") + tr.Name + ". Every plugin is editable (Ctrl+Z undoes it).");
     }
 

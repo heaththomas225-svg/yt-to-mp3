@@ -57,7 +57,7 @@ partial class StudioForm
                 I("Community", () => GoTab(4)); I("My profile", () => GoTab(4));
                 break;
             case 5:
-                for (int ti = 0; ti < Themes.All.Length; ti++) { int k2 = ti; var tm = I(Themes.All[ti].Name, () => { Themes.Apply(k2); Prefs.Changed(); Toast("Theme: " + Themes.All[k2].Name + ". " + Themes.All[k2].Blurb); }); if (ti == Themes.Index) tm.Key = "IN USE"; }
+                I("Choose a theme...", () => { CloseMenu(); OpenThemeSheet(); }); I("Community themes (download)...", () => { CloseMenu(); OpenThemeSheet(true); }); I("Import a theme file...", () => { CloseMenu(); ImportThemeFile(); });
                 break;
             case 6:
                 I("Settings", () => { CloseMenu(); app.ShowSettings(); });
@@ -185,7 +185,7 @@ partial class StudioForm
         float W = ClientSize.Width, H = ClientSize.Height, top = ToolH; if (!projectsLoaded) { projectsLoaded = true; ProjectLibrary.Load(); ProjectLibrary.Discover(); }
         PaintLogoBackdrop(g, Rc(0, top, W, H - top));
         if (projBin) { PaintBin(g); return; }
-        var list = VisibleProjects(); float y0 = PaintProjectsBar(g, W, top, ProjectLibrary.Entries.Count, list.Count); float cw = 230, ch = 322, gap = 18, x0 = 24; int cols = Math.Max(1, (int)((W - 48 + gap) / (cw + gap))); int count = list.Count + 1; int rows = (count + cols - 1) / cols; float bottomRoom = previewPath.Length > 0 ? 70 : 20;
+        var list = VisibleProjects(); float y0 = PaintProjectsBar(g, W, top, ProjectLibrary.Entries.Count, list.Count); float cw = 230, ch = 322, gap = 18, x0 = 24; int cols = Math.Max(1, (int)((W - 48 - 56 + gap) / (cw + gap))); int count = list.Count + 1; int rows = (count + cols - 1) / cols; float bottomRoom = previewPath.Length > 0 ? 70 : 20;
         float maxScroll = Math.Max(0, y0 + rows * (ch + gap) - H + bottomRoom); projScroll = Math.Max(0, Math.Min(maxScroll, projScroll)); var area = Rc(0, y0 - 8, W, H - y0 + 8); Reg(area, () => { }).OnWheel = d => { projScroll = Math.Max(0, Math.Min(maxScroll, projScroll - d * 70)); };
         var gs = g.Save(); g.SetClip(area, CombineMode.Intersect);
         for (int i = 0; i < count; i++)
@@ -212,6 +212,7 @@ partial class StudioForm
             FillRR(g, Hot(rm) ? Color.FromArgb(220, 160, 40, 80) : Color.FromArgb(150, 44, 24, 80), rm, 7); Txt(g, "X", 13, Ink, rm, StringAlignment.Center, true); Reg(rm, () => RemoveProjectAsk(e)); if (Hot(rm)) { bubble = "Remove from this list (it asks if the file should go too)"; bubblePt = MousePos; }
         }
         g.Restore(gs);
+        { float barTop = y0 - 8, barH = H - barTop - (previewPath.Length > 0 ? 56 : 8); VScroll(g, Rc(W - 54, barTop, 42, barH), barH + maxScroll, barH, () => projScroll, v => projScroll = v); }
         if (list.Count == 0) { if (ProjectLibrary.Entries.Count > 0) TxtWrap(g, "NO PROJECT MATCHES. Change the search or press CLEAR to see all your projects.", 14, DimC, Rc(x0 + cw + 40, y0 + 90, W - cw - 100, 60)); else TxtWrap(g, "You have not saved a project yet. Make something, press Save, and it will appear here.", 14, DimC, Rc(x0 + cw + 40, y0 + 90, W - cw - 100, 60)); }
     }
     void DrawCamera(Graphics g, RectangleF r)
@@ -232,7 +233,7 @@ partial class StudioForm
         m.Items.Add(new ToolStripSeparator());
         m.Items.Add("Remove (list or Recycling Bin)...").Click += (a, b) => { if (e != null) RemoveProjectAsk(e); };
         m.Items.Add(new ToolStripSeparator());
-        m.Items.Add("BACK").Click += (a, b) => GoBack();
+        m.Items.Add("HOME (the main studio)").Click += (a, b) => GoHome(); if (ShowBack) m.Items.Add("BACK (the page before)").Click += (a, b) => GoBack();
         m.Show(this, new Point((int)MousePos.X, (int)MousePos.Y));
     }
 

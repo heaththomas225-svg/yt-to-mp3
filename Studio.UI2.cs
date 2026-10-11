@@ -237,92 +237,7 @@ partial class StudioForm
     bool abMastered = true, matchOn = true; LoudnessResult abOrig, abMast; float targetLufs = -14;
     static readonly string[] ModNames = { "Master EQ", "Compressor", "Multiband comp.", "Exciter", "Saturation", "Stereo imaging", "Limiter" };
 
-    void PaintMastering(Graphics g)
-    {
-        float top = ToolH + TransH + 10, W = ClientSize.Width, H = ClientSize.Height;
-        // ---- left: chain ----
-        var lp = Rc(14, top, 270, H - top - 12); FillRR(g, Panel, lp, 12); StrokeRR(g, Edge, lp, 12, 1);
-        Txt(g, "MASTERING CHAIN", 17, Ink, Rc(lp.X + 14, lp.Y + 8, 240, 26), StringAlignment.Near, true);
-        TxtWrap(g, "Processes the combined mix, after each track's own chain.", 11, DimC, Rc(lp.X + 14, lp.Y + 32, lp.Width - 28, 34));
-        float y = lp.Y + 70; int n = eng.MasterFx.Count; if (selMaster >= n) selMaster = Math.Max(0, n - 1);
-        for (int i = 0; i < n; i++, y += 44)
-        {
-            var f = eng.MasterFx[i]; int fi = i; bool sel = i == selMaster; var row = Rc(lp.X + 10, y, lp.Width - 20, 40);
-            FillRR(g, sel ? Color.FromArgb(210, 80, 40, 150) : Color.FromArgb(150, 40, 22, 74), row, 8); if (sel) StrokeRR(g, Accent, row, 8, 1.4f);
-            Reg(row, () => selMaster = fi);
-            var dot = Rc(row.X + 10, row.Y + 11, 18, 18); using (var b = new SolidBrush(f.Bypass ? Color.FromArgb(90, 90, 70, 110) : Good)) g.FillEllipse(b, dot); Reg(dot, () => f.Bypass = !f.Bypass);
-            Txt(g, i < ModNames.Length && f.Type != "gain" ? (i < 7 ? ModNames[i] : f.Title) : f.Title, 14, f.Bypass ? DimC : Ink, Rc(row.X + 38, row.Y, row.Width - 100, 40), StringAlignment.Near, sel);
-            if (f.GR > 0.2f) Txt(g, "-" + f.GR.ToString("0.0"), 11, Warn, Rc(row.Right - 78, row.Y, 40, 40), StringAlignment.Far, false);
-            if (i >= 7) Btn(g, Rc(row.Right - 30, row.Y + 9, 22, 22), "x", 3, () => { lock (eng.Sync) eng.MasterFx.RemoveAt(fi); }, 12);
-        }
-        Btn(g, Rc(lp.X + 10, y + 4, lp.Width - 20, 30), "+ Add Effect to master", 1, () => OpenBrowser(true, -1), 13); y += 44;
-        Txt(g, "MASTERING PRESETS", 12, DimC, Rc(lp.X + 14, y, 200, 18), StringAlignment.Near, true); y += 22;
-        for (int i = 0; i < Presets.MasterNames.Length; i++, y += 30)
-        {
-            int pi = i; Btn(g, Rc(lp.X + 10, y, lp.Width - 20, 26), Presets.MasterNames[i], 0, () => { Presets.ApplyMaster(eng, pi); targetLufs = Presets.MasterTargets[pi]; Toast(Presets.MasterNames[pi] + " applied"); }, 12);
-        }
-
-        // ---- center: editor ----
-        float ex = lp.Right + 14, ew = W - ex - 430;
-        var ep = Rc(ex, top, ew, H - top - 12); FillRR(g, Panel, ep, 12); StrokeRR(g, Edge, ep, 12, 1);
-        if (selMaster >= 0 && selMaster < eng.MasterFx.Count) PaintEditor(g, eng.MasterFx[selMaster], Rc(ep.X + 4, ep.Y + 6, ep.Width - 8, ep.Height - 12), null);
-
-        // ---- right: analyser + A/B ----
-        float rx = W - 416; var ap = Rc(rx, top, 402, H - top - 12); FillRR(g, Panel, ap, 12); StrokeRR(g, Edge, ap, 12, 1);
-        Txt(g, "LOUDNESS ANALYSER", 17, Ink, Rc(ap.X + 14, ap.Y + 8, 250, 26), StringAlignment.Near, true);
-        Btn(g, Rc(ap.Right - 112, ap.Y + 8, 98, 26), "Reset meters", 0, () => { eng.Lufs.Reset(); }, 12);
-        float yy = ap.Y + 44; var lu = eng.Lufs; lu.UpdateIntegrated();
-        string[] lb = { "MOMENTARY", "SHORT-TERM", "INTEGRATED" }; float[] vv = { lu.Momentary, lu.ShortTerm, lu.Integrated };
-        for (int i = 0; i < 3; i++)
-        {
-            var c = Rc(ap.X + 12 + i * 128, yy, 122, 76); FillRR(g, Color.FromArgb(150, 8, 4, 20), c, 10);
-            Txt(g, lb[i], 10, DimC, Rc(c.X, c.Y + 4, c.Width, 16), StringAlignment.Center, true); Txt(g, Db(vv[i]), 27, i == 2 ? Accent : Ink, Rc(c.X, c.Y + 20, c.Width, 36), StringAlignment.Center, true); Txt(g, "LUFS", 11, DimC, Rc(c.X, c.Y + 54, c.Width, 16), StringAlignment.Center, false);
-        }
-        yy += 86;
-        double tpDb = lu.TruePeakDb; bool tpBad = tpDb > -0.9;
-        var c1 = Rc(ap.X + 12, yy, 190, 62); FillRR(g, Color.FromArgb(150, 8, 4, 20), c1, 10); Txt(g, "TRUE PEAK (MAX)", 10, DimC, Rc(c1.X, c1.Y + 4, c1.Width, 14), StringAlignment.Center, true);
-        Txt(g, Db(tpDb) + " dBTP", 22, tpBad ? Bad : Good, Rc(c1.X, c1.Y + 20, c1.Width, 38), StringAlignment.Center, true);
-        var c2 = Rc(ap.X + 210, yy, 180, 62); bool clip = lu.Clips > 0; FillRR(g, Color.FromArgb(150, 8, 4, 20), c2, 10); Txt(g, "CLIPPING", 10, DimC, Rc(c2.X, c2.Y + 4, c2.Width, 14), StringAlignment.Center, true);
-        Txt(g, clip ? lu.Clips + " samples" : "none detected", 18, clip ? Bad : Good, Rc(c2.X, c2.Y + 20, c2.Width, 38), StringAlignment.Center, true);
-        yy += 72;
-        Txt(g, "PEAK L / R", 12, DimC, Rc(ap.X + 14, yy, 90, 18), StringAlignment.Near, false); HBar(g, Rc(ap.X + 100, yy + 2, 280, 8), eng.MasterPeakL); HBar(g, Rc(ap.X + 100, yy + 12, 280, 8), eng.MasterPeakR); yy += 26;
-        Txt(g, "GAIN REDUCTION", 12, DimC, Rc(ap.X + 14, yy, 100, 18), StringAlignment.Near, false);
-        float grf = Clamp01(eng.MasterGr / 18f); FillRR(g, Color.FromArgb(180, 8, 4, 18), Rc(ap.X + 100, yy + 4, 280, 10), 5); if (grf > 0.01f) FillRR(g, Warn, Rc(ap.X + 100, yy + 4, 280 * grf, 10), 5);
-        Txt(g, eng.MasterGr.ToString("0.0") + " dB", 11, Ink, Rc(ap.X + 100, yy + 14, 100, 14), StringAlignment.Near, false); yy += 36;
-
-        // A / B
-        Txt(g, "ORIGINAL VS MASTERED (A/B)", 14, Ink, Rc(ap.X + 14, yy, 300, 22), StringAlignment.Near, true); yy += 28;
-        Btn(g, Rc(ap.X + 12, yy, 186, 40), "A  ORIGINAL", !eng.MasterBypass ? 0 : 4, () => { eng.MasterBypass = true; ApplyMatch(); }, 14);
-        Btn(g, Rc(ap.X + 204, yy, 186, 40), "B  MASTERED", eng.MasterBypass ? 0 : 4, () => { eng.MasterBypass = false; }, 14); yy += 48;
-        Btn(g, Rc(ap.X + 12, yy, 186, 30), matchOn ? "Loudness match: ON" : "Loudness match: OFF", matchOn ? 4 : 0, () => { matchOn = !matchOn; ApplyMatch(); }, 12);
-        Btn(g, Rc(ap.X + 204, yy, 186, 30), "Analyze whole mix", 1, () => AnalyzeMaster(), 12); yy += 38;
-        if (abOrig != null && abMast != null)
-        {
-            var tb = Rc(ap.X + 12, yy, 378, 78); FillRR(g, Color.FromArgb(130, 8, 4, 20), tb, 8);
-            Txt(g, "", 11, DimC, tb, StringAlignment.Near, false);
-            Txt(g, "Original: " + Db(abOrig.I) + " LUFS   true peak " + Db(abOrig.TruePeakDb) + " dB   range " + abOrig.LRA.ToString("0.0") + " LU", 12, Ink, Rc(tb.X + 10, tb.Y + 6, tb.Width - 16, 20), StringAlignment.Near, false);
-            Txt(g, "Mastered: " + Db(abMast.I) + " LUFS   true peak " + Db(abMast.TruePeakDb) + " dB   range " + abMast.LRA.ToString("0.0") + " LU", 12, Accent, Rc(tb.X + 10, tb.Y + 28, tb.Width - 16, 20), StringAlignment.Near, false);
-            Txt(g, "MASTERING ADDS " + (abMast.I - abOrig.I).ToString("+0.0;-0.0") + " LU" + (matchOn ? "; A is raised by " + eng.AbMatchDb.ToString("0.0") + " dB so both play equally loud" : ""), 11, DimC, Rc(tb.X + 10, tb.Y + 52, tb.Width - 16, 20), StringAlignment.Near, false);
-            yy += 86;
-        }
-        Txt(g, "TARGET LOUDNESS", 13, DimC, Rc(ap.X + 14, yy, 150, 22), StringAlignment.Near, false); ValueBox(g, Rc(ap.Right - 128, yy - 3, 114, 26), targetLufs.ToString("0.0") + " LUFS", Num(targetLufs), s => { float v; if (ParseNum(s, out v)) targetLufs = Math.Max(-30f, Math.Min(-3f, v)); }); yy += 24;
-        var ts = Slider(g, Rc(ap.X + 14, yy, 372, 22), (targetLufs + 20f) / 14f, f => targetLufs = (float)Math.Round(f * 14f - 20f, 1), Accent2); ts.OnDouble = () => targetLufs = -14; yy += 30;
-        Btn(g, Rc(ap.X + 12, yy, 378, 34), "Set loudness to target (adjusts the limiter)", 2, () => AutoLoudness(), 13);
-    }
-
     void ApplyMatch() { eng.AbMatchDb = (matchOn && abOrig != null && abMast != null && !double.IsInfinity(abOrig.I) && !double.IsInfinity(abMast.I)) ? (float)(abMast.I - abOrig.I) : 0f; }
-
-    void AnalyzeMaster()
-    {
-        if (eng.Tracks.Count == 0) { Toast("Add music first."); return; }
-        long frames = Math.Min(eng.EndFrame, StudioEngine.SR * 240); LoudnessResult a = null, b = null; TrackStats tone = null;
-        RunBusy("Measuring the loudness and tone of the mix...", false, prog =>
-        {
-            float[] l, r; bool was = eng.MasterBypass;
-            eng.Render(0, frames, new RenderOpts { Master = false }, null, out l, out r); a = Loudness.Measure(l, r, StudioEngine.SR, 0, l.Length); tone = AutoMix.Analyze(AudioClip.FromArrays(l, r, "mix")); prog(0.5f);
-            eng.MasterBypass = false; eng.Render(0, frames, new RenderOpts { Master = true }, null, out l, out r); b = Loudness.Measure(l, r, StudioEngine.SR, 0, l.Length); eng.MasterBypass = was; prog(1f);
-        }, ok => { if (ok) { abOrig = a; abMast = b; ApplyMatch(); ToneFromAnalysis(tone, a, b); } });
-    }
 
     // How far each tone region is from a balanced mix, and the EQ gain (dB) that corrects it, for master bands 1, 2, 4, 5, 6.
     internal static double[] MasterToneGains(TrackStats st, out double[] deviation)
@@ -333,31 +248,11 @@ partial class StudioForm
         return g;
     }
 
-    // The analysis also shapes the master Parametric EQ: the mix's tone is compared with a typical balanced mix and the EQ bands move to correct it (you see the curve change).
-    void ToneFromAnalysis(TrackStats st, LoudnessResult before, LoudnessResult after)
-    {
-        var lines = new List<string>(); Fx eq = null; foreach (var f in eng.MasterFx) if (f.Type == "eq") { eq = f; break; }
-        lines.Add("Loudness: the mix is " + before.I.ToString("0.0") + " LUFS before mastering and " + after.I.ToString("0.0") + " LUFS after (true peak " + after.TruePeakDb.ToString("0.0") + " dBTP).");
-        if (eq == null || st == null) { lines.Add("There is no Parametric EQ in the master chain, so no tone changes were made."); StudioDialogs.Report(this, "Mix analysis", lines, null); return; }
-        double[] dv; double[] gains = MasterToneGains(st, out dv); int[] band = { 0, 1, 3, 4, 5 }; string[] nm = { "bass (100-160 Hz)", "low-mids (250-400 Hz, where mud lives)", "presence (2.5-4 kHz)", "upper-mids (6 kHz)", "air (10 kHz)" };
-        string snap = eq.Serialize(); bool any = false;
-        for (int i = 0; i < 5; i++)
-        {
-            float ng = (float)gains[i]; float old = eq.Get("b" + band[i] + "_g"); eq.Set("b" + band[i] + "_on", 1); eq.Set("b" + band[i] + "_g", ng);
-            if (Math.Abs(ng) > 0.05) { any = true; lines.Add("EQ band " + (band[i] + 1) + ": " + (ng > 0 ? "+" : "") + ng.ToString("0.0") + " dB. The " + nm[i] + " is " + Math.Abs(dv[i]).ToString("0.0") + " dB " + (dv[i] > 0 ? "above" : "below") + " a balanced mix."); }
-            else lines.Add("EQ band " + (band[i] + 1) + ": 0 dB. The " + nm[i] + " is already balanced.");
-        }
-        eq.Bypass = false; selMaster = eng.MasterFx.IndexOf(eq); tab = 1;
-        lines.Add(any ? "The Parametric EQ curve in the Mastering chain now shows these moves. You can edit any band by hand." : "The tone is already balanced, so the EQ was left flat.");
-        lines.Add("Next: press 'Set loudness to target' to bring the loudness up with the limiter.");
-        StudioDialogs.Report(this, "Mix analysis: loudness and tone", lines, () => { eq.Deserialize(snap); Toast("EQ changes undone"); });
-    }
-
-    void AutoLoudness()
+    void AutoLoudness(string[] revertTo = null)
     {
         Fx lim = null; foreach (var f in eng.MasterFx) if (f.Type == "limiter") lim = f; if (lim == null) { Toast("Add a Limiter to the master chain first."); return; }
         if (eng.Tracks.Count == 0) { Toast("Add music first."); return; }
-        long frames = Math.Min(eng.EndFrame, StudioEngine.SR * 120); float target = targetLufs; double finalI = 0;
+        long frames = Math.Min(eng.EndFrame, StudioEngine.SR * 120); float target = targetLufs; double finalI = 0; var chainBefore = revertTo ?? SnapChain(); float targetBefore = targetLufs;
         RunBusy("Setting the mix to " + target.ToString("0.0") + " LUFS...", false, prog =>
         {
             bool was = eng.MasterBypass; eng.MasterBypass = false;
@@ -368,7 +263,7 @@ partial class StudioForm
                 lim.Set("gain", (float)DspMath.Clamp(lim.Get("gain") + (target - m.I), 0, 24));
             }
             eng.MasterBypass = was;
-        }, ok => { if (ok) { Toast("Loudness now about " + finalI.ToString("0.0") + " LUFS (limiter gain " + lim.Get("gain").ToString("0.0") + " dB, ceiling " + lim.Get("ceil").ToString("0.0") + ")"); abOrig = abMast = null; } });
+        }, ok => { if (ok) { Toast("Loudness now about " + finalI.ToString("0.0") + " LUFS (limiter gain " + lim.Get("gain").ToString("0.0") + " dB, ceiling " + lim.Get("ceil").ToString("0.0") + ")"); abOrig = abMast = null; OfferRevert("Loudness set to about " + finalI.ToString("0.0") + " LUFS", () => { RestoreChain(chainBefore); abOrig = abMast = null; }); } });
     }
 }
 

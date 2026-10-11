@@ -37,7 +37,7 @@ class Job
 partial class App : Form
 {
     // ---- Auto-update settings ----
-    const string Version = "3.22.0";
+    const string Version = "3.23.0";
     // Plain-text manifest: line 1 = newest version, line 2 = direct exe download URL.
     const string UpdateManifestUrl = "https://raw.githubusercontent.com/heaththomas225-svg/yt-to-mp3/main/version.txt";
 
@@ -107,6 +107,7 @@ partial class App : Form
     Button mastBtn = new Button(), vocalBtn = new Button(), whatsBtn = new Button(), prevNormBtn = new Button(), helpBtn = new Button(); string seenVer = ""; internal string ExtraFilter = ""; Button changeBtn = new Button(); Button settingsBtn = new Button();
     internal StudioEngine StudioEng = new StudioEngine();
     StudioForm studioForm; Button studioBtn = new Button(), addMusicBtn = new Button();
+    internal void ShowThemes(bool community) { OpenStudio(); studioForm.OpenThemeSheet(community); }
 
     HelpForm helpForm;
     internal void ShowHelp(string topic)
@@ -119,6 +120,7 @@ partial class App : Form
     void RunTour(string id)
     {
         Func<Control, Func<Rectangle>> R = c => (() => new Rectangle(c.Left, c.Top, c.Width, c.Height)); var s = new List<TourStep>();
+        if (id.StartsWith("target:")) { OpenStudio(); studioForm.ShowOnScreen(id.Substring(7)); return; }
         if (id.StartsWith("studio")) { OpenStudio(); studioForm.RunTour(id); return; }
         if (id == "start") { s.Add(new TourStep(R(links), "1. Paste a link", "Paste one or more links here (YouTube and 1000+ other video and music sites), or type words to search.")); s.Add(new TourStep(R(fmt), "2. Pick a format", "MP3 320 kbps is the best all-round choice.")); s.Add(new TourStep(R(go), "3. Press Convert", "Your file is saved in the Save to folder, which opens when it is done.")); }
         else if (id == "normalize") { s.Add(new TourStep(R(norm), "Normalize loudness", "Tick this to bring downloads to a standard -14 LUFS loudness.")); s.Add(new TourStep(R(prevNormBtn), "Hear it first", "Press Hear to listen to a 30 second sample, original versus normalized, before you convert.")); }

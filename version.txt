@@ -1,4 +1,4 @@
-3.22.0
+3.23.0
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Projects search, sort and Recycling Bin, BACK on every page, STEREO and MONO buttons, thin tracks, cleaner scroll bars, playback safety
-sha256=3dfdb08e35961c366c85ca012db972f35f9d2bb0996494f4d737c7607785c52c
+Mastering tab of its own, AUTO MASTERING, 67 master presets, community themes, REVERT, HOME and BACK, logo scroll bars everywhere, Help with SHOW ME
+sha256=4ab19c82f1565abbd3560f6f6435c864a42bf92b84f1dbfc86f3990f3ee0e5c8

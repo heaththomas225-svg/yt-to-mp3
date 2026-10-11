@@ -75,6 +75,7 @@ static class Presets
         var l = new List<KeyValuePair<string, string>>();
         string[] arr; if (Builtin.TryGetValue(type, out arr))
             foreach (var s in arr) { int i = s.IndexOf('|'); l.Add(new KeyValuePair<string, string>(s.Substring(0, i), s.Substring(i + 1))); }
+        string[] more; if (PresetsExtra.Data.TryGetValue(type, out more)) foreach (var s in more) { int i = s.IndexOf('|'); l.Add(new KeyValuePair<string, string>(s.Substring(0, i), s.Substring(i + 1))); }
         return l;
     }
 
@@ -237,16 +238,11 @@ static class Presets
     public static void DeleteChain(string name) { try { File.Delete(Path.Combine(ChainDir, name + ".chain")); } catch { } }
 
     // ---------- mastering presets (applied to the master chain; [name, target LUFS, per-plugin params]) ----------
-    public static readonly string[] MasterNames = { "Streaming (-14 LUFS)", "Loud / Club (-9 LUFS)", "Gentle (-16 LUFS)", "Warm & wide (-12 LUFS)", "Bright (-13 LUFS)" };
-    public static readonly float[] MasterTargets = { -14, -9, -16, -12, -13 };
+    public static readonly string[] MasterNames = Array.ConvertAll(MasterPresets.All, p => p.Name);
+    public static readonly float[] MasterTargets = Array.ConvertAll(MasterPresets.All, p => p.Target);
     public static void ApplyMaster(StudioEngine eng, int i)
     {
-        string[][] d = {
-            new[]{ "b5_g=1;b5_f=11000", "thr=-14;ratio=2;att=30;rel=200;knee=8;makeup=0", null, null, null, "width=105;bass=120", "ceil=-1;gain=3;rel=80" },
-            new[]{ "hp_on=1;hp_f=28;b0_f=70;b0_g=1.5;b5_f=11000;b5_g=2", "thr=-16;ratio=3;att=20;rel=140;knee=6;makeup=1", "t0=-22;r0=2.5;t1=-24;r1=2.5;t2=-26;r2=2.5", "drive=6;harm=35;mix=20", "drive=4;mix=50", "width=112;bass=130", "ceil=-0.8;gain=8;rel=50" },
-            new[]{ "b5_g=0.5;b5_f=10000", "thr=-12;ratio=1.6;att=40;rel=250;knee=10;makeup=0", null, null, null, "width=100;bass=100", "ceil=-1.5;gain=0;rel=120" },
-            new[]{ "b0_f=100;b0_g=2;b5_f=9000;b5_g=-1", "thr=-15;ratio=2.2;att=25;rel=180;knee=8;makeup=0.5", null, null, "drive=5;mix=60", "width=125;bass=140", "ceil=-1;gain=5;rel=70" },
-            new[]{ "b3_f=4000;b3_g=1.5;b5_f=11000;b5_g=3", "thr=-14;ratio=2;att=25;rel=160;knee=8;makeup=0.5", null, "drive=6;harm=45;mix=25", null, "width=112;bass=120", "ceil=-1;gain=4;rel=80" } };
+        string[][] d = new string[MasterPresets.All.Length][]; for (int q = 0; q < d.Length; q++) d[q] = MasterPresets.All[q].Slots;
         for (int k = 0; k < eng.MasterFx.Count && k < 7; k++)
         {
             var f = eng.MasterFx[k]; f.ResetDefaults();

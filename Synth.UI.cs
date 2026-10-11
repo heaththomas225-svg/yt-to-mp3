@@ -20,6 +20,27 @@ class SynthWindow : Form, IKeySink
     static readonly Keys[] KeyMap = { Keys.A, Keys.W, Keys.S, Keys.E, Keys.D, Keys.F, Keys.T, Keys.G, Keys.Y, Keys.H, Keys.U, Keys.J, Keys.K, Keys.O, Keys.L, Keys.P, Keys.Oemtilde };
     Timer tick;
 
+    // the guided tour of Bass Lab (the ? button): each step points at the real part of the screen
+    internal void ShowHelpTour()
+    {
+        Func<int, RectangleF, Func<Rectangle>> T = (tabNo, r) => () => { canvas.TourTab(tabNo); var c = canvas.ToClient(r); c.Offset(canvas.Location); return c; };
+        var s = new List<TourStep> {
+            new TourStep(T(0, new RectangleF(620, 6, 270, 50)), "1. Start with a preset", "Click the name to open the preset list, or use the < > buttons to flick through the sounds. Starting from a sound you like is much easier than from nothing: every sound is just knobs you can change."),
+            new TourStep(T(0, new RectangleF(200, 6, 398, 50)), "2. The pages", "OSC (the page you see) makes the sound. MIX sets levels, FX holds the effects, MATRIX lists every connection and GLOBAL has voices, MIDI and audio."),
+            new TourStep(T(0, new RectangleF(119, 66, 198, 330)), "3. Oscillators: the raw sound", "OSC A, B and C make the tone. Pick a wave, turn UNISON up to stack voices (fat and wide), and WARP or WAVE to change the character. The light in the top corner switches one on or off."),
+            new TourStep(T(0, new RectangleF(8, 66, 108, 330)), "4. SUB: weight underneath", "A clean low sine under everything. Raise LEVEL for a heavier, floor-shaking bass."),
+            new TourStep(T(0, new RectangleF(845, 66, 192, 330)), "5. The filter shapes the tone", "CUTOFF is how bright it is: turn it down for dark and muffled. RES adds a whistling peak. Most wobbles come from moving CUTOFF."),
+            new TourStep(T(0, new RectangleF(144, 404, 1088, 28)), "6. Envelopes and LFOs", "ENV 1 is the volume of every note (ATTACK = how it fades in, RELEASE = how long it rings). LFO 1 to 4 are repeating movers: that is the wobble."),
+            new TourStep(T(0, new RectangleF(144, 436, 1088, 274)), "7. Make anything move", "Pick an LFO, choose its shape and rate, then press a button under WOBBLE IT (for example Filter 1 cutoff) and turn AMOUNT up. Or drag the little source chip onto any knob."),
+            new TourStep(T(0, new RectangleF(8, 404, 130, 306)), "8. Macros", "Four big knobs you can connect to anything, so one hand can change several things at once."),
+            new TourStep(T(2, new RectangleF(8, 82, 1224, 50)), "9. The effect chain", "Sound flows left to right through the effects. Click a box to edit it, click its light to switch it on, use the arrows to change the order."),
+            new TourStep(T(0, new RectangleF(990, 6, 150, 50)), "10. Bass boost", "A quick low-end lift for instant weight. Switch it on, then turn BOOST up."),
+            new TourStep(() => { canvas.TourTab(0); return new Rectangle(piano.Left, piano.Top, piano.Width, piano.Height); }, "11. Play it", "Click the piano keys, or use A S D F G H J on your computer keyboard (Z and X change the octave). A MIDI keyboard works too: the GLOBAL page lets you choose it."),
+            new TourStep(T(0, new RectangleF(896, 6, 88, 50)), "12. PANIC", "If a note keeps ringing, press PANIC: it stops every note and every tail straight away."),
+        };
+        Tour.Run(this, s);
+    }
+
     public SynthWindow(SynthFx fx, Track t)
     {
         this.fx = fx; track = t; Text = "Purphex Bass Lab"; BackColor = Color.FromArgb(10, 4, 20); ForeColor = Color.FromArgb(240, 232, 255); KeyPreview = true; StartPosition = FormStartPosition.CenterParent;
@@ -209,6 +230,8 @@ partial class SynthCanvas : Control
         var bb = Rc(990, 6, 150, 50); Fill(g, Panel, bb, 8); Stroke(g, Edge, bb, 8, 1);
         Power(g, "bbon", Rc(bb.X + 4, bb.Y + 4, 24, 24)); Txt(g, "BASS BOOST", 10, Ink, Rc(bb.X + 4, bb.Y + 30, 80, 16), StringAlignment.Near, true);
         Knob(g, "bbgain", bb.X + 100, bb.Y + 20, "BOOST", Acc2, 14);
+        // HELP: a tour of the screen
+        var hb = Rc(1143, 12, 28, 28); Fill(g, Hot(hb) ? PanelHi : Panel, hb, 14); Stroke(g, Acc2, hb, 14, 1.6f); Txt(g, "?", 17, Ink, hb, StringAlignment.Center, true); Txt(g, "HELP", 8, Dim, Rc(1137, 42, 40, 12), StringAlignment.Center, true); var hr = Add(hb); hr.Tip = "HELP: a short tour that points at each part of Bass Lab and tells you what it does"; hr.Down = pt => win.ShowHelpTour();
         // main volume
         Knob(g, "vol", 1190, 28, "MAIN", Acc, 16);
         var tb = Rc(1146, 40, 0, 0);

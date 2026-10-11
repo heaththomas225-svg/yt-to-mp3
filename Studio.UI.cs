@@ -214,6 +214,11 @@ partial class StudioForm : Form
     static void Txt(Graphics g, string s, float px, Color c, RectangleF r, StringAlignment ha, bool bold)
     {
         var f = GfxCache.Font(px, bold);
+        if (s != null && s.Length > 3 && r.Width > 30 && s.Length * px * 0.7f > r.Width)
+        {   // a name that does not fit its box is written a little smaller instead of being cut off
+            float w0 = g.MeasureString(s, f, 100000, GfxCache.Fmt(StringAlignment.Near, false)).Width - 4;
+            if (w0 > r.Width) { float np = px, mn = Math.Max(9f, px * 0.72f); while (np > mn && w0 > r.Width) { np -= 0.5f; w0 = g.MeasureString(s, GfxCache.Font(np, bold), 100000, GfxCache.Fmt(StringAlignment.Near, false)).Width - 4; } if (np < px) { px = np; f = GfxCache.Font(np, bold); } }
+        }
         if (TxtAudit != null && !string.IsNullOrWhiteSpace(s) && r.Width > 1 && r.Height > 1)
         {
             var sz = g.MeasureString(s, f, 100000, GfxCache.Fmt(StringAlignment.Near, false)); float w = Math.Min(sz.Width - 4, r.Width), ih = Math.Min(sz.Height * 0.72f, r.Height); float x = ha == StringAlignment.Near ? r.X : (ha == StringAlignment.Center ? r.X + (r.Width - w) / 2 : r.Right - w);
@@ -272,19 +277,19 @@ partial class StudioForm : Form
         { "DUP", "Make a copy of the selected track." }, { "DEL", "Delete the selected track (Undo brings it back)." },
         { "UNDO", "Undo the last edit (Ctrl+Z)." }, { "REDO", "Redo (Ctrl+Y)." }, { "DETECT BPM", "Listen to the song and set the BPM for you." }, { "Detect Track key", "Find the musical key of the selected track and show it." },
         
-        { "COUNT IN", "Count In: when it is on, PLAY and recording first give you one bar of clicks (1 2 3 4) so you can get ready. The number shows on screen." }, { "METRONOME", "Metronome: a click on every beat while the song plays. Click to switch it on or off (it is lit while it is on)." },
+        { "COUNT IN", "Count In: when it is on, PLAY and recording first count 1 2 3 4, one a second (the tempo does not change it), so you can get ready. The number shows on screen." }, { "METRONOME", "Metronome: a click on every beat while the song plays. Click to switch it on or off (it is lit while it is on)." },
         { "-", "Zoom out." }, { "+", "Zoom in." }, { "FIT", "Zoom to fit the whole song." },
         { "MIC", "Microphone: press it to get ready (it pulses red), then press PLAY to record onto the selected track (Count In gives you four clicks first). Press it again to cancel, or while recording to finish. Use headphones." }, 
         { "NEW", "Start a new empty project." },
         { "Add", "Add this effect." }, { "Cancel (Esc)", "Stop the current job." },
-        { "STEREO", "Keep this track in STEREO: left and right are kept apart (lit when it is stereo)." }, { "MONO", "Make this track MONO: left and right play the same sound (lit when it is mono)." }, { "THIN TRACKS", "Squeeze every track into a thin lane so more tracks fit on the screen. Press it again to go back to normal size." }, { "BACK", "Go back to the page you came from." },
+        { "STEREO", "Keep this track in STEREO: left and right are kept apart (lit when it is stereo)." }, { "MONO", "Make this track MONO: left and right play the same sound (lit when it is mono)." }, { "THIN TRACKS", "Squeeze every track into a thin lane so more tracks fit on the screen. Press it again to go back to normal size." }, { "BACK", "Go back one page, to the page you were on before." }, { "HOME", "Go home: the main studio (Mix). It also forgets the pages you have been through." },
         { "ADD SECTIONS", "Put [Verse 1], [Chorus], [Pre-chorus], [Bridge]... on the parts of your lyrics that have no label yet. Parts you already labelled stay as they are. Ctrl+Z takes it back." },
         { "POPULAR", "Show the presets people use the most first." },
         { "NEWEST", "Show the most recently shared presets first." },
         { "TRY AGAIN", "Ask the Purphex community for the list again." },
         { "USE", "Use this community preset now." },
         { "Report", "Report this preset as spam or something that should not be shared. Presets reported by several people are hidden." },
-        { "SHARE MY CURRENT SETTINGS", "Share the sound you have set up right now with everyone. You choose the name. Only share sounds you made." },
+        { "SHARE THE THEME I AM USING", "Share the colours you are using now with everyone. You choose the name. Only share themes you made." }, { "SHARE MY CURRENT SETTINGS", "Share the sound you have set up right now with everyone. You choose the name. Only share sounds you made." },
         { "Edit profile", "Change your producer name and picture." },
         { "+  New project", "Start a new empty project." },
         { "Join the Discord", "Open the Purphex Discord server in your browser." },
@@ -336,7 +341,7 @@ partial class StudioForm : Form
     }
     HitReg Btn(Graphics g, RectangleF r, string text, int style, Action down, float px = 15)
     {
-        if (Hot(r)) { string hh; if (Hints.TryGetValue(text, out hh)) hintNow = hh; }
+        btnRects.Add(r); if (!btnMap.ContainsKey(text)) btnMap[text] = r; if (Hot(r)) { string hh; if (Hints.TryGetValue(text, out hh)) hintNow = hh; }
         float ht = HoverAmount(r, text); if (ht > 0.5f && Hot(r)) HoverSparks(r);
         Color c = style == 1 ? Violet : (style == 3 ? Color.FromArgb(150, 40, 80) : (style == 4 ? Color.FromArgb(150, 70, 230) : BtnC));
         if (ht > 0) c = Color.FromArgb(Math.Min(255, c.R + (int)(28 * ht)), Math.Min(255, c.G + (int)(22 * ht)), Math.Min(255, c.B + (int)(30 * ht)));
@@ -386,22 +391,22 @@ partial class StudioForm : Form
 
     void PaintAll(PaintEventArgs e)
     {
-        hintNow = ""; bubble = ""; btnAnim = false; NavTrack(); HoverTick(); AutoBpmTick(); TidyEmptyTracks();
+        hintNow = ""; bubble = ""; btnAnim = false; NavTrack(); MasterTick(); HoverTick(); if (Themes.Tick()) { lastInput = DateTime.Now; btnAnim = true; } AutoBpmTick(); TidyEmptyTracks();
         var g = e.Graphics; g.SmoothingMode = SmoothingMode.AntiAlias; g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
-        regs.Clear(); PopBegin(g);
+        regs.Clear(); btnRects.Clear(); btnMap.Clear(); PopBegin(g);
         var full = new RectangleF(0, 0, ClientSize.Width, ClientSize.Height);
         DrawBackdrop(g);
         if (tab == 0) PaintMix(g); else if (tab == 2) PaintLyrics(g); else if (tab == 3) PaintProjects(g); else if (tab == 4) PaintCommunity(g); else PaintMastering(g);
         if (tab != 2) SyncLyricUi(false);
-        if (tab == 3 || tab == 4) { PaintSlimBar(g); PaintPreviewBar(g); } else { PaintToolbar(g); PaintTransport(g); }   // the Community and My Projects pages have no music controls
+        if (tab == 3 || tab == 4) { PaintSlimBar(g); PaintPreviewBar(g); } else if (tab == 1) PaintMasterBars(g); else { PaintToolbar(g); PaintTransport(g); }   // the Community and My Projects pages have no music controls
         if (browserOpen) { if (TxtAudit != null) TxtAudit.Clear(); PaintBrowser(g); }
         PaintSoundDrag(g); PaintPackManager(g);
         if (soundBox != null && soundBox.Visible && !(soundsOpen && tab == 0)) soundBox.Visible = false;
-        if (TxtAudit != null && (ntOpen || busOpen || stylesOpen || autoOpen || gainOpen || pickOpen || cpOpen)) TxtAudit.Clear();   // an open sheet covers the screen: only its own text counts
-        PaintCutMark(g); PaintNewTrackSheet(g); PaintBusSheet(g); PaintStylesSheet(g); PaintAutoSheet(g); PaintGainPanel(g); PaintPickSheet(g); PaintCommPresets(g); PopEnd(); Win.PaintNeonChildren(this, g);
+        if (TxtAudit != null && (ntOpen || busOpen || stylesOpen || themeOpen || psOpen || amOpen || autoOpen || gainOpen || pickOpen || cpOpen)) TxtAudit.Clear();   // an open sheet covers the screen: only its own text counts
+        PaintCutMark(g); PaintNewTrackSheet(g); PaintBusSheet(g); PaintStylesSheet(g); PaintThemeSheet(g); PaintPresetSheet(g); PaintAutoMixSheet(g); PaintAutoSheet(g); PaintGainPanel(g); PaintPickSheet(g); PaintCommPresets(g); PopEnd(); Win.PaintNeonChildren(this, g);
         if (TxtAudit != null && (menuOpen || eng.CountBeat > 0)) TxtAudit.Clear();
         PaintMenu(g);
-        PaintHoverSparks(g); PaintBubble(g); PaintKeyBox(g); PaintCountIn(g);
+        PaintHoverSparks(g); PaintRevertBar(g); PaintBubble(g); PaintKeyBox(g); PaintCountIn(g);
         fpsc.Frame();
         float hintStackY = ClientSize.Height - (tab == 0 ? 56 : (previewPath.Length > 0 ? 56 : 10));
         if (hintNow.Length > 0 && !busy)
@@ -452,9 +457,10 @@ partial class StudioForm : Form
     internal void RunTour(string id)
     {
         var s = new List<TourStep>(); float W = ClientSize.Width;
-        if (id == "studio-start") { s.Add(new TourStep(() => new Rectangle(14, 12, 168, 46), "1. Add music", "Press ADD MUSIC and choose a song, vocal or beat. You can also drop files on this window.")); s.Add(new TourStep(() => new Rectangle(192, 12, 262, 46), "2. Split a full song", "Select the song track, then press this. The AI makes real VOCAL and INSTRUMENTAL tracks, perfectly in sync.")); s.Add(new TourStep(() => new Rectangle(14, 78, 330, 36), "3. Play", "Press PLAY (or Space). Use M and S on each track to mute or solo.")); }
-        else if (id == "studio-automix") { s.Add(new TourStep(() => new Rectangle(594, 16, 154, 38), "Pick a style", "Natural, Clean Studio, Melodic, Aggressive or Technical. The + means vocal enhancement is on.")); s.Add(new TourStep(() => new Rectangle(464, 12, 130, 46), "Press AUTO MIX", "It balances levels, builds a chain per track and lists every change. Undo mix reverts it.")); }
-        else if (id == "studio-export") { s.Add(new TourStep(() => new Rectangle((int)W - 126, 12, 112, 46), "Export", "Choose the finished mix, vocals only, instrumental, dry versions or stems, in WAV, FLAC or MP3.")); s.Add(new TourStep(() => new Rectangle((int)W - 392, 16, 80, 38), "Save your project", "Save keeps tracks, plugin settings and alignment so you can reopen it later.")); }
+        Func<string, Func<Rectangle>> T = l => (() => TargetOf(l));
+        if (id == "studio-start") { s.Add(new TourStep(T("ADD MUSIC"), "1. Add music", "Press ADD MUSIC and choose a song, vocal or beat. You can also drop files on this window.")); s.Add(new TourStep(T("SPLIT VOCALS + BEAT"), "2. Split a full song", "Select the song track, then press this. The AI makes real VOCAL and INSTRUMENTAL tracks, perfectly in sync.")); s.Add(new TourStep(T("PLAY"), "3. Play", "Press PLAY (or Space). Use M and S on each track to mute or solo.")); }
+        else if (id == "studio-automix") { s.Add(new TourStep(T("AUTO MIX"), "Press AUTO MIX", "It asks first, then balances levels, builds a chain per track and lists every change. You can cancel while it works.")); s.Add(new TourStep(T("Undo mix"), "Changed your mind?", "UNDO MIX puts everything back as it was.")); }
+        else if (id == "studio-export") { s.Add(new TourStep(T("EXPORT"), "Export", "Choose the finished mix, vocals only, instrumental, dry versions or stems, in WAV, FLAC or MP3.")); s.Add(new TourStep(T("Save"), "Save your project", "Save keeps tracks, plugin settings and alignment so you can reopen it later.")); }
         if (s.Count > 0) Tour.Run(this, s);
     }
 
@@ -522,8 +528,9 @@ partial class StudioForm : Form
 
         // tabs on the right; master meters in whatever room is left between
         float tx = W - 328;
-        float mx = Math.Max(x + 16, W - PanelW - 300); bool showBack = ShowBack; float room = tx - 12 - mx - (showBack ? 112 : 0);
-        if (showBack) Btn(g, Rc(tx - 106, y, 100, h), "BACK", 2, () => GoBack(), 14);
+        float mx = Math.Max(x + 16, W - PanelW - 300); bool showBack = ShowBack, showHome = ShowHome; float room = tx - 12 - mx - (showBack ? 106 : 0) - (showHome ? 106 : 0); float bx0 = tx - 6;
+        if (showBack) { bx0 -= 100; Btn(g, Rc(bx0, y, 100, h), "BACK", 0, () => GoBack(), 14); bx0 -= 6; }
+        if (showHome) { bx0 -= 100; Btn(g, Rc(bx0, y, 100, h), "HOME", 2, () => GoHome(), 14); }
         if (room >= 70)
         {
             Txt(g, "MASTER", 11, DimC, Rc(mx, y - 4, 60, 14), StringAlignment.Near, false);
@@ -599,14 +606,7 @@ partial class StudioForm : Form
         // playhead
         float px = HeadW + (float)((dispPos - scroll) / spp);
         if (px >= HeadW && px <= tl.Right) PaintNeedle(g, px, top, ClientSize.Height, RulerH); else if (sparks.Count > 0) sparks.Clear();
-        if (contentH > viewH + 1)
-        {   // vertical scroll bar: drag it, or click along it
-            var trk = Rc(tl.Right - 28, top + RulerH + 4, 20, viewH - 8); FillRR(g, Color.Black, trk, 10); StrokeRR(g, Color.FromArgb(150, NeonViolet), trk, 10, 1);
-            float thumbH = Math.Max(48, trk.Height * viewH / contentH), maxV = contentH - viewH, thumbY = trk.Y + (trk.Height - thumbH) * (maxV <= 0 ? 0 : vscroll / maxV); var thumb = Rc(trk.X, thumbY, trk.Width, thumbH);
-            FillRR(g, Hot(trk) ? Color.FromArgb(235, 0, 229, 255) : Color.FromArgb(185, 0, 229, 255), thumb, 10); Glow(g, NeonCyan, thumb, 10, 0.6f, 3);
-            Action<float> setV = my => { float f = (my - trk.Y - thumbH / 2) / Math.Max(1, trk.Height - thumbH); vscroll = Math.Max(0, Math.Min(maxV, f * maxV)); };
-            var sr = Reg(Rc(trk.X - 10, trk.Y, trk.Width + 16, trk.Height), () => setV(MousePos.Y)); sr.OnDrag = pt => setV(pt.Y);
-        }
+        if (contentH > viewH + 1) VScroll(g, Rc(tl.Right - 50, top + RulerH + 4, 42, viewH - 8), contentH, viewH, () => vscroll, v => vscroll = v);   // the logo scroll bar: hold the logo and drag, or use the arrows
         PaintOverview(g, tl);
         // wheel: scroll / zoom
         var wr = new HitReg { R = Rc(HeadW, top, tl.Width, ClientSize.Height - top) };
@@ -837,7 +837,7 @@ partial class StudioForm : Form
         if (eng.Tracks.Count == 0) { Txt(g, "SELECT A TRACK TO EDIT ITS PLUGINS", 14, DimC, pr, StringAlignment.Center, false); return; }
         var tr = eng.Tracks[Math.Max(0, Math.Min(selTrack, eng.Tracks.Count - 1))];
         Txt(g, "Plugins: " + tr.Name, 16, Ink, Rc(x + 14, y + 8, w - 28, 26), StringAlignment.Near, true);
-        Fx[] fxs; lock (eng.Sync) fxs = tr.Fx.ToArray();
+        Fx[] fxs; lock (eng.Sync) fxs = tr.Fx.ToArray(); float origW = w; { int n0 = fxs.Length; float est = 40 + n0 * 32 + 42 + ((selFx >= 0 && selFx < n0) ? EditorHeight(fxs[selFx]) : 60); if (est - h + 6 > 1 && h > 200) w -= 52; }
         float ly = y + 40 - panelScroll; int n = fxs.Length; g.SetClip(Rc(x, y + 36, w, h - 36));
         if (selFx >= n) selFx = -1;
         for (int i = 0; i < n; i++, ly += 32)
@@ -863,7 +863,8 @@ partial class StudioForm : Form
         else Txt(g, "CLICK A PLUGIN TO EDIT IT", 13, DimC, Rc(x, ey, w, 40), StringAlignment.Center, false);
         g.ResetClip();
         float contentBottom = ly + panelScroll + 42 + ((selFx >= 0 && selFx < n) ? edH : 60), maxScroll = Math.Max(0, contentBottom - (y + h) + 6); panelScroll = Math.Min(panelScroll, maxScroll);
-        regs.Insert(0, new HitReg { R = Rc(x, y + 36, w, h - 36), OnWheel = d => panelScroll = Math.Max(0, Math.Min(maxScroll, panelScroll - d * 50)) });
+        regs.Insert(0, new HitReg { R = Rc(x, y + 36, origW, h - 36), OnWheel = d => panelScroll = Math.Max(0, Math.Min(maxScroll, panelScroll - d * 50)) });
+        if (origW != w) VScroll(g, Rc(x + origW - 50, y + 40, 42, h - 48), h - 48 + maxScroll, h - 48, () => panelScroll, v => panelScroll = v);
     }
 
     // Exact height of an effect editor, so the panel scrolls only as far as its content (no endless blank space).
@@ -887,17 +888,17 @@ partial class StudioForm : Form
         var m = Win.NewMenu(); bool vocal = tr.Role == "vocal";
         m.Items.Add("Rapper Vocal Styles (searchable)...").Click += (a, b) => OpenStyles();
         var rap = new ToolStripMenuItem("Rap vocal presets (replace chain)"); m.Items.Add(rap);
-        for (int i = 0; i < Presets.ChainNames.Length; i++) { string nm = Presets.ChainNames[i]; var it = new ToolStripMenuItem(nm) { ToolTipText = Presets.ChainBlurbs[i] }; it.Click += (a, b) => { lock (eng.Sync) { tr.Fx.Clear(); tr.Fx.AddRange(Presets.BuildChain(nm)); } selFx = -1; Toast(nm + " applied: every plugin is editable"); }; rap.DropDownItems.Add(it); }
-        var beat = new ToolStripMenuItem("Instrumental chain (EQ, comp, multiband, sat, exciter, imager, ducker, limiter)"); beat.Click += (a, b) => { lock (eng.Sync) { tr.Fx.Clear(); tr.Fx.AddRange(Presets.BeatChain()); } selFx = -1; Toast("Beat chain applied"); }; m.Items.Add(beat);
+        for (int i = 0; i < Presets.ChainNames.Length; i++) { string nm = Presets.ChainNames[i]; var it = new ToolStripMenuItem(nm) { ToolTipText = Presets.ChainBlurbs[i] }; it.Click += (a, b) => { ChainApply(tr, nm, () => { lock (eng.Sync) { tr.Fx.Clear(); tr.Fx.AddRange(Presets.BuildChain(nm)); } }); selFx = -1; Toast(nm + " applied: every plugin is editable (REVERT puts it back)"); }; rap.DropDownItems.Add(it); }
+        var beat = new ToolStripMenuItem("Instrumental chain (EQ, comp, multiband, sat, exciter, imager, ducker, limiter)"); beat.Click += (a, b) => { ChainApply(tr, "Instrumental chain", () => { lock (eng.Sync) { tr.Fx.Clear(); tr.Fx.AddRange(Presets.BeatChain()); } }); selFx = -1; Toast("Beat chain applied (REVERT puts it back)"); }; m.Items.Add(beat);
         var bus = new ToolStripMenuItem("Bus presets (echo, ad-lib, reverb)"); m.Items.Add(bus);
-        for (int i = 0; i < Presets.BusNames.Length; i++) { string bn = Presets.BusNames[i]; var bi = new ToolStripMenuItem(bn) { ToolTipText = Presets.BusBlurbs[i] }; bi.Click += (a, b) => { lock (eng.Sync) { tr.Fx.Clear(); tr.Fx.AddRange(Presets.BuildBus(bn)); } selFx = -1; Toast(bn + " applied: " + Presets.BusBlurbs[Array.IndexOf(Presets.BusNames, bn)]); }; bus.DropDownItems.Add(bi); }
-        m.Items.Add("Community chains (download and use)...").Click += (a, b) => OpenCommunityPresets("chain", "Plugin chains", cp => { var c = Presets.ChainFromText(cp.Data); if (c.Count == 0) throw new InvalidOperationException("it holds no plugins you have"); PushUndo(); lock (eng.Sync) { tr.Fx.Clear(); tr.Fx.AddRange(c); } selFx = -1; }, () => tr.Fx.Count == 0 ? null : Presets.ChainText(tr.Fx), tr.Name + " chain");
+        for (int i = 0; i < Presets.BusNames.Length; i++) { string bn = Presets.BusNames[i]; var bi = new ToolStripMenuItem(bn) { ToolTipText = Presets.BusBlurbs[i] }; bi.Click += (a, b) => { ChainApply(tr, bn, () => { lock (eng.Sync) { tr.Fx.Clear(); tr.Fx.AddRange(Presets.BuildBus(bn)); } }); selFx = -1; Toast(bn + " applied: " + Presets.BusBlurbs[Array.IndexOf(Presets.BusNames, bn)]); }; bus.DropDownItems.Add(bi); }
+        m.Items.Add("Community chains (download and use)...").Click += (a, b) => OpenCommunityPresets("chain", "Plugin chains", cp => { var c = Presets.ChainFromText(cp.Data); if (c.Count == 0) throw new InvalidOperationException("it holds no plugins you have"); lock (eng.Sync) { tr.Fx.Clear(); tr.Fx.AddRange(c); } selFx = -1; }, () => tr.Fx.Count == 0 ? null : Presets.ChainText(tr.Fx), tr.Name + " chain");
         var mine = new ToolStripMenuItem("My saved chains"); m.Items.Add(mine);
-        foreach (var nm0 in Presets.UserChains()) { string nm = nm0; var it = new ToolStripMenuItem(nm); it.Click += (a, b) => { var c = Presets.LoadChain(nm); lock (eng.Sync) { tr.Fx.Clear(); tr.Fx.AddRange(c); } selFx = -1; }; mine.DropDownItems.Add(it); }
+        foreach (var nm0 in Presets.UserChains()) { string nm = nm0; var it = new ToolStripMenuItem(nm); it.Click += (a, b) => { var c = Presets.LoadChain(nm); ChainApply(tr, nm, () => { lock (eng.Sync) { tr.Fx.Clear(); tr.Fx.AddRange(c); } }); selFx = -1; }; mine.DropDownItems.Add(it); }
         if (mine.DropDownItems.Count == 0) mine.DropDownItems.Add(new ToolStripMenuItem("(none yet)") { Enabled = false });
         m.Items.Add(new ToolStripSeparator());
         m.Items.Add("Save this track's plugins as a preset...").Click += (a, b) => { string nm = Ask(Prefs.ShareSaved ? "Name for this preset (it is also shared with the community):" : "Name for this preset:", tr.Name + " chain"); if (nm != null) { Presets.SaveChain(nm, tr.Fx); Toast("Saved chain \"" + nm + "\""); CommunityPresets.AutoShare("chain", nm, Presets.ChainText(tr.Fx), ProjectLibrary.ProfileName, msg => { if (msg != null) BeginInvoke(new Action(() => Toast(msg))); }); } };
-        m.Items.Add("Clear all plugins").Click += (a, b) => { lock (eng.Sync) tr.Fx.Clear(); selFx = -1; };
+        m.Items.Add("Clear all plugins").Click += (a, b) => { ChainApply(tr, "All plugins cleared", () => { lock (eng.Sync) tr.Fx.Clear(); }); selFx = -1; };
         m.Show(this, new Point((int)MousePos.X, (int)MousePos.Y));
     }
 
@@ -971,6 +972,7 @@ partial class StudioForm : Form
     protected override void OnKeyPress(KeyPressEventArgs e)
     {
         base.OnKeyPress(e); lastInput = DateTime.Now;
+        if (psOpen) { PsKey(e.KeyChar); e.Handled = true; return; }
         if (ProjSearchKey(e.KeyChar)) { e.Handled = true; return; }
         if (cpOpen) { CpKey(e.KeyChar); e.Handled = true; return; }
         if (stylesOpen) { if (e.KeyChar == '\b') { if (stylesQuery.Length > 0) { stylesQuery = stylesQuery.Substring(0, stylesQuery.Length - 1); stylesScroll = 0; } } else if (!char.IsControl(e.KeyChar)) { stylesQuery += e.KeyChar; stylesScroll = 0; } e.Handled = true; return; }
@@ -994,6 +996,9 @@ partial class StudioForm : Form
         if (flexOpen && !menuOpen && !browserOpen && FlexKey(k)) return true;
         if (autoOpen) { if (k == Keys.Escape) { CloseAuto(); return true; } return base.ProcessCmdKey(ref msg, k); }
         if (cpOpen) { if (k == Keys.Escape) { cpOpen = false; return true; } return base.ProcessCmdKey(ref msg, k); }
+        if (themeOpen) { if (k == Keys.Escape) { themeOpen = false; return true; } return base.ProcessCmdKey(ref msg, k); }
+        if (psOpen) { if (k == Keys.Escape) { psOpen = false; return true; } return base.ProcessCmdKey(ref msg, k); }
+        if (amOpen) { if (k == Keys.Escape) { AmCancel(); return true; } if (k == Keys.Space) { if (mpActive) MasterPreviewStop(); else MasterPreviewStart(); return true; } return base.ProcessCmdKey(ref msg, k); }
         if (pickOpen) { if (k == Keys.Escape) { pickOpen = false; return true; } return base.ProcessCmdKey(ref msg, k); }
         if (gainOpen) { if (k == Keys.Escape) { gainOpen = false; return true; } return base.ProcessCmdKey(ref msg, k); }
         if (k == Keys.Escape && cutMark >= 0) { CutCancel(); return true; }
@@ -1015,12 +1020,12 @@ partial class StudioForm : Form
         if (k == Keys.Space) { PlayToggle(); return true; }
         if (k == Keys.Home) { eng.Seek(0); scroll = 0; followPaused = false; return true; }
         if (k == (Keys.Control | Keys.Shift | Keys.S)) { SaveClick(true); return true; }
-        if (k == Keys.F2 && selTrack < eng.Tracks.Count) { RenameTrack(eng.Tracks[selTrack]); return true; }
+        if (k == Keys.F2 && tab == 0 && selTrack < eng.Tracks.Count) { RenameTrack(eng.Tracks[selTrack]); return true; }
         if (k == (Keys.Control | Keys.Z)) { DoUndo(); return true; }
         if (k == (Keys.Control | Keys.Y) || k == (Keys.Control | Keys.Shift | Keys.Z)) { DoRedo(); return true; }
-        if (k == Keys.B) { SplitSelected(); return true; }
-        if (k == Keys.Delete && multiSel.Count > 0) { DeleteSelectedClips(); return true; }
-        if (k == Keys.Delete && Selected != null && Selected.Clip != null) { DeleteClip(CurClip() ?? Selected); return true; }
+        if (k == Keys.B && tab == 0) { SplitSelected(); return true; }
+        if (k == Keys.Delete && tab == 0 && multiSel.Count > 0) { DeleteSelectedClips(); return true; }
+        if (k == Keys.Delete && tab == 0 && Selected != null && Selected.Clip != null) { DeleteClip(CurClip() ?? Selected); return true; }
         if (k == (Keys.Control | Keys.S)) { SaveClick(false); return true; }
         if (k == (Keys.Control | Keys.O)) { OpenClick(); return true; }
         return base.ProcessCmdKey(ref msg, k);
@@ -1068,7 +1073,7 @@ partial class StudioForm : Form
         float x = a.X + 10, y = a.Y + 8, w = a.Width - 20;
         Txt(g, f.Title, 16, Ink, Rc(x, y, w - 150, 24), StringAlignment.Near, true);
         Btn(g, Rc(a.Right - 150, y, 66, 24), f.Bypass ? "Bypassed" : "Bypass", f.Bypass ? 4 : 0, () => f.Bypass = !f.Bypass, 11);
-        Btn(g, Rc(a.Right - 80, y, 70, 24), "Presets", 1, () => PresetMenu(f), 12);
+        Btn(g, Rc(a.Right - 80, y, 70, 24), "Presets", 1, () => OpenPresetSheet(f), 12);
         y += 34;
         var vstf = f as InstrumentFx; if (vstf != null) { Btn(g, Rc(a.X + 10, y - 2, a.Width - 20, 32), vstf.WindowLabel, 2, () => { vstf.Owner = tr; vstf.ShowWindow(this); }, 14); y += 38; }
         var skip = new List<string>(); if (f.Hidden.Length > 0) skip.AddRange(f.Hidden.Split(','));
@@ -1082,7 +1087,8 @@ partial class StudioForm : Form
     void PaintParams(Graphics g, Fx f, RectangleF a, List<string> skip)
     {
         var ps = new List<Param>(); foreach (var p in f.P) if (!skip.Contains(p.Id)) ps.Add(p);
-        float rowH = 30, total = ps.Count * rowH; float maxScroll = Math.Max(0, total - a.Height);
+        float rowH = 30, total = ps.Count * rowH; float maxScroll = Math.Max(0, total - a.Height); var aFull = a; RectangleF? barR = null;
+        if (maxScroll > 0 && a.Height >= 160) { barR = Rc(a.Right - 46, a.Y, 42, a.Height); a = Rc(a.X, a.Y, a.Width - 52, a.Height); }
         genScroll = Math.Max(0, Math.Min(maxScroll, genScroll));
         g.SetClip(a); float y = a.Y - genScroll;
         foreach (var p in ps)
@@ -1105,8 +1111,8 @@ partial class StudioForm : Form
                 ValueBox(g, Rc(sr.Right + 14, row.Y + 3, 72, rowH - 6), p.Text, Num(p.Val), s => { float v; if (ParseNum(s, out v)) f.Set(pp.Id, v); });
             }
         }
-        g.ResetClip();
-        if (maxScroll > 0) { var wr = new HitReg { R = a, OnWheel = d => genScroll = Math.Max(0, Math.Min(maxScroll, genScroll - d * 30)) }; regs.Insert(0, wr); }
+        g.ResetClip(); if (barR.HasValue) VScroll(g, barR.Value, total, barR.Value.Height, () => genScroll, v => genScroll = v);
+        if (maxScroll > 0) { var wr = new HitReg { R = aFull, OnWheel = d => genScroll = Math.Max(0, Math.Min(maxScroll, genScroll - d * 30)) }; regs.Insert(0, wr); }
     }
 
     void PresetMenu(Fx f)
@@ -1127,7 +1133,7 @@ partial class StudioForm : Form
     float[] specSrc; int specSrcPos; static double[] hann; int eqPaintTick = -100000;
     void UpdateSpectrum()
     {
-        if (!eng.Playing) { for (int k = 0; k <= 2048; k++) spec[k] = spec[k] * 0.9 - 12; return; }   // nothing to analyse: just let the picture fall away
+        if (!eng.Playing) { for (int k = 0; k <= 2048; k++) { spec[k] = spec[k] * 0.9 - 12; specPre[k] = specPre[k] * 0.9 - 12; } return; }   // nothing to analyse: just let the picture fall away
         float[] tap = null; int pos = 0;
         if (tab == 0 && eng.Tracks.Count > 0 && selTrack < eng.Tracks.Count) { var tr = eng.Tracks[selTrack]; tap = tr.TapPost; pos = tr.TapPos; }
         else if (tab == 1) { tap = eng.MasterTap; pos = eng.MasterTapPos; }
@@ -1142,6 +1148,12 @@ partial class StudioForm : Form
 
             spec[k] = db > spec[k] ? spec[k] * 0.4 + db * 0.6 : spec[k] * 0.9 + db * 0.1; avg += 0;
         }
+        if (tab == 1 && eng.MasterTapPre != null)
+        {   // the same picture of the sound going INTO the mastering chain, to compare
+            var pre = eng.MasterTapPre; for (int i = 0; i < N; i++) { specRe[i] = pre[(pos - N + i + 8192 * 2) & 8191] * hann[i]; specIm[i] = 0; }
+            Fft.Transform(specRe, specIm, false);
+            for (int k = 0; k <= N / 2; k++) { double mag = Math.Sqrt(specRe[k] * specRe[k] + specIm[k] * specIm[k]) / (N / 4.0), db = 20 * Math.Log10(mag + 1e-9); specPre[k] = db > specPre[k] ? specPre[k] * 0.4 + db * 0.6 : specPre[k] * 0.9 + db * 0.1; }
+        }
     }
 
     // ---------------- EQ editor ----------------
@@ -1151,7 +1163,7 @@ partial class StudioForm : Form
     {
         eqPaintTick = Environment.TickCount;
         var plot = Rc(a.X + 28, a.Y + 4, a.Width - 36, Math.Min(230, a.Height * 0.52f));
-        FillRR(g, Color.FromArgb(220, 8, 4, 20), plot, 8); StrokeRR(g, Edge, plot, 8, 1);
+        FillEqBackdrop(g, plot);
         Func<double, float> FX = f => plot.X + plot.Width * (float)(Math.Log10(f / 20.0) / 3.0);
         Func<double, float> GY = db => plot.Y + plot.Height * (float)((18 - db) / 36.0);
         // grid
@@ -1162,16 +1174,8 @@ partial class StudioForm : Form
         }
         foreach (var kv in new[] { new KeyValuePair<double, string>(100, "100"), new KeyValuePair<double, string>(1000, "1k"), new KeyValuePair<double, string>(10000, "10k") }) Txt(g, kv.Value, 10, DimC, Rc(FX(kv.Key) - 14, plot.Bottom - 14, 30, 12), StringAlignment.Center, false);
         foreach (int d in new[] { -12, 0, 12 }) Txt(g, d.ToString(), 10, DimC, Rc(a.X, GY(d) - 7, 26, 14), StringAlignment.Far, false);
-        // live spectrum (post-EQ of this track)
-        var pts = new List<PointF>(); pts.Add(new PointF(plot.X, plot.Bottom));
-        for (int px = 0; px <= (int)plot.Width; px += 2)
-        {
-            double f = 20 * Math.Pow(1000, px / plot.Width); int k = Math.Min(2048, Math.Max(1, (int)(f * 4096 / StudioEngine.SR))); double db = spec[k];
-            pts.Add(new PointF(plot.X + px, plot.Bottom - (float)DspMath.Clamp((db + 90) / 80.0, 0, 1) * plot.Height * 0.9f));
-        }
-        pts.Add(new PointF(plot.Right, plot.Bottom));
-        g.SetClip(plot);
-        using (var br = new SolidBrush(Color.FromArgb(70, 150, 90, 255))) g.FillPolygon(br, pts.ToArray());
+        // live spectrum: your sound after the EQ, and (in Mastering) before it, with what changed lit up
+        g.SetClip(plot); DrawEqSpectrum(g, plot, tab == 1);
         // curve
         // same maths as ParametricEq.ResponseDb, but each filter is designed once per frame instead of once per pixel
         var secC = new List<double[]>(); var secN = new List<int>();
@@ -1214,7 +1218,7 @@ partial class StudioForm : Form
             rg.OnWheel = d => eq.Set("b" + bi + "_q", eq.Get("b" + bi + "_q") * (d > 0 ? 1.12f : 0.89f));
             rg.OnRight = () => eq.Set("b" + bi + "_on", 0); rg.OnDouble = () => eq.Set("b" + bi + "_g", 0);
         }
-        Txt(g, "Drag a dot: frequency + gain.  Wheel: Q.  Right-click: remove.", 10, DimC, Rc(plot.X, plot.Bottom + 1, plot.Width, 14), StringAlignment.Near, false);
+        Txt(g, "Drag a dot.  Wheel: Q.  Right-click: remove.", 10, DimC, Rc(plot.X, plot.Bottom + 1, plot.Width, 14), StringAlignment.Near, false);
         // band chips
         float cy2 = plot.Bottom + 20; float cw = (a.Width - 8) / 6f;
         for (int b = 0; b < ParametricEq.Bands; b++)

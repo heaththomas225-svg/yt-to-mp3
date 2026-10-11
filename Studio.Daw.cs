@@ -392,8 +392,6 @@ partial class StudioForm
         L.Add(new DawBtn { Text = "DEL", W = 40, Style = 3, Gap = 8, Do = () => { if (multiSel.Count > 0) DeleteSelectedClips(); else DeleteClip(cc ?? Selected); }, Hint = "Delete the selected piece, or every clip lit by a selection box (Ctrl+Z brings them back)." });
         L.Add(new DawBtn { Text = "UNDO", W = 48, Do = () => DoUndo() });
         L.Add(new DawBtn { Text = "REDO", W = 48, Gap = 8, Do = () => DoRedo() });
-        L.Add(new DawBtn { Text = "-", W = 28, Px = 14, Do = () => ZoomBy(1.4) });
-        L.Add(new DawBtn { Text = "+", W = 28, Px = 14, Do = () => ZoomBy(0.7) });
         L.Add(new DawBtn { Text = "FIT", W = 40, Gap = 6, Do = () => FitView() });
         L.Add(new DawBtn { Text = "NEW", W = 46, Do = () => NewProject() });
         float need = 0; foreach (var it in L) need += it.W + it.Gap; float kf = Math.Min(1f, (W - x - 20) / need);   // every button shrinks together when the window is narrow

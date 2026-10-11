@@ -142,7 +142,7 @@ partial class StudioForm
         var gs = g.Save(); g.SetClip(area, CombineMode.Intersect);
         for (int i = 0; i < items.Count; i++)
         {
-            var b = items[i]; var row = Rc(24, y0 + i * (rh + gap) - binScroll, W - 48, rh); if (row.Bottom < area.Y || row.Y > H) continue;
+            var b = items[i]; var row = Rc(24, y0 + i * (rh + gap) - binScroll, W - 48 - 56, rh); if (row.Bottom < area.Y || row.Y > H) continue;
             FillRR(g, Color.FromArgb(205, 22, 12, 42), row, 14); Win.DrawNeonBox(g, row, Hot(row));
             var pic = Rc(row.X + 10, row.Y + 10, rh - 20, rh - 20); DrawCover(g, pic, new ProjectEntry { Cover = b.Cover ?? "", Name = b.Name }); Win.DrawNeonBox(g, pic, false);
             float bx = row.Right - 12, rw = 110, dw = 156; var del = Rc(bx - dw, row.Y + (rh - 34) / 2, dw, 34); var res = Rc(del.X - 10 - rw, del.Y, rw, 34); float tw = res.X - (pic.Right + 14) - 12;
@@ -154,6 +154,7 @@ partial class StudioForm
             var bi = b; Btn(g, res, "RESTORE", 2, () => BinRestore(bi), 13); Hint2(res, "Put this project back in My Projects"); Btn(g, del, "DELETE FOREVER", 3, () => BinDelete(bi), 12); Hint2(del, "Delete this project for good (it asks first)");
         }
         g.Restore(gs);
+        { float barH = H - (y0 - 6) - (previewPath.Length > 0 ? 56 : 8); VScroll(g, Rc(W - 54, y0 - 6, 42, barH), barH + maxScroll, barH, () => binScroll, v => binScroll = v); }
         if (items.Count == 0) { Txt(g, "THE RECYCLING BIN IS EMPTY", 17, Ink, Rc(0, y0 + 60, W, 30), StringAlignment.Center, true); Txt(g, "Projects you remove with the X (and tick delete the file) will wait here.", 12, DimC, Rc(0, y0 + 96, W, 22), StringAlignment.Center, false); }
     }
 }

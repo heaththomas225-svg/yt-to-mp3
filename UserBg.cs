@@ -16,7 +16,7 @@ static class Prefs
     public static int OutVol = 100;          // Purphex Music playback volume, percent (does not change exported files)
     public static int OutDev = -1;           // winmm device id (-1 = system default)
     public static int Buf = 1;               // playback buffer: 0 low latency, 1 normal, 2 safe
-    public static int FpsCap = 60;           // animation frame rate cap: 30 or 60
+    public static int FpsCap = 60;           // animation frame rate cap: 30, 60, 120, 144, 165 or 240
     public static bool ShowFps = false;      // show the frame rate in the title bar
     public static string MidiDev = "";       // the MIDI keyboard Bass Lab listens to ("" = off)
     public static string InDev = "";         // recording input (microphone), "" = the Windows default
@@ -40,7 +40,7 @@ static class Prefs
             case "outvol": if (int.TryParse(v, out n)) OutVol = Math.Max(0, Math.Min(100, n)); return true;
             case "outdev": if (int.TryParse(v, out n)) OutDev = n; return true;
             case "buf": if (int.TryParse(v, out n)) Buf = Math.Max(0, Math.Min(2, n)); return true;
-            case "fpscap": if (int.TryParse(v, out n)) FpsCap = n >= 120 ? 120 : (n >= 60 ? 60 : 30); return true;
+            case "fpscap": if (int.TryParse(v, out n)) FpsCap = n >= 240 ? 240 : (n >= 165 ? 165 : (n >= 144 ? 144 : (n >= 120 ? 120 : (n >= 60 ? 60 : 30)))); return true;
             case "showfps": if (bool.TryParse(v, out b)) ShowFps = b; return true;
             case "midiin": MidiDev = v; return true;
             case "indev": InDev = v; return true;

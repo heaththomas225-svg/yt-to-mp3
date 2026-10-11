@@ -34,7 +34,7 @@ partial class StudioForm
         float W = ClientSize.Width, y = 12, h = 46;
         using (var br = new SolidBrush(Color.FromArgb(245, 18, 10, 34))) g.FillRectangle(br, 0, 0, W, ToolH); NeonRule(g, 0, ToolH, W);
         Btn(g, Rc(12, y, 48, h), "≡", 0, () => { if (menuOpen) CloseMenu(); else OpenMenu(); }, 24);
-        Txt(g, tab == 3 ? "MY PROJECTS" : "COMMUNITY", 18, Ink, Rc(76, y, 190, h), StringAlignment.Near, true); Btn(g, Rc(270, y + 4, 100, h - 8), "BACK", 2, () => GoBack(), 14);
+        Txt(g, tab == 3 ? "MY PROJECTS" : "COMMUNITY", 18, Ink, Rc(76, y, 190, h), StringAlignment.Near, true); Btn(g, Rc(270, y + 4, 100, h - 8), "HOME", 2, () => GoHome(), 14); if (ShowBack) Btn(g, Rc(376, y + 4, 100, h - 8), "BACK", 0, () => GoBack(), 14);
         float rx = W - 14;
         Btn(g, Rc(rx - 58, y + 4, 58, h - 8), "Help", 2, () => app.ShowHelp(null), 14); rx -= 64;
         Btn(g, Rc(rx - 108, y + 4, 108, h - 8), Win.FullLabel(this), 0, () => Win.ToggleFullscreen(this), 12); rx -= 120;
@@ -51,7 +51,7 @@ partial class StudioForm
         {
             var sb = Rc(0, top, sw, H - top); using (var br = new SolidBrush(Color.FromArgb(235, 14, 8, 28))) g.FillRectangle(br, sb); using (var pen = new Pen(Color.FromArgb(90, NeonViolet))) g.DrawLine(pen, sw, top, sw, H);
             string[] nm = { "Home", "Community", "Creative Studio", "Mastering", "Lyrics", "My Projects", "Theme", "Help", "Settings" };
-            Action[] ac = { () => tab = 0, () => { }, () => tab = 0, () => tab = 1, () => tab = 2, () => GoTab(3), () => { OpenMenu(); menuSec = 5; }, () => app.ShowHelp(null), () => { OpenMenu(); menuSec = 6; } };
+            Action[] ac = { () => tab = 0, () => { }, () => tab = 0, () => tab = 1, () => tab = 2, () => GoTab(3), () => OpenThemeSheet(), () => app.ShowHelp(null), () => { OpenMenu(); menuSec = 6; } };
             for (int i = 0; i < nm.Length; i++)
             {
                 var r = Rc(12, top + 14 + i * 42, sw - 24, 37); bool on = i == 1; var act = ac[i];
@@ -80,7 +80,7 @@ partial class StudioForm
         // ---- the feed: round neon art cards (your saved projects) ----
         var all = ProjectLibrary.AllByEdited(); var list = new List<ProjectEntry>();
         foreach (var e in all) { if (commFilter == 1 && (DateTime.Now - e.Opened).TotalDays > 7) continue; list.Add(e); }
-        float fy = ty + 46, fh = H - fy; var area = Rc(cx0, fy, cw, fh); float cardW = 206, cardH = 340, gap = 14; int cols = Math.Max(1, (int)((cw + gap) / (cardW + gap))); float used = cols * cardW + (cols - 1) * gap, ox = cx0 + (cw - used) / 2;
+        float fy = ty + 46, fh = H - fy; var area = Rc(cx0, fy, cw, fh); float cardW = 206, cardH = 340, gap = 14; int cols = Math.Max(1, (int)((cw - 56 + gap) / (cardW + gap))); float used = cols * cardW + (cols - 1) * gap, ox = cx0 + (cw - 56 - used) / 2;
         int rows = (list.Count + cols - 1) / cols; float maxS = Math.Max(0, rows * (cardH + gap) - fh + 10); commScroll = Math.Max(0, Math.Min(maxS, commScroll));
         regs.Add(new HitReg { R = area, OnWheel = d => commScroll = Math.Max(0, Math.Min(maxS, commScroll - d * 70)) });
         var gs = g.Save(); g.SetClip(area, CombineMode.Intersect);
@@ -108,6 +108,7 @@ partial class StudioForm
             }
         }
         g.Restore(gs);
+        VScroll(g, Rc(cx0 + cw - 52, fy, 42, fh - 8), fh - 8 + maxS, fh - 8, () => commScroll, v => commScroll = v);
         if (list.Count == 0) { Txt(g, commFilter == 0 ? "Nothing here yet. Make something, press Save, and it shows up as a card." : "No projects match this filter.", 14, DimC, Rc(cx0 + 10, fy + 40, cw - 20, 40), StringAlignment.Near, false); }
         // ---- right column ----
         if (rail)

@@ -1,0 +1,66 @@
+using System;
+using System.Collections.Generic;
+
+// Many more built-in presets for every plugin (the Presets sheet lists them with a search box and the logo scroll bar).
+static class PresetsExtra
+{
+    public static readonly Dictionary<string, string[]> Data = new Dictionary<string, string[]> {
+        { "eq", new[] {
+            "Kick Punch|hp_on=1;hp_f=30;b0_f=60;b0_g=3;b1_f=350;b1_g=-4;b1_q=1.5;b3_f=3500;b3_g=3;b3_q=1.2;b5_on=0",
+            "Kick Sub Weight|hp_on=1;hp_f=25;b0_f=55;b0_g=4;b1_f=180;b1_g=-2;b1_q=1.2;b3_f=2500;b3_g=1;b5_on=0",
+            "Snare Crack|hp_on=1;hp_f=100;b1_f=250;b1_g=-2;b2_f=900;b2_g=-1;b3_f=4500;b3_g=3.5;b3_q=1;b5_f=10000;b5_g=2",
+            "Hi-Hat Shine|hp_on=1;hp_f=300;b3_f=6000;b3_g=2;b4_f=9000;b4_g=2.5;b5_f=12000;b5_g=3",
+            "Bass Guitar Clarity|hp_on=1;hp_f=35;b0_f=90;b0_g=2;b1_f=300;b1_g=-3;b1_q=1.3;b3_f=1800;b3_g=2.5;b3_q=1;b5_on=0",
+            "808 Clean Up|hp_on=1;hp_f=22;b0_f=45;b0_g=2.5;b1_f=160;b1_g=-3;b1_q=1.4;b2_f=500;b2_g=-1.5;b5_on=0",
+            "Vocal Air Boost|hp_on=1;hp_f=90;b3_f=4000;b3_g=1.5;b4_f=8000;b4_g=2;b5_f=14000;b5_g=4",
+            "Vocal Remove Mud|hp_on=1;hp_f=85;b1_f=280;b1_g=-3.5;b1_q=1.1;b2_f=600;b2_g=-1.5",
+            "Vocal Presence|hp_on=1;hp_f=85;b3_f=3200;b3_g=3.5;b3_q=0.9;b4_f=5500;b4_g=1.2",
+            "Vocal Tame Harshness|b3_f=3000;b3_g=-1.5;b3_q=1.1;b4_f=6500;b4_g=-2.5;b4_q=1.5",
+            "Male Vocal Body|hp_on=1;hp_f=70;b0_f=140;b0_g=2;b1_f=250;b1_g=1;b3_f=3000;b3_g=1.5;b5_f=11000;b5_g=1.5",
+            "Female Vocal Shine|hp_on=1;hp_f=110;b1_f=300;b1_g=-1.5;b3_f=4000;b3_g=2.5;b5_f=12000;b5_g=3",
+            "Rap Vocal Forward|hp_on=1;hp_f=85;b0_f=110;b0_g=1.5;b1_f=300;b1_g=-2.5;b3_f=3500;b3_g=3;b4_f=6500;b4_g=-0.5;b5_f=12000;b5_g=2",
+            "Podcast Voice|hp_on=1;hp_f=80;b0_f=130;b0_g=1.5;b1_f=300;b1_g=-2;b3_f=3000;b3_g=2.5;b4_f=6500;b4_g=-1.5",
+            "Radio DJ Boom|hp_on=1;hp_f=60;b0_f=150;b0_g=4;b3_f=3500;b3_g=2;b5_on=0",
+            "Telephone|hp_on=1;hp_f=400;hp_s=1;lp_on=1;lp_f=3400;lp_s=1;b3_f=1500;b3_g=3;b3_q=0.8",
+            "Old Radio|hp_on=1;hp_f=300;lp_on=1;lp_f=5000;b3_f=2000;b3_g=4;b3_q=0.7;b1_f=800;b1_g=2",
+            "Lo-Fi Muffle|lp_on=1;lp_f=7000;lp_s=1;hp_on=1;hp_f=120;b5_f=6000;b5_g=-4",
+            "Underwater|lp_on=1;lp_f=1200;lp_s=1;hp_on=1;hp_f=60;b1_f=400;b1_g=3",
+            "Scooped Mids|b0_f=90;b0_g=3;b1_f=700;b1_g=-4;b1_q=0.8;b5_f=9000;b5_g=3",
+            "Mid Forward|b0_g=-1;b1_f=1000;b1_g=3;b1_q=0.8;b3_f=2500;b3_g=2",
+            "Smile Curve|b0_f=70;b0_g=4;b1_f=500;b1_g=-1.5;b5_f=10000;b5_g=4",
+            "Sub Cut (rumble)|hp_on=1;hp_f=45;hp_s=1",
+            "Low Cut Strong|hp_on=1;hp_f=150;hp_s=1",
+            "Air Only|b4_f=10000;b4_g=1.5;b5_f=14000;b5_g=5",
+            "Warm Tape EQ|b0_f=100;b0_g=1.8;b5_f=9000;b5_g=-2.5;lp_on=1;lp_f=16000",
+            "Guitar Body|hp_on=1;hp_f=80;b0_f=150;b0_g=2;b1_f=350;b1_g=-2;b3_f=3000;b3_g=2",
+            "Acoustic Sparkle|hp_on=1;hp_f=80;b1_f=250;b1_g=-1.5;b3_f=4000;b3_g=2;b5_f=12000;b5_g=3",
+            "Piano Clarity|hp_on=1;hp_f=40;b1_f=350;b1_g=-2;b3_f=3500;b3_g=1.5;b5_f=11000;b5_g=1.5",
+            "Synth Pad Space|hp_on=1;hp_f=150;b1_f=400;b1_g=-3;b5_f=9000;b5_g=2",
+            "De-Ess Area Dip|b4_f=7000;b4_g=-4;b4_q=2",
+            "Beat Open Top|b0_f=70;b0_g=1;b3_f=3500;b3_g=1.5;b4_f=7000;b4_g=2;b5_f=12000;b5_g=3",
+            "Mono Bass Safe|hp_on=1;hp_f=30;b0_f=80;b0_g=1;b2_f=2000;b2_g=-1",
+            "Master Gentle Polish|hp_on=1;hp_f=25;b1_f=300;b1_g=-0.8;b3_f=3500;b3_g=0.8;b5_f=12000;b5_g=1.2",
+            "Master Loud Curve|hp_on=1;hp_f=28;b0_f=65;b0_g=2;b1_f=300;b1_g=-1.5;b3_f=3200;b3_g=1.5;b5_f=11000;b5_g=2.5" } },
+        { "comp", new[] {
+            "Drum smash|thr=-24;ratio=6;att=3;rel=60;knee=3;makeup=6",
+            "Parallel punch|thr=-30;ratio=8;att=2;rel=90;knee=2;makeup=8;mix=40",
+            "Bass leveller|thr=-20;ratio=4;att=20;rel=120;knee=6;makeup=3",
+            "Rap vocal tight|thr=-28;ratio=5;att=4;rel=70;knee=5;makeup=7",
+            "Vocal smooth|thr=-20;ratio=2;att=25;rel=180;knee=12;makeup=2",
+            "Acoustic gentle|thr=-18;ratio=1.8;att=30;rel=200;knee=12;makeup=1.5",
+            "Bus glue soft|thr=-14;ratio=1.6;att=40;rel=250;knee=14;makeup=1",
+            "Heavy squash|thr=-30;ratio=12;att=1;rel=50;knee=2;makeup=10" } },
+        { "mbcomp", new[] { "Loud master|t0=-22;t1=-24;t2=-26;r0=3;r1=3;r2=2.6", "Smooth bass|t0=-24;r0=3;t1=-20;r1=1.5;t2=-22;r2=1.5", "Bright control|t0=-20;r0=1.6;t1=-22;r1=2;t2=-30;r2=3.8" } },
+        { "exciter", new[] { "Vocal sheen|drive=7;harm=45;flo=4000;fhi=16000;mix=26", "Bass harmonics|drive=8;harm=50;flo=500;fhi=3000;mix=30", "Wide air|drive=6;harm=35;flo=8000;fhi=20000;mix=38" } },
+        { "sat", new[] { "Warm drive|mode=1;drive=5;mix=50", "Bus tape|mode=0;drive=4;mix=45", "Hard clip loud|mode=2;drive=10;mix=70", "Subtle tube|mode=1;drive=3;mix=35" } },
+        { "reverb", new[] {
+            "Tiny booth|size=12;damp=70;pre=2;mix=8", "Drum room|size=35;damp=50;pre=5;mix=14", "Bright plate|size=50;damp=20;pre=15;mix=20", "Vocal chamber|size=45;damp=55;pre=18;mix=16",
+            "Cathedral|size=95;damp=40;pre=50;mix=30", "Ambient wash|size=100;damp=60;pre=60;mix=45", "Spring (twang)|size=30;damp=30;pre=0;mix=22", "Dark hall|size=85;damp=80;lc=200;hc=4000;mix=26" } },
+        { "delay", new[] { "Short slap|mode=0;sync=0;time=70;fb=8;mix=14", "Tape echo|mode=0;sync=0;time=320;fb=38;mix=20", "Long dub echo|mode=0;sync=0;time=520;fb=55;mix=24", "Ping-pong wide|mode=2;sync=2;fb=45;mix=26", "Dotted soft|mode=2;sync=3;fb=28;mix=14" } },
+        { "chorus", new[] { "Thick unison|rate=0.5;depth=5;delay=16;spread=100;mix=45", "Shimmer|rate=1.2;depth=3;delay=10;spread=90;mix=30" } },
+        { "deess", new[] { "Soft S|freq=6000;thr=-22;range=5", "Female strong|freq=8000;thr=-30;range=12" } },
+        { "widener", new[] { "Huge|width=170;bass=160", "Vocal narrow|width=80;bass=120", "Bass mono|width=120;bass=250" } },
+        { "limiter", new[] { "Streaming safe|ceil=-1.5;gain=3.5;rel=100", "Club loud|ceil=-0.6;gain=9;rel=40", "Transparent|ceil=-1;gain=2;rel=120" } },
+        { "gate", new[] { "Drum gate|thr=-35;range=40;att=1;hold=40;rel=100" } },
+    };
+}

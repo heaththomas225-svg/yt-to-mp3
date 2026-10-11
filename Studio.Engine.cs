@@ -589,7 +589,7 @@ partial class StudioEngine
                 }
                 Array.Clear(oL, 0, n); Array.Clear(oR, 0, n); MasterPeakL = MasterPeakR = 0; foreach (var t in Tracks) { t.PeakL = t.PeakR = 0; } return;
             }
-            if (countLeft > 0) { Array.Clear(oL, 0, n); Array.Clear(oR, 0, n); Click(LastCountFrames - countLeft, n, oL, oR, LastCountFrames); countLeft = Math.Max(0, countLeft - n); MasterPeakL = MasterPeakR = 0; return; }   // the count-in: only the clicks, the song waits
+            if (countLeft > 0) { Array.Clear(oL, 0, n); Array.Clear(oR, 0, n); Click(LastCountFrames - countLeft, n, oL, oR, LastCountFrames, LastCountFrames / 4.0); countLeft = Math.Max(0, countLeft - n); MasterPeakL = MasterPeakR = 0; return; }   // the count-in: only the clicks, the song waits
             Mix(Pos, n, Live, oL, oR, true, 0);
             if (Metronome) Click(Pos, n, oL, oR);
             Pos += n;
@@ -598,9 +598,9 @@ partial class StudioEngine
         }
     }
 
-    void Click(long pos, int n, float[] oL, float[] oR, long limit = long.MaxValue)
+    void Click(long pos, int n, float[] oL, float[] oR, long limit = long.MaxValue, double beatFrames = 0)
     {
-        double beat = SR * 60.0 / Math.Max(20, Fx.ProjectBpm); long bar = (long)(beat * 4);
+        double beat = beatFrames > 0 ? beatFrames : SR * 60.0 / Math.Max(20, Fx.ProjectBpm); long bar = (long)(beat * 4);
         for (int i = 0; i < n; i++)
         {
             long p = pos + i; if (p >= limit) break;   // the count-in is exactly four beats: nothing may start a fifth click when the last block runs past the end
@@ -621,7 +621,7 @@ partial class StudioEngine
     public void Play()
     {
         EnsurePlayer();
-        lock (Sync) { if (Pos >= EndFrame + SR * 2) Pos = 0; if (!Playing) { if (CountIn) { LastCountFrames = (long)(SR * 60.0 / Math.Max(20, Fx.ProjectBpm) * 4); countLeft = LastCountFrames; } else { LastCountFrames = 0; countLeft = 0; } } Playing = true; }
+        lock (Sync) { if (Pos >= EndFrame + SR * 2) Pos = 0; if (!Playing) { if (CountIn) { LastCountFrames = SR * 4; countLeft = LastCountFrames; /* always 4 clicks, one a second, whatever the tempo is */ } else { LastCountFrames = 0; countLeft = 0; } } Playing = true; }
     }
     public void Pause() { Playing = false; countLeft = 0; }
     public void Stop() { Playing = false; lock (Sync) { Pos = 0; countLeft = 0; ResetStates(); } }

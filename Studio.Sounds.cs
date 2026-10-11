@@ -123,8 +123,8 @@ partial class StudioForm
         }
         else if (sndResults.Count == 0) Txt(g, "Nothing matches. Clear a filter or change the search.", 13, DimC, Rc(list.X + 10, list.Y + 20, list.Width - 20, 30), StringAlignment.Near, false);
         int first = (int)(sndScroll / rowH), last = Math.Min(sndResults.Count - 1, first + (int)(list.Height / rowH) + 1);
-        for (int i = Math.Max(0, first); i <= last; i++) PaintSoundRow(g, sndResults[i], Rc(list.X, list.Y + i * rowH - sndScroll, list.Width, rowH - 2));
-        g.Restore(gs);
+        for (int i = Math.Max(0, first); i <= last; i++) PaintSoundRow(g, sndResults[i], Rc(list.X, list.Y + i * rowH - sndScroll, list.Width - 52, rowH - 2));
+        g.Restore(gs); VScroll(g, Rc(list.Right - 48, list.Y, 42, list.Height), sndResults.Count * rowH, list.Height, () => sndScroll, v => sndScroll = v);
         PaintSoundPreview(g, Rc(x + 8, y + h - ph, w - 16, ph - 6));
     }
 
@@ -281,7 +281,7 @@ partial class StudioForm
         if (rows.Count == 0) Txt(g, "NOTHING HERE YET.", 14, DimC, Rc(list.X + 10, list.Y + 20, 400, 24), StringAlignment.Near, false);
         for (int i = first; i <= last; i++)
         {
-            var rec = rows[i]; var rr = Rc(list.X, list.Y + i * rowH - packScroll, list.Width, rowH - 4); var ip = SoundLibrary.Pack(rec.Id); bool inst = ip != null && ip.Items.Count > 0; bool busyNow = installing == rec.Id; bool queued; lock (installQ) queued = installQ.Contains(rec.Id);
+            var rec = rows[i]; var rr = Rc(list.X, list.Y + i * rowH - packScroll, list.Width - 52, rowH - 4); var ip = SoundLibrary.Pack(rec.Id); bool inst = ip != null && ip.Items.Count > 0; bool busyNow = installing == rec.Id; bool queued; lock (installQ) queued = installQ.Contains(rec.Id);
             FillRR(g, Color.FromArgb(120, 34, 20, 64), rr, 8); var tile = Rc(rr.X + 6, rr.Y + 6, 50, 50); var fake = new SoundPack { Hue = rec.Hue }; DrawPackTile(g, tile, fake, rec.Name);
             Txt(g, rec.Name, 14, Ink, Rc(rr.X + 66, rr.Y + 6, rr.Width - 330, 22), StringAlignment.Near, true); Txt(g, rec.Genre + "  ·  " + rec.Sub + "  ·  " + rec.Mood, 10, DimC, Rc(rr.X + 66, rr.Y + 28, rr.Width - 330, 16), StringAlignment.Near, false); Txt(g, rec.Desc, 10, DimC, Rc(rr.X + 66, rr.Y + 44, rr.Width - 330, 16), StringAlignment.Near, false);
             float bx = rr.Right - 250;
@@ -290,7 +290,7 @@ partial class StudioForm
             else if (inst) { Txt(g, "Installed: " + ip.Items.Count + " sounds, " + PackSizeText(ip), 11, Color.FromArgb(120, 232, 150), Rc(bx, rr.Y + 8, 240, 18), StringAlignment.Near, false); Btn(g, Rc(bx, rr.Y + 30, 76, 26), "Browse", 1, () => { packsOpen = false; sndFilter.Pack = rec.Id; sndDirty = true; sndScroll = 0; }, 11); Btn(g, Rc(bx + 80, rr.Y + 30, 76, 26), "Remake", 0, () => StartInstall(rec), 11); Btn(g, Rc(bx + 160, rr.Y + 30, 76, 26), "Remove", 3, () => { if (MessageBox.Show(this, "Remove \"" + rec.Name + "\" and its files from this PC? You can install it again any time.", "Remove pack", MessageBoxButtons.YesNo) == DialogResult.Yes) { if (sndFilter.Pack == rec.Id) sndFilter.Pack = ""; if (sndSel != null && sndSel.PackId == rec.Id) { Auditioner.Stop(); sndSel = null; } SoundLibrary.RemovePack(rec.Id); sndDirty = true; packMsg = "Removed " + rec.Name; } }, 11); }
             else Btn(g, Rc(bx + 76, rr.Y + 16, 160, 32), "Install", 2, () => StartInstall(rec), 13);
         }
-        g.Restore(gs);
+        g.Restore(gs); VScroll(g, Rc(list.Right - 48, list.Y, 42, list.Height), rows.Count * rowH, list.Height, () => packScroll, v => packScroll = v);
         // footer
         float fy = box.Bottom - 56; int notInst = 0; foreach (var r in rows) { var ip = SoundLibrary.Pack(r.Id); if (ip == null || ip.Items.Count == 0) notInst++; }
         Btn(g, Rc(box.X + 22, fy, 230, 32), "Install all " + notInst + " in this list", notInst > 0 ? 1 : 0, () => { foreach (var r in rows) { var ip = SoundLibrary.Pack(r.Id); if (ip == null || ip.Items.Count == 0) StartInstall(r); } }, 12);

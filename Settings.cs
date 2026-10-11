@@ -8,6 +8,7 @@ using System.Windows.Forms;
 class SettingsForm : Form
 {
     readonly App app; bool setting;
+    static readonly int[] FpsChoices = { 30, 60, 120, 144, 165, 240 };
     Label bgName, updStatus; Button updBtn; TrackBar dimBar, volBar; NumericUpDown dimNum, volNum; ComboBox devBox, bufBox, fpsBox, inBox;
     CheckBox leavesChk, studioChk, fpsChk, shareChk; ComboBox themeBox; Label themeNote;
     static readonly Color Ink = Color.FromArgb(240, 232, 255), Dim = Color.FromArgb(160, 140, 200), Head = Color.FromArgb(236, 120, 230), Fld = Color.FromArgb(24, 12, 44);
@@ -34,12 +35,13 @@ class SettingsForm : Form
         studioChk = Chk("Also use it behind Purphex Music", 20, ref y); studioChk.CheckedChanged += (s, e) => { if (!setting) { Prefs.BgStudio = studioChk.Checked; UserBackground.Version++; Prefs.Changed(); } };
         y += 6; Header("Theme", ref y);
         Controls.Add(new Label { Text = "Colour theme", Left = 20, Top = y + 3, Width = 150, ForeColor = Ink });
-        themeBox = Combo(180, y, 360, new string[0]); foreach (var td in Themes.All) themeBox.Items.Add(td.Name);
+        themeBox = Combo(180, y, 360, new string[0]); foreach (var td in Themes.All) themeBox.Items.Add(td.Name);   // built in and imported
         themeBox.SelectedIndexChanged += (s, e) => { if (setting || themeBox.SelectedIndex < 0) return; Themes.Apply(themeBox.SelectedIndex); themeNote.Text = Themes.Current.Blurb + " It changes the glow, borders and buttons in Purphex Music, Mastering and Bass Lab."; Prefs.Changed(); };
         y += 38; themeNote = new Label { Left = 20, Top = y - 4, Width = 520, Height = 34, ForeColor = Dim, Font = new Font("Segoe UI", 9f) }; Controls.Add(themeNote); y += 36;
+        var impT = Btn("Import a theme file...", 20, y, 190, Color.FromArgb(70, 40, 120)); impT.Click += (s, e) => ImportTheme(); var comT = Btn("Community themes...", 218, y, 190, Color.FromArgb(140, 60, 220)); comT.Click += (s, e) => app.ShowThemes(true); y += 40;
         y += 6; Header("Animation", ref y);
         Controls.Add(new Label { Text = "Frame rate limit", Left = 20, Top = y + 3, Width = 150, ForeColor = Ink });
-        fpsBox = Combo(180, y, 190, new[] { "30 fps (lightest)", "60 fps (smooth)", "120 fps (fastest screens)" }); fpsBox.SelectedIndexChanged += (s, e) => { if (!setting) { Prefs.FpsCap = fpsBox.SelectedIndex == 0 ? 30 : (fpsBox.SelectedIndex == 2 ? 120 : 60); Prefs.Changed(); } };
+        fpsBox = Combo(180, y, 190, new[] { "30 fps (lightest)", "60 fps (smooth)", "120 fps (fast screens)", "144 fps (gaming screens)", "165 fps", "240 fps (the fastest screens)" }); fpsBox.SelectedIndexChanged += (s, e) => { if (!setting && fpsBox.SelectedIndex >= 0) { Prefs.FpsCap = FpsChoices[fpsBox.SelectedIndex]; Prefs.Changed(); } };
         y += 38;
         Controls.Add(new Label { Text = "Your screen refreshes " + FrameLoop.DisplayHz() + " times a second, so that is the most you will see. 120 fps needs a 120 Hz (or faster) screen and a quicker PC.", Left = 20, Top = y - 6, Width = 480, Height = 34, ForeColor = Color.FromArgb(150, 140, 190) }); y += 30;
         fpsChk = Chk("Show the frame rate in the title bar", 20, ref y); fpsChk.CheckedChanged += (s, e) => { if (!setting) { Prefs.ShowFps = fpsChk.Checked; Prefs.Changed(); } };
@@ -92,6 +94,16 @@ class SettingsForm : Form
     ComboBox Combo(int x, int y, int w, string[] items) { var c = new DarkCombo { Left = x, Top = y, Width = w, DropDownStyle = ComboBoxStyle.DropDownList }; c.Items.AddRange(items); Controls.Add(c); return c; }
     static void StyleNum(NumericUpDown n) { n.BackColor = Fld; n.ForeColor = Ink; n.BorderStyle = BorderStyle.FixedSingle; Win.NeonBox(n); }
 
+    void ImportTheme()
+    {
+        using (var d = new OpenFileDialog { Title = "Import a theme", Filter = "Purphex themes|*.purphextheme;*.txt|All files|*.*" })
+        {
+            if (d.ShowDialog(this) != DialogResult.OK) return; string text; try { if (new FileInfo(d.FileName).Length > 16 * 1024) { MessageBox.Show(this, "That file is too big to be a theme."); return; } text = File.ReadAllText(d.FileName); } catch (Exception ex) { MessageBox.Show(this, "Could not open that file: " + ex.Message); return; }
+            ThemeDef t; string err = Themes.Import(text, Path.GetFileNameWithoutExtension(d.FileName), out t); if (err != null) { MessageBox.Show(this, err, "Import a theme"); return; }
+            setting = true; themeBox.Items.Clear(); foreach (var td in Themes.All) themeBox.Items.Add(td.Name); setting = false; Themes.Apply(Themes.IndexOf(t.Name)); Prefs.Changed(); Refresh2();
+        }
+    }
+
     void Pick()
     {
         using (var d = new OpenFileDialog { Title = "Choose a background", Filter = "Pictures and videos|*.png;*.jpg;*.jpeg;*.bmp;*.tif;*.tiff;*.gif;*.webp;*.mp4;*.mkv;*.mov;*.webm;*.avi;*.m4v|All files|*.*" })
@@ -122,7 +134,7 @@ class SettingsForm : Form
         bgName.Text = UserBackground.Active ? (UserBackground.IsVideo ? "Video: " : "Picture: ") + Prefs.BgPath : "None - using the animated purple leaves";
         dimBar.Value = Prefs.BgDim; dimNum.Value = Prefs.BgDim; leavesChk.Checked = Prefs.BgLeaves; studioChk.Checked = Prefs.BgStudio; shareChk.Checked = Prefs.ShareSaved;
         themeBox.SelectedIndex = Themes.Index; themeNote.Text = Themes.Current.Blurb + " It changes the glow, borders and buttons in Purphex Music, Mastering and Bass Lab.";
-        fpsBox.SelectedIndex = Prefs.FpsCap == 30 ? 0 : (Prefs.FpsCap >= 120 ? 2 : 1); fpsChk.Checked = Prefs.ShowFps;
+        fpsBox.SelectedIndex = Math.Max(0, Array.IndexOf(FpsChoices, Prefs.FpsCap)); fpsChk.Checked = Prefs.ShowFps;
         { int ii = Prefs.InDev.Length == 0 ? 0 : inBox.Items.IndexOf(Prefs.InDev); inBox.SelectedIndex = Math.Max(0, ii); }
         volBar.Value = Prefs.OutVol; volNum.Value = Prefs.OutVol; devBox.SelectedIndex = Math.Max(0, Math.Min(devBox.Items.Count - 1, Prefs.OutDev + 1)); bufBox.SelectedIndex = Prefs.Buf;
         setting = false;

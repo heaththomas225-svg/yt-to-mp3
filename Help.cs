@@ -165,12 +165,17 @@ Width, Depth (behind you gets darker and quieter), Ear delay, Keep bass centred,
 4. Edit anything afterwards, or press Undo Auto Mix.
 TIP: It never changes your original files."),
 
-        new HelpTopic("studio-master", "Purphex Music", "Mastering tab: loudness and A/B", false, @"
-## Steps
-1. Open the MASTERING tab. The chain (EQ, compressor, multiband, exciter, saturation, imager, limiter) works on the whole mix.
-2. Pick a mastering preset on the left or tweak each module.
-3. Press Analyze whole mix to see loudness before and after, then compare with A ORIGINAL and B MASTERED. Loudness match keeps them equally loud so you judge tone, not volume.
-4. Set a Target loudness and press 'Set loudness to target' to adjust the limiter automatically.
+        new HelpTopic("studio-master", "Purphex Music", "Mastering tab: AUTO MASTERING, presets and loudness", false, @"
+## The quick way
+1. Open the MASTERING tab and press AUTO MASTERING. It listens to the whole mix, makes the EQ for you and shows ten versions.
+2. Press PREVIEW on a version to hear it on the loudest part of your song (it loops). Switch between versions as often as you like.
+3. Press USE THIS on the one you like. REVERT (the bar at the bottom) or CANCEL puts everything back.
+4. Press AUTO LOUDNESS: it picks the best level for this track and sets it.
+## The picky way
+- Open PRESETS in the middle: over 67 master presets in groups (Everyday, Loud, Genre, Vocals, Low end, Colour, Width, Fix), including Bass Boost Master and Vocal Improver. Press PREVIEW to hear one on your song, then KEEP IT or PUT BACK.
+- EQ & EFFECTS shows the selected effect of the chain. The EQ picture shows your sound before and after, and what the EQ changed.
+- Set your own loudness with the slider and SET LOUDNESS (MANUAL). A ORIGINAL and B MASTERED compare with loudness match, so you judge tone, not volume.
+- PLAY and PREVIEW MASTER are at the top. Only the buttons that belong to mastering are there.
 ## Meters
 Momentary, Short-term and Integrated LUFS, true peak, peak, gain reduction and clip detection."),
 
@@ -301,6 +306,21 @@ Drag the track name on the left up or down, or use the Up and Dn buttons on the 
 - The tempo also drives the synth's tempo-synced wobbles and delays.
 ## Zoom
 Mouse wheel + Ctrl zooms, Alt + wheel makes tracks taller, or use - + FIT. After FIT the song fills the track area by itself, even in full screen. See the neon look page."),
+
+        new HelpTopic("basslab-basics", "Music Studio", "Bass Lab: the basics in two minutes", false, @"
+## The quickest way
+Press the round ? button (HELP) at the top right of Bass Lab. A short tour points at each part of the screen and tells you what it does.
+## Make your first sound
+1. Click the preset name at the top (or press the < > buttons) and pick any sound. Starting from a sound you like is much easier than starting from nothing.
+2. Play it: click the piano keys at the bottom, or use A S D F G H J on your computer keyboard (Z and X change the octave). A MIDI keyboard works too (choose it on the GLOBAL page).
+3. Make it darker or brighter: turn CUTOFF on FILTER 1 down or up.
+4. Make it fatter: turn UNISON up on OSC A (more voices stacked on top of each other).
+5. Make it wobble: open the LFO 1 tab at the bottom, press Filter 1 cutoff under WOBBLE IT and turn AMOUNT up.
+6. Add weight: switch on BASS BOOST at the top and turn BOOST up.
+7. Keep it: open the preset list and press SAVE AS.
+TIP: Every knob: drag up and down, mouse wheel for small steps, double-click to type a number, right-click to put it back.
+TIP: PANIC (at the top) stops every note if something keeps ringing.
+TIP: The other Bass Lab pages explain each part in more detail."),
 
         new HelpTopic("basslab", "Music Studio", "Bass Lab: make bass and wobbles (the built-in synth)", false, @"
 ## Open it
@@ -589,7 +609,7 @@ Move the mouse to the line between two tracks (or above the first, or under the 
 1. Press + ADD TRACK and choose MIDI Track (Bass Lab) or Virtual Instruments (any VST plugin). Play it with your computer keyboard (A S D F G H J = white keys, W E T Y U = black keys, Z / X = octave) or click the piano.
 2. To record your playing: press REC (it turns red), then play a key. The song starts by itself and your notes are recorded onto the track. Press STOP when you are done.
 3. Open the Notes button on the track (or double-click the track) for the piano roll: draw notes by dragging on the grid, drag a note to move it, drag its right end to resize it, right-click to delete it. Everything you draw plays right away. 'Snap notes to grid' tidies your timing.
-4. Set the tempo with BPM (or DETECT). Turn on COUNT IN for a bar of clicks before it plays and METRONOME for a click on every beat. Everything lands on the beat by itself (snap).
+4. Set the tempo with BPM (or DETECT). Turn on COUNT IN for a 1 2 3 4 countdown (one a second, whatever the tempo) before it plays and METRONOME for a click on every beat. Everything lands on the beat by itself (snap).
 ## Record your voice or an instrument with a microphone
 1. Plug in a microphone. Use headphones, so the beat is not picked up by the microphone.
 2. Click the track you want to record on, put the needle where you want to start and press MIC. The button turns red and says MIC READY: nothing is recorded yet.
@@ -646,14 +666,16 @@ class HelpForm : Form
         this.canTour = canTour; this.runTour = runTour;
         Text = "Help"; FormBorderStyle = FormBorderStyle.Sizable; StartPosition = FormStartPosition.CenterParent; MinimumSize = new Size(820, 520); ClientSize = new Size(960, 640);
         BackColor = Color.FromArgb(10, 4, 20); ForeColor = Color.FromArgb(240, 232, 255); Font = new Font("Segoe UI", 10f); Win.Dark(this); ShowInTaskbar = true;
-        search = new TextBox { Left = 14, Top = 14, Width = 270, BackColor = Color.FromArgb(8, 4, 16), ForeColor = Color.FromArgb(240, 232, 255), BorderStyle = BorderStyle.FixedSingle, Anchor = AnchorStyles.Top | AnchorStyles.Left }; Win.NeonBox(search);
+        search = new TextBox { Left = 14, Top = 14, Width = 310, BackColor = Color.FromArgb(8, 4, 16), ForeColor = Color.FromArgb(240, 232, 255), BorderStyle = BorderStyle.FixedSingle, Anchor = AnchorStyles.Top | AnchorStyles.Left }; Win.NeonBox(search);
         search.TextChanged += (s, e) => Fill(null); Controls.Add(search);
-        Controls.Add(new Label { Text = "Search help (for example: phone, vocals, eq)", Left = 14, Top = 40, Width = 270, Height = 18, ForeColor = Color.FromArgb(150, 130, 190), Font = new Font("Segoe UI", 8.5f) });
-        list = new ListBox { Left = 14, Top = 64, Width = 270, Height = 520, DrawMode = DrawMode.OwnerDrawFixed, ItemHeight = 28, BackColor = Color.FromArgb(8, 4, 16), ForeColor = Color.FromArgb(240, 232, 255), BorderStyle = BorderStyle.FixedSingle, Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left };
+        Controls.Add(new Label { Text = "Search help (for example: phone, vocals, eq)", Left = 14, Top = 40, Width = 310, Height = 18, ForeColor = Color.FromArgb(150, 130, 190), Font = new Font("Segoe UI", 8.5f) });
+        list = new ListBox { Left = 14, Top = 64, Width = 310, Height = 520, DrawMode = DrawMode.OwnerDrawFixed, ItemHeight = 28, BackColor = Color.FromArgb(8, 4, 16), ForeColor = Color.FromArgb(240, 232, 255), BorderStyle = BorderStyle.FixedSingle, Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left };
         list.DrawItem += DrawItem; list.SelectedIndexChanged += (s, e) => ShowTopic(); Controls.Add(list); Win.DarkControl(list);
-        view = new RichTextBox { Left = 298, Top = 14, Width = 648, Height = 570, ReadOnly = true, BackColor = Color.FromArgb(8, 4, 16), ForeColor = Color.FromArgb(240, 232, 255), BorderStyle = BorderStyle.FixedSingle, Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right, DetectUrls = false, Cursor = Cursors.Arrow }; Win.NeonBox(view);
+        view = new RichTextBox { Left = 338, Top = 14, Width = 608, Height = 570, ReadOnly = true, BackColor = Color.FromArgb(8, 4, 16), ForeColor = Color.FromArgb(240, 232, 255), BorderStyle = BorderStyle.FixedSingle, Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right, DetectUrls = false, Cursor = Cursors.Arrow }; Win.NeonBox(view);
         Controls.Add(view); Win.DarkControl(view);
-        show = new Button { Text = "Show me on screen", Left = 298, Top = 596, Width = 220, Height = 34, FlatStyle = FlatStyle.Flat, BackColor = Color.FromArgb(190, 60, 200), ForeColor = Color.White, Cursor = Cursors.Hand, Anchor = AnchorStyles.Bottom | AnchorStyles.Left, Visible = false };
+        view.MouseMove += (s2, e2) => { int k = LinkAt(e2.Location); view.Cursor = k >= 0 ? Cursors.Hand : Cursors.IBeam; };
+        view.MouseClick += (s2, e2) => { int k = LinkAt(e2.Location); if (k >= 0) { string target = linkTargets[k]; Close(); runTour("target:" + target); } };
+        show = new Button { Text = "Show me on screen", Left = 338, Top = 596, Width = 220, Height = 34, FlatStyle = FlatStyle.Flat, BackColor = Color.FromArgb(190, 60, 200), ForeColor = Color.White, Cursor = Cursors.Hand, Anchor = AnchorStyles.Bottom | AnchorStyles.Left, Visible = false };
         show.FlatAppearance.BorderColor = Color.FromArgb(220, 140, 255); show.Click += (s, e) => { var t = Current(); if (t != null) { Close(); runTour(t.Id); } }; Controls.Add(show);
         var close = new Button { Text = "Close", Left = 846, Top = 596, Width = 100, Height = 34, FlatStyle = FlatStyle.Flat, BackColor = Color.FromArgb(118, 52, 212), ForeColor = Color.White, Cursor = Cursors.Hand, Anchor = AnchorStyles.Bottom | AnchorStyles.Right };
         close.FlatAppearance.BorderColor = Color.FromArgb(190, 120, 255); close.Click += (s, e) => Close(); Controls.Add(close);
@@ -676,28 +698,63 @@ class HelpForm : Form
         if (e.Index < 0 || e.Index >= shown.Count) return; bool sel = (e.State & DrawItemState.Selected) != 0; var t = shown[e.Index];
         using (var b = new SolidBrush(sel ? Color.FromArgb(104, 48, 196) : Color.FromArgb(8, 4, 16))) e.Graphics.FillRectangle(b, e.Bounds);
         bool first = e.Index == 0 || shown[e.Index - 1].Category != t.Category;
-        TextRenderer.DrawText(e.Graphics, t.Title, Font, new Rectangle(e.Bounds.X + 10, e.Bounds.Y, e.Bounds.Width - 14, e.Bounds.Height), Color.FromArgb(240, 232, 255), TextFormatFlags.VerticalCenter | TextFormatFlags.Left | TextFormatFlags.EndEllipsis);
-        if (t.HasTour) TextRenderer.DrawText(e.Graphics, "▶", new Font("Segoe UI", 8f), new Rectangle(e.Bounds.Right - 20, e.Bounds.Y, 18, e.Bounds.Height), Color.FromArgb(236, 120, 230), TextFormatFlags.VerticalCenter);
+        TextRenderer.DrawText(e.Graphics, t.Title, Font, new Rectangle(e.Bounds.X + 12, e.Bounds.Y, e.Bounds.Width - 12 - (t.HasTour ? 46 : 16), e.Bounds.Height), Color.FromArgb(240, 232, 255), TextFormatFlags.VerticalCenter | TextFormatFlags.Left | TextFormatFlags.EndEllipsis);
+        if (t.HasTour) { var pill = new Rectangle(e.Bounds.Right - 38, e.Bounds.Y + 6, 30, e.Bounds.Height - 12); using (var br = new SolidBrush(Color.FromArgb(sel ? 120 : 70, 236, 92, 226))) e.Graphics.FillRectangle(br, pill); using (var pen = new Pen(Color.FromArgb(200, 236, 120, 230))) e.Graphics.DrawRectangle(pen, pill); TextRenderer.DrawText(e.Graphics, "▶", new Font("Segoe UI", 7.5f), pill, Color.FromArgb(255, 200, 250), TextFormatFlags.VerticalCenter | TextFormatFlags.HorizontalCenter); }
         if (first) using (var pen = new Pen(Color.FromArgb(120, 190, 120, 255))) e.Graphics.DrawLine(pen, e.Bounds.X, e.Bounds.Y, e.Bounds.Right, e.Bounds.Y);
     }
 
+    // the buttons the guides talk about: the words in the text, and the button they point at (SHOW ME finds it on screen, whatever page it is on)
+    static readonly string[][] UiLabels = {
+        new[] { "SPLIT VOCALS + BEAT", "SPLIT VOCALS + BEAT" }, new[] { "ADD MUSIC", "ADD MUSIC" }, new[] { "Add music", "ADD MUSIC" }, new[] { "AUTO MASTERING", "AUTO MASTERING" }, new[] { "AUTO LOUDNESS", "AUTO LOUDNESS" }, new[] { "PREVIEW MASTER", "PREVIEW MASTER" }, new[] { "AUTO MIX", "AUTO MIX" }, new[] { "UNDO MIX", "Undo mix" }, new[] { "Undo mix", "Undo mix" }, new[] { "Undo Auto Mix", "Undo mix" },
+        new[] { "Detect Track key", "Detect Track key" }, new[] { "Detect key", "Detect Track key" }, new[] { "THIN TRACKS", "THIN TRACKS" }, new[] { "VOCAL STYLES", "VOCAL STYLES" }, new[] { "Vocal Styles", "VOCAL STYLES" }, new[] { "ADD EFFECT", "+ Add Effect" }, new[] { "Add Effect", "+ Add Effect" }, new[] { "Add effect", "+ Add Effect" },
+        new[] { "RECYCLING BIN", "RECYCLING BIN" }, new[] { "ADD SECTIONS", "ADD SECTIONS" }, new[] { "COUNT IN", "COUNT IN" }, new[] { "METRONOME", "METRONOME" }, new[] { "GRID SIZE", "GRID SIZE" }, new[] { "DETECT BPM", "DETECT BPM" }, new[] { "MIDI REC", "MIDI REC" }, new[] { "EXPORT", "EXPORT" }, new[] { "SAVE AS", "Save as" }, new[] { "FULLSCREEN", "FULLSCREEN" },
+        new[] { "PLAY", "PLAY" }, new[] { "STOP", "STOP" }, new[] { "LOOP", "LOOP" }, new[] { "MIC", "MIC" }, new[] { "SOUNDS", "SOUNDS" }, new[] { "LYRICS", "LYRICS" }, new[] { "MASTERING", "MASTERING" }, new[] { "FLEX", "FLEX" }, new[] { "SPLIT", "SPLIT" }, new[] { "CUT", "CUT" }, new[] { "GAIN", "GAIN" }, new[] { "LOCK", "LOCK" }, new[] { "DUP", "DUP" }, new[] { "FIT", "FIT" }, new[] { "STEREO", "STEREO" }, new[] { "MONO", "MONO" }, new[] { "UNDO", "UNDO" }, new[] { "REDO", "REDO" },
+    };
+    // the first button named in a line of the guide (null if none); a single capital word has to be written in capitals so ordinary words do not count
+    internal static string FindLabel(string line)
+    {
+        string best = null; int bestAt = int.MaxValue;
+        foreach (var p in UiLabels)
+        {
+            bool multi = p[0].Contains(" ") || p[0].Contains("+"); int at = multi ? line.IndexOf(p[0], StringComparison.OrdinalIgnoreCase) : line.IndexOf(p[0], StringComparison.Ordinal); if (at < 0) continue;
+            if (!multi) { bool lb = at == 0 || !char.IsLetterOrDigit(line[at - 1]), rb = at + p[0].Length >= line.Length || !char.IsLetterOrDigit(line[at + p[0].Length]); if (!lb || !rb) continue; }
+            if (at < bestAt) { bestAt = at; best = p[1]; }
+        }
+        return best;
+    }
+    readonly List<int[]> links = new List<int[]>(); readonly List<string> linkTargets = new List<string>();
     void ShowTopic()
     {
-        var t = Current(); if (t == null) return; view.Clear();
+        var t = Current(); if (t == null) return; view.Clear(); links.Clear(); linkTargets.Clear();
         Add(t.Category.ToUpperInvariant(), 9, true, Color.FromArgb(236, 120, 230)); Add(t.Title, 20, true, Color.FromArgb(225, 190, 255)); Add("", 6, false, Color.White);
-        int n = 0;
         foreach (var raw in t.Body.Replace("\r\n", "\n").Split('\n'))
         {
-            string l = raw.TrimEnd(); if (l.Trim().Length == 0) continue;
-            if (l.StartsWith("## ")) { n = 0; Add("", 4, false, Color.White); Add(l.Substring(3), 13, true, Color.FromArgb(190, 140, 255)); }
-            else if (l.Length > 2 && char.IsDigit(l[0]) && l[1] == '.') { n++; Add("  " + l, 11, false, Color.FromArgb(240, 232, 255)); }
-            else if (l.StartsWith("- ")) Add("  • " + l.Substring(2), 11, false, Color.FromArgb(240, 232, 255));
-            else if (l.StartsWith("TIP:")) Add("  Tip: " + l.Substring(4).Trim(), 11, false, Color.FromArgb(120, 230, 160));
-            else if (l.StartsWith("WARN:")) Add("  Careful: " + l.Substring(5).Trim(), 11, false, Color.FromArgb(255, 190, 90));
-            else Add(l, 11, false, Color.FromArgb(215, 205, 235));
+            string l = raw.TrimEnd(); if (l.Trim().Length == 0) continue; string label = null;
+            if (l.StartsWith("## ")) { Add("", 6, false, Color.White); Indent(0, 0); Add(l.Substring(3), 13, true, Color.FromArgb(190, 140, 255)); Add("", 3, false, Color.White); continue; }
+            Color col = Color.FromArgb(240, 232, 255); string text = l;
+            if (l.Length > 2 && char.IsDigit(l[0]) && l[1] == '.') { Indent(8, 26); label = FindLabel(l); AddStep(l.Substring(0, 2), l.Substring(2).TrimStart(), col, label); Add("", 4, false, Color.White); continue; }
+            else if (l.StartsWith("- ")) { Indent(8, 18); label = FindLabel(l); AddStep("•", l.Substring(2), col, label); Add("", 3, false, Color.White); continue; }
+            else if (l.StartsWith("TIP:")) { Indent(8, 0); text = "Tip: " + l.Substring(4).Trim(); col = Color.FromArgb(120, 230, 160); }
+            else if (l.StartsWith("WARN:")) { Indent(8, 0); text = "Careful: " + l.Substring(5).Trim(); col = Color.FromArgb(255, 190, 90); }
+            else { Indent(0, 0); col = Color.FromArgb(215, 205, 235); label = FindLabel(l); }
+            AddStep("", text, col, label); Add("", 3, false, Color.White);
         }
-        view.SelectionStart = 0; view.ScrollToCaret(); show.Visible = t.HasTour && canTour(t.Id);
+        Indent(0, 0); view.SelectionStart = 0; view.ScrollToCaret(); show.Visible = t.HasTour && canTour(t.Id);
     }
+    void Indent(int first, int hang) { view.SelectionIndent = first; view.SelectionHangingIndent = hang; view.SelectionRightIndent = 10; }
+    // one step: a pink number or bullet, the words, and (if the words name a button) a SHOW ME on its own at the end, never on top of the writing
+    void AddStep(string num, string body, Color col, string label)
+    {
+        view.SelectionStart = view.TextLength; view.SelectionLength = 0;
+        if (num.Length > 0) { view.SelectionFont = new Font("Segoe UI", 11f, FontStyle.Bold); view.SelectionColor = Color.FromArgb(236, 120, 230); view.AppendText(num + "  "); }
+        view.SelectionStart = view.TextLength; view.SelectionFont = new Font("Segoe UI", 11f, FontStyle.Regular); view.SelectionColor = col; view.AppendText(body);
+        if (label != null)
+        {
+            view.SelectionStart = view.TextLength; view.SelectionFont = new Font("Segoe UI", 9f, FontStyle.Bold); view.SelectionColor = Color.FromArgb(120, 230, 255); int at = view.TextLength; string tag = "    [ SHOW ME ]"; view.AppendText(tag); links.Add(new[] { at + 4, tag.Length - 4 }); linkTargets.Add(label);
+        }
+        view.SelectionStart = view.TextLength; view.SelectionFont = new Font("Segoe UI", 11f, FontStyle.Regular); view.SelectionColor = Color.White; view.AppendText("\n");
+    }
+    int LinkAt(Point p) { int i = view.GetCharIndexFromPosition(p); for (int k = 0; k < links.Count; k++) if (i >= links[k][0] && i < links[k][0] + links[k][1]) return k; return -1; }
 
     void Add(string text, float size, bool bold, Color c)
     {
@@ -711,8 +768,8 @@ class TourStep { public Func<Rectangle> Target; public string Title, Text; publi
 // Dims the owner window with a glowing hole around the control being explained (you can click through the hole), plus a Next / Back card.
 class Tour
 {
-    readonly Form owner; readonly List<TourStep> steps; int idx; Form shade, card; System.Windows.Forms.Timer tm = new System.Windows.Forms.Timer { Interval = 33 }; float t; Label title, text, count; Button back, next;
-    Rectangle holeScreen;
+    readonly Form owner; readonly List<TourStep> steps; int idx; Form shade, card; System.Windows.Forms.Timer tm = new System.Windows.Forms.Timer { Interval = 33 }; float t; Label title, text, count; Button back, next, skip;
+    Rectangle holeScreen; bool holeOn = true;
 
     public static void Run(Form owner, List<TourStep> steps) { if (steps.Count == 0) return; new Tour(owner, steps).Start(); }
     Tour(Form owner, List<TourStep> steps) { this.owner = owner; this.steps = steps; }
@@ -727,18 +784,18 @@ class Tour
         {
             var g = e.Graphics; g.SmoothingMode = SmoothingMode.AntiAlias; var h = new Rectangle(holeScreen.X - shade.Left, holeScreen.Y - shade.Top, holeScreen.Width, holeScreen.Height);
             float pulse = (float)(Math.Sin(t * 4) * 0.5 + 0.5);
-            using (var p = Round(Rectangle.Inflate(h, 6, 6), 12))
+            if (holeOn) using (var p = Round(Rectangle.Inflate(h, 6, 6), 12))
             {
                 using (var pen = new Pen(Color.FromArgb((int)(60 + 90 * pulse), 236, 92, 226), 14f)) g.DrawPath(pen, p);
                 using (var pen = new Pen(Color.FromArgb(255, 245, 190, 255), 2.5f)) g.DrawPath(pen, p);
             }
         };
-        card = new Form { FormBorderStyle = FormBorderStyle.None, ShowInTaskbar = false, StartPosition = FormStartPosition.Manual, BackColor = Color.FromArgb(18, 8, 38), Size = new Size(380, 190), Owner = owner, KeyPreview = true };
+        card = new Form { FormBorderStyle = FormBorderStyle.None, ShowInTaskbar = false, StartPosition = FormStartPosition.Manual, BackColor = Color.FromArgb(18, 8, 38), Size = new Size(430, 214), Owner = owner, KeyPreview = true };
         card.Paint += (s, e) => { using (var pen = new Pen(Color.FromArgb(220, 190, 110, 255), 2)) e.Graphics.DrawRectangle(pen, 1, 1, card.Width - 3, card.Height - 3); };
-        title = new Label { Left = 16, Top = 12, Width = 348, Height = 28, Font = new Font("Segoe UI Semibold", 13f), ForeColor = Color.FromArgb(236, 150, 235), BackColor = card.BackColor };
-        text = new Label { Left = 16, Top = 44, Width = 348, Height = 80, Font = new Font("Segoe UI", 10f), ForeColor = Color.FromArgb(240, 232, 255), BackColor = card.BackColor };
-        count = new Label { Left = 16, Top = 160, Width = 80, Height = 20, ForeColor = Color.FromArgb(160, 140, 200), BackColor = card.BackColor };
-        back = Mk("Back", 130, 148, 70, () => Go(-1)); next = Mk("Next", 206, 148, 90, () => Go(1)); var skip = Mk("Close", 302, 148, 62, () => End());
+        title = new Label { Left = 20, Top = 14, Width = 390, Height = 28, Font = new Font("Segoe UI Semibold", 13f), ForeColor = Color.FromArgb(236, 150, 235), BackColor = card.BackColor };
+        text = new Label { Left = 20, Top = 48, Width = 390, Height = 90, Font = new Font("Segoe UI", 10f), ForeColor = Color.FromArgb(240, 232, 255), BackColor = card.BackColor };
+        count = new Label { Left = 20, Top = 160, Width = 90, Height = 22, ForeColor = Color.FromArgb(160, 140, 200), BackColor = card.BackColor };
+        back = Mk("Back", 118, 154, 88, () => Go(-1)); next = Mk("Next", 214, 154, 96, () => Go(1)); skip = Mk("Close", 318, 154, 92, () => End());
         card.Controls.AddRange(new Control[] { title, text, count });
         card.KeyDown += (s, e) => { if (e.KeyCode == Keys.Escape) End(); else if (e.KeyCode == Keys.Right || e.KeyCode == Keys.Enter) Go(1); else if (e.KeyCode == Keys.Left) Go(-1); };
         owner.LocationChanged += Follow; owner.SizeChanged += Follow; owner.FormClosed += (s, e) => End();
@@ -748,7 +805,7 @@ class Tour
 
     Button Mk(string txt, int x, int y, int w, Action a)
     {
-        var b = new Button { Text = txt, Left = x, Top = y, Width = w, Height = 32, FlatStyle = FlatStyle.Flat, BackColor = Color.FromArgb(118, 52, 212), ForeColor = Color.White, Cursor = Cursors.Hand };
+        var b = new Button { Text = txt, Left = x, Top = y, Width = w, Height = 36, FlatStyle = FlatStyle.Flat, BackColor = Color.FromArgb(118, 52, 212), ForeColor = Color.White, Cursor = Cursors.Hand };
         b.FlatAppearance.BorderColor = Color.FromArgb(190, 120, 255); b.Click += (s, e) => a(); card.Controls.Add(b); return b;
     }
 
@@ -761,9 +818,9 @@ class Tour
     {
         if (shade == null || shade.IsDisposed) return; var s = steps[idx];
         var cr = owner.RectangleToScreen(owner.ClientRectangle); shade.Bounds = cr;
-        var tr = s.Target(); holeScreen = owner.RectangleToScreen(tr);
-        var full = new Region(new Rectangle(0, 0, cr.Width, cr.Height)); using (var p = Round(new Rectangle(holeScreen.X - cr.X - 2, holeScreen.Y - cr.Y - 2, holeScreen.Width + 4, holeScreen.Height + 4), 10)) full.Exclude(p); shade.Region = full;
-        title.Text = s.Title; text.Text = s.Text; count.Text = (idx + 1) + " of " + steps.Count; back.Enabled = idx > 0; next.Text = idx == steps.Count - 1 ? "Done" : "Next";
+        var tr = s.Target(); bool noHole = tr.IsEmpty; if (noHole) tr = new Rectangle(cr.Width / 2 - 2, cr.Height / 3, 4, 4); holeScreen = owner.RectangleToScreen(tr);
+        var full = new Region(new Rectangle(0, 0, cr.Width, cr.Height)); if (!noHole) using (var p = Round(new Rectangle(holeScreen.X - cr.X - 2, holeScreen.Y - cr.Y - 2, holeScreen.Width + 4, holeScreen.Height + 4), 10)) full.Exclude(p); shade.Region = full; holeOn = !noHole;
+        title.Text = s.Title; text.Text = s.Text; bool one = steps.Count == 1; count.Text = one ? "" : (idx + 1) + " of " + steps.Count; back.Visible = !one; next.Visible = !one; back.Enabled = idx > 0; next.Text = idx == steps.Count - 1 ? "Done" : "Next"; skip.Text = one ? "Got it" : "Close"; if (one) { skip.Left = 318; }
         // put the card below the highlighted control if it fits, otherwise above
         var scr = Screen.FromRectangle(cr).WorkingArea; int cx = Math.Max(scr.Left + 8, Math.Min(holeScreen.Left, scr.Right - card.Width - 8)), cy = holeScreen.Bottom + 16;
         if (cy + card.Height > scr.Bottom - 8) cy = holeScreen.Top - card.Height - 16; if (cy < scr.Top + 8) cy = Math.Max(scr.Top + 8, holeScreen.Bottom - card.Height - 8);

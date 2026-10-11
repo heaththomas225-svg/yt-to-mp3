@@ -85,7 +85,7 @@ partial class StudioForm
         var stop = Rc(ob.X + 6, ob.Y + 5, 26, 26); FillRR(g, Hot(stop) ? Color.FromArgb(255, 160, 40, 80) : Color.FromArgb(255, 110, 30, 60), stop, 7); using (var b = new SolidBrush(Color.White)) g.FillRectangle(b, stop.X + 8, stop.Y + 8, 10, 10); Reg(stop, () => StopPreview()); if (Hot(stop)) { bubble = "Stop the preview"; bubblePt = MousePos; }
         double dur = pe == null ? 0 : Math.Max(1, pe.EndFrame), pos = pe == null ? 0 : pe.Pos; var inner = Rc(ob.X + 40, ob.Y + 4, ob.Width - 40 - 112, ob.Height - 8); float cx = inner.X + inner.Width / 2, cy = ob.Y + ob.Height / 2;
         float px = inner.X + (float)(Math.Min(1.0, pos / Math.Max(1, dur)) * inner.Width); using (var b = new SolidBrush(Color.FromArgb(60, 0, 110, 130))) g.FillRectangle(b, inner.X, inner.Y, Math.Max(0, px - inner.X), inner.Height); using (var pen = new Pen(Color.FromArgb(230, NeonCyan), 1.6f)) g.DrawLine(pen, px, inner.Y, px, inner.Bottom);
-        float lh = ob.Height / 2 - 2, lhw = lh * 1.16f;
+        float lh = ob.Height / 2 - 2, lhw = lh * 1.16f; cx = Math.Max(inner.X + lhw + 4, Math.Min(inner.Right - lhw - 4, px));   // the logo rides along with the song position
         if (playing)
         {
             var st = g.Save(); g.SetClip(inner, CombineMode.Intersect); float maxH = ob.Height / 2 - 4; int hl = vizHist.Length;

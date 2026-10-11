@@ -31,9 +31,9 @@ partial class StudioForm
     void EnsureLyricUi()
     {
         if (lyricUi) return; lyricUi = true;
-        Func<bool, float, TextBox> mk = (multi, size) => { var t = new TextBox { Multiline = multi, Visible = false, BorderStyle = BorderStyle.FixedSingle, BackColor = Color.FromArgb(10, 5, 22), ForeColor = Ink, Font = new Font("Segoe UI", size), AcceptsReturn = multi, ScrollBars = multi ? ScrollBars.Vertical : ScrollBars.None }; Win.NeonBox(t); Controls.Add(t); Win.DarkControl(t); return t; };
+        Func<bool, float, TextBox> mk = (multi, size) => { var t = new TextBox { Multiline = multi, Visible = false, BorderStyle = BorderStyle.FixedSingle, BackColor = Color.FromArgb(10, 5, 22), ForeColor = Ink, Font = new Font("Segoe UI", size), AcceptsReturn = multi, ScrollBars = ScrollBars.None }; Win.NeonBox(t); Controls.Add(t); Win.DarkControl(t); return t; };
         lyricBox = mk(true, 15f); lyricBox.AcceptsTab = false; lyricTitle = mk(false, 13f);
-        lyricBox.TextChanged += (s, e) => { lyricStatsDirty = true; ProjectIO.Lyrics = lyricBox.Text; lyricSave.Stop(); lyricSave.Start(); };
+        lyricBox.TextChanged += (s, e) => { lyricStatsDirty = true; ProjectIO.Lyrics = lyricBox.Text; if (lyricBox.Text.Length == 0 && lyricBox.Focused && lyricTitle.Text.Length > 0) lyricTitle.Text = ""; /* clearing all the words clears the title too */ lyricSave.Stop(); lyricSave.Start(); };
         lyricTitle.TextChanged += (s, e) => { ProjectIO.LyricsTitle = lyricTitle.Text; lyricSave.Stop(); lyricSave.Start(); };
         lyricBox.KeyUp += (s, e) => Invalidate(); lyricBox.MouseUp += (s, e) => Invalidate();
         lyricSave = new System.Windows.Forms.Timer { Interval = 900 }; lyricSave.Tick += (s, e) => { lyricSave.Stop(); try { Directory.CreateDirectory(StudioEnv.DataDir); Win.WriteAtomic(Path.Combine(StudioEnv.DataDir, "lyrics-draft.txt"), ProjectIO.LyricsTitle + "\n" + ProjectIO.Lyrics, Encoding.UTF8); } catch { } };
@@ -51,7 +51,7 @@ partial class StudioForm
         var sz = ClientSize; if (sz == lyricLayout) return; lyricLayout = sz;
         float top = ToolH + TransH, w = Math.Min(1100, sz.Width - 64), x = (sz.Width - w) / 2;
         lyricTitle.SetBounds((int)x + 140, (int)top + 12, (int)w - 140, 28);
-        lyricBox.SetBounds((int)x, (int)top + 90, (int)w, (int)(sz.Height - top - 90 - 64));
+        lyricBox.SetBounds((int)x, (int)top + 90, (int)w - 56, (int)(sz.Height - top - 90 - 64));
     }
 
     int CaretLineIndex() { return lyricBox.GetLineFromCharIndex(lyricBox.SelectionStart); }
@@ -62,6 +62,13 @@ partial class StudioForm
         lyricBox.Text = lyricBox.Text.Substring(0, at) + text + lyricBox.Text.Substring(lyricBox.SelectionStart + lyricBox.SelectionLength); lyricBox.SelectionStart = at + text.Length; lyricBox.Focus();
     }
 
+    [System.Runtime.InteropServices.DllImport("user32.dll")] static extern int SendMessage(IntPtr h, int msg, int w, int l);
+    // the lyrics box scrolls with the same logo bar as everything else (the box itself shows no Windows scroll bar)
+    void PaintLyricBar(Graphics g)
+    {
+        var b = lyricBox; if (b == null || !b.Visible || !b.IsHandleCreated) return; int total = SendMessage(b.Handle, 0xBA, 0, 0); if (total < 1) return; int lineH = Math.Max(12, b.Font.Height); float viewH = b.Height - 4, content = total * lineH + 4; if (content <= viewH + 1) return;
+        VScroll(g, Rc(b.Right + 8, b.Top, 42, b.Height), content, viewH, () => SendMessage(b.Handle, 0xCE, 0, 0) * lineH, v => { int cur = SendMessage(b.Handle, 0xCE, 0, 0), want = (int)Math.Round(v / lineH); if (want != cur) SendMessage(b.Handle, 0xB6, 0, want - cur); });
+    }
     void PaintLyrics(Graphics g)
     {
         SyncLyricUi(!(menuOpen || browserOpen || busy));   // real text boxes sit above everything drawn by hand, so they step aside while a menu or popup is open
@@ -74,10 +81,10 @@ partial class StudioForm
         string cur = lyricBox != null ? CaretLine() : ""; int ci = lyricBox != null ? CaretLineIndex() + 1 : 0;
         float stw = Math.Max(120f, x + w - 4 * 84 - 6 - x); Txt(g, statLines + " lines   " + statWords + " words   " + statSyl + " syllables      Line " + ci + ": " + LyricsTools.LineSyllables(cur) + " syllables", 12, DimC, Rc(x, H - 52, stw, 20), StringAlignment.Near, false);
         Txt(g, "Saved with your project, and as a draft on this PC.", 11, DimC, Rc(x, H - 32, stw, 18), StringAlignment.Near, false);
-        float bx = x + w - 4 * 84 + 6; Btn(g, Rc(bx - 84, H - 54, 78, 30), "Open .txt", 0, () => OpenLyricsFile(), 12);
+        PaintLyricBar(g); float bx = x + w - 4 * 84 + 6; Btn(g, Rc(bx - 84, H - 54, 78, 30), "Open .txt", 0, () => OpenLyricsFile(), 12);
         Btn(g, Rc(bx, H - 54, 78, 30), "Copy", 0, () => { try { Clipboard.SetText(lyricBox.Text); Toast("Lyrics copied."); } catch { } }, 12);
         Btn(g, Rc(bx + 84, H - 54, 78, 30), "Save .txt", 0, () => { using (var d = new SaveFileDialog { Filter = "Text|*.txt", FileName = (lyricTitle.Text.Length > 0 ? lyricTitle.Text : "lyrics") + ".txt" }) if (d.ShowDialog(this) == DialogResult.OK) { File.WriteAllText(d.FileName, lyricBox.Text, Encoding.UTF8); Toast("Saved " + Path.GetFileName(d.FileName)); } }, 12);
-        Btn(g, Rc(bx + 168, H - 54, 78, 30), "Clear", 3, () => { if (lyricBox.Text.Length == 0 || MessageBox.Show(this, "Clear all the lyrics?", "Lyrics", MessageBoxButtons.YesNo) == DialogResult.Yes) lyricBox.Text = ""; }, 12);
+        Btn(g, Rc(bx + 168, H - 54, 78, 30), "Clear", 3, () => { if (lyricBox.Text.Length == 0 || MessageBox.Show(this, "Clear all the lyrics?", "Lyrics", MessageBoxButtons.YesNo) == DialogResult.Yes) { lyricBox.Text = ""; lyricTitle.Text = ""; } }, 12);
     }
 
     // OPEN .TXT: load lyrics you wrote somewhere else (a notes app, a text file) into the writer
@@ -97,7 +104,7 @@ partial class StudioForm
             }
             int nAdded; string secNote; text = LyricSections.Add(text, out nAdded, out secNote).Replace("\n", nl);   // a text file without parts gets [Verse 1], [Chorus]... put in
             lyricBox.Text = add ? lyricBox.Text.TrimEnd() + nl + nl + text : text; if (nAdded > 0) sectionNote = secNote;
-            if (lyricTitle.Text.Trim().Length == 0) lyricTitle.Text = Path.GetFileNameWithoutExtension(d.FileName);
+            if (!add || lyricTitle.Text.Trim().Length == 0) lyricTitle.Text = Path.GetFileNameWithoutExtension(d.FileName);   // the file name becomes the title at the top
             Toast("Opened " + Path.GetFileName(d.FileName) + (add ? " (added to the end). " : ". ") + (sectionNote.Length > 0 ? sectionNote : "")); sectionNote = "";
         }
     }

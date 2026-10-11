@@ -36,6 +36,12 @@ static class G
         Pump(200); Paint(); var ana = Fld<FlexAnalysis>("flexAna"); Check("the three notes are found", ana != null && ana.Notes.Count == 3, ana == null ? "none" : ana.Notes.Count + " notes");
         var bmp = new Bitmap(sf.ClientSize.Width, sf.ClientSize.Height); sf.DrawToBitmap(bmp, new Rectangle(0, 0, sf.Width, sf.Height)); bmp.Save("_flex_ui.png", System.Drawing.Imaging.ImageFormat.Png);
         var regs = NoteRegs(); Check("each note is a block you can grab", regs.Count >= 3, regs.Count + " blocks on screen");
+        { double sppKeep = Fld<double>("spp"); long scKeep = Fld<long>("scroll"); bool afKeep = Fld<bool>("autoFit"); typeof(StudioForm).GetMethod("ZoomBy", BF).Invoke(sf, new object[] { 0.4 }); SetF("autoFit", false); Paint(); Paint(); long sc0 = Fld<long>("scroll"); var lgs = Regs().FindAll(r => r.OnDrag != null && r.OnDouble != null && r.R.Width > 28 && r.R.Width < 40 && r.R.Height > 24 && r.R.Height < 34 && r.R.Y > 150);
+          Check("the Flex Pitch strip has a logo handle", lgs.Count >= 1, lgs.Count + " found");
+          if (lgs.Count > 0) { var lg0 = lgs[lgs.Count - 1]; float lx0 = lg0.R.X; int lx = (int)(lg0.R.X + lg0.R.Width / 2), ly = (int)(lg0.R.Y + lg0.R.Height / 2); Ev("OnMouseMove", MouseButtons.None, 0, lx, ly); Ev("OnMouseDown", MouseButtons.Left, 1, lx, ly); for (int q = 1; q <= 8; q++) { Ev("OnMouseMove", MouseButtons.Left, 0, lx + q * 15, ly); Paint(); } Ev("OnMouseUp", MouseButtons.Left, 1, lx + 120, ly); Paint(); Paint();
+            var lg1 = Regs().FindAll(r => r.OnDrag != null && r.OnDouble != null && r.R.Width > 28 && r.R.Width < 40 && r.R.Height > 24 && r.R.Height < 34 && r.R.Y > 150); float lx1 = lg1.Count > 0 ? lg1[lg1.Count - 1].R.X : lx0;
+            Check("dragging the logo in Flex Pitch scrolls the view", Fld<long>("scroll") > sc0, sc0 + " -> " + Fld<long>("scroll")); Check("and the logo moves along the strip with the view", lx1 > lx0 + 10, lx0.ToString("0") + " -> " + lx1.ToString("0")); }
+          SetF("spp", sppKeep); SetF("scroll", scKeep); SetF("autoFit", afKeep); Paint(); }
         if (regs.Count < 3) { Console.WriteLine("=== " + (fails + 1) + " FAILED ==="); Environment.Exit(1); }
         regs.Sort((a, b) => a.R.X.CompareTo(b.R.X)); var first = regs[0]; int cx = (int)(first.R.X + first.R.Width / 2), cy = (int)(first.R.Y + first.R.Height / 2);
         // click selects

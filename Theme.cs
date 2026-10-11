@@ -355,7 +355,8 @@ class FrameLoop : IDisposable
                 try { owner.BeginInvoke(new Action(() => { try { tick(); } catch { } finally { pending = false; } })); } catch { pending = false; }
             }
             double wait = next - sw.Elapsed.TotalMilliseconds;
-            if (wait > 1) System.Threading.Thread.Sleep((int)wait); else if (wait < -100) next = sw.Elapsed.TotalMilliseconds;
+            if (wait > 2) System.Threading.Thread.Sleep((int)(wait - 1)); else if (wait < -100) next = sw.Elapsed.TotalMilliseconds;
+            if (TargetFps >= 120) { while (next - sw.Elapsed.TotalMilliseconds > 0.05) System.Threading.Thread.SpinWait(60); }   // fast screens: the last part of the wait is exact, so frames arrive evenly
         }
     }
 

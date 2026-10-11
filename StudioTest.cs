@@ -485,10 +485,11 @@ static class T
             var play = typeof(StudioEngine).GetMethod("Play"); try { play.Invoke(eng, null); } catch { }
             var l = new float[n]; var r = new float[n]; eng.RenderRealtime(l, r, n); long pos1 = eng.Pos; double e1 = 0; for (int i = 0; i < n; i++) e1 += Math.Abs(l[i]);
             Check("count in: the first half second is clicks only and the song has not moved", e1 > 0 && pos1 == 0, "pos " + pos1 + ", energy " + e1.ToString("0"));
-            Check("count in: the on-screen number follows the beat (a quarter of a bar in, it shows 2)", eng.CountBeat == 2, "beat " + eng.CountBeat);
+            Check("count in: the on-screen number follows the clicks (the first second shows 1)", eng.CountBeat == 1, "beat " + eng.CountBeat);
+            for (int k = 0; k < 2; k++) eng.RenderRealtime(l, r, n); Check("count in: one and a half seconds in it shows 2", eng.CountBeat == 2, "beat " + eng.CountBeat);
             for (int k = 0; k < 3; k++) eng.RenderRealtime(l, r, n); long pos2 = eng.Pos;
-            Check("count in: the number reaches 4 on the last beat", eng.CountBeat == 4 || eng.CountBeat == 0, "beat " + eng.CountBeat);
-            eng.RenderRealtime(l, r, n); Check("count in: after one bar (2 s at 120 BPM) the song starts moving", pos2 == 0 && eng.Pos > 0, "pos " + pos2 + " -> " + eng.Pos);
+            Check("count in: the number reaches 4 on the last click", eng.CountBeat == 4, "beat " + eng.CountBeat);
+            for (int k = 0; k < 2; k++) eng.RenderRealtime(l, r, n); eng.RenderRealtime(l, r, n); Check("count in: after four seconds (one click a second at 120 BPM or any other tempo) the song starts moving", pos2 == 0 && eng.Pos > 0, "pos " + pos2 + " -> " + eng.Pos);
             eng.Stop();
         }
 
@@ -498,9 +499,9 @@ static class T
             {
                 var eng = new StudioEngine(); Fx.ProjectBpm = bpm; eng.Tracks.Add(StudioEngine.NewTrack("Z", "audio", AudioClip.FromArrays(new float[SR * 8], new float[SR * 8], "silent"))); eng.MasterBypass = true; eng.CountIn = true;
                 try { typeof(StudioEngine).GetMethod("Play").Invoke(eng, null); } catch { }
-                var l = new float[blk]; var r = new float[blk]; int clicks = 0, quiet = 100000; long total = 0, limit = (long)(SR * 60.0 / bpm * 4) + SR / 2;
-                while (total < limit) { eng.RenderRealtime(l, r, blk); for (int i = 0; i < blk; i++) { if (Math.Abs(l[i]) > 0.02f) { if (quiet > 6000) clicks++; quiet = 0; } else quiet++; } total += blk; }
-                Check("count in: exactly four clicks at " + bpm + " BPM with blocks of " + blk, clicks == 4, clicks + " clicks"); eng.Stop();
+                var l = new float[blk]; var r = new float[blk]; int clicks = 0, quiet = 100000; long total = 0, limit = SR * 4L + SR / 2; var starts = new System.Collections.Generic.List<long>();
+                while (total < limit) { eng.RenderRealtime(l, r, blk); for (int i = 0; i < blk; i++) { if (Math.Abs(l[i]) > 0.02f) { if (quiet > 6000) { clicks++; starts.Add(total + i); } quiet = 0; } else quiet++; } total += blk; }
+                Check("count in: exactly four clicks at " + bpm + " BPM with blocks of " + blk, clicks == 4, clicks + " clicks"); bool even = starts.Count == 4; for (int q = 1; q < starts.Count; q++) if (Math.Abs(starts[q] - starts[q - 1] - SR) > 200) even = false; Check("count in: one click a second whatever the tempo (" + bpm + " BPM)", even, string.Join(",", starts)); eng.Stop();
             }
 
         // ---- project cards: sizes and tags ----

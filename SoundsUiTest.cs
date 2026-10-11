@@ -20,7 +20,7 @@ static class Q
     static void Click(float x, float y) { Ev("OnMouseMove", MouseButtons.None, 0, (int)x, (int)y); Ev("OnMouseDown", MouseButtons.Left, 1, (int)x, (int)y); Ev("OnMouseUp", MouseButtons.Left, 1, (int)x, (int)y); Paint(); }
     static void Call(string m) { typeof(StudioForm).GetMethod(m, BF).Invoke(sf, null); }
     static List<SoundItem> Results() { return (List<SoundItem>)typeof(StudioForm).GetField("sndResults", BF).GetValue(sf); }
-    static List<HitReg> Rows() { return Regs().FindAll(r => Math.Abs(r.R.Width - 624) < 1f && Math.Abs(r.R.Height - 50) < 0.5f); }
+    static List<HitReg> Rows() { return Regs().FindAll(r => Math.Abs(r.R.Width - 572) < 1f && Math.Abs(r.R.Height - 50) < 0.5f); }
 
     [STAThread]
     static void Main()
