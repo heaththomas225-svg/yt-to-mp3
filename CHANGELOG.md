@@ -2,6 +2,12 @@
 
 What changed in each version of **Purphex**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.17.2  Buses, empty audio tracks, roomier tracks
+
+- Buses: + BUS adds as many as you like. Press Out on a track to send it to a bus; each bus has a fader, pan, meters and its own plugins. Saved with the project.
+- New Track sheet is simple: Voice / Audio (empty and raw, nothing records or gets effects), Virtual Instruments, MIDI Track and Bus. ARM + MIC records onto an empty audio track.
+- Wider, taller track headers.
+
 ## 3.17.1  New Track sheet
 
 - + ADD TRACK opens a New Track sheet: record voice with AutoPitch, rap vocal, speech, radio voice, guitar or bass (effects already on the track), add an instrument, browse drum beats and loops, or import a file.

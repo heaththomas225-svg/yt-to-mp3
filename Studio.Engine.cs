@@ -338,6 +338,7 @@ class Track
     public long UsedLength { get { if (Clip == null) return 0; long avail = Math.Max(0, Clip.Length - ClipStart); return ClipFrames < 0 ? avail : Math.Min(ClipFrames, avail); } }
     public AudioClip Clip; public long Offset;
     public float VolDb, Pan; public bool Mute, Solo; public int Color;
+    public bool IsBus, Armed; public Track Out;   // a bus has no audio of its own: it mixes the tracks sent to it (Out), runs its own plugins, then goes to the master. Armed = an empty audio track waiting for a recording
     public List<Fx> Fx = new List<Fx>();
     public volatile float PeakL, PeakR, RmsL, RmsR; public volatile bool Clipped;
     public float[] TapPre = new float[8192], TapPost = new float[8192]; public volatile int TapPos;
@@ -411,6 +412,8 @@ class StudioEngine
         gl = pan <= 0 ? 1f : (float)Math.Cos(pan * Math.PI / 2); gr = pan >= 0 ? 1f : (float)Math.Cos(-pan * Math.PI / 2); return 0;
     }
 
+    static int EffLat(Track t) { return t.IsBus ? 0 : t.Latency() + (t.Out != null && t.Out.IsBus ? t.Out.Latency() : 0); }   // a track sent to a bus is as late as its own plugins plus the bus plugins
+
     public Track VocalTrack() { foreach (var t in Tracks) if (t.Role == "vocal") return t; return null; }
 
     void Mix(long pos, int n, RenderOpts o, float[] outL, float[] outR, bool meters, int pad)
@@ -419,7 +422,7 @@ class StudioEngine
         Array.Clear(mixL, 0, n); Array.Clear(mixR, 0, n);
         var list = o.Only ?? Tracks;
         bool soloActive = false; if (o.MuteSolo) foreach (var t in list) if (t.Solo) soloActive = true;
-        int maxLat = 0; foreach (var t in list) maxLat = Math.Max(maxLat, o.Dry ? 0 : t.Latency());
+        int maxLat = 0; foreach (var t in list) maxLat = Math.Max(maxLat, o.Dry ? 0 : EffLat(t));
         var voc = VocalTrack();
 
         // vocal dry signal -> sidechain ring (time aligned on the timeline)
@@ -435,15 +438,18 @@ class StudioEngine
             }
         }
 
+        for (int bi = 0; bi < list.Count; bi++) { var bt = list[bi]; if (bt.IsBus) { if (n > bt.tl.Length) { bt.tl = new float[n]; bt.tr = new float[n]; } Array.Clear(bt.tl, 0, n); Array.Clear(bt.tr, 0, n); } }
+        for (int pass = 0; pass < 2; pass++)   // pass 0: the tracks (some feed a bus), pass 1: the buses
         foreach (var t in list)
         {
-            if (t.Clip == null && !t.Instrument) continue;
+            if (t.IsBus != (pass == 1)) continue;
+            if (t.Clip == null && !t.Instrument && !t.IsBus) continue;
             if (n > t.tl.Length) { t.tl = new float[n]; t.tr = new float[n]; }
-            bool audible = !o.MuteSolo || (!t.Mute && (!soloActive || t.Solo));
+            bool audible = t.IsBus ? (!o.MuteSolo || !t.Mute) : (!o.MuteSolo || (!t.Mute && (!soloActive || t.Solo)));
             bool idle = !audible && !o.Dry;   // muted / not soloed: skip the plugin chain (the output is discarded anyway)
             var tclip = o.NoClips ? null : t.Clip; long toff = t.Offset, tcs = t.ClipStart, tcf = t.ClipFrames; float[] cl = tclip == null ? null : tclip.L, cr = tclip == null ? null : (tclip.R ?? tclip.L);
             long tavail = cl == null ? 0 : Math.Max(0, cl.Length - tcs), ulen = tcf < 0 ? tavail : Math.Min(tcf, tavail);
-            for (int i = 0; i < n; i++)
+            if (!t.IsBus) for (int i = 0; i < n; i++)
             {
                 long idx = pos + i - toff, k = idx + tcs;
                 if (cl != null && idx >= 0 && idx < ulen && k < cl.Length && k < cr.Length) { t.tl[i] = cl[k]; t.tr[i] = cr[k]; } else { t.tl[i] = 0; t.tr[i] = 0; }
@@ -467,8 +473,8 @@ class StudioEngine
                     latSoFar += fx.Latency;
                 }
             // plugin delay compensation
-            int d = o.Dry ? 0 : maxLat - t.Latency(); int mask = t.dlyL.Length - 1;
-            if (maxLat > 0 && !idle)
+            int d = o.Dry ? 0 : maxLat - EffLat(t); int mask = t.dlyL.Length - 1;
+            if (maxLat > 0 && !idle && !t.IsBus)
                 for (int i = 0; i < n; i++)
                 {
                     long w = t.dlyW + i; t.dlyL[w & mask] = t.tl[i]; t.dlyR[w & mask] = t.tr[i];
@@ -477,6 +483,7 @@ class StudioEngine
             t.dlyW += n;
             if (meters) PushTap(t.TapPost, t, true, t.tl, t.tr, n);
 
+            Track dest = !t.IsBus && t.Out != null && t.Out.IsBus && t.Out != t && (o.Only == null || o.Only.Contains(t.Out)) ? t.Out : null;
             float g = o.Fader ? DspMath.DbToLin(t.VolDb) : 1f, gl, gr; PanGains(o.Fader ? t.Pan : 0, out gl, out gr);
             double sl = 0, sr = 0; float pl = 0, pr = 0; bool clip = false;
             for (int i = 0; i < n; i++)
@@ -484,7 +491,7 @@ class StudioEngine
                 float yl = t.tl[i] * g * gl, yr = t.tr[i] * g * gr;
                 float a = Math.Abs(yl), b = Math.Abs(yr); if (a > pl) pl = a; if (b > pr) pr = b; sl += yl * yl; sr += yr * yr;
                 if (a > 1f || b > 1f) clip = true;
-                if (audible) { mixL[i] += yl; mixR[i] += yr; }
+                if (audible) { if (dest != null) { dest.tl[i] += yl; dest.tr[i] += yr; } else { mixL[i] += yl; mixR[i] += yr; } }
             }
             if (meters)
             {

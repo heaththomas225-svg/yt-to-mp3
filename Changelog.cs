@@ -7,10 +7,17 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.17.1";
+    public const string Latest = "3.17.2";
 
     public const string Text =
-@"3.17.1  New Track sheet
+@"3.17.2  Buses, empty audio tracks, roomier tracks
+ + BUS: press + BUS (or New Track > Bus) for as many buses as you like. On any track press Out to send it to a bus; a bus has its own fader, pan,
+   meters and + Effect plugins, like a bus in Logic. Buses are saved with the project.
+ + New Track is simple now: Voice / Audio adds an empty raw track (no recording starts, no effects), Virtual Instruments, MIDI Track (play your own
+   keyboard) and Bus. Press ARM then MIC to record onto an empty audio track.
+ + Track headers are wider and taller, so nothing is squashed.
+
+3.17.1  New Track sheet
  + + ADD TRACK now opens a New Track sheet: record a voice with AutoPitch, a rap vocal, speech, radio voice, guitar or bass
    (each with its own effects already on the track), add an instrument, browse drum beats and loops, or import a file.
  + The glitchy add-track-here strips and + dots between tracks are gone.

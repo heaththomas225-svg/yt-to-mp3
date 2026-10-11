@@ -25,7 +25,7 @@ static class S
         Application.EnableVisualStyles(); var app = (App)Activator.CreateInstance(typeof(App), true); var eng = app.StudioEng;
         eng.Tracks.Add(StudioEngine.NewTrack("A", "vocal", Clip(60))); eng.Tracks.Add(StudioEngine.NewTrack("B", "beat", Clip(60)));
         sf = new StudioForm(app); sf.ClientSize = new Size(1500, 800); sf.Show(); Pump(500); Paint();
-        Check("tracks are thinner than before (104 px instead of 128)", F<int>("LaneH") == 104, "lane height " + F<int>("LaneH"));
+        Check("tracks are tall enough that the header is not squashed (132 px)", F<int>("LaneH") == 132, "lane height " + F<int>("LaneH"));
         double spp0 = F<double>("spp"); Check("the whole song fits the view at the start (auto-fit)", F<bool>("autoFit") && spp0 > 100, "frames per pixel " + spp0.ToString("0"));
         // overview bar: the 16 px strip with a double-click handler
         var ob = Regs().FindLast(r => r.OnDouble != null && Math.Abs(r.R.Height - 16) < 0.5f && r.R.Y > 600); Check("the overview bar is on screen", ob != null, "");
@@ -84,7 +84,7 @@ static class S
           string exts = (string)typeof(StudioForm).GetField("AudioExts", BindingFlags.NonPublic | BindingFlags.Static).GetValue(null); Check("the Open dialog lists mp3, wav, flac, m4a, ogg and more", exts.Contains("*.mp3") && exts.Contains("*.wav") && exts.Contains("*.flac") && exts.Contains("*.m4a") && exts.Contains("*.ogg"), exts); try { File.Delete(ptmp); } catch { } ProjectLibrary.Remove(ptmp); }
         // the + ADD TRACK button must always be on screen, even when the tracks run off the bottom
         for (int i = 0; i < 10; i++) typeof(StudioForm).GetMethod("AddTrack", BF).Invoke(sf, new object[] { StudioEngine.NewTrack("X" + i, "audio", Clip(3)) }); Paint();
-        var addBtn = Regs().FindLast(r => Math.Abs(r.R.Width - 230) < 0.5f && Math.Abs(r.R.Height - 34) < 0.5f); Check("the + ADD TRACK button is on screen with 14 tracks (pinned to the bottom)", addBtn != null && addBtn.R.Bottom <= sf.ClientSize.Height && addBtn.R.Y > sf.ClientSize.Height / 2, addBtn == null ? "missing" : addBtn.R.ToString());
+        var addBtn = Regs().FindLast(r => Math.Abs(r.R.Width - 270) < 0.5f && Math.Abs(r.R.Height - 34) < 0.5f); Check("the + ADD TRACK button is on screen with 14 tracks (pinned to the bottom)", addBtn != null && addBtn.R.Bottom <= sf.ClientSize.Height && addBtn.R.Y > sf.ClientSize.Height / 2, addBtn == null ? "missing" : addBtn.R.ToString());
         var tbtn = Regs().FindLast(r => r.R.Y < 120 && r.R.Y > 70 && r.R.Width == 100 && r.R.Height == 36); Check("there is a + TRACK button in the toolbar", tbtn != null, "");
         // ---- main window: one MP3 choice, and converted links leave the box ----
         {
