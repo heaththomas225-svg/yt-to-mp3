@@ -21,7 +21,7 @@ static class CK
     }
     [STAThread]
     static void Main()
-    {
+    { Edition.Override = Tier.Fantasy; /* the tests run as the full edition */
         var eng = new StudioEngine(); double step = 2 * Math.PI * 440 / 44100.0 * 0.5;   // the biggest step a clean 0.5 tone makes (scaled by the real peak below)
         double ms, pk, edge;
         var t = StudioEngine.NewTrack("A", "vocal", Tone(8, 0.5, 440)); eng.Tracks.Add(t); eng.Seek(0); Run(eng, 120, 1024, out ms, out pk, out edge);

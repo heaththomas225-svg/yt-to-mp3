@@ -138,7 +138,7 @@ static class BH
         Scene("mix, preset sheet", 0, () => { var f = FxRegistry.Create("eq"); f.Prepare(44100); eng.Tracks[0].Fx.Add(f); M("OpenPresetSheet", f); });
         Scene("mix, community presets sheet", 0, () => { M("OpenCommunityPresets", "fx:bassboost", "Bass Boost", (Action<CommPreset>)(p => { }), (Func<string>)(() => "freq=50"), "My preset"); SetF("cpList", fake); SetF("cpLoading", false); SetF("cpStatus", ""); });
         Scene("mix, theme sheet", 0, () => { M("OpenThemeSheet", false); }); Scene("mix, community themes", 0, () => { M("OpenThemeSheet", true); });
-        Scene("mix, side menu", 0, () => { M("OpenMenu"); }); for (int sec = 0; sec <= 7 && !quick; sec++) { int s2 = sec; Scene("mix, side menu section " + sec, 0, () => { M("OpenMenu"); SetF("menuSec", s2); }); }
+        Scene("mix, side menu", 0, () => { M("OpenMenu"); }); for (int sec = 0; sec <= 4 && !quick; sec++) { int s2 = sec; Scene("mix, side menu section " + sec, 0, () => { M("OpenMenu"); SetF("menuSec", s2); }); }
         Scene("mastering", 1, () => { SetF("mpTab", 0); }); Scene("mastering presets", 1, () => { SetF("mpTab", 1); });
         Scene("mastering with the visualiser stage", 1, () => { sf.ClientSize = new Size(Math.Max(sf.ClientSize.Width, 1500), Math.Max(sf.ClientSize.Height, 1000)); SetF("mpTab", 0); });
         Scene("visualiser", 5, null); Scene("lyrics", 2, null); Scene("my projects", 3, () => { SetF("projectsLoaded", true); }); Scene("recycling bin", 3, () => { SetF("projectsLoaded", true); SetF("projBin", true); });

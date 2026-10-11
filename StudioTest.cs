@@ -78,7 +78,7 @@ static class T
     }
 
     static void Main()
-    {
+    { Edition.Override = Tier.Fantasy; /* the tests run as the full edition */
         // ---------- pitch correction ----------
         double A4 = 440;
         PitchTest("pitch: 450 Hz -> A4 (A major, hard)", 450, 9, 1, 0, 100, 0, A4, 2.0);
@@ -506,7 +506,7 @@ static class T
 
         // ---- project cards: sizes and tags ----
         Check("project size is shown in KB / MB / GB", ProjectLibrary.Size(512) == "512 B" && ProjectLibrary.Size(1536) == "1.5 KB" && ProjectLibrary.Size(5L * 1048576 + 262144) == "5.3 MB" && ProjectLibrary.Size(3L * 1073741824) == "3 GB", ProjectLibrary.Size(5L * 1048576 + 262144));
-        Check("genre tags are cleaned: lower case, no hash, no repeats, at most 6", ProjectLibrary.CleanTags("#DnB, bassline  dnb;Dark #x1 y2 z3 w4") == "dnb bassline dark x1 y2 z3", ProjectLibrary.CleanTags("#DnB, bassline  dnb;Dark #x1 y2 z3 w4"));
+        Check("genre tags are cleaned: lower case, no hash, no repeats, at most 10", ProjectLibrary.CleanTags("#DnB, bassline  dnb;Dark #x1 y2 z3 w4 a b c d e") == "dnb bassline dark x1 y2 z3 w4 a b c", ProjectLibrary.CleanTags("#DnB, bassline  dnb;Dark #x1 y2 z3 w4 a b c d e"));
 
         // ---- buses: tracks sent to a bus are mixed and processed there, then go to the master ----
         {

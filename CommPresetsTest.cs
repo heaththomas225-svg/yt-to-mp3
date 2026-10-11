@@ -42,7 +42,7 @@ static class CP
 
     [STAThread]
     static void Main()
-    {
+    { Edition.Override = Tier.Fantasy; /* the tests run as the full edition */
         string tmp = Path.Combine(Path.GetTempPath(), "purphex_cptest"); try { if (Directory.Exists(tmp)) Directory.Delete(tmp, true); } catch { } Directory.CreateDirectory(tmp); StudioEnv.DataDir = tmp;
         // ---- the JSON reader ----
         var o = MiniJson.Parse("{\"a\":[1,2.5,-3e2,true,false,null,\"x\\ny\\u0041\\\"\"],\"b\":{\"c\":\"d\"}}") as Dictionary<string, object>; var arr = o["a"] as List<object>;

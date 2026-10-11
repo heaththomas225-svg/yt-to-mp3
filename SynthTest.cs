@@ -24,7 +24,7 @@ static class Y
     static SynthFx New(string preset) { var f = new SynthFx(); f.Prepare(44100); SynthPresets.Apply(f, preset); return f; }
 
     static void Main()
-    {
+    { Edition.Override = Tier.Fantasy; /* the tests run as the full edition */
         Fx.ProjectBpm = 120;
         // 1. pitch
         var fx = New("Init"); fx.Set("aon", 1); fx.Set("awt", 0); var o = Render(fx, new[] { 69 }, 44100, -1);

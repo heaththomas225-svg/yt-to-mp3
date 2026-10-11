@@ -26,7 +26,7 @@ static class K
 
     [STAThread]
     static void Main()
-    {
+    { Edition.Override = Tier.Fantasy; /* the tests run as the full edition */
         string tmp = Path.Combine(Path.GetTempPath(), "purphex_clipstest"); try { if (Directory.Exists(tmp)) Directory.Delete(tmp, true); } catch { } Directory.CreateDirectory(tmp); StudioEnv.DataDir = tmp;
         Application.EnableVisualStyles(); var app = (App)Activator.CreateInstance(typeof(App), true); eng = app.StudioEng; foreach (var m in eng.MasterFx) m.Bypass = true;
         var row = StudioEngine.NewTrack("Vox", "vocal", Const(20, 0.5f)); eng.Tracks.Add(row);

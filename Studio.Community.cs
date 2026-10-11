@@ -48,24 +48,20 @@ partial class StudioForm
 
     void PaintCommunity(Graphics g)
     {
-        float W = ClientSize.Width, H = ClientSize.Height, top = ToolH; if (!projectsLoaded) { projectsLoaded = true; ProjectLibrary.Load(); ProjectLibrary.Discover(); }
+        float W = ClientSize.Width, H = ClientSize.Height, top = ToolH, Hb = H - (previewPath.Length > 0 ? 62 : 0); if (!projectsLoaded)   /* Hb: the bottom of the page when the preview bar is showing under it */ { projectsLoaded = true; ProjectLibrary.Load(); ProjectLibrary.Discover(); }
         bool rail = W >= 1000, side = W >= 760; float sw = side ? 210 : 0, rw = rail ? 290 : 0; PaintLogoBackdrop(g, Rc(sw, top, W - sw - rw, H - top));
         // ---- left menu ----
         if (side)
         {
             var sb = Rc(0, top, sw, H - top); using (var br = new SolidBrush(TM.C(255, 14, 8, 28))) g.FillRectangle(br, sb); using (var pen = new Pen(Color.FromArgb(90, NeonViolet))) g.DrawLine(pen, sw, top, sw, H);
-            string[] nm = { "Home", "Community", "My Profile", "Search Artists", "My Projects", "Theme", "Help", "Settings" };
-            Action[] ac = { () => tab = 0, () => { }, () => { tab = 6; profScroll = 0; }, () => OpenArtists(), () => GoTab(3), () => OpenThemeSheet(), () => app.ShowHelp(null), () => { OpenMenu(); menuSec = 6; } };
+            string[] nm = { "Home", "Community", "Artists", "My Projects" };
+            Action[] ac = { () => tab = 0, () => { }, () => OpenArtists(), () => GoTab(3) };
             for (int i = 0; i < nm.Length; i++)
             {
                 var r = Rc(12, top + 14 + i * 42, sw - 24, 37); bool on = i == 1; var act = ac[i];
                 if (on) { FillRR(g, TM.C(200, 92, 44, 190), r, 10); Glow(g, NeonViolet, r, 10, 0.7f, 3); } else if (Hot(r)) FillRR(g, TM.C(90, 70, 40, 130), r, 10);
                 Txt(g, nm[i], 15, on ? Ink : TM.C(255, 215, 205, 240), Rc(r.X + 16, r.Y, r.Width - 20, r.Height), StringAlignment.Near, on); Reg(r, () => act());
             }
-            var you = Rc(14, H - 118, sw - 28, 96); FillRR(g, TM.C(170, 22, 12, 44), you, 12); StrokeRR(g, Color.FromArgb(110, NeonViolet), you, 12, 1);
-            var av = Rc(you.X + 12, you.Y + 12, 46, 46); DrawAvatar(g, av);   // a picture is never a button: it is changed on the PROFILE page
-            Txt(g, ProjectLibrary.ProfileName, 14, Ink, Rc(you.X + 66, you.Y + 12, you.Width - 74, 22), StringAlignment.Near, true); Txt(g, ProjectLibrary.Entries.Count + (ProjectLibrary.Entries.Count == 1 ? " project" : " projects"), 12, DimC, Rc(you.X + 66, you.Y + 36, you.Width - 74, 20), StringAlignment.Near, false);
-            var ed = Rc(you.X + 12, you.Bottom - 32, you.Width - 24, 26); Btn(g, ed, "GO TO YOUR PROFILE", 2, () => { tab = 6; profScroll = 0; }, 11); Hint2(ed, "Your profile page: picture, banner, name, bio and your tracks");
         }
         float cx0 = sw + 18, cw = W - sw - rw - 36 - (rail ? 18 : 0), cx1 = cx0 + cw;
         // ---- header banner ----
@@ -84,14 +80,14 @@ partial class StudioForm
         // ---- the feed: round neon art cards (your saved projects) ----
         var all = ProjectLibrary.AllByEdited(); var list = new List<ProjectEntry>();
         foreach (var e in all) { if (commFilter == 1 && (DateTime.Now - e.Opened).TotalDays > 7) continue; list.Add(e); }
-        float fy = ty + 46, fh = H - fy; var area = Rc(cx0, fy, cw, fh); float cardW = 206, cardH = 340, gap = 14; int cols = Math.Max(1, (int)((cw - 56 + gap) / (cardW + gap))); float used = cols * cardW + (cols - 1) * gap, ox = cx0 + (cw - 56 - used) / 2;
+        float fy = ty + 46, fh = Hb - fy; var area = Rc(cx0, fy, cw, fh); float cardW = 206, cardH = 340, gap = 14; int cols = Math.Max(1, (int)((cw - 56 + gap) / (cardW + gap))); float used = cols * cardW + (cols - 1) * gap, ox = cx0 + (cw - 56 - used) / 2;
         int rows = (list.Count + cols - 1) / cols; float maxS = Math.Max(0, rows * (cardH + gap) - fh + 10); commScroll = Math.Max(0, Math.Min(maxS, commScroll));
         regs.Add(new HitReg { R = area, OnWheel = d => commScroll = Math.Max(0, Math.Min(maxS, commScroll - d * 70)) });
         var gs = g.Save(); g.SetClip(area, CombineMode.Intersect);
         bool overlayOk = !menuOpen && !ntOpen && !busOpen && !busy;
         for (int i = 0; i < list.Count; i++)
         {
-            var e = list[i]; float cx = ox + (i % cols) * (cardW + gap), cy = fy + (i / cols) * (cardH + gap) - commScroll; var card = Rc(cx, cy, cardW, cardH); if (card.Bottom < fy || card.Y > H) continue;
+            var e = list[i]; float cx = ox + (i % cols) * (cardW + gap), cy = fy + (i / cols) * (cardH + gap) - commScroll; var card = Rc(cx, cy, cardW, cardH); if (card.Bottom < fy || card.Y > Hb) continue;
             bool hot = overlayOk && area.Contains(MousePos) && card.Contains(MousePos); FillRR(g, TM.C(hot ? 215 : 175, 18, 10, 38), card, 16); Win.DrawNeonBox(g, card, hot);
             float S = cardW - 28; var art = Rc(card.X + 14, card.Y + 14, S, S); DrawSquareArt(g, art, e);
             string path = e.Path; bool miss = e.Missing; var open = Reg(card, () => OpenProjectAsk(e)); open.OnRight = () => ProjectCardMenu(path);
@@ -132,7 +128,7 @@ partial class StudioForm
                 string label = "# " + tg; float tw2 = 18 + label.Length * 7.5f; if (gx + tw2 > p2.Right - 10) { gx = p2.X + 14; gy += 36; } var r = Rc(gx, gy, tw2, 28); string t2 = tg;
                 FillRR(g, Hot(r) ? TM.C(150, 80, 46, 170) : TM.C(90, 50, 30, 100), r, 14); Txt(g, label, 12, Ink, r, StringAlignment.Center, false); Reg(r, () => { OpenSounds(); sndFilter.Text = t2; sndFilter.Group = ""; sndFilter.Kind = ""; sndFilter.Type = ""; if (soundBox != null) soundBox.Text = t2; sndDirty = true; sndScroll = 0; }); gx += tw2 + 8;
             }
-            ry = p2.Bottom + 14; var p3 = Rc(rx, ry, rw, Math.Max(150, H - ry - 16)); FillRR(g, TM.C(185, 18, 10, 38), p3, 14); StrokeRR(g, Color.FromArgb(100, NeonViolet), p3, 14, 1);
+            ry = p2.Bottom + 14; var p3 = Rc(rx, ry, rw, Math.Max(150, Hb - ry - 16)); FillRR(g, TM.C(185, 18, 10, 38), p3, 14); StrokeRR(g, Color.FromArgb(100, NeonViolet), p3, 14, 1);
             Txt(g, "LATEST ACTIVITY", 12, Ink, Rc(p3.X + 16, p3.Y + 12, 240, 20), StringAlignment.Near, true);
             float ay = p3.Y + 44; int shown = 0;
             foreach (var e in all) { if (ay + 44 > p3.Bottom - 6 || shown >= 5) break; var sa = Rc(p3.X + 14, ay, 30, 30); DrawAvatar(g, sa); Txt(g, "YOU SAVED " + e.Name, 12, Ink, Rc(p3.X + 54, ay - 2, rw - 70, 18), StringAlignment.Near, false); Txt(g, ProjectLibrary.Ago(e.Updated), 11, DimC, Rc(p3.X + 54, ay + 16, rw - 70, 16), StringAlignment.Near, false); ay += 44; shown++; }

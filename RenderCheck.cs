@@ -130,7 +130,7 @@ static class RenderT
                     SetF("tab", 4); SetF("projScroll", 0f); Shot(tag + "-community-page");
                     SetF("tab", 3); typeof(StudioForm).GetField("previewPath", BF).SetValue(sf, ProjectLibrary.Entries[0].Path); typeof(StudioForm).GetField("previewName", BF).SetValue(sf, "Summer drill beat"); typeof(StudioForm).GetField("previewPlayFn", BF).SetValue(sf, (Action<StudioEngine>)(x => { }));
                     Shot(tag + "-projects-preview-bar"); typeof(StudioForm).GetField("previewPath", BF).SetValue(sf, ""); typeof(StudioForm).GetField("previewPlayFn", BF).SetValue(sf, null);
-                    SetF("tab", 0); SetF("menuOpen", true); SetF("menuSec", 5); Shot(tag + "-menu-theme"); SetF("menuOpen", false);
+                    SetF("tab", 0); SetF("menuOpen", true); SetF("menuSec", 3); Shot(tag + "-menu-pages"); SetF("menuOpen", false);
                     Themes.Apply(1); Shot(tag + "-theme-ocean"); Themes.Apply(2); Shot(tag + "-theme-sunset"); Themes.Apply(0);
                     ProjectLibrary.Entries.Clear(); SetF("tab", 0);
                 }

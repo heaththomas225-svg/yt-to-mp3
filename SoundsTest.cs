@@ -12,7 +12,7 @@ static class Z
     static double BandRatio(float[] x, double f, int n) { double re = 0, im = 0; n = Math.Min(n, x.Length); for (int i = 0; i < n; i++) { double a = 2 * Math.PI * f * i / 44100.0; re += x[i] * Math.Cos(a); im += x[i] * Math.Sin(a); } return Math.Sqrt(re * re + im * im) / n; }
 
     static void Main(string[] args)
-    {
+    { Edition.Override = Tier.Fantasy; /* the tests run as the full edition */
         StudioEnv.DataDir = Path.Combine(Path.GetTempPath(), "purphex_soundtest"); try { if (Directory.Exists(StudioEnv.DataDir)) Directory.Delete(StudioEnv.DataDir, true); } catch { } string id = args.Length > 0 ? args[0] : "naughty-dnb-rollers"; var rec = SoundCatalog.Find(id); var sw = Stopwatch.StartNew(); int last = -1;
         var pack = PackBuilder.Build(rec, (s, p) => { int q = (int)(p * 10); if (q != last) { last = q; Console.WriteLine("  " + (int)(p * 100) + "% " + s); } }, null);
         Check("the pack was made", pack != null && pack.Items.Count > 60, pack == null ? "null" : pack.Items.Count + " files in " + sw.Elapsed.TotalSeconds.ToString("0.0") + " s");

@@ -48,7 +48,7 @@ static class AU
 
     [STAThread]
     static void Main(string[] args)
-    {
+    { Edition.Override = Tier.Fantasy; /* the tests run as the full edition */
         string data = StudioEnv.DataDir; string bak = Path.Combine(Path.GetTempPath(), "audit-backup-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(bak);
         foreach (var f in new[] { "settings.txt", "profile.txt", "projects.txt", "synthglobal.txt" }) { try { if (File.Exists(Path.Combine(data, f))) File.Copy(Path.Combine(data, f), Path.Combine(bak, f)); } catch { } }
         try

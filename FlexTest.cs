@@ -25,7 +25,7 @@ static class F
 
     [STAThread]
     static void Main()
-    {
+    { Edition.Override = Tier.Fantasy; /* the tests run as the full edition */
         // three notes: A3 (220), E4 (329.63), a gap, then C4 (261.63)
         Func<double, double> melody = t => t < 0.8 ? 220.0 : (t < 1.6 ? 329.63 : (t < 1.8 ? 0 : (t < 2.6 ? 261.63 : 0)));
         int n = (int)(2.8 * SR); var x = Sing(n, melody, 0.6); var xr = (float[])x.Clone();

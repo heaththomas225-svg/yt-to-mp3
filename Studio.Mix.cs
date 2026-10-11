@@ -610,7 +610,7 @@ static class Exporter
     // the sample rate of the finished file: the music is made at 44.1 kHz and converted with a high quality filter (MP3 stops at 48 kHz, which is as high as that format goes)
     public static readonly int[] Rates = { 44100, 48000, 88200, 96000, 176400, 192000, 352800, 384000 };
     public static readonly string[] RateNames = { "44.1 kHz (as made)", "48 kHz", "88.2 kHz", "96 kHz", "176.4 kHz", "192 kHz", "352.8 kHz (DXD)", "384 kHz (the highest)" };
-    public static int RateFor(int fmt, int rateIdx) { int r = Rates[Math.Max(0, Math.Min(Rates.Length - 1, rateIdx))]; return fmt == 4 ? Math.Min(r, 48000) : r; }
+    public static int RateFor(int fmt, int rateIdx) { int r = Math.Min(Rates[Math.Max(0, Math.Min(Rates.Length - 1, rateIdx))], Edition.MaxRate); return fmt == 4 ? Math.Min(r, 48000) : r; }
 
     public static List<ExportItem> Plan(StudioEngine eng, bool mixMastered, bool mixDry, bool procVocal, bool procBeat, bool dryVocal, bool dryBeat, bool stems, string prefix, int fmt)
     {

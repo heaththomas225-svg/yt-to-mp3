@@ -12,7 +12,7 @@ using System.Text;
 class ProjectEntry
 {
     public string Path = "", Name = "", Cover = "", Desc = "", Tags = ""; public DateTime Updated, Opened; public int Tracks; public double Bpm, Seconds;
-    public bool Fav, Finished; public string Kind = "";   // Fav: starred; Finished: marked done (or exported); Kind: Song, Beat, Vocals or Empty
+    public bool Fav, Finished, OnProfile; public string Kind = "";   // Fav: starred; Finished: marked done (or exported); Kind: Song, Beat, Vocals or Empty
     public bool Custom; public long Bytes = -1; public bool SizeAsked;   // Custom: you renamed it (saving does not change the name back); Bytes: the project file plus the audio it uses
     int chkAt; bool miss, chk;
     public bool Missing { get { int now = Environment.TickCount; if (!chk || unchecked(now - chkAt) > 2000) { miss = !File.Exists(Path); chk = true; chkAt = now; } return miss; } }
@@ -39,7 +39,7 @@ static class ProjectLibrary
                     foreach (var line in File.ReadAllLines(ListFile, Encoding.UTF8))
                     {
                         var f = line.Split('|'); if (f.Length < 9 || f[0] != "P") continue; long u, o; int t; double b, s; long.TryParse(f[3], out u); long.TryParse(f[4], out o); int.TryParse(f[5], out t); double.TryParse(f[6], NumberStyles.Float, CI, out b); double.TryParse(f[7], NumberStyles.Float, CI, out s);
-                        Entries.Add(new ProjectEntry { Path = f[1], Name = f[2], Updated = new DateTime(Math.Max(0, u)), Opened = new DateTime(Math.Max(0, o)), Tracks = t, Bpm = b, Seconds = s, Cover = f[8], Desc = f.Length > 9 ? f[9] : "", Tags = f.Length > 10 ? f[10] : "", Custom = f.Length > 11 && f[11] == "1", Fav = f.Length > 12 && f[12] == "1", Finished = f.Length > 13 && f[13] == "1", Kind = f.Length > 14 ? f[14] : "" });
+                        Entries.Add(new ProjectEntry { Path = f[1], Name = f[2], Updated = new DateTime(Math.Max(0, u)), Opened = new DateTime(Math.Max(0, o)), Tracks = t, Bpm = b, Seconds = s, Cover = f[8], Desc = f.Length > 9 ? f[9] : "", Tags = f.Length > 10 ? f[10] : "", Custom = f.Length > 11 && f[11] == "1", Fav = f.Length > 12 && f[12] == "1", Finished = f.Length > 13 && f[13] == "1", Kind = f.Length > 14 ? f[14] : "", OnProfile = f.Length > 15 && f[15] == "1" });
                     }
             }
             catch { }
@@ -53,7 +53,7 @@ static class ProjectLibrary
             try
             {
                 Directory.CreateDirectory(StudioEnv.DataDir); var sb = new StringBuilder();
-                foreach (var e in Entries) sb.Append("P|").Append(e.Path.Replace("|", "/")).Append('|').Append(e.Name.Replace("|", "/")).Append('|').Append(e.Updated.Ticks).Append('|').Append(e.Opened.Ticks).Append('|').Append(e.Tracks).Append('|').Append(e.Bpm.ToString("0.##", CI)).Append('|').Append(e.Seconds.ToString("0.#", CI)).Append('|').Append(e.Cover).Append('|').Append((e.Desc ?? "").Replace("|", "/").Replace("\n", " ").Replace("\r", "")).Append('|').Append((e.Tags ?? "").Replace("|", "/")).Append('|').Append(e.Custom ? 1 : 0).Append('|').Append(e.Fav ? 1 : 0).Append('|').Append(e.Finished ? 1 : 0).Append('|').Append(e.Kind ?? "").Append('\n');
+                foreach (var e in Entries) sb.Append("P|").Append(e.Path.Replace("|", "/")).Append('|').Append(e.Name.Replace("|", "/")).Append('|').Append(e.Updated.Ticks).Append('|').Append(e.Opened.Ticks).Append('|').Append(e.Tracks).Append('|').Append(e.Bpm.ToString("0.##", CI)).Append('|').Append(e.Seconds.ToString("0.#", CI)).Append('|').Append(e.Cover).Append('|').Append((e.Desc ?? "").Replace("|", "/").Replace("\n", " ").Replace("\r", "")).Append('|').Append((e.Tags ?? "").Replace("|", "/")).Append('|').Append(e.Custom ? 1 : 0).Append('|').Append(e.Fav ? 1 : 0).Append('|').Append(e.Finished ? 1 : 0).Append('|').Append(e.Kind ?? "").Append('|').Append(e.OnProfile ? 1 : 0).Append('\n');
                 Win.WriteAtomic(ListFile, sb.ToString(), Encoding.UTF8);
                 Win.WriteAtomic(ProfileFile, "name=" + ProfileName + "\navatar=" + AvatarPath + "\n", Encoding.UTF8);
             }
@@ -172,10 +172,11 @@ static class ProjectLibrary
     }
     public static string CleanTags(string raw)
     {
-        var l = new List<string>(); foreach (var t in (raw ?? "").Split(new[] { ' ', ',', ';', '#' }, StringSplitOptions.RemoveEmptyEntries)) { string x = t.Trim().ToLowerInvariant(); if (x.Length > 0 && x.Length <= 20 && !l.Contains(x) && l.Count < 6) l.Add(x); }
+        var l = new List<string>(); foreach (var t in (raw ?? "").Split(new[] { ' ', ',', ';', '#' }, StringSplitOptions.RemoveEmptyEntries)) { string x = t.Trim().ToLowerInvariant(); if (x.Length > 0 && x.Length <= 20 && !l.Contains(x) && l.Count < 10) l.Add(x); }
         return string.Join(" ", l.ToArray());
     }
 
+    public static void SetOnProfile(ProjectEntry e, bool on) { lock (lk) e.OnProfile = on; Save(); }
     public static ProjectEntry Find(string path) { lock (lk) return Entries.Find(e => string.Equals(e.Path, path, StringComparison.OrdinalIgnoreCase)); }
 
     // called whenever a project is saved or opened

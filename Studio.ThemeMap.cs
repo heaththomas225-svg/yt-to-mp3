@@ -37,9 +37,22 @@ static class TM
         }
         return h;
     }
+    // a colour as it was in the original look (before any theme moved it), and back into the theme in use: moving a colour through ToDesign and FromDesign always gives the same answer, however many themes it went through
+    public static Color ToDesign(Color c, int fromEpoch)
+    {
+        if (c.A == 0 || fromEpoch <= 0 || fromEpoch >= epochs.Count) return c; float s = c.GetSaturation(), l = c.GetBrightness(); if (s < 0.015f) return c;
+        float design, kFrom; bool same; lock (lk) { var A = epochs[fromEpoch]; same = Math.Abs(A[0] - DC) < 0.5f && Math.Abs(A[1] - DV) < 0.5f && Math.Abs(A[2] - DP) < 0.5f && (A.Length < 4 || A[3] > 0.99f); design = Unwarp(c.GetHue(), A); kFrom = A.Length > 3 ? A[3] : 1f; } if (same) return c;   // that theme was the original look: nothing to undo
+        float s0 = kFrom > 0.01f ? Math.Min(1f, s / kFrom) : s;
+        var n = ThemeDef.Hsl(design, s0, l); return Color.FromArgb(c.A, n.R, n.G, n.B);
+    }
+    public static Color FromDesign(Color d)
+    {
+        if (d.A == 0 || (ident && Math.Abs(satK - 1f) < 0.01f)) return d; float s = d.GetSaturation(), l = d.GetBrightness(); if (s < 0.015f) return d; float nh = ident ? d.GetHue() : Warp(d.GetHue());
+        var n = ThemeDef.Hsl(nh, Math.Min(1f, s * satK), l); return Color.FromArgb(d.A, n.R, n.G, n.B);
+    }
     public static Color Remap(Color c, int fromEpoch)
     {
-        if (c.A == 0 || fromEpoch == Epoch || fromEpoch < 0 || fromEpoch >= epochs.Count) return c; float s = c.GetSaturation(), l = c.GetBrightness(); if (s < 0.1f) return c;
+        if (c.A == 0 || fromEpoch == Epoch || fromEpoch < 0 || fromEpoch >= epochs.Count) return c; float s = c.GetSaturation(), l = c.GetBrightness(); if (s < 0.015f) return c;
         float design, kFrom; lock (lk) { design = Unwarp(c.GetHue(), epochs[fromEpoch]); kFrom = epochs[fromEpoch].Length > 3 ? epochs[fromEpoch][3] : 1f; } float nh = ident ? design : Warp(design); float s0 = kFrom > 0.01f ? Math.Min(1f, s / kFrom) : s; var n = ThemeDef.Hsl(nh, Math.Min(1f, s0 * satK), l); return Color.FromArgb(c.A, n.R, n.G, n.B);
     }
     public static Color C(int a, int r, int g, int b)

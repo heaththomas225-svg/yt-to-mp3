@@ -93,7 +93,7 @@ partial class StudioForm
         for (int i = 0; i < VisN; i++) visPk[i] = Math.Max(visB[i], visPk[i] - dt * 0.5f);
         visRot += dt * (0.10f + visMid * 0.9f + visBeat * 0.9f);
         if (visT - visEchoAt > 0.07) { visEchoAt = visT; visEchoHead = (visEchoHead + 1) % visEcho.Length; if (visEcho[visEchoHead] == null) visEcho[visEchoHead] = new float[VisN]; Array.Copy(visB, visEcho[visEchoHead], VisN); }
-        float floorUp = full ? Math.Min(150f, a.Height * 0.2f) : Math.Min(64f, a.Height * 0.2f), seekH = full ? 44f : 30f;
+        float floorUp = full ? Math.Min(150f, a.Height * 0.2f) : Math.Min(64f, a.Height * 0.2f), seekH = full ? 48f : 42f;
         float topPad = full ? 64f : 4f; float cx = a.X + a.Width / 2 + (float)Math.Sin(visT * 60) * 2.5f * visShake, cy = a.Y + topPad + (a.Height - topPad - seekH - floorUp * 0.35f) / 2f + (float)Math.Cos(visT * 53) * 2f * visShake;
         float R0 = Math.Max(30f, Math.Min((a.Width - (full ? 560f : 40f)) / 2f / 2.3f, (a.Height - topPad - seekH - floorUp * 0.5f - 24f) / 2f / 2.25f));
         Prof.A("vis.fft+setup", v0); v0 = Prof.T();
@@ -183,17 +183,23 @@ partial class StudioForm
             }
           g.SmoothingMode = sm2; }
         Prof.A("vis.floor", v0); v0 = Prof.T();
-        // ---- the song position (click or drag to jump) ----
-        { var sb = Rc(a.X + (full ? 70 : 16), a.Bottom - seekH + (full ? 4 : 2), a.Width - (full ? 140 : 32), full ? 12 : 8); FillRR(g, TM.C(255, 8, 4, 18), sb, sb.Height / 2); double tot = Math.Max(1, eng.EndFrame); float f = (float)Math.Max(0, Math.Min(1, dispPos / tot));
-          if (f > 0.002f) { var fr = Rc(sb.X, sb.Y, Math.Max(2, sb.Width * f), sb.Height); using (var br = new LinearGradientBrush(new RectangleF(fr.X, fr.Y - 1, Math.Max(3, fr.Width), fr.Height + 2), NeonCyan, NeonPink, 0f)) using (var pth = RR(fr, sb.Height / 2)) g.FillPath(br, pth); }
-          using (var br = new SolidBrush(Color.White)) g.FillEllipse(br, sb.X + sb.Width * f - sb.Height / 2f - 1, sb.Y - 1, sb.Height + 2, sb.Height + 2); StrokeRR(g, Color.FromArgb(140, NeonViolet), sb, sb.Height / 2, 1);
-          Txt(g, Fmt(dispPos / (double)StudioEngine.SR), 11, DimC, Rc(sb.X, sb.Bottom + 1, 120, 14), StringAlignment.Near, false); Txt(g, Fmt(tot / StudioEngine.SR), 11, DimC, Rc(sb.Right - 120, sb.Bottom + 1, 120, 14), StringAlignment.Far, false);
-          Action<float> seek = mx => { double ff = Math.Max(0, Math.Min(1, (mx - sb.X) / sb.Width)); eng.Seek((long)(ff * tot)); }; var rg = Reg(Rc(sb.X, sb.Y - 8, sb.Width, sb.Height + 16), () => seek(MousePos.X)); rg.OnDrag = pt => seek(pt.X); }
+        // ---- the song position (click or drag to jump): the same strip as the scroll bars, the logo rides along and is the handle ----
+        {
+            float bh = full ? 36f : 32f; var ob = Rc(a.X + (full ? 70 : 16), a.Bottom - bh - 4, a.Width - (full ? 140 : 32), bh); bool pl2 = eng.Playing;
+            FillRR(g, Color.Black, ob, 12); using (var pen = new Pen(Color.FromArgb(pl2 ? 230 : 150, NeonViolet), 1.3f)) { using (var p = RR(ob, 12)) g.DrawPath(pen, p); }
+            const float tw0 = 74; var inner = Rc(ob.X + tw0, ob.Y + 4, ob.Width - 2 * tw0, ob.Height - 8); double tot = Math.Max(1, eng.EndFrame); float f = (float)Math.Max(0, Math.Min(1, dispPos / tot)); float px = inner.X + f * inner.Width;
+            if (f > 0.002f) using (var br = new SolidBrush(TM.C(60, 0, 110, 130))) g.FillRectangle(br, inner.X, inner.Y, Math.Max(0, px - inner.X), inner.Height);
+            using (var pen = new Pen(Color.FromArgb(230, NeonCyan), 1.6f)) g.DrawLine(pen, px, inner.Y, px, inner.Bottom);
+            float lh = ob.Height / 2f - 2f, lhw = lh * 1.16f, lcx = Math.Max(inner.X + lhw + 2, Math.Min(inner.Right - lhw - 2, px)), lcy = ob.Y + ob.Height / 2f; DrawLogo(g, lcx, lcy, lh, pl2, Hot(Rc(lcx - lhw, lcy - lh, lhw * 2, lh * 2)));
+            Txt(g, Fmt(dispPos / (double)StudioEngine.SR), 11, Ink, Rc(ob.X + 10, ob.Y, tw0 - 12, ob.Height), StringAlignment.Near, true); Txt(g, Fmt(tot / StudioEngine.SR), 11, DimC, Rc(ob.Right - tw0 + 2, ob.Y, tw0 - 12, ob.Height), StringAlignment.Far, false);
+            Action<float> seek = mx => { double ff = Math.Max(0, Math.Min(1, (mx - inner.X) / inner.Width)); eng.Seek((long)(ff * tot)); }; var rg = Reg(inner, () => seek(MousePos.X)); rg.OnDrag = pt => seek(pt.X);
+            if (Hot(inner)) { bubble = "Click or drag to jump to a place in the song"; bubblePt = MousePos; }
+        }
         Prof.A("vis.seek", v0); v0 = Prof.T();
         // title and what you are hearing
         { string st = eng.MasterBypass ? "ORIGINAL" : "MASTERED"; float ty = a.Y + 8, tx0 = full ? a.X + a.Width / 2 - 62 : a.X + 14; Txt(g, projName.ToUpper(), full ? 20 : 14, Ink, Rc(full ? a.X + a.Width / 2 - 300 : tx0, ty, full ? 600 : Math.Min(320, a.Width - 200), full ? 30 : 22), full ? StringAlignment.Center : StringAlignment.Near, true); var pill = Rc(tx0, ty + (full ? 32 : 24), 124, full ? 24 : 20);
           FillRR(g, eng.MasterBypass ? TM.C(255, 60, 52, 98) : Color.FromArgb(255, 28, 112, 86), pill, 9); Txt(g, st, full ? 12 : 11, Color.White, pill, StringAlignment.Center, true); var hp = Rc(pill.Right + 8, pill.Y, 122, pill.Height); Btn(g, hp, eng.MasterBypass ? "HEAR MASTER" : "HEAR ORIGINAL", 0, () => { eng.MasterBypass = !eng.MasterBypass; ApplyMatch(); }, 10); Hint2(hp, "Switch between your original mix and the mastered sound while you watch"); }
-        if (!playing) Txt(g, "PRESS PLAY OR PREVIEW MASTER AND WATCH YOUR MUSIC MOVE", 12, Color.FromArgb(170, DimC), Rc(a.X, cy + R0 * 2.35f, a.Width, 20), StringAlignment.Center, true);
+        if (!playing) Txt(g, "PRESS PLAY OR PREVIEW MASTER AND WATCH YOUR MUSIC MOVE", 12, Color.FromArgb(170, DimC), Rc(a.X, Math.Min(cy + R0 * 2.35f, a.Bottom - (full ? 48f : 42f) - 8 - (full ? Math.Min(150f, a.Height * 0.2f) : Math.Min(64f, a.Height * 0.2f)) * 0.35f - 26), a.Width, 20), StringAlignment.Center, true);
         g.Restore(gs);
     }
 

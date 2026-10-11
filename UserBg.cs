@@ -69,7 +69,7 @@ static class UserBackground
     public static bool IsImage(string p) { return Array.IndexOf(ImgExt, Path.GetExtension(p ?? "").ToLowerInvariant()) >= 0; }
     static long actChecked; static string actPath = ""; static volatile bool actVal; static int actBusy;
     // The file check for a new path is immediate; re-checks of the same path run on the pool so a sleeping network drive never stalls the UI thread.
-    public static bool Active { get { string p = Prefs.BgPath; if (p.Length == 0) return false; long now = Environment.TickCount; if (p != actPath) { actPath = p; actChecked = now; actVal = File.Exists(p); } else if (now - actChecked > 1500 && Interlocked.CompareExchange(ref actBusy, 1, 0) == 0) { actChecked = now; ThreadPool.QueueUserWorkItem(_ => { bool ex = false; try { ex = File.Exists(p); } catch { } if (Prefs.BgPath == p) actVal = ex; Interlocked.Exchange(ref actBusy, 0); }); } return actVal; } }
+    public static bool Active { get { string p = Prefs.BgPath; if (p.Length == 0 || !Edition.Has(Tier.Supporter)) return false; long now = Environment.TickCount; if (p != actPath) { actPath = p; actChecked = now; actVal = File.Exists(p); } else if (now - actChecked > 1500 && Interlocked.CompareExchange(ref actBusy, 1, 0) == 0) { actChecked = now; ThreadPool.QueueUserWorkItem(_ => { bool ex = false; try { ex = File.Exists(p); } catch { } if (Prefs.BgPath == p) actVal = ex; Interlocked.Exchange(ref actBusy, 0); }); } return actVal; } }
     public static bool IsVideo { get { return Active && !IsImage(Prefs.BgPath); } }
 
     // Cropped-to-fill copy of an image, scaled to w x h.

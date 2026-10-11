@@ -28,7 +28,7 @@ static class U
 
     [STAThread]
     static void Main()
-    {
+    { Edition.Override = Tier.Fantasy; /* the tests run as the full edition */
         Application.EnableVisualStyles(); Fx.ProjectBpm = 120; fx = new SynthFx(); fx.Prepare(44100); SynthPresets.Initialise(fx);
         w = new SynthWindow(fx, null); w.Show(); Application.DoEvents(); cv = (Control)typeof(SynthWindow).GetField("canvas", BF).GetValue(w); Paint();
 

@@ -14,7 +14,7 @@ static class D
     }
     static string FfBin(string n) { foreach (var f in System.IO.Directory.GetFiles(System.IO.Path.Combine(StudioEnv.DataDir, "tools", "ffmpeg"), n, System.IO.SearchOption.AllDirectories)) return f; return null; }
     [STAThread] static void Main()
-    {
+    { Edition.Override = Tier.Fantasy; /* the tests run as the full edition */
         string ffm = FfBin("ffmpeg.exe"), ffp = FfBin("ffprobe.exe"); StudioEnv.Ffmpeg = () => ffm; StudioEnv.Ffprobe = () => ffp;
         foreach (double bpm in new[] { 90.0, 128.0, 140.0 })
         {

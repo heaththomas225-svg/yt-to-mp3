@@ -23,7 +23,7 @@ static class G
 
     [STAThread]
     static void Main()
-    {
+    { Edition.Override = Tier.Fantasy; /* the tests run as the full edition */
         string tmp = Path.Combine(Path.GetTempPath(), "purphex_flexui"); try { if (Directory.Exists(tmp)) Directory.Delete(tmp, true); } catch { } StudioEnv.DataDir = tmp;
         Application.EnableVisualStyles(); var app = (App)Activator.CreateInstance(typeof(App), true); var eng = app.StudioEng;
         int n = 44100 * 4; var x = Sing(n, t => t < 1.2 ? 220.0 : (t < 2.4 ? 261.63 : (t < 2.6 ? 0 : (t < 3.8 ? 329.63 : 0))), 0.5); var clip = AudioClip.FromArrays(x, (float[])x.Clone(), "lead vocal"); clip.Path = "";

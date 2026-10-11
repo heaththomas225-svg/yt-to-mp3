@@ -37,7 +37,7 @@ class Job
 partial class App : Form
 {
     // ---- Auto-update settings ----
-    const string Version = "3.25.0";
+    const string Version = "3.26.0";
     // Plain-text manifest: line 1 = newest version, line 2 = direct exe download URL.
     const string UpdateManifestUrl = "https://raw.githubusercontent.com/heaththomas225-svg/yt-to-mp3/main/version.txt";
 
@@ -78,7 +78,31 @@ partial class App : Form
     static readonly string[] SrArgs = { null, "-ar 44100", "-ar 48000", "-ar 88200", "-ar 96000", "-ar 176400", "-ar 192000", "-ar 352800", "-ar 384000" };
     static readonly int[] SrHz = { 0, 44100, 48000, 88200, 96000, 176400, 192000, 352800, 384000 };
     // the highest rate each format can really hold: MP3 and Opus stop at 48 kHz, AAC (M4A) at 96 kHz
-    static string SrArg(int srIdx, int fmtIdx) { if (srIdx <= 0 || srIdx >= SrArgs.Length) return null; int max = fmtIdx == 0 || fmtIdx == 4 ? 48000 : (fmtIdx == 3 ? 96000 : 384000); int hz = Math.Min(SrHz[srIdx], max); return "-ar " + hz; }
+    static bool FmtOk(int i) { return Edition.Has(Tier.Supporter) || i == 0 || (i >= 5 && i <= 10); }   // the Free Edition: MP3 and the MP4 videos
+    static bool SrOk(int i) { return i < 0 || i >= SrHz.Length || SrHz[i] == 0 || SrHz[i] <= Edition.MaxRate; }
+    int lastFmtOk, lastSrOk; bool relabel;
+    // the entries the edition does not have say so in their name
+    void RelabelLocks()
+    {
+        relabel = true; try
+        {
+            int a = fmt.SelectedIndex, b = sr.SelectedIndex;
+            for (int i = 0; i < FmtNames.Length && i < fmt.Items.Count; i++) { string t = FmtNames[i] + (FmtOk(i) ? "" : "   (Supporter)"); if ((string)fmt.Items[i] != t) fmt.Items[i] = t; }
+            for (int i = 0; i < SrNames.Length && i < sr.Items.Count; i++) { string t = SrNames[i] + (SrOk(i) ? "" : (SrHz[i] > 192000 ? "   (Fantasy)" : "   (Supporter)")); if ((string)sr.Items[i] != t) sr.Items[i] = t; }
+            if (fmt.SelectedIndex != a) fmt.SelectedIndex = a; if (sr.SelectedIndex != b) sr.SelectedIndex = b;
+        }
+        finally { relabel = false; }
+    }
+    void HookEditionGates()
+    {
+        fmt.SelectedIndexChanged += (s, e) => { if (relabel) return; int i = fmt.SelectedIndex; if (i < 0) return; if (FmtOk(i)) { lastFmtOk = i; return; } bool quiet = loading; fmt.SelectedIndex = lastFmtOk; if (!quiet) Edition.Upsell(Tier.Supporter, "That format", this); };
+        sr.SelectedIndexChanged += (s, e) => { if (relabel) return; int i = sr.SelectedIndex; if (i < 0) return; if (SrOk(i)) { lastSrOk = i; return; } bool quiet = loading; sr.SelectedIndex = lastSrOk; if (!quiet) Edition.Upsell(SrHz[i] > 192000 ? Tier.Fantasy : Tier.Supporter, "Exporting at " + SrNames[i].Replace(" (highest)", ""), this); };
+        Edition.OnShowAccount = () => ShowSettings(true);
+        Edition.Changed += () => { RelabelLocks(); Edition.RepaintLocked(); Themes.EnforceEdition(); if (!Edition.Has(Tier.Supporter) && norm.Checked) norm.Checked = false; try { bg.Invalidate(); foreach (Form f in Application.OpenForms) f.Invalidate(true); } catch { } };
+        RelabelLocks(); Themes.EnforceEdition(); Edition.Refresh(); Edition.SelfCheck(Version, UpdateManifestUrl); Application.ApplicationExit += (s, e) => Edition.SaveSeen();
+        var edTimer = new System.Windows.Forms.Timer { Interval = 6 * 3600 * 1000 }; edTimer.Tick += (s, e) => Edition.Refresh(); edTimer.Start();
+    }
+    static string SrArg(int srIdx, int fmtIdx) { if (srIdx <= 0 || srIdx >= SrArgs.Length) return null; int max = fmtIdx == 0 || fmtIdx == 4 ? 48000 : (fmtIdx == 3 ? 96000 : 384000); int hz = Math.Min(Math.Min(SrHz[srIdx], max), Edition.MaxRate); return "-ar " + hz; }
     static readonly string[] NameNames = { "Title", "Artist - Title", "Title [video id]" };
     static readonly string[] NameTpl = { "%(title).150B", "%(artist,uploader)s - %(title).150B", "%(title).140B [%(id)s]" };
 
@@ -110,7 +134,7 @@ partial class App : Form
     Button mastBtn = new Button(), vocalBtn = new Button(), whatsBtn = new Button(), prevNormBtn = new Button(), helpBtn = new Button(); string seenVer = ""; internal string ExtraFilter = ""; Button changeBtn = new Button(); Button settingsBtn = new Button();
     internal StudioEngine StudioEng = new StudioEngine();
     StudioForm studioForm; Button studioBtn = new Button(), addMusicBtn = new Button();
-    internal void ShowThemes(bool community) { OpenStudio(); studioForm.OpenThemeSheet(community); }
+    internal void ShowThemes(bool community) { if (OpenStudio()) studioForm.OpenThemeSheet(community); }
 
     HelpForm helpForm;
     internal void ShowHelp(string topic)
@@ -123,8 +147,8 @@ partial class App : Form
     void RunTour(string id)
     {
         Func<Control, Func<Rectangle>> R = c => (() => new Rectangle(c.Left, c.Top, c.Width, c.Height)); var s = new List<TourStep>();
-        if (id.StartsWith("target:")) { OpenStudio(); studioForm.ShowOnScreen(id.Substring(7)); return; }
-        if (id.StartsWith("studio") || id == "daw" || id == "makesong" || id == "typing") { OpenStudio(); studioForm.RunGuide(id); return; }
+        if (id.StartsWith("target:")) { if (OpenStudio()) studioForm.ShowOnScreen(id.Substring(7)); return; }
+        if (id.StartsWith("studio") || id == "daw" || id == "makesong" || id == "typing") { if (OpenStudio()) studioForm.RunGuide(id); return; }
         if (id == "start") { s.Add(new TourStep(R(links), "1. Paste a link", "Paste one or more links here (YouTube and 1000+ other video and music sites), or type words to search.")); s.Add(new TourStep(R(fmt), "2. Pick a format", "MP3 320 kbps is the best all-round choice.")); s.Add(new TourStep(R(go), "3. Press Convert", "Your file is saved in the Save to folder, which opens when it is done.")); }
         else if (id == "normalize") { s.Add(new TourStep(R(norm), "Normalize loudness", "Tick this to bring downloads to a standard -14 LUFS loudness.")); s.Add(new TourStep(R(prevNormBtn), "Hear it first", "Press Hear to listen to a 30 second sample, original versus normalized, before you convert.")); }
         else if (id == "vocal") { s.Add(new TourStep(R(vocalBtn), "Vocal remover", "Click this, then choose Remove vocals from a song, or Preview to hear a 30 second sample first.")); s.Add(new TourStep(R(outDir), "Where files go", "The instrumental and the vocals-only file are saved in this folder.")); }
@@ -139,10 +163,12 @@ partial class App : Form
         if (s.Count > 0) Tour.Run(this, s);
     }
 
-    void OpenStudio()
+    bool OpenStudio()
     {
+        if (!Edition.Gate(Tier.Supporter, "The Purphex Music studio", this)) return false;
         if (studioForm == null || studioForm.IsDisposed) { studioForm = new StudioForm(this); studioForm.Show(); Win.Bring(studioForm); }   // an independent window: click either window and it comes to the front
         else Win.Bring(studioForm);
+        return true;
     }
 
     static Color Ink { get { return TM.C(255, 235, 225, 255); } }
@@ -202,7 +228,8 @@ partial class App : Form
         tip.SetToolTip(norm, "Brings every download to a standard -14 LUFS loudness (streaming level).");
         StyleBtn(prevNormBtn, TM.C(255, 60, 26, 110)); prevNormBtn.Text = "Hear"; prevNormBtn.SetBounds(398, 246, 54, 28);
         tip.SetToolTip(prevNormBtn, "Listen to a 30 second sample, original vs normalized, before you convert.");
-        prevNormBtn.Click += (s, e) => PreviewNormalize();
+        prevNormBtn.Click += (s, e) => { if (Edition.Gate(Tier.Supporter, "Hearing the normalized sample", this)) PreviewNormalize(); }; Edition.Lock(prevNormBtn, Tier.Supporter); Edition.Lock(norm, Tier.Supporter);
+        norm.CheckedChanged += (s, e) => { if (norm.Checked && !Edition.Has(Tier.Supporter)) { norm.Checked = false; if (!loading) Edition.Upsell(Tier.Supporter, "Normalize loudness", this); } };
         StyleChk(playlist, "Whole playlists", 458, 246, 166);
         tip.SetToolTip(playlist, "If a link points at a playlist, convert every video in it.");
 
@@ -216,7 +243,7 @@ partial class App : Form
         mastBtn.Text = "Master a song";
         mastBtn.Click += (s, e) =>
         {
-            OpenStudio(); studioForm.ShowMastering();
+            if (OpenStudio()) studioForm.ShowMastering();
         };
         mastBtn.Visible = false;   // the main window is kept simple: mastering is on the Mastering tab inside Purphex Music
 
@@ -243,29 +270,29 @@ partial class App : Form
             var m = Win.NewMenu();
             m.Items.Add("Settings...").Click += (a, b) => ShowSettings();
             m.Items.Add("Full screen  (F11)").Click += (a, b) => Win.ToggleFullscreen(this);
-            m.Items.Add("Mastering for downloads (Purphex Mastering)...").Click += (a, b) => { if (mf == null || mf.IsDisposed) { mf = new MasterForm(this); mf.Show(); Win.Bring(mf); } else Win.Bring(mf); };
+            m.Items.Add("Mastering for downloads (Purphex Mastering)...").Click += (a, b) => { if (!Edition.Gate(Tier.Supporter, "Mastering", this)) return; if (mf == null || mf.IsDisposed) { mf = new MasterForm(this); mf.Show(); Win.Bring(mf); } else Win.Bring(mf); };
             m.Items.Add("What's new").Click += (a, b) => Changelog.Show(this);
-            m.Items.Add("Plugins and extensions...").Click += (a, b) => { new PluginManagerForm(() => ExtraFilter, v => { ExtraFilter = v; SaveSettings(); }).Show(); };
+            m.Items.Add("Plugins and extensions...").Click += (a, b) => { if (!Edition.Gate(Tier.Supporter, "Plugins and extensions", this)) return; new PluginManagerForm(() => ExtraFilter, v => { ExtraFilter = v; SaveSettings(); }).Show(); };
             m.Items.Add("Open data folder").Click += (a, b) => { try { Directory.CreateDirectory(AppData); Process.Start("explorer.exe", "\"" + AppData + "\""); } catch { } };
             m.Show(whatsBtn, new Point(0, whatsBtn.Height));
         };
         StyleBtn(studioBtn, TM.C(255, 90, 36, 160)); studioBtn.Text = "Purphex Music"; studioBtn.SetBounds(212, 312, 190, 30);
         tip.SetToolTip(studioBtn, "Open the Logic-style studio: tracks, mixing, Auto-Tune, EQ, effects, mastering and export.");
-        studioBtn.Click += (s, e) => OpenStudio();
+        studioBtn.Click += (s, e) => OpenStudio(); Edition.Lock(studioBtn, Tier.Supporter);
         StyleBtn(addMusicBtn, TM.C(255, 190, 60, 200)); addMusicBtn.Text = "ADD MUSIC"; addMusicBtn.Font = new Font("Segoe UI Semibold", 10.5f);
         addMusicBtn.SetBounds(408, 312, 216, 30); addMusicBtn.Anchor = AnchorStyles.Top | AnchorStyles.Right;
         tip.SetToolTip(addMusicBtn, "Add music from your PC: edit it in Purphex Music, remove the vocals or the beat, or trim the start and end.");
         addMusicBtn.Click += (s, e) =>
         {
             int c = StudioDialogs.AddMusicChoice(this);
-            if (c == 1) { OpenStudio(); studioForm.AddMusicClick(); }
+            if (c == 1) { if (OpenStudio()) studioForm.AddMusicClick(); }
             else if (c == 2) vocalBtn.PerformClick();
             else if (c == 3) StudioDialogs.TrimFile(this, outDir.Text.Trim());
         };
 
         StyleBox(outDir); outDir.SetBounds(16, 377, 520, 28);
         outDir.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-        outDir.Text = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyMusic), "yt2mp3");
+        outDir.Text = Win.DownloadsDir;   // downloads go to the Downloads folder of this PC
         Lbl(outDir, "Save to");
         StyleBtn(browse, TM.C(255, 70, 30, 120)); browse.Text = "Browse...";
         browse.SetBounds(544, 376, 80, 30); browse.Anchor = AnchorStyles.Top | AnchorStyles.Right;
@@ -300,7 +327,7 @@ partial class App : Form
         if (seenVer != Changelog.Latest) changeBtn.Text = "Changelog *";   // a star shows there is something new to read
         // plugins load after the window is shown (see Shown)
         loading = false;
-        HookAutoSave();
+        HookAutoSave(); HookEditionGates();
 
         ApplyScale(); bg.Resize += (s, e) => ApplyScale(); Shown += (s, e) => ApplyScale();   // text and controls follow the size of the window (must run before Repopulate below)
         Repopulate(); bg.Resize += (s, e) => Repopulate();
@@ -356,11 +383,12 @@ partial class App : Form
     internal string DataFolder { get { Directory.CreateDirectory(AppData); return AppData; } }
     internal static string FfmpegPath() { return FfmpegExe(); }
     SettingsForm settingsForm;
-    internal void ShowSettings()
+    internal void ShowSettings(bool account = false)
     {
         // not modal: the other windows stay usable (and movable) while Settings is open
         if (settingsForm == null || settingsForm.IsDisposed) { settingsForm = new SettingsForm(this); settingsForm.Show(); Win.Bring(settingsForm); }
         else Win.Bring(settingsForm);
+        if (account) settingsForm.ShowAccount();
     }
 
     // ---------- settings ----------
@@ -419,7 +447,7 @@ partial class App : Form
                 else if (k == "fmtv") fmtVer = 2;
                 else if (k == "sr" && int.TryParse(v, out n) && n >= 0 && n < sr.Items.Count) sr.SelectedIndex = n;
                 else if (k == "name" && int.TryParse(v, out n) && n >= 0 && n < nameFmt.Items.Count) nameFmt.SelectedIndex = n;
-                else if (k == "dir" && v.Length > 0) outDir.Text = v;
+                else if (k == "dir" && v.Length > 0) outDir.Text = string.Equals(v.TrimEnd('\\'), Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyMusic), "yt2mp3"), StringComparison.OrdinalIgnoreCase) ? Win.DownloadsDir : v;   // the old default folder moves to Downloads, a folder you chose yourself stays
                 else if (k == "norm" && bool.TryParse(v, out b)) norm.Checked = b;
                 else if (k == "playlist" && bool.TryParse(v, out b)) playlist.Checked = b;
                 else if (k == "open" && bool.TryParse(v, out b)) openDone.Checked = b;
@@ -681,6 +709,7 @@ partial class App : Form
     void Start()
     {
         if (busy) return;
+        if (!FmtOk(fmt.SelectedIndex)) fmt.SelectedIndex = 0; if (!SrOk(sr.SelectedIndex)) sr.SelectedIndex = 0; if (norm.Checked && !Edition.Has(Tier.Supporter)) norm.Checked = false;   // a saved choice the edition does not have any more
         var items = ParseItems(links.Text);
         if (items.Count == 0) { MessageBox.Show(this, "Paste at least one link (or type a search) first."); return; }
         string a = trimA.Text.Trim(), b = trimB.Text.Trim();

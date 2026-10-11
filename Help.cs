@@ -471,7 +471,7 @@ Press Automation on to switch the lane off, and the plugin goes back to the valu
 ## What it is
 Rapper Vocal Styles is a searchable list of 36 original plugin chains for rap vocals, grouped by subgenre: Trap, Melodic Trap, Drill, Boom Bap, Old School, Grime and UK, Cloud and Lo-Fi, Rage and Hyper, Pop Rap, Phonk and Storytelling. Each one is made from this app's own plugins (tuning, EQ, compression, de-essing, saturation, echo, reverb) with settings chosen for that sound. No artist's settings are copied.
 ## Opening it
-Select the vocal track, then press Vocal Styles in the plugin panel (right side), or use Menu > Tools > Rapper Vocal Styles.
+Select the vocal track, then press Vocal Styles in the plugin panel (right side), or use the side menu: Tools > Rapper Vocal Styles.
 ## Using it
 - Type to search by name, subgenre or description (for example drill, dark, warm, echo).
 - Press a subgenre button to show only that kind, or Favourites to see the ones you starred.
@@ -559,7 +559,7 @@ Select a track and press + Add Effect (or use the master chain). The list now ho
 
         new HelpTopic("studio-sounds", "Purphex Music", "Purphex Sounds: the sample browser and sound packs", false, @"
 ## Opening it
-Press SOUNDS (next to MIC) or Tools > Purphex Sounds. A panel opens on the right of the Mix page. Press it again, or the x, to close it.
+Press SOUNDS (next to MIC) or use the side menu: Tools > Sounds and sound packs. A panel opens on the right of the Mix page. Press it again, or the x, to close it.
 ## Getting sounds
 Sounds come in packs. Press Packs, pick a pack and press Install. The sounds are made on your computer by Purphex's own sound design in a few seconds: they are not recordings and not other people's samples. Installed packs show how many sounds and how much space they use. Remake rebuilds a pack, Remove deletes its files (you can install it again any time). Install all does a whole list.
 ## Finding a sound
@@ -580,13 +580,14 @@ Import adds your own samples (wav, mp3, flac, midi...) to the My samples pack, o
 
         new HelpTopic("studio-menu", "Purphex Music", "The side menu, My Projects with pictures, and Community", false, @"
 ## The side menu
-Press the three-lines button at the top left of Purphex Music. Your picture and name are at the top (click the picture to change it, click the name to rename yourself). Click Project, Edit, Tools, View, Community, Theme, Settings, Help or Exit to open its list.
-- Project: New Project, Recent Projects (the last ones you opened, with their pictures), My Projects, Open, Save, Save as, Set project picture, Export.
-- Edit: undo, redo, split, trim, duplicate and delete.
-- Back: every page has a BACK button that returns to the page you came from.
-- Tools: Auto Mix, split vocals and beat, detect BPM, metronome, mastering, add an instrument or track.
-- View: switch between Mix, Mastering, Lyrics and My Projects, fit the whole song, thin / normal / tall tracks, full screen.
-- Theme: pick one of six colour themes (Purphex, Ocean, Sunset, Toxic, Crimson, Mono). The whole program changes colour at once and remembers your choice. Settings has the same choice.
+Press the three-lines button at the top left of Purphex Music. Your picture and name are at the top. Five of the buttons open a list (File, Edit, Tools, Pages, View) and the others just take you there (Profile, Themes, Settings, Help, Exit).
+- File: New Project, Recent Projects (the last ones you opened, with their pictures), Open, Save, Save as, Set project picture, Export.
+- Edit (only on the Mix page): undo, redo, split, cut, lock, duplicate and delete.
+- Tools: Auto Mix, split vocals and beat, detect BPM, Flex Pitch, Sounds and sound packs, Rapper Vocal Styles, add a track, metronome and snap to grid. They all take you to the Mix page first.
+- Pages: Mix, Mastering, Master Visualiser, Lyrics, My Projects, Community and Artists. Every page also has a BACK button that returns to the page you came from.
+- View: fit the whole song, thin / normal / tall tracks, full screen, the FPS counter and the converter window.
+- Profile: your own profile page (banner, picture, bio, links, privacy and your tracks).
+- Themes: pick a colour theme, or download one other people made (the Themes box has MY THEMES, COMMUNITY THEMES and IMPORT). The whole program changes colour at once and remembers your choice. Settings has the same choice.
 ## My Projects
 Every project you save or open is remembered here, newest first, as a card with a picture. Click a card to open it: Purphex asks you to confirm first. The BACK button (top of the page, and in the right-click menu) takes you back to the tracks. The play button on a card PREVIEWS the project: you hear it without opening it and the bar along the bottom becomes a visualiser (press its square STOP button, or click the bar to jump). A project with no picture shows the Purphex logo; any picture is cropped to fill the square. The camera button adds or changes the picture (choose a JPG, PNG, GIF or BMP: it is cropped to a square and kept inside the project file, so it travels with it). The crossed camera button (or Remove picture in the right-click menu) takes your picture off again. Right-click a card for everything: open, preview, rename, change or remove the picture, show in folder, remove from the list and BACK. The x asks whether to take the project off this list only (your file stays on your PC) or to delete the file too: it then goes into the RECYCLING BIN.
 ## Search, sort and filter
@@ -611,7 +612,7 @@ This page never writes or suggests lyrics for you: every word is yours."),
 
         new HelpTopic("studio-profile","Purphex Music", "Your profile, artists and following", false, @"
 ## Your profile
-1. Open the Community page and press GO TO YOUR PROFILE (or Menu > Community > My profile).
+1. Open the side menu and press Profile (or press GO TO YOUR PROFILE on the Community page).
 2. Press CHOOSE BANNER for any picture and move it with the slider, press CHOOSE PICTURE for your round picture, and pick an accent colour.
 3. Press EDIT beside your name, bio, where you are, LINKS and genres. Any web address works as a link: your website, YouTube, SoundCloud, Spotify, Instagram, a shop.
 4. Your tracks are listed at the bottom with a play button each.
@@ -721,7 +722,7 @@ class HelpForm : Form
     {
         string q = search.Text.Trim().ToLowerInvariant(); shown.Clear(); list.Items.Clear(); int sel = 0;
         foreach (var t in HelpContent.All)
-            if (q.Length == 0 || t.Title.ToLowerInvariant().Contains(q) || t.Body.ToLowerInvariant().Contains(q) || t.Category.ToLowerInvariant().Contains(q))
+            if (Edition.HelpVisible(t.Id) && (q.Length == 0 || t.Title.ToLowerInvariant().Contains(q) || t.Body.ToLowerInvariant().Contains(q) || t.Category.ToLowerInvariant().Contains(q)))
             { if (selectId != null && t.Id == selectId) sel = shown.Count; shown.Add(t); list.Items.Add(t.Title); }
         if (shown.Count > 0) list.SelectedIndex = sel; else { view.Clear(); view.Text = "Nothing matches that. Try a shorter word."; show.Visible = false; }
     }

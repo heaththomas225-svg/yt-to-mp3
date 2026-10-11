@@ -24,7 +24,7 @@ static class Q
 
     [STAThread]
     static void Main()
-    {
+    { Edition.Override = Tier.Fantasy; /* the tests run as the full edition */
         string tmp = Path.Combine(Path.GetTempPath(), "purphex_soundsui"); try { if (Directory.Exists(tmp)) Directory.Delete(tmp, true); } catch { } StudioEnv.DataDir = tmp;
         Application.EnableVisualStyles(); var app = (App)Activator.CreateInstance(typeof(App), true); var eng = app.StudioEng;
         sf = new StudioForm(app); sf.ClientSize = new Size(1500, 820); sf.Show(); Pump(400); Paint();

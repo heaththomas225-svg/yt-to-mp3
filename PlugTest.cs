@@ -50,7 +50,7 @@ static class P
 
     [STAThread]
     static void Main()
-    {
+    { Edition.Override = Tier.Fantasy; /* the tests run as the full edition */
         var touch = FxRegistry.All;
         Check("the library registered named plugins", PluginLibrary.All.Count > 40, PluginLibrary.All.Count + " plugins");
         // ---- DSP accuracy ----

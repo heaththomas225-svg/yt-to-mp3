@@ -51,10 +51,10 @@ class SettingsForm : Form
         studioChk = Chk("Also use it behind Purphex Music", 20, ref y); studioChk.CheckedChanged += (s, e) => { if (!setting) { Prefs.BgStudio = studioChk.Checked; UserBackground.Version++; Prefs.Changed(); } };
         NewPage("Theme", ref y); Header("Theme", ref y);
         Add(new Label { Text = "Colour theme", Left = 20, Top = y + 3, Width = 150, ForeColor = Ink });
-        themeBox = Combo(180, y, 360, new string[0]); foreach (var td in Themes.All) themeBox.Items.Add(td.Name);   // built in and imported
-        themeBox.SelectedIndexChanged += (s, e) => { if (setting || themeBox.SelectedIndex < 0) return; Themes.Apply(themeBox.SelectedIndex); themeNote.Text = Themes.Current.Blurb + " It changes the glow, borders and buttons in Purphex Music, Mastering and Bass Lab."; Prefs.Changed(); };
+        themeBox = Combo(180, y, 360, new string[0]); foreach (var td in Themes.All) themeBox.Items.Add(ThemeLabel(td));   // built in and imported
+        themeBox.SelectedIndexChanged += (s, e) => { if (setting || themeBox.SelectedIndex < 0) return; { var tdx = Themes.All[themeBox.SelectedIndex]; if (!Themes.Allowed(tdx)) { Edition.Upsell(tdx.Req, "The " + tdx.Name + " theme", this); setting = true; themeBox.SelectedIndex = Themes.Index; setting = false; return; } } Themes.Apply(themeBox.SelectedIndex); themeNote.Text = Themes.Current.Blurb + " It changes the glow, borders and buttons in Purphex Music, Mastering and Bass Lab."; Prefs.Changed(); };
         y += 38; themeNote = new Label { Left = 20, Top = y - 4, Width = 520, Height = 34, ForeColor = Dim, Font = new Font("Segoe UI", 9f) }; Add(themeNote); y += 36;
-        var impT = Btn("Import a theme file...", 20, y, 190, TM.C(255, 70, 40, 120)); impT.Click += (s, e) => ImportTheme(); var comT = Btn("Community themes...", 218, y, 190, TM.C(255, 140, 60, 220)); comT.Click += (s, e) => app.ShowThemes(true); y += 40;
+        var comT = Btn("Community themes...", 20, y, 190, TM.C(255, 140, 60, 220)); comT.Click += (s, e) => app.ShowThemes(true); y += 40;
         NewPage("Animation", ref y); Header("Animation", ref y);
         Add(new Label { Text = "Frame rate limit", Left = 20, Top = y + 3, Width = 150, ForeColor = Ink });
         fpsBox = Combo(180, y, 190, new[] { "30 fps (lightest)", "60 fps (smooth)", "120 fps (fast screens)", "144 fps (gaming screens)", "165 fps", "240 fps (the fastest screens)" }); fpsBox.SelectedIndexChanged += (s, e) => { if (!setting && fpsBox.SelectedIndex >= 0) { Prefs.FpsCap = FpsChoices[fpsBox.SelectedIndex]; Prefs.Changed(); } };
@@ -96,13 +96,67 @@ class SettingsForm : Form
         NewPage("General", ref y); Header("General", ref y);
         var open = Btn("Open settings folder", 20, y, 180, TM.C(255, 70, 40, 120)); open.Click += (s, e) => { try { Process.Start("explorer.exe", app.DataFolder); } catch { } };
         var reset = Btn("Reset appearance and audio", 208, y, 244, TM.C(255, 150, 40, 80)); reset.Click += (s, e) => ResetAll();
+        NewPage("Account", ref y); accountIdx = pages.Count - 1; Header("Your edition", ref y);
+        accLine = new Label { Left = 20, Top = y, Width = 540, Height = 30, Font = new Font("Segoe UI Semibold", 14f), ForeColor = Head, Tag = "nocaps" }; Add(accLine); y += 36;
+        accSub = new Label { Left = 20, Top = y, Width = 540, Height = 44, ForeColor = Dim, Tag = "nocaps" }; Add(accSub); y += 50;
+        linkBtn = Btn("LINK THIS PC", 20, y, 180, TM.C(255, 140, 60, 220)); linkBtn.Tag = "nocaps"; linkBtn.Click += (s, e) => LinkClick();
+        var seeB = Btn("See the editions", 208, y, 170, TM.C(255, 70, 40, 150)); seeB.Click += (s, e) => Edition.OpenEditions();
+        var chkB = Btn("Check again", 386, y, 140, TM.C(255, 70, 40, 120)); chkB.Click += (s, e) => CheckAgain(); y += 44;
+        accMsg = new Label { Left = 20, Top = y, Width = 540, Height = 44, ForeColor = Ink, Tag = "nocaps" }; Add(accMsg); y += 50;
+        Add(new Label { Left = 20, Top = y, Width = 540, Height = 76, ForeColor = Dim, Font = new Font("Segoe UI", 9f), Text = "How it works: press LINK THIS PC. Purphex opens the website, you sign in and press Yes, link it, and this PC unlocks by itself. Free is the MP3 and MP4 converter and the vocal remover; Supporter opens the whole studio; Fantasy is everything, for life. Nothing is paid inside the app." }); y += 82;
+        var web = Btn("My account on the website", 20, y, 230, TM.C(255, 70, 40, 120)); web.Click += (s, e) => Edition.OpenUrl(Edition.Site + "/account"); y += 40;
         FinishPage(y); BuildFrame();
         ClientSize = new Size(800, Math.Min(660, Screen.PrimaryScreen.WorkingArea.Height - 100)); LayoutFrame(); ShowPage(0);
         Win.CapsAll(this); updStatus.Tag = "nocaps"; bgName.Tag = "nocaps";
-        Refresh2();
+        LockPage("Background"); LockPage("Theme"); Refresh2(); RefreshAccount(); RefreshLocks(); Action onEd = () => { try { RefreshAccount(); RefreshLocks(); } catch { } }; Edition.Changed += onEd; FormClosed += (s3, e3) => Edition.Changed -= onEd;
         wheel = new SettingsWheel(this); Application.AddMessageFilter(wheel); FormClosed += (s2, e2) => { try { Application.RemoveMessageFilter(wheel); } catch { } };
     }
     SettingsWheel wheel;
+    static string ThemeLabel(ThemeDef t) { string g = Themes.Tag(t); return g.Length > 0 ? t.Name + "   (" + g + ")" : t.Name; }
+
+    // ---- the edition: the Account page and the padlocks on the pages the Free edition does not have ----
+    int accountIdx; Label accLine, accSub, accMsg; Button linkBtn; readonly System.Collections.Generic.Dictionary<Panel, Panel> lockBanners = new System.Collections.Generic.Dictionary<Panel, Panel>();
+    internal void ShowAccount() { if (accountIdx > 0) ShowPage(accountIdx); }
+    void LockPage(string name)
+    {
+        var p = pages.Find(x => (string)x.Tag == name); if (p == null) return; foreach (Control c in p.Controls) c.Top += 64; p.AutoScrollMinSize = new Size(560, p.AutoScrollMinSize.Height + 64);
+        var ban = new Panel { Left = 14, Top = 4, Width = 560, Height = 54, BackColor = TM.C(255, 40, 22, 74) };
+        ban.Controls.Add(new Label { Text = "Themes and photo backgrounds are part of the Supporter Edition.", Left = 46, Top = 8, Width = 340, Height = 38, ForeColor = Ink, Tag = "nocaps" });
+        var go = new Button { Text = "SEE THE EDITIONS", Left = 396, Top = 10, Width = 152, Height = 32, FlatStyle = FlatStyle.Flat, BackColor = TM.C(255, 190, 60, 200), ForeColor = Color.White, Cursor = Cursors.Hand }; go.FlatAppearance.BorderColor = TM.C(255, 220, 140, 255); go.Click += (s, e) => Edition.OpenEditions(); ban.Controls.Add(go);
+        ban.Paint += (s, e) => { e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias; Edition.Padlock(e.Graphics, new RectangleF(12, 10, 24, 30), Color.FromArgb(255, 255, 200, 90)); using (var pen = new Pen(TM.C(255, 190, 120, 255))) e.Graphics.DrawRectangle(pen, 0, 0, ban.Width - 1, ban.Height - 1); };
+        p.Controls.Add(ban); lockBanners[p] = ban;
+    }
+    void RefreshLocks()
+    {
+        bool locked = !Edition.Has(Tier.Supporter);
+        foreach (var kv in lockBanners) { foreach (Control c in kv.Key.Controls) if (c != kv.Value) c.Enabled = !locked; kv.Value.Visible = locked; }
+    }
+    void RefreshAccount()
+    {
+        if (accLine == null) return; var t = Edition.Current; accLine.Text = Edition.Name(t); accLine.ForeColor = t == Tier.Fantasy ? TM.C(255, 255, 110, 230) : (t == Tier.Supporter ? TM.C(255, 255, 200, 90) : Head);
+        string sub;
+        if (!Edition.Linked) sub = "This PC is not linked to a Purphex account. Free: the MP3 and MP4 converter and the vocal remover.";
+        else
+        {
+            sub = "Linked to " + (Edition.Who.Length > 0 ? Edition.Who : "your account") + ".";
+            if (t == Tier.Supporter && Edition.Until.Length > 0) { DateTime u; if (DateTime.TryParse(Edition.Until, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.AdjustToUniversal | System.Globalization.DateTimeStyles.AssumeUniversal, out u)) sub += " " + (Edition.Billing == "gift" ? "A gift until " : "Paid until ") + u.ToLocalTime().ToString("d MMMM yyyy", System.Globalization.CultureInfo.InvariantCulture) + "."; }
+            else if (t == Tier.Fantasy) sub += " Yours for life.";
+            else if (t == Tier.Free) sub += " The account has no paid edition (or this PC could not reach the website for a long time).";
+        }
+        if (Edition.Note.Length > 0) sub += "\n" + Edition.Note; accSub.Text = sub; linkBtn.Text = Edition.Linking ? "CANCEL LINKING" : (Edition.Linked ? "UNLINK THIS PC" : "LINK THIS PC");
+    }
+    void Say(string s) { try { if (!IsDisposed && IsHandleCreated) BeginInvoke(new Action(() => { if (accMsg != null) accMsg.Text = s; RefreshAccount(); })); } catch { } }
+    void LinkClick()
+    {
+        if (Edition.Linking) { Edition.CancelLink(); return; }
+        if (Edition.Linked) { if (MessageBox.Show(this, "Unlink this PC? The studio locks again until you link it.", "Unlink this PC", MessageBoxButtons.YesNo) == DialogResult.Yes) { Edition.Unlink(); accMsg.Text = "This PC is unlinked."; } return; }
+        accMsg.Text = "Opening the website..."; Edition.StartLink(m => Say(m), (ok, m) => Say(m)); RefreshAccount();
+    }
+    void CheckAgain()
+    {
+        if (!Edition.Linked) { accMsg.Text = "This PC is not linked yet. Press LINK THIS PC."; return; } accMsg.Text = "Asking the website...";
+        Edition.Refresh(ok => Say(ok ? "Up to date." : "Could not reach the website: your edition stays as it is."));
+    }
     Panel page, shown; readonly System.Collections.Generic.List<Panel> pages = new System.Collections.Generic.List<Panel>(); readonly System.Collections.Generic.List<Button> sideBtns = new System.Collections.Generic.List<Button>(); const int SideW = 176, TopH = 56, BotH = 60;
     void Add(Control c) { page.Controls.Add(c); }
     // the mouse wheel scrolls the page, whatever is under the pointer: it never changes a drop-down, a number or a slider by accident
@@ -115,7 +169,7 @@ class SettingsForm : Form
         page = new Panel { Left = SideW, Top = TopH, Width = ClientSize.Width - SideW, Height = ClientSize.Height - TopH - BotH, AutoScroll = true, BackColor = TM.C(255, 10, 4, 20), Visible = false, Tag = name }; pages.Add(page); base.Controls.Add(page); y = 14;
     }
     void FinishPage(int y) { if (page != null) page.AutoScrollMinSize = new Size(560, y + 24); }
-    Button topSave, botSave; Label titleLbl;
+    Button botSave; Label titleLbl;
     void BuildFrame()
     {
         for (int i = 0; i < pages.Count; i++)
@@ -124,13 +178,12 @@ class SettingsForm : Form
             b.FlatAppearance.BorderColor = TM.C(255, 120, 90, 180); b.Click += (s, e) => ShowPage(k); sideBtns.Add(b); base.Controls.Add(b);
         }
         titleLbl = new Label { Text = "SETTINGS", Left = 16, Top = 12, Width = 300, Height = 34, ForeColor = Head, Font = new Font("Segoe UI Semibold", 16f), Tag = "nocaps" }; base.Controls.Add(titleLbl);
-        topSave = new Button { Text = "SAVE", Width = 110, Height = 34, FlatStyle = FlatStyle.Flat, BackColor = TM.C(255, 140, 60, 220), ForeColor = Color.White, Cursor = Cursors.Hand, Font = new Font("Segoe UI Semibold", 11f) }; topSave.FlatAppearance.BorderColor = TM.C(255, 200, 150, 255); topSave.Click += (s, e) => SaveClose(); base.Controls.Add(topSave);
         botSave = new Button { Text = "SAVE", Width = 130, Height = 38, FlatStyle = FlatStyle.Flat, BackColor = TM.C(255, 140, 60, 220), ForeColor = Color.White, Cursor = Cursors.Hand, Font = new Font("Segoe UI Semibold", 11.5f) }; botSave.FlatAppearance.BorderColor = TM.C(255, 200, 150, 255); botSave.Click += (s, e) => SaveClose(); base.Controls.Add(botSave);
         Resize += (s, e) => LayoutFrame();
     }
     void LayoutFrame()
     {
-        if (topSave == null) return; topSave.Left = ClientSize.Width - topSave.Width - 16; topSave.Top = 11; botSave.Left = ClientSize.Width - botSave.Width - 16; botSave.Top = ClientSize.Height - BotH + 10;
+        if (botSave == null) return; botSave.Left = ClientSize.Width - botSave.Width - 16; botSave.Top = ClientSize.Height - BotH + 10;
         foreach (var p in pages) { p.Left = SideW; p.Top = TopH; p.Width = ClientSize.Width - SideW; p.Height = Math.Max(100, ClientSize.Height - TopH - BotH); }
     }
     void ShowPage(int i)
@@ -154,7 +207,7 @@ class SettingsForm : Form
         {
             if (d.ShowDialog(this) != DialogResult.OK) return; string text; try { if (new FileInfo(d.FileName).Length > 16 * 1024) { MessageBox.Show(this, "That file is too big to be a theme."); return; } text = File.ReadAllText(d.FileName); } catch (Exception ex) { MessageBox.Show(this, "Could not open that file: " + ex.Message); return; }
             ThemeDef t; string err = Themes.Import(text, Path.GetFileNameWithoutExtension(d.FileName), out t); if (err != null) { MessageBox.Show(this, err, "Import a theme"); return; }
-            setting = true; themeBox.Items.Clear(); foreach (var td in Themes.All) themeBox.Items.Add(td.Name); setting = false; Themes.Apply(Themes.IndexOf(t.Name)); Prefs.Changed(); Refresh2();
+            setting = true; themeBox.Items.Clear(); foreach (var td in Themes.All) themeBox.Items.Add(ThemeLabel(td)); setting = false; Themes.Apply(Themes.IndexOf(t.Name)); Prefs.Changed(); Refresh2();
         }
     }
 

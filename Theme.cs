@@ -59,14 +59,17 @@ static class Win
         f.HandleCreated += delegate { HookFullscreen(f); }; formEpoch.Remove(f); formEpoch.Add(f, new EpochBox { E = TM.Epoch }); darkFns.Remove(f); darkFns.Add(f, new ActionBox { A = a });
     }
     // ---- a theme change reaches the windows that are already open: every colour is moved from the theme it was made under into the new one ----
-    sealed class EpochBox { public int E; } sealed class ActionBox { public Action A; } sealed class ColRec { public Color Back, Fore, Border; public bool HasBorder; }
+    sealed class EpochBox { public int E; } sealed class ActionBox { public Action A; } sealed class ColRec { public Color Back, Fore, Border, DBack, DFore, DBorder; public bool HasBorder; }
     static readonly System.Runtime.CompilerServices.ConditionalWeakTable<Form, EpochBox> formEpoch = new System.Runtime.CompilerServices.ConditionalWeakTable<Form, EpochBox>();
     static readonly System.Runtime.CompilerServices.ConditionalWeakTable<Form, ActionBox> darkFns = new System.Runtime.CompilerServices.ConditionalWeakTable<Form, ActionBox>();
     static readonly System.Runtime.CompilerServices.ConditionalWeakTable<Control, ColRec> colRecs = new System.Runtime.CompilerServices.ConditionalWeakTable<Control, ColRec>();
-    static int lastRetheme = -1000000;
+    // the Downloads folder of this Windows user (wherever they moved it)
+    [DllImport("shell32.dll")] static extern int SHGetKnownFolderPath([MarshalAs(UnmanagedType.LPStruct)] Guid rfid, uint dwFlags, IntPtr hToken, out IntPtr ppszPath);
+    public static string DownloadsDir { get { try { IntPtr p; if (SHGetKnownFolderPath(new Guid("374DE290-123F-4565-9164-39C4925E467B"), 0, IntPtr.Zero, out p) == 0) { string d = System.Runtime.InteropServices.Marshal.PtrToStringUni(p); System.Runtime.InteropServices.Marshal.FreeCoTaskMem(p); if (!string.IsNullOrEmpty(d)) return d; } } catch { } return System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads"); } }
+    static int lastRetheme = -1000000; static System.Windows.Forms.Timer rethemeLater;
     public static void RethemeAll()
     {
-        int now = Environment.TickCount; if (unchecked(now - lastRetheme) < 220) return; lastRetheme = now;
+        int now = Environment.TickCount; if (unchecked(now - lastRetheme) < 220) { if (rethemeLater == null) { rethemeLater = new System.Windows.Forms.Timer { Interval = 240 }; rethemeLater.Tick += (s, e) => { rethemeLater.Stop(); lastRetheme = -1000000; RethemeAll(); }; } rethemeLater.Stop(); rethemeLater.Start(); return; } lastRetheme = now;
         var openList = new System.Collections.Generic.List<Form>(); foreach (Form of0 in Application.OpenForms) openList.Add(of0); foreach (Form f in openList) { if (f is StudioForm || f.IsDisposed) continue; try { Retheme(f); } catch { } }
     }
     public static void Retheme(Form f)
@@ -75,11 +78,12 @@ static class Win
     }
     static void RethemeTree(Control c, int from)
     {
-        ColRec r; if (!colRecs.TryGetValue(c, out r)) { r = new ColRec { Back = c.BackColor, Fore = c.ForeColor }; var bt = c as Button; if (bt != null) { r.Border = bt.FlatAppearance.BorderColor; r.HasBorder = true; } try { colRecs.Add(c, r); } catch { } }
+        ColRec r; if (!colRecs.TryGetValue(c, out r)) { r = new ColRec { Back = c.BackColor, Fore = c.ForeColor, DBack = TM.ToDesign(c.BackColor, from), DFore = TM.ToDesign(c.ForeColor, from) }; var bt = c as Button; if (bt != null) { r.Border = bt.FlatAppearance.BorderColor; r.DBorder = TM.ToDesign(r.Border, from); r.HasBorder = true; } try { colRecs.Add(c, r); } catch { } }
         var cbx = c as ComboBox; if (cbx != null && cbx.DroppedDown) return;   // a list that is open is left alone (changing it would shut it)
-        if (c.BackColor.A != 0 && c.BackColor != Color.Transparent) { var nb = TM.Remap(r.Back, from); if (nb != c.BackColor) c.BackColor = nb; r.Back = nb; }
-        { var nf = TM.Remap(r.Fore, from); if (nf != c.ForeColor) c.ForeColor = nf; r.Fore = nf; }
-        var b2 = c as Button; if (b2 != null && r.HasBorder && b2.FlatStyle == FlatStyle.Flat && r.Border.A != 0) { var nbd = TM.Remap(r.Border, from); b2.FlatAppearance.BorderColor = nbd; r.Border = nbd; }
+        // every colour is rebuilt from the colour it had in the original look; one the program changed by itself since (a selected button) is noted again first
+        if (c.BackColor.A != 0 && c.BackColor != Color.Transparent) { if (c.BackColor != r.Back) r.DBack = TM.ToDesign(c.BackColor, from); var nb = TM.FromDesign(r.DBack); if (nb != c.BackColor) c.BackColor = nb; r.Back = nb; }
+        { if (c.ForeColor != r.Fore) r.DFore = TM.ToDesign(c.ForeColor, from); var nf = TM.FromDesign(r.DFore); if (nf != c.ForeColor) c.ForeColor = nf; r.Fore = nf; }
+        var b2 = c as Button; if (b2 != null && r.HasBorder && b2.FlatStyle == FlatStyle.Flat && r.Border.A != 0) { if (b2.FlatAppearance.BorderColor != r.Border) r.DBorder = TM.ToDesign(b2.FlatAppearance.BorderColor, from); var nbd = TM.FromDesign(r.DBorder); b2.FlatAppearance.BorderColor = nbd; r.Border = nbd; }
         foreach (Control k in c.Controls) RethemeTree(k, from);
         c.Invalidate();
     }
@@ -345,7 +349,9 @@ class DarkCheck : CheckBox
         else using (var b = new SolidBrush(TM.C(255, 6, 3, 12))) g.FillRectangle(b, box);
         using (var pen = new Pen(hot ? TM.C(255, 230, 170, 255) : TM.C(255, 150, 90, 220), 1.3f)) g.DrawRectangle(pen, box);
         TextRenderer.DrawText(g, Text, Font, new Rectangle(26, 0, Width - 28, Height), ForeColor, TextFormatFlags.VerticalCenter | TextFormatFlags.Left | TextFormatFlags.EndEllipsis);
+        if (Overlay != null) Overlay(g);
     }
+    public Action<Graphics> Overlay;   // drawn last (the edition padlock)
 }
 
 // High-precision frame pacing (about 1 ms timer resolution) instead of the ~15 ms WinForms timer.

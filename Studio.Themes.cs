@@ -86,8 +86,7 @@ partial class StudioForm
         var tabA = Rc(x, y, 128, 34); var tabB = Rc(tabA.Right + 8, y, 186, 34);
         Btn(g, tabA, "MY THEMES", 4, () => { }, 13); Hint2(tabA, "The themes on this PC (built in and imported)");
         Btn(g, tabB, "COMMUNITY THEMES", 0, () => OpenCommunityThemes(), 13); Hint2(tabB, "Download themes other people made, or share yours");
-        float rx = sheet.Right - 22; var exp = Rc(rx - 90, y, 90, 34); var pho = Rc(exp.X - 8 - 118, y, 118, 34); var imp = Rc(pho.X - 8 - 100, y, 100, 34); bool hasPhoto = Themes.Current.Photo.Length > 0;
-        Btn(g, imp, "IMPORT", 1, () => ImportThemeFile(), 12); Hint2(imp, "Import a theme file (.purphextheme) or any photo: a photo becomes a theme and fills the whole window");
+        float rx = sheet.Right - 22; var exp = Rc(rx - 90, y, 90, 34); var pho = Rc(exp.X - 8 - 118, y, 118, 34); bool hasPhoto = Themes.Current.Photo.Length > 0;
         Btn(g, pho, hasPhoto ? "NO PHOTO" : "PHOTO", hasPhoto ? 3 : 1, () => { if (hasPhoto) ClearThemePhoto(); else SetThemePhoto(); }, 12); Hint2(pho, hasPhoto ? "Take the photo off this theme" : "Put a photo behind the whole studio for the theme in use (any picture, any size)");
         Btn(g, exp, "SAVE", 1, () => ExportThemeFile(), 12); Hint2(exp, "Save the theme in use as a file you can share (its photo is saved beside it)");
         float top = y + 50, bottom = sheet.Bottom - 20; float areaH = bottom - top; var area = Rc(sheet.X + 10, top, sheet.Width - 20, areaH);
@@ -106,7 +105,10 @@ partial class StudioForm
             Txt(g, t.Name.ToUpper(), 15, Ink, Rc(card.X + 14, card.Y + 42, card.Width - 28 - (ph ? 112 : 0), 24), StringAlignment.Near, true);
             TxtWrap(g, t.Blurb, 11, TM.C(190, 200, 190, 230), Rc(card.X + 14, card.Y + 66, card.Width - 28 - (ph ? 112 : 0), 28));
             if (on) { var tag = Rc(card.Right - (ph ? 196 : 76), card.Y + 43, 64, 22); FillRR(g, Color.FromArgb(230, t.Violet), tag, 8); Txt(g, "IN USE", 10, Color.Black, tag, StringAlignment.Center, true); }
-            Reg(card, () => { int prev = Themes.Index; if (prev == ti) return; Themes.Apply(ti); Prefs.Changed(); OfferRevert("Theme " + list[ti].Name + " is on", () => { Themes.Apply(prev); Prefs.Changed(); }); });
+            { string tg = Themes.Tag(t); bool allowed = Themes.Allowed(t);   // the themes made for one edition wear its name; one above this edition has a padlock
+              if (tg.Length > 0 && !ph && !on) { Color tc = t.Req == Tier.Fantasy ? TM.C(255, 255, 110, 230) : TM.C(255, 255, 200, 90); var pill = Rc(card.Right - 90, card.Y + 43, 76, 20); FillRR(g, Color.FromArgb(60, tc), pill, 8); StrokeRR(g, Color.FromArgb(200, tc), pill, 8, 1f); Txt(g, tg, 9, tc, pill, StringAlignment.Center, true); }
+              if (!allowed) { using (var br = new SolidBrush(Color.FromArgb(120, 4, 2, 10))) { using (var p = RR(card, 14)) g.FillPath(br, p); } Edition.Padlock(g, Rc(card.Right - 34, card.Y + 8, 20, 26), t.Req == Tier.Fantasy ? Color.FromArgb(255, 255, 110, 230) : Color.FromArgb(255, 255, 200, 90)); } }
+            Reg(card, () => { if (!Themes.Allowed(t)) { Edition.Upsell(t.Req, "The " + t.Name + " theme", this); return; } int prev = Themes.Index; if (prev == ti) return; Themes.Apply(ti); Prefs.Changed(); OfferRevert("Theme " + list[ti].Name + " is on", () => { Themes.Apply(prev); Prefs.Changed(); }); });
             if (t.Custom) { var del = Rc(card.Right - (on ? 100 : 36), card.Y + 10, 24, 24); Btn(g, del, "x", 3, () => DeleteTheme(t), 12); Hint2(del, "Delete this theme from this PC"); }
             if (t.Rainbow && !on) { /* the rainbow card is lit by its own colours */ }
         }

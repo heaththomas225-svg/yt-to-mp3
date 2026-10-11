@@ -245,11 +245,11 @@ partial class StudioForm
         float ex = lp.Right + 14, ew = W - ex - 430;
         var ep0 = Rc(ex, top, ew, H - top - 12);
         // the visualiser is the top of this page: the light show over the EQ, the effects and the presets (a short window keeps just the controls; the VISUALISER button opens the full page)
-        const float minDrawer = 560f; visStageOn = ep0.Height - minDrawer >= 226f; var ep = ep0;
+        const float minDrawer = 560f; visStageOn = ep0.Height >= 360f; var ep = ep0;   // (only a very short window leaves it out)
         if (visStageOn)
         {
-            float stageH = Math.Min(ep0.Height * 0.5f, ep0.Height - minDrawer); var sa = Rc(ep0.X, ep0.Y, ep0.Width, stageH); FillRR(g, TM.C(255, 5, 2, 12), sa, 12); PaintVisStage(g, RectangleF.Inflate(sa, -3, -3), false); Win.DrawNeonBox(g, sa, false);
-            var fb = Rc(sa.Right - 150, sa.Y + 8, 140, 28); Btn(g, fb, "FULL VISUALISER", 2, () => tab = 5, 10); Hint2(fb, "Open the visualiser as a page of its own: the light show over everything, with the level meters and the loudness cards");
+            float stageH = ep0.Height - minDrawer >= 226f ? Math.Min(ep0.Height * 0.5f, ep0.Height - minDrawer) : Math.Max(190f, Math.Min(ep0.Height * 0.36f, ep0.Height - 300f)); var sa = Rc(ep0.X, ep0.Y, ep0.Width, stageH); FillRR(g, TM.C(255, 5, 2, 12), sa, 12); PaintVisStage(g, RectangleF.Inflate(sa, -3, -3), false); Win.DrawNeonBox(g, sa, false);
+            bool narrowSa = sa.Width < 560; var fb = Rc(sa.Right - (narrowSa ? 104 : 150), sa.Y + 8, narrowSa ? 94 : 140, 28); Btn(g, fb, narrowSa ? "FULL PAGE" : "FULL VISUALISER", 2, () => tab = 5, 10); Hint2(fb, "Open the visualiser as a page of its own: the light show over everything, with the level meters and the loudness cards");
             ep = Rc(ep0.X, sa.Bottom + 8, ep0.Width, ep0.Bottom - sa.Bottom - 8);
         }
         FillRR(g, Panel, ep, 12); StrokeRR(g, Edge, ep, 12, 1);

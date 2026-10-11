@@ -188,7 +188,7 @@ partial class StudioForm
             using (var d = new SaveFileDialog())
             {
                 d.Title = "Save project"; d.Filter = "Studio project (*.ytmproj)|*.ytmproj"; d.FileName = projName == "Untitled project" ? "My song" : projName;
-                d.InitialDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyMusic), "yt2mp3");
+                d.InitialDirectory = Win.DownloadsDir;
                 try { Directory.CreateDirectory(d.InitialDirectory); } catch { }
                 if (d.ShowDialog(this) != DialogResult.OK) return; path = d.FileName;
             }
@@ -288,6 +288,7 @@ static class StudioDialogs
         int result = 0; var f = Make("Add music", 520, 292);
         f.Controls.Add(new Label { Text = "What do you want to do with your music?", Left = 20, Top = 16, Width = 480, Height = 24, ForeColor = TM.C(255, 200, 170, 255), Font = new Font("Segoe UI Semibold", 11f) });
         var b1 = B("Edit it in Purphex Music  (tracks, mixing, effects, mastering)", 20, 52, 480, 44, TM.C(255, 118, 52, 212)); var b2 = B("Vocal remover  (take the vocals or the beat out of a song)", 20, 104, 480, 44, TM.C(255, 160, 56, 170)); var b3 = B("Trim start and end  (cut it and save as MP3)", 20, 156, 480, 44, TM.C(255, 70, 44, 140));
+        if (!Edition.Has(Tier.Supporter)) b1.Text += "   (Supporter Edition)";
         b1.Click += (s, e) => { result = 1; f.Close(); }; b2.Click += (s, e) => { result = 2; f.Close(); }; b3.Click += (s, e) => { result = 3; f.Close(); };
         f.Controls.AddRange(new Control[] { b1, b2, b3 }); f.Controls.Add(new Label { Text = "Your original file is never changed.", Left = 20, Top = 214, Width = 480, Height = 22, ForeColor = TM.C(255, 170, 150, 200) });
         var cancel = B("Cancel", 400, 246, 100, 30, TM.C(255, 60, 30, 90)); cancel.Click += (s, e) => f.Close(); f.Controls.Add(cancel);
@@ -380,7 +381,7 @@ static class StudioDialogs
         f.ShowDialog(owner); return result;
     }
 
-    // Genre tags: tick the ones you like and add your own (up to 6). Returns the tags (spaces between them) or null if cancelled.
+    // Genre tags: tick the ones you like and add your own (up to 10). Returns the tags (spaces between them) or null if cancelled.
     static readonly string[] SuggestedTags = { "dnb", "trap", "drill", "hiphop", "rap", "lofi", "house", "techno", "edm", "dubstep", "phonk", "pop", "rock", "metal", "rnb", "afrobeat", "reggaeton", "kpop", "indie", "ambient", "cinematic", "jazz", "soul", "funk", "country", "bassline", "dark", "chill", "hard", "melodic", "vocal", "instrumental", "remix", "demo", "banger", "sad" };
     public static string Tags(IWin32Window owner, string current)
     {
@@ -393,11 +394,11 @@ static class StudioDialogs
         Action<string> addChip = null; addChip = tag =>
         {
             if (btns.ContainsKey(tag)) return; var b = new Button { Text = tag.ToUpper(), AutoSize = true, MinimumSize = new Size(0, 30), Padding = new Padding(8, 0, 8, 0), FlatStyle = FlatStyle.Flat, Cursor = Cursors.Hand, ForeColor = Color.White, Margin = new Padding(4) }; b.FlatAppearance.BorderColor = TM.C(255, 150, 110, 220);
-            string tg = tag; b.Click += (s, e) => { if (sel.Contains(tg)) sel.Remove(tg); else if (sel.Count < 6) sel.Add(tg); refresh(); }; btns[tag] = b; fp.Controls.Add(b);
+            string tg = tag; b.Click += (s, e) => { if (sel.Contains(tg)) sel.Remove(tg); else if (sel.Count < 10) sel.Add(tg); refresh(); }; btns[tag] = b; fp.Controls.Add(b);
         };
         fp = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoScroll = true, WrapContents = true, BackColor = TM.C(255, 14, 7, 30), Padding = new Padding(4) }; panel.Controls.Add(fp);
         foreach (var t in all) addChip(t);
-        refresh = () => { foreach (var kv in btns) { bool on = sel.Contains(kv.Key); kv.Value.BackColor = on ? TM.C(255, 150, 70, 230) : TM.C(255, 46, 26, 84); } count.Text = sel.Count + " of 6 picked" + (sel.Count == 6 ? " (that is the most)" : ""); };
+        refresh = () => { foreach (var kv in btns) { bool on = sel.Contains(kv.Key); kv.Value.BackColor = on ? TM.C(255, 150, 70, 230) : TM.C(255, 46, 26, 84); } count.Text = sel.Count + " of 10 picked" + (sel.Count == 10 ? " (that is the most)" : ""); };
         var own = new TextBox { Left = 16, Top = 350, Width = 360, BackColor = Fld, ForeColor = Ink, BorderStyle = BorderStyle.FixedSingle, MaxLength = 20 }; Win.NeonBox(own); f.Controls.Add(own);
         var add = B("ADD MY OWN", 386, 346, 130, 32, TM.C(255, 140, 60, 220)); f.Controls.Add(add);
         Action doAdd = () => { string t = ProjectLibrary.CleanTags(own.Text).Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries).FirstOrDefault(); if (t == null) return; addChip(t); if (!sel.Contains(t) && sel.Count < 6) sel.Add(t); own.Text = ""; refresh(); own.Focus(); };
@@ -411,7 +412,7 @@ static class StudioDialogs
     public static string Links(IWin32Window owner, string current)
     {
         string result = null; var f = Make("Your links", 560, 360);
-        f.Controls.Add(new Label { Text = "Add the links you want on your profile (up to 6): your website, YouTube, SoundCloud, Spotify, Instagram, a shop... Any web address works. One on every line.", Left = 16, Top = 12, Width = 520, Height = 46, ForeColor = TM.C(255, 200, 170, 255) });
+        f.Controls.Add(new Label { Text = "Add the links you want on your profile (up to 10): your website, YouTube, SoundCloud, Spotify, Instagram, a shop... Any web address works. One on every line.", Left = 16, Top = 12, Width = 520, Height = 46, ForeColor = TM.C(255, 200, 170, 255) });
         var tb = new TextBox { Left = 16, Top = 66, Width = 520, Height = 200, Multiline = true, ScrollBars = ScrollBars.Vertical, Text = current, BackColor = Fld, ForeColor = Ink, BorderStyle = BorderStyle.FixedSingle, Font = new Font("Segoe UI", 10.5f), AcceptsReturn = true }; Win.NeonBox(tb); f.Controls.Add(tb);
         var info = new Label { Left = 16, Top = 272, Width = 520, Height = 22, ForeColor = TM.C(255, 160, 140, 200) }; f.Controls.Add(info);
         Action check = () => { int ok = 0, bad = 0; foreach (var raw in tb.Text.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries)) { if (raw.Trim().Length == 0) continue; if (ProfileStore.CleanLink(raw).Length > 0) ok++; else bad++; } info.Text = ok + " usable" + (bad > 0 ? ",  " + bad + " not a web address (it will be left out)" : "") + (ok > 6 ? "  (only the first 6 are kept)" : ""); };
@@ -439,12 +440,12 @@ static class StudioDialogs
         for (int i = 0; i < names.Length; i++) { var c = new DarkCheck { Text = names[i], Left = 24, Top = y, Width = 500, Height = 26, Checked = def[i] }; cks.Add(c); f.Controls.Add(c); y += 28; }
         y += 6; f.Controls.Add(new Label { Text = "Format", Left = 16, Top = y + 4, Width = 70, Height = 22 });
         var fm = new DarkCombo { Left = 90, Top = y, Width = 190 }; fm.Items.AddRange(Exporter.Formats); fm.SelectedIndex = 0; f.Controls.Add(fm);
-        f.Controls.Add(new Label { Text = "Sample rate", Left = 292, Top = y + 4, Width = 92, Height = 22 }); var rt = new DarkCombo { Left = 388, Top = y, Width = 146 }; rt.Items.AddRange(Exporter.RateNames); rt.SelectedIndex = 0; f.Controls.Add(rt); y += 40;
+        f.Controls.Add(new Label { Text = "Sample rate", Left = 292, Top = y + 4, Width = 92, Height = 22 }); var rt = new DarkCombo { Left = 388, Top = y, Width = 146 }; rt.Items.AddRange(Exporter.RateNames); for (int ri = 0; ri < rt.Items.Count && ri < Exporter.Rates.Length; ri++) if (Exporter.Rates[ri] > Edition.MaxRate) rt.Items[ri] = Exporter.RateNames[ri] + "  (Fantasy)"; rt.SelectedIndex = 0; int rtLast = 0; rt.SelectedIndexChanged += (ra, rb) => { int ri = rt.SelectedIndex; if (ri < 0) return; if (ri < Exporter.Rates.Length && Exporter.Rates[ri] > Edition.MaxRate) { Edition.Upsell(Tier.Fantasy, "Exporting at " + Exporter.RateNames[ri], f); rt.SelectedIndex = rtLast; } else rtLast = ri; }; f.Controls.Add(rt); y += 40;
         var rtNote = new Label { Left = 90, Top = y - 6, Width = 440, Height = 20, ForeColor = TM.C(255, 170, 150, 190), Text = "" }; f.Controls.Add(rtNote); fm.SelectedIndexChanged += (s0, e0) => { rtNote.Text = fm.SelectedIndex == 4 && rt.SelectedIndex > 1 ? "MP3 stops at 48 kHz, so it is saved at 48 kHz." : ""; }; rt.SelectedIndexChanged += (s0, e0) => { rtNote.Text = fm.SelectedIndex == 4 && rt.SelectedIndex > 1 ? "MP3 stops at 48 kHz, so it is saved at 48 kHz." : (rt.SelectedIndex > 0 ? "Made at 44.1 kHz and converted with a high quality filter: bigger files, the same sound." : ""); }; y += 18;
         f.Controls.Add(new Label { Text = "Name", Left = 16, Top = y + 4, Width = 70, Height = 22 });
         var nm = new TextBox { Left = 90, Top = y, Width = 440, Text = defName, BackColor = Fld, ForeColor = Ink, BorderStyle = BorderStyle.FixedSingle }; Win.NeonBox(nm); f.Controls.Add(nm); y += 38;
         f.Controls.Add(new Label { Text = "Folder", Left = 16, Top = y + 4, Width = 70, Height = 22 });
-        var dir = new TextBox { Left = 90, Top = y, Width = 350, Text = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyMusic), "yt2mp3", "Exports"), BackColor = Fld, ForeColor = Ink, BorderStyle = BorderStyle.FixedSingle }; Win.NeonBox(dir); f.Controls.Add(dir);
+        var dir = new TextBox { Left = 90, Top = y, Width = 350, Text = Path.Combine(Win.DownloadsDir, "Purphex Music"), BackColor = Fld, ForeColor = Ink, BorderStyle = BorderStyle.FixedSingle }; Win.NeonBox(dir); f.Controls.Add(dir);
         var br = B("Browse...", 448, y - 2, 84, 28, TM.C(255, 70, 40, 120)); br.Click += (s, e) => { using (var d = new FolderBrowserDialog()) if (d.ShowDialog() == DialogResult.OK) dir.Text = d.SelectedPath; }; f.Controls.Add(br); y += 42;
         f.Controls.Add(new Label { Text = "All files start at 0:00 with the same length, so stems line up in any DAW. Existing files are never replaced without asking.", Left = 16, Top = y, Width = 520, Height = 40, ForeColor = TM.C(255, 170, 150, 190) });
         var ok = B("Export", 330, 508, 100, 34, TM.C(255, 118, 52, 212)); var cancel = B("Cancel", 440, 508, 100, 34, TM.C(255, 70, 40, 120));

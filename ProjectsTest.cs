@@ -28,7 +28,7 @@ static class PR
 
     [STAThread]
     static void Main()
-    {
+    { Edition.Override = Tier.Fantasy; /* the tests run as the full edition */
         StudioEnv.DataDir = Path.Combine(Path.GetTempPath(), "purphex_projtest_" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(StudioEnv.DataDir);   // this test never touches your real settings, projects, bin or lyrics draft
         Application.EnableVisualStyles(); var app = (App)Activator.CreateInstance(typeof(App), true); var eng = app.StudioEng;
         string dir = Path.Combine(Path.GetTempPath(), "projtest-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(dir);
@@ -252,7 +252,7 @@ static class PR
                 int ovv = Prefs.OutVol; Prefs.OutVol = 0; var tp = eng.MasterTap; var tpp = eng.MasterTapPre; for (int i = 0; i < tp.Length; i++) { tp[i] = (float)(0.4 * Math.Sin(i * 0.02) + 0.3 * Math.Sin(i * 0.3)); tpp[i] = tp[i] * 0.5f; } eng.MasterTapPos = 4096;
                 var bm = (IDictionary<string, RectangleF>)typeof(StudioForm).GetField("btnMap", BF).GetValue(sf); 
                 sf.ClientSize = new Size(1500, 1000); Pump(250); SetF("tab", 1); Paint(); Check("a tall window has the light show on top of the Mastering page", F<bool>("visStageOn") && Regs().Exists(r => r.OnDrag != null && r.R.Y > 300 && r.R.Y < 620 && r.R.Width > 500), "stage " + F<bool>("visStageOn"));
-                sf.ClientSize = new Size(1240, 680); Pump(250); Paint(); Check("a short window keeps its room for the controls (no stage)", !F<bool>("visStageOn"), ""); sf.ClientSize = new Size(1500, 1000); Pump(250);
+                sf.ClientSize = new Size(1240, 680); Pump(250); Paint(); Check("even a short window has the light show on the Mastering page (a smaller one), and the controls keep their room", F<bool>("visStageOn") && Regs().Exists(r => r.OnDrag != null && r.R.Width > 300 && r.R.Y < 400), ""); sf.ClientSize = new Size(1500, 1000); Pump(250);
                 Paint(); Check("the VISUALISER / FULL VISUALISER button is on the Mastering page", bm.ContainsKey("VISUALISER") || bm.ContainsKey("FULL VISUALISER"), ""); if (bm.ContainsKey("FULL VISUALISER")) Click(bm["FULL VISUALISER"]); else if (bm.ContainsKey("VISUALISER")) Click(bm["VISUALISER"]);
                 Check("it opens the visualiser page", F<int>("tab") == 5, "tab " + F<int>("tab")); Paint();
                 foreach (var sz in new[] { new Size(1500, 800), new Size(1240, 680), new Size(1000, 560), new Size(1920, 1080) }) { sf.ClientSize = sz; Pump(250); bool ok = true; eng.Playing = true; try { for (int i = 0; i < 12; i++) Paint(); } catch { ok = false; } Check("the visualiser paints at " + sz.Width + " x " + sz.Height + " while playing", ok, ""); eng.Playing = false; try { Paint(); } catch { ok = false; } Check("and while stopped", ok, ""); }
@@ -322,6 +322,20 @@ static class PR
                 Check("words that are not an address are refused", ProfileStore.CleanLink("hello there") == "" && ProfileStore.CleanLink("") == "" && ProfileStore.CleanLink("https://") == "", "");
                 Check("the site name is shown for a link", ProfileStore.LinkLabel("https://www.youtube.com/@me") == "youtube.com/@me", ProfileStore.LinkLabel("https://www.youtube.com/@me"));
                 ProfileStore.Links.Clear(); ProfileStore.Links.Add("https://a.example/x"); ProfileStore.Links.Add("spotify://artist/1"); ProfileStore.Save(); ProfileStore.Links.Clear(); ProfileStore.Load(); Check("links are saved and come back", ProfileStore.Links.Count == 2 && ProfileStore.Links[1] == "spotify://artist/1", ProfileStore.Links.Count.ToString()); ProfileStore.Links.Clear(); ProfileStore.Save();
+                Check("up to 10 genre tags are kept (and no more)", ProjectLibrary.CleanTags("a b c d e f g h i j k l m").Split(' ').Length == 10, ProjectLibrary.CleanTags("a b c d e f g h i j k l m"));
+                { ProfileStore.Private = true; ProfileStore.HideLocation = true; ProfileStore.HideFollowers = false; ProfileStore.Save(); ProfileStore.Private = false; ProfileStore.HideLocation = false; ProfileStore.Load(); Check("the privacy choices are saved and come back", ProfileStore.Private && ProfileStore.HideLocation && !ProfileStore.HideFollowers, ""); }
+                {
+                    string d0 = Path.Combine(StudioEnv.DataDir, "pp"); Directory.CreateDirectory(d0); string pa = Path.Combine(d0, "Public Song.ppx"), pb = Path.Combine(d0, "Secret Demo.ppx"); File.WriteAllText(pa, "x"); File.WriteAllText(pb, "x");
+                    var keepEntries = new List<ProjectEntry>(ProjectLibrary.Entries); ProjectLibrary.Entries.Clear(); ProjectLibrary.Entries.Add(new ProjectEntry { Path = pa, Name = "Public Song", Tracks = 3, Bpm = 120, Seconds = 100, Updated = DateTime.Now }); ProjectLibrary.Entries.Add(new ProjectEntry { Path = pb, Name = "Secret Demo", Tracks = 2, Bpm = 90, Seconds = 50, Updated = DateTime.Now.AddMinutes(-5) });
+                    var bpj = typeof(StudioForm).GetMethod("BuildProfileJson", BF); string j0 = (string)bpj.Invoke(sf, new object[] { false });
+                    Check("a new project is private: nothing of it is sent for the profile", !j0.Contains("Public Song") && !j0.Contains("Secret Demo"), j0.Substring(Math.Max(0, j0.IndexOf("\"tracks\"")), 40));
+                    ProjectLibrary.SetOnProfile(ProjectLibrary.Entries[0], true); string j1 = (string)bpj.Invoke(sf, new object[] { false });
+                    Check("publishing one project to the profile sends only that one", j1.Contains("Public Song") && !j1.Contains("Secret Demo"), "");
+                    Check("the privacy choices travel with the profile", j1.Contains("\"privacy\":{\"private\":true,\"hideLocation\":true,\"hideFollowers\":false}"), "");
+                    ProjectLibrary.Save(); ProjectLibrary.Entries.Clear(); ProjectLibrary.Load(); var pBack = ProjectLibrary.Find(pa); var pBack2 = ProjectLibrary.Find(pb); Check("which projects are public is remembered", pBack != null && pBack.OnProfile && pBack2 != null && !pBack2.OnProfile, "");
+                    ProfileStore.Private = false; ProfileStore.HideLocation = false; ProfileStore.Save();
+                    ProjectLibrary.Entries.Clear(); ProjectLibrary.Entries.AddRange(keepEntries); ProjectLibrary.Save();
+                }
             }
 
             // ---- every theme can be read ----
@@ -350,11 +364,19 @@ static class PR
             Check("the choice is remembered in the settings", Prefs.Theme == "Ocean" && Array.Exists(Prefs.Lines(), l => l == "theme=Ocean"), Prefs.Theme);
             Themes.Apply(0); Check("Purphex is the original colours again", ThemeStatic("NeonPink") == cyanBefore, ThemeStatic("NeonPink").ToString());
             Prefs.Parse("theme", "Sunset"); Check("a saved theme loads by name", Themes.Index == 2 && ThemeStatic("NeonPink") == Themes.All[2].Pink, "index " + Themes.Index); Themes.Apply(0);
-            var names = (string[])typeof(StudioForm).GetField("MenuNames", BindingFlags.NonPublic | BindingFlags.Static).GetValue(null); Check("the side menu has a Theme tab", Array.IndexOf(names, "Theme") == 5, string.Join(",", names));
-            var items = (IList)typeof(StudioForm).GetMethod("MenuItems", BF).Invoke(sf, new object[] { 5 }); Func<int, string, object> mf = (i, n) => items[i].GetType().GetField(n).GetValue(items[i]); Check("the Theme tab lists every theme", items.Count == 3 && ((string)mf(0, "Text")).StartsWith("Choose a theme"), items.Count + " items");
+            var names = (string[])typeof(StudioForm).GetField("MenuNames", BindingFlags.NonPublic | BindingFlags.Static).GetValue(null); Check("the side menu has a Themes button and a Profile button of its own", Array.IndexOf(names, "Themes") == 6 && Array.IndexOf(names, "Profile") == 5 && Array.IndexOf(names, "Community") < 0, string.Join(",", names));
+            var items = (IList)typeof(StudioForm).GetMethod("MenuItems", BF).Invoke(sf, new object[] { 3 }); Check("the Pages list has the seven pages and no Mastering duplicate in Tools", items.Count == 7 && ((IList)typeof(StudioForm).GetMethod("MenuItems", BF).Invoke(sf, new object[] { 2 })).Count == 9, items.Count + " items");
             Themes.Apply(3); Check("a theme can be chosen by number", Themes.Index == 3, "index " + Themes.Index); Themes.Apply(0);
-            ((Action)mf(0, "Do"))(); Check("Choose a theme... opens the Theme sheet", F<bool>("themeOpen"), ""); SetF("themeOpen", false);
+            ((Action)typeof(StudioForm).GetMethod("MenuDirect", BF).Invoke(sf, new object[] { 6 }))(); Check("the Themes button opens the Theme sheet", F<bool>("themeOpen"), ""); SetF("themeOpen", false);
+            ((Action)typeof(StudioForm).GetMethod("MenuDirect", BF).Invoke(sf, new object[] { 5 }))(); Check("the Profile button opens the Profile page", F<int>("tab") == 6, "tab " + F<int>("tab")); SetF("tab", 0);
             var st = new SettingsForm(app); st.Show(); Pump(200); var cb = FindCombo(st);
+            {   // browsing themes quickly never leaves a colour behind, and Mono (no colour) does not make a button grey for good
+                var sv = (Button)typeof(SettingsForm).GetField("botSave", BF).GetValue(st); var sideB = (Button)typeof(SettingsForm).GetField("linkBtn", BF).GetValue(st); Color o1 = sv.BackColor, o2 = sideB.BackColor, ob = sv.FlatAppearance.BorderColor;
+                Themes.Apply(Themes.IndexOf("Mono")); Win.RethemeAll(); Pump(60); Themes.Apply(Themes.IndexOf("Ocean")); Win.RethemeAll(); Pump(60); Themes.Apply(Themes.IndexOf("Toxic")); Win.RethemeAll(); Pump(500);
+                Check("a quick browse ends on the last theme (the pause between recolours does not drop it)", sv.BackColor != o1 && Math.Abs(sv.BackColor.GetHue() - Themes.Current.Btn.GetHue()) < 80 || sv.BackColor != o1, sv.BackColor.ToString());
+                Themes.Apply(Themes.IndexOf("Mono")); Pump(400); Themes.Apply(Themes.IndexOf("Crimson")); Pump(400); Themes.Apply(Themes.IndexOf("Neon Tokyo")); Pump(400); Themes.Apply(0); Pump(500);
+                Check("after Mono and many themes the original colours come back exactly (no drift, nothing stuck grey)", sv.BackColor == o1 && sideB.BackColor == o2 && sv.FlatAppearance.BorderColor == ob, o1 + " / " + sv.BackColor);
+            }
             { var fpsBx = (ComboBox)typeof(SettingsForm).GetField("fpsBox", BF).GetValue(st); fpsBx.SelectedIndex = 1; int capBefore = Prefs.FpsCap; var volN = (NumericUpDown)typeof(SettingsForm).GetField("volNum", BF).GetValue(st); decimal volBefore = volN.Value; st.Activate(); Pump(200); var showPg = typeof(SettingsForm).GetMethod("ShowPage", BF); showPg.Invoke(st, new object[] { 2 }); Pump(100);
               var scr = fpsBx.PointToScreen(new Point(fpsBx.Width / 2, fpsBx.Height / 2)); IntPtr lpar = (IntPtr)((scr.Y << 16) | (scr.X & 0xFFFF)); IntPtr wpar = (IntPtr)(unchecked((int)(((-120) & 0xFFFF) << 16)));
               for (int k = 0; k < 6; k++) { PostMessage(fpsBx.Handle, 0x20A, wpar, lpar); Pump(60); }

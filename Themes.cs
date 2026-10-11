@@ -13,7 +13,7 @@ using System.Windows.Forms;
 // shared in Community themes and downloaded. Every theme goes through the same clean-up, so a bad pick (a white background, a colour too dull to read) is tamed.
 sealed class ThemeDef
 {
-    public string Name = "", Blurb = "", Author = "", Photo = "", ImageHint = ""; public bool Custom, Rainbow;   // Photo: the background picture of this theme (a file on this PC), ImageHint: the picture named inside a theme file
+    public string Name = "", Blurb = "", Author = "", Photo = "", ImageHint = ""; public bool Custom, Rainbow, Special; public Tier Req = Tier.Supporter;   // Photo: the background picture of this theme (a file on this PC), ImageHint: the picture named inside a theme file
     public ThemeDef Copy() { return (ThemeDef)MemberwiseClone(); }
     public Color Violet, Cyan, Pink, Lime, Accent, Accent2, Btn, BtnC, EdgeC, Panel, Lane, Lane2, Bg0, Bg1;
     public static readonly string[] Keys = { "violet", "cyan", "pink", "lime", "accent", "accent2", "btn", "btnc", "edge", "panel", "lane", "lane2", "bg0", "bg1" };
@@ -126,7 +126,7 @@ static class Themes
     static void Ensure()
     {
         if (loaded) return; loaded = true;
-        list.Add(new ThemeDef("Purphex", "The original neon purple, cyan and pink.", new[] { 150,90,255, 0,229,255, 255,43,214, 120,255,120, 178,108,255, 236,92,226, 118,52,212, 70,40,120, 140,85,210, 18,10,34, 11,6,22, 15,8,29, 7,4,16, 18,8,36 }));
+        list.Add(new ThemeDef("Purphex", "The original neon purple, cyan and pink.", new[] { 150,90,255, 0,229,255, 255,43,214, 120,255,120, 178,108,255, 236,92,226, 118,52,212, 70,40,120, 140,85,210, 18,10,34, 11,6,22, 15,8,29, 7,4,16, 18,8,36 })); list[0].Req = Tier.Free;   // the Free Edition has this one
         list.Add(new ThemeDef("Ocean", "Cool blues and teal, like a night sea.", new[] { 70,140,255, 0,229,255, 0,200,170, 120,255,200, 100,170,255, 40,210,200, 28,84,190, 24,56,110, 60,120,210, 8,14,32, 5,9,22, 8,13,29, 3,7,18, 7,16,38 }));
         list.Add(new ThemeDef("Sunset", "Hot orange, amber and pink.", new[] { 255,130,70, 255,205,70, 255,70,130, 255,230,120, 255,160,100, 255,90,140, 200,80,40, 112,50,40, 215,115,80, 32,13,13, 22,8,9, 29,11,11, 16,6,6, 38,14,14 }));
         list.Add(new ThemeDef("Mono", "Clean white and grey, no colour at all.", new[] { 205,205,220, 255,255,255, 170,170,190, 220,220,230, 215,215,230, 165,165,185, 92,92,112, 52,52,66, 140,140,160, 16,16,20, 10,10,13, 14,14,18, 6,6,9, 20,20,26 }));
@@ -143,6 +143,17 @@ static class Themes
         list.Add(ThemeDef.FromSpec("Violet", "Rich violet and magenta.", 283, 322, 205, 140, 288, 0.55));
         list.Add(ThemeDef.FromSpec("Pink", "Rose pink with lilac and aqua.", 328, 275, 195, 155, 332, 0.5));
         var rb = ThemeDef.FromHue("Rainbow", "Every colour of the rainbow, slowly moving.", 0); rb.Rainbow = true; list.Add(rb);
+        // themes of their own for each paid edition: three for Supporter, five for Fantasy (the lifetime one)
+        foreach (var sp in new[] {
+            ThemeDef.FromSpec("Neon Tokyo", "Hot magenta and electric cyan on midnight blue.", 322, 188, 262, 60, 236, 0.62),
+            ThemeDef.FromSpec("Aurora", "Northern-light green with violet and ice.", 150, 270, 190, 95, 200, 0.5),
+            ThemeDef.FromSpec("Bubblegum", "Soft pink and baby blue on deep plum.", 340, 200, 300, 170, 325, 0.6) }) { sp.Special = true; sp.Req = Tier.Supporter; list.Add(sp); }
+        foreach (var fa in new[] {
+            ThemeDef.FromSpec("Royal Gold", "Black and 24-carat gold with a ruby glow.", 44, 352, 38, 50, 30, 0.35),
+            ThemeDef.FromSpec("Nebula", "Deep-space magenta, ice blue and starlight.", 292, 196, 330, 270, 268, 0.7),
+            ThemeDef.FromSpec("Obsidian", "Glass black with steel blue and red sparks.", 215, 2, 40, 100, 220, 0.12),
+            ThemeDef.FromSpec("Splatter", "The sparks of the pointer: pink, cyan, yellow and lime on black.", 330, 188, 52, 100, 280, 0.3),
+            ThemeDef.FromSpec("Dragon Fire", "Molten orange with magenta and gold sparks.", 14, 300, 44, 40, 10, 0.7) }) { fa.Special = true; fa.Req = Tier.Fantasy; list.Add(fa); }
         foreach (var bt in list) bt.Legible();
         LoadCustom(); LoadPhotoMap();
     }
@@ -165,8 +176,12 @@ static class Themes
         foreach (Form f in Application.OpenForms) { try { f.Invalidate(true); } catch { } }
     }
     public static void ApplyByName(string name) { Ensure(); Index = IndexOf(name); Push(Current); }
+    // the edition decides which themes can be used: a theme above the edition is put back to the original one
+    public static bool Allowed(ThemeDef t) { return Edition.Has(t.Req); }
+    public static bool EnforceEdition() { Ensure(); if (Allowed(Current)) return false; Apply(0); Prefs.Changed(); return true; }
+    public static string Tag(ThemeDef t) { return t.Special ? (t.Req == Tier.Fantasy ? "FANTASY" : "SUPPORTER") : ""; }
     // fromTick: the Rainbow theme moving a little; the other windows are not recoloured then (that would close an open drop-down and make every control flash), only when a theme is really chosen
-    static void Push(ThemeDef t, bool fromTick = false) { StudioForm.ApplyTheme(t); MasterForm.ApplyTheme(t); SynthCanvas.ApplyTheme(t); if (!fromTick) { try { Win.RethemeAll(); } catch { } } }
+    static void Push(ThemeDef t, bool fromTick = false) { if (!fromTick) Sprites.Clear(); StudioForm.ApplyTheme(t); MasterForm.ApplyTheme(t); SynthCanvas.ApplyTheme(t); if (!fromTick) { try { Win.RethemeAll(); } catch { } } }
     // the Rainbow theme slowly turns through every colour (called once per frame by the studio)
     static double lastRainbowH = -1; static int lastRainbowIdx = -2;
     public static bool Tick()

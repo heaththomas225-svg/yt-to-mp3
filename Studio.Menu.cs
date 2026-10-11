@@ -10,7 +10,20 @@ partial class StudioForm
 {
     class MItem { public string Text, Hint = ""; public Action Do; public bool Sub, Disabled; public string Key = ""; }
     bool menuOpen, projectsLoaded; int menuSec = -1, menuSub = -1; float projScroll; const string ImgFilter = "Pictures|*.jpg;*.jpeg;*.png;*.gif;*.bmp|All files|*.*";
-    static readonly string[] MenuNames = { "Project", "Edit", "Tools", "View", "Community", "Theme", "Settings", "Help", "Exit" };
+    // the side menu: five lists (File, Edit, Tools, Pages, View) and then single buttons that just take you there (Profile, Themes, Settings, Help, Exit)
+    static readonly string[] MenuNames = { "File", "Edit", "Tools", "Pages", "View", "Profile", "Themes", "Settings", "Help", "Exit" }; const int MenuLists = 5;
+    static readonly int[] MenuIcon = { 0, 1, 2, 8, 3, 4, 5, 6, 7, 9 };
+    Action MenuDirect(int i)
+    {
+        switch (i)
+        {
+            case 5: return () => { GoTab(6); profScroll = 0; };
+            case 6: return () => { CloseMenu(); OpenThemeSheet(); };
+            case 7: return () => { CloseMenu(); app.ShowSettings(); };
+            case 8: return () => { CloseMenu(); app.ShowHelp(null); };
+            default: return () => { CloseMenu(); Close(); };
+        }
+    }
 
     // remember a project in the list (called on save and open)
     void NoteProject(string path, bool saved)
@@ -29,46 +42,35 @@ partial class StudioForm
         var l = new List<MItem>(); Func<string, Action, MItem> I = (t, a) => { var m = new MItem { Text = t, Do = a }; l.Add(m); return m; };
         switch (sec)
         {
-            case 0:
+            case 0:   // File
                 I("New Project", () => { CloseMenu(); NewProject(); });
                 I("Recent Projects", null).Sub = true;
-                I("My Projects", () => GoTab(3));
                 I("Open (project or music)...", () => { CloseMenu(); OpenClick(); });
                 I("Save", () => { CloseMenu(); SaveClick(false); }).Key = "Ctrl+S";
                 I("Save as...", () => { CloseMenu(); SaveClick(true); }).Key = "Ctrl+Shift+S";
                 I("Set project picture...", () => { CloseMenu(); SetCurrentCover(); });
                 I("Export...", () => { CloseMenu(); ExportClick(); });
                 break;
-            case 1:
+            case 1:   // Edit (only on the Mix page)
                 I("Undo", () => { CloseMenu(); DoUndo(); }).Key = "Ctrl+Z"; I("Redo", () => { CloseMenu(); DoRedo(); }).Key = "Ctrl+Y"; I("Split at the needle", () => { CloseMenu(); SplitSelected(); }).Key = "B";
                 I("Cut a section out (CUT)", () => { CloseMenu(); CutClick(); }); I("Lock or unlock the track", () => { CloseMenu(); ToggleLock(); }); I("Duplicate track", () => { CloseMenu(); DuplicateTrack(Selected); }); I("Delete the selected piece", () => { CloseMenu(); DeleteClip(CurClip() ?? Selected); });
                 break;
-            case 2:
-                I("Flex Pitch (edit notes)", () => { GoMixClose(); FlexOpen(); }); I("Purphex Sounds", () => { GoMixClose(); OpenSounds(); }); I("Sound packs (install)", () => { GoMixClose(); OpenSounds(); packsOpen = true; packScroll = 0; });
-                I("Rapper Vocal Styles", () => { GoMixClose(); OpenStyles(); });
+            case 2:   // Tools: they all work on the tracks, so they take you to the Mix page
                 I("Auto Mix", () => { GoMixClose(); AutoMixClick(); }); I("Split vocals + beat", () => { GoMixClose(); SeparateClick(); }); I("Detect BPM", () => { GoMixClose(); DetectBpmClick(); });
-                I("Metronome on / off", () => { GoMixClose(); eng.Metronome = !eng.Metronome; }); I(snapOn ? "Snap to grid: ON" : "Snap to grid: OFF", () => { GoMixClose(); snapOn = !snapOn; Toast(snapOn ? "Snap to the grid is on." : "Snap to the grid is off."); }); I("Mastering", () => GoTab(1)); I("Add an instrument...", () => { GoMixClose(); AddInstrumentClick(); }); I("Add a track...", () => { GoMixClose(); ShowAddTrackMenuMain(); });
+                I("Flex Pitch (edit notes)", () => { GoMixClose(); FlexOpen(); }); I("Sounds and sound packs", () => { GoMixClose(); OpenSounds(); }); I("Rapper Vocal Styles", () => { GoMixClose(); OpenStyles(); });
+                I("Add a track...", () => { GoMixClose(); ShowAddTrackMenuMain(); });
+                I("Metronome on / off", () => { GoMixClose(); eng.Metronome = !eng.Metronome; }); I(snapOn ? "Snap to grid: ON" : "Snap to grid: OFF", () => { GoMixClose(); snapOn = !snapOn; Toast(snapOn ? "Snap to the grid is on." : "Snap to the grid is off."); });
                 break;
-            case 3:
-                I("Converter window", () => { CloseMenu(); Win.Bring(app); }); I(Prefs.ShowFps ? "Hide the FPS counter" : "Show the FPS counter", () => { CloseMenu(); Prefs.ShowFps = !Prefs.ShowFps; Prefs.Changed(); });
-                I("Mix (tracks)", () => GoTab(0)); I("Mastering", () => GoTab(1)); I("Master Visualiser", () => GoTab(5)); I("Lyrics", () => GoTab(2)); I("My Projects", () => GoTab(3));
-                I("Fit the whole song", () => { CloseMenu(); tab = 0; FitView(); }); I("Thin tracks", () => { CloseMenu(); LaneH = 84; }); I("Normal tracks", () => { CloseMenu(); LaneH = 104; }); I("Tall tracks", () => { CloseMenu(); LaneH = 168; });
+            case 3:   // Pages
+                I("Mix (tracks)", () => GoTab(0)); I("Mastering", () => GoTab(1)); I("Master Visualiser", () => GoTab(5)); I("Lyrics", () => GoTab(2));
+                I("My Projects", () => GoTab(3)); I("Community", () => GoTab(4)); I("Artists", () => { CloseMenu(); OpenArtists(); });
+                break;
+            default:  // View
+                I("Fit the whole song", () => { CloseMenu(); tab = 0; FitView(); });
+                I("Track height: " + (LaneH <= 90 ? "Thin" : (LaneH >= 150 ? "Tall" : "Normal")) + "  (click to change)", () => { LaneH = LaneH <= 90 ? 104 : (LaneH >= 150 ? 84 : 168); });
                 I(Win.IsFull(this) ? "MINIMISE (back to a normal window)" : "FULLSCREEN", () => { CloseMenu(); Win.ToggleFullscreen(this); });
-                break;
-            case 4:
-                I("Community", () => GoTab(4)); I("My profile", () => { GoTab(6); profScroll = 0; }); I("Search artists", () => { CloseMenu(); OpenArtists(); });
-                break;
-            case 5:
-                I("Choose a theme...", () => { CloseMenu(); OpenThemeSheet(); }); I("Community themes (download)...", () => { CloseMenu(); OpenThemeSheet(true); }); I("Import a theme file...", () => { CloseMenu(); ImportThemeFile(); });
-                break;
-            case 6:
-                I("Settings", () => { CloseMenu(); app.ShowSettings(); });
-                break;
-            case 7:
-                I("Help and guides", () => { CloseMenu(); app.ShowHelp(null); }).Key = "F1"; I("What's new", () => { CloseMenu(); Changelog.Show(this); });
-                break;
-            default:
-                I("Close Purphex Music", () => { CloseMenu(); Close(); });
+                I(Prefs.ShowFps ? "Hide the FPS counter" : "Show the FPS counter", () => { CloseMenu(); Prefs.ShowFps = !Prefs.ShowFps; Prefs.Changed(); });
+                I("Converter window", () => { CloseMenu(); Win.Bring(app); });
                 break;
         }
         return l;
@@ -125,14 +127,16 @@ partial class StudioForm
         for (int i = 0; i < MenuNames.Length; i++)
         {
             if (i == 1 && tab != 0) { if (menuSec == 1) menuSec = -1; continue; }   // Edit (undo, split...) only makes sense on the Mix page
-            menuYs[i] = y; int k = i; var r = Rc(10, y, w1 - 20, 46); bool sel = menuSec == i; bool last = i == MenuNames.Length - 1; if (last) { y += 10; r = Rc(10, y, w1 - 20, 46); }
+            bool list = i < MenuLists; bool last = i == MenuNames.Length - 1; if (i == MenuLists || last) y += 8;   // a gap before the single buttons and before Exit
+            menuYs[i] = y; int k = i; var r = Rc(10, y, w1 - 20, 40); bool sel = list && menuSec == i;
             if (sel || Hot(r)) { FillRR(g, sel ? TM.C(150, 70, 38, 130) : TM.C(90, 60, 34, 110), r, 10); if (sel) Glow(g, NeonViolet, r, 10, 0.45f, 2); }
             Win.DrawNeonBox(g, r, sel || Hot(r));
-            var ic = Rc(r.X + 12, r.Y + 11, 24, 24); DrawMenuIcon(g, ic, i, sel); Txt(g, MenuNames[i], 15, sel ? Ink : TM.C(255, 225, 215, 245), Rc(r.X + 50, r.Y, 150, r.Height), StringAlignment.Near, sel);
-            if (!last) Txt(g, ">", 14, DimC, Rc(r.Right - 34, r.Y, 24, r.Height), StringAlignment.Center, true);
-            Reg(r, () => { menuSec = menuSec == k ? -1 : k; menuSub = -1; if (k == MenuNames.Length - 1) { var it = MenuItems(k)[0]; it.Do(); } }); y += 54;
+            var ic = Rc(r.X + 12, r.Y + 8, 24, 24); DrawMenuIcon(g, ic, MenuIcon[i], sel); Txt(g, MenuNames[i], 15, sel ? Ink : TM.C(255, 225, 215, 245), Rc(r.X + 50, r.Y, 150, r.Height), StringAlignment.Near, sel);
+            if (list) { Txt(g, ">", 14, DimC, Rc(r.Right - 34, r.Y, 24, r.Height), StringAlignment.Center, true); Reg(r, () => { menuSec = menuSec == k ? -1 : k; menuSub = -1; }); }
+            else Reg(r, () => { menuSec = -1; MenuDirect(k)(); });
+            y += 46;
         }
-        if (menuSec >= 0 && menuSec < MenuNames.Length - 1) PaintMenuColumn(g, w1, w2, H);
+        if (menuSec >= 0 && menuSec < MenuLists) PaintMenuColumn(g, w1, w2, H);
     }
     void DrawMenuIcon(Graphics g, RectangleF r, int i, bool sel)
     {
@@ -148,6 +152,7 @@ partial class StudioForm
                 case 5: g.DrawEllipse(pen, r.X + 3, r.Y + 3, r.Width - 6, r.Height - 6); using (var fb = new SolidBrush(NeonPink)) g.FillEllipse(fb, r.X + 7, r.Y + 8, 5, 5); using (var fb = new SolidBrush(NeonCyan)) g.FillEllipse(fb, r.X + 13, r.Y + 8, 5, 5); using (var fb = new SolidBrush(NeonLime)) g.FillEllipse(fb, r.X + 10, r.Y + 14, 5, 5); break;
                 case 6: g.DrawEllipse(pen, r.X + 4, r.Y + 4, r.Width - 8, r.Height - 8); g.DrawEllipse(pen, r.X + 9, r.Y + 9, r.Width - 18, r.Height - 18); break;
                 case 7: g.DrawEllipse(pen, r.X + 2, r.Y + 2, r.Width - 4, r.Height - 4); Txt(g, "?", 14, c, r, StringAlignment.Center, true); break;
+                case 8: g.DrawRectangle(pen, r.X + 7, r.Y + 2, r.Width - 11, r.Height - 10); g.DrawRectangle(pen, r.X + 3, r.Y + 7, r.Width - 11, r.Height - 10); break;
                 default: g.DrawLine(pen, r.X + 4, r.Y + 12, r.Right - 4, r.Y + 12); g.DrawLine(pen, r.X + 4, r.Y + 12, r.X + 10, r.Y + 6); g.DrawLine(pen, r.X + 4, r.Y + 12, r.X + 10, r.Y + 18); break;
             }
         }
@@ -210,6 +215,7 @@ partial class StudioForm
             var pv = Rc(card.Right - 12 - 142, card.Y + 290, 32, 26); var cam = Rc(pv.Right + 6, card.Y + 290, 32, 26); var nop = Rc(cam.Right + 6, card.Y + 290, 32, 26); var rm = Rc(nop.Right + 6, card.Y + 290, 28, 26);
             Reg(card, () => OpenProjectAsk(e)).OnRight = () => ProjectCardMenu(path);
             var star = Rc(card.X + 12, card.Y + 290, 32, 26); FillRR(g, Hot(star) ? TM.C(220, 90, 50, 170) : TM.C(150, 44, 24, 80), star, 7); DrawStar(g, star, e.Fav, Hot(star)); Reg(star, () => ToggleFavourite(e)); Hint2(star, e.Fav ? "Remove from your favourites" : "Add to your favourites (a star)");
+            var pfb = Rc(star.Right + 6, card.Y + 290, 32, 26); FillRR(g, e.OnProfile ? TM.C(235, 150, 40, 130) : (Hot(pfb) ? TM.C(220, 90, 50, 170) : TM.C(150, 44, 24, 80)), pfb, 7); DrawPerson(g, pfb, e.OnProfile, Hot(pfb)); Reg(pfb, () => ToggleOnProfile(e)); Hint2(pfb, e.OnProfile ? "On your profile (public): press to make it private again" : "Private: press to PUBLISH TO PROFILE so other people see it on your profile");
             FillRR(g, prev ? TM.C(235, 40, 140, 160) : (Hot(pv) ? TM.C(220, 90, 50, 170) : TM.C(150, 44, 24, 80)), pv, 7); using (var b = new SolidBrush(Ink)) { if (prev) g.FillRectangle(b, pv.X + 11, pv.Y + 8, 10, 10); else g.FillPolygon(b, new[] { new PointF(pv.X + 11, pv.Y + 6), new PointF(pv.X + 11, pv.Y + 20), new PointF(pv.X + 22, pv.Y + 13) }); } Reg(pv, () => PreviewToggle(e)); if (Hot(pv)) { bubble = prev ? "Stop the preview" : "PREVIEW: hear this project without opening it"; bubblePt = MousePos; }
             FillRR(g, Hot(cam) ? TM.C(220, 90, 50, 170) : TM.C(150, 44, 24, 80), cam, 7); DrawCamera(g, cam); Reg(cam, () => { if (!e.Missing) PickCover(path); }); if (Hot(cam)) { bubble = "Add or change the picture"; bubblePt = MousePos; }
             bool has = e.Cover.Length > 0; FillRR(g, has && Hot(nop) ? TM.C(220, 160, 50, 100) : TM.C(has ? 150 : 70, 44, 24, 80), nop, 7); DrawCamera(g, nop); using (var pen = new Pen(Color.FromArgb(has ? 255 : 110, 255, 90, 120), 2.2f)) g.DrawLine(pen, nop.X + 7, nop.Y + 20, nop.Right - 7, nop.Y + 5);
@@ -232,7 +238,7 @@ partial class StudioForm
         m.Items.Add(new ToolStripSeparator());
         m.Items.Add("Rename...").Click += (a, b) => { if (e != null) RenameEntry(e); };
         m.Items.Add("Add or change picture...").Click += (a, b) => { if (ok) PickCover(path); };
-        if (e != null) { m.Items.Add(e.Fav ? "Remove from favourites" : "Add to favourites").Click += (a, b) => ToggleFavourite(e); }
+        if (e != null) { m.Items.Add(e.Fav ? "Remove from favourites" : "Add to favourites").Click += (a, b) => ToggleFavourite(e); m.Items.Add(e.OnProfile ? "Make private (take it off my profile)" : "Publish to my profile").Click += (a, b) => ToggleOnProfile(e); }
         m.Items.Add("Remove picture").Click += (a, b) => { if (e != null && e.Cover.Length > 0) { ProjectLibrary.ClearCover(path); Toast("Picture removed: the Purphex logo is shown again."); } else Toast("This project has no picture of its own."); };
         m.Items.Add("Show in folder").Click += (a, b) => { try { System.Diagnostics.Process.Start("explorer.exe", "/select,\"" + path + "\""); } catch { } };
         m.Items.Add(new ToolStripSeparator());

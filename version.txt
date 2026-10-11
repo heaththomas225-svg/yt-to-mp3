@@ -1,4 +1,4 @@
-3.25.0
+3.26.0
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Profiles and artists, a Mastering page that is the visualiser, themes that change everything, a much smoother studio, help that takes you there and sample rates up to 384 kHz
-sha256=baeac3ae6c0f75884ff5680bebd0d7dab7c29ef2698ac5e09e8bc77a70965d7a
+Editions with padlocks, licence protection, privacy and publish-to-profile, tidier side menu, Mastering visualiser in every window size, no stale theme colours, downloads go to Downloads
+sha256=b8bf2cba79abd3c9d2c25668842527e52d2d815003aacee56ae69cf1b36e12cd

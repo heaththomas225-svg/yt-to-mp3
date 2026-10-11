@@ -417,7 +417,7 @@ partial class StudioForm : Form
 
     void PaintAll(PaintEventArgs e)
     {
-        Prof.Start(); hintNow = ""; bubble = ""; btnAnim = false; NavTrack(); MasterTick(); HoverTick(); if (Themes.Tick()) { lastInput = DateTime.Now; btnAnim = true; } AutoBpmTick(); TidyEmptyTracks();
+        Prof.Start(); EditionWatch(); hintNow = ""; bubble = ""; btnAnim = false; NavTrack(); MasterTick(); HoverTick(); if (Themes.Tick()) { lastInput = DateTime.Now; btnAnim = true; } AutoBpmTick(); TidyEmptyTracks();
         var g = e.Graphics; g.SmoothingMode = SmoothingMode.AntiAlias; g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
         if (popDragId.Length > 0 && PaintPopDragFast(g)) { fpsc.Frame(); return; }   // dragging a box: the page under it is a stored picture and only the box is moved
         if (popDragId.Length == 0 && popBase != null) PopCacheClear();
@@ -655,9 +655,15 @@ partial class StudioForm : Form
             var r0 = Rc(HeadW + 40, top + RulerH + 60, tl.Width - 80, 150);
             bool over = Hot(r0), drop = dragOver; FillRR(g, TM.C(drop ? 170 : (over ? 140 : 110), 40, 20, 80), r0, 14); Glow(g, drop ? NeonCyan : NeonViolet, r0, 14, drop ? 1.3f : (over ? 0.9f : 0.45f), 4);
             using (var pen = new Pen(Color.FromArgb(drop ? 255 : 150, drop ? NeonCyan : NeonViolet), 2f) { DashStyle = DashStyle.Dash }) { var inner = RectangleF.Inflate(r0, -10, -10); using (var p = RR(inner, 10)) g.DrawPath(pen, p); }
-            Txt(g, drop ? "Drop your music here" : "Add your music to start", 26, Ink, Rc(r0.X, r0.Y + 14, r0.Width, 40), StringAlignment.Center, true);
-            Txt(g, "Click this box to pick songs from your computer, or drag and drop them onto it.", 15, drop ? Ink : DimC, Rc(r0.X, r0.Y + 62, r0.Width, 26), StringAlignment.Center, false);
-            Txt(g, "MP3, WAV, FLAC, M4A, OGG and more. For a full song, split it afterwards.", 13, DimC, Rc(r0.X, r0.Y + 92, r0.Width, 24), StringAlignment.Center, false);
+            // the words stay inside the dotted line: each line shrinks to fit the box and wraps if it still cannot
+            float tw0 = r0.Width - 64; Action<string, float, Color, float, bool> fitLine = (t, sz0, col, yy, bold) =>
+            {
+                float sz = sz0; while (sz > 11f && g.MeasureString(t, GfxCache.Font(sz, bold)).Width > tw0) sz -= 0.5f;
+                if (g.MeasureString(t, GfxCache.Font(sz, bold)).Width > tw0) TxtWrap(g, t, sz, col, Rc(r0.X + 32, yy, tw0, 38)); else Txt(g, t, sz, col, Rc(r0.X + 32, yy, tw0, 26), StringAlignment.Center, bold);
+            };
+            fitLine(drop ? "Drop your music here" : "Add your music to start", 26, Ink, r0.Y + 18, true);
+            fitLine("Click this box to pick songs from your computer, or drag and drop them onto it.", 15, drop ? Ink : DimC, r0.Y + 64, false);
+            fitLine("MP3, WAV, FLAC, M4A, OGG and more. For a full song, split it afterwards.", 13, DimC, r0.Y + 104, false);
             Reg(r0, () => AddMusicClick()); if (over) { bubble = "Click to choose music from your computer"; bubblePt = MousePos; }
         }
         g.ResetClip();
