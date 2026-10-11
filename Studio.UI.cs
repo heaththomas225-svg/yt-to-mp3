@@ -304,6 +304,7 @@ partial class StudioForm : Form
         if (browserOpen) PaintBrowser(g);
         PaintSoundDrag(g); PaintPackManager(g);
         if (soundBox != null && soundBox.Visible && !(soundsOpen && tab == 0)) soundBox.Visible = false;
+        PaintNewTrackSheet(g);
         PaintMenu(g);
         PaintBubble(g);
         fpsc.Frame(); if (Prefs.ShowFps) fpsc.Draw(g, ClientSize.Width - 8, ClientSize.Height - 6, lastIdle);
@@ -473,7 +474,6 @@ partial class StudioForm : Form
             PaintLaneTools(g, tr, lane);
             PaintHeader(g, tr, i, Rc(0, y, HeadW, LaneH), sel);
             NeonLaneChrome(g, tr, Rc(0, y, HeadW, LaneH), lane, sel);
-            AddTrackZone(g, y, i);
             using (var pen = new Pen(Color.FromArgb(70, 140, 85, 210))) g.DrawLine(pen, 0, y + LaneH, tl.Right, y + LaneH);
         }
         AddTrackRow(g, Math.Max(y, top + RulerH), n);
@@ -821,6 +821,7 @@ partial class StudioForm : Form
         lastInput = DateTime.Now;
         if (editBox != null && editBox.Visible) return base.ProcessCmdKey(ref msg, k);
         if (ActiveControl is TextBoxBase && ((Control)ActiveControl).Visible) return base.ProcessCmdKey(ref msg, k);   // typing in the lyrics page: every key belongs to the text box
+        if (ntOpen && k == Keys.Escape) { CloseNewTrackSheet(); return true; }
         if (menuOpen && k == Keys.Escape) { CloseMenu(); return true; }
         if (flexOpen && !menuOpen && !browserOpen && FlexKey(k)) return true;
         if (browserOpen)

@@ -65,9 +65,10 @@ static class S
         }
         { var mw = typeof(StudioForm).GetMethod("OnMouseWheel", BF | BindingFlags.DeclaredOnly); long w1 = F<long>("scroll"); Paint(); mw.Invoke(sf, new object[] { new MouseEventArgs(MouseButtons.None, 0, 700, 400, -120) }); Paint(); long w2 = F<long>("scroll");
           Check("the mouse wheel scrolls along the song (the tracks all fit, so it goes sideways)", w2 > w1, w1 + " -> " + w2); mw.Invoke(sf, new object[] { new MouseEventArgs(MouseButtons.None, 0, 700, 400, 120) }); Paint(); Check("and back again", F<long>("scroll") < w2, F<long>("scroll").ToString()); }
-        // add-track strips: one above each track (and one below the last), inserting where asked
+        // the new-track sheet, and inserting where asked
         Paint(); int strips = 0; foreach (var r in Regs()) if (Math.Abs(r.R.Width - 250) < 0.5f && Math.Abs(r.R.Height - 16) < 0.5f) strips++;
-        Check("there is an add-track strip above every track and one below the last", strips == 3, strips + " strips for 2 tracks");
+        Check("no glitchy add-track strips float between tracks any more", strips == 0, strips + " strips");
+        { var cl = typeof(StudioForm).GetMethod("OpenNewTrackSheet", BF); cl.Invoke(sf, new object[] { 2 }); Paint(); Check("+ ADD TRACK opens the New Track sheet with the track types", F<bool>("ntOpen") && Regs().Count > 10, Regs().Count + " regions"); typeof(StudioForm).GetMethod("CloseNewTrackSheet", BF).Invoke(sf, null); Paint(); Check("and it closes again", !F<bool>("ntOpen"), ""); }
         SetF("nextInsert", 1); typeof(StudioForm).GetMethod("AddTrack", BF).Invoke(sf, new object[] { StudioEngine.NewTrack("NEW", "audio", Clip(5)) });
         Check("a track added from a strip lands exactly there and is selected", eng.Tracks.Count == 3 && eng.Tracks[1].Name == "NEW" && F<int>("selTrack") == 1, string.Join(", ", eng.Tracks.ConvertAll(t => t.Name).ToArray()));
         typeof(StudioForm).GetMethod("AddTrack", BF).Invoke(sf, new object[] { StudioEngine.NewTrack("LAST", "audio", Clip(5)) });

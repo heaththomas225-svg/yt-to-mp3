@@ -7,10 +7,15 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.17.0";
+    public const string Latest = "3.17.1";
 
     public const string Text =
-@"3.17.0  Flex Pitch, the whole plugin library, faster and safer
+@"3.17.1  New Track sheet
+ + + ADD TRACK now opens a New Track sheet: record a voice with AutoPitch, a rap vocal, speech, radio voice, guitar or bass
+   (each with its own effects already on the track), add an instrument, browse drum beats and loops, or import a file.
+ + The glitchy add-track-here strips and + dots between tracks are gone.
+
+3.17.0  Flex Pitch, the whole plugin library, faster and safer
  + NEW FLEX PITCH: select a recording and press FLEX. Every note appears as a block on a piano-roll grid: drag a note up or down to re-tune it, steady its pitch (Drift), shrink or exaggerate the vibrato, change its volume or formant, correct all notes to a key and scale, split and join notes. The track plays your edits live, and DONE saves the edited audio with the project. Undo and Original bring the recording back.
  + 100 more built-in plugins, so all 218 you listed are now in: Vocal Tools, Creative and Bass & EDM (granular, spectral freeze, tape stop, beat repeat, step modulators, risers and impacts, OTT-style dynamics, phaser and flangers, amp and cabinet simulators and more).
  + FPS counter: switch it on in Settings (or View menu in Purphex Music) and a small badge shows the frame rate on every screen.

@@ -93,31 +93,6 @@ partial class StudioForm
 
 partial class StudioForm
 {
-    // A thin strip on the line between two tracks (and above the first): hover it and press + ADD TRACK to put a new track right there.
-    void AddTrackZone(Graphics g, float y, int i)
-    {
-        float yy = i == 0 ? y : y;   // the strip sits on the top edge of this track, so every track gets a "above" strip; the last also gets "below"
-        var above = Rc(0, y - 8, HeadW, 16); AddTrackStrip(g, above, y, i);
-        if (i == eng.Tracks.Count - 1) { var below = Rc(0, y + LaneH - 8, HeadW, 16); AddTrackStrip(g, below, y + LaneH, i + 1); }
-    }
-    void AddTrackStrip(Graphics g, RectangleF zone, float lineY, int insertIndex)
-    {
-        bool hot = Hot(zone); var pill = Rc(HeadW / 2f - 62, lineY - 10, 124, 20);
-        if (hot)
-        {
-            FillRR(g, Color.FromArgb(235, 14, 8, 30), pill, 10); Glow(g, NeonCyan, pill, 10, 0.9f, 3); Txt(g, "+ ADD TRACK HERE", 10, Ink, pill, StringAlignment.Center, true);
-            bubble = "Add a track here: audio from your PC, or an instrument such as Bass Lab."; bubblePt = MousePos;
-        }
-        else { var dot = Rc(HeadW / 2f - 8, lineY - 8, 16, 16); using (var b = new SolidBrush(Color.FromArgb(215, 12, 8, 28))) g.FillEllipse(b, dot); using (var pen = new Pen(Color.FromArgb(190, NeonCyan), 1.4f)) { g.DrawEllipse(pen, dot); g.DrawLine(pen, dot.X + 4, dot.Y + 8, dot.Right - 4, dot.Y + 8); g.DrawLine(pen, dot.X + 8, dot.Y + 4, dot.X + 8, dot.Bottom - 4); } }
-        int at = insertIndex; Reg(zone, () => ShowAddTrackMenu(at));
-    }
-    void ShowAddTrackMenu(int at)
-    {
-        var m = Win.NewMenu();
-        m.Items.Add("Add music / audio file here...").Click += (a, b) => { nextInsert = at; AddMusicClick(true); };
-        m.Items.Add("Add an instrument here (Bass Lab, Vital...)...").Click += (a, b) => { nextInsert = at; AddInstrumentClick(true); };
-        m.Show(this, new Point((int)MousePos.X, (int)MousePos.Y));
-    }
 }
 
 partial class StudioForm
@@ -191,16 +166,8 @@ partial class StudioForm
     {
         float by = Math.Min(afterLastY + 6, ClientSize.Height - 44); var r = Rc(10, by, HeadW - 20, 34);
         FillRR(g, Color.FromArgb(235, 14, 8, 30), r, 8); Glow(g, NeonCyan, r, 8, Hot(r) ? 1.1f : 0.55f, 3);
-        Txt(g, "+ ADD TRACK", 13, Ink, r, StringAlignment.Center, true); int at = n; Reg(r, () => ShowAddTrackMenu(at));
+        Txt(g, "+ ADD TRACK", 13, Ink, r, StringAlignment.Center, true); Reg(r, () => OpenNewTrackSheet(2));
     }
     // the + TRACK button in the toolbar: choose what to add and where it goes
-    void ShowAddTrackMenuMain()
-    {
-        var m = Win.NewMenu(); int n = eng.Tracks.Count, sel = n == 0 ? 0 : Math.Max(0, Math.Min(selTrack, n - 1));
-        string[] where = n == 0 ? new[] { "" } : new[] { "below the selected track", "above the selected track", "at the end" }; int[] idx = n == 0 ? new[] { 0 } : new[] { sel + 1, sel, n };
-        for (int i = 0; i < where.Length; i++) { int at = idx[i]; m.Items.Add("Add music / audio file " + where[i] + "...").Click += (a, b) => { nextInsert = at; AddMusicClick(true); }; }
-        m.Items.Add(new ToolStripSeparator());
-        for (int i = 0; i < where.Length; i++) { int at = idx[i]; m.Items.Add("Add an instrument " + where[i] + "...").Click += (a, b) => { nextInsert = at; AddInstrumentClick(true); }; }
-        m.Show(this, new Point((int)MousePos.X, (int)MousePos.Y));
-    }
+    void ShowAddTrackMenuMain() { OpenNewTrackSheet(0); }
 }
