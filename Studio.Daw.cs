@@ -378,7 +378,7 @@ partial class StudioForm
         Win.DrawNeonBox(g, bb, Hot(bb));
         ValueEdit(bb, Fx.ProjectBpm.ToString("0.#", CultureInfo.InvariantCulture), s => { float v; if (ParseNum(s, out v) && v >= 20 && v <= 300) { Fx.ProjectBpm = v; bpmUserSet = true; } }); x += 70;
         var L = new List<DawBtn>();
-        L.Add(new DawBtn { Text = "DETECT", W = 56, Do = () => DetectBpmClick(), Hint = "Find the tempo of the selected track from its beat." });
+        L.Add(new DawBtn { Text = "DETECT BPM", W = 92, Do = () => DetectBpmClick(), Hint = "Find the tempo of the selected track from its beat." });
         L.Add(new DawBtn { Text = "COUNT IN", W = 70, Style = eng.CountIn ? 4 : 0, Do = () => { eng.CountIn = !eng.CountIn; Toast(eng.CountIn ? "Count In on: press PLAY (or record) and you get one bar of clicks, 1 2 3 4, before it starts." : "Count In off."); } });
         L.Add(new DawBtn { Text = "METRONOME", W = 84, Style = eng.Metronome ? 4 : 0, Do = () => { eng.Metronome = !eng.Metronome; Toast(eng.Metronome ? "Metronome on: a click on every beat while it plays." : "Metronome off."); } });
         L.Add(new DawBtn { Text = "Grid Size", W = 76, Style = gridIdx == 2 ? 0 : 1, Key = "grid", Hint = "Grid Size: how finely clips, cuts and fades snap to the beat. Now: " + GridWhy[gridIdx] + ". Click to change it (the grid lines show briefly).",

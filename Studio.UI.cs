@@ -270,14 +270,14 @@ partial class StudioForm : Form
         { "FLEX", "Flex Pitch: see every note of the selected recording and drag notes up or down to re-tune them, steady the pitch, take out vibrato, change volume and formants." },
         { "SPLIT", "Split the clip under the needle in two (key B). Split as many times as you like: each piece can be moved, trimmed, faded and given its own gain." },
         { "DUP", "Make a copy of the selected track." }, { "DEL", "Delete the selected track (Undo brings it back)." },
-        { "UNDO", "Undo the last edit (Ctrl+Z)." }, { "REDO", "Redo (Ctrl+Y)." }, { "DETECT", "Listen to the song and set the BPM for you." }, { "Detect Track key", "Find the musical key of the selected track and show it." },
+        { "UNDO", "Undo the last edit (Ctrl+Z)." }, { "REDO", "Redo (Ctrl+Y)." }, { "DETECT BPM", "Listen to the song and set the BPM for you." }, { "Detect Track key", "Find the musical key of the selected track and show it." },
         
         { "COUNT IN", "Count In: when it is on, PLAY and recording first give you one bar of clicks (1 2 3 4) so you can get ready. The number shows on screen." }, { "METRONOME", "Metronome: a click on every beat while the song plays. Click to switch it on or off (it is lit while it is on)." },
         { "-", "Zoom out." }, { "+", "Zoom in." }, { "FIT", "Zoom to fit the whole song." },
         { "MIC", "Microphone: press it to get ready (it pulses red), then press PLAY to record onto the selected track (Count In gives you four clicks first). Press it again to cancel, or while recording to finish. Use headphones." }, 
         { "NEW", "Start a new empty project." },
         { "Add", "Add this effect." }, { "Cancel (Esc)", "Stop the current job." },
-        { "STEREO", "This track is in stereo (left and right kept apart). Click to make it MONO: left and right become the same sound." }, { "MONO", "This track is MONO (left and right play the same sound). Click to go back to STEREO." },
+        { "STEREO", "Keep this track in STEREO: left and right are kept apart (lit when it is stereo)." }, { "MONO", "Make this track MONO: left and right play the same sound (lit when it is mono)." }, { "THIN TRACKS", "Squeeze every track into a thin lane so more tracks fit on the screen. Press it again to go back to normal size." }, { "BACK", "Go back to the page you came from." },
         { "ADD SECTIONS", "Put [Verse 1], [Chorus], [Pre-chorus], [Bridge]... on the parts of your lyrics that have no label yet. Parts you already labelled stay as they are. Ctrl+Z takes it back." },
         { "POPULAR", "Show the presets people use the most first." },
         { "NEWEST", "Show the most recently shared presets first." },
@@ -337,7 +337,7 @@ partial class StudioForm : Form
     HitReg Btn(Graphics g, RectangleF r, string text, int style, Action down, float px = 15)
     {
         if (Hot(r)) { string hh; if (Hints.TryGetValue(text, out hh)) hintNow = hh; }
-        float ht = HoverAmount(r, text);
+        float ht = HoverAmount(r, text); if (ht > 0.5f && Hot(r)) HoverSparks(r);
         Color c = style == 1 ? Violet : (style == 3 ? Color.FromArgb(150, 40, 80) : (style == 4 ? Color.FromArgb(150, 70, 230) : BtnC));
         if (ht > 0) c = Color.FromArgb(Math.Min(255, c.R + (int)(28 * ht)), Math.Min(255, c.G + (int)(22 * ht)), Math.Min(255, c.B + (int)(30 * ht)));
         if (style == 2)
@@ -386,7 +386,7 @@ partial class StudioForm : Form
 
     void PaintAll(PaintEventArgs e)
     {
-        hintNow = ""; bubble = ""; btnAnim = false; AutoBpmTick(); TidyEmptyTracks();
+        hintNow = ""; bubble = ""; btnAnim = false; NavTrack(); HoverTick(); AutoBpmTick(); TidyEmptyTracks();
         var g = e.Graphics; g.SmoothingMode = SmoothingMode.AntiAlias; g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
         regs.Clear(); PopBegin(g);
         var full = new RectangleF(0, 0, ClientSize.Width, ClientSize.Height);
@@ -401,7 +401,7 @@ partial class StudioForm : Form
         PaintCutMark(g); PaintNewTrackSheet(g); PaintBusSheet(g); PaintStylesSheet(g); PaintAutoSheet(g); PaintGainPanel(g); PaintPickSheet(g); PaintCommPresets(g); PopEnd(); Win.PaintNeonChildren(this, g);
         if (TxtAudit != null && (menuOpen || eng.CountBeat > 0)) TxtAudit.Clear();
         PaintMenu(g);
-        PaintBubble(g); PaintKeyBox(g); PaintCountIn(g);
+        PaintHoverSparks(g); PaintBubble(g); PaintKeyBox(g); PaintCountIn(g);
         fpsc.Frame();
         float hintStackY = ClientSize.Height - (tab == 0 ? 56 : (previewPath.Length > 0 ? 56 : 10));
         if (hintNow.Length > 0 && !busy)
@@ -472,14 +472,15 @@ partial class StudioForm : Form
         // right group first (fixed sizes from the right edge), then the left group is squeezed to fit what is left
         float rx = W - 14; string[] rn = { "EXPORT", "Help", "Full", "Open", "Save", "Save as" }; float[] rw = { 106, 58, 108, 72, 72, 84 };
         float rightStart = W - 14; for (int i = 0; i < rw.Length; i++) rightStart -= rw[i] + 6; rightStart += 6;
-        float avail = rightStart - 70 - 10, leftTotal = 156 + 232 + 126 + 140 + 84 + 36; float f = Math.Max(0.5f, Math.Min(1f, avail / leftTotal));
+        float avail = rightStart - 70 - 10, leftTotal = 156 + 232 + 126 + 140 + 84 + 36 + 124; float f = Math.Max(0.5f, Math.Min(1f, avail / leftTotal));
         float x = 70; float fp = Math.Max(11, 15 * f);
         Btn(g, Rc(12, y, 48, h), "≡", 0, () => { if (menuOpen) CloseMenu(); else OpenMenu(); }, 24);
         Btn(g, Rc(x, y, 156 * f, h), "ADD MUSIC", 2, () => AddMusicClick(), Math.Max(13, 16 * f)); x += 164 * f;
         Btn(g, Rc(x, y, 232 * f, h), "SPLIT VOCALS + BEAT", 1, () => SeparateClick(), Math.Max(12, 14 * f)); x += 240 * f;
         Btn(g, Rc(x, y, 126 * f, h), "AUTO MIX", 2, () => AutoMixClick(), Math.Max(13, 16 * f)); x += 132 * f;
         Btn(g, Rc(x, y + 4, 140 * f, h - 8), "Detect Track key", 0, () => DetectTrackKey(), Math.Max(11, 12 * f)); x += 148 * f;
-        Btn(g, Rc(x, y + 4, 84 * f, h - 8), "Undo mix", 0, () => { if (AutoMix.LastSnapshot != null) { AutoMix.Undo(eng); Toast("Auto Mix undone"); } }, Math.Max(12, 13 * f)); x += 84 * f;
+        Btn(g, Rc(x, y + 4, 84 * f, h - 8), "Undo mix", 0, () => { if (AutoMix.LastSnapshot != null) { AutoMix.Undo(eng); Toast("Auto Mix undone"); } }, Math.Max(12, 13 * f)); x += 90 * f;
+        Btn(g, Rc(x, y + 4, 118 * f, h - 8), "THIN TRACKS", LaneH < 96 ? 4 : 0, () => ToggleThinTracks(), Math.Max(11, 12 * f)); x += 118 * f;
         float leftEnd = x;
         Btn(g, Rc(rx - 106, y, 106, h), "EXPORT", 1, () => ExportClick(), 16); rx -= 112;
         Btn(g, Rc(rx - 58, y + 4, 58, h - 8), "Help", 2, () => app.ShowHelp(null), 14); rx -= 64;
@@ -515,13 +516,14 @@ partial class StudioForm : Form
         double sec = dispPos / StudioEngine.SR, tot = eng.EndFrame / (double)StudioEngine.SR;
         var tr = Rc(x, y, 210, h); FillRR(g, Color.FromArgb(200, 8, 4, 18), tr, 6); StrokeRR(g, Edge, tr, 6, 1);
         Txt(g, Fmt(sec) + "  /  " + Fmt(tot), 19, Accent, tr, StringAlignment.Center, true); x += 222;
-        Btn(g, Rc(x, y, 92, h), "MIDI REC", recOn ? 3 : 0, () => { recOn = !recOn; Toast(recOn ? "MIDI recording is on (the button is red): press PLAY, then play your MIDI keyboard or the piano window and the notes are recorded onto the selected MIDI track." : "MIDI recording is off."); }, 13); x += 98;
+        Btn(g, Rc(x, y, 92, h), "MIDI REC", recOn ? 3 : 0, () => { if (!recOn && !AskYes("Would you like to record an instrument?\n\nYour MIDI keyboard (or the piano window) is recorded onto the selected MIDI track while the song plays. Press PLAY after you say Yes. If not, press No.", "MIDI recording")) return; recOn = !recOn; Toast(recOn ? "MIDI recording is on (the button is red): press PLAY, then play your MIDI keyboard or the piano window and the notes are recorded onto the selected MIDI track." : "MIDI recording is off."); }, 13); x += 98;
         { bool rec = mic != null; double el = rec ? (eng.CountBeat > 0 ? 0 : Math.Max(0, (DateTime.Now - micT0).TotalSeconds - micLead / (double)StudioEngine.SR)) : 0; bool armed = micArmed && !rec; var mr = Rc(x, y, rec ? 128 : 60, h); Btn(g, mr, (rec ? "* MIC  " + ((int)(el / 60)).ToString("00") + ":" + ((int)(el % 60)).ToString("00") : "MIC"), rec || armed ? 3 : 0, () => MicClick(), 13); if (armed) { double pl = 0.5 + 0.5 * Math.Sin(Environment.TickCount / 220.0); Glow(g, Color.FromArgb(255, 60, 90), mr, 8, 0.7f + 0.5f * (float)pl, 4); lastInput = DateTime.Now; } if (rec) HBar(g, Rc(mr.X + 6, mr.Bottom - 7, mr.Width - 12, 5), mic.Level); x += mr.Width + 6; }
         Btn(g, Rc(x, y, 92, h), "SOUNDS", soundsOpen ? 4 : 0, () => { if (soundsOpen) CloseSounds(); else OpenSounds(); }, 12); x += 98;
 
         // tabs on the right; master meters in whatever room is left between
         float tx = W - 328;
-        float mx = Math.Max(x + 16, W - PanelW - 300); float room = tx - 12 - mx;
+        float mx = Math.Max(x + 16, W - PanelW - 300); bool showBack = ShowBack; float room = tx - 12 - mx - (showBack ? 112 : 0);
+        if (showBack) Btn(g, Rc(tx - 106, y, 100, h), "BACK", 2, () => GoBack(), 14);
         if (room >= 70)
         {
             Txt(g, "MASTER", 11, DimC, Rc(mx, y - 4, 60, 14), StringAlignment.Near, false);
@@ -713,22 +715,22 @@ partial class StudioForm : Form
 
     void PaintHeader(Graphics g, Track tr, int i, RectangleF r, bool sel)
     {
-        bool compact = r.Height < 112, bus = tr.IsBus; float by = compact ? 36 : 44, vy = compact ? 64 : 84, py = compact ? 86 : 110;
+        bool thin = r.Height < 96, compact = r.Height < 112, bus = tr.IsBus; float by = thin ? 34 : (compact ? 36 : 44), vy = thin ? 60 : (compact ? 64 : 84), py = compact ? 86 : 110;
         using (var br = new SolidBrush(sel ? Color.FromArgb(255, 40, 22, 74) : Color.FromArgb(255, 26, 15, 46))) g.FillRectangle(br, r);
         using (var pen = new Pen(sel ? Color.FromArgb(200, Neon(tr.Color)) : Color.FromArgb(70, Neon(tr.Color)), sel ? 1.6f : 1f)) g.DrawRectangle(pen, r.X + 1, r.Y + 1, r.Width - 2, r.Height - 2);
         Led(g, Neon(tr.Color), r.X + 20, r.Y + 17, 5, !tr.Mute);
         Txt(g, tr.Name, 15, Ink, Rc(r.X + 28, r.Y + 6, 150, 22), StringAlignment.Near, true);
-        if (tr.Bpm > 0 && !bus) { var bt = Rc(r.X + 28, r.Y + 26, 120, 14); Txt(g, tr.Bpm.ToString("0.#") + " BPM", 10, Math.Abs(tr.Bpm - Fx.ProjectBpm) < 0.6 ? Color.FromArgb(150, 255, 190) : DimC, bt, StringAlignment.Near, false); if (Hot(bt)) hintNow = "The tempo heard in this track" + (Math.Abs(tr.Bpm - Fx.ProjectBpm) < 0.6 ? ", the same as the project." : ". The project is at " + Fx.ProjectBpm.ToString("0.#") + " BPM: press DETECT to use this track's tempo."); }
+        if (tr.Bpm > 0 && !bus) { var bt = thin ? Rc(r.X + 298, r.Y + 9, 40, 14) : Rc(r.X + 28, r.Y + 26, 120, 14); Txt(g, tr.Bpm.ToString("0.#") + (thin ? "" : " BPM"), 10, Math.Abs(tr.Bpm - Fx.ProjectBpm) < 0.6 ? Color.FromArgb(150, 255, 190) : DimC, bt, StringAlignment.Near, false); if (Hot(bt)) hintNow = "The tempo heard in this track" + (Math.Abs(tr.Bpm - Fx.ProjectBpm) < 0.6 ? ", the same as the project." : ". The project is at " + Fx.ProjectBpm.ToString("0.#") + " BPM: press DETECT to use this track's tempo."); }
         string role = bus ? "BUS" : (tr.Instrument ? "SYNTH" : (tr.Role == "vocal" ? "VOCAL" : (tr.Role == "beat" ? "BEAT" : (tr.Role == "song" ? "SONG" : "AUDIO"))));
         int layers = 0; foreach (var lx in eng.Tracks) if (lx.Host == tr) layers++;
-        if (layers > 0) { var chip = Rc(r.X + 186, r.Y + 27, 52, 15); FillRR(g, Hot(chip) ? Color.FromArgb(200, 90, 50, 170) : Color.FromArgb(150, 50, 30, 100), chip, 7); Txt(g, "+" + layers + " layer" + (layers == 1 ? "" : "s"), 9, Ink, chip, StringAlignment.Center, true); var hostTr = tr; Reg(chip, () => LayerMenu(hostTr)); if (Hot(chip)) { bubble = "Tracks sharing this row. Click to mute, separate or delete them."; bubblePt = MousePos; } }
+        if (layers > 0) { var chip = thin ? Rc(r.X + 242, r.Y + 8, 52, 18) : Rc(r.X + 186, r.Y + 27, 52, 15); FillRR(g, Hot(chip) ? Color.FromArgb(200, 90, 50, 170) : Color.FromArgb(150, 50, 30, 100), chip, 7); Txt(g, "+" + layers + " layer" + (layers == 1 ? "" : "s"), 9, Ink, chip, StringAlignment.Center, true); var hostTr = tr; Reg(chip, () => LayerMenu(hostTr)); if (Hot(chip)) { bubble = "Tracks sharing this row. Click to mute, separate or delete them."; bubblePt = MousePos; } }
         var pill = Rc(r.X + 186, r.Y + 8, 52, 18); FillRR(g, Color.FromArgb(90, Neon(tr.Color)), pill, 9); StrokeRR(g, Color.FromArgb(200, Neon(tr.Color)), pill, 9, 1); Txt(g, role, 10, Color.White, pill, StringAlignment.Center, true);
         int ti = i; var tk = tr;
         Btn(g, Rc(r.Right - 34, r.Y + 7, 22, 22), "x", 3, () => RemoveTrack(tk), 13);
         var nameReg = Reg(Rc(r.X + 4, r.Y + 4, 176, 26), () => HeaderDown(tk)); nameReg.OnDrag = pt => HeaderDrag(tk, pt); nameReg.OnUp = () => { HeaderDrop(tk); GhostEnd(); }; nameReg.OnDouble = () => RenameTrack(tk); nameReg.OnRight = () => RenameTrack(tk);
         if (Hot(Rc(r.X + 4, r.Y + 4, 176, 26))) bubble = "Drag up or down to reorder.  Double-click to rename."; bubblePt = MousePos;
         // M / S, + Add Effect, Out
-        float bh = 30;
+        float bh = thin ? 24 : 30;
         Btn(g, Rc(r.X + 12, r.Y + by, 36, bh), "M", tk.Mute ? 4 : 0, () => ToggleMute(tk), 14);
         if (!bus) Btn(g, Rc(r.X + 54, r.Y + by, 36, bh), "S", tk.Solo ? 4 : 0, () => ToggleSolo(tk), 14);
         float ex = bus ? 54 : 96, ew = bus ? 154 : (tk.Instrument ? 74 : 112);
@@ -740,23 +742,22 @@ partial class StudioForm : Form
             using (var tb = new SolidBrush(Color.FromArgb(200, 215, 200, 250))) g.FillPolygon(tb, new[] { new PointF(ob.Right - 11, ob.Bottom - 10), new PointF(ob.Right - 3, ob.Bottom - 10), new PointF(ob.Right - 7, ob.Bottom - 5) });
             if (Hot(ob)) { bubble = tk.Out == null ? "No bus. Click to pick a bus for this track (or make a new one)." : "Output: " + tk.Out.Name + ". Click to change."; bubblePt = MousePos; }
         }
-        { var mb = Rc(r.X + (bus ? 218 : 272), r.Y + by, 66, bh); Btn(g, mb, tk.Mono ? "MONO" : "STEREO", tk.Mono ? 4 : 0, () => { PushUndo(); tk.Mono = !tk.Mono; Toast(tk.Name + " is now " + (tk.Mono ? "MONO: left and right play the same sound." : "STEREO: left and right are kept apart.")); }, 11); }
+        { float sx = r.X + (bus ? 218 : 272), sh = thin ? 22 : (compact ? 24 : 26), gp = thin ? 2 : 4; Btn(g, Rc(sx, r.Y + by, 66, sh), "STEREO", tk.Mono ? 0 : 4, () => SetMono(tk, false), 10); Btn(g, Rc(sx, r.Y + by + sh + gp, 66, sh), "MONO", tk.Mono ? 4 : 0, () => SetMono(tk, true), 11); }
         if (tk.Instrument) Btn(g, Rc(r.X + 176, r.Y + by, 32, bh), "C", 0, () => { if (MessageBox.Show(this, "Delete every recorded note on \"" + tk.Name + "\"?", "Clear notes", MessageBoxButtons.YesNo) == DialogResult.Yes) lock (tk.Midi) tk.Midi.Clear(); }, 12);
         // fader
         float frac = Clamp01((tk.VolDb + 48f) / 54f);
         Txt(g, "VOL", 11, DimC, Rc(r.X + 12, r.Y + vy, 30, 18), StringAlignment.Near, false);
-        var fs = Slider(g, Rc(r.X + 44, r.Y + vy, 112, 18), frac, f => tk.VolDb = f < 0.003f ? -48f : (float)Math.Round(f * 54f - 48f, 1), Accent2);
+        var fs = Slider(g, Rc(r.X + (thin ? 40 : 44), r.Y + vy, thin ? 84 : 112, 18), frac, f => tk.VolDb = f < 0.003f ? -48f : (float)Math.Round(f * 54f - 48f, 1), Accent2);
         fs.OnDouble = () => tk.VolDb = 0;
-        ValueBox(g, Rc(r.X + 172, r.Y + vy - 1, 80, 20), (tk.VolDb <= -47.9f ? "-inf" : tk.VolDb.ToString("+0.0;-0.0;0.0")) + " dB", tk.VolDb <= -47.9f ? "-inf" : Num(tk.VolDb), s => { float v; if (ParseNum(s, out v)) tk.VolDb = v <= -47.9f ? -48f : Math.Min(12f, v); });
+        ValueBox(g, Rc(r.X + (thin ? 130 : 172), r.Y + vy - 1, thin ? 64 : 80, 20), (tk.VolDb <= -47.9f ? "-inf" : tk.VolDb.ToString("+0.0;-0.0;0.0")) + " dB", tk.VolDb <= -47.9f ? "-inf" : Num(tk.VolDb), s => { float v; if (ParseNum(s, out v)) tk.VolDb = v <= -47.9f ? -48f : Math.Min(12f, v); });
         // pan
-        Txt(g, "PAN", 11, DimC, Rc(r.X + 12, r.Y + py, 30, 18), StringAlignment.Near, false);
-        var ps = Slider(g, Rc(r.X + 44, r.Y + py, 112, 18), (tk.Pan + 1) / 2, f => tk.Pan = (float)Math.Round(f * 2 - 1, 2));
-        ps.OnDouble = () => tk.Pan = 0;
-        ValueBox(g, Rc(r.X + 172, r.Y + py - 1, 40, 20), tk.Pan == 0 ? "C" : (tk.Pan < 0 ? "L" + (int)(-tk.Pan * 100) : "R" + (int)(tk.Pan * 100)), Num(tk.Pan * 100), s => { string u = s.Trim().ToUpperInvariant(); float v; if (u.StartsWith("C")) tk.Pan = 0; else if (ParseNum(u, out v)) { if (u.StartsWith("L")) v = -Math.Abs(v); else if (u.StartsWith("R")) v = Math.Abs(v); tk.Pan = Math.Max(-1f, Math.Min(1f, v / 100f)); } });
+        if (thin) Txt(g, "PAN", 11, DimC, Rc(r.X + 200, r.Y + vy, 30, 18), StringAlignment.Near, false); else Txt(g, "PAN", 11, DimC, Rc(r.X + 12, r.Y + py, 30, 18), StringAlignment.Near, false);
+        if (!thin) { var ps = Slider(g, Rc(r.X + 44, r.Y + py, 112, 18), (tk.Pan + 1) / 2, f => tk.Pan = (float)Math.Round(f * 2 - 1, 2)); ps.OnDouble = () => tk.Pan = 0; }
+        if (!(thin && tk.Instrument)) ValueBox(g, thin ? Rc(r.X + 228, r.Y + vy - 1, 40, 20) : Rc(r.X + 172, r.Y + py - 1, 40, 20), tk.Pan == 0 ? "C" : (tk.Pan < 0 ? "L" + (int)(-tk.Pan * 100) : "R" + (int)(tk.Pan * 100)), Num(tk.Pan * 100), s => { string u = s.Trim().ToUpperInvariant(); float v; if (u.StartsWith("C")) tk.Pan = 0; else if (ParseNum(u, out v)) { if (u.StartsWith("L")) v = -Math.Abs(v); else if (u.StartsWith("R")) v = Math.Abs(v); tk.Pan = Math.Max(-1f, Math.Min(1f, v / 100f)); } });
         // right of the pan row: piano (instrument), arm (empty audio track), nudge (audio), nothing (bus)
         if (tk.Instrument)
-            Btn(g, Rc(r.X + 220, r.Y + py - 3, 40, 24), "Piano", 1, () => { var vf = tk.Fx.Count > 0 ? tk.Fx[0] as InstrumentFx : null; if (vf != null) { vf.Owner = tk; vf.ShowWindow(this); } }, 11);
-        else if (!bus && tk.Clip != null)
+            Btn(g, thin ? Rc(r.X + 200, r.Y + vy - 2, 66, 22) : Rc(r.X + 220, r.Y + py - 3, 40, 24), "Piano", 1, () => { var vf = tk.Fx.Count > 0 ? tk.Fx[0] as InstrumentFx : null; if (vf != null) { vf.Owner = tk; vf.ShowWindow(this); } }, 11);
+        else if (!bus && !thin && tk.Clip != null)
         {
             Btn(g, Rc(r.X + 220, r.Y + py - 1, 18, 22), "<", 0, () => tk.Offset -= (ModifierKeys & Keys.Shift) != 0 ? 44 : 441, 12);
             Btn(g, Rc(r.X + 241, r.Y + py - 1, 18, 22), ">", 0, () => tk.Offset += (ModifierKeys & Keys.Shift) != 0 ? 44 : 441, 12);
@@ -970,6 +971,7 @@ partial class StudioForm : Form
     protected override void OnKeyPress(KeyPressEventArgs e)
     {
         base.OnKeyPress(e); lastInput = DateTime.Now;
+        if (ProjSearchKey(e.KeyChar)) { e.Handled = true; return; }
         if (cpOpen) { CpKey(e.KeyChar); e.Handled = true; return; }
         if (stylesOpen) { if (e.KeyChar == '\b') { if (stylesQuery.Length > 0) { stylesQuery = stylesQuery.Substring(0, stylesQuery.Length - 1); stylesScroll = 0; } } else if (!char.IsControl(e.KeyChar)) { stylesQuery += e.KeyChar; stylesScroll = 0; } e.Handled = true; return; }
         if (browserOpen) { if (e.KeyChar == '\b') { if (browserQuery.Length > 0) browserQuery = browserQuery.Substring(0, browserQuery.Length - 1); } else if (!char.IsControl(e.KeyChar)) browserQuery += e.KeyChar; e.Handled = true; }
@@ -1008,6 +1010,7 @@ partial class StudioForm : Form
             return base.ProcessCmdKey(ref msg, k);
         }
         if (busy) { if (k == Keys.Escape && busyCancelable) { cancelFlag = true; busyText = "Cancelling..."; return true; } return base.ProcessCmdKey(ref msg, k); }
+        if (ProjSearchCmd(k)) return true; if (ProjSearchTakesKey(k)) return base.ProcessCmdKey(ref msg, k);
         if (k == Keys.F1) { app.ShowHelp(null); return true; }
         if (k == Keys.Space) { PlayToggle(); return true; }
         if (k == Keys.Home) { eng.Seek(0); scroll = 0; followPaused = false; return true; }

@@ -7,10 +7,26 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.21.0";
+    public const string Latest = "3.22.0";
 
     public const string Text =
-@"3.21.0  Capitals and a bold font, STEREO / MONO, movable boxes, logo scroll strips, a reworked CUT and fades, a new projects page and colour themes
+@"3.22.0  Search, sort and filter your projects, a Recycling Bin, BACK on every page, STEREO and MONO buttons and cleaner scroll bars
+ + My Projects has a search box at the top: just start typing and the cards narrow down as you type. It finds a project by name, tag or type (song, beat, vocals) and every word has to match. Esc clears it, Enter lets go of the box (so Space plays again).
+ + SORT puts the projects in the order you like: newest edited, recently opened, name A to Z or Z to A, most tracks, longest or oldest. TYPE shows only songs (vocals with a beat), beats (beats and instruments) or vocals. The star on every card makes a favourite and the FAVOURITES button shows only those. CLEAR resets everything, and the page tells you how many projects match (2 OF 9 PROJECTS).
+ + The RECYCLING BIN: when you remove a project and tick the box to delete its file, the project now goes into the RECYCLING BIN (a button on the projects page) instead of being deleted. It waits there for 30 days, with the days left shown, and is then deleted for good. RESTORE puts it back in My Projects (if its name is taken by another file it comes back under a new name, nothing is ever overwritten). DELETE FOREVER and EMPTY THE BIN delete at once and always ask first. Only the project file waits in the bin: your audio files are never touched.
+ + In the side menu My Projects (pictures) is now just My Projects.
+ + BACK is on every page now. Mastering, Lyrics, Community and My Projects all have a BACK button that takes you to the page you came from (the Mix page shows it too when you arrived from Community or My Projects), so you never have to go through the menu.
+ + The vertical scroll bars (Rapper Vocal Styles, Community presets, Add effect and the other lists) were redone: the glowing box is gone, the logo sits at the top of the bar and you hold the logo and drag it to scroll. The arrows step, click the bar to jump.
+ + Every track has a STEREO button with a separate MONO button underneath it (the one that is on is lit).
+ + Thin tracks are fixed: the buttons no longer pile up or fall out of the track. There is a new THIN TRACKS button next to UNDO MIX that switches between thin and normal tracks.
+ + AUTO MIX now asks Run Auto Mix? before it does anything (so a slip of the mouse does nothing), and you can cancel while it is working: everything goes back as it was.
+ + MIC asks Would you like to record now? (Yes arms it, then press PLAY to record). MIDI REC asks Would you like to record an instrument? before it switches on.
+ + The DETECT button is now DETECT BPM.
+ + Pointing at any button throws a few small neon sparks off it.
+ + Community and My Projects have the animated Purphex logo behind them, like the one on the website: a turning ring of light and a soft breathing glow. The useless With picture tab in Community is gone.
+ + Playback sound: if a project is too loud, the sound is now turned down smoothly just before the sound card instead of its peaks being chopped off flat. Chopped peaks are what you hear as fuzz and crackle. Normal projects are not touched at all.
+
+3.21.0  Capitals and a bold font, STEREO / MONO, movable boxes, logo scroll strips, a reworked CUT and fades, a new projects page and colour themes
  + All the writing is now in CAPITAL LETTERS in a bold, sharp font (Bahnschrift, which every Windows 10 and 11 PC has), in the studio, the main window, Settings, menus and dialogs. Long sentences keep normal letters so they stay easy to read. The main window was re-spaced so no writing touches a box or another label, and GRID SIZE is in capitals too.
  + CUT now really cuts: click the piece you want gone, press CUT, and that piece is DELETED and the pieces after it move up to close the gap (SPLIT is the one that makes two pieces). It works on every piece lit by a selection box too, skips locked tracks, and Ctrl+Z puts it all back.
  + Fades were reworked. The FADE IN and FADE OUT buttons are gone: click a clip and drag the round handles. The top handle sets how long the fade is; the new bottom handle moves where the fade starts (or where it ends), so you can leave silence before a fade in or after a fade out. Double-click a handle to remove or reset it. Fades follow a smooth S curve (no click at the start, no plunge at the end) and the picture on the clip is drawn from the very same curve, so what you see is what you hear.

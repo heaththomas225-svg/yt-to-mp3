@@ -12,6 +12,7 @@ using System.Text;
 class ProjectEntry
 {
     public string Path = "", Name = "", Cover = "", Desc = "", Tags = ""; public DateTime Updated, Opened; public int Tracks; public double Bpm, Seconds;
+    public bool Fav, Finished; public string Kind = "";   // Fav: starred; Finished: marked done (or exported); Kind: Song, Beat, Vocals or Empty
     public bool Custom; public long Bytes = -1; public bool SizeAsked;   // Custom: you renamed it (saving does not change the name back); Bytes: the project file plus the audio it uses
     int chkAt; bool miss, chk;
     public bool Missing { get { int now = Environment.TickCount; if (!chk || unchecked(now - chkAt) > 2000) { miss = !File.Exists(Path); chk = true; chkAt = now; } return miss; } }
@@ -38,10 +39,11 @@ static class ProjectLibrary
                     foreach (var line in File.ReadAllLines(ListFile, Encoding.UTF8))
                     {
                         var f = line.Split('|'); if (f.Length < 9 || f[0] != "P") continue; long u, o; int t; double b, s; long.TryParse(f[3], out u); long.TryParse(f[4], out o); int.TryParse(f[5], out t); double.TryParse(f[6], NumberStyles.Float, CI, out b); double.TryParse(f[7], NumberStyles.Float, CI, out s);
-                        Entries.Add(new ProjectEntry { Path = f[1], Name = f[2], Updated = new DateTime(Math.Max(0, u)), Opened = new DateTime(Math.Max(0, o)), Tracks = t, Bpm = b, Seconds = s, Cover = f[8], Desc = f.Length > 9 ? f[9] : "", Tags = f.Length > 10 ? f[10] : "", Custom = f.Length > 11 && f[11] == "1" });
+                        Entries.Add(new ProjectEntry { Path = f[1], Name = f[2], Updated = new DateTime(Math.Max(0, u)), Opened = new DateTime(Math.Max(0, o)), Tracks = t, Bpm = b, Seconds = s, Cover = f[8], Desc = f.Length > 9 ? f[9] : "", Tags = f.Length > 10 ? f[10] : "", Custom = f.Length > 11 && f[11] == "1", Fav = f.Length > 12 && f[12] == "1", Finished = f.Length > 13 && f[13] == "1", Kind = f.Length > 14 ? f[14] : "" });
                     }
             }
             catch { }
+            LoadBin(); PurgeBin(DateTime.Now);
             try { if (File.Exists(ProfileFile)) foreach (var line in File.ReadAllLines(ProfileFile, Encoding.UTF8)) { int i = line.IndexOf('='); if (i < 1) continue; string k = line.Substring(0, i), v = line.Substring(i + 1); if (k == "name" && v.Trim().Length > 0) ProfileName = v.Trim(); else if (k == "avatar") AvatarPath = v; } } catch { }
         }
     }
@@ -51,11 +53,102 @@ static class ProjectLibrary
             try
             {
                 Directory.CreateDirectory(StudioEnv.DataDir); var sb = new StringBuilder();
-                foreach (var e in Entries) sb.Append("P|").Append(e.Path.Replace("|", "/")).Append('|').Append(e.Name.Replace("|", "/")).Append('|').Append(e.Updated.Ticks).Append('|').Append(e.Opened.Ticks).Append('|').Append(e.Tracks).Append('|').Append(e.Bpm.ToString("0.##", CI)).Append('|').Append(e.Seconds.ToString("0.#", CI)).Append('|').Append(e.Cover).Append('|').Append((e.Desc ?? "").Replace("|", "/").Replace("\n", " ").Replace("\r", "")).Append('|').Append((e.Tags ?? "").Replace("|", "/")).Append('|').Append(e.Custom ? 1 : 0).Append('\n');
+                foreach (var e in Entries) sb.Append("P|").Append(e.Path.Replace("|", "/")).Append('|').Append(e.Name.Replace("|", "/")).Append('|').Append(e.Updated.Ticks).Append('|').Append(e.Opened.Ticks).Append('|').Append(e.Tracks).Append('|').Append(e.Bpm.ToString("0.##", CI)).Append('|').Append(e.Seconds.ToString("0.#", CI)).Append('|').Append(e.Cover).Append('|').Append((e.Desc ?? "").Replace("|", "/").Replace("\n", " ").Replace("\r", "")).Append('|').Append((e.Tags ?? "").Replace("|", "/")).Append('|').Append(e.Custom ? 1 : 0).Append('|').Append(e.Fav ? 1 : 0).Append('|').Append(e.Finished ? 1 : 0).Append('|').Append(e.Kind ?? "").Append('\n');
                 Win.WriteAtomic(ListFile, sb.ToString(), Encoding.UTF8);
                 Win.WriteAtomic(ProfileFile, "name=" + ProfileName + "\navatar=" + AvatarPath + "\n", Encoding.UTF8);
             }
             catch { }
+    }
+
+    // what kind of project it is, from the roles of its tracks: Song (vocals with a beat or instruments), Vocals, Beat (beats / instruments only) or Empty
+    public static string KindOfRoles(IEnumerable<string> roles)
+    {
+        bool v = false, o = false; foreach (var r in roles) { if (r == "bus") continue; if (r == "vocal") v = true; else o = true; }
+        return v && o ? "Song" : (v ? "Vocals" : (o ? "Beat" : "Empty"));
+    }
+    public static void EnsureKind(ProjectEntry e)
+    {
+        if (e.Kind != null && e.Kind.Length > 0) return; var roles = new List<string>();
+        try { if (File.Exists(e.Path)) foreach (var line in File.ReadAllLines(e.Path, Encoding.UTF8)) if (line.StartsWith("track|")) { var p = line.Split('|'); if (p.Length > 1) roles.Add(p[1]); } } catch { }
+        e.Kind = KindOfRoles(roles);
+    }
+    public static void SetFlags(string path, bool? fav, bool? finished)
+    {
+        lock (lk) { var e = Find(path); if (e == null) return; if (fav.HasValue) e.Fav = fav.Value; if (finished.HasValue) e.Finished = finished.Value; }
+        Save();
+    }
+
+    // ---- the Recycling Bin: a removed project waits here for 30 days (restore it, or delete it for good) ----
+    public sealed class BinItem { public string Id = "", OrigPath = "", Name = "", Cover = "", Kind = ""; public DateTime Deleted; public int Tracks; public double Bpm, Seconds; public bool Fav, Finished; }
+    public static readonly List<BinItem> Bin = new List<BinItem>(); public const int BinDays = 30;
+    static string BinFile { get { return Path.Combine(StudioEnv.DataDir, "bin.txt"); } }
+    public static string BinDir { get { return Path.Combine(StudioEnv.DataDir, "bin"); } }
+    public static string BinPath(BinItem b) { return Path.Combine(BinDir, b.Id + ".ytmproj"); }
+    public static int DaysLeft(BinItem b, DateTime now) { return Math.Max(0, BinDays - (int)Math.Floor((now - b.Deleted).TotalDays)); }
+    public static void LoadBin()
+    {
+        lock (lk)
+        {
+            Bin.Clear();
+            try
+            {
+                if (File.Exists(BinFile))
+                    foreach (var line in File.ReadAllLines(BinFile, Encoding.UTF8))
+                    {
+                        var f = line.Split('|'); if (f.Length < 11 || f[0] != "B") continue; long d; int t; double b, s2; long.TryParse(f[4], out d); int.TryParse(f[5], out t); double.TryParse(f[6], NumberStyles.Float, CI, out b); double.TryParse(f[7], NumberStyles.Float, CI, out s2);
+                        Bin.Add(new BinItem { Id = f[1], OrigPath = f[2], Name = f[3], Deleted = new DateTime(Math.Max(0, d)), Tracks = t, Bpm = b, Seconds = s2, Cover = f[8], Fav = f[9] == "1", Finished = f[10] == "1", Kind = f.Length > 11 ? f[11] : "" });
+                    }
+            }
+            catch { }
+        }
+    }
+    public static void SaveBin()
+    {
+        lock (lk)
+            try
+            {
+                Directory.CreateDirectory(StudioEnv.DataDir); var sb = new StringBuilder();
+                foreach (var b in Bin) sb.Append("B|").Append(b.Id).Append('|').Append(b.OrigPath.Replace("|", "/")).Append('|').Append(b.Name.Replace("|", "/")).Append('|').Append(b.Deleted.Ticks).Append('|').Append(b.Tracks).Append('|').Append(b.Bpm.ToString("0.##", CI)).Append('|').Append(b.Seconds.ToString("0.#", CI)).Append('|').Append(b.Cover).Append('|').Append(b.Fav ? 1 : 0).Append('|').Append(b.Finished ? 1 : 0).Append('|').Append(b.Kind ?? "").Append('\n');
+                Win.WriteAtomic(BinFile, sb.ToString(), Encoding.UTF8);
+            }
+            catch { }
+    }
+    // takes the project off the list and moves its file into the bin (only the project file moves: the audio it uses is not touched)
+    public static BinItem MoveToBin(ProjectEntry e)
+    {
+        if (e == null || !File.Exists(e.Path)) return null; EnsureKind(e);
+        var b = new BinItem { Id = Guid.NewGuid().ToString("N"), OrigPath = e.Path, Name = e.Name, Cover = e.Cover ?? "", Kind = e.Kind ?? "", Deleted = DateTime.Now, Tracks = e.Tracks, Bpm = e.Bpm, Seconds = e.Seconds, Fav = e.Fav, Finished = e.Finished };
+        try { Directory.CreateDirectory(BinDir); File.Move(e.Path, BinPath(b)); } catch { return null; }
+        lock (lk) { Bin.Add(b); Entries.RemoveAll(x => string.Equals(x.Path, e.Path, StringComparison.OrdinalIgnoreCase)); }
+        SaveBin(); Save(); return b;
+    }
+    // puts a project back where it was (or beside it, under a new name, if that name is taken now); null + a reason if it cannot
+    public static string Restore(BinItem b, out string error)
+    {
+        error = null; string from = BinPath(b); if (!File.Exists(from)) { error = "The file is no longer in the bin."; return null; }
+        string target = b.OrigPath, dir = Path.GetDirectoryName(target);
+        try
+        {
+            if (string.IsNullOrEmpty(dir) || !Directory.Exists(dir)) { Directory.CreateDirectory(DefaultFolder); dir = DefaultFolder; target = Path.Combine(dir, Path.GetFileName(b.OrigPath)); }
+            if (File.Exists(target)) { string stem = Path.GetFileNameWithoutExtension(target), ext = Path.GetExtension(target); int n = 1; do { target = Path.Combine(dir, stem + " (restored" + (n > 1 ? " " + n : "") + ")" + ext); n++; } while (File.Exists(target)); }
+            File.Move(from, target);
+        }
+        catch (Exception ex) { error = ex.Message; return null; }
+        lock (lk) { Bin.Remove(b); Entries.RemoveAll(x => string.Equals(x.Path, target, StringComparison.OrdinalIgnoreCase)); Entries.Add(new ProjectEntry { Path = target, Name = b.Name, Custom = true, Cover = b.Cover != null && b.Cover.Length > 0 && File.Exists(b.Cover) ? b.Cover : "", Tracks = b.Tracks, Bpm = b.Bpm, Seconds = b.Seconds, Fav = b.Fav, Finished = b.Finished, Kind = b.Kind, Updated = File.GetLastWriteTime(target), Opened = DateTime.Now }); }
+        SaveBin(); Save(); return target;
+    }
+    public static void DeleteForever(BinItem b)
+    {
+        try { string p = BinPath(b); if (File.Exists(p)) File.Delete(p); } catch { }
+        lock (lk) Bin.Remove(b);
+        try { if (b.Cover != null && b.Cover.StartsWith(CoversDir, StringComparison.OrdinalIgnoreCase) && File.Exists(b.Cover) && !Entries.Exists(x => x.Cover == b.Cover) && !Bin.Exists(x => x.Cover == b.Cover)) File.Delete(b.Cover); } catch { }
+        SaveBin();
+    }
+    public static int EmptyBin() { List<BinItem> all; lock (lk) all = new List<BinItem>(Bin); foreach (var b in all) DeleteForever(b); return all.Count; }
+    // what has waited 30 days is deleted for good (how many went)
+    public static int PurgeBin(DateTime now)
+    {
+        List<BinItem> old; lock (lk) old = Bin.FindAll(b => (now - b.Deleted).TotalDays >= BinDays); foreach (var b in old) DeleteForever(b); return old.Count;
     }
 
     // the size of a project = the project file plus every audio file it uses (measured once, in the background)

@@ -79,35 +79,36 @@ partial class StudioForm
     int vHold; Func<float> vHoldGet; Action<float> vHoldSet; float vHoldMax;
     void VScroll(Graphics g, RectangleF bar, float contentH, float viewH, Func<float> get, Action<float> set)
     {
-        if (contentH <= viewH + 1 || bar.Height < 120) return; bool playing = eng.Playing; VizUpdate(playing); float max = contentH - viewH;
+        if (contentH <= viewH + 1 || bar.Height < 160) return; bool playing = eng.Playing; VizUpdate(playing); float max = contentH - viewH;
         if (vHold != 0 && dragReg != null && vHoldSet != null) vHoldSet(Math.Max(0, Math.Min(vHoldMax, vHoldGet() + vHold * 8))); else vHold = 0;
         FillRR(g, Color.Black, bar, 12); using (var pen = new Pen(Color.FromArgb(playing ? 230 : 150, NeonViolet), 1.3f)) { using (var p = RR(bar, 12)) g.DrawPath(pen, p); }
-        const float cap = 34; var inner = Rc(bar.X + 3, bar.Y + cap, bar.Width - 6, bar.Height - 2 * cap); float th = inner.Height, cx = bar.X + bar.Width / 2, cym = inner.Y + th / 2;
-        var up = Rc(bar.X, bar.Y, bar.Width, cap); var dn = Rc(bar.X, bar.Bottom - cap, bar.Width, cap); bool hu = Hot(up), hd = Hot(dn);
+        // top: the logo (hold it and drag to scroll), then the up arrow; the track; the down arrow at the bottom
+        float lh = Math.Min(14f, bar.Width / 2 - 3), lhw = lh * 1.16f, cx = bar.X + bar.Width / 2, lcy = bar.Y + 8 + lh; var logoR = Rc(cx - lhw - 3, lcy - lh - 3, lhw * 2 + 6, lh * 2 + 6);
+        const float cap = 34; float logoZone = 8 + lh * 2 + 6; var up = Rc(bar.X, bar.Y + logoZone, bar.Width, cap); var dn = Rc(bar.X, bar.Bottom - cap, bar.Width, cap); var inner = Rc(bar.X + 3, up.Bottom, bar.Width - 6, dn.Y - up.Bottom); float th = inner.Height; bool hu = Hot(up), hd = Hot(dn);
         using (var pen = new Pen(Color.FromArgb(hu ? 255 : 200, NeonCyan), 2.2f) { LineJoin = LineJoin.Round, StartCap = LineCap.Round, EndCap = LineCap.Round }) for (int k = 0; k < 2; k++) g.DrawLines(pen, new[] { new PointF(cx - 6, up.Y + 18 + k * 6), new PointF(cx, up.Y + 12 + k * 6), new PointF(cx + 6, up.Y + 18 + k * 6) });
         using (var pen = new Pen(Color.FromArgb(hd ? 255 : 200, NeonPink), 2.2f) { LineJoin = LineJoin.Round, StartCap = LineCap.Round, EndCap = LineCap.Round }) for (int k = 0; k < 2; k++) g.DrawLines(pen, new[] { new PointF(cx - 6, dn.Bottom - 18 - k * 6), new PointF(cx, dn.Bottom - 12 - k * 6), new PointF(cx + 6, dn.Bottom - 18 - k * 6) });
-        float tH = Math.Max(18f, th * viewH / contentH), ty = inner.Y + (max <= 0 ? 0 : Math.Max(0, Math.Min(1, get() / max)) * (th - tH)); var thumb = Rc(inner.X, ty, inner.Width, tH);
-        using (var br = new SolidBrush(Color.FromArgb(70, 0, 110, 130))) g.FillRectangle(br, thumb); using (var pen = new Pen(Color.FromArgb(200, NeonCyan), 1.4f)) { g.DrawLine(pen, thumb.X, thumb.Y, thumb.Right, thumb.Y); g.DrawLine(pen, thumb.X, thumb.Bottom, thumb.Right, thumb.Bottom); }
-        float lh = Math.Min(14f, bar.Width / 2 - 3), lhw = lh * 1.16f; var logoR = Rc(cx - lhw - 2, cym - lh - 2, lhw * 2 + 4, lh * 2 + 4);
+        // a thin line down the track with a small dot where you are (no big lit box)
+        float frac = max <= 0 ? 0 : Math.Max(0, Math.Min(1, get() / max)); float dy = inner.Y + 6 + frac * Math.Max(1, th - 12);
+        using (var pen = new Pen(Color.FromArgb(70, NeonViolet), 2f)) g.DrawLine(pen, cx, inner.Y + 2, cx, inner.Bottom - 2);
+        using (var br = new SolidBrush(Color.FromArgb(235, NeonCyan))) g.FillEllipse(br, cx - 4, dy - 4, 8, 8);
         if (playing)
-        {   // waves flow out of the logo, up and down the bar
-            var st = g.Save(); g.SetClip(inner, CombineMode.Intersect); int hl = vizHist.Length; float maxW = bar.Width / 2 - 4;
+        {   // waves flow out of the logo, down the bar
+            var st = g.Save(); g.SetClip(Rc(bar.X + 2, logoR.Bottom, bar.Width - 4, bar.Height - logoZone - cap - 2), CombineMode.Intersect); int hl = vizHist.Length; float maxW = bar.Width / 2 - 4;
             for (int c = 0; c < 90; c++)
             {
-                float v = vizHist[(vizHead - 1 - c + hl * 4) % hl]; float amp = Math.Max(1f, v * maxW * (1f - c / 130f)); int al = (int)(235 * (1f - c / 100f)); if (al <= 4) break;
-                float yu = cym - lh - 4 - c * 2.2f, yd = cym + lh + 4 + c * 2.2f;
-                using (var pu = new Pen(Color.FromArgb(al, 0, 229, 255), 1.5f)) g.DrawLine(pu, cx - amp, yu, cx + amp, yu); using (var pd = new Pen(Color.FromArgb(al, 255, 43, 214), 1.5f)) g.DrawLine(pd, cx - amp, yd, cx + amp, yd);
+                float v = vizHist[(vizHead - 1 - c + hl * 4) % hl]; float amp = Math.Max(1f, v * maxW * (1f - c / 130f)); int al = (int)(200 * (1f - c / 100f)); if (al <= 4) break;
+                float yd = lcy + lh + 4 + c * 2.2f; using (var pd = new Pen(Color.FromArgb(al, 255, 43, 214), 1.5f)) g.DrawLine(pd, cx - amp, yd, cx + amp, yd);
             }
             g.Restore(st);
         }
-        bool hotLogo = Hot(logoR) || (dragReg != null && dragReg.R == logoR); DrawLogo(g, cx, cym, lh, playing, hotLogo);
-        // the strip itself: click to jump, drag the lit window; arrows: click to step, hold to keep going; logo: hold and drag
-        Action<float> jump = my => set(Math.Max(0, Math.Min(max, (my - tH / 2 - inner.Y) / Math.Max(1, th - tH) * max)));
+        bool hotLogo = Hot(logoR) || (dragReg != null && dragReg.R == logoR); DrawLogo(g, cx, lcy, lh, playing, hotLogo);
+        // the strip itself: click to jump, drag to move; arrows: click to step, hold to keep going; logo: hold and drag
+        Action<float> jump = my => set(Math.Max(0, Math.Min(max, (my - inner.Y) / Math.Max(1, th) * max)));
         var rg = Reg(inner, () => jump(MousePos.Y)); rg.OnDrag = pt => jump(pt.Y);
         var ru = Reg(up, () => { set(Math.Max(0, get() - 60)); vHold = -1; vHoldGet = get; vHoldSet = set; vHoldMax = max; }); ru.OnDrag = pt => { }; ru.OnUp = () => vHold = 0;
         var rd = Reg(dn, () => { set(Math.Min(max, get() + 60)); vHold = 1; vHoldGet = get; vHoldSet = set; vHoldMax = max; }); rd.OnDrag = pt => { }; rd.OnUp = () => vHold = 0;
-        float downY = 0, downS = 0; var lg = Reg(logoR, () => { downY = MousePos.Y; downS = get(); }); lg.OnDrag = pt => set(Math.Max(0, Math.Min(max, downS + (pt.Y - downY) / Math.Max(1, th) * contentH)));
-        if (Hot(logoR)) { bubble = "Hold and drag to scroll the list"; bubblePt = MousePos; }
+        float downY = 0, downS = 0; var lg = Reg(logoR, () => { downY = MousePos.Y; downS = get(); }); lg.OnDrag = pt => set(Math.Max(0, Math.Min(max, downS + (pt.Y - downY) / Math.Max(60f, bar.Height * 0.5f) * max)));
+        if (Hot(logoR)) { bubble = "Hold the logo and drag down or up to scroll the list"; bubblePt = MousePos; }
     }
 
     // The bar shows the whole song. The lit window is what you see: hold the logo and drag to move it, drag the window's ends to zoom, click the bar to jump, double-click to fit the whole song.

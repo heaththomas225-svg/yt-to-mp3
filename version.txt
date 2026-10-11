@@ -1,4 +1,4 @@
-3.21.0
+3.22.0
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Capitals and bold font, STEREO/MONO, reworked CUT and fades, new projects page with preview, colour themes
-sha256=dd36978c5abd3100baf517db4c7e9e2fc5fc4264a406ab9b5cc0547a1276d788
+Projects search, sort and Recycling Bin, BACK on every page, STEREO and MONO buttons, thin tracks, cleaner scroll bars, playback safety
+sha256=3dfdb08e35961c366c85ca012db972f35f9d2bb0996494f4d737c7607785c52c

@@ -19,7 +19,7 @@ partial class StudioForm
         if (commInviteAsked) return; commInviteAsked = true;
         ThreadPool.QueueUserWorkItem(o => { try { using (var wc = new WebClient()) { wc.Headers["User-Agent"] = "PurphexMusic"; string j = wc.DownloadString("https://purphexmusic.com/api/community"); var m = Regex.Match(j, "\"discord\"\\s*:\\s*\"([^\"]*)\""); if (m.Success) { string u = m.Groups[1].Value.Replace("\\/", "/"); if (u.StartsWith("https://discord.gg/") || u.StartsWith("https://discord.com/invite/")) commInvite = u; } } } catch { } });
     }
-    static readonly string[] CommTabs = { "All", "Recent", "With picture" };
+    static readonly string[] CommTabs = { "All", "Recent" };
 
     static Color HueCol(double h, int a)
     {
@@ -34,7 +34,7 @@ partial class StudioForm
         float W = ClientSize.Width, y = 12, h = 46;
         using (var br = new SolidBrush(Color.FromArgb(245, 18, 10, 34))) g.FillRectangle(br, 0, 0, W, ToolH); NeonRule(g, 0, ToolH, W);
         Btn(g, Rc(12, y, 48, h), "≡", 0, () => { if (menuOpen) CloseMenu(); else OpenMenu(); }, 24);
-        Txt(g, tab == 3 ? "MY PROJECTS" : "COMMUNITY", 18, Ink, Rc(76, y, 190, h), StringAlignment.Near, true); Btn(g, Rc(270, y + 4, 100, h - 8), "BACK", 2, () => { StopPreview(); tab = 0; }, 14);
+        Txt(g, tab == 3 ? "MY PROJECTS" : "COMMUNITY", 18, Ink, Rc(76, y, 190, h), StringAlignment.Near, true); Btn(g, Rc(270, y + 4, 100, h - 8), "BACK", 2, () => GoBack(), 14);
         float rx = W - 14;
         Btn(g, Rc(rx - 58, y + 4, 58, h - 8), "Help", 2, () => app.ShowHelp(null), 14); rx -= 64;
         Btn(g, Rc(rx - 108, y + 4, 108, h - 8), Win.FullLabel(this), 0, () => Win.ToggleFullscreen(this), 12); rx -= 120;
@@ -45,7 +45,7 @@ partial class StudioForm
     void PaintCommunity(Graphics g)
     {
         float W = ClientSize.Width, H = ClientSize.Height, top = ToolH; if (!projectsLoaded) { projectsLoaded = true; ProjectLibrary.Load(); ProjectLibrary.Discover(); }
-        bool rail = W >= 1000, side = W >= 760; float sw = side ? 210 : 0, rw = rail ? 290 : 0;
+        bool rail = W >= 1000, side = W >= 760; float sw = side ? 210 : 0, rw = rail ? 290 : 0; PaintLogoBackdrop(g, Rc(sw, top, W - sw - rw, H - top));
         // ---- left menu ----
         if (side)
         {
@@ -79,7 +79,7 @@ partial class StudioForm
         }
         // ---- the feed: round neon art cards (your saved projects) ----
         var all = ProjectLibrary.AllByEdited(); var list = new List<ProjectEntry>();
-        foreach (var e in all) { if (commFilter == 1 && (DateTime.Now - e.Opened).TotalDays > 7) continue; if (commFilter == 2 && string.IsNullOrEmpty(e.Cover)) continue; list.Add(e); }
+        foreach (var e in all) { if (commFilter == 1 && (DateTime.Now - e.Opened).TotalDays > 7) continue; list.Add(e); }
         float fy = ty + 46, fh = H - fy; var area = Rc(cx0, fy, cw, fh); float cardW = 206, cardH = 340, gap = 14; int cols = Math.Max(1, (int)((cw + gap) / (cardW + gap))); float used = cols * cardW + (cols - 1) * gap, ox = cx0 + (cw - used) / 2;
         int rows = (list.Count + cols - 1) / cols; float maxS = Math.Max(0, rows * (cardH + gap) - fh + 10); commScroll = Math.Max(0, Math.Min(maxS, commScroll));
         regs.Add(new HitReg { R = area, OnWheel = d => commScroll = Math.Max(0, Math.Min(maxS, commScroll - d * 70)) });

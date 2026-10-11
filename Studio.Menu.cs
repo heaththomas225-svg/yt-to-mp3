@@ -15,7 +15,7 @@ partial class StudioForm
     // remember a project in the list (called on save and open)
     void NoteProject(string path, bool saved)
     {
-        ProjectLibrary.Touch(path, projName, eng.Tracks.Count, Fx.ProjectBpm, eng.EndFrame / (double)StudioEngine.SR, saved, ProjectIO.CoverBytes); ProjectIO.CoverBytes = null; var e = ProjectLibrary.Find(path); if (e != null && e.Cover.Length > 0) ProjectIO.CoverBytes = ProjectLibrary.MakeSquare(e.Cover, 256);
+        ProjectLibrary.Touch(path, projName, eng.Tracks.Count, Fx.ProjectBpm, eng.EndFrame / (double)StudioEngine.SR, saved, ProjectIO.CoverBytes); ProjectIO.CoverBytes = null; var e = ProjectLibrary.Find(path); if (e != null) { var roles = new List<string>(); foreach (var t in eng.Tracks) roles.Add(t.Instrument ? "inst" : (t.IsBus ? "bus" : t.Role)); e.Kind = ProjectLibrary.KindOfRoles(roles); } if (e != null && e.Cover.Length > 0) ProjectIO.CoverBytes = ProjectLibrary.MakeSquare(e.Cover, 256);
     }
 
     void OpenMenu() { menuOpen = true; menuSec = -1; menuSub = -1; if (!projectsLoaded) { projectsLoaded = true; ProjectLibrary.Load(); ProjectLibrary.Discover(); } }
@@ -30,7 +30,7 @@ partial class StudioForm
             case 0:
                 I("New Project", () => { CloseMenu(); NewProject(); });
                 I("Recent Projects", null).Sub = true;
-                I("My Projects (pictures)", () => GoTab(3));
+                I("My Projects", () => GoTab(3));
                 I("Open (project or music)...", () => { CloseMenu(); OpenClick(); });
                 I("Save", () => { CloseMenu(); SaveClick(false); }).Key = "Ctrl+S";
                 I("Save as...", () => { CloseMenu(); SaveClick(true); }).Key = "Ctrl+Shift+S";
@@ -183,13 +183,14 @@ partial class StudioForm
     void PaintProjects(Graphics g)
     {
         float W = ClientSize.Width, H = ClientSize.Height, top = ToolH; if (!projectsLoaded) { projectsLoaded = true; ProjectLibrary.Load(); ProjectLibrary.Discover(); }
-        Txt(g, "Your saved projects, newest first. Click one to open it (it asks first). PREVIEW plays it without opening it. The camera gives it a picture.", 12, DimC, Rc(24, top + 28, W - 48, 20), StringAlignment.Near, false);
-        var list = ProjectLibrary.AllByEdited(); float cw = 230, ch = 322, gap = 18, x0 = 24, y0 = top + 86; int cols = Math.Max(1, (int)((W - 48 + gap) / (cw + gap))); int count = list.Count + 1; int rows = (count + cols - 1) / cols; float bottomRoom = previewPath.Length > 0 ? 70 : 20;
-        float maxScroll = Math.Max(0, y0 + rows * (ch + gap) - H + bottomRoom); projScroll = Math.Max(0, Math.Min(maxScroll, projScroll)); var area = Rc(0, top + 80, W, H - top - 80); Reg(area, () => { }).OnWheel = d => { projScroll = Math.Max(0, Math.Min(maxScroll, projScroll - d * 70)); };
+        PaintLogoBackdrop(g, Rc(0, top, W, H - top));
+        if (projBin) { PaintBin(g); return; }
+        var list = VisibleProjects(); float y0 = PaintProjectsBar(g, W, top, ProjectLibrary.Entries.Count, list.Count); float cw = 230, ch = 322, gap = 18, x0 = 24; int cols = Math.Max(1, (int)((W - 48 + gap) / (cw + gap))); int count = list.Count + 1; int rows = (count + cols - 1) / cols; float bottomRoom = previewPath.Length > 0 ? 70 : 20;
+        float maxScroll = Math.Max(0, y0 + rows * (ch + gap) - H + bottomRoom); projScroll = Math.Max(0, Math.Min(maxScroll, projScroll)); var area = Rc(0, y0 - 8, W, H - y0 + 8); Reg(area, () => { }).OnWheel = d => { projScroll = Math.Max(0, Math.Min(maxScroll, projScroll - d * 70)); };
         var gs = g.Save(); g.SetClip(area, CombineMode.Intersect);
         for (int i = 0; i < count; i++)
         {
-            float cx = x0 + (i % cols) * (cw + gap), cy = y0 + (i / cols) * (ch + gap) - projScroll; var card = Rc(cx, cy, cw, ch); if (card.Bottom < top + 76 || card.Y > H) continue;
+            float cx = x0 + (i % cols) * (cw + gap), cy = y0 + (i / cols) * (ch + gap) - projScroll; var card = Rc(cx, cy, cw, ch); if (card.Bottom < y0 - 8 || card.Y > H) continue;
             if (i == 0)
             {
                 FillRR(g, Color.FromArgb(170, 20, 11, 40), card, 14); Win.DrawNeonBox(g, card, Hot(card)); Txt(g, "+", 54, NeonCyan, Rc(card.X, card.Y + 100, card.Width, 70), StringAlignment.Center, true); Txt(g, "NEW PROJECT", 15, Ink, Rc(card.X, card.Y + 180, card.Width, 26), StringAlignment.Center, true);
@@ -200,9 +201,10 @@ partial class StudioForm
             var pic = Rc(card.X + 8, card.Y + 8, cw - 16, cw - 16); DrawCover(g, pic, e); Win.DrawNeonBox(g, pic, false); if (e.Missing) { using (var b = new SolidBrush(Color.FromArgb(170, 8, 4, 16))) g.FillRectangle(b, pic); Txt(g, "FILE NOT FOUND", 13, Color.FromArgb(255, 150, 150), pic, StringAlignment.Center, true); }
             Txt(g, e.Name, 15, Ink, Rc(card.X + 12, card.Y + 228, cw - 24, 24), StringAlignment.Near, true);
             string meta = e.Tracks + " tracks" + (e.Bpm > 0 ? "  " + e.Bpm.ToString("0") + " BPM" : "") + (e.Seconds > 1 ? "  " + ((int)(e.Seconds / 60)) + ":" + ((int)(e.Seconds % 60)).ToString("00") : ""); Txt(g, meta, 11, DimC, Rc(card.X + 12, card.Y + 252, cw - 24, 18), StringAlignment.Near, false);
-            Txt(g, "EDITED " + ProjectLibrary.Ago(e.Updated), 11, DimC, Rc(card.X + 12, card.Y + 270, cw - 24, 18), StringAlignment.Near, false);
+            ProjectLibrary.EnsureKind(e); Txt(g, "EDITED " + ProjectLibrary.Ago(e.Updated), 11, DimC, Rc(card.X + 12, card.Y + 270, cw - 24 - 62, 18), StringAlignment.Near, false); if (e.Kind.Length > 0 && e.Kind != "Empty") Txt(g, e.Kind, 11, NeonCyan, Rc(card.Right - 12 - 62, card.Y + 270, 62, 18), StringAlignment.Far, true);
             var pv = Rc(card.Right - 12 - 142, card.Y + 290, 32, 26); var cam = Rc(pv.Right + 6, card.Y + 290, 32, 26); var nop = Rc(cam.Right + 6, card.Y + 290, 32, 26); var rm = Rc(nop.Right + 6, card.Y + 290, 28, 26);
             Reg(card, () => OpenProjectAsk(e)).OnRight = () => ProjectCardMenu(path);
+            var star = Rc(card.X + 12, card.Y + 290, 32, 26); FillRR(g, Hot(star) ? Color.FromArgb(220, 90, 50, 170) : Color.FromArgb(150, 44, 24, 80), star, 7); DrawStar(g, star, e.Fav, Hot(star)); Reg(star, () => ToggleFavourite(e)); Hint2(star, e.Fav ? "Remove from your favourites" : "Add to your favourites (a star)");
             FillRR(g, prev ? Color.FromArgb(235, 40, 140, 160) : (Hot(pv) ? Color.FromArgb(220, 90, 50, 170) : Color.FromArgb(150, 44, 24, 80)), pv, 7); using (var b = new SolidBrush(Ink)) { if (prev) g.FillRectangle(b, pv.X + 11, pv.Y + 8, 10, 10); else g.FillPolygon(b, new[] { new PointF(pv.X + 11, pv.Y + 6), new PointF(pv.X + 11, pv.Y + 20), new PointF(pv.X + 22, pv.Y + 13) }); } Reg(pv, () => PreviewToggle(e)); if (Hot(pv)) { bubble = prev ? "Stop the preview" : "PREVIEW: hear this project without opening it"; bubblePt = MousePos; }
             FillRR(g, Hot(cam) ? Color.FromArgb(220, 90, 50, 170) : Color.FromArgb(150, 44, 24, 80), cam, 7); DrawCamera(g, cam); Reg(cam, () => { if (!e.Missing) PickCover(path); }); if (Hot(cam)) { bubble = "Add or change the picture"; bubblePt = MousePos; }
             bool has = e.Cover.Length > 0; FillRR(g, has && Hot(nop) ? Color.FromArgb(220, 160, 50, 100) : Color.FromArgb(has ? 150 : 70, 44, 24, 80), nop, 7); DrawCamera(g, nop); using (var pen = new Pen(Color.FromArgb(has ? 255 : 110, 255, 90, 120), 2.2f)) g.DrawLine(pen, nop.X + 7, nop.Y + 20, nop.Right - 7, nop.Y + 5);
@@ -210,7 +212,7 @@ partial class StudioForm
             FillRR(g, Hot(rm) ? Color.FromArgb(220, 160, 40, 80) : Color.FromArgb(150, 44, 24, 80), rm, 7); Txt(g, "X", 13, Ink, rm, StringAlignment.Center, true); Reg(rm, () => RemoveProjectAsk(e)); if (Hot(rm)) { bubble = "Remove from this list (it asks if the file should go too)"; bubblePt = MousePos; }
         }
         g.Restore(gs);
-        if (list.Count == 0) Txt(g, "You have not saved a project yet. Make something, press Save, and it will appear here.", 14, DimC, Rc(x0 + cw + 40, y0 + 90, W - cw - 100, 60), StringAlignment.Near, false);
+        if (list.Count == 0) { if (ProjectLibrary.Entries.Count > 0) TxtWrap(g, "NO PROJECT MATCHES. Change the search or press CLEAR to see all your projects.", 14, DimC, Rc(x0 + cw + 40, y0 + 90, W - cw - 100, 60)); else TxtWrap(g, "You have not saved a project yet. Make something, press Save, and it will appear here.", 14, DimC, Rc(x0 + cw + 40, y0 + 90, W - cw - 100, 60)); }
     }
     void DrawCamera(Graphics g, RectangleF r)
     {
@@ -224,12 +226,13 @@ partial class StudioForm
         m.Items.Add(new ToolStripSeparator());
         m.Items.Add("Rename...").Click += (a, b) => { if (e != null) RenameEntry(e); };
         m.Items.Add("Add or change picture...").Click += (a, b) => { if (ok) PickCover(path); };
+        if (e != null) { m.Items.Add(e.Fav ? "Remove from favourites" : "Add to favourites").Click += (a, b) => ToggleFavourite(e); }
         m.Items.Add("Remove picture").Click += (a, b) => { if (e != null && e.Cover.Length > 0) { ProjectLibrary.ClearCover(path); Toast("Picture removed: the Purphex logo is shown again."); } else Toast("This project has no picture of its own."); };
         m.Items.Add("Show in folder").Click += (a, b) => { try { System.Diagnostics.Process.Start("explorer.exe", "/select,\"" + path + "\""); } catch { } };
         m.Items.Add(new ToolStripSeparator());
-        m.Items.Add("Remove from the list...").Click += (a, b) => { if (e != null) RemoveProjectAsk(e); };
+        m.Items.Add("Remove (list or Recycling Bin)...").Click += (a, b) => { if (e != null) RemoveProjectAsk(e); };
         m.Items.Add(new ToolStripSeparator());
-        m.Items.Add("BACK to the tracks").Click += (a, b) => { StopPreview(); tab = 0; };
+        m.Items.Add("BACK").Click += (a, b) => GoBack();
         m.Show(this, new Point((int)MousePos.X, (int)MousePos.Y));
     }
 

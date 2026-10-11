@@ -142,9 +142,11 @@ partial class StudioForm
         bool hasV = false, hasB = false; foreach (var t in eng.Tracks) { if (t.Role == "vocal" && t.Clip != null) hasV = true; if (t.Role == "beat" && t.Clip != null) hasB = true; }
         bool hasSong = false; foreach (var t in eng.Tracks) if (t.Clip != null && !t.Instrument && (t.Role == "song" || t.Role == "other")) hasSong = true;
         if (!hasV && !hasB && !hasSong) { Toast("Add a song, a vocal or a beat first."); return; }
+        if (!AskYes("Run Auto Mix?\n\nIt changes the volume, pan and effects of your tracks. UNDO MIX puts everything back, and you can cancel while it works.", "Auto Mix")) return;
         List<string> rep = null; string style = amStyle; bool enh = amEnhance;
-        RunBusy("Auto Mix: analysing loudness, tone and clipping...", false, p => { rep = AutoMix.Run(eng, style, enh, s => busyText = "Auto Mix: " + s); }, ok =>
+        RunBusy("Auto Mix: analysing loudness, tone and clipping...", true, p => { rep = AutoMix.Run(eng, style, enh, s => busyText = "Auto Mix: " + s); }, ok =>
         {
+            if (cancelFlag && ok) { AutoMix.Undo(eng); Toast("Auto Mix cancelled: nothing was changed."); return; }
             if (!ok || rep == null) return; selFx = -1;
             StudioDialogs.Report(this, "Auto Mix: what changed", rep, () => { AutoMix.Undo(eng); Toast("Auto Mix undone"); });
         });
@@ -458,15 +460,15 @@ static class StudioDialogs
         f.Show(owner);
     }
 
-    // Taking a project off the list: 0 = cancel, 1 = off the list only, 2 = off the list and the file to the Recycle Bin
+    // Taking a project off the list: 0 = cancel, 1 = off the list only, 2 = off the list and the file to the Recycling Bin (kept 30 days)
     public static int RemoveProject(IWin32Window owner, string name, string path, bool fileExists)
     {
-        int result = 0; var f = Make("Remove project", 560, 250);
+        int result = 0; var f = Make("Remove project", 560, 276);
         f.Controls.Add(new Label { Text = "Remove \"" + name + "\" from your projects?", Left = 20, Top = 16, Width = 520, Height = 26, ForeColor = Color.FromArgb(220, 190, 255), Font = new Font("Segoe UI Semibold", 12f), AutoEllipsis = true });
-        f.Controls.Add(new Label { Text = "This takes it off the list. The project file stays on your computer unless you tick the box below.", Left = 20, Top = 50, Width = 520, Height = 44, ForeColor = Ink });
-        var chk = new DarkCheck { Text = "Also delete the file from this computer (Recycle Bin)", Left = 20, Top = 104, Width = 520, Height = 28, ForeColor = Color.FromArgb(255, 170, 170), Enabled = fileExists }; f.Controls.Add(chk);
-        f.Controls.Add(new Label { Text = fileExists ? path : "The file was not found on this computer, so there is nothing to delete.", Left = 20, Top = 138, Width = 520, Height = 36, ForeColor = Color.FromArgb(150, 140, 190), Font = new Font("Segoe UI", 8.5f), AutoEllipsis = true });
-        var ok = B("Remove", 330, 190, 100, 34, Color.FromArgb(160, 40, 80)); var cancel = B("Cancel", 440, 190, 100, 34, Color.FromArgb(70, 40, 120));
+        f.Controls.Add(new Label { Text = "This takes it off the list. The project file stays on your computer unless you tick the box below. A deleted project can be restored from RECYCLING BIN on the projects page for 30 days.", Left = 20, Top = 50, Width = 520, Height = 62, ForeColor = Ink });
+        var chk = new DarkCheck { Text = "Also delete the project file (it waits 30 days in the Recycling Bin)", Left = 20, Top = 120, Width = 520, Height = 28, ForeColor = Color.FromArgb(255, 170, 170), Enabled = fileExists }; f.Controls.Add(chk);
+        f.Controls.Add(new Label { Text = fileExists ? path : "The file was not found on this computer, so there is nothing to delete.", Left = 20, Top = 154, Width = 520, Height = 36, ForeColor = Color.FromArgb(150, 140, 190), Font = new Font("Segoe UI", 8.5f), AutoEllipsis = true });
+        var ok = B("Remove", 330, 208, 100, 34, Color.FromArgb(160, 40, 80)); var cancel = B("Cancel", 440, 208, 100, 34, Color.FromArgb(70, 40, 120));
         ok.Click += (s, e) => { result = chk.Checked ? 2 : 1; f.Close(); }; cancel.Click += (s, e) => f.Close(); f.CancelButton = cancel; f.Controls.AddRange(new Control[] { ok, cancel }); f.ShowDialog(owner); return result;
     }
 

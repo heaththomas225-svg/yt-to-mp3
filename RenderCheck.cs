@@ -69,6 +69,8 @@ static class RenderT
                 Shot(tag + "-bar-idle");
                 { var vh = (float[])typeof(StudioForm).GetField("vizHist", BF).GetValue(sf); var vb = (float[])typeof(StudioForm).GetField("vizBand", BF).GetValue(sf); for (int i = 0; i < vh.Length; i++) vh[i] = (float)(0.25 + 0.55 * Math.Abs(Math.Sin(i * 0.11)) * Math.Abs(Math.Cos(i * 0.037))); for (int i = 0; i < vb.Length; i++) vb[i] = (float)(0.3 + 0.6 * Math.Abs(Math.Sin(i * 0.5))); }
                 int ov = Prefs.OutVol; Prefs.OutVol = 0; eng.Playing = true; Shot(tag + "-bar-playing"); eng.Playing = false; Prefs.OutVol = ov;
+                SetF("LaneH", 84); SetF("toolsTrack", null); Shot(tag + "-thin-tracks"); SetF("LaneH", 104); Shot(tag + "-compact-tracks"); SetF("LaneH", 132);
+                SetF("tab", 1); Shot(tag + "-mastering-back"); SetF("tab", 2); Shot(tag + "-lyrics-back"); SetF("tab", 0);
                 // community presets sheet (a made-up list, the website is not asked)
                 CommunityPresets.BaseUrl = "http://127.0.0.1:1";
                 typeof(StudioForm).GetMethod("OpenCommunityPresets", BF).Invoke(sf, new object[] { "fx:bassboost", "Bass Boost", (Action<CommPreset>)(p => { }), (Func<string>)(() => "a=1"), "Bass Boost custom" }); Pump(900);
@@ -87,6 +89,11 @@ static class RenderT
                     ProjectLibrary.Entries.Clear(); string[] pn = { "Summer drill beat", "Late night vocals with a very long project name", "Untitled", "Wobble bass test" };
                     for (int i = 0; i < pn.Length; i++) { string fp = Path.Combine(pd, "p" + i + ".ypm"); File.WriteAllText(fp, "x"); ProjectLibrary.Entries.Add(new ProjectEntry { Path = fp, Name = pn[i], Cover = i == 1 ? wide : "", Updated = DateTime.Now.AddHours(-i * 30), Opened = DateTime.Now.AddHours(-i * 30), Tracks = 3 + i, Bpm = 120 + i * 7, Seconds = 100 + i * 30, Bytes = 1234567 * (i + 1), SizeAsked = true }); }
                     SetF("projectsLoaded", true); SetF("tab", 3); Shot(tag + "-projects");
+                    ProjectLibrary.Entries[0].Fav = true; ProjectLibrary.Entries[0].Kind = "Song"; ProjectLibrary.Entries[1].Kind = "Beat"; ProjectLibrary.Entries[2].Kind = "Vocals";
+                    SetF("tab", 3); Shot(tag + "-projects-filters-off"); SetF("projSearch", "bea"); SetF("projFav", true); SetF("projType", "Song"); SetF("projSort", 2); Shot(tag + "-projects-search-filters"); SetF("projSearch", "zzzz"); Shot(tag + "-projects-search-none"); SetF("projSearch", ""); SetF("projFav", false); SetF("projType", ""); SetF("projSort", 0);
+                    ProjectLibrary.Bin.Clear(); string[] bnm = { "Old drill idea", "Vocal take with a really really long project name that must be cut", "Beat 7" };
+                    for (int bi = 0; bi < bnm.Length; bi++) ProjectLibrary.Bin.Add(new ProjectLibrary.BinItem { Id = "x" + bi, OrigPath = "p" + bi + ".ytmproj", Name = bnm[bi], Kind = bi == 0 ? "Song" : "Beat", Tracks = 3 + bi, Bpm = 120, Seconds = 95, Deleted = DateTime.Now.AddDays(-bi * 14 - 1), Cover = bi == 1 ? wide : "" });
+                    SetF("projBin", true); Shot(tag + "-recycling-bin"); ProjectLibrary.Bin.Clear(); Shot(tag + "-recycling-bin-empty"); SetF("projBin", false);
                     SetF("tab", 4); SetF("projScroll", 0f); Shot(tag + "-community-page");
                     SetF("tab", 3); typeof(StudioForm).GetField("previewPath", BF).SetValue(sf, ProjectLibrary.Entries[0].Path); typeof(StudioForm).GetField("previewName", BF).SetValue(sf, "Summer drill beat"); typeof(StudioForm).GetField("previewPlayFn", BF).SetValue(sf, (Action<StudioEngine>)(x => { }));
                     Shot(tag + "-projects-preview-bar"); typeof(StudioForm).GetField("previewPath", BF).SetValue(sf, ""); typeof(StudioForm).GetField("previewPlayFn", BF).SetValue(sf, null);

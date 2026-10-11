@@ -161,7 +161,7 @@ Width, Depth (behind you gets darker and quieter), Ear delay, Keep bass centred,
 ## Steps
 1. Make sure you have a vocal and a beat (separate a song or add your own).
 2. Choose a style next to the button: Natural, Clean Studio, Melodic Rap, Aggressive Rap or Technical Rap. The + means vocal enhancement is on.
-3. Press AUTO MIX. It analyses loudness, clipping and tone, builds a chain for each track, balances the volumes and shows exactly what it changed.
+3. Press AUTO MIX and say Yes when it asks (a slip of the mouse does nothing; you can also cancel while it works). It analyses loudness, clipping and tone, builds a chain for each track, balances the volumes and shows exactly what it changed.
 4. Edit anything afterwards, or press Undo Auto Mix.
 TIP: It never changes your original files."),
 
@@ -285,7 +285,7 @@ The needle (the glowing line) moves only from the strip at the top of the tracks
 ## Move a clip
 Drag the clip anywhere left or right (the cursor turns into a move cross). A plain click just selects the clip: the needle stays where it is.
 ## Stereo or mono
-Every track has a STEREO / MONO button next to its Bus button. STEREO keeps left and right apart; MONO (the button lights up) makes both sides the same sound, which is handy for a voice or a bass, or to check how your mix sounds on a single speaker. It is saved with the project.
+Every track has a STEREO button with a MONO button under it, next to its Bus button. STEREO keeps left and right apart; MONO (the button lights up) makes both sides the same sound, which is handy for a voice or a bass, or to check how your mix sounds on a single speaker. It is saved with the project.
 ## Move a track up or down
 Drag the track name on the left up or down, or use the Up and Dn buttons on the selected track.
 ## More
@@ -545,11 +545,16 @@ Import adds your own samples (wav, mp3, flac, midi...) to the My samples pack, o
 Press the three-lines button at the top left of Purphex Music. Your picture and name are at the top (click the picture to change it, click the name to rename yourself). Click Project, Edit, Tools, View, Community, Theme, Settings, Help or Exit to open its list.
 - Project: New Project, Recent Projects (the last ones you opened, with their pictures), My Projects, Open, Save, Save as, Set project picture, Export.
 - Edit: undo, redo, split, trim, duplicate and delete.
+- Back: every page has a BACK button that returns to the page you came from.
 - Tools: Auto Mix, split vocals and beat, detect BPM, metronome, mastering, add an instrument or track.
 - View: switch between Mix, Mastering, Lyrics and My Projects, fit the whole song, thin / normal / tall tracks, full screen.
 - Theme: pick one of six colour themes (Purphex, Ocean, Sunset, Toxic, Crimson, Mono). The whole program changes colour at once and remembers your choice. Settings has the same choice.
 ## My Projects
-Every project you save or open is remembered here, newest first, as a card with a picture. Click a card to open it: Purphex asks you to confirm first. The BACK button (top of the page, and in the right-click menu) takes you back to the tracks. The play button on a card PREVIEWS the project: you hear it without opening it and the bar along the bottom becomes a visualiser (press its square STOP button, or click the bar to jump). A project with no picture shows the Purphex logo; any picture is cropped to fill the square. The camera button adds or changes the picture (choose a JPG, PNG, GIF or BMP: it is cropped to a square and kept inside the project file, so it travels with it). The crossed camera button (or Remove picture in the right-click menu) takes your picture off again. Right-click a card for everything: open, preview, rename, change or remove the picture, show in folder, remove from the list and BACK. The x asks whether to take the project off this list only (your file stays on your PC) or to send the file to the Recycle Bin too.
+Every project you save or open is remembered here, newest first, as a card with a picture. Click a card to open it: Purphex asks you to confirm first. The BACK button (top of the page, and in the right-click menu) takes you back to the tracks. The play button on a card PREVIEWS the project: you hear it without opening it and the bar along the bottom becomes a visualiser (press its square STOP button, or click the bar to jump). A project with no picture shows the Purphex logo; any picture is cropped to fill the square. The camera button adds or changes the picture (choose a JPG, PNG, GIF or BMP: it is cropped to a square and kept inside the project file, so it travels with it). The crossed camera button (or Remove picture in the right-click menu) takes your picture off again. Right-click a card for everything: open, preview, rename, change or remove the picture, show in folder, remove from the list and BACK. The x asks whether to take the project off this list only (your file stays on your PC) or to delete the file too: it then goes into the RECYCLING BIN.
+## Search, sort and filter
+Type in the search box at the top of My Projects to find a project by name, tag or type (every word has to match; Esc clears, Enter lets go of the box). SORT chooses the order (newest edited, recently opened, name, most tracks, longest, oldest). TYPE shows only songs, beats or vocals. The star on a card makes it a favourite and FAVOURITES shows only those. CLEAR resets the search and every filter.
+## The Recycling Bin
+The RECYCLING BIN button (top right of My Projects) lists the projects you deleted. A project stays there for 30 days, with the days left shown, and is then deleted for good. RESTORE puts it back in My Projects (under a new name if another file has taken its name). DELETE FOREVER and EMPTY THE BIN delete at once and ask first. Only the project file is kept in the bin: the audio files it uses are never touched.
 Projects you saved in the usual folder before are found automatically.
 ## Open also finds your music
 The Open button lists project files and audio (mp3, wav, flac, m4a, ogg...). Pick one or several songs and they are added as tracks.

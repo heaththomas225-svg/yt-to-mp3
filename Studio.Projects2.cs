@@ -11,7 +11,7 @@ using System.Windows.Forms;
 partial class StudioForm
 {
     // test seams: the real program asks with a window; a test answers for itself (and never plays sound or deletes a file)
-    Func<ProjectEntry, bool> confirmOpenHook; Func<ProjectEntry, int> removeHook; Func<string, bool> recycleFn = Win.Recycle; Action<StudioEngine> previewPlayFn;
+    Func<ProjectEntry, bool> confirmOpenHook; Func<ProjectEntry, int> removeHook; Action<StudioEngine> previewPlayFn;
     StudioEngine previewEng; string previewPath = "", previewName = ""; volatile bool previewLoading;
 
     // clicking a project asks first (it used to send you into the project without a word)
@@ -21,13 +21,13 @@ partial class StudioForm
         bool ok = confirmOpenHook != null ? confirmOpenHook(e) : MessageBox.Show(this, "Open \"" + e.Name + "\" now?" + (eng.Tracks.Count > 0 ? "\n\nThe project that is open now will be closed (save it first if you changed it)." : ""), "Open project", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes;
         if (!ok) return; StopPreview(); tab = 0; OpenProjectPath(e.Path);
     }
-    // 0 = cancelled, 1 = off the list only, 2 = off the list and the file to the Recycle Bin
+    // 0 = cancelled, 1 = off the list only, 2 = off the list and the file to the Recycling Bin (kept 30 days)
     void RemoveProjectAsk(ProjectEntry e)
     {
         if (e == null) return; bool exists = File.Exists(e.Path); int r = removeHook != null ? removeHook(e) : StudioDialogs.RemoveProject(this, e.Name, e.Path, exists); if (r == 0) return;
-        if (string.Equals(previewPath, e.Path, StringComparison.OrdinalIgnoreCase)) StopPreview(); ProjectLibrary.Remove(e.Path);
-        if (r == 2 && exists) { bool ok = recycleFn(e.Path); Toast(ok ? "Removed from the list, and the file went to the Recycle Bin." : "Removed from the list, but the file could not be deleted (it may be open elsewhere)."); }
-        else Toast("Removed from the list (the file is still on your PC).");
+        if (string.Equals(previewPath, e.Path, StringComparison.OrdinalIgnoreCase)) StopPreview();
+        if (r == 2 && exists) { if (ProjectLibrary.MoveToBin(e) != null) Toast("Moved to the Recycling Bin. It waits there " + ProjectLibrary.BinDays + " days: restore it any time from RECYCLING BIN."); else { ProjectLibrary.Remove(e.Path); Toast("Removed from the list, but the file could not be moved (it may be open elsewhere)."); } }
+        else { ProjectLibrary.Remove(e.Path); Toast("Removed from the list (the file is still on your PC)."); }
     }
     // a project with no picture shows the Purphex logo, fitted inside the square
     void DrawLogoArt(Graphics g, RectangleF r)
@@ -70,6 +70,7 @@ partial class StudioForm
     }
     void PreviewHousekeeping()
     {
+        if (tab != 3) { projBin = false; projSearchOn = true; }
         if (previewPath.Length == 0) return;
         if (tab != 3 && tab != 4) { StopPreview(); return; }
         if (previewEng != null && !previewEng.Playing && previewPlayFn == null) StopPreview();   // it reached the end

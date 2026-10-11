@@ -708,7 +708,7 @@ class WaveOutPlayer : IDisposable
         return l;
     }
 
-    Action<float[], float[], int> render; IntPtr hwo; IntPtr[] hdrs, data;
+    readonly OutSafety safety = new OutSafety(); Action<float[], float[], int> render; IntPtr hwo; IntPtr[] hdrs, data;
     ManualResetEvent ev = new ManualResetEvent(false); Thread th; volatile bool run; float[] fl, fr; short[] tmp;
 
     public WaveOutPlayer(Action<float[], float[], int> render) { this.render = render; hdrs = new IntPtr[Buffers]; data = new IntPtr[Buffers]; QueuedFrames = Buffers * Frames; fl = new float[Frames]; fr = new float[Frames]; tmp = new short[Frames * 2]; }
@@ -732,6 +732,7 @@ class WaveOutPlayer : IDisposable
     {
         try { render(fl, fr, Frames); } catch { Array.Clear(fl, 0, Frames); Array.Clear(fr, 0, Frames); }
         float gn = Gain; if (gn != 1f) for (int k = 0; k < Frames; k++) { fl[k] *= gn; fr[k] *= gn; }
+        safety.Process(fl, fr, Frames);   // a project that is too loud is brought down smoothly instead of being chopped off (chopped peaks are the crackle and fuzz you hear)
         for (int k = 0; k < Frames; k++)
         {
             float a = fl[k], b = fr[k]; if (a > 1) a = 1; else if (a < -1) a = -1; if (b > 1) b = 1; else if (b < -1) b = -1;
