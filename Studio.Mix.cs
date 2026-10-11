@@ -479,6 +479,7 @@ static class ProjectIO
             var t = eng.Tracks[i];
             sb.Append("tmix|").Append(i).Append('|').Append(t.VolDb.ToString("R", CI)).Append('|').Append(t.Pan.ToString("R", CI)).Append('|').Append(t.Mute ? 1 : 0).Append('|').Append(t.Solo ? 1 : 0).Append('\n');
             foreach (var f in t.Fx) sb.Append("fx|").Append(i).Append('|').Append(f.Type).Append('|').Append(f.Bypass ? 1 : 0).Append('|').Append(f.Serialize()).Append('\n');
+            AutoIO.Write(sb, i, t);
         }
         foreach (var f in eng.MasterFx) sb.Append("mfx|").Append(f.Type).Append('|').Append(f.Bypass ? 1 : 0).Append('|').Append(f.Serialize()).Append('\n');
         return sb.ToString();
@@ -489,6 +490,7 @@ static class ProjectIO
         // build everything first (plugin loads can take seconds), then swap under the lock and dispose the old plugins afterwards
         Track[] trs; lock (eng.Sync) trs = eng.Tracks.ToArray();
         var newFx = new List<Fx>[trs.Length]; for (int k = 0; k < newFx.Length; k++) newFx[k] = new List<Fx>();
+        var origFx = new List<Fx>[trs.Length]; for (int k = 0; k < origFx.Length; k++) origFx[k] = new List<Fx>(); var autos = new List<string[]>();   // origFx keeps a place for a plugin that could not be loaded, so automation lanes still find the right plugin
         var newMaster = new List<Fx>(); var tmix = new List<string[]>(); string[] master = null;
         foreach (var line in s.Split('\n'))
         {
@@ -497,7 +499,8 @@ static class ProjectIO
             {
                 if (p[0] == "master") { F(p[1]); F(p[3]); master = p; }
                 else if (p[0] == "tmix") { int i = int.Parse(p[1]); if (i < trs.Length) tmix.Add(p); }
-                else if (p[0] == "fx") { int i = int.Parse(p[1]); if (i < trs.Length) { var f = Presets.Make(p[2], p.Length > 4 ? p[4] : ""); if (f != null) { f.Bypass = p[3] == "1"; var vf = f as InstrumentFx; if (vf != null) vf.Owner = trs[i]; newFx[i].Add(f); } } }
+                else if (p[0] == "auto") autos.Add(p);
+                else if (p[0] == "fx") { int i = int.Parse(p[1]); if (i < trs.Length) { var f = Presets.Make(p[2], p.Length > 4 ? p[4] : ""); origFx[i].Add(f); if (f != null) { f.Bypass = p[3] == "1"; var vf = f as InstrumentFx; if (vf != null) vf.Owner = trs[i]; newFx[i].Add(f); } } }
                 else if (p[0] == "mfx") { var q = line.Split(new[] { '|' }, 4); var f = Presets.Make(q[1], q.Length > 3 ? q[3] : ""); if (f != null) { f.Bypass = q[2] == "1"; newMaster.Add(f); } }
             }
             catch { }
@@ -508,6 +511,8 @@ static class ProjectIO
             foreach (var t in eng.Tracks) { old.AddRange(t.Fx); t.Fx.Clear(); }
             old.AddRange(eng.MasterFx); eng.MasterFx.Clear();
             for (int k = 0; k < trs.Length; k++) if (eng.Tracks.Contains(trs[k])) trs[k].Fx.AddRange(newFx[k]);
+            foreach (var tq in trs) tq.Auto.Clear();
+            foreach (var ap in autos) { var got = new List<KeyValuePair<Track, AutoLane>>(); AutoIO.Read(ap, trs, origFx, got); foreach (var kv in got) kv.Key.Auto.Add(kv.Value); }
             eng.MasterFx.AddRange(newMaster);
             if (master != null) { eng.MasterVolDb = F(master[1]); eng.MasterBypass = master[2] == "1"; eng.AbMatchDb = F(master[3]); }
             foreach (var p in tmix) { try { int i = int.Parse(p[1]); var t = trs[i]; t.VolDb = F(p[2]); t.Pan = F(p[3]); t.Mute = p[4] == "1"; t.Solo = p[5] == "1"; } catch { } }
@@ -567,7 +572,7 @@ static class ProjectIO
             }
             else if (p[0] == "route" && p.Length >= 3) routes.Add(p);
             else if (p[0] == "host" && p.Length >= 3) hosts.Add(p);
-            else if (p[0] == "master" || p[0] == "tmix" || p[0] == "fx" || p[0] == "mfx") mix.Append(line).Append('\n');
+            else if (p[0] == "master" || p[0] == "tmix" || p[0] == "fx" || p[0] == "mfx" || p[0] == "auto") mix.Append(line).Append('\n');
         }
         foreach (var rp in routes) { int ra, rb; if (int.TryParse(rp[1], out ra) && int.TryParse(rp[2], out rb) && ra >= 0 && rb >= 0 && ra < tracks.Count && rb < tracks.Count && tracks[rb].IsBus && ra != rb) tracks[ra].Out = tracks[rb]; }
         foreach (var hp in hosts) { int ha, hb; if (int.TryParse(hp[1], out ha) && int.TryParse(hp[2], out hb) && ha >= 0 && hb >= 0 && ha < tracks.Count && hb < tracks.Count && ha != hb && !tracks[hb].IsBus && !tracks[ha].IsBus) tracks[ha].Host = tracks[hb]; }

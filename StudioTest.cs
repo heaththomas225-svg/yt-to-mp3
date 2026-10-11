@@ -243,6 +243,34 @@ static class T
             Check("export: 24-bit WAV round-trips", e < 0.0002, "max error " + e.ToString("0.000000")); System.IO.File.Delete(tmp);
         }
 
+        // ---- parameter automation ----
+        {
+            var eng = new StudioEngine(); foreach (var f in eng.MasterFx) f.Bypass = true; int n = SR * 4; var x = Sine(440, 0.5, n);
+            var tr = StudioEngine.NewTrack("A", "other", AudioClip.FromArrays(x, Copy(x), "a")); eng.Tracks.Add(tr); var gfx = new GainFx(); gfx.Prepare(SR); tr.Fx.Add(gfx);
+            var lane = new AutoLane { Fx = gfx, Param = "gain" }; lane.Pts.Add(new AutoPoint { Frame = 0, Value = -24 }); lane.Pts.Add(new AutoPoint { Frame = SR * 2, Value = 0 }); tr.Auto.Add(lane);
+            var o = new RenderOpts(); float[] oL, oR; eng.Render(0, n, o, null, out oL, out oR);
+            Func<float[], double, double> rms = (a, sec) => { int s0 = (int)(sec * SR), s1 = s0 + 4000; double e = 0; for (int i = s0; i < s1; i++) e += a[i] * a[i]; return Math.Sqrt(e / 4000); };
+            double r0 = rms(oL, 0.2), r1 = rms(oL, 1.7), r2 = rms(oL, 3.2);
+            Check("automation: a gain lane from -24 dB to 0 dB over 2 s fades the track up (-21.6 dB at 0.2 s, -3.6 dB at 1.8 s, then holds 0 dB)", Math.Abs(20 * Math.Log10(r0 / r2) + 21.6) < 1.2 && Math.Abs(20 * Math.Log10(r1 / r2) + 3.6) < 1.2, (20 * Math.Log10(r0 / r2)).ToString("0.0") + " dB at 0.2 s, " + (20 * Math.Log10(r1 / r2)).ToString("0.0") + " dB at 1.7 s");
+            double worst = 0; double prev = -1; for (int s0 = 2000; s0 < SR * 2 - 600; s0 += 256) { double e = 0; for (int i = s0; i < s0 + 256; i++) e = Math.Max(e, Math.Abs(oL[i])); if (prev > 0) worst = Math.Max(worst, Math.Abs(20 * Math.Log10(e / prev))); prev = e; }
+            Check("automation: the setting glides (no jumps bigger than 0.25 dB between 256-frame pieces)", worst < 0.25, "largest step " + worst.ToString("0.000") + " dB");
+            lane.On = false; gfx.Set("gain", 0); eng.Render(0, n, o, null, out oL, out oR); double q0 = rms(oL, 0.2), q2 = rms(oL, 3.2);
+            Check("automation: with the lane switched off the plugin keeps its own setting", Math.Abs(20 * Math.Log10(q0 / q2)) < 0.5, (20 * Math.Log10(q0 / q2)).ToString("0.0") + " dB");
+            lane.On = true; string mix = ProjectIO.SerializeMix(eng);
+            Check("automation: lanes are written into the project (auto|track|plugin|setting|on|points)", mix.Contains("auto|0|0|gain|1|0:-24,88200:0"), mix.Contains("auto|") ? "present" : "missing");
+            var e2 = new StudioEngine(); e2.Tracks.Add(StudioEngine.NewTrack("A", "other", null)); ProjectIO.RestoreMix(e2, mix); var t2 = e2.Tracks[0];
+            Check("automation: a saved project brings the lane back, attached to the same plugin", t2.Auto.Count == 1 && t2.Auto[0].Fx == t2.Fx[0] && t2.Auto[0].Param == "gain" && t2.Auto[0].Pts.Count == 2 && t2.Auto[0].Pts[1].Frame == SR * 2 && t2.Auto[0].On, t2.Auto.Count + " lane(s)");
+            Check("automation: saving again gives the same text", ProjectIO.SerializeMix(e2) == mix, "");
+            tr.Fx.Clear(); Check("automation: a lane whose plugin was removed is not saved", !ProjectIO.SerializeMix(eng).Contains("auto|"), "");
+            var steps = new AutoLane(); steps.Pts.Add(new AutoPoint { Frame = 0, Value = 0 }); steps.Pts.Add(new AutoPoint { Frame = 1000, Value = 1 }); steps.Pts.Add(new AutoPoint { Frame = 3000, Value = 3 });
+            Check("automation: a list of choices steps (holds the earlier value) while numbers glide", steps.ValueAt(999, true) == 0 && steps.ValueAt(1000, true) == 1 && steps.ValueAt(2999, true) == 1 && Math.Abs(steps.ValueAt(2000, false) - 2f) < 0.001f && steps.ValueAt(-5, false) == 0 && steps.ValueAt(99999, false) == 3, "");
+            var bad = new AutoLane(); AutoLane.ParsePoints(bad, "5:1.5,notapoint,-3:2,9:x,2:0.5"); Check("automation: damaged points in a file are ignored, the rest are kept in order", bad.Pts.Count == 2 && bad.Pts[0].Frame == 2 && bad.Pts[1].Frame == 5, bad.PointsText());
+            // two lanes on two settings of one plugin, in a bus
+            var e3 = new StudioEngine(); foreach (var f in e3.MasterFx) f.Bypass = true; var tr3 = StudioEngine.NewTrack("B", "other", AudioClip.FromArrays(x, Copy(x), "b")); e3.Tracks.Add(tr3); var eq = new ParametricEq(); eq.Prepare(SR); tr3.Fx.Add(eq);
+            var l1 = new AutoLane { Fx = eq, Param = "hp_on" }; l1.Pts.Add(new AutoPoint { Frame = 0, Value = 0 }); l1.Pts.Add(new AutoPoint { Frame = SR, Value = 1 }); tr3.Auto.Add(l1);
+            e3.Render(0, SR * 2, o, null, out oL, out oR); Check("automation: a choice setting (high-pass off/on) is switched by its lane during playback", Math.Abs(eq.Get("hp_on") - 1) < 0.01f, "hp_on = " + eq.Get("hp_on"));
+        }
+
         // ---- engine: sync / solo / mute / fader / PDC ----
         {
             var eng = new StudioEngine(); foreach (var f in eng.MasterFx) f.Bypass = true;

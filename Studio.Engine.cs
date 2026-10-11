@@ -341,6 +341,7 @@ class Track
     public Track Host;   // set = this track shares the row of its Host (an audio clip, a MIDI instrument and more can live on one row)
     public bool IsBus, Armed; public Track Out;   // a bus has no audio of its own: it mixes the tracks sent to it (Out), runs its own plugins, then goes to the master. Armed = an empty audio track waiting for a recording
     public List<Fx> Fx = new List<Fx>();
+    public List<AutoLane> Auto = new List<AutoLane>();   // automation: settings of the plugins above that follow a curve
     public volatile float PeakL, PeakR, RmsL, RmsR; public volatile bool Clipped;
     public float[] TapPre = new float[8192], TapPost = new float[8192]; public volatile int TapPos;
     internal float[] tl = new float[8192], tr = new float[8192];
@@ -358,7 +359,7 @@ class RenderOpts
 }
 
 // ---------------- the engine ----------------
-class StudioEngine
+partial class StudioEngine
 {
     public const int SR = 44100;
     public readonly object Sync = new object();
@@ -470,7 +471,7 @@ class StudioEngine
                         fx.ScL = scL; fx.ScR = scR;
                     }
                     else { fx.ScL = null; fx.ScR = null; }
-                    try { fx.BeginBlock(t, pos, n, !meters || Playing); fx.Process(t.tl, t.tr, n); } catch (Exception ex) { fx.Error = ex.Message; fx.Bypass = true; }
+                    try { var lanes = t.Auto.Count > 0 ? AutoLanes(t, fx) : null; if (lanes == null) { fx.BeginBlock(t, pos, n, !meters || Playing); fx.Process(t.tl, t.tr, n); } else ProcessAuto(t, fx, lanes, pos, n, !meters || Playing, needsSc && voc != null && voc != t); } catch (Exception ex) { fx.Error = ex.Message; fx.Bypass = true; }
                     latSoFar += fx.Latency;
                 }
             // plugin delay compensation

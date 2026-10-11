@@ -77,11 +77,34 @@ static class S
             var useBtn = Regs().Find(r => Math.Abs(r.R.Width - 64) < 0.5f && Math.Abs(r.R.Height - 34) < 0.5f); int ux = (int)(useBtn.R.X + 30), uy = (int)(useBtn.R.Y + 17);
             Ev("OnMouseMove", MouseButtons.None, 0, ux, uy); Ev("OnMouseDown", MouseButtons.Left, 1, ux, uy); Ev("OnMouseUp", MouseButtons.Left, 1, ux, uy); Paint();
             Check("pressing Use builds that style's plugins on the selected track and closes the sheet", !F<bool>("stylesOpen") && eng.Tracks[0].Fx.Count >= 4, "plugins on the track: " + fx0 + " -> " + eng.Tracks[0].Fx.Count);
+            typeof(StudioForm).GetMethod("DoUndo", BF).Invoke(sf, null); Check("Ctrl+Z takes a vocal style off the track again (the plugin chain comes back as it was)", eng.Tracks[0].Fx.Count == fx0, "plugins on the track: " + eng.Tracks[0].Fx.Count);
             typeof(StudioForm).GetMethod("OpenStyles", BF).Invoke(sf, null); Paint(); var rgs = Regs(); int bdi = rgs.FindLastIndex(r => r.R.Width >= 1499 && r.R.Height >= 799); var starReg = rgs.GetRange(Math.Max(0, bdi), rgs.Count - Math.Max(0, bdi)).Find(r => Math.Abs(r.R.Width - 30) < 0.5f && Math.Abs(r.R.Height - 30) < 0.5f && r.OnDown != null);
             if (starReg != null) { int sx = (int)(starReg.R.X + 15), sy = (int)(starReg.R.Y + 15); Ev("OnMouseMove", MouseButtons.None, 0, sx, sy); Ev("OnMouseDown", MouseButtons.Left, 1, sx, sy); Ev("OnMouseUp", MouseButtons.Left, 1, sx, sy); Paint(); }
             Check("pressing a star keeps the style as a favourite", starReg != null && VocalStyles.Find("", "", true).Count == 1, "favourites " + VocalStyles.Find("", "", true).Count);
             typeof(StudioForm).GetMethod("ProcessCmdKey", BF).Invoke(sf, new object[] { new Message(), Keys.Escape }); Paint(); Check("Esc closes the Vocal Styles sheet", !F<bool>("stylesOpen"), "");
             eng.Tracks[0].Fx.Clear(); try { File.Delete(tmpFav); } catch { } VocalStyles.FavFile = null;
+        }
+        {   // automation editor: A next to a setting opens a curve; click adds a point, drag moves it, right-click deletes it
+            var tr0 = eng.Tracks[0]; var gfx = new GainFx(); gfx.Prepare(44100); tr0.Fx.Add(gfx); SetF("selTrack", 0); SetF("selFx", 0); int undo0 = ((IList)F<object>("undo")).Count;
+            Paint(); var abtn = Regs().FindAll(r => Math.Abs(r.R.Width - 22) < 0.5f && r.R.Height > 20 && r.R.Height < 24 && r.OnDown != null); Check("the plugin editor shows an A (automate) button next to a setting", abtn.Count >= 1, abtn.Count + " buttons");
+            if (abtn.Count > 0) { var ab = abtn[abtn.Count - 1]; int ax = (int)(ab.R.X + 11), ay = (int)(ab.R.Y + ab.R.Height / 2); Ev("OnMouseMove", MouseButtons.None, 0, ax, ay); Ev("OnMouseDown", MouseButtons.Left, 1, ax, ay); Ev("OnMouseUp", MouseButtons.Left, 1, ax, ay); Paint(); }
+            Check("pressing A opens the automation editor and starts a lane for that setting", F<bool>("autoOpen") && tr0.Auto.Count == 1 && tr0.Auto[0].Pts.Count == 2, tr0.Auto.Count + " lanes");
+            var rgs = Regs(); int bi = rgs.FindLastIndex(r => r.R.Width >= 1499 && r.R.Height >= 799); var plot = rgs.GetRange(Math.Max(0, bi), rgs.Count - Math.Max(0, bi)).Find(r => r.OnRight != null && r.OnDrag != null && r.OnUp != null && r.R.Width > 500);
+            Check("the editor has a curve area", plot != null, "");
+            if (plot != null)
+            {
+                var lane = tr0.Auto[0]; int cx = (int)(plot.R.X + plot.R.Width * 0.5f), cy = (int)(plot.R.Y + plot.R.Height * 0.25f);
+                Ev("OnMouseMove", MouseButtons.None, 0, cx, cy); Ev("OnMouseDown", MouseButtons.Left, 1, cx, cy); Ev("OnMouseUp", MouseButtons.Left, 1, cx, cy); Paint();
+                Check("clicking an empty spot adds a point there", lane.Pts.Count == 3 && lane.Pts[1].Frame > 0, lane.Pts.Count + " points");
+                long fr1 = lane.Pts[1].Frame; plot = Regs().FindLast(r => r.OnRight != null && r.OnDrag != null && r.OnUp != null && r.R.Width > 500);
+                Ev("OnMouseMove", MouseButtons.None, 0, cx, cy); Ev("OnMouseDown", MouseButtons.Left, 1, cx, cy); for (int i = 1; i <= 5; i++) Ev("OnMouseMove", MouseButtons.Left, 0, cx + i * 20, cy + i * 6); Ev("OnMouseUp", MouseButtons.Left, 1, cx + 100, cy + 30); Paint();
+                Check("dragging a point moves it along the song and changes its value", lane.Pts.Count == 3 && lane.Pts[1].Frame > fr1 + 1000 && lane.Pts[1].Value < 0.0f + 100f, "frame " + fr1 + " -> " + lane.Pts[1].Frame);
+                int rx = cx + 100, ry = cy + 30; Ev("OnMouseMove", MouseButtons.None, 0, rx, ry); Ev("OnMouseDown", MouseButtons.Right, 1, rx, ry); Ev("OnMouseUp", MouseButtons.Right, 1, rx, ry); Paint();
+                Check("right-clicking a point deletes it", lane.Pts.Count == 2, lane.Pts.Count + " points");
+                Check("every change can be undone with Ctrl+Z", ((IList)F<object>("undo")).Count > undo0, "undo steps " + undo0 + " -> " + ((IList)F<object>("undo")).Count);
+            }
+            typeof(StudioForm).GetMethod("ProcessCmdKey", BF).Invoke(sf, new object[] { new Message(), Keys.Escape }); Paint(); Check("Esc closes the automation editor", !F<bool>("autoOpen"), "");
+            tr0.Auto.Clear(); tr0.Fx.Clear();
         }
         {   // an empty audio track takes the recording itself, and Up / Dn make a row when there is none
             var MI = typeof(StudioForm).GetMethod("AddEmptyAudioTrack", BF); int n0 = eng.Tracks.Count; MI.Invoke(sf, null); var emp = eng.Tracks[eng.Tracks.Count - 1];

@@ -398,6 +398,23 @@ If a site only has a lower quality than you picked, you get the best it has.
 - A few sites need you to be signed in or block downloads. The log shows the reason.
 - Only download what you have the right to keep."),
 
+        new HelpTopic("studio-automation", "Purphex Music", "Automation: make a plugin setting move with the song", false, @"
+## What it is
+Automation lets any setting of a plugin follow a curve while the song plays: an echo that opens up for the chorus, a filter that sweeps, a vocal that fades in. It is also used in every export.
+## Starting a lane
+Select the track, click the plugin in the panel on the right, and press the small A button next to the setting you want to move. The automation editor opens with a flat line at the setting's current value.
+## Editing the curve
+- Click an empty spot to add a point. Drag a point to move it along the song and up or down.
+- Right-click a point to delete it. Press Flatten to set every point to the plugin's current value.
+- The white line is the playhead, and the box at the top right shows what the setting is right now.
+- For settings that are a list of choices (for example Off / On) the curve changes in steps.
+## Turning it off
+Press Automation on to switch the lane off, and the plugin goes back to the value you set by hand. Remove deletes the lane. The A button lights up on settings that have a lane, and the chips along the top of the editor switch between all the lanes on the track.
+## Good to know
+- Lanes are saved in the project. Ctrl+Z undoes changes to them.
+- While a lane is on, the setting follows it: moving the slider by hand will be overridden. Switch the lane off to play with the slider.
+- Before the first point and after the last point the setting holds that point's value.
+"),
         new HelpTopic("studio-styles", "Purphex Music", "Rapper Vocal Styles: ready-made rap vocal chains", false, @"
 ## What it is
 Rapper Vocal Styles is a searchable list of 36 original plugin chains for rap vocals, grouped by subgenre: Trap, Melodic Trap, Drill, Boom Bap, Old School, Grime and UK, Cloud and Lo-Fi, Rage and Hyper, Pop Rap, Phonk and Storytelling. Each one is made from this app's own plugins (tuning, EQ, compression, de-essing, saturation, echo, reverb) with settings chosen for that sound. No artist's settings are copied.

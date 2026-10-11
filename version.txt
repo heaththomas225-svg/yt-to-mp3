@@ -1,4 +1,4 @@
 
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
 
-sha256=d25b43cbb1e18ded6c422c51313c6ce041f756978a694e74e2076aa0be43ce80
+sha256=18e10fdb132e59c01b4457f4d15b1aed7e72654b5d7473cbba28d6b5105647f2
