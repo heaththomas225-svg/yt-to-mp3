@@ -4,19 +4,27 @@ using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Windows.Forms;
 
-// The MASTER VISUALISER: a page of its own (opened from Mastering) where the music you are mastering moves: a ring of light bars around the logo that dance to the spectrum, a thin ring that shows
-// the sound before mastering, pulses and sparks on every beat, a mirrored spectrum along the bottom, level meters and the loudness numbers. Mastering also has a small strip along the bottom like
-// the one in My Projects, with a button that opens this page.
+// The MASTER VISUALISER. It is the heart of the Mastering page (the stage above the EQ and the presets) and it also has a full page of its own (tab 5) for watching.
+// A ring of light bars around the logo dances to the spectrum, shells of light ripple out behind it, the sound before mastering is a thin ring inside, a circular scope
+// draws the real waveform, every beat sends shockwaves and sparks, stars rush past faster the harder the bass hits, and a mirrored spectrum with peak caps runs along the floor.
+// Everything is drawn with cheap shapes and stored pictures (a big soft gradient fill alone used to take 16 ms a frame).
 partial class StudioForm
 {
-    readonly float[] visB = new float[96], visPre = new float[96], visPk = new float[96];
-    double[] visRe = new double[2048], visIm = new double[2048], visHann; float visBeat, visBass, visHoldL, visHoldR, visIdle; readonly List<Spark> visSp = new List<Spark>(); readonly List<float[]> visRings = new List<float[]>(); readonly Random visRnd = new Random(77);
+    const int VisN = 96;
+    readonly float[] visB = new float[VisN], visPre = new float[VisN], visPk = new float[VisN]; readonly float[] visWave = new float[200];
+    readonly float[][] visEcho = new float[5][]; double visEchoAt; int visEchoHead;
+    double[] visRe = new double[2048], visIm = new double[2048], visHann; float visBeat, visBass, visBassAvg, visMid, visHigh, visFlash, visRot, visHoldL, visHoldR, visShake; double visT; int visFrame; double visBeatAt; bool visStageOn;
+    readonly List<Spark> visSp = new List<Spark>(); readonly List<float[]> visRings = new List<float[]>(); readonly Random visRnd = new Random(77);
+    readonly float[] stA = new float[150], stD = new float[150], stS = new float[150]; bool starsInit;
 
     static Color MixC(Color a, Color b, float t) { t = Math.Max(0, Math.Min(1, t)); return Color.FromArgb(a.A + (int)((b.A - a.A) * t), a.R + (int)((b.R - a.R) * t), a.G + (int)((b.G - a.G) * t), a.B + (int)((b.B - a.B) * t)); }
+    // the colour of one place along the ring: theme cyan, then violet, then pink
+    static Color VisCol(float t) { return t < 0.5f ? MixC(NeonCyan, NeonViolet, t * 2) : MixC(NeonViolet, NeonPink, (t - 0.5f) * 2); }
+
     // 96 bands from 30 Hz to 18 kHz (low to high), quick to rise and smooth to fall
     void VisBands(float[] tap, int pos, float[] outB, bool playing)
     {
-        if (!playing) { for (int i = 0; i < outB.Length; i++) outB[i] *= 0.9f; return; }
+        if (!playing || tap == null) { for (int i = 0; i < outB.Length; i++) outB[i] *= 0.9f; return; }
         const int N = 2048; if (visHann == null) { visHann = new double[N]; for (int i = 0; i < N; i++) visHann[i] = 0.5 - 0.5 * Math.Cos(2 * Math.PI * i / N); }
         for (int i = 0; i < N; i++) { visRe[i] = tap[(pos - N + i + 8192 * 2) & 8191] * visHann[i]; visIm[i] = 0; }
         Fft.Transform(visRe, visIm, false);
@@ -30,110 +38,195 @@ partial class StudioForm
         }
     }
 
-    // ---------- the top bar of the page ----------
+    // a soft round glow, made once (per size and colour) and copied; it replaces a gradient fill that cost 16 ms a frame
+    Bitmap AuraSprite(int dia, Color c, int peak)
+    {
+        long key = Sprites.H(Sprites.H(Sprites.H(Sprites.H(Sprites.Seed, 91), dia), c.ToArgb()), peak); var sp = Sprites.Get(key); if (sp != null) return sp;
+        sp = Sprites.Make(dia, dia); var px = new int[dia * dia]; byte[] mask = AuraMask(dia); int cr = c.R, cg = c.G, cb = c.B;
+        for (int i = 0; i < px.Length; i++) { int m = mask[i]; if (m == 0) continue; int al = m * peak / 255; px[i] = (al << 24) | ((cr * al / 255) << 16) | ((cg * al / 255) << 8) | (cb * al / 255); }
+        var d = sp.LockBits(new Rectangle(0, 0, dia, dia), System.Drawing.Imaging.ImageLockMode.WriteOnly, sp.PixelFormat); System.Runtime.InteropServices.Marshal.Copy(px, 0, d.Scan0, px.Length); sp.UnlockBits(d); Sprites.Put(key, sp); return sp;
+    }
+    readonly Dictionary<int, byte[]> auraMasks = new Dictionary<int, byte[]>();
+    byte[] AuraMask(int dia)
+    {   // the shape of the glow (how strong it is at each place), worked out once per size
+        byte[] m; if (auraMasks.TryGetValue(dia, out m)) return m; if (auraMasks.Count > 12) auraMasks.Clear(); m = new byte[dia * dia]; float R = dia / 2f;
+        for (int y = 0; y < dia; y++) for (int x = 0; x < dia; x++) { float dx = x + 0.5f - R, dy = y + 0.5f - R, r = (float)Math.Sqrt(dx * dx + dy * dy) / R; if (r >= 1) continue; float a = (1 - r); a = a * a * (0.55f + 0.45f * (float)Math.Cos(r * 6.0)); m[y * dia + x] = (byte)Math.Max(0, Math.Min(255, (int)(a * 255))); }
+        auraMasks[dia] = m; return m;
+    }
+    static Color Coarse(Color c) { return Color.FromArgb(255, Math.Min(255, (c.R + 16) / 32 * 32), Math.Min(255, (c.G + 16) / 32 * 32), Math.Min(255, (c.B + 16) / 32 * 32)); }
+    Bitmap SparkSprite(Color c)
+    {
+        long key = Sprites.H(Sprites.H(Sprites.Seed, 92), c.ToArgb()); var sp = Sprites.Get(key); if (sp != null) return sp;
+        sp = Sprites.Make(14, 14); using (var sg = Graphics.FromImage(sp)) { sg.SmoothingMode = SmoothingMode.AntiAlias; using (var b = new SolidBrush(Color.FromArgb(70, c))) sg.FillEllipse(b, 0, 0, 14, 14); using (var b = new SolidBrush(Color.FromArgb(150, c))) sg.FillEllipse(b, 3, 3, 8, 8); using (var b = new SolidBrush(Color.FromArgb(255, Math.Min(255, c.R + 90), Math.Min(255, c.G + 90), Math.Min(255, c.B + 90)))) sg.FillEllipse(b, 5, 5, 4, 4); }
+        Sprites.Put(key, sp); return sp;
+    }
+
+    Bitmap visBg; long visBgKey;
+    void VisBackground(Graphics g, RectangleF a, float cx, float cy, float R0)
+    {
+        int w = (int)Math.Ceiling(a.Width), h = (int)Math.Ceiling(a.Height); long key = Sprites.H(Sprites.H(Sprites.H(Sprites.H(Sprites.H(Sprites.H(Sprites.Seed, w), h), (long)(cx - a.X)), (long)(cy - a.Y)), (long)R0 / 4), Coarse(NeonViolet).ToArgb());
+        if (visBg == null || visBgKey != key)
+        {
+            if (visBg == null || visBg.Width != w || visBg.Height != h) { if (visBg != null) visBg.Dispose(); visBg = Sprites.Make(w, h); }
+            using (var bg = Graphics.FromImage(visBg))
+            {
+                bg.CompositingMode = CompositingMode.SourceCopy; using (var b = new SolidBrush(TM.C(255, 5, 2, 12))) bg.FillRectangle(b, 0, 0, w, h); bg.CompositingMode = CompositingMode.SourceOver;
+                int dia = (int)(R0 * 5.6f) / 16 * 16; if (dia >= 64) { var au = AuraSprite(dia, Coarse(NeonViolet), 215); bg.DrawImageUnscaled(au, (int)(cx - a.X - dia / 2f), (int)(cy - a.Y - dia / 2f)); int d3 = (int)(R0 * 3.2f) / 16 * 16; if (d3 >= 48) { var au3 = AuraSprite(d3, Coarse(NeonPink), 120); bg.DrawImageUnscaled(au3, (int)(cx - a.X - d3 / 2f), (int)(cy - a.Y - d3 / 2f)); } }
+            }
+            visBgKey = key; Prof.A("vis.bgbuild", 0);
+        }
+        long bq = Prof.T(); g.CompositingMode = CompositingMode.SourceCopy; g.DrawImageUnscaled(visBg, (int)Math.Round(a.X), (int)Math.Round(a.Y)); g.CompositingMode = CompositingMode.SourceOver; Prof.A("vis.bgblit", bq);
+    }
+
+    // ---------- the stage: the light show itself (inside rectangle a) ----------
+    void PaintVisStage(Graphics g, RectangleF a, bool full)
+    {
+        float dt = Math.Min(0.05f, hDt); bool playing = eng.Playing; visT += dt; visFrame++;
+        var gs = g.Save(); g.SetClip(a, CombineMode.Intersect); long v0 = Prof.T();
+        // ---- listening: the sound after mastering, and (every other frame) the sound before it ----
+        VisBands(eng.MasterTap, eng.MasterTapPos, visB, playing); if ((visFrame & 1) == 0) VisBands(eng.MasterTapPre, eng.MasterTapPos, visPre, playing);
+        float bass = 0, mid = 0, hi = 0; for (int i = 0; i < 14; i++) bass += visB[i]; for (int i = 28; i < 56; i++) mid += visB[i]; for (int i = 70; i < 96; i++) hi += visB[i]; bass /= 14f; mid /= 28f; hi /= 26f;
+        visBass += (bass - visBass) * 0.55f; visBassAvg += (bass - visBassAvg) * 0.08f; visMid += (mid - visMid) * 0.3f; visHigh += (hi - visHigh) * 0.3f;
+        bool beat = playing && bass > visBassAvg * 1.2f + 0.03f && bass > 0.26f && visT - visBeatAt > 0.17;
+        if (beat) { visBeat = 1f; visFlash = 1f; visBeatAt = visT; visShake = 1f; }
+        visBeat = Math.Max(0, visBeat - dt * 3.2f); visFlash = Math.Max(0, visFlash - dt * 5f); visShake = Math.Max(0, visShake - dt * 6f);
+        for (int i = 0; i < VisN; i++) visPk[i] = Math.Max(visB[i], visPk[i] - dt * 0.5f);
+        visRot += dt * (0.10f + visMid * 0.9f + visBeat * 0.9f);
+        if (visT - visEchoAt > 0.07) { visEchoAt = visT; visEchoHead = (visEchoHead + 1) % visEcho.Length; if (visEcho[visEchoHead] == null) visEcho[visEchoHead] = new float[VisN]; Array.Copy(visB, visEcho[visEchoHead], VisN); }
+        float floorUp = full ? Math.Min(150f, a.Height * 0.2f) : Math.Min(64f, a.Height * 0.2f), seekH = full ? 44f : 30f;
+        float topPad = full ? 64f : 4f; float cx = a.X + a.Width / 2 + (float)Math.Sin(visT * 60) * 2.5f * visShake, cy = a.Y + topPad + (a.Height - topPad - seekH - floorUp * 0.35f) / 2f + (float)Math.Cos(visT * 53) * 2f * visShake;
+        float R0 = Math.Max(30f, Math.Min((a.Width - (full ? 560f : 40f)) / 2f / 2.3f, (a.Height - topPad - seekH - floorUp * 0.5f - 24f) / 2f / 2.25f));
+        Prof.A("vis.fft+setup", v0); v0 = Prof.T();
+        // ---- the background (dark, with the soft glow behind the ring) is one stored picture, copied ----
+        VisBackground(g, a, a.X + a.Width / 2, cy - (float)Math.Cos(visT * 53) * 2f * visShake, R0); Prof.A("vis.bg", v0); v0 = Prof.T();
+        // ---- stars rushing out from the middle ----
+        if (!starsInit) { starsInit = true; for (int i = 0; i < stA.Length; i++) { stA[i] = (float)(visRnd.NextDouble() * Math.PI * 2); stD[i] = (float)visRnd.NextDouble(); stS[i] = 0.05f + (float)visRnd.NextDouble() * 0.2f; } }
+        { float maxR = (float)Math.Sqrt(a.Width * a.Width + a.Height * a.Height) / 2f; float spd = playing ? 1f + visBass * 5f + visBeat * 3f : 0.25f; var sm0 = g.SmoothingMode; g.SmoothingMode = SmoothingMode.None;
+          using (var sb = new SolidBrush(Color.White)) using (var pen = new Pen(Color.White, 1f))
+            for (int i = 0; i < stA.Length; i++)
+            {
+                stD[i] += stS[i] * spd * dt; if (stD[i] > 1f) { stD[i] = 0.02f; stA[i] = (float)(visRnd.NextDouble() * Math.PI * 2); }
+                float d = stD[i], ca = (float)Math.Cos(stA[i]), sa = (float)Math.Sin(stA[i]); float x = cx + ca * d * maxR, y = cy + sa * d * maxR; if (!a.Contains(x, y)) continue; int al = (int)(Math.Min(1f, d * 2.4f) * (playing ? 150 : 70));
+                Color sc = i % 3 == 0 ? NeonCyan : (i % 3 == 1 ? NeonPink : Color.White);
+                if (playing && spd > 3.2f && d > 0.12f) { pen.Color = Color.FromArgb(al / 2, sc); g.DrawLine(pen, x, y, x - ca * spd * 5f * d, y - sa * spd * 5f * d); }
+                sb.Color = Color.FromArgb(al, sc); float sz = d > 0.55f ? 2.2f : 1.4f; g.FillRectangle(sb, x, y, sz, sz);
+            }
+          g.SmoothingMode = sm0; }
+        Prof.A("vis.stars", v0); v0 = Prof.T();
+        // ---- the aura behind the ring, flashing with the beat ----
+        { if (visFlash > 0.05f) { int d2 = (int)(R0 * 2.8f) / 16 * 16; if (d2 >= 48) { var au2 = AuraSprite(d2, Coarse(NeonCyan), (int)(60 + 110 * visFlash) / 16 * 16); g.DrawImageUnscaled(au2, (int)(cx - d2 / 2f), (int)(cy - d2 / 2f)); } } }
+        Prof.A("vis.aura", v0); v0 = Prof.T();
+        // ---- shells of light that ripple out behind the bars (the last few moments of the spectrum) ----
+        int nb = VisN; float r1 = R0 * 1.16f; var cosT = new float[nb]; var sinT = new float[nb]; for (int i = 0; i < nb; i++) { double an = visRot + (-Math.PI / 2) + (i + 0.5) * 2 * Math.PI / nb; cosT[i] = (float)Math.Cos(an); sinT[i] = (float)Math.Sin(an); }
+        Func<int, int> bandOf = i => Math.Min(95, (i < 48 ? i : 95 - i) * 2 + 1);
+        for (int k = visEcho.Length - 1; k >= 1; k--)
+        {
+            var snap = visEcho[(visEchoHead - k + visEcho.Length * 2) % visEcho.Length]; if (snap == null) continue; var pts = new PointF[nb]; float grow = 1f + 0.09f * k;
+            for (int i = 0; i < nb; i++) { float rr = (r1 + R0 * 0.06f + snap[bandOf(i)] * R0 * 1.15f * 0.9f) * grow; pts[i] = new PointF(cx + cosT[i] * rr, cy + sinT[i] * rr); }
+            using (var pen = new Pen(Color.FromArgb((int)((playing ? 74 : 26) / (float)k), VisCol(0.55f + 0.1f * k)), 1.5f) { LineJoin = LineJoin.Round }) g.DrawPolygon(pen, pts);
+        }
+        Prof.A("vis.shells", v0); v0 = Prof.T();
+        // ---- the kick: a soft thick ring that swells on every beat, and hexagons that grow out of the logo ----
+        if (playing && visBeat > 0.02f) { using (var pen = new Pen(Color.FromArgb((int)(55 * visBeat), NeonPink), R0 * 0.35f * visBeat + 2)) g.DrawEllipse(pen, cx - r1 * 0.98f, cy - r1 * 0.98f, r1 * 1.96f, r1 * 1.96f); }
+        // ---- two rings of beads turning against each other; they speed up and swell with the music ----
+        { var sm3 = g.SmoothingMode; g.SmoothingMode = SmoothingMode.None; using (var br = new SolidBrush(Color.White))
+            for (int ring = 0; ring < 2; ring++) { int cnt = ring == 0 ? 72 : 48; float rr = R0 * (ring == 0 ? 2.62f : 2.78f); double sp0 = visRot * (ring == 0 ? 0.7 : -1.1);
+              for (int i = 0; i < cnt; i++) { double an = sp0 + i * 2 * Math.PI / cnt; float bx = cx + (float)Math.Cos(an) * rr, by = cy + (float)Math.Sin(an) * rr; if (!a.Contains(bx, by)) continue; float sz = 1.6f + (playing ? visHigh * 3.2f + visBeat * 1.6f : 0f); br.Color = Color.FromArgb(playing ? 190 : 80, ring == 0 ? NeonCyan : NeonPink); g.FillRectangle(br, bx - sz / 2, by - sz / 2, sz, sz); } }
+          g.SmoothingMode = sm3; }
+        // ---- rays that shoot out when the highs sparkle ----
+        if (playing && visHigh > 0.12f) { var sm4 = g.SmoothingMode; g.SmoothingMode = SmoothingMode.None; using (var pen = new Pen(Color.White, 1f)) for (int i = 0; i < 36; i++) { double an = -visRot * 1.7 + i * 2 * Math.PI / 36; float len = R0 * (0.15f + visHigh * 1.7f) * (0.4f + 0.6f * (float)Math.Abs(Math.Sin(i * 12.9898 + visT * 9))); float x0 = cx + (float)Math.Cos(an) * R0 * 2.3f, y0 = cy + (float)Math.Sin(an) * R0 * 2.3f; pen.Color = Color.FromArgb((int)(120 * Math.Min(1f, visHigh * 2.2f)), VisCol(i / 36f)); g.DrawLine(pen, x0, y0, x0 + (float)Math.Cos(an) * len, y0 + (float)Math.Sin(an) * len); } g.SmoothingMode = sm4; }
+        // ---- shockwaves ----
+        if (beat) { visRings.Add(new[] { R0 * 1.2f, 1f }); for (int k = 0; k < 22 && visSp.Count < 220; k++) { double an = visRnd.NextDouble() * Math.PI * 2; float sp = 120 + (float)visRnd.NextDouble() * 300, rr0 = R0 * 1.3f, life = 0.7f + (float)visRnd.NextDouble() * 0.7f; visSp.Add(new Spark { X = cx + (float)Math.Cos(an) * rr0, Y = cy + (float)Math.Sin(an) * rr0, VX = (float)Math.Cos(an) * sp, VY = (float)Math.Sin(an) * sp, Life = life, Max = life, R = 1f, C = VisCol((float)visRnd.NextDouble()) }); } }
+        for (int i = visRings.Count - 1; i >= 0; i--) { var rg = visRings[i]; rg[0] += dt * R0 * 2.1f; rg[1] -= dt * 1.15f; if (rg[1] <= 0) { visRings.RemoveAt(i); continue; } using (var pen = new Pen(Color.FromArgb((int)(150 * rg[1]), i % 2 == 0 ? NeonCyan : NeonPink), 2.2f + 3f * rg[1])) g.DrawEllipse(pen, cx - rg[0], cy - rg[0], rg[0] * 2, rg[0] * 2); }
+        Prof.A("vis.shock", v0); v0 = Prof.T();
+        // ---- the bars: a dim wide one under a bright thin one, each coloured by where it sits on the ring ----
+        { var core = new PointF[4]; var smW = g.SmoothingMode;
+          for (int pass = 0; pass < 2; pass++)
+          {
+              g.SmoothingMode = pass == 0 ? SmoothingMode.None : SmoothingMode.AntiAlias; float wdt = pass == 0 ? 11f : 3.4f;
+              for (int i = 0; i < nb; i++)
+              {
+                  int bi = bandOf(i); float v = visB[bi]; if (!playing) v = Math.Max(v, 0.03f + 0.025f * (float)Math.Sin(visT * 1.7 + i * 0.35)); float len = R0 * 0.07f + v * R0 * 1.15f; float ca = cosT[i], sa = sinT[i], nx = -sa * wdt / 2, ny = ca * wdt / 2; float x0 = cx + ca * r1, y0 = cy + sa * r1, x1 = cx + ca * (r1 + len), y1 = cy + sa * (r1 + len);
+                  core[0] = new PointF(x0 + nx, y0 + ny); core[1] = new PointF(x1 + nx, y1 + ny); core[2] = new PointF(x1 - nx, y1 - ny); core[3] = new PointF(x0 - nx, y0 - ny);
+                  Color col = VisCol((i < 48 ? i : 95 - i) / 47f); if (pass == 0) col = Color.FromArgb((int)(34 + 40 * v), col); else col = MixC(col, Color.White, Math.Min(0.55f, v * 0.5f));
+                  using (var br = new SolidBrush(col)) g.FillPolygon(br, core);
+              }
+          }
+          g.SmoothingMode = smW; }
+        Prof.A("vis.bars", v0); v0 = Prof.T();
+        // peak dots
+        { var sm1 = g.SmoothingMode; g.SmoothingMode = SmoothingMode.None; using (var br = new SolidBrush(Color.White)) for (int i = 0; i < nb; i += 2) { float pv = visPk[bandOf(i)]; if (pv < 0.07f) continue; float rr = r1 + R0 * 0.07f + pv * R0 * 1.15f + 8; br.Color = Color.FromArgb(200, 255, 255, 255); g.FillRectangle(br, cx + cosT[i] * rr - 1.5f, cy + sinT[i] * rr - 1.5f, 3f, 3f); } g.SmoothingMode = sm1; }
+        // ---- the sound before mastering (a thin ring inside the bars) and the real waveform (a circular scope) ----
+        { var pts = new PointF[nb]; for (int i = 0; i < nb; i++) { float rr = R0 * 1.06f + visPre[bandOf(i)] * R0 * 0.2f; pts[i] = new PointF(cx + cosT[i] * rr, cy + sinT[i] * rr); } using (var pen = new Pen(TM.C(120, 215, 215, 240), 1.3f)) g.DrawPolygon(pen, pts); }
+        if (playing && eng.MasterTap != null)
+        {
+            int n = visWave.Length; var pts = new PointF[n]; var tap = eng.MasterTap; int pos = eng.MasterTapPos; for (int i = 0; i < n; i++) { float s = tap[(pos - (n - i) * 6 + 8192 * 4) & 8191]; double an = visRot * 0.5 + i * 2 * Math.PI / n; float rr = R0 * 0.66f + s * R0 * 0.34f; pts[i] = new PointF(cx + (float)Math.Cos(an) * rr, cy + (float)Math.Sin(an) * rr); }
+            using (var pen = new Pen(Color.FromArgb(70, NeonCyan), 4.5f) { LineJoin = LineJoin.Round }) g.DrawPolygon(pen, pts); using (var pen = new Pen(Color.FromArgb(220, NeonCyan), 1.4f) { LineJoin = LineJoin.Round }) g.DrawPolygon(pen, pts);
+        }
+        Prof.A("vis.rings+scope", v0); v0 = Prof.T();
+        // ---- the logo, beating ----
+        { float hh0 = R0 * (0.80f + 0.1f * visBeat + 0.05f * visBass); if (visBeat > 0.05f) { float grow = (1 - visBeat) * R0 * 0.9f; using (var hp0 = HexPath(cx, cy, (hh0 + grow) * 1.16f, hh0 + grow)) using (var pen = new Pen(Color.FromArgb((int)(150 * visBeat), NeonCyan), 2f + 3f * visBeat) { LineJoin = LineJoin.Round }) g.DrawPath(pen, hp0); } DrawLogo(g, cx, cy, hh0, playing, false); }
+        Prof.A("vis.logo", v0); v0 = Prof.T();
+        // ---- sparks ----
+        for (int i = visSp.Count - 1; i >= 0; i--) { var s = visSp[i]; s.VX *= 0.985f; s.VY = s.VY * 0.985f + 60 * dt; s.X += s.VX * dt; s.Y += s.VY * dt; s.Life -= dt; if (s.Life <= 0 || !a.Contains(s.X, s.Y)) { visSp.RemoveAt(i); continue; } var sp = SparkSprite(Coarse(s.C)); g.DrawImageUnscaled(sp, (int)(s.X - 7), (int)(s.Y - 7)); }
+        Prof.A("vis.sparks", v0); v0 = Prof.T();
+        // ---- the floor: a mirrored spectrum with peak caps ----
+        { float baseY = a.Bottom - seekH - 14, x0 = a.X + (full ? 70 : 16), x1 = a.Right - (full ? 70 : 16), bw = (x1 - x0) / VisN; var sm2 = g.SmoothingMode; g.SmoothingMode = SmoothingMode.None;
+          using (var pen = new Pen(Color.FromArgb(110, NeonViolet), 1f)) g.DrawLine(pen, x0, baseY, x1, baseY);
+          using (var br = new SolidBrush(Color.White))
+            for (int i = 0; i < VisN; i++)
+            {
+                float v = visB[i]; if (!playing) v = Math.Max(v, 0.02f + 0.015f * (float)Math.Sin(visT * 2 + i * 0.3)); float hh = 2 + v * floorUp; Color c = VisCol(i / 95f); float bx = x0 + i * bw + 1, w2 = Math.Max(2f, bw - 2.4f);
+                br.Color = Color.FromArgb(70, c); g.FillRectangle(br, bx - 1, baseY - hh - 1, w2 + 2, hh + 1); br.Color = Color.FromArgb(235, c); g.FillRectangle(br, bx, baseY - hh, w2, hh);
+                br.Color = Color.FromArgb(46, c); g.FillRectangle(br, bx, baseY + 2, w2, Math.Min(18f, hh * 0.4f));
+                float pk = 2 + visPk[i] * floorUp; br.Color = Color.FromArgb(220, 255, 255, 255); g.FillRectangle(br, bx, baseY - pk - 3, w2, 2);
+            }
+          g.SmoothingMode = sm2; }
+        Prof.A("vis.floor", v0); v0 = Prof.T();
+        // ---- the song position (click or drag to jump) ----
+        { var sb = Rc(a.X + (full ? 70 : 16), a.Bottom - seekH + (full ? 4 : 2), a.Width - (full ? 140 : 32), full ? 12 : 8); FillRR(g, TM.C(255, 8, 4, 18), sb, sb.Height / 2); double tot = Math.Max(1, eng.EndFrame); float f = (float)Math.Max(0, Math.Min(1, dispPos / tot));
+          if (f > 0.002f) { var fr = Rc(sb.X, sb.Y, Math.Max(2, sb.Width * f), sb.Height); using (var br = new LinearGradientBrush(new RectangleF(fr.X, fr.Y - 1, Math.Max(3, fr.Width), fr.Height + 2), NeonCyan, NeonPink, 0f)) using (var pth = RR(fr, sb.Height / 2)) g.FillPath(br, pth); }
+          using (var br = new SolidBrush(Color.White)) g.FillEllipse(br, sb.X + sb.Width * f - sb.Height / 2f - 1, sb.Y - 1, sb.Height + 2, sb.Height + 2); StrokeRR(g, Color.FromArgb(140, NeonViolet), sb, sb.Height / 2, 1);
+          Txt(g, Fmt(dispPos / (double)StudioEngine.SR), 11, DimC, Rc(sb.X, sb.Bottom + 1, 120, 14), StringAlignment.Near, false); Txt(g, Fmt(tot / StudioEngine.SR), 11, DimC, Rc(sb.Right - 120, sb.Bottom + 1, 120, 14), StringAlignment.Far, false);
+          Action<float> seek = mx => { double ff = Math.Max(0, Math.Min(1, (mx - sb.X) / sb.Width)); eng.Seek((long)(ff * tot)); }; var rg = Reg(Rc(sb.X, sb.Y - 8, sb.Width, sb.Height + 16), () => seek(MousePos.X)); rg.OnDrag = pt => seek(pt.X); }
+        Prof.A("vis.seek", v0); v0 = Prof.T();
+        // title and what you are hearing
+        { string st = eng.MasterBypass ? "ORIGINAL" : "MASTERED"; float ty = a.Y + 8, tx0 = full ? a.X + a.Width / 2 - 62 : a.X + 14; Txt(g, projName.ToUpper(), full ? 20 : 14, Ink, Rc(full ? a.X + a.Width / 2 - 300 : tx0, ty, full ? 600 : Math.Min(320, a.Width - 200), full ? 30 : 22), full ? StringAlignment.Center : StringAlignment.Near, true); var pill = Rc(tx0, ty + (full ? 32 : 24), 124, full ? 24 : 20);
+          FillRR(g, eng.MasterBypass ? TM.C(255, 60, 52, 98) : Color.FromArgb(255, 28, 112, 86), pill, 9); Txt(g, st, full ? 12 : 11, Color.White, pill, StringAlignment.Center, true); var hp = Rc(pill.Right + 8, pill.Y, 122, pill.Height); Btn(g, hp, eng.MasterBypass ? "HEAR MASTER" : "HEAR ORIGINAL", 0, () => { eng.MasterBypass = !eng.MasterBypass; ApplyMatch(); }, 10); Hint2(hp, "Switch between your original mix and the mastered sound while you watch"); }
+        if (!playing) Txt(g, "PRESS PLAY OR PREVIEW MASTER AND WATCH YOUR MUSIC MOVE", 12, Color.FromArgb(170, DimC), Rc(a.X, cy + R0 * 2.35f, a.Width, 20), StringAlignment.Center, true);
+        g.Restore(gs);
+    }
+
+    // ---------- the full page (tab 5): the stage over everything, with level meters and the loudness cards ----------
+    void PaintVisualiser(Graphics g)
+    {
+        float W = ClientSize.Width, H = ClientSize.Height, top = ToolH; lastInput = DateTime.Now; var a = Rc(0, top, W, H - top);
+        PaintVisStage(g, a, true);
+        float mh = Math.Max(160f, H - top - 330f), my = top + (H - top - 120) / 2f - mh / 2; var ml = Rc(24, my, 24, mh); var mr = Rc(W - 48, my, 24, mh); float pl = Math.Max(1e-6f, eng.MasterPeakL), pr = Math.Max(1e-6f, eng.MasterPeakR);
+        float fl = Clamp01(((float)(20 * Math.Log10(pl)) + 54f) / 54f), fr = Clamp01(((float)(20 * Math.Log10(pr)) + 54f) / 54f); visHoldL = Math.Max(fl, visHoldL - hDt * 0.25f); visHoldR = Math.Max(fr, visHoldR - hDt * 0.25f);
+        LedMeter(g, ml, fl); LedMeter(g, mr, fr); using (var pen = new Pen(Color.FromArgb(220, 255, 255, 255), 2f)) { float yl = ml.Bottom - visHoldL * ml.Height, yr = mr.Bottom - visHoldR * mr.Height; g.DrawLine(pen, ml.X - 3, yl, ml.Right + 3, yl); g.DrawLine(pen, mr.X - 3, yr, mr.Right + 3, yr); }
+        Txt(g, "L", 12, DimC, Rc(ml.X - 4, ml.Bottom + 4, 32, 16), StringAlignment.Center, true); Txt(g, "R", 12, DimC, Rc(mr.X - 4, mr.Bottom + 4, 32, 16), StringAlignment.Center, true);
+        var lu = eng.Lufs; lu.UpdateIntegrated(); VisCard(g, Rc(70, top + 18, 230, 84), "MOMENTARY", Db(lu.Momentary), "LUFS", Ink); VisCard(g, Rc(70, top + 110, 230, 84), "INTEGRATED", Db(lu.Integrated), "LUFS", NeonCyan);
+        VisCard(g, Rc(W - 300, top + 18, 230, 84), "TRUE PEAK", Db(lu.TruePeakDb), "dBTP", lu.TruePeakDb > -0.9 ? Bad : Good); VisCard(g, Rc(W - 300, top + 110, 230, 84), "GAIN REDUCTION", eng.MasterGr.ToString("0.0"), "dB", Warn);
+    }
+    void VisCard(Graphics g, RectangleF r, string label, string value, string unit, Color vc)
+    {
+        FillRR(g, TM.C(255, 9, 5, 22), r, 12); Win.DrawNeonBox(g, r, false);
+        Txt(g, label, 10, DimC, Rc(r.X, r.Y + 6, r.Width, 14), StringAlignment.Center, true); Txt(g, value, 30, vc, Rc(r.X, r.Y + 22, r.Width, 40), StringAlignment.Center, true); Txt(g, unit, 11, DimC, Rc(r.X, r.Y + 62, r.Width, 16), StringAlignment.Center, false);
+    }
+
+    // ---------- the top bar of the full page ----------
     void PaintVisBar(Graphics g)
     {
         float W = ClientSize.Width, y = 12, h = 46;
-        using (var br = new SolidBrush(Color.FromArgb(245, 18, 10, 34))) g.FillRectangle(br, 0, 0, W, ToolH); NeonRule(g, 0, ToolH, W);
+        using (var br = new SolidBrush(TM.C(255, 18, 10, 34))) g.FillRectangle(br, 0, 0, W, ToolH); NeonRule(g, 0, ToolH, W);
         Btn(g, Rc(12, y, 48, h), "≡", 0, () => { if (menuOpen) CloseMenu(); else OpenMenu(); }, 24);
         Txt(g, "VISUALISER", 18, Ink, Rc(76, y, 190, h), StringAlignment.Near, true); Btn(g, Rc(270, y + 4, 100, h - 8), "HOME", 2, () => GoHome(), 14); if (ShowBack) Btn(g, Rc(376, y + 4, 100, h - 8), "BACK", 0, () => GoBack(), 14);
         float rx = W - 14;
         Btn(g, Rc(rx - 108, y + 4, 108, h - 8), Win.FullLabel(this), 0, () => Win.ToggleFullscreen(this), 12); rx -= 114;
-        var mb = Rc(rx - 130, y + 4, 130, h - 8); Btn(g, mb, "MASTERING", 1, () => tab = 1, 13); Hint2(mb, "Back to the Mastering page"); rx -= 136;
-        var ab = Rc(rx - 150, y + 4, 150, h - 8); Btn(g, ab, eng.MasterBypass ? "HEAR: ORIGINAL" : "HEAR: MASTERED", eng.MasterBypass ? 0 : 4, () => { eng.MasterBypass = !eng.MasterBypass; ApplyMatch(); }, 12); Hint2(ab, "Switch between your original mix and the mastered sound while you watch"); rx -= 156;
-        var pv = Rc(rx - 150, y + 4, 150, h - 8); Btn(g, pv, mpActive ? "STOP PREVIEW" : "PREVIEW", mpActive ? 4 : 2, () => MasterPreviewToggle(), 13); Hint2(pv, "Loop the loudest 20 seconds of your song with the mastering on"); rx -= 156;
-        var pl = Rc(rx - 96, y + 4, 96, h - 8); Btn(g, pl, "PLAY", eng.Playing && !mpActive ? 4 : 1, () => { if (mpActive) MasterPreviewStop(); PlayToggle(); }, 14);
-    }
-
-    // ---------- the page ----------
-    void PaintVisualiser(Graphics g)
-    {
-        float W = ClientSize.Width, H = ClientSize.Height, top = ToolH, dt = hDt; bool playing = eng.Playing; lastInput = DateTime.Now; btnAnim = true; visIdle += dt;
-        using (var b = new SolidBrush(Color.FromArgb(178, 3, 1, 10))) g.FillRectangle(b, 0, top, W, H - top);   // darkens the backdrop so the lights stand out
-        VisBands(eng.MasterTap, eng.MasterTapPos, visB, playing); VisBands(eng.MasterTapPre, eng.MasterTapPos, visPre, playing);
-        float bass = 0; for (int i = 0; i < 14; i++) bass += visB[i]; bass /= 14f; visBass += (bass - visBass) * 0.12f;
-        bool beat = playing && bass > visBass * 1.22f + 0.035f && bass > 0.28f && visBeat < 0.45f; if (beat) visBeat = 1f; visBeat = Math.Max(0, visBeat - dt * 3.0f);
-        for (int i = 0; i < visPk.Length; i++) visPk[i] = Math.Max(visB[i], visPk[i] - dt * 0.45f);
-        float cx = W / 2, cy = top + (H - top - 120) * 0.5f; float R0 = Math.Max(48f, Math.Min((H - top - 250) / 2f / 2.3f, (W - 560) / 2f / 2.3f));
-        // the glow behind everything, stronger on the beat
-        using (var gp = new GraphicsPath()) { float gr = R0 * 3.1f; gp.AddEllipse(cx - gr, cy - gr, gr * 2, gr * 2); using (var pg = new PathGradientBrush(gp) { CenterColor = Color.FromArgb((int)(46 + 80 * visBeat), NeonViolet), SurroundColors = new[] { Color.FromArgb(0, NeonViolet) } }) g.FillEllipse(pg, cx - gr, cy - gr, gr * 2, gr * 2); }
-        // rings that spread out on every beat, and sparks
-        if (beat) { visRings.Add(new[] { R0 * 1.2f, 1f }); for (int k = 0; k < 26 && visSp.Count < 320; k++) { double an = visRnd.NextDouble() * Math.PI * 2; float sp = 110 + (float)visRnd.NextDouble() * 280, r = R0 * 1.3f; float life = 0.7f + (float)visRnd.NextDouble() * 0.7f; visSp.Add(new Spark { X = cx + (float)Math.Cos(an) * r, Y = cy + (float)Math.Sin(an) * r, VX = (float)Math.Cos(an) * sp, VY = (float)Math.Sin(an) * sp, Life = life, Max = life, R = 1.2f + (float)visRnd.NextDouble() * 1.8f, C = SparkCols[visRnd.Next(SparkCols.Length)] }); } }
-        for (int i = visRings.Count - 1; i >= 0; i--) { var rg = visRings[i]; rg[0] += dt * R0 * 1.9f; rg[1] -= dt * 1.1f; if (rg[1] <= 0) { visRings.RemoveAt(i); continue; } using (var pen = new Pen(Color.FromArgb((int)(150 * rg[1]), NeonCyan), 2.4f)) g.DrawEllipse(pen, cx - rg[0], cy - rg[0], rg[0] * 2, rg[0] * 2); }
-        // the bars: 96 of them in a ring (low sounds at the top, high at the bottom, the two halves mirror each other)
-        int nb = 96; float r1 = R0 * 1.16f; using (var pen = new Pen(Color.White, 3.6f) { StartCap = LineCap.Round, EndCap = LineCap.Round })
-        {
-            for (int pass = 0; pass < 2; pass++)
-                for (int i = 0; i < nb; i++)
-                {
-                    int idx = i < 48 ? i : 95 - i; float v = visB[Math.Min(95, idx * 2 + 1)]; if (!playing) v = Math.Max(v, 0.025f + 0.02f * (float)Math.Sin(visIdle * 1.6 + i * 0.35)); float len = R0 * 0.06f + v * R0 * 1.15f;
-                    double an = (-90 + (i + 0.5) * 360.0 / nb) * Math.PI / 180; float ca = (float)Math.Cos(an), sa = (float)Math.Sin(an); float tf = idx / 47f; Color col = tf < 0.5f ? MixC(NeonCyan, NeonViolet, tf * 2) : MixC(NeonViolet, NeonPink, (tf - 0.5f) * 2);
-                    if (pass == 0) { pen.Color = Color.FromArgb(46, col); pen.Width = 9f; } else { pen.Color = col; pen.Width = 3.6f; }
-                    g.DrawLine(pen, cx + ca * r1, cy + sa * r1, cx + ca * (r1 + len), cy + sa * (r1 + len));
-                }
-        }
-        // the peak dots
-        for (int i = 0; i < nb; i += 2) { int idx = i < 48 ? i : 95 - i; float pv = visPk[Math.Min(95, idx * 2 + 1)]; if (pv < 0.06f) continue; double an = (-90 + (i + 0.5) * 360.0 / nb) * Math.PI / 180; float rr = r1 + R0 * 0.06f + pv * R0 * 1.15f + 7; using (var br = new SolidBrush(Color.FromArgb(200, 255, 255, 255))) g.FillEllipse(br, cx + (float)Math.Cos(an) * rr - 1.6f, cy + (float)Math.Sin(an) * rr - 1.6f, 3.2f, 3.2f); }
-        // the sound before mastering as a thin ring inside the bars
-        { var pts = new PointF[nb]; for (int i = 0; i < nb; i++) { int idx = i < 48 ? i : 95 - i; float v = visPre[Math.Min(95, idx * 2 + 1)]; double an = (-90 + i * 360.0 / nb) * Math.PI / 180; float rr = R0 * 1.06f + v * R0 * 0.2f; pts[i] = new PointF(cx + (float)Math.Cos(an) * rr, cy + (float)Math.Sin(an) * rr); } using (var pen = new Pen(Color.FromArgb(130, 215, 215, 240), 1.4f)) g.DrawClosedCurve(pen, pts); }
-        // the logo in the middle, beating
-        DrawLogo(g, cx, cy, R0 * (0.80f + 0.08f * visBeat), playing, false);
-        // sparks
-        for (int i = visSp.Count - 1; i >= 0; i--) { var s = visSp[i]; s.VX *= 0.985f; s.VY = s.VY * 0.985f + 60 * dt; s.X += s.VX * dt; s.Y += s.VY * dt; s.Life -= dt; if (s.Life <= 0) { visSp.RemoveAt(i); continue; } float k = s.Life / s.Max; using (var br = new SolidBrush(Color.FromArgb((int)(60 * k), s.C))) g.FillEllipse(br, s.X - s.R * 2.2f, s.Y - s.R * 2.2f, s.R * 4.4f, s.R * 4.4f); using (var br = new SolidBrush(Color.FromArgb((int)(230 * k), s.C))) g.FillEllipse(br, s.X - s.R, s.Y - s.R, s.R * 2, s.R * 2); }
-        // the mirrored spectrum along the bottom
-        { float baseY = H - 70, maxUp = Math.Min(130f, (H - top) * 0.2f), x0 = 70, bw = (W - 140) / 96f; using (var pen = new Pen(Color.FromArgb(120, NeonViolet), 1.4f)) g.DrawLine(pen, x0, baseY, W - 70, baseY);
-          for (int i = 0; i < 96; i++) { float v = visB[i]; if (!playing) v = Math.Max(v, 0.02f + 0.015f * (float)Math.Sin(visIdle * 2 + i * 0.3)); float hh = 2 + v * maxUp; Color c = MixC(NeonCyan, NeonPink, i / 95f); var up = new RectangleF(x0 + i * bw + 1, baseY - hh, Math.Max(2f, bw - 2.4f), hh);
-            using (var br = new LinearGradientBrush(new RectangleF(up.X, up.Y - 1, up.Width, up.Height + 2), Color.FromArgb(230, c), Color.FromArgb(40, c), 90f)) g.FillRectangle(br, up);
-            using (var br = new SolidBrush(Color.FromArgb(46, c))) g.FillRectangle(br, up.X, baseY + 2, up.Width, Math.Min(22f, hh * 0.38f));
-            float pk = 2 + visPk[i] * maxUp; using (var br = new SolidBrush(Color.FromArgb(210, 255, 255, 255))) g.FillRectangle(br, up.X, baseY - pk - 3, up.Width, 2); } }
-        // level meters on both sides
-        { float mh = Math.Max(160f, H - top - 330f), my = cy - mh / 2; var ml = Rc(24, my, 24, mh); var mr = Rc(W - 48, my, 24, mh); float pl = Math.Max(1e-6f, eng.MasterPeakL), pr = Math.Max(1e-6f, eng.MasterPeakR);
-          float fl = Clamp01(((float)(20 * Math.Log10(pl)) + 54f) / 54f), fr = Clamp01(((float)(20 * Math.Log10(pr)) + 54f) / 54f); visHoldL = Math.Max(fl, visHoldL - dt * 0.25f); visHoldR = Math.Max(fr, visHoldR - dt * 0.25f);
-          LedMeter(g, ml, fl); LedMeter(g, mr, fr); using (var pen = new Pen(Color.FromArgb(220, 255, 255, 255), 2f)) { float yl = ml.Bottom - visHoldL * ml.Height, yr = mr.Bottom - visHoldR * mr.Height; g.DrawLine(pen, ml.X - 3, yl, ml.Right + 3, yl); g.DrawLine(pen, mr.X - 3, yr, mr.Right + 3, yr); }
-          Txt(g, "L", 12, DimC, Rc(ml.X - 4, ml.Bottom + 4, 32, 16), StringAlignment.Center, true); Txt(g, "R", 12, DimC, Rc(mr.X - 4, mr.Bottom + 4, 32, 16), StringAlignment.Center, true); }
-        // the numbers
-        { var lu = eng.Lufs; lu.UpdateIntegrated(); VisCard(g, Rc(70, top + 18, 230, 84), "MOMENTARY", Db(lu.Momentary), "LUFS", Ink); VisCard(g, Rc(70, top + 110, 230, 84), "INTEGRATED", Db(lu.Integrated), "LUFS", NeonCyan);
-          VisCard(g, Rc(W - 300, top + 18, 230, 84), "TRUE PEAK", Db(lu.TruePeakDb), "dBTP", lu.TruePeakDb > -0.9 ? Bad : Good); VisCard(g, Rc(W - 300, top + 110, 230, 84), "GAIN REDUCTION", eng.MasterGr.ToString("0.0"), "dB", Warn); }
-        // the title and what you are hearing
-        Txt(g, projName.ToUpper(), 20, Ink, Rc(W / 2 - 300, top + 14, 600, 30), StringAlignment.Center, true); string st = eng.MasterBypass ? "ORIGINAL" : "MASTERED"; var pill = Rc(W / 2 - 70, top + 48, 140, 24); FillRR(g, eng.MasterBypass ? Color.FromArgb(200, 70, 60, 110) : Color.FromArgb(220, 30, 120, 90), pill, 10); Txt(g, st, 12, Color.White, pill, StringAlignment.Center, true);
-        // the song position (click or drag to jump)
-        { var sb = Rc(70, H - 40, W - 140, 12); FillRR(g, Color.FromArgb(200, 8, 4, 18), sb, 6); double tot = Math.Max(1, eng.EndFrame); float f = (float)Math.Max(0, Math.Min(1, dispPos / tot)); if (f > 0.002f) { using (var br = new LinearGradientBrush(new RectangleF(sb.X, sb.Y, Math.Max(2, sb.Width * f), sb.Height), NeonCyan, NeonPink, 0f)) { using (var pth = RR(Rc(sb.X, sb.Y, Math.Max(2, sb.Width * f), sb.Height), 6)) g.FillPath(br, pth); } }
-          using (var br = new SolidBrush(Color.White)) g.FillEllipse(br, sb.X + sb.Width * f - 6, sb.Y - 1, 14, 14); StrokeRR(g, Color.FromArgb(140, NeonViolet), sb, 6, 1);
-          Txt(g, Fmt(dispPos / (double)StudioEngine.SR), 12, DimC, Rc(sb.X, sb.Bottom + 3, 120, 16), StringAlignment.Near, false); Txt(g, Fmt(tot / StudioEngine.SR), 12, DimC, Rc(sb.Right - 120, sb.Bottom + 3, 120, 16), StringAlignment.Far, false);
-          Action<float> seek = mx => { double ff = Math.Max(0, Math.Min(1, (mx - sb.X) / sb.Width)); eng.Seek((long)(ff * tot)); }; var rg = Reg(Rc(sb.X, sb.Y - 8, sb.Width, sb.Height + 16), () => seek(MousePos.X)); rg.OnDrag = pt => seek(pt.X); }
-        if (!playing) Txt(g, "PRESS PLAY OR PREVIEW AND WATCH YOUR MUSIC MOVE", 13, Color.FromArgb(180, DimC), Rc(W / 2 - 360, cy + R0 * 2.45f - 6, 720, 22), StringAlignment.Center, true);
-    }
-    void VisCard(Graphics g, RectangleF r, string label, string value, string unit, Color vc)
-    {
-        FillRR(g, Color.FromArgb(150, 8, 4, 20), r, 12); Win.DrawNeonBox(g, r, false);
-        Txt(g, label, 10, DimC, Rc(r.X, r.Y + 6, r.Width, 14), StringAlignment.Center, true); Txt(g, value, 30, vc, Rc(r.X, r.Y + 22, r.Width, 40), StringAlignment.Center, true); Txt(g, unit, 11, DimC, Rc(r.X, r.Y + 62, r.Width, 16), StringAlignment.Center, false);
-    }
-
-    // ---------- the strip along the bottom of Mastering (the same idea as the preview strip in My Projects) ----------
-    void PaintMasterVizBar(Graphics g)
-    {
-        float W = ClientSize.Width, H = ClientSize.Height; var ob = Rc(24, H - 44, W - 48, 34); bool playing = eng.Playing; VizUpdate(playing);
-        FillRR(g, Color.Black, ob, 12); using (var pen = new Pen(Color.FromArgb(playing ? 230 : 150, NeonViolet), 1.3f)) { using (var p = RR(ob, 12)) g.DrawPath(pen, p); }
-        var pz = Rc(ob.X + 6, ob.Y + 4, 26, 26); FillRR(g, Hot(pz) ? Color.FromArgb(255, 70, 70, 170) : Color.FromArgb(255, 48, 44, 120), pz, 7);
-        using (var pb = new SolidBrush(Color.White)) { if (playing) { g.FillRectangle(pb, pz.X + 8, pz.Y + 7, 4, 12); g.FillRectangle(pb, pz.X + 14, pz.Y + 7, 4, 12); } else g.FillPolygon(pb, new[] { new PointF(pz.X + 9, pz.Y + 6), new PointF(pz.X + 9, pz.Y + 20), new PointF(pz.X + 20, pz.Y + 13) }); }
-        Reg(pz, () => { if (mpActive) MasterPreviewStop(); PlayToggle(); }); Hint2(pz, playing ? "Pause" : "Play your mix through the mastering");
-        var vb = Rc(ob.Right - 132, ob.Y + 3, 126, 28); Btn(g, vb, "VISUALISER", 2, () => tab = 5, 12); Hint2(vb, "Open the Master Visualiser: a full page where your music moves");
-        double dur = Math.Max(1, eng.EndFrame), pos = dispPos; var inner = Rc(ob.X + 40, ob.Y + 3, ob.Width - 40 - 132 - 96, ob.Height - 6); float cx = inner.X + inner.Width / 2, cy = ob.Y + ob.Height / 2; float px = inner.X + (float)(Math.Min(1.0, pos / dur) * inner.Width);
-        using (var b = new SolidBrush(Color.FromArgb(60, 0, 110, 130))) g.FillRectangle(b, inner.X, inner.Y, Math.Max(0, px - inner.X), inner.Height); using (var pen = new Pen(Color.FromArgb(230, NeonCyan), 1.6f)) g.DrawLine(pen, px, inner.Y, px, inner.Bottom);
-        float lh = ob.Height / 2 - 2, lhw = lh * 1.16f; cx = Math.Max(inner.X + lhw + 4, Math.Min(inner.Right - lhw - 4, px));
-        if (playing)
-        {
-            var st = g.Save(); g.SetClip(inner, CombineMode.Intersect); float maxH = ob.Height / 2 - 4; int hl = vizHist.Length;
-            for (int c = 0; c < 190; c++)
-            {
-                float v = vizHist[(vizHead - 1 - c + hl * 4) % hl]; float amp = Math.Max(1f, v * maxH * (1f - c / 260f) * (0.75f + 0.25f * vizBand[(c * 3) % vizBand.Length])); int al = (int)(235 * (1f - c / 200f)); if (al <= 4) break;
-                float xl = cx - lhw - 6 - c * 2.2f, xr = cx + lhw + 6 + c * 2.2f;
-                using (var pl = new Pen(Color.FromArgb(al, NeonCyan), 1.5f)) g.DrawLine(pl, xl, cy - amp, xl, cy + amp); using (var pr = new Pen(Color.FromArgb(al, NeonPink), 1.5f)) g.DrawLine(pr, xr, cy - amp, xr, cy + amp);
-            }
-            g.Restore(st);
-        }
-        DrawLogo(g, cx, cy, lh, playing, Hot(Rc(cx - lhw, cy - lh, lhw * 2, lh * 2)));
-        Txt(g, Fmt(pos / StudioEngine.SR), 12, Ink, Rc(ob.Right - 132 - 92, ob.Y, 88, ob.Height), StringAlignment.Far, true);
-        Action<float> seek = mx => { double f = Math.Max(0, Math.Min(1, (mx - inner.X) / inner.Width)); eng.Seek((long)(f * dur)); }; var rg = Reg(inner, () => seek(MousePos.X)); rg.OnDrag = pt => seek(pt.X); if (Hot(inner)) { bubble = "Click to jump to a place in the song"; bubblePt = MousePos; }
+        var mb = Rc(rx - 130, y + 4, 130, h - 8); Btn(g, mb, "MASTERING", 1, () => tab = 1, 13); Hint2(mb, "Back to the Mastering page (the EQ, effects and presets)"); rx -= 136;
+        var pl = Rc(rx - 96, y + 4, 96, h - 8); Btn(g, pl, "PLAY", eng.Playing && !mpActive ? 4 : 1, () => { if (mpActive) MasterPreviewStop(); PlayToggle(); }, 14); rx -= 102;
+        var pv = Rc(rx - 168, y + 4, 168, h - 8); Btn(g, pv, "PREVIEW MASTER", mpActive ? 4 : 2, () => MasterPreviewStart(), 13); Hint2(pv, "Loop the loudest 20 seconds of your song with the mastering on"); rx -= 174;
+        var sp = Rc(rx - 128, y + 4, 128, h - 8); Btn(g, sp, "STOP PREVIEW", 3, () => MasterPreviewStop(), 12); Hint2(sp, "Stop the preview loop"); rx -= 134;
     }
 }

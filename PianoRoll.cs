@@ -11,22 +11,22 @@ class PianoRollForm : Form
     readonly Track track; readonly InstrumentFx inst; readonly StudioEngine eng; readonly Action togglePlay; readonly RollCanvas canvas;
     public PianoRollForm(Track t, InstrumentFx inst, StudioEngine eng, Action togglePlay)
     {
-        track = t; this.inst = inst; this.eng = eng; this.togglePlay = togglePlay; Text = "Piano roll: " + t.Name; BackColor = Color.FromArgb(10, 4, 20); ForeColor = Color.FromArgb(240, 232, 255);
+        track = t; this.inst = inst; this.eng = eng; this.togglePlay = togglePlay; Text = "Piano roll: " + t.Name; BackColor = TM.C(255, 10, 4, 20); ForeColor = TM.C(255, 240, 232, 255);
         StartPosition = FormStartPosition.CenterParent; ClientSize = new Size(1100, 620); MinimumSize = new Size(700, 420); KeyPreview = true; Win.Dark(this);
         canvas = new RollCanvas(t, inst, eng) { Dock = DockStyle.Fill }; Controls.Add(canvas);
-        var bar = new Panel { Dock = DockStyle.Top, Height = 40, BackColor = Color.FromArgb(18, 9, 34) }; Controls.Add(bar);
+        var bar = new Panel { Dock = DockStyle.Top, Height = 40, BackColor = TM.C(255, 18, 9, 34) }; Controls.Add(bar);
         int x = 10;
-        MakeBtn(bar, ref x, "Play / Stop", 90, (s, e) => togglePlay(), Color.FromArgb(130, 45, 220));
-        var snap = new ComboBox { Left = x, Top = 8, Width = 120, DropDownStyle = ComboBoxStyle.DropDownList, BackColor = Color.FromArgb(24, 12, 44), ForeColor = Color.White, FlatStyle = FlatStyle.Flat }; snap.Items.AddRange(RollCanvas.GridNames); snap.SelectedIndex = canvas.GridIdx; snap.SelectedIndexChanged += (s, e) => { canvas.GridIdx = snap.SelectedIndex; canvas.Invalidate(); }; bar.Controls.Add(snap); x += 128;
-        MakeBtn(bar, ref x, "Snap notes to grid", 130, (s, e) => canvas.Quantize(), Color.FromArgb(70, 40, 120));
-        MakeBtn(bar, ref x, "Clear all notes", 120, (s, e) => { if (MessageBox.Show(this, "Delete every note on this track?", "Piano roll", MessageBoxButtons.YesNo) == DialogResult.Yes) canvas.ClearAll(); }, Color.FromArgb(150, 40, 80));
-        MakeBtn(bar, ref x, "Close", 70, (s, e) => Close(), Color.FromArgb(70, 40, 120));
-        bar.Controls.Add(new Label { Text = "Drag on the grid to draw a note. Drag a note to move it, drag its right end to resize it, right-click to delete. Click the piano keys to hear them. Mouse wheel scrolls, Shift+wheel moves sideways, Ctrl+wheel zooms.", Left = x + 10, Top = 4, Width = 900, Height = 34, ForeColor = Color.FromArgb(160, 140, 200), Font = new Font("Segoe UI", 8.5f) });
+        MakeBtn(bar, ref x, "Play / Stop", 90, (s, e) => togglePlay(), TM.C(255, 130, 45, 220));
+        var snap = new ComboBox { Left = x, Top = 8, Width = 120, DropDownStyle = ComboBoxStyle.DropDownList, BackColor = TM.C(255, 24, 12, 44), ForeColor = Color.White, FlatStyle = FlatStyle.Flat }; snap.Items.AddRange(RollCanvas.GridNames); snap.SelectedIndex = canvas.GridIdx; snap.SelectedIndexChanged += (s, e) => { canvas.GridIdx = snap.SelectedIndex; canvas.Invalidate(); }; bar.Controls.Add(snap); x += 128;
+        MakeBtn(bar, ref x, "Snap notes to grid", 130, (s, e) => canvas.Quantize(), TM.C(255, 70, 40, 120));
+        MakeBtn(bar, ref x, "Clear all notes", 120, (s, e) => { if (MessageBox.Show(this, "Delete every note on this track?", "Piano roll", MessageBoxButtons.YesNo) == DialogResult.Yes) canvas.ClearAll(); }, TM.C(255, 150, 40, 80));
+        MakeBtn(bar, ref x, "Close", 70, (s, e) => Close(), TM.C(255, 70, 40, 120));
+        bar.Controls.Add(new Label { Text = "Drag on the grid to draw a note. Drag a note to move it, drag its right end to resize it, right-click to delete. Click the piano keys to hear them. Mouse wheel scrolls, Shift+wheel moves sideways, Ctrl+wheel zooms.", Left = x + 10, Top = 4, Width = 900, Height = 34, ForeColor = TM.C(255, 160, 140, 200), Font = new Font("Segoe UI", 8.5f) });
         var tm = new Timer { Interval = 33 }; tm.Tick += (s, e) => { if (eng.Playing || canvas.Busy) canvas.Invalidate(); }; tm.Start(); FormClosed += (s, e) => { tm.Stop(); canvas.Silence(); };
     }
     static Button MakeBtn(Panel bar, ref int x, string text, int w, EventHandler h, Color c)
     {
-        var b = new Button { Text = text, Left = x, Top = 6, Width = w, Height = 28, FlatStyle = FlatStyle.Flat, BackColor = c, ForeColor = Color.White, Cursor = Cursors.Hand }; b.FlatAppearance.BorderColor = Color.FromArgb(200, 150, 255); b.Click += h; bar.Controls.Add(b); x += w + 6; return b;
+        var b = new Button { Text = text, Left = x, Top = 6, Width = w, Height = 28, FlatStyle = FlatStyle.Flat, BackColor = c, ForeColor = Color.White, Cursor = Cursors.Hand }; b.FlatAppearance.BorderColor = TM.C(255, 200, 150, 255); b.Click += h; bar.Controls.Add(b); x += w + 6; return b;
     }
     protected override bool ProcessCmdKey(ref Message msg, Keys k)
     {
@@ -41,7 +41,7 @@ class RollCanvas : Control
     readonly Track track; readonly InstrumentFx inst; readonly StudioEngine eng; readonly List<PianoRollForm.N> notes = new List<PianoRollForm.N>();
     public int GridIdx = 1; double ppb = 56; int rowH = 16, scrollX, scrollY; const int KeyW = 70, RulerH = 24, LowNote = 24, HighNote = 108;
     PianoRollForm.N sel; int mode; long grab; int origNote; int previewNote = -1; public bool Busy;   // mode: 0 none, 1 create/resize, 2 move
-    static readonly Color Bg = Color.FromArgb(14, 8, 28), Acc = Color.FromArgb(188, 120, 255), Acc2 = Color.FromArgb(236, 92, 226), Ink = Color.FromArgb(240, 232, 255), Dim = Color.FromArgb(150, 132, 190);
+    static Color Bg { get { return TM.C(255, 14, 8, 28); } } static Color Acc { get { return TM.C(255, 188, 120, 255); } } static Color Acc2 { get { return TM.C(255, 236, 92, 226); } } static Color Ink { get { return TM.C(255, 240, 232, 255); } } static Color Dim { get { return TM.C(255, 150, 132, 190); } }
 
     public RollCanvas(Track t, InstrumentFx inst, StudioEngine eng)
     {
@@ -89,9 +89,9 @@ class RollCanvas : Control
         var g = e.Graphics; g.SmoothingMode = SmoothingMode.None; g.Clear(Bg); int W = ClientSize.Width, H = ClientSize.Height;
         int rows = HighNote - LowNote + 1; scrollY = Math.Max(0, Math.Min(Math.Max(0, rows * rowH - (H - RulerH)), scrollY)); scrollX = Math.Max(0, scrollX);
         g.SetClip(new Rectangle(KeyW, RulerH, W - KeyW, H - RulerH));
-        for (int n = HighNote; n >= LowNote; n--) { float y = YOf(n); if (y + rowH < RulerH || y > H) continue; using (var b = new SolidBrush(Black(n) ? Color.FromArgb(18, 10, 34) : Color.FromArgb(24, 14, 44))) g.FillRectangle(b, KeyW, y, W - KeyW, rowH); if (n % 12 == 0) using (var p = new Pen(Color.FromArgb(70, 140, 100, 200))) g.DrawLine(p, KeyW, y + rowH, W, y + rowH); }
+        for (int n = HighNote; n >= LowNote; n--) { float y = YOf(n); if (y + rowH < RulerH || y > H) continue; using (var b = new SolidBrush(Black(n) ? TM.C(255, 18, 10, 34) : TM.C(255, 24, 14, 44))) g.FillRectangle(b, KeyW, y, W - KeyW, rowH); if (n % 12 == 0) using (var p = new Pen(TM.C(70, 140, 100, 200))) g.DrawLine(p, KeyW, y + rowH, W, y + rowH); }
         double bf = BeatFrames, step = Math.Max(0.125, GridBeats[GridIdx]); while (step * ppb < 10) step *= 2;
-        using (var thin = new Pen(Color.FromArgb(34, 190, 150, 255))) using (var thick = new Pen(Color.FromArgb(90, 210, 170, 255)))
+        using (var thin = new Pen(TM.C(34, 190, 150, 255))) using (var thick = new Pen(TM.C(90, 210, 170, 255)))
             for (double beat = Math.Floor(scrollX / ppb / step) * step; ; beat += step)
             {
                 float x = KeyW + (float)(beat * ppb) - scrollX; if (x > W) break; if (x < KeyW) continue; bool bar = Math.Abs(beat / 4 - Math.Round(beat / 4)) < 1e-6; g.DrawLine(bar ? thick : thin, x, RulerH, x, H);
@@ -100,12 +100,12 @@ class RollCanvas : Control
         foreach (var n in notes)
         {
             float x0 = XOf(n.Start), x1 = XOf(n.Start + n.Len), y = YOf(n.Note); if (x1 < KeyW || x0 > W) continue; var r = new RectangleF(x0, y + 1, Math.Max(4, x1 - x0), rowH - 2);
-            int a = 150 + n.Vel / 3; using (var b = new SolidBrush(Color.FromArgb(Math.Min(255, a), n == sel ? Acc2 : Acc))) g.FillRectangle(b, r); using (var p = new Pen(n == sel ? Color.White : Color.FromArgb(220, 255, 220, 255), 1f)) g.DrawRectangle(p, r.X, r.Y, r.Width, r.Height);
+            int a = 150 + n.Vel / 3; using (var b = new SolidBrush(Color.FromArgb(Math.Min(255, a), n == sel ? Acc2 : Acc))) g.FillRectangle(b, r); using (var p = new Pen(n == sel ? Color.White : TM.C(220, 255, 220, 255), 1f)) g.DrawRectangle(p, r.X, r.Y, r.Width, r.Height);
         }
-        long pos = eng.Pos; float px = XOf(pos); if (px >= KeyW && px <= W) using (var p = new Pen(Color.FromArgb(240, 236, 92, 226), 2f)) g.DrawLine(p, px, RulerH, px, H);
+        long pos = eng.Pos; float px = XOf(pos); if (px >= KeyW && px <= W) using (var p = new Pen(TM.C(240, 236, 92, 226), 2f)) g.DrawLine(p, px, RulerH, px, H);
         g.ResetClip();
         // ruler
-        using (var b = new SolidBrush(Color.FromArgb(240, 22, 12, 40))) g.FillRectangle(b, KeyW, 0, W - KeyW, RulerH);
+        using (var b = new SolidBrush(TM.C(240, 22, 12, 40))) g.FillRectangle(b, KeyW, 0, W - KeyW, RulerH);
         using (var f = new Font("Segoe UI", 9f)) using (var tb = new SolidBrush(Dim))
             for (double beat = Math.Floor(scrollX / ppb / 4) * 4; ; beat += 4) { float x = KeyW + (float)(beat * ppb) - scrollX; if (x > W) break; if (x < KeyW - 40) continue; g.DrawString(((int)(beat / 4 + 1)).ToString(), f, tb, x + 3, 4); }
         // piano keys
@@ -113,11 +113,11 @@ class RollCanvas : Control
             for (int n = HighNote; n >= LowNote; n--)
             {
                 float y = YOf(n); if (y + rowH < RulerH || y > H) continue; bool bk = Black(n); bool on = n == previewNote;
-                using (var b = new SolidBrush(on ? Acc2 : (bk ? Color.FromArgb(20, 12, 36) : Color.FromArgb(232, 226, 248)))) g.FillRectangle(b, 0, y, bk ? KeyW * 0.62f : KeyW, rowH);
-                if (!bk) using (var p = new Pen(Color.FromArgb(120, 90, 60, 140))) g.DrawLine(p, 0, y + rowH, KeyW, y + rowH);
+                using (var b = new SolidBrush(on ? Acc2 : (bk ? TM.C(255, 20, 12, 36) : TM.C(255, 232, 226, 248)))) g.FillRectangle(b, 0, y, bk ? KeyW * 0.62f : KeyW, rowH);
+                if (!bk) using (var p = new Pen(TM.C(120, 90, 60, 140))) g.DrawLine(p, 0, y + rowH, KeyW, y + rowH);
                 if (n % 12 == 0) g.DrawString("C" + (n / 12 - 1).ToString(), f, Brushes.Black, KeyW - 26, y + 1);
             }
-        using (var p = new Pen(Color.FromArgb(120, 140, 100, 200))) { g.DrawLine(p, KeyW, 0, KeyW, H); g.DrawLine(p, 0, RulerH, W, RulerH); }
+        using (var p = new Pen(TM.C(120, 140, 100, 200))) { g.DrawLine(p, KeyW, 0, KeyW, H); g.DrawLine(p, 0, RulerH, W, RulerH); }
     }
 
     // ---- mouse ----

@@ -40,11 +40,11 @@ partial class SynthCanvas
             var rg = Add(r); rg.Tip = SynthFx.FxNames[e] + ": click to edit"; int ee = e; rg.Down = pt => { fxSel = ee; };
             Txt(g, SynthFx.FxNames[e], 11, on ? Ink : Dim, Rc(r.X + 20, r.Y + 3, r.Width - 22, 18), StringAlignment.Near, sel);
             var led = Rc(r.X + 3, r.Y + 3, 18, 18); var pw = P(SynthFx.FxOnIds[e]); bool onNow = on;
-            using (var b = new SolidBrush(on ? Good : Color.FromArgb(70, 60, 90))) g.FillEllipse(b, led.X + 4, led.Y + 4, 10, 10); if (on) using (var pen = new Pen(Color.FromArgb(90, Good), 3f)) g.DrawEllipse(pen, led.X + 2, led.Y + 2, 14, 14);
+            using (var b = new SolidBrush(on ? Good : TM.C(255, 70, 60, 90))) g.FillEllipse(b, led.X + 4, led.Y + 4, 10, 10); if (on) using (var pen = new Pen(Color.FromArgb(90, Good), 3f)) g.DrawEllipse(pen, led.X + 2, led.Y + 2, 14, 14);
             var lr = Add(led); lr.Tip = "Switch " + SynthFx.FxNames[e] + (on ? " off" : " on"); lr.Down = pt => { SetVal(pw, onNow ? 0 : 1); };
             var lb = Rc(r.X + 6, r.Y + 28, 34, 16); var rb = Rc(r.Right - 40, r.Y + 28, 34, 16); Txt(g, (pos + 1).ToString(), 10, Dim, Rc(r.X + 44, r.Y + 28, r.Width - 88, 16), StringAlignment.Center, false);
-            if (pos > 0) { Fill(g, Hot(lb) ? PanelHi : Color.FromArgb(18, 10, 34), lb, 4); Stroke(g, Edge, lb, 4, 1); Txt(g, "<", 11, Ink, lb, StringAlignment.Center, true); var a = Add(lb); a.Tip = "Move earlier in the chain"; a.Down = pt => { ChainSwap(p0, p0 - 1); fxSel = ee; }; }
-            if (pos < 10) { Fill(g, Hot(rb) ? PanelHi : Color.FromArgb(18, 10, 34), rb, 4); Stroke(g, Edge, rb, 4, 1); Txt(g, ">", 11, Ink, rb, StringAlignment.Center, true); var a = Add(rb); a.Tip = "Move later in the chain"; a.Down = pt => { ChainSwap(p0, p0 + 1); fxSel = ee; }; }
+            if (pos > 0) { Fill(g, Hot(lb) ? PanelHi : TM.C(255, 18, 10, 34), lb, 4); Stroke(g, Edge, lb, 4, 1); Txt(g, "<", 11, Ink, lb, StringAlignment.Center, true); var a = Add(lb); a.Tip = "Move earlier in the chain"; a.Down = pt => { ChainSwap(p0, p0 - 1); fxSel = ee; }; }
+            if (pos < 10) { Fill(g, Hot(rb) ? PanelHi : TM.C(255, 18, 10, 34), rb, 4); Stroke(g, Edge, rb, 4, 1); Txt(g, ">", 11, Ink, rb, StringAlignment.Center, true); var a = Add(rb); a.Tip = "Move later in the chain"; a.Down = pt => { ChainSwap(p0, p0 + 1); fxSel = ee; }; }
         }
         var pn = Rc(8, y + 72, W - 16, 252 - 72 + 4); ModuleFrame(g, pn, SynthFx.FxNames[fxSel].ToUpper(), SynthFx.FxOnIds[fxSel]);
         Txt(g, FxHelp[fxSel], 11, Dim, Rc(pn.X + 200, pn.Y + 4, pn.Width - 210, 18), StringAlignment.Near, false);

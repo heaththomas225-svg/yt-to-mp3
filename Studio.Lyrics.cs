@@ -31,7 +31,7 @@ partial class StudioForm
     void EnsureLyricUi()
     {
         if (lyricUi) return; lyricUi = true;
-        Func<bool, float, TextBox> mk = (multi, size) => { var t = new TextBox { Multiline = multi, Visible = false, BorderStyle = BorderStyle.FixedSingle, BackColor = Color.FromArgb(10, 5, 22), ForeColor = Ink, Font = new Font("Segoe UI", size), AcceptsReturn = multi, ScrollBars = ScrollBars.None }; Win.NeonBox(t); Controls.Add(t); Win.DarkControl(t); return t; };
+        Func<bool, float, TextBox> mk = (multi, size) => { var t = new TextBox { Multiline = multi, Visible = false, BorderStyle = BorderStyle.FixedSingle, BackColor = TM.C(255, 10, 5, 22), ForeColor = Ink, Font = new Font("Segoe UI", size), AcceptsReturn = multi, ScrollBars = ScrollBars.None }; Win.NeonBox(t); Controls.Add(t); Win.DarkControl(t); return t; };
         lyricBox = mk(true, 15f); lyricBox.AcceptsTab = false; lyricTitle = mk(false, 13f);
         lyricBox.TextChanged += (s, e) => { lyricStatsDirty = true; ProjectIO.Lyrics = lyricBox.Text; if (lyricBox.Text.Length == 0 && lyricBox.Focused && lyricTitle.Text.Length > 0) lyricTitle.Text = ""; /* clearing all the words clears the title too */ lyricSave.Stop(); lyricSave.Start(); };
         lyricTitle.TextChanged += (s, e) => { ProjectIO.LyricsTitle = lyricTitle.Text; lyricSave.Stop(); lyricSave.Start(); };
@@ -66,12 +66,12 @@ partial class StudioForm
     // the lyrics box scrolls with the same logo bar as everything else (the box itself shows no Windows scroll bar)
     void PaintLyricBar(Graphics g)
     {
-        var b = lyricBox; if (b == null || !b.Visible || !b.IsHandleCreated) return; int total = SendMessage(b.Handle, 0xBA, 0, 0); if (total < 1) return; int lineH = Math.Max(12, b.Font.Height); float viewH = b.Height - 4, content = total * lineH + 4; if (content <= viewH + 1) return;
+        var b = lyricBox; if (b == null || !b.Visible || !b.IsHandleCreated) return; int total = Math.Max(1, SendMessage(b.Handle, 0xBA, 0, 0)); int lineH = Math.Max(12, b.Font.Height); float viewH = b.Height - 4, content = Math.Max(total * lineH + 4, viewH + 2);   // the bar is always there (it only moves once the lyrics are longer than the box)
         VScroll(g, Rc(b.Right + 8, b.Top, 42, b.Height), content, viewH, () => SendMessage(b.Handle, 0xCE, 0, 0) * lineH, v => { int cur = SendMessage(b.Handle, 0xCE, 0, 0), want = (int)Math.Round(v / lineH); if (want != cur) SendMessage(b.Handle, 0xB6, 0, want - cur); });
     }
     void PaintLyrics(Graphics g)
     {
-        SyncLyricUi(!(menuOpen || browserOpen || busy));   // real text boxes sit above everything drawn by hand, so they step aside while a menu or popup is open
+        SyncLyricUi(!OverlayOpen);   // real text boxes sit above everything drawn by hand, so they step aside while a menu or popup is open
         float W = ClientSize.Width, H = ClientSize.Height, top = ToolH + TransH, w = Math.Min(1100, W - 64), x = (W - w) / 2;
         Txt(g, "LYRICS", 16, Ink, Rc(x, top + 10, 130, 28), StringAlignment.Near, true); Txt(g, "TITLE", 11, DimC, Rc(x + 74, top + 16, 60, 16), StringAlignment.Near, false);
         string[] sec = { "Verse", "Chorus", "Pre-chorus", "Bridge", "Hook", "Intro", "Outro" }; float sx = x, sy = top + 50;

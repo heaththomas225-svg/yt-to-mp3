@@ -95,10 +95,10 @@ partial class StudioForm
         if (!gainOpen) return; var c = gainClip; if (c == null || !eng.Tracks.Contains(c)) { gainOpen = false; return; }
         float W = ClientSize.Width, H = ClientSize.Height; var all = Rc(0, 0, W, H); Reg(all, () => gainOpen = false);
         float pw = 330, ph = 150; float px = Math.Max(8, Math.Min(W - pw - 8, gainAnchor.X + gainAnchor.Width / 2 - pw / 2)), py = gainAnchor.Bottom + 8; if (py + ph > H - 8) py = H - ph - 8; var box = PopMove("gain", Rc(px, py, pw, ph), 44, 52);
-        FillRR(g, Color.FromArgb(252, 18, 10, 38), box, 14); Glow(g, NeonViolet, box, 14, 0.7f, 4); StrokeRR(g, Color.FromArgb(180, NeonViolet), box, 14, 1.4f); Reg(box, () => { });
+        FillRR(g, TM.C(252, 18, 10, 38), box, 14); Glow(g, NeonViolet, box, 14, 0.7f, 4); StrokeRR(g, Color.FromArgb(180, NeonViolet), box, 14, 1.4f); Reg(box, () => { });
         Txt(g, "GAIN", 17, Ink, Rc(box.X + 16, box.Y + 10, 80, 26), StringAlignment.Near, true);
         Txt(g, c.Name, 12, DimC, Rc(box.X + 70, box.Y + 14, box.Width - 130, 20), StringAlignment.Near, false);
-        var cl = Rc(box.Right - 42, box.Y + 8, 30, 30); FillRR(g, Hot(cl) ? Color.FromArgb(160, 70, 38, 130) : Color.FromArgb(110, 40, 24, 80), cl, 15); Txt(g, "X", 15, Ink, cl, StringAlignment.Center, true); Reg(cl, () => gainOpen = false);
+        var cl = Rc(box.Right - 42, box.Y + 8, 30, 30); FillRR(g, Hot(cl) ? TM.C(160, 70, 38, 130) : TM.C(110, 40, 24, 80), cl, 15); Txt(g, "X", 15, Ink, cl, StringAlignment.Center, true); Reg(cl, () => gainOpen = false);
         Txt(g, "Volume of just this piece, on top of the track fader.", 11, DimC, Rc(box.X + 16, box.Y + 44, box.Width - 32, 18), StringAlignment.Near, false);
         const float lo = -30f, hi = 12f; float frac = (c.ClipGainDb - lo) / (hi - lo);
         var sr = Rc(box.X + 18, box.Y + 74, box.Width - 36 - 84, 22);
@@ -180,7 +180,7 @@ partial class StudioForm
         if (cutMark < 0 || tab != 0) return; var tl = TimelineRect(); float x = tl.X + (float)((cutMark - scroll) / spp); if (x < tl.X || x > tl.Right) return;
         float top = ToolH + TransH, bottom = tl.Bottom;
         using (var pen = new Pen(Color.FromArgb(235, 255, 80, 120), 2f) { DashStyle = DashStyle.Dash }) g.DrawLine(pen, x, top + RulerH - 4, x, bottom);
-        var flag = Rc(x - 1, Math.Min(bottom, ClientSize.Height - 48) - 24, 70, 18); FillRR(g, Color.FromArgb(235, 255, 60, 110), flag, 5); Txt(g, "CUT START", 10, Color.White, flag, StringAlignment.Center, true);
+        var flag = Rc(x - 1, Math.Min(bottom, ClientSize.Height - 48) - 24, 70, 18); FillRR(g, TM.C(235, 255, 60, 110), flag, 5); Txt(g, "CUT START", 10, Color.White, flag, StringAlignment.Center, true);
     }
 
     // ---------- what is drawn on a clip: fades, gain tag, lock ----------
@@ -193,18 +193,18 @@ partial class StudioForm
         {
             float fw = (float)(tr.FadeIn / spp), dl = (float)(tr.FadeInDelay / spp); var curve = new List<PointF>(); if (dl > 0.5f) curve.Add(new PointF(x0, bot)); for (int i = 0; i <= 24; i++) { double u = i / 24.0; curve.Add(new PointF(x0 + dl + (float)(u * fw), bot - Track.FadeCurve(u) * hgt)); }
             var poly = new List<PointF>(curve); poly.Add(new PointF(x0 + dl + fw, top)); poly.Add(new PointF(x0, top));
-            using (var b = new SolidBrush(Color.FromArgb(120, 6, 3, 16))) g.FillPolygon(b, poly.ToArray()); using (var pen = new Pen(Color.FromArgb(235, 0, 229, 255), 1.8f)) g.DrawLines(pen, curve.ToArray());
+            using (var b = new SolidBrush(TM.C(120, 6, 3, 16))) g.FillPolygon(b, poly.ToArray()); using (var pen = new Pen(TM.C(235, 0, 229, 255), 1.8f)) g.DrawLines(pen, curve.ToArray());
         }
         if (tr.FadeOut > 0)
         {
             float fw = (float)(tr.FadeOut / spp), tl2 = (float)(tr.FadeOutTail / spp); var curve = new List<PointF>(); for (int i = 0; i <= 24; i++) { double u = i / 24.0; curve.Add(new PointF(x1 - tl2 - fw + (float)(u * fw), bot - Track.FadeCurve(1 - u) * hgt)); } if (tl2 > 0.5f) curve.Add(new PointF(x1, bot));
             var poly = new List<PointF>(curve); poly.Add(new PointF(x1, top)); poly.Add(new PointF(x1 - tl2 - fw, top));
-            using (var b = new SolidBrush(Color.FromArgb(120, 6, 3, 16))) g.FillPolygon(b, poly.ToArray()); using (var pen = new Pen(Color.FromArgb(235, 0, 229, 255), 1.8f)) g.DrawLines(pen, curve.ToArray());
+            using (var b = new SolidBrush(TM.C(120, 6, 3, 16))) g.FillPolygon(b, poly.ToArray()); using (var pen = new Pen(TM.C(235, 0, 229, 255), 1.8f)) g.DrawLines(pen, curve.ToArray());
         }
         g.Restore(gs);
         // the small tags at the top of the clip: gain, lock
         float tx = Math.Max(lane.X, x0) + 8 + g.MeasureString(tr.Name, GfxCache.Font(12, true)).Width + 6;
-        if (Math.Abs(tr.ClipGainDb) > 0.04f && tx < cr.Right - 60) { string gt = (tr.ClipGainDb > 0 ? "+" : "") + tr.ClipGainDb.ToString("0.0", CultureInfo.InvariantCulture) + " dB"; var rr = Rc(tx, cr.Y + 3, g.MeasureString(gt, GfxCache.Font(10, true)).Width + 10, 16); FillRR(g, Color.FromArgb(200, 70, 40, 150), rr, 5); Txt(g, gt, 10, Color.White, rr, StringAlignment.Center, true); }
-        if (IsLocked(tr) && cr.Width > 40) { float lx = Math.Min(cr.Right, lane.Right) - 22, ly = cr.Y + 6; using (var pen = new Pen(Color.FromArgb(235, 255, 255, 255), 1.8f)) { g.DrawArc(pen, lx + 2, ly - 2, 8, 9, 180, 180); } using (var b = new SolidBrush(Color.FromArgb(235, 255, 255, 255))) g.FillRectangle(b, lx, ly + 3, 12, 9); }
+        if (Math.Abs(tr.ClipGainDb) > 0.04f && tx < cr.Right - 60) { string gt = (tr.ClipGainDb > 0 ? "+" : "") + tr.ClipGainDb.ToString("0.0", CultureInfo.InvariantCulture) + " dB"; var rr = Rc(tx, cr.Y + 3, g.MeasureString(gt, GfxCache.Font(10, true)).Width + 10, 16); FillRR(g, TM.C(200, 70, 40, 150), rr, 5); Txt(g, gt, 10, Color.White, rr, StringAlignment.Center, true); }
+        if (IsLocked(tr) && cr.Width > 40) { float lx = Math.Min(cr.Right, lane.Right) - 22, ly = cr.Y + 6; using (var pen = new Pen(Color.FromArgb(235, 255, 255, 255), 1.8f)) { g.DrawArc(pen, lx + 2, ly - 2, 8, 9, 180, 180); } using (var b = new SolidBrush(Color.FromArgb(255, 255, 255, 255))) g.FillRectangle(b, lx, ly + 3, 12, 9); }
     }
 }

@@ -15,6 +15,22 @@ class HelpTopic
 
 static class HelpContent
 {
+    // the buttons a guide talks about, in the order it talks about them: {button, the words about it}
+    public static List<string[]> Guide(HelpTopic t)
+    {
+        var l = new List<string[]>(); var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var raw in t.Body.Replace("\r\n", "\n").Split('\n'))
+        {
+            string line = raw.Trim(); if (line.Length == 0 || line.StartsWith("## ")) continue; string lb = HelpForm.FindLabelPublic(line); if (lb == null || !seen.Add(lb)) continue;
+            string text = line; if (text.Length > 2 && char.IsDigit(text[0]) && text[1] == '.') text = text.Substring(2).Trim(); else if (text.StartsWith("- ")) text = text.Substring(2); else if (text.StartsWith("TIP:")) text = "Tip: " + text.Substring(4).Trim(); else if (text.StartsWith("WARN:")) text = "Careful: " + text.Substring(5).Trim();
+            if (text.Length > 230) { int cut = text.IndexOf(". ", 80); text = cut > 0 && cut < 230 ? text.Substring(0, cut + 1) : text.Substring(0, 227) + "..."; }
+            l.Add(new[] { lb, text }); if (l.Count >= 9) break;
+        }
+        return l;
+    }
+    // a guide can be shown on screen when it points at the converter window by hand (those ids) or names buttons of the studio
+    static readonly HashSet<string> ConverterGuides = new HashSet<string> { "start", "formats", "batch", "trim", "normalize", "vocal", "masterassistant", "download-video", "settings", "updates", "fullscreen" };
+    public static bool HasGuide(HelpTopic t) { return t.HasTour || ConverterGuides.Contains(t.Id) || Guide(t).Count > 0; }
     public static readonly HelpTopic[] All = {
         new HelpTopic("start", "Basics", "Convert a link to MP3", true, @"
 ## What you need
@@ -35,7 +51,7 @@ TIP: Everything you change is remembered next time."),
 - FLAC / WAV 24-bit: no extra compression loss, but the audio on YouTube is already compressed, so they sound the same as MP3 320 and are much bigger. Use them if you are going to edit or master the file.
 - Opus: smallest files for the quality.
 ## Sample rate
-Leave it on Original unless your project needs 44.1 kHz or 48 kHz.
+Leave it on Original unless your project needs another rate. The list goes up to 384 kHz (MP3 and Opus stop at 48 kHz and M4A at 96 kHz, because that is as high as those formats go).
 ## File names
 Every file is labelled with its format, for example 'Song [MP3 320k]', so you can keep track.
 TIP: A 'mastered' tag in the name means the Purphex Mastering processed it."),
@@ -172,7 +188,7 @@ TIP: It never changes your original files."),
 3. Press USE THIS on the one you like. REVERT (the bar at the bottom) or CANCEL puts everything back.
 4. Press AUTO LOUDNESS: it picks the best level for this track and sets it.
 ## The picky way
-- Open PRESETS in the middle: over 67 master presets in groups (Everyday, Loud, Genre, Vocals, Low end, Colour, Width, Fix), including Bass Boost Master and Vocal Improver. Press PREVIEW to hear one on your song, then KEEP IT or PUT BACK.
+- Open PRESETS in the middle: over 60 master presets in groups (Everyday, Loud, Genre, Vocals, Low end, Colour, Width, Fix), including Bass Boost Master and Vocal Improver. Press PREVIEW to hear one on your song, then KEEP IT or PUT BACK.
 - EQ & EFFECTS shows the selected effect of the chain. The EQ picture shows your sound before and after, and what the EQ changed.
 - Set your own loudness with the slider and SET LOUDNESS (MANUAL). A ORIGINAL and B MASTERED compare with loudness match, so you judge tone, not volume.
 - PLAY and PREVIEW MASTER are at the top. Only the buttons that belong to mastering are there.
@@ -197,7 +213,7 @@ For pan type a number from -100 (left) to 100 (right), or L30 / R30 / C."),
 
         new HelpTopic("settings", "Basics", "Settings: background, animation, audio", false, @"
 ## Open it
-Press Settings (top right of the main window) or Menu, then Settings. Everything you change applies at once and is remembered next time.
+Press Settings (top right of the main window) or Menu, then Settings. The sections are listed down the left side (Background, Theme, Animation, Audio, Updates, Community, General). Everything you change applies at once. SAVE (at the top and at the bottom) writes it down and closes the window.
 ## Background
 Choose any picture or video. It is cropped to fill the window automatically. Darken makes it easier to read. 'Keep the leaves' puts the floating leaves on top. Remove puts the purple leaves back.
 ## Animation
@@ -205,7 +221,7 @@ Frame rate limit: 60 is smoothest, 30 is lightest on a slow computer. You can sh
 ## Updates
 Scan for updates checks for a new version right now and always tells you what it found (you are up to date, or an update is ready and its window opens). It even shows an update you pressed Later on before.
 ## Audio
-Volume and output device only change what you hear in Purphex Music. Playback buffer: Low latency reacts fastest but can crackle on slow computers; Safe never crackles. Exported files are never affected.
+Volume and output device only change what you hear in Purphex Music. Playback buffer: Low latency reacts fastest but can crackle on slow computers; Safe never crackles. Your choice is saved and kept (if the sound breaks up the studio makes its own buffer bigger for that session only). Exported files are never affected.
 TIP: Videos need ffmpeg, which is installed the first time you convert something."),
 
         new HelpTopic("fullscreen", "Basics", "Full screen, moving windows and shortcuts", false, @"
@@ -593,6 +609,21 @@ Your lyrics are saved inside your project (Save), and also as a draft on your PC
 ADD SECTIONS puts labels like [Verse 1], [Chorus], [Pre-chorus] and [Bridge] on the parts of your lyrics that have none yet (a part that comes back is the chorus; parts you labelled yourself are left alone; Ctrl+Z takes it back). Open .txt loads lyrics from a text file (replace what you have or add it to the end) and adds those labels for you. Copy puts the lyrics on the clipboard. Save .txt writes a text file. Clear empties the page.
 This page never writes or suggests lyrics for you: every word is yours."),
 
+        new HelpTopic("studio-profile","Purphex Music", "Your profile, artists and following", false, @"
+## Your profile
+1. Open the Community page and press GO TO YOUR PROFILE (or Menu > Community > My profile).
+2. Press CHOOSE BANNER for any picture and move it with the slider, press CHOOSE PICTURE for your round picture, and pick an accent colour.
+3. Press EDIT beside your name, bio, where you are, LINKS and genres. Any web address works as a link: your website, YouTube, SoundCloud, Spotify, Instagram, a shop.
+4. Your tracks are listed at the bottom with a play button each.
+## Share it
+1. Press PUBLISH MY PROFILE to put it in the community. It is shared under a secret key made on this PC (there is no sign-in). Press it again after you change something.
+2. MAKE IT PRIVATE takes it out of the community again.
+## Find other producers
+1. Press SEARCH ARTISTS on the Community page. Type a name or a genre, and use SORT or FOLLOWING to change the list.
+2. Click an artist to open their profile: banner, bio, links, tracks and followers.
+3. Press FOLLOW to follow them. The artists you follow show on your profile.
+TIP: Profile pictures are never buttons. Everything about editing your profile is on the PROFILE page."),
+
         new HelpTopic("studio-neon","Purphex Music", "The neon look, zooming and taller tracks", false, @"
 ## The look
 Every track has its own glowing colour. The outline of its clip, the light strip beside it, the little LED and the level meter all use it, and the glow gets brighter with the volume.
@@ -667,20 +698,20 @@ class HelpForm : Form
     {
         this.canTour = canTour; this.runTour = runTour;
         Text = "Help"; FormBorderStyle = FormBorderStyle.Sizable; StartPosition = FormStartPosition.CenterParent; MinimumSize = new Size(820, 520); ClientSize = new Size(960, 640);
-        BackColor = Color.FromArgb(10, 4, 20); ForeColor = Color.FromArgb(240, 232, 255); Font = new Font("Segoe UI", 10f); Win.Dark(this); ShowInTaskbar = true;
-        search = new TextBox { Left = 14, Top = 14, Width = 310, BackColor = Color.FromArgb(8, 4, 16), ForeColor = Color.FromArgb(240, 232, 255), BorderStyle = BorderStyle.FixedSingle, Anchor = AnchorStyles.Top | AnchorStyles.Left }; Win.NeonBox(search);
+        BackColor = TM.C(255, 10, 4, 20); ForeColor = TM.C(255, 240, 232, 255); Font = new Font("Segoe UI", 10f); Win.Dark(this); ShowInTaskbar = true;
+        search = new TextBox { Left = 14, Top = 14, Width = 310, BackColor = TM.C(255, 8, 4, 16), ForeColor = TM.C(255, 240, 232, 255), BorderStyle = BorderStyle.FixedSingle, Anchor = AnchorStyles.Top | AnchorStyles.Left }; Win.NeonBox(search);
         search.TextChanged += (s, e) => Fill(null); Controls.Add(search);
-        Controls.Add(new Label { Text = "Search help (for example: phone, vocals, eq)", Left = 14, Top = 40, Width = 310, Height = 18, ForeColor = Color.FromArgb(150, 130, 190), Font = new Font("Segoe UI", 8.5f) });
-        list = new ListBox { Left = 14, Top = 64, Width = 310, Height = 520, DrawMode = DrawMode.OwnerDrawFixed, ItemHeight = 28, BackColor = Color.FromArgb(8, 4, 16), ForeColor = Color.FromArgb(240, 232, 255), BorderStyle = BorderStyle.FixedSingle, Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left };
+        Controls.Add(new Label { Text = "Search help (for example: phone, vocals, eq)", Left = 14, Top = 40, Width = 310, Height = 18, ForeColor = TM.C(255, 150, 130, 190), Font = new Font("Segoe UI", 8.5f) });
+        list = new ListBox { Left = 14, Top = 64, Width = 310, Height = 520, DrawMode = DrawMode.OwnerDrawFixed, ItemHeight = 28, BackColor = TM.C(255, 8, 4, 16), ForeColor = TM.C(255, 240, 232, 255), BorderStyle = BorderStyle.FixedSingle, Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left };
         list.DrawItem += DrawItem; list.SelectedIndexChanged += (s, e) => ShowTopic(); Controls.Add(list); Win.DarkControl(list);
-        view = new RichTextBox { Left = 338, Top = 14, Width = 608, Height = 570, ReadOnly = true, BackColor = Color.FromArgb(8, 4, 16), ForeColor = Color.FromArgb(240, 232, 255), BorderStyle = BorderStyle.FixedSingle, Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right, DetectUrls = false, Cursor = Cursors.Arrow }; Win.NeonBox(view);
+        view = new RichTextBox { Left = 338, Top = 14, Width = 608, Height = 570, ReadOnly = true, BackColor = TM.C(255, 8, 4, 16), ForeColor = TM.C(255, 240, 232, 255), BorderStyle = BorderStyle.FixedSingle, Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right, DetectUrls = false, Cursor = Cursors.Arrow }; Win.NeonBox(view);
         Controls.Add(view); Win.DarkControl(view);
         view.MouseMove += (s2, e2) => { int k = LinkAt(e2.Location); view.Cursor = k >= 0 ? Cursors.Hand : Cursors.IBeam; };
         view.MouseClick += (s2, e2) => { int k = LinkAt(e2.Location); if (k >= 0) { string target = linkTargets[k]; Close(); runTour("target:" + target); } };
-        show = new Button { Text = "Show me on screen", Left = 338, Top = 596, Width = 220, Height = 34, FlatStyle = FlatStyle.Flat, BackColor = Color.FromArgb(190, 60, 200), ForeColor = Color.White, Cursor = Cursors.Hand, Anchor = AnchorStyles.Bottom | AnchorStyles.Left, Visible = false };
-        show.FlatAppearance.BorderColor = Color.FromArgb(220, 140, 255); show.Click += (s, e) => { var t = Current(); if (t != null) { Close(); runTour(t.Id); } }; Controls.Add(show);
-        var close = new Button { Text = "Close", Left = 846, Top = 596, Width = 100, Height = 34, FlatStyle = FlatStyle.Flat, BackColor = Color.FromArgb(118, 52, 212), ForeColor = Color.White, Cursor = Cursors.Hand, Anchor = AnchorStyles.Bottom | AnchorStyles.Right };
-        close.FlatAppearance.BorderColor = Color.FromArgb(190, 120, 255); close.Click += (s, e) => Close(); Controls.Add(close);
+        show = new Button { Text = "Show me on screen", Left = 338, Top = 596, Width = 220, Height = 34, FlatStyle = FlatStyle.Flat, BackColor = TM.C(255, 190, 60, 200), ForeColor = Color.White, Cursor = Cursors.Hand, Anchor = AnchorStyles.Bottom | AnchorStyles.Left, Visible = false };
+        show.FlatAppearance.BorderColor = TM.C(255, 220, 140, 255); show.Click += (s, e) => { var t = Current(); if (t != null) { Close(); runTour(t.Id); } }; Controls.Add(show);
+        var close = new Button { Text = "Close", Left = 846, Top = 596, Width = 100, Height = 34, FlatStyle = FlatStyle.Flat, BackColor = TM.C(255, 118, 52, 212), ForeColor = Color.White, Cursor = Cursors.Hand, Anchor = AnchorStyles.Bottom | AnchorStyles.Right };
+        close.FlatAppearance.BorderColor = TM.C(255, 190, 120, 255); close.Click += (s, e) => Close(); Controls.Add(close);
         Fill(selectId);
     }
 
@@ -698,21 +729,23 @@ class HelpForm : Form
     void DrawItem(object s, DrawItemEventArgs e)
     {
         if (e.Index < 0 || e.Index >= shown.Count) return; bool sel = (e.State & DrawItemState.Selected) != 0; var t = shown[e.Index];
-        using (var b = new SolidBrush(sel ? Color.FromArgb(104, 48, 196) : Color.FromArgb(8, 4, 16))) e.Graphics.FillRectangle(b, e.Bounds);
+        using (var b = new SolidBrush(sel ? TM.C(255, 104, 48, 196) : TM.C(255, 8, 4, 16))) e.Graphics.FillRectangle(b, e.Bounds);
         bool first = e.Index == 0 || shown[e.Index - 1].Category != t.Category;
-        TextRenderer.DrawText(e.Graphics, t.Title, Font, new Rectangle(e.Bounds.X + 12, e.Bounds.Y, e.Bounds.Width - 12 - (t.HasTour ? 46 : 16), e.Bounds.Height), Color.FromArgb(240, 232, 255), TextFormatFlags.VerticalCenter | TextFormatFlags.Left | TextFormatFlags.EndEllipsis);
-        if (t.HasTour) { var pill = new Rectangle(e.Bounds.Right - 38, e.Bounds.Y + 6, 30, e.Bounds.Height - 12); using (var br = new SolidBrush(Color.FromArgb(sel ? 120 : 70, 236, 92, 226))) e.Graphics.FillRectangle(br, pill); using (var pen = new Pen(Color.FromArgb(200, 236, 120, 230))) e.Graphics.DrawRectangle(pen, pill); TextRenderer.DrawText(e.Graphics, "▶", new Font("Segoe UI", 7.5f), pill, Color.FromArgb(255, 200, 250), TextFormatFlags.VerticalCenter | TextFormatFlags.HorizontalCenter); }
-        if (first) using (var pen = new Pen(Color.FromArgb(120, 190, 120, 255))) e.Graphics.DrawLine(pen, e.Bounds.X, e.Bounds.Y, e.Bounds.Right, e.Bounds.Y);
+        TextRenderer.DrawText(e.Graphics, t.Title, Font, new Rectangle(e.Bounds.X + 12, e.Bounds.Y, e.Bounds.Width - 12 - (HelpContent.HasGuide(t) ? 46 : 16), e.Bounds.Height), TM.C(255, 240, 232, 255), TextFormatFlags.VerticalCenter | TextFormatFlags.Left | TextFormatFlags.EndEllipsis);
+        if (HelpContent.HasGuide(t)) { var pill = new Rectangle(e.Bounds.Right - 38, e.Bounds.Y + 6, 30, e.Bounds.Height - 12); using (var br = new SolidBrush(TM.C(sel ? 120 : 70, 236, 92, 226))) e.Graphics.FillRectangle(br, pill); using (var pen = new Pen(TM.C(200, 236, 120, 230))) e.Graphics.DrawRectangle(pen, pill); TextRenderer.DrawText(e.Graphics, "▶", new Font("Segoe UI", 7.5f), pill, TM.C(255, 255, 200, 250), TextFormatFlags.VerticalCenter | TextFormatFlags.HorizontalCenter); }
+        if (first) using (var pen = new Pen(TM.C(120, 190, 120, 255))) e.Graphics.DrawLine(pen, e.Bounds.X, e.Bounds.Y, e.Bounds.Right, e.Bounds.Y);
     }
 
     // the buttons the guides talk about: the words in the text, and the button they point at (SHOW ME finds it on screen, whatever page it is on)
     static readonly string[][] UiLabels = {
+        new[] { "GO TO YOUR PROFILE", "GO TO YOUR PROFILE" }, new[] { "CHOOSE BANNER", "CHOOSE BANNER" }, new[] { "CHOOSE PICTURE", "CHOOSE PICTURE" }, new[] { "PUBLISH MY PROFILE", "PUBLISH MY PROFILE" }, new[] { "SEARCH ARTISTS", "SEARCH ARTISTS" },
         new[] { "SPLIT VOCALS + BEAT", "SPLIT VOCALS + BEAT" }, new[] { "ADD MUSIC", "ADD MUSIC" }, new[] { "Add music", "ADD MUSIC" }, new[] { "AUTO MASTERING", "AUTO MASTERING" }, new[] { "VISUALISER", "VISUALISER" }, new[] { "AUTO LOUDNESS", "AUTO LOUDNESS" }, new[] { "PREVIEW MASTER", "PREVIEW MASTER" }, new[] { "AUTO MIX", "AUTO MIX" }, new[] { "UNDO MIX", "Undo mix" }, new[] { "Undo mix", "Undo mix" }, new[] { "Undo Auto Mix", "Undo mix" },
         new[] { "Detect Track key", "Detect Track key" }, new[] { "Detect key", "Detect Track key" }, new[] { "THIN TRACKS", "THIN TRACKS" }, new[] { "VOCAL STYLES", "VOCAL STYLES" }, new[] { "Vocal Styles", "VOCAL STYLES" }, new[] { "ADD EFFECT", "+ Add Effect" }, new[] { "Add Effect", "+ Add Effect" }, new[] { "Add effect", "+ Add Effect" },
         new[] { "RECYCLING BIN", "RECYCLING BIN" }, new[] { "ADD SECTIONS", "ADD SECTIONS" }, new[] { "COUNT IN", "COUNT IN" }, new[] { "METRONOME", "METRONOME" }, new[] { "GRID SIZE", "GRID SIZE" }, new[] { "DETECT BPM", "DETECT BPM" }, new[] { "MIDI REC", "MIDI REC" }, new[] { "EXPORT", "EXPORT" }, new[] { "SAVE AS", "Save as" }, new[] { "FULLSCREEN", "FULLSCREEN" },
         new[] { "PLAY", "PLAY" }, new[] { "STOP", "STOP" }, new[] { "LOOP", "LOOP" }, new[] { "MIC", "MIC" }, new[] { "SOUNDS", "SOUNDS" }, new[] { "LYRICS", "LYRICS" }, new[] { "MASTERING", "MASTERING" }, new[] { "FLEX", "FLEX" }, new[] { "SPLIT", "SPLIT" }, new[] { "CUT", "CUT" }, new[] { "GAIN", "GAIN" }, new[] { "LOCK", "LOCK" }, new[] { "DUP", "DUP" }, new[] { "FIT", "FIT" }, new[] { "STEREO", "STEREO" }, new[] { "MONO", "MONO" }, new[] { "UNDO", "UNDO" }, new[] { "REDO", "REDO" },
     };
     // the first button named in a line of the guide (null if none); a single capital word has to be written in capitals so ordinary words do not count
+    internal static string FindLabelPublic(string line) { return FindLabel(line); }
     internal static string FindLabel(string line)
     {
         string best = null; int bestAt = int.MaxValue;
@@ -728,31 +761,31 @@ class HelpForm : Form
     void ShowTopic()
     {
         var t = Current(); if (t == null) return; view.Clear(); links.Clear(); linkTargets.Clear();
-        Add(t.Category.ToUpperInvariant(), 9, true, Color.FromArgb(236, 120, 230)); Add(t.Title, 20, true, Color.FromArgb(225, 190, 255)); Add("", 6, false, Color.White);
+        Add(t.Category.ToUpperInvariant(), 9, true, TM.C(255, 236, 120, 230)); Add(t.Title, 20, true, TM.C(255, 225, 190, 255)); Add("", 6, false, Color.White);
         foreach (var raw in t.Body.Replace("\r\n", "\n").Split('\n'))
         {
             string l = raw.TrimEnd(); if (l.Trim().Length == 0) continue; string label = null;
-            if (l.StartsWith("## ")) { Add("", 6, false, Color.White); Indent(0, 0); Add(l.Substring(3), 13, true, Color.FromArgb(190, 140, 255)); Add("", 3, false, Color.White); continue; }
-            Color col = Color.FromArgb(240, 232, 255); string text = l;
+            if (l.StartsWith("## ")) { Add("", 6, false, Color.White); Indent(0, 0); Add(l.Substring(3), 13, true, TM.C(255, 190, 140, 255)); Add("", 3, false, Color.White); continue; }
+            Color col = TM.C(255, 240, 232, 255); string text = l;
             if (l.Length > 2 && char.IsDigit(l[0]) && l[1] == '.') { Indent(8, 26); label = FindLabel(l); AddStep(l.Substring(0, 2), l.Substring(2).TrimStart(), col, label); Add("", 4, false, Color.White); continue; }
             else if (l.StartsWith("- ")) { Indent(8, 18); label = FindLabel(l); AddStep("•", l.Substring(2), col, label); Add("", 3, false, Color.White); continue; }
             else if (l.StartsWith("TIP:")) { Indent(8, 0); text = "Tip: " + l.Substring(4).Trim(); col = Color.FromArgb(120, 230, 160); }
             else if (l.StartsWith("WARN:")) { Indent(8, 0); text = "Careful: " + l.Substring(5).Trim(); col = Color.FromArgb(255, 190, 90); }
-            else { Indent(0, 0); col = Color.FromArgb(215, 205, 235); label = FindLabel(l); }
+            else { Indent(0, 0); col = TM.C(255, 215, 205, 235); label = FindLabel(l); }
             AddStep("", text, col, label); Add("", 3, false, Color.White);
         }
-        Indent(0, 0); view.SelectionStart = 0; view.ScrollToCaret(); show.Visible = t.HasTour && canTour(t.Id);
+        Indent(0, 0); view.SelectionStart = 0; view.ScrollToCaret(); show.Visible = HelpContent.HasGuide(t) && canTour(t.Id);
     }
     void Indent(int first, int hang) { view.SelectionIndent = first; view.SelectionHangingIndent = hang; view.SelectionRightIndent = 10; }
     // one step: a pink number or bullet, the words, and (if the words name a button) a SHOW ME on its own at the end, never on top of the writing
     void AddStep(string num, string body, Color col, string label)
     {
         view.SelectionStart = view.TextLength; view.SelectionLength = 0;
-        if (num.Length > 0) { view.SelectionFont = new Font("Segoe UI", 11f, FontStyle.Bold); view.SelectionColor = Color.FromArgb(236, 120, 230); view.AppendText(num + "  "); }
+        if (num.Length > 0) { view.SelectionFont = new Font("Segoe UI", 11f, FontStyle.Bold); view.SelectionColor = TM.C(255, 236, 120, 230); view.AppendText(num + "  "); }
         view.SelectionStart = view.TextLength; view.SelectionFont = new Font("Segoe UI", 11f, FontStyle.Regular); view.SelectionColor = col; view.AppendText(body);
         if (label != null)
         {
-            view.SelectionStart = view.TextLength; view.SelectionFont = new Font("Segoe UI", 9f, FontStyle.Bold); view.SelectionColor = Color.FromArgb(120, 230, 255); int at = view.TextLength; string tag = "    [ SHOW ME ]"; view.AppendText(tag); links.Add(new[] { at + 4, tag.Length - 4 }); linkTargets.Add(label);
+            view.SelectionStart = view.TextLength; view.SelectionFont = new Font("Segoe UI", 9f, FontStyle.Bold); view.SelectionColor = TM.C(255, 120, 230, 255); int at = view.TextLength; string tag = "    [ SHOW ME ]"; view.AppendText(tag); links.Add(new[] { at + 4, tag.Length - 4 }); linkTargets.Add(label);
         }
         view.SelectionStart = view.TextLength; view.SelectionFont = new Font("Segoe UI", 11f, FontStyle.Regular); view.SelectionColor = Color.White; view.AppendText("\n");
     }
@@ -765,13 +798,13 @@ class HelpForm : Form
 }
 
 // ----------------------------------------------------------------------
-class TourStep { public Func<Rectangle> Target; public string Title, Text; public TourStep(Func<Rectangle> t, string title, string text) { Target = t; Title = title; Text = text; } }
+class TourStep { public Func<Rectangle> Target; public string Title, Text; public Action Enter; public TourStep(Func<Rectangle> t, string title, string text) { Target = t; Title = title; Text = text; } }
 
 // Dims the owner window with a glowing hole around the control being explained (you can click through the hole), plus a Next / Back card.
 class Tour
 {
     readonly Form owner; readonly List<TourStep> steps; int idx; Form shade, card; System.Windows.Forms.Timer tm = new System.Windows.Forms.Timer { Interval = 33 }; float t; Label title, text, count; Button back, next, skip;
-    Rectangle holeScreen; bool holeOn = true;
+    Rectangle holeScreen; bool holeOn = true; int entered = -1;
 
     public static void Run(Form owner, List<TourStep> steps) { if (steps.Count == 0) return; new Tour(owner, steps).Start(); }
     Tour(Form owner, List<TourStep> steps) { this.owner = owner; this.steps = steps; }
@@ -788,15 +821,15 @@ class Tour
             float pulse = (float)(Math.Sin(t * 4) * 0.5 + 0.5);
             if (holeOn) using (var p = Round(Rectangle.Inflate(h, 6, 6), 12))
             {
-                using (var pen = new Pen(Color.FromArgb((int)(60 + 90 * pulse), 236, 92, 226), 14f)) g.DrawPath(pen, p);
-                using (var pen = new Pen(Color.FromArgb(255, 245, 190, 255), 2.5f)) g.DrawPath(pen, p);
+                using (var pen = new Pen(TM.C((int)(60 + 90 * pulse), 236, 92, 226), 14f)) g.DrawPath(pen, p);
+                using (var pen = new Pen(TM.C(255, 245, 190, 255), 2.5f)) g.DrawPath(pen, p);
             }
         };
-        card = new Form { FormBorderStyle = FormBorderStyle.None, ShowInTaskbar = false, StartPosition = FormStartPosition.Manual, BackColor = Color.FromArgb(18, 8, 38), Size = new Size(430, 214), Owner = owner, KeyPreview = true };
-        card.Paint += (s, e) => { using (var pen = new Pen(Color.FromArgb(220, 190, 110, 255), 2)) e.Graphics.DrawRectangle(pen, 1, 1, card.Width - 3, card.Height - 3); };
-        title = new Label { Left = 20, Top = 14, Width = 390, Height = 28, Font = new Font("Segoe UI Semibold", 13f), ForeColor = Color.FromArgb(236, 150, 235), BackColor = card.BackColor };
-        text = new Label { Left = 20, Top = 48, Width = 390, Height = 90, Font = new Font("Segoe UI", 10f), ForeColor = Color.FromArgb(240, 232, 255), BackColor = card.BackColor };
-        count = new Label { Left = 20, Top = 160, Width = 90, Height = 22, ForeColor = Color.FromArgb(160, 140, 200), BackColor = card.BackColor };
+        card = new Form { FormBorderStyle = FormBorderStyle.None, ShowInTaskbar = false, StartPosition = FormStartPosition.Manual, BackColor = TM.C(255, 18, 8, 38), Size = new Size(430, 214), Owner = owner, KeyPreview = true };
+        card.Paint += (s, e) => { using (var pen = new Pen(TM.C(220, 190, 110, 255), 2)) e.Graphics.DrawRectangle(pen, 1, 1, card.Width - 3, card.Height - 3); };
+        title = new Label { Left = 20, Top = 14, Width = 390, Height = 28, Font = new Font("Segoe UI Semibold", 13f), ForeColor = TM.C(255, 236, 150, 235), BackColor = card.BackColor };
+        text = new Label { Left = 20, Top = 48, Width = 390, Height = 90, Font = new Font("Segoe UI", 10f), ForeColor = TM.C(255, 240, 232, 255), BackColor = card.BackColor };
+        count = new Label { Left = 20, Top = 160, Width = 90, Height = 22, ForeColor = TM.C(255, 160, 140, 200), BackColor = card.BackColor };
         back = Mk("Back", 118, 154, 88, () => Go(-1)); next = Mk("Next", 214, 154, 96, () => Go(1)); skip = Mk("Close", 318, 154, 92, () => End());
         card.Controls.AddRange(new Control[] { title, text, count });
         card.KeyDown += (s, e) => { if (e.KeyCode == Keys.Escape) End(); else if (e.KeyCode == Keys.Right || e.KeyCode == Keys.Enter) Go(1); else if (e.KeyCode == Keys.Left) Go(-1); };
@@ -807,8 +840,8 @@ class Tour
 
     Button Mk(string txt, int x, int y, int w, Action a)
     {
-        var b = new Button { Text = txt, Left = x, Top = y, Width = w, Height = 36, FlatStyle = FlatStyle.Flat, BackColor = Color.FromArgb(118, 52, 212), ForeColor = Color.White, Cursor = Cursors.Hand };
-        b.FlatAppearance.BorderColor = Color.FromArgb(190, 120, 255); b.Click += (s, e) => a(); card.Controls.Add(b); return b;
+        var b = new Button { Text = txt, Left = x, Top = y, Width = w, Height = 36, FlatStyle = FlatStyle.Flat, BackColor = TM.C(255, 118, 52, 212), ForeColor = Color.White, Cursor = Cursors.Hand };
+        b.FlatAppearance.BorderColor = TM.C(255, 190, 120, 255); b.Click += (s, e) => a(); card.Controls.Add(b); return b;
     }
 
     void Follow(object s, EventArgs e) { Layout(); }
@@ -819,6 +852,7 @@ class Tour
     void Layout()
     {
         if (shade == null || shade.IsDisposed) return; var s = steps[idx];
+        if (s.Enter != null && entered != idx) { entered = idx; try { s.Enter(); owner.Refresh(); } catch { } }   // a step can first take you to the right page or open the right box
         var cr = owner.RectangleToScreen(owner.ClientRectangle); shade.Bounds = cr;
         var tr = s.Target(); bool noHole = tr.IsEmpty; if (noHole) tr = new Rectangle(cr.Width / 2 - 2, cr.Height / 3, 4, 4); holeScreen = owner.RectangleToScreen(tr);
         var full = new Region(new Rectangle(0, 0, cr.Width, cr.Height)); if (!noHole) using (var p = Round(new Rectangle(holeScreen.X - cr.X - 2, holeScreen.Y - cr.Y - 2, holeScreen.Width + 4, holeScreen.Height + 4), 10)) full.Exclude(p); shade.Region = full; holeOn = !noHole;

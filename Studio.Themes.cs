@@ -76,12 +76,12 @@ partial class StudioForm
     void PaintThemeSheet(Graphics g)
     {
         if (!themeOpen) return; float W = ClientSize.Width, H = ClientSize.Height; var all = Rc(0, 0, W, H);
-        using (var b = new SolidBrush(Color.FromArgb(160, 3, 1, 10))) g.FillRectangle(b, all); Reg(all, () => themeOpen = false);
+        using (var b = new SolidBrush(TM.C(160, 3, 1, 10))) g.FillRectangle(b, all); Reg(all, () => themeOpen = false);
         float sw = Math.Min(800, W - 24), sh = Math.Min(H - 30, 660); var sheet = PopMove("themes", Rc((W - sw) / 2, (H - sh) / 2, sw, sh), 54, 70);
-        FillRR(g, Color.FromArgb(252, 16, 10, 34), sheet, 22); Glow(g, NeonViolet, sheet, 22, 0.8f, 4); StrokeRR(g, Color.FromArgb(180, NeonViolet), sheet, 22, 1.5f); Reg(sheet, () => { });
+        FillRR(g, TM.C(252, 16, 10, 34), sheet, 22); Glow(g, NeonViolet, sheet, 22, 0.8f, 4); StrokeRR(g, Color.FromArgb(180, NeonViolet), sheet, 22, 1.5f); Reg(sheet, () => { });
         Txt(g, "THEMES", 22, Ink, Rc(sheet.X + 22, sheet.Y + 14, 300, 34), StringAlignment.Near, true);
         TxtWrap(g, "Pick the colours of the whole program. Make your own, import one from a file, or download one that somebody else made.", 12, DimC, Rc(sheet.X + 22, sheet.Y + 48, sheet.Width - 90, 34));
-        var close = Rc(sheet.Right - 52, sheet.Y + 14, 32, 32); FillRR(g, Hot(close) ? Color.FromArgb(160, 70, 38, 130) : Color.FromArgb(110, 40, 24, 80), close, 16); Txt(g, "X", 15, Ink, close, StringAlignment.Center, true); Reg(close, () => themeOpen = false);
+        var close = Rc(sheet.Right - 52, sheet.Y + 14, 32, 32); FillRR(g, Hot(close) ? TM.C(160, 70, 38, 130) : TM.C(110, 40, 24, 80), close, 16); Txt(g, "X", 15, Ink, close, StringAlignment.Center, true); Reg(close, () => themeOpen = false);
         float y = sheet.Y + 90, x = sheet.X + 22;
         var tabA = Rc(x, y, 128, 34); var tabB = Rc(tabA.Right + 8, y, 186, 34);
         Btn(g, tabA, "MY THEMES", 4, () => { }, 13); Hint2(tabA, "The themes on this PC (built in and imported)");
@@ -104,7 +104,7 @@ partial class StudioForm
             Color[] sw6 = { t.Violet, t.Cyan, t.Pink, t.Lime, t.Accent, t.Btn }; for (int k = 0; k < 6; k++) { var dot = Rc(card.X + 14 + k * 26, card.Y + 14, 20, 20); using (var br = new SolidBrush(sw6[k])) g.FillEllipse(br, dot); using (var pen = new Pen(Color.FromArgb(90, 255, 255, 255), 1f)) g.DrawEllipse(pen, dot); }
             bool ph = t.Photo.Length > 0; if (ph) { var th = ThemeThumb(t.Photo); if (th != null) { var tr = Rc(card.Right - 120, card.Y + 8, 112, card.Height - 16); var st0 = g.Save(); using (var pth = RR(tr, 8)) g.SetClip(pth, CombineMode.Intersect); g.DrawImage(th, tr); g.Restore(st0); StrokeRR(g, Color.FromArgb(150, t.EdgeC), tr, 8, 1); } }
             Txt(g, t.Name.ToUpper(), 15, Ink, Rc(card.X + 14, card.Y + 42, card.Width - 28 - (ph ? 112 : 0), 24), StringAlignment.Near, true);
-            TxtWrap(g, t.Blurb, 11, Color.FromArgb(190, 200, 190, 230), Rc(card.X + 14, card.Y + 66, card.Width - 28 - (ph ? 112 : 0), 28));
+            TxtWrap(g, t.Blurb, 11, TM.C(190, 200, 190, 230), Rc(card.X + 14, card.Y + 66, card.Width - 28 - (ph ? 112 : 0), 28));
             if (on) { var tag = Rc(card.Right - (ph ? 196 : 76), card.Y + 43, 64, 22); FillRR(g, Color.FromArgb(230, t.Violet), tag, 8); Txt(g, "IN USE", 10, Color.Black, tag, StringAlignment.Center, true); }
             Reg(card, () => { int prev = Themes.Index; if (prev == ti) return; Themes.Apply(ti); Prefs.Changed(); OfferRevert("Theme " + list[ti].Name + " is on", () => { Themes.Apply(prev); Prefs.Changed(); }); });
             if (t.Custom) { var del = Rc(card.Right - (on ? 100 : 36), card.Y + 10, 24, 24); Btn(g, del, "x", 3, () => DeleteTheme(t), 12); Hint2(del, "Delete this theme from this PC"); }

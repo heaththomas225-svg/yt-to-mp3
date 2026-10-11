@@ -27,91 +27,125 @@ class SettingsForm : Form
     static readonly int[] FpsChoices = { 30, 60, 120, 144, 165, 240 };
     Label bgName, updStatus; Button updBtn; TrackBar dimBar, volBar; NumericUpDown dimNum, volNum; ComboBox devBox, bufBox, fpsBox, inBox;
     CheckBox leavesChk, studioChk, fpsChk, shareChk; ComboBox themeBox; Label themeNote;
-    static readonly Color Ink = Color.FromArgb(240, 232, 255), Dim = Color.FromArgb(160, 140, 200), Head = Color.FromArgb(236, 120, 230), Fld = Color.FromArgb(24, 12, 44);
+    static Color Ink { get { return TM.C(255, 240, 232, 255); } } static Color Dim { get { return TM.C(255, 160, 140, 200); } } static Color Head { get { return TM.C(255, 236, 120, 230); } } static Color Fld { get { return TM.C(255, 24, 12, 44); } }
 
     public SettingsForm(App app)
     {
         this.app = app; Text = "Settings"; FormBorderStyle = FormBorderStyle.Sizable; MaximizeBox = true; MinimizeBox = true; ShowInTaskbar = true;
-        StartPosition = FormStartPosition.CenterParent; ShowInTaskbar = true; BackColor = Color.FromArgb(10, 4, 20); ForeColor = Ink; ClientSize = new Size(560, 600); Font = new Font("Segoe UI", 10f);
-        Win.Dark(this); DoubleBuffered = true;
-        int y = 14;
+        StartPosition = FormStartPosition.CenterParent; ShowInTaskbar = true; BackColor = TM.C(255, 10, 4, 20); ForeColor = Ink; ClientSize = new Size(560, 600); Font = new Font("Segoe UI", 10f);
+        Win.Dark(this); DoubleBuffered = true; ClientSize = new Size(800, 640);
+        int y = 14; NewPage("Background", ref y);
         Header("Background", ref y);
         Note("Use your own picture or video behind the app. It is cropped to fill the window automatically and remembered next time.", ref y);
-        bgName = new Label { Left = 20, Top = y, Width = 520, Height = 22, ForeColor = Dim, AutoEllipsis = true }; Controls.Add(bgName); y += 28;
-        var pick = Btn("Choose picture or video...", 20, y, 210, Color.FromArgb(140, 60, 220)); pick.Click += (s, e) => Pick();
-        var clear = Btn("Remove (use leaves)", 240, y, 170, Color.FromArgb(70, 40, 120)); clear.Click += (s, e) => { UserBackground.Set(""); Refresh2(); };
+        bgName = new Label { Left = 20, Top = y, Width = 520, Height = 22, ForeColor = Dim, AutoEllipsis = true }; Add(bgName); y += 28;
+        var pick = Btn("Choose picture or video...", 20, y, 210, TM.C(255, 140, 60, 220)); pick.Click += (s, e) => Pick();
+        var clear = Btn("Remove (use leaves)", 240, y, 170, TM.C(255, 70, 40, 120)); clear.Click += (s, e) => { UserBackground.Set(""); Refresh2(); };
         y += 44;
         dimBar = new TrackBar { Left = 130, Top = y - 4, Width = 300, Minimum = 0, Maximum = 90, TickFrequency = 10, BackColor = BackColor };
         dimNum = new NumericUpDown { Left = 440, Top = y, Width = 64, Minimum = 0, Maximum = 90 }; Win.NeonBox(dimNum); StyleNum(dimNum);
-        Controls.Add(new Label { Text = "Darken (%)", Left = 20, Top = y + 2, Width = 100, ForeColor = Ink }); Controls.Add(dimBar); Controls.Add(dimNum);
+        Add(new Label { Text = "Darken (%)", Left = 20, Top = y + 2, Width = 100, ForeColor = Ink }); Add(dimBar); Add(dimNum);
         dimBar.Scroll += (s, e) => { if (!setting) { dimNum.Value = dimBar.Value; } };
         dimNum.ValueChanged += (s, e) => { if (setting) return; dimBar.Value = (int)dimNum.Value; Prefs.BgDim = (int)dimNum.Value; Prefs.Changed(); };
         y += 46;
         leavesChk = Chk("Keep the floating leaves on top of my background", 20, ref y); leavesChk.CheckedChanged += (s, e) => { if (!setting) { Prefs.BgLeaves = leavesChk.Checked; Prefs.Changed(); } };
         studioChk = Chk("Also use it behind Purphex Music", 20, ref y); studioChk.CheckedChanged += (s, e) => { if (!setting) { Prefs.BgStudio = studioChk.Checked; UserBackground.Version++; Prefs.Changed(); } };
-        y += 6; Header("Theme", ref y);
-        Controls.Add(new Label { Text = "Colour theme", Left = 20, Top = y + 3, Width = 150, ForeColor = Ink });
+        NewPage("Theme", ref y); Header("Theme", ref y);
+        Add(new Label { Text = "Colour theme", Left = 20, Top = y + 3, Width = 150, ForeColor = Ink });
         themeBox = Combo(180, y, 360, new string[0]); foreach (var td in Themes.All) themeBox.Items.Add(td.Name);   // built in and imported
         themeBox.SelectedIndexChanged += (s, e) => { if (setting || themeBox.SelectedIndex < 0) return; Themes.Apply(themeBox.SelectedIndex); themeNote.Text = Themes.Current.Blurb + " It changes the glow, borders and buttons in Purphex Music, Mastering and Bass Lab."; Prefs.Changed(); };
-        y += 38; themeNote = new Label { Left = 20, Top = y - 4, Width = 520, Height = 34, ForeColor = Dim, Font = new Font("Segoe UI", 9f) }; Controls.Add(themeNote); y += 36;
-        var impT = Btn("Import a theme file...", 20, y, 190, Color.FromArgb(70, 40, 120)); impT.Click += (s, e) => ImportTheme(); var comT = Btn("Community themes...", 218, y, 190, Color.FromArgb(140, 60, 220)); comT.Click += (s, e) => app.ShowThemes(true); y += 40;
-        y += 6; Header("Animation", ref y);
-        Controls.Add(new Label { Text = "Frame rate limit", Left = 20, Top = y + 3, Width = 150, ForeColor = Ink });
+        y += 38; themeNote = new Label { Left = 20, Top = y - 4, Width = 520, Height = 34, ForeColor = Dim, Font = new Font("Segoe UI", 9f) }; Add(themeNote); y += 36;
+        var impT = Btn("Import a theme file...", 20, y, 190, TM.C(255, 70, 40, 120)); impT.Click += (s, e) => ImportTheme(); var comT = Btn("Community themes...", 218, y, 190, TM.C(255, 140, 60, 220)); comT.Click += (s, e) => app.ShowThemes(true); y += 40;
+        NewPage("Animation", ref y); Header("Animation", ref y);
+        Add(new Label { Text = "Frame rate limit", Left = 20, Top = y + 3, Width = 150, ForeColor = Ink });
         fpsBox = Combo(180, y, 190, new[] { "30 fps (lightest)", "60 fps (smooth)", "120 fps (fast screens)", "144 fps (gaming screens)", "165 fps", "240 fps (the fastest screens)" }); fpsBox.SelectedIndexChanged += (s, e) => { if (!setting && fpsBox.SelectedIndex >= 0) { Prefs.FpsCap = FpsChoices[fpsBox.SelectedIndex]; Prefs.Changed(); } };
         y += 38;
-        Controls.Add(new Label { Text = "Your screen refreshes " + FrameLoop.DisplayHz() + " times a second, so that is the most you will see. 120 fps needs a 120 Hz (or faster) screen and a quicker PC.", Left = 20, Top = y - 6, Width = 480, Height = 34, ForeColor = Color.FromArgb(150, 140, 190) }); y += 30;
+        Add(new Label { Text = "Your screen refreshes " + FrameLoop.DisplayHz() + " times a second, so that is the most you will see. 120 fps needs a 120 Hz (or faster) screen and a quicker PC.", Left = 20, Top = y - 6, Width = 480, Height = 34, ForeColor = TM.C(255, 150, 140, 190) }); y += 30;
         fpsChk = Chk("Show the frame rate in the title bar", 20, ref y); fpsChk.CheckedChanged += (s, e) => { if (!setting) { Prefs.ShowFps = fpsChk.Checked; Prefs.Changed(); } };
-        y += 6; Header("Audio (Purphex Music playback)", ref y);
+        NewPage("Audio", ref y); Header("Audio (Purphex Music playback)", ref y);
         volBar = new TrackBar { Left = 130, Top = y - 4, Width = 300, Minimum = 0, Maximum = 100, TickFrequency = 10, BackColor = BackColor };
         volNum = new NumericUpDown { Left = 440, Top = y, Width = 64, Minimum = 0, Maximum = 100 }; Win.NeonBox(volNum); StyleNum(volNum);
-        Controls.Add(new Label { Text = "Volume (%)", Left = 20, Top = y + 2, Width = 100, ForeColor = Ink }); Controls.Add(volBar); Controls.Add(volNum);
+        Add(new Label { Text = "Volume (%)", Left = 20, Top = y + 2, Width = 100, ForeColor = Ink }); Add(volBar); Add(volNum);
         volBar.Scroll += (s, e) => { if (!setting) volNum.Value = volBar.Value; };
         volNum.ValueChanged += (s, e) => { if (setting) return; volBar.Value = (int)volNum.Value; Prefs.OutVol = (int)volNum.Value; Prefs.Changed(); };
         y += 46;
-        Controls.Add(new Label { Text = "Output device", Left = 20, Top = y + 3, Width = 150, ForeColor = Ink });
+        Add(new Label { Text = "Output device", Left = 20, Top = y + 3, Width = 150, ForeColor = Ink });
         devBox = Combo(180, y, 360, new string[0]); devBox.Items.Add("System default"); foreach (var n in WaveOutPlayer.DeviceNames()) devBox.Items.Add(n);
         devBox.SelectedIndexChanged += (s, e) => { if (!setting) { Prefs.OutDev = devBox.SelectedIndex - 1; Prefs.Changed(); app.StudioEng.ReopenOutput(); } };
         y += 38;
-        Controls.Add(new Label { Text = "Playback buffer", Left = 20, Top = y + 3, Width = 150, ForeColor = Ink });
+        Add(new Label { Text = "Playback buffer", Left = 20, Top = y + 3, Width = 150, ForeColor = Ink });
         bufBox = Combo(180, y, 360, new[] { "Low latency (11 ms) - fastest response", "Normal (23 ms)", "Safe (46 ms) - for slow computers or heavy effects" });
-        bufBox.SelectedIndexChanged += (s, e) => { if (!setting) { Prefs.Buf = bufBox.SelectedIndex; Prefs.Changed(); app.StudioEng.ReopenOutput(); } };
+        bufBox.SelectedIndexChanged += (s, e) => { if (!setting) { Prefs.Buf = bufBox.SelectedIndex; Prefs.BufBoost = 0; Prefs.Changed(); app.StudioEng.ReopenOutput(); } };
         y += 38;
-        Controls.Add(new Label { Text = "Recording input", Left = 20, Top = y + 3, Width = 150, ForeColor = Ink });
+        Add(new Label { Text = "Recording input", Left = 20, Top = y + 3, Width = 150, ForeColor = Ink });
         inBox = Combo(180, y, 360, new string[0]); inBox.Items.Add("System default"); foreach (var n in AudioRecorder.Devices()) inBox.Items.Add(n);
         inBox.SelectedIndexChanged += (s, e) => { if (!setting) { Prefs.InDev = inBox.SelectedIndex <= 0 ? "" : (string)inBox.SelectedItem; Prefs.Changed(); } };
         y += 38;
         Note("Volume only changes what you hear while playing. Exported files are never affected.", ref y);
-        y += 4; Header("Updates", ref y);
-        Controls.Add(new Label { Text = "You have version " + App.CurrentVersion + ". Purphex also checks by itself every few seconds while it is open.", Left = 20, Top = y, Width = 520, Height = 38, ForeColor = Dim, Font = new Font("Segoe UI", 9f) }); y += 40;
-        updBtn = Btn("Scan for updates", 20, y, 170, Color.FromArgb(140, 60, 220));
-        updStatus = new Label { Left = 200, Top = y, Width = 340, Height = 36, ForeColor = Ink, Font = new Font("Segoe UI", 9.5f), TextAlign = ContentAlignment.MiddleLeft }; Controls.Add(updStatus);
+        NewPage("Updates", ref y); Header("Updates", ref y);
+        Add(new Label { Text = "You have version " + App.CurrentVersion + ". Purphex also checks by itself every few seconds while it is open.", Left = 20, Top = y, Width = 520, Height = 38, ForeColor = Dim, Font = new Font("Segoe UI", 9f) }); y += 40;
+        updBtn = Btn("Scan for updates", 20, y, 170, TM.C(255, 140, 60, 220));
+        updStatus = new Label { Left = 200, Top = y, Width = 340, Height = 36, ForeColor = Ink, Font = new Font("Segoe UI", 9.5f), TextAlign = ContentAlignment.MiddleLeft }; Add(updStatus);
         updBtn.Click += (s, e) =>
         {
             updBtn.Enabled = false; updStatus.ForeColor = Dim; updStatus.Text = "Checking...";
             app.ScanForUpdates(msg => { try { BeginInvoke(new Action(() => { updBtn.Enabled = true; updStatus.ForeColor = msg.StartsWith("Could not") ? Color.FromArgb(255, 150, 150) : Color.FromArgb(150, 255, 170); updStatus.Text = msg; })); } catch { } });
         };
-        y += 44; Header("Community presets", ref y);
+        NewPage("Community", ref y); Header("Community presets", ref y);
         shareChk = Chk("Share the presets I save with the community automatically", 20, ref y); shareChk.CheckedChanged += (s, e) => { if (!setting) { Prefs.ShareSaved = shareChk.Checked; Prefs.Changed(); } };
         Note("When you save a preset (a plugin preset, a plugin chain or a Bass Lab sound) it also appears in Community presets for everyone to use, under your producer name. Turn this off to keep your presets only on this PC.", ref y);
-        y += 4; Header("General", ref y);
-        var open = Btn("Open settings folder", 20, y, 180, Color.FromArgb(70, 40, 120)); open.Click += (s, e) => { try { Process.Start("explorer.exe", app.DataFolder); } catch { } };
-        var reset = Btn("Reset appearance and audio", 208, y, 244, Color.FromArgb(150, 40, 80)); reset.Click += (s, e) => ResetAll();
-        var done = Btn("Done", 462, y, 80, Color.FromArgb(140, 60, 220)); done.Click += (s, e) => Close();
-        AutoScroll = true; AutoScrollMinSize = new Size(540, y + 76);   // everything stays reachable on small screens or high display scaling
-        ClientSize = new Size(576, Math.Min(640, Screen.PrimaryScreen.WorkingArea.Height - 100));
+        NewPage("General", ref y); Header("General", ref y);
+        var open = Btn("Open settings folder", 20, y, 180, TM.C(255, 70, 40, 120)); open.Click += (s, e) => { try { Process.Start("explorer.exe", app.DataFolder); } catch { } };
+        var reset = Btn("Reset appearance and audio", 208, y, 244, TM.C(255, 150, 40, 80)); reset.Click += (s, e) => ResetAll();
+        FinishPage(y); BuildFrame();
+        ClientSize = new Size(800, Math.Min(660, Screen.PrimaryScreen.WorkingArea.Height - 100)); LayoutFrame(); ShowPage(0);
         Win.CapsAll(this); updStatus.Tag = "nocaps"; bgName.Tag = "nocaps";
         Refresh2();
         wheel = new SettingsWheel(this); Application.AddMessageFilter(wheel); FormClosed += (s2, e2) => { try { Application.RemoveMessageFilter(wheel); } catch { } };
     }
     SettingsWheel wheel;
+    Panel page, shown; readonly System.Collections.Generic.List<Panel> pages = new System.Collections.Generic.List<Panel>(); readonly System.Collections.Generic.List<Button> sideBtns = new System.Collections.Generic.List<Button>(); const int SideW = 176, TopH = 56, BotH = 60;
+    void Add(Control c) { page.Controls.Add(c); }
     // the mouse wheel scrolls the page, whatever is under the pointer: it never changes a drop-down, a number or a slider by accident
-    internal void WheelScroll(int delta) { int cur = -AutoScrollPosition.Y; AutoScrollPosition = new Point(0, Math.Max(0, cur - delta / 2)); }
+    internal void WheelScroll(int delta) { if (shown == null) return; int cur = -shown.AutoScrollPosition.Y; shown.AutoScrollPosition = new Point(0, Math.Max(0, cur - delta / 2)); }
 
-    void Header(string t, ref int y) { Controls.Add(new Label { Text = t, Left = 20, Top = y, Width = 520, Height = 26, Font = new Font("Segoe UI Semibold", 12.5f), ForeColor = Head }); y += 30; }
-    void Note(string t, ref int y) { Controls.Add(new Label { Text = t, Left = 20, Top = y, Width = 520, Height = 46, ForeColor = Dim, Font = new Font("Segoe UI", 9f) }); y += 48; }
-    Button Btn(string t, int x, int y, int w, Color c) { var b = new Button { Text = t, Left = x, Top = y, Width = w, Height = 32, FlatStyle = FlatStyle.Flat, BackColor = c, ForeColor = Color.White, Cursor = Cursors.Hand }; b.FlatAppearance.BorderColor = Color.FromArgb(200, 150, 255); Controls.Add(b); return b; }
-    CheckBox Chk(string t, int x, ref int y) { var c = new DarkCheck { Text = t, Left = x, Top = y, Width = 520, Height = 24, ForeColor = Ink }; Controls.Add(c); y += 28; return c; }
-    ComboBox Combo(int x, int y, int w, string[] items) { var c = new DarkCombo { Left = x, Top = y, Width = w, DropDownStyle = ComboBoxStyle.DropDownList }; c.Items.AddRange(items); Controls.Add(c); return c; }
+    // ---- the pages: a list of sections down the left, one page at a time on the right, SAVE at the top and at the bottom ----
+    void NewPage(string name, ref int y)
+    {
+        if (page != null) FinishPage(y);
+        page = new Panel { Left = SideW, Top = TopH, Width = ClientSize.Width - SideW, Height = ClientSize.Height - TopH - BotH, AutoScroll = true, BackColor = TM.C(255, 10, 4, 20), Visible = false, Tag = name }; pages.Add(page); base.Controls.Add(page); y = 14;
+    }
+    void FinishPage(int y) { if (page != null) page.AutoScrollMinSize = new Size(560, y + 24); }
+    Button topSave, botSave; Label titleLbl;
+    void BuildFrame()
+    {
+        for (int i = 0; i < pages.Count; i++)
+        {
+            int k = i; var b = new Button { Text = ((string)pages[i].Tag).ToUpper(), Left = 12, Top = TopH + 10 + i * 46, Width = SideW - 24, Height = 38, FlatStyle = FlatStyle.Flat, BackColor = TM.C(255, 40, 22, 74), ForeColor = Ink, Cursor = Cursors.Hand, TextAlign = ContentAlignment.MiddleLeft, Padding = new Padding(10, 0, 0, 0), Font = new Font("Segoe UI Semibold", 10.5f) };
+            b.FlatAppearance.BorderColor = TM.C(255, 120, 90, 180); b.Click += (s, e) => ShowPage(k); sideBtns.Add(b); base.Controls.Add(b);
+        }
+        titleLbl = new Label { Text = "SETTINGS", Left = 16, Top = 12, Width = 300, Height = 34, ForeColor = Head, Font = new Font("Segoe UI Semibold", 16f), Tag = "nocaps" }; base.Controls.Add(titleLbl);
+        topSave = new Button { Text = "SAVE", Width = 110, Height = 34, FlatStyle = FlatStyle.Flat, BackColor = TM.C(255, 140, 60, 220), ForeColor = Color.White, Cursor = Cursors.Hand, Font = new Font("Segoe UI Semibold", 11f) }; topSave.FlatAppearance.BorderColor = TM.C(255, 200, 150, 255); topSave.Click += (s, e) => SaveClose(); base.Controls.Add(topSave);
+        botSave = new Button { Text = "SAVE", Width = 130, Height = 38, FlatStyle = FlatStyle.Flat, BackColor = TM.C(255, 140, 60, 220), ForeColor = Color.White, Cursor = Cursors.Hand, Font = new Font("Segoe UI Semibold", 11.5f) }; botSave.FlatAppearance.BorderColor = TM.C(255, 200, 150, 255); botSave.Click += (s, e) => SaveClose(); base.Controls.Add(botSave);
+        Resize += (s, e) => LayoutFrame();
+    }
+    void LayoutFrame()
+    {
+        if (topSave == null) return; topSave.Left = ClientSize.Width - topSave.Width - 16; topSave.Top = 11; botSave.Left = ClientSize.Width - botSave.Width - 16; botSave.Top = ClientSize.Height - BotH + 10;
+        foreach (var p in pages) { p.Left = SideW; p.Top = TopH; p.Width = ClientSize.Width - SideW; p.Height = Math.Max(100, ClientSize.Height - TopH - BotH); }
+    }
+    void ShowPage(int i)
+    {
+        for (int k = 0; k < pages.Count; k++) { pages[k].Visible = k == i; sideBtns[k].BackColor = k == i ? TM.C(255, 140, 60, 220) : TM.C(255, 40, 22, 74); }
+        shown = pages[i]; shown.AutoScrollPosition = new Point(0, 0);
+    }
+    // everything already applies the moment you change it; SAVE writes it down and closes the window
+    void SaveClose() { Prefs.Changed(); Close(); }
+
+    void Header(string t, ref int y) { Add(new Label { Text = t, Left = 20, Top = y, Width = 520, Height = 26, Font = new Font("Segoe UI Semibold", 12.5f), ForeColor = Head }); y += 30; }
+    void Note(string t, ref int y) { Add(new Label { Text = t, Left = 20, Top = y, Width = 520, Height = 46, ForeColor = Dim, Font = new Font("Segoe UI", 9f) }); y += 48; }
+    Button Btn(string t, int x, int y, int w, Color c) { var b = new Button { Text = t, Left = x, Top = y, Width = w, Height = 32, FlatStyle = FlatStyle.Flat, BackColor = c, ForeColor = Color.White, Cursor = Cursors.Hand }; b.FlatAppearance.BorderColor = TM.C(255, 200, 150, 255); Add(b); return b; }
+    CheckBox Chk(string t, int x, ref int y) { var c = new DarkCheck { Text = t, Left = x, Top = y, Width = 520, Height = 24, ForeColor = Ink }; Add(c); y += 28; return c; }
+    ComboBox Combo(int x, int y, int w, string[] items) { var c = new DarkCombo { Left = x, Top = y, Width = w, DropDownStyle = ComboBoxStyle.DropDownList }; c.Items.AddRange(items); Add(c); return c; }
     static void StyleNum(NumericUpDown n) { n.BackColor = Fld; n.ForeColor = Ink; n.BorderStyle = BorderStyle.FixedSingle; Win.NeonBox(n); }
 
     void ImportTheme()
@@ -144,7 +178,7 @@ class SettingsForm : Form
 
     void ResetAll()
     {
-        Prefs.BgDim = 45; Prefs.BgLeaves = true; Prefs.BgStudio = true; Prefs.ShareSaved = true; Prefs.OutVol = 100; Prefs.OutDev = -1; Prefs.Buf = 1; Prefs.FpsCap = 60; Prefs.ShowFps = false; Themes.Apply(0);
+        Prefs.BgDim = 45; Prefs.BgLeaves = true; Prefs.BgStudio = true; Prefs.ShareSaved = true; Prefs.OutVol = 100; Prefs.OutDev = -1; Prefs.Buf = 1; Prefs.BufBoost = 0; Prefs.FpsCap = 60; Prefs.ShowFps = false; Themes.Apply(0);
         UserBackground.Set(""); Refresh2(); app.StudioEng.ReopenOutput(); Prefs.Changed();
     }
 

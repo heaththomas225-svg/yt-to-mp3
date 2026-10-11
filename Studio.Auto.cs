@@ -124,12 +124,12 @@ partial class StudioForm
         if (!autoOpen || autoLane == null || autoTrack == null) return;
         var fx = autoLane.Fx; var prm = fx.Find(autoLane.Param); if (prm == null || !autoTrack.Fx.Contains(fx)) { autoOpen = false; return; }
         float W = ClientSize.Width, H = ClientSize.Height; var all = Rc(0, 0, W, H);
-        using (var b = new SolidBrush(Color.FromArgb(160, 3, 1, 10))) g.FillRectangle(b, all); Reg(all, () => CloseAuto());
+        using (var b = new SolidBrush(TM.C(160, 3, 1, 10))) g.FillRectangle(b, all); Reg(all, () => CloseAuto());
         float sw = Math.Min(1040, W - 24), sh = Math.Min(480, H - 30); var sheet = PopMove("auto", Rc((W - sw) / 2, (H - sh) / 2, sw, sh), 50, 70);
-        FillRR(g, Color.FromArgb(252, 16, 10, 34), sheet, 22); Glow(g, NeonCyan, sheet, 22, 0.7f, 4); StrokeRR(g, Color.FromArgb(180, NeonCyan), sheet, 22, 1.5f); Reg(sheet, () => { });
+        FillRR(g, TM.C(252, 16, 10, 34), sheet, 22); Glow(g, NeonCyan, sheet, 22, 0.7f, 4); StrokeRR(g, Color.FromArgb(180, NeonCyan), sheet, 22, 1.5f); Reg(sheet, () => { });
         Txt(g, "AUTOMATION", 20, Ink, Rc(sheet.X + 22, sheet.Y + 12, 200, 32), StringAlignment.Near, true);
         Txt(g, autoTrack.Name + "  >  " + fx.Title + "  >  " + prm.Name, 14, NeonCyan, Rc(sheet.X + 150, sheet.Y + 16, sheet.Width - 560, 26), StringAlignment.Near, false);
-        var close = Rc(sheet.Right - 50, sheet.Y + 12, 32, 32); FillRR(g, Hot(close) ? Color.FromArgb(160, 70, 38, 130) : Color.FromArgb(110, 40, 24, 80), close, 16); Txt(g, "X", 15, Ink, close, StringAlignment.Center, true); Reg(close, () => CloseAuto());
+        var close = Rc(sheet.Right - 50, sheet.Y + 12, 32, 32); FillRR(g, Hot(close) ? TM.C(160, 70, 38, 130) : TM.C(110, 40, 24, 80), close, 16); Txt(g, "X", 15, Ink, close, StringAlignment.Center, true); Reg(close, () => CloseAuto());
         var lane = autoLane;
         Chip(g, Rc(sheet.Right - 330, sheet.Y + 14, 110, 28), lane.On ? "Automation on" : "Automation off", lane.On, () => { lock (eng.Sync) lane.On = !lane.On; });
         Btn(g, Rc(sheet.Right - 214, sheet.Y + 14, 72, 28), "Flatten", 0, () => { PushUndo(); lock (eng.Sync) { float v = prm.Val; foreach (var pt in lane.Pts) pt.Value = v; } }, 12);
@@ -144,7 +144,7 @@ partial class StudioForm
         // the plot
         float lm = 74; if (prm.IsChoice) foreach (var ch in prm.Choices) lm = Math.Max(lm, g.MeasureString(ch, GfxCache.Font(10, false)).Width + 16); lm = Math.Min(lm, sheet.Width * 0.4f);   // room for the names of a list of choices
         var plot = Rc(sheet.X + lm, sheet.Y + 90, sheet.Width - lm - 26, sheet.Height - 90 - 74); long T = Math.Max(eng.EndFrame, StudioEngine.SR * 10L);
-        FillRR(g, Color.FromArgb(235, 8, 4, 20), plot, 8); StrokeRR(g, Color.FromArgb(120, NeonViolet), plot, 8, 1);
+        FillRR(g, TM.C(235, 8, 4, 20), plot, 8); StrokeRR(g, Color.FromArgb(120, NeonViolet), plot, 8, 1);
         float min = prm.Min, max = prm.Max; if (max - min < 1e-6f) max = min + 1;
         Func<long, float> X = fr => plot.X + (float)(fr / (double)T) * plot.Width; Func<float, float> Y = v => plot.Bottom - (v - min) / (max - min) * plot.Height;
         g.SetClip(Rc(sheet.X + 2, plot.Y - 6, plot.Right - sheet.X + 10, plot.Height + 30));
@@ -153,13 +153,13 @@ partial class StudioForm
         for (int i = 0; i < rows; i++)
         {
             float v = prm.IsChoice ? (prm.Choices.Length <= 9 ? i : min + (max - min) * i / (rows - 1)) : min + (max - min) * i / (rows - 1); float yy = Y(v);
-            using (var pen = new Pen(Color.FromArgb(50, 190, 160, 255))) g.DrawLine(pen, plot.X, yy, plot.Right, yy);
+            using (var pen = new Pen(TM.C(50, 190, 160, 255))) g.DrawLine(pen, plot.X, yy, plot.Right, yy);
             Txt(g, AutoValText(prm, v), 10, DimC, Rc(sheet.X + 6, yy - 9, lm - 12, 18), StringAlignment.Far, false);
         }
         double secs = T / (double)StudioEngine.SR; double stepS = secs > 600 ? 120 : secs > 240 ? 60 : secs > 90 ? 30 : secs > 40 ? 10 : 5;
         for (double s = 0; s <= secs + 0.01; s += stepS)
         {
-            float xx = X((long)(s * StudioEngine.SR)); using (var pen = new Pen(Color.FromArgb(40, 190, 160, 255))) g.DrawLine(pen, xx, plot.Y, xx, plot.Bottom);
+            float xx = X((long)(s * StudioEngine.SR)); using (var pen = new Pen(TM.C(40, 190, 160, 255))) g.DrawLine(pen, xx, plot.Y, xx, plot.Bottom);
             Txt(g, ((int)s / 60) + ":" + ((int)s % 60).ToString("00"), 10, DimC, Rc(xx - 24, plot.Bottom + 4, 48, 16), StringAlignment.Center, false);
         }
         g.SetClip(plot);
@@ -175,9 +175,9 @@ partial class StudioForm
         {
             var fill = new List<PointF>(path); fill.Add(new PointF(plot.Right, plot.Bottom)); fill.Add(new PointF(plot.X, plot.Bottom));
             using (var br = new SolidBrush(Color.FromArgb(lane.On ? 38 : 16, NeonCyan))) g.FillPolygon(br, fill.ToArray());
-            using (var pen = new Pen(lane.On ? NeonCyan : Color.FromArgb(120, 140, 140, 170), 2.4f) { LineJoin = LineJoin.Round }) g.DrawLines(pen, path.ToArray());
+            using (var pen = new Pen(lane.On ? NeonCyan : TM.C(120, 140, 140, 170), 2.4f) { LineJoin = LineJoin.Round }) g.DrawLines(pen, path.ToArray());
         }
-        foreach (var pt in pts) { float px = X(pt.Frame), py = Y(pt.Value); bool hot = pt == autoPt || Math.Abs(MousePos.X - px) < 9 && Math.Abs(MousePos.Y - py) < 9; using (var b = new SolidBrush(hot ? Color.White : NeonCyan)) g.FillEllipse(b, px - 6, py - 6, 12, 12); using (var pen = new Pen(Color.FromArgb(220, 10, 5, 25), 1.5f)) g.DrawEllipse(pen, px - 6, py - 6, 12, 12); }
+        foreach (var pt in pts) { float px = X(pt.Frame), py = Y(pt.Value); bool hot = pt == autoPt || Math.Abs(MousePos.X - px) < 9 && Math.Abs(MousePos.Y - py) < 9; using (var b = new SolidBrush(hot ? Color.White : NeonCyan)) g.FillEllipse(b, px - 6, py - 6, 12, 12); using (var pen = new Pen(TM.C(220, 10, 5, 25), 1.5f)) g.DrawEllipse(pen, px - 6, py - 6, 12, 12); }
         // the playhead
         { float xx = X(Math.Min(T, eng.Pos)); using (var pen = new Pen(Color.FromArgb(220, 255, 255, 255), 1.4f)) g.DrawLine(pen, xx, plot.Y, xx, plot.Bottom); }
         // what the plugin is set to right now

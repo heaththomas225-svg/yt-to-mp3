@@ -15,7 +15,9 @@ static class Prefs
     public static bool BgStudio = true;      // also use the background (still) in Purphex Music
     public static int OutVol = 100;          // Purphex Music playback volume, percent (does not change exported files)
     public static int OutDev = -1;           // winmm device id (-1 = system default)
-    public static int Buf = 1;               // playback buffer: 0 low latency, 1 normal, 2 safe
+    public static int Buf = 1;               // playback buffer: 0 low latency, 1 normal, 2 safe (YOUR choice: it is saved and never changed behind your back)
+    public static int BufBoost = 0;          // extra size the studio adds for this session only when the sound breaks up (never saved)
+    public static int BufEff { get { return Math.Min(2, Buf + BufBoost); } }
     public static int FpsCap = 60;           // animation frame rate cap: 30, 60, 120, 144, 165 or 240
     public static bool ShowFps = false;      // show the frame rate in the title bar
     public static string MidiDev = "";       // the MIDI keyboard Bass Lab listens to ("" = off)

@@ -40,24 +40,24 @@ partial class StudioForm
         float hw = hh * 1.16f; float glow = playing ? 0.35f + Math.Min(0.65f, vizLevel * 1.6f) : (hot ? 0.7f : 0.4f);
         using (var path = HexPath(cx, cy, hw, hh))
         {
-            using (var fill = new SolidBrush(Color.FromArgb(245, 8, 4, 22))) g.FillPath(fill, path);
-            for (int i = 3; i >= 1; i--) using (var pen = new Pen(Color.FromArgb((int)(34 * glow * (4 - i) / 3 * 2.2f), 130, 90, 255), i * 2.6f) { LineJoin = LineJoin.Round }) g.DrawPath(pen, path);
+            using (var fill = new SolidBrush(TM.C(255, 8, 4, 22))) g.FillPath(fill, path);
+            for (int i = 3; i >= 1; i--) using (var pen = new Pen(TM.C((int)(34 * glow * (4 - i) / 3 * 2.2f), 130, 90, 255), i * 2.6f) { LineJoin = LineJoin.Round }) g.DrawPath(pen, path);
             var rb = Rc(cx - hw, cy - hh, hw * 2, hh * 2);
-            using (var gb = new LinearGradientBrush(rb, Color.FromArgb(0, 229, 255), Color.FromArgb(255, 43, 214), 25f)) using (var pen = new Pen(gb, 2.2f) { LineJoin = LineJoin.Round }) g.DrawPath(pen, path);
+            using (var gb = new LinearGradientBrush(rb, TM.C(255, 0, 229, 255), TM.C(255, 255, 43, 214), 25f)) using (var pen = new Pen(gb, 2.2f) { LineJoin = LineJoin.Round }) g.DrawPath(pen, path);
         }
         float r0 = hh * 0.52f;
         if (!playing)
         {
-            using (var pen = new Pen(Color.FromArgb(220, 200, 80, 255), 1.6f)) g.DrawEllipse(pen, cx - r0 * 1.12f, cy - r0 * 1.12f, r0 * 2.24f, r0 * 2.24f);
+            using (var pen = new Pen(TM.C(220, 200, 80, 255), 1.6f)) g.DrawEllipse(pen, cx - r0 * 1.12f, cy - r0 * 1.12f, r0 * 2.24f, r0 * 2.24f);
             float[] ys = { 0, 0.15f, -0.3f, 0.5f, -0.75f, 0.45f, -0.25f, 0.2f, 0 }; var pts = new PointF[ys.Length]; for (int i = 0; i < ys.Length; i++) pts[i] = new PointF(cx - hw * 0.62f + i * (hw * 1.24f / (ys.Length - 1)), cy + ys[i] * hh * 0.62f);
-            using (var pen = new Pen(Color.FromArgb(235, 0, 229, 255), 1.6f) { LineJoin = LineJoin.Round }) g.DrawLines(pen, pts);
+            using (var pen = new Pen(TM.C(235, 0, 229, 255), 1.6f) { LineJoin = LineJoin.Round }) g.DrawLines(pen, pts);
         }
         else
         {
             int nb = vizBand.Length; for (int i = 0; i < nb; i++)
             {
                 double a = i * 2 * Math.PI / nb - Math.PI / 2; float len = 1.5f + vizBand[i] * hh * 0.5f; float ra = r0, rb2 = r0 + len;
-                var c0 = i < nb / 2 ? Color.FromArgb(0, 229, 255) : Color.FromArgb(255, 43, 214);
+                var c0 = i < nb / 2 ? TM.C(255, 0, 229, 255) : TM.C(255, 255, 43, 214);
                 using (var pen = new Pen(Color.FromArgb(235, c0), 1.6f)) g.DrawLine(pen, cx + (float)Math.Cos(a) * ra, cy + (float)Math.Sin(a) * ra * 0.9f, cx + (float)Math.Cos(a) * rb2, cy + (float)Math.Sin(a) * rb2 * 0.9f);
             }
             using (var b = new SolidBrush(Color.FromArgb((int)(120 + 120 * Math.Min(1f, vizLevel * 2)), 255, 255, 255))) g.FillEllipse(b, cx - 2, cy - 2, 4, 4);
@@ -96,7 +96,7 @@ partial class StudioForm
             {
                 float v = vizHist[(vizHead - 1 - c + hl * 4) % hl]; float amp = Math.Max(1f, v * maxW * (1f - c / 130f)); int al = (int)(220 * (1f - c / 100f)); if (al <= 4) break;
                 float yu = lcy - lh - 4 - c * 2.2f, yd = lcy + lh + 4 + c * 2.2f;
-                using (var pu = new Pen(Color.FromArgb(al, 0, 229, 255), 1.5f)) g.DrawLine(pu, cx - amp, yu, cx + amp, yu); using (var pd = new Pen(Color.FromArgb(al, 255, 43, 214), 1.5f)) g.DrawLine(pd, cx - amp, yd, cx + amp, yd);
+                using (var pu = new Pen(TM.C(al, 0, 229, 255), 1.5f)) g.DrawLine(pu, cx - amp, yu, cx + amp, yu); using (var pd = new Pen(TM.C(al, 255, 43, 214), 1.5f)) g.DrawLine(pd, cx - amp, yd, cx + amp, yd);
             }
             g.Restore(st);
         }
@@ -135,8 +135,8 @@ partial class StudioForm
         // the window you are looking at
         double win = viewW * spp; float ww = Math.Max(16f, (float)(win / total * tw)), x0 = inner.X + (float)((scroll - baseFrame) / total * tw); x0 = Math.Max(inner.X, Math.Min(inner.Right - ww, x0));
         var thumb = Rc(x0, inner.Y, ww, inner.Height);
-        using (var br = new SolidBrush(Color.FromArgb(34, 140, 150, 200))) g.FillRectangle(br, thumb);   // a soft window (no bright box); its two ends can still be dragged to zoom
-        using (var pen = new Pen(Color.FromArgb(120, 200, 205, 240), 1.6f) { StartCap = LineCap.Round, EndCap = LineCap.Round }) { float gy = ob.Y + ob.Height / 2; g.DrawLine(pen, thumb.X + 1, gy - 7, thumb.X + 1, gy + 7); g.DrawLine(pen, thumb.Right - 1, gy - 7, thumb.Right - 1, gy + 7); }
+        using (var br = new SolidBrush(TM.C(34, 140, 150, 200))) g.FillRectangle(br, thumb);   // a soft window (no bright box); its two ends can still be dragged to zoom
+        using (var pen = new Pen(TM.C(120, 200, 205, 240), 1.6f) { StartCap = LineCap.Round, EndCap = LineCap.Round }) { float gy = ob.Y + ob.Height / 2; g.DrawLine(pen, thumb.X + 1, gy - 7, thumb.X + 1, gy + 7); g.DrawLine(pen, thumb.Right - 1, gy - 7, thumb.Right - 1, gy + 7); }
         // the logo rides on the window: where the logo is = where you are, and it is what you hold and drag
         float lh = ob.Height / 2 - 2, lhw = lh * 1.16f; float logoCx = Math.Max(inner.X + lhw + 2, Math.Min(inner.Right - lhw - 2, thumb.X + thumb.Width / 2));
         // the waves that flow out of the logo along the bar
@@ -147,8 +147,8 @@ partial class StudioForm
             {
                 float v = vizHist[(vizHead - 1 - c + hl * 4) % hl]; float amp = Math.Max(1f, v * maxH * (1f - c / 260f) * (0.75f + 0.25f * vizBand[(c * 3) % vizBand.Length])); float fade = 1f - c / 200f; int al = (int)(235 * fade); if (al <= 4) break;
                 float xl = logoCx - lhw - 6 - c * 2.2f, xr = logoCx + lhw + 6 + c * 2.2f;
-                using (var pl = new Pen(Color.FromArgb(al, 0, 229, 255), 1.5f)) g.DrawLine(pl, xl, cy - amp, xl, cy + amp);
-                using (var pr = new Pen(Color.FromArgb(al, 255, 43, 214), 1.5f)) g.DrawLine(pr, xr, cy - amp, xr, cy + amp);
+                using (var pl = new Pen(TM.C(al, 0, 229, 255), 1.5f)) g.DrawLine(pl, xl, cy - amp, xl, cy + amp);
+                using (var pr = new Pen(TM.C(al, 255, 43, 214), 1.5f)) g.DrawLine(pr, xr, cy - amp, xr, cy + amp);
             }
             g.Restore(st);
         }

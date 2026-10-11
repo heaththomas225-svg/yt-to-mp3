@@ -18,7 +18,6 @@ static class MasterPresets
     public static int IndexOf(string namePrefix) { var a = All; for (int i = 0; i < a.Length; i++) if (a[i].Name.StartsWith(namePrefix, StringComparison.OrdinalIgnoreCase)) return i; return 0; }
     public static readonly string[] Groups = { "Everyday", "Loud", "Genre", "Vocals", "Low end", "Colour", "Width", "Fix" };
     static readonly MasterPreset[] Base = {
-        new MasterPreset { Name = "Streaming (-14 LUFS)", Target = -14, Group = "Everyday", Blurb = "The safe all-rounder for Spotify, Apple Music and YouTube: gentle glue, a touch of air and a limiter set for -14 LUFS.", Slots = new[]{ "b5_g=1;b5_f=11000", "thr=-14;ratio=2;att=30;rel=200;knee=8;makeup=0", null, null, null, "width=105;bass=120", "ceil=-1;gain=3;rel=80" } },
         new MasterPreset { Name = "Loud / Club (-9 LUFS)", Target = -9, Group = "Loud", Blurb = "Big and dense for clubs and playlists that like it loud: low end lifted, multiband control, harmonics and a hard limiter.", Slots = new[]{ "hp_on=1;hp_f=28;b0_f=70;b0_g=1.5;b5_f=11000;b5_g=2", "thr=-16;ratio=3;att=20;rel=140;knee=6;makeup=1", "t0=-22;r0=2.5;t1=-24;r1=2.5;t2=-26;r2=2.5", "drive=6;harm=35;mix=20", "drive=4;mix=50", "width=112;bass=130", "ceil=-0.8;gain=8;rel=50" } },
         new MasterPreset { Name = "Gentle (-16 LUFS)", Target = -16, Group = "Everyday", Blurb = "Very light touch for dynamic music: nearly no compression, a little shine on top and plenty of headroom.", Slots = new[]{ "b5_g=0.5;b5_f=10000", "thr=-12;ratio=1.6;att=40;rel=250;knee=10;makeup=0", null, null, null, "width=100;bass=100", "ceil=-1.5;gain=0;rel=120" } },
         new MasterPreset { Name = "Warm & wide (-12 LUFS)", Target = -12, Group = "Colour", Blurb = "A rounder low end, softer top, tape warmth and a wider stereo picture.", Slots = new[]{ "b0_f=100;b0_g=2;b5_f=9000;b5_g=-1", "thr=-15;ratio=2.2;att=25;rel=180;knee=8;makeup=0.5", null, null, "drive=5;mix=60", "width=125;bass=140", "ceil=-1;gain=5;rel=70" } },
@@ -188,7 +187,7 @@ partial class StudioForm
     void PaintMasterBars(Graphics g)
     {
         float W = ClientSize.Width, y = 12, h = 46;
-        using (var br = new SolidBrush(Color.FromArgb(245, 18, 10, 34))) g.FillRectangle(br, 0, 0, W, ToolH); NeonRule(g, 0, ToolH, W);
+        using (var br = new SolidBrush(TM.C(255, 18, 10, 34))) g.FillRectangle(br, 0, 0, W, ToolH); NeonRule(g, 0, ToolH, W);
         Btn(g, Rc(12, y, 48, h), "≡", 0, () => { if (menuOpen) CloseMenu(); else OpenMenu(); }, 24);
         Txt(g, "MASTERING", 18, Ink, Rc(76, y, 190, h), StringAlignment.Near, true); Btn(g, Rc(270, y + 4, 100, h - 8), "HOME", 2, () => GoHome(), 14); if (ShowBack) Btn(g, Rc(376, y + 4, 100, h - 8), "BACK", 0, () => GoBack(), 14);
         float rx = W - 14;
@@ -199,12 +198,13 @@ partial class StudioForm
         Btn(g, Rc(rx - 72, y + 4, 72, h - 8), "Save", 0, () => SaveClick(false), 14); rx -= 78;
         Btn(g, Rc(rx - 84, y + 4, 84, h - 8), "Save as", 0, () => SaveClick(true), 14);
         // the second bar: PLAY, the time, PREVIEW, the master meter and the page tabs
-        float y0 = ToolH; using (var br = new SolidBrush(Color.FromArgb(240, 22, 12, 40))) g.FillRectangle(br, 0, y0, W, TransH); NeonRule(g, 0, y0 + TransH, W);
+        float y0 = ToolH; using (var br = new SolidBrush(TM.C(255, 22, 12, 40))) g.FillRectangle(br, 0, y0, W, TransH); NeonRule(g, 0, y0 + TransH, W);
         float x = 14, yy = y0 + 8, hh = 36;
         Btn(g, Rc(x, yy, 96, hh), "PLAY", eng.Playing && !mpActive ? 4 : 1, () => { if (mpActive) MasterPreviewStop(); PlayToggle(); }, 15); x += 104;
-        double sec = dispPos / StudioEngine.SR, tot = eng.EndFrame / (double)StudioEngine.SR; var tr = Rc(x, yy, 210, hh); FillRR(g, Color.FromArgb(200, 8, 4, 18), tr, 6); StrokeRR(g, Edge, tr, 6, 1);
+        double sec = dispPos / StudioEngine.SR, tot = eng.EndFrame / (double)StudioEngine.SR; var tr = Rc(x, yy, 210, hh); FillRR(g, TM.C(200, 8, 4, 18), tr, 6); StrokeRR(g, Edge, tr, 6, 1);
         Txt(g, Fmt(sec) + "  /  " + Fmt(tot), 19, Accent, tr, StringAlignment.Center, true); x += 222;
-        Btn(g, Rc(x, yy, 168, hh), mpActive ? "STOP PREVIEW" : "PREVIEW MASTER", mpActive ? 4 : 2, () => MasterPreviewToggle(), 13); Hint2(Rc(x, yy, 168, hh), "Hear your master: a loop of the loudest 20 seconds with the mastering chain on. Press again to stop."); x += 178;
+        Btn(g, Rc(x, yy, 168, hh), "PREVIEW MASTER", mpActive ? 4 : 2, () => MasterPreviewStart(), 13); Hint2(Rc(x, yy, 168, hh), "Hear your master: a loop of the loudest 20 seconds with the mastering chain on."); x += 174;
+        { var spb = Rc(x, yy, 112, hh); Btn(g, spb, "STOP PREVIEW", mpActive ? 3 : 0, () => MasterPreviewStop(), 11); Hint2(spb, "Stop the preview loop"); x += 118; }
         { var vzb = Rc(x, yy, 118, hh); Btn(g, vzb, "VISUALISER", 1, () => tab = 5, 12); Hint2(vzb, "Open the Master Visualiser: a full page where your music moves"); x += 126; }
         float tx = W - 328; float mx = x + 10; float room = tx - 12 - mx;
         if (room >= 70) { Txt(g, "MASTER", 11, DimC, Rc(mx, yy - 4, 60, 14), StringAlignment.Near, false); float bw = Math.Min(120, room); HBar(g, Rc(mx, yy + 12, bw, 8), eng.MasterPeakL); HBar(g, Rc(mx, yy + 22, bw, 8), eng.MasterPeakR); if (room >= 230) { float lm = eng.Lufs.Momentary; Txt(g, "M " + Db(lm) + " LUFS", 13, Ink, Rc(mx + 128, yy, Math.Min(120, room - 128), hh), StringAlignment.Near, false); } }
@@ -213,10 +213,9 @@ partial class StudioForm
 
     // ---------- the page ----------
     int mpTab; float mpScroll; string mpGroup = "";
-    int MasterBotRoom { get { return ClientSize.Height >= 740 ? 52 : 0; } }
     void PaintMastering(Graphics g)
     {
-        float top = ToolH + TransH + 10, W = ClientSize.Width, H = ClientSize.Height - MasterBotRoom;   // a tall window makes room for the visualiser strip along the bottom
+        float top = ToolH + TransH + 10, W = ClientSize.Width, H = ClientSize.Height;
         // ---- left: the chain and the A/B ----
         var lp = Rc(14, top, 270, H - top - 12); FillRR(g, Panel, lp, 12); StrokeRR(g, Edge, lp, 12, 1);
         Txt(g, "MASTERING CHAIN", 17, Ink, Rc(lp.X + 14, lp.Y + 8, 240, 26), StringAlignment.Near, true);
@@ -224,9 +223,9 @@ partial class StudioForm
         for (int i = 0; i < n; i++, y += rowG)
         {
             var f = eng.MasterFx[i]; int fi = i; bool sel = i == selMaster; var row = Rc(lp.X + 10, y, lp.Width - 20, rowH);
-            FillRR(g, sel ? Color.FromArgb(210, 80, 40, 150) : Color.FromArgb(150, 40, 22, 74), row, 8); if (sel) StrokeRR(g, Accent, row, 8, 1.4f);
+            FillRR(g, sel ? TM.C(210, 80, 40, 150) : TM.C(150, 40, 22, 74), row, 8); if (sel) StrokeRR(g, Accent, row, 8, 1.4f);
             Reg(row, () => { selMaster = fi; mpTab = 0; });
-            var dot = Rc(row.X + 10, row.Y + (rowH - 18) / 2, 18, 18); using (var b = new SolidBrush(f.Bypass ? Color.FromArgb(90, 90, 70, 110) : Good)) g.FillEllipse(b, dot); Reg(dot, () => f.Bypass = !f.Bypass);
+            var dot = Rc(row.X + 10, row.Y + (rowH - 18) / 2, 18, 18); using (var b = new SolidBrush(f.Bypass ? TM.C(90, 90, 70, 110) : Good)) g.FillEllipse(b, dot); Reg(dot, () => f.Bypass = !f.Bypass);
             Txt(g, i < ModNames.Length && f.Type != "gain" ? (i < 7 ? ModNames[i] : f.Title) : f.Title, 14, f.Bypass ? DimC : Ink, Rc(row.X + 38, row.Y, row.Width - 100, rowH), StringAlignment.Near, sel);
             if (f.GR > 0.2f) Txt(g, "-" + f.GR.ToString("0.0"), 11, Warn, Rc(row.Right - 78, row.Y, 40, rowH), StringAlignment.Far, false);
             if (i >= 7) Btn(g, Rc(row.Right - 30, row.Y + (rowH - 22) / 2, 22, 22), "x", 3, () => { lock (eng.Sync) eng.MasterFx.RemoveAt(fi); }, 12);
@@ -244,8 +243,18 @@ partial class StudioForm
 
         // ---- centre: the editor and the presets ----
         float ex = lp.Right + 14, ew = W - ex - 430;
-        var ep = Rc(ex, top, ew, H - top - 12); FillRR(g, Panel, ep, 12); StrokeRR(g, Edge, ep, 12, 1);
+        var ep0 = Rc(ex, top, ew, H - top - 12);
+        // the visualiser is the top of this page: the light show over the EQ, the effects and the presets (a short window keeps just the controls; the VISUALISER button opens the full page)
+        const float minDrawer = 560f; visStageOn = ep0.Height - minDrawer >= 226f; var ep = ep0;
+        if (visStageOn)
+        {
+            float stageH = Math.Min(ep0.Height * 0.5f, ep0.Height - minDrawer); var sa = Rc(ep0.X, ep0.Y, ep0.Width, stageH); FillRR(g, TM.C(255, 5, 2, 12), sa, 12); PaintVisStage(g, RectangleF.Inflate(sa, -3, -3), false); Win.DrawNeonBox(g, sa, false);
+            var fb = Rc(sa.Right - 150, sa.Y + 8, 140, 28); Btn(g, fb, "FULL VISUALISER", 2, () => tab = 5, 10); Hint2(fb, "Open the visualiser as a page of its own: the light show over everything, with the level meters and the loudness cards");
+            ep = Rc(ep0.X, sa.Bottom + 8, ep0.Width, ep0.Bottom - sa.Bottom - 8);
+        }
+        FillRR(g, Panel, ep, 12); StrokeRR(g, Edge, ep, 12, 1);
         var t1 = Rc(ep.X + 10, ep.Y + 8, 170, 32); var t2 = Rc(t1.Right + 8, ep.Y + 8, 150, 32);
+        if (!visStageOn) { var t3 = Rc(t2.Right + 8, ep.Y + 8, 150, 32); Btn(g, t3, "VISUALISER", 1, () => tab = 5, 12); Hint2(t3, "Watch your music move: the full visualiser page"); }
         Btn(g, t1, "EQ & EFFECTS", mpTab == 0 ? 4 : 0, () => mpTab = 0, 12); Hint2(t1, "Edit the selected effect of the chain (the EQ shows your sound before and after)");
         Btn(g, t2, "PRESETS", mpTab == 1 ? 4 : 0, () => mpTab = 1, 12); Hint2(t2, "Master presets you can hear before you keep them: Bass Boost, Vocal Enhance, Warm Tape and more");
         var inner = Rc(ep.X + 4, ep.Y + 46, ep.Width - 8, ep.Height - 52);
@@ -261,14 +270,14 @@ partial class StudioForm
         string[] lb = { "MOMENTARY", "SHORT-TERM", "INTEGRATED" }; float[] vv = { lu.Momentary, lu.ShortTerm, lu.Integrated };
         for (int i = 0; i < 3; i++)
         {
-            var c = Rc(ap.X + 12 + i * 128, yy, 122, 66); FillRR(g, Color.FromArgb(150, 8, 4, 20), c, 10);
+            var c = Rc(ap.X + 12 + i * 128, yy, 122, 66); FillRR(g, TM.C(150, 8, 4, 20), c, 10);
             Txt(g, lb[i], 10, DimC, Rc(c.X, c.Y + 3, c.Width, 14), StringAlignment.Center, true); Txt(g, Db(vv[i]), 25, i == 2 ? Accent : Ink, Rc(c.X, c.Y + 16, c.Width, 32), StringAlignment.Center, true); Txt(g, "LUFS", 11, DimC, Rc(c.X, c.Y + 48, c.Width, 16), StringAlignment.Center, false);
         }
         yy += 74; double tpDb = lu.TruePeakDb; bool tpBad = tpDb > -0.9;
-        var c1 = Rc(ap.X + 12, yy, 190, 54); FillRR(g, Color.FromArgb(150, 8, 4, 20), c1, 10); Txt(g, "TRUE PEAK (MAX)", 10, DimC, Rc(c1.X, c1.Y + 3, c1.Width, 14), StringAlignment.Center, true); Txt(g, Db(tpDb) + " dBTP", 20, tpBad ? Bad : Good, Rc(c1.X, c1.Y + 17, c1.Width, 32), StringAlignment.Center, true);
-        var c2 = Rc(ap.X + 210, yy, 180, 54); bool clip = lu.Clips > 0; FillRR(g, Color.FromArgb(150, 8, 4, 20), c2, 10); Txt(g, "CLIPPING", 10, DimC, Rc(c2.X, c2.Y + 3, c2.Width, 14), StringAlignment.Center, true); Txt(g, clip ? lu.Clips + " samples" : "none detected", 17, clip ? Bad : Good, Rc(c2.X, c2.Y + 17, c2.Width, 32), StringAlignment.Center, true);
+        var c1 = Rc(ap.X + 12, yy, 190, 54); FillRR(g, TM.C(150, 8, 4, 20), c1, 10); Txt(g, "TRUE PEAK (MAX)", 10, DimC, Rc(c1.X, c1.Y + 3, c1.Width, 14), StringAlignment.Center, true); Txt(g, Db(tpDb) + " dBTP", 20, tpBad ? Bad : Good, Rc(c1.X, c1.Y + 17, c1.Width, 32), StringAlignment.Center, true);
+        var c2 = Rc(ap.X + 210, yy, 180, 54); bool clip = lu.Clips > 0; FillRR(g, TM.C(150, 8, 4, 20), c2, 10); Txt(g, "CLIPPING", 10, DimC, Rc(c2.X, c2.Y + 3, c2.Width, 14), StringAlignment.Center, true); Txt(g, clip ? lu.Clips + " samples" : "none detected", 17, clip ? Bad : Good, Rc(c2.X, c2.Y + 17, c2.Width, 32), StringAlignment.Center, true);
         yy += 62; Txt(g, "GAIN REDUCTION", 11, DimC, Rc(ap.X + 14, yy, 110, 16), StringAlignment.Near, false); float grf = Clamp01(eng.MasterGr / 18f);
-        FillRR(g, Color.FromArgb(180, 8, 4, 18), Rc(ap.X + 130, yy + 3, 220, 9), 4); if (grf > 0.01f) FillRR(g, Warn, Rc(ap.X + 130, yy + 3, 220 * grf, 9), 4); Txt(g, eng.MasterGr.ToString("0.0") + " dB", 11, Ink, Rc(ap.X + 356, yy, 40, 16), StringAlignment.Near, false); yy += 30;
+        FillRR(g, TM.C(180, 8, 4, 18), Rc(ap.X + 130, yy + 3, 220, 9), 4); if (grf > 0.01f) FillRR(g, Warn, Rc(ap.X + 130, yy + 3, 220 * grf, 9), 4); Txt(g, eng.MasterGr.ToString("0.0") + " dB", 11, Ink, Rc(ap.X + 356, yy, 40, 16), StringAlignment.Near, false); yy += 30;
         // loudness: automatic first, manual for the picky
         Txt(g, "LOUDNESS", 14, Ink, Rc(ap.X + 14, yy, 200, 22), StringAlignment.Near, true); yy += 26;
         var al = Rc(ap.X + 12, yy, 378, 40); Btn(g, al, "AUTO LOUDNESS", 2, () => AutoLoudnessAuto(), 15); Hint2(al, "Measures the whole mix, picks the best level for this track (and evens it out), and sets it. You do not have to do anything."); yy += 44;
@@ -284,7 +293,7 @@ partial class StudioForm
         float y = a.Y + 2;
         if (mpBackup != null)
         {
-            var bn = Rc(a.X + 4, y, a.Width - 8, 44); FillRR(g, Color.FromArgb(220, 30, 60, 90), bn, 10); StrokeRR(g, NeonCyan, bn, 10, 1.4f);
+            var bn = Rc(a.X + 4, y, a.Width - 8, 44); FillRR(g, TM.C(220, 30, 60, 90), bn, 10); StrokeRR(g, NeonCyan, bn, 10, 1.4f);
             Txt(g, "TRYING: " + (mpPreviewIdx >= 0 ? MasterPresets.All[mpPreviewIdx].Name.Split('(')[0].Trim().ToUpper() : ""), 13, Ink, Rc(bn.X + 12, bn.Y, bn.Width - 250, bn.Height), StringAlignment.Near, true);
             var keep = Rc(bn.Right - 232, bn.Y + 6, 108, 32); var back = Rc(bn.Right - 118, bn.Y + 6, 108, 32);
             Btn(g, keep, "KEEP IT", 2, () => PresetKeep(), 13); Hint2(keep, "Keep this preset on your master"); Btn(g, back, "PUT BACK", 3, () => PresetPutBack(), 12); Hint2(back, "Go back to the chain you had before trying");
@@ -302,12 +311,12 @@ partial class StudioForm
         {
             int pi = show[i]; var p = all0[pi]; var card = Rc(a.X + 4 + (i % cols) * (cw + gap), y + (i / cols) * (ch + gap) - mpScroll, cw, ch); if (card.Bottom < y - 2 || card.Y > a.Bottom) continue;
             bool trying = mpBackup != null && mpPreviewIdx == pi, hot = Hot(RectangleF.Intersect(card, area)) && area.Contains(MousePos);
-            FillRR(g, trying ? Color.FromArgb(220, 34, 56, 100) : Color.FromArgb(hot ? 200 : 160, 28, 16, 56), card, 12); StrokeRR(g, trying ? NeonCyan : Color.FromArgb(hot ? 200 : 100, NeonViolet), card, 12, trying ? 1.8f : 1.1f); if (trying) Glow(g, NeonCyan, card, 12, 0.5f, 3);
+            FillRR(g, trying ? TM.C(220, 34, 56, 100) : TM.C(hot ? 200 : 160, 28, 16, 56), card, 12); StrokeRR(g, trying ? NeonCyan : Color.FromArgb(hot ? 200 : 100, NeonViolet), card, 12, trying ? 1.8f : 1.1f); if (trying) Glow(g, NeonCyan, card, 12, 0.5f, 3);
             Txt(g, p.Name.ToUpper(), 14, Ink, Rc(card.X + 12, card.Y + 8, card.Width - 24, 22), StringAlignment.Near, true);
             var tag = Rc(card.X + 12, card.Y + 32, 12 + p.Group.Length * 7.5f, 18); FillRR(g, Color.FromArgb(80, NeonViolet), tag, 5); Txt(g, p.Group.ToUpper(), 9, Ink, tag, StringAlignment.Center, true);
-            TxtWrap(g, p.Blurb, 11, Color.FromArgb(205, 200, 190, 230), Rc(card.X + 12, card.Y + 54, card.Width - 24, 50));
-            var pv = Rc(card.X + 12, card.Bottom - 38, 126, 30); var us = Rc(pv.Right + 8, card.Bottom - 38, 96, 30);
-            var pva = RectangleF.Intersect(pv, area); if (!pva.IsEmpty) { Btn(g, pv, trying && mpActive ? "PREVIEWING" : "PREVIEW", trying ? 4 : 1, () => PresetTry(pi), 12); Hint2(pv, "Hear this preset on your song now (the loudest 20 seconds, looping)"); }
+            TxtWrap(g, p.Blurb, 11, TM.C(205, 200, 190, 230), Rc(card.X + 12, card.Y + 54, card.Width - 24, 50));
+            var pv = Rc(card.X + 12, card.Bottom - 38, 104, 30); var sp0 = Rc(pv.Right + 6, card.Bottom - 38, 62, 30); var us = Rc(sp0.Right + 6, card.Bottom - 38, 70, 30);
+            var pva = RectangleF.Intersect(pv, area); if (!pva.IsEmpty) { Btn(g, pv, trying && mpActive ? "PREVIEWING" : "PREVIEW", trying ? 4 : 1, () => PresetTry(pi), 12); Hint2(pv, "Hear this preset on your song now (the loudest 20 seconds, looping)"); var spa = RectangleF.Intersect(sp0, area); if (!spa.IsEmpty) { Btn(g, sp0, "STOP", trying && mpActive ? 3 : 0, () => MasterPreviewStop(), 11); Hint2(sp0, "Stop the preview"); } }
             var usa = RectangleF.Intersect(us, area); if (!usa.IsEmpty) { Btn(g, us, "USE", 2, () => PresetUse(pi), 12); Hint2(us, "Put this preset on your master and keep it"); }
         }
         g.Restore(gs); VScroll(g, Rc(a.Right - 56, y, 42, areaH), total, areaH, () => mpScroll, v => mpScroll = v);
@@ -317,9 +326,9 @@ partial class StudioForm
     void PaintAutoMixSheet(Graphics g)
     {
         if (!amOpen || amVersions == null) return; float W = ClientSize.Width, H = ClientSize.Height; var all = Rc(0, 0, W, H);
-        using (var b = new SolidBrush(Color.FromArgb(160, 3, 1, 10))) g.FillRectangle(b, all); Reg(all, () => { });
+        using (var b = new SolidBrush(TM.C(160, 3, 1, 10))) g.FillRectangle(b, all); Reg(all, () => { });
         float sw = Math.Min(900, W - 24), sh = Math.Min(H - 30, 700); var sheet = PopMove("amaster", Rc((W - sw) / 2, (H - sh) / 2, sw, sh), 54, 70);
-        FillRR(g, Color.FromArgb(252, 16, 10, 34), sheet, 22); Glow(g, NeonViolet, sheet, 22, 0.8f, 4); StrokeRR(g, Color.FromArgb(180, NeonViolet), sheet, 22, 1.5f); Reg(sheet, () => { });
+        FillRR(g, TM.C(252, 16, 10, 34), sheet, 22); Glow(g, NeonViolet, sheet, 22, 0.8f, 4); StrokeRR(g, Color.FromArgb(180, NeonViolet), sheet, 22, 1.5f); Reg(sheet, () => { });
         Txt(g, "AUTO MASTERING", 22, Ink, Rc(sheet.X + 22, sheet.Y + 14, 400, 34), StringAlignment.Near, true);
         float y = sheet.Y + 52; foreach (var ln in amLines) { TxtWrap(g, ln, 12, DimC, Rc(sheet.X + 22, y, sheet.Width - 44, 20)); y += 22; }
         TxtWrap(g, "Press PREVIEW to hear each version on the loudest part of your song (it loops), then USE THIS on the one you like. You can always REVERT afterwards, and CANCEL puts everything back.", 12, Ink, Rc(sheet.X + 22, y + 4, sheet.Width - 44, 36)); y += 44;
@@ -329,15 +338,15 @@ partial class StudioForm
         for (int i = -1; i < amVersions.Length; i++)
         {
             int vi = i; var card = Rc(sheet.X + 22, areaTop + (i + 1) * (ch + gap) - amScroll, sheet.Width - 44 - vsw, ch); if (card.Bottom < areaTop - 2 || card.Y > areaBottom) continue; bool on = amApplied == i;
-            FillRR(g, on ? Color.FromArgb(225, 34, 56, 100) : Color.FromArgb(170, 28, 16, 56), card, 12); StrokeRR(g, on ? NeonCyan : Color.FromArgb(110, NeonViolet), card, 12, on ? 1.8f : 1.1f); if (on) Glow(g, NeonCyan, card, 12, 0.5f, 3);
-            string nm = i < 0 ? "YOUR MIX (BEFORE)" : amVersions[i].Name; string bl = i < 0 ? "Exactly what you have now, with the chain you had. Use it to compare." : amVersions[i].Blurb; float tw = card.Width - 330;
+            FillRR(g, on ? TM.C(225, 34, 56, 100) : TM.C(170, 28, 16, 56), card, 12); StrokeRR(g, on ? NeonCyan : Color.FromArgb(110, NeonViolet), card, 12, on ? 1.8f : 1.1f); if (on) Glow(g, NeonCyan, card, 12, 0.5f, 3);
+            string nm = i < 0 ? "YOUR MIX (BEFORE)" : amVersions[i].Name; string bl = i < 0 ? "Exactly what you have now, with the chain you had. Use it to compare." : amVersions[i].Blurb; float tw = card.Width - 400;
             Txt(g, nm, 16, Ink, Rc(card.X + 16, card.Y + 8, Math.Min(tw, 260), 24), StringAlignment.Near, true);
             if (i >= 0 && amVersions[i].Recommended) { var rt = Rc(card.X + 16 + Math.Min(tw, 260) + 6, card.Y + 11, 150, 18); FillRR(g, Color.FromArgb(230, 40, 150, 100), rt, 6); Txt(g, "BEST FOR YOUR MIX", 10, Color.White, rt, StringAlignment.Center, true); }
-            TxtWrap(g, bl, 11, Color.FromArgb(210, 200, 190, 230), Rc(card.X + 16, card.Y + 32, tw, 30));
+            TxtWrap(g, bl, 11, TM.C(210, 200, 190, 230), Rc(card.X + 16, card.Y + 32, tw, 30));
             if (i >= 0) Txt(g, "EQ: " + amVersions[i].Eq + "   -   " + amVersions[i].Lufs.ToString("0.0") + " LUFS", 11, Color.FromArgb(150, 235, 200), Rc(card.X + 16, card.Y + 66, tw, 24), StringAlignment.Near, false);
             else Txt(g, amOrigResult != null ? amOrigResult.I.ToString("0.0") + " LUFS (before mastering)" : "", 11, DimC, Rc(card.X + 16, card.Y + 66, tw, 20), StringAlignment.Near, false);
-            var pv = Rc(card.Right - 296, card.Y + 30, 156, 36); var us = Rc(card.Right - 130, card.Y + 30, 114, 36);
-            var pva = RectangleF.Intersect(pv, area); if (!pva.IsEmpty) { Btn(g, pv, on && mpActive ? "PREVIEWING" : "PREVIEW", on ? 4 : 1, () => AmPreview(vi), 13); Hint2(pv, "Hear this version on your song now"); }
+            var pv = Rc(card.Right - 366, card.Y + 30, 150, 36); var sp0 = Rc(pv.Right + 6, card.Y + 30, 70, 36); var us = Rc(card.Right - 130, card.Y + 30, 114, 36);
+            var pva = RectangleF.Intersect(pv, area); if (!pva.IsEmpty) { Btn(g, pv, on && mpActive ? "PREVIEWING" : "PREVIEW", on ? 4 : 1, () => AmPreview(vi), 13); Hint2(pv, "Hear this version on your song now"); var spa = RectangleF.Intersect(sp0, area); if (!spa.IsEmpty) { Btn(g, sp0, "STOP", on && mpActive ? 3 : 0, () => MasterPreviewStop(), 12); Hint2(sp0, "Stop the preview"); } }
             if (i >= 0) { var usa = RectangleF.Intersect(us, area); if (!usa.IsEmpty) { Btn(g, us, "USE THIS", 2, () => AmUse(vi), 13); Hint2(us, "Keep this version on your master (you can revert it afterwards)"); } }
         }
         g.Restore(gs); VScroll(g, Rc(sheet.Right - 56, areaTop, 42, areaH), total, areaH, () => amScroll, v => amScroll = v);
@@ -349,7 +358,7 @@ partial class StudioForm
     double[] specPre = new double[2049];
     void FillEqBackdrop(Graphics g, RectangleF plot)
     {
-        using (var p = RR(plot, 8)) using (var br = new LinearGradientBrush(plot, Color.FromArgb(235, 14, 8, 34), Color.FromArgb(235, 4, 2, 12), 90f)) g.FillPath(br, p);
+        using (var p = RR(plot, 8)) using (var br = new LinearGradientBrush(plot, TM.C(235, 14, 8, 34), TM.C(235, 4, 2, 12), 90f)) g.FillPath(br, p);
         StrokeRR(g, Edge, plot, 8, 1);
     }
     void DrawEqSpectrum(Graphics g, RectangleF plot, bool master)
@@ -364,13 +373,13 @@ partial class StudioForm
         if (master)
         {   // what the chain changed: lime where it added sound, pink where it took sound away
             for (int i = 0; i < cnt; i++) { float diff = (before[i].Y - after[i].Y) / hh * 80f; if (Math.Abs(diff) < 1.2f) continue; using (var pen = new Pen(Color.FromArgb((int)Math.Min(120, 40 + Math.Abs(diff) * 9), diff > 0 ? NeonLime : NeonPink), 2f)) g.DrawLine(pen, after[i].X, after[i].Y, before[i].X, before[i].Y); }
-            poly.AddRange(before); poly.Add(new PointF(plot.Right, plot.Bottom)); using (var br = new SolidBrush(Color.FromArgb(26, 210, 210, 235))) g.FillPolygon(br, poly.ToArray());
-            using (var pen = new Pen(Color.FromArgb(150, 205, 205, 235), 1.2f)) g.DrawLines(pen, before);
+            poly.AddRange(before); poly.Add(new PointF(plot.Right, plot.Bottom)); using (var br = new SolidBrush(TM.C(26, 210, 210, 235))) g.FillPolygon(br, poly.ToArray());
+            using (var pen = new Pen(TM.C(150, 205, 205, 235), 1.2f)) g.DrawLines(pen, before);
         }
         poly.Clear(); poly.Add(new PointF(plot.X, plot.Bottom)); poly.AddRange(after); poly.Add(new PointF(plot.Right, plot.Bottom));
         using (var br = new LinearGradientBrush(plot, Color.FromArgb(140, NeonCyan), Color.FromArgb(14, NeonViolet), 90f)) g.FillPolygon(br, poly.ToArray());
         using (var pen = new Pen(Color.FromArgb(60, NeonCyan), 5f) { LineJoin = LineJoin.Round }) g.DrawLines(pen, after); using (var pen = new Pen(NeonCyan, 1.7f) { LineJoin = LineJoin.Round }) g.DrawLines(pen, after);
-        if (master) { Txt(g, "BEFORE", 10, Color.FromArgb(200, 205, 205, 235), Rc(plot.X + 8, plot.Y + 4, 60, 14), StringAlignment.Near, true); Txt(g, "AFTER", 10, NeonCyan, Rc(plot.X + 64, plot.Y + 4, 60, 14), StringAlignment.Near, true); Txt(g, "ADDED", 10, NeonLime, Rc(plot.X + 118, plot.Y + 4, 60, 14), StringAlignment.Near, true); Txt(g, "TAKEN AWAY", 10, NeonPink, Rc(plot.X + 172, plot.Y + 4, 90, 14), StringAlignment.Near, true); }
+        if (master) { Txt(g, "BEFORE", 10, TM.C(200, 205, 205, 235), Rc(plot.X + 8, plot.Y + 4, 60, 14), StringAlignment.Near, true); Txt(g, "AFTER", 10, NeonCyan, Rc(plot.X + 64, plot.Y + 4, 60, 14), StringAlignment.Near, true); Txt(g, "ADDED", 10, NeonLime, Rc(plot.X + 118, plot.Y + 4, 60, 14), StringAlignment.Near, true); Txt(g, "TAKEN AWAY", 10, NeonPink, Rc(plot.X + 172, plot.Y + 4, 90, 14), StringAlignment.Near, true); }
         else Txt(g, "LIVE SOUND", 10, NeonCyan, Rc(plot.X + 8, plot.Y + 4, 100, 14), StringAlignment.Near, true);
     }
 }

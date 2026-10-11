@@ -64,18 +64,18 @@ partial class StudioForm
     void PaintNewTrackSheet(Graphics g)
     {
         if (!ntOpen) return; float W = ClientSize.Width, H = ClientSize.Height; var all = Rc(0, 0, W, H);
-        using (var b = new SolidBrush(Color.FromArgb(150, 3, 1, 10))) g.FillRectangle(b, all); Reg(all, () => CloseNewTrackSheet());
+        using (var b = new SolidBrush(TM.C(150, 3, 1, 10))) g.FillRectangle(b, all); Reg(all, () => CloseNewTrackSheet());
         var items = NtItems(); const float rowH = 70; bool pick = eng.Tracks.Count > 0;
         float sw = Math.Min(560, W - 24), sh = Math.Min(H - 40, 74 + (pick ? 42 : 0) + items.Count * rowH + 96); var sheet = PopMove("newtrack", Rc((W - sw) / 2, H - sh - 12, sw, sh), 66, 70, false);
-        FillRR(g, Color.FromArgb(252, 16, 10, 34), sheet, 24); Glow(g, NeonViolet, sheet, 24, 0.8f, 4); StrokeRR(g, Color.FromArgb(180, NeonViolet), sheet, 24, 1.5f); Reg(sheet, () => { });
-        using (var b = new SolidBrush(Color.FromArgb(110, 150, 140, 190))) g.FillPath(b, RR(Rc(sheet.X + sw / 2 - 26, sheet.Y + 9, 52, 5), 2.5f));
+        FillRR(g, TM.C(252, 16, 10, 34), sheet, 24); Glow(g, NeonViolet, sheet, 24, 0.8f, 4); StrokeRR(g, Color.FromArgb(180, NeonViolet), sheet, 24, 1.5f); Reg(sheet, () => { });
+        using (var b = new SolidBrush(TM.C(110, 150, 140, 190))) g.FillPath(b, RR(Rc(sheet.X + sw / 2 - 26, sheet.Y + 9, 52, 5), 2.5f));
         Txt(g, "NEW TRACK", 24, Ink, Rc(sheet.X + 24, sheet.Y + 24, 240, 40), StringAlignment.Near, true);
-        var close = Rc(sheet.Right - 54, sheet.Y + 26, 34, 34); FillRR(g, Hot(close) ? Color.FromArgb(160, 70, 38, 130) : Color.FromArgb(110, 40, 24, 80), close, 17); Txt(g, "X", 16, Ink, close, StringAlignment.Center, true); Reg(close, () => CloseNewTrackSheet());
+        var close = Rc(sheet.Right - 54, sheet.Y + 26, 34, 34); FillRR(g, Hot(close) ? TM.C(160, 70, 38, 130) : TM.C(110, 40, 24, 80), close, 17); Txt(g, "X", 16, Ink, close, StringAlignment.Center, true); Reg(close, () => CloseNewTrackSheet());
         float y = sheet.Y + 74;
         if (pick)
         {
             string[] w = { "Goes below the selected track", "Goes above the selected track", "Goes at the end of the list" }; var chip = Rc(sheet.X + 24, y, sheet.Width - 48, 32);
-            FillRR(g, Hot(chip) ? Color.FromArgb(150, 60, 34, 110) : Color.FromArgb(100, 40, 24, 80), chip, 16); Txt(g, w[ntWhere] + "   (click to change)", 13, DimC, chip, StringAlignment.Center, false); Reg(chip, () => ntWhere = (ntWhere + 1) % 3);
+            FillRR(g, Hot(chip) ? TM.C(150, 60, 34, 110) : TM.C(100, 40, 24, 80), chip, 16); Txt(g, w[ntWhere] + "   (click to change)", 13, DimC, chip, StringAlignment.Center, false); Reg(chip, () => ntWhere = (ntWhere + 1) % 3);
             y += 42;
         }
         float bottomH = 84, top = y, areaH = sheet.Bottom - bottomH - top - 6; var area = Rc(sheet.X, top, sheet.Width, areaH);
@@ -85,11 +85,11 @@ partial class StudioForm
         for (int i = 0; i < items.Count; i++)
         {
             var it = items[i]; var row = Rc(sheet.X + 12, top + i * rowH - ntScroll, sheet.Width - 24 - vsw, rowH - 6); if (row.Bottom < top || row.Y > area.Bottom) continue; bool hot = Hot(row) && area.Contains(MousePos);
-            if (hot) FillRR(g, Color.FromArgb(120, 70, 40, 130), row, 14);
+            if (hot) FillRR(g, TM.C(120, 70, 40, 130), row, 14);
             var ic = Rc(row.X + 10, row.Y + 7, 52, 52); using (var b = new SolidBrush(it.Col)) g.FillEllipse(b, ic); NtIcon(g, ic, it.Icon);
             Txt(g, it.Title, 18, Ink, Rc(row.X + 78, row.Y + 8, 260, 26), StringAlignment.Near, false);
             Txt(g, it.Sub, 14, DimC, Rc(row.X + 78, row.Y + 36, row.Width - 90, 22), StringAlignment.Near, false);
-            if (it.Tag.Length > 0) { SizeF ts; using (var f = new Font("Segoe UI", 13.5f)) ts = g.MeasureString(it.Title, f); var tg = Rc(row.X + 78 + ts.Width + 4, row.Y + 11, 44, 20); FillRR(g, Color.FromArgb(235, 235, 235), tg, 5); Txt(g, it.Tag, 11, Color.FromArgb(20, 14, 34), tg, StringAlignment.Center, true); }
+            if (it.Tag.Length > 0) { SizeF ts; using (var f = new Font("Segoe UI", 13.5f)) ts = g.MeasureString(it.Title, f); var tg = Rc(row.X + 78 + ts.Width + 4, row.Y + 11, 44, 20); FillRR(g, Color.FromArgb(235, 235, 235), tg, 5); Txt(g, it.Tag, 11, TM.C(255, 20, 14, 34), tg, StringAlignment.Center, true); }
             var act = it.Do; Reg(row, () => act());
         }
         g.ResetClip(); VScroll(g, Rc(sheet.Right - 54, top, 42, areaH), total, areaH, () => ntScroll, v => ntScroll = v);
@@ -98,7 +98,7 @@ partial class StudioForm
         string[] bn = { "Import a file", "Sounds" }; Action[] ba = { () => { nextInsert = NtInsertAt(); CloseNewTrackSheet(); AddMusicClick(true); }, () => { CloseNewTrackSheet(); OpenSounds(); } };
         for (int i = 0; i < 2; i++)
         {
-            var b = Rc(sheet.X + 12 + i * (bw + 12), by, bw, 62); var act = ba[i]; FillRR(g, Hot(b) ? Color.FromArgb(235, 52, 34, 100) : Color.FromArgb(235, 34, 24, 66), b, 14); StrokeRR(g, Color.FromArgb(120, NeonViolet), b, 14, 1);
+            var b = Rc(sheet.X + 12 + i * (bw + 12), by, bw, 62); var act = ba[i]; FillRR(g, Hot(b) ? TM.C(235, 52, 34, 100) : TM.C(235, 34, 24, 66), b, 14); StrokeRR(g, Color.FromArgb(120, NeonViolet), b, 14, 1);
             Txt(g, bn[i], 16, Ink, b, StringAlignment.Center, true); Reg(b, () => act());
         }
     }
@@ -115,13 +115,13 @@ partial class StudioForm
     void PaintBusSheet(Graphics g)
     {
         if (!busOpen) return; float W = ClientSize.Width, H = ClientSize.Height; var all = Rc(0, 0, W, H);
-        using (var b = new SolidBrush(Color.FromArgb(150, 3, 1, 10))) g.FillRectangle(b, all); Reg(all, () => busOpen = false);
+        using (var b = new SolidBrush(TM.C(150, 3, 1, 10))) g.FillRectangle(b, all); Reg(all, () => busOpen = false);
         var buses = new List<Track>(); foreach (var t in eng.Tracks) if (t.IsBus) buses.Add(t);
         const float rowH = 84; float sw = Math.Min(620, W - 24), sh = Math.Min(H - 40, 150 + Math.Max(1, buses.Count) * rowH); var sheet = PopMove("bus", Rc((W - sw) / 2, (H - sh) / 2, sw, sh), 54, 70);
-        FillRR(g, Color.FromArgb(252, 16, 10, 34), sheet, 22); Glow(g, NeonViolet, sheet, 22, 0.8f, 4); StrokeRR(g, Color.FromArgb(180, NeonViolet), sheet, 22, 1.5f); Reg(sheet, () => { });
+        FillRR(g, TM.C(252, 16, 10, 34), sheet, 22); Glow(g, NeonViolet, sheet, 22, 0.8f, 4); StrokeRR(g, Color.FromArgb(180, NeonViolet), sheet, 22, 1.5f); Reg(sheet, () => { });
         Txt(g, "BUSES", 22, Ink, Rc(sheet.X + 22, sheet.Y + 16, 200, 34), StringAlignment.Near, true);
         TxtWrap(g, "A bus mixes the tracks sent to it and puts shared plugins on them. Choose it from the Bus drop-down on a track.", 12, DimC, Rc(sheet.X + 22, sheet.Y + 48, sheet.Width - 44, 34));
-        var close = Rc(sheet.Right - 52, sheet.Y + 16, 32, 32); FillRR(g, Hot(close) ? Color.FromArgb(160, 70, 38, 130) : Color.FromArgb(110, 40, 24, 80), close, 16); Txt(g, "X", 15, Ink, close, StringAlignment.Center, true); Reg(close, () => busOpen = false);
+        var close = Rc(sheet.Right - 52, sheet.Y + 16, 32, 32); FillRR(g, Hot(close) ? TM.C(160, 70, 38, 130) : TM.C(110, 40, 24, 80), close, 16); Txt(g, "X", 15, Ink, close, StringAlignment.Center, true); Reg(close, () => busOpen = false);
         float top = sheet.Y + 86, areaH = sheet.Bottom - 66 - top; var area = Rc(sheet.X, top, sheet.Width, areaH); float total = buses.Count * rowH; busScroll = Math.Max(0, Math.Min(Math.Max(0, total - areaH), busScroll));
         regs.Add(new HitReg { R = area, OnWheel = d => busScroll = Math.Max(0, Math.Min(Math.Max(0, total - areaH), busScroll - d * 60)) });
         g.SetClip(area);
@@ -129,7 +129,7 @@ partial class StudioForm
         for (int i = 0; i < buses.Count; i++)
         {
             var bt = buses[i]; int bi = eng.Tracks.IndexOf(bt); var row = Rc(sheet.X + 14, top + i * rowH - busScroll, sheet.Width - 28 - (total > areaH ? 56 : 0), rowH - 8); if (row.Bottom < top || row.Y > area.Bottom) continue;
-            FillRR(g, Color.FromArgb(150, 26, 15, 52), row, 12); StrokeRR(g, Color.FromArgb(90, NeonViolet), row, 12, 1);
+            FillRR(g, TM.C(150, 26, 15, 52), row, 12); StrokeRR(g, Color.FromArgb(90, NeonViolet), row, 12, 1);
             int cnt = 0; foreach (var x in eng.Tracks) if (x.Out == bt) cnt++;
             var nm = Rc(row.X + 14, row.Y + 8, 190, 24); Txt(g, bt.Name, 15, Ink, nm, StringAlignment.Near, true); Reg(nm, () => { }).OnDouble = () => RenameTrack(bt);
             Txt(g, cnt + (cnt == 1 ? " track" : " tracks"), 11, DimC, Rc(row.X + 14, row.Y + 32, 150, 18), StringAlignment.Near, false);

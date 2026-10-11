@@ -411,17 +411,17 @@ class MasterForm : Form
     volatile bool analyzing = false; string analyzeText = "";
 
     // ---- purple theme (from the main window) ----
-    static Color Accent = Color.FromArgb(190, 110, 255);
-    static Color Accent2 = Color.FromArgb(235, 90, 230);
-    static Color AccentHi = Color.FromArgb(232, 190, 255);
-    static Color Violet = Color.FromArgb(124, 52, 214);
-    static Color PanelC = Color.FromArgb(205, 28, 11, 54);
-    static Color PanelEdge = Color.FromArgb(120, 150, 80, 220);
+    static Color Accent = TM.C(255, 190, 110, 255);
+    static Color Accent2 = TM.C(255, 235, 90, 230);
+    static Color AccentHi = TM.C(255, 232, 190, 255);
+    static Color Violet = TM.C(255, 124, 52, 214);
+    static Color PanelC = TM.C(205, 28, 11, 54);
+    static Color PanelEdge = TM.C(120, 150, 80, 220);
     internal static void ApplyTheme(ThemeDef t) { Accent = t.Accent; Accent2 = t.Accent2; AccentHi = Color.FromArgb(Math.Min(255, t.Accent.R + 54), Math.Min(255, t.Accent.G + 54), Math.Min(255, t.Accent.B + 54)); Violet = t.Btn; PanelC = Color.FromArgb(205, t.Panel.R + 8, t.Panel.G + 4, t.Panel.B + 14); PanelEdge = Color.FromArgb(120, t.EdgeC); }
-    static readonly Color Dim = Color.FromArgb(190, 175, 150, 215);
-    static readonly Color White = Color.FromArgb(244, 236, 255);
-    static readonly Color Chrome = Color.FromArgb(24, 10, 44);
-    static readonly Color Pink = Color.FromArgb(255, 120, 200);
+    static Color Dim { get { return TM.C(190, 175, 150, 215); } }
+    static Color White { get { return TM.C(255, 244, 236, 255); } }
+    static Color Chrome { get { return TM.C(255, 24, 10, 44); } }
+    static Color Pink { get { return TM.C(255, 255, 120, 200); } }
 
     // ---- layout (design space) ----
     static readonly RectangleF PresetR = new RectangleF(92, 44, 368, 28);
@@ -484,7 +484,7 @@ class MasterForm : Form
 
     Leaf NewLeaf(bool any)
     {
-        Color[] pal = { Color.FromArgb(170, 90, 255), Color.FromArgb(140, 60, 230), Color.FromArgb(195, 125, 255), Color.FromArgb(120, 50, 200) };
+        Color[] pal = { TM.C(255, 170, 90, 255), TM.C(255, 140, 60, 230), TM.C(255, 195, 125, 255), TM.C(255, 120, 50, 200) };
         var l = new Leaf();
         l.S = 0.5f + (float)rnd.NextDouble() * 1.2f;
         l.X = (float)rnd.NextDouble() * 1400;
@@ -553,14 +553,14 @@ class MasterForm : Form
     void Btn(Graphics g, RectangleF r, string text, bool on, Color onColor, Color textColor)
     {
         text = Win.Up(text);
-        FillRR(g, on ? onColor : Color.FromArgb(150, 52, 28, 92), r, 5);
+        FillRR(g, on ? onColor : TM.C(150, 52, 28, 92), r, 5);
         Txt(g, text, 17, textColor, r, StringAlignment.Center, false);
     }
 
     void Knob(Graphics g, PointF c, float val01, bool centerRef)
     {
         var ring = new RectangleF(c.X - KnobR - 9, c.Y - KnobR - 9, (KnobR + 9) * 2, (KnobR + 9) * 2);
-        using (var pen = new Pen(Color.FromArgb(120, 60, 30, 100), 7))
+        using (var pen = new Pen(TM.C(120, 60, 30, 100), 7))
             g.DrawArc(pen, ring, 135, 270);
         float a0 = centerRef ? 270 : 135, a1 = 135 + 270 * val01;
         float sweep = a1 - a0;
@@ -570,9 +570,9 @@ class MasterForm : Form
             using (var pen = new Pen(Accent, 7)) g.DrawArc(pen, ring, a0, sweep);
         }
         var body = new RectangleF(c.X - KnobR, c.Y - KnobR, KnobR * 2, KnobR * 2);
-        using (var br = new LinearGradientBrush(body, Color.FromArgb(62, 30, 104), Color.FromArgb(30, 12, 58), 90f))
+        using (var br = new LinearGradientBrush(body, TM.C(255, 62, 30, 104), TM.C(255, 30, 12, 58), 90f))
             g.FillEllipse(br, body);
-        using (var pen = new Pen(Color.FromArgb(150, 130, 80, 200), 2)) g.DrawEllipse(pen, body);
+        using (var pen = new Pen(TM.C(150, 130, 80, 200), 2)) g.DrawEllipse(pen, body);
         double ang = (135 + 270 * val01) * Math.PI / 180.0;
         using (var pen = new Pen(AccentHi, 4) { StartCap = LineCap.Round, EndCap = LineCap.Round })
             g.DrawLine(pen, c.X + (float)Math.Cos(ang) * KnobR * 0.35f, c.Y + (float)Math.Sin(ang) * KnobR * 0.35f,
@@ -581,7 +581,7 @@ class MasterForm : Form
 
     void BarMeter(Graphics g, float x, float y, float w, float h, double v, double lo, double hi)
     {
-        FillRR(g, Color.FromArgb(150, 12, 4, 30), new RectangleF(x, y, w, h), h / 2);
+        FillRR(g, TM.C(150, 12, 4, 30), new RectangleF(x, y, w, h), h / 2);
         if (double.IsNaN(v)) return;
         float fw = (float)(w * Math.Max(0, Math.Min(1, (v - lo) / (hi - lo))));
         if (fw < 2) return;
@@ -602,7 +602,7 @@ class MasterForm : Form
 
         // background: the main window's deep-purple gradient, glows, leaves and spores
         var full = new RectangleF(0, 0, 1400, 880);
-        using (var br = new LinearGradientBrush(full, Color.FromArgb(14, 5, 30), Color.FromArgb(48, 12, 86), 70f))
+        using (var br = new LinearGradientBrush(full, TM.C(255, 14, 5, 30), TM.C(255, 48, 12, 86), 70f))
             g.FillRectangle(br, full);
         for (int i = 0; i < 2; i++)
         {
@@ -619,7 +619,7 @@ class MasterForm : Form
         foreach (var s in spores)
         {
             int a = (int)(60 + 90 * (Math.Sin(t * 2 + s.Phase) * 0.5 + 0.5));
-            using (var b = new SolidBrush(Color.FromArgb(a, 215, 170, 255))) g.FillEllipse(b, s.X, s.Y, s.R * 2, s.R * 2);
+            using (var b = new SolidBrush(TM.C(a, 215, 170, 255))) g.FillEllipse(b, s.X, s.Y, s.R * 2, s.R * 2);
         }
 
         PaintTopBar(g);
@@ -638,7 +638,7 @@ class MasterForm : Form
         using (var bg = Graphics.FromImage(bmp)) using (var gp = new GraphicsPath())
         {
             bg.SmoothingMode = SmoothingMode.AntiAlias; gp.AddEllipse(0, 0, 256, 256);
-            using (var pg = new PathGradientBrush(gp)) { pg.CenterColor = Color.FromArgb(70, 150, 60, 240); pg.SurroundColors = new[] { Color.FromArgb(0, 150, 60, 240) }; bg.FillPath(pg, gp); }
+            using (var pg = new PathGradientBrush(gp)) { pg.CenterColor = TM.C(70, 150, 60, 240); pg.SurroundColors = new[] { TM.C(0, 150, 60, 240) }; bg.FillPath(pg, gp); }
         }
         glowBmp = bmp; return bmp;
     }
@@ -646,7 +646,7 @@ class MasterForm : Form
     void PaintTopBar(Graphics g)
     {
         using (var br = new SolidBrush(Color.FromArgb(215, Chrome))) g.FillRectangle(br, 0, 0, 1400, 125);
-        using (var pen = new Pen(Color.FromArgb(140, 150, 80, 220))) g.DrawLine(pen, 0, 125, 1400, 125);
+        using (var pen = new Pen(TM.C(140, 150, 80, 220))) g.DrawLine(pen, 0, 125, 1400, 125);
         Txt(g, "PURPHEX MASTERING", 22, White, new RectangleF(400, 6, 600, 30), StringAlignment.Center, true);
 
         // power button (pulses while on)
@@ -656,18 +656,18 @@ class MasterForm : Form
             float pulse = (float)(Math.Sin(t * 3) * 0.5 + 0.5);
             using (var gl = new SolidBrush(Color.FromArgb((int)(40 + 50 * pulse), Accent))) g.FillEllipse(gl, At(49, 78, 70, 70));
         }
-        using (var br = new SolidBrush(ms.On ? Violet : Color.FromArgb(70, 55, 90))) g.FillEllipse(br, pc);
+        using (var br = new SolidBrush(ms.On ? Violet : TM.C(255, 70, 55, 90))) g.FillEllipse(br, pc);
         using (var pen = new Pen(Color.White, 3.5f) { StartCap = LineCap.Round, EndCap = LineCap.Round })
         {
             g.DrawArc(pen, 49 - 12, 78 - 12, 24, 24, -55, 290);
             g.DrawLine(pen, 49, 78 - 16, 49, 78);
         }
 
-        FillRR(g, Color.FromArgb(160, 52, 28, 92), PresetR, 5);
+        FillRR(g, TM.C(160, 52, 28, 92), PresetR, 5);
         Txt(g, presetName, 18, Dim, new RectangleF(PresetR.X + 12, PresetR.Y, 300, PresetR.Height), StringAlignment.Near, false);
         using (var pen = new Pen(Dim, 2)) { g.DrawLine(pen, PresetR.Right - 24, 55, PresetR.Right - 18, 61); g.DrawLine(pen, PresetR.Right - 18, 61, PresetR.Right - 12, 55); }
 
-        FillRR(g, Color.FromArgb(150, 52, 28, 92), new RectangleF(NavL.X, NavL.Y, 90, 28), 5);
+        FillRR(g, TM.C(150, 52, 28, 92), new RectangleF(NavL.X, NavL.Y, 90, 28), 5);
         using (var pen = new Pen(White, 2.2f))
         {
             g.DrawLine(pen, NavL.X + 26, NavL.Y + 8, NavL.X + 18, NavL.Y + 14); g.DrawLine(pen, NavL.X + 18, NavL.Y + 14, NavL.X + 26, NavL.Y + 20);
@@ -679,7 +679,7 @@ class MasterForm : Form
         Btn(g, RedoR, "Redo", false, Violet, redo.Count > 0 ? White : Dim);
 
         Txt(g, "View:", 18, Dim, new RectangleF(1150, 82, 74, 30), StringAlignment.Far, false);
-        FillRR(g, Color.FromArgb(150, 52, 28, 92), ViewR, 5);
+        FillRR(g, TM.C(150, 52, 28, 92), ViewR, 5);
         Txt(g, app.MZoomPct + "%", 18, White, ViewR, StringAlignment.Center, false);
     }
 
@@ -701,7 +701,7 @@ class MasterForm : Form
         }
 
         // Auto EQ vertical slider
-        FillRR(g, Color.FromArgb(150, 12, 4, 30), new RectangleF(SlX - 3, SlY1, 6, SlY2 - SlY1), 3);
+        FillRR(g, TM.C(150, 12, 4, 30), new RectangleF(SlX - 3, SlY1, 6, SlY2 - SlY1), 3);
         float hy = SlY2 - (SlY2 - SlY1) * ms.AutoEq / 100f;
         FillRR(g, Accent, new RectangleF(SlX - 3, hy, 6, SlY2 - hy), 3);
         using (var pen = new Pen(Color.FromArgb(90, Dim), 1.5f))
@@ -721,7 +721,7 @@ class MasterForm : Form
         // grid
         double[] decades = { 20, 30, 40, 50, 60, 70, 80, 90, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000,
             2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 10000, 20000 };
-        using (var pen = new Pen(Color.FromArgb(34, 190, 140, 255), 1))
+        using (var pen = new Pen(TM.C(34, 190, 140, 255), 1))
             foreach (var f in decades) { float x = FX(f); g.DrawLine(pen, x, Plot.Y - 16, x, Plot.Bottom + 4); }
         using (var pen = new Pen(Color.FromArgb(120, Dim), 1.4f) { DashStyle = DashStyle.Dot })
             g.DrawLine(pen, Plot.X, GY(0), Plot.Right + 10, GY(0));
@@ -754,7 +754,7 @@ class MasterForm : Form
             float x = FX(ms.NF[i]), y = GY(ms.NG[i]);
             bool sel = i == selNode;
             if (sel) using (var gl = new SolidBrush(Color.FromArgb(70, Accent2))) g.FillEllipse(gl, At(x, y, 46, 46));
-            using (var br = new SolidBrush(sel ? Accent2 : (ms.Custom ? Color.FromArgb(150, 90, 200) : Color.FromArgb(120, 70, 50, 110))))
+            using (var br = new SolidBrush(sel ? Accent2 : (ms.Custom ? TM.C(255, 150, 90, 200) : TM.C(120, 70, 50, 110))))
                 g.FillEllipse(br, At(x, y, sel ? 24 : 18, sel ? 24 : 18));
             using (var pen = new Pen(Color.FromArgb(200, AccentHi), 1.6f)) g.DrawEllipse(pen, At(x, y, sel ? 24 : 18, sel ? 24 : 18));
         }
@@ -783,7 +783,7 @@ class MasterForm : Form
         Txt(g, "-60", 15, Dim, At(1068, 273, 40, 20), StringAlignment.Near, false);
         Txt(g, "0", 15, White, At(1068 + 232 * 60f / 66f, 273, 30, 20), StringAlignment.Center, false);
         Txt(g, "6", 15, Dim, At(1300, 273, 24, 20), StringAlignment.Far, false);
-        FillRR(g, Color.FromArgb(150, 12, 4, 30), new RectangleF(1315, 222, 55, 32), 5);
+        FillRR(g, TM.C(150, 12, 4, 30), new RectangleF(1315, 222, 55, 32), 5);
         Txt(g, Num(tp, "0.0"), 15, !double.IsNaN(tp) && tp > -1 ? Pink : White, new RectangleF(1315, 222, 55, 32), StringAlignment.Center, false);
 
         // LUFS meters
@@ -814,10 +814,10 @@ class MasterForm : Form
 
         Txt(g, "CORRELATION", 17, Dim, new RectangleF(1068, 594, 150, 24), StringAlignment.Near, false);
         var bar = new RectangleF(1068, 639, 232, 8);
-        using (var br = new LinearGradientBrush(bar, Color.FromArgb(235, 70, 130), Color.FromArgb(120, 230, 150), 0f))
+        using (var br = new LinearGradientBrush(bar, TM.C(255, 235, 70, 130), Color.FromArgb(120, 230, 150), 0f))
         {
             var cb = new ColorBlend(3);
-            cb.Colors = new[] { Color.FromArgb(235, 70, 130), Color.FromArgb(240, 210, 90), Color.FromArgb(120, 230, 150) };
+            cb.Colors = new[] { TM.C(255, 235, 70, 130), Color.FromArgb(240, 210, 90), Color.FromArgb(120, 230, 150) };
             cb.Positions = new[] { 0f, 0.5f, 1f };
             br.InterpolationColors = cb;
             using (var p = RR(bar, 4)) g.FillPath(br, p);
@@ -834,11 +834,11 @@ class MasterForm : Form
     void PaintBottom(Graphics g)
     {
         using (var br = new SolidBrush(Color.FromArgb(215, Chrome))) g.FillRectangle(br, 0, 832, 1400, 48);
-        using (var pen = new Pen(Color.FromArgb(140, 150, 80, 220))) g.DrawLine(pen, 0, 832, 1400, 832);
+        using (var pen = new Pen(TM.C(140, 150, 80, 220))) g.DrawLine(pen, 0, 832, 1400, 832);
         string cap = analyzing ? analyzeText : "Purphex Mastering";
         Txt(g, cap, 24, analyzing ? Accent : White, new RectangleF(300, 836, 800, 40), StringAlignment.Center, false);
 
-        FillRR(g, Color.FromArgb(150, 52, 28, 92), ReanR, 6);
+        FillRR(g, TM.C(150, 52, 28, 92), ReanR, 6);
         // sparkle icon
         using (var pen = new Pen(Accent2, 2.2f))
         {
@@ -847,7 +847,7 @@ class MasterForm : Form
         }
         Txt(g, "REANALYZE", 18, Accent, new RectangleF(ReanR.X + 38, ReanR.Y, 90, ReanR.Height), StringAlignment.Near, false);
         Btn(g, BypassR, "Bypass", !ms.On, Violet, !ms.On ? White : Accent);
-        FillRR(g, ms.Comp ? Color.FromArgb(200, 200, 70, 150) : Color.FromArgb(150, 90, 30, 90), LoudR, 6);
+        FillRR(g, ms.Comp ? TM.C(200, 200, 70, 150) : TM.C(150, 90, 30, 90), LoudR, 6);
         Txt(g, "Loudness\nCompensation", 15, ms.Comp ? White : Pink, LoudR, StringAlignment.Center, false);
     }
 

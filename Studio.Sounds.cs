@@ -23,7 +23,7 @@ partial class StudioForm
     void EnsureSoundBox()
     {
         if (soundBox != null) return;
-        soundBox = new TextBox { Visible = false, BorderStyle = BorderStyle.FixedSingle, BackColor = Color.FromArgb(10, 5, 22), ForeColor = Ink, Font = new Font("Segoe UI", 11f) }; Win.NeonBox(soundBox); Controls.Add(soundBox); Win.DarkControl(soundBox);
+        soundBox = new TextBox { Visible = false, BorderStyle = BorderStyle.FixedSingle, BackColor = TM.C(255, 10, 5, 22), ForeColor = Ink, Font = new Font("Segoe UI", 11f) }; Win.NeonBox(soundBox); Controls.Add(soundBox); Win.DarkControl(soundBox);
         soundBox.TextChanged += (s, e) => { sndFilter.Text = soundBox.Text.Trim(); sndDirty = true; sndScroll = 0; Invalidate(); };
     }
     void RefreshSounds()
@@ -92,7 +92,7 @@ partial class StudioForm
     {
         if (!soundsLoaded) { soundsLoaded = true; SoundLibrary.Load(); } EnsureSoundBox(); if (sndDirty) RefreshSounds(); Auditioner.Tick();
         float x = ClientSize.Width - PanelW, y = ToolH + TransH, w = PanelW, h = ClientSize.Height - y; var pr = Rc(x, y, w, h);
-        using (var br = new SolidBrush(Color.FromArgb(250, 18, 10, 34))) g.FillRectangle(br, pr); using (var pen = new Pen(Color.FromArgb(150, NeonViolet))) g.DrawLine(pen, x, y, x, y + h); Reg(pr, () => { });
+        using (var br = new SolidBrush(TM.C(255, 18, 10, 34))) g.FillRectangle(br, pr); using (var pen = new Pen(Color.FromArgb(150, NeonViolet))) g.DrawLine(pen, x, y, x, y + h); Reg(pr, () => { });
         Txt(g, "PURPHEX SOUNDS", 16, Ink, Rc(x + 14, y + 8, 200, 26), StringAlignment.Near, true);
         var cl = Rc(x + w - 38, y + 8, 28, 26); Btn(g, cl, "x", 0, () => CloseSounds(), 13);
         Btn(g, Rc(x + w - 130, y + 8, 84, 26), "Import", 0, () => ImportMenu(), 11); Btn(g, Rc(x + w - 218, y + 8, 82, 26), "Packs", 1, () => { packsOpen = true; packScroll = 0; }, 11);
@@ -138,7 +138,7 @@ partial class StudioForm
 
     void PaintSoundRow(Graphics g, SoundItem s, RectangleF r)
     {
-        bool sel = s == sndSel, hot = Hot(r), sex = s.Exists; FillRR(g, sel ? Color.FromArgb(150, 80, 44, 150) : (hot ? Color.FromArgb(130, 60, 34, 110) : Color.FromArgb(90, 34, 20, 64)), r, 8); if (sel) StrokeRR(g, NeonCyan, r, 8, 1.4f);
+        bool sel = s == sndSel, hot = Hot(r), sex = s.Exists; FillRR(g, sel ? TM.C(150, 80, 44, 150) : (hot ? TM.C(130, 60, 34, 110) : TM.C(90, 34, 20, 64)), r, 8); if (sel) StrokeRR(g, NeonCyan, r, 8, 1.4f);
         var tile = Rc(r.X + 6, r.Y + 6, 38, 38); DrawPackTile(g, tile, SoundLibrary.Pack(s.PackId), s.PackName);
         Txt(g, s.Name.Replace(s.PackName + " - ", ""), 12, sex ? Ink : Color.FromArgb(255, 140, 140), Rc(r.X + 50, r.Y + 5, 250, 20), StringAlignment.Near, sel);
         Txt(g, s.PackName + "  ·  " + s.Type + (sex ? "" : "  (file missing)"), 10, DimC, Rc(r.X + 50, r.Y + 26, 250, 18), StringAlignment.Near, false);
@@ -161,10 +161,10 @@ partial class StudioForm
 
     void PaintSoundPreview(Graphics g, RectangleF r)
     {
-        FillRR(g, Color.FromArgb(150, 24, 13, 46), r, 10); StrokeRR(g, Color.FromArgb(140, NeonViolet), r, 10, 1); var s = sndSel;
+        FillRR(g, TM.C(150, 24, 13, 46), r, 10); StrokeRR(g, Color.FromArgb(140, NeonViolet), r, 10, 1); var s = sndSel;
         if (s == null) { Txt(g, "Click a sound to hear it. Double-click or drag it onto the timeline to use it.", 12, DimC, Rc(r.X + 14, r.Y + 20, r.Width - 28, 40), StringAlignment.Near, false); return; }
         Txt(g, s.Name.Replace(s.PackName + " - ", ""), 13, Ink, Rc(r.X + 12, r.Y + 6, r.Width - 24, 20), StringAlignment.Near, true);
-        var wf = Rc(r.X + 12, r.Y + 30, r.Width - 24, 56); FillRR(g, Color.FromArgb(200, 8, 4, 20), wf, 6);
+        var wf = Rc(r.X + 12, r.Y + 30, r.Width - 24, 56); FillRR(g, TM.C(200, 8, 4, 20), wf, 6);
         bool cur = Auditioner.Current == s && Auditioner.LeftSamples != null; var col = Neon(GroupColour(s.Group));
         if (Auditioner.Loading && Auditioner.Current == s) Txt(g, "LOADING...", 12, DimC, wf, StringAlignment.Center, false);
         else if (s.Peaks != null && s.Peaks.Length > 0) using (var pen = new Pen(Color.FromArgb(220, col), 1.6f)) for (int i = 0; i < (int)wf.Width; i += 2) { float v = s.Peaks[Math.Min(s.Peaks.Length - 1, (int)(i / wf.Width * s.Peaks.Length))] / 255f * (wf.Height / 2 - 4); g.DrawLine(pen, wf.X + i, wf.Y + wf.Height / 2 - v, wf.X + i, wf.Y + wf.Height / 2 + v); }
@@ -239,7 +239,7 @@ partial class StudioForm
     {
         if (!sndDragging || sndDrag == null) return; var tl = TimelineRect(); float top = ToolH + TransH + RulerH; bool over = MousePos.X >= HeadW && MousePos.X <= tl.Right && MousePos.Y >= top;
         if (over) { using (var pen = new Pen(Color.FromArgb(220, NeonCyan), 2f)) { g.DrawLine(pen, MousePos.X, top, MousePos.X, ClientSize.Height - 20); } }
-        var r = Rc(MousePos.X + 12, MousePos.Y + 10, 230, 24); FillRR(g, Color.FromArgb(235, 30, 14, 64), r, 8); Glow(g, over ? NeonCyan : NeonPink, r, 8, 0.8f, 2); Txt(g, (over ? "Drop to add: " : "Drag to the timeline: ") + sndDrag.Name.Replace(sndDrag.PackName + " - ", ""), 11, Ink, r, StringAlignment.Center, true);
+        var r = Rc(MousePos.X + 12, MousePos.Y + 10, 230, 24); FillRR(g, TM.C(235, 30, 14, 64), r, 8); Glow(g, over ? NeonCyan : NeonPink, r, 8, 0.8f, 2); Txt(g, (over ? "Drop to add: " : "Drag to the timeline: ") + sndDrag.Name.Replace(sndDrag.PackName + " - ", ""), 11, Ink, r, StringAlignment.Center, true);
     }
 
     // ---- the pack manager ----
@@ -267,8 +267,8 @@ partial class StudioForm
 
     void PaintPackManager(Graphics g)
     {
-        if (!packsOpen) return; float W = ClientSize.Width, H = ClientSize.Height; var all = Rc(0, 0, W, H); using (var b = new SolidBrush(Color.FromArgb(190, 4, 2, 12))) g.FillRectangle(b, all);
-        var box = Rc(50, 40, W - 100, H - 80); Reg(all, () => { if (!box.Contains(MousePos)) packsOpen = false; }); FillRR(g, Color.FromArgb(252, 24, 13, 46), box, 14); Glow(g, NeonViolet, box, 14, 0.7f, 3); Reg(box, () => { });
+        if (!packsOpen) return; float W = ClientSize.Width, H = ClientSize.Height; var all = Rc(0, 0, W, H); using (var b = new SolidBrush(TM.C(190, 4, 2, 12))) g.FillRectangle(b, all);
+        var box = Rc(50, 40, W - 100, H - 80); Reg(all, () => { if (!box.Contains(MousePos)) packsOpen = false; }); FillRR(g, TM.C(252, 24, 13, 46), box, 14); Glow(g, NeonViolet, box, 14, 0.7f, 3); Reg(box, () => { });
         Txt(g, "PURPHEX SOUND PACKS", 20, Ink, Rc(box.X + 22, box.Y + 14, 400, 30), StringAlignment.Near, true); Btn(g, Rc(box.Right - 100, box.Y + 14, 82, 30), "Close", 0, () => packsOpen = false, 12);
         Txt(g, "Every sound is made on your computer by Purphex's own sound design: no recordings, no one else's samples. Installing a pack takes a few seconds.", 12, DimC, Rc(box.X + 22, box.Y + 46, box.Width - 44, 18), StringAlignment.Near, false);
         // sections
@@ -282,10 +282,10 @@ partial class StudioForm
         for (int i = first; i <= last; i++)
         {
             var rec = rows[i]; var rr = Rc(list.X, list.Y + i * rowH - packScroll, list.Width - 52, rowH - 4); var ip = SoundLibrary.Pack(rec.Id); bool inst = ip != null && ip.Items.Count > 0; bool busyNow = installing == rec.Id; bool queued; lock (installQ) queued = installQ.Contains(rec.Id);
-            FillRR(g, Color.FromArgb(120, 34, 20, 64), rr, 8); var tile = Rc(rr.X + 6, rr.Y + 6, 50, 50); var fake = new SoundPack { Hue = rec.Hue }; DrawPackTile(g, tile, fake, rec.Name);
+            FillRR(g, TM.C(120, 34, 20, 64), rr, 8); var tile = Rc(rr.X + 6, rr.Y + 6, 50, 50); var fake = new SoundPack { Hue = rec.Hue }; DrawPackTile(g, tile, fake, rec.Name);
             Txt(g, rec.Name, 14, Ink, Rc(rr.X + 66, rr.Y + 6, rr.Width - 330, 22), StringAlignment.Near, true); Txt(g, rec.Genre + "  ·  " + rec.Sub + "  ·  " + rec.Mood, 10, DimC, Rc(rr.X + 66, rr.Y + 28, rr.Width - 330, 16), StringAlignment.Near, false); Txt(g, rec.Desc, 10, DimC, Rc(rr.X + 66, rr.Y + 44, rr.Width - 330, 16), StringAlignment.Near, false);
             float bx = rr.Right - 250;
-            if (busyNow) { var pb = Rc(bx, rr.Y + 12, 170, 10); FillRR(g, Color.FromArgb(200, 8, 4, 18), pb, 5); FillRR(g, NeonCyan, Rc(pb.X, pb.Y, Math.Max(6, pb.Width * installPct), pb.Height), 5); Txt(g, ((int)(installPct * 100)) + "%  " + installNote, 10, DimC, Rc(bx, rr.Y + 26, 240, 16), StringAlignment.Near, false); Btn(g, Rc(bx + 176, rr.Y + 8, 66, 22), "Stop", 3, () => installCancel = true, 10); }
+            if (busyNow) { var pb = Rc(bx, rr.Y + 12, 170, 10); FillRR(g, TM.C(200, 8, 4, 18), pb, 5); FillRR(g, NeonCyan, Rc(pb.X, pb.Y, Math.Max(6, pb.Width * installPct), pb.Height), 5); Txt(g, ((int)(installPct * 100)) + "%  " + installNote, 10, DimC, Rc(bx, rr.Y + 26, 240, 16), StringAlignment.Near, false); Btn(g, Rc(bx + 176, rr.Y + 8, 66, 22), "Stop", 3, () => installCancel = true, 10); }
             else if (queued) Txt(g, "WAITING...", 12, DimC, Rc(bx, rr.Y + 18, 240, 24), StringAlignment.Near, false);
             else if (inst) { Txt(g, "Installed: " + ip.Items.Count + " sounds, " + PackSizeText(ip), 11, Color.FromArgb(120, 232, 150), Rc(bx, rr.Y + 8, 240, 18), StringAlignment.Near, false); Btn(g, Rc(bx, rr.Y + 30, 76, 26), "Browse", 1, () => { packsOpen = false; sndFilter.Pack = rec.Id; sndDirty = true; sndScroll = 0; }, 11); Btn(g, Rc(bx + 80, rr.Y + 30, 76, 26), "Remake", 0, () => StartInstall(rec), 11); Btn(g, Rc(bx + 160, rr.Y + 30, 76, 26), "Remove", 3, () => { if (MessageBox.Show(this, "Remove \"" + rec.Name + "\" and its files from this PC? You can install it again any time.", "Remove pack", MessageBoxButtons.YesNo) == DialogResult.Yes) { if (sndFilter.Pack == rec.Id) sndFilter.Pack = ""; if (sndSel != null && sndSel.PackId == rec.Id) { Auditioner.Stop(); sndSel = null; } SoundLibrary.RemovePack(rec.Id); sndDirty = true; packMsg = "Removed " + rec.Name; } }, 11); }
             else Btn(g, Rc(bx + 76, rr.Y + 16, 160, 32), "Install", 2, () => StartInstall(rec), 13);

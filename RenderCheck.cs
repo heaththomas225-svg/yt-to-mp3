@@ -28,13 +28,14 @@ static class RenderT
     static void Main(string[] args)
     {
         outDir = args.Length > 0 ? args[0] : Path.Combine(Path.GetTempPath(), "renders"); Directory.CreateDirectory(outDir);
+        StudioEnv.DataDir = Path.Combine(Path.GetTempPath(), "purphex_render_" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(StudioEnv.DataDir);   // its own data folder (nothing real is touched, and no sound is played)
         string data = StudioEnv.DataDir; string bak = Path.Combine(Path.GetTempPath(), "render-backup-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(bak);
         foreach (var f in new[] { "settings.txt", "profile.txt", "projects.txt", "synthglobal.txt" }) { try { if (File.Exists(Path.Combine(data, f))) File.Copy(Path.Combine(data, f), Path.Combine(bak, f)); } catch { } }
         try
         {
             Application.EnableVisualStyles(); var app = (App)Activator.CreateInstance(typeof(App), true); var eng = app.StudioEng;
             eng.Tracks.Add(StudioEngine.NewTrack("Lead vocal", "vocal", Clip(60))); eng.Tracks.Add(StudioEngine.NewTrack("Beat", "beat", Clip(60)));
-            sf = new StudioForm(app); int[][] sizes = { new[] { 1500, 800 }, new[] { 1366, 768 }, new[] { 1240, 680 } };
+            sf = new StudioForm(app); int[][] sizes = { new[] { 1500, 800 }, new[] { 1366, 768 }, new[] { 1240, 680 }, new[] { 1700, 1000 } };
             foreach (var sz in sizes)
             {
                 sf.ClientSize = new Size(sz[0], sz[1]); sf.Show(); Pump(400); string tag = sz[0] + "x" + sz[1];
@@ -88,8 +89,19 @@ static class RenderT
                     for (int i = 0; i < tp.Length; i++) { double bd = Math.Exp(-(i % 5512) / 1200.0); float s0 = (float)(0.55 * bd * Math.Sin(i * 0.012) + 0.25 * Math.Sin(i * 0.11) + 0.15 * Math.Sin(i * 0.43) + 0.08 * (rnd.NextDouble() - 0.5)); tp[i] = s0; tpp[i] = s0 * 0.6f; }
                     eng.MasterTapPos = 4096; eng.Playing = true; SetF("tab", 1);
                     { var vh = (float[])typeof(StudioForm).GetField("vizHist", BF).GetValue(sf); for (int i = 0; i < vh.Length; i++) vh[i] = (float)(0.25 + 0.5 * Math.Abs(Math.Sin(i * 0.11))); }
-                    Shot(tag + "-mastering-strip-playing"); eng.Playing = false; Shot(tag + "-mastering-strip-idle");
+                    Shot(tag + "-mastering-stage-playing"); eng.Playing = false; Shot(tag + "-mastering-stage-idle");
                     SetF("tab", 5); Shot(tag + "-visualiser-idle"); eng.Playing = true; for (int i = 0; i < 40; i++) { sf.Invalidate(); sf.Update(); Application.DoEvents(); Pump(20); } Shot(tag + "-visualiser-playing"); eng.Playing = false; Prefs.OutVol = ov3; SetF("tab", 1);
+                }
+                // the profile page, the artist search and an artist's page (made-up artists: the website is not asked)
+                {
+                    CommunityPresets.BaseUrl = "http://127.0.0.1:1"; string pdir = Path.Combine(Path.GetTempPath(), "render-profile"); Directory.CreateDirectory(pdir); string bpic = Path.Combine(pdir, "banner.png");
+                    using (var wb = new Bitmap(1600, 500)) { using (var wg = Graphics.FromImage(wb)) { using (var br = new System.Drawing.Drawing2D.LinearGradientBrush(new Rectangle(0, 0, 1600, 500), Color.FromArgb(255, 90, 40, 160), Color.FromArgb(255, 20, 170, 200), 20f)) wg.FillRectangle(br, 0, 0, 1600, 500); wg.FillEllipse(Brushes.Gold, 1100, 40, 260, 260); } wb.Save(bpic, ImageFormat.Png); }
+                    ProfileStore.Bio = "Dark dnb and bassline from the north. New tracks every month, and always looking for singers."; ProfileStore.Location = "Leeds"; ProfileStore.Links.Clear(); ProfileStore.Links.Add("https://example.com/neonwolf"); ProfileStore.Links.Add("https://soundcloud.com/neonwolf"); ProfileStore.Links.Add("spotify://artist/123"); ProfileStore.Tags = "dnb bassline dark"; ProfileStore.Accent = -1; ProfileStore.Followers = 128;
+                    SetF("profLoaded", true); SetF("tab", 6); SetF("profScroll", 0f); Shot(tag + "-profile"); typeof(StudioForm).GetMethod("SetBanner", BF).Invoke(sf, new object[] { bpic }); ProfileStore.Accent = 160; ProfileStore.Published = true; Shot(tag + "-profile-banner"); SetF("profScroll", 600f); Shot(tag + "-profile-scrolled"); SetF("profScroll", 0f);
+                    var al = new List<ArtistInfo>(); string[] an = { "DJ Neon Wolf", "Mia Waves", "Sub Zero Ghost With A Very Long Name", "Kali", "Bassline Bob", "Lunar Echo", "Pixel Drift" }; for (int i = 0; i < an.Length; i++) al.Add(new ArtistInfo { Id = "a" + i.ToString("x12"), Name = an[i], Bio = i % 2 == 0 ? "Dark dnb and bassline from the north. New tracks every month." : "Pop and synths", Tags = new[] { "dnb", "bassline", "dark" }, Followers = 120 - i * 15, Tracks = 3 + i, Accent = i * 50 });
+                    SetF("artList", al); SetF("artFetched", true); SetF("artSel", null); SetF("tab", 7); Shot(tag + "-artists"); SetF("artSearchOn", true); SetF("artQuery", "dnb"); Shot(tag + "-artists-search"); SetF("artSearchOn", false); SetF("artQuery", "");
+                    var ai = al[0]; ai.Bio = "Dark dnb and bassline from the north. New tracks every month, and always looking for singers to work with."; ai.Location = "Leeds"; ai.Links.Add("https://example.com/neonwolf"); ai.Links.Add("https://soundcloud.com/neonwolf"); for (int i = 0; i < 6; i++) ai.TrackList.Add(new ArtistTrack { Title = "Night Drive " + (i + 1), Bpm = 174, Secs = 200 + i * 7, Tags = "dnb dark" }); SetF("artSel", ai); Shot(tag + "-artist-page"); SetF("artSel", null);
+                    SetF("tab", 4); Shot(tag + "-community"); SetF("tab", 0); ProfileStore.Published = false; ProfileStore.Accent = -1; ProfileStore.BannerPath = "";
                 }
                 SetF("tab", 1); Shot(tag + "-mastering-back"); SetF("tab", 2); Shot(tag + "-lyrics-back"); SetF("tab", 0);
                 // community presets sheet (a made-up list, the website is not asked)
@@ -159,7 +171,7 @@ static class RenderT
             app.Show(); Pump(400);
             foreach (var msz in new[] { new Size(640, 712), new Size(820, 900), new Size(1100, 1000), new Size(1500, 1000) }) { app.ClientSize = msz; Pump(500); var b0 = new Bitmap(app.ClientSize.Width, app.ClientSize.Height); app.DrawToBitmap(b0, new Rectangle(Point.Empty, b0.Size)); b0.Save(Path.Combine(outDir, "main-window-" + msz.Width + "x" + msz.Height + ".png"), ImageFormat.Png); b0.Dispose(); }
             app.Hide();
-            var st = new SettingsForm(app); st.Show(); Pump(400); { var b = new Bitmap(st.ClientSize.Width, st.ClientSize.Height); st.DrawToBitmap(b, new Rectangle(Point.Empty, b.Size)); b.Save(Path.Combine(outDir, "settings-top.png"), ImageFormat.Png); b.Dispose(); st.AutoScrollPosition = new Point(0, 2000); Pump(200); b = new Bitmap(st.ClientSize.Width, st.ClientSize.Height); st.DrawToBitmap(b, new Rectangle(Point.Empty, b.Size)); b.Save(Path.Combine(outDir, "settings-bottom.png"), ImageFormat.Png); b.Dispose(); } st.Close();
+            var st = new SettingsForm(app); st.Show(); Pump(400); for (int pi = 0; pi < 7; pi++) { typeof(SettingsForm).GetMethod("ShowPage", BF).Invoke(st, new object[] { pi }); Pump(150); var b = new Bitmap(st.ClientSize.Width, st.ClientSize.Height); st.DrawToBitmap(b, new Rectangle(Point.Empty, b.Size)); b.Save(Path.Combine(outDir, "settings-page" + pi + ".png"), ImageFormat.Png); b.Dispose(); } st.Close();
         }
         finally { foreach (var f in new[] { "settings.txt", "profile.txt", "projects.txt", "synthglobal.txt" }) { try { if (File.Exists(Path.Combine(bak, f))) File.Copy(Path.Combine(bak, f), Path.Combine(data, f), true); } catch { } } }
         Environment.Exit(0);

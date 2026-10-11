@@ -1,4 +1,4 @@
-3.24.0
+3.25.0
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Master Visualiser page, photo themes, unique theme colours, neon menu borders, BACK only when useful, Space pauses in My Projects
-sha256=1096e26317694091af2e6dc314d79210b08d2c41fd31bff63804c947d2845617
+Profiles and artists, a Mastering page that is the visualiser, themes that change everything, a much smoother studio, help that takes you there and sample rates up to 384 kHz
+sha256=baeac3ae6c0f75884ff5680bebd0d7dab7c29ef2698ac5e09e8bc77a70965d7a

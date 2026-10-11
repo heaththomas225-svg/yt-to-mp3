@@ -27,13 +27,13 @@ partial class StudioForm
     void PaintPresetSheet(Graphics g)
     {
         if (!psOpen || psFx == null) return; var f = psFx; float W = ClientSize.Width, H = ClientSize.Height; var all = Rc(0, 0, W, H);
-        using (var b = new SolidBrush(Color.FromArgb(160, 3, 1, 10))) g.FillRectangle(b, all); Reg(all, () => psOpen = false);
+        using (var b = new SolidBrush(TM.C(160, 3, 1, 10))) g.FillRectangle(b, all); Reg(all, () => psOpen = false);
         float sw = Math.Min(680, W - 24), sh = Math.Min(H - 30, 700); var sheet = PopMove("presets", Rc((W - sw) / 2, (H - sh) / 2, sw, sh), 54, 70);
-        FillRR(g, Color.FromArgb(252, 16, 10, 34), sheet, 22); Glow(g, NeonViolet, sheet, 22, 0.8f, 4); StrokeRR(g, Color.FromArgb(180, NeonViolet), sheet, 22, 1.5f); Reg(sheet, () => { });
+        FillRR(g, TM.C(252, 16, 10, 34), sheet, 22); Glow(g, NeonViolet, sheet, 22, 0.8f, 4); StrokeRR(g, Color.FromArgb(180, NeonViolet), sheet, 22, 1.5f); Reg(sheet, () => { });
         Txt(g, "PRESETS", 22, Ink, Rc(sheet.X + 22, sheet.Y + 14, 220, 34), StringAlignment.Near, true); Txt(g, f.Title.ToUpper(), 13, NeonCyan, Rc(sheet.X + 190, sheet.Y + 20, sheet.Width - 300, 24), StringAlignment.Near, true);
-        var close = Rc(sheet.Right - 52, sheet.Y + 14, 32, 32); FillRR(g, Hot(close) ? Color.FromArgb(160, 70, 38, 130) : Color.FromArgb(110, 40, 24, 80), close, 16); Txt(g, "X", 15, Ink, close, StringAlignment.Center, true); Reg(close, () => psOpen = false);
+        var close = Rc(sheet.Right - 52, sheet.Y + 14, 32, 32); FillRR(g, Hot(close) ? TM.C(160, 70, 38, 130) : TM.C(110, 40, 24, 80), close, 16); Txt(g, "X", 15, Ink, close, StringAlignment.Center, true); Reg(close, () => psOpen = false);
         TxtWrap(g, "Press USE to try one. REVERT puts the plugin back exactly as it was when you opened this list. Start typing to search.", 12, DimC, Rc(sheet.X + 22, sheet.Y + 50, sheet.Width - 44, 34));
-        float y = sheet.Y + 88; var sb = Rc(sheet.X + 22, y, sheet.Width - 44, 34); FillRR(g, Color.FromArgb(235, 14, 7, 32), sb, 8); StrokeRR(g, Accent, sb, 8, 1.4f);
+        float y = sheet.Y + 88; var sb = Rc(sheet.X + 22, y, sheet.Width - 44, 34); FillRR(g, TM.C(235, 14, 7, 32), sb, 8); StrokeRR(g, Accent, sb, 8, 1.4f);
         if (psQuery.Length > 0) { var xb = Rc(sb.Right - 30, sb.Y + 5, 24, 24); Btn(g, xb, "x", 3, () => { psQuery = ""; psScroll = 0; }, 12); Hint2(xb, "Clear the search"); }
         double tm = Environment.TickCount / 1000.0; bool blink = ((int)(tm * 2) % 2) == 0; Txt(g, psQuery.Length == 0 ? (blink ? "|" : " ") + "  SEARCH THE PRESETS" : psQuery + (blink ? "|" : ""), 13, psQuery.Length == 0 ? DimC : Ink, Rc(sb.X + 12, sb.Y, sb.Width - 50, sb.Height), StringAlignment.Near, false);
         y += 42; float bw = (sheet.Width - 44 - 16) / 3f;
@@ -51,7 +51,7 @@ partial class StudioForm
         for (int i = 0; i < rows.Count; i++)
         {
             var kv = rows[i]; var row = Rc(sheet.X + 22, top + i * (rowH + gap) - psScroll, sheet.Width - 44 - vsw, rowH); if (row.Bottom < top - 2 || row.Y > areaBottom) continue; bool isMine = mine.Contains(kv.Key); bool hot = Hot(RectangleF.Intersect(row, area)) && area.Contains(MousePos);
-            FillRR(g, hot ? Color.FromArgb(200, 60, 34, 112) : Color.FromArgb(150, 26, 15, 52), row, 10); StrokeRR(g, Color.FromArgb(hot ? 160 : 80, NeonViolet), row, 10, 1);
+            FillRR(g, hot ? TM.C(200, 60, 34, 112) : TM.C(150, 26, 15, 52), row, 10); StrokeRR(g, Color.FromArgb(hot ? 160 : 80, NeonViolet), row, 10, 1);
             Txt(g, kv.Key, 14, Ink, Rc(row.X + 14, row.Y + 4, row.Width - 230, 24), StringAlignment.Near, true); Txt(g, isMine ? "MY PRESET" : "BUILT-IN", 10, isMine ? NeonLime : DimC, Rc(row.X + 14, row.Y + 28, 160, 16), StringAlignment.Near, true);
             string data = kv.Value, nm = kv.Key; var us = Rc(row.Right - 96, row.Y + 8, 84, 34); var ua = RectangleF.Intersect(us, area); if (!ua.IsEmpty) { Btn(g, us, "USE", 2, () => PsUse(nm, data), 13); Hint2(us, "Try this preset (REVERT puts it back)"); }
             if (isMine) { var dl = Rc(us.X - 34, row.Y + 11, 28, 28); var da = RectangleF.Intersect(dl, area); if (!da.IsEmpty) { Btn(g, dl, "x", 3, () => { bool ok = psConfirmHook != null ? psConfirmHook(nm) : MessageBox.Show(this, "Delete your preset \"" + nm + "\"?", "Delete preset", MessageBoxButtons.YesNo, MessageBoxIcon.Question, MessageBoxDefaultButton.Button2) == DialogResult.Yes; if (ok) { Presets.DeleteUser(f.Type, nm); Toast("Preset deleted."); } }, 12); Hint2(dl, "Delete this preset of yours"); } }

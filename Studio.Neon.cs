@@ -14,7 +14,7 @@ partial class StudioForm
     {
         Color r; if (neonCache.TryGetValue(argb, out r)) return r;
         var c = Color.FromArgb(argb); double R = c.R / 255.0, G = c.G / 255.0, B = c.B / 255.0, mx = Math.Max(R, Math.Max(G, B)), mn = Math.Min(R, Math.Min(G, B));
-        if (mx <= 0.001) { r = Color.FromArgb(0, 229, 255); }
+        if (mx <= 0.001) { r = TM.C(255, 0, 229, 255); }
         else
         {
             double s = Math.Max((mx - mn) / mx, 0.78); double v = 1.0;
@@ -24,19 +24,34 @@ partial class StudioForm
         }
         neonCache[argb] = r; return r;
     }
-    internal static void ApplyTheme(ThemeDef t) { Win.NeonHot = t.Cyan; Win.NeonIdle = t.Violet; NeonViolet = t.Violet; NeonCyan = t.Cyan; NeonPink = t.Pink; NeonLime = t.Lime; Accent = t.Accent; Accent2 = t.Accent2; Violet = t.Btn; BtnC = t.BtnC; Edge = Color.FromArgb(120, t.EdgeC); Panel = Color.FromArgb(235, t.Panel); Lane = Color.FromArgb(255, t.Lane); Lane2 = Color.FromArgb(255, t.Lane2); Bg0 = t.Bg0; Bg1 = t.Bg1; SparkCols = new[] { t.Pink, t.Cyan, Color.White, t.Accent, t.Pink, t.Cyan }; }
-    static Color NeonCyan = Color.FromArgb(0, 229, 255), NeonPink = Color.FromArgb(255, 43, 214), NeonViolet = Color.FromArgb(150, 90, 255), NeonLime = Color.FromArgb(120, 255, 120);
+    internal static void ApplyTheme(ThemeDef t) { TM.Set(t.Violet, t.Cyan, t.Pink); Ink = TM.C(255, 240, 232, 255); DimC = TM.C(255, 165, 148, 190); Win.NeonHot = t.Cyan; Win.NeonIdle = t.Violet; NeonViolet = t.Violet; NeonCyan = t.Cyan; NeonPink = t.Pink; NeonLime = t.Lime; Accent = t.Accent; Accent2 = t.Accent2; Violet = t.Btn; BtnC = t.BtnC; Edge = Color.FromArgb(120, t.EdgeC); Panel = Color.FromArgb(235, t.Panel); Lane = Color.FromArgb(255, t.Lane); Lane2 = Color.FromArgb(255, t.Lane2); Bg0 = t.Bg0; Bg1 = t.Bg1; SparkCols = new[] { t.Pink, t.Cyan, Color.White, t.Accent, t.Pink, t.Cyan }; }
+    static Color NeonCyan = TM.C(255, 0, 229, 255), NeonPink = TM.C(255, 255, 43, 214), NeonViolet = TM.C(255, 150, 90, 255), NeonLime = Color.FromArgb(120, 255, 120);
 
     // soft bloom around a rounded rectangle, then a crisp bright edge
     static void Glow(Graphics g, Color c, RectangleF r, float rad, float k, int spread)
     {
         if (k <= 0.01f || r.Width < 4 || r.Height < 4) return;
-        for (int i = spread; i >= 1; i--)
+        if (r.Width * r.Height < 60000 && spread <= 6 && Math.Abs(r.Width - Math.Round(r.Width)) < 0.01 + 0.5 && Math.Abs(g.Transform.Elements[4]) < 0.5f)
+        {   // small boxes: a stored picture of the glow, copied
+            int w = (int)Math.Round(r.Width), h = (int)Math.Round(r.Height), pad = spread * 2 + 3; int kq = Math.Max(1, (int)Math.Round(k * 8));
+            long key = Sprites.H(Sprites.H(Sprites.H(Sprites.H(Sprites.H(Sprites.H(Sprites.Seed, 77), c.ToArgb()), w), h), (long)(rad * 4) * 64 + spread), kq);
+            var sp = Sprites.Get(key);
+            if (sp == null) { sp = Sprites.Make(w + pad * 2, h + pad * 2); using (var sg = Graphics.FromImage(sp)) { sg.SmoothingMode = SmoothingMode.AntiAlias; GlowDirect(sg, c, new RectangleF(pad, pad, w, h), rad, kq / 8f, spread); } Sprites.Put(key, sp); }
+            g.DrawImageUnscaled(sp, (int)Math.Round(r.X) - pad, (int)Math.Round(r.Y) - pad); return;
+        }
+        GlowDirect(g, c, r, rad, k, spread);
+    }
+    static void GlowDirect(Graphics g, Color c, RectangleF r, float rad, float k, int spread)
+    {
+        long t0 = Prof.T();
+        bool big = r.Width * r.Height >= 60000; var smWas = g.SmoothingMode; if (big) g.SmoothingMode = SmoothingMode.None;   // a big soft glow does not need smoothed edges (it is much faster without)
+        using (var p = RR(r, rad)) for (int i = spread; i >= 1; i--)
         {
             int a = (int)(64 * k / (i * 0.9f)); if (a < 3) continue;
-            using (var pen = new Pen(Color.FromArgb(Math.Min(255, a), c), i * 2f)) { pen.LineJoin = LineJoin.Round; using (var p = RR(r, rad)) g.DrawPath(pen, p); }
+            using (var pen = new Pen(Color.FromArgb(Math.Min(255, a), c), i * 2f)) { pen.LineJoin = LineJoin.Round; g.DrawPath(pen, p); }
         }
-        using (var pen = new Pen(Color.FromArgb((int)Math.Min(255, 120 + 135 * k), c), 1.6f)) using (var p = RR(r, rad)) g.DrawPath(pen, p);
+        g.SmoothingMode = smWas;
+        using (var pen = new Pen(Color.FromArgb((int)Math.Min(255, 120 + 135 * k), c), 1.6f)) using (var p = RR(r, rad)) g.DrawPath(pen, p); Prof.A("Glow", t0);
     }
 
     // a glowing line (playhead, rules)
@@ -65,7 +80,7 @@ partial class StudioForm
         for (int i = 0; i < n; i++)
         {
             float f = (i + 1) / (float)n; bool lit = frac >= f - 0.5f / n; var s = new RectangleF(r.X, r.Bottom - (i + 1) * seg + 1, r.Width, seg - 2);
-            Color c = f > 0.9f ? Color.FromArgb(255, 60, 110) : (f > 0.7f ? Color.FromArgb(255, 200, 40) : Color.FromArgb(0, 255, 150));
+            Color c = f > 0.9f ? TM.C(255, 255, 60, 110) : (f > 0.7f ? Color.FromArgb(255, 200, 40) : Color.FromArgb(0, 255, 150));
             if (lit) { using (var b = new SolidBrush(Color.FromArgb(55, c))) g.FillRectangle(b, s.X - 1.5f, s.Y - 1.5f, s.Width + 3, s.Height + 3); using (var b = new SolidBrush(c)) g.FillRectangle(b, s); }
             else using (var b = new SolidBrush(Color.FromArgb(46, c.R, c.G, c.B))) g.FillRectangle(b, s);
         }
@@ -137,7 +152,7 @@ partial class StudioForm
     void AddTrackRow(Graphics g, float afterLastY, int n)
     {
         float by = Math.Min(afterLastY + 6, ClientSize.Height - 44); var r = Rc(10, by, HeadW - 20, 34);
-        FillRR(g, Color.FromArgb(235, 14, 8, 30), r, 8); Glow(g, NeonCyan, r, 8, Hot(r) ? 1.1f : 0.55f, 3);
+        FillRR(g, TM.C(235, 14, 8, 30), r, 8); Glow(g, NeonCyan, r, 8, Hot(r) ? 1.1f : 0.55f, 3);
         Txt(g, "+ ADD TRACK", 13, Ink, r, StringAlignment.Center, true); Reg(r, () => OpenNewTrackSheet(2));
     }
     // the + TRACK button in the toolbar: choose what to add and where it goes

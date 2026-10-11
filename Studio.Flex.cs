@@ -29,15 +29,26 @@ partial class StudioForm
         if (flexOpen) FlexClose(true); PushUndo(); flexTrack = t; flexClip0 = t.Clip; flexStart0 = t.ClipStart; flexFrames0 = t.ClipFrames; flexName = t.Name; flexAutoPath = null; flexAutoAt = 0; flexSavedAt = ""; flexSession = DateTime.Now.ToString("yyyyMMdd_HHmmss");
         long len = t.UsedLength; if (len < 4096) { Toast("That recording is too short to edit."); return; }
         var l = new float[len]; var r = new float[len]; Array.Copy(t.Clip.L, t.ClipStart, l, 0, len); Array.Copy(t.Clip.R ?? t.Clip.L, t.ClipStart, r, 0, len);
-        flexSrcL = l; flexSrcR = r; flexLen = (int)len; flexAna = null; flexRatio = null; flexSel.Clear(); flexEdited = false; flexSplitTool = false; flexAnalysing = true; flexPct = 0; flexOpen = true; flexReq = 0; flexDone = 0; flexSwap = false; menuOpen = false;
+        flexSrcL = l; flexSrcR = r; flexLen = (int)len; flexAna = null; flexRatio = null; flexSel.Clear(); flexEdited = false; flexSplitTool = false; flexAnalysing = true; flexPct = 0; FlexViewEnter(t); flexOpen = true; flexReq = 0; flexDone = 0; flexSwap = false; menuOpen = false;
         var th = new Thread(() =>
         {
             FlexAnalysis a = null; try { a = FlexPitch.Analyse(l, r, (int)len, StudioEngine.SR, p => flexPct = p, () => !flexOpen || flexTrack != t); } catch { a = null; }
-            BeginInvoke(new Action(() => { if (!flexOpen || flexTrack != t) return; flexAnalysing = false; if (a == null) { Toast("Could not analyse that recording."); flexOpen = false; return; } lock (flexLk) flexAna = a; FlexFitRange(); FlexRatioUpdate(); { double w = Math.Max(300, TimelineRect().Width * 0.94); spp = Math.Max(MinSpp, Math.Min(MaxSpp, flexLen / w)); scroll = Math.Max(0, t.Offset - (long)(spp * 6)); autoFit = false; } if (a.Notes.Count == 0) Toast("No clear notes were found. Flex Pitch needs a single voice or instrument, not a full mix."); Invalidate(); }));
+            BeginInvoke(new Action(() => { if (!flexOpen || flexTrack != t) return; flexAnalysing = false; if (a == null) { Toast("Could not analyse that recording."); FlexViewLeave(); flexOpen = false; return; } lock (flexLk) flexAna = a; FlexFitRange(); FlexRatioUpdate(); { double w = Math.Max(300, TimelineRect().Width * 0.94); spp = Math.Max(MinSpp, Math.Min(MaxSpp, flexLen / w)); scroll = Math.Max(0, t.Offset - (long)(spp * 6)); autoFit = false; } if (a.Notes.Count == 0) Toast("No clear notes were found. Flex Pitch needs a single voice or instrument, not a full mix."); Invalidate(); }));
         }) { IsBackground = true, Name = "flex-analysis" }; th.Start();
         flexThread = new Thread(FlexWorker) { IsBackground = true, Name = "flex-render" }; flexThread.Start();
     }
 
+    // Flex Pitch has its own zoom and position, separate from the mixer: opening it fits the recording to the window, closing it puts the mixer back exactly as you left it
+    bool flexViewOn; long mixScroll, mixFitLen; double mixSpp; bool mixAutoFit; int mixFitW;
+    void FlexViewEnter(Track t)
+    {
+        if (flexViewOn) return; flexViewOn = true; mixScroll = scroll; mixSpp = spp; mixAutoFit = autoFit; mixFitW = lastFitW; mixFitLen = lastFitLen;
+        float w = Math.Max(300, TimelineRect().Width); double len = Math.Max(4096, t != null ? t.UsedLength : 44100 * 10); spp = Math.Max(1, len * 1.12 / w); scroll = Math.Max(0, (t != null ? t.Offset : 0) - (long)(len * 0.06)); autoFit = false;
+    }
+    void FlexViewLeave()
+    {
+        if (!flexViewOn) return; flexViewOn = false; scroll = mixScroll; spp = mixSpp; autoFit = mixAutoFit; lastFitW = mixFitW; lastFitLen = mixFitLen;
+    }
     void FlexFitRange()
     {
         var a = flexAna; if (a == null || a.Notes.Count == 0) { flexLow = 48; return; } double lo = 1e9, hi = -1e9; foreach (var n in a.Notes) { lo = Math.Min(lo, n.Target); hi = Math.Max(hi, n.Target); }
@@ -47,7 +58,7 @@ partial class StudioForm
     // done = keep the edits (saved as a new audio file with the project); revert = go back to the recording as it was
     void FlexClose(bool keep)
     {
-        if (!flexOpen) return; var t = flexTrack; if (keep && flexEdited && t != null && flexAna != null) FlexFinishRender(t); flexOpen = false; Thread.Sleep(10);
+        if (!flexOpen) return; var t = flexTrack; if (keep && flexEdited && t != null && flexAna != null) FlexFinishRender(t); FlexViewLeave(); flexOpen = false; Thread.Sleep(10);
         if (keep && flexEdited && t != null && t.Clip != null && flexAna != null)
         {
             try
@@ -132,7 +143,7 @@ partial class StudioForm
     void PaintFlex(Graphics g)
     {
         FlexTick(); FlexAutoSaveTick(); var P = FlexPanel(); if (TxtAudit != null) TxtAudit.RemoveAll(t0 => P.IntersectsWith(t0.Ink)); var na = FlexNoteArea(); var t = flexTrack; if (t == null) return; var gs0 = g.Save();
-        using (var br = new SolidBrush(Color.FromArgb(255, 10, 5, 24))) g.FillRectangle(br, P);
+        using (var br = new SolidBrush(TM.C(255, 10, 5, 24))) g.FillRectangle(br, P);
         using (var pen = new Pen(Color.FromArgb(220, NeonViolet), 1.6f)) g.DrawLine(pen, P.X, P.Y, P.Right, P.Y); using (var glow = new Pen(Color.FromArgb(50, NeonCyan), 5f)) g.DrawLine(glow, P.X, P.Y + 1, P.Right, P.Y + 1);
         Reg(P, () => { }).OnWheel = d => { if (ModifierKeys == Keys.Control) { ZoomBy(d > 0 ? 0.8 : 1.25); autoFit = false; } else flexLow = Math.Max(0, Math.Min(110, flexLow + (d > 0 ? 3 : -3))); };
         PaintFlexInspector(g, P); FlexScrollBar(g, P, na);
@@ -140,20 +151,20 @@ partial class StudioForm
         Txt(g, "FLEX PITCH  -  " + t.Name, 13, Ink, Rc(na.X, P.Y + 66, 420, 22), StringAlignment.Near, true);
         Txt(g, flexAnalysing ? "Listening to the recording... " + (int)(flexPct * 100) + "%" : (flexSavedAt.Length > 0 ? (na.Width - 300 > 200 ? "Saved automatically at " + flexSavedAt : (na.Width - 300 > 60 ? "Saved" : "")) : (flexEdited ? (na.Width - 300 > 200 ? "Saving automatically..." : "") : (na.Width - 300 > 450 ? "Drag notes up or down (Alt = free)   Double-click = reset   Right-click = more" : (na.Width - 300 > 150 ? "Drag notes up or down" : "")))), 11, flexSavedAt.Length > 0 ? Color.FromArgb(150, 255, 150) : DimC, Rc(na.X + 300, P.Y + 68, Math.Max(10, na.Width - 300), 20), StringAlignment.Far, false);
         // pitch rows
-        var gc = g.Save(); g.SetClip(na); using (var bg = new SolidBrush(Color.FromArgb(235, 6, 3, 16))) g.FillRectangle(bg, na);
+        var gc = g.Save(); g.SetClip(na); using (var bg = new SolidBrush(TM.C(255, 6, 3, 16))) g.FillRectangle(bg, na);
         int rows = (int)Math.Ceiling(na.Height / FlexRowH) + 1;
         for (int i = 0; i < rows; i++)
         {
-            int midi = (int)flexLow + i; float y = FlexY(midi, na) - FlexRowH / 2; var rr = Rc(na.X, y, na.Width, FlexRowH); using (var b = new SolidBrush(FlexBlack(midi) ? Color.FromArgb(70, 0, 0, 0) : Color.FromArgb(22, 120, 80, 220))) g.FillRectangle(b, rr);
-            using (var pen = new Pen(((midi % 12) == 0) ? Color.FromArgb(95, NeonViolet) : Color.FromArgb(34, 160, 120, 255), 1f)) g.DrawLine(pen, na.X, y + FlexRowH, na.Right, y + FlexRowH);
-            if (((midi % 12) == 0) || FlexRowH >= 15 && ((midi % 12) == 4 || (midi % 12) == 7)) Txt(g, FlexNote.Name(midi), 10, ((midi % 12) == 0) ? Color.FromArgb(190, 190, 160, 255) : Color.FromArgb(110, 160, 140, 220), Rc(na.X + 3, y, 40, FlexRowH), StringAlignment.Near, (midi % 12) == 0);
+            int midi = (int)flexLow + i; float y = FlexY(midi, na) - FlexRowH / 2; var rr = Rc(na.X, y, na.Width, FlexRowH); using (var b = new SolidBrush(FlexBlack(midi) ? Color.FromArgb(70, 0, 0, 0) : TM.C(22, 120, 80, 220))) g.FillRectangle(b, rr);
+            using (var pen = new Pen(((midi % 12) == 0) ? Color.FromArgb(95, NeonViolet) : TM.C(34, 160, 120, 255), 1f)) g.DrawLine(pen, na.X, y + FlexRowH, na.Right, y + FlexRowH);
+            if (((midi % 12) == 0) || FlexRowH >= 15 && ((midi % 12) == 4 || (midi % 12) == 7)) Txt(g, FlexNote.Name(midi), 10, ((midi % 12) == 0) ? TM.C(190, 190, 160, 255) : TM.C(110, 160, 140, 220), Rc(na.X + 3, y, 40, FlexRowH), StringAlignment.Near, (midi % 12) == 0);
         }
         // time grid (beats) follows the studio grid
         double bpm = Math.Max(20, Fx.ProjectBpm), spb = 60.0 / bpm * StudioEngine.SR; double firstBeat = Math.Floor(scroll / spb); for (double b = firstBeat; ; b += 1) { double fr = b * spb; float x = HeadW + (float)((fr - scroll) / spp); if (x > na.Right) break; if (x < na.X) continue; using (var pen = new Pen(Color.FromArgb(((long)b % 4 == 0) ? 60 : 24, NeonCyan), 1f)) g.DrawLine(pen, x, na.Y, x, na.Bottom); }
         g.Restore(gc);
         if (flexAnalysing || flexAna == null)
         {
-            var pb = Rc(na.X + na.Width / 2 - 180, na.Y + na.Height / 2 - 14, 360, 18); FillRR(g, Color.FromArgb(220, 8, 4, 18), pb, 9); FillRR(g, NeonCyan, Rc(pb.X, pb.Y, Math.Max(10, pb.Width * flexPct), pb.Height), 9);
+            var pb = Rc(na.X + na.Width / 2 - 180, na.Y + na.Height / 2 - 14, 360, 18); FillRR(g, TM.C(220, 8, 4, 18), pb, 9); FillRR(g, NeonCyan, Rc(pb.X, pb.Y, Math.Max(10, pb.Width * flexPct), pb.Height), 9);
             Txt(g, "FINDING THE NOTES IN " + t.Name + "...", 13, Ink, Rc(na.X, pb.Y - 30, na.Width, 24), StringAlignment.Center, true); FlexWave(g, P, na); g.Restore(gs0); return;
         }
         // background: click = deselect / split tool, drag = marquee
@@ -162,8 +173,8 @@ partial class StudioForm
         foreach (var n in list)
         {
             float x0 = FlexX((double)n.Start * hop), x1 = FlexX((double)n.End * hop); if (x1 < na.X - 4 || x0 > na.Right + 4) continue; if (x1 - x0 < 3) x1 = x0 + 3; float yc = FlexY(n.Target, na); var blk = Rc(x0, yc - FlexRowH * 0.42f, x1 - x0, FlexRowH * 0.84f); bool sel = flexSel.Contains(n);
-            if (n.Deleted) { using (var pen = new Pen(Color.FromArgb(90, 160, 140, 200), 1f) { DashStyle = DashStyle.Dot }) g.DrawRectangle(pen, blk.X, blk.Y, blk.Width, blk.Height); continue; }
-            if (n.Edited && Math.Abs(n.Target - n.OrigMidi) > 0.05) { float yo = FlexY(n.OrigMidi, na); using (var pen = new Pen(Color.FromArgb(110, 200, 190, 255), 1f) { DashStyle = DashStyle.Dash }) g.DrawRectangle(pen, x0, yo - FlexRowH * 0.42f, x1 - x0, FlexRowH * 0.84f); }
+            if (n.Deleted) { using (var pen = new Pen(TM.C(90, 160, 140, 200), 1f) { DashStyle = DashStyle.Dot }) g.DrawRectangle(pen, blk.X, blk.Y, blk.Width, blk.Height); continue; }
+            if (n.Edited && Math.Abs(n.Target - n.OrigMidi) > 0.05) { float yo = FlexY(n.OrigMidi, na); using (var pen = new Pen(TM.C(110, 200, 190, 255), 1f) { DashStyle = DashStyle.Dash }) g.DrawRectangle(pen, x0, yo - FlexRowH * 0.42f, x1 - x0, FlexRowH * 0.84f); }
             Color baseC = n.Edited ? NeonCyan : NeonViolet; if (sel) Glow(g, baseC, blk, 4, 0.8f, 3);
             using (var lg = new LinearGradientBrush(blk, Color.FromArgb(sel ? 245 : 210, Math.Min(255, baseC.R + 30), Math.Min(255, baseC.G + 30), Math.Min(255, baseC.B + 30)), Color.FromArgb(sel ? 235 : 190, baseC.R / 2, baseC.G / 2, baseC.B / 2 + 40), 90f)) using (var path = RR(blk, 5)) g.FillPath(lg, path);
             StrokeRR(g, sel ? Color.White : Color.FromArgb(160, baseC), blk, 5, sel ? 2f : 1f);
@@ -195,7 +206,7 @@ partial class StudioForm
 
     void FlexWave(Graphics g, RectangleF P, RectangleF na)
     {
-        var wr = Rc(na.X, na.Bottom + 6, na.Width, 40); FillRR(g, Color.FromArgb(200, 6, 3, 16), wr, 6); var src = flexSrcL; if (src == null) return; var gs = g.Save(); g.SetClip(wr);
+        var wr = Rc(na.X, na.Bottom + 6, na.Width, 40); FillRR(g, TM.C(200, 6, 3, 16), wr, 6); var src = flexSrcL; if (src == null) return; var gs = g.Save(); g.SetClip(wr);
         using (var pen = new Pen(Color.FromArgb(150, NeonCyan), 1f)) for (int x = 0; x < (int)wr.Width; x += 1)
             {
                 double s0 = FlexSampleAt(wr.X + x), s1 = FlexSampleAt(wr.X + x + 1); if (s1 < 0 || s0 >= flexLen) continue; int a = (int)Math.Max(0, s0), b = (int)Math.Min(flexLen - 1, Math.Max(a + 1, s1)); float mn = 0, mx = 0; int stp = Math.Max(1, (b - a) / 48);
@@ -211,9 +222,9 @@ partial class StudioForm
         string who = flexSel.Count == 0 ? "no note selected" : (flexSel.Count == 1 ? FlexNote.Name(flexSel[0].Target) + (flexSel[0].Edited ? "  (edited)" : "") : flexSel.Count + " notes"); Txt(g, who, 12, Ink, Rc(x + 52, y, w - 52, 18), StringAlignment.Near, true); y += 24;
         Action<string, double, double, Func<FlexNote, double>, Action<FlexNote, double>, string, double> slider = (name, min, max, get, set, fmt, def) =>
         {
-            bool on = flexSel.Count > 0 && flexAna != null; double val = on ? get(flexSel[0]) : def; Txt(g, name, 11, on ? DimC : Color.FromArgb(90, 120, 110, 150), Rc(x, y, 52, 22), StringAlignment.Near, false);
+            bool on = flexSel.Count > 0 && flexAna != null; double val = on ? get(flexSel[0]) : def; Txt(g, name, 11, on ? DimC : TM.C(90, 120, 110, 150), Rc(x, y, 52, 22), StringAlignment.Near, false);
             var sr = Rc(x + 54, y + 3, w - 54 - 52, 16); float frac = (float)((val - min) / (max - min)); var rg = Slider(g, sr, Math.Max(0, Math.Min(1, frac)), f => { if (!on) return; double v = min + f * (max - min); v = Math.Round(v * 100) / 100; lock (flexLk) foreach (var n in flexSel) set(n, v); FlexChanged(); }, NeonCyan); rg.OnDouble = () => { if (!on) return; lock (flexLk) foreach (var n in flexSel) set(n, def); FlexChanged(); };
-            Txt(g, on ? string.Format(CultureInfo.InvariantCulture, fmt, val) : "-", 11, on ? Ink : Color.FromArgb(90, 120, 110, 150), Rc(x + w - 50, y, 50, 22), StringAlignment.Far, false); y += 25;
+            Txt(g, on ? string.Format(CultureInfo.InvariantCulture, fmt, val) : "-", 11, on ? Ink : TM.C(90, 120, 110, 150), Rc(x + w - 50, y, 50, 22), StringAlignment.Far, false); y += 25;
         };
         slider("Pitch", -12, 12, n => n.Shift, (n, v) => n.Shift = v, "{0:+0.00;-0.00;0} st", 0);
         slider("Fine", -50, 50, n => n.Fine, (n, v) => n.Fine = v, "{0:+0;-0;0} ct", 0);

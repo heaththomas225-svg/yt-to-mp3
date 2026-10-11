@@ -49,14 +49,39 @@ static class Win
             try
             {
                 int one = 1; DwmSetWindowAttribute(f.Handle, 20, ref one, 4); DwmSetWindowAttribute(f.Handle, 19, ref one, 4);
-                int cap = 10 | (4 << 8) | (20 << 16), txt = 235 | (225 << 8) | (255 << 16), border = 110 | (60 << 8) | (190 << 16);
+                var cc = TM.C(255, 10, 4, 20); var tc = TM.C(255, 235, 225, 255); var bc = TM.C(255, 110, 60, 190); int cap = cc.R | (cc.G << 8) | (cc.B << 16), txt = tc.R | (tc.G << 8) | (tc.B << 16), border = bc.R | (bc.G << 8) | (bc.B << 16);
                 DwmSetWindowAttribute(f.Handle, 35, ref cap, 4); DwmSetWindowAttribute(f.Handle, 36, ref txt, 4); DwmSetWindowAttribute(f.Handle, 34, ref border, 4);
                 int round = 2; DwmSetWindowAttribute(f.Handle, 33, ref round, 4);   // Windows 11: softly rounded window corners
             }
             catch { }
         };
         if (f.IsHandleCreated) a(); else f.HandleCreated += delegate { a(); };
-        f.HandleCreated += delegate { HookFullscreen(f); };
+        f.HandleCreated += delegate { HookFullscreen(f); }; formEpoch.Remove(f); formEpoch.Add(f, new EpochBox { E = TM.Epoch }); darkFns.Remove(f); darkFns.Add(f, new ActionBox { A = a });
+    }
+    // ---- a theme change reaches the windows that are already open: every colour is moved from the theme it was made under into the new one ----
+    sealed class EpochBox { public int E; } sealed class ActionBox { public Action A; } sealed class ColRec { public Color Back, Fore, Border; public bool HasBorder; }
+    static readonly System.Runtime.CompilerServices.ConditionalWeakTable<Form, EpochBox> formEpoch = new System.Runtime.CompilerServices.ConditionalWeakTable<Form, EpochBox>();
+    static readonly System.Runtime.CompilerServices.ConditionalWeakTable<Form, ActionBox> darkFns = new System.Runtime.CompilerServices.ConditionalWeakTable<Form, ActionBox>();
+    static readonly System.Runtime.CompilerServices.ConditionalWeakTable<Control, ColRec> colRecs = new System.Runtime.CompilerServices.ConditionalWeakTable<Control, ColRec>();
+    static int lastRetheme = -1000000;
+    public static void RethemeAll()
+    {
+        int now = Environment.TickCount; if (unchecked(now - lastRetheme) < 220) return; lastRetheme = now;
+        var openList = new System.Collections.Generic.List<Form>(); foreach (Form of0 in Application.OpenForms) openList.Add(of0); foreach (Form f in openList) { if (f is StudioForm || f.IsDisposed) continue; try { Retheme(f); } catch { } }
+    }
+    public static void Retheme(Form f)
+    {
+        EpochBox eb; int from = formEpoch.TryGetValue(f, out eb) ? eb.E : TM.Epoch; if (from == TM.Epoch) return; RethemeTree(f, from); eb = null; if (formEpoch.TryGetValue(f, out eb)) eb.E = TM.Epoch; ActionBox ab; if (darkFns.TryGetValue(f, out ab) && f.IsHandleCreated) { try { ab.A(); } catch { } } f.Invalidate(true);
+    }
+    static void RethemeTree(Control c, int from)
+    {
+        ColRec r; if (!colRecs.TryGetValue(c, out r)) { r = new ColRec { Back = c.BackColor, Fore = c.ForeColor }; var bt = c as Button; if (bt != null) { r.Border = bt.FlatAppearance.BorderColor; r.HasBorder = true; } try { colRecs.Add(c, r); } catch { } }
+        var cbx = c as ComboBox; if (cbx != null && cbx.DroppedDown) return;   // a list that is open is left alone (changing it would shut it)
+        if (c.BackColor.A != 0 && c.BackColor != Color.Transparent) { var nb = TM.Remap(r.Back, from); if (nb != c.BackColor) c.BackColor = nb; r.Back = nb; }
+        { var nf = TM.Remap(r.Fore, from); if (nf != c.ForeColor) c.ForeColor = nf; r.Fore = nf; }
+        var b2 = c as Button; if (b2 != null && r.HasBorder && b2.FlatStyle == FlatStyle.Flat && r.Border.A != 0) { var nbd = TM.Remap(r.Border, from); b2.FlatAppearance.BorderColor = nbd; r.Border = nbd; }
+        foreach (Control k in c.Controls) RethemeTree(k, from);
+        c.Invalidate();
     }
 
     // F11 toggles full screen (Esc leaves it) in every resizable window.
@@ -127,9 +152,14 @@ static class Win
     }
     public static Font UiFont(float points, bool bold = false) { Fonts0(); return new Font(bold ? uiBoldFamily : uiFamily, points, bold ? FontStyle.Bold : FontStyle.Regular, GraphicsUnit.Point); }
     // capitals, but units keep their usual spelling after a number (dB, Hz, kHz, ms)
+    static readonly System.Collections.Generic.Dictionary<string, string> upCache = new System.Collections.Generic.Dictionary<string, string>();
     public static string Up(string s)
+    {   // (the answer is kept: working it out with a pattern for every button on every frame was slow)
+        if (string.IsNullOrEmpty(s)) return s; string r; lock (upCache) { if (upCache.TryGetValue(s, out r)) return r; r = UpSlow(s); if (upCache.Count > 6000) upCache.Clear(); upCache[s] = r; } return r;
+    }
+    static string UpSlow(string s)
     {
-        if (string.IsNullOrEmpty(s)) return s; string u = s.ToUpperInvariant();
+        string u = s.ToUpperInvariant();
         return System.Text.RegularExpressions.Regex.Replace(u, @"(?<=[0-9.]\s?)(DB|KHZ|HZ|MS)\b", m => m.Value == "DB" ? "dB" : (m.Value == "KHZ" ? "kHz" : (m.Value == "HZ" ? "Hz" : "ms")));
     }
 
@@ -184,7 +214,7 @@ static class Win
     public static void NeonBox(Control c)
     {
         if (c == null) return; var tb = c as TextBoxBase; if (tb != null) tb.BorderStyle = BorderStyle.None; var nu = c as NumericUpDown; if (nu != null) nu.BorderStyle = BorderStyle.None;
-        c.BackColor = Color.FromArgb(10, 5, 24); c.ForeColor = Color.FromArgb(226, 250, 255);
+        c.BackColor = TM.C(255, 10, 5, 24); c.ForeColor = TM.C(255, 226, 250, 255);
         object o; if (neonBoxes.TryGetValue(c, out o)) return; neonBoxes.Add(c, true);
         Action<Control> hook = p => { if (p == null) return; object x; if (neonParents.TryGetValue(p, out x)) return; neonParents.Add(p, true); p.Paint += (s, e) => PaintNeonChildren(p, e.Graphics); p.Invalidate(); };
         c.ParentChanged += (s, e) => hook(c.Parent); hook(c.Parent);
@@ -203,21 +233,21 @@ static class Win
         p.AddArc(r.X, r.Y, d, d, 180, 90); p.AddArc(r.Right - d, r.Y, d, d, 270, 90); p.AddArc(r.Right - d, r.Bottom - d, d, d, 0, 90); p.AddArc(r.X, r.Bottom - d, d, d, 90, 90); p.CloseFigure(); return p;
     }
     // a soft glow and a thin bright line; brighter and cyan while it is hot or being typed in
-    public static Color NeonHot = Color.FromArgb(0, 229, 255), NeonIdle = Color.FromArgb(150, 100, 255);   // the neon boxes follow the theme
+    public static Color NeonHot = TM.C(255, 0, 229, 255), NeonIdle = TM.C(255, 150, 100, 255);   // the neon boxes follow the theme
     public static void DrawNeonBox(Graphics g, RectangleF r, bool hot, bool enabled = true)
     {
         var sm = g.SmoothingMode; g.SmoothingMode = SmoothingMode.AntiAlias;
         using (var path = NeonPath(r, 7))
         {
             int a = hot ? 64 : 26; for (int i = 3; i >= 1; i--) using (var pen = new Pen(Color.FromArgb(Math.Max(4, a / i), NeonHot), i * 3f)) g.DrawPath(pen, path);
-            using (var pen = new Pen(enabled ? (hot ? Color.FromArgb(255, NeonHot) : Color.FromArgb(200, NeonIdle)) : Color.FromArgb(90, 120, 100, 160), hot ? 1.8f : 1.3f)) g.DrawPath(pen, path);
+            using (var pen = new Pen(enabled ? (hot ? Color.FromArgb(255, NeonHot) : Color.FromArgb(200, NeonIdle)) : TM.C(90, 120, 100, 160), hot ? 1.8f : 1.3f)) g.DrawPath(pen, path);
         }
         g.SmoothingMode = sm;
     }
 
     public static ContextMenuStrip NewMenu()
     {
-        var m = new ContextMenuStrip { Renderer = new DarkRenderer(), BackColor = Color.FromArgb(16, 8, 32), ForeColor = Color.FromArgb(240, 232, 255), ShowImageMargin = false, Font = new Font("Segoe UI", 10f) };
+        var m = new ContextMenuStrip { Renderer = new DarkRenderer(), BackColor = TM.C(255, 16, 8, 32), ForeColor = TM.C(255, 240, 232, 255), ShowImageMargin = false, Font = new Font("Segoe UI", 10f) };
         m.Font = UiFont(9.5f); Action<ToolStripItem> up = null; up = it => { if (!string.IsNullOrEmpty(it.Text) && it.Text.Length <= 70) it.Text = Up(it.Text); var mi = it as ToolStripMenuItem; if (mi != null) { mi.DropDown.ItemAdded += (s2, e2) => up(e2.Item); foreach (ToolStripItem sub in mi.DropDownItems) up(sub); } };
         m.ItemAdded += (s, e) => up(e.Item);
         m.Opened += (s, e) => { MenuShownAt = Control.MousePosition; MenuAway = false; };
@@ -235,24 +265,24 @@ static class Win
 
     class DarkColors : ProfessionalColorTable
     {
-        public override Color MenuItemSelected { get { return Color.FromArgb(96, 44, 180); } }
-        public override Color MenuItemSelectedGradientBegin { get { return Color.FromArgb(96, 44, 180); } }
-        public override Color MenuItemSelectedGradientEnd { get { return Color.FromArgb(96, 44, 180); } }
-        public override Color MenuItemBorder { get { return Color.FromArgb(190, 120, 255); } }
-        public override Color MenuBorder { get { return Color.FromArgb(120, 70, 200); } }
-        public override Color ToolStripDropDownBackground { get { return Color.FromArgb(16, 8, 32); } }
-        public override Color ImageMarginGradientBegin { get { return Color.FromArgb(16, 8, 32); } }
-        public override Color ImageMarginGradientMiddle { get { return Color.FromArgb(16, 8, 32); } }
-        public override Color ImageMarginGradientEnd { get { return Color.FromArgb(16, 8, 32); } }
-        public override Color SeparatorDark { get { return Color.FromArgb(80, 50, 130); } }
-        public override Color SeparatorLight { get { return Color.FromArgb(16, 8, 32); } }
+        public override Color MenuItemSelected { get { return TM.C(255, 96, 44, 180); } }
+        public override Color MenuItemSelectedGradientBegin { get { return TM.C(255, 96, 44, 180); } }
+        public override Color MenuItemSelectedGradientEnd { get { return TM.C(255, 96, 44, 180); } }
+        public override Color MenuItemBorder { get { return TM.C(255, 190, 120, 255); } }
+        public override Color MenuBorder { get { return TM.C(255, 120, 70, 200); } }
+        public override Color ToolStripDropDownBackground { get { return TM.C(255, 16, 8, 32); } }
+        public override Color ImageMarginGradientBegin { get { return TM.C(255, 16, 8, 32); } }
+        public override Color ImageMarginGradientMiddle { get { return TM.C(255, 16, 8, 32); } }
+        public override Color ImageMarginGradientEnd { get { return TM.C(255, 16, 8, 32); } }
+        public override Color SeparatorDark { get { return TM.C(255, 80, 50, 130); } }
+        public override Color SeparatorLight { get { return TM.C(255, 16, 8, 32); } }
     }
     class DarkRenderer : ToolStripProfessionalRenderer
     {
         public DarkRenderer() : base(new DarkColors()) { }
-        protected override void OnRenderItemText(ToolStripItemTextRenderEventArgs e) { e.TextColor = e.Item.Enabled ? Color.FromArgb(240, 232, 255) : Color.FromArgb(120, 105, 150); base.OnRenderItemText(e); }
-        protected override void OnRenderArrow(ToolStripArrowRenderEventArgs e) { e.ArrowColor = Color.FromArgb(200, 160, 255); base.OnRenderArrow(e); }
-        protected override void OnRenderItemCheck(ToolStripItemImageRenderEventArgs e) { using (var b = new SolidBrush(Color.FromArgb(190, 120, 255))) e.Graphics.FillEllipse(b, e.ImageRectangle.X + 4, e.ImageRectangle.Y + 4, e.ImageRectangle.Width - 8, e.ImageRectangle.Height - 8); }
+        protected override void OnRenderItemText(ToolStripItemTextRenderEventArgs e) { e.TextColor = e.Item.Enabled ? TM.C(255, 240, 232, 255) : TM.C(255, 120, 105, 150); base.OnRenderItemText(e); }
+        protected override void OnRenderArrow(ToolStripArrowRenderEventArgs e) { e.ArrowColor = TM.C(255, 200, 160, 255); base.OnRenderArrow(e); }
+        protected override void OnRenderItemCheck(ToolStripItemImageRenderEventArgs e) { using (var b = new SolidBrush(TM.C(255, 190, 120, 255))) e.Graphics.FillEllipse(b, e.ImageRectangle.X + 4, e.ImageRectangle.Y + 4, e.ImageRectangle.Width - 8, e.ImageRectangle.Height - 8); }
     }
 }
 
@@ -263,15 +293,15 @@ class DarkCombo : ComboBox
     public DarkCombo()
     {
         DropDownStyle = ComboBoxStyle.DropDownList; DrawMode = DrawMode.OwnerDrawFixed; FlatStyle = FlatStyle.Flat; ItemHeight = 22;
-        BackColor = Color.FromArgb(10, 5, 20); ForeColor = Color.FromArgb(240, 232, 255); Win.DarkControl(this);
+        BackColor = TM.C(255, 10, 5, 20); ForeColor = TM.C(255, 240, 232, 255); Win.DarkControl(this);
     }
     protected override void OnMouseEnter(EventArgs e) { hot = true; Invalidate(); base.OnMouseEnter(e); }
     protected override void OnMouseLeave(EventArgs e) { hot = false; Invalidate(); base.OnMouseLeave(e); }
     protected override void OnDrawItem(DrawItemEventArgs e)
     {
         if (e.Index < 0) return; bool sel = (e.State & DrawItemState.Selected) != 0;
-        using (var b = new SolidBrush(sel ? Color.FromArgb(104, 48, 196) : Color.FromArgb(14, 7, 28))) e.Graphics.FillRectangle(b, e.Bounds);
-        TextRenderer.DrawText(e.Graphics, Convert.ToString(Items[e.Index]), Font, new Rectangle(e.Bounds.X + 6, e.Bounds.Y, e.Bounds.Width - 6, e.Bounds.Height), Color.FromArgb(240, 232, 255), TextFormatFlags.VerticalCenter | TextFormatFlags.Left | TextFormatFlags.EndEllipsis);
+        using (var b = new SolidBrush(sel ? TM.C(255, 104, 48, 196) : TM.C(255, 14, 7, 28))) e.Graphics.FillRectangle(b, e.Bounds);
+        TextRenderer.DrawText(e.Graphics, Convert.ToString(Items[e.Index]), Font, new Rectangle(e.Bounds.X + 6, e.Bounds.Y, e.Bounds.Width - 6, e.Bounds.Height), TM.C(255, 240, 232, 255), TextFormatFlags.VerticalCenter | TextFormatFlags.Left | TextFormatFlags.EndEllipsis);
     }
     protected override void WndProc(ref Message m)
     {
@@ -283,10 +313,10 @@ class DarkCombo : ComboBox
                 using (var g = Graphics.FromHwnd(Handle))
                 {
                     g.SmoothingMode = SmoothingMode.AntiAlias; var r = new Rectangle(0, 0, Width - 1, Height - 1);
-                    using (var b = new LinearGradientBrush(r, Color.FromArgb(18, 9, 36), Color.FromArgb(8, 4, 16), 90f)) g.FillRectangle(b, r);
-                    using (var pen = new Pen(hot || Focused ? Color.FromArgb(200, 140, 255) : Color.FromArgb(120, 70, 200), 1.4f)) g.DrawRectangle(pen, r);
-                    TextRenderer.DrawText(g, Text, Font, new Rectangle(8, 0, Width - 30, Height), Color.FromArgb(240, 232, 255), TextFormatFlags.VerticalCenter | TextFormatFlags.Left | TextFormatFlags.EndEllipsis);
-                    using (var pen = new Pen(Color.FromArgb(210, 160, 255), 2f) { StartCap = LineCap.Round, EndCap = LineCap.Round })
+                    using (var b = new LinearGradientBrush(r, TM.C(255, 18, 9, 36), TM.C(255, 8, 4, 16), 90f)) g.FillRectangle(b, r);
+                    using (var pen = new Pen(hot || Focused ? TM.C(255, 200, 140, 255) : TM.C(255, 120, 70, 200), 1.4f)) g.DrawRectangle(pen, r);
+                    TextRenderer.DrawText(g, Text, Font, new Rectangle(8, 0, Width - 30, Height), TM.C(255, 240, 232, 255), TextFormatFlags.VerticalCenter | TextFormatFlags.Left | TextFormatFlags.EndEllipsis);
+                    using (var pen = new Pen(TM.C(255, 210, 160, 255), 2f) { StartCap = LineCap.Round, EndCap = LineCap.Round })
                     { int cx = Width - 14, cy = Height / 2; g.DrawLine(pen, cx - 4, cy - 2, cx, cy + 2); g.DrawLine(pen, cx, cy + 2, cx + 4, cy - 2); }
                 }
             }
@@ -298,22 +328,22 @@ class DarkCombo : ComboBox
 // Neon check box on a dark pill.
 class DarkCheck : CheckBox
 {
-    public DarkCheck() { SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer, true); ForeColor = Color.FromArgb(240, 232, 255); BackColor = Color.FromArgb(14, 7, 28); }
+    public DarkCheck() { SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer, true); ForeColor = TM.C(255, 240, 232, 255); BackColor = TM.C(255, 14, 7, 28); }
     protected override void OnMouseEnter(EventArgs e) { base.OnMouseEnter(e); Invalidate(); }
     protected override void OnMouseLeave(EventArgs e) { base.OnMouseLeave(e); Invalidate(); }
     protected override void OnPaint(PaintEventArgs e)
     {
-        var g = e.Graphics; g.SmoothingMode = SmoothingMode.AntiAlias; g.Clear(Color.FromArgb(14, 7, 28));
+        var g = e.Graphics; g.SmoothingMode = SmoothingMode.AntiAlias; g.Clear(TM.C(255, 14, 7, 28));
         var box = new Rectangle(4, (Height - 16) / 2, 16, 16);
         bool hot = ClientRectangle.Contains(PointToClient(Cursor.Position));
         if (Checked)
         {
-            using (var gl = new SolidBrush(Color.FromArgb(60, 190, 110, 255))) g.FillEllipse(gl, box.X - 5, box.Y - 5, box.Width + 10, box.Height + 10);
-            using (var b = new LinearGradientBrush(box, Color.FromArgb(150, 60, 240), Color.FromArgb(236, 92, 226), 45f)) g.FillRectangle(b, box);
+            using (var gl = new SolidBrush(TM.C(60, 190, 110, 255))) g.FillEllipse(gl, box.X - 5, box.Y - 5, box.Width + 10, box.Height + 10);
+            using (var b = new LinearGradientBrush(box, TM.C(255, 150, 60, 240), TM.C(255, 236, 92, 226), 45f)) g.FillRectangle(b, box);
             using (var pen = new Pen(Color.White, 2f) { StartCap = LineCap.Round, EndCap = LineCap.Round }) { g.DrawLine(pen, box.X + 3, box.Y + 8, box.X + 7, box.Y + 12); g.DrawLine(pen, box.X + 7, box.Y + 12, box.X + 13, box.Y + 4); }
         }
-        else using (var b = new SolidBrush(Color.FromArgb(6, 3, 12))) g.FillRectangle(b, box);
-        using (var pen = new Pen(hot ? Color.FromArgb(230, 170, 255) : Color.FromArgb(150, 90, 220), 1.3f)) g.DrawRectangle(pen, box);
+        else using (var b = new SolidBrush(TM.C(255, 6, 3, 12))) g.FillRectangle(b, box);
+        using (var pen = new Pen(hot ? TM.C(255, 230, 170, 255) : TM.C(255, 150, 90, 220), 1.3f)) g.DrawRectangle(pen, box);
         TextRenderer.DrawText(g, Text, Font, new Rectangle(26, 0, Width - 28, Height), ForeColor, TextFormatFlags.VerticalCenter | TextFormatFlags.Left | TextFormatFlags.EndEllipsis);
     }
 }
@@ -375,10 +405,10 @@ sealed class FpsCounter
     public void Draw(Graphics g, float right, float bottom, bool idle)
     {
         if (!Prefs.ShowFps) return; if (hz == 0) hz = FrameLoop.DisplayHz(); int target = Math.Min(Prefs.FpsCap, hz); string text = idle ? "idle" : Fps + " FPS";
-        Color c = idle ? Color.FromArgb(150, 140, 190) : (Fps >= target * 0.85 ? Color.FromArgb(110, 255, 150) : (Fps >= target * 0.45 ? Color.FromArgb(255, 210, 80) : Color.FromArgb(255, 100, 120)));
+        Color c = idle ? TM.C(255, 150, 140, 190) : (Fps >= target * 0.85 ? Color.FromArgb(110, 255, 150) : (Fps >= target * 0.45 ? Color.FromArgb(255, 210, 80) : Color.FromArgb(255, 100, 120)));
         var f = GfxCache.Font(12, true); var sz = g.MeasureString(text, f); float w = sz.Width + 30, h = 22; var r = new RectangleF(right - w, bottom - h, w, h);
         var oldS = g.SmoothingMode; g.SmoothingMode = SmoothingMode.AntiAlias;
-        using (var b = new SolidBrush(Color.FromArgb(210, 8, 4, 20))) g.FillRectangle(b, r); using (var p = new Pen(Color.FromArgb(180, c), 1.2f)) g.DrawRectangle(p, r.X, r.Y, r.Width, r.Height);
+        using (var b = new SolidBrush(TM.C(210, 8, 4, 20))) g.FillRectangle(b, r); using (var p = new Pen(Color.FromArgb(180, c), 1.2f)) g.DrawRectangle(p, r.X, r.Y, r.Width, r.Height);
         using (var b = new SolidBrush(c)) { g.FillEllipse(b, r.X + 8, r.Y + 7, 8, 8); g.DrawString(text, f, b, r.X + 21, r.Y + 3); }
         g.SmoothingMode = oldS;
     }

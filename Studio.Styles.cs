@@ -152,14 +152,14 @@ partial class StudioForm
     void PaintStylesSheet(Graphics g)
     {
         if (!stylesOpen) return; float W = ClientSize.Width, H = ClientSize.Height; var all = Rc(0, 0, W, H);
-        using (var b = new SolidBrush(Color.FromArgb(160, 3, 1, 10))) g.FillRectangle(b, all); Reg(all, () => stylesOpen = false);
+        using (var b = new SolidBrush(TM.C(160, 3, 1, 10))) g.FillRectangle(b, all); Reg(all, () => stylesOpen = false);
         float sw = Math.Min(760, W - 24), sh = Math.Min(H - 30, 700); var sheet = PopMove("styles", Rc((W - sw) / 2, (H - sh) / 2, sw, sh), 54, 70);
-        FillRR(g, Color.FromArgb(252, 16, 10, 34), sheet, 22); Glow(g, NeonViolet, sheet, 22, 0.8f, 4); StrokeRR(g, Color.FromArgb(180, NeonViolet), sheet, 22, 1.5f); Reg(sheet, () => { });
+        FillRR(g, TM.C(252, 16, 10, 34), sheet, 22); Glow(g, NeonViolet, sheet, 22, 0.8f, 4); StrokeRR(g, Color.FromArgb(180, NeonViolet), sheet, 22, 1.5f); Reg(sheet, () => { });
         Txt(g, "RAPPER VOCAL STYLES", 22, Ink, Rc(sheet.X + 22, sheet.Y + 14, 360, 34), StringAlignment.Near, true);
         string tn = eng.Tracks.Count > 0 ? eng.Tracks[Math.Max(0, Math.Min(selTrack, eng.Tracks.Count - 1))].Name : "(no track)";
         Txt(g, "Original sound designs for rap vocals, built from this app's plugins. Choose one for: " + tn, 12, DimC, Rc(sheet.X + 22, sheet.Y + 48, sheet.Width - 44, 20), StringAlignment.Near, false);
-        var close = Rc(sheet.Right - 52, sheet.Y + 14, 32, 32); FillRR(g, Hot(close) ? Color.FromArgb(160, 70, 38, 130) : Color.FromArgb(110, 40, 24, 80), close, 16); Txt(g, "X", 15, Ink, close, StringAlignment.Center, true); Reg(close, () => stylesOpen = false);
-        var sb = Rc(sheet.X + 22, sheet.Y + 76, sheet.Width - 44, 34); FillRR(g, Color.FromArgb(235, 14, 7, 32), sb, 8); StrokeRR(g, Accent, sb, 8, 1.6f); Reg(sb, () => { });
+        var close = Rc(sheet.Right - 52, sheet.Y + 14, 32, 32); FillRR(g, Hot(close) ? TM.C(160, 70, 38, 130) : TM.C(110, 40, 24, 80), close, 16); Txt(g, "X", 15, Ink, close, StringAlignment.Center, true); Reg(close, () => stylesOpen = false);
+        var sb = Rc(sheet.X + 22, sheet.Y + 76, sheet.Width - 44, 34); FillRR(g, TM.C(235, 14, 7, 32), sb, 8); StrokeRR(g, Accent, sb, 8, 1.6f); Reg(sb, () => { });
         if (stylesQuery.Length > 0) Btn(g, Rc(sb.Right - 30, sb.Y + 5, 24, 24), "x", 3, () => { stylesQuery = ""; stylesScroll = 0; }, 12);
         Txt(g, stylesQuery.Length == 0 ? (((int)(t * 2) % 2 == 0 ? "|" : " ") + "  Search styles: trap, drill, dark, warm, echo...") : stylesQuery + ((int)(t * 2) % 2 == 0 ? "|" : ""), 14, stylesQuery.Length == 0 ? DimC : Ink, Rc(sb.X + 12, sb.Y, sb.Width - 50, sb.Height), StringAlignment.Near, false);
         // the subgenre chips (they wrap onto more lines when the sheet is narrow)
@@ -176,7 +176,7 @@ partial class StudioForm
         for (int i = 0; i < list.Count; i++)
         {
             var s = list[i]; var row = Rc(sheet.X + 14, top + i * rowH - stylesScroll, sheet.Width - 28 - vsw, rowH - 6); if (row.Bottom < top || row.Y > bottom) continue;
-            bool hot = Hot(RectangleF.Intersect(row, area)) && area.Contains(MousePos); FillRR(g, hot ? Color.FromArgb(200, 60, 34, 112) : Color.FromArgb(150, 26, 15, 52), row, 12); StrokeRR(g, Color.FromArgb(hot ? 160 : 80, NeonViolet), row, 12, 1);
+            bool hot = Hot(RectangleF.Intersect(row, area)) && area.Contains(MousePos); FillRR(g, hot ? TM.C(200, 60, 34, 112) : TM.C(150, 26, 15, 52), row, 12); StrokeRR(g, Color.FromArgb(hot ? 160 : 80, NeonViolet), row, 12, 1);
             bool fv = VocalStyles.IsFav(s.Name); var star = Rc(row.X + 8, row.Y + 8, 30, 30); Txt(g, fv ? "★" : "☆", 20, fv ? Color.FromArgb(255, 210, 80) : DimC, star, StringAlignment.Center, false); string sn = s.Name; Reg(star, () => VocalStyles.ToggleFav(sn));
             float nameW = g.MeasureString(s.Name, GfxCache.Font(16, true)).Width; Txt(g, s.Name, 16, Ink, Rc(row.X + 44, row.Y + 6, nameW + 12, 26), StringAlignment.Near, true);
             var tag = Rc(row.X + 44 + nameW + 10, row.Y + 10, 14 + s.Genre.Length * 6.6f, 18); FillRR(g, Color.FromArgb(70, NeonViolet), tag, 5); Txt(g, s.Genre, 10, Ink, tag, StringAlignment.Center, false);

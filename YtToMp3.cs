@@ -37,7 +37,7 @@ class Job
 partial class App : Form
 {
     // ---- Auto-update settings ----
-    const string Version = "3.24.0";
+    const string Version = "3.25.0";
     // Plain-text manifest: line 1 = newest version, line 2 = direct exe download URL.
     const string UpdateManifestUrl = "https://raw.githubusercontent.com/heaththomas225-svg/yt-to-mp3/main/version.txt";
 
@@ -74,8 +74,11 @@ partial class App : Form
         return s;
     }
 
-    static readonly string[] SrNames = { "Original", "44.1 kHz", "48 kHz" };
-    static readonly string[] SrArgs = { null, "-ar 44100", "-ar 48000" };
+    static readonly string[] SrNames = { "Original", "44.1 kHz", "48 kHz", "88.2 kHz", "96 kHz", "176.4 kHz", "192 kHz", "352.8 kHz", "384 kHz (highest)" };
+    static readonly string[] SrArgs = { null, "-ar 44100", "-ar 48000", "-ar 88200", "-ar 96000", "-ar 176400", "-ar 192000", "-ar 352800", "-ar 384000" };
+    static readonly int[] SrHz = { 0, 44100, 48000, 88200, 96000, 176400, 192000, 352800, 384000 };
+    // the highest rate each format can really hold: MP3 and Opus stop at 48 kHz, AAC (M4A) at 96 kHz
+    static string SrArg(int srIdx, int fmtIdx) { if (srIdx <= 0 || srIdx >= SrArgs.Length) return null; int max = fmtIdx == 0 || fmtIdx == 4 ? 48000 : (fmtIdx == 3 ? 96000 : 384000); int hz = Math.Min(SrHz[srIdx], max); return "-ar " + hz; }
     static readonly string[] NameNames = { "Title", "Artist - Title", "Title [video id]" };
     static readonly string[] NameTpl = { "%(title).150B", "%(artist,uploader)s - %(title).150B", "%(title).140B [%(id)s]" };
 
@@ -121,11 +124,18 @@ partial class App : Form
     {
         Func<Control, Func<Rectangle>> R = c => (() => new Rectangle(c.Left, c.Top, c.Width, c.Height)); var s = new List<TourStep>();
         if (id.StartsWith("target:")) { OpenStudio(); studioForm.ShowOnScreen(id.Substring(7)); return; }
-        if (id.StartsWith("studio")) { OpenStudio(); studioForm.RunTour(id); return; }
+        if (id.StartsWith("studio") || id == "daw" || id == "makesong" || id == "typing") { OpenStudio(); studioForm.RunGuide(id); return; }
         if (id == "start") { s.Add(new TourStep(R(links), "1. Paste a link", "Paste one or more links here (YouTube and 1000+ other video and music sites), or type words to search.")); s.Add(new TourStep(R(fmt), "2. Pick a format", "MP3 320 kbps is the best all-round choice.")); s.Add(new TourStep(R(go), "3. Press Convert", "Your file is saved in the Save to folder, which opens when it is done.")); }
         else if (id == "normalize") { s.Add(new TourStep(R(norm), "Normalize loudness", "Tick this to bring downloads to a standard -14 LUFS loudness.")); s.Add(new TourStep(R(prevNormBtn), "Hear it first", "Press Hear to listen to a 30 second sample, original versus normalized, before you convert.")); }
         else if (id == "vocal") { s.Add(new TourStep(R(vocalBtn), "Vocal remover", "Click this, then choose Remove vocals from a song, or Preview to hear a 30 second sample first.")); s.Add(new TourStep(R(outDir), "Where files go", "The instrumental and the vocals-only file are saved in this folder.")); }
         else if (id == "masterassistant") { s.Add(new TourStep(R(addMusicBtn), "Purphex Mastering", "Press ADD MUSIC, then Edit in Purphex Music. The Mastering tab there has the live EQ, loudness and width.")); }
+        else if (id == "formats") { s.Add(new TourStep(R(fmt), "1. Pick a format", "MP3 320 kbps is the best all-round choice. M4A suits Apple devices, FLAC and WAV are for editing, Opus makes the smallest files.")); s.Add(new TourStep(R(sr), "2. Sample rate", "Leave it on Original unless your project needs 44.1 kHz or 48 kHz.")); s.Add(new TourStep(R(nameFmt), "3. File names", "Choose how the finished files are named.")); }
+        else if (id == "batch") { s.Add(new TourStep(R(links), "1. Paste several links", "One per line, or separated by commas. They are converted one after another.")); s.Add(new TourStep(R(playlist), "2. Whole playlists", "Tick this to convert every video of a playlist link. Leave it off for just the one video.")); s.Add(new TourStep(R(cancel), "3. Cancel", "Stops at any time. Files already finished are kept.")); }
+        else if (id == "trim") { s.Add(new TourStep(R(trimA), "1. Trim start", "Type where to start, such as 1:30. Leave it empty to begin at 0:00.")); s.Add(new TourStep(R(trimB), "2. Trim end", "Type where to stop. Leave it empty to go to the end of the song.")); }
+        else if (id == "download-video") { s.Add(new TourStep(R(fmt), "Pick MP4 here", "Choose one of the MP4 video qualities in this list, paste the link and press Convert.")); }
+        else if (id == "settings") { s.Add(new TourStep(R(settingsBtn), "Settings", "Background picture or video, colour theme, animation speed, audio device and buffer, and updates. It has a sidebar of sections and a SAVE button at the top and the bottom.")); }
+        else if (id == "updates") { s.Add(new TourStep(R(changeBtn), "What changed", "The Changelog shows what is new in each version.")); s.Add(new TourStep(R(settingsBtn), "Scan for updates", "Open Settings, then the UPDATES section, to scan for a new version.")); }
+        else if (id == "fullscreen") { s.Add(new TourStep(() => Rectangle.Empty, "Full screen", "Press F11 in any window to fill the screen, and Esc (or the MINIMISE button) to come back. Pop-up boxes can be dragged by their top strip.")); }
         if (s.Count > 0) Tour.Run(this, s);
     }
 
@@ -135,9 +145,9 @@ partial class App : Form
         else Win.Bring(studioForm);
     }
 
-    static readonly Color Ink = Color.FromArgb(235, 225, 255);
-    static readonly Color Field = Color.FromArgb(8, 4, 16);
-    static readonly Color Pill = Color.FromArgb(14, 7, 28);
+    static Color Ink { get { return TM.C(255, 235, 225, 255); } }
+    static Color Field { get { return TM.C(255, 8, 4, 16); } }
+    static Color Pill { get { return TM.C(255, 14, 7, 28); } }
 
     [STAThread]
     static void Main()
@@ -190,7 +200,7 @@ partial class App : Form
         StyleBox(trimB); trimB.SetBounds(108, 246, 84, 28); Lbl(trimB, "Trim end"); tip.SetToolTip(trimB, "Where the file should end, like 3:45 (minutes:seconds). Leave empty to go to the end.");
         StyleChk(norm, "Normalize loudness", 200, 246, 192);
         tip.SetToolTip(norm, "Brings every download to a standard -14 LUFS loudness (streaming level).");
-        StyleBtn(prevNormBtn, Color.FromArgb(60, 26, 110)); prevNormBtn.Text = "Hear"; prevNormBtn.SetBounds(398, 246, 54, 28);
+        StyleBtn(prevNormBtn, TM.C(255, 60, 26, 110)); prevNormBtn.Text = "Hear"; prevNormBtn.SetBounds(398, 246, 54, 28);
         tip.SetToolTip(prevNormBtn, "Listen to a 30 second sample, original vs normalized, before you convert.");
         prevNormBtn.Click += (s, e) => PreviewNormalize();
         StyleChk(playlist, "Whole playlists", 458, 246, 166);
@@ -200,7 +210,7 @@ partial class App : Form
         StyleChk(animate, "Animated background", 242, 279, 214);
         openDone.Checked = true; animate.Checked = true;
 
-        StyleBtn(mastBtn, Color.FromArgb(90, 36, 160)); mastBtn.Text = "Mastering: OFF";
+        StyleBtn(mastBtn, TM.C(255, 90, 36, 160)); mastBtn.Text = "Mastering: OFF";
         mastBtn.SetBounds(464, 274, 160, 30); mastBtn.Anchor = AnchorStyles.Top | AnchorStyles.Right;
         tip.SetToolTip(mastBtn, "Master your own song: opens Purphex Music on its Mastering tab, where you can add a song, master it and export it.");
         mastBtn.Text = "Master a song";
@@ -211,7 +221,7 @@ partial class App : Form
         mastBtn.Visible = false;   // the main window is kept simple: mastering is on the Mastering tab inside Purphex Music
 
         // output folder
-        StyleBtn(vocalBtn, Color.FromArgb(90, 36, 160)); vocalBtn.Text = "Vocal remover...";
+        StyleBtn(vocalBtn, TM.C(255, 90, 36, 160)); vocalBtn.Text = "Vocal remover...";
         vocalBtn.SetBounds(16, 312, 190, 30);
         tip.SetToolTip(vocalBtn, "Pick a song and get an instrumental (no vocals) plus a vocals-only file, made by an AI model.");
         vocalBtn.Click += (s, e) =>
@@ -221,12 +231,12 @@ partial class App : Form
             m.Items.Add("Preview: hear a 30 second sample first...").Click += (a, b) => PreviewVocals();
             m.Show(vocalBtn, new Point(0, vocalBtn.Height));
         };
-        StyleBtn(whatsBtn, Color.FromArgb(60, 26, 110)); whatsBtn.Text = "Menu"; whatsBtn.SetBounds(560, 12, 64, 28);
-        StyleBtn(helpBtn, Color.FromArgb(190, 60, 200)); helpBtn.Text = "Help"; helpBtn.SetBounds(490, 12, 64, 28); helpBtn.Anchor = AnchorStyles.Top | AnchorStyles.Right; helpBtn.Click += (s, e) => ShowHelp(null);
+        StyleBtn(whatsBtn, TM.C(255, 60, 26, 110)); whatsBtn.Text = "Menu"; whatsBtn.SetBounds(560, 12, 64, 28);
+        StyleBtn(helpBtn, TM.C(255, 190, 60, 200)); helpBtn.Text = "Help"; helpBtn.SetBounds(490, 12, 64, 28); helpBtn.Anchor = AnchorStyles.Top | AnchorStyles.Right; helpBtn.Click += (s, e) => ShowHelp(null);
         tip.SetToolTip(helpBtn, "Guides for every feature, with Show me on screen tours (F1).");
-        StyleBtn(settingsBtn, Color.FromArgb(70, 40, 150)); settingsBtn.Text = "Settings"; settingsBtn.SetBounds(400, 12, 84, 28); settingsBtn.Anchor = AnchorStyles.Top | AnchorStyles.Right; settingsBtn.Click += (s, e) => ShowSettings();
+        StyleBtn(settingsBtn, TM.C(255, 70, 40, 150)); settingsBtn.Text = "Settings"; settingsBtn.SetBounds(400, 12, 84, 28); settingsBtn.Anchor = AnchorStyles.Top | AnchorStyles.Right; settingsBtn.Click += (s, e) => ShowSettings();
         tip.SetToolTip(settingsBtn, "Background picture or video, animation, audio and other options.");
-        StyleBtn(changeBtn, Color.FromArgb(60, 26, 110)); changeBtn.Text = "Changelog"; changeBtn.SetBounds(290, 12, 104, 28); changeBtn.Anchor = AnchorStyles.Top | AnchorStyles.Right; changeBtn.Click += (s, e) => { seenVer = Changelog.Latest; SaveSettings(); changeBtn.Text = "Changelog"; Changelog.Show(this); };
+        StyleBtn(changeBtn, TM.C(255, 60, 26, 110)); changeBtn.Text = "Changelog"; changeBtn.SetBounds(290, 12, 104, 28); changeBtn.Anchor = AnchorStyles.Top | AnchorStyles.Right; changeBtn.Click += (s, e) => { seenVer = Changelog.Latest; SaveSettings(); changeBtn.Text = "Changelog"; Changelog.Show(this); };
         tip.SetToolTip(changeBtn, "See what changed in each version (nothing pops up by itself any more).");
         KeyPreview = true; KeyDown += (s, e) => { if (e.KeyCode == Keys.F1) { e.Handled = true; ShowHelp(null); } }; whatsBtn.Anchor = AnchorStyles.Top | AnchorStyles.Right; whatsBtn.Click += (s, e) =>
         {
@@ -239,10 +249,10 @@ partial class App : Form
             m.Items.Add("Open data folder").Click += (a, b) => { try { Directory.CreateDirectory(AppData); Process.Start("explorer.exe", "\"" + AppData + "\""); } catch { } };
             m.Show(whatsBtn, new Point(0, whatsBtn.Height));
         };
-        StyleBtn(studioBtn, Color.FromArgb(90, 36, 160)); studioBtn.Text = "Purphex Music"; studioBtn.SetBounds(212, 312, 190, 30);
+        StyleBtn(studioBtn, TM.C(255, 90, 36, 160)); studioBtn.Text = "Purphex Music"; studioBtn.SetBounds(212, 312, 190, 30);
         tip.SetToolTip(studioBtn, "Open the Logic-style studio: tracks, mixing, Auto-Tune, EQ, effects, mastering and export.");
         studioBtn.Click += (s, e) => OpenStudio();
-        StyleBtn(addMusicBtn, Color.FromArgb(190, 60, 200)); addMusicBtn.Text = "ADD MUSIC"; addMusicBtn.Font = new Font("Segoe UI Semibold", 10.5f);
+        StyleBtn(addMusicBtn, TM.C(255, 190, 60, 200)); addMusicBtn.Text = "ADD MUSIC"; addMusicBtn.Font = new Font("Segoe UI Semibold", 10.5f);
         addMusicBtn.SetBounds(408, 312, 216, 30); addMusicBtn.Anchor = AnchorStyles.Top | AnchorStyles.Right;
         tip.SetToolTip(addMusicBtn, "Add music from your PC: edit it in Purphex Music, remove the vocals or the beat, or trim the start and end.");
         addMusicBtn.Click += (s, e) =>
@@ -257,7 +267,7 @@ partial class App : Form
         outDir.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
         outDir.Text = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyMusic), "yt2mp3");
         Lbl(outDir, "Save to");
-        StyleBtn(browse, Color.FromArgb(70, 30, 120)); browse.Text = "Browse...";
+        StyleBtn(browse, TM.C(255, 70, 30, 120)); browse.Text = "Browse...";
         browse.SetBounds(544, 376, 80, 30); browse.Anchor = AnchorStyles.Top | AnchorStyles.Right;
         browse.Click += (s, e) =>
         {
@@ -265,12 +275,12 @@ partial class App : Form
                 if (d.ShowDialog() == DialogResult.OK) outDir.Text = d.SelectedPath;
         };
 
-        StyleBtn(go, Color.FromArgb(120, 40, 210)); go.Text = "Convert";
+        StyleBtn(go, TM.C(255, 120, 40, 210)); go.Text = "Convert";
         go.Font = new Font("Segoe UI Semibold", 11f);
         go.SetBounds(16, 414, 500, 40); go.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
         go.Click += (s, e) => Start();
 
-        StyleBtn(cancel, Color.FromArgb(110, 30, 70)); cancel.Text = "Cancel"; cancel.Enabled = false;
+        StyleBtn(cancel, TM.C(255, 110, 30, 70)); cancel.Text = "Cancel"; cancel.Enabled = false;
         cancel.SetBounds(524, 414, 100, 40); cancel.Anchor = AnchorStyles.Top | AnchorStyles.Right;
         cancel.Click += (s, e) => { cancelReq = true; KillCurrent(); Log("Cancelling..."); };
 
@@ -322,7 +332,7 @@ partial class App : Form
     static void StyleBtn(Button b, Color c)
     {
         b.FlatStyle = FlatStyle.Flat; b.BackColor = c; b.ForeColor = Color.White;
-        b.FlatAppearance.BorderColor = Color.FromArgb(190, 120, 255);
+        b.FlatAppearance.BorderColor = TM.C(255, 190, 120, 255);
         b.FlatAppearance.BorderSize = 1; b.Cursor = Cursors.Hand;
     }
 
@@ -478,7 +488,7 @@ partial class App : Form
         shownPct += (targetPct - shownPct) * (1f - (float)Math.Pow(0.85, k30));
                 // pulse the Convert button, but only repaint the real control when the colour visibly changes
         float k = (float)(Math.Sin(t * 2.5f) * 0.5 + 0.5); k = (float)Math.Round(k * 12) / 12f;
-        Color gc = busy ? Color.FromArgb(70, 30, 120) : Color.FromArgb((int)(105 + 70 * k), (int)(35 + 30 * k), (int)(195 + 45 * k));
+        Color gc = busy ? TM.C(255, 70, 30, 120) : TM.C(255, (int)(105 + 70 * k), (int)(35 + 30 * k), (int)(195 + 45 * k));
         if (go.BackColor != gc) go.BackColor = gc;
         bg.Invalidate(); if ((++paintTick & 7) == 0) Win.PaintPending(bg);   // give the controls on top their turn to repaint
         fpsFrames++;
@@ -504,8 +514,8 @@ partial class App : Form
         var st = g.Save();
         g.TranslateTransform(l.X, l.Y); g.RotateTransform(l.Rot); g.ScaleTransform(l.S, l.S);
         using (var fill = new SolidBrush(Color.FromArgb(l.A, l.C)))
-        using (var edge = new Pen(Color.FromArgb(Math.Min(255, l.A + 60), 225, 190, 255), 1.5f / l.S))
-        using (var rib = new Pen(Color.FromArgb(l.A, 235, 215, 255), 1f / l.S))
+        using (var edge = new Pen(TM.C(Math.Min(255, l.A + 60), 225, 190, 255), 1.5f / l.S))
+        using (var rib = new Pen(TM.C(l.A, 235, 215, 255), 1f / l.S))
         using (var gp = glow ? new Pen(Color.FromArgb(34, l.C), 9f / l.S) : null)
         {
             for (int i = 0; i < 7; i++)
@@ -772,7 +782,7 @@ partial class App : Form
         else
         {
             var ppa = new List<string>();
-            if (SrArgs[job.Sr] != null) ppa.Add(SrArgs[job.Sr]);
+            if (SrArg(job.Sr, job.Fmt) != null) ppa.Add(SrArg(job.Sr, job.Fmt));
             if (FmtCodec[job.Fmt] != null) ppa.Add(FmtCodec[job.Fmt]);
             {
                 string af = (job.ExtraFilter ?? "").Replace("\"", "").Trim(); if (af.StartsWith("-")) af = "";
@@ -1061,19 +1071,19 @@ partial class App : Form
         int ntH = notes.Count > 0 ? TextRenderer.MeasureText(ntext, nfont, new Size(404, 0), TextFormatFlags.WordBreak).Height + 8 : 0;
         int npH = Math.Min(ntH, Math.Max(120, Math.Min(230, bg.ClientSize.Height - 330)));   // taller notes scroll inside the card instead of being cut off
         int nh = notes.Count > 0 ? npH + 30 : 0;
-        card = new Panel { Size = new Size(470, 160 + nh), BackColor = Color.FromArgb(14, 7, 28), BorderStyle = BorderStyle.FixedSingle };
-        var title = MakeLabel("Update available", new Font("Segoe UI Semibold", 14f), Color.FromArgb(225, 190, 255), 16, 14, 430, 28);
+        card = new Panel { Size = new Size(470, 160 + nh), BackColor = TM.C(255, 14, 7, 28), BorderStyle = BorderStyle.FixedSingle };
+        var title = MakeLabel("Update available", new Font("Segoe UI Semibold", 14f), TM.C(255, 225, 190, 255), 16, 14, 430, 28);
         var msg = MakeLabel("Version " + newVer + " is ready (you have " + Version + ").\nUpdate now? The app restarts automatically.", Font, Ink, 16, 48, 430, 40);
         var ctl = new List<Control> { title, msg };
         if (notes.Count > 0)
         {
-            ctl.Add(MakeLabel("What's new", new Font("Segoe UI Semibold", 10.5f), Color.FromArgb(236, 120, 230), 16, 94, 200, 22));
+            ctl.Add(MakeLabel("What's new", new Font("Segoe UI Semibold", 10.5f), TM.C(255, 236, 120, 230), 16, 94, 200, 22));
             var np = new Panel { Left = 16, Top = 116, Width = 438, Height = npH, AutoScroll = true, BackColor = card.BackColor };
             var nl = new Label { Text = ntext, Font = nfont, ForeColor = Ink, BackColor = card.BackColor, AutoSize = true, MaximumSize = new Size(404, 0), Left = 0, Top = 0 };
             np.Controls.Add(nl); np.MouseEnter += (s, e) => np.Focus(); nl.MouseEnter += (s, e) => np.Focus(); ctl.Add(np);
         }
-        var yes = new Button(); StyleBtn(yes, Color.FromArgb(130, 45, 220)); yes.Text = "Update now"; yes.SetBounds(16, 108 + nh, 205, 36);
-        var no = new Button(); StyleBtn(no, Color.FromArgb(60, 26, 100)); no.Text = "Later"; no.SetBounds(235, 108 + nh, 205, 36);
+        var yes = new Button(); StyleBtn(yes, TM.C(255, 130, 45, 220)); yes.Text = "Update now"; yes.SetBounds(16, 108 + nh, 205, 36);
+        var no = new Button(); StyleBtn(no, TM.C(255, 60, 26, 100)); no.Text = "Later"; no.SetBounds(235, 108 + nh, 205, 36);
         yes.Click += (s, e) => { HideCard(); ApplyUpdate(dl); };
         no.Click += (s, e) => { dismissedVer = newVer; HideCard(); };
         ctl.Add(yes); ctl.Add(no); card.Controls.AddRange(ctl.ToArray());

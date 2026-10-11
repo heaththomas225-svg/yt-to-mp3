@@ -607,6 +607,10 @@ static class Exporter
     static readonly string[] Ext = { "wav", "wav", "wav", "flac", "mp3", "mp3" };
 
     public static string FileExt(int fmt) { return Ext[fmt]; }
+    // the sample rate of the finished file: the music is made at 44.1 kHz and converted with a high quality filter (MP3 stops at 48 kHz, which is as high as that format goes)
+    public static readonly int[] Rates = { 44100, 48000, 88200, 96000, 176400, 192000, 352800, 384000 };
+    public static readonly string[] RateNames = { "44.1 kHz (as made)", "48 kHz", "88.2 kHz", "96 kHz", "176.4 kHz", "192 kHz", "352.8 kHz (DXD)", "384 kHz (the highest)" };
+    public static int RateFor(int fmt, int rateIdx) { int r = Rates[Math.Max(0, Math.Min(Rates.Length - 1, rateIdx))]; return fmt == 4 ? Math.Min(r, 48000) : r; }
 
     public static List<ExportItem> Plan(StudioEngine eng, bool mixMastered, bool mixDry, bool procVocal, bool procBeat, bool dryVocal, bool dryBeat, bool stems, string prefix, int fmt)
     {
@@ -626,15 +630,24 @@ static class Exporter
     static string Safe(string s) { foreach (char c in Path.GetInvalidFileNameChars()) s = s.Replace(c, '_'); return s; }
 
     // Renders one item straight to disk in small blocks, so memory stays flat and hour-long songs export fine.
-    public static string Write(StudioEngine eng, ExportItem it, string dir, int fmt, Action<float> prog, Func<bool> cancelled = null)
+    public static string Write(StudioEngine eng, ExportItem it, string dir, int fmt, Action<float> prog, Func<bool> cancelled = null, int rate = 44100)
     {
-        long frames = eng.EndFrame + StudioEngine.SR * 2; Directory.CreateDirectory(dir);
+        long frames = eng.EndFrame + StudioEngine.SR * 2; Directory.CreateDirectory(dir); if (rate < 8000) rate = StudioEngine.SR;
         string outp = Path.Combine(dir, Safe(it.FileName));
         if (fmt <= 2)
         {
             int bits = fmt == 0 ? 24 : (fmt == 1 ? 16 : 32);
-            if (frames * 2L * (bits / 8) > 4000000000L) throw new Exception("WAV files are limited to about 4 GB (roughly 3.5 hours at 24-bit). Choose FLAC or MP3 for this length.");
-            using (var ws = new WavStream(outp, StudioEngine.SR, bits)) eng.RenderStream(0, frames, it.Opts, prog, (l, r, o, n) => ws.Write(l, r, o, n), cancelled);
+            if (frames * rate / StudioEngine.SR * 2L * (bits / 8) > 4000000000L) throw new Exception("WAV files are limited to about 4 GB (about " + (int)(4000000000.0 / ((double)rate * 2 * (bits / 8) * 60)) + " minutes at this rate and depth). Choose a lower sample rate, or FLAC.");
+            using (var ws = new WavStream(outp, rate, bits))
+            {
+                if (rate == StudioEngine.SR) eng.RenderStream(0, frames, it.Opts, prog, (l, r, o, n) => ws.Write(l, r, o, n), cancelled);
+                else
+                {   // the sound is converted to the chosen rate as it is made, block by block
+                    var rs = new RatioResampler(StudioEngine.SR, rate); float[] oL = new float[1], oR = new float[1];
+                    eng.RenderStream(0, frames, it.Opts, prog, (l, r, o, n) => { int cap = (int)((long)n * rs.Up / rs.Down) + 16; if (oL.Length < cap) { oL = new float[cap]; oR = new float[cap]; } int c = rs.Process(l, r, o, n, oL, oR); ws.Write(oL, oR, 0, c); }, cancelled);
+                    int fc = 2 * 32 * rs.Up / rs.Down + 64; var fL = new float[fc]; var fR = new float[fc]; int c2 = rs.Flush(fL, fR); ws.Write(fL, fR, 0, c2);
+                }
+            }
             if (cancelled != null && cancelled()) { try { File.Delete(outp); } catch { } throw new Exception("Export cancelled."); }
             return outp;
         }
@@ -648,7 +661,7 @@ static class Exporter
             if (frames * 2L * (tbits / 8) > 4000000000L) throw new Exception("That is too long to export as one file (about 4 hours). Export in parts.");
             using (var ws = new WavStream(tmp, StudioEngine.SR, tbits)) eng.RenderStream(0, frames, it.Opts, prog == null ? null : (Action<float>)(x => prog(x * 0.9f)), (l, r, o, n) => ws.Write(l, r, o, n), cancelled);
             if (cancelled != null && cancelled()) throw new Exception("Export cancelled.");
-            int code; string o2 = MasterDsp.RunCapture(ff, "-hide_banner -y -i \"" + tmp + "\" -vn " + enc + " \"" + outp + "\"", null, out code);
+            int code; string o2 = MasterDsp.RunCapture(ff, "-hide_banner -y -i \"" + tmp + "\" -vn " + (rate != StudioEngine.SR ? "-af aresample=resampler=swr:filter_size=64:cutoff=0.99 -ar " + rate + " " : "") + enc + " \"" + outp + "\"", null, out code);
             if (code != 0 || !File.Exists(outp)) throw new Exception("Encoding failed.\n" + o2);
             if (prog != null) prog(1f);
         }

@@ -26,7 +26,7 @@ class PreviewForm : Form
     public PreviewForm(string title, string subtitle, List<KeyValuePair<string, AudioClip>> sources, List<string> infos)
     {
         Text = title; FormBorderStyle = FormBorderStyle.FixedDialog; StartPosition = FormStartPosition.CenterParent; MaximizeBox = false; MinimizeBox = false;
-        BackColor = Color.FromArgb(10, 4, 20); ForeColor = Color.FromArgb(240, 232, 255); ClientSize = new Size(620, 400); Font = new Font("Segoe UI", 10f); DoubleBuffered = true;
+        BackColor = TM.C(255, 10, 4, 20); ForeColor = TM.C(255, 240, 232, 255); ClientSize = new Size(620, 400); Font = new Font("Segoe UI", 10f); DoubleBuffered = true;
         Win.Dark(this);
         foreach (var f in eng.MasterFx) f.Bypass = true;   // plain playback: no mastering chain in the way
         foreach (var kv in sources)
@@ -34,22 +34,22 @@ class PreviewForm : Form
             var tr = StudioEngine.NewTrack(kv.Key, "other", kv.Value); tr.Mute = true; eng.Tracks.Add(tr); names.Add(kv.Key);
             info.Add(infos[names.Count - 1]);
         }
-        Controls.Add(new Label { Text = title, Left = 18, Top = 14, Width = 580, Height = 28, Font = new Font("Segoe UI Semibold", 14f), ForeColor = Color.FromArgb(225, 190, 255) });
-        Controls.Add(new Label { Text = subtitle, Left = 18, Top = 44, Width = 584, Height = 36, ForeColor = Color.FromArgb(170, 150, 200) });
+        Controls.Add(new Label { Text = title, Left = 18, Top = 14, Width = 580, Height = 28, Font = new Font("Segoe UI Semibold", 14f), ForeColor = TM.C(255, 225, 190, 255) });
+        Controls.Add(new Label { Text = subtitle, Left = 18, Top = 44, Width = 584, Height = 36, ForeColor = TM.C(255, 170, 150, 200) });
         int bw = (584 - 8 * (sources.Count - 1)) / sources.Count;
         for (int i = 0; i < sources.Count; i++)
         {
             int k = i; var b = new Button { Left = 18 + i * (bw + 8), Top = 86, Width = bw, Height = 62, FlatStyle = FlatStyle.Flat, ForeColor = Color.White, Cursor = Cursors.Hand, TextAlign = ContentAlignment.MiddleCenter, Font = new Font("Segoe UI Semibold", 10.5f) };
-            b.FlatAppearance.BorderColor = Color.FromArgb(190, 120, 255); b.Text = names[i] + "\r\n" + info[i]; b.Click += (s, e) => Select(k); srcBtns.Add(b); Controls.Add(b);
+            b.FlatAppearance.BorderColor = TM.C(255, 190, 120, 255); b.Text = names[i] + "\r\n" + info[i]; b.Click += (s, e) => Select(k); srcBtns.Add(b); Controls.Add(b);
         }
-        wave = new Panel { Left = 18, Top = 162, Width = 584, Height = 150, BackColor = Color.FromArgb(6, 3, 12) };
+        wave = new Panel { Left = 18, Top = 162, Width = 584, Height = 150, BackColor = TM.C(255, 6, 3, 12) };
         typeof(Panel).GetProperty("DoubleBuffered", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance).SetValue(wave, true, null);
         wave.Paint += PaintWave; wave.MouseDown += (s, e) => Seek(e.X); wave.MouseMove += (s, e) => { if (e.Button == MouseButtons.Left) Seek(e.X); }; Controls.Add(wave);
         playBtn = Mk("Play", 18, 326, 100, () => Toggle()); Mk("Stop", 126, 326, 80, () => { eng.Pause(); eng.Seek(0); UpdateUi(); });
         var lp = new DarkCheck { Text = "Loop", Left = 216, Top = 328, Width = 80, Height = 30, Checked = true }; lp.CheckedChanged += (s, e) => { loop = lp.Checked; eng.Loop = loop; }; Controls.Add(lp); eng.Loop = true;
-        timeLbl = new Label { Left = 306, Top = 331, Width = 160, Height = 26, ForeColor = Color.FromArgb(190, 120, 255), Font = new Font("Segoe UI Semibold", 11f) }; Controls.Add(timeLbl);
+        timeLbl = new Label { Left = 306, Top = 331, Width = 160, Height = 26, ForeColor = TM.C(255, 190, 120, 255), Font = new Font("Segoe UI Semibold", 11f) }; Controls.Add(timeLbl);
         Mk("Close", 502, 326, 100, () => Close());
-        Controls.Add(new Label { Text = "Space = play / pause.  Click a version to switch instantly while it plays. Nothing is saved from this preview.", Left = 18, Top = 366, Width = 584, Height = 24, ForeColor = Color.FromArgb(150, 130, 180), Font = new Font("Segoe UI", 8.5f) });
+        Controls.Add(new Label { Text = "Space = play / pause.  Click a version to switch instantly while it plays. Nothing is saved from this preview.", Left = 18, Top = 366, Width = 584, Height = 24, ForeColor = TM.C(255, 150, 130, 180), Font = new Font("Segoe UI", 8.5f) });
         Select(sources.Count > 1 ? 1 : 0);
         tm.Tick += (s, e) => { UpdateUi(); if (eng.Playing || eng.Pos != lastPos) { lastPos = eng.Pos; wave.Invalidate(); } }; tm.Start();
         FormClosed += (s, e) => { tm.Stop(); eng.Pause(); eng.Shutdown(); if (StudioEngine.Current == eng) StudioEngine.Current = prevCur; waveFont.Dispose(); };
@@ -59,14 +59,14 @@ class PreviewForm : Form
 
     Button Mk(string text, int x, int y, int w, Action click)
     {
-        var b = new Button { Text = text, Left = x, Top = y, Width = w, Height = 34, FlatStyle = FlatStyle.Flat, BackColor = Color.FromArgb(118, 52, 212), ForeColor = Color.White, Cursor = Cursors.Hand };
-        b.FlatAppearance.BorderColor = Color.FromArgb(190, 120, 255); b.Click += (s, e) => click(); Controls.Add(b); return b;
+        var b = new Button { Text = text, Left = x, Top = y, Width = w, Height = 34, FlatStyle = FlatStyle.Flat, BackColor = TM.C(255, 118, 52, 212), ForeColor = Color.White, Cursor = Cursors.Hand };
+        b.FlatAppearance.BorderColor = TM.C(255, 190, 120, 255); b.Click += (s, e) => click(); Controls.Add(b); return b;
     }
 
     void Select(int i)
     {
         sel = i; for (int k = 0; k < eng.Tracks.Count; k++) eng.Tracks[k].Mute = k != i;
-        for (int k = 0; k < srcBtns.Count; k++) srcBtns[k].BackColor = k == i ? Color.FromArgb(150, 60, 230) : Color.FromArgb(44, 22, 84);
+        for (int k = 0; k < srcBtns.Count; k++) srcBtns[k].BackColor = k == i ? TM.C(255, 150, 60, 230) : TM.C(255, 44, 22, 84);
         wave.Invalidate();
     }
 
@@ -82,9 +82,9 @@ class PreviewForm : Form
     {
         var g = e.Graphics; if (eng.Tracks.Count == 0) return; var clip = eng.Tracks[sel].Clip; int w = wave.Width; double spp = Math.Max(1, clip.Length / (double)w);
         clip.GetPeaks(0, spp, w, wmn, wmx); float cy = wave.Height / 2f, amp = wave.Height * 0.44f;
-        using (var pen = new Pen(Color.FromArgb(220, 190, 120, 255))) for (int i = 0; i < w; i++) { float a = cy - Math.Min(1f, wmx[i]) * amp, b = cy - Math.Max(-1f, wmn[i]) * amp; if (b - a < 1) b = a + 1; g.DrawLine(pen, i, a, i, b); }
-        float px = (float)(eng.Pos / (double)Math.Max(1, clip.Length) * w); using (var pen = new Pen(Color.FromArgb(236, 92, 226), 2)) g.DrawLine(pen, px, 0, px, wave.Height);
-        TextRenderer.DrawText(g, names[sel], waveFont, new Point(8, 6), Color.FromArgb(230, 200, 255));
+        using (var pen = new Pen(TM.C(220, 190, 120, 255))) for (int i = 0; i < w; i++) { float a = cy - Math.Min(1f, wmx[i]) * amp, b = cy - Math.Max(-1f, wmn[i]) * amp; if (b - a < 1) b = a + 1; g.DrawLine(pen, i, a, i, b); }
+        float px = (float)(eng.Pos / (double)Math.Max(1, clip.Length) * w); using (var pen = new Pen(TM.C(255, 236, 92, 226), 2)) g.DrawLine(pen, px, 0, px, wave.Height);
+        TextRenderer.DrawText(g, names[sel], waveFont, new Point(8, 6), TM.C(255, 230, 200, 255));
     }
 }
 

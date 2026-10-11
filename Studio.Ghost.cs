@@ -30,7 +30,7 @@ partial class StudioForm
     void PaintGhostSlot(Graphics g, Track tr, RectangleF full)
     {
         if (!ghostOn || ghostKind != 1 || tr != ghostTrack) return;
-        using (var b = new SolidBrush(Color.FromArgb(150, 6, 3, 16))) g.FillRectangle(b, full);
+        using (var b = new SolidBrush(TM.C(150, 6, 3, 16))) g.FillRectangle(b, full);
         using (var pen = new Pen(Color.FromArgb(150, NeonCyan), 1.4f) { DashStyle = DashStyle.Dash }) g.DrawRectangle(pen, full.X + 2, full.Y + 2, full.Width - 4, full.Height - 4);
     }
 

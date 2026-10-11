@@ -20,6 +20,8 @@ partial class StudioForm
 
     void OpenMenu() { menuOpen = true; menuSec = -1; menuSub = -1; if (!projectsLoaded) { projectsLoaded = true; ProjectLibrary.Load(); ProjectLibrary.Discover(); } }
     void CloseMenu() { menuOpen = false; }
+    void GoMixClose() { tab = 0; menuOpen = false; }   // the tools work on the tracks, so they take you to the Mix page
+    readonly float[] menuYs = new float[16];
     void GoTab(int t) { tab = t; if (t == 3 && !projectsLoaded) { projectsLoaded = true; ProjectLibrary.Load(); ProjectLibrary.Discover(); } if (t == 3) projScroll = 0; CloseMenu(); }
 
     List<MItem> MenuItems(int sec)
@@ -42,10 +44,10 @@ partial class StudioForm
                 I("Cut a section out (CUT)", () => { CloseMenu(); CutClick(); }); I("Lock or unlock the track", () => { CloseMenu(); ToggleLock(); }); I("Duplicate track", () => { CloseMenu(); DuplicateTrack(Selected); }); I("Delete the selected piece", () => { CloseMenu(); DeleteClip(CurClip() ?? Selected); });
                 break;
             case 2:
-                I("Flex Pitch (edit notes)", () => { CloseMenu(); FlexOpen(); }); I("Purphex Sounds", () => { CloseMenu(); OpenSounds(); }); I("Sound packs (install)", () => { CloseMenu(); OpenSounds(); packsOpen = true; packScroll = 0; });
-                I("Rapper Vocal Styles", () => { CloseMenu(); OpenStyles(); });
-                I("Auto Mix", () => { CloseMenu(); AutoMixClick(); }); I("Split vocals + beat", () => { CloseMenu(); SeparateClick(); }); I("Detect BPM", () => { CloseMenu(); DetectBpmClick(); });
-                I("Metronome on / off", () => { CloseMenu(); eng.Metronome = !eng.Metronome; }); I(snapOn ? "Snap to grid: ON" : "Snap to grid: OFF", () => { CloseMenu(); snapOn = !snapOn; Toast(snapOn ? "Snap to the grid is on." : "Snap to the grid is off."); }); I("Mastering", () => GoTab(1)); I("Add an instrument...", () => { CloseMenu(); AddInstrumentClick(); }); I("Add a track...", () => { CloseMenu(); ShowAddTrackMenuMain(); });
+                I("Flex Pitch (edit notes)", () => { GoMixClose(); FlexOpen(); }); I("Purphex Sounds", () => { GoMixClose(); OpenSounds(); }); I("Sound packs (install)", () => { GoMixClose(); OpenSounds(); packsOpen = true; packScroll = 0; });
+                I("Rapper Vocal Styles", () => { GoMixClose(); OpenStyles(); });
+                I("Auto Mix", () => { GoMixClose(); AutoMixClick(); }); I("Split vocals + beat", () => { GoMixClose(); SeparateClick(); }); I("Detect BPM", () => { GoMixClose(); DetectBpmClick(); });
+                I("Metronome on / off", () => { GoMixClose(); eng.Metronome = !eng.Metronome; }); I(snapOn ? "Snap to grid: ON" : "Snap to grid: OFF", () => { GoMixClose(); snapOn = !snapOn; Toast(snapOn ? "Snap to the grid is on." : "Snap to the grid is off."); }); I("Mastering", () => GoTab(1)); I("Add an instrument...", () => { GoMixClose(); AddInstrumentClick(); }); I("Add a track...", () => { GoMixClose(); ShowAddTrackMenuMain(); });
                 break;
             case 3:
                 I("Converter window", () => { CloseMenu(); Win.Bring(app); }); I(Prefs.ShowFps ? "Hide the FPS counter" : "Show the FPS counter", () => { CloseMenu(); Prefs.ShowFps = !Prefs.ShowFps; Prefs.Changed(); });
@@ -54,7 +56,7 @@ partial class StudioForm
                 I(Win.IsFull(this) ? "MINIMISE (back to a normal window)" : "FULLSCREEN", () => { CloseMenu(); Win.ToggleFullscreen(this); });
                 break;
             case 4:
-                I("Community", () => GoTab(4)); I("My profile", () => GoTab(4));
+                I("Community", () => GoTab(4)); I("My profile", () => { GoTab(6); profScroll = 0; }); I("Search artists", () => { CloseMenu(); OpenArtists(); });
                 break;
             case 5:
                 I("Choose a theme...", () => { CloseMenu(); OpenThemeSheet(); }); I("Community themes (download)...", () => { CloseMenu(); OpenThemeSheet(true); }); I("Import a theme file...", () => { CloseMenu(); ImportThemeFile(); });
@@ -110,23 +112,23 @@ partial class StudioForm
     void PaintMenu(Graphics g)
     {
         if (!menuOpen) return; float W = ClientSize.Width, H = ClientSize.Height;
-        var all = Rc(0, 0, W, H); using (var b = new SolidBrush(Color.FromArgb(150, 3, 1, 10))) g.FillRectangle(b, all); Reg(all, () => CloseMenu());
-        float w1 = 270, w2 = 310, w3 = 340; var c1 = Rc(0, 0, w1, H); using (var br = new LinearGradientBrush(c1, Color.FromArgb(252, 22, 12, 42), Color.FromArgb(252, 10, 5, 22), 90f)) g.FillRectangle(br, c1); Reg(c1, () => { });
+        var all = Rc(0, 0, W, H); using (var b = new SolidBrush(TM.C(150, 3, 1, 10))) g.FillRectangle(b, all); Reg(all, () => CloseMenu());
+        float w1 = 270, w2 = 310, w3 = 340; var c1 = Rc(0, 0, w1, H); using (var br = new LinearGradientBrush(c1, TM.C(252, 22, 12, 42), TM.C(252, 10, 5, 22), 90f)) g.FillRectangle(br, c1); Reg(c1, () => { });
         using (var pen = new Pen(Color.FromArgb(180, NeonViolet), 1.5f)) g.DrawLine(pen, w1, 0, w1, H);
         // header: your picture and name
         Win.DrawNeonBox(g, Rc(8, 8, w1 - 16, 84), false);
-        var av = Rc(18, 18, 64, 64); DrawAvatar(g, av); Reg(av, () => PickAvatar()).OnRight = () => AvatarMenu(); if (Hot(av)) bubble = "Click to change your picture. Right-click for more."; bubblePt = MousePos;
-        if (ProjectLibrary.AvatarPath.Length > 0) { var ax = Rc(av.Right - 12, av.Y - 6, 22, 22); FillRR(g, Hot(ax) ? Color.FromArgb(255, 200, 50, 90) : Color.FromArgb(255, 140, 36, 70), ax, 11); Txt(g, "X", 11, Color.White, ax, StringAlignment.Center, true); Reg(ax, () => { ProjectLibrary.ClearAvatar(); Toast("Picture removed: the Purphex logo is your picture now."); }); if (Hot(ax)) { bubble = "Remove your picture (back to the Purphex logo)"; bubblePt = MousePos; } }
-        Txt(g, ProjectLibrary.ProfileName, 16, Ink, Rc(94, 24, w1 - 106, 24), StringAlignment.Near, true); var nm = Rc(94, 24, w1 - 106, 24); Reg(nm, () => EditProfileName());
+        var av = Rc(18, 18, 64, 64); DrawAvatar(g, av);   // a picture is never a button: it is changed on the PROFILE page
+        Txt(g, ProjectLibrary.ProfileName, 16, Ink, Rc(94, 24, w1 - 106, 24), StringAlignment.Near, true);
         Txt(g, "PURPHEX MUSIC", 11, DimC, Rc(94, 50, w1 - 106, 18), StringAlignment.Near, false);
         var close = Rc(w1 - 40, 6, 30, 26); Txt(g, "X", 14, DimC, close, StringAlignment.Center, true); Reg(close, () => CloseMenu());
-        float y = 104; using (var pen = new Pen(Color.FromArgb(70, 140, 90, 220))) g.DrawLine(pen, 14, y - 10, w1 - 14, y - 10);
+        float y = 104; using (var pen = new Pen(TM.C(70, 140, 90, 220))) g.DrawLine(pen, 14, y - 10, w1 - 14, y - 10);
         for (int i = 0; i < MenuNames.Length; i++)
         {
-            int k = i; var r = Rc(10, y, w1 - 20, 46); bool sel = menuSec == i; bool last = i == MenuNames.Length - 1; if (last) { y += 10; r = Rc(10, y, w1 - 20, 46); }
-            if (sel || Hot(r)) { FillRR(g, sel ? Color.FromArgb(150, 70, 38, 130) : Color.FromArgb(90, 60, 34, 110), r, 10); if (sel) Glow(g, NeonViolet, r, 10, 0.45f, 2); }
+            if (i == 1 && tab != 0) { if (menuSec == 1) menuSec = -1; continue; }   // Edit (undo, split...) only makes sense on the Mix page
+            menuYs[i] = y; int k = i; var r = Rc(10, y, w1 - 20, 46); bool sel = menuSec == i; bool last = i == MenuNames.Length - 1; if (last) { y += 10; r = Rc(10, y, w1 - 20, 46); }
+            if (sel || Hot(r)) { FillRR(g, sel ? TM.C(150, 70, 38, 130) : TM.C(90, 60, 34, 110), r, 10); if (sel) Glow(g, NeonViolet, r, 10, 0.45f, 2); }
             Win.DrawNeonBox(g, r, sel || Hot(r));
-            var ic = Rc(r.X + 12, r.Y + 11, 24, 24); DrawMenuIcon(g, ic, i, sel); Txt(g, MenuNames[i], 15, sel ? Ink : Color.FromArgb(225, 215, 245), Rc(r.X + 50, r.Y, 150, r.Height), StringAlignment.Near, sel);
+            var ic = Rc(r.X + 12, r.Y + 11, 24, 24); DrawMenuIcon(g, ic, i, sel); Txt(g, MenuNames[i], 15, sel ? Ink : TM.C(255, 225, 215, 245), Rc(r.X + 50, r.Y, 150, r.Height), StringAlignment.Near, sel);
             if (!last) Txt(g, ">", 14, DimC, Rc(r.Right - 34, r.Y, 24, r.Height), StringAlignment.Center, true);
             Reg(r, () => { menuSec = menuSec == k ? -1 : k; menuSub = -1; if (k == MenuNames.Length - 1) { var it = MenuItems(k)[0]; it.Do(); } }); y += 54;
         }
@@ -134,7 +136,7 @@ partial class StudioForm
     }
     void DrawMenuIcon(Graphics g, RectangleF r, int i, bool sel)
     {
-        Color c = sel ? NeonCyan : Color.FromArgb(200, 190, 150, 255); using (var pen = new Pen(c, 1.8f))
+        Color c = sel ? NeonCyan : TM.C(200, 190, 150, 255); using (var pen = new Pen(c, 1.8f))
         {
             switch (i)
             {
@@ -152,13 +154,13 @@ partial class StudioForm
     }
     void PaintMenuColumn(Graphics g, float x, float w, float H)
     {
-        var items = MenuItems(menuSec); float h = 24 + items.Count * 46 + 14; var col = Rc(x + 8, 96 + menuSec * 54 - 4, w, h); if (col.Bottom > H - 8) col.Y = Math.Max(8, H - 8 - col.Height);
-        FillRR(g, Color.FromArgb(252, 24, 14, 46), col, 12); Win.DrawNeonBox(g, col, false); Reg(col, () => { });
+        var items = MenuItems(menuSec); float h = 24 + items.Count * 46 + 14; var col = Rc(x + 8, menuYs[menuSec] - 8, w, h); if (col.Bottom > H - 8) col.Y = Math.Max(8, H - 8 - col.Height);
+        FillRR(g, TM.C(252, 24, 14, 46), col, 12); Win.DrawNeonBox(g, col, false); Reg(col, () => { });
         float y = col.Y + 12;
         for (int i = 0; i < items.Count; i++)
         {
             var it = items[i]; int k = i; var r = Rc(col.X + 8, y, w - 16, 42); bool hot = Hot(r) || (it.Sub && menuSub == i);
-            if (hot) FillRR(g, Color.FromArgb(120, 76, 42, 140), r, 9);
+            if (hot) FillRR(g, TM.C(120, 76, 42, 140), r, 9);
             Win.DrawNeonBox(g, r, hot);
             Txt(g, it.Text, 14, it.Disabled ? DimC : Ink, Rc(r.X + 14, r.Y, r.Width - (it.Key.Length > 0 ? 114 : (it.Sub ? 44 : 24)), r.Height), StringAlignment.Near, false);
             if (it.Key.Length > 0) Txt(g, it.Key, 11, DimC, Rc(r.Right - 110, r.Y, 100, r.Height), StringAlignment.Far, false);
@@ -171,12 +173,12 @@ partial class StudioForm
     void PaintRecent(Graphics g, float x, float y, float w)
     {
         var rec = ProjectLibrary.Recent(8); float h = 20 + Math.Max(1, rec.Count) * 54 + 8; var col = Rc(x, Math.Min(y, ClientSize.Height - h - 8), w, h);
-        FillRR(g, Color.FromArgb(252, 24, 14, 46), col, 12); Win.DrawNeonBox(g, col, false); Reg(col, () => { });
+        FillRR(g, TM.C(252, 24, 14, 46), col, 12); Win.DrawNeonBox(g, col, false); Reg(col, () => { });
         if (rec.Count == 0) { Txt(g, "No recent projects yet. Save a project and it will show up here.", 12, DimC, Rc(col.X + 14, col.Y + 12, col.Width - 28, 40), StringAlignment.Near, false); return; }
         float yy = col.Y + 12;
         foreach (var e in rec)
         {
-            string p = e.Path; var r = Rc(col.X + 8, yy, w - 16, 50); if (Hot(r)) FillRR(g, Color.FromArgb(120, 76, 42, 140), r, 9); Win.DrawNeonBox(g, r, Hot(r)); DrawCover(g, Rc(r.X + 6, r.Y + 5, 40, 40), e);
+            string p = e.Path; var r = Rc(col.X + 8, yy, w - 16, 50); if (Hot(r)) FillRR(g, TM.C(120, 76, 42, 140), r, 9); Win.DrawNeonBox(g, r, Hot(r)); DrawCover(g, Rc(r.X + 6, r.Y + 5, 40, 40), e);
             Txt(g, e.Name, 14, Ink, Rc(r.X + 56, r.Y + 4, r.Width - 64, 22), StringAlignment.Near, true); Txt(g, ProjectLibrary.Ago(e.Opened) + "  " + e.Tracks + " tracks", 11, DimC, Rc(r.X + 56, r.Y + 26, r.Width - 64, 18), StringAlignment.Near, false);
             var ee = e; Reg(r, () => { CloseMenu(); OpenProjectAsk(ee); }); yy += 54;
         }
@@ -196,23 +198,23 @@ partial class StudioForm
             float cx = x0 + (i % cols) * (cw + gap), cy = y0 + (i / cols) * (ch + gap) - projScroll; var card = Rc(cx, cy, cw, ch); if (card.Bottom < y0 - 8 || card.Y > H) continue;
             if (i == 0)
             {
-                FillRR(g, Color.FromArgb(170, 20, 11, 40), card, 14); Win.DrawNeonBox(g, card, Hot(card)); Txt(g, "+", 54, NeonCyan, Rc(card.X, card.Y + 100, card.Width, 70), StringAlignment.Center, true); Txt(g, "NEW PROJECT", 15, Ink, Rc(card.X, card.Y + 180, card.Width, 26), StringAlignment.Center, true);
+                FillRR(g, TM.C(170, 20, 11, 40), card, 14); Win.DrawNeonBox(g, card, Hot(card)); Txt(g, "+", 54, NeonCyan, Rc(card.X, card.Y + 100, card.Width, 70), StringAlignment.Center, true); Txt(g, "NEW PROJECT", 15, Ink, Rc(card.X, card.Y + 180, card.Width, 26), StringAlignment.Center, true);
                 Txt(g, "START WITH A CLEAN PAGE", 11, DimC, Rc(card.X, card.Y + 208, card.Width, 20), StringAlignment.Center, false); Reg(card, () => { StopPreview(); tab = 0; NewProject(); }); continue;
             }
             var e = list[i - 1]; string path = e.Path; bool hot = Hot(card); bool prev = string.Equals(previewPath, path, StringComparison.OrdinalIgnoreCase);
-            FillRR(g, Color.FromArgb(205, 22, 12, 42), card, 14); Win.DrawNeonBox(g, card, hot || prev);
-            var pic = Rc(card.X + 8, card.Y + 8, cw - 16, cw - 16); DrawCover(g, pic, e); Win.DrawNeonBox(g, pic, false); if (e.Missing) { using (var b = new SolidBrush(Color.FromArgb(170, 8, 4, 16))) g.FillRectangle(b, pic); Txt(g, "FILE NOT FOUND", 13, Color.FromArgb(255, 150, 150), pic, StringAlignment.Center, true); }
+            FillRR(g, TM.C(205, 22, 12, 42), card, 14); Win.DrawNeonBox(g, card, hot || prev);
+            var pic = Rc(card.X + 8, card.Y + 8, cw - 16, cw - 16); DrawCover(g, pic, e); Win.DrawNeonBox(g, pic, false); if (e.Missing) { using (var b = new SolidBrush(TM.C(170, 8, 4, 16))) g.FillRectangle(b, pic); Txt(g, "FILE NOT FOUND", 13, Color.FromArgb(255, 150, 150), pic, StringAlignment.Center, true); }
             Txt(g, e.Name, 15, Ink, Rc(card.X + 12, card.Y + 228, cw - 24, 24), StringAlignment.Near, true);
             string meta = e.Tracks + " tracks" + (e.Bpm > 0 ? "  " + e.Bpm.ToString("0") + " BPM" : "") + (e.Seconds > 1 ? "  " + ((int)(e.Seconds / 60)) + ":" + ((int)(e.Seconds % 60)).ToString("00") : ""); Txt(g, meta, 11, DimC, Rc(card.X + 12, card.Y + 252, cw - 24, 18), StringAlignment.Near, false);
             ProjectLibrary.EnsureKind(e); Txt(g, "EDITED " + ProjectLibrary.Ago(e.Updated), 11, DimC, Rc(card.X + 12, card.Y + 270, cw - 24 - 62, 18), StringAlignment.Near, false); if (e.Kind.Length > 0 && e.Kind != "Empty") Txt(g, e.Kind, 11, NeonCyan, Rc(card.Right - 12 - 62, card.Y + 270, 62, 18), StringAlignment.Far, true);
             var pv = Rc(card.Right - 12 - 142, card.Y + 290, 32, 26); var cam = Rc(pv.Right + 6, card.Y + 290, 32, 26); var nop = Rc(cam.Right + 6, card.Y + 290, 32, 26); var rm = Rc(nop.Right + 6, card.Y + 290, 28, 26);
             Reg(card, () => OpenProjectAsk(e)).OnRight = () => ProjectCardMenu(path);
-            var star = Rc(card.X + 12, card.Y + 290, 32, 26); FillRR(g, Hot(star) ? Color.FromArgb(220, 90, 50, 170) : Color.FromArgb(150, 44, 24, 80), star, 7); DrawStar(g, star, e.Fav, Hot(star)); Reg(star, () => ToggleFavourite(e)); Hint2(star, e.Fav ? "Remove from your favourites" : "Add to your favourites (a star)");
-            FillRR(g, prev ? Color.FromArgb(235, 40, 140, 160) : (Hot(pv) ? Color.FromArgb(220, 90, 50, 170) : Color.FromArgb(150, 44, 24, 80)), pv, 7); using (var b = new SolidBrush(Ink)) { if (prev) g.FillRectangle(b, pv.X + 11, pv.Y + 8, 10, 10); else g.FillPolygon(b, new[] { new PointF(pv.X + 11, pv.Y + 6), new PointF(pv.X + 11, pv.Y + 20), new PointF(pv.X + 22, pv.Y + 13) }); } Reg(pv, () => PreviewToggle(e)); if (Hot(pv)) { bubble = prev ? "Stop the preview" : "PREVIEW: hear this project without opening it"; bubblePt = MousePos; }
-            FillRR(g, Hot(cam) ? Color.FromArgb(220, 90, 50, 170) : Color.FromArgb(150, 44, 24, 80), cam, 7); DrawCamera(g, cam); Reg(cam, () => { if (!e.Missing) PickCover(path); }); if (Hot(cam)) { bubble = "Add or change the picture"; bubblePt = MousePos; }
-            bool has = e.Cover.Length > 0; FillRR(g, has && Hot(nop) ? Color.FromArgb(220, 160, 50, 100) : Color.FromArgb(has ? 150 : 70, 44, 24, 80), nop, 7); DrawCamera(g, nop); using (var pen = new Pen(Color.FromArgb(has ? 255 : 110, 255, 90, 120), 2.2f)) g.DrawLine(pen, nop.X + 7, nop.Y + 20, nop.Right - 7, nop.Y + 5);
+            var star = Rc(card.X + 12, card.Y + 290, 32, 26); FillRR(g, Hot(star) ? TM.C(220, 90, 50, 170) : TM.C(150, 44, 24, 80), star, 7); DrawStar(g, star, e.Fav, Hot(star)); Reg(star, () => ToggleFavourite(e)); Hint2(star, e.Fav ? "Remove from your favourites" : "Add to your favourites (a star)");
+            FillRR(g, prev ? TM.C(235, 40, 140, 160) : (Hot(pv) ? TM.C(220, 90, 50, 170) : TM.C(150, 44, 24, 80)), pv, 7); using (var b = new SolidBrush(Ink)) { if (prev) g.FillRectangle(b, pv.X + 11, pv.Y + 8, 10, 10); else g.FillPolygon(b, new[] { new PointF(pv.X + 11, pv.Y + 6), new PointF(pv.X + 11, pv.Y + 20), new PointF(pv.X + 22, pv.Y + 13) }); } Reg(pv, () => PreviewToggle(e)); if (Hot(pv)) { bubble = prev ? "Stop the preview" : "PREVIEW: hear this project without opening it"; bubblePt = MousePos; }
+            FillRR(g, Hot(cam) ? TM.C(220, 90, 50, 170) : TM.C(150, 44, 24, 80), cam, 7); DrawCamera(g, cam); Reg(cam, () => { if (!e.Missing) PickCover(path); }); if (Hot(cam)) { bubble = "Add or change the picture"; bubblePt = MousePos; }
+            bool has = e.Cover.Length > 0; FillRR(g, has && Hot(nop) ? TM.C(220, 160, 50, 100) : TM.C(has ? 150 : 70, 44, 24, 80), nop, 7); DrawCamera(g, nop); using (var pen = new Pen(Color.FromArgb(has ? 255 : 110, 255, 90, 120), 2.2f)) g.DrawLine(pen, nop.X + 7, nop.Y + 20, nop.Right - 7, nop.Y + 5);
             Reg(nop, () => { if (e.Cover.Length > 0) { ProjectLibrary.ClearCover(path); Toast("Picture removed: the Purphex logo is shown again."); } else Toast("This project has no picture of its own (it shows the Purphex logo)."); }); if (Hot(nop)) { bubble = has ? "Remove the picture (back to the Purphex logo)" : "No picture to remove: it shows the Purphex logo"; bubblePt = MousePos; }
-            FillRR(g, Hot(rm) ? Color.FromArgb(220, 160, 40, 80) : Color.FromArgb(150, 44, 24, 80), rm, 7); Txt(g, "X", 13, Ink, rm, StringAlignment.Center, true); Reg(rm, () => RemoveProjectAsk(e)); if (Hot(rm)) { bubble = "Remove from this list (it asks if the file should go too)"; bubblePt = MousePos; }
+            FillRR(g, Hot(rm) ? TM.C(220, 160, 40, 80) : TM.C(150, 44, 24, 80), rm, 7); Txt(g, "X", 13, Ink, rm, StringAlignment.Center, true); Reg(rm, () => RemoveProjectAsk(e)); if (Hot(rm)) { bubble = "Remove from this list (it asks if the file should go too)"; bubblePt = MousePos; }
         }
         g.Restore(gs);
         { float barTop = y0 - 8, barH = H - barTop - (previewPath.Length > 0 ? 56 : 8); VScroll(g, Rc(W - 54, barTop, 42, barH), barH + maxScroll, barH, () => projScroll, v => projScroll = v); }

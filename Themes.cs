@@ -63,7 +63,17 @@ sealed class ThemeDef
     {
         Bg0 = Tame(Bg0, 0.015, 0.06, 0); Bg1 = Tame(Bg1, 0.04, 0.12, 0); Panel = Tame(Panel, 0.05, 0.13, 0); Lane = Tame(Lane, 0.02, 0.08, 0); Lane2 = Tame(Lane2, 0.03, 0.10, 0);
         Violet = Tame(Violet, 0.50, 0.80, 0.30); Cyan = Tame(Cyan, 0.50, 0.82, 0.30); Pink = Tame(Pink, 0.50, 0.82, 0.30); Lime = Tame(Lime, 0.50, 0.84, 0.30); Accent = Tame(Accent, 0.55, 0.82, 0.30); Accent2 = Tame(Accent2, 0.55, 0.82, 0.30);
-        Btn = Tame(Btn, 0.30, 0.55, 0.25); BtnC = Tame(BtnC, 0.20, 0.36, 0.15); EdgeC = Tame(EdgeC, 0.38, 0.68, 0.20); return this;
+        Btn = Tame(Btn, 0.30, 0.55, 0.25); BtnC = Tame(BtnC, 0.20, 0.36, 0.15); EdgeC = Tame(EdgeC, 0.38, 0.68, 0.20); return Legible();
+    }
+    // every writing in a theme can be read: white button text on its buttons, and its bright colours against its dark panels (a yellow theme used to have white on yellow, a blue one dark blue on navy)
+    static double Lum(Color c) { Func<int, double> f = v => { double x = v / 255.0; return x <= 0.03928 ? x / 12.92 : Math.Pow((x + 0.055) / 1.055, 2.4); }; return 0.2126 * f(c.R) + 0.7152 * f(c.G) + 0.0722 * f(c.B); }
+    static double Con(Color a, Color b) { double l1 = Lum(a), l2 = Lum(b); if (l1 < l2) { var t = l1; l1 = l2; l2 = t; } return (l1 + 0.05) / (l2 + 0.05); }
+    static Color Brighter(Color c, Color against, double min) { double h, s, l; ToHsl(c, out h, out s, out l); int n = 0; while (Con(c, against) < min && l < 0.9 && n++ < 60) { l += 0.015; c = Hsl(h, s, l); } return c; }
+    static Color Darker(Color c, double min) { double h, s, l; ToHsl(c, out h, out s, out l); int n = 0; while (Con(Color.White, c) < min && l > 0.1 && n++ < 60) { l -= 0.015; c = Hsl(h, s, l); } return c; }
+    public ThemeDef Legible()
+    {
+        Btn = Darker(Btn, 4.6); BtnC = Darker(BtnC, 7.0); Color pl = Panel.R + Panel.G + Panel.B > 0 ? Panel : Color.Black;
+        Violet = Brighter(Violet, pl, 4.6); Cyan = Brighter(Cyan, pl, 4.6); Pink = Brighter(Pink, pl, 4.6); Lime = Brighter(Lime, pl, 4.6); Accent = Brighter(Accent, pl, 5.0); Accent2 = Brighter(Accent2, pl, 4.6); EdgeC = Brighter(EdgeC, pl, 3.0); return this;
     }
     public Color Get(string key)
     {
@@ -133,6 +143,7 @@ static class Themes
         list.Add(ThemeDef.FromSpec("Violet", "Rich violet and magenta.", 283, 322, 205, 140, 288, 0.55));
         list.Add(ThemeDef.FromSpec("Pink", "Rose pink with lilac and aqua.", 328, 275, 195, 155, 332, 0.5));
         var rb = ThemeDef.FromHue("Rainbow", "Every colour of the rainbow, slowly moving.", 0); rb.Rainbow = true; list.Add(rb);
+        foreach (var bt in list) bt.Legible();
         LoadCustom(); LoadPhotoMap();
     }
     static void LoadCustom()
@@ -154,12 +165,15 @@ static class Themes
         foreach (Form f in Application.OpenForms) { try { f.Invalidate(true); } catch { } }
     }
     public static void ApplyByName(string name) { Ensure(); Index = IndexOf(name); Push(Current); }
-    static void Push(ThemeDef t) { StudioForm.ApplyTheme(t); MasterForm.ApplyTheme(t); SynthCanvas.ApplyTheme(t); }
+    // fromTick: the Rainbow theme moving a little; the other windows are not recoloured then (that would close an open drop-down and make every control flash), only when a theme is really chosen
+    static void Push(ThemeDef t, bool fromTick = false) { StudioForm.ApplyTheme(t); MasterForm.ApplyTheme(t); SynthCanvas.ApplyTheme(t); if (!fromTick) { try { Win.RethemeAll(); } catch { } } }
     // the Rainbow theme slowly turns through every colour (called once per frame by the studio)
+    static double lastRainbowH = -1; static int lastRainbowIdx = -2;
     public static bool Tick()
     {
         if (!loaded || Index < 0 || Index >= list.Count || !list[Index].Rainbow) return false;
-        double h = ((Environment.TickCount / 1000.0 - rainbowT0) * 22) % 360; var t = ThemeDef.FromHue("Rainbow", list[Index].Blurb, h).Cleaned(); t.Rainbow = true; Push(t); return true;
+        double h = Math.Floor(((Environment.TickCount / 1000.0 - rainbowT0) * 22) % 360 / 3) * 3;   // a new colour every 3 degrees (about 7 times a second): smooth to the eye, and the window does not have to be redrawn every frame
+        if (h == lastRainbowH && lastRainbowIdx == Index) return false; lastRainbowH = h; lastRainbowIdx = Index; var t = ThemeDef.FromHue("Rainbow", list[Index].Blurb, h).Cleaned(); t.Rainbow = true; Push(t, true); return true;
     }
 
     // ---- custom themes: import, export, delete, share ----

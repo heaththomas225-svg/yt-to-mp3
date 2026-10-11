@@ -9,7 +9,7 @@ using System.Windows.Forms;
 partial class SynthCanvas
 {
     int dragSrc; string dragName = ""; string dropMsg = ""; DateTime dropMsgAt = DateTime.MinValue;
-    static readonly Color[] SrcCols = { Color.White, Color.FromArgb(120, 232, 150), Color.FromArgb(120, 232, 150), Color.FromArgb(120, 232, 150), Color.FromArgb(120, 232, 150), Color.FromArgb(255, 190, 90), Color.FromArgb(255, 190, 90), Color.FromArgb(255, 190, 90), Color.FromArgb(120, 200, 255), Color.FromArgb(120, 200, 255), Color.FromArgb(255, 120, 180), Color.FromArgb(255, 120, 180), Color.FromArgb(255, 120, 180), Color.FromArgb(255, 120, 180) };
+    static readonly Color[] SrcCols = { Color.White, Color.FromArgb(120, 232, 150), Color.FromArgb(120, 232, 150), Color.FromArgb(120, 232, 150), Color.FromArgb(120, 232, 150), Color.FromArgb(255, 190, 90), Color.FromArgb(255, 190, 90), Color.FromArgb(255, 190, 90), TM.C(255, 120, 200, 255), TM.C(255, 120, 200, 255), TM.C(255, 255, 120, 180), TM.C(255, 255, 120, 180), TM.C(255, 255, 120, 180), TM.C(255, 255, 120, 180) };
 
     static int DestOf(string paramId) { for (int i = 1; i < SynthTables.DestParam.Length; i++) if (SynthTables.DestParam[i] == paramId) return i; return 0; }
 
@@ -37,7 +37,7 @@ partial class SynthCanvas
     // a small handle you grab and drop on a knob
     void SourceChip(Graphics g, RectangleF r, int src, string name)
     {
-        bool hot = Hot(r) || dragSrc == src; Fill(g, hot ? Color.FromArgb(110, Acc2) : Color.FromArgb(24, 13, 46), r, 6); Stroke(g, SrcCols[Math.Min(src, SrcCols.Length - 1)], r, 6, 1.5f);
+        bool hot = Hot(r) || dragSrc == src; Fill(g, hot ? Color.FromArgb(110, Acc2) : TM.C(255, 24, 13, 46), r, 6); Stroke(g, SrcCols[Math.Min(src, SrcCols.Length - 1)], r, 6, 1.5f);
         Txt(g, "DRAG" + (r.Width > 90 ? " " : "") + (r.Width > 90 ? "TO A KNOB" : ""), 10, Ink, r, StringAlignment.Center, true);
         var rg = Add(r); rg.Tip = "Drag this onto any knob to make " + name + " move it. Drag on the knob with Ctrl held to set how much."; rg.Down = pt => { dragSrc = src; dragName = name; }; rg.Drag = (dx, dy) => { };
     }
@@ -59,9 +59,9 @@ partial class SynthCanvas
         {
             var h = HitTest(mouse); bool ok = h != null && h.P != null && DestOf(h.P.Id) != 0;
             if (h != null && h.P != null) using (var pen = new Pen(ok ? Good : Color.FromArgb(255, 120, 130), 2f)) g.DrawEllipse(pen, h.R.X + 4, h.R.Y + 2, h.R.Width - 8, h.R.Width - 8);
-            var r = Rc(mouse.X + 12, mouse.Y + 10, 150, 20); Fill(g, Color.FromArgb(230, 40, 20, 80), r, 6); Stroke(g, SrcCols[Math.Min(dragSrc, SrcCols.Length - 1)], r, 6, 1.5f); Txt(g, dragName + (ok ? "  > drop" : ""), 11, Ink, r, StringAlignment.Center, true);
+            var r = Rc(mouse.X + 12, mouse.Y + 10, 150, 20); Fill(g, TM.C(230, 40, 20, 80), r, 6); Stroke(g, SrcCols[Math.Min(dragSrc, SrcCols.Length - 1)], r, 6, 1.5f); Txt(g, dragName + (ok ? "  > drop" : ""), 11, Ink, r, StringAlignment.Center, true);
         }
-        else if ((DateTime.Now - dropMsgAt).TotalSeconds < 4 && dropMsg.Length > 0) { var r = Rc(8, H - 44, W - 16, 20); Fill(g, Color.FromArgb(230, 40, 20, 80), r, 6); Txt(g, dropMsg, 11, Good, r, StringAlignment.Center, true); }
+        else if ((DateTime.Now - dropMsgAt).TotalSeconds < 4 && dropMsg.Length > 0) { var r = Rc(8, H - 44, W - 16, 20); Fill(g, TM.C(230, 40, 20, 80), r, 6); Txt(g, dropMsg, 11, Good, r, StringAlignment.Center, true); }
     }
 }
 

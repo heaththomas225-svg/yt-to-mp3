@@ -41,16 +41,15 @@ partial class App
     int lastW, lastH; float lastT; Lab[] lastLab; string lastSub = "", lastCKey = "", failKey = "";
     readonly List<Bitmap> graveyard = new List<Bitmap>(); Lab[] labSnap = new Lab[0]; volatile string subtitle = "";
 
-    static readonly Color[] LeafPal = {
-        Color.FromArgb(170, 90, 255), Color.FromArgb(140, 60, 235), Color.FromArgb(205, 120, 255), Color.FromArgb(120, 50, 215),
-        Color.FromArgb(235, 90, 225), Color.FromArgb(110, 80, 255) };
+    static Color[] leafPal; static int leafEpoch = -1, leafAt;   // the leaves are drawn in the colours of the theme (the pictures of them are made again when the theme changes)
+    static Color[] LeafPal { get { if (leafPal == null || (leafEpoch != TM.Epoch && unchecked(Environment.TickCount - leafAt) > 1500)) { leafAt = Environment.TickCount; leafPal = new[] { TM.C(255, 170, 90, 255), TM.C(255, 140, 60, 235), TM.C(255, 205, 120, 255), TM.C(255, 120, 50, 215), TM.C(255, 235, 90, 225), TM.C(255, 110, 80, 255) }; leafEpoch = TM.Epoch; sprites = null; } return leafPal; } }
     static readonly int[] AlphaLv = { 55, 85, 115, 145 };
     static Bitmap[,] sprites;   // [palette, alpha level]
     const int SprW = 250, SprH = 230, SprOX = 125, SprOY = 170;
 
     static void BuildSprites()
     {
-        if (sprites != null) return;
+        var pal0 = LeafPal; if (sprites != null) return;
         var s = new Bitmap[LeafPal.Length, AlphaLv.Length];
         for (int c = 0; c < LeafPal.Length; c++)
             for (int a = 0; a < AlphaLv.Length; a++)
@@ -60,8 +59,8 @@ partial class App
                 {
                     g.SmoothingMode = SmoothingMode.AntiAlias; g.TranslateTransform(SprOX, SprOY);
                     using (var fill = new SolidBrush(Color.FromArgb(AlphaLv[a], LeafPal[c])))
-                    using (var edge = new Pen(Color.FromArgb(Math.Min(255, AlphaLv[a] + 60), 225, 190, 255), 1.5f))
-                    using (var rib = new Pen(Color.FromArgb(AlphaLv[a], 235, 215, 255), 1f))
+                    using (var edge = new Pen(TM.C(Math.Min(255, AlphaLv[a] + 60), 225, 190, 255), 1.5f))
+                    using (var rib = new Pen(TM.C(AlphaLv[a], 235, 215, 255), 1f))
                     using (var glow = new Pen(Color.FromArgb(32, LeafPal[c]), 9f))
                     {
                         for (int i = 0; i < 7; i++)
@@ -177,8 +176,8 @@ partial class App
             var cards = new[] { new RectangleF(8 * X, 70 * Y, W - 16 * X, 88 * Y), new RectangleF(8 * X, 164 * Y, W - 16 * X, 142 * Y), new RectangleF(8 * X, 308 * Y, W - 16 * X, 38 * Y),
                                 new RectangleF(8 * X, 350 * Y, W - 16 * X, 108 * Y), new RectangleF(8 * X, 464 * Y, W - 16 * X, 42 * Y), new RectangleF(8 * X, 510 * Y, W - 16 * X, Math.Max(80, H - 518 * Y)) };
             float tt = t; for (int i = 0; i < cards.Length; i++) Card(g, cards[i], i, tt);
-            using (var f = new Font(Win.UiFamily, 9.5f * S)) using (var b = new SolidBrush(Color.FromArgb(235, 222, 255))) using (var sb2 = new SolidBrush(Color.FromArgb(200, 0, 0, 0)))
-            using (var f2 = new Font("Segoe UI", 10f * S)) using (var b2 = new SolidBrush(Color.FromArgb(215, 200, 245)))
+            using (var f = new Font(Win.UiFamily, 9.5f * S)) using (var b = new SolidBrush(TM.C(255, 235, 222, 255))) using (var sb2 = new SolidBrush(Color.FromArgb(200, 0, 0, 0)))
+            using (var f2 = new Font("Segoe UI", 10f * S)) using (var b2 = new SolidBrush(TM.C(255, 215, 200, 245)))
             {
                 g.DrawString(subtitle, f2, sb2, 19 * X, 49 * Y); g.DrawString(subtitle, f2, b2, 18 * X, 48 * Y);
                 var ls = labSnap; foreach (var l in ls) { g.DrawString(l.T, f, sb2, l.X + 1, l.Y + 1); g.DrawString(l.T, f, b, l.X, l.Y); }
@@ -195,9 +194,9 @@ partial class App
         tip.Draw += (s, e) =>
         {
             var g = e.Graphics; var r = new Rectangle(0, 0, e.Bounds.Width - 1, e.Bounds.Height - 1);
-            using (var b = new LinearGradientBrush(r, Color.FromArgb(30, 14, 56), Color.FromArgb(10, 5, 22), 90f)) g.FillRectangle(b, r);
-            using (var pen = new Pen(Color.FromArgb(190, 120, 255))) g.DrawRectangle(pen, r);
-            TextRenderer.DrawText(g, e.ToolTipText, f, new Rectangle(8, 4, r.Width - 12, r.Height - 6), Color.FromArgb(240, 232, 255), TextFormatFlags.Left | TextFormatFlags.WordBreak);
+            using (var b = new LinearGradientBrush(r, TM.C(255, 30, 14, 56), TM.C(255, 10, 5, 22), 90f)) g.FillRectangle(b, r);
+            using (var pen = new Pen(TM.C(255, 190, 120, 255))) g.DrawRectangle(pen, r);
+            TextRenderer.DrawText(g, e.ToolTipText, f, new Rectangle(8, 4, r.Width - 12, r.Height - 6), TM.C(255, 240, 232, 255), TextFormatFlags.Left | TextFormatFlags.WordBreak);
         };
     }
 
@@ -206,9 +205,9 @@ partial class App
         float pulse = (float)(Math.Sin(tt * 1.7f + idx * 0.9f) * 0.5 + 0.5);
         using (var p = RoundRect(r, 14))
         {
-            using (var br = new LinearGradientBrush(r, Color.FromArgb(238, 5, 3, 12), Color.FromArgb(238, 20, 9, 42), 90f)) g.FillPath(br, p);
-            using (var pen = new Pen(Color.FromArgb((int)(16 + 26 * pulse), 190, 90, 255), 7f)) g.DrawPath(pen, p);
-            using (var pen = new Pen(Color.FromArgb((int)(95 + 90 * pulse), 170, 100, 255), 1.4f)) g.DrawPath(pen, p);
+            using (var br = new LinearGradientBrush(r, TM.C(238, 5, 3, 12), TM.C(238, 20, 9, 42), 90f)) g.FillPath(br, p);
+            using (var pen = new Pen(TM.C((int)(16 + 26 * pulse), 190, 90, 255), 7f)) g.DrawPath(pen, p);
+            using (var pen = new Pen(TM.C((int)(95 + 90 * pulse), 170, 100, 255), 1.4f)) g.DrawPath(pen, p);
         }
     }
 
@@ -220,8 +219,8 @@ partial class App
 
     void DrawAtmosphere(Graphics g, float W, float H, float tt)
     {
-        using (var br = new LinearGradientBrush(new RectangleF(0, 0, W, H), Color.FromArgb(3, 1, 8), Color.FromArgb(26, 6, 54), 72f)) g.FillRectangle(br, 0, 0, W, H);
-        Color[] oc = { Color.FromArgb(150, 60, 245), Color.FromArgb(236, 70, 214), Color.FromArgb(70, 70, 240) };
+        using (var br = new LinearGradientBrush(new RectangleF(0, 0, W, H), TM.C(255, 3, 1, 8), TM.C(255, 26, 6, 54), 72f)) g.FillRectangle(br, 0, 0, W, H);
+        Color[] oc = { TM.C(255, 150, 60, 245), TM.C(255, 236, 70, 214), TM.C(255, 70, 70, 240) };
         for (int i = 0; i < 3; i++)
         {
             float cx = W * (0.18f + 0.32f * i) + (float)Math.Sin(tt * 0.33f + i * 2.1f) * W * 0.11f;
@@ -243,7 +242,7 @@ partial class App
             }
             for (int i = bot.Count - 1; i >= 0; i--) poly.Add(bot[i]);
             var rect = new RectangleF(0, baseY - H * 0.07f, W, H * 0.3f);
-            using (var br = new LinearGradientBrush(rect, Color.FromArgb(60, k == 0 ? Color.FromArgb(170, 80, 255) : Color.FromArgb(240, 80, 220)), Color.FromArgb(0, 120, 60, 220), 90f)) g.FillPolygon(br, poly.ToArray());
+            using (var br = new LinearGradientBrush(rect, Color.FromArgb(60, k == 0 ? TM.C(255, 170, 80, 255) : TM.C(255, 240, 80, 220)), TM.C(0, 120, 60, 220), 90f)) g.FillPolygon(br, poly.ToArray());
         }
     }
 
@@ -254,7 +253,7 @@ partial class App
     {
         // If anything goes wrong mid-paint, never leave a hole that shows the desktop through the window.
         try { PaintBgCore(sender, e); }
-        catch (Exception) { try { using (var b = new SolidBrush(Color.FromArgb(8, 3, 18))) e.Graphics.FillRectangle(b, e.ClipRectangle); } catch { } }
+        catch (Exception) { try { using (var b = new SolidBrush(TM.C(255, 8, 3, 18))) e.Graphics.FillRectangle(b, e.ClipRectangle); } catch { } }
     }
 
     void PaintBgCore(object sender, PaintEventArgs e)
@@ -271,11 +270,11 @@ partial class App
         {
             g.CompositingMode = CompositingMode.SourceCopy; g.DrawImageUnscaled(atmo, 0, 0); g.CompositingMode = CompositingMode.SourceOver;
         }
-        else using (var br = new LinearGradientBrush(r, Color.FromArgb(3, 1, 8), Color.FromArgb(26, 6, 54), 72f)) g.FillRectangle(br, r);
+        else using (var br = new LinearGradientBrush(r, TM.C(255, 3, 1, 8), TM.C(255, 26, 6, 54), 72f)) g.FillRectangle(br, r);
 
         if (anim && sprites != null && (!custom || Prefs.BgLeaves))
         {
-            g.InterpolationMode = InterpolationMode.NearestNeighbor;
+            BuildSprites(); g.InterpolationMode = InterpolationMode.NearestNeighbor;
             leaves.Sort((a, b) => a.S.CompareTo(b.S));
             for (int i = 0; i < leaves.Count; i++)
             {
@@ -287,12 +286,12 @@ partial class App
             for (int i = 0; i < spores.Count; i++)
             {
                 var s = spores[i]; float tw = (float)(Math.Sin(t * 2.2f + s.Phase) * 0.5 + 0.5); int a = (int)(55 + 150 * tw);
-                if (quality == 0) using (var b = new SolidBrush(Color.FromArgb(a / 4, 230, 150, 255))) g.FillEllipse(b, s.X - s.R * 2, s.Y - s.R * 2, s.R * 5, s.R * 5);
-                using (var b = new SolidBrush(Color.FromArgb(a, 240, 200, 255))) g.FillEllipse(b, s.X, s.Y, s.R * 2, s.R * 2);
+                if (quality == 0) using (var b = new SolidBrush(TM.C(a / 4, 230, 150, 255))) g.FillEllipse(b, s.X - s.R * 2, s.Y - s.R * 2, s.R * 5, s.R * 5);
+                using (var b = new SolidBrush(TM.C(a, 240, 200, 255))) g.FillEllipse(b, s.X, s.Y, s.R * 2, s.R * 2);
             }
             float lx = (t * 220) % (W + 300) - 150;
-            using (var br = new LinearGradientBrush(new RectangleF(lx - 150, 0, 300, 3), Color.FromArgb(0, 236, 92, 226), Color.FromArgb(0, 150, 80, 255), 0f))
-            { var cb = new ColorBlend(3); cb.Colors = new[] { Color.FromArgb(0, 236, 92, 226), Color.FromArgb(230, 236, 120, 240), Color.FromArgb(0, 150, 80, 255) }; cb.Positions = new[] { 0f, 0.5f, 1f }; br.InterpolationColors = cb; g.FillRectangle(br, lx - 150, 0, 300, 3); }
+            using (var br = new LinearGradientBrush(new RectangleF(lx - 150, 0, 300, 3), TM.C(0, 236, 92, 226), TM.C(0, 150, 80, 255), 0f))
+            { var cb = new ColorBlend(3); cb.Colors = new[] { TM.C(0, 236, 92, 226), TM.C(230, 236, 120, 240), TM.C(0, 150, 80, 255) }; cb.Positions = new[] { 0f, 0.5f, 1f }; br.InterpolationColors = cb; g.FillRectangle(br, lx - 150, 0, 300, 3); }
         }
         g.SmoothingMode = SmoothingMode.AntiAlias;
         if (ov != null && ov.Width == r.Width && ov.Height == r.Height) g.DrawImageUnscaled(ov, 0, 0);
@@ -306,27 +305,27 @@ partial class App
         {
             if (titleSize.Width < 1) titleSize = g.MeasureString(title, f);
             float glow = anim ? (float)(Math.Sin(t * 2) * 0.5 + 0.5) : 0.4f;
-            using (var b = new SolidBrush(Color.FromArgb((int)(20 + 26 * glow), 200, 90, 255))) { g.DrawString(title, f, b, 12, 6); g.DrawString(title, f, b, 20, 14); }
+            using (var b = new SolidBrush(TM.C((int)(20 + 26 * glow), 200, 90, 255))) { g.DrawString(title, f, b, 12, 6); g.DrawString(title, f, b, 20, 14); }
             float sh = anim ? (t * 90) % (titleSize.Width * 2) : 0;
-            using (var b = new LinearGradientBrush(new RectangleF(16 - sh, 10, titleSize.Width * 2, titleSize.Height), Color.FromArgb(245, 225, 255), Color.FromArgb(180, 100, 255), 0f))
+            using (var b = new LinearGradientBrush(new RectangleF(16 - sh, 10, titleSize.Width * 2, titleSize.Height), TM.C(255, 245, 225, 255), TM.C(255, 180, 100, 255), 0f))
             { b.WrapMode = WrapMode.TileFlipX; g.DrawString(title, f, b, 16, 10); }
         }
         g.Restore(titleState); g.Restore(scaleState);
 
         var bar = new Rectangle((int)(16 * uiX), (int)(470 * uiY), r.Width - (int)(32 * uiX), Math.Max(8, (int)(14 * uiS)));
-        using (var tb = new SolidBrush(Color.FromArgb(200, 4, 2, 10))) g.FillRectangle(tb, bar);
+        using (var tb = new SolidBrush(TM.C(200, 4, 2, 10))) g.FillRectangle(tb, bar);
         int fw = (int)(bar.Width * Math.Max(0, Math.Min(100, shownPct)) / 100f);
         if (fw > 2)
         {
             var fr = new Rectangle(bar.X, bar.Y, fw, bar.Height);
-            using (var gl = new SolidBrush(Color.FromArgb(40, 230, 100, 240))) g.FillRectangle(gl, fr.X, fr.Y - 4, fr.Width, fr.Height + 8);
-            using (var fb = new LinearGradientBrush(fr, Color.FromArgb(150, 60, 240), Color.FromArgb(240, 90, 230), 0f)) g.FillRectangle(fb, fr);
+            using (var gl = new SolidBrush(TM.C(40, 230, 100, 240))) g.FillRectangle(gl, fr.X, fr.Y - 4, fr.Width, fr.Height + 8);
+            using (var fb = new LinearGradientBrush(fr, TM.C(255, 150, 60, 240), TM.C(255, 240, 90, 230), 0f)) g.FillRectangle(fb, fr);
             float sx = bar.X + ((t * 130) % (fw + 70)) - 35; var old = g.Clip; g.SetClip(fr);
             using (var sb = new SolidBrush(Color.FromArgb(80, 255, 255, 255))) g.FillRectangle(sb, sx, bar.Y, 24, bar.Height); g.Clip = old;
         }
-        using (var pn = new Pen(Color.FromArgb(170, 190, 120, 255))) g.DrawRectangle(pn, bar);
+        using (var pn = new Pen(TM.C(170, 190, 120, 255))) g.DrawRectangle(pn, bar);
         if (status.Length > 0)
-            using (var f = new Font("Segoe UI", 8.5f * uiS)) using (var b = new SolidBrush(Color.FromArgb(225, 230, 210, 255))) g.DrawString(status, f, b, 16 * uiX, bar.Bottom + 2 * uiS);
+            using (var f = new Font("Segoe UI", 8.5f * uiS)) using (var b = new SolidBrush(TM.C(225, 230, 210, 255))) g.DrawString(status, f, b, 16 * uiX, bar.Bottom + 2 * uiS);
 
         // adaptive quality: step effects down on slower PCs, back up when there is headroom
         PaintMs += frameWatch.Elapsed.TotalMilliseconds; frameMs = frameMs * 0.9 + frameWatch.Elapsed.TotalMilliseconds * 0.1;

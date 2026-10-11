@@ -11,7 +11,7 @@ partial class StudioForm
     sealed class Spark { public float X, Y, VX, VY, Life, Max, R; public Color C; }
     readonly List<Spark> sparks = new List<Spark>(); readonly Random sparkRnd = new Random(11); readonly System.Diagnostics.Stopwatch needleClock = System.Diagnostics.Stopwatch.StartNew();
     double needleLast, sparkAcc; bool needleDrag;
-    static Color[] SparkCols = { Color.FromArgb(255, 70, 225), Color.FromArgb(0, 229, 255), Color.FromArgb(255, 255, 255), Color.FromArgb(190, 130, 255), Color.FromArgb(255, 70, 225), Color.FromArgb(0, 229, 255) };
+    static Color[] SparkCols = { TM.C(255, 255, 70, 225), TM.C(255, 0, 229, 255), Color.FromArgb(255, 255, 255), TM.C(255, 190, 130, 255), TM.C(255, 255, 70, 225), TM.C(255, 0, 229, 255) };
 
     // the strip at the top of the tracks: a neon border (it lights up under the mouse and while you drag)
     void PaintRulerNeon(Graphics g, RectangleF ruler)
@@ -20,7 +20,7 @@ partial class StudioForm
         using (var path = RR(r, 6))
         {
             for (int i = 3; i >= 1; i--) using (var pen = new Pen(Color.FromArgb((hot ? 62 : 34) / i + 4, NeonPink), i * 3.2f)) g.DrawPath(pen, path);
-            using (var br = new LinearGradientBrush(r, Color.FromArgb(hot ? 255 : 215, 0, 229, 255), Color.FromArgb(hot ? 255 : 215, 255, 70, 225), 0f)) using (var pen = new Pen(br, hot ? 2f : 1.5f)) g.DrawPath(pen, path);
+            using (var br = new LinearGradientBrush(r, TM.C(hot ? 255 : 215, 0, 229, 255), TM.C(hot ? 255 : 215, 255, 70, 225), 0f)) using (var pen = new Pen(br, hot ? 2f : 1.5f)) g.DrawPath(pen, path);
         }
         g.SmoothingMode = sm;
     }
@@ -34,9 +34,9 @@ partial class StudioForm
         // the beam: a wide soft pink glow, a cyan fringe, a hot pink body and a white core
         float[] gw = { 30, 20, 13, 8 }; int[] ga = { 12, 22, 40, 74 };
         for (int i = 0; i < gw.Length; i++) using (var pen = new Pen(Color.FromArgb(Math.Min(255, (int)(ga[i] * boost)), NeonPink), gw[i] * (0.9f + 0.25f * peak))) { pen.StartCap = LineCap.Round; pen.EndCap = LineCap.Round; g.DrawLine(pen, px, top, px, bottom); }
-        using (var pen = new Pen(Color.FromArgb(110, 0, 229, 255), 1f)) { g.DrawLine(pen, px - 2.5f, top + 14, px - 2.5f, bottom); g.DrawLine(pen, px + 2.5f, top + 14, px + 2.5f, bottom); }
+        using (var pen = new Pen(TM.C(110, 0, 229, 255), 1f)) { g.DrawLine(pen, px - 2.5f, top + 14, px - 2.5f, bottom); g.DrawLine(pen, px + 2.5f, top + 14, px + 2.5f, bottom); }
         using (var pen = new Pen(Color.FromArgb(215, NeonPink), 3.4f)) g.DrawLine(pen, px, top, px, bottom);
-        using (var pen = new Pen(Color.FromArgb(250, 255, 245, 255), 1.7f)) g.DrawLine(pen, px, top, px, bottom);
+        using (var pen = new Pen(TM.C(250, 255, 245, 255), 1.7f)) g.DrawLine(pen, px, top, px, bottom);
         // the head
         float hy = top + 7;
         foreach (var rr in new[] { 25f, 18f, 12f }) using (var b = new SolidBrush(Color.FromArgb((int)(Math.Min(255, (rr == 12 ? 62 : (rr == 18 ? 34 : 18)) * boost)), NeonPink))) g.FillEllipse(b, px - rr, hy - rr, rr * 2, rr * 2);

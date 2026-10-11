@@ -194,18 +194,18 @@ class PluginManagerForm : Form
     {
         this.getFilter = getFilter; this.setFilter = setFilter;
         Text = "Plugins and extensions"; FormBorderStyle = FormBorderStyle.FixedDialog; StartPosition = FormStartPosition.CenterParent; MaximizeBox = false; MinimizeBox = false; ShowInTaskbar = false;
-        BackColor = Color.FromArgb(10, 4, 20); ForeColor = Color.FromArgb(240, 232, 255); ClientSize = new Size(700, 600); Font = new Font("Segoe UI", 10f); Win.Dark(this);
-        Controls.Add(new Label { Text = "Studio effect plugins", Left = 18, Top = 14, Width = 400, Height = 26, Font = new Font("Segoe UI Semibold", 13f), ForeColor = Color.FromArgb(225, 190, 255) });
-        Controls.Add(new Label { Text = "Your installed VST2 and VST3 plugins are listed here automatically. Tick one and it loads at once: instruments appear under + ADD TRACK > Virtual Instruments in Purphex Music, effects under + Add Effect > PLUGINS. You can also copy a .dll into the plugins folder. Plugins are programs: only tick ones you trust.", Left = 18, Top = 44, Width = 664, Height = 50, ForeColor = Color.FromArgb(170, 150, 200) });
-        list = new Panel { Left = 18, Top = 100, Width = 664, Height = 200, AutoScroll = true, BackColor = Color.FromArgb(8, 4, 16), BorderStyle = BorderStyle.FixedSingle }; Controls.Add(list); Win.DarkControl(list);
+        BackColor = TM.C(255, 10, 4, 20); ForeColor = TM.C(255, 240, 232, 255); ClientSize = new Size(700, 600); Font = new Font("Segoe UI", 10f); Win.Dark(this);
+        Controls.Add(new Label { Text = "Studio effect plugins", Left = 18, Top = 14, Width = 400, Height = 26, Font = new Font("Segoe UI Semibold", 13f), ForeColor = TM.C(255, 225, 190, 255) });
+        Controls.Add(new Label { Text = "Your installed VST2 and VST3 plugins are listed here automatically. Tick one and it loads at once: instruments appear under + ADD TRACK > Virtual Instruments in Purphex Music, effects under + Add Effect > PLUGINS. You can also copy a .dll into the plugins folder. Plugins are programs: only tick ones you trust.", Left = 18, Top = 44, Width = 664, Height = 50, ForeColor = TM.C(255, 170, 150, 200) });
+        list = new Panel { Left = 18, Top = 100, Width = 664, Height = 200, AutoScroll = true, BackColor = TM.C(255, 8, 4, 16), BorderStyle = BorderStyle.FixedSingle }; Controls.Add(list); Win.DarkControl(list);
         Mk("Open plugins folder", 18, 310, 170, () => { Directory.CreateDirectory(PluginHost.Dir); Process.Start("explorer.exe", "\"" + PluginHost.Dir + "\""); });
         Mk("Reload", 196, 310, 110, () => { Reload(true); });
         Mk("Create sample plugin (for developers)", 314, 310, 290, MakeSample);
         msg = new Label { Left = 18, Top = 352, Width = 664, Height = 40, ForeColor = Color.FromArgb(120, 230, 160) }; Controls.Add(msg);
 
-        Controls.Add(new Label { Text = "Custom ffmpeg filter for conversions (advanced)", Left = 18, Top = 400, Width = 500, Height = 26, Font = new Font("Segoe UI Semibold", 13f), ForeColor = Color.FromArgb(225, 190, 255) });
-        Controls.Add(new Label { Text = "Any ffmpeg audio filter chain is applied to each download (before loudness normalization). Examples: aecho=0.8:0.88:60:0.4   or   flanger   or   acrusher=bits=8   or   lv2=p=<plugin URI> to host an LV2 plugin you installed.", Left = 18, Top = 430, Width = 664, Height = 52, ForeColor = Color.FromArgb(170, 150, 200) });
-        filterBox = new TextBox { Left = 18, Top = 486, Width = 664, Text = getFilter(), BackColor = Color.FromArgb(8, 4, 16), ForeColor = Color.FromArgb(240, 232, 255), BorderStyle = BorderStyle.FixedSingle }; Win.NeonBox(filterBox); Controls.Add(filterBox);
+        Controls.Add(new Label { Text = "Custom ffmpeg filter for conversions (advanced)", Left = 18, Top = 400, Width = 500, Height = 26, Font = new Font("Segoe UI Semibold", 13f), ForeColor = TM.C(255, 225, 190, 255) });
+        Controls.Add(new Label { Text = "Any ffmpeg audio filter chain is applied to each download (before loudness normalization). Examples: aecho=0.8:0.88:60:0.4   or   flanger   or   acrusher=bits=8   or   lv2=p=<plugin URI> to host an LV2 plugin you installed.", Left = 18, Top = 430, Width = 664, Height = 52, ForeColor = TM.C(255, 170, 150, 200) });
+        filterBox = new TextBox { Left = 18, Top = 486, Width = 664, Text = getFilter(), BackColor = TM.C(255, 8, 4, 16), ForeColor = TM.C(255, 240, 232, 255), BorderStyle = BorderStyle.FixedSingle }; Win.NeonBox(filterBox); Controls.Add(filterBox);
         Mk("Test and save filter", 18, 520, 190, () => TestFilter());
         Mk("Clear", 216, 520, 90, () => { filterBox.Text = ""; setFilter(""); msg.Text = "Filter cleared."; });
         Mk("Close", 582, 548, 100, () => Close());
@@ -214,8 +214,8 @@ class PluginManagerForm : Form
 
     Button Mk(string text, int x, int y, int w, Action click)
     {
-        var b = new Button { Text = text, Left = x, Top = y, Width = w, Height = 32, FlatStyle = FlatStyle.Flat, BackColor = Color.FromArgb(118, 52, 212), ForeColor = Color.White, Cursor = Cursors.Hand };
-        b.FlatAppearance.BorderColor = Color.FromArgb(190, 120, 255); b.Click += (s, e) => click(); Controls.Add(b); return b;
+        var b = new Button { Text = text, Left = x, Top = y, Width = w, Height = 32, FlatStyle = FlatStyle.Flat, BackColor = TM.C(255, 118, 52, 212), ForeColor = Color.White, Cursor = Cursors.Hand };
+        b.FlatAppearance.BorderColor = TM.C(255, 190, 120, 255); b.Click += (s, e) => click(); Controls.Add(b); return b;
     }
 
     void MakeSample()
@@ -245,7 +245,7 @@ class PluginManagerForm : Form
     {
         if (load) { var log = PluginHost.LoadEnabled(); msg.Text = log.Count == 0 ? "Nothing new to load." : string.Join("   ", log.ToArray()); }
         list.Controls.Clear(); int y = 6; var ps = PluginHost.Scan();
-        if (ps.Count == 0) list.Controls.Add(new Label { Text = "No plugins found yet. Folder: " + PluginHost.Dir, Left = 8, Top = 8, Width = 620, Height = 40, ForeColor = Color.FromArgb(170, 150, 200) });
+        if (ps.Count == 0) list.Controls.Add(new Label { Text = "No plugins found yet. Folder: " + PluginHost.Dir, Left = 8, Top = 8, Width = 620, Height = 40, ForeColor = TM.C(255, 170, 150, 200) });
         foreach (var p in ps)
         {
             var cb = new DarkCheck { Left = 6, Top = y, Width = 640, Height = 30, Checked = p.Enabled, Text = p.Name + (p.Native ? "   [VST]" : "") + (p.Loaded ? "   (" + ReadyText(p) + ")" : (p.Enabled ? "   (approved: press Reload)" : "   (not approved)")) + (p.Error.Length > 0 ? "   ERROR: " + p.Error : "") };
@@ -270,10 +270,10 @@ class PluginManagerForm : Form
     {
         string f = filterBox.Text.Trim();
         if (f.Length == 0) { setFilter(""); msg.Text = "Filter cleared."; return; }
-        if (f.IndexOf('"') >= 0 || f.StartsWith("-") || f.IndexOf('\n') >= 0) { msg.ForeColor = Color.FromArgb(255, 140, 170); msg.Text = "Don't use double quotes or a leading dash in the filter."; return; }
+        if (f.IndexOf('"') >= 0 || f.StartsWith("-") || f.IndexOf('\n') >= 0) { msg.ForeColor = TM.C(255, 255, 140, 170); msg.Text = "Don't use double quotes or a leading dash in the filter."; return; }
         string ff = StudioEnv.Ffmpeg(); if (ff == null) { msg.Text = "Convert something once first so ffmpeg is installed."; return; }
         int code; string o = MasterDsp.RunCapture(ff, "-hide_banner -f lavfi -i anullsrc=r=44100:cl=stereo -t 0.2 -af \"" + f + "\" -f null -", null, out code);
         if (code == 0) { setFilter(f); msg.ForeColor = Color.FromArgb(120, 230, 160); msg.Text = "Filter works and is saved. It will be applied to your conversions."; }
-        else { msg.ForeColor = Color.FromArgb(255, 140, 170); var ls = o.Trim().Split('\n'); msg.Text = "ffmpeg rejected it: " + ls[ls.Length - 1].Trim(); }
+        else { msg.ForeColor = TM.C(255, 255, 140, 170); var ls = o.Trim().Split('\n'); msg.Text = "ffmpeg rejected it: " + ls[ls.Length - 1].Trim(); }
     }
 }

@@ -135,7 +135,7 @@ static class AU
             try { var bm = new Bitmap(app.ClientSize.Width, app.ClientSize.Height); app.DrawToBitmap(bm, new Rectangle(Point.Empty, bm.Size)); Directory.CreateDirectory(Path.Combine(Path.GetTempPath(), "au_forms")); bm.Save(Path.Combine(Path.GetTempPath(), "au_forms", "main-" + sz.Width + "x" + sz.Height + ".png"), System.Drawing.Imaging.ImageFormat.Png); bm.Dispose(); } catch { }
         }
         app.ClientSize = new Size(640, 712); Pump(300); app.Hide();
-        var st = new SettingsForm(app); st.Show(); Pump(500); sizeTag = "settings"; screens++; WinAudit("settings", st, c => c.Text, 0); st.Close();
+        var st = new SettingsForm(app); st.Show(); Pump(500); sizeTag = "settings"; for (int pi = 0; pi < 7; pi++) { typeof(SettingsForm).GetMethod("ShowPage", BF).Invoke(st, new object[] { pi }); Pump(100); screens++; WinAudit("settings page " + pi, st, c => c.Text, 0); } st.Close();
     }
     static void CheckLogo()
     {

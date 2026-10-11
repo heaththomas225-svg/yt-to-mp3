@@ -23,7 +23,7 @@ partial class StudioForm
         popPending.Add(hr); popRects.Add(handle);
         if (Hot(handle) || popDragId == id) hintNow = "Drag here to move this box wherever you like.";
         // a small grip so you can see it moves
-        if (dots) using (var b = new SolidBrush(Color.FromArgb(Hot(handle) ? 200 : 110, 190, 150, 255))) for (int i = 0; i < 3; i++) g0Grip(b, r.X + r.Width / 2 - 16 + i * 12, r.Y + 6);
+        if (dots) using (var b = new SolidBrush(TM.C(Hot(handle) ? 200 : 110, 190, 150, 255))) for (int i = 0; i < 3; i++) g0Grip(b, r.X + r.Width / 2 - 16 + i * 12, r.Y + 6);
         return r;
     }
     Graphics popG;

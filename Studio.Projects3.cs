@@ -74,7 +74,7 @@ partial class StudioForm
     float PaintProjectsBar(Graphics g, float W, float top, int total, int shown)
     {
         float y = top + 10, h = 34; var bin = Rc(W - 24 - 190, y, 190, h); int bn = ProjectLibrary.Bin.Count;
-        var sb = Rc(24, y, Math.Max(180, Math.Min(420, bin.X - 24 - 20)), h); FillRR(g, Color.FromArgb(235, 14, 7, 32), sb, 9); Win.DrawNeonBox(g, sb, projSearchOn);
+        var sb = Rc(24, y, Math.Max(180, Math.Min(420, bin.X - 24 - 20)), h); FillRR(g, TM.C(235, 14, 7, 32), sb, 9); Win.DrawNeonBox(g, sb, projSearchOn);
         double tm = Environment.TickCount / 1000.0; bool blink = ((int)(tm * 2) % 2) == 0 && projSearchOn;
         Txt(g, projSearch.Length == 0 ? (blink ? "|  " : "   ") + "SEARCH PROJECTS" : projSearch + (blink ? "|" : ""), 13, projSearch.Length == 0 ? DimC : Ink, Rc(sb.X + 14, sb.Y, sb.Width - 54, sb.Height), StringAlignment.Near, projSearch.Length > 0);
         projSearchR = sb; Reg(sb, () => projSearchOn = true); Hint2(sb, "Search your projects by name, tag or type (song, beat, vocals). Just start typing.");
@@ -106,7 +106,7 @@ partial class StudioForm
         for (int i = 0; i < 10; i++) { double a = -Math.PI / 2 + i * Math.PI / 5; float rad = i % 2 == 0 ? R : rr; pts[i] = new PointF(cx + (float)Math.Cos(a) * rad, cy + (float)Math.Sin(a) * rad); }
         var gold = Color.FromArgb(255, 255, 205, 60);
         if (on) { using (var b = new SolidBrush(gold)) g.FillPolygon(b, pts); }
-        using (var pen = new Pen(on ? gold : (hot ? Ink : Color.FromArgb(200, 190, 170, 235)), 1.6f) { LineJoin = LineJoin.Round }) g.DrawPolygon(pen, pts);
+        using (var pen = new Pen(on ? gold : (hot ? Ink : TM.C(200, 190, 170, 235)), 1.6f) { LineJoin = LineJoin.Round }) g.DrawPolygon(pen, pts);
     }
     void ToggleFavourite(ProjectEntry e) { ProjectLibrary.SetFlags(e.Path, !e.Fav, null); Toast(e.Fav ? "Added to your favourites." : "Removed from your favourites."); }
 
@@ -143,7 +143,7 @@ partial class StudioForm
         for (int i = 0; i < items.Count; i++)
         {
             var b = items[i]; var row = Rc(24, y0 + i * (rh + gap) - binScroll, W - 48 - 56, rh); if (row.Bottom < area.Y || row.Y > H) continue;
-            FillRR(g, Color.FromArgb(205, 22, 12, 42), row, 14); Win.DrawNeonBox(g, row, Hot(row));
+            FillRR(g, TM.C(205, 22, 12, 42), row, 14); Win.DrawNeonBox(g, row, Hot(row));
             var pic = Rc(row.X + 10, row.Y + 10, rh - 20, rh - 20); DrawCover(g, pic, new ProjectEntry { Cover = b.Cover ?? "", Name = b.Name }); Win.DrawNeonBox(g, pic, false);
             float bx = row.Right - 12, rw = 110, dw = 156; var del = Rc(bx - dw, row.Y + (rh - 34) / 2, dw, 34); var res = Rc(del.X - 10 - rw, del.Y, rw, 34); float tw = res.X - (pic.Right + 14) - 12;
             Txt(g, b.Name, 15, Ink, Rc(pic.Right + 14, row.Y + 12, tw, 24), StringAlignment.Near, true);

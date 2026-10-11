@@ -14,7 +14,10 @@ static class StudioEnv
 {
     public static Func<string> Ffmpeg = delegate { return null; };
     public static Func<string> Ffprobe = delegate { return null; };
-    public static string DataDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "YtToMp3");
+    public static readonly string DefaultDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "YtToMp3");
+    public static string DataDir = DefaultDir;
+    // a test or render run uses its own data folder: it never plays a sound out of the speakers
+    public static bool UnderTest { get { return !string.Equals(DataDir, DefaultDir, StringComparison.OrdinalIgnoreCase); } }
 }
 
 // ---------------- audio clip (44.1 kHz stereo float in memory; decoded as a stream so very long files work) ----------------
@@ -694,10 +697,10 @@ class WaveOutPlayer : IDisposable
     const int CALLBACK_EVENT = 0x50000, WHDR_DONE = 1;
     public static volatile int Underruns;       // times the sound card ran out of audio (heard as stutter)
     public static volatile int QueuedFrames = 4096;   // audio waiting in the buffers: how far the sound lags behind the render position
-    readonly int Buffers = Prefs.Buf == 0 ? 4 : 8;   // more, smaller buffers: the same 23 ms steps but much more slack when the computer is busy
+    readonly int Buffers = Prefs.BufEff == 0 ? 4 : 8;   // more, smaller buffers: the same 23 ms steps but much more slack when the computer is busy
     public static volatile float Gain = 1f;   // playback volume from Settings (exports are not affected)
     public static int Device { get { return Prefs.OutDev; } }
-    readonly int Frames = Prefs.Buf == 0 ? 512 : (Prefs.Buf == 2 ? 2048 : 1024);
+    readonly int Frames = Prefs.BufEff == 0 ? 512 : (Prefs.BufEff == 2 ? 2048 : 1024);
     [DllImport("winmm.dll", CharSet = CharSet.Auto)] static extern int waveOutGetNumDevs();
     [DllImport("winmm.dll", CharSet = CharSet.Auto)] static extern int waveOutGetDevCaps(IntPtr id, ref WAVEOUTCAPS caps, int size);
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Auto)] struct WAVEOUTCAPS { public ushort mid, pid; public uint ver; [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)] public string name; public uint formats; public ushort ch, res; public uint support; }
@@ -731,7 +734,7 @@ class WaveOutPlayer : IDisposable
     void Fill(int i)
     {
         try { render(fl, fr, Frames); } catch { Array.Clear(fl, 0, Frames); Array.Clear(fr, 0, Frames); }
-        float gn = Gain; if (gn != 1f) for (int k = 0; k < Frames; k++) { fl[k] *= gn; fr[k] *= gn; }
+        float gn = StudioEnv.UnderTest ? 0f : Math.Min(Gain, Prefs.OutVol / 100f); if (gn != 1f) for (int k = 0; k < Frames; k++) { fl[k] *= gn; fr[k] *= gn; }
         safety.Process(fl, fr, Frames);   // a project that is too loud is brought down smoothly instead of being chopped off (chopped peaks are the crackle and fuzz you hear)
         for (int k = 0; k < Frames; k++)
         {

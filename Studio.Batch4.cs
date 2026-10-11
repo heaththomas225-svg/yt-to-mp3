@@ -39,7 +39,7 @@ partial class StudioForm
     void GoBack()
     {
         StopPreview(); projBin = false;
-        while (navStack.Count > 0) { int t = navStack[navStack.Count - 1]; navStack.RemoveAt(navStack.Count - 1); if (t == tab || t < 0 || t > 5) continue; navPopping = true; tab = t; return; }
+        while (navStack.Count > 0) { int t = navStack[navStack.Count - 1]; navStack.RemoveAt(navStack.Count - 1); if (t == tab || t < 0 || t > 7) continue; navPopping = true; tab = t; return; }
         GoHome();
     }
     // BACK only appears when it has somewhere to take you that is not home (HOME is its own button)
@@ -56,13 +56,18 @@ partial class StudioForm
     void DoRevert() { var a = revertAction; revertAction = null; if (a == null) return; try { a(); } catch (Exception ex) { Toast("Could not revert: " + ex.Message); return; } Toast("Reverted: " + revertText + " is back as it was."); }
     void PaintRevertBar(Graphics g)
     {
-        if (revertAction == null) return; if (DateTime.Now > revertUntil) { revertAction = null; return; }
-        float W = ClientSize.Width, H = ClientSize.Height, bw = Math.Min(W - 28, 470), bh = 42, by = H - (tab == 0 ? 56 : 10) - bh - 4; var bar = Rc(14, by, bw, bh);
-        FillRR(g, Color.FromArgb(240, 18, 30, 52), bar, 10); StrokeRR(g, Color.FromArgb(200, NeonCyan), bar, 10, 1.3f);
-        var rv = Rc(bar.Right - 128, bar.Y + 6, 90, 30); var cl = Rc(bar.Right - 32, bar.Y + 9, 24, 24);
-        Txt(g, revertText.ToUpper(), 12, Ink, Rc(bar.X + 12, bar.Y, bar.Width - 164, bar.Height), StringAlignment.Near, true);
+        if (revertAction == null) return; double left = (revertUntil - DateTime.Now).TotalSeconds; if (left <= 0) { revertAction = null; return; }   // after 60 seconds it presses the X for you (the change stays)
+        lastInput = DateTime.Now;   // keeps the countdown moving
+        float W = ClientSize.Width, H = ClientSize.Height, bw = Math.Min(W - 28, tab == 0 ? HeadW - 16 : 400), bh = 68, by = H - (tab == 0 ? 50 : 10) - bh; var bar = Rc(tab == 0 ? 8 : 14, by, bw, bh);
+        FillRR(g, TM.C(246, 14, 26, 46), bar, 10); StrokeRR(g, Color.FromArgb(200, NeonCyan), bar, 10, 1.3f);
+        var gs = g.Save(); g.SetClip(bar, CombineMode.Intersect);   // everything stays inside the lines of the box
+        TxtWrap(g, revertText.ToUpper(), 12, Ink, Rc(bar.X + 12, bar.Y + 6, bar.Width - 24, 30));
+        var rv = Rc(bar.Right - 128, bar.Y + 36, 90, 26); var cl = Rc(bar.Right - 32, bar.Y + 37, 24, 24);
+        Txt(g, "HIDES ITSELF IN " + (int)Math.Ceiling(left) + " S", 10, DimC, Rc(bar.X + 12, bar.Y + 36, bar.Width - 164, 26), StringAlignment.Near, false);
         Btn(g, rv, "REVERT", 3, () => DoRevert(), 12); Hint2(rv, "Put everything back exactly as it was before you pressed USE");
-        Btn(g, cl, "x", 0, () => revertAction = null, 12); Hint2(cl, "Hide this");
+        Btn(g, cl, "x", 0, () => revertAction = null, 12); Hint2(cl, "Keep the change and hide this");
+        float fr = (float)Math.Max(0, Math.Min(1, left / 60.0)); using (var br = new SolidBrush(Color.FromArgb(200, NeonCyan))) g.FillRectangle(br, bar.X + 8, bar.Bottom - 4, (bar.Width - 16) * fr, 2.5f);
+        g.Restore(gs);
     }
 
     // applies something to a track's plugin chain with undo (Ctrl+Z) and the REVERT bar
@@ -96,9 +101,8 @@ partial class StudioForm
     // SHOW ME: finds the page the button lives on, goes there and points at it with the button's own help text
     internal bool ShowOnScreen(string label)
     {
-        int keep = tab; var r = TargetOf(label);
-        if (r.IsEmpty) { foreach (int t in new[] { 0, 1, 2, 3, 4 }) { if (t == keep) continue; tab = t; Refresh(); r = TargetOf(label); if (!r.IsEmpty) break; } }
-        if (r.IsEmpty) { tab = keep; Toast("Could not find " + label + " on this screen. Open the page it belongs to first."); return false; }
+        int keep = tab; bool found = GoToLabel(label); var r = TargetOf(label);   // it goes to the right page and opens the right box first
+        if (!found || r.IsEmpty) { tab = keep; Toast("Could not find " + label + " on any page."); return false; }
         string txt; if (!Hints.TryGetValue(label, out txt)) { txt = "This is the " + label + " button."; foreach (var kv in Hints) if (label.StartsWith(kv.Key, StringComparison.OrdinalIgnoreCase) || kv.Key.StartsWith(label, StringComparison.OrdinalIgnoreCase)) { txt = kv.Value; break; } }
         string lb = label; Tour.Run(this, new List<TourStep> { new TourStep(() => TargetOf(lb), Win.Up(label), txt) }); return true;
     }
@@ -140,7 +144,7 @@ partial class StudioForm
         using (var g2 = Graphics.FromImage(bmp))
         {
             g2.SmoothingMode = SmoothingMode.AntiAlias;
-            using (var gp = new GraphicsPath()) { gp.AddEllipse(0, 0, d - 1, d - 1); using (var pg = new PathGradientBrush(gp) { CenterColor = Color.FromArgb(38, 124, 58, 237), SurroundColors = new[] { Color.FromArgb(0, 124, 58, 237) } }) g2.FillEllipse(pg, 0, 0, d - 1, d - 1); }
+            using (var gp = new GraphicsPath()) { gp.AddEllipse(0, 0, d - 1, d - 1); using (var pg = new PathGradientBrush(gp) { CenterColor = TM.C(38, 124, 58, 237), SurroundColors = new[] { TM.C(0, 124, 58, 237) } }) g2.FillEllipse(pg, 0, 0, d - 1, d - 1); }
             if (lg != null)
             {
                 float side = d * 0.66f, asp = lg.Width / (float)Math.Max(1, lg.Height), w = asp >= 1 ? side : side * asp, h = asp >= 1 ? side / asp : side;

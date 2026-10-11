@@ -174,16 +174,16 @@ partial class StudioForm
     void PaintCommPresets(Graphics g)
     {
         if (!cpOpen) return; float W = ClientSize.Width, H = ClientSize.Height; var all = Rc(0, 0, W, H);
-        using (var b = new SolidBrush(Color.FromArgb(165, 3, 1, 10))) g.FillRectangle(b, all); Reg(all, () => cpOpen = false);
+        using (var b = new SolidBrush(TM.C(165, 3, 1, 10))) g.FillRectangle(b, all); Reg(all, () => cpOpen = false);
         float sw = Math.Min(720, W - 24), sh = Math.Min(H - 24, 600); var sheet = PopMove("comm", Rc((W - sw) / 2, (H - sh) / 2, sw, sh), 54, 70);
-        FillRR(g, Color.FromArgb(252, 16, 10, 34), sheet, 20); Glow(g, NeonViolet, sheet, 20, 0.8f, 4); StrokeRR(g, Color.FromArgb(180, NeonViolet), sheet, 20, 1.5f); Reg(sheet, () => { });
+        FillRR(g, TM.C(252, 16, 10, 34), sheet, 20); Glow(g, NeonViolet, sheet, 20, 0.8f, 4); StrokeRR(g, Color.FromArgb(180, NeonViolet), sheet, 20, 1.5f); Reg(sheet, () => { });
         Txt(g, "COMMUNITY PRESETS", 18, Ink, Rc(sheet.X + 22, sheet.Y + 14, sheet.Width - 90, 28), StringAlignment.Near, true);
         Txt(g, cpTitle + "  -  made and shared by other producers. Click USE to try one.", 12, DimC, Rc(sheet.X + 22, sheet.Y + 44, sheet.Width - 90, 20), StringAlignment.Near, false);
-        var close = Rc(sheet.Right - 50, sheet.Y + 14, 34, 34); FillRR(g, Hot(close) ? Color.FromArgb(200, 150, 50, 110) : Color.FromArgb(120, 70, 30, 90), close, 17); Txt(g, "X", 17, Ink, close, StringAlignment.Center, true); Reg(close, () => cpOpen = false);
+        var close = Rc(sheet.Right - 50, sheet.Y + 14, 34, 34); FillRR(g, Hot(close) ? TM.C(200, 150, 50, 110) : TM.C(120, 70, 30, 90), close, 17); Txt(g, "X", 17, Ink, close, StringAlignment.Center, true); Reg(close, () => cpOpen = false);
         // sort tabs and search
         float y = sheet.Y + 74; Btn(g, Rc(sheet.X + 22, y, 104, 32), "POPULAR", cpSort == "popular" ? 4 : 0, () => { if (cpSort != "popular") { cpSort = "popular"; CpFetch(); } }, 12);
         Btn(g, Rc(sheet.X + 132, y, 96, 32), "NEWEST", cpSort == "new" ? 4 : 0, () => { if (cpSort != "new") { cpSort = "new"; CpFetch(); } }, 12);
-        var sb = Rc(sheet.X + 240, y, sheet.Right - sheet.X - 240 - 22, 32); FillRR(g, Color.FromArgb(235, 14, 7, 32), sb, 8); StrokeRR(g, Color.FromArgb(150, NeonViolet), sb, 8, 1);
+        var sb = Rc(sheet.X + 240, y, sheet.Right - sheet.X - 240 - 22, 32); FillRR(g, TM.C(235, 14, 7, 32), sb, 8); StrokeRR(g, Color.FromArgb(150, NeonViolet), sb, 8, 1);
         if (cpQuery.Length > 0) Btn(g, Rc(sb.Right - 30, sb.Y + 4, 24, 24), "x", 3, () => { cpQuery = ""; cpScroll = 0; }, 12);
         double tm = Environment.TickCount / 1000.0; Txt(g, cpQuery.Length == 0 ? (((int)(tm * 2) % 2 == 0 ? "|" : " ") + "  Type to search by name or producer") : cpQuery + ((int)(tm * 2) % 2 == 0 ? "|" : " "), 13, cpQuery.Length == 0 ? DimC : Ink, Rc(sb.X + 12, sb.Y, sb.Width - 44, sb.Height), StringAlignment.Near, false);
         // the list
@@ -197,7 +197,7 @@ partial class StudioForm
         for (int i = 0; i < shown.Count; i++)
         {
             var p = shown[i]; var row = Rc(area.X + 2, area.Y + i * rowH - cpScroll, area.Width - 4 - vsw, rowH - 6); if (row.Bottom < area.Y || row.Y > area.Bottom) continue;
-            bool hot = Hot(RectangleF.Intersect(row, area)) && area.Contains(MousePos); FillRR(g, hot ? Color.FromArgb(200, 70, 40, 130) : Color.FromArgb(150, 26, 15, 52), row, 12); StrokeRR(g, Color.FromArgb(hot ? 180 : 80, NeonViolet), row, 12, 1);
+            bool hot = Hot(RectangleF.Intersect(row, area)) && area.Contains(MousePos); FillRR(g, hot ? TM.C(200, 70, 40, 130) : TM.C(150, 26, 15, 52), row, 12); StrokeRR(g, Color.FromArgb(hot ? 180 : 80, NeonViolet), row, 12, 1);
             float tw = row.Width - 200; Txt(g, p.Name, 15, Ink, Rc(row.X + 16, row.Y + 8, tw, 24), StringAlignment.Near, true);
             Txt(g, "BY " + p.Author + "     " + p.Uses + (p.Uses == 1 ? " use" : " uses"), 12, DimC, Rc(row.X + 16, row.Y + 33, tw, 20), StringAlignment.Near, false);
             if (p.Kind == "theme") { ThemeDef td; if (!cpThemes.TryGetValue(p.Id, out td)) { string terr; td = ThemeDef.FromText(p.Data, p.Name, out terr); cpThemes[p.Id] = td; } if (td != null) { Color[] sw6 = { td.Violet, td.Cyan, td.Pink, td.Lime, td.Accent, td.Btn }; for (int k = 0; k < 6; k++) { var dot = Rc(row.Right - 190 - (6 - k) * 24, row.Y + 19, 18, 18); using (var br = new SolidBrush(sw6[k])) g.FillEllipse(br, dot); using (var pen = new Pen(Color.FromArgb(90, 255, 255, 255), 1f)) g.DrawEllipse(pen, dot); } } }

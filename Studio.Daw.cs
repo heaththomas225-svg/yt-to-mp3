@@ -64,13 +64,27 @@ partial class StudioForm
     double GridFrames { get { return StudioEngine.SR * 60.0 / Math.Max(20, Fx.ProjectBpm) * GridBeats[gridIdx]; } }
     long Snap(long frame) { if (!snapOn) return frame; double g = GridFrames; return (long)(Math.Round(frame / g) * g); }
 
-    void PaintGrid(Graphics g, RectangleF tl, float top, float bottom, float dim = 1f)
+    readonly Bitmap[] gridStrips = new Bitmap[2]; readonly long[] gridStripKeys = new long[2]; double first0(double gf) { return Math.Floor(scroll / gf) * gf; }
+    void PaintGrid(Graphics g, RectangleF tl, float top, float bottom, float dim = 1f, Color? laneBg = null)
     {
-        if (!snapOn) return; double gf = GridFrames, bar = StudioEngine.SR * 60.0 / Math.Max(20, Fx.ProjectBpm) * 4; while (gf / spp < 7 && gf < bar * 64) gf *= 2;   // too close together to see: show every 2nd, 4th... line
+        if (!snapOn) { if (laneBg.HasValue) using (var lb = new SolidBrush(laneBg.Value)) g.FillRectangle(lb, tl.X, top, tl.Width, bottom - top); return; } double gf = GridFrames, bar = StudioEngine.SR * 60.0 / Math.Max(20, Fx.ProjectBpm) * 4; while (gf / spp < 7 && gf < bar * 64) gf *= 2;   // too close together to see: show every 2nd, 4th... line
         bool flash = unchecked(Environment.TickCount - gridFlashAt) < 1800, active = flash || (dragReg != null && laneMoved) || ghostOn; if (flash) lastInput = DateTime.Now;
         double fl = flash ? 1.0 - unchecked(Environment.TickCount - gridFlashAt) / 1800.0 : 0; int boost = flash ? 6 + (int)(26 * fl) : (active ? 22 : 0);   // a gentle brightening that fades out (it used to be thick and very bright)
+        if (bottom - top <= LaneH + 2 && tl.Width * (bottom - top) < 1200000)
+        {   // the lines of one row are drawn once per frame into a picture and copied into every row (every row has the same lines)
+            int sw = (int)Math.Ceiling(tl.Width), sh = (int)Math.Ceiling(bottom - top); long gk = Sprites.H(Sprites.H(Sprites.H(Sprites.H(Sprites.H(Sprites.H(Sprites.H(Sprites.Seed, scroll), (long)(spp * 1000)), (long)(gf * 100)), boost), (long)(dim * 100)), sw), sh * 4096L + (long)(Fx.ProjectBpm * 10)); gk = Sprites.H(gk, ThemeKeyNow()); int si = laneBg.HasValue && laneBg.Value.ToArgb() == Lane2.ToArgb() ? 1 : 0; if (laneBg.HasValue) gk = Sprites.H(gk, laneBg.Value.ToArgb()); var gridStrip = gridStrips[si];
+            if (gridStrip == null || gridStripKeys[si] != gk)
+            {
+                if (gridStrip == null || gridStrip.Width != sw || gridStrip.Height != sh) { if (gridStrip != null) gridStrip.Dispose(); gridStrip = Sprites.Make(sw, sh); gridStrips[si] = gridStrip; }
+                using (var sg = Graphics.FromImage(gridStrip)) { sg.Clear(laneBg.HasValue ? laneBg.Value : Color.Transparent); sg.SmoothingMode = SmoothingMode.None; using (var thin = new Pen(TM.C((int)((46 + boost) * dim), 190, 150, 255))) using (var thick = new Pen(TM.C((int)((96 + boost) * dim), 210, 170, 255), 1.2f))
+                    for (double f = first0(gf); ; f += gf) { float x = (float)((f - scroll) / spp); if (x > tl.Width) break; if (x < 0) continue; bool isBar = Math.Abs(f / bar - Math.Round(f / bar)) < 0.0005; sg.DrawLine(isBar ? thick : thin, x, 0, x, sh); } }
+                gridStripKeys[si] = gk;
+            }
+            if (laneBg.HasValue) g.CompositingMode = CompositingMode.SourceCopy; g.DrawImageUnscaled(gridStrip, (int)Math.Round(tl.X), (int)Math.Round(top)); g.CompositingMode = CompositingMode.SourceOver; return;
+        }
+        if (laneBg.HasValue) using (var lb = new SolidBrush(laneBg.Value)) g.FillRectangle(lb, tl.X, top, tl.Width, bottom - top);
         long first = (long)(Math.Floor(scroll / gf) * gf); var gridState = g.Save(); g.SetClip(Rc(tl.X, top, tl.Width, bottom - top), CombineMode.Intersect); var smoothWas = g.SmoothingMode; g.SmoothingMode = SmoothingMode.None;   // straight vertical lines need no anti-aliasing (it made the grid the slowest part of a frame)
-        using (var thin = new Pen(Color.FromArgb((int)((46 + boost) * dim), 190, 150, 255))) using (var thick = new Pen(Color.FromArgb((int)((96 + boost) * dim), 210, 170, 255), 1.2f))
+        using (var thin = new Pen(TM.C((int)((46 + boost) * dim), 190, 150, 255))) using (var thick = new Pen(TM.C((int)((96 + boost) * dim), 210, 170, 255), 1.2f))
             for (double f = first; ; f += gf)
             {
                 float x = tl.X + (float)((f - scroll) / spp); if (x > tl.Right) break; if (x < tl.X) continue;
@@ -236,12 +250,12 @@ partial class StudioForm
             {
                 if (hz == 6 && tr.FadeIn <= 0) continue; if (hz == 7 && tr.FadeOut <= 0) continue;
                 float hx = hz == 4 ? hx0 + dIn + Math.Max(12f, (float)(tr.FadeIn / spp)) : (hz == 5 ? hx1 - dOut - Math.Max(12f, (float)(tr.FadeOut / spp)) : (hz == 6 ? hx0 + dIn : hx1 - dOut)); float hyy = hz >= 6 ? bhy : hy; if (hx < lane.X - 10 || hx > lane.Right + 10) continue; bool hv = zone == hz; float rr = hv ? 7.5f : (hz >= 6 ? 5f : 6f);
-                using (var b = new SolidBrush(Color.FromArgb(hv ? 255 : 220, hv ? Color.White : (hz >= 6 ? Color.FromArgb(255, 70, 225) : Color.FromArgb(0, 229, 255))))) g.FillEllipse(b, hx - rr, hyy - rr, rr * 2, rr * 2);
-                using (var pen = new Pen(Color.FromArgb(230, 10, 5, 25), 1.5f)) g.DrawEllipse(pen, hx - rr, hyy - rr, rr * 2, rr * 2);
+                using (var b = new SolidBrush(Color.FromArgb(hv ? 255 : 220, hv ? Color.White : (hz >= 6 ? TM.C(255, 255, 70, 225) : TM.C(255, 0, 229, 255))))) g.FillEllipse(b, hx - rr, hyy - rr, rr * 2, rr * 2);
+                using (var pen = new Pen(TM.C(230, 10, 5, 25), 1.5f)) g.DrawEllipse(pen, hx - rr, hyy - rr, rr * 2, rr * 2);
             }
         }
-        if (!lockedClip && (leftEdge || zone == 2)) { var r = Rc(cr.X + 1, gy, 9, gh); FillRR(g, Color.FromArgb(zone == 2 ? 250 : 175, zone == 2 ? Color.White : c), r, 4); Txt(g, "<", 11, Color.FromArgb(10, 4, 20), r, StringAlignment.Center, true); }
-        if (!lockedClip && (rightEdge || zone == 3)) { var r = Rc(cr.Right - 10, gy, 9, gh); FillRR(g, Color.FromArgb(zone == 3 ? 250 : 175, zone == 3 ? Color.White : c), r, 4); Txt(g, ">", 11, Color.FromArgb(10, 4, 20), r, StringAlignment.Center, true); }
+        if (!lockedClip && (leftEdge || zone == 2)) { var r = Rc(cr.X + 1, gy, 9, gh); FillRR(g, Color.FromArgb(zone == 2 ? 250 : 175, zone == 2 ? Color.White : c), r, 4); Txt(g, "<", 11, TM.C(255, 10, 4, 20), r, StringAlignment.Center, true); }
+        if (!lockedClip && (rightEdge || zone == 3)) { var r = Rc(cr.Right - 10, gy, 9, gh); FillRR(g, Color.FromArgb(zone == 3 ? 250 : 175, zone == 3 ? Color.White : c), r, 4); Txt(g, ">", 11, TM.C(255, 10, 4, 20), r, StringAlignment.Center, true); }
         if (zone >= 0 && zone < ZoneText.Length) { bubble = ZoneText[zone] + (zone == 4 ? "  (" + (tr.FadeIn / (double)StudioEngine.SR).ToString("0.0") + " s, double-click removes it)" : (zone == 5 ? "  (" + (tr.FadeOut / (double)StudioEngine.SR).ToString("0.0") + " s, double-click removes it)" : (zone == 6 ? "  (" + (tr.FadeInDelay / (double)StudioEngine.SR).ToString("0.0") + " s of silence first, double-click resets)" : (zone == 7 ? "  (" + (tr.FadeOutTail / (double)StudioEngine.SR).ToString("0.0") + " s of silence at the end, double-click resets)" : "")))); bubblePt = MousePos; }
     }
     Track EmptyAudioTrack()
@@ -342,7 +356,7 @@ partial class StudioForm
         using (var f = new Font("Segoe UI", 12f, FontStyle.Regular, GraphicsUnit.Pixel))
         {
             var sz = g.MeasureString(t, f); float w = sz.Width + 18, h = 26; float x = Math.Min(ClientSize.Width - w - 6, bubblePt.X + 16), y = Math.Min(ClientSize.Height - h - 6, bubblePt.Y + 22); var r = Rc(x, y, w, h);
-            FillRR(g, Color.FromArgb(240, 30, 16, 58), r, 8); StrokeRR(g, Accent, r, 8, 1.2f); Txt(g, t, 12, Ink, r, StringAlignment.Center, false);
+            FillRR(g, TM.C(240, 30, 16, 58), r, 8); StrokeRR(g, Accent, r, 8, 1.2f); Txt(g, t, 12, Ink, r, StringAlignment.Center, false);
         }
     }
 
@@ -374,7 +388,7 @@ partial class StudioForm
     {
         float x = 14, y = y0 + 3, h = 30; var cc = CurClip(); var row = Selected; bool locked = row != null && row.Locked;
         Txt(g, "BPM", 11, DimC, Rc(x, y, 34, h), StringAlignment.Near, true); x += 34;
-        var bb = Rc(x, y, 64, h); if (Hot(bb)) hintNow = "The tempo of your song in beats per minute. It is found automatically when you add music; click the number to type your own, or press DETECT to listen again."; FillRR(g, Color.FromArgb(200, 8, 4, 18), bb, 6); StrokeRR(g, Hot(bb) ? Accent : Edge, bb, 6, 1); Txt(g, Fx.ProjectBpm.ToString("0.#", CultureInfo.InvariantCulture), 15, Ink, bb, StringAlignment.Center, true);
+        var bb = Rc(x, y, 64, h); if (Hot(bb)) hintNow = "The tempo of your song in beats per minute. It is found automatically when you add music; click the number to type your own, or press DETECT to listen again."; FillRR(g, TM.C(200, 8, 4, 18), bb, 6); StrokeRR(g, Hot(bb) ? Accent : Edge, bb, 6, 1); Txt(g, Fx.ProjectBpm.ToString("0.#", CultureInfo.InvariantCulture), 15, Ink, bb, StringAlignment.Center, true);
         Win.DrawNeonBox(g, bb, Hot(bb));
         ValueEdit(bb, Fx.ProjectBpm.ToString("0.#", CultureInfo.InvariantCulture), s => { float v; if (ParseNum(s, out v) && v >= 20 && v <= 300) { Fx.ProjectBpm = v; bpmUserSet = true; } }); x += 70;
         var L = new List<DawBtn>();

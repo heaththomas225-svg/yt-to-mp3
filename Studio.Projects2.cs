@@ -38,7 +38,7 @@ partial class StudioForm
     // a project with no picture shows the Purphex logo, fitted inside the square
     void DrawLogoArt(Graphics g, RectangleF r)
     {
-        var gs = g.Save(); g.SetClip(r, CombineMode.Intersect); using (var br = new LinearGradientBrush(r, Color.FromArgb(255, 26, 11, 56), Color.FromArgb(255, 6, 2, 16), 90f)) g.FillRectangle(br, r);
+        var gs = g.Save(); g.SetClip(r, CombineMode.Intersect); using (var br = new LinearGradientBrush(r, TM.C(255, 26, 11, 56), TM.C(255, 6, 2, 16), 90f)) g.FillRectangle(br, r);
         var lg = AppLogo.Logo; if (lg != null) { float side = Math.Min(r.Width, r.Height) * 0.86f; float asp = lg.Width / (float)Math.Max(1, lg.Height), w = asp >= 1 ? side : side * asp, h = asp >= 1 ? side / asp : side; var im = g.InterpolationMode; g.InterpolationMode = InterpolationMode.HighQualityBicubic; g.DrawImage(lg, new RectangleF(r.X + (r.Width - w) / 2, r.Y + (r.Height - h) / 2, w, h)); g.InterpolationMode = im; }
         g.Restore(gs);
     }
@@ -88,10 +88,10 @@ partial class StudioForm
         if (previewPath.Length == 0) return; float W = ClientSize.Width, H = ClientSize.Height; var ob = Rc(24, H - 48, W - 48, 36); var pe = previewEng; bool playing = pe != null && (pe.Playing || previewPlayFn != null); lastInput = DateTime.Now;
         VizUpdate(playing, pe); FillRR(g, Color.Black, ob, 12); using (var pen = new Pen(Color.FromArgb(playing ? 230 : 150, NeonViolet), 1.3f)) { using (var p = RR(ob, 12)) g.DrawPath(pen, p); }
         Txt(g, (pe == null ? "LOADING " : "PREVIEW  ") + previewName, 11, NeonCyan, Rc(ob.X + 6, ob.Y - 20, Math.Min(520, ob.Width - 12), 18), StringAlignment.Near, true);
-        var pz = Rc(ob.X + 36, ob.Y + 5, 26, 26); FillRR(g, Hot(pz) ? Color.FromArgb(255, 70, 70, 170) : Color.FromArgb(255, 48, 44, 120), pz, 7); using (var pb = new SolidBrush(Color.White)) { if (previewPaused) g.FillPolygon(pb, new[] { new PointF(pz.X + 9, pz.Y + 6), new PointF(pz.X + 9, pz.Y + 20), new PointF(pz.X + 20, pz.Y + 13) }); else { g.FillRectangle(pb, pz.X + 8, pz.Y + 7, 4, 12); g.FillRectangle(pb, pz.X + 14, pz.Y + 7, 4, 12); } } Reg(pz, () => PreviewPauseToggle()); if (Hot(pz)) { bubble = previewPaused ? "Continue the preview (Space)" : "Pause the preview (Space)"; bubblePt = MousePos; }
-        var stop = Rc(ob.X + 6, ob.Y + 5, 26, 26); FillRR(g, Hot(stop) ? Color.FromArgb(255, 160, 40, 80) : Color.FromArgb(255, 110, 30, 60), stop, 7); using (var b = new SolidBrush(Color.White)) g.FillRectangle(b, stop.X + 8, stop.Y + 8, 10, 10); Reg(stop, () => StopPreview()); if (Hot(stop)) { bubble = "Stop the preview"; bubblePt = MousePos; }
+        var pz = Rc(ob.X + 36, ob.Y + 5, 26, 26); FillRR(g, Hot(pz) ? TM.C(255, 70, 70, 170) : TM.C(255, 48, 44, 120), pz, 7); using (var pb = new SolidBrush(Color.White)) { if (previewPaused) g.FillPolygon(pb, new[] { new PointF(pz.X + 9, pz.Y + 6), new PointF(pz.X + 9, pz.Y + 20), new PointF(pz.X + 20, pz.Y + 13) }); else { g.FillRectangle(pb, pz.X + 8, pz.Y + 7, 4, 12); g.FillRectangle(pb, pz.X + 14, pz.Y + 7, 4, 12); } } Reg(pz, () => PreviewPauseToggle()); if (Hot(pz)) { bubble = previewPaused ? "Continue the preview (Space)" : "Pause the preview (Space)"; bubblePt = MousePos; }
+        var stop = Rc(ob.X + 6, ob.Y + 5, 26, 26); FillRR(g, Hot(stop) ? TM.C(255, 160, 40, 80) : TM.C(255, 110, 30, 60), stop, 7); using (var b = new SolidBrush(Color.White)) g.FillRectangle(b, stop.X + 8, stop.Y + 8, 10, 10); Reg(stop, () => StopPreview()); if (Hot(stop)) { bubble = "Stop the preview"; bubblePt = MousePos; }
         double dur = pe == null ? 0 : Math.Max(1, pe.EndFrame), pos = pe == null ? 0 : pe.Pos; var inner = Rc(ob.X + 72, ob.Y + 4, ob.Width - 72 - 112, ob.Height - 8); float cx = inner.X + inner.Width / 2, cy = ob.Y + ob.Height / 2;
-        float px = inner.X + (float)(Math.Min(1.0, pos / Math.Max(1, dur)) * inner.Width); using (var b = new SolidBrush(Color.FromArgb(60, 0, 110, 130))) g.FillRectangle(b, inner.X, inner.Y, Math.Max(0, px - inner.X), inner.Height); using (var pen = new Pen(Color.FromArgb(230, NeonCyan), 1.6f)) g.DrawLine(pen, px, inner.Y, px, inner.Bottom);
+        float px = inner.X + (float)(Math.Min(1.0, pos / Math.Max(1, dur)) * inner.Width); using (var b = new SolidBrush(TM.C(60, 0, 110, 130))) g.FillRectangle(b, inner.X, inner.Y, Math.Max(0, px - inner.X), inner.Height); using (var pen = new Pen(Color.FromArgb(230, NeonCyan), 1.6f)) g.DrawLine(pen, px, inner.Y, px, inner.Bottom);
         float lh = ob.Height / 2 - 2, lhw = lh * 1.16f; cx = Math.Max(inner.X + lhw + 4, Math.Min(inner.Right - lhw - 4, px));   // the logo rides along with the song position
         if (playing)
         {
@@ -100,7 +100,7 @@ partial class StudioForm
             {
                 float v = vizHist[(vizHead - 1 - c + hl * 4) % hl]; float amp = Math.Max(1f, v * maxH * (1f - c / 260f) * (0.75f + 0.25f * vizBand[(c * 3) % vizBand.Length])); int al = (int)(235 * (1f - c / 200f)); if (al <= 4) break;
                 float xl = cx - lhw - 6 - c * 2.2f, xr = cx + lhw + 6 + c * 2.2f;
-                using (var pl = new Pen(Color.FromArgb(al, 0, 229, 255), 1.5f)) g.DrawLine(pl, xl, cy - amp, xl, cy + amp); using (var pr = new Pen(Color.FromArgb(al, 255, 43, 214), 1.5f)) g.DrawLine(pr, xr, cy - amp, xr, cy + amp);
+                using (var pl = new Pen(TM.C(al, 0, 229, 255), 1.5f)) g.DrawLine(pl, xl, cy - amp, xl, cy + amp); using (var pr = new Pen(TM.C(al, 255, 43, 214), 1.5f)) g.DrawLine(pr, xr, cy - amp, xr, cy + amp);
             }
             g.Restore(st);
         }

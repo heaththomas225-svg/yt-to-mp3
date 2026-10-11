@@ -189,7 +189,7 @@ static class PR
               Check("a preset can be tried and the old chain comes back exactly", string.Join("|", sn0) == string.Join("|", backC) && string.Join("|", sn0) != string.Join("|", sn5), ""); }
             { // the presets really do what they say: bass boost has more low end, vocal enhance more presence
               Func<int, double[]> bands = idx => { Presets.ApplyMaster(eng, idx); eng.MasterBypass = false; float[] l, r; eng.Render(0, 44100L * 8, new RenderOpts { Master = true }, null, out l, out r); return AutoMix.Analyze(AudioClip.FromArrays(l, r, "m")).BandDb; };
-              var clean = bands(10); var bass = bands(5); var vocal = bands(6);
+              var clean = bands(MasterPresets.IndexOf("Clean & Transparent")); var bass = bands(MasterPresets.IndexOf("Bass Boost Master")); var vocal = bands(MasterPresets.IndexOf("Vocal Enhance Master"));
               double tiltB = (bass[0] + bass[1]) / 2 - (bass[5] + bass[6]) / 2, tiltC = (clean[0] + clean[1]) / 2 - (clean[5] + clean[6]) / 2; Check("BASS BOOST MASTER has more low end than the clean master (compared with the mids, so loudness does not matter)", tiltB - tiltC > 1.5, (tiltB - tiltC).ToString("0.0") + " dB more bass");
               Check("VOCAL ENHANCE MASTER lifts the presence and air", (vocal[7] + vocal[8]) / 2 - (clean[7] + clean[8]) / 2 > 0.8 || vocal[9] - clean[9] > 1.0, ((vocal[7] + vocal[8]) / 2 - (clean[7] + clean[8]) / 2).ToString("0.0") + " dB presence"); }
             { string why; Func<double, double, double, float> at = (i, lra, d) => StudioForm.AutoTarget(new LoudnessResult { I = i, LRA = lra }, out why);
@@ -250,10 +250,10 @@ static class PR
             // ---- the Master Visualiser page and the strip along the bottom of Mastering ----
             {
                 int ovv = Prefs.OutVol; Prefs.OutVol = 0; var tp = eng.MasterTap; var tpp = eng.MasterTapPre; for (int i = 0; i < tp.Length; i++) { tp[i] = (float)(0.4 * Math.Sin(i * 0.02) + 0.3 * Math.Sin(i * 0.3)); tpp[i] = tp[i] * 0.5f; } eng.MasterTapPos = 4096;
-                var bm = (IDictionary<string, RectangleF>)typeof(StudioForm).GetField("btnMap", BF).GetValue(sf); var botRoom = typeof(StudioForm).GetProperty("MasterBotRoom", BF);
-                sf.ClientSize = new Size(1500, 800); Pump(250); SetF("tab", 1); Paint(); Check("a tall window has the visualiser strip along the bottom of Mastering", (int)botRoom.GetValue(sf, null) > 0 && Regs().Exists(r => r.OnDrag != null && r.R.Bottom > 770), "");
-                sf.ClientSize = new Size(1240, 680); Pump(250); Paint(); Check("a short window keeps its room (no strip)", (int)botRoom.GetValue(sf, null) == 0, ""); sf.ClientSize = new Size(1500, 800); Pump(250);
-                Paint(); Check("the VISUALISER button is on the Mastering bar", bm.ContainsKey("VISUALISER"), ""); if (bm.ContainsKey("VISUALISER")) Click(bm["VISUALISER"]);
+                var bm = (IDictionary<string, RectangleF>)typeof(StudioForm).GetField("btnMap", BF).GetValue(sf); 
+                sf.ClientSize = new Size(1500, 1000); Pump(250); SetF("tab", 1); Paint(); Check("a tall window has the light show on top of the Mastering page", F<bool>("visStageOn") && Regs().Exists(r => r.OnDrag != null && r.R.Y > 300 && r.R.Y < 620 && r.R.Width > 500), "stage " + F<bool>("visStageOn"));
+                sf.ClientSize = new Size(1240, 680); Pump(250); Paint(); Check("a short window keeps its room for the controls (no stage)", !F<bool>("visStageOn"), ""); sf.ClientSize = new Size(1500, 1000); Pump(250);
+                Paint(); Check("the VISUALISER / FULL VISUALISER button is on the Mastering page", bm.ContainsKey("VISUALISER") || bm.ContainsKey("FULL VISUALISER"), ""); if (bm.ContainsKey("FULL VISUALISER")) Click(bm["FULL VISUALISER"]); else if (bm.ContainsKey("VISUALISER")) Click(bm["VISUALISER"]);
                 Check("it opens the visualiser page", F<int>("tab") == 5, "tab " + F<int>("tab")); Paint();
                 foreach (var sz in new[] { new Size(1500, 800), new Size(1240, 680), new Size(1000, 560), new Size(1920, 1080) }) { sf.ClientSize = sz; Pump(250); bool ok = true; eng.Playing = true; try { for (int i = 0; i < 12; i++) Paint(); } catch { ok = false; } Check("the visualiser paints at " + sz.Width + " x " + sz.Height + " while playing", ok, ""); eng.Playing = false; try { Paint(); } catch { ok = false; } Check("and while stopped", ok, ""); }
                 Track vt = null; if (eng.Tracks.Count == 0) { var xs = new float[44100 * 30]; vt = StudioEngine.NewTrack("viz", "audio", AudioClip.FromArrays(xs, (float[])xs.Clone(), "viz")); eng.Tracks.Add(vt); }
@@ -262,6 +262,87 @@ static class PR
                 var pck2 = typeof(StudioForm).GetMethod("ProcessCmdKey", BF); pck2.Invoke(sf, new object[] { new Message(), Keys.Escape }); Check("Esc goes back to Mastering", F<int>("tab") == 1, "tab " + F<int>("tab"));
                 SetF("tab", 5); typeof(StudioForm).GetMethod("GoBack", BF).Invoke(sf, null); Check("BACK from the visualiser returns to where you were", F<int>("tab") != 5, "tab " + F<int>("tab"));
                 SetF("tab", 5); Paint(); Check("the visualiser stays on while switching the original and mastered sound", true, ""); SetF("tab", 0); Prefs.OutVol = ovv;
+            }
+
+            // ---- dragging a pop-up box is smooth (the page under it is kept as a picture) ----
+            {
+                sf.ClientSize = new Size(1500, 800); Pump(250); SetF("tab", 0); SetF("themeOpen", true); Paint(); Paint(); var popOff = (IDictionary<string, PointF>)typeof(StudioForm).GetField("popOff", BF).GetValue(sf);
+                var hdl = Regs().Find(r => r.OnDrag != null && Math.Abs(r.R.Height - 54) < 0.5f); Check("the themes box has a handle to drag it by", hdl != null, "");
+                if (hdl != null)
+                {
+                    int hx = (int)(hdl.R.X + hdl.R.Width / 2), hy = (int)(hdl.R.Y + hdl.R.Height / 2); Ev("OnMouseMove", MouseButtons.None, 0, hx, hy); Ev("OnMouseDown", MouseButtons.Left, 1, hx, hy);
+                    for (int k = 1; k <= 6; k++) { Ev("OnMouseMove", MouseButtons.Left, 0, hx + k * 20, hy + k * 10); Paint(); }
+                    PointF moved; popOff.TryGetValue("themes", out moved); Check("dragging moves the box", Math.Abs(moved.X - 120) < 2 && Math.Abs(moved.Y - 60) < 2, moved.ToString());
+                    Check("while dragging the page under the box is a stored picture", typeof(StudioForm).GetField("popBase", BF).GetValue(sf) != null, "");
+                    Ev("OnMouseUp", MouseButtons.Left, 1, hx + 120, hy + 60); Paint(); Paint(); Check("when you let go everything is drawn normally again", typeof(StudioForm).GetField("popBase", BF).GetValue(sf) == null, "");
+                    PointF after; popOff.TryGetValue("themes", out after); Check("and the box stays where you put it", Math.Abs(after.X - 120) < 2 && Math.Abs(after.Y - 60) < 2, after.ToString()); popOff["themes"] = PointF.Empty;
+                }
+                SetF("themeOpen", false); Paint();
+            }
+
+            // ---- every guide: each button it talks about can be found (the guide takes you to the right page and opens the right box) ----
+            {
+                sf.ClientSize = new Size(1500, 1000); Pump(250); Track guideTr = null; if (eng.Tracks.Count == 0) { guideTr = StudioEngine.NewTrack("Guide", "vocal", ToneClip(20)); eng.Tracks.Add(guideTr); } typeof(StudioForm).GetMethod("CloseSheetsForGuide", BF).Invoke(sf, null); SetF("tab", 0); Pump(100); Paint(); var gl = typeof(StudioForm).GetMethod("GoToLabel", BF); var bad = new List<string>(); int guides = 0, labels = 0;
+                foreach (var tp in HelpContent.All) { if (!HelpContent.HasGuide(tp)) continue; guides++; foreach (var g in HelpContent.Guide(tp)) { labels++; bool ok = false; try { ok = (bool)gl.Invoke(sf, new object[] { g[0] }); } catch (Exception ex) { bad.Add(tp.Id + ": " + g[0] + " threw " + ex.InnerException); continue; } if (!ok) bad.Add(tp.Id + ": " + g[0]); } }
+                Check("every button a guide points at can be found (" + labels + " prompts in " + guides + " guides)", bad.Count == 0, string.Join("; ", bad.ToArray()));
+                typeof(StudioForm).GetMethod("CloseSheetsForGuide", BF).Invoke(sf, null); SetF("tab", 0);
+                bool gotAm = (bool)gl.Invoke(sf, new object[] { "AUTO MASTERING" }); Check("AUTO MASTERING takes you to the Mastering page", gotAm && F<int>("tab") == 1, "returned " + gotAm + " tab " + F<int>("tab") + " overlay " + F<bool>("amOpen"));
+                Check("AUTO MIX takes you to the Mix page", (bool)gl.Invoke(sf, new object[] { "AUTO MIX" }) && F<int>("tab") == 0, "tab " + F<int>("tab"));
+                SetF("tab", 3); bool gotSp = (bool)gl.Invoke(sf, new object[] { "SPLIT VOCALS + BEAT" }); Check("SPLIT VOCALS + BEAT brings you back to Mix from another page", gotSp && F<int>("tab") == 0, "returned " + gotSp + " tab " + F<int>("tab"));
+                typeof(StudioForm).GetMethod("CloseSheetsForGuide", BF).Invoke(sf, null); SetF("tab", 0); if (guideTr != null) eng.Tracks.Remove(guideTr);
+            }
+
+            // ---- sample rates: the highest possible (384 kHz) with a clean converter ----
+            {
+                foreach (int target in new[] { 48000, 96000, 192000, 384000 })
+                {
+                    int n = 44100; var l = new float[n]; var r = new float[n]; for (int i = 0; i < n; i++) { l[i] = (float)(0.5 * Math.Sin(2 * Math.PI * 1000 * i / 44100.0)); r[i] = l[i]; }
+                    var rs = new RatioResampler(44100, target); int cap = (int)((long)n * rs.Up / rs.Down) + 16; var oL = new float[cap]; var oR = new float[cap]; int c1 = rs.Process(l, r, 0, n, oL, oR); var fL = new float[2 * 32 * rs.Up / rs.Down + 64]; var fR = new float[fL.Length]; int c2 = rs.Flush(fL, fR);
+                    var all = new float[c1 + c2]; Array.Copy(oL, 0, all, 0, c1); Array.Copy(fL, 0, all, c1, c2);
+                    Check("44.1 kHz to " + target + " Hz gives " + (long)n * target / 44100 + " samples (one second)", all.Length == (long)n * target / 44100, all.Length + " samples");
+                    // the loudness of 1 kHz stays 0.5 and nothing is left at 20 kHz or in the top half (checked with a single-frequency probe)
+                    Func<double, double> probe = hz => { double re = 0, im = 0; int from = target / 10, to = target * 9 / 10; for (int i = from; i < to; i++) { double ph = 2 * Math.PI * hz * i / target; re += all[i] * Math.Cos(ph); im += all[i] * Math.Sin(ph); } return 2 * Math.Sqrt(re * re + im * im) / (to - from); };
+                    double a1 = probe(1000), a2 = probe(target / 2.0 * 0.7);
+                    Check("the 1 kHz tone keeps its loudness at " + target + " Hz", Math.Abs(a1 - 0.5) < 0.01, a1.ToString("0.0000"));
+                    Check("and no alias or noise appears above the old range at " + target + " Hz", a2 < 0.001, a2.ToString("0.00000"));
+                }
+                var engR = new StudioEngine(); engR.Tracks.Add(StudioEngine.NewTrack("Tone", "audio", ToneClip(2))); string rdir = Path.Combine(dir, "rates"); Directory.CreateDirectory(rdir);
+                var plan = Exporter.Plan(engR, true, false, false, false, false, false, false, "Rate", 0); string wp = Exporter.Write(engR, plan[0], rdir, 0, null, null, 384000); var hdr = new byte[44]; using (var fsr = File.OpenRead(wp)) fsr.Read(hdr, 0, 44);
+                Check("an export at 384 kHz is a real 384 kHz WAV file", BitConverter.ToInt32(hdr, 24) == 384000 && new FileInfo(wp).Length > 384000 * 2 * 3 * 3, BitConverter.ToInt32(hdr, 24) + " Hz, " + new FileInfo(wp).Length + " bytes");
+                Check("MP3 is held at 48 kHz (the most that format can do)", Exporter.RateFor(4, 7) == 48000 && Exporter.RateFor(0, 7) == 384000 && Exporter.RateFor(3, 5) == 192000, "");
+            }
+
+            // ---- profile links: any address works ----
+            {
+                Check("a normal web address is kept", ProfileStore.CleanLink("https://soundcloud.com/me/set") == "https://soundcloud.com/me/set", "");
+                Check("a bare domain gets https://", ProfileStore.CleanLink("example.com/me") == "https://example.com/me", ProfileStore.CleanLink("example.com/me"));
+                Check("app links (spotify://) and mail links work", ProfileStore.CleanLink("spotify://artist/123") == "spotify://artist/123" && ProfileStore.CleanLink("mailto:me@example.com") == "mailto:me@example.com", "");
+                Check("spaces and angle brackets are taken out", ProfileStore.CleanLink("  https://exa mple.com/<b>  ") == "https://example.com/b", ProfileStore.CleanLink("  https://exa mple.com/<b>  "));
+                Check("links that run code or open files are refused", ProfileStore.CleanLink("javascript:alert(1)") == "" && ProfileStore.CleanLink("file:///c:/windows/win.ini") == "" && ProfileStore.CleanLink("data:text/html,x") == "", "");
+                Check("words that are not an address are refused", ProfileStore.CleanLink("hello there") == "" && ProfileStore.CleanLink("") == "" && ProfileStore.CleanLink("https://") == "", "");
+                Check("the site name is shown for a link", ProfileStore.LinkLabel("https://www.youtube.com/@me") == "youtube.com/@me", ProfileStore.LinkLabel("https://www.youtube.com/@me"));
+                ProfileStore.Links.Clear(); ProfileStore.Links.Add("https://a.example/x"); ProfileStore.Links.Add("spotify://artist/1"); ProfileStore.Save(); ProfileStore.Links.Clear(); ProfileStore.Load(); Check("links are saved and come back", ProfileStore.Links.Count == 2 && ProfileStore.Links[1] == "spotify://artist/1", ProfileStore.Links.Count.ToString()); ProfileStore.Links.Clear(); ProfileStore.Save();
+            }
+
+            // ---- every theme can be read ----
+            {
+                Func<Color, double> lum = c => { Func<int, double> f = v => { double x = v / 255.0; return x <= 0.03928 ? x / 12.92 : Math.Pow((x + 0.055) / 1.055, 2.4); }; return 0.2126 * f(c.R) + 0.7152 * f(c.G) + 0.0722 * f(c.B); };
+                Func<Color, Color, double> con = (c1, c2) => { double l1 = lum(c1), l2 = lum(c2); if (l1 < l2) { var t0 = l1; l1 = l2; l2 = t0; } return (l1 + 0.05) / (l2 + 0.05); };
+                var weak = new List<string>(); foreach (var th in Themes.All) { var w = Color.White; if (con(w, th.Btn) < 4.4) weak.Add(th.Name + " buttons"); if (con(w, th.BtnC) < 4.4) weak.Add(th.Name + " quiet buttons"); foreach (var nc in new[] { th.Violet, th.Cyan, th.Pink, th.Accent }) if (con(nc, th.Panel) < 4.4) weak.Add(th.Name + " bright colour on panel"); if (con(Color.FromArgb(240, 235, 255), th.Lane) < 10) weak.Add(th.Name + " writing on tracks"); }
+                Check("every theme has readable writing: white on its buttons, its bright colours on its panels (" + Themes.All.Count + " themes)", weak.Count == 0, string.Join("; ", weak.ToArray()));
+                // the colour map: a grey theme turns the studio grey, and the original look is not touched
+                TM.Set(Color.FromArgb(150, 90, 255), Color.FromArgb(0, 229, 255), Color.FromArgb(255, 43, 214)); Check("the original look is not changed by the colour map", TM.C(255, 118, 52, 212) == Color.FromArgb(255, 118, 52, 212), TM.C(255, 118, 52, 212).ToString());
+                var mono = Themes.All.Find(t2 => t2.Name == "Mono"); if (mono != null) { TM.Set(mono.Violet, mono.Cyan, mono.Pink); var gc = TM.C(255, 118, 52, 212); Check("a grey theme (Mono) makes the purples grey", gc.GetSaturation() < 0.25f, gc.ToString()); }
+                Themes.Apply(0);
+            }
+
+            // ---- the Rainbow theme moving never shuts a list or flashes a window ----
+            {
+                Themes.Apply(Themes.IndexOf("Rainbow")); var stR = new SettingsForm(app); stR.Show(); Pump(300); typeof(SettingsForm).GetMethod("ShowPage", BF).Invoke(stR, new object[] { 1 }); Pump(200); var cbR = FindCombo(stR);
+                if (cbR != null) { stR.Activate(); cbR.Focus(); cbR.DroppedDown = true; Pump(200); bool wasOpen = cbR.DroppedDown; var end = DateTime.Now.AddMilliseconds(1800); int paints = 0; while (DateTime.Now < end) { SetF("tab", 0); Paint(); paints++; Pump(10); }
+                  Check("a drop-down in Settings stays open while the Rainbow theme moves", !wasOpen || cbR.DroppedDown, "was open " + wasOpen + ", now " + cbR.DroppedDown + " after " + paints + " frames"); cbR.DroppedDown = false; }
+                Check("the theme sheet stays open while the Rainbow theme moves", true, ""); SetF("themeOpen", true); { int flips = 0; bool lastOpen = true; var end2 = DateTime.Now.AddMilliseconds(1200); while (DateTime.Now < end2) { Paint(); Pump(10); bool cur = F<bool>("themeOpen"); if (cur != lastOpen) { flips++; lastOpen = cur; } } Check("and it does not open and close by itself", flips == 0 && F<bool>("themeOpen"), flips + " changes"); }
+                SetF("themeOpen", false); stR.Close(); Themes.Apply(0);
             }
 
             // ---- themes ----
@@ -274,12 +355,12 @@ static class PR
             Themes.Apply(3); Check("a theme can be chosen by number", Themes.Index == 3, "index " + Themes.Index); Themes.Apply(0);
             ((Action)mf(0, "Do"))(); Check("Choose a theme... opens the Theme sheet", F<bool>("themeOpen"), ""); SetF("themeOpen", false);
             var st = new SettingsForm(app); st.Show(); Pump(200); var cb = FindCombo(st);
-            { var fpsBx = (ComboBox)typeof(SettingsForm).GetField("fpsBox", BF).GetValue(st); fpsBx.SelectedIndex = 1; int capBefore = Prefs.FpsCap; var volN = (NumericUpDown)typeof(SettingsForm).GetField("volNum", BF).GetValue(st); decimal volBefore = volN.Value; st.Activate(); Pump(200);
-              var scr = st.PointToScreen(new Point(fpsBx.Left + fpsBx.Width / 2, fpsBx.Top + fpsBx.Height / 2)); IntPtr lpar = (IntPtr)((scr.Y << 16) | (scr.X & 0xFFFF)); IntPtr wpar = (IntPtr)(unchecked((int)(((-120) & 0xFFFF) << 16)));
+            { var fpsBx = (ComboBox)typeof(SettingsForm).GetField("fpsBox", BF).GetValue(st); fpsBx.SelectedIndex = 1; int capBefore = Prefs.FpsCap; var volN = (NumericUpDown)typeof(SettingsForm).GetField("volNum", BF).GetValue(st); decimal volBefore = volN.Value; st.Activate(); Pump(200); var showPg = typeof(SettingsForm).GetMethod("ShowPage", BF); showPg.Invoke(st, new object[] { 2 }); Pump(100);
+              var scr = fpsBx.PointToScreen(new Point(fpsBx.Width / 2, fpsBx.Height / 2)); IntPtr lpar = (IntPtr)((scr.Y << 16) | (scr.X & 0xFFFF)); IntPtr wpar = (IntPtr)(unchecked((int)(((-120) & 0xFFFF) << 16)));
               for (int k = 0; k < 6; k++) { PostMessage(fpsBx.Handle, 0x20A, wpar, lpar); Pump(60); }
               Check("the mouse wheel over a drop-down does not change it", fpsBx.SelectedIndex == 1 && Prefs.FpsCap == capBefore, "index " + fpsBx.SelectedIndex);
-              var scr2 = st.PointToScreen(new Point(volN.Left + volN.Width / 2, volN.Top + volN.Height / 2)); IntPtr lpar2 = (IntPtr)((scr2.Y << 16) | (scr2.X & 0xFFFF)); int y0 = st.AutoScrollPosition.Y; for (int k = 0; k < 4; k++) { PostMessage(st.Handle, 0x20A, wpar, lpar2); Pump(60); }
-              Check("nor a number box", volN.Value == volBefore, volN.Value.ToString()); Check("instead the wheel scrolls the Settings page", st.AutoScrollPosition.Y < y0 || y0 < -1, y0 + " -> " + st.AutoScrollPosition.Y); } Check("Settings has a theme choice with every theme", cb != null && cb.Items.Count == Themes.All.Count, cb == null ? "none" : cb.Items.Count + " items");
+              showPg.Invoke(st, new object[] { 3 }); st.ClientSize = new Size(800, 330); Pump(200); var shownPg = (Panel)typeof(SettingsForm).GetField("shown", BF).GetValue(st); var scr2 = volN.PointToScreen(new Point(volN.Width / 2, volN.Height / 2)); IntPtr lpar2 = (IntPtr)((scr2.Y << 16) | (scr2.X & 0xFFFF)); int y0 = shownPg.AutoScrollPosition.Y; for (int k = 0; k < 4; k++) { PostMessage(st.Handle, 0x20A, wpar, lpar2); Pump(60); }
+              Check("nor a number box", volN.Value == volBefore, volN.Value.ToString()); Check("instead the wheel scrolls the Settings page", shownPg.AutoScrollPosition.Y < y0 || y0 < -1, y0 + " -> " + shownPg.AutoScrollPosition.Y); } Check("Settings has a theme choice with every theme", cb != null && cb.Items.Count == Themes.All.Count, cb == null ? "none" : cb.Items.Count + " items");
             if (cb != null) { cb.SelectedIndex = 4; Check("choosing a theme in Settings applies it", Themes.Index == 4, "index " + Themes.Index); Themes.Apply(0); } st.Close();
             // ---- theme photos: any photo, any size, filling the whole window (also minimised and fullscreen) ----
             {

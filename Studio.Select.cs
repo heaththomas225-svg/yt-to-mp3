@@ -45,13 +45,13 @@ partial class StudioForm
         multiSel.RemoveAll(t => !eng.Tracks.Contains(t)); if (!marqueeOn || !marqueeMoved) return;
         var tl = TimelineRect(); var box = RectangleF.Intersect(RectangleF.FromLTRB(Math.Min(marqueeA.X, marqueeB.X), Math.Min(marqueeA.Y, marqueeB.Y), Math.Max(marqueeA.X, marqueeB.X), Math.Max(marqueeA.Y, marqueeB.Y)), Rc(tl.X, ToolH + TransH + RulerH, tl.Width, ClientSize.Height - ToolH - TransH - RulerH));
         if (box.IsEmpty) return; lastInput = DateTime.Now;
-        using (var b = new SolidBrush(Color.FromArgb(46, 0, 229, 255))) g.FillRectangle(b, box); using (var pen = new Pen(Color.FromArgb(230, 0, 229, 255), 1.6f)) g.DrawRectangle(pen, box.X, box.Y, box.Width, box.Height);
+        using (var b = new SolidBrush(TM.C(46, 0, 229, 255))) g.FillRectangle(b, box); using (var pen = new Pen(TM.C(230, 0, 229, 255), 1.6f)) g.DrawRectangle(pen, box.X, box.Y, box.Width, box.Height);
     }
     // the glow on a selected clip
     void PaintSelectedClip(Graphics g, RectangleF cr)
     {
         using (var b = new SolidBrush(Color.FromArgb(48, 255, 255, 255))) g.FillRectangle(b, cr);
-        using (var pen = new Pen(Color.FromArgb(240, 0, 229, 255), 2.4f)) g.DrawRectangle(pen, cr.X + 1, cr.Y + 1, Math.Max(1, cr.Width - 2), Math.Max(1, cr.Height - 2));
+        using (var pen = new Pen(TM.C(240, 0, 229, 255), 2.4f)) g.DrawRectangle(pen, cr.X + 1, cr.Y + 1, Math.Max(1, cr.Width - 2), Math.Max(1, cr.Height - 2));
     }
     // Delete with several clips selected: one Ctrl+Z brings them all back; locked tracks are left alone
     void DeleteSelectedClips()
