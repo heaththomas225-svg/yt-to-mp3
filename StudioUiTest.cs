@@ -69,6 +69,20 @@ static class S
         Paint(); int strips = 0; foreach (var r in Regs()) if (Math.Abs(r.R.Width - 250) < 0.5f && Math.Abs(r.R.Height - 16) < 0.5f) strips++;
         Check("no glitchy add-track strips float between tracks any more", strips == 0, strips + " strips");
         { var cl = typeof(StudioForm).GetMethod("OpenNewTrackSheet", BF); cl.Invoke(sf, new object[] { 2 }); Paint(); Check("+ ADD TRACK opens the New Track sheet with the track types", F<bool>("ntOpen") && Regs().Count > 10, Regs().Count + " regions"); typeof(StudioForm).GetMethod("CloseNewTrackSheet", BF).Invoke(sf, null); Paint(); Check("and it closes again", !F<bool>("ntOpen"), ""); }
+        {   // Rapper Vocal Styles sheet: open it, search, press Use, press the star
+            string tmpFav = Path.Combine(Path.GetTempPath(), "ui-styles-fav-" + Guid.NewGuid().ToString("N") + ".txt"); VocalStyles.FavFile = tmpFav; SetF("selTrack", 0); int fx0 = eng.Tracks[0].Fx.Count;
+            typeof(StudioForm).GetMethod("OpenStyles", BF).Invoke(sf, null); Paint(); Check("Vocal Styles opens a sheet with a list of styles", F<bool>("stylesOpen") && Regs().FindAll(r => Math.Abs(r.R.Width - 64) < 0.5f && Math.Abs(r.R.Height - 34) < 0.5f).Count >= 5, Regs().Count + " regions");
+            foreach (char ch in "drill") typeof(StudioForm).GetMethod("OnKeyPress", BF).Invoke(sf, new object[] { new KeyPressEventArgs(ch) }); Paint();
+            Check("typing searches the styles", F<string>("stylesQuery") == "drill" && Regs().FindAll(r => Math.Abs(r.R.Width - 64) < 0.5f && Math.Abs(r.R.Height - 34) < 0.5f).Count == 8, Regs().FindAll(r => Math.Abs(r.R.Width - 64) < 0.5f && Math.Abs(r.R.Height - 34) < 0.5f).Count + " buttons (Use + Add for each of 4 styles)");
+            var useBtn = Regs().Find(r => Math.Abs(r.R.Width - 64) < 0.5f && Math.Abs(r.R.Height - 34) < 0.5f); int ux = (int)(useBtn.R.X + 30), uy = (int)(useBtn.R.Y + 17);
+            Ev("OnMouseMove", MouseButtons.None, 0, ux, uy); Ev("OnMouseDown", MouseButtons.Left, 1, ux, uy); Ev("OnMouseUp", MouseButtons.Left, 1, ux, uy); Paint();
+            Check("pressing Use builds that style's plugins on the selected track and closes the sheet", !F<bool>("stylesOpen") && eng.Tracks[0].Fx.Count >= 4, "plugins on the track: " + fx0 + " -> " + eng.Tracks[0].Fx.Count);
+            typeof(StudioForm).GetMethod("OpenStyles", BF).Invoke(sf, null); Paint(); var rgs = Regs(); int bdi = rgs.FindLastIndex(r => r.R.Width >= 1499 && r.R.Height >= 799); var starReg = rgs.GetRange(Math.Max(0, bdi), rgs.Count - Math.Max(0, bdi)).Find(r => Math.Abs(r.R.Width - 30) < 0.5f && Math.Abs(r.R.Height - 30) < 0.5f && r.OnDown != null);
+            if (starReg != null) { int sx = (int)(starReg.R.X + 15), sy = (int)(starReg.R.Y + 15); Ev("OnMouseMove", MouseButtons.None, 0, sx, sy); Ev("OnMouseDown", MouseButtons.Left, 1, sx, sy); Ev("OnMouseUp", MouseButtons.Left, 1, sx, sy); Paint(); }
+            Check("pressing a star keeps the style as a favourite", starReg != null && VocalStyles.Find("", "", true).Count == 1, "favourites " + VocalStyles.Find("", "", true).Count);
+            typeof(StudioForm).GetMethod("ProcessCmdKey", BF).Invoke(sf, new object[] { new Message(), Keys.Escape }); Paint(); Check("Esc closes the Vocal Styles sheet", !F<bool>("stylesOpen"), "");
+            eng.Tracks[0].Fx.Clear(); try { File.Delete(tmpFav); } catch { } VocalStyles.FavFile = null;
+        }
         {   // an empty audio track takes the recording itself, and Up / Dn make a row when there is none
             var MI = typeof(StudioForm).GetMethod("AddEmptyAudioTrack", BF); int n0 = eng.Tracks.Count; MI.Invoke(sf, null); var emp = eng.Tracks[eng.Tracks.Count - 1];
             Check("New Track > Voice / Audio adds one empty raw track (no clip, no effects)", eng.Tracks.Count == n0 + 1 && emp.Clip == null && emp.Fx.Count == 0, "tracks " + eng.Tracks.Count);

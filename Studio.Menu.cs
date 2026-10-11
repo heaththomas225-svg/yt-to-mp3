@@ -43,6 +43,7 @@ partial class StudioForm
                 break;
             case 2:
                 I("Flex Pitch (edit the notes of a recording)", () => { CloseMenu(); FlexOpen(); }); I("Purphex Sounds (sample browser)", () => { CloseMenu(); OpenSounds(); }); I("Sound packs (install)", () => { CloseMenu(); OpenSounds(); packsOpen = true; packScroll = 0; });
+                I("Rapper Vocal Styles (plugin chains for rap vocals)", () => { CloseMenu(); OpenStyles(); });
                 I("Auto Mix", () => { CloseMenu(); AutoMixClick(); }); I("Split vocals + beat", () => { CloseMenu(); SeparateClick(); }); I("Detect BPM", () => { CloseMenu(); DetectBpmClick(); });
                 I("Metronome on / off", () => { CloseMenu(); eng.Metronome = !eng.Metronome; }); I(snapOn ? "Snap to the grid: on (click to turn off)" : "Snap to the grid: off (click to turn on)", () => { CloseMenu(); snapOn = !snapOn; Toast(snapOn ? "Snap to the grid is on." : "Snap to the grid is off."); }); I("Mastering", () => GoTab(1)); I("Add an instrument...", () => { CloseMenu(); AddInstrumentClick(); }); I("Add a track...", () => { CloseMenu(); ShowAddTrackMenuMain(); });
                 break;

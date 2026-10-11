@@ -12,6 +12,28 @@ using System.Threading;
 //  embedded Python with CPU PyTorch. Nothing is installed system-wide.
 //  Everything lives in %LocalAppData%\YtToMp3\py (about 0.5 GB with the model).
 // ======================================================================
+// A time-left guess from how fast the progress moved over the last few seconds (not from the whole time so far, which includes the start-up and made the guess far too high).
+class EtaMeter
+{
+    readonly List<double[]> s = new List<double[]>(); readonly Stopwatch sw = Stopwatch.StartNew(); double smooth = -1;
+    public void Reset() { lock (s) { s.Clear(); smooth = -1; } }
+    public void Add(float p)
+    {
+        lock (s) { double t = sw.Elapsed.TotalSeconds; if (s.Count > 0 && p <= s[s.Count - 1][1] + 0.002) return; s.Add(new[] { t, p }); while (s.Count > 2 && t - s[0][0] > 12) s.RemoveAt(0); }
+    }
+    // "" while there is not enough to go on yet, else for example "35 s" or "2 min"
+    public string Text(float p)
+    {
+        if (p >= 0.995f) return ""; double left;
+        lock (s)
+        {
+            if (s.Count < 2) return ""; var a = s[0]; var b = s[s.Count - 1]; double dt = b[0] - a[0], dp = b[1] - a[1]; if (dt < 2.5 || dp <= 0) return "";
+            left = (1 - p) / (dp / dt); smooth = smooth < 0 ? left : smooth * 0.7 + left * 0.3; left = smooth;
+        }
+        if (left < 4) return "a few seconds"; if (left < 90) return (int)(Math.Ceiling(left / 5) * 5) + " s"; if (left < 5400) return (int)Math.Ceiling(left / 60) + " min"; return (left / 3600).ToString("0.0") + " h";
+    }
+}
+
 static class Separator
 {
     public static string Root { get { return Path.Combine(StudioEnv.DataDir, "py"); } }
@@ -30,6 +52,16 @@ static class Separator
     static string FastMarker { get { return Path.Combine(FastDir, ".fast_ready"); } }
     static string FastFailed { get { return Path.Combine(Root, ".fast_failed"); } }
     public static bool FastReady { get { return File.Exists(FastMarker) && !File.Exists(FastFailed); } }
+    public static void Diag(string line)
+    {
+        try
+        {
+            string p = Path.Combine(StudioEnv.DataDir, "separation.log"); Directory.CreateDirectory(Path.GetDirectoryName(p));
+            try { if (File.Exists(p) && new FileInfo(p).Length > 200000) { var l = File.ReadAllLines(p); File.WriteAllLines(p, new List<string>(l).GetRange(l.Length / 2, l.Length - l.Length / 2).ToArray()); } } catch { }
+            File.AppendAllText(p, DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + "  " + line + Environment.NewLine);
+        }
+        catch { }
+    }
     static volatile bool fastBad, startupDied; public static volatile string Device = ""; public static bool DisableFast;   // DisableFast: tests only   // what the engine used last time: "cpu" or "gpu: name"
 
     public static void FastInstall(Action<string> log, Action<float> prog, Func<bool> cancelled)
@@ -177,7 +209,7 @@ try:
 except Exception:
     pass
 VI = model.sources.index('vocals')
-DEV = 'cpu'; GPU = {}
+DEV = 'cpu'; GPU = {'info': 'no graphics card test (DirectML not available)'}
 
 def to_cpu():
     global DEV
@@ -204,7 +236,10 @@ def pick_gpu():
             if c.get('key') == key: use = bool(c.get('use'))
         except Exception:
             pass
-        if use is False: return
+        if use is False:
+            GPU['info'] = name + ': earlier test showed the graphics card is not faster, so the processor is used'
+            return
+        if use is True: GPU['info'] = name + ': graphics card (earlier test passed)'
         inner = model.models[0]; dev = torch_directml.device()
         GPU['spec'], GPU['ispec'], GPU['mask'] = inner._spec, inner._ispec, inner._mask
         o_spec, o_ispec, o_mask = inner._spec, inner._ispec, inner._mask
@@ -226,6 +261,7 @@ def pick_gpu():
             use = bool(tg < tc * 0.7 and rel < 0.02)
             try: json.dump({'key': key, 'use': use, 'cpu': tc, 'gpu': tg, 'rel': rel}, open(cache, 'w'))
             except Exception: pass
+            GPU['info'] = '%s: one segment takes %.2fs on the processor and %.2fs on the graphics card (difference %.4f), graphics card used: %s' % (name, tc, tg, rel, use)
             sys.stderr.write('gpu test: cpu %.2fs gpu %.2fs diff %.4f use=%s\n' % (tc, tg, rel, use)); sys.stderr.flush()
         if use:
             inner.to(dev); DEV = dev; GPU['name'] = name
@@ -235,6 +271,7 @@ def pick_gpu():
         sys.stderr.write('gpu unavailable: %s\n' % e); sys.stderr.flush(); to_cpu()
 
 pick_gpu()
+print('INFO|torch %s, %d threads, %s logical cores; %s' % (torch.__version__, torch.get_num_threads(), os.cpu_count(), GPU.get('info', '')), flush=True)
 print('DEVICE|%s' % (('gpu: ' + GPU.get('name', '')) if DEV != 'cpu' else 'cpu'), flush=True)
 
 def run_model(wav, overlap, show, stats=None):
@@ -340,7 +377,7 @@ for line in sys.stdin:
             };
             foreach (var kv in Env(true)) psi.EnvironmentVariables[kv.Key] = kv.Value;
             wready = false; wresult = null; wproc = new Process { StartInfo = psi };
-            wproc.OutputDataReceived += (s, e) => { if (e.Data == null) return; if (e.Data == "READY") wready = true; else if (e.Data.StartsWith("DEVICE|")) Device = e.Data.Substring(7); else if (e.Data.StartsWith("DONE|") || e.Data.StartsWith("ERR|")) wresult = e.Data; };
+            wproc.OutputDataReceived += (s, e) => { if (e.Data == null) return; if (e.Data == "READY") wready = true; else if (e.Data.StartsWith("DEVICE|")) Device = e.Data.Substring(7); else if (e.Data.StartsWith("INFO|")) Diag("engine: " + e.Data.Substring(5)); else if (e.Data.StartsWith("DONE|") || e.Data.StartsWith("ERR|")) wresult = e.Data; };
             wproc.ErrorDataReceived += (s, e) => { if (e.Data == null) return; var m = PctRx.Match(e.Data); var pr = wprog; if (m.Success && pr != null) pr(Math.Min(0.98f, int.Parse(m.Groups[1].Value) / 100f)); };
             wproc.Start(); try { wproc.PriorityClass = ProcessPriorityClass.Normal; } catch { } wproc.BeginOutputReadLine(); wproc.BeginErrorReadLine(); win = wproc.StandardInput; wlast = DateTime.Now;
             if (idleTimer == null) idleTimer = new System.Threading.Timer(_ => { if (!wbusy && (DateTime.Now - wlast).TotalMinutes > 10) KillWorker(); }, null, 60000, 60000);
@@ -370,6 +407,7 @@ for line in sys.stdin:
                 if (!said && sw.Elapsed.TotalSeconds > 1) { log("Loading the AI model (a few seconds)..."); said = true; }
                 Thread.Sleep(100);
             }
+            double ready = sw.Elapsed.TotalSeconds; var jobSw = Stopwatch.StartNew(); double firstP = -1; var userProg = prog; prog = pp => { if (firstP < 0 && pp > 0) firstP = jobSw.Elapsed.TotalSeconds; userProg(pp); };
             wbusy = true; wresult = null; wprog = prog; Directory.CreateDirectory(outDir);
             double dur = AudioClip.ProbeSeconds(input); if (dur > 600) log("Long song (" + (int)(dur / 60) + " min): processing it in chunks to keep memory low.");
             win.WriteLine("JOB|" + input + "|" + tmp + "|0.1|" + dur.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture) + "|" + (ChunkOverride > 0 ? ChunkOverride : (dur > 600 ? 240 : 0))); win.Flush();
@@ -379,7 +417,8 @@ for line in sys.stdin:
                 if (wproc == null || wproc.HasExited) return 0;
                 Thread.Sleep(120);
             }
-            wlast = DateTime.Now; string r = wresult;
+            wlast = DateTime.Now; string r = wresult; double took = jobSw.Elapsed.TotalSeconds;
+            Diag("app " + System.Reflection.Assembly.GetExecutingAssembly().GetName().Version + ", " + (FastReady && !fastBad && !DisableFast ? "fast engine" : "normal engine") + ", device " + Device + "; model ready after " + ready.ToString("0.0") + " s; song " + dur.ToString("0") + " s; first progress after " + (firstP < 0 ? 0 : firstP).ToString("0.0") + " s; total " + took.ToString("0.0") + " s = " + (dur / Math.Max(0.1, took)).ToString("0.0") + "x realtime; result " + (r.Length > 60 ? r.Substring(0, 60) : r));
             if (!r.StartsWith("DONE|")) { log("Worker: " + r); return 0; }
             string v = Path.Combine(tmp, "vocals.wav"), i = Path.Combine(tmp, "no_vocals.wav");
             if (!File.Exists(v) || !File.Exists(i)) return 0;

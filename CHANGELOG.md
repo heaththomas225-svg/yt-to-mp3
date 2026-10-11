@@ -2,6 +2,13 @@
 
 What changed in each version of **Purphex**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.18.1  Rapper Vocal Styles, a truthful time-left, faster start for splitting
+
+- New: Rapper Vocal Styles. 36 original plugin chains for rap vocals in 11 subgenres (Trap, Melodic Trap, Drill, Boom Bap, Old School, Grime and UK, Cloud and Lo-Fi, Rage and Hyper, Pop Rap, Phonk, Storytelling). Search, filter by subgenre, star your favourites, then Use (replace the plugins) or Add (put them after yours). Find it as Vocal Styles in the plugin panel or in Menu > Tools.
+- The time left while splitting vocals + beat is now accurate. It is worked out from how fast the splitting is going right now, not from the whole time so far (which included the start-up and was often several times too high).
+- Splitting starts loading the AI model as soon as you press Split vocals + beat, while you choose the track, so it starts working sooner.
+- The progress message now says what to expect, and every split writes a short line to separation.log in your Purphex data folder (which engine and device it used and how long each step took), so a slow PC can be understood.
+
 ## 3.18.0  Much faster vocal splitting, Worldwide Echo and Melody Tune
 
 - Split vocals + beat is much faster: the AI engine now uses your graphics card when that is quicker (a 60 second song went from 28 seconds to 10 on the test PC), and a newer, faster processor path when it is not. The result is the same as before.

@@ -122,7 +122,7 @@ partial class StudioForm : Form
         var now = DateTime.Now;
         if (ClientSize.Width != lastW || ClientSize.Height != lastH) { lastW = ClientSize.Width; lastH = ClientSize.Height; lastFrame = now; return true; }
         if (eng.Playing) lastPlayAt = now;
-        bool anim = eng.Playing || busy || browserOpen || dragReg != null || (now - lastInput).TotalMilliseconds < 600 || animOff.Count > 0 || ghostOn || btnAnim || (now - toastAt).TotalSeconds < 3.7 || (now - lastPlayAt).TotalMilliseconds < 1500 || installing.Length > 0 || mic != null || Auditioner.IsPlaying;   // the 1.5 s after playback lets the meters settle
+        bool anim = eng.Playing || busy || browserOpen || stylesOpen || dragReg != null || (now - lastInput).TotalMilliseconds < 600 || animOff.Count > 0 || ghostOn || btnAnim || (now - toastAt).TotalSeconds < 3.7 || (now - lastPlayAt).TotalMilliseconds < 1500 || installing.Length > 0 || mic != null || Auditioner.IsPlaying;   // the 1.5 s after playback lets the meters settle
         double gap = (now - lastFrame).TotalMilliseconds;
         // a slow computer redraws less often (paint time x3) so the window never starves the audio
         lastIdle = !anim; if (!(anim ? gap >= Math.Max(FrameGapMs, Math.Min(250, paintMs * 3)) : gap >= 1000)) return false;
@@ -312,7 +312,7 @@ partial class StudioForm : Form
         if (browserOpen) PaintBrowser(g);
         PaintSoundDrag(g); PaintPackManager(g);
         if (soundBox != null && soundBox.Visible && !(soundsOpen && tab == 0)) soundBox.Visible = false;
-        PaintNewTrackSheet(g); PaintBusSheet(g);
+        PaintNewTrackSheet(g); PaintBusSheet(g); PaintStylesSheet(g);
         PaintMenu(g);
         PaintBubble(g); PaintKeyBox(g); PaintCountIn(g);
         fpsc.Frame();
@@ -757,8 +757,9 @@ partial class StudioForm : Form
             Btn(g, Rc(row.Right - 28, row.Y + 3, 22, 22), "x", 3, () => { lock (eng.Sync) { if (fi < tr.Fx.Count) { var rf = tr.Fx[fi]; tr.Fx.RemoveAt(fi); if (rf is IDisposable) { try { ((IDisposable)rf).Dispose(); } catch { } } } } selFx = -1; }, 12);
         }
         int ti = Array.IndexOf(eng.Tracks.ToArray(), tr);
-        Btn(g, Rc(x + 10, ly + 2, 150, 30), "+ Add Effect", 1, () => OpenBrowser(false, ti), 14);
-        Btn(g, Rc(x + 168, ly + 2, 200, 30), "Presets...", 0, () => ChainMenu(tr), 14);
+        Btn(g, Rc(x + 10, ly + 2, 112, 30), "+ Add Effect", 1, () => OpenBrowser(false, ti), 14);
+        Btn(g, Rc(x + 128, ly + 2, 100, 30), "Presets...", 0, () => ChainMenu(tr), 14);
+        Btn(g, Rc(x + 234, ly + 2, 136, 30), "Vocal Styles", 4, () => OpenStyles(), 14);
         float ey = ly + 42;
         float edH = (selFx >= 0 && selFx < n) ? EditorHeight(fxs[selFx]) : 60;
         if (selFx >= 0 && selFx < n) PaintEditor(g, fxs[selFx], Rc(x + 6, ey, w - 12, edH), tr);
@@ -787,6 +788,7 @@ partial class StudioForm : Form
     void ChainMenu(Track tr)
     {
         var m = Win.NewMenu(); bool vocal = tr.Role == "vocal";
+        m.Items.Add("Rapper Vocal Styles (searchable)...").Click += (a, b) => OpenStyles();
         var rap = new ToolStripMenuItem("Rap vocal presets (replace chain)"); m.Items.Add(rap);
         for (int i = 0; i < Presets.ChainNames.Length; i++) { string nm = Presets.ChainNames[i]; var it = new ToolStripMenuItem(nm) { ToolTipText = Presets.ChainBlurbs[i] }; it.Click += (a, b) => { lock (eng.Sync) { tr.Fx.Clear(); tr.Fx.AddRange(Presets.BuildChain(nm)); } selFx = -1; Toast(nm + " applied: every plugin is editable"); }; rap.DropDownItems.Add(it); }
         var beat = new ToolStripMenuItem("Instrumental chain (EQ, comp, multiband, sat, exciter, imager, ducker, limiter)"); beat.Click += (a, b) => { lock (eng.Sync) { tr.Fx.Clear(); tr.Fx.AddRange(Presets.BeatChain()); } selFx = -1; Toast("Beat chain applied"); }; m.Items.Add(beat);
@@ -871,6 +873,7 @@ partial class StudioForm : Form
     protected override void OnKeyPress(KeyPressEventArgs e)
     {
         base.OnKeyPress(e); lastInput = DateTime.Now;
+        if (stylesOpen) { if (e.KeyChar == '\b') { if (stylesQuery.Length > 0) { stylesQuery = stylesQuery.Substring(0, stylesQuery.Length - 1); stylesScroll = 0; } } else if (!char.IsControl(e.KeyChar)) { stylesQuery += e.KeyChar; stylesScroll = 0; } e.Handled = true; return; }
         if (browserOpen) { if (e.KeyChar == '\b') { if (browserQuery.Length > 0) browserQuery = browserQuery.Substring(0, browserQuery.Length - 1); } else if (!char.IsControl(e.KeyChar)) browserQuery += e.KeyChar; e.Handled = true; }
     }
 
@@ -884,6 +887,7 @@ partial class StudioForm : Form
         if (ntOpen && k == Keys.Escape) { CloseNewTrackSheet(); return true; }
         if (menuOpen && k == Keys.Escape) { CloseMenu(); return true; }
         if (flexOpen && !menuOpen && !browserOpen && FlexKey(k)) return true;
+        if (stylesOpen) { if (k == Keys.Escape) { stylesOpen = false; return true; } return base.ProcessCmdKey(ref msg, k); }
         if (browserOpen)
         {
             if (k == Keys.Escape) { browserOpen = false; return true; }

@@ -37,7 +37,7 @@ class Job
 partial class App : Form
 {
     // ---- Auto-update settings ----
-    const string Version = "3.18.0";
+    const string Version = "3.18.1";
     // Plain-text manifest: line 1 = newest version, line 2 = direct exe download URL.
     const string UpdateManifestUrl = "https://raw.githubusercontent.com/heaththomas225-svg/yt-to-mp3/main/version.txt";
 
@@ -914,10 +914,10 @@ partial class App : Form
         if (cancelReq) { Log("Cancelled."); status = "Cancelled"; return; }
         status = "Separating vocals with AI (this can take a few minutes)..."; targetPct = lo;
         string baseName = Path.GetFileNameWithoutExtension(file), tmp = Path.Combine(Path.GetTempPath(), "yt2mp3_sep_" + Guid.NewGuid().ToString("N").Substring(0, 6));
-        string v, inst; var swSep = Stopwatch.StartNew();
+        string v, inst; var etaM = new EtaMeter();
         try
         {
-            if (!Separator.Separate(file, tmp, baseName, "htdemucs", Log, p => { targetPct = lo + p * (hi - lo) * 0.92f; status = "Separating vocals with AI... " + (p > 0.04f ? "about " + FmtEta(swSep.Elapsed.TotalSeconds * (1 - p) / p) + " left" : "starting"); }, () => cancelReq, out v, out inst))
+            if (!Separator.Separate(file, tmp, baseName, "htdemucs", Log, p => { targetPct = lo + p * (hi - lo) * 0.92f; etaM.Add(p); string es = etaM.Text(p); status = "Separating vocals with AI... " + (es.Length > 0 ? "about " + es + " left" : "starting"); }, () => cancelReq, out v, out inst))
             { status = cancelReq ? "Cancelled" : "Failed"; return; }
             status = "Encoding..."; string ext = MasterDsp.FmtExt[f], tag = FmtTag[f]; int code;
             string outInst = Path.Combine(dir, baseName + " [instrumental " + tag + "]." + ext), outVoc = Path.Combine(dir, baseName + " [vocals " + tag + "]." + ext);

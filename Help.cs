@@ -398,6 +398,21 @@ If a site only has a lower quality than you picked, you get the best it has.
 - A few sites need you to be signed in or block downloads. The log shows the reason.
 - Only download what you have the right to keep."),
 
+        new HelpTopic("studio-styles", "Purphex Music", "Rapper Vocal Styles: ready-made rap vocal chains", false, @"
+## What it is
+Rapper Vocal Styles is a searchable list of 36 original plugin chains for rap vocals, grouped by subgenre: Trap, Melodic Trap, Drill, Boom Bap, Old School, Grime and UK, Cloud and Lo-Fi, Rage and Hyper, Pop Rap, Phonk and Storytelling. Each one is made from this app's own plugins (tuning, EQ, compression, de-essing, saturation, echo, reverb) with settings chosen for that sound. No artist's settings are copied.
+## Opening it
+Select the vocal track, then press Vocal Styles in the plugin panel (right side), or use Menu > Tools > Rapper Vocal Styles.
+## Using it
+- Type to search by name, subgenre or description (for example drill, dark, warm, echo).
+- Press a subgenre button to show only that kind, or Favourites to see the ones you starred.
+- Use replaces the plugins on the track with the style. Add puts the style after the plugins that are already there.
+- Press the star to keep a style as a favourite.
+- Every plugin stays fully editable afterwards, and Ctrl+Z undoes the change.
+## Tips
+- Use Split vocals + beat first so the style is applied to a clean vocal.
+- Start with the style closest to the song, then adjust the tuning key and the echo level.
+"),
         new HelpTopic("studio-worldecho", "Purphex Music", "Worldwide Echo: throw your voice around the world", false, @"
 ## What it is
 Worldwide Echo is a wide echo that locks to your project tempo. Its repeats bounce left and right, can melt into reverb, get darker or brighter each time round, and duck out of the way while you are singing.

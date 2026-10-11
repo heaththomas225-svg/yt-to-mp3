@@ -17,10 +17,11 @@ class ExportSettings { public bool MixMastered = true, MixDry, ProcVocal, ProcBe
 partial class StudioForm
 {
     // ---------------- busy overlay + background work ----------------
+    readonly EtaMeter busyEta = new EtaMeter();
     void RunBusy(string text, bool cancelable, Action<Action<float>> work, Action<bool> done)
     {
         if (busy) return;
-        eng.Pause(); browserOpen = false; busy = true; busyText = text; busyPct = -1; cancelFlag = false; busyCancelable = cancelable; busyStart = DateTime.Now;
+        eng.Pause(); browserOpen = false; busyEta.Reset(); busy = true; busyText = text; busyPct = -1; cancelFlag = false; busyCancelable = cancelable; busyStart = DateTime.Now;
         new Thread(() =>
         {
             bool ok = true;
@@ -42,7 +43,7 @@ partial class StudioForm
         float p = busyPct;
         if (p >= 0) { float f = Clamp01(p); if (f > 0.01f) using (var br = new LinearGradientBrush(bar, Violet, Accent2, 0f)) using (var pth = RR(Rc(bar.X, bar.Y, bar.Width * f, bar.Height), 7)) g.FillPath(br, pth); }
         else { float cx = bar.X + (float)((t * 0.7) % 1.0) * (bar.Width - 90); using (var br = new LinearGradientBrush(Rc(cx, bar.Y, 90, bar.Height), Violet, Accent2, 0f)) using (var pth = RR(Rc(cx, bar.Y, 90, bar.Height), 7)) g.FillPath(br, pth); }
-        double el = (DateTime.Now - busyStart).TotalSeconds; string eta = (p > 0.03f && p < 0.99f) ? "about " + FmtEta(el * (1 - p) / p) + " left" : (el > 2 ? "working for " + FmtEta(el) : "");
+        double el = (DateTime.Now - busyStart).TotalSeconds; if (p >= 0) busyEta.Add(p); string es = p >= 0 ? busyEta.Text(p) : ""; string eta = es.Length > 0 ? "about " + es + " left" : (el > 2 ? "working for " + FmtEta(el) : "");
         Txt(g, eta, 13, DimC, Rc(x + 30, y + 96, w - 60, 20), StringAlignment.Center, false);
         if (busyCancelable) Btn(g, Rc(x + w / 2 - 60, y + h - 50, 120, 34), "Cancel (Esc)", 3, () => { cancelFlag = true; busyText = "Cancelling..."; }, 14).WhileBusy = true;
     }
@@ -90,7 +91,7 @@ partial class StudioForm
     }
 
     // ---------------- Separate vocals & beat ----------------
-    void SeparateClick() { PickTrackMenu("Split which track into vocals + beat?", t => t.Clip != null && !t.Instrument && !t.IsBus, SeparateTrack); }
+    void SeparateClick() { Separator.Warmup(); PickTrackMenu("Split which track into vocals + beat?", t => t.Clip != null && !t.Instrument && !t.IsBus, SeparateTrack); }
     void SeparateTrack(Track song)
     {
         if (song == null) return;
@@ -102,10 +103,10 @@ partial class StudioForm
         string src = song.Clip.Path, baseName = Path.GetFileNameWithoutExtension(src); long off = song.Offset; Track st = song;
         string outDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyMusic), "yt2mp3", "Studio", baseName);
         AudioClip vc = null, ic = null; bool installNow = !Separator.Installed;
-        RunBusy("Separating vocals and beat with AI...\nThis takes a few minutes on the CPU.", true, prog =>
+        RunBusy("Separating vocals and beat with AI...\n(a few minutes on a slower PC, under a minute with a good graphics card)", true, prog =>
         {
             if (installNow) { busyText = "Setting up the separation engine (one time)..."; Separator.Install(m => { }, p => prog(p * 0.45f), () => cancelFlag); }
-            busyText = "Separating vocals and beat with AI...\nThis takes a few minutes on the CPU.";
+            busyText = "Separating vocals and beat with AI...\n(a few minutes on a slower PC, under a minute with a good graphics card)";
             string v, i; float lo = installNow ? 0.45f : 0f;
             if (!Separator.Separate(src, outDir, baseName, "htdemucs", m => { }, p => prog(lo + p * (0.92f - lo)), () => cancelFlag, out v, out i)) throw new Exception(cancelFlag ? "Cancelled." : "Separation failed.");
             busyText = "Loading the separated tracks..."; vc = AudioClip.FromFile(v); prog(0.96f); ic = AudioClip.FromFile(i);

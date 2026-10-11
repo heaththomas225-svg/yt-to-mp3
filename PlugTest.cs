@@ -166,6 +166,37 @@ static class P
           Check("Melody Tune: the Octave above layer adds a voice at 440 Hz and keeps the 220 Hz voice", b > a * 8 && c0 > 0.2 * BandRms(plain, SR * 2, 32768, 200, 240), "440 Hz " + a.ToString("0.0") + " -> " + b.ToString("0.0")); }
         { var x = Sine(300, SR * 2, 0.3); var o = runSpec("melody{mix=0;harm=8}", x); int lat = 3072 + 2047; double d = 0; for (int i = SR / 2; i < SR * 2 - lat - 1; i += 7) d = Math.Max(d, Math.Abs(o[i + lat] - x[i])); Check("Melody Tune with Mix at 0 passes the sound through, delayed to match the processed path", d < 0.01, "max difference " + d.ToString("0.0000")); }
 
+        // ---- Rapper Vocal Styles ----
+        {
+            var all = VocalStyles.All; var names = new HashSet<string>(); var genres = new HashSet<string>(); bool uniq = true; foreach (var s in all) { if (!names.Add(s.Name)) uniq = false; genres.Add(s.Genre); }
+            Check("Rapper Vocal Styles: " + all.Count + " styles in " + genres.Count + " subgenres, every name different", all.Count >= 30 && genres.Count == VocalStyles.Genres.Length && uniq, all.Count + " styles");
+            var problems = new List<string>(); foreach (var s in all) problems.AddRange(VocalStyles.Check(s)); Check("every plugin and setting a style uses really exists (no silent typos)", problems.Count == 0, problems.Count == 0 ? "" : string.Join("; ", problems.GetRange(0, Math.Min(4, problems.Count)).ToArray()));
+            int badBuild = 0, badAudio = 0; string firstBad = "";
+            foreach (var s in all)
+            {
+                var chain = VocalStyles.Build(s); int expect = s.Chain.Split(new[] { " > " }, StringSplitOptions.RemoveEmptyEntries).Length; if (chain.Count != expect) { badBuild++; firstBad = s.Name; continue; }
+                var src = Voice(SR * 2); var l = (float[])src.Clone(); var r = (float[])src.Clone(); foreach (var f in chain) { f.Prepare(SR); f.Reset(); }
+                bool ok = true; for (int p = 0; p < l.Length; p += 512) { int bn = Math.Min(512, l.Length - p); var bl = new float[bn]; var br = new float[bn]; Array.Copy(l, p, bl, 0, bn); Array.Copy(r, p, br, 0, bn); foreach (var f in chain) { f.BeginBlock(null, p, bn, true); f.Process(bl, br, bn); } Array.Copy(bl, 0, l, p, bn); Array.Copy(br, 0, r, p, bn); }
+                float pk = 0; for (int i = 0; i < l.Length; i++) { if (float.IsNaN(l[i]) || float.IsInfinity(l[i])) ok = false; pk = Math.Max(pk, Math.Abs(l[i])); }
+                if (!ok || pk > 12 || Rms(l, SR / 2, SR * 2) < 0.001) { badAudio++; firstBad = s.Name + " (peak " + pk.ToString("0.0") + ")"; }
+            }
+            Check("every style builds all its plugins and gives clean, audible sound", badBuild == 0 && badAudio == 0, badBuild + " build problems, " + badAudio + " audio problems " + firstBad);
+            string tmpFav = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "styles-fav-" + Guid.NewGuid().ToString("N") + ".txt"); VocalStyles.FavFile = tmpFav;
+            VocalStyles.ToggleFav("Trap Lead"); VocalStyles.ToggleFav("Slow Burn"); bool on = VocalStyles.IsFav("Trap Lead") && System.IO.File.ReadAllText(tmpFav).Contains("Slow Burn"); var onlyFav = VocalStyles.Find("", "", true); VocalStyles.ToggleFav("Slow Burn"); bool off = !VocalStyles.IsFav("Slow Burn");
+            Check("favourites can be added, removed, listed on their own and are saved to a file", on && off && onlyFav.Count == 2, onlyFav.Count + " favourites");
+            Check("searching finds styles by name, subgenre and description", VocalStyles.Find("drill", "", false).Count >= 4 && VocalStyles.Find("", "Cloud & Lo-Fi", false).Count == 3 && VocalStyles.Find("phone", "", false).Count >= 1 && VocalStyles.Find("zzzz", "", false).Count == 0, "drill " + VocalStyles.Find("drill", "", false).Count);
+            try { System.IO.File.Delete(tmpFav); } catch { } VocalStyles.FavFile = null;
+        }
+
+        // ---- the time-left guess ----
+        {
+            var em = new EtaMeter(); float p = 0; string early = "x"; em.Add(0.001f); System.Threading.Thread.Sleep(300); p = 0.011f; em.Add(p); early = em.Text(p);
+            for (int k = 0; k < 7; k++) { System.Threading.Thread.Sleep(500); p += 0.01f; em.Add(p); }   // 0.02 of the job per second, after a slow start
+            string txt = em.Text(p); int secs = 0; bool isSec = txt.EndsWith(" s") && int.TryParse(txt.Substring(0, txt.Length - 2), out secs);
+            Check("time-left guess: says nothing until it has seen a few seconds of progress", early.Length == 0, "early: '" + early + "'");
+            Check("time-left guess follows the recent speed (progress of 2% a second with 95% to go is about 47 s)", isSec && secs >= 40 && secs <= 55, txt);
+        }
+
         // ---- every named plugin ----
         var sw = Stopwatch.StartNew(); int bad = 0, n = 0; var times = new List<string>();
         foreach (var v in PluginLibrary.All)
