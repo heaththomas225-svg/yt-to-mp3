@@ -1,4 +1,4 @@
-3.17.1
+3.17.2
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-New Track sheet: record voice, rap, speech, radio, guitar, bass; instruments, drums, loops; glitchy add-track strips removed
-sha256=703a64a3c796c636e3a262482abd5bdcc32fc103a4408266af181e5292939766
+Buses, simple New Track sheet with empty raw audio tracks, MIDI track, roomier track headers
+sha256=82904ca6f3bdf95439b32bda7f8ef211cf4aea3b0f89d6f7e51503c4a0701753

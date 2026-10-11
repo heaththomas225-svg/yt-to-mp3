@@ -40,12 +40,13 @@ partial class StudioForm
         string path = Path.Combine(dir, "Recording " + DateTime.Now.ToString("yyyy-MM-dd HH-mm-ss") + ".wav");
         using (var w = new WavStream(path, StudioEngine.SR, 24)) w.Write(mono, mono, 0, frames);
         var l = new float[frames]; Array.Copy(mono, l, frames); var rr = (float[])l.Clone(); var clip = AudioClip.FromArrays(l, rr, "Recording"); clip.Path = path;
-        var t = StudioEngine.NewTrack(micName != null ? micName : "Recording " + (++micCount), micRole != null ? micRole : "vocal", clip); t.Source = path;
-        if (micChain != null) foreach (var nm in micChain) { var fx = NtFx(nm); if (fx != null) lock (eng.Sync) t.Fx.Add(fx); }
-        micChain = null; micName = null; micRole = null;
+                Track t = null, sel = Selected; bool existing = false;
+        if (sel != null && sel.Armed && sel.Clip == null && !sel.IsBus && !sel.Instrument) t = sel; else foreach (var x in eng.Tracks.ToArray()) if (x.Armed && x.Clip == null && !x.IsBus && !x.Instrument) { t = x; break; }
+        if (t != null) { existing = true; lock (eng.Sync) { t.Clip = clip; t.Source = path; t.Armed = false; t.ClipStart = 0; t.ClipFrames = -1; } }
+        else { t = StudioEngine.NewTrack("Recording " + (++micCount), "vocal", clip); t.Source = path; }
         long comp = WaveOutPlayer.QueuedFrames + AudioRecorder.InputBufferFrames;   // what you heard was already this late, and the input adds some too
         if (startPos >= comp) t.Offset = startPos - comp; else { t.Offset = 0; t.ClipStart = Math.Min(frames - 1, comp - startPos); }
-        AddTrack(t); return t;
+        if (!existing) AddTrack(t); return t;
     }
 
     void OpenRoll(Track t)

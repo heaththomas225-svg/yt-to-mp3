@@ -506,7 +506,8 @@ static class ProjectIO
         for (int i = 0; i < eng.Tracks.Count; i++)
         {
             var t = eng.Tracks[i]; string src = t.Clip != null ? t.Clip.Path : t.Source;
-            sb.Append("track|").Append(E(t.Instrument ? "inst" : t.Role)).Append('|').Append(E(t.Name)).Append('|').Append(t.Offset).Append('|').Append(E(src)).Append('|').Append(t.Color).Append('|').Append(t.ClipStart).Append('|').Append(t.ClipFrames).Append('\n');
+            sb.Append("track|").Append(E(t.Instrument ? "inst" : (t.IsBus ? "bus" : t.Role))).Append('|').Append(E(t.Name)).Append('|').Append(t.Offset).Append('|').Append(E(src)).Append('|').Append(t.Color).Append('|').Append(t.ClipStart).Append('|').Append(t.ClipFrames).Append('\n');
+            if (t.Out != null && eng.Tracks.IndexOf(t.Out) >= 0) sb.Append("route|").Append(i).Append('|').Append(eng.Tracks.IndexOf(t.Out)).Append('\n');
             if (t.Instrument && t.Midi.Count > 0) { sb.Append("midi|").Append(i).Append('|'); lock (t.Midi) foreach (var m in t.Midi) sb.Append(m.Frame).Append(':').Append(m.S).Append(':').Append(m.D1).Append(':').Append(m.D2).Append(';'); sb.Append('\n'); }
         }
         if (CoverBytes != null && CoverBytes.Length > 0) sb.Append("cover|").Append(Convert.ToBase64String(CoverBytes)).Append((char)10);
@@ -519,7 +520,7 @@ static class ProjectIO
     {
         var warn = new List<string>(); var lines = File.ReadAllLines(path, Encoding.UTF8);
         if (lines.Length == 0 || !lines[0].StartsWith("YTMPROJ")) throw new Exception("That isn't a project file from this app.");
-        string dir = Path.GetDirectoryName(path); var tracks = new List<Track>(); var mix = new StringBuilder();
+        string dir = Path.GetDirectoryName(path); var tracks = new List<Track>(); var mix = new StringBuilder(); var routes = new List<string[]>();
         Lyrics = ""; LyricsTitle = "";
         CoverBytes = null;
         foreach (var line in lines)
@@ -530,10 +531,10 @@ static class ProjectIO
             else if (p[0] == "bpm" && p.Length > 1) { double b; if (double.TryParse(p[1], NumberStyles.Float, CI, out b)) Fx.ProjectBpm = b; }
             else if (p[0] == "track" && p.Length >= 6)
             {
-                string src = U(p[4]), name = U(p[2]); Track t = StudioEngine.NewTrack(name, U(p[1]), null); t.Source = src; t.Instrument = U(p[1]) == "inst";
+                string src = U(p[4]), name = U(p[2]); Track t = StudioEngine.NewTrack(name, U(p[1]), null); t.Source = src; t.Instrument = U(p[1]) == "inst"; if (U(p[1]) == "bus") { t.IsBus = true; t.Color = unchecked((int)0xFFFFD04D); }
                 long off; long.TryParse(p[3], out off); t.Offset = off; int col; if (int.TryParse(p[5], out col)) t.Color = col;
                 if (p.Length >= 8) { long cs, cf; if (long.TryParse(p[6], out cs)) t.ClipStart = cs; if (long.TryParse(p[7], out cf)) t.ClipFrames = cf; }
-                if (t.Instrument) { }
+                if (t.Instrument || t.IsBus || src.Length == 0) { }
                 else if (File.Exists(src)) { progress("Loading " + Path.GetFileName(src) + "..."); t.Clip = AudioClip.FromFile(src); }
                 else warn.Add("Missing audio file for \"" + name + "\": " + src);
                 tracks.Add(t);
@@ -544,8 +545,10 @@ static class ProjectIO
                     foreach (var part in p[2].Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries))
                     { var q = part.Split(':'); long fr; int s, d1, d2; if (q.Length == 4 && long.TryParse(q[0], out fr) && int.TryParse(q[1], out s) && int.TryParse(q[2], out d1) && int.TryParse(q[3], out d2)) tracks[ti].Midi.Add(new MidiEv { Frame = fr, S = (byte)s, D1 = (byte)d1, D2 = (byte)d2 }); }
             }
+            else if (p[0] == "route" && p.Length >= 3) routes.Add(p);
             else if (p[0] == "master" || p[0] == "tmix" || p[0] == "fx" || p[0] == "mfx") mix.Append(line).Append('\n');
         }
+        foreach (var rp in routes) { int ra, rb; if (int.TryParse(rp[1], out ra) && int.TryParse(rp[2], out rb) && ra >= 0 && rb >= 0 && ra < tracks.Count && rb < tracks.Count && tracks[rb].IsBus && ra != rb) tracks[ra].Out = tracks[rb]; }
         lock (eng.Sync) { eng.Tracks.Clear(); eng.Tracks.AddRange(tracks); }
         RestoreMix(eng, mix.ToString()); eng.Seek(0);
         return warn;

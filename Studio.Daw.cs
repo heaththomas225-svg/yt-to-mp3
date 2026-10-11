@@ -119,7 +119,7 @@ partial class StudioForm
     }
     void DeleteTrackQuiet(Track t)
     {
-        if (t == null) return; if (toolsTrack == t) toolsTrack = null; PushUndo(); lock (eng.Sync) { eng.Tracks.Remove(t); retired.AddRange(t.Fx); } selTrack = Math.Max(0, Math.Min(selTrack, eng.Tracks.Count - 1)); selFx = -1;
+        if (t == null) return; if (toolsTrack == t) toolsTrack = null; PushUndo(); lock (eng.Sync) { eng.Tracks.Remove(t); retired.AddRange(t.Fx); if (t.IsBus) foreach (var x in eng.Tracks) if (x.Out == t) x.Out = null; } selTrack = Math.Max(0, Math.Min(selTrack, eng.Tracks.Count - 1)); selFx = -1;
         foreach (var f in t.Fx) { var ic = f as InstrumentFx; if (ic != null) ic.CloseWindow(); }
         Toast("Deleted (Undo brings it back)");
     }
@@ -207,7 +207,7 @@ partial class StudioForm
     }
     void PaintLaneTools(Graphics g, Track tr, RectangleF lane)
     {
-        if (lane.Width < 640 || toolsTrack != tr) return;
+        if (lane.Width < 640 || toolsTrack != tr || tr.IsBus || (tr.Clip == null && !tr.Instrument)) return;
         string[] n = tr.Instrument ? new[] { "Notes", "Up", "Dn", "Copy", "Del" } : new[] { "Up", "Dn", "<<", ">>", "Split", "<Trim", "Trim>", "Copy", "Del" };
         float w = 46, gap = 3, tot = n.Length * (w + gap) - gap, x = lane.Right - tot - 8, y = lane.Y + 6;
         FillRR(g, Color.FromArgb(205, 12, 6, 26), Rc(x - 5, y - 3, tot + 10, 28), 8);

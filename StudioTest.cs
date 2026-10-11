@@ -442,6 +442,27 @@ static class T
             Check("project: save + reopen keeps plugins, faders, mute and track alignment" + firstDiff, same && warn.Count == 0, "tracks " + e2.Tracks.Count + ", offset " + e2.Tracks[0].Offset + ", master comp thr " + e2.MasterFx[1].Get("thr"));
         }
 
+        // ---- buses: tracks sent to a bus are mixed and processed there, then go to the master ----
+        {
+            int n = SR * 2; var eng = new StudioEngine(); eng.MasterBypass = true;
+            var c1 = AudioClip.FromArrays(Sine(440, 0.2, n), Sine(440, 0.2, n), "a"); var c2 = AudioClip.FromArrays(Sine(440, 0.2, n), Sine(440, 0.2, n), "b");
+            var t1 = StudioEngine.NewTrack("A", "audio", c1); var t2 = StudioEngine.NewTrack("B", "audio", c2); var bus = StudioEngine.NewTrack("Bus 1", "bus", null); bus.IsBus = true;
+            eng.Tracks.Add(t1); eng.Tracks.Add(t2); eng.Tracks.Add(bus);
+            float[] oL, oR; var ro = new RenderOpts { Master = false };
+            eng.Render(0, n, ro, null, out oL, out oR); double direct = RmsDb(oL, SR, n);
+            t1.Out = bus; t2.Out = bus; eng.Render(0, n, ro, null, out oL, out oR); double viaBus = RmsDb(oL, SR, n);
+            Check("bus: tracks sent to a bus sound the same as going straight to the master", Math.Abs(direct - viaBus) < 0.05, direct.ToString("0.00") + " vs " + viaBus.ToString("0.00") + " dB");
+            bus.VolDb = -6; eng.Render(0, n, ro, null, out oL, out oR); double quieter = RmsDb(oL, SR, n);
+            Check("bus: the bus fader turns the whole group down", Math.Abs((viaBus - quieter) - 6) < 0.1, (viaBus - quieter).ToString("0.00") + " dB");
+            bus.Mute = true; eng.Render(0, n, ro, null, out oL, out oR); Check("bus: muting the bus silences everything sent to it", RmsDb(oL, SR, n) < -80, RmsDb(oL, SR, n).ToString("0") + " dB");
+            bus.Mute = false; bus.VolDb = 0; t1.Out = null; eng.Render(0, n, ro, null, out oL, out oR); double half = RmsDb(oL, SR, n);
+            Check("bus: one track on the bus and one straight out still add up", Math.Abs(half - direct) < 0.05, half.ToString("0.00"));
+            string dir = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "ytm_bus_test"); System.IO.Directory.CreateDirectory(dir); string wp = System.IO.Path.Combine(dir, "a.wav"); WavIO.Write(wp, c1.L, c1.R, SR, 24);
+            var e3 = new StudioEngine(); var ta = StudioEngine.NewTrack("A", "audio", AudioClip.FromFile(wp)); var bb = StudioEngine.NewTrack("Bus 1", "bus", null); bb.IsBus = true; var em = StudioEngine.NewTrack("Audio 2", "audio", null); ta.Out = bb; e3.Tracks.Add(ta); e3.Tracks.Add(bb); e3.Tracks.Add(em);
+            string pf = System.IO.Path.Combine(dir, "b.ytmproj"); ProjectIO.Save(e3, pf); var e4 = new StudioEngine(); var warn = ProjectIO.Load(e4, pf, delegate (string s) { });
+            Check("bus: a project keeps its buses, their routing and empty audio tracks (no missing-file warning)", e4.Tracks.Count == 3 && e4.Tracks[1].IsBus && e4.Tracks[0].Out == e4.Tracks[1] && !e4.Tracks[2].IsBus && e4.Tracks[2].Clip == null && warn.Count == 0, "tracks " + e4.Tracks.Count + ", warnings " + warn.Count);
+        }
+
         // ---- export: formats, sync, dry vs processed ----
         {
             var eng = new StudioEngine(); var v = SynthVocal(6); var b = SynthBeat(6); string dir = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "ytm_export_test");
