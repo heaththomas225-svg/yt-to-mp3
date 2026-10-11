@@ -2,6 +2,11 @@
 
 What changed in each version of **Purphex**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.17.4  Discord button, one frame-rate readout
+
+- Community page: Join the Discord button (invite comes from the website).
+- Removed the corner frame-rate badge from the converter window; the title bar shows it.
+
 ## 3.17.3  Community page, simpler buses, recording and dragging fixes
 
 - Community and My Projects have no music controls (slim bar); Community redesigned: left menu, round neon project cards, profile, tags, activity.

@@ -37,7 +37,7 @@ class SettingsForm : Form
         fpsBox = Combo(180, y, 190, new[] { "30 fps (lightest)", "60 fps (smooth)", "120 fps (fastest screens)" }); fpsBox.SelectedIndexChanged += (s, e) => { if (!setting) { Prefs.FpsCap = fpsBox.SelectedIndex == 0 ? 30 : (fpsBox.SelectedIndex == 2 ? 120 : 60); Prefs.Changed(); } };
         y += 38;
         Controls.Add(new Label { Text = "Your screen refreshes " + FrameLoop.DisplayHz() + " times a second, so that is the most you will see. 120 fps needs a 120 Hz (or faster) screen and a quicker PC.", Left = 20, Top = y - 6, Width = 480, Height = 34, ForeColor = Color.FromArgb(150, 140, 190) }); y += 30;
-        fpsChk = Chk("Show the frame rate (title bar and a badge on every screen)", 20, ref y); fpsChk.CheckedChanged += (s, e) => { if (!setting) { Prefs.ShowFps = fpsChk.Checked; Prefs.Changed(); } };
+        fpsChk = Chk("Show the frame rate in the title bar", 20, ref y); fpsChk.CheckedChanged += (s, e) => { if (!setting) { Prefs.ShowFps = fpsChk.Checked; Prefs.Changed(); } };
         y += 6; Header("Audio (Purphex Music playback)", ref y);
         volBar = new TrackBar { Left = 130, Top = y - 4, Width = 300, Minimum = 0, Maximum = 100, TickFrequency = 10, BackColor = BackColor };
         volNum = new NumericUpDown { Left = 440, Top = y, Width = 64, Minimum = 0, Maximum = 100 }; StyleNum(volNum);
