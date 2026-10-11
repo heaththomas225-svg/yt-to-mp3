@@ -116,7 +116,7 @@ partial class StudioForm
     string AutoValText(Param p, float v)
     {
         if (p.IsChoice) return p.Choices[(int)Math.Max(0, Math.Min(p.Choices.Length - 1, Math.Round(v)))];
-        return v.ToString(Math.Abs(p.Max - p.Min) >= 100 ? "0" : "0.0##", CultureInfo.InvariantCulture) + (p.Unit.Length > 0 ? " " + p.Unit : "");
+        return v.ToString(Math.Abs(p.Max - p.Min) >= 100 ? "0" : "0.0", CultureInfo.InvariantCulture) + (p.Unit.Length > 0 ? " " + p.Unit : "");
     }
 
     void PaintAutoSheet(Graphics g)
@@ -142,18 +142,19 @@ partial class StudioForm
             var ol = other; Chip(g, Rc(cx, cy - 2, cw, 24), label, ol == lane, () => { autoLane = ol; autoPt = null; }); cx += cw + 6;
         }
         // the plot
-        var plot = Rc(sheet.X + 74, sheet.Y + 90, sheet.Width - 100, sheet.Height - 90 - 74); long T = Math.Max(eng.EndFrame, StudioEngine.SR * 10L);
+        float lm = 74; if (prm.IsChoice) foreach (var ch in prm.Choices) lm = Math.Max(lm, g.MeasureString(ch, GfxCache.Font(10, false)).Width + 16); lm = Math.Min(lm, sheet.Width * 0.4f);   // room for the names of a list of choices
+        var plot = Rc(sheet.X + lm, sheet.Y + 90, sheet.Width - lm - 26, sheet.Height - 90 - 74); long T = Math.Max(eng.EndFrame, StudioEngine.SR * 10L);
         FillRR(g, Color.FromArgb(235, 8, 4, 20), plot, 8); StrokeRR(g, Color.FromArgb(120, NeonViolet), plot, 8, 1);
         float min = prm.Min, max = prm.Max; if (max - min < 1e-6f) max = min + 1;
         Func<long, float> X = fr => plot.X + (float)(fr / (double)T) * plot.Width; Func<float, float> Y = v => plot.Bottom - (v - min) / (max - min) * plot.Height;
-        g.SetClip(Rc(plot.X - 70, plot.Y - 6, plot.Width + 80, plot.Height + 30));
+        g.SetClip(Rc(sheet.X + 2, plot.Y - 6, plot.Right - sheet.X + 10, plot.Height + 30));
         // the grid: values up the side, seconds along the bottom
         int rows = prm.IsChoice ? Math.Min(prm.Choices.Length, 9) : 5;
         for (int i = 0; i < rows; i++)
         {
             float v = prm.IsChoice ? (prm.Choices.Length <= 9 ? i : min + (max - min) * i / (rows - 1)) : min + (max - min) * i / (rows - 1); float yy = Y(v);
             using (var pen = new Pen(Color.FromArgb(50, 190, 160, 255))) g.DrawLine(pen, plot.X, yy, plot.Right, yy);
-            Txt(g, AutoValText(prm, v), 10, DimC, Rc(sheet.X + 6, yy - 9, 66, 18), StringAlignment.Far, false);
+            Txt(g, AutoValText(prm, v), 10, DimC, Rc(sheet.X + 6, yy - 9, lm - 12, 18), StringAlignment.Far, false);
         }
         double secs = T / (double)StudioEngine.SR; double stepS = secs > 600 ? 120 : secs > 240 ? 60 : secs > 90 ? 30 : secs > 40 ? 10 : 5;
         for (double s = 0; s <= secs + 0.01; s += stepS)

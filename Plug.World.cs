@@ -21,8 +21,8 @@ class WorldEchoFx : SyncFx
         Type = "worldecho"; Title = "Worldwide Echo"; Category = "Echo & Reverb";
         AddC("style", "Style", Styles, 0); AddC("sync", "Time", Dsp2.SyncNames, 4); AddP("time", "Free time", 1, 2000, 350, "ms");
         AddP("fb", "Repeats", 0, 95, 45, "%"); AddP("lc", "Low cut", 20, 2000, 250, "Hz"); AddP("hc", "High cut", 500, 20000, 6500, "Hz"); AddP("sat", "Saturation", 0, 100, 0, "%");
-        AddP("width", "Width", 0, 200, 150, "%"); AddP("diff", "Smear (diffusion)", 0, 100, 0, "%"); AddP("rev", "Reverb on repeats", 0, 100, 25, "%"); AddP("revsize", "Reverb size", 0, 100, 60, "%");
-        AddP("duck", "Duck while singing", 0, 100, 40, "%"); AddC("send", "Send (when the echo hears you)", Sends, 0); AddP("sendlvl", "Send level", 0, 100, 100, "%"); AddP("sendsm", "Send smoothing", 2, 500, 40, "ms");
+        AddP("width", "Width", 0, 200, 150, "%"); AddP("diff", "Smear (diffusion)", 0, 100, 0, "%"); AddP("rev", "Reverb", 0, 100, 25, "%"); AddP("revsize", "Reverb size", 0, 100, 60, "%");
+        AddP("duck", "Duck on voice", 0, 100, 40, "%"); AddC("send", "Send pattern", Sends, 0); AddP("sendlvl", "Send level", 0, 100, 100, "%"); AddP("sendsm", "Send smoothing", 2, 500, 40, "ms");
         AddP("dry", "Original sound", 0, 100, 100, "%"); AddP("mix", "Echo level", 0, 100, 40, "%");
     }
     protected override void Update()
@@ -76,7 +76,7 @@ class MelodyTuneFx : Fx
     {
         Type = "melody"; Title = "Melody Tune"; Category = "Pitch & Voice";
         AddC("key", "Key", PitchCorrector.Keys, 0); AddC("scale", "Scale", PitchCorrector.Scales, 1);
-        AddP("speed", "Tune speed (0 = instant, hard tune)", 0, 400, 30, "ms"); AddP("strength", "Strength", 0, 100, 100, "%"); AddP("natural", "Humanise (keep vibrato and slides)", 0, 100, 45, "%");
+        AddP("speed", "Tune speed", 0, 400, 30, "ms"); AddP("strength", "Strength", 0, 100, 100, "%"); AddP("natural", "Humanise", 0, 100, 45, "%");
         AddC("range", "Voice range", PitchCorrector.Ranges, 1); AddC("harm", "Melodic layer", Harm, 0); AddP("hlevel", "Layer level", 0, 100, 50, "%"); AddP("spread", "Layer width", 0, 100, 70, "%");
         AddP("mix", "Mix", 0, 100, 100, "%");
     }

@@ -433,8 +433,8 @@ Select the vocal track, then press Vocal Styles in the plugin panel (right side)
         new HelpTopic("studio-worldecho", "Purphex Music", "Worldwide Echo: throw your voice around the world", false, @"
 ## What it is
 Worldwide Echo is a wide echo that locks to your project tempo. Its repeats bounce left and right, can melt into reverb, get darker or brighter each time round, and duck out of the way while you are singing.
-## The Send setting
-Send decides WHEN the echo hears you. All the time is a normal echo. The other choices open the Send only at certain moments of the song, for example the last beat of every bar (the classic end-of-line throw), the second half of each bar (ad-libs echo, the verse stays clean) or the off-beats. The repeats keep ringing after the Send closes. Send level is how much goes in, and Send smoothing is how quickly it opens and closes.
+## The Send pattern
+Send pattern decides WHEN the echo hears you. All the time is a normal echo. The other choices open the Send only at certain moments of the song, for example the last beat of every bar (the classic end-of-line throw), the second half of each bar (ad-libs echo, the verse stays clean) or the off-beats. The repeats keep ringing after the Send closes. Send level is how much goes in, and Send smoothing is how quickly it opens and closes.
 ## The versions
 - Worldwide Echo: wide ping-pong with a little reverb.
 - Stadium Echo: huge slow repeats in a big wash of reverb.
@@ -445,7 +445,7 @@ Send decides WHEN the echo hears you. All the time is a normal echo. The other c
 - Infinite Space: near-endless repeats that melt into reverb.
 ## Tips
 - Keep Original sound at 100 and use Echo level to set how loud the echo is.
-- Turn Duck while singing up so the echo only fills the gaps between words.
+- Turn Duck on voice up so the echo only fills the gaps between words.
 - Time follows the project tempo: set the tempo first.
 "),
         new HelpTopic("studio-melody", "Purphex Music", "Melody Tune: pitch correction and harmonies", false, @"

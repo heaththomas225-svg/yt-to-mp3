@@ -177,9 +177,9 @@ partial class StudioForm
             var s = list[i]; var row = Rc(sheet.X + 14, top + i * rowH - stylesScroll, sheet.Width - 28, rowH - 6); if (row.Bottom < top || row.Y > bottom) continue;
             bool hot = Hot(RectangleF.Intersect(row, area)) && area.Contains(MousePos); FillRR(g, hot ? Color.FromArgb(200, 60, 34, 112) : Color.FromArgb(150, 26, 15, 52), row, 12); StrokeRR(g, Color.FromArgb(hot ? 160 : 80, NeonViolet), row, 12, 1);
             bool fv = VocalStyles.IsFav(s.Name); var star = Rc(row.X + 8, row.Y + 8, 30, 30); Txt(g, fv ? "★" : "☆", 20, fv ? Color.FromArgb(255, 210, 80) : DimC, star, StringAlignment.Center, false); string sn = s.Name; Reg(star, () => VocalStyles.ToggleFav(sn));
-            Txt(g, s.Name, 16, Ink, Rc(row.X + 44, row.Y + 6, 330, 26), StringAlignment.Near, true);
-            var tag = Rc(row.X + 44, row.Y + 34, 10 + s.Genre.Length * 6.8f, 18); FillRR(g, Color.FromArgb(70, NeonViolet), tag, 5); Txt(g, s.Genre, 10, Ink, tag, StringAlignment.Center, false);
-            Txt(g, s.Blurb, 11, DimC, Rc(row.X + 54 + tag.Width, row.Y + 33, row.Width - 54 - tag.Width - 200, 34), StringAlignment.Near, false);
+            float nameW = g.MeasureString(s.Name, GfxCache.Font(16, true)).Width; Txt(g, s.Name, 16, Ink, Rc(row.X + 44, row.Y + 6, nameW + 12, 26), StringAlignment.Near, true);
+            var tag = Rc(row.X + 44 + nameW + 10, row.Y + 10, 14 + s.Genre.Length * 6.6f, 18); FillRR(g, Color.FromArgb(70, NeonViolet), tag, 5); Txt(g, s.Genre, 10, Ink, tag, StringAlignment.Center, false);
+            using (var wf = new StringFormat { Trimming = StringTrimming.EllipsisWord }) using (var wb = new SolidBrush(DimC)) g.DrawString(s.Blurb, GfxCache.Font(11, false), wb, Rc(row.X + 46, row.Y + 33, row.Width - 46 - 170, 32), wf);
             var st = s; Btn(g, Rc(row.Right - 150, row.Y + 14, 64, 34), "Use", 1, () => ApplyStyle(st, true), 13); Btn(g, Rc(row.Right - 80, row.Y + 14, 64, 34), "Add", 0, () => ApplyStyle(st, false), 13);
         }
         g.ResetClip();

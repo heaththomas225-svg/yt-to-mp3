@@ -265,7 +265,9 @@ partial class StudioForm : Form
         else FillRR(g, c, r, 6);
         StrokeRR(g, Color.FromArgb(style == 2 ? 200 : 110, 200, 150, 255), r, style == 2 ? 8 : 6, 1);
         if (style == 4) Glow(g, Accent2, r, 8, 0.8f, 3); else if (ht > 0.03f) Glow(g, NeonCyan, r, 8, 0.7f * ht, 3); else if (style == 2) Glow(g, NeonViolet, r, 8, 0.5f, 3);
-        Txt(g, text, px, Color.White, r, StringAlignment.Center, style == 2 || style == 1);
+        bool bdt = style == 2 || style == 1; float fpx = px, avail = r.Width - 10;   // a label that is too wide for its button gets a smaller size instead of being cut off
+        if (text.Length * fpx * 0.62f > avail) { while (fpx > 8f && g.MeasureString(text, GfxCache.Font(fpx, bdt)).Width > avail) fpx -= 0.5f; }
+        Txt(g, text, fpx, Color.White, r, StringAlignment.Center, bdt);
         return Reg(r, down);
     }
 
@@ -974,18 +976,18 @@ partial class StudioForm : Form
         foreach (var p in ps)
         {
             var row = Rc(a.X, y, a.Width, rowH); y += rowH; if (row.Bottom < a.Y || row.Y > a.Bottom) continue;
-            Txt(g, p.Name, 13, DimC, Rc(row.X + 6, row.Y, row.Width * 0.31f, rowH), StringAlignment.Near, false);
-            var pp = p;
-            if (paramTrack != null) { var lane0 = FindLane(paramTrack, f, p.Id); var atr = paramTrack; Btn(g, Rc(row.X + row.Width * 0.335f, row.Y + 4, 22, rowH - 8), "A", lane0 != null && lane0.On ? 4 : 0, () => OpenAuto(atr, f, pp), 10); }
+            Txt(g, p.Name, 13, DimC, Rc(row.X + 6, row.Y, row.Width * 0.38f, rowH), StringAlignment.Near, false);
+            var pp = p; float aw = paramTrack != null ? 26 : 0;   // the A (automate) button sits at the right end of the row so the names keep their room
+            if (paramTrack != null) { var lane0 = FindLane(paramTrack, f, p.Id); var atr = paramTrack; Btn(g, Rc(row.Right - 22, row.Y + 4, 22, rowH - 8), "A", lane0 != null && lane0.On ? 4 : 0, () => OpenAuto(atr, f, pp), 10); }
             if (p.IsChoice)
             {
-                var br = Rc(row.X + row.Width * 0.40f, row.Y + 3, row.Width * 0.60f - 6, rowH - 6);
+                var br = Rc(row.X + row.Width * 0.40f, row.Y + 3, row.Width * 0.60f - 6 - aw, rowH - 6);
                 Btn(g, br, p.Text, 0, () => { pp.Val = (pp.Val + 1) > pp.Max ? pp.Min : pp.Val + 1; f.MarkDirty(); }, 12);
                 var rg = regs[regs.Count - 1]; rg.OnRight = () => { pp.Val = (pp.Val - 1) < pp.Min ? pp.Max : pp.Val - 1; f.MarkDirty(); };
             }
             else
             {
-                var sr = Rc(row.X + row.Width * 0.40f, row.Y + 4, row.Width * 0.60f - 70, rowH - 8);
+                var sr = Rc(row.X + row.Width * 0.40f, row.Y + 4, row.Width * 0.60f - 70 - aw, rowH - 8);
                 var rg = Slider(g, sr, PFrac(p), fr => { f.Set(pp.Id, PFromFrac(pp, fr)); }); rg.OnDouble = () => f.Set(pp.Id, pp.Def);
                 rg.OnWheel = d => f.Set(pp.Id, pp.Val + d * (pp.Max - pp.Min) / 100f);
                 Txt(g, p.Text, 12, Ink, Rc(sr.Right + 6, row.Y, 66, rowH), StringAlignment.Near, false);

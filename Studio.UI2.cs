@@ -36,9 +36,11 @@ partial class StudioForm
     {
         using (var br = new SolidBrush(Color.FromArgb(185, 6, 3, 14))) g.FillRectangle(br, 0, 0, ClientSize.Width, ClientSize.Height);
         Reg(Rc(0, 0, ClientSize.Width, ClientSize.Height), () => { });
-        float w = 520, h = busyCancelable ? 170 : 130, x = (ClientSize.Width - w) / 2, y = (ClientSize.Height - h) / 2; var box = Rc(x, y, w, h);
+        float w = 520; foreach (var ln in busyText.Split((char)10)) w = Math.Max(w, g.MeasureString(ln, GfxCache.Font(17, true)).Width + 80); w = Math.Min(w, ClientSize.Width - 30);   // the box grows to fit its text...
+        float tpx = 17; { float widest = 0; foreach (var ln in busyText.Split((char)10)) widest = Math.Max(widest, g.MeasureString(ln, GfxCache.Font(17, true)).Width); if (widest > w - 50) tpx = Math.Max(10, 17 * (w - 50) / widest); }   // ...and if the window is too small for that, the text gets smaller
+        float h = busyCancelable ? 170 : 130, x = (ClientSize.Width - w) / 2, y = (ClientSize.Height - h) / 2; var box = Rc(x, y, w, h);
         FillRR(g, Color.FromArgb(252, 28, 15, 52), box, 14); StrokeRR(g, Accent, box, 14, 1.5f);
-        Txt(g, busyText, 17, Ink, Rc(x + 20, y + 18, w - 40, 52), StringAlignment.Center, true);
+        Txt(g, busyText, tpx, Ink, Rc(x + 20, y + 18, w - 40, 52), StringAlignment.Center, true);
         var bar = Rc(x + 30, y + 78, w - 60, 14); FillRR(g, Color.FromArgb(220, 8, 4, 20), bar, 7);
         float p = busyPct;
         if (p >= 0) { float f = Clamp01(p); if (f > 0.01f) using (var br = new LinearGradientBrush(bar, Violet, Accent2, 0f)) using (var pth = RR(Rc(bar.X, bar.Y, bar.Width * f, bar.Height), 7)) g.FillPath(br, pth); }
@@ -104,10 +106,10 @@ partial class StudioForm
         string outDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyMusic), "yt2mp3", "Studio", baseName);
         Separator.OfferTurbo(this);   // NVIDIA cards can run the AI several times faster (asks once)
         AudioClip vc = null, ic = null; bool installNow = !Separator.Installed;
-        RunBusy("Separating vocals and beat with AI...\n(a few minutes on a slower PC, under a minute with a good graphics card)", true, prog =>
+        RunBusy("Separating vocals and beat with AI...\n(under a minute with a good graphics card)", true, prog =>
         {
             if (installNow) { busyText = "Setting up the separation engine (one time)..."; Separator.Install(m => { }, p => prog(p * 0.45f), () => cancelFlag); }
-            busyText = "Separating vocals and beat with AI...\n(a few minutes on a slower PC, under a minute with a good graphics card)";
+            busyText = "Separating vocals and beat with AI...\n(under a minute with a good graphics card)";
             string v, i; float lo = installNow ? 0.45f : 0f;
             if (!Separator.Separate(src, outDir, baseName, "htdemucs", m => { }, p => prog(lo + p * (0.92f - lo)), () => cancelFlag, out v, out i)) throw new Exception(cancelFlag ? "Cancelled." : "Separation failed.");
             busyText = "Loading the separated tracks..."; vc = AudioClip.FromFile(v); prog(0.96f); ic = AudioClip.FromFile(i);
