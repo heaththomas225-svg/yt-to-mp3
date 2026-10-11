@@ -7,10 +7,15 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.17.9";
+    public const string Latest = "3.17.10";
 
     public const string Text =
-@"3.17.9  Audit fixes: safer saves, layers and rows, smoother buttons
+@"3.17.10  Lighter on the CPU, faster website
+ + The main window animated background no longer hogs the processor in a big or full-screen window: it rests longer after each repaint when the window is large.
+ + The website loads faster: smaller logo pictures, compressed pages and long-lived caching.
+ + Community songs can have a photo (add it when you share, or change it later from the song).
+
+3.17.9  Audit fixes: safer saves, layers and rows, smoother buttons
  + Project, lyrics, settings and library files are now written safely (a crash or power cut mid-save can no longer leave a half-written file).
  + Duplicating or splitting a layer keeps it on the same row, and Split vocals + beat adds its tracks in the right place, so rows never get out of order.
  + Buttons ease in and out when you hover them, and the window has rounded corners on Windows 11.

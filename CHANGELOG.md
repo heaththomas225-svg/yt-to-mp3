@@ -2,6 +2,12 @@
 
 What changed in each version of **Purphex**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.17.10  Lighter on the CPU, faster website
+
+- The main window animated background no longer hogs the processor in a big or full-screen window: it rests longer after each repaint when the window is large.
+- The website loads faster: smaller logo pictures, compressed pages and long-lived caching.
+- Community songs can have a photo (add it when you share, or change it later from the song).
+
 ## 3.17.9  Audit fixes: safer saves, layers and rows, smoother buttons
 
 - Project, lyrics, settings and library files are now written safely (a crash or power cut mid-save can no longer leave a half-written file).

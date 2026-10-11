@@ -150,7 +150,8 @@ partial class App
             }
             catch { }
             double spent = sw.Elapsed.TotalMilliseconds - t0;
-            Thread.Sleep((int)Math.Max(12, (quality == 0 ? 70 : 140) - spent));
+            // a big window takes long to repaint: rest at least as long as the repaint took, so this thread never uses more than about half a core
+            Thread.Sleep((int)Math.Max(12, Math.Max((quality == 0 ? 70 : 140) - spent, spent >= 60 ? spent : 0)));
         }
     }
 
