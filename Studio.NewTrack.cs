@@ -24,7 +24,7 @@ partial class StudioForm
     {
         int k = 1; foreach (var x in eng.Tracks) if (!x.IsBus && !x.Instrument) k++;
         var t = StudioEngine.NewTrack("Audio " + k, "audio", null); t.Armed = true; nextInsert = NtInsertAt(); AddTrack(t);
-        Toast("Empty audio track added (raw, no effects). Press MIC to record onto it, or drop an audio file on it.");
+        selTrack = eng.Tracks.IndexOf(t); Toast("Empty audio track added (raw, no effects). Press MIC to record onto it, or drop an audio file on it.");
     }
 
     List<NtItem> NtItems()
@@ -33,7 +33,6 @@ partial class StudioForm
         l.Add(new NtItem { Title = "Voice / Audio", Sub = "Record or add audio. Raw, no effects", Col = C(0xF04438), Icon = 0, Do = () => { CloseNewTrackSheet(); AddEmptyAudioTrack(); } });
         l.Add(new NtItem { Title = "Virtual Instruments", Sub = "Bass Lab, Vital and other VSTs", Tag = "MIDI", Col = C(0x16C784), Icon = 2, Do = () => { nextInsert = NtInsertAt(); CloseNewTrackSheet(); AddInstrumentClick(true); } });
         l.Add(new NtItem { Title = "MIDI Track", Sub = "Play your own keyboard or instrument", Tag = "MIDI", Col = C(0x3B8CF5), Icon = 3, Do = () => { nextInsert = NtInsertAt(); CloseNewTrackSheet(); recOn = true; AddInstrument("synth"); } });
-        l.Add(new NtItem { Title = "Bus", Sub = "Group tracks and give them shared plugins", Col = C(0xFFB020), Icon = 6, Do = () => { CloseNewTrackSheet(); AddBus(); } });
         return l;
     }
 
@@ -92,5 +91,46 @@ partial class StudioForm
             var b = Rc(sheet.X + 12 + i * (bw + 12), by, bw, 62); var act = ba[i]; FillRR(g, Hot(b) ? Color.FromArgb(235, 52, 34, 100) : Color.FromArgb(235, 34, 24, 66), b, 14); StrokeRR(g, Color.FromArgb(120, NeonViolet), b, 14, 1);
             Txt(g, bn[i], 16, Ink, b, StringAlignment.Center, true); Reg(b, () => act());
         }
+    }
+}
+
+// Purphex Music: the Buses sheet. Buses are not tracks on the timeline: every track has a small Bus drop-down, and the levels and plugins of the buses are here.
+partial class StudioForm
+{
+    bool busOpen; float busScroll;
+    int LaneCount { get { int c = 0; foreach (var t in eng.Tracks) if (!t.IsBus) c++; return c; } }
+    void OpenBusSheet() { busOpen = true; busScroll = 0; ntOpen = false; }
+
+    void PaintBusSheet(Graphics g)
+    {
+        if (!busOpen) return; float W = ClientSize.Width, H = ClientSize.Height; var all = Rc(0, 0, W, H);
+        using (var b = new SolidBrush(Color.FromArgb(150, 3, 1, 10))) g.FillRectangle(b, all); Reg(all, () => busOpen = false);
+        var buses = new List<Track>(); foreach (var t in eng.Tracks) if (t.IsBus) buses.Add(t);
+        const float rowH = 84; float sw = Math.Min(620, W - 24), sh = Math.Min(H - 40, 150 + Math.Max(1, buses.Count) * rowH); var sheet = Rc((W - sw) / 2, (H - sh) / 2, sw, sh);
+        FillRR(g, Color.FromArgb(252, 16, 10, 34), sheet, 22); Glow(g, NeonViolet, sheet, 22, 0.8f, 4); StrokeRR(g, Color.FromArgb(180, NeonViolet), sheet, 22, 1.5f); Reg(sheet, () => { });
+        Txt(g, "Buses", 22, Ink, Rc(sheet.X + 22, sheet.Y + 16, 200, 34), StringAlignment.Near, true);
+        Txt(g, "A bus mixes the tracks sent to it and puts shared plugins on them. Choose it from the Bus drop-down on a track.", 12, DimC, Rc(sheet.X + 22, sheet.Y + 50, sheet.Width - 44, 20), StringAlignment.Near, false);
+        var close = Rc(sheet.Right - 52, sheet.Y + 16, 32, 32); FillRR(g, Hot(close) ? Color.FromArgb(160, 70, 38, 130) : Color.FromArgb(110, 40, 24, 80), close, 16); Txt(g, "x", 15, Ink, close, StringAlignment.Center, true); Reg(close, () => busOpen = false);
+        float top = sheet.Y + 80, areaH = sheet.Bottom - 66 - top; var area = Rc(sheet.X, top, sheet.Width, areaH); float total = buses.Count * rowH; busScroll = Math.Max(0, Math.Min(Math.Max(0, total - areaH), busScroll));
+        regs.Add(new HitReg { R = area, OnWheel = d => busScroll = Math.Max(0, Math.Min(Math.Max(0, total - areaH), busScroll - d * 60)) });
+        g.SetClip(area);
+        if (buses.Count == 0) Txt(g, "No buses yet. Press New bus.", 14, DimC, Rc(sheet.X + 22, top + 10, sheet.Width - 44, 24), StringAlignment.Near, false);
+        for (int i = 0; i < buses.Count; i++)
+        {
+            var bt = buses[i]; int bi = eng.Tracks.IndexOf(bt); var row = Rc(sheet.X + 14, top + i * rowH - busScroll, sheet.Width - 28, rowH - 8); if (row.Bottom < top || row.Y > area.Bottom) continue;
+            FillRR(g, Color.FromArgb(150, 26, 15, 52), row, 12); StrokeRR(g, Color.FromArgb(90, NeonViolet), row, 12, 1);
+            int cnt = 0; foreach (var x in eng.Tracks) if (x.Out == bt) cnt++;
+            var nm = Rc(row.X + 14, row.Y + 8, 190, 24); Txt(g, bt.Name, 15, Ink, nm, StringAlignment.Near, true); Reg(nm, () => { }).OnDouble = () => RenameTrack(bt);
+            Txt(g, cnt + (cnt == 1 ? " track" : " tracks"), 11, DimC, Rc(row.X + 14, row.Y + 32, 150, 18), StringAlignment.Near, false);
+            Btn(g, Rc(row.X + 210, row.Y + 8, 34, 28), "M", bt.Mute ? 4 : 0, () => bt.Mute = !bt.Mute, 13);
+            Btn(g, Rc(row.X + 250, row.Y + 8, 120, 28), "+ Effect" + (bt.Fx.Count > 0 ? " (" + bt.Fx.Count + ")" : ""), 1, () => { busOpen = false; OpenBrowser(false, bi); }, 12);
+            Btn(g, Rc(row.Right - 44, row.Y + 8, 30, 28), "x", 3, () => { if (MessageBox.Show(this, "Delete \"" + bt.Name + "\"? Tracks sent to it go straight to the master.", "Delete bus", MessageBoxButtons.YesNo) == DialogResult.Yes) DeleteTrackQuiet(bt); }, 13);
+            float frac = Clamp01((bt.VolDb + 48f) / 54f); Txt(g, "Vol", 11, DimC, Rc(row.X + 14, row.Y + 52, 28, 18), StringAlignment.Near, false);
+            var fs = Slider(g, Rc(row.X + 44, row.Y + 52, 230, 18), frac, f => bt.VolDb = f < 0.003f ? -48f : (float)Math.Round(f * 54f - 48f, 1), Accent2); fs.OnDouble = () => bt.VolDb = 0;
+            Txt(g, (bt.VolDb <= -47.9f ? "-inf" : bt.VolDb.ToString("+0.0;-0.0;0.0")) + " dB", 12, Ink, Rc(row.X + 282, row.Y + 52, 70, 18), StringAlignment.Near, false);
+            HBar(g, Rc(row.Right - 150, row.Y + 54, 120, 6), bt.PeakL); HBar(g, Rc(row.Right - 150, row.Y + 63, 120, 6), bt.PeakR);
+        }
+        g.ResetClip();
+        var nb = Rc(sheet.X + 14, sheet.Bottom - 54, sheet.Width - 28, 40); Btn(g, nb, "+ New bus", 2, () => AddBus(), 14);
     }
 }

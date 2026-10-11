@@ -7,10 +7,16 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.17.2";
+    public const string Latest = "3.17.3";
 
     public const string Text =
-@"3.17.2  Buses, empty audio tracks, roomier tracks
+@"3.17.3  Community page, simpler buses, recording and dragging fixes
+ + Community and My Projects pages: no music controls any more (a slim bar instead). Community has a new look: left menu, round neon project cards, profile, tags and activity.
+ + Buses are no longer rows on the timeline: every track has a small Bus drop-down, and bus levels and plugins are in + BUS.
+ + Recording lands on the empty audio track you made. Drag a clip to another row (or below the last) and it moves there, making a track if needed; Up / Dn make a row when there is none.
+ + Only one frame-rate readout now (the title bar).
+
+3.17.2  Buses, empty audio tracks, roomier tracks
  + BUS: press + BUS (or New Track > Bus) for as many buses as you like. On any track press Out to send it to a bus; a bus has its own fader, pan,
    meters and + Effect plugins, like a bus in Logic. Buses are saved with the project.
  + New Track is simple now: Voice / Audio adds an empty raw track (no recording starts, no effects), Virtual Instruments, MIDI Track (play your own

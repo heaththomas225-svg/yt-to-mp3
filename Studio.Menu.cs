@@ -173,8 +173,8 @@ partial class StudioForm
     // ---------------- My Projects ----------------
     void PaintProjects(Graphics g)
     {
-        float W = ClientSize.Width, H = ClientSize.Height, top = ToolH + TransH; if (!projectsLoaded) { projectsLoaded = true; ProjectLibrary.Load(); ProjectLibrary.Discover(); }
-        Txt(g, "MY PROJECTS", 18, Ink, Rc(24, top + 12, 300, 30), StringAlignment.Near, true); Txt(g, "Your saved projects, newest first. Click one to open it. Use the camera to give it a picture.", 12, DimC, Rc(24, top + 44, W - 48, 20), StringAlignment.Near, false);
+        float W = ClientSize.Width, H = ClientSize.Height, top = ToolH; if (!projectsLoaded) { projectsLoaded = true; ProjectLibrary.Load(); ProjectLibrary.Discover(); }
+        Txt(g, "Your saved projects, newest first. Click one to open it. Use the camera to give it a picture.", 12, DimC, Rc(24, top + 44, W - 48, 20), StringAlignment.Near, false);
         Btn(g, Rc(W - 190, top + 12, 166, 32), "Back to the tracks", 0, () => tab = 0, 12);
         var list = ProjectLibrary.AllByEdited(); float cw = 230, ch = 270, gap = 18, x0 = 24, y0 = top + 80; int cols = Math.Max(1, (int)((W - 48 + gap) / (cw + gap))); int count = list.Count + 1; int rows = (count + cols - 1) / cols;
         float maxScroll = Math.Max(0, y0 + rows * (ch + gap) - H + 20); projScroll = Math.Max(0, Math.Min(maxScroll, projScroll)); var area = Rc(0, top + 74, W, H - top - 74); Reg(area, () => { }).OnWheel = d => { projScroll = Math.Max(0, Math.Min(maxScroll, projScroll - d * 70)); };
@@ -213,26 +213,4 @@ partial class StudioForm
     }
 
     // ---------------- Community (a place to build on later) ----------------
-    void PaintCommunity(Graphics g)
-    {
-        float W = ClientSize.Width, H = ClientSize.Height, top = ToolH + TransH; float x = Math.Max(24, (W - 1040) / 2), w = Math.Min(1040, W - 48);
-        Txt(g, "COMMUNITY", 18, Ink, Rc(x, top + 12, 300, 30), StringAlignment.Near, true); Btn(g, Rc(x + w - 166, top + 12, 166, 32), "Back to the tracks", 0, () => tab = 0, 12);
-        // profile
-        var pc = Rc(x, top + 60, w, 130); FillRR(g, Color.FromArgb(200, 22, 12, 42), pc, 14); Glow(g, NeonViolet, pc, 14, 0.4f, 3);
-        var av = Rc(pc.X + 24, pc.Y + 20, 90, 90); DrawAvatar(g, av); Reg(av, () => PickAvatar()); if (Hot(av)) { bubble = "Click to add or change your picture"; bubblePt = MousePos; }
-        Txt(g, ProjectLibrary.ProfileName, 22, Ink, Rc(pc.X + 134, pc.Y + 26, w - 400, 32), StringAlignment.Near, true); Reg(Rc(pc.X + 134, pc.Y + 26, w - 400, 32), () => EditProfileName()).OnDouble = EditProfileName;
-        Txt(g, "Your profile. Click your picture or name to change them.", 12, DimC, Rc(pc.X + 134, pc.Y + 62, w - 300, 20), StringAlignment.Near, false);
-        int n = ProjectLibrary.Entries.Count; Txt(g, n + (n == 1 ? " project" : " projects") + " on this PC", 12, DimC, Rc(pc.X + 134, pc.Y + 86, w - 300, 20), StringAlignment.Near, false);
-        Btn(g, Rc(pc.Right - 190, pc.Y + 50, 166, 34), "Change picture", 1, () => PickAvatar(), 12);
-        // the sections that will live here
-        string[] names = { "Feed", "Following", "Challenges", "Collabs" }; string[] desc = { "Music from people you follow.", "Producers you follow.", "Weekly challenges.", "Find someone to make music with." };
-        float cw = (w - 3 * 16) / 4f; float cy = pc.Bottom + 20;
-        for (int i = 0; i < 4; i++)
-        {
-            var c = Rc(x + i * (cw + 16), cy, cw, 190); FillRR(g, Color.FromArgb(150, 20, 11, 40), c, 12); StrokeRR(g, Color.FromArgb(120, NeonViolet), c, 12, 1);
-            Txt(g, names[i], 16, Ink, Rc(c.X + 14, c.Y + 14, c.Width - 28, 24), StringAlignment.Near, true); Txt(g, desc[i], 12, DimC, Rc(c.X + 14, c.Y + 48, c.Width - 28, 70), StringAlignment.Near, false);
-            var tag = Rc(c.X + 14, c.Bottom - 40, 110, 24); FillRR(g, Color.FromArgb(120, 70, 40, 130), tag, 12); Txt(g, "Coming soon", 11, Ink, tag, StringAlignment.Center, true);
-        }
-        Txt(g, "The community is not built yet: these boxes are where it will go. Nothing you make is shared with anyone.", 12, DimC, Rc(x, cy + 206, w, 24), StringAlignment.Near, false);
-    }
 }

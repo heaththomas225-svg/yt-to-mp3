@@ -300,14 +300,14 @@ partial class StudioForm : Form
         DrawBackdrop(g);
         if (tab == 0) PaintMix(g); else if (tab == 2) PaintLyrics(g); else if (tab == 3) PaintProjects(g); else if (tab == 4) PaintCommunity(g); else PaintMastering(g);
         if (tab != 2) SyncLyricUi(false);
-        PaintToolbar(g); PaintTransport(g);
+        if (tab == 3 || tab == 4) PaintSlimBar(g); else { PaintToolbar(g); PaintTransport(g); }   // the Community and My Projects pages have no music controls
         if (browserOpen) PaintBrowser(g);
         PaintSoundDrag(g); PaintPackManager(g);
         if (soundBox != null && soundBox.Visible && !(soundsOpen && tab == 0)) soundBox.Visible = false;
-        PaintNewTrackSheet(g);
+        PaintNewTrackSheet(g); PaintBusSheet(g);
         PaintMenu(g);
         PaintBubble(g);
-        fpsc.Frame(); if (Prefs.ShowFps) fpsc.Draw(g, ClientSize.Width - 8, ClientSize.Height - 6, lastIdle);
+        fpsc.Frame();
         if (hintNow.Length > 0 && !busy) { var hr = Rc(ClientSize.Width / 2 - 340, ClientSize.Height - 36, 680, 26); FillRR(g, Color.FromArgb(235, 30, 16, 58), hr, 8); StrokeRR(g, Edge, hr, 8, 1); Txt(g, hintNow, 13, Ink, hr, StringAlignment.Center, false); }
         if (busy) PaintBusy(g);
         if ((DateTime.Now - toastAt).TotalSeconds < 3.5 && toast.Length > 0)
@@ -413,7 +413,7 @@ partial class StudioForm : Form
         var tr = Rc(x, y, 210, h); FillRR(g, Color.FromArgb(200, 8, 4, 18), tr, 6); StrokeRR(g, Edge, tr, 6, 1);
         Txt(g, Fmt(sec) + "  /  " + Fmt(tot), 19, Accent, tr, StringAlignment.Center, true); x += 222;
         Btn(g, Rc(x, y, 100, h), "+ TRACK", 2, () => ShowAddTrackMenuMain(), 13); x += 106;
-        Btn(g, Rc(x, y, 70, h), "+ BUS", 2, () => AddBus(), 13); x += 76;
+        Btn(g, Rc(x, y, 70, h), "+ BUS", 2, () => OpenBusSheet(), 13); x += 76;
         Btn(g, Rc(x, y, 124, h), "+ INSTRUMENT", 1, () => AddInstrumentClick(), 12); x += 130;
         Btn(g, Rc(x, y, 70, h), recOn ? "* REC" : "REC", recOn ? 3 : 0, () => { recOn = !recOn; Toast(recOn ? "Recording is armed: press PLAY, then play notes on an instrument window." : "Recording off."); }, 13); x += 76;
         { bool rec = mic != null; double el = rec ? (DateTime.Now - micT0).TotalSeconds : 0; var mr = Rc(x, y, rec ? 128 : 60, h); Btn(g, mr, rec ? "* MIC  " + ((int)(el / 60)).ToString("00") + ":" + ((int)(el % 60)).ToString("00") : "MIC", rec ? 3 : 0, () => MicClick(), 13); if (rec) HBar(g, Rc(mr.X + 6, mr.Bottom - 7, mr.Width - 12, 5), mic.Level); x += mr.Width + 6; }
@@ -454,7 +454,7 @@ partial class StudioForm : Form
     {
         float top = ToolH + TransH; var tl = TimelineRect();
         PruneTrackCaches();
-        int n = eng.Tracks.Count;
+        int n = LaneCount;   // buses are not lanes: they live in the Buses sheet and in each track's Bus drop-down
         if (autoFit && (lastFitW != (int)tl.Width || lastFitLen != eng.EndFrame) && tl.Width > 100) { FitView(); lastFitW = (int)tl.Width; lastFitLen = eng.EndFrame; }
         // clamp selection
         if (selTrack >= n) selTrack = Math.Max(0, n - 1);
@@ -618,9 +618,10 @@ partial class StudioForm : Form
         Btn(g, Rc(r.X + ex, r.Y + by, ew, bh), (tk.Instrument || bus ? "+ Effect" : "+ Add Effect") + (tk.Fx.Count > 0 && !tk.Instrument ? " (" + tk.Fx.Count + ")" : ""), 1, () => OpenBrowser(false, ti), 12);
         if (!bus)
         {
-            string outTxt = tk.Out == null ? "Mst" : (tk.Out.Name.Replace(" ", "").Length > 4 ? tk.Out.Name.Replace(" ", "").Substring(0, 4) : tk.Out.Name.Replace(" ", ""));
-            var ob = Rc(r.X + 214, r.Y + by, 42, bh); Btn(g, ob, outTxt, tk.Out == null ? 0 : 4, () => OutMenu(tk), 11);
-            if (Hot(ob)) { bubble = tk.Out == null ? "Output: master. Click to send this track to a bus." : "Output: " + tk.Out.Name + ". Click to change."; bubblePt = MousePos; }
+            string outTxt = tk.Out == null ? "Bus" : tk.Out.Name;
+            var ob = Rc(r.X + 212, r.Y + by, 48, bh); Btn(g, ob, outTxt, tk.Out == null ? 0 : 4, () => OutMenu(tk), 11);
+            using (var tb = new SolidBrush(Color.FromArgb(200, 215, 200, 250))) g.FillPolygon(tb, new[] { new PointF(ob.Right - 11, ob.Bottom - 10), new PointF(ob.Right - 3, ob.Bottom - 10), new PointF(ob.Right - 7, ob.Bottom - 5) });
+            if (Hot(ob)) { bubble = tk.Out == null ? "No bus. Click to pick a bus for this track (or make a new one)." : "Output: " + tk.Out.Name + ". Click to change."; bubblePt = MousePos; }
         }
         if (tk.Instrument) Btn(g, Rc(r.X + 176, r.Y + by, 32, bh), "C", 0, () => { if (MessageBox.Show(this, "Delete every recorded note on \"" + tk.Name + "\"?", "Clear notes", MessageBoxButtons.YesNo) == DialogResult.Yes) lock (tk.Midi) tk.Midi.Clear(); }, 12);
         // fader
@@ -639,9 +640,7 @@ partial class StudioForm : Form
         // right of the pan row: piano (instrument), arm (empty audio track), nudge (audio), nothing (bus)
         if (tk.Instrument)
             Btn(g, Rc(r.X + 214, r.Y + py - 3, 44, 24), "Piano", 1, () => { var vf = tk.Fx.Count > 0 ? tk.Fx[0] as InstrumentFx : null; if (vf != null) { vf.Owner = tk; vf.ShowWindow(this); } }, 11);
-        else if (!bus && tk.Clip == null)
-            Btn(g, Rc(r.X + 214, r.Y + py - 3, 44, 24), "ARM", tk.Armed ? 3 : 0, () => { tk.Armed = !tk.Armed; Toast(tk.Armed ? tk.Name + " is armed: press MIC to record onto it." : "Disarmed."); }, 11);
-        else if (!bus)
+        else if (!bus && tk.Clip != null)
         {
             Btn(g, Rc(r.X + 216, r.Y + py - 1, 20, 22), "<", 0, () => tk.Offset -= (ModifierKeys & Keys.Shift) != 0 ? 44 : 441, 12);
             Btn(g, Rc(r.X + 238, r.Y + py - 1, 20, 22), ">", 0, () => tk.Offset += (ModifierKeys & Keys.Shift) != 0 ? 44 : 441, 12);
@@ -664,16 +663,17 @@ partial class StudioForm : Form
     // choose where a track's sound goes: straight to the master, or to one of the buses (or a new bus)
     void OutMenu(Track tk)
     {
-        var m = Win.NewMenu(); var master = new ToolStripMenuItem("Master (no bus)") { Checked = tk.Out == null }; master.Click += (a, b) => { PushUndo(); lock (eng.Sync) tk.Out = null; }; m.Items.Add(master);
+        var m = Win.NewMenu(); var master = new ToolStripMenuItem("No bus (straight to the master)") { Checked = tk.Out == null }; master.Click += (a, b) => { PushUndo(); lock (eng.Sync) tk.Out = null; }; m.Items.Add(master);
         foreach (var b0 in eng.Tracks.ToArray()) if (b0.IsBus) { var bus = b0; var it = new ToolStripMenuItem(bus.Name) { Checked = tk.Out == bus }; it.Click += (a, b) => { PushUndo(); lock (eng.Sync) tk.Out = bus; }; m.Items.Add(it); }
-        m.Items.Add(new ToolStripSeparator()); m.Items.Add("New bus...").Click += (a, b) => { var nb = AddBus(); if (nb != null) lock (eng.Sync) tk.Out = nb; };
+        m.Items.Add(new ToolStripSeparator()); m.Items.Add("New bus").Click += (a, b) => { int keep = selTrack; var nb = AddBus(); selTrack = keep; if (nb != null) lock (eng.Sync) tk.Out = nb; };
+        m.Items.Add("Edit buses (levels, plugins)...").Click += (a, b) => OpenBusSheet();
         m.Show(this, new Point((int)MousePos.X, (int)MousePos.Y));
     }
     Track AddBus()
     {
         int n = 1; bool used = true; while (used) { used = false; foreach (var x in eng.Tracks) if (x.IsBus && x.Name == "Bus " + n) { used = true; n++; break; } }
-        var t = StudioEngine.NewTrack("Bus " + n, "bus", null); t.IsBus = true; t.Color = unchecked((int)0xFFFFD04D); nextInsert = -1; AddTrack(t);
-        Toast("Bus added. On any track press its Out button to send it here, and + Effect to put plugins on the whole bus.");
+        var t = StudioEngine.NewTrack("Bus " + n, "bus", null); t.IsBus = true; t.Color = unchecked((int)0xFFFFD04D); int keepSel = selTrack; nextInsert = -1; AddTrack(t); selTrack = Math.Max(0, Math.Min(keepSel, LaneCount - 1));
+        Toast(t.Name + " added. Pick it from the Bus drop-down on any track. Levels and plugins: + BUS.");
         return t;
     }
     void PaintBusLane(Graphics g, Track tr, RectangleF lane)
@@ -683,7 +683,7 @@ partial class StudioForm : Form
     }
     void PaintEmptyLane(Graphics g, Track tr, RectangleF lane)
     {
-        Txt(g, tr.Armed ? "Armed and empty: press MIC to record onto this track, or drop an audio file here." : "Empty audio track: press ARM then MIC to record, or drop an audio file here.", 13, tr.Armed ? Color.FromArgb(255, 150, 160) : DimC, Rc(lane.X + 16, lane.Y + lane.Height / 2 - 12, lane.Width - 32, 24), StringAlignment.Near, false);
+        Txt(g, "Empty audio track: press MIC to record onto it, or drop an audio file here.", 13, tr.Armed ? Color.FromArgb(255, 150, 160) : DimC, Rc(lane.X + 16, lane.Y + lane.Height / 2 - 12, lane.Width - 32, 24), StringAlignment.Near, false);
     }
 
     void RenameTrack(Track tr)
@@ -856,6 +856,7 @@ partial class StudioForm : Form
         lastInput = DateTime.Now;
         if (editBox != null && editBox.Visible) return base.ProcessCmdKey(ref msg, k);
         if (ActiveControl is TextBoxBase && ((Control)ActiveControl).Visible) return base.ProcessCmdKey(ref msg, k);   // typing in the lyrics page: every key belongs to the text box
+        if (busOpen && k == Keys.Escape) { busOpen = false; return true; }
         if (ntOpen && k == Keys.Escape) { CloseNewTrackSheet(); return true; }
         if (menuOpen && k == Keys.Escape) { CloseMenu(); return true; }
         if (flexOpen && !menuOpen && !browserOpen && FlexKey(k)) return true;

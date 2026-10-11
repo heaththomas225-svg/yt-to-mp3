@@ -52,7 +52,7 @@ partial class StudioForm
         lock (eng.Sync)
         {
             eng.Tracks.Clear(); eng.Tracks.AddRange(s.Order);
-            foreach (var t in s.Order) { var d = s.St[t]; if (d.Clip != null) t.Clip = d.Clip; t.Offset = d.Offset; t.ClipStart = d.ClipStart; t.ClipFrames = d.ClipFrames; t.VolDb = d.Vol; t.Pan = d.Pan; t.Mute = d.Mute; t.Solo = d.Solo; t.Name = d.Name; }
+            foreach (var t in s.Order) { var d = s.St[t]; t.Clip = d.Clip; t.Offset = d.Offset; t.ClipStart = d.ClipStart; t.ClipFrames = d.ClipFrames; t.VolDb = d.Vol; t.Pan = d.Pan; t.Mute = d.Mute; t.Solo = d.Solo; t.Name = d.Name; }
         }
         selTrack = Math.Max(0, Math.Min(selTrack, eng.Tracks.Count - 1)); selFx = -1;
     }
@@ -139,7 +139,7 @@ partial class StudioForm
     internal Cursor CursorAt(PointF p)
     {
         if (tab != 0 || busy || browserOpen) return Cursors.Default; float top = ToolH + TransH + RulerH - vscroll; var tl = TimelineRect();
-        for (int i = 0; i < eng.Tracks.Count; i++)
+        for (int i = 0; i < LaneCount; i++)
         {
             var lane = Rc(HeadW, top + i * LaneH, tl.Width, LaneH); if (!lane.Contains(p)) continue;
             int z = ZoneAt(eng.Tracks[i], lane, p); if (laneMode != 0 && dragReg != null) z = laneMode; return z == 1 ? Cursors.SizeAll : (z >= 2 ? Cursors.SizeWE : Cursors.IBeam);
@@ -148,7 +148,7 @@ partial class StudioForm
     }
     HitReg LaneReg(RectangleF lane, Track tr)
     {
-        var lr = Reg(lane, () => LaneDown(tr, lane)); lr.OnDrag = pt => LaneDrag(tr, pt); lr.OnRight = () => LaneMenu(tr); lr.OnDouble = () => { if (tr.Instrument) OpenRoll(tr); };
+        var lr = Reg(lane, () => LaneDown(tr, lane)); lr.OnDrag = pt => LaneDrag(tr, pt); lr.OnUp = () => LaneDrop(tr); lr.OnRight = () => LaneMenu(tr); lr.OnDouble = () => { if (tr.Instrument) OpenRoll(tr); };
         if (Hot(lane)) hintNow = "Click a track to select it and show its buttons.  Drag a clip to move it, drag its ends to trim.  Click the ruler or the empty area to move the needle.  Right-click = split, trim, copy, delete.";
         return lr;
     }
@@ -229,6 +229,22 @@ partial class StudioForm
             }
         }
     }
+    Track EmptyAudioTrack()
+    {
+        int k = 1; foreach (var x in eng.Tracks) if (!x.IsBus && !x.Instrument) k++;
+        return StudioEngine.NewTrack("Audio " + k, "audio", null);
+    }
+    // letting go of a dragged clip on another row moves it there; below the last row (or onto a row that already has a clip) a new track is made for it
+    void LaneDrop(Track src)
+    {
+        if (laneMode != 1 || !laneMoved || src.Clip == null || src.Instrument) return;
+        float top = ToolH + TransH + RulerH - vscroll; int row = (int)Math.Floor((MousePos.Y - top) / LaneH), from = eng.Tracks.IndexOf(src);
+        if (row < 0 || from < 0 || row == from || Math.Abs(MousePos.Y - laneStart.Y) < LaneH * 0.5f) return;
+        Track dst = row < LaneCount ? eng.Tracks[row] : null; PushUndo();
+        if (dst == null || dst.Clip != null || dst.Instrument || dst.IsBus) { dst = EmptyAudioTrack(); int at = Math.Min(Math.Max(0, row), LaneCount); lock (eng.Sync) eng.Tracks.Insert(at, dst); }
+        lock (eng.Sync) { dst.Clip = src.Clip; dst.Source = src.Source; dst.ClipStart = src.ClipStart; dst.ClipFrames = src.ClipFrames; dst.Offset = src.Offset; if (dst.Role == "audio" && src.Role != "audio") dst.Role = src.Role; dst.Color = src.Color; if (dst.Name.StartsWith("Audio ")) dst.Name = src.Name; src.Clip = null; src.Source = ""; src.ClipStart = 0; src.ClipFrames = -1; src.Offset = 0; }
+        selTrack = eng.Tracks.IndexOf(dst); toolsTrack = dst; Toast("Moved to " + dst.Name);
+    }
     void MoveClip(Track tr, int dir)
     {
         if (tr.Clip == null) return; PushUndo(); double g = GridFrames;
@@ -236,8 +252,9 @@ partial class StudioForm
     }
     void MoveTrackBy(Track tr, int dir)
     {
-        int i = eng.Tracks.IndexOf(tr), j = i + dir; if (i < 0 || j < 0 || j >= eng.Tracks.Count) return; PushUndo();
-        lock (eng.Sync) { eng.Tracks.RemoveAt(i); eng.Tracks.Insert(j, tr); } selTrack = j;
+        int i = eng.Tracks.IndexOf(tr); if (i < 0) return; PushUndo();
+        if (i + dir < 0 || i + dir >= LaneCount) { lock (eng.Sync) eng.Tracks.Insert(dir < 0 ? 0 : LaneCount, EmptyAudioTrack()); if (dir < 0) i++; }   // nothing there yet: make an empty track so it can still move
+        int j = i + dir; lock (eng.Sync) { eng.Tracks.RemoveAt(i); eng.Tracks.Insert(j, tr); } selTrack = j;
     }
     // dragging a track's header up or down changes its row
     bool headerUndo;
@@ -245,7 +262,7 @@ partial class StudioForm
     void HeaderDrag(Track tr, PointF pt)
     {
         int i = eng.Tracks.IndexOf(tr); if (i < 0) return; float top = ToolH + TransH + RulerH - vscroll;
-        int target = (int)Math.Floor((pt.Y - top) / LaneH); target = Math.Max(0, Math.Min(eng.Tracks.Count - 1, target)); if (target == i) return;
+        int target = (int)Math.Floor((pt.Y - top) / LaneH); target = Math.Max(0, Math.Min(LaneCount - 1, target)); if (target == i) return;
         if (!headerUndo) { PushUndo(); headerUndo = true; }
         lock (eng.Sync) { eng.Tracks.RemoveAt(i); eng.Tracks.Insert(target, tr); } selTrack = target;
     }

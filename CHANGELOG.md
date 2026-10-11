@@ -2,6 +2,13 @@
 
 What changed in each version of **Purphex**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.17.3  Community page, simpler buses, recording and dragging fixes
+
+- Community and My Projects have no music controls (slim bar); Community redesigned: left menu, round neon project cards, profile, tags, activity.
+- Buses are a small Bus drop-down on each track; levels and plugins are in + BUS.
+- Recording goes onto the empty audio track you made. Dragging a clip to another row (or below the last) moves it, making a track if needed; Up / Dn make a row when there is none.
+- One frame-rate readout (title bar).
+
 ## 3.17.2  Buses, empty audio tracks, roomier tracks
 
 - Buses: + BUS adds as many as you like. Press Out on a track to send it to a bus; each bus has a fader, pan, meters and its own plugins. Saved with the project.

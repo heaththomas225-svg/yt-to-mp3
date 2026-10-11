@@ -107,7 +107,7 @@ partial class StudioForm
     {
         var ob = Rc(HeadW, ClientSize.Height - 20, tl.Width, 16); double total = Math.Max(eng.EndFrame * 1.04, StudioEngine.SR * 10.0); float tw = ob.Width;
         FillRR(g, Color.FromArgb(235, 9, 5, 20), ob, 6); StrokeRR(g, Color.FromArgb(90, NeonViolet), ob, 6, 1);
-        int n = eng.Tracks.Count; if (n > 0)
+        int n = LaneCount; if (n > 0)
             for (int i = 0; i < n; i++)
             {
                 var tr = eng.Tracks[i]; float a = ob.X + (float)(Math.Max(0, tr.Offset) / total * tw), b = ob.X + (float)(Math.Min(total, tr.Offset + Math.Max(1, tr.UsedLength)) / total * tw), th = (ob.Height - 6f) / n;
@@ -141,7 +141,7 @@ partial class StudioForm
     void MiddleMove(Point p)
     {
         if (!panning) return; scroll = Math.Max(0, panScroll - (long)((p.X - panStart.X) * spp)); var tl = TimelineRect();
-        vscroll = Math.Max(0, Math.Min(Math.Max(0, eng.Tracks.Count * LaneH - (ClientSize.Height - ToolH - TransH - RulerH - 40)), panV - (p.Y - panStart.Y)));
+        vscroll = Math.Max(0, Math.Min(Math.Max(0, LaneCount * LaneH - (ClientSize.Height - ToolH - TransH - RulerH - 40)), panV - (p.Y - panStart.Y)));
     }
 }
 
