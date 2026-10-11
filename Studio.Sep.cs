@@ -25,9 +25,47 @@ static class Separator
 
     static void Kill(Process p) { try { if (!p.HasExited) Process.Start(new ProcessStartInfo("taskkill", "/PID " + p.Id + " /T /F") { CreateNoWindow = true, UseShellExecute = false }); } catch { } }
 
-    static Dictionary<string, string> Env()
+    // ---- the fast stack: a newer PyTorch (about 1.5x faster on the processor) plus DirectML (the graphics card), installed in their own folder so the working engine is never touched ----
+    public static string FastDir { get { return Path.Combine(Root, "fast"); } }
+    static string FastMarker { get { return Path.Combine(FastDir, ".fast_ready"); } }
+    static string FastFailed { get { return Path.Combine(Root, ".fast_failed"); } }
+    public static bool FastReady { get { return File.Exists(FastMarker) && !File.Exists(FastFailed); } }
+    static volatile bool fastBad, startupDied; public static volatile string Device = ""; public static bool DisableFast;   // DisableFast: tests only   // what the engine used last time: "cpu" or "gpu: name"
+
+    public static void FastInstall(Action<string> log, Action<float> prog, Func<bool> cancelled)
+    {
+        if (!File.Exists(PyExe) || File.Exists(FastFailed)) return;
+        try
+        {
+            if (Directory.Exists(FastDir)) { try { Directory.Delete(FastDir, true); } catch { } }
+            Directory.CreateDirectory(FastDir);
+            log("Making the separation engine faster (one time: about 250 MB to download, 1.4 GB on disk)...");
+            int code = Exec(PyExe, "-m pip install --target \"" + FastDir + "\" torch-directml==0.2.5.dev240914 \"numpy<2\" --no-warn-script-location --disable-pip-version-check",
+                l => { if (l.Contains("Downloading") || l.Contains("Installing") || l.Contains("Successfully") || l.Contains("ERROR")) log(l.Trim()); }, cancelled);
+            if (code == -999) { try { Directory.Delete(FastDir, true); } catch { } return; }
+            if (code != 0) throw new Exception("pip exit " + code);
+            prog(0.8f);
+            code = Exec(PyExe, "-m pip install --target \"" + FastDir + "\" torchaudio==2.4.1 --no-deps --no-warn-script-location --disable-pip-version-check", log, cancelled);
+            if (code == -999) { try { Directory.Delete(FastDir, true); } catch { } return; }
+            if (code != 0) throw new Exception("pip exit " + code);
+            prog(0.92f);
+            string outp = ""; string chk = "import sys; sys.path.insert(0, r'" + FastDir + "'); import torch, torchaudio, torch_directml, demucs.separate; print('FAST_OK', torch.__version__)";
+            code = Exec(PyExe, "-c \"" + chk.Replace("\"", "\\\"") + "\"", l => { outp += l; }, cancelled);
+            if (code != 0 || !outp.Contains("FAST_OK")) throw new Exception("the new engine did not load: " + outp);
+            File.WriteAllText(FastMarker, "ok"); prog(1f); log("The separation engine is now faster.");
+        }
+        catch (Exception ex)
+        {
+            log("(could not install the faster engine: " + ex.Message + ". The normal engine keeps working.)");
+            try { Directory.Delete(FastDir, true); } catch { }
+            try { File.WriteAllText(FastFailed, DateTime.Now.ToString("s")); } catch { }
+        }
+    }
+
+    static Dictionary<string, string> Env(bool fast = false)
     {
         var env = new Dictionary<string, string>();
+        if (fast && !DisableFast && FastReady && !fastBad) { env["PX_FAST"] = FastDir; env["PX_ROOT"] = Root; }
         string ff = StudioEnv.Ffmpeg(); string ffDir = ff == null ? "" : Path.GetDirectoryName(ff);
         env["PATH"] = ffDir + ";" + Root + ";" + Path.Combine(Root, "Scripts") + ";" + Environment.GetEnvironmentVariable("PATH");
         env["TORCH_HOME"] = ModelDir; env["PYTHONUTF8"] = "1"; env["PYTHONIOENCODING"] = "utf-8"; env["PYTHONNOUSERSITE"] = "1";
@@ -115,13 +153,15 @@ static class Separator
         string outp = "";
         code = Exec(PyExe, "-c \"import torch, torchaudio, demucs.separate; print('DEMUCS_OK', torch.__version__)\"", l => { outp += l; }, cancelled);
         if (code != 0 || !outp.Contains("DEMUCS_OK")) throw new Exception("The separation engine didn't load correctly.\n" + outp);
-        File.WriteAllText(Marker, "ok"); prog(1f); log("Separation engine ready.");
+        File.WriteAllText(Marker, "ok"); FastInstall(log, p => prog(0.92f + p * 0.08f), cancelled); prog(1f); log("Separation engine ready.");
     }
 
     // Splits a song into real VOCAL and INSTRUMENTAL audio files (two-stem Demucs).
     // Returns false on failure. Output WAV files are 32-bit float, same length as the input.
     // ---------------- warm worker: the model stays loaded between songs ----------------
-    const string WorkerPy = @"import sys, os
+    const string WorkerPy = @"import sys, os, time, json, random
+_fd = os.environ.get('PX_FAST', '')   # the newer PyTorch (and DirectML) installed next to the old one
+if _fd and os.path.isdir(_fd): sys.path.insert(0, _fd)
 try:
     import torch, numpy as np, soundfile as sf
     from demucs.pretrained import get_model
@@ -133,9 +173,69 @@ except Exception as e:
 SR = model.samplerate
 try:
     torch.set_num_threads(max(1, (os.cpu_count() or 4) - 2))   # leave two cores free so the app and the audio stay smooth while separating
+    torch.set_flush_denormal(True)
 except Exception:
     pass
 VI = model.sources.index('vocals')
+DEV = 'cpu'; GPU = {}
+
+def to_cpu():
+    global DEV
+    try:
+        inner = model.models[0]
+        if 'spec' in GPU: inner._spec, inner._ispec, inner._mask = GPU['spec'], GPU['ispec'], GPU['mask']
+        inner.to('cpu')
+    except Exception:
+        pass
+    DEV = 'cpu'
+
+def pick_gpu():
+    # use the graphics card (DirectML) only when a quick test shows it is clearly faster AND gives the same result as the processor
+    global DEV
+    if not _fd or os.environ.get('PX_GPU', '1') != '1': return
+    try:
+        import torch_directml
+        if torch_directml.device_count() < 1: return
+        name = str(torch_directml.device_name(0)).replace(chr(0), '').strip()
+        key = name + '|' + torch.__version__
+        cache = os.path.join(os.environ.get('PX_ROOT', '.'), 'device.json'); use = None
+        try:
+            c = json.load(open(cache))
+            if c.get('key') == key: use = bool(c.get('use'))
+        except Exception:
+            pass
+        if use is False: return
+        inner = model.models[0]; dev = torch_directml.device()
+        GPU['spec'], GPU['ispec'], GPU['mask'] = inner._spec, inner._ispec, inner._mask
+        o_spec, o_ispec, o_mask = inner._spec, inner._ispec, inner._mask
+        inner._spec = lambda x: o_spec(x.cpu())            # the FFT needs complex numbers: that part stays on the processor
+        inner._mask = lambda z, m: o_mask(z, m.cpu())
+        inner._ispec = lambda z, length=None, scale=0: o_ispec(z, length, scale).to(dev)
+        if use is None:
+            seg = int(float(inner.segment) * SR); t = np.arange(seg) / SR; rs = np.random.RandomState(5)
+            x = sum(np.sin(2 * np.pi * f * t) * 0.1 for f in (110, 220, 330, 440, 880, 1760)) + rs.randn(seg) * 0.05
+            w = torch.tensor(np.stack([x, x * 0.9]), dtype=torch.float32)[None]; w = (w - w.mean()) / (w.std() + 1e-8)
+            inner._spec, inner._ispec, inner._mask = GPU['spec'], GPU['ispec'], GPU['mask']
+            with torch.no_grad():
+                inner(w); t0 = time.time(); ref = inner(w); tc = time.time() - t0
+            inner._spec, inner._ispec, inner._mask = (lambda x: o_spec(x.cpu())), (lambda z, length=None, scale=0: o_ispec(z, length, scale).to(dev)), (lambda z, m: o_mask(z, m.cpu()))
+            inner.to(dev)
+            with torch.no_grad():
+                inner(w.to(dev)); t0 = time.time(); out = inner(w.to(dev)).cpu(); tg = time.time() - t0
+            rel = float((out - ref).pow(2).mean().sqrt() / (ref.pow(2).mean().sqrt() + 1e-9))
+            use = bool(tg < tc * 0.7 and rel < 0.02)
+            try: json.dump({'key': key, 'use': use, 'cpu': tc, 'gpu': tg, 'rel': rel}, open(cache, 'w'))
+            except Exception: pass
+            sys.stderr.write('gpu test: cpu %.2fs gpu %.2fs diff %.4f use=%s\n' % (tc, tg, rel, use)); sys.stderr.flush()
+        if use:
+            inner.to(dev); DEV = dev; GPU['name'] = name
+        else:
+            to_cpu()
+    except Exception as e:
+        sys.stderr.write('gpu unavailable: %s\n' % e); sys.stderr.flush(); to_cpu()
+
+pick_gpu()
+print('DEVICE|%s' % (('gpu: ' + GPU.get('name', '')) if DEV != 'cpu' else 'cpu'), flush=True)
 
 def run_model(wav, overlap, show, stats=None):
     # the level the model sees must be the same for every piece of a long song, so the pieces match at the seams: stats = (mean, std) of the WHOLE song
@@ -144,8 +244,15 @@ def run_model(wav, overlap, show, stats=None):
     else:
         mu, sd = stats
     wav = (wav - mu) / sd
-    with torch.no_grad():
-        out = apply_model(model, wav[None], device='cpu', shifts=1, split=True, overlap=overlap, progress=show, num_workers=0)[0]
+    random.seed(1234)   # the model shifts the song by a random amount: a fixed seed makes every run give the same result
+    try:
+        with torch.no_grad():
+            out = apply_model(model, wav[None], device=DEV, shifts=1, split=True, overlap=overlap, progress=show, num_workers=0)[0].cpu()
+    except Exception as e:
+        if DEV == 'cpu': raise
+        sys.stderr.write('graphics card failed (%s): continuing on the processor\n' % e); sys.stderr.flush(); to_cpu()
+        with torch.no_grad():
+            out = apply_model(model, wav[None], device='cpu', shifts=1, split=True, overlap=overlap, progress=show, num_workers=0)[0]
     out = out * sd + mu
     v = out[VI]; i = out.sum(0) - v
     return v.cpu().numpy().T, i.cpu().numpy().T
@@ -231,11 +338,11 @@ for line in sys.stdin:
                 UseShellExecute = false, CreateNoWindow = true, RedirectStandardInput = true, RedirectStandardOutput = true, RedirectStandardError = true, WorkingDirectory = Root,
                 StandardOutputEncoding = System.Text.Encoding.UTF8, StandardErrorEncoding = System.Text.Encoding.UTF8
             };
-            foreach (var kv in Env()) psi.EnvironmentVariables[kv.Key] = kv.Value;
+            foreach (var kv in Env(true)) psi.EnvironmentVariables[kv.Key] = kv.Value;
             wready = false; wresult = null; wproc = new Process { StartInfo = psi };
-            wproc.OutputDataReceived += (s, e) => { if (e.Data == null) return; if (e.Data == "READY") wready = true; else if (e.Data.StartsWith("DONE|") || e.Data.StartsWith("ERR|")) wresult = e.Data; };
+            wproc.OutputDataReceived += (s, e) => { if (e.Data == null) return; if (e.Data == "READY") wready = true; else if (e.Data.StartsWith("DEVICE|")) Device = e.Data.Substring(7); else if (e.Data.StartsWith("DONE|") || e.Data.StartsWith("ERR|")) wresult = e.Data; };
             wproc.ErrorDataReceived += (s, e) => { if (e.Data == null) return; var m = PctRx.Match(e.Data); var pr = wprog; if (m.Success && pr != null) pr(Math.Min(0.98f, int.Parse(m.Groups[1].Value) / 100f)); };
-            wproc.Start(); try { wproc.PriorityClass = ProcessPriorityClass.BelowNormal; } catch { } wproc.BeginOutputReadLine(); wproc.BeginErrorReadLine(); win = wproc.StandardInput; wlast = DateTime.Now;
+            wproc.Start(); try { wproc.PriorityClass = ProcessPriorityClass.Normal; } catch { } wproc.BeginOutputReadLine(); wproc.BeginErrorReadLine(); win = wproc.StandardInput; wlast = DateTime.Now;
             if (idleTimer == null) idleTimer = new System.Threading.Timer(_ => { if (!wbusy && (DateTime.Now - wlast).TotalMinutes > 10) KillWorker(); }, null, 60000, 60000);
         }
         return true;
@@ -251,7 +358,7 @@ for line in sys.stdin:
     // 1 = ok, 0 = worker unusable (caller falls back), -1 = cancelled
     static int SeparateWorker(string input, string outDir, string baseName, Action<string> log, Action<float> prog, Func<bool> cancelled, out string vocalsPath, out string instPath)
     {
-        vocalsPath = null; instPath = null;
+        vocalsPath = null; instPath = null; startupDied = false;
         string tmp = Path.Combine(outDir, ".sep_tmp_" + Guid.NewGuid().ToString("N").Substring(0, 6));
         try
         {
@@ -259,7 +366,7 @@ for line in sys.stdin:
             var sw = Stopwatch.StartNew(); bool said = false;
             while (!wready)
             {
-                if (cancelled()) return -1; if (wproc == null || wproc.HasExited) return 0; if (sw.Elapsed.TotalSeconds > 240) return 0;
+                if (cancelled()) return -1; if (wproc == null || wproc.HasExited) { startupDied = true; return 0; } if (sw.Elapsed.TotalSeconds > 240) { startupDied = true; return 0; }
                 if (!said && sw.Elapsed.TotalSeconds > 1) { log("Loading the AI model (a few seconds)..."); said = true; }
                 Thread.Sleep(100);
             }
@@ -290,7 +397,20 @@ for line in sys.stdin:
         vocalsPath = null; instPath = null;
         if (model == "htdemucs" && input.IndexOf('|') < 0 && outDir.IndexOf('|') < 0)
         {
+            // an engine installed before the fast stack existed gets it once, the first time it is used
+            if (Installed && !FastReady && !File.Exists(FastFailed))
+            {
+                FastInstall(log, p => prog(p * 0.15f), cancelled); if (cancelled()) { log("Cancelled."); return false; }
+                KillWorker();   // a worker started earlier (Warmup) used the old engine: start a new one with the fast stack
+                var inner = prog; prog = p => inner(0.15f + p * 0.85f);
+            }
             string v, i; int r = SeparateWorker(input, outDir, baseName, log, prog, cancelled, out v, out i);
+            if (r == 0 && startupDied && FastReady && !fastBad)
+            {
+                // the faster engine would not start on this PC: remember that and use the normal one from now on
+                fastBad = true; try { File.WriteAllText(FastFailed, "worker did not start"); } catch { } KillWorker(); log("(the faster engine did not start here; using the normal one)");
+                r = SeparateWorker(input, outDir, baseName, log, prog, cancelled, out v, out i);
+            }
             if (r == 1) { vocalsPath = v; instPath = i; return true; }
             if (r == -1) { log("Cancelled."); return false; }
             log("(fast worker unavailable, using the standard path)");

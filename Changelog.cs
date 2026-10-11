@@ -7,10 +7,17 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.17.10";
+    public const string Latest = "3.18.0";
 
     public const string Text =
-@"3.17.10  Lighter on the CPU, faster website
+@"3.18.0  Much faster vocal splitting, Worldwide Echo and Melody Tune
+ + Split vocals + beat is much faster: the AI engine now uses your graphics card when that is quicker (a 60 second song went from 28 seconds to 10 on the test PC), and a newer, faster processor path when it is not. The result is the same as before.
+ + The first split after updating downloads the faster engine once (about 250 MB, 1.4 GB on disk). If it cannot be installed or does not work on your PC, the old engine keeps working.
+ + New plugin: Worldwide Echo (7 versions). A wide tempo-synced echo with reverb on the repeats, ducking, and a Send pattern that only echoes chosen moments such as the last beat of each bar.
+ + New plugin: Melody Tune (8 versions). Pitch correction to a key and scale with tune speed, strength and humanise, plus harmony layers (thirds, fifths, octaves, choir).
+ + Fixed a rare crash in echo-type plugins when a delay time landed exactly on a whole sample.
+
+3.17.10  Lighter on the CPU, faster website
  + The main window animated background no longer hogs the processor in a big or full-screen window: it rests longer after each repaint when the window is large.
  + The website loads faster: smaller logo pictures, compressed pages and long-lived caching.
  + Community songs can have a photo (add it when you share, or change it later from the song).

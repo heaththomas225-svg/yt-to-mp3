@@ -8,7 +8,7 @@ static partial class PluginTables
     const string HV1 = "p2,c2,l2,pan2,d2,p3,c3,l3,pan3,d3,p4,c4,l4,pan4,d4,mshape,mrate,mdepth", HV2 = "p3,c3,l3,pan3,d3,p4,c4,l4,pan4,d4,mshape,mrate,mdepth", HV4 = "mshape,mrate,mdepth";
     static void A(string cat, string name, string engine, string preset, string blurb, string hide = "") { PluginLibrary.Add(cat, name, engine, preset, blurb, hide); }
 
-    public static void Fill() { FillPitch(); FillTone(); FillEcho(); FillEq(); FillVocal(); FillCreative(); FillBass(); }
+    public static void Fill() { FillPitch(); FillTone(); FillEcho(); FillWorld(); FillMelody(); FillEq(); FillVocal(); FillCreative(); FillBass(); }
 
     static void FillPitch()
     {

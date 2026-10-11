@@ -143,6 +143,29 @@ static class P
         { var f = Make("transient{attack=10;sustain=0;speed=100}"); var l = new float[SR * 2]; for (int h = 0; h < 8; h++) for (int i = 0; i < 6000; i++) l[h * 10000 + 1000 + i] = (float)(0.4 * Math.Sin(2 * Math.PI * 200 * i / SR) * Math.Exp(-i / 2500.0)); var r = (float[])l.Clone(); var src = (float[])l.Clone(); Run(f, l, r, 512); double pk = 0, pk0 = 0; for (int i = 0; i < l.Length; i++) { pk = Math.Max(pk, Math.Abs(l[i])); pk0 = Math.Max(pk0, Math.Abs(src[i])); } Check("transient shaper boosts the attack of hits", pk > pk0 * 1.25, "peak x" + (pk / pk0).ToString("0.00")); }
         { var f = Make("echo{dry=0;mix=0}"); var l = Sine(300, SR, 0.4); var r = (float[])l.Clone(); Run(f, l, r, 512); Check("echo with Original sound and Echo level both at 0 is silent", Rms(l, 0, SR) < 0.001, ""); }
 
+        // ---- Worldwide Echo and Melody Tune ----
+        Fx.ProjectBpm = 120;
+        { string[] names = { "Worldwide Echo", "Stadium Echo", "Rap Ad-Lib Echo", "Dark Echo", "Airy Echo", "Telephone Throw", "Infinite Space", "Melody Tune", "Melody Tune: Natural Polish", "Melody Tune: Hard Tune", "Melody Tune: Trap Melody", "Melody Tune: Soft Harmony", "Melody Tune: Choir Stack", "Melody Tune: Octave Dream", "Melody Tune: Power Lead" };
+          int found = 0; foreach (var nm in names) foreach (var v in PluginLibrary.All) if (v.Name == nm) found++; Check("Worldwide Echo (7 versions) and Melody Tune (8 versions) are in the plugin list", found == names.Length, found + " of " + names.Length); }
+        Func<string, float[], float[]> runSpec = (spec, input) => { var f = Make(spec); var l = (float[])input.Clone(); var r = (float[])input.Clone(); Run(f, l, r, 512); return l; };
+        Func<float[], double, double, float> peakAt = (x, sec, wid) => { float m = 0; for (int i = (int)((sec - wid) * SR); i <= (int)((sec + wid) * SR) && i < x.Length; i++) m = Math.Max(m, Math.Abs(x[i])); return m; };
+        { var imp = new float[SR * 4]; imp[(int)(0.125 * SR)] = 1f; imp[(int)(1.6 * SR)] = 1f;   // beat 0.25 (not in the last beat of the bar) and beat 3.2 (in it), at 120 BPM
+          string baseSpec = "worldecho{style=2;sync=4;fb=0;lc=20;hc=20000;rev=0;duck=0;sat=0;diff=0;dry=0;mix=100;sendsm=2;send=";
+          var gated = runSpec(baseSpec + "1}", imp); var always = runSpec(baseSpec + "0}", imp);
+          Check("Worldwide Echo: with Send on the last beat of the bar, only the moment inside that beat is echoed", peakAt(gated, 2.1, 0.01) > 0.4 && peakAt(gated, 0.625, 0.01) < 0.05, "in the beat " + peakAt(gated, 2.1, 0.01).ToString("0.00") + ", outside " + peakAt(gated, 0.625, 0.01).ToString("0.000"));
+          Check("Worldwide Echo: with Send set to all the time, both moments are echoed", peakAt(always, 2.1, 0.01) > 0.4 && peakAt(always, 0.625, 0.01) > 0.4, peakAt(always, 0.625, 0.01).ToString("0.00") + " and " + peakAt(always, 2.1, 0.01).ToString("0.00")); }
+        { var imp = new float[SR * 5]; imp[(int)(1.7 * SR)] = 1f;
+          var o = runSpec("worldecho{style=2;sync=4;fb=60;lc=20;hc=20000;rev=0;duck=0;dry=0;mix=100;sendsm=2;send=1}", imp);
+          Check("Worldwide Echo: repeats keep ringing after the Send closes", peakAt(o, 2.2, 0.01) > 0.4 && peakAt(o, 2.7, 0.01) > 0.15 && peakAt(o, 3.2, 0.01) > 0.07, peakAt(o, 2.2, 0.01).ToString("0.00") + ", " + peakAt(o, 2.7, 0.01).ToString("0.00") + ", " + peakAt(o, 3.2, 0.01).ToString("0.00")); }
+        { bool ok = true; try { runSpec("echo{mode=1;sync=4;offset=20;mix=100}", Sine(300, SR * 2, 0.3)); } catch (Exception) { ok = false; } Check("echo with a delay time that lands exactly on a whole sample does not read past its buffer (stereo offset 20 at 90 BPM)", ok, ""); }
+        { var f = Make("melody"); Check("Melody Tune reports the delay of its two stages", f.Latency == 3072 + 2047, f.Latency + " samples"); }
+        { var x = Sine(150, SR * 3, 0.3); var o = runSpec("melody{key=0;scale=1;speed=0;strength=100;natural=0;harm=0;mix=100}", x); double hz = PeakHz(o, SR * 2, 32768);
+          Check("Melody Tune pulls a 150 Hz note to the nearest note of C major (D3 = 146.8 Hz)", Math.Abs(hz - 146.83) < 1.8, hz.ToString("0.0") + " Hz"); }
+        { var x = Sine(220, SR * 3, 0.3); var plain = runSpec("melody{key=9;scale=2;speed=0;strength=0;harm=0;mix=100}", x); var up = runSpec("melody{key=9;scale=2;speed=0;strength=0;harm=5;hlevel=100;mix=100}", x);
+          double a = BandRms(plain, SR * 2, 32768, 420, 460), b = BandRms(up, SR * 2, 32768, 420, 460), c0 = BandRms(up, SR * 2, 32768, 200, 240);
+          Check("Melody Tune: the Octave above layer adds a voice at 440 Hz and keeps the 220 Hz voice", b > a * 8 && c0 > 0.2 * BandRms(plain, SR * 2, 32768, 200, 240), "440 Hz " + a.ToString("0.0") + " -> " + b.ToString("0.0")); }
+        { var x = Sine(300, SR * 2, 0.3); var o = runSpec("melody{mix=0;harm=8}", x); int lat = 3072 + 2047; double d = 0; for (int i = SR / 2; i < SR * 2 - lat - 1; i += 7) d = Math.Max(d, Math.Abs(o[i + lat] - x[i])); Check("Melody Tune with Mix at 0 passes the sound through, delayed to match the processed path", d < 0.01, "max difference " + d.ToString("0.0000")); }
+
         // ---- every named plugin ----
         var sw = Stopwatch.StartNew(); int bad = 0, n = 0; var times = new List<string>();
         foreach (var v in PluginLibrary.All)

@@ -117,6 +117,8 @@ public static class PluginLibrary
             case "phaser": return new PhaserFx();
             case "flanger": return new FlangerFx();
             case "amp": return new AmpFx();
+            case "worldecho": return new WorldEchoFx();
+            case "melody": return new MelodyTuneFx();
         }
         return FxRegistry.Create(id);
     }
@@ -176,7 +178,8 @@ static class Dsp2
     public static float Sanitize(float v) { return float.IsNaN(v) || float.IsInfinity(v) ? 0f : v; }
     public static float Hermite(float[] b, int len, double pos)   // 4-point cubic read from a circular buffer (pos = fractional index)
     {
-        pos %= len; if (pos < 0) pos += len; int i = (int)pos; float f = (float)(pos - i);
+        pos %= len; if (pos < 0) pos += len; if (!(pos >= 0 && pos < len)) pos = 0;   // a tiny negative value plus len rounds to exactly len: that must wrap to 0, not read past the buffer
+        int i = (int)pos; float f = (float)(pos - i);
         float ym1 = b[(i - 1 + len) % len], y0 = b[i], y1 = b[(i + 1) % len], y2 = b[(i + 2) % len];
         float c0 = y0, c1 = 0.5f * (y1 - ym1), c2 = ym1 - 2.5f * y0 + 2f * y1 - 0.5f * y2, c3 = 0.5f * (y2 - ym1) + 1.5f * (y0 - y1);
         return ((c3 * f + c2) * f + c1) * f + c0;
