@@ -20,7 +20,7 @@ static class WS
             Application.EnableVisualStyles(); var app = (App)Activator.CreateInstance(typeof(App), true);
             app.StartPosition = FormStartPosition.Manual; app.Location = new Point(20, 20); app.Show(); Snap(app, Path.Combine(outDir, "main.png")); app.Hide();
             var st = new SettingsForm(app); st.StartPosition = FormStartPosition.Manual; st.Location = new Point(40, 40); st.Show();
-            var showPg = typeof(SettingsForm).GetMethod("ShowPage", BF); for (int p = 0; p < 8; p++) { try { showPg.Invoke(st, new object[] { p }); } catch { break; } Snap(st, Path.Combine(outDir, "settings-" + p + ".png")); }
+            var showPg = typeof(SettingsForm).GetMethod("ShowPage", BF); st.ClientSize = new Size(args.Length > 1 ? int.Parse(args[1]) : st.ClientSize.Width, args.Length > 2 ? int.Parse(args[2]) : st.ClientSize.Height); Pump(200); for (int p = 0; p < 8; p++) { try { showPg.Invoke(st, new object[] { p }); } catch { break; } Snap(st, Path.Combine(outDir, "settings-" + p + ".png")); }
             var hf = new HelpForm(id => true, id => { }, "editions"); hf.StartPosition = FormStartPosition.Manual; hf.Location = new Point(30, 30); hf.Show(); Snap(hf, Path.Combine(outDir, "help.png")); hf.Close();
             st.Close(); Console.WriteLine("saved");
         }

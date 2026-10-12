@@ -1,4 +1,4 @@
-3.28.1
+3.28.2
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Softer studio buttons, bigger writing in Settings, every label fits
-sha256=71a57eb1d9c5354b034c17be21f4818508c8ceb8dc975b1d73eedc6d9a08ed80
+Linking a PC cannot get lost, Settings always fits the screen
+sha256=

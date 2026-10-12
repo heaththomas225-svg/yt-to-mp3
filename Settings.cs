@@ -27,7 +27,7 @@ class SettingsForm : Form
     static readonly int[] FpsChoices = { 30, 60, 120, 144, 165, 240 };
     Label bgName, updStatus; Button updBtn; TrackBar dimBar, volBar; NumericUpDown dimNum, volNum; ComboBox devBox, bufBox, fpsBox, inBox;
     CheckBox leavesChk, studioChk, fpsChk, shareChk; ComboBox themeBox; Label themeNote;
-    static Color Ink { get { return TM.C(255, 240, 232, 255); } } static Color Dim { get { return TM.C(255, 160, 140, 200); } } static Color Head { get { return TM.C(255, 236, 120, 230); } } static Color Fld { get { return TM.C(255, 24, 12, 44); } }
+    static Color Ink { get { return TM.C(255, 240, 232, 255); } } static Color Dim { get { return TM.C(255, 198, 182, 232); } } static Color Head { get { return TM.C(255, 236, 120, 230); } } static Color Fld { get { return TM.C(255, 24, 12, 44); } }
 
     public SettingsForm(App app)
     {
@@ -107,7 +107,8 @@ class SettingsForm : Form
         var web = Btn("My account on the website", 20, y, 230, TM.C(255, 70, 40, 120)); web.Click += (s, e) => Edition.OpenUrl(Edition.Site + "/account"); 
         var codesB = Btn("Edition codes: unlink or redeem", 258, y, 270, TM.C(255, 70, 40, 120)); codesB.Click += (s, e) => Edition.OpenUrl(Edition.Site + "/redeem"); y += 40;
         FinishPage(y); BuildFrame();
-        ClientSize = new Size(800, Math.Min(660, Screen.PrimaryScreen.WorkingArea.Height - 100)); LayoutFrame(); ShowPage(0);
+        ClientSize = new Size(800, Math.Min(660, Screen.PrimaryScreen.WorkingArea.Height - 100)); MinimumSize = SizeFromClientSize(new Size(790, 420)); LayoutFrame(); ShowPage(0);   // never narrower than the writing: nothing runs off to the right
+        Shown += (s5, e5) => FitToScreen();
         Win.CapsAll(this); updStatus.Tag = "nocaps"; bgName.Tag = "nocaps";
         LockPage("Background"); LockPage("Theme"); Refresh2(); RefreshAccount(); RefreshLocks(); Action onEd = () => { try { RefreshAccount(); RefreshLocks(); } catch { } }; Edition.Changed += onEd; FormClosed += (s3, e3) => Edition.Changed -= onEd;
         wheel = new SettingsWheel(this); Application.AddMessageFilter(wheel); FormClosed += (s2, e2) => { try { Application.RemoveMessageFilter(wheel); } catch { } };
@@ -161,6 +162,11 @@ class SettingsForm : Form
     Panel page, shown; readonly System.Collections.Generic.List<Panel> pages = new System.Collections.Generic.List<Panel>(); readonly System.Collections.Generic.List<Button> sideBtns = new System.Collections.Generic.List<Button>(); const int SideW = 176, TopH = 56, BotH = 60;
     void Add(Control c) { page.Controls.Add(c); }
     // the mouse wheel scrolls the page, whatever is under the pointer: it never changes a drop-down, a number or a slider by accident
+    // the whole window is on the screen: not taller or wider than it, and not hanging off an edge
+    void FitToScreen()
+    {
+        try { var wa = Screen.FromControl(this).WorkingArea; if (Height > wa.Height) Height = wa.Height; if (Width > wa.Width) Width = wa.Width; Left = Math.Max(wa.Left, Math.Min(Left, wa.Right - Width)); Top = Math.Max(wa.Top, Math.Min(Top, wa.Bottom - Height)); } catch { }
+    }
     internal void WheelScroll(int delta) { if (shown == null) return; int cur = -shown.AutoScrollPosition.Y; shown.AutoScrollPosition = new Point(0, Math.Max(0, cur - delta / 2)); }
 
     // ---- the pages: a list of sections down the left, one page at a time on the right, SAVE at the top and at the bottom ----

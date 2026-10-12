@@ -165,7 +165,7 @@ static class Edition
     // keep a licence the website just gave (only if it is really signed for this PC); true when it was good
     static bool TakeLicense(Dictionary<string, object> o)
     {
-        var l = CheckLicense(S(o, "license")); if (l == null) { Note = S(o, "license").Length == 0 ? "The website could not give this PC a licence yet. Try again later." : "The licence the website sent is not valid for this PC."; return false; }
+        var l = CheckLicense(S(o, "license")); if (l == null) { Note = S(o, "license").Length == 0 ? "This PC is linked, but the website cannot make licences yet (its set-up is not finished). Press CHECK AGAIN in a little while." : "The licence the website sent is not valid for this PC."; return false; }
         lock (lk) { licText = S(o, "license"); lic = l; who = Clean(S(o, "who"), 40); billing = Clean(S(o, "billing"), 20); lastSeen = Math.Max(lastSeen, NowSec()); Save(); } Note = ""; return true;
     }
 
@@ -199,7 +199,7 @@ static class Edition
                 while (DateTime.UtcNow < end && !cancelLink)
                 {
                     Thread.Sleep(2000); var p = Obj(Req("POST", "/api/link/poll", "{\"code\":" + ProfApi.J(code) + ",\"secret\":" + ProfApi.J(secret) + "}", null, out st)); if (p == null) continue; string state = S(p, "state");
-                    if (state == "approved") { lock (lk) { tokenEnc = S(p, "token"); } ok = TakeLicense(p); if (!ok) { lock (lk) { tokenEnc = ""; Save(); } msg = Note; } else { msg = "Linked."; } Raise(); if (ok) Refresh(); break; }
+                    if (state == "approved") { lock (lk) { tokenEnc = S(p, "token"); } ok = TakeLicense(p); if (!ok) { if (S(p, "license").Length == 0) { lock (lk) { Save(); } msg = Note; ok = true; } else { lock (lk) { tokenEnc = ""; Save(); } msg = Note; } } else { msg = "Linked."; } Raise(); if (ok) Refresh(); break; }   // the website made the link but could not sign a licence yet: the PC stays linked, and CHECK AGAIN asks again later
                     if (state == "expired" || state == "gone") { msg = "That code ran out. Press LINK THIS PC again."; break; }
                 }
                 if (!ok && cancelLink) msg = "Cancelled."; else if (!ok && msg == "Could not link this PC.") msg = "Nobody approved the code in 10 minutes. Press LINK THIS PC again.";
