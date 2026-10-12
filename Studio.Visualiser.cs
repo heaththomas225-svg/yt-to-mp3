@@ -22,6 +22,8 @@ partial class StudioForm
     static Color VisCol(float t) { return t < 0.5f ? MixC(NeonCyan, NeonViolet, t * 2) : MixC(NeonViolet, NeonPink, (t - 0.5f) * 2); }
 
     // 96 bands from 30 Hz to 18 kHz (low to high), quick to rise and smooth to fall
+    // the four blasts (bottom, left, right, top): how strong each one is now, its running average, when it last went off, and which went off this frame
+    float[] jetE = new float[4], jetAvg = new float[4]; double[] jetAt = new double[4]; bool[] jetHit; static readonly double[] jetDir = { Math.PI / 2, Math.PI, 0, -Math.PI / 2 }; static readonly float[] jetMin = { 0.14f, 0.12f, 0.12f, 0.07f }; static readonly float[] jetCol = { 0.92f, 0.62f, 0.12f, 0.02f };
     void VisBands(float[] tap, int pos, float[] outB, bool playing)
     {
         if (!playing || tap == null) { for (int i = 0; i < outB.Length; i++) outB[i] *= 0.9f; return; }
@@ -103,6 +105,7 @@ partial class StudioForm
         visBass += (bass - visBass) * 0.55f; visBassAvg += (bass - visBassAvg) * 0.08f; visMid += (mid - visMid) * 0.3f; visHigh += (hi - visHigh) * 0.3f;
         bool beat = playing && bass > visBassAvg * 1.2f + 0.03f && bass > 0.26f && visT - visBeatAt > 0.17;
         if (beat) { visBeat = 1f; visFlash = 1f; visBeatAt = visT; visShake = 1f; }
+        { float lowMid = 0; for (int i = 14; i < 28; i++) lowMid += visB[i]; lowMid /= 14f; float[] eb = { bass, lowMid, mid, hi }; if (jetHit == null) jetHit = new bool[4]; for (int d = 0; d < 4; d++) { jetAvg[d] += (eb[d] - jetAvg[d]) * 0.08f; jetHit[d] = playing && eb[d] > jetAvg[d] * 1.22f + 0.025f && eb[d] > jetMin[d] && visT - jetAt[d] > 0.16; if (jetHit[d]) { jetE[d] = 1f; jetAt[d] = visT; } else jetE[d] = Math.Max(0, jetE[d] - dt * 2.6f); } }
         visBeat = Math.Max(0, visBeat - dt * 3.2f); visFlash = Math.Max(0, visFlash - dt * 5f); visShake = Math.Max(0, visShake - dt * 6f);
         for (int i = 0; i < VisN; i++) visPk[i] = Math.Max(visB[i], visPk[i] - dt * 0.5f);
         visRot += dt * (0.10f + visMid * 0.9f + visBeat * 0.9f);
@@ -138,23 +141,34 @@ partial class StudioForm
         var ringV = new float[nb]; { var rawV = new float[nb]; for (int i = 0; i < nb; i++) rawV[i] = visB[bandOf(i)]; float[] kern = { 0.08f, 0.17f, 0.50f, 0.17f, 0.08f }; for (int i = 0; i < nb; i++) { float acc = 0; for (int k = -2; k <= 2; k++) acc += rawV[((i + k) % nb + nb) % nb] * kern[k + 2]; ringV[i] = acc; } }
         for (int k = visEcho.Length - 1; k >= 1; k--)
         {
-            var snap = visEcho[(visEchoHead - k + visEcho.Length * 2) % visEcho.Length]; if (snap == null) continue; var pts = new PointF[nb]; float grow = 1f + 0.09f * k;
-            for (int i = 0; i < nb; i++) { float rr = (r1 + R0 * 0.06f + snap[bandOf(i)] * R0 * 1.15f * 0.9f) * grow; pts[i] = new PointF(cx + cosT[i] * rr, cy + sinT[i] * rr); }
+            var snap = visEcho[(visEchoHead - k + visEcho.Length * 2) % visEcho.Length]; if (snap == null) continue; var pts = new PointF[nb]; float grow = 1f + 0.045f * k;
+            for (int i = 0; i < nb; i++) { float rr = (r1 + R0 * 0.06f + snap[bandOf(i)] * R0 * 0.8f * 0.9f) * grow; pts[i] = new PointF(cx + cosT[i] * rr, cy + sinT[i] * rr); }
             using (var pen = new Pen(Color.FromArgb((int)((playing ? 74 : 26) / (float)k), VisCol(0.55f + 0.1f * k)), 1.5f) { LineJoin = LineJoin.Round }) g.DrawPolygon(pen, pts);
         }
         Prof.A("vis.shells", v0); v0 = Prof.T();
         // ---- the kick: a soft thick ring that swells on every beat, and hexagons that grow out of the logo ----
-        if (playing && visBeat > 0.02f) { using (var pen = new Pen(Color.FromArgb((int)(55 * visBeat), NeonPink), R0 * 0.35f * visBeat + 2)) g.DrawEllipse(pen, cx - r1 * 0.98f, cy - r1 * 0.98f, r1 * 1.96f, r1 * 1.96f); }
+        if (playing && visBeat > 0.02f) { using (var pen = new Pen(Color.FromArgb((int)(40 * visBeat), NeonPink), R0 * 0.12f * visBeat + 2)) g.DrawEllipse(pen, cx - r1 * 0.98f, cy - r1 * 0.98f, r1 * 1.96f, r1 * 1.96f); }
         // ---- two rings of beads turning against each other; they speed up and swell with the music ----
         { var sm3 = g.SmoothingMode; g.SmoothingMode = SmoothingMode.None; using (var br = new SolidBrush(Color.White))
             for (int ring = 0; ring < 2; ring++) { int cnt = ring == 0 ? 72 : 48; float rr = R0 * (ring == 0 ? 2.62f : 2.78f); double sp0 = visRot * (ring == 0 ? 0.7 : -1.1);
               for (int i = 0; i < cnt; i++) { double an = sp0 + i * 2 * Math.PI / cnt; float bx = cx + (float)Math.Cos(an) * rr, by = cy + (float)Math.Sin(an) * rr; if (!a.Contains(bx, by)) continue; float sz = 1.6f + (playing ? visHigh * 3.2f + visBeat * 1.6f : 0f); br.Color = Color.FromArgb(playing ? 190 : 80, ring == 0 ? NeonCyan : NeonPink); g.FillRectangle(br, bx - sz / 2, by - sz / 2, sz, sz); } }
           g.SmoothingMode = sm3; }
-        // ---- rays that shoot out when the highs sparkle ----
-        if (playing && visHigh > 0.12f) { var sm4 = g.SmoothingMode; g.SmoothingMode = SmoothingMode.None; using (var pen = new Pen(Color.White, 1f)) for (int i = 0; i < 36; i++) { double an = -visRot * 1.7 + i * 2 * Math.PI / 36; float len = R0 * (0.15f + visHigh * 1.7f) * (0.4f + 0.6f * (float)Math.Abs(Math.Sin(i * 12.9898 + visT * 9))); float x0 = cx + (float)Math.Cos(an) * R0 * 2.3f, y0 = cy + (float)Math.Sin(an) * R0 * 2.3f; pen.Color = Color.FromArgb((int)(120 * Math.Min(1f, visHigh * 2.2f)), VisCol(i / 36f)); g.DrawLine(pen, x0, y0, x0 + (float)Math.Cos(an) * len, y0 + (float)Math.Sin(an) * len); } g.SmoothingMode = sm4; }
+        // ---- four separate blasts: the bass jumps out of the bottom, the low mids of the left, the mids of the right, the highs of the top; each has its own bang (a wave, streaks and sparks) ----
+        // each starts just outside the bars and travels as far as there is room on the stage in its direction, so the small light show and the full page get the same blasts
+        float[] jS = new float[4], jT = new float[4]; { float[] room = { a.Bottom - seekH - 10 - cy, cx - a.X - 8, a.Right - cx - 8, cy - a.Y - 6 }; for (int d = 0; d < 4; d++) { float s0 = Math.Min(R0 * 2.05f, Math.Max(R0 * 1.2f, room[d] * 0.62f)); jS[d] = s0; jT[d] = Math.Max(s0 + R0 * 0.45f, Math.Min(s0 + R0 * 1.5f, room[d] - 4f)); } }
+        if (jetHit != null) for (int d = 0; d < 4; d++) if (jetHit[d]) { for (int k = 0; k < 7 && visSp.Count < 220; k++) { double an = jetDir[d] + (visRnd.NextDouble() - 0.5) * 1.0; float sp = 150 + (float)visRnd.NextDouble() * 260, rr0 = jS[d], life = 0.45f + (float)visRnd.NextDouble() * 0.5f; visSp.Add(new Spark { X = cx + (float)Math.Cos(an) * rr0, Y = cy + (float)Math.Sin(an) * rr0, VX = (float)Math.Cos(an) * sp, VY = (float)Math.Sin(an) * sp, Life = life, Max = life, R = 1f, C = VisCol(jetCol[d] + (float)visRnd.NextDouble() * 0.12f) }); } }
+        { var smJ = g.SmoothingMode; g.SmoothingMode = SmoothingMode.AntiAlias;
+          for (int d = 0; d < 4; d++)
+          {
+              float e = jetE[d]; if (e <= 0.02f) continue; float p = 1f - e, deg = (float)(jetDir[d] * 180 / Math.PI); Color jc = VisCol(jetCol[d]); float rl = jS[d] + (jT[d] - jS[d]) * p;
+              using (var gp = new Pen(Color.FromArgb((int)(46 * e), jc), 10f + 26f * e)) g.DrawArc(gp, cx - rl, cy - rl, rl * 2, rl * 2, deg - 46f, 92f);
+              for (int w = 0; w < 2; w++) { float rr = Math.Max(R0 * 0.5f, rl - R0 * 0.2f * w), sweep = 92f - 14f * w; using (var pen = new Pen(Color.FromArgb((int)((w == 0 ? 210 : 110) * e), w == 0 ? MixC(jc, Color.White, 0.35f) : jc), (w == 0 ? 2.2f + 5f * e : 1.4f + 2f * e)) { StartCap = LineCap.Round, EndCap = LineCap.Round }) g.DrawArc(pen, cx - rr, cy - rr, rr * 2, rr * 2, deg - sweep / 2, sweep); }
+              using (var pen = new Pen(Color.White, 1.4f) { StartCap = LineCap.Round, EndCap = LineCap.Round }) for (int k = 0; k < 11; k++) { double an = jetDir[d] + (k - 5) * 0.115 + 0.02 * Math.Sin(k * 7.3 + visT * 4); float len = R0 * (0.14f + 0.5f * e) * (0.55f + 0.45f * (float)Math.Abs(Math.Sin(k * 3.1 + d))); pen.Color = Color.FromArgb((int)(190 * e), MixC(jc, Color.White, 0.5f)); g.DrawLine(pen, cx + (float)Math.Cos(an) * rl, cy + (float)Math.Sin(an) * rl, cx + (float)Math.Cos(an) * (rl + len), cy + (float)Math.Sin(an) * (rl + len)); }
+          }
+          g.SmoothingMode = smJ; }
         // ---- shockwaves ----
-        if (beat) { visRings.Add(new[] { R0 * 1.2f, 1f }); for (int k = 0; k < 22 && visSp.Count < 220; k++) { double an = visRnd.NextDouble() * Math.PI * 2; float sp = 120 + (float)visRnd.NextDouble() * 300, rr0 = R0 * 1.3f, life = 0.7f + (float)visRnd.NextDouble() * 0.7f; visSp.Add(new Spark { X = cx + (float)Math.Cos(an) * rr0, Y = cy + (float)Math.Sin(an) * rr0, VX = (float)Math.Cos(an) * sp, VY = (float)Math.Sin(an) * sp, Life = life, Max = life, R = 1f, C = VisCol((float)visRnd.NextDouble()) }); } }
-        for (int i = visRings.Count - 1; i >= 0; i--) { var rg = visRings[i]; rg[0] += dt * R0 * 2.1f; rg[1] -= dt * 1.15f; if (rg[1] <= 0) { visRings.RemoveAt(i); continue; } using (var pen = new Pen(Color.FromArgb((int)(150 * rg[1]), i % 2 == 0 ? NeonCyan : NeonPink), 2.2f + 3f * rg[1])) g.DrawEllipse(pen, cx - rg[0], cy - rg[0], rg[0] * 2, rg[0] * 2); }
+        if (beat) { visRings.Add(new[] { R0 * 1.2f, 1f }); for (int k = 0; k < 8 && visSp.Count < 220; k++) { double an = visRnd.NextDouble() * Math.PI * 2; float sp = 120 + (float)visRnd.NextDouble() * 300, rr0 = R0 * 1.3f, life = 0.7f + (float)visRnd.NextDouble() * 0.7f; visSp.Add(new Spark { X = cx + (float)Math.Cos(an) * rr0, Y = cy + (float)Math.Sin(an) * rr0, VX = (float)Math.Cos(an) * sp, VY = (float)Math.Sin(an) * sp, Life = life, Max = life, R = 1f, C = VisCol((float)visRnd.NextDouble()) }); } }
+        for (int i = visRings.Count - 1; i >= 0; i--) { var rg = visRings[i]; rg[0] += dt * R0 * 1.5f; rg[1] -= dt * 1.7f; if (rg[1] <= 0) { visRings.RemoveAt(i); continue; } using (var pen = new Pen(Color.FromArgb((int)(150 * rg[1]), i % 2 == 0 ? NeonCyan : NeonPink), 2.2f + 3f * rg[1])) g.DrawEllipse(pen, cx - rg[0], cy - rg[0], rg[0] * 2, rg[0] * 2); }
         Prof.A("vis.shock", v0); v0 = Prof.T();
         // ---- the bars: a dim wide one under a bright thin one, each coloured by where it sits on the ring ----
         { var core = new PointF[4]; var smW = g.SmoothingMode;
@@ -163,7 +177,7 @@ partial class StudioForm
               g.SmoothingMode = pass == 0 ? SmoothingMode.None : SmoothingMode.AntiAlias; float wdt = pass == 0 ? 11f : 3.4f;
               for (int i = 0; i < nb; i++)
               {
-                  int bi = bandOf(i); float v = Even(ringV[i]); if (!playing) v = Math.Max(v, 0.03f + 0.025f * (float)Math.Sin(visT * 1.7 + i * 0.35)); float len = R0 * 0.07f + v * R0 * 1.15f * (1f + 0.22f * visBeat); float ca = cosT[i], sa = sinT[i], nx = -sa * wdt / 2, ny = ca * wdt / 2; float x0 = cx + ca * r1, y0 = cy + sa * r1, x1 = cx + ca * (r1 + len), y1 = cy + sa * (r1 + len);
+                  int bi = bandOf(i); float v = Even(ringV[i]); if (!playing) v = Math.Max(v, 0.03f + 0.025f * (float)Math.Sin(visT * 1.7 + i * 0.35)); float len = R0 * 0.07f + v * R0 * 0.8f; float ca = cosT[i], sa = sinT[i], nx = -sa * wdt / 2, ny = ca * wdt / 2; float x0 = cx + ca * r1, y0 = cy + sa * r1, x1 = cx + ca * (r1 + len), y1 = cy + sa * (r1 + len);
                   core[0] = new PointF(x0 + nx, y0 + ny); core[1] = new PointF(x1 + nx, y1 + ny); core[2] = new PointF(x1 - nx, y1 - ny); core[3] = new PointF(x0 - nx, y0 - ny);
                   Color col = VisCol((i < 48 ? i : 95 - i) / 47f); if (pass == 0) col = Color.FromArgb((int)(34 + 40 * v), col); else col = MixC(col, Color.White, Math.Min(0.55f, v * 0.5f));
                   using (var br = new SolidBrush(col)) g.FillPolygon(br, core);
@@ -172,7 +186,7 @@ partial class StudioForm
           g.SmoothingMode = smW; }
         Prof.A("vis.bars", v0); v0 = Prof.T();
         // peak dots
-        { var sm1 = g.SmoothingMode; g.SmoothingMode = SmoothingMode.None; using (var br = new SolidBrush(Color.White)) for (int i = 0; i < nb; i += 2) { float pv = visPk[bandOf(i)]; if (pv < 0.07f) continue; float rr = r1 + R0 * 0.07f + pv * R0 * 1.15f + 8; br.Color = Color.FromArgb(200, 255, 255, 255); g.FillRectangle(br, cx + cosT[i] * rr - 1.5f, cy + sinT[i] * rr - 1.5f, 3f, 3f); } g.SmoothingMode = sm1; }
+        { var sm1 = g.SmoothingMode; g.SmoothingMode = SmoothingMode.None; using (var br = new SolidBrush(Color.White)) for (int i = 0; i < nb; i += 2) { float pv = visPk[bandOf(i)]; if (pv < 0.07f) continue; float rr = r1 + R0 * 0.07f + pv * R0 * 0.8f + 8; br.Color = Color.FromArgb(200, 255, 255, 255); g.FillRectangle(br, cx + cosT[i] * rr - 1.5f, cy + sinT[i] * rr - 1.5f, 3f, 3f); } g.SmoothingMode = sm1; }
         // ---- the sound before mastering (a thin ring inside the bars) and the real waveform (a circular scope) ----
         { var pts = new PointF[nb]; for (int i = 0; i < nb; i++) { float rr = R0 * 1.06f + visPre[bandOf(i)] * R0 * 0.2f; pts[i] = new PointF(cx + cosT[i] * rr, cy + sinT[i] * rr); } using (var pen = new Pen(TM.C(120, 215, 215, 240), 1.3f)) g.DrawPolygon(pen, pts); }
         if (playing && eng.MasterTap != null)
@@ -182,7 +196,7 @@ partial class StudioForm
         }
         Prof.A("vis.rings+scope", v0); v0 = Prof.T();
         // ---- the logo, beating ----
-        { float hh0 = R0 * (0.80f + 0.1f * visBeat + 0.05f * visBass); if (visBeat > 0.05f) { float grow = (1 - visBeat) * R0 * 0.9f; using (var hp0 = HexPath(cx, cy, (hh0 + grow) * 1.16f, hh0 + grow)) using (var pen = new Pen(Color.FromArgb((int)(150 * visBeat), NeonCyan), 2f + 3f * visBeat) { LineJoin = LineJoin.Round }) g.DrawPath(pen, hp0); } DrawLogo(g, cx, cy, hh0, playing, false); }
+        { float hh0 = R0 * (0.80f + 0.1f * visBeat + 0.05f * visBass); if (visBeat > 0.05f) { float grow = (1 - visBeat) * R0 * 0.4f; using (var hp0 = HexPath(cx, cy, (hh0 + grow) * 1.16f, hh0 + grow)) using (var pen = new Pen(Color.FromArgb((int)(150 * visBeat), NeonCyan), 2f + 3f * visBeat) { LineJoin = LineJoin.Round }) g.DrawPath(pen, hp0); } DrawLogo(g, cx, cy, hh0, playing, false); }
         Prof.A("vis.logo", v0); v0 = Prof.T();
         // ---- sparks ----
         for (int i = visSp.Count - 1; i >= 0; i--) { var s = visSp[i]; s.VX *= 0.985f; s.VY = s.VY * 0.985f + 60 * dt; s.X += s.VX * dt; s.Y += s.VY * dt; s.Life -= dt; if (s.Life <= 0 || !a.Contains(s.X, s.Y)) { visSp.RemoveAt(i); continue; } var sp = SparkSprite(Coarse(s.C)); g.DrawImageUnscaled(sp, (int)(s.X - 7), (int)(s.Y - 7)); }

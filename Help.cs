@@ -82,6 +82,30 @@ Every paid edition has a code like PX-ABCD-EFGH-JKLM. It is linked to ONE place 
 - Editions given by the Purphex team (admins and testers) cannot be moved.
 TIP: Press Check again on the Account page if you just paid and the app still says Free."),
 
+        new HelpTopic("lyrics-generator", "Basics", "Generate lyrics from a song or video", false, @"
+## Where it is
+On the first screen, press GENERATE LYRICS (next to Vocal remover and Purphex Music), or Menu, Generate lyrics. It is a page of its own, and it is free in every edition. On the Fantasy edition it wears the Fantasy gold and follows your Fantasy theme.
+## Get the lyrics
+1. Drop a song or a video on it, or press CHOOSE FILE. Any of mp3, wav, flac, m4a, ogg, opus, aac, mp4, mkv, webm, mov and more.
+2. Or paste a link (YouTube; other sites need the link reader the converter installs) in OR PASTE A LINK: the lyrics are found from the video's name, with nothing downloaded and no MP3 needed.
+3. Press GENERATE LYRICS. The song's tags and file name (or the link) say which song it is, and the lyrics database (LRCLIB) is asked for it.
+4. A song that is not in the database can be written by listening to it (this needs the file, not a link). That uses the Whisper speech recogniser, which runs on your PC: Purphex asks before it downloads it (about 160 MB, once, and your song is never uploaded). A recogniser can mishear a word, so check the words against the song.
+## Grammar and punctuation
+Every result is tidied: capital letters, I, the apostrophes in don't and I'm, spaces round commas, a full stop or question mark at the end of each verse, a comma before and / but / so lines, clean blank lines between verses, and [Verse] and [Chorus] labels. FIX GRAMMAR does the same to words you typed or changed, and UNDO brings your words back.
+## Resize lyrics
+A- and A+ change the size of the writing. FIT TO BOX makes it as big as it can be while the whole lyric still fits in the box (a very long song stops at a readable size and scrolls instead).
+## Keep it
+COPY, SAVE .TXT, or SAVE TO THE DAW: give it a TITLE (it starts as Artist - Title) so you know which song it was. In Purphex Music, open Lyrics and press RECENT GENERATED to bring one back into the writer. RECENT on the Generate Lyrics page shows the last ones you saved, newest first (the last 30 are kept).
+NOTE: Lyrics belong to their writers. The text is for your own use."),
+
+        new HelpTopic("times-used", "Basics", "TIMES USED: worldwide MP3 and MP4 numbers", false, @"
+## What it is
+The TIMES USED button (top left of the first screen) shows how many MP3s (audio) and MP4s (video) have been made with Purphex Music all over the world, plus how many you made on this PC.
+## No limit
+The numbers have no upper limit. They are shown in full (1,234,567) and short (1.2M, 3.4B...) and keep going past billions and trillions.
+## What is sent
+Each finished conversion adds one to the worldwide number. Only that number is sent: never who you are, the link or the song. If you are offline the count waits and is sent later. Settings, General, Add my conversions to the worldwide TIMES USED number, turns it off (it is still counted on this PC)."),
+
         new HelpTopic("lyrics-getter", "Basics", "Lyrics saved with each song (.txt)", false, @"
 ## What it does
 After a song is converted, Purphex looks up its lyrics and saves them as a text file with the same name next to the song, for example 'Artist - Title [MP3 320k].txt'. It is in every edition, Free included.
@@ -608,11 +632,11 @@ Import adds your own samples (wav, mp3, flac, midi...) to the My samples pack, o
 
         new HelpTopic("studio-menu", "Purphex Music", "The side menu, My Projects with pictures, and Community", false, @"
 ## The side menu
-Press the three-lines button at the top left of Purphex Music. Your picture and name are at the top. Five of the buttons open a list (File, Edit, Tools, Pages, View) and the others just take you there (Profile, Themes, Fonts, Settings, Help, Exit).
+Press the three-lines button at the top left of Purphex Music. Your picture and name are at the top. Five of the buttons open a list (File, Edit, Tools, Pages, View) and the others just take you there (Projects, Community, Profile, Themes, Fonts, Settings, Help, Exit).
 - File: New Project, Recent Projects (the last ones you opened, with their pictures), Open, Save, Save as, Set project picture, Export.
 - Edit (only on the Mix page): undo, redo, split, cut, lock, duplicate and delete.
 - Tools: Auto Mix, split vocals and beat, detect BPM, Flex Pitch, Sounds and sound packs, Rapper Vocal Styles, add a track, metronome and snap to grid. They all take you to the Mix page first.
-- Pages: Mix, Mastering, Lyrics, My Projects, Community and Artists. Every page also has a BACK button that returns to the page you came from.
+- Pages: Mix, Mastering and Lyrics. Projects and Community are buttons of their own (Projects opens your saved projects and nothing else; Community has ARTISTS in its header). Every page also has a BACK button that returns to the page you came from.
 - View: fit the whole song, thin / normal / tall tracks, full screen, the FPS counter and the converter window.
 - Profile: your own profile page (banner, picture, bio, links, privacy and your tracks).
 - Fonts: the Fonts page, with 190+ fonts (drippy, graffiti, neon, gothic, retro, script, handwritten and more) for all the writing in the studio.

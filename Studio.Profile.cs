@@ -341,8 +341,8 @@ partial class StudioForm
         if (ProfileStore.Links.Count > 0) { y += LinkChips(g, cx + 6, y, cx + cw, ProfileStore.Links); }
         y += 8;
         // ---- numbers ----
-        var all = ProjectLibrary.AllByEdited(); int tracks = 0; double secs = 0; foreach (var e in all) { tracks += e.Tracks; secs += e.Seconds; }
-        { float sw = (cw - 3 * 14) / 4f; StatCard(g, Rc(cx, y, sw, 64), "PROJECTS", all.Count.ToString(), Ink); StatCard(g, Rc(cx + (sw + 14), y, sw, 64), "TRACKS", tracks.ToString(), NeonCyan); StatCard(g, Rc(cx + 2 * (sw + 14), y, sw, 64), "TIME MADE", DurMade((long)secs), NeonPink); StatCard(g, Rc(cx + 3 * (sw + 14), y, sw, 64), "FOLLOWERS", ProfileStore.Followers.ToString(), acc); y += 64 + 20; }
+        var all = ProjectLibrary.AllByEdited(); int tracks = 0; double secs = 0; foreach (var e in all) { tracks += e.Tracks; secs += e.Seconds; } UseTime.Seed(secs);
+        { float sw = (cw - 3 * 14) / 4f; StatCard(g, Rc(cx, y, sw, 64), "PROJECTS", all.Count.ToString(), Ink); StatCard(g, Rc(cx + (sw + 14), y, sw, 64), "TRACKS", tracks.ToString(), NeonCyan); StatCard(g, Rc(cx + 2 * (sw + 14), y, sw, 64), "TIME MADE", DurMade((long)UseTime.Seconds), NeonPink); StatCard(g, Rc(cx + 3 * (sw + 14), y, sw, 64), "FOLLOWERS", ProfileStore.Followers.ToString(), acc); y += 64 + 20; }
         // ---- the editing system ----
         var ed = Rc(cx, y, cw, Math.Max(200, profEditH)); using (var p = RR(ed, 18)) { using (var br = new SolidBrush(TM.C(255, 12, 6, 28))) g.FillPath(br, p); } Win.DrawNeonBox(g, ed, false);   // (the box is drawn first, with the height it had last time)
         float ey = y; Txt(g, "EDIT YOUR PROFILE", 18, Ink, Rc(cx + 18, ey + 12, 400, 28), StringAlignment.Near, true); ey += 48; bool two = cw >= 760; float colW = two ? (cw - 54) / 2f : cw - 36, c1 = cx + 18, c2 = two ? cx + 36 + colW : c1;
@@ -510,6 +510,16 @@ partial class StudioForm
 partial class StudioForm
 {
     // a round play / pause button laid over a picture
+    // PLAY on a project card: a box of its own under SIZE, with a round play button and the word PLAY / PAUSE (or LOADING while the project opens)
+    void PlayBox(Graphics g, RectangleF r, ProjectEntry e)
+    {
+        bool mine = string.Equals(previewPath, e.Path, StringComparison.OrdinalIgnoreCase), on = mine && !previewLoading, loading = mine && previewLoading; bool hot = Hot(r);
+        using (var p = RR(r, 10)) using (var br = new LinearGradientBrush(r, hot ? TM.C(255, 150, 80, 240) : TM.C(255, 120, 56, 215), hot ? TM.C(255, 110, 50, 200) : TM.C(255, 84, 38, 160), 90f)) g.FillPath(br, p);   // solid, no outline: nothing but the button itself
+        var dot = Rc(r.X + 6, r.Y + 5, r.Height - 10, r.Height - 10); using (var b = new SolidBrush(TM.C(235, 20, 10, 46))) g.FillEllipse(b, dot);
+        using (var b = new SolidBrush(Color.White)) { if (mine) g.FillRectangle(b, dot.X + dot.Width * 0.32f, dot.Y + dot.Height * 0.32f, dot.Width * 0.36f, dot.Height * 0.36f); else g.FillPolygon(b, new[] { new PointF(dot.X + dot.Width * 0.38f, dot.Y + dot.Height * 0.27f), new PointF(dot.X + dot.Width * 0.38f, dot.Y + dot.Height * 0.73f), new PointF(dot.X + dot.Width * 0.74f, dot.Y + dot.Height * 0.5f) }); }
+        Txt(g, loading ? "LOADING..." : (mine ? "STOP" : "PLAY"), 13, Ink, Rc(dot.Right + 10, r.Y, r.Width - dot.Width - 24, r.Height), StringAlignment.Near, true);
+        Reg(r, () => PreviewToggle(e)); Hint2(r, mine ? "Stop" : "Play this project (a preview of the saved song)");
+    }
     void PlayDot(Graphics g, RectangleF r, bool on, Action act)
     {
         bool hot = Hot(r); using (var b = new SolidBrush(hot ? TM.C(235, 120, 60, 230) : TM.C(215, 12, 6, 30))) g.FillEllipse(b, r); using (var pen = new Pen(on ? NeonCyan : NeonPink, 2f)) g.DrawEllipse(pen, r);

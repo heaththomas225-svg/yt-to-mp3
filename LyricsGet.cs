@@ -28,7 +28,7 @@ static class LyricsGet
     {
         var a = Tokens(want); var b = new HashSet<string>(Tokens(have)); if (a.Count == 0) return 0; int hit = 0; foreach (var t in a) if (b.Contains(t)) hit++; return hit / (double)a.Count;
     }
-    static string GetText(string url)
+    internal static string GetText(string url)
     {
         try { ServicePointManager.SecurityProtocol |= (SecurityProtocolType)3072; } catch { }
         var rq = (HttpWebRequest)WebRequest.Create(url); rq.UserAgent = "PurphexMusic/" + App.CurrentVersion + " (https://purphexmusic.com)"; rq.Timeout = 12000; rq.ReadWriteTimeout = 12000; rq.Accept = "application/json";

@@ -10,18 +10,20 @@ partial class StudioForm
 {
     class MItem { public string Text, Hint = ""; public Action Do; public bool Sub, Disabled; public string Key = ""; }
     bool menuOpen, projectsLoaded; int menuSec = -1, menuSub = -1; float projScroll; const string ImgFilter = "Pictures|*.jpg;*.jpeg;*.png;*.gif;*.bmp|All files|*.*";
-    // the side menu: five lists (File, Edit, Tools, Pages, View) and then single buttons that just take you there (Profile, Themes, Settings, Help, Exit)
-    static readonly string[] MenuNames = { "File", "Edit", "Tools", "Pages", "View", "Profile", "Themes", "Fonts", "Settings", "Help", "Exit" }; const int MenuLists = 5;
-    static readonly int[] MenuIcon = { 0, 1, 2, 8, 3, 4, 5, 10, 6, 7, 9 };
+    // the side menu: five lists (File, Edit, Tools, Pages, View) and then single buttons that just take you there (Projects, Community, Profile, Themes, Fonts, Settings, Help, Exit)
+    static readonly string[] MenuNames = { "File", "Edit", "Tools", "Pages", "View", "Projects", "Community", "Profile", "Themes", "Fonts", "Settings", "Help", "Exit" }; const int MenuLists = 5;
+    static readonly int[] MenuIcon = { 0, 1, 2, 8, 3, 11, 12, 4, 5, 10, 6, 7, 9 };
     Action MenuDirect(int i)
     {
         switch (i)
         {
-            case 5: return () => { GoTab(6); profScroll = 0; };
-            case 6: return () => { CloseMenu(); OpenThemeSheet(); };
-            case 7: return () => { GoTab(8); fontScroll = 0; };
-            case 8: return () => { CloseMenu(); app.ShowSettings(); };
-            case 9: return () => { CloseMenu(); app.ShowHelp(null); };
+            case 5: return () => GoTab(3);   // Projects: straight to your saved projects
+            case 6: return () => GoTab(4);   // Community: a button of its own
+            case 7: return () => { GoTab(6); profScroll = 0; };
+            case 8: return () => { CloseMenu(); OpenThemeSheet(); };
+            case 9: return () => { GoTab(8); fontScroll = 0; };
+            case 10: return () => { CloseMenu(); app.ShowSettings(); };
+            case 11: return () => { CloseMenu(); app.ShowHelp(null); };
             default: return () => { CloseMenu(); Close(); };
         }
     }
@@ -64,7 +66,6 @@ partial class StudioForm
                 break;
             case 3:   // Pages
                 I("Mix (tracks)", () => GoTab(0)); I("Mastering", () => GoTab(1)); I("Lyrics", () => GoTab(2));
-                I("My Projects", () => GoTab(3)); I("Community", () => GoTab(4)); I("Artists", () => { CloseMenu(); OpenArtists(); });
                 break;
             default:  // View
                 I("Fit the whole song", () => { CloseMenu(); tab = 0; FitView(); });
@@ -125,17 +126,18 @@ partial class StudioForm
         Txt(g, "PURPHEX MUSIC", 11, DimC, Rc(94, 50, w1 - 106, 18), StringAlignment.Near, false);
         var close = Rc(w1 - 40, 6, 30, 26); Txt(g, "X", 14, DimC, close, StringAlignment.Center, true); Reg(close, () => CloseMenu());
         float y = 104; using (var pen = new Pen(TM.C(70, 140, 90, 220))) g.DrawLine(pen, 14, y - 10, w1 - 14, y - 10);
+        int shown = MenuNames.Length - (tab != 0 ? 1 : 0); float pitch = Math.Min(46f, (H - y - 30f) / shown), ih = Math.Min(40f, pitch - 6f);   // thirteen buttons: they tighten up on a short window so Exit is never cut off
         for (int i = 0; i < MenuNames.Length; i++)
         {
             if (i == 1 && tab != 0) { if (menuSec == 1) menuSec = -1; continue; }   // Edit (undo, split...) only makes sense on the Mix page
             bool list = i < MenuLists; bool last = i == MenuNames.Length - 1; if (i == MenuLists || last) y += 8;   // a gap before the single buttons and before Exit
-            menuYs[i] = y; int k = i; var r = Rc(10, y, w1 - 20, 40); bool sel = list && menuSec == i;
+            menuYs[i] = y; int k = i; var r = Rc(10, y, w1 - 20, ih); bool sel = list && menuSec == i;
             if (sel || Hot(r)) { FillRR(g, sel ? TM.C(150, 70, 38, 130) : TM.C(90, 60, 34, 110), r, 10); if (sel) Glow(g, NeonViolet, r, 10, 0.45f, 2); }
             Win.DrawNeonBox(g, r, sel || Hot(r));
-            var ic = Rc(r.X + 12, r.Y + 8, 24, 24); DrawMenuIcon(g, ic, MenuIcon[i], sel); Txt(g, MenuNames[i], 15, sel ? Ink : TM.C(255, 225, 215, 245), Rc(r.X + 50, r.Y, 150, r.Height), StringAlignment.Near, sel);
+            var ic = Rc(r.X + 12, r.Y + (ih - 24) / 2, 24, 24); DrawMenuIcon(g, ic, MenuIcon[i], sel); Txt(g, MenuNames[i], 15, sel ? Ink : TM.C(255, 225, 215, 245), Rc(r.X + 50, r.Y, 150, r.Height), StringAlignment.Near, sel);
             if (list) { Txt(g, ">", 14, DimC, Rc(r.Right - 34, r.Y, 24, r.Height), StringAlignment.Center, true); Reg(r, () => { menuSec = menuSec == k ? -1 : k; menuSub = -1; }); }
             else Reg(r, () => { menuSec = -1; MenuDirect(k)(); });
-            y += 46;
+            y += pitch;
         }
         if (menuSec >= 0 && menuSec < MenuLists) PaintMenuColumn(g, w1, w2, H);
     }
@@ -155,6 +157,8 @@ partial class StudioForm
                 case 7: g.DrawEllipse(pen, r.X + 2, r.Y + 2, r.Width - 4, r.Height - 4); Txt(g, "?", 14, c, r, StringAlignment.Center, true); break;
                 case 8: g.DrawRectangle(pen, r.X + 7, r.Y + 2, r.Width - 11, r.Height - 10); g.DrawRectangle(pen, r.X + 3, r.Y + 7, r.Width - 11, r.Height - 10); break;
                 case 10: Txt(g, "Aa", 15, c, r, StringAlignment.Center, true); break;
+                case 11: g.DrawRectangle(pen, r.X + 3, r.Y + 8, r.Width - 6, r.Height - 12); g.DrawLine(pen, r.X + 3, r.Y + 8, r.X + 3, r.Y + 4); g.DrawLine(pen, r.X + 3, r.Y + 4, r.X + 11, r.Y + 4); g.DrawLine(pen, r.X + 11, r.Y + 4, r.X + 13, r.Y + 8); break;
+                case 12: g.DrawEllipse(pen, r.X + 9, r.Y + 2, 7, 7); g.DrawEllipse(pen, r.X + 2, r.Y + 14, 7, 7); g.DrawEllipse(pen, r.X + 15, r.Y + 14, 7, 7); g.DrawLine(pen, r.X + 11, r.Y + 9, r.X + 6, r.Y + 14); g.DrawLine(pen, r.X + 14, r.Y + 9, r.X + 19, r.Y + 14); break;
                 default: g.DrawLine(pen, r.X + 4, r.Y + 12, r.Right - 4, r.Y + 12); g.DrawLine(pen, r.X + 4, r.Y + 12, r.X + 10, r.Y + 6); g.DrawLine(pen, r.X + 4, r.Y + 12, r.X + 10, r.Y + 18); break;
             }
         }

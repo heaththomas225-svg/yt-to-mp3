@@ -37,7 +37,7 @@ class Job
 partial class App : Form
 {
     // ---- Auto-update settings ----
-    const string Version = "3.29.1";
+    const string Version = "3.30.0";
     // Plain-text manifest: line 1 = newest version, line 2 = direct exe download URL.
     const string UpdateManifestUrl = "https://raw.githubusercontent.com/heaththomas225-svg/yt-to-mp3/main/version.txt";
 
@@ -131,6 +131,7 @@ partial class App : Form
     internal string LastFile;
     internal int MZoomPct = 75;
     MasterForm mf;
+    Button lyricsBtn = new PxButton(), usedBtn = new PxButton();
     Button mastBtn = new PxButton(), vocalBtn = new PxButton(), whatsBtn = new PxButton(), prevNormBtn = new PxButton(), helpBtn = new PxButton(); string seenVer = ""; internal string ExtraFilter = ""; Button changeBtn = new PxButton(); Button settingsBtn = new PxButton();
     internal StudioEngine StudioEng = new StudioEngine();
     StudioForm studioForm; Button studioBtn = new PxButton(), addMusicBtn = new PxButton();
@@ -249,7 +250,7 @@ partial class App : Form
 
         // output folder
         StyleBtn(vocalBtn, TM.C(255, 90, 36, 160)); vocalBtn.Text = "Vocal remover...";
-        vocalBtn.SetBounds(16, 312, 190, 30);
+        vocalBtn.SetBounds(16, 312, 140, 30);
         tip.SetToolTip(vocalBtn, "Pick a song and get an instrumental (no vocals) plus a vocals-only file, made by an AI model.");
         vocalBtn.Click += (s, e) =>
         {
@@ -269,6 +270,7 @@ partial class App : Form
         {
             var m = Win.NewMenu();
             m.Items.Add("Settings...").Click += (a, b) => ShowSettings();
+            m.Items.Add("Generate lyrics from a song or video...").Click += (a, b) => ShowLyricsGen();
             m.Items.Add("Full screen  (F11)").Click += (a, b) => Win.ToggleFullscreen(this);
             m.Items.Add("Mastering for downloads (Purphex Mastering)...").Click += (a, b) => { if (!Edition.Gate(Tier.Supporter, "Mastering", this)) return; if (mf == null || mf.IsDisposed) { mf = new MasterForm(this); mf.Show(); Win.Bring(mf); } else Win.Bring(mf); };
             m.Items.Add("What's new").Click += (a, b) => Changelog.Show(this);
@@ -276,11 +278,17 @@ partial class App : Form
             m.Items.Add("Open data folder").Click += (a, b) => { try { Directory.CreateDirectory(AppData); Process.Start("explorer.exe", "\"" + AppData + "\""); } catch { } };
             m.Show(whatsBtn, new Point(0, whatsBtn.Height));
         };
-        StyleBtn(studioBtn, TM.C(255, 90, 36, 160)); studioBtn.Text = "Purphex Music"; studioBtn.SetBounds(212, 312, 190, 30);
+        StyleBtn(studioBtn, TM.C(255, 90, 36, 160)); studioBtn.Text = "Purphex Music"; studioBtn.SetBounds(162, 312, 140, 30);
+        StyleBtn(usedBtn, TM.C(255, 70, 40, 150)); usedBtn.Text = "Times used"; usedBtn.SetBounds(16, 12, 112, 28);
+        tip.SetToolTip(usedBtn, "How many MP3s and MP4s have been made with Purphex Music all over the world.");
+        usedBtn.Click += (s, e) => ShowUsage();
+        StyleBtn(lyricsBtn, TM.C(255, 150, 60, 210)); lyricsBtn.Text = "Generate lyrics"; lyricsBtn.SetBounds(308, 312, 140, 30);
+        tip.SetToolTip(lyricsBtn, "Add any song or video and get its lyrics, tidied and labelled. Free in every edition.");
+        lyricsBtn.Click += (s, e) => ShowLyricsGen();
         tip.SetToolTip(studioBtn, "Open the Logic-style studio: tracks, mixing, Auto-Tune, EQ, effects, mastering and export.");
         studioBtn.Click += (s, e) => OpenStudio(); Edition.Lock(studioBtn, Tier.Supporter);
         StyleBtn(addMusicBtn, TM.C(255, 190, 60, 200)); addMusicBtn.Text = "ADD MUSIC"; addMusicBtn.Font = new Font("Segoe UI Semibold", 10.5f);
-        addMusicBtn.SetBounds(408, 312, 216, 30); addMusicBtn.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+        addMusicBtn.SetBounds(454, 312, 170, 30); addMusicBtn.Anchor = AnchorStyles.Top | AnchorStyles.Right;
         tip.SetToolTip(addMusicBtn, "Add music from your PC: edit it in Purphex Music, remove the vocals or the beat, or trim the start and end.");
         addMusicBtn.Click += (s, e) =>
         {
@@ -317,7 +325,7 @@ partial class App : Form
         log.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
 
         bg.Controls.AddRange(new Control[] { links, fmt, sr, nameFmt, trimA, trimB, norm, playlist, openDone, animate,
-            mastBtn, vocalBtn, prevNormBtn, helpBtn, settingsBtn, changeBtn, studioBtn, addMusicBtn, whatsBtn, outDir, browse, go, cancel, log });
+            mastBtn, vocalBtn, lyricsBtn, usedBtn, prevNormBtn, helpBtn, settingsBtn, changeBtn, studioBtn, addMusicBtn, whatsBtn, outDir, browse, go, cancel, log });
         Win.CapsAll(bg);   // capitals in the bold font
         CaptureBase();   // the design positions, before any saved window size moves the anchored controls
 
@@ -382,7 +390,18 @@ partial class App : Form
     }
     internal string DataFolder { get { Directory.CreateDirectory(AppData); return AppData; } }
     internal static string FfmpegPath() { return FfmpegExe(); }
-    SettingsForm settingsForm;
+    SettingsForm settingsForm; LyricsGenForm lyricsGenForm; UsageForm usageForm;
+    internal void ShowUsage()
+    {
+        if (usageForm == null || usageForm.IsDisposed) { usageForm = new UsageForm(); usageForm.Show(this); }
+        Win.Bring(usageForm);
+    }
+    // the Generate Lyrics page: a window of its own, free in every edition
+    internal void ShowLyricsGen(string file = null)
+    {
+        if (lyricsGenForm == null || lyricsGenForm.IsDisposed) { lyricsGenForm = new LyricsGenForm(this); lyricsGenForm.Show(); }
+        Win.Bring(lyricsGenForm); if (file != null) lyricsGenForm.LoadFile(file);
+    }
     internal void ShowSettings(bool account = false)
     {
         // not modal: the other windows stay usable (and movable) while Settings is open
@@ -610,6 +629,7 @@ partial class App : Form
     }
 
     internal static string DenoDirPath { get { return DenoDir; } }
+    internal static string FfmpegDirPath { get { return FfmpegDir; } }
     internal static string FindFilePublic(string dir, string name) { return FindFile(dir, name); }
     internal static string FfmpegExe() { return FindFile(FfmpegDir, "ffmpeg.exe"); }
     internal static string FfprobeExe() { return FindFile(FfmpegDir, "ffprobe.exe"); }
@@ -858,11 +878,12 @@ partial class App : Form
                 foreach (var old in Directory.GetFiles(tmpDir)) { try { File.Delete(old); } catch { } }
             }
             string args = common + pl + "-o \"" + Path.Combine(mastering ? tmpDir : job.Dir, tpl + ".%(ext)s") + "\" \"" + target + "\"";
-            var lyricsBefore = Prefs.SaveLyrics && !mastering ? LyricsGet.Snapshot(job.Dir) : null;
+            var madeBefore = !mastering ? LyricsGet.Snapshot(job.Dir) : null;   // what was in the folder before: the lyrics and the TIMES USED count look at what is new
+            var lyricsBefore = Prefs.SaveLyrics && !mastering ? madeBefore : null;
             int code = RunProc(YtDlp, args, true);
             if (cancelReq) break;
             if (code != 0) { fail++; Log("Failed (exit " + code + ")."); }
-            else if (!mastering) { ok++; RemoveLinkFromBox(link); if (lyricsBefore != null) LyricsGet.ForNewFiles(job.Dir, lyricsBefore, Log); }
+            else if (!mastering) { ok++; RemoveLinkFromBox(link); UsageStat.CountNew(job.Dir, madeBefore, job.Fmt, 1); if (lyricsBefore != null) LyricsGet.ForNewFiles(job.Dir, lyricsBefore, Log); }
             else
             {
                 var wavs = Directory.GetFiles(tmpDir, "*.wav");
@@ -880,7 +901,7 @@ partial class App : Form
                     {
                         ok++; RemoveLinkFromBox(link); LastFile = outp; if (res != null) LastAn = res;
                         try { File.Delete(w); } catch { }
-                        Log("Saved: " + Path.GetFileName(outp)); if (Prefs.SaveLyrics) Log(LyricsGet.SaveFor(outp));
+                        Log("Saved: " + Path.GetFileName(outp)); UsageStat.Count(1, 0); if (Prefs.SaveLyrics) Log(LyricsGet.SaveFor(outp));
                     }
                     else if (!cancelReq)
                     {

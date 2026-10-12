@@ -178,7 +178,13 @@ static class Themes
     public static void ApplyByName(string name) { Ensure(); Index = IndexOf(name); Push(Current); }
     // the edition decides which themes can be used: a theme above the edition is put back to the original one
     public static bool Allowed(ThemeDef t) { return Edition.Has(t.Req); }
-    public static bool EnforceEdition() { Ensure(); if (Allowed(Current)) return false; Apply(0); Prefs.Changed(); return true; }
+    public static bool EnforceEdition()
+    {
+        Ensure(); if (!Allowed(Current)) { Apply(0); Prefs.Changed(); return true; }
+        // the Fantasy edition comes with the Fantasy look: the first time it is on this PC the gold Fantasy theme goes on every button and outline of the program (choose any theme you like afterwards)
+        if (!StudioEnv.UnderTest && !Prefs.FantasyThemed && Edition.Current == Tier.Fantasy) { Prefs.FantasyThemed = true; int gi = IndexOfName("Royal Gold"); if (gi >= 0 && !list[Index].Special) { Apply(gi); Prefs.Changed(); return true; } Prefs.Changed(); }
+        return false;
+    }
     public static string Tag(ThemeDef t) { return t.Special ? (t.Req == Tier.Fantasy ? "FANTASY" : "SUPPORTER") : ""; }
     // fromTick: the Rainbow theme moving a little; the other windows are not recoloured then (that would close an open drop-down and make every control flash), only when a theme is really chosen
     static void Push(ThemeDef t, bool fromTick = false) { if (!fromTick) Sprites.Clear(); StudioForm.ApplyTheme(t); MasterForm.ApplyTheme(t); SynthCanvas.ApplyTheme(t); if (!fromTick) { try { Win.RethemeAll(); } catch { } } }

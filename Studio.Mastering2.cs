@@ -105,6 +105,18 @@ partial class StudioForm
         new[] { "LO-FI WARM", "Lo-Fi Chill", "Dusty and cosy: softer highs, tape saturation and a warm low end." },
     };
 
+    // the button: it asks first, so a stray click never starts it (nothing is changed before USE THIS, and REVERT undoes it)
+    string[] amRevert;   // the master chain from before the version that is on your master now (kept until you revert or start again)
+    void AutoMasterClick()
+    {
+        if (!AskYes("Are you sure you want to run AUTO MASTERING?\n\nIt listens to the whole mix and builds ten mastered versions for you to preview. Nothing changes on your master until you press USE THIS on one, you can hear your mix before and after, and REVERT puts everything back afterwards.", "Auto Mastering")) return;
+        AutoMixMaster();
+    }
+    void RevertAutoMaster()
+    {
+        if (amRevert == null) return; if (!AskYes("Put your master back as it was before AUTO MASTERING?\n\nAnything you changed on the master since then goes too (Ctrl+Z brings it back).", "Revert Auto Mastering")) return;
+        PushUndo(); RestoreChain(amRevert); abOrig = abMast = null; amRevert = null; revertAction = null; eng.MasterBypass = false; Toast("Reverted: your master is back as it was before AUTO MASTERING.");
+    }
     void AutoMixMaster()
     {
         if (eng.Tracks.Count == 0) { Toast("Add music first."); return; }
@@ -156,7 +168,7 @@ partial class StudioForm
     {
         RestoreChain(amVersions[v].Snap); targetLufs = MasterPresets.All[amVersions[v].Base].Target; abOrig = amOrigResult; abMast = amVersions[v].Result; ApplyMatch(); amOpen = false; MasterPreviewStop(); eng.MasterBypass = false;
         Toast(amVersions[v].Name + " is on your master. Edit anything in the chain, or press PREVIEW to hear it again.");
-        var origKeep = amOrig; OfferRevert(amVersions[v].Name + " is on your master", () => { RestoreChain(origKeep); abOrig = abMast = null; });
+        var origKeep = amOrig; amRevert = origKeep; OfferRevert(amVersions[v].Name + " is on your master", () => { RestoreChain(origKeep); abOrig = abMast = null; amRevert = null; });
     }
     void AmCancel() { if (amOrig != null) RestoreChain(amOrig); amOpen = false; MasterPreviewStop(); amApplied = -2; }
 
@@ -260,7 +272,8 @@ partial class StudioForm
 
         // ---- right: AUTO MIX, the analyser and the loudness ----
         float rx = W - 416; var ap = Rc(rx, top, 402, H - top - 12); FillRR(g, Panel, ap, 12); StrokeRR(g, Edge, ap, 12, 1);
-        var am = Rc(ap.X + 12, ap.Y + 12, 378, 50); Btn(g, am, "AUTO MASTERING", 2, () => AutoMixMaster(), 19); Hint2(am, "Listens to the whole mix, builds the EQ for you and gives you ten versions to hear (and tells you which one fits best): pick the one you like");
+        var am = Rc(ap.X + 12, ap.Y + 12, amRevert != null ? 262 : 378, 50); Btn(g, am, "AUTO MASTERING", 2, () => AutoMasterClick(), amRevert != null ? 16 : 19); Hint2(am, "Asks first, then listens to the whole mix, builds the EQ for you and gives you ten versions to hear (and tells you which one fits best): nothing changes until you pick one");
+        if (amRevert != null) { var rv0 = Rc(am.Right + 8, am.Y, 108, 50); Btn(g, rv0, "REVERT", 3, () => RevertAutoMaster(), 15); Hint2(rv0, "Put the master chain back exactly as it was before AUTO MASTERING (hear your original again)"); }
         TxtWrap(g, "Listens to the whole mix, makes the EQ by itself and gives you 10 versions to preview.", 11, DimC, Rc(ap.X + 14, am.Bottom + 4, ap.Width - 28, 30));
         float yy = am.Bottom + 38; Txt(g, "LOUDNESS ANALYSER", 14, Ink, Rc(ap.X + 14, yy, 250, 22), StringAlignment.Near, true);
         Btn(g, Rc(ap.Right - 112, yy - 2, 98, 26), "Reset meters", 0, () => { eng.Lufs.Reset(); }, 12); yy += 28; var lu = eng.Lufs; lu.UpdateIntegrated();

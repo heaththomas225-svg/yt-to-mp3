@@ -25,13 +25,15 @@ static class Prefs
     public static string FontId = "";        // the studio font chosen on the Fonts page ("" = the original, Bahnschrift)
     public static string InDev = "";         // recording input (microphone), "" = the Windows default
     public static string Theme = "Purphex";   // the colour theme (Settings and the Theme tab)
+    public static bool FantasyThemed;   // the Fantasy edition puts the Fantasy theme (Royal Gold) on the whole program the first time it is on this PC; after that the theme is yours to change
+    public static bool CountUses = true;     // every finished conversion adds one to the worldwide TIMES USED number (only a number is sent; Settings > General turns it off)
     public static bool SaveLyrics = true;    // after a song is converted its lyrics are looked up and saved as a .txt next to it (Settings > General turns it off)
     public static bool ShareSaved = true;    // a preset you save is also shared with the Community presets (Settings can turn this off)
     public static Action Changed = delegate { };
 
     public static string[] Lines()
     {
-        return new[] { "bgpath=" + BgPath, "bgdim=" + BgDim, "bgleaves=" + BgLeaves, "bgstudio=" + BgStudio, "outvol=" + OutVol, "outdev=" + OutDev, "buf=" + Buf, "fpscap=" + FpsCap, "showfps=" + ShowFps, "savelyrics=" + SaveLyrics, "midiin=" + MidiDev, "indev=" + InDev, "micmode=" + MicMode, "fontid=" + FontId, "sharesaved=" + ShareSaved, "theme=" + Theme };
+        return new[] { "bgpath=" + BgPath, "bgdim=" + BgDim, "bgleaves=" + BgLeaves, "bgstudio=" + BgStudio, "outvol=" + OutVol, "outdev=" + OutDev, "buf=" + Buf, "fpscap=" + FpsCap, "showfps=" + ShowFps, "savelyrics=" + SaveLyrics, "countuses=" + CountUses, "fantasytheme=" + FantasyThemed, "midiin=" + MidiDev, "indev=" + InDev, "micmode=" + MicMode, "fontid=" + FontId, "sharesaved=" + ShareSaved, "theme=" + Theme };
     }
     public static bool Parse(string k, string v)
     {
@@ -52,6 +54,8 @@ static class Prefs
             case "fontid": { string fv = v ?? ""; bool okId = fv.Length <= 40; foreach (char fc in fv) if (!((fc >= 'a' && fc <= 'z') || (fc >= '0' && fc <= '9') || fc == '-')) okId = false; FontId = okId ? fv : ""; return true; }
             case "micmode": if (int.TryParse(v, out n) && n >= 0 && n <= 3) MicMode = n; return true;
             case "savelyrics": if (bool.TryParse(v, out b)) SaveLyrics = b; return true;
+            case "countuses": if (bool.TryParse(v, out b)) CountUses = b; return true;
+            case "fantasytheme": if (bool.TryParse(v, out b)) FantasyThemed = b; return true;
             case "sharesaved": if (bool.TryParse(v, out b)) ShareSaved = b; return true;
             case "theme": Theme = v; Themes.ApplyByName(v); return true;
         }

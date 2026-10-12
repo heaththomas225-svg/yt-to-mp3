@@ -55,7 +55,7 @@ partial class StudioForm
         var ban = Rc(cx0, top + 16, cw, 92); FillRR(g, TM.C(210, 20, 10, 44), ban, 16); Glow(g, NeonViolet, ban, 16, 0.55f, 3);
         using (var pen = new Pen(Color.FromArgb(70, NeonCyan), 1.2f)) for (int i = 0; i < 9; i++) g.DrawBezier(pen, ban.Right - 330, ban.Y + 70, ban.Right - 240, ban.Y + 10 + i * 4, ban.Right - 150, ban.Bottom - 6 - i * 3, ban.Right - 20, ban.Y + 14 + i * 6);
         Txt(g, "COMMUNITY", 24, Ink, Rc(ban.X + 22, ban.Y + 12, 400, 36), StringAlignment.Near, true); Txt(g, "DISCOVER. SHARE. CREATE. TOGETHER.", 14, DimC, Rc(ban.X + 22, ban.Y + 50, 420, 24), StringAlignment.Near, false);
-        FetchInvite(); var np = Rc(ban.Right - 190, ban.Y + 26, 168, 40); Btn(g, np, "+  New project", 2, () => { tab = 0; NewProject(); }, 14); if (ban.Width > 700) { var sa0 = Rc(ban.Right - 372, ban.Y + 26, 172, 40); Btn(g, sa0, "MY PROJECTS", 1, () => GoTab(3), 13); Hint2(sa0, "Open the projects you saved on this PC"); }
+        FetchInvite(); var np = Rc(ban.Right - 190, ban.Y + 26, 168, 40); Btn(g, np, "+  New project", 2, () => { tab = 0; NewProject(); }, 14); if (ban.Width > 700) { var sa0 = Rc(ban.Right - 372, ban.Y + 26, 172, 40); Btn(g, sa0, "MY PROJECTS", 1, () => GoTab(3), 13); Hint2(sa0, "Open the projects you saved on this PC"); if (ban.Width > 880) { var ar0 = Rc(sa0.X - 138, ban.Y + 26, 130, 40); Btn(g, ar0, "ARTISTS", 1, () => OpenArtists(), 13); Hint2(ar0, "Find artists and follow them"); } }
         if (commInvite.Length > 0 && ban.Width > 1080) { string inv = commInvite; Btn(g, Rc(ban.Right - 554, ban.Y + 26, 172, 40), "Join the Discord", 1, () => { try { System.Diagnostics.Process.Start(inv); } catch { Toast("Could not open the link: " + inv); } }, 14); }
         // ---- filter tabs ----
         float ty = ban.Bottom + 14; float tx = cx0 + 4;
@@ -67,7 +67,7 @@ partial class StudioForm
         // ---- the feed: round neon art cards (your saved projects) ----
         var all = ProjectLibrary.AllByEdited(); var list = new List<ProjectEntry>();
         foreach (var e in all) { if (commFilter == 1 && (DateTime.Now - e.Opened).TotalDays > 7) continue; list.Add(e); }
-        float fy = ty + 46, fh = Hb - fy; var area = Rc(cx0, fy, cw, fh); float cardW = 206, cardH = 340, gap = 14; int cols = Math.Max(1, (int)((cw - 56 + gap) / (cardW + gap))); float used = cols * cardW + (cols - 1) * gap, ox = cx0 + (cw - 56 - used) / 2;
+        float fy = ty + 46, fh = Hb - fy; var area = Rc(cx0, fy, cw, fh); float cardW = 206, cardH = 390, gap = 14; int cols = Math.Max(1, (int)((cw - 56 + gap) / (cardW + gap))); float used = cols * cardW + (cols - 1) * gap, ox = cx0 + (cw - 56 - used) / 2;
         int rows = (list.Count + cols - 1) / cols; float maxS = Math.Max(0, rows * (cardH + gap) - fh + 10); commScroll = Math.Max(0, Math.Min(maxS, commScroll));
         regs.Add(new HitReg { R = area, OnWheel = d => commScroll = Math.Max(0, Math.Min(maxS, commScroll - d * 70)) });
         var gs = g.Save(); g.SetClip(area, CombineMode.Intersect);
@@ -78,7 +78,6 @@ partial class StudioForm
             bool hot = overlayOk && area.Contains(MousePos) && card.Contains(MousePos); FillRR(g, TM.C(hot ? 215 : 175, 18, 10, 38), card, 16); Win.DrawNeonBox(g, card, hot);
             float S = cardW - 28; var art = Rc(card.X + 14, card.Y + 14, S, S); DrawSquareArt(g, art, e);
             string path = e.Path; bool miss = e.Missing; var open = Reg(card, () => OpenProjectAsk(e)); open.OnRight = () => ProjectCardMenu(path);
-            if (!hot && !miss) { var pl0 = Rc(art.X + 10, art.Bottom - 50, 40, 40); bool on0 = string.Equals(previewPath, path, StringComparison.OrdinalIgnoreCase) && !previewPaused; PlayDot(g, pl0, on0, () => PreviewToggle(e)); }   // a play button on every card
             Txt(g, e.Name, 15, Ink, Rc(card.X + 14, card.Y + S + 22, cardW - 28, 22), StringAlignment.Near, true);
             var sa = Rc(card.X + 14, card.Y + S + 48, 18, 18); DrawAvatar(g, sa); Txt(g, ProjectLibrary.ProfileName, 12, DimC, Rc(card.X + 38, card.Y + S + 46, cardW - 52, 20), StringAlignment.Near, false);
             string meta = e.Tracks + (e.Tracks == 1 ? " track" : " tracks") + (e.Bpm > 0 ? "  -  " + e.Bpm.ToString("0") + " BPM" : "") + (e.Seconds > 1 ? "  -  " + ((int)(e.Seconds / 60)) + ":" + ((int)(e.Seconds % 60)).ToString("00") : ""); Txt(g, meta, 11, NeonCyan, Rc(card.X + 14, card.Y + S + 70, cardW - 28, 16), StringAlignment.Near, false);
@@ -86,13 +85,15 @@ partial class StudioForm
             if (e.Tags.Length > 0) { float tx2 = card.X + 14; foreach (var tg in e.Tags.Split(' ')) { string lb = "#" + tg; float tw = 14 + lb.Length * 6.6f; if (tx2 + tw > card.Right - 12) break; var tr2 = Rc(tx2, card.Y + S + 108, tw, 18); FillRR(g, TM.C(110, 60, 36, 120), tr2, 9); Txt(g, lb, 10, Ink, tr2, StringAlignment.Center, false); tx2 += tw + 5; } }
             if (e.Desc.Length > 0) Txt(g, e.Desc, 11, DimC, Rc(card.X + 14, card.Y + S + 130, cardW - 28, 32), StringAlignment.Near, false);
             else if (hot) Txt(g, "Hover tools: rename, picture, description, tags", 10, TM.C(120, 150, 130, 190), Rc(card.X + 14, card.Y + S + 130, cardW - 28, 16), StringAlignment.Near, false);
+            if (!miss) PlayBox(g, Rc(card.X + 14, card.Bottom - 12 - 34, cardW - 28, 34), e);   // a solid play button along the bottom of the card, never covered by the hover tools
             if (hot)
             {
                 // the hover tools sit over the picture
                 using (var b = new SolidBrush(TM.C(205, 6, 3, 18))) using (var p = RR(art, 12)) g.FillPath(b, p);
-                string[] bn = { "Open", string.Equals(previewPath, path, StringComparison.OrdinalIgnoreCase) ? "Stop" : "Play", "Rename", "Picture", "No picture", "Describe", "Tags", "Folder" }; float bw = (S - 30) / 2f, bh = 30;
-                Action[] ba = { () => OpenProjectAsk(e), () => PreviewToggle(e), () => RenameEntry(e), () => PickCover(path), () => { if (e.Cover.Length > 0) { ProjectLibrary.ClearCover(path); Toast("Picture removed: the Purphex logo is shown again."); } else Toast("This project has no picture of its own."); }, () => DescribeEntry(e), () => TagEntry(e), () => { try { System.Diagnostics.Process.Start("explorer.exe", "/select,\"" + path + "\""); } catch { } } };
-                for (int k = 0; k < 8; k++) { var br = Rc(art.X + 10 + (k % 2) * (bw + 10), art.Y + 10 + (k / 2) * (bh + 6), bw, bh); Action act = ba[k]; Btn(g, br, bn[k], k == 0 ? 2 : 1, () => act(), 12); }
+                // the hover tools sit over the picture: Open on its own line, then the rest in pairs (Play is the button at the bottom of the card)
+                string[] bn = { "Open", "Rename", "Picture", "No picture", "Describe", "Tags", "Folder" }; float bw = (S - 30) / 2f, bh = 32;
+                Action[] ba = { () => OpenProjectAsk(e), () => RenameEntry(e), () => PickCover(path), () => { if (e.Cover.Length > 0) { ProjectLibrary.ClearCover(path); Toast("Picture removed: the Purphex logo is shown again."); } else Toast("This project has no picture of its own."); }, () => DescribeEntry(e), () => TagEntry(e), () => { try { System.Diagnostics.Process.Start("explorer.exe", "/select,\"" + path + "\""); } catch { } } };
+                for (int k = 0; k < 7; k++) { RectangleF br = k == 0 ? Rc(art.X + 10, art.Y + 10, S - 20, bh) : Rc(art.X + 10 + ((k - 1) % 2) * (bw + 10), art.Y + 10 + (1 + (k - 1) / 2) * (bh + 8), bw, bh); Action act = ba[k]; Btn(g, br, bn[k], k == 0 ? 2 : 1, () => act(), 12); }
             }
         }
         g.Restore(gs);

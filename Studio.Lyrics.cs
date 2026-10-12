@@ -77,6 +77,8 @@ partial class StudioForm
         string[] sec = { "Verse", "Chorus", "Pre-chorus", "Bridge", "Hook", "Intro", "Outro" }; float sx = x, sy = top + 50;
         foreach (var s0 in sec) { string s1 = s0; float bw = s0.Length > 6 ? 96 : 66; Btn(g, Rc(sx, sy, bw, 28), s0, 0, () => { InsertAtCaret("[" + s1 + "]\r\n", true); }, 11); sx += bw + 6; }
         Btn(g, Rc(sx + 10, sy, 132, 28), "ADD SECTIONS", 2, () => AddLyricSections(), 11);
+        { if (Environment.TickCount - lyrRecentTick > 1500 || lyrRecentTick == 0) { lyrRecentTick = Environment.TickCount | 1; lyrRecentN = LyricsRecent.Count; } int nRecent = lyrRecentN; var gb = Rc(x + w - 164, sy, 164, 28); var rb = Rc(gb.X - 8 - 164, sy, 164, 28); Btn(g, gb, "GENERATE LYRICS", 1, () => app.ShowLyricsGen(), 11); Hint2(gb, "Open the Generate Lyrics page: add a song or video and get its lyrics");
+          Btn(g, rb, "RECENT GENERATED" + (nRecent > 0 ? " (" + nRecent + ")" : ""), 0, () => RecentLyricsMenu(), 11); Hint2(rb, "The lyrics you saved from the Generate Lyrics page, newest first"); }
         if (lyricStatsDirty && lyricBox != null) { lyricStatsDirty = false; string txt = lyricBox.Text; int ln = 0; foreach (var l in txt.Split('\n')) if (l.Trim().Length > 0) ln++; statLines = ln; statSyl = LyricsTools.LineSyllables(txt); statWords = LyricsTools.Words(txt); }
         string cur = lyricBox != null ? CaretLine() : ""; int ci = lyricBox != null ? CaretLineIndex() + 1 : 0;
         float stw = Math.Max(120f, x + w - 4 * 84 - 6 - x); Txt(g, statLines + " lines   " + statWords + " words   " + statSyl + " syllables      Line " + ci + ": " + LyricsTools.LineSyllables(cur) + " syllables", 12, DimC, Rc(x, H - 52, stw, 20), StringAlignment.Near, false);
@@ -85,6 +87,21 @@ partial class StudioForm
         Btn(g, Rc(bx, H - 54, 78, 30), "Copy", 0, () => { try { Clipboard.SetText(lyricBox.Text); Toast("Lyrics copied."); } catch { } }, 12);
         Btn(g, Rc(bx + 84, H - 54, 78, 30), "Save .txt", 0, () => { using (var d = new SaveFileDialog { Filter = "Text|*.txt", FileName = (lyricTitle.Text.Length > 0 ? lyricTitle.Text : "lyrics") + ".txt" }) if (d.ShowDialog(this) == DialogResult.OK) { File.WriteAllText(d.FileName, lyricBox.Text, Encoding.UTF8); Toast("Saved " + Path.GetFileName(d.FileName)); } }, 12);
         Btn(g, Rc(bx + 168, H - 54, 78, 30), "Clear", 3, () => { if (lyricBox.Text.Length == 0 || MessageBox.Show(this, "Clear all the lyrics?", "Lyrics", MessageBoxButtons.YesNo) == DialogResult.Yes) { lyricBox.Text = ""; lyricTitle.Text = ""; } }, 12);
+    }
+
+    // RECENT GENERATED: the lyrics saved from the Generate Lyrics page, newest first; picking one puts it in the writer
+    int lyrRecentN, lyrRecentTick;   // the count on the button is read from the file every second or so, not on every paint
+    void RecentLyricsMenu()
+    {
+        var all = LyricsRecent.All(); var m = Win.NewMenu();
+        if (all.Count == 0) m.Items.Add("Nothing saved yet. Use GENERATE LYRICS, then SAVE TO THE DAW.").Enabled = false;
+        else for (int i = 0; i < all.Count; i++) { var r = all[i]; string t = r.Title.Length > 50 ? r.Title.Substring(0, 49) + "..." : r.Title; m.Items.Add((i == 0 ? "Last: " : "") + t + "   " + LyricsRecent.Ago(r.When)).Click += (a, b) => UseRecentLyric(r); }
+        m.Show(this, new Point((int)MousePos.X, (int)MousePos.Y));
+    }
+    internal void UseRecentLyric(RecentLyric r)
+    {
+        if (lyricBox.Text.Trim().Length > 0 && MessageBox.Show(this, "Replace the lyrics you have now with \"" + r.Title + "\"?", "Lyrics", MessageBoxButtons.YesNo) != DialogResult.Yes) return;
+        lyricBox.Text = LyricsTools.ToBoxText(r.Text); lyricTitle.Text = r.Title; Toast("Loaded \"" + r.Title + "\" from your recent lyrics.");
     }
 
     // OPEN .TXT: load lyrics you wrote somewhere else (a notes app, a text file) into the writer

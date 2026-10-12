@@ -128,7 +128,7 @@ partial class StudioForm : Form
     DateTime lastInput = DateTime.Now, lastFrame = DateTime.MinValue, lastPlayAt = DateTime.MinValue; int lastW, lastH;
     bool NeedsFrame()
     {
-        var now = DateTime.Now;
+        EnsureUseTimer(); var now = DateTime.Now;
         if (ClientSize.Width != lastW || ClientSize.Height != lastH) { lastW = ClientSize.Width; lastH = ClientSize.Height; lastFrame = now; return true; }
         if (eng.Playing) lastPlayAt = now;
         bool vizPage = tab == 5 || (tab == 1 && visStageOn); bool anim = vizPage || eng.Playing || (tab == 0 && AnyTrackOff()) || busy || browserOpen || stylesOpen || autoOpen || dragReg != null || (now - lastInput).TotalMilliseconds < 600 || animOff.Count > 0 || ghostOn || btnAnim || (now - toastAt).TotalSeconds < ToastSecs + 0.2 || (now - lastPlayAt).TotalMilliseconds < 1500 || installing.Length > 0 || mic != null || Auditioner.IsPlaying;   // the 1.5 s after playback lets the meters settle

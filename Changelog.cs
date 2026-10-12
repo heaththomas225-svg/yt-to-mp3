@@ -7,10 +7,26 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.29.1";
+    public const string Latest = "3.30.0";
 
     public const string Text =
-@"3.29.1  An even visualiser, a FULL VISUALISER button on the light show
+@"3.30.0  Generate lyrics from songs, videos and links, TIMES USED, and a tidier studio
+ + Generate Lyrics: a new GENERATE LYRICS button on the first screen (and in the Menu) opens a page of its own, free in every edition. Drop or choose any song or video (mp3, wav, flac, m4a, ogg, opus, aac, mp4, mkv, webm, mov and more) and press GENERATE LYRICS. On the Fantasy edition the page wears the Fantasy gold and follows your Fantasy theme.
+ + Where the words come from: the song's tags and file name find it in the LRCLIB lyrics database. A song that is not there can be written by listening to it with the Whisper speech recogniser, which runs on your PC. Purphex asks before downloading it (about 160 MB, once) and your song is never uploaded. A recogniser can mishear a word, so check the words against the song.
+ + Correct grammar and punctuation: capital letters, I, the apostrophes in don't and I'm, spacing round commas, a full stop or question mark at the end of each verse, a comma before and / but / so lines, clean verses, and [Verse] and [Chorus] labels. FIX GRAMMAR does the same to words you typed, and UNDO brings your words back.
+ + Resize lyrics: A- and A+ change the writing size, and FIT TO BOX makes it as big as it can be while the whole lyric fits in the box (a very long song stops at a readable size and scrolls).
+ + Keep it: COPY, SAVE .TXT, or SAVE TO THE DAW under a TITLE so you know which song it was (it starts as Artist - Title). RECENT on the page shows the last ones, newest first. In Purphex Music, the Lyrics page has a RECENT GENERATED button that puts one back into the writer, and a GENERATE LYRICS button.
+ + Visualiser: the effects were too large, so the ring bars, shells, kick ring, hexagon and shockwave are smaller and calmer, and the all-round rays are gone. Instead there are four separate blasts, each with its own bang (a wave, streaks and sparks): the bass bursts out of the bottom, the low mids out of the left, the mids out of the right and the highs out of the top.
+ + Generate Lyrics also takes links: paste a YouTube link (other sites need the link reader that the converter installs) and the lyrics are found from the video's name, with nothing downloaded and no MP3 needed. To write the words by listening, add the song or video file instead.
+ + TIMES USED: a new button on the first screen shows how many MP3s and MP4s have been made with Purphex Music all over the world, in full (1,234,567) and short (1.2M). It has no upper limit and goes into the millions and far beyond. Every finished conversion adds one; only that number is sent, never who you are, the link or the song, and Settings, General turns it off.
+ + The side menu of Purphex Music: Projects and Community are buttons of their own (Projects opens your saved projects and nothing else), Pages keeps Mix, Mastering and Lyrics, and the Community header has ARTISTS.
+ + AUTO MASTERING now asks Are you sure? before it starts, so a stray click cannot touch your work. Nothing changes until you press USE THIS, you can hear YOUR MIX (BEFORE) and any version (after), and a REVERT button stays next to AUTO MASTERING to put the master back exactly as it was.
+ + Project cards on the Community page have one solid PLAY button along the bottom (the duplicate Play in the hover tools is gone: Open is on its own line and the other tools sit in pairs).
+ + TIME MADE on your profile is now the time you spend in the DAW, counted live in seconds while you use it (it starts from the length of the projects you already made).
+ + Fantasy edition: the gold Fantasy theme (Royal Gold) goes on every button and outline of the program the first time it is on your PC. Choose any other theme afterwards in Themes.
+ + Help has a new topic, Generate lyrics from a song or video.
+
+3.29.1  An even visualiser, a FULL VISUALISER button on the light show
  + The visualiser is even. The ring of bars no longer turns (the loud low bars used to wander round it, so one side always looked smaller), neighbouring bars share their level, and every bar carries the same overall bounce as the logo, so the whole ring and the logo move together. The spectrum along the bottom is lifted towards the highs, so it is no longer tall on the left and flat on the right.
  + A FULL VISUALISER button sits at the top right of the light show on the Mastering page and opens the visualiser on a page of its own (Esc comes back). The Master Visualiser entry is gone from the Pages menu, so there is one way to it, right where the light show is.
  + The song position bar of the visualiser visualises the sound too, like the scroll bars: waves flow out of its logo along the bar, cyan to the left and pink to the right.
