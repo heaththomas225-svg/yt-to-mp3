@@ -103,8 +103,9 @@ class SettingsForm : Form
         var seeB = Btn("See the editions", 208, y, 170, TM.C(255, 70, 40, 150)); seeB.Click += (s, e) => Edition.OpenEditions();
         var chkB = Btn("Check again", 386, y, 140, TM.C(255, 70, 40, 120)); chkB.Click += (s, e) => CheckAgain(); y += 44;
         accMsg = new Label { Left = 20, Top = y, Width = 540, Height = 44, ForeColor = Ink, Tag = "nocaps" }; Add(accMsg); y += 50;
-        Add(new Label { Left = 20, Top = y, Width = 540, Height = 76, ForeColor = Dim, Font = new Font("Segoe UI", 9f), Text = "How it works: press LINK THIS PC. Purphex opens the website, you sign in and press Yes, link it, and this PC unlocks by itself. Free is the MP3 and MP4 converter and the vocal remover; Supporter opens the whole studio; Fantasy is everything, for life. Nothing is paid inside the app." }); y += 82;
-        var web = Btn("My account on the website", 20, y, 230, TM.C(255, 70, 40, 120)); web.Click += (s, e) => Edition.OpenUrl(Edition.Site + "/account"); y += 40;
+        Add(new Label { Left = 20, Top = y, Width = 540, Height = 96, ForeColor = Dim, Font = new Font("Segoe UI", 9f), Text = "How it works: press LINK THIS PC. Purphex opens the website, you sign in and press Yes, link it, and this PC unlocks by itself. Free is the MP3 and MP4 converter and the vocal remover; Supporter opens the whole studio; Fantasy is everything, for life. Every paid edition has a code (PX-XXXX-XXXX-XXXX): it is linked to one account at a time, and EDITION CODES lets you unlink it and use it on another account. Nothing is paid inside the app." }); y += 102;
+        var web = Btn("My account on the website", 20, y, 230, TM.C(255, 70, 40, 120)); web.Click += (s, e) => Edition.OpenUrl(Edition.Site + "/account"); 
+        var codesB = Btn("Edition codes: unlink or redeem", 258, y, 270, TM.C(255, 70, 40, 120)); codesB.Click += (s, e) => Edition.OpenUrl(Edition.Site + "/redeem"); y += 40;
         FinishPage(y); BuildFrame();
         ClientSize = new Size(800, Math.Min(660, Screen.PrimaryScreen.WorkingArea.Height - 100)); LayoutFrame(); ShowPage(0);
         Win.CapsAll(this); updStatus.Tag = "nocaps"; bgName.Tag = "nocaps";
@@ -122,7 +123,7 @@ class SettingsForm : Form
         var p = pages.Find(x => (string)x.Tag == name); if (p == null) return; foreach (Control c in p.Controls) c.Top += 64; p.AutoScrollMinSize = new Size(560, p.AutoScrollMinSize.Height + 64);
         var ban = new Panel { Left = 14, Top = 4, Width = 560, Height = 54, BackColor = TM.C(255, 40, 22, 74) };
         ban.Controls.Add(new Label { Text = "Themes and photo backgrounds are part of the Supporter Edition.", Left = 46, Top = 8, Width = 340, Height = 38, ForeColor = Ink, Tag = "nocaps" });
-        var go = new Button { Text = "SEE THE EDITIONS", Left = 396, Top = 10, Width = 152, Height = 32, FlatStyle = FlatStyle.Flat, BackColor = TM.C(255, 190, 60, 200), ForeColor = Color.White, Cursor = Cursors.Hand }; go.FlatAppearance.BorderColor = TM.C(255, 220, 140, 255); go.Click += (s, e) => Edition.OpenEditions(); ban.Controls.Add(go);
+        var go = new PxButton { Text = "SEE THE EDITIONS", Left = 396, Top = 10, Width = 152, Height = 32, FlatStyle = FlatStyle.Flat, BackColor = TM.C(255, 190, 60, 200), ForeColor = Color.White, Cursor = Cursors.Hand }; go.FlatAppearance.BorderColor = TM.C(255, 220, 140, 255); go.Click += (s, e) => Edition.OpenEditions(); ban.Controls.Add(go);
         ban.Paint += (s, e) => { e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias; Edition.Padlock(e.Graphics, new RectangleF(12, 10, 24, 30), Color.FromArgb(255, 255, 200, 90)); using (var pen = new Pen(TM.C(255, 190, 120, 255))) e.Graphics.DrawRectangle(pen, 0, 0, ban.Width - 1, ban.Height - 1); };
         p.Controls.Add(ban); lockBanners[p] = ban;
     }
@@ -174,11 +175,11 @@ class SettingsForm : Form
     {
         for (int i = 0; i < pages.Count; i++)
         {
-            int k = i; var b = new Button { Text = ((string)pages[i].Tag).ToUpper(), Left = 12, Top = TopH + 10 + i * 46, Width = SideW - 24, Height = 38, FlatStyle = FlatStyle.Flat, BackColor = TM.C(255, 40, 22, 74), ForeColor = Ink, Cursor = Cursors.Hand, TextAlign = ContentAlignment.MiddleLeft, Padding = new Padding(10, 0, 0, 0), Font = new Font("Segoe UI Semibold", 10.5f) };
+            int k = i; var b = new PxButton { Text = ((string)pages[i].Tag).ToUpper(), Left = 12, Top = TopH + 10 + i * 46, Width = SideW - 24, Height = 38, FlatStyle = FlatStyle.Flat, BackColor = TM.C(255, 40, 22, 74), ForeColor = Ink, Cursor = Cursors.Hand, TextAlign = ContentAlignment.MiddleLeft, Padding = new Padding(10, 0, 0, 0), Font = new Font("Segoe UI Semibold", 10.5f) };
             b.FlatAppearance.BorderColor = TM.C(255, 120, 90, 180); b.Click += (s, e) => ShowPage(k); sideBtns.Add(b); base.Controls.Add(b);
         }
         titleLbl = new Label { Text = "SETTINGS", Left = 16, Top = 12, Width = 300, Height = 34, ForeColor = Head, Font = new Font("Segoe UI Semibold", 16f), Tag = "nocaps" }; base.Controls.Add(titleLbl);
-        botSave = new Button { Text = "SAVE", Width = 130, Height = 38, FlatStyle = FlatStyle.Flat, BackColor = TM.C(255, 140, 60, 220), ForeColor = Color.White, Cursor = Cursors.Hand, Font = new Font("Segoe UI Semibold", 11.5f) }; botSave.FlatAppearance.BorderColor = TM.C(255, 200, 150, 255); botSave.Click += (s, e) => SaveClose(); base.Controls.Add(botSave);
+        botSave = new PxButton { Text = "SAVE", Width = 130, Height = 38, FlatStyle = FlatStyle.Flat, BackColor = TM.C(255, 140, 60, 220), ForeColor = Color.White, Cursor = Cursors.Hand, Font = new Font("Segoe UI Semibold", 11.5f) }; botSave.FlatAppearance.BorderColor = TM.C(255, 200, 150, 255); botSave.Click += (s, e) => SaveClose(); base.Controls.Add(botSave);
         Resize += (s, e) => LayoutFrame();
     }
     void LayoutFrame()
@@ -196,7 +197,7 @@ class SettingsForm : Form
 
     void Header(string t, ref int y) { Add(new Label { Text = t, Left = 20, Top = y, Width = 520, Height = 26, Font = new Font("Segoe UI Semibold", 12.5f), ForeColor = Head }); y += 30; }
     void Note(string t, ref int y) { Add(new Label { Text = t, Left = 20, Top = y, Width = 520, Height = 46, ForeColor = Dim, Font = new Font("Segoe UI", 9f) }); y += 48; }
-    Button Btn(string t, int x, int y, int w, Color c) { var b = new Button { Text = t, Left = x, Top = y, Width = w, Height = 32, FlatStyle = FlatStyle.Flat, BackColor = c, ForeColor = Color.White, Cursor = Cursors.Hand }; b.FlatAppearance.BorderColor = TM.C(255, 200, 150, 255); Add(b); return b; }
+    Button Btn(string t, int x, int y, int w, Color c) { var b = new PxButton { Text = t, Left = x, Top = y, Width = w, Height = 32, FlatStyle = FlatStyle.Flat, BackColor = c, ForeColor = Color.White, Cursor = Cursors.Hand }; b.FlatAppearance.BorderColor = TM.C(255, 200, 150, 255); Add(b); return b; }
     CheckBox Chk(string t, int x, ref int y) { var c = new DarkCheck { Text = t, Left = x, Top = y, Width = 520, Height = 24, ForeColor = Ink }; Add(c); y += 28; return c; }
     ComboBox Combo(int x, int y, int w, string[] items) { var c = new DarkCombo { Left = x, Top = y, Width = w, DropDownStyle = ComboBoxStyle.DropDownList }; c.Items.AddRange(items); Add(c); return c; }
     static void StyleNum(NumericUpDown n) { n.BackColor = Fld; n.ForeColor = Ink; n.BorderStyle = BorderStyle.FixedSingle; Win.NeonBox(n); }

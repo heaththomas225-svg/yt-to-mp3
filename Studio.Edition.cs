@@ -110,7 +110,7 @@ static class Edition
     public static int MaxRate { get { var t = Current; return t == Tier.Fantasy ? 384000 : (t == Tier.Supporter ? 192000 : 48000); } }
 
     // the help guides a Free edition keeps: the converter, the vocal remover and the basics
-    static readonly HashSet<string> FreeHelp = new HashSet<string> { "start", "formats", "batch", "trim", "vocal", "settings", "fullscreen", "download-video", "updates", "trouble", "long" };
+    static readonly HashSet<string> FreeHelp = new HashSet<string> { "start", "formats", "batch", "trim", "vocal", "settings", "fullscreen", "download-video", "updates", "trouble", "long", "editions" };
     public static bool HelpVisible(string id) { return Has(Tier.Supporter) || FreeHelp.Contains(id); }
 
     // ---- saved state ----
@@ -292,7 +292,7 @@ sealed class UpsellForm : Form
         var b3 = MakeBtn("NOT NOW", 416, 176, 84, TM.C(255, 60, 30, 90)); b3.Click += (s, e) => Close(); Controls.AddRange(new Control[] { b1, b2, b3 }); AcceptButton = b1; CancelButton = b3;
         Win.CapsAll(this);
     }
-    static Button MakeBtn(string t, int x, int y, int w, Color c) { var b = new Button { Text = t, Left = x, Top = y, Width = w, Height = 38, FlatStyle = FlatStyle.Flat, BackColor = c, ForeColor = Color.White, Cursor = Cursors.Hand, Font = new Font("Segoe UI Semibold", 8.5f) }; b.FlatAppearance.BorderColor = TM.C(255, 190, 120, 255); return b; }
+    static Button MakeBtn(string t, int x, int y, int w, Color c) { var b = new PxButton { Text = t, Left = x, Top = y, Width = w, Height = 38, FlatStyle = FlatStyle.Flat, BackColor = c, ForeColor = Color.White, Cursor = Cursors.Hand, Font = new Font("Segoe UI Semibold", 8.5f) }; b.FlatAppearance.BorderColor = TM.C(255, 190, 120, 255); return b; }
     protected override void OnPaint(PaintEventArgs e)
     {
         base.OnPaint(e); var g = e.Graphics; g.SmoothingMode = SmoothingMode.AntiAlias; g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;

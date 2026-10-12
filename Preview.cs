@@ -39,7 +39,7 @@ class PreviewForm : Form
         int bw = (584 - 8 * (sources.Count - 1)) / sources.Count;
         for (int i = 0; i < sources.Count; i++)
         {
-            int k = i; var b = new Button { Left = 18 + i * (bw + 8), Top = 86, Width = bw, Height = 62, FlatStyle = FlatStyle.Flat, ForeColor = Color.White, Cursor = Cursors.Hand, TextAlign = ContentAlignment.MiddleCenter, Font = new Font("Segoe UI Semibold", 10.5f) };
+            int k = i; var b = new PxButton { Left = 18 + i * (bw + 8), Top = 86, Width = bw, Height = 62, FlatStyle = FlatStyle.Flat, ForeColor = Color.White, Cursor = Cursors.Hand, TextAlign = ContentAlignment.MiddleCenter, Font = new Font("Segoe UI Semibold", 10.5f) };
             b.FlatAppearance.BorderColor = TM.C(255, 190, 120, 255); b.Text = names[i] + "\r\n" + info[i]; b.Click += (s, e) => Select(k); srcBtns.Add(b); Controls.Add(b);
         }
         wave = new Panel { Left = 18, Top = 162, Width = 584, Height = 150, BackColor = TM.C(255, 6, 3, 12) };
@@ -59,7 +59,7 @@ class PreviewForm : Form
 
     Button Mk(string text, int x, int y, int w, Action click)
     {
-        var b = new Button { Text = text, Left = x, Top = y, Width = w, Height = 34, FlatStyle = FlatStyle.Flat, BackColor = TM.C(255, 118, 52, 212), ForeColor = Color.White, Cursor = Cursors.Hand };
+        var b = new PxButton { Text = text, Left = x, Top = y, Width = w, Height = 34, FlatStyle = FlatStyle.Flat, BackColor = TM.C(255, 118, 52, 212), ForeColor = Color.White, Cursor = Cursors.Hand };
         b.FlatAppearance.BorderColor = TM.C(255, 190, 120, 255); b.Click += (s, e) => click(); Controls.Add(b); return b;
     }
 

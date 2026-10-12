@@ -1,4 +1,4 @@
-3.27.0
+3.28.0
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Bigger writing that fits, plain Fonts page, neon preset boxes, microphone modes, track off switch, profile picture and banner controls, readable in every theme
-sha256=cc2e307854a49368e2b2352973efdc4ac4d08a98ebe65501fff622097451a518
+Rounded buttons in every window, edition codes in Settings, Help for editions
+sha256=d7970dbd6dbb9db962620e990b6811bec379a08efbb28c257e9d6b1c0a0c6be1

@@ -1208,22 +1208,8 @@ partial class StudioForm : Form
         if (maxScroll > 0) { var wr = new HitReg { R = aFull, OnWheel = d => genScroll = Math.Max(0, Math.Min(maxScroll, genScroll - d * 30)) }; regs.Insert(0, wr); }
     }
 
-    void PresetMenu(Fx f)
-    {
-        var m = Win.NewMenu();
-        m.Items.Add("Community presets (download and use)...").Click += (a, b) => OpenCommunityPresets("fx:" + f.Type, f.Title, cp => { lock (eng.Sync) { f.ResetDefaults(); f.Deserialize(cp.Data); f.Reset(); } }, () => f.Serialize(), f.Title + " custom");
-        m.Items.Add(new ToolStripSeparator());
-        foreach (var kv in Presets.For(f.Type)) { string data = kv.Value; m.Items.Add(kv.Key).Click += (a, b) => Presets.Apply(f, data); }
-        var user = Presets.User(f.Type);
-        if (user.Count > 0) { m.Items.Add(new ToolStripSeparator()); foreach (var kv in user) { string data = kv.Value; string nm = kv.Key; var it = new ToolStripMenuItem("My: " + nm); it.Click += (a, b) => Presets.Apply(f, data); it.DropDownItems.Add("Delete").Click += (a, b) => Presets.DeleteUser(f.Type, nm); m.Items.Add(it); } }
-        m.Items.Add(new ToolStripSeparator());
-        m.Items.Add("Save current settings as preset...").Click += (a, b) => { string nm = Ask(Prefs.ShareSaved ? "Preset name (it is also shared with the community):" : "Preset name:", f.Title + " custom"); if (nm != null) { Presets.SaveUser(f.Type, nm, f); Toast("Preset saved"); CommunityPresets.AutoShare("fx:" + f.Type, nm, f.Serialize(), ProjectLibrary.ProfileName, msg => { if (msg != null) BeginInvoke(new Action(() => Toast(msg))); }); } };
-        m.Items.Add("Reset to defaults").Click += (a, b) => { lock (eng.Sync) { f.ResetDefaults(); f.Reset(); } };
-        m.Show(this, new Point((int)MousePos.X, (int)MousePos.Y));
-    }
-
     // ---------------- spectrum ----------------
-    float[] specSrc; int specSrcPos; static double[] hann; int eqPaintTick = -100000;
+    static double[] hann; int eqPaintTick = -100000;
     void UpdateSpectrum()
     {
         if (!eng.Playing) { for (int k = 0; k <= 2048; k++) { spec[k] = spec[k] * 0.9 - 12; specPre[k] = specPre[k] * 0.9 - 12; } return; }   // nothing to analyse: just let the picture fall away

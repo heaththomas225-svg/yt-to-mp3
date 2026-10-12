@@ -26,7 +26,7 @@ class PianoRollForm : Form
     }
     static Button MakeBtn(Panel bar, ref int x, string text, int w, EventHandler h, Color c)
     {
-        var b = new Button { Text = text, Left = x, Top = 6, Width = w, Height = 28, FlatStyle = FlatStyle.Flat, BackColor = c, ForeColor = Color.White, Cursor = Cursors.Hand }; b.FlatAppearance.BorderColor = TM.C(255, 200, 150, 255); b.Click += h; bar.Controls.Add(b); x += w + 6; return b;
+        var b = new PxButton { Text = text, Left = x, Top = 6, Width = w, Height = 28, FlatStyle = FlatStyle.Flat, BackColor = c, ForeColor = Color.White, Cursor = Cursors.Hand }; b.FlatAppearance.BorderColor = TM.C(255, 200, 150, 255); b.Click += h; bar.Controls.Add(b); x += w + 6; return b;
     }
     protected override bool ProcessCmdKey(ref Message msg, Keys k)
     {

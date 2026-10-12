@@ -34,7 +34,7 @@ class WaveEditorForm : Form
     }
 
     int bx, by;
-    Button B(string t, int w, EventHandler h) { var b = new Button { Text = t, Left = bx, Top = by, Width = w, Height = 28, FlatStyle = FlatStyle.Flat, BackColor = TM.C(255, 70, 40, 120), ForeColor = Color.White, Cursor = Cursors.Hand }; b.FlatAppearance.BorderColor = TM.C(255, 200, 150, 255); b.Click += h; Controls.Add(b); bx += w + 6; return b; }
+    Button B(string t, int w, EventHandler h) { var b = new PxButton { Text = t, Left = bx, Top = by, Width = w, Height = 28, FlatStyle = FlatStyle.Flat, BackColor = TM.C(255, 70, 40, 120), ForeColor = Color.White, Cursor = Cursors.Hand }; b.FlatAppearance.BorderColor = TM.C(255, 200, 150, 255); b.Click += h; Controls.Add(b); bx += w + 6; return b; }
     public short[] Current { get { return frames[cur]; } }
     void Info() { info.Text = "Frame " + (cur + 1) + " of " + frames.Count + "   (up to 8 frames; each frame is one cycle of the wave)"; }
     public void Apply() { Wavetables.SetCustom(slot, frames.ToArray()); Info(); pad.Invalidate(); }

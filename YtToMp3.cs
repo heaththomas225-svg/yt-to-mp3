@@ -37,7 +37,7 @@ class Job
 partial class App : Form
 {
     // ---- Auto-update settings ----
-    const string Version = "3.27.0";
+    const string Version = "3.28.0";
     // Plain-text manifest: line 1 = newest version, line 2 = direct exe download URL.
     const string UpdateManifestUrl = "https://raw.githubusercontent.com/heaththomas225-svg/yt-to-mp3/main/version.txt";
 
@@ -110,7 +110,7 @@ partial class App : Form
     TextBox links = new TextBox(), outDir = new TextBox(), log = new TextBox(), trimA = new TextBox(), trimB = new TextBox();
     ComboBox fmt = new DarkCombo(), sr = new DarkCombo(), nameFmt = new DarkCombo();
     CheckBox playlist = new DarkCheck(), norm = new DarkCheck(), openDone = new DarkCheck(), animate = new DarkCheck();
-    Button go = new Button(), cancel = new Button(), browse = new Button();
+    Button go = new PxButton(), cancel = new PxButton(), browse = new PxButton();
     ToolTip tip = new ToolTip();
     List<KeyValuePair<Control, string>> lbls = new List<KeyValuePair<Control, string>>();
     FrameLoop frameLoop; Stopwatch clock = Stopwatch.StartNew(); double lastClock, nextFpsAt = 1000; int fpsFrames, fpsShown;
@@ -131,9 +131,9 @@ partial class App : Form
     internal string LastFile;
     internal int MZoomPct = 75;
     MasterForm mf;
-    Button mastBtn = new Button(), vocalBtn = new Button(), whatsBtn = new Button(), prevNormBtn = new Button(), helpBtn = new Button(); string seenVer = ""; internal string ExtraFilter = ""; Button changeBtn = new Button(); Button settingsBtn = new Button();
+    Button mastBtn = new PxButton(), vocalBtn = new PxButton(), whatsBtn = new PxButton(), prevNormBtn = new PxButton(), helpBtn = new PxButton(); string seenVer = ""; internal string ExtraFilter = ""; Button changeBtn = new PxButton(); Button settingsBtn = new PxButton();
     internal StudioEngine StudioEng = new StudioEngine();
-    StudioForm studioForm; Button studioBtn = new Button(), addMusicBtn = new Button();
+    StudioForm studioForm; Button studioBtn = new PxButton(), addMusicBtn = new PxButton();
     internal void ShowThemes(bool community) { if (OpenStudio()) studioForm.OpenThemeSheet(community); }
 
     HelpForm helpForm;
@@ -1111,8 +1111,8 @@ partial class App : Form
             var nl = new Label { Text = ntext, Font = nfont, ForeColor = Ink, BackColor = card.BackColor, AutoSize = true, MaximumSize = new Size(404, 0), Left = 0, Top = 0 };
             np.Controls.Add(nl); np.MouseEnter += (s, e) => np.Focus(); nl.MouseEnter += (s, e) => np.Focus(); ctl.Add(np);
         }
-        var yes = new Button(); StyleBtn(yes, TM.C(255, 130, 45, 220)); yes.Text = "Update now"; yes.SetBounds(16, 108 + nh, 205, 36);
-        var no = new Button(); StyleBtn(no, TM.C(255, 60, 26, 100)); no.Text = "Later"; no.SetBounds(235, 108 + nh, 205, 36);
+        var yes = new PxButton(); StyleBtn(yes, TM.C(255, 130, 45, 220)); yes.Text = "Update now"; yes.SetBounds(16, 108 + nh, 205, 36);
+        var no = new PxButton(); StyleBtn(no, TM.C(255, 60, 26, 100)); no.Text = "Later"; no.SetBounds(235, 108 + nh, 205, 36);
         yes.Click += (s, e) => { HideCard(); ApplyUpdate(dl); };
         no.Click += (s, e) => { dismissedVer = newVer; HideCard(); };
         ctl.Add(yes); ctl.Add(no); card.Controls.AddRange(ctl.ToArray());

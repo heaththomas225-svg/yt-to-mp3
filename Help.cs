@@ -66,6 +66,22 @@ WARN: A link ending in list=LL is your Liked videos playlist. With 'Whole playli
 ## Cancel
 Press Cancel at any time. Files already finished are kept."),
 
+        new HelpTopic("editions", "Basics", "Editions, edition codes and linking this PC", false, @"
+## The editions
+- Free: the MP3 and MP4 converter and the vocal remover, for everyone, for ever.
+- Supporter: the whole studio while you pay each month or year.
+- Fantasy: everything, for life, with every future update.
+Nothing is paid inside the app: you choose an edition on the website, and the app unlocks.
+## Unlock this PC
+1. Press Settings, then Account, then LINK THIS PC.
+2. The website opens: sign in, check the name of the PC and press Yes, link it.
+3. The app unlocks by itself in a few seconds. One account can have 3 PCs linked: UNLINK THIS PC frees one.
+## Your edition code
+Every paid edition has a code like PX-ABCD-EFGH-JKLM. It is linked to ONE place at a time: your website account (or your Discord, with the /redeem command in the Purphex server). A code that is linked cannot be linked again.
+- To see your codes, or to move one to another account: Settings, Account, EDITION CODES: UNLINK OR REDEEM. Press Unlink on the code, then sign in to the other account and redeem it there.
+- Editions given by the Purphex team (admins and testers) cannot be moved.
+TIP: Press Check again on the Account page if you just paid and the app still says Free."),
+
         new HelpTopic("trim", "Basics", "Cut just a section (trim)", false, @"
 ## Steps
 1. Type a Trim start and/or Trim end such as 1:30 or 0:01:30.5.
@@ -723,9 +739,9 @@ class HelpForm : Form
         Controls.Add(view); Win.DarkControl(view);
         view.MouseMove += (s2, e2) => { int k = LinkAt(e2.Location); view.Cursor = k >= 0 ? Cursors.Hand : Cursors.IBeam; };
         view.MouseClick += (s2, e2) => { int k = LinkAt(e2.Location); if (k >= 0) { string target = linkTargets[k]; Close(); runTour("target:" + target); } };
-        show = new Button { Text = "Show me on screen", Left = 338, Top = 596, Width = 220, Height = 34, FlatStyle = FlatStyle.Flat, BackColor = TM.C(255, 190, 60, 200), ForeColor = Color.White, Cursor = Cursors.Hand, Anchor = AnchorStyles.Bottom | AnchorStyles.Left, Visible = false };
+        show = new PxButton { Text = "Show me on screen", Left = 338, Top = 596, Width = 220, Height = 34, FlatStyle = FlatStyle.Flat, BackColor = TM.C(255, 190, 60, 200), ForeColor = Color.White, Cursor = Cursors.Hand, Anchor = AnchorStyles.Bottom | AnchorStyles.Left, Visible = false };
         show.FlatAppearance.BorderColor = TM.C(255, 220, 140, 255); show.Click += (s, e) => { var t = Current(); if (t != null) { Close(); runTour(t.Id); } }; Controls.Add(show);
-        var close = new Button { Text = "Close", Left = 846, Top = 596, Width = 100, Height = 34, FlatStyle = FlatStyle.Flat, BackColor = TM.C(255, 118, 52, 212), ForeColor = Color.White, Cursor = Cursors.Hand, Anchor = AnchorStyles.Bottom | AnchorStyles.Right };
+        var close = new PxButton { Text = "Close", Left = 846, Top = 596, Width = 100, Height = 34, FlatStyle = FlatStyle.Flat, BackColor = TM.C(255, 118, 52, 212), ForeColor = Color.White, Cursor = Cursors.Hand, Anchor = AnchorStyles.Bottom | AnchorStyles.Right };
         close.FlatAppearance.BorderColor = TM.C(255, 190, 120, 255); close.Click += (s, e) => Close(); Controls.Add(close);
         Fill(selectId);
     }
@@ -855,7 +871,7 @@ class Tour
 
     Button Mk(string txt, int x, int y, int w, Action a)
     {
-        var b = new Button { Text = txt, Left = x, Top = y, Width = w, Height = 36, FlatStyle = FlatStyle.Flat, BackColor = TM.C(255, 118, 52, 212), ForeColor = Color.White, Cursor = Cursors.Hand };
+        var b = new PxButton { Text = txt, Left = x, Top = y, Width = w, Height = 36, FlatStyle = FlatStyle.Flat, BackColor = TM.C(255, 118, 52, 212), ForeColor = Color.White, Cursor = Cursors.Hand };
         b.FlatAppearance.BorderColor = TM.C(255, 190, 120, 255); b.Click += (s, e) => a(); card.Controls.Add(b); return b;
     }
 

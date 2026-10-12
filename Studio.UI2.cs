@@ -280,7 +280,7 @@ static class StudioDialogs
         var f = new Form { Text = title, FormBorderStyle = FormBorderStyle.FixedDialog, StartPosition = FormStartPosition.CenterParent, MaximizeBox = false, MinimizeBox = false, ShowInTaskbar = false, BackColor = Bg, ForeColor = Ink, ClientSize = new Size(w, h), Font = new Font("Segoe UI", 10f) };
         Win.Dark(f); f.Shown += (s, e) => Win.CapsAll(f); return f;
     }
-    internal static Button B(string text, int x, int y, int w, int h, Color c) { var b = new Button { Text = text, Left = x, Top = y, Width = w, Height = h, FlatStyle = FlatStyle.Flat, BackColor = c, ForeColor = Color.White, Cursor = Cursors.Hand }; b.FlatAppearance.BorderColor = TM.C(255, 190, 120, 255); return b; }
+    internal static Button B(string text, int x, int y, int w, int h, Color c) { var b = new PxButton { Text = text, Left = x, Top = y, Width = w, Height = h, FlatStyle = FlatStyle.Flat, BackColor = c, ForeColor = Color.White, Cursor = Cursors.Hand }; b.FlatAppearance.BorderColor = TM.C(255, 190, 120, 255); return b; }
 
     // ADD MUSIC in the main window: what do you want to do with a song? 0 = cancelled, 1 = edit in the studio, 2 = vocal remover, 3 = trim
     public static int AddMusicChoice(IWin32Window owner)
@@ -393,7 +393,7 @@ static class StudioDialogs
         var btns = new Dictionary<string, Button>(); Action refresh = null; FlowLayoutPanel fp = null;
         Action<string> addChip = null; addChip = tag =>
         {
-            if (btns.ContainsKey(tag)) return; var b = new Button { Text = tag.ToUpper(), AutoSize = true, MinimumSize = new Size(0, 30), Padding = new Padding(8, 0, 8, 0), FlatStyle = FlatStyle.Flat, Cursor = Cursors.Hand, ForeColor = Color.White, Margin = new Padding(4) }; b.FlatAppearance.BorderColor = TM.C(255, 150, 110, 220);
+            if (btns.ContainsKey(tag)) return; var b = new PxButton { Text = tag.ToUpper(), AutoSize = true, MinimumSize = new Size(0, 30), Padding = new Padding(8, 0, 8, 0), FlatStyle = FlatStyle.Flat, Cursor = Cursors.Hand, ForeColor = Color.White, Margin = new Padding(4) }; b.FlatAppearance.BorderColor = TM.C(255, 150, 110, 220);
             string tg = tag; b.Click += (s, e) => { if (sel.Contains(tg)) sel.Remove(tg); else if (sel.Count < 10) sel.Add(tg); refresh(); }; btns[tag] = b; fp.Controls.Add(b);
         };
         fp = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoScroll = true, WrapContents = true, BackColor = TM.C(255, 14, 7, 30), Padding = new Padding(4) }; panel.Controls.Add(fp);

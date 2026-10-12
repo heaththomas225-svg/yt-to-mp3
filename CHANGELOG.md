@@ -2,6 +2,13 @@
 
 What changed in each version of **Purphex**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.28.0  Rounded buttons in every window, edition codes, Help for editions
+
+- Rounded buttons everywhere. Every ordinary window (Settings, Help, the converter, What's new, the update card, the preview windows) has the new button: rounded corners, a soft shade, a thin lit edge, a glow under the mouse and a press that sinks. The writing is white like on the other buttons and turns dark only on a light colour.
+- Edition codes. Every paid edition has a code (PX-XXXX-XXXX-XXXX) that is linked to one place at a time: your website account or your Discord. Settings > Account has a new button, EDITION CODES: UNLINK OR REDEEM, that opens the website page where you see your codes, unlink one so it can be used on another account, or redeem a code. Editions given by the Purphex team cannot be moved.
+- Help has a new topic, Editions, edition codes and linking this PC, that every edition can read: what each edition has, how to unlock a PC (and that one account can have 3), and how codes work.
+- Cleaner inside: an old unused preset menu was removed, and the Settings mouse-wheel check no longer fails when another program has a window over it.
+
 ## 3.27.0  Fonts page with 190+ fonts, microphone modes, track off light, profile picture and banner controls, easier to read in every theme
 
 - Fonts. A new FONTS button in the side menu opens a page with 190+ fonts for all the writing in the studio: drippy and horror, gothic, graffiti, neon, retro, script, handwritten, bold, serif and clean, plus the fonts that came with Windows. Every card is written in its own font; click one and the whole studio changes. A font is fetched from purphexmusic.com the first time and kept on this PC. Every font is resized by itself so its lines are as wide and as tall as the original (nothing is cut off or runs off a page: all of them were tested on every page at two window sizes), and fonts too wide to read at a fitting size are left out.
