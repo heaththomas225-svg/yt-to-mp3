@@ -35,10 +35,10 @@ partial class StudioForm
         if (navPopping) navPopping = false; else if (navStack.Count == 0 || navStack[navStack.Count - 1] != navLast) { navStack.Add(navLast); if (navStack.Count > 24) navStack.RemoveAt(0); }
         navLast = tab;
     }
-    void GoHome() { StopPreview(); projBin = false; navStack.Clear(); navPopping = false; tab = 0; navLast = 0; }
+    void GoHome() { projBin = false; navStack.Clear(); navPopping = false; tab = 0; navLast = 0; }
     void GoBack()
     {
-        StopPreview(); projBin = false;
+        projBin = false;
         while (navStack.Count > 0) { int t = navStack[navStack.Count - 1]; navStack.RemoveAt(navStack.Count - 1); if (t == tab || t < 0 || t > 7) continue; navPopping = true; tab = t; return; }
         GoHome();
     }

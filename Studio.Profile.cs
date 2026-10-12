@@ -14,13 +14,13 @@ using System.Windows.Forms;
 sealed class ArtistTrack { public string Title = "", Tags = "", Video = ""; public int Bpm, Secs; }
 sealed class ArtistInfo
 {
-    public string Id = "", Name = "", Bio = "", Location = ""; public List<string> Links = new List<string>(); public string[] Tags = new string[0]; public int Tracks, Followers, Accent = -1, Av, Bv, NameRgb = -1, NameRgb2 = -1; public bool Avatar, Banner, Fantasy, FollowersHidden; public List<ArtistTrack> TrackList = new List<ArtistTrack>();
+    public string Id = "", Name = "", Bio = "", Location = ""; public List<string> Links = new List<string>(); public Dictionary<string, string> LinkTitles = new Dictionary<string, string>(); public string[] Tags = new string[0]; public int Tracks, Followers, Accent = -1, Av, Bv, NameRgb = -1, NameRgb2 = -1; public bool Avatar, Banner, Fantasy, FollowersHidden; public List<ArtistTrack> TrackList = new List<ArtistTrack>();
 }
 
 // what is saved about your profile on this PC (profile.txt next to the other settings)
 static partial class ProfileStore
 {
-    public static string Bio = "", Location = "", Tags = "", BannerPath = "", Key = ""; public static readonly List<string> Links = new List<string>(); public static int Accent = -1, BannerY = 50, BannerX = 50, BannerZoom = 0, AvX = 50, AvY = 50, AvZoom = 0, Followers;   /* Accent: -1 = theme colour, else 0xRRGGBB. Zoom is a percent: 0 (the default) shows the WHOLE picture with its edges stretched to fill the frame, 100 fills the frame, more zooms in */ public static bool Published, Private, HideLocation, HideFollowers;
+    public static string Bio = "", Location = "", Tags = "", BannerPath = "", Key = ""; public static readonly List<string> Links = new List<string>(); public static readonly Dictionary<string, string> LinkTitles = new Dictionary<string, string>();   /* every link has a title (url -> title) */ public static int Accent = -1, BannerY = 50, BannerX = 50, BannerZoom = 0, AvX = 50, AvY = 50, AvZoom = 0, Followers;   /* Accent: -1 = theme colour, else 0xRRGGBB. Zoom is a percent: 0 (the default) shows the WHOLE picture with its edges stretched to fill the frame, 100 fills the frame, more zooms in */ public static bool Published, Private, HideLocation, HideFollowers;
     public static bool ZoomMigrated; public static int NameRgb = -1, NameRgb2 = -1;   // the colour of your name on your profile: -1 = the normal writing, else 0xRRGGBB; with a second colour the name fades from one to the other
     static string File0 { get { return Path.Combine(StudioEnv.DataDir, "profile-page.txt"); } }   // (profile.txt belongs to the project library: your name and picture)
     public static string Dir { get { string d = Path.Combine(StudioEnv.DataDir, "profile"); try { Directory.CreateDirectory(d); } catch { } return d; } }
@@ -30,7 +30,7 @@ static partial class ProfileStore
         {
             if (!File.Exists(File0)) return; bool sawRgb = false, sawZoomV = false;
             foreach (var l in File.ReadAllLines(File0, Encoding.UTF8)) { int i = l.IndexOf('='); if (i < 1) continue; string k = l.Substring(0, i), v = l.Substring(i + 1); int n;
-                switch (k) { case "bio": Bio = v; break; case "location": Location = v; break; case "link": { string cl = CleanLink(v); if (cl.Length > 0 && !Links.Contains(cl)) Links.Add(cl); } break; case "links": Links.Clear(); foreach (var x in v.Split(new[] { (char)31 }, StringSplitOptions.RemoveEmptyEntries)) { string cl2 = CleanLink(x); if (cl2.Length > 0 && Links.Count < 10 && !Links.Contains(cl2)) Links.Add(cl2); } break; case "tags": Tags = v; break; case "banner": BannerPath = v; break; case "key": Key = v; break;
+                switch (k) { case "bio": Bio = UnescBio(v); break; case "location": Location = v; break; case "link": { string cl = CleanLink(v); if (cl.Length > 0 && !Links.Contains(cl)) Links.Add(cl); } break; case "links": Links.Clear(); foreach (var x in v.Split(new[] { (char)31 }, StringSplitOptions.RemoveEmptyEntries)) { string cl2 = CleanLink(x); if (cl2.Length > 0 && Links.Count < 10 && !Links.Contains(cl2)) Links.Add(cl2); } break; case "linktitles": LinkTitles.Clear(); foreach (var x in v.Split(new[] { (char)31 }, StringSplitOptions.RemoveEmptyEntries)) { int k2 = x.IndexOf((char)30); if (k2 > 0) { string uu = CleanLink(x.Substring(0, k2)); string tt = CleanTitle(x.Substring(k2 + 1)); if (uu.Length > 0 && tt.Length > 0) LinkTitles[uu] = tt; } } break; case "tags": Tags = v; break; case "banner": BannerPath = v; break; case "key": Key = v; break;
                     case "namergb": if (int.TryParse(v, out n) && n >= -1 && n <= 0xFFFFFF) NameRgb = n; break; case "namergb2": if (int.TryParse(v, out n) && n >= -1 && n <= 0xFFFFFF) NameRgb2 = n; break; case "private": Private = v == "1"; break; case "hideloc": HideLocation = v == "1"; break; case "hidefol": HideFollowers = v == "1"; break; case "accent": if (int.TryParse(v, out n) && n >= 0 && n < 360 && !sawRgb) Accent = HueToPacked(n); break; case "accentrgb": { int rgb; if (v.Length == 6 && int.TryParse(v, System.Globalization.NumberStyles.HexNumber, System.Globalization.CultureInfo.InvariantCulture, out rgb)) { Accent = rgb; sawRgb = true; } } break; case "bannerx": if (int.TryParse(v, out n)) BannerX = Math.Max(0, Math.Min(100, n)); break; case "zoomv": sawZoomV = true; break; case "bannerzoom": if (int.TryParse(v, out n)) BannerZoom = n <= 0 ? 0 : Math.Max(5, Math.Min(400, n)); break; case "avx": if (int.TryParse(v, out n)) AvX = Math.Max(0, Math.Min(100, n)); break; case "avy": if (int.TryParse(v, out n)) AvY = Math.Max(0, Math.Min(100, n)); break; case "avzoom": if (int.TryParse(v, out n)) AvZoom = n <= 0 ? 0 : Math.Max(5, Math.Min(400, n)); break; case "bannery": if (int.TryParse(v, out n)) BannerY = Math.Max(0, Math.Min(100, n)); break; case "followers": if (int.TryParse(v, out n)) Followers = Math.Max(0, n); break; case "published": Published = v == "1"; break; } }
             if (!sawZoomV) { if (BannerZoom == 100) BannerZoom = 0; if (AvZoom == 100) AvZoom = 0; ZoomMigrated = true; }   // older versions cut a picture to fill the frame: now the whole picture is shown
         }
@@ -38,7 +38,7 @@ static partial class ProfileStore
     }
     public static void Save()
     {
-        try { Directory.CreateDirectory(StudioEnv.DataDir); Win.WriteAtomic(File0, "bio=" + Bio.Replace("\n", " ") + "\nlocation=" + Location + "\nlinks=" + string.Join(((char)31).ToString(), Links.ToArray()) + "\nprivate=" + (Private ? "1" : "0") + "\nhideloc=" + (HideLocation ? "1" : "0") + "\nhidefol=" + (HideFollowers ? "1" : "0") + "\ntags=" + Tags + "\nbanner=" + BannerPath + "\nkey=" + Key + "\nnamergb=" + NameRgb + "\nnamergb2=" + NameRgb2 + "\naccentrgb=" + (Accent < 0 ? "" : Accent.ToString("x6")) + "\nbannerx=" + BannerX + "\nzoomv=2\nbannerzoom=" + BannerZoom + "\navx=" + AvX + "\navy=" + AvY + "\navzoom=" + AvZoom + "\nbannery=" + BannerY + "\nfollowers=" + Followers + "\npublished=" + (Published ? "1" : "0") + "\n", Encoding.UTF8); } catch { }
+        try { Directory.CreateDirectory(StudioEnv.DataDir); Win.WriteAtomic(File0, "bio=" + EscBio(Bio) + "\nlocation=" + Location + "\nlinks=" + string.Join(((char)31).ToString(), Links.ToArray()) + "\nlinktitles=" + string.Join(((char)31).ToString(), Links.ConvertAll(x => x + (char)30 + TitleOf(LinkTitles, x)).ToArray()) + "\nprivate=" + (Private ? "1" : "0") + "\nhideloc=" + (HideLocation ? "1" : "0") + "\nhidefol=" + (HideFollowers ? "1" : "0") + "\ntags=" + Tags + "\nbanner=" + BannerPath + "\nkey=" + Key + "\nnamergb=" + NameRgb + "\nnamergb2=" + NameRgb2 + "\naccentrgb=" + (Accent < 0 ? "" : Accent.ToString("x6")) + "\nbannerx=" + BannerX + "\nzoomv=2\nbannerzoom=" + BannerZoom + "\navx=" + AvX + "\navy=" + AvY + "\navzoom=" + AvZoom + "\nbannery=" + BannerY + "\nfollowers=" + Followers + "\npublished=" + (Published ? "1" : "0") + "\n", Encoding.UTF8); } catch { }
     }
     // ---- colours and framing shared by the app and the published profile ----
     public static Color ColorOf(int packed) { return Color.FromArgb(255, (packed >> 16) & 255, (packed >> 8) & 255, packed & 255); }
@@ -78,10 +78,10 @@ static partial class ProfApi
     static string Clip(string s, int n) { s = (s ?? "").Replace('<', ' ').Replace('>', ' '); return EmojiText.Cut(s, n); }
     public static ArtistInfo Parse(Dictionary<string, object> d)
     {
-        if (d == null) return null; var a = new ArtistInfo { Id = S(d, "id"), Name = Clip(S(d, "name"), 30), Bio = Clip(S(d, "bio"), 200), Location = Clip(S(d, "location"), 30), Tracks = N(d, "tracks"), Followers = N(d, "followers"), Avatar = B(d, "avatar"), Banner = B(d, "banner"), Fantasy = B(d, "fantasy"), FollowersHidden = B(d, "followersHidden"), Accent = AccentOf(d), Av = N(d, "av"), Bv = N(d, "bv"), NameRgb = HexRgb(S(d, "nameRgb")), NameRgb2 = HexRgb(S(d, "nameRgb2")) };
+        if (d == null) return null; var a = new ArtistInfo { Id = S(d, "id"), Name = Clip(S(d, "name"), 30), Bio = Clip(S(d, "bio"), 20000), Location = Clip(S(d, "location"), 30), Tracks = N(d, "tracks"), Followers = N(d, "followers"), Avatar = B(d, "avatar"), Banner = B(d, "banner"), Fantasy = B(d, "fantasy"), FollowersHidden = B(d, "followersHidden"), Accent = AccentOf(d), Av = N(d, "av"), Bv = N(d, "bv"), NameRgb = HexRgb(S(d, "nameRgb")), NameRgb2 = HexRgb(S(d, "nameRgb2")) };
         a.Bio = ProfileStore.CleanBio(a.Bio);
         if (a.Id.Length == 0 || a.Name.Length == 0) return null; object t; if (d.TryGetValue("tags", out t) && t is List<object>) { var l = new List<string>(); foreach (var x in (List<object>)t) if (x is string && l.Count < 1000 && !ProfileStore.IsBadTag((string)x)) l.Add(Clip((string)x, 20)); a.Tags = l.ToArray(); }
-        object lk; if (d.TryGetValue("links", out lk) && lk is List<object>) foreach (var x in (List<object>)lk) { if (!(x is string)) continue; string cl = ProfileStore.CleanLink((string)x); if (cl.Length > 0 && a.Links.Count < 10 && !a.Links.Contains(cl)) a.Links.Add(cl); }
+        object lk, lt; List<object> ltl = d.TryGetValue("linkTitles", out lt) ? lt as List<object> : null; if (d.TryGetValue("links", out lk) && lk is List<object>) { var lkl = (List<object>)lk; for (int li = 0; li < lkl.Count; li++) { var x = lkl[li]; if (!(x is string)) continue; string cl = ProfileStore.CleanLink((string)x); if (cl.Length > 0 && a.Links.Count < 10 && !a.Links.Contains(cl)) { a.Links.Add(cl); string tt = ltl != null && li < ltl.Count && ltl[li] is string ? ProfileStore.CleanTitle((string)ltl[li]) : ""; if (tt.Length > 0) a.LinkTitles[cl] = tt; } } }
         object tl; if (d.TryGetValue("trackList", out tl) && tl is List<object>) foreach (var x in (List<object>)tl) { var td = x as Dictionary<string, object>; if (td == null || a.TrackList.Count >= 40) continue; var at = new ArtistTrack { Title = Clip(S(td, "t"), 40), Bpm = N(td, "b"), Secs = N(td, "s"), Video = ProfileStore.CleanLink(S(td, "v")) }; object g; if (td.TryGetValue("g", out g) && g is List<object>) { var gl = new List<string>(); foreach (var y in (List<object>)g) if (y is string) gl.Add(Clip((string)y, 20)); at.Tags = string.Join(" ", gl.ToArray()); } if (at.Title.Length > 0) a.TrackList.Add(at); }
         return a;
     }
@@ -95,13 +95,14 @@ static partial class ProfApi
         var o = MiniJson.Parse(Http("GET", "/api/profiles/" + Uri.EscapeDataString(id), null)) as Dictionary<string, object>; object p; if (o == null || !o.TryGetValue("profile", out p)) return null; return Parse(p as Dictionary<string, object>);
     }
     // null = it worked, otherwise a sentence for the person
+    public static List<string> LastSuggestions = new List<string>();   // the other ways to write the name when it is taken
     public static string Publish(string json, out ArtistInfo me)
     {
         me = null;
         try
         {
             var o = MiniJson.Parse(Http("POST", "/api/profiles/publish", json, Edition.Token)) as Dictionary<string, object>; if (B(o, "ok")) { object p; if (o.TryGetValue("profile", out p)) me = Parse(p as Dictionary<string, object>); return null; }
-            string err = S(o, "err"); if (err == "rate") return "You have published a lot of times in the last hour. Try again a bit later."; if (err == "name") return "Your name needs at least 2 letters."; if (err == "big") return "A picture is too big: choose a smaller one."; if (err == "image") return "A picture could not be read. Choose a JPG or PNG."; if (err == "full") return "The community is full right now."; return "The community could not take your profile.";
+            string err = S(o, "err"); if (err == "taken") { LastSuggestions = new List<string>(); object sg; if (o.TryGetValue("suggestions", out sg) && sg is List<object>) foreach (var x in (List<object>)sg) if (x is string && LastSuggestions.Count < 8) LastSuggestions.Add(Clip((string)x, 30)); return "taken"; } if (err == "rate") return "You have published a lot of times in the last hour. Try again a bit later."; if (err == "name") return "Your name needs at least 2 letters."; if (err == "big") return "A picture is too big: choose a smaller one."; if (err == "image") return "A picture could not be read. Choose a JPG or PNG."; if (err == "full") return "The community is full right now."; return "The community could not take your profile.";
         }
         catch { return "Could not reach the Purphex community. Check your internet connection."; }
     }
@@ -160,20 +161,20 @@ partial class StudioForm
             Color a = ProfAccent(accent); using (var br = new LinearGradientBrush(r, MixC(Color.FromArgb(255, 8, 4, 20), a, 0.55f), MixC(Color.FromArgb(255, 8, 4, 20), NeonPink, 0.4f), 20f)) g.FillRectangle(br, r);
             using (var pen = new Pen(Color.FromArgb(60, Color.White), 1.2f)) for (int i = 0; i < 9; i++) g.DrawBezier(pen, r.X, r.Bottom - 20 - i * 6, r.X + r.Width * 0.3f, r.Y + 20 + i * 5, r.X + r.Width * 0.6f, r.Bottom - 10 - i * 8, r.Right, r.Y + 30 + i * 6);
         }
-        g.Restore(gs); using (var p = RR(r, 18)) using (var pen = new Pen(Color.FromArgb(160, ProfAccent(accent)), 2f)) g.DrawPath(pen, p);
+        g.Restore(gs); AnimBanner(g, r, ProfAccent(accent)); using (var p = RR(r, 18)) using (var pen = new Pen(Color.FromArgb(160, ProfAccent(accent)), 2f)) g.DrawPath(pen, p);   // (AnimBanner: the light and the sparks that move over the banner)
     }
     void StatCard(Graphics g, RectangleF r, string label, string value, Color vc)
     {
         FillRR(g, TM.C(255, 12, 6, 28), r, 14); Win.DrawNeonBox(g, r, false); Txt(g, label, 10, DimC, Rc(r.X, r.Y + 8, r.Width, 14), StringAlignment.Center, true); Txt(g, value, 24, vc, Rc(r.X, r.Y + 24, r.Width, 34), StringAlignment.Center, true);
     }
     // links as little buttons: the site's name, and a click opens it in your browser
-    float LinkChips(Graphics g, float x0, float y, float maxX, List<string> links)
+    float LinkChips(Graphics g, float x0, float y, float maxX, List<string> links, Dictionary<string, string> titles = null)
     {
         float x = x0; int rows = 1;
         foreach (var l in links)
         {
-            string lb = ProfileStore.LinkLabel(l); if (lb.Length > 26) lb = lb.Substring(0, 25) + "..."; float w = Math.Min(36 + lb.Length * 7.4f, Math.Max(60, maxX - x0)); if (x + w > maxX && x > x0) { x = x0; y += 34; rows++; } var r = Rc(x, y, w, 28); string url = l;
-            Btn(g, r, "o  " + lb, 1, () => OpenLink(url), 11); Hint2(r, "Open " + url + " in your browser"); x += w + 8;
+            string lb = ProfileStore.TitleOf(titles, l); if (lb.Length > 26) lb = lb.Substring(0, 25) + "..."; float w = Math.Min(36 + lb.Length * 7.4f, Math.Max(60, maxX - x0)); if (x + w > maxX && x > x0) { x = x0; y += 34; rows++; } var r = Rc(x, y, w, 28); string url = l;
+            Btn(g, r, "o  " + lb, 1, () => OpenLink(url), 11); Hint2(r, ProfileStore.TitleOf(titles, url) + ": " + url + "  (click to open it in your browser)"); x += w + 8;
         }
         return rows * 34 + 2;   // the height used (a row per 34 pixels)
     }
@@ -182,11 +183,14 @@ partial class StudioForm
         string u = ProfileStore.CleanLink(url); if (u.Length == 0) { Toast("That link cannot be opened."); return; }
         try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(u) { UseShellExecute = true }); } catch (Exception ex) { Toast("Could not open that link: " + ex.Message); }
     }
+    // YOUR LINKS: one on each line as a title, a bar and the address; every link needs a title (the window will not save until each one has one)
     void EditLinks()
     {
-        string t = StudioDialogs.Links(this, string.Join("\r\n", ProfileStore.Links.ToArray())); if (t == null) return; var l = new List<string>(); int dropped = 0;
-        foreach (var raw in t.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries)) { if (raw.Trim().Length == 0) continue; string cl = ProfileStore.CleanLink(raw); if (cl.Length == 0) { dropped++; continue; } if (!l.Contains(cl) && l.Count < 10) l.Add(cl); }
-        ProfileStore.Links.Clear(); ProfileStore.Links.AddRange(l); ProfileStore.Save(); Toast(l.Count + (l.Count == 1 ? " link saved." : " links saved.") + (dropped > 0 ? " " + dropped + " could not be used (only links to streaming services and social media are allowed)." : ""));
+        var cur = new List<string>(); foreach (var u in ProfileStore.Links) cur.Add(ProfileStore.TitleOf(ProfileStore.LinkTitles, u) + " | " + u);
+        string t = StudioDialogs.Links(this, string.Join("\r\n", cur.ToArray())); if (t == null) return; var urls = new List<string>(); var titles = new Dictionary<string, string>();
+        foreach (var raw in t.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries)) { string ti, ur; if (!ProfileStore.ParseLinkLine(raw, out ti, out ur)) continue; if (!urls.Contains(ur) && urls.Count < 10) { urls.Add(ur); titles[ur] = ti; } }
+        ProfileStore.Links.Clear(); ProfileStore.Links.AddRange(urls); ProfileStore.LinkTitles.Clear(); foreach (var kv in titles) ProfileStore.LinkTitles[kv.Key] = kv.Value; ProfileStore.Save(); QueueRepublish();
+        Toast(urls.Count + (urls.Count == 1 ? " link saved." : " links saved."));
     }
     float TagChips(Graphics g, float x0, float y, float maxX, string[] tags, Color c, bool wrap = false)
     {
@@ -260,7 +264,7 @@ partial class StudioForm
     }
     string BuildProfileJson(bool withImages)
     {
-        var sb = new StringBuilder("{\"key\":" + ProfApi.J(ProfileStore.EnsureKey()) + ",\"name\":" + ProfApi.J(ProjectLibrary.ProfileName) + ",\"bio\":" + ProfApi.J(ProfileStore.Bio) + ",\"location\":" + ProfApi.J(ProfileStore.Location) + ",\"links\":[" + string.Join(",", ProfileStore.Links.ConvertAll(x => ProfApi.J(x)).ToArray()) + "],\"tags\":" + ProfApi.J(ProfileStore.Tags) + ",\"accent\":" + ProfileStore.AccentHue + ",\"accentRgb\":" + ProfApi.J(ProfileStore.Accent < 0 ? "" : ProfileStore.Accent.ToString("x6")) + ",\"nameRgb\":" + ProfApi.J(ProfileStore.NameRgb < 0 ? "" : ProfileStore.NameRgb.ToString("x6")) + ",\"nameRgb2\":" + ProfApi.J(ProfileStore.NameRgb2 < 0 ? "" : ProfileStore.NameRgb2.ToString("x6")) + ",\"tracks\":[");
+        var sb = new StringBuilder("{\"key\":" + ProfApi.J(ProfileStore.EnsureKey()) + ",\"name\":" + ProfApi.J(ProjectLibrary.ProfileName) + ",\"bio\":" + ProfApi.J(ProfileStore.Bio) + ",\"location\":" + ProfApi.J(ProfileStore.Location) + ",\"links\":[" + string.Join(",", ProfileStore.Links.ConvertAll(x => ProfApi.J(x)).ToArray()) + "],\"linkTitles\":[" + string.Join(",", ProfileStore.Links.ConvertAll(x => ProfApi.J(ProfileStore.TitleOf(ProfileStore.LinkTitles, x))).ToArray()) + "],\"tags\":" + ProfApi.J(ProfileStore.Tags) + ",\"accent\":" + ProfileStore.AccentHue + ",\"accentRgb\":" + ProfApi.J(ProfileStore.Accent < 0 ? "" : ProfileStore.Accent.ToString("x6")) + ",\"nameRgb\":" + ProfApi.J(ProfileStore.NameRgb < 0 ? "" : ProfileStore.NameRgb.ToString("x6")) + ",\"nameRgb2\":" + ProfApi.J(ProfileStore.NameRgb2 < 0 ? "" : ProfileStore.NameRgb2.ToString("x6")) + ",\"tracks\":[");
         int n = 0; foreach (var e in ProjectLibrary.AllByEdited()) { if (n >= 40 || e.Missing || !e.OnProfile) continue; /* private projects never leave this PC */ if (n > 0) sb.Append(','); sb.Append("{\"t\":" + ProfApi.J(e.Name) + ",\"b\":" + (int)Math.Round(e.Bpm) + ",\"s\":" + (int)Math.Round(e.Seconds) + ",\"g\":" + ProfApi.J(e.Tags) + ",\"v\":" + ProfApi.J(ProfileStore.CleanLink(e.Video ?? "")) + "}"); n++; }
         sb.Append(']'); sb.Append(",\"privacy\":{\"private\":" + (ProfileStore.Private ? "true" : "false") + ",\"hideLocation\":" + (ProfileStore.HideLocation ? "true" : "false") + ",\"hideFollowers\":" + (ProfileStore.HideFollowers ? "true" : "false") + "}");
         if (withImages)
@@ -280,6 +284,7 @@ partial class StudioForm
     }
     void ToggleOnProfile(ProjectEntry e)
     {
+        if (!e.OnProfile && !AskYes("Publish \"" + e.Name + "\" to your profile and the community?\n\nPeople will see its name, tempo, length and tags (never the audio). You can make it private again whenever you like.", "Publish to profile and community")) return;
         ProjectLibrary.SetOnProfile(e, !e.OnProfile);
         Toast(e.OnProfile ? "On your profile: people see its name, tempo, length and tags (never the audio)." + (ProfileStore.Published ? "" : " Publish your profile to share it.") : "Private again: it is not on your profile.");
         QueueRepublish();
@@ -294,12 +299,26 @@ partial class StudioForm
     {
         if (profBusy) return; if (ProjectLibrary.ProfileName.Trim().Length < 2) { Toast("Give your profile a name with at least 2 letters first."); return; }
         profBusy = true; profStatus = "Publishing your profile..."; string json; try { json = BuildProfileJson(true); } catch (Exception ex) { profBusy = false; profStatus = "Could not prepare your profile: " + ex.Message; return; }
-        ThreadPool.QueueUserWorkItem(o => { ArtistInfo me; string err = ProfApi.Publish(json, out me); try { BeginInvoke(new Action(() => { profBusy = false; if (err == null) { ProfileStore.Published = true; if (me != null) ProfileStore.Followers = me.Followers; ProfileStore.Save(); profStatus = "Your profile is public: other producers can find you in ARTISTS."; ProfileRefresh(); } else profStatus = err; lastInput = DateTime.Now; })); } catch { profBusy = false; } });
+        ThreadPool.QueueUserWorkItem(o => { ArtistInfo me; string err = ProfApi.Publish(json, out me); try { BeginInvoke(new Action(() => { profBusy = false; if (err == null) { ProfileStore.Published = true; if (me != null) ProfileStore.Followers = me.Followers; ProfileStore.Save(); profStatus = "Your profile is public: other producers can find you in ARTISTS."; ProfileRefresh(); } else if (err == "taken") { profStatus = "That artist name is taken: pick another way to write it."; AskNewName(); } else profStatus = err; lastInput = DateTime.Now; })); } catch { profBusy = false; } });
+    }
+    // the artist name is taken by somebody else: a window says so and offers the same name written in other ways (or your own)
+    internal Func<string, List<string>, string> nameTakenHook;   // a test answers for itself
+    void AskNewName()
+    {
+        string name = ProjectLibrary.ProfileName; var sug = new List<string>(ProfApi.LastSuggestions); string nn = nameTakenHook != null ? nameTakenHook(name, sug) : StudioDialogs.NameTaken(this, name, sug);
+        if (nn == null || nn.Trim().Length < 2) return; ProjectLibrary.ProfileName = EmojiText.Cut(nn.Trim(), 30); ProjectLibrary.Save(); profBusy = false; PublishProfile();
     }
     void UnpublishProfile()
     {
         if (profBusy || ProfileStore.Key.Length < 32) return; profBusy = true; profStatus = "Making your profile private..."; string key = ProfileStore.Key;
         ThreadPool.QueueUserWorkItem(o => { bool ok = ProfApi.Remove(key); try { BeginInvoke(new Action(() => { profBusy = false; if (ok) { ProfileStore.Published = false; ProfileStore.Followers = 0; ProfileStore.Save(); profStatus = "Your profile is private again. Nobody can find it."; } else profStatus = "Could not reach the Purphex community. Check your internet connection."; })); } catch { profBusy = false; } });
+    }
+    // PUBLISH ALL (on the Projects page): every project that is not published yet, after asking
+    void PublishAllClick()
+    {
+        var todo = ProjectLibrary.AllByEdited().FindAll(x => !x.OnProfile && !x.Missing); if (todo.Count == 0) { Toast("Every project is already published."); return; }
+        if (!AskYes("This will publish all " + todo.Count + (todo.Count == 1 ? " project" : " projects") + " that " + (todo.Count == 1 ? "is" : "are") + " not published yet to your profile and the community.\n\nPeople will see their names, tempos, lengths and tags (never the audio). You can make any of them private again.\n\nAre you sure?", "Publish all")) return;
+        foreach (var x in todo) ProjectLibrary.SetOnProfile(x, true); QueueRepublish(); Toast(todo.Count + (todo.Count == 1 ? " project is" : " projects are") + " published to your profile and the community.");
     }
     void EditText(string what, string cur, int max, Action<string> set) { string t = Ask(what, cur); if (t == null) return; t = EmojiText.Cut(t.Trim(), max); set(t); ProfileStore.Save(); ProjectLibrary.Save(); }
 
@@ -313,12 +332,12 @@ partial class StudioForm
         var ban = Rc(cx, y, cw, Math.Max(110, Math.Min(240, cw / 5f))); Bitmap bp = ProfileStore.BannerPath.Length > 0 && File.Exists(ProfileStore.BannerPath) ? FramedPic(ProfileStore.BannerPath + File.GetLastWriteTime(ProfileStore.BannerPath).Ticks, () => LoadFileImage(ProfileStore.BannerPath), (int)ban.Width, (int)ban.Height, ProfileStore.BannerZoom, ProfileStore.BannerX, ProfileStore.BannerY) : null;   /* the banner is 5 to 1: any picture is resized to fit it */
         PaintBannerArt(g, ban, bp, ProfileStore.Accent); if (Edition.Has(Tier.Fantasy)) { FantasyBorder(g, Rc(ban.X - 3, ban.Y - 3, ban.Width + 6, ban.Height + 6), 16, "me" + ProjectLibrary.ProfileName); FantasyBadge(g, Rc(ban.X + 12, ban.Y + 12, 100, 24)); } var pill = Rc(ban.Right - 120, ban.Y + 12, 108, 24); FillRR(g, ProfileStore.Published ? TM.C(235, 28, 112, 86) : TM.C(235, 60, 52, 98), pill, 12); Txt(g, ProfileStore.Published ? "PUBLIC" : "PRIVATE", 11, Color.White, pill, StringAlignment.Center, true);
         var av = Rc(ban.X + 28, ban.Bottom - 60, 120, 120); Bitmap ab = ProjectLibrary.AvatarPath.Length > 0 ? FramedPic(AvatarFile + File.GetLastWriteTime(AvatarFile).Ticks, () => LoadFileImage(AvatarFile), 120, 120, ProfileStore.AvZoom, ProfileStore.AvX, ProfileStore.AvY) : null; FillRR(g, TM.C(255, 8, 4, 18), Rc(av.X - 7, av.Y - 7, av.Width + 14, av.Height + 14), 30); DrawFrameImage(g, av, ab, acc);   /* a rounded square: the whole picture can be fitted in it */
-        float tx = av.Right + 24, ty = ban.Bottom + 12; NameText(g, ProjectLibrary.ProfileName.ToUpper(), 28, Rc(tx, ty, cw - (tx - cx) - 220, 40), Ink, true); LinksButton(g, Rc(cx + cw - 190, ty + 4, 180, 40), ProfileStore.AllLinks(ProfileStore.Links, ProfileStore.Bio), true);
+        float tx = av.Right + 24, ty = ban.Bottom + 12; NameText(g, ProjectLibrary.ProfileName.ToUpper(), 28, Rc(tx, ty, cw - (tx - cx) - 220, 40), PlainInk, true); LinksButton(g, Rc(cx + cw - 190, ty + 4, 180, 40), ProfileStore.AllLinks(ProfileStore.Links, ProfileStore.Bio), true, ProfileStore.LinkTitles);
         string sub = (ProfileStore.Location.Length > 0 ? ProfileStore.Location.ToUpper() + "   -   " : "") + ProfileStore.Followers + (ProfileStore.Followers == 1 ? " FOLLOWER" : " FOLLOWERS") + "   -   " + profFollowing.Count + " FOLLOWING"; Txt(g, sub, 12, NeonCyan, Rc(tx, ty + 40, cw - (tx - cx) - 20, 20), StringAlignment.Near, true);
         float by = ban.Bottom + 70 + 6; if (by < av.Bottom + 10) by = av.Bottom + 10; y = by;
-        if (ProfileStore.Bio.Length > 0) { TxtWrap(g, ProfileStore.Bio, 14, ProfileStore.NameRgb >= 0 ? ProfileStore.ColorOf(ProfileStore.NameRgb) : Ink, Rc(cx + 6, y, cw - 12, 44)); y += 48; } else { Txt(g, "NO BIO YET. WRITE A FEW WORDS ABOUT YOUR MUSIC BELOW.", 12, DimC, Rc(cx + 6, y, cw - 12, 22), StringAlignment.Near, false); y += 28; }
+        if (ProfileStore.Bio.Length > 0) { y += BioBlock(g, ProfileStore.Bio, 14, ProfileStore.NameRgb >= 0 ? ProfileStore.ColorOf(ProfileStore.NameRgb) : Ink, cx + 6, y, cw - 12); } else { Txt(g, "NO BIO YET. WRITE A FEW WORDS ABOUT YOUR MUSIC BELOW.", 12, DimC, Rc(cx + 6, y, cw - 12, 22), StringAlignment.Near, false); y += 28; }
         if (ProfileStore.Tags.Length > 0) { y += TagBox(g, cx + 6, y, cw - 12, ProfileStore.Tags.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries), acc, true); }
-        var myLinks = ProfileStore.AllLinks(ProfileStore.Links, ProfileStore.Bio); if (myLinks.Count > 0) { y += LinkChips(g, cx + 6, y, cx + cw, myLinks); }
+        var myLinks = ProfileStore.AllLinks(ProfileStore.Links, ProfileStore.Bio); if (myLinks.Count > 0) { y += LinkChips(g, cx + 6, y, cx + cw, myLinks, ProfileStore.LinkTitles); }
         y += 8;
         // ---- numbers ----
         var all = ProjectLibrary.AllByEdited(); int tracks = 0; double secs = 0; foreach (var e in all) { tracks += e.Tracks; secs += e.Seconds; } UseTime.Seed(secs);
@@ -334,7 +353,7 @@ partial class StudioForm
             var eb = Rc(box.Right + 8, ry, 88, 32); Btn(g, eb, "EDIT", 1, act, 12); Hint2(eb, hint); Reg(box, act); ry += 40;
         };
         row("YOUR NAME", ProjectLibrary.ProfileName, "Change the name shown on your profile", () => { string nm = Ask("Your name:", ProjectLibrary.ProfileName); if (nm == null) return; nm = nm.Trim(); if (nm.Length > 30) nm = nm.Substring(0, 30); if (nm.Length > 0) { ProjectLibrary.ProfileName = nm; ProjectLibrary.Save(); } });
-        row("BIO", ProfileStore.Bio, "A few words about you and your music (200 letters)", () => EditText("Your bio (up to 200 letters):", ProfileStore.Bio, 200, s => ProfileStore.Bio = ProfileStore.CleanBio(s)));
+        row("BIO", ProfileStore.Bio.Replace("\n", "  "), "Write as much as you like about you and your music: the box grows with every line", () => { string t = StudioDialogs.AskMulti(this, "Your bio (as long as you like):", ProfileStore.Bio.Replace("\n", "\r\n")); if (t == null) return; ProfileStore.Bio = ProfileStore.CleanBio(t.Replace("\r\n", "\n")); ProfileStore.Save(); ProjectLibrary.Save(); QueueRepublish(); });
         row("WHERE YOU ARE", ProfileStore.Location, "Search any country, county, town or area (like Poole, Dorset) and pick it", () => PickLocation());
         row("YOUR LINKS", ProfileStore.Links.Count == 0 ? "" : ProfileStore.Links.Count + (ProfileStore.Links.Count == 1 ? " link: " : " links: ") + ProfileStore.LinkLabel(ProfileStore.Links[0]), "Add any links you like (your website, YouTube, SoundCloud, Spotify, Instagram, a shop...): one on every line", () => EditLinks());
         row("YOUR GENRES", ProfileStore.Tags, "Pick the genres you make, or add your own: as many tags as you like (no swearing)", () => { string t = StudioDialogs.Tags(this, ProfileStore.Tags); if (t != null) { ProfileStore.Tags = ProjectLibrary.CleanTags(t); ProfileStore.Save(); QueueRepublish(); } });
@@ -361,8 +380,7 @@ partial class StudioForm
         if (profFollowing.Count > 0) { Txt(g, "YOU FOLLOW", 14, Ink, Rc(cx + 6, y, 300, 22), StringAlignment.Near, true); y += 28; float fx = cx + 6; foreach (var f in profFollowing) { float fw = Math.Min(220, 30 + f.Name.Length * 9.5f); if (fx + fw > cx + cw) break; var fr = Rc(fx, y, fw, 32); var fa = f; Btn(g, fr, f.Name, 0, () => OpenArtist(fa.Id), 12); Hint2(fr, "Open " + f.Name + "'s profile"); fx += fw + 8; } y += 48; }
         // ---- your tracks ----
         profTracksTop = Math.Max(0, y - y00 - 8); SectionBox(g, cx, y, cw, profPubH); float pubTop = y; y += 14; cx += 14; cw -= 28; Txt(g, "YOUR PUBLISHED PROJECTS", 18, Ink, Rc(cx + 6, y, 400, 28), StringAlignment.Near, true);
-        { int pubN = 0; foreach (var e0 in all) if (e0.OnProfile) pubN++; var allB = Rc(cx + cw - 330, y - 2, 160, 32); var noB = Rc(cx + cw - 164, y - 2, 164, 32); Btn(g, allB, "PUBLISH ALL", 2, () => { foreach (var e1 in ProjectLibrary.AllByEdited()) if (!e1.Missing) ProjectLibrary.SetOnProfile(e1, true); QueueRepublish(); }, 11); Hint2(allB, "Put every project on your profile");
-          Btn(g, noB, "MAKE ALL PRIVATE", pubN > 0 ? 3 : 0, () => { foreach (var e1 in ProjectLibrary.AllByEdited()) ProjectLibrary.SetOnProfile(e1, false); QueueRepublish(); }, 11); Hint2(noB, "Take every project off your profile"); y += 34;
+        { int pubN = 0; foreach (var e0 in all) if (e0.OnProfile) pubN++; var noB = Rc(cx + cw - 164, y - 2, 164, 32);           Btn(g, noB, "MAKE ALL PRIVATE", pubN > 0 ? 3 : 0, () => { foreach (var e1 in ProjectLibrary.AllByEdited()) ProjectLibrary.SetOnProfile(e1, false); QueueRepublish(); }, 11); Hint2(noB, "Take every project off your profile"); y += 34;
           Txt(g, pubN + " of " + all.Count + " projects are public. The rest are private.", 12, DimC, Rc(cx + 6, y, cw - 12, 20), StringAlignment.Near, false); y += 28; }
         var shownPub = all.FindAll(x0 => x0.OnProfile);
         if (shownPub.Count == 0) { Txt(g, all.Count == 0 ? "Nothing here yet. Make something and press Save: it is private until you publish it." : "No project is published. Press the person button on a project in My Projects, or PUBLISH ALL.", 13, DimC, Rc(cx + 6, y, cw - 12, 24), StringAlignment.Near, false); y += 40; }
@@ -475,11 +493,11 @@ partial class StudioForm
         var back = Rc(cx, y, 150, 34); Btn(g, back, "< ALL ARTISTS", 1, () => { artSel = null; artScroll = 0; }, 12); Hint2(back, "Back to the list of artists"); y += 46;
         var ban = Rc(cx, y, cw, Math.Max(110, Math.Min(240, cw / 5f))); Bitmap bp = a.Banner ? ArtistImage(a.Id, "banner", a.Bv, (int)ban.Width, (int)ban.Height) : null; PaintBannerArt(g, ban, bp, a.Accent); if (a.Fantasy) { FantasyBorder(g, Rc(ban.X - 3, ban.Y - 3, ban.Width + 6, ban.Height + 6), 16, a.Id); FantasyBadge(g, Rc(ban.X + 12, ban.Y + 12, 100, 24)); }
         var av = Rc(ban.X + 28, ban.Bottom - 60, 120, 120); Bitmap ab = a.Avatar ? ArtistImage(a.Id, "avatar", a.Av, 120, 120) : null; FillRR(g, TM.C(255, 8, 4, 18), Rc(av.X - 7, av.Y - 7, av.Width + 14, av.Height + 14), 30); DrawFrameImage(g, av, ab, acc);
-        float tx = av.Right + 24, ty = ban.Bottom + 12; NameTextC(g, a.Name.ToUpper(), 28, Rc(tx, ty, cw - (tx - cx) - 420, 40), Ink, true, a.NameRgb, a.NameRgb2);
+        float tx = av.Right + 24, ty = ban.Bottom + 12; NameTextC(g, a.Name.ToUpper(), 28, Rc(tx, ty, cw - (tx - cx) - 420, 40), PlainInk, true, a.NameRgb, a.NameRgb2);
         Txt(g, (a.Location.Length > 0 ? a.Location.ToUpper() + "   -   " : "") + (a.FollowersHidden ? "" : a.Followers + (a.Followers == 1 ? " FOLLOWER" : " FOLLOWERS") + "   -   ") + a.Tracks + (a.Tracks == 1 ? " TRACK" : " TRACKS"), 12, NeonCyan, Rc(tx, ty + 40, cw - (tx - cx) - 20, 20), StringAlignment.Near, true);
-        var fb = Rc(cx + cw - 190, ty + 4, 180, 40); Btn(g, fb, artSelLoading ? "WORKING..." : (artFollowing ? "FOLLOWING  (UNFOLLOW)" : "FOLLOW"), artFollowing ? 0 : 2, () => FollowToggle(), 12); Hint2(fb, artFollowing ? "Stop following this artist" : "Follow this artist: they appear under FOLLOWING and on your profile"); LinksButton(g, Rc(fb.X - 152, ty + 4, 142, 40), ProfileStore.AllLinks(a.Links, a.Bio), false);
-        y = Math.Max(ban.Bottom + 70 + 6, av.Bottom + 10); if (a.Bio.Length > 0) { TxtWrap(g, a.Bio, 14, Ink, Rc(cx + 6, y, cw - 12, 44)); y += 48; } if (a.Tags.Length > 0) { y += TagBox(g, cx + 6, y, cw - 12, a.Tags, acc, false); }
-        var theirLinks = ProfileStore.AllLinks(a.Links, a.Bio); if (theirLinks.Count > 0) { y += LinkChips(g, cx + 6, y, cx + cw, theirLinks); }
+        var fb = Rc(cx + cw - 190, ty + 4, 180, 40); Btn(g, fb, artSelLoading ? "WORKING..." : (artFollowing ? "FOLLOWING  (UNFOLLOW)" : "FOLLOW"), artFollowing ? 0 : 2, () => FollowToggle(), 12); Hint2(fb, artFollowing ? "Stop following this artist" : "Follow this artist: they appear under FOLLOWING and on your profile"); LinksButton(g, Rc(fb.X - 152, ty + 4, 142, 40), ProfileStore.AllLinks(a.Links, a.Bio), false, a.LinkTitles);
+        y = Math.Max(ban.Bottom + 70 + 6, av.Bottom + 10); if (a.Bio.Length > 0) { y += BioBlock(g, a.Bio, 14, Ink, cx + 6, y, cw - 12); } if (a.Tags.Length > 0) { y += TagBox(g, cx + 6, y, cw - 12, a.Tags, acc, false); }
+        var theirLinks = ProfileStore.AllLinks(a.Links, a.Bio); if (theirLinks.Count > 0) { y += LinkChips(g, cx + 6, y, cx + cw, theirLinks, a.LinkTitles); }
         y += 8; float sw = (cw - 2 * 14) / 3f; StatCard(g, Rc(cx, y, sw, 64), "FOLLOWERS", a.FollowersHidden ? "-" : a.Followers.ToString(), acc); StatCard(g, Rc(cx + sw + 14, y, sw, 64), "TRACKS", a.Tracks.ToString(), NeonCyan); int tot = 0; foreach (var t in a.TrackList) tot += t.Secs; StatCard(g, Rc(cx + 2 * (sw + 14), y, sw, 64), "TIME MADE", DurMade(tot), NeonPink); y += 64 + 22;
         SectionBox(g, cx, y, cw, artPubH); float pTop = y; y += 14; cx += 14; cw -= 28; Txt(g, "TRACKS", 18, Ink, Rc(cx + 6, y, 400, 28), StringAlignment.Near, true); y += 36;
         if (a.TrackList.Count == 0) { Txt(g, artSelLoading ? "LOADING..." : "THIS ARTIST HAS NOT LISTED ANY TRACKS YET.", 13, DimC, Rc(cx + 6, y, cw - 12, 24), StringAlignment.Near, false); y += 40; }

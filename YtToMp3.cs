@@ -37,7 +37,7 @@ class Job
 partial class App : Form
 {
     // ---- Auto-update settings ----
-    const string Version = "3.33.0";
+    const string Version = "3.34.0";
     // Plain-text manifest: line 1 = newest version, line 2 = direct exe download URL.
     const string UpdateManifestUrl = "https://raw.githubusercontent.com/heaththomas225-svg/yt-to-mp3/main/version.txt";
 
@@ -198,8 +198,9 @@ partial class App : Form
             BeginInvoke(new Action(() => { try { PluginHost.LoadEnabled(); } catch { } }));   // on the UI thread (VST plugins expect it), after the window is visible
             new Thread(UpdateLoop) { IsBackground = true }.Start();
         };
-        FormClosing += (s, e) => { var others = new List<Form>(); foreach (Form of in Application.OpenForms) if (of != this) others.Add(of); foreach (var of2 in others) { try { of2.Close(); } catch { } } };   // closing the main window closes the others
-        FormClosing += (s, e) => { SaveSettings(); KillCurrent(); StudioEng.Shutdown(); Separator.KillWorker(); layerRun = false; UserBackground.StopVideo(); frameLoop.Dispose(); };
+        FormClosing += (s, e) => { if (e.CloseReason == CloseReason.UserClosing && !ConfirmClose()) e.Cancel = true; };   // the X asks first (and offers to save the project)
+        FormClosing += (s, e) => { if (e.Cancel) return; var others = new List<Form>(); foreach (Form of in Application.OpenForms) if (of != this) others.Add(of); foreach (var of2 in others) { try { of2.Close(); } catch { } } };   // closing the main window closes the others
+        FormClosing += (s, e) => { if (e.Cancel) return; SaveSettings(); KillCurrent(); StudioEng.Shutdown(); Separator.KillWorker(); layerRun = false; UserBackground.StopVideo(); frameLoop.Dispose(); };
 
         bg.Dock = DockStyle.Fill;
         bg.Paint += PaintBg;
@@ -631,6 +632,20 @@ partial class App : Form
     internal static string DenoDirPath { get { return DenoDir; } }
     internal static string FfmpegDirPath { get { return FfmpegDir; } }
     internal static string FindFilePublic(string dir, string name) { return FindFile(dir, name); }
+    // pressing the X: are you sure (it closes everything), then do you want to save the project; false = stay open
+    internal Func<string, string, MessageBoxButtons, DialogResult> CloseAsk;   // a test answers for itself
+    internal bool ConfirmClose()
+    {
+        Func<string, string, MessageBoxButtons, DialogResult> ask = CloseAsk ?? ((t, ti, b) => MessageBox.Show(this, t, ti, b, MessageBoxIcon.Question, MessageBoxDefaultButton.Button2));
+        if (ask("Are you sure you want to close Purphex?\n\nThis will close everything: the converter, Purphex Music and every other window. Anything that is converting or playing stops.", "Close Purphex", MessageBoxButtons.YesNo) != DialogResult.Yes) return false;
+        if (studioForm != null && !studioForm.IsDisposed && studioForm.HasProject)
+        {
+            var r = ask("Do you want to save your project before closing?\n\nYes: save it, then close.\nNo: close without saving.\nCancel: stay open.", "Save your project?", MessageBoxButtons.YesNoCancel);
+            if (r == DialogResult.Cancel) return false; if (r == DialogResult.Yes && !studioForm.SaveBeforeClose()) return false;
+        }
+        return true;
+    }
+    internal static string DenoExe { get { return FindFile(DenoDir, "deno.exe"); } }   // the JavaScript runtime YouTube downloads need (Generate Lyrics uses it to listen to a link)
     internal static string FfmpegExe() { return FindFile(FfmpegDir, "ffmpeg.exe"); }
     internal static string FfprobeExe() { return FindFile(FfmpegDir, "ffprobe.exe"); }
 

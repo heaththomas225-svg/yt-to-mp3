@@ -19,12 +19,13 @@ static class Prefs
     public static int BufBoost = 0;          // extra size the studio adds for this session only when the sound breaks up (never saved)
     public static int BufEff { get { return Math.Min(2, Buf + BufBoost); } }
     public static int FpsCap = 60;           // animation frame rate cap: 30, 60, 120, 144, 165 or 240
-    public static bool ShowFps = false;      // show the frame rate in the title bar
+    public static bool ShowFps { get { return true; } set { } }      // the frame rate is always shown in the title bar (there is no switch for it any more)
     public static string MidiDev = "";       // the MIDI keyboard Bass Lab listens to ("" = off)
     public static int MicMode = 0;           // the MIC button's mode: 0 Automatic, 1 Standard, 2 Voice Isolation, 3 Wide Spectrum (only for what is recorded)
     public static string FontId = "";        // the studio font chosen on the Fonts page ("" = the original, Bahnschrift)
     public static string InDev = "";         // recording input (microphone), "" = the Windows default
     public static string Theme = "Purphex";   // the colour theme (Settings and the Theme tab)
+    public static int FantasyThemeV;   // which version of the "Fantasy theme on the DAW" has been applied on this PC (it is applied again when the number goes up)
     public static bool FantasyThemed;   // the Fantasy edition puts the Fantasy theme (Royal Gold) on the whole program the first time it is on this PC; after that the theme is yours to change
     public static string LyricLang = "auto";   // the language of the lyrics on the Generate Lyrics page ("auto" = the recogniser decides)
     public static string LyricQuality = "better";   // how well the Generate Lyrics page listens: fast, better or best (a bigger model)
@@ -36,7 +37,7 @@ static class Prefs
 
     public static string[] Lines()
     {
-        return new[] { "bgpath=" + BgPath, "bgdim=" + BgDim, "bgleaves=" + BgLeaves, "bgstudio=" + BgStudio, "outvol=" + OutVol, "outdev=" + OutDev, "buf=" + Buf, "fpscap=" + FpsCap, "showfps=" + ShowFps, "savelyrics=" + SaveLyrics, "countuses=" + CountUses, "lyriclang=" + LyricLang, "lyricquality=" + LyricQuality, "lyricvoice=" + LyricVoice, "fantasytheme=" + FantasyThemed, "midiin=" + MidiDev, "indev=" + InDev, "micmode=" + MicMode, "fontid=" + FontId, "sharesaved=" + ShareSaved, "theme=" + Theme };
+        return new[] { "bgpath=" + BgPath, "bgdim=" + BgDim, "bgleaves=" + BgLeaves, "bgstudio=" + BgStudio, "outvol=" + OutVol, "outdev=" + OutDev, "buf=" + Buf, "fpscap=" + FpsCap, "showfps=" + ShowFps, "savelyrics=" + SaveLyrics, "countuses=" + CountUses, "lyriclang=" + LyricLang, "lyricquality=" + LyricQuality, "lyricvoice=" + LyricVoice, "fantasythemev=" + FantasyThemeV, "fantasytheme=" + FantasyThemed, "midiin=" + MidiDev, "indev=" + InDev, "micmode=" + MicMode, "fontid=" + FontId, "sharesaved=" + ShareSaved, "theme=" + Theme };
     }
     public static bool Parse(string k, string v)
     {
@@ -61,6 +62,7 @@ static class Prefs
             case "lyriclang": LyricLang = LyricsLang.Clean(v); return true;
             case "lyricquality": LyricQuality = LyricsWhisper.CleanQuality(v); return true;
             case "lyricvoice": if (bool.TryParse(v, out b)) LyricVoice = b; return true;
+            case "fantasythemev": { int n2; if (int.TryParse(v, out n2)) FantasyThemeV = n2; return true; }
             case "fantasytheme": if (bool.TryParse(v, out b)) FantasyThemed = b; return true;
             case "sharesaved": if (bool.TryParse(v, out b)) ShareSaved = b; return true;
             case "theme": Theme = v; Themes.ApplyByName(v); return true;

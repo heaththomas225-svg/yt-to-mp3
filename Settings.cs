@@ -60,7 +60,6 @@ class SettingsForm : Form
         fpsBox = Combo(180, y, 290, new[] { "30 fps (lightest)", "60 fps (smooth)", "120 fps (fast screens)", "144 fps (gaming screens)", "165 fps", "240 fps (the fastest screens)" }); fpsBox.SelectedIndexChanged += (s, e) => { if (!setting && fpsBox.SelectedIndex >= 0) { Prefs.FpsCap = FpsChoices[fpsBox.SelectedIndex]; Prefs.Changed(); } };
         y += 38;
         Add(new Label { Text = "Your screen refreshes " + FrameLoop.DisplayHz() + " times a second, so that is the most you will see. 120 fps needs a 120 Hz (or faster) screen and a quicker PC.", Left = 20, Top = y - 6, Width = 480, Height = 34, ForeColor = TM.C(255, 150, 140, 190) }); y += 30;
-        fpsChk = Chk("Show the frame rate in the title bar", 20, ref y); fpsChk.CheckedChanged += (s, e) => { if (!setting) { Prefs.ShowFps = fpsChk.Checked; Prefs.Changed(); } };
         NewPage("Audio", ref y); Header("Audio (Purphex Music playback)", ref y);
         volBar = new TrackBar { Left = 130, Top = y - 4, Width = 300, Minimum = 0, Maximum = 100, TickFrequency = 10, BackColor = BackColor };
         volNum = new NumericUpDown { Left = 440, Top = y, Width = 64, Minimum = 0, Maximum = 100 }; Win.NeonBox(volNum); StyleNum(volNum);
@@ -255,7 +254,7 @@ class SettingsForm : Form
 
     void ResetAll()
     {
-        Prefs.BgDim = 45; Prefs.BgLeaves = true; Prefs.BgStudio = true; Prefs.ShareSaved = true; Prefs.SaveLyrics = true; Prefs.OutVol = 100; Prefs.OutDev = -1; Prefs.Buf = 1; Prefs.BufBoost = 0; Prefs.FpsCap = 60; Prefs.ShowFps = false; Themes.Apply(0);
+        Prefs.BgDim = 45; Prefs.BgLeaves = true; Prefs.BgStudio = true; Prefs.ShareSaved = true; Prefs.SaveLyrics = true; Prefs.OutVol = 100; Prefs.OutDev = -1; Prefs.Buf = 1; Prefs.BufBoost = 0; Prefs.FpsCap = 60;  Themes.Apply(0);
         UserBackground.Set(""); Refresh2(); app.StudioEng.ReopenOutput(); Prefs.Changed();
     }
 
@@ -265,7 +264,7 @@ class SettingsForm : Form
         bgName.Text = UserBackground.Active ? (UserBackground.IsVideo ? "Video: " : "Picture: ") + Prefs.BgPath : "None - using the animated purple leaves";
         dimBar.Value = Prefs.BgDim; dimNum.Value = Prefs.BgDim; leavesChk.Checked = Prefs.BgLeaves; studioChk.Checked = Prefs.BgStudio; shareChk.Checked = Prefs.ShareSaved; lyricsChk.Checked = Prefs.SaveLyrics; countChk.Checked = Prefs.CountUses;
         themeBox.SelectedIndex = Themes.Index; themeNote.Text = Themes.Current.Blurb + " It changes the glow, borders and buttons in Purphex Music, Mastering and Bass Lab.";
-        fpsBox.SelectedIndex = Math.Max(0, Array.IndexOf(FpsChoices, Prefs.FpsCap)); fpsChk.Checked = Prefs.ShowFps;
+        fpsBox.SelectedIndex = Math.Max(0, Array.IndexOf(FpsChoices, Prefs.FpsCap));
         { int ii = Prefs.InDev.Length == 0 ? 0 : inBox.Items.IndexOf(Prefs.InDev); inBox.SelectedIndex = Math.Max(0, ii); }
         volBar.Value = Prefs.OutVol; volNum.Value = Prefs.OutVol; devBox.SelectedIndex = Math.Max(0, Math.Min(devBox.Items.Count - 1, Prefs.OutDev + 1)); bufBox.SelectedIndex = Prefs.Buf;
         setting = false;

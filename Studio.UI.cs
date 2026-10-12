@@ -373,21 +373,30 @@ partial class StudioForm : Form
     {
         Color c = style == 1 ? Violet : (style == 3 ? TM.C(255, 150, 40, 80) : (style == 4 ? TM.C(255, 150, 70, 230) : BtnC));
         if (ht > 0) c = Color.FromArgb(Math.Min(255, c.R + (int)(28 * ht)), Math.Min(255, c.G + (int)(22 * ht)), Math.Min(255, c.B + (int)(30 * ht)));
+        c = Contrast.ForWhite(c);   // white writing: a theme that makes a button too light gets a darker button, not black writing
+        Color vA = Contrast.ForWhite(Color.FromArgb(Math.Min(255, Violet.R + 32), Math.Min(255, Violet.G + 8), Math.Min(255, Violet.B + 28))), vB = Contrast.ForWhite(Accent2);
         float rad = Math.Min(10f, Math.Max(6f, r.Height * 0.3f));   // softer corners on every button
         if (style == 2)
         {
-            using (var p = RR(r, rad)) using (var br = new LinearGradientBrush(r, Color.FromArgb(Math.Min(255, Violet.R + 32), Math.Min(255, Violet.G + 8), Math.Min(255, Violet.B + 28)), Accent2, 0f)) g.FillPath(br, p);
+            using (var p = RR(r, rad)) using (var br = new LinearGradientBrush(r, vA, vB, 0f)) g.FillPath(br, p);
             if (ht > 0) FillRR(g, Color.FromArgb((int)(40 * ht), 255, 255, 255), r, rad);
         }
         else using (var p = RR(r, rad)) using (var br = new LinearGradientBrush(r, Color.FromArgb(c.A, Math.Min(255, (int)(c.R * 1.07f) + 2), Math.Min(255, (int)(c.G * 1.07f) + 2), Math.Min(255, (int)(c.B * 1.07f) + 2)), Color.FromArgb(c.A, (int)(c.R * 0.93f), (int)(c.G * 0.93f), (int)(c.B * 0.93f)), 90f)) g.FillPath(br, p);   // a soft shade from top to bottom
-        // the look of the buttons of the main window (and the Fantasy buttons): a lit rim in a lighter shade of the button's own colour, a glassy top and a bright line where the light catches the edge
-        { Color rimBase = style == 2 ? Violet : c; Color rim = Color.FromArgb(Math.Min(255, (int)(rimBase.R + (255 - rimBase.R) * (0.42f + 0.30f * ht))), Math.Min(255, (int)(rimBase.G + (255 - rimBase.G) * (0.42f + 0.30f * ht))), Math.Min(255, (int)(rimBase.B + (255 - rimBase.B) * (0.42f + 0.30f * ht)))); StrokeRR(g, Color.FromArgb(215, rim), r, rad, 1.4f); }
-        if (r.Height >= 18) { var top = Rc(r.X + 1.5f, r.Y + 1.5f, r.Width - 3, (r.Height - 3) * 0.46f); using (var p = RR(top, Math.Max(3f, rad - 1.5f))) using (var br = new LinearGradientBrush(top, Color.FromArgb(style == 2 ? 58 : 40, 255, 255, 255), Color.FromArgb(0, 255, 255, 255), 90f)) g.FillPath(br, p); }
-        if (r.Width > rad * 3) using (var hl = new Pen(Color.FromArgb(style == 2 ? 120 : 80, 255, 255, 255), 1f)) g.DrawLine(hl, r.X + rad, r.Y + 1.5f, r.Right - rad, r.Y + 1.5f);   // the light catching the top edge
+        if (Edition.Has(Tier.Fantasy))
+        {   // the Fantasy look: a lit rim in a lighter shade of the button's own colour, a glassy top and a bright line where the light catches the edge
+            { Color rimBase = style == 2 ? Violet : c; Color rim = Color.FromArgb(Math.Min(255, (int)(rimBase.R + (255 - rimBase.R) * (0.42f + 0.30f * ht))), Math.Min(255, (int)(rimBase.G + (255 - rimBase.G) * (0.42f + 0.30f * ht))), Math.Min(255, (int)(rimBase.B + (255 - rimBase.B) * (0.42f + 0.30f * ht)))); StrokeRR(g, Color.FromArgb(215, rim), r, rad, 1.4f); }
+            if (r.Height >= 18) { var top = Rc(r.X + 1.5f, r.Y + 1.5f, r.Width - 3, (r.Height - 3) * 0.46f); using (var p = RR(top, Math.Max(3f, rad - 1.5f))) using (var br = new LinearGradientBrush(top, Color.FromArgb(style == 2 ? 58 : 40, 255, 255, 255), Color.FromArgb(0, 255, 255, 255), 90f)) g.FillPath(br, p); }
+            if (r.Width > rad * 3) using (var hl = new Pen(Color.FromArgb(style == 2 ? 120 : 80, 255, 255, 255), 1f)) g.DrawLine(hl, r.X + rad, r.Y + 1.5f, r.Right - rad, r.Y + 1.5f);
+        }
+        else
+        {   // the other editions keep the simpler look
+            StrokeRR(g, TM.C(style == 2 ? 200 : 110, 200, 150, 255), r, rad, 1);
+            if (r.Width > rad * 3) using (var hl = new Pen(Color.FromArgb(style == 2 ? 70 : 40, 255, 255, 255), 1f)) g.DrawLine(hl, r.X + rad, r.Y + 1.5f, r.Right - rad, r.Y + 1.5f);   // the light catching the top edge
+        }
         if (style == 4) Glow(g, Accent2, r, rad, 0.8f, 3); else if (ht > 0.03f) Glow(g, NeonCyan, r, rad, 0.7f * ht, 3); else if (style == 2) Glow(g, NeonViolet, r, rad, 0.5f, 3);
         bool bdt = true; float fpx = px, avail = r.Width - 10;   // a label that is too wide for its button gets a smaller size instead of being cut off
         if (shown.Length * fpx * 0.55f > avail * 0.7f) { while (fpx > 7f && g.MeasureString(shown, GfxCache.Exact(GfxCache.Grow(fpx), bdt)).Width > avail) fpx -= 0.5f; }
-        Color lab = style == 2 ? Contrast.LabelOn(Color.FromArgb(Math.Min(255, Violet.R + 32), Math.Min(255, Violet.G + 8), Math.Min(255, Violet.B + 28)), Accent2) : Contrast.LabelOn(c);   // white, or dark on a light button
+        Color lab = Color.White;   // always white
         Txt(g, shown, fpx, lab, r, StringAlignment.Center, bdt);
     }
 
@@ -594,11 +603,12 @@ partial class StudioForm : Form
         NeonRule(g, 0, y0 + TransH, W);
         float x = 14, y = y0 + 8, h = 36;
         Btn(g, Rc(x, y, 44, h), "|<", 0, () => { eng.Seek(0); scroll = 0; followPaused = false; }, 15); x += 50;
-        Btn(g, Rc(x, y, 70, h), "PLAY", eng.Playing ? 4 : 1, () => PlayToggle(), 14); x += 76;   // always says PLAY (it is lit while playing; pressing it again pauses)
+        Btn(g, Rc(x, y, 70, h), "PLAY", eng.Playing ? 4 : 1, () => { if (!eng.Playing) PlayToggle(); }, 14); x += 76;   // PLAY only plays (it is lit while playing); PAUSE is its own button
+        { bool paused = !eng.Playing && eng.Pos > 0; var pb = Rc(x, y, 70, h); Btn(g, pb, "PAUSE", paused ? 4 : 0, () => { if (eng.Playing) eng.Pause(); }, 14); Hint2(pb, "Pause where you are (Space does the same); PLAY carries on from there"); x += 76; }
         Btn(g, Rc(x, y, 56, h), "STOP", 0, () => { eng.Stop(); scroll = 0; followPaused = false; }, 14); x += 62;
         Btn(g, Rc(x, y, 62, h), "LOOP", eng.Loop ? 4 : 0, () => eng.Loop = !eng.Loop, 14); x += 72;
         double sec = dispPos / StudioEngine.SR, tot = eng.EndFrame / (double)StudioEngine.SR;
-        var tr = Rc(x, y, 210, h); FillRR(g, TM.C(200, 8, 4, 18), tr, 6); StrokeRR(g, Edge, tr, 6, 1);
+        var tr = Rc(x, y, 210, h); FillRR(g, TM.C(200, 8, 4, 18), tr, 6); StrokeRR(g, Edge, tr, 6, 1); Glow(g, Accent, tr, 6, eng.Playing ? 0.85f : 0.5f, 3); using (var pen = new Pen(Color.FromArgb(eng.Playing ? 230 : 150, Accent), 1.2f)) using (var pp = RR(tr, 6)) g.DrawPath(pen, pp);   // a small neon glow that is always there (brighter while it plays)
         Txt(g, Fmt(sec) + "  /  " + Fmt(tot), 19, Accent, tr, StringAlignment.Center, true); x += 222;
         Btn(g, Rc(x, y, 92, h), "MIDI REC", recOn ? 3 : 0, () => { if (!recOn && !AskYes("Would you like to record an instrument?\n\nYour MIDI keyboard (or the piano window) is recorded onto the selected MIDI track while the song plays. Press PLAY after you say Yes. If not, press No.", "MIDI recording")) return; recOn = !recOn; Toast(recOn ? "MIDI recording is on (the button is red): press PLAY, then play your MIDI keyboard or the piano window and the notes are recorded onto the selected MIDI track." : "MIDI recording is off."); }, 13); x += 98;
         { bool rec = mic != null; double el = rec ? (eng.CountBeat > 0 ? 0 : Math.Max(0, (DateTime.Now - micT0).TotalSeconds - micLead / (double)StudioEngine.SR)) : 0; bool armed = micArmed && !rec; var mr = Rc(x, y, rec ? 128 : 60, h); Btn(g, mr, (rec ? "* MIC  " + ((int)(el / 60)).ToString("00") + ":" + ((int)(el % 60)).ToString("00") : "MIC"), rec || armed ? 3 : 0, () => MicClick(), 13); if (armed) { double pl = 0.5 + 0.5 * Math.Sin(Environment.TickCount / 220.0); Glow(g, Color.FromArgb(255, 60, 90), mr, 8, 0.7f + 0.5f * (float)pl, 4); lastInput = DateTime.Now; } if (rec) HBar(g, Rc(mr.X + 6, mr.Bottom - 7, mr.Width - 12, 5), mic.Level); PaintMicDrop(g, Rc(mr.Right + 3, y, 24, h), rec); x += mr.Width + 6 + 28; }
@@ -606,7 +616,7 @@ partial class StudioForm : Form
 
         // tabs on the right; master meters in whatever room is left between
         float tx = W - 328;
-        float mx = Math.Max(x + 16, W - PanelW - 300); bool showBack = ShowBack; float room = tx - 12 - mx - (showBack ? 106 : 0);   /* no HOME here: the MIX tab is beside it */ float bx0 = tx - 6;
+        float mx = Math.Max(x + 16, W - PanelW - 300); bool showBack = false; float room = tx - 12 - mx - (showBack ? 106 : 0);   /* no HOME here: the MIX tab is beside it */ float bx0 = tx - 6;
         if (showBack) { bx0 -= 100; Btn(g, Rc(bx0, y, 100, h), "BACK", 0, () => GoBack(), 14); bx0 -= 6; }
         if (room >= 70)
         {
@@ -787,7 +797,7 @@ partial class StudioForm : Form
                 using (var ig = Graphics.FromImage(pc.Img)) { ig.Clear(Color.Transparent); ig.SmoothingMode = SmoothingMode.AntiAlias; ig.TranslateTransform(-ix, -iy); PaintWaveBody(ig, lane, cr, c, audible, sel, cy, amp, px, wmn, wmx); }
                 pc.ImgVer = pc.Ver; pc.ImgRel = rel; pc.ImgX0 = x0; pc.ImgLane = lane; pc.ImgCr = cr; pc.ImgAud = audible; pc.ImgSel = sel; pc.ImgCol = c.ToArgb(); pc.ImgTheme = ThemeKeyNow();
             }
-            var gi = g.Save(); g.SetClip(lane, CombineMode.Intersect); if (tr.Off) PaintQuake(g, pc.Img, ix + (dragWave ? (int)Math.Round(x0 - pc.ImgX0) : 0), iy, tr, lane, cr); else g.DrawImageUnscaled(pc.Img, ix + (dragWave ? (int)Math.Round(x0 - pc.ImgX0) : 0), iy); g.Restore(gi);
+            var gi = g.Save(); g.SetClip(lane, CombineMode.Intersect); if (tr.Off || IsOffRow(tr)) PaintQuake(g, pc.Img, ix + (dragWave ? (int)Math.Round(x0 - pc.ImgX0) : 0), iy, tr, lane, cr); else g.DrawImageUnscaled(pc.Img, ix + (dragWave ? (int)Math.Round(x0 - pc.ImgX0) : 0), iy); g.Restore(gi);
         }
         if (cr.Width > 0 && !tr.Off) { var gst = g.Save(); g.SetClip(lane, CombineMode.Intersect); float lv = Math.Max(tr.PeakL, tr.PeakR); Glow(g, c, cr, 6, (sel ? 1.2f : 0.8f) + Math.Min(0.6f, lv * 0.9f), 5); g.Restore(gst); }
         { float nx = Math.Max(lane.X, x0) + 8, nw = Math.Min(300, Math.Min(x1, lane.Right) - nx - 6); if (nw > 70) Txt(g, tr.Name, 12, Color.FromArgb(200, 255, 255, 255), Rc(nx, lane.Y + 6, nw, 16), StringAlignment.Near, true); }   // the name stays inside its own clip
@@ -1104,7 +1114,7 @@ partial class StudioForm : Form
         }
         if (busy) { if (k == Keys.Escape && busyCancelable) { cancelFlag = true; busyText = "Cancelling..."; return true; } return base.ProcessCmdKey(ref msg, k); }
         if (k == Keys.Escape && tab == 5 && !menuOpen) { tab = 1; return true; }   // Esc leaves the visualiser
-        if (k == Keys.Space && (tab == 3 || tab == 4 || tab == 6 || tab == 7) && !ProjSearchActive && !ArtSearchActive && previewPath.Length > 0 && previewEng != null) { PreviewPauseToggle(); return true; }   // Space pauses the preview (the search box only takes keys after you click it)
+        if (k == Keys.Space && (tab == 3 || tab == 4 || tab == 6 || tab == 7 || tab == 8) && !ProjSearchActive && !ArtSearchActive && previewPath.Length > 0 && previewEng != null) { PreviewPauseToggle(); return true; }   // Space pauses the preview (the search box only takes keys after you click it)
         if (ProjSearchCmd(k)) return true; if (ProjSearchTakesKey(k)) return base.ProcessCmdKey(ref msg, k);
         if (ArtSearchCmd(k)) return true; if (ArtSearchTakesKey(k)) return base.ProcessCmdKey(ref msg, k); if (FontSearchCmd(k)) return true; if (FontSearchTakesKey(k)) return base.ProcessCmdKey(ref msg, k);
         if (k == Keys.F1) { app.ShowHelp(null); return true; }

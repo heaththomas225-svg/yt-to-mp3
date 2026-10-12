@@ -86,6 +86,7 @@ partial class StudioForm
         var typeB = Rc(x0, y, 160, 32); Btn(g, typeB, "TYPE: " + (projType.Length == 0 ? "ALL" : projType.ToUpper()), projType.Length > 0 ? 4 : 0, () => TypeMenu(typeB), 12); Hint2(typeB, "Show only songs, beats or vocal projects"); x0 = typeB.Right + 10;
         var favB = Rc(x0, y, 140, 32); Chip(g, favB, "FAVOURITES", projFav, () => { projFav = !projFav; projScroll = 0; }, "Show only the projects you starred"); x0 = favB.Right + 10;
         if (FiltersOn) { var clr = Rc(x0, y, 100, 32); Btn(g, clr, "CLEAR", 3, () => ClearProjectFilters(), 12); Hint2(clr, "Clear the search and every filter"); }
+        { var pubAll = Rc(W - 24 - 200, y, 200, 32); if (pubAll.X > x0 + 10) { Btn(g, pubAll, "PUBLISH ALL", 2, () => PublishAllClick(), 12); Hint2(pubAll, "Publish every project that is not published yet to your profile and the community (it asks first)"); } }
         return y + 32 + 18;
     }
     void SortMenu(RectangleF r)

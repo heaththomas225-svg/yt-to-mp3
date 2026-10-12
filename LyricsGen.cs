@@ -46,17 +46,51 @@ static class LyricsGen
     }
 
     // the lyrics for a link (no file, no download): the video's title finds the song in the lyrics database
-    static Result GenerateFromLink(string url, Action<string> say, Func<bool> stop, string lang = "auto")
+    // the sound of a link, only to listen to it: yt-dlp saves the best audio in a folder of its own, which the caller deletes (Cleanup) when it is done. null and err say why not.
+    public static Func<string> DenoPath = () => App.DenoExe;
+    public static string FetchAudio(string url, Action<string> say, Func<bool> stop, out string err)
+    {
+        err = ""; string yd = null; try { yd = YtDlpPath(); } catch { }
+        if (yd == null || !File.Exists(yd)) { err = "To listen to a link, Purphex needs the link reader that the converter installs: convert any link once (or add the file), then try again."; return null; }
+        string dir = Path.Combine(Path.GetTempPath(), "purphex_lyr_link_" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(dir); string deno = null; try { deno = DenoPath(); } catch { }
+        say("Downloading the sound of the link, only to listen to it (it is deleted after)...");
+        int code; string o = Run(yd, "--no-playlist --no-warnings --newline -f \"bestaudio/best\" --windows-filenames --max-filesize 500M " + (deno != null && File.Exists(deno) ? "--js-runtimes \"deno:" + deno + "\" " : "") + "-o \"" + Path.Combine(dir, "audio.%(ext)s") + "\" \"" + url.Trim() + "\"", 900000, stop, out code);
+        if (stop()) { Cleanup(dir); err = "Cancelled."; return null; }
+        string file = null; foreach (var x in Directory.GetFiles(dir)) { string e = Path.GetExtension(x).ToLowerInvariant(); if (e != ".part" && e != ".ytdl" && e != ".temp") file = x; }
+        if (file == null) { string last = ""; foreach (string l in o.Split('\n')) if (l.Trim().Length > 0) last = l.Trim(); Cleanup(dir); err = "Could not get the sound of that link" + (last.Length > 0 ? " (" + (last.Length > 140 ? last.Substring(0, 139) + "..." : last) + ")" : "") + ". Is it private, or not a song or video?"; return null; }
+        return file;
+    }
+    // deletes the folder a downloaded sound was in (the path of the file, or of its folder)
+    public static void Cleanup(string fileOrDir) { try { string d = Directory.Exists(fileOrDir) ? fileOrDir : Path.GetDirectoryName(fileOrDir); if (d != null && Path.GetFileName(d).StartsWith("purphex_lyr_link_")) Directory.Delete(d, true); } catch { } }
+    static string Unquote(string s) { return Regex.Replace((s ?? "").Replace("\"", "").Replace("\u201C", "").Replace("\u201D", ""), @"\s{2,}", " ").Trim(); }
+
+    static Result GenerateFromLink(string url, Action<string> say, Func<bool> stop, string lang = "auto", bool allowListen = true, double trimA = -1, double trimB = -1, string quality = null, bool isolate = true)
     {
         var r = new Result();
         try
         {
-            say("Reading the link..."); string artist, title, err; ResolveLink(url, out artist, out title, out err); if (stop()) { r.Error = "Cancelled."; return r; }
+            say("Reading the link..."); string artist, title, err; ResolveLink(url, out artist, out title, out err); artist = Unquote(artist); title = Unquote(title); if (stop()) { r.Error = "Cancelled."; return r; }
             if (err.Length > 0) { r.Error = err; return r; }
             r.Artist = artist; r.Title = title; say("Looking for the lyrics of \"" + (artist.Length > 0 ? artist + " - " : "") + title + "\"..."); LyricsGet.Found f = null;
             try { foreach (var c in SongGuesses(artist, title, "")) { if (stop()) break; f = LyricsGet.Fetch(c[0], c[1]); if (f != null) break; } } catch (WebException) { r.Error = "Could not reach the lyrics database. Check your connection and try again."; return r; }
             if (stop()) { r.Error = "Cancelled."; return r; }
-            if (f == null) { r.Error = "\"" + (artist.Length > 0 ? artist + " - " : "") + title + "\" is not in the lyrics database. To write the words by listening, add the song or video file instead of the link."; return r; }
+            if (f == null)
+            {   // not in the database: the sound of the link is downloaded (and deleted after) and listened to, like a file
+                string what = "\"" + (artist.Length > 0 ? artist + " - " : "") + title + "\"";
+                if (!allowListen) { r.Error = what + " is not in the lyrics database, and listening to the sound is switched off."; return r; }
+                quality = LyricsWhisper.CleanQuality(quality);
+                if (!LyricsWhisper.ReadyFor(quality)) { r.NeedSetup = true; r.NeedVoice = isolate && !LyricsWhisper.VoiceAvailable(); r.Note = what + " is not in the lyrics database. Purphex can write the words by listening to the sound of the link, which needs a one-time download first."; return r; }
+                string aerr; string file = FetchAudio(url, say, stop, out aerr); if (file == null) { r.Error = aerr; return r; }
+                try
+                {
+                    string raw = LyricsWhisper.Transcribe(file, say, stop, trimA, trimB, lang, quality, isolate);
+                    if (stop()) { r.Error = "Cancelled."; return r; }
+                    if (raw.Trim().Length < 12) { r.Error = "No words could be heard in that link (an instrumental, or the voice is too quiet)."; return r; }
+                    string n2; r.Lyrics = Finish(raw, true, out n2, lang); r.Source = "Listened to the sound of the link (Whisper " + LyricsWhisper.QualityName(quality) + ", on this PC" + (LyricsWhisper.LastVoiceUsed ? ", the voice taken out of the music first" : "") + ")"; r.Found = true;
+                    r.Note = "Not in the lyrics database, so it was written by listening to the link (the sound was deleted afterwards). Check the words against the song: a speech recogniser can mishear a lyric. " + n2; return r;
+                }
+                finally { Cleanup(file); }
+            }
             string n; r.Lyrics = Finish(f.Lyrics, false, out n, lang); r.Artist = f.Artist; r.Title = f.Title; r.Source = "LRCLIB lyrics database (found from the link)"; r.Found = true; r.Note = "Found from the link, nothing was downloaded. " + n; return r;
         }
         catch (Exception ex) { r.Error = ex.Message; return r; }
@@ -132,7 +166,7 @@ static class LyricsGen
     {
         quality = LyricsWhisper.CleanQuality(quality);
         var r = new Result(); Action<string> say = s => { if (status != null) status(s); }; Func<bool> stop = () => cancelled != null && cancelled();
-        lang = LyricsLang.Clean(lang); if (IsLink(path)) return GenerateFromLink(path, say, stop, lang);
+        lang = LyricsLang.Clean(lang); if (IsLink(path)) return GenerateFromLink(path, say, stop, lang, allowListen, trimA, trimB, quality, isolate);
         try
         {
             if (!File.Exists(path)) { r.Error = "That file is not there any more."; return r; }

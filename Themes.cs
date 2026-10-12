@@ -189,7 +189,7 @@ static class Themes
     {
         Ensure(); if (!Allowed(Current)) { Apply(0); Prefs.Changed(); return true; }
         // the Fantasy edition comes with the Fantasy look: the first time it is on this PC the gold Fantasy theme goes on every button and outline of the program (choose any theme you like afterwards)
-        if (!StudioEnv.UnderTest && !Prefs.FantasyThemed && Edition.Current == Tier.Fantasy) { Prefs.FantasyThemed = true; int gi = IndexOfName("Royal Gold"); if (gi >= 0 && !list[Index].Special) { Apply(gi); Prefs.Changed(); return true; } Prefs.Changed(); }
+        if (!StudioEnv.UnderTest && Prefs.FantasyThemeV < 2 && Edition.Current == Tier.Fantasy) { Prefs.FantasyThemed = true; Prefs.FantasyThemeV = 2; int gi = IndexOfName("Royal Gold"); if (gi >= 0 && !list[Index].Special) { Apply(gi); Prefs.Changed(); return true; } Prefs.Changed(); }
         return false;
     }
     public static string Tag(ThemeDef t) { return t.Special ? (t.Req == Tier.Fantasy ? "FANTASY" : "SUPPORTER") : ""; }

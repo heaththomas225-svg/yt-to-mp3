@@ -54,7 +54,7 @@ partial class StudioForm
             StudioEngine pe = null; string err = null;
             try
             {   // loading a project writes into a few shared settings (tempo, lyrics, picture): keep yours exactly as they were
-                double bpm = Fx.ProjectBpm; string ly = ProjectIO.Lyrics, lt = ProjectIO.LyricsTitle; byte[] cv = ProjectIO.CoverBytes; pe = new StudioEngine();
+                double bpm = Fx.ProjectBpm; string ly = ProjectIO.Lyrics, lt = ProjectIO.LyricsTitle; byte[] cv = ProjectIO.CoverBytes; pe = new StudioEngine(); StudioEngine.Current = eng;   /* the preview engine must not become the engine the instruments (the Bass Lab piano) play through */
                 try { ProjectIO.Load(pe, path, s => { }); } finally { Fx.ProjectBpm = bpm; ProjectIO.Lyrics = ly; ProjectIO.LyricsTitle = lt; ProjectIO.CoverBytes = cv; }
             }
             catch (Exception ex) { err = ex.Message; }
@@ -71,14 +71,14 @@ partial class StudioForm
     }
     void StopPreview()
     {
-        var pe = previewEng; previewEng = null; previewPath = ""; previewName = ""; previewLoading = false; previewPaused = false;
+        var pe = previewEng; previewEng = null; previewPath = ""; previewName = ""; previewLoading = false; previewPaused = false; if (StudioEngine.Current == pe) StudioEngine.Current = eng;
         if (pe != null) { try { pe.Stop(); } catch { } try { pe.Shutdown(); } catch { } }
     }
     void PreviewHousekeeping()
     {
         if (tab != 3) { projBin = false; projSearchOn = false; }
         if (previewPath.Length == 0) return;
-        if (tab != 3 && tab != 4) { StopPreview(); return; }
+        // a preview keeps playing when you go to another page (the strip with the pause button shows on the projects, community, profile, artists and fonts pages); it stops only when the song reaches its end, when you stop it, or when something plays in the Mix, Mastering or Lyrics pages (below)
         if (previewEng != null && !previewEng.Playing && previewPlayFn == null && !previewPaused) StopPreview();   // it reached the end
         if (eng.Playing) StopPreview();
     }

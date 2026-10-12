@@ -1,4 +1,4 @@
-3.33.0
+3.34.0
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Profile themes, whole pictures, links and tags rules, music videos, a place search, emoji for lyrics, saved songs, smoother sound
-sha256=81cae04f3cf1585fc92e77eeecd7a7f8bc556bbd4f1e16fbaa9a1fb7cc3334bf
+Lyrics from a link, a worldwide place search, colour emoji, publish prompts, a preview that keeps playing, zapping glitch effect, neon menus
+sha256=8dffc5da5c596d763d50bdc9c1fc5a1600235ca7c172c0f20a0e591203c29c86

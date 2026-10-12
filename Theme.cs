@@ -284,7 +284,43 @@ static class Win
     class DarkRenderer : ToolStripProfessionalRenderer
     {
         public DarkRenderer() : base(new DarkColors()) { }
-        protected override void OnRenderItemText(ToolStripItemTextRenderEventArgs e) { e.TextColor = e.Item.Enabled ? TM.C(255, 240, 232, 255) : TM.C(255, 120, 105, 150); base.OnRenderItemText(e); }
+        protected override void OnRenderItemText(ToolStripItemTextRenderEventArgs e) { e.TextColor = e.Item.Enabled ? TM.C(255, 240, 232, 255) : TM.C(255, 120, 105, 150); var mi = e.Item as ToolStripMenuItem; if (mi != null && mi.Checked && mi.Enabled) { e.TextColor = Color.White; e.TextRectangle = new Rectangle(e.TextRectangle.X, e.TextRectangle.Y, Math.Max(10, e.TextRectangle.Width - 24), e.TextRectangle.Height); } base.OnRenderItemText(e); }
+        // the menus have neon borders like the rest of the program: a lit edge in the theme colours with a glow just inside it, a bright bar on the item you point at, and neon lines between the groups
+        protected override void OnRenderToolStripBorder(ToolStripRenderEventArgs e)
+        {
+            if (!(e.ToolStrip is ToolStripDropDown)) { base.OnRenderToolStripBorder(e); return; }
+            var g = e.Graphics; var sm = g.SmoothingMode; g.SmoothingMode = SmoothingMode.AntiAlias; var r = new Rectangle(0, 0, e.ToolStrip.Width - 1, e.ToolStrip.Height - 1); if (r.Width < 6 || r.Height < 6) { g.SmoothingMode = sm; return; }
+            Color hot = NeonHot, cold = NeonIdle;
+            for (int i = 4; i >= 1; i--) using (var pen = new Pen(Color.FromArgb(14 + 14 * (5 - i), cold), i * 2.2f)) g.DrawRectangle(pen, r.X + 1, r.Y + 1, r.Width - 2, r.Height - 2);   // the glow, inside the edge
+            using (var br = new LinearGradientBrush(r, hot, cold, 35f)) using (var pen = new Pen(br, 1.8f)) g.DrawRectangle(pen, r);
+            using (var pen = new Pen(Color.FromArgb(120, 255, 255, 255), 1f)) g.DrawLine(pen, r.X + 8, r.Y + 1, r.Right - 8, r.Y + 1);
+            g.SmoothingMode = sm;
+        }
+        // the item you point at is a violet bar; the item that is CHOSEN right now (the grid size in use, the microphone mode in use...) keeps a lit neon frame, a cool tint and a tick, so the two are never mixed up
+        protected override void OnRenderMenuItemBackground(ToolStripItemRenderEventArgs e)
+        {
+            var it = e.Item; var mi = it as ToolStripMenuItem; bool chosen = mi != null && mi.Checked, hover = (it.Selected && it.Enabled) || it.Pressed;
+            if (!hover && !chosen) { base.OnRenderMenuItemBackground(e); return; }
+            var g = e.Graphics; var sm = g.SmoothingMode; g.SmoothingMode = SmoothingMode.AntiAlias; var r = new Rectangle(3, 1, it.Width - 7, it.Height - 3);
+            using (var p = RoundRect(r, 6))
+            {
+                if (hover) using (var br = new LinearGradientBrush(r, Color.FromArgb(235, 112, 52, 205), Color.FromArgb(235, 70, 34, 150), 0f)) g.FillPath(br, p);
+                else using (var br = new LinearGradientBrush(r, Color.FromArgb(70, NeonHot), Color.FromArgb(18, NeonHot), 0f)) g.FillPath(br, p);
+                using (var pen = new Pen(Color.FromArgb(hover ? 230 : 200, chosen && hover ? Color.White : NeonHot), chosen ? 1.8f : 1.4f)) g.DrawPath(pen, p);
+            }
+            if (chosen)
+            {
+                using (var br = new SolidBrush(NeonHot)) g.FillRectangle(br, r.X + 1, r.Y + 5, 3, r.Height - 10);   // a bar on the left edge
+                int cx = r.Right - 18, cy = r.Y + r.Height / 2; using (var pen = new Pen(Color.White, 2.2f) { StartCap = LineCap.Round, EndCap = LineCap.Round, LineJoin = LineJoin.Round }) g.DrawLines(pen, new[] { new Point(cx - 5, cy), new Point(cx - 1, cy + 4), new Point(cx + 6, cy - 5) });   // the tick
+            }
+            g.SmoothingMode = sm;
+        }
+        protected override void OnRenderSeparator(ToolStripSeparatorRenderEventArgs e)
+        {
+            var g = e.Graphics; int y = e.Item.Height / 2; var r = new Rectangle(8, y, e.Item.Width - 16, 1); if (r.Width < 4) return;
+            using (var br = new LinearGradientBrush(r, NeonHot, NeonIdle, 0f)) using (var pen = new Pen(br, 1.2f)) g.DrawLine(pen, r.X, y, r.Right, y);
+        }
+        static GraphicsPath RoundRect(Rectangle r, int rad) { var p = new GraphicsPath(); int d = rad * 2; p.AddArc(r.X, r.Y, d, d, 180, 90); p.AddArc(r.Right - d, r.Y, d, d, 270, 90); p.AddArc(r.Right - d, r.Bottom - d, d, d, 0, 90); p.AddArc(r.X, r.Bottom - d, d, d, 90, 90); p.CloseFigure(); return p; }
         protected override void OnRenderArrow(ToolStripArrowRenderEventArgs e) { e.ArrowColor = TM.C(255, 200, 160, 255); base.OnRenderArrow(e); }
         protected override void OnRenderItemCheck(ToolStripItemImageRenderEventArgs e) { using (var b = new SolidBrush(TM.C(255, 190, 120, 255))) e.Graphics.FillEllipse(b, e.ImageRectangle.X + 4, e.ImageRectangle.Y + 4, e.ImageRectangle.Width - 8, e.ImageRectangle.Height - 8); }
     }

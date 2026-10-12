@@ -15,10 +15,10 @@ static class PlaceApi
     public static Func<string, List<PlaceHit>> Fetch = q => ProfApi.Places(q);
     public static List<PlaceHit> LocalCountries(string q)
     {
-        q = (q ?? "").Trim().ToLowerInvariant(); var l = new List<PlaceHit>(); if (q.Length < 2) return l;
+        q = (q ?? "").Trim().ToLowerInvariant(); var l = new List<PlaceHit>(); if (q.Length < 1) return l;
         foreach (var c in Countries) if (c.ToLowerInvariant().StartsWith(q)) l.Add(new PlaceHit { Label = c, Value = c });
         foreach (var c in Countries) if (!c.ToLowerInvariant().StartsWith(q) && c.ToLowerInvariant().Contains(q)) l.Add(new PlaceHit { Label = c, Value = c });
-        return l.Take(6).ToList();
+        return l.Take(8).ToList();
     }
 }
 static partial class ProfApi
@@ -42,10 +42,10 @@ static class PlacePicker
     public static string Show(IWin32Window owner, string current)
     {
         string result = null; var f = StudioDialogs.Make("Where you are", 580, 520); var Fld = TM.C(255, 34, 16, 62); var Ink = TM.C(255, 240, 232, 255);
-        f.Controls.Add(new Label { Text = "Search any country, county, town or area, for example Poole, Dorset. Pick one from the list.", Left = 16, Top = 12, Width = 548, Height = 40, ForeColor = TM.C(255, 200, 170, 255) });
+        f.Controls.Add(new Label { Text = "Type a letter and every country and place that starts with it shows up, anywhere in the world: towns, counties, areas (try Poole, Dorset). Pick one from the list.", Left = 16, Top = 12, Width = 548, Height = 40, ForeColor = TM.C(255, 200, 170, 255) });
         var q = new TextBox { Left = 16, Top = 56, Width = 548, BackColor = Fld, ForeColor = Ink, BorderStyle = BorderStyle.FixedSingle, Font = new Font("Segoe UI", 12f), MaxLength = 60 }; Win.NeonBox(q); f.Controls.Add(q);
         var list = new ListBox { Left = 16, Top = 94, Width = 548, Height = 270, BackColor = TM.C(255, 14, 7, 30), ForeColor = Ink, BorderStyle = BorderStyle.FixedSingle, DrawMode = DrawMode.OwnerDrawFixed, ItemHeight = 27, Font = new Font("Segoe UI", 10.5f), IntegralHeight = false }; Win.NeonBox(list); Win.DarkControl(list); f.Controls.Add(list);
-        var status = new Label { Left = 16, Top = 368, Width = 548, Height = 22, ForeColor = TM.C(255, 160, 140, 200), Text = "Type at least two letters." }; f.Controls.Add(status);
+        var status = new Label { Left = 16, Top = 368, Width = 548, Height = 22, ForeColor = TM.C(255, 160, 140, 200), Text = "Type a letter: the countries and places that start with it show at once." }; f.Controls.Add(status);
         f.Controls.Add(new Label { Text = "SHOWN ON YOUR PROFILE (you can change the words)", Left = 16, Top = 396, Width = 548, Height = 18, ForeColor = TM.C(255, 200, 170, 255), Font = new Font("Segoe UI Semibold", 9.5f) });
         var val = new TextBox { Left = 16, Top = 418, Width = 548, BackColor = Fld, ForeColor = Ink, BorderStyle = BorderStyle.FixedSingle, Font = new Font("Segoe UI", 12f), MaxLength = 30, Text = current ?? "" }; Win.NeonBox(val); f.Controls.Add(val);
         var ok = StudioDialogs.B("USE THIS", 300, 468, 120, 36, TM.C(255, 118, 52, 212)); var clear = StudioDialogs.B("CLEAR", 430, 468, 64, 36, TM.C(255, 150, 40, 80)); var cancel = StudioDialogs.B("Cancel", 502, 468, 62, 36, TM.C(255, 70, 40, 120)); f.Controls.AddRange(new Control[] { ok, clear, cancel });
@@ -60,10 +60,10 @@ static class PlacePicker
         var wait = new System.Windows.Forms.Timer { Interval = 450 };
         wait.Tick += (s, e) =>
         {
-            wait.Stop(); string text = q.Text.Trim(); int my = ++token; if (text.Length < 2) return; status.Text = "Searching...";
+            wait.Stop(); string text = q.Text.Trim(); int my = ++token; if (text.Length < 1) return; status.Text = "Searching...";
             ThreadPool.QueueUserWorkItem(o => { var found = PlaceApi.Fetch(text); try { f.BeginInvoke(new Action(() => { if (my != token || f.IsDisposed) return; if (found == null) { status.Text = "Could not reach the search. Countries still work; or type your place below."; return; } var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase); hits.Clear(); foreach (var h in found.Concat(PlaceApi.LocalCountries(text))) if (seen.Add(h.Value)) hits.Add(h); show(); if (hits.Count > 0 && !val.Focused) list.SelectedIndex = 0; status.Text = hits.Count == 0 ? "Nothing found. Try another spelling, or type your place below." : hits.Count + " found: pick one."; })); } catch { } });
         };
-        q.TextChanged += (s, e) => { token++; string text = q.Text.Trim(); if (text.Length < 2) { hits.Clear(); show(); status.Text = "Type at least two letters."; return; } hits.Clear(); foreach (var h in PlaceApi.LocalCountries(text)) hits.Add(h); show(); wait.Stop(); wait.Start(); };
+        q.TextChanged += (s, e) => { token++; string text = q.Text.Trim(); if (text.Length < 1) { hits.Clear(); show(); status.Text = "Type a letter: the countries and places that start with it show at once."; return; } hits.Clear(); foreach (var h in PlaceApi.LocalCountries(text)) hits.Add(h); show(); wait.Stop(); wait.Start(); };
         list.DoubleClick += (s, e) => { if (list.SelectedIndex >= 0 && val.Text.Trim().Length > 0) { result = val.Text.Trim(); f.Close(); } };
         ok.Click += (s, e) => { result = val.Text.Trim(); f.Close(); }; clear.Click += (s, e) => { result = ""; f.Close(); }; cancel.Click += (s, e) => f.Close(); f.CancelButton = cancel; f.AcceptButton = ok;
         f.FormClosed += (s, e) => wait.Stop(); f.Shown += (s, e) => q.Focus(); f.ShowDialog(owner); return result;

@@ -173,6 +173,17 @@ partial class StudioForm
     void AmCancel() { if (amOrig != null) RestoreChain(amOrig); amOpen = false; MasterPreviewStop(); amApplied = -2; }
 
     // ---------- loudness: automatic (picks the best level for this track) or manual ----------
+    // the two loudness buttons ask first, like AUTO MASTERING, so a stray click never changes the limiter (Ctrl+Z puts it back)
+    void AutoLoudnessClick()
+    {
+        if (!AskYes("Are you sure you want to run AUTO LOUDNESS?\n\nIt listens to the whole mix, picks the best level for this track, evens it out and sets the Limiter and the Compressor to match. Ctrl+Z puts the master back as it was.", "Auto Loudness")) return;
+        AutoLoudnessAuto();
+    }
+    void SetLoudnessClick()
+    {
+        if (!AskYes("Are you sure you want to set the loudness to " + targetLufs.ToString("0.0") + " LUFS?\n\nIt measures the whole mix and moves the Limiter on the master until the mix lands on that number. Ctrl+Z puts the master back as it was.", "Set loudness")) return;
+        AutoLoudness();
+    }
     void AutoLoudnessAuto()
     {
         Fx lim = MasterFind("limiter"); if (lim == null) { Toast("Add a Limiter to the master chain first."); return; } if (eng.Tracks.Count == 0) { Toast("Add music first."); return; }
@@ -201,7 +212,7 @@ partial class StudioForm
         float W = ClientSize.Width, y = 12, h = 46;
         using (var br = new SolidBrush(TM.C(255, 18, 10, 34))) g.FillRectangle(br, 0, 0, W, ToolH); NeonRule(g, 0, ToolH, W);
         Btn(g, Rc(12, y, 48, h), "≡", 0, () => { if (menuOpen) CloseMenu(); else OpenMenu(); }, 24);
-        Txt(g, "MASTERING", 18, Ink, Rc(76, y, 190, h), StringAlignment.Near, true); if (ShowBack) Btn(g, Rc(270, y + 4, 100, h - 8), "BACK", 0, () => GoBack(), 14);   /* no HOME: the MIX tab is on this page */
+        Txt(g, "MASTERING", 18, Ink, Rc(76, y, 190, h), StringAlignment.Near, true); /* no BACK and no HOME: the MIX tab is on this page */
         float rx = W - 14;
         Btn(g, Rc(rx - 106, y, 106, h), "EXPORT", 1, () => ExportClick(), 16); rx -= 112;
         Btn(g, Rc(rx - 58, y + 4, 58, h - 8), "Help", 2, () => app.ShowHelp(null), 14); rx -= 64;
@@ -245,7 +256,7 @@ partial class StudioForm
         Txt(g, "ORIGINAL VS MASTERED", 13, Ink, Rc(lp.X + 14, y, 250, 20), StringAlignment.Near, true); y += 24;
         Btn(g, Rc(lp.X + 10, y, 120, 34), "A  ORIGINAL", !eng.MasterBypass ? 0 : 4, () => { eng.MasterBypass = true; ApplyMatch(); }, 13);
         Btn(g, Rc(lp.X + 138, y, 122, 34), "B  MASTERED", eng.MasterBypass ? 0 : 4, () => { eng.MasterBypass = false; }, 13); y += 40;
-        Btn(g, Rc(lp.X + 10, y, lp.Width - 20, 28), matchOn ? "Loudness match: ON" : "Loudness match: OFF", matchOn ? 4 : 0, () => { matchOn = !matchOn; ApplyMatch(); }, 12); y += 34;
+        // (no LOUDNESS MATCH button any more: A ORIGINAL and B MASTERED are always compared at the same loudness)
         if (abOrig != null && abMast != null && y + 30 < lp.Bottom)
         {
             Txt(g, "BEFORE " + Db(abOrig.I) + "   AFTER " + Db(abMast.I) + " LUFS", 11, Ink, Rc(lp.X + 12, y, lp.Width - 24, 16), StringAlignment.Near, true);
@@ -290,11 +301,11 @@ partial class StudioForm
         FillRR(g, TM.C(180, 8, 4, 18), Rc(ap.X + 130, yy + 3, 220, 9), 4); if (grf > 0.01f) FillRR(g, Warn, Rc(ap.X + 130, yy + 3, 220 * grf, 9), 4); Txt(g, eng.MasterGr.ToString("0.0") + " dB", 11, Ink, Rc(ap.X + 356, yy, 40, 16), StringAlignment.Near, false); yy += 30;
         // loudness: automatic first, manual for the picky
         Txt(g, "LOUDNESS", 14, Ink, Rc(ap.X + 14, yy, 200, 22), StringAlignment.Near, true); yy += 26;
-        var al = Rc(ap.X + 12, yy, 378, 40); Btn(g, al, "AUTO LOUDNESS", 2, () => AutoLoudnessAuto(), 15); Hint2(al, "Measures the whole mix, picks the best level for this track (and evens it out), and sets it. You do not have to do anything."); yy += 44;
+        var al = Rc(ap.X + 12, yy, 378, 40); Btn(g, al, "AUTO LOUDNESS", 2, () => AutoLoudnessClick(), 15); Hint2(al, "Measures the whole mix, picks the best level for this track (and evens it out), and sets it. You do not have to do anything."); yy += 44;
         TxtWrap(g, "Picks the best level for this track by itself.", 11, DimC, Rc(ap.X + 14, yy, ap.Width - 28, 16)); yy += 22;
         Txt(g, "MANUAL", 12, DimC, Rc(ap.X + 14, yy, 90, 20), StringAlignment.Near, true); ValueBox(g, Rc(ap.Right - 128, yy - 3, 114, 26), targetLufs.ToString("0.0") + " LUFS", Num(targetLufs), s => { float v; if (ParseNum(s, out v)) targetLufs = Math.Max(-20, Math.Min(-6, v)); }); yy += 28;
         var ts = Slider(g, Rc(ap.X + 14, yy, 372, 22), (targetLufs + 20f) / 14f, f => targetLufs = (float)Math.Round(f * 14f - 20f, 1), Accent2); ts.OnDouble = () => targetLufs = -14; yy += 30;
-        var ml = Rc(ap.X + 12, yy, 378, 32); Btn(g, ml, "SET LOUDNESS (MANUAL)", 0, () => AutoLoudness(), 13); Hint2(ml, "Sets the loudness to the number you chose with the slider (it adjusts the limiter).");
+        var ml = Rc(ap.X + 12, yy, 378, 32); Btn(g, ml, "SET LOUDNESS (MANUAL)", 0, () => SetLoudnessClick(), 13); Hint2(ml, "Sets the loudness to the number you chose with the slider (it adjusts the limiter).");
     }
 
     // ---------- the presets page ----------

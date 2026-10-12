@@ -36,6 +36,14 @@ static partial class ProfileStore
         if (u.UserInfo.Length > 0 || (!u.IsDefaultPort)) return ""; if (ServiceOf(u.IdnHost).Length == 0) return "";
         string path = u.AbsolutePath == "/" && u.Query.Length == 0 && u.Fragment.Length == 0 ? "" : u.AbsolutePath; return "https://" + u.IdnHost + path + u.Query + u.Fragment;
     }
+    // every link has a title (up to 30 letters); one without a title shows the name of its service
+    public static string CleanTitle(string t) { var sb = new StringBuilder(); foreach (char c in t ?? "") sb.Append(char.IsControl(c) || c == '|' || c == '<' || c == '>' || c == '"' ? ' ' : c); string s = Regex.Replace(sb.ToString(), "\\s{2,}", " ").Trim(); return s.Length > 30 ? s.Substring(0, 30).Trim() : s; }
+    public static string TitleOf(Dictionary<string, string> titles, string url) { string t; if (titles != null && titles.TryGetValue(url, out t) && t.Length > 0) return t; return LinkLabel(url); }
+    // one line of the links window: "Title | https://address"; false when the title is missing or the address is not allowed
+    public static bool ParseLinkLine(string line, out string title, out string url)
+    {
+        title = ""; url = ""; if (string.IsNullOrWhiteSpace(line)) return false; int i = line.IndexOf('|'); if (i < 0) return false; title = CleanTitle(line.Substring(0, i)); url = CleanLink(line.Substring(i + 1)); return title.Length > 0 && url.Length > 0;
+    }
     // the words to show for a link: the name of the service
     public static string LinkLabel(string url)
     {
@@ -44,7 +52,13 @@ static partial class ProfileStore
     const string Tlds = "com|net|org|io|co|uk|xyz|me|tv|ly|gg|link|site|app|dev|info|biz|ru|cn|top|shop|store|online|page|live|fm|cc|ws|to|us|eu|de|fr";
     static readonly Regex UrlLike = new Regex("(?:https?://|www\\.)[^\\s]+|\\b[a-z0-9-]+(?:\\.[a-z0-9-]+)*\\.(?:" + Tlds + ")\\b(?:/[^\\s]*)?", RegexOptions.IgnoreCase);
     // a bio keeps the streaming and social links in it and loses every other web address
-    public static string CleanBio(string s) { s = UrlLike.Replace(s ?? "", m => CleanLink(m.Value).Length > 0 ? m.Value : ""); return Regex.Replace(s, "\\s{2,}", " ").Trim(); }
+    public static string CleanBio(string s)
+    {
+        s = UrlLike.Replace((s ?? "").Replace("\r\n", "\n").Replace("\r", "\n"), m => CleanLink(m.Value).Length > 0 ? m.Value : ""); var sb = new StringBuilder(); foreach (char ch in s) if (ch == '\n' || !char.IsControl(ch)) sb.Append(ch == '<' || ch == '>' ? ' ' : ch);
+        s = Regex.Replace(sb.ToString(), "[ \\t]{2,}", " "); s = Regex.Replace(s, " ?\n ?", "\n"); s = Regex.Replace(s, "\n{3,}", "\n\n"); return s.Trim();   // line breaks are kept, there is no limit on the length
+    }
+    public static string EscBio(string s) { return (s ?? "").Replace("\\", "\\\\").Replace("\r", "").Replace("\n", "\\n"); }
+    public static string UnescBio(string s) { var sb = new StringBuilder(); for (int i = 0; i < (s ?? "").Length; i++) { char c = s[i]; if (c == '\\' && i + 1 < s.Length) { char n = s[i + 1]; if (n == 'n') { sb.Append('\n'); i++; continue; } if (n == '\\') { sb.Append('\\'); i++; continue; } } sb.Append(c); } return sb.ToString(); }
     // the allowed links written in a bio (shown as buttons)
     public static List<string> BioLinks(string s) { var l = new List<string>(); foreach (Match m in UrlLike.Matches(s ?? "")) { string c = CleanLink(m.Value); if (c.Length > 0 && !l.Contains(c)) l.Add(c); } return l; }
     // every link to show on a profile: the ones added as links, then the ones written in the bio

@@ -19,7 +19,7 @@ partial class StudioForm
         if (commInviteAsked) return; commInviteAsked = true;
         ThreadPool.QueueUserWorkItem(o => { try { using (var wc = new WebClient()) { wc.Headers["User-Agent"] = "PurphexMusic"; string j = wc.DownloadString("https://purphexmusic.com/api/community"); var m = Regex.Match(j, "\"discord\"\\s*:\\s*\"([^\"]*)\""); if (m.Success) { string u = m.Groups[1].Value.Replace("\\/", "/"); if (u.StartsWith("https://discord.gg/") || u.StartsWith("https://discord.com/invite/")) commInvite = u; } } } catch { } });
     }
-    static readonly string[] CommTabs = { "All", "Recent" };
+    static readonly string[] CommTabs = { "All", "Recent", "Published" };
     // the community itself lives on the website (members sign in there)
     void OpenCommunitySite(string path) { try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(CommunityPresets.BaseUrl + path) { UseShellExecute = true }); Toast("Opening the community on the website: sign in there."); } catch (Exception ex) { Toast("Could not open the website: " + ex.Message); } }
 
@@ -72,7 +72,7 @@ partial class StudioForm
             Btn(g, shB, "SHARE", 2, () => OpenCommunitySite("/community"), 13); Hint2(shB, "Share a song with the community. Opens the community page of the website, where you sign in and upload it"); } }
         // ---- the feed: round neon art cards (your saved projects) ----
         var all = ProjectLibrary.AllByEdited(); var list = new List<ProjectEntry>();
-        foreach (var e in all) { if (commFilter == 1 && (DateTime.Now - e.Opened).TotalDays > 7) continue; list.Add(e); }
+        foreach (var e in all) { if (commFilter == 1 && (DateTime.Now - e.Opened).TotalDays > 7) continue; if (commFilter == 2 && !e.OnProfile) continue; list.Add(e); }   // Published: the projects you published go to the community by themselves
         float fy = ty + 46, fh = Hb - fy; var area = Rc(cx0, fy, cw, fh); float cardW = 206, cardH = 390, gap = 14; int cols = Math.Max(1, (int)((cw - 56 + gap) / (cardW + gap))); float used = cols * cardW + (cols - 1) * gap, ox = cx0 + (cw - 56 - used) / 2;
         int rows = (list.Count + cols - 1) / cols; float maxS = Math.Max(0, rows * (cardH + gap) - fh + 10); commScroll = Math.Max(0, Math.Min(maxS, commScroll));
         regs.Add(new HitReg { R = area, OnWheel = d => commScroll = Math.Max(0, Math.Min(maxS, commScroll - d * 70)) });
@@ -88,7 +88,16 @@ partial class StudioForm
             var sa = Rc(card.X + 14, card.Y + S + 48, 18, 18); DrawAvatar(g, sa); Txt(g, ProjectLibrary.ProfileName, 12, DimC, Rc(card.X + 38, card.Y + S + 46, cardW - 52, 20), StringAlignment.Near, false);
             string meta = e.Tracks + (e.Tracks == 1 ? " track" : " tracks") + (e.Bpm > 0 ? "  -  " + e.Bpm.ToString("0") + " BPM" : "") + (e.Seconds > 1 ? "  -  " + ((int)(e.Seconds / 60)) + ":" + ((int)(e.Seconds % 60)).ToString("00") : ""); Txt(g, meta, 11, NeonCyan, Rc(card.X + 14, card.Y + S + 70, cardW - 28, 16), StringAlignment.Near, false);
             ProjectLibrary.MeasureAsync(e); Txt(g, "SIZE " + ProjectLibrary.Size(e.Bytes) + "  -  edited " + ProjectLibrary.Ago(e.Updated), 11, DimC, Rc(card.X + 14, card.Y + S + 88, cardW - 28, 16), StringAlignment.Near, false);
-            if (e.Tags.Length > 0) { float tx2 = card.X + 14; foreach (var tg in e.Tags.Split(' ')) { string lb = "#" + tg; float tw = 14 + lb.Length * 6.6f; if (tx2 + tw > card.Right - 12) break; var tr2 = Rc(tx2, card.Y + S + 108, tw, 18); FillRR(g, TM.C(110, 60, 36, 120), tr2, 9); Txt(g, lb, 10, Ink, tr2, StringAlignment.Center, false); tx2 += tw + 5; } }
+            if (e.Tags.Length > 0)
+            {
+                var allTags = e.Tags.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries); float tx2 = card.X + 14, total = 0; foreach (var t0 in allTags) total += 14 + ("#" + t0).Length * 6.6f + 5; bool more = total > card.Right - 12 - tx2; float limit = card.Right - 12 - (more ? 26 : 0); int shownN = 0;
+                foreach (var tg in allTags) { string lb = "#" + tg; float tw = 14 + lb.Length * 6.6f; if (tx2 + tw > limit) break; var tr2 = Rc(tx2, card.Y + S + 108, tw, 18); FillRR(g, TM.C(110, 60, 36, 120), tr2, 9); Txt(g, lb, 10, Ink, tr2, StringAlignment.Center, false); tx2 += tw + 5; shownN++; }
+                if (shownN < allTags.Length)
+                {   // there are more tags than fit: a small down arrow opens the whole list
+                    var ar = Rc(card.Right - 12 - 22, card.Y + S + 108, 22, 18); bool hotA = Hot(ar); FillRR(g, hotA ? TM.C(230, 118, 52, 212) : TM.C(170, 90, 50, 170), ar, 9); using (var pen = new Pen(Color.White, 1.8f) { StartCap = LineCap.Round, EndCap = LineCap.Round, LineJoin = LineJoin.Round }) g.DrawLines(pen, new[] { new PointF(ar.X + 6.5f, ar.Y + 6.5f), new PointF(ar.X + 11, ar.Y + 11.5f), new PointF(ar.X + 15.5f, ar.Y + 6.5f) });
+                    var ee = e; var arr = ar; Reg(ar, () => ShowAllTags(arr, ee)); Hint2(ar, "Show all " + allTags.Length + " tags of this project");
+                }
+            }
             if (e.Desc.Length > 0) Txt(g, e.Desc, 11, DimC, Rc(card.X + 14, card.Y + S + 130, cardW - 28, 32), StringAlignment.Near, false);
             else if (hot) Txt(g, "Hover tools: rename, picture, description, tags", 10, TM.C(120, 150, 130, 190), Rc(card.X + 14, card.Y + S + 130, cardW - 28, 16), StringAlignment.Near, false);
             if (!miss) PlayBox(g, Rc(card.X + 14, card.Bottom - 12 - 34, cardW - 28, 34), e);   // a solid play button along the bottom of the card, never covered by the hover tools
@@ -97,9 +106,9 @@ partial class StudioForm
                 // the hover tools sit over the picture
                 using (var b = new SolidBrush(TM.C(205, 6, 3, 18))) using (var p = RR(art, 12)) g.FillPath(b, p);
                 // the hover tools sit over the picture: Open on its own line, then the rest in pairs (Play is the button at the bottom of the card)
-                string[] bn = { "Open", "Rename", "Upload pic", "Delete pic", "Describe", "Tags", "Folder" }; float bw = (S - 30) / 2f, bh = 32;
-                Action[] ba = { () => OpenProjectAsk(e), () => RenameEntry(e), () => PickCover(path), () => { if (e.Cover.Length > 0) { ProjectLibrary.ClearCover(path); Toast("Picture removed: the Purphex logo is shown again."); } else Toast("This project has no picture of its own."); }, () => DescribeEntry(e), () => TagEntry(e), () => { try { System.Diagnostics.Process.Start("explorer.exe", "/select,\"" + path + "\""); } catch { } } };
-                for (int k = 0; k < 7; k++) { RectangleF br = k == 0 ? Rc(art.X + 10, art.Y + 10, S - 20, bh) : Rc(art.X + 10 + ((k - 1) % 2) * (bw + 10), art.Y + 10 + (1 + (k - 1) / 2) * (bh + 8), bw, bh); Action act = ba[k]; Btn(g, br, bn[k], k == 0 ? 2 : (k == 3 ? (e.Cover.Length > 0 ? 3 : 0) : 1), () => act(), 12); if (k == 2) Hint2(br, "Upload a picture from your PC for this project (it replaces the Purphex logo on the card)"); else if (k == 3) Hint2(br, e.Cover.Length > 0 ? "Delete the picture you uploaded: the Purphex logo is shown again" : "This project has no picture of its own to delete"); }
+                string[] bn = { "Open", "Rename", "Describe", "Upload pic", "Tags", "Delete pic", "Folder" };   /* UPLOAD PIC sits right above DELETE PIC */ float bw = (S - 30) / 2f, bh = 32;
+                Action[] ba0 = { () => OpenProjectAsk(e), () => RenameEntry(e), () => PickCover(path), () => { if (e.Cover.Length > 0) { ProjectLibrary.ClearCover(path); Toast("Picture removed: the Purphex logo is shown again."); } else Toast("This project has no picture of its own."); }, () => DescribeEntry(e), () => TagEntry(e), () => { try { System.Diagnostics.Process.Start("explorer.exe", "/select,\"" + path + "\""); } catch { } } }; Action[] ba = { ba0[0], ba0[1], ba0[4], ba0[2], ba0[5], ba0[3], ba0[6] };
+                for (int k = 0; k < 7; k++) { RectangleF br = k == 0 ? Rc(art.X + 10, art.Y + 10, S - 20, bh) : Rc(art.X + 10 + ((k - 1) % 2) * (bw + 10), art.Y + 10 + (1 + (k - 1) / 2) * (bh + 8), bw, bh); Action act = ba[k]; Btn(g, br, bn[k], k == 0 ? 2 : (k == 5 ? (e.Cover.Length > 0 ? 3 : 0) : 1), () => act(), 12); if (k == 3) Hint2(br, "Upload a picture from your PC for this project (it replaces the Purphex logo on the card)"); else if (k == 5) Hint2(br, e.Cover.Length > 0 ? "Delete the picture you uploaded: the Purphex logo is shown again" : "This project has no picture of its own to delete"); }
             }
         }
         g.Restore(gs);
@@ -150,6 +159,13 @@ partial class StudioForm
     {
         string d = Ask("Description (one line, up to 140 characters):", e.Desc); if (d == null) return; d = d.Trim(); if (d.Length > 140) d = d.Substring(0, 140);
         e.Desc = d; ProjectLibrary.Save(); Toast(d.Length == 0 ? "Description removed" : "Description saved");
+    }
+    // the down arrow on a project card: every tag of the project in a list (EDIT TAGS opens the tag window)
+    void ShowAllTags(RectangleF at, ProjectEntry e)
+    {
+        var m = Win.NewMenu(); m.Items.Add(e.Name + ": " + e.Tags.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries).Length + " tags").Enabled = false; m.Items.Add(new ToolStripSeparator());
+        foreach (var tg in e.Tags.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries)) m.Items.Add("#" + tg).Enabled = false;
+        m.Items.Add(new ToolStripSeparator()); var ee = e; m.Items.Add("Edit the tags...").Click += (a, b) => TagEntry(ee); m.Show(this, new Point((int)at.X, (int)at.Bottom + 2));
     }
     void TagEntry(ProjectEntry e)
     {

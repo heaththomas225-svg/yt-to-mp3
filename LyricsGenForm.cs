@@ -261,19 +261,22 @@ sealed class LyricsGenForm : Form
     {
         if (busy) return; string lyr = Lf(lyricsBox.Text).Trim();
         if (lyr.Length == 0) { Say("There are no lyrics to check yet: generate or paste them first."); return; }
-        if (path.Length == 0) { Say(LyricsGen.IsLink(linkBox.Text) ? "To recheck the words against the sound, add the song or video FILE: a link cannot be listened to." : "Add the song or video file first (Choose file, or drop it here): the recheck listens to it."); return; }
+        string link = path.Length == 0 && LyricsGen.IsLink(linkBox.Text) ? linkBox.Text.Trim() : "";
+        if (path.Length == 0 && link.Length == 0) { Say("Add the song or video file first (Choose file, or drop it here), or paste a link: the recheck listens to it."); return; }
         double ta, tb; string terr = LyricsGen.TrimError(trimA.Text, trimB.Text, out ta, out tb); if (terr.Length > 0) { Say(terr); return; }
-        cancel = false; SetBusy(true); Say("Starting the recheck..."); string file = path; string lang = Lang, quality = Quality; bool iso = voiceChk.Checked;
+        cancel = false; SetBusy(true); Say("Starting the recheck..."); string file = path; string lang = Lang, quality = Quality; bool iso = voiceChk.Checked; string fetched = "";
         worker = new Thread(() =>
         {
             string heard = null, err = "";
             try
             {
                 err = SetupListening("To recheck the words, Purphex has to listen to the song.", quality, iso);
+                if (err.Length == 0 && link.Length > 0) { string ferr; fetched = LyricsGen.FetchAudio(link, s => UI(() => Say(s)), () => cancel, out ferr) ?? ""; if (fetched.Length == 0) err = ferr; else file = fetched; }
                 if (err.Length == 0) heard = LyricsWhisper.Transcribe(file, s => UI(() => Say(s)), () => cancel, ta, tb, lang, quality, iso);
                 if (cancel) err = "Cancelled.";
             }
             catch (OperationCanceledException) { err = "Cancelled."; } catch (Exception ex) { err = ex.Message; }
+            finally { if (fetched.Length > 0) LyricsGen.Cleanup(fetched); }
             UI(() => RecheckDone(lyr, heard, err));
         }) { IsBackground = true }; worker.Start();
     }

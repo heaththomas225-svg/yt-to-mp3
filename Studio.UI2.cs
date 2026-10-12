@@ -179,6 +179,9 @@ partial class StudioForm
         });
     }
 
+    internal bool HasProject { get { return eng.Tracks.Count > 0; } }
+    // SAVE for the question asked when the program is closed: true when the project is saved (a cancelled Save dialog keeps the program open)
+    internal bool SaveBeforeClose() { SaveClick(false); return !string.IsNullOrEmpty(projPath); }
     void SaveClick(bool asNew)
     {
         if (eng.Tracks.Count == 0) { Toast("Nothing to save yet."); return; }
@@ -370,6 +373,22 @@ static class StudioDialogs
         ok.Click += (s, e) => { result = chk.Checked ? 2 : 1; f.Close(); }; cancel.Click += (s, e) => f.Close(); f.CancelButton = cancel; f.Controls.AddRange(new Control[] { ok, cancel }); f.ShowDialog(owner); return result;
     }
 
+    // a question with a long answer (a bio, a description): the box grows with every line that is written, so all of it is in view and easy to edit
+    public static string AskMulti(IWin32Window owner, string prompt, string def)
+    {
+        string result = null; var f = Make("Studio", 560, 220); var pl = new Label { Text = prompt, Left = 16, Top = 14, Width = 528, AutoSize = false, Height = 24, ForeColor = TM.C(255, 200, 170, 255) }; f.Controls.Add(pl);
+        var tb = new TextBox { Left = 16, Top = 44, Width = 528, Height = 44, Multiline = true, WordWrap = true, AcceptsReturn = true, MaxLength = 20000, Text = def ?? "", BackColor = Fld, ForeColor = Ink, BorderStyle = BorderStyle.FixedSingle, Font = new Font("Segoe UI", 11f) }; Win.NeonBox(tb); f.Controls.Add(tb); NeonScroll.Attach(tb);
+        var ok = B("OK", 340, 0, 90, 32, TM.C(255, 118, 52, 212)); var cancel = B("Cancel", 440, 0, 90, 32, TM.C(255, 70, 40, 120)); var emo = B("EMOJIS", 16, 0, 110, 32, TM.C(255, 150, 70, 235)); f.Controls.AddRange(new Control[] { ok, cancel, emo });
+        Action relayout = () =>
+        {
+            int lines = 1; try { lines = Math.Max(1, tb.GetLineFromCharIndex(Math.Max(0, tb.TextLength)) + 1); } catch { }
+            int maxH = (int)(Screen.FromControl(f).WorkingArea.Height * 0.62), want = Math.Max(52, Math.Min(maxH, lines * (tb.Font.Height + 1) + 14)); if (tb.Height != want) tb.Height = want;
+            int cy = tb.Bottom + 14; ok.Top = cancel.Top = emo.Top = cy; int ch = cy + 32 + 16; if (f.ClientSize.Height != ch) { f.ClientSize = new Size(560, ch); }
+        };
+        tb.TextChanged += (s, e) => relayout(); f.Shown += (s, e) => { relayout(); tb.Focus(); tb.SelectionStart = tb.TextLength; }; relayout();
+        emo.Click += (s, e) => EmojiPanel.Show(f, em => { int at = tb.SelectionStart; tb.Text = tb.Text.Substring(0, at) + em + tb.Text.Substring(Math.Min(tb.Text.Length, at + tb.SelectionLength)); tb.SelectionStart = at + em.Length; tb.Focus(); });
+        ok.Click += (s, e) => { result = tb.Text.Trim(); f.Close(); }; cancel.Click += (s, e) => f.Close(); f.CancelButton = cancel; f.ShowDialog(owner); return result;
+    }
     public static string Ask(IWin32Window owner, string prompt, string def)
     {
         string result = null; var f = Make("Studio", 440, 140);
@@ -378,6 +397,7 @@ static class StudioDialogs
         f.Controls.Add(pl); int dy = pl.Height - 22; f.ClientSize = new Size(440, 140 + dy);
         var tb = new TextBox { Left = 16, Top = 42 + dy, Width = 404, Text = def, BackColor = Fld, ForeColor = Ink, BorderStyle = BorderStyle.FixedSingle }; Win.NeonBox(tb); f.Controls.Add(tb);
         var ok = B("OK", 230, 86 + dy, 90, 32, TM.C(255, 118, 52, 212)); var cancel = B("Cancel", 330, 86 + dy, 90, 32, TM.C(255, 70, 40, 120));
+        var emo = B("EMOJIS", 16, 86 + dy, 110, 32, TM.C(255, 150, 70, 235)); emo.Click += (s, e) => EmojiPanel.Show(f, em => { int at = tb.SelectionStart; tb.Text = tb.Text.Substring(0, at) + em + tb.Text.Substring(Math.Min(tb.Text.Length, at + tb.SelectionLength)); tb.SelectionStart = at + em.Length; tb.Focus(); }); f.Controls.Add(emo);   // anywhere you write a name, a bio or a description
         ok.Click += (s, e) => { if (tb.Text.Trim().Length > 0) { result = tb.Text.Trim(); f.Close(); } }; cancel.Click += (s, e) => f.Close(); f.AcceptButton = ok; f.Controls.AddRange(new Control[] { ok, cancel });
         f.ShowDialog(owner); return result;
     }
@@ -411,17 +431,42 @@ static class StudioDialogs
         ok.Click += (s, e) => { result = string.Join(" ", sel.ToArray()); f.Close(); }; cancel.Click += (s, e) => f.Close(); f.CancelButton = cancel; f.Controls.AddRange(new Control[] { ok, cancel }); refresh(); f.ShowDialog(owner); return result;
     }
 
-    // links: one on every line, any web address
+    // "this artist name is taken": the same name written in other ways to pick from, or type your own
+    public static string NameTaken(IWin32Window owner, string name, List<string> suggestions)
+    {
+        string result = null; var f = Make("Artist name taken", 520, 420);
+        f.Controls.Add(new Label { Text = "The artist name \"" + name + "\" is already taken by another artist.\n\nPick it written another way, or type your own name:", Left = 16, Top = 12, Width = 488, Height = 66, ForeColor = TM.C(255, 255, 200, 170), Font = new Font("Segoe UI Semibold", 10.5f) });
+        var list = new ListBox { Left = 16, Top = 84, Width = 488, Height = 170, BackColor = TM.C(255, 14, 7, 30), ForeColor = Ink, BorderStyle = BorderStyle.FixedSingle, Font = new Font("Segoe UI", 12f), ItemHeight = 28, DrawMode = DrawMode.OwnerDrawFixed, IntegralHeight = false }; Win.NeonBox(list); Win.DarkControl(list); f.Controls.Add(list);
+        foreach (var sx in suggestions) list.Items.Add(sx); if (suggestions.Count == 0) list.Items.Add("(no suggestions: type your own name below)");
+        list.DrawItem += (s, e) => { if (e.Index < 0) return; bool on = (e.State & DrawItemState.Selected) != 0; using (var br = new SolidBrush(on ? TM.C(255, 118, 52, 212) : TM.C(255, 14, 7, 30))) e.Graphics.FillRectangle(br, e.Bounds); TextRenderer.DrawText(e.Graphics, Convert.ToString(list.Items[e.Index]), list.Font, new Rectangle(e.Bounds.X + 8, e.Bounds.Y, e.Bounds.Width - 12, e.Bounds.Height), on ? Color.White : Ink, TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPrefix); };
+        var tb = new TextBox { Left = 16, Top = 268, Width = 488, MaxLength = 30, BackColor = Fld, ForeColor = Ink, BorderStyle = BorderStyle.FixedSingle, Font = new Font("Segoe UI", 12f), Text = suggestions.Count > 0 ? suggestions[0] : name }; Win.NeonBox(tb); f.Controls.Add(tb);
+        f.Controls.Add(new Label { Text = "Names count as the same when only the capitals, spaces, dots or dashes differ.", Left = 16, Top = 304, Width = 488, Height = 22, ForeColor = TM.C(255, 160, 140, 190) });
+        list.SelectedIndexChanged += (s, e) => { if (list.SelectedIndex >= 0 && list.SelectedIndex < suggestions.Count) tb.Text = suggestions[list.SelectedIndex]; };
+        var ok = B("USE THIS NAME", 300, 356, 130, 36, TM.C(255, 118, 52, 212)); var cancel = B("Cancel", 440, 356, 64, 36, TM.C(255, 70, 40, 120));
+        ok.Click += (s, e) => { if (tb.Text.Trim().Length >= 2) { result = tb.Text.Trim(); f.Close(); } }; cancel.Click += (s, e) => f.Close(); f.AcceptButton = ok; f.CancelButton = cancel; f.Controls.AddRange(new Control[] { ok, cancel }); f.ShowDialog(owner); return result;
+    }
+
+    // links: one on every line as a TITLE, a bar and the web address (Spotify | https://open.spotify.com/artist/...); every link needs a title, and the window does not save until each line is right
     public static string Links(IWin32Window owner, string current)
     {
-        string result = null; var f = Make("Your links", 560, 360);
-        f.Controls.Add(new Label { Text = "Add the links you want on your profile (up to 10): YouTube, SoundCloud, Spotify, Apple Music, Bandcamp, Instagram, TikTok, X, Facebook... Streaming services and social media only, no other websites. One on every line.", Left = 16, Top = 12, Width = 520, Height = 46, ForeColor = TM.C(255, 200, 170, 255) });
-        var tb = new TextBox { Left = 16, Top = 66, Width = 520, Height = 200, Multiline = true, ScrollBars = ScrollBars.Vertical, Text = current, BackColor = Fld, ForeColor = Ink, BorderStyle = BorderStyle.FixedSingle, Font = new Font("Segoe UI", 10.5f), AcceptsReturn = true }; Win.NeonBox(tb); NeonScroll.Attach(tb); f.Controls.Add(tb);
-        var info = new Label { Left = 16, Top = 272, Width = 520, Height = 22, ForeColor = TM.C(255, 160, 140, 200) }; f.Controls.Add(info);
-        Action check = () => { int ok = 0, bad = 0; foreach (var raw in tb.Text.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries)) { if (raw.Trim().Length == 0) continue; if (ProfileStore.CleanLink(raw).Length > 0) ok++; else bad++; } info.Text = ok + " usable" + (bad > 0 ? ",  " + bad + " not allowed (only streaming and social links)" : "") + (ok > 6 ? "  (only the first 6 are kept)" : ""); };
+        string result = null; var f = Make("Your links", 640, 400);
+        f.Controls.Add(new Label { Text = "One link on every line, written as a TITLE, then a bar, then the address (up to 10):   My Spotify | https://open.spotify.com/artist/...   Only streaming services and social media are allowed (YouTube, SoundCloud, Spotify, Apple Music, Bandcamp, Instagram, TikTok, X, Facebook...). Every link needs a title, so people know what they are clicking.", Left = 16, Top = 12, Width = 608, Height = 66, ForeColor = TM.C(255, 200, 170, 255) });
+        var tb = new TextBox { Left = 16, Top = 84, Width = 608, Height = 200, Multiline = true, Text = current, BackColor = Fld, ForeColor = Ink, BorderStyle = BorderStyle.FixedSingle, Font = new Font("Segoe UI", 10.5f), AcceptsReturn = true }; Win.NeonBox(tb); NeonScroll.Attach(tb); f.Controls.Add(tb);
+        var info = new Label { Left = 16, Top = 290, Width = 608, Height = 40, ForeColor = TM.C(255, 160, 140, 200) }; f.Controls.Add(info); bool allGood = true;
+        Action check = () =>
+        {
+            int ok = 0, noTitle = 0, notAllowed = 0; var seen = new List<string>();
+            foreach (var raw in tb.Text.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries))
+            {
+                if (raw.Trim().Length == 0) continue; string ti, ur; if (ProfileStore.ParseLinkLine(raw, out ti, out ur)) ok++;
+                else { int bar = raw.IndexOf('|'); if (bar < 0 || ProfileStore.CleanTitle(raw.Substring(0, bar)).Length == 0) { if (ProfileStore.CleanLink(bar < 0 ? raw : raw.Substring(bar + 1)).Length > 0 || bar >= 0) noTitle++; else notAllowed++; } else notAllowed++; }
+            }
+            allGood = noTitle == 0 && notAllowed == 0; info.ForeColor = allGood ? TM.C(255, 160, 220, 190) : TM.C(255, 255, 150, 150);
+            info.Text = ok + " ready" + (noTitle > 0 ? ",  " + noTitle + " with no title (write the title, a bar, then the address)" : "") + (notAllowed > 0 ? ",  " + notAllowed + " not allowed (only streaming and social links)" : "") + (ok > 10 ? "  (only the first 10 are kept)" : "");
+        };
         tb.TextChanged += (s, e) => check(); check();
-        var ok2 = B("SAVE LINKS", 330, 306, 120, 36, TM.C(255, 118, 52, 212)); var cancel = B("Cancel", 460, 306, 80, 36, TM.C(255, 70, 40, 120));
-        ok2.Click += (s, e) => { result = tb.Text; f.Close(); }; cancel.Click += (s, e) => f.Close(); f.CancelButton = cancel; f.Controls.AddRange(new Control[] { ok2, cancel }); f.ShowDialog(owner); return result;
+        var ok2 = B("SAVE LINKS", 440, 346, 120, 36, TM.C(255, 118, 52, 212)); var cancel = B("Cancel", 570, 346, 54, 36, TM.C(255, 70, 40, 120));
+        ok2.Click += (s, e) => { check(); if (!allGood) return; result = tb.Text; f.Close(); }; cancel.Click += (s, e) => f.Close(); f.CancelButton = cancel; f.Controls.AddRange(new Control[] { ok2, cancel }); f.ShowDialog(owner); return result;
     }
 
     public static void Report(IWin32Window owner, string title, List<string> lines, Action undo)

@@ -13,13 +13,49 @@ partial class StudioForm
     // ---- the text of a profile takes the colour of the profile (what the owner chose in the colour mixer), for everyone who looks at it ----
     Color ProfInk(int packed) { return MixColours.Blend(MixLegible(ProfileStore.ColorOf(packed)), Color.White, 0.12f); }
     Color ProfDim(int packed) { return MixColours.Blend(MixLegible(ProfileStore.ColorOf(packed)), Color.FromArgb(255, 125, 112, 150), 0.28f); }
+    Color tintBaseInk; bool tinting;   // the normal writing colour while a profile is drawn in its own colour (the name is always in it unless the name fades)
+    Color PlainInk { get { return tinting ? tintBaseInk : Ink; } }
     void PaintTinted(int packed, Action paint)
     {
         if (packed < 0) { paint(); return; }
-        var oi = Ink; var od = DimC; Ink = ProfInk(packed); DimC = ProfDim(packed); try { paint(); } finally { Ink = oi; DimC = od; }
+        var oi = Ink; var od = DimC; tintBaseInk = oi; tinting = true; Ink = ProfInk(packed); DimC = ProfDim(packed); try { paint(); } finally { Ink = oi; DimC = od; tinting = false; }
     }
     void PaintProfile(Graphics g) { PaintTinted(ProfileStore.Accent, () => PaintProfile0(g)); }
     void PaintArtistView(Graphics g, float W, float top, float bottom) { var a = artSel; PaintTinted(a == null ? -1 : (a.NameRgb >= 0 ? a.NameRgb : a.Accent), () => PaintArtistView0(g, W, top, bottom)); }
+
+    // the banner is alive: a band of light sweeps across it every few seconds and little sparks drift up and twinkle (in the colour of the profile)
+    void AnimBanner(Graphics g, RectangleF r, Color accent)
+    {
+        double t = Environment.TickCount / 1000.0; lastInput = DateTime.Now; var gs = g.Save(); using (var clip = RR(r, 18)) g.SetClip(clip, CombineMode.Intersect); var sm = g.SmoothingMode; g.SmoothingMode = SmoothingMode.AntiAlias;
+        float w = Math.Max(60f, r.Width * 0.2f), x0 = r.X - w + (r.Width + 2 * w) * (float)((t / 4.8) % 1.0); var band = new RectangleF(x0, r.Y, w, r.Height);
+        using (var br = new LinearGradientBrush(band, Color.Transparent, Color.Transparent, 0f)) { var cb = new ColorBlend(3) { Colors = new[] { Color.FromArgb(0, accent), Color.FromArgb(58, MixC(accent, Color.White, 0.55f)), Color.FromArgb(0, accent) }, Positions = new[] { 0f, 0.5f, 1f } }; br.InterpolationColors = cb; g.FillRectangle(br, band); }
+        for (int i = 0; i < 22; i++)
+        {
+            double fx = (i * 0.61803 + t * (0.012 + 0.006 * (i % 3))) % 1.0, fy = 1.0 - ((i * 0.37 + t * (0.05 + 0.025 * (i % 4))) % 1.0); float px = r.X + (float)fx * r.Width, py = r.Y + (float)fy * r.Height; double tw = Math.Abs(Math.Sin(t * (1.4 + (i % 5) * 0.3) + i)); float sz = 1.6f + (i % 3) * 0.9f;
+            Color sc = i % 3 == 0 ? accent : (i % 3 == 1 ? Color.White : Color.FromArgb(255, 0, 229, 255)); using (var br = new SolidBrush(Color.FromArgb((int)(34 + 190 * tw), sc))) g.FillEllipse(br, px - sz / 2, py - sz / 2, sz, sz);
+            if (tw > 0.85) using (var pen = new Pen(Color.FromArgb((int)(120 * tw), Color.White), 1f)) { g.DrawLine(pen, px - 4, py, px + 4, py); g.DrawLine(pen, px, py - 4, px, py + 4); }
+        }
+        g.SmoothingMode = sm; g.Restore(gs);
+    }
+    // lights that run round the edge of the picture, with a short bright tail
+    void AnimRing(Graphics g, RectangleF r, Color c)
+    {
+        double t = Environment.TickCount / 1000.0; lastInput = DateTime.Now; var sm = g.SmoothingMode; g.SmoothingMode = SmoothingMode.AntiAlias; float w = r.Width, h = r.Height, P = 2 * (w + h);
+        Func<float, PointF> at = d => { d = ((d % P) + P) % P; if (d < w) return new PointF(r.X + d, r.Y); d -= w; if (d < h) return new PointF(r.Right, r.Y + d); d -= h; if (d < w) return new PointF(r.Right - d, r.Bottom); d -= w; return new PointF(r.X, r.Bottom - d); };
+        for (int k = 0; k < 3; k++)
+        {
+            float head = (float)((t / 3.2 + k / 3.0) % 1.0) * P; Color col = k == 1 ? Color.FromArgb(255, 0, 229, 255) : c;
+            for (int s = 0; s < 14; s++) { var p = at(head - s * 3.5f); float a = 1f - s / 14f; float sz = 2f + 5f * a; using (var br = new SolidBrush(Color.FromArgb((int)(210 * a * a), s < 2 ? Color.White : col))) g.FillEllipse(br, p.X - sz / 2, p.Y - sz / 2, sz, sz); }
+        }
+        g.SmoothingMode = sm;
+    }
+
+    // a bio of any length: the block is as tall as the text needs (returns the height used)
+    float BioBlock(Graphics g, string s, float px, Color c, float x, float y, float w)
+    {
+        var f = GfxCache.Exact(GfxCache.Grow(px), false); float h = g.MeasureString(s, f, (int)w).Height; h = Math.Max(44f, h + (EmojiText.Has(s) ? f.GetHeight(g) + 2 : 3f));
+        TxtWrap(g, s, px, c, Rc(x, y, w, h)); return h + 4;
+    }
 
     // ---- the genre tags: any number of them, in a box that scrolls with the bar of the DAW ----
     float TagBox(Graphics g, float x0, float y, float w, string[] tags, Color c, bool own)
@@ -60,17 +96,17 @@ partial class StudioForm
     }
 
     // ---- LINKS: the streaming and social links of a profile in one list ----
-    void LinksMenu(RectangleF at, List<string> links, bool mine)
+    void LinksMenu(RectangleF at, List<string> links, bool mine, Dictionary<string, string> titles = null)
     {
         var m = Win.NewMenu(); if (links.Count == 0) m.Items.Add(mine ? "You have not added a link yet." : "No links on this profile.").Enabled = false;
-        foreach (var l in links) { string u = l; string name = ProfileStore.LinkLabel(u); string shortUrl = u.Replace("https://", ""); if (shortUrl.Length > 44) shortUrl = shortUrl.Substring(0, 43) + "..."; m.Items.Add(name + "      " + shortUrl).Click += (a, b) => OpenLink(u); }
+        foreach (var l in links) { string u = l; string name = ProfileStore.TitleOf(titles, u); string shortUrl = u.Replace("https://", ""); if (shortUrl.Length > 48) shortUrl = shortUrl.Substring(0, 47) + "..."; m.Items.Add(name + "      " + shortUrl).Click += (a, b) => OpenLink(u); }
         if (links.Count > 0) { m.Items.Add(new ToolStripSeparator()); m.Items.Add("Copy all the links").Click += (a, b) => { try { Clipboard.SetText(string.Join("\r\n", links.ToArray())); Toast("Links copied."); } catch { Toast("Could not copy (another program is using the clipboard)."); } }; }
         if (mine) { m.Items.Add(new ToolStripSeparator()); m.Items.Add("Edit my links...").Click += (a, b) => EditLinks(); }
         m.Show(this, new Point((int)at.X, (int)at.Bottom));
     }
-    void LinksButton(Graphics g, RectangleF r, List<string> links, bool mine)
+    void LinksButton(Graphics g, RectangleF r, List<string> links, bool mine, Dictionary<string, string> titles = null)
     {
-        Btn(g, r, "LINKS" + (links.Count > 0 ? "  (" + links.Count + ")" : ""), links.Count > 0 ? 2 : 1, () => LinksMenu(r, links, mine), 12);
+        Btn(g, r, "LINKS" + (links.Count > 0 ? "  (" + links.Count + ")" : ""), links.Count > 0 ? 2 : 1, () => LinksMenu(r, links, mine, titles), 12);
         Hint2(r, links.Count > 0 ? "See " + (mine ? "your" : "their") + " streaming and social links, and open one" : (mine ? "Add your links (streaming services and social media only)" : "This artist has not added any links"));
     }
 

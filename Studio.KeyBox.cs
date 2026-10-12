@@ -17,7 +17,14 @@ partial class StudioForm
     bool pickOpen; string pickTitle = ""; List<Track> pickList = new List<Track>(); Action<Track> pickAct; float pickScroll;
     void PickTrackMenu(string title, Func<Track, bool> ok, Action<Track> pick)
     {
-        var list = new List<Track>(); foreach (var t0 in eng.Tracks.ToArray()) if (ok(t0)) list.Add(t0);
+        // one button for each ROW of the timeline: the pieces of a split track (and its layers) are not separate tracks, so they are not listed one by one; the piece that is used is the longest one of the row
+        var list = new List<Track>(); var best = new Dictionary<Track, Track>();
+        foreach (var t0 in eng.Tracks.ToArray())
+        {
+            if (!ok(t0)) continue; var h = t0.Host ?? t0; Track cur; long len = t0.Clip != null ? t0.Clip.Length : 0;
+            if (!best.TryGetValue(h, out cur)) { best[h] = t0; list.Add(h); } else if (len > (cur.Clip != null ? cur.Clip.Length : 0)) best[h] = t0;
+        }
+        { var pick0 = pick; pick = row => { Track piece; pick0(best.TryGetValue(row, out piece) ? piece : row); }; }
         if (list.Count == 0) { Toast("There is no track with audio yet. Add a song or a recording first."); return; }
         pickTitle = title; pickList = list; pickAct = pick; pickScroll = 0; pickOpen = true; stylesOpen = false; autoOpen = false; gainOpen = false; browserOpen = false;
     }

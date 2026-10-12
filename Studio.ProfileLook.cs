@@ -32,7 +32,7 @@ partial class StudioForm
     {
         float rad = Math.Max(8, r.Width * 0.2f); var gs = g.Save(); using (var p = RR(r, rad)) { g.SetClip(p, CombineMode.Intersect); }
         if (img != null) { g.InterpolationMode = InterpolationMode.NearestNeighbor; g.DrawImage(img, new Rectangle((int)Math.Round(r.X), (int)Math.Round(r.Y), (int)Math.Round(r.Width), (int)Math.Round(r.Height))); } else DrawLogoArt(g, r);
-        g.Restore(gs); using (var p = RR(r, rad)) using (var pen = new Pen(ring, 3f)) g.DrawPath(pen, p); using (var p = RR(RectangleF.Inflate(r, 3, 3), rad + 3)) using (var pen = new Pen(Color.FromArgb(70, ring), 8f)) g.DrawPath(pen, p);
+        g.Restore(gs); using (var p = RR(r, rad)) using (var pen = new Pen(ring, 3f)) g.DrawPath(pen, p); using (var p = RR(RectangleF.Inflate(r, 3, 3), rad + 3)) using (var pen = new Pen(Color.FromArgb(70, ring), 8f)) g.DrawPath(pen, p); if (r.Width >= 56) AnimRing(g, RectangleF.Inflate(r, 1, 1), ring);   // the lights that run round the picture
     }
 
     // ---------- the controls ----------

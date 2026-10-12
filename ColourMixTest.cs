@@ -56,7 +56,7 @@ static class CM
         Check("and it IS the profile colour at once (no button to press)", ProfileStore.Accent == ProfileStore.Pack(sf.MixedNow), ProfileStore.Accent.ToString("X6"));
         Check("the name fades from A to B (both ends readable on the dark page)", ProfileStore.NameRgb >= 0 && ProfileStore.NameRgb2 >= 0 && MixColours.Luma(ProfileStore.ColorOf(ProfileStore.NameRgb)) >= 0.38 && MixColours.Luma(ProfileStore.ColorOf(ProfileStore.NameRgb2)) >= 0.38);
         sf.MixSetT(0.25f); Check("the MIX slider moves the merged colour and the profile colour with it", sf.MixedNow == MixColours.Blend(gold, purple, 0.25f) && ProfileStore.Accent == ProfileStore.Pack(sf.MixedNow));
-        sf.MixSetFade(false); Check("FADE MY NAME OFF: the name takes the merged colour", ProfileStore.NameRgb >= 0 && ProfileStore.NameRgb2 == -1); sf.MixSetFade(true); Check("and ON again fades it", ProfileStore.NameRgb2 >= 0);
+        sf.MixSetFade(false); Check("FADE MY NAME OFF: the name is in the normal colour (white), with the profile colour on", ProfileStore.NameRgb == -1 && ProfileStore.NameRgb2 == -1 && ProfileStore.Accent >= 0); sf.MixSetFade(true); Check("and ON again fades it", ProfileStore.NameRgb2 >= 0);
         sf.MixSetFollow(false); Check("PROFILE COLOUR = MY MIX OFF: the profile goes back to the colour of the theme", ProfileStore.Accent == -1 && ProfileStore.NameRgb == -1 && ProfileStore.NameRgb2 == -1);
         sf.MixSet(1, MixColours.Hex("#4ECDC4"), 0, "Turquoise"); Check("while it is off a change does not touch the profile", ProfileStore.Accent == -1);
         sf.MixSetFollow(true); Check("and ON again, the profile is the mix again", ProfileStore.Accent == ProfileStore.Pack(sf.MixedNow));

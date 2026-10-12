@@ -87,7 +87,7 @@ TIP: Press Check again on the Account page if you just paid and the app still sa
 On the first screen, press GENERATE LYRICS (next to Vocal remover and Purphex Music), or Menu, Generate lyrics. It is a page of its own, and it is free in every edition. On the Fantasy edition it wears the Fantasy gold and follows your Fantasy theme.
 ## Get the lyrics
 1. Drop a song or a video on it, or press CHOOSE FILE. Any of mp3, wav, flac, m4a, ogg, opus, aac, mp4, mkv, webm, mov and more.
-2. Or paste a link (YouTube; other sites need the link reader the converter installs) in OR PASTE A LINK: the lyrics are found from the video's name, with nothing downloaded and no MP3 needed.
+2. Or paste a link (YouTube; other sites need the link reader the converter installs) in OR PASTE A LINK: the lyrics are found from the video's name, with nothing downloaded and no MP3 needed. If the song is not in the lyrics database, Purphex fetches the sound of the link only to listen to it, writes the words out by listening, and deletes the sound afterwards.
 3. Pick the LANGUAGE the song is sung in (Auto-detect lets the recogniser decide; pick it when it gets the language wrong, and it is remembered). Then press GENERATE LYRICS. The song's tags and file name (or the link) say which song it is, and the lyrics database (LRCLIB) is asked for it.
 4. A song that is not in the database can be written by listening to it (this needs the file, not a link). TRIM START and TRIM END (like 0:30) pick the part of the song that is heard. That uses the Whisper speech recogniser, which runs on your PC: Purphex asks before it downloads it (about 160 MB, once, and your song is never uploaded). A recogniser can mishear a word, so check the words against the song.
 ## Which song, and how well it listens
@@ -264,7 +264,7 @@ TIP: It never changes your original files."),
 ## The picky way
 - Open PRESETS in the middle: over 60 master presets in groups (Everyday, Loud, Genre, Vocals, Low end, Colour, Width, Fix), including Bass Boost Master and Vocal Improver. Press PREVIEW to hear one on your song, then KEEP IT or PUT BACK.
 - EQ & EFFECTS shows the selected effect of the chain. The EQ picture shows your sound before and after, and what the EQ changed.
-- Set your own loudness with the slider and SET LOUDNESS (MANUAL). A ORIGINAL and B MASTERED compare with loudness match, so you judge tone, not volume.
+- Set your own loudness with the slider and SET LOUDNESS (MANUAL). A ORIGINAL and B MASTERED are always compared at the same loudness, so you judge tone, not volume.
 - PLAY and PREVIEW MASTER are at the top. Only the buttons that belong to mastering are there.
 ## Watch your music
 The light show is on the Mastering page itself: light bars dance around the logo, rings and sparks fly on every beat. To see it as a page of its own, press FULL VISUALISER at the top right of the light show; there you can switch between ORIGINAL and MASTERED while you watch (on the Mastering page use A ORIGINAL and B MASTERED on the left). Esc goes back.
@@ -291,7 +291,7 @@ Press Settings (top right of the main window) or Menu, then Settings. The sectio
 ## Background
 Choose any picture or video. It is cropped to fill the window automatically. Darken makes it easier to read. 'Keep the leaves' puts the floating leaves on top. Remove puts the purple leaves back.
 ## Animation
-Frame rate limit: 60 is smoothest, 30 is lightest on a slow computer. You can show the frame rate in the title bar.
+Frame rate limit: 60 is smoothest, 30 is lightest on a slow computer. The frame rate is always shown in the title bar.
 ## Updates
 Scan for updates checks for a new version right now and always tells you what it found (you are up to date, or an update is ready and its window opens). It even shows an update you pressed Later on before.
 ## Audio
@@ -359,12 +359,12 @@ Open + Add Effect on a track and pick it under PLUGINS (it is listed first). Pre
         new HelpTopic("daw", "Music Studio", "Edit like a DAW: split, trim, move, duplicate, undo, tempo grid", false, @"
 ## Cut a track in two (split)
 1. Put the needle where you want the cut by clicking or dragging on the ruler (the numbers at the top of the tracks): the needle only moves from there. Clicking a track never moves it.
-2. Press SPLIT (or the key B). The track becomes two pieces on the SAME track. Split as many times as you like: there is no limit. Drag a piece to move it, or select it to give it its own fade, gain or plugins.
+2. Press the key B (or right-click the clip and choose Split here). The track becomes two pieces on the SAME track. Split as many times as you like: there is no limit. Drag a piece to move it, or select it to give it its own fade, gain or plugins.
 ## Shorten a track (trim)
 - Drag the left or right END of a clip to shorten it. The audio is never deleted, you can drag it back out.
 ## Take a section out (CUT)
 1. SPLIT the track where the part you do not want starts and where it ends, so it is a piece of its own.
-2. Click that piece and press CUT. The piece is deleted and the pieces after it move up to close the gap. (SPLIT makes two pieces; CUT removes one.) It also cuts every clip lit by a selection box, leaves locked tracks alone, and Ctrl+Z puts it back.
+2. Right-click that piece and choose Cut this piece out (or open the side menu and choose Cut a section out). The piece is deleted and the pieces after it move up to close the gap. (SPLIT makes two pieces; CUT removes one.) It also cuts every clip lit by a selection box, leaves locked tracks alone, and Ctrl+Z puts it back.
 ## Fade in and fade out
 Click a clip: round handles appear on it. Drag the top handle at the top left to fade in (the farther you drag it, the longer the fade) and the top handle at the top right to fade out. The small bottom handle on a fade moves where the fade starts (or ends), which leaves silence before a fade in or after a fade out. Double-click a handle to remove or reset it. The curve drawn on the clip is exactly the curve you hear.
 ## Gain (volume of one piece)
@@ -388,7 +388,7 @@ Drag the track name on the left up or down, or use the Up and Dn buttons on the 
 ## More
 - Point at any button, clip end or clip to see what it does.
 - Right-click a track for split, cut, fades, gain, lock, duplicate, rename and delete.
-- DUP copies the selected track. DEL (or the Delete key) deletes the selected piece; if the track has more pieces it keeps them. UNDO / REDO (Ctrl+Z / Ctrl+Y) bring edits back.
+- Right-click a track and choose Duplicate track to copy it. DEL (or the Delete key) deletes the selected piece; if the track has more pieces it keeps them. UNDO / REDO (Ctrl+Z / Ctrl+Y) bring edits back.
 - Clicking a button again closes the list or panel it opened.
 ## Tempo and grid
 - BPM: the tempo is found by itself for every track you add (each track shows its BPM under its name, and the first beat or song sets the project tempo). To use your own, click the number and type it (a tempo you typed is never changed automatically), or press DETECT to listen to the selected track again.
@@ -659,7 +659,7 @@ Press the three-lines button at the top left of Purphex Music. Your picture and 
 - Edit (only on the Mix page): undo, redo, split, cut, lock, duplicate and delete.
 - Tools: Auto Mix, split vocals and beat, detect BPM, Flex Pitch, Sounds and sound packs, Rapper Vocal Styles, add a track, metronome and snap to grid. They all take you to the Mix page first.
 - Pages: Mix, Mastering and Lyrics. Projects and Community are buttons of their own (Projects opens your saved projects and nothing else; Community has ARTISTS in its header). Every page also has a BACK button that returns to the page you came from.
-- View: fit the whole song, thin / normal / tall tracks, full screen, the FPS counter and the converter window.
+- View: fit the whole song, thin / normal / tall tracks, full screen and the converter window. (The frame rate is always shown in the title bar.)
 - Profile: your own profile page (banner, picture, bio, links, privacy and your tracks).
 - Fonts: the Fonts page, with 190+ fonts (drippy, graffiti, neon, gothic, retro, script, handwritten and more) for all the writing in the studio.
 - Themes: pick a colour theme, or download one other people made (the Themes box has MY THEMES, COMMUNITY THEMES, PHOTO and SAVE; the theme under the mouse is outlined). PHOTO turns a picture into a theme: the colours of the program come from the picture and it fills the window. The whole program changes colour at once and remembers your choice. Settings has the same choice.
@@ -693,7 +693,7 @@ This page never writes or suggests lyrics for you: every word is yours."),
 2. Press CHOOSE BANNER or CHOOSE PICTURE and pick any picture of any size or shape: the whole picture is shown, and the empty sides are filled by stretching its edges. Zoom in to crop it. It is resized to fit its frame by itself (the banner is wide, the picture is a rounded square). Then place it: ZOOM with the - and + buttons or the slider, LEFT / RIGHT and UP / DOWN with the arrow buttons or the sliders, FIT TO FRAME to see the whole picture, FILL THE FRAME to cover the frame completely.
 3. The picture only shows on this page and on your public profile. Everywhere else in the studio the circle is the Purphex logo and cannot be changed.
 4. The COLOUR MIXER (the box under the editing system) sets your profile colour: mix two colours and press USE AS MY PROFILE COLOUR; PROFILE COLOUR: THEME'S AGAIN goes back to the colour of your theme.
-5. Press EDIT beside your name, bio, WHERE YOU ARE (a search: type a country, county, town or area, like Poole, and pick it), LINKS (up to 10, one on every line) and genres (any number). Links can only be streaming services and social media (YouTube, SoundCloud, Spotify, Apple Music, Instagram, TikTok, X...): no other websites. The LINKS button on a profile lists them all. Tags cannot have swear words; REMOVE TAGS removes all of them, only the ones you typed, or one at a time. Emoji work in the name, bio and where you are.
+5. Press EDIT beside your name, bio, WHERE YOU ARE (a search: type a letter and every country and place that starts with it shows up, anywhere in the world; pick one, like Poole, Dorset), LINKS (up to 10, one on every line) and genres (any number). Links can only be streaming services and social media (YouTube, SoundCloud, Spotify, Apple Music, Instagram, TikTok, X...): no other websites. The LINKS button on a profile lists them all. Tags cannot have swear words; REMOVE TAGS removes all of them, only the ones you typed, or one at a time. Emoji work in the name, bio and where you are.
 6. YOUR PUBLISHED PROJECTS (in a neon box of its own) lists only the projects you published (use the person button on a project in My Projects, or PUBLISH ALL), with a play button each and a + MUSIC VIDEO button to add a link to the music video (it shows as MUSIC VIDEO on your public profile). TIME MADE reads like 45s, 2m33s, 2h33m, or 1d2h33m.
 ## Share it
 1. Press PUBLISH MY PROFILE to put it in the community. It is shared under a secret key made on this PC (there is no sign-in). Press it again after you change something.

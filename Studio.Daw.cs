@@ -114,7 +114,7 @@ partial class StudioForm
     {
         if (t == null) { Toast("Select a track first."); return; }
         if (t.Clip == null || t.Instrument) { Toast("Splitting works on audio tracks."); return; }
-        if (IsLocked(t)) { Toast("Locked: press UNLOCK before splitting this track."); return; }
+        if (IsLocked(t)) { Toast(FrozenWhy(t, "Locked: press UNLOCK before splitting this track.")); return; }
         long rel = at - t.Offset, used = t.UsedLength; if (rel < 800 || rel > used - 800) { Toast("Move the needle into the clip first (click the ruler above the tracks), then split."); return; }
         PushUndo(); var host = t.Host ?? t; var right = CloneTrack(t, " (2)"); right.Offset = at; right.ClipStart = t.ClipStart + rel; right.ClipFrames = used - rel; t.ClipFrames = rel;
         right.FadeIn = 0; right.FadeInDelay = 0; right.FadeOut = t.FadeOut; right.FadeOutTail = t.FadeOutTail; t.FadeOut = 0; t.FadeOutTail = 0;   // the fade out belongs to the end of the clip, which is now the right piece
@@ -323,7 +323,7 @@ partial class StudioForm
     void MoveTrackBy(Track tr, int dir)
     {
         if (tr.Host != null || tr.IsBus) { Toast("Drag it to another row instead."); return; }
-        if (IsLocked(tr)) { Toast("Locked: press UNLOCK first."); return; }
+        if (IsLocked(tr)) { Toast(FrozenWhy(tr, "Locked: press UNLOCK first.")); return; }
         int i = eng.Tracks.IndexOf(tr); if (i < 0) return; PushUndo();
         if (i + dir < 0 || i + dir >= LaneCount) { lock (eng.Sync) eng.Tracks.Insert(dir < 0 ? 0 : LaneCount, EmptyAudioTrack()); if (dir < 0) i++; }   // nothing there yet: make an empty track so it can still move
         int j = i + dir; AnimShift(tr, -dir); AnimShift(eng.Tracks[j], dir); lock (eng.Sync) { eng.Tracks.RemoveAt(i); eng.Tracks.Insert(j, tr); } selTrack = j;
@@ -333,7 +333,7 @@ partial class StudioForm
     void HeaderDown(Track tr) { selTrack = Math.Max(0, eng.Tracks.IndexOf(tr)); selFx = -1; headerUndo = false; toolsTrack = tr; hdMode = 0; lockToldYou = false; if (!IsLocked(tr)) GhostGrab(tr); }
     void HeaderDrag(Track tr, PointF pt)
     {
-        if (IsLocked(tr)) { if (!lockToldYou) { lockToldYou = true; Toast("This track is locked in place. Press UNLOCK in the toolbar to move it."); } return; }
+        if (IsLocked(tr)) { if (!lockToldYou) { lockToldYou = true; Toast(FrozenWhy(tr, "This track is locked in place. Press UNLOCK in the toolbar to move it.")); } return; }
         int i = eng.Tracks.IndexOf(tr); if (i < 0 || tr.Host != null) return; GhostStart(tr, 1);
         float pos = (pt.Y - (ToolH + TransH + RulerH - vscroll)) / LaneH; int row = (int)Math.Floor(pos); float fr = pos - row; int n = LaneCount;
         if (row >= n) { hdRow = n - 1; hdGap = n; hdMode = n - 1 == i ? 0 : 1; if (i == n - 1) hdMode = 0; return; }
@@ -395,14 +395,11 @@ partial class StudioForm
         L.Add(new DawBtn { Text = "DETECT BPM", W = 92, Do = () => DetectBpmClick(), Hint = "Find the tempo of the selected track from its beat." });
         L.Add(new DawBtn { Text = "COUNT IN", W = 70, Style = eng.CountIn ? 4 : 0, Do = () => { eng.CountIn = !eng.CountIn; Toast(eng.CountIn ? "Count In on: press PLAY (or record) and you get one bar of clicks, 1 2 3 4, before it starts." : "Count In off."); } });
         L.Add(new DawBtn { Text = "METRONOME", W = 84, Style = eng.Metronome ? 4 : 0, Do = () => { eng.Metronome = !eng.Metronome; Toast(eng.Metronome ? "Metronome on: a click on every beat while it plays." : "Metronome off."); } });
-        L.Add(new DawBtn { Text = "Grid Size", W = 76, Style = gridIdx == 2 ? 0 : 1, Key = "grid", Hint = "Grid Size: how finely clips, cuts and fades snap to the beat. Now: " + GridWhy[gridIdx] + ". Click to change it (the grid lines show briefly).",
+        L.Add(new DawBtn { Text = "Grid Size", W = 76, Style = 0, Key = "grid", Hint = "Grid Size: how finely clips, cuts and fades snap to the beat. Now: " + GridWhy[gridIdx] + ". Click to change it (the grid lines show briefly).",
             Do = () => { var m = Win.NewMenu(); m.Items.Add("Grid Size: clips and cuts snap to...").Enabled = false; for (int i = 0; i < GridNames.Length; i++) { int k = i; var it = new ToolStripMenuItem(GridNames[i] + "   (" + GridWhy[i] + ")") { Checked = gridIdx == i }; it.Click += (a, b) => { gridIdx = k; snapOn = true; gridFlashAt = Environment.TickCount; Toast("Grid Size: " + GridNames[k] + ". Everything now snaps to " + GridWhy[k] + "."); }; m.Items.Add(it); } m.Show(this, new Point((int)MousePos.X, (int)MousePos.Y)); } });
-        L.Add(new DawBtn { Text = "SPLIT", W = 50, Style = 1, Do = () => SplitSelected(), Hint = "Split the clip under the needle in two (key B). Split as many times as you like." });
-        L.Add(new DawBtn { Text = "CUT", W = 42, Style = 1, Do = () => CutClick(), Hint = "Cut the selected piece OUT: it is deleted and the pieces after it move up to close the gap. (SPLIT makes two pieces: split where the unwanted part starts and ends, click it, press CUT.) Ctrl+Z undoes it." });
         L.Add(new DawBtn { Text = "GAIN", W = 46, Style = cc != null && Math.Abs(cc.ClipGainDb) > 0.04f ? 4 : 0, Key = "gain", Do = () => { if (gainOpen) gainOpen = false; else OpenGain(); }, Hint = "The volume of the selected piece on its own (each piece of a split clip can have its own gain)." });
         L.Add(new DawBtn { Text = locked ? "UNLOCK" : "LOCK", W = locked ? 58 : 50, Style = locked ? 4 : 0, Do = () => ToggleLock(), Hint = "Lock the selected track in place so it cannot be moved, trimmed, split, cut or deleted until you unlock it." });
-        L.Add(new DawBtn { Text = flexOpen ? "FLEX*" : "FLEX", W = 46, Style = flexOpen ? 4 : 1, Do = () => { if (flexOpen) FlexClose(true); else FlexOpen(); } });
-        L.Add(new DawBtn { Text = "DUP", W = 40, Do = () => DuplicateTrack(cc ?? Selected), Hint = "Duplicate the selected clip." });
+        L.Add(new DawBtn { Text = flexOpen ? "FLEX*" : "FLEX", W = 46, Style = flexOpen ? 4 : 0, Do = () => { if (flexOpen) FlexClose(true); else FlexOpen(); } });
         L.Add(new DawBtn { Text = "DEL", W = 40, Style = 3, Gap = 8, Do = () => { if (multiSel.Count > 0) DeleteSelectedClips(); else DeleteClip(cc ?? Selected); }, Hint = "Delete the selected piece, or every clip lit by a selection box (Ctrl+Z brings them back)." });
         L.Add(new DawBtn { Text = "UNDO", W = 48, Do = () => DoUndo() });
         L.Add(new DawBtn { Text = "REDO", W = 48, Gap = 8, Do = () => DoRedo() });

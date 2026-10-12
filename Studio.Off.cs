@@ -20,6 +20,7 @@ partial class StudioForm
     // the header of a track that is off: everything dimmed, and the light is a hollow ring that slowly breathes (press it to switch the track back on)
     void PaintHeaderOff(Graphics g, RectangleF r, Track tr)
     {
+        { var swallow = Reg(r, () => Toast(tr.Name + " is OFF: click its light (top left) to turn it on before you touch it.")); var light = Rc(r.X + 8, r.Y + 5, 24, 24); Reg(light, () => ToggleOff(tr)); }   // a track that is off cannot be touched: only its light answers
         using (var br = new SolidBrush(Color.FromArgb(140, 5, 3, 12))) g.FillRectangle(br, r.X + 1, r.Y + 1, r.Width - 2, r.Height - 2);
         var c = Neon(tr.Color); float cx = r.X + 20, cy = r.Y + 17; double pulse = 0.5 + 0.5 * Math.Sin(Environment.TickCount / 420.0);
         using (var br = new SolidBrush(Color.FromArgb(235, 8, 4, 18))) g.FillEllipse(br, cx - 7.5f, cy - 7.5f, 15, 15);
@@ -29,33 +30,70 @@ partial class StudioForm
     // a number between -1 and 1 that is always the same for the same three numbers
     static double QRnd(long a, int b, int c) { unchecked { long h = a * 73856093L ^ b * 19349663L ^ c * 83492791L; h ^= h >> 13; h *= 0x5bd1e995L; h ^= h >> 15; return ((h & 0xFFFF) / 32767.5) - 1.0; } }
 
-    // the picture of the clip (img, drawn at ix, iy) very translucent and broken into strips that jerk sideways like an earthquake, with gaps and cracks across it
+    // the picture of the clip (img, drawn at ix, iy) of a track that is off: a faint, glitching ghost of the audio (the colours split apart like a broken screen, strips jerk sideways, scan lines and blocks flicker),
+    // lit by the colour of the track, with bolts of lightning that strike across it, branch, flash the light round them and spark where they land
     void PaintQuake(Graphics g, Bitmap img, int ix, int iy, Track tr, RectangleF lane, RectangleF cr)
     {
         var area = RectangleF.Intersect(lane, new RectangleF(cr.X - 24, lane.Y, cr.Width + 48, lane.Height)); if (area.IsEmpty) return;
-        var gs = g.Save(); g.SetClip(lane, CombineMode.Intersect);
-        double now = Environment.TickCount / 1000.0; long step = (long)(now * 15); int seed = (tr.Name ?? "").GetHashCode() & 0xFFFF;
-        double rumble = 2.2 + 3.4 * Math.Abs(Math.Sin(now * 2.1 + seed)), burst = Math.Sin(now * 6.3 + seed * 0.37) > 0.80 ? 1.0 : 0.0;   // a steady rumble and now and then a violent jolt
-        int bands = Math.Max(5, (int)(img.Height / 13f)); float bandH = img.Height / (float)bands;
-        using (var ia = new ImageAttributes())
+        var gs = g.Save(); g.SetClip(lane, CombineMode.Intersect); lastInput = DateTime.Now;
+        double now = Environment.TickCount / 1000.0; long step = (long)(now * 16); int seed = (tr.Name ?? "").GetHashCode() & 0xFFFF;
+        Color tc = Neon(tr.Color), cyan = Color.FromArgb(255, 0, 229, 255), pink = Color.FromArgb(255, 255, 60, 220), bolt = MixC(cyan, tc, 0.25f);
+        double rumble = 1.0 + 2.0 * Math.Abs(Math.Sin(now * 2.1 + seed)), burst = Math.Sin(now * 6.3 + seed * 0.37) > 0.82 ? 1.0 : 0.0;
+        double flick = 0.65 + 0.35 * Math.Abs(Math.Sin(now * 27 + seed)); if (QRnd(step, 1, seed) > 0.7) flick *= 0.35;
+        // the light: a wash of the track's colour from above that flickers, and a cool glow from below
+        using (var br = new LinearGradientBrush(area, Color.FromArgb((int)(46 * flick), tc), Color.FromArgb(0, tc), 90f)) g.FillRectangle(br, area);
+        using (var br = new LinearGradientBrush(area, Color.FromArgb(0, cyan), Color.FromArgb((int)(22 * flick), cyan), 90f)) g.FillRectangle(br, area);
+        // the ghost of the audio: three copies, a red one, a cyan one and a pale one, a little apart (that is the glitch), each cut into strips that jerk sideways
+        int bands = Math.Max(6, (int)(img.Height / 9f)); float bandH = img.Height / (float)bands; float split = 1.6f + (float)burst * 5f + (QRnd(step, 3, seed) > 0.8 ? 4f : 0f);
+        Action<ColorMatrix, float> strips = (cm, xoff) =>
         {
-            ia.SetColorMatrix(new ColorMatrix { Matrix00 = 1, Matrix11 = 1, Matrix22 = 1, Matrix33 = 0.30f, Matrix44 = 1 });
-            for (int b = 0; b < bands; b++)
+            using (var ia = new ImageAttributes())
             {
-                if (QRnd(step, b, seed) > 0.78 && b > 0) continue;   // a strip missing for a moment: the picture is broken open
-                double jitter = QRnd(step, b, seed + 1) * (rumble + burst * 14.0); if (QRnd(step / 2, b, seed + 2) > 0.86) jitter *= 3.5;   // some strips are thrown much further
-                float dy = (float)(QRnd(step + 5, b, seed + 3) * (1.0 + burst * 2.0)); float sy = b * bandH, sh = Math.Min(bandH + 1f, img.Height - sy); if (sh <= 0) continue;
-                g.DrawImage(img, new Rectangle(ix + (int)Math.Round(jitter), iy + (int)Math.Round(sy + dy), img.Width, (int)Math.Ceiling(sh)), 0, (int)sy, img.Width, (int)Math.Ceiling(sh), GraphicsUnit.Pixel, ia);
+                ia.SetColorMatrix(cm);
+                for (int b = 0; b < bands; b++)
+                {
+                    if (QRnd(step, b, seed) > 0.88 && b > 0) continue;   // a strip is missing for a moment
+                    double jitter = QRnd(step, b, seed + 1) * (rumble + burst * 10.0); if (QRnd(step / 2, b, seed + 2) > 0.92) jitter *= 4.0;   // now and then a strip is thrown far
+                    float dy = (float)(QRnd(step + 5, b, seed + 3) * (0.6 + burst * 1.6)); float sy = b * bandH, sh = Math.Min(bandH + 1f, img.Height - sy); if (sh <= 0) continue;
+                    g.DrawImage(img, new Rectangle(ix + (int)Math.Round(jitter + xoff), iy + (int)Math.Round(sy + dy), img.Width, (int)Math.Ceiling(sh)), 0, (int)sy, img.Width, (int)Math.Ceiling(sh), GraphicsUnit.Pixel, ia);
+                }
             }
-        }
-        // cracks: jagged lines from the top to the bottom of the clip that flicker
-        var sm = g.SmoothingMode; g.SmoothingMode = SmoothingMode.AntiAlias; int cracks = (int)Math.Max(2, Math.Min(6, cr.Width / 160f));
-        for (int k = 0; k < cracks; k++)
+        };
+        strips(new ColorMatrix { Matrix00 = 1.4f, Matrix33 = 0.34f, Matrix44 = 1 }, -split);   // red
+        strips(new ColorMatrix { Matrix11 = 1.2f, Matrix22 = 1.4f, Matrix33 = 0.36f, Matrix44 = 1 }, split);   // cyan
+        strips(new ColorMatrix { Matrix00 = 1, Matrix11 = 1, Matrix22 = 1, Matrix33 = (float)(0.16 + 0.10 * flick), Matrix44 = 1 }, 0);   // the pale one
+        // scan lines that crawl, and blocks of colour that blink on and off
+        using (var pen = new Pen(Color.FromArgb(52, 0, 0, 0), 1f)) for (float y = area.Y + (step % 3); y < area.Bottom; y += 3) g.DrawLine(pen, area.X, y, area.Right, y);
+        for (int k = 0; k < 4; k++)
         {
-            double fx = 0.12 + (k + 0.5 * (QRnd(seed, k, 9) + 1) * 0.5) / cracks * 0.80; float x = cr.X + (float)(fx * cr.Width); var pts = new List<PointF>(); int segs = 7;
-            for (int j = 0; j <= segs; j++) pts.Add(new PointF(x + (float)(QRnd(step / 3, j + k * 11, seed + 4) * (7 + burst * 10)), area.Y + area.Height * j / segs));
-            using (var pen = new Pen(Color.FromArgb(46, Neon(tr.Color)), 5f)) g.DrawLines(pen, pts.ToArray());
-            using (var pen = new Pen(Color.FromArgb(150 + (int)(70 * burst), 255, 220, 245), 1.1f)) g.DrawLines(pen, pts.ToArray());
+            if (QRnd(step, 50 + k, seed) < 0.15) continue; float w = 22 + (float)(QRnd(step, 60 + k, seed) + 1) * 55, h = 2 + (float)(QRnd(step, 61 + k, seed) + 1) * 3.5f;
+            float bx = area.X + (float)((QRnd(step, 70 + k, seed) + 1) / 2) * Math.Max(1f, area.Width - w), by = area.Y + (float)((QRnd(step, 80 + k, seed) + 1) / 2) * Math.Max(1f, area.Height - h);
+            using (var br = new SolidBrush(Color.FromArgb(80, k % 2 == 0 ? cyan : pink))) g.FillRectangle(br, bx, by, w, h); using (var br = new SolidBrush(Color.FromArgb(150, 255, 255, 255))) g.FillRectangle(br, bx, by, Math.Min(w, 10f), h);
+        }
+        // the lightning
+        var sm = g.SmoothingMode; g.SmoothingMode = SmoothingMode.AntiAlias; int bolts = (int)Math.Max(2, Math.Min(7, cr.Width / 170f)); const int segs = 14;
+        for (int k = 0; k < bolts; k++)
+        {
+            double clock = now * 1.7 + k * 0.41 + (seed & 255) / 255.0 * 3.0; long strike = (long)Math.Floor(clock); double t = clock - strike; if (t > 0.30) continue;
+            float I = (float)(1.0 - t / 0.30); if (QRnd(strike, k, seed + 7) > 0.2 && t > 0.10 && t < 0.17) I *= 0.35f;   // a bolt flickers: dark for a blink, then strikes again
+            float x = cr.X + 20 + (float)((QRnd(strike, k, seed + 8) + 1) / 2) * Math.Max(1f, cr.Width - 40); var pts = new PointF[segs + 1]; float walk = 0;
+            for (int j = 0; j <= segs; j++) { walk = walk * 0.62f + (float)QRnd(strike, j + k * 31, seed + 9) * 15f; pts[j] = new PointF(x + walk, area.Y + area.Height * j / segs); }
+            { var band = new RectangleF(x - 90, area.Y, 180, area.Height); using (var br = new LinearGradientBrush(band, Color.Transparent, Color.Transparent, 0f)) { var cb = new ColorBlend(3) { Colors = new[] { Color.FromArgb(0, bolt), Color.FromArgb((int)(60 * I), bolt), Color.FromArgb(0, bolt) }, Positions = new[] { 0f, 0.5f, 1f } }; br.InterpolationColors = cb; g.FillRectangle(br, band); } }   // the flash: the light round the bolt
+            Action<PointF[], float> stroke = (p, f) =>
+            {
+                using (var pen = new Pen(Color.FromArgb((int)(46 * I * f), tc), 10f) { LineJoin = LineJoin.Round, StartCap = LineCap.Round, EndCap = LineCap.Round }) g.DrawLines(pen, p);
+                using (var pen = new Pen(Color.FromArgb((int)(120 * I * f), bolt), 4f) { LineJoin = LineJoin.Round, StartCap = LineCap.Round, EndCap = LineCap.Round }) g.DrawLines(pen, p);
+                using (var pen = new Pen(Color.FromArgb((int)(255 * I * f), 255, 250, 255), 1.4f) { LineJoin = LineJoin.Round, StartCap = LineCap.Round, EndCap = LineCap.Round }) g.DrawLines(pen, p);
+            };
+            stroke(pts, 1f);
+            for (int br2 = 0; br2 < 2; br2++)   // branches that fork off and fade out
+            {
+                int j0 = 2 + (int)((QRnd(strike, k + 40 + br2, seed + 10) + 1) / 2 * (segs - 6)); float dir = QRnd(strike, k + 44 + br2, seed + 11) > 0 ? 1 : -1; var bp = new List<PointF> { pts[j0] }; float bx2 = pts[j0].X, by2 = pts[j0].Y;
+                for (int q = 0; q < 5; q++) { bx2 += dir * (7 + (float)(QRnd(strike, q + br2 * 7, seed + 12) + 1) * 5); by2 += 7 + (float)(QRnd(strike, q + 9 + br2 * 7, seed + 13) + 1) * 4; if (by2 > area.Bottom) break; bp.Add(new PointF(bx2, by2)); }
+                if (bp.Count > 1) stroke(bp.ToArray(), 0.75f);
+            }
+            var hit = pts[segs]; using (var br = new SolidBrush(Color.FromArgb((int)(70 * I), bolt))) g.FillEllipse(br, hit.X - 15, hit.Y - 9, 30, 12); using (var br = new SolidBrush(Color.FromArgb((int)(190 * I), 255, 255, 255))) g.FillEllipse(br, hit.X - 4, hit.Y - 3, 8, 5);   // where it lands: a glow and a few sparks
+            for (int sp = 0; sp < 5; sp++) { float sx = hit.X + (float)QRnd(strike, sp, seed + 14) * 26 * (1 - I * 0.4f), sy2 = hit.Y - 2 - (float)(QRnd(strike, sp + 5, seed + 15) + 1) * 14 * (1.2f - I); using (var br = new SolidBrush(Color.FromArgb((int)(220 * I), sp % 2 == 0 ? cyan : Color.White))) g.FillRectangle(br, sx, sy2, 2f, 2f); }
         }
         g.SmoothingMode = sm; g.Restore(gs);
     }

@@ -10,10 +10,11 @@ static class Contrast
     public static double Ratio(Color a, Color b) { double l1 = Lum(a), l2 = Lum(b); if (l1 < l2) { double t = l1; l1 = l2; l2 = t; } return (l1 + 0.05) / (l2 + 0.05); }
     public static readonly Color DarkInk = Color.FromArgb(255, 12, 6, 26);
     // white when it can be read on every one of these fills, otherwise whichever of white and dark is clearer
-    public static Color LabelOn(params Color[] fills)
+    public static Color LabelOn(params Color[] fills) { return Color.White; }   // the writing on buttons is always white (see ForWhite)
+    // a fill darkened (keeping its colour) just enough for WHITE writing to be read on it
+    public static Color ForWhite(Color fill, double want = 4.6)
     {
-        double w = 99, d = 99; foreach (var f in fills) { w = Math.Min(w, Ratio(Color.White, f)); d = Math.Min(d, Ratio(DarkInk, f)); }
-        return w >= 4.5 || w >= d ? Color.White : DarkInk;
+        Color c = fill; for (int i = 0; i < 24 && Ratio(Color.White, c) < want; i++) c = Color.FromArgb(c.A, (int)(c.R * 0.88), (int)(c.G * 0.88), (int)(c.B * 0.88)); return c;
     }
     // writing of this colour moved just far enough (lighter on a dark back, darker on a light one) to reach the ratio on that back
     public static Color Readable(Color text, Color back, double want = 4.5)

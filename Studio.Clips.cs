@@ -17,7 +17,10 @@ partial class StudioForm
 
     // ---------- which clip / track the buttons work on ----------
     Track RowHost(Track t) { return t == null ? null : (t.Host ?? t); }
-    bool IsLocked(Track t) { var h = RowHost(t); return h != null && h.Locked; }
+    bool IsOffRow(Track t) { var h = RowHost(t); return (h != null && h.Off) || (t != null && t.Off); }
+    // locked in place, or switched OFF: neither can be moved, trimmed, split, cut, faded or deleted
+    bool IsLocked(Track t) { var h = RowHost(t); return (h != null && h.Locked) || IsOffRow(t); }
+    string FrozenWhy(Track t, string lockedMsg) { return IsOffRow(t) ? "This track is OFF: click its light to turn it on before you edit it." : lockedMsg; }
     static string TimeText(long frames) { double s = Math.Max(0, frames) / (double)StudioEngine.SR; return ((int)(s / 60)) + ":" + (s % 60).ToString("00.0", CultureInfo.InvariantCulture); }
     // the piece of this row that the needle is on (null when the needle is not on any piece)
     Track ClipAtNeedle(Track row, long at)
@@ -48,7 +51,7 @@ partial class StudioForm
     // ---------- delete one piece (not the whole row) ----------
     void DeleteClip(Track t)
     {
-        if (t == null) return; if (IsLocked(t)) { Toast("Locked: press LOCK to unlock this track first."); return; }
+        if (t == null) return; if (IsLocked(t)) { Toast(FrozenWhy(t, "Locked: press LOCK to unlock this track first.")); return; }
         if (t.Host != null || t.Instrument || t.Clip == null || t.IsBus) { DeleteTrackQuiet(t); return; }
         var layers = eng.Tracks.FindAll(x => x.Host == t && !x.Instrument && x.Clip != null);
         if (layers.Count == 0) { DeleteTrackQuiet(t); return; }

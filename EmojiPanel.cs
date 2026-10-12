@@ -55,56 +55,74 @@ static class EmojiPanel
         try { Directory.CreateDirectory(StudioEnv.DataDir); File.WriteAllText(RecentFile, string.Join("\n", recent.ToArray()), Encoding.UTF8); } catch { }
     }
 
-    // the panel: a tool window next to the lyrics; each click puts one emoji in (insert is how the lyrics box takes it)
-    static Form open;
+    // the panel: a tool window next to the lyrics. The emojis are drawn by the browser engine that is part of Windows, so they are in COLOUR (the normal drawing code of the program can only write them in one colour).
+    // Each click puts one emoji in the lyrics where the cursor is.
+    static Form open; public static WebBrowser LastBrowser;
+    static string Hex(Color c) { return "#" + c.R.ToString("x2") + c.G.ToString("x2") + c.B.ToString("x2"); }
+    static string Esc(string t) { return t.Replace("&", "&amp;").Replace("<", "&lt;").Replace("\"", "&quot;"); }
+    // the page: a search box, the groups, the emojis in a grid with a scroll bar in the neon style, and a few lines of script (ES5: it is shown by Internet Explorer's engine)
+    public static string BuildPage()
+    {
+        var th = Themes.Current; string violet = Hex(th.Violet), cyan = Hex(th.Cyan), pink = Hex(th.Pink), bg = Hex(th.Bg0), panel = Hex(th.Panel);
+        var sb = new StringBuilder(); var names = GroupNames; var recent = Recent();
+        sb.Append("<!DOCTYPE html><html><head><meta http-equiv='X-UA-Compatible' content='IE=edge'><meta charset='utf-8'><style>");
+        sb.Append("html,body{margin:0;height:100%;overflow:hidden;background:" + bg + ";font-family:'Segoe UI',sans-serif;color:#f0e8ff;-ms-user-select:none;user-select:none;cursor:default}");
+        sb.Append("#top{padding:10px 12px 0 12px}#q{width:100%;box-sizing:border-box;background:#0a0516;border:1px solid " + cyan + ";border-radius:8px;color:#fff;font-size:15px;padding:7px 10px;outline:none;font-family:'Segoe UI'}");
+        sb.Append("#hint{font-size:12px;color:#a99dd8;margin:6px 2px 8px 2px;height:16px}#tabs{padding:0 12px}.t{display:inline-block;margin:0 5px 6px 0;padding:6px 12px;border:1px solid " + violet + ";border-radius:10px;background:#1c0f3a;font-size:11.5px;font-weight:600;letter-spacing:.4px;text-transform:uppercase;cursor:pointer}.t:hover{background:#2c1858;border-color:" + cyan + "}.t.on{background:" + pink + ";color:#fff;border-color:#fff}");
+        sb.Append("#wrap{position:absolute;left:12px;right:12px;top:0;bottom:12px;border:1px solid " + violet + ";border-radius:12px;background:#0e0720}#grid{position:absolute;left:0;top:0;right:26px;bottom:0;overflow-y:scroll;-ms-overflow-style:none;padding:6px 4px 6px 8px}");
+        sb.Append(".e{display:inline-block;width:44px;height:44px;margin:3px;border:1px solid #3a2570;border-radius:10px;background:#190c34;font-family:'Segoe UI Emoji','Segoe UI Symbol';font-size:26px;line-height:42px;text-align:center;cursor:pointer;vertical-align:top}.e:hover{background:#2a1658;border-color:#fff}.e:active{background:" + violet + "}");
+        sb.Append("#bar{position:absolute;right:5px;top:6px;bottom:6px;width:16px;border:1px solid " + violet + ";border-radius:8px;background:#06030f}#th{position:absolute;left:1px;right:1px;top:0;height:40px;border-radius:7px;background:" + violet + ";border:1px solid " + cyan + ";cursor:pointer}#th:hover{background:" + pink + "}");
+        sb.Append("#none{padding:16px;color:#a99dd8;font-size:13px}</style></head><body><div id='top'><input id='q' type='text' autocomplete='off' placeholder='Search by word: fire, heart, guitar, sad, party...'><div id='hint'></div></div><div id='tabs'></div><div id='wrap'><div id='grid'>");
+        for (int g = 0; g < names.Length; g++) { if (names[g] == "Flags") continue; foreach (var it in Group(g)) sb.Append("<span class='e' data-g='" + g + "' data-w=\"" + Esc(it.Words) + "\" onclick='pick(this)'>" + it.E + "</span>"); }
+        sb.Append("<div id='none' style='display:none'>Nothing matches that word.</div></div><div id='bar'><div id='th'></div></div></div>");
+        sb.Append("<script>var names=[");
+        for (int g = 0; g < names.Length; g++) { if (names[g] == "Flags") continue; sb.Append((g > 0 ? "," : "") + "[" + g + ",\"" + names[g].ToUpper().Replace("\"", "") + "\"]"); }
+        sb.Append("];var recent=[");
+        for (int r = 0; r < recent.Count; r++) sb.Append((r > 0 ? "," : "") + "\"" + recent[r].E + "\"");
+        sb.Append("];var cur=" + (recent.Count > 0 ? "-2" : "0") + ";");
+        sb.Append(@"
+var grid=document.getElementById('grid'),q=document.getElementById('q'),hint=document.getElementById('hint'),th=document.getElementById('th'),bar=document.getElementById('bar'),none=document.getElementById('none'),tabs=document.getElementById('tabs');
+var items=grid.getElementsByClassName('e');
+function mk(label,id){var d=document.createElement('span');d.className='t';d.setAttribute('data-id',id);d.innerHTML=label;d.onclick=function(){q.value='';cur=id;show();};tabs.appendChild(d);}
+mk('RECENT',-2);for(var i=0;i<names.length;i++)mk(names[i][1],names[i][0]);
+function words(){return q.value.replace(/^\s+|\s+$/g,'').toLowerCase().split(/[\s,]+/);}
+function show(){var w=words(),searching=q.value.replace(/\s/g,'')!='',n=0,i,j,ok;
+ var seen={};for(i=0;i<items.length;i++){var it=items[i],g=parseInt(it.getAttribute('data-g'),10);
+  if(searching){ok=true;var t=it.getAttribute('data-w')+' '+it.textContent;for(j=0;j<w.length;j++)if(w[j]!==''&&t.indexOf(w[j])<0){ok=false;break;}}
+  else if(cur==-2){ok=false;for(j=0;j<recent.length;j++)if(recent[j]==it.textContent){ok=true;break;}}
+  else ok=(g==cur);
+  if(ok&&searching){if(seen[it.textContent])ok=false;else seen[it.textContent]=1;}
+  it.style.display=ok?'inline-block':'none';if(ok)n++;}
+ none.style.display=n==0?'block':'none';none.innerHTML=searching?'Nothing matches that word.':(cur==-2?'The emojis you use show here. Pick a group above.':'');
+ var ts=tabs.getElementsByClassName('t');for(i=0;i<ts.length;i++)ts[i].className='t'+((!searching&&ts[i].getAttribute('data-id')==cur)?' on':'');
+ hint.innerHTML=searching?(n+' found'):(cur==-2?'Recently used':'Click an emoji to put it in your lyrics');grid.scrollTop=0;fit();}
+function pick(el){var e=el.textContent;try{window.external.Pick(e);}catch(x){}var r=[e],j;for(j=0;j<recent.length;j++)if(recent[j]!=e&&r.length<24)r.push(recent[j]);recent=r;}
+function fit(){var h=grid.clientHeight,c=grid.scrollHeight;if(c<=h+1){bar.style.visibility='hidden';return;}bar.style.visibility='visible';var bh=bar.clientHeight,t=Math.max(30,Math.round(bh*h/c));th.style.height=t+'px';th.style.top=Math.round((bh-t)*grid.scrollTop/(c-h))+'px';}
+grid.onscroll=fit;window.onresize=function(){wrapFit();fit();};
+function wrapFit(){var w=document.getElementById('wrap'),top=document.getElementById('top').offsetHeight+tabs.offsetHeight+6;w.style.top=top+'px';}
+var dragging=false,startY=0,startTop=0;
+th.onmousedown=function(e){e=e||window.event;dragging=true;startY=e.clientY;startTop=grid.scrollTop;return false;};
+document.onmousemove=function(e){if(!dragging)return;e=e||window.event;var h=grid.clientHeight,c=grid.scrollHeight,bh=bar.clientHeight,t=th.offsetHeight;grid.scrollTop=startTop+(e.clientY-startY)*(c-h)/Math.max(1,bh-t);return false;};
+document.onmouseup=function(){dragging=false;};
+bar.onmousedown=function(e){e=e||window.event;if(e.srcElement===th)return;var r=th.getBoundingClientRect();grid.scrollTop+=(e.clientY<r.top?-1:1)*grid.clientHeight*0.9;};
+q.onkeyup=show;q.oninput=show;document.onselectstart=function(){return event.srcElement==q;};document.oncontextmenu=function(){return false;};
+function setQuery(v){q.value=v;show();}
+window.onload=function(){wrapFit();show();q.focus();};
+</script></body></html>");
+        return sb.ToString();
+    }
     public static void Show(Form owner, Action<string> insert)
     {
-        if (open != null && !open.IsDisposed) { open.Activate(); return; }
-        var Fld = TM.C(255, 34, 16, 62); var Ink = TM.C(255, 240, 232, 255);
-        var f = new Form { Text = "Emojis", FormBorderStyle = FormBorderStyle.FixedToolWindow, StartPosition = FormStartPosition.Manual, ShowInTaskbar = false, BackColor = TM.C(255, 24, 12, 44), ForeColor = Ink, ClientSize = new Size(480, 560), Font = new Font("Segoe UI", 10f), TopMost = false };
-        Win.Dark(f); open = f; f.FormClosed += (s, e) => open = null; f.Owner = owner;
+        if (open != null && !open.IsDisposed) { if (open.Owner == owner) { open.Activate(); return; } open.Close(); }   // a panel opened for another window is closed: the emojis go where the new one is
+        var f = new Form { Text = "Emojis", FormBorderStyle = FormBorderStyle.FixedToolWindow, StartPosition = FormStartPosition.Manual, ShowInTaskbar = false, BackColor = TM.C(255, 24, 12, 44), ClientSize = new Size(520, 600), TopMost = false };
+        Win.Dark(f); open = f; f.FormClosed += (s, e) => { open = null; LastBrowser = null; }; f.Owner = owner;
         var wa = Screen.FromControl(owner).WorkingArea; f.Location = new Point(Math.Min(wa.Right - f.Width - 10, owner.Right - f.Width - 30), Math.Max(wa.Top + 10, owner.Top + 90));
-        var q = new TextBox { Left = 12, Top = 12, Width = 456, BackColor = Fld, ForeColor = Ink, BorderStyle = BorderStyle.FixedSingle, Font = new Font("Segoe UI", 12f) }; Win.NeonBox(q); f.Controls.Add(q);
-        var hint = new Label { Left = 12, Top = 42, Width = 456, Height = 20, ForeColor = TM.C(255, 160, 140, 200), Text = "Search by word: fire, heart, guitar, sad, party... or pick a group. Click an emoji to put it in your lyrics." }; f.Controls.Add(hint);
-        var names = GroupNames; var tabs = new List<Button>(); int cur = -2;   // -2 recent, -1 search, 0.. groups
-        var view = new Panel { Left = 12, Top = 150, Width = 456, Height = 398, BackColor = TM.C(255, 14, 7, 30) }; Win.NeonBox(view); f.Controls.Add(view);
-        var inner = new Panel { Left = 0, Top = 0, Width = 456 - NeonBar.BarW - 8, Height = 398, BackColor = TM.C(255, 14, 7, 30) }; view.Controls.Add(inner);
-        typeof(Panel).GetProperty("DoubleBuffered", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic).SetValue(inner, true, null);
-        var bar = new NeonPanelScroll(view, inner); List<Item> items = new List<Item>(); const int Cell = 46; int hot = -1;
-        Action<int> layout = null; Action fill = null;
-        Func<int, string> title = i => i == -2 ? "Recently used" : (i == -1 ? "Search" : names[i]);
-        fill = () =>
-        {
-            if (cur == -1) items = Search(q.Text); else if (cur == -2) items = Recent(); else items = Group(cur);
-            int cols = Math.Max(1, inner.Width / Cell), rows = Math.Max(1, (items.Count + cols - 1) / cols); inner.Height = Math.Max(view.ClientSize.Height, rows * Cell + 8); inner.Top = 0; inner.Invalidate(); hot = -1;
-            hint.Text = cur == -1 ? (q.Text.Trim().Length == 0 ? "Type a word to search all " + Count + " emojis." : items.Count + " found for \"" + q.Text.Trim() + "\".") : (cur == -2 && items.Count == 0 ? "The emojis you use show here. Pick a group below." : title(cur) + ": " + items.Count + " emojis. Click one to put it in your lyrics.");
-            foreach (var b in tabs) b.BackColor = (int)b.Tag == cur ? TM.C(255, 150, 70, 230) : TM.C(255, 56, 30, 100);
-        };
-        int tx = 12, ty = 70; for (int i = -2; i < names.Length; i++)
-        {
-            if (i == -1) continue; int gi = i; string label = i == -2 ? "RECENT" : names[i].ToUpper(); int w = 22 + label.Length * 8; if (tx + w > 468) { tx = 12; ty += 36; }
-            var b = new PxButton { Text = label, Left = tx, Top = ty, Width = w, Height = 30, FlatStyle = FlatStyle.Flat, ForeColor = Color.White, Cursor = Cursors.Hand, Font = new Font("Segoe UI Semibold", 8.5f), Tag = i }; b.FlatAppearance.BorderColor = TM.C(255, 190, 120, 255);
-            b.Click += (s, e) => { cur = gi; q.Text = ""; fill(); }; f.Controls.Add(b); tabs.Add(b); tx += w + 6;
-        }
-        view.Top = ty + 40; view.Height = 548 - view.Top; inner.Height = view.Height;
-        inner.Paint += (s, e) =>
-        {
-            var g = e.Graphics; g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias; int cols = Math.Max(1, inner.Width / Cell);
-            for (int i = 0; i < items.Count; i++)
-            {
-                var r = new RectangleF((i % cols) * Cell + 3, (i / cols) * Cell + 4, Cell - 6, Cell - 6); if (r.Bottom < -inner.Top - 2 || r.Y > -inner.Top + view.Height + 2) continue;
-                using (var p = Rr(r, 9)) { using (var br = new SolidBrush(i == hot ? TM.C(255, 118, 52, 212) : TM.C(255, 28, 15, 56))) g.FillPath(br, p); using (var pen = new Pen(i == hot ? Color.White : TM.C(120, 150, 110, 220), i == hot ? 2f : 1f)) g.DrawPath(pen, p); }
-                EmojiText.Draw(g, items[i].E, 22, Color.White, r, StringAlignment.Center, false);
-            }
-            if (items.Count == 0 && cur != -2) using (var br = new SolidBrush(TM.C(255, 165, 148, 190))) g.DrawString(cur == -1 && q.Text.Trim().Length > 0 ? "Nothing matches that word." : "", f.Font, br, 10, 10);
-        };
-        Func<Point, int> at = pt => { int cols = Math.Max(1, inner.Width / Cell); int c = pt.X / Cell, r = (pt.Y - 4) / Cell; int i = r * cols + c; return c < cols && pt.Y >= 4 && i >= 0 && i < items.Count ? i : -1; };
-        var tip = new ToolTip();
-        inner.MouseMove += (s, e) => { int i = at(e.Location); if (i != hot) { hot = i; inner.Invalidate(); tip.SetToolTip(inner, i >= 0 ? items[i].Words.Split(' ')[0] : ""); } };
-        inner.MouseLeave += (s, e) => { hot = -1; inner.Invalidate(); };
-        inner.MouseDown += (s, e) => { int i = at(e.Location); if (i < 0 || e.Button != MouseButtons.Left) return; string em = items[i].E; Used(em); insert(em); if (cur == -2) { } };
-        q.TextChanged += (s, e) => { cur = q.Text.Trim().Length > 0 ? -1 : (cur == -1 ? 0 : cur); fill(); };
-        cur = Recent().Count > 0 ? -2 : 0; f.Shown += (s, e) => { fill(); q.Focus(); }; f.Show(owner);
+        var wb = new WebBrowser { Dock = DockStyle.Fill, IsWebBrowserContextMenuEnabled = false, AllowWebBrowserDrop = false, ScriptErrorsSuppressed = true, ScrollBarsEnabled = false, WebBrowserShortcutsEnabled = false };
+        wb.ObjectForScripting = new EmojiBridge { OnPick = e => { Used(e); try { insert(e); } catch { } } }; f.Controls.Add(wb); LastBrowser = wb;
+        f.Show(owner); wb.DocumentText = BuildPage();
     }
-    static System.Drawing.Drawing2D.GraphicsPath Rr(RectangleF r, float rad) { var p = new System.Drawing.Drawing2D.GraphicsPath(); float d = rad * 2; p.AddArc(r.X, r.Y, d, d, 180, 90); p.AddArc(r.Right - d, r.Y, d, d, 270, 90); p.AddArc(r.Right - d, r.Bottom - d, d, d, 0, 90); p.AddArc(r.X, r.Bottom - d, d, d, 90, 90); p.CloseFigure(); return p; }
 }
+
+// what the page of the emoji panel calls when an emoji is clicked (the browser control needs a public type that is visible to COM)
+[System.Runtime.InteropServices.ComVisible(true)]
+public class EmojiBridge { public Action<string> OnPick; public void Pick(string e) { if (OnPick != null) OnPick(e); } }

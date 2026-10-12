@@ -113,6 +113,7 @@ partial class StudioForm
         float floorUp = full ? Math.Min(150f, a.Height * 0.2f) : Math.Min(64f, a.Height * 0.2f), seekH = full ? 48f : 42f;
         float topPad = full ? 64f : 4f; float cx = a.X + a.Width / 2 + (float)Math.Sin(visT * 60) * 2.5f * visShake, cy = a.Y + topPad + (a.Height - topPad - seekH - floorUp * 0.35f) / 2f + (float)Math.Cos(visT * 53) * 2f * visShake;
         float R0 = Math.Max(30f, Math.Min((a.Width - (full ? 560f : 40f)) / 2f / 2.3f, (a.Height - topPad - seekH - floorUp * 0.5f - 24f) / 2f / 2.25f));
+        float vs = Math.Max(0.3f, Math.Min(1.15f, R0 / 105f));   // the size of the lines and dots follows the size of the ring, so the small stage looks exactly like the full page, only smaller (the bars were as thick as on the big one and ran together)
         Prof.A("vis.fft+setup", v0); v0 = Prof.T();
         // ---- the background (dark, with the soft glow behind the ring) is one stored picture, copied ----
         VisBackground(g, a, a.X + a.Width / 2, cy - (float)Math.Cos(visT * 53) * 2f * visShake, R0); Prof.A("vis.bg", v0); v0 = Prof.T();
@@ -151,7 +152,7 @@ partial class StudioForm
         // ---- two rings of beads turning against each other; they speed up and swell with the music ----
         { var sm3 = g.SmoothingMode; g.SmoothingMode = SmoothingMode.None; using (var br = new SolidBrush(Color.White))
             for (int ring = 0; ring < 2; ring++) { int cnt = ring == 0 ? 72 : 48; float rr = R0 * (ring == 0 ? 2.62f : 2.78f); double sp0 = visRot * (ring == 0 ? 0.7 : -1.1);
-              for (int i = 0; i < cnt; i++) { double an = sp0 + i * 2 * Math.PI / cnt; float bx = cx + (float)Math.Cos(an) * rr, by = cy + (float)Math.Sin(an) * rr; if (!a.Contains(bx, by)) continue; float sz = 1.6f + (playing ? visHigh * 3.2f + visBeat * 1.6f : 0f); br.Color = Color.FromArgb(playing ? 190 : 80, ring == 0 ? NeonCyan : NeonPink); g.FillRectangle(br, bx - sz / 2, by - sz / 2, sz, sz); } }
+              for (int i = 0; i < cnt; i++) { double an = sp0 + i * 2 * Math.PI / cnt; float bx = cx + (float)Math.Cos(an) * rr, by = cy + (float)Math.Sin(an) * rr; if (!a.Contains(bx, by)) continue; float sz = (1.6f + (playing ? visHigh * 3.2f + visBeat * 1.6f : 0f)) * Math.Max(0.6f, vs); br.Color = Color.FromArgb(playing ? 190 : 80, ring == 0 ? NeonCyan : NeonPink); g.FillRectangle(br, bx - sz / 2, by - sz / 2, sz, sz); } }
           g.SmoothingMode = sm3; }
         // ---- four separate blasts: the bass jumps out of the bottom, the low mids of the left, the mids of the right, the highs of the top; each has its own bang (a wave, streaks and sparks) ----
         // each starts just outside the bars and travels as far as there is room on the stage in its direction, so the small light show and the full page get the same blasts
@@ -174,7 +175,7 @@ partial class StudioForm
         { var core = new PointF[4]; var smW = g.SmoothingMode;
           for (int pass = 0; pass < 2; pass++)
           {
-              g.SmoothingMode = pass == 0 ? SmoothingMode.None : SmoothingMode.AntiAlias; float wdt = pass == 0 ? 11f : 3.4f;
+              g.SmoothingMode = pass == 0 ? SmoothingMode.None : SmoothingMode.AntiAlias; float wdt = (pass == 0 ? 11f : 3.4f) * vs;
               for (int i = 0; i < nb; i++)
               {
                   int bi = bandOf(i); float v = Even(ringV[i]); if (!playing) v = Math.Max(v, 0.03f + 0.025f * (float)Math.Sin(visT * 1.7 + i * 0.35)); float len = R0 * 0.07f + v * R0 * 1.15f; float ca = cosT[i], sa = sinT[i], nx = -sa * wdt / 2, ny = ca * wdt / 2; float x0 = cx + ca * r1, y0 = cy + sa * r1, x1 = cx + ca * (r1 + len), y1 = cy + sa * (r1 + len);
@@ -186,7 +187,7 @@ partial class StudioForm
           g.SmoothingMode = smW; }
         Prof.A("vis.bars", v0); v0 = Prof.T();
         // peak dots
-        { var sm1 = g.SmoothingMode; g.SmoothingMode = SmoothingMode.None; using (var br = new SolidBrush(Color.White)) for (int i = 0; i < nb; i += 2) { float pv = visPk[bandOf(i)]; if (pv < 0.07f) continue; float rr = r1 + R0 * 0.07f + pv * R0 * 1.15f + 8; br.Color = Color.FromArgb(200, 255, 255, 255); g.FillRectangle(br, cx + cosT[i] * rr - 1.5f, cy + sinT[i] * rr - 1.5f, 3f, 3f); } g.SmoothingMode = sm1; }
+        { var sm1 = g.SmoothingMode; g.SmoothingMode = SmoothingMode.None; using (var br = new SolidBrush(Color.White)) for (int i = 0; i < nb; i += 2) { float pv = visPk[bandOf(i)]; if (pv < 0.07f) continue; float rr = r1 + R0 * 0.07f + pv * R0 * 1.15f + 8 * vs; float pd = Math.Max(1.6f, 3f * vs); br.Color = Color.FromArgb(200, 255, 255, 255); g.FillRectangle(br, cx + cosT[i] * rr - pd / 2, cy + sinT[i] * rr - pd / 2, pd, pd); } g.SmoothingMode = sm1; }
         // ---- the sound before mastering (a thin ring inside the bars) and the real waveform (a circular scope) ----
         { var pts = new PointF[nb]; for (int i = 0; i < nb; i++) { float rr = R0 * 1.06f + visPre[bandOf(i)] * R0 * 0.2f; pts[i] = new PointF(cx + cosT[i] * rr, cy + sinT[i] * rr); } using (var pen = new Pen(TM.C(120, 215, 215, 240), 1.3f)) g.DrawPolygon(pen, pts); }
         if (playing && eng.MasterTap != null)

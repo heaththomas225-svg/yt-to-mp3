@@ -30,7 +30,7 @@ class PxButton : Button
     {
         var g = e.Graphics; Color behind = Parent != null ? Parent.BackColor : Color.Black; if (behind.A < 255) behind = Color.FromArgb(255, behind); g.Clear(behind); g.SmoothingMode = SmoothingMode.AntiAlias;
         if (Width < 6 || Height < 6) return;
-        Color baseC = BackColor.A < 255 ? Mix(behind, Color.FromArgb(255, BackColor), BackColor.A / 255f) : BackColor; if (!Enabled) baseC = Mix(baseC, behind, 0.65f);
+        Color baseC = BackColor.A < 255 ? Mix(behind, Color.FromArgb(255, BackColor), BackColor.A / 255f) : BackColor; if (!(ForeColor.GetBrightness() < 0.5f)) baseC = Contrast.ForWhite(baseC, 4.5);   /* white writing: a light button is darkened instead */ if (!Enabled) baseC = Mix(baseC, behind, 0.65f);
         if (down) baseC = Mix(baseC, Color.Black, 0.18f); else if (hot) baseC = Mix(baseC, Color.White, 0.14f);
         var rc = new RectangleF(1.5f, 1.5f, Width - 3f, Height - 3f); float rad = Math.Min(10f, Height / 3f);
         if (hot && Enabled && !down) using (var gp = Round(new RectangleF(0.5f, 0.5f, Width - 1f, Height - 1f), rad + 1)) for (int i = 3; i >= 1; i--) using (var pen = new Pen(Color.FromArgb(24 + 12 * (4 - i), Mix(baseC, Color.White, 0.3f)), i * 2f)) g.DrawPath(pen, gp);
@@ -41,7 +41,7 @@ class PxButton : Button
             using (var pen = new Pen(Color.FromArgb(200, edge), 1.2f)) g.DrawPath(pen, path);
             using (var hl = new Pen(Color.FromArgb(46, 255, 255, 255), 1f)) g.DrawLine(hl, rc.X + rad, rc.Y + 1.2f, rc.Right - rad, rc.Y + 1.2f);
         }
-        Color ink = !Enabled ? Mix(ForeColor, baseC, 0.55f) : (Contrast.Ratio(Color.White, baseC) >= 3.0 ? Color.White : Contrast.LabelOn(baseC));   // white like every other button, unless the colour is too light for it
+        Color ink = !Enabled ? Mix(ForeColor, baseC, 0.55f) : Color.White;   // white like every other button, unless the colour is too light for it
         if (ForeColor.GetBrightness() < 0.5f && Contrast.Ratio(ForeColor, baseC) >= 4.5) ink = ForeColor;   // a button that deliberately has dark writing on a light colour
         bool multi = Text.IndexOf('\n') >= 0;   // one line unless the text itself has more
         using (var sf = new StringFormat { Alignment = ContentAlignmentToH(TextAlign), LineAlignment = ContentAlignmentToV(TextAlign), Trimming = StringTrimming.EllipsisCharacter, HotkeyPrefix = System.Drawing.Text.HotkeyPrefix.None, FormatFlags = multi ? 0 : StringFormatFlags.NoWrap })
