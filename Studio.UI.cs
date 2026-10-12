@@ -119,7 +119,7 @@ partial class StudioForm : Form
         DragEnter += (s, e) => { if (e.Data.GetDataPresent(DataFormats.FileDrop)) { e.Effect = DragDropEffects.Copy; dragOver = true; Invalidate(); } };
         DragOver += (s, e) => { if (e.Data.GetDataPresent(DataFormats.FileDrop)) { e.Effect = DragDropEffects.Copy; if (!dragOver) { dragOver = true; Invalidate(); } } };
         DragLeave += (s, e) => { dragOver = false; Invalidate(); };
-        DragDrop += (s, e) => { dragOver = false; Invalidate(); var fl = (string[])e.Data.GetData(DataFormats.FileDrop); foreach (var f in fl) PromptImport(f); };
+        DragDrop += (s, e) => { dragOver = false; Invalidate(); var fl = (string[])e.Data.GetData(DataFormats.FileDrop); foreach (var f in fl) PromptImport(f); }; StudioEngine.WarmUp();
         FitView();
     }
 
@@ -380,8 +380,10 @@ partial class StudioForm : Form
             if (ht > 0) FillRR(g, Color.FromArgb((int)(40 * ht), 255, 255, 255), r, rad);
         }
         else using (var p = RR(r, rad)) using (var br = new LinearGradientBrush(r, Color.FromArgb(c.A, Math.Min(255, (int)(c.R * 1.07f) + 2), Math.Min(255, (int)(c.G * 1.07f) + 2), Math.Min(255, (int)(c.B * 1.07f) + 2)), Color.FromArgb(c.A, (int)(c.R * 0.93f), (int)(c.G * 0.93f), (int)(c.B * 0.93f)), 90f)) g.FillPath(br, p);   // a soft shade from top to bottom
-        StrokeRR(g, TM.C(style == 2 ? 200 : 110, 200, 150, 255), r, rad, 1);
-        if (r.Width > rad * 3) using (var hl = new Pen(Color.FromArgb(style == 2 ? 70 : 40, 255, 255, 255), 1f)) g.DrawLine(hl, r.X + rad, r.Y + 1.5f, r.Right - rad, r.Y + 1.5f);   // the light catching the top edge
+        // the look of the buttons of the main window (and the Fantasy buttons): a lit rim in a lighter shade of the button's own colour, a glassy top and a bright line where the light catches the edge
+        { Color rimBase = style == 2 ? Violet : c; Color rim = Color.FromArgb(Math.Min(255, (int)(rimBase.R + (255 - rimBase.R) * (0.42f + 0.30f * ht))), Math.Min(255, (int)(rimBase.G + (255 - rimBase.G) * (0.42f + 0.30f * ht))), Math.Min(255, (int)(rimBase.B + (255 - rimBase.B) * (0.42f + 0.30f * ht)))); StrokeRR(g, Color.FromArgb(215, rim), r, rad, 1.4f); }
+        if (r.Height >= 18) { var top = Rc(r.X + 1.5f, r.Y + 1.5f, r.Width - 3, (r.Height - 3) * 0.46f); using (var p = RR(top, Math.Max(3f, rad - 1.5f))) using (var br = new LinearGradientBrush(top, Color.FromArgb(style == 2 ? 58 : 40, 255, 255, 255), Color.FromArgb(0, 255, 255, 255), 90f)) g.FillPath(br, p); }
+        if (r.Width > rad * 3) using (var hl = new Pen(Color.FromArgb(style == 2 ? 120 : 80, 255, 255, 255), 1f)) g.DrawLine(hl, r.X + rad, r.Y + 1.5f, r.Right - rad, r.Y + 1.5f);   // the light catching the top edge
         if (style == 4) Glow(g, Accent2, r, rad, 0.8f, 3); else if (ht > 0.03f) Glow(g, NeonCyan, r, rad, 0.7f * ht, 3); else if (style == 2) Glow(g, NeonViolet, r, rad, 0.5f, 3);
         bool bdt = true; float fpx = px, avail = r.Width - 10;   // a label that is too wide for its button gets a smaller size instead of being cut off
         if (shown.Length * fpx * 0.55f > avail * 0.7f) { while (fpx > 7f && g.MeasureString(shown, GfxCache.Exact(GfxCache.Grow(fpx), bdt)).Width > avail) fpx -= 0.5f; }

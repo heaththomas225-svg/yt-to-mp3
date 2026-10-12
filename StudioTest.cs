@@ -522,7 +522,7 @@ static class T
 
         // ---- project cards: sizes and tags ----
         Check("project size is shown in KB / MB / GB", ProjectLibrary.Size(512) == "512 B" && ProjectLibrary.Size(1536) == "1.5 KB" && ProjectLibrary.Size(5L * 1048576 + 262144) == "5.3 MB" && ProjectLibrary.Size(3L * 1073741824) == "3 GB", ProjectLibrary.Size(5L * 1048576 + 262144));
-        Check("genre tags are cleaned: lower case, no hash, no repeats, at most 10", ProjectLibrary.CleanTags("#DnB, bassline  dnb;Dark #x1 y2 z3 w4 a b c d e") == "dnb bassline dark x1 y2 z3 w4 a b c", ProjectLibrary.CleanTags("#DnB, bassline  dnb;Dark #x1 y2 z3 w4 a b c d e"));
+        Check("genre tags are cleaned: lower case, no hash, no repeats, no limit", ProjectLibrary.CleanTags("#DnB, bassline  dnb;Dark #x1 y2 z3 w4 a b c d e") == "dnb bassline dark x1 y2 z3 w4 a b c d e", ProjectLibrary.CleanTags("#DnB, bassline  dnb;Dark #x1 y2 z3 w4 a b c d e"));
 
         // ---- buses: tracks sent to a bus are mixed and processed there, then go to the master ----
         {

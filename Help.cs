@@ -90,6 +90,8 @@ On the first screen, press GENERATE LYRICS (next to Vocal remover and Purphex Mu
 2. Or paste a link (YouTube; other sites need the link reader the converter installs) in OR PASTE A LINK: the lyrics are found from the video's name, with nothing downloaded and no MP3 needed.
 3. Pick the LANGUAGE the song is sung in (Auto-detect lets the recogniser decide; pick it when it gets the language wrong, and it is remembered). Then press GENERATE LYRICS. The song's tags and file name (or the link) say which song it is, and the lyrics database (LRCLIB) is asked for it.
 4. A song that is not in the database can be written by listening to it (this needs the file, not a link). TRIM START and TRIM END (like 0:30) pick the part of the song that is heard. That uses the Whisper speech recogniser, which runs on your PC: Purphex asks before it downloads it (about 160 MB, once, and your song is never uploaded). A recogniser can mishear a word, so check the words against the song.
+## Which song, and how well it listens
+A file named only with its title is matched by its length, so another song with the same name is not used (if no song of that length is in the database it says so). For a song that has to be heard, the QUALITY drop bar picks the model (Fast about 150 MB, Better about 500 MB, Best about 1.6 GB and slow; only the one you pick is downloaded, once, after you say yes) and HEAR ONLY THE VOICE FIRST takes the singing out of the music with the Vocal remover (about 0.5 GB, once) before listening, which is far more accurate for songs with loud instruments. No program can write every word of every song perfectly: check the words.
 ## Grammar and punctuation
 Every result is tidied: capital letters, I, the apostrophes in don't and I'm, spaces round commas, a full stop or question mark at the end of each verse, a comma before and / but / so lines, clean blank lines between verses, and [Verse] and [Chorus] labels. FIX GRAMMAR does the same to words you typed or changed, and UNDO brings your words back.
 ## Resize lyrics
@@ -99,7 +101,7 @@ RECHECK VIDEO + WORDS listens to the song or video file again and compares what 
 ## Remove
 REMOVE LYRICS takes the lyrics, the title and the notes off the page. Undo brings them back, and what you saved to the DAW stays in RECENT.
 ## Keep it
-COPY, SAVE .TXT, or SAVE TO THE DAW: give it a TITLE (it starts as Artist - Title) so you know which song it was. In Purphex Music, open Lyrics and press RECENT GENERATED to bring one back into the writer. RECENT on the Generate Lyrics page shows the last ones you saved, newest first (the last 30 are kept).
+COPY, SAVE .TXT, or SAVE TO THE DAW: give it a TITLE (it starts as Artist - Title) so you know which song it was. RECENT on the Generate Lyrics page shows the last ones you saved, newest first (the last 30 are kept).
 NOTE: Lyrics belong to their writers. The text is for your own use."),
 
         new HelpTopic("colour-mixer", "Basics", "Colour mixer (on your Profile page)", false, @"
@@ -114,7 +116,9 @@ More than a thousand colours, each drawn in its own finish: Every shade (360 sha
 ## Presets
 SAVE COLOUR PRESET keeps the two colours, their finishes and the mix. PREV and NEXT go through the saved presets (each one is loaded and becomes your profile colour), you can click any saved one, and DELETE THIS PRESET removes the picked one. The mixer remembers where you left it.
 ## Theme and code
-USE AS A THEME makes a theme for the whole program from your mix (the merged colour, A and B): REVERT puts your old theme back. COPY THE HEX CODE copies the code of the merged colour."),
+SAVE AS THEME saves your mix as a theme for the whole program (the merged colour, A and B). It goes in THEMES, PROFILE THEMES: nothing is switched on, so there is nothing to revert, and you pick it there whenever you want it (DELETE THEME under the list removes it). COPY THE HEX CODE copies the code of the merged colour.
+## Click, copy, paste
+Click or drag along the gradient, or click one of the five steps, to set the mix. Click any colour code to copy it; right-click the code of colour A or B to paste a code from the clipboard. Metals, chrome, pearlescent, holographic, chameleon and glitter shine and move, and whatever you point at gets an outline."),
 
         new HelpTopic("times-used", "Basics", "TIMES USED: worldwide MP3 and MP4 numbers", false, @"
 ## What it is
@@ -677,6 +681,8 @@ Press LYRICS at the top right of Purphex Music. Type your lyrics in the big box.
 Under the box you see the number of lines, words and syllables, and the syllables of the line you are on, so your bars stay the same length. The count is a good guess, not a dictionary, so a few words may be off by one.
 ## Saving
 Your lyrics are saved inside your project (Save), and also as a draft on your PC as you type, so they are never lost.
+## Emojis
+The EMOJIS button (bottom row) opens a panel: search by word (fire, heart, guitar, sad, party...) or pick a group, and click an emoji to put it in your lyrics where the cursor is. RECENT shows the ones you used last.
 ## Export
 ADD SECTIONS puts labels like [Verse 1], [Chorus], [Pre-chorus] and [Bridge] on the parts of your lyrics that have none yet (a part that comes back is the chorus; parts you labelled yourself are left alone; Ctrl+Z takes it back). Open .txt loads lyrics from a text file (replace what you have or add it to the end) and adds those labels for you. Copy puts the lyrics on the clipboard. Save .txt writes a text file. Clear empties the page.
 This page never writes or suggests lyrics for you: every word is yours."),
@@ -684,11 +690,11 @@ This page never writes or suggests lyrics for you: every word is yours."),
         new HelpTopic("studio-profile","Purphex Music", "Your profile, artists and following", false, @"
 ## Your profile
 1. Press PROFILE at the top of the studio (or Profile in the side menu).
-2. Press CHOOSE BANNER or CHOOSE PICTURE and pick any picture of any size or shape: it is resized to fit its frame by itself (the banner is wide, the picture is a rounded square). Then place it: ZOOM with the - and + buttons or the slider, LEFT / RIGHT and UP / DOWN with the arrow buttons or the sliders, FIT TO FRAME to see the whole picture, FILL THE FRAME to cover the frame completely.
+2. Press CHOOSE BANNER or CHOOSE PICTURE and pick any picture of any size or shape: the whole picture is shown, and the empty sides are filled by stretching its edges. Zoom in to crop it. It is resized to fit its frame by itself (the banner is wide, the picture is a rounded square). Then place it: ZOOM with the - and + buttons or the slider, LEFT / RIGHT and UP / DOWN with the arrow buttons or the sliders, FIT TO FRAME to see the whole picture, FILL THE FRAME to cover the frame completely.
 3. The picture only shows on this page and on your public profile. Everywhere else in the studio the circle is the Purphex logo and cannot be changed.
 4. The COLOUR MIXER (the box under the editing system) sets your profile colour: mix two colours and press USE AS MY PROFILE COLOUR; PROFILE COLOUR: THEME'S AGAIN goes back to the colour of your theme.
-5. Press EDIT beside your name, bio, where you are, LINKS (up to 10, one on every line) and genres (up to 10). Any web address works as a link: your website, YouTube, SoundCloud, Spotify, Instagram, a shop. Emoji work in the name, bio and where you are.
-6. YOUR PUBLISHED PROJECTS lists only the projects you published (use the person button on a project in My Projects, or PUBLISH ALL), with a play button each. TIME MADE reads like 45s, 2m33s, 2h33m, or 1d2h33m.
+5. Press EDIT beside your name, bio, WHERE YOU ARE (a search: type a country, county, town or area, like Poole, and pick it), LINKS (up to 10, one on every line) and genres (any number). Links can only be streaming services and social media (YouTube, SoundCloud, Spotify, Apple Music, Instagram, TikTok, X...): no other websites. The LINKS button on a profile lists them all. Tags cannot have swear words; REMOVE TAGS removes all of them, only the ones you typed, or one at a time. Emoji work in the name, bio and where you are.
+6. YOUR PUBLISHED PROJECTS (in a neon box of its own) lists only the projects you published (use the person button on a project in My Projects, or PUBLISH ALL), with a play button each and a + MUSIC VIDEO button to add a link to the music video (it shows as MUSIC VIDEO on your public profile). TIME MADE reads like 45s, 2m33s, 2h33m, or 1d2h33m.
 ## Share it
 1. Press PUBLISH MY PROFILE to put it in the community. It is shared under a secret key made on this PC (there is no sign-in). Press it again after you change something.
 2. MAKE IT PRIVATE takes it out of the community again.

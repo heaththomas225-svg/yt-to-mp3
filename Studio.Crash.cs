@@ -47,5 +47,6 @@ partial class StudioForm
         try { if (AllowDrop) AllowDrop = false; } catch { }
         base.OnHandleCreated(e);
         try { AllowDrop = true; } catch { }
+        EnsureUseTimer();   // TIME MADE starts counting the moment the DAW is open, whether or not anyone is looking at it
     }
 }

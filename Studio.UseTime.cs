@@ -3,7 +3,7 @@ using System.Globalization;
 using System.IO;
 using System.Windows.Forms;
 
-// TIME MADE on the profile is the time you spend in the DAW, counted in seconds while you use it (the window is the one you are in, and you are playing or have touched it in the last 3 minutes).
+// TIME MADE on the profile is the time you spend in the DAW, for life, counted in seconds for as long as the DAW is open (even in the background or minimised).
 // It is kept in the data folder (usetime.txt). The first time, it starts from the length of the projects you already made, so the number does not start again from nothing.
 static class UseTime
 {
@@ -17,7 +17,7 @@ static class UseTime
     }
     static bool seeded;
     public static double Seconds { get { lock (lk) { Load(); return secs; } } }
-    public static void Add(double s) { lock (lk) { Load(); secs += s; if ((DateTime.Now - lastSave).TotalSeconds >= 15) Save(); } }
+    public static void Add(double s) { lock (lk) { Load(); secs += s; if ((DateTime.Now - lastSave).TotalSeconds >= 10) Save(); } }
     // the first time only: start from the length of the projects already made
     public static void Seed(double fromProjects) { lock (lk) { Load(); if (seeded) return; seeded = true; if (fromProjects > secs) { secs = fromProjects; Save(); } else Save(); } }
     public static void Save() { lock (lk) { lastSave = DateTime.Now; try { Directory.CreateDirectory(StudioEnv.DataDir); Win.WriteAtomic(FileP, secs.ToString("0.###", CultureInfo.InvariantCulture), new System.Text.UTF8Encoding(false)); } catch { } } }
@@ -26,17 +26,14 @@ static class UseTime
 
 partial class StudioForm
 {
-    System.Windows.Forms.Timer useTimer;
-    // a one second clock: it counts a second when this is the window you are in and you are using it
+    System.Windows.Forms.Timer useTimer; readonly System.Diagnostics.Stopwatch useClock = System.Diagnostics.Stopwatch.StartNew(); double useLast;
+    // TIME MADE is for life and keeps counting for as long as the DAW is open: in the background, behind other windows, minimised, with nothing playing. Open means in use.
+    // It counts the real time that passed (a busy or sleeping computer never loses or invents seconds), saves every few seconds and when the DAW closes, and keeps going up on the Profile page while you watch.
     void EnsureUseTimer()
     {
-        if (useTimer != null) return; useTimer = new System.Windows.Forms.Timer { Interval = 1000 };
-        useTimer.Tick += (s, e) => { if (UsingNow()) UseTime.Add(1); };
+        if (useTimer != null) return; useTimer = new System.Windows.Forms.Timer { Interval = 1000 }; useLast = useClock.Elapsed.TotalSeconds;
+        useTimer.Tick += (s, e) => { double now = useClock.Elapsed.TotalSeconds, dt = now - useLast; useLast = now; if (UsingNow() && dt > 0) { UseTime.Add(Math.Min(dt, 5.0)); if (tab == 6 && WindowState != FormWindowState.Minimized) Invalidate(); } };   // on the Profile page the number is redrawn every second
         useTimer.Start(); FormClosed += (s, e) => { try { useTimer.Stop(); UseTime.Save(); } catch { } };
     }
-    internal bool UsingNow()
-    {
-        if (!Visible || WindowState == FormWindowState.Minimized || IsDisposed) return false; if (Form.ActiveForm != this && !StudioEnv.UnderTest) return false;
-        return eng.Playing || (DateTime.Now - lastInput).TotalSeconds < 180;
-    }
+    internal bool UsingNow() { return !IsDisposed && IsHandleCreated; }
 }

@@ -20,6 +20,8 @@ static class LyricsPolish
     static readonly HashSet<string> Wh = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "what", "why", "how", "who", "where", "which", "whose", "when" };
     static readonly HashSet<string> WhPron = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "you", "ya", "u" };
     static readonly Regex Noise = new Regex(@"^[\s\[\(\*♪♫#]*(music|applause|laughter|laughing|singing|instrumental|silence|blank_audio|no speech|inaudible|humming|chanting)?[\s\]\)\*♪♫#]*$|^\s*(thanks for watching|subtitles by|transcribed by).*$", RegexOptions.IgnoreCase);
+    // (Music) (upbeat music) [BLANK_AUDIO] *applause* inside a line: what a recogniser writes when it hears no words
+    static readonly Regex InlineNoise = new Regex(@"[\(\[\*♪]+\s*[^\)\]\*♪]{0,40}?\b(music|applause|laugh\w*|singing|humming|instrumental|guitar|drums?|crowd|noise|silence|inaudible|cheering|whistling|blank_audio|audio|sound\w*|piano|bass)\b[^\)\]\*♪]{0,20}[\)\]\*♪]+", RegexOptions.IgnoreCase);
     static readonly Regex Section = new Regex(@"^\[[^\]]+\]$");
 
     public static bool IsSection(string line) { return Section.IsMatch((line ?? "").Trim()); }
@@ -35,6 +37,7 @@ static class LyricsPolish
         {
             string l = l0.Replace('♪', ' ').Replace('♫', ' ').Trim();
             if (l.Length == 0) { lines.Add(""); continue; }
+            { string cleaned = InlineNoise.Replace(l, " ").Trim(); if (cleaned != l) { l = Regex.Replace(cleaned, @"\s{2,}", " "); if (l.Length == 0) { dropped++; continue; } } }
             if (Noise.IsMatch(l)) { dropped++; continue; }
             if (IsSection(l)) { lines.Add(l); continue; }
             string before = l;
@@ -58,6 +61,7 @@ static class LyricsPolish
         while (lines.Count > 0 && lines[0].Length == 0) lines.RemoveAt(0);
         while (lines.Count > 0 && lines[lines.Count - 1].Length == 0) lines.RemoveAt(lines.Count - 1);
         for (int i = lines.Count - 1; i > 0; i--) if (lines[i].Length == 0 && lines[i - 1].Length == 0) lines.RemoveAt(i);   // one blank line between verses, never more
+        if (groupIfFlat) for (int i = lines.Count - 1; i >= 4; i--) { if (lines[i].Length > 0 && lines[i] == lines[i - 1] && lines[i] == lines[i - 2] && lines[i] == lines[i - 3] && lines[i] == lines[i - 4]) { lines.RemoveAt(i); dropped++; } }   // one line repeated more than four times is the recogniser stuck, not a song
         // a recording has no blank lines: make verses of four lines so the labeller has something to work with
         bool flat = true; int count = 0; foreach (string l in lines) { if (l.Length == 0) flat = false; else count++; }
         if (groupIfFlat && flat && count >= 8)

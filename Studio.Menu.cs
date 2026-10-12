@@ -165,7 +165,7 @@ partial class StudioForm
     }
     void PaintMenuColumn(Graphics g, float x, float w, float H)
     {
-        var items = MenuItems(menuSec); float h = 24 + items.Count * 46 + 14; var col = Rc(x + 8, menuYs[menuSec] - 8, w, h); if (col.Bottom > H - 8) col.Y = Math.Max(8, H - 8 - col.Height);
+        var items = MenuItems(menuSec); float h = items.Count * 46 + 20; var col = Rc(x + 8, menuYs[menuSec] - 8, w, h); if (col.Bottom > H - 8) col.Y = Math.Max(8, H - 8 - col.Height);
         FillRR(g, TM.C(252, 24, 14, 46), col, 12); Win.DrawNeonBox(g, col, false); Reg(col, () => { });
         float y = col.Y + 12;
         for (int i = 0; i < items.Count; i++)

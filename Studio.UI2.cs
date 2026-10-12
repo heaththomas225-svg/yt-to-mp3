@@ -30,7 +30,7 @@ partial class StudioForm
             catch (Exception ex) { ok = false; string m = ex.Message; try { BeginInvoke(new Action(() => MessageBox.Show(this, m, "Studio", MessageBoxButtons.OK, MessageBoxIcon.Warning))); } catch { } }
             finally { busy = false; busyPct = -1; }
             try { if (done != null) BeginInvoke(new Action(() => done(ok))); } catch { }
-        }) { IsBackground = true }.Start();
+        }) { IsBackground = true, Priority = ThreadPriority.BelowNormal }.Start();   // loading never takes the processor from the sound
     }
 
     void PaintBusy(Graphics g)
@@ -82,6 +82,7 @@ partial class StudioForm
             if (!ok || clip == null) { if (importQueue.Count > 0) { string nx = importQueue.Dequeue(); BeginInvoke(new Action(() => PromptImport(nx))); } return; }
             string nm = role == "vocal" ? "Vocals" : (role == "beat" ? "Instrumental" : clip.Name);
             AddTrack(StudioEngine.NewTrack(nm, role, clip)); Toast("Added " + nm);
+            try { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); } catch { }   // the memory of the decoding is cleaned up now, while nothing is playing, not in the middle of the next play
             if (importQueue.Count > 0) { string nx = importQueue.Dequeue(); BeginInvoke(new Action(() => PromptImport(nx))); }
         });
     }
@@ -381,29 +382,31 @@ static class StudioDialogs
         f.ShowDialog(owner); return result;
     }
 
-    // Genre tags: tick the ones you like and add your own (up to 10). Returns the tags (spaces between them) or null if cancelled.
+    // Genre tags: tick the ones you like and add your own (as many as you like, no swearing). Returns the tags (spaces between them) or null if cancelled.
     static readonly string[] SuggestedTags = { "dnb", "trap", "drill", "hiphop", "rap", "lofi", "house", "techno", "edm", "dubstep", "phonk", "pop", "rock", "metal", "rnb", "afrobeat", "reggaeton", "kpop", "indie", "ambient", "cinematic", "jazz", "soul", "funk", "country", "bassline", "dark", "chill", "hard", "melodic", "vocal", "instrumental", "remix", "demo", "banger", "sad" };
+    public static string[] SuggestedTagList { get { return SuggestedTags; } }
     public static string Tags(IWin32Window owner, string current)
     {
         string result = null; var f = Make("Genre tags", 600, 470); var sel = new List<string>(); foreach (var t in ProjectLibrary.CleanTags(current).Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries)) sel.Add(t);
         f.Controls.Add(new Label { Text = "Pick the tags that fit this project, or add your own.", Left = 16, Top = 12, Width = 560, Height = 22, ForeColor = TM.C(255, 200, 170, 255), Font = new Font("Segoe UI Semibold", 11f) });
         var count = new Label { Left = 16, Top = 36, Width = 560, Height = 20, ForeColor = TM.C(255, 160, 140, 200) }; f.Controls.Add(count);
-        var panel = new Panel { Left = 16, Top = 62, Width = 568, Height = 276, AutoScroll = true, BackColor = TM.C(255, 14, 7, 30) }; f.Controls.Add(panel);
+        var panel = new Panel { Left = 16, Top = 62, Width = 568, Height = 276, AutoScroll = false, BackColor = TM.C(255, 14, 7, 30) }; f.Controls.Add(panel);
         var all = new List<string>(SuggestedTags); foreach (var t in sel) if (!all.Contains(t)) all.Add(t);
         var btns = new Dictionary<string, Button>(); Action refresh = null; FlowLayoutPanel fp = null;
         Action<string> addChip = null; addChip = tag =>
         {
             if (btns.ContainsKey(tag)) return; var b = new PxButton { Text = tag.ToUpper(), AutoSize = true, MinimumSize = new Size(0, 30), Padding = new Padding(8, 0, 8, 0), FlatStyle = FlatStyle.Flat, Cursor = Cursors.Hand, ForeColor = Color.White, Margin = new Padding(4) }; b.FlatAppearance.BorderColor = TM.C(255, 150, 110, 220);
-            string tg = tag; b.Click += (s, e) => { if (sel.Contains(tg)) sel.Remove(tg); else if (sel.Count < 10) sel.Add(tg); refresh(); }; btns[tag] = b; fp.Controls.Add(b);
+            string tg = tag; b.Click += (s, e) => { if (sel.Contains(tg)) sel.Remove(tg); else sel.Add(tg); refresh(); }; btns[tag] = b; fp.Controls.Add(b);
         };
-        fp = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoScroll = true, WrapContents = true, BackColor = TM.C(255, 14, 7, 30), Padding = new Padding(4) }; panel.Controls.Add(fp);
+        fp = new FlowLayoutPanel { Left = 0, Top = 0, Width = 568 - NeonBar.BarW - 8, MaximumSize = new Size(568 - NeonBar.BarW - 8, 0), AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, AutoScroll = false, WrapContents = true, FlowDirection = FlowDirection.LeftToRight, BackColor = TM.C(255, 14, 7, 30), Padding = new Padding(4) }; panel.Controls.Add(fp); new NeonPanelScroll(panel, fp);   // the tags scroll with the neon bar
         foreach (var t in all) addChip(t);
-        refresh = () => { foreach (var kv in btns) { bool on = sel.Contains(kv.Key); kv.Value.BackColor = on ? TM.C(255, 150, 70, 230) : TM.C(255, 46, 26, 84); } count.Text = sel.Count + " of 10 picked" + (sel.Count == 10 ? " (that is the most)" : ""); };
-        var own = new TextBox { Left = 16, Top = 350, Width = 360, BackColor = Fld, ForeColor = Ink, BorderStyle = BorderStyle.FixedSingle, MaxLength = 20 }; Win.NeonBox(own); f.Controls.Add(own);
-        var add = B("ADD MY OWN", 386, 346, 130, 32, TM.C(255, 140, 60, 220)); f.Controls.Add(add);
-        Action doAdd = () => { string t = ProjectLibrary.CleanTags(own.Text).Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries).FirstOrDefault(); if (t == null) return; addChip(t); if (!sel.Contains(t) && sel.Count < 6) sel.Add(t); own.Text = ""; refresh(); own.Focus(); };
+        refresh = () => { foreach (var kv in btns) { bool on = sel.Contains(kv.Key); kv.Value.BackColor = on ? TM.C(255, 150, 70, 230) : TM.C(255, 46, 26, 84); } count.Text = sel.Count + (sel.Count == 1 ? " tag picked" : " tags picked") + " (as many as you like)"; };
+        var own = new TextBox { Left = 16, Top = 350, Width = 270, BackColor = Fld, ForeColor = Ink, BorderStyle = BorderStyle.FixedSingle, MaxLength = 20 }; Win.NeonBox(own); f.Controls.Add(own);
+        var add = B("ADD MY OWN", 296, 346, 130, 32, TM.C(255, 140, 60, 220)); f.Controls.Add(add); var rmOwn = B("REMOVE MY OWN", 434, 346, 150, 32, TM.C(255, 150, 40, 80)); f.Controls.Add(rmOwn); Label hintLbl = null;
+        Action doAdd = () => { string raw = own.Text.Trim(); string t = ProjectLibrary.CleanTags(raw).Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries).FirstOrDefault(); if (t == null) { if (raw.Length > 0 && hintLbl != null) { hintLbl.Text = "That word is not allowed: no swearing, please."; hintLbl.ForeColor = TM.C(255, 255, 140, 140); } return; } if (hintLbl != null) { hintLbl.Text = "Type a word (letters and numbers, up to 20) and press ADD MY OWN or Enter."; hintLbl.ForeColor = TM.C(255, 150, 140, 190); } addChip(t); if (!sel.Contains(t)) sel.Add(t); own.Text = ""; refresh(); own.Focus(); };
+        rmOwn.Click += (s, e) => { foreach (var k in btns.Keys.ToList()) if (Array.IndexOf(SuggestedTags, k) < 0) { var bb = btns[k]; fp.Controls.Remove(bb); bb.Dispose(); btns.Remove(k); sel.Remove(k); } refresh(); };
         add.Click += (s, e) => doAdd(); own.KeyDown += (s, e) => { if (e.KeyCode == Keys.Enter) { e.SuppressKeyPress = true; doAdd(); } };
-        f.Controls.Add(new Label { Text = "Type a word (letters and numbers, up to 20) and press ADD MY OWN or Enter.", Left = 16, Top = 384, Width = 560, Height = 20, ForeColor = TM.C(255, 150, 140, 190) });
+        hintLbl = new Label { Text = "Type a word (letters and numbers, up to 20) and press ADD MY OWN or Enter.", Left = 16, Top = 384, Width = 560, Height = 20, ForeColor = TM.C(255, 150, 140, 190) }; f.Controls.Add(hintLbl);
         var ok = B("SAVE TAGS", 360, 418, 120, 36, TM.C(255, 118, 52, 212)); var cancel = B("Cancel", 490, 418, 94, 36, TM.C(255, 70, 40, 120));
         ok.Click += (s, e) => { result = string.Join(" ", sel.ToArray()); f.Close(); }; cancel.Click += (s, e) => f.Close(); f.CancelButton = cancel; f.Controls.AddRange(new Control[] { ok, cancel }); refresh(); f.ShowDialog(owner); return result;
     }
@@ -412,10 +415,10 @@ static class StudioDialogs
     public static string Links(IWin32Window owner, string current)
     {
         string result = null; var f = Make("Your links", 560, 360);
-        f.Controls.Add(new Label { Text = "Add the links you want on your profile (up to 10): your website, YouTube, SoundCloud, Spotify, Instagram, a shop... Any web address works. One on every line.", Left = 16, Top = 12, Width = 520, Height = 46, ForeColor = TM.C(255, 200, 170, 255) });
-        var tb = new TextBox { Left = 16, Top = 66, Width = 520, Height = 200, Multiline = true, ScrollBars = ScrollBars.Vertical, Text = current, BackColor = Fld, ForeColor = Ink, BorderStyle = BorderStyle.FixedSingle, Font = new Font("Segoe UI", 10.5f), AcceptsReturn = true }; Win.NeonBox(tb); f.Controls.Add(tb);
+        f.Controls.Add(new Label { Text = "Add the links you want on your profile (up to 10): YouTube, SoundCloud, Spotify, Apple Music, Bandcamp, Instagram, TikTok, X, Facebook... Streaming services and social media only, no other websites. One on every line.", Left = 16, Top = 12, Width = 520, Height = 46, ForeColor = TM.C(255, 200, 170, 255) });
+        var tb = new TextBox { Left = 16, Top = 66, Width = 520, Height = 200, Multiline = true, ScrollBars = ScrollBars.Vertical, Text = current, BackColor = Fld, ForeColor = Ink, BorderStyle = BorderStyle.FixedSingle, Font = new Font("Segoe UI", 10.5f), AcceptsReturn = true }; Win.NeonBox(tb); NeonScroll.Attach(tb); f.Controls.Add(tb);
         var info = new Label { Left = 16, Top = 272, Width = 520, Height = 22, ForeColor = TM.C(255, 160, 140, 200) }; f.Controls.Add(info);
-        Action check = () => { int ok = 0, bad = 0; foreach (var raw in tb.Text.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries)) { if (raw.Trim().Length == 0) continue; if (ProfileStore.CleanLink(raw).Length > 0) ok++; else bad++; } info.Text = ok + " usable" + (bad > 0 ? ",  " + bad + " not a web address (it will be left out)" : "") + (ok > 6 ? "  (only the first 6 are kept)" : ""); };
+        Action check = () => { int ok = 0, bad = 0; foreach (var raw in tb.Text.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries)) { if (raw.Trim().Length == 0) continue; if (ProfileStore.CleanLink(raw).Length > 0) ok++; else bad++; } info.Text = ok + " usable" + (bad > 0 ? ",  " + bad + " not allowed (only streaming and social links)" : "") + (ok > 6 ? "  (only the first 6 are kept)" : ""); };
         tb.TextChanged += (s, e) => check(); check();
         var ok2 = B("SAVE LINKS", 330, 306, 120, 36, TM.C(255, 118, 52, 212)); var cancel = B("Cancel", 460, 306, 80, 36, TM.C(255, 70, 40, 120));
         ok2.Click += (s, e) => { result = tb.Text; f.Close(); }; cancel.Click += (s, e) => f.Close(); f.CancelButton = cancel; f.Controls.AddRange(new Control[] { ok2, cancel }); f.ShowDialog(owner); return result;
@@ -424,7 +427,7 @@ static class StudioDialogs
     public static void Report(IWin32Window owner, string title, List<string> lines, Action undo)
     {
         var f = Make(title, 760, 520);
-        var tb = new TextBox { Left = 16, Top = 16, Width = 728, Height = 440, Multiline = true, ReadOnly = true, ScrollBars = ScrollBars.Vertical, BackColor = Fld, ForeColor = Ink, BorderStyle = BorderStyle.FixedSingle, Font = new Font("Segoe UI", 10f) }; Win.NeonBox(tb);
+        var tb = new TextBox { Left = 16, Top = 16, Width = 728, Height = 440, Multiline = true, ReadOnly = true, ScrollBars = ScrollBars.Vertical, BackColor = Fld, ForeColor = Ink, BorderStyle = BorderStyle.FixedSingle, Font = new Font("Segoe UI", 10f) }; Win.NeonBox(tb); NeonScroll.Attach(tb);
         var sb = new StringBuilder(); foreach (var l in lines) sb.Append(" - ").Append(l).Append("\r\n\r\n"); tb.Text = sb.ToString(); f.Controls.Add(tb);
         var ok = B("Keep this mix", 590, 468, 154, 36, TM.C(255, 118, 52, 212)); var un = B("Undo Auto Mix", 424, 468, 154, 36, TM.C(255, 150, 40, 80));
         ok.Click += (s, e) => f.Close(); un.Click += (s, e) => { undo(); f.Close(); }; f.AcceptButton = ok; f.Controls.AddRange(new Control[] { ok, un });

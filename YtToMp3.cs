@@ -37,7 +37,7 @@ class Job
 partial class App : Form
 {
     // ---- Auto-update settings ----
-    const string Version = "3.32.0";
+    const string Version = "3.33.0";
     // Plain-text manifest: line 1 = newest version, line 2 = direct exe download URL.
     const string UpdateManifestUrl = "https://raw.githubusercontent.com/heaththomas225-svg/yt-to-mp3/main/version.txt";
 
@@ -207,7 +207,7 @@ partial class App : Form
         Controls.Add(bg);
 
         // links (batch queue)
-        links.Multiline = true; links.ScrollBars = ScrollBars.Vertical; links.AcceptsReturn = true; StyleBox(links);
+        links.Multiline = true; links.ScrollBars = ScrollBars.Vertical; links.AcceptsReturn = true; StyleBox(links); NeonScroll.Attach(links);
         links.SetBounds(16, 98, 608, 54); links.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
         Lbl(links, "Paste video or music links, or type words to search  (one per line)");
 
@@ -279,7 +279,7 @@ partial class App : Form
             m.Show(whatsBtn, new Point(0, whatsBtn.Height));
         };
         StyleBtn(studioBtn, TM.C(255, 90, 36, 160)); studioBtn.Text = "Purphex Music"; studioBtn.SetBounds(162, 312, 140, 30);
-        StyleBtn(usedBtn, TM.C(255, 70, 40, 150)); usedBtn.Text = "Times used"; usedBtn.SetBounds(170, 12, 114, 28); usedBtn.Anchor = AnchorStyles.Top | AnchorStyles.Right;   // next to Changelog, clear of the Purphex logo
+        StyleBtn(usedBtn, TM.C(255, 70, 40, 150)); usedBtn.Text = "Times used"; usedBtn.SetBounds(196, 12, 88, 28); usedBtn.Anchor = AnchorStyles.Top | AnchorStyles.Right;   // next to Changelog, clear of the Purphex logo
         tip.SetToolTip(usedBtn, "How many MP3s and MP4s have been made with Purphex Music all over the world.");
         usedBtn.Click += (s, e) => ShowUsage();
         StyleBtn(lyricsBtn, TM.C(255, 150, 60, 210)); lyricsBtn.Text = "Generate lyrics"; lyricsBtn.SetBounds(308, 312, 140, 30);
@@ -320,7 +320,7 @@ partial class App : Form
         cancel.Click += (s, e) => { cancelReq = true; KillCurrent(); Log("Cancelling..."); };
 
         log.Multiline = true; log.ReadOnly = true; log.ScrollBars = ScrollBars.Vertical;
-        StyleBox(log); log.Font = new Font("Consolas", 9f);
+        StyleBox(log); log.Font = new Font("Consolas", 9f); NeonScroll.Attach(log);
         log.SetBounds(16, 514, 608, 180);
         log.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
 

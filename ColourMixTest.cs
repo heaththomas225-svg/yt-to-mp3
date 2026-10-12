@@ -47,14 +47,15 @@ static class CM
         Check("a mix beyond the ends is held at the ends", MixColours.Mix(a, b, -3) == a && MixColours.Mix(a, b, 9) == b);
         // ---- the page ----
         var app = (App)Activator.CreateInstance(typeof(App), true); Edition.Override = Tier.Free; sf = new StudioForm(app); sf.ClientSize = new Size(1500, 900); sf.Show(); Pump(300); SetF("tab", 6); Pump(200);
+        { double u0 = UseTime.Seconds; Pump(3600); double u1 = UseTime.Seconds - u0; Check("TIME MADE keeps counting while the DAW is open, even when nobody is using it or it is not the window you are in (3.6 s passed)", u1 >= 2.5 && u1 <= 4.6, u1.ToString("0.0") + " s counted"); }
         Paint(); Paint(); Check("the mixer is on the Profile page, in a box of its own (no tab), and measured its own height", F<float>("mixH") > 800, F<float>("mixH").ToString());
         Check("it starts with the profile following the mix and the name fading", F<bool>("mixFollow") && F<bool>("mixFade"));
         Color gold = MixColours.Hex("#D4AF37"), purple = MixColours.Hex("#7B2D9E");
         sf.MixSet(0, gold, 1, "Gold"); sf.MixSet(1, purple, 0, "Purple"); Check("choosing colour A and colour B sets the two sides", F<Color>("mixA") == gold && F<Color>("mixB") == purple && F<int>("mixKA") == 1);
-        Check("the merged colour is the middle of A and B", sf.MixedNow == MixColours.Mix(gold, purple, 0.5f));
+        Check("the merged colour is the middle of A and B", sf.MixedNow == MixColours.Blend(gold, purple, 0.5f));
         Check("and it IS the profile colour at once (no button to press)", ProfileStore.Accent == ProfileStore.Pack(sf.MixedNow), ProfileStore.Accent.ToString("X6"));
         Check("the name fades from A to B (both ends readable on the dark page)", ProfileStore.NameRgb >= 0 && ProfileStore.NameRgb2 >= 0 && MixColours.Luma(ProfileStore.ColorOf(ProfileStore.NameRgb)) >= 0.38 && MixColours.Luma(ProfileStore.ColorOf(ProfileStore.NameRgb2)) >= 0.38);
-        sf.MixSetT(0.25f); Check("the MIX slider moves the merged colour and the profile colour with it", sf.MixedNow == MixColours.Mix(gold, purple, 0.25f) && ProfileStore.Accent == ProfileStore.Pack(sf.MixedNow));
+        sf.MixSetT(0.25f); Check("the MIX slider moves the merged colour and the profile colour with it", sf.MixedNow == MixColours.Blend(gold, purple, 0.25f) && ProfileStore.Accent == ProfileStore.Pack(sf.MixedNow));
         sf.MixSetFade(false); Check("FADE MY NAME OFF: the name takes the merged colour", ProfileStore.NameRgb >= 0 && ProfileStore.NameRgb2 == -1); sf.MixSetFade(true); Check("and ON again fades it", ProfileStore.NameRgb2 >= 0);
         sf.MixSetFollow(false); Check("PROFILE COLOUR = MY MIX OFF: the profile goes back to the colour of the theme", ProfileStore.Accent == -1 && ProfileStore.NameRgb == -1 && ProfileStore.NameRgb2 == -1);
         sf.MixSet(1, MixColours.Hex("#4ECDC4"), 0, "Turquoise"); Check("while it is off a change does not touch the profile", ProfileStore.Accent == -1);
@@ -73,13 +74,20 @@ static class CM
         sf.MixPresetLoad(0); int before = MixStore.Presets.Count; sf.MixPresetDelete(); Check("DELETE THIS PRESET removes the picked one", MixStore.Presets.Count == before - 1 && F<int>("mixPresetSel") == -1 && MixStore.Presets.Find(p => p.Name == "Gold + Purple") == null);
         sf.MixPresetDelete(); Check("with none picked it only says what to do", MixStore.Presets.Count == before - 1 && F<string>("mixStatus").Contains("Pick a saved preset"));
         // ---- theme and code ----
-        int prevT = Themes.Index; string terr = sf.MixUseAsTheme(); Check("USE AS A THEME makes a theme from the mix and uses it", terr == null && Themes.Current.Custom && Themes.Current.Name.StartsWith("Mix "), terr + " " + Themes.Current.Name);
-        double h1, s1, l1, h2, s2, l2; ThemeDef.ToHsl(sf.MixedNow, out h1, out s1, out l1); ThemeDef.ToHsl(Themes.Current.Violet, out h2, out s2, out l2); Check("its main colour is the merged colour (the hue is the same)", Math.Min(Math.Abs(h1 - h2), 360 - Math.Abs(h1 - h2)) < 12, h1.ToString("0") + " vs " + h2.ToString("0"));
-        var tmade = Themes.Current; Themes.Apply(prevT); Themes.Delete(tmade);
+        int prevT = Themes.Index; string terr = sf.MixSaveAsTheme(); var tmade = Themes.All.Find(t0 => t0.Custom && t0.Name.StartsWith("Mix ")); Check("SAVE AS THEME adds a theme from the mix to the PROFILE THEMES, and does not switch it on (nothing to revert)", terr == null && tmade != null && Themes.IsProfile(tmade) && Themes.Index == prevT, terr + " " + (tmade == null ? "none" : tmade.Name));
+        double h1, s1, l1, h2, s2, l2; ThemeDef.ToHsl(sf.MixedNow, out h1, out s1, out l1); ThemeDef.ToHsl(tmade.Violet, out h2, out s2, out l2); Check("its main colour is the merged colour (the hue is the same)", Math.Min(Math.Abs(h1 - h2), 360 - Math.Abs(h1 - h2)) < 12, h1.ToString("0") + " vs " + h2.ToString("0"));
+        Check("a profile theme is not in MY THEMES and the built-in themes are not in PROFILE THEMES", Themes.IsProfile(tmade) && !Themes.IsProfile(Themes.All[0]), "");
+        Themes.Delete(tmade); Check("DELETE THEME removes it", Themes.All.Find(t0 => t0.Name == tmade.Name) == null, "");
+        // the merge is bright and keeps its colour: orange and blue pass through green and yellow, not grey
+        { var mo = MixColours.Blend(MixColours.Hex("#FF9F43"), MixColours.Hex("#0ABDE3"), 0.5f); double hh, ss, ll; ThemeDef.ToHsl(mo, out hh, out ss, out ll); Check("orange + blue merge into a vivid colour, not a dull grey-brown", ss > 0.45 && ll > 0.4, MixColours.HexOf(mo) + " s " + ss.ToString("0.00") + " l " + ll.ToString("0.00")); Check("blending 0% and 100% give back the two colours", MixColours.Blend(MixColours.Hex("#6A1230"), MixColours.Hex("#E6B422"), 0) == MixColours.Hex("#6A1230") && MixColours.Blend(MixColours.Hex("#6A1230"), MixColours.Hex("#E6B422"), 1) == MixColours.Hex("#E6B422")); }
+        // the gradient and the steps are clickable: a click sets the mix; a pasted colour code becomes colour A
+        { sf.MixSetT(0.5f); sf.MixSetT(0.25f); Check("the gradient, the steps and the slider all set the mix (25%)", Math.Abs(F<float>("mixT") - 0.25f) < 0.001f);
+          try { Clipboard.SetText("#336699"); sf.MixPasteHex(0); Check("a colour code on the clipboard can be pasted into colour A (right-click on its code)", F<Color>("mixA") == MixColours.Hex("#336699"), MixColours.HexOf(F<Color>("mixA"))); Clipboard.SetText("not a code"); sf.MixPasteHex(1); Check("something that is not a colour code is refused and says so", F<string>("mixStatus").Contains("no colour code")); sf.MixCopyText("#ABCDEF"); Check("clicking a code copies it", Clipboard.GetText() == "#ABCDEF"); } catch (Exception) { Check("(the clipboard was not available here)", true); } }
+        Check("the swatch variations box is gone", typeof(MixColours).GetField("Pairs") == null);
         sf.MixCopyCode(); Check("COPY THE HEX CODE copies (or says why it could not)", F<string>("mixStatus").EndsWith("copied.") || F<string>("mixStatus").StartsWith("Could not copy"), F<string>("mixStatus"));
         Check("the old buttons are gone: there is no separate profile colour or name colour choice", typeof(StudioForm).GetMethod("MixUseAsProfile", BF) == null && typeof(StudioForm).GetMethod("MixUseAsName", BF) == null);
         // two chameleons make a chameleon; different finishes make a plain colour
-        { var pch = all.Find(p => p.Kind == MixColours.Chameleon); sf.MixSet(0, pch.Cols[0], MixColours.Chameleon, pch.Names[0], pch.Cols2[0]); sf.MixSet(1, pch.Cols[1], MixColours.Chameleon, pch.Names[1], pch.Cols2[1]); var mk = typeof(StudioForm).GetProperty("MixedKind", BF); Check("two chameleons make a chameleon", (int)mk.GetValue(sf, null) == MixColours.Chameleon); sf.MixSet(1, pch.Cols[1], MixColours.Metal, "x"); Check("a chameleon and a metal make a plain colour", (int)mk.GetValue(sf, null) == 0); }
+        { var pch = all.Find(p => p.Kind == MixColours.Chameleon); sf.MixSet(0, pch.Cols[0], MixColours.Chameleon, pch.Names[0], pch.Cols2[0]); sf.MixSet(1, pch.Cols[1], MixColours.Chameleon, pch.Names[1], pch.Cols2[1]); var mk = typeof(StudioForm).GetProperty("MixedKind", BF); Check("two chameleons make a chameleon", (int)mk.GetValue(sf, null) == MixColours.Chameleon); sf.MixSet(1, pch.Cols[1], MixColours.Metal, "x"); Check("a chameleon and a metal take the finish of colour A (and are not a chameleon)", (int)mk.GetValue(sf, null) == MixColours.Chameleon && typeof(StudioForm).GetProperty("MixedSecond", BF).GetValue(sf, null).Equals(Color.Empty)); }
         sf.MixSet(0, gold, 1, "Gold"); sf.MixSet(1, purple, 0, "Purple");
         // ---- both sides are buttons: the left side sets A only, the right side sets B only ----
         sf.ClientSize = new Size(1500, 900); Pump(250); SetF("tab", 6); SetF("mixCatA", all.IndexOf(met)); SetF("mixCatB", all.IndexOf(pea)); List<HitReg> sw = null;
@@ -91,7 +99,7 @@ static class CM
             Check("there is a palette on the left and one on the right", left != null && right != null);
             if (left != null && right != null)
             {
-                var bA = F<Color>("mixA"); var bB = F<Color>("mixB"); left.OnDown(); Check("a colour from the LEFT palette sets colour A and leaves B alone", F<Color>("mixA") != bA && F<Color>("mixB") == bB && F<int>("mixKA") == 1);
+                sf.MixSet(0, Color.FromArgb(255, 1, 2, 3), 0, "x"); sf.MixSet(1, Color.FromArgb(255, 3, 2, 1), 0, "y"); var bA = F<Color>("mixA"); var bB = F<Color>("mixB"); left.OnDown(); Check("a colour from the LEFT palette sets colour A and leaves B alone", F<Color>("mixA") != bA && F<Color>("mixB") == bB && F<int>("mixKA") == 1, "A " + F<Color>("mixA") + " was " + bA + " B " + F<Color>("mixB") + " was " + bB + " KA " + F<int>("mixKA") + " at " + left.R);
                 var aNow = F<Color>("mixA"); right.OnDown(); Check("a colour from the RIGHT palette sets colour B and leaves A alone", F<Color>("mixB") != bB && F<Color>("mixA") == aNow && F<int>("mixKB") == 2);
                 var bB2 = F<Color>("mixB"); left.OnRight(); Check("right-click on a colour puts it on the other side", F<Color>("mixB") != bB2);
             }

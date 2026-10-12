@@ -112,7 +112,7 @@ static class AU
         }
         for (int i = 0; i < kids.Count; i++) for (int j = i + 1; j < kids.Count; j++)
         {
-            var a = kids[i]; var b = kids[j]; if (a is TrackBar || b is TrackBar) continue; var x = Rectangle.Intersect(a.Bounds, b.Bounds); if (x.IsEmpty) continue; double area = x.Width * (double)x.Height, min = Math.Min(a.Width * (double)a.Height, b.Width * (double)b.Height);
+            var a = kids[i]; var b = kids[j]; if (a is TrackBar || b is TrackBar || a is NeonBar || b is NeonBar) continue;   /* the neon scroll bar sits inside the right margin of its text box on purpose */ var x = Rectangle.Intersect(a.Bounds, b.Bounds); if (x.IsEmpty) continue; double area = x.Width * (double)x.Height, min = Math.Min(a.Width * (double)a.Height, b.Width * (double)b.Height);
             if (area > min * 0.1 && area > 30) Report(name + ": \"" + Short(a.Text) + "\" (" + a.GetType().Name + ") overlaps \"" + Short(b.Text) + "\" (" + b.GetType().Name + ")");
         }
         foreach (var c in kids) if (c.Right > root.ClientSize.Width + 1 || c.Left < -1) Report(name + ": \"" + Short(c.Text) + "\" runs out of the window");

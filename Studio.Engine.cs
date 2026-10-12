@@ -631,10 +631,27 @@ partial class StudioEngine
     public void Pause() { Playing = false; countLeft = 0; }
     public void Stop() { Playing = false; lock (Sync) { Pos = 0; countLeft = 0; ResetStates(); } }
 
+    static bool gcTuned;
     void EnsurePlayer()
     {
         if (player != null) return;
+        if (!gcTuned) { gcTuned = true; try { System.Runtime.GCSettings.LatencyMode = System.Runtime.GCLatencyMode.SustainedLowLatency; } catch { } }   // a big memory clean-up never freezes the sound while it plays
         player = new WaveOutPlayer(RenderRealtime); player.Start();
+    }
+    // the code that makes the sound is compiled by a background thread when the studio opens, so the FIRST time you press play nothing has to be compiled while the sound card is waiting (that was the crackle of a first launch)
+    static bool warmed;
+    public static void WarmUp()
+    {
+        if (warmed || StudioEnv.UnderTest) return; warmed = true;
+        new System.Threading.Thread(() =>
+        {
+            try
+            {
+                var asm = typeof(StudioEngine).Assembly; var want = new System.Collections.Generic.List<Type>(); foreach (var t in asm.GetTypes()) { try { if (t == typeof(StudioEngine) || t == typeof(Track) || t == typeof(AudioClip) || t == typeof(WaveOutPlayer) || t == typeof(OutSafety) || typeof(Fx).IsAssignableFrom(t)) want.Add(t); } catch { } }
+                foreach (var t in want) { if (t.ContainsGenericParameters) continue; foreach (var m in t.GetMethods(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.DeclaredOnly)) { try { if (m.IsAbstract || m.ContainsGenericParameters || (m.GetMethodBody() == null)) continue; System.Runtime.CompilerServices.RuntimeHelpers.PrepareMethod(m.MethodHandle); } catch { } } }
+            }
+            catch { }
+        }) { IsBackground = true, Priority = ThreadPriority.BelowNormal, Name = "warm-up" }.Start();
     }
 
     public int Reopens;   // how many times the sound output was refreshed (for the tests)
@@ -697,6 +714,9 @@ class WaveOutPlayer : IDisposable
     [DllImport("winmm.dll")] static extern int waveOutWrite(IntPtr h, IntPtr hdr, int size);
     [DllImport("winmm.dll")] static extern int waveOutReset(IntPtr h);
     [DllImport("winmm.dll")] static extern int waveOutClose(IntPtr h);
+    [DllImport("winmm.dll")] static extern int waveOutPause(IntPtr h);
+    [DllImport("winmm.dll")] static extern int waveOutRestart(IntPtr h);
+    [DllImport("avrt.dll", CharSet = CharSet.Unicode)] static extern IntPtr AvSetMmThreadCharacteristicsW(string task, ref uint index);
     const int CALLBACK_EVENT = 0x50000, WHDR_DONE = 1;
     public static volatile int Underruns;       // times the sound card ran out of audio (heard as stutter)
     public static volatile int Stalls;          // times the sound card stopped taking audio for a moment (heard as a crackle or a frozen sound)
@@ -726,6 +746,7 @@ class WaveOutPlayer : IDisposable
         var f = new WAVEFORMATEX { wFormatTag = 1, nChannels = 2, nSamplesPerSec = 44100, wBitsPerSample = 16, nBlockAlign = 4, nAvgBytesPerSec = 44100 * 4 };
         int r = waveOutOpen(out hwo, Device, ref f, ev.SafeWaitHandle.DangerousGetHandle(), IntPtr.Zero, CALLBACK_EVENT);
         if (r != 0) throw new Exception("Couldn't open the audio output device (winmm error " + r + ").");
+        waveOutPause(hwo);   // the card does not start until every buffer is full: filling them takes a moment, and a card that starts early runs dry (a crackle at the very start)
         for (int i = 0; i < Buffers; i++)
         {
             data[i] = Marshal.AllocHGlobal(Frames * 4); hdrs[i] = Marshal.AllocHGlobal(Marshal.SizeOf(typeof(WAVEHDR)));
@@ -733,7 +754,7 @@ class WaveOutPlayer : IDisposable
             Marshal.StructureToPtr(h, hdrs[i], false); waveOutPrepareHeader(hwo, hdrs[i], Marshal.SizeOf(typeof(WAVEHDR)));
             Fill(i);
         }
-        run = true; th = new Thread(Loop) { IsBackground = true, Priority = ThreadPriority.Highest, Name = "audio" }; th.Start();
+        waveOutRestart(hwo); run = true; th = new Thread(Loop) { IsBackground = true, Priority = ThreadPriority.Highest, Name = "audio" }; th.Start();
     }
 
     void Fill(int i)
@@ -753,6 +774,7 @@ class WaveOutPlayer : IDisposable
 
     void Loop()
     {
+        try { uint ix = 0; AvSetMmThreadCharacteristicsW("Pro Audio", ref ix); } catch { }   // Windows treats this thread as pro audio: it gets the processor on time even when the computer is busy
         while (run)
         {
             ev.WaitOne(30); ev.Reset();

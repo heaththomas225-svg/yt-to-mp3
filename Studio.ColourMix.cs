@@ -18,6 +18,14 @@ static class MixColours
     public const int Plain = 0, Metal = 1, Pearl = 2, Matte = 3, Grid = 4, Chameleon = 5, Candy = 6, Chrome = 7, Brushed = 8, Holo = 9, Glitter = 10, Carbon = 11, Satin = 12, Frost = 13, Worn = 14, Glow = 15;
     public static Color Hex(string h) { h = h.TrimStart('#'); return Color.FromArgb(255, Convert.ToInt32(h.Substring(0, 2), 16), Convert.ToInt32(h.Substring(2, 2), 16), Convert.ToInt32(h.Substring(4, 2), 16)); }
     public static string HexOf(Color c) { return "#" + c.R.ToString("X2") + c.G.ToString("X2") + c.B.ToString("X2"); }
+    // the colour two colours make when they merge: the hue travels the short way round the wheel (so orange and blue pass through yellow and green, not grey mud), the saturation stays full and a little light is added in the middle
+    public static Color Blend(Color a, Color b, float t)
+    {
+        t = Math.Max(0f, Math.Min(1f, t)); if (t <= 0f) return Color.FromArgb(255, a.R, a.G, a.B); if (t >= 1f) return Color.FromArgb(255, b.R, b.G, b.B);
+        double h1, s1, l1, h2, s2, l2; ThemeDef.ToHsl(a, out h1, out s1, out l1); ThemeDef.ToHsl(b, out h2, out s2, out l2); if (s1 < 0.06) h1 = h2; else if (s2 < 0.06) h2 = h1;
+        double d = h2 - h1; if (d > 180) d -= 360; if (d < -180) d += 360; double h = (h1 + d * t + 720) % 360, bump = Math.Sin(Math.PI * t);
+        double sat = Math.Min(1.0, s1 + (s2 - s1) * t + 0.08 * bump), lit = Math.Max(0.0, Math.Min(0.92, l1 + (l2 - l1) * t + 0.07 * bump)); return ThemeDef.Hsl(h, sat, lit);
+    }
     public static Color Mix(Color a, Color b, float t) { t = Math.Max(0f, Math.Min(1f, t)); return Color.FromArgb(255, (int)Math.Round(a.R + (b.R - a.R) * t), (int)Math.Round(a.G + (b.G - a.G) * t), (int)Math.Round(a.B + (b.B - a.B) * t)); }
     // "Name#RRGGBB" or, for a chameleon, "Name#RRGGBB>RRGGBB" (the colour it shows from one side and the colour from the other)
     static MixPalette P(string name, int kind, string spec)
@@ -72,7 +80,6 @@ static class MixColours
         P("Greys and blacks", Plain, "Pure White#FFFFFF|Snow#F5F5F5|Mist#E0E0E0|Fog#CFCFCF|Silver Grey#BDBDBD|Ash Grey#9E9E9E|Smoke#757575|Steel Grey#616161|Charcoal Grey#424242|Coal#2D2D2D|Ink#1A1A1A|Jet#0D0D0D|Pure Black#000000|Blue Grey#607D8B")
     };
     // the pairs of the reference sheet
-    public static readonly string[][] Pairs = { new[] { "Orange + Blue", "#FF9F43", "#0ABDE3" }, new[] { "Yellow + Purple", "#FFE600", "#7B2D9E" }, new[] { "Green + Red", "#43A047", "#E53935" } };
     public static double Luma(Color c) { return (0.299 * c.R + 0.587 * c.G + 0.114 * c.B) / 255.0; }
     public static int IndexOf(string name) { for (int i = 0; i < All.Count; i++) if (All[i].Name == name) return i; return -1; }
     public static int Total { get { int t = ShadeCols * ShadeRows; foreach (var p in All) t += p.Cols.Length; return t; } }
@@ -123,10 +130,10 @@ partial class StudioForm
 {
     Color mixA = Color.FromArgb(255, 255, 107, 107), mixB = Color.FromArgb(255, 78, 205, 196), mixA2 = Color.Empty, mixB2 = Color.Empty; int mixKA = 0, mixKB = 0, mixCatA = 1, mixCatB = 1, mixPresetSel = -1; float mixT = 0.5f, mixH = 1500f, mixWheelRot; string mixNameA = "Coral", mixNameB = "Turquoise", mixHoverA = "", mixHoverB = "", mixStatus = "";
     bool mixFollow = true, mixFade = true, mixLoaded; DateTime mixDirty = DateTime.MinValue;
-    public Color MixedNow { get { return MixColours.Mix(mixA, mixB, mixT); } }
+    public Color MixedNow { get { return MixColours.Blend(mixA, mixB, mixT); } }
     // the merged colour wears the finish of A and B when they are the same (two chameleons make a chameleon); otherwise it is plain
-    int MixedKind { get { return mixKA == mixKB ? mixKA : 0; } }
-    Color MixedSecond { get { if (mixKA != mixKB) return Color.Empty; Color a2 = mixA2.IsEmpty ? mixA : mixA2, b2 = mixB2.IsEmpty ? mixB : mixB2; return mixKA == MixColours.Chameleon ? MixColours.Mix(a2, b2, mixT) : Color.Empty; } }
+    int MixedKind { get { return mixKA != 0 ? mixKA : mixKB; } }   // the finish of the merged colour: the finish of A (or of B when A is plain)
+    Color MixedSecond { get { if (mixKA != mixKB) return Color.Empty; Color a2 = mixA2.IsEmpty ? mixA : mixA2, b2 = mixB2.IsEmpty ? mixB : mixB2; return mixKA == MixColours.Chameleon ? MixColours.Blend(a2, b2, mixT) : Color.Empty; } }
 
     void MixEnsure()
     {
@@ -177,7 +184,41 @@ partial class StudioForm
 
     static int MixHash(int a, int b) { unchecked { int h = a * 73856093 ^ b * 19349663; h ^= h >> 13; h *= 1274126177; return h ^ (h >> 16); } }
     // one swatch in the finish of its family: plain gloss, metallic, chrome (a mirror with a horizon), chameleon (two colours that shift), candy, brushed, pearlescent, holographic, glitter, carbon, satin, matte, frosted glass, worn, neon glow
-    void MixSwatch(Graphics g, RectangleF r, Color c, int kind, float rad, Color c2 = default(Color))
+    static float MixPhase() { return (Environment.TickCount % 3200) / 3200f; }
+    // phase of one swatch: a wave of light that crosses the whole palette
+    static float MixWave(float x, float y, float span) { float v = MixPhase() - (x + y) / Math.Max(60f, span); return v - (float)Math.Floor(v); }
+    static bool MixShines(int kind) { return kind == 1 || kind == 2 || kind == 5 || kind == 7 || kind == 8 || kind == 9 || kind == 10 || kind == 12; }
+    // light on the top edge and shade underneath: the look of a rounded piece of metal
+    void MixBevel(Graphics g, GraphicsPath p, RectangleF r, int hi)
+    {
+        var cb = new ColorBlend(4) { Colors = new[] { Color.FromArgb(hi, 255, 255, 255), Color.FromArgb(0, 255, 255, 255), Color.FromArgb(0, 0, 0, 0), Color.FromArgb(90, 0, 0, 0) }, Positions = new[] { 0f, 0.42f, 0.56f, 1f } };
+        using (var br = new LinearGradientBrush(r, Color.White, Color.Black, 90f)) { br.InterpolationColors = cb; g.FillPath(br, p); }
+        using (var pen = new Pen(Color.FromArgb(hi / 2, 255, 255, 255), 1f)) g.DrawLine(pen, r.X + r.Height * 0.25f, r.Y + 1.5f, r.Right - r.Height * 0.25f, r.Y + 1.5f);
+    }
+    // a bright stripe sliding across (phase 0 to 1)
+    void MixSheen(Graphics g, RectangleF r, float phase, int alpha)
+    {
+        float w = Math.Max(10f, r.Width * 0.55f), x0 = r.X - w + (r.Width + 2 * w) * phase; var cb = new ColorBlend(3) { Colors = new[] { Color.FromArgb(0, 255, 255, 255), Color.FromArgb(alpha, 255, 255, 255), Color.FromArgb(0, 255, 255, 255) }, Positions = new[] { 0f, 0.5f, 1f } };
+        var band = new RectangleF(x0, r.Y - 1, w, r.Height + 2); using (var br = new LinearGradientBrush(band, Color.White, Color.White, 0f)) { br.InterpolationColors = cb; g.FillRectangle(br, band); }
+        lastInput = DateTime.Now; btnAnim = true;
+    }
+    // the finish drawn OVER something that already has its colour (the gradient bar and the steps): bevel, wash, sparkle and sheen
+    void MixFinishOver(Graphics g, RectangleF r, float rad, int kind, float phase)
+    {
+        if (kind == 0 || kind >= 16 || kind == 3) return; var gs = g.Save();
+        using (var p = RR(r, rad))
+        {
+            g.SetClip(p, CombineMode.Intersect);
+            if (kind == 1 || kind == 5 || kind == 7 || kind == 8 || kind == 12 || kind == 6) MixBevel(g, p, r, kind == 7 ? 170 : 125);
+            if (kind == 2 || kind == 9) { var cb = new ColorBlend(5) { Colors = new[] { Color.FromArgb(80, 255, 170, 230), Color.FromArgb(0, 255, 255, 255), Color.FromArgb(80, 150, 210, 255), Color.FromArgb(0, 255, 255, 255), Color.FromArgb(80, 170, 255, 210) }, Positions = new[] { 0f, 0.28f, 0.5f, 0.72f, 1f } }; using (var br = new LinearGradientBrush(r, Color.White, Color.White, 20f)) { br.InterpolationColors = cb; g.FillPath(br, p); } }
+            if (kind == 8) for (float y = r.Y + 1; y < r.Bottom; y += 2f) { int hv = MixHash((int)(y * 3), 77); using (var pen = new Pen(Color.FromArgb(8 + (hv & 15), (hv & 16) != 0 ? 255 : 0, (hv & 16) != 0 ? 255 : 0, (hv & 16) != 0 ? 255 : 0), 1f)) g.DrawLine(pen, r.X, y, r.Right, y); }
+            if (kind == 10) for (int i = 0; i < Math.Max(12, (int)(r.Width * r.Height / 260)); i++) { int hv = MixHash(i, 4141); float px = r.X + (hv & 0xFF) / 255f * r.Width, py = r.Y + ((hv >> 8) & 0xFF) / 255f * r.Height, tw = phase < 0 ? 0.7f : (float)Math.Abs(Math.Sin(2 * Math.PI * (phase + (hv & 255) / 255f))); using (var br = new SolidBrush(Color.FromArgb((int)(60 + 190 * tw), 255, 255, 235))) g.FillEllipse(br, px, py, 2.2f, 2.2f); }
+            if (kind == 11) for (float y = r.Y; y < r.Bottom; y += 4) for (float x = r.X; x < r.Right; x += 4) { bool a = (((int)((x - r.X) / 4)) + ((int)((y - r.Y) / 4))) % 2 == 0; using (var br = new SolidBrush(a ? Color.FromArgb(34, 255, 255, 255) : Color.FromArgb(40, 0, 0, 0))) g.FillRectangle(br, x, y, 4, 4); }
+            if (phase >= 0 && MixShines(kind)) MixSheen(g, r, phase, kind == 7 || kind == 1 ? 150 : 110);
+        }
+        g.Restore(gs);
+    }
+    void MixSwatch(Graphics g, RectangleF r, Color c, int kind, float rad, Color c2 = default(Color), float phase = -1f)
     {
         if (r.Width < 2 || r.Height < 2) return;
         Func<Color, float, Color> sh = (col, t) => t >= 0 ? MixC(col, Color.White, t) : MixC(col, Color.Black, -t);
@@ -222,7 +263,7 @@ partial class StudioForm
                     break;
                 case 10:  // glitter: a rich base with little sparks
                     using (var br = new LinearGradientBrush(r, sh(c, 0.15f), sh(c, -0.2f), 60f)) g.FillPath(br, p);
-                    for (int i = 0; i < 26; i++) { int hv = MixHash(i, seed); float px = r.X + (hv & 0xFF) / 255f * r.Width, py = r.Y + ((hv >> 8) & 0xFF) / 255f * r.Height, sz = 1.2f + ((hv >> 16) & 3) * 0.7f; using (var br = new SolidBrush(Color.FromArgb(150 + ((hv >> 20) & 63), 255, (hv & 0x400) != 0 ? 255 : 240, (hv & 0x400) != 0 ? 255 : 170))) g.FillEllipse(br, px, py, sz, sz); }
+                    for (int i = 0; i < 26; i++) { int hv = MixHash(i, seed); float px = r.X + (hv & 0xFF) / 255f * r.Width, py = r.Y + ((hv >> 8) & 0xFF) / 255f * r.Height, sz = 1.2f + ((hv >> 16) & 3) * 0.7f; int ga = phase < 0 ? 150 + ((hv >> 20) & 63) : (int)(70 + 185 * Math.Abs(Math.Sin(2 * Math.PI * (phase + (hv & 255) / 255f)))); using (var br = new SolidBrush(Color.FromArgb(ga, 255, (hv & 0x400) != 0 ? 255 : 240, (hv & 0x400) != 0 ? 255 : 170))) g.FillEllipse(br, px, py, sz, sz); }
                     break;
                 case 11:  // carbon fibre: a woven pattern
                     using (var br = new SolidBrush(sh(c, -0.35f))) g.FillPath(br, p);
@@ -247,21 +288,37 @@ partial class StudioForm
                     using (var br = new LinearGradientBrush(r, sh(c, 0.35f), c, 90f)) g.FillPath(br, p);
                     break;
             }
+            if (kind == 1 || kind == 5 || kind == 7 || kind == 8 || kind == 12) MixBevel(g, p, r, kind == 7 ? 150 : 110);
+            if (phase >= 0 && MixShines(kind)) MixSheen(g, r, phase, kind == 7 || kind == 1 ? 150 : 110);
             g.Restore(gs);
             using (var pen = new Pen(Color.FromArgb(kind == 3 ? 70 : 130, 255, 255, 255), 1f)) g.DrawPath(pen, p);
         }
+    }
+    // a colour code you can copy (click) and paste (right-click puts the code on the clipboard into colour A or B)
+    void MixHexClick(Graphics g, RectangleF r, Color c, int side)
+    {
+        string hex = MixColours.HexOf(c); if (Hot(r)) using (var p = RR(RectangleF.Inflate(r, 3, 2), 7)) using (var pen = new Pen(Color.White, 2f)) g.DrawPath(pen, p);
+        var h = Reg(r, () => MixCopyText(hex)); if (side >= 0) { int sd = side; h.OnRight = () => MixPasteHex(sd); }
+        Hint2(r, "Click to copy " + hex + (side >= 0 ? ". Right-click to paste a colour code from the clipboard here." : "."));
+    }
+    internal void MixCopyText(string hex) { try { Clipboard.SetText(hex); mixStatus = hex + " copied."; Toast(mixStatus); } catch { mixStatus = "Could not copy (another program is using the clipboard)."; Toast(mixStatus); } }
+    internal void MixPasteHex(int side)
+    {
+        string t = ""; try { t = (Clipboard.GetText() ?? "").Trim(); } catch { }
+        var m = System.Text.RegularExpressions.Regex.Match(t, "^#?([0-9a-fA-F]{6}|[0-9a-fA-F]{3})$"); if (!m.Success) { mixStatus = "The clipboard has no colour code (like #6A1230)."; Toast(mixStatus); return; }
+        string h = m.Groups[1].Value; if (h.Length == 3) h = "" + h[0] + h[0] + h[1] + h[1] + h[2] + h[2]; Color c = MixColours.Hex("#" + h.ToUpperInvariant()); MixSet(side, c, 0, "Pasted code"); mixStatus = "Colour " + (side == 0 ? "A" : "B") + " is now #" + h.ToUpperInvariant() + ".";
     }
     void MixText(Graphics g, string s, float px, Color on, RectangleF r, bool bold) { Txt(g, s, px, MixColours.Luma(on) > 0.6 ? Color.FromArgb(255, 20, 12, 36) : Color.FromArgb(255, 250, 244, 255), r, StringAlignment.Center, bold); }
     // a section of the mixer: always a neat box with a neon outline
     void MixBox(Graphics g, RectangleF r) { FillRR(g, TM.C(255, 8, 4, 20), r, 14); Win.DrawNeonBox(g, r, false); }
 
     // one coloured circle with its label and code (A, B or the merged colour)
-    void MixCircle(Graphics g, RectangleF r, Color c, int kind, string title, string name, Color c2 = default(Color))
+    void MixCircle(Graphics g, RectangleF r, Color c, int kind, string title, string name, Color c2 = default(Color), int side = -1)
     {
         var gs = g.Save(); using (var p = new GraphicsPath()) { p.AddEllipse(r); g.SetClip(p, CombineMode.Intersect); }
-        MixSwatch(g, r, c, kind, r.Width / 2f, c2); g.Restore(gs);
+        MixSwatch(g, r, c, kind, r.Width / 2f, c2, MixWave(r.X, r.Y, 600f)); g.Restore(gs);
         using (var pen = new Pen(Color.FromArgb(230, 255, 255, 255), 2.2f)) g.DrawEllipse(pen, r);
-        float fs = Math.Max(10, r.Width * 0.115f); MixText(g, title, fs + 2, c, Rc(r.X, r.Y + r.Height * 0.22f, r.Width, fs + 8), true); MixText(g, MixColours.HexOf(c), fs, c, Rc(r.X, r.Y + r.Height * 0.22f + fs + 8, r.Width, fs + 6), false);
+        float fs = Math.Max(10, r.Width * 0.115f); MixText(g, title, fs + 2, c, Rc(r.X, r.Y + r.Height * 0.22f, r.Width, fs + 8), true); MixText(g, MixColours.HexOf(c), fs, c, Rc(r.X, r.Y + r.Height * 0.22f + fs + 8, r.Width, fs + 6), false); MixHexClick(g, Rc(r.X + r.Width * 0.14f, r.Y + r.Height * 0.22f + fs + 8, r.Width * 0.72f, fs + 6), c, side);
         MixText(g, name.Length > 18 ? name.Substring(0, 17) + "." : name, Math.Max(9, fs - 2), c, Rc(r.X, r.Y + r.Height * 0.22f + 2 * fs + 12, r.Width, fs + 4), false);
     }
     void MixArrow(Graphics g, RectangleF r, Color from, Color to, bool pointRight, string label)
@@ -286,8 +343,8 @@ partial class StudioForm
             if (arrow) using (var pen = new Pen(Color.FromArgb(240, 255, 255, 255), 2.4f) { EndCap = LineCap.ArrowAnchor }) g.DrawLine(pen, cx, cy, cx + (float)Math.Cos(a) * (R - th - 6), cy + (float)Math.Sin(a) * (R - th - 6));
             var dot = new RectangleF(mp.X - 11, mp.Y - 11, 22, 22); using (var br = new SolidBrush(c)) g.FillEllipse(br, dot); using (var pen = new Pen(Color.White, 2f)) g.DrawEllipse(pen, dot); Txt(g, letter, 11, MixColours.Luma(c) > 0.6 ? Color.Black : Color.White, dot, StringAlignment.Center, true);
         };
-        marker(MixedNow, "M", true); marker(mixA, "A", true); marker(mixB, "B", true);
-        using (var br = new SolidBrush(MixedNow)) g.FillEllipse(br, cx - 7, cy - 7, 14, 14); using (var pen = new Pen(Color.White, 1.6f)) g.DrawEllipse(pen, cx - 7, cy - 7, 14, 14); g.SmoothingMode = sm;
+        // (no letters and no markers on the ring: just the wheel, turning)
+        g.SmoothingMode = sm;   // (nothing in the middle either)
     }
 
     void ShowMixMenu(RectangleF at, int side)
@@ -297,28 +354,23 @@ partial class StudioForm
         m.Show(this, new Point((int)at.X, (int)at.Bottom));
     }
     // your name in the colour of your mix (one colour or a fade from A to B); the normal writing when the profile is not following the mix
-    void NameText(Graphics g, string s, float px, RectangleF r, Color normal, bool bold)
-    {
-        if (ProfileStore.NameRgb < 0) { Txt(g, s, px, normal, r, StringAlignment.Near, bold); return; }
-        Color c1 = ProfileStore.ColorOf(ProfileStore.NameRgb); if (ProfileStore.NameRgb2 < 0 || NoTextDraw) { Txt(g, s, px, c1, r, StringAlignment.Near, bold); return; }
-        float real = GfxCache.Grow(px); var f = GfxCache.Exact(real, bold); float w = Math.Max(20f, Math.Min(r.Width, g.MeasureString(s, f, 100000, GfxCache.Fmt(StringAlignment.Near, false)).Width - 4));
-        using (var br = new LinearGradientBrush(new RectangleF(r.X, r.Y, w, Math.Max(2f, r.Height)), c1, ProfileStore.ColorOf(ProfileStore.NameRgb2), 0f)) g.DrawString(s, f, br, r, GfxCache.Fmt(StringAlignment.Near, true));
-    }
-    internal string MixUseAsTheme()
+    void NameText(Graphics g, string s, float px, RectangleF r, Color normal, bool bold) { NameTextC(g, s, px, r, normal, bold, ProfileStore.NameRgb, ProfileStore.NameRgb2); }
+    // SAVE AS THEME: the mix becomes a theme of its own in THEMES, PROFILE THEMES (it is not switched on and there is nothing to revert: pick it there when you want it)
+    internal string MixSaveAsTheme()
     {
         Color m = MixedNow; double h, s, l; ThemeDef.ToHsl(m, out h, out s, out l); string bg = MixColours.HexOf(ThemeDef.Hsl(h, 0.5, 0.05)).Substring(1);
         string text = "name=Mix " + MixColours.HexOf(m).Substring(1) + "\nviolet=" + MixColours.HexOf(m).Substring(1) + "\ncyan=" + MixColours.HexOf(mixB).Substring(1) + "\npink=" + MixColours.HexOf(mixA).Substring(1) + "\nbg0=" + bg;
-        ThemeDef t; string err = Themes.Import(text, "Mix", out t); if (err != null) { Toast(err); return err; } int prev = Themes.Index; Themes.Apply(Themes.IndexOf(t.Name)); Prefs.Changed();
-        mixStatus = "Theme made from your mix and in use: " + t.Name + "."; Toast(mixStatus); OfferRevert("Theme " + t.Name + " is on", () => { Themes.Apply(prev); Prefs.Changed(); }); return null;
+        ThemeDef t; string err = Themes.Import(text, "Mix", out t); if (err != null) { Toast(err); return err; } Themes.MarkProfile(t.Name); Prefs.Changed();
+        mixStatus = "Saved as the theme " + t.Name + ". Open THEMES, then PROFILE THEMES to use it."; Toast(mixStatus); return null;
     }
     internal void MixCopyCode() { try { Clipboard.SetText(MixColours.HexOf(MixedNow)); mixStatus = MixColours.HexOf(MixedNow) + " copied."; Toast(mixStatus); } catch { mixStatus = "Could not copy (another program is using the clipboard)."; } }
 
     // one side of the palette: its own STYLE drop bar and its colours (the left side is colour A, which merges into the colour of the right side, colour B); returns the y under it
-    float MixSide(Graphics g, float x, float y, float w, int side, float vt, float vb)
+    float MixSide(Graphics g, float x, float y0, float w, int side, float vt, float vb)
     {
         Func<float, float, bool> vis = (a, b) => b > vt - 6 && a < vb + 6; int cat = side == 0 ? mixCatA : mixCatB; var pal = MixColours.All[Math.Max(0, Math.Min(MixColours.All.Count - 1, cat))]; Color cur = side == 0 ? mixA : mixB; string curName = side == 0 ? mixNameA : mixNameB;
-        float px = x + 14, pw = w - 28, yy = y + 12; string hover = "";
-        if (vis(yy, yy + 26)) { Txt(g, side == 0 ? "COLOUR A  -  THE LEFT SIDE" : "COLOUR B  -  THE RIGHT SIDE", 13, Ink, Rc(px, yy, pw - 130, 22), StringAlignment.Near, true); var chip = Rc(px + pw - 120, yy, 120, 22); FillRR(g, cur, chip, 6); StrokeRR(g, Color.FromArgb(200, 255, 255, 255), chip, 6, 1.2f); MixText(g, MixColours.HexOf(cur), 11, cur, chip, true); }
+        float px = x + 14, pw = w - 28, yy = y0 + 12; string hover = ""; float y = y0;
+        if (vis(yy, yy + 26)) { Txt(g, side == 0 ? "COLOUR A  -  THE LEFT SIDE" : "COLOUR B  -  THE RIGHT SIDE", 13, Ink, Rc(px, yy, pw - 130, 22), StringAlignment.Near, true); var chip = Rc(px + pw - 120, yy, 120, 22); FillRR(g, cur, chip, 6); StrokeRR(g, Color.FromArgb(200, 255, 255, 255), chip, 6, 1.2f); MixText(g, MixColours.HexOf(cur), 11, cur, chip, true); MixHexClick(g, chip, cur, side); }
         yy += 26; if (vis(yy, yy + 18)) Txt(g, side == 0 ? "This colour merges into the colour on the right." : "The colour on the left merges into this one.", 11, DimC, Rc(px, yy, pw, 18), StringAlignment.Near, false); yy += 24;
         if (vis(yy, yy + 32)) { var dd = Rc(px, yy, Math.Min(pw, 300), 32); Btn(g, dd, "STYLE: " + pal.Name.ToUpper() + "   v", 1, () => ShowMixMenu(dd, side), 12); Hint2(dd, "Choose the style of colours on this side: every shade, gloss, metallic, metals, chrome, chameleon, candy, pearlescent, holographic, glitter, carbon, satin, matte, frosted glass, worn, neon and more"); }
         yy += 42;
@@ -333,7 +385,7 @@ partial class StudioForm
             float cell = 36, gap = 7; int cols = Math.Max(3, (int)((pw + gap) / (cell + gap))); int rows = (pal.Cols.Length + cols - 1) / cols;
             for (int i = 0; i < pal.Cols.Length; i++)
             {
-                float ry = yy + (i / cols) * (cell + gap); if (!vis(ry, ry + cell)) continue; var cr = Rc(px + (i % cols) * (cell + gap), ry, cell, cell); int k = i, sd = side; Color s2 = pal.Cols2 != null ? pal.Cols2[i] : Color.Empty; MixSwatch(g, cr, pal.Cols[i], pal.Kind, 8, s2);
+                float ry = yy + (i / cols) * (cell + gap); if (!vis(ry, ry + cell)) continue; var cr = Rc(px + (i % cols) * (cell + gap), ry, cell, cell); int k = i, sd = side; Color s2 = pal.Cols2 != null ? pal.Cols2[i] : Color.Empty; MixSwatch(g, cr, pal.Cols[i], pal.Kind, 8, s2, MixShines(pal.Kind) ? MixWave(cr.X - px, cr.Y - y, pw * 1.6f) : -1f);
                 if (pal.Cols[i] == cur && pal.Names[i] == curName) using (var p = RR(RectangleF.Inflate(cr, 3, 3), 10)) using (var pen = new Pen(NeonCyan, 2.4f)) g.DrawPath(pen, p);
                 if (Hot(cr)) { hover = pal.Names[i] + "  " + MixColours.HexOf(pal.Cols[i]) + (s2.IsEmpty ? "" : " to " + MixColours.HexOf(s2)); using (var p = RR(RectangleF.Inflate(cr, 2, 2), 9)) using (var pen = new Pen(Color.White, 2.2f)) g.DrawPath(pen, p); }
                 var h = Reg(cr, () => MixSet(sd, pal.Cols[k], pal.Kind, pal.Names[k], s2)); h.OnRight = () => MixSet(1 - sd, pal.Cols[k], pal.Kind, pal.Names[k], s2);
@@ -358,11 +410,11 @@ partial class StudioForm
         { float rx = px + (pw - rowW) / 2, ty = yy + 12, cyC = ty + rowH / 2;
           if (vis(ty, ty + rowH))
           {
-              MixCircle(g, Rc(rx, cyC - dA / 2, dA, dA), mixA, mixKA, "COLOUR A", mixNameA, mixA2);
+              MixCircle(g, Rc(rx, cyC - dA / 2, dA, dA), mixA, mixKA, "COLOUR A", mixNameA, mixA2, 0);
               MixArrow(g, Rc(rx + dA + 6, cyC - 27, gapA - 12, 54), mixA, merged, true, (int)Math.Round((1 - mixT) * 100) + "% A");
               MixCircle(g, Rc(rx + dA + gapA, ty, dM, dM), merged, MixedKind, "MERGED", "A + B", MixedSecond);
               MixArrow(g, Rc(rx + dA + gapA + dM + 6, cyC - 27, gapA - 12, 54), merged, mixB, false, (int)Math.Round(mixT * 100) + "% B");
-              MixCircle(g, Rc(rx + dA + gapA + dM + gapA, cyC - dA / 2, dA, dA), mixB, mixKB, "COLOUR B", mixNameB, mixB2);
+              MixCircle(g, Rc(rx + dA + gapA + dM + gapA, cyC - dA / 2, dA, dA), mixB, mixKB, "COLOUR B", mixNameB, mixB2, 1);
           }
           float cy2 = ty + rowH + 12; if (vis(cy2, cy2 + 34))
           {
@@ -383,39 +435,37 @@ partial class StudioForm
           var bA = Rc(px, yy, colW, twoCols ? rowH2 : hA); MixBox(g, bA); float endA = MixSide(g, bA.X, bA.Y, bA.Width, 0, vt, vb);
           var bB = twoCols ? Rc(px + colW + 14, yy, colW, rowH2) : Rc(px, yy + hA + 14, colW, hB); MixBox(g, bB); float endB = MixSide(g, bB.X, bB.Y, bB.Width, 1, vt, vb);
           yy = Math.Max(bA.Bottom, bB.Bottom) + 14; }
-        // ---- the mixing guide: gradient and steps, the wheel (it turns), the pairs: three boxes, drawn first, then what is in them ----
-        bool three = pw >= 900; float cw3 = three ? (pw - 2 * 14) / 3f : pw; float ws = Math.Min(cw3 - 24, 210f); float gh1 = 224f, gh2 = ws + 24f, gh3 = 290f, hMax = Math.Max(gh1, Math.Max(gh2, gh3));
-        float gt1 = yy, gt2 = three ? yy : yy + gh1 + 14, gt3 = three ? yy : gt2 + gh2 + 14; float gx1 = px, gx2 = three ? px + cw3 + 14 : px, gx3 = three ? px + 2 * (cw3 + 14) : px;
-        if (three) { gh1 = gh2 = gh3 = hMax; }
-        MixBox(g, Rc(gx1, gt1, cw3, gh1)); MixBox(g, Rc(gx2, gt2, cw3, gh2)); MixBox(g, Rc(gx3, gt3, cw3, gh3));
+        // ---- the mixing guide: the gradient and the steps (click or drag them to set the mix) and the wheel (it turns): two boxes ----
+        bool two = pw >= 640; float cw2 = two ? (pw - 14) / 2f : pw; float ws = Math.Min(cw2 - 24, 230f); float gh1 = 262f, gh2 = ws + 24f, hMax = Math.Max(gh1, gh2);
+        float gt1 = yy, gt2 = two ? yy : yy + gh1 + 14; float gx1 = px, gx2 = two ? px + cw2 + 14 : px; if (two) { gh1 = hMax; gh2 = hMax; }
+        MixBox(g, Rc(gx1, gt1, cw2, gh1)); MixBox(g, Rc(gx2, gt2, cw2, gh2));
         { // gradient + steps
-            float by = gt1 + 12; float bx = gx1 + 12, bw = cw3 - 24; Txt(g, "HORIZONTAL GRADIENT MIX", 12, DimC, Rc(bx, by, bw, 18), StringAlignment.Near, true); by += 22; var gr = Rc(bx, by, bw, 36);
-            if (vis(gr.Y, gr.Bottom)) { using (var p = RR(gr, 6)) { using (var br = new LinearGradientBrush(gr, mixA, mixB, 0f)) g.FillPath(br, p); using (var pen = new Pen(Color.FromArgb(150, 255, 255, 255), 1f)) g.DrawPath(pen, p); } }
-            by += 42; Txt(g, MixColours.HexOf(mixA), 10, DimC, Rc(bx, by, 90, 16), StringAlignment.Near, false); Txt(g, "A TO B", 10, DimC, Rc(bx + 90, by, bw - 180, 16), StringAlignment.Center, false); Txt(g, MixColours.HexOf(mixB), 10, DimC, Rc(bx + bw - 90, by, 90, 16), StringAlignment.Far, false); by += 28;
+            int fk = MixedKind; float by = gt1 + 12, bx = gx1 + 12, bw = cw2 - 24; Txt(g, "HORIZONTAL GRADIENT MIX", 12, DimC, Rc(bx, by, bw, 18), StringAlignment.Near, true); by += 22; var gr = Rc(bx, by, bw, 44);
+            if (vis(gr.Y, gr.Bottom))
+            {
+                using (var p = RR(gr, 7)) using (var br = new LinearGradientBrush(gr, mixA, mixB, 0f)) { var cb = new ColorBlend(9); for (int i = 0; i < 9; i++) { cb.Positions[i] = i / 8f; cb.Colors[i] = MixColours.Blend(mixA, mixB, i / 8f); } br.InterpolationColors = cb; g.FillPath(br, p); }
+                MixFinishOver(g, gr, 7, fk, MixShines(fk) ? MixPhase() : -1f);
+                float mx = gr.X + gr.Width * mixT; using (var pen = new Pen(Color.White, 2.2f)) g.DrawLine(pen, mx, gr.Y - 3, mx, gr.Bottom + 3); using (var br = new SolidBrush(MixedNow)) g.FillEllipse(br, mx - 7, gr.Y + gr.Height / 2 - 7, 14, 14); using (var pen = new Pen(Color.White, 2f)) g.DrawEllipse(pen, mx - 7, gr.Y + gr.Height / 2 - 7, 14, 14);
+                using (var p = RR(gr, 7)) using (var pen = new Pen(Hot(gr) ? Color.White : Color.FromArgb(150, 255, 255, 255), Hot(gr) ? 2.4f : 1f)) g.DrawPath(pen, p);
+                var rg = new HitReg { R = gr }; rg.OnDown = () => MixSetT((MousePos.X - gr.X) / gr.Width); rg.OnDrag = pt => MixSetT((pt.X - gr.X) / gr.Width); regs.Add(rg); Hint2(gr, "Click or drag along the gradient to choose how much of colour B is in the mix");
+            }
+            by += 52; Txt(g, MixColours.HexOf(mixA), 10, DimC, Rc(bx, by, 90, 16), StringAlignment.Near, false); MixHexClick(g, Rc(bx, by, 62, 16), mixA, 0); Txt(g, "A TO B", 10, DimC, Rc(bx + 90, by, bw - 180, 16), StringAlignment.Center, false); Txt(g, MixColours.HexOf(mixB), 10, DimC, Rc(bx + bw - 90, by, 90, 16), StringAlignment.Far, false); MixHexClick(g, Rc(bx + bw - 62, by, 62, 16), mixB, 1); by += 28;
             Txt(g, "STEPPED COLOUR BLEND", 12, DimC, Rc(bx, by, bw, 18), StringAlignment.Near, true); by += 24; float sw = (bw - 4 * 8) / 5f; string[] lb = { "100% A", "75 / 25", "50 / 50", "25 / 75", "100% B" };
-            for (int i = 0; i < 5; i++) { var sr = Rc(bx + i * (sw + 8), by + 18, sw, 44); Color sc = MixColours.Mix(mixA, mixB, i / 4f); if (vis(sr.Y, sr.Bottom)) { Txt(g, lb[i], 9, DimC, Rc(sr.X - 6, by, sr.Width + 12, 16), StringAlignment.Center, false); using (var p = RR(sr, 6)) { using (var br = new SolidBrush(sc)) g.FillPath(br, p); using (var pen = new Pen(Color.FromArgb(150, 255, 255, 255), 1f)) g.DrawPath(pen, p); } Txt(g, MixColours.HexOf(sc), 9, DimC, Rc(sr.X - 6, sr.Bottom + 3, sr.Width + 12, 14), StringAlignment.Center, false); } }
+            for (int i = 0; i < 5; i++)
+            {
+                var sr = Rc(bx + i * (sw + 8), by + 18, sw, 50); float st = i / 4f; Color sc = MixColours.Blend(mixA, mixB, st); if (!vis(sr.Y, sr.Bottom)) continue; bool hotS = Hot(sr), cur = Math.Abs(mixT - st) < 0.02f;
+                Txt(g, lb[i], 9, cur ? Ink : DimC, Rc(sr.X - 6, by, sr.Width + 12, 16), StringAlignment.Center, cur);
+                MixSwatch(g, sr, sc, fk, 7, fk == 5 ? MixColours.Blend(mixA2.IsEmpty ? mixA : mixA2, mixB2.IsEmpty ? mixB : mixB2, st) : Color.Empty, MixShines(fk) ? MixWave(sr.X - bx, 0, bw) : -1f);
+                if (cur) using (var p = RR(RectangleF.Inflate(sr, 3, 3), 9)) using (var pen = new Pen(NeonCyan, 2.4f)) g.DrawPath(pen, p);
+                if (hotS) using (var p = RR(RectangleF.Inflate(sr, 2, 2), 9)) using (var pen = new Pen(Color.White, 2.2f)) g.DrawPath(pen, p);
+                Txt(g, MixColours.HexOf(sc), 9, DimC, Rc(sr.X - 6, sr.Bottom + 3, sr.Width + 12, 14), StringAlignment.Center, false); MixHexClick(g, Rc(sr.X + 2, sr.Bottom + 3, sr.Width - 4, 14), sc, -1); float tt = st; Reg(sr, () => MixSetT(tt)); Hint2(sr, "Use " + lb[i] + " as your mix (" + MixColours.HexOf(sc) + ")");
+            }
         }
-        { // the wheel: no title, and it turns slowly
-            var wr = Rc(gx2 + (cw3 - ws) / 2, gt2 + (gh2 - ws) / 2, ws, ws);
+        { // the wheel: no title, no lines, and it turns slowly
+            var wr = Rc(gx2 + (cw2 - ws) / 2, gt2 + (gh2 - ws) / 2, ws, ws);
             if (vis(wr.Y, wr.Bottom)) { mixWheelRot = (float)((Environment.TickCount % 60000) / 60000.0 * 360.0 * 4); MixWheel(g, wr); lastInput = DateTime.Now; btnAnim = true; }
         }
-        { // the pairs
-            float bx = gx3 + 12, bw = cw3 - 24; float by = gt3 + 12; Txt(g, "COLOUR SWATCH VARIATIONS", 12, DimC, Rc(bx, by, bw, 18), StringAlignment.Near, true); by += 24;
-            Action<string, Color, Color, Action> pair = (title, a, b, click) =>
-            {
-                var row = Rc(bx, by, bw, 58); if (vis(row.Y, row.Bottom))
-                {
-                    Color mm = MixColours.Mix(a, b, 0.5f); float s = 46; Txt(g, title, 11, Ink, Rc(bx, by - 2, bw, 14), StringAlignment.Near, true); float sy = by + 14;
-                    Action<float, Color> sq = (ox, col) => { var r0 = Rc(bx + ox, sy, s, s - 14); using (var p = RR(r0, 5)) { using (var br = new SolidBrush(col)) g.FillPath(br, p); using (var pen = new Pen(Color.FromArgb(150, 255, 255, 255), 1f)) g.DrawPath(pen, p); } Txt(g, MixColours.HexOf(col), 8, DimC, Rc(bx + ox - 8, sy + s - 13, s + 16, 12), StringAlignment.Center, false); };
-                    sq(0, a); Txt(g, "+", 14, Ink, Rc(bx + s, sy, 22, s - 14), StringAlignment.Center, true); sq(s + 22, b); Txt(g, "=", 14, Ink, Rc(bx + 2 * s + 22, sy, 22, s - 14), StringAlignment.Center, true); sq(2 * s + 44, mm);
-                    if (click != null) { Reg(row, click); Hint2(row, "Use this pair as colour A and colour B"); }
-                }
-                by += 62;
-            };
-            pair("Your mix (A + B)", mixA, mixB, null);
-            foreach (var pr in MixColours.Pairs) { var p0 = pr; pair(p0[0], MixColours.Hex(p0[1]), MixColours.Hex(p0[2]), () => { MixSet(0, MixColours.Hex(p0[1]), 0, p0[0].Split('+')[0].Trim()); MixSet(1, MixColours.Hex(p0[2]), 0, p0[0].Split('+')[1].Trim()); MixSetT(0.5f); }); }
-        }
-        yy = three ? gt1 + hMax + 14 : gt3 + gh3 + 14;
+        yy = two ? gt1 + hMax + 14 : gt2 + gh2 + 14;
         // ---- the colour presets: save the mix and go through the ones you saved ----
         { var pb = Rc(px, yy, pw, 0); float chip = 52, gap = 8; int cols = Math.Max(3, (int)((pw - 28 + gap) / (chip + gap))); int n = MixStore.Presets.Count, rows = Math.Max(1, (n + cols - 1) / cols); float ph = 12 + 24 + 44 + (n == 0 ? 30 : rows * (chip + gap)) + 30 + 6; pb = Rc(px, yy, pw, ph); MixBox(g, pb);
           float qy = pb.Y + 12; Txt(g, "MY COLOUR PRESETS (" + n + ")", 12, DimC, Rc(pb.X + 14, qy, 300, 18), StringAlignment.Near, true); qy += 24;
@@ -429,16 +479,16 @@ partial class StudioForm
           {
               float cx0 = pb.X + 14 + (i % cols) * (chip + gap), cy0 = qy + (i / cols) * (chip + gap); if (!vis(cy0, cy0 + chip)) continue; var p = MixStore.Presets[i]; var cr = Rc(cx0, cy0, chip, chip); int ix = i;
               using (var path = RR(cr, 10)) { var gs = g.Save(); g.SetClip(path, CombineMode.Intersect); var left = Rc(cr.X, cr.Y, cr.Width / 2f + 1, cr.Height); var right = Rc(cr.X + cr.Width / 2f, cr.Y, cr.Width / 2f, cr.Height); using (var br = new LinearGradientBrush(cr, p.A, p.B, 0f)) g.FillPath(br, path); g.Restore(gs); }
-              var dot = Rc(cr.X + chip / 2 - 9, cr.Y + chip / 2 - 9, 18, 18); using (var br = new SolidBrush(MixColours.Mix(p.A, p.B, p.T))) g.FillEllipse(br, dot); using (var pen = new Pen(Color.White, 1.6f)) g.DrawEllipse(pen, dot);
-              using (var pth = RR(cr, 10)) using (var pen = new Pen(i == mixPresetSel ? NeonCyan : Color.FromArgb(150, 255, 255, 255), i == mixPresetSel ? 3f : 1f)) g.DrawPath(pen, pth);
-              if (Hot(cr)) Hint2(cr, p.Name + "  (" + MixColours.HexOf(p.A) + " to " + MixColours.HexOf(p.B) + ", " + MixColours.HexOf(MixColours.Mix(p.A, p.B, p.T)) + ")");
+              var dot = Rc(cr.X + chip / 2 - 9, cr.Y + chip / 2 - 9, 18, 18); using (var br = new SolidBrush(MixColours.Blend(p.A, p.B, p.T))) g.FillEllipse(br, dot); using (var pen = new Pen(Color.White, 1.6f)) g.DrawEllipse(pen, dot);
+              using (var pth = RR(cr, 10)) using (var pen = new Pen(Hot(cr) ? Color.White : (i == mixPresetSel ? NeonCyan : Color.FromArgb(150, 255, 255, 255)), Hot(cr) ? 2.6f : (i == mixPresetSel ? 3f : 1f))) g.DrawPath(pen, pth);
+              if (Hot(cr)) Hint2(cr, p.Name + "  (" + MixColours.HexOf(p.A) + " to " + MixColours.HexOf(p.B) + ", " + MixColours.HexOf(MixColours.Blend(p.A, p.B, p.T)) + ")");
               Reg(cr, () => MixPresetLoad(ix));
           }
           yy = pb.Bottom + 14; }
         // ---- use it: a theme, or the code ----
         { var ub = Rc(px, yy, pw, 12 + 38 + 12 + 26); MixBox(g, ub); float uy = ub.Y + 12;
           if (vis(uy, uy + 40)) { float bw = Math.Min(280, (pw - 28 - 10) / 2f); var u1 = Rc(ub.X + 14, uy, bw, 38); var u2 = Rc(u1.Right + 10, uy, bw, 38);
-              Btn(g, u1, "USE AS A THEME", 2, () => MixUseAsTheme(), 12); Hint2(u1, "Make a theme for the whole program from your mix (the merged colour, A and B). REVERT puts the old one back");
+              Btn(g, u1, "SAVE AS THEME", 2, () => MixSaveAsTheme(), 12); Hint2(u1, "Save your mix as a theme for the whole program (the merged colour, A and B). It goes in THEMES, PROFILE THEMES, where you can use it any time or delete it");
               Btn(g, u2, "COPY THE HEX CODE", 1, () => MixCopyCode(), 12); Hint2(u2, "Copy the code of the merged colour (like #A79CC4)"); }
           Txt(g, mixStatus.Length > 0 ? mixStatus : "Your profile colour is " + (mixFollow ? "your mix: " + MixColours.HexOf(MixedNow) : "the colour of your theme") + ".", 12, mixStatus.Length > 0 ? Ink : DimC, Rc(ub.X + 14, uy + 46, pw - 28, 20), StringAlignment.Near, false);
           yy = ub.Bottom; }

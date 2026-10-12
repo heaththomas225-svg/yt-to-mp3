@@ -20,6 +20,8 @@ partial class StudioForm
         ThreadPool.QueueUserWorkItem(o => { try { using (var wc = new WebClient()) { wc.Headers["User-Agent"] = "PurphexMusic"; string j = wc.DownloadString("https://purphexmusic.com/api/community"); var m = Regex.Match(j, "\"discord\"\\s*:\\s*\"([^\"]*)\""); if (m.Success) { string u = m.Groups[1].Value.Replace("\\/", "/"); if (u.StartsWith("https://discord.gg/") || u.StartsWith("https://discord.com/invite/")) commInvite = u; } } } catch { } });
     }
     static readonly string[] CommTabs = { "All", "Recent" };
+    // the community itself lives on the website (members sign in there)
+    void OpenCommunitySite(string path) { try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(CommunityPresets.BaseUrl + path) { UseShellExecute = true }); Toast("Opening the community on the website: sign in there."); } catch (Exception ex) { Toast("Could not open the website: " + ex.Message); } }
 
     static Color HueCol(double h, int a)
     {
@@ -64,6 +66,10 @@ partial class StudioForm
             int k = i; var r = Rc(tx, ty, 118, 34); bool on = commFilter == i; if (on) { FillRR(g, TM.C(120, 70, 40, 160), r, 10); } else if (Hot(r)) FillRR(g, TM.C(70, 70, 40, 130), r, 10);
             Txt(g, CommTabs[i], 13, on ? Ink : DimC, r, StringAlignment.Center, on); if (on) using (var pen = new Pen(NeonCyan, 2f)) g.DrawLine(pen, r.X + 12, r.Bottom - 1, r.Right - 12, r.Bottom - 1); Reg(r, () => { commFilter = k; commScroll = 0; }); tx += 124;
         }
+        // ---- SAVED SONGS and SHARE: both are on the community page of the website (you sign in there); a song saved there is for listening, never a file on this PC ----
+        { var shB = Rc(cx1 - 4 - 150, ty, 150, 34); var svB = Rc(shB.X - 8 - 178, ty, 178, 34); if (svB.X > tx + 20)
+          { Btn(g, svB, "SAVED SONGS", 1, () => OpenCommunitySite("/community?saved=1"), 13); Hint2(svB, "The songs you saved from the community (the favourites of other producers). Opens the community page of the website: sign in there. Saved songs are for listening: they cannot be saved to your PC");
+            Btn(g, shB, "SHARE", 2, () => OpenCommunitySite("/community"), 13); Hint2(shB, "Share a song with the community. Opens the community page of the website, where you sign in and upload it"); } }
         // ---- the feed: round neon art cards (your saved projects) ----
         var all = ProjectLibrary.AllByEdited(); var list = new List<ProjectEntry>();
         foreach (var e in all) { if (commFilter == 1 && (DateTime.Now - e.Opened).TotalDays > 7) continue; list.Add(e); }
@@ -91,9 +97,9 @@ partial class StudioForm
                 // the hover tools sit over the picture
                 using (var b = new SolidBrush(TM.C(205, 6, 3, 18))) using (var p = RR(art, 12)) g.FillPath(b, p);
                 // the hover tools sit over the picture: Open on its own line, then the rest in pairs (Play is the button at the bottom of the card)
-                string[] bn = { "Open", "Rename", "Picture", "No picture", "Describe", "Tags", "Folder" }; float bw = (S - 30) / 2f, bh = 32;
+                string[] bn = { "Open", "Rename", "Upload pic", "Delete pic", "Describe", "Tags", "Folder" }; float bw = (S - 30) / 2f, bh = 32;
                 Action[] ba = { () => OpenProjectAsk(e), () => RenameEntry(e), () => PickCover(path), () => { if (e.Cover.Length > 0) { ProjectLibrary.ClearCover(path); Toast("Picture removed: the Purphex logo is shown again."); } else Toast("This project has no picture of its own."); }, () => DescribeEntry(e), () => TagEntry(e), () => { try { System.Diagnostics.Process.Start("explorer.exe", "/select,\"" + path + "\""); } catch { } } };
-                for (int k = 0; k < 7; k++) { RectangleF br = k == 0 ? Rc(art.X + 10, art.Y + 10, S - 20, bh) : Rc(art.X + 10 + ((k - 1) % 2) * (bw + 10), art.Y + 10 + (1 + (k - 1) / 2) * (bh + 8), bw, bh); Action act = ba[k]; Btn(g, br, bn[k], k == 0 ? 2 : 1, () => act(), 12); }
+                for (int k = 0; k < 7; k++) { RectangleF br = k == 0 ? Rc(art.X + 10, art.Y + 10, S - 20, bh) : Rc(art.X + 10 + ((k - 1) % 2) * (bw + 10), art.Y + 10 + (1 + (k - 1) / 2) * (bh + 8), bw, bh); Action act = ba[k]; Btn(g, br, bn[k], k == 0 ? 2 : (k == 3 ? (e.Cover.Length > 0 ? 3 : 0) : 1), () => act(), 12); if (k == 2) Hint2(br, "Upload a picture from your PC for this project (it replaces the Purphex logo on the card)"); else if (k == 3) Hint2(br, e.Cover.Length > 0 ? "Delete the picture you uploaded: the Purphex logo is shown again" : "This project has no picture of its own to delete"); }
             }
         }
         g.Restore(gs);

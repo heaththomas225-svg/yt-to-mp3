@@ -1,4 +1,4 @@
-3.32.0
+3.33.0
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Colour mixer with two palettes, presets, every finish of colour, a language box for lyrics
-sha256=1b5a2b4bbd845a09b7042b500e9d627ba289f22cde5a27443c49fd5caccc7a93
+Profile themes, whole pictures, links and tags rules, music videos, a place search, emoji for lyrics, saved songs, smoother sound
+sha256=81cae04f3cf1585fc92e77eeecd7a7f8bc556bbd4f1e16fbaa9a1fb7cc3334bf

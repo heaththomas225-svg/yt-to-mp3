@@ -12,7 +12,7 @@ static class LyricsGet
 {
     public static string BaseUrl = "https://lrclib.net";   // tests point this at a small local server
     static readonly string[] Media = { ".mp3", ".m4a", ".flac", ".wav", ".opus", ".ogg", ".aac", ".mp4", ".mkv", ".webm", ".mov" };
-    public sealed class Found { public string Artist, Title, Lyrics; }
+    public sealed class Found { public string Artist, Title, Lyrics; public double Duration = -1; public bool Exact; }   // Exact: the title is the title asked for, word for word   // Duration: the length of the song the copy belongs to, in seconds
 
     // the name with the brackets, the format tag and "Official Video" taken off
     public static string CleanString(string fileNameNoExt)
@@ -46,7 +46,13 @@ static class LyricsGet
     {
         var a = Tokens(want); var b = new HashSet<string>(Tokens(have)); if (a.Count == 0) return 0; int hit = 0; foreach (var t in a) if (b.Contains(t)) hit++; return hit / (double)a.Count;
     }
+    // a lookup that is tried again once when the network hiccups (the first request after a quiet spell often fails)
     internal static string GetText(string url)
+    {
+        try { return GetText1(url); }
+        catch (WebException ex) { var r = ex.Response as HttpWebResponse; if (r != null && (int)r.StatusCode < 500) throw; System.Threading.Thread.Sleep(500); return GetText1(url); }
+    }
+    static string GetText1(string url)
     {
         try { ServicePointManager.SecurityProtocol |= (SecurityProtocolType)3072; } catch { }
         var rq = (HttpWebRequest)WebRequest.Create(url); rq.UserAgent = "PurphexMusic/" + App.CurrentVersion + " (https://purphexmusic.com)"; rq.Timeout = 12000; rq.ReadWriteTimeout = 12000; rq.Accept = "application/json";
@@ -58,13 +64,14 @@ static class LyricsGet
         string p = S(d, "plainLyrics"); if (p.Trim().Length > 20) return p; string sy = S(d, "syncedLyrics"); if (sy.Length == 0) return p;
         var lines = new List<string>(); foreach (string l in sy.Replace("\r\n", "\n").Split('\n')) lines.Add(Regex.Replace(l, @"^\s*(\[\d+:\d+(?:[.:]\d+)?\]\s*)+", "").TrimEnd()); return string.Join("\n", lines.ToArray());
     }
+    static double Dur(Dictionary<string, object> d) { object o; if (d != null && d.TryGetValue("duration", out o) && o != null) { try { return Convert.ToDouble(o, System.Globalization.CultureInfo.InvariantCulture); } catch { } } return -1; }
     static int WordCount(string s) { return Tokens(s).Count; }
     static bool Usable(Dictionary<string, object> d) { object ins; bool instrumental = d.TryGetValue("instrumental", out ins) && ins is bool && (bool)ins; return !instrumental && PlainOf(d).Trim().Length > 20; }
 
     // the best match, or null (nothing found / nothing close enough). Throws on a network problem so the caller can say so.
     // The database can hold several copies of a song and some are cut short, so every copy that is really this song (the same artist, the same title and nothing extra in it) is looked at
     // and the most complete one (the most words) is used. A copy under another singer, or a different song that only has the words in its name (a cover, a reply), is never used.
-    public static Found Fetch(string artist, string title)
+    public static Found Fetch(string artist, string title, double duration = -1)
     {
         if (string.IsNullOrWhiteSpace(title)) return null; var pool = new List<KeyValuePair<double, Found>>(); bool haveArtist = !string.IsNullOrWhiteSpace(artist);
         if (haveArtist)
@@ -72,7 +79,7 @@ static class LyricsGet
             try
             {
                 var d = MiniJson.Parse(GetText(BaseUrl + "/api/get?artist_name=" + Uri.EscapeDataString(artist) + "&track_name=" + Uri.EscapeDataString(title))) as Dictionary<string, object>;
-                if (d != null && Usable(d) && Overlap(title, S(d, "trackName")) >= 0.6) pool.Add(new KeyValuePair<double, Found>(3.0, new Found { Artist = S(d, "artistName"), Title = S(d, "trackName"), Lyrics = PlainOf(d) }));
+                if (d != null && Usable(d) && Overlap(title, S(d, "trackName")) >= 0.6) pool.Add(new KeyValuePair<double, Found>(3.0, new Found { Artist = S(d, "artistName"), Title = S(d, "trackName"), Lyrics = PlainOf(d), Duration = Dur(d), Exact = Overlap(title, S(d, "trackName")) >= 0.99 && Overlap(S(d, "trackName"), title) >= 0.99 }));
             }
             catch (WebException ex) { var r = ex.Response as HttpWebResponse; if (r == null || (int)r.StatusCode >= 500) throw; }   // 404 = no exact match: search instead
         }
@@ -85,11 +92,20 @@ static class LyricsGet
             {
                 var d = o as Dictionary<string, object>; if (d == null || !Usable(d)) continue; string tn = S(d, "trackName"), an = S(d, "artistName");
                 double ts = Overlap(title, tn), tr = Overlap(tn, title), asx = haveArtist ? Overlap(artist, an) : 1;   // the title is in the track name and the track name is little more than the title; the artist is the artist (not just a word in the name)
-                if (ts < 0.6 || tr < 0.5 || asx < 0.6) continue; pool.Add(new KeyValuePair<double, Found>(ts + tr + asx, new Found { Artist = an, Title = tn, Lyrics = PlainOf(d) }));
+                if (ts < 0.6 || tr < 0.5 || asx < 0.6) continue; pool.Add(new KeyValuePair<double, Found>(ts + tr + asx, new Found { Artist = an, Title = tn, Lyrics = PlainOf(d), Duration = Dur(d), Exact = ts >= 0.99 && tr >= 0.99 }));
             }
         }
+        // the length of the file says which song it is: a copy is only used when its song is as long as the file (give or take six seconds). A title with no artist is only accepted this way: many songs share a name.
+        if (!haveArtist) pool = pool.FindAll(kv => kv.Value.Exact);   // a title with no artist: only a copy with exactly this title (a tribute, a live version or a reply with the words in its name is another song)
+        if (duration > 0 && pool.Count > 0) { var near = pool.FindAll(kv => kv.Value.Duration > 0 && Math.Abs(kv.Value.Duration - duration) <= 6); if (near.Count > 0) pool = near; else if (!haveArtist) return null; }
         if (pool.Count == 0) return null; double best = 0; foreach (var kv in pool) best = Math.Max(best, kv.Key);
-        Found pick = null; int most = -1; foreach (var kv in pool) if (kv.Key >= best - 0.15) { int w = WordCount(kv.Value.Lyrics); if (w > most) { most = w; pick = kv.Value; } }
+        // the copy whose song is closest in length to the file, then the fullest
+        Found pick = null; int most = -1, bucket = int.MaxValue;
+        foreach (var kv in pool)
+        {
+            if (kv.Key < best - 0.15 && haveArtist) continue; int w = WordCount(kv.Value.Lyrics), bk = duration > 0 && kv.Value.Duration > 0 ? (int)(Math.Abs(kv.Value.Duration - duration) / 2.0) : 0;
+            if (bk < bucket || (bk == bucket && w > most)) { bucket = bk; most = w; pick = kv.Value; }
+        }
         return pick;
     }
 

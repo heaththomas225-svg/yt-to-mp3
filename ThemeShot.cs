@@ -25,6 +25,7 @@ static class TS
         string err = (string)typeof(StudioForm).GetMethod("SetThemePhotoPath", BF | BindingFlags.NonPublic | BindingFlags.Instance).Invoke(sf, new object[] { pic }); Console.WriteLine("err: " + err + " theme: " + Themes.Current.Name); Pump(600);
         SetF("tab", 1); Pump(300); Shot(Path.Combine(outDir, "photo_theme_mastering.png"));
         SetF("tab", 0); SetF("themeOpen", true); Pump(300); Shot(Path.Combine(outDir, "photo_theme_sheet.png"));
+        Themes.Apply(0); SetF("themeOpen", false); SetF("menuOpen", true); SetF("menuSec", 3); Pump(300); Shot(Path.Combine(outDir, "menu_pages.png")); SetF("menuSec", 0); Pump(200); Shot(Path.Combine(outDir, "menu_file.png"));
         sf.Close();
     }
 }

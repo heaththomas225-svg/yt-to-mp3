@@ -66,6 +66,7 @@ partial class StudioForm
             try { File.WriteAllText(d.FileName, Themes.ToFile(t)); if (t.Photo.Length > 0 && File.Exists(t.Photo)) File.Copy(t.Photo, Path.Combine(Path.GetDirectoryName(d.FileName), Path.GetFileName(t.Photo)), true); Toast("Saved " + Path.GetFileName(d.FileName) + ". Share it with anyone: they press IMPORT."); } catch (Exception ex) { Toast("Could not save: " + ex.Message); }
         }
     }
+    int themeTab; string themeSelName = "";
     void DeleteTheme(ThemeDef t)
     {
         bool ok = themeConfirmHook != null ? themeConfirmHook(t.Name) : MessageBox.Show(this, "Delete the theme \"" + t.Name + "\" from this PC?", "Delete theme", MessageBoxButtons.YesNo, MessageBoxIcon.Question, MessageBoxDefaultButton.Button2) == DialogResult.Yes;
@@ -89,19 +90,21 @@ partial class StudioForm
         TxtWrap(g, "Pick the colours of the whole program. Make your own, import one from a file, or download one that somebody else made.", 12, DimC, Rc(sheet.X + 22, sheet.Y + 48, sheet.Width - 90, 34));
         var close = Rc(sheet.Right - 52, sheet.Y + 14, 32, 32); FillRR(g, Hot(close) ? TM.C(160, 70, 38, 130) : TM.C(110, 40, 24, 80), close, 16); Txt(g, "X", 15, Ink, close, StringAlignment.Center, true); Reg(close, () => themeOpen = false);
         float y = sheet.Y + 90, x = sheet.X + 22;
-        var tabA = Rc(x, y, 128, 34); var tabB = Rc(tabA.Right + 8, y, 186, 34);
-        Btn(g, tabA, "MY THEMES", 4, () => { }, 13); Hint2(tabA, "The themes on this PC (built in and imported)");
+        var tabA = Rc(x, y, 128, 34); var tabP = Rc(tabA.Right + 8, y, 168, 34); var tabB = Rc(tabP.Right + 8, y, 186, 34);
+        Btn(g, tabA, "MY THEMES", themeTab == 0 ? 4 : 0, () => { themeTab = 0; themeScroll = 0; }, 13); Hint2(tabA, "The themes on this PC (built in and imported)");
+        Btn(g, tabP, "PROFILE THEMES", themeTab == 1 ? 4 : 0, () => { themeTab = 1; themeScroll = 0; }, 13); Hint2(tabP, "The themes you saved from the colour mixer on your profile (SAVE AS THEME)");
         Btn(g, tabB, "COMMUNITY THEMES", 0, () => OpenCommunityThemes(), 13); Hint2(tabB, "Download themes other people made, or share yours");
         float rx = sheet.Right - 22; var exp = Rc(rx - 90, y, 90, 34); var pho = Rc(exp.X - 8 - 118, y, 118, 34); bool hasPhoto = Themes.Current.Photo.Length > 0;
-        Btn(g, pho, hasPhoto ? "NO PHOTO" : "PHOTO", hasPhoto ? 3 : 1, () => { if (hasPhoto) ClearThemePhoto(); else SetThemePhoto(); }, 12); Hint2(pho, hasPhoto ? "Take the photo off this theme (its colours stay)" : "Make a theme from a photo: the colours of the whole program come from the picture, and the picture fills the window");
+        if (themeTab == 0) Btn(g, pho, hasPhoto ? "NO PHOTO" : "PHOTO", hasPhoto ? 3 : 1, () => { if (hasPhoto) ClearThemePhoto(); else SetThemePhoto(); }, 12); if (themeTab == 0) Hint2(pho, hasPhoto ? "Take the photo off this theme (its colours stay)" : "Make a theme from a photo: the colours of the whole program come from the picture, and the picture fills the window");
         Btn(g, exp, "SAVE", 1, () => ExportThemeFile(), 12); Hint2(exp, "Save the theme in use as a file you can share (its photo is saved beside it)");
-        float top = y + 50, bottom = sheet.Bottom - 20; float areaH = bottom - top; var area = Rc(sheet.X + 10, top, sheet.Width - 20, areaH);
-        var list = Themes.All; int cols = sheet.Width >= 700 ? 3 : 2; float vsw = 56, gap = 12, cw = (sheet.Width - 44 - vsw - gap * (cols - 1)) / cols, ch = 96; int rows = (list.Count + cols - 1) / cols; float total = rows * (ch + gap);
+        float top = y + 50, bottom = sheet.Bottom - (themeTab == 1 ? 78 : 20); float areaH = bottom - top; var area = Rc(sheet.X + 10, top, sheet.Width - 20, areaH);
+        var list = Themes.All; var idx = new List<int>(); for (int q0 = 0; q0 < list.Count; q0++) if (Themes.IsProfile(list[q0]) == (themeTab == 1)) idx.Add(q0);
+        int cols = sheet.Width >= 700 ? 3 : 2; float vsw = 56, gap = 12, cw = (sheet.Width - 44 - vsw - gap * (cols - 1)) / cols, ch = 96; int rows = (idx.Count + cols - 1) / cols; float total = rows * (ch + gap);
         themeScroll = Math.Max(0, Math.Min(Math.Max(0, total - areaH), themeScroll)); regs.Add(new HitReg { R = area, OnWheel = d => themeScroll = Math.Max(0, Math.Min(Math.Max(0, total - areaH), themeScroll - d * 60)) });
         g.SetClip(area);
-        for (int i = 0; i < list.Count; i++)
+        for (int k0 = 0; k0 < idx.Count; k0++)
         {
-            var t = list[i]; int ti = i; var card = Rc(sheet.X + 22 + (i % cols) * (cw + gap), top + (i / cols) * (ch + gap) - themeScroll, cw, ch); if (card.Bottom < top - 2 || card.Y > bottom) continue;
+            int i = idx[k0]; var t = list[i]; int ti = i; var card = Rc(sheet.X + 22 + (k0 % cols) * (cw + gap), top + (k0 / cols) * (ch + gap) - themeScroll, cw, ch); if (card.Bottom < top - 2 || card.Y > bottom) continue;
             bool on = i == Themes.Index, hot = Hot(card) && area.Contains(MousePos);   /* the card itself is the region (an Intersect would change its size by a hair and never match) */
             using (var br = new LinearGradientBrush(card, Color.FromArgb(hot ? 235 : 215, t.Bg1), Color.FromArgb(hot ? 235 : 215, t.Bg0), 90f)) { using (var p = RR(card, 14)) g.FillPath(br, p); }
             // the theme under the mouse gets a bright outline (in its own colours) with a soft ring round it, so it is plain which one a click will pick
@@ -116,11 +119,18 @@ partial class StudioForm
             { string tg = Themes.Tag(t); bool allowed = Themes.Allowed(t);   // the themes made for one edition wear its name; one above this edition has a padlock
               if (tg.Length > 0 && !ph && !on) { Color tc = t.Req == Tier.Fantasy ? TM.C(255, 255, 110, 230) : TM.C(255, 255, 200, 90); var pill = Rc(card.Right - 90, card.Y + 43, 76, 20); FillRR(g, Color.FromArgb(60, tc), pill, 8); StrokeRR(g, Color.FromArgb(200, tc), pill, 8, 1f); Txt(g, tg, 9, tc, pill, StringAlignment.Center, true); }
               if (!allowed) { using (var br = new SolidBrush(Color.FromArgb(120, 4, 2, 10))) { using (var p = RR(card, 14)) g.FillPath(br, p); } Edition.Padlock(g, Rc(card.Right - 34, card.Y + 8, 20, 26), t.Req == Tier.Fantasy ? Color.FromArgb(255, 255, 110, 230) : Color.FromArgb(255, 255, 200, 90)); } }
-            Reg(card, () => { if (!Themes.Allowed(t)) { Edition.Upsell(t.Req, "The " + t.Name + " theme", this); return; } int prev = Themes.Index; if (prev == ti) return; Themes.Apply(ti); Prefs.Changed(); OfferRevert("Theme " + list[ti].Name + " is on", () => { Themes.Apply(prev); Prefs.Changed(); }); });
+            Reg(card, () => { themeSelName = t.Name; if (!Themes.Allowed(t)) { Edition.Upsell(t.Req, "The " + t.Name + " theme", this); return; } int prev = Themes.Index; if (prev == ti) return; Themes.Apply(ti); Prefs.Changed(); OfferRevert("Theme " + list[ti].Name + " is on", () => { Themes.Apply(prev); Prefs.Changed(); }); });
             if (t.Custom) { var del = Rc(card.Right - (on ? 100 : 36), card.Y + 10, 24, 24); Btn(g, del, "x", 3, () => DeleteTheme(t), 12); Hint2(del, "Delete this theme from this PC"); }
             if (t.Rainbow && !on) { /* the rainbow card is lit by its own colours */ }
         }
         g.ResetClip(); VScroll(g, Rc(sheet.Right - 56, top, 42, areaH), total, areaH, () => themeScroll, v => themeScroll = v);
-        if (list.Count > 0 && total <= areaH) { }
+        if (themeTab == 1)
+        {   // the profile themes: what they are, and a DELETE THEME button under them
+            if (idx.Count == 0) TxtWrap(g, "No profile themes yet. On your Profile page, mix two colours and press SAVE AS THEME: it is added here, and nothing changes until you pick it.", 13, DimC, Rc(sheet.X + 30, top + 10, sheet.Width - 120, 60));
+            ThemeDef target = null; if (Themes.IsProfile(Themes.Current)) target = Themes.Current; else foreach (var q1 in list) if (Themes.IsProfile(q1) && q1.Name == themeSelName) target = q1;
+            var bar = Rc(sheet.X + 22, sheet.Bottom - 68, sheet.Width - 44 - 56, 52); FillRR(g, TM.C(255, 10, 5, 24), bar, 14); Win.DrawNeonBox(g, bar, false);
+            var del = Rc(bar.X + 10, bar.Y + 9, 190, 34); var tgt = target; Btn(g, del, "DELETE THEME", tgt != null ? 3 : 0, () => { if (tgt != null) DeleteTheme(tgt); }, 12); Hint2(del, tgt != null ? "Delete the theme " + tgt.Name + " from this PC" : "Pick a profile theme first, then delete it here");
+            Txt(g, idx.Count + (idx.Count == 1 ? " profile theme saved" : " profile themes saved") + (tgt != null ? "   -   picked: " + tgt.Name : ""), 12, DimC, Rc(del.Right + 14, bar.Y, bar.Width - del.Width - 34, bar.Height), StringAlignment.Near, false);
+        }
     }
 }

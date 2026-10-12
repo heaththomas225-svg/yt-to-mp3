@@ -64,7 +64,7 @@ static class LyricsGen
 
     public sealed class Result
     {
-        public string Artist = "", Title = "", Lyrics = "", Source = "", Note = "", Error = ""; public bool NeedSetup, Found;
+        public string Artist = "", Title = "", Lyrics = "", Source = "", Note = "", Error = ""; public bool NeedSetup, NeedVoice, Found;
         public string DefaultTitle { get { return (Artist.Length > 0 ? Artist + " - " : "") + Title; } }
     }
 
@@ -85,12 +85,15 @@ static class LyricsGen
     public static void Cancel() { var p = Current; if (p != null) { try { p.Kill(); } catch { } } }
 
     // the title and artist written inside the file (ffmpeg shows them), or empty
-    public static void ReadTags(string path, out string artist, out string title)
+    public static void ReadTags(string path, out string artist, out string title) { double d; ReadInfo(path, out artist, out title, out d); }
+    // the title, the artist and the length (seconds, -1 when unknown) that ffmpeg reports for a file
+    public static void ReadInfo(string path, out string artist, out string title, out double duration)
     {
-        artist = ""; title = ""; string ff = null; try { ff = StudioEnv.Ffmpeg(); } catch { } if (ff == null || !File.Exists(ff) || !File.Exists(path)) return;
+        artist = ""; title = ""; duration = -1; string ff = null; try { ff = StudioEnv.Ffmpeg(); } catch { } if (ff == null || !File.Exists(ff) || !File.Exists(path)) return;
         try
         {
             int code; string o = Run(ff, "-hide_banner -i \"" + path + "\"", 15000, null, out code);
+            var dm = Regex.Match(o, @"Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?)"); if (dm.Success) duration = int.Parse(dm.Groups[1].Value) * 3600 + int.Parse(dm.Groups[2].Value) * 60 + double.Parse(dm.Groups[3].Value, System.Globalization.CultureInfo.InvariantCulture);
             foreach (string line in o.Split('\n'))
             {
                 var m = Regex.Match(line, @"^\s*(title|artist|album_artist)\s*:\s*(.+?)\s*$", RegexOptions.IgnoreCase); if (!m.Success) continue; string k = m.Groups[1].Value.ToLowerInvariant(), v = m.Groups[2].Value.Trim();
@@ -125,17 +128,18 @@ static class LyricsGen
         string ea, eb; ta = ParseTime(a, out ea); tb = ParseTime(b, out eb); if (ea.Length > 0) return "TRIM START: " + ea + "."; if (eb.Length > 0) return "TRIM END: " + eb + ".";
         if (ta >= 0 && tb >= 0 && tb <= ta) return "TRIM END has to be after TRIM START."; return "";
     }
-    public static Result Generate(string path, bool allowListen, Action<string> status, Func<bool> cancelled, double trimA = -1, double trimB = -1, string lang = "auto")
+    public static Result Generate(string path, bool allowListen, Action<string> status, Func<bool> cancelled, double trimA = -1, double trimB = -1, string lang = "auto", string quality = null, bool isolate = true)
     {
+        quality = LyricsWhisper.CleanQuality(quality);
         var r = new Result(); Action<string> say = s => { if (status != null) status(s); }; Func<bool> stop = () => cancelled != null && cancelled();
         lang = LyricsLang.Clean(lang); if (IsLink(path)) return GenerateFromLink(path, say, stop, lang);
         try
         {
             if (!File.Exists(path)) { r.Error = "That file is not there any more."; return r; }
-            say("Reading the name of the song..."); string ta, tt; ReadTags(path, out ta, out tt); if (stop()) { r.Error = "Cancelled."; return r; }
+            say("Reading the name of the song..."); string ta, tt; double fileLen; ReadInfo(path, out ta, out tt, out fileLen); if (stop()) { r.Error = "Cancelled."; return r; }
             var cands = SongGuesses(ta, tt, Path.GetFileNameWithoutExtension(path)); r.Artist = cands.Count > 0 ? cands[0][0] : ""; r.Title = cands.Count > 0 ? cands[0][1] : Path.GetFileNameWithoutExtension(path); string artist = r.Artist, title = r.Title;
             say("Looking for the lyrics of \"" + (artist.Length > 0 ? artist + " - " : "") + title + "\"..."); LyricsGet.Found f = null; bool offline = false;
-            int failed = 0; foreach (var c in cands) { if (stop()) break; try { f = LyricsGet.Fetch(c[0], c[1]); } catch (WebException) { failed++; continue; } if (f != null) break; }   /* one guess that fails on the network does not stop the others */
+            int failed = 0; foreach (var c in cands) { if (stop()) break; try { f = LyricsGet.Fetch(c[0], c[1], fileLen); } catch (WebException) { failed++; continue; } if (f != null) break; }   /* one guess that fails on the network does not stop the others */
             if (f == null && cands.Count > 0 && failed == cands.Count) offline = true;
             if (stop()) { r.Error = "Cancelled."; return r; }
             if (f != null)
@@ -143,11 +147,11 @@ static class LyricsGen
                 string n; r.Lyrics = Finish(f.Lyrics, false, out n, lang); r.Artist = f.Artist; r.Title = f.Title; r.Source = "LRCLIB lyrics database"; r.Found = true; r.Note = "Found in the lyrics database. " + n; return r;
             }
             if (!allowListen) { r.Note = offline ? "Could not reach the lyrics database, and listening to the song is switched off." : "This song is not in the lyrics database."; r.Error = r.Note; return r; }
-            if (!LyricsWhisper.Ready) { r.NeedSetup = true; r.Note = (offline ? "Could not reach the lyrics database. " : "This song is not in the lyrics database. ") + "Purphex can write the words by listening to it, which needs a one-time download first."; return r; }
-            string raw = LyricsWhisper.Transcribe(path, say, stop, trimA, trimB, lang);
+            if (!LyricsWhisper.ReadyFor(quality)) { r.NeedSetup = true; r.NeedVoice = isolate && !LyricsWhisper.VoiceAvailable(); r.Note = (offline ? "Could not reach the lyrics database. " : "This song is not in the lyrics database. ") + "Purphex can write the words by listening to it, which needs a one-time download first."; return r; }
+            string raw = LyricsWhisper.Transcribe(path, say, stop, trimA, trimB, lang, quality, isolate);
             if (stop()) { r.Error = "Cancelled."; return r; }
             if (raw.Trim().Length < 12) { r.Error = "No words could be heard in this file (an instrumental, or the voice is too quiet)."; return r; }
-            string n2; r.Lyrics = Finish(raw, true, out n2, lang); r.Source = "Listened to the song (Whisper, on this PC)"; r.Found = true;
+            string n2; r.Lyrics = Finish(raw, true, out n2, lang); r.Source = "Listened to the song (Whisper " + LyricsWhisper.QualityName(quality) + ", on this PC" + (LyricsWhisper.LastVoiceUsed ? ", the voice taken out of the music first" : "") + ")"; r.Found = true;
             r.Note = "Written by listening, so check the words against the song: a speech recogniser can mishear a lyric. " + n2; return r;
         }
         catch (Exception ex) { r.Error = ex is WebException ? "Could not reach the internet: " + ex.Message : ex.Message; return r; }
@@ -158,17 +162,35 @@ static class LyricsGen
 static class LyricsWhisper
 {
     public static string ZipUrl = "https://github.com/ggml-org/whisper.cpp/releases/download/b5454/whisper-bin-x64.zip";
-    public static string ModelUrl = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin";
+    public static string ModelUrl = null;   // tests point this at a small local server (every quality then downloads from it)
     public static string FfmpegZipUrl = "https://github.com/yt-dlp/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip";
-    public static long MinModelBytes = 100L * 1024 * 1024;
-    public const string DownloadSizeText = "about 160 MB";
+    public static long MinModelBytes = -1;   // tests: a small number; -1 = the real sizes below
+    public static string DefaultQuality = "better";
+    // how well it listens: a bigger model understands singing much better but is a bigger download and slower
+    public static readonly string[] Qualities = { "fast", "better", "best" };
+    public static string CleanQuality(string q) { q = (q ?? DefaultQuality ?? "better").Trim().ToLowerInvariant(); return Array.IndexOf(Qualities, q) >= 0 ? q : "better"; }
+    public static string QualityName(string q) { q = CleanQuality(q); return q == "fast" ? "fast (base)" : q == "best" ? "best (medium)" : "better (small)"; }
+    public static string ModelName(string q) { q = CleanQuality(q); return q == "fast" ? "ggml-base.bin" : q == "best" ? "ggml-medium.bin" : "ggml-small.bin"; }
+    static long MinFor(string q) { if (MinModelBytes >= 0) return MinModelBytes; q = CleanQuality(q); return q == "fast" ? 100L * 1024 * 1024 : q == "best" ? 1300L * 1024 * 1024 : 400L * 1024 * 1024; }
+    public static string SizeText(string q) { q = CleanQuality(q); return q == "fast" ? "about 160 MB" : q == "best" ? "about 1.6 GB" : "about 500 MB"; }
+    public static string ModelUrlFor(string q) { return ModelUrl ?? "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/" + ModelName(q); }
     public static string Dir { get { return Path.Combine(StudioEnv.DataDir, "tools", "whisper"); } }
     static string Find(string name) { try { if (Directory.Exists(Dir)) foreach (var f in Directory.EnumerateFiles(Dir, name, SearchOption.AllDirectories)) return f; } catch { } return null; }
     public static string Exe() { return Find("whisper-cli.exe") ?? Find("main.exe"); }
-    public static string Model() { string m = Find("ggml-*.bin"); return m != null && new FileInfo(m).Length >= MinModelBytes ? m : null; }
+    public static string Model(string quality = null) { string m = Find(ModelName(quality)); return m != null && new FileInfo(m).Length >= MinFor(quality) ? m : null; }
     static bool HaveFfmpeg { get { try { string f = StudioEnv.Ffmpeg(); return f != null && File.Exists(f); } catch { return false; } } }
-    public static bool Ready { get { return Exe() != null && Model() != null && HaveFfmpeg; } }
+    public static bool ReadyFor(string quality) { return Exe() != null && Model(quality) != null && HaveFfmpeg; }
+    public static bool Ready { get { return ReadyFor(null); } }
     public static bool WhisperReady { get { return Exe() != null && Model() != null; } }
+    // taking the voice out of the music first makes the words far more accurate: it needs the Vocal remover (the AI model that is set up by the Vocal remover button)
+    public static Func<bool> VoiceAvailable = () => { try { return Separator.Installed; } catch { return false; } };
+    public static Func<string, string, Action<string>, Func<bool>, string> IsolateVoice = DefaultIsolate;
+    public static volatile bool LastVoiceUsed;
+    static string DefaultIsolate(string inWav, string outDir, Action<string> status, Func<bool> cancelled)
+    {
+        string v, i; bool ok = Separator.Separate(inWav, outDir, "voice", "htdemucs", s => { }, p => { if (status != null) status("Taking the voice out of the music (this is the slow part)... " + (int)(p * 100) + "%"); }, cancelled ?? (() => false), out v, out i);
+        return ok && v != null && File.Exists(v) ? v : null;
+    }
 
     static void Download(string url, string to, Action<string, int> progress, string what, Func<bool> cancelled)
     {
@@ -187,8 +209,8 @@ static class LyricsWhisper
         if (File.Exists(to)) File.Delete(to); File.Move(part, to);
     }
 
-    // downloads what is missing: the recogniser (~10 MB), its model (~150 MB) and ffmpeg (~100 MB, only if the converter has not installed it yet)
-    public static void Install(Action<string, int> progress, Func<bool> cancelled)
+    // downloads what is missing: the recogniser (~10 MB), the model of the chosen quality and ffmpeg (~100 MB, only if the converter has not installed it yet)
+    public static void Install(Action<string, int> progress, Func<bool> cancelled, string quality = null)
     {
         Directory.CreateDirectory(Dir);
         if (Exe() == null)
@@ -197,10 +219,10 @@ static class LyricsWhisper
             try { ZipFile.ExtractToDirectory(zip, Path.Combine(Dir, "bin")); } finally { try { File.Delete(zip); } catch { } }
             if (Exe() == null) throw new Exception("The download did not contain the speech recogniser (whisper-cli.exe).");
         }
-        if (Model() == null)
+        if (Model(quality) == null)
         {
-            string mp = Path.Combine(Dir, "ggml-base.bin"); Download(ModelUrl, mp, progress, "Downloading the speech model", cancelled);
-            if (Model() == null) { try { File.Delete(mp); } catch { } throw new Exception("The speech model did not download completely."); }
+            string mp = Path.Combine(Dir, ModelName(quality)); Download(ModelUrlFor(quality), mp, progress, "Downloading the speech model", cancelled);
+            if (Model(quality) == null) { try { File.Delete(mp); } catch { } throw new Exception("The speech model did not download completely."); }
         }
         if (!HaveFfmpeg)
         {
@@ -211,22 +233,34 @@ static class LyricsWhisper
         }
     }
 
-    // the words of the song, one line per sentence the recogniser heard
-    public static string Transcribe(string mediaPath, Action<string> status, Func<bool> cancelled, double trimA = -1, double trimB = -1, string lang = "auto")
+    // the words of the song, one short line at a time. With isolate, the voice is taken out of the music first (when the Vocal remover is set up).
+    public static string Transcribe(string mediaPath, Action<string> status, Func<bool> cancelled, double trimA = -1, double trimB = -1, string lang = "auto", string quality = null, bool isolate = true)
     {
-        string ff = StudioEnv.Ffmpeg(), exe = Exe(), model = Model(); if (ff == null || exe == null || model == null) throw new Exception("The speech recogniser is not set up yet.");
-        string tmp = Path.Combine(Path.GetTempPath(), "purphex_lyr_" + Guid.NewGuid().ToString("N")); string wav = tmp + ".wav", outTxt = tmp + "_words"; int code;
+        string ff = StudioEnv.Ffmpeg(), exe = Exe(), model = Model(quality); if (ff == null || exe == null || model == null) throw new Exception("The speech recogniser is not set up yet.");
+        string tmp = Path.Combine(Path.GetTempPath(), "purphex_lyr_" + Guid.NewGuid().ToString("N")); string wav = tmp + ".wav", outTxt = tmp + "_words", vdir = tmp + "_voice"; int code; LastVoiceUsed = false;
         try
         {
-            if (status != null) status("Getting the sound ready...");
-            string o = Run16k(ff, mediaPath, wav, cancelled, trimA, trimB, out code); if (cancelled != null && cancelled()) return ""; if (code != 0 || !File.Exists(wav)) throw new Exception("The sound of this file could not be read." + (o.Length > 0 ? " " + LastLine(o) : ""));
+            string src = mediaPath; double ta = trimA, tb = trimB;
+            if (isolate && VoiceAvailable())
+            {
+                Directory.CreateDirectory(vdir); string inWav = Path.Combine(vdir, "in.wav"); if (status != null) status("Getting the sound ready...");
+                string o1 = RunProc(ff, "-hide_banner -y " + TrimArgs(trimA, trimB) + "-i \"" + mediaPath + "\" -vn -ac 2 -ar 44100 -c:a pcm_s16le \"" + inWav + "\"", cancelled, out code); if (cancelled != null && cancelled()) return "";
+                if (code == 0 && File.Exists(inWav))
+                {
+                    string v = null; try { v = IsolateVoice(inWav, vdir, status, cancelled); } catch { v = null; } if (cancelled != null && cancelled()) return "";
+                    src = v ?? inWav; ta = -1; tb = -1; LastVoiceUsed = v != null;   // the sound is already cut to the part you asked for
+                }
+            }
+            if (status != null) status(LastVoiceUsed ? "Getting the voice ready..." : "Getting the sound ready...");
+            string o = Run16k(ff, src, wav, cancelled, ta, tb, out code); if (cancelled != null && cancelled()) return ""; if (code != 0 || !File.Exists(wav)) throw new Exception("The sound of this file could not be read." + (o.Length > 0 ? " " + LastLine(o) : ""));
             if (status != null) status("Listening to the song and writing the words... this can take a few minutes");
-            int threads = Math.Max(2, Environment.ProcessorCount / 2); string w = RunWhisper(exe, model, wav, outTxt, threads, lang, cancelled, out code);
-            if (cancelled != null && cancelled()) return ""; string txt = outTxt + ".txt";
+            int threads = Math.Min(12, Math.Max(2, Environment.ProcessorCount - 2)); string txt = outTxt + ".txt"; string w = RunWhisper(exe, model, wav, outTxt, threads, lang, true, cancelled, out code);
+            if (!File.Exists(txt) && code != 0 && !(cancelled != null && cancelled())) w = RunWhisper(exe, model, wav, outTxt, threads, lang, false, cancelled, out code);   // an older recogniser that does not know the extra settings: the plain ones
+            if (cancelled != null && cancelled()) return "";
             if (File.Exists(txt)) return File.ReadAllText(txt, Encoding.UTF8);
             if (code != 0) throw new Exception("The speech recogniser stopped with an error." + (w.Length > 0 ? " " + LastLine(w) : "")); return StripLog(w);
         }
-        finally { foreach (var f in new[] { wav, outTxt + ".txt" }) { try { if (File.Exists(f)) File.Delete(f); } catch { } } }
+        finally { foreach (var f in new[] { wav, outTxt + ".txt" }) { try { if (File.Exists(f)) File.Delete(f); } catch { } } try { if (Directory.Exists(vdir)) Directory.Delete(vdir, true); } catch { } }
     }
     static string LastLine(string s) { var l = s.Replace("\r", "").Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries); return l.Length > 0 ? l[l.Length - 1].Trim() : ""; }
     // when there is no text file the words were printed: drop the log lines
@@ -248,7 +282,8 @@ static class LyricsWhisper
     // the part of the song that is heard: from TRIM START to TRIM END (either can be left out)
     static string TrimArgs(double a, double b) { var ci = System.Globalization.CultureInfo.InvariantCulture; string s = ""; if (a > 0) s += "-ss " + a.ToString("0.###", ci) + " "; if (b > 0) s += "-t " + (a > 0 ? Math.Max(0.1, b - a) : b).ToString("0.###", ci) + " "; return s; }
     static string Run16k(string ff, string input, string wav, Func<bool> cancelled, double trimA, double trimB, out int code) { return RunProc(ff, "-hide_banner -y " + TrimArgs(trimA, trimB) + "-i \"" + input + "\" -vn -ac 1 -ar 16000 -c:a pcm_s16le \"" + wav + "\"", cancelled, out code); }
-    // -mc 0: every sentence is heard on its own (the words before it are not carried along, which is how a recogniser gets stuck repeating one line and then skips the next verses); -bs 5: it weighs five readings of each sentence instead of one
-    public static string WhisperArgs(string model, string wav, string outBase, int threads, string lang = "auto") { return "-m \"" + model + "\" -f \"" + wav + "\" -l " + LyricsLang.Clean(lang) + " -nt -np -mc 0 -bs 5 -t " + threads + " -otxt -of \"" + outBase + "\""; }
-    static string RunWhisper(string exe, string model, string wav, string outBase, int threads, string lang, Func<bool> cancelled, out int code) { return RunProc(exe, WhisperArgs(model, wav, outBase, threads, lang), cancelled, out code); }
+    // -mc 0: every sentence is heard on its own (the words before it are not carried along, which is how a recogniser gets stuck repeating one line and then skips the next verses); -bs 5: it weighs five readings of each sentence instead of one;
+    // -ml 64 -sow: short lines that break between words (a lyric is written line by line); -sns: no [Music] and (Music) tags (the plain set leaves these out for an older recogniser)
+    public static string WhisperArgs(string model, string wav, string outBase, int threads, string lang = "auto", bool full = true) { return "-m \"" + model + "\" -f \"" + wav + "\" -l " + LyricsLang.Clean(lang) + " -nt -np -mc 0 -bs 5 " + (full ? "-ml 64 -sow -sns " : "") + "-t " + threads + " -otxt -of \"" + outBase + "\""; }
+    static string RunWhisper(string exe, string model, string wav, string outBase, int threads, string lang, bool full, Func<bool> cancelled, out int code) { return RunProc(exe, WhisperArgs(model, wav, outBase, threads, lang, full), cancelled, out code); }
 }

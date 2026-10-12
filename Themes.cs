@@ -166,6 +166,13 @@ static class Themes
         }
         catch { }
     }
+    // the themes saved from the colour mixer of the profile (SAVE AS THEME) live in a department of their own: PROFILE THEMES
+    static HashSet<string> profileSet;
+    static string ProfileFile { get { return Path.Combine(StudioEnv.DataDir, "profile-themes.txt"); } }
+    static HashSet<string> ProfileNames() { if (profileSet == null) { profileSet = new HashSet<string>(StringComparer.OrdinalIgnoreCase); try { if (File.Exists(ProfileFile)) foreach (var l in File.ReadAllLines(ProfileFile, Encoding.UTF8)) if (l.Trim().Length > 0) profileSet.Add(l.Trim()); } catch { } } return profileSet; }
+    public static bool IsProfile(ThemeDef t) { return t != null && t.Custom && (ProfileNames().Contains(t.Name) || t.Name.StartsWith("Mix ", StringComparison.Ordinal)); }
+    public static void MarkProfile(string name) { ProfileNames().Add(name); SaveProfileNames(); }
+    static void SaveProfileNames() { try { Directory.CreateDirectory(StudioEnv.DataDir); File.WriteAllText(ProfileFile, string.Join("\n", System.Linq.Enumerable.ToArray(ProfileNames())), Encoding.UTF8); } catch { } }
     static int IndexOfName(string name) { for (int i = 0; i < list.Count; i++) if (string.Equals(list[i].Name, name, StringComparison.OrdinalIgnoreCase)) return i; return -1; }
     public static int IndexOf(string name) { Ensure(); int i = IndexOfName(name); return i < 0 ? 0 : i; }
 
@@ -213,7 +220,7 @@ static class Themes
     public static string ToFile(ThemeDef t) { return "# Purphex Music theme: one colour per line (rrggbb). Share it, edit it, import it.\nname=" + t.Name + "\n" + (t.Author.Length > 0 ? "author=" + t.Author + "\n" : "") + (t.Photo.Length > 0 ? "image=" + Path.GetFileName(t.Photo) + "\n" : "") + t.ToText().Replace(";", "\n") + "\n"; }
     public static bool Delete(ThemeDef t)
     {
-        Ensure(); if (!t.Custom) return false; int i = list.IndexOf(t); if (i < 0) return false; bool wasCurrent = i == Index;
+        Ensure(); if (!t.Custom) return false; int i = list.IndexOf(t); if (i < 0) return false; bool wasCurrent = i == Index; if (ProfileNames().Remove(t.Name)) SaveProfileNames();
         try { string f = Path.Combine(Dir, SafeFile(t.Name) + ".purphextheme"); if (File.Exists(f)) File.Delete(f); } catch { }
         if (t.Photo.Length > 0) { try { File.Delete(t.Photo); } catch { } t.Photo = ""; }
         list.RemoveAt(i); if (wasCurrent) Apply(0); else if (Index > i) Index--; return true;

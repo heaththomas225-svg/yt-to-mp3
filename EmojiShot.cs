@@ -20,8 +20,8 @@ static class EM
         {
             Application.EnableVisualStyles(); var app = (App)Activator.CreateInstance(typeof(App), true);
             sf = new StudioForm(app); sf.ClientSize = new Size(1500, 900); sf.Show(); Pump(400);
-            ProjectLibrary.ProfileName = "Aheath 🎵🔥"; ProfileStore.Bio = "Making beats ❤️ 🎧 and 😀 vibes"; ProfileStore.Location = "London 🇬🇧"; ProfileStore.Tags = "trap drill rap";
-            for (int i = 1; i <= 10; i++) ProfileStore.Links.Add("https://example" + i + ".com/me");
+            ProjectLibrary.ProfileName = "Aheath 🎵🔥"; ProfileStore.Bio = "Making beats ❤️ 🎧 and 😀 vibes"; ProfileStore.Location = "London 🇬🇧"; ProfileStore.Tags = "trap drill rap " + string.Join(" ", System.Linq.Enumerable.Select(System.Linq.Enumerable.Range(1, 70), i => "genre" + i)); ProfileStore.Accent = 0x914232; ProfileStore.NameRgb = 0xFFB07A; ProfileStore.NameRgb2 = 0x6A9BFF;
+            for (int i = 1; i <= 10; i++) ProfileStore.Links.Add(new[] { "https://open.spotify.com/artist/1", "https://soundcloud.com/me", "https://www.youtube.com/@me", "https://www.instagram.com/me", "https://www.tiktok.com/@me", "https://music.apple.com/gb/artist/1", "https://bandcamp.com/me", "https://x.com/me", "https://www.facebook.com/me", "https://twitch.tv/me" }[i - 1]);
             SetF("tab", 6); Pump(200);
             foreach (var scroll in new[] { 0f, 520f })
             {
