@@ -221,7 +221,7 @@ TIP: It never changes your original files."),
 - Set your own loudness with the slider and SET LOUDNESS (MANUAL). A ORIGINAL and B MASTERED compare with loudness match, so you judge tone, not volume.
 - PLAY and PREVIEW MASTER are at the top. Only the buttons that belong to mastering are there.
 ## Watch your music
-The light show is on the Mastering page itself: light bars dance around the logo, rings and sparks fly on every beat. To see it as a page of its own, open the side menu, Pages, Master Visualiser; there you can switch between ORIGINAL and MASTERED while you watch (on the Mastering page use A ORIGINAL and B MASTERED on the left). Esc goes back.
+The light show is on the Mastering page itself: light bars dance around the logo, rings and sparks fly on every beat. To see it as a page of its own, press FULL VISUALISER at the top right of the light show; there you can switch between ORIGINAL and MASTERED while you watch (on the Mastering page use A ORIGINAL and B MASTERED on the left). Esc goes back.
 ## Meters
 Momentary, Short-term and Integrated LUFS, true peak, peak, gain reduction and clip detection."),
 
@@ -612,7 +612,7 @@ Press the three-lines button at the top left of Purphex Music. Your picture and 
 - File: New Project, Recent Projects (the last ones you opened, with their pictures), Open, Save, Save as, Set project picture, Export.
 - Edit (only on the Mix page): undo, redo, split, cut, lock, duplicate and delete.
 - Tools: Auto Mix, split vocals and beat, detect BPM, Flex Pitch, Sounds and sound packs, Rapper Vocal Styles, add a track, metronome and snap to grid. They all take you to the Mix page first.
-- Pages: Mix, Mastering, Master Visualiser, Lyrics, My Projects, Community and Artists. Every page also has a BACK button that returns to the page you came from.
+- Pages: Mix, Mastering, Lyrics, My Projects, Community and Artists. Every page also has a BACK button that returns to the page you came from.
 - View: fit the whole song, thin / normal / tall tracks, full screen, the FPS counter and the converter window.
 - Profile: your own profile page (banner, picture, bio, links, privacy and your tracks).
 - Fonts: the Fonts page, with 190+ fonts (drippy, graffiti, neon, gothic, retro, script, handwritten and more) for all the writing in the studio.

@@ -7,10 +7,15 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.29.0";
+    public const string Latest = "3.29.1";
 
     public const string Text =
-@"3.29.0  Lyrics saved with every song, in every edition
+@"3.29.1  An even visualiser, a FULL VISUALISER button on the light show
+ + The visualiser is even. The ring of bars no longer turns (the loud low bars used to wander round it, so one side always looked smaller), neighbouring bars share their level, and every bar carries the same overall bounce as the logo, so the whole ring and the logo move together. The spectrum along the bottom is lifted towards the highs, so it is no longer tall on the left and flat on the right.
+ + A FULL VISUALISER button sits at the top right of the light show on the Mastering page and opens the visualiser on a page of its own (Esc comes back). The Master Visualiser entry is gone from the Pages menu, so there is one way to it, right where the light show is.
+ + The song position bar of the visualiser visualises the sound too, like the scroll bars: waves flow out of its logo along the bar, cyan to the left and pink to the right.
+
+3.29.0  Lyrics saved with every song, in every edition
  + Lyrics getter. After a song is converted, its lyrics are looked up (LRCLIB, a free community lyrics database) and saved as a .txt with the same name next to the song. The parts are labelled [Verse 1], [Chorus], [Pre-chorus], [Bridge] by the same labeller as the Lyrics page. It works in every edition, Free included, for MP3 and the other formats and for mastered files.
  + Nothing wrong is ever saved: a song only gets lyrics when the title (and artist) match well, an instrumental or an unknown song gets none and the log says so, and an existing .txt is never overwritten. The file says the lyrics belong to their writers and are for your own use.
  + Settings > General has a switch for it (on by default). Help has a new topic, Lyrics saved with each song (.txt).

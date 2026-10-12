@@ -33,7 +33,7 @@ partial class StudioForm
             double f0 = 30 * Math.Pow(600.0, b / (double)outB.Length), f1 = 30 * Math.Pow(600.0, (b + 1) / (double)outB.Length);
             int k0 = Math.Max(1, (int)(f0 * N / StudioEngine.SR)), k1 = Math.Max(k0 + 1, (int)(f1 * N / StudioEngine.SR)); double mx = 0, sum = 0; int c = 0;
             for (int k = k0; k < k1 && k < N / 2; k++) { double m = Math.Sqrt(visRe[k] * visRe[k] + visIm[k] * visIm[k]); if (m > mx) mx = m; sum += m; c++; }
-            double v = c == 0 ? 0 : mx * 0.6 + (sum / c) * 0.4; double db = 20 * Math.Log10(v / (N / 4.0) + 1e-9); float nv = (float)Math.Max(0, Math.Min(1, (db + 78) / 60 + b / (double)outB.Length * 0.16));
+            double v = c == 0 ? 0 : mx * 0.6 + (sum / c) * 0.4; double db = 20 * Math.Log10(v / (N / 4.0) + 1e-9); float nv = (float)Math.Max(0, Math.Min(1, (db + 78) / 60 + b / (double)outB.Length * 0.30));
             outB[b] = nv > outB[b] ? outB[b] + (nv - outB[b]) * 0.75f : outB[b] * 0.9f + nv * 0.1f;
         }
     }
@@ -79,6 +79,20 @@ partial class StudioForm
     }
 
     // ---------- the stage: the light show itself (inside rectangle a) ----------
+    // waves flowing out of the logo along a bar (cyan to the left, pink to the right): the same as the scroll bars
+    void VizWaves(Graphics g, RectangleF inner, RectangleF ob, float logoCx, float lhw)
+    {
+        bool playing = eng.Playing; VizUpdate(playing); if (!playing) return; float cy = ob.Y + ob.Height / 2;
+        var st = g.Save(); g.SetClip(inner, CombineMode.Intersect); g.SmoothingMode = SmoothingMode.AntiAlias; float maxH = ob.Height / 2 - 3; int hl = vizHist.Length;
+        for (int c = 0; c < 190; c++)
+        {
+            float v = vizHist[(vizHead - 1 - c + hl * 4) % hl]; float amp = Math.Max(1f, v * maxH * (1f - c / 260f) * (0.75f + 0.25f * vizBand[(c * 3) % vizBand.Length])); float fade = 1f - c / 200f; int al = (int)(235 * fade); if (al <= 4) break;
+            float xl = logoCx - lhw - 6 - c * 2.2f, xr = logoCx + lhw + 6 + c * 2.2f;
+            using (var pl = new Pen(TM.C(al, 0, 229, 255), 1.5f)) g.DrawLine(pl, xl, cy - amp, xl, cy + amp);
+            using (var pr = new Pen(TM.C(al, 255, 43, 214), 1.5f)) g.DrawLine(pr, xr, cy - amp, xr, cy + amp);
+        }
+        g.Restore(st);
+    }
     void PaintVisStage(Graphics g, RectangleF a, bool full)
     {
         float dt = Math.Min(0.05f, hDt); bool playing = eng.Playing; visT += dt; visFrame++;
@@ -117,8 +131,11 @@ partial class StudioForm
         { if (visFlash > 0.05f) { int d2 = (int)(R0 * 2.8f) / 16 * 16; if (d2 >= 48) { var au2 = AuraSprite(d2, Coarse(NeonCyan), (int)(60 + 110 * visFlash) / 16 * 16); g.DrawImageUnscaled(au2, (int)(cx - d2 / 2f), (int)(cy - d2 / 2f)); } } }
         Prof.A("vis.aura", v0); v0 = Prof.T();
         // ---- shells of light that ripple out behind the bars (the last few moments of the spectrum) ----
-        int nb = VisN; float r1 = R0 * 1.16f; var cosT = new float[nb]; var sinT = new float[nb]; for (int i = 0; i < nb; i++) { double an = visRot + (-Math.PI / 2) + (i + 0.5) * 2 * Math.PI / nb; cosT[i] = (float)Math.Cos(an); sinT[i] = (float)Math.Sin(an); }
+        int nb = VisN; float r1 = R0 * 1.16f; var cosT = new float[nb]; var sinT = new float[nb]; for (int i = 0; i < nb; i++) { double an = (-Math.PI / 2) + (i + 0.5) * 2 * Math.PI / nb; /* fixed: the spectrum is the same on the left and the right of the logo */ cosT[i] = (float)Math.Cos(an); sinT[i] = (float)Math.Sin(an); }
         Func<int, int> bandOf = i => Math.Min(95, (i < 48 ? i : 95 - i) * 2 + 1);
+        float ov = playing ? Math.Max(0.06f, visBass * 0.45f + visMid * 0.35f + visHigh * 0.2f) : 0f;   // the overall level: what the logo beats to
+        Func<float, float> Even = x => Math.Min(1f, x * 0.5f + ov * 0.75f);   // each bar: its own band and the overall bounce, so mids and highs on the sides are never smaller than the bass
+        var ringV = new float[nb]; { var rawV = new float[nb]; for (int i = 0; i < nb; i++) rawV[i] = visB[bandOf(i)]; float[] kern = { 0.08f, 0.17f, 0.50f, 0.17f, 0.08f }; for (int i = 0; i < nb; i++) { float acc = 0; for (int k = -2; k <= 2; k++) acc += rawV[((i + k) % nb + nb) % nb] * kern[k + 2]; ringV[i] = acc; } }
         for (int k = visEcho.Length - 1; k >= 1; k--)
         {
             var snap = visEcho[(visEchoHead - k + visEcho.Length * 2) % visEcho.Length]; if (snap == null) continue; var pts = new PointF[nb]; float grow = 1f + 0.09f * k;
@@ -146,7 +163,7 @@ partial class StudioForm
               g.SmoothingMode = pass == 0 ? SmoothingMode.None : SmoothingMode.AntiAlias; float wdt = pass == 0 ? 11f : 3.4f;
               for (int i = 0; i < nb; i++)
               {
-                  int bi = bandOf(i); float v = visB[bi]; if (!playing) v = Math.Max(v, 0.03f + 0.025f * (float)Math.Sin(visT * 1.7 + i * 0.35)); float len = R0 * 0.07f + v * R0 * 1.15f; float ca = cosT[i], sa = sinT[i], nx = -sa * wdt / 2, ny = ca * wdt / 2; float x0 = cx + ca * r1, y0 = cy + sa * r1, x1 = cx + ca * (r1 + len), y1 = cy + sa * (r1 + len);
+                  int bi = bandOf(i); float v = Even(ringV[i]); if (!playing) v = Math.Max(v, 0.03f + 0.025f * (float)Math.Sin(visT * 1.7 + i * 0.35)); float len = R0 * 0.07f + v * R0 * 1.15f * (1f + 0.22f * visBeat); float ca = cosT[i], sa = sinT[i], nx = -sa * wdt / 2, ny = ca * wdt / 2; float x0 = cx + ca * r1, y0 = cy + sa * r1, x1 = cx + ca * (r1 + len), y1 = cy + sa * (r1 + len);
                   core[0] = new PointF(x0 + nx, y0 + ny); core[1] = new PointF(x1 + nx, y1 + ny); core[2] = new PointF(x1 - nx, y1 - ny); core[3] = new PointF(x0 - nx, y0 - ny);
                   Color col = VisCol((i < 48 ? i : 95 - i) / 47f); if (pass == 0) col = Color.FromArgb((int)(34 + 40 * v), col); else col = MixC(col, Color.White, Math.Min(0.55f, v * 0.5f));
                   using (var br = new SolidBrush(col)) g.FillPolygon(br, core);
@@ -176,7 +193,7 @@ partial class StudioForm
           using (var br = new SolidBrush(Color.White))
             for (int i = 0; i < VisN; i++)
             {
-                float v = visB[i]; if (!playing) v = Math.Max(v, 0.02f + 0.015f * (float)Math.Sin(visT * 2 + i * 0.3)); float hh = 2 + v * floorUp; Color c = VisCol(i / 95f); float bx = x0 + i * bw + 1, w2 = Math.Max(2f, bw - 2.4f);
+                float v = Math.Min(1f, visB[i] * 0.75f + ov * 0.5f); if (!playing) v = Math.Max(v, 0.02f + 0.015f * (float)Math.Sin(visT * 2 + i * 0.3)); float hh = 2 + v * floorUp; Color c = VisCol(i / 95f); float bx = x0 + i * bw + 1, w2 = Math.Max(2f, bw - 2.4f);
                 br.Color = Color.FromArgb(70, c); g.FillRectangle(br, bx - 1, baseY - hh - 1, w2 + 2, hh + 1); br.Color = Color.FromArgb(235, c); g.FillRectangle(br, bx, baseY - hh, w2, hh);
                 br.Color = Color.FromArgb(46, c); g.FillRectangle(br, bx, baseY + 2, w2, Math.Min(18f, hh * 0.4f));
                 float pk = 2 + visPk[i] * floorUp; br.Color = Color.FromArgb(220, 255, 255, 255); g.FillRectangle(br, bx, baseY - pk - 3, w2, 2);
@@ -190,7 +207,7 @@ partial class StudioForm
             const float tw0 = 74; var inner = Rc(ob.X + tw0, ob.Y + 4, ob.Width - 2 * tw0, ob.Height - 8); double tot = Math.Max(1, eng.EndFrame); float f = (float)Math.Max(0, Math.Min(1, dispPos / tot)); float px = inner.X + f * inner.Width;
             if (f > 0.002f) using (var br = new SolidBrush(TM.C(60, 0, 110, 130))) g.FillRectangle(br, inner.X, inner.Y, Math.Max(0, px - inner.X), inner.Height);
             using (var pen = new Pen(Color.FromArgb(230, NeonCyan), 1.6f)) g.DrawLine(pen, px, inner.Y, px, inner.Bottom);
-            float lh = ob.Height / 2f - 2f, lhw = lh * 1.16f, lcx = Math.Max(inner.X + lhw + 2, Math.Min(inner.Right - lhw - 2, px)), lcy = ob.Y + ob.Height / 2f; DrawLogo(g, lcx, lcy, lh, pl2, Hot(Rc(lcx - lhw, lcy - lh, lhw * 2, lh * 2)));
+            float lh = ob.Height / 2f - 2f, lhw = lh * 1.16f, lcx = Math.Max(inner.X + lhw + 2, Math.Min(inner.Right - lhw - 2, px)), lcy = ob.Y + ob.Height / 2f; VizWaves(g, inner, ob, lcx, lhw); DrawLogo(g, lcx, lcy, lh, pl2, Hot(Rc(lcx - lhw, lcy - lh, lhw * 2, lh * 2)));
             Txt(g, Fmt(dispPos / (double)StudioEngine.SR), 11, Ink, Rc(ob.X + 10, ob.Y, tw0 - 12, ob.Height), StringAlignment.Near, true); Txt(g, Fmt(tot / StudioEngine.SR), 11, DimC, Rc(ob.Right - tw0 + 2, ob.Y, tw0 - 12, ob.Height), StringAlignment.Far, false);
             Action<float> seek = mx => { double ff = Math.Max(0, Math.Min(1, (mx - inner.X) / inner.Width)); eng.Seek((long)(ff * tot)); }; var rg = Reg(inner, () => seek(MousePos.X)); rg.OnDrag = pt => seek(pt.X);
             if (Hot(inner)) { bubble = "Click or drag to jump to a place in the song"; bubblePt = MousePos; }
@@ -199,6 +216,7 @@ partial class StudioForm
         // title and what you are hearing
         { string st = eng.MasterBypass ? "ORIGINAL" : "MASTERED"; float ty = a.Y + 8, tx0 = full ? a.X + a.Width / 2 - 62 : a.X + 14; Txt(g, projName.ToUpper(), full ? 20 : 14, Ink, Rc(full ? a.X + a.Width / 2 - 300 : tx0, ty, full ? 600 : Math.Min(320, a.Width - 200), full ? 30 : 22), full ? StringAlignment.Center : StringAlignment.Near, true); var pill = Rc(tx0, ty + (full ? 32 : 24), 124, full ? 24 : 20);
           FillRR(g, eng.MasterBypass ? TM.C(255, 60, 52, 98) : Color.FromArgb(255, 28, 112, 86), pill, 9); Txt(g, st, full ? 12 : 11, Color.White, pill, StringAlignment.Center, true); if (full) { var hp = Rc(pill.Right + 8, pill.Y, 122, pill.Height); Btn(g, hp, eng.MasterBypass ? "HEAR MASTER" : "HEAR ORIGINAL", 0, () => { eng.MasterBypass = !eng.MasterBypass; ApplyMatch(); }, 10); Hint2(hp, "Switch between your original mix and the mastered sound while you watch"); } }
+        if (!full) { var fvb = Rc(a.Right - 156, a.Y + 6, 144, 26); Btn(g, fvb, "FULL VISUALISER", 1, () => GoTab(5), 11); Hint2(fvb, "Open the visualiser on a page of its own (Esc comes back)"); }
         if (!playing) Txt(g, "PRESS PLAY OR PREVIEW MASTER AND WATCH YOUR MUSIC MOVE", 12, DimC, Rc(a.X, Math.Min(cy + R0 * 2.35f, a.Bottom - (full ? 48f : 42f) - 8 - (full ? Math.Min(150f, a.Height * 0.2f) : Math.Min(64f, a.Height * 0.2f)) * 0.35f - 26), a.Width, 20), StringAlignment.Center, true);
         g.Restore(gs);
     }

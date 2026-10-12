@@ -63,7 +63,7 @@ partial class StudioForm
                 I("Metronome on / off", () => { GoMixClose(); eng.Metronome = !eng.Metronome; }); I(snapOn ? "Snap to grid: ON" : "Snap to grid: OFF", () => { GoMixClose(); snapOn = !snapOn; Toast(snapOn ? "Snap to the grid is on." : "Snap to the grid is off."); });
                 break;
             case 3:   // Pages
-                I("Mix (tracks)", () => GoTab(0)); I("Mastering", () => GoTab(1)); I("Master Visualiser", () => GoTab(5)); I("Lyrics", () => GoTab(2));
+                I("Mix (tracks)", () => GoTab(0)); I("Mastering", () => GoTab(1)); I("Lyrics", () => GoTab(2));
                 I("My Projects", () => GoTab(3)); I("Community", () => GoTab(4)); I("Artists", () => { CloseMenu(); OpenArtists(); });
                 break;
             default:  // View

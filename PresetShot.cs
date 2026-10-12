@@ -24,6 +24,8 @@ static class PS
             SetF("tab", 1); SetF("mpTab", 1); Pump(100); Shot(Path.Combine(outDir, "master-presets.png"), 1500, 900);
             SetF("mpTab", 0); SetF("tab", 0); SetF("selTrack", 0); Pump(100); sf.OpenPresetSheet(eng.MasterFx[0]); Pump(100); Shot(Path.Combine(outDir, "fx-presets.png"), 1500, 900);
             SetF("psOpen", false); Pump(50); sf.OpenCommunityPresets("fx:" + eng.MasterFx[0].Type, eng.MasterFx[0].Title, cp => { }, () => eng.MasterFx[0].Serialize(), "x"); Pump(200); Shot(Path.Combine(outDir, "community-presets.png"), 1500, 900);
+            SetF("tab", 1); SetF("mpTab", 0); SetF("psOpen", false); SetF("cpOpen", false); Pump(100); Shot(Path.Combine(outDir, "mastering-now.png"), 1500, 900); { var tp = eng.MasterTap; var tpp = eng.MasterTapPre; for (int i = 0; i < tp.Length; i++) { tp[i] = (float)(0.45 * Math.Sin(i * 0.02) + 0.35 * Math.Sin(i * 0.3) + 0.2 * Math.Sin(i * 1.1)); tpp[i] = tp[i] * 0.5f; } eng.MasterTapPos = 4000; eng.Playing = true; var pm = typeof(StudioForm).GetMethod("PaintAll", BF); using (var bmp = new Bitmap(1500, 900)) using (var gg = Graphics.FromImage(bmp)) { var pe = new PaintEventArgs(gg, new Rectangle(0, 0, 1500, 900)); for (int i = 0; i < 30; i++) { pm.Invoke(sf, new object[] { pe }); Pump(20); } } Shot(Path.Combine(outDir, "mastering-playing.png"), 1500, 900); eng.Playing = false; }
+            SetF("menuOpen", true); SetF("menuSec", 3); Pump(100); Shot(Path.Combine(outDir, "pages-menu.png"), 1500, 900);
             Console.WriteLine("saved");
         }
         finally { try { Directory.Delete(work, true); } catch { } try { if (realBytes != null) File.WriteAllBytes(realSet, realBytes); } catch { } }

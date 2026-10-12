@@ -1,4 +1,4 @@
-3.29.0
+3.29.1
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Lyrics saved with every song, in every edition
-sha256=4875a8e569938fbf263481746de4c50d83864d3aeaed8ba5da3cb8e66439951a
+An even visualiser, FULL VISUALISER button on the light show
+sha256=5ed951179cfa1ac2da1a5831630a5c706f53e415ec99fab84792c3e4c32137e9
