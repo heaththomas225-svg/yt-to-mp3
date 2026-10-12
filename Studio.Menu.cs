@@ -18,7 +18,7 @@ partial class StudioForm
         switch (i)
         {
             case 5: return () => GoTab(3);   // Projects: straight to your saved projects
-            case 6: return () => GoTab(4);   // Community: a button of its own
+            case 6: return () => CommunityChoice();   // Community: two ways in, the community tab or the artists page
             case 7: return () => { GoTab(6); profScroll = 0; };
             case 8: return () => { CloseMenu(); OpenThemeSheet(); };
             case 9: return () => { GoTab(8); fontScroll = 0; };
@@ -28,6 +28,14 @@ partial class StudioForm
         }
     }
 
+    // pressing Community: 1 the community tab (the songs), 2 the artists page (messages, friends, collabs)
+    internal Action<int> communityChoiceHook;   // a test answers for itself
+    void CommunityChoice()
+    {
+        if (communityChoiceHook != null) { CloseMenu(); communityChoiceHook(0); return; }
+        CloseMenu(); var m = Win.NewMenu(); m.Items.Add("1.  COMMUNITY TAB  (songs, albums, EPs, genres)").Click += (a, b) => GoTab(4); m.Items.Add("2.  ARTISTS PAGE  (messages, friends, collabs)").Click += (a, b) => { GoTab(7); OpenArtists(); };
+        m.Show(this, new Point(Math.Max(10, (int)MousePos.X + 20), Math.Max(10, (int)MousePos.Y)));
+    }
     internal Func<string, DialogResult> exitAsk;   // a test answers for itself
     void ExitDawClick()
     {
@@ -38,12 +46,13 @@ partial class StudioForm
             if (r == DialogResult.Cancel) return; if (r == DialogResult.Yes && !SaveBeforeClose()) return;
         }
         else if (ask("Exit will close the DAW (Purphex Music).\n\nClose it?\n\nYes: close.  No or Cancel: stay here.") != DialogResult.Yes) return;
-        Close();
+        leaving = true; Close();
     }
 
     // remember a project in the list (called on save and open)
     void NoteProject(string path, bool saved)
     {
+        savedEdit = editCount;
         ProjectLibrary.Touch(path, projName, eng.Tracks.Count, Fx.ProjectBpm, eng.EndFrame / (double)StudioEngine.SR, saved, ProjectIO.CoverBytes); ProjectIO.CoverBytes = null; var e = ProjectLibrary.Find(path); if (e != null) { var roles = new List<string>(); foreach (var t in eng.Tracks) roles.Add(t.Instrument ? "inst" : (t.IsBus ? "bus" : t.Role)); e.Kind = ProjectLibrary.KindOfRoles(roles); } if (e != null && e.Cover.Length > 0) ProjectIO.CoverBytes = ProjectLibrary.MakeSquare(e.Cover, 256);
     }
 
@@ -83,6 +92,8 @@ partial class StudioForm
             default:  // View
                 I("Fit the whole song", () => { CloseMenu(); tab = 0; FitView(); });
                 I("Thin tracks: " + (LaneH < 96 ? "ON" : "OFF") + "  (click to change)", () => { CloseMenu(); ToggleThinTracks(); });   // the same thing as the THIN TRACKS button
+                I("Chat with artists (a window you can move)", () => { CloseMenu(); OpenChat(""); });
+                I("Performance mode: " + (Prefs.PerfMode ? "ON" : "OFF") + "  (click to change)", () => { CloseMenu(); Prefs.PerfMode = !Prefs.PerfMode; Prefs.Changed(); });
                 I(Win.IsFull(this) ? "MINIMISE (back to a normal window)" : "FULLSCREEN", () => { CloseMenu(); Win.ToggleFullscreen(this); });
                 I("Converter window", () => { CloseMenu(); Win.Bring(app); });
                 break;
@@ -213,7 +224,7 @@ partial class StudioForm
         float W = ClientSize.Width, H = ClientSize.Height, top = ToolH; if (!projectsLoaded) { projectsLoaded = true; ProjectLibrary.Load(); ProjectLibrary.Discover(); }
         PaintLogoBackdrop(g, Rc(0, top, W, H - top));
         if (projBin) { PaintBin(g); return; }
-        var list = VisibleProjects(); float y0 = PaintProjectsBar(g, W, top, ProjectLibrary.Entries.Count, list.Count); float cw = 230, ch = 358, gap = 18, x0 = 24; int cols = Math.Max(1, (int)((W - 48 - 56 + gap) / (cw + gap))); int count = list.Count + 1; int rows = (count + cols - 1) / cols; float bottomRoom = previewPath.Length > 0 ? 70 : 20;
+        var list = VisibleProjects(); float y0 = PaintProjectsBar(g, W, top, ProjectLibrary.Entries.Count, list.Count); if (welcomeOn && !HasProject) y0 += PaintWelcome(g, W, y0 - 8); float cw = 230, ch = 394, gap = 18, x0 = 24; int cols = Math.Max(1, (int)((W - 48 - 56 + gap) / (cw + gap))); int count = list.Count + 1; int rows = (count + cols - 1) / cols; float bottomRoom = previewPath.Length > 0 ? 70 : 20;
         float maxScroll = Math.Max(0, y0 + rows * (ch + gap) - H + bottomRoom); projScroll = Math.Max(0, Math.Min(maxScroll, projScroll)); var area = Rc(0, y0 - 8, W, H - y0 + 8); Reg(area, () => { }).OnWheel = d => { projScroll = Math.Max(0, Math.Min(maxScroll, projScroll - d * 70)); };
         var gs = g.Save(); g.SetClip(area, CombineMode.Intersect);
         for (int i = 0; i < count; i++)
@@ -225,7 +236,7 @@ partial class StudioForm
                 Txt(g, "START WITH A CLEAN PAGE", 11, DimC, Rc(card.X, card.Y + 208, card.Width, 20), StringAlignment.Center, false); Reg(card, () => { StopPreview(); tab = 0; NewProject(); }); continue;
             }
             var e = list[i - 1]; string path = e.Path; bool hot = Hot(card); bool prev = string.Equals(previewPath, path, StringComparison.OrdinalIgnoreCase);
-            FillRR(g, TM.C(205, 22, 12, 42), card, 14); Win.DrawNeonBox(g, card, hot || prev);
+            FillRR(g, TM.C(205, 22, 12, 42), card, 14); Win.DrawNeonBox(g, card, hot || prev); if (card.Bottom > y0 && card.Y < H) AnimRing(g, card, i % 2 == 0 ? NeonCyan : NeonPink);   // the border runs with lights, like the picture on a profile
             var pic = Rc(card.X + 8, card.Y + 8, cw - 16, cw - 16); DrawCover(g, pic, e); Win.DrawNeonBox(g, pic, false); if (e.Missing) { using (var b = new SolidBrush(TM.C(170, 8, 4, 16))) g.FillRectangle(b, pic); Txt(g, "FILE NOT FOUND", 13, Color.FromArgb(255, 150, 150), pic, StringAlignment.Center, true); }
             Txt(g, e.Name, 15, Ink, Rc(card.X + 12, card.Y + 228, cw - 24, 24), StringAlignment.Near, true);
             string meta = e.Tracks + " tracks" + (e.Bpm > 0 ? "  " + e.Bpm.ToString("0") + " BPM" : "") + (e.Seconds > 1 ? "  " + ((int)(e.Seconds / 60)) + ":" + ((int)(e.Seconds % 60)).ToString("00") : ""); Txt(g, meta, 11, DimC, Rc(card.X + 12, card.Y + 252, cw - 24, 18), StringAlignment.Near, false);
@@ -234,6 +245,7 @@ partial class StudioForm
             Reg(card, () => OpenProjectAsk(e)).OnRight = () => ProjectCardMenu(path);
             var star = Rc(card.X + 12, card.Y + 290, 32, 26); FillRR(g, Hot(star) ? TM.C(220, 90, 50, 170) : TM.C(150, 44, 24, 80), star, 7); DrawStar(g, star, e.Fav, Hot(star)); Reg(star, () => ToggleFavourite(e)); Hint2(star, e.Fav ? "Remove from your favourites" : "Add to your favourites (a star)");
             var pfb = Rc(star.Right + 6, card.Y + 290, 32, 26); FillRR(g, e.OnProfile ? TM.C(235, 150, 40, 130) : (Hot(pfb) ? TM.C(220, 90, 50, 170) : TM.C(150, 44, 24, 80)), pfb, 7); DrawPerson(g, pfb, e.OnProfile, Hot(pfb)); Reg(pfb, () => ToggleOnProfile(e)); Hint2(pfb, e.OnProfile ? "On your profile (public): press to make it private again" : "Private: press to PUBLISH TO PROFILE so other people see it on your profile");
+            { var vidB = Rc(card.X + 12, card.Y + 358, cw - 24, 26); bool hv = VideoRecs.Has(CommunitySongs.PidOf(e.Path)); Btn(g, vidB, hv ? "MUSIC VIDEO: ON (CHANGE)" : "UPLOAD MUSIC VIDEO", hv ? 4 : 1, () => UploadMusicVideo(e), 10); Hint2(vidB, "Add a music video of any size or shape. It goes with the song on the community page (publish the project first)."); }
             { var pubB = Rc(card.X + 12, card.Y + 324, cw - 24, 26); Btn(g, pubB, e.OnProfile ? "PUBLISHED: PRESS TO MAKE PRIVATE" : "PUBLISH TO PROFILE + COMMUNITY", e.OnProfile ? 4 : 2, () => ToggleOnProfile(e), 10); Hint2(pubB, e.OnProfile ? "This project is on your profile and in the community: press to make it private again" : "Publish this project to your profile and the community (it asks first). People see its name, tempo, length and tags, never the audio"); }
             FillRR(g, prev ? TM.C(235, 40, 140, 160) : (Hot(pv) ? TM.C(220, 90, 50, 170) : TM.C(150, 44, 24, 80)), pv, 7); using (var b = new SolidBrush(Ink)) { if (prev) g.FillRectangle(b, pv.X + 11, pv.Y + 8, 10, 10); else g.FillPolygon(b, new[] { new PointF(pv.X + 11, pv.Y + 6), new PointF(pv.X + 11, pv.Y + 20), new PointF(pv.X + 22, pv.Y + 13) }); } Reg(pv, () => PreviewToggle(e)); if (Hot(pv)) { bubble = prev ? "Stop the preview" : "PREVIEW: hear this project without opening it"; bubblePt = MousePos; }
             FillRR(g, Hot(cam) ? TM.C(220, 90, 50, 170) : TM.C(150, 44, 24, 80), cam, 7); DrawCamera(g, cam); Reg(cam, () => { if (!e.Missing) PickCover(path); }); if (Hot(cam)) { bubble = "Add or change the picture"; bubblePt = MousePos; }
@@ -252,7 +264,7 @@ partial class StudioForm
     void ProjectCardMenu(string path)
     {
         var e = ProjectLibrary.Find(path); var m = Win.NewMenu(); bool ok = e != null && !e.Missing && File.Exists(path);
-        m.Items.Add("Open").Click += (a, b) => { if (e != null) OpenProjectAsk(e); };
+        if (tab == 3) m.Items.Add("Open").Click += (a, b) => { if (e != null) OpenProjectAsk(e); };   // a project is opened only from My Projects
         m.Items.Add(string.Equals(previewPath, path, StringComparison.OrdinalIgnoreCase) ? "Stop the preview" : "Preview (hear it without opening)").Click += (a, b) => { if (e != null) PreviewToggle(e); };
         m.Items.Add(new ToolStripSeparator());
         m.Items.Add("Rename...").Click += (a, b) => { if (e != null) RenameEntry(e); };

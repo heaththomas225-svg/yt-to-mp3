@@ -144,7 +144,7 @@ partial class StudioForm
         var tr = eng.Tracks[Math.Max(0, Math.Min(selTrack, eng.Tracks.Count - 1))];
         var chain = VocalStyles.Build(s); if (chain.Count == 0) { Toast("That style could not be built."); return; }
         var snapS = TakeSnapshot(); PushUndo();
-        lock (eng.Sync) { if (replace) tr.Fx.Clear(); tr.Fx.AddRange(chain); }
+        if (replace) PutPreset(tr, s.Name, chain); else { bool has = false; foreach (var q in tr.Fx) if (q.Preset.Length > 0) has = true; lock (eng.Sync) { if (!has) foreach (var q in chain) q.Preset = s.Name; tr.Fx.AddRange(chain); } }
         OfferRevert(s.Name + " on " + tr.Name, () => Restore(snapS));
         selFx = -1; stylesOpen = false; Toast(s.Name + (replace ? " applied to " : " added to ") + tr.Name + ". Every plugin is editable (Ctrl+Z undoes it).");
     }

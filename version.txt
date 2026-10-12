@@ -1,4 +1,4 @@
-3.34.0
+
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Lyrics from a link, a worldwide place search, colour emoji, publish prompts, a preview that keeps playing, zapping glitch effect, neon menus
-sha256=8dffc5da5c596d763d50bdc9c1fc5a1600235ca7c172c0f20a0e591203c29c86
+
+sha256=cf7657d47bfd308aefedaa41c617a546eeb8e5308e73a3c1414331a8c561156f

@@ -188,7 +188,7 @@ static class S
                 Check("when the menu opens nothing is expanded yet (you choose what to open)", F<int>("menuSec") == -1 && F<int>("menuSub") == -1, "section " + F<int>("menuSec"));
                 SetF("menuSec", 0); Paint(); var names = new List<string>(); foreach (var r in Regs()) { }
                 SetF("menuSub", 1); Paint(); var recReg = Regs().FindAll(r => Math.Abs(r.R.Width - 334) < 1f && Math.Abs(r.R.Height - 50) < 0.5f); Check("Recent Projects lists the projects you opened, newest first", recReg.Count >= 2, recReg.Count + " rows");
-                typeof(StudioForm).GetMethod("CloseMenu", BF).Invoke(sf, null); SetF("tab", 3); Paint(); var cards = Regs().FindAll(r => Math.Abs(r.R.Width - 230) < 0.5f && Math.Abs(r.R.Height - 358) < 0.5f); Check("My Projects shows a card for the new-project tile and each saved project", cards.Count >= 3, cards.Count + " cards");
+                typeof(StudioForm).GetMethod("CloseMenu", BF).Invoke(sf, null); SetF("tab", 3); Paint(); var cards = Regs().FindAll(r => Math.Abs(r.R.Width - 230) < 0.5f && Math.Abs(r.R.Height - 394) < 0.5f); Check("My Projects shows a card for the new-project tile and each saved project", cards.Count >= 3, cards.Count + " cards");
                 SetF("tab", 4); Paint(); var bmp3 = new Bitmap(sf.ClientSize.Width, sf.ClientSize.Height); sf.DrawToBitmap(bmp3, new Rectangle(0, 0, sf.Width, sf.Height)); bmp3.Save("_community.png", System.Drawing.Imaging.ImageFormat.Png); Check("the Community page draws (a place to build on later)", true, "");
                 SetF("tab", 0); ProjectLibrary.ClearCover(p1); Check("a picture can be removed again", !File.ReadAllText(p1).Contains("\ncover|") && ProjectLibrary.Find(p1).Cover.Length == 0, "");
             }

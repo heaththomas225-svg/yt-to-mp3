@@ -26,7 +26,7 @@ class SettingsForm : Form
     readonly App app; bool setting;
     static readonly int[] FpsChoices = { 30, 60, 120, 144, 165, 240 };
     Label bgName, updStatus; Button updBtn; TrackBar dimBar, volBar; NumericUpDown dimNum, volNum; ComboBox devBox, bufBox, fpsBox, inBox;
-    CheckBox leavesChk, studioChk, fpsChk, shareChk, lyricsChk, countChk; ComboBox themeBox; Label themeNote;
+    CheckBox perfChk, leavesChk, studioChk, fpsChk, shareChk, lyricsChk, countChk; ComboBox themeBox; Label themeNote;
     static Color Ink { get { return TM.C(255, 240, 232, 255); } } static Color Dim { get { return TM.C(255, 198, 182, 232); } } static Color Head { get { return TM.C(255, 236, 120, 230); } } static Color Fld { get { return TM.C(255, 24, 12, 44); } }
 
     public SettingsForm(App app)
@@ -56,6 +56,7 @@ class SettingsForm : Form
         y += 38; themeNote = new Label { Left = 20, Top = y - 4, Width = 520, Height = 34, ForeColor = Dim, Font = new Font("Segoe UI", 10f) }; Add(themeNote); y += 36;
         var comT = Btn("Community themes...", 20, y, 190, TM.C(255, 140, 60, 220)); comT.Click += (s, e) => app.ShowThemes(true); y += 40;
         NewPage("Animation", ref y); Header("Animation", ref y);
+        perfChk = Chk("PERFORMANCE MODE - almost no animation, for slow PCs (30 fps)", 20, ref y); perfChk.CheckedChanged += (s, e) => { if (!setting) { Prefs.PerfMode = perfChk.Checked; Prefs.Changed(); } }; y += 6;
         Add(new Label { Text = "Frame rate limit", Left = 20, Top = y + 3, Width = 150, ForeColor = Ink });
         fpsBox = Combo(180, y, 290, new[] { "30 fps (lightest)", "60 fps (smooth)", "120 fps (fast screens)", "144 fps (gaming screens)", "165 fps", "240 fps (the fastest screens)" }); fpsBox.SelectedIndexChanged += (s, e) => { if (!setting && fpsBox.SelectedIndex >= 0) { Prefs.FpsCap = FpsChoices[fpsBox.SelectedIndex]; Prefs.Changed(); } };
         y += 38;
@@ -254,7 +255,7 @@ class SettingsForm : Form
 
     void ResetAll()
     {
-        Prefs.BgDim = 45; Prefs.BgLeaves = true; Prefs.BgStudio = true; Prefs.ShareSaved = true; Prefs.SaveLyrics = true; Prefs.OutVol = 100; Prefs.OutDev = -1; Prefs.Buf = 1; Prefs.BufBoost = 0; Prefs.FpsCap = 60;  Themes.Apply(0);
+        Prefs.BgDim = 45; Prefs.BgLeaves = true; Prefs.BgStudio = true; Prefs.ShareSaved = true; Prefs.SaveLyrics = true; Prefs.OutVol = 100; Prefs.OutDev = -1; Prefs.Buf = 1; Prefs.BufBoost = 0; Prefs.FpsCap = 60; Prefs.PerfMode = false;  Themes.Apply(0);
         UserBackground.Set(""); Refresh2(); app.StudioEng.ReopenOutput(); Prefs.Changed();
     }
 
@@ -264,7 +265,7 @@ class SettingsForm : Form
         bgName.Text = UserBackground.Active ? (UserBackground.IsVideo ? "Video: " : "Picture: ") + Prefs.BgPath : "None - using the animated purple leaves";
         dimBar.Value = Prefs.BgDim; dimNum.Value = Prefs.BgDim; leavesChk.Checked = Prefs.BgLeaves; studioChk.Checked = Prefs.BgStudio; shareChk.Checked = Prefs.ShareSaved; lyricsChk.Checked = Prefs.SaveLyrics; countChk.Checked = Prefs.CountUses;
         themeBox.SelectedIndex = Themes.Index; themeNote.Text = Themes.Current.Blurb + " It changes the glow, borders and buttons in Purphex Music, Mastering and Bass Lab.";
-        fpsBox.SelectedIndex = Math.Max(0, Array.IndexOf(FpsChoices, Prefs.FpsCap));
+        fpsBox.SelectedIndex = Math.Max(0, Array.IndexOf(FpsChoices, Prefs.FpsCap)); perfChk.Checked = Prefs.PerfMode;
         { int ii = Prefs.InDev.Length == 0 ? 0 : inBox.Items.IndexOf(Prefs.InDev); inBox.SelectedIndex = Math.Max(0, ii); }
         volBar.Value = Prefs.OutVol; volNum.Value = Prefs.OutVol; devBox.SelectedIndex = Math.Max(0, Math.Min(devBox.Items.Count - 1, Prefs.OutDev + 1)); bufBox.SelectedIndex = Prefs.Buf;
         setting = false;

@@ -488,7 +488,7 @@ static class ProjectIO
         {
             var t = eng.Tracks[i];
             sb.Append("tmix|").Append(i).Append('|').Append(t.VolDb.ToString("R", CI)).Append('|').Append(t.Pan.ToString("R", CI)).Append('|').Append(t.Mute ? 1 : 0).Append('|').Append(t.Solo ? 1 : 0).Append('|').Append(t.Off ? 1 : 0).Append('\n');
-            foreach (var f in t.Fx) sb.Append("fx|").Append(i).Append('|').Append(f.Type).Append('|').Append(f.Bypass ? 1 : 0).Append('|').Append(f.Serialize()).Append('\n');
+            { int fk = 0; foreach (var f in t.Fx) { sb.Append("fx|").Append(i).Append('|').Append(f.Type).Append('|').Append(f.Bypass ? 1 : 0).Append('|').Append(f.Serialize()).Append('\n'); if (f.Preset.Length > 0) sb.Append("fxp|").Append(i).Append('|').Append(fk).Append('|').Append(f.Preset.Replace('|', '/').Replace('\n', ' ')).Append('\n'); fk++; } }
             AutoIO.Write(sb, i, t);
         }
         foreach (var f in eng.MasterFx) sb.Append("mfx|").Append(f.Type).Append('|').Append(f.Bypass ? 1 : 0).Append('|').Append(f.Serialize()).Append('\n');
@@ -511,6 +511,7 @@ static class ProjectIO
                 else if (p[0] == "tmix") { int i = int.Parse(p[1]); if (i < trs.Length) tmix.Add(p); }
                 else if (p[0] == "auto") autos.Add(p);
                 else if (p[0] == "fx") { int i = int.Parse(p[1]); if (i < trs.Length) { var f = Presets.Make(p[2], p.Length > 4 ? p[4] : ""); origFx[i].Add(f); if (f != null) { f.Bypass = p[3] == "1"; var vf = f as InstrumentFx; if (vf != null) vf.Owner = trs[i]; newFx[i].Add(f); } } }
+                else if (p[0] == "fxp") { int i = int.Parse(p[1]), k = int.Parse(p[2]); if (i < trs.Length && k >= 0 && k < origFx[i].Count && origFx[i][k] != null && p.Length > 3) origFx[i][k].Preset = p[3]; }
                 else if (p[0] == "mfx") { var q = line.Split(new[] { '|' }, 4); var f = Presets.Make(q[1], q.Length > 3 ? q[3] : ""); if (f != null) { f.Bypass = q[2] == "1"; newMaster.Add(f); } }
             }
             catch { }
@@ -586,7 +587,7 @@ static class ProjectIO
             else if (p[0] == "clip" && p.Length >= 6) { int ci; long fiv, fov; if (int.TryParse(p[1], out ci) && ci >= 0 && ci < tracks.Count) { if (long.TryParse(p[2], out fiv)) tracks[ci].FadeIn = fiv; if (long.TryParse(p[3], out fov)) tracks[ci].FadeOut = fov; tracks[ci].ClipGainDb = F(p[4]); tracks[ci].Locked = p[5] == "1"; long dlv, tlv; if (p.Length >= 8) { if (long.TryParse(p[6], out dlv)) tracks[ci].FadeInDelay = dlv; if (long.TryParse(p[7], out tlv)) tracks[ci].FadeOutTail = tlv; } } }
             else if (p[0] == "route" && p.Length >= 3) routes.Add(p);
             else if (p[0] == "host" && p.Length >= 3) hosts.Add(p);
-            else if (p[0] == "master" || p[0] == "tmix" || p[0] == "fx" || p[0] == "mfx" || p[0] == "auto") mix.Append(line).Append('\n');
+            else if (p[0] == "master" || p[0] == "tmix" || p[0] == "fx" || p[0] == "fxp" || p[0] == "mfx" || p[0] == "auto") mix.Append(line).Append('\n');
         }
         foreach (var rp in routes) { int ra, rb; if (int.TryParse(rp[1], out ra) && int.TryParse(rp[2], out rb) && ra >= 0 && rb >= 0 && ra < tracks.Count && rb < tracks.Count && tracks[rb].IsBus && ra != rb) tracks[ra].Out = tracks[rb]; }
         foreach (var hp in hosts) { int ha, hb; if (int.TryParse(hp[1], out ha) && int.TryParse(hp[2], out hb) && ha >= 0 && hb >= 0 && ha < tracks.Count && hb < tracks.Count && ha != hb && !tracks[hb].IsBus && !tracks[ha].IsBus) tracks[ha].Host = tracks[hb]; }
@@ -630,9 +631,12 @@ static class Exporter
     static string Safe(string s) { foreach (char c in Path.GetInvalidFileNameChars()) s = s.Replace(c, '_'); return s; }
 
     // Renders one item straight to disk in small blocks, so memory stays flat and hour-long songs export fine.
-    public static string Write(StudioEngine eng, ExportItem it, string dir, int fmt, Action<float> prog, Func<bool> cancelled = null, int rate = 44100)
+    public static string Write(StudioEngine eng, ExportItem it, string dir, int fmt, Action<float> prog, Func<bool> cancelled = null, int rate = 44100, double trimA = 0, double trimB = 0)
     {
-        long frames = eng.EndFrame + StudioEngine.SR * 2; Directory.CreateDirectory(dir); if (rate < 8000) rate = StudioEngine.SR;
+        // the whole song, or only the part between "trim start" and "trim end" (seconds; an end of 0 means the end of the song)
+        long allFrames = eng.EndFrame + StudioEngine.SR * 2; long from = Math.Max(0, Math.Min(allFrames - 1, (long)(trimA * StudioEngine.SR))), to = trimB > 0 ? Math.Min(allFrames, (long)(trimB * StudioEngine.SR)) : allFrames;
+        if (to <= from) throw new Exception("The trim end must be after the trim start.");
+        long frames = to - from; Directory.CreateDirectory(dir); if (rate < 8000) rate = StudioEngine.SR;
         string outp = Path.Combine(dir, Safe(it.FileName));
         if (fmt <= 2)
         {
@@ -640,11 +644,11 @@ static class Exporter
             if (frames * rate / StudioEngine.SR * 2L * (bits / 8) > 4000000000L) throw new Exception("WAV files are limited to about 4 GB (about " + (int)(4000000000.0 / ((double)rate * 2 * (bits / 8) * 60)) + " minutes at this rate and depth). Choose a lower sample rate, or FLAC.");
             using (var ws = new WavStream(outp, rate, bits))
             {
-                if (rate == StudioEngine.SR) eng.RenderStream(0, frames, it.Opts, prog, (l, r, o, n) => ws.Write(l, r, o, n), cancelled);
+                if (rate == StudioEngine.SR) eng.RenderStream(from, frames, it.Opts, prog, (l, r, o, n) => ws.Write(l, r, o, n), cancelled);
                 else
                 {   // the sound is converted to the chosen rate as it is made, block by block
                     var rs = new RatioResampler(StudioEngine.SR, rate); float[] oL = new float[1], oR = new float[1];
-                    eng.RenderStream(0, frames, it.Opts, prog, (l, r, o, n) => { int cap = (int)((long)n * rs.Up / rs.Down) + 16; if (oL.Length < cap) { oL = new float[cap]; oR = new float[cap]; } int c = rs.Process(l, r, o, n, oL, oR); ws.Write(oL, oR, 0, c); }, cancelled);
+                    eng.RenderStream(from, frames, it.Opts, prog, (l, r, o, n) => { int cap = (int)((long)n * rs.Up / rs.Down) + 16; if (oL.Length < cap) { oL = new float[cap]; oR = new float[cap]; } int c = rs.Process(l, r, o, n, oL, oR); ws.Write(oL, oR, 0, c); }, cancelled);
                     int fc = 2 * 32 * rs.Up / rs.Down + 64; var fL = new float[fc]; var fR = new float[fc]; int c2 = rs.Flush(fL, fR); ws.Write(fL, fR, 0, c2);
                 }
             }
@@ -659,7 +663,7 @@ static class Exporter
         {
             int tbits = frames * 2L * 4 > 3900000000L ? 24 : 32;
             if (frames * 2L * (tbits / 8) > 4000000000L) throw new Exception("That is too long to export as one file (about 4 hours). Export in parts.");
-            using (var ws = new WavStream(tmp, StudioEngine.SR, tbits)) eng.RenderStream(0, frames, it.Opts, prog == null ? null : (Action<float>)(x => prog(x * 0.9f)), (l, r, o, n) => ws.Write(l, r, o, n), cancelled);
+            using (var ws = new WavStream(tmp, StudioEngine.SR, tbits)) eng.RenderStream(from, frames, it.Opts, prog == null ? null : (Action<float>)(x => prog(x * 0.9f)), (l, r, o, n) => ws.Write(l, r, o, n), cancelled);
             if (cancelled != null && cancelled()) throw new Exception("Export cancelled.");
             int code; string o2 = MasterDsp.RunCapture(ff, "-hide_banner -y -i \"" + tmp + "\" -vn " + (rate != StudioEngine.SR ? "-af aresample=resampler=swr:filter_size=64:cutoff=0.99 -ar " + rate + " " : "") + enc + " \"" + outp + "\"", null, out code);
             if (code != 0 || !File.Exists(outp)) throw new Exception("Encoding failed.\n" + o2);

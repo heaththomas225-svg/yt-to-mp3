@@ -260,7 +260,7 @@ partial class App
     {
         frameWatch.Restart(); PaintN++;
         var g = e.Graphics; var r = bg.ClientRectangle; if (r.Width < 10 || r.Height < 10) return;
-        reqW = r.Width; reqH = r.Height; float W = r.Width, H = r.Height; bool anim = animate.Checked;
+        reqW = r.Width; reqH = r.Height; float W = r.Width, H = r.Height; bool anim = animate.Checked && !Prefs.PerfMode;
         var atmo = atmoFront; var ov = overlayFront;
 
         g.CompositingQuality = CompositingQuality.HighSpeed; g.PixelOffsetMode = PixelOffsetMode.HighSpeed; g.SmoothingMode = SmoothingMode.HighSpeed;

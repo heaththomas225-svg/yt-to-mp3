@@ -86,7 +86,8 @@ partial class StudioForm
         var typeB = Rc(x0, y, 160, 32); Btn(g, typeB, "TYPE: " + (projType.Length == 0 ? "ALL" : projType.ToUpper()), projType.Length > 0 ? 4 : 0, () => TypeMenu(typeB), 12); Hint2(typeB, "Show only songs, beats or vocal projects"); x0 = typeB.Right + 10;
         var favB = Rc(x0, y, 140, 32); Chip(g, favB, "FAVOURITES", projFav, () => { projFav = !projFav; projScroll = 0; }, "Show only the projects you starred"); x0 = favB.Right + 10;
         if (FiltersOn) { var clr = Rc(x0, y, 100, 32); Btn(g, clr, "CLEAR", 3, () => ClearProjectFilters(), 12); Hint2(clr, "Clear the search and every filter"); }
-        { var pubAll = Rc(W - 24 - 200, y, 200, 32); if (pubAll.X > x0 + 10) { Btn(g, pubAll, "PUBLISH ALL", 2, () => PublishAllClick(), 12); Hint2(pubAll, "Publish every project that is not published yet to your profile and the community (it asks first)"); } }
+        { var pubAll = Rc(W - 24 - 200, y, 200, 32); if (pubAll.X > x0 + 10) { Btn(g, pubAll, "PUBLISH ALL", 2, () => PublishAllClick(), 12); Hint2(pubAll, "Publish every project that is not published yet to your profile and the community (it asks first)");
+            var shB = Rc(pubAll.X - 8 - 110, y, 110, 32); var relB = Rc(shB.X - 8 - 150, y, 150, 32); if (relB.X > x0 + 10) { Btn(g, shB, "SHARE", 2, () => OpenCommunitySite("/community"), 12); Hint2(shB, "Share a song with the community. Opens the community page of the website, where you sign in and upload it"); Btn(g, relB, "EP / ALBUM", 1, () => ReleasesMenu(relB), 12); Hint2(relB, "Put several projects together as an EP or an album (and see or delete the ones you made)"); } } }
         return y + 32 + 18;
     }
     void SortMenu(RectangleF r)

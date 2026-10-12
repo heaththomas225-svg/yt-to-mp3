@@ -35,6 +35,10 @@ partial class StudioForm
     void PaintQuake(Graphics g, Bitmap img, int ix, int iy, Track tr, RectangleF lane, RectangleF cr)
     {
         var area = RectangleF.Intersect(lane, new RectangleF(cr.X - 24, lane.Y, cr.Width + 48, lane.Height)); if (area.IsEmpty) return;
+        if (Prefs.PerfMode)   // PERFORMANCE MODE: a track that is off is just darkened (no glitch, no lightning)
+        {
+            using (var br = new SolidBrush(Color.FromArgb(120, 0, 0, 0))) g.FillRectangle(br, area); return;
+        }
         var gs = g.Save(); g.SetClip(lane, CombineMode.Intersect); lastInput = DateTime.Now;
         double now = Environment.TickCount / 1000.0; long step = (long)(now * 16); int seed = (tr.Name ?? "").GetHashCode() & 0xFFFF;
         Color tc = Neon(tr.Color), cyan = Color.FromArgb(255, 0, 229, 255), pink = Color.FromArgb(255, 255, 60, 220), bolt = MixC(cyan, tc, 0.25f);

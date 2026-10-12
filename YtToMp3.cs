@@ -37,7 +37,7 @@ class Job
 partial class App : Form
 {
     // ---- Auto-update settings ----
-    const string Version = "3.34.0";
+    const string Version = "3.35.0";
     // Plain-text manifest: line 1 = newest version, line 2 = direct exe download URL.
     const string UpdateManifestUrl = "https://raw.githubusercontent.com/heaththomas225-svg/yt-to-mp3/main/version.txt";
 
@@ -181,6 +181,7 @@ partial class App : Form
     {
         ServicePointManager.SecurityProtocol = (SecurityProtocolType)3072 | SecurityProtocolType.Tls;
         try { File.Delete(Application.ExecutablePath + ".old"); } catch { }
+        EmojiSprites.Disabled = false;   // the emoji in the writing are drawn in colour (the tests leave this off)
         Application.EnableVisualStyles(); Win.WidenBuffers(); CrashGuard.Install();   // a problem is logged to crash.log, not shown as the grey .NET box
         Application.Run(new App());
     }
@@ -287,7 +288,7 @@ partial class App : Form
         tip.SetToolTip(lyricsBtn, "Add any song or video and get its lyrics, tidied and labelled. Free in every edition.");
         lyricsBtn.Click += (s, e) => ShowLyricsGen();
         tip.SetToolTip(studioBtn, "Open the Logic-style studio: tracks, mixing, Auto-Tune, EQ, effects, mastering and export.");
-        studioBtn.Click += (s, e) => OpenStudio(); Edition.Lock(studioBtn, Tier.Supporter);
+        studioBtn.Click += (s, e) => { bool fresh = studioForm == null || studioForm.IsDisposed; if (OpenStudio() && fresh) studioForm.ShowWelcome(); }; Edition.Lock(studioBtn, Tier.Supporter);
         StyleBtn(addMusicBtn, TM.C(255, 190, 60, 200)); addMusicBtn.Text = "ADD MUSIC"; addMusicBtn.Font = new Font("Segoe UI Semibold", 10.5f);
         addMusicBtn.SetBounds(454, 312, 170, 30); addMusicBtn.Anchor = AnchorStyles.Top | AnchorStyles.Right;
         tip.SetToolTip(addMusicBtn, "Add music from your PC: edit it in Purphex Music, remove the vocals or the beat, or trim the start and end.");
@@ -382,7 +383,7 @@ partial class App : Form
     // Applies the options from the Settings window to the running app.
     internal void ApplyPrefs()
     {
-        if (frameLoop != null) frameLoop.TargetFps = Math.Max(30, Math.Min(Prefs.FpsCap, FrameLoop.DisplayHz()));
+        if (frameLoop != null) frameLoop.TargetFps = Math.Max(30, Math.Min(Prefs.FpsEff, FrameLoop.DisplayHz()));
         try { var sfm = studioForm as StudioForm; if (sfm != null && !sfm.IsDisposed) sfm.ApplyFps(); } catch { }
         WaveOutPlayer.Gain = Prefs.OutVol / 100f;
         if (!Prefs.ShowFps) Text = "Purphex  v" + Version;
@@ -516,8 +517,9 @@ partial class App : Form
         if (minimizedNow) { lastClock = now; reqW = reqH = 0; UserBackground.StopVideo(); return; }
         if (moving || Win.AnyMoving) { lastClock = now; return; }
         if (ActiveForm != this && ActiveForm != null && (++idleTick % 4) != 0) { lastClock = now; return; } float dt = (float)Math.Min(0.05, Math.Max(0.0005, (now - lastClock) / 1000.0)); lastClock = now;
-        if (animate.Checked) t += dt; float k30 = dt * 30f;   // the motion constants below were tuned per 1/30 s
-        if (animate.Checked)
+        bool animOn = animate.Checked && !Prefs.PerfMode;   // PERFORMANCE MODE: the background stands still
+        if (animOn) t += dt; float k30 = dt * 30f;   // the motion constants below were tuned per 1/30 s
+        if (animOn)
         {
             foreach (var l in leaves)
             {
@@ -638,9 +640,9 @@ partial class App : Form
     {
         Func<string, string, MessageBoxButtons, DialogResult> ask = CloseAsk ?? ((t, ti, b) => MessageBox.Show(this, t, ti, b, MessageBoxIcon.Question, MessageBoxDefaultButton.Button2));
         if (ask("Are you sure you want to close Purphex?\n\nThis will close everything: the converter, Purphex Music and every other window. Anything that is converting or playing stops.", "Close Purphex", MessageBoxButtons.YesNo) != DialogResult.Yes) return false;
-        if (studioForm != null && !studioForm.IsDisposed && studioForm.HasProject)
+        if (studioForm != null && !studioForm.IsDisposed && studioForm.HasProject && studioForm.HasUnsaved)
         {
-            var r = ask("Do you want to save your project before closing?\n\nYes: save it, then close.\nNo: close without saving.\nCancel: stay open.", "Save your project?", MessageBoxButtons.YesNoCancel);
+            var r = ask("Do you want to save your project before closing? You can give it a name, and you will find it in My Projects.\n\nYes: save it, then close.\nNo: close without saving.\nCancel: stay open.", "Save your project?", MessageBoxButtons.YesNoCancel);
             if (r == DialogResult.Cancel) return false; if (r == DialogResult.Yes && !studioForm.SaveBeforeClose()) return false;
         }
         return true;

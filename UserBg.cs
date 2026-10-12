@@ -19,6 +19,8 @@ static class Prefs
     public static int BufBoost = 0;          // extra size the studio adds for this session only when the sound breaks up (never saved)
     public static int BufEff { get { return Math.Min(2, Buf + BufBoost); } }
     public static int FpsCap = 60;           // animation frame rate cap: 30, 60, 120, 144, 165 or 240
+    public static bool PerfMode;             // PERFORMANCE MODE: almost no animation and 30 fps, for slow PCs
+    public static int FpsEff { get { return PerfMode ? 30 : FpsCap; } }
     public static bool ShowFps { get { return true; } set { } }      // the frame rate is always shown in the title bar (there is no switch for it any more)
     public static string MidiDev = "";       // the MIDI keyboard Bass Lab listens to ("" = off)
     public static int MicMode = 0;           // the MIC button's mode: 0 Automatic, 1 Standard, 2 Voice Isolation, 3 Wide Spectrum (only for what is recorded)
@@ -37,7 +39,7 @@ static class Prefs
 
     public static string[] Lines()
     {
-        return new[] { "bgpath=" + BgPath, "bgdim=" + BgDim, "bgleaves=" + BgLeaves, "bgstudio=" + BgStudio, "outvol=" + OutVol, "outdev=" + OutDev, "buf=" + Buf, "fpscap=" + FpsCap, "showfps=" + ShowFps, "savelyrics=" + SaveLyrics, "countuses=" + CountUses, "lyriclang=" + LyricLang, "lyricquality=" + LyricQuality, "lyricvoice=" + LyricVoice, "fantasythemev=" + FantasyThemeV, "fantasytheme=" + FantasyThemed, "midiin=" + MidiDev, "indev=" + InDev, "micmode=" + MicMode, "fontid=" + FontId, "sharesaved=" + ShareSaved, "theme=" + Theme };
+        return new[] { "bgpath=" + BgPath, "bgdim=" + BgDim, "bgleaves=" + BgLeaves, "bgstudio=" + BgStudio, "outvol=" + OutVol, "outdev=" + OutDev, "buf=" + Buf, "fpscap=" + FpsCap, "perfmode=" + PerfMode, "showfps=" + ShowFps, "savelyrics=" + SaveLyrics, "countuses=" + CountUses, "lyriclang=" + LyricLang, "lyricquality=" + LyricQuality, "lyricvoice=" + LyricVoice, "fantasythemev=" + FantasyThemeV, "fantasytheme=" + FantasyThemed, "midiin=" + MidiDev, "indev=" + InDev, "micmode=" + MicMode, "fontid=" + FontId, "sharesaved=" + ShareSaved, "theme=" + Theme };
     }
     public static bool Parse(string k, string v)
     {
@@ -52,6 +54,7 @@ static class Prefs
             case "outdev": if (int.TryParse(v, out n)) OutDev = n; return true;
             case "buf": if (int.TryParse(v, out n)) Buf = Math.Max(0, Math.Min(2, n)); return true;
             case "fpscap": if (int.TryParse(v, out n)) FpsCap = n >= 240 ? 240 : (n >= 165 ? 165 : (n >= 144 ? 144 : (n >= 120 ? 120 : (n >= 60 ? 60 : 30)))); return true;
+            case "perfmode": if (bool.TryParse(v, out b)) PerfMode = b; return true;
             case "showfps": if (bool.TryParse(v, out b)) ShowFps = b; return true;
             case "midiin": MidiDev = v; return true;
             case "indev": InDev = v; return true;

@@ -24,8 +24,8 @@ partial class StudioForm : Form
     internal App app; internal StudioEngine eng;
     readonly List<HitReg> regs = new List<HitReg>(); HitReg hover, dragReg;
     System.Windows.Forms.Timer timer = new System.Windows.Forms.Timer(); FrameLoop studioLoop; readonly FpsCounter fpsc = new FpsCounter(); double lastTickMs, lastStepMs; readonly System.Diagnostics.Stopwatch studioClock = System.Diagnostics.Stopwatch.StartNew(); bool lastIdle;
-    internal void ApplyFps() { if (studioLoop != null) studioLoop.TargetFps = Math.Max(30, Math.Min(Prefs.FpsCap, FrameLoop.DisplayHz())); }
-    double FrameGapMs { get { return 1000.0 / Math.Max(30, Math.Min(Prefs.FpsCap, FrameLoop.DisplayHz())) - 1.5; } }
+    internal void ApplyFps() { if (studioLoop != null) studioLoop.TargetFps = Math.Max(30, Math.Min(Prefs.FpsEff, FrameLoop.DisplayHz())); }
+    double FrameGapMs { get { return 1000.0 / Math.Max(30, Math.Min(Prefs.FpsEff, FrameLoop.DisplayHz())) - 1.5; } }
     // one step of the studio loop: housekeeping about 60 times a second, drawing as fast as the chosen frame rate allows
     void FrameStep()
     {
@@ -153,6 +153,7 @@ partial class StudioForm : Form
     }
     protected override void WndProc(ref Message m)
     {
+        if (m.Msg == 0x0112 && (((int)m.WParam) & 0xFFF0) == 0xF060) NoteUserX();   // WM_SYSCOMMAND SC_CLOSE: the X was pressed
         Win.TrackMove(ref m); if (m.Msg == 0x231) moving = true; else if (m.Msg == 0x232) moving = false;
         if (m.Msg == 0x020E && tab == 0) { int dlt = (short)(((long)m.WParam >> 16) & 0xFFFF); ScrollView(dlt / 120.0 * 0.15); Invalidate(); }   // touch pad: swipe sideways
         base.WndProc(ref m);
@@ -354,7 +355,7 @@ partial class StudioForm : Form
     readonly Dictionary<long, float> hoverT = new Dictionary<long, float>(); bool btnAnim;
     float HoverAmount(RectangleF r, string text)
     {
-        long key = ((long)(int)r.X << 42) ^ ((long)(int)r.Y << 24) ^ ((long)(int)r.Width << 8) ^ (long)(uint)text.GetHashCode(); float t; hoverT.TryGetValue(key, out t); float nt = Hot(r) ? t + (1 - t) * 0.4f : t * 0.7f;
+        long key = ((long)(int)r.X << 42) ^ ((long)(int)r.Y << 24) ^ ((long)(int)r.Width << 8) ^ (long)(uint)text.GetHashCode(); float t; hoverT.TryGetValue(key, out t); float nt = Prefs.PerfMode ? (Hot(r) ? 1f : 0f) : (Hot(r) ? t + (1 - t) * 0.4f : t * 0.7f);   // PERFORMANCE MODE: no gliding
         if (nt < 0.015f) nt = 0; else if (nt > 0.985f) nt = 1; if (nt == 0) hoverT.Remove(key); else { if (hoverT.Count > 400) hoverT.Clear(); hoverT[key] = nt; if (nt < 1) btnAnim = true; } return nt;
     }
     HitReg Btn(Graphics g, RectangleF r, string text, int style, Action down, float px = 15)
@@ -456,7 +457,7 @@ partial class StudioForm : Form
         PaintSheets(g); PopEnd(); Prof.Mark("sheets"); Win.PaintNeonChildren(this, g); Prof.Mark("neon children");
         if (TxtAudit != null && (menuOpen || eng.CountBeat > 0)) TxtAudit.Clear();
         PaintMenu(g); Prof.Mark("menu");
-        PaintHoverSparks(g); Prof.Mark("sparks"); PaintRevertBar(g); PaintBubble(g); PaintKeyBox(g); PaintCountIn(g); Prof.Mark("overlays");
+        PaintChatWindow(g); PaintVideoOverlay(g); PaintHoverSparks(g); Prof.Mark("sparks"); PaintRevertBar(g); PaintBubble(g); PaintKeyBox(g); PaintCountIn(g); Prof.Mark("overlays");
         fpsc.Frame();
         float hintStackY = ClientSize.Height - (tab == 0 ? 56 : (previewPath.Length > 0 ? 56 : 10));
         if (hintNow != hintLast) { hintLast = hintNow; hintSince = DateTime.Now; }
@@ -933,24 +934,41 @@ partial class StudioForm : Form
         if (eng.Tracks.Count == 0) { Txt(g, "SELECT A TRACK TO EDIT ITS PLUGINS", 14, DimC, pr, StringAlignment.Center, false); return; }
         var tr = eng.Tracks[Math.Max(0, Math.Min(selTrack, eng.Tracks.Count - 1))];
         Txt(g, "Plugins: " + tr.Name, 16, Ink, Rc(x + 14, y + 8, w - 28, 26), StringAlignment.Near, true);
-        Fx[] fxs; lock (eng.Sync) fxs = tr.Fx.ToArray(); float origW = w; { int n0 = fxs.Length; float est = 76 + n0 * 32 + 8 + ((selFx >= 0 && selFx < n0) ? EditorHeight(fxs[selFx]) : 60); if (est - h + 6 > 1 && h > 200) w -= 52; }
+        Fx[] fxs; lock (eng.Sync) fxs = tr.Fx.ToArray(); float origW = w; { int n0 = fxs.Length; float est = 76 + n0 * 32 + GroupExtra(fxs) + 8 + ((selFx >= 0 && selFx < n0) ? EditorHeight(fxs[selFx]) : 60); if (est - h + 6 > 1 && h > 200) w -= 52; }
         int ti = Array.IndexOf(eng.Tracks.ToArray(), tr);
         Btn(g, Rc(x + 10, y + 38, 112, 30), "+ Add Effect", 1, () => OpenBrowser(false, ti), 14);
         Btn(g, Rc(x + 128, y + 38, 100, 30), "Presets...", 0, () => ChainMenu(tr), 14);
         float ly = y + 76 - panelScroll; int n = fxs.Length; g.SetClip(Rc(x, y + 72, w, h - 72));
         if (selFx >= n) selFx = -1;
-        for (int i = 0; i < n; i++, ly += 32)
+        // three boxes: the instrument (Bass Lab or a VST), the preset that was used, and your own plugins
+        var grp = new List<int>[] { new List<int>(), new List<int>(), new List<int>() }; for (int i = 0; i < n; i++) grp[FxGroup(fxs[i])].Add(i);
+        bool heads = grp[0].Count > 0 || grp[1].Count > 0; string presetName = grp[1].Count > 0 ? fxs[grp[1][0]].Preset : "";
+        string[] gTitle = { "INSTRUMENT", "PRESET: " + presetName.ToUpperInvariant(), "YOUR PLUGINS" }; Color[] gCol = { NeonCyan, NeonViolet, NeonPink };
+        for (int gk = 0; gk < 3; gk++)
         {
-            var f = fxs[i]; int fi = i; bool sel = i == selFx;
-            var row = Rc(x + 10, ly, w - 20, 28); FillRR(g, sel ? TM.C(200, 80, 40, 150) : TM.C(150, 40, 22, 74), row, 6); if (sel) StrokeRR(g, Accent, row, 6, 1.2f);
-            Reg(row, () => selFx = fi);
-            var dotr = Rc(row.X + 8, row.Y + 7, 14, 14); using (var b = new SolidBrush(f.Bypass ? TM.C(90, 90, 70, 110) : Good)) g.FillEllipse(b, dotr);
-            Reg(dotr, () => { f.Bypass = !f.Bypass; });
-            Txt(g, f.Title, 14, f.Bypass ? DimC : Ink, Rc(row.X + 30, row.Y, row.Width - 150, 28), StringAlignment.Near, sel);
-            if (f.GR > 0.2f) Txt(g, "-" + f.GR.ToString("0.0"), 11, Warn, Rc(row.Right - 120, row.Y, 40, 28), StringAlignment.Far, false);
-            Btn(g, Rc(row.Right - 76, row.Y + 3, 22, 22), "^", 0, () => MoveFx(tr, fi, -1), 11);
-            Btn(g, Rc(row.Right - 52, row.Y + 3, 22, 22), "v", 0, () => MoveFx(tr, fi, 1), 11);
-            Btn(g, Rc(row.Right - 28, row.Y + 3, 22, 22), "x", 3, () => { lock (eng.Sync) { if (fi < tr.Fx.Count) { var rf = tr.Fx[fi]; tr.Fx.RemoveAt(fi); tr.Auto.RemoveAll(al => al.Fx == rf); if (rf is IDisposable) { try { ((IDisposable)rf).Dispose(); } catch { } } } } selFx = -1; }, 12);
+            if (grp[gk].Count == 0) continue; float head = heads ? 28 : 0, bh = head + grp[gk].Count * 32 + 2;
+            if (heads)
+            {
+                var box = Rc(x + 6, ly, w - 12, bh); FillRR(g, TM.C(70, 12, 6, 28), box, 10); Glow(g, gCol[gk], box, 10, 0.35f, 3); StrokeRR(g, Color.FromArgb(190, gCol[gk]), box, 10, 1.2f);
+                Txt(g, gTitle[gk], 11, gCol[gk], Rc(box.X + 12, box.Y + 4, box.Width - 110, 20), StringAlignment.Near, true);
+                if (gk == 1) Btn(g, Rc(box.Right - 86, box.Y + 4, 78, 20), "REMOVE", 3, () => { ChainApply(tr, "Preset removed", () => RemovePreset(tr)); selFx = -1; }, 10);
+                ly += head;
+            }
+            foreach (int i in grp[gk])
+            {
+                var f = fxs[i]; int fi = i; bool sel = i == selFx;
+                var row = Rc(x + (heads ? 14 : 10), ly, w - (heads ? 36 : 20), 28); FillRR(g, sel ? TM.C(200, 80, 40, 150) : TM.C(150, 40, 22, 74), row, 6); if (sel) StrokeRR(g, Accent, row, 6, 1.2f);
+                Reg(row, () => selFx = fi);
+                var dotr = Rc(row.X + 8, row.Y + 7, 14, 14); using (var b = new SolidBrush(f.Bypass ? TM.C(90, 90, 70, 110) : Good)) g.FillEllipse(b, dotr);
+                Reg(dotr, () => { f.Bypass = !f.Bypass; });
+                Txt(g, f.Title, 14, f.Bypass ? DimC : Ink, Rc(row.X + 30, row.Y, row.Width - 150, 28), StringAlignment.Near, sel);
+                if (f.GR > 0.2f) Txt(g, "-" + f.GR.ToString("0.0"), 11, Warn, Rc(row.Right - 120, row.Y, 40, 28), StringAlignment.Far, false);
+                Btn(g, Rc(row.Right - 76, row.Y + 3, 22, 22), "^", 0, () => MoveFx(tr, fi, -1), 11);
+                Btn(g, Rc(row.Right - 52, row.Y + 3, 22, 22), "v", 0, () => MoveFx(tr, fi, 1), 11);
+                Btn(g, Rc(row.Right - 28, row.Y + 3, 22, 22), "x", 3, () => { lock (eng.Sync) { if (fi < tr.Fx.Count) { var rf = tr.Fx[fi]; tr.Fx.RemoveAt(fi); tr.Auto.RemoveAll(al => al.Fx == rf); if (rf is IDisposable) { try { ((IDisposable)rf).Dispose(); } catch { } } } } selFx = -1; }, 12);
+                ly += 32;
+            }
+            ly += heads ? 10 : 0;
         }
         float ey = ly + 8;
         float edH = (selFx >= 0 && selFx < n) ? EditorHeight(fxs[selFx]) : 60;
@@ -966,6 +984,7 @@ partial class StudioForm : Form
     static float EditorHeight(Fx f)
     {
         int n = 0; { var hid = f.Hidden.Length > 0 ? new List<string>(f.Hidden.Split(',')) : new List<string>(); foreach (var p in f.P) if (!hid.Contains(p.Id)) n++; }
+        if (f is InstrumentFx) return 34 + 38 + 16;
         if (f is ParametricEq) return 640;
         if (f is Spatial8D) return 34 + 190 + Math.Max(0, n - 2) * 30 + 24;
         if (f is ConvFx) return 34 + 52 + n * 30 + 24;
@@ -973,26 +992,55 @@ partial class StudioForm : Form
         return 34 + n * 30 + 24;
     }
 
+    // which box a plugin lives in: 0 the instrument (Bass Lab, a VST), 1 the preset that was used, 2 your own plugins
+    static int FxGroup(Fx f) { return f is InstrumentFx ? 0 : (f.Preset.Length > 0 ? 1 : 2); }
+    static float GroupExtra(Fx[] fxs)
+    {
+        bool[] has = new bool[3]; foreach (var f in fxs) has[FxGroup(f)] = true; if (!has[0] && !has[1]) return 0; int k = 0; for (int i = 0; i < 3; i++) if (has[i]) k++; return k * 38;
+    }
+    // a preset goes on the track WITHOUT taking anything away from you: the plugins of the preset that was on it before are replaced, your own plugins and the instrument stay
+    void PutPreset(Track tr, string name, List<Fx> chain)
+    {
+        lock (eng.Sync)
+        {
+            var inst = new List<Fx>(); var own = new List<Fx>(); var gone = new List<Fx>();
+            foreach (var f in tr.Fx) { if (f is InstrumentFx) inst.Add(f); else if (f.Preset.Length > 0) gone.Add(f); else own.Add(f); }
+            foreach (var f in chain) if (!(f is InstrumentFx)) f.Preset = name;
+            tr.Fx.Clear(); tr.Fx.AddRange(inst); tr.Fx.AddRange(chain); tr.Fx.AddRange(own);
+            tr.Auto.RemoveAll(al => gone.Contains(al.Fx));   // (not disposed: REVERT can bring them back)
+        }
+    }
+    void RemovePreset(Track tr)
+    {
+        lock (eng.Sync)
+        {
+            var gone = new List<Fx>(); foreach (var f in tr.Fx) if (!(f is InstrumentFx) && f.Preset.Length > 0) gone.Add(f);
+            foreach (var f in gone) tr.Fx.Remove(f); tr.Auto.RemoveAll(al => gone.Contains(al.Fx));
+        }
+    }
+
     void MoveFx(Track tr, int i, int d)
     {
-        int j = i + d; if (j < 0 || j >= tr.Fx.Count) return; lock (eng.Sync) { if (i >= tr.Fx.Count) return; var f = tr.Fx[i]; tr.Fx.RemoveAt(i); tr.Fx.Insert(j, f); } selFx = j;
+        if (i < 0 || i >= tr.Fx.Count) return; int g0 = FxGroup(tr.Fx[i]), j = i + d; while (j >= 0 && j < tr.Fx.Count && FxGroup(tr.Fx[j]) != g0) j += d;   // it moves inside its own box (instrument, preset or your plugins)
+        if (j < 0 || j >= tr.Fx.Count) return; lock (eng.Sync) { if (i >= tr.Fx.Count) return; var f = tr.Fx[i]; tr.Fx.RemoveAt(i); tr.Fx.Insert(j, f); } selFx = j;
     }
 
     void ChainMenu(Track tr)
     {
         var m = Win.NewMenu(); bool vocal = tr.Role == "vocal";
         m.Items.Add("Rapper Vocal Styles (searchable)...").Click += (a, b) => OpenStyles();
-        var rap = new ToolStripMenuItem("Rap vocal presets (replace chain)"); m.Items.Add(rap);
-        for (int i = 0; i < Presets.ChainNames.Length; i++) { string nm = Presets.ChainNames[i]; var it = new ToolStripMenuItem(nm) { ToolTipText = Presets.ChainBlurbs[i] }; it.Click += (a, b) => { ChainApply(tr, nm, () => { lock (eng.Sync) { tr.Fx.Clear(); tr.Fx.AddRange(Presets.BuildChain(nm)); } }); selFx = -1; Toast(nm + " applied: every plugin is editable (REVERT puts it back)"); }; rap.DropDownItems.Add(it); }
-        var beat = new ToolStripMenuItem("Instrumental chain (EQ, comp, multiband, sat, exciter, imager, ducker, limiter)"); beat.Click += (a, b) => { ChainApply(tr, "Instrumental chain", () => { lock (eng.Sync) { tr.Fx.Clear(); tr.Fx.AddRange(Presets.BeatChain()); } }); selFx = -1; Toast("Beat chain applied (REVERT puts it back)"); }; m.Items.Add(beat);
+        var rap = new ToolStripMenuItem("Rap vocal presets (your own plugins stay)"); m.Items.Add(rap);
+        for (int i = 0; i < Presets.ChainNames.Length; i++) { string nm = Presets.ChainNames[i]; var it = new ToolStripMenuItem(nm) { ToolTipText = Presets.ChainBlurbs[i] }; it.Click += (a, b) => { ChainApply(tr, nm, () => PutPreset(tr, nm, Presets.BuildChain(nm))); selFx = -1; Toast(nm + " added as a preset: every plugin is editable, your own plugins stay (REVERT puts it back)"); }; rap.DropDownItems.Add(it); }
+        var beat = new ToolStripMenuItem("Instrumental chain (EQ, comp, multiband, sat, exciter, imager, ducker, limiter)"); beat.Click += (a, b) => { ChainApply(tr, "Instrumental chain", () => PutPreset(tr, "Instrumental chain", Presets.BeatChain())); selFx = -1; Toast("Beat chain added as a preset (REVERT puts it back)"); }; m.Items.Add(beat);
         var bus = new ToolStripMenuItem("Bus presets (echo, ad-lib, reverb)"); m.Items.Add(bus);
-        for (int i = 0; i < Presets.BusNames.Length; i++) { string bn = Presets.BusNames[i]; var bi = new ToolStripMenuItem(bn) { ToolTipText = Presets.BusBlurbs[i] }; bi.Click += (a, b) => { ChainApply(tr, bn, () => { lock (eng.Sync) { tr.Fx.Clear(); tr.Fx.AddRange(Presets.BuildBus(bn)); } }); selFx = -1; Toast(bn + " applied: " + Presets.BusBlurbs[Array.IndexOf(Presets.BusNames, bn)]); }; bus.DropDownItems.Add(bi); }
-        m.Items.Add("Community chains (download and use)...").Click += (a, b) => OpenCommunityPresets("chain", "Plugin chains", cp => { var c = Presets.ChainFromText(cp.Data); if (c.Count == 0) throw new InvalidOperationException("it holds no plugins you have"); lock (eng.Sync) { tr.Fx.Clear(); tr.Fx.AddRange(c); } selFx = -1; }, () => tr.Fx.Count == 0 ? null : Presets.ChainText(tr.Fx), tr.Name + " chain");
+        for (int i = 0; i < Presets.BusNames.Length; i++) { string bn = Presets.BusNames[i]; var bi = new ToolStripMenuItem(bn) { ToolTipText = Presets.BusBlurbs[i] }; bi.Click += (a, b) => { ChainApply(tr, bn, () => PutPreset(tr, bn, Presets.BuildBus(bn))); selFx = -1; Toast(bn + " added as a preset: " + Presets.BusBlurbs[Array.IndexOf(Presets.BusNames, bn)]); }; bus.DropDownItems.Add(bi); }
+        m.Items.Add("Community chains (download and use)...").Click += (a, b) => OpenCommunityPresets("chain", "Plugin chains", cp => { var c = Presets.ChainFromText(cp.Data); if (c.Count == 0) throw new InvalidOperationException("it holds no plugins you have"); PutPreset(tr, cp.Name, c); selFx = -1; }, () => tr.Fx.Count == 0 ? null : Presets.ChainText(tr.Fx), tr.Name + " chain");
         var mine = new ToolStripMenuItem("My saved chains"); m.Items.Add(mine);
-        foreach (var nm0 in Presets.UserChains()) { string nm = nm0; var it = new ToolStripMenuItem(nm); it.Click += (a, b) => { var c = Presets.LoadChain(nm); ChainApply(tr, nm, () => { lock (eng.Sync) { tr.Fx.Clear(); tr.Fx.AddRange(c); } }); selFx = -1; }; mine.DropDownItems.Add(it); }
+        foreach (var nm0 in Presets.UserChains()) { string nm = nm0; var it = new ToolStripMenuItem(nm); it.Click += (a, b) => { var c = Presets.LoadChain(nm); ChainApply(tr, nm, () => PutPreset(tr, nm, c)); selFx = -1; }; mine.DropDownItems.Add(it); }
         if (mine.DropDownItems.Count == 0) mine.DropDownItems.Add(new ToolStripMenuItem("(none yet)") { Enabled = false });
         m.Items.Add(new ToolStripSeparator());
         m.Items.Add("Save this track's plugins as a preset...").Click += (a, b) => { string nm = Ask(Prefs.ShareSaved ? "Name for this preset (it is also shared with the community):" : "Name for this preset:", tr.Name + " chain"); if (nm != null) { Presets.SaveChain(nm, tr.Fx); Toast("Saved chain \"" + nm + "\""); CommunityPresets.AutoShare("chain", nm, Presets.ChainText(tr.Fx), ProjectLibrary.ProfileName, msg => { if (msg != null) BeginInvoke(new Action(() => Toast(msg))); }); } };
+        m.Items.Add("Remove the preset (your own plugins stay)").Click += (a, b) => { ChainApply(tr, "Preset removed", () => RemovePreset(tr)); selFx = -1; };
         m.Items.Add("Clear all plugins").Click += (a, b) => { ChainApply(tr, "All plugins cleared", () => { lock (eng.Sync) tr.Fx.Clear(); }); selFx = -1; };
         m.Show(this, new Point((int)MousePos.X, (int)MousePos.Y));
     }
@@ -1022,7 +1070,18 @@ partial class StudioForm : Form
         string lastCat = "";
         foreach (var info in list)
         {
-            if (info.Category != lastCat) { lastCat = info.Category; if (ry + 18 > clipR.Y && ry < clipR.Bottom) Txt(g, info.Category.ToUpperInvariant(), 11, Accent, Rc(x + 24, ry, 300, 18), StringAlignment.Near, true); ry += 20; }
+            if (info.Category != lastCat)
+            {
+                lastCat = info.Category;
+                if (info.Category == "Instruments")   // Bass Lab and the VSTs are not effects: they sit apart, in a box of their own
+                {
+                    int ic = 0; foreach (var q in list) if (q.Category == "Instruments") ic++; var ibox = Rc(x + 12, ry - 3, w - 24 - (browserMax > 0 ? 56 : 0), 20 + ic * 48 + 2);
+                    FillRR(g, TM.C(120, 14, 24, 52), ibox, 12); Glow(g, NeonCyan, ibox, 12, 0.45f, 3); StrokeRR(g, Color.FromArgb(200, NeonCyan), ibox, 12, 1.3f);
+                    if (ry + 18 > clipR.Y && ry < clipR.Bottom) Txt(g, "INSTRUMENTS AND VSTs  -  they make the sound, they are not effects", 11, NeonCyan, Rc(x + 26, ry, w - 100, 18), StringAlignment.Near, true);
+                }
+                else if (ry + 18 > clipR.Y && ry < clipR.Bottom) Txt(g, info.Category.ToUpperInvariant(), 11, Accent, Rc(x + 24, ry, 300, 18), StringAlignment.Near, true);
+                ry += 20;
+            }
             if (ry + 44 < clipR.Y || ry > clipR.Bottom) { ry += 48; continue; }   // off screen: neither drawn nor given a click region (it would lie on top of the header)
             var row = Rc(x + 18, ry, w - 36 - (browserMax > 0 ? 56 : 0), 44); var vis = RectangleF.Intersect(row, clipR); bool hot = Hot(vis); FillRR(g, hot ? TM.C(220, 90, 50, 170) : TM.C(160, 44, 24, 80), row, 8);
             Txt(g, info.Name, 15, Ink, Rc(row.X + 14, row.Y + 3, row.Width - 120, 20), StringAlignment.Near, true);
@@ -1114,6 +1173,7 @@ partial class StudioForm : Form
         }
         if (busy) { if (k == Keys.Escape && busyCancelable) { cancelFlag = true; busyText = "Cancelling..."; return true; } return base.ProcessCmdKey(ref msg, k); }
         if (k == Keys.Escape && tab == 5 && !menuOpen) { tab = 1; return true; }   // Esc leaves the visualiser
+        if (k == Keys.Escape && vidFull) { ExitVideoFull(); return true; }
         if (k == Keys.Space && (tab == 3 || tab == 4 || tab == 6 || tab == 7 || tab == 8) && !ProjSearchActive && !ArtSearchActive && previewPath.Length > 0 && previewEng != null) { PreviewPauseToggle(); return true; }   // Space pauses the preview (the search box only takes keys after you click it)
         if (ProjSearchCmd(k)) return true; if (ProjSearchTakesKey(k)) return base.ProcessCmdKey(ref msg, k);
         if (ArtSearchCmd(k)) return true; if (ArtSearchTakesKey(k)) return base.ProcessCmdKey(ref msg, k); if (FontSearchCmd(k)) return true; if (FontSearchTakesKey(k)) return base.ProcessCmdKey(ref msg, k);
@@ -1190,7 +1250,7 @@ partial class StudioForm : Form
         Btn(g, Rc(a.Right - (wide ? 176 : 150), y, wide ? 70 : 66, 24), f.Bypass ? "Bypassed" : "Bypass", f.Bypass ? 4 : 0, () => f.Bypass = !f.Bypass, 11);
         Btn(g, Rc(a.Right - (wide ? 100 : 80), y, wide ? 90 : 70, 24), wide ? "FX presets" : "Presets", 1, () => OpenPresetSheet(f), 12);
         y += 34;
-        var vstf = f as InstrumentFx; if (vstf != null) { Btn(g, Rc(a.X + 10, y - 2, a.Width - 20, 32), vstf.WindowLabel, 2, () => { vstf.Owner = tr; vstf.ShowWindow(this); }, 14); y += 38; }
+        var vstf = f as InstrumentFx; if (vstf != null) { Btn(g, Rc(a.X + 10, y - 2, a.Width - 20, 32), vstf.WindowLabel, 2, () => { vstf.Owner = tr; vstf.ShowWindow(this); }, 14); y += 38; return; }   // an instrument is edited in its own window, like a real plugin: nothing else is listed here
         var skip = new List<string>(); if (f.Hidden.Length > 0) skip.AddRange(f.Hidden.Split(','));
         if (f is ParametricEq) { PaintEqEditor(g, (ParametricEq)f, Rc(a.X + 6, y, a.Width - 12, a.Bottom - y - 4), tr == null ? null : tr.TapPost, tr == null ? 0 : tr.TapPos); return; }
         var cvx = f as ConvFx; if (cvx != null) { var lb = Rc(a.X + 10, y - 2, a.Width - 20, 30); Btn(g, lb, "Load your own impulse response...", 2, () => { using (var d = new OpenFileDialog { Title = "Choose an impulse response (a recording of a space or speaker)", Filter = "Audio|*.wav;*.mp3;*.flac;*.ogg;*.aiff|All files|*.*" }) if (d.ShowDialog(this) == DialogResult.OK) cvx.UserPath = d.FileName; }, 12); y += 34; Txt(g, cvx.IrNote.Length > 0 ? "Using: " + cvx.IrNote : "", 11, DimC, Rc(a.X + 14, y - 4, a.Width - 28, 16), StringAlignment.Near, false); y += 18; }

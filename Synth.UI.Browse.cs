@@ -9,7 +9,7 @@ partial class SynthCanvas
     internal void TourTab(int t) { tab = t; Invalidate(); }
     // where a part of the screen (in the 1240 x 716 layout) really is, in this control
     internal Rectangle ToClient(RectangleF r) { return new Rectangle((int)(ox + r.X * scale), (int)(oy + r.Y * scale), (int)(r.Width * scale), (int)(r.Height * scale)); }
-    bool browseOpen; string browseCat = "Wobble"; float browseScroll; string browseMsg = "";
+    bool browseOpen; string browseCat = ""; float browseScroll; string browseMsg = ""; int soundTab; float menuT; bool draggingOut;   // soundTab: 0 built-in, 1 my sounds, 2 community
     List<CommPreset> commList; bool commLoading; string commErr = ""; int commGen;
     // the sounds other people shared (fetched in the background; shown under the Community category)
     void CommFetch()
@@ -23,68 +23,177 @@ partial class SynthCanvas
     }
     void PresetMenu(PointF pt)
     {
-        browseOpen = true; browseScroll = 0; browseMsg = ""; string c = SynthPresets.CategoryOf(fx.PresetName); if (c.Length > 0) browseCat = c;
+        browseOpen = true; browseScroll = 0; browseMsg = ""; browseCat = ""; soundTab = SynthPresets.CategoryOf(fx.PresetName) == "My presets" ? 1 : 0; Poke();
     }
+    void CloseSounds() { browseOpen = false; Poke(); }
 
     string AskName(string prompt, string def)
     {
         Typing = true; try { return StudioDialogs.Ask(FindForm(), prompt, def); } finally { Typing = false; Poke(); }
     }
 
+    class SoundRow { public string Name, Head; public CommPreset Comm; }
+    List<SoundRow> SoundRows()
+    {
+        var l = new List<SoundRow>();
+        if (soundTab == 0) { foreach (var c in SynthPresets.Categories) { if (browseCat.Length > 0 && c != browseCat) continue; var n = SynthPresets.InCategory(c); if (n.Count == 0) continue; if (browseCat.Length == 0) l.Add(new SoundRow { Head = c.ToUpperInvariant() }); foreach (var s in n) l.Add(new SoundRow { Name = s }); } }
+        else if (soundTab == 1) { foreach (var s in SynthPresets.UserNames()) l.Add(new SoundRow { Name = s }); }
+        else if (commList != null) { foreach (var cp in commList) l.Add(new SoundRow { Name = cp.Name, Comm = cp }); }
+        return l;
+    }
+    string SoundData(SoundRow r) { return r.Comm != null ? r.Comm.Data : (soundTab == 1 ? SynthPresets.UserData(r.Name) : SynthPresets.DataOf(r.Name)); }
+
+    // YOUR SOUNDS: a menu that slides in from the left. Tabs: the sounds built into the DAW, the sounds you saved (kept until you delete them), and the community's.
     void PaintPresetBrowser(Graphics g)
     {
-        if (!browseOpen) return;
-        var all = Rc(0, 0, W, H); using (var b = new SolidBrush(TM.C(190, 5, 2, 12))) g.FillRectangle(b, all);
-        var box = Rc(150, 50, W - 300, 620); Fill(g, TM.C(252, 26, 14, 48), box, 14); Stroke(g, Acc, box, 14, 1.5f);
-        var blocker = Add(all); blocker.Down = pt => { if (!box.Contains(pt)) browseOpen = false; };
-        Txt(g, "PRESETS", 20, Ink, Rc(box.X + 20, box.Y + 10, 300, 30), StringAlignment.Near, true);
-        Txt(g, "Current: " + (modified ? "* " : "") + fx.PresetName, 12, Dim, Rc(box.X + 20, box.Y + 40, 500, 18), StringAlignment.Near, false);
-        var close = Rc(box.Right - 100, box.Y + 14, 82, 28); Fill(g, Hot(close) ? PanelHi : Panel, close, 6); Stroke(g, Edge, close, 6, 1); Txt(g, "CLOSE", 12, Ink, close, StringAlignment.Center, true); Add(close).Down = pt => { browseOpen = false; };
+        float goal = browseOpen ? 1 : 0; if (Prefs.PerfMode) menuT = goal; else if (Math.Abs(menuT - goal) > 0.004f) { menuT += (goal - menuT) * 0.38f; if (Math.Abs(menuT - goal) < 0.01f) menuT = goal; lastInput = DateTime.Now; }
+        if (menuT <= 0.004f && !browseOpen) return;
+        float pw = 440, top = 62, px0 = -pw - 14 + (pw + 14) * menuT; var pan = Rc(px0, top, pw, H - top - 8);
+        var all = Rc(0, 0, W, H); using (var b = new SolidBrush(Color.FromArgb((int)(120 * menuT), 5, 2, 12))) g.FillRectangle(b, all);
+        if (browseOpen) { var blocker = Add(all); blocker.Down = pt => { if (!pan.Contains(pt)) CloseSounds(); }; }
+        Fill(g, TM.C(250, 22, 12, 42), pan, 14); for (int k = 3; k >= 1; k--) Stroke(g, Color.FromArgb(14 * k, Acc), Rc(pan.X - k, pan.Y - k, pan.Width + 2 * k, pan.Height + 2 * k), 14 + k, 2f); Stroke(g, Acc, pan, 14, 1.5f);
+        Add(pan);
+        float x0 = pan.X + 18, iw = pan.Width - 36;
+        Txt(g, "YOUR SOUNDS", 20, Ink, Rc(x0, pan.Y + 10, 260, 28), StringAlignment.Near, true);
+        Txt(g, "(drag n drop)   playing: " + (modified ? "* " : "") + fx.PresetName, 11, Dim, Rc(x0, pan.Y + 38, iw - 50, 18), StringAlignment.Near, false);
+        var close = Rc(pan.Right - 62, pan.Y + 12, 44, 28); Fill(g, Hot(close) ? PanelHi : Panel, close, 6); Stroke(g, Edge, close, 6, 1); Txt(g, "X", 13, Ink, close, StringAlignment.Center, true); Add(close).Down = pt => CloseSounds();
+        // the three tabs
+        string[] tn = { "BUILT-IN", "MY SOUNDS", "COMMUNITY" }; int[] tc = { SynthPresets.Names == null ? 0 : SynthPresets.Names.Length, SynthPresets.UserNames().Count, commList == null ? 0 : commList.Count };
+        float tw = (iw - 12) / 3f, ty = pan.Y + 64;
+        for (int i = 0; i < 3; i++)
+        {
+            int k = i; var r = Rc(x0 + i * (tw + 6), ty, tw, 32); bool sel = soundTab == i; Fill(g, sel ? PanelHi : Panel, r, 7); Stroke(g, sel ? Acc : Edge, r, 7, sel ? 2 : 1);
+            Txt(g, tn[i] + (i == 2 && commList == null ? "" : "  " + tc[i]), 11, sel ? Ink : Dim, r, StringAlignment.Center, sel);
+            var rg = Add(r); rg.Tip = i == 0 ? "The sounds that come with the DAW" : (i == 1 ? "The sounds you saved: they stay until you delete them" : "Sounds other people published"); rg.Down = pt => { soundTab = k; browseScroll = 0; browseMsg = ""; if (k == 2 && commList == null && !commLoading) CommFetch(); else if (k == 2) CommFetch(); };
+        }
+        float cy = ty + 42;
+        if (soundTab == 0)
+        {   // the categories (they wrap onto more lines)
+            string[] cats = new string[SynthPresets.Categories.Length + 1]; cats[0] = ""; Array.Copy(SynthPresets.Categories, 0, cats, 1, SynthPresets.Categories.Length); float cx = x0;
+            foreach (var c0 in cats)
+            {
+                string c = c0; string lab = c.Length == 0 ? "All" : c; float cw = 20 + lab.Length * 7f; if (cx + cw > x0 + iw) { cx = x0; cy += 28; }
+                var r = Rc(cx, cy, cw, 24); bool sel = browseCat == c; Fill(g, sel ? PanelHi : (Hot(r) ? TM.C(255, 36, 20, 66) : Panel), r, 12); Stroke(g, sel ? Acc : Edge, r, 12, sel ? 1.8f : 1); Txt(g, lab, 11, sel ? Ink : Dim, r, StringAlignment.Center, sel);
+                var rg = Add(r); rg.Down = pt => { browseCat = c; browseScroll = 0; }; cx += cw + 5;
+            }
+            cy += 32;
+        }
+        float footH = 158; var list = Rc(x0, cy, iw, pan.Bottom - footH - cy - 6); Fill(g, TM.C(235, 14, 7, 32), list, 8); Stroke(g, Edge, list, 8, 1);
+        var rows = SoundRows(); float total = 8; foreach (var rw in rows) total += rw.Head != null ? 26 : 36;
+        float maxScroll = Math.Max(0, total - list.Height); browseScroll = Math.Max(0, Math.Min(maxScroll, browseScroll));
+        var lw = Add(list); lw.Wheel = d => { browseScroll = Math.Max(0, Math.Min(maxScroll, browseScroll - d * 36)); };
+        bool lbar = maxScroll > 0 && list.Height > 130; float rowW = list.Width - (lbar ? 62 : 16); var inner = Rc(list.X + 2, list.Y + 2, list.Width - 4, list.Height - 4);
+        var gs = g.Save(); g.SetClip(inner, System.Drawing.Drawing2D.CombineMode.Intersect);
+        if (rows.Count == 0) Txt(g, soundTab == 2 ? (commLoading || commList == null ? "Loading the community..." : (commErr.Length > 0 ? commErr : "Nobody has published a Bass Lab sound yet. Be the first: press PUBLISH SOUNDS TO COMMUNITY.")) : (soundTab == 1 ? "You have not saved a sound yet. Make one, then press SAVE CURRENT SOUND. You can also drop a .bsound file anywhere on Bass Lab." : "Nothing here."), 12, Dim, Rc(list.X + 14, list.Y + 12, list.Width - 28, 80), StringAlignment.Near, false);
+        float yy = list.Y + 6 - browseScroll;
+        foreach (var row in rows)
+        {
+            if (row.Head != null) { if (yy + 24 > list.Y && yy < list.Bottom) Txt(g, row.Head, 10, Acc, Rc(list.X + 12, yy + 6, 300, 16), StringAlignment.Near, true); yy += 26; continue; }
+            var r = Rc(list.X + 8, yy, rowW, 32); yy += 36; if (r.Bottom < list.Y || r.Y > list.Bottom) continue; var vis = RectangleF.Intersect(r, inner); if (vis.Width < 4 || vis.Height < 4) continue;
+            string n = row.Name; var rowC = row; bool cur = n == fx.PresetName && row.Comm == null, hot = Hot(vis);
+            Fill(g, cur ? TM.C(150, 90, 50, 170) : (hot ? TM.C(150, 60, 34, 110) : TM.C(120, 44, 24, 80)), r, 7); if (cur) Stroke(g, Acc2, r, 7, 1.5f);
+            if (row.Comm != null) { Txt(g, n, 13, Ink, Rc(r.X + 12, r.Y, r.Width * 0.5f, r.Height), StringAlignment.Near, false); Txt(g, "BY " + row.Comm.Author + "   " + row.Comm.Uses + (row.Comm.Uses == 1 ? " use" : " uses"), 10, Dim, Rc(r.X + r.Width * 0.5f, r.Y, r.Width * 0.5f - 10, r.Height), StringAlignment.Far, false); }
+            else Txt(g, n, 13, Ink, Rc(r.X + 12, r.Y, r.Width - 24 - (soundTab == 1 ? 30 : 0), r.Height), StringAlignment.Near, cur);
+            var rg = Add(vis); rg.Tip = row.Comm != null ? "Click to use " + n : "Click to load " + n;
+            rg.Down = pt =>
+            {
+                if (rowC.Comm != null)
+                {
+                    if (!CommunityPresets.Safe("synth", rowC.Comm.Data)) { browseMsg = "That sound is not valid."; return; }
+                    try { SynthPresets.ApplyData(fx, rowC.Comm.Name, rowC.Comm.Data); modified = false; browseMsg = "Loaded " + rowC.Comm.Name + " by " + rowC.Comm.Author + ". Press SAVE CURRENT SOUND to keep your own copy."; CommunityPresets.Tell("use", rowC.Comm.Id); } catch (Exception ex) { browseMsg = "Could not load it: " + ex.Message; }
+                }
+                else { SynthPresets.Apply(fx, n); modified = false; browseMsg = "Loaded " + n; }
+            };
+            rg.Drag = (dx, dy) => { if (Math.Abs(dx) > 22 || Math.Abs(dy) > 22) DragOut(n, SoundData(rowC)); };   // drag the sound out of the window: it is saved as a file where it is dropped
+            if (soundTab == 1)
+            {
+                var del = Rc(r.Right - 30, r.Y + 5, 24, 22); if (RectangleF.Intersect(del, inner) == del) { Fill(g, Hot(del) ? TM.C(255, 190, 50, 80) : TM.C(255, 120, 30, 62), del, 5); Txt(g, "x", 12, Ink, del, StringAlignment.Center, true); var dg = Add(del); dg.Tip = "Delete " + n + " (only this sound)"; dg.Down = pt => DeleteSound(n); }
+            }
+        }
+        g.Restore(gs); if (lbar) LogoBar(g, Rc(list.Right - 50, list.Y + 4, 42, list.Height - 8), total, list.Height - 8, () => browseScroll, v => browseScroll = v);
+        // the buttons
+        float by = list.Bottom + 10, bx = x0; bool isUser = SynthPresets.UserNames().Contains(fx.PresetName);
+        bx = Action(g, "SAVE CURRENT SOUND...", bx, by, 206, true, "Keep the sound you are playing under a name. It stays in MY SOUNDS until you delete it.", () => SaveCurrentSound());
+        bx = Action(g, "DUPLICATE", bx, by, 96, true, "Make a copy you can change.", () => { try { string n2 = SynthPresets.DuplicateUser(fx.PresetName); SynthPresets.Apply(fx, n2); modified = false; soundTab = 1; browseMsg = "Made " + n2; } catch (Exception ex) { browseMsg = ex.Message; } });
+        bx = Action(g, "RENAME", bx, by, 90, isUser, "Rename the sound you are playing (one of yours).", () => { string s = AskName("New name:", fx.PresetName); if (s == null) return; try { string old = fx.PresetName; SynthPresets.RenameUser(old, s); fx.PresetName = s.Trim(); browseMsg = "Renamed to " + s.Trim(); } catch (Exception ex) { browseMsg = ex.Message; } });
+        by += 36; bx = x0;
+        bx = Action(g, "INITIALISE PATCH", bx, by, 150, true, "Reset everything to a clean, plain sound.", () => { SynthPresets.Initialise(fx); modified = false; browseMsg = "Patch initialised."; });
+        var pub = Rc(x0, by + 36, iw, 34); bool phot = Hot(pub); Fill(g, phot ? TM.C(255, 170, 60, 200) : TM.C(255, 130, 44, 170), pub, 8); Stroke(g, Acc2, pub, 8, 1.6f); Txt(g, "PUBLISH SOUNDS TO COMMUNITY", 13, Ink, pub, StringAlignment.Center, true);
+        { var pr = Add(pub); pr.Tip = "Publish a sound for everyone to use (you pick which)."; pr.Down = pt => PublishMenu(); }
+        Txt(g, browseMsg, 11, Good, Rc(x0, by + 76, iw, 16), StringAlignment.Near, true);
+        Txt(g, "Drop a .bsound file on Bass Lab to add it to MY SOUNDS.", 10, Dim, Rc(x0, by + 94, iw, 14), StringAlignment.Near, false); Txt(g, "Drag a sound out of the list to keep it as a file.", 10, Dim, Rc(x0, by + 108, iw, 14), StringAlignment.Near, false);
+    }
 
-        var cats = new List<string>(SynthPresets.Categories); cats.Insert(cats.Count - 1, "My presets"); cats.Insert(cats.Count - 1, "Community");
-        float cx = box.X + 20, cy = box.Y + 72;
-        for (int i = 0; i < cats.Count; i++)
+    void SaveCurrentSound()
+    {
+        string s = AskName("Name your sound:", SynthPresets.IsFactory(fx.PresetName) ? "My " + fx.PresetName : fx.PresetName); if (s == null) return;
+        try
         {
-            string c = cats[i]; var r = Rc(cx, cy + i * 33, 190, 30); bool sel = c == browseCat; int n = c == "My presets" ? SynthPresets.UserNames().Count : (c == "Community" ? (commList == null ? 0 : commList.Count) : SynthPresets.InCategory(c).Count);
-            Fill(g, sel ? PanelHi : Panel, r, 6); Stroke(g, sel ? Acc : Edge, r, 6, sel ? 2 : 1); Txt(g, c, 13, sel ? Ink : Dim, Rc(r.X + 12, r.Y, 120, r.Height), StringAlignment.Near, sel); Txt(g, n.ToString(), 11, Dim, Rc(r.Right - 44, r.Y, 36, r.Height), StringAlignment.Far, false);
-            var rg = Add(r); rg.Down = pt => { browseCat = c; browseScroll = 0; browseMsg = ""; if (c == "Community") CommFetch(); };
+            if (SynthPresets.UserNames().Contains(s.Trim()) && MessageBox.Show(this, "\"" + s.Trim() + "\" exists. Replace it?", "Save sound", MessageBoxButtons.YesNo) != DialogResult.Yes) return;
+            SynthPresets.SaveUser(fx, s); modified = false; soundTab = 1; browseMsg = "Saved " + s.Trim() + ". It stays in MY SOUNDS until you delete it.";
+            CommunityPresets.AutoShare("synth", s.Trim(), fx.Serialize(), ProjectLibrary.ProfileName, msg => { if (msg != null) { try { BeginInvoke(new Action(() => { browseMsg = msg; Poke(); })); } catch { } } });
         }
-        // list
-        var list = Rc(box.X + 230, box.Y + 72, box.Width - 250, 408); Fill(g, TM.C(235, 14, 7, 32), list, 8); Stroke(g, Edge, list, 8, 1);
-        bool comm = browseCat == "Community"; var names = browseCat == "My presets" ? SynthPresets.UserNames() : (comm ? new List<string>() : SynthPresets.InCategory(browseCat)); if (comm && commList != null) foreach (var cp0 in commList) names.Add(cp0.Name);
-        float rowH = 36; float maxScroll = Math.Max(0, names.Count * rowH - (list.Height - 8)); browseScroll = Math.Max(0, Math.Min(maxScroll, browseScroll));
-        var lw = Add(list); lw.Wheel = d => { browseScroll = Math.Max(0, Math.Min(maxScroll, browseScroll - d * 36)); }; bool lbar = maxScroll > 0 && list.Height > 160; float rowW = list.Width - (lbar ? 66 : 16);
-        var gs = g.Save(); g.SetClip(Rc(list.X + 2, list.Y + 2, list.Width - 4, list.Height - 4), System.Drawing.Drawing2D.CombineMode.Intersect);
-        if (names.Count == 0) Txt(g, comm ? (commLoading || commList == null ? "Loading the community..." : (commErr.Length > 0 ? commErr : "Nobody has shared a Bass Lab sound yet. Be the first: press SHARE below.")) : (browseCat == "My presets" ? "No presets of your own yet. Press SAVE AS to keep the current sound." : "Nothing here."), 13, Dim, Rc(list.X + 16, list.Y + 16, list.Width - 32, 24), StringAlignment.Near, false);
-        for (int i = 0; i < names.Count; i++)
+        catch (Exception ex) { browseMsg = ex.Message; }
+    }
+    void DeleteSound(string n)
+    {
+        if (MessageBox.Show(this, "Delete the sound \"" + n + "\"? (Only this one.)", "Delete sound", MessageBoxButtons.YesNo) != DialogResult.Yes) return;
+        try { SynthPresets.DeleteUser(n); browseMsg = "Deleted " + n; if (fx.PresetName == n) fx.PresetName = "Init"; } catch (Exception ex) { browseMsg = ex.Message; }
+        Poke();
+    }
+
+    // PUBLISH SOUNDS TO COMMUNITY: the sound you are playing, one of yours, or all of yours
+    void PublishMenu()
+    {
+        var m = Win.NewMenu(); var mine = SynthPresets.UserNames();
+        m.Items.Add("The sound I am playing now: " + fx.PresetName).Click += (a, b) => PublishSounds(new[] { fx.PresetName }, new[] { fx.Serialize() });
+        if (mine.Count > 0)
         {
-            string n = names[i]; var r = Rc(list.X + 8, list.Y + 6 + i * rowH - browseScroll, rowW, rowH - 4); if (r.Bottom < list.Y || r.Y > list.Bottom) continue;
-            bool cur = n == fx.PresetName, hot = Hot(r); Fill(g, cur ? TM.C(150, 90, 50, 170) : (hot ? TM.C(150, 60, 34, 110) : TM.C(120, 44, 24, 80)), r, 7); if (cur) Stroke(g, Acc2, r, 7, 1.5f);
-            if (comm) { var cp1 = commList[i]; Txt(g, n, 14, Ink, Rc(r.X + 14, r.Y, r.Width * 0.55f, r.Height), StringAlignment.Near, false); Txt(g, "BY " + cp1.Author + "   " + cp1.Uses + (cp1.Uses == 1 ? " use" : " uses"), 11, Dim, Rc(r.X + r.Width * 0.55f, r.Y, r.Width * 0.45f - 12, r.Height), StringAlignment.Far, false); var rgc = Add(r); rgc.Tip = "Click to use " + n; rgc.Down = pt => { if (!CommunityPresets.Safe("synth", cp1.Data)) { browseMsg = "That sound is not valid."; return; } try { SynthPresets.ApplyData(fx, cp1.Name, cp1.Data); modified = false; browseMsg = "Loaded " + cp1.Name + " by " + cp1.Author + ". Press SAVE AS to keep your own copy."; CommunityPresets.Tell("use", cp1.Id); } catch (Exception ex) { browseMsg = "Could not load it: " + ex.Message; } }; continue; }
-            Txt(g, n, 14, Ink, Rc(r.X + 14, r.Y, r.Width - 28, r.Height), StringAlignment.Near, cur);
-            var rg = Add(r); rg.Tip = "Click to load " + n; rg.Down = pt => { SynthPresets.Apply(fx, n); modified = false; browseMsg = "Loaded " + n; };
+            m.Items.Add(new ToolStripSeparator());
+            foreach (var n0 in mine) { string n = n0; m.Items.Add(n).Click += (a, b) => PublishSounds(new[] { n }, new[] { SynthPresets.UserData(n) }); }
+            m.Items.Add(new ToolStripSeparator());
+            m.Items.Add("All my sounds (" + mine.Count + ")").Click += (a, b) => { var d = new string[mine.Count]; for (int i = 0; i < d.Length; i++) d[i] = SynthPresets.UserData(mine[i]); PublishSounds(mine.ToArray(), d); };
         }
-        g.Restore(gs); if (lbar) LogoBar(g, Rc(list.Right - 50, list.Y + 4, 42, list.Height - 8), names.Count * rowH + 8, list.Height - 8, () => browseScroll, v => browseScroll = v);
-        // actions
-        float by = list.Bottom + 12; float bx = list.X; var user = SynthPresets.UserNames(); bool isUser = user.Contains(fx.PresetName);
-        bx = Action(g, "INITIALISE PATCH", bx, by, 170, true, "Reset everything to a clean, plain sound.", () => { SynthPresets.Initialise(fx); modified = false; browseMsg = "Patch initialised."; });
-        bx = Action(g, "SAVE AS...", bx, by, 110, true, "Keep the current sound under a name.", () =>
+        Typing = true; m.Closed += (a, b) => { Typing = false; Poke(); }; m.Show(this, PointToClient(Cursor.Position));
+    }
+    void PublishSounds(string[] names, string[] data)
+    {
+        if (MessageBox.Show(this, (names.Length == 1 ? "Publish \"" + names[0] + "\"" : "Publish " + names.Length + " sounds") + " to the community?\n\nEveryone can see and use " + (names.Length == 1 ? "it" : "them") + ", with your artist name on " + (names.Length == 1 ? "it" : "them") + ".", "Publish sounds", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
+        string who = ProjectLibrary.ProfileName; if (string.IsNullOrWhiteSpace(who)) who = "Producer"; browseMsg = "Publishing..."; Poke();
+        System.Threading.ThreadPool.QueueUserWorkItem(o =>
         {
-            string s = AskName("Preset name:", SynthPresets.IsFactory(fx.PresetName) ? "My " + fx.PresetName : fx.PresetName); if (s == null) return;
-            try { if (SynthPresets.UserNames().Contains(s.Trim()) && MessageBox.Show(this, "\"" + s.Trim() + "\" exists. Replace it?", "Save preset", MessageBoxButtons.YesNo) != DialogResult.Yes) return; SynthPresets.SaveUser(fx, s); modified = false; browseCat = "My presets"; browseMsg = "Saved " + s.Trim(); CommunityPresets.AutoShare("synth", s.Trim(), fx.Serialize(), ProjectLibrary.ProfileName, msg => { if (msg != null) { try { BeginInvoke(new Action(() => { browseMsg = msg; Poke(); })); } catch { } } }); }
-            catch (Exception ex) { browseMsg = ex.Message; }
+            int ok = 0; string err = null;
+            for (int i = 0; i < names.Length; i++) { if (data[i] == null || !CommunityPresets.Safe("synth", data[i])) { err = "\"" + names[i] + "\" is too big or has something that cannot be shared."; continue; } string e2 = CommunityPresets.Share("synth", names[i], who, data[i]); if (e2 == null) ok++; else err = e2; }
+            try { BeginInvoke(new Action(() => { browseMsg = ok > 0 ? "Published " + (ok == 1 ? "1 sound" : ok + " sounds") + ". Find " + (ok == 1 ? "it" : "them") + " under COMMUNITY." + (err != null ? " (" + err + ")" : "") : (err ?? "Nothing was published."); if (ok > 0) { soundTab = 2; CommFetch(); } Poke(); })); } catch { }
         });
-        bx = Action(g, "SHARE", bx, by, 80, true, "Share the current sound with everyone in the Community category.", () =>
+    }
+
+    // ---- drag and drop ----
+    void DragOut(string name, string data)
+    {
+        if (draggingOut || data == null) return; draggingOut = true; active = null;
+        try { string p = SynthPresets.ExportFile(name, data); DoDragDrop(new DataObject(DataFormats.FileDrop, new[] { p }), DragDropEffects.Copy); browseMsg = "Dragged out as " + System.IO.Path.GetFileName(p); }
+        catch (Exception ex) { browseMsg = ex.Message; }
+        finally { draggingOut = false; Poke(); }
+    }
+    void SoundDragEnter(object s, DragEventArgs e) { e.Effect = (!draggingOut && e.Data.GetDataPresent(DataFormats.FileDrop)) ? DragDropEffects.Copy : DragDropEffects.None; }
+    void SoundDragDrop(object s, DragEventArgs e)
+    {
+        if (draggingOut) return; var files = e.Data.GetData(DataFormats.FileDrop) as string[]; if (files == null) return;
+        string msg = DropSoundFiles(files); browseOpen = true; soundTab = 1; browseScroll = 0; browseMsg = msg; Poke();
+    }
+    // files dropped on Bass Lab: sound files are added to MY SOUNDS (returns the sentence to show)
+    internal string DropSoundFiles(string[] files)
+    {
+        int ok = 0; string last = "", bad = ""; bool audio = false;
+        foreach (var f in files)
         {
-            string data = fx.Serialize(); if (!CommunityPresets.Safe("synth", data)) { browseMsg = "That sound is too big or has something that cannot be shared."; return; }
-            string s = AskName("Name your sound (everyone can see and use it):", SynthPresets.IsFactory(fx.PresetName) ? "My " + fx.PresetName : fx.PresetName); if (s == null) return; string who = ProjectLibrary.ProfileName; if (string.IsNullOrWhiteSpace(who)) who = "Producer"; browseMsg = "Sharing...";
-            System.Threading.ThreadPool.QueueUserWorkItem(o2 => { string err = CommunityPresets.Share("synth", s, who, data); try { BeginInvoke(new Action(() => { browseMsg = err ?? "Shared! Find it under Community."; if (err == null) { browseCat = "Community"; CommFetch(); } Poke(); })); } catch { } });
-        });
-        bx = Action(g, "DUPLICATE", bx, by, 110, true, "Make a copy you can edit.", () => { try { string n2 = SynthPresets.DuplicateUser(fx.PresetName); SynthPresets.Apply(fx, n2); modified = false; browseCat = "My presets"; browseMsg = "Made " + n2; } catch (Exception ex) { browseMsg = ex.Message; } });
-        bx = Action(g, "RENAME", bx, by, 96, isUser, "Rename your preset.", () => { string s = AskName("New name:", fx.PresetName); if (s == null) return; try { string old = fx.PresetName; SynthPresets.RenameUser(old, s); fx.PresetName = s.Trim(); browseMsg = "Renamed to " + s.Trim(); } catch (Exception ex) { browseMsg = ex.Message; } });
-        bx = Action(g, "DELETE", bx, by, 90, isUser, "Delete your preset (built-in ones cannot be deleted).", () => { if (MessageBox.Show(this, "Delete preset \"" + fx.PresetName + "\"?", "Delete preset", MessageBoxButtons.YesNo) != DialogResult.Yes) return; try { SynthPresets.DeleteUser(fx.PresetName); browseMsg = "Deleted " + fx.PresetName; fx.PresetName = "Init"; } catch (Exception ex) { browseMsg = ex.Message; } });
-        Txt(g, browseMsg, 12, Good, Rc(box.X + 230, by + 40, box.Width - 250, 20), StringAlignment.Near, true);
-        Txt(g, "Your presets store the oscillators, drawn waves, filters, envelopes, LFO shapes, modulation, effect chain and voice settings.", 11, Dim, Rc(box.X + 20, box.Bottom - 40, box.Width - 40, 18), StringAlignment.Near, false);
+            string ext = System.IO.Path.GetExtension(f).ToLowerInvariant();
+            if (ext == SynthPresets.FileExt || ext == ".txt") { try { last = SynthPresets.Import(System.IO.Path.GetFileNameWithoutExtension(f), System.IO.File.ReadAllText(f)); ok++; } catch (Exception ex) { bad = ex.Message; } }
+            else if (ext == ".wav" || ext == ".mp3" || ext == ".flac" || ext == ".ogg" || ext == ".m4a" || ext == ".aiff" || ext == ".aif") audio = true;
+            else bad = "That is not a Bass Lab sound file.";
+        }
+        return ok > 0 ? "Added " + (ok == 1 ? "\"" + last + "\"" : ok + " sounds") + " to MY SOUNDS." : (audio ? "Bass Lab makes its own sound, so audio files cannot be used here. Drop a .bsound file (a sound saved from Bass Lab)." : (bad.Length > 0 ? bad : "Nothing was added."));
     }
 
     float Action(Graphics g, string label, float x, float y, float w, bool enabled, string tip, Action a)

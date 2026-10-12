@@ -66,9 +66,23 @@ static class EmojiText
         using (var b = new SolidBrush(c))
             foreach (var run in runs)
             {
-                var f = run.Emoji ? EmojiFont(px) : GfxCache.Font(px, bold); float fh = f.GetHeight(g); g.DrawString(run.T, f, b, x, r.Y + (r.Height - fh) / 2f, Fmt); x += run.W;
+                if (run.Emoji) { DrawEmojiRun(g, run.T, px, b, x, r); x += run.W; continue; }
+                var f = GfxCache.Font(px, bold); float fh = f.GetHeight(g); g.DrawString(run.T, f, b, x, r.Y + (r.Height - fh) / 2f, Fmt); x += run.W;
             }
         g.Restore(gs);
+    }
+
+    // a run of emoji: each one is drawn as its colour picture when it is ready (they are made in the background), as an outline until then
+    static void DrawEmojiRun(Graphics g, string t, float px, Brush b, float x, RectangleF r)
+    {
+        var f = EmojiFont(px); float fh = f.GetHeight(g), y = r.Y + (r.Height - fh) / 2f, cx = x; int i = 0; var im = g.InterpolationMode; g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
+        while (i < t.Length)
+        {
+            int n = char.IsHighSurrogate(t[i]) && i + 1 < t.Length && char.IsLowSurrogate(t[i + 1]) ? 2 : 1; string cl = t.Substring(i, n); float w = g.MeasureString(cl, f, 100000, Fmt).Width; var sp = EmojiSprites.Get(EmojiSprites.KeyOf(cl));
+            if (sp != null) { float s = Math.Min(Math.Max(w, 8f), fh); g.DrawImage(sp, cx + (w - s) / 2f, y + (fh - s) / 2f, s, s); } else g.DrawString(cl, f, b, cx, y, Fmt);
+            cx += w; i += n;
+        }
+        g.InterpolationMode = im;
     }
 
     // writing that wraps onto as many lines as the box has room for (the last line ends with ... when something is left over)

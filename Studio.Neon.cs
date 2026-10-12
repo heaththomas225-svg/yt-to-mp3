@@ -31,6 +31,7 @@ partial class StudioForm
     static void Glow(Graphics g, Color c, RectangleF r, float rad, float k, int spread)
     {
         if (k <= 0.01f || r.Width < 4 || r.Height < 4) return;
+        if (Prefs.PerfMode) { spread = Math.Min(spread, 2); if (r.Width * r.Height >= 60000) spread = 1; }   // PERFORMANCE MODE: a thin glow, nothing wide
         if (r.Width * r.Height < 60000 && spread <= 6 && Math.Abs(r.Width - Math.Round(r.Width)) < 0.01 + 0.5 && Math.Abs(g.Transform.Elements[4]) < 0.5f)
         {   // small boxes: a stored picture of the glow, copied
             int w = (int)Math.Round(r.Width), h = (int)Math.Round(r.Height), pad = spread * 2 + 3; int kq = Math.Max(1, (int)Math.Round(k * 8));

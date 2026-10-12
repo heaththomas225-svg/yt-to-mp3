@@ -127,6 +127,21 @@ static class SynthPresets
         Directory.CreateDirectory(Dir); string f = FileFor(name), tmp = f + ".tmp"; File.WriteAllText(tmp, fx.Serialize(), Encoding.UTF8);
         if (File.Exists(f)) File.Delete(f); File.Move(tmp, f); fx.PresetName = name;
     }
+    // ---- files of sounds (drag a sound out of Bass Lab, drop one in) ----
+    public const string FileExt = ".bsound";
+    public static string UserData(string name) { try { string f = FileFor(name); return File.Exists(f) ? File.ReadAllText(f) : null; } catch { return null; } }
+    static string CleanName(string n) { n = (n ?? "").Trim(); foreach (char c in Path.GetInvalidFileNameChars()) n = n.Replace(c, ' '); n = System.Text.RegularExpressions.Regex.Replace(n, "\\s+", " ").Trim(); if (n.Length > 60) n = n.Substring(0, 60).Trim(); return n.Length == 0 ? "Sound" : n; }
+    // a sound that came in as a file: kept in MY SOUNDS under its own name (a number is added when the name is taken); returns the name it was kept under
+    public static string Import(string name, string data)
+    {
+        if (data == null || !CommunityPresets.Safe("synth", data)) throw new Exception("That file is not a Bass Lab sound.");
+        string n0 = CleanName(name), n = n0; int i = 2; while (Exists(n)) n = n0 + " " + (i++); Directory.CreateDirectory(Dir); File.WriteAllText(FileFor(n), data, Encoding.UTF8); return n;
+    }
+    // a sound written as a file in a folder of its own in the temp folder (what is dragged out of Bass Lab); returns the path
+    public static string ExportFile(string name, string data)
+    {
+        string d = Path.Combine(Path.GetTempPath(), "PurphexSounds"); Directory.CreateDirectory(d); string p = Path.Combine(d, CleanName(name) + FileExt); File.WriteAllText(p, data, Encoding.UTF8); return p;
+    }
     public static void DeleteUser(string name) { string f = FileFor(name); if (File.Exists(f)) File.Delete(f); }
     public static void RenameUser(string from, string to)
     {

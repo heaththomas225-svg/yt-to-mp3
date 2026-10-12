@@ -563,6 +563,15 @@ static class T
             // sync: onset of processed vocal vs dry vocal (first sample above threshold)
             int onD = -1, onP = -1; for (int i = 0; i < v.Length; i++) { if (onD < 0 && Math.Abs(dryV.L[i]) > 0.02f) onD = i; if (onP < 0 && Math.Abs(proV.L[i]) > 0.02f) onP = i; }
             Check("export: processed stem stays time-aligned with the dry stem", onD >= 0 && Math.Abs(onD - onP) < 700, "onset dry " + onD + " vs processed " + onP + " frames");
+            { // trim start / end: only that part is written, and it is the same sound
+              var engT = new StudioEngine(); engT.Tracks.Add(StudioEngine.NewTrack("Vocals", "vocal", v)); var trimIt = Exporter.Plan(engT, false, true, false, false, false, false, false, "Trim", 0)[0]; var whole = Exporter.Plan(engT, false, true, false, false, false, false, false, "Whole", 0)[0];
+              string pw = Exporter.Write(engT, whole, dir, 0, null), pt = Exporter.Write(engT, trimIt, dir, 0, null, null, 44100, 1.0, 3.0);
+              var cw = AudioClip.FromFile(pw); var ct = AudioClip.FromFile(pt); double dtm = 0; int off = 44100; for (int i = 2000; i < ct.Length - 2000; i += 53) dtm = Math.Max(dtm, Math.Abs(ct.L[i] - cw.L[i + off]));
+              Check("export: trim start and end write only that part (2 s of a 1 s .. 3 s trim)", Math.Abs(ct.Length - 88200) < 4, ct.Length + " frames");
+              Check("export: the trimmed part is the very same sound as in the whole song", dtm < 0.002, "max difference " + dtm.ToString("0.0000"));
+              bool bad = false; try { Exporter.Write(engT, trimIt, dir, 0, null, null, 44100, 3.0, 1.0); } catch { bad = true; } Check("export: a trim end before the start is refused", bad, "");
+              double ts; Check("export: trim times read as m:ss, seconds or decimals", StudioDialogs.ParseTime("1:23", out ts) && Math.Abs(ts - 83) < 1e-9 && StudioDialogs.ParseTime("83.5", out ts) && Math.Abs(ts - 83.5) < 1e-9 && !StudioDialogs.ParseTime("abc", out ts) && !StudioDialogs.ParseTime("", out ts), "");
+            }
             if (StudioEnv.Ffmpeg() != null)
             {
                 string[] extra = { "flac", "mp3" }; int[] fm = { 3, 4 }; bool encOk = true; string d2 = "";

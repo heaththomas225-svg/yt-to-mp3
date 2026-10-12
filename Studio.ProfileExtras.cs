@@ -26,6 +26,7 @@ partial class StudioForm
     // the banner is alive: a band of light sweeps across it every few seconds and little sparks drift up and twinkle (in the colour of the profile)
     void AnimBanner(Graphics g, RectangleF r, Color accent)
     {
+        if (Prefs.PerfMode) return;   // PERFORMANCE MODE: the banner stands still
         double t = Environment.TickCount / 1000.0; lastInput = DateTime.Now; var gs = g.Save(); using (var clip = RR(r, 18)) g.SetClip(clip, CombineMode.Intersect); var sm = g.SmoothingMode; g.SmoothingMode = SmoothingMode.AntiAlias;
         float w = Math.Max(60f, r.Width * 0.2f), x0 = r.X - w + (r.Width + 2 * w) * (float)((t / 4.8) % 1.0); var band = new RectangleF(x0, r.Y, w, r.Height);
         using (var br = new LinearGradientBrush(band, Color.Transparent, Color.Transparent, 0f)) { var cb = new ColorBlend(3) { Colors = new[] { Color.FromArgb(0, accent), Color.FromArgb(58, MixC(accent, Color.White, 0.55f)), Color.FromArgb(0, accent) }, Positions = new[] { 0f, 0.5f, 1f } }; br.InterpolationColors = cb; g.FillRectangle(br, band); }
@@ -40,6 +41,7 @@ partial class StudioForm
     // lights that run round the edge of the picture, with a short bright tail
     void AnimRing(Graphics g, RectangleF r, Color c)
     {
+        if (Prefs.PerfMode) return;   // PERFORMANCE MODE: the picture ring stands still
         double t = Environment.TickCount / 1000.0; lastInput = DateTime.Now; var sm = g.SmoothingMode; g.SmoothingMode = SmoothingMode.AntiAlias; float w = r.Width, h = r.Height, P = 2 * (w + h);
         Func<float, PointF> at = d => { d = ((d % P) + P) % P; if (d < w) return new PointF(r.X + d, r.Y); d -= w; if (d < h) return new PointF(r.Right, r.Y + d); d -= h; if (d < w) return new PointF(r.Right - d, r.Bottom); d -= w; return new PointF(r.X, r.Bottom - d); };
         for (int k = 0; k < 3; k++)
@@ -114,7 +116,7 @@ partial class StudioForm
     void VideoMenu(RectangleF at, ProjectEntry e)
     {
         if ((e.Video ?? "").Length == 0) { SetVideo(e); return; }
-        var m = Win.NewMenu(); m.Items.Add("Watch the music video").Click += (a, b) => OpenLink(e.Video); m.Items.Add("Change the link...").Click += (a, b) => SetVideo(e); m.Items.Add("Remove the music video").Click += (a, b) => { e.Video = ""; ProjectLibrary.Save(); QueueRepublish(); Toast("Music video removed."); };
+        var m = Win.NewMenu(); m.Items.Add("Upload a video file instead...").Click += (a, b) => UploadMusicVideo(e); m.Items.Add("Watch the music video").Click += (a, b) => OpenLink(e.Video); m.Items.Add("Change the link...").Click += (a, b) => SetVideo(e); m.Items.Add("Remove the music video").Click += (a, b) => { e.Video = ""; ProjectLibrary.Save(); QueueRepublish(); Toast("Music video removed."); };
         m.Show(this, new Point((int)at.X, (int)at.Bottom));
     }
     void SetVideo(ProjectEntry e)

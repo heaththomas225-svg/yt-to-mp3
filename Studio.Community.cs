@@ -19,7 +19,7 @@ partial class StudioForm
         if (commInviteAsked) return; commInviteAsked = true;
         ThreadPool.QueueUserWorkItem(o => { try { using (var wc = new WebClient()) { wc.Headers["User-Agent"] = "PurphexMusic"; string j = wc.DownloadString("https://purphexmusic.com/api/community"); var m = Regex.Match(j, "\"discord\"\\s*:\\s*\"([^\"]*)\""); if (m.Success) { string u = m.Groups[1].Value.Replace("\\/", "/"); if (u.StartsWith("https://discord.gg/") || u.StartsWith("https://discord.com/invite/")) commInvite = u; } } } catch { } });
     }
-    static readonly string[] CommTabs = { "All", "Recent", "Published" };
+    static readonly string[] CommTabs = { "ALL", "NEW RELEASES", "ALBUMS", "EPS", "SAVED" };
     // the community itself lives on the website (members sign in there)
     void OpenCommunitySite(string path) { try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(CommunityPresets.BaseUrl + path) { UseShellExecute = true }); Toast("Opening the community on the website: sign in there."); } catch (Exception ex) { Toast("Could not open the website: " + ex.Message); } }
 
@@ -43,7 +43,7 @@ partial class StudioForm
         if (tab == 3) { string[] tn = { "MIX", "MASTERING", "LYRICS" }; int[] ti = { 0, 1, 2 }; float[] tw = { 90, 124, 98 }; for (int i = 2; i >= 0; i--) { int t = ti[i]; Btn(g, Rc(rx - tw[i], y, tw[i], h), tn[i], 0, () => tab = t, 13); rx -= tw[i] + 6; } }
         else if (tab != 8)
         {   // the community pages only link to each other
-            string[] tn = { "COMMUNITY", "ARTISTS", "PROFILE" }; int[] ti = { 4, 7, 6 }; float[] tw = { 134, 112, 104 };
+            FetchInbox(false); string[] tn = { "COMMUNITY", "ARTISTS" + (msgUnread > 0 ? " (" + msgUnread + ")" : ""), "PROFILE" }; int[] ti = { 4, 7, 6 }; float[] tw = { 134, 150, 104 };
             for (int i = 2; i >= 0; i--) { int t = ti[i]; if (t == tab) continue; Btn(g, Rc(rx - tw[i], y + 4, tw[i], h - 8), tn[i], t == 6 ? 2 : 1, () => { if (t == 6) profScroll = 0; if (t == 7) OpenArtists(); else tab = t; }, 13); rx -= tw[i] + 6; }
         }
     }
@@ -51,7 +51,7 @@ partial class StudioForm
     void PaintCommunity(Graphics g)
     {
         float W = ClientSize.Width, H = ClientSize.Height, top = ToolH, Hb = H - (previewPath.Length > 0 ? 62 : 0); if (!projectsLoaded)   /* Hb: the bottom of the page when the preview bar is showing under it */ { projectsLoaded = true; ProjectLibrary.Load(); ProjectLibrary.Discover(); }
-        bool rail = W >= 1000; float sw = 0, rw = rail ? 290 : 0; PaintLogoBackdrop(g, Rc(sw, top, W - sw - rw, H - top));
+        bool rail = false; float sw = 0, rw = rail ? 290 : 0; PaintLogoBackdrop(g, Rc(sw, top, W - sw - rw, H - top));
         float cx0 = sw + 18, cw = W - sw - rw - 36 - (rail ? 18 : 0), cx1 = cx0 + cw;
         // ---- header banner ----
         var ban = Rc(cx0, top + 16, cw, 92); FillRR(g, TM.C(210, 20, 10, 44), ban, 16); Glow(g, NeonViolet, ban, 16, 0.55f, 3);
@@ -63,75 +63,14 @@ partial class StudioForm
         float ty = ban.Bottom + 14; float tx = cx0 + 4;
         for (int i = 0; i < CommTabs.Length; i++)
         {
-            int k = i; var r = Rc(tx, ty, 118, 34); bool on = commFilter == i; if (on) { FillRR(g, TM.C(120, 70, 40, 160), r, 10); } else if (Hot(r)) FillRR(g, TM.C(70, 70, 40, 130), r, 10);
-            Txt(g, CommTabs[i], 13, on ? Ink : DimC, r, StringAlignment.Center, on); if (on) using (var pen = new Pen(NeonCyan, 2f)) g.DrawLine(pen, r.X + 12, r.Bottom - 1, r.Right - 12, r.Bottom - 1); Reg(r, () => { commFilter = k; commScroll = 0; }); tx += 124;
+            int k = i; var r = Rc(tx, ty, 134, 34); bool on = commFilter == i; if (on) { FillRR(g, TM.C(120, 70, 40, 160), r, 10); } else if (Hot(r)) FillRR(g, TM.C(70, 70, 40, 130), r, 10);
+            Txt(g, CommTabs[i], 13, on ? Ink : DimC, r, StringAlignment.Center, on); if (on) using (var pen = new Pen(NeonCyan, 2f)) g.DrawLine(pen, r.X + 12, r.Bottom - 1, r.Right - 12, r.Bottom - 1); Reg(r, () => { commFilter = k; commScroll = 0; FeedRefetch(); }); tx += 140;
         }
         // ---- SAVED SONGS and SHARE: both are on the community page of the website (you sign in there); a song saved there is for listening, never a file on this PC ----
         { var shB = Rc(cx1 - 4 - 150, ty, 150, 34); var svB = Rc(shB.X - 8 - 178, ty, 178, 34); if (svB.X > tx + 20)
-          { Btn(g, svB, "SAVED SONGS", 1, () => OpenCommunitySite("/community?saved=1"), 13); Hint2(svB, "The songs you saved from the community (the favourites of other producers). Opens the community page of the website: sign in there. Saved songs are for listening: they cannot be saved to your PC");
+          { Btn(g, svB, "SAVED SONGS", 1, () => { commFilter = 4; FeedRefetch(); }, 13); Hint2(svB, "The songs you saved with SAVE SONG");
             Btn(g, shB, "SHARE", 2, () => OpenCommunitySite("/community"), 13); Hint2(shB, "Share a song with the community. Opens the community page of the website, where you sign in and upload it"); } }
-        // ---- the feed: round neon art cards (your saved projects) ----
-        var all = ProjectLibrary.AllByEdited(); var list = new List<ProjectEntry>();
-        foreach (var e in all) { if (commFilter == 1 && (DateTime.Now - e.Opened).TotalDays > 7) continue; if (commFilter == 2 && !e.OnProfile) continue; list.Add(e); }   // Published: the projects you published go to the community by themselves
-        float fy = ty + 46, fh = Hb - fy; var area = Rc(cx0, fy, cw, fh); float cardW = 206, cardH = 390, gap = 14; int cols = Math.Max(1, (int)((cw - 56 + gap) / (cardW + gap))); float used = cols * cardW + (cols - 1) * gap, ox = cx0 + (cw - 56 - used) / 2;
-        int rows = (list.Count + cols - 1) / cols; float maxS = Math.Max(0, rows * (cardH + gap) - fh + 10); commScroll = Math.Max(0, Math.Min(maxS, commScroll));
-        regs.Add(new HitReg { R = area, OnWheel = d => commScroll = Math.Max(0, Math.Min(maxS, commScroll - d * 70)) });
-        var gs = g.Save(); g.SetClip(area, CombineMode.Intersect);
-        bool overlayOk = !menuOpen && !ntOpen && !busOpen && !busy;
-        for (int i = 0; i < list.Count; i++)
-        {
-            var e = list[i]; float cx = ox + (i % cols) * (cardW + gap), cy = fy + (i / cols) * (cardH + gap) - commScroll; var card = Rc(cx, cy, cardW, cardH); if (card.Bottom < fy || card.Y > Hb) continue;
-            bool hot = overlayOk && area.Contains(MousePos) && card.Contains(MousePos); FillRR(g, TM.C(hot ? 215 : 175, 18, 10, 38), card, 16); Win.DrawNeonBox(g, card, hot);
-            float S = cardW - 28; var art = Rc(card.X + 14, card.Y + 14, S, S); DrawSquareArt(g, art, e);
-            string path = e.Path; bool miss = e.Missing; var open = Reg(card, () => OpenProjectAsk(e)); open.OnRight = () => ProjectCardMenu(path);
-            Txt(g, e.Name, 15, Ink, Rc(card.X + 14, card.Y + S + 22, cardW - 28, 22), StringAlignment.Near, true);
-            var sa = Rc(card.X + 14, card.Y + S + 48, 18, 18); DrawAvatar(g, sa); Txt(g, ProjectLibrary.ProfileName, 12, DimC, Rc(card.X + 38, card.Y + S + 46, cardW - 52, 20), StringAlignment.Near, false);
-            string meta = e.Tracks + (e.Tracks == 1 ? " track" : " tracks") + (e.Bpm > 0 ? "  -  " + e.Bpm.ToString("0") + " BPM" : "") + (e.Seconds > 1 ? "  -  " + ((int)(e.Seconds / 60)) + ":" + ((int)(e.Seconds % 60)).ToString("00") : ""); Txt(g, meta, 11, NeonCyan, Rc(card.X + 14, card.Y + S + 70, cardW - 28, 16), StringAlignment.Near, false);
-            ProjectLibrary.MeasureAsync(e); Txt(g, "SIZE " + ProjectLibrary.Size(e.Bytes) + "  -  edited " + ProjectLibrary.Ago(e.Updated), 11, DimC, Rc(card.X + 14, card.Y + S + 88, cardW - 28, 16), StringAlignment.Near, false);
-            if (e.Tags.Length > 0)
-            {
-                var allTags = e.Tags.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries); float tx2 = card.X + 14, total = 0; foreach (var t0 in allTags) total += 14 + ("#" + t0).Length * 6.6f + 5; bool more = total > card.Right - 12 - tx2; float limit = card.Right - 12 - (more ? 26 : 0); int shownN = 0;
-                foreach (var tg in allTags) { string lb = "#" + tg; float tw = 14 + lb.Length * 6.6f; if (tx2 + tw > limit) break; var tr2 = Rc(tx2, card.Y + S + 108, tw, 18); FillRR(g, TM.C(110, 60, 36, 120), tr2, 9); Txt(g, lb, 10, Ink, tr2, StringAlignment.Center, false); tx2 += tw + 5; shownN++; }
-                if (shownN < allTags.Length)
-                {   // there are more tags than fit: a small down arrow opens the whole list
-                    var ar = Rc(card.Right - 12 - 22, card.Y + S + 108, 22, 18); bool hotA = Hot(ar); FillRR(g, hotA ? TM.C(230, 118, 52, 212) : TM.C(170, 90, 50, 170), ar, 9); using (var pen = new Pen(Color.White, 1.8f) { StartCap = LineCap.Round, EndCap = LineCap.Round, LineJoin = LineJoin.Round }) g.DrawLines(pen, new[] { new PointF(ar.X + 6.5f, ar.Y + 6.5f), new PointF(ar.X + 11, ar.Y + 11.5f), new PointF(ar.X + 15.5f, ar.Y + 6.5f) });
-                    var ee = e; var arr = ar; Reg(ar, () => ShowAllTags(arr, ee)); Hint2(ar, "Show all " + allTags.Length + " tags of this project");
-                }
-            }
-            if (e.Desc.Length > 0) Txt(g, e.Desc, 11, DimC, Rc(card.X + 14, card.Y + S + 130, cardW - 28, 32), StringAlignment.Near, false);
-            else if (hot) Txt(g, "Hover tools: rename, picture, description, tags", 10, TM.C(120, 150, 130, 190), Rc(card.X + 14, card.Y + S + 130, cardW - 28, 16), StringAlignment.Near, false);
-            if (!miss) PlayBox(g, Rc(card.X + 14, card.Bottom - 12 - 34, cardW - 28, 34), e);   // a solid play button along the bottom of the card, never covered by the hover tools
-            if (hot)
-            {
-                // the hover tools sit over the picture
-                using (var b = new SolidBrush(TM.C(205, 6, 3, 18))) using (var p = RR(art, 12)) g.FillPath(b, p);
-                // the hover tools sit over the picture: Open on its own line, then the rest in pairs (Play is the button at the bottom of the card)
-                string[] bn = { "Open", "Rename", "Describe", "Upload pic", "Tags", "Delete pic", "Folder" };   /* UPLOAD PIC sits right above DELETE PIC */ float bw = (S - 30) / 2f, bh = 32;
-                Action[] ba0 = { () => OpenProjectAsk(e), () => RenameEntry(e), () => PickCover(path), () => { if (e.Cover.Length > 0) { ProjectLibrary.ClearCover(path); Toast("Picture removed: the Purphex logo is shown again."); } else Toast("This project has no picture of its own."); }, () => DescribeEntry(e), () => TagEntry(e), () => { try { System.Diagnostics.Process.Start("explorer.exe", "/select,\"" + path + "\""); } catch { } } }; Action[] ba = { ba0[0], ba0[1], ba0[4], ba0[2], ba0[5], ba0[3], ba0[6] };
-                for (int k = 0; k < 7; k++) { RectangleF br = k == 0 ? Rc(art.X + 10, art.Y + 10, S - 20, bh) : Rc(art.X + 10 + ((k - 1) % 2) * (bw + 10), art.Y + 10 + (1 + (k - 1) / 2) * (bh + 8), bw, bh); Action act = ba[k]; Btn(g, br, bn[k], k == 0 ? 2 : (k == 5 ? (e.Cover.Length > 0 ? 3 : 0) : 1), () => act(), 12); if (k == 3) Hint2(br, "Upload a picture from your PC for this project (it replaces the Purphex logo on the card)"); else if (k == 5) Hint2(br, e.Cover.Length > 0 ? "Delete the picture you uploaded: the Purphex logo is shown again" : "This project has no picture of its own to delete"); }
-            }
-        }
-        g.Restore(gs);
-        VScroll(g, Rc(cx0 + cw - 52, fy, 42, fh - 8), fh - 8 + maxS, fh - 8, () => commScroll, v => commScroll = v);
-        if (list.Count == 0) { Txt(g, commFilter == 0 ? "Nothing here yet. Make something, press Save, and it shows up as a card." : "No projects match this filter.", 14, DimC, Rc(cx0 + 10, fy + 40, cw - 20, 40), StringAlignment.Near, false); }
-        // ---- right column ----
-        if (rail)
-        {
-            float rx = cx1 + 18, ry = top + 16;
-            var p2 = Rc(rx, ry, rw, 156); FillRR(g, TM.C(185, 18, 10, 38), p2, 14); StrokeRR(g, Color.FromArgb(100, NeonViolet), p2, 14, 1);
-            Txt(g, "BROWSE SOUNDS BY TAG", 12, Ink, Rc(p2.X + 16, p2.Y + 12, 240, 20), StringAlignment.Near, true);
-            string[] tags = { "dnb", "bassline", "garage", "trap", "rap", "bass", "drums", "synth", "vocal" }; float gx = p2.X + 14, gy = p2.Y + 42;
-            foreach (var tg in tags)
-            {
-                string label = "# " + tg; float tw2 = 18 + label.Length * 7.5f; if (gx + tw2 > p2.Right - 10) { gx = p2.X + 14; gy += 36; } var r = Rc(gx, gy, tw2, 28); string t2 = tg;
-                FillRR(g, Hot(r) ? TM.C(150, 80, 46, 170) : TM.C(90, 50, 30, 100), r, 14); Txt(g, label, 12, Ink, r, StringAlignment.Center, false); Reg(r, () => { OpenSounds(); sndFilter.Text = t2; sndFilter.Group = ""; sndFilter.Kind = ""; sndFilter.Type = ""; if (soundBox != null) soundBox.Text = t2; sndDirty = true; sndScroll = 0; }); gx += tw2 + 8;
-            }
-            ry = p2.Bottom + 14; var p3 = Rc(rx, ry, rw, Math.Max(150, Hb - ry - 16)); FillRR(g, TM.C(185, 18, 10, 38), p3, 14); StrokeRR(g, Color.FromArgb(100, NeonViolet), p3, 14, 1);
-            Txt(g, "LATEST ACTIVITY", 12, Ink, Rc(p3.X + 16, p3.Y + 12, 240, 20), StringAlignment.Near, true);
-            float ay = p3.Y + 44; int shown = 0;
-            foreach (var e in all) { if (ay + 44 > p3.Bottom - 6 || shown >= 5) break; var sa = Rc(p3.X + 14, ay, 30, 30); DrawAvatar(g, sa); Txt(g, "YOU SAVED " + e.Name, 12, Ink, Rc(p3.X + 54, ay - 2, rw - 70, 18), StringAlignment.Near, false); Txt(g, ProjectLibrary.Ago(e.Updated), 11, DimC, Rc(p3.X + 54, ay + 16, rw - 70, 16), StringAlignment.Near, false); ay += 44; shown++; }
-            if (shown == 0) Txt(g, "Your saves and uploads will show here.", 12, DimC, Rc(p3.X + 16, ay, rw - 32, 20), StringAlignment.Near, false);
-        }
+        PaintFeed(g, W, Hb, ty, cx0, cw);
     }
 
     // project picture: the WHOLE picture in a square, wrapped in a neon glow (a generated burst when there is no picture)

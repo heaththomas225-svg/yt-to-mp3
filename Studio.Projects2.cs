@@ -24,7 +24,7 @@ partial class StudioForm
     void OpenProjectAsk(ProjectEntry e)
     {
         if (e == null) return; if (e.Missing || !File.Exists(e.Path)) { Toast("That project file has moved or been deleted. Remove it from the list with the x."); return; }
-        bool ok = confirmOpenHook != null ? confirmOpenHook(e) : MessageBox.Show(this, "Open \"" + e.Name + "\" now?" + (eng.Tracks.Count > 0 ? "\n\nThe project that is open now will be closed (save it first if you changed it)." : ""), "Open project", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes;
+        bool ok = confirmOpenHook != null ? confirmOpenHook(e) : MessageBox.Show(this, (eng.Tracks.Count > 0 ? OverwriteText(e.Name) : "Open \"" + e.Name + "\" now?"), "Open project", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes;
         if (!ok) return; StopPreview(); tab = 0; OpenProjectPath(e.Path);
     }
     // 0 = cancelled, 1 = off the list only, 2 = off the list and the file to the Recycling Bin (kept 30 days)
@@ -71,6 +71,7 @@ partial class StudioForm
     }
     void StopPreview()
     {
+        StopVideoOverlay();
         var pe = previewEng; previewEng = null; previewPath = ""; previewName = ""; previewLoading = false; previewPaused = false; if (StudioEngine.Current == pe) StudioEngine.Current = eng;
         if (pe != null) { try { pe.Stop(); } catch { } try { pe.Shutdown(); } catch { } }
     }

@@ -228,7 +228,7 @@ Press Add Effect on a track, type to search, press Add. There are 18 including E
 ## Edit it
 Click it in the list. Drag sliders, or click the neon box with the number to type an exact value: click anywhere else (or press Enter) to confirm it, press Esc to cancel. Bypass turns it off, Presets lists built-in and your own.
 ## Presets
-Presets lets you load Melodic, Emotional, Technical, Aggressive, Clean Studio or Wide Atmospheric vocal chains, the instrumental chain, or a bus preset (Echo bus, AdLib bus, Reverb bus). The Buses sheet has a Presets button for each bus. Every plugin stays editable. Save your own chain with 'Save this track's chain'.
+Presets ADD to the plugins you already have: your own plugins (and Bass Lab) always stay, and the preset sits in a box of its own at the top of the list that says which preset it is (REMOVE takes away only that box; a different preset replaces the first preset only). You can add more plugins of your own below it. Presets lets you load Melodic, Emotional, Technical, Aggressive, Clean Studio or Wide Atmospheric vocal chains, the instrumental chain, or a bus preset (Echo bus, AdLib bus, Reverb bus). The Buses sheet has a Presets button for each bus. Every plugin stays editable. Save your own chain with 'Save this track's chain'.
 ## Community presets
 Every Presets button (on a plugin, and the track Presets button for whole chains) starts with Community presets. A list opens with presets that other producers shared: POPULAR shows the most used first, NEWEST the latest, and you can type to search. Press USE to try one, press the x or Esc to close. Bass Lab has a Community style in its preset browser too.
 Press SHARE MY CURRENT SETTINGS to give your own sound to everyone (you choose the name; your producer name is shown as the author). Share only sounds you made. If something does not belong there, press Report: a preset that several people report is hidden.
@@ -274,8 +274,9 @@ Momentary, Short-term and Integrated LUFS, true peak, peak, gain reduction and c
         new HelpTopic("studio-export", "Purphex Music", "Export and save projects", true, @"
 ## Export
 1. Press EXPORT.
-2. Tick what you want: the finished mix, vocals only, instrumental only, dry versions, or every track as a stem.
-3. Choose WAV, FLAC or MP3 and a folder, then Export. Files are checked so nothing is replaced without asking.
+2. Tick what you want: the complete mix with mastering OR without (ticking one un-ticks the other), the processed vocals, the processed instrumental, or every track as a stem. Everything you made in the DAW is exported.
+3. To export only a part of the song, change TRIM start and end (for example 0:30 to 1:45). Leave them as they are for the whole song.
+4. Choose WAV, FLAC or MP3 and a folder, then Export. Files are checked so nothing is replaced without asking.
 All files start at 0:00 with the same length, so they line up in any other music software.
 ## Save and reopen
 Save stores everything: your tracks, plugin settings and alignment. Open brings it back.
@@ -292,6 +293,7 @@ Press Settings (top right of the main window) or Menu, then Settings. The sectio
 Choose any picture or video. It is cropped to fill the window automatically. Darken makes it easier to read. 'Keep the leaves' puts the floating leaves on top. Remove puts the purple leaves back.
 ## Animation
 Frame rate limit: 60 is smoothest, 30 is lightest on a slow computer. The frame rate is always shown in the title bar.
+PERFORMANCE MODE (the box at the top of this page, or VIEW > Performance mode in the DAW) is for slower PCs: it limits the program to 30 frames a second and almost removes the animation (no moving backgrounds, hover sparks, glow, moving logo or animated profile pictures), so everything runs smoothly. Untick it to get everything back.
 ## Updates
 Scan for updates checks for a new version right now and always tells you what it found (you are up to date, or an update is ready and its window opens). It even shows an update you pressed Later on before.
 ## Audio
@@ -403,7 +405,7 @@ Mouse wheel + Ctrl zooms, Alt + wheel makes tracks taller, or use - + FIT. After
 ## The quickest way
 Press the round ? button (HELP) at the top right of Bass Lab. A short tour points at each part of the screen and tells you what it does.
 ## Make your first sound
-1. Click the preset name at the top (or press the < > buttons) and pick any sound. Starting from a sound you like is much easier than starting from nothing.
+1. Press the menu button (three bars) in the top left corner: YOUR SOUNDS opens. Pick any sound. Starting from a sound you like is much easier than starting from nothing.
 2. Play it: click the piano keys at the bottom, or use A S D F G H J on your computer keyboard (Z and X change the octave). A MIDI keyboard works too (choose it on the GLOBAL page).
 3. Make it darker or brighter: turn CUTOFF on FILTER 1 down or up.
 4. Make it fatter: turn UNISON up on OSC A (more voices stacked on top of each other).
@@ -418,7 +420,7 @@ TIP: The other Bass Lab pages explain each part in more detail."),
 ## Open it
 In Purphex Music press + ADD TRACK, then MIDI Track. A track and the Bass Lab window open. Play with your keyboard (A S D F G H J = white keys, W E T Y U = black keys, Z / X = octave) or click the piano.
 ## Pick a sound
-Click the preset name at the top (or the < > arrows) to open the preset browser: 54 presets in 13 styles, plus your own. See the Presets help page.
+Press the menu button (three bars) in the top left corner to open YOUR SOUNDS: the 54 sounds built into the DAW, the sounds you saved, and the community's. See the Presets help page.
 ## Make a wobble in 3 clicks
 1. Open the bottom panel tab LFO 1.
 2. Press 'Filter 1 cutoff' in WOBBLE IT (or 'Osc A warp' for a growl, 'Volume' for a tremolo).
@@ -494,16 +496,43 @@ Every effect has a WET/DRY knob: 0 is the untouched sound, 100 is all effect.
 - STEREO WIDTH keeps bass below MONO BELOW in the middle so it stays strong on speakers.
 Your order and every setting are saved with the patch and with your presets."),
 
+        new HelpTopic("studio-community", "Purphex Music", "Community, artists, friends, messages and collabs", true, @"
+## Publishing a song
+In My Projects press PUBLISH TO PROFILE + COMMUNITY under a project. It asks first. The song is exported as an MP3 (mixed and mastered, like EXPORT, up to 30 MB) and put on the community page of the website, where members listen to it, like it and comment. Your profile is made public with it, so people can find the song under ARTISTS. Make the project private again and the song comes off the page. Only publish music you made or have the right to share.
+## The Community tab
+Every song published from Purphex Music, from everyone. Filter by GENRE, NEW RELEASES, ALBUMS, EPS or SAVED. Press a song to play it (if it has a music video you are asked if you want to watch it too). SAVE SONG keeps it under SAVED. The line under it opens the song on the website. You open your own projects in My Projects, not here.
+## Artists
+Pressing Community in the menu gives two choices: the community tab and the artists page. On an artist page:
+- ADD FRIEND asks to be friends (they accept or decline). FOLLOW is separate.
+- MESSAGE writes to them. MESSAGE ABOUT IT under a track is a reply to that song.
+- BLOCK stops them writing to you (it also ends a friendship). UNBLOCK lets them again.
+- REPORT needs a reason. It goes to the staff on Discord.
+- You also see their TIME MADE, how many friends and followers they have, and every track with a play button, AUDIO ONLY or MUSIC VIDEO, and its own progress line.
+## Messages and chat
+MESSAGES (on the Artists page) has your conversations and friend requests. The number on the ARTISTS button is the messages you have not read. Menu > Pages > Chat opens a small chat window: drag the top of it anywhere over the DAW, so you can chat and make music at the same time.
+## Collabs
+Invite a friend from their page (INVITE TO COLLAB). When they accept, each of you presses SEND MY VERSION (pick one of your projects: it is exported and sent) and GET THEIR VERSION (saved in Documents > Purphex Music > Collabs, then use ADD MUSIC in your project). Each upload tells the other artist in a message."),
+        new HelpTopic("studio-video", "Purphex Music", "Music videos and EPs / albums", true, @"
+## A music video
+UPLOAD MUSIC VIDEO is under every project in My Projects (publish the project first: the video goes with its song). Any size and any shape works: wide, square, tall or 4K. If the web cannot play your file it is turned into a web video (the shape stays the same), and it is never more than 100 MB (about 25 minutes). Press the button again to change it or remove it.
+## Watching one
+Pressing a song that has a video asks: watch the video too? The video plays in a small player above the strip at the bottom, in time with the song. FULL SCREEN fits the picture to your screen without stretching it (black bars if the shapes differ); Esc or EXIT FULL SCREEN comes back. On the website the song page plays it where the picture was.
+## EP / ALBUM
+On My Projects press EP / ALBUM. Give it a name, choose EP (2 to 6 tracks) or ALBUM (up to 30), tick the projects and put them in order. The release goes on your profile with its published projects, and the Community tab shows it under EPS or ALBUMS."),
         new HelpTopic("basslab-presets", "Music Studio", "Bass Lab: presets, saving and starting fresh", false, @"
-## Open the browser
-Click the preset name at the top of Bass Lab (or use the < > arrows to step through them).
-- Left: 13 styles (Wobble, Reese, Growl, Dubstep, DnB, Neuro, Riddim, Sub, Lead, Pluck, Pad, Keys, SFX), plus My presets.
-- Right: the presets in that style. Click one to load it.
-## Your own presets
-- SAVE AS... keeps the current sound under a name you choose. It stores everything: oscillators and drawn waves, filters, envelopes, LFO shapes, modulation, the effect chain and voice settings.
-- DUPLICATE makes a copy you can change.
-- RENAME and DELETE work on your own presets (the built-in ones are protected).
+## Open YOUR SOUNDS (drag n drop)
+Press the menu button (three bars) in the top left corner of Bass Lab. A side menu slides in with three tabs:
+- BUILT-IN: the 54 sounds that come with the DAW, in styles (Wobble, Reese, Growl, Dubstep, DnB, Neuro, Riddim, Sub, Lead, Pluck, Pad, Keys, SFX). Click one to load it.
+- MY SOUNDS: the sounds you saved. They stay until you delete them: press the small x on a sound to delete only that one.
+- COMMUNITY: sounds other people published. Click one to use it.
+## Your own sounds
+- SAVE CURRENT SOUND... keeps the sound you are playing under a name you choose. It stores everything: oscillators and drawn waves, filters, envelopes, LFO shapes, modulation, the effect chain and voice settings.
+- DUPLICATE makes a copy you can change. RENAME works on your own sounds (the built-in ones are protected).
 - INITIALISE PATCH resets everything to a plain, clean sound to start from scratch.
+- PUBLISH SOUNDS TO COMMUNITY lets you pick the sound you are playing, one of yours, or all of yours, and asks before it publishes. Your artist name goes on it.
+## Drag and drop
+- Drag a sound out of the list onto your desktop or a folder: it is saved as a .bsound file.
+- Drop a .bsound file anywhere on Bass Lab: it is added to MY SOUNDS.
 ## Remembered between sessions
 Voice limit, master tuning, bend range and velocity are yours, not the sound's: they stay the same when you change preset and when you restart the app. Presets live in your data folder (Menu > Open data folder > synthpresets)."),
 
@@ -659,7 +688,7 @@ Press the three-lines button at the top left of Purphex Music. Your picture and 
 - Edit (only on the Mix page): undo, redo, split, cut, lock, duplicate and delete.
 - Tools: Auto Mix, split vocals and beat, detect BPM, Flex Pitch, Sounds and sound packs, Rapper Vocal Styles, add a track, metronome and snap to grid. They all take you to the Mix page first.
 - Pages: Mix, Mastering and Lyrics. Projects and Community are buttons of their own (Projects opens your saved projects and nothing else; Community has ARTISTS in its header). Every page also has a BACK button that returns to the page you came from.
-- View: fit the whole song, thin / normal / tall tracks, full screen and the converter window. (The frame rate is always shown in the title bar.)
+- View: fit the whole song, thin / normal / tall tracks, Performance mode (almost no animation, for slower PCs), full screen and the converter window. (The frame rate is always shown in the title bar.)
 - Profile: your own profile page (banner, picture, bio, links, privacy and your tracks).
 - Fonts: the Fonts page, with 190+ fonts (drippy, graffiti, neon, gothic, retro, script, handwritten and more) for all the writing in the studio.
 - Themes: pick a colour theme, or download one other people made (the Themes box has MY THEMES, COMMUNITY THEMES, PHOTO and SAVE; the theme under the mouse is outlined). PHOTO turns a picture into a theme: the colours of the program come from the picture and it fills the window. The whole program changes colour at once and remembers your choice. Settings has the same choice.

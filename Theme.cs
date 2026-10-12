@@ -217,7 +217,7 @@ static class Win
     static readonly System.Runtime.CompilerServices.ConditionalWeakTable<Control, object> neonBoxes = new System.Runtime.CompilerServices.ConditionalWeakTable<Control, object>(), neonParents = new System.Runtime.CompilerServices.ConditionalWeakTable<Control, object>();
     public static void NeonBox(Control c)
     {
-        if (c == null) return; var tb = c as TextBoxBase; if (tb != null) tb.BorderStyle = BorderStyle.None; var nu = c as NumericUpDown; if (nu != null) nu.BorderStyle = BorderStyle.None;
+        if (c == null) return; var tb = c as TextBoxBase; if (tb != null) tb.BorderStyle = BorderStyle.None; var tbx = c as TextBox; if (tbx != null) EmojiOverlay.Attach(tbx);   // its emoji are drawn in colour var nu = c as NumericUpDown; if (nu != null) nu.BorderStyle = BorderStyle.None;
         c.BackColor = TM.C(255, 10, 5, 24); c.ForeColor = TM.C(255, 226, 250, 255);
         object o; if (neonBoxes.TryGetValue(c, out o)) return; neonBoxes.Add(c, true);
         Action<Control> hook = p => { if (p == null) return; object x; if (neonParents.TryGetValue(p, out x)) return; neonParents.Add(p, true); p.Paint += (s, e) => PaintNeonChildren(p, e.Graphics); p.Invalidate(); };
@@ -446,7 +446,7 @@ sealed class FpsCounter
     }
     public void Draw(Graphics g, float right, float bottom, bool idle)
     {
-        if (!Prefs.ShowFps) return; if (hz == 0) hz = FrameLoop.DisplayHz(); int target = Math.Min(Prefs.FpsCap, hz); string text = idle ? "idle" : Fps + " FPS";
+        if (!Prefs.ShowFps) return; if (hz == 0) hz = FrameLoop.DisplayHz(); int target = Math.Min(Prefs.FpsEff, hz); string text = idle ? "idle" : Fps + " FPS";
         Color c = idle ? TM.C(255, 150, 140, 190) : (Fps >= target * 0.85 ? Color.FromArgb(110, 255, 150) : (Fps >= target * 0.45 ? Color.FromArgb(255, 210, 80) : Color.FromArgb(255, 100, 120)));
         var f = GfxCache.Font(12, true); var sz = g.MeasureString(text, f); float w = sz.Width + 30, h = 22; var r = new RectangleF(right - w, bottom - h, w, h);
         var oldS = g.SmoothingMode; g.SmoothingMode = SmoothingMode.AntiAlias;

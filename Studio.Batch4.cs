@@ -109,6 +109,7 @@ partial class StudioForm
     void HoverTick() { double now = needleClock.Elapsed.TotalSeconds; hDt = (float)Math.Max(0.001, Math.Min(0.05, now - hLast)); hLast = now; }
     void HoverSparks(RectangleF r)
     {
+        if (Prefs.PerfMode) return;   // PERFORMANCE MODE: no sparks
         hAcc += 38 * hDt; lastInput = DateTime.Now; btnAnim = true; float per = 2 * (r.Width + r.Height);
         while (hAcc >= 1 && hSparks.Count < 260)
         {
@@ -155,6 +156,7 @@ partial class StudioForm
     // the animated Purphex logo behind Community and My Projects (like the one on the website: a turning ring of light and a soft breathing glow)
     void PaintLogoBackdrop(Graphics g, RectangleF area)
     {
+        if (Prefs.PerfMode) return;   // PERFORMANCE MODE: no moving logo behind the pages
         double t = needleClock.Elapsed.TotalSeconds; float d = Math.Min(Math.Min(area.Width * 0.7f, area.Height * 0.86f), 720f); if (d < 140) return; float cx = area.X + area.Width / 2, cy = area.Y + area.Height / 2; var gs = g.Save(); g.SetClip(area, CombineMode.Intersect);
         var bmp = BackdropBitmap((int)d); int bx = (int)(cx - bmp.Width / 2f), by = (int)(cy - bmp.Height / 2f); g.DrawImageUnscaled(bmp, bx, by); float side = bmp.Width - 2; var ring = new RectangleF(bx + 1, by + 1, side, side);
         float breathe = 0.5f + 0.5f * (float)Math.Sin(t * 0.9), pad = side * 0.045f * (0.6f + 0.4f * breathe); bdRing.Color = Color.FromArgb((int)(22 + 36 * breathe), NeonViolet); g.DrawEllipse(bdRing, ring.X + pad, ring.Y + pad, ring.Width - 2 * pad, ring.Height - 2 * pad);

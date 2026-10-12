@@ -52,9 +52,9 @@ static class U
             Check("dropping the LFO on the cutoff knob makes a matrix connection", linked, "");
         }
         // ---- the preset browser ----
-        var nameReg = Find(r => r.Tip == "Choose a preset, or save your own"); Check("the preset name is clickable", nameReg != null, ""); if (nameReg != null) { Click(Center(nameReg.Rect)); Paint(); }
-        Check("clicking it opens the preset browser", F<bool>("browseOpen"), "");
-        var dnb = Find(r => r.Tip == "Click to load DnB Roller"); SetF("browseCat", "DnB"); Paint(); dnb = Find(r => r.Tip == "Click to load DnB Roller");
+        var nameReg = Find(r => r.Tip == "YOUR SOUNDS (drag n drop)"); Check("the menu button is on screen", nameReg != null, ""); if (nameReg != null) { Click(Center(nameReg.Rect)); Paint(); }
+        Check("clicking it opens YOUR SOUNDS", F<bool>("browseOpen"), "");
+        SetF("menuT", 1f); var dnb = Find(r => r.Tip == "Click to load DnB Roller"); SetF("browseCat", "DnB"); Paint(); dnb = Find(r => r.Tip == "Click to load DnB Roller");
         if (dnb != null) { Click(Center(dnb.Rect)); Check("clicking a preset loads it", fx.PresetName == "DnB Roller", fx.PresetName); }
         var init = Find(r => r.Tip == "Reset everything to a clean, plain sound."); if (init != null) { Click(Center(init.Rect)); Check("INITIALISE PATCH resets the sound", fx.PresetName == "Init", fx.PresetName); }
         var close = Find(r => r.Tip == null || r.Tip == ""); SetF("browseOpen", false); Paint();

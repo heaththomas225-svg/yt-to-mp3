@@ -25,8 +25,8 @@ class SynthWindow : Form, IKeySink
     {
         Func<int, RectangleF, Func<Rectangle>> T = (tabNo, r) => () => { canvas.TourTab(tabNo); var c = canvas.ToClient(r); c.Offset(canvas.Location); return c; };
         var s = new List<TourStep> {
-            new TourStep(T(0, new RectangleF(620, 6, 270, 50)), "1. Start with a preset", "Click the name to open the preset list, or use the < > buttons to flick through the sounds. Starting from a sound you like is much easier than from nothing: every sound is just knobs you can change."),
-            new TourStep(T(0, new RectangleF(200, 6, 398, 50)), "2. The pages", "OSC (the page you see) makes the sound. MIX sets levels, FX holds the effects, MATRIX lists every connection and GLOBAL has voices, MIDI and audio."),
+            new TourStep(T(0, new RectangleF(8, 6, 50, 50)), "1. YOUR SOUNDS", "Press this menu button to open YOUR SOUNDS: the sounds built into the DAW, the sounds you saved (they stay until you delete them) and the community's. You can also publish your sounds there. Starting from a sound you like is much easier than from nothing: every sound is just knobs you can change."),
+            new TourStep(T(0, new RectangleF(256, 6, 398, 50)), "2. The pages", "OSC (the page you see) makes the sound. MIX sets levels, FX holds the effects, MATRIX lists every connection and GLOBAL has voices, MIDI and audio."),
             new TourStep(T(0, new RectangleF(119, 66, 198, 330)), "3. Oscillators: the raw sound", "OSC A, B and C make the tone. Pick a wave, turn UNISON up to stack voices (fat and wide), and WARP or WAVE to change the character. The light in the top corner switches one on or off."),
             new TourStep(T(0, new RectangleF(8, 66, 108, 330)), "4. SUB: weight underneath", "A clean low sine under everything. Raise LEVEL for a heavier, floor-shaking bass."),
             new TourStep(T(0, new RectangleF(845, 66, 192, 330)), "5. The filter shapes the tone", "CUTOFF is how bright it is: turn it down for dark and muffled. RES adds a whistling peak. Most wobbles come from moving CUTOFF."),
@@ -97,7 +97,7 @@ partial class SynthCanvas : Control
 
     public SynthCanvas(SynthFx fx, SynthWindow w)
     {
-        this.fx = fx; win = w; DoubleBuffered = true; SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw | ControlStyles.Selectable, true); BackColor = Bg0;
+        this.fx = fx; win = w; AllowDrop = true; DragEnter += SoundDragEnter; DragDrop += SoundDragDrop; DoubleBuffered = true; SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw | ControlStyles.Selectable, true); BackColor = Bg0;
     }
 
     public void Step() { if ((DateTime.Now - lastInput).TotalMilliseconds < 800 || fx.ActiveVoices > 0) Invalidate(); }
@@ -205,10 +205,14 @@ partial class SynthCanvas : Control
 
     void PaintTop(Graphics g)
     {
-        var logo = Rc(8, 6, 182, 50); Fill(g, Panel, logo, 8); Stroke(g, Edge, logo, 8, 1);
+        // the menu button: it opens YOUR SOUNDS (the built-in sounds, the sounds you saved, and the community's)
+        var mb = Rc(8, 6, 50, 50); bool mhot = Hot(mb) || browseOpen; using (var p = RR(mb, 11)) { using (var br = new LinearGradientBrush(mb, mhot ? TM.C(255, 150, 96, 235) : TM.C(255, 118, 70, 205), mhot ? TM.C(255, 112, 60, 196) : TM.C(255, 84, 44, 160), 90f)) g.FillPath(br, p); using (var pen = new Pen(Color.FromArgb(mhot ? 255 : 190, Acc), 1.6f)) g.DrawPath(pen, p); }
+        for (int bi = 0; bi < 3; bi++) Fill(g, Color.FromArgb(250, 255, 255, 255), Rc(mb.X + 12, mb.Y + 14 + bi * 9, 26, 4), 2);
+        { var mr = Add(mb); mr.Tip = "YOUR SOUNDS (drag n drop)"; mr.Down = pt => { if (browseOpen) CloseSounds(); else PresetMenu(pt); }; }
+        var logo = Rc(64, 6, 182, 50); Fill(g, Panel, logo, 8); Stroke(g, Edge, logo, 8, 1);
         using (var br = new LinearGradientBrush(logo, Acc, Acc2, 0f)) using (var f = new Font("Segoe UI Black", 19f, FontStyle.Bold, GraphicsUnit.Pixel)) g.DrawString("BASS LAB", f, br, logo.X + 14, logo.Y + 6);
         Txt(g, "SYNTH FOR BASS + LEADS", 10, Dim, Rc(logo.X + 14, logo.Y + 30, 160, 14), StringAlignment.Near, false);
-        string[] tabs = { "OSC", "MIX", "FX", "MATRIX", "GLOBAL" }; float x = 200;
+        string[] tabs = { "OSC", "MIX", "FX", "MATRIX", "GLOBAL" }; float x = 256;
         for (int i = 0; i < tabs.Length; i++)
         {
             int k = i; var r = Rc(x, 6, i == 3 ? 86 : (i == 4 ? 86 : 70), 50); bool sel = tab == i; Fill(g, sel ? PanelHi : Panel, r, 6); Stroke(g, sel ? Acc : Edge, r, 6, sel ? 2 : 1);
@@ -216,14 +220,8 @@ partial class SynthCanvas : Control
             Txt(g, tabs[i], 13, sel ? Ink : Dim, Rc(r.X, r.Y + 20, r.Width, 24), StringAlignment.Center, true); Add(r).Down = pt => { tab = k; }; regs[regs.Count - 1].Tip = "Show the " + tabs[i] + " page";
             x += r.Width + 4;
         }
-        // preset box
-        var pb = Rc(620, 6, 270, 50); Fill(g, Panel, pb, 8); Stroke(g, Edge, pb, 8, 1);
-        Txt(g, (modified ? "* " : "") + fx.PresetName, 15, Acc, Rc(pb.X + 12, pb.Y + 4, pb.Width - 90, 24), StringAlignment.Near, true);
-        { var se = StudioEngine.Current; string st = se != null ? se.AudioStatus : "Audio: no engine"; bool bad = st.IndexOf("unavailable", StringComparison.OrdinalIgnoreCase) >= 0; Txt(g, fx.ActiveVoices + " voice" + (fx.ActiveVoices == 1 ? "" : "s") + "  |  " + st, 10, bad ? Color.FromArgb(255, 140, 150) : Dim, Rc(pb.X + 12, pb.Y + 28, pb.Width - 24, 16), StringAlignment.Near, false); }
-        var nameR = Rc(pb.X, pb.Y, pb.Width - 84, pb.Height); var nr = Add(nameR); nr.Tip = "Choose a preset, or save your own"; nr.Down = pt => PresetMenu(pt);
-        var prev = Rc(pb.Right - 78, pb.Y + 10, 30, 30); var next = Rc(pb.Right - 44, pb.Y + 10, 30, 30);
-        Fill(g, Hot(prev) ? PanelHi : TM.C(255, 20, 11, 38), prev, 5); Txt(g, "<", 15, Ink, prev, StringAlignment.Center, true); Add(prev).Down = pt => StepPreset(-1);
-        Fill(g, Hot(next) ? PanelHi : TM.C(255, 20, 11, 38), next, 5); Txt(g, ">", 15, Ink, next, StringAlignment.Center, true); Add(next).Down = pt => StepPreset(1);
+        // a message only when the sound card is not working (the old preset box showed it all the time)
+        { var se = StudioEngine.Current; string st = se != null ? se.AudioStatus : "Audio: no engine"; if (st.IndexOf("unavailable", StringComparison.OrdinalIgnoreCase) >= 0) Txt(g, st, 11, Color.FromArgb(255, 255, 120, 120), Rc(640, 14, 240, 34), StringAlignment.Near, true); }
         var pnc = Rc(896, 6, 88, 50); Fill(g, Hot(pnc) ? TM.C(255, 160, 40, 80) : TM.C(255, 120, 30, 62), pnc, 8); Stroke(g, Acc2, pnc, 8, 1.5f); Txt(g, "PANIC", 14, Ink, Rc(pnc.X, pnc.Y + 6, pnc.Width, 24), StringAlignment.Center, true); Txt(g, "ALL NOTES OFF", 9, Ink, Rc(pnc.X, pnc.Y + 30, pnc.Width, 14), StringAlignment.Center, false);
         var pnr = Add(pnc); pnr.Tip = "Panic: stops every note and every ringing tail right now."; pnr.Down = pt => win.PanicAll();
         // quick bass boost
@@ -237,11 +235,6 @@ partial class SynthCanvas : Control
         var tb = Rc(1146, 40, 0, 0);
     }
 
-    void StepPreset(int d)
-    {
-        var all = new List<string>(SynthPresets.Names); all.AddRange(SynthPresets.UserNames()); int i = all.IndexOf(fx.PresetName); i = (i + d + all.Count) % all.Count;
-        SynthPresets.Apply(fx, all[i]); modified = false;
-    }
 
     // ---------- OSC page ----------
     void ModuleFrame(Graphics g, RectangleF r, string title, string powerId)
