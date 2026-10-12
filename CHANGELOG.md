@@ -2,6 +2,12 @@
 
 What changed in each version of **Purphex**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.29.0  Lyrics saved with every song, in every edition
+
+- Lyrics getter. After a song is converted, its lyrics are looked up (LRCLIB, a free community lyrics database) and saved as a .txt with the same name next to the song. The parts are labelled [Verse 1], [Chorus], [Pre-chorus], [Bridge] by the same labeller as the Lyrics page. It works in every edition, Free included, for MP3 and the other formats and for mastered files.
+- Nothing wrong is ever saved: a song only gets lyrics when the title (and artist) match well, an instrumental or an unknown song gets none and the log says so, and an existing .txt is never overwritten. The file says the lyrics belong to their writers and are for your own use.
+- Settings > General has a switch for it (on by default). Help has a new topic, Lyrics saved with each song (.txt).
+
 ## 3.28.3  Settings text is never cropped or written over
 
 - Settings measures its explanations in the font they really get on your PC and gives each one the height it needs, moving everything under it down. Before, a long message on the Account page (for example about linking) could run into the buttons below or be cut off.

@@ -82,6 +82,17 @@ Every paid edition has a code like PX-ABCD-EFGH-JKLM. It is linked to ONE place 
 - Editions given by the Purphex team (admins and testers) cannot be moved.
 TIP: Press Check again on the Account page if you just paid and the app still says Free."),
 
+        new HelpTopic("lyrics-getter", "Basics", "Lyrics saved with each song (.txt)", false, @"
+## What it does
+After a song is converted, Purphex looks up its lyrics and saves them as a text file with the same name next to the song, for example 'Artist - Title [MP3 320k].txt'. It is in every edition, Free included.
+## What is in the file
+The title, the artist and the lyrics with the parts labelled: [Verse 1], [Chorus], [Pre-chorus], [Bridge]... The labels are a good guess made from the shape of the lyrics (a part that comes back is the chorus), so change any that are wrong.
+## Where the lyrics come from
+LRCLIB (lrclib.net), a free community lyrics database, looked up by the artist and title in the file name. Use the File name list so the name is 'Artist - Title': that finds the right song most often. Nothing is saved when no lyrics match well enough (an instrumental, a brand new song, a different spelling): the log says so, and a wrong song's lyrics are never saved.
+## Turn it off
+Settings, General, 'Save the lyrics (.txt) next to each song I convert'. An existing .txt is never overwritten.
+NOTE: Lyrics belong to their writers. The file is for your own use. The Lyrics page of the studio is for writing your own and never writes lyrics for you."),
+
         new HelpTopic("trim", "Basics", "Cut just a section (trim)", false, @"
 ## Steps
 1. Type a Trim start and/or Trim end such as 1:30 or 0:01:30.5.

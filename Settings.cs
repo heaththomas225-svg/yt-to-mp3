@@ -26,7 +26,7 @@ class SettingsForm : Form
     readonly App app; bool setting;
     static readonly int[] FpsChoices = { 30, 60, 120, 144, 165, 240 };
     Label bgName, updStatus; Button updBtn; TrackBar dimBar, volBar; NumericUpDown dimNum, volNum; ComboBox devBox, bufBox, fpsBox, inBox;
-    CheckBox leavesChk, studioChk, fpsChk, shareChk; ComboBox themeBox; Label themeNote;
+    CheckBox leavesChk, studioChk, fpsChk, shareChk, lyricsChk; ComboBox themeBox; Label themeNote;
     static Color Ink { get { return TM.C(255, 240, 232, 255); } } static Color Dim { get { return TM.C(255, 198, 182, 232); } } static Color Head { get { return TM.C(255, 236, 120, 230); } } static Color Fld { get { return TM.C(255, 24, 12, 44); } }
 
     public SettingsForm(App app)
@@ -94,6 +94,8 @@ class SettingsForm : Form
         shareChk = Chk("Share the presets I save with the community automatically", 20, ref y); shareChk.CheckedChanged += (s, e) => { if (!setting) { Prefs.ShareSaved = shareChk.Checked; Prefs.Changed(); } };
         Note("When you save a preset (a plugin preset, a plugin chain or a Bass Lab sound) it also appears in Community presets for everyone to use, under your producer name. Turn this off to keep your presets only on this PC.", ref y);
         NewPage("General", ref y); Header("General", ref y);
+        lyricsChk = Chk("Save the lyrics (.txt) next to each song I convert", 20, ref y); lyricsChk.CheckedChanged += (s, e) => { if (!setting) { Prefs.SaveLyrics = lyricsChk.Checked; Prefs.Changed(); } };
+        Note("After a song is converted, its lyrics are looked up (lrclib.net, a free lyrics database), labelled [Verse 1], [Chorus]... and saved as a .txt with the same name. Nothing is saved when no lyrics match well enough. The lyrics belong to their writers: use them for yourself.", ref y);
         var open = Btn("Open settings folder", 20, y, 180, TM.C(255, 70, 40, 120)); open.Click += (s, e) => { try { Process.Start("explorer.exe", app.DataFolder); } catch { } };
         var reset = Btn("Reset appearance and audio", 208, y, 244, TM.C(255, 150, 40, 80)); reset.Click += (s, e) => ResetAll();
         NewPage("Account", ref y); accountIdx = pages.Count - 1; Header("Your edition", ref y);
@@ -252,7 +254,7 @@ class SettingsForm : Form
 
     void ResetAll()
     {
-        Prefs.BgDim = 45; Prefs.BgLeaves = true; Prefs.BgStudio = true; Prefs.ShareSaved = true; Prefs.OutVol = 100; Prefs.OutDev = -1; Prefs.Buf = 1; Prefs.BufBoost = 0; Prefs.FpsCap = 60; Prefs.ShowFps = false; Themes.Apply(0);
+        Prefs.BgDim = 45; Prefs.BgLeaves = true; Prefs.BgStudio = true; Prefs.ShareSaved = true; Prefs.SaveLyrics = true; Prefs.OutVol = 100; Prefs.OutDev = -1; Prefs.Buf = 1; Prefs.BufBoost = 0; Prefs.FpsCap = 60; Prefs.ShowFps = false; Themes.Apply(0);
         UserBackground.Set(""); Refresh2(); app.StudioEng.ReopenOutput(); Prefs.Changed();
     }
 
@@ -260,7 +262,7 @@ class SettingsForm : Form
     {
         setting = true;
         bgName.Text = UserBackground.Active ? (UserBackground.IsVideo ? "Video: " : "Picture: ") + Prefs.BgPath : "None - using the animated purple leaves";
-        dimBar.Value = Prefs.BgDim; dimNum.Value = Prefs.BgDim; leavesChk.Checked = Prefs.BgLeaves; studioChk.Checked = Prefs.BgStudio; shareChk.Checked = Prefs.ShareSaved;
+        dimBar.Value = Prefs.BgDim; dimNum.Value = Prefs.BgDim; leavesChk.Checked = Prefs.BgLeaves; studioChk.Checked = Prefs.BgStudio; shareChk.Checked = Prefs.ShareSaved; lyricsChk.Checked = Prefs.SaveLyrics;
         themeBox.SelectedIndex = Themes.Index; themeNote.Text = Themes.Current.Blurb + " It changes the glow, borders and buttons in Purphex Music, Mastering and Bass Lab.";
         fpsBox.SelectedIndex = Math.Max(0, Array.IndexOf(FpsChoices, Prefs.FpsCap)); fpsChk.Checked = Prefs.ShowFps;
         { int ii = Prefs.InDev.Length == 0 ? 0 : inBox.Items.IndexOf(Prefs.InDev); inBox.SelectedIndex = Math.Max(0, ii); }

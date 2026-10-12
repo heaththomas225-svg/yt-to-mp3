@@ -1,4 +1,4 @@
-3.28.3
+3.29.0
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Settings text is never cropped or written over
-sha256=37e6aef8665c133b7fe81b45a616a16c482fefb1281ca7efc6cd1d545542baca
+Lyrics saved with every song, in every edition
+sha256=4875a8e569938fbf263481746de4c50d83864d3aeaed8ba5da3cb8e66439951a

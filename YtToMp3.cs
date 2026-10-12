@@ -37,7 +37,7 @@ class Job
 partial class App : Form
 {
     // ---- Auto-update settings ----
-    const string Version = "3.28.3";
+    const string Version = "3.29.0";
     // Plain-text manifest: line 1 = newest version, line 2 = direct exe download URL.
     const string UpdateManifestUrl = "https://raw.githubusercontent.com/heaththomas225-svg/yt-to-mp3/main/version.txt";
 
@@ -858,10 +858,11 @@ partial class App : Form
                 foreach (var old in Directory.GetFiles(tmpDir)) { try { File.Delete(old); } catch { } }
             }
             string args = common + pl + "-o \"" + Path.Combine(mastering ? tmpDir : job.Dir, tpl + ".%(ext)s") + "\" \"" + target + "\"";
+            var lyricsBefore = Prefs.SaveLyrics && !mastering ? LyricsGet.Snapshot(job.Dir) : null;
             int code = RunProc(YtDlp, args, true);
             if (cancelReq) break;
             if (code != 0) { fail++; Log("Failed (exit " + code + ")."); }
-            else if (!mastering) { ok++; RemoveLinkFromBox(link); }
+            else if (!mastering) { ok++; RemoveLinkFromBox(link); if (lyricsBefore != null) LyricsGet.ForNewFiles(job.Dir, lyricsBefore, Log); }
             else
             {
                 var wavs = Directory.GetFiles(tmpDir, "*.wav");
@@ -879,7 +880,7 @@ partial class App : Form
                     {
                         ok++; RemoveLinkFromBox(link); LastFile = outp; if (res != null) LastAn = res;
                         try { File.Delete(w); } catch { }
-                        Log("Saved: " + Path.GetFileName(outp));
+                        Log("Saved: " + Path.GetFileName(outp)); if (Prefs.SaveLyrics) Log(LyricsGet.SaveFor(outp));
                     }
                     else if (!cancelReq)
                     {
