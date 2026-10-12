@@ -4,7 +4,7 @@ What changed in each version of **Purphex**. The same notes are shown in the app
 
 ## 3.28.2  Linking a PC cannot get lost, Settings always fits the screen
 
-- Linking a PC no longer gets lost. If the website made the link but could not give a licence yet, the PC now stays linked and the Account page says so (before, the website showed 1 of 3 PCs while the app said "not linked"). CHECK AGAIN asks the website again, and if the answer to the link never reached the app it can be collected again.
+- Linking a PC no longer gets lost. If the website made the link but could not give a licence yet, the PC now stays linked and the Account page says so (before, the website showed 1 of 3 PCs while the app said it was not linked). CHECK AGAIN asks the website again, and if the answer to the link never reached the app it can be collected again.
 - Settings is never wider than the writing: the window cannot be made narrower than its pages (so text no longer runs off to the right behind a scroll bar), it always fits on your screen, and the explanations are brighter and easier to read.
 
 ## 3.28.1  Softer buttons in the studio, bigger writing in Settings, every label fits
