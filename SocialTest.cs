@@ -5,6 +5,7 @@ using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Net;
+using System.Reflection;
 using System.Text;
 using System.Threading;
 using System.Windows.Forms;
@@ -69,6 +70,42 @@ static class SO
             Check("the video can be removed again", ProfApi.VideoRemove(kA, CommunitySongs.PidOf(pa))); feed = ProfApi.Feed("ep", false, "", "", out tags); Check("and is gone from the feed", !feed[0].Video);
             // ---- taking the songs down ----
             Check("the artist takes a song off the community page", CommunitySongs.Remove(kA, CommunitySongs.PidOf(pc)) == null); feed = ProfApi.Feed("", false, "", "", out tags); Check("it is gone from the feed", feed.Count == 2);
+            // ---- a REAL project: exported to an MP3 by the program, put on the community page, listened to; a real video (and a converted one) played from the website ----
+            if (ffm != null)
+            {
+                var app = (App)Activator.CreateInstance(typeof(App), true); var sf = new StudioForm(app); sf.Show(); string wav = Path.Combine(tmp, "tone.wav");
+                { int n = 44100 * 3; var tone = new float[n]; for (int i = 0; i < n; i++) tone[i] = (float)(0.4 * Math.Sin(2 * Math.PI * 440 * i / 44100.0)); using (var ws = new WavStream(wav, 44100, 16)) ws.Write(tone, (float[])tone.Clone(), 0, n); }
+                var clip = AudioClip.FromFile(wav); sf.eng.Tracks.Add(StudioEngine.NewTrack("Tone", "beat", clip)); string real = Path.Combine(tmp, "Real Song.ytmproj"); ProjectIO.Save(sf.eng, real);
+                var notes = new List<string>(); sf.songNoteHook = x => notes.Add(x); string kR = Key(); string eR = ProfApi.Publish(prof(kR, "Real Rae", ""), out me); string idR = me == null ? "" : me.Id; Check("a profile for the real project", eR == null && idR.Length > 5);
+                var ent = new ProjectEntry { Path = real, Name = "Real Song", Tags = "dnb dark", OnProfile = true }; typeof(StudioForm).GetMethod("SongSyncRun", BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Public).Invoke(sf, new object[] { kR, new List<ProjectEntry> { ent } });
+                Check("a real project is exported to an MP3 by the program and put on the community page", notes.Exists(x => x.Contains("is on the community page of the website")), string.Join(" / ", notes.ToArray()));
+                var feedR = ProfApi.Feed("", false, "", "real", out tags); Check("it shows in the feed under the artist", feedR != null && feedR.Count == 1 && feedR[0].Title == "Real Song" && feedR[0].Artist == "Real Rae");
+                string lerr2; var realMp3 = ProfApi.Listen(idR, feedR[0].Id, out lerr2); bool isMp3 = realMp3 != null && realMp3.Length > 20000 && (realMp3[0] == 'I' && realMp3[1] == 'D' && realMp3[2] == '3' || realMp3[0] == 0xFF); Check("the song on the page is a real MP3 of the project", isMp3, realMp3 == null ? lerr2 : realMp3.Length + " bytes");
+                if (isMp3 && ffp != null)
+                {
+                    string tf = Path.Combine(tmp, "heard.realMp3"); File.WriteAllBytes(tf, realMp3); var pr = Process.Start(new ProcessStartInfo(ffp, "-v error -show_entries format=duration -of default=nw=1:nk=1 \"" + tf + "\"") { UseShellExecute = false, RedirectStandardOutput = true, CreateNoWindow = true }); string dur = pr.StandardOutput.ReadToEnd().Trim(); pr.WaitForExit(); double d; double.TryParse(dur, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out d);
+                    Check("and it is as long as the project (3 seconds of tone and the tail)", d > 2.8 && d < 7.5, dur);
+                }
+                // unpublish takes it down
+                ent.OnProfile = false; notes.Clear(); typeof(StudioForm).GetMethod("SongSyncRun", BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Public).Invoke(sf, new object[] { kR, new List<ProjectEntry> { ent } }); feedR = ProfApi.Feed("", false, "", "real", out tags); Check("making the project private takes the song off the community page", feedR != null && feedR.Count == 0);
+                ent.OnProfile = true; typeof(StudioForm).GetMethod("SongSyncRun", BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Public).Invoke(sf, new object[] { kR, new List<ProjectEntry> { ent } }); feedR = ProfApi.Feed("", false, "", "real", out tags); string songR = feedR.Count == 1 ? feedR[0].Id : "";
+                // a real video (an H.264 MP4 goes up as it is) and a converted one (a Matroska file with another codec), played from the website
+                string v1 = Path.Combine(tmp, "clip.mp4"), v2 = Path.Combine(tmp, "clip.mkv");
+                Action<string, string, string> mk = (outp, size, codec) => { var p = Process.Start(new ProcessStartInfo(ffm, "-hide_banner -loglevel error -y -f lavfi -i testsrc2=duration=3:size=" + size + ":rate=24 " + codec + " \"" + outp + "\"") { UseShellExecute = false, CreateNoWindow = true }); p.WaitForExit(40000); };
+                mk(v1, "320x240", "-c:v libx264 -pix_fmt yuv420p"); mk(v2, "180x320", "-c:v mpeg4");
+                string outp1, outp2; bool made1, made2; string pe1 = VideoPrep.Prepare(v1, out outp1, out made1, null); Check("an H.264 MP4 is sent as it is", pe1 == null && !made1 && outp1 == v1, pe1 ?? "");
+                string pe2 = VideoPrep.Prepare(v2, out outp2, out made2, null); Check("a tall MPEG-4 video in an MKV file is converted to a web video of the same shape", pe2 == null && made2 && File.Exists(outp2) && outp2.EndsWith(".mp4"), pe2 ?? "");
+                if (made2) { var pr = Process.Start(new ProcessStartInfo(ffp, "-v error -select_streams v:0 -show_entries stream=codec_name,width,height -of default=nw=1 \"" + outp2 + "\"") { UseShellExecute = false, RedirectStandardOutput = true, CreateNoWindow = true }); string info = pr.StandardOutput.ReadToEnd(); pr.WaitForExit(); Check("the converted video is H.264 and keeps its 9:16 shape (no stretching)", info.Contains("codec_name=h264") && info.Contains("width=180") && info.Contains("height=320"), info.Replace("\r", " ").Replace("\n", " ")); }
+                string pidR = CommunitySongs.PidOf(real); string ve = ProfApi.VideoUpload(kR, pidR, outp2); Check("the converted video goes up", ve == null, ve ?? "");
+                using (var vf = new VideoFeed(ffm, CommunityPresets.BaseUrl + "/api/profiles/" + idR + "/video/" + songR, 0.5, 320, 180))
+                {
+                    byte[] frm = null; for (int i = 0; i < 160 && frm == null; i++) { frm = vf.FrameFor(1.5); if (frm == null) Thread.Sleep(50); }
+                    bool leftBlack = false, centreLit = false; if (frm != null) { leftBlack = frm[(90 * 320 + 2) * 4] < 12; int ci = (90 * 320 + 160) * 4; centreLit = frm[ci] + frm[ci + 1] + frm[ci + 2] > 40; }
+                    Check("the video plays from the website address (seeking with ranges), a tall video in a wide box with bars at the sides", frm != null && leftBlack && centreLit, frm == null ? "no frame" : "t " + vf.CurT);
+                }
+                try { if (made2) File.Delete(outp2); } catch { } try { sf.Close(); } catch { }
+            }
+            else Console.WriteLine("SKIP  the real project export (ffmpeg is not installed)");
         }
         finally { try { if (!srv.HasExited) srv.Kill(); } catch { } CommunityPresets.BaseUrl = was; try { Directory.Delete(tmp, true); } catch { } }
         // ---- the pure parts of the video and the releases ----
