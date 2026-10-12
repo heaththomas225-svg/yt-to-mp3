@@ -341,6 +341,7 @@ class Track
     public long UsedLength { get { if (Clip == null) return 0; long avail = Math.Max(0, Clip.Length - ClipStart); return ClipFrames < 0 ? avail : Math.Min(ClipFrames, avail); } }
     public AudioClip Clip; public long Offset;
     public float VolDb, Pan; public bool Mute, Solo; public int Color;
+    public bool Off;   // turned off completely with the neon dot: nothing plays, nothing is processed, solo and the vocal sidechain ignore it, exports and mastering leave it out
     public Track Host;   // set = this track shares the row of its Host (an audio clip, a MIDI instrument and more can live on one row)
     public bool IsBus, Armed; public Track Out;   // a bus has no audio of its own: it mixes the tracks sent to it (Out), runs its own plugins, then goes to the master. Armed = an empty audio track waiting for a recording
     public List<Fx> Fx = new List<Fx>();
@@ -436,7 +437,7 @@ partial class StudioEngine
         if (n > mixL.Length) { mixL = new float[n]; mixR = new float[n]; scL = new float[n]; scR = new float[n]; foreach (var t in Tracks) { t.tl = new float[n]; t.tr = new float[n]; } }
         Array.Clear(mixL, 0, n); Array.Clear(mixR, 0, n);
         var list = o.Only ?? Tracks;
-        bool soloActive = false; if (o.MuteSolo) foreach (var t in list) if (t.Solo) soloActive = true;
+        bool soloActive = false; if (o.MuteSolo) foreach (var t in list) if (t.Solo && !t.Off) soloActive = true;
         int maxLat = 0; foreach (var t in list) maxLat = Math.Max(maxLat, o.Dry ? 0 : EffLat(t));
         var voc = VocalTrack();
 
@@ -448,7 +449,7 @@ partial class StudioEngine
             for (int i = 0; i < n; i++)
             {
                 long idx = pos + i - voff; int w = (int)((pos + i) & (scRL.Length - 1));
-                bool inside = vL != null && idx >= 0 && idx < vlen && idx + vcs < vL.Length && idx + vcs < vR.Length;
+                bool inside = !voc.Off && vL != null && idx >= 0 && idx < vlen && idx + vcs < vL.Length && idx + vcs < vR.Length;
                 scRL[w] = inside ? vL[idx + vcs] : 0; scRR[w] = inside ? vR[idx + vcs] : 0;
             }
         }
@@ -459,8 +460,9 @@ partial class StudioEngine
         {
             if (t.IsBus != (pass == 1)) continue;
             if (t.Clip == null && !t.Instrument && !t.IsBus) continue;
+            if (t.Off && !t.IsBus) { if (!t.fxIdle) { t.fxIdle = true; for (int f = 0; f < t.Fx.Count; f++) t.Fx[f].GR = 0; } if (meters) { t.PeakL = 0; t.PeakR = 0; t.RmsL = 0; t.RmsR = 0; t.Clipped = false; } t.dlyW += n; continue; }   /* off: no reading, no plugins, nothing mixed; the plugins start clean when it is turned on again */
             if (n > t.tl.Length) { t.tl = new float[n]; t.tr = new float[n]; }
-            bool audible = t.IsBus ? (!o.MuteSolo || !t.Mute) : (!o.MuteSolo || (!t.Mute && (!soloActive || t.Solo)));
+            bool audible = !t.Off && (t.IsBus ? (!o.MuteSolo || !t.Mute) : (!o.MuteSolo || (!t.Mute && (!soloActive || t.Solo))));
             bool idle = !audible && !o.Dry;   // muted / not soloed: skip the plugin chain (the output is discarded anyway)
             var tclip = o.NoClips ? null : t.Clip; long toff = t.Offset, tcs = t.ClipStart, tcf = t.ClipFrames; float[] cl = tclip == null ? null : tclip.L, cr = tclip == null ? null : (tclip.R ?? tclip.L);
             long tavail = cl == null ? 0 : Math.Max(0, cl.Length - tcs), ulen = tcf < 0 ? tavail : Math.Min(tcf, tavail);

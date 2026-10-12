@@ -20,6 +20,8 @@ static class Sprites
 partial class StudioForm
 {
     const int SpritePad = 10;
+    // pictures (the 512 pixel logo shown at 30 to 160 pixels, covers, photos) are shrunk with the best filter: no shimmering or jagged picture edges (CompositingQuality.HighQuality was tried: 7 times slower)
+    static void Sharp(Graphics g) { g.InterpolationMode = InterpolationMode.HighQualityBicubic; }
     long ThemeKey() { long h = Sprites.Seed; foreach (var c in new[] { Violet, BtnC, Accent, Accent2, NeonCyan, NeonViolet, NeonPink }) h = Sprites.H(h, c.ToArgb()); return h; }
     long themeKeyFrame = 0; int themeKeyAt = -1;
     long ThemeKeyNow() { int f = Environment.TickCount; if (themeKeyAt != f) { themeKeyAt = f; themeKeyFrame = ThemeKey(); } return themeKeyFrame; }
@@ -34,7 +36,7 @@ partial class StudioForm
             Prof.A("sprite.miss", 0); if (Prof.On) Prof.Note(key + "|" + ThemeKeyNow() + "|" + shown + "|" + r.Width + "x" + r.Height + "|s" + style + "|ht" + ht + "|px" + px); int w = (int)Math.Round(r.Width), h = (int)Math.Round(r.Height); sp = Sprites.Make(w + SpritePad * 2, h + SpritePad * 2);
             using (var sg = Graphics.FromImage(sp))
             {
-                sg.SmoothingMode = SmoothingMode.AntiAlias; sg.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit; var q = Rc(SpritePad, SpritePad, w, h); float hq = (int)(ht * 4 + 0.5f) / 4f;
+                sg.SmoothingMode = SmoothingMode.AntiAlias; sg.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit; Sharp(sg); var q = Rc(SpritePad, SpritePad, w, h); float hq = (int)(ht * 4 + 0.5f) / 4f;
                 BtnLook(sg, q, shown, style, hq, px);
             }
             Sprites.Put(key, sp);

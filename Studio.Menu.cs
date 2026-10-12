@@ -11,16 +11,17 @@ partial class StudioForm
     class MItem { public string Text, Hint = ""; public Action Do; public bool Sub, Disabled; public string Key = ""; }
     bool menuOpen, projectsLoaded; int menuSec = -1, menuSub = -1; float projScroll; const string ImgFilter = "Pictures|*.jpg;*.jpeg;*.png;*.gif;*.bmp|All files|*.*";
     // the side menu: five lists (File, Edit, Tools, Pages, View) and then single buttons that just take you there (Profile, Themes, Settings, Help, Exit)
-    static readonly string[] MenuNames = { "File", "Edit", "Tools", "Pages", "View", "Profile", "Themes", "Settings", "Help", "Exit" }; const int MenuLists = 5;
-    static readonly int[] MenuIcon = { 0, 1, 2, 8, 3, 4, 5, 6, 7, 9 };
+    static readonly string[] MenuNames = { "File", "Edit", "Tools", "Pages", "View", "Profile", "Themes", "Fonts", "Settings", "Help", "Exit" }; const int MenuLists = 5;
+    static readonly int[] MenuIcon = { 0, 1, 2, 8, 3, 4, 5, 10, 6, 7, 9 };
     Action MenuDirect(int i)
     {
         switch (i)
         {
             case 5: return () => { GoTab(6); profScroll = 0; };
             case 6: return () => { CloseMenu(); OpenThemeSheet(); };
-            case 7: return () => { CloseMenu(); app.ShowSettings(); };
-            case 8: return () => { CloseMenu(); app.ShowHelp(null); };
+            case 7: return () => { GoTab(8); fontScroll = 0; };
+            case 8: return () => { CloseMenu(); app.ShowSettings(); };
+            case 9: return () => { CloseMenu(); app.ShowHelp(null); };
             default: return () => { CloseMenu(); Close(); };
         }
     }
@@ -95,12 +96,12 @@ partial class StudioForm
         using (var d = new OpenFileDialog { Title = "Choose your profile picture", Filter = ImgFilter })
         { if (d.ShowDialog(this) != DialogResult.OK) return; string err; if (!ProjectLibrary.SetAvatar(d.FileName, out err)) MessageBox.Show(this, err, "Picture"); else Toast("Profile picture changed"); }
     }
-    void AvatarMenu() { var m = Win.NewMenu(); m.Items.Add("Choose a picture...").Click += (a, b) => PickAvatar(); var rm = m.Items.Add("Remove picture (use the Purphex logo)"); rm.Enabled = ProjectLibrary.AvatarPath.Length > 0; rm.Click += (a, b) => { ProjectLibrary.ClearAvatar(); Toast("Picture removed: the Purphex logo is your picture now."); }; m.Show(this, new Point((int)MousePos.X, (int)MousePos.Y)); }
     void EditProfileName() { string nm = Ask("Your name:", ProjectLibrary.ProfileName); if (nm == null) return; ProjectLibrary.ProfileName = nm.Trim(); ProjectLibrary.Save(); }
 
+    // the Purphex emblem in a circle: it is the same everywhere and cannot be changed here (your own picture lives on the PROFILE page only)
     void DrawAvatar(Graphics g, RectangleF r)
     {
-        var gs = g.Save(); using (var p = new GraphicsPath()) { p.AddEllipse(r); g.SetClip(p, CombineMode.Intersect); var pic = ProjectLibrary.Scaled(ProjectLibrary.AvatarPath, (int)Math.Round(r.Width), (int)Math.Round(r.Height), InterpolationMode.HighQualityBicubic); if (pic != null) { g.InterpolationMode = InterpolationMode.NearestNeighbor; g.DrawImage(pic, new Rectangle((int)Math.Round(r.X), (int)Math.Round(r.Y), pic.Width, pic.Height)); } else if (AppLogo.Logo != null) { g.InterpolationMode = InterpolationMode.HighQualityBicubic; g.DrawImage(AppLogo.Logo, r); } else ProjectLibrary.DrawArt(g, r, ProjectLibrary.ProfileName, 7); }   // no picture chosen: the Purphex emblem
+        var gs = g.Save(); using (var p = new GraphicsPath()) { p.AddEllipse(r); g.SetClip(p, CombineMode.Intersect); if (AppLogo.Logo != null) { g.InterpolationMode = InterpolationMode.HighQualityBicubic; g.DrawImage(AppLogo.Logo, r); } else ProjectLibrary.DrawArt(g, r, "Purphex", 7); }
         g.Restore(gs); using (var pen = new Pen(Color.FromArgb(230, NeonCyan), 2f)) g.DrawEllipse(pen, r);
     }
     void DrawCover(Graphics g, RectangleF r, ProjectEntry e)
@@ -153,6 +154,7 @@ partial class StudioForm
                 case 6: g.DrawEllipse(pen, r.X + 4, r.Y + 4, r.Width - 8, r.Height - 8); g.DrawEllipse(pen, r.X + 9, r.Y + 9, r.Width - 18, r.Height - 18); break;
                 case 7: g.DrawEllipse(pen, r.X + 2, r.Y + 2, r.Width - 4, r.Height - 4); Txt(g, "?", 14, c, r, StringAlignment.Center, true); break;
                 case 8: g.DrawRectangle(pen, r.X + 7, r.Y + 2, r.Width - 11, r.Height - 10); g.DrawRectangle(pen, r.X + 3, r.Y + 7, r.Width - 11, r.Height - 10); break;
+                case 10: Txt(g, "Aa", 15, c, r, StringAlignment.Center, true); break;
                 default: g.DrawLine(pen, r.X + 4, r.Y + 12, r.Right - 4, r.Y + 12); g.DrawLine(pen, r.X + 4, r.Y + 12, r.X + 10, r.Y + 6); g.DrawLine(pen, r.X + 4, r.Y + 12, r.X + 10, r.Y + 18); break;
             }
         }

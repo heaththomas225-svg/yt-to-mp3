@@ -36,7 +36,7 @@ partial class StudioForm
         {
             MessageBox.Show(this, "No microphone or audio input was found.\n\nPlug one in (or switch it on in Windows: Settings > System > Sound > Input), then press MIC again.", "Record", MessageBoxButtons.OK, MessageBoxIcon.Information); return;
         }
-        int idx = Prefs.InDev.Length > 0 ? devs.IndexOf(Prefs.InDev) : -1; var r = new AudioRecorder();
+        int idx = Prefs.InDev.Length > 0 ? devs.IndexOf(Prefs.InDev) : -1; var r = new AudioRecorder(); r.SetMode((MicMode)Prefs.MicMode);
         if (!r.Start(idx)) { MessageBox.Show(this, r.Error, "Record", MessageBoxButtons.OK, MessageBoxIcon.Warning); return; }
         mic = r; micT0 = DateTime.Now; micStart = eng.Playing ? (long)dispPos : eng.Pos; micTarget = RecordTarget();
         micLead = 0; if (!eng.Playing) { PlayGuard(); micLead = eng.LastCountFrames; }   // with Count In the recording starts one bar before the song

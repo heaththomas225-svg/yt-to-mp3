@@ -108,7 +108,7 @@ partial class StudioForm : Form
         app = owner; eng = app.StudioEng; Win.Dark(this); InitEdit();
         Text = "Purphex Music"; StartPosition = FormStartPosition.CenterParent; BackColor = Bg0;
         ClientSize = new Size(1360, 800); MinimumSize = new Size(1240, 680);
-        DoubleBuffered = true; KeyPreview = true;   /* AllowDrop is switched on in OnHandleCreated (Studio.Crash.cs) so a refused registration cannot crash */
+        DoubleBuffered = true; KeyPreview = true; FontKit.Restore(this);   /* AllowDrop is switched on in OnHandleCreated (Studio.Crash.cs) so a refused registration cannot crash */
         SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw | ControlStyles.Selectable, true);
         studioLoop = new FrameLoop(this, FrameStep) { Slow = () => WindowState == FormWindowState.Minimized }; ApplyFps();
         InstrumentFx.Recorder = OnMidiNote;
@@ -131,7 +131,7 @@ partial class StudioForm : Form
         var now = DateTime.Now;
         if (ClientSize.Width != lastW || ClientSize.Height != lastH) { lastW = ClientSize.Width; lastH = ClientSize.Height; lastFrame = now; return true; }
         if (eng.Playing) lastPlayAt = now;
-        bool vizPage = tab == 5 || (tab == 1 && visStageOn); bool anim = vizPage || eng.Playing || busy || browserOpen || stylesOpen || autoOpen || dragReg != null || (now - lastInput).TotalMilliseconds < 600 || animOff.Count > 0 || ghostOn || btnAnim || (now - toastAt).TotalSeconds < ToastSecs + 0.2 || (now - lastPlayAt).TotalMilliseconds < 1500 || installing.Length > 0 || mic != null || Auditioner.IsPlaying;   // the 1.5 s after playback lets the meters settle
+        bool vizPage = tab == 5 || (tab == 1 && visStageOn); bool anim = vizPage || eng.Playing || (tab == 0 && AnyTrackOff()) || busy || browserOpen || stylesOpen || autoOpen || dragReg != null || (now - lastInput).TotalMilliseconds < 600 || animOff.Count > 0 || ghostOn || btnAnim || (now - toastAt).TotalSeconds < ToastSecs + 0.2 || (now - lastPlayAt).TotalMilliseconds < 1500 || installing.Length > 0 || mic != null || Auditioner.IsPlaying;   // the 1.5 s after playback lets the meters settle
         double gap = (now - lastFrame).TotalMilliseconds;
         // a slow computer redraws less often (paint time x3) so the window never starves the audio
         lastIdle = !anim; if (!(anim ? gap >= Math.Max(vizPage && !eng.Playing ? 45 : FrameGapMs, Math.Min(250, paintMs * 1.5)) : gap >= 1000)) return false;
@@ -226,36 +226,43 @@ partial class StudioForm : Form
     static long Stopwatch0() { return System.Diagnostics.Stopwatch.GetTimestamp(); }
     static void StrokeRR(Graphics g, Color c, RectangleF r, float rad, float w) { long t0 = Prof.T(); using (var p = RR(r, rad)) using (var pen = new Pen(c, w)) g.DrawPath(pen, p); Prof.A("StrokeRR", t0); }
     // Test hook: when this list exists, every string drawn is recorded with where its ink really lands, so a test can find text that runs out of its box or lands on other text.
-    internal sealed class AuditText { public string S; public RectangleF Box, Ink; public bool Cut; }
+    internal sealed class AuditText { public string S; public RectangleF Box, Ink; public bool Cut; public Color C; public float Px; public bool Bold; }
     internal static List<AuditText> TxtAudit;
+    internal static bool NoTextDraw;   // test hook: the writing is measured and recorded but not drawn (to see what is behind it)
     static void Txt(Graphics g, string s, float px, Color c, RectangleF r, StringAlignment ha, bool bold)
     {
-        var f = GfxCache.Font(px, bold); long t2 = Prof.T();
-        if (s != null && s.Length > 3 && r.Width > 30 && s.Length * px * 0.7f > r.Width)
+        if (EmojiText.Has(s)) { EmojiText.Draw(g, s, px, c, r, ha, bold); return; }   /* emoji need their own font */
+        float real = GfxCache.Grow(px); var f = GfxCache.Exact(real, bold); long t2 = Prof.T();   // as big as the box allows: the grown size, a little smaller when it does not fit
+        if (s != null && s.Length > 3 && r.Width > 30 && s.Length * real * 0.5f > r.Width * 0.7f)
         {   // a name that does not fit its box is written a little smaller instead of being cut off
             float w0 = g.MeasureString(s, f, 100000, GfxCache.Fmt(StringAlignment.Near, false)).Width - 4;
-            if (w0 > r.Width) { float np = px, mn = Math.Max(9f, px * 0.72f); while (np > mn && w0 > r.Width) { np -= 0.5f; w0 = g.MeasureString(s, GfxCache.Font(np, bold), 100000, GfxCache.Fmt(StringAlignment.Near, false)).Width - 4; } if (np < px) { px = np; f = GfxCache.Font(np, bold); } }
+            if (w0 > r.Width - 4) { float mn = Math.Max(8f, px * 0.72f); while (real > mn && w0 > r.Width - 4) { real -= 0.5f; w0 = g.MeasureString(s, GfxCache.Exact(real, bold), 100000, GfxCache.Fmt(StringAlignment.Near, false)).Width - 4; } f = GfxCache.Exact(real, bold); }
         }
+        px = real;
         Prof.A("Txt.measure", t2); if (TxtAudit != null && !string.IsNullOrWhiteSpace(s) && r.Width > 1 && r.Height > 1)
         {
             var sz = g.MeasureString(s, f, 100000, GfxCache.Fmt(StringAlignment.Near, false)); float w = Math.Min(sz.Width - 4, r.Width), ih = Math.Min(sz.Height * 0.72f, r.Height); float x = ha == StringAlignment.Near ? r.X : (ha == StringAlignment.Center ? r.X + (r.Width - w) / 2 : r.Right - w);
             var ink = new RectangleF(x + 1, r.Y + (r.Height - ih) / 2, Math.Max(1, w - 2), Math.Max(1, ih)); var seen = RectangleF.Intersect(ink, g.ClipBounds);   // only what can really be seen: a list row scrolled out of view is not on screen
-            if (!seen.IsEmpty) TxtAudit.Add(new AuditText { S = s, Box = r, Ink = seen, Cut = sz.Width - 4 > r.Width + 2 && seen.Width >= ink.Width - 1 });
+            if (!seen.IsEmpty) TxtAudit.Add(new AuditText { S = s, Box = r, Ink = seen, Cut = sz.Width - 4 > r.Width + 2 && seen.Width >= ink.Width - 1, C = c, Px = px, Bold = bold });
         }
-        long t1 = Prof.T(); using (var b = new SolidBrush(c)) g.DrawString(s, f, b, r, GfxCache.Fmt(ha, true)); Prof.A("DrawString", t1);
+        long t1 = Prof.T(); if (!NoTextDraw) using (var b = new SolidBrush(c)) g.DrawString(s, f, b, r, GfxCache.Fmt(ha, true)); Prof.A("DrawString", t1);
     }
     // writing that wraps onto as many lines as its box allows (long explanations): nothing is cut off with ... unless the box really is too small
     static void TxtWrap(Graphics g, string s, float px, Color c, RectangleF r, StringAlignment ha = StringAlignment.Near)
     {
-        var f = GfxCache.Font(px, false);
+        if (EmojiText.Has(s)) { EmojiText.DrawWrap(g, s, px, c, r, ha); return; }
+        float real = GfxCache.Grow(px); var f = GfxCache.Exact(real, false);
+        if (s != null && r.Width > 1 && r.Height > 1 && s.Length * real * 0.45f > r.Width * 0.7f)   // more than a line or two: made smaller (never below the old size) until all of it fits its box
+        { var sz0 = g.MeasureString(s, f, (int)r.Width); while (sz0.Height > r.Height + 1 && real > px) { real -= 0.5f; if (real < px) real = px; f = GfxCache.Exact(real, false); sz0 = g.MeasureString(s, f, (int)r.Width); } }
+        px = real;
         using (var fmt = new StringFormat { Alignment = ha, LineAlignment = StringAlignment.Near, Trimming = StringTrimming.EllipsisWord })
         {
             if (TxtAudit != null && !string.IsNullOrWhiteSpace(s) && r.Width > 1)
             {
                 var sz = g.MeasureString(s, f, (int)r.Width); var ink = new RectangleF(r.X + 1, r.Y + 1, Math.Max(1, Math.Min(sz.Width - 4, r.Width)), Math.Max(1, Math.Min(sz.Height * 0.8f, r.Height))); var seen = RectangleF.Intersect(ink, g.ClipBounds);
-                if (!seen.IsEmpty) TxtAudit.Add(new AuditText { S = s, Box = r, Ink = seen, Cut = sz.Height > r.Height + 2 });
+                if (!seen.IsEmpty) TxtAudit.Add(new AuditText { S = s, Box = r, Ink = seen, Cut = sz.Height > r.Height + 2, C = c, Px = px });
             }
-            using (var b = new SolidBrush(c)) g.DrawString(s, f, b, r, fmt);
+            if (!NoTextDraw) using (var b = new SolidBrush(c)) g.DrawString(s, f, b, r, fmt);
         }
     }
     static RectangleF Rc(float x, float y, float w, float h) { return new RectangleF(x, y, w, h); }
@@ -381,8 +388,9 @@ partial class StudioForm : Form
         StrokeRR(g, TM.C(style == 2 ? 200 : 110, 200, 150, 255), r, style == 2 ? 8 : 6, 1);
         if (style == 4) Glow(g, Accent2, r, 8, 0.8f, 3); else if (ht > 0.03f) Glow(g, NeonCyan, r, 8, 0.7f * ht, 3); else if (style == 2) Glow(g, NeonViolet, r, 8, 0.5f, 3);
         bool bdt = true; float fpx = px, avail = r.Width - 10;   // a label that is too wide for its button gets a smaller size instead of being cut off
-        if (shown.Length * fpx * 0.62f > avail) { while (fpx > 8f && g.MeasureString(shown, GfxCache.Font(fpx, bdt)).Width > avail) fpx -= 0.5f; }
-        Txt(g, shown, fpx, Color.White, r, StringAlignment.Center, bdt);
+        if (shown.Length * fpx * 0.55f > avail * 0.7f) { while (fpx > 7f && g.MeasureString(shown, GfxCache.Exact(GfxCache.Grow(fpx), bdt)).Width > avail) fpx -= 0.5f; }
+        Color lab = style == 2 ? Contrast.LabelOn(Color.FromArgb(Math.Min(255, Violet.R + 32), Math.Min(255, Violet.G + 8), Math.Min(255, Violet.B + 28)), Accent2) : Contrast.LabelOn(c);   // white, or dark on a light button
+        Txt(g, shown, fpx, lab, r, StringAlignment.Center, bdt);
     }
 
     // horizontal slider; frac 0..1; returns region so callers can add OnDouble / OnWheel
@@ -418,7 +426,7 @@ partial class StudioForm : Form
     void PaintAll(PaintEventArgs e)
     {
         Prof.Start(); EditionWatch(); hintNow = ""; bubble = ""; btnAnim = false; NavTrack(); MasterTick(); HoverTick(); if (Themes.Tick()) { lastInput = DateTime.Now; btnAnim = true; } AutoBpmTick(); TidyEmptyTracks();
-        var g = e.Graphics; g.SmoothingMode = SmoothingMode.AntiAlias; g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
+        var g = e.Graphics; g.SmoothingMode = SmoothingMode.AntiAlias; g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit; Sharp(g);
         if (popDragId.Length > 0 && PaintPopDragFast(g)) { fpsc.Frame(); return; }   // dragging a box: the page under it is a stored picture and only the box is moved
         if (popDragId.Length == 0 && popBase != null) PopCacheClear();
         regs.Clear(); btnRects.Clear(); btnMap.Clear(); PopBegin(g); Prof.Mark("setup");
@@ -452,10 +460,10 @@ partial class StudioForm : Form
     void PaintBase(Graphics g)
     {
         DrawBackdrop(g); Prof.Mark("backdrop");
-        if (tab == 0) PaintMix(g); else if (tab == 2) PaintLyrics(g); else if (tab == 3) PaintProjects(g); else if (tab == 4) PaintCommunity(g); else if (tab == 5) PaintVisualiser(g); else if (tab == 6) PaintProfile(g); else if (tab == 7) PaintArtists(g); else PaintMastering(g);
+        if (tab == 0) PaintMix(g); else if (tab == 2) PaintLyrics(g); else if (tab == 3) PaintProjects(g); else if (tab == 4) PaintCommunity(g); else if (tab == 5) PaintVisualiser(g); else if (tab == 6) PaintProfile(g); else if (tab == 7) PaintArtists(g); else if (tab == 8) PaintFonts(g); else PaintMastering(g);
         Prof.Mark("page " + tab);
         if (tab != 2) SyncLyricUi(false);
-        if (tab == 3 || tab == 4 || tab == 6 || tab == 7) { PaintSlimBar(g); PaintPreviewBar(g); } else if (tab == 5) PaintVisBar(g); else if (tab == 1) PaintMasterBars(g); else { PaintToolbar(g); Prof.Mark("toolbar"); PaintTransport(g); }   // the Community and My Projects pages have no music controls
+        if (tab == 3 || tab == 4 || tab == 6 || tab == 7 || tab == 8) { PaintSlimBar(g); PaintPreviewBar(g); } else if (tab == 5) PaintVisBar(g); else if (tab == 1) PaintMasterBars(g); else { PaintToolbar(g); Prof.Mark("toolbar"); PaintTransport(g); }   // the Community and My Projects pages have no music controls
         Prof.Mark("bars");
         if (browserOpen) { if (TxtAudit != null) TxtAudit.Clear(); PaintBrowser(g); }
         PaintSoundDrag(g); PaintPackManager(g);
@@ -472,8 +480,8 @@ partial class StudioForm : Form
         if (popBase == null || popBase.Width != w || popBase.Height != h || popCapId != popDragId)
         {
             PopCacheClear(); popBase = Sprites.Make(w, h); popLayer = Sprites.Make(w, h); var keepHint = hintNow; var savedRegs = new List<HitReg>(regs);
-            using (var bg = Graphics.FromImage(popBase)) { bg.SmoothingMode = SmoothingMode.AntiAlias; bg.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit; regs.Clear(); btnRects.Clear(); btnMap.Clear(); PopBegin(bg); PaintBase(bg); popG = null; popPending.Clear(); }
-            using (var lg = Graphics.FromImage(popLayer)) { lg.SmoothingMode = SmoothingMode.AntiAlias; lg.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit; lg.Clear(Color.Transparent); regs.Clear(); PopBegin(lg); PaintSheets(lg); PopEnd(); }
+            using (var bg = Graphics.FromImage(popBase)) { bg.SmoothingMode = SmoothingMode.AntiAlias; bg.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit; Sharp(bg); regs.Clear(); btnRects.Clear(); btnMap.Clear(); PopBegin(bg); PaintBase(bg); popG = null; popPending.Clear(); }
+            using (var lg = Graphics.FromImage(popLayer)) { lg.SmoothingMode = SmoothingMode.AntiAlias; lg.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit; Sharp(lg); lg.Clear(Color.Transparent); regs.Clear(); PopBegin(lg); PaintSheets(lg); PopEnd(); }
             popKeepRegs = new List<HitReg>(regs); regs.Clear(); regs.AddRange(savedRegs); popCapId = popDragId; popLayerOff = popOff.TryGetValue(popDragId, out now) ? now : PointF.Empty; hintNow = keepHint;
         }
         PointF cur; if (!popOff.TryGetValue(popDragId, out cur)) cur = PointF.Empty;
@@ -581,7 +589,7 @@ partial class StudioForm : Form
         var tr = Rc(x, y, 210, h); FillRR(g, TM.C(200, 8, 4, 18), tr, 6); StrokeRR(g, Edge, tr, 6, 1);
         Txt(g, Fmt(sec) + "  /  " + Fmt(tot), 19, Accent, tr, StringAlignment.Center, true); x += 222;
         Btn(g, Rc(x, y, 92, h), "MIDI REC", recOn ? 3 : 0, () => { if (!recOn && !AskYes("Would you like to record an instrument?\n\nYour MIDI keyboard (or the piano window) is recorded onto the selected MIDI track while the song plays. Press PLAY after you say Yes. If not, press No.", "MIDI recording")) return; recOn = !recOn; Toast(recOn ? "MIDI recording is on (the button is red): press PLAY, then play your MIDI keyboard or the piano window and the notes are recorded onto the selected MIDI track." : "MIDI recording is off."); }, 13); x += 98;
-        { bool rec = mic != null; double el = rec ? (eng.CountBeat > 0 ? 0 : Math.Max(0, (DateTime.Now - micT0).TotalSeconds - micLead / (double)StudioEngine.SR)) : 0; bool armed = micArmed && !rec; var mr = Rc(x, y, rec ? 128 : 60, h); Btn(g, mr, (rec ? "* MIC  " + ((int)(el / 60)).ToString("00") + ":" + ((int)(el % 60)).ToString("00") : "MIC"), rec || armed ? 3 : 0, () => MicClick(), 13); if (armed) { double pl = 0.5 + 0.5 * Math.Sin(Environment.TickCount / 220.0); Glow(g, Color.FromArgb(255, 60, 90), mr, 8, 0.7f + 0.5f * (float)pl, 4); lastInput = DateTime.Now; } if (rec) HBar(g, Rc(mr.X + 6, mr.Bottom - 7, mr.Width - 12, 5), mic.Level); x += mr.Width + 6; }
+        { bool rec = mic != null; double el = rec ? (eng.CountBeat > 0 ? 0 : Math.Max(0, (DateTime.Now - micT0).TotalSeconds - micLead / (double)StudioEngine.SR)) : 0; bool armed = micArmed && !rec; var mr = Rc(x, y, rec ? 128 : 60, h); Btn(g, mr, (rec ? "* MIC  " + ((int)(el / 60)).ToString("00") + ":" + ((int)(el % 60)).ToString("00") : "MIC"), rec || armed ? 3 : 0, () => MicClick(), 13); if (armed) { double pl = 0.5 + 0.5 * Math.Sin(Environment.TickCount / 220.0); Glow(g, Color.FromArgb(255, 60, 90), mr, 8, 0.7f + 0.5f * (float)pl, 4); lastInput = DateTime.Now; } if (rec) HBar(g, Rc(mr.X + 6, mr.Bottom - 7, mr.Width - 12, 5), mic.Level); PaintMicDrop(g, Rc(mr.Right + 3, y, 24, h), rec); x += mr.Width + 6 + 28; }
         Btn(g, Rc(x, y, 92, h), "SOUNDS", soundsOpen ? 4 : 0, () => { if (soundsOpen) CloseSounds(); else OpenSounds(); }, 12); x += 98;
 
         // tabs on the right; master meters in whatever room is left between
@@ -697,7 +705,7 @@ partial class StudioForm : Form
             for (double s = first; ; s += major)
             {
                 float x = r.X + (float)((s - t0) / secPerPx); if (x > r.Right) break; if (x < r.X) continue;
-                g.DrawLine(pen, x, r.Bottom - 10, x, r.Bottom); Txt(g, major >= 1 ? ((int)(s / 60)) + ":" + ((int)(s % 60)).ToString("00") : Fmt(s).Substring(0, 8), 11, DimC, Rc(x + 3, r.Y + 2, 60, 16), StringAlignment.Near, false);
+                g.DrawLine(pen, x, r.Bottom - 10, x, r.Bottom); Txt(g, major >= 1 ? ((int)(s / 60)) + ":" + ((int)(s % 60)).ToString("00") : Fmt(s).Substring(0, 8), 11, Ink, Rc(x + 3, r.Y + 2, 60, 16), StringAlignment.Near, false);
             }
     }
 
@@ -753,7 +761,7 @@ partial class StudioForm : Form
         bool dragWave = ghostOn && ghostKind == 0 && ghostTrack == tr && pc.Img != null;   // while this clip is being dragged its finished picture is kept and just slid along (redrawing it every frame was the lag)
         if (!dragWave && (pc.Clip != tr.Clip || pc.Start != scroll - tr.Offset + tr.ClipStart || pc.Spp != spp || pc.Px != px || pc.Len != tr.UsedLength)) { if (pc.Mn == null || pc.Mn.Length < px) { pc.Mn = new float[px + 64]; pc.Mx = new float[px + 64]; } tr.Clip.GetPeaks(scroll - tr.Offset + tr.ClipStart, spp, px, pc.Mn, pc.Mx); pc.Clip = tr.Clip; pc.Start = scroll - tr.Offset + tr.ClipStart; pc.Spp = spp; pc.Px = px; pc.Len = tr.UsedLength; pc.Ver++; }
         var wmn = pc.Mn; var wmx = pc.Mx;
-        Color c = Neon(tr.Color); bool audible = !tr.Mute; float cy = lane.Y + lane.Height / 2, amp = lane.Height * 0.42f;
+        Color c = Neon(tr.Color); bool audible = !tr.Mute && !tr.Off; float cy = lane.Y + lane.Height / 2, amp = lane.Height * 0.42f;
         long clipStart = tr.Offset, clipEnd = tr.Offset + tr.UsedLength;
         float x0 = lane.X + (float)((clipStart - scroll) / spp), x1 = lane.X + (float)((clipEnd - scroll) / spp);
         var cr = RectangleF.Intersect(Rc(x0, lane.Y + 5, x1 - x0, lane.Height - 10), lane);
@@ -767,9 +775,9 @@ partial class StudioForm : Form
                 using (var ig = Graphics.FromImage(pc.Img)) { ig.Clear(Color.Transparent); ig.SmoothingMode = SmoothingMode.AntiAlias; ig.TranslateTransform(-ix, -iy); PaintWaveBody(ig, lane, cr, c, audible, sel, cy, amp, px, wmn, wmx); }
                 pc.ImgVer = pc.Ver; pc.ImgRel = rel; pc.ImgX0 = x0; pc.ImgLane = lane; pc.ImgCr = cr; pc.ImgAud = audible; pc.ImgSel = sel; pc.ImgCol = c.ToArgb(); pc.ImgTheme = ThemeKeyNow();
             }
-            var gi = g.Save(); g.SetClip(lane, CombineMode.Intersect); g.DrawImageUnscaled(pc.Img, ix + (dragWave ? (int)Math.Round(x0 - pc.ImgX0) : 0), iy); g.Restore(gi);
+            var gi = g.Save(); g.SetClip(lane, CombineMode.Intersect); if (tr.Off) PaintQuake(g, pc.Img, ix + (dragWave ? (int)Math.Round(x0 - pc.ImgX0) : 0), iy, tr, lane, cr); else g.DrawImageUnscaled(pc.Img, ix + (dragWave ? (int)Math.Round(x0 - pc.ImgX0) : 0), iy); g.Restore(gi);
         }
-        if (cr.Width > 0) { var gst = g.Save(); g.SetClip(lane, CombineMode.Intersect); float lv = Math.Max(tr.PeakL, tr.PeakR); Glow(g, c, cr, 6, (sel ? 1.2f : 0.8f) + Math.Min(0.6f, lv * 0.9f), 5); g.Restore(gst); }
+        if (cr.Width > 0 && !tr.Off) { var gst = g.Save(); g.SetClip(lane, CombineMode.Intersect); float lv = Math.Max(tr.PeakL, tr.PeakR); Glow(g, c, cr, 6, (sel ? 1.2f : 0.8f) + Math.Min(0.6f, lv * 0.9f), 5); g.Restore(gst); }
         { float nx = Math.Max(lane.X, x0) + 8, nw = Math.Min(300, Math.Min(x1, lane.Right) - nx - 6); if (nw > 70) Txt(g, tr.Name, 12, Color.FromArgb(200, 255, 255, 255), Rc(nx, lane.Y + 6, nw, 16), StringAlignment.Near, true); }   // the name stays inside its own clip
         PaintClipExtras(g, tr, lane, x0, x1, cr);
         PaintClipChrome(g, tr, lane, cr, sel);
@@ -782,7 +790,7 @@ partial class StudioForm : Form
         bool thin = r.Height < 96, compact = r.Height < 112, bus = tr.IsBus; float by = thin ? 34 : (compact ? 36 : 44), vy = thin ? 60 : (compact ? 64 : 84), py = compact ? 86 : 110;
         using (var br = new SolidBrush(sel ? TM.C(255, 40, 22, 74) : TM.C(255, 26, 15, 46))) g.FillRectangle(br, r);
         using (var pen = new Pen(sel ? Color.FromArgb(200, Neon(tr.Color)) : Color.FromArgb(70, Neon(tr.Color)), sel ? 1.6f : 1f)) g.DrawRectangle(pen, r.X + 1, r.Y + 1, r.Width - 2, r.Height - 2);
-        Led(g, Neon(tr.Color), r.X + 20, r.Y + 17, 5, !tr.Mute);
+        Led(g, Neon(tr.Color), r.X + 20, r.Y + 17, 5, !tr.Off);   /* the light is the power switch of the track (press it: the track is off) */
         Txt(g, tr.Name, 15, Ink, Rc(r.X + 28, r.Y + 6, 150, 22), StringAlignment.Near, true);
         if (tr.Bpm > 0 && !bus) { var bt = thin ? Rc(r.X + 298, r.Y + 9, 40, 14) : Rc(r.X + 28, r.Y + 26, 120, 14); Txt(g, tr.Bpm.ToString("0.#") + (thin ? "" : " BPM"), 10, Math.Abs(tr.Bpm - Fx.ProjectBpm) < 0.6 ? Color.FromArgb(150, 255, 190) : DimC, bt, StringAlignment.Near, false); if (Hot(bt)) hintNow = "The tempo heard in this track" + (Math.Abs(tr.Bpm - Fx.ProjectBpm) < 0.6 ? ", the same as the project." : ". The project is at " + Fx.ProjectBpm.ToString("0.#") + " BPM: press DETECT to use this track's tempo."); }
         string role = bus ? "BUS" : (tr.Instrument ? "SYNTH" : (tr.Role == "vocal" ? "VOCAL" : (tr.Role == "beat" ? "BEAT" : (tr.Role == "song" ? "SONG" : "AUDIO"))));
@@ -793,6 +801,7 @@ partial class StudioForm : Form
         Btn(g, Rc(r.Right - 34, r.Y + 7, 22, 22), "x", 3, () => RemoveTrack(tk), 13);
         var nameReg = Reg(Rc(r.X + 4, r.Y + 4, 176, 26), () => HeaderDown(tk)); nameReg.OnDrag = pt => HeaderDrag(tk, pt); nameReg.OnUp = () => { HeaderDrop(tk); GhostEnd(); }; nameReg.OnDouble = () => RenameTrack(tk); nameReg.OnRight = () => RenameTrack(tk);
         if (Hot(Rc(r.X + 4, r.Y + 4, 176, 26))) bubble = "Drag up or down to reorder.  Double-click to rename."; bubblePt = MousePos;
+        { var dotR = Rc(r.X + 8, r.Y + 5, 24, 24); Reg(dotR, () => ToggleOff(tk)); if (Hot(dotR)) { bubble = tk.Off ? "This track is OFF. Click the light to turn it back on." : "Click the light to turn this track completely off: it goes quiet, dims, and shakes apart on the timeline."; bubblePt = MousePos; } }
         // M / S, + Add Effect, Out
         float bh = thin ? 24 : 30;
         Btn(g, Rc(r.X + 12, r.Y + by, 36, bh), "M", tk.Mute ? 4 : 0, () => ToggleMute(tk), 14);
@@ -839,6 +848,7 @@ partial class StudioForm : Form
             long offMs = tr.Offset * 1000 / StudioEngine.SR; Txt(g, "OFFSET MS", 10, DimC, Rc(r.X + 150, r.Y + r.Height - 22, 62, 16), StringAlignment.Far, false);
             ValueBox(g, Rc(r.X + 218, r.Y + r.Height - 25, 42, 19), offMs.ToString(), offMs.ToString(), s => { float v; if (ParseNum(s, out v)) tk.Offset = (long)(v * StudioEngine.SR / 1000.0); });
         }
+        if (tr.Off) PaintHeaderOff(g, r, tr);
     }
 
     // choose where a track's sound goes: straight to the master, or to one of the buses (or a new bus)
@@ -901,8 +911,11 @@ partial class StudioForm : Form
         if (eng.Tracks.Count == 0) { Txt(g, "SELECT A TRACK TO EDIT ITS PLUGINS", 14, DimC, pr, StringAlignment.Center, false); return; }
         var tr = eng.Tracks[Math.Max(0, Math.Min(selTrack, eng.Tracks.Count - 1))];
         Txt(g, "Plugins: " + tr.Name, 16, Ink, Rc(x + 14, y + 8, w - 28, 26), StringAlignment.Near, true);
-        Fx[] fxs; lock (eng.Sync) fxs = tr.Fx.ToArray(); float origW = w; { int n0 = fxs.Length; float est = 40 + n0 * 32 + 42 + ((selFx >= 0 && selFx < n0) ? EditorHeight(fxs[selFx]) : 60); if (est - h + 6 > 1 && h > 200) w -= 52; }
-        float ly = y + 40 - panelScroll; int n = fxs.Length; g.SetClip(Rc(x, y + 36, w, h - 36));
+        Fx[] fxs; lock (eng.Sync) fxs = tr.Fx.ToArray(); float origW = w; { int n0 = fxs.Length; float est = 76 + n0 * 32 + 8 + ((selFx >= 0 && selFx < n0) ? EditorHeight(fxs[selFx]) : 60); if (est - h + 6 > 1 && h > 200) w -= 52; }
+        int ti = Array.IndexOf(eng.Tracks.ToArray(), tr);
+        Btn(g, Rc(x + 10, y + 38, 112, 30), "+ Add Effect", 1, () => OpenBrowser(false, ti), 14);
+        Btn(g, Rc(x + 128, y + 38, 100, 30), "Presets...", 0, () => ChainMenu(tr), 14);
+        float ly = y + 76 - panelScroll; int n = fxs.Length; g.SetClip(Rc(x, y + 72, w, h - 72));
         if (selFx >= n) selFx = -1;
         for (int i = 0; i < n; i++, ly += 32)
         {
@@ -917,18 +930,14 @@ partial class StudioForm : Form
             Btn(g, Rc(row.Right - 52, row.Y + 3, 22, 22), "v", 0, () => MoveFx(tr, fi, 1), 11);
             Btn(g, Rc(row.Right - 28, row.Y + 3, 22, 22), "x", 3, () => { lock (eng.Sync) { if (fi < tr.Fx.Count) { var rf = tr.Fx[fi]; tr.Fx.RemoveAt(fi); tr.Auto.RemoveAll(al => al.Fx == rf); if (rf is IDisposable) { try { ((IDisposable)rf).Dispose(); } catch { } } } } selFx = -1; }, 12);
         }
-        int ti = Array.IndexOf(eng.Tracks.ToArray(), tr);
-        Btn(g, Rc(x + 10, ly + 2, 112, 30), "+ Add Effect", 1, () => OpenBrowser(false, ti), 14);
-        Btn(g, Rc(x + 128, ly + 2, 100, 30), "Presets...", 0, () => ChainMenu(tr), 14);
-        Btn(g, Rc(x + 234, ly + 2, 136, 30), "Vocal Styles", 4, () => OpenStyles(), 14);
-        float ey = ly + 42;
+        float ey = ly + 8;
         float edH = (selFx >= 0 && selFx < n) ? EditorHeight(fxs[selFx]) : 60;
         if (selFx >= 0 && selFx < n) PaintEditor(g, fxs[selFx], Rc(x + 6, ey, w - 12, edH), tr);
         else Txt(g, "CLICK A PLUGIN TO EDIT IT", 13, DimC, Rc(x, ey, w, 40), StringAlignment.Center, false);
         g.ResetClip();
-        float contentBottom = ly + panelScroll + 42 + ((selFx >= 0 && selFx < n) ? edH : 60), maxScroll = Math.Max(0, contentBottom - (y + h) + 6); panelScroll = Math.Min(panelScroll, maxScroll);
-        regs.Insert(0, new HitReg { R = Rc(x, y + 36, origW, h - 36), OnWheel = d => panelScroll = Math.Max(0, Math.Min(maxScroll, panelScroll - d * 50)) });
-        if (origW != w) VScroll(g, Rc(x + origW - 50, y + 40, 42, h - 48), h - 48 + maxScroll, h - 48, () => panelScroll, v => panelScroll = v);
+        float contentBottom = ly + panelScroll + 8 + ((selFx >= 0 && selFx < n) ? edH : 60), maxScroll = Math.Max(0, contentBottom - (y + h) + 6); panelScroll = Math.Min(panelScroll, maxScroll);
+        regs.Insert(0, new HitReg { R = Rc(x, y + 72, origW, h - 72), OnWheel = d => panelScroll = Math.Max(0, Math.Min(maxScroll, panelScroll - d * 50)) });
+        if (origW != w) VScroll(g, Rc(x + origW - 50, y + 76, 42, h - 84), h - 84 + maxScroll, h - 84, () => panelScroll, v => panelScroll = v);
     }
 
     // Exact height of an effect editor, so the panel scrolls only as far as its content (no endless blank space).
@@ -1039,6 +1048,7 @@ partial class StudioForm : Form
         if (psOpen) { PsKey(e.KeyChar); e.Handled = true; return; }
         if (ProjSearchKey(e.KeyChar)) { e.Handled = true; return; }
         if (ArtSearchKey(e.KeyChar)) { e.Handled = true; return; }
+        if (FontSearchKey(e.KeyChar)) { e.Handled = true; return; }
         if (cpOpen) { CpKey(e.KeyChar); e.Handled = true; return; }
         if (stylesOpen) { if (e.KeyChar == '\b') { if (stylesQuery.Length > 0) { stylesQuery = stylesQuery.Substring(0, stylesQuery.Length - 1); stylesScroll = 0; } } else if (!char.IsControl(e.KeyChar)) { stylesQuery += e.KeyChar; stylesScroll = 0; } e.Handled = true; return; }
         if (browserOpen) { if (e.KeyChar == '\b') { if (browserQuery.Length > 0) browserQuery = browserQuery.Substring(0, browserQuery.Length - 1); } else if (!char.IsControl(e.KeyChar)) browserQuery += e.KeyChar; e.Handled = true; }
@@ -1084,7 +1094,7 @@ partial class StudioForm : Form
         if (k == Keys.Escape && tab == 5 && !menuOpen) { tab = 1; return true; }   // Esc leaves the visualiser
         if (k == Keys.Space && (tab == 3 || tab == 4 || tab == 6 || tab == 7) && !ProjSearchActive && !ArtSearchActive && previewPath.Length > 0 && previewEng != null) { PreviewPauseToggle(); return true; }   // Space pauses the preview (the search box only takes keys after you click it)
         if (ProjSearchCmd(k)) return true; if (ProjSearchTakesKey(k)) return base.ProcessCmdKey(ref msg, k);
-        if (ArtSearchCmd(k)) return true; if (ArtSearchTakesKey(k)) return base.ProcessCmdKey(ref msg, k);
+        if (ArtSearchCmd(k)) return true; if (ArtSearchTakesKey(k)) return base.ProcessCmdKey(ref msg, k); if (FontSearchCmd(k)) return true; if (FontSearchTakesKey(k)) return base.ProcessCmdKey(ref msg, k);
         if (k == Keys.F1) { app.ShowHelp(null); return true; }
         if (k == Keys.Space) { PlayToggle(); return true; }
         if (k == Keys.Home) { eng.Seek(0); scroll = 0; followPaused = false; return true; }
@@ -1116,6 +1126,7 @@ partial class StudioForm : Form
         base.OnMouseDown(e); lastInput = DateTime.Now; Focus(); MousePos = e.Location; if (e.Button == MouseButtons.Middle && tab == 0 && TimelineRect().Contains(e.Location)) { MiddleDown(e.Location); return; }
         if (editBox != null && editBox.Visible) CommitEdit(true);   // clicking off a value box confirms what you typed
         if (tab == 3 && projSearchOn && !projSearchR.Contains(e.Location)) projSearchOn = false;
+        if (tab == 8 && fontSearchOn && !fontSearchR.Contains(e.Location)) fontSearchOn = false;
         if (tab == 7 && artSearchOn && !artSearchR.Contains(e.Location)) artSearchOn = false;   // clicking anywhere else lets go of the search box
         var r = TopRegion(e.Location); if (r == null) return;
         if (Win.ClickClosedMenu(this, r.R)) return;   // the click that just closed a menu is not also a click on the button that opened it

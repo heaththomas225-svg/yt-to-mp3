@@ -487,7 +487,7 @@ static class ProjectIO
         for (int i = 0; i < eng.Tracks.Count; i++)
         {
             var t = eng.Tracks[i];
-            sb.Append("tmix|").Append(i).Append('|').Append(t.VolDb.ToString("R", CI)).Append('|').Append(t.Pan.ToString("R", CI)).Append('|').Append(t.Mute ? 1 : 0).Append('|').Append(t.Solo ? 1 : 0).Append('\n');
+            sb.Append("tmix|").Append(i).Append('|').Append(t.VolDb.ToString("R", CI)).Append('|').Append(t.Pan.ToString("R", CI)).Append('|').Append(t.Mute ? 1 : 0).Append('|').Append(t.Solo ? 1 : 0).Append('|').Append(t.Off ? 1 : 0).Append('\n');
             foreach (var f in t.Fx) sb.Append("fx|").Append(i).Append('|').Append(f.Type).Append('|').Append(f.Bypass ? 1 : 0).Append('|').Append(f.Serialize()).Append('\n');
             AutoIO.Write(sb, i, t);
         }
@@ -504,7 +504,7 @@ static class ProjectIO
         var newMaster = new List<Fx>(); var tmix = new List<string[]>(); string[] master = null;
         foreach (var line in s.Split('\n'))
         {
-            if (line.Length == 0) continue; var p = line.Split(new[] { '|' }, 6);
+            if (line.Length == 0) continue; var p = line.Split(new[] { '|' }, line.StartsWith("tmix|") ? 7 : 6);   // (a mix line has seven fields now: the last says the track is turned off)
             try
             {
                 if (p[0] == "master") { F(p[1]); F(p[3]); master = p; }
@@ -525,7 +525,7 @@ static class ProjectIO
             foreach (var ap in autos) { var got = new List<KeyValuePair<Track, AutoLane>>(); AutoIO.Read(ap, trs, origFx, got); foreach (var kv in got) kv.Key.Auto.Add(kv.Value); }
             eng.MasterFx.AddRange(newMaster);
             if (master != null) { eng.MasterVolDb = F(master[1]); eng.MasterBypass = master[2] == "1"; eng.AbMatchDb = F(master[3]); }
-            foreach (var p in tmix) { try { int i = int.Parse(p[1]); var t = trs[i]; t.VolDb = F(p[2]); t.Pan = F(p[3]); t.Mute = p[4] == "1"; t.Solo = p[5] == "1"; } catch { } }
+            foreach (var p in tmix) { try { int i = int.Parse(p[1]); var t = trs[i]; t.VolDb = F(p[2]); t.Pan = F(p[3]); t.Mute = p[4] == "1"; t.Solo = p[5] == "1"; t.Off = p.Length > 6 && p[6] == "1"; } catch { } }
             if (eng.MasterFx.Count == 0) eng.InitMasterChain();
             eng.ResetStates();
         }
@@ -623,7 +623,7 @@ static class Exporter
         if (dryBeat && beat != null) l.Add(new ExportItem { Label = "Dry instrumental", FileName = prefix + " - instrumental dry" + ext, Opts = new RenderOpts { Master = false, Dry = true, Fader = false, MuteSolo = false, Only = new List<Track> { beat } } });
         if (stems)
             foreach (var t in eng.Tracks)
-                if (((t.Clip != null && t.Clip.Loaded) || t.Instrument) && !t.Mute) l.Add(new ExportItem { Label = "Stem: " + t.Name, FileName = prefix + " - stem " + Safe(t.Name) + ext, Opts = new RenderOpts { Master = false, MuteSolo = false, Only = new List<Track> { t } } });
+                if (((t.Clip != null && t.Clip.Loaded) || t.Instrument) && !t.Mute && !t.Off) l.Add(new ExportItem { Label = "Stem: " + t.Name, FileName = prefix + " - stem " + Safe(t.Name) + ext, Opts = new RenderOpts { Master = false, MuteSolo = false, Only = new List<Track> { t } } });
         return l;
     }
 

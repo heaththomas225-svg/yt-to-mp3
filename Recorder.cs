@@ -24,6 +24,8 @@ class AudioRecorder : IDisposable
 
     IntPtr hwi; readonly IntPtr[] hdrs = new IntPtr[Buffers], data = new IntPtr[Buffers]; readonly ManualResetEvent ev = new ManualResetEvent(false); Thread th; volatile bool run, started;
     readonly List<float[]> chunks = new List<float[]>(); long total; public volatile float Level; public string Error = "";
+    MicProcessor proc; long skipLeft;   // the microphone mode: what is recorded is cleaned while it comes in (Standard = nothing is changed)
+    public void SetMode(MicMode m) { lock (chunks) { proc = m == MicMode.Standard ? null : new MicProcessor(m, 44100); skipLeft = proc == null ? 0 : proc.LatencyFrames; } }
     public int FramesRecorded { get { return (int)Math.Min(int.MaxValue, total); } }
 
     public static List<string> Devices()
@@ -72,7 +74,15 @@ class AudioRecorder : IDisposable
     internal void Feed(short[] pcm, int n)
     {
         var c = new float[n]; float pk = 0; for (int i = 0; i < n; i++) { float v = pcm[i] / 32768f; c[i] = v; float a = Math.Abs(v); if (a > pk) pk = a; }
-        lock (chunks) { chunks.Add(c); total += n; }
+        lock (chunks)
+        {
+            if (proc != null)
+            {
+                proc.Process(c, n); if (skipLeft > 0) { int k = (int)Math.Min(skipLeft, n); skipLeft -= k; if (k > 0) { var rest = new float[n - k]; Array.Copy(c, k, rest, 0, n - k); c = rest; } }   // the first LatencyFrames of output are only the processor warming up
+                pk = 0; foreach (float v in c) { float a = Math.Abs(v); if (a > pk) pk = a; }
+            }
+            if (c.Length > 0) { chunks.Add(c); total += c.Length; }
+        }
         Level = pk;
     }
 
@@ -95,7 +105,8 @@ class AudioRecorder : IDisposable
     }
     internal float[] Take(out int frames)
     {
-        lock (chunks) { var all = new float[(int)Math.Min(int.MaxValue - 64, total)]; int p = 0; foreach (var c in chunks) { Array.Copy(c, 0, all, p, c.Length); p += c.Length; } frames = all.Length; chunks.Clear(); total = 0; return all; }
+        lock (chunks) { if (proc != null) { var tail = proc.Finish(); if (skipLeft > 0) { int k = (int)Math.Min(skipLeft, tail.Length); skipLeft -= k; var rest = new float[tail.Length - k]; Array.Copy(tail, k, rest, 0, rest.Length); tail = rest; } if (tail.Length > 0) { chunks.Add(tail); total += tail.Length; } proc = null; }   /* the sound still inside the processor comes out at the end, so the take is exactly as long as what was heard */
+            var all = new float[(int)Math.Min(int.MaxValue - 64, total)]; int p = 0; foreach (var c in chunks) { Array.Copy(c, 0, all, p, c.Length); p += c.Length; } frames = all.Length; chunks.Clear(); total = 0; return all; }
     }
     public void Dispose() { int f; try { if (started) Stop(out f); } catch { } }
 }

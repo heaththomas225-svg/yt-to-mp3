@@ -23,6 +23,7 @@ static class PR
     static AudioClip NoiseClip(int sec, int seed) { int n = 44100 * sec; var x = new float[n]; var rn = new Random(seed); double b0 = 0, b1 = 0, b2 = 0; for (int i = 0; i < n; i++) { double w = rn.NextDouble() * 2 - 1; b0 = 0.99765 * b0 + w * 0.0990460; b1 = 0.96300 * b1 + w * 0.2965164; b2 = 0.57000 * b2 + w * 1.0526913; x[i] = (float)((b0 + b1 + b2 + w * 0.1848) * 0.12); } return AudioClip.FromArrays(x, (float[])x.Clone(), "pink"); }
     static AudioClip QuietLoud() { int n = 44100 * 60; var x = new float[n]; var rn = new Random(5); for (int i = 0; i < n; i++) { double sec = i / 44100.0; double amp = sec >= 35 && sec < 55 ? 0.8 : 0.03; x[i] = (float)(amp * (rn.NextDouble() * 2 - 1)); } return AudioClip.FromArrays(x, (float[])x.Clone(), "quiet"); }
     static AudioClip ToneClip(int sec) { int n = 44100 * sec; var x = new float[n]; for (int i = 0; i < n; i++) x[i] = (float)(0.4 * Math.Sin(i * 0.05)); return AudioClip.FromArrays(x, (float[])x.Clone(), "t"); }
+    [System.Runtime.InteropServices.DllImport("user32.dll")] static extern IntPtr WindowFromPoint(Point p);
     [System.Runtime.InteropServices.DllImport("user32.dll")] static extern bool PostMessage(IntPtr h, int msg, IntPtr w, IntPtr l);
     static Color ThemeStatic(string n) { return (Color)typeof(StudioForm).GetField(n, BindingFlags.NonPublic | BindingFlags.Static).GetValue(null); }
 
@@ -225,6 +226,41 @@ static class PR
                 Check("with no picture the Purphex logo is drawn in the square", lit > 40, lit + " bright samples");
             }
 
+            { var dm = typeof(StudioForm).GetMethod("DurMade", BindingFlags.NonPublic | BindingFlags.Static); Func<long, string> D = v => (string)dm.Invoke(null, new object[] { v });
+              Check("TIME MADE reads 45s, 2m33s, 2h33m and 1d2h33m", D(45) == "45s" && D(153) == "2m33s" && D(9180) == "2h33m" && D(95580) == "1d2h33m" && D(0) == "0s" && D(3600) == "1h0m" && D(86400) == "1d0h0m", D(45) + " " + D(153) + " " + D(9180) + " " + D(95580) + " " + D(0) + " " + D(3600) + " " + D(86400)); }
+            // ---- the profile picture, banner, accent colour, links and emoji ----
+            {
+                Func<int, int, Color, Bitmap> solid = (w, h, c) => { var b = new Bitmap(w, h); using (var g = Graphics.FromImage(b)) g.Clear(c); return b; }; var bgc = Color.FromArgb(255, 0, 0, 255);
+                using (var wide = solid(400, 100, Color.Red)) using (var fr = ProfileStore.RenderFramed(wide, 200, 100, 100, 50, 50, bgc))
+                    Check("a picture of any shape fills the frame at zoom 100 (no bars)", fr.GetPixel(1, 1).R > 200 && fr.GetPixel(198, 98).R > 200 && fr.GetPixel(1, 98).R > 200 && fr.GetPixel(198, 1).R > 200, "");
+                using (var tallp = solid(100, 400, Color.Red)) { int cz = ProfileStore.ContainZoom(100, 400, 200, 100); using (var fr = ProfileStore.RenderFramed(tallp, 200, 100, cz, 50, 50, bgc))
+                    Check("FIT shows the whole picture with bars at the sides (zoom " + cz + ")", cz == 12 && fr.GetPixel(5, 50).B > 200 && fr.GetPixel(194, 50).B > 200 && fr.GetPixel(100, 50).R > 200 && fr.GetPixel(100, 6).R > 200 && fr.GetPixel(100, 93).R > 200, cz + ""); }
+                using (var half = new Bitmap(400, 100))
+                {
+                    using (var g = Graphics.FromImage(half)) { g.Clear(Color.Red); using (var br = new SolidBrush(Color.Lime)) g.FillRectangle(br, 200, 0, 200, 100); }
+                    using (var l0 = ProfileStore.RenderFramed(half, 100, 100, 200, 0, 50, bgc)) using (var l100 = ProfileStore.RenderFramed(half, 100, 100, 200, 100, 50, bgc)) using (var l50 = ProfileStore.RenderFramed(half, 100, 100, 100, 50, 50, bgc))
+                        Check("zoomed in, LEFT / RIGHT slides the picture (left end red, right end green)", l0.GetPixel(50, 50).R > 200 && l100.GetPixel(50, 50).G > 200 && l50.GetPixel(2, 50).R > 200 && l50.GetPixel(97, 50).G > 200, "");
+                }
+                string bio0 = ProfileStore.Bio; ProfileStore.Accent = ProfileStore.Pack(Color.FromArgb(255, 0x12, 0x34, 0x56)); var accBack = ProfileStore.ColorOf(ProfileStore.Accent);
+                Check("a custom accent colour is kept exactly", accBack.R == 0x12 && accBack.G == 0x34 && accBack.B == 0x56, "");
+                Check("older programs still get a hue with it", ProfileStore.AccentHue >= 0 && ProfileStore.AccentHue < 360, ProfileStore.AccentHue + "");
+                ProfileStore.Save(); ProfileStore.Accent = -1; ProfileStore.Load(); Check("the accent colour is saved and read back", ProfileStore.Accent == 0x123456, ProfileStore.Accent.ToString("x6"));
+                File.WriteAllText(Path.Combine(StudioEnv.DataDir, "profile-page.txt"), "accent=265\nbio=x\n"); ProfileStore.Accent = -1; ProfileStore.Load(); Check("a colour chosen in an older version (a hue) becomes that same colour", ProfileStore.Accent >= 0 && ProfileStore.Accent == ProfileStore.HueToPacked(265), ProfileStore.Accent + "");
+                ProfileStore.Accent = -1; ProfileStore.Bio = bio0; ProfileStore.Save();
+                string tdir = Path.Combine(StudioEnv.DataDir, "pics"); Directory.CreateDirectory(tdir); string pic = Path.Combine(tdir, "tall.png"); using (var tb = solid(300, 900, Color.Orange)) tb.Save(pic, System.Drawing.Imaging.ImageFormat.Png);
+                string aerr; bool aok = ProjectLibrary.SetAvatar(pic, out aerr); Check("a chosen picture is kept whole and framed at 256 pixels", aok && File.Exists(ProjectLibrary.AvatarSrc) && File.Exists(ProjectLibrary.AvatarPath) && ProfileStore.AvZoom == 100, aerr);
+                ProfileStore.AvZoom = ProfileStore.ContainZoom(300, 900, 256, 256); ProjectLibrary.BakeAvatar(); using (var baked = new Bitmap(ProjectLibrary.AvatarPath)) Check("FIT remakes the framed picture from the kept original (dark bars, the whole picture)", baked.Width == 256 && baked.GetPixel(4, 128).R < 70 && baked.GetPixel(128, 128).R > 200, "zoom " + ProfileStore.AvZoom);
+                var da = typeof(StudioForm).GetMethod("DrawAvatar", BF); Func<byte[]> shot = () => { using (var b = new Bitmap(64, 64)) { using (var g = Graphics.FromImage(b)) { g.Clear(Color.Black); da.Invoke(sf, new object[] { g, new RectangleF(2, 2, 60, 60) }); } using (var ms = new MemoryStream()) { b.Save(ms, System.Drawing.Imaging.ImageFormat.Png); return ms.ToArray(); } } };
+                var withPic = shot(); ProjectLibrary.ClearAvatar(); var noPic = shot(); bool same = withPic.Length == noPic.Length; if (same) for (int i = 0; i < withPic.Length; i++) if (withPic[i] != noPic[i]) { same = false; break; }
+                Check("outside the Profile page the circle is always the Purphex logo, whatever picture you chose", same, withPic.Length + " " + noPic.Length);
+                Check("REMOVE PICTURE deletes the kept original as well and resets the frame", !File.Exists(ProjectLibrary.AvatarSrc) && ProjectLibrary.AvatarPath.Length == 0 && ProfileStore.AvZoom == 100 && ProfileStore.AvX == 50, "");
+                { var lst = new List<string>(); for (int i = 1; i <= 10; i++) lst.Add("https://example" + i + ".com/me"); var lc = typeof(StudioForm).GetMethod("LinkChips", BF); int before = Regs().Count; float hh; using (var b = new Bitmap(600, 300)) using (var g = Graphics.FromImage(b)) hh = (float)lc.Invoke(sf, new object[] { g, 0f, 0f, 560f, lst });
+                  Check("ten links wrap onto more lines and none is dropped", hh >= 70 && Regs().Count - before >= 10, hh + " lines height, " + (Regs().Count - before) + " buttons"); }
+                string em = char.ConvertFromUtf32(0x1F3B5), em2 = char.ConvertFromUtf32(0x1F600);
+                Check("a name is never cut through the middle of an emoji", EmojiText.Cut("ab" + em, 3) == "ab" && EmojiText.Cut(em + em2, 2) == em && EmojiText.Cut("abc", 5) == "abc" && EmojiText.Cut("ab" + em, 4) == "ab" + em, "");
+                Check("emoji are recognised", EmojiText.Has("hi " + em) && EmojiText.Has("x" + char.ConvertFromUtf32(0xFE0F)) && !EmojiText.Has("hello"), "");
+                using (var eb = new Bitmap(120, 30)) { using (var g = Graphics.FromImage(eb)) { g.Clear(Color.Black); EmojiText.Draw(g, em + em2, 20, Color.White, new RectangleF(0, 0, 120, 30), StringAlignment.Near, true); } int ink = 0; for (int y = 0; y < 30; y++) for (int x = 0; x < 120; x++) if (eb.GetPixel(x, y).R > 100) ink++; Check("emoji are drawn", ink > 60, ink + " pixels"); }
+            }
             // ---- BACK button ----
             SetF("tab", 3); Paint(); var back = Regs().FindLast(r => Math.Abs(r.R.X - 270) < 0.5f && Math.Abs(r.R.Width - 100) < 0.5f); Check("the projects page has a BACK button", back != null, "");
             if (back != null) { Click(back.R); Check("BACK leaves the projects page for the page before", F<int>("tab") != 3, "tab " + F<int>("tab")); }
@@ -253,8 +289,8 @@ static class PR
                 var bm = (IDictionary<string, RectangleF>)typeof(StudioForm).GetField("btnMap", BF).GetValue(sf); 
                 sf.ClientSize = new Size(1500, 1000); Pump(250); SetF("tab", 1); Paint(); Check("a tall window has the light show on top of the Mastering page", F<bool>("visStageOn") && Regs().Exists(r => r.OnDrag != null && r.R.Y > 300 && r.R.Y < 620 && r.R.Width > 500), "stage " + F<bool>("visStageOn"));
                 sf.ClientSize = new Size(1240, 680); Pump(250); Paint(); Check("even a short window has the light show on the Mastering page (a smaller one), and the controls keep their room", F<bool>("visStageOn") && Regs().Exists(r => r.OnDrag != null && r.R.Width > 300 && r.R.Y < 400), ""); sf.ClientSize = new Size(1500, 1000); Pump(250);
-                Paint(); Check("the VISUALISER / FULL VISUALISER button is on the Mastering page", bm.ContainsKey("VISUALISER") || bm.ContainsKey("FULL VISUALISER"), ""); if (bm.ContainsKey("FULL VISUALISER")) Click(bm["FULL VISUALISER"]); else if (bm.ContainsKey("VISUALISER")) Click(bm["VISUALISER"]);
-                Check("it opens the visualiser page", F<int>("tab") == 5, "tab " + F<int>("tab")); Paint();
+                Paint(); Check("there is no VISUALISER button on the Mastering page (the light show is on it; the menu opens the full page)", !bm.ContainsKey("VISUALISER") && !bm.ContainsKey("FULL VISUALISER") && !bm.ContainsKey("FULL PAGE"), ""); typeof(StudioForm).GetMethod("GoTab", BF).Invoke(sf, new object[] { 5 });
+                Check("the menu page Master Visualiser opens the visualiser page", F<int>("tab") == 5, "tab " + F<int>("tab")); Paint();
                 foreach (var sz in new[] { new Size(1500, 800), new Size(1240, 680), new Size(1000, 560), new Size(1920, 1080) }) { sf.ClientSize = sz; Pump(250); bool ok = true; eng.Playing = true; try { for (int i = 0; i < 12; i++) Paint(); } catch { ok = false; } Check("the visualiser paints at " + sz.Width + " x " + sz.Height + " while playing", ok, ""); eng.Playing = false; try { Paint(); } catch { ok = false; } Check("and while stopped", ok, ""); }
                 Track vt = null; if (eng.Tracks.Count == 0) { var xs = new float[44100 * 30]; vt = StudioEngine.NewTrack("viz", "audio", AudioClip.FromArrays(xs, (float[])xs.Clone(), "viz")); eng.Tracks.Add(vt); }
                 sf.ClientSize = new Size(1500, 800); Pump(250); Paint(); var visB = (float[])typeof(StudioForm).GetField("visB", BF).GetValue(sf); eng.Playing = true; for (int i = 0; i < 12; i++) { for (int q = 0; q < tp.Length; q++) tp[q] = (float)(0.4 * Math.Sin(q * 0.02) + 0.3 * Math.Sin(q * 0.3)); Paint(); } float mxv = 0; foreach (var v in visB) mxv = Math.Max(mxv, v); Check("the bars move to the sound", mxv > 0.15f, "tallest " + mxv + " playing " + eng.Playing); eng.Playing = false; if (vt != null) eng.Tracks.Remove(vt);
@@ -369,7 +405,7 @@ static class PR
             Themes.Apply(3); Check("a theme can be chosen by number", Themes.Index == 3, "index " + Themes.Index); Themes.Apply(0);
             ((Action)typeof(StudioForm).GetMethod("MenuDirect", BF).Invoke(sf, new object[] { 6 }))(); Check("the Themes button opens the Theme sheet", F<bool>("themeOpen"), ""); SetF("themeOpen", false);
             ((Action)typeof(StudioForm).GetMethod("MenuDirect", BF).Invoke(sf, new object[] { 5 }))(); Check("the Profile button opens the Profile page", F<int>("tab") == 6, "tab " + F<int>("tab")); SetF("tab", 0);
-            var st = new SettingsForm(app); st.Show(); Pump(200); var cb = FindCombo(st);
+            var st = new SettingsForm(app); st.TopMost = true; st.Show(); Pump(200); var cb = FindCombo(st);   /* on top: the wheel test needs this window, not another program, under the mouse */
             {   // browsing themes quickly never leaves a colour behind, and Mono (no colour) does not make a button grey for good
                 var sv = (Button)typeof(SettingsForm).GetField("botSave", BF).GetValue(st); var sideB = (Button)typeof(SettingsForm).GetField("linkBtn", BF).GetValue(st); Color o1 = sv.BackColor, o2 = sideB.BackColor, ob = sv.FlatAppearance.BorderColor;
                 Themes.Apply(Themes.IndexOf("Mono")); Win.RethemeAll(); Pump(60); Themes.Apply(Themes.IndexOf("Ocean")); Win.RethemeAll(); Pump(60); Themes.Apply(Themes.IndexOf("Toxic")); Win.RethemeAll(); Pump(500);
@@ -380,9 +416,10 @@ static class PR
             { var fpsBx = (ComboBox)typeof(SettingsForm).GetField("fpsBox", BF).GetValue(st); fpsBx.SelectedIndex = 1; int capBefore = Prefs.FpsCap; var volN = (NumericUpDown)typeof(SettingsForm).GetField("volNum", BF).GetValue(st); decimal volBefore = volN.Value; st.Activate(); Pump(200); var showPg = typeof(SettingsForm).GetMethod("ShowPage", BF); showPg.Invoke(st, new object[] { 2 }); Pump(100);
               var scr = fpsBx.PointToScreen(new Point(fpsBx.Width / 2, fpsBx.Height / 2)); IntPtr lpar = (IntPtr)((scr.Y << 16) | (scr.X & 0xFFFF)); IntPtr wpar = (IntPtr)(unchecked((int)(((-120) & 0xFFFF) << 16)));
               for (int k = 0; k < 6; k++) { PostMessage(fpsBx.Handle, 0x20A, wpar, lpar); Pump(60); }
-              Check("the mouse wheel over a drop-down does not change it", fpsBx.SelectedIndex == 1 && Prefs.FpsCap == capBefore, "index " + fpsBx.SelectedIndex);
+              bool covered = Control.FromChildHandle(WindowFromPoint(scr)) == null;   /* another program has a window on top of this spot (the wheel goes to it, not to Settings): nothing to check here */
+              Check("the mouse wheel over a drop-down does not change it", covered || (fpsBx.SelectedIndex == 1 && Prefs.FpsCap == capBefore), "index " + fpsBx.SelectedIndex + (covered ? " (covered by another window: skipped)" : ""));
               showPg.Invoke(st, new object[] { 3 }); st.ClientSize = new Size(800, 330); Pump(200); var shownPg = (Panel)typeof(SettingsForm).GetField("shown", BF).GetValue(st); var scr2 = volN.PointToScreen(new Point(volN.Width / 2, volN.Height / 2)); IntPtr lpar2 = (IntPtr)((scr2.Y << 16) | (scr2.X & 0xFFFF)); int y0 = shownPg.AutoScrollPosition.Y; for (int k = 0; k < 4; k++) { PostMessage(st.Handle, 0x20A, wpar, lpar2); Pump(60); }
-              Check("nor a number box", volN.Value == volBefore, volN.Value.ToString()); Check("instead the wheel scrolls the Settings page", shownPg.AutoScrollPosition.Y < y0 || y0 < -1, y0 + " -> " + shownPg.AutoScrollPosition.Y); } Check("Settings has a theme choice with every theme", cb != null && cb.Items.Count == Themes.All.Count, cb == null ? "none" : cb.Items.Count + " items");
+              Check("nor a number box", volN.Value == volBefore, volN.Value.ToString()); Check("instead the wheel scrolls the Settings page", covered || Control.FromChildHandle(WindowFromPoint(scr2)) == null || shownPg.AutoScrollPosition.Y < y0 || y0 < -1, y0 + " -> " + shownPg.AutoScrollPosition.Y); } Check("Settings has a theme choice with every theme", cb != null && cb.Items.Count == Themes.All.Count, cb == null ? "none" : cb.Items.Count + " items");
             if (cb != null) { cb.SelectedIndex = 4; Check("choosing a theme in Settings applies it", Themes.Index == 4, "index " + Themes.Index); Themes.Apply(0); } st.Close();
             // ---- theme photos: any photo, any size, filling the whole window (also minimised and fullscreen) ----
             {

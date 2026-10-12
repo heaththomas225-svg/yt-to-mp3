@@ -45,16 +45,16 @@ partial class StudioForm
         var rows = new List<KeyValuePair<string, string>>(); var mine = new HashSet<string>(); string q = psQuery.Trim();
         foreach (var kv in Presets.User(f.Type)) { if (q.Length == 0 || kv.Key.IndexOf(q, StringComparison.OrdinalIgnoreCase) >= 0) { rows.Add(kv); mine.Add(kv.Key); } }
         foreach (var kv in Presets.For(f.Type)) if (q.Length == 0 || kv.Key.IndexOf(q, StringComparison.OrdinalIgnoreCase) >= 0) rows.Add(kv);
-        float rowH = 50, gap = 6, total = rows.Count * (rowH + gap), vsw = 56; psScroll = Math.Max(0, Math.Min(Math.Max(0, total - areaH), psScroll)); regs.Add(new HitReg { R = area, OnWheel = d => psScroll = Math.Max(0, Math.Min(Math.Max(0, total - areaH), psScroll - d * 60)) });
+        float rowH = 58, gap = 8, total = rows.Count * (rowH + gap), vsw = 56; psScroll = Math.Max(0, Math.Min(Math.Max(0, total - areaH), psScroll)); regs.Add(new HitReg { R = area, OnWheel = d => psScroll = Math.Max(0, Math.Min(Math.Max(0, total - areaH), psScroll - d * 60)) });
         var gs = g.Save(); g.SetClip(area, CombineMode.Intersect);
         if (rows.Count == 0) Txt(g, "NO PRESET MATCHES THAT.", 13, DimC, Rc(area.X + 14, area.Y + 10, area.Width - 28, 24), StringAlignment.Near, false);
         for (int i = 0; i < rows.Count; i++)
         {
             var kv = rows[i]; var row = Rc(sheet.X + 22, top + i * (rowH + gap) - psScroll, sheet.Width - 44 - vsw, rowH); if (row.Bottom < top - 2 || row.Y > areaBottom) continue; bool isMine = mine.Contains(kv.Key); bool hot = Hot(RectangleF.Intersect(row, area)) && area.Contains(MousePos);
-            FillRR(g, hot ? TM.C(200, 60, 34, 112) : TM.C(150, 26, 15, 52), row, 10); StrokeRR(g, Color.FromArgb(hot ? 160 : 80, NeonViolet), row, 10, 1);
-            Txt(g, kv.Key, 14, Ink, Rc(row.X + 14, row.Y + 4, row.Width - 230, 24), StringAlignment.Near, true); Txt(g, isMine ? "MY PRESET" : "BUILT-IN", 10, isMine ? NeonLime : DimC, Rc(row.X + 14, row.Y + 28, 160, 16), StringAlignment.Near, true);
-            string data = kv.Value, nm = kv.Key; var us = Rc(row.Right - 96, row.Y + 8, 84, 34); var ua = RectangleF.Intersect(us, area); if (!ua.IsEmpty) { Btn(g, us, "USE", 2, () => PsUse(nm, data), 13); Hint2(us, "Try this preset (REVERT puts it back)"); }
-            if (isMine) { var dl = Rc(us.X - 34, row.Y + 11, 28, 28); var da = RectangleF.Intersect(dl, area); if (!da.IsEmpty) { Btn(g, dl, "x", 3, () => { bool ok = psConfirmHook != null ? psConfirmHook(nm) : MessageBox.Show(this, "Delete your preset \"" + nm + "\"?", "Delete preset", MessageBoxButtons.YesNo, MessageBoxIcon.Question, MessageBoxDefaultButton.Button2) == DialogResult.Yes; if (ok) { Presets.DeleteUser(f.Type, nm); Toast("Preset deleted."); } }, 12); Hint2(dl, "Delete this preset of yours"); } }
+            NeonCard(g, row, hot, false);
+            Txt(g, kv.Key, 14, Ink, Rc(row.X + 16, row.Y + 7, row.Width - 230, 24), StringAlignment.Near, true); NeonTag(g, row.X + 16, row.Y + 32, isMine ? "MY PRESET" : "BUILT-IN", isMine ? NeonLime : NeonViolet);
+            string data = kv.Value, nm = kv.Key; var us = Rc(row.Right - 100, row.Y + 12, 84, 34); var ua = RectangleF.Intersect(us, area); if (!ua.IsEmpty) { Btn(g, us, "USE", 2, () => PsUse(nm, data), 13); Hint2(us, "Try this preset (REVERT puts it back)"); }
+            if (isMine) { var dl = Rc(us.X - 36, row.Y + 15, 28, 28); var da = RectangleF.Intersect(dl, area); if (!da.IsEmpty) { Btn(g, dl, "x", 3, () => { bool ok = psConfirmHook != null ? psConfirmHook(nm) : MessageBox.Show(this, "Delete your preset \"" + nm + "\"?", "Delete preset", MessageBoxButtons.YesNo, MessageBoxIcon.Question, MessageBoxDefaultButton.Button2) == DialogResult.Yes; if (ok) { Presets.DeleteUser(f.Type, nm); Toast("Preset deleted."); } }, 12); Hint2(dl, "Delete this preset of yours"); } }
         }
         g.Restore(gs); VScroll(g, Rc(sheet.Right - 56, top, 42, areaH), total, areaH, () => psScroll, v => psScroll = v);
         var done = Rc(sheet.Right - 22 - 120, sheet.Bottom - 48, 120, 34); Btn(g, done, "DONE", 2, () => psOpen = false, 13); Hint2(done, "Close the list and keep what you have now");

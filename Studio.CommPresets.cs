@@ -197,7 +197,7 @@ partial class StudioForm
         for (int i = 0; i < shown.Count; i++)
         {
             var p = shown[i]; var row = Rc(area.X + 2, area.Y + i * rowH - cpScroll, area.Width - 4 - vsw, rowH - 6); if (row.Bottom < area.Y || row.Y > area.Bottom) continue;
-            bool hot = Hot(RectangleF.Intersect(row, area)) && area.Contains(MousePos); FillRR(g, hot ? TM.C(200, 70, 40, 130) : TM.C(150, 26, 15, 52), row, 12); StrokeRR(g, Color.FromArgb(hot ? 180 : 80, NeonViolet), row, 12, 1);
+            bool hot = Hot(RectangleF.Intersect(row, area)) && area.Contains(MousePos); NeonCard(g, row, hot, false);
             float tw = row.Width - 200; Txt(g, p.Name, 15, Ink, Rc(row.X + 16, row.Y + 8, tw, 24), StringAlignment.Near, true);
             Txt(g, "BY " + p.Author + "     " + p.Uses + (p.Uses == 1 ? " use" : " uses"), 12, DimC, Rc(row.X + 16, row.Y + 33, tw, 20), StringAlignment.Near, false);
             if (p.Kind == "theme") { ThemeDef td; if (!cpThemes.TryGetValue(p.Id, out td)) { string terr; td = ThemeDef.FromText(p.Data, p.Name, out terr); cpThemes[p.Id] = td; } if (td != null) { Color[] sw6 = { td.Violet, td.Cyan, td.Pink, td.Lime, td.Accent, td.Btn }; for (int k = 0; k < 6; k++) { var dot = Rc(row.Right - 190 - (6 - k) * 24, row.Y + 19, 18, 18); using (var br = new SolidBrush(sw6[k])) g.FillEllipse(br, dot); using (var pen = new Pen(Color.FromArgb(90, 255, 255, 255), 1f)) g.DrawEllipse(pen, dot); } } }

@@ -123,6 +123,7 @@ TIP: Drag files onto the studio window to add them."),
 - M (mute) and S (solo). Solo lets you hear only that track.
 - Offset arrows (< >) to nudge the track earlier or later (hold Shift for fine steps) if two recordings don't line up.
 - A level meter. A red mark means it clipped; click it to clear.
+- The neon light at the top left of the header turns the whole track OFF: it goes quiet, its header dims, and on the timeline its audio turns very translucent and shakes apart like an earthquake. Press the light again to turn it back on. A track that is off is left out of exports and mastering too.
 ## Timeline
 Click the ruler or a track to move the playhead. Scroll with the wheel, Ctrl + wheel to zoom, Shift + wheel to move sideways.
 TIP: Double-click a slider to reset it. Click a value to type an exact number."),
@@ -193,7 +194,7 @@ TIP: It never changes your original files."),
 - Set your own loudness with the slider and SET LOUDNESS (MANUAL). A ORIGINAL and B MASTERED compare with loudness match, so you judge tone, not volume.
 - PLAY and PREVIEW MASTER are at the top. Only the buttons that belong to mastering are there.
 ## Watch your music
-Press VISUALISER (at the top, or on the strip along the bottom of a tall window) to open the Master Visualiser: light bars dance around the logo, rings and sparks fly on every beat, and you can switch between ORIGINAL and MASTERED while you watch. Esc goes back.
+The light show is on the Mastering page itself: light bars dance around the logo, rings and sparks fly on every beat. To see it as a page of its own, open the side menu, Pages, Master Visualiser; there you can switch between ORIGINAL and MASTERED while you watch (on the Mastering page use A ORIGINAL and B MASTERED on the left). Esc goes back.
 ## Meters
 Momentary, Short-term and Integrated LUFS, true peak, peak, gain reduction and clip detection."),
 
@@ -471,7 +472,7 @@ Press Automation on to switch the lane off, and the plugin goes back to the valu
 ## What it is
 Rapper Vocal Styles is a searchable list of 36 original plugin chains for rap vocals, grouped by subgenre: Trap, Melodic Trap, Drill, Boom Bap, Old School, Grime and UK, Cloud and Lo-Fi, Rage and Hyper, Pop Rap, Phonk and Storytelling. Each one is made from this app's own plugins (tuning, EQ, compression, de-essing, saturation, echo, reverb) with settings chosen for that sound. No artist's settings are copied.
 ## Opening it
-Select the vocal track, then press Vocal Styles in the plugin panel (right side), or use the side menu: Tools > Rapper Vocal Styles.
+Select the vocal track, then press Presets... at the top of the plugin panel (right side) and choose Rapper Vocal Styles, or use the side menu: Tools > Rapper Vocal Styles.
 ## Using it
 - Type to search by name, subgenre or description (for example drill, dark, warm, echo).
 - Press a subgenre button to show only that kind, or Favourites to see the ones you starred.
@@ -580,13 +581,14 @@ Import adds your own samples (wav, mp3, flac, midi...) to the My samples pack, o
 
         new HelpTopic("studio-menu", "Purphex Music", "The side menu, My Projects with pictures, and Community", false, @"
 ## The side menu
-Press the three-lines button at the top left of Purphex Music. Your picture and name are at the top. Five of the buttons open a list (File, Edit, Tools, Pages, View) and the others just take you there (Profile, Themes, Settings, Help, Exit).
+Press the three-lines button at the top left of Purphex Music. Your picture and name are at the top. Five of the buttons open a list (File, Edit, Tools, Pages, View) and the others just take you there (Profile, Themes, Fonts, Settings, Help, Exit).
 - File: New Project, Recent Projects (the last ones you opened, with their pictures), Open, Save, Save as, Set project picture, Export.
 - Edit (only on the Mix page): undo, redo, split, cut, lock, duplicate and delete.
 - Tools: Auto Mix, split vocals and beat, detect BPM, Flex Pitch, Sounds and sound packs, Rapper Vocal Styles, add a track, metronome and snap to grid. They all take you to the Mix page first.
 - Pages: Mix, Mastering, Master Visualiser, Lyrics, My Projects, Community and Artists. Every page also has a BACK button that returns to the page you came from.
 - View: fit the whole song, thin / normal / tall tracks, full screen, the FPS counter and the converter window.
 - Profile: your own profile page (banner, picture, bio, links, privacy and your tracks).
+- Fonts: the Fonts page, with 190+ fonts (drippy, graffiti, neon, gothic, retro, script, handwritten and more) for all the writing in the studio.
 - Themes: pick a colour theme, or download one other people made (the Themes box has MY THEMES, COMMUNITY THEMES and IMPORT). The whole program changes colour at once and remembers your choice. Settings has the same choice.
 ## My Projects
 Every project you save or open is remembered here, newest first, as a card with a picture. Click a card to open it: Purphex asks you to confirm first. The BACK button (top of the page, and in the right-click menu) takes you back to the tracks. The play button on a card PREVIEWS the project: you hear it without opening it and the bar along the bottom becomes a visualiser (press its square STOP button, or click the bar to jump). A project with no picture shows the Purphex logo; any picture is cropped to fill the square. The camera button adds or changes the picture (choose a JPG, PNG, GIF or BMP: it is cropped to a square and kept inside the project file, so it travels with it). The crossed camera button (or Remove picture in the right-click menu) takes your picture off again. Right-click a card for everything: open, preview, rename, change or remove the picture, show in folder, remove from the list and BACK. The x asks whether to take the project off this list only (your file stays on your PC) or to delete the file too: it then goes into the RECYCLING BIN.
@@ -613,9 +615,11 @@ This page never writes or suggests lyrics for you: every word is yours."),
         new HelpTopic("studio-profile","Purphex Music", "Your profile, artists and following", false, @"
 ## Your profile
 1. Press PROFILE at the top of the studio (or Profile in the side menu).
-2. Press CHOOSE BANNER for any picture and move it with the slider, press CHOOSE PICTURE for your round picture, and pick an accent colour.
-3. Press EDIT beside your name, bio, where you are, LINKS and genres. Any web address works as a link: your website, YouTube, SoundCloud, Spotify, Instagram, a shop.
-4. Your tracks are listed at the bottom with a play button each.
+2. Press CHOOSE BANNER or CHOOSE PICTURE and pick any picture of any size or shape: it is resized to fit its frame by itself (the banner is wide, the picture is a rounded square). Then place it: ZOOM with the - and + buttons or the slider, LEFT / RIGHT and UP / DOWN with the arrow buttons or the sliders, FIT TO FRAME to see the whole picture, FILL THE FRAME to cover the frame completely.
+3. The picture only shows on this page and on your public profile. Everywhere else in the studio the circle is the Purphex logo and cannot be changed.
+4. ACCENT COLOUR is a colour palette: click or drag in the big square for the colour, use the bar beside it for lighter or darker, RESET goes back to the colour of your theme.
+5. Press EDIT beside your name, bio, where you are, LINKS (up to 10, one on every line) and genres (up to 10). Any web address works as a link: your website, YouTube, SoundCloud, Spotify, Instagram, a shop. Emoji work in the name, bio and where you are.
+6. YOUR PUBLISHED PROJECTS lists only the projects you published (use the person button on a project in My Projects, or PUBLISH ALL), with a play button each. TIME MADE reads like 45s, 2m33s, 2h33m, or 1d2h33m.
 ## Share it
 1. Press PUBLISH MY PROFILE to put it in the community. It is shared under a secret key made on this PC (there is no sign-in). Press it again after you change something.
 2. MAKE IT PRIVATE takes it out of the community again.
@@ -624,6 +628,16 @@ This page never writes or suggests lyrics for you: every word is yours."),
 2. Click an artist to open their profile: banner, bio, links, tracks and followers.
 3. Press FOLLOW to follow them. The artists you follow show on your profile.
 TIP: Profile pictures are never buttons. Everything about editing your profile is on the PROFILE page."),
+
+        new HelpTopic("studio-fonts","Purphex Music", "Fonts: 190+ fonts for the studio", false, @"
+## Pick a font
+1. Open the side menu and press Fonts. The page shows the font in use with a sentence, the alphabet, the numbers and the punctuation written in it.
+2. Search by name, or press a group: Drippy and horror, Gothic and blackletter, Graffiti and street, Neon and futuristic, Retro pixel and arcade, Script and calligraphy, Handwritten, Bold display, Elegant serif, Clean sans and mono, and On this PC (the fonts that came with Windows).
+3. Every card is written in its own font. Click one and the whole studio is set in it. The font is fetched from purphexmusic.com the first time (a few seconds, once) and kept on this PC.
+4. USE THE ORIGINAL FONT goes back to Bahnschrift.
+## It always fits
+Fonts are very different in width and height, so every font is resized by itself until its lines are as wide and as tall as the original, and any line that is still too long for its box shrinks to fit. Fonts that could not be made to fit neatly (too wide to read at that size) are not in the list.
+TIP: The font changes the writing of the studio. The converter window and the pop-up windows keep their normal font. All the fonts are free, open-licence fonts (the notices are at purphexmusic.com/fonts/LICENSES.txt)."),
 
         new HelpTopic("studio-neon","Purphex Music", "The neon look, zooming and taller tracks", false, @"
 ## The look
@@ -645,7 +659,7 @@ Move the mouse to the line between two tracks (or above the first, or under the 
 3. Open the Notes button on the track (or double-click the track) for the piano roll: draw notes by dragging on the grid, drag a note to move it, drag its right end to resize it, right-click to delete it. Everything you draw plays right away. 'Snap notes to grid' tidies your timing.
 4. Set the tempo with BPM (or DETECT). Turn on COUNT IN for a 1 2 3 4 countdown (one a second, whatever the tempo) before it plays and METRONOME for a click on every beat. Everything lands on the beat by itself (snap).
 ## Record your voice or an instrument with a microphone
-1. Plug in a microphone. Use headphones, so the beat is not picked up by the microphone.
+1. Plug in a microphone. Use headphones, so the beat is not picked up by the microphone. The little box with a down arrow beside MIC chooses the microphone mode (it only changes what you record): AUTOMATIC (a gentle clean-up for most rooms), STANDARD (the microphone exactly as it is), VOICE ISOLATION (only your voice: hiss and room noise taken down hard) and WIDE SPECTRUM (the full range and the whole room with a little air on top). The mode is remembered.
 2. Click the track you want to record on, put the needle where you want to start and press MIC. The button turns red and says MIC READY: nothing is recorded yet.
 3. Press PLAY (the button now says RECORD) or the space bar when you are ready. With COUNT IN on you get four clicks first, then the song plays while you record. Press MIC again, or STOP, to finish. Press MIC a second time before you start to cancel.
 4. The take goes onto the track you selected, as another piece on that same track (an empty track takes it directly), lined up with the beat, and is saved in Music / yt2mp3 / Recordings. It never makes a new track by itself unless that track is locked. Choose which input to use in Settings, Recording input.
@@ -740,8 +754,8 @@ class HelpForm : Form
     // the buttons the guides talk about: the words in the text, and the button they point at (SHOW ME finds it on screen, whatever page it is on)
     static readonly string[][] UiLabels = {
         new[] { "GO TO YOUR PROFILE", "PROFILE" }, new[] { "CHOOSE BANNER", "CHOOSE BANNER" }, new[] { "CHOOSE PICTURE", "CHOOSE PICTURE" }, new[] { "PUBLISH MY PROFILE", "PUBLISH MY PROFILE" }, new[] { "SEARCH ARTISTS", "ARTISTS" },
-        new[] { "SPLIT VOCALS + BEAT", "SPLIT VOCALS + BEAT" }, new[] { "ADD MUSIC", "ADD MUSIC" }, new[] { "Add music", "ADD MUSIC" }, new[] { "AUTO MASTERING", "AUTO MASTERING" }, new[] { "VISUALISER", "VISUALISER" }, new[] { "AUTO LOUDNESS", "AUTO LOUDNESS" }, new[] { "PREVIEW MASTER", "PREVIEW MASTER" }, new[] { "AUTO MIX", "AUTO MIX" }, new[] { "UNDO MIX", "Undo mix" }, new[] { "Undo mix", "Undo mix" }, new[] { "Undo Auto Mix", "Undo mix" },
-        new[] { "Detect Track key", "Detect Track key" }, new[] { "Detect key", "Detect Track key" }, new[] { "THIN TRACKS", "THIN TRACKS" }, new[] { "VOCAL STYLES", "VOCAL STYLES" }, new[] { "Vocal Styles", "VOCAL STYLES" }, new[] { "ADD EFFECT", "+ Add Effect" }, new[] { "Add Effect", "+ Add Effect" }, new[] { "Add effect", "+ Add Effect" },
+        new[] { "SPLIT VOCALS + BEAT", "SPLIT VOCALS + BEAT" }, new[] { "ADD MUSIC", "ADD MUSIC" }, new[] { "Add music", "ADD MUSIC" }, new[] { "AUTO MASTERING", "AUTO MASTERING" }, new[] { "AUTO LOUDNESS", "AUTO LOUDNESS" }, new[] { "PREVIEW MASTER", "PREVIEW MASTER" }, new[] { "AUTO MIX", "AUTO MIX" }, new[] { "UNDO MIX", "Undo mix" }, new[] { "Undo mix", "Undo mix" }, new[] { "Undo Auto Mix", "Undo mix" },
+        new[] { "Detect Track key", "Detect Track key" }, new[] { "Detect key", "Detect Track key" }, new[] { "THIN TRACKS", "THIN TRACKS" }, new[] { "ADD EFFECT", "+ Add Effect" }, new[] { "Add Effect", "+ Add Effect" }, new[] { "Add effect", "+ Add Effect" },
         new[] { "RECYCLING BIN", "RECYCLING BIN" }, new[] { "ADD SECTIONS", "ADD SECTIONS" }, new[] { "COUNT IN", "COUNT IN" }, new[] { "METRONOME", "METRONOME" }, new[] { "GRID SIZE", "GRID SIZE" }, new[] { "DETECT BPM", "DETECT BPM" }, new[] { "MIDI REC", "MIDI REC" }, new[] { "EXPORT", "EXPORT" }, new[] { "SAVE AS", "Save as" }, new[] { "FULLSCREEN", "FULLSCREEN" },
         new[] { "PLAY", "PLAY" }, new[] { "STOP", "STOP" }, new[] { "LOOP", "LOOP" }, new[] { "MIC", "MIC" }, new[] { "SOUNDS", "SOUNDS" }, new[] { "LYRICS", "LYRICS" }, new[] { "MASTERING", "MASTERING" }, new[] { "FLEX", "FLEX" }, new[] { "SPLIT", "SPLIT" }, new[] { "CUT", "CUT" }, new[] { "GAIN", "GAIN" }, new[] { "LOCK", "LOCK" }, new[] { "DUP", "DUP" }, new[] { "FIT", "FIT" }, new[] { "STEREO", "STEREO" }, new[] { "MONO", "MONO" }, new[] { "UNDO", "UNDO" }, new[] { "REDO", "REDO" },
     };

@@ -474,14 +474,31 @@ for line in sys.stdin:
     // Start loading the model in the background (call when the user opens the vocal remover).
     public static void Warmup() { if (!Installed) return; new Thread(() => { try { EnsureWorker(); } catch { } }) { IsBackground = true }.Start(); }
 
+    // The script is not left on disk as readable text: it is packed (compressed, then scrambled with a key) and a one-line starter unpacks it inside Python.
+    static readonly byte[] WorkerKey = { 0x5A, 0xC3, 0x19, 0xE7, 0x82, 0x4D, 0xB6, 0x2F };
+    internal const string WorkerHead = "import sys,zlib;d=open(sys.argv[1],'rb').read();k=bytes([90,195,25,231,130,77,182,47]);", WorkerDecode = "zlib.decompress(bytes(c^k[i%8] for i,c in enumerate(d)),-15).decode('utf-8')";
+    const string WorkerBoot = WorkerHead + "exec(compile(" + WorkerDecode + ",'worker','exec'))";
+    internal static string WorkerSource { get { return WorkerPy; } }
+    internal static byte[] PackWorker() { return Pack(WorkerPy); }
+    internal static byte[] Pack(string text)
+    {
+        var raw = System.Text.Encoding.UTF8.GetBytes(text); byte[] b; using (var ms = new MemoryStream()) { using (var ds = new DeflateStream(ms, CompressionLevel.Optimal, true)) ds.Write(raw, 0, raw.Length); b = ms.ToArray(); }
+        for (int i = 0; i < b.Length; i++) b[i] ^= WorkerKey[i % WorkerKey.Length]; return b;
+    }
+    internal static string Unpack(byte[] packed)
+    {
+        var b = (byte[])packed.Clone(); for (int i = 0; i < b.Length; i++) b[i] ^= WorkerKey[i % WorkerKey.Length];
+        using (var ms = new MemoryStream(b)) using (var ds = new DeflateStream(ms, CompressionMode.Decompress)) using (var sr = new StreamReader(ds, System.Text.Encoding.UTF8)) return sr.ReadToEnd();
+    }
     static bool EnsureWorker()
     {
         lock (wlock)
         {
             if (wproc != null && !wproc.HasExited) return true;
             if (!Installed) return false;
-            File.WriteAllText(Path.Combine(Root, "demucs_worker.py"), WorkerPy);
-            var psi = new ProcessStartInfo(PyExe, "-u \"" + Path.Combine(Root, "demucs_worker.py") + "\"")
+            try { File.Delete(Path.Combine(Root, "demucs_worker.py")); } catch { }   // older versions left the script here as readable text
+            string wdat = Path.Combine(Root, "demucs_worker.dat"); File.WriteAllBytes(wdat, PackWorker());
+            var psi = new ProcessStartInfo(PyExe, "-u -c \"" + WorkerBoot + "\" \"" + wdat + "\"")
             {
                 UseShellExecute = false, CreateNoWindow = true, RedirectStandardInput = true, RedirectStandardOutput = true, RedirectStandardError = true, WorkingDirectory = Root,
                 StandardOutputEncoding = System.Text.Encoding.UTF8, StandardErrorEncoding = System.Text.Encoding.UTF8

@@ -21,6 +21,8 @@ static class Prefs
     public static int FpsCap = 60;           // animation frame rate cap: 30, 60, 120, 144, 165 or 240
     public static bool ShowFps = false;      // show the frame rate in the title bar
     public static string MidiDev = "";       // the MIDI keyboard Bass Lab listens to ("" = off)
+    public static int MicMode = 0;           // the MIC button's mode: 0 Automatic, 1 Standard, 2 Voice Isolation, 3 Wide Spectrum (only for what is recorded)
+    public static string FontId = "";        // the studio font chosen on the Fonts page ("" = the original, Bahnschrift)
     public static string InDev = "";         // recording input (microphone), "" = the Windows default
     public static string Theme = "Purphex";   // the colour theme (Settings and the Theme tab)
     public static bool ShareSaved = true;    // a preset you save is also shared with the Community presets (Settings can turn this off)
@@ -28,7 +30,7 @@ static class Prefs
 
     public static string[] Lines()
     {
-        return new[] { "bgpath=" + BgPath, "bgdim=" + BgDim, "bgleaves=" + BgLeaves, "bgstudio=" + BgStudio, "outvol=" + OutVol, "outdev=" + OutDev, "buf=" + Buf, "fpscap=" + FpsCap, "showfps=" + ShowFps, "midiin=" + MidiDev, "indev=" + InDev, "sharesaved=" + ShareSaved, "theme=" + Theme };
+        return new[] { "bgpath=" + BgPath, "bgdim=" + BgDim, "bgleaves=" + BgLeaves, "bgstudio=" + BgStudio, "outvol=" + OutVol, "outdev=" + OutDev, "buf=" + Buf, "fpscap=" + FpsCap, "showfps=" + ShowFps, "midiin=" + MidiDev, "indev=" + InDev, "micmode=" + MicMode, "fontid=" + FontId, "sharesaved=" + ShareSaved, "theme=" + Theme };
     }
     public static bool Parse(string k, string v)
     {
@@ -46,6 +48,8 @@ static class Prefs
             case "showfps": if (bool.TryParse(v, out b)) ShowFps = b; return true;
             case "midiin": MidiDev = v; return true;
             case "indev": InDev = v; return true;
+            case "fontid": { string fv = v ?? ""; bool okId = fv.Length <= 40; foreach (char fc in fv) if (!((fc >= 'a' && fc <= 'z') || (fc >= '0' && fc <= '9') || fc == '-')) okId = false; FontId = okId ? fv : ""; return true; }
+            case "micmode": if (int.TryParse(v, out n) && n >= 0 && n <= 3) MicMode = n; return true;
             case "sharesaved": if (bool.TryParse(v, out b)) ShareSaved = b; return true;
             case "theme": Theme = v; Themes.ApplyByName(v); return true;
         }

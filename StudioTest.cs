@@ -287,7 +287,23 @@ static class T
             vt.Solo = true; eng.Render(0, n, o, null, out oL, out oR); double pk = 0; for (int i = 0; i < n; i++) pk = Math.Max(pk, Math.Abs(oL[i]));
             Check("solo: only the vocal remains", pk > 0.3 && pk < 1.0, "peak " + pk.ToString("0.00")); vt.Solo = false;
             bt.Mute = true; vt.Mute = true; eng.Render(0, n, o, null, out oL, out oR); pk = 0; for (int i = 0; i < n; i++) pk = Math.Max(pk, Math.Abs(oL[i]));
+            {   // the separation script is never left on disk as readable text
+                string wsrc = Separator.WorkerSource; var packed = Separator.PackWorker(); bool roundTrip = Separator.Unpack(packed) == wsrc; bool hidden = System.Text.Encoding.UTF8.GetString(packed).IndexOf("torch", StringComparison.Ordinal) < 0 && System.Text.Encoding.UTF8.GetString(packed).IndexOf("import", StringComparison.Ordinal) < 0;
+                Check("the separation script is packed and unpacks to exactly the same text, and the packed file shows none of its words", roundTrip && hidden && packed.Length < wsrc.Length, wsrc.Length + " -> " + packed.Length + " bytes");
+                string py = Separator.PyExe; if (System.IO.File.Exists(py))
+                {
+                    string dat = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "purphex_worker_" + Guid.NewGuid().ToString("N") + ".dat"); System.IO.File.WriteAllBytes(dat, packed);
+                    try { var psi = new System.Diagnostics.ProcessStartInfo(py, "-c \"" + Separator.WorkerHead + "s=" + Separator.WorkerDecode + ";compile(s,'worker','exec');print(len(s))\" \"" + dat + "\"") { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true }; using (var pr = System.Diagnostics.Process.Start(psi)) { string so = pr.StandardOutput.ReadToEnd().Trim(), se = pr.StandardError.ReadToEnd().Trim(); pr.WaitForExit(20000); Check("Python itself unpacks and compiles the packed separation script", so == System.Text.Encoding.UTF8.GetByteCount(wsrc).ToString() || so == wsrc.Length.ToString(), "python said [" + so + "] " + se); } }
+                    finally { try { System.IO.File.Delete(dat); } catch { } }
+                }
+            }
             Check("mute: silence when everything is muted", pk < 1e-6, "peak " + pk); vt.Mute = false; bt.Mute = false;
+            bt.Off = true; vt.Off = true; eng.Render(0, n, o, null, out oL, out oR); pk = 0; for (int i = 0; i < n; i++) pk = Math.Max(pk, Math.Abs(oL[i]));
+            Check("off: tracks turned off with the neon dot are silent", pk < 1e-6, "peak " + pk); vt.Off = false;
+            bt.Solo = true; eng.Render(0, n, o, null, out oL, out oR); pk = 0; for (int i = 0; i < n; i++) pk = Math.Max(pk, Math.Abs(oL[i]));
+            Check("off: a soloed track that is turned off does not silence the others", pk > 0.3, "peak " + pk); bt.Solo = false; bt.Off = false;
+            vt.Off = true; eng.Render(0, n, o, null, out oL, out oR); double rmsVocOff = RmsDb(oL, SR, n); vt.Off = false; eng.Render(0, n, o, null, out oL, out oR); double rmsBoth = RmsDb(oL, SR, n);
+            Check("off: turning a track off removes only its sound, and it comes back when turned on", rmsVocOff < rmsBoth - 0.5 && rmsVocOff > -80, rmsVocOff.ToString("0.0") + " dB without it, " + rmsBoth.ToString("0.0") + " dB with it");
             // fader -6 dB and pan
             var sine = Sine(1000, 0.4, n); var solo = new StudioEngine(); foreach (var f in solo.MasterFx) f.Bypass = true;
             var tt = StudioEngine.NewTrack("T", "other", AudioClip.FromArrays(sine, Copy(sine), "s")); tt.VolDb = -6; tt.Pan = 1; solo.Tracks.Add(tt);
@@ -460,14 +476,14 @@ static class T
             var eng = new StudioEngine(); var v = SynthVocal(5); var b = SynthBeat(5);
             string vp = System.IO.Path.Combine(dir, "v.wav"), bp = System.IO.Path.Combine(dir, "b.wav"); WavIO.Write(vp, v.L, v.R, SR, 24); WavIO.Write(bp, b.L, b.R, SR, 24);
             var tv = StudioEngine.NewTrack("Vocals", "vocal", AudioClip.FromFile(vp)); tv.Offset = 4410; tv.VolDb = -2.5f; tv.Pan = 0.2f;
-            var tb = StudioEngine.NewTrack("Beat", "beat", AudioClip.FromFile(bp)); tb.Mute = true;
+            var tb = StudioEngine.NewTrack("Beat", "beat", AudioClip.FromFile(bp)); tb.Mute = true; tb.Off = true;
             tv.Fx.Add(Presets.Make("pitch", "key=9;scale=2;speed=12;strength=88;natural=33")); tv.Fx[0].Bypass = true; tv.Fx.Add(Presets.Make("eq", "b2_g=3.5;b2_f=1234"));
             tb.Fx.Add(Presets.Make("duck", "amount=5.5")); eng.Tracks.Add(tv); eng.Tracks.Add(tb); eng.MasterFx[1].Set("thr", -9.5f); eng.MasterVolDb = -1.5f;
             string pf = System.IO.Path.Combine(dir, "t.ytmproj"); ProjectIO.Save(eng, pf);
             var e2 = new StudioEngine(); var warn = ProjectIO.Load(e2, pf, delegate (string s) { });
             bool same = ProjectIO.SerializeMix(eng) == ProjectIO.SerializeMix(e2) && e2.Tracks.Count == 2 && e2.Tracks[0].Offset == 4410 && e2.Tracks[0].Clip != null && Math.Abs(e2.Tracks[0].Clip.Length - tv.Clip.Length) < 2;
             string sa = ProjectIO.SerializeMix(eng), sb2 = ProjectIO.SerializeMix(e2), firstDiff = ""; { var la = sa.Split((char)10); var lb = sb2.Split((char)10); for (int q = 0; q < Math.Max(la.Length, lb.Length); q++) { string x1 = q < la.Length ? la[q] : "<none>", x2 = q < lb.Length ? lb[q] : "<none>"; if (x1 != x2) { firstDiff = " DIFF: [" + x1 + "] vs [" + x2 + "]"; break; } } }
-            Check("project: save + reopen keeps plugins, faders, mute and track alignment" + firstDiff, same && warn.Count == 0, "tracks " + e2.Tracks.Count + ", offset " + e2.Tracks[0].Offset + ", master comp thr " + e2.MasterFx[1].Get("thr"));
+            Check("project: save + reopen keeps plugins, faders, mute, off and track alignment" + firstDiff, same && warn.Count == 0 && e2.Tracks[1].Off && !e2.Tracks[0].Off, "tracks " + e2.Tracks.Count + ", offset " + e2.Tracks[0].Offset + ", master comp thr " + e2.MasterFx[1].Get("thr"));
         }
 
         // ---- bus presets: echo, ad-lib, reverb ----

@@ -260,11 +260,37 @@ static class ProjectLibrary
         catch { }
     }
     // back to the Purphex logo
-    public static void ClearAvatar() { try { if (AvatarPath.Length > 0) { try { File.Delete(AvatarPath); } catch { } Forget(AvatarPath); AvatarPath = ""; Save(); } } catch { } }
+    public static string AvatarSrc { get { return Path.Combine(CoversDir, "profile-src.jpg"); } }
+    public static void ClearAvatar() { try { if (AvatarPath.Length > 0 || File.Exists(AvatarSrc)) { foreach (var f in new[] { AvatarPath, AvatarSrc }) { if (f.Length == 0) continue; try { File.Delete(f); } catch { } Forget(f); } AvatarPath = ""; ProfileStore.AvZoom = 100; ProfileStore.AvX = 50; ProfileStore.AvY = 50; ProfileStore.Save(); Save(); } } catch { } }
+    // the chosen picture is kept whole (no larger than 1024 pixels) so it can be zoomed and moved later; the framed 256 pixel picture is made from it
     public static bool SetAvatar(string imageFile, out string error)
     {
-        error = null; var b = MakeSquare(imageFile, 256); if (b == null) { error = "That file is not a picture Purphex can read (use a JPG, PNG, GIF or BMP)."; return false; }
-        try { Directory.CreateDirectory(CoversDir); string p = Path.Combine(CoversDir, "profile.jpg"); File.WriteAllBytes(p, b); Forget(p); AvatarPath = p; Save(); return true; } catch (Exception ex) { error = ex.Message; return false; }
+        error = null; byte[] src = null; try { src = ScaledJpeg(imageFile, 1024); } catch { src = null; } if (src == null) { error = "That file is not a picture Purphex can read (use a JPG, PNG, GIF or BMP)."; return false; }
+        try { Directory.CreateDirectory(CoversDir); File.WriteAllBytes(AvatarSrc, src); Forget(AvatarSrc); ProfileStore.AvZoom = 100; ProfileStore.AvX = 50; ProfileStore.AvY = 50; ProfileStore.Save(); return BakeAvatar(out error); } catch (Exception ex) { error = ex.Message; return false; }
+    }
+    // the picture as it shows in its frame (zoom and position applied) saved at 256 pixels: the file the rest of the program reads
+    public static bool BakeAvatar() { string e; return BakeAvatar(out e); }
+    public static bool BakeAvatar(out string error)
+    {
+        error = null;
+        try
+        {
+            if (!File.Exists(AvatarSrc)) return false; Image im; using (var fs = new FileStream(AvatarSrc, FileMode.Open, FileAccess.Read, FileShare.ReadWrite)) { var ms = new MemoryStream(); fs.CopyTo(ms); ms.Position = 0; im = Image.FromStream(ms); }
+            using (im) using (var bmp = ProfileStore.RenderFramed(im, 256, 256, ProfileStore.AvZoom, ProfileStore.AvX, ProfileStore.AvY, Color.FromArgb(255, 10, 5, 22))) { string p = Path.Combine(CoversDir, "profile.jpg"); File.WriteAllBytes(p, JpegBytes(bmp, 88)); Forget(p); AvatarPath = p; Save(); }
+            return true;
+        }
+        catch (Exception ex) { error = ex.Message; return false; }
+    }
+    public static byte[] JpegBytes(Bitmap b, long q) { var codec = Array.Find(ImageCodecInfo.GetImageEncoders(), c => c.MimeType == "image/jpeg"); var ep = new EncoderParameters(1); ep.Param[0] = new EncoderParameter(System.Drawing.Imaging.Encoder.Quality, q); using (var o = new MemoryStream()) { b.Save(o, codec, ep); return o.ToArray(); } }
+    // any picture file as JPEG bytes, no larger than max pixels on its longest side (smaller ones stay as they are); throws when it is not a picture
+    public static byte[] ScaledJpeg(string file, int max)
+    {
+        Image src; using (var fs = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.ReadWrite)) { var ms = new MemoryStream(); fs.CopyTo(ms); ms.Position = 0; src = Image.FromStream(ms); }
+        using (src)
+        {
+            double sc = Math.Min(1.0, max / (double)Math.Max(src.Width, src.Height)); int w = Math.Max(1, (int)Math.Round(src.Width * sc)), h = Math.Max(1, (int)Math.Round(src.Height * sc));
+            using (var bmp = new Bitmap(w, h, PixelFormat.Format24bppRgb)) { using (var g = Graphics.FromImage(bmp)) { g.Clear(Color.FromArgb(255, 10, 5, 22)); g.InterpolationMode = InterpolationMode.HighQualityBicubic; g.PixelOffsetMode = PixelOffsetMode.HighQuality; g.DrawImage(src, 0, 0, w, h); } return JpegBytes(bmp, 90); }
+        }
     }
 
     // loaded pictures are kept so the lists draw fast

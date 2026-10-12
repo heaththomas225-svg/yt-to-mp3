@@ -214,6 +214,36 @@ static class S
             Check("Purphex Music opened from the converter is its own window (not owned by it), so either one can be brought to the front", real != null && real.Owner == null && real.ShowInTaskbar, real == null ? "not opened" : (real.Owner == null ? "independent" : "owned")); if (real != null) real.Close();
             { string err = ""; try { Win.ToggleFullscreen(sf); Pump(150); Win.ToggleFullscreen(sf); Pump(150); for (int q = 0; q < 3; q++) { typeof(Control).GetMethod("RecreateHandle", BindingFlags.NonPublic | BindingFlags.Instance).Invoke(sf, null); Pump(60); } } catch (Exception ex) { err = ex.GetType().Name + ": " + (ex.InnerException != null ? ex.InnerException.Message : ex.Message); }
               Check("the studio window can be rebuilt (full screen, themes) without a drag-and-drop crash, and still takes dropped files", err.Length == 0 && sf.IsHandleCreated && !sf.IsDisposed && sf.AllowDrop, err); }
+            {   // the Fonts page
+                SetF("tab", 8); Paint(); string ferr = ""; try { for (int q = 0; q < 3; q++) { Paint(); Pump(30); } } catch (Exception ex) { ferr = ex.Message; }
+                Check("the Fonts page paints (search box, groups and a card for every font)", ferr.Length == 0 && Regs().Count > 25 && FontKit.All.Count >= 25, FontKit.All.Count + " fonts, " + Regs().Count + " areas " + ferr);
+                var names = (string[])typeof(StudioForm).GetField("MenuNames", BindingFlags.NonPublic | BindingFlags.Static).GetValue(null); int fi = Array.IndexOf(names, "Fonts"); Check("the side menu has a Fonts button (a single button, after Themes)", fi == Array.IndexOf(names, "Themes") + 1 && fi >= 5, fi + "");
+                if (fi >= 0) { SetF("tab", 0); ((Action)typeof(StudioForm).GetMethod("MenuDirect", BF).Invoke(sf, new object[] { fi }))(); Check("the Fonts button opens the Fonts page", F<int>("tab") == 8, "tab " + F<int>("tab")); }
+                var win = FontKit.All.Find(e => e.Installed && e.Id != FontKit.DefaultId); if (win != null)
+                {
+                    bool ok = FontKit.Apply(win); Paint(); Check("choosing a font sets the studio writing in it (and remembers it)", ok && FontKit.CurrentId == win.Id && Prefs.FontId == win.Id && FontKit.Scale > 0.4f, win.Name + " scale " + FontKit.Scale.ToString("0.00"));
+                    SetF("tab", 0); Paint(); SetF("tab", 8); Paint(); var def = FontKit.Find(FontKit.DefaultId); FontKit.Apply(def); Paint(); Check("the original font comes back", FontKit.CurrentId == FontKit.DefaultId && Prefs.FontId.Length == 0 && FontKit.Scale == 1f, "");
+                }
+                int before = FontKit.All.Count; FontKit.ReadList("nosifer\tNosifer\tDrippy and horror\t98000\nBAD ID\tx\tBold display\t5000\nzzz\tNo Group Font\tNot a group\t5000\nbig\tToo Big\tBold display\t99999999\nshort\tToo Short\n");
+                var nos = FontKit.Find("nosifer"); var zzz = FontKit.Find("zzz"); Check("the font list from the website is read safely (bad ids, sizes and groups are handled)", nos != null && nos.Cat == "Drippy and horror" && zzz != null && zzz.Cat == "Bold display" && FontKit.Find("bad id") == null && FontKit.Find("big") == null && FontKit.Find("short") == null, (FontKit.All.Count - before) + " added");
+                FontKit.All.RemoveAll(e => e.Id == "nosifer" || e.Id == "zzz"); SetF("tab", 0);
+            }
+            {   // the MIC button has a neon box with a down arrow: a short menu of microphone modes (only for recording)
+                SetF("tab", 0); Paint(); var drops = Regs().FindAll(r => r.OnDown != null && Math.Abs(r.R.Width - 24) < 0.5f && r.R.Y > 60 && r.R.Y < 120 && r.R.Height > 28 && r.R.X > 380);
+                Check("the MIC button has a small box with a down arrow beside it", drops.Count >= 1, drops.Count + " found");
+                int keep = Prefs.MicMode; var ch = typeof(StudioForm).GetMethod("ChooseMicMode", BF); ch.Invoke(sf, new object[] { MicMode.VoiceIsolation }); Check("choosing a mode in the menu is remembered (Voice Isolation)", Prefs.MicMode == 2 && Array.IndexOf(Prefs.Lines(), "micmode=2") >= 0, Prefs.MicMode + "");
+                ch.Invoke(sf, new object[] { MicMode.Standard }); Check("and another one replaces it (Standard)", Prefs.MicMode == 1, Prefs.MicMode + ""); Prefs.MicMode = keep;
+                var icons = typeof(StudioForm).GetMethod("MicIcon", BF | BindingFlags.Static); bool allDrawn = true; foreach (MicMode mm in new[] { MicMode.Automatic, MicMode.Standard, MicMode.VoiceIsolation, MicMode.WideSpectrum }) { using (var ib = (Bitmap)icons.Invoke(null, new object[] { mm })) { int ink = 0; for (int y = 0; y < ib.Height; y++) for (int x = 0; x < ib.Width; x++) if (ib.GetPixel(x, y).A > 100) ink++; if (ink < 12) allDrawn = false; } }
+                Check("each mode has its own little picture in the menu", allDrawn, "");
+            }
+            {   // the neon light of a track turns it off
+                bool addedTk = false; if (eng.Tracks.Count == 0) { eng.Tracks.Add(StudioEngine.NewTrack("Lead", "vocal", Clip(5))); addedTk = true; } SetF("tab", 0); Paint(); var dots = Regs().FindAll(r => r.OnDown != null && Math.Abs(r.R.Width - 24) < 0.5f && Math.Abs(r.R.Height - 24) < 0.5f && r.R.X < 20 && r.R.Y > 100); dots.Sort((a, b) => a.R.Y.CompareTo(b.R.Y)); var tk0 = eng.Tracks[0]; bool was = tk0.Off;
+                Check("every track has a light at the top left of its header that can be pressed", dots.Count >= eng.Tracks.Count, dots.Count + " lights for " + eng.Tracks.Count + " tracks");
+                if (dots.Count > 0) { dots[0].OnDown(); Paint(); Check("pressing the light turns the track off", tk0.Off && !was, ""); string perr = ""; try { for (int q = 0; q < 6; q++) { Paint(); Pump(40); } } catch (Exception ex) { perr = ex.Message; } Check("a track that is off paints (the broken, shaking picture) without a problem", perr.Length == 0, perr);
+                  Check("while a track is off the timeline keeps animating", (bool)typeof(StudioForm).GetMethod("AnyTrackOff", BF).Invoke(sf, null), "");
+                  var dots2 = Regs().FindAll(r => r.OnDown != null && Math.Abs(r.R.Width - 24) < 0.5f && Math.Abs(r.R.Height - 24) < 0.5f && r.R.X < 20 && r.R.Y > 100); dots2.Sort((a, b) => a.R.Y.CompareTo(b.R.Y)); if (dots2.Count > 0) dots2[0].OnDown(); Paint(); Check("pressing it again turns the track on", !tk0.Off, ""); }
+                if (addedTk) { eng.Tracks.Clear(); Paint(); }
+            }
         }
         var bmp = new Bitmap(sf.ClientSize.Width, sf.ClientSize.Height); sf.DrawToBitmap(bmp, new Rectangle(0, 0, sf.Width, sf.Height)); bmp.Save("_studio_ui.png", System.Drawing.Imaging.ImageFormat.Png);
         eng.Shutdown(); Console.WriteLine(fails == 0 ? "=== studio UI checks passed ===" : "=== " + fails + " FAILED ==="); Environment.Exit(fails == 0 ? 0 : 1);

@@ -53,7 +53,7 @@ partial class StudioForm
         int secs = (int)(total / sr) + 1; var e = new double[secs];
         foreach (var t in eng.Tracks.ToArray())
         {
-            var c = t.Clip; if (c == null || t.IsBus || t.Mute) continue; long used = t.UsedLength; float[] L = c.L; if (L == null) continue;
+            var c = t.Clip; if (c == null || t.IsBus || t.Mute || t.Off) continue; long used = t.UsedLength; float[] L = c.L; if (L == null) continue;
             for (long i = 0; i < used; i += 32) { long pos = t.Offset + i; if (pos < 0 || pos >= total) continue; long si = t.ClipStart + i; if (si >= L.Length) break; double v = L[si]; e[(int)(pos / sr)] += v * v; }
         }
         int win = 20; double best = -1; int bs = 0; double run = 0; for (int i = 0; i < Math.Min(win, secs); i++) run += e[i]; best = run;
@@ -205,7 +205,6 @@ partial class StudioForm
         Txt(g, Fmt(sec) + "  /  " + Fmt(tot), 19, Accent, tr, StringAlignment.Center, true); x += 222;
         Btn(g, Rc(x, yy, 168, hh), "PREVIEW MASTER", mpActive ? 4 : 2, () => MasterPreviewStart(), 13); Hint2(Rc(x, yy, 168, hh), "Hear your master: a loop of the loudest 20 seconds with the mastering chain on."); x += 174;
         { var spb = Rc(x, yy, 112, hh); Btn(g, spb, "STOP PREVIEW", mpActive ? 3 : 0, () => MasterPreviewStop(), 11); Hint2(spb, "Stop the preview loop"); x += 118; }
-        { var vzb = Rc(x, yy, 118, hh); Btn(g, vzb, "VISUALISER", 1, () => tab = 5, 12); Hint2(vzb, "Open the Master Visualiser: a full page where your music moves"); x += 126; }
         float tx = W - 328; float mx = x + 10; float room = tx - 12 - mx;
         if (room >= 70) { Txt(g, "MASTER", 11, DimC, Rc(mx, yy - 4, 60, 14), StringAlignment.Near, false); float bw = Math.Min(120, room); HBar(g, Rc(mx, yy + 12, bw, 8), eng.MasterPeakL); HBar(g, Rc(mx, yy + 22, bw, 8), eng.MasterPeakR); if (room >= 230) { float lm = eng.Lufs.Momentary; Txt(g, "M " + Db(lm) + " LUFS", 13, Ink, Rc(mx + 128, yy, Math.Min(120, room - 128), hh), StringAlignment.Near, false); } }
         Btn(g, Rc(tx, yy, 106, hh), "MIX", 0, () => tab = 0, 14); Btn(g, Rc(tx + 112, yy, 106, hh), "MASTERING", 4, () => tab = 1, 13); Btn(g, Rc(tx + 224, yy, 90, hh), "LYRICS", 0, () => tab = 2, 13);
@@ -226,7 +225,7 @@ partial class StudioForm
             FillRR(g, sel ? TM.C(210, 80, 40, 150) : TM.C(150, 40, 22, 74), row, 8); if (sel) StrokeRR(g, Accent, row, 8, 1.4f);
             Reg(row, () => { selMaster = fi; mpTab = 0; });
             var dot = Rc(row.X + 10, row.Y + (rowH - 18) / 2, 18, 18); using (var b = new SolidBrush(f.Bypass ? TM.C(90, 90, 70, 110) : Good)) g.FillEllipse(b, dot); Reg(dot, () => f.Bypass = !f.Bypass);
-            Txt(g, i < ModNames.Length && f.Type != "gain" ? (i < 7 ? ModNames[i] : f.Title) : f.Title, 14, f.Bypass ? DimC : Ink, Rc(row.X + 38, row.Y, row.Width - 100, rowH), StringAlignment.Near, sel);
+            Txt(g, i < ModNames.Length && f.Type != "gain" ? (i < 7 ? ModNames[i] : f.Title) : f.Title, 14, f.Bypass && !sel ? DimC : Ink, Rc(row.X + 38, row.Y, row.Width - 100, rowH), StringAlignment.Near, sel);
             if (f.GR > 0.2f) Txt(g, "-" + f.GR.ToString("0.0"), 11, Warn, Rc(row.Right - 78, row.Y, 40, rowH), StringAlignment.Far, false);
             if (i >= 7) Btn(g, Rc(row.Right - 30, row.Y + (rowH - 22) / 2, 22, 22), "x", 3, () => { lock (eng.Sync) eng.MasterFx.RemoveAt(fi); }, 12);
         }
@@ -244,7 +243,7 @@ partial class StudioForm
         // ---- centre: the editor and the presets ----
         float ex = lp.Right + 14, ew = W - ex - 430;
         var ep0 = Rc(ex, top, ew, H - top - 12);
-        // the visualiser is the top of this page: the light show over the EQ, the effects and the presets (a short window keeps just the controls; the VISUALISER button opens the full page)
+        // the visualiser is the top of this page: the light show over the EQ, the effects and the presets (only a very short window keeps just the controls; the full page is the menu item Pages > Master Visualiser)
         const float minDrawer = 560f; visStageOn = ep0.Height >= 360f; var ep = ep0;   // (only a very short window leaves it out)
         if (visStageOn)
         {
@@ -309,9 +308,9 @@ partial class StudioForm
         {
             int pi = show[i]; var p = all0[pi]; var card = Rc(a.X + 4 + (i % cols) * (cw + gap), y + (i / cols) * (ch + gap) - mpScroll, cw, ch); if (card.Bottom < y - 2 || card.Y > a.Bottom) continue;
             bool trying = mpBackup != null && mpPreviewIdx == pi, hot = Hot(RectangleF.Intersect(card, area)) && area.Contains(MousePos);
-            FillRR(g, trying ? TM.C(220, 34, 56, 100) : TM.C(hot ? 200 : 160, 28, 16, 56), card, 12); StrokeRR(g, trying ? NeonCyan : Color.FromArgb(hot ? 200 : 100, NeonViolet), card, 12, trying ? 1.8f : 1.1f); if (trying) Glow(g, NeonCyan, card, 12, 0.5f, 3);
+            NeonCard(g, card, hot, trying);
             Txt(g, p.Name.ToUpper(), 14, Ink, Rc(card.X + 12, card.Y + 8, card.Width - 24, 22), StringAlignment.Near, true);
-            var tag = Rc(card.X + 12, card.Y + 32, 12 + p.Group.Length * 7.5f, 18); FillRR(g, Color.FromArgb(80, NeonViolet), tag, 5); Txt(g, p.Group.ToUpper(), 9, Ink, tag, StringAlignment.Center, true);
+            NeonTag(g, card.X + 12, card.Y + 32, p.Group.ToUpper(), NeonViolet);
             TxtWrap(g, p.Blurb, 11, TM.C(205, 200, 190, 230), Rc(card.X + 12, card.Y + 54, card.Width - 24, 50));
             var pv = Rc(card.X + 12, card.Bottom - 38, 104, 30); var sp0 = Rc(pv.Right + 6, card.Bottom - 38, 62, 30); var us = Rc(sp0.Right + 6, card.Bottom - 38, 70, 30);
             var pva = RectangleF.Intersect(pv, area); if (!pva.IsEmpty) { Btn(g, pv, trying && mpActive ? "PREVIEWING" : "PREVIEW", trying ? 4 : 1, () => PresetTry(pi), 12); Hint2(pv, "Hear this preset on your song now (the loudest 20 seconds, looping)"); var spa = RectangleF.Intersect(sp0, area); if (!spa.IsEmpty) { Btn(g, sp0, "STOP", trying && mpActive ? 3 : 0, () => MasterPreviewStop(), 11); Hint2(sp0, "Stop the preview"); } }

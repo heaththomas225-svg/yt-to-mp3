@@ -425,10 +425,21 @@ static class GfxCache
 {
     static readonly System.Collections.Generic.Dictionary<int, Font> fonts = new System.Collections.Generic.Dictionary<int, Font>();
     static readonly System.Collections.Generic.Dictionary<int, StringFormat> fmts = new System.Collections.Generic.Dictionary<int, StringFormat>();
+    public static void Clear() { lock (fonts) fonts.Clear(); }   // a new font was chosen (the old ones are left to the garbage collector: a picture being drawn may still hold one)
+    // Writing is as big as the boxes allow: the small sizes are made up to about a fifth bigger (the smallest the most, big headings not at all). The places that fit a name into a box measure with this same font, so a longer one still shrinks to fit.
+    public static float Grow(float px) { if (px >= 22f) return px; float t = (22f - Math.Max(9f, px)) / 13f; return px * (1f + GrowMax * t); }
+    public static float GrowMax = 0.22f;
+    // a font of exactly this size (writing that is fitted to its box picks its own size between the grown one and the old one)
+    public static Font Exact(float px, bool bold)
+    {
+        int k = -((int)(px * 10) * 2 + (bold ? 1 : 0)) - 1; Font f;
+        lock (fonts) { if (!fonts.TryGetValue(k, out f)) { f = FontKit.Make(px, bold); fonts[k] = f; } }
+        return f;
+    }
     public static Font Font(float px, bool bold)
     {
         int k = (int)(px * 10) * 2 + (bold ? 1 : 0); Font f;
-        lock (fonts) { if (!fonts.TryGetValue(k, out f)) { f = new Font(bold ? Win.UiBoldFamily : Win.UiFamily, px, bold ? FontStyle.Bold : FontStyle.Regular, GraphicsUnit.Pixel); fonts[k] = f; } }
+        lock (fonts) { if (!fonts.TryGetValue(k, out f)) { f = FontKit.Make(px, bold); fonts[k] = f; } }
         return f;
     }
     public static StringFormat Fmt(StringAlignment ha, bool ellipsis)

@@ -37,6 +37,15 @@ static class TM
         }
         return h;
     }
+    // Moving a colour round the colour wheel keeps its HSL lightness, but yellow, green and teal are far brighter than purple at the same lightness: white writing on them could not be read.
+    // So a dark or middle colour never ends up more than twice as bright as it was in the original look, and a light colour (writing) never darker than 0.8 of it.
+    static Color Fit(Color design, Color mapped)
+    {
+        double lo = Contrast.Lum(design), lm = Contrast.Lum(mapped), target = lo < 0.3 ? Math.Min(lm, Math.Max(lo * 2.0, 0.015)) : Math.Max(lm, lo * 0.8); if (Math.Abs(target - lm) < 0.004) return mapped;
+        double h, s, l; ThemeDef.ToHsl(mapped, out h, out s, out l); double a = target < lm ? 0 : l, b = target < lm ? l : 1;
+        for (int i = 0; i < 18; i++) { double m = (a + b) / 2; if (Contrast.Lum(ThemeDef.Hsl(h, s, m)) < target) a = m; else b = m; }
+        return ThemeDef.Hsl(h, s, (a + b) / 2);
+    }
     // a colour as it was in the original look (before any theme moved it), and back into the theme in use: moving a colour through ToDesign and FromDesign always gives the same answer, however many themes it went through
     public static Color ToDesign(Color c, int fromEpoch)
     {
@@ -48,12 +57,12 @@ static class TM
     public static Color FromDesign(Color d)
     {
         if (d.A == 0 || (ident && Math.Abs(satK - 1f) < 0.01f)) return d; float s = d.GetSaturation(), l = d.GetBrightness(); if (s < 0.015f) return d; float nh = ident ? d.GetHue() : Warp(d.GetHue());
-        var n = ThemeDef.Hsl(nh, Math.Min(1f, s * satK), l); return Color.FromArgb(d.A, n.R, n.G, n.B);
+        var n = Fit(d, ThemeDef.Hsl(nh, Math.Min(1f, s * satK), l)); return Color.FromArgb(d.A, n.R, n.G, n.B);
     }
     public static Color Remap(Color c, int fromEpoch)
     {
         if (c.A == 0 || fromEpoch == Epoch || fromEpoch < 0 || fromEpoch >= epochs.Count) return c; float s = c.GetSaturation(), l = c.GetBrightness(); if (s < 0.015f) return c;
-        float design, kFrom; lock (lk) { design = Unwarp(c.GetHue(), epochs[fromEpoch]); kFrom = epochs[fromEpoch].Length > 3 ? epochs[fromEpoch][3] : 1f; } float nh = ident ? design : Warp(design); float s0 = kFrom > 0.01f ? Math.Min(1f, s / kFrom) : s; var n = ThemeDef.Hsl(nh, Math.Min(1f, s0 * satK), l); return Color.FromArgb(c.A, n.R, n.G, n.B);
+        float design, kFrom; lock (lk) { design = Unwarp(c.GetHue(), epochs[fromEpoch]); kFrom = epochs[fromEpoch].Length > 3 ? epochs[fromEpoch][3] : 1f; } float nh = ident ? design : Warp(design); float s0 = kFrom > 0.01f ? Math.Min(1f, s / kFrom) : s; var n = Fit(ThemeDef.Hsl(design, s0, l), ThemeDef.Hsl(nh, Math.Min(1f, s0 * satK), l)); return Color.FromArgb(c.A, n.R, n.G, n.B);
     }
     public static Color C(int a, int r, int g, int b)
     {
@@ -64,7 +73,7 @@ static class TM
             if (!cache.TryGetValue(key, out res))
             {
                 var c = Color.FromArgb(r, g, b); float s = c.GetSaturation(), l = c.GetBrightness(), h = c.GetHue();
-                if (s < 0.1f) res = key; else { var n = ThemeDef.Hsl(Warp(h), s * satK, l); res = (n.R << 16) | (n.G << 8) | n.B; }
+                if (s < 0.1f) res = key; else { var n = Fit(c, ThemeDef.Hsl(Warp(h), s * satK, l)); res = (n.R << 16) | (n.G << 8) | n.B; }
                 if (cache.Count > 4000) cache.Clear(); cache[key] = res;
             }
         }
