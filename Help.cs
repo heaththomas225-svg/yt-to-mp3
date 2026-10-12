@@ -89,7 +89,7 @@ On the first screen, press GENERATE LYRICS (next to Vocal remover and Purphex Mu
 1. Drop a song or a video on it, or press CHOOSE FILE. Any of mp3, wav, flac, m4a, ogg, opus, aac, mp4, mkv, webm, mov and more.
 2. Or paste a link (YouTube; other sites need the link reader the converter installs) in OR PASTE A LINK: the lyrics are found from the video's name, with nothing downloaded and no MP3 needed.
 3. Press GENERATE LYRICS. The song's tags and file name (or the link) say which song it is, and the lyrics database (LRCLIB) is asked for it.
-4. A song that is not in the database can be written by listening to it (this needs the file, not a link). That uses the Whisper speech recogniser, which runs on your PC: Purphex asks before it downloads it (about 160 MB, once, and your song is never uploaded). A recogniser can mishear a word, so check the words against the song.
+4. A song that is not in the database can be written by listening to it (this needs the file, not a link). TRIM START and TRIM END (like 0:30) pick the part of the song that is heard. That uses the Whisper speech recogniser, which runs on your PC: Purphex asks before it downloads it (about 160 MB, once, and your song is never uploaded). A recogniser can mishear a word, so check the words against the song.
 ## Grammar and punctuation
 Every result is tidied: capital letters, I, the apostrophes in don't and I'm, spaces round commas, a full stop or question mark at the end of each verse, a comma before and / but / so lines, clean blank lines between verses, and [Verse] and [Chorus] labels. FIX GRAMMAR does the same to words you typed or changed, and UNDO brings your words back.
 ## Resize lyrics
@@ -100,7 +100,7 @@ NOTE: Lyrics belong to their writers. The text is for your own use."),
 
         new HelpTopic("times-used", "Basics", "TIMES USED: worldwide MP3 and MP4 numbers", false, @"
 ## What it is
-The TIMES USED button (top left of the first screen) shows how many MP3s (audio) and MP4s (video) have been made with Purphex Music all over the world, plus how many you made on this PC.
+The TIMES USED button (next to Changelog on the first screen) shows how many conversions have been made with Purphex Music all over the world: a card for each file type (MP3, MP4, OPUS, WAV, M4A, FLAC and MKV: the quality does not matter), the total, and how many you made on this PC.
 ## No limit
 The numbers have no upper limit. They are shown in full (1,234,567) and short (1.2M, 3.4B...) and keep going past billions and trillions.
 ## What is sent

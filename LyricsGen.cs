@@ -103,7 +103,20 @@ static class LyricsGen
     public static string Finish(string raw, bool fromRecording, out string note) { return LyricsPolish.Finish(raw, fromRecording, out note); }
 
     // the whole job for one file; status gets what is happening now. Never throws: a problem comes back in Result.Error.
-    public static Result Generate(string path, bool allowListen, Action<string> status, Func<bool> cancelled)
+    // "90", "1:30", "1:02:03" or "1:30.5" as seconds; empty is no trim (-1); err says what is wrong
+    public static double ParseTime(string s, out string err)
+    {
+        err = ""; s = (s ?? "").Trim(); if (s.Length == 0) return -1; string[] p = s.Split(':'); if (p.Length > 3) { err = "write the time like 1:30"; return -1; }
+        double total = 0; foreach (string x in p) { double v; if (!double.TryParse(x.Trim(), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out v) || v < 0 || x.Trim().Length == 0) { err = "write the time like 1:30"; return -1; } total = total * 60 + v; }
+        return total;
+    }
+    // the trim pair of the page: what is wrong with it, or empty
+    public static string TrimError(string a, string b, out double ta, out double tb)
+    {
+        string ea, eb; ta = ParseTime(a, out ea); tb = ParseTime(b, out eb); if (ea.Length > 0) return "TRIM START: " + ea + "."; if (eb.Length > 0) return "TRIM END: " + eb + ".";
+        if (ta >= 0 && tb >= 0 && tb <= ta) return "TRIM END has to be after TRIM START."; return "";
+    }
+    public static Result Generate(string path, bool allowListen, Action<string> status, Func<bool> cancelled, double trimA = -1, double trimB = -1)
     {
         var r = new Result(); Action<string> say = s => { if (status != null) status(s); }; Func<bool> stop = () => cancelled != null && cancelled();
         if (IsLink(path)) return GenerateFromLink(path, say, stop);
@@ -127,7 +140,7 @@ static class LyricsGen
             }
             if (!allowListen) { r.Note = offline ? "Could not reach the lyrics database, and listening to the song is switched off." : "This song is not in the lyrics database."; r.Error = r.Note; return r; }
             if (!LyricsWhisper.Ready) { r.NeedSetup = true; r.Note = (offline ? "Could not reach the lyrics database. " : "This song is not in the lyrics database. ") + "Purphex can write the words by listening to it, which needs a one-time download first."; return r; }
-            string raw = LyricsWhisper.Transcribe(path, say, stop);
+            string raw = LyricsWhisper.Transcribe(path, say, stop, trimA, trimB);
             if (stop()) { r.Error = "Cancelled."; return r; }
             if (raw.Trim().Length < 12) { r.Error = "No words could be heard in this file (an instrumental, or the voice is too quiet)."; return r; }
             string n2; r.Lyrics = Finish(raw, true, out n2); r.Source = "Listened to the song (Whisper, on this PC)"; r.Found = true;
@@ -195,14 +208,14 @@ static class LyricsWhisper
     }
 
     // the words of the song, one line per sentence the recogniser heard
-    public static string Transcribe(string mediaPath, Action<string> status, Func<bool> cancelled)
+    public static string Transcribe(string mediaPath, Action<string> status, Func<bool> cancelled, double trimA = -1, double trimB = -1)
     {
         string ff = StudioEnv.Ffmpeg(), exe = Exe(), model = Model(); if (ff == null || exe == null || model == null) throw new Exception("The speech recogniser is not set up yet.");
         string tmp = Path.Combine(Path.GetTempPath(), "purphex_lyr_" + Guid.NewGuid().ToString("N")); string wav = tmp + ".wav", outTxt = tmp + "_words"; int code;
         try
         {
             if (status != null) status("Getting the sound ready...");
-            string o = Run16k(ff, mediaPath, wav, cancelled, out code); if (cancelled != null && cancelled()) return ""; if (code != 0 || !File.Exists(wav)) throw new Exception("The sound of this file could not be read." + (o.Length > 0 ? " " + LastLine(o) : ""));
+            string o = Run16k(ff, mediaPath, wav, cancelled, trimA, trimB, out code); if (cancelled != null && cancelled()) return ""; if (code != 0 || !File.Exists(wav)) throw new Exception("The sound of this file could not be read." + (o.Length > 0 ? " " + LastLine(o) : ""));
             if (status != null) status("Listening to the song and writing the words... this can take a few minutes");
             int threads = Math.Max(2, Environment.ProcessorCount / 2); string w = RunWhisper(exe, model, wav, outTxt, threads, cancelled, out code);
             if (cancelled != null && cancelled()) return ""; string txt = outTxt + ".txt";
@@ -228,6 +241,8 @@ static class LyricsWhisper
     }
     static volatile Process procNow;
     public static void Cancel() { var p = procNow; if (p != null) { try { p.Kill(); } catch { } } }
-    static string Run16k(string ff, string input, string wav, Func<bool> cancelled, out int code) { return RunProc(ff, "-hide_banner -y -i \"" + input + "\" -vn -ac 1 -ar 16000 -c:a pcm_s16le \"" + wav + "\"", cancelled, out code); }
+    // the part of the song that is heard: from TRIM START to TRIM END (either can be left out)
+    static string TrimArgs(double a, double b) { var ci = System.Globalization.CultureInfo.InvariantCulture; string s = ""; if (a > 0) s += "-ss " + a.ToString("0.###", ci) + " "; if (b > 0) s += "-t " + (a > 0 ? Math.Max(0.1, b - a) : b).ToString("0.###", ci) + " "; return s; }
+    static string Run16k(string ff, string input, string wav, Func<bool> cancelled, double trimA, double trimB, out int code) { return RunProc(ff, "-hide_banner -y " + TrimArgs(trimA, trimB) + "-i \"" + input + "\" -vn -ac 1 -ar 16000 -c:a pcm_s16le \"" + wav + "\"", cancelled, out code); }
     static string RunWhisper(string exe, string model, string wav, string outBase, int threads, Func<bool> cancelled, out int code) { return RunProc(exe, "-m \"" + model + "\" -f \"" + wav + "\" -l auto -nt -np -t " + threads + " -otxt -of \"" + outBase + "\"", cancelled, out code); }
 }

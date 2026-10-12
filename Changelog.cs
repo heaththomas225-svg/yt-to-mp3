@@ -7,10 +7,15 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.30.1";
+    public const string Latest = "3.30.2";
 
     public const string Text =
-@"3.30.1  Photo themes that really recolour the program, instant crackle recovery, a clear theme hover
+@"3.30.2  TIMES USED for every file type, trim on Generate Lyrics
+ + TIMES USED now has a card for every file type: MP3, MP4, OPUS, WAV, M4A, FLAC and MKV (the quality does not matter, only the type of file), plus the total for all of them and what you made on this PC. Every finished conversion counts as its own type, and the website keeps one counter for each, with no upper limit. A number too long for its card is shown short (1.2e29) with the whole number in the tooltip.
+ + The TIMES USED button moved over next to Changelog (it no longer sits near the Purphex logo).
+ + Generate Lyrics has TRIM START and TRIM END boxes (like 0:30 or 1:02:03). When the words are written by listening, only that part of the song is heard, so a verse or a chorus can be done on its own. A wrong time or an end before the start is refused with the reason.
+
+3.30.1  Photo themes that really recolour the program, instant crackle recovery, a clear theme hover
  + Photo themes now work properly: PHOTO in the Themes box turns a picture into a theme of its own. The purple parts of the program (buttons, panels, outlines) take the real colours of the picture (up to four of them, so a sunset gives orange, pink and blue), and the picture fills the window, cropped to fit and never stretched. The theme you had is left alone, and REVERT puts it back.
  + The theme under the mouse in the Themes box now has a bright outline with a soft ring round it, so it is clear which one a click will pick (the old hover never lit up).
  + Crackle recovery: the moment the sound breaks up (two starved buffers within two seconds, or the sound card stopping for a third of a second) the audio output is refreshed. It takes a split second, then the sound is clean again. Each refresh also makes the playback buffer a step bigger for the session (your choice in Settings is kept), and at the biggest buffer it is a plain refresh, at most once every second and a half.

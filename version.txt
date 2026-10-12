@@ -1,4 +1,4 @@
-3.30.1
+3.30.2
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Photo themes that recolour the program, instant crackle recovery, a clear theme hover
-sha256=68a096736b10bb873782c923bcf91aa80e2c84f952b336bf57ca7f94206ff8ea
+TIMES USED for every file type, trim on Generate Lyrics
+sha256=e6f5903e9ee0e6ff5f9f343165358c7dee49a197c6d843e1769163152c7c7a9d

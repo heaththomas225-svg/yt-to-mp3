@@ -37,7 +37,7 @@ class Job
 partial class App : Form
 {
     // ---- Auto-update settings ----
-    const string Version = "3.30.1";
+    const string Version = "3.30.2";
     // Plain-text manifest: line 1 = newest version, line 2 = direct exe download URL.
     const string UpdateManifestUrl = "https://raw.githubusercontent.com/heaththomas225-svg/yt-to-mp3/main/version.txt";
 
@@ -279,7 +279,7 @@ partial class App : Form
             m.Show(whatsBtn, new Point(0, whatsBtn.Height));
         };
         StyleBtn(studioBtn, TM.C(255, 90, 36, 160)); studioBtn.Text = "Purphex Music"; studioBtn.SetBounds(162, 312, 140, 30);
-        StyleBtn(usedBtn, TM.C(255, 70, 40, 150)); usedBtn.Text = "Times used"; usedBtn.SetBounds(16, 12, 112, 28);
+        StyleBtn(usedBtn, TM.C(255, 70, 40, 150)); usedBtn.Text = "Times used"; usedBtn.SetBounds(170, 12, 114, 28); usedBtn.Anchor = AnchorStyles.Top | AnchorStyles.Right;   // next to Changelog, clear of the Purphex logo
         tip.SetToolTip(usedBtn, "How many MP3s and MP4s have been made with Purphex Music all over the world.");
         usedBtn.Click += (s, e) => ShowUsage();
         StyleBtn(lyricsBtn, TM.C(255, 150, 60, 210)); lyricsBtn.Text = "Generate lyrics"; lyricsBtn.SetBounds(308, 312, 140, 30);
@@ -901,7 +901,7 @@ partial class App : Form
                     {
                         ok++; RemoveLinkFromBox(link); LastFile = outp; if (res != null) LastAn = res;
                         try { File.Delete(w); } catch { }
-                        Log("Saved: " + Path.GetFileName(outp)); UsageStat.Count(1, 0); if (Prefs.SaveLyrics) Log(LyricsGet.SaveFor(outp));
+                        Log("Saved: " + Path.GetFileName(outp)); UsageStat.CountFile(outp); if (Prefs.SaveLyrics) Log(LyricsGet.SaveFor(outp));
                     }
                     else if (!cancelReq)
                     {
