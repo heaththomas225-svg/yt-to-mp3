@@ -46,26 +46,26 @@ partial class StudioForm
     bool ShowBack { get { for (int i = navStack.Count - 1; i >= 0; i--) { int t = navStack[i]; if (t == tab) continue; return t != 0; } return false; } }
 
     // ---------- REVERT: whenever something is applied (a preset, a style, a theme, AUTO MASTERING...) a bar offers to put everything back as it was ----------
-    Action revertAction; string revertText = ""; DateTime revertUntil;
+    Action revertAction; string revertText = ""; DateTime revertUntil; const int RevertSecs = 30;   // how long the REVERT bar waits before it hides itself
     internal void OfferRevert(string what, Action undo)
     {
         if (what.Length > 40) what = what.Substring(0, 38) + "..";
-        revertAction = undo; revertText = what; revertUntil = DateTime.Now.AddSeconds(60);
+        revertAction = undo; revertText = what; revertUntil = DateTime.Now.AddSeconds(RevertSecs);
     }
     void DoRevert() { var a = revertAction; revertAction = null; if (a == null) return; try { a(); } catch (Exception ex) { Toast("Could not revert: " + ex.Message); return; } Toast("Reverted: " + revertText + " is back as it was."); }
     void PaintRevertBar(Graphics g)
     {
-        if (revertAction == null) return; double left = (revertUntil - DateTime.Now).TotalSeconds; if (left <= 0) { revertAction = null; return; }   // after 60 seconds it presses the X for you (the change stays)
+        if (revertAction == null) return; double left = (revertUntil - DateTime.Now).TotalSeconds; if (left <= 0) { revertAction = null; return; }   // after 30 seconds it presses the X for you (the change stays)
         lastInput = DateTime.Now;   // keeps the countdown moving
-        float W = ClientSize.Width, H = ClientSize.Height, bw = Math.Min(W - 28, tab == 0 ? HeadW - 16 : 400), bh = 68, by = H - (tab == 0 ? 50 : 10) - bh; var bar = Rc(tab == 0 ? 8 : 14, by, bw, bh);
-        FillRR(g, TM.C(246, 14, 26, 46), bar, 10); StrokeRR(g, Color.FromArgb(200, NeonCyan), bar, 10, 1.3f);
-        var gs = g.Save(); g.SetClip(bar, CombineMode.Intersect);   // everything stays inside the lines of the box
-        TxtWrap(g, revertText.ToUpper(), 12, Ink, Rc(bar.X + 12, bar.Y + 6, bar.Width - 24, 30));
-        var rv = Rc(bar.Right - 128, bar.Y + 36, 90, 26); var cl = Rc(bar.Right - 32, bar.Y + 37, 24, 24);
-        Txt(g, "HIDES ITSELF IN " + (int)Math.Ceiling(left) + " S", 10, DimC, Rc(bar.X + 12, bar.Y + 36, bar.Width - 164, 26), StringAlignment.Near, false);
+        float W = ClientSize.Width, H = ClientSize.Height, bw = Math.Min(W - 28, tab == 0 ? HeadW - 16 : 400), bh = 78, by = H - (tab == 0 ? 50 : 10) - bh; var bar = Rc(tab == 0 ? 8 : 14, by, bw, bh);
+        FillRR(g, TM.C(246, 14, 26, 46), bar, 12); StrokeRR(g, Color.FromArgb(200, NeonCyan), bar, 12, 1.3f);
+        var gs = g.Save(); using (var clip = RR(RectangleF.Inflate(bar, -1, -1), 11)) g.SetClip(clip, CombineMode.Intersect);   // everything stays inside the rounded border
+        TxtWrap(g, revertText.ToUpper(), 12, Ink, Rc(bar.X + 14, bar.Y + 8, bar.Width - 28, 30));
+        float ry = bar.Y + 42; var rv = Rc(bar.Right - 14 - 24 - 8 - 92, ry, 92, 28); var cl = Rc(bar.Right - 14 - 24, ry + 2, 24, 24);
+        Txt(g, "HIDES ITSELF IN " + (int)Math.Ceiling(left) + " S", 10, DimC, Rc(bar.X + 14, ry, rv.X - bar.X - 24, 28), StringAlignment.Near, false);
         Btn(g, rv, "REVERT", 3, () => DoRevert(), 12); Hint2(rv, "Put everything back exactly as it was before you pressed USE");
         Btn(g, cl, "x", 0, () => revertAction = null, 12); Hint2(cl, "Keep the change and hide this");
-        float fr = (float)Math.Max(0, Math.Min(1, left / 60.0)); using (var br = new SolidBrush(Color.FromArgb(200, NeonCyan))) g.FillRectangle(br, bar.X + 8, bar.Bottom - 4, (bar.Width - 16) * fr, 2.5f);
+        float fr = (float)Math.Max(0, Math.Min(1, left / (double)RevertSecs)); if (fr > 0.01f) { var sm0 = g.SmoothingMode; g.SmoothingMode = SmoothingMode.AntiAlias; using (var pen = new Pen(Color.FromArgb(200, NeonCyan), 3f) { StartCap = LineCap.Round, EndCap = LineCap.Round }) g.DrawLine(pen, bar.X + 16, bar.Bottom - 8, bar.X + 16 + (bar.Width - 32) * fr, bar.Bottom - 8); g.SmoothingMode = sm0; }
         g.Restore(gs);
     }
 

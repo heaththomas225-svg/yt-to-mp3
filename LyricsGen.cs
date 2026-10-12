@@ -46,7 +46,7 @@ static class LyricsGen
     }
 
     // the lyrics for a link (no file, no download): the video's title finds the song in the lyrics database
-    static Result GenerateFromLink(string url, Action<string> say, Func<bool> stop)
+    static Result GenerateFromLink(string url, Action<string> say, Func<bool> stop, string lang = "auto")
     {
         var r = new Result();
         try
@@ -57,7 +57,7 @@ static class LyricsGen
             try { foreach (var c in SongGuesses(artist, title, "")) { if (stop()) break; f = LyricsGet.Fetch(c[0], c[1]); if (f != null) break; } } catch (WebException) { r.Error = "Could not reach the lyrics database. Check your connection and try again."; return r; }
             if (stop()) { r.Error = "Cancelled."; return r; }
             if (f == null) { r.Error = "\"" + (artist.Length > 0 ? artist + " - " : "") + title + "\" is not in the lyrics database. To write the words by listening, add the song or video file instead of the link."; return r; }
-            string n; r.Lyrics = Finish(f.Lyrics, false, out n); r.Artist = f.Artist; r.Title = f.Title; r.Source = "LRCLIB lyrics database (found from the link)"; r.Found = true; r.Note = "Found from the link, nothing was downloaded. " + n; return r;
+            string n; r.Lyrics = Finish(f.Lyrics, false, out n, lang); r.Artist = f.Artist; r.Title = f.Title; r.Source = "LRCLIB lyrics database (found from the link)"; r.Found = true; r.Note = "Found from the link, nothing was downloaded. " + n; return r;
         }
         catch (Exception ex) { r.Error = ex.Message; return r; }
     }
@@ -100,7 +100,7 @@ static class LyricsGen
         catch { }
     }
 
-    public static string Finish(string raw, bool fromRecording, out string note) { return LyricsPolish.Finish(raw, fromRecording, out note); }
+    public static string Finish(string raw, bool fromRecording, out string note, string lang = "auto") { return LyricsPolish.Finish(raw, fromRecording, out note, lang); }
 
     // the whole job for one file; status gets what is happening now. Never throws: a problem comes back in Result.Error.
     // the songs a file could be, best guess first: what the tags say (cleaned), then every sensible reading of the file name. A title alone is only tried when nothing says who sings it.
@@ -125,10 +125,10 @@ static class LyricsGen
         string ea, eb; ta = ParseTime(a, out ea); tb = ParseTime(b, out eb); if (ea.Length > 0) return "TRIM START: " + ea + "."; if (eb.Length > 0) return "TRIM END: " + eb + ".";
         if (ta >= 0 && tb >= 0 && tb <= ta) return "TRIM END has to be after TRIM START."; return "";
     }
-    public static Result Generate(string path, bool allowListen, Action<string> status, Func<bool> cancelled, double trimA = -1, double trimB = -1)
+    public static Result Generate(string path, bool allowListen, Action<string> status, Func<bool> cancelled, double trimA = -1, double trimB = -1, string lang = "auto")
     {
         var r = new Result(); Action<string> say = s => { if (status != null) status(s); }; Func<bool> stop = () => cancelled != null && cancelled();
-        if (IsLink(path)) return GenerateFromLink(path, say, stop);
+        lang = LyricsLang.Clean(lang); if (IsLink(path)) return GenerateFromLink(path, say, stop, lang);
         try
         {
             if (!File.Exists(path)) { r.Error = "That file is not there any more."; return r; }
@@ -140,14 +140,14 @@ static class LyricsGen
             if (stop()) { r.Error = "Cancelled."; return r; }
             if (f != null)
             {
-                string n; r.Lyrics = Finish(f.Lyrics, false, out n); r.Artist = f.Artist; r.Title = f.Title; r.Source = "LRCLIB lyrics database"; r.Found = true; r.Note = "Found in the lyrics database. " + n; return r;
+                string n; r.Lyrics = Finish(f.Lyrics, false, out n, lang); r.Artist = f.Artist; r.Title = f.Title; r.Source = "LRCLIB lyrics database"; r.Found = true; r.Note = "Found in the lyrics database. " + n; return r;
             }
             if (!allowListen) { r.Note = offline ? "Could not reach the lyrics database, and listening to the song is switched off." : "This song is not in the lyrics database."; r.Error = r.Note; return r; }
             if (!LyricsWhisper.Ready) { r.NeedSetup = true; r.Note = (offline ? "Could not reach the lyrics database. " : "This song is not in the lyrics database. ") + "Purphex can write the words by listening to it, which needs a one-time download first."; return r; }
-            string raw = LyricsWhisper.Transcribe(path, say, stop, trimA, trimB);
+            string raw = LyricsWhisper.Transcribe(path, say, stop, trimA, trimB, lang);
             if (stop()) { r.Error = "Cancelled."; return r; }
             if (raw.Trim().Length < 12) { r.Error = "No words could be heard in this file (an instrumental, or the voice is too quiet)."; return r; }
-            string n2; r.Lyrics = Finish(raw, true, out n2); r.Source = "Listened to the song (Whisper, on this PC)"; r.Found = true;
+            string n2; r.Lyrics = Finish(raw, true, out n2, lang); r.Source = "Listened to the song (Whisper, on this PC)"; r.Found = true;
             r.Note = "Written by listening, so check the words against the song: a speech recogniser can mishear a lyric. " + n2; return r;
         }
         catch (Exception ex) { r.Error = ex is WebException ? "Could not reach the internet: " + ex.Message : ex.Message; return r; }
@@ -212,7 +212,7 @@ static class LyricsWhisper
     }
 
     // the words of the song, one line per sentence the recogniser heard
-    public static string Transcribe(string mediaPath, Action<string> status, Func<bool> cancelled, double trimA = -1, double trimB = -1)
+    public static string Transcribe(string mediaPath, Action<string> status, Func<bool> cancelled, double trimA = -1, double trimB = -1, string lang = "auto")
     {
         string ff = StudioEnv.Ffmpeg(), exe = Exe(), model = Model(); if (ff == null || exe == null || model == null) throw new Exception("The speech recogniser is not set up yet.");
         string tmp = Path.Combine(Path.GetTempPath(), "purphex_lyr_" + Guid.NewGuid().ToString("N")); string wav = tmp + ".wav", outTxt = tmp + "_words"; int code;
@@ -221,7 +221,7 @@ static class LyricsWhisper
             if (status != null) status("Getting the sound ready...");
             string o = Run16k(ff, mediaPath, wav, cancelled, trimA, trimB, out code); if (cancelled != null && cancelled()) return ""; if (code != 0 || !File.Exists(wav)) throw new Exception("The sound of this file could not be read." + (o.Length > 0 ? " " + LastLine(o) : ""));
             if (status != null) status("Listening to the song and writing the words... this can take a few minutes");
-            int threads = Math.Max(2, Environment.ProcessorCount / 2); string w = RunWhisper(exe, model, wav, outTxt, threads, cancelled, out code);
+            int threads = Math.Max(2, Environment.ProcessorCount / 2); string w = RunWhisper(exe, model, wav, outTxt, threads, lang, cancelled, out code);
             if (cancelled != null && cancelled()) return ""; string txt = outTxt + ".txt";
             if (File.Exists(txt)) return File.ReadAllText(txt, Encoding.UTF8);
             if (code != 0) throw new Exception("The speech recogniser stopped with an error." + (w.Length > 0 ? " " + LastLine(w) : "")); return StripLog(w);
@@ -249,6 +249,6 @@ static class LyricsWhisper
     static string TrimArgs(double a, double b) { var ci = System.Globalization.CultureInfo.InvariantCulture; string s = ""; if (a > 0) s += "-ss " + a.ToString("0.###", ci) + " "; if (b > 0) s += "-t " + (a > 0 ? Math.Max(0.1, b - a) : b).ToString("0.###", ci) + " "; return s; }
     static string Run16k(string ff, string input, string wav, Func<bool> cancelled, double trimA, double trimB, out int code) { return RunProc(ff, "-hide_banner -y " + TrimArgs(trimA, trimB) + "-i \"" + input + "\" -vn -ac 1 -ar 16000 -c:a pcm_s16le \"" + wav + "\"", cancelled, out code); }
     // -mc 0: every sentence is heard on its own (the words before it are not carried along, which is how a recogniser gets stuck repeating one line and then skips the next verses); -bs 5: it weighs five readings of each sentence instead of one
-    public static string WhisperArgs(string model, string wav, string outBase, int threads) { return "-m \"" + model + "\" -f \"" + wav + "\" -l auto -nt -np -mc 0 -bs 5 -t " + threads + " -otxt -of \"" + outBase + "\""; }
-    static string RunWhisper(string exe, string model, string wav, string outBase, int threads, Func<bool> cancelled, out int code) { return RunProc(exe, WhisperArgs(model, wav, outBase, threads), cancelled, out code); }
+    public static string WhisperArgs(string model, string wav, string outBase, int threads, string lang = "auto") { return "-m \"" + model + "\" -f \"" + wav + "\" -l " + LyricsLang.Clean(lang) + " -nt -np -mc 0 -bs 5 -t " + threads + " -otxt -of \"" + outBase + "\""; }
+    static string RunWhisper(string exe, string model, string wav, string outBase, int threads, string lang, Func<bool> cancelled, out int code) { return RunProc(exe, WhisperArgs(model, wav, outBase, threads, lang), cancelled, out code); }
 }

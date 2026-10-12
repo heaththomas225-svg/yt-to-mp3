@@ -2,6 +2,16 @@
 
 What changed in each version of **Purphex**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.32.0  Colour mixer with two palettes, presets, every finish of colour, a language box for lyrics
+
+- The colour mixer on the Profile page is rebuilt with two sides, like the reference: the LEFT palette is colour A and the RIGHT palette is colour B, and A merges into B. Each side has its own STYLE drop bar, so you pick both colours from any style. Between them are the merged circle, a MIX slider and SWAP.
+- Whatever you change in the mixer IS your profile colour: no buttons to choose where it goes. The banner, rings and accents take the merged colour at once and your name fades from A to B. Two switches make it toggleable: PROFILE COLOUR = MY MIX (ON/OFF, OFF goes back to the colour of your theme) and FADE MY NAME A TO B (ON/OFF). The old ACCENT COLOUR square and the separate colour buttons are gone.
+- SAVE COLOUR PRESET keeps the two colours, their finishes and the mix; PREV and NEXT go through your saved presets (each one is loaded and becomes your profile colour), you can click any saved preset, and DELETE THIS PRESET removes one. The mixer also remembers where you left it.
+- USE AS A THEME (a theme for the whole program from your mix, REVERT puts the old one back) and COPY THE HEX CODE stay. Every section of the mixer is in a neat neon-outlined box. The colour wheel turns slowly and no longer has a title.
+- More than a thousand colours in every finish, like a car paint sheet, each drawn in its own finish: Classic gloss, Metallic, Metals, Brushed metals, Chrome and mirror, Chameleon (40 colour-shifting pairs), Candy, Pearlescent, Holographic and iridescent, Glitter and sparkle, Carbon and tech, Satin, Matte, Frosted glass, Worn and weathered, Neon glow, Basic, Pastels, Jewel tones, Earth and nature, Flowers, Wood and stone, Vintage and retro, Military and utility, Skin and hair, Sweets and drinks, Seasons, Sky and sea, Fire and sunset, Greys and blacks, and Every shade (360 shades and a grey row).
+- Generate Lyrics has a LANGUAGE drop bar (Auto-detect and 68 languages, remembered). The speech recogniser listens in the language you pick, which fixes songs it mis-detects. Lyrics that are not English only get spacing and capital letters tidied (the apostrophe and punctuation rules are for English), and Auto-detect works out which one a lyric is.
+- The lyrics lookup was checked against the real lyrics database and YouTube with songs in English, Spanish, French, German, Italian, Korean and Hindi, with names written as downloads really are (uploader first, brackets, Official Video).
+
 ## 3.31.0  Colour mixer on your profile, Recheck video + words, a fuller lyrics lookup, a calmer visualiser
 
 - COLOUR MIXER on the Profile page, in a box of its own (not a tab). Pick colour A and colour B and see the colour they make: a merged circle, a gradient from A to B, five steps (100% A, 75/25, 50/50, 25/75, 100% B), a colour wheel with arrows to A, B and the result, and swatch pairs like Orange + Blue. A MIX slider moves the merge point and SWAP flips A and B.

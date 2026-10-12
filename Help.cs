@@ -88,7 +88,7 @@ On the first screen, press GENERATE LYRICS (next to Vocal remover and Purphex Mu
 ## Get the lyrics
 1. Drop a song or a video on it, or press CHOOSE FILE. Any of mp3, wav, flac, m4a, ogg, opus, aac, mp4, mkv, webm, mov and more.
 2. Or paste a link (YouTube; other sites need the link reader the converter installs) in OR PASTE A LINK: the lyrics are found from the video's name, with nothing downloaded and no MP3 needed.
-3. Press GENERATE LYRICS. The song's tags and file name (or the link) say which song it is, and the lyrics database (LRCLIB) is asked for it.
+3. Pick the LANGUAGE the song is sung in (Auto-detect lets the recogniser decide; pick it when it gets the language wrong, and it is remembered). Then press GENERATE LYRICS. The song's tags and file name (or the link) say which song it is, and the lyrics database (LRCLIB) is asked for it.
 4. A song that is not in the database can be written by listening to it (this needs the file, not a link). TRIM START and TRIM END (like 0:30) pick the part of the song that is heard. That uses the Whisper speech recogniser, which runs on your PC: Purphex asks before it downloads it (about 160 MB, once, and your song is never uploaded). A recogniser can mishear a word, so check the words against the song.
 ## Grammar and punctuation
 Every result is tidied: capital letters, I, the apostrophes in don't and I'm, spaces round commas, a full stop or question mark at the end of each verse, a comma before and / but / so lines, clean blank lines between verses, and [Verse] and [Chorus] labels. FIX GRAMMAR does the same to words you typed or changed, and UNDO brings your words back.
@@ -104,13 +104,17 @@ NOTE: Lyrics belong to their writers. The text is for your own use."),
 
         new HelpTopic("colour-mixer", "Basics", "Colour mixer (on your Profile page)", false, @"
 ## Where it is
-On the Profile page, in a box of its own under Edit your profile (it is not a tab).
-## Mix two colours
-Colour A and colour B are the two circles. Click EDIT COLOUR A or B (or a circle), then click any colour in the list: it goes in that slot and the next click goes in the other. The middle circle is the merged colour; the MIX slider moves the merge point; SWAP flips A and B. Below are the gradient from A to B, five steps (100% A, 75/25, 50/50, 25/75, 100% B), a colour wheel with arrows to A, B and the result, and pairs like Orange + Blue (click a pair to try it).
+On the Profile page, in a box of its own under Edit your profile (it is not a tab). Every section is in a neon-outlined box.
+## Two sides
+The LEFT palette is colour A and the RIGHT palette is colour B: A merges into B. Each side has its own STYLE drop bar, and clicking a colour sets that side (right-click puts it on the other side). The middle shows colour A, the merged colour and colour B, the MIX slider moves the merge point, and SWAP flips A and B. Below are the gradient from A to B, five steps (100% A, 75/25, 50/50, 25/75, 100% B), a colour wheel that turns slowly with arrows to A, B and the result, and pairs like Orange + Blue (click a pair to try it).
+## Your profile colour
+Whatever you change here IS your profile colour: the banner, the rings and the accents take the merged colour at once, and your name fades from A to B. PROFILE COLOUR = MY MIX turns that ON or OFF (OFF goes back to the colour of your theme) and FADE MY NAME A TO B turns the fade ON or OFF (OFF writes the name in the merged colour).
 ## Every style of colour
-The STYLE drop bar chooses the list: Every shade (360 shades and greys), Basic colours, Neon and glow, Pastels, Metals (gold, silver, bronze, copper, rose gold, platinum, chrome...), Pearlescent (pearl, opal, abalone, iridescent...), Matte, Jewel tones, Earth and nature, Sky and sea, Fire and sunset, Greys and blacks. Point at a colour to see its name and code; right-click puts it in the other slot.
-## Use it
-USE AS MY PROFILE COLOUR makes it your profile colour, USE AS A THEME makes a theme for the whole program from the merged colour with A and B (REVERT puts your old theme back), COPY THE CODE copies the hex code."),
+More than a thousand colours, each drawn in its own finish: Every shade (360 shades and greys), Classic gloss, Metallic, Metals, Brushed metals, Chrome and mirror, Chameleon (colour shifting: each one changes from one colour to another), Candy, Pearlescent, Holographic and iridescent, Glitter and sparkle, Carbon and tech, Satin, Matte, Frosted glass, Worn and weathered, Neon and glow, Basic, Pastels, Jewel tones, Earth and nature, Flowers, Wood and stone, Vintage and retro, Military and utility, Skin and hair, Sweets and drinks, Seasons, Sky and sea, Fire and sunset, Greys and blacks.
+## Presets
+SAVE COLOUR PRESET keeps the two colours, their finishes and the mix. PREV and NEXT go through the saved presets (each one is loaded and becomes your profile colour), you can click any saved one, and DELETE THIS PRESET removes the picked one. The mixer remembers where you left it.
+## Theme and code
+USE AS A THEME makes a theme for the whole program from your mix (the merged colour, A and B): REVERT puts your old theme back. COPY THE HEX CODE copies the code of the merged colour."),
 
         new HelpTopic("times-used", "Basics", "TIMES USED: worldwide MP3 and MP4 numbers", false, @"
 ## What it is
@@ -682,7 +686,7 @@ This page never writes or suggests lyrics for you: every word is yours."),
 1. Press PROFILE at the top of the studio (or Profile in the side menu).
 2. Press CHOOSE BANNER or CHOOSE PICTURE and pick any picture of any size or shape: it is resized to fit its frame by itself (the banner is wide, the picture is a rounded square). Then place it: ZOOM with the - and + buttons or the slider, LEFT / RIGHT and UP / DOWN with the arrow buttons or the sliders, FIT TO FRAME to see the whole picture, FILL THE FRAME to cover the frame completely.
 3. The picture only shows on this page and on your public profile. Everywhere else in the studio the circle is the Purphex logo and cannot be changed.
-4. ACCENT COLOUR is a colour palette: click or drag in the big square for the colour, use the bar beside it for lighter or darker, RESET goes back to the colour of your theme.
+4. The COLOUR MIXER (the box under the editing system) sets your profile colour: mix two colours and press USE AS MY PROFILE COLOUR; PROFILE COLOUR: THEME'S AGAIN goes back to the colour of your theme.
 5. Press EDIT beside your name, bio, where you are, LINKS (up to 10, one on every line) and genres (up to 10). Any web address works as a link: your website, YouTube, SoundCloud, Spotify, Instagram, a shop. Emoji work in the name, bio and where you are.
 6. YOUR PUBLISHED PROJECTS lists only the projects you published (use the person button on a project in My Projects, or PUBLISH ALL), with a play button each. TIME MADE reads like 45s, 2m33s, 2h33m, or 1d2h33m.
 ## Share it

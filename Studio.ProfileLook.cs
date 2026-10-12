@@ -6,7 +6,7 @@ using System.Drawing.Imaging;
 using System.IO;
 using System.Windows.Forms;
 
-// The look of your profile: the banner and the picture (zoom, left and right, up and down, fit and fill) and the accent colour palette.
+// The look of your profile: the banner and the picture (zoom, left and right, up and down, fit and fill). The colours are in the COLOUR MIXER.
 partial class StudioForm
 {
     // ---------- pictures kept in their frame ----------
@@ -57,47 +57,9 @@ partial class StudioForm
         return y + 40;
     }
 
-    // ---------- the accent colour palette ----------
-    double palH = 270, palS = 0.82, palL = 0.60; int palSeen = int.MinValue; Bitmap palBmp; int palBw, palBh; double palBl = -1; Bitmap palBar; double palBarH = -1, palBarS = -1; int palBarH2;
-    void PalSync()
-    {
-        int cur = ProfileStore.Accent; if (cur == palSeen) return; palSeen = cur; double h, s, l; ThemeDef.ToHsl(cur >= 0 ? ProfileStore.ColorOf(cur) : NeonViolet, out h, out s, out l); palH = h; palS = s; palL = l;
-    }
-    void PalApply() { ProfileStore.Accent = ProfileStore.Pack(ThemeDef.Hsl(palH, palS, palL)); palSeen = ProfileStore.Accent; }
+    // ---------- the profile colour: set from the COLOUR MIXER (the old colour square is gone) ----------
+    int palSeen = int.MinValue;
     void PalCommit() { ProfileStore.Save(); QueueRepublish(); }
-    // colour field: the hue along the top, and from strong colour (top) to grey (bottom) at the chosen lightness
-    Bitmap PalField(int w, int h)
-    {
-        if (palBmp != null && palBw == w && palBh == h && Math.Abs(palBl - palL) < 0.0005) return palBmp; if (palBmp != null) palBmp.Dispose(); palBmp = new Bitmap(w, h, PixelFormat.Format32bppRgb); palBw = w; palBh = h; palBl = palL;
-        var d = palBmp.LockBits(new Rectangle(0, 0, w, h), ImageLockMode.WriteOnly, PixelFormat.Format32bppRgb);
-        try { var row = new int[w]; for (int y = 0; y < h; y++) { double s = 1 - y / (double)(h - 1); for (int x = 0; x < w; x++) row[x] = ThemeDef.Hsl(x / (double)(w - 1) * 360, s, palL).ToArgb(); System.Runtime.InteropServices.Marshal.Copy(row, 0, new IntPtr(d.Scan0.ToInt64() + (long)y * d.Stride), w); } }
-        finally { palBmp.UnlockBits(d); } return palBmp;
-    }
-    // the lightness bar for the chosen hue and strength (light on top, dark at the bottom)
-    Bitmap PalBar(int h)
-    {
-        if (palBar != null && palBarH2 == h && Math.Abs(palBarH - palH) < 0.01 && Math.Abs(palBarS - palS) < 0.001) return palBar; if (palBar != null) palBar.Dispose(); palBar = new Bitmap(1, h, PixelFormat.Format32bppRgb); palBarH2 = h; palBarH = palH; palBarS = palS;
-        for (int y = 0; y < h; y++) palBar.SetPixel(0, y, ThemeDef.Hsl(palH, palS, 0.95 - 0.85 * (y / (double)(h - 1))));
-        return palBar;
-    }
-    float PaintPalette(Graphics g, float x, float y, float w)
-    {
-        PalSync(); const int FH = 112; float fw = Math.Max(120, w - 112); var field = Rc(x, y, fw, FH); var bar = Rc(field.Right + 12, y, 24, FH); float ix = bar.Right + 12;
-        using (var p = RR(field, 10)) { var gs = g.Save(); g.SetClip(p, CombineMode.Intersect); g.InterpolationMode = InterpolationMode.NearestNeighbor; g.DrawImage(PalField((int)fw, FH), field); g.Restore(gs); using (var pen = new Pen(Color.FromArgb(160, 255, 255, 255), 1.2f)) g.DrawPath(pen, p); }
-        using (var p = RR(bar, 8)) { var gs = g.Save(); g.SetClip(p, CombineMode.Intersect); g.InterpolationMode = InterpolationMode.NearestNeighbor; g.DrawImage(PalBar(FH), bar); g.Restore(gs); using (var pen = new Pen(Color.FromArgb(160, 255, 255, 255), 1.2f)) g.DrawPath(pen, p); }
-        // where the colour is
-        float mx = field.X + (float)(palH / 360.0) * (field.Width - 1), my = field.Y + (float)((1 - palS)) * (field.Height - 1); using (var pen = new Pen(Color.Black, 3f)) g.DrawEllipse(pen, mx - 7, my - 7, 14, 14); using (var pen = new Pen(Color.White, 1.8f)) g.DrawEllipse(pen, mx - 7, my - 7, 14, 14);
-        float by = bar.Y + (float)((0.95 - palL) / 0.85) * (bar.Height - 1); by = Math.Max(bar.Y, Math.Min(bar.Bottom, by)); using (var pen = new Pen(Color.Black, 4f)) g.DrawLine(pen, bar.X - 3, by, bar.Right + 3, by); using (var pen = new Pen(Color.White, 2f)) g.DrawLine(pen, bar.X - 3, by, bar.Right + 3, by);
-        Action<PointF> pickField = pt => { palH = Math.Max(0, Math.Min(360, (pt.X - field.X) / (field.Width - 1) * 360)); palS = Math.Max(0, Math.Min(1, 1 - (pt.Y - field.Y) / (field.Height - 1))); PalApply(); };
-        var rf = new HitReg { R = field, OnDown = () => pickField(MousePos), OnDrag = pt => pickField(pt), OnUp = PalCommit }; regs.Add(rf); Hint2(field, "Pick your colour: across is the colour, down is how strong it is");
-        Action<PointF> pickBar = pt => { palL = Math.Max(0.10, Math.Min(0.95, 0.95 - (pt.Y - bar.Y) / (bar.Height - 1) * 0.85)); PalApply(); };
-        var rb = new HitReg { R = Rc(bar.X - 4, bar.Y - 4, bar.Width + 8, bar.Height + 8), OnDown = () => pickBar(MousePos), OnDrag = pt => pickBar(pt), OnUp = PalCommit }; regs.Add(rb); Hint2(bar, "Lighter or darker");
-        // the colour you have, its code, and the way back to the theme colour
-        var sw = Rc(ix, y, Math.Max(40, x + w - ix), 44); Color cur = ProfAccent(ProfileStore.Accent); FillRR(g, cur, sw, 10); StrokeRR(g, Color.FromArgb(200, 255, 255, 255), sw, 10, 1.4f);
-        Txt(g, ProfileStore.Accent < 0 ? "THEME" : "#" + ProfileStore.Accent.ToString("X6"), 11, Ink, Rc(ix, y + 50, sw.Width, 16), StringAlignment.Near, true);
-        var rs = Rc(ix, y + 72, sw.Width, 28); Btn(g, rs, "RESET", ProfileStore.Accent < 0 ? 0 : 1, () => { if (ProfileStore.Accent >= 0) { ProfileStore.Accent = -1; PalCommit(); } }, 11); Hint2(rs, "Go back to the colour of your theme");
-        return y + FH + 14;
-    }
 
     // ---------- the whole look column of the profile editor ----------
     float PaintLookColumn(Graphics g, float c1, float ey, float colW, Color acc)
@@ -109,7 +71,6 @@ partial class StudioForm
         Btn(g, p1, "CHOOSE PICTURE", 2, () => PickAvatar(), 12); Hint2(p1, "Your profile picture (only shown on this page and on your public profile): it is resized to fit its frame by itself");
         Btn(g, p2, "REMOVE PICTURE", hasP ? 3 : 0, () => { if (hasP) { ProjectLibrary.ClearAvatar(); ForgetFramed(); QueueRepublish(); Toast("Picture removed: the Purphex logo is shown again."); } }, 12); ly += 44;
         if (hasP) { string af = AvatarFile; var sz = PicSize(af); int minZ = ProfileStore.ContainZoom(sz.Width, sz.Height, 120, 120); ly = AdjustPicture(g, c1, ly, colW, acc, minZ, () => Math.Max(minZ, ProfileStore.AvZoom), v => { ProfileStore.AvZoom = v; ForgetFramed(); }, () => ProfileStore.AvX, v => { ProfileStore.AvX = v; ForgetFramed(); }, () => ProfileStore.AvY, v => { ProfileStore.AvY = v; ForgetFramed(); }, () => { ProfileStore.Save(); ProjectLibrary.BakeAvatar(); QueueRepublish(); }, "PICTURE"); }
-        Txt(g, "ACCENT COLOUR", 12, DimC, Rc(c1, ly, 200, 18), StringAlignment.Near, true); ly += 22; ly = PaintPalette(g, c1, ly, colW);
         return ly;
     }
 }

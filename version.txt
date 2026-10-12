@@ -1,4 +1,4 @@
-3.31.0
+3.32.0
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Colour mixer on your profile, Recheck video + words, a fuller lyrics lookup, a calmer visualiser
-sha256=aa384a2c3e5926d09274f062738ab477b7d8f3d090162eb03b0c9885a9a10c56
+Colour mixer with two palettes, presets, every finish of colour, a language box for lyrics
+sha256=1b5a2b4bbd845a09b7042b500e9d627ba289f22cde5a27443c49fd5caccc7a93

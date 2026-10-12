@@ -25,8 +25,9 @@ static class LyricsPolish
     public static bool IsSection(string line) { return Section.IsMatch((line ?? "").Trim()); }
 
     // the words only: tidy and punctuate
-    public static string Polish(string raw, bool groupIfFlat, out string note)
+    public static string Polish(string raw, bool groupIfFlat, out string note, string lang = "auto")
     {
+        bool en = lang == "en" || ((lang ?? "auto") == "auto" && LyricsLang.LooksEnglish(raw));   // the apostrophe, "I" and punctuation rules are for English: other languages only get spacing and capital letters
         int caps = 0, apos = 0, ends = 0, spaces = 0, dropped = 0, commas = 0;
         string t = (raw ?? "").Replace("\r\n", "\n").Replace('\r', '\n').Replace("﻿", "").Replace("​", "").Replace('’', '\'').Replace('‘', '\'').Replace('“', '"').Replace('”', '"').Replace("…", "...");
         var lines = new List<string>();
@@ -39,7 +40,7 @@ static class LyricsPolish
             string before = l;
             l = Regex.Replace(l, @"[ \t]+", " "); l = Regex.Replace(l, @"\s+([,.;:!?])(?!\.)", "$1"); l = Regex.Replace(l, @"([,;!?])(?=[A-Za-z])", "$1 "); l = Regex.Replace(l, @"(?<=[a-z]{2})\.(?=[A-Z])", ". "); l = Regex.Replace(l, @",{2,}", ","); l = Regex.Replace(l, @"\(\s+", "("); l = Regex.Replace(l, @"\s+\)", ")");
             if (l != before) spaces++;
-            l = Regex.Replace(l, @"\b[A-Za-z]+\b", m =>
+            if (en) l = Regex.Replace(l, @"\b[A-Za-z]+\b", m =>
             {
                 string w = m.Value; string rep;
                 if (w == "i") { caps++; return "I"; }
@@ -69,7 +70,7 @@ static class LyricsPolish
             lines = grouped;
         }
         // end marks: inside a verse only a clear question or a line leading into "and / but / so" gets one; the last line of a verse always ends properly
-        for (int i = 0; i < lines.Count; i++)
+        if (en) for (int i = 0; i < lines.Count; i++)
         {
             string l = lines[i]; if (l.Length == 0 || IsSection(l)) continue;
             string next = i + 1 < lines.Count ? lines[i + 1] : ""; bool last = next.Length == 0 || IsSection(next); char c = l[l.Length - 1];
@@ -91,6 +92,7 @@ static class LyricsPolish
         var parts = new List<string>(); if (caps > 0) parts.Add(caps + (caps == 1 ? " capital letter" : " capital letters")); if (apos > 0) parts.Add(apos + (apos == 1 ? " apostrophe" : " apostrophes")); if (spaces > 0) parts.Add("spacing on " + spaces + (spaces == 1 ? " line" : " lines"));
         if (ends > 0) parts.Add(ends + (ends == 1 ? " end mark" : " end marks")); if (commas > 0) parts.Add(commas + (commas == 1 ? " comma" : " commas")); if (dropped > 0) parts.Add(dropped + (dropped == 1 ? " noise line removed" : " noise lines removed"));
         note = parts.Count == 0 ? "The grammar and punctuation already looked right." : "Grammar and punctuation: fixed " + string.Join(", ", parts.ToArray()) + ".";
+        if (!en) note = "Not English (" + LyricsLang.NameOf(lang, raw) + "): only spacing and capital letters were tidied, the apostrophe and punctuation rules are for English." + (parts.Count > 0 ? " Fixed " + string.Join(", ", parts.ToArray()) + "." : "");
         return sb.ToString();
     }
 
@@ -109,9 +111,32 @@ static class LyricsPolish
     }
 
     // the whole job for the generator: polish, then label the verses and chorus
-    public static string Finish(string raw, bool fromRecording, out string note)
+    public static string Finish(string raw, bool fromRecording, out string note, string lang = "auto")
     {
-        string pn; string pol = Polish(raw, fromRecording, out pn); if (pol.Trim().Length == 0) { note = pn; return ""; }
+        string pn; string pol = Polish(raw, fromRecording, out pn, lang); if (pol.Trim().Length == 0) { note = pn; return ""; }
         int added; string sn; string lab = LyricSections.Add(pol, out added, out sn); note = pn + " " + sn.Replace(" Ctrl+Z undoes it.", ""); return lab;
+    }
+}
+
+// the languages the speech recogniser knows, for the language box of the Generate Lyrics page ("auto" lets it listen and decide)
+static class LyricsLang
+{
+    public static readonly string[] Codes = { "auto", "en", "es", "fr", "de", "it", "pt", "nl", "ru", "uk", "pl", "tr", "ar", "he", "hi", "bn", "ur", "fa", "id", "ms", "vi", "th", "zh", "ja", "ko", "sv", "no", "da", "fi", "el", "cs", "ro", "hu", "bg", "sr", "hr", "sk", "sl", "lt", "lv", "et", "ca", "cy", "ga", "is", "sq", "hy", "az", "ka", "kk", "sw", "ta", "te", "mr", "gu", "pa", "kn", "ml", "ne", "si", "tl", "af", "la", "eu", "gl", "mt", "so", "yo", "zu" };
+    public static readonly string[] Names = { "Auto-detect", "English", "Spanish", "French", "German", "Italian", "Portuguese", "Dutch", "Russian", "Ukrainian", "Polish", "Turkish", "Arabic", "Hebrew", "Hindi", "Bengali", "Urdu", "Persian", "Indonesian", "Malay", "Vietnamese", "Thai", "Chinese", "Japanese", "Korean", "Swedish", "Norwegian", "Danish", "Finnish", "Greek", "Czech", "Romanian", "Hungarian", "Bulgarian", "Serbian", "Croatian", "Slovak", "Slovenian", "Lithuanian", "Latvian", "Estonian", "Catalan", "Welsh", "Irish", "Icelandic", "Albanian", "Armenian", "Azerbaijani", "Georgian", "Kazakh", "Swahili", "Tamil", "Telugu", "Marathi", "Gujarati", "Punjabi", "Kannada", "Malayalam", "Nepali", "Sinhala", "Filipino", "Afrikaans", "Latin", "Basque", "Galician", "Maltese", "Somali", "Yoruba", "Zulu" };
+    public static bool Valid(string code) { return Array.IndexOf(Codes, code ?? "") >= 0; }
+    public static string Clean(string code) { code = (code ?? "auto").Trim().ToLowerInvariant(); return Valid(code) ? code : "auto"; }
+    public static string NameOf(string code, string textForAuto = null)
+    {
+        code = Clean(code); if (code == "auto") return textForAuto != null && LooksEnglish(textForAuto) ? "English" : "another language"; int i = Array.IndexOf(Codes, code); return Names[i];
+    }
+    static readonly System.Collections.Generic.HashSet<string> Stop = new System.Collections.Generic.HashSet<string> { "the", "and", "you", "i", "to", "it", "my", "in", "of", "is", "on", "that", "this", "for", "with", "be", "not", "but", "we", "your", "all", "just", "like", "ill", "im", "dont", "cant", "know", "got", "now", "when", "can", "what", "they", "up", "if", "are", "was", "will", "have", "he", "she", "her", "his", "out", "get", "one", "youre", "thats", "want", "need", "never", "time", "feel", "night", "life" };
+    // is this text English? Counts how many of its words are common English words and how many letters are in other alphabets
+    public static bool LooksEnglish(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return true; int words = 0, hits = 0, letters = 0, ascii = 0;
+        foreach (char c in text) if (char.IsLetter(c)) { letters++; if (c < 128) ascii++; }
+        if (letters > 0 && ascii < letters * 0.85) return false;
+        foreach (System.Text.RegularExpressions.Match m in System.Text.RegularExpressions.Regex.Matches(text.ToLowerInvariant(), @"[a-z']+")) { words++; if (Stop.Contains(m.Value.Replace("'", ""))) hits++; }
+        return words < 12 || hits >= words * 0.18;
     }
 }
