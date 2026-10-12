@@ -53,11 +53,11 @@ class SettingsForm : Form
         Add(new Label { Text = "Colour theme", Left = 20, Top = y + 3, Width = 150, ForeColor = Ink });
         themeBox = Combo(180, y, 360, new string[0]); foreach (var td in Themes.All) themeBox.Items.Add(ThemeLabel(td));   // built in and imported
         themeBox.SelectedIndexChanged += (s, e) => { if (setting || themeBox.SelectedIndex < 0) return; { var tdx = Themes.All[themeBox.SelectedIndex]; if (!Themes.Allowed(tdx)) { Edition.Upsell(tdx.Req, "The " + tdx.Name + " theme", this); setting = true; themeBox.SelectedIndex = Themes.Index; setting = false; return; } } Themes.Apply(themeBox.SelectedIndex); themeNote.Text = Themes.Current.Blurb + " It changes the glow, borders and buttons in Purphex Music, Mastering and Bass Lab."; Prefs.Changed(); };
-        y += 38; themeNote = new Label { Left = 20, Top = y - 4, Width = 520, Height = 34, ForeColor = Dim, Font = new Font("Segoe UI", 9f) }; Add(themeNote); y += 36;
+        y += 38; themeNote = new Label { Left = 20, Top = y - 4, Width = 520, Height = 34, ForeColor = Dim, Font = new Font("Segoe UI", 10f) }; Add(themeNote); y += 36;
         var comT = Btn("Community themes...", 20, y, 190, TM.C(255, 140, 60, 220)); comT.Click += (s, e) => app.ShowThemes(true); y += 40;
         NewPage("Animation", ref y); Header("Animation", ref y);
         Add(new Label { Text = "Frame rate limit", Left = 20, Top = y + 3, Width = 150, ForeColor = Ink });
-        fpsBox = Combo(180, y, 190, new[] { "30 fps (lightest)", "60 fps (smooth)", "120 fps (fast screens)", "144 fps (gaming screens)", "165 fps", "240 fps (the fastest screens)" }); fpsBox.SelectedIndexChanged += (s, e) => { if (!setting && fpsBox.SelectedIndex >= 0) { Prefs.FpsCap = FpsChoices[fpsBox.SelectedIndex]; Prefs.Changed(); } };
+        fpsBox = Combo(180, y, 290, new[] { "30 fps (lightest)", "60 fps (smooth)", "120 fps (fast screens)", "144 fps (gaming screens)", "165 fps", "240 fps (the fastest screens)" }); fpsBox.SelectedIndexChanged += (s, e) => { if (!setting && fpsBox.SelectedIndex >= 0) { Prefs.FpsCap = FpsChoices[fpsBox.SelectedIndex]; Prefs.Changed(); } };
         y += 38;
         Add(new Label { Text = "Your screen refreshes " + FrameLoop.DisplayHz() + " times a second, so that is the most you will see. 120 fps needs a 120 Hz (or faster) screen and a quicker PC.", Left = 20, Top = y - 6, Width = 480, Height = 34, ForeColor = TM.C(255, 150, 140, 190) }); y += 30;
         fpsChk = Chk("Show the frame rate in the title bar", 20, ref y); fpsChk.CheckedChanged += (s, e) => { if (!setting) { Prefs.ShowFps = fpsChk.Checked; Prefs.Changed(); } };
@@ -82,7 +82,7 @@ class SettingsForm : Form
         y += 38;
         Note("Volume only changes what you hear while playing. Exported files are never affected.", ref y);
         NewPage("Updates", ref y); Header("Updates", ref y);
-        Add(new Label { Text = "You have version " + App.CurrentVersion + ". Purphex also checks by itself every few seconds while it is open.", Left = 20, Top = y, Width = 520, Height = 38, ForeColor = Dim, Font = new Font("Segoe UI", 9f) }); y += 40;
+        Add(new Label { Text = "You have version " + App.CurrentVersion + ". Purphex also checks by itself every few seconds while it is open.", Left = 20, Top = y, Width = 520, Height = 38, ForeColor = Dim, Font = new Font("Segoe UI", 10f) }); y += 40;
         updBtn = Btn("Scan for updates", 20, y, 170, TM.C(255, 140, 60, 220));
         updStatus = new Label { Left = 200, Top = y, Width = 340, Height = 36, ForeColor = Ink, Font = new Font("Segoe UI", 9.5f), TextAlign = ContentAlignment.MiddleLeft }; Add(updStatus);
         updBtn.Click += (s, e) =>
@@ -103,7 +103,7 @@ class SettingsForm : Form
         var seeB = Btn("See the editions", 208, y, 170, TM.C(255, 70, 40, 150)); seeB.Click += (s, e) => Edition.OpenEditions();
         var chkB = Btn("Check again", 386, y, 140, TM.C(255, 70, 40, 120)); chkB.Click += (s, e) => CheckAgain(); y += 44;
         accMsg = new Label { Left = 20, Top = y, Width = 540, Height = 44, ForeColor = Ink, Tag = "nocaps" }; Add(accMsg); y += 50;
-        Add(new Label { Left = 20, Top = y, Width = 540, Height = 96, ForeColor = Dim, Font = new Font("Segoe UI", 9f), Text = "How it works: press LINK THIS PC. Purphex opens the website, you sign in and press Yes, link it, and this PC unlocks by itself. Free is the MP3 and MP4 converter and the vocal remover; Supporter opens the whole studio; Fantasy is everything, for life. Every paid edition has a code (PX-XXXX-XXXX-XXXX): it is linked to one account at a time, and EDITION CODES lets you unlink it and use it on another account. Nothing is paid inside the app." }); y += 102;
+        Add(new Label { Left = 20, Top = y, Width = 540, Height = 96, ForeColor = Dim, Font = new Font("Segoe UI", 10f), Text = "How it works: press LINK THIS PC. Purphex opens the website, you sign in and press Yes, link it, and this PC unlocks by itself. Free is the MP3 and MP4 converter and the vocal remover; Supporter opens the whole studio; Fantasy is everything, for life. Every paid edition has a code (PX-XXXX-XXXX-XXXX): it is linked to one account at a time, and EDITION CODES lets you unlink it and use it on another account. Nothing is paid inside the app." }); y += 102;
         var web = Btn("My account on the website", 20, y, 230, TM.C(255, 70, 40, 120)); web.Click += (s, e) => Edition.OpenUrl(Edition.Site + "/account"); 
         var codesB = Btn("Edition codes: unlink or redeem", 258, y, 270, TM.C(255, 70, 40, 120)); codesB.Click += (s, e) => Edition.OpenUrl(Edition.Site + "/redeem"); y += 40;
         FinishPage(y); BuildFrame();
@@ -196,7 +196,7 @@ class SettingsForm : Form
     void SaveClose() { Prefs.Changed(); Close(); }
 
     void Header(string t, ref int y) { Add(new Label { Text = t, Left = 20, Top = y, Width = 520, Height = 26, Font = new Font("Segoe UI Semibold", 12.5f), ForeColor = Head }); y += 30; }
-    void Note(string t, ref int y) { Add(new Label { Text = t, Left = 20, Top = y, Width = 520, Height = 46, ForeColor = Dim, Font = new Font("Segoe UI", 9f) }); y += 48; }
+    void Note(string t, ref int y) { Add(new Label { Text = t, Left = 20, Top = y, Width = 520, Height = 58, ForeColor = Dim, Font = new Font("Segoe UI", 10f) }); y += 60; }
     Button Btn(string t, int x, int y, int w, Color c) { var b = new PxButton { Text = t, Left = x, Top = y, Width = w, Height = 32, FlatStyle = FlatStyle.Flat, BackColor = c, ForeColor = Color.White, Cursor = Cursors.Hand }; b.FlatAppearance.BorderColor = TM.C(255, 200, 150, 255); Add(b); return b; }
     CheckBox Chk(string t, int x, ref int y) { var c = new DarkCheck { Text = t, Left = x, Top = y, Width = 520, Height = 24, ForeColor = Ink }; Add(c); y += 28; return c; }
     ComboBox Combo(int x, int y, int w, string[] items) { var c = new DarkCombo { Left = x, Top = y, Width = w, DropDownStyle = ComboBoxStyle.DropDownList }; c.Items.AddRange(items); Add(c); return c; }

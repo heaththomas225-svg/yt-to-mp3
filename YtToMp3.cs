@@ -37,7 +37,7 @@ class Job
 partial class App : Form
 {
     // ---- Auto-update settings ----
-    const string Version = "3.28.0";
+    const string Version = "3.28.1";
     // Plain-text manifest: line 1 = newest version, line 2 = direct exe download URL.
     const string UpdateManifestUrl = "https://raw.githubusercontent.com/heaththomas225-svg/yt-to-mp3/main/version.txt";
 
@@ -233,8 +233,8 @@ partial class App : Form
         StyleChk(playlist, "Whole playlists", 458, 246, 166);
         tip.SetToolTip(playlist, "If a link points at a playlist, convert every video in it.");
 
-        StyleChk(openDone, "Open folder when done", 16, 279, 214);
-        StyleChk(animate, "Animated background", 242, 279, 214);
+        StyleChk(openDone, "Open folder when done", 16, 279, 236);
+        StyleChk(animate, "Animated background", 258, 279, 236);
         openDone.Checked = true; animate.Checked = true;
 
         StyleBtn(mastBtn, TM.C(255, 90, 36, 160)); mastBtn.Text = "Mastering: OFF";

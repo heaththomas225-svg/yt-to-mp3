@@ -2,6 +2,12 @@
 
 What changed in each version of **Purphex**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.28.1  Softer buttons in the studio, bigger writing in Settings, every label fits
+
+- Softer studio buttons. Every button in the studio has rounder corners, a soft shade from top to bottom and a thin light on its top edge, like the buttons of the other windows. The glow, the hover and the colours of your theme are unchanged.
+- Bigger writing in Settings: the explanations under each setting are about a tenth bigger, and the frame-rate list is wide enough to read in full.
+- Every button label fits: a label that is too long for its button is written a little smaller instead of wrapping or being cut off (the CHANGELOG and BROWSE buttons of the main window showed this), and the two tick boxes under the trim boxes are wide enough for their words.
+
 ## 3.28.0  Rounded buttons in every window, edition codes, Help for editions
 
 - Rounded buttons everywhere. Every ordinary window (Settings, Help, the converter, What's new, the update card, the preview windows) has the new button: rounded corners, a soft shade, a thin lit edge, a glow under the mouse and a press that sinks. The writing is white like on the other buttons and turns dark only on a light colour.

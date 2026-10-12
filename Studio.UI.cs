@@ -379,14 +379,16 @@ partial class StudioForm : Form
     {
         Color c = style == 1 ? Violet : (style == 3 ? TM.C(255, 150, 40, 80) : (style == 4 ? TM.C(255, 150, 70, 230) : BtnC));
         if (ht > 0) c = Color.FromArgb(Math.Min(255, c.R + (int)(28 * ht)), Math.Min(255, c.G + (int)(22 * ht)), Math.Min(255, c.B + (int)(30 * ht)));
+        float rad = Math.Min(10f, Math.Max(6f, r.Height * 0.3f));   // softer corners on every button
         if (style == 2)
         {
-            using (var p = RR(r, 8)) using (var br = new LinearGradientBrush(r, Color.FromArgb(Math.Min(255, Violet.R + 32), Math.Min(255, Violet.G + 8), Math.Min(255, Violet.B + 28)), Accent2, 0f)) g.FillPath(br, p);
-            if (ht > 0) FillRR(g, Color.FromArgb((int)(40 * ht), 255, 255, 255), r, 8);
+            using (var p = RR(r, rad)) using (var br = new LinearGradientBrush(r, Color.FromArgb(Math.Min(255, Violet.R + 32), Math.Min(255, Violet.G + 8), Math.Min(255, Violet.B + 28)), Accent2, 0f)) g.FillPath(br, p);
+            if (ht > 0) FillRR(g, Color.FromArgb((int)(40 * ht), 255, 255, 255), r, rad);
         }
-        else FillRR(g, c, r, 6);
-        StrokeRR(g, TM.C(style == 2 ? 200 : 110, 200, 150, 255), r, style == 2 ? 8 : 6, 1);
-        if (style == 4) Glow(g, Accent2, r, 8, 0.8f, 3); else if (ht > 0.03f) Glow(g, NeonCyan, r, 8, 0.7f * ht, 3); else if (style == 2) Glow(g, NeonViolet, r, 8, 0.5f, 3);
+        else using (var p = RR(r, rad)) using (var br = new LinearGradientBrush(r, Color.FromArgb(c.A, Math.Min(255, (int)(c.R * 1.07f) + 2), Math.Min(255, (int)(c.G * 1.07f) + 2), Math.Min(255, (int)(c.B * 1.07f) + 2)), Color.FromArgb(c.A, (int)(c.R * 0.93f), (int)(c.G * 0.93f), (int)(c.B * 0.93f)), 90f)) g.FillPath(br, p);   // a soft shade from top to bottom
+        StrokeRR(g, TM.C(style == 2 ? 200 : 110, 200, 150, 255), r, rad, 1);
+        if (r.Width > rad * 3) using (var hl = new Pen(Color.FromArgb(style == 2 ? 70 : 40, 255, 255, 255), 1f)) g.DrawLine(hl, r.X + rad, r.Y + 1.5f, r.Right - rad, r.Y + 1.5f);   // the light catching the top edge
+        if (style == 4) Glow(g, Accent2, r, rad, 0.8f, 3); else if (ht > 0.03f) Glow(g, NeonCyan, r, rad, 0.7f * ht, 3); else if (style == 2) Glow(g, NeonViolet, r, rad, 0.5f, 3);
         bool bdt = true; float fpx = px, avail = r.Width - 10;   // a label that is too wide for its button gets a smaller size instead of being cut off
         if (shown.Length * fpx * 0.55f > avail * 0.7f) { while (fpx > 7f && g.MeasureString(shown, GfxCache.Exact(GfxCache.Grow(fpx), bdt)).Width > avail) fpx -= 0.5f; }
         Color lab = style == 2 ? Contrast.LabelOn(Color.FromArgb(Math.Min(255, Violet.R + 32), Math.Min(255, Violet.G + 8), Math.Min(255, Violet.B + 28)), Accent2) : Contrast.LabelOn(c);   // white, or dark on a light button

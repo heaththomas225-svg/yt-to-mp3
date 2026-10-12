@@ -43,10 +43,13 @@ class PxButton : Button
         }
         Color ink = !Enabled ? Mix(ForeColor, baseC, 0.55f) : (Contrast.Ratio(Color.White, baseC) >= 3.0 ? Color.White : Contrast.LabelOn(baseC));   // white like every other button, unless the colour is too light for it
         if (ForeColor.GetBrightness() < 0.5f && Contrast.Ratio(ForeColor, baseC) >= 4.5) ink = ForeColor;   // a button that deliberately has dark writing on a light colour
-        using (var sf = new StringFormat { Alignment = ContentAlignmentToH(TextAlign), LineAlignment = ContentAlignmentToV(TextAlign), Trimming = StringTrimming.EllipsisCharacter, HotkeyPrefix = System.Drawing.Text.HotkeyPrefix.None })
+        bool multi = Text.IndexOf('\n') >= 0;   // one line unless the text itself has more
+        using (var sf = new StringFormat { Alignment = ContentAlignmentToH(TextAlign), LineAlignment = ContentAlignmentToV(TextAlign), Trimming = StringTrimming.EllipsisCharacter, HotkeyPrefix = System.Drawing.Text.HotkeyPrefix.None, FormatFlags = multi ? 0 : StringFormatFlags.NoWrap })
         using (var tb = new SolidBrush(ink))
         {
-            var tr = new RectangleF(Padding.Left + 6, 1 + (down ? 1 : 0), Width - Padding.Horizontal - 12, Height - 2); g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit; g.DrawString(Text, Font, tb, tr, sf);
+            var tr = new RectangleF(Padding.Left + 4, 1 + (down ? 1 : 0), Width - Padding.Horizontal - 8, Height - 2); g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
+            Font f = Font; bool own = false; if (!multi && Text.Length > 0) { float w = g.MeasureString(Text, f, 10000, sf).Width; float size = f.Size; while (w > tr.Width && size > 7f) { size -= 0.5f; if (own) f.Dispose(); f = new Font(Font.FontFamily, size, Font.Style); own = true; w = g.MeasureString(Text, f, 10000, sf).Width; } }   // a label too long for its button is written a little smaller instead of being cut
+            g.DrawString(Text, f, tb, tr, sf); if (own) f.Dispose();
         }
         if (Focused && ShowFocusCues) using (var pen = new Pen(Color.FromArgb(150, 255, 255, 255), 1f) { DashStyle = DashStyle.Dot }) using (var fp = Round(new RectangleF(4, 4, Width - 8, Height - 8), Math.Max(2, rad - 3))) g.DrawPath(pen, fp);
     }

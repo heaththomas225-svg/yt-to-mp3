@@ -7,10 +7,15 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.28.0";
+    public const string Latest = "3.28.1";
 
     public const string Text =
-@"3.28.0  Rounded buttons in every window, edition codes, Help for editions
+@"3.28.1  Softer buttons in the studio, bigger writing in Settings, every label fits
+ + Softer studio buttons. Every button in the studio has rounder corners, a soft shade from top to bottom and a thin light on its top edge, like the buttons of the other windows. The glow, the hover and the colours of your theme are unchanged.
+ + Bigger writing in Settings: the explanations under each setting are about a tenth bigger, and the frame-rate list is wide enough to read in full.
+ + Every button label fits: a label that is too long for its button is written a little smaller instead of wrapping or being cut off (the CHANGELOG and BROWSE buttons of the main window showed this), and the two tick boxes under the trim boxes are wide enough for their words.
+
+3.28.0  Rounded buttons in every window, edition codes, Help for editions
  + Rounded buttons everywhere. Every ordinary window (Settings, Help, the converter, What's new, the update card, the preview windows) has the new button: rounded corners, a soft shade, a thin lit edge, a glow under the mouse and a press that sinks. The writing is white like on the other buttons and turns dark only on a light colour.
  + Edition codes. Every paid edition has a code (PX-XXXX-XXXX-XXXX) that is linked to one place at a time: your website account or your Discord. Settings > Account has a new button, EDITION CODES: UNLINK OR REDEEM, that opens the website page where you see your codes, unlink one so it can be used on another account, or redeem a code. Editions given by the Purphex team cannot be moved.
  + Help has a new topic, Editions, edition codes and linking this PC, that every edition can read: what each edition has, how to unlock a PC (and that one account can have 3), and how codes work.

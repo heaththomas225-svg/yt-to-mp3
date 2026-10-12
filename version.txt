@@ -1,4 +1,4 @@
-3.28.0
+3.28.1
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Rounded buttons in every window, edition codes in Settings, Help for editions
-sha256=d7970dbd6dbb9db962620e990b6811bec379a08efbb28c257e9d6b1c0a0c6be1
+Softer studio buttons, bigger writing in Settings, every label fits
+sha256=71a57eb1d9c5354b034c17be21f4818508c8ceb8dc975b1d73eedc6d9a08ed80

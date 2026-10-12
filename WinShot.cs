@@ -18,6 +18,7 @@ static class WS
         try
         {
             Application.EnableVisualStyles(); var app = (App)Activator.CreateInstance(typeof(App), true);
+            app.StartPosition = FormStartPosition.Manual; app.Location = new Point(20, 20); app.Show(); Snap(app, Path.Combine(outDir, "main.png")); app.Hide();
             var st = new SettingsForm(app); st.StartPosition = FormStartPosition.Manual; st.Location = new Point(40, 40); st.Show();
             var showPg = typeof(SettingsForm).GetMethod("ShowPage", BF); for (int p = 0; p < 8; p++) { try { showPg.Invoke(st, new object[] { p }); } catch { break; } Snap(st, Path.Combine(outDir, "settings-" + p + ".png")); }
             var hf = new HelpForm(id => true, id => { }, "editions"); hf.StartPosition = FormStartPosition.Manual; hf.Location = new Point(30, 30); hf.Show(); Snap(hf, Path.Combine(outDir, "help.png")); hf.Close();
