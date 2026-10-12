@@ -22,7 +22,7 @@ static class WS
             var st = new SettingsForm(app); st.StartPosition = FormStartPosition.Manual; st.Location = new Point(40, 40); st.Show();
             var showPg = typeof(SettingsForm).GetMethod("ShowPage", BF); st.ClientSize = new Size(args.Length > 1 ? int.Parse(args[1]) : st.ClientSize.Width, args.Length > 2 ? int.Parse(args[2]) : st.ClientSize.Height); Pump(200); for (int p = 0; p < 8; p++) { try { showPg.Invoke(st, new object[] { p }); } catch { break; } Snap(st, Path.Combine(outDir, "settings-" + p + ".png")); }
             var hf = new HelpForm(id => true, id => { }, "editions"); hf.StartPosition = FormStartPosition.Manual; hf.Location = new Point(30, 30); hf.Show(); Snap(hf, Path.Combine(outDir, "help.png")); hf.Close();
-            st.Close(); Console.WriteLine("saved");
+            Edition.Note = "This PC is linked, but the website cannot make licences yet (its set-up is not finished). Press CHECK AGAIN in a little while. Another long sentence so the note needs more room than the box first had."; typeof(SettingsForm).GetMethod("RefreshAccount", BF).Invoke(st, null); showPg.Invoke(st, new object[] { 7 }); Snap(st, Path.Combine(outDir, "account-note.png")); st.Close(); Console.WriteLine("saved");
         }
         finally { try { Directory.Delete(work, true); } catch { } try { if (realBytes != null) File.WriteAllBytes(realSet, realBytes); } catch { } }
         Environment.Exit(0);

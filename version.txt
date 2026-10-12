@@ -1,4 +1,4 @@
-3.28.2
+3.28.3
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Linking a PC cannot get lost, Settings always fits the screen
-sha256=2497e7661893eeaa01e57bc2b262e19c03301cbc923668496713fe65123771e7
+Settings text is never cropped or written over
+sha256=37e6aef8665c133b7fe81b45a616a16c482fefb1281ca7efc6cd1d545542baca

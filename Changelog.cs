@@ -7,10 +7,13 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.28.2";
+    public const string Latest = "3.28.3";
 
     public const string Text =
-@"3.28.2  Linking a PC cannot get lost, Settings always fits the screen
+@"3.28.3  Settings text is never cropped or written over
+ + Settings measures its explanations in the font they really get on your PC and gives each one the height it needs, moving everything under it down. Before, a long message on the Account page (for example about linking) could run into the buttons below or be cut off.
+
+3.28.2  Linking a PC cannot get lost, Settings always fits the screen
  + Linking a PC no longer gets lost. If the website made the link but could not give a licence yet, the PC now stays linked and the Account page says so (before, the website showed 1 of 3 PCs while the app said it was not linked). CHECK AGAIN asks the website again, and if the answer to the link never reached the app it can be collected again.
  + Settings is never wider than the writing: the window cannot be made narrower than its pages (so text no longer runs off to the right behind a scroll bar), it always fits on your screen, and the explanations are brighter and easier to read.
 

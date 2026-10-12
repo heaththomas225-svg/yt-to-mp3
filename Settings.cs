@@ -98,7 +98,7 @@ class SettingsForm : Form
         var reset = Btn("Reset appearance and audio", 208, y, 244, TM.C(255, 150, 40, 80)); reset.Click += (s, e) => ResetAll();
         NewPage("Account", ref y); accountIdx = pages.Count - 1; Header("Your edition", ref y);
         accLine = new Label { Left = 20, Top = y, Width = 540, Height = 30, Font = new Font("Segoe UI Semibold", 14f), ForeColor = Head, Tag = "nocaps" }; Add(accLine); y += 36;
-        accSub = new Label { Left = 20, Top = y, Width = 540, Height = 44, ForeColor = Dim, Tag = "nocaps" }; Add(accSub); y += 50;
+        accSub = new Label { Left = 20, Top = y, Width = 540, Height = 50, ForeColor = Dim, Tag = "nocaps" }; Add(accSub); y += 50;
         linkBtn = Btn("LINK THIS PC", 20, y, 180, TM.C(255, 140, 60, 220)); linkBtn.Tag = "nocaps"; linkBtn.Click += (s, e) => LinkClick();
         var seeB = Btn("See the editions", 208, y, 170, TM.C(255, 70, 40, 150)); seeB.Click += (s, e) => Edition.OpenEditions();
         var chkB = Btn("Check again", 386, y, 140, TM.C(255, 70, 40, 120)); chkB.Click += (s, e) => CheckAgain(); y += 44;
@@ -145,7 +145,7 @@ class SettingsForm : Form
             else if (t == Tier.Fantasy) sub += " Yours for life.";
             else if (t == Tier.Free) sub += " The account has no paid edition (or this PC could not reach the website for a long time).";
         }
-        if (Edition.Note.Length > 0) sub += "\n" + Edition.Note; accSub.Text = sub; linkBtn.Text = Edition.Linking ? "CANCEL LINKING" : (Edition.Linked ? "UNLINK THIS PC" : "LINK THIS PC");
+        if (Edition.Note.Length > 0) sub += "\n" + Edition.Note; accSub.Text = sub; if (shown != null && accountIdx > 0 && shown == pages[accountIdx]) Reflow(shown); linkBtn.Text = Edition.Linking ? "CANCEL LINKING" : (Edition.Linked ? "UNLINK THIS PC" : "LINK THIS PC");
     }
     void Say(string s) { try { if (!IsDisposed && IsHandleCreated) BeginInvoke(new Action(() => { if (accMsg != null) accMsg.Text = s; RefreshAccount(); })); } catch { } }
     void LinkClick()
@@ -196,7 +196,21 @@ class SettingsForm : Form
     void ShowPage(int i)
     {
         for (int k = 0; k < pages.Count; k++) { pages[k].Visible = k == i; sideBtns[k].BackColor = k == i ? TM.C(255, 140, 60, 220) : TM.C(255, 40, 22, 74); }
-        shown = pages[i]; shown.AutoScrollPosition = new Point(0, 0);
+        shown = pages[i]; shown.AutoScrollPosition = new Point(0, 0); Reflow(shown);
+    }
+    // The explanations are written in the font they really get (it differs between PCs and text sizes), so every long label is measured and made as tall as its writing needs; what is under it moves down. Nothing is cut off or written over.
+    readonly System.Collections.Generic.Dictionary<Control, int[]> origPos = new System.Collections.Generic.Dictionary<Control, int[]>(); readonly System.Collections.Generic.Dictionary<Panel, int> origScroll = new System.Collections.Generic.Dictionary<Panel, int>();
+    void Reflow(Panel p)
+    {
+        if (p == null || p.Controls.Count == 0) return; foreach (Control c in p.Controls) if (!origPos.ContainsKey(c)) origPos[c] = new[] { c.Top, c.Height };
+        if (!origScroll.ContainsKey(p)) origScroll[p] = p.AutoScrollMinSize.Height; var list = new System.Collections.Generic.List<Control>(); foreach (Control c in p.Controls) list.Add(c); list.Sort((a, b) => origPos[a][0].CompareTo(origPos[b][0]));
+        int extra = 0;
+        foreach (var c in list)
+        {
+            int ot = origPos[c][0], oh = origPos[c][1]; c.Top = ot + extra; var l = c as Label;
+            if (l != null && l.Width >= 300 && l.Text != null && l.Text.Length > 30) { int need = TextRenderer.MeasureText(l.Text, l.Font, new Size(l.Width, 10000), TextFormatFlags.WordBreak | TextFormatFlags.NoPadding).Height + 8; int nh = Math.Max(oh, need); l.Height = nh; extra += nh - oh; }
+        }
+        p.AutoScrollMinSize = new Size(560, origScroll[p] + extra);
     }
     // everything already applies the moment you change it; SAVE writes it down and closes the window
     void SaveClose() { Prefs.Changed(); Close(); }
