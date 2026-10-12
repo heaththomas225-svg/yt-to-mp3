@@ -17,7 +17,8 @@ using System.Windows.Forms;
 //   csc /main:GR ... GuideRec.cs      run: GuideRec.exe <output folder> [sceneNumber to record alone]
 static class GR
 {
-    const int W = 1600, H = 900, FPS = 30; static readonly BindingFlags BF = BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Public;
+    const int W = 1280, H = 720, FPS = 30; // (the program is drawn at the size of the video: nothing is scaled down, and a picture is quick enough for 30 a second)
+     static readonly BindingFlags BF = BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Public;
     static StudioForm sf; static App app; static StudioEngine eng; static Process ff; static Stream ffIn; static Stopwatch clock = Stopwatch.StartNew(); static long written; static Bitmap canvas = new Bitmap(W, H, PixelFormat.Format32bppArgb); static byte[] raw = new byte[W * H * 4];
     static string capTitle = "", capLine = ""; static double capAt = -10, capOff = -10; static PointF cur = new PointF(800, 450); static bool curShow; static double rippleAt = -10; static PointF ripplePt;
     static string tmp, ffm, ffp; static HashSet<int> only = new HashSet<int>(); static int sceneNo;
@@ -31,9 +32,10 @@ static class GR
     static string FindTool(string n) { try { string root = Path.Combine(StudioEnv.DataDir, "tools", "ffmpeg"); if (Directory.Exists(root)) foreach (var f in Directory.GetFiles(root, n, SearchOption.AllDirectories)) return f; } catch { } return null; }
 
     // ---------------------------------------------------------------- the recording
+    static Bitmap shotBmp;
     static Bitmap Shot()
     {
-        sf.Invalidate(); sf.Update(); Application.DoEvents(); var bmp = new Bitmap(sf.ClientSize.Width, sf.ClientSize.Height, PixelFormat.Format32bppPArgb);
+        if (shotBmp == null || shotBmp.Width != sf.ClientSize.Width || shotBmp.Height != sf.ClientSize.Height) { if (shotBmp != null) shotBmp.Dispose(); shotBmp = new Bitmap(sf.ClientSize.Width, sf.ClientSize.Height, PixelFormat.Format32bppPArgb); } var bmp = shotBmp;
         using (var g = Graphics.FromImage(bmp)) typeof(StudioForm).GetMethod("PaintAll", BF).Invoke(sf, new object[] { new PaintEventArgs(g, new Rectangle(Point.Empty, sf.ClientSize)) }); return bmp;
     }
     // what is on the screen at this moment, in the shape of the video; the pointer, the ripple of a click and the caption are drawn over it
@@ -41,8 +43,8 @@ static class GR
     {
         using (var g = Graphics.FromImage(canvas))
         {
-            g.SmoothingMode = SmoothingMode.AntiAlias; g.InterpolationMode = InterpolationMode.HighQualityBilinear; g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit; g.Clear(Color.Black);
-            if (shot != null) { double sc = Math.Min((double)W / shot.Width, (double)H / shot.Height); float w = (float)(shot.Width * sc), h = (float)(shot.Height * sc); g.DrawImage(shot, (W - w) / 2f, (H - h) / 2f, w, h); }
+            g.SmoothingMode = SmoothingMode.AntiAlias; g.InterpolationMode = InterpolationMode.HighQualityBilinear; g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit; if (shot == null) g.Clear(Color.Black);
+            if (shot != null) { if (shot.Width == W && shot.Height == H) { g.CompositingMode = CompositingMode.SourceCopy; g.DrawImageUnscaled(shot, 0, 0); g.CompositingMode = CompositingMode.SourceOver; } else { double sc = Math.Min((double)W / shot.Width, (double)H / shot.Height); float w = (float)(shot.Width * sc), h = (float)(shot.Height * sc); g.DrawImage(shot, (W - w) / 2f, (H - h) / 2f, w, h); } }
             double t = Now;
             if (t - rippleAt < 0.5) { double k = (t - rippleAt) / 0.5; using (var pen = new Pen(Color.FromArgb((int)(220 * (1 - k)), 0, 229, 255), 3f)) g.DrawEllipse(pen, ripplePt.X - 10 - (float)(30 * k), ripplePt.Y - 10 - (float)(30 * k), 20 + (float)(60 * k), 20 + (float)(60 * k)); }
             if (curShow) { var pts = new[] { new PointF(cur.X, cur.Y), new PointF(cur.X, cur.Y + 22), new PointF(cur.X + 6, cur.Y + 17), new PointF(cur.X + 11, cur.Y + 27), new PointF(cur.X + 15, cur.Y + 25), new PointF(cur.X + 10, cur.Y + 16), new PointF(cur.X + 17, cur.Y + 16) }; using (var b = new SolidBrush(Color.White)) g.FillPolygon(b, pts); using (var pen = new Pen(Color.Black, 1.6f) { LineJoin = LineJoin.Round }) g.DrawPolygon(pen, pts); }
@@ -60,13 +62,13 @@ static class GR
         }
     }
     // one frame now; when the picture took longer than a frame, the same one is written for the frames that were missed (so the speed is always real)
-    static bool keepToast;
+    static Bitmap reuseShot; static bool shotErr; static bool keepToast; static long rendered; static double renderMs, composeMs, writeMs;
     static void Grab(Func<Bitmap> src)
     {
         if (!keepToast && sf != null) { try { SetF("toast", ""); } catch { } }   // the notes of the program about the sound card of this PC are not part of the video
-        long idx = (long)(Now * FPS); if (idx < written) return; Bitmap shot = null; try { shot = src(); } catch { } Compose(shot); if (shot != null) shot.Dispose();
+        long idx = (long)(Now * FPS); if (idx < written) return; double q0 = Now; Bitmap shot = null; try { shot = src(); } catch (Exception ex) { if (!shotErr) { shotErr = true; var ie = ex.InnerException ?? ex; Console.WriteLine("  (a picture failed: " + ie.GetType().Name + ": " + ie.Message + " | " + (ie.StackTrace ?? "").Replace("\r", "").Replace("\n", " | ") + ")"); } } double q1 = Now; Compose(shot); if (shot != null && shot != shotBmp && shot != reuseShot) shot.Dispose(); double q2 = Now; rendered++; renderMs += q1 - q0; composeMs += q2 - q1;
         var bd = canvas.LockBits(new Rectangle(0, 0, W, H), ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb); try { Marshal.Copy(bd.Scan0, raw, 0, raw.Length); } finally { canvas.UnlockBits(bd); }
-        for (; written <= idx; written++) { try { ffIn.Write(raw, 0, raw.Length); } catch { } }
+        double w0 = Now; for (; written <= idx; written++) { try { ffIn.Write(raw, 0, raw.Length); } catch { } } writeMs += Now - w0;
     }
     static Func<Bitmap> source;
     static void Run(double sec, Action perFrame = null) { double until = Now + sec; while (Now < until) { if (perFrame != null) perFrame(); Application.DoEvents(); Grab(source); Thread.Sleep(1); } }
@@ -88,7 +90,8 @@ static class GR
         var r = Target(label); if (r.IsEmpty) { Console.WriteLine("  (no button: " + label + ")"); return false; }
         var p = Centre(r); Move(p, glide); var r2 = Target(label); if (!r2.IsEmpty && Centre(r2) != p) { p = Centre(r2); Move(p, 0.2); } rippleAt = Now; ripplePt = p; Ev("OnMouseDown", MouseButtons.Left, 1, (int)p.X, (int)p.Y); Run(0.08); Ev("OnMouseUp", MouseButtons.Left, 1, (int)p.X, (int)p.Y); Run(after); return true;
     }
-    static void Scene(int n, string name) { sceneNo = n; Console.WriteLine("scene " + n + ": " + name + "  @" + Now.ToString("0.0") + "s"); }
+    static long lastR, lastW;
+    static void Scene(int n, string name) { if (written > lastW) Console.WriteLine("   (the scene before: " + (rendered - lastR) + " different pictures in " + (written - lastW) + " frames = " + ((rendered - lastR) * 100 / Math.Max(1, written - lastW)) + "%)"); lastR = rendered; lastW = written; sceneNo = n; Console.WriteLine("scene " + n + ": " + name + "  @" + Now.ToString("0.0") + "s"); }
     static bool On(int n) { return only.Count == 0 || only.Contains(n); }
     static void Log(string m) { Console.WriteLine("    " + m + "  @" + Now.ToString("0.0") + "s"); }
     static void Do(int n, Action a) { if (!On(n)) return; try { a(); } catch (Exception ex) { Console.WriteLine("SCENE " + n + " FAILED: " + ex.GetType().Name + ": " + ex.Message + "\n" + ex.StackTrace); Hush(); curShow = false; } }
@@ -117,19 +120,22 @@ static class GR
         ffm = FindTool("ffmpeg.exe"); ffp = FindTool("ffprobe.exe"); if (ffm == null) { Console.WriteLine("ffmpeg is needed"); return; } StudioEnv.Ffmpeg = () => ffm; StudioEnv.Ffprobe = () => ffp;
         tmp = Path.Combine(Path.GetTempPath(), "purphex_guide_" + Guid.NewGuid().ToString("N").Substring(0, 8)); Directory.CreateDirectory(tmp); StudioEnv.DataDir = Path.Combine(tmp, "appdata"); Directory.CreateDirectory(StudioEnv.DataDir);
         string videoOut = Path.Combine(outDir, "guide-silent.mp4");
-        ff = Process.Start(new ProcessStartInfo(ffm, "-hide_banner -loglevel error -y -f rawvideo -pix_fmt bgra -s " + W + "x" + H + " -r " + FPS + " -i - -vf scale=1280:720:flags=lanczos -c:v libx264 -preset medium -crf 24 -pix_fmt yuv420p -movflags +faststart \"" + videoOut + "\"") { UseShellExecute = false, RedirectStandardInput = true, CreateNoWindow = true });
+        ff = Process.Start(new ProcessStartInfo(ffm, "-hide_banner -loglevel error -y -f rawvideo -pix_fmt bgra -s " + W + "x" + H + " -r " + FPS + " -i - -c:v libx264 -preset veryfast -crf 12 -pix_fmt yuv420p \"" + videoOut + "\"") { UseShellExecute = false, RedirectStandardInput = true, CreateNoWindow = true });
+        try { ff.PriorityClass = ProcessPriorityClass.BelowNormal; Process.GetCurrentProcess().PriorityClass = ProcessPriorityClass.AboveNormal; System.Runtime.GCSettings.LatencyMode = System.Runtime.GCLatencyMode.SustainedLowLatency; } catch { }
         ffIn = ff.StandardInput.BaseStream;
         Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException); Application.ThreadException += (se, ee) => Console.WriteLine("  thread exception: " + ee.Exception.GetType().Name + ": " + ee.Exception.Message + " @ " + (ee.Exception.StackTrace ?? "").Split('\n')[0]);
-        Application.EnableVisualStyles(); Edition.Override = Tier.Fantasy; EmojiSprites.Disabled = false; StudioForm.VideoNoOsFull = true; Prefs.OutVol = 0;
+        Application.EnableVisualStyles(); Edition.Override = Tier.Fantasy; EmojiSprites.Disabled = false; StudioForm.VideoNoOsFull = true; StudioForm.NoWindowPaint = true; Prefs.OutVol = 0;
         app = (App)Activator.CreateInstance(typeof(App), true); eng = app.StudioEng; ProjectLibrary.ProfileName = "Neo Wolf"; ProfileStore.Bio = ""; CommunityPresets.BaseUrl = "http://127.0.0.1:1";
         eng.Tracks.Add(StudioEngine.NewTrack("Lead vocal", "vocal", Song(70, 2))); eng.Tracks.Add(StudioEngine.NewTrack("Beat", "beat", Song(70, 0))); eng.Tracks.Add(StudioEngine.NewTrack("Bass", "audio", Song(70, 1)));
         foreach (var id in new[] { "eq", "reverb", "comp" }) { var fx = FxRegistry.Create(id); fx.Prepare(44100); eng.Tracks[0].Fx.Add(fx); }
         sf = new StudioForm(app); sf.ClientSize = new Size(W, H); sf.Show(); Stealth(sf); Pump(600); Themes.Apply(0); sf.msgAskHook = p => "Love this one! Want to make a track together? \U0001F525"; SetF("askHook", (Func<string, bool>)(t => true)); sf.songNoteHook = x => { };
+        foreach (var em in new[] { "\U0001F525", "\U0001F3A7", "\u2764\uFE0F", "\U0001F64C" }) EmojiSprites.Get(em); { var eu = DateTime.Now.AddSeconds(25); while (DateTime.Now < eu && !EmojiSprites.Known("\U0001F525")) Pump(100); Console.WriteLine("colour emoji ready: " + EmojiSprites.Known("\U0001F525")); }
         source = Shot; clock.Restart(); written = 0; Scenes();
         try { if (web != null && !web.HasExited) web.Kill(); } catch { }
         try { ffIn.Close(); ff.WaitForExit(120000); } catch { }
+        Console.WriteLine("render stats: " + rendered + " pictures for " + written + " frames; per picture: paint " + (renderMs / Math.Max(1, rendered) * 1000).ToString("0") + " ms, compose " + (composeMs / Math.Max(1, rendered) * 1000).ToString("0") + " ms, write " + (writeMs / Math.Max(1, rendered) * 1000).ToString("0") + " ms");
         double total = written / (double)FPS; string bed = Path.Combine(tmp, "bed.wav"); { var a0 = Song(70, 0); var a1 = Song(70, 1); var a2 = Song(70, 2); int n = a0.Length; var l = new float[n]; var r = new float[n]; for (int i = 0; i < n; i++) { float v = (a0.L[i] * 0.8f + a1.L[i] * 0.75f + a2.L[i] * 0.7f) * 0.55f; l[i] = v; r[i] = (a0.R[i] * 0.8f + a1.R[i] * 0.75f + a2.R[i] * 0.7f) * 0.55f; } using (var ws = new WavStream(bed, 44100, 16)) ws.Write(l, r, 0, n); }
-        string finalOut = Path.Combine(outDir, "guide.mp4"); string me2 = Ff("-i \"" + videoOut + "\" -stream_loop 6 -i \"" + bed + "\" -t " + total.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) + " -c:v copy -c:a aac -b:a 160k -af \"afade=t=in:d=2,afade=t=out:st=" + Math.Max(0, total - 3).ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) + ":d=3\" -shortest -movflags +faststart \"" + finalOut + "\"", 600000); if (me2.Length > 0) Console.WriteLine(me2);
+        string finalOut = Path.Combine(outDir, "guide.mp4"); string me2 = Ff("-i \"" + videoOut + "\" -stream_loop 6 -i \"" + bed + "\" -t " + total.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) + " -c:v libx264 -preset slow -crf 19 -tune animation -pix_fmt yuv420p -c:a aac -b:a 160k -af \"afade=t=in:d=2,afade=t=out:st=" + Math.Max(0, total - 3).ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) + ":d=3\" -shortest -movflags +faststart \"" + finalOut + "\"", 600000); if (me2.Length > 0) Console.WriteLine(me2);
         Console.WriteLine("=== recorded " + written + " frames (" + total.ToString("0.0") + " s) to " + finalOut); Environment.Exit(0);
     }
     static void Pump(int ms) { var end = DateTime.Now.AddMilliseconds(ms); while (DateTime.Now < end) { Application.DoEvents(); Thread.Sleep(10); } }
@@ -137,7 +143,7 @@ static class GR
     // ---------------------------------------------------------------- the story
     static void TitleCard(string big, string small, double sec)
     {
-        Func<Bitmap> card = () => { var s = new Bitmap(W, H, PixelFormat.Format32bppPArgb); using (var g = Graphics.FromImage(s)) { g.SmoothingMode = SmoothingMode.AntiAlias; g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit; using (var br = new LinearGradientBrush(new Rectangle(0, 0, W, H), Color.FromArgb(255, 20, 8, 50), Color.FromArgb(255, 4, 2, 12), 60f)) g.FillRectangle(br, 0, 0, W, H);
+        Func<Bitmap> card = () => { const int W = 1600, H = 900; var s = new Bitmap(W, H, PixelFormat.Format32bppPArgb); using (var g = Graphics.FromImage(s)) { g.SmoothingMode = SmoothingMode.AntiAlias; g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit; using (var br = new LinearGradientBrush(new Rectangle(0, 0, W, H), Color.FromArgb(255, 20, 8, 50), Color.FromArgb(255, 4, 2, 12), 60f)) g.FillRectangle(br, 0, 0, W, H);
                 double ph = Now * 1.2; float cx = W / 2f, cy = 300; var hex = new PointF[6]; for (int i = 0; i < 6; i++) hex[i] = new PointF(cx + (float)Math.Cos(i * Math.PI / 3) * 150, cy + (float)Math.Sin(i * Math.PI / 3) * 150);
                 for (int i = 4; i >= 1; i--) using (var pen = new Pen(Color.FromArgb(34, 255, 43, 214), i * 9f) { LineJoin = LineJoin.Round }) g.DrawPolygon(pen, hex); using (var pen = new Pen(Color.FromArgb(255, 0, 229, 255), 6f) { LineJoin = LineJoin.Round }) g.DrawPolygon(pen, hex);
                 var wave = new List<PointF>(); for (int x = -100; x <= 100; x += 4) wave.Add(new PointF(cx + x, cy + (float)(Math.Sin(x * 0.12 + ph * 4) * 28 * Math.Exp(-x * x / 5200.0))));
@@ -155,8 +161,8 @@ static class GR
     static void ConverterScene()
     {
         Scene(2, "converter"); app.Show(); Stealth(app); app.ClientSize = new Size(560, 660); try { ((TextBox)typeof(App).GetField("outDir", BF).GetValue(app)).Text = @"D:\Music\Purphex"; ((TextBox)typeof(App).GetField("links", BF).GetValue(app)).Text = "lofi beats to study to"; } catch { } Pump(600);
-        var keep = source; source = () => { var b = new Bitmap(app.Width, app.Height); app.DrawToBitmap(b, new Rectangle(Point.Empty, b.Size)); var c = new Bitmap(W, H); using (var g = Graphics.FromImage(c)) { using (var br = new LinearGradientBrush(new Rectangle(0, 0, W, H), Color.FromArgb(255, 20, 8, 50), Color.FromArgb(255, 4, 2, 12), 60f)) g.FillRectangle(br, 0, 0, W, H); g.InterpolationMode = InterpolationMode.HighQualityBicubic; float sc = 860f / b.Height; g.DrawImage(b, (W - b.Width * sc) / 2f, 20, b.Width * sc, b.Height * sc); } b.Dispose(); return c; };
-        curShow = false; Say("Free: the converter", "Paste a link, press Convert: MP3 or MP4. Split any song into vocals and instrumental with the vocal remover."); Run(6.0); Hush(); Run(0.5); source = keep; app.Hide();
+        var keep = source; source = () => { var b = new Bitmap(app.Width, app.Height); app.DrawToBitmap(b, new Rectangle(Point.Empty, b.Size)); var c = new Bitmap(1600, 900); using (var g = Graphics.FromImage(c)) { using (var br = new LinearGradientBrush(new Rectangle(0, 0, 1600, 900), Color.FromArgb(255, 20, 8, 50), Color.FromArgb(255, 4, 2, 12), 60f)) g.FillRectangle(br, 0, 0, 1600, 900); g.InterpolationMode = InterpolationMode.HighQualityBicubic; float sc = 860f / b.Height; g.DrawImage(b, (1600 - b.Width * sc) / 2f, 20, b.Width * sc, b.Height * sc); } b.Dispose(); return c; };
+        try { var an = (CheckBox)typeof(App).GetField("animate", BF).GetValue(app); an.Checked = false; } catch { } Pump(300); curShow = false; Say("Free: the converter", "Paste a link, press Convert: MP3 or MP4. Split any song into vocals and instrumental with the vocal remover."); Run(6.0); Hush(); Run(0.5); source = keep; app.Hide();
     }
     static void ProjectsScene()
     {
@@ -199,14 +205,15 @@ static class GR
         var sw = new SynthWindow(sfx, null); sw.StartPosition = FormStartPosition.Manual; sw.Show(); Stealth(sw); sw.ClientSize = new Size(W, H); Pump(700); var cv = (Control)typeof(SynthWindow).GetField("canvas", BF).GetValue(sw); var T = typeof(SynthCanvas);
         Action<string, MouseButtons, int, int, int> cev = (name, b, clicks, x, y) => { var p = cv.Location; T.GetMethod(name, BF | BindingFlags.DeclaredOnly).Invoke(cv, new object[] { new MouseEventArgs(b, clicks, x - p.X, y - p.Y, 0) }); };
         Func<string, Rectangle> tip = t => { foreach (var r in (System.Collections.IList)T.GetField("regs", BF).GetValue(cv)) { var tf = r.GetType().GetField("Tip"); if (tf != null && (string)tf.GetValue(r) == t) return (Rectangle)T.GetMethod("ToClient", BF).Invoke(cv, new object[] { (RectangleF)r.GetType().GetField("R").GetValue(r) }); } return Rectangle.Empty; };
-        var keep = source; source = () => { var full = new Bitmap(sw.Width, sw.Height); sw.DrawToBitmap(full, new Rectangle(0, 0, sw.Width, sw.Height)); var pt = sw.PointToScreen(Point.Empty); int dx = pt.X - sw.Left, dy = pt.Y - sw.Top; var b = new Bitmap(sw.ClientSize.Width, sw.ClientSize.Height); using (var gg = Graphics.FromImage(b)) gg.DrawImage(full, -dx, -dy); full.Dispose(); return b; };   // the window without its frame
+        Bitmap pianoPic = null; Control pianoCtl = null; foreach (Control ch in sw.Controls) if (ch != cv && ch.Visible && ch.Top > cv.Top) pianoCtl = ch; if (pianoCtl != null) { pianoPic = new Bitmap(pianoCtl.Width, pianoCtl.Height); pianoCtl.DrawToBitmap(pianoPic, new Rectangle(0, 0, pianoCtl.Width, pianoCtl.Height)); }
+        Console.WriteLine("  canvas " + cv.Left + "," + cv.Top + " " + cv.Width + "x" + cv.Height + "; window client " + sw.ClientSize + "; piano " + (pianoCtl == null ? "none" : pianoCtl.GetType().Name + " " + pianoCtl.Left + "," + pianoCtl.Top + " " + pianoCtl.Width + "x" + pianoCtl.Height)); Bitmap cvBmp = null; Bitmap bassBmp = new Bitmap(sw.ClientSize.Width, sw.ClientSize.Height, PixelFormat.Format32bppPArgb); reuseShot = bassBmp; var keep = source; source = () => { if (cvBmp == null || cvBmp.Width != cv.Width || cvBmp.Height != cv.Height) { if (cvBmp != null) cvBmp.Dispose(); cvBmp = new Bitmap(cv.Width, cv.Height, PixelFormat.Format32bppArgb); } cv.DrawToBitmap(cvBmp, new Rectangle(0, 0, cv.Width, cv.Height)); using (var gg = Graphics.FromImage(bassBmp)) { gg.Clear(Color.FromArgb(255, 13, 7, 26)); gg.DrawImageUnscaled(cvBmp, cv.Left, cv.Top); if (pianoPic != null) gg.DrawImageUnscaled(pianoPic, pianoCtl.Left, pianoCtl.Top); } return bassBmp; };   // the window without its frame, drawn by its own painting
         Action<int, int> mv = (x, y) => cev("OnMouseMove", MouseButtons.None, 0, x, y); cur = new PointF(1200, 300); curShow = true; Run(0.8);
         Say("Bass Lab", "A wavetable synthesizer for bass and leads: oscillators, warp, filters, wobble LFOs and a matrix. Edit it inside Bass Lab, like a real plugin."); Run(3.2);
         Func<string, double, bool> press = (t, after) => { var r = tip(t); if (r.IsEmpty) { Console.WriteLine("  (no control: " + t + ")"); return false; } var p = Centre(r); Move(p, 0.8, mv); rippleAt = Now; ripplePt = p; cev("OnMouseDown", MouseButtons.Left, 1, (int)p.X, (int)p.Y); Run(0.08); cev("OnMouseUp", MouseButtons.Left, 1, (int)p.X, (int)p.Y); Run(after); return true; };
         Hush(); Run(0.3); Say("YOUR SOUNDS (drag n drop)", "The menu button opens the sounds that come with the DAW, the sounds you saved (until you delete them) and the community's."); press("YOUR SOUNDS (drag n drop)", 1.8);
         press("Click to load Slow Wub", 1.6); press("The sounds you saved: they stay until you delete them", 2.0); press("Sounds other people published", 1.6); press("The sounds that come with the DAW", 1.2);
         Hush(); Run(0.3); Say("Save, share, drag and drop", "SAVE CURRENT SOUND, PUBLISH SOUNDS TO COMMUNITY, drag a sound out as a file, drop a file in to add it."); var pub = tip("Publish a sound for everyone to use (you pick which)."); if (!pub.IsEmpty) Move(Centre(pub), 1.0, mv); Run(3.2);
-        try { T.GetMethod("CloseSounds", BF).Invoke(cv, null); } catch { } Run(1.2); Hush(); Run(0.3); source = keep; try { sw.Close(); } catch { } curShow = false;
+        try { T.GetMethod("CloseSounds", BF).Invoke(cv, null); } catch { } Run(1.2); Hush(); Run(0.3); source = keep; reuseShot = null; bassBmp.Dispose(); try { sw.Close(); } catch { } curShow = false;
     }
 
     // ---- a real website with made-up artists, songs, covers, a music video, friends, messages and a collab ----
@@ -275,7 +282,7 @@ static class GR
         WaitUntil(Played, 8.0); Run(3.0); Hush(); Run(0.2); Say("Message an artist about a song", "Write to the artist about the song you just heard."); Click("MESSAGE ABOUT IT", 1.0, 1.6); WaitUntil(() => F<int>("artView") == 1, 5.0); M("StopPreview"); Run(2.4);
         Hush(); Run(0.2); Say("Messages", "Your conversations and friend requests. The number on the ARTISTS button is what you have not read."); Run(4.4);
         Hush(); Run(0.2); Say("Chat while you make music", "The chat window drags anywhere over the DAW."); SetF("artView", 0); LoadTracksKeep(); SetF("selTrack", 0); M("OpenChat", idMia); Run(2.4);
-        var hp = new PointF(1600 - 400 - 24 + 150, 86 + 16); Move(hp, 1.0); rippleAt = Now; ripplePt = hp; Ev("OnMouseDown", MouseButtons.Left, 1, (int)hp.X, (int)hp.Y); for (int i = 1; i <= 22; i++) { Ev("OnMouseMove", MouseButtons.Left, 0, (int)hp.X - i * 26, (int)hp.Y + i * 11); cur = new PointF(hp.X - i * 26, hp.Y + i * 11); Run(0.035); } Ev("OnMouseUp", MouseButtons.Left, 1, (int)cur.X, (int)cur.Y); Run(2.4); SetF("chatOpen", false); Run(0.4);
+        var hp = new PointF(W - 400 - 24 + 150, 86 + 16); Move(hp, 1.0); rippleAt = Now; ripplePt = hp; Ev("OnMouseDown", MouseButtons.Left, 1, (int)hp.X, (int)hp.Y); for (int i = 1; i <= 22; i++) { Ev("OnMouseMove", MouseButtons.Left, 0, (int)hp.X - i * 26, (int)hp.Y + i * 11); cur = new PointF(hp.X - i * 26, hp.Y + i * 11); Run(0.035); } Ev("OnMouseUp", MouseButtons.Left, 1, (int)cur.X, (int)cur.Y); Run(2.4); SetF("chatOpen", false); Run(0.4);
         Hush(); Run(0.2); Say("Collabs", "Invite a friend to make one track together: each of you sends a version and gets the other one."); SetF("tab", 7); M("OpenArtist", idKali); WaitUntil(() => !Target("INVITE TO COLLAB").IsEmpty, 8.0); Run(1.4); var ic = Target("INVITE TO COLLAB"); if (!ic.IsEmpty) Move(Centre(ic), 1.0); Run(2.4);
         SetF("artSel", null); SetF("artView", 2); M("FetchCollabs", true); Run(5.0); Hush(); Run(0.3); SetF("artView", 0); curShow = false;
     }

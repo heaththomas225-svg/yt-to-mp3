@@ -434,8 +434,10 @@ partial class StudioForm : Form
         return true;
     }
     int paintErrors; double paintMs = 8; int lastUnder; DateTime underSince = DateTime.Now;
+    internal static bool NoWindowPaint;   // (a recording of the program paints the picture itself: the window does not paint as well)
     protected override void OnPaint(PaintEventArgs e)
     {
+        if (NoWindowPaint) return;
         // Background jobs (Auto Mix, separation, presets) change the track and effect lists while we draw; a stale index must never reach the user as a crash.
         var pw = System.Diagnostics.Stopwatch.StartNew();
         try { PaintAll(e); }

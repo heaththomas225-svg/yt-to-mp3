@@ -110,7 +110,8 @@ sealed class VideoFeed : IDisposable
     public VideoFeed(string ffmpeg, string src, double start, int w, int h)
     {
         W = w; H = h; Start = start; frameBytes = w * h * 4; var psi = new ProcessStartInfo(ffmpeg, Args(src, start, w, h)) { UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true, CreateNoWindow = true };
-        proc = Process.Start(psi); proc.ErrorDataReceived += (s, e) => { }; proc.BeginErrorReadLine(); th = new Thread(Pump) { IsBackground = true, Name = "video-frames" }; th.Start();
+        proc = Process.Start(psi); try { proc.PriorityClass = ProcessPriorityClass.BelowNormal; } catch { }   // the picture of a video must never make the program itself wait
+        proc.ErrorDataReceived += (s, e) => { }; proc.BeginErrorReadLine(); th = new Thread(Pump) { IsBackground = true, Name = "video-frames" }; th.Start();
     }
     void Pump()
     {
