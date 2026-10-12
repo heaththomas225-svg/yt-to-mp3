@@ -49,7 +49,13 @@ partial class StudioForm
         using (var d = new OpenFileDialog { Title = "Choose a photo for this theme", Filter = "Pictures|*.jpg;*.jpeg;*.png;*.bmp;*.gif;*.tif;*.tiff|All files|*.*" })
         { if (d.ShowDialog(this) != DialogResult.OK) return; string err = SetThemePhotoPath(d.FileName); if (err != null) Toast(err); }
     }
-    internal string SetThemePhotoPath(string file) { var t = Themes.Current; string err = Themes.SetPhoto(t, file); if (err == null) Toast("Photo added to " + t.Name + ": it now fills the whole window."); return err; }
+    // PHOTO: the picture becomes a theme of its own: the purple parts of the program (buttons, panels, outlines) take the colours of the picture, and the picture fills the window (cropped to fit, never stretched)
+    internal string SetThemePhotoPath(string file)
+    {
+        int prevT = Themes.Index; ThemeDef t; string err = Themes.ImportPhoto(file, out t); if (err != null) return err;
+        Themes.Apply(Themes.IndexOf(t.Name)); Prefs.Changed(); Toast("New theme from your photo: " + t.Name + ". The program now uses its colours and the picture fills the window.");
+        OfferRevert("Theme " + t.Name + " is on", () => { Themes.Apply(prevT); Prefs.Changed(); }); return null;
+    }
     void ClearThemePhoto() { var t = Themes.Current; Themes.ClearPhoto(t); Toast("Photo removed from " + t.Name + "."); }
     void ExportThemeFile()
     {
@@ -87,7 +93,7 @@ partial class StudioForm
         Btn(g, tabA, "MY THEMES", 4, () => { }, 13); Hint2(tabA, "The themes on this PC (built in and imported)");
         Btn(g, tabB, "COMMUNITY THEMES", 0, () => OpenCommunityThemes(), 13); Hint2(tabB, "Download themes other people made, or share yours");
         float rx = sheet.Right - 22; var exp = Rc(rx - 90, y, 90, 34); var pho = Rc(exp.X - 8 - 118, y, 118, 34); bool hasPhoto = Themes.Current.Photo.Length > 0;
-        Btn(g, pho, hasPhoto ? "NO PHOTO" : "PHOTO", hasPhoto ? 3 : 1, () => { if (hasPhoto) ClearThemePhoto(); else SetThemePhoto(); }, 12); Hint2(pho, hasPhoto ? "Take the photo off this theme" : "Put a photo behind the whole studio for the theme in use (any picture, any size)");
+        Btn(g, pho, hasPhoto ? "NO PHOTO" : "PHOTO", hasPhoto ? 3 : 1, () => { if (hasPhoto) ClearThemePhoto(); else SetThemePhoto(); }, 12); Hint2(pho, hasPhoto ? "Take the photo off this theme (its colours stay)" : "Make a theme from a photo: the colours of the whole program come from the picture, and the picture fills the window");
         Btn(g, exp, "SAVE", 1, () => ExportThemeFile(), 12); Hint2(exp, "Save the theme in use as a file you can share (its photo is saved beside it)");
         float top = y + 50, bottom = sheet.Bottom - 20; float areaH = bottom - top; var area = Rc(sheet.X + 10, top, sheet.Width - 20, areaH);
         var list = Themes.All; int cols = sheet.Width >= 700 ? 3 : 2; float vsw = 56, gap = 12, cw = (sheet.Width - 44 - vsw - gap * (cols - 1)) / cols, ch = 96; int rows = (list.Count + cols - 1) / cols; float total = rows * (ch + gap);
@@ -96,10 +102,12 @@ partial class StudioForm
         for (int i = 0; i < list.Count; i++)
         {
             var t = list[i]; int ti = i; var card = Rc(sheet.X + 22 + (i % cols) * (cw + gap), top + (i / cols) * (ch + gap) - themeScroll, cw, ch); if (card.Bottom < top - 2 || card.Y > bottom) continue;
-            bool on = i == Themes.Index, hot = Hot(RectangleF.Intersect(card, area)) && area.Contains(MousePos);
+            bool on = i == Themes.Index, hot = Hot(card) && area.Contains(MousePos);   /* the card itself is the region (an Intersect would change its size by a hair and never match) */
             using (var br = new LinearGradientBrush(card, Color.FromArgb(hot ? 235 : 215, t.Bg1), Color.FromArgb(hot ? 235 : 215, t.Bg0), 90f)) { using (var p = RR(card, 14)) g.FillPath(br, p); }
-            using (var pen = new Pen(on ? t.Violet : Color.FromArgb(hot ? 220 : 130, t.EdgeC), on ? 2.2f : 1.2f)) { using (var p = RR(card, 14)) g.DrawPath(pen, p); }
-            if (on || hot) Glow(g, t.Violet, card, 14, on ? 0.7f : 0.4f, 3);
+            // the theme under the mouse gets a bright outline (in its own colours) with a soft ring round it, so it is plain which one a click will pick
+            using (var pen = new Pen(hot ? t.Cyan : (on ? t.Violet : Color.FromArgb(130, t.EdgeC)), hot ? 2.8f : (on ? 2.2f : 1.2f))) { using (var p = RR(card, 14)) g.DrawPath(pen, p); }
+            if (hot) { using (var pen = new Pen(Color.FromArgb(110, t.Cyan), 1.4f)) { using (var p = RR(RectangleF.Inflate(card, 4, 4), 17)) g.DrawPath(pen, p); } }
+            if (on || hot) Glow(g, hot ? t.Cyan : t.Violet, card, 14, hot ? 0.85f : 0.7f, 3);
             Color[] sw6 = { t.Violet, t.Cyan, t.Pink, t.Lime, t.Accent, t.Btn }; for (int k = 0; k < 6; k++) { var dot = Rc(card.X + 14 + k * 26, card.Y + 14, 20, 20); using (var br = new SolidBrush(sw6[k])) g.FillEllipse(br, dot); using (var pen = new Pen(Color.FromArgb(90, 255, 255, 255), 1f)) g.DrawEllipse(pen, dot); }
             bool ph = t.Photo.Length > 0; if (ph) { var th = ThemeThumb(t.Photo); if (th != null) { var tr = Rc(card.Right - 120, card.Y + 8, 112, card.Height - 16); var st0 = g.Save(); using (var pth = RR(tr, 8)) g.SetClip(pth, CombineMode.Intersect); g.DrawImage(th, tr); g.Restore(st0); StrokeRR(g, Color.FromArgb(150, t.EdgeC), tr, 8, 1); } }
             Txt(g, t.Name.ToUpper(), 15, Ink, Rc(card.X + 14, card.Y + 42, card.Width - 28 - (ph ? 112 : 0), 24), StringAlignment.Near, true);

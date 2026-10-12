@@ -1,4 +1,4 @@
-3.30.0
+3.30.1
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Generate lyrics from songs, videos and links, TIMES USED, and a tidier studio
-sha256=53a666732173116076ffa05d03d8c4bd22214acb2af280eb1b1d12b274fa4d63
+Photo themes that recolour the program, instant crackle recovery, a clear theme hover
+sha256=68a096736b10bb873782c923bcf91aa80e2c84f952b336bf57ca7f94206ff8ea

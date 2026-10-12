@@ -210,6 +210,13 @@ static class PR
               } }
             { var snapP = (string[])typeof(StudioForm).GetMethod("SnapChain", BF).Invoke(sf, null); typeof(StudioForm).GetMethod("PresetTry", BF).Invoke(sf, new object[] { 5 }); Check("trying a preset applies it and starts the preview", F<string[]>("mpBackup") != null && F<bool>("mpActive"), ""); typeof(StudioForm).GetMethod("PresetPutBack", BF).Invoke(sf, null); typeof(StudioForm).GetMethod("MasterPreviewStop", BF).Invoke(sf, null);
               Check("PUT BACK restores the chain", string.Join("|", (string[])typeof(StudioForm).GetMethod("SnapChain", BF).Invoke(sf, null)) == string.Join("|", snapP), ""); }
+            { // CRACKLE: the moment the sound breaks up the output is refreshed (a split second), not after a long wait
+              var mg = typeof(StudioForm).GetMethod("AudioGlitchCheck", BF); Func<bool> go = () => (bool)mg.Invoke(sf, new object[] { DateTime.Now }); int keepBoost = Prefs.BufBoost;
+              eng.Playing = false; go(); eng.Playing = true; int r0 = eng.Reopens; WaveOutPlayer.Underruns += 1; go(); Check("one starved buffer is not enough to refresh the sound", eng.Reopens == r0, "");
+              WaveOutPlayer.Underruns += 1; bool did = go(); Check("two starved buffers refresh the sound output at once", did && eng.Reopens == r0 + 1, "reopens " + (eng.Reopens - r0));
+              WaveOutPlayer.Underruns += 3; bool again = go(); Check("and it does not refresh again within a second and a half", !again && eng.Reopens == r0 + 1, "");
+              System.Threading.Thread.Sleep(1600); WaveOutPlayer.Stalls += 1; did = go(); Check("a sound card that stops for a moment is refreshed too", did && eng.Reopens == r0 + 2, "reopens " + (eng.Reopens - r0));
+              eng.Playing = false; WaveOutPlayer.Underruns += 5; Check("nothing is refreshed while nothing plays", !go() && eng.Reopens == r0 + 2, ""); Prefs.BufBoost = keepBoost; }
             SetF("tab", 0); eng.Tracks.Clear();
             foreach (var pp in ps) ProjectLibrary.Remove(pp); ProjectLibrary.Remove(p2);
 
@@ -445,8 +452,9 @@ static class PR
                 SetF("tab", 0); Themes.Apply(0); Paint(); Paint(); var plain = bd().GetPixel(3, bd().Height - 4); Check("a theme without a photo shows no photo", !(plain.R > plain.B + 25 && plain.R > 80), plain.ToString());
                 // a photo for a built-in theme, and taking it off
                 var oc = Themes.All[Themes.IndexOf("Ocean")]; string perrP;
-                Themes.Apply(Themes.IndexOf("Ocean")); perrP = (string)typeof(StudioForm).GetMethod("SetThemePhotoPath", BF).Invoke(sf, new object[] { tall }); string pp = oc.Photo; Check("a photo is added to Ocean and saved", perrP == null && pp.Length > 0 && File.Exists(pp), perrP);
-                Themes.ClearPhoto(oc); Check("NO PHOTO takes it off and deletes the stored copy", oc.Photo.Length == 0 && !File.Exists(pp), ""); Themes.Apply(0);
+                Themes.Apply(Themes.IndexOf("Ocean")); perrP = (string)typeof(StudioForm).GetMethod("SetThemePhotoPath", BF).Invoke(sf, new object[] { tall }); var made = Themes.Current; string pp = made.Photo; Check("PHOTO makes a new theme from the picture (Ocean itself is left alone) and uses it", perrP == null && made != oc && made.Custom && oc.Photo.Length == 0 && pp.Length > 0 && File.Exists(pp), perrP);
+                Check("the colours of the program come from the picture, not from the theme that was on", made.Violet != oc.Violet && made.Cyan != oc.Cyan, made.Violet + " vs " + oc.Violet);
+                Themes.ClearPhoto(made); Check("NO PHOTO takes the picture off and deletes the stored copy", made.Photo.Length == 0 && !File.Exists(pp), ""); Themes.Delete(made); Themes.Apply(0);
                 foreach (var nmP in new[] { "huge", "tiny", "tall", "Beside" }) { var tt = Themes.All.Find(t4 => t4.Name == nmP); if (tt != null) Themes.Delete(tt); }
             }
             // ---- custom themes: import, tame, share format, rainbow, the sheet ----

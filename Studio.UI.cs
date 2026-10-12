@@ -174,13 +174,7 @@ partial class StudioForm : Form
         { string tt = "Purphex Music  -  " + projName + (Prefs.ShowFps ? "    " + (lastIdle ? "idle" : fpsc.Fps + " fps") : ""); if (Text != tt) Text = tt; }
         if (eng.Playing)
         {
-            int u = WaveOutPlayer.Underruns;
-            if ((DateTime.Now - underSince).TotalSeconds > 6) { underSince = DateTime.Now; lastUnder = u; }
-            else if (u - lastUnder >= 3 && Prefs.BufEff < 2)
-            {
-                Prefs.BufBoost++; lastUnder = u; underSince = DateTime.Now; eng.ReopenOutput();   // for this session only: the buffer you chose in Settings stays saved as you set it
-                Toast("The sound was breaking up, so I made the playback buffer bigger for now (your choice in Settings is kept).");
-            }
+            AudioGlitchCheck(DateTime.Now);
         }
         if (eng.Playing && !wasPlaying) followPaused = false;   // a fresh PLAY follows the needle again
         wasPlaying = eng.Playing;
@@ -413,6 +407,20 @@ partial class StudioForm : Form
     static string Db(double v) { return double.IsNaN(v) || v < -99 ? "-inf" : v.ToString("0.0", CultureInfo.InvariantCulture); }
 
     // ---------------- main paint ----------------
+    // CRACKLE: the moment the sound breaks up (two starved buffers within two seconds, or the sound card stopping for a third of a second) the output is refreshed: a split second, then clean sound.
+    // Each time the buffer is also made a step bigger (for this session only; your choice in Settings is kept), until the biggest; after that a plain refresh. At most one refresh every 1.5 seconds.
+    int lastStalls; DateTime lastRefresh = DateTime.MinValue;
+    internal bool AudioGlitchCheck(DateTime now)
+    {
+        if (!eng.Playing) { lastUnder = WaveOutPlayer.Underruns; lastStalls = WaveOutPlayer.Stalls; underSince = now; return false; }
+        int u = WaveOutPlayer.Underruns, st = WaveOutPlayer.Stalls; bool stalled = st != lastStalls, breaking = u - lastUnder >= 2 && (now - underSince).TotalSeconds <= 2;
+        if ((now - underSince).TotalSeconds > 2) { underSince = now; lastUnder = u; }
+        if (!stalled && !breaking) return false;
+        lastUnder = u; lastStalls = st; underSince = now; if ((now - lastRefresh).TotalMilliseconds < 1500) return false; lastRefresh = now;
+        bool bigger = Prefs.BufEff < 2; if (bigger) Prefs.BufBoost++; eng.ReopenOutput();
+        Toast(bigger ? "The sound was breaking up, so I refreshed the audio and made the playback buffer bigger for now (your choice in Settings is kept)." : "The sound was breaking up, so I refreshed the audio.");
+        return true;
+    }
     int paintErrors; double paintMs = 8; int lastUnder; DateTime underSince = DateTime.Now;
     protected override void OnPaint(PaintEventArgs e)
     {

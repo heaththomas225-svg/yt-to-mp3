@@ -2,6 +2,12 @@
 
 What changed in each version of **Purphex**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.30.1  Photo themes that really recolour the program, instant crackle recovery, a clear theme hover
+
+- Photo themes now work properly: PHOTO in the Themes box turns a picture into a theme of its own. The purple parts of the program (buttons, panels, outlines) take the real colours of the picture (up to four of them, so a sunset gives orange, pink and blue), and the picture fills the window, cropped to fit and never stretched. The theme you had is left alone, and REVERT puts it back.
+- The theme under the mouse in the Themes box now has a bright outline with a soft ring round it, so it is clear which one a click will pick (the old hover never lit up).
+- Crackle recovery: the moment the sound breaks up (two starved buffers within two seconds, or the sound card stopping for a third of a second) the audio output is refreshed. It takes a split second, then the sound is clean again. Each refresh also makes the playback buffer a step bigger for the session (your choice in Settings is kept), and at the biggest buffer it is a plain refresh, at most once every second and a half.
+
 ## 3.30.0  Generate lyrics from songs, videos and links, TIMES USED, and a tidier studio
 
 - Generate Lyrics: a new GENERATE LYRICS button on the first screen (and in the Menu) opens a page of its own, free in every edition. Drop or choose any song or video (mp3, wav, flac, m4a, ogg, opus, aac, mp4, mkv, webm, mov and more) and press GENERATE LYRICS. On the Fantasy edition the page wears the Fantasy gold and follows your Fantasy theme.

@@ -263,10 +263,23 @@ static class Themes
         c = Color.Gray; sat = 0; using (var small = new Bitmap(48, 48, PixelFormat.Format24bppRgb))
         {
             using (var g = Graphics.FromImage(small)) { g.InterpolationMode = InterpolationMode.HighQualityBilinear; g.DrawImage(bmp, 0, 0, 48, 48); }
-            double sx = 0, sy = 0, wsum = 0, ssum = 0, n = 0;
-            for (int y = 0; y < 48; y++) for (int x = 0; x < 48; x++) { var p = small.GetPixel(x, y); double h, s, l; ThemeDef.ToHsl(p, out h, out s, out l); double wgt = s * (1 - Math.Abs(2 * l - 1)); sx += Math.Cos(h * Math.PI / 180) * wgt; sy += Math.Sin(h * Math.PI / 180) * wgt; wsum += wgt; ssum += s; n++; }
+            double sx = 0, sy = 0, wsum = 0, ssum = 0, n = 0; var hist = new double[36];
+            for (int y = 0; y < 48; y++) for (int x = 0; x < 48; x++) { var p = small.GetPixel(x, y); double h, s, l; ThemeDef.ToHsl(p, out h, out s, out l); double wgt = s * (1 - Math.Abs(2 * l - 1)); sx += Math.Cos(h * Math.PI / 180) * wgt; sy += Math.Sin(h * Math.PI / 180) * wgt; wsum += wgt; ssum += s; n++; hist[((int)(h / 10) % 36 + 36) % 36] += wgt; }
+            lastHues = PickHues(hist);
             sat = ssum / Math.Max(1, n); if (wsum < 1e-6) return; double ang = Math.Atan2(sy, sx) * 180 / Math.PI; if (ang < 0) ang += 360; c = ThemeDef.Hsl(ang, 0.8, 0.55);
         }
+    }
+    // the colours the picture is really made of: up to four hues that are at least 50 degrees apart, the strongest first (a photo of a sunset gives orange, pink and blue, not one colour)
+    static double[] lastHues = new double[0];
+    static double[] PickHues(double[] hist)
+    {
+        var sc = new double[36]; for (int i = 0; i < 36; i++) sc[i] = hist[(i + 35) % 36] * 0.5 + hist[i] + hist[(i + 1) % 36] * 0.5; var picked = new List<int>(); double top = 0; foreach (double v in sc) top = Math.Max(top, v);
+        for (int k = 0; k < 4; k++)
+        {
+            int best = -1; double bv = 0; for (int i = 0; i < 36; i++) { bool near = false; foreach (int q in picked) { int d = Math.Abs(i - q); d = Math.Min(d, 36 - d); if (d < 5) near = true; } if (!near && sc[i] > bv) { bv = sc[i]; best = i; } }
+            if (best < 0 || bv < top * 0.18) break; picked.Add(best);
+        }
+        var hs = new double[picked.Count]; for (int i = 0; i < hs.Length; i++) hs[i] = picked[i] * 10 + 5; return hs;
     }
     // a picture for the theme in use (or any theme): it fills the whole studio window
     public static string SetPhoto(ThemeDef t, string imageFile)
@@ -285,7 +298,7 @@ static class Themes
         Ensure(); theme = null; string baseName = ThemeDef.Clean(Path.GetFileNameWithoutExtension(imageFile), 28); if (baseName.Length == 0) baseName = "My photo";
         string err; Color dc; double ds; string saved = SavePhoto(imageFile, baseName, out err, out dc, out ds); if (saved == null) return err;
         string name = baseName; int n = 2; while (IndexOfName(name) >= 0) name = baseName + " " + n++;
-        ThemeDef t; if (ds < 0.10) { var mono = list[IndexOfName("Mono")]; t = mono.Copy(); } else { double h, s, l; ThemeDef.ToHsl(dc, out h, out s, out l); t = ThemeDef.FromSpec(name, "", h, h + 155, h - 45, h + 95, h, 0.5).Cleaned(); }
+        ThemeDef t; if (ds < 0.10) { var mono = list[IndexOfName("Mono")]; t = mono.Copy(); } else { double h, s, l; ThemeDef.ToHsl(dc, out h, out s, out l); var hs = lastHues; double h1 = hs.Length > 0 ? hs[0] : h, h2 = hs.Length > 1 ? hs[1] : h1 + 155, h3 = hs.Length > 2 ? hs[2] : h1 - 45, h4 = hs.Length > 3 ? hs[3] : h1 + 95; t = ThemeDef.FromSpec(name, "", h1, h2, h3, h4, h1, 0.5).Cleaned(); }   // the colours of the program come from the colours of the picture
         t.Name = name; t.Custom = true; t.Rainbow = false; t.Blurb = "Made from your photo."; t.Photo = saved; t.Author = "";
         try { Directory.CreateDirectory(Dir); File.WriteAllText(Path.Combine(Dir, SafeFile(name) + ".purphextheme"), ToFile(t), Encoding.UTF8); } catch (Exception ex) { return "Could not save the theme: " + ex.Message; }
         list.Add(t); SavePhotoMap(); theme = t; return null;

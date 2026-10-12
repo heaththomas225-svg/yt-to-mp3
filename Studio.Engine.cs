@@ -637,7 +637,8 @@ partial class StudioEngine
         player = new WaveOutPlayer(RenderRealtime); player.Start();
     }
 
-    public void ReopenOutput() { bool was = Playing; if (player != null) { player.Dispose(); player = null; } if (was) { try { EnsurePlayer(); } catch { Playing = false; } } }
+    public int Reopens;   // how many times the sound output was refreshed (for the tests)
+    public void ReopenOutput() { Reopens++; bool was = Playing; if (player != null) { player.Dispose(); player = null; } if (was) { try { EnsurePlayer(); } catch { Playing = false; } } }
     public void Shutdown() { Playing = false; if (player != null) { player.Dispose(); player = null; } }
 
     // ---------------- offline render (export, analysis) ----------------
@@ -698,6 +699,8 @@ class WaveOutPlayer : IDisposable
     [DllImport("winmm.dll")] static extern int waveOutClose(IntPtr h);
     const int CALLBACK_EVENT = 0x50000, WHDR_DONE = 1;
     public static volatile int Underruns;       // times the sound card ran out of audio (heard as stutter)
+    public static volatile int Stalls;          // times the sound card stopped taking audio for a moment (heard as a crackle or a frozen sound)
+    long lastDone = Environment.TickCount;
     public static volatile int QueuedFrames = 4096;   // audio waiting in the buffers: how far the sound lags behind the render position
     readonly int Buffers = Prefs.BufEff == 0 ? 4 : 8;   // more, smaller buffers: the same 23 ms steps but much more slack when the computer is busy
     public static volatile float Gain = 1f;   // playback volume from Settings (exports are not affected)
@@ -755,6 +758,7 @@ class WaveOutPlayer : IDisposable
             ev.WaitOne(30); ev.Reset();
             int ready = 0; for (int i = 0; i < Buffers; i++) { var hh = (WAVEHDR)Marshal.PtrToStructure(hdrs[i], typeof(WAVEHDR)); if ((hh.dwFlags & WHDR_DONE) != 0) ready++; }
             if (ready >= Buffers) Underruns++;   // every buffer had already been played: the sound card was starved
+            if (ready > 0) lastDone = Environment.TickCount; else if (Environment.TickCount - lastDone > 350) { Stalls++; lastDone = Environment.TickCount; }   // nothing has finished for a third of a second: the device has stopped
             for (int i = 0; i < Buffers && run; i++)
             {
                 var h = (WAVEHDR)Marshal.PtrToStructure(hdrs[i], typeof(WAVEHDR));

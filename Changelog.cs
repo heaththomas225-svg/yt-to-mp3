@@ -7,10 +7,15 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.30.0";
+    public const string Latest = "3.30.1";
 
     public const string Text =
-@"3.30.0  Generate lyrics from songs, videos and links, TIMES USED, and a tidier studio
+@"3.30.1  Photo themes that really recolour the program, instant crackle recovery, a clear theme hover
+ + Photo themes now work properly: PHOTO in the Themes box turns a picture into a theme of its own. The purple parts of the program (buttons, panels, outlines) take the real colours of the picture (up to four of them, so a sunset gives orange, pink and blue), and the picture fills the window, cropped to fit and never stretched. The theme you had is left alone, and REVERT puts it back.
+ + The theme under the mouse in the Themes box now has a bright outline with a soft ring round it, so it is clear which one a click will pick (the old hover never lit up).
+ + Crackle recovery: the moment the sound breaks up (two starved buffers within two seconds, or the sound card stopping for a third of a second) the audio output is refreshed. It takes a split second, then the sound is clean again. Each refresh also makes the playback buffer a step bigger for the session (your choice in Settings is kept), and at the biggest buffer it is a plain refresh, at most once every second and a half.
+
+3.30.0  Generate lyrics from songs, videos and links, TIMES USED, and a tidier studio
  + Generate Lyrics: a new GENERATE LYRICS button on the first screen (and in the Menu) opens a page of its own, free in every edition. Drop or choose any song or video (mp3, wav, flac, m4a, ogg, opus, aac, mp4, mkv, webm, mov and more) and press GENERATE LYRICS. On the Fantasy edition the page wears the Fantasy gold and follows your Fantasy theme.
  + Where the words come from: the song's tags and file name find it in the LRCLIB lyrics database. A song that is not there can be written by listening to it with the Whisper speech recogniser, which runs on your PC. Purphex asks before downloading it (about 160 MB, once) and your song is never uploaded. A recogniser can mishear a word, so check the words against the song.
  + Correct grammar and punctuation: capital letters, I, the apostrophes in don't and I'm, spacing round commas, a full stop or question mark at the end of each verse, a comma before and / but / so lines, clean verses, and [Verse] and [Chorus] labels. FIX GRAMMAR does the same to words you typed, and UNDO brings your words back.
