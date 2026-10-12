@@ -157,7 +157,8 @@ partial class StudioForm
     {
         if (vidFull) ExitVideoFull(); var f = vidFeed; vidFeed = null; vidKey = ""; vidSrc = ""; vidShown = false; if (f != null) { try { f.Dispose(); } catch { } } if (vidBmp != null) { vidBmp.Dispose(); vidBmp = null; }
     }
-    void EnterVideoFull() { if (!VideoOn) return; vidFull = true; if (!Win.IsFull(this)) { Win.ToggleFullscreen(this); vidWentFull = true; } vidRestartAt = DateTime.MinValue; }
+    internal static bool VideoNoOsFull;   // (a recording of the program keeps its window size)
+    void EnterVideoFull() { if (!VideoOn) return; vidFull = true; if (!VideoNoOsFull && !Win.IsFull(this)) { Win.ToggleFullscreen(this); vidWentFull = true; } vidRestartAt = DateTime.MinValue; }
     void ExitVideoFull() { vidFull = false; if (vidWentFull) { vidWentFull = false; Win.ToggleFullscreen(this); } vidRestartAt = DateTime.MinValue; }
     // sizes that fit a box (even numbers, 1280 x 720 at most: it is drawn larger when the screen is larger)
     static void VideoSize(RectangleF r, out int w, out int h)
