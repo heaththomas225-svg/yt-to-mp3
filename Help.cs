@@ -94,9 +94,23 @@ On the first screen, press GENERATE LYRICS (next to Vocal remover and Purphex Mu
 Every result is tidied: capital letters, I, the apostrophes in don't and I'm, spaces round commas, a full stop or question mark at the end of each verse, a comma before and / but / so lines, clean blank lines between verses, and [Verse] and [Chorus] labels. FIX GRAMMAR does the same to words you typed or changed, and UNDO brings your words back.
 ## Resize lyrics
 A- and A+ change the size of the writing. FIT TO BOX makes it as big as it can be while the whole lyric still fits in the box (a very long song stops at a readable size and scrolls instead).
+## Recheck
+RECHECK VIDEO + WORDS listens to the song or video file again and compares what is sung with the lyrics in the box: it lists lines that are not heard, finds a verse that is sung but missing, and ADD THE MISSING PASSAGES puts it in the right place (marked to check). It needs the file, not a link, and the speech recogniser (the same one-time download). A recogniser can mishear a word, so it is a guide: listen to anything it flags.
+## Remove
+REMOVE LYRICS takes the lyrics, the title and the notes off the page. Undo brings them back, and what you saved to the DAW stays in RECENT.
 ## Keep it
 COPY, SAVE .TXT, or SAVE TO THE DAW: give it a TITLE (it starts as Artist - Title) so you know which song it was. In Purphex Music, open Lyrics and press RECENT GENERATED to bring one back into the writer. RECENT on the Generate Lyrics page shows the last ones you saved, newest first (the last 30 are kept).
 NOTE: Lyrics belong to their writers. The text is for your own use."),
+
+        new HelpTopic("colour-mixer", "Basics", "Colour mixer (on your Profile page)", false, @"
+## Where it is
+On the Profile page, in a box of its own under Edit your profile (it is not a tab).
+## Mix two colours
+Colour A and colour B are the two circles. Click EDIT COLOUR A or B (or a circle), then click any colour in the list: it goes in that slot and the next click goes in the other. The middle circle is the merged colour; the MIX slider moves the merge point; SWAP flips A and B. Below are the gradient from A to B, five steps (100% A, 75/25, 50/50, 25/75, 100% B), a colour wheel with arrows to A, B and the result, and pairs like Orange + Blue (click a pair to try it).
+## Every style of colour
+The STYLE drop bar chooses the list: Every shade (360 shades and greys), Basic colours, Neon and glow, Pastels, Metals (gold, silver, bronze, copper, rose gold, platinum, chrome...), Pearlescent (pearl, opal, abalone, iridescent...), Matte, Jewel tones, Earth and nature, Sky and sea, Fire and sunset, Greys and blacks. Point at a colour to see its name and code; right-click puts it in the other slot.
+## Use it
+USE AS MY PROFILE COLOUR makes it your profile colour, USE AS A THEME makes a theme for the whole program from the merged colour with A and B (REVERT puts your old theme back), COPY THE CODE copies the hex code."),
 
         new HelpTopic("times-used", "Basics", "TIMES USED: worldwide MP3 and MP4 numbers", false, @"
 ## What it is

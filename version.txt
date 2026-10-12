@@ -1,4 +1,4 @@
-3.30.2
+3.31.0
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-TIMES USED for every file type, trim on Generate Lyrics
-sha256=e6f5903e9ee0e6ff5f9f343165358c7dee49a197c6d843e1769163152c7c7a9d
+Colour mixer on your profile, Recheck video + words, a fuller lyrics lookup, a calmer visualiser
+sha256=aa384a2c3e5926d09274f062738ab477b7d8f3d090162eb03b0c9885a9a10c56

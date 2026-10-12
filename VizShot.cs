@@ -38,6 +38,7 @@ static class VS
             var h = hits[n];
             for (int f = 0; f < 14; f++) { double k = f < 2 ? 1.0 : 0.05; Tap(eng, h[0] * k + 0.02, h[1] * k, h[2] * k, h[3] * k); sf.Invalidate(); sf.Update(); Application.DoEvents(); Pump(30); if (f == 3) Console.WriteLine(names[n] + " jetE " + string.Join(",", System.Linq.Enumerable.Select((float[])typeof(StudioForm).GetField("jetE", BF).GetValue(sf), x => x.ToString("0.00")))); if (f == 3) Shot(Path.Combine(outDir, "viz_" + names[n] + ".png")); }
         }
+        foreach (double lvl in new[] { 0.02, 0.1, 0.4 }) { for (int f = 0; f < 40; f++) { Tap(eng, lvl, lvl, lvl, lvl); sf.Invalidate(); sf.Update(); Application.DoEvents(); Pump(30); } Shot(Path.Combine(outDir, "viz_level_" + lvl + ".png")); }
         Prefs.OutVol = ovv; eng.Playing = false; sf.Close();
     }
 }

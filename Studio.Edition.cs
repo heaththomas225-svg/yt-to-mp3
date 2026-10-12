@@ -110,7 +110,7 @@ static class Edition
     public static int MaxRate { get { var t = Current; return t == Tier.Fantasy ? 384000 : (t == Tier.Supporter ? 192000 : 48000); } }
 
     // the help guides a Free edition keeps: the converter, the vocal remover and the basics
-    static readonly HashSet<string> FreeHelp = new HashSet<string> { "start", "formats", "batch", "trim", "vocal", "settings", "fullscreen", "download-video", "updates", "trouble", "long", "editions", "lyrics-getter", "lyrics-generator", "times-used" };
+    static readonly HashSet<string> FreeHelp = new HashSet<string> { "start", "formats", "batch", "trim", "vocal", "settings", "fullscreen", "download-video", "updates", "trouble", "long", "editions", "lyrics-getter", "lyrics-generator", "times-used", "colour-mixer" };
     public static bool HelpVisible(string id) { return Has(Tier.Supporter) || FreeHelp.Contains(id); }
 
     // ---- saved state ----

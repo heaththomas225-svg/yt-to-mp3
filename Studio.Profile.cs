@@ -375,6 +375,7 @@ partial class StudioForm
         if (ProfileStore.Published) { var priv = Rc(pubB.Right + 10, ey, 200, 38); Btn(g, priv, "MAKE IT PRIVATE", 3, () => UnpublishProfile(), 12); Hint2(priv, "Take your profile out of the community"); }
         { var ab2 = Rc(cx + 18, ey + 46, cw - 36, 38); TxtWrap(g, profStatus.Length > 0 ? profStatus : (ProfileStore.Published ? "Your profile is public. Press UPDATE after you change something." : "Only you can see it until you publish. It is shared under a secret key made on this PC (no sign-in)."), 12, profStatus.Length > 0 ? NeonCyan : DimC, ab2); }
         ey += 92; profEditH = ey - y; y = ey + 10;
+        y = PaintColourMixer(g, cx, y, cw, top, bottom) + 14;   // the COLOUR MIXER: a box of its own on this page
         // ---- who you follow ----
         if (profFollowing.Count > 0) { Txt(g, "YOU FOLLOW", 14, Ink, Rc(cx + 6, y, 300, 22), StringAlignment.Near, true); y += 28; float fx = cx + 6; foreach (var f in profFollowing) { float fw = Math.Min(220, 30 + f.Name.Length * 9.5f); if (fx + fw > cx + cw) break; var fr = Rc(fx, y, fw, 32); var fa = f; Btn(g, fr, f.Name, 0, () => OpenArtist(fa.Id), 12); Hint2(fr, "Open " + f.Name + "'s profile"); fx += fw + 8; } y += 48; }
         // ---- your tracks ----

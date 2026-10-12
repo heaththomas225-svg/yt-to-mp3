@@ -2,6 +2,18 @@
 
 What changed in each version of **Purphex**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.31.0  Colour mixer on your profile, Recheck video + words, a fuller lyrics lookup, a calmer visualiser
+
+- COLOUR MIXER on the Profile page, in a box of its own (not a tab). Pick colour A and colour B and see the colour they make: a merged circle, a gradient from A to B, five steps (100% A, 75/25, 50/50, 25/75, 100% B), a colour wheel with arrows to A, B and the result, and swatch pairs like Orange + Blue. A MIX slider moves the merge point and SWAP flips A and B.
+- A STYLE drop bar chooses which colours you pick from: Every shade (360 shades and a grey row), Basic, Neon and glow, Pastels, Metals (gold, silver, bronze, copper, rose gold, platinum, chrome, titanium, steel and more, drawn shiny), Pearlescent (pearl, opal, abalone, iridescent, drawn with a soft sheen), Matte (matte black, sage, terracotta and more, drawn flat), Jewel tones, Earth and nature, Sky and sea, Fire and sunset, Greys and blacks. Over 580 colours. Right-click puts a colour in the other slot.
+- USE AS MY PROFILE COLOUR sets your profile colour to the merged colour, USE AS A THEME makes a theme for the whole program from your mix (REVERT puts the old one back), and COPY THE CODE copies the hex code.
+- Generate Lyrics finds songs far more reliably. It reads a name every sensible way (Artist - Title, Uploader - Artist - Title, Title - Artist), cleans the artist and title written in the file tags (the channel name, Topic, VEVO, brackets), and a guess that fails on the network no longer stops the others. A match must be the right artist and the right title, so a cover or a reply song with the words in its name is never used.
+- The database can hold several copies of a song and some are cut short: every real copy is looked at and the most complete one is used, so verses are no longer missing. Songs that only have time-stamped lyrics are used too (without the time stamps).
+- RECHECK VIDEO + WORDS: Purphex listens to the song or video file again and lines the words up with the lyrics in the box. It lists lines that are not sung, finds passages that are sung but missing (a missing verse), and ADD THE MISSING PASSAGES puts them in the right place, marked to check. Nothing changes until you press a button, Undo takes it back, and a speech recogniser can still mishear a word, so it is a guide and not a guarantee.
+- When a lyric is longer than the box, the page now says how many lines are below the edge (scroll to see them), so a verse out of sight no longer looks like a missing verse. The listening settings were changed so the recogniser hears each sentence on its own and no longer gets stuck repeating a line and skipping verses.
+- REMOVE LYRICS on the Generate Lyrics page takes the lyrics, title and notes off the page (Undo brings them back; what you saved to the DAW stays in RECENT).
+- Visualiser: the bars are back to following the music (quiet music gives short bars, loud music tall ones) instead of sitting near the top all the time, and each blast is as big as the hit that caused it, so soft hits give small blasts.
+
 ## 3.30.2  TIMES USED for every file type, trim on Generate Lyrics
 
 - TIMES USED now has a card for every file type: MP3, MP4, OPUS, WAV, M4A, FLAC and MKV (the quality does not matter, only the type of file), plus the total for all of them and what you made on this PC. Every finished conversion counts as its own type, and the website keeps one counter for each, with no upper limit. A number too long for its card is shown short (1.2e29) with the whole number in the tooltip.

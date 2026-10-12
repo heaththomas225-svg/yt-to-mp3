@@ -14,15 +14,33 @@ static class LyricsGet
     static readonly string[] Media = { ".mp3", ".m4a", ".flac", ".wav", ".opus", ".ogg", ".aac", ".mp4", ".mkv", ".webm", ".mov" };
     public sealed class Found { public string Artist, Title, Lyrics; }
 
+    // the name with the brackets, the format tag and "Official Video" taken off
+    public static string CleanString(string fileNameNoExt)
+    {
+        string s = (fileNameNoExt ?? "").Replace('–', '-').Replace('—', '-').Replace('_', ' ');
+        s = Regex.Replace(s, @"\s*\[[^\]]*\]", " "); s = Regex.Replace(s, @"\s*\([^)]*\)", " "); s = Regex.Replace(s, @"\s*\|.*$", ""); s = Regex.Replace(s, @"\s+", " ").Trim(' ', '-', '_');
+        s = Regex.Replace(s, @"\b(official|lyrics?|lyrical|video|audio|visuali[sz]er|hd|hq|4k|remaster(ed)?|music video)\b\s*$", "", RegexOptions.IgnoreCase).Trim(' ', '-'); return s;
+    }
     // "Artist - Title (Official Video) [MP3 320k]" -> artist "Artist", title "Title"
     public static void CleanName(string fileNameNoExt, out string artist, out string title)
     {
-        string s = (fileNameNoExt ?? "").Replace('–', '-').Replace('—', '-');
-        s = Regex.Replace(s, @"\s*\[[^\]]*\]", " "); s = Regex.Replace(s, @"\s*\([^)]*\)", " "); s = Regex.Replace(s, @"\s*\|.*$", ""); s = Regex.Replace(s, @"\s+", " ").Trim(' ', '-', '_');
-        s = Regex.Replace(s, @"\b(official|lyrics?|lyrical|video|audio|visuali[sz]er|hd|hq|4k|remaster(ed)?)\b\s*$", "", RegexOptions.IgnoreCase).Trim(' ', '-');
-        int i = s.IndexOf(" - ", StringComparison.Ordinal);
+        string s = CleanString(fileNameNoExt); int i = s.IndexOf(" - ", StringComparison.Ordinal);
         if (i > 0) { artist = s.Substring(0, i).Trim(); title = s.Substring(i + 3).Trim(); } else { artist = ""; title = s; }
     }
+    // every sensible reading of a name, best first: "Artist - Title", "Uploader - Artist - Title", "Title - Artist", and the title alone (downloads are named in all of these ways)
+    public static List<string[]> Candidates(string nameNoExt)
+    {
+        var res = new List<string[]>(); string s = CleanString(nameNoExt); if (s.Length == 0) return res;
+        Action<string, string> add = (art, ttl) => { art = (art ?? "").Trim(); ttl = (ttl ?? "").Trim(); if (ttl.Length == 0) return; foreach (var r in res) if (r[0].Equals(art, StringComparison.OrdinalIgnoreCase) && r[1].Equals(ttl, StringComparison.OrdinalIgnoreCase)) return; res.Add(new[] { art, ttl }); };
+        string[] p = s.Split(new[] { " - " }, StringSplitOptions.RemoveEmptyEntries); for (int i = 0; i < p.Length; i++) p[i] = p[i].Trim();
+        if (p.Length >= 2) add(p[0], string.Join(" - ", p, 1, p.Length - 1));
+        if (p.Length >= 3) { add(p[1], string.Join(" - ", p, 2, p.Length - 2)); add(p[p.Length - 2], p[p.Length - 1]); add(p[0], p[p.Length - 1]); }
+        if (p.Length == 2) add(p[1], p[0]);
+        if (p.Length >= 2) add("", p[p.Length - 1]); add("", s);
+        return res;
+    }
+    // the artist of a tag or a channel without the extras YouTube adds ("Queen Official", "Adele - Topic", "TaylorSwiftVEVO")
+    public static string CleanArtist(string a) { a = Regex.Replace(a ?? "", @"\s*-\s*Topic$", "", RegexOptions.IgnoreCase); a = Regex.Replace(a, @"VEVO$", "", RegexOptions.IgnoreCase); a = Regex.Replace(a, @"\s*(Official|Music|Records|Channel)$", "", RegexOptions.IgnoreCase); return a.Trim(); }
     static List<string> Tokens(string s) { var l = new List<string>(); foreach (Match m in Regex.Matches((s ?? "").ToLowerInvariant(), @"[\p{L}\p{N}]+")) l.Add(m.Value); return l; }
     static double Overlap(string want, string have)
     {
@@ -35,30 +53,44 @@ static class LyricsGet
         using (var rs = (HttpWebResponse)rq.GetResponse()) using (var st = rs.GetResponseStream()) using (var rd = new StreamReader(st, Encoding.UTF8)) return rd.ReadToEnd();
     }
     static string S(Dictionary<string, object> d, string k) { object o; return d != null && d.TryGetValue(k, out o) && o is string ? (string)o : ""; }
-    static bool Usable(Dictionary<string, object> d) { object ins; bool instrumental = d.TryGetValue("instrumental", out ins) && ins is bool && (bool)ins; return !instrumental && S(d, "plainLyrics").Trim().Length > 20; }
+    static string PlainOf(Dictionary<string, object> d)
+    {
+        string p = S(d, "plainLyrics"); if (p.Trim().Length > 20) return p; string sy = S(d, "syncedLyrics"); if (sy.Length == 0) return p;
+        var lines = new List<string>(); foreach (string l in sy.Replace("\r\n", "\n").Split('\n')) lines.Add(Regex.Replace(l, @"^\s*(\[\d+:\d+(?:[.:]\d+)?\]\s*)+", "").TrimEnd()); return string.Join("\n", lines.ToArray());
+    }
+    static int WordCount(string s) { return Tokens(s).Count; }
+    static bool Usable(Dictionary<string, object> d) { object ins; bool instrumental = d.TryGetValue("instrumental", out ins) && ins is bool && (bool)ins; return !instrumental && PlainOf(d).Trim().Length > 20; }
 
     // the best match, or null (nothing found / nothing close enough). Throws on a network problem so the caller can say so.
+    // The database can hold several copies of a song and some are cut short, so every copy that is really this song (the same artist, the same title and nothing extra in it) is looked at
+    // and the most complete one (the most words) is used. A copy under another singer, or a different song that only has the words in its name (a cover, a reply), is never used.
     public static Found Fetch(string artist, string title)
     {
-        if (string.IsNullOrWhiteSpace(title)) return null;
-        if (!string.IsNullOrWhiteSpace(artist))
+        if (string.IsNullOrWhiteSpace(title)) return null; var pool = new List<KeyValuePair<double, Found>>(); bool haveArtist = !string.IsNullOrWhiteSpace(artist);
+        if (haveArtist)
         {
             try
             {
                 var d = MiniJson.Parse(GetText(BaseUrl + "/api/get?artist_name=" + Uri.EscapeDataString(artist) + "&track_name=" + Uri.EscapeDataString(title))) as Dictionary<string, object>;
-                if (d != null && Usable(d) && Overlap(title, S(d, "trackName")) >= 0.6) return new Found { Artist = S(d, "artistName"), Title = S(d, "trackName"), Lyrics = S(d, "plainLyrics") };
+                if (d != null && Usable(d) && Overlap(title, S(d, "trackName")) >= 0.6) pool.Add(new KeyValuePair<double, Found>(3.0, new Found { Artist = S(d, "artistName"), Title = S(d, "trackName"), Lyrics = PlainOf(d) }));
             }
             catch (WebException ex) { var r = ex.Response as HttpWebResponse; if (r == null || (int)r.StatusCode >= 500) throw; }   // 404 = no exact match: search instead
         }
-        var list = MiniJson.Parse(GetText(BaseUrl + "/api/search?q=" + Uri.EscapeDataString((artist + " " + title).Trim()))) as List<object>;
-        if (list == null) return null; Found best = null; double bestScore = 0;
-        foreach (var o in list)
+        string[] urls = { BaseUrl + "/api/search?q=" + Uri.EscapeDataString((artist + " " + title).Trim()), haveArtist ? BaseUrl + "/api/search?track_name=" + Uri.EscapeDataString(title) + "&artist_name=" + Uri.EscapeDataString(artist) : null };
+        foreach (string url in urls)
         {
-            var d = o as Dictionary<string, object>; if (d == null || !Usable(d)) continue;
-            double ts = Overlap(title, S(d, "trackName")), asx = string.IsNullOrWhiteSpace(artist) ? 1 : Overlap(artist, S(d, "artistName") + " " + S(d, "trackName"));
-            if (ts < 0.6 || asx < 0.5) continue; double score = ts * 2 + asx; if (score > bestScore) { bestScore = score; best = new Found { Artist = S(d, "artistName"), Title = S(d, "trackName"), Lyrics = S(d, "plainLyrics") }; }
+            if (url == null || (url == urls[1] && pool.Count > 0)) continue;   /* the plain search always runs (the exact match is not always the fullest copy); the second one only when nothing was found */
+            var list = MiniJson.Parse(GetText(url)) as List<object>; if (list == null) continue;
+            foreach (var o in list)
+            {
+                var d = o as Dictionary<string, object>; if (d == null || !Usable(d)) continue; string tn = S(d, "trackName"), an = S(d, "artistName");
+                double ts = Overlap(title, tn), tr = Overlap(tn, title), asx = haveArtist ? Overlap(artist, an) : 1;   // the title is in the track name and the track name is little more than the title; the artist is the artist (not just a word in the name)
+                if (ts < 0.6 || tr < 0.5 || asx < 0.6) continue; pool.Add(new KeyValuePair<double, Found>(ts + tr + asx, new Found { Artist = an, Title = tn, Lyrics = PlainOf(d) }));
+            }
         }
-        return best;
+        if (pool.Count == 0) return null; double best = 0; foreach (var kv in pool) best = Math.Max(best, kv.Key);
+        Found pick = null; int most = -1; foreach (var kv in pool) if (kv.Key >= best - 0.15) { int w = WordCount(kv.Value.Lyrics); if (w > most) { most = w; pick = kv.Value; } }
+        return pick;
     }
 
     // the text of the file: the song, the writer, the labelled lyrics and a note about whose they are

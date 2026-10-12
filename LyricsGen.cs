@@ -54,7 +54,7 @@ static class LyricsGen
             say("Reading the link..."); string artist, title, err; ResolveLink(url, out artist, out title, out err); if (stop()) { r.Error = "Cancelled."; return r; }
             if (err.Length > 0) { r.Error = err; return r; }
             r.Artist = artist; r.Title = title; say("Looking for the lyrics of \"" + (artist.Length > 0 ? artist + " - " : "") + title + "\"..."); LyricsGet.Found f = null;
-            try { f = LyricsGet.Fetch(artist, title); } catch (WebException) { r.Error = "Could not reach the lyrics database. Check your connection and try again."; return r; }
+            try { foreach (var c in SongGuesses(artist, title, "")) { if (stop()) break; f = LyricsGet.Fetch(c[0], c[1]); if (f != null) break; } } catch (WebException) { r.Error = "Could not reach the lyrics database. Check your connection and try again."; return r; }
             if (stop()) { r.Error = "Cancelled."; return r; }
             if (f == null) { r.Error = "\"" + (artist.Length > 0 ? artist + " - " : "") + title + "\" is not in the lyrics database. To write the words by listening, add the song or video file instead of the link."; return r; }
             string n; r.Lyrics = Finish(f.Lyrics, false, out n); r.Artist = f.Artist; r.Title = f.Title; r.Source = "LRCLIB lyrics database (found from the link)"; r.Found = true; r.Note = "Found from the link, nothing was downloaded. " + n; return r;
@@ -103,6 +103,15 @@ static class LyricsGen
     public static string Finish(string raw, bool fromRecording, out string note) { return LyricsPolish.Finish(raw, fromRecording, out note); }
 
     // the whole job for one file; status gets what is happening now. Never throws: a problem comes back in Result.Error.
+    // the songs a file could be, best guess first: what the tags say (cleaned), then every sensible reading of the file name. A title alone is only tried when nothing says who sings it.
+    public static List<string[]> SongGuesses(string tagArtist, string tagTitle, string fileNameNoExt)
+    {
+        var res = new List<string[]>(); Action<string[]> add = c => { foreach (var r in res) if (r[0].Equals(c[0], StringComparison.OrdinalIgnoreCase) && r[1].Equals(c[1], StringComparison.OrdinalIgnoreCase)) return; res.Add(c); };
+        if ((tagTitle ?? "").Length > 0) { string ct = LyricsGet.CleanString(tagTitle); if (ct.Length > 0) { add(new[] { LyricsGet.CleanArtist(tagArtist), ct }); foreach (var c in LyricsGet.Candidates(tagTitle)) add(c); } }
+        foreach (var c in LyricsGet.Candidates(fileNameNoExt)) add(c);
+        bool haveArtist = false; foreach (var c in res) if (c[0].Length > 0) haveArtist = true; if (haveArtist) res.RemoveAll(c => c[0].Length == 0);
+        if (res.Count > 7) res.RemoveRange(7, res.Count - 7); return res;
+    }
     // "90", "1:30", "1:02:03" or "1:30.5" as seconds; empty is no trim (-1); err says what is wrong
     public static double ParseTime(string s, out string err)
     {
@@ -123,16 +132,11 @@ static class LyricsGen
         try
         {
             if (!File.Exists(path)) { r.Error = "That file is not there any more."; return r; }
-            say("Reading the name of the song..."); string fa, ft; LyricsGet.CleanName(Path.GetFileNameWithoutExtension(path), out fa, out ft);
-            string ta, tt; ReadTags(path, out ta, out tt); if (stop()) { r.Error = "Cancelled."; return r; }
-            string artist = ta.Length > 0 ? ta : fa, title = tt.Length > 0 ? tt : ft; r.Artist = artist; r.Title = title;
+            say("Reading the name of the song..."); string ta, tt; ReadTags(path, out ta, out tt); if (stop()) { r.Error = "Cancelled."; return r; }
+            var cands = SongGuesses(ta, tt, Path.GetFileNameWithoutExtension(path)); r.Artist = cands.Count > 0 ? cands[0][0] : ""; r.Title = cands.Count > 0 ? cands[0][1] : Path.GetFileNameWithoutExtension(path); string artist = r.Artist, title = r.Title;
             say("Looking for the lyrics of \"" + (artist.Length > 0 ? artist + " - " : "") + title + "\"..."); LyricsGet.Found f = null; bool offline = false;
-            try
-            {
-                f = LyricsGet.Fetch(artist, title);
-                if (f == null && (tt.Length > 0 && (ft != tt || fa != artist))) f = LyricsGet.Fetch(fa, ft);   // the tags did not match: try the file name
-            }
-            catch (WebException) { offline = true; }
+            int failed = 0; foreach (var c in cands) { if (stop()) break; try { f = LyricsGet.Fetch(c[0], c[1]); } catch (WebException) { failed++; continue; } if (f != null) break; }   /* one guess that fails on the network does not stop the others */
+            if (f == null && cands.Count > 0 && failed == cands.Count) offline = true;
             if (stop()) { r.Error = "Cancelled."; return r; }
             if (f != null)
             {
@@ -244,5 +248,7 @@ static class LyricsWhisper
     // the part of the song that is heard: from TRIM START to TRIM END (either can be left out)
     static string TrimArgs(double a, double b) { var ci = System.Globalization.CultureInfo.InvariantCulture; string s = ""; if (a > 0) s += "-ss " + a.ToString("0.###", ci) + " "; if (b > 0) s += "-t " + (a > 0 ? Math.Max(0.1, b - a) : b).ToString("0.###", ci) + " "; return s; }
     static string Run16k(string ff, string input, string wav, Func<bool> cancelled, double trimA, double trimB, out int code) { return RunProc(ff, "-hide_banner -y " + TrimArgs(trimA, trimB) + "-i \"" + input + "\" -vn -ac 1 -ar 16000 -c:a pcm_s16le \"" + wav + "\"", cancelled, out code); }
-    static string RunWhisper(string exe, string model, string wav, string outBase, int threads, Func<bool> cancelled, out int code) { return RunProc(exe, "-m \"" + model + "\" -f \"" + wav + "\" -l auto -nt -np -t " + threads + " -otxt -of \"" + outBase + "\"", cancelled, out code); }
+    // -mc 0: every sentence is heard on its own (the words before it are not carried along, which is how a recogniser gets stuck repeating one line and then skips the next verses); -bs 5: it weighs five readings of each sentence instead of one
+    public static string WhisperArgs(string model, string wav, string outBase, int threads) { return "-m \"" + model + "\" -f \"" + wav + "\" -l auto -nt -np -mc 0 -bs 5 -t " + threads + " -otxt -of \"" + outBase + "\""; }
+    static string RunWhisper(string exe, string model, string wav, string outBase, int threads, Func<bool> cancelled, out int code) { return RunProc(exe, WhisperArgs(model, wav, outBase, threads), cancelled, out code); }
 }

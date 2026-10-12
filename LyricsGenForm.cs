@@ -33,7 +33,9 @@ sealed class LyricsGenForm : Form
 {
     readonly App app; static readonly Color Ink = TM.C(255, 240, 232, 255), Dim = TM.C(255, 198, 182, 232), Head = TM.C(255, 236, 120, 230); static readonly Color Gold = Color.FromArgb(255, 255, 206, 110);
     readonly bool fantasy;
-    Label linkLbl, trimALbl, trimBLbl, trimNote; TextBox linkBox, trimA, trimB; bool linkSet;
+    Label linkLbl, trimALbl, trimBLbl, trimNote; TextBox linkBox, trimA, trimB; bool linkSet; PxButton recheckBtn, removeBtn; string countBase = ""; System.Windows.Forms.Timer moreTimer;
+    public LyricsCheck.Report LastReport;   // the report of the last RECHECK
+    public static Func<LyricsCheck.Report, bool> ReportHook;   // a test answers here (true = add the missing passages)
     Label titleLbl, subLbl, badge, statusLbl, tLbl, rLbl, sizeLbl, countLbl, noteLbl; LyricsDropZone zone; PxButton chooseBtn, genBtn, cancelBtn, minusBtn, plusBtn, fitBtn, fixBtn, secBtn, undoBtn, copyBtn, saveBtn, dawBtn, recentBtn;
     DarkCheck listenChk; TextBox titleBox, lyricsBox; string path = "", source = "", prevText; float fontSize = 14f; bool fit = true, busy, setting; volatile bool cancel; DateTime startedAt; System.Windows.Forms.Timer tick, fitLater; string baseStatus = "";
     public static Func<string, bool> Consent;   // a test answers the download question here
@@ -69,6 +71,8 @@ sealed class LyricsGenForm : Form
         minusBtn = B("A-", TM.C(255, 90, 50, 170), 40, 30); minusBtn.Click += (s, e) => Bump(-1f); plusBtn = B("A+", TM.C(255, 90, 50, 170), 40, 30); plusBtn.Click += (s, e) => Bump(1f);
         fitBtn = B("Fit to box: on", TM.C(255, 120, 60, 200), 140, 30); fitBtn.Click += (s, e) => { fit = !fit; UpdateFitBtn(); if (fit) ApplyFit(); };
         fixBtn = B("Fix grammar", TM.C(255, 140, 60, 220), 130, 30); fixBtn.Click += (s, e) => FixGrammar(); secBtn = B("Add sections", TM.C(255, 140, 60, 220), 130, 30); secBtn.Click += (s, e) => AddSections();
+        removeBtn = B("Remove lyrics", TM.C(255, 110, 30, 70), 150, 30); removeBtn.Click += (s, e) => RemoveLyrics();
+        recheckBtn = B("Recheck video + words", TM.C(255, 120, 60, 200), 250, 42); recheckBtn.Click += (s, e) => Recheck();
         undoBtn = B("Undo", TM.C(255, 70, 40, 120), 76, 30); undoBtn.Click += (s, e) => Undo(); undoBtn.Visible = false;
         sizeLbl = new Label { ForeColor = Dim, AutoSize = false, TextAlign = ContentAlignment.MiddleLeft, Tag = "nocaps" };
         lyricsBox = new TextBox { Multiline = true, ScrollBars = ScrollBars.Vertical, AcceptsReturn = true, WordWrap = true, Font = new Font("Segoe UI", fontSize) }; Win.NeonBox(lyricsBox); Win.DarkControl(lyricsBox);
@@ -78,11 +82,12 @@ sealed class LyricsGenForm : Form
         saveBtn = B("Save .txt", TM.C(255, 90, 50, 170), 100, 36); saveBtn.Click += (s, e) => SaveTxt();
         dawBtn = B("Save to the DAW", TM.C(255, 150, 70, 235), 170, 36); dawBtn.Click += (s, e) => SaveToDaw();
         recentBtn = B("Recent", TM.C(255, 120, 60, 200), 110, 36); recentBtn.Click += (s, e) => ShowRecent();
-        Controls.AddRange(new Control[] { titleLbl, subLbl, badge, zone, linkLbl, linkBox, trimALbl, trimA, trimBLbl, trimB, trimNote, listenChk, genBtn, cancelBtn, statusLbl, tLbl, titleBox, rLbl, minusBtn, plusBtn, fitBtn, fixBtn, secBtn, undoBtn, sizeLbl, lyricsBox, noteLbl, countLbl, copyBtn, saveBtn, dawBtn, recentBtn });
+        Controls.AddRange(new Control[] { titleLbl, subLbl, badge, zone, linkLbl, linkBox, trimALbl, trimA, trimBLbl, trimB, trimNote, listenChk, genBtn, recheckBtn, removeBtn, cancelBtn, statusLbl, tLbl, titleBox, rLbl, minusBtn, plusBtn, fitBtn, fixBtn, secBtn, undoBtn, sizeLbl, lyricsBox, noteLbl, countLbl, copyBtn, saveBtn, dawBtn, recentBtn });
+        moreTimer = new System.Windows.Forms.Timer { Interval = 500 }; moreTimer.Tick += (s, e) => MoreHint(); moreTimer.Start();
         tick = new System.Windows.Forms.Timer { Interval = 1000 }; tick.Tick += (s, e) => { if (busy) { var d = DateTime.Now - startedAt; statusLbl.Text = baseStatus + "  (" + (int)d.TotalMinutes + ":" + d.Seconds.ToString("00") + ")"; } };
         fitLater = new System.Windows.Forms.Timer { Interval = 140 }; fitLater.Tick += (s, e) => { fitLater.Stop(); ApplyFit(); };
         Win.CapsAll(this); Resize += (s, e) => { DoLayout(); if (fit) { fitLater.Stop(); fitLater.Start(); } }; DoLayout(); UpdateFitBtn(); UpdateButtons(); UpdateCounts();
-        statusLbl.Text = "Add a song or video, then press GENERATE LYRICS."; FormClosed += (s, e) => { cancel = true; LyricsGen.Cancel(); LyricsWhisper.Cancel(); tick.Dispose(); fitLater.Dispose(); };
+        statusLbl.Text = "Add a song or video, then press GENERATE LYRICS."; FormClosed += (s, e) => { cancel = true; LyricsGen.Cancel(); LyricsWhisper.Cancel(); tick.Dispose(); fitLater.Dispose(); moreTimer.Dispose(); };
         Shown += (s, e) => ApplyFit();
     }
 
@@ -95,10 +100,10 @@ sealed class LyricsGenForm : Form
         zone.SetBounds(m, 90, iw, 84); chooseBtn.Location = new Point(zone.Width - 180, (zone.Height - chooseBtn.Height) / 2);
         linkLbl.SetBounds(m, 184, 150, 30); linkBox.SetBounds(m + 158, 186, iw - 158 - 4, 28);
         trimALbl.SetBounds(m, 222, 104, 30); trimA.SetBounds(m + 108, 224, 84, 28); trimBLbl.SetBounds(m + 214, 222, 84, 30); trimB.SetBounds(m + 302, 224, 84, 28); trimNote.SetBounds(m + 404, 222, Math.Max(60, iw - 404), 30);
-        listenChk.SetBounds(m, 260, iw, 26); genBtn.SetBounds(m, 294, 230, 42); cancelBtn.SetBounds(m + 240, 294, 100, 42); statusLbl.SetBounds(m + (cancelBtn.Visible ? 352 : 242), 294, Math.Max(100, iw - (cancelBtn.Visible ? 352 : 242)), 42);
+        listenChk.SetBounds(m, 260, iw, 26); genBtn.SetBounds(m, 294, 230, 42); recheckBtn.SetBounds(m + 240, 294, 250, 42); cancelBtn.SetBounds(m + 500, 294, 100, 42); statusLbl.SetBounds(m + (cancelBtn.Visible ? 612 : 502), 294, Math.Max(100, iw - (cancelBtn.Visible ? 612 : 502)), 42);
         tLbl.SetBounds(m, 354, 56, 30); titleBox.SetBounds(m + 64, 356, iw - 64 - 4, 28);
         int y = 396; rLbl.SetBounds(m, y, 124, 30); minusBtn.Location = new Point(m + 130, y); plusBtn.Location = new Point(m + 176, y); fitBtn.Location = new Point(m + 224, y); sizeLbl.SetBounds(m + 372, y, 70, 30);
-        fixBtn.Location = new Point(W - m - 130 - 8 - 130 - (undoBtn.Visible ? 84 : 0), y); secBtn.Location = new Point(W - m - 130 - (undoBtn.Visible ? 84 : 0), y); undoBtn.Location = new Point(W - m - 76, y);
+        fixBtn.Location = new Point(W - m - 130 - 8 - 130 - (undoBtn.Visible ? 84 : 0), y); secBtn.Location = new Point(W - m - 130 - (undoBtn.Visible ? 84 : 0), y); undoBtn.Location = new Point(W - m - 76, y); removeBtn.Location = new Point(fixBtn.Left - 8 - 150, y);
         int by = H - 24 - 36, ny = by - 46;
         lyricsBox.SetBounds(m + 4, 438, iw - 8, Math.Max(80, ny - 8 - 438 - 4)); noteLbl.SetBounds(m, ny, iw, 40);
         recentBtn.Location = new Point(W - m - 110, by); dawBtn.Location = new Point(W - m - 110 - 8 - 170, by); saveBtn.Location = new Point(W - m - 110 - 8 - 170 - 8 - 100, by); copyBtn.Location = new Point(W - m - 110 - 8 - 170 - 8 - 100 - 8 - 80, by);
@@ -132,7 +137,7 @@ sealed class LyricsGenForm : Form
     public bool FitOn { get { return fit; } }
     public Thread Worker { get { return worker; } }
     Thread worker;
-    public void SetBusy(bool b) { busy = b; genBtn.Enabled = !b; chooseBtn.Enabled = !b; cancelBtn.Visible = b; if (b) startedAt = DateTime.Now; tick.Enabled = b; DoLayout(); UpdateButtons(); }
+    public void SetBusy(bool b) { busy = b; recheckBtn.Enabled = !b; genBtn.Enabled = !b; chooseBtn.Enabled = !b; cancelBtn.Visible = b; if (b) startedAt = DateTime.Now; tick.Enabled = b; DoLayout(); UpdateButtons(); }
     public void Generate()
     {
         if (busy) return; string file = path.Length > 0 ? path : linkBox.Text.Trim();
@@ -169,8 +174,9 @@ sealed class LyricsGenForm : Form
     // ---- the words ----
     static string Crlf(string s) { return (s ?? "").Replace("\r\n", "\n").Replace("\n", "\r\n"); }
     static string Lf(string s) { return (s ?? "").Replace("\r\n", "\n"); }
-    void Keep() { prevText = lyricsBox.Text; undoBtn.Visible = true; DoLayout(); }
-    void Undo() { if (prevText == null) return; string cur = lyricsBox.Text; lyricsBox.Text = prevText; prevText = cur; Say("Undone. Press Undo again to bring the change back."); }
+    string prevTitle;
+    void Keep() { prevText = lyricsBox.Text; prevTitle = titleBox.Text; undoBtn.Visible = true; DoLayout(); }
+    void Undo() { if (prevText == null) return; string cur = lyricsBox.Text, curT = titleBox.Text; lyricsBox.Text = prevText; prevText = cur; if (prevTitle != null) { titleBox.Text = prevTitle; prevTitle = curT; } Say("Undone. Press Undo again to bring the change back."); }
     public void FixGrammar()
     {
         if (lyricsBox.Text.Trim().Length == 0) { Say("There are no lyrics to fix yet."); return; }
@@ -200,13 +206,86 @@ sealed class LyricsGenForm : Form
     void Bump(float d) { fit = false; UpdateFitBtn(); SetFont(Math.Max(8f, Math.Min(48f, fontSize + d))); }
     void UpdateFitBtn() { fitBtn.Text = fit ? "FIT TO BOX: ON" : "FIT TO BOX: OFF"; fitBtn.Invalidate(); }
 
+    // the box shows only part of a long lyric: say so, so a verse below the edge is never mistaken for a verse that is missing
+    public int HiddenLines
+    {
+        get
+        {
+            if (lyricsBox == null || !lyricsBox.IsHandleCreated || lyricsBox.TextLength == 0) return 0; int total = lyricsBox.GetLineFromCharIndex(lyricsBox.TextLength) + 1; int last = lyricsBox.GetLineFromCharIndex(lyricsBox.GetCharIndexFromPosition(new Point(4, Math.Max(1, lyricsBox.ClientSize.Height - 2)))) + 1;
+            int hidden = Math.Max(0, total - last); return hidden <= 1 ? 0 : hidden;
+        }
+    }
+    void MoreHint() { if (countLbl == null || IsDisposed) return; int h = HiddenLines; string t = h > 0 ? countBase + "   -   " + h + " more lines below: scroll" : countBase; if (countLbl.Text != t) countLbl.Text = t; }
+
+    // REMOVE LYRICS: the generated lyrics, the title and the notes are taken off the page (Undo brings the words back; the list kept in the DAW is not touched)
+    public void RemoveLyrics()
+    {
+        if (busy) return; if (lyricsBox.Text.Trim().Length == 0 && titleBox.Text.Trim().Length == 0) { Say("There are no lyrics on the page to remove."); return; }
+        Keep(); string was = titleBox.Text.Trim(); lyricsBox.Text = ""; titleBox.Text = ""; noteLbl.Text = ""; source = ""; LastReport = null; SetFont(14f); UpdateCounts();
+        Say("Lyrics removed" + (was.Length > 0 ? " (" + was + ")" : "") + ". Undo brings them back. Anything you saved to the DAW is still in RECENT.");
+    }
+
+    // ---- RECHECK VIDEO + WORDS: listen to the file again and compare what is sung with the lyrics in the box ----
+    public void Recheck()
+    {
+        if (busy) return; string lyr = Lf(lyricsBox.Text).Trim();
+        if (lyr.Length == 0) { Say("There are no lyrics to check yet: generate or paste them first."); return; }
+        if (path.Length == 0) { Say(LyricsGen.IsLink(linkBox.Text) ? "To recheck the words against the sound, add the song or video FILE: a link cannot be listened to." : "Add the song or video file first (Choose file, or drop it here): the recheck listens to it."); return; }
+        double ta, tb; string terr = LyricsGen.TrimError(trimA.Text, trimB.Text, out ta, out tb); if (terr.Length > 0) { Say(terr); return; }
+        cancel = false; SetBusy(true); Say("Starting the recheck..."); string file = path;
+        worker = new Thread(() =>
+        {
+            string heard = null, err = "";
+            try
+            {
+                if (!LyricsWhisper.Ready)
+                {
+                    bool yes = false; string q = "To recheck the words, Purphex has to listen to the song, which needs the speech recogniser and its model (" + LyricsWhisper.DownloadSizeText + ", once; ffmpeg too if it is not installed). They run on this PC: your song is not uploaded anywhere.\n\nDownload now?";
+                    var ev = new ManualResetEvent(false); UI(() => { try { yes = Consent != null ? Consent(q) : MessageBox.Show(this, q, "Recheck video and words", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes; } finally { ev.Set(); } }); ev.WaitOne();
+                    if (!yes) err = "Not downloaded, so the recheck could not listen to the song."; else LyricsWhisper.Install((what, pct) => UI(() => Say(what + "... " + pct + "%")), () => cancel);
+                }
+                if (err.Length == 0) heard = LyricsWhisper.Transcribe(file, s => UI(() => Say(s)), () => cancel, ta, tb);
+                if (cancel) err = "Cancelled.";
+            }
+            catch (OperationCanceledException) { err = "Cancelled."; } catch (Exception ex) { err = ex.Message; }
+            UI(() => RecheckDone(lyr, heard, err));
+        }) { IsBackground = true }; worker.Start();
+    }
+    void RecheckDone(string lyr, string heard, string err)
+    {
+        SetBusy(false); if (err.Length > 0) { Say(err); return; }
+        if ((heard ?? "").Trim().Length < 12) { Say("No words could be heard in this file, so the lyrics could not be checked against it."); return; }
+        var rep = LyricsCheck.Compare(lyr, heard); LastReport = rep; noteLbl.Text = rep.Summary; Say(rep.Clean ? "Rechecked: the lyrics and the song agree." : "Rechecked: " + rep.NotHeard.Count + " line(s) not heard, " + rep.Passages.Count + " passage(s) missing.");
+        bool add = ReportHook != null ? ReportHook(rep) : ShowReport(rep);
+        if (add && rep.Passages.Count > 0) AddPassages(lyr, rep);
+    }
+    void AddPassages(string lyr, LyricsCheck.Report rep)
+    {
+        string pn; string merged = LyricsPolish.Polish(LyricsCheck.Merge(lyr, rep), false, out pn); Keep(); lyricsBox.Text = Crlf(merged);
+        Say("Added " + rep.Passages.Count + (rep.Passages.Count == 1 ? " passage" : " passages") + " that is sung but was missing, marked [Heard in the song: check these words]. Undo takes them out again.");
+    }
+    bool ShowReport(LyricsCheck.Report rep)
+    {
+        using (var f = new Form { Text = "Recheck video and words", FormBorderStyle = FormBorderStyle.Sizable, MinimumSize = new Size(560, 420), StartPosition = FormStartPosition.CenterParent, BackColor = TM.C(255, 10, 4, 20), ForeColor = Ink, Font = new Font("Segoe UI", 10f), ShowInTaskbar = false })
+        {
+            Win.Dark(f); f.ClientSize = new Size(760, 560);
+            var head = new Label { Text = rep.Clean ? "Everything agrees" : "Check these", Font = new Font("Segoe UI Semibold", 18f), ForeColor = Ink, AutoSize = false, Tag = "nocaps", Left = 20, Top = 12, Width = 700, Height = 36 };
+            var box = new TextBox { Multiline = true, ReadOnly = true, ScrollBars = ScrollBars.Vertical, Font = new Font("Segoe UI", 11f), Left = 24, Top = 58, Width = 712, Height = 430, Text = LyricsCheck.Describe(rep).Replace("\r\n", "\n").Replace("\n", "\r\n"), Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right }; Win.NeonBox(box); Win.DarkControl(box);
+            var add = new PxButton { Text = "ADD THE MISSING PASSAGES", Width = 260, Height = 38, Left = 24, Top = 506, FlatStyle = FlatStyle.Flat, BackColor = TM.C(255, 150, 70, 235), ForeColor = Color.White, Cursor = Cursors.Hand, Anchor = AnchorStyles.Bottom | AnchorStyles.Left, DialogResult = DialogResult.Yes, Enabled = rep.Passages.Count > 0 };
+            var copy = new PxButton { Text = "COPY REPORT", Width = 140, Height = 38, Left = 296, Top = 506, FlatStyle = FlatStyle.Flat, BackColor = TM.C(255, 90, 50, 170), ForeColor = Color.White, Cursor = Cursors.Hand, Anchor = AnchorStyles.Bottom | AnchorStyles.Left }; copy.Click += (s, e) => { try { Clipboard.SetText(box.Text); } catch { } };
+            var close = new PxButton { Text = "CLOSE", Width = 120, Height = 38, Left = 616, Top = 506, FlatStyle = FlatStyle.Flat, BackColor = TM.C(255, 70, 40, 120), ForeColor = Color.White, Cursor = Cursors.Hand, Anchor = AnchorStyles.Bottom | AnchorStyles.Right, DialogResult = DialogResult.No };
+            f.Controls.AddRange(new Control[] { head, box, add, copy, close }); f.CancelButton = close; Win.CapsAll(f);
+            return f.ShowDialog(this) == DialogResult.Yes;
+        }
+    }
+
     // ---- keeping it ----
     void UpdateCounts()
     {
         string t = lyricsBox.Text; int lines = 0, words = 0; foreach (string l in t.Split('\n')) if (l.Trim().Length > 0 && !LyricsPolish.IsSection(l.Trim())) { lines++; words += l.Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries).Length; }
-        countLbl.Text = lines + " lines   " + words + " words"; sizeLbl.Text = "Size " + (fontSize == Math.Floor(fontSize) ? ((int)fontSize).ToString() : fontSize.ToString("0.0")); UpdateButtons();
+        countBase = lines + " lines   " + words + " words"; countLbl.Text = countBase; MoreHint(); sizeLbl.Text = "Size " + (fontSize == Math.Floor(fontSize) ? ((int)fontSize).ToString() : fontSize.ToString("0.0")); UpdateButtons();
     }
-    void UpdateButtons() { bool has = lyricsBox != null && lyricsBox.Text.Trim().Length > 0; copyBtn.Enabled = saveBtn.Enabled = fixBtn.Enabled = secBtn.Enabled = dawBtn.Enabled = has && !busy; recentBtn.Enabled = !busy; genBtn.Enabled = !busy; }
+    void UpdateButtons() { bool has = lyricsBox != null && lyricsBox.Text.Trim().Length > 0; copyBtn.Enabled = saveBtn.Enabled = fixBtn.Enabled = secBtn.Enabled = dawBtn.Enabled = has && !busy; recentBtn.Enabled = !busy; genBtn.Enabled = !busy; recheckBtn.Enabled = has && !busy; removeBtn.Enabled = has && !busy; }
     static string FileSafe(string s) { foreach (char c in Path.GetInvalidFileNameChars()) s = s.Replace(c, '_'); s = s.Trim().TrimEnd('.'); return s.Length == 0 ? "lyrics" : (s.Length > 100 ? s.Substring(0, 100) : s); }
     void SaveTxt()
     {

@@ -35,7 +35,7 @@ partial class StudioForm
             double f0 = 30 * Math.Pow(600.0, b / (double)outB.Length), f1 = 30 * Math.Pow(600.0, (b + 1) / (double)outB.Length);
             int k0 = Math.Max(1, (int)(f0 * N / StudioEngine.SR)), k1 = Math.Max(k0 + 1, (int)(f1 * N / StudioEngine.SR)); double mx = 0, sum = 0; int c = 0;
             for (int k = k0; k < k1 && k < N / 2; k++) { double m = Math.Sqrt(visRe[k] * visRe[k] + visIm[k] * visIm[k]); if (m > mx) mx = m; sum += m; c++; }
-            double v = c == 0 ? 0 : mx * 0.6 + (sum / c) * 0.4; double db = 20 * Math.Log10(v / (N / 4.0) + 1e-9); float nv = (float)Math.Max(0, Math.Min(1, (db + 78) / 60 + b / (double)outB.Length * 0.30));
+            double v = c == 0 ? 0 : mx * 0.6 + (sum / c) * 0.4; double db = 20 * Math.Log10(v / (N / 4.0) + 1e-9); float nv = (float)Math.Max(0, Math.Min(1, (db + 78) / 60 + b / (double)outB.Length * 0.16));
             outB[b] = nv > outB[b] ? outB[b] + (nv - outB[b]) * 0.75f : outB[b] * 0.9f + nv * 0.1f;
         }
     }
@@ -105,7 +105,7 @@ partial class StudioForm
         visBass += (bass - visBass) * 0.55f; visBassAvg += (bass - visBassAvg) * 0.08f; visMid += (mid - visMid) * 0.3f; visHigh += (hi - visHigh) * 0.3f;
         bool beat = playing && bass > visBassAvg * 1.2f + 0.03f && bass > 0.26f && visT - visBeatAt > 0.17;
         if (beat) { visBeat = 1f; visFlash = 1f; visBeatAt = visT; visShake = 1f; }
-        { float lowMid = 0; for (int i = 14; i < 28; i++) lowMid += visB[i]; lowMid /= 14f; float[] eb = { bass, lowMid, mid, hi }; if (jetHit == null) jetHit = new bool[4]; for (int d = 0; d < 4; d++) { jetAvg[d] += (eb[d] - jetAvg[d]) * 0.08f; jetHit[d] = playing && eb[d] > jetAvg[d] * 1.22f + 0.025f && eb[d] > jetMin[d] && visT - jetAt[d] > 0.16; if (jetHit[d]) { jetE[d] = 1f; jetAt[d] = visT; } else jetE[d] = Math.Max(0, jetE[d] - dt * 2.6f); } }
+        { float lowMid = 0; for (int i = 14; i < 28; i++) lowMid += visB[i]; lowMid /= 14f; float[] eb = { bass, lowMid, mid, hi }; if (jetHit == null) jetHit = new bool[4]; for (int d = 0; d < 4; d++) { jetAvg[d] += (eb[d] - jetAvg[d]) * 0.08f; jetHit[d] = playing && eb[d] > jetAvg[d] * 1.3f + 0.03f && eb[d] > jetMin[d] && visT - jetAt[d] > 0.22; if (jetHit[d]) { jetE[d] = Math.Min(1f, 0.4f + (eb[d] - jetAvg[d]) * 3.2f); jetAt[d] = visT; }   /* a blast is as big as the hit: a soft one is small */ else jetE[d] = Math.Max(0, jetE[d] - dt * 2.6f); } }
         visBeat = Math.Max(0, visBeat - dt * 3.2f); visFlash = Math.Max(0, visFlash - dt * 5f); visShake = Math.Max(0, visShake - dt * 6f);
         for (int i = 0; i < VisN; i++) visPk[i] = Math.Max(visB[i], visPk[i] - dt * 0.5f);
         visRot += dt * (0.10f + visMid * 0.9f + visBeat * 0.9f);
@@ -137,12 +137,12 @@ partial class StudioForm
         int nb = VisN; float r1 = R0 * 1.16f; var cosT = new float[nb]; var sinT = new float[nb]; for (int i = 0; i < nb; i++) { double an = (-Math.PI / 2) + (i + 0.5) * 2 * Math.PI / nb; /* fixed: the spectrum is the same on the left and the right of the logo */ cosT[i] = (float)Math.Cos(an); sinT[i] = (float)Math.Sin(an); }
         Func<int, int> bandOf = i => Math.Min(95, (i < 48 ? i : 95 - i) * 2 + 1);
         float ov = playing ? Math.Max(0.06f, visBass * 0.45f + visMid * 0.35f + visHigh * 0.2f) : 0f;   // the overall level: what the logo beats to
-        Func<float, float> Even = x => Math.Min(1f, x * 0.5f + ov * 0.75f);   // each bar: its own band and the overall bounce, so mids and highs on the sides are never smaller than the bass
+        Func<float, float> Even = x => x;   // each bar is its own band and nothing else: quiet music gives short bars, loud music tall ones (it used to sit near the top all the time)
         var ringV = new float[nb]; { var rawV = new float[nb]; for (int i = 0; i < nb; i++) rawV[i] = visB[bandOf(i)]; float[] kern = { 0.08f, 0.17f, 0.50f, 0.17f, 0.08f }; for (int i = 0; i < nb; i++) { float acc = 0; for (int k = -2; k <= 2; k++) acc += rawV[((i + k) % nb + nb) % nb] * kern[k + 2]; ringV[i] = acc; } }
         for (int k = visEcho.Length - 1; k >= 1; k--)
         {
             var snap = visEcho[(visEchoHead - k + visEcho.Length * 2) % visEcho.Length]; if (snap == null) continue; var pts = new PointF[nb]; float grow = 1f + 0.045f * k;
-            for (int i = 0; i < nb; i++) { float rr = (r1 + R0 * 0.06f + snap[bandOf(i)] * R0 * 0.8f * 0.9f) * grow; pts[i] = new PointF(cx + cosT[i] * rr, cy + sinT[i] * rr); }
+            for (int i = 0; i < nb; i++) { float rr = (r1 + R0 * 0.06f + snap[bandOf(i)] * R0 * 1.15f * 0.9f) * grow; pts[i] = new PointF(cx + cosT[i] * rr, cy + sinT[i] * rr); }
             using (var pen = new Pen(Color.FromArgb((int)((playing ? 74 : 26) / (float)k), VisCol(0.55f + 0.1f * k)), 1.5f) { LineJoin = LineJoin.Round }) g.DrawPolygon(pen, pts);
         }
         Prof.A("vis.shells", v0); v0 = Prof.T();
@@ -177,7 +177,7 @@ partial class StudioForm
               g.SmoothingMode = pass == 0 ? SmoothingMode.None : SmoothingMode.AntiAlias; float wdt = pass == 0 ? 11f : 3.4f;
               for (int i = 0; i < nb; i++)
               {
-                  int bi = bandOf(i); float v = Even(ringV[i]); if (!playing) v = Math.Max(v, 0.03f + 0.025f * (float)Math.Sin(visT * 1.7 + i * 0.35)); float len = R0 * 0.07f + v * R0 * 0.8f; float ca = cosT[i], sa = sinT[i], nx = -sa * wdt / 2, ny = ca * wdt / 2; float x0 = cx + ca * r1, y0 = cy + sa * r1, x1 = cx + ca * (r1 + len), y1 = cy + sa * (r1 + len);
+                  int bi = bandOf(i); float v = Even(ringV[i]); if (!playing) v = Math.Max(v, 0.03f + 0.025f * (float)Math.Sin(visT * 1.7 + i * 0.35)); float len = R0 * 0.07f + v * R0 * 1.15f; float ca = cosT[i], sa = sinT[i], nx = -sa * wdt / 2, ny = ca * wdt / 2; float x0 = cx + ca * r1, y0 = cy + sa * r1, x1 = cx + ca * (r1 + len), y1 = cy + sa * (r1 + len);
                   core[0] = new PointF(x0 + nx, y0 + ny); core[1] = new PointF(x1 + nx, y1 + ny); core[2] = new PointF(x1 - nx, y1 - ny); core[3] = new PointF(x0 - nx, y0 - ny);
                   Color col = VisCol((i < 48 ? i : 95 - i) / 47f); if (pass == 0) col = Color.FromArgb((int)(34 + 40 * v), col); else col = MixC(col, Color.White, Math.Min(0.55f, v * 0.5f));
                   using (var br = new SolidBrush(col)) g.FillPolygon(br, core);
@@ -186,7 +186,7 @@ partial class StudioForm
           g.SmoothingMode = smW; }
         Prof.A("vis.bars", v0); v0 = Prof.T();
         // peak dots
-        { var sm1 = g.SmoothingMode; g.SmoothingMode = SmoothingMode.None; using (var br = new SolidBrush(Color.White)) for (int i = 0; i < nb; i += 2) { float pv = visPk[bandOf(i)]; if (pv < 0.07f) continue; float rr = r1 + R0 * 0.07f + pv * R0 * 0.8f + 8; br.Color = Color.FromArgb(200, 255, 255, 255); g.FillRectangle(br, cx + cosT[i] * rr - 1.5f, cy + sinT[i] * rr - 1.5f, 3f, 3f); } g.SmoothingMode = sm1; }
+        { var sm1 = g.SmoothingMode; g.SmoothingMode = SmoothingMode.None; using (var br = new SolidBrush(Color.White)) for (int i = 0; i < nb; i += 2) { float pv = visPk[bandOf(i)]; if (pv < 0.07f) continue; float rr = r1 + R0 * 0.07f + pv * R0 * 1.15f + 8; br.Color = Color.FromArgb(200, 255, 255, 255); g.FillRectangle(br, cx + cosT[i] * rr - 1.5f, cy + sinT[i] * rr - 1.5f, 3f, 3f); } g.SmoothingMode = sm1; }
         // ---- the sound before mastering (a thin ring inside the bars) and the real waveform (a circular scope) ----
         { var pts = new PointF[nb]; for (int i = 0; i < nb; i++) { float rr = R0 * 1.06f + visPre[bandOf(i)] * R0 * 0.2f; pts[i] = new PointF(cx + cosT[i] * rr, cy + sinT[i] * rr); } using (var pen = new Pen(TM.C(120, 215, 215, 240), 1.3f)) g.DrawPolygon(pen, pts); }
         if (playing && eng.MasterTap != null)
@@ -207,7 +207,7 @@ partial class StudioForm
           using (var br = new SolidBrush(Color.White))
             for (int i = 0; i < VisN; i++)
             {
-                float v = Math.Min(1f, visB[i] * 0.75f + ov * 0.5f); if (!playing) v = Math.Max(v, 0.02f + 0.015f * (float)Math.Sin(visT * 2 + i * 0.3)); float hh = 2 + v * floorUp; Color c = VisCol(i / 95f); float bx = x0 + i * bw + 1, w2 = Math.Max(2f, bw - 2.4f);
+                float v = visB[i]; if (!playing) v = Math.Max(v, 0.02f + 0.015f * (float)Math.Sin(visT * 2 + i * 0.3)); float hh = 2 + v * floorUp; Color c = VisCol(i / 95f); float bx = x0 + i * bw + 1, w2 = Math.Max(2f, bw - 2.4f);
                 br.Color = Color.FromArgb(70, c); g.FillRectangle(br, bx - 1, baseY - hh - 1, w2 + 2, hh + 1); br.Color = Color.FromArgb(235, c); g.FillRectangle(br, bx, baseY - hh, w2, hh);
                 br.Color = Color.FromArgb(46, c); g.FillRectangle(br, bx, baseY + 2, w2, Math.Min(18f, hh * 0.4f));
                 float pk = 2 + visPk[i] * floorUp; br.Color = Color.FromArgb(220, 255, 255, 255); g.FillRectangle(br, bx, baseY - pk - 3, w2, 2);
