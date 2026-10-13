@@ -29,16 +29,23 @@ partial class StudioForm
         if (!playing || tap == null) { for (int i = 0; i < outB.Length; i++) outB[i] *= 0.9f; return; }
         const int N = 2048; if (visHann == null) { visHann = new double[N]; for (int i = 0; i < N; i++) visHann[i] = 0.5 - 0.5 * Math.Cos(2 * Math.PI * i / N); }
         for (int i = 0; i < N; i++) { visRe[i] = tap[(pos - N + i + 8192 * 2) & 8191] * visHann[i]; visIm[i] = 0; }
-        Fft.Transform(visRe, visIm, false);
+        Fft.Transform(visRe, visIm, false); VisAgc st; if (!visAgc.TryGetValue(outB, out st)) { st = new VisAgc(); visAgc[outB] = st; }
         for (int b = 0; b < outB.Length; b++)
         {
             double f0 = 30 * Math.Pow(600.0, b / (double)outB.Length), f1 = 30 * Math.Pow(600.0, (b + 1) / (double)outB.Length);
             int k0 = Math.Max(1, (int)(f0 * N / StudioEngine.SR)), k1 = Math.Max(k0 + 1, (int)(f1 * N / StudioEngine.SR)); double mx = 0, sum = 0; int c = 0;
             for (int k = k0; k < k1 && k < N / 2; k++) { double m = Math.Sqrt(visRe[k] * visRe[k] + visIm[k] * visIm[k]); if (m > mx) mx = m; sum += m; c++; }
             double v = c == 0 ? 0 : mx * 0.6 + (sum / c) * 0.4; double db = 20 * Math.Log10(v / (N / 4.0) + 1e-9); float nv = (float)Math.Max(0, Math.Min(1, (db + 78) / 60 + b / (double)outB.Length * 0.16));
-            outB[b] = nv > outB[b] ? outB[b] + (nv - outB[b]) * 0.75f : outB[b] * 0.9f + nv * 0.1f;
+            // each band follows the song's own loudest and quietest level (so a loud master still moves all the way), quiet parts drop right down, and a hit jumps straight up
+            float lo = st.Lo[b], hi = st.Hi[b]; hi = nv > hi ? nv : hi - 0.0022f; lo = nv < lo ? nv : lo + 0.0007f; if (hi - lo < 0.16f) { float m = (hi + lo) / 2; hi = m + 0.08f; lo = m - 0.08f; } st.Lo[b] = lo; st.Hi[b] = hi;
+            float norm = Math.Max(0, Math.Min(1, (nv - lo) / (hi - lo))); norm = (float)Math.Pow(norm, 1.7); st.Prev[b] = st.Raw[b]; st.Raw[b] = norm;
+            outB[b] = norm >= outB[b] ? norm : Math.Max(norm, outB[b] * 0.70f);
         }
     }
+    sealed class VisAgc { public float[] Lo = new float[VisN], Hi = new float[VisN], Raw = new float[VisN], Prev = new float[VisN]; public VisAgc() { for (int i = 0; i < VisN; i++) { Lo[i] = 1; Hi[i] = 0; } } }
+    readonly Dictionary<float[], VisAgc> visAgc = new Dictionary<float[], VisAgc>(); float visFluxAvg, visBassHit; bool visArmed = true; internal float[] visTestTap;   // a test feeds its own sound here
+    // the kick: a sudden jump in the bass (it works on loud, dense masters too, where the bass level hardly changes on average)
+    float BassFlux() { VisAgc st; if (!visAgc.TryGetValue(visB, out st)) return 0; float f = 0; for (int b = 0; b < 16; b++) f += Math.Max(0, st.Raw[b] - st.Prev[b]); return f / 16f; }
 
     // a soft round glow, made once (per size and colour) and copied; it replaces a gradient fill that cost 16 ms a frame
     Bitmap AuraSprite(int dia, Color c, int peak)
@@ -97,21 +104,24 @@ partial class StudioForm
     }
     void PaintVisStage(Graphics g, RectangleF a, bool full)
     {
-        float dt = Math.Min(0.05f, hDt); bool playing = eng.Playing; visT += dt; visFrame++;
+        float dt = Math.Min(0.05f, hDt); bool playing = eng.Playing || visTestTap != null; visT += dt; visFrame++;
         var gs = g.Save(); g.SetClip(a, CombineMode.Intersect); long v0 = Prof.T();
         // ---- listening: the sound after mastering, and (every other frame) the sound before it ----
-        VisBands(eng.MasterTap, eng.MasterTapPos, visB, playing); if ((visFrame & 1) == 0) VisBands(eng.MasterTapPre, eng.MasterTapPos, visPre, playing);
+        VisBands(visTestTap ?? eng.MasterTap, visTestTap != null ? 0 : eng.MasterTapPos, visB, playing); if ((visFrame & 1) == 0) VisBands(eng.MasterTapPre, eng.MasterTapPos, visPre, playing);
         float bass = 0, mid = 0, hi = 0; for (int i = 0; i < 14; i++) bass += visB[i]; for (int i = 28; i < 56; i++) mid += visB[i]; for (int i = 70; i < 96; i++) hi += visB[i]; bass /= 14f; mid /= 28f; hi /= 26f;
         visBass += (bass - visBass) * 0.55f; visBassAvg += (bass - visBassAvg) * 0.08f; visMid += (mid - visMid) * 0.3f; visHigh += (hi - visHigh) * 0.3f;
-        bool beat = playing && bass > visBassAvg * 1.2f + 0.03f && bass > 0.26f && visT - visBeatAt > 0.17;
+        float flux = BassFlux(); bool fluxHit = flux > visFluxAvg * 1.7f + 0.06f; visFluxAvg += (flux - visFluxAvg) * 0.06f;
+        if (!visArmed && bass < visBassHit * 0.6f) visArmed = true;   // after a BANG the bass has to fall back before the next one (one BANG per kick, never two)
+        bool beat = playing && visArmed && visT - visBeatAt > 0.11 && ((fluxHit && bass > 0.18f) || (bass > visBassAvg * 1.25f + 0.05f && bass > 0.3f));   // BANG: every kick, also on loud dense songs
+        if (beat) { visArmed = false; visBassHit = bass; }
         if (beat) { visBeat = 1f; visFlash = 1f; visBeatAt = visT; visShake = 1f; }
         { float lowMid = 0; for (int i = 14; i < 28; i++) lowMid += visB[i]; lowMid /= 14f; float[] eb = { bass, lowMid, mid, hi }; if (jetHit == null) jetHit = new bool[4]; for (int d = 0; d < 4; d++) { jetAvg[d] += (eb[d] - jetAvg[d]) * 0.08f; jetHit[d] = playing && eb[d] > jetAvg[d] * 1.3f + 0.03f && eb[d] > jetMin[d] && visT - jetAt[d] > 0.22; if (jetHit[d]) { jetE[d] = Math.Min(1f, 0.4f + (eb[d] - jetAvg[d]) * 3.2f); jetAt[d] = visT; }   /* a blast is as big as the hit: a soft one is small */ else jetE[d] = Math.Max(0, jetE[d] - dt * 2.6f); } }
-        visBeat = Math.Max(0, visBeat - dt * 3.2f); visFlash = Math.Max(0, visFlash - dt * 5f); visShake = Math.Max(0, visShake - dt * 6f);
+        visBeat = Math.Max(0, visBeat - dt * 4.5f);   /* up at once, down fast: BANG BANG BANG, not a slow swell */ visFlash = Math.Max(0, visFlash - dt * 5f); visShake = Math.Max(0, visShake - dt * 6f);
         for (int i = 0; i < VisN; i++) visPk[i] = Math.Max(visB[i], visPk[i] - dt * 0.5f);
         visRot += dt * (0.10f + visMid * 0.9f + visBeat * 0.9f);
         if (visT - visEchoAt > 0.07) { visEchoAt = visT; visEchoHead = (visEchoHead + 1) % visEcho.Length; if (visEcho[visEchoHead] == null) visEcho[visEchoHead] = new float[VisN]; Array.Copy(visB, visEcho[visEchoHead], VisN); }
         float floorUp = full ? Math.Min(150f, a.Height * 0.2f) : Math.Min(64f, a.Height * 0.2f), seekH = full ? 48f : 42f;
-        float topPad = full ? 64f : 4f; float cx = a.X + a.Width / 2 + (float)Math.Sin(visT * 60) * 2.5f * visShake, cy = a.Y + topPad + (a.Height - topPad - seekH - floorUp * 0.35f) / 2f + (float)Math.Cos(visT * 53) * 2f * visShake;
+        float topPad = full ? 64f : 4f; float cx = a.X + a.Width / 2 + (float)Math.Sin(visT * 60) * 7f * visShake, cy = a.Y + topPad + (a.Height - topPad - seekH - floorUp * 0.35f) / 2f + (float)Math.Cos(visT * 53) * 6f * visShake;   // the hit shakes the whole stage
         float R0 = Math.Max(30f, Math.Min((a.Width - (full ? 560f : 40f)) / 2f / 2.3f, (a.Height - topPad - seekH - floorUp * 0.5f - 24f) / 2f / 2.25f));
         float vs = Math.Max(0.3f, Math.Min(1.15f, R0 / 105f));   // the size of the lines and dots follows the size of the ring, so the small stage looks exactly like the full page, only smaller (the bars were as thick as on the big one and ran together)
         Prof.A("vis.fft+setup", v0); v0 = Prof.T();
@@ -197,7 +207,7 @@ partial class StudioForm
         }
         Prof.A("vis.rings+scope", v0); v0 = Prof.T();
         // ---- the logo, beating ----
-        { float hh0 = R0 * (0.80f + 0.1f * visBeat + 0.05f * visBass); if (visBeat > 0.05f) { float grow = (1 - visBeat) * R0 * 0.4f; using (var hp0 = HexPath(cx, cy, (hh0 + grow) * 1.16f, hh0 + grow)) using (var pen = new Pen(Color.FromArgb((int)(150 * visBeat), NeonCyan), 2f + 3f * visBeat) { LineJoin = LineJoin.Round }) g.DrawPath(pen, hp0); } DrawLogo(g, cx, cy, hh0, playing, false); }
+        { float hh0 = R0 * (0.80f + 0.24f * visBeat + 0.08f * visBass);   /* the logo jumps on every kick */ if (visBeat > 0.05f) { float grow = (1 - visBeat) * R0 * 0.4f; using (var hp0 = HexPath(cx, cy, (hh0 + grow) * 1.16f, hh0 + grow)) using (var pen = new Pen(Color.FromArgb((int)(150 * visBeat), NeonCyan), 2f + 3f * visBeat) { LineJoin = LineJoin.Round }) g.DrawPath(pen, hp0); } DrawLogo(g, cx, cy, hh0, playing, false); }
         Prof.A("vis.logo", v0); v0 = Prof.T();
         // ---- sparks ----
         for (int i = visSp.Count - 1; i >= 0; i--) { var s = visSp[i]; s.VX *= 0.985f; s.VY = s.VY * 0.985f + 60 * dt; s.X += s.VX * dt; s.Y += s.VY * dt; s.Life -= dt; if (s.Life <= 0 || !a.Contains(s.X, s.Y)) { visSp.RemoveAt(i); continue; } var sp = SparkSprite(Coarse(s.C)); g.DrawImageUnscaled(sp, (int)(s.X - 7), (int)(s.Y - 7)); }

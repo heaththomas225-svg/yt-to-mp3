@@ -708,6 +708,30 @@ static class NF
                 if (outDir != null) Shot(Path.Combine(outDir, "empty-vocal-track.png"));
                 sf.eng.Tracks.Clear(); SetF("revertAction", null);
             }
+            {   // the visualiser hits on every kick (one BANG per kick) and the bars fall right down between hits, also on a loud steady mix
+                int srV = 44100; double secsV = 6; int nV = (int)(srV * secsV); var sigV = new float[nV]; var rndV = new Random(3);
+                for (int i = 0; i < nV; i++) { double t = i / (double)srV, kt = t % 0.5; double kick = kt < 0.25 ? Math.Sin(2 * Math.PI * (55 + 90 * Math.Exp(-kt * 30)) * kt) * Math.Exp(-kt * 14) : 0; double pad = 0.35 * Math.Sin(2 * Math.PI * 220 * t) + 0.25 * Math.Sin(2 * Math.PI * 330 * t) + 0.15 * (rndV.NextDouble() - 0.5); sigV[i] = (float)(0.55 * kick + 0.5 * pad); }
+                sf.eng.Tracks.Clear(); sf.visTestTap = new float[8192]; var paintV = typeof(StudioForm).GetMethod("PaintVisStage", BF); var hdtV = typeof(StudioForm).GetField("hDt", BF); var visBV = (float[])typeof(StudioForm).GetField("visB", BF).GetValue(sf); var beatAtV = typeof(StudioForm).GetField("visBeatAt", BF);
+                int beatsV = 0; double lastV = (double)beatAtV.GetValue(sf); float bMinV = 1, bMaxV = 0;
+                using (var bmV = new Bitmap(900, 600)) using (var gV = Graphics.FromImage(bmV)) for (int f = 0; f < (int)(secsV * 60); f++)
+                {
+                    int endV = (int)((f + 1) / 60.0 * srV); for (int k = 0; k < 8192; k++) { int si = endV - 8192 + k; sf.visTestTap[k] = si >= 0 && si < nV ? sigV[si] : 0; }
+                    hdtV.SetValue(sf, 1f / 60f); paintV.Invoke(sf, new object[] { gV, new RectangleF(0, 0, 900, 600), true });
+                    double ba = (double)beatAtV.GetValue(sf); if (ba != lastV) { if (f > 30) beatsV++; lastV = ba; }
+                    if (f > 60) { float bs = 0; for (int i = 0; i < 14; i++) bs += visBV[i]; bs /= 14; bMinV = Math.Min(bMinV, bs); bMaxV = Math.Max(bMaxV, bs); }
+                }
+                sf.visTestTap = null;
+                Check("the visualiser goes BANG on every kick, once per kick (a loud steady pad under it)", beatsV >= 9 && beatsV <= 11, beatsV + " BANGs for 10 kicks");
+                Check("between the kicks the bass bars fall right down, and on a kick they hit the top", bMinV < 0.2f && bMaxV > 0.9f, bMinV.ToString("0.00") + " .. " + bMaxV.ToString("0.00"));
+            }
+            {   // HOME on My Projects; AUTO MASTERING / LOUDNESS / EQ listen to the mix once and keep it until a track changes
+                SetF("tab", 3); sf.Invalidate(); sf.Update(); Pump(200); var bmH = (Dictionary<string, RectangleF>)typeof(StudioForm).GetField("btnMap", BF).GetValue(sf); Check("My Projects has a HOME button", bmH.ContainsKey("HOME")); SetF("tab", 0);
+                sf.eng.Tracks.Clear(); var toneF = new float[44100 * 100]; for (int i = 0; i < toneF.Length; i++) toneF[i] = (float)(0.3 * Math.Sin(i * 0.03)); var tF = StudioEngine.NewTrack("Tone", "vocal", AudioClip.FromArrays(toneF, (float[])toneF.Clone(), "f")); sf.eng.Tracks.Add(tF);
+                float[] l1, r1, l2, r2; var swF = System.Diagnostics.Stopwatch.StartNew(); sf.SampleMix(out l1, out r1); long first = swF.ElapsedMilliseconds; swF.Restart(); sf.SampleMix(out l2, out r2); long again = swF.ElapsedMilliseconds;
+                Check("the mix is listened to in slices (a 100 s song: 60 s of it) and kept: the second time is instant", l1.Length == 44100 * 60 && ReferenceEquals(l1, l2) && again < 20, l1.Length / 44100 + " s, " + first + " ms then " + again + " ms");
+                tF.VolDb = -3; sf.SampleMix(out l2, out r2); Check("changing a track listens again", !ReferenceEquals(l1, l2));
+                sf.eng.Tracks.Clear();
+            }
             {   // the REVERT box stays at the bottom left and is no wider than the left column of the Mastering page (it never reaches into the next box)
                 var pm = typeof(StudioForm).GetMethod("PaintAll", BF); var rrF = typeof(StudioForm).GetField("revertRect", BF); bool narrow = true; string bad = "";
                 foreach (var szz in new[] { new Size(1366, 768), new Size(1240, 680), new Size(1700, 1000) })

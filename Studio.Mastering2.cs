@@ -123,21 +123,23 @@ partial class StudioForm
         Fx lim = MasterFind("limiter"), eq = MasterFind("eq"); if (lim == null || eq == null) { Toast("AUTO MASTERING needs the Parametric EQ and the Limiter in the master chain."); return; }
         MasterPreviewStop(); long full = Math.Min(eng.EndFrame, StudioEngine.SR * 240), rs, re; LoudestRegion(out rs, out re); long rf = Math.Max(StudioEngine.SR * 3, Math.Min(re - rs, StudioEngine.SR * 14)); string[] orig = SnapChain();
         LoudnessResult a = null; var vers = new List<AmVersion>(); string[] lines = null;
-        RunBusy("AUTO MASTERING: listening to the whole mix...", false, prog =>
+        RunBusy("AUTO MASTERING: listening to the mix...", false, prog =>
         {
-            float[] l, r; eng.Render(0, full, new RenderOpts { Master = false }, null, out l, out r); a = Loudness.Measure(l, r, StudioEngine.SR, 0, l.Length); var tone = AutoMix.Analyze(AudioClip.FromArrays(l, r, "mix")); prog(0.1f);
+            float[] l, r; SampleMix(out l, out r); a = Loudness.Measure(l, r, StudioEngine.SR, 0, l.Length); var tone = AutoMix.Analyze(AudioClip.FromArrays(l, r, "mix")); prog(0.1f);
             double[] dv; double[] gains = MasterToneGains(tone, out dv); int[] band = { 0, 1, 3, 4, 5 }; string[] nm = { "bass", "low-mids (mud)", "presence", "upper-mids", "air" };
             var ll = new List<string>(); ll.Add("Your mix: " + a.I.ToString("0.0") + " LUFS, true peak " + a.TruePeakDb.ToString("0.0") + " dBTP, loudness range " + a.LRA.ToString("0.0") + " LU.");
             var moves = new List<string>(); for (int i = 0; i < 5; i++) if (Math.Abs(gains[i]) > 0.05) moves.Add(nm[i] + " " + gains[i].ToString("+0.0;-0.0") + " dB"); ll.Add(moves.Count > 0 ? "The EQ was made for you: " + string.Join(", ", moves.ToArray()) + "." : "The tone is already well balanced, so the EQ was left almost flat."); lines = ll.ToArray();
             string eqText = moves.Count > 0 ? string.Join(", ", moves.ToArray()) : "no correction needed"; int rec = RecommendVersion(a, dv);
+            var snaps = new List<string[]>(); var targets = new List<float>(); var bases = new List<int>();
             for (int v = 0; v < AmTable.Length; v++)
             {
                 int bi = MasterPresets.IndexOf(AmTable[v][1]); RestoreChain(orig); Presets.ApplyMaster(eng, bi);
                 for (int i = 0; i < 5; i++) { float cur = eq.Get("b" + band[i] + "_g"); eq.Set("b" + band[i] + "_on", 1); eq.Set("b" + band[i] + "_g", (float)DspMath.Clamp(cur + gains[i], -6, 6)); }
-                eq.Bypass = false; var res = FitLoudness(lim, MasterPresets.All[bi].Target, rs, rf);
-                vers.Add(new AmVersion { Name = AmTable[v][0], Blurb = AmTable[v][2], Base = bi, Snap = SnapChain(), Lufs = res.I, Result = res, Eq = eqText, Recommended = v == rec }); prog(0.1f + 0.9f * (v + 1) / AmTable.Length);
+                eq.Bypass = false; snaps.Add(SnapChain()); targets.Add(MasterPresets.All[bi].Target); bases.Add(bi);
             }
-            RestoreChain(orig);
+            RestoreChain(orig); prog(0.2f);
+            string[][] fitted; var results = FitVersions(snaps, targets.ToArray(), l, r, out fitted); prog(1f);   // all ten at once, one per processor core
+            for (int v = 0; v < AmTable.Length; v++) vers.Add(new AmVersion { Name = AmTable[v][0], Blurb = AmTable[v][2], Base = bases[v], Snap = fitted[v], Lufs = results[v].I, Result = results[v], Eq = eqText, Recommended = v == rec });
         }, ok =>
         {
             if (!ok || vers.Count == 0) { RestoreChain(orig); return; }
@@ -188,7 +190,7 @@ partial class StudioForm
     {
         Fx lim = MasterFind("limiter"); if (lim == null) { Toast("Add a Limiter to the master chain first."); return; } if (eng.Tracks.Count == 0) { Toast("Add music first."); return; }
         long full = Math.Min(eng.EndFrame, StudioEngine.SR * 240); LoudnessResult a = null; var chainB = SnapChain();
-        RunBusy("AUTO LOUDNESS: listening to the whole mix...", false, prog => { float[] l, r; eng.Render(0, full, new RenderOpts { Master = false }, null, out l, out r); a = Loudness.Measure(l, r, StudioEngine.SR, 0, l.Length); },
+        RunBusy("AUTO LOUDNESS: listening to the mix...", false, prog => { float[] l, r; SampleMix(out l, out r); a = Loudness.Measure(l, r, StudioEngine.SR, 0, l.Length); },
             ok =>
             {
                 if (!ok || a == null || double.IsInfinity(a.I)) { if (ok) Toast("There is no sound to measure yet."); return; }
@@ -435,8 +437,7 @@ partial class StudioForm
         string before = eq.Serialize(); long frames = Math.Min(eng.EndFrame, StudioEngine.SR * (tr == null ? 240 : 180)); double[] gains = null; string note = "";
         RunBusy("AUTO EQ: listening to " + who + "...", false, prog =>
         {
-            float[] l, r; var opts = tr == null ? new RenderOpts { Master = false } : new RenderOpts { Master = false, Dry = true, Fader = false, MuteSolo = false, Only = new List<Track> { tr } };
-            eng.Render(0, frames, opts, null, out l, out r); prog(0.3f); var tone = AutoMix.Analyze(AudioClip.FromArrays(l, r, "eq")); double[] dv; gains = AutoMix.ToneGains(tone, tr == null ? "mix" : tr.Role, out dv);
+            float[] l, r; if (tr == null) SampleMix(out l, out r); else eng.Render(0, frames, new RenderOpts { Master = false, Dry = true, Fader = false, MuteSolo = false, Only = new List<Track> { tr } }, null, out l, out r); prog(0.3f); var tone = AutoMix.Analyze(AudioClip.FromArrays(l, r, "eq")); double[] dv; gains = AutoMix.ToneGains(tone, tr == null ? "mix" : tr.Role, out dv);
             if (tone.ActiveFrac < 0.02) { gains = null; note = "There is no sound to listen to."; } prog(1f);
         }, ok =>
         {

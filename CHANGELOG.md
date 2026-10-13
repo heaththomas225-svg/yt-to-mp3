@@ -2,6 +2,12 @@
 
 What changed in each version of **Purphex**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.37.2  An explosive visualiser, AUTO buttons in seconds, HOME on My Projects
+
+- THE VISUALISER HITS: every kick is a BANG (the logo jumps, the stage shakes, rings and sparks fly), once per kick, also on loud dense songs where it used to barely move. Between the hits the bars fall right down, and each band follows the loudest and quietest part of your song, so a loud master still moves all the way. The full visualiser mode gets all of this too.
+- AUTO MASTERING, AUTO LOUDNESS, SET LOUDNESS and AUTO EQ take seconds instead of minutes: the mix is listened to in slices spread over the whole song (a short song whole) and kept until a track changes, the loudness is set by running only the master chain again, and the ten mastered versions are worked out side by side on every processor core. On a test song AUTO MASTERING went from about 52 seconds to about 12 (and about 7 the next time), AUTO LOUDNESS from about 55 to about 7.
+- MY PROJECTS has a HOME button, like the other pages.
+
 ## 3.37.1  Move clips freely, duplicate a piece, empty tracks stay
 
 - A CLEAN DRAG: sliding a clip along its track moves just the clip itself, with a thin line and the exact time where it starts. The see-through copy that sat on top of it (and looked doubled and glitchy) only shows when you drag a clip to another track.

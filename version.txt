@@ -1,4 +1,4 @@
-3.37.1
+3.37.2
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Move clips freely, duplicate a piece, empty tracks stay
-sha256=f566182d6089871a4ada4217daf48ae73d2d3541cbd90b7d8478e3ee68f3e0b2
+An explosive visualiser, AUTO buttons in seconds, HOME on My Projects
+sha256=0ed1d765afa197faef59541194322c93a600d7386266bb734e793e2f3ea9be1b

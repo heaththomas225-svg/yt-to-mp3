@@ -7,10 +7,15 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.37.1";
+    public const string Latest = "3.37.2";
 
     public const string Text =
-@"3.37.1  Move clips freely, duplicate a piece, empty tracks stay
+@"3.37.2  An explosive visualiser, AUTO buttons in seconds, HOME on My Projects
+ + THE VISUALISER HITS: every kick is a BANG (the logo jumps, the stage shakes, rings and sparks fly), once per kick, also on loud dense songs where it used to barely move. Between the hits the bars fall right down, and each band follows the loudest and quietest part of your song, so a loud master still moves all the way. The full visualiser mode gets all of this too.
+ + AUTO MASTERING, AUTO LOUDNESS, SET LOUDNESS and AUTO EQ take seconds instead of minutes: the mix is listened to in slices spread over the whole song (a short song whole) and kept until a track changes, the loudness is set by running only the master chain again, and the ten mastered versions are worked out side by side on every processor core. On a test song AUTO MASTERING went from about 52 seconds to about 12 (and about 7 the next time), AUTO LOUDNESS from about 55 to about 7.
+ + MY PROJECTS has a HOME button, like the other pages.
+
+3.37.1  Move clips freely, duplicate a piece, empty tracks stay
  + A CLEAN DRAG: sliding a clip along its track moves just the clip itself, with a thin line and the exact time where it starts. The see-through copy that sat on top of it (and looked doubled and glitchy) only shows when you drag a clip to another track.
  + DUPLICATE A PIECE: right-click a piece and choose Duplicate this piece: exactly that piece is copied onto a new track right under its track, at the same time, with that track's plugins. Duplicate the whole track is still there too.
  + EMPTY TRACKS STAY: a track is never deleted by itself any more. An empty track stays where it is (so you can organise your tracks); only its X or DELETE removes it.

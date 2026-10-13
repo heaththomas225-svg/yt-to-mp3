@@ -268,14 +268,8 @@ partial class StudioForm
         long frames = Math.Min(eng.EndFrame, StudioEngine.SR * 120); float target = targetLufs; double finalI = 0; var chainBefore = revertTo ?? SnapChain(); float targetBefore = targetLufs;
         RunBusy("Setting the mix to " + target.ToString("0.0") + " LUFS...", false, prog =>
         {
-            bool was = eng.MasterBypass; eng.MasterBypass = false;
-            for (int it = 0; it < 4; it++)
-            {
-                float[] l, r; eng.Render(0, frames, new RenderOpts { Master = true }, null, out l, out r); var m = Loudness.Measure(l, r, StudioEngine.SR, 0, l.Length); finalI = m.I; prog((it + 1) / 4f);
-                if (double.IsInfinity(m.I) || Math.Abs(target - m.I) < 0.25) break;
-                lim.Set("gain", (float)DspMath.Clamp(lim.Get("gain") + (target - m.I), 0, 24));
-            }
-            eng.MasterBypass = was;
+            float[] l, r; SampleMix(out l, out r); prog(0.5f);   // the mix is listened to once (and kept), then only the master chain runs again
+            var copy = MasterCopies(SnapChain()); var m = FitCopy(copy, target, l, r, eng.MasterVolDb); finalI = m.I; var cl = copy.Find(f => f.Type == "limiter"); if (cl != null) lock (eng.Sync) lim.Set("gain", cl.Get("gain")); prog(1f);
         }, ok => { if (ok) { Toast("Loudness now about " + finalI.ToString("0.0") + " LUFS (limiter gain " + lim.Get("gain").ToString("0.0") + " dB, ceiling " + lim.Get("ceil").ToString("0.0") + ")"); abOrig = abMast = null; OfferRevert("Loudness set to about " + finalI.ToString("0.0") + " LUFS", () => { RestoreChain(chainBefore); abOrig = abMast = null; }); } });
     }
 }
