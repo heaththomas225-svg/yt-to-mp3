@@ -22,6 +22,30 @@ partial class StudioForm
         presetCopyName = name; if (presetCopy.Count == 0) { Toast("That preset has no plugins to copy."); return; }
         Toast("Copied the preset " + name + " (" + presetCopy.Count + " plugins with their settings). PASTE PRESET puts it on any track.");
     }
+    // COPY ALL PLUGINS / PASTE ALL PLUGINS: every plugin of a track (with its settings and its preset boxes) onto another track; the plugins already there stay
+    internal readonly List<string[]> allCopy = new List<string[]>(); internal string allCopyFrom = "";   // { type, settings, bypass, preset name, preset box }
+    internal void CopyAllFx(Track tr)
+    {
+        allCopy.Clear(); int skipped = 0; lock (eng.Sync) foreach (var f in tr.Fx) { if (f is InstrumentFx) { skipped++; continue; } allCopy.Add(new[] { f.Type, f.Serialize(), f.Bypass ? "1" : "0", f.Preset, f.Preset.Length > 0 ? PresetKey(f) : "" }); }
+        allCopyFrom = tr.Name; if (allCopy.Count == 0) { Toast(tr.Name + " has no plugins to copy."); return; }
+        Toast("Copied all " + allCopy.Count + " plugins of " + tr.Name + (skipped > 0 ? " (the instrument stays on its track)" : "") + ". PASTE ALL PLUGINS puts them on any track.");
+    }
+    internal void PasteAllFx(Track tr)
+    {
+        if (allCopy.Count == 0) { Toast("Nothing is copied yet: press COPY ALL PLUGINS on a track first."); return; }
+        var made = new List<KeyValuePair<Fx, string[]>>(); foreach (var c in allCopy) { var nf = Presets.Make(c[0], c[1]); if (nf == null) continue; nf.Bypass = c[2] == "1"; made.Add(new KeyValuePair<Fx, string[]>(nf, c)); }
+        if (made.Count == 0) { Toast("Those plugins cannot be pasted here."); return; }
+        ChainApply(tr, "All plugins pasted", () =>
+        {
+            lock (eng.Sync)
+            {
+                var inst = new List<Fx>(); var pres = new List<Fx>(); var own = new List<Fx>(); foreach (var f in tr.Fx) { if (f is InstrumentFx) inst.Add(f); else if (f.Preset.Length > 0) pres.Add(f); else own.Add(f); }
+                var ids = new Dictionary<string, string>(); foreach (var kv in made) { var c = kv.Value; if (c[3].Length > 0) { string nid; if (!ids.TryGetValue(c[4], out nid)) { nid = Guid.NewGuid().ToString("N").Substring(0, 8); ids[c[4]] = nid; } kv.Key.Preset = c[3]; kv.Key.PresetId = nid; pres.Add(kv.Key); } else own.Add(kv.Key); }   // each preset keeps a box of its own
+                tr.Fx.Clear(); tr.Fx.AddRange(inst); tr.Fx.AddRange(pres); tr.Fx.AddRange(own);
+            }
+        });
+        selFx = -1; Toast("Pasted " + made.Count + " plugins from " + allCopyFrom + " onto " + tr.Name + ". The plugins it had stay.");
+    }
     // COPY PRESET for a whole track: its one preset, or a list to choose from when it has more than one
     internal void CopyTrackPreset(Track tr, RectangleF at)
     {
@@ -46,7 +70,7 @@ partial class StudioForm
         Reg(all, () => allFxOpen = false); using (var dim = new SolidBrush(Color.FromArgb(150, 0, 0, 0))) g.FillRectangle(dim, all);
         var sheet = Rc(16, 24, W - 32, H - 48); FillRR(g, TM.C(252, 14, 8, 30), sheet, 22); Glow(g, NeonViolet, sheet, 22, 0.8f, 4); StrokeRR(g, Color.FromArgb(180, NeonViolet), sheet, 22, 1.5f); Reg(sheet, () => { });
         Txt(g, "ALL PLUGINS", 22, Ink, Rc(sheet.X + 22, sheet.Y + 12, 300, 34), StringAlignment.Near, true);
-        Txt(g, "Every track and its plugins in one place. + ADD, COPY PRESET and PASTE PRESET work on that column's track; every plugin has COPY and PASTE; press a plugin to open it.", 12, DimC, Rc(sheet.X + 22, sheet.Y + 46, sheet.Width - 200, 20), StringAlignment.Near, false);
+        Txt(g, "Every track and its plugins in one place. + ADD, COPY PRESET, PASTE PRESET and COPY / PASTE ALL PLUGINS work on that column's track; every plugin has COPY and PASTE; press a plugin to open it.", 12, DimC, Rc(sheet.X + 22, sheet.Y + 46, sheet.Width - 200, 20), StringAlignment.Near, false);
         var close = Rc(sheet.Right - 120, sheet.Y + 14, 100, 34); Btn(g, close, "DONE", 2, () => allFxOpen = false, 13); Hint2(close, "Close this panel (Esc does the same)");
         Track[] rows; lock (eng.Sync) rows = eng.Tracks.FindAll(t => t.Host == null).ToArray();
         var area = Rc(sheet.X + 14, sheet.Y + 76, sheet.Width - 28, sheet.Height - 90);
@@ -67,6 +91,10 @@ partial class StudioForm
             { var tk = tr; var at0 = cpB0; Btn(g, cpB0, "COPY PRESET", 1, () => CopyTrackPreset(tk, at0), 10); Hint2(cpB0, "Copy a preset of " + tr.Name + " (every plugin in it, with its settings)"); }
             { var tk = tr; int tix = ti; Btn(g, ppB, "PASTE PRESET", presetCopy.Count > 0 ? 2 : 0, () => { selTrack = tix; PastePreset(tk); }, 10); Hint2(ppB, presetCopy.Count > 0 ? "Put the copied preset " + presetCopyName + " on " + tr.Name : "Copy a preset first (COPY on a preset)"); }
             Fx[] fxs; lock (eng.Sync) fxs = tr.Fx.ToArray();
+            { var ca = Rc(bx, by + 32, (colW - 24) / 2, 26); var pa2 = Rc(ca.Right + 4, by + 32, col.Right - 10 - ca.Right - 4, 26); var tk = tr; int tix = ti;
+              Btn(g, ca, "COPY ALL PLUGINS", 1, () => CopyAllFx(tk), 9); Hint2(ca, "Copy every plugin of " + tr.Name + " (with its settings and its preset boxes)");
+              Btn(g, pa2, "PASTE ALL PLUGINS", allCopy.Count > 0 ? 2 : 0, () => { selTrack = tix; PasteAllFx(tk); }, 9); Hint2(pa2, allCopy.Count > 0 ? "Add all " + allCopy.Count + " copied plugins (from " + allCopyFrom + ") to " + tr.Name : "Copy all the plugins of a track first (COPY ALL PLUGINS)"); }
+            by += 32;
             float ry = by + 36, bottom = col.Bottom - 10; string lastKey = null; int shown = 0;
             if (fxs.Length == 0) Txt(g, "NO PLUGINS YET", 11, DimC, Rc(col.X + 14, ry, colW - 28, 22), StringAlignment.Near, false);
             for (int i = 0; i < fxs.Length; i++)

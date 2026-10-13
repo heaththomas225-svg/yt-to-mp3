@@ -7,10 +7,13 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.37.7";
+    public const string Latest = "3.37.8";
 
     public const string Text =
-@"3.37.7  Drag several clips to other tracks at once
+@"3.37.8  Copy all the plugins of a track to another track
+ + COPY ALL PLUGINS and PASTE ALL PLUGINS: in ALL PLUGINS every track has them (and PRESETS... too). COPY ALL PLUGINS takes every plugin of a track with its settings and its preset boxes; PASTE ALL PLUGINS puts them all on another track, and the plugins it already had stay. The instrument (Bass Lab or a VST) stays on its own track.
+
+3.37.7  Drag several clips to other tracks at once
  + DRAG A GROUP TO OTHER TRACKS: clips you picked together (with the selection box) can be dragged up or down to other tracks: they all move the same number of tracks, keeping their times. Onto a track that has audio they join it as pieces, below the last track new tracks are made. Before, a group could only slide along the timeline. Ctrl+Z undoes it.
  + A clip moved to another track keeps its fades and its gain (they were lost when it joined a track that already had audio).
 

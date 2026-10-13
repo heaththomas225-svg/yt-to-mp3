@@ -800,6 +800,16 @@ static class NF
                 ms.Clear(); ms.Add(sf.eng.Tracks[2]); ms.Add(row3); int before = sf.eng.Tracks.Count; sf.GroupToRows(-5); Check("a group cannot go above the first track (nothing moves)", sf.eng.Tracks.Count == before && row3.Clip != null);
                 ms.Clear(); sf.eng.Tracks.Clear(); SetF("revertAction", null);
             }
+            {   // COPY ALL PLUGINS / PASTE ALL PLUGINS: every plugin of one track (settings and preset boxes) onto another; the plugins already there stay
+                sf.eng.Tracks.Clear(); var cA = StudioEngine.NewTrack("Vox A", "vocal", AudioClip.FromArrays(new float[44100], new float[44100], "a")); var cB = StudioEngine.NewTrack("Vox B", "vocal", AudioClip.FromArrays(new float[44100], new float[44100], "b")); sf.eng.Tracks.Add(cA); sf.eng.Tracks.Add(cB);
+                var pcA = new List<Fx>(); var eqA = FxRegistry.Create("eq"); var cmA = FxRegistry.Create("comp"); cmA.Set("ratio", 7); pcA.Add(eqA); pcA.Add(cmA); foreach (var f in pcA) f.Prepare(44100); typeof(StudioForm).GetMethod("PutPreset", BF).Invoke(sf, new object[] { cA, "Cloud Rap Haze", pcA });
+                var dlA = FxRegistry.Create("delay"); dlA.Prepare(44100); dlA.Bypass = true; cA.Fx.Add(dlA); var gB = FxRegistry.Create("gain"); gB.Prepare(44100); cB.Fx.Add(gB);
+                sf.CopyAllFx(cA); sf.PasteAllFx(cB);
+                Check("PASTE ALL PLUGINS puts every plugin of the other track on this one, and the plugin it had stays", cB.Fx.Count == 4 && cB.Fx.Contains(gB), cB.Fx.Count + ": " + string.Join(", ", cB.Fx.Select(f => f.Type).ToArray()));
+                var prB = cB.Fx.FindAll(f => f.Preset == "Cloud Rap Haze"); Check("the preset comes over in a box of its own, with its settings", prB.Count == 2 && Math.Abs(prB[1].Get("ratio") - 7) < 0.01 && prB[0].PresetId != eqA.PresetId && prB[0].PresetId == prB[1].PresetId);
+                var dlB = cB.Fx.Find(f => f.Type == "delay"); Check("a switched-off plugin stays switched off, and the copies are new plugins (changing them leaves the first track alone)", dlB != null && dlB.Bypass && !cA.Fx.Contains(dlB) && !cA.Fx.Contains(prB[0]));
+                sf.eng.Tracks.Clear(); SetF("revertAction", null);
+            }
             {   // the REVERT box stays at the bottom left and is no wider than the left column of the Mastering page (it never reaches into the next box)
                 var pm = typeof(StudioForm).GetMethod("PaintAll", BF); var rrF = typeof(StudioForm).GetField("revertRect", BF); bool narrow = true; string bad = "";
                 foreach (var szz in new[] { new Size(1366, 768), new Size(1240, 680), new Size(1700, 1000) })

@@ -1,4 +1,4 @@
-3.37.7
+3.37.8
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Drag several clips to other tracks at once
-sha256=f5e8878a22e09ec25328553b3b0f3e2f64adf5056c60df4006fe2a8867eb77fd
+Copy all the plugins of a track to another track
+sha256=204b8d18629987821c51cee22851db7ae2208640fbed6be17ffa71c9c9280c15
