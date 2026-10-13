@@ -1,4 +1,4 @@
-3.37.5
+3.37.6
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Your theme stays (and colours the website), the plugin panel says whose plugins they are
-sha256=db9137fc332945ac89ffc473ffa2db37715426c527feeecc0278563bd3a94535
+Edit a bus, REMOVE ALL moves to PRESETS
+sha256=21057fe93ba33385351849d7b3ae8575524d4503aa64db7a0809d4cdd7e311cb

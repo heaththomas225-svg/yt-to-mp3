@@ -774,6 +774,20 @@ static class NF
                 string body = SiteTheme.Body(Themes.Current); Check("the website is sent the theme's name, its edition and its colours", body.Contains("\"name\":\"Royal Gold\"") && body.Contains("\"req\":\"fantasy\"") && System.Text.RegularExpressions.Regex.IsMatch(body, "\"violet\":\"#[0-9a-f]{6}\""), body);
                 Themes.Apply(Themes.IndexOf(keepT));
             }
+            {   // EDIT on a bus: its effects show in the plugin panel (open, switch off, remove), BACK TO TRACKS goes back; REMOVE ALL is not in the YOUR PLUGINS box any more
+                sf.eng.Tracks.Clear(); var vB = StudioEngine.NewTrack("Vox", "vocal", AudioClip.FromArrays(new float[44100], new float[44100], "v")); var fxV = FxRegistry.Create("eq"); fxV.Prepare(44100); vB.Fx.Add(fxV); sf.eng.Tracks.Add(vB);
+                var bus = StudioEngine.NewTrack("Bus 1", "bus", null); bus.IsBus = true; var r1 = FxRegistry.Create("reverb"); r1.Prepare(44100); var d1 = FxRegistry.Create("delay"); d1.Prepare(44100); bus.Fx.Add(r1); bus.Fx.Add(d1); sf.eng.Tracks.Add(bus);
+                SetF("tab", 0); SetF("welcomeOn", false); SetF("selTrack", 0); SetF("selFx", -1); sf.ClientSize = new Size(1500, 860); Application.DoEvents(); var pmB = typeof(StudioForm).GetMethod("PaintAll", BF);
+                Func<List<StudioForm.AuditText>> paintB = () => { StudioForm.TxtAudit = new List<StudioForm.AuditText>(); using (var bm = new Bitmap(1500, 860)) using (var gg = Graphics.FromImage(bm)) { var pe = new PaintEventArgs(gg, new Rectangle(Point.Empty, bm.Size)); for (int i = 0; i < 2; i++) pmB.Invoke(sf, new object[] { pe }); } var res = StudioForm.TxtAudit; StudioForm.TxtAudit = null; return res; };
+                paintB(); var bmB = (Dictionary<string, RectangleF>)typeof(StudioForm).GetField("btnMap", BF).GetValue(sf); Check("REMOVE ALL is not in the YOUR PLUGINS box any more (it is in PRESETS...)", !bmB.ContainsKey("REMOVE ALL"));
+                sf.EditBus(bus); var auB = paintB(); if (outDir != null) Shot(Path.Combine(outDir, "edit-bus.png"));
+                Check("EDIT on a bus shows its effects in the plugin panel", auB.Any(t => t.S == "EDITING BUS") && auB.Any(t => t.S == "Reverb") && auB.Any(t => t.S == "Delay"), string.Join(" | ", auB.Where(t => t.S.StartsWith("EDIT") || t.S == "Reverb").Select(t => t.S).ToArray()));
+                bmB = (Dictionary<string, RectangleF>)typeof(StudioForm).GetField("btnMap", BF).GetValue(sf); Check("with a BACK TO TRACKS button (and no BASS LAB on a bus)", bmB.ContainsKey("BACK TO TRACKS") && !bmB.ContainsKey("Bass Lab"));
+                HitReg xB = null; foreach (object o in (System.Collections.IEnumerable)typeof(StudioForm).GetField("regs", BF).GetValue(sf)) { var rg = (HitReg)o; if (rg.OnDown != null && (int)rg.R.Width == 22 && (int)rg.R.Height == 22 && rg.R.X > 1300 && rg.R.Y < 330 && rg.R.Y > 250) xB = rg; }
+                if (xB != null) xB.OnDown(); Check("an effect of the bus can be removed there", bus.Fx.Count == 1, bus.Fx.Count + " left");
+                bmB["BACK TO TRACKS"].ToString(); typeof(StudioForm).GetField("busEdit", BF).SetValue(sf, null); var auC = paintB(); Check("BACK TO TRACKS shows the picked track again", auC.Any(t => t.S.StartsWith("TRACK 1")));
+                sf.eng.Tracks.Clear(); SetF("selFx", -1);
+            }
             {   // the REVERT box stays at the bottom left and is no wider than the left column of the Mastering page (it never reaches into the next box)
                 var pm = typeof(StudioForm).GetMethod("PaintAll", BF); var rrF = typeof(StudioForm).GetField("revertRect", BF); bool narrow = true; string bad = "";
                 foreach (var szz in new[] { new Size(1366, 768), new Size(1240, 680), new Size(1700, 1000) })

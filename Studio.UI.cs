@@ -878,7 +878,7 @@ partial class StudioForm : Form
         bool thin = r.Height < 96, compact = r.Height < 112, bus = tr.IsBus; float by = thin ? 34 : (compact ? 36 : 44), vy = thin ? 60 : (compact ? 64 : 84), py = compact ? 86 : 110;
         using (var br = new SolidBrush(sel ? TM.C(255, 40, 22, 74) : TM.C(255, 26, 15, 46))) g.FillRectangle(br, r);
         using (var pen = new Pen(sel ? Color.FromArgb(200, Neon(tr.Color)) : Color.FromArgb(70, Neon(tr.Color)), sel ? 1.6f : 1f)) g.DrawRectangle(pen, r.X + 1, r.Y + 1, r.Width - 2, r.Height - 2);
-        { var trH = tr; Reg(r, () => { selTrack = Math.Max(0, eng.Tracks.IndexOf(trH)); selFx = -1; toolsTrack = trH; }); }   // any empty part of the box picks this track (the buttons and sliders on top of it keep their own clicks)
+        { var trH = tr; Reg(r, () => { busEdit = null; selTrack = Math.Max(0, eng.Tracks.IndexOf(trH)); selFx = -1; toolsTrack = trH; }); }   // any empty part of the box picks this track (the buttons and sliders on top of it keep their own clicks)
         Led(g, Neon(tr.Color), r.X + 20, r.Y + 17, 5, !tr.Off);   /* the light is the power switch of the track (press it: the track is off) */
         Txt(g, tr.Name, 15, Ink, Rc(r.X + 28, r.Y + 6, 150, 22), StringAlignment.Near, true);
         if (tr.Bpm > 0 && !bus) { var bt = thin ? Rc(r.X + 298, r.Y + 9, 40, 14) : Rc(r.X + 28, r.Y + 26, 120, 14); Txt(g, tr.Bpm.ToString("0.#") + (thin ? "" : " BPM"), 10, Math.Abs(tr.Bpm - Fx.ProjectBpm) < 0.6 ? Color.FromArgb(150, 255, 190) : DimC, bt, StringAlignment.Near, false); if (Hot(bt)) hintNow = "The tempo heard in this track" + (Math.Abs(tr.Bpm - Fx.ProjectBpm) < 0.6 ? ", the same as the project." : ". The project is at " + Fx.ProjectBpm.ToString("0.#") + " BPM: press DETECT to use this track's tempo."); }
@@ -1017,14 +1017,15 @@ partial class StudioForm : Form
         using (var pen = new Pen(Edge)) g.DrawLine(pen, x, y, x, y + h);
         Reg(pr, () => { });
         if (eng.Tracks.Count == 0) { Txt(g, "SELECT A TRACK TO EDIT ITS PLUGINS", 14, DimC, pr, StringAlignment.Center, false); return; }
-        var tr = eng.Tracks[Math.Max(0, Math.Min(selTrack, eng.Tracks.Count - 1))];
+        if (busEdit != null && !eng.Tracks.Contains(busEdit)) busEdit = null; var tr = busEdit ?? eng.Tracks[Math.Max(0, Math.Min(selTrack, eng.Tracks.Count - 1))];   // EDIT on a bus shows that bus here
         PaintPluginsTitle(g, tr, Rc(x + 14, y + 6, w - 28 - 126, 30));   // which track these plugins are on: its number, its kind and the end of its name, in its colour (two tracks of one song start with the same long name)
-        { var allB = Rc(x + w - 132, y + 8, 120, 24); Btn(g, allB, "ALL PLUGINS", 2, () => OpenAllFx(), 11); Hint2(allB, "Every track and its plugins in one place: add, paste, copy and open plugins on any track"); }
+        if (busEdit != null) { var bk = Rc(x + w - 132, y + 8, 120, 24); Btn(g, bk, "BACK TO TRACKS", 2, () => { busEdit = null; selFx = -1; }, 10); Hint2(bk, "Stop editing the bus: the plugins of the picked track show again"); }
+        else { var allB = Rc(x + w - 132, y + 8, 120, 24); Btn(g, allB, "ALL PLUGINS", 2, () => OpenAllFx(), 11); Hint2(allB, "Every track and its plugins in one place: add, paste, copy and open plugins on any track"); }
         Fx[] fxs; lock (eng.Sync) fxs = tr.Fx.ToArray(); float origW = w; { int n0 = fxs.Length; float est = 76 + n0 * 32 + GroupExtra(fxs) + 8 + ((selFx >= 0 && selFx < n0) ? EditorHeight(fxs[selFx]) : 60); if (est - h + 6 > 1 && h > 200) w -= 52; }
         int ti = Array.IndexOf(eng.Tracks.ToArray(), tr);
         Btn(g, Rc(x + 10, y + 38, 112, 30), "+ Add Effect", 1, () => OpenBrowser(false, ti), 14);
         Btn(g, Rc(x + 128, y + 38, 100, 30), "Presets...", 0, () => ChainMenu(tr), 14);
-        if (origW >= 330) Btn(g, Rc(x + 234, y + 38, Math.Min(104f, origW - 244), 30), "Bass Lab", 2, () => { browserMaster = false; browserTrack = ti; AddFx("synth"); InstrumentFx bf = null; lock (eng.Sync) bf = tr.Fx.Count > 0 ? tr.Fx[tr.Fx.Count - 1] as InstrumentFx : null; if (bf != null) { bf.Owner = tr; bf.ShowWindow(this); } }, 14);   // the Bass Lab synthesizer: added to this track and its window opens
+        if (origW >= 330 && !tr.IsBus) Btn(g, Rc(x + 234, y + 38, Math.Min(104f, origW - 244), 30), "Bass Lab", 2, () => { browserMaster = false; browserTrack = ti; AddFx("synth"); InstrumentFx bf = null; lock (eng.Sync) bf = tr.Fx.Count > 0 ? tr.Fx[tr.Fx.Count - 1] as InstrumentFx : null; if (bf != null) { bf.Owner = tr; bf.ShowWindow(this); } }, 14);   // the Bass Lab synthesizer: added to this track and its window opens
         float ly = y + 76 - panelScroll; int n = fxs.Length; g.SetClip(Rc(x, y + 72, w, h - 72));
         if (selFx >= n) selFx = -1;
         // the boxes: the instrument (Bass Lab or a VST), every preset that was added (each one its own box, they never replace each other) and YOUR PLUGINS (always there)
@@ -1040,10 +1041,9 @@ partial class StudioForm : Form
         {
             float head = 28, bh = head + Math.Max(1, gp.Items.Count) * 32 + 2;
             var box = Rc(x + 6, ly, w - 12, bh); FillRR(g, TM.C(70, 12, 6, 28), box, 10); Glow(g, gp.Col, box, 10, 0.35f, 3); StrokeRR(g, Color.FromArgb(190, gp.Col), box, 10, 1.2f);
-            Txt(g, gp.Title, 11, gp.Col, Rc(box.X + 12, box.Y + 4, box.Width - (gp.Kind == 2 ? 200 : (gp.Kind == 1 ? 170 : 110)), 20), StringAlignment.Near, true);
+            Txt(g, gp.Title, 11, gp.Col, Rc(box.X + 12, box.Y + 4, box.Width - (gp.Kind == 2 ? 92 : 110), 20), StringAlignment.Near, true);
             if (gp.Kind == 1) { string pid = gp.Id; var rb = Rc(box.Right - 86, box.Y + 4, 78, 20); Btn(g, rb, "REMOVE", 3, () => { ChainApply(tr, "Preset removed", () => RemovePreset(tr, pid)); selFx = -1; }, 10); Hint2(rb, "Take away this preset only (every other preset and your own plugins stay)"); }
-            if (gp.Kind == 2) { var pst = Rc(box.Right - (anyFx ? 116 + 68 : 74), box.Y + 4, 60, 20); Btn(g, pst, "PASTE", fxCopyType.Length > 0 ? 2 : 0, () => PasteFxAsNew(tr), 10); Hint2(pst, fxCopyType.Length > 0 ? "Add the copied " + fxCopyTitle + " with its settings as a new effect on this track" : "Copy an effect first: press COPY on a plugin"); }
-            if (gp.Kind == 2 && anyFx) { var ra = Rc(box.Right - 116, box.Y + 4, 108, 20); Btn(g, ra, "REMOVE ALL", 3, () => { ChainApply(tr, "All plugins removed", () => RemoveAllPlugins(tr)); selFx = -1; }, 10); Hint2(ra, "Take off every plugin and preset at once to go RAW (the instrument stays; REVERT brings them all back)"); }
+            if (gp.Kind == 2) { var pst = Rc(box.Right - 74, box.Y + 4, 60, 20); Btn(g, pst, "PASTE", fxCopyType.Length > 0 ? 2 : 0, () => PasteFxAsNew(tr), 10); Hint2(pst, fxCopyType.Length > 0 ? "Add the copied " + fxCopyTitle + " with its settings as a new effect on this track" : "Copy an effect first: press COPY on a plugin"); }
             ly += head;
             if (gp.Items.Count == 0) { Txt(g, "NOTHING HERE YET: PRESS + ADD EFFECT", 11, DimC, Rc(box.X + 14, ly, box.Width - 28, 28), StringAlignment.Near, false); ly += 32; }
             foreach (int i in gp.Items)
@@ -1124,11 +1124,13 @@ partial class StudioForm : Form
     {
         int row = Math.Max(0, eng.Tracks.IndexOf(tr.Host ?? tr)) + 1; Color c = Neon(tr.Color); string kind = tr.IsBus ? "BUS" : (tr.Instrument ? "INSTRUMENT" : (tr.Role ?? "audio").ToUpperInvariant());
         using (var b = new SolidBrush(c)) g.FillRectangle(b, r.X - 6, r.Y + 4, 4, r.Height - 8);
-        string head = "TRACK " + row + "  " + kind; float hw = Math.Min(r.Width * 0.55f, g.MeasureString(head, GfxCache.Font(12, true)).Width + 10);
+        string head = tr.IsBus ? "EDITING BUS" : "TRACK " + row + "  " + kind; float hw = Math.Min(r.Width * 0.55f, g.MeasureString(head, GfxCache.Font(12, true)).Width + 10);
         Txt(g, head, 12, c, Rc(r.X, r.Y, hw, r.Height), StringAlignment.Near, true);
         Txt(g, TailName(tr.Name), 15, Ink, Rc(r.X + hw, r.Y, r.Width - hw, r.Height), StringAlignment.Near, true);
         if (Hot(r)) { bubble = "These plugins are on " + tr.Name + ". Press the box of another track on the left to change its plugins."; bubblePt = MousePos; }
     }
+    internal Track busEdit;   // a bus being edited in the plugin panel (EDIT in the Buses sheet)
+    internal void EditBus(Track bt) { busEdit = bt; busOpen = false; tab = 0; selFx = bt.Fx.Count > 0 ? 0 : -1; panelScroll = 0; Toast("Editing " + bt.Name + ": its effects are in the plugin panel. Open, change, switch off, move or remove them. BACK TO TRACKS when you are done."); }
     internal bool RowHasPieces(Track row) { foreach (var p in eng.Tracks) if (p.Host == row && (p.Clip != null || p.Instrument)) return true; return false; }
     static bool CanCopyFx(Fx f) { return !(f is InstrumentFx) || f is SynthFx; }   // every effect and Bass Lab (a VST plugin keeps its own state)
     internal void CopyFx(Fx f) { fxCopyType = f.Type; fxCopyData = f.Serialize(); fxCopyTitle = f.Title; Toast("Copied " + f.Title + " with its settings. PASTE adds it to any track or to the master."); }
@@ -1213,6 +1215,7 @@ partial class StudioForm : Form
         { var pp = new ToolStripMenuItem(presetCopy.Count > 0 ? "Paste preset: " + presetCopyName + " (" + presetCopy.Count + " plugins)" : "Paste preset (copy one first: COPY on a preset box)") { Enabled = presetCopy.Count > 0 }; pp.Click += (a, b) => PastePreset(tr); m.Items.Add(pp); }
         { var keys = new List<string>(); foreach (var f in tr.Fx) if (!(f is InstrumentFx) && f.Preset.Length > 0 && !keys.Contains(f.PresetId.Length > 0 ? f.PresetId : f.Preset)) { string k = f.PresetId.Length > 0 ? f.PresetId : f.Preset; keys.Add(k); string nm = f.Preset; m.Items.Add("Copy preset: " + nm).Click += (a, b) => CopyPreset(tr, k); } }
         m.Items.Add("All plugins of every track...").Click += (a, b) => OpenAllFx();
+        { var ra = new ToolStripMenuItem("Remove all plugins (go RAW)...") { Enabled = tr.Fx.Exists(f => !(f is InstrumentFx)) }; ra.Click += (a, b) => { if (!Sure("remove every plugin and preset from " + tr.Name)) return; ChainApply(tr, "All plugins removed", () => RemoveAllPlugins(tr)); selFx = -1; }; m.Items.Add(new ToolStripSeparator()); m.Items.Add(ra); }   // REMOVE ALL lives here now (it was in the YOUR PLUGINS box)
         var rap = new ToolStripMenuItem("Rap vocal presets (your own plugins stay)"); m.Items.Add(rap);
         for (int i = 0; i < Presets.ChainNames.Length; i++) { string nm = Presets.ChainNames[i]; var it = new ToolStripMenuItem(nm) { ToolTipText = Presets.ChainBlurbs[i] }; it.Click += (a, b) => { ChainApply(tr, nm, () => PutPreset(tr, nm, Presets.BuildChain(nm))); selFx = -1; Toast(nm + " added as a preset: every plugin is editable, your own plugins stay (REVERT puts it back)"); }; rap.DropDownItems.Add(it); }
         var beat = new ToolStripMenuItem("Instrumental chain (EQ, comp, multiband, sat, exciter, imager, ducker, limiter)"); beat.Click += (a, b) => { ChainApply(tr, "Instrumental chain", () => PutPreset(tr, "Instrumental chain", Presets.BeatChain())); selFx = -1; Toast("Beat chain added as a preset (REVERT puts it back)"); }; m.Items.Add(beat);

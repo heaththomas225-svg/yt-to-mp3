@@ -2,6 +2,11 @@
 
 What changed in each version of **Purphex**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.37.6  Edit a bus, REMOVE ALL moves to PRESETS
+
+- EDIT A BUS: every bus in the Buses sheet has an EDIT button: its effects open in the plugin panel (EDITING BUS), where you can open and change them, switch them off, move, copy, paste and remove them. BACK TO TRACKS (or pressing the box of a track) goes back. Before, a bus could only get effects added.
+- REMOVE ALL is no longer in the YOUR PLUGINS box: it is in PRESETS... as Remove all plugins (go RAW), and it asks Are you sure first (REVERT and Ctrl+Z still bring everything back).
+
 ## 3.37.5  Your theme stays (and colours the website), the plugin panel says whose plugins they are
 
 - YOUR THEME STAYS: the theme you choose is never lost any more. While your edition is not known yet (a licence being renewed, or no internet) the original theme is shown for a moment, and your own theme comes back by itself as soon as your edition is known. It used to be reset to the original for good, so a Fantasy or Supporter theme did not carry over.
