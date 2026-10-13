@@ -15,7 +15,7 @@ sealed class MixPalette { public string Name; public int Kind; public string[] N
 static class MixColours
 {
     // the finishes (Kind)
-    public const int Plain = 0, Metal = 1, Pearl = 2, Matte = 3, Grid = 4, Chameleon = 5, Candy = 6, Chrome = 7, Brushed = 8, Holo = 9, Glitter = 10, Carbon = 11, Satin = 12, Frost = 13, Worn = 14, Glow = 15;
+    public const int Plain = 0, Metal = 1, Pearl = 2, Matte = 3, Grid = 4, Chameleon = 5, Candy = 6, Chrome = 7, Brushed = 8, Holo = 9, Glitter = 10, Carbon = 11, Satin = 12, Frost = 13, Worn = 14, Glow = 15, Translucent = 16;
     public static Color Hex(string h) { h = h.TrimStart('#'); return Color.FromArgb(255, Convert.ToInt32(h.Substring(0, 2), 16), Convert.ToInt32(h.Substring(2, 2), 16), Convert.ToInt32(h.Substring(4, 2), 16)); }
     public static string HexOf(Color c) { return "#" + c.R.ToString("X2") + c.G.ToString("X2") + c.B.ToString("X2"); }
     // the colour two colours make when they merge: the hue travels the short way round the wheel (so orange and blue pass through yellow and green, not grey mud), the saturation stays full and a little light is added in the middle
@@ -61,6 +61,7 @@ static class MixColours
         P("Carbon and tech", Carbon, "Carbon Black#26272B|Carbon Blue#1F3F7E|Carbon Red#8E1E24|Carbon Silver#6E727A|Carbon Gold#8E7430|Carbon Green#1F5E3E|Kevlar Yellow#C8A41C|Graphite Weave#3C3F44|Carbon Purple#4A2A7E|Carbon Orange#A8541C|Carbon Teal#1F6E6E|Carbon Pink#8E2E5E|Carbon White#B8BCC0|Carbon Bronze#7E5A30"),
         P("Satin and soft sheen", Satin, "Satin Black#202226|Satin White#EDEDEA|Satin Grey#8E9196|Satin Silver#B4B7BC|Satin Gold#C8A84E|Satin Red#B8242C|Satin Blue#2A4FA8|Satin Green#2A7E4E|Satin Purple#6A3AA0|Satin Orange#D8741C|Satin Pink#D878A0|Satin Teal#2A8E90|Satin Bronze#9A6E3C|Satin Champagne#D8C8A8|Satin Navy#1C2A4E|Satin Burgundy#6A1E34"),
         P("Matte", Matte, "Matte Black#1C1C1E|Charcoal#36393F|Graphite#3B3C3E|Slate#5B6670|Stone#8A8D8F|Sand#CBB994|Sage#8DA290|Olive#6B7048|Terracotta#C0674A|Clay#B07A5F|Dusty Rose#C9908F|Mauve#A98AA3|Matte Navy#1F2A44|Matte Forest#2F4A3A|Matte Burgundy#5E1F2B|Matte Mustard#C49A2C|Matte Teal#2F6F73|Cream#EFE7D6|Bone#E3DAC9|Cocoa#5A3E36|Matte White#EDEDED|Matte Grey#6E7074|Matte Blue#3E5C76|Matte Green#4F6F52|Matte Red#8C2F39|Matte Orange#C8702A|Matte Plum#5B3A5E|Putty#B8AFA3|Matte Pink#C8808E|Matte Yellow#C8B040|Matte Purple#5E4A7E|Matte Brown#5A4234"),
+        P("Translucent (see-through)", Translucent, "Clear Red#FF4D4D|Clear Orange#FF9F40|Clear Yellow#FFE55C|Clear Lime#9BE564|Clear Green#3DDC84|Clear Aqua#3DE0C8|Clear Cyan#3DD6F5|Clear Blue#4D8DFF|Clear Indigo#6B5BFF|Clear Purple#B05CFF|Clear Pink#FF5CC8|Clear Rose#FF7A9E|Clear Smoke#9AA0AA|Clear White#F2F6FA|Clear Black#2A2D35|Clear Gold#E8C65A"),
         P("Frosted glass", Frost, "Clear Ice#DFF2F8|Smoked Glass#4A4E58|Blue Ice#8FD0F0|Rose Glass#F0A8C0|Green Glass#7FD8A8|Amber Glass#E8B050|Purple Glass#A888E0|Black Glass#222630|Frost White#F2F6F8|Sea Glass#9FD8CC|Cyan Glass#5FD8F0|Lilac Glass#C8B0F0"),
         P("Worn and weathered", Worn, "Worn Black#2A2A2C|Worn Graphite#4A4C50|Worn Silver#8E9094|Worn White#D0CCC0|Worn Red#8E2E28|Worn Orange#B8641E|Worn Yellow#B8A030|Worn Green#4E6E3E|Worn Blue#3E5A82|Worn Brown#6A4A30|Worn Sand#B8A47E|Worn Olive#6A6A3E|Worn Rust#8E4A28|Worn Teal#3E7A78|Worn Pink#B87A82|Worn Purple#5E4A78"),
         P("Neon and glow", Glow, "Neon Pink#FF2BD6|Neon Cyan#00E5FF|Neon Green#39FF14|Neon Yellow#F5FF00|Neon Orange#FF6700|Neon Purple#BC13FE|Neon Blue#1F51FF|Neon Red#FF073A|Laser Lime#BFFF00|Electric Violet#8F00FF|Hot Magenta#FF1DCE|Plasma#E100FF|Ultra Blue#3D5AFE|Acid Green#B0FF00|Radioactive#CCFF00|Cyber Teal#00FFC6|Flamingo#FF6EC7|Solar#FFD400|Ice#B9F2FF|Lightning#FFF200"),
@@ -92,7 +93,7 @@ static class MixStore
 {
     public static readonly List<MixPreset> Presets = new List<MixPreset>();
     public static MixPreset State = new MixPreset { A = Color.FromArgb(255, 255, 107, 107), B = Color.FromArgb(255, 78, 205, 196), NA = "Coral", NB = "Turquoise" };
-    public static int CatA = -1, CatB = -1; public static bool Follow = true, Fade = true, Loaded;
+    public static int CatA = -1, CatB = -1; public static bool Follow = true, Fade = true, AOn = true, BOn = true, Loaded;
     static string FileP { get { return Path.Combine(StudioEnv.DataDir, "colour-mix.txt"); } }
     static string C(Color c) { return c.IsEmpty ? "-" : MixColours.HexOf(c).Substring(1); }
     static Color P(string s) { try { return s == "-" || s.Length != 6 ? Color.Empty : MixColours.Hex(s); } catch { return Color.Empty; } }
@@ -114,7 +115,7 @@ static class MixStore
             foreach (string l in File.ReadAllLines(FileP, Encoding.UTF8))
             {
                 int i = l.IndexOf('='); if (i < 1) continue; string k = l.Substring(0, i), v = l.Substring(i + 1); string[] rest; var p = Parse(v, out rest); if (p == null) continue;
-                if (k == "state") { State = p; int n; if (rest.Length > 0 && int.TryParse(rest[0], out n)) CatA = n; if (rest.Length > 1 && int.TryParse(rest[1], out n)) CatB = n; if (rest.Length > 2) Follow = rest[2] != "0"; if (rest.Length > 3) Fade = rest[3] != "0"; }
+                if (k == "state") { State = p; int n; if (rest.Length > 0 && int.TryParse(rest[0], out n)) CatA = n; if (rest.Length > 1 && int.TryParse(rest[1], out n)) CatB = n; if (rest.Length > 2) Follow = rest[2] != "0"; if (rest.Length > 3) Fade = rest[3] != "0"; if (rest.Length > 4) AOn = rest[4] != "0"; if (rest.Length > 5) BOn = rest[5] != "0"; if (!AOn && !BOn) AOn = true; }
                 else if (k == "preset" && Presets.Count < 80) Presets.Add(p);
             }
         }
@@ -122,23 +123,25 @@ static class MixStore
     }
     public static void Save()
     {
-        try { Directory.CreateDirectory(StudioEnv.DataDir); var sb = new StringBuilder(); sb.Append(Line("state", State, CatA, CatB, Follow ? "1" : "0", Fade ? "1" : "0")).Append('\n'); foreach (var p in Presets) sb.Append(Line("preset", p)).Append('\n'); Win.WriteAtomic(FileP, sb.ToString(), new UTF8Encoding(false)); } catch { }
+        try { Directory.CreateDirectory(StudioEnv.DataDir); var sb = new StringBuilder(); sb.Append(Line("state", State, CatA, CatB, Follow ? "1" : "0", Fade ? "1" : "0", AOn ? "1" : "0", BOn ? "1" : "0")).Append('\n'); foreach (var p in Presets) sb.Append(Line("preset", p)).Append('\n'); Win.WriteAtomic(FileP, sb.ToString(), new UTF8Encoding(false)); } catch { }
     }
 }
 
 partial class StudioForm
 {
     Color mixA = Color.FromArgb(255, 255, 107, 107), mixB = Color.FromArgb(255, 78, 205, 196), mixA2 = Color.Empty, mixB2 = Color.Empty; int mixKA = 0, mixKB = 0, mixCatA = 1, mixCatB = 1, mixPresetSel = -1; float mixT = 0.5f, mixH = 1500f, mixWheelRot; string mixNameA = "Coral", mixNameB = "Turquoise", mixHoverA = "", mixHoverB = "", mixStatus = "";
-    bool mixFollow = true, mixFade = true, mixLoaded; DateTime mixDirty = DateTime.MinValue;
-    public Color MixedNow { get { return MixColours.Blend(mixA, mixB, mixT); } }
+    bool mixFollow = true, mixFade = true, mixLoaded, mixAOn = true, mixBOn = true; DateTime mixDirty = DateTime.MinValue;
+    // colour A and colour B can each be switched off: with one off the mix is just the other colour (one colour only)
+    float MixTe { get { return !mixAOn ? 1f : (!mixBOn ? 0f : mixT); } }
+    public Color MixedNow { get { return MixColours.Blend(mixA, mixB, MixTe); } }
     // the merged colour wears the finish of A and B when they are the same (two chameleons make a chameleon); otherwise it is plain
-    int MixedKind { get { return mixKA != 0 ? mixKA : mixKB; } }   // the finish of the merged colour: the finish of A (or of B when A is plain)
-    Color MixedSecond { get { if (mixKA != mixKB) return Color.Empty; Color a2 = mixA2.IsEmpty ? mixA : mixA2, b2 = mixB2.IsEmpty ? mixB : mixB2; return mixKA == MixColours.Chameleon ? MixColours.Blend(a2, b2, mixT) : Color.Empty; } }
+    int MixedKind { get { return !mixAOn ? mixKB : (!mixBOn ? mixKA : (mixKA != 0 ? mixKA : mixKB)); } }   // the finish of the merged colour: the finish of A (or of B when A is plain)
+    Color MixedSecond { get { if (!mixAOn || !mixBOn) { int k1 = !mixAOn ? mixKB : mixKA; Color c1 = !mixAOn ? (mixB2.IsEmpty ? mixB : mixB2) : (mixA2.IsEmpty ? mixA : mixA2); return k1 == MixColours.Chameleon ? c1 : Color.Empty; } if (mixKA != mixKB) return Color.Empty; Color a2 = mixA2.IsEmpty ? mixA : mixA2, b2 = mixB2.IsEmpty ? mixB : mixB2; return mixKA == MixColours.Chameleon ? MixColours.Blend(a2, b2, mixT) : Color.Empty; } }
 
     void MixEnsure()
     {
         if (mixLoaded) return; mixLoaded = true; MixStore.Load(); var s = MixStore.State; mixA = s.A; mixA2 = s.A2; mixKA = s.KA; mixNameA = s.NA; mixB = s.B; mixB2 = s.B2; mixKB = s.KB; mixNameB = s.NB; mixT = s.T;
-        int def = MixColours.All.FindIndex(p => p.Name == "Classic gloss"); if (def < 1) def = 1; mixCatA = MixStore.CatA >= 0 && MixStore.CatA < MixColours.All.Count ? MixStore.CatA : def; mixCatB = MixStore.CatB >= 0 && MixStore.CatB < MixColours.All.Count ? MixStore.CatB : def; mixFollow = MixStore.Follow; mixFade = MixStore.Fade;
+        int def = MixColours.All.FindIndex(p => p.Name == "Classic gloss"); if (def < 1) def = 1; mixCatA = MixStore.CatA >= 0 && MixStore.CatA < MixColours.All.Count ? MixStore.CatA : def; mixCatB = MixStore.CatB >= 0 && MixStore.CatB < MixColours.All.Count ? MixStore.CatB : def; mixFollow = MixStore.Follow; mixFade = MixStore.Fade; mixAOn = MixStore.AOn; mixBOn = MixStore.BOn; if (!mixAOn && !mixBOn) mixAOn = true;
     }
     // a colour that can be read on the dark pages (the name is written in it)
     static Color MixLegible(Color c) { for (int i = 0; i < 8 && MixColours.Luma(c) < 0.38; i++) c = MixColours.Mix(c, Color.White, 0.18f); return c; }
@@ -146,12 +149,12 @@ partial class StudioForm
     internal void MixApplyProfile()
     {
         if (!mixFollow) return; ProfileStore.Accent = ProfileStore.Pack(MixedNow); palSeen = ProfileStore.Accent;
-        if (mixFade) { ProfileStore.NameRgb = ProfileStore.Pack(MixLegible(mixA)); ProfileStore.NameRgb2 = ProfileStore.Pack(MixLegible(mixB)); } else { ProfileStore.NameRgb = -1; ProfileStore.NameRgb2 = -1; }   // FADE OFF: the name is in the normal colour (white), whether the profile colour is on or off
+        if (mixFade && mixAOn && mixBOn) { ProfileStore.NameRgb = ProfileStore.Pack(MixLegible(mixA)); ProfileStore.NameRgb2 = ProfileStore.Pack(MixLegible(mixB)); } else if (mixFade) { ProfileStore.NameRgb = ProfileStore.Pack(MixLegible(mixAOn ? mixA : mixB)); ProfileStore.NameRgb2 = -1; /* one colour only: the name is in it */ } else { ProfileStore.NameRgb = -1; ProfileStore.NameRgb2 = -1; }   // FADE OFF: the name is in the normal colour (white), whether the profile colour is on or off
     }
     internal void MixChanged() { mixDirty = DateTime.Now; MixApplyProfile(); }
     internal void MixFlush()
     {   // saved and sent a moment after the last change (not on every step of a slider)
-        mixDirty = DateTime.MinValue; var s = MixStore.State; s.A = mixA; s.A2 = mixA2; s.KA = mixKA; s.NA = mixNameA; s.B = mixB; s.B2 = mixB2; s.KB = mixKB; s.NB = mixNameB; s.T = mixT; MixStore.CatA = mixCatA; MixStore.CatB = mixCatB; MixStore.Follow = mixFollow; MixStore.Fade = mixFade; MixStore.Save();
+        mixDirty = DateTime.MinValue; var s = MixStore.State; s.A = mixA; s.A2 = mixA2; s.KA = mixKA; s.NA = mixNameA; s.B = mixB; s.B2 = mixB2; s.KB = mixKB; s.NB = mixNameB; s.T = mixT; MixStore.CatA = mixCatA; MixStore.CatB = mixCatB; MixStore.Follow = mixFollow; MixStore.Fade = mixFade; MixStore.AOn = mixAOn; MixStore.BOn = mixBOn; MixStore.Save();
         if (mixFollow) { ProfileStore.Save(); QueueRepublish(); }
     }
     internal void MixSet(int side, Color c, int kind, string name, Color c2 = default(Color)) { if (side == 0) { mixA = c; mixKA = kind; mixNameA = name; mixA2 = c2; } else { mixB = c; mixKB = kind; mixNameB = name; mixB2 = c2; } mixStatus = ""; mixPresetSel = -1; MixChanged(); }
@@ -160,6 +163,13 @@ partial class StudioForm
         mixFollow = on; if (on) MixApplyProfile(); else { ProfileStore.Accent = -1; palSeen = ProfileStore.Accent; ProfileStore.NameRgb = -1; ProfileStore.NameRgb2 = -1; }
         mixStatus = on ? "Your profile colour is your mix: " + MixColours.HexOf(MixedNow) + "." : "Your profile is back to the colour of your theme."; mixDirty = DateTime.Now; if (on) MixApplyProfile(); MixFlush(); Toast(mixStatus);
     }
+    // colour A and colour B each have an ON / OFF switch (one of them always stays on), and USE A ONLY / USE B ONLY make the profile one colour
+    internal void MixSetOn(int side, bool on)
+    {
+        if (!on && !(side == 0 ? mixBOn : mixAOn)) { mixStatus = "One colour has to stay on."; Toast(mixStatus); return; }
+        if (side == 0) mixAOn = on; else mixBOn = on; mixPresetSel = -1; mixStatus = (side == 0 ? "Colour A" : "Colour B") + (on ? " is on." : " is off: the mix is " + (side == 0 ? "colour B" : "colour A") + " only."); MixChanged(); MixFlush();
+    }
+    internal void MixUseOnly(int side) { mixAOn = side == 0; mixBOn = side == 1; mixPresetSel = -1; mixStatus = "Your profile uses colour " + (side == 0 ? "A" : "B") + " only: " + MixColours.HexOf(MixedNow) + "."; MixChanged(); MixFlush(); Toast(mixStatus); }
     internal void MixSetFade(bool on) { mixFade = on; MixApplyProfile(); mixStatus = on ? "Your name fades from colour A to colour B." : "Your name is in the normal colour (white)."; MixFlush(); Toast(mixStatus); }
         // the style (the palette) that holds a colour: so a side always opens on the palette of the colour that is on it
     static int MixCatFor(int kind, string name, int fallback) { var all = MixColours.All; for (int i = 0; i < all.Count; i++) if (all[i].Kind == kind && all[i].Names != null && Array.IndexOf(all[i].Names, name) >= 0) return i; return fallback; }
@@ -176,7 +186,7 @@ partial class StudioForm
     }
     internal void MixPresetLoad(int i)
     {
-        if (i < 0 || i >= MixStore.Presets.Count) return; var p = MixStore.Presets[i]; mixA = p.A; mixA2 = p.A2; mixKA = p.KA; mixNameA = p.NA; mixB = p.B; mixB2 = p.B2; mixKB = p.KB; mixNameB = p.NB; mixT = p.T; mixPresetSel = i; mixCatA = MixCatFor(p.KA, p.NA, mixCatA); mixCatB = MixCatFor(p.KB, p.NB, mixCatB); MixChanged(); MixFlush(); mixStatus = "Colour preset " + (i + 1) + " of " + MixStore.Presets.Count + ": " + p.Name + " (" + MixColours.HexOf(MixedNow) + ")."; }
+        if (i < 0 || i >= MixStore.Presets.Count) return; var p = MixStore.Presets[i]; mixAOn = mixBOn = true; mixA = p.A; mixA2 = p.A2; mixKA = p.KA; mixNameA = p.NA; mixB = p.B; mixB2 = p.B2; mixKB = p.KB; mixNameB = p.NB; mixT = p.T; mixPresetSel = i; mixCatA = MixCatFor(p.KA, p.NA, mixCatA); mixCatB = MixCatFor(p.KB, p.NB, mixCatB); MixChanged(); MixFlush(); mixStatus = "Colour preset " + (i + 1) + " of " + MixStore.Presets.Count + ": " + p.Name + " (" + MixColours.HexOf(MixedNow) + ")."; }
     internal void MixPresetStep(int d) { int n = MixStore.Presets.Count; if (n == 0) { mixStatus = "No colour presets saved yet: press SAVE COLOUR PRESET."; return; } int i = mixPresetSel < 0 ? (d > 0 ? 0 : n - 1) : (mixPresetSel + d + n) % n; MixPresetLoad(i); }
     internal void MixPresetDelete()
     {
@@ -228,10 +238,14 @@ partial class StudioForm
         int seed = MixHash((int)Math.Round(r.X * 7), (int)Math.Round(r.Y * 13)) ^ c.ToArgb();
         using (var p = RR(r, rad))
         {
-            using (var br = new SolidBrush(c)) g.FillPath(br, p);
+            if (kind == MixColours.Translucent) { using (var br0 = new SolidBrush(Color.FromArgb(255, 20, 16, 34))) g.FillPath(br0, p); } else using (var br = new SolidBrush(c)) g.FillPath(br, p);
             var gs = g.Save(); g.SetClip(p, CombineMode.Intersect);
             switch (kind)
             {
+                case 16:   // translucent: the colour is a see-through sheet over a checkerboard, so you can see right through it, with a bright top edge
+                    { float cs = Math.Max(5f, Math.Min(r.Width, r.Height) / 6f); for (float yy2 = r.Y; yy2 < r.Bottom; yy2 += cs) for (float xx2 = r.X; xx2 < r.Right; xx2 += cs) { bool lt = (((int)((xx2 - r.X) / cs)) + ((int)((yy2 - r.Y) / cs))) % 2 == 0; using (var br = new SolidBrush(lt ? Color.FromArgb(255, 70, 66, 92) : Color.FromArgb(255, 36, 32, 54))) g.FillRectangle(br, xx2, yy2, cs + 0.5f, cs + 0.5f); }
+                      using (var br = new LinearGradientBrush(r, Color.FromArgb(205, c), Color.FromArgb(110, c), 90f)) g.FillPath(br, p); using (var br = new LinearGradientBrush(r, Color.FromArgb(120, 255, 255, 255), Color.FromArgb(0, 255, 255, 255), 90f)) g.FillRectangle(br, r.X, r.Y, r.Width, r.Height * 0.45f); using (var pen = new Pen(Color.FromArgb(200, 255, 255, 255), 1.4f)) g.DrawPath(pen, p); }
+                    break;
                 case 1:   // metallic / metal: bands of light and dark across the surface
                     { var cb = new ColorBlend(6) { Colors = new[] { sh(c, 0.55f), sh(c, 0.10f), sh(c, -0.30f), sh(c, 0.30f), sh(c, -0.12f), sh(c, 0.22f) }, Positions = new[] { 0f, 0.22f, 0.45f, 0.62f, 0.82f, 1f } }; using (var br = new LinearGradientBrush(r, c, c, 35f)) { br.InterpolationColors = cb; g.FillPath(br, p); } }
                     break;
@@ -362,8 +376,31 @@ partial class StudioForm
     {
         Color m = MixedNow; double h, s, l; ThemeDef.ToHsl(m, out h, out s, out l); string bg = MixColours.HexOf(ThemeDef.Hsl(h, 0.5, 0.05)).Substring(1);
         string text = "name=Mix " + MixColours.HexOf(m).Substring(1) + "\nviolet=" + MixColours.HexOf(m).Substring(1) + "\ncyan=" + MixColours.HexOf(mixB).Substring(1) + "\npink=" + MixColours.HexOf(mixA).Substring(1) + "\nbg0=" + bg;
-        ThemeDef t; string err = Themes.Import(text, "Mix", out t); if (err != null) { Toast(err); return err; } Themes.MarkProfile(t.Name); Prefs.Changed();
+        ThemeDef t; string err = Themes.Import(text, "Mix", out t); if (err != null) { Toast(err); return err; } Themes.MarkProfile(t.Name); Prefs.Changed(); mixLastTheme = t.Name;
         mixStatus = "Saved as the theme " + t.Name + ". Open THEMES, then PROFILE THEMES to use it."; Toast(mixStatus); return null;
+    }
+    // a strip like the scroll bars (solid black, chevrons at both ends) with YOUR LOGO as the handle: it rides along the strip and sets the mix (left all A, right all B); the strip is a box of its own
+    void MixLogoBar(Graphics g, RectangleF ob, float v, Action<float> set, Color ca, Color cb, bool enabled)
+    {
+        FillRR(g, Color.Black, ob, 12); using (var pen = new Pen(Color.FromArgb(enabled ? 190 : 90, NeonViolet), 1.3f)) using (var p = RR(ob, 12)) g.DrawPath(pen, p);
+        const float cw = 42; float cy = ob.Y + ob.Height / 2; var lf = Rc(ob.X, ob.Y, cw, ob.Height); var rt = Rc(ob.Right - cw, ob.Y, cw, ob.Height); var inner = Rc(ob.X + cw, ob.Y + 3, ob.Width - 2 * cw, ob.Height - 6);
+        DrawChevrons(g, lf.X + cw / 2, cy, 7, true, enabled ? ca : DimC, enabled && Hot(lf)); DrawChevrons(g, rt.X + cw / 2, cy, 7, false, enabled ? cb : DimC, enabled && Hot(rt));
+        float lh = Math.Min(16f, ob.Height / 2 - 3), lhw = lh * 1.16f, pad = lhw + 4, trav = Math.Max(1f, inner.Width - 2 * pad), lcx = inner.X + pad + Math.Max(0, Math.Min(1, v)) * trav;
+        var track = Rc(inner.X + 4, cy - 5, inner.Width - 8, 10); using (var p = RR(track, 5)) using (var br = new LinearGradientBrush(track, ca, cb, 0f)) { var cbl = new ColorBlend(9); for (int i = 0; i < 9; i++) { cbl.Positions[i] = i / 8f; cbl.Colors[i] = enabled ? MixColours.Blend(ca, cb, i / 8f) : Color.FromArgb(70, 70, 80); } br.InterpolationColors = cbl; g.FillPath(br, p); }
+        using (var p = RR(track, 5)) using (var pen = new Pen(Color.FromArgb(120, 255, 255, 255), 1f)) g.DrawPath(pen, p);
+        var logoR = Rc(lcx - lhw - 3, cy - lh - 3, lhw * 2 + 6, lh * 2 + 6); bool hotL = enabled && (Hot(logoR) || (dragReg != null && dragReg.R == logoR)); if (enabled) DrawLogo(g, lcx, cy, lh, false, hotL);
+        if (!enabled) { Txt(g, "BOTH COLOURS HAVE TO BE ON TO MIX THEM", 10, DimC, ob, StringAlignment.Center, true); return; }
+        Action<float> jump = mx => set(Math.Max(0f, Math.Min(1f, (mx - inner.X - pad) / trav)));
+        var rg = Reg(inner, () => jump(MousePos.X)); rg.OnDrag = pt => jump(pt.X);
+        Reg(lf, () => set(Math.Max(0f, v - 0.05f))); Reg(rt, () => set(Math.Min(1f, v + 0.05f)));
+        float downX = 0, downV = 0; var lg = Reg(logoR, () => { downX = MousePos.X; downV = v; }); lg.OnDrag = pt => set(Math.Max(0f, Math.Min(1f, downV + (pt.X - downX) / trav)));
+    }
+    string mixLastTheme = "";
+    // USE AS THEME: the mix becomes a theme and is switched on at once (one press); REVERT in the bar puts the old theme back
+    internal void MixUseAsTheme()
+    {
+        int prev = Themes.Index; string err = MixSaveAsTheme(); if (err != null || mixLastTheme.Length == 0) return; int ti = Themes.IndexOf(mixLastTheme); if (ti < 0) return;
+        Themes.Apply(ti); Prefs.Changed(); mixStatus = "Your mix is the theme of the whole program now: " + mixLastTheme + "."; Toast(mixStatus); OfferRevert("Theme " + mixLastTheme + " is on", () => { Themes.Apply(prev); Prefs.Changed(); });
     }
     internal void MixCopyCode() { try { Clipboard.SetText(MixColours.HexOf(MixedNow)); mixStatus = MixColours.HexOf(MixedNow) + " copied."; Toast(mixStatus); } catch { mixStatus = "Could not copy (another program is using the clipboard)."; } }
 
@@ -408,27 +445,35 @@ partial class StudioForm
         Txt(g, "COLOUR MIXER", 18, Ink, Rc(px, yy, 400, 28), StringAlignment.Near, true); yy += 32;
         TxtWrap(g, "Choose colour A on the left and colour B on the right: A merges into B. Whatever you change here is your profile colour. " + MixColours.Total + " colours in every finish.", 12, DimC, Rc(px, yy, pw, 36)); yy += 44;
         // ---- A + B = merged, the mix, swap and the two switches ----
-        var merged = MixedNow; float dA = Math.Max(72, Math.Min(124, pw * 0.11f)), dM = dA * 1.22f, gapA = Math.Max(50, Math.Min(170, pw * 0.12f)), rowW = dA + gapA + dM + gapA + dA, rowH = dM; var b1 = Rc(px, yy, pw, rowH + 24 + 44 + 44 + 12); MixBox(g, b1);
+        var merged = MixedNow; float dA = Math.Max(72, Math.Min(124, pw * 0.11f)), dM = dA * 1.22f, gapA = Math.Max(50, Math.Min(170, pw * 0.12f)), rowW = dA + gapA + dM + gapA + dA, rowH = dM; var b1 = Rc(px, yy, pw, rowH + 24 + 44 + 44 + 42 + 12); MixBox(g, b1);
         { float rx = px + (pw - rowW) / 2, ty = yy + 12, cyC = ty + rowH / 2;
           if (vis(ty, ty + rowH))
           {
               MixCircle(g, Rc(rx, cyC - dA / 2, dA, dA), mixA, mixKA, "COLOUR A", mixNameA, mixA2, 0);
-              MixArrow(g, Rc(rx + dA + 6, cyC - 27, gapA - 12, 54), mixA, merged, true, (int)Math.Round((1 - mixT) * 100) + "% A");
+              MixArrow(g, Rc(rx + dA + 6, cyC - 27, gapA - 12, 54), mixA, merged, true, mixAOn ? (int)Math.Round((1 - MixTe) * 100) + "% A" : "OFF");
               MixCircle(g, Rc(rx + dA + gapA, ty, dM, dM), merged, MixedKind, "MERGED", "A + B", MixedSecond);
-              MixArrow(g, Rc(rx + dA + gapA + dM + 6, cyC - 27, gapA - 12, 54), merged, mixB, false, (int)Math.Round(mixT * 100) + "% B");
+              MixArrow(g, Rc(rx + dA + gapA + dM + 6, cyC - 27, gapA - 12, 54), merged, mixB, false, mixBOn ? (int)Math.Round(MixTe * 100) + "% B" : "OFF");
               MixCircle(g, Rc(rx + dA + gapA + dM + gapA, cyC - dA / 2, dA, dA), mixB, mixKB, "COLOUR B", mixNameB, mixB2, 1);
           }
           float cy2 = ty + rowH + 12; if (vis(cy2, cy2 + 34))
           {
               var sw = Rc(px + 14, cy2, 88, 32); Btn(g, sw, "SWAP", 0, () => MixSwap(), 12); Hint2(sw, "Swap colour A and colour B");
-              float lx = sw.Right + 18; Txt(g, "MIX", 12, DimC, Rc(lx, cy2, 40, 32), StringAlignment.Near, true); var sr = Rc(lx + 44, cy2 + 4, Math.Max(80, px + pw - 14 - lx - 44 - 160), 24); Slider(g, sr, mixT, f => MixSetT(f), merged); Hint2(sr, "How much of colour B is in the mix (left is all A, right is all B)");
-              Txt(g, (int)Math.Round((1 - mixT) * 100) + "% A / " + (int)Math.Round(mixT * 100) + "% B", 12, Ink, Rc(sr.Right + 10, cy2, 150, 32), StringAlignment.Near, true);
+              var sr = Rc(sw.Right + 14, cy2 - 3, Math.Max(150, px + pw - 14 - sw.Right - 14 - 160), 38); MixLogoBar(g, sr, mixT, f => MixSetT(f), mixA, mixB, mixAOn && mixBOn); Hint2(sr, "Hold the logo and drag it: how much of colour B is in the mix (left is all A, right is all B). Click the strip to jump, or the arrows to step");
+              Txt(g, !mixAOn ? "B ONLY" : (!mixBOn ? "A ONLY" : (int)Math.Round((1 - mixT) * 100) + "% A / " + (int)Math.Round(mixT * 100) + "% B"), 12, Ink, Rc(sr.Right + 10, cy2, 150, 32), StringAlignment.Near, true);
           }
           float cy3 = cy2 + 42; if (vis(cy3, cy3 + 34))
           {
               float cwid = Math.Min(330, (pw - 28 - 10) / 2f); var t1 = Rc(px + 14, cy3, cwid, 32); var t2 = Rc(t1.Right + 10, cy3, cwid, 32);
               Chip(g, t1, "PROFILE COLOUR = MY MIX: " + (mixFollow ? "ON" : "OFF"), mixFollow, () => MixSetFollow(!mixFollow), 1); Hint2(t1, "ON: whatever you change here is your profile colour (banner, rings, accents). OFF: your profile uses the colour of your theme again");
-              Chip(g, t2, "FADE MY NAME A TO B: " + (mixFade ? "ON" : "OFF"), mixFade, () => MixSetFade(!mixFade), 1); Hint2(t2, "ON: your name on your profile fades from colour A to colour B. OFF: it takes the merged colour");
+              Chip(g, t2, "FADE MY NAME A TO B: " + (mixFade ? "ON" : "OFF"), mixFade, () => MixSetFade(!mixFade), 1); Hint2(t2, "ON: your name on your profile fades from colour A to colour B (with one colour only it is in that colour). OFF: your name and your bio are in the normal white");
+          }
+          float cy4 = cy3 + 42; if (vis(cy4, cy4 + 34))
+          {
+              float qw = Math.Min(210, (pw - 28 - 3 * 10) / 4f); var q1 = Rc(px + 14, cy4, qw, 32); var q2 = Rc(q1.Right + 10, cy4, qw, 32); var q3 = Rc(q2.Right + 10, cy4, qw, 32); var q4 = Rc(q3.Right + 10, cy4, qw, 32);
+              Chip(g, q1, "COLOUR A: " + (mixAOn ? "ON" : "OFF"), mixAOn, () => MixSetOn(0, !mixAOn), 1); Hint2(q1, "Switch colour A on or off. With A off the mix is colour B only (one colour). One of the two always stays on");
+              Chip(g, q2, "COLOUR B: " + (mixBOn ? "ON" : "OFF"), mixBOn, () => MixSetOn(1, !mixBOn), 1); Hint2(q2, "Switch colour B on or off. With B off the mix is colour A only (one colour). One of the two always stays on");
+              Btn(g, q3, "USE A ONLY", mixAOn && !mixBOn ? 4 : 1, () => MixUseOnly(0), 12); Hint2(q3, "Your profile colour is colour A, nothing else");
+              Btn(g, q4, "USE B ONLY", mixBOn && !mixAOn ? 4 : 1, () => MixUseOnly(1), 12); Hint2(q4, "Your profile colour is colour B, nothing else");
           } }
         yy += b1.Height + 14;
         // ---- the two sides of the palette ----
@@ -442,17 +487,17 @@ partial class StudioForm
         float gt1 = yy, gt2 = two ? yy : yy + gh1 + 14; float gx1 = px, gx2 = two ? px + cw2 + 14 : px; if (two) { gh1 = hMax; gh2 = hMax; }
         MixBox(g, Rc(gx1, gt1, cw2, gh1)); MixBox(g, Rc(gx2, gt2, cw2, gh2));
         { // gradient + steps
-            int fk = MixedKind; float by = gt1 + 12, bx = gx1 + 12, bw = cw2 - 24; Txt(g, "HORIZONTAL GRADIENT MIX", 12, DimC, Rc(bx, by, bw, 18), StringAlignment.Near, true); by += 22; var gr = Rc(bx, by, bw, 44);
+            int fk = MixedKind; float by = gt1 + 12, bx = gx1 + 12, bw = cw2 - 24; Txt(g, "HORIZONTAL GRADIENT MIX", 12, DimC, Rc(bx, by, bw, 18), StringAlignment.Near, true); by += 22; var gr = Rc(bx, by, bw, 44); var gtrack = Rc(gr.X, gr.Y + 11, gr.Width, 22);
             if (vis(gr.Y, gr.Bottom))
             {
-                using (var p = RR(gr, 7)) using (var br = new LinearGradientBrush(gr, mixA, mixB, 0f)) { var cb = new ColorBlend(9); for (int i = 0; i < 9; i++) { cb.Positions[i] = i / 8f; cb.Colors[i] = MixColours.Blend(mixA, mixB, i / 8f); } br.InterpolationColors = cb; g.FillPath(br, p); }
-                MixFinishOver(g, gr, 7, fk, MixShines(fk) ? MixPhase() : -1f);
-                float mx = Math.Max(gr.X + 16, Math.Min(gr.Right - 16, gr.X + gr.Width * mixT)); DrawLogo(g, mx, gr.Y + gr.Height / 2, gr.Height / 2 + 3, false, Hot(gr));   // the mix is shown by the logo of the scroll bars
-                using (var p = RR(gr, 7)) using (var pen = new Pen(Hot(gr) ? Color.White : Color.FromArgb(150, 255, 255, 255), Hot(gr) ? 2.4f : 1f)) g.DrawPath(pen, p);
+                using (var p = RR(gtrack, 7)) using (var br = new LinearGradientBrush(gtrack, mixA, mixB, 0f)) { var cb = new ColorBlend(9); for (int i = 0; i < 9; i++) { cb.Positions[i] = i / 8f; cb.Colors[i] = MixColours.Blend(mixA, mixB, i / 8f); } br.InterpolationColors = cb; g.FillPath(br, p); }
+                MixFinishOver(g, gtrack, 7, fk, MixShines(fk) ? MixPhase() : -1f);
+                using (var p = RR(gtrack, 7)) using (var pen = new Pen(Hot(gr) ? Color.White : Color.FromArgb(150, 255, 255, 255), Hot(gr) ? 2.4f : 1f)) g.DrawPath(pen, p);
+                float mx = Math.Max(gr.X + 22, Math.Min(gr.Right - 22, gr.X + gr.Width * MixTe)); DrawLogo(g, mx, gr.Y + gr.Height / 2, gr.Height / 2, false, Hot(gr));   // the logo rides over the bar (it is taller than the bar and drawn on top)
                 var rg = new HitReg { R = gr }; rg.OnDown = () => MixSetT((MousePos.X - gr.X) / gr.Width); rg.OnDrag = pt => MixSetT((pt.X - gr.X) / gr.Width); regs.Add(rg); Hint2(gr, "Click or drag along the gradient to choose how much of colour B is in the mix");
             }
             by += 52; Txt(g, MixColours.HexOf(mixA), 10, DimC, Rc(bx, by, 90, 16), StringAlignment.Near, false); MixHexClick(g, Rc(bx, by, 62, 16), mixA, 0); Txt(g, "A TO B", 10, DimC, Rc(bx + 90, by, bw - 180, 16), StringAlignment.Center, false); Txt(g, MixColours.HexOf(mixB), 10, DimC, Rc(bx + bw - 90, by, 90, 16), StringAlignment.Far, false); MixHexClick(g, Rc(bx + bw - 62, by, 62, 16), mixB, 1); by += 28;
-            Txt(g, "STEPPED COLOUR BLEND", 12, DimC, Rc(bx, by, bw, 18), StringAlignment.Near, true); by += 24; float sw = (bw - 4 * 8) / 5f; string[] lb = { "100% A", "75 / 25", "50 / 50", "25 / 75", "100% B" };
+            Txt(g, "STEPPED COLOUR BLEND", 12, DimC, Rc(bx, by, bw, 18), StringAlignment.Near, true); by += 24; float sw = (bw - 4 * 8) / 5f; string[] lb = { "100% A", "75% A", "50 / 50", "75% B", "100% B" };
             for (int i = 0; i < 5; i++)
             {
                 var sr = Rc(bx + i * (sw + 8), by + 18, sw, 50); float st = i / 4f; Color sc = MixColours.Blend(mixA, mixB, st); if (!vis(sr.Y, sr.Bottom)) continue; bool hotS = Hot(sr), cur = Math.Abs(mixT - st) < 0.02f;
@@ -489,8 +534,9 @@ partial class StudioForm
           yy = pb.Bottom + 14; }
         // ---- use it: a theme, or the code ----
         { var ub = Rc(px, yy, pw, 12 + 38 + 12 + 26); MixBox(g, ub); float uy = ub.Y + 12;
-          if (vis(uy, uy + 40)) { float bw = Math.Min(280, (pw - 28 - 10) / 2f); var u1 = Rc(ub.X + 14, uy, bw, 38); var u2 = Rc(u1.Right + 10, uy, Math.Max(bw, Math.Min(380, pw - 28 - bw - 10)), 38);
-              Btn(g, u1, "SAVE AS THEME", 2, () => MixSaveAsTheme(), 12); Hint2(u1, "Save your mix as a theme for the whole program (the merged colour, A and B). It goes in THEMES, PROFILE THEMES, where you can use it any time or delete it");
+          if (vis(uy, uy + 40)) { float bw = Math.Min(230, (pw - 28 - 20) / 3f); var u1 = Rc(ub.X + 14, uy, bw, 38); var u1b = Rc(u1.Right + 10, uy, bw, 38); var u2 = Rc(u1b.Right + 10, uy, Math.Max(bw, Math.Min(380, pw - 28 - 2 * bw - 20)), 38);
+              Btn(g, u1b, "USE AS THEME", 2, () => MixUseAsTheme(), 12); Hint2(u1b, "Make your mix the theme of the whole program right now (one press). REVERT puts the old theme back");
+              Btn(g, u1, "SAVE AS THEME", 1, () => MixSaveAsTheme(), 12); Hint2(u1, "Save your mix as a theme for the whole program (the merged colour, A and B). It goes in THEMES, PROFILE THEMES, where you can use it any time or delete it");
               Btn(g, u2, "COPY PROFILE THEME HEX CODE", 1, () => MixCopyCode(), 12); Hint2(u2, "Copy the code of the merged colour (like #A79CC4)"); }
           Txt(g, mixStatus.Length > 0 ? mixStatus : "Your profile colour is " + (mixFollow ? "your mix: " + MixColours.HexOf(MixedNow) : "the colour of your theme") + ".", 12, mixStatus.Length > 0 ? Ink : DimC, Rc(ub.X + 14, uy + 46, pw - 28, 20), StringAlignment.Near, false);
           yy = ub.Bottom; }

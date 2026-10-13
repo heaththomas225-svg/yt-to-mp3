@@ -113,7 +113,7 @@ public abstract class Fx
 {
     public string Type = "", Title = "", Category = "Plugins", Blurb = "", Error = "";   // Category / Blurb show in the effect browser; Error is set if the plugin crashes
     public bool Bypass;
-    public string Preset = "";        // the name of the preset this plugin came with ("" = a plugin of your own); the plugin panel shows those apart
+    public string Preset = "", PresetId = "";   // PresetId: which use of the preset it came with (the same preset can be on a track more than once, each in its own box)        // the name of the preset this plugin came with ("" = a plugin of your own); the plugin panel shows those apart
     public List<Param> P = new List<Param>();
     public float[] ScL, ScR;          // external sidechain (vocal signal), may be null
     public volatile float GR;         // gain reduction (dB, >= 0) for meters

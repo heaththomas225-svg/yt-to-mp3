@@ -64,6 +64,16 @@ static class LyricsGen
     public static void Cleanup(string fileOrDir) { try { string d = Directory.Exists(fileOrDir) ? fileOrDir : Path.GetDirectoryName(fileOrDir); if (d != null && Path.GetFileName(d).StartsWith("purphex_lyr_link_")) Directory.Delete(d, true); } catch { } }
     static string Unquote(string s) { return Regex.Replace((s ?? "").Replace("\"", "").Replace("\u201C", "").Replace("\u201D", ""), @"\s{2,}", " ").Trim(); }
 
+    // YOUR song is listened to, word by word, before anything is looked up: a database finds the lyrics of whatever has the same title, which are often not the words of your song.
+    // (the database is still used when the recogniser is not set up, or when nothing could be heard)
+    public static bool ListenFirst = true;
+    static Result ListenTo(Result r, string mediaPath, Action<string> say, Func<bool> stop, double trimA, double trimB, string lang, string quality, bool isolate, bool isLink)
+    {
+        string raw = LyricsWhisper.Transcribe(mediaPath, say, stop, trimA, trimB, lang, quality, isolate); if (stop()) { r.Error = "Cancelled."; return r; }
+        if (raw.Trim().Length < 12) return null;
+        string n2; r.Lyrics = Finish(raw, true, out n2, lang); r.Source = "Listened to " + (isLink ? "the sound of the link" : "your song") + " (Whisper " + LyricsWhisper.QualityName(quality) + ", on this PC" + (LyricsWhisper.LastVoiceUsed ? ", the voice taken out of the music first" : "") + ")"; r.Found = true;
+        r.Note = "Every word was written by listening to the song itself, not looked up, so it is the words of YOUR version. Check them against the song: a speech recogniser can still mishear a word. " + n2; return r;
+    }
     static Result GenerateFromLink(string url, Action<string> say, Func<bool> stop, string lang = "auto", bool allowListen = true, double trimA = -1, double trimB = -1, string quality = null, bool isolate = true)
     {
         var r = new Result();
@@ -71,7 +81,14 @@ static class LyricsGen
         {
             say("Reading the link..."); string artist, title, err; ResolveLink(url, out artist, out title, out err); artist = Unquote(artist); title = Unquote(title); if (stop()) { r.Error = "Cancelled."; return r; }
             if (err.Length > 0) { r.Error = err; return r; }
-            r.Artist = artist; r.Title = title; say("Looking for the lyrics of \"" + (artist.Length > 0 ? artist + " - " : "") + title + "\"..."); LyricsGet.Found f = null;
+            r.Artist = artist; r.Title = title;
+            if (ListenFirst && allowListen && LyricsWhisper.ReadyFor(LyricsWhisper.CleanQuality(quality)))
+            {   // the sound of the link is listened to first (it is deleted after)
+                string aerr0; string file0 = FetchAudio(url, say, stop, out aerr0);
+                if (file0 != null) { try { var lr0 = ListenTo(r, file0, say, stop, trimA, trimB, lang, LyricsWhisper.CleanQuality(quality), isolate, true); if (lr0 != null) return lr0; } finally { Cleanup(file0); } }
+                if (stop()) { r.Error = "Cancelled."; return r; }
+            }
+            say("Looking for the lyrics of \"" + (artist.Length > 0 ? artist + " - " : "") + title + "\"..."); LyricsGet.Found f = null;
             try { foreach (var c in SongGuesses(artist, title, "")) { if (stop()) break; f = LyricsGet.Fetch(c[0], c[1]); if (f != null) break; } } catch (WebException) { r.Error = "Could not reach the lyrics database. Check your connection and try again."; return r; }
             if (stop()) { r.Error = "Cancelled."; return r; }
             if (f == null)
@@ -172,6 +189,10 @@ static class LyricsGen
             if (!File.Exists(path)) { r.Error = "That file is not there any more."; return r; }
             say("Reading the name of the song..."); string ta, tt; double fileLen; ReadInfo(path, out ta, out tt, out fileLen); if (stop()) { r.Error = "Cancelled."; return r; }
             var cands = SongGuesses(ta, tt, Path.GetFileNameWithoutExtension(path)); r.Artist = cands.Count > 0 ? cands[0][0] : ""; r.Title = cands.Count > 0 ? cands[0][1] : Path.GetFileNameWithoutExtension(path); string artist = r.Artist, title = r.Title;
+            if (ListenFirst && allowListen && LyricsWhisper.ReadyFor(quality))
+            {   // listen to the song first: its own words, not the lyrics of another song with the same name
+                var lr = ListenTo(r, path, say, stop, trimA, trimB, lang, quality, isolate, false); if (lr != null) return lr;
+            }
             say("Looking for the lyrics of \"" + (artist.Length > 0 ? artist + " - " : "") + title + "\"..."); LyricsGet.Found f = null; bool offline = false;
             int failed = 0; foreach (var c in cands) { if (stop()) break; try { f = LyricsGet.Fetch(c[0], c[1], fileLen); } catch (WebException) { failed++; continue; } if (f != null) break; }   /* one guess that fails on the network does not stop the others */
             if (f == null && cands.Count > 0 && failed == cands.Count) offline = true;
@@ -315,9 +336,9 @@ static class LyricsWhisper
     public static void Cancel() { var p = procNow; if (p != null) { try { p.Kill(); } catch { } } }
     // the part of the song that is heard: from TRIM START to TRIM END (either can be left out)
     static string TrimArgs(double a, double b) { var ci = System.Globalization.CultureInfo.InvariantCulture; string s = ""; if (a > 0) s += "-ss " + a.ToString("0.###", ci) + " "; if (b > 0) s += "-t " + (a > 0 ? Math.Max(0.1, b - a) : b).ToString("0.###", ci) + " "; return s; }
-    static string Run16k(string ff, string input, string wav, Func<bool> cancelled, double trimA, double trimB, out int code) { return RunProc(ff, "-hide_banner -y " + TrimArgs(trimA, trimB) + "-i \"" + input + "\" -vn -ac 1 -ar 16000 -c:a pcm_s16le \"" + wav + "\"", cancelled, out code); }
+    static string Run16k(string ff, string input, string wav, Func<bool> cancelled, double trimA, double trimB, out int code) { return RunProc(ff, "-hide_banner -y " + TrimArgs(trimA, trimB) + "-i \"" + input + "\" -vn -ac 1 -ar 16000 -af \"highpass=f=70,dynaudnorm=f=150:g=15\" -c:a pcm_s16le \"" + wav + "\"", cancelled, out code); }
     // -mc 0: every sentence is heard on its own (the words before it are not carried along, which is how a recogniser gets stuck repeating one line and then skips the next verses); -bs 5: it weighs five readings of each sentence instead of one;
     // -ml 64 -sow: short lines that break between words (a lyric is written line by line); -sns: no [Music] and (Music) tags (the plain set leaves these out for an older recogniser)
-    public static string WhisperArgs(string model, string wav, string outBase, int threads, string lang = "auto", bool full = true) { return "-m \"" + model + "\" -f \"" + wav + "\" -l " + LyricsLang.Clean(lang) + " -nt -np -mc 0 -bs 5 " + (full ? "-ml 64 -sow -sns " : "") + "-t " + threads + " -otxt -of \"" + outBase + "\""; }
+    public static string WhisperArgs(string model, string wav, string outBase, int threads, string lang = "auto", bool full = true) { return "-m \"" + model + "\" -f \"" + wav + "\" -l " + LyricsLang.Clean(lang) + " -nt -np -mc 0 -bs 5 " + (full ? "-nth 0.9 -lpt -2.5 -ml 64 -sow -sns " : "") + "-t " + threads + " -otxt -of \"" + outBase + "\""; }
     static string RunWhisper(string exe, string model, string wav, string outBase, int threads, string lang, bool full, Func<bool> cancelled, out int code) { return RunProc(exe, WhisperArgs(model, wav, outBase, threads, lang, full), cancelled, out code); }
 }

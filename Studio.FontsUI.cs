@@ -55,11 +55,12 @@ partial class StudioForm
         fontScroll = Math.Max(0, Math.Min(Math.Max(0, fontContentH - viewH + 20), fontScroll)); regs.Add(new HitReg { R = Rc(0, top, W, viewH), OnWheel = d => fontScroll = Math.Max(0, Math.Min(Math.Max(0, fontContentH - viewH + 20), fontScroll - d * 70)) });
         var gs = g.Save(); g.SetClip(Rc(0, top, W - 56, viewH), CombineMode.Intersect); float y = top + 14 - fontScroll, y00 = y;
         // ---- the font in use ----
-        var card = Rc(cx, y, cw, 150); FillRR(g, TM.C(235, 16, 9, 34), card, 16); Win.DrawNeonBox(g, card, false);
+        var card = Rc(cx, y, cw, FontKit.HardCurrent ? 182 : 150); FillRR(g, TM.C(235, 16, 9, 34), card, 16); Win.DrawNeonBox(g, card, false);
         Txt(g, "YOUR FONT", 12, DimC, Rc(card.X + 20, card.Y + 12, 200, 18), StringAlignment.Near, true); Txt(g, FontKit.CurrentName, 24, Ink, Rc(card.X + 20, card.Y + 30, card.Width - 300, 36), StringAlignment.Near, true);
-        Txt(g, "The quick brown fox jumps over the lazy dog", 20, Ink, Rc(card.X + 20, card.Y + 70, card.Width - 300, 30), StringAlignment.Near, false);
-        Txt(g, "ABCDEFGHIJKLMNOPQRSTUVWXYZ   0123456789", 14, DimC, Rc(card.X + 20, card.Y + 102, card.Width - 300, 22), StringAlignment.Near, false);
-        Txt(g, "abcdefghijklmnopqrstuvwxyz   . , ! ? & @ #", 14, DimC, Rc(card.X + 20, card.Y + 122, card.Width - 300, 22), StringAlignment.Near, false);
+        { var cur0 = FontKit.Find(FontKit.CurrentId); bool hardNow = FontKit.HardCurrent && cur0 != null && cur0.Fam != null;   // the samples are written in the font itself (the rest of the page stays clear when the font is thin or hollow)
+          Action<string, float, Color, float> sample = (t, px, col, yy) => { if (cur0 != null && cur0.Fam != null && hardNow) { using (var f0 = FontKit.Preview(cur0, px, false)) using (var b0 = new SolidBrush(col)) g.DrawString(t, f0, b0, new RectangleF(card.X + 20, yy, card.Width - 300, px * 1.6f), GfxCache.Fmt(StringAlignment.Near, true)); } else Txt(g, t, px, col, Rc(card.X + 20, yy, card.Width - 300, px * 1.5f), StringAlignment.Near, false); };
+          sample("The quick brown fox jumps over the lazy dog", 24, Ink, card.Y + 66); sample("ABCDEFGHIJKLMNOPQRSTUVWXYZ   0123456789", 17, DimC, card.Y + 100); sample("abcdefghijklmnopqrstuvwxyz   . , ! ? & @ #", 17, DimC, card.Y + 124);
+          if (hardNow) Txt(g, "THIN OR HOLLOW FONT: it writes the big titles, and the small writing stays in the clear original font so you can read everything.", 11, Color.FromArgb(255, 210, 120), Rc(card.X + 20, card.Bottom - 22, card.Width - 40, 18), StringAlignment.Near, true); }
         bool isDef = FontKit.CurrentId == FontKit.DefaultId; var rb = Rc(card.Right - 250, card.Y + 14, 232, 36); Btn(g, rb, "USE THE ORIGINAL FONT", isDef ? 0 : 1, () => { var d = FontKit.Find(FontKit.DefaultId); if (d != null && FontKit.Apply(d)) Toast("The original font is back."); }, 12); Hint2(rb, "Go back to Bahnschrift, the font Purphex Music came with");
         y = card.Bottom + 16;
         // ---- search and groups ----

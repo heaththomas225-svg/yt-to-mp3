@@ -30,10 +30,39 @@ static class EmojiSprites
     public static Bitmap Get(string emoji)
     {
         if (Disabled || string.IsNullOrEmpty(emoji)) return null; Bitmap b;
-        lock (cache) { if (cache.TryGetValue(emoji, out b)) return b; if (asked.Contains(emoji)) return null; asked.Add(emoji); queue.Enqueue(emoji); }
+        lock (cache) { if (cache.TryGetValue(emoji, out b)) return b; if (asked.Contains(emoji)) return null; }
+        b = LoadDisk(emoji); if (b != null) { lock (cache) cache[emoji] = b; return b; }   // made on an earlier day: there at once
+        lock (cache) { if (asked.Contains(emoji)) return null; asked.Add(emoji); queue.Enqueue(emoji); }
         try { Pump(); } catch { }
         return null;
     }
+    // ---- the pictures are kept in a folder, so after the first time every emoji is in colour the moment it appears ----
+    static string DiskPath(string emoji) { var sb = new StringBuilder(); foreach (char c in emoji) sb.Append(((int)c).ToString("x4")); return System.IO.Path.Combine(StudioEnv.DataDir, "emoji", sb.ToString() + ".png"); }
+    static Bitmap LoadDisk(string emoji)
+    {
+        try { string p = DiskPath(emoji); if (!System.IO.File.Exists(p)) return null; using (var im = Image.FromFile(p)) { var bm = new Bitmap(Cell, Cell, PixelFormat.Format32bppPArgb); using (var g = Graphics.FromImage(bm)) { g.Clear(Color.Transparent); g.DrawImageUnscaled(im, 0, 0); } return bm; } } catch { return null; }
+    }
+    static void SaveDisk(string emoji, Bitmap sp)
+    {
+        try { string p = DiskPath(emoji); System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(p)); string t = p + ".tmp"; sp.Save(t, ImageFormat.Png); if (System.IO.File.Exists(p)) System.IO.File.Delete(p); System.IO.File.Move(t, p); } catch { }
+    }
+    // this emoji is wanted now (it was just typed or clicked): it goes to the front of the line
+    public static void Want(string emoji)
+    {
+        if (Disabled || string.IsNullOrEmpty(emoji)) return; emoji = KeyOf(emoji);
+        lock (cache) { if (cache.ContainsKey(emoji)) return; }
+        if (Get(emoji) != null) return;
+        lock (cache) { if (queue.Contains(emoji)) { var rest = new List<string>(queue); rest.Remove(emoji); queue.Clear(); queue.Enqueue(emoji); foreach (var x in rest) queue.Enqueue(x); } }
+        try { Pump(); } catch { }
+    }
+    // makes the pictures of a whole list in the background (the ones that are in the folder already are left alone)
+    public static void Warm(IEnumerable<string> list)
+    {
+        if (Disabled) return;
+        lock (cache) foreach (var raw in list) { string e = KeyOf(raw); if (cache.ContainsKey(e) || asked.Contains(e)) continue; try { if (System.IO.File.Exists(DiskPath(e))) continue; } catch { } asked.Add(e); queue.Enqueue(e); }
+        try { Pump(); } catch { }
+    }
+    internal static void ForgetForTest() { lock (cache) { cache.Clear(); asked.Clear(); queue.Clear(); } }   // as after a restart: only the folder remembers
     public static bool Known(string emoji) { lock (cache) return cache.ContainsKey(emoji); }
     static void Pump()
     {
@@ -109,6 +138,7 @@ static class EmojiSprites
         }
         finally { black.UnlockBits(db); white.UnlockBits(dw); }
         lock (cache) foreach (var e in cur) { Bitmap b; cache[e] = made.TryGetValue(e, out b) ? b : null; }
+        foreach (var kv in made) SaveDisk(kv.Key, kv.Value);
     }
     static void Finish(bool ok)
     {
@@ -150,7 +180,18 @@ sealed class EmojiOverlay : NativeWindow
     protected override void WndProc(ref Message m)
     {
         base.WndProc(ref m);
-        if (m.Msg == 0x000F || m.Msg == 0x0085) { try { Overlay(); } catch { } }   // WM_PAINT, WM_NCPAINT
+        if (m.Msg == 0x000F || m.Msg == 0x0085) { try { Overlay(); } catch { } Later(); return; }   // WM_PAINT, WM_NCPAINT
+        switch (m.Msg)
+        {   // everything that moves the writing, the cursor or the highlight: the box paints that a moment later, so the colour is put back right after it (the colour never goes while text is highlighted)
+            case 0x0007: case 0x0008: case 0x00B1: case 0x00C2: case 0x000C: case 0x0100: case 0x0101: case 0x0102: case 0x0202: case 0x0115: case 0x020A: case 0x0014: Later(); break;
+            case 0x0200: if (((int)m.WParam & 1) != 0) Later(); break;   // the mouse moving with the button down (highlighting with the mouse)
+        }
+    }
+    bool pending;
+    void Later()
+    {
+        if (pending || !tb.IsHandleCreated || tb.IsDisposed) return; pending = true;
+        try { tb.BeginInvoke(new Action(() => { pending = false; try { Overlay(); } catch { } })); } catch { pending = false; }
     }
     void Overlay()
     {
@@ -159,7 +200,7 @@ sealed class EmojiOverlay : NativeWindow
         int lineH = Math.Max(8, TextRenderer.MeasureText("A", tb.Font).Height); Graphics g = null; bool focused = tb.Focused; int ss = tb.SelectionStart, se = tb.SelectionStart + tb.SelectionLength;
         for (int i = first; i <= last; i++)
         {
-            int n = EmojiSprites.ClusterAt(t, i); if (n == 0) continue; string cl = t.Substring(i, n); var sp = EmojiSprites.Get(EmojiSprites.KeyOf(cl)); int at = i; i += n - 1; if (sp == null) continue;
+            int n = EmojiSprites.ClusterAt(t, i); if (n == 0) continue; string cl = t.Substring(i, n); var sp = EmojiSprites.Get(EmojiSprites.KeyOf(cl)); if (sp == null) EmojiSprites.Want(cl); int at = i; i += n - 1; if (sp == null) continue;
             Point p = tb.GetPositionFromCharIndex(at), p2 = tb.GetPositionFromCharIndex(Math.Min(t.Length, at + n)); int w = p2.Y == p.Y ? p2.X - p.X : lineH + 4; if (w < 6) w = lineH + 2; if (p.Y < -lineH || p.Y > tb.ClientSize.Height || p.X < -w || p.X > tb.ClientSize.Width) continue;
             if (g == null) { g = tb.CreateGraphics(); g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic; g.CompositingQuality = System.Drawing.Drawing2D.CompositingQuality.HighQuality; }
             bool sel = focused && tb.SelectionLength > 0 && at >= ss && at < se; var back = new Rectangle(p.X, p.Y, w, lineH + 1);

@@ -403,4 +403,28 @@ partial class StudioForm
         if (master) { Txt(g, "BEFORE", 10, TM.C(200, 205, 205, 235), Rc(plot.X + 8, plot.Y + 4, 60, 14), StringAlignment.Near, true); Txt(g, "AFTER", 10, NeonCyan, Rc(plot.X + 64, plot.Y + 4, 60, 14), StringAlignment.Near, true); Txt(g, "ADDED", 10, NeonLime, Rc(plot.X + 118, plot.Y + 4, 60, 14), StringAlignment.Near, true); Txt(g, "TAKEN AWAY", 10, NeonPink, Rc(plot.X + 172, plot.Y + 4, 90, 14), StringAlignment.Near, true); }
         else Txt(g, "LIVE SOUND", 10, NeonCyan, Rc(plot.X + 8, plot.Y + 4, 100, 14), StringAlignment.Near, true);
     }
+
+    // ---------- AUTO EQ: the Parametric EQ sets itself ----------
+    // On the master it listens to the whole mix; on a track it listens to that track on its own, before its effects. It sets the five tone bands (bass, mud, presence, upper-mids, air) and leaves the rest of the EQ as it is.
+    void AutoEqClick(ParametricEq eq, Track tr)
+    {
+        if (eng.Tracks.Count == 0) { Toast("Add music first."); return; }
+        if (tr != null && tr.Clip == null && !tr.Instrument) { Toast("This track has no sound to listen to yet."); return; }
+        string who = tr == null ? "the whole mix" : "the track \"" + tr.Name + "\"";
+        if (!AskYes("Run AUTO EQ?\n\nIt listens to " + who + " and sets this Parametric EQ for you: bass, mud, presence, upper-mids and air. You hear it straight away, and Ctrl+Z (or REVERT) puts the EQ back as it was.", "Auto EQ")) return;
+        string before = eq.Serialize(); long frames = Math.Min(eng.EndFrame, StudioEngine.SR * (tr == null ? 240 : 180)); double[] gains = null; string note = "";
+        RunBusy("AUTO EQ: listening to " + who + "...", false, prog =>
+        {
+            float[] l, r; var opts = tr == null ? new RenderOpts { Master = false } : new RenderOpts { Master = false, Dry = true, Fader = false, MuteSolo = false, Only = new List<Track> { tr } };
+            eng.Render(0, frames, opts, null, out l, out r); prog(0.3f); var tone = AutoMix.Analyze(AudioClip.FromArrays(l, r, "eq")); double[] dv; gains = AutoMix.ToneGains(tone, tr == null ? "mix" : tr.Role, out dv);
+            if (tone.ActiveFrac < 0.02) { gains = null; note = "There is no sound to listen to."; } prog(1f);
+        }, ok =>
+        {
+            if (!ok) return; if (gains == null) { Toast(note.Length > 0 ? note : "AUTO EQ could not listen to that."); return; }
+            PushUndo(); int[] band = { 0, 1, 3, 4, 5 }; string[] nm = { "bass", "mud", "presence", "upper-mids", "air" }; var moves = new List<string>();
+            lock (eng.Sync) { for (int i = 0; i < 5; i++) { eq.Set("b" + band[i] + "_on", 1); eq.Set("b" + band[i] + "_g", (float)DspMath.Clamp(gains[i], -6, 6)); if (Math.Abs(gains[i]) > 0.05) moves.Add(nm[i] + " " + gains[i].ToString("+0.0;-0.0") + " dB"); } eq.Bypass = false; }
+            Toast(moves.Count > 0 ? "AUTO EQ: " + string.Join(", ", moves.ToArray()) + "." : "AUTO EQ: the tone is already balanced, so the EQ was left flat.");
+            OfferRevert("AUTO EQ is on this EQ", () => { lock (eng.Sync) Presets.Apply(eq, before); });
+        });
+    }
 }

@@ -61,7 +61,7 @@ static class LyricsPolish
         while (lines.Count > 0 && lines[0].Length == 0) lines.RemoveAt(0);
         while (lines.Count > 0 && lines[lines.Count - 1].Length == 0) lines.RemoveAt(lines.Count - 1);
         for (int i = lines.Count - 1; i > 0; i--) if (lines[i].Length == 0 && lines[i - 1].Length == 0) lines.RemoveAt(i);   // one blank line between verses, never more
-        if (groupIfFlat) for (int i = lines.Count - 1; i >= 4; i--) { if (lines[i].Length > 0 && lines[i] == lines[i - 1] && lines[i] == lines[i - 2] && lines[i] == lines[i - 3] && lines[i] == lines[i - 4]) { lines.RemoveAt(i); dropped++; } }   // one line repeated more than four times is the recogniser stuck, not a song
+        if (groupIfFlat) for (int i = lines.Count - 1; i >= 10; i--) { bool run = lines[i].Length > 0; for (int k = 1; k <= 10 && run; k++) if (lines[i] != lines[i - k]) run = false; if (run) { lines.RemoveAt(i); dropped++; } }   // one line repeated more than ten times is the recogniser stuck, not a song (a hook said eight times is a hook: every word is kept)
         // a recording has no blank lines: make verses of four lines so the labeller has something to work with
         bool flat = true; int count = 0; foreach (string l in lines) { if (l.Length == 0) flat = false; else count++; }
         if (groupIfFlat && flat && count >= 8)

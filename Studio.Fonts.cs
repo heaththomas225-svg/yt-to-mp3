@@ -14,11 +14,11 @@ using System.Windows.Forms;
 // as the original, which is what keeps every box, button and page tidy whatever font is chosen.
 static class FontKit
 {
-    public sealed class Entry { public string Id, Name, Cat, Family; public int Bytes; public bool Installed; public float Scale; public FontFamily Fam; public volatile int State; public bool Pending; }   // State: 0 not here yet, 1 on its way, 2 failed
+    public sealed class Entry { public string Id, Name, Cat, Family; public int Bytes; public bool Installed; public float Scale; public FontFamily Fam; public volatile int State; public bool Pending; public bool Hard; }   // Hard: thin or hollow letters (outline, inline, hairline): hard to read when small   // State: 0 not here yet, 1 on its way, 2 failed
     public const string DefaultId = "default", InstalledCat = "On this PC";
     public static readonly string[] Cats = { "Drippy and horror", "Gothic and blackletter", "Graffiti and street", "Neon and futuristic", "Retro, pixel and arcade", "Script and calligraphy", "Handwritten", "Bold display", "Elegant serif", "Clean sans and mono", InstalledCat };
     public static readonly List<Entry> All = new List<Entry>();
-    public static string CurrentId = DefaultId; public static FontFamily Family; public static float Scale = 1f;   // Family null = the original font
+    public static string CurrentId = DefaultId; public static FontFamily Family; public static float Scale = 1f; public static bool HardCurrent;   // HardCurrent: the font in use is thin or hollow: it writes the big titles only, the small writing stays in the clear original font   // Family null = the original font
     public static string CurrentName { get { var e = Find(CurrentId); return e != null ? e.Name : "Bahnschrift (the original)"; } }
     static readonly List<PrivateFontCollection> keep = new List<PrivateFontCollection>(); static bool built; static readonly object lk = new object(); static readonly SemaphoreSlim gate = new SemaphoreSlim(3);
     public static string Dir { get { return Path.Combine(StudioEnv.DataDir, "fonts"); } }
@@ -100,7 +100,7 @@ static class FontKit
         {
             if (e.Installed) { e.Fam = new FontFamily(e.Family); }
             else if (File.Exists(FileOf(e))) { var pfc = new PrivateFontCollection(); pfc.AddFontFile(FileOf(e)); if (pfc.Families.Length == 0) return null; e.Fam = pfc.Families[0]; keep.Add(pfc); }
-            if (e.Fam != null) e.Scale = ComputeScale(e.Fam);
+            if (e.Fam != null) { e.Scale = ComputeScale(e.Fam); e.Hard = IsHard(e.Fam); }
         }
         catch { e.Fam = null; e.State = 2; try { File.Delete(FileOf(e)); } catch { } }
         return e.Fam;
@@ -145,9 +145,28 @@ static class FontKit
         catch { return 1f; }
     }
 
+    // ---------- legibility ----------
+    // how thick the strokes of the letters are next to their height: an outline or inline font has two hairlines where a stem should be, a hairline font has one very thin line.
+    // Under about 5.5% of the height the letters smear together when they are small.
+    public static bool IsHard(FontFamily f)
+    {
+        try
+        {
+            FontStyle st = StyleOf(f, false); using (var bm = new Bitmap(900, 260)) using (var g = Graphics.FromImage(bm))
+            {
+                g.Clear(Color.Black); g.TextRenderingHint = TextRenderingHint.AntiAliasGridFit; using (var font = new Font(f, 130f, st, GraphicsUnit.Pixel)) using (var br = new SolidBrush(Color.White)) g.DrawString("HEIl", font, br, 10, 10, StringFormat.GenericTypographic);
+                int y0 = bm.Height, y1 = -1; for (int y = 0; y < bm.Height; y++) for (int x = 0; x < bm.Width; x += 2) if (bm.GetPixel(x, y).R > 140) { y0 = Math.Min(y0, y); y1 = Math.Max(y1, y); break; }
+                if (y1 - y0 < 30) return false; var runs = new List<int>(); foreach (double fr in new[] { 0.4, 0.5, 0.6 }) { int y = (int)(y0 + (y1 - y0) * fr), run = 0; for (int x = 0; x < bm.Width; x++) { if (bm.GetPixel(x, y).R > 140) run++; else { if (run > 0) runs.Add(run); run = 0; } } if (run > 0) runs.Add(run); }
+                if (runs.Count == 0) return false; runs.Sort(); double med = runs[runs.Count / 2]; return med / (y1 - y0) < 0.055;
+            }
+        }
+        catch { return false; }
+    }
+
     // ---------- using it ----------
     public static Font Make(float px, bool bold)
     {
+        if (HardCurrent && px < 21f) return new Font(bold ? Win.UiBoldFamily : Win.UiFamily, px, bold ? FontStyle.Bold : FontStyle.Regular, GraphicsUnit.Pixel);   // a thin or hollow font is only used big: small writing stays clear
         var fam = Family; if (fam == null) return new Font(bold ? Win.UiBoldFamily : Win.UiFamily, px, bold ? FontStyle.Bold : FontStyle.Regular, GraphicsUnit.Pixel);
         return new Font(fam, Math.Max(5f, px * Scale), StyleOf(fam, bold), GraphicsUnit.Pixel);
     }
@@ -159,8 +178,8 @@ static class FontKit
     // on the window's thread; false when the font cannot be used
     public static bool Apply(Entry e)
     {
-        if (e.Id == DefaultId) { Family = null; Scale = 1f; CurrentId = DefaultId; }
-        else { var fam = Load(e); if (fam == null) return false; Family = fam; Scale = e.Scale > 0 ? e.Scale : 1f; CurrentId = e.Id; }
+        if (e.Id == DefaultId) { Family = null; Scale = 1f; CurrentId = DefaultId; HardCurrent = false; }
+        else { var fam = Load(e); if (fam == null) return false; Family = fam; Scale = e.Scale > 0 ? e.Scale : 1f; CurrentId = e.Id; HardCurrent = e.Hard; }
         Prefs.FontId = CurrentId == DefaultId ? "" : CurrentId; GfxCache.Clear(); Sprites.Clear(); Prefs.Changed(); return true;
     }
     // the font chosen last time (called when the studio opens); a font that is not on this PC any more is fetched again

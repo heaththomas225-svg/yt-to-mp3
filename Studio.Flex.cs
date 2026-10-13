@@ -16,7 +16,7 @@ partial class StudioForm
     bool flexOpen, flexAnalysing, flexEdited, flexSplitTool; volatile float flexPct; Track flexTrack; float[] flexSrcL, flexSrcR; int flexLen; FlexAnalysis flexAna; float[] flexRatio;
     readonly List<FlexNote> flexSel = new List<FlexNote>(); float flexLow = 48; int flexKey = 0, flexScale = 0; float flexAmount = 100; readonly object flexLk = new object();
     AudioClip flexClip0; long flexStart0, flexFrames0; string flexName = "";
-    string flexAutoPath, flexSession = "", flexSavedAt = ""; long flexAutoAt; volatile bool flexAutoBusy;   // automatic saving of your edits
+    List<FlexNote[]> flexHist; bool flexHistDirty; int flexHistAt;   // the notes after each change: UNDO NOTE goes back one step, REVERT ALL goes back to the first one (Flex Pitch never saves by itself, and never saves the project)
     // render worker
     Thread flexThread; volatile int flexReq, flexDone; volatile bool flexSwap; float[] flexOutL, flexOutR;
     // mouse drags
@@ -26,7 +26,7 @@ partial class StudioForm
     void FlexOpen()
     {
         var t = Selected; if (t == null || t.Clip == null || !t.Clip.Loaded || t.Instrument) { Toast("Select a track that has a recording first. Flex Pitch works best on a single voice or instrument."); return; }
-        if (flexOpen) FlexClose(true); PushUndo(); flexTrack = t; flexClip0 = t.Clip; flexStart0 = t.ClipStart; flexFrames0 = t.ClipFrames; flexName = t.Name; flexAutoPath = null; flexAutoAt = 0; flexSavedAt = ""; flexSession = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+        if (flexOpen) FlexClose(true); PushUndo(); flexTrack = t; flexClip0 = t.Clip; flexStart0 = t.ClipStart; flexFrames0 = t.ClipFrames; flexName = t.Name; flexHist = null; flexHistDirty = false;
         long len = t.UsedLength; if (len < 4096) { Toast("That recording is too short to edit."); return; }
         var l = new float[len]; var r = new float[len]; Array.Copy(t.Clip.L, t.ClipStart, l, 0, len); Array.Copy(t.Clip.R ?? t.Clip.L, t.ClipStart, r, 0, len);
         flexSrcL = l; flexSrcR = r; flexLen = (int)len; flexAna = null; flexRatio = null; flexSel.Clear(); flexEdited = false; flexSplitTool = false; flexAnalysing = true; flexPct = 0; FlexViewEnter(t); flexOpen = true; flexReq = 0; flexDone = 0; flexSwap = false; menuOpen = false;
@@ -85,29 +85,33 @@ partial class StudioForm
         catch { }
         finally { Cursor = Cursors.Default; }
     }
-    // your edits are written to a file by themselves a moment after you stop changing things, so nothing is lost if you click away or the app closes
-    void FlexAutoSaveTick()
-    {
-        var t = flexTrack; if (!flexOpen || !flexEdited || t == null || t.Clip == null || flexAutoAt == 0 || flexAutoBusy || flexSwap || flexDone != flexReq) return;
-        if (unchecked(Environment.TickCount - flexAutoAt) < 1800) return; flexAutoBusy = true; flexAutoAt = 0; var c = t.Clip;
-        string safe = flexName; foreach (char ch in Path.GetInvalidFileNameChars()) safe = safe.Replace(ch, '_'); string file = Path.Combine(StudioEnv.DataDir, "flex", "autosave_" + safe + "_" + flexSession + ".wav");
-        new Thread(() =>
-        {
-            try { Directory.CreateDirectory(Path.GetDirectoryName(file)); SoundIO.WriteWav(file, c.L, c.R, StudioEngine.SR, 24); c.Path = file; flexAutoPath = file; flexSavedAt = DateTime.Now.ToString("HH:mm:ss"); }
-            catch { }
-            finally { flexAutoBusy = false; }
-        }) { IsBackground = true, Name = "flex-autosave" }.Start();
-    }
+    // REVERT ALL CHANGES: every note goes back to how it was found (also the ones that were split or joined), and the track plays the original recording again
     void FlexRevert()
     {
         var t = flexTrack; if (!flexOpen || t == null) return;
-        lock (flexLk) { if (flexAna != null) foreach (var n in flexAna.Notes) { n.ResetEdits(); n.Deleted = false; } }
-        lock (eng.Sync) { t.Clip = flexClip0; t.ClipStart = flexStart0; t.ClipFrames = flexFrames0; } flexEdited = false; FlexRatioUpdate(); Toast("Back to the original recording.");
+        lock (flexLk) { if (flexAna != null) { if (flexHist != null && flexHist.Count > 0) { flexAna.Notes.Clear(); foreach (var n in flexHist[0]) flexAna.Notes.Add(n.Clone()); } else foreach (var n in flexAna.Notes) { n.ResetEdits(); n.Deleted = false; } } }
+        if (flexHist != null && flexHist.Count > 1) flexHist.RemoveRange(1, flexHist.Count - 1); flexHistDirty = false; flexSel.Clear();
+        lock (eng.Sync) { t.Clip = flexClip0; t.ClipStart = flexStart0; t.ClipFrames = flexFrames0; } flexEdited = false; FlexRatioUpdate(); Toast("Back to the original recording: every change is gone.");
+    }
+    // UNDO NOTE: goes back one change at a time (a drag, a split, a join, a correction, a reset...)
+    List<FlexNote> FlexCloneNotes() { var l = new List<FlexNote>(); lock (flexLk) { if (flexAna != null) foreach (var n in flexAna.Notes) l.Add(n.Clone()); } return l; }
+    void FlexHistTick()
+    {
+        if (flexAna == null) return;
+        if (flexHist == null) { flexHist = new List<FlexNote[]> { FlexCloneNotes().ToArray() }; flexHistDirty = false; return; }
+        if (flexHistDirty && flexDragMode == 0 && unchecked(Environment.TickCount - flexHistAt) > 120) { flexHist.Add(FlexCloneNotes().ToArray()); if (flexHist.Count > 400) flexHist.RemoveAt(1); flexHistDirty = false; }
+    }
+    void FlexUndoNote()
+    {
+        if (!flexOpen || flexAna == null) return; if (flexDragMode != 0) return; FlexHistTick(); if (flexHistDirty) { flexHist.Add(FlexCloneNotes().ToArray()); flexHistDirty = false; }
+        if (flexHist == null || flexHist.Count <= 1) { Toast("Nothing to undo: no note has been changed."); return; }
+        flexHist.RemoveAt(flexHist.Count - 1); var back = flexHist[flexHist.Count - 1];
+        lock (flexLk) { flexAna.Notes.Clear(); foreach (var n in back) flexAna.Notes.Add(n.Clone()); } flexSel.Clear(); flexEdited = flexHist.Count > 1; FlexRatioUpdate(); flexReq++; Toast("Undid the last note change.");
     }
     void FlexCommitIfOpen() { if (flexOpen && flexEdited) { /* keep the editor open but make sure the project points at a real file */ var t = flexTrack; if (t != null && t.Clip != null) { try { string dir = Path.Combine(StudioEnv.DataDir, "flex"); Directory.CreateDirectory(dir); string safe = flexName; foreach (char c in Path.GetInvalidFileNameChars()) safe = safe.Replace(c, '_'); string file = Path.Combine(dir, safe + "_flex_" + DateTime.Now.ToString("yyyyMMdd_HHmmss") + ".wav"); SoundIO.WriteWav(file, t.Clip.L, t.Clip.R, StudioEngine.SR, 24); t.Clip.Path = file; } catch { } } } }
 
     // ---- live re-tuning ----
-    void FlexChanged() { flexEdited = true; FlexRatioUpdate(); flexReq++; }
+    void FlexChanged() { flexEdited = true; FlexRatioUpdate(); flexReq++; flexHistDirty = true; flexHistAt = Environment.TickCount; }
     void FlexRatioUpdate() { var a = flexAna; if (a == null) return; lock (flexLk) flexRatio = FlexPitch.RatioCurve(a, null, null); }
     void FlexWorker()
     {
@@ -124,7 +128,7 @@ partial class StudioForm
     void FlexTick()
     {
         if (!flexSwap || !flexOpen || flexTrack == null) return; flexSwap = false; var l = flexOutL; var r = flexOutR; if (l == null) return; var t = flexTrack;
-        var c = AudioClip.FromArrays(l, r, flexClip0 != null ? flexClip0.Name : t.Name); c.Path = flexAutoPath ?? (flexClip0 != null ? flexClip0.Path : ""); lock (eng.Sync) { t.Clip = c; t.ClipStart = 0; t.ClipFrames = -1; } flexAutoAt = Environment.TickCount;
+        var c = AudioClip.FromArrays(l, r, flexClip0 != null ? flexClip0.Name : t.Name); c.Path = flexClip0 != null ? flexClip0.Path : ""; lock (eng.Sync) { t.Clip = c; t.ClipStart = 0; t.ClipFrames = -1; }
     }
 
     // ---- geometry ----
@@ -142,14 +146,14 @@ partial class StudioForm
     // ---- painting ----
     void PaintFlex(Graphics g)
     {
-        FlexTick(); FlexAutoSaveTick(); var P = FlexPanel(); if (TxtAudit != null) TxtAudit.RemoveAll(t0 => P.IntersectsWith(t0.Ink)); var na = FlexNoteArea(); var t = flexTrack; if (t == null) return; var gs0 = g.Save();
+        FlexTick(); FlexHistTick(); var P = FlexPanel(); if (TxtAudit != null) TxtAudit.RemoveAll(t0 => P.IntersectsWith(t0.Ink)); var na = FlexNoteArea(); var t = flexTrack; if (t == null) return; var gs0 = g.Save();
         using (var br = new SolidBrush(TM.C(255, 10, 5, 24))) g.FillRectangle(br, P);
         using (var pen = new Pen(Color.FromArgb(220, NeonViolet), 1.6f)) g.DrawLine(pen, P.X, P.Y, P.Right, P.Y); using (var glow = new Pen(Color.FromArgb(50, NeonCyan), 5f)) g.DrawLine(glow, P.X, P.Y + 1, P.Right, P.Y + 1);
         Reg(P, () => { }).OnWheel = d => { if (ModifierKeys == Keys.Control) { ZoomBy(d > 0 ? 0.8 : 1.25); autoFit = false; } else flexLow = Math.Max(0, Math.Min(110, flexLow + (d > 0 ? 3 : -3))); };
         PaintFlexInspector(g, P); FlexScrollBar(g, P, na);
         // header
         Txt(g, "FLEX PITCH  -  " + t.Name, 13, Ink, Rc(na.X, P.Y + 66, 420, 22), StringAlignment.Near, true);
-        Txt(g, flexAnalysing ? "Listening to the recording... " + (int)(flexPct * 100) + "%" : (flexSavedAt.Length > 0 ? (na.Width - 300 > 200 ? "Saved automatically at " + flexSavedAt : (na.Width - 300 > 60 ? "Saved" : "")) : (flexEdited ? (na.Width - 300 > 200 ? "Saving automatically..." : "") : (na.Width - 300 > 450 ? "Drag notes up or down (Alt = free)   Double-click = reset   Right-click = more" : (na.Width - 300 > 150 ? "Drag notes up or down" : "")))), 11, flexSavedAt.Length > 0 ? Color.FromArgb(150, 255, 150) : DimC, Rc(na.X + 300, P.Y + 68, Math.Max(10, na.Width - 300), 20), StringAlignment.Far, false);
+        Txt(g, flexAnalysing ? "Listening to the recording... " + (int)(flexPct * 100) + "%" : (flexEdited ? (na.Width - 300 > 330 ? "Not kept yet: DONE keeps your edits, UNDO NOTE goes back a step, REVERT ALL goes back to the original" : (na.Width - 300 > 150 ? "Not kept yet" : "")) : (na.Width - 300 > 450 ? "Drag notes up or down (Alt = free)   Double-click = reset   Right-click = more" : (na.Width - 300 > 150 ? "Drag notes up or down" : ""))), 11, flexEdited ? Color.FromArgb(255, 210, 120) : DimC, Rc(na.X + 300, P.Y + 68, Math.Max(10, na.Width - 300), 20), StringAlignment.Near, false);
         // pitch rows
         var gc = g.Save(); g.SetClip(na); using (var bg = new SolidBrush(TM.C(255, 6, 3, 16))) g.FillRectangle(bg, na);
         int rows = (int)Math.Ceiling(na.Height / FlexRowH) + 1;
@@ -172,7 +176,7 @@ partial class StudioForm
         var ncl = g.Save(); g.SetClip(na); List<FlexNote> list; lock (flexLk) list = new List<FlexNote>(flexAna.Notes); int hop = flexAna.Hop; var ratio = flexRatio;
         foreach (var n in list)
         {
-            float x0 = FlexX((double)n.Start * hop), x1 = FlexX((double)n.End * hop); if (x1 < na.X - 4 || x0 > na.Right + 4) continue; if (x1 - x0 < 3) x1 = x0 + 3; float yc = FlexY(n.Target, na); var blk = Rc(x0, yc - FlexRowH * 0.42f, x1 - x0, FlexRowH * 0.84f); bool sel = flexSel.Contains(n);
+            float x0 = FlexX((double)n.Start * hop), x1 = FlexX((double)n.End * hop); if (x1 < na.X - 4 || x0 > na.Right + 4) continue; if (x1 - x0 < 16) { float cxm = (x0 + x1) / 2f; x0 = cxm - 8; x1 = cxm + 8; } float yc = FlexY(n.Target, na); float bhh = Math.Max(FlexRowH * 0.84f, 22f); var blk = Rc(x0, yc - bhh / 2f, x1 - x0, bhh);   /* never smaller than 16 x 22: easy to grab without zooming in */ bool sel = flexSel.Contains(n);
             if (n.Deleted) { using (var pen = new Pen(TM.C(90, 160, 140, 200), 1f) { DashStyle = DashStyle.Dot }) g.DrawRectangle(pen, blk.X, blk.Y, blk.Width, blk.Height); continue; }
             if (n.Edited && Math.Abs(n.Target - n.OrigMidi) > 0.05) { float yo = FlexY(n.OrigMidi, na); using (var pen = new Pen(TM.C(110, 200, 190, 255), 1f) { DashStyle = DashStyle.Dash }) g.DrawRectangle(pen, x0, yo - FlexRowH * 0.42f, x1 - x0, FlexRowH * 0.84f); }
             Color baseC = n.Edited ? NeonCyan : NeonViolet; if (sel) Glow(g, baseC, blk, 4, 0.8f, 3);
@@ -181,12 +185,17 @@ partial class StudioForm
             // the pitch line inside the note: what the voice actually does (drift, vibrato), after your edits
             if (blk.Width > 8)
             {
-                int step = Math.Max(1, (int)(2 * spp / hop)); var pts = new List<PointF>(); for (int f = n.Start; f < n.End; f += step) { double m = flexAna.Midi[f]; if (m <= 0) continue; double me = ratio != null && f < ratio.Length ? m + 12 * Math.Log(ratio[f], 2) : m; pts.Add(new PointF(FlexX((double)f * hop), FlexY(me, na))); }
-                if (pts.Count > 1) using (var pen = new Pen(Color.FromArgb(230, 255, 255, 255), 1.4f)) { try { g.DrawLines(pen, pts.ToArray()); } catch { } }
+                int step = Math.Max(1, (int)(2 * spp / hop)); var pts = new List<PointF>(); double lo = n.Target - 1.3, hi = n.Target + 1.3;   // the line stays near its own note (a jump of the pitch finder never draws a long line)
+                using (var pen = new Pen(Color.FromArgb(230, 255, 255, 255), 1.4f))
+                {
+                    Action flush = () => { if (pts.Count > 1) { try { g.DrawLines(pen, pts.ToArray()); } catch { } } pts.Clear(); };
+                    for (int f = n.Start; f < n.End; f += step) { double m = flexAna.Midi[f]; if (m <= 0 || Math.Abs(m - n.OrigMidi) > 2.5) { flush(); continue; } double me = ratio != null && f < ratio.Length ? m + 12 * Math.Log(ratio[f], 2) : m; me = Math.Max(lo, Math.Min(hi, me)); pts.Add(new PointF(FlexX((double)f * hop), FlexY(me, na))); }
+                    flush();
+                }
             }
             if (blk.Width > 30) { double dev = (n.Target - Math.Round(n.Target)) * 100; string lb = FlexNote.Name(n.Target) + (blk.Width > 78 ? "  " + (dev >= 0 ? "+" : "") + ((int)Math.Round(dev)) + "c" : ""); Txt(g, lb, 10, Color.FromArgb(240, 255, 255, 255), Rc(blk.X + 3, blk.Y - 13, Math.Max(60, blk.Width), 13), StringAlignment.Near, true); }
-            var nn = n; var body = Reg(blk, () => FlexNoteDown(nn)); body.OnDrag = pt => FlexNoteDrag(pt); body.OnUp = () => FlexNoteUp(); body.OnDouble = () => { lock (flexLk) nn.ResetEdits(); FlexChanged(); }; body.OnRight = () => FlexNoteMenu(nn);
-            if (blk.Width > 14) { var le = Rc(blk.X - 3, blk.Y, 7, blk.Height); var re = Rc(blk.Right - 4, blk.Y, 7, blk.Height); var lr = Reg(le, () => FlexEdgeDown(nn, 2)); lr.OnDrag = pt => FlexEdgeDrag(pt); lr.OnUp = () => FlexEdgeUp(); var rr2 = Reg(re, () => FlexEdgeDown(nn, 3)); rr2.OnDrag = pt => FlexEdgeDrag(pt); rr2.OnUp = () => FlexEdgeUp(); }
+            var nn = n; var body = Reg(blk, () => FlexNoteDown(nn)); /* the grab area is a little bigger than the note */ body.R = RectangleF.Inflate(blk, 3, 3); body.OnDrag = pt => FlexNoteDrag(pt); body.OnUp = () => FlexNoteUp(); body.OnDouble = () => { lock (flexLk) nn.ResetEdits(); FlexChanged(); }; body.OnRight = () => FlexNoteMenu(nn);
+            if (blk.Width > 30) { var le = Rc(blk.X - 3, blk.Y, 8, blk.Height); var re = Rc(blk.Right - 5, blk.Y, 8, blk.Height); var lr = Reg(le, () => FlexEdgeDown(nn, 2)); lr.OnDrag = pt => FlexEdgeDrag(pt); lr.OnUp = () => FlexEdgeUp(); var rr2 = Reg(re, () => FlexEdgeDown(nn, 3)); rr2.OnDrag = pt => FlexEdgeDrag(pt); rr2.OnUp = () => FlexEdgeUp(); }
         }
         // marquee
         if (flexDragMode == 4 && flexMoved) { var m = Rc(Math.Min(flexDown.X, flexNow.X), Math.Min(flexDown.Y, flexNow.Y), Math.Abs(flexNow.X - flexDown.X), Math.Abs(flexNow.Y - flexDown.Y)); using (var b = new SolidBrush(Color.FromArgb(40, NeonCyan))) g.FillRectangle(b, m); using (var pen = new Pen(Color.FromArgb(200, NeonCyan), 1f)) g.DrawRectangle(pen, m.X, m.Y, m.Width, m.Height); }
@@ -236,7 +245,7 @@ partial class StudioForm
         Btn(g, Rc(x, y, bw, 26), "Correct pitch", 1, () => FlexCorrect(), 11); Btn(g, Rc(x + bw + 6, y, bw, 26), PitchCorrector.Keys[flexKey] + " " + (flexScale == 0 ? "chromatic" : PitchCorrector.Scales[flexScale].ToLowerInvariant()), 0, () => FlexScaleMenu(), 10); y += 30;
         Txt(g, "AMOUNT", 11, DimC, Rc(x, y, 52, 20), StringAlignment.Near, false); var ar = Rc(x + 54, y + 3, w - 54 - 52, 16); Slider(g, ar, flexAmount / 100f, f => flexAmount = (float)Math.Round(f * 100), NeonViolet).OnDouble = () => flexAmount = 100; Txt(g, ((int)flexAmount) + " %", 11, Ink, Rc(x + w - 50, y, 50, 20), StringAlignment.Far, false); y += 26;
         Btn(g, Rc(x, y, bw, 26), "Select all", 0, () => { lock (flexLk) { flexSel.Clear(); if (flexAna != null) flexSel.AddRange(flexAna.Notes.FindAll(n => !n.Deleted)); } }, 11); Btn(g, Rc(x + bw + 6, y, bw, 26), flexSplitTool ? "Split: ON" : "Split tool", flexSplitTool ? 4 : 0, () => flexSplitTool = !flexSplitTool, 11); y += 30;
-        Btn(g, Rc(x, y, bw, 26), "Reset note", 0, () => { lock (flexLk) foreach (var n in flexSel) n.ResetEdits(); FlexChanged(); }, 11); Btn(g, Rc(x + bw + 6, y, bw, 26), "Original", 3, () => FlexRevert(), 11); y += 30;
+        var un = Rc(x, y, bw, 26); Btn(g, un, "UNDO NOTE", 1, () => FlexUndoNote(), 11); Hint2(un, "Go back one change at a time (a move, a split, a join, a correction...)"); var rv = Rc(x + bw + 6, y, bw, 26); Btn(g, rv, "REVERT ALL", 3, () => FlexRevert(), 11); Hint2(rv, "Throw away every change and go back to the original recording (double-click a note to reset just that one)"); y += 30;
         Btn(g, Rc(x, y, w, 30), "DONE (keep edits)", 2, () => FlexClose(true), 12);
     }
 

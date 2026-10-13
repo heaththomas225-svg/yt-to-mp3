@@ -57,7 +57,7 @@ static class U
         SetF("menuT", 1f); var dnb = Find(r => r.Tip == "Click to load DnB Roller"); SetF("browseCat", "DnB"); Paint(); dnb = Find(r => r.Tip == "Click to load DnB Roller");
         if (dnb != null) { Click(Center(dnb.Rect)); Check("clicking a preset loads it", fx.PresetName == "DnB Roller", fx.PresetName); }
         var init = Find(r => r.Tip == "Reset everything to a clean, plain sound."); if (init != null) { Click(Center(init.Rect)); Check("INITIALISE PATCH resets the sound", fx.PresetName == "Init", fx.PresetName); }
-        var close = Find(r => r.Tip == null || r.Tip == ""); SetF("browseOpen", false); Paint();
+        var close = Find(r => r.Tip == null || r.Tip == ""); SetF("browseOpen", false); Paint(); for (int sk = 0; sk < 8; sk++) { System.Threading.Thread.Sleep(120); Application.DoEvents(); Paint(); }   // (the YOUR SOUNDS panel slides shut: wait for it before looking for the chain buttons)
 
         // ---- the effect chain: move the first box later ----
         SetF("tab", 2); Paint(); float a0 = fx.Get("fo0"), a1 = fx.Get("fo1"); var later = Regs().Find(r => r.Tip == "Move later in the chain"); Check("the chain buttons are on screen", later != null, "");

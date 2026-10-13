@@ -228,15 +228,7 @@ static class Themes
 
     // ---- pictures: any photo, any size, becomes the background of the whole studio ----
     static string PhotoDir { get { return Path.Combine(Dir, "photos"); } } static string PhotoMapFile { get { return Path.Combine(Dir, "photos.txt"); } }
-    static void LoadPhotoMap()
-    {
-        try
-        {
-            if (!File.Exists(PhotoMapFile)) return;
-            foreach (var line in File.ReadAllLines(PhotoMapFile, Encoding.UTF8)) { int i = line.IndexOf('|'); if (i < 1) continue; int ti = IndexOfName(line.Substring(0, i)); string full = Path.Combine(PhotoDir, line.Substring(i + 1)); if (ti >= 0 && File.Exists(full)) list[ti].Photo = full; }
-        }
-        catch { }
-    }
+    static void LoadPhotoMap() { }   // (photo themes are gone: a theme is its colours only)
     static void SavePhotoMap() { try { Directory.CreateDirectory(Dir); var sb = new StringBuilder(); foreach (var t in list) if (t.Photo.Length > 0) sb.Append(t.Name).Append('|').Append(Path.GetFileName(t.Photo)).Append('\n'); File.WriteAllText(PhotoMapFile, sb.ToString(), Encoding.UTF8); } catch { } }
     // reads any picture the PC can read (JPG, PNG, BMP, GIF, TIFF), scales a huge one down to at most 3840 pixels (a small one is kept: the studio stretches it to fill), saves it as a JPEG in the theme folder
     static string SavePhoto(string imageFile, string baseName, out string error, out Color dominant, out double dominantSat)

@@ -97,17 +97,28 @@ partial class StudioForm
     {
         if (!gainOpen) return; var c = gainClip; if (c == null || !eng.Tracks.Contains(c)) { gainOpen = false; return; }
         float W = ClientSize.Width, H = ClientSize.Height; var all = Rc(0, 0, W, H); Reg(all, () => gainOpen = false);
-        float pw = 330, ph = 150; float px = Math.Max(8, Math.Min(W - pw - 8, gainAnchor.X + gainAnchor.Width / 2 - pw / 2)), py = gainAnchor.Bottom + 8; if (py + ph > H - 8) py = H - ph - 8; var box = PopMove("gain", Rc(px, py, pw, ph), 44, 52);
+        // the tracks that can be picked here (TRACK 1, 2, 3...): the gain is for the one that is lit
+        var gl = new List<int>(); for (int ti = 0; ti < eng.Tracks.Count; ti++) { var tk = eng.Tracks[ti]; if (tk.Clip != null && !tk.Instrument && !tk.IsBus) gl.Add(ti); }
+        float pw = 360; int perRow = Math.Max(1, (int)((pw - 100) / 40)); int gRows = gl.Count > 1 ? (gl.Count + perRow - 1) / perRow : 0; float extra = gRows > 0 ? gRows * 32 + 8 : 0, ph = 150 + extra; float px = Math.Max(8, Math.Min(W - pw - 8, gainAnchor.X + gainAnchor.Width / 2 - pw / 2)), py = gainAnchor.Bottom + 8; if (py + ph > H - 8) py = H - ph - 8; var box = PopMove("gain", Rc(px, py, pw, ph), 44, 52);
         FillRR(g, TM.C(252, 18, 10, 38), box, 14); Glow(g, NeonViolet, box, 14, 0.7f, 4); StrokeRR(g, Color.FromArgb(180, NeonViolet), box, 14, 1.4f); Reg(box, () => { });
         Txt(g, "GAIN", 17, Ink, Rc(box.X + 16, box.Y + 10, 80, 26), StringAlignment.Near, true);
         Txt(g, c.Name, 12, DimC, Rc(box.X + 70, box.Y + 14, box.Width - 130, 20), StringAlignment.Near, false);
         var cl = Rc(box.Right - 42, box.Y + 8, 30, 30); FillRR(g, Hot(cl) ? TM.C(160, 70, 38, 130) : TM.C(110, 40, 24, 80), cl, 15); Txt(g, "X", 15, Ink, cl, StringAlignment.Center, true); Reg(cl, () => gainOpen = false);
         Txt(g, "Volume of just this piece, on top of the track fader.", 11, DimC, Rc(box.X + 16, box.Y + 44, box.Width - 32, 18), StringAlignment.Near, false);
+        if (gRows > 0)
+        {
+            Txt(g, "TRACK", 11, DimC, Rc(box.X + 16, box.Y + 70, 60, 26), StringAlignment.Near, true);
+            for (int q = 0; q < gl.Count; q++)
+            {
+                var tk = eng.Tracks[gl[q]]; var cr0 = Rc(box.X + 78 + (q % perRow) * 40, box.Y + 70 + (q / perRow) * 32, 36, 26); bool on = tk == c; var tkk = tk;
+                Chip(g, cr0, (gl[q] + 1).ToString(), on, () => { gainClip = tkk; selTrack = eng.Tracks.IndexOf(tkk); }, 1); Hint2(cr0, "Track " + (gl[q] + 1) + ": " + tk.Name);
+            }
+        }
         const float lo = -30f, hi = 12f; float frac = (c.ClipGainDb - lo) / (hi - lo);
-        var sr = Rc(box.X + 18, box.Y + 74, box.Width - 36 - 84, 22);
+        var sr = Rc(box.X + 18, box.Y + 74 + extra, box.Width - 36 - 84, 22);
         var rg = Slider(g, sr, Clamp01(frac), f => { float v = (float)Math.Round(lo + f * (hi - lo), 1); if (Math.Abs(v) < 0.4f) v = 0; c.ClipGainDb = v; }, Accent2);
         var dn = rg.OnDown; rg.OnDown = () => { PushUndo(); if (dn != null) dn(); }; rg.OnDouble = () => c.ClipGainDb = 0;
-        Txt(g, (c.ClipGainDb > 0 ? "+" : "") + c.ClipGainDb.ToString("0.0", CultureInfo.InvariantCulture) + " dB", 14, Ink, Rc(sr.Right + 8, box.Y + 74, 76, 22), StringAlignment.Near, true);
+        Txt(g, (c.ClipGainDb > 0 ? "+" : "") + c.ClipGainDb.ToString("0.0", CultureInfo.InvariantCulture) + " dB", 14, Ink, Rc(sr.Right + 8, box.Y + 74 + extra, 76, 22), StringAlignment.Near, true);
         Btn(g, Rc(box.X + 18, box.Bottom - 40, 90, 28), "Reset to 0", 0, () => { PushUndo(); c.ClipGainDb = 0; }, 12);
         Txt(g, "-30 dB  ...  +12 dB", 10, DimC, Rc(box.X + 118, box.Bottom - 38, box.Width - 136, 24), StringAlignment.Far, false);
     }

@@ -72,7 +72,7 @@ static class CP
         // ---- a saved preset is shared automatically (unless Settings has it off) ----
         { Prefs.ShareSaved = true; lastBody = ""; string said = null; CommunityPresets.AutoShare("fx:bassboost", "Auto saved one", "freq=61;gain=6", "Zed", m => said = m); var w0 = DateTime.Now; while (said == null && (DateTime.Now - w0).TotalSeconds < 5) Pump(50);
           Check("saving a preset also shares it with the community", lastBody.Contains("Auto saved one") && lastBody.Contains("freq=61;gain=6") && said != null && said.Contains("shared"), lastBody + " / " + said);
-          Prefs.ShareSaved = false; lastBody = ""; CommunityPresets.AutoShare("fx:bassboost", "Not shared", "freq=62;gain=6", "Zed", m => { }); Pump(700); Check("with the Settings switch off nothing is shared", lastBody == "", lastBody);
+          Prefs.ShareSaved = false; lastBody = ""; CommunityPresets.AutoShare("fx:bassboost", "Not shared", "freq=62;gain=6", "Zed", m => { }); Pump(700); Check("a preset is always shared (community presets are for everybody: the old switch cannot hide it)", lastBody.Contains("Not shared"), lastBody);
           Prefs.ShareSaved = true; lastBody = ""; CommunityPresets.AutoShare("fx:bassboost", "Bad one", "freq=<x>", "Zed", m => { }); Pump(500); Check("an unsafe preset is never sent automatically either", lastBody == "", lastBody); }
 
         // ---- the sheet ----

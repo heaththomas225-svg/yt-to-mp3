@@ -34,7 +34,7 @@ static class Prefs
     public static bool LyricVoice = true;   // take the voice out of the music first (needs the Vocal remover)
     public static bool CountUses = true;     // every finished conversion adds one to the worldwide TIMES USED number (only a number is sent; Settings > General turns it off)
     public static bool SaveLyrics = true;    // after a song is converted its lyrics are looked up and saved as a .txt next to it (Settings > General turns it off)
-    public static bool ShareSaved = true;    // a preset you save is also shared with the Community presets (Settings can turn this off)
+    public static bool ShareSaved = true;    // a preset you save is also shared with the Community presets: this is always on (community presets are for everybody)
     public static Action Changed = delegate { };
 
     public static string[] Lines()
@@ -46,7 +46,7 @@ static class Prefs
         int n; bool b;
         switch (k)
         {
-            case "bgpath": BgPath = v; return true;
+            case "bgpath": return true;   // (no more picture or video backgrounds)
             case "bgdim": if (int.TryParse(v, out n)) BgDim = Math.Max(0, Math.Min(90, n)); return true;
             case "bgleaves": if (bool.TryParse(v, out b)) BgLeaves = b; return true;
             case "bgstudio": if (bool.TryParse(v, out b)) BgStudio = b; return true;
@@ -67,7 +67,7 @@ static class Prefs
             case "lyricvoice": if (bool.TryParse(v, out b)) LyricVoice = b; return true;
             case "fantasythemev": { int n2; if (int.TryParse(v, out n2)) FantasyThemeV = n2; return true; }
             case "fantasytheme": if (bool.TryParse(v, out b)) FantasyThemed = b; return true;
-            case "sharesaved": if (bool.TryParse(v, out b)) ShareSaved = b; return true;
+            case "sharesaved": ShareSaved = true; return true;   // (always on)
             case "theme": Theme = v; Themes.ApplyByName(v); return true;
         }
         return false;
@@ -90,7 +90,7 @@ static class UserBackground
     public static bool IsImage(string p) { return Array.IndexOf(ImgExt, Path.GetExtension(p ?? "").ToLowerInvariant()) >= 0; }
     static long actChecked; static string actPath = ""; static volatile bool actVal; static int actBusy;
     // The file check for a new path is immediate; re-checks of the same path run on the pool so a sleeping network drive never stalls the UI thread.
-    public static bool Active { get { string p = Prefs.BgPath; if (p.Length == 0 || !Edition.Has(Tier.Supporter)) return false; long now = Environment.TickCount; if (p != actPath) { actPath = p; actChecked = now; actVal = File.Exists(p); } else if (now - actChecked > 1500 && Interlocked.CompareExchange(ref actBusy, 1, 0) == 0) { actChecked = now; ThreadPool.QueueUserWorkItem(_ => { bool ex = false; try { ex = File.Exists(p); } catch { } if (Prefs.BgPath == p) actVal = ex; Interlocked.Exchange(ref actBusy, 0); }); } return actVal; } }
+    public static bool Active { get { return false; } }   // (no picture or video backgrounds any more: the leaves, or a plain dark background)
     public static bool IsVideo { get { return Active && !IsImage(Prefs.BgPath); } }
 
     // Cropped-to-fill copy of an image, scaled to w x h.

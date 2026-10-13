@@ -136,7 +136,7 @@ static partial class ProfApi
 partial class StudioForm
 {
     // ================================================================= state =================================================================
-    int artView;   // 0 the artists, 1 messages, 2 collabs
+    int artView;   // 0 the artists, 1 messages, 2 collabs, 3 friends
     List<MsgThread> msgThreads = new List<MsgThread>(); int msgUnread; string msgWithId = ""; float msgScroll, msgListScroll; DateTime msgFetchAt = DateTime.MinValue; volatile bool msgFetching;
     List<ArtistInfo> profFriends = new List<ArtistInfo>(), profReqs = new List<ArtistInfo>();
     string artFriend = "none"; bool artBlocked;
@@ -345,6 +345,7 @@ partial class StudioForm
         var back = Rc(24, y, 150, h); Btn(g, back, "< ALL ARTISTS", 1, () => { artView = 0; }, 12); Hint2(back, "Back to the list of artists");
         Txt(g, "MESSAGES", 22, Ink, Rc(190, y - 2, 240, h + 4), StringAlignment.Near, true);
         var cb = Rc(W - 56 - 170, y, 170, h); Btn(g, cb, "COLLABS", 2, () => { artView = 2; FetchCollabs(true); }, 12); Hint2(cb, "The tracks you make together with other artists");
+        var fb0 = Rc(cb.X - 8 - 170, y, 170, h); Btn(g, fb0, "FRIENDS" + (profReqs.Count > 0 ? " (" + profReqs.Count + ")" : ""), 2, () => OpenFriends(), 12); Hint2(fb0, "Your friends and the friend requests, in the same layout as messages");
         y += h + 14; float listW = Math.Min(360, Math.Max(250, W * 0.3f)), px = 24, ph = bottom - y - 12; var left = Rc(px, y, listW, ph); FillRR(g, TM.C(235, 14, 7, 32), left, 14); Win.DrawNeonBox(g, left, false);
         var right = Rc(left.Right + 14, y, W - 56 - left.Right - 14 - 6, ph); FillRR(g, TM.C(235, 14, 7, 32), right, 14); Win.DrawNeonBox(g, right, false);
         if (!ProfileStore.Published) { TxtWrap(g, "Publish your profile first (Profile tab) to send and get messages, add friends and start collabs. People need to see who you are.", 14, DimC, Rc(right.X + 24, right.Y + 24, right.Width - 48, 80)); return; }
@@ -355,7 +356,7 @@ partial class StudioForm
                 Txt(g, "FRIEND REQUESTS (" + profReqs.Count + ")", 11, NeonPink, Rc(left.X + 14, ly, left.Width - 28, 18), StringAlignment.Near, true); ly += 22;
                 foreach (var rq in profReqs)
                 {
-                    var row = Rc(left.X + 8, ly, left.Width - 16, 54); FillRR(g, TM.C(170, 60, 24, 90), row, 10); NameTextC(g, rq.Name, 13, Rc(row.X + 12, row.Y + 4, row.Width - 24, 20), Ink, true, rq.NameRgb, rq.NameRgb2);
+                    var row = Rc(left.X + 8, ly, left.Width - 16, 54); FillRR(g, TM.C(170, 60, 24, 90), row, 10); NameTextC(g, rq.Shown, 13, Rc(row.X + 12, row.Y + 4, row.Width - 24, 20), Ink, true, rq.NameRgb, rq.NameRgb2);
                     var ok = Rc(row.X + 10, row.Y + 26, 92, 24); var no = Rc(ok.Right + 8, row.Y + 26, 82, 24); var rr = rq; Btn(g, ok, "ACCEPT", 2, () => AnswerRequest(rr, true), 10); Btn(g, no, "DECLINE", 3, () => AnswerRequest(rr, false), 10); var vp = Rc(no.Right + 8, row.Y + 26, 70, 24); Btn(g, vp, "PROFILE", 0, () => { OpenArtist(rr.Id); artView = 0; }, 10); ly += 60;
                 }
                 ly += 6;
@@ -367,7 +368,7 @@ partial class StudioForm
                 var row = Rc(left.X + 8, ly, left.Width - 16, 56); bool sel = t.With.Id == msgWithId, hotr = Hot(Rc(row.X, Math.Max(row.Y, left.Y), row.Width, Math.Min(row.Height, left.Bottom - row.Y)));
                 FillRR(g, sel ? TM.C(220, 80, 40, 150) : (hotr ? TM.C(170, 60, 34, 110) : TM.C(120, 44, 24, 80)), row, 10); if (sel) StrokeRR(g, NeonCyan, row, 10, 1.4f);
                 var av = Rc(row.X + 8, row.Y + 8, 40, 40); Bitmap ab = t.With.Avatar ? ArtistImage(t.With.Id, "avatar", t.With.Av, 60, 60) : null; DrawFrameImage(g, av, ab, ProfAccent(t.With.Accent));
-                NameTextC(g, t.With.Name, 13, Rc(av.Right + 10, row.Y + 6, row.Width - av.Width - 60, 20), Ink, true, t.With.NameRgb, t.With.NameRgb2); string last = t.Msgs.Count > 0 ? (t.Msgs[t.Msgs.Count - 1].Mine ? "You: " : "") + t.Msgs[t.Msgs.Count - 1].Text.Replace('\n', ' ') : ""; Txt(g, last, 11, DimC, Rc(av.Right + 10, row.Y + 28, row.Width - av.Width - 26, 20), StringAlignment.Near, false);
+                NameTextC(g, t.With.Shown, 13, Rc(av.Right + 10, row.Y + 6, row.Width - av.Width - 60, 20), Ink, true, t.With.NameRgb, t.With.NameRgb2); string last = t.Msgs.Count > 0 ? (t.Msgs[t.Msgs.Count - 1].Mine ? "You: " : "") + t.Msgs[t.Msgs.Count - 1].Text.Replace('\n', ' ') : ""; Txt(g, last, 11, DimC, Rc(av.Right + 10, row.Y + 28, row.Width - av.Width - 26, 20), StringAlignment.Near, false);
                 if (t.Unread > 0) { var bd = Rc(row.Right - 30, row.Y + 8, 22, 18); FillRR(g, NeonPink, bd, 9); Txt(g, t.Unread.ToString(), 10, Color.White, bd, StringAlignment.Center, true); }
                 var tt = t; var vis = RectangleF.Intersect(row, Rc(left.X, left.Y, left.Width, left.Height)); if (vis.Height > 6) Reg(vis, () => { msgWithId = tt.With.Id; msgScroll = 0; if (tt.Unread > 0) { tt.Unread = 0; msgUnread = Math.Max(0, msgUnread - 1); string key = ProfileStore.Key, wid = tt.With.Id; ThreadPool.QueueUserWorkItem(o => ProfApi.MarkRead(key, wid)); } });
                 ly += 62;
@@ -378,7 +379,7 @@ partial class StudioForm
         MsgThread cur = msgThreads.Find(t => t.With.Id == msgWithId);
         if (cur == null && msgWithId.Length > 0) { var stub = artList.Find(x => x.Id == msgWithId) ?? profFriends.Find(x => x.Id == msgWithId); if (stub == null) stub = artSel != null && artSel.Id == msgWithId ? artSel : null; if (stub != null) cur = new MsgThread { With = stub }; }
         if (cur == null) { TxtWrap(g, msgThreads.Count > 0 ? "CHOOSE A CONVERSATION ON THE LEFT." : "WHEN YOU WRITE TO AN ARTIST (OR THEY WRITE TO YOU) THE CONVERSATION SHOWS HERE.", 14, DimC, Rc(right.X + 24, right.Y + 24, right.Width - 48, 60)); return; }
-        { var hd = Rc(right.X + 14, right.Y + 10, right.Width - 28, 44); NameTextC(g, cur.With.Name, 18, Rc(hd.X, hd.Y, hd.Width - 330, 28), Ink, true, cur.With.NameRgb, cur.With.NameRgb2);
+        { var hd = Rc(right.X + 14, right.Y + 10, right.Width - 28, 44); NameTextC(g, cur.With.Shown, 18, Rc(hd.X, hd.Y, hd.Width - 330, 28), Ink, true, cur.With.NameRgb, cur.With.NameRgb2);
           var wr = Rc(hd.Right - 320, hd.Y + 2, 150, 36); var cu = cur; Btn(g, wr, "WRITE A MESSAGE", 2, () => WriteMessage(cu.With.Id, cu.With.Name, ""), 11); var pr = Rc(wr.Right + 8, hd.Y + 2, 150, 36); Btn(g, pr, "OPEN PROFILE", 0, () => { OpenArtist(cu.With.Id); artView = 0; }, 11); }
         var conv = Rc(right.X + 14, right.Y + 62, right.Width - 28, right.Height - 76); float bw = Math.Min(conv.Width * 0.7f, 520), cy = 0;
         var fnt = GfxCache.Exact(GfxCache.Grow(13), false); var hs = new List<float>(); foreach (var m in cur.Msgs) { float th = g.MeasureString(m.Text, fnt, (int)(bw - 28)).Height + 16 + (m.About.Length > 0 ? 18 : 0) + 18; hs.Add(th); cy += th + 8; }
@@ -394,6 +395,61 @@ partial class StudioForm
           g.Restore(gs); }
         if (cur.Msgs.Count == 0) Txt(g, "NO MESSAGES YET. PRESS WRITE A MESSAGE.", 13, DimC, Rc(conv.X + 10, conv.Y + 10, conv.Width - 20, 24), StringAlignment.Near, false);
         if (maxS > 0) { var sb = Rc(right.Right - 52, conv.Y, 42, conv.Height); VScroll(g, sb, cy, conv.Height, () => maxS - msgScroll, v => msgScroll = maxS - v); }
+    }
+    // ================================================================= the Friends page (the same layout as Messages) =================================================================
+    string friWithId = ""; float friListScroll;
+    internal void OpenFriends() { tab = 7; artSel = null; artView = 3; ProfileRefresh(); }
+    void RemoveFriend(ArtistInfo a)
+    {
+        if (!AskYes("Remove " + a.Name + " from your friends?", "Remove friend")) return; string key = ProfileStore.Key, id = a.Id, name = a.Name;
+        ThreadPool.QueueUserWorkItem(o => { string ns; string err = ProfApi.Friend(key, id, false, out ns); try { BeginInvoke(new Action(() => { Toast(err != null ? err : name + " is not your friend any more."); friWithId = ""; ProfileRefresh(); })); } catch { } });
+    }
+    void PaintFriends(Graphics g, float W, float top, float bottom)
+    {
+        float y = top + 12, h = 36;
+        var back = Rc(24, y, 150, h); Btn(g, back, "< ALL ARTISTS", 1, () => { artView = 0; }, 12); Hint2(back, "Back to the list of artists");
+        Txt(g, "FRIENDS", 22, Ink, Rc(190, y - 2, 240, h + 4), StringAlignment.Near, true);
+        var cb = Rc(W - 56 - 170, y, 170, h); Btn(g, cb, "COLLABS", 2, () => { artView = 2; FetchCollabs(true); }, 12); Hint2(cb, "The tracks you make together with your friends");
+        var mb = Rc(cb.X - 8 - 170, y, 170, h); Btn(g, mb, "MESSAGES" + (msgUnread > 0 ? " (" + msgUnread + ")" : ""), 2, () => { artView = 1; FetchInbox(true); }, 12); Hint2(mb, "Write to artists and read what they wrote");
+        y += h + 14; float listW = Math.Min(360, Math.Max(250, W * 0.3f)), px = 24, ph = bottom - y - 12; var left = Rc(px, y, listW, ph); FillRR(g, TM.C(235, 14, 7, 32), left, 14); Win.DrawNeonBox(g, left, false);
+        var right = Rc(left.Right + 14, y, W - 56 - left.Right - 14 - 6, ph); FillRR(g, TM.C(235, 14, 7, 32), right, 14); Win.DrawNeonBox(g, right, false);
+        if (!ProfileStore.Published) { TxtWrap(g, "Publish your profile first (Profile tab) to add friends. People need to see who you are.", 14, DimC, Rc(right.X + 24, right.Y + 24, right.Width - 48, 80)); return; }
+        var friends = new List<ArtistInfo>(profFriends); friends.Sort((p, q) => string.Compare(p.Name, q.Name, StringComparison.CurrentCultureIgnoreCase));
+        float lh = 0; { float contentTop = left.Y + 8; var gs = g.Save(); g.SetClip(Rc(left.X + 2, left.Y + 2, left.Width - 4, left.Height - 4), CombineMode.Intersect); float ly = contentTop - friListScroll;
+            if (profReqs.Count > 0)
+            {
+                Txt(g, "FRIEND REQUESTS (" + profReqs.Count + ")", 11, NeonPink, Rc(left.X + 14, ly, left.Width - 28, 18), StringAlignment.Near, true); ly += 22;
+                foreach (var rq in profReqs)
+                {
+                    var row = Rc(left.X + 8, ly, left.Width - 16, 54); FillRR(g, TM.C(170, 60, 24, 90), row, 10); NameTextC(g, rq.Shown, 13, Rc(row.X + 12, row.Y + 4, row.Width - 24, 20), Ink, true, rq.NameRgb, rq.NameRgb2);
+                    var ok = Rc(row.X + 10, row.Y + 26, 92, 24); var no = Rc(ok.Right + 8, row.Y + 26, 82, 24); var rr = rq; Btn(g, ok, "ACCEPT", 2, () => AnswerRequest(rr, true), 10); Btn(g, no, "DECLINE", 3, () => AnswerRequest(rr, false), 10); var vp = Rc(no.Right + 8, row.Y + 26, 70, 24); Btn(g, vp, "PROFILE", 0, () => { OpenArtist(rr.Id); artView = 0; }, 10); ly += 60;
+                }
+                ly += 6;
+            }
+            Txt(g, "YOUR FRIENDS (" + friends.Count + ")", 11, DimC, Rc(left.X + 14, ly, left.Width - 28, 18), StringAlignment.Near, true); ly += 22;
+            if (friends.Count == 0) { TxtWrap(g, "NO FRIENDS YET. OPEN AN ARTIST AND PRESS ADD FRIEND.", 12, DimC, Rc(left.X + 14, ly, left.Width - 28, 50)); ly += 56; }
+            foreach (var f in friends)
+            {
+                var row = Rc(left.X + 8, ly, left.Width - 16, 56); bool sel = f.Id == friWithId, hotr = Hot(Rc(row.X, Math.Max(row.Y, left.Y), row.Width, Math.Min(row.Height, left.Bottom - row.Y)));
+                FillRR(g, sel ? TM.C(220, 80, 40, 150) : (hotr ? TM.C(170, 60, 34, 110) : TM.C(120, 44, 24, 80)), row, 10); if (sel) StrokeRR(g, NeonCyan, row, 10, 1.4f);
+                var av = Rc(row.X + 8, row.Y + 8, 40, 40); Bitmap ab = f.Avatar ? ArtistImage(f.Id, "avatar", f.Av, 60, 60) : null; DrawFrameImage(g, av, ab, ProfAccent(f.Accent));
+                NameTextC(g, f.Shown, 13, Rc(av.Right + 10, row.Y + 6, row.Width - av.Width - 26, 20), Ink, true, f.NameRgb, f.NameRgb2); Txt(g, (f.FollowersHidden ? "" : f.Followers + " FOLLOWERS   ") + f.Tracks + (f.Tracks == 1 ? " TRACK" : " TRACKS"), 10, NeonCyan, Rc(av.Right + 10, row.Y + 28, row.Width - av.Width - 26, 18), StringAlignment.Near, true);
+                var ff = f; var vis = RectangleF.Intersect(row, Rc(left.X, left.Y, left.Width, left.Height)); if (vis.Height > 6) Reg(vis, () => { friWithId = ff.Id; });
+                ly += 62;
+            }
+            lh = ly - contentTop + friListScroll + 8; g.Restore(gs); }
+        float maxL = Math.Max(0, lh - left.Height); friListScroll = Math.Max(0, Math.Min(maxL, friListScroll)); regs.Add(new HitReg { R = left, OnWheel = d => friListScroll = Math.Max(0, Math.Min(maxL, friListScroll - d * 50)) });
+        // the right side: the friend that is picked, with everything you can do with them
+        ArtistInfo cur = friends.Find(x => x.Id == friWithId); if (cur == null && friends.Count > 0) { cur = friends[0]; friWithId = cur.Id; }
+        if (cur == null) { TxtWrap(g, friends.Count > 0 ? "CHOOSE A FRIEND ON THE LEFT." : "YOUR FRIENDS SHOW HERE: THEIR PROFILE, AND BUTTONS TO MESSAGE THEM OR START A COLLAB.", 14, DimC, Rc(right.X + 24, right.Y + 24, right.Width - 48, 60)); return; }
+        { var hd = Rc(right.X + 14, right.Y + 10, right.Width - 28, 44); NameTextC(g, cur.Shown, 20, Rc(hd.X, hd.Y, hd.Width, 30), Ink, true, cur.NameRgb, cur.NameRgb2);
+          float bwx = Math.Min(170, (right.Width - 28 - 3 * 8) / 4f); float by = right.Y + 58; var cu = cur;
+          var b1 = Rc(right.X + 14, by, bwx, 36); Btn(g, b1, "MESSAGE", 2, () => WriteMessage(cu.Id, cu.Name, ""), 11); var b2 = Rc(b1.Right + 8, by, bwx, 36); Btn(g, b2, "INVITE TO COLLAB", 1, () => InviteCollab(cu), 11);
+          var b3 = Rc(b2.Right + 8, by, bwx, 36); Btn(g, b3, "OPEN PROFILE", 0, () => { OpenArtist(cu.Id); artView = 0; }, 11); var b4 = Rc(b3.Right + 8, by, bwx, 36); Btn(g, b4, "REMOVE FRIEND", 3, () => RemoveFriend(cu), 11);
+          float sy = by + 50, sw = (right.Width - 28 - 2 * 12) / 3f; StatCard(g, Rc(right.X + 14, sy, sw, 64), "FOLLOWERS", cur.FollowersHidden ? "-" : cur.Followers.ToString(), NeonCyan); StatCard(g, Rc(right.X + 14 + sw + 12, sy, sw, 64), "TRACKS", cur.Tracks.ToString(), NeonPink); StatCard(g, Rc(right.X + 14 + 2 * (sw + 12), sy, sw, 64), "TIME MADE", cur.TimeMade > 0 ? DurMade(cur.TimeMade) : "-", Ink);
+          float yy = sy + 78; Txt(g, "BIO", 11, DimC, Rc(right.X + 16, yy, 100, 16), StringAlignment.Near, true); yy += 20; var bb = Rc(right.X + 14, yy, right.Width - 28, 96); FillRR(g, TM.C(190, 8, 4, 20), bb, 10); StrokeRR(g, Color.FromArgb(130, NeonViolet), bb, 10, 1f);
+          if (cur.Bio.Length > 0) TxtWrap(g, cur.Bio, 13, PlainInk, Rc(bb.X + 12, bb.Y + 8, bb.Width - 24, bb.Height - 16)); else Txt(g, "No bio yet.", 12, DimC, Rc(bb.X + 12, bb.Y + 8, bb.Width - 24, 20), StringAlignment.Near, false);
+          yy = bb.Bottom + 14; if (cur.Tags.Length > 0) TagChips(g, right.X + 16, yy, right.Right - 16, cur.Tags, ProfAccent(cur.Accent), true); }
     }
     void AnswerRequest(ArtistInfo a, bool accept)
     {
@@ -438,7 +494,7 @@ partial class StudioForm
     {
         FetchCollabs(false); float y = top + 12, h = 36;
         var back = Rc(24, y, 150, h); Btn(g, back, "< ALL ARTISTS", 1, () => { artView = 0; }, 12); Hint2(back, "Back to the list of artists");
-        Txt(g, "COLLABS", 22, Ink, Rc(190, y - 2, 240, h + 4), StringAlignment.Near, true); var mb = Rc(W - 56 - 170, y, 170, h); Btn(g, mb, "MESSAGES" + (msgUnread > 0 ? " (" + msgUnread + ")" : ""), 2, () => { artView = 1; FetchInbox(true); }, 12);
+        Txt(g, "COLLABS", 22, Ink, Rc(190, y - 2, 240, h + 4), StringAlignment.Near, true); var mb = Rc(W - 56 - 170, y, 170, h); Btn(g, mb, "MESSAGES" + (msgUnread > 0 ? " (" + msgUnread + ")" : ""), 2, () => { artView = 1; FetchInbox(true); }, 12); var fb1 = Rc(mb.X - 8 - 170, y, 170, h); Btn(g, fb1, "FRIENDS" + (profReqs.Count > 0 ? " (" + profReqs.Count + ")" : ""), 2, () => OpenFriends(), 12);
         y += h + 12; TxtWrap(g, "A collab is one track made by two friends. Invite a friend from their artist page. When they accept, each of you sends your own version (your project, mixed and mastered) and gets the other one to put in your own project.", 12, DimC, Rc(24, y, W - 120, 36)); y += 44;
         if (!ProfileStore.Published) { TxtWrap(g, "Publish your profile first (Profile tab) to start collabs.", 14, DimC, Rc(24, y, W - 120, 40)); return; }
         var area = Rc(0, y, W - 56, bottom - y); float cy = y - collabScroll; float contentH = collabList.Count * 96 + 10; float viewH = bottom - y; collabScroll = Math.Max(0, Math.Min(Math.Max(0, contentH - viewH), collabScroll)); regs.Add(new HitReg { R = area, OnWheel = d => collabScroll = Math.Max(0, Math.Min(Math.Max(0, contentH - viewH), collabScroll - d * 60)) });

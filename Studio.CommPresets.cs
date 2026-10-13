@@ -121,10 +121,30 @@ static class CommunityPresets
     // done gets one sentence for the screen when it worked, or null when it could not be shared right now.
     public static void AutoShare(string kind, string name, string data, string author, Action<string> done)
     {
-        if (!Prefs.ShareSaved || !Safe(kind, data)) return; if (string.IsNullOrWhiteSpace(author)) author = "Producer";
+        if (!Safe(kind, data)) return; if (string.IsNullOrWhiteSpace(author)) author = "Producer";   // (always shared: community presets are for everybody)
         ThreadPool.QueueUserWorkItem(o => { string err = Share(kind, name, author, data); if (done != null) { try { done(err == null ? "Saved, and shared with the community so everyone can use it." : (err.Contains("a lot of presets") ? "Saved. The community share limit for this hour is used up, so it was not shared." : null)); } catch { } } });
     }
     public static void Tell(string what, string id) { ThreadPool.QueueUserWorkItem(o => { try { Http("POST", "/api/presets/" + what + "/" + Q(id), "{}"); } catch { } }); }
+}
+
+// how a shared preset is shown: not by the name its maker gave it but as "<producer>'s preset for RAP / BEATS / REVERB...", with the plugins it uses
+static class CpShow
+{
+    static readonly string[] Vocal = { "deesser", "pitch", "autotune", "formant", "harmony", "doubler", "tuner" }, Beat = { "mbcomp", "imager", "ducker", "widener", "exciter" };
+    public static List<string> Types(CommPreset p)
+    {
+        var l = new List<string>(); if (p.Kind.StartsWith("fx:")) { l.Add(p.Kind.Substring(3)); return l; } if (p.Kind == "synth") { l.Add("synth"); return l; }
+        if (p.Kind == "chain") foreach (var line in (p.Data ?? "").Replace("\r", "").Split('\n')) { int i = line.IndexOf('|'); if (i > 0) { string t = line.Substring(0, i).Trim(); if (t.Length > 0 && t.Length < 40 && !l.Contains(t)) l.Add(t); } }
+        return l;
+    }
+    public static string NameOf(string type) { foreach (var i in FxRegistry.All) if (i.Type == type) return i.Name.Replace(" (synthesizer)", ""); return type; }
+    public static string Label(CommPreset p)
+    {
+        if (p.Kind == "theme") return null; if (p.Kind == "synth") return "BASS LAB"; if (p.Kind.StartsWith("fx:")) return NameOf(p.Kind.Substring(3)).ToUpperInvariant();
+        var t = Types(p); foreach (var v in Vocal) if (t.Contains(v)) return "RAP"; foreach (var b in Beat) if (t.Contains(b)) return "BEATS"; return "MIX";
+    }
+    public static string Title(CommPreset p) { string lb = Label(p); return lb == null ? p.Name : p.Author + "'s preset for " + lb; }
+    public static string Uses(CommPreset p) { if (p.Kind == "theme") return ""; var t = Types(p); if (t.Count == 0) return ""; var names = new List<string>(); foreach (var x in t) names.Add(NameOf(x)); return "USES: " + string.Join(", ", names.ToArray()); }
 }
 
 partial class StudioForm
@@ -187,7 +207,7 @@ partial class StudioForm
         if (cpQuery.Length > 0) Btn(g, Rc(sb.Right - 30, sb.Y + 4, 24, 24), "x", 3, () => { cpQuery = ""; cpScroll = 0; }, 12);
         double tm = Environment.TickCount / 1000.0; Txt(g, cpQuery.Length == 0 ? (((int)(tm * 2) % 2 == 0 ? "|" : " ") + "  Type to search by name or producer") : cpQuery + ((int)(tm * 2) % 2 == 0 ? "|" : " "), 13, cpQuery.Length == 0 ? DimC : Ink, Rc(sb.X + 12, sb.Y, sb.Width - 44, sb.Height), StringAlignment.Near, false);
         // the list
-        var shown = new List<CommPreset>(); foreach (var p in cpList) if (cpQuery.Length == 0 || (p.Name + " " + p.Author).IndexOf(cpQuery, StringComparison.OrdinalIgnoreCase) >= 0) shown.Add(p);
+        var shown = new List<CommPreset>(); foreach (var p in cpList) if (cpQuery.Length == 0 || (p.Name + " " + CpShow.Title(p) + " " + p.Author + " " + CpShow.Uses(p)).IndexOf(cpQuery, StringComparison.OrdinalIgnoreCase) >= 0) shown.Add(p);
         const float rowH = 66; float top = y + 44, bottom = sheet.Bottom - 74; var area = Rc(sheet.X + 10, top, sheet.Width - 20, bottom - top); float total = shown.Count * rowH; cpScroll = Math.Max(0, Math.Min(Math.Max(0, total - area.Height), cpScroll)); float vsw = total > area.Height ? 54 : 0;
         regs.Add(new HitReg { R = area, OnWheel = d => cpScroll = Math.Max(0, Math.Min(Math.Max(0, total - area.Height), cpScroll - d * 50)) });
         if (cpLoading) Txt(g, "LOADING THE COMMUNITY...", 14, DimC, Rc(area.X + 14, area.Y + 14, area.Width - 28, 26), StringAlignment.Near, false);
@@ -198,8 +218,8 @@ partial class StudioForm
         {
             var p = shown[i]; var row = Rc(area.X + 2, area.Y + i * rowH - cpScroll, area.Width - 4 - vsw, rowH - 6); if (row.Bottom < area.Y || row.Y > area.Bottom) continue;
             bool hot = Hot(RectangleF.Intersect(row, area)) && area.Contains(MousePos); NeonCard(g, row, hot, false);
-            float tw = row.Width - 200; Txt(g, p.Name, 15, Ink, Rc(row.X + 16, row.Y + 8, tw, 24), StringAlignment.Near, true);
-            Txt(g, "BY " + p.Author + "     " + p.Uses + (p.Uses == 1 ? " use" : " uses"), 12, DimC, Rc(row.X + 16, row.Y + 33, tw, 20), StringAlignment.Near, false);
+            float tw = row.Width - 200; Txt(g, CpShow.Title(p), 15, Ink, Rc(row.X + 16, row.Y + 8, tw, 24), StringAlignment.Near, true); string cuses = CpShow.Uses(p);
+            Txt(g, (cuses.Length > 0 ? cuses + "     " : "BY " + p.Author + "     ") + p.Uses + (p.Uses == 1 ? " use" : " uses"), 12, DimC, Rc(row.X + 16, row.Y + 33, tw, 20), StringAlignment.Near, false);
             if (p.Kind == "theme") { ThemeDef td; if (!cpThemes.TryGetValue(p.Id, out td)) { string terr; td = ThemeDef.FromText(p.Data, p.Name, out terr); cpThemes[p.Id] = td; } if (td != null) { Color[] sw6 = { td.Violet, td.Cyan, td.Pink, td.Lime, td.Accent, td.Btn }; for (int k = 0; k < 6; k++) { var dot = Rc(row.Right - 190 - (6 - k) * 24, row.Y + 19, 18, 18); using (var br = new SolidBrush(sw6[k])) g.FillEllipse(br, dot); using (var pen = new Pen(Color.FromArgb(90, 255, 255, 255), 1f)) g.DrawEllipse(pen, dot); } } }
             var pp = p; var useR = Rc(row.Right - 96, row.Y + 11, 84, 36); var repR = Rc(row.Right - 176, row.Y + 17, 70, 24);
             var ua = RectangleF.Intersect(useR, area); if (!ua.IsEmpty) Btn(g, useR, "USE", 2, () => CpUse(pp), 13);

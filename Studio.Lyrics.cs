@@ -82,9 +82,9 @@ partial class StudioForm
         float stw = Math.Max(120f, x + w - 4 * 84 - 6 - x - 124); Txt(g, statLines + " lines   " + statWords + " words   " + statSyl + " syllables      Line " + ci + ": " + LyricsTools.LineSyllables(cur) + " syllables", 12, DimC, Rc(x, H - 52, stw, 20), StringAlignment.Near, false);
         Txt(g, "Saved with your project, and as a draft on this PC.", 11, DimC, Rc(x, H - 32, stw, 18), StringAlignment.Near, false);
         PaintLyricBar(g); float bx = x + w - 4 * 84 + 6; Btn(g, Rc(bx - 84, H - 54, 78, 30), "Open .txt", 0, () => OpenLyricsFile(), 12);
-        { var emb = Rc(bx - 84 - 8 - 116, H - 54, 116, 30); Btn(g, emb, "EMOJIS", 1, () => EmojiPanel.Show(this, em => InsertAtCaret(em, false)), 12); Hint2(emb, "Open the emoji panel: search by word (fire, heart, guitar...) and click an emoji to put it in your lyrics where the cursor is"); }
+        { var emb = Rc(bx - 84 - 8 - 116, H - 54, 116, 30); Btn(g, emb, "EMOJIS", EmojiPanel.IsOpen ? 4 : 1, () => EmojiPanel.Toggle(this, em => InsertAtCaret(em, false)), 12); Hint2(emb, "Open the emoji panel: search by word (fire, heart, guitar...) and click an emoji to put it in your lyrics where the cursor is"); }
         Btn(g, Rc(bx, H - 54, 78, 30), "Copy", 0, () => { try { Clipboard.SetText(lyricBox.Text); Toast("Lyrics copied."); } catch { } }, 12);
-        Btn(g, Rc(bx + 84, H - 54, 78, 30), "Save .txt", 0, () => { using (var d = new SaveFileDialog { Filter = "Text|*.txt", FileName = (lyricTitle.Text.Length > 0 ? lyricTitle.Text : "lyrics") + ".txt" }) if (d.ShowDialog(this) == DialogResult.OK) { File.WriteAllText(d.FileName, lyricBox.Text, Encoding.UTF8); Toast("Saved " + Path.GetFileName(d.FileName)); } }, 12);
+        Btn(g, Rc(bx + 84, H - 54, 78, 30), "Save .txt", 0, () => SaveLyricsTxt(), 12);
         Btn(g, Rc(bx + 168, H - 54, 78, 30), "Clear", 3, () => { if (lyricBox.Text.Length == 0 || MessageBox.Show(this, "Clear all the lyrics?", "Lyrics", MessageBoxButtons.YesNo) == DialogResult.Yes) { lyricBox.Text = ""; lyricTitle.Text = ""; } }, 12);
     }
 
@@ -103,6 +103,18 @@ partial class StudioForm
         lyricBox.Text = LyricsTools.ToBoxText(r.Text); lyricTitle.Text = r.Title; Toast("Loaded \"" + r.Title + "\" from your recent lyrics.");
     }
 
+    // SAVE .TXT (the button, and the question when you leave the DAW with lyrics that were never saved): false = nothing was saved
+    internal Func<string, string> lyricsPathHook;   // a test answers for itself (the file to write)
+    internal bool SaveLyricsTxt()
+    {
+        string text = ProjectIO.Lyrics, title = ProjectIO.LyricsTitle, def = (title.Length > 0 ? title : "lyrics"); foreach (char c in Path.GetInvalidFileNameChars()) def = def.Replace(c, ' ');
+        string path = null;
+        if (lyricsPathHook != null) path = lyricsPathHook(def + ".txt");
+        else using (var d = new SaveFileDialog { Title = "Save your lyrics", Filter = "Text|*.txt", FileName = def + ".txt" }) { if (d.ShowDialog(this) == DialogResult.OK) path = d.FileName; }
+        if (string.IsNullOrEmpty(path)) return false;
+        try { File.WriteAllText(path, text, Encoding.UTF8); ProjectIO.LyricsKept = text; Toast("Saved " + Path.GetFileName(path)); return true; }
+        catch (Exception ex) { MessageBox.Show(this, "Could not save the lyrics: " + ex.Message, "Lyrics"); return false; }
+    }
     // OPEN .TXT: load lyrics you wrote somewhere else (a notes app, a text file) into the writer
     string sectionNote = "";
     void OpenLyricsFile()

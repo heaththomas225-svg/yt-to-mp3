@@ -307,6 +307,15 @@ static class AutoMix
     static readonly double[] BeatTarget = { 4, 4, 2.5, 0.5, -1, -2, -3.5, -5, -7, -9.5, -14 };
     public static string LastSnapshot;
 
+    // the EQ moves that bring a track (or the whole mix) closer to a balanced tone for what it is: bass, mud, presence, upper-mids, air (dB, at most 4 either way; nothing when it is close enough)
+    internal static double[] ToneGains(TrackStats st, string role, out double[] deviation)
+    {
+        double[] T = role == "vocal" ? VocalTarget : (role == "beat" ? BeatTarget : new double[] { 5, 4.5, 3.5, 2, 0.5, 0, -1.5, -3, -5, -8, -13 }); var dev = new double[11]; for (int b = 0; b < 11; b++) dev[b] = st.BandDb[b] - T[b];
+        deviation = new[] { (dev[0] + dev[1]) / 2, (dev[2] + dev[3]) / 2, (dev[7] + dev[8]) / 2, dev[9], dev[10] }; var g = new double[5];
+        for (int i = 0; i < 5; i++) { double d = deviation[i]; g[i] = Math.Abs(d) < 1.5 ? 0 : Math.Max(-4, Math.Min(4, -0.55 * (d - Math.Sign(d) * 1.5))); }
+        return g;
+    }
+
     public static TrackStats Analyze(AudioClip c)
     {
         var st = new TrackStats(); int sr = StudioEngine.SR; int len = Math.Min(c.Length, sr * 180);
@@ -474,6 +483,7 @@ static class AutoMix
 static class ProjectIO
 {
     public static byte[] CoverBytes;   // the project's picture (a small JPEG), saved inside the project file
+    public static string LyricsKept = "";   // the lyrics as they were when they were last put in a project file or saved as a .txt (leaving asks about lyrics that differ)
     public static string Lyrics = "", LyricsTitle = "";   // the lyrics page; saved in the project file
     static readonly CultureInfo CI = CultureInfo.InvariantCulture;
     static string E(string s) { return (s ?? "").Replace("%", "%25").Replace("|", "%7C").Replace("\n", "%0A").Replace("\r", ""); }
@@ -488,7 +498,7 @@ static class ProjectIO
         {
             var t = eng.Tracks[i];
             sb.Append("tmix|").Append(i).Append('|').Append(t.VolDb.ToString("R", CI)).Append('|').Append(t.Pan.ToString("R", CI)).Append('|').Append(t.Mute ? 1 : 0).Append('|').Append(t.Solo ? 1 : 0).Append('|').Append(t.Off ? 1 : 0).Append('\n');
-            { int fk = 0; foreach (var f in t.Fx) { sb.Append("fx|").Append(i).Append('|').Append(f.Type).Append('|').Append(f.Bypass ? 1 : 0).Append('|').Append(f.Serialize()).Append('\n'); if (f.Preset.Length > 0) sb.Append("fxp|").Append(i).Append('|').Append(fk).Append('|').Append(f.Preset.Replace('|', '/').Replace('\n', ' ')).Append('\n'); fk++; } }
+            { int fk = 0; foreach (var f in t.Fx) { sb.Append("fx|").Append(i).Append('|').Append(f.Type).Append('|').Append(f.Bypass ? 1 : 0).Append('|').Append(f.Serialize()).Append('\n'); if (f.Preset.Length > 0) sb.Append("fxp|").Append(i).Append('|').Append(fk).Append('|').Append(f.Preset.Replace('|', '/').Replace('\n', ' ')).Append('|').Append(f.PresetId.Replace('|', '/')).Append('\n'); fk++; } }
             AutoIO.Write(sb, i, t);
         }
         foreach (var f in eng.MasterFx) sb.Append("mfx|").Append(f.Type).Append('|').Append(f.Bypass ? 1 : 0).Append('|').Append(f.Serialize()).Append('\n');
@@ -511,7 +521,7 @@ static class ProjectIO
                 else if (p[0] == "tmix") { int i = int.Parse(p[1]); if (i < trs.Length) tmix.Add(p); }
                 else if (p[0] == "auto") autos.Add(p);
                 else if (p[0] == "fx") { int i = int.Parse(p[1]); if (i < trs.Length) { var f = Presets.Make(p[2], p.Length > 4 ? p[4] : ""); origFx[i].Add(f); if (f != null) { f.Bypass = p[3] == "1"; var vf = f as InstrumentFx; if (vf != null) vf.Owner = trs[i]; newFx[i].Add(f); } } }
-                else if (p[0] == "fxp") { int i = int.Parse(p[1]), k = int.Parse(p[2]); if (i < trs.Length && k >= 0 && k < origFx[i].Count && origFx[i][k] != null && p.Length > 3) origFx[i][k].Preset = p[3]; }
+                else if (p[0] == "fxp") { int i = int.Parse(p[1]), k = int.Parse(p[2]); if (i < trs.Length && k >= 0 && k < origFx[i].Count && origFx[i][k] != null && p.Length > 3) origFx[i][k].Preset = p[3]; if (i < trs.Length && k >= 0 && k < origFx[i].Count && origFx[i][k] != null && p.Length > 4) origFx[i][k].PresetId = p[4]; }
                 else if (p[0] == "mfx") { var q = line.Split(new[] { '|' }, 4); var f = Presets.Make(q[1], q.Length > 3 ? q[3] : ""); if (f != null) { f.Bypass = q[2] == "1"; newMaster.Add(f); } }
             }
             catch { }
@@ -550,7 +560,7 @@ static class ProjectIO
         }
         if (CoverBytes != null && CoverBytes.Length > 0) sb.Append("cover|").Append(Convert.ToBase64String(CoverBytes)).Append((char)10);
         if (Lyrics.Length > 0 || LyricsTitle.Length > 0) sb.Append("lyrics|").Append(Convert.ToBase64String(Encoding.UTF8.GetBytes(LyricsTitle))).Append('|').Append(Convert.ToBase64String(Encoding.UTF8.GetBytes(Lyrics))).Append((char)10);
-        sb.Append(SerializeMix(eng)); Win.WriteAtomic(path, sb.ToString(), Encoding.UTF8);
+        sb.Append(SerializeMix(eng)); Win.WriteAtomic(path, sb.ToString(), Encoding.UTF8); LyricsKept = Lyrics;
     }
 
     // Loads clips through ffmpeg (slow part), then restores plugin settings and track alignment.
@@ -595,7 +605,7 @@ static class ProjectIO
         { var ord = new List<Track>(); foreach (var q in tracks) if (!q.IsBus && q.Host == null) ord.Add(q); foreach (var q in tracks) if (!q.IsBus && q.Host != null) ord.Add(q); foreach (var q in tracks) if (q.IsBus) ord.Add(q); tracks = ord; }   // rows, then layers, then buses   // buses go after the tracks
         lock (eng.Sync) { eng.Tracks.Clear(); eng.Tracks.AddRange(tracks); }
         RestoreMix(eng, mix.ToString()); eng.Seek(0);
-        return warn;
+        LyricsKept = Lyrics; return warn;
     }
 }
 
@@ -613,7 +623,7 @@ static class Exporter
     public static readonly string[] RateNames = { "44.1 kHz (as made)", "48 kHz", "88.2 kHz", "96 kHz", "176.4 kHz", "192 kHz", "352.8 kHz (DXD)", "384 kHz (the highest)" };
     public static int RateFor(int fmt, int rateIdx) { int r = Math.Min(Rates[Math.Max(0, Math.Min(Rates.Length - 1, rateIdx))], Edition.MaxRate); return fmt == 4 ? Math.Min(r, 48000) : r; }
 
-    public static List<ExportItem> Plan(StudioEngine eng, bool mixMastered, bool mixDry, bool procVocal, bool procBeat, bool dryVocal, bool dryBeat, bool stems, string prefix, int fmt)
+    public static List<ExportItem> Plan(StudioEngine eng, bool mixMastered, bool mixDry, bool procVocal, bool procBeat, bool dryVocal, bool dryBeat, bool stems, string prefix, int fmt, HashSet<Track> onlyStems = null)
     {
         var l = new List<ExportItem>(); string ext = "." + Ext[fmt]; Track voc = eng.VocalTrack(), beat = null; foreach (var t in eng.Tracks) if (t.Role == "beat") { beat = t; break; }
         if (mixMastered) l.Add(new ExportItem { Label = "Full mix (mastered)", FileName = prefix + " - mix mastered" + ext, Opts = new RenderOpts { Master = true } });
@@ -624,7 +634,7 @@ static class Exporter
         if (dryBeat && beat != null) l.Add(new ExportItem { Label = "Dry instrumental", FileName = prefix + " - instrumental dry" + ext, Opts = new RenderOpts { Master = false, Dry = true, Fader = false, MuteSolo = false, Only = new List<Track> { beat } } });
         if (stems)
             foreach (var t in eng.Tracks)
-                if (((t.Clip != null && t.Clip.Loaded) || t.Instrument) && !t.Mute && !t.Off) l.Add(new ExportItem { Label = "Stem: " + t.Name, FileName = prefix + " - stem " + Safe(t.Name) + ext, Opts = new RenderOpts { Master = false, MuteSolo = false, Only = new List<Track> { t } } });
+                if (((t.Clip != null && t.Clip.Loaded) || t.Instrument) && (onlyStems != null ? onlyStems.Contains(t) : (!t.Mute && !t.Off))) l.Add(new ExportItem { Label = "Stem: " + t.Name, FileName = prefix + " - stem " + Safe(t.Name) + ext, Opts = new RenderOpts { Master = false, MuteSolo = false, Only = new List<Track> { t } } });
         return l;
     }
 

@@ -10,32 +10,23 @@ partial class StudioForm
 {
     class MItem { public string Text, Hint = ""; public Action Do; public bool Sub, Disabled; public string Key = ""; }
     bool menuOpen, projectsLoaded; int menuSec = -1, menuSub = -1; float projScroll; const string ImgFilter = "Pictures|*.jpg;*.jpeg;*.png;*.gif;*.bmp|All files|*.*";
-    // the side menu: five lists (File, Edit, Tools, Pages, View) and then single buttons that just take you there (Projects, Community, Profile, Themes, Fonts, Settings, Help, Exit)
-    static readonly string[] MenuNames = { "File", "Edit", "Tools", "Pages", "View", "Projects", "Community", "Profile", "Themes", "Fonts", "Settings", "Help", "Exit" }; const int MenuLists = 5;
-    static readonly int[] MenuIcon = { 0, 1, 2, 8, 3, 11, 12, 4, 5, 10, 6, 7, 9 };
+    // the side menu: six lists (File, Edit, Tools, Pages, View, Community) and then single buttons that just take you there (Projects, Profile, Themes, Fonts, Settings, Help, Exit)
+    static readonly string[] MenuNames = { "File", "Edit", "Tools", "Pages", "View", "Community", "Projects", "Profile", "Themes", "Fonts", "Settings", "Help", "Exit" }; const int MenuLists = 6;
+    static readonly int[] MenuIcon = { 0, 1, 2, 8, 3, 12, 11, 4, 5, 10, 6, 7, 9 };
     Action MenuDirect(int i)
     {
-        switch (i)
+        switch (MenuNames[i])
         {
-            case 5: return () => GoTab(3);   // Projects: straight to your saved projects
-            case 6: return () => CommunityChoice();   // Community: two ways in, the community tab or the artists page
-            case 7: return () => { GoTab(6); profScroll = 0; };
-            case 8: return () => { CloseMenu(); OpenThemeSheet(); };
-            case 9: return () => { GoTab(8); fontScroll = 0; };
-            case 10: return () => { CloseMenu(); app.ShowSettings(); };
-            case 11: return () => { CloseMenu(); app.ShowHelp(null); };
+            case "Projects": return () => GoTab(3);   // Projects: straight to your saved projects
+            case "Profile": return () => { GoTab(6); profScroll = 0; };
+            case "Themes": return () => { CloseMenu(); OpenThemeSheet(); };
+            case "Fonts": return () => { GoTab(8); fontScroll = 0; };
+            case "Settings": return () => { CloseMenu(); app.ShowSettings(); };
+            case "Help": return () => { CloseMenu(); app.ShowHelp(null); };
             default: return () => { CloseMenu(); ExitDawClick(); };
         }
     }
 
-    // pressing Community: 1 the community tab (the songs), 2 the artists page (messages, friends, collabs)
-    internal Action<int> communityChoiceHook;   // a test answers for itself
-    void CommunityChoice()
-    {
-        if (communityChoiceHook != null) { CloseMenu(); communityChoiceHook(0); return; }
-        CloseMenu(); var m = Win.NewMenu(); m.Items.Add("1.  COMMUNITY TAB  (songs, albums, EPs, genres)").Click += (a, b) => GoTab(4); m.Items.Add("2.  ARTISTS PAGE  (messages, friends, collabs)").Click += (a, b) => { GoTab(7); OpenArtists(); };
-        m.Show(this, new Point(Math.Max(10, (int)MousePos.X + 20), Math.Max(10, (int)MousePos.Y)));
-    }
     internal Func<string, DialogResult> exitAsk;   // a test answers for itself
     void ExitDawClick()
     {
@@ -78,13 +69,16 @@ partial class StudioForm
                 break;
             case 1:   // Edit (only on the Mix page)
                 I("Undo", () => { CloseMenu(); DoUndo(); }).Key = "Ctrl+Z"; I("Redo", () => { CloseMenu(); DoRedo(); }).Key = "Ctrl+Y";
-                I("Cut a section out (CUT)", () => { CloseMenu(); CutClick(); }); I("Lock or unlock the track", () => { CloseMenu(); ToggleLock(); }); I("Duplicate track", () => { CloseMenu(); DuplicateTrack(Selected); }); I("Delete the selected piece", () => { CloseMenu(); DeleteClip(CurClip() ?? Selected); });
+                I("Lock or unlock a track", () => { CloseMenu(); OpenTrackPicker(0); }); I("Duplicate track", () => { CloseMenu(); OpenTrackPicker(1); }); I("Delete track", () => { CloseMenu(); OpenTrackPicker(2); });
                 break;
             case 2:   // Tools: they all work on the tracks, so they take you to the Mix page
                 I("Auto Mix", () => { GoMixClose(); AutoMixClick(); }); I("Split vocals + beat", () => { GoMixClose(); SeparateClick(); }); I("Detect BPM", () => { GoMixClose(); DetectBpmClick(); });
                 I("Flex Pitch (edit notes)", () => { GoMixClose(); FlexOpen(); }); I("Sounds and sound packs", () => { GoMixClose(); OpenSounds(); }); I("Rapper Vocal Styles", () => { GoMixClose(); OpenStyles(); });
                 I("Add a track...", () => { GoMixClose(); ShowAddTrackMenuMain(); });
                 I("Metronome on / off", () => { GoMixClose(); eng.Metronome = !eng.Metronome; }); I(snapOn ? "Snap to grid: ON" : "Snap to grid: OFF", () => { GoMixClose(); snapOn = !snapOn; Toast(snapOn ? "Snap to the grid is on." : "Snap to the grid is off."); });
+                break;
+            case 5:   // Community: the side panel stays open so you pick the community tab or the artists page
+                I("Community tab  (songs, albums, EPs, genres)", () => GoTab(4)); I("Artists page  (messages, friends, collabs)", () => { GoTab(7); OpenArtists(); });
                 break;
             case 3:   // Pages
                 I("Mix (tracks)", () => GoTab(0)); I("Mastering", () => GoTab(1)); I("Lyrics", () => GoTab(2));
@@ -224,7 +218,7 @@ partial class StudioForm
         float W = ClientSize.Width, H = ClientSize.Height, top = ToolH; if (!projectsLoaded) { projectsLoaded = true; ProjectLibrary.Load(); ProjectLibrary.Discover(); }
         PaintLogoBackdrop(g, Rc(0, top, W, H - top));
         if (projBin) { PaintBin(g); return; }
-        var list = VisibleProjects(); float y0 = PaintProjectsBar(g, W, top, ProjectLibrary.Entries.Count, list.Count); if (welcomeOn && !HasProject) y0 += PaintWelcome(g, W, y0 - 8); float cw = 230, ch = 394, gap = 18, x0 = 24; int cols = Math.Max(1, (int)((W - 48 - 56 + gap) / (cw + gap))); int count = list.Count + 1; int rows = (count + cols - 1) / cols; float bottomRoom = previewPath.Length > 0 ? 70 : 20;
+        var list = VisibleProjects(); float y0 = PaintProjectsBar(g, W, top, ProjectLibrary.Entries.Count, list.Count); float cw = 230, ch = 394, gap = 18, x0 = 24; int cols = Math.Max(1, (int)((W - 48 - 56 + gap) / (cw + gap))); int count = list.Count + 1; int rows = (count + cols - 1) / cols; float bottomRoom = previewPath.Length > 0 ? 70 : 20;
         float maxScroll = Math.Max(0, y0 + rows * (ch + gap) - H + bottomRoom); projScroll = Math.Max(0, Math.Min(maxScroll, projScroll)); var area = Rc(0, y0 - 8, W, H - y0 + 8); Reg(area, () => { }).OnWheel = d => { projScroll = Math.Max(0, Math.Min(maxScroll, projScroll - d * 70)); };
         var gs = g.Save(); g.SetClip(area, CombineMode.Intersect);
         for (int i = 0; i < count; i++)
@@ -241,10 +235,10 @@ partial class StudioForm
             Txt(g, e.Name, 15, Ink, Rc(card.X + 12, card.Y + 228, cw - 24, 24), StringAlignment.Near, true);
             string meta = e.Tracks + " tracks" + (e.Bpm > 0 ? "  " + e.Bpm.ToString("0") + " BPM" : "") + (e.Seconds > 1 ? "  " + ((int)(e.Seconds / 60)) + ":" + ((int)(e.Seconds % 60)).ToString("00") : ""); Txt(g, meta, 11, DimC, Rc(card.X + 12, card.Y + 252, cw - 24, 18), StringAlignment.Near, false);
             ProjectLibrary.EnsureKind(e); Txt(g, "EDITED " + ProjectLibrary.Ago(e.Updated), 11, DimC, Rc(card.X + 12, card.Y + 270, cw - 24 - 62, 18), StringAlignment.Near, false); if (e.Kind.Length > 0 && e.Kind != "Empty") Txt(g, e.Kind, 11, NeonCyan, Rc(card.Right - 12 - 62, card.Y + 270, 62, 18), StringAlignment.Far, true);
-            var pv = Rc(card.Right - 12 - 142, card.Y + 290, 32, 26); var cam = Rc(pv.Right + 6, card.Y + 290, 32, 26); var nop = Rc(cam.Right + 6, card.Y + 290, 32, 26); var rm = Rc(nop.Right + 6, card.Y + 290, 28, 26);
+            var pv = Rc(card.X + 12 + 2 * 34, card.Y + 290, 30, 26); var cam = Rc(pv.Right + 4, card.Y + 290, 30, 26); var nop = Rc(cam.Right + 4, card.Y + 290, 30, 26); var rm = Rc(nop.Right + 4, card.Y + 290, 26, 26);   /* six buttons in one row, side by side: they never touch */
             Reg(card, () => OpenProjectAsk(e)).OnRight = () => ProjectCardMenu(path);
-            var star = Rc(card.X + 12, card.Y + 290, 32, 26); FillRR(g, Hot(star) ? TM.C(220, 90, 50, 170) : TM.C(150, 44, 24, 80), star, 7); DrawStar(g, star, e.Fav, Hot(star)); Reg(star, () => ToggleFavourite(e)); Hint2(star, e.Fav ? "Remove from your favourites" : "Add to your favourites (a star)");
-            var pfb = Rc(star.Right + 6, card.Y + 290, 32, 26); FillRR(g, e.OnProfile ? TM.C(235, 150, 40, 130) : (Hot(pfb) ? TM.C(220, 90, 50, 170) : TM.C(150, 44, 24, 80)), pfb, 7); DrawPerson(g, pfb, e.OnProfile, Hot(pfb)); Reg(pfb, () => ToggleOnProfile(e)); Hint2(pfb, e.OnProfile ? "On your profile (public): press to make it private again" : "Private: press to PUBLISH TO PROFILE so other people see it on your profile");
+            var star = Rc(card.X + 12, card.Y + 290, 30, 26); FillRR(g, Hot(star) ? TM.C(220, 90, 50, 170) : TM.C(150, 44, 24, 80), star, 7); DrawStar(g, star, e.Fav, Hot(star)); Reg(star, () => ToggleFavourite(e)); Hint2(star, e.Fav ? "Remove from your favourites" : "Add to your favourites (a star)");
+            var pfb = Rc(star.Right + 4, card.Y + 290, 30, 26); FillRR(g, e.OnProfile ? TM.C(235, 150, 40, 130) : (Hot(pfb) ? TM.C(220, 90, 50, 170) : TM.C(150, 44, 24, 80)), pfb, 7); DrawPerson(g, pfb, e.OnProfile, Hot(pfb)); Reg(pfb, () => ToggleOnProfile(e)); Hint2(pfb, e.OnProfile ? "On your profile (public): press to make it private again" : "Private: press to PUBLISH TO PROFILE so other people see it on your profile");
             { var vidB = Rc(card.X + 12, card.Y + 358, cw - 24, 26); bool hv = VideoRecs.Has(CommunitySongs.PidOf(e.Path)); Btn(g, vidB, hv ? "MUSIC VIDEO: ON (CHANGE)" : "UPLOAD MUSIC VIDEO", hv ? 4 : 1, () => UploadMusicVideo(e), 10); Hint2(vidB, "Add a music video of any size or shape. It goes with the song on the community page (publish the project first)."); }
             { var pubB = Rc(card.X + 12, card.Y + 324, cw - 24, 26); Btn(g, pubB, e.OnProfile ? "PUBLISHED: PRESS TO MAKE PRIVATE" : "PUBLISH TO PROFILE + COMMUNITY", e.OnProfile ? 4 : 2, () => ToggleOnProfile(e), 10); Hint2(pubB, e.OnProfile ? "This project is on your profile and in the community: press to make it private again" : "Publish this project to your profile and the community (it asks first). People see its name, tempo, length and tags, never the audio"); }
             FillRR(g, prev ? TM.C(235, 40, 140, 160) : (Hot(pv) ? TM.C(220, 90, 50, 170) : TM.C(150, 44, 24, 80)), pv, 7); using (var b = new SolidBrush(Ink)) { if (prev) g.FillRectangle(b, pv.X + 11, pv.Y + 8, 10, 10); else g.FillPolygon(b, new[] { new PointF(pv.X + 11, pv.Y + 6), new PointF(pv.X + 11, pv.Y + 20), new PointF(pv.X + 22, pv.Y + 13) }); } Reg(pv, () => PreviewToggle(e)); if (Hot(pv)) { bubble = prev ? "Stop the preview" : "PREVIEW: hear this project without opening it"; bubblePt = MousePos; }

@@ -1,4 +1,4 @@
-
+3.36.0
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-
-sha256=cf7657d47bfd308aefedaa41c617a546eeb8e5308e73a3c1414331a8c561156f
+A welcome box, the buttons of the converter on the DAW, AUTO EQ, nicknames, EPs and albums without limits, a Friends page, translucent colours, clearer fonts and a lot of tidying
+sha256=8ad6e53fe400a8e5fa93058c83b0c0c265d35beaf22418aa19d0972151438102

@@ -49,6 +49,8 @@ static class EmojiPanel
         if (recent.Count == 0) { try { if (File.Exists(RecentFile)) foreach (var l in File.ReadAllLines(RecentFile, Encoding.UTF8)) if (l.Trim().Length > 0 && recent.Count < 24) recent.Add(l.Trim()); } catch { } }
         var map = All().ToDictionary(x => x.E, x => x); var res = new List<Item>(); foreach (var e in recent) { Item it; if (map.TryGetValue(e, out it)) res.Add(it); } return res;
     }
+    // CLEAR RECENT (only when you press it): the emojis you used lately are forgotten
+    public static void ClearRecent() { Recent(); recent.Clear(); try { if (File.Exists(RecentFile)) File.Delete(RecentFile); } catch { } }
     public static void Used(string e)
     {
         Recent(); recent.Remove(e); recent.Insert(0, e); if (recent.Count > 24) recent.RemoveRange(24, recent.Count - 24);
@@ -72,7 +74,7 @@ static class EmojiPanel
         sb.Append("#wrap{position:absolute;left:12px;right:12px;top:0;bottom:12px;border:1px solid " + violet + ";border-radius:12px;background:#0e0720}#grid{position:absolute;left:0;top:0;right:26px;bottom:0;overflow-y:scroll;-ms-overflow-style:none;padding:6px 4px 6px 8px}");
         sb.Append(".e{display:inline-block;width:44px;height:44px;margin:3px;border:1px solid #3a2570;border-radius:10px;background:#190c34;font-family:'Segoe UI Emoji','Segoe UI Symbol';font-size:26px;line-height:42px;text-align:center;cursor:pointer;vertical-align:top}.e:hover{background:#2a1658;border-color:#fff}.e:active{background:" + violet + "}");
         sb.Append("#bar{position:absolute;right:5px;top:6px;bottom:6px;width:16px;border:1px solid " + violet + ";border-radius:8px;background:#06030f}#th{position:absolute;left:1px;right:1px;top:0;height:40px;border-radius:7px;background:" + violet + ";border:1px solid " + cyan + ";cursor:pointer}#th:hover{background:" + pink + "}");
-        sb.Append("#none{padding:16px;color:#a99dd8;font-size:13px}</style></head><body><div id='top'><input id='q' type='text' autocomplete='off' placeholder='Search by word: fire, heart, guitar, sad, party...'><div id='hint'></div></div><div id='tabs'></div><div id='wrap'><div id='grid'>");
+        sb.Append("#none{padding:16px;color:#a99dd8;font-size:13px}#clr{display:none;position:absolute;right:14px;top:49px;padding:3px 11px;border:1px solid #ff5a78;border-radius:9px;background:#2a0f2e;font-size:10.5px;font-weight:700;letter-spacing:.5px;color:#ffd6de;cursor:pointer}#clr:hover{background:#6a1f3e;border-color:#fff}</style></head><body><div id='top'><input id='q' type='text' autocomplete='off' placeholder='Search by word: fire, heart, guitar, sad, party...'><div id='hint'></div><span id='clr' onclick='clearRecent()'>CLEAR RECENT</span></div><div id='tabs'></div><div id='wrap'><div id='grid'>");
         for (int g = 0; g < names.Length; g++) { if (names[g] == "Flags") continue; foreach (var it in Group(g)) sb.Append("<span class='e' data-g='" + g + "' data-w=\"" + Esc(it.Words) + "\" onclick='pick(this)'>" + it.E + "</span>"); }
         sb.Append("<div id='none' style='display:none'>Nothing matches that word.</div></div><div id='bar'><div id='th'></div></div></div>");
         sb.Append("<script>var names=[");
@@ -95,7 +97,9 @@ function show(){var w=words(),searching=q.value.replace(/\s/g,'')!='',n=0,i,j,ok
   it.style.display=ok?'inline-block':'none';if(ok)n++;}
  none.style.display=n==0?'block':'none';none.innerHTML=searching?'Nothing matches that word.':(cur==-2?'The emojis you use show here. Pick a group above.':'');
  var ts=tabs.getElementsByClassName('t');for(i=0;i<ts.length;i++)ts[i].className='t'+((!searching&&ts[i].getAttribute('data-id')==cur)?' on':'');
+ document.getElementById('clr').style.display=(!searching&&cur==-2&&recent.length>0)?'block':'none';
  hint.innerHTML=searching?(n+' found'):(cur==-2?'Recently used':'Click an emoji to put it in your lyrics');grid.scrollTop=0;fit();}
+function clearRecent(){if(!confirm('Forget the emojis you used recently?'))return;try{window.external.ClearRecent();}catch(x){}recent=[];show();}
 function pick(el){var e=el.textContent;try{window.external.Pick(e);}catch(x){}var r=[e],j;for(j=0;j<recent.length;j++)if(recent[j]!=e&&r.length<24)r.push(recent[j]);recent=r;}
 function fit(){var h=grid.clientHeight,c=grid.scrollHeight;if(c<=h+1){bar.style.visibility='hidden';return;}bar.style.visibility='visible';var bh=bar.clientHeight,t=Math.max(30,Math.round(bh*h/c));th.style.height=t+'px';th.style.top=Math.round((bh-t)*grid.scrollTop/(c-h))+'px';}
 grid.onscroll=fit;window.onresize=function(){wrapFit();fit();};
@@ -111,6 +115,15 @@ window.onload=function(){wrapFit();show();q.focus();};
 </script></body></html>");
         return sb.ToString();
     }
+    public static bool IsOpen { get { return open != null && !open.IsDisposed; } }
+    // the EMOJIS button: press once to open, press again to close (as well as the X of the panel)
+    public static void Toggle(Form owner, Action<string> insert)
+    {
+        if (open != null && !open.IsDisposed && open.Owner == owner) { open.Close(); return; }
+        Show(owner, insert);
+    }
+    // the colour pictures of every emoji of the panel are made in the background (once: they are kept), so each one is in colour the moment it is used
+    public static void WarmColours() { try { EmojiSprites.Warm(All().Select(x => x.E)); } catch { } }
     public static void Show(Form owner, Action<string> insert)
     {
         if (open != null && !open.IsDisposed) { if (open.Owner == owner) { open.Activate(); return; } open.Close(); }   // a panel opened for another window is closed: the emojis go where the new one is
@@ -118,11 +131,11 @@ window.onload=function(){wrapFit();show();q.focus();};
         Win.Dark(f); open = f; f.FormClosed += (s, e) => { open = null; LastBrowser = null; }; f.Owner = owner;
         var wa = Screen.FromControl(owner).WorkingArea; f.Location = new Point(Math.Min(wa.Right - f.Width - 10, owner.Right - f.Width - 30), Math.Max(wa.Top + 10, owner.Top + 90));
         var wb = new WebBrowser { Dock = DockStyle.Fill, IsWebBrowserContextMenuEnabled = false, AllowWebBrowserDrop = false, ScriptErrorsSuppressed = true, ScrollBarsEnabled = false, WebBrowserShortcutsEnabled = false };
-        wb.ObjectForScripting = new EmojiBridge { OnPick = e => { Used(e); try { insert(e); } catch { } } }; f.Controls.Add(wb); LastBrowser = wb;
-        f.Show(owner); wb.DocumentText = BuildPage();
+        wb.ObjectForScripting = new EmojiBridge { OnPick = e => { Used(e); EmojiSprites.Want(e); try { insert(e); } catch { } }, OnClear = () => ClearRecent() }; f.Controls.Add(wb); LastBrowser = wb;
+        f.Show(owner); wb.DocumentText = BuildPage(); WarmColours();
     }
 }
 
 // what the page of the emoji panel calls when an emoji is clicked (the browser control needs a public type that is visible to COM)
 [System.Runtime.InteropServices.ComVisible(true)]
-public class EmojiBridge { public Action<string> OnPick; public void Pick(string e) { if (OnPick != null) OnPick(e); } }
+public class EmojiBridge { public Action<string> OnPick; public Action OnClear; public void Pick(string e) { if (OnPick != null) OnPick(e); } public void ClearRecent() { if (OnClear != null) OnClear(); } }

@@ -169,10 +169,11 @@ static class GR
         Scene(3, "my projects"); string d0 = Path.Combine(tmp, "projects"); Directory.CreateDirectory(d0); ProjectLibrary.Entries.Clear(); string[] names = { "Night Drive", "Skyline", "Late Hours", "Bass In The Park", "Sunday Loop" };
         for (int i = 0; i < names.Length; i++) { string p = Path.Combine(d0, names[i] + ".ytmproj"); File.WriteAllText(p, "x"); ProjectLibrary.Entries.Add(new ProjectEntry { Path = p, Name = names[i], Tracks = 4 + i, Bpm = 140 - i * 4, Seconds = 150 + i * 20, OnProfile = i < 2, Tags = i == 0 ? "dnb dark" : (i == 1 ? "trap" : ""), Updated = DateTime.Now.AddHours(-i * 5), Opened = DateTime.Now.AddHours(-i * 5) }); }
         eng.Tracks.Clear(); SetF("projectsLoaded", true); sf.ShowWelcome(); curShow = true; cur = new PointF(800, 500); Run(0.8);
-        Say("Your projects, first", "Purphex Music opens on your projects: open one, or start a new one. Every card has its own running border."); Run(2.2);
+        Say("A welcome box first", "Purphex Music opens on the mix with a box on top: open one of your projects or start a new one."); Run(2.6); Click("ALL MY PROJECTS"); Run(0.8);
+        Say("Your projects", "Every project has a card with its own running border."); Run(1.6);
         Move(new PointF(560, 520), 1.0); Run(1.2); Move(new PointF(1180, 520), 1.2); Run(0.8); Say("Share, EP / ALBUM, music video", "SHARE the community, put projects together as an EP or an album, add a music video, publish a song."); Run(1.2);
         var ep = Target("EP / ALBUM"); if (!ep.IsEmpty) Move(Centre(ep), 1.0); Run(1.2); var pub = Target("PUBLISH ALL"); if (!pub.IsEmpty) Move(Centre(pub), 0.9); Run(1.2);
-        var vb = Target("UPLOAD MUSIC VIDEO"); if (!vb.IsEmpty) Move(Centre(vb), 1.0); Run(1.8); Hush(); Run(0.4); Say("Start a new project", "Press START A NEW PROJECT to begin."); Click("START A NEW PROJECT", 1.0, 0.2); Hush(); curShow = false;
+        var vb = Target("UPLOAD MUSIC VIDEO"); if (!vb.IsEmpty) Move(Centre(vb), 1.0); Run(1.8); Hush(); Run(0.4); Say("Start a new project", "The first card starts a new project, and every one of your projects opens from its card."); Move(new PointF(140, 380), 1.0); Run(2.2); Hush(); curShow = false;
     }
     static void LoadTracks()
     {
@@ -189,7 +190,7 @@ static class GR
     static void PresetScene()
     {
         Scene(5, "presets and instruments"); SetF("tab", 0); SetF("selFx", -1); var tr = eng.Tracks[0]; var bl = FxRegistry.Create("synth"); bl.Prepare(44100); ((InstrumentFx)bl).Owner = tr; tr.Fx.Add(bl);
-        Log("preset"); Say("Presets keep your plugins", "A preset is added in a box of its own. Your plugins, and Bass Lab, stay. REMOVE takes away only the preset."); M("PutPreset", tr, "Melodic Rap", Presets.BuildChain("Melodic Rap")); Log("preset put"); SetF("selFx", -1); Run(1.0);
+        Log("preset"); Say("Presets keep your plugins", "Every preset is a box of its own, as many as you like. Your plugins, and Bass Lab, stay. REMOVE takes away only that preset."); M("PutPreset", tr, "Melodic Rap", Presets.BuildChain("Melodic Rap")); Log("preset put"); SetF("selFx", -1); Run(1.0);
         var pr = Target("Presets..."); if (!pr.IsEmpty) Move(Centre(pr), 1.0); Run(3.0); var rm = Target("REMOVE"); if (!rm.IsEmpty) { Move(Centre(rm), 1.2); Run(1.2); } Run(2.0); Hush(); Run(0.3);
     }
     static void MasterScene()
@@ -281,6 +282,7 @@ static class GR
         try { var art = F<ArtistInfo>("artSel"); if (art != null && art.TrackList.Count > 0) M("ArtistTrackClick", art, art.TrackList[0]); } catch (Exception ex) { Console.WriteLine("  (play: " + ex.Message + ")"); }
         WaitUntil(Played, 8.0); Run(3.0); Hush(); Run(0.2); Say("Message an artist about a song", "Write to the artist about the song you just heard."); Click("MESSAGE ABOUT IT", 1.0, 1.6); WaitUntil(() => F<int>("artView") == 1, 5.0); M("StopPreview"); Run(2.4);
         Hush(); Run(0.2); Say("Messages", "Your conversations and friend requests. The number on the ARTISTS button is what you have not read."); Run(4.4);
+        Hush(); Run(0.2); Say("Friends", "A Friends page in the same layout: your friends, the requests to answer, and a button for everything you can do with them."); Click("FRIENDS", 1.0, 0.8); Run(4.2);
         Hush(); Run(0.2); Say("Chat while you make music", "The chat window drags anywhere over the DAW."); SetF("artView", 0); LoadTracksKeep(); SetF("selTrack", 0); M("OpenChat", idMia); Run(2.4);
         var hp = new PointF(W - 400 - 24 + 150, 86 + 16); Move(hp, 1.0); rippleAt = Now; ripplePt = hp; Ev("OnMouseDown", MouseButtons.Left, 1, (int)hp.X, (int)hp.Y); for (int i = 1; i <= 22; i++) { Ev("OnMouseMove", MouseButtons.Left, 0, (int)hp.X - i * 26, (int)hp.Y + i * 11); cur = new PointF(hp.X - i * 26, hp.Y + i * 11); Run(0.035); } Ev("OnMouseUp", MouseButtons.Left, 1, (int)cur.X, (int)cur.Y); Run(2.4); SetF("chatOpen", false); Run(0.4);
         Hush(); Run(0.2); Say("Collabs", "Invite a friend to make one track together: each of you sends a version and gets the other one."); SetF("tab", 7); M("OpenArtist", idKali); WaitUntil(() => !Target("INVITE TO COLLAB").IsEmpty, 8.0); Run(1.4); var ic = Target("INVITE TO COLLAB"); if (!ic.IsEmpty) Move(Centre(ic), 1.0); Run(2.4);
@@ -290,7 +292,7 @@ static class GR
     static void ProjectsScene2() { }
     static void ThemesScene()
     {
-        Scene(11, "themes"); SetF("tab", 0); Say("Themes that change everything", "16 themes, your own photo as a background, and a Rainbow that never stops moving."); M("OpenThemeSheet", false); Run(3.0);
+        Scene(11, "themes"); SetF("tab", 0); Say("Themes that change everything", "16 themes, your own colours from the colour mixer, and a Rainbow that never stops moving."); M("OpenThemeSheet", false); Run(3.0);
         for (int i = 1; i <= 3; i++) { Themes.Apply(i * 2); Run(1.6); } Themes.Apply(0); SetF("themeOpen", false); Run(0.5); Hush();
     }
 

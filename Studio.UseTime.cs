@@ -29,10 +29,11 @@ partial class StudioForm
     System.Windows.Forms.Timer useTimer; readonly System.Diagnostics.Stopwatch useClock = System.Diagnostics.Stopwatch.StartNew(); double useLast;
     // TIME MADE is for life and keeps counting for as long as the DAW is open: in the background, behind other windows, minimised, with nothing playing. Open means in use.
     // It counts the real time that passed (a busy or sleeping computer never loses or invents seconds), saves every few seconds and when the DAW closes, and keeps going up on the Profile page while you watch.
+    DateTime lastTimeSent = DateTime.Now.AddMinutes(-9.5);
     void EnsureUseTimer()
     {
         if (useTimer != null) return; useTimer = new System.Windows.Forms.Timer { Interval = 1000 }; useLast = useClock.Elapsed.TotalSeconds;
-        useTimer.Tick += (s, e) => { double now = useClock.Elapsed.TotalSeconds, dt = now - useLast; useLast = now; if (UsingNow() && dt > 0) { UseTime.Add(Math.Min(dt, 5.0)); if (tab == 6 && WindowState != FormWindowState.Minimized) Invalidate(); } };   // on the Profile page the number is redrawn every second
+        useTimer.Tick += (s, e) => { double now = useClock.Elapsed.TotalSeconds, dt = now - useLast; useLast = now; if (UsingNow() && dt > 0) { UseTime.Add(Math.Min(dt, 5.0)); if (tab == 6 && WindowState != FormWindowState.Minimized) Invalidate(); if (ProfileStore.Published && (DateTime.Now - lastTimeSent).TotalMinutes >= 10) { lastTimeSent = DateTime.Now; QueueRepublish(); } } };   // the time made reaches your public profile every ten minutes (and with every publish)   // on the Profile page the number is redrawn every second
         useTimer.Start(); FormClosed += (s, e) => { try { useTimer.Stop(); UseTime.Save(); } catch { } };
     }
     internal bool UsingNow() { return !IsDisposed && IsHandleCreated; }

@@ -17,6 +17,15 @@ partial class StudioForm
         Reg(r, () => MicMenu(r)); string mh = recording ? "The microphone mode cannot change while recording." : "Microphone mode: " + MicProcessor.Name((MicMode)Prefs.MicMode) + ". Click to choose (only changes what you record)."; Hint2(r, mh); if (Hot(r)) hintNow = mh;
     }
 
+    // the mode that is picked, in small writing in a box of its own next to the arrow (press it to choose another)
+    void PaintMicModeBox(Graphics g, RectangleF r, bool recording)
+    {
+        var mode = (MicMode)Prefs.MicMode; string nm = mode == MicMode.Automatic ? "AUTOMATIC" : (mode == MicMode.Standard ? "STANDARD" : (mode == MicMode.VoiceIsolation ? "VOICE ISO." : "WIDE SPECTRUM")); if (mode == MicMode.WideSpectrum) nm = "WIDE";
+        bool hot = Hot(r) && !recording; FillRR(g, TM.C(255, 10, 5, 24), r, 6); StrokeRR(g, Color.FromArgb(hot ? 230 : 120, NeonCyan), r, 6, 1f);
+        Txt(g, nm, 9, recording ? DimC : (hot ? Color.White : Ink), r, StringAlignment.Center, true);
+        Reg(r, () => MicMenu(r)); string mh = recording ? "The microphone mode cannot change while recording." : "Microphone mode: " + MicProcessor.Name(mode) + ". Click to choose another (only changes what you record)."; Hint2(r, mh); if (Hot(r)) hintNow = mh;
+    }
+
     // the choice is remembered; it is used for the next recording
     void ChooseMicMode(MicMode m)
     {

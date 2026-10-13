@@ -43,20 +43,6 @@ partial class StudioForm
         if (err != null) return err; Themes.Apply(Themes.IndexOf(t.Name)); Prefs.Changed(); Toast("Imported and in use: " + t.Name + (t.Photo.Length > 0 ? " (its photo fills the whole window)." : "."));
         OfferRevert("Theme " + t.Name + " is on", () => { Themes.Apply(prevT); Prefs.Changed(); }); return null;
     }
-    // a photo for the theme in use: any picture, any size; it fills the whole window (cropped in the middle, never stretched)
-    void SetThemePhoto()
-    {
-        using (var d = new OpenFileDialog { Title = "Choose a photo for this theme", Filter = "Pictures|*.jpg;*.jpeg;*.png;*.bmp;*.gif;*.tif;*.tiff|All files|*.*" })
-        { if (d.ShowDialog(this) != DialogResult.OK) return; string err = SetThemePhotoPath(d.FileName); if (err != null) Toast(err); }
-    }
-    // PHOTO: the picture becomes a theme of its own: the purple parts of the program (buttons, panels, outlines) take the colours of the picture, and the picture fills the window (cropped to fit, never stretched)
-    internal string SetThemePhotoPath(string file)
-    {
-        int prevT = Themes.Index; ThemeDef t; string err = Themes.ImportPhoto(file, out t); if (err != null) return err;
-        Themes.Apply(Themes.IndexOf(t.Name)); Prefs.Changed(); Toast("New theme from your photo: " + t.Name + ". The program now uses its colours and the picture fills the window.");
-        OfferRevert("Theme " + t.Name + " is on", () => { Themes.Apply(prevT); Prefs.Changed(); }); return null;
-    }
-    void ClearThemePhoto() { var t = Themes.Current; Themes.ClearPhoto(t); Toast("Photo removed from " + t.Name + "."); }
     void ExportThemeFile()
     {
         var t = Themes.Current;
@@ -94,9 +80,8 @@ partial class StudioForm
         Btn(g, tabA, "MY THEMES", themeTab == 0 ? 4 : 0, () => { themeTab = 0; themeScroll = 0; }, 13); Hint2(tabA, "The themes on this PC (built in and imported)");
         Btn(g, tabP, "PROFILE THEMES", themeTab == 1 ? 4 : 0, () => { themeTab = 1; themeScroll = 0; }, 13); Hint2(tabP, "The themes you saved from the colour mixer on your profile (SAVE AS THEME)");
         Btn(g, tabB, "COMMUNITY THEMES", 0, () => OpenCommunityThemes(), 13); Hint2(tabB, "Download themes other people made, or share yours");
-        float rx = sheet.Right - 22; var exp = Rc(rx - 90, y, 90, 34); var pho = Rc(exp.X - 8 - 118, y, 118, 34); bool hasPhoto = Themes.Current.Photo.Length > 0;
-        if (themeTab == 0) Btn(g, pho, hasPhoto ? "NO PHOTO" : "PHOTO", hasPhoto ? 3 : 1, () => { if (hasPhoto) ClearThemePhoto(); else SetThemePhoto(); }, 12); if (themeTab == 0) Hint2(pho, hasPhoto ? "Take the photo off this theme (its colours stay)" : "Make a theme from a photo: the colours of the whole program come from the picture, and the picture fills the window");
-        Btn(g, exp, "SAVE", 1, () => ExportThemeFile(), 12); Hint2(exp, "Save the theme in use as a file you can share (its photo is saved beside it)");
+        float rx = sheet.Right - 22; var exp = Rc(rx - 90, y, 90, 34);
+        Btn(g, exp, "SAVE", 1, () => ExportThemeFile(), 12); Hint2(exp, "Save the theme in use as a file you can share");
         float top = y + 50, bottom = sheet.Bottom - (themeTab == 1 ? 78 : 20); float areaH = bottom - top; var area = Rc(sheet.X + 10, top, sheet.Width - 20, areaH);
         var list = Themes.All; var idx = new List<int>(); for (int q0 = 0; q0 < list.Count; q0++) if (Themes.IsProfile(list[q0]) == (themeTab == 1)) idx.Add(q0);
         int cols = sheet.Width >= 700 ? 3 : 2; float vsw = 56, gap = 12, cw = (sheet.Width - 44 - vsw - gap * (cols - 1)) / cols, ch = 96; int rows = (idx.Count + cols - 1) / cols; float total = rows * (ch + gap);

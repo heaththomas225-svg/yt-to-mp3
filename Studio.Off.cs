@@ -32,12 +32,15 @@ partial class StudioForm
 
     // the picture of the clip (img, drawn at ix, iy) of a track that is off: a faint, glitching ghost of the audio (the colours split apart like a broken screen, strips jerk sideways, scan lines and blocks flicker),
     // lit by the colour of the track, with bolts of lightning that strike across it, branch, flash the light round them and spark where they land
+    static System.Drawing.Imaging.ImageAttributes offFaint;
     void PaintQuake(Graphics g, Bitmap img, int ix, int iy, Track tr, RectangleF lane, RectangleF cr)
     {
         var area = RectangleF.Intersect(lane, new RectangleF(cr.X - 24, lane.Y, cr.Width + 48, lane.Height)); if (area.IsEmpty) return;
-        if (Prefs.PerfMode)   // PERFORMANCE MODE: a track that is off is just darkened (no glitch, no lightning)
+        if (Prefs.PerfMode)   // PERFORMANCE MODE: a track that is off has no glitch and no lightning: its waves are still there, very faint (5%), with a line that says why it cannot be edited
         {
-            using (var br = new SolidBrush(Color.FromArgb(120, 0, 0, 0))) g.FillRectangle(br, area); return;
+            if (offFaint == null) { var cm = new System.Drawing.Imaging.ColorMatrix(); cm.Matrix33 = 0.05f; offFaint = new System.Drawing.Imaging.ImageAttributes(); offFaint.SetColorMatrix(cm); }
+            var gp = g.Save(); g.SetClip(area, System.Drawing.Drawing2D.CombineMode.Intersect); g.DrawImage(img, new Rectangle(ix, iy, img.Width, img.Height), 0, 0, img.Width, img.Height, GraphicsUnit.Pixel, offFaint); g.Restore(gp);
+            if (area.Width > 140) Txt(g, "THIS TRACK IS TURNED OFF: TURN IT BACK ON TO EDIT", 12, Color.FromArgb(215, 255, 255, 255), Rc(area.X, lane.Y, area.Width, lane.Height), StringAlignment.Center, true); return;
         }
         var gs = g.Save(); g.SetClip(lane, CombineMode.Intersect); lastInput = DateTime.Now;
         double now = Environment.TickCount / 1000.0; long step = (long)(now * 16); int seed = (tr.Name ?? "").GetHashCode() & 0xFFFF;

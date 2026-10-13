@@ -25,8 +25,8 @@ class SettingsForm : Form
 {
     readonly App app; bool setting;
     static readonly int[] FpsChoices = { 30, 60, 120, 144, 165, 240 };
-    Label bgName, updStatus; Button updBtn; TrackBar dimBar, volBar; NumericUpDown dimNum, volNum; ComboBox devBox, bufBox, fpsBox, inBox;
-    CheckBox perfChk, leavesChk, studioChk, fpsChk, shareChk, lyricsChk, countChk; ComboBox themeBox; Label themeNote;
+    Label updStatus; Button updBtn, leavesOn, leavesOff; TrackBar volBar; NumericUpDown volNum; ComboBox devBox, bufBox, fpsBox, inBox;
+    CheckBox perfChk, fpsChk, shareChk, lyricsChk, countChk; ComboBox themeBox; Label themeNote;
     static Color Ink { get { return TM.C(255, 240, 232, 255); } } static Color Dim { get { return TM.C(255, 198, 182, 232); } } static Color Head { get { return TM.C(255, 236, 120, 230); } } static Color Fld { get { return TM.C(255, 24, 12, 44); } }
 
     public SettingsForm(App app)
@@ -36,19 +36,10 @@ class SettingsForm : Form
         Win.Dark(this); DoubleBuffered = true; ClientSize = new Size(800, 640);
         int y = 14; NewPage("Background", ref y);
         Header("Background", ref y);
-        Note("Use your own picture or video behind the app. It is cropped to fill the window automatically and remembered next time.", ref y);
-        bgName = new Label { Left = 20, Top = y, Width = 520, Height = 22, ForeColor = Dim, AutoEllipsis = true }; Add(bgName); y += 28;
-        var pick = Btn("Choose picture or video...", 20, y, 210, TM.C(255, 140, 60, 220)); pick.Click += (s, e) => Pick();
-        var clear = Btn("Remove (use leaves)", 240, y, 170, TM.C(255, 70, 40, 120)); clear.Click += (s, e) => { UserBackground.Set(""); Refresh2(); };
+        Note("The animated purple leaves floating behind the program: use them, or turn them off for a plain dark background.", ref y);
+        leavesOn = Btn("USE LEAVES", 20, y, 190, TM.C(255, 140, 60, 220)); leavesOn.Click += (s, e) => { Prefs.BgLeaves = true; Prefs.Changed(); Refresh2(); };
+        leavesOff = Btn("DON'T USE LEAVES", 220, y, 210, TM.C(255, 70, 40, 120)); leavesOff.Click += (s, e) => { Prefs.BgLeaves = false; Prefs.Changed(); Refresh2(); };
         y += 44;
-        dimBar = new TrackBar { Left = 130, Top = y - 4, Width = 300, Minimum = 0, Maximum = 90, TickFrequency = 10, BackColor = BackColor };
-        dimNum = new NumericUpDown { Left = 440, Top = y, Width = 64, Minimum = 0, Maximum = 90 }; Win.NeonBox(dimNum); StyleNum(dimNum);
-        Add(new Label { Text = "Darken (%)", Left = 20, Top = y + 2, Width = 100, ForeColor = Ink }); Add(dimBar); Add(dimNum);
-        dimBar.Scroll += (s, e) => { if (!setting) { dimNum.Value = dimBar.Value; } };
-        dimNum.ValueChanged += (s, e) => { if (setting) return; dimBar.Value = (int)dimNum.Value; Prefs.BgDim = (int)dimNum.Value; Prefs.Changed(); };
-        y += 46;
-        leavesChk = Chk("Keep the floating leaves on top of my background", 20, ref y); leavesChk.CheckedChanged += (s, e) => { if (!setting) { Prefs.BgLeaves = leavesChk.Checked; Prefs.Changed(); } };
-        studioChk = Chk("Also use it behind Purphex Music", 20, ref y); studioChk.CheckedChanged += (s, e) => { if (!setting) { Prefs.BgStudio = studioChk.Checked; UserBackground.Version++; Prefs.Changed(); } };
         NewPage("Theme", ref y); Header("Theme", ref y);
         Add(new Label { Text = "Colour theme", Left = 20, Top = y + 3, Width = 150, ForeColor = Ink });
         themeBox = Combo(180, y, 360, new string[0]); foreach (var td in Themes.All) themeBox.Items.Add(ThemeLabel(td));   // built in and imported
@@ -91,8 +82,8 @@ class SettingsForm : Form
             app.ScanForUpdates(msg => { try { BeginInvoke(new Action(() => { updBtn.Enabled = true; updStatus.ForeColor = msg.StartsWith("Could not") ? Color.FromArgb(255, 150, 150) : Color.FromArgb(150, 255, 170); updStatus.Text = msg; })); } catch { } });
         };
         NewPage("Community", ref y); Header("Community presets", ref y);
-        shareChk = Chk("Share the presets I save with the community automatically", 20, ref y); shareChk.CheckedChanged += (s, e) => { if (!setting) { Prefs.ShareSaved = shareChk.Checked; Prefs.Changed(); } };
-        Note("When you save a preset (a plugin preset, a plugin chain or a Bass Lab sound) it also appears in Community presets for everyone to use, under your producer name. Turn this off to keep your presets only on this PC.", ref y);
+        shareChk = Chk("Share the presets I save with the community automatically", 20, ref y); shareChk.CheckedChanged += (s, e) => { if (setting) return; if (!shareChk.Checked) { setting = true; shareChk.Checked = true; setting = false; MessageBox.Show(this, "You think you're gatekeeping that preset, huh? \ud83d\ude0f\n\nCommunity presets are for everyone, so this one stays ON. Every preset you save goes in the community for the whole DAW to use.", "Community presets", MessageBoxButtons.OK, MessageBoxIcon.Information); } };
+        Note("When you save a preset (a plugin preset, a plugin chain or a Bass Lab sound) it also appears in Community presets for everyone to use, as your producer name's preset for RAP, BEATS... with the list of plugins it uses (not the name you gave it). This one is always on: you think you're gatekeeping that preset, huh? Community presets are for everybody.", ref y);
         NewPage("General", ref y); Header("General", ref y);
         lyricsChk = Chk("Save the lyrics (.txt) next to each song I convert", 20, ref y); lyricsChk.CheckedChanged += (s, e) => { if (!setting) { Prefs.SaveLyrics = lyricsChk.Checked; Prefs.Changed(); } };
         countChk = Chk("Add my conversions to the worldwide TIMES USED number (only a number is sent)", 20, ref y); countChk.CheckedChanged += (s, e) => { if (!setting) { Prefs.CountUses = countChk.Checked; Prefs.Changed(); } };
@@ -112,7 +103,7 @@ class SettingsForm : Form
         FinishPage(y); BuildFrame();
         ClientSize = new Size(800, Math.Min(660, Screen.PrimaryScreen.WorkingArea.Height - 100)); MinimumSize = SizeFromClientSize(new Size(790, 420)); LayoutFrame(); ShowPage(0);   // never narrower than the writing: nothing runs off to the right
         Shown += (s5, e5) => FitToScreen();
-        Win.CapsAll(this); updStatus.Tag = "nocaps"; bgName.Tag = "nocaps";
+        Win.CapsAll(this); updStatus.Tag = "nocaps";
         LockPage("Background"); LockPage("Theme"); Refresh2(); RefreshAccount(); RefreshLocks(); Action onEd = () => { try { RefreshAccount(); RefreshLocks(); } catch { } }; Edition.Changed += onEd; FormClosed += (s3, e3) => Edition.Changed -= onEd;
         wheel = new SettingsWheel(this); Application.AddMessageFilter(wheel); FormClosed += (s2, e2) => { try { Application.RemoveMessageFilter(wheel); } catch { } };
     }
@@ -235,35 +226,17 @@ class SettingsForm : Form
         }
     }
 
-    void Pick()
-    {
-        using (var d = new OpenFileDialog { Title = "Choose a background", Filter = "Pictures and videos|*.png;*.jpg;*.jpeg;*.bmp;*.tif;*.tiff;*.gif;*.webp;*.mp4;*.mkv;*.mov;*.webm;*.avi;*.m4v|All files|*.*" })
-        {
-            if (d.ShowDialog(this) != DialogResult.OK) return;
-            if (!UserBackground.IsImage(d.FileName) && App.FfmpegPath() == null) { MessageBox.Show(this, "Videos need ffmpeg, which is installed the first time you convert something. Convert any link once, then pick the video again. (Pictures work right away.)", "Background"); return; }
-            UserBackground.Set(d.FileName);
-            if (UserBackground.Active && !UserBackground.IsVideo)
-            {
-                string perr = null;
-                try { using (var fs = new FileStream(d.FileName, FileMode.Open, FileAccess.Read, FileShare.ReadWrite)) using (var im = Image.FromStream(fs, false, false)) { var sz = im.Size; } }   // header check only; the real decode happens on the background thread
-                catch (Exception ex) { perr = ex.Message; }
-                if (perr != null) { MessageBox.Show(this, "That file couldn't be opened as a picture: " + perr, "Background"); UserBackground.Set(""); }
-            }
-            Refresh2();
-        }
-    }
-
     void ResetAll()
     {
-        Prefs.BgDim = 45; Prefs.BgLeaves = true; Prefs.BgStudio = true; Prefs.ShareSaved = true; Prefs.SaveLyrics = true; Prefs.OutVol = 100; Prefs.OutDev = -1; Prefs.Buf = 1; Prefs.BufBoost = 0; Prefs.FpsCap = 60; Prefs.PerfMode = false;  Themes.Apply(0);
-        UserBackground.Set(""); Refresh2(); app.StudioEng.ReopenOutput(); Prefs.Changed();
+        Prefs.BgLeaves = true; Prefs.ShareSaved = true; Prefs.SaveLyrics = true; Prefs.OutVol = 100; Prefs.OutDev = -1; Prefs.Buf = 1; Prefs.BufBoost = 0; Prefs.FpsCap = 60; Prefs.PerfMode = false;  Themes.Apply(0);
+        Refresh2(); app.StudioEng.ReopenOutput(); Prefs.Changed();
     }
 
     void Refresh2()
     {
         setting = true;
-        bgName.Text = UserBackground.Active ? (UserBackground.IsVideo ? "Video: " : "Picture: ") + Prefs.BgPath : "None - using the animated purple leaves";
-        dimBar.Value = Prefs.BgDim; dimNum.Value = Prefs.BgDim; leavesChk.Checked = Prefs.BgLeaves; studioChk.Checked = Prefs.BgStudio; shareChk.Checked = Prefs.ShareSaved; lyricsChk.Checked = Prefs.SaveLyrics; countChk.Checked = Prefs.CountUses;
+        leavesOn.BackColor = Prefs.BgLeaves ? TM.C(255, 150, 70, 235) : TM.C(255, 70, 40, 120); leavesOff.BackColor = Prefs.BgLeaves ? TM.C(255, 70, 40, 120) : TM.C(255, 150, 70, 235);
+        shareChk.Checked = Prefs.ShareSaved; lyricsChk.Checked = Prefs.SaveLyrics; countChk.Checked = Prefs.CountUses;
         themeBox.SelectedIndex = Themes.Index; themeNote.Text = Themes.Current.Blurb + " It changes the glow, borders and buttons in Purphex Music, Mastering and Bass Lab.";
         fpsBox.SelectedIndex = Math.Max(0, Array.IndexOf(FpsChoices, Prefs.FpsCap)); perfChk.Checked = Prefs.PerfMode;
         { int ii = Prefs.InDev.Length == 0 ? 0 : inBox.Items.IndexOf(Prefs.InDev); inBox.SelectedIndex = Math.Max(0, ii); }

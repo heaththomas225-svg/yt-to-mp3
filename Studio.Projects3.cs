@@ -9,8 +9,11 @@ partial class StudioForm
 {
     string projSearch = "", projType = ""; int projSort; bool projFav, projBin, projSearchOn; float binScroll; RectangleF projSearchR;   // the search box only takes typing after you click it
     Func<string, bool> binConfirmHook;   // a test answers for itself; the real program asks with a window before anything is deleted for good
-    static readonly string[] SortNames = { "Newest edited", "Recently opened", "Name A to Z", "Name Z to A", "Most tracks", "Longest", "Oldest edited" };
-    static readonly string[] TypeNames = { "Song", "Beat", "Vocals" };
+    static readonly string[] SortNames = { "Newest edited", "Recently opened", "Name A to Z", "Name Z to A", "First / oldest track you have" };
+    static readonly string[] TypeNames = { "Song", "Beat", "Vocals", "EP / Album" };
+    static readonly Dictionary<string, DateTime> firstMade = new Dictionary<string, DateTime>(StringComparer.OrdinalIgnoreCase);
+    // when the project was first made (its file was created); the date it was last edited when that is not known
+    static DateTime FirstMade(ProjectEntry e) { DateTime d; if (firstMade.TryGetValue(e.Path, out d)) return d; d = e.Updated; try { if (System.IO.File.Exists(e.Path)) { var c = System.IO.File.GetCreationTime(e.Path); if (c < d) d = c; } } catch { } firstMade[e.Path] = d; return d; }
     bool FiltersOn { get { return projSearch.Trim().Length > 0 || projFav || projType.Length > 0; } }
 
     // the projects that pass the search and the filters, in the chosen order (missing files always sink to the end)
@@ -20,8 +23,9 @@ partial class StudioForm
         foreach (var e in all)
         {
             if (projFav && !e.Fav) continue;
-            if (projType.Length > 0 || words.Length > 0) ProjectLibrary.EnsureKind(e);
-            if (projType.Length > 0 && !string.Equals(e.Kind, projType, StringComparison.OrdinalIgnoreCase)) continue;
+            bool relType = string.Equals(projType, "EP / Album", StringComparison.OrdinalIgnoreCase);
+            if (relType) { if (!InRelease(e)) continue; }
+            else { if (projType.Length > 0 || words.Length > 0) ProjectLibrary.EnsureKind(e); if (projType.Length > 0 && !string.Equals(e.Kind, projType, StringComparison.OrdinalIgnoreCase)) continue; }
             if (words.Length > 0)
             {
                 string hay = e.Name + " " + e.Tags + " " + e.Desc + " " + e.Kind + (e.Fav ? " favourite" : ""); bool ok = true;
@@ -38,15 +42,15 @@ partial class StudioForm
                 case 1: c = b.Opened.CompareTo(a.Opened); break;
                 case 2: c = string.Compare(a.Name, b.Name, StringComparison.CurrentCultureIgnoreCase); break;
                 case 3: c = string.Compare(b.Name, a.Name, StringComparison.CurrentCultureIgnoreCase); break;
-                case 4: c = b.Tracks.CompareTo(a.Tracks); break;
-                case 5: c = b.Seconds.CompareTo(a.Seconds); break;
-                case 6: c = a.Updated.CompareTo(b.Updated); break;
+                case 4: c = FirstMade(a).CompareTo(FirstMade(b)); break;
                 default: c = b.Updated.CompareTo(a.Updated); break;
             }
             return c != 0 ? c : string.Compare(a.Path, b.Path, StringComparison.OrdinalIgnoreCase);
         });
         return l;
     }
+    // the project is one of the songs of an EP or an album you made
+    bool InRelease(ProjectEntry e) { ReleaseStore.Load(); string pid = CommunitySongs.PidOf(e.Path); lock (ReleaseStore.All) foreach (var r in ReleaseStore.All) if (r.Pids.Contains(pid)) return true; return false; }
     void ClearProjectFilters() { projSearch = ""; projFav = false; projType = ""; projScroll = 0; }
 
     // typing goes straight into the search box while the projects page is open (Enter or Esc stops it, so Space can play again)
@@ -73,7 +77,7 @@ partial class StudioForm
     // the bar above the cards: search, bin button, sort, type and the favourites chip. Returns the y where the cards start.
     float PaintProjectsBar(Graphics g, float W, float top, int total, int shown)
     {
-        float y = top + 10, h = 34; var bin = Rc(W - 24 - 190, y, 190, h); int bn = ProjectLibrary.Bin.Count;
+        float y = top + 10, h = 34; var bin = Rc(W - 24 - 200, y, 200, h);   /* the same width and place as PUBLISH ALL under it */ int bn = ProjectLibrary.Bin.Count;
         var sb = Rc(24, y, Math.Max(180, Math.Min(420, bin.X - 24 - 20)), h); FillRR(g, TM.C(235, 14, 7, 32), sb, 9); Win.DrawNeonBox(g, sb, projSearchOn);
         double tm = Environment.TickCount / 1000.0; bool blink = ((int)(tm * 2) % 2) == 0 && projSearchOn;
         Txt(g, projSearch.Length == 0 ? (blink ? "|  " : "   ") + "SEARCH PROJECTS" : projSearch + (blink ? "|" : ""), 13, projSearch.Length == 0 ? DimC : Ink, Rc(sb.X + 14, sb.Y, sb.Width - 54, sb.Height), StringAlignment.Near, projSearch.Length > 0);
@@ -82,10 +86,10 @@ partial class StudioForm
         float cx = sb.Right + 16, cw = bin.X - 10 - cx; if (cw > 110) Txt(g, (FiltersOn ? shown + " OF " + total : total.ToString()) + (total == 1 ? " PROJECT" : " PROJECTS"), 12, DimC, Rc(cx, y, cw, h), StringAlignment.Near, true);
         Btn(g, bin, "RECYCLING BIN" + (bn > 0 ? "  (" + bn + ")" : ""), bn > 0 ? 1 : 0, () => { ProjectLibrary.PurgeBin(DateTime.Now); projBin = true; binScroll = 0; }, 13); Hint2(bin, "Removed projects wait here for 30 days. Restore one, or delete it for good.");
         y += h + 8; float x0 = 24;
-        var sortB = Rc(x0, y, 232, 32); Btn(g, sortB, "SORT: " + SortNames[projSort].ToUpper(), 0, () => SortMenu(sortB), 12); Hint2(sortB, "Choose how the projects are ordered"); x0 = sortB.Right + 10;
-        var typeB = Rc(x0, y, 160, 32); Btn(g, typeB, "TYPE: " + (projType.Length == 0 ? "ALL" : projType.ToUpper()), projType.Length > 0 ? 4 : 0, () => TypeMenu(typeB), 12); Hint2(typeB, "Show only songs, beats or vocal projects"); x0 = typeB.Right + 10;
+        var sortB = Rc(x0, y, 262, 32); Btn(g, sortB, "SORT: " + SortNames[projSort].ToUpper(), 0, () => SortMenu(sortB), 12); Hint2(sortB, "Choose how the projects are ordered"); x0 = sortB.Right + 10;
+        var typeB = Rc(x0, y, 160, 32); Btn(g, typeB, "TYPE: " + (projType.Length == 0 ? "ALL" : projType.ToUpper()), projType.Length > 0 ? 4 : 0, () => TypeMenu(typeB), 12); Hint2(typeB, "Show only songs, beats, vocal projects or the projects that are in an EP or an album"); x0 = typeB.Right + 10;
         var favB = Rc(x0, y, 140, 32); Chip(g, favB, "FAVOURITES", projFav, () => { projFav = !projFav; projScroll = 0; }, "Show only the projects you starred"); x0 = favB.Right + 10;
-        if (FiltersOn) { var clr = Rc(x0, y, 100, 32); Btn(g, clr, "CLEAR", 3, () => ClearProjectFilters(), 12); Hint2(clr, "Clear the search and every filter"); }
+        if (FiltersOn && x0 + 100 < W - 24 - 200 - 8 - 110 - 8 - 150 - 8) { var clr = Rc(x0, y, 100, 32); Btn(g, clr, "CLEAR", 3, () => ClearProjectFilters(), 12); Hint2(clr, "Clear the search and every filter"); }
         { var pubAll = Rc(W - 24 - 200, y, 200, 32); if (pubAll.X > x0 + 10) { Btn(g, pubAll, "PUBLISH ALL", 2, () => PublishAllClick(), 12); Hint2(pubAll, "Publish every project that is not published yet to your profile and the community (it asks first)");
             var shB = Rc(pubAll.X - 8 - 110, y, 110, 32); var relB = Rc(shB.X - 8 - 150, y, 150, 32); if (relB.X > x0 + 10) { Btn(g, shB, "SHARE", 2, () => OpenCommunitySite("/community"), 12); Hint2(shB, "Share a song with the community. Opens the community page of the website, where you sign in and upload it"); Btn(g, relB, "EP / ALBUM", 1, () => ReleasesMenu(relB), 12); Hint2(relB, "Put several projects together as an EP or an album (and see or delete the ones you made)"); } } }
         return y + 32 + 18;

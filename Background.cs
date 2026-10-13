@@ -272,7 +272,7 @@ partial class App
         }
         else using (var br = new LinearGradientBrush(r, TM.C(255, 3, 1, 8), TM.C(255, 26, 6, 54), 72f)) g.FillRectangle(br, r);
 
-        if (anim && sprites != null && (!custom || Prefs.BgLeaves))
+        if (anim && sprites != null && Prefs.BgLeaves)
         {
             BuildSprites(); g.InterpolationMode = InterpolationMode.NearestNeighbor;
             leaves.Sort((a, b) => a.S.CompareTo(b.S));

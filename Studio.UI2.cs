@@ -13,7 +13,7 @@ using System.Windows.Forms;
 //  Purphex Music window (part 2): actions (import, separate, auto mix, export, save/open),
 //  busy overlay, mastering tab, and small dialogs.
 // ======================================================================
-class ExportSettings { public bool MixMastered = true, MixDry, ProcVocal, ProcBeat, DryVocal, DryBeat, Stems; public double TrimStart, TrimEnd; public int Fmt, RateIdx; public string Dir = "", Prefix = ""; }
+class ExportSettings { public bool MixMastered = true, MixDry, ProcVocal, ProcBeat, DryVocal, DryBeat, Stems; public List<int> StemTracks;   /* the tracks (by number) picked for separate files; null = every track */ public double TrimStart, TrimEnd; public int Fmt, RateIdx; public string Dir = "", Prefix = ""; }
 
 partial class StudioForm
 {
@@ -76,12 +76,13 @@ partial class StudioForm
 
     internal void ImportFile(string path, string role)
     {
-        AudioClip clip = null;
+        AudioClip clip = null; var fillT = fillTrack; fillTrack = null;   // the empty track this file was picked for (or dropped on): it goes into that track
         RunBusy("Loading " + Path.GetFileName(path) + "...", true, p => { clip = AudioClip.FromFile(path, p, () => cancelFlag); }, ok =>
         {
             if (!ok || clip == null) { if (importQueue.Count > 0) { string nx = importQueue.Dequeue(); BeginInvoke(new Action(() => PromptImport(nx))); } return; }
             string nm = role == "vocal" ? "Vocals" : (role == "beat" ? "Instrumental" : clip.Name);
-            AddTrack(StudioEngine.NewTrack(nm, role, clip)); Toast("Added " + nm);
+            if (fillT != null && fillT.Clip == null && !fillT.Instrument && !fillT.IsBus && eng.Tracks.Contains(fillT)) { PushUndo(); lock (eng.Sync) { fillT.Clip = clip; fillT.ClipStart = 0; fillT.ClipFrames = -1; fillT.Offset = 0; fillT.Armed = false; if (fillT.Name.StartsWith("Audio ", StringComparison.OrdinalIgnoreCase) || fillT.Name.StartsWith("Beat", StringComparison.OrdinalIgnoreCase)) fillT.Name = nm; } selTrack = eng.Tracks.IndexOf(fillT); Toast("Added " + nm + " to this track"); }
+            else { AddTrack(StudioEngine.NewTrack(nm, role, clip)); Toast("Added " + nm); }
             try { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); } catch { }   // the memory of the decoding is cleaned up now, while nothing is playing, not in the middle of the next play
             if (importQueue.Count > 0) { string nx = importQueue.Dequeue(); BeginInvoke(new Action(() => PromptImport(nx))); }
         });
@@ -158,8 +159,9 @@ partial class StudioForm
     void ExportClick()
     {
         if (eng.Tracks.Count == 0) { Toast("Nothing to export yet."); return; }
-        var s = StudioDialogs.ExportOptions(this, projName == "Untitled project" ? "My song" : projName, (eng.EndFrame + StudioEngine.SR * 2) / (double)StudioEngine.SR); if (s == null) return;
-        var plan = Exporter.Plan(eng, s.MixMastered, s.MixDry, s.ProcVocal, s.ProcBeat, false, false, s.Stems, s.Prefix, s.Fmt);
+        var s = StudioDialogs.ExportOptions(this, projName == "Untitled project" ? "My song" : projName, (eng.EndFrame + StudioEngine.SR * 2) / (double)StudioEngine.SR, eng.Tracks.ConvertAll(t => t.Name)); if (s == null) return;
+        HashSet<Track> only = null; if (s.Stems && s.StemTracks != null) { only = new HashSet<Track>(); foreach (int ti in s.StemTracks) if (ti >= 0 && ti < eng.Tracks.Count) only.Add(eng.Tracks[ti]); }
+        var plan = Exporter.Plan(eng, s.MixMastered, s.MixDry, s.ProcVocal, s.ProcBeat, false, false, s.Stems, s.Prefix, s.Fmt, only);
         if (plan.Count == 0) { MessageBox.Show(this, "Nothing selected to export (or the needed tracks aren't in the project)."); return; }
         var exist = new List<string>(); foreach (var it in plan) { string p = Path.Combine(s.Dir, it.FileName); if (File.Exists(p)) exist.Add(it.FileName); }
         if (exist.Count > 0 && MessageBox.Show(this, exist.Count + " file(s) already exist in that folder and will be replaced:\n\n" + string.Join("\n", exist.GetRange(0, Math.Min(6, exist.Count)).ToArray()) + (exist.Count > 6 ? "\n..." : "") + "\n\nReplace them? (Your original source audio is never overwritten.)", "Replace files?", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes) return;
@@ -311,7 +313,7 @@ static class StudioDialogs
         var f = Make("Trim start and end", 540, 300); var tb = new TextBox { Left = 20, Top = 44, Width = 400, Height = 26, BackColor = Fld, ForeColor = Ink, BorderStyle = BorderStyle.FixedSingle }; Win.NeonBox(tb); var browse = B("Browse...", 430, 42, 90, 28, TM.C(255, 70, 44, 140));
         f.Controls.Add(new Label { Text = "File to trim", Left = 20, Top = 20, Width = 300, Height = 22 }); f.Controls.AddRange(new Control[] { tb, browse });
         var a = new TextBox { Left = 20, Top = 106, Width = 110, Height = 26, BackColor = Fld, ForeColor = Ink, BorderStyle = BorderStyle.FixedSingle }; Win.NeonBox(a); var b = new TextBox { Left = 150, Top = 106, Width = 110, Height = 26, BackColor = Fld, ForeColor = Ink, BorderStyle = BorderStyle.FixedSingle }; Win.NeonBox(b);
-        f.Controls.Add(new Label { Text = "Trim start  (m:ss)", Left = 20, Top = 82, Width = 130, Height = 22 }); f.Controls.Add(new Label { Text = "Trim end  (m:ss)", Left = 150, Top = 82, Width = 130, Height = 22 }); f.Controls.AddRange(new Control[] { a, b });
+        f.Controls.Add(new Label { Text = "Trim start", Left = 20, Top = 82, Width = 130, Height = 22 }); f.Controls.Add(new Label { Text = "Trim end", Left = 150, Top = 82, Width = 130, Height = 22 }); f.Controls.AddRange(new Control[] { a, b });
         var fmt = new ComboBox { Left = 290, Top = 106, Width = 230, DropDownStyle = ComboBoxStyle.DropDownList, BackColor = Fld, ForeColor = Ink, FlatStyle = FlatStyle.Flat }; fmt.Items.AddRange(new object[] { "MP3 320 kbps", "WAV 24-bit" }); fmt.SelectedIndex = 0;
         f.Controls.Add(new Label { Text = "Save as", Left = 290, Top = 82, Width = 130, Height = 22 }); f.Controls.Add(fmt);
         var note = new Label { Text = "Leave the start empty to begin at 0:00 and the end empty to keep everything to the end. Saved in: " + outDir, Left = 20, Top = 146, Width = 500, Height = 44, ForeColor = TM.C(255, 170, 150, 200) }; f.Controls.Add(note);
@@ -387,7 +389,7 @@ static class StudioDialogs
             int cy = tb.Bottom + 14; ok.Top = cancel.Top = emo.Top = cy; int ch = cy + 32 + 16; if (f.ClientSize.Height != ch) { f.ClientSize = new Size(560, ch); }
         };
         tb.TextChanged += (s, e) => relayout(); f.Shown += (s, e) => { relayout(); tb.Focus(); tb.SelectionStart = tb.TextLength; }; relayout();
-        emo.Click += (s, e) => EmojiPanel.Show(f, em => { int at = tb.SelectionStart; tb.Text = tb.Text.Substring(0, at) + em + tb.Text.Substring(Math.Min(tb.Text.Length, at + tb.SelectionLength)); tb.SelectionStart = at + em.Length; tb.Focus(); });
+        emo.Click += (s, e) => EmojiPanel.Toggle(f, em => { int at = tb.SelectionStart; tb.Text = tb.Text.Substring(0, at) + em + tb.Text.Substring(Math.Min(tb.Text.Length, at + tb.SelectionLength)); tb.SelectionStart = at + em.Length; tb.Focus(); });
         ok.Click += (s, e) => { result = tb.Text.Trim(); f.Close(); }; cancel.Click += (s, e) => f.Close(); f.CancelButton = cancel; f.ShowDialog(owner); return result;
     }
     public static string Ask(IWin32Window owner, string prompt, string def)
@@ -398,7 +400,7 @@ static class StudioDialogs
         f.Controls.Add(pl); int dy = pl.Height - 22; f.ClientSize = new Size(440, 140 + dy);
         var tb = new TextBox { Left = 16, Top = 42 + dy, Width = 404, Text = def, BackColor = Fld, ForeColor = Ink, BorderStyle = BorderStyle.FixedSingle }; Win.NeonBox(tb); f.Controls.Add(tb);
         var ok = B("OK", 230, 86 + dy, 90, 32, TM.C(255, 118, 52, 212)); var cancel = B("Cancel", 330, 86 + dy, 90, 32, TM.C(255, 70, 40, 120));
-        var emo = B("EMOJIS", 16, 86 + dy, 110, 32, TM.C(255, 150, 70, 235)); emo.Click += (s, e) => EmojiPanel.Show(f, em => { int at = tb.SelectionStart; tb.Text = tb.Text.Substring(0, at) + em + tb.Text.Substring(Math.Min(tb.Text.Length, at + tb.SelectionLength)); tb.SelectionStart = at + em.Length; tb.Focus(); }); f.Controls.Add(emo);   // anywhere you write a name, a bio or a description
+        var emo = B("EMOJIS", 16, 86 + dy, 110, 32, TM.C(255, 150, 70, 235)); emo.Click += (s, e) => EmojiPanel.Toggle(f, em => { int at = tb.SelectionStart; tb.Text = tb.Text.Substring(0, at) + em + tb.Text.Substring(Math.Min(tb.Text.Length, at + tb.SelectionLength)); tb.SelectionStart = at + em.Length; tb.Focus(); }); f.Controls.Add(emo);   // anywhere you write a name, a bio or a description
         ok.Click += (s, e) => { if (tb.Text.Trim().Length > 0) { result = tb.Text.Trim(); f.Close(); } }; cancel.Click += (s, e) => f.Close(); f.AcceptButton = ok; f.Controls.AddRange(new Control[] { ok, cancel });
         f.ShowDialog(owner); return result;
     }
@@ -488,38 +490,74 @@ static class StudioDialogs
         sec = total; return true;
     }
     static string TimeText(double s) { int m = (int)(s / 60); double r = s - m * 60; return m + ":" + (r < 10 ? "0" : "") + r.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture); }
-    public static ExportSettings ExportOptions(IWin32Window owner, string defName, double songLen = 0)
+    // plain-words help for the Format and Rate boxes of the Export window
+    internal static string FormatHint(int i)
     {
-        ExportSettings result = null; var f = Make("Export", 560, 548);
+        switch (i)
+        {
+            case 0: return "WAV 24-bit: studio quality, nothing is thrown away. The best choice to keep, to mix or master somewhere else, or to send to a producer. Big files (about 16 MB a minute).";
+            case 1: return "WAV 16-bit: CD quality, nothing compressed. Plays everywhere and the files are a little smaller (about 10 MB a minute). Good for sharing, but not the best to keep: 24-bit has more room.";
+            case 2: return "WAV 32-bit float: the HIGHEST QUALITY. Nothing is ever clipped or cut off, even if it is louder than the limit. Made for editing in another program. The biggest files (about 21 MB a minute).";
+            case 3: return "FLAC 24-bit: the same quality as WAV 24-bit at about half the size, and nothing is lost. A great way to keep your best version (a few players and phones cannot open it).";
+            default: return "MP3 320 kbps: the smallest file (about 2.4 MB a minute) and it plays on everything: phones, cars, social media. A little quality is thrown away, so use it to share, not to keep or to edit more.";
+        }
+    }
+    internal static string RateHint(int r, int fmt)
+    {
+        if (fmt == 4) return "Rate: MP3 only goes up to 48 kHz, so 44.1 kHz (or 48 kHz) is what you get.";
+        if (r <= 1) return "Rate: " + (r == 0 ? "44.1 kHz is CD quality and how your project is made: the right choice for music." : "48 kHz is the standard for video: pick it if the song goes into a video.");
+        return "Rate: higher rates make much bigger files and only matter if you will keep processing the sound. For listening, 44.1 or 48 kHz sounds the same.";
+    }
+    public static ExportSettings ExportOptions(IWin32Window owner, string defName, double songLen = 0, IList<string> trackNames = null)
+    {
+        bool side = trackNames != null && trackNames.Count > 0; ExportSettings result = null; var f = Make("Export", side ? 850 : 560, 640);
         var cks = new List<CheckBox>(); string[] names = { "Complete mix (mixed + mastered)", "Complete mix without mastering", "Processed vocals only", "Processed instrumental only", "Individual stems (every track, processed)" };
         bool[] def = { true, false, false, false, false }; int y = 16;
         f.Controls.Add(new Label { Text = "What to export", Left = 16, Top = y, Width = 300, Height = 22, Font = new Font("Segoe UI Semibold", 10.5f) }); y += 28;
         for (int i = 0; i < names.Length; i++) { var c = new DarkCheck { Text = names[i], Left = 24, Top = y, Width = 500, Height = 26, Checked = def[i] }; cks.Add(c); f.Controls.Add(c); y += 28; }
         // the two complete mixes cannot both be picked: choosing one un-ticks the other
         cks[0].CheckedChanged += (s0, e0) => { if (cks[0].Checked) cks[1].Checked = false; }; cks[1].CheckedChanged += (s0, e0) => { if (cks[1].Checked) cks[0].Checked = false; };
+        // the tracks of this project, to pick the ones that are exported as separate files (the tab on the right is live when INDIVIDUAL STEMS is ticked)
+        var stemCk = new List<DarkCheck>(); Panel stemBox = null;
+        if (side)
+        {
+            var hd = new Label { Text = "Tracks to export on their own", Left = 580, Top = 16, Width = 256, Height = 22, Font = new Font("Segoe UI Semibold", 10.5f) }; f.Controls.Add(hd);
+            int bh = Math.Min(340, trackNames.Count * 28 + 10);
+            stemBox = new Panel { Left = 580, Top = 44, Width = 256, Height = bh, BackColor = TM.C(255, 22, 11, 44), BorderStyle = BorderStyle.FixedSingle, AutoScroll = true }; f.Controls.Add(stemBox);
+            for (int i = 0; i < trackNames.Count; i++) { var c = new DarkCheck { Text = (i + 1) + "   " + trackNames[i], Left = 6, Top = 5 + i * 28, Width = 226, Height = 26, Checked = true }; stemCk.Add(c); stemBox.Controls.Add(c); }
+            var all = B("All", 580, 44 + bh + 8, 70, 28, TM.C(255, 70, 40, 120)); var none = B("None", 658, 44 + bh + 8, 70, 28, TM.C(255, 70, 40, 120));
+            all.Click += (s0, e0) => { foreach (var c in stemCk) c.Checked = true; }; none.Click += (s0, e0) => { foreach (var c in stemCk) c.Checked = false; }; f.Controls.Add(all); f.Controls.Add(none);
+            f.Controls.Add(new Label { Text = "Tick INDIVIDUAL STEMS, then pick the tracks you want as separate files. Each one is saved on its own, with everything that is on it.", Left = 580, Top = 44 + bh + 42, Width = 256, Height = 70, ForeColor = TM.C(255, 170, 150, 190) });
+            Action live = () => { stemBox.Enabled = cks[4].Checked; all.Enabled = none.Enabled = cks[4].Checked; hd.ForeColor = cks[4].Checked ? TM.C(255, 240, 232, 255) : TM.C(255, 140, 125, 165); }; cks[4].CheckedChanged += (s0, e0) => live(); live();
+        }
         y += 4; f.Controls.Add(new Label { Text = "Trim", Left = 16, Top = y + 4, Width = 40, Height = 22 });
         f.Controls.Add(new Label { Text = "start", Left = 58, Top = y + 4, Width = 52, Height = 22 }); var ta = new TextBox { Left = 112, Top = y, Width = 80, Text = "0:00", BackColor = Fld, ForeColor = Ink, BorderStyle = BorderStyle.FixedSingle }; Win.NeonBox(ta); f.Controls.Add(ta);
         f.Controls.Add(new Label { Text = "end", Left = 206, Top = y + 4, Width = 36, Height = 22 }); var tb = new TextBox { Left = 244, Top = y, Width = 80, Text = TimeText(songLen), BackColor = Fld, ForeColor = Ink, BorderStyle = BorderStyle.FixedSingle }; Win.NeonBox(tb); f.Controls.Add(tb);
-        f.Controls.Add(new Label { Text = "to export only a part (m:ss)", Left = 336, Top = y + 4, Width = 206, Height = 22, ForeColor = TM.C(255, 170, 150, 190) }); y += 40;
+        f.Controls.Add(new Label { Text = "to export only a part", Left = 336, Top = y + 4, Width = 206, Height = 22, ForeColor = TM.C(255, 170, 150, 190) }); y += 40;
         y += 2; f.Controls.Add(new Label { Text = "Format", Left = 16, Top = y + 4, Width = 70, Height = 22 });
-        var fm = new DarkCombo { Left = 90, Top = y, Width = 190 }; fm.Items.AddRange(Exporter.Formats); fm.SelectedIndex = 0; f.Controls.Add(fm);
+        var fm = new DarkCombo { Left = 90, Top = y, Width = 190 }; fm.Items.AddRange(Exporter.Formats); fm.Items[2] = Exporter.Formats[2] + "  (best)"; fm.Items[4] = Exporter.Formats[4] + "  (smallest)"; fm.SelectedIndex = 0; f.Controls.Add(fm);
         f.Controls.Add(new Label { Text = "Rate", Left = 292, Top = y + 4, Width = 92, Height = 22 }); var rt = new DarkCombo { Left = 388, Top = y, Width = 146 }; rt.Items.AddRange(Exporter.RateNames); for (int ri = 0; ri < rt.Items.Count && ri < Exporter.Rates.Length; ri++) if (Exporter.Rates[ri] > Edition.MaxRate) rt.Items[ri] = Exporter.RateNames[ri] + "  (Fantasy)"; rt.SelectedIndex = 0; int rtLast = 0; rt.SelectedIndexChanged += (ra, rb) => { int ri = rt.SelectedIndex; if (ri < 0) return; if (ri < Exporter.Rates.Length && Exporter.Rates[ri] > Edition.MaxRate) { Edition.Upsell(Tier.Fantasy, "Exporting at " + Exporter.RateNames[ri], f); rt.SelectedIndex = rtLast; } else rtLast = ri; }; f.Controls.Add(rt); y += 40;
         var rtNote = new Label { Left = 90, Top = y - 6, Width = 440, Height = 20, ForeColor = TM.C(255, 170, 150, 190), Text = "" }; f.Controls.Add(rtNote); fm.SelectedIndexChanged += (s0, e0) => { rtNote.Text = fm.SelectedIndex == 4 && rt.SelectedIndex > 1 ? "MP3 stops at 48 kHz, so it is saved at 48 kHz." : ""; }; rt.SelectedIndexChanged += (s0, e0) => { rtNote.Text = fm.SelectedIndex == 4 && rt.SelectedIndex > 1 ? "MP3 stops at 48 kHz, so it is saved at 48 kHz." : (rt.SelectedIndex > 0 ? "Made at 44.1 kHz and converted with a high quality filter: bigger files, the same sound." : ""); }; y += 18;
+        // what each format and rate means, in plain words (for people who are new to this)
+        var fmDesc = new Label { Left = 90, Top = y + 2, Width = side ? 470 : 446, Height = 78, ForeColor = TM.C(255, 205, 190, 230), Text = "" }; f.Controls.Add(fmDesc);
+        Action descUpd = () => { int a0 = Math.Max(0, fm.SelectedIndex), b0 = Math.Max(0, rt.SelectedIndex); fmDesc.Text = FormatHint(a0) + "\r\n" + RateHint(b0, a0); };
+        fm.SelectedIndexChanged += (s0, e0) => descUpd(); rt.SelectedIndexChanged += (s0, e0) => descUpd(); descUpd(); y += 84;
         f.Controls.Add(new Label { Text = "Name", Left = 16, Top = y + 4, Width = 70, Height = 22 });
         var nm = new TextBox { Left = 90, Top = y, Width = 440, Text = defName, BackColor = Fld, ForeColor = Ink, BorderStyle = BorderStyle.FixedSingle }; Win.NeonBox(nm); f.Controls.Add(nm); y += 38;
         f.Controls.Add(new Label { Text = "Folder", Left = 16, Top = y + 4, Width = 70, Height = 22 });
         var dir = new TextBox { Left = 90, Top = y, Width = 350, Text = Path.Combine(Win.DownloadsDir, "Purphex Music"), BackColor = Fld, ForeColor = Ink, BorderStyle = BorderStyle.FixedSingle }; Win.NeonBox(dir); f.Controls.Add(dir);
         var br = B("Browse...", 448, y - 2, 84, 28, TM.C(255, 70, 40, 120)); br.Click += (s, e) => { using (var d = new FolderBrowserDialog()) if (d.ShowDialog() == DialogResult.OK) dir.Text = d.SelectedPath; }; f.Controls.Add(br); y += 42;
         f.Controls.Add(new Label { Text = "All files start at 0:00 with the same length, so stems line up in any DAW. Existing files are never replaced without asking.", Left = 16, Top = y, Width = 520, Height = 40, ForeColor = TM.C(255, 170, 150, 190) });
-        var ok = B("Export", 330, 496, 100, 34, TM.C(255, 118, 52, 212)); var cancel = B("Cancel", 440, 496, 100, 34, TM.C(255, 70, 40, 120));
-        var tErr = new Label { Left = 16, Top = 500, Width = 300, Height = 26, ForeColor = TM.C(255, 255, 110, 130), Text = "" }; f.Controls.Add(tErr);
+        var ok = B("Export", 330, 588, 100, 34, TM.C(255, 118, 52, 212)); var cancel = B("Cancel", 440, 588, 100, 34, TM.C(255, 70, 40, 120));
+        var tErr = new Label { Left = 16, Top = 592, Width = 300, Height = 26, ForeColor = TM.C(255, 255, 110, 130), Text = "" }; f.Controls.Add(tErr);
         ok.Click += (s, e) =>
         {
             if (nm.Text.Trim().Length == 0 || dir.Text.Trim().Length == 0) return;
-            double sa, sb; if (!ParseTime(ta.Text, out sa) || !ParseTime(tb.Text, out sb) || sb <= sa) { tErr.Text = "Trim: the end must be after the start (m:ss)."; return; }
+            double sa, sb; if (!ParseTime(ta.Text, out sa) || !ParseTime(tb.Text, out sb) || sb <= sa) { tErr.Text = "Trim: the end must be after the start."; return; }
             if (songLen > 0 && sa >= songLen) { tErr.Text = "Trim: the start is after the end of the song."; return; }
+            List<int> picked = null; if (side && cks[4].Checked) { picked = new List<int>(); for (int i = 0; i < stemCk.Count; i++) if (stemCk[i].Checked) picked.Add(i); if (picked.Count == 0) { tErr.Text = "Pick at least one track for the stems."; return; } if (picked.Count == stemCk.Count) picked = null; }
             bool whole = sa <= 0.0005 && (songLen <= 0 || sb >= songLen - 0.05);   // not trimmed = the whole song
-            result = new ExportSettings { TrimStart = whole ? 0 : sa, TrimEnd = whole ? 0 : sb, MixMastered = cks[0].Checked, MixDry = cks[1].Checked, ProcVocal = cks[2].Checked, ProcBeat = cks[3].Checked, Stems = cks[4].Checked, Fmt = fm.SelectedIndex, RateIdx = rt.SelectedIndex, Dir = dir.Text.Trim(), Prefix = nm.Text.Trim() }; f.Close();
+            result = new ExportSettings { TrimStart = whole ? 0 : sa, TrimEnd = whole ? 0 : sb, MixMastered = cks[0].Checked, MixDry = cks[1].Checked, ProcVocal = cks[2].Checked, ProcBeat = cks[3].Checked, Stems = cks[4].Checked, StemTracks = picked, Fmt = fm.SelectedIndex, RateIdx = rt.SelectedIndex, Dir = dir.Text.Trim(), Prefix = nm.Text.Trim() }; f.Close();
         };
         cancel.Click += (s, e) => f.Close(); f.AcceptButton = ok; f.Controls.AddRange(new Control[] { ok, cancel });
         f.ShowDialog(owner); return result;

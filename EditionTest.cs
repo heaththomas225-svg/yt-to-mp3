@@ -65,13 +65,11 @@ static class ED
         Check("Free: the help keeps the converter and the vocal remover and hides the studio", Edition.HelpVisible("vocal") && Edition.HelpVisible("start") && Edition.HelpVisible("trim") && !Edition.HelpVisible("studio-mix") && !Edition.HelpVisible("basslab") && !Edition.HelpVisible("masterassistant"));
         int shown = 0; foreach (var t in HelpContent.All) if (Edition.HelpVisible(t.Id)) shown++; Check("Free: only a part of the help guides are listed", shown > 5 && shown < HelpContent.All.Length - 20, shown + " of " + HelpContent.All.Length);
         Check("Free: only the original theme can be used", Themes.Allowed(Themes.All[0]) && !Themes.Allowed(Themes.All[Themes.IndexOf("Ocean")]) && !Themes.Allowed(Themes.All[Themes.IndexOf("Nebula")]));
-        string pic = Path.Combine(StudioEnv.DataDir, "bg.png"); using (var bm = new Bitmap(40, 40)) bm.Save(pic, System.Drawing.Imaging.ImageFormat.Png); Prefs.BgPath = pic;
-        Check("Free: a photo background is not shown", !UserBackground.Active);
+        Check("a photo background is gone for every edition", !UserBackground.Active);
         Edition.Override = Tier.Supporter;
         Check("Supporter: the studio edition, up to 192 kHz, every theme but the Fantasy ones", Edition.Has(Tier.Supporter) && !Edition.Has(Tier.Fantasy) && Edition.MaxRate == 192000 && Exporter.RateFor(1, 5) == 192000 && Exporter.RateFor(1, 7) == 192000);
         Check("Supporter: the standard themes and the Supporter themes open, the Fantasy themes do not", Themes.Allowed(Themes.All[Themes.IndexOf("Ocean")]) && Themes.Allowed(Themes.All[Themes.IndexOf("Aurora")]) && Themes.Allowed(Themes.All[Themes.IndexOf("Rainbow")]) && !Themes.Allowed(Themes.All[Themes.IndexOf("Royal Gold")]));
-        Check("Supporter: the whole help and the photo background", Edition.HelpVisible("studio-mix") && Edition.HelpVisible("basslab") && UserBackground.Active);
-        Prefs.BgPath = "";
+        Check("Supporter: the whole help", Edition.HelpVisible("studio-mix") && Edition.HelpVisible("basslab"));
         Edition.Override = Tier.Fantasy;
         Check("Fantasy: everything, 384 kHz and the Fantasy themes", Edition.Has(Tier.Fantasy) && Edition.MaxRate == 384000 && Exporter.RateFor(1, 7) == 384000 && Themes.Allowed(Themes.All[Themes.IndexOf("Nebula")]) && Themes.Allowed(Themes.All[Themes.IndexOf("Dragon Fire")]));
         int sup = 0, fan = 0, free = 0; foreach (var t in Themes.All) { if (t.Special && t.Req == Tier.Supporter) sup++; if (t.Special && t.Req == Tier.Fantasy) fan++; if (t.Req == Tier.Free) free++; }

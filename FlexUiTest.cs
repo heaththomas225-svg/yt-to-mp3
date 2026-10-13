@@ -68,9 +68,16 @@ static class G
         // set a clear edit again, then undo and redo
         ana.Notes[0].Shift = 3; typeof(StudioForm).GetMethod("FlexChanged", BF).Invoke(sf, null); t0 = DateTime.Now; while (DateTime.Now - t0 < TimeSpan.FromSeconds(6) && Fld<bool>("flexSwap") == false) Pump(100); Pump(300);
         // Done: the edit is kept and saved as a real file the project can point to
-        t0 = DateTime.Now; while ((DateTime.Now - t0).TotalSeconds < 10 && string.IsNullOrEmpty(Fld<string>("flexSavedAt"))) Pump(100);
-        Check("your edits are saved by themselves (no need to press Done)", !string.IsNullOrEmpty(Fld<string>("flexSavedAt")) && File.Exists(Fld<string>("flexAutoPath")), Fld<string>("flexAutoPath"));
-        Check("and the track already points at that saved file", tr.Clip.Path == Fld<string>("flexAutoPath"), tr.Clip.Path);
+        // nothing is saved by itself: no automatic file, and the project is never saved from here
+        { Pump(3000); Paint(); string fd = Path.Combine(StudioEnv.DataDir, "flex"); Check("Flex Pitch does not save anything by itself (no automatic file is written)", !Directory.Exists(fd) || Directory.GetFiles(fd, "autosave_*").Length == 0, Directory.Exists(fd) ? string.Join(",", Directory.GetFiles(fd)) : "no folder"); }
+        // UNDO NOTE goes back one change at a time; REVERT ALL goes back to the original
+        { var undoM = typeof(StudioForm).GetMethod("FlexUndoNote", BF); var revM = typeof(StudioForm).GetMethod("FlexRevert", BF); var cur = Fld<FlexAnalysis>("flexAna"); double was0 = cur.Notes[0].Shift, was1 = cur.Notes[1].Shift;
+          cur.Notes[1].Shift = was1 + 2; typeof(StudioForm).GetMethod("FlexChanged", BF).Invoke(sf, null); Pump(400); Paint(); Pump(300); Paint(); cur.Notes[1].Shift = was1 + 5; typeof(StudioForm).GetMethod("FlexChanged", BF).Invoke(sf, null); Pump(400); Paint(); Pump(300); Paint();
+          undoM.Invoke(sf, null); cur = Fld<FlexAnalysis>("flexAna"); Check("UNDO NOTE goes back one change (+5 back to +2)", Math.Abs(cur.Notes[1].Shift - (was1 + 2)) < 0.01, cur.Notes[1].Shift.ToString());
+          undoM.Invoke(sf, null); cur = Fld<FlexAnalysis>("flexAna"); Check("and one more (back to how it was)", Math.Abs(cur.Notes[1].Shift - was1) < 0.01, cur.Notes[1].Shift.ToString());
+          cur.Notes[0].Shift = 4; cur.Notes[1].Shift = -3; typeof(StudioForm).GetMethod("FlexChanged", BF).Invoke(sf, null); Pump(400); Paint(); Pump(300); Paint(); revM.Invoke(sf, null); cur = Fld<FlexAnalysis>("flexAna");
+          Check("REVERT ALL puts every note back to the original and the track to the original recording", cur.Notes.TrueForAll(nt => Math.Abs(nt.Shift) < 0.001 && !nt.Edited) && !Fld<bool>("flexEdited") && ReferenceEquals(tr.Clip, clip), "edited " + Fld<bool>("flexEdited"));
+          ana = cur; ana.Notes[0].Shift = 3; typeof(StudioForm).GetMethod("FlexChanged", BF).Invoke(sf, null); t0 = DateTime.Now; while (DateTime.Now - t0 < TimeSpan.FromSeconds(6) && Fld<bool>("flexSwap") == false) Pump(100); Pump(300); }
         ana.Notes[0].Shift = 4; typeof(StudioForm).GetMethod("FlexChanged", BF).Invoke(sf, null);   // then click away straight after the edit, before it has rendered
         var closeM = typeof(StudioForm).GetMethod("FlexClose", BF); closeM.Invoke(sf, new object[] { true });
         { var rr = FlexPitch.Analyse(tr.Clip.L, tr.Clip.R, tr.Clip.Length, 44100, null, null); var v = new List<double>(); for (int f = (int)(0.3 * 44100 / rr.Hop); f < (int)(1.0 * 44100 / rr.Hop); f++) if (rr.F0[f] > 0) v.Add(rr.F0[f]); v.Sort(); double h4 = v.Count > 0 ? v[v.Count / 2] : 0; Check("an edit made just before closing is not lost (A3 + 4 semitones = C#4)", Math.Abs(Cents(h4, 220.0 * Math.Pow(2, 4 / 12.0))) < 30, h4.ToString("0.0") + " Hz"); } Pump(200); Paint();

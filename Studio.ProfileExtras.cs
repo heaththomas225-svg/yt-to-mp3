@@ -53,6 +53,33 @@ partial class StudioForm
     }
 
     // a bio of any length: the block is as tall as the text needs (returns the height used)
+    // the bio of an artist in a box of its own, with COPY NAME, COPY BIO and TRANSLATE (their name or bio can be in a language you do not read: copy it, or let Google Translate detect the language and translate it to yours)
+    internal Action<string> openUrlHook;   // a test answers for itself
+    float ArtistBioBox(Graphics g, ArtistInfo a, float x, float y, float w)
+    {
+        string bio = a.Bio ?? ""; var f = GfxCache.Exact(GfxCache.Grow(14), false); float th = bio.Length == 0 ? 22 : Math.Max(26f, g.MeasureString(bio, f, (int)(w - 32)).Height + (EmojiText.Has(bio) ? f.GetHeight(g) + 2 : 3f));
+        float h = 46 + th + 14; var box = Rc(x, y, w, h); FillRR(g, TM.C(190, 8, 4, 20), box, 12); StrokeRR(g, Color.FromArgb(140, NeonViolet), box, 12, 1f);
+        Txt(g, "BIO", 11, DimC, Rc(box.X + 16, box.Y + 12, 60, 18), StringAlignment.Near, true);
+        float bx = box.Right - 12; var tr = Rc(bx - 120, box.Y + 8, 120, 26); bx = tr.X - 8; var cb = Rc(bx - 96, box.Y + 8, 96, 26); bx = cb.X - 8; var cn = Rc(bx - 110, box.Y + 8, 110, 26);
+        if (w > 520) { string nm = a.Name, bi = bio; var aa = a;
+            Btn(g, cn, "COPY NAME", 0, () => CopyArtistText(nm, "the name"), 10); Hint2(cn, "Copy their name (to add them, or to search for them)");
+            Btn(g, cb, "COPY BIO", 0, () => CopyArtistText(bi, "the bio"), 10); Hint2(cb, "Copy their bio");
+            Btn(g, tr, "TRANSLATE", 1, () => TranslateArtist(aa), 10); Hint2(tr, "Open Google Translate with their name and bio: it finds out which language it is by itself and translates it to yours"); }
+        if (bio.Length > 0) TxtWrap(g, bio, 14, a.NameRgb >= 0 ? ProfileStore.ColorOf(a.NameRgb) : PlainInk, Rc(box.X + 16, box.Y + 40, w - 32, th)); else Txt(g, "No bio yet.", 13, DimC, Rc(box.X + 16, box.Y + 40, w - 32, 22), StringAlignment.Near, false);
+        return h + 8;
+    }
+    void CopyArtistText(string text, string what) { if (string.IsNullOrEmpty(text)) { Toast("There is nothing to copy."); return; } try { Clipboard.SetText(text); Toast("Copied " + what + "."); } catch { Toast("Could not copy (another program is using the clipboard)."); } }
+    internal static string TranslateUrl(string name, string bio, string lang)
+    {
+        string text = (name ?? "") + ((bio ?? "").Length > 0 ? "\n\n" + bio : ""); if (text.Length > 3500) text = text.Substring(0, 3500);
+        if (string.IsNullOrEmpty(lang) || lang.Length > 8) lang = "en"; return "https://translate.google.com/?sl=auto&tl=" + Uri.EscapeDataString(lang) + "&text=" + Uri.EscapeDataString(text) + "&op=translate";
+    }
+    void TranslateArtist(ArtistInfo a)
+    {
+        string lang = "en"; try { lang = System.Globalization.CultureInfo.CurrentUICulture.TwoLetterISOLanguageName; } catch { }
+        string url = TranslateUrl(a.Name, a.Bio, lang); if (openUrlHook != null) { openUrlHook(url); return; }
+        try { System.Diagnostics.Process.Start(url); Toast("Opening Google Translate: it detects the language and translates it to yours."); } catch { Toast("Could not open the browser."); }
+    }
     float BioBlock(Graphics g, string s, float px, Color c, float x, float y, float w)
     {
         var f = GfxCache.Exact(GfxCache.Grow(px), false); float h = g.MeasureString(s, f, (int)w).Height; h = Math.Max(44f, h + (EmojiText.Has(s) ? f.GetHeight(g) + 2 : 3f));
