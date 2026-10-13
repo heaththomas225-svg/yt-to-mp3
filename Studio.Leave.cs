@@ -101,6 +101,20 @@ partial class StudioForm
         base.OnFormClosing(e);
     }
     internal void NoteUserX() { userX = true; }
+    // leaving the DAW (the X, after the questions were answered) resets it: the next time it opens it is empty and the welcome box offers your projects again, like the first time
+    protected override void OnFormClosed(FormClosedEventArgs e) { base.OnFormClosed(e); if (leaving) ResetAfterLeave(); }
+    internal void ResetAfterLeave()
+    {
+        try
+        {
+            if (mic != null) StopMic(); eng.Stop(); FlexCommitIfOpen();
+            lock (eng.Sync) { foreach (var t in eng.Tracks) retired.AddRange(t.Fx); eng.Tracks.Clear(); }
+            foreach (var f in retired) { var ic = f as InstrumentFx; if (ic != null) ic.CloseWindow(); }
+            bpmUserSet = false; bpmAutoSet = false; ProjectIO.Lyrics = ""; ProjectIO.LyricsKept = ""; ProjectIO.LyricsTitle = ""; ProjectIO.CoverBytes = null; undo.Clear(); redo.Clear(); revertAction = null;
+            projPath = ""; projName = "Untitled project"; selTrack = 0; selFx = -1; scroll = 0; editCount = 0; savedEdit = 0; welcomeOn = true; tab = 0;
+        }
+        catch { }
+    }
     protected override void OnHandleDestroyed(EventArgs e) { EmojiSprites.Ready -= EmojiReady; base.OnHandleDestroyed(e); }
     void EmojiReady() { try { lastInput = DateTime.Now; Invalidate(); } catch { } }
     bool AskLeave()

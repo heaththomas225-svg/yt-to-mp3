@@ -9,7 +9,7 @@ partial class StudioForm
     // every pop-up box and extra page shut, so a guide starts from a clean screen
     void CloseSheetsForGuide()
     {
-        ntOpen = false; busOpen = false; stylesOpen = false; themeOpen = false; psOpen = false; autoOpen = false; gainOpen = false; pickOpen = false; cpOpen = false; browserOpen = false; keyOn = false; packsOpen = false; menuOpen = false;
+        ntOpen = false; busOpen = false; stylesOpen = false; themeOpen = false; caOpen = false; psOpen = false; autoOpen = false; gainOpen = false; pickOpen = false; cpOpen = false; browserOpen = false; keyOn = false; packsOpen = false; menuOpen = false;
         if (amOpen) { try { AmCancel(); } catch { amOpen = false; } } if (soundsOpen) CloseSounds(); if (flexOpen) { try { FlexClose(true); } catch { } }
     }
     // goes to where the button is: tries every page and every box in turn (the first one that has it wins). Returns false when it is nowhere.

@@ -85,7 +85,7 @@ static class S
             eng.Tracks[0].Fx.Clear(); try { File.Delete(tmpFav); } catch { } VocalStyles.FavFile = null;
         }
         {   // automation editor: A next to a setting opens a curve; click adds a point, drag moves it, right-click deletes it
-            var tr0 = eng.Tracks[0]; var gfx = new GainFx(); gfx.Prepare(44100); tr0.Fx.Add(gfx); SetF("selTrack", 0); SetF("selFx", 0); int undo0 = ((IList)F<object>("undo")).Count;
+            var tr0 = eng.Tracks[0]; var gfx = new GainFx(); gfx.Prepare(44100); tr0.Fx.Add(gfx); SetF("selTrack", 0); SetF("selFx", 0); int undo0 = ((IList)F<object>("undo")).Count; SetF("revertAction", null);   /* the REVERT box of the step before sits at the bottom left, on top of the lowest A button: this test is about the A button */
             Paint(); var abtn = Regs().FindAll(r => Math.Abs(r.R.Width - 22) < 0.5f && r.R.Height > 20 && r.R.Height < 24 && r.OnDown != null); Check("the plugin editor shows an A (automate) button next to a setting", abtn.Count >= 1, abtn.Count + " buttons");
             if (abtn.Count > 0) { var ab = abtn[abtn.Count - 1]; int ax = (int)(ab.R.X + 11), ay = (int)(ab.R.Y + ab.R.Height / 2); Ev("OnMouseMove", MouseButtons.None, 0, ax, ay); Ev("OnMouseDown", MouseButtons.Left, 1, ax, ay); Ev("OnMouseUp", MouseButtons.Left, 1, ax, ay); Paint(); }
             Check("pressing A opens the automation editor and starts a lane for that setting", F<bool>("autoOpen") && tr0.Auto.Count == 1 && tr0.Auto[0].Pts.Count == 2, tr0.Auto.Count + " lanes");

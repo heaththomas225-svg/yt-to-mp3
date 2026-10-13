@@ -476,6 +476,47 @@ static class NF
             Check("no plugin slider or EQ dot answers the mouse wheel", smallWheel == 0, which);
             using (var cbw = new ComboBox()) using (var nuw = new NumericUpDown()) using (var tbw = new TrackBar()) using (var btw = new Button())
                 Check("drop-downs, number boxes and slider bars are the controls the wheel is blocked on", NoValueWheel.IsValueControl(cbw) && NoValueWheel.IsValueControl(nuw) && NoValueWheel.IsValueControl(tbw) && !NoValueWheel.IsValueControl(btw));
+            {   // leaving the DAW resets it: no tracks, no project, and the welcome box is back for the next time
+                sf.eng.Tracks.Add(StudioEngine.NewTrack("Left behind", "vocal", AudioClip.FromArrays(new float[4410], new float[4410], "t"))); SetF("projPath", "C:\\x\\left.ytmp"); SetF("welcomeOn", false);
+                sf.ResetAfterLeave(); Check("leaving the DAW clears the tracks and the project, so it opens empty next time", sf.eng.Tracks.Count == 0 && F<string>("projPath") == "" && !sf.HasProject);
+                Check("and the welcome box with your projects is back", F<bool>("welcomeOn") && sf.WelcomeShowing);
+                SetF("welcomeOn", false);
+            }
+            {   // any part of a track box picks that track
+                for (int q = 0; q < 2; q++) sf.eng.Tracks.Add(StudioEngine.NewTrack("Pick " + q, "vocal", AudioClip.FromArrays(new float[4410], new float[4410], "t")));
+                sf.ClientSize = new Size(1500, 800); Application.DoEvents(); SetF("tab", 0); SetF("welcomeOn", false); SetF("selTrack", 0); SetF("projBin", false);
+                var pmh = typeof(StudioForm).GetMethod("PaintAll", BF); using (var bmh = new Bitmap(1500, 800)) using (var gh = Graphics.FromImage(bmh)) { var peh = new PaintEventArgs(gh, new Rectangle(Point.Empty, bmh.Size)); for (int i = 0; i < 3; i++) pmh.Invoke(sf, new object[] { peh }); }
+                var hdr = new List<HitReg>(); foreach (object o in (System.Collections.IEnumerable)typeof(StudioForm).GetField("regs", BF).GetValue(sf)) { var rg = (HitReg)o; if (rg.R.X <= 1 && rg.R.Width > 300 && rg.R.Width < 420 && rg.R.Height > 90 && rg.R.Height < 220 && rg.OnDown != null) hdr.Add(rg); }
+                bool picked = hdr.Count >= 2; if (picked) { hdr.Sort((p, r) => p.R.Y.CompareTo(r.R.Y)); hdr[1].OnDown(); picked = F<int>("selTrack") == 1; hdr[0].OnDown(); picked = picked && F<int>("selTrack") == 0; }
+                Check("pressing anywhere on a track's box (not only its name) picks that track", picked, hdr.Count + " boxes");
+                sf.eng.Tracks.Clear();
+            }
+            {   // the REVERT box stays at the bottom left and is no wider than the left column of the Mastering page (it never reaches into the next box)
+                var pm = typeof(StudioForm).GetMethod("PaintAll", BF); var rrF = typeof(StudioForm).GetField("revertRect", BF); bool narrow = true; string bad = "";
+                foreach (var szz in new[] { new Size(1366, 768), new Size(1240, 680), new Size(1700, 1000) })
+                {
+                    sf.ClientSize = szz; Application.DoEvents(); typeof(StudioForm).GetField("tab", BF).SetValue(sf, 1); typeof(StudioForm).GetMethod("OfferRevert", BF).Invoke(sf, new object[] { "Vocal Forward is on your master", (Action)(() => { }) });
+                    using (var bm = new Bitmap(szz.Width, szz.Height)) using (var gg = Graphics.FromImage(bm)) { var pe = new PaintEventArgs(gg, new Rectangle(Point.Empty, szz)); for (int i = 0; i < 3; i++) pm.Invoke(sf, new object[] { pe }); }
+                    var rr = (RectangleF)rrF.GetValue(sf); if (rr.IsEmpty || rr.Width > 262 || rr.Right > 290 || rr.Bottom > szz.Height || rr.X > 20) { narrow = false; bad += " " + szz.Width + ":" + rr; }
+                    typeof(StudioForm).GetField("revertAction", BF).SetValue(sf, null);
+                }
+                Check("the REVERT box is narrow: it stays inside the left column at the bottom left", narrow, bad);
+            }
+            {   // the picture of a project is cut to its content, fitted by itself and can be zoomed and moved like the profile picture
+                string pw = Path.Combine(StudioEnv.DataDir, "pictest.ytmp"); File.WriteAllText(pw, "PURPHEX\nname|Pic\n"); ProjectLibrary.Touch(pw, "Pic", 2, 120, 60, true, null);
+                string wide = Path.Combine(StudioEnv.DataDir, "wide.png"); using (var b0 = new Bitmap(1200, 600)) { using (var g0 = Graphics.FromImage(b0)) { g0.Clear(Color.Black); using (var br = new SolidBrush(Color.FromArgb(230, 255, 40, 60))) g0.FillEllipse(br, 480, 220, 240, 160); } b0.Save(wide, System.Drawing.Imaging.ImageFormat.Png); }
+                string perr; bool pok = ProjectLibrary.SetCover(pw, wide, out perr); int pz, px, py; ProjectLibrary.LoadAdj(pw, out pz, out px, out py); int kw = 0, kh = 0; using (var im = Image.FromFile(ProjectLibrary.CoverSrc(pw))) { kw = im.Width; kh = im.Height; }
+                Check("a picture with black bars round it is cut to the picture itself and kept whole, with a zoom and position of its own", pok && kw < 600 && kh < 400 && kw > 150 && ProjectLibrary.HasCoverSrc(pw) && px == 50 && py == 50, pok + " " + kw + "x" + kh + " zoom " + pz);
+                var ce = ProjectLibrary.Find(pw); byte[] c0 = File.ReadAllBytes(ce.Cover);
+                ProjectLibrary.SaveAdj(pw, 250, 10, 90); string perr2; bool pk2 = ProjectLibrary.BakeCover(pw, out perr2); byte[] c1 = File.ReadAllBytes(ProjectLibrary.Find(pw).Cover);
+                Check("zooming and moving makes a new framed picture, written into the list and into the project file", pk2 && !c0.SequenceEqual(c1) && File.ReadAllText(pw).Contains("cover|"), pk2 + " " + perr2);
+                int qz, qx, qy; ProjectLibrary.LoadAdj(pw, out qz, out qx, out qy); Check("the zoom and position are remembered", qz == 250 && qx == 10 && qy == 90);
+                string photo = Path.Combine(StudioEnv.DataDir, "photo.png"); using (var b1 = new Bitmap(400, 400)) { using (var g1 = Graphics.FromImage(b1)) { var rn = new Random(3); for (int i = 0; i < 400; i += 4) for (int j = 0; j < 400; j += 4) using (var br = new SolidBrush(Color.FromArgb(rn.Next(256), rn.Next(256), rn.Next(256)))) g1.FillRectangle(br, i, j, 4, 4); } b1.Save(photo, System.Drawing.Imaging.ImageFormat.Png); }
+                using (var im2 = Image.FromFile(photo)) Check("a picture with no border is never cut", !ProjectLibrary.AutoTrim(im2).HasValue);
+                sf.OpenCoverAdjust(pw); bool opened = (bool)typeof(StudioForm).GetField("caOpen", BF).GetValue(sf); typeof(StudioForm).GetField("caOpen", BF).SetValue(sf, false);
+                Check("the picture button opens the resize sheet when the project already has a picture", opened);
+                ProjectLibrary.ClearCover(pw); Check("removing the picture also removes the kept whole picture", !ProjectLibrary.HasCoverSrc(pw));
+            }
             sf.eng.Tracks.Clear();
         }
         Console.WriteLine(fails == 0 ? "=== new feature checks passed ===" : "=== " + fails + " FAILED ===");

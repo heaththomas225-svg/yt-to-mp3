@@ -262,7 +262,7 @@ partial class StudioForm
         if (abOrig != null && abMast != null && y + 30 < lp.Bottom)
         {
             Txt(g, "BEFORE " + Db(abOrig.I) + "   AFTER " + Db(abMast.I) + " LUFS", 11, Ink, Rc(lp.X + 12, y, lp.Width - 24, 16), StringAlignment.Near, true);
-            Txt(g, "MASTERING ADDS " + (abMast.I - abOrig.I).ToString("+0.0;-0.0") + " LU", 11, DimC, Rc(lp.X + 12, y + 16, lp.Width - 24, 16), StringAlignment.Near, false);
+            Txt(g, "MASTERING ADDS " + (abMast.I - abOrig.I).ToString("+0.0;-0.0") + " LU", 11, DimC, Rc(lp.X + 12, y + 16, lp.Width - 24, 16), StringAlignment.Near, false); y += 34;   // the two lines take their own room: AUTO EQ starts below them
         }
 
         // AUTO EQ: sets the master EQ for you; after it has run, A ORIGINAL and B EQ'D flip between the EQ as it was and the EQ it made

@@ -106,7 +106,7 @@ partial class StudioForm
         {
             if (d.ShowDialog(this) != DialogResult.OK) return; string err; if (!ProjectLibrary.SetCover(path, d.FileName, out err)) { MessageBox.Show(this, err, "Picture"); return; }
             if (string.Equals(path, projPath, StringComparison.OrdinalIgnoreCase)) { var e = ProjectLibrary.Find(path); if (e != null) { ProjectIO.CoverBytes = ProjectLibrary.MakeSquare(e.Cover, 256); } }
-            Toast("Picture added");
+            Toast("Picture added: cut and fitted by itself. Zoom and move it if you like."); if (ProjectLibrary.HasCoverSrc(path)) OpenCoverAdjust(path);
         }
     }
     void PickAvatar()
@@ -242,7 +242,7 @@ partial class StudioForm
             { var vidB = Rc(card.X + 12, card.Y + 358, cw - 24, 26); bool hv = VideoRecs.Has(CommunitySongs.PidOf(e.Path)); Btn(g, vidB, hv ? "MUSIC VIDEO: ON (CHANGE)" : "UPLOAD MUSIC VIDEO", hv ? 4 : 1, () => UploadMusicVideo(e), 10); Hint2(vidB, "Add a music video of any size or shape. It goes with the song on the community page (publish the project first)."); }
             { var pubB = Rc(card.X + 12, card.Y + 324, cw - 24, 26); Btn(g, pubB, e.OnProfile ? "PUBLISHED: PRESS TO MAKE PRIVATE" : "PUBLISH TO PROFILE + COMMUNITY", e.OnProfile ? 4 : 2, () => ToggleOnProfile(e), 10); Hint2(pubB, e.OnProfile ? "This project is on your profile and in the community: press to make it private again" : "Publish this project to your profile and the community (it asks first). People see its name, tempo, length and tags, never the audio"); }
             FillRR(g, prev ? TM.C(235, 40, 140, 160) : (Hot(pv) ? TM.C(220, 90, 50, 170) : TM.C(150, 44, 24, 80)), pv, 7); using (var b = new SolidBrush(Ink)) { if (prev) g.FillRectangle(b, pv.X + 11, pv.Y + 8, 10, 10); else g.FillPolygon(b, new[] { new PointF(pv.X + 11, pv.Y + 6), new PointF(pv.X + 11, pv.Y + 20), new PointF(pv.X + 22, pv.Y + 13) }); } Reg(pv, () => PreviewToggle(e)); if (Hot(pv)) { bubble = prev ? "Stop the preview" : "PREVIEW: hear this project without opening it"; bubblePt = MousePos; }
-            FillRR(g, Hot(cam) ? TM.C(220, 90, 50, 170) : TM.C(150, 44, 24, 80), cam, 7); DrawCamera(g, cam); Reg(cam, () => { if (!e.Missing) PickCover(path); }); if (Hot(cam)) { bubble = "Add or change the picture"; bubblePt = MousePos; }
+            FillRR(g, Hot(cam) ? TM.C(220, 90, 50, 170) : TM.C(150, 44, 24, 80), cam, 7); DrawCamera(g, cam); Reg(cam, () => { if (!e.Missing) CoverClick(path); }); if (Hot(cam)) { bubble = "Add the picture, or resize it"; bubblePt = MousePos; }
             bool has = e.Cover.Length > 0; FillRR(g, has && Hot(nop) ? TM.C(220, 160, 50, 100) : TM.C(has ? 150 : 70, 44, 24, 80), nop, 7); DrawCamera(g, nop); using (var pen = new Pen(Color.FromArgb(has ? 255 : 110, 255, 90, 120), 2.2f)) g.DrawLine(pen, nop.X + 7, nop.Y + 20, nop.Right - 7, nop.Y + 5);
             Reg(nop, () => { if (e.Cover.Length > 0) { ProjectLibrary.ClearCover(path); Toast("Picture removed: the Purphex logo is shown again."); } else Toast("This project has no picture of its own (it shows the Purphex logo)."); }); if (Hot(nop)) { bubble = has ? "Remove the picture (back to the Purphex logo)" : "No picture to remove: it shows the Purphex logo"; bubblePt = MousePos; }
             FillRR(g, Hot(rm) ? TM.C(220, 160, 40, 80) : TM.C(150, 44, 24, 80), rm, 7); Txt(g, "X", 13, Ink, rm, StringAlignment.Center, true); Reg(rm, () => RemoveProjectAsk(e)); if (Hot(rm)) { bubble = "Remove from this list (it asks if the file should go too)"; bubblePt = MousePos; }
@@ -263,6 +263,7 @@ partial class StudioForm
         m.Items.Add(new ToolStripSeparator());
         m.Items.Add("Rename...").Click += (a, b) => { if (e != null) RenameEntry(e); };
         m.Items.Add("Add or change picture...").Click += (a, b) => { if (ok) PickCover(path); };
+        m.Items.Add("Resize picture...").Click += (a, b) => { if (ok) CoverClick(path); };
         if (e != null) { m.Items.Add(e.Fav ? "Remove from favourites" : "Add to favourites").Click += (a, b) => ToggleFavourite(e); m.Items.Add(e.OnProfile ? "Make private (take it off my profile)" : "Publish to my profile").Click += (a, b) => ToggleOnProfile(e); }
         m.Items.Add("Remove picture").Click += (a, b) => { if (e != null && e.Cover.Length > 0) { ProjectLibrary.ClearCover(path); Toast("Picture removed: the Purphex logo is shown again."); } else Toast("This project has no picture of its own."); };
         m.Items.Add("Show in folder").Click += (a, b) => { try { System.Diagnostics.Process.Start("explorer.exe", "/select,\"" + path + "\""); } catch { } };

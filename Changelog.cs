@@ -7,10 +7,16 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.36.6";
+    public const string Latest = "3.36.7";
 
     public const string Text =
-@"3.36.6  Colour mixer tidy-up, no nickname if you like
+@"3.36.7  Pictures that fit themselves, a smaller REVERT box, the DAW resets when you leave
+ + PROJECT PICTURES: a picture with black (or white) bars round it is cut to the picture itself and fitted to the frame by itself. Press the camera on a project: a sheet opens with the same ZOOM, LEFT / RIGHT, UP / DOWN, FIT and FILL controls as your profile picture, plus CHOOSE ANOTHER and REMOVE.
+ + The REVERT box is smaller (one line, no wider than the column it sits in) so it does not reach into the next box. The BEFORE / AFTER loudness lines on the Mastering page no longer sit under AUTO EQ, and the box corners are round all the way.
+ + LEAVING THE DAW resets it: the next time it opens it is empty and the welcome box with your projects is back, like the first time.
+ + A track box picks its track wherever you press it, not only on the name.
+
+3.36.6  Colour mixer tidy-up, no nickname if you like
  + COLOUR MIXER: the second bar under the circles was a copy of the HORIZONTAL GRADIENT MIX bar and is gone (that one moves the mix). The words in the middle circle fit inside it again (SOLO and A ONLY when one colour is on).
  + NICKNAME: leave the box empty and press OK to have no nickname.
 

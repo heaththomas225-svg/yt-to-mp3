@@ -58,15 +58,15 @@ partial class StudioForm
     {
         revertRect = RectangleF.Empty; if (revertAction == null) return; double left = (revertUntil - DateTime.Now).TotalSeconds; if (left <= 0) { revertAction = null; return; }   // after 30 seconds it presses the X for you (the change stays)
         lastInput = DateTime.Now;   // keeps the countdown moving
-        float W = ClientSize.Width, H = ClientSize.Height, bw = Math.Min(W - 28, tab == 0 ? HeadW - 16 : 360), bh = 78, by = H - (tab == 0 ? 50 : 10) - bh; var bar = Rc(tab == 0 ? 8 : 14, by, bw, bh); revertRect = bar;
-        FillRR(g, TM.C(246, 14, 26, 46), bar, 12); Win.DrawNeonBox(g, bar, true);   // its own neat neon box, kept to the left
-        var gs = g.Save(); using (var clip = RR(RectangleF.Inflate(bar, -1, -1), 11)) g.SetClip(clip, CombineMode.Intersect);   // everything stays inside the rounded border
-        TxtWrap(g, revertText.ToUpper(), 12, Ink, Rc(bar.X + 14, bar.Y + 8, bar.Width - 28, 30));
-        float ry = bar.Y + 42; var rv = Rc(bar.Right - 14 - 24 - 8 - 92, ry, 92, 28); var cl = Rc(bar.Right - 14 - 24, ry + 2, 24, 24);
-        Txt(g, "HIDES ITSELF IN " + (int)Math.Ceiling(left) + " S", 10, DimC, Rc(bar.X + 14, ry, rv.X - bar.X - 24, 28), StringAlignment.Near, false);
-        Btn(g, rv, "REVERT", 3, () => DoRevert(), 12); Hint2(rv, "Put everything back exactly as it was before you pressed USE");
+        float W = ClientSize.Width, H = ClientSize.Height, bw = Math.Min(W - 28, 256), bh = 56, by = H - (tab == 0 ? 50 : 10) - bh; var bar = Rc(tab == 0 ? 8 : 14, by, bw, bh); revertRect = bar;   // it stays at the bottom left, no wider than the column it sits in (it never reaches into the next box)
+        FillRR(g, TM.C(246, 14, 26, 46), bar, 7); Win.DrawNeonBox(g, bar, true);   // its own neat neon box, kept to the left
+        var gs = g.Save(); using (var clip = RR(RectangleF.Inflate(bar, -1, -1), 6)) g.SetClip(clip, CombineMode.Intersect);   // everything stays inside the rounded border (same rounding as the neon line)
+        Txt(g, revertText.ToUpper(), 12, Ink, Rc(bar.X + 14, bar.Y + 6, bar.Width - 28, 20), StringAlignment.Near, true);   // one line, a long name is written smaller to fit
+        float ry = bar.Y + 28; var rv = Rc(bar.Right - 14 - 22 - 8 - 84, ry, 84, 22); var cl = Rc(bar.Right - 14 - 22, ry, 22, 22);
+        Txt(g, "HIDES IN " + (int)Math.Ceiling(left) + " S", 10, DimC, Rc(bar.X + 14, ry, rv.X - bar.X - 22, 22), StringAlignment.Near, false);
+        Btn(g, rv, "REVERT", 3, () => DoRevert(), 11); Hint2(rv, "Put everything back exactly as it was before you pressed USE");
         Btn(g, cl, "x", 0, () => revertAction = null, 12); Hint2(cl, "Keep the change and hide this");
-        float fr = (float)Math.Max(0, Math.Min(1, left / (double)RevertSecs)); if (fr > 0.01f) { var sm0 = g.SmoothingMode; g.SmoothingMode = SmoothingMode.AntiAlias; using (var pen = new Pen(Color.FromArgb(200, NeonCyan), 3f) { StartCap = LineCap.Round, EndCap = LineCap.Round }) g.DrawLine(pen, bar.X + 16, bar.Bottom - 8, bar.X + 16 + (bar.Width - 32) * fr, bar.Bottom - 8); g.SmoothingMode = sm0; }
+        float fr = (float)Math.Max(0, Math.Min(1, left / (double)RevertSecs)); if (fr > 0.01f) { var sm0 = g.SmoothingMode; g.SmoothingMode = SmoothingMode.AntiAlias; using (var pen = new Pen(Color.FromArgb(200, NeonCyan), 3f) { StartCap = LineCap.Round, EndCap = LineCap.Round }) g.DrawLine(pen, bar.X + 16, bar.Bottom - 4, bar.X + 16 + (bar.Width - 32) * fr, bar.Bottom - 4); g.SmoothingMode = sm0; }
         g.Restore(gs);
     }
 

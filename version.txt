@@ -1,4 +1,4 @@
-3.36.6
+3.36.7
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Colour mixer tidy-up, no nickname if you like
-sha256=f7603b18eefe9f8eae8bcb8c27ee35697ed73a393f67ec579d470ff6ac6aa8ea
+Pictures that fit themselves, a smaller REVERT box, the DAW resets when you leave
+sha256=feecc0a87aa17b69c232d830b5dd604f306f5c323b6cb2e113071eaba6bddc58

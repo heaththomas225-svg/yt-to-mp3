@@ -234,11 +234,74 @@ static class ProjectLibrary
         catch { return null; }
     }
 
-    // gives a saved project a picture: kept in the list and written into the project file too (so it travels with it)
+    // ---- the picture of a project is kept whole (with its zoom and position), like the profile picture: the framed pictures are made from it ----
+    public static string CoverSrc(string projectPath) { return Path_(projectPath) + ".src"; }
+    static string CoverAdjFile(string projectPath) { return CoverSrc(projectPath) + ".adj"; }
+    public static bool HasCoverSrc(string projectPath) { return File.Exists(CoverSrc(projectPath)); }
+    // zoom (0 = the whole picture, 100 = fills the frame, more = closer), left/right and up/down in percent
+    public static void LoadAdj(string projectPath, out int z, out int x, out int y)
+    {
+        z = 100; x = 50; y = 50;
+        try { var f = File.ReadAllText(CoverAdjFile(projectPath)).Trim().Split(' '); z = Math.Max(0, Math.Min(400, int.Parse(f[0]))); x = Math.Max(0, Math.Min(100, int.Parse(f[1]))); y = Math.Max(0, Math.Min(100, int.Parse(f[2]))); } catch { z = 100; x = 50; y = 50; }
+    }
+    public static void SaveAdj(string projectPath, int z, int x, int y) { try { Directory.CreateDirectory(CoversDir); File.WriteAllText(CoverAdjFile(projectPath), z + " " + x + " " + y); } catch { } }
+    // cuts away an even border around the picture (the black or white bars round a photo) so the picture itself fills the frame; null when there is nothing to cut
+    public static Rectangle? AutoTrim(Image src)
+    {
+        try
+        {
+            int tw = 96, th = Math.Max(8, (int)Math.Round(96.0 * src.Height / Math.Max(1, src.Width))); if (src.Height > src.Width) { th = 96; tw = Math.Max(8, (int)Math.Round(96.0 * src.Width / Math.Max(1, src.Height))); }
+            using (var t = new Bitmap(tw, th, PixelFormat.Format24bppRgb))
+            {
+                using (var g = Graphics.FromImage(t)) { g.InterpolationMode = InterpolationMode.HighQualityBilinear; g.DrawImage(src, 0, 0, tw, th); }
+                Func<int, int, int[]> px = (x, y) => { var c = t.GetPixel(x, y); return new int[] { c.R, c.G, c.B }; };
+                var c0 = px(0, 0); var cs = new[] { px(tw - 1, 0), px(0, th - 1), px(tw - 1, th - 1) }; Func<int[], int[], int> d = (p, q) => Math.Abs(p[0] - q[0]) + Math.Abs(p[1] - q[1]) + Math.Abs(p[2] - q[2]);
+                foreach (var c in cs) if (d(c0, c) > 60) return null;   // the corners differ: there is no even border
+                int ring = 0, off = 0; for (int x = 0; x < tw; x++) { ring += 2; if (d(px(x, 0), c0) > 60) off++; if (d(px(x, th - 1), c0) > 60) off++; } for (int y = 0; y < th; y++) { ring += 2; if (d(px(0, y), c0) > 60) off++; if (d(px(tw - 1, y), c0) > 60) off++; }
+                if (off > ring / 25) return null;   // the edge has real picture in it
+                int x0 = tw, x1 = -1, y0 = th, y1 = -1;
+                for (int y = 0; y < th; y++) for (int x = 0; x < tw; x++) if (d(px(x, y), c0) > 90) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+                if (x1 < 0) return null; int w = x1 - x0 + 1, h = y1 - y0 + 1; if (w < tw * 0.18 || h < th * 0.18) return null; if (w * h > 0.9 * tw * th) return null;
+                int padx = Math.Max(1, (int)Math.Round(w * 0.06)), pady = Math.Max(1, (int)Math.Round(h * 0.06)); x0 = Math.Max(0, x0 - padx); y0 = Math.Max(0, y0 - pady); x1 = Math.Min(tw - 1, x1 + padx); y1 = Math.Min(th - 1, y1 + pady);
+                double kx = src.Width / (double)tw, ky = src.Height / (double)th; return new Rectangle((int)Math.Floor(x0 * kx), (int)Math.Floor(y0 * ky), Math.Max(1, (int)Math.Ceiling((x1 - x0 + 1) * kx)), Math.Max(1, (int)Math.Ceiling((y1 - y0 + 1) * ky)));
+            }
+        }
+        catch { return null; }
+    }
+    // the chosen picture, borders cut away and no larger than 1024 pixels; also says the zoom that suits it (fill the frame when it is roughly square, the whole picture when it is long)
+    static byte[] CoverSource(string imageFile, out int zoom)
+    {
+        zoom = 100; Image src; using (var fs = new FileStream(imageFile, FileMode.Open, FileAccess.Read, FileShare.ReadWrite)) { var ms = new MemoryStream(); fs.CopyTo(ms); ms.Position = 0; src = Image.FromStream(ms); }
+        using (src)
+        {
+            var tr = AutoTrim(src); Rectangle cut = tr.HasValue ? tr.Value : new Rectangle(0, 0, src.Width, src.Height);
+            double sc = Math.Min(1.0, 1024.0 / Math.Max(cut.Width, cut.Height)); int w = Math.Max(1, (int)Math.Round(cut.Width * sc)), h = Math.Max(1, (int)Math.Round(cut.Height * sc)); double ar = cut.Width / (double)cut.Height; zoom = ar >= 0.7 && ar <= 1.43 ? 100 : 0;
+            using (var bmp = new Bitmap(w, h, PixelFormat.Format24bppRgb)) { using (var g = Graphics.FromImage(bmp)) { g.Clear(Color.FromArgb(255, 10, 5, 22)); g.InterpolationMode = InterpolationMode.HighQualityBicubic; g.PixelOffsetMode = PixelOffsetMode.HighQuality; g.DrawImage(src, new Rectangle(0, 0, w, h), cut, GraphicsUnit.Pixel); } return JpegBytes(bmp, 90); }
+        }
+    }
+    // the framed picture (zoom and position applied) as JPEG bytes
+    public static byte[] FramedCover(string srcFile, int size, int z, int x, int y)
+    {
+        try
+        {
+            Image src; using (var fs = new FileStream(srcFile, FileMode.Open, FileAccess.Read, FileShare.ReadWrite)) { var ms = new MemoryStream(); fs.CopyTo(ms); ms.Position = 0; src = Image.FromStream(ms); }
+            using (src) using (var bmp = ProfileStore.RenderFramed(src, size, size, z, x, y, Color.FromArgb(255, 10, 5, 22))) using (var rgb = new Bitmap(size, size, PixelFormat.Format24bppRgb)) { using (var g = Graphics.FromImage(rgb)) g.DrawImage(bmp, 0, 0, size, size); return JpegBytes(rgb, 88); }
+        }
+        catch { return null; }
+    }
+    // gives a saved project a picture: it is cut to its content and fitted to the frame by itself; the whole picture is kept so it can be zoomed and moved later
     public static bool SetCover(string projectPath, string imageFile, out string error)
     {
-        error = null; var big = MakeSquare(imageFile, 420); if (big == null) { error = "That file is not a picture Purphex can read (use a JPG, PNG, GIF or BMP)."; return false; }
-        var small = MakeSquare(imageFile, 256);
+        error = null; byte[] srcBytes = null; int z = 100; try { srcBytes = CoverSource(imageFile, out z); } catch { srcBytes = null; }
+        if (srcBytes == null) { error = "That file is not a picture Purphex can read (use a JPG, PNG, GIF or BMP)."; return false; }
+        try { Directory.CreateDirectory(CoversDir); File.WriteAllBytes(CoverSrc(projectPath), srcBytes); SaveAdj(projectPath, z, 50, 50); } catch (Exception ex) { error = "Couldn't save the picture: " + ex.Message; return false; }
+        return BakeCover(projectPath, out error);
+    }
+    // makes the pictures the lists and the project file use from the kept whole picture and its zoom and position
+    public static bool BakeCover(string projectPath, out string error)
+    {
+        error = null; string sf = CoverSrc(projectPath); if (!File.Exists(sf)) { error = "This project has no picture to adjust."; return false; }
+        int z, x, y; LoadAdj(projectPath, out z, out x, out y); var big = FramedCover(sf, 420, z, x, y); var small = FramedCover(sf, 256, z, x, y); if (big == null || small == null) { error = "That file is not a picture Purphex can read (use a JPG, PNG, GIF or BMP)."; return false; }
         try
         {
             if (File.Exists(projectPath))
@@ -252,12 +315,19 @@ static class ProjectLibrary
         }
         catch (Exception ex) { error = "Couldn't save the picture: " + ex.Message; return false; }
     }
+    // a picture made by an older version has no whole picture kept: the framed one is used as the start
+    public static bool EnsureCoverSrc(string projectPath)
+    {
+        if (HasCoverSrc(projectPath)) return true; var e = Find(projectPath); if (e == null || e.Cover.Length == 0 || !File.Exists(e.Cover)) return false;
+        try { File.Copy(e.Cover, CoverSrc(projectPath), true); SaveAdj(projectPath, 100, 50, 50); return true; } catch { return false; }
+    }
     public static void ClearCover(string projectPath)
     {
         try
         {
             if (File.Exists(projectPath)) { var lines = new List<string>(File.ReadAllLines(projectPath, Encoding.UTF8)); if (lines.RemoveAll(l => l.StartsWith("cover|")) > 0) { string tmp = projectPath + ".tmp"; File.WriteAllLines(tmp, lines.ToArray(), Encoding.UTF8); File.Delete(projectPath); File.Move(tmp, projectPath); } }
             lock (lk) { var e = Find(projectPath); if (e != null) { try { if (e.Cover.Length > 0) File.Delete(e.Cover); } catch { } Forget(e.Cover); e.Cover = ""; } }
+            try { File.Delete(CoverSrc(projectPath)); File.Delete(CoverAdjFile(projectPath)); } catch { }
             Save();
         }
         catch { }
