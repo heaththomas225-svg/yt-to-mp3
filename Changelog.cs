@@ -7,10 +7,16 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.36.0";
+    public const string Latest = "3.36.1";
 
     public const string Text =
-@"3.36.0  A welcome box, the buttons of the converter on the DAW, AUTO EQ, nicknames, EPs and albums without limits, a Friends page, translucent colours, clearer fonts and a lot of tidying
+@"3.36.1  Unlimited tracks on your profile, EPs and albums of up to 20 songs, a welcome box that comes back, clickable empty tracks
+ + PROFILE: your profile can list any number of tracks (there was a limit before), on your profile page and on the artist page other people see.
+ + EP / ALBUM: an EP or an album holds up to 20 songs (the box says so, and the website keeps the first 20).
+ + WELCOME: if you press OPEN A PROJECT FILE and then cancel the window, you are back at the welcome box.
+ + EMPTY TRACKS: the add-music box inside an empty track is clickable (it was hidden behind the track). The RECORD HERE tag is gone: the picked track is simply lit.
+
+3.36.0  A welcome box, the buttons of the converter on the DAW, AUTO EQ, nicknames, EPs and albums without limits, a Friends page, translucent colours, clearer fonts and a lot of tidying
  + WELCOME: Purphex Music now opens on the mix with a neon box on top (your latest projects, START A NEW PROJECT, OPEN A PROJECT FILE and ALL MY PROJECTS) instead of opening on My Projects. Any choice, or the X, takes you to the mix.
  + BUTTONS: every button of the DAW now looks like the buttons of the converter window: a soft shade, a thin lit edge, a light line on the top edge and a glow under the mouse. The one and two mark buttons (the menu, X, +, -, the arrows) have their mark exactly in the middle. Buttons that touched each other (the icon buttons on the project cards, RECYCLING BIN above PUBLISH ALL) now sit side by side, and the screen audit checks for it on every screen.
  + ARTIST NAME: the window that says the artist name is taken only opens when you change your name on the Profile tab, never for a name that is already yours. A name held by another profile of your own linked account is yours: publishing it again from a new install moves your old profile (friends, followers, messages, collabs and songs) to it.

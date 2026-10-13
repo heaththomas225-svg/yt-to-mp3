@@ -683,6 +683,7 @@ partial class StudioForm : Form
             foreach (var lay in eng.Tracks) if (lay.Host == tr) { if (lay.Instrument) PaintMidi(g, lay, lane); else if (lay.Clip != null) PaintWave(g, lay, lane, sel); }   // tracks sharing this row
             Prof.A("mix.wave", q0);
             var lr = LaneReg(lane, tr); int idx = i;
+            { RectangleF er; if (tr.Clip == null && !tr.Instrument && !tr.IsBus && emptyLanes.TryGetValue(tr, out er)) { var tk = tr; Reg(er, () => { selTrack = idx; fillTrack = tk; try { AddMusicClick(true); } finally { fillTrack = null; } }); } }   // the box of an empty track: click it to pick music for THIS track
             q0 = Prof.T(); PaintHeader(g, tr, i, Rc(0, ys, HeadW, LaneH), sel); Prof.A("mix.header", q0);
             q0 = Prof.T(); NeonLaneChrome(g, tr, Rc(0, ys, HeadW, LaneH), lane, sel); Prof.A("mix.neonchrome", q0);
             if (sel && n > 1) PaintPickedRow(g, tr, Rc(1, ys + 1, tl.Right - 2, LaneH - 2));
@@ -910,14 +911,10 @@ partial class StudioForm : Form
     }
     // a track with no audio has its own box inside its border: click it to pick music for THIS track, or drop files on it (the same box as an empty project, made to fit the track)
     readonly Dictionary<Track, RectangleF> emptyLanes = new Dictionary<Track, RectangleF>(); readonly Dictionary<Track, int> emptyLaneAt = new Dictionary<Track, int>(); Track fillTrack;
-    // the track that is picked (click its name or its lane): a bright outline round the whole row, and RECORD HERE when a recording would go onto it (the microphone puts a recording on the picked audio track)
+    // the track that is picked (click its name or its lane): a bright outline round the whole row (the microphone puts a recording on the picked audio track)
     void PaintPickedRow(Graphics g, Track tr, RectangleF row)
     {
         Color c = micArmed || mic != null ? Color.FromArgb(255, 255, 90, 120) : NeonCyan; using (var p = RR(row, 6)) { using (var pen = new Pen(Color.FromArgb(70, c), 5f)) g.DrawPath(pen, p); using (var pen = new Pen(Color.FromArgb(230, c), 1.6f)) g.DrawPath(pen, p); }
-        if (tr.IsBus || tr.Instrument || tr.Locked) return; var h = RecordTarget(); if (h == null || RowHost(tr) != h) return;
-        string t = mic != null ? "RECORDING HERE" : (micArmed ? "READY TO RECORD HERE" : "RECORD HERE"); float tw = Math.Max(110f, g.MeasureString(t, GfxCache.Exact(GfxCache.Grow(10), true)).Width + 18); var tg = Rc(row.Right - tw - 8, row.Bottom - 25, tw, 20);
-        FillRR(g, mic != null || micArmed ? TM.C(235, 150, 28, 52) : TM.C(225, 10, 70, 90), tg, 8); StrokeRR(g, Color.FromArgb(220, c), tg, 8, 1f); Txt(g, t, 10, Color.White, tg, StringAlignment.Center, true);
-        if (mic != null || micArmed) lastInput = DateTime.Now;
     }
     void PaintEmptyLane(Graphics g, Track tr, RectangleF lane)
     {
@@ -930,7 +927,7 @@ partial class StudioForm : Form
         if (tall) { line(drop ? "Drop your music here" : "Add your music to start", 18, Ink, r0.Y + r0.Height * 0.14f, true); line(t2, 12, drop ? Ink : DimC, r0.Y + r0.Height * 0.46f, false); line("MP3, WAV, FLAC, M4A, OGG and more.", 10, DimC, r0.Y + r0.Height * 0.72f, false); }
         else if (mid) { line(drop ? "Drop your music here" : "Add your music to start", 14, Ink, r0.Y + r0.Height * 0.14f, true); line(t2, 10.5f, drop ? Ink : DimC, r0.Y + r0.Height * 0.55f, false); }
         else line(drop ? "Drop your music here" : "Add your music to start: click here or drop files", 12, Ink, r0.Y + (r0.Height - 20) / 2f, true);
-        var tk = tr; Reg(r0, () => { fillTrack = tk; try { AddMusicClick(true); } finally { fillTrack = null; } }); if (over) { bubble = "Click to choose music for this track"; bubblePt = MousePos; }
+        if (over) { bubble = "Click to choose music for this track"; bubblePt = MousePos; }
     }
     // the empty track under a point (a drop of files lands on it), null when there is none
     Track EmptyTrackAt(Point p) { foreach (var kv in emptyLanes) { int at; if (kv.Key.Clip == null && eng.Tracks.Contains(kv.Key) && emptyLaneAt.TryGetValue(kv.Key, out at) && unchecked(Environment.TickCount - at) < 400 && kv.Value.Contains(p.X, p.Y)) return kv.Key; } return null; }

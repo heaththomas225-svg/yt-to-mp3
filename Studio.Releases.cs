@@ -49,7 +49,7 @@ static class ReleaseStore
     {
         if ((title ?? "").Trim().Length < 2) return "Give it a name with at least 2 letters.";
         if (n < 2) return "Pick at least 2 projects: an " + (kind == "album" ? "album" : "EP") + " is several tracks together.";
-        if (n > 300) return "That is more than 300 songs: pick fewer.";
+        if (n > 20) return "An EP or an album holds up to 20 songs: pick fewer.";
         return null;
     }
 }
@@ -100,7 +100,7 @@ partial class StudioForm
         using (var p = RR(box, 22)) { using (var br = new LinearGradientBrush(box, TM.C(250, 26, 12, 58), TM.C(250, 9, 4, 24), 90f)) g.FillPath(br, p); using (var pen = new Pen(NeonCyan, 2.2f)) g.DrawPath(pen, p); }
         using (var pen = new Pen(Color.FromArgb(110, NeonPink), 1.2f)) using (var p = RR(RectangleF.Inflate(box, -9, -9), 16)) g.DrawPath(pen, p); AnimRing(g, box, NeonCyan); Reg(box, () => { });
         Txt(g, "MAKE AN EP OR ALBUM", 24, Ink, Rc(box.X + 28, box.Y + 16, box.Width - 110, 34), StringAlignment.Near, true);
-        Txt(g, "Pick as many songs as you like: tick them, then move them into the order you want.", 13, DimC, Rc(box.X + 28, box.Y + 52, box.Width - 56, 22), StringAlignment.Near, false);
+        Txt(g, "Pick up to 20 songs: tick them, then move them into the order you want.", 13, DimC, Rc(box.X + 28, box.Y + 52, box.Width - 56, 22), StringAlignment.Near, false);
         var cl = Rc(box.Right - 46, box.Y + 14, 30, 28); Btn(g, cl, "x", 3, () => { relOpen = false; }, 12); Hint2(cl, "Close without making anything");
         float y = box.Y + 86; Txt(g, "NAME", 12, DimC, Rc(box.X + 28, y, 100, 18), StringAlignment.Near, true);
         var nb = new Rectangle((int)(box.X + 28), (int)(y + 20), (int)(box.Width - 56), 32); if (relBoxAt != nb) { relBoxAt = nb; relNameBox.Bounds = nb; } if (!relNameBox.Visible) { relNameBox.Visible = true; relNameBox.BringToFront(); relNameBox.Focus(); }

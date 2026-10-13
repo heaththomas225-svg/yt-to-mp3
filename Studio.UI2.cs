@@ -205,12 +205,16 @@ partial class StudioForm
     }
 
     const string AudioExts = "*.mp3;*.wav;*.flac;*.aiff;*.aif;*.m4a;*.aac;*.ogg;*.opus;*.wma;*.mp4;*.mkv;*.webm";
-    void OpenClick()
+    // false when nothing was chosen (the window was cancelled, or the open was declined)
+    internal Func<string[]> openPickHook;   // a test answers for itself (null = the window was cancelled)
+    bool OpenClick()
     {
         string[] picked;
-        using (var d = new OpenFileDialog()) { d.Title = "Open a project, or add music (mp3, wav, flac...)"; d.Multiselect = true; d.Filter = "Projects and audio|*.ytmproj;" + AudioExts + "|Studio project (*.ytmproj)|*.ytmproj|Audio files|" + AudioExts + "|All files|*.*"; if (d.ShowDialog(this) != DialogResult.OK) return; picked = d.FileNames; }
-        foreach (var f in picked) if (f.EndsWith(".ytmproj", StringComparison.OrdinalIgnoreCase)) { if (eng.Tracks.Count > 0 && !AskYes(OverwriteText(Path.GetFileNameWithoutExtension(f)), "Open project")) return; OpenProjectPath(f); return; }
+        if (openPickHook != null) { picked = openPickHook(); if (picked == null || picked.Length == 0) return false; }
+        else using (var d = new OpenFileDialog()) { d.Title = "Open a project, or add music (mp3, wav, flac...)"; d.Multiselect = true; d.Filter = "Projects and audio|*.ytmproj;" + AudioExts + "|Studio project (*.ytmproj)|*.ytmproj|Audio files|" + AudioExts + "|All files|*.*"; if (d.ShowDialog(this) != DialogResult.OK) return false; picked = d.FileNames; }
+        foreach (var f in picked) if (f.EndsWith(".ytmproj", StringComparison.OrdinalIgnoreCase)) { if (eng.Tracks.Count > 0 && !AskYes(OverwriteText(Path.GetFileNameWithoutExtension(f)), "Open project")) return false; OpenProjectPath(f); return true; }
         foreach (var f in picked) PromptImport(f);   // audio files are added as tracks
+        return true;
     }
     internal void OpenProjectPath(string path)
     {
