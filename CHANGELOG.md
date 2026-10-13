@@ -2,6 +2,11 @@
 
 What changed in each version of **Purphex**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.36.6  Colour mixer tidy-up, no nickname if you like
+
+- COLOUR MIXER: the second bar under the circles was a copy of the HORIZONTAL GRADIENT MIX bar and is gone (that one moves the mix). The words in the middle circle fit inside it again (SOLO and A ONLY when one colour is on).
+- NICKNAME: leave the box empty and press OK to have no nickname.
+
 ## 3.36.5  SHARE PROFILE gives your own page, performance mode at 240 fps, one export choice at a time
 
 - SHARE PROFILE copies the link to YOUR OWN PAGE on the website (name with your nickname, picture, banner, bio, links, genres, tracks and songs) and opens it. Anybody you send it to can see it, with no sign-in. Publish your profile first (and not private) to have one.

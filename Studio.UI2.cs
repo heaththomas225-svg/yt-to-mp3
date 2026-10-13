@@ -242,6 +242,7 @@ partial class StudioForm
     }
 
     internal string Ask(string prompt, string def) { return StudioDialogs.Ask(this, prompt, def); }
+    internal string AskBlank(string prompt, string def) { return StudioDialogs.Ask(this, prompt, def, true); }
 
     // ======================================================================
     //  MASTERING TAB
@@ -396,7 +397,9 @@ static class StudioDialogs
         emo.Click += (s, e) => EmojiPanel.Toggle(f, em => { int at = tb.SelectionStart; tb.Text = tb.Text.Substring(0, at) + em + tb.Text.Substring(Math.Min(tb.Text.Length, at + tb.SelectionLength)); tb.SelectionStart = at + em.Length; tb.Focus(); });
         ok.Click += (s, e) => { result = tb.Text.Trim(); f.Close(); }; cancel.Click += (s, e) => f.Close(); f.CancelButton = cancel; f.ShowDialog(owner); return result;
     }
-    public static string Ask(IWin32Window owner, string prompt, string def)
+    public static string Ask(IWin32Window owner, string prompt, string def) { return Ask(owner, prompt, def, false); }
+    // allowBlank: OK with nothing typed gives "" (it is how a box is emptied, for example no nickname); Cancel still gives null
+    public static string Ask(IWin32Window owner, string prompt, string def, bool allowBlank)
     {
         string result = null; var f = Make("Studio", 440, 140);
         var pl = new Label { Text = prompt, Left = 16, Top = 14, Width = 404, AutoSize = false, Height = 22 };   // the question gets as many lines as it needs (it used to be cut off)
@@ -405,7 +408,7 @@ static class StudioDialogs
         var tb = new TextBox { Left = 16, Top = 42 + dy, Width = 404, Text = def, BackColor = Fld, ForeColor = Ink, BorderStyle = BorderStyle.FixedSingle }; Win.NeonBox(tb); f.Controls.Add(tb);
         var ok = B("OK", 230, 86 + dy, 90, 32, TM.C(255, 118, 52, 212)); var cancel = B("Cancel", 330, 86 + dy, 90, 32, TM.C(255, 70, 40, 120));
         var emo = B("EMOJIS", 16, 86 + dy, 110, 32, TM.C(255, 150, 70, 235)); emo.Click += (s, e) => EmojiPanel.Toggle(f, em => { int at = tb.SelectionStart; tb.Text = tb.Text.Substring(0, at) + em + tb.Text.Substring(Math.Min(tb.Text.Length, at + tb.SelectionLength)); tb.SelectionStart = at + em.Length; tb.Focus(); }); f.Controls.Add(emo);   // anywhere you write a name, a bio or a description
-        ok.Click += (s, e) => { if (tb.Text.Trim().Length > 0) { result = tb.Text.Trim(); f.Close(); } }; cancel.Click += (s, e) => f.Close(); f.AcceptButton = ok; f.Controls.AddRange(new Control[] { ok, cancel });
+        ok.Click += (s, e) => { if (allowBlank || tb.Text.Trim().Length > 0) { result = tb.Text.Trim(); f.Close(); } }; cancel.Click += (s, e) => f.Close(); f.AcceptButton = ok; f.Controls.AddRange(new Control[] { ok, cancel });
         f.ShowDialog(owner); return result;
     }
 

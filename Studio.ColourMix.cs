@@ -466,15 +466,15 @@ partial class StudioForm
           {
               MixCircle(g, Rc(rx, cyC - dA / 2, dA, dA), mixA, mixKA, "COLOUR A", mixNameA, mixA2, 0);
               MixArrow(g, Rc(rx + dA + 6, cyC - 27, gapA - 12, 54), mixA, merged, true, !mixAOn ? "OFF" : (MixSolo ? (int)Math.Round((1 - mixTS) * 100) + "%" : (int)Math.Round((1 - mixT) * 100) + "% A"));
-              MixCircle(g, Rc(rx + dA + gapA, ty, dM, dM), merged, MixedKind, MixSolo ? "YOUR COLOUR" : "MERGED", MixSolo ? (mixAOn ? "A ONLY" : "B ONLY") : "A + B", MixedSecond);
+              MixCircle(g, Rc(rx + dA + gapA, ty, dM, dM), merged, MixedKind, MixSolo ? "SOLO" : "MERGED", MixSolo ? (mixAOn ? "A ONLY" : "B ONLY") : "A + B", MixedSecond);
               MixArrow(g, Rc(rx + dA + gapA + dM + 6, cyC - 27, gapA - 12, 54), merged, mixB, false, !mixBOn ? "OFF" : (MixSolo ? (int)Math.Round((1 - mixTS) * 100) + "%" : (int)Math.Round(mixT * 100) + "% B"));
               MixCircle(g, Rc(rx + dA + gapA + dM + gapA, cyC - dA / 2, dA, dA), mixB, mixKB, "COLOUR B", mixNameB, mixB2, 1);
           }
           float cy2 = ty + rowH + 12; if (vis(cy2, cy2 + 34))
           {
               var sw = Rc(px + 14, cy2, 88, 32); Btn(g, sw, "SWAP", 0, () => MixSwap(), 12); Hint2(sw, "Swap colour A and colour B");
-              var sr = Rc(sw.Right + 14, cy2 - 3, Math.Max(150, px + pw - 14 - sw.Right - 14 - 160), 38); MixLogoBar(g, sr, MixPos, f => MixSetPos(f), MixEndA, MixEndB, true); Hint2(sr, MixSolo ? "Hold the logo and drag it: all the way left the colour stays as it is, and the further right the darker it fades. Click the strip to jump, or the arrows to step" : "Hold the logo and drag it: how much of colour B is in the mix (left is all A, right is all B). Click the strip to jump, or the arrows to step");
-              Txt(g, MixSolo ? (mixAOn ? "A ONLY: " : "B ONLY: ") + (int)Math.Round((1 - mixTS) * 100) + "%" : (int)Math.Round((1 - mixT) * 100) + "% A / " + (int)Math.Round(mixT * 100) + "% B", 12, Ink, Rc(sr.Right + 10, cy2, 150, 32), StringAlignment.Near, true);
+              var sr = Rc(sw.Right + 14, cy2, 320, 32);   // (the label only: the gradient bar below moves the mix)
+              Txt(g, MixSolo ? (mixAOn ? "A ONLY: " : "B ONLY: ") + (int)Math.Round((1 - mixTS) * 100) + "%" : (int)Math.Round((1 - mixT) * 100) + "% A / " + (int)Math.Round(mixT * 100) + "% B", 12, Ink, Rc(sr.X, cy2, 320, 32), StringAlignment.Near, true);
           }
           float cy3 = cy2 + 42; if (vis(cy3, cy3 + 34))
           {

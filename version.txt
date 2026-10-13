@@ -1,4 +1,4 @@
-3.36.5
+3.36.6
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-SHARE PROFILE gives your own page, performance mode at 240 fps, one export choice at a time
-sha256=5ebd59025cc86938d428c4e0e46242e0c350163257a553b64d50a676754e41ad
+Colour mixer tidy-up, no nickname if you like
+sha256=f7603b18eefe9f8eae8bcb8c27ee35697ed73a393f67ec579d470ff6ac6aa8ea
