@@ -7,10 +7,13 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.38.0";
+    public const string Latest = "3.38.1";
 
     public const string Text =
-@"3.38.0  The release check: 23 fixes in the app
+@"3.38.1  A safer close
+ + FIXED: closing a window at the moment it was being drawn could crash the program (the glow around text boxes was drawn on a surface that was already gone). The button test now also presses every entry of the side menu, its lists and the New Track box.
+
+3.38.0  The release check: 23 fixes in the app
  + MASTERING: pressing Try or Use on a master preset while the song plays could switch the master Limiter off for good (playback and exports then clipped). The master is changed safely now, also by AUTO MASTERING.
  + EXPORTS land exactly on time: with plugins that delay the sound (Pitch Correction) or with buses, an export could cut the first moments of the song or come out a little late. The delay is now worked out the same way the mix uses it.
  + STEMS and Processed vocals / instrumental exports of a split track hold the whole track (every piece), with one stem per track.

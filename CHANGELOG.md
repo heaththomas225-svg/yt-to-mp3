@@ -2,6 +2,10 @@
 
 What changed in each version of **Purphex**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.38.1  A safer close
+
+- FIXED: closing a window at the moment it was being drawn could crash the program (the glow around text boxes was drawn on a surface that was already gone). The button test now also presses every entry of the side menu, its lists and the New Track box.
+
 ## 3.38.0  The release check: 23 fixes in the app
 
 - MASTERING: pressing Try or Use on a master preset while the song plays could switch the master Limiter off for good (playback and exports then clipped). The master is changed safely now, also by AUTO MASTERING.

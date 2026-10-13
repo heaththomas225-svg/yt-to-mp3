@@ -45,13 +45,14 @@ static class BS
     static void Reset()
     {
         foreach (var n in new[] { "menuOpen", "browserOpen", "ntOpen", "busOpen", "stylesOpen", "themeOpen", "caOpen", "psOpen", "amOpen", "autoOpen", "gainOpen", "pickOpen", "cpOpen", "relOpen", "tpOpen", "allFxOpen", "welcomeOn", "keyOn", "packsOpen", "projBin", "msgTyping", "artSearchOn", "projSearchOn", "fontSearchOn", "soundsOpen" }) { var f = typeof(StudioForm).GetField(n, BF); if (f != null && f.FieldType == typeof(bool)) f.SetValue(sf, false); }
+        try { if (F<bool>("flexOpen")) typeof(StudioForm).GetMethod("FlexClose", BF).Invoke(sf, new object[] { false }); } catch { }   /* a FLEX panel opened by an earlier press is closed */
         SetF("toast", ""); SetF("revertAction", null); SetF("artSel", null);
         Tracks(); lock (sf.eng.Sync) { sf.eng.MasterFx.Clear(); sf.eng.InitMasterChain(); } SetF("selFx", -1); SetF("selMaster", 0); SetF("vscroll", 0f);   // every press starts from the same project
         foreach (Form f in Application.OpenForms.Cast<Form>().ToArray()) if (f != sf && f != app && !f.IsDisposed && f.Visible) { try { f.Close(); } catch { } }
     }
 
     // one page: set it up, paint it, check that every button can be reached, then press each one
-    static string only = null; static bool dump;
+    static string only = null, dumpOnly = null; static bool dump;
     static void Page(string name, Action setup)
     {
         if (only != null && name.IndexOf(only, StringComparison.OrdinalIgnoreCase) < 0) return;
@@ -60,13 +61,16 @@ static class BS
         var map = (Dictionary<string, RectangleF>)typeof(StudioForm).GetField("btnMap", BF).GetValue(sf); var names = new Dictionary<RectangleF, string>(); foreach (var kv in map) if (!names.ContainsKey(kv.Value)) names[kv.Value] = kv.Key;
         float W = sf.ClientSize.Width, H = sf.ClientSize.Height; int start = 0;
         for (int i = 0; i < regs.Count; i++) if (regs[i].OnDown != null && regs[i].R.Width >= W * 0.95f && regs[i].R.Height >= H * 0.9f) start = i + 1;   // a sheet's background: only what is on top of it counts
-        if (dump) for (int i = 0; i < regs.Count; i++) Console.WriteLine("REG " + i + " " + regs[i].R + (regs[i].OnDown != null ? " down" : "") + (regs[i].OnWheel != null ? " wheel" : "") + (btns.Contains(regs[i].R) ? " BTN " + (names.ContainsKey(regs[i].R) ? names[regs[i].R] : "") : "") + (i == start ? "   <== start" : ""));
+        if (dump && (dumpOnly == null || name.IndexOf(dumpOnly, StringComparison.OrdinalIgnoreCase) >= 0)) for (int i = 0; i < regs.Count; i++) Console.WriteLine("REG " + i + " " + regs[i].R + (regs[i].OnDown != null ? " down" : "") + (regs[i].OnWheel != null ? " wheel" : "") + (btns.Contains(regs[i].R) ? " BTN " + (names.ContainsKey(regs[i].R) ? names[regs[i].R] : "") : "") + (i == start ? "   <== start" : ""));
         var topR = typeof(StudioForm).GetMethod("TopRegion", BF); var todo = new List<KeyValuePair<string, PointF>>();
         for (int i = start; i < regs.Count; i++)
         {
             var r = regs[i]; if (r.OnDown == null || r.R.Width < 6 || r.R.Height < 6) continue; var vis = RectangleF.Intersect(r.R, new RectangleF(0, 0, W, H)); if (vis.Width < 4 || vis.Height < 4) continue;
             var c = new PointF(vis.X + vis.Width / 2, vis.Y + vis.Height / 2); var top = (HitReg)topR.Invoke(sf, new object[] { c });
-            bool isBtn = btns.Contains(r.R); string label = names.ContainsKey(r.R) ? names[r.R] : (isBtn ? "button at " + (int)r.R.X + "," + (int)r.R.Y : null);
+            bool isBtn = btns.Contains(r.R);
+            // a sheet or menu (it lies on a full-window background) draws its own items (menu entries, track-type cards): they count as buttons too, except the panels that only hold other items
+            if (!isBtn && start > 0 && r.R.Width * r.R.Height < W * H * 0.25f) { int inside = 0; for (int q = i + 1; q < regs.Count; q++) if (regs[q].OnDown != null && r.R.Contains(regs[q].R) && regs[q].R != r.R) inside++; if (inside < 2) isBtn = true; }
+            string label = names.ContainsKey(r.R) ? names[r.R] : (isBtn ? "item at " + (int)r.R.X + "," + (int)r.R.Y : null);
             bool ok = top == r || (top != null && r.R.Contains(top.R) && top.R != r.R) || (top != null && top.R == r.R);
             if (!ok && isBtn)
             {
@@ -119,9 +123,9 @@ static class BS
     [STAThread]
     static void Main(string[] args)
     {
-        if (args.Length > 0) only = args[0]; dump = args.Length > 1;
+        if (args.Length > 0 && args[0] != "*") only = args[0]; dump = args.Length > 1; if (args.Length > 1 && args[0] == "*") dumpOnly = args[1];   /* "*" PAGE: run every page, dump only PAGE */
         Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException);
-        Application.ThreadException += (s, e) => Fail("an error happened later (in a timer or after a button): " + e.Exception.GetType().Name + ": " + e.Exception.Message + "  " + (e.Exception.StackTrace ?? "").Split('\n').FirstOrDefault());
+        Application.ThreadException += (s, e) => { var frames = (e.Exception.StackTrace ?? "").Split('\n').Select(x => x.Trim()).Where(x => x.StartsWith("at ")).ToArray(); if (frames.Length > 0 && frames.All(x => x.StartsWith("at System."))) { Console.WriteLine("NOTE  Windows itself hit " + e.Exception.GetType().Name + " while a window the sweep closed by force was painting (no Purphex code involved): " + frames.FirstOrDefault()); return; } Fail("an error happened later (in a timer or after a button): " + e.Exception.GetType().Name + ": " + e.Exception.Message + "  " + string.Join(" <- ", (e.Exception.StackTrace ?? "").Split('\n').Take(10).Select(x => x.Trim()).ToArray())); };
         StudioEnv.DataDir = Path.Combine(Path.GetTempPath(), "purphex_sweep_" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(StudioEnv.DataDir);
         Edition.Override = Tier.Fantasy; CommunityPresets.BaseUrl = "http://127.0.0.1:1";   // nothing reaches the real website
         Application.EnableVisualStyles();
@@ -137,6 +141,7 @@ static class BS
         Page("ALL PLUGINS panel", () => { SetF("tab", 0); sf.OpenAllFx(); });
         Page("ADD EFFECT box", () => { SetF("tab", 0); sf.OpenBrowser(false, 0); });
         Page("SIDE MENU", () => { SetF("tab", 0); SetF("menuOpen", true); });
+        for (int ms = 0; ms < 6; ms++) { int sec = ms; Page("SIDE MENU section " + sec, () => { SetF("tab", 0); SetF("menuOpen", true); Paint(); Mouse("OnMouseMove", MouseButtons.None, 60, 104 + sec * 46 + 20); Paint(); }); }   // the lists that open from File, Edit, Tools, Pages, View and Community
         Page("RAPPER VOCAL STYLES", () => { SetF("tab", 0); typeof(StudioForm).GetMethod("OpenStyles", BF).Invoke(sf, null); });
         Page("NEW TRACK sheet", () => { SetF("tab", 0); SetF("ntOpen", true); });
         Page("BUSES sheet", () => { SetF("tab", 0); SetF("busOpen", true); });

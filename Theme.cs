@@ -227,9 +227,14 @@ static class Win
     }
     public static void PaintNeonChildren(Control parent, Graphics g)
     {
-        var sm = g.SmoothingMode; g.SmoothingMode = SmoothingMode.AntiAlias;
-        foreach (Control c in parent.Controls) { object o; if (!c.Visible || !neonBoxes.TryGetValue(c, out o)) continue; DrawNeonBox(g, Rectangle.Inflate(c.Bounds, 3, 2), c.ContainsFocus, c.Enabled); }
-        g.SmoothingMode = sm;
+        if (parent == null || parent.IsDisposed || parent.Disposing) return;   // a last paint while a window is being closed: nothing to draw
+        try
+        {
+            var sm = g.SmoothingMode; g.SmoothingMode = SmoothingMode.AntiAlias;
+            foreach (Control c in parent.Controls) { object o; if (!c.Visible || !neonBoxes.TryGetValue(c, out o)) continue; DrawNeonBox(g, Rectangle.Inflate(c.Bounds, 3, 2), c.ContainsFocus, c.Enabled); }
+            g.SmoothingMode = sm;
+        }
+        catch (ArgumentException) { }   // the drawing surface was already thrown away (the window closed during the paint): skip it instead of crashing
     }
     static GraphicsPath NeonPath(RectangleF r, float rad)
     {

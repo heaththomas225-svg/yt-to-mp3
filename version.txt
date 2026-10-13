@@ -1,4 +1,4 @@
-3.38.0
+3.38.1
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-The release check: 23 fixes in the app
-sha256=edf7f372b6f3a6573ec9f22fb23b5dcd8a8bef00911ed811c02b32f66aa541c0
+A safer close
+sha256=e973f0eba6515ba1800e998bc0c85f7c84d6579c43ad62269ba93ccf20ad146e
