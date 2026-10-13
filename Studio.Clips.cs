@@ -60,7 +60,7 @@ partial class StudioForm
         layers.Sort((a, b) => a.Offset.CompareTo(b.Offset)); var nx = layers[0]; PushUndo();
         lock (eng.Sync)
         {   // the row keeps its name, volume and plugins and takes over the next piece
-            t.Clip = nx.Clip; t.Source = nx.Source; t.Offset = nx.Offset; t.ClipStart = nx.ClipStart; t.ClipFrames = nx.ClipFrames; t.FadeIn = nx.FadeIn; t.FadeOut = nx.FadeOut; t.ClipGainDb = nx.ClipGainDb;
+            t.Clip = nx.Clip; t.Source = nx.Source; t.Offset = nx.Offset; t.ClipStart = nx.ClipStart; t.ClipFrames = nx.ClipFrames; t.FadeIn = nx.FadeIn; t.FadeOut = nx.FadeOut; t.ClipGainDb = nx.ClipGainDb; t.FadeInDelay = nx.FadeInDelay; t.FadeOutTail = nx.FadeOutTail; ClampFades(t);   // the silence before/after belongs to the piece too, not to the one that was deleted
             eng.Tracks.Remove(nx); retired.AddRange(nx.Fx);
         }
         toolsTrack = t; Toast("Piece deleted (Ctrl+Z brings it back)");
@@ -194,8 +194,8 @@ partial class StudioForm
             {
                 if (h.Host != null || h.IsBus || h.Instrument || h.Clip == null || h.UsedLength > 0) continue;
                 var layers = eng.Tracks.FindAll(x => x.Host == h && !x.Instrument && x.Clip != null); layers.Sort((p, q) => p.Offset.CompareTo(q.Offset));
-                if (layers.Count > 0) { var nx = layers[0]; h.Clip = nx.Clip; h.Source = nx.Source; h.Offset = nx.Offset; h.ClipStart = nx.ClipStart; h.ClipFrames = nx.ClipFrames; h.FadeIn = nx.FadeIn; h.FadeOut = nx.FadeOut; h.ClipGainDb = nx.ClipGainDb; eng.Tracks.Remove(nx); retired.AddRange(nx.Fx); }
-                else { h.Clip = null; h.Source = ""; h.ClipStart = 0; h.ClipFrames = -1; h.Offset = 0; h.FadeIn = 0; h.FadeOut = 0; }
+                if (layers.Count > 0) { var nx = layers[0]; h.Clip = nx.Clip; h.Source = nx.Source; h.Offset = nx.Offset; h.ClipStart = nx.ClipStart; h.ClipFrames = nx.ClipFrames; h.FadeIn = nx.FadeIn; h.FadeOut = nx.FadeOut; h.ClipGainDb = nx.ClipGainDb; h.FadeInDelay = nx.FadeInDelay; h.FadeOutTail = nx.FadeOutTail; ClampFades(h); eng.Tracks.Remove(nx); retired.AddRange(nx.Fx); }
+                else { h.Clip = null; h.Source = ""; h.ClipStart = 0; h.ClipFrames = -1; h.Offset = 0; h.FadeIn = 0; h.FadeOut = 0; h.FadeInDelay = 0; h.FadeOutTail = 0; }
             }
             // the automation stays where it is too: nothing on the timeline moves
         }

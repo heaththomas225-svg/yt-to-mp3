@@ -207,7 +207,7 @@ static class Themes
     public static bool Tick()
     {
         if (!loaded || Index < 0 || Index >= list.Count || !list[Index].Rainbow) return false;
-        double h = Math.Floor(((Environment.TickCount / 1000.0 - rainbowT0) * 22) % 360 / 3) * 3;   // a new colour every 3 degrees (about 7 times a second): smooth to the eye, and the window does not have to be redrawn every frame
+        double h = Math.Floor(((Environment.TickCount / 1000.0 - rainbowT0) * 22) % 360 / 15) * 15;   // a new colour every 15 degrees (about every 0.7 s): each step rebuilds every button picture and waveform, so 3-degree steps (7 a second) made frame spikes and piles of bitmaps
         if (h == lastRainbowH && lastRainbowIdx == Index) return false; lastRainbowH = h; lastRainbowIdx = Index; var t = ThemeDef.FromHue("Rainbow", list[Index].Blurb, h).Cleaned(); t.Rainbow = true; Push(t, true); return true;
     }
 

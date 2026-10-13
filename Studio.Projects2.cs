@@ -53,9 +53,9 @@ partial class StudioForm
         {
             StudioEngine pe = null; string err = null;
             try
-            {   // loading a project writes into a few shared settings (tempo, lyrics, picture): keep yours exactly as they were
-                double bpm = Fx.ProjectBpm; string ly = ProjectIO.Lyrics, lt = ProjectIO.LyricsTitle; byte[] cv = ProjectIO.CoverBytes; pe = new StudioEngine(); StudioEngine.Current = eng;   /* the preview engine must not become the engine the instruments (the Bass Lab piano) play through */
-                try { ProjectIO.Load(pe, path, s => { }); } finally { Fx.ProjectBpm = bpm; ProjectIO.Lyrics = ly; ProjectIO.LyricsTitle = lt; ProjectIO.CoverBytes = cv; }
+            {   // the preview load gets its own ProjMeta, so your tempo, lyrics and picture are never touched (a save during a slow load used to write the wrong ones)
+                pe = new StudioEngine(); StudioEngine.Current = eng;   /* the preview engine must not become the engine the instruments (the Bass Lab piano) play through */
+                ProjectIO.Load(pe, path, s => { }, new ProjectIO.ProjMeta());
             }
             catch (Exception ex) { err = ex.Message; }
             try

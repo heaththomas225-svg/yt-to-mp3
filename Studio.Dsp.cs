@@ -822,6 +822,8 @@ class Limiter : Fx
     public override void Process(float[] l, float[] r, int n)
     {
         CheckDirty(); float maxGr = 0;
+        // read the rings once: a Reset from another thread mid-block nulls the fields, but these locals stay valid
+        var dl = this.dl; var dr = this.dr; var req = this.req; var boxBuf = this.boxBuf;
         for (int i = 0; i < n; i++)
         {
             float xl = l[i] * inG, xr = r[i] * inG;

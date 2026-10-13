@@ -50,12 +50,16 @@ partial class StudioForm
     void Restore(Snapshot s)
     {
         toolsTrack = null; if (flexOpen) FlexClose(false);
+        Track keep = selTrack >= 0 && selTrack < eng.Tracks.Count ? eng.Tracks[selTrack] : null; var gone = new List<Track>();
         lock (eng.Sync)
         {
+            foreach (var t in eng.Tracks) if (!s.St.ContainsKey(t)) gone.Add(t);   // tracks this undo drops (e.g. a just-added instrument): their plugins are retired and windows closed below
             eng.Tracks.Clear(); eng.Tracks.AddRange(s.Order);
             foreach (var t in s.Order) { var d = s.St[t]; t.EverHadClip = false; t.Clip = d.Clip; t.Offset = d.Offset; t.ClipStart = d.ClipStart; t.ClipFrames = d.ClipFrames; t.VolDb = d.Vol; t.Pan = d.Pan; t.Mute = d.Mute; t.Solo = d.Solo; t.Name = d.Name; t.Host = d.Host; t.Out = d.Out; t.FadeIn = d.FadeIn; t.FadeOut = d.FadeOut; t.FadeInDelay = d.FadeInDelay; t.FadeOutTail = d.FadeOutTail; t.Mono = d.Mono; t.ClipGainDb = d.ClipGain; t.Locked = d.Locked; if (d.Fx != null) { t.Fx.Clear(); t.Fx.AddRange(d.Fx); } if (d.Auto != null) { t.Auto.Clear(); t.Auto.AddRange(CloneLanes(d.Auto)); } }
         }
-        selTrack = Math.Max(0, Math.Min(selTrack, eng.Tracks.Count - 1)); selFx = -1;
+        foreach (var t in gone) foreach (var f in t.Fx) { if (!retired.Contains(f)) retired.Add(f); var ic = f as InstrumentFx; if (ic != null) ic.CloseWindow(); }
+        // keep the same track selected by object; the list order may have changed, and layers/buses after the lanes must never be selected
+        int k = keep != null ? eng.Tracks.IndexOf(keep) : -1; selTrack = k >= 0 ? k : selTrack; selTrack = Math.Max(0, Math.Min(selTrack, LaneCount - 1)); selFx = -1;
     }
     void DoUndo() { if (undo.Count == 0) { Toast("Nothing to undo."); return; } redo.Add(TakeSnapshot()); var s = undo[undo.Count - 1]; undo.RemoveAt(undo.Count - 1); Restore(s); Toast("Undone"); }
     void DoRedo() { if (redo.Count == 0) { Toast("Nothing to redo."); return; } undo.Add(TakeSnapshot()); var s = redo[redo.Count - 1]; redo.RemoveAt(redo.Count - 1); Restore(s); Toast("Redone"); }
@@ -161,8 +165,13 @@ partial class StudioForm
     }
     void DeleteTrackQuiet(Track t)
     {
-        if (t == null) return; if (toolsTrack == t) toolsTrack = null; PushUndo(); lock (eng.Sync) { eng.Tracks.Remove(t); retired.AddRange(t.Fx); if (t.IsBus) foreach (var x in eng.Tracks) if (x.Out == t) x.Out = null; foreach (var lay in eng.Tracks.FindAll(x => x.Host == t)) { eng.Tracks.Remove(lay); retired.AddRange(lay.Fx); } } selTrack = Math.Max(0, Math.Min(selTrack, eng.Tracks.Count - 1)); selFx = -1;
+        if (t == null) return; if (toolsTrack == t) toolsTrack = null; PushUndo();
+        Track keep = selTrack >= 0 && selTrack < eng.Tracks.Count ? eng.Tracks[selTrack] : null; var removedLayers = new List<Track>();
+        lock (eng.Sync) { eng.Tracks.Remove(t); retired.AddRange(t.Fx); if (t.IsBus) foreach (var x in eng.Tracks) if (x.Out == t) x.Out = null; foreach (var lay in eng.Tracks.FindAll(x => x.Host == t)) { eng.Tracks.Remove(lay); retired.AddRange(lay.Fx); removedLayers.Add(lay); } }
+        // keep the same track selected by object (a row above it may be gone), never a layer or bus after the lanes
+        int k = keep != null ? eng.Tracks.IndexOf(keep) : -1; selTrack = k >= 0 ? k : selTrack; selTrack = Math.Max(0, Math.Min(selTrack, LaneCount - 1)); selFx = -1;
         foreach (var f in t.Fx) { var ic = f as InstrumentFx; if (ic != null) ic.CloseWindow(); }
+        foreach (var lay in removedLayers) foreach (var f in lay.Fx) { var ic = f as InstrumentFx; if (ic != null) ic.CloseWindow(); }   // an instrument layer's window would otherwise stay open on a track that is gone
         Toast("Deleted (Undo brings it back)");
     }
     void DisposeRetired() { foreach (var f in retired) { var d = f as IDisposable; if (d != null) { try { d.Dispose(); } catch { } } } retired.Clear(); }
@@ -376,8 +385,8 @@ partial class StudioForm
         if (src == dst || src.IsBus || dst.IsBus || src.Host != null) return; PushUndo();
         lock (eng.Sync)
         {
-            foreach (var x in eng.Tracks) if (x.Host == src) x.Host = dst;
-            src.Host = dst; src.Out = dst.Out; eng.Tracks.Remove(src); eng.Tracks.Insert(FirstBusIndex(), src);
+            foreach (var x in eng.Tracks) if (x.Host == src) { x.Host = dst; x.Solo = false; }
+            src.Host = dst; src.Out = dst.Out; src.Solo = false;   // a piece has no S button, so a Solo left on it could never be turned off eng.Tracks.Remove(src); eng.Tracks.Insert(FirstBusIndex(), src);
         }
         selTrack = Math.Max(0, eng.Tracks.IndexOf(dst)); toolsTrack = null; Toast(src.Name + " now shares the row of " + dst.Name + ". Use the + chip on that row to separate them again.");
     }

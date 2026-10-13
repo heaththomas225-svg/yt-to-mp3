@@ -116,7 +116,7 @@ partial class App
             if (!File.Exists(YtDlp)) throw new Exception("Convert something once first so the downloader is installed.");
             string ff = FfmpegExe(); string deno = FindFile(DenoDir, "deno.exe"); status = "Downloading a 30 s sample..."; targetPct = 0; pctScale = 1f; itemIdx = 0; itemTotal = 1;
             string args = "-x --audio-format wav --newline --windows-filenames --ffmpeg-location \"" + Path.GetDirectoryName(ff) + "\" " + (deno != null ? "--js-runtimes \"deno:" + deno + "\" " : "")
-                + "--download-sections \"*0:30-1:00\" --force-keyframes-at-cuts --no-playlist -o \"" + Path.Combine(tmp, "dl.%(ext)s") + "\" -- \"" + src + "\"";
+                + "--download-sections \"*0:30-1:00\" --force-keyframes-at-cuts --no-playlist -o \"" + Path.Combine(tmp, "dl.%(ext)s") + "\" -- \"" + src.Replace("\"", "").TrimEnd('\\') + "\"";   // a " or a trailing \ in the pasted link could otherwise break out of the quoted argument
             if (RunProc(YtDlp, args, true) != 0) throw new Exception("Couldn't download a sample from that link.");
             string dl = Path.Combine(tmp, "dl.wav"); if (!File.Exists(dl)) throw new Exception("The sample download produced no audio.");
             File.Copy(dl, outWav, true); return outWav;

@@ -40,7 +40,7 @@ class VstPlugin : IVstHosted
     public const int MaxBlock = 8192;
     public const int FlagHasEditor = 1, FlagCanReplacing = 16, FlagProgramChunks = 32, FlagIsSynth = 256;
 
-    IntPtr lib, eff; VstDispatch disp; VstProcess proc; VstSetParam setP; VstGetParam getP; bool disposed;
+    IntPtr lib, eff; VstDispatch disp; VstProcess proc; VstSetParam setP; VstGetParam getP; bool disposed; volatile bool freed;   // freed: effClose has run and the DLL may be unloaded, so nothing may call into it again
     public string Name = "", Vendor = "", Path = ""; public int NumParams, NumIn, NumOut, Flags, UniqueId; public int SampleRate = 44100;
     public bool IsSynth { get { return (Flags & FlagIsSynth) != 0 || NumIn == 0; } }
     public int Latency { get { return disposed ? 0 : Math.Max(0, Math.Min(1 << 16, Marshal.ReadInt32(eff, 80))); } }   // AEffect.initialDelay, read live (audioMasterIOChanged can change it)
@@ -106,7 +106,7 @@ class VstPlugin : IVstHosted
 
     static void ZeroMem(IntPtr p, int bytes) { var z = new byte[Math.Min(bytes, 4096)]; for (int o = 0; o < bytes; o += z.Length) Marshal.Copy(z, 0, p + o, Math.Min(z.Length, bytes - o)); }
 
-    IntPtr Call(int op, int index, IntPtr value, IntPtr ptr, float opt) { lock (callLock) { return disp(eff, op, index, value, ptr, opt); } }
+    IntPtr Call(int op, int index, IntPtr value, IntPtr ptr, float opt) { if (freed) return IntPtr.Zero; lock (callLock) { return disp(eff, op, index, value, ptr, opt); } }
 
     string GetString(int op, int index, int size)
     {
@@ -116,13 +116,13 @@ class VstPlugin : IVstHosted
     // ---- parameters ----
     public string ParamName(int i) { return GetString(effGetParamName, i, 256); }
     public string ParamDisplay(int i) { string d = GetString(effGetParamDisplay, i, 256), u = GetString(effGetParamLabel, i, 256); return u.Length > 0 ? d + " " + u : d; }
-    public float GetParam(int i) { try { return getP == null ? 0 : getP(eff, i); } catch { return 0; } }
-    public void SetParam(int i, float v) { try { if (setP != null) setP(eff, i, v); } catch { } }
+    public float GetParam(int i) { if (freed) return 0; try { return getP == null ? 0 : getP(eff, i); } catch { return 0; } }
+    public void SetParam(int i, float v) { if (freed) return; try { if (setP != null) setP(eff, i, v); } catch { } }
 
     // ---- saved state (the whole patch) ----
     public byte[] GetChunk()
     {
-        if (!HasChunks) return null;
+        if (!HasChunks || freed) return null;
         IntPtr pp = Marshal.AllocHGlobal(IntPtr.Size);
         try { Marshal.WriteIntPtr(pp, IntPtr.Zero); int size = (int)Call(effGetChunk, 0, IntPtr.Zero, pp, 0); IntPtr d = Marshal.ReadIntPtr(pp); if (size <= 0 || d == IntPtr.Zero) return null; var b = new byte[size]; Marshal.Copy(d, b, 0, size); return b; }
         catch { return null; }
@@ -249,7 +249,7 @@ class VstPlugin : IVstHosted
         if (disposed) return; disposed = true;
         try { CloseEditor(); } catch { }
         try { Call(effStopProcess, 0, IntPtr.Zero, IntPtr.Zero, 0); Call(effMainsChanged, 0, IntPtr.Zero, IntPtr.Zero, 0); Call(effClose, 0, IntPtr.Zero, IntPtr.Zero, 0); } catch { }
-        lock (byEffect) byEffect.Remove(eff);
+        lock (byEffect) byEffect.Remove(eff); freed = true;
         // the plugin may still have a thread that touches its buffers for a moment, so the buffers are left allocated (small) and the library is released last
         if (lib != IntPtr.Zero) { try { VstNative.FreeLibrary(lib); } catch { } lib = IntPtr.Zero; }
     }

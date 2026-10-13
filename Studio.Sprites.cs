@@ -13,7 +13,9 @@ static class Sprites
     public static long Seed { get { return unchecked((long)14695981039346656037UL); } }
     public static Bitmap Get(long key) { Bitmap b; return cache.TryGetValue(key, out b) ? b : null; }
     public static void Put(long key, Bitmap b) { if (cache.Count > 700) Clear(); cache[key] = b; }
-    public static int Count { get { return cache.Count; } } public static void Clear() { cache.Clear(); }   // (not disposed: a picture handed out a moment ago may still be about to be drawn; the garbage collector takes them)
+    // a cleared picture may still be about to be drawn, so it is disposed one Clear later (long after); before, they were left to the finalizer and native memory kept climbing
+    static List<Bitmap> retired = new List<Bitmap>();
+    public static int Count { get { return cache.Count; } } public static void Clear() { foreach (var b in retired) { try { b.Dispose(); } catch { } } retired = new List<Bitmap>(cache.Values); cache.Clear(); }
     public static Bitmap Make(int w, int h) { return new Bitmap(Math.Max(1, w), Math.Max(1, h), System.Drawing.Imaging.PixelFormat.Format32bppPArgb); }
 }
 

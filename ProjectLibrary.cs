@@ -307,7 +307,7 @@ static class ProjectLibrary
             if (File.Exists(projectPath))
             {
                 var lines = new List<string>(File.ReadAllLines(projectPath, Encoding.UTF8)); lines.RemoveAll(l => l.StartsWith("cover|")); lines.Insert(Math.Min(2, lines.Count), "cover|" + Convert.ToBase64String(small));
-                string tmp = projectPath + ".tmp"; File.WriteAllLines(tmp, lines.ToArray(), Encoding.UTF8); File.Delete(projectPath); File.Move(tmp, projectPath);
+                Win.WriteAtomic(projectPath, string.Join("\r\n", lines.ToArray()) + "\r\n", Encoding.UTF8);   // replaced in one step: the project is never deleted before the new file is in place
             }
             Directory.CreateDirectory(CoversDir); string cp = Path_(projectPath); File.WriteAllBytes(cp, big); Forget(cp);
             lock (lk) { var e = Find(projectPath); if (e != null) e.Cover = cp; }
@@ -369,7 +369,7 @@ static class ProjectLibrary
     {
         try
         {
-            if (File.Exists(projectPath)) { var lines = new List<string>(File.ReadAllLines(projectPath, Encoding.UTF8)); if (lines.RemoveAll(l => l.StartsWith("cover|")) > 0) { string tmp = projectPath + ".tmp"; File.WriteAllLines(tmp, lines.ToArray(), Encoding.UTF8); File.Delete(projectPath); File.Move(tmp, projectPath); } }
+            if (File.Exists(projectPath)) { var lines = new List<string>(File.ReadAllLines(projectPath, Encoding.UTF8)); if (lines.RemoveAll(l => l.StartsWith("cover|")) > 0) { Win.WriteAtomic(projectPath, string.Join("\r\n", lines.ToArray()) + "\r\n", Encoding.UTF8); } }   // replaced in one step: the project is never deleted before the new file is in place
             lock (lk) { var e = Find(projectPath); if (e != null) { try { if (e.Cover.Length > 0) File.Delete(e.Cover); } catch { } Forget(e.Cover); e.Cover = ""; } }
             try { File.Delete(CoverSrc(projectPath)); File.Delete(CoverAdjFile(projectPath)); } catch { }
             Save();

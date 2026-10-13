@@ -37,7 +37,7 @@ class Job
 partial class App : Form
 {
     // ---- Auto-update settings ----
-    const string Version = "3.37.9";
+    const string Version = "3.38.0";
     // Plain-text manifest: line 1 = newest version, line 2 = direct exe download URL.
     const string UpdateManifestUrl = "https://raw.githubusercontent.com/heaththomas225-svg/yt-to-mp3/main/version.txt";
 
@@ -865,14 +865,15 @@ partial class App : Form
             common += "--download-sections \"*" + (job.TrimA.Length > 0 ? job.TrimA : "0") + "-"
                 + (job.TrimB.Length > 0 ? job.TrimB : "inf") + "\" --force-keyframes-at-cuts ";
 
-        int ok = 0, fail = 0;
+        int ok = 0, fail = 0; var keptTmp = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         itemTotal = job.Items.Length;
         for (int i = 0; i < job.Items.Length; i++)
         {
             if (cancelReq) break;
             itemIdx = i;
             string link = job.Items[i];
-            string target = NormalizeTarget(link);   // plain text -> YouTube search, top result
+            // plain text -> YouTube search, top result; a " would close the quoted argument (the rest of the line became extra yt-dlp options, even --exec), and trailing backslashes would escape the closing quote
+            string target = NormalizeTarget(link).Replace("\"", "").TrimEnd('\\');
             bool bl = IsBandlab(target), coll = bl && BandlabCollection(target);
 
             status = "Item " + (i + 1) + " of " + itemTotal + ": " + (link.Length > 60 ? link.Substring(0, 60) + "..." : link);
@@ -887,9 +888,9 @@ partial class App : Form
             if (mastering)
             {
                 Directory.CreateDirectory(tmpDir);
-                foreach (var old in Directory.GetFiles(tmpDir)) { try { File.Delete(old); } catch { } }
+                foreach (var old in Directory.GetFiles(tmpDir)) { if (keptTmp.Contains(old)) continue; try { File.Delete(old); } catch { } }   // a WAV that could not be moved out after a failed master is kept
             }
-            string args = common + pl + "-o \"" + Path.Combine(mastering ? tmpDir : job.Dir, tpl + ".%(ext)s") + "\" \"" + target + "\"";
+            string args = common + pl + "-o \"" + Path.Combine(mastering ? tmpDir : job.Dir, tpl + ".%(ext)s") + "\" -- \"" + target + "\"";   // "--": whatever the target says, yt-dlp reads it as a URL, never as an option
             var madeBefore = !mastering ? LyricsGet.Snapshot(job.Dir) : null;   // what was in the folder before: the lyrics and the TIMES USED count look at what is new
             var lyricsBefore = Prefs.SaveLyrics && !mastering ? madeBefore : null;
             int code = RunProc(YtDlp, args, true);
@@ -898,7 +899,7 @@ partial class App : Form
             else if (!mastering) { ok++; RemoveLinkFromBox(link); UsageStat.CountNew(job.Dir, madeBefore, job.Fmt, 1); if (lyricsBefore != null) LyricsGet.ForNewFiles(job.Dir, lyricsBefore, Log); }
             else
             {
-                var wavs = Directory.GetFiles(tmpDir, "*.wav");
+                var wavs = Array.FindAll(Directory.GetFiles(tmpDir, "*.wav"), f => !keptTmp.Contains(f));
                 if (wavs.Length == 0) { fail++; Log("No audio was produced."); }
                 foreach (var w in wavs)
                 {
@@ -917,9 +918,12 @@ partial class App : Form
                     }
                     else if (!cancelReq)
                     {
+                        // never overwrite or silently lose it: pick a free name, and say where it really is if the move fails
                         fail++;
-                        try { File.Move(w, Path.Combine(job.Dir, Path.GetFileName(w))); } catch { }
-                        Log("Mastering failed; kept the unmastered WAV in your folder.");
+                        string dst = Path.Combine(job.Dir, Path.GetFileName(w)), bn = Path.GetFileNameWithoutExtension(w);
+                        for (int n = 2; File.Exists(dst); n++) dst = Path.Combine(job.Dir, bn + " (" + n + ").wav");
+                        try { File.Move(w, dst); Log("Mastering failed; kept the unmastered WAV in your folder as " + Path.GetFileName(dst) + "."); }
+                        catch (Exception ex) { keptTmp.Add(w); Log("Mastering failed, and the unmastered WAV could not be moved to your folder: " + ex.Message + " (it is still in " + w + ")"); }
                     }
                 }
             }

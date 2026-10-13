@@ -166,7 +166,7 @@ static class Edition
     static bool TakeLicense(Dictionary<string, object> o)
     {
         var l = CheckLicense(S(o, "license")); if (l == null) { Note = S(o, "license").Length == 0 ? "This PC is linked, but the website cannot make licences yet (its set-up is not finished). Press CHECK AGAIN in a little while." : "The licence the website sent is not valid for this PC."; return false; }
-        lock (lk) { licText = S(o, "license"); lic = l; who = Clean(S(o, "who"), 40); billing = Clean(S(o, "billing"), 20); lastSeen = Math.Max(lastSeen, NowSec()); Save(); } Note = ""; return true;
+        lock (lk) { licText = S(o, "license"); lic = l; who = Clean(S(o, "who"), 40); billing = Clean(S(o, "billing"), 20); long nowS = NowSec(); lastSeen = Math.Abs(nowS - l.Iat) <= 86400 ? Math.Max(l.Iat, nowS) : Math.Max(lastSeen, nowS); Save(); }   /* a fresh server-signed licence with a sane clock resets the anchor, so a clock that was once set ahead cannot lock a paid PC to Free */ Note = ""; return true;
     }
 
     // ask the website for a fresh licence (in the background); a PC that was unlinked, or a token used on another PC, is forgotten
@@ -178,7 +178,7 @@ static class Edition
         {
             int st; var o = Obj(Req("GET", "/api/license", null, tok, out st)); bool ok = false;
             if (st == 200 && o != null) { ok = TakeLicense(o); Raise(); }
-            else if (st == 401 || st == 403) { lock (lk) { tokenEnc = ""; licText = ""; lic = null; who = ""; billing = ""; Save(); } Note = st == 403 ? "This PC's link belonged to another PC and was removed. Press LINK THIS PC again." : "This PC was unlinked from the account."; Raise(); }
+            else if (st == 401 || st == 403) { lock (lk) { tokenEnc = ""; licText = ""; lic = null; who = ""; billing = ""; lastSeen = NowSec(); Save(); } Note = st == 403 ? "This PC's link belonged to another PC and was removed. Press LINK THIS PC again." : "This PC was unlinked from the account."; Raise(); }
             if (done != null) done(ok);
         });
     }
@@ -209,7 +209,7 @@ static class Edition
         }) { IsBackground = true }; t.Start();
     }
     public static void CancelLink() { cancelLink = true; }
-    public static void Unlink() { lock (lk) { tokenEnc = ""; licText = ""; lic = null; who = ""; billing = ""; Save(); } Note = ""; Raise(); }
+    public static void Unlink() { lock (lk) { tokenEnc = ""; licText = ""; lic = null; who = ""; billing = ""; lastSeen = NowSec(); Save(); } Note = ""; Raise(); }   // no licence is left to protect, so a relink starts with a clean clock anchor
     // a copy of the program that is not the published one (patched to skip the checks) keeps the paid features locked; any problem reaching the website keeps things as they are
     public static void SelfCheck(string version, string manifestUrl)
     {

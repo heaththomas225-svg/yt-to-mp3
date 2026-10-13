@@ -66,10 +66,10 @@ static partial class ProfApi
         try { using (var r = (HttpWebResponse)rq.GetResponse()) using (var sr = new StreamReader(r.GetResponseStream(), Encoding.UTF8)) return sr.ReadToEnd(); }
         catch (WebException ex) { if (ex.Response != null) { using (var sr = new StreamReader(ex.Response.GetResponseStream(), Encoding.UTF8)) return sr.ReadToEnd(); } throw; }
     }
-    public static byte[] Bytes(string path)
+    public static byte[] Bytes(string path, int max = 600 * 1024)   // 600 KB fits avatars and banners; community covers pass a bigger limit (the server keeps them up to 3 MB)
     {
         var rq = (HttpWebRequest)WebRequest.Create(CommunityPresets.BaseUrl + path); rq.UserAgent = "PurphexMusic"; rq.Timeout = 15000; rq.ReadWriteTimeout = 15000;
-        using (var r = (HttpWebResponse)rq.GetResponse()) using (var s = r.GetResponseStream()) using (var ms = new MemoryStream()) { var buf = new byte[8192]; int n; while ((n = s.Read(buf, 0, buf.Length)) > 0) { ms.Write(buf, 0, n); if (ms.Length > 600 * 1024) throw new IOException("too big"); } return ms.ToArray(); }
+        using (var r = (HttpWebResponse)rq.GetResponse()) using (var s = r.GetResponseStream()) using (var ms = new MemoryStream()) { var buf = new byte[8192]; int n; while ((n = s.Read(buf, 0, buf.Length)) > 0) { ms.Write(buf, 0, n); if (ms.Length > max) throw new IOException("too big"); } return ms.ToArray(); }
     }
     public static string J(string s) { var sb = new StringBuilder("\""); foreach (char c in s ?? "") { if (c == '"' || c == '\\') sb.Append('\\').Append(c); else if (c == '\n') sb.Append("\\n"); else if (c < 32) sb.Append(' '); else sb.Append(c); } return sb.Append('"').ToString(); }
     static string S(Dictionary<string, object> d, string k) { object v; return d != null && d.TryGetValue(k, out v) && v is string ? (string)v : ""; }
@@ -159,7 +159,7 @@ partial class StudioForm
     void PaintBannerArt(Graphics g, RectangleF r, Bitmap pic, int accent)
     {
         var gs = g.Save(); using (var p = RR(r, 18)) { g.SetClip(p, CombineMode.Intersect); }
-        if (pic != null) { g.DrawImageUnscaled(pic, (int)Math.Round(r.X), (int)Math.Round(r.Y)); }
+        if (pic != null) { if (pic.Width == (int)r.Width && pic.Height == (int)r.Height) g.DrawImageUnscaled(pic, (int)Math.Round(r.X), (int)Math.Round(r.Y)); else g.DrawImage(pic, r); }   // another size stands in (stretched) while this size is drawn
         else
         {
             Color a = ProfAccent(accent); using (var br = new LinearGradientBrush(r, MixC(Color.FromArgb(255, 8, 4, 20), a, 0.55f), MixC(Color.FromArgb(255, 8, 4, 20), NeonPink, 0.4f), 20f)) g.FillRectangle(br, r);
@@ -469,12 +469,19 @@ partial class StudioForm
     }
     // pictures of artists come from the website in the background and are kept
     readonly Dictionary<string, Bitmap> artImgs = new Dictionary<string, Bitmap>(); readonly HashSet<string> artImgPending = new HashSet<string>();
+    readonly Dictionary<string, byte[]> artSrc = new Dictionary<string, byte[]>(); readonly HashSet<string> artSrcPending = new HashSet<string>();   // the downloaded file per picture version (id|kind|ver), shared by every size
     Bitmap ArtistImage(string id, string kind, int ver, int w, int h)
     {
-        string k = id + "|" + kind + "|" + ver + "|" + w + "x" + h; Bitmap b; if (artImgs.TryGetValue(k, out b)) return b; if (artImgPending.Contains(k)) return null; artImgPending.Add(k);
-        ThreadPool.QueueUserWorkItem(o => { Bitmap res = null; try { var data = ProfApi.Bytes("/api/profiles/" + id + "/" + kind); using (var ms = new MemoryStream(data)) using (var im = Image.FromStream(ms, false, false)) { res = new Bitmap(w, h, PixelFormat.Format32bppPArgb); double sc = Math.Max(w / (double)im.Width, h / (double)im.Height); float sw = (float)(w / sc), sh = (float)(h / sc); using (var gg = Graphics.FromImage(res)) { gg.InterpolationMode = InterpolationMode.HighQualityBicubic; gg.DrawImage(im, new RectangleF(0, 0, w, h), new RectangleF((im.Width - sw) / 2f, (im.Height - sh) / 2f, sw, sh), GraphicsUnit.Pixel); } } } catch { res = null; }
-            try { BeginInvoke(new Action(() => { if (artImgs.Count > 120) { foreach (var v in artImgs.Values) if (v != null) v.Dispose(); artImgs.Clear(); } artImgs[k] = res; artImgPending.Remove(k); lastInput = DateTime.Now; })); } catch { } });
-        return null;
+        string bk = id + "|" + kind + "|" + ver, k = bk + "|" + w + "x" + h; Bitmap b; if (artImgs.TryGetValue(k, out b)) return b;
+        // until this size is ready, show any size already made of the same picture (no flash to the placeholder while the window is resized)
+        Bitmap near = null; foreach (var kv in artImgs) if (kv.Value != null && kv.Key.StartsWith(bk + "|", StringComparison.Ordinal)) { near = kv.Value; break; }
+        if (artImgPending.Contains(k)) return near;
+        // the file itself is downloaded once per picture version; a new size is only re-drawn from it, so a resize never starts a download for every width
+        byte[] src; artSrc.TryGetValue(bk, out src); if (src == null && artSrcPending.Contains(bk)) return near;
+        artImgPending.Add(k); if (src == null) artSrcPending.Add(bk);
+        ThreadPool.QueueUserWorkItem(o => { Bitmap res = null; byte[] got = src; try { var data = got ?? ProfApi.Bytes("/api/profiles/" + id + "/" + kind); got = data; using (var ms = new MemoryStream(data)) using (var im = Image.FromStream(ms, false, false)) { res = new Bitmap(w, h, PixelFormat.Format32bppPArgb); double sc = Math.Max(w / (double)im.Width, h / (double)im.Height); float sw = (float)(w / sc), sh = (float)(h / sc); using (var gg = Graphics.FromImage(res)) { gg.InterpolationMode = InterpolationMode.HighQualityBicubic; gg.DrawImage(im, new RectangleF(0, 0, w, h), new RectangleF((im.Width - sw) / 2f, (im.Height - sh) / 2f, sw, sh), GraphicsUnit.Pixel); } } } catch { res = null; }
+            try { BeginInvoke(new Action(() => { if (artImgs.Count > 120) { foreach (var v in artImgs.Values) if (v != null) v.Dispose(); artImgs.Clear(); } artImgs[k] = res; artImgPending.Remove(k); artSrcPending.Remove(bk); if (got != null && src == null) { if (artSrc.Count > 80) artSrc.Clear(); artSrc[bk] = got; } lastInput = DateTime.Now; })); } catch { } });
+        return near;
     }
 
     bool ArtSearchActive { get { return tab == 7 && artSel == null && artSearchOn && !OverlayOpen && (editBox == null || !editBox.Visible); } }

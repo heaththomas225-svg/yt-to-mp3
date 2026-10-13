@@ -116,7 +116,7 @@ partial class StudioForm
                 var dot = Rc(row.X + 7, row.Y + 7, 12, 12); using (var b2 = new SolidBrush(f.Bypass ? TM.C(90, 90, 70, 110) : Good)) g.FillEllipse(b2, dot); { var ff = f; Reg(Rc(row.X, row.Y, 26, 26), () => ff.Bypass = !ff.Bypass); }
                 float cpl = CopyPasteBtns(g, f, tr, row.Right - 28, row.Y + 3, 20);   // COPY and PASTE on every plugin
                 RowTitle(g, f.Title, 12, f.Bypass ? DimC : Ink, Rc(row.X + 26, row.Y, cpl - row.X - 28, 26), false);
-                { var xb = Rc(row.Right - 26, row.Y + 3, 22, 20); var tk = tr; var ff = f; Btn(g, xb, "x", 3, () => { lock (eng.Sync) { int at = tk.Fx.IndexOf(ff); if (at >= 0) { tk.Fx.RemoveAt(at); tk.Auto.RemoveAll(al => al.Fx == ff); if (ff is IDisposable) { try { ((IDisposable)ff).Dispose(); } catch { } } } } selFx = -1; }, 11); Hint2(xb, "Remove " + f.Title + " from " + tr.Name); }
+                { var xb = Rc(row.Right - 26, row.Y + 3, 22, 20); var tk = tr; var ff = f; Btn(g, xb, "x", 3, () => { int at = tk.Fx.IndexOf(ff); if (at >= 0) { PushUndo(); lock (eng.Sync) { tk.Fx.RemoveAt(at); tk.Auto.RemoveAll(al => al.Fx == ff); retired.Add(ff); } var ic = ff as InstrumentFx; if (ic != null) ic.CloseWindow(); } selFx = -1; }, 11); Hint2(xb, "Remove " + f.Title + " from " + tr.Name); }   // undoable: retired, not disposed, since undo snapshots still hold it
                 ry += 30; shown++;
             }
             if (shown < fxs.Length) Txt(g, "+" + (fxs.Length - shown) + " MORE: PRESS ONE TO OPEN THE TRACK", 10, DimC, Rc(col.X + 12, col.Bottom - 24, colW - 24, 18), StringAlignment.Near, false);

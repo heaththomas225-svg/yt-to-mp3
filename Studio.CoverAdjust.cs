@@ -40,7 +40,7 @@ partial class StudioForm
         y = AdjustPicture(g, x, y, w, NeonViolet, minZ, () => Math.Max(minZ, caZ), v => { caZ = v; }, () => caX, v => { caX = v; }, () => caY, v => { caY = v; }, () => CoverAdjCommit(), "PICTURE");
         float bw = (w - 20) / 3f; var b1 = Rc(x, y, bw, 32); var b2 = Rc(b1.Right + 10, y, bw, 32); var b3 = Rc(b2.Right + 10, y, bw, 32);
         Btn(g, b1, "CHOOSE ANOTHER", 1, () => PickCover(caPath), 11); Hint2(b1, "Pick a different picture: it is cut and fitted by itself again");
-        Btn(g, b2, "REMOVE", 3, () => { if (Sure("remove the picture")) { ProjectLibrary.ClearCover(caPath); caOpen = false; Toast("Picture removed: the Purphex logo is shown again."); } }, 11); Hint2(b2, "Back to the Purphex logo");
+        Btn(g, b2, "REMOVE", 3, () => { if (Sure("remove the picture")) { RemoveCover(caPath); caOpen = false; Toast("Picture removed: the Purphex logo is shown again."); } }, 11); Hint2(b2, "Back to the Purphex logo");
         Btn(g, b3, "DONE", 2, () => { caOpen = false; }, 12); Hint2(b3, "Keep the picture as it is shown");
     }
 }

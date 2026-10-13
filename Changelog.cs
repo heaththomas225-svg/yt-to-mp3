@@ -7,10 +7,23 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.37.9";
+    public const string Latest = "3.38.0";
 
     public const string Text =
-@"3.37.9  The converter keeps every colour of your theme
+@"3.38.0  The release check: 23 fixes in the app
+ + MASTERING: pressing Try or Use on a master preset while the song plays could switch the master Limiter off for good (playback and exports then clipped). The master is changed safely now, also by AUTO MASTERING.
+ + EXPORTS land exactly on time: with plugins that delay the sound (Pitch Correction) or with buses, an export could cut the first moments of the song or come out a little late. The delay is now worked out the same way the mix uses it.
+ + STEMS and Processed vocals / instrumental exports of a split track hold the whole track (every piece), with one stem per track.
+ + The vocal ducker follows every piece of a split vocal, not only the first one. A soloed track that was merged onto another row no longer silences the whole mix. Playing an instrument while stopped follows its track volume, pan, mute and bus.
+ + UNDO: removing a plugin with its X can be undone (and a VST taken off is never brought back broken). Clear all plugins on a bus asks first and can be undone. After deleting or undoing a track the picked track stays right, and instrument windows of removed tracks close.
+ + Deleting a track's first piece passes the right fades to the next piece.
+ + YOUR PROJECT IS SAFE: a project that fails to open, a project preview, or a song being made for the Community no longer change the open project's lyrics, cover or BPM. Removing a project's picture stays removed. Writing a cover into a project can no longer lose the project file.
+ + The converter: a typed search with quote marks can no longer become extra commands for the downloader. When mastering fails the WAV is kept and the log says where.
+ + COMMUNITY covers up to 3 MB show in the app, and a cover that failed tries again a minute later. Pictures of artists are downloaded once, not again for every window size. The unread messages badge no longer comes back after you read them.
+ + A PC clock that was once set ahead no longer locks a paid PC to Free: linking again (or the next licence) fixes it.
+ + The Rainbow theme uses far less memory and power (it changed every picture of the program 7 times a second).
+
+3.37.9  The converter keeps every colour of your theme
  + FIXED: after the update the converter window could come up half in your theme and half in purple (the borders in your colours, the buttons purple). At start, while a linked PC was still renewing its licence, the theme flashed to the original and back, and the window took its colours from the wrong one. Now the theme is not touched until your edition is really known, so every window opens fully in your colours.
 
 3.37.8  Copy all the plugins of a track to another track

@@ -153,8 +153,12 @@ partial class StudioForm
     void FetchInbox(bool force)
     {
         if (msgFetching || !CanSocial) return; if (!force && (DateTime.Now - msgFetchAt).TotalSeconds < 45) return; msgFetchAt = DateTime.Now; msgFetching = true; string key = ProfileStore.Key;
-        ThreadPool.QueueUserWorkItem(o => { int un; var l = ProfApi.Inbox(key, out un); try { BeginInvoke(new Action(() => { msgFetching = false; if (l != null) { msgThreads = l; msgUnread = un; lastInput = DateTime.Now; } })); } catch { msgFetching = false; } });
+        var started = DateTime.Now;
+        ThreadPool.QueueUserWorkItem(o => { int un; var l = ProfApi.Inbox(key, out un); try { BeginInvoke(new Action(() => { msgFetching = false; if (started < lastMarkRead) { FetchInbox(true); return; } if (l != null) { msgThreads = l; msgUnread = un; lastInput = DateTime.Now; } })); } catch { msgFetching = false; } });   // an answer asked for before the last mark-read finished is stale (it would bring the unread badge back): ask again
     }
+    DateTime lastMarkRead = DateTime.MinValue;
+    // mark a conversation read, and only then refresh the inbox, so the refresh can never reach the server first
+    void MarkReadThenRefresh(string key, string wid) { ThreadPool.QueueUserWorkItem(o => { ProfApi.MarkRead(key, wid); try { BeginInvoke(new Action(() => { lastMarkRead = DateTime.Now; FetchInbox(true); })); } catch { } }); }
     void FetchCollabs(bool force)
     {
         if (collabFetching || !CanSocial) return; if (!force && (DateTime.Now - collabFetchAt).TotalSeconds < 30) return; collabFetchAt = DateTime.Now; collabFetching = true; string key = ProfileStore.Key;
@@ -372,7 +376,7 @@ partial class StudioForm
                 var av = Rc(row.X + 8, row.Y + 8, 40, 40); Bitmap ab = t.With.Avatar ? ArtistImage(t.With.Id, "avatar", t.With.Av, 60, 60) : null; DrawFrameImage(g, av, ab, ProfAccent(t.With.Accent));
                 NameTextC(g, t.With.Shown, 13, Rc(av.Right + 10, row.Y + 6, row.Width - av.Width - 60, 20), Ink, true, t.With.NameRgb, t.With.NameRgb2); string last = t.Msgs.Count > 0 ? (t.Msgs[t.Msgs.Count - 1].Mine ? "You: " : "") + t.Msgs[t.Msgs.Count - 1].Text.Replace('\n', ' ') : ""; Txt(g, last, 11, DimC, Rc(av.Right + 10, row.Y + 28, row.Width - av.Width - 26, 20), StringAlignment.Near, false);
                 if (t.Unread > 0) { var bd = Rc(row.Right - 30, row.Y + 8, 22, 18); FillRR(g, NeonPink, bd, 9); Txt(g, t.Unread.ToString(), 10, Color.White, bd, StringAlignment.Center, true); }
-                var tt = t; var vis = RectangleF.Intersect(row, Rc(left.X, left.Y, left.Width, left.Height)); if (vis.Height > 6) Reg(vis, () => { msgWithId = tt.With.Id; msgScroll = 0; msgTyping = true; msgReplyTo = ""; if (tt.Unread > 0) { tt.Unread = 0; msgUnread = Math.Max(0, msgUnread - 1); string key = ProfileStore.Key, wid = tt.With.Id; ThreadPool.QueueUserWorkItem(o => ProfApi.MarkRead(key, wid)); } });
+                var tt = t; var vis = RectangleF.Intersect(row, Rc(left.X, left.Y, left.Width, left.Height)); if (vis.Height > 6) Reg(vis, () => { msgWithId = tt.With.Id; msgScroll = 0; msgTyping = true; msgReplyTo = ""; if (tt.Unread > 0) { tt.Unread = 0; msgUnread = Math.Max(0, msgUnread - 1); string key = ProfileStore.Key, wid = tt.With.Id; MarkReadThenRefresh(key, wid); } });
                 ly += 62;
             }
             lh = ly - contentTop + msgListScroll + 8; g.Restore(gs); }
@@ -520,7 +524,7 @@ partial class StudioForm
         if (!CanSocial) { TxtWrap(g, "Link this PC to your account (Settings, Account, LINK THIS PC) or publish your profile (Profile tab) to chat.", 12, DimC, Rc(box.X + 16, box.Y + 54, box.Width - 32, 80)); return; }
         // who: a row of the conversations
         float y = box.Y + 44; var show = msgThreads.Count > 6 ? msgThreads.GetRange(0, 6) : msgThreads; float cwid = (box.Width - 24) / Math.Max(1, show.Count > 0 ? show.Count : 1); if (cwid > 70) cwid = 70; float x = box.X + 12;
-        foreach (var t in show) { var r = Rc(x, y, cwid - 4, 34); bool sel = t.With.Id == chatWith; FillRR(g, sel ? TM.C(220, 80, 40, 150) : TM.C(130, 44, 24, 80), r, 8); if (sel) StrokeRR(g, NeonCyan, r, 8, 1.2f); string nm = t.With.Name.Length > 8 ? t.With.Name.Substring(0, 8) : t.With.Name; Txt(g, nm, 10, Ink, r, StringAlignment.Center, sel); if (t.Unread > 0) { var bd = Rc(r.Right - 14, r.Y - 3, 16, 14); FillRR(g, NeonPink, bd, 7); Txt(g, t.Unread.ToString(), 8, Color.White, bd, StringAlignment.Center, true); } var tt = t; Reg(r, () => { chatWith = tt.With.Id; chatScroll = 0; if (tt.Unread > 0) { tt.Unread = 0; string key = ProfileStore.Key, wid = tt.With.Id; ThreadPool.QueueUserWorkItem(o2 => ProfApi.MarkRead(key, wid)); FetchInbox(true); } }); Hint2(r, t.With.Name); x += cwid; }
+        foreach (var t in show) { var r = Rc(x, y, cwid - 4, 34); bool sel = t.With.Id == chatWith; FillRR(g, sel ? TM.C(220, 80, 40, 150) : TM.C(130, 44, 24, 80), r, 8); if (sel) StrokeRR(g, NeonCyan, r, 8, 1.2f); string nm = t.With.Name.Length > 8 ? t.With.Name.Substring(0, 8) : t.With.Name; Txt(g, nm, 10, Ink, r, StringAlignment.Center, sel); if (t.Unread > 0) { var bd = Rc(r.Right - 14, r.Y - 3, 16, 14); FillRR(g, NeonPink, bd, 7); Txt(g, t.Unread.ToString(), 8, Color.White, bd, StringAlignment.Center, true); } var tt = t; Reg(r, () => { chatWith = tt.With.Id; chatScroll = 0; if (tt.Unread > 0) { tt.Unread = 0; msgUnread = Math.Max(0, msgUnread - 1); string key = ProfileStore.Key, wid = tt.With.Id; MarkReadThenRefresh(key, wid); } }); Hint2(r, t.With.Name); x += cwid; }
         y += 42; MsgThread cur = msgThreads.Find(t => t.With.Id == chatWith); if (cur == null && chatWith.Length > 0) { var stub = artList.Find(a => a.Id == chatWith) ?? profFriends.Find(a => a.Id == chatWith); if (stub != null) cur = new MsgThread { With = stub }; }
         var conv = Rc(box.X + 10, y, box.Width - 20, box.Bottom - y - 52);
         if (cur == null) { TxtWrap(g, msgThreads.Count > 0 ? "CHOOSE SOMEONE ABOVE." : "NO CHATS YET. OPEN AN ARTIST (ARTISTS TAB) AND PRESS MESSAGE.", 12, DimC, Rc(conv.X + 8, conv.Y + 8, conv.Width - 16, 50)); return; }

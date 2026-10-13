@@ -1,4 +1,4 @@
-3.37.9
+3.38.0
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-The converter keeps every colour of your theme
-sha256=8b2dc499b623b3a50035c7e908f82519d63ad1d8762133bb27f615c9ba0d17b1
+The release check: 23 fixes in the app
+sha256=edf7f372b6f3a6573ec9f22fb23b5dcd8a8bef00911ed811c02b32f66aa541c0

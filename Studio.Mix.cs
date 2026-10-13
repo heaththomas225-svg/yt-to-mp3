@@ -243,14 +243,16 @@ static class Presets
     public static void ApplyMaster(StudioEngine eng, int i)
     {
         string[][] d = new string[MasterPresets.All.Length][]; for (int q = 0; q < d.Length; q++) d[q] = MasterPresets.All[q].Slots;
-        for (int k = 0; k < eng.MasterFx.Count && k < 7; k++)
-        {
-            var f = eng.MasterFx[k]; f.ResetDefaults();
-            if (k == 0) f.Set("b1_g", 0);
-            if (d[i][k] == null) { f.Bypass = true; }
-            else { f.Bypass = false; f.Deserialize(d[i][k]); }
-            f.Reset();
-        }
+        // take the engine lock like RestoreChain: the audio thread must never see a half-reset chain (a mid-block Limiter.Reset crashed it and left it bypassed)
+        lock (eng.Sync)
+            for (int k = 0; k < eng.MasterFx.Count && k < 7; k++)
+            {
+                var f = eng.MasterFx[k]; f.ResetDefaults();
+                if (k == 0) f.Set("b1_g", 0);
+                if (d[i][k] == null) { f.Bypass = true; }
+                else { f.Bypass = false; f.Deserialize(d[i][k]); }
+                f.Error = ""; f.Reset();
+            }
     }
 }
 
@@ -448,14 +450,14 @@ static class AutoMix
         if (beat != null)
         {
             beat.VolDb = 0; beat.Pan = 0;
-            eng.Render(0, Math.Min(beat.Clip.Length, StudioEngine.SR * 180), new RenderOpts { Master = false, Fader = false, MuteSolo = false, Only = new List<Track> { beat } }, null, out oL, out oR);
+            eng.Render(0, Math.Max(1, Math.Min(Exporter.RowEnd(eng, beat), StudioEngine.SR * 180)), new RenderOpts { Master = false, Fader = false, MuteSolo = false, Only = Exporter.RowSet(eng, beat) }, null, out oL, out oR);
             var r = Loudness.Measure(oL, oR, StudioEngine.SR, 0, oL.Length);
             if (!double.IsInfinity(r.I)) { beat.VolDb = (float)Math.Max(-24, Math.Min(12, tb - r.I)); rep.Add("Level: instrumental measured " + r.I.ToString("0.0") + " LUFS, fader " + beat.VolDb.ToString("+0.0;-0.0") + " dB."); }
         }
         if (voc != null)
         {
             voc.VolDb = 0; voc.Pan = 0;
-            eng.Render(0, Math.Min(voc.Clip.Length, StudioEngine.SR * 180), new RenderOpts { Master = false, Fader = false, MuteSolo = false, Only = new List<Track> { voc } }, null, out oL, out oR);
+            eng.Render(0, Math.Max(1, Math.Min(Exporter.RowEnd(eng, voc), StudioEngine.SR * 180)), new RenderOpts { Master = false, Fader = false, MuteSolo = false, Only = Exporter.RowSet(eng, voc) }, null, out oL, out oR);
             var r = Loudness.Measure(oL, oR, StudioEngine.SR, 0, oL.Length);
             double target = (beat != null ? tb + VocalOffset[si] : -16.0);
             if (!double.IsInfinity(r.I)) { voc.VolDb = (float)Math.Max(-24, Math.Min(12, target - r.I)); rep.Add("Level: vocal measured " + r.I.ToString("0.0") + " LUFS, fader " + voc.VolDb.ToString("+0.0;-0.0") + " dB (sits " + (beat != null ? VocalOffset[si].ToString("0.0") + " LU above the beat" : "at -16 LUFS") + ")."); }
@@ -564,19 +566,22 @@ static class ProjectIO
     }
 
     // Loads clips through ffmpeg (slow part), then restores plugin settings and track alignment.
-    public static List<string> Load(StudioEngine eng, string path, Action<string> progress)
+    // what a project file holds besides its tracks; a preview or background render gets these here instead of overwriting the open project's tempo, lyrics and picture
+    public class ProjMeta { public double Bpm = double.NaN; public string Lyrics = "", LyricsTitle = ""; public byte[] Cover; }
+    public static List<string> Load(StudioEngine eng, string path, Action<string> progress) { return Load(eng, path, progress, null); }
+    public static List<string> Load(StudioEngine eng, string path, Action<string> progress, ProjMeta meta)
     {
         var warn = new List<string>(); var lines = File.ReadAllLines(path, Encoding.UTF8);
         if (lines.Length == 0 || !lines[0].StartsWith("YTMPROJ")) throw new Exception("That isn't a project file from this app.");
         string dir = Path.GetDirectoryName(path); var tracks = new List<Track>(); var mix = new StringBuilder(); var routes = new List<string[]>(); var hosts = new List<string[]>();
-        Lyrics = ""; LyricsTitle = "";
-        CoverBytes = null;
+        // read into locals: the shared tempo/lyrics/picture change only once the file has loaded, so a failed open leaves the open project untouched
+        var m = new ProjMeta();
         foreach (var line in lines)
         {
             var p = line.Split('|');
-            if (p[0] == "cover" && p.Length >= 2) { try { CoverBytes = Convert.FromBase64String(p[1]); } catch { } }
-            else if (p[0] == "lyrics" && p.Length >= 3) { try { LyricsTitle = Encoding.UTF8.GetString(Convert.FromBase64String(p[1])); Lyrics = Encoding.UTF8.GetString(Convert.FromBase64String(p[2])); } catch { } }
-            else if (p[0] == "bpm" && p.Length > 1) { double b; if (double.TryParse(p[1], NumberStyles.Float, CI, out b)) Fx.ProjectBpm = b; }
+            if (p[0] == "cover" && p.Length >= 2) { try { m.Cover = Convert.FromBase64String(p[1]); } catch { } }
+            else if (p[0] == "lyrics" && p.Length >= 3) { try { string lt0 = Encoding.UTF8.GetString(Convert.FromBase64String(p[1])), ly0 = Encoding.UTF8.GetString(Convert.FromBase64String(p[2])); m.LyricsTitle = lt0; m.Lyrics = ly0; } catch { } }
+            else if (p[0] == "bpm" && p.Length > 1) { double b; if (double.TryParse(p[1], NumberStyles.Float, CI, out b)) m.Bpm = b; }
             else if (p[0] == "track" && p.Length >= 6)
             {
                 string src = U(p[4]), name = U(p[2]); Track t = StudioEngine.NewTrack(name, U(p[1]), null); t.Source = src; t.Instrument = U(p[1]) == "inst"; if (U(p[1]) == "bus") { t.IsBus = true; t.Color = unchecked((int)0xFFFFD04D); }
@@ -603,10 +608,12 @@ static class ProjectIO
         foreach (var hp in hosts) { int ha, hb; if (int.TryParse(hp[1], out ha) && int.TryParse(hp[2], out hb) && ha >= 0 && hb >= 0 && ha < tracks.Count && hb < tracks.Count && ha != hb && !tracks[hb].IsBus && !tracks[ha].IsBus) tracks[ha].Host = tracks[hb]; }
         foreach (var q in tracks) if (q.Host != null && q.Host.Host != null) q.Host = q.Host.Host;   // one level only
         { var ord = new List<Track>(); foreach (var q in tracks) if (!q.IsBus && q.Host == null) ord.Add(q); foreach (var q in tracks) if (!q.IsBus && q.Host != null) ord.Add(q); foreach (var q in tracks) if (q.IsBus) ord.Add(q); tracks = ord; }   // rows, then layers, then buses   // buses go after the tracks
+        if (meta != null) { meta.Bpm = m.Bpm; meta.Lyrics = m.Lyrics; meta.LyricsTitle = m.LyricsTitle; meta.Cover = m.Cover; }
+        else { if (!double.IsNaN(m.Bpm)) Fx.ProjectBpm = m.Bpm; Lyrics = m.Lyrics; LyricsTitle = m.LyricsTitle; CoverBytes = m.Cover; }
         lock (eng.Sync) { eng.Tracks.Clear(); eng.Tracks.AddRange(tracks); }
         RestoreMix(eng, mix.ToString()); eng.Seek(0);
         foreach (var lt in eng.Tracks) foreach (var lf in lt.Fx) lf.AutoKeyPending = false;   // the plugins of a saved project keep the key that was saved
-        LyricsKept = Lyrics; return warn;
+        if (meta == null) LyricsKept = Lyrics; return warn;
     }
 }
 
@@ -626,18 +633,27 @@ static class Exporter
 
     public static List<ExportItem> Plan(StudioEngine eng, bool mixMastered, bool mixDry, bool procVocal, bool procBeat, bool dryVocal, bool dryBeat, bool stems, string prefix, int fmt, HashSet<Track> onlyStems = null)
     {
-        var l = new List<ExportItem>(); string ext = "." + Ext[fmt]; Track voc = eng.VocalTrack(), beat = null; foreach (var t in eng.Tracks) if (t.Role == "beat") { beat = t; break; }
+        var l = new List<ExportItem>(); string ext = "." + Ext[fmt]; Track voc = eng.VocalTrack(), beat = null; foreach (var t in eng.Tracks) if (t.Role == "beat" && t.Host == null) { beat = t; break; }
         if (mixMastered) l.Add(new ExportItem { Label = "Full mix (mastered)", FileName = prefix + " - mix mastered" + ext, Opts = new RenderOpts { Master = true } });
         if (mixDry) l.Add(new ExportItem { Label = "Full mix (no mastering)", FileName = prefix + " - mix unmastered" + ext, Opts = new RenderOpts { Master = false } });
-        if (procVocal && voc != null) l.Add(new ExportItem { Label = "Processed vocals", FileName = prefix + " - vocals processed" + ext, Opts = new RenderOpts { Master = false, MuteSolo = false, Only = new List<Track> { voc } } });
-        if (procBeat && beat != null) l.Add(new ExportItem { Label = "Processed instrumental", FileName = prefix + " - instrumental processed" + ext, Opts = new RenderOpts { Master = false, MuteSolo = false, Only = new List<Track> { beat } } });
-        if (dryVocal && voc != null) l.Add(new ExportItem { Label = "Dry vocals", FileName = prefix + " - vocals dry" + ext, Opts = new RenderOpts { Master = false, Dry = true, Fader = false, MuteSolo = false, Only = new List<Track> { voc } } });
-        if (dryBeat && beat != null) l.Add(new ExportItem { Label = "Dry instrumental", FileName = prefix + " - instrumental dry" + ext, Opts = new RenderOpts { Master = false, Dry = true, Fader = false, MuteSolo = false, Only = new List<Track> { beat } } });
+        if (procVocal && voc != null) l.Add(new ExportItem { Label = "Processed vocals", FileName = prefix + " - vocals processed" + ext, Opts = new RenderOpts { Master = false, MuteSolo = false, Only = RowSet(eng, voc) } });
+        if (procBeat && beat != null) l.Add(new ExportItem { Label = "Processed instrumental", FileName = prefix + " - instrumental processed" + ext, Opts = new RenderOpts { Master = false, MuteSolo = false, Only = RowSet(eng, beat) } });
+        if (dryVocal && voc != null) l.Add(new ExportItem { Label = "Dry vocals", FileName = prefix + " - vocals dry" + ext, Opts = new RenderOpts { Master = false, Dry = true, Fader = false, MuteSolo = false, Only = RowSet(eng, voc) } });
+        if (dryBeat && beat != null) l.Add(new ExportItem { Label = "Dry instrumental", FileName = prefix + " - instrumental dry" + ext, Opts = new RenderOpts { Master = false, Dry = true, Fader = false, MuteSolo = false, Only = RowSet(eng, beat) } });
+        // one stem per row with all of its pieces, played through the row's plugins and fader (a piece on its own would use its stale cloned chain)
         if (stems)
             foreach (var t in eng.Tracks)
-                if (((t.Clip != null && t.Clip.Loaded) || t.Instrument) && (onlyStems != null ? onlyStems.Contains(t) : (!t.Mute && !t.Off))) l.Add(new ExportItem { Label = "Stem: " + t.Name, FileName = prefix + " - stem " + Safe(t.Name) + ext, Opts = new RenderOpts { Master = false, MuteSolo = false, Only = new List<Track> { t } } });
+            {
+                if (t.Host != null) continue; var set = RowSet(eng, t); bool has = false, picked = false;
+                foreach (var p in set) { if ((p.Clip != null && p.Clip.Loaded) || p.Instrument) has = true; if (onlyStems != null && onlyStems.Contains(p)) picked = true; }
+                if (has && (onlyStems != null ? picked : (!t.Mute && !t.Off))) l.Add(new ExportItem { Label = "Stem: " + t.Name, FileName = prefix + " - stem " + Safe(t.Name) + ext, Opts = new RenderOpts { Master = false, MuteSolo = false, Only = set } });
+            }
         return l;
     }
+    // a row and every piece or layer on it, so a render of "this track" hears the whole row
+    public static List<Track> RowSet(StudioEngine eng, Track row) { var l = new List<Track> { row }; foreach (var p in eng.Tracks) if (p.Host == row && !l.Contains(p)) l.Add(p); return l; }
+    // where the last piece on the row ends (the row's own clip may end early after a split)
+    public static long RowEnd(StudioEngine eng, Track row) { long e = 0; foreach (var p in RowSet(eng, row)) e = Math.Max(e, p.Offset + p.UsedLength); return e; }
 
     static string Safe(string s) { foreach (char c in Path.GetInvalidFileNameChars()) s = s.Replace(c, '_'); return s; }
 

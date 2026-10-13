@@ -153,9 +153,11 @@ partial class StudioForm
     {
         if (songRenderHook != null) return songRenderHook(e);
         if (StudioEnv.Ffmpeg() == null) throw new Exception("ffmpeg is not installed yet: convert something once in the main window, then publish again.");
-        StudioEngine pe = null; double bpm = Fx.ProjectBpm, loaded = bpm; string ly = ProjectIO.Lyrics, lt = ProjectIO.LyricsTitle; byte[] cv = ProjectIO.CoverBytes;
-        try { pe = new StudioEngine(); StudioEngine.Current = eng; ProjectIO.Load(pe, e.Path, s => { }); loaded = Fx.ProjectBpm; }
-        finally { Fx.ProjectBpm = bpm; ProjectIO.Lyrics = ly; ProjectIO.LyricsTitle = lt; ProjectIO.CoverBytes = cv; }
+        // the load fills its own ProjMeta and never touches the open project's tempo, lyrics or picture (saving and restoring them raced with the UI and with other background loads)
+        StudioEngine pe = null; double loaded; var meta = new ProjectIO.ProjMeta();
+        try { pe = new StudioEngine(); StudioEngine.Current = eng; ProjectIO.Load(pe, e.Path, s => { }, meta); }
+        catch { if (pe != null) { try { pe.Shutdown(); } catch { } } throw; }
+        loaded = double.IsNaN(meta.Bpm) ? Fx.ProjectBpm : meta.Bpm;
         try
         {
             if (pe.EndFrame < 1000) throw new Exception("the project is empty.");

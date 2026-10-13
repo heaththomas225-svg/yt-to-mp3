@@ -1058,7 +1058,7 @@ partial class StudioForm : Form
                 if (grRoom && f.GR > 0.2f) Txt(g, "-" + f.GR.ToString("0.0"), 11, Warn, Rc(cpl - 46, row.Y, 40, 28), StringAlignment.Far, false);
                 { var ub = Rc(row.Right - 76, row.Y + 3, 22, 22); Btn(g, ub, " ", 0, () => MoveFx(tr, fi, -1), 11); ArrowIcon(g, ub, true); Hint2(ub, "Move " + f.Title + " up the chain (it works on the sound earlier)"); }
                 { var db = Rc(row.Right - 52, row.Y + 3, 22, 22); Btn(g, db, "  ", 0, () => MoveFx(tr, fi, 1), 11); ArrowIcon(g, db, false); Hint2(db, "Move " + f.Title + " down the chain (it works on the sound later)"); }
-                Btn(g, Rc(row.Right - 28, row.Y + 3, 22, 22), "x", 3, () => { lock (eng.Sync) { if (fi < tr.Fx.Count) { var rf = tr.Fx[fi]; tr.Fx.RemoveAt(fi); tr.Auto.RemoveAll(al => al.Fx == rf); if (rf is IDisposable) { try { ((IDisposable)rf).Dispose(); } catch { } } } } selFx = -1; }, 12);
+                Btn(g, Rc(row.Right - 28, row.Y + 3, 22, 22), "x", 3, () => { if (fi < tr.Fx.Count) { PushUndo(); Fx rf; lock (eng.Sync) { rf = tr.Fx[fi]; tr.Fx.RemoveAt(fi); tr.Auto.RemoveAll(al => al.Fx == rf); retired.Add(rf); } var ic = rf as InstrumentFx; if (ic != null) ic.CloseWindow(); } selFx = -1; }, 12);   // undoable: retired, not disposed, since undo snapshots still hold it (a disposed VST brought back by Ctrl+Z crashed the app)
                 ly += 32;
             }
             ly += 10;

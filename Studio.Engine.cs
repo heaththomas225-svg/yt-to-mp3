@@ -433,6 +433,8 @@ partial class StudioEngine
     // ---- one row = one track: the pieces on a row (made by SPLIT or by adding more audio to it) share the row's plugins, mute, solo, volume and pan ----
     static bool HasInstrFx(Track t) { foreach (var f in t.Fx) { var ifx = f as InstrumentFx; if (ifx != null && ifx.IsInstrument) return true; } return false; }
     // the audio piece that is played through the plugins of the row it sits on (its host): the host mixes it in before the plugins run
+    // the delay every track is lined up to; Mix and RenderLatency both use this so they can never drift apart (merged pieces play through their host's plugins, so their own cloned chains do not count)
+    static int MixLatency(List<Track> list, RenderOpts o) { int maxLat = 0; foreach (var t in list) { if (MergedPiece(t, list)) continue; maxLat = Math.Max(maxLat, o.Dry ? 0 : EffLat(t)); } return maxLat; }
     static bool MergedPiece(Track t, List<Track> list) { var h = t.Host; return h != null && !t.IsBus && !t.Instrument && t.Clip != null && !HasInstrFx(t) && !h.IsBus && !h.Instrument && !HasInstrFx(h) && list.Contains(h); }   // the row's own track may have no audio of its own (its clip was moved to another row): its plugins still play every piece on the row
     static bool HasPieces(Track h, List<Track> list) { foreach (var p in list) if (p.Host == h && MergedPiece(p, list)) return true; return false; }
     // the audio of one clip for this block (its own fades and gain), added to the buffers
@@ -456,21 +458,18 @@ partial class StudioEngine
         if (n > mixL.Length) { mixL = new float[n]; mixR = new float[n]; scL = new float[n]; scR = new float[n]; foreach (var t in Tracks) { t.tl = new float[n]; t.tr = new float[n]; } }
         Array.Clear(mixL, 0, n); Array.Clear(mixR, 0, n);
         var list = o.Only ?? Tracks;
-        bool soloActive = false; if (o.MuteSolo) foreach (var t in list) if (t.Solo && !t.Off) soloActive = true;
-        int maxLat = 0; foreach (var t in list) { if (MergedPiece(t, list)) continue; maxLat = Math.Max(maxLat, o.Dry ? 0 : EffLat(t)); }
+        // solo counts rows only (a piece merged onto another row can keep a hidden Solo flag); live playing while stopped looks at the whole project so it sounds like playback
+        bool soloActive = false; if (o.MuteSolo) { var sl = o.NoClips ? Tracks : list; foreach (var t in sl) { if (t.IsBus) continue; var rw = t.Host != null && sl.Contains(t.Host) ? t.Host : t; if (rw.Solo && !rw.Off) soloActive = true; } }
+        int maxLat = MixLatency(list, o);
         var voc = VocalTrack();
 
         // vocal dry signal -> sidechain ring (time aligned on the timeline)
-        if (voc != null && voc.Clip != null)
+        // every piece on the vocal row feeds it, not just the row's own clip (after a split the later pieces must still duck the beat)
+        if (voc != null)
         {
-            var vc = voc.Clip; long voff = voc.Offset, vcs = voc.ClipStart, vcf = voc.ClipFrames; float[] vL = vc == null ? null : vc.L, vR = vc == null ? null : (vc.R ?? vc.L);
-            long vavail = vL == null ? 0 : Math.Max(0, vL.Length - vcs), vlen = vcf < 0 ? vavail : Math.Min(vcf, vavail);
-            for (int i = 0; i < n; i++)
-            {
-                long idx = pos + i - voff; int w = (int)((pos + i) & (scRL.Length - 1));
-                bool inside = !voc.Off && vL != null && idx >= 0 && idx < vlen && idx + vcs < vL.Length && idx + vcs < vR.Length;
-                scRL[w] = inside ? vL[idx + vcs] : 0; scRR[w] = inside ? vR[idx + vcs] : 0;
-            }
+            Array.Clear(scL, 0, n); Array.Clear(scR, 0, n);   // scL/scR are free here; they are refilled per plugin from the ring later
+            if (!voc.Off) { AddClipAudio(voc, scL, scR, n, pos); foreach (var p in Tracks) if (p.Host == voc && !p.Off && MergedPiece(p, Tracks)) AddClipAudio(p, scL, scR, n, pos); }
+            for (int i = 0; i < n; i++) { int w = (int)((pos + i) & (scRL.Length - 1)); scRL[w] = scL[i]; scRR[w] = scR[i]; }
         }
 
         for (int bi = 0; bi < list.Count; bi++) { var bt = list[bi]; if (bt.IsBus) { if (n > bt.tl.Length) { bt.tl = new float[n]; bt.tr = new float[n]; } Array.Clear(bt.tl, 0, n); Array.Clear(bt.tr, 0, n); } }
@@ -612,7 +611,13 @@ partial class StudioEngine
                 {
                     var inst = new List<Track>();
                     foreach (var t in Tracks) { bool has = t.Instrument; if (!has) foreach (var f in t.Fx) { var ifx = f as InstrumentFx; if (ifx != null && ifx.IsInstrument && !f.Bypass) has = true; } if (has) inst.Add(t); }
-                    if (inst.Count > 0) { Mix(Pos, n, new RenderOpts { Only = inst, NoClips = true }, oL, oR, true, 0); return; }
+                    if (inst.Count > 0)
+                    {
+                        // add each instrument's row and bus, so its mute/off/volume/pan and bus plugins apply just like in playback (NoClips keeps the audio files silent)
+                        var only = new List<Track>(inst);
+                        foreach (var t in inst) { if (t.Host != null && !t.Host.IsBus && !only.Contains(t.Host)) only.Add(t.Host); if (t.Out != null && t.Out.IsBus && !only.Contains(t.Out)) only.Add(t.Out); }
+                        Mix(Pos, n, new RenderOpts { Only = only, NoClips = true }, oL, oR, true, 0); return;
+                    }
                 }
                 Array.Clear(oL, 0, n); Array.Clear(oR, 0, n); MasterPeakL = MasterPeakR = 0; foreach (var t in Tracks) { t.PeakL = t.PeakR = 0; } return;
             }
@@ -683,7 +688,7 @@ partial class StudioEngine
     // ---------------- offline render (export, analysis) ----------------
     public int RenderLatency(RenderOpts o)
     {
-        var list = o.Only ?? Tracks; int maxLat = 0; foreach (var t in list) maxLat = Math.Max(maxLat, o.Dry ? 0 : t.Latency());
+        int maxLat = MixLatency(o.Only ?? Tracks, o);   // the same rule Mix compensates to, so an export drops exactly the frames Mix delayed
         int ml = 0; if (o.Master && !MasterBypass) foreach (var f in MasterFx) if (!f.Bypass) ml += f.Latency;
         return maxLat + ml;
     }
