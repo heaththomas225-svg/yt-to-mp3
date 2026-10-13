@@ -1,4 +1,4 @@
-3.37.6
+3.37.7
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Edit a bus, REMOVE ALL moves to PRESETS
-sha256=21057fe93ba33385351849d7b3ae8575524d4503aa64db7a0809d4cdd7e311cb
+Drag several clips to other tracks at once
+sha256=f5e8878a22e09ec25328553b3b0f3e2f64adf5056c60df4006fe2a8867eb77fd

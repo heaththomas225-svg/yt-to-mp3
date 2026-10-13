@@ -245,7 +245,7 @@ partial class StudioForm
             return;
         }
         long delta = (long)((pt.X - laneStart.X) * spp);
-        if (laneMode == 1) { if (!laneMoved) { if (Math.Abs(pt.X - laneStart.X) < 2 && Math.Abs(pt.Y - laneStart.Y) < 2) return; PushUndo(); laneMoved = true; } bool grp = InGroup(tr); if (!grp) GhostStart(tr, 0); tr.Offset = Math.Max(0, l0Offset + delta);   /* free: the clip goes exactly as far as you drag (no jumping to grid lines) */ if (grp) { long nd = tr.Offset - l0Offset; foreach (var o in multiSel) { long b0; if (o != tr && !IsLocked(o) && groupOrig.TryGetValue(o, out b0)) o.Offset = Math.Max(0, b0 + nd); } } return; }
+        if (laneMode == 1) { if (!laneMoved) { if (Math.Abs(pt.X - laneStart.X) < 2 && Math.Abs(pt.Y - laneStart.Y) < 2) return; PushUndo(); laneMoved = true; } bool grp = InGroup(tr); GhostStart(tr, 0);   /* the landing row shows for a group too */ tr.Offset = Math.Max(0, l0Offset + delta);   /* free: the clip goes exactly as far as you drag (no jumping to grid lines) */ if (grp) { long nd = tr.Offset - l0Offset; foreach (var o in multiSel) { long b0; if (o != tr && !IsLocked(o) && groupOrig.TryGetValue(o, out b0)) o.Offset = Math.Max(0, b0 + nd); } } return; }
         long avail = Math.Max(0, tr.Clip.Length - l0ClipStart);
         if (laneMode == 2)
         {
@@ -330,25 +330,44 @@ partial class StudioForm
     }
     void LaneDrop(Track src)
     {
-        if (InGroup(src)) return;   // a group moves along the timeline together; it does not hop rows
         if (laneMode != 1 || !laneMoved || src.Clip == null || src.Instrument) return;
         float top = ToolH + TransH + RulerH - vscroll; int row = (int)Math.Floor((MousePos.Y - top) / LaneH), fromRow = eng.Tracks.IndexOf(src.Host ?? src);
         if (row < 0 || fromRow < 0 || row == fromRow || Math.Abs(MousePos.Y - laneStart.Y) < LaneH * 0.5f) return;
-        Track dst = row < LaneCount ? eng.Tracks[row] : null; PushUndo();
-        bool occupied = dst != null && (dst.Clip != null || dst.Instrument);
+        if (InGroup(src)) { GroupToRows(row - fromRow); return; }   // several clips picked: they all go up or down together
+        PushUndo(); bool occupied; var dst = MoveClipToRow(src, row, out occupied);
+        selTrack = Math.Max(0, eng.Tracks.IndexOf(dst.Host ?? dst)); toolsTrack = dst; Toast(occupied ? "Added to the row of " + (dst.Host != null ? dst.Host.Name : dst.Name) + " (its + chip separates them)" : "Moved to " + dst.Name);
+    }
+    // one clip onto row number 'row' (a new track below the last one): on a row that has something it joins as a piece, on an empty row it becomes the row's audio. Its fades and gain go with it.
+    Track MoveClipToRow(Track src, int row, out bool occupied)
+    {
+        Track dst = row < LaneCount ? eng.Tracks[row] : null;
+        occupied = dst != null && (dst.Clip != null || dst.Instrument);
         if (dst == null) { dst = EmptyAudioTrack(); lock (eng.Sync) eng.Tracks.Insert(LaneCount, dst); occupied = false; }
         if (occupied)
         {
             var L = EmptyAudioTrack(); L.Name = src.Name; L.Role = src.Role; L.Color = src.Color; L.Host = dst; L.Out = dst.Out; L.Clip = src.Clip; L.Source = src.Source; L.ClipStart = src.ClipStart; L.ClipFrames = src.ClipFrames; L.Offset = src.Offset;
+            L.FadeIn = src.FadeIn; L.FadeOut = src.FadeOut; L.FadeInDelay = src.FadeInDelay; L.FadeOutTail = src.FadeOutTail; L.ClipGainDb = src.ClipGainDb;
             lock (eng.Sync) eng.Tracks.Insert(FirstBusIndex(), L); dst = L;
         }
-        else lock (eng.Sync) { dst.Clip = src.Clip; dst.Source = src.Source; dst.ClipStart = src.ClipStart; dst.ClipFrames = src.ClipFrames; dst.Offset = src.Offset; if (dst.Role == "audio" && src.Role != "audio") dst.Role = src.Role; dst.Color = src.Color; if (dst.Name.StartsWith("Audio ")) dst.Name = src.Name; }
+        else lock (eng.Sync) { dst.Clip = src.Clip; dst.Source = src.Source; dst.ClipStart = src.ClipStart; dst.ClipFrames = src.ClipFrames; dst.Offset = src.Offset; dst.FadeIn = src.FadeIn; dst.FadeOut = src.FadeOut; dst.FadeInDelay = src.FadeInDelay; dst.FadeOutTail = src.FadeOutTail; dst.ClipGainDb = src.ClipGainDb; if (dst.Role == "audio" && src.Role != "audio") dst.Role = src.Role; dst.Color = src.Color; if (dst.Name.StartsWith("Audio ")) dst.Name = src.Name; }
         lock (eng.Sync)
         {
-            if (src.Host != null) { eng.Tracks.Remove(src); retired.AddRange(src.Fx); }   // a layer that was moved away is simply gone
-            else { src.Clip = null; src.Source = ""; src.ClipStart = 0; src.ClipFrames = -1; src.Offset = 0; }
+            if (src.Host != null) { eng.Tracks.Remove(src); retired.AddRange(src.Fx); }   // a piece that was moved away is simply gone from its old row
+            else { src.Clip = null; src.Source = ""; src.ClipStart = 0; src.ClipFrames = -1; src.Offset = 0; src.FadeIn = 0; src.FadeOut = 0; src.FadeInDelay = 0; src.FadeOutTail = 0; src.ClipGainDb = 0; }
         }
-        selTrack = Math.Max(0, eng.Tracks.IndexOf(dst.Host ?? dst)); toolsTrack = dst; Toast(occupied ? "Added to the row of " + (dst.Host != null ? dst.Host.Name : dst.Name) + " (its + chip separates them)" : "Moved to " + dst.Name);
+        return dst;
+    }
+    // the picked clips all move the same number of rows (each keeps its place in the group); new tracks are made below the last one when needed
+    internal void GroupToRows(int delta)
+    {
+        if (delta == 0) return; var items = new List<KeyValuePair<Track, int>>();
+        foreach (var o in multiSel.ToArray()) { if (o.Clip == null || o.Instrument || IsLocked(o)) continue; int r = eng.Tracks.IndexOf(o.Host ?? o); if (r < 0) continue; items.Add(new KeyValuePair<Track, int>(o, r + delta)); }
+        if (items.Count == 0) return; foreach (var it in items) if (it.Value < 0) { Toast("They cannot go higher than the first track."); return; }
+        PushUndo(); int maxRow = 0; foreach (var it in items) maxRow = Math.Max(maxRow, it.Value);
+        while (LaneCount <= maxRow) { var nt = EmptyAudioTrack(); lock (eng.Sync) eng.Tracks.Insert(LaneCount, nt); }   // the new tracks first, so every clip finds its row
+        var moved = new List<Track>(); foreach (var it in items) { bool occ; moved.Add(MoveClipToRow(it.Key, it.Value, out occ)); }
+        multiSel.Clear(); foreach (var m in moved) multiSel.Add(m); toolsTrack = moved[0];
+        Toast("Moved " + moved.Count + " clips " + Math.Abs(delta) + (Math.Abs(delta) == 1 ? " track " : " tracks ") + (delta > 0 ? "down" : "up") + ". Ctrl+Z undoes it.");
     }
     // a track dragged by its header: the middle of another row = share that row, near a boundary = move between rows. Nothing moves until you let go, so it is easy to aim.
     int hdMode, hdRow, hdGap;

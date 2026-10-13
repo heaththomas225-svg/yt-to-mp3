@@ -788,6 +788,18 @@ static class NF
                 bmB["BACK TO TRACKS"].ToString(); typeof(StudioForm).GetField("busEdit", BF).SetValue(sf, null); var auC = paintB(); Check("BACK TO TRACKS shows the picked track again", auC.Any(t => t.S.StartsWith("TRACK 1")));
                 sf.eng.Tracks.Clear(); SetF("selFx", -1);
             }
+            {   // several picked clips can be dragged to other tracks together (they all move the same number of rows, keeping their times, fades and gain)
+                sf.eng.Tracks.Clear(); Func<string, long, Track> mkG = (nm, off) => { var t = StudioEngine.NewTrack(nm, "vocal", AudioClip.FromArrays(new float[44100 * 2], new float[44100 * 2], nm)); t.Offset = off; return t; };
+                var gA = mkG("A", 0); var gB = mkG("B", 44100 * 3); gB.FadeIn = 4410; gB.ClipGainDb = -3; var gOther = mkG("Other", 0); sf.eng.Tracks.Add(gA); sf.eng.Tracks.Add(gB); sf.eng.Tracks.Add(gOther);
+                var ms = (List<Track>)typeof(StudioForm).GetField("multiSel", BF).GetValue(sf); ms.Clear(); ms.Add(gA); ms.Add(gB);
+                sf.GroupToRows(2); int lanes = (int)typeof(StudioForm).GetProperty("LaneCount", BF).GetValue(sf, null);
+                var onRow2 = sf.eng.Tracks.FindAll(t => t.Clip != null && t.Offset == 0 && (t.Host ?? t) == sf.eng.Tracks[2] && t.Name == "A"); var row3 = lanes > 3 ? sf.eng.Tracks[3] : null;
+                Check("two picked clips dragged 2 tracks down both move 2 tracks down (one onto a track that has audio, one onto a new track)", onRow2.Count == 1 && row3 != null && row3.Offset == 44100 * 3 && row3.UsedLength == 44100 * 2, "lanes " + lanes + ", A on row 3: " + onRow2.Count + ", row 4 " + (row3 == null ? "none" : row3.Name + " @" + row3.Offset));
+                Check("their old rows are empty now, and the clips keep their fades and gain", gA.Clip == null && gB.Clip == null && row3 != null && row3.FadeIn == 4410 && row3.ClipGainDb == -3);
+                Check("they stay picked as a group after the move", ms.Count == 2);
+                ms.Clear(); ms.Add(sf.eng.Tracks[2]); ms.Add(row3); int before = sf.eng.Tracks.Count; sf.GroupToRows(-5); Check("a group cannot go above the first track (nothing moves)", sf.eng.Tracks.Count == before && row3.Clip != null);
+                ms.Clear(); sf.eng.Tracks.Clear(); SetF("revertAction", null);
+            }
             {   // the REVERT box stays at the bottom left and is no wider than the left column of the Mastering page (it never reaches into the next box)
                 var pm = typeof(StudioForm).GetMethod("PaintAll", BF); var rrF = typeof(StudioForm).GetField("revertRect", BF); bool narrow = true; string bad = "";
                 foreach (var szz in new[] { new Size(1366, 768), new Size(1240, 680), new Size(1700, 1000) })

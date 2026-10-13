@@ -7,10 +7,14 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.37.6";
+    public const string Latest = "3.37.7";
 
     public const string Text =
-@"3.37.6  Edit a bus, REMOVE ALL moves to PRESETS
+@"3.37.7  Drag several clips to other tracks at once
+ + DRAG A GROUP TO OTHER TRACKS: clips you picked together (with the selection box) can be dragged up or down to other tracks: they all move the same number of tracks, keeping their times. Onto a track that has audio they join it as pieces, below the last track new tracks are made. Before, a group could only slide along the timeline. Ctrl+Z undoes it.
+ + A clip moved to another track keeps its fades and its gain (they were lost when it joined a track that already had audio).
+
+3.37.6  Edit a bus, REMOVE ALL moves to PRESETS
  + EDIT A BUS: every bus in the Buses sheet has an EDIT button: its effects open in the plugin panel (EDITING BUS), where you can open and change them, switch them off, move, copy, paste and remove them. BACK TO TRACKS (or pressing the box of a track) goes back. Before, a bus could only get effects added.
  + REMOVE ALL is no longer in the YOUR PLUGINS box: it is in PRESETS... as Remove all plugins (go RAW), and it asks Are you sure first (REVERT and Ctrl+Z still bring everything back).
 
