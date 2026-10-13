@@ -1,4 +1,4 @@
-3.36.7
+3.36.8
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Pictures that fit themselves, a smaller REVERT box, the DAW resets when you leave
-sha256=feecc0a87aa17b69c232d830b5dd604f306f5c323b6cb2e113071eaba6bddc58
+One track one set of effects, copy and paste, project pictures fit, SPLIT works zoomed in
+sha256=44d1a236dd5c1346e9cd1bf3e1ebc8896666fc74951489aa749694f4dd0150dc

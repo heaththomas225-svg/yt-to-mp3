@@ -285,7 +285,7 @@ static class ProjectLibrary
         try
         {
             Image src; using (var fs = new FileStream(srcFile, FileMode.Open, FileAccess.Read, FileShare.ReadWrite)) { var ms = new MemoryStream(); fs.CopyTo(ms); ms.Position = 0; src = Image.FromStream(ms); }
-            using (src) using (var bmp = ProfileStore.RenderFramed(src, size, size, z, x, y, Color.FromArgb(255, 10, 5, 22))) using (var rgb = new Bitmap(size, size, PixelFormat.Format24bppRgb)) { using (var g = Graphics.FromImage(rgb)) g.DrawImage(bmp, 0, 0, size, size); return JpegBytes(rgb, 88); }
+            using (src) using (var bmp = ProfileStore.RenderFramed(src, size, size, z, x, y, Color.FromArgb(255, 10, 5, 22), false)) using (var rgb = new Bitmap(size, size, PixelFormat.Format24bppRgb)) { using (var g = Graphics.FromImage(rgb)) g.DrawImage(bmp, 0, 0, size, size); return JpegBytes(rgb, 88); }
         }
         catch { return null; }
     }
@@ -315,6 +315,50 @@ static class ProjectLibrary
         }
         catch (Exception ex) { error = "Couldn't save the picture: " + ex.Message; return false; }
     }
+    // pictures made by older versions had a blurred, stretched copy of the picture filling the square: the picture itself is found in the middle (where the detail is) and kept on its own,
+    // so every project picture shows undistorted on a plain background. Done once for the pictures that are there; the new pictures are made this way from the start.
+    public static Rectangle? FindContent(Image im)
+    {
+        try
+        {
+            const int N = 128; using (var t = new Bitmap(N, N, PixelFormat.Format24bppRgb))
+            {
+                using (var g = Graphics.FromImage(t)) { g.InterpolationMode = InterpolationMode.HighQualityBilinear; g.DrawImage(im, 0, 0, N, N); }
+                var l = new int[N, N]; for (int y = 0; y < N; y++) for (int x = 0; x < N; x++) { var c = t.GetPixel(x, y); l[y, x] = (c.R * 3 + c.G * 6 + c.B) / 10; }
+                var er = new double[N]; var ec = new double[N]; for (int y = 0; y < N; y++) for (int x = 0; x < N; x++) { if (x + 1 < N) er[y] += Math.Abs(l[y, x + 1] - l[y, x]); if (y + 1 < N) ec[x] += Math.Abs(l[y + 1, x] - l[y, x]); if (x + 1 < N) ec[x] += 0; }
+                double mr = 0, mc = 0; for (int i = 0; i < N; i++) { mr = Math.Max(mr, er[i]); mc = Math.Max(mc, ec[i]); } if (mr < 40 || mc < 40) return null;
+                int r0 = N, r1 = -1, c0 = N, c1 = -1; for (int i = 0; i < N; i++) { if (er[i] > mr * 0.22) { if (i < r0) r0 = i; if (i > r1) r1 = i; } if (ec[i] > mc * 0.22) { if (i < c0) c0 = i; if (i > c1) c1 = i; } }
+                if (r1 < 0 || c1 < 0) return null; int h = r1 - r0 + 1, w = c1 - c0 + 1; if (h > N * 0.88 && w > N * 0.88) return null; if (h < N * 0.2 || w < N * 0.2) return null;
+                int px = Math.Max(1, (int)Math.Round(w * 0.04)), py = Math.Max(1, (int)Math.Round(h * 0.04)); c0 = Math.Max(0, c0 - px); c1 = Math.Min(N - 1, c1 + px); r0 = Math.Max(0, r0 - py); r1 = Math.Min(N - 1, r1 + py);
+                double kx = im.Width / (double)N, ky = im.Height / (double)N; return new Rectangle((int)Math.Floor(c0 * kx), (int)Math.Floor(r0 * ky), Math.Max(1, (int)Math.Ceiling((c1 - c0 + 1) * kx)), Math.Max(1, (int)Math.Ceiling((r1 - r0 + 1) * ky)));
+            }
+        }
+        catch { return null; }
+    }
+    static bool fitDone;
+    public static int FitOldCovers()
+    {
+        if (fitDone) return 0; fitDone = true; int n = 0; string mark = Path.Combine(CoversDir, "fit-v1.txt"); List<string> paths; lock (lk) { paths = new List<string>(); foreach (var e in Entries) if (e.Cover.Length > 0 && File.Exists(e.Cover) && !File.Exists(CoverSrc(e.Path))) paths.Add(e.Path); }
+        HashSet<string> done = new HashSet<string>(StringComparer.OrdinalIgnoreCase); try { if (File.Exists(mark)) foreach (var l in File.ReadAllLines(mark)) done.Add(l.Trim()); } catch { }
+        foreach (var p in paths)
+        {
+            if (done.Contains(p)) continue; done.Add(p);
+            try
+            {
+                var e = Find(p); if (e == null) continue; Rectangle? box; byte[] outBytes = null; int z = 100;
+                using (var im = LoadImageCopy(e.Cover))
+                {
+                    box = FindContent(im); if (!box.HasValue) continue; var cut = box.Value; double ar = cut.Width / (double)cut.Height; z = ar >= 0.7 && ar <= 1.43 ? 100 : 0;
+                    using (var bmp = new Bitmap(cut.Width, cut.Height, PixelFormat.Format24bppRgb)) { using (var g = Graphics.FromImage(bmp)) { g.InterpolationMode = InterpolationMode.HighQualityBicubic; g.DrawImage(im, new Rectangle(0, 0, cut.Width, cut.Height), cut, GraphicsUnit.Pixel); } outBytes = JpegBytes(bmp, 92); }
+                }
+                File.WriteAllBytes(CoverSrc(p), outBytes); SaveAdj(p, z, 50, 50); string err; if (BakeCover(p, out err)) n++;
+            }
+            catch { }
+        }
+        try { Directory.CreateDirectory(CoversDir); File.WriteAllLines(mark, new List<string>(done).ToArray()); } catch { }
+        return n;
+    }
+    static Image LoadImageCopy(string file) { using (var fs = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.ReadWrite)) { var ms = new MemoryStream(); fs.CopyTo(ms); ms.Position = 0; return Image.FromStream(ms); } }
     // a picture made by an older version has no whole picture kept: the framed one is used as the start
     public static bool EnsureCoverSrc(string projectPath)
     {

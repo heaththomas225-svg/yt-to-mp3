@@ -34,7 +34,7 @@ partial class StudioForm
         var close = Rc(sheet.Right - 52, sheet.Y + 14, 32, 32); FillRR(g, Hot(close) ? TM.C(160, 70, 38, 130) : TM.C(110, 40, 24, 80), close, 16); Txt(g, "X", 15, Ink, close, StringAlignment.Center, true); Reg(close, () => { caOpen = false; });
         float x = sheet.X + 22, w = sheet.Width - 44, y = sheet.Y + 88;
         float side = Math.Max(110, Math.Min(Math.Min(w, 280), H - 30 - 90 - 134 - 70 - 30)); var pv = Rc(sheet.X + (sheet.Width - side) / 2, y, side, side);
-        var pic = FramedPic(caSrc + System.IO.File.GetLastWriteTime(caSrc).Ticks, () => LoadFileImage(caSrc), (int)side, (int)side, caZ, caX, caY);
+        var pic = FramedPic(caSrc + System.IO.File.GetLastWriteTime(caSrc).Ticks, () => LoadFileImage(caSrc), (int)side, (int)side, caZ, caX, caY, false);
         if (pic != null) DrawFrameImage(g, pv, pic, NeonViolet); y = pv.Bottom + 14;
         var sz = PicSize(caSrc); int minZ = ProfileStore.ContainZoom(sz.Width, sz.Height, (int)side, (int)side);
         y = AdjustPicture(g, x, y, w, NeonViolet, minZ, () => Math.Max(minZ, caZ), v => { caZ = v; }, () => caX, v => { caX = v; }, () => caY, v => { caY = v; }, () => CoverAdjCommit(), "PICTURE");

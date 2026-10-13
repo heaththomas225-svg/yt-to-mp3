@@ -285,6 +285,13 @@ partial class StudioForm
 // ======================================================================
 static class StudioDialogs
 {
+    // the folder of the last export (kept in a small file): the Export box opens with it again; a folder that is gone falls back to Downloads
+    static string ExportDirFile { get { return Path.Combine(StudioEnv.DataDir, "export-folder.txt"); } }
+    internal static string LastExportDir
+    {
+        get { try { if (File.Exists(ExportDirFile)) { string t = File.ReadAllText(ExportDirFile).Trim(); if (t.Length > 0 && Directory.Exists(t)) return t; } } catch { } return Path.Combine(Win.DownloadsDir, "Purphex Music"); }
+        set { try { if (value.Length > 0) { Directory.CreateDirectory(StudioEnv.DataDir); File.WriteAllText(ExportDirFile, value); } } catch { } }
+    }
     static Color Bg { get { return TM.C(255, 24, 12, 44); } } static Color Fld { get { return TM.C(255, 34, 16, 62); } } static Color Ink { get { return TM.C(255, 240, 232, 255); } }
 
     internal static Form Make(string title, int w, int h)
@@ -568,7 +575,7 @@ static class StudioDialogs
         f.Controls.Add(new Label { Text = "Name", Left = 16, Top = y + 4, Width = 70, Height = 22 });
         var nm = new TextBox { Left = 90, Top = y, Width = 440, Text = defName, BackColor = Fld, ForeColor = Ink, BorderStyle = BorderStyle.FixedSingle }; Win.NeonBox(nm); f.Controls.Add(nm); y += 38;
         f.Controls.Add(new Label { Text = "Folder", Left = 16, Top = y + 4, Width = 70, Height = 22 });
-        var dir = new TextBox { Left = 90, Top = y, Width = 350, Text = Path.Combine(Win.DownloadsDir, "Purphex Music"), BackColor = Fld, ForeColor = Ink, BorderStyle = BorderStyle.FixedSingle }; Win.NeonBox(dir); f.Controls.Add(dir);
+        var dir = new TextBox { Left = 90, Top = y, Width = 350, Text = LastExportDir, BackColor = Fld, ForeColor = Ink, BorderStyle = BorderStyle.FixedSingle }; Win.NeonBox(dir);   /* the folder you used last time (only this is remembered, the other choices start fresh) */ f.Controls.Add(dir);
         var br = B("Browse...", 448, y - 2, 84, 28, TM.C(255, 70, 40, 120)); br.Click += (s, e) => { using (var d = new FolderBrowserDialog()) if (d.ShowDialog() == DialogResult.OK) dir.Text = d.SelectedPath; }; f.Controls.Add(br); y += 42;
         f.Controls.Add(new Label { Text = "All files start at 0:00 with the same length, so stems line up in any DAW. Existing files are never replaced without asking.", Left = 16, Top = y, Width = 520, Height = 40, ForeColor = TM.C(255, 170, 150, 190) });
         var ok = B("Export", 330, 588, 100, 34, TM.C(255, 118, 52, 212)); var cancel = B("Cancel", 440, 588, 100, 34, TM.C(255, 70, 40, 120));
@@ -580,7 +587,7 @@ static class StudioDialogs
             if (songLen > 0 && sa >= songLen) { tErr.Text = "Trim: the start is after the end of the song."; return; }
             List<int> picked = null; if (side && cks[4].Checked) { picked = new List<int>(); for (int i = 0; i < stemCk.Count; i++) if (stemCk[i].Checked) picked.Add(i); if (picked.Count == 0) { tErr.Text = "Pick at least one track for the stems."; return; } if (picked.Count == stemCk.Count) picked = null; }
             bool whole = sa <= 0.0005 && (songLen <= 0 || sb >= songLen - 0.05);   // not trimmed = the whole song
-            result = new ExportSettings { TrimStart = whole ? 0 : sa, TrimEnd = whole ? 0 : sb, MixMastered = cks[0].Checked, MixDry = cks[1].Checked, ProcVocal = cks[2].Checked, ProcBeat = cks[3].Checked, Stems = cks[4].Checked, StemTracks = picked, Fmt = fm.SelectedIndex, RateIdx = rt.SelectedIndex, Dir = dir.Text.Trim(), Prefix = nm.Text.Trim() }; f.Close();
+            result = new ExportSettings { TrimStart = whole ? 0 : sa, TrimEnd = whole ? 0 : sb, MixMastered = cks[0].Checked, MixDry = cks[1].Checked, ProcVocal = cks[2].Checked, ProcBeat = cks[3].Checked, Stems = cks[4].Checked, StemTracks = picked, Fmt = fm.SelectedIndex, RateIdx = rt.SelectedIndex, Dir = dir.Text.Trim(), Prefix = nm.Text.Trim() }; LastExportDir = dir.Text.Trim(); f.Close();
         };
         cancel.Click += (s, e) => f.Close(); f.AcceptButton = ok; f.Controls.AddRange(new Control[] { ok, cancel });
         f.ShowDialog(owner); return result;

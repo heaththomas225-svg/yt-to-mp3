@@ -39,6 +39,15 @@ static class K
         Check("the pieces still add up to the whole recording", Math.Abs(total - SR * 20) <= 2, total + " frames");
         bool contiguous = true; for (int i = 1; i < ps.Count; i++) if (Math.Abs(ps[i].Offset - (ps[i - 1].Offset + ps[i - 1].UsedLength)) > 1) contiguous = false; Check("the pieces sit end to end with no gaps", contiguous, "");
         var o = Render(SR * 15); Check("splitting does not change what you hear", Math.Abs(o[SR * 3] - 0.5f) < 1e-3 && Math.Abs(o[SR * 12 + 77] - 0.5f) < 1e-3, o[SR * 3].ToString("0.000"));
+        {   // one row = one track: the plugins, mute and volume of the row reach every piece on it
+            var gx = new GainFx(); gx.Prepare(44100); gx.Set("gain", -6f); eng.Tracks[eng.Tracks.IndexOf(row)].Fx.Add(gx);
+            var oFx = Render(SR * 15); float want = 0.5f * DspMath.DbToLin(-6f);
+            Check("a plugin on the row changes EVERY piece on it, not only the first", Math.Abs(oFx[SR * 3] - want) < 2e-3 && Math.Abs(oFx[SR * 12 + 77] - want) < 2e-3 && Math.Abs(oFx[SR * 7 + 5] - want) < 2e-3, oFx[SR * 3].ToString("0.000") + " / " + oFx[SR * 12 + 77].ToString("0.000") + " want " + want.ToString("0.000"));
+            gx.Set("gain", 0f); row.Mute = true; var oMute = Render(SR * 15); bool silent = true; for (int i = 0; i < SR * 15; i += 997) if (Math.Abs(oMute[i]) > 1e-6f) silent = false;
+            Check("muting the track silences every piece on it", silent, "");
+            row.Mute = false; row.VolDb = -6f; float[] oVol, oVolR; eng.Render(0, SR * 15, new RenderOpts { Master = false, Fader = true }, null, out oVol, out oVolR); Check("the track's volume reaches every piece", Math.Abs(oVol[SR * 3] - want) < 2e-3 && Math.Abs(oVol[SR * 12 + 77] - want) < 2e-3, oVol[SR * 12 + 77].ToString("0.000"));
+            row.VolDb = 0f; row.Fx.Remove(gx);
+        }
 
         // ---- fades and gain ----
         var one = StudioEngine.NewTrack("Fade", "vocal", Const(6, 0.5f)); var e2 = eng; eng.Tracks.Clear(); eng.Tracks.Add(one); one.FadeIn = SR; one.FadeOut = SR * 2; one.ClipGainDb = -6f; o = Render(SR * 6);

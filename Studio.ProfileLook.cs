@@ -13,11 +13,11 @@ partial class StudioForm
     readonly Dictionary<string, Bitmap> framedCache = new Dictionary<string, Bitmap>(); readonly Dictionary<string, Size> picSizes = new Dictionary<string, Size>();
     void ForgetFramed() { foreach (var v in framedCache.Values) if (v != null) v.Dispose(); framedCache.Clear(); foreach (var v in bannerCache.Values) if (v != null) v.Dispose(); bannerCache.Clear(); }
     // the picture drawn into a w x h frame with its zoom and position (kept until something changes)
-    Bitmap FramedPic(string key, Func<Image> load, int w, int h, int zoom, int px, int py)
+    Bitmap FramedPic(string key, Func<Image> load, int w, int h, int zoom, int px, int py, bool bands = true)
     {
-        if (w < 2 || h < 2) return null; string k = key + "|" + w + "x" + h + "|" + zoom + "|" + px + "|" + py; Bitmap b; if (framedCache.TryGetValue(k, out b)) return b; Image src = null;
+        if (w < 2 || h < 2) return null; string k = key + "|" + w + "x" + h + "|" + zoom + "|" + px + "|" + py + (bands ? "" : "|plain"); Bitmap b; if (framedCache.TryGetValue(k, out b)) return b; Image src = null;
         try { src = load(); } catch { src = null; } if (src == null) { framedCache[k] = null; return null; }
-        try { b = ProfileStore.RenderFramed(src, w, h, zoom, px, py, Color.FromArgb(255, 10, 5, 22)); } catch { b = null; } finally { src.Dispose(); }
+        try { b = ProfileStore.RenderFramed(src, w, h, zoom, px, py, Color.FromArgb(255, 10, 5, 22), bands); } catch { b = null; } finally { src.Dispose(); }
         if (framedCache.Count > 24) { foreach (var v in framedCache.Values) if (v != null) v.Dispose(); framedCache.Clear(); } framedCache[k] = b; return b;
     }
     Size PicSize(string path)

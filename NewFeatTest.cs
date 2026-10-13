@@ -491,6 +491,67 @@ static class NF
                 Check("pressing anywhere on a track's box (not only its name) picks that track", picked, hdr.Count + " boxes");
                 sf.eng.Tracks.Clear();
             }
+            {   // old project pictures (a blurred, stretched copy fills the square) are found and kept as the picture itself; nothing is stretched
+                string old = Path.Combine(StudioEnv.DataDir, "oldcover.ytmp"); File.WriteAllText(old, "PURPHEX\nname|Old\n"); ProjectLibrary.Touch(old, "Old", 2, 120, 60, true, null);
+                string oldImg = Path.Combine(StudioEnv.DataDir, "old420.jpg");
+                using (var b0 = new Bitmap(420, 420)) { using (var g0 = Graphics.FromImage(b0)) { using (var br = new System.Drawing.Drawing2D.LinearGradientBrush(new Rectangle(0, 0, 420, 420), Color.FromArgb(40, 10, 20), Color.FromArgb(60, 14, 28), 90f)) g0.FillRectangle(br, 0, 0, 420, 420); var rn = new Random(5); for (int i = 0; i < 420; i += 6) for (int j = 140; j < 280; j += 6) using (var br = new SolidBrush(Color.FromArgb(rn.Next(256), rn.Next(256), rn.Next(256)))) g0.FillRectangle(br, i, j, 6, 6); } b0.Save(oldImg, System.Drawing.Imaging.ImageFormat.Jpeg); }
+                Directory.CreateDirectory(ProjectLibrary.CoversDir); string cvp = Path.Combine(ProjectLibrary.CoversDir, "oldcover-test.jpg"); File.Copy(oldImg, cvp, true); var oe = ProjectLibrary.Find(old); oe.Cover = cvp;
+                using (var im = Image.FromFile(oldImg)) { var box = ProjectLibrary.FindContent(im); Check("the picture itself is found in the middle of an old blurred square", box.HasValue && box.Value.Height < 260 && box.Value.Height > 120 && box.Value.Width > 330, box.HasValue ? box.Value.ToString() : "none"); }
+                typeof(ProjectLibrary).GetField("fitDone", BindingFlags.NonPublic | BindingFlags.Static).SetValue(null, false); int fixedN = ProjectLibrary.FitOldCovers();
+                int oz = 100, ox2, oy2; ProjectLibrary.LoadAdj(old, out oz, out ox2, out oy2); int sw2 = 0, sh2 = 0; if (ProjectLibrary.HasCoverSrc(old)) using (var im2 = Image.FromFile(ProjectLibrary.CoverSrc(old))) { sw2 = im2.Width; sh2 = im2.Height; }
+                Check("going through the projects: the old picture is kept on its own (not the stretched background) and shown whole, undistorted", fixedN >= 1 && sh2 > 0 && sh2 < 300 && sw2 > 300 && oz == 0, fixedN + " " + sw2 + "x" + sh2 + " zoom " + oz);
+                using (var rb = ProfileStore.RenderFramed(new Bitmap(200, 100), 100, 100, 0, 50, 50, Color.FromArgb(255, 10, 5, 22), false)) { var top = rb.GetPixel(50, 5); Check("a picture that is not square sits on the plain background: no stretched bands", top.R == 10 && top.G == 5 && top.B == 22, top.ToString()); }
+                ProjectLibrary.ClearCover(old);
+            }
+            {   // the Export box remembers the folder you used last (only that)
+                string keepF = StudioDialogs.LastExportDir; string tmpF = Path.Combine(StudioEnv.DataDir, "exp-last"); Directory.CreateDirectory(tmpF); StudioDialogs.LastExportDir = tmpF;
+                Check("the folder of the last export comes back in the Export box", StudioDialogs.LastExportDir == tmpF, StudioDialogs.LastExportDir);
+                Directory.Delete(tmpF, true); Check("a folder that is gone falls back to the Purphex Music folder in Downloads", StudioDialogs.LastExportDir.EndsWith("Purphex Music"), StudioDialogs.LastExportDir);
+                try { File.Delete(Path.Combine(StudioEnv.DataDir, "export-folder.txt")); } catch { }
+            }
+            {   // SPLIT cuts exactly at the needle, also when zoomed in (the grid lines are far apart there)
+                sf.eng.Tracks.Clear(); sf.eng.Tracks.Add(StudioEngine.NewTrack("Cut me", "vocal", AudioClip.FromArrays(new float[441000], new float[441000], "t"))); SetF("selTrack", 0); SetF("snapOn", true); SetF("spp", 4.0); SetF("dispPos", 100777.0); SetF("toolsTrack", null);
+                var sm = typeof(StudioForm).GetMethod("SplitSelected", BF); sm.Invoke(sf, null); long cutAt = sf.eng.Tracks.Count == 2 ? sf.eng.Tracks[1].Offset : -1;
+                Check("zoomed in, SPLIT cuts exactly where the needle is (not at the nearest far-away grid line)", cutAt == 100777, cutAt + " of 100777");
+                sf.eng.Tracks.Clear();
+            }
+            {   // the whole ruler moves the needle, down to its bottom border, also when the tracks are scrolled up under it
+                sf.eng.Tracks.Clear(); for (int q = 0; q < 6; q++) sf.eng.Tracks.Add(StudioEngine.NewTrack("Scroll " + q, "vocal", AudioClip.FromArrays(new float[441000], new float[441000], "t")));
+                sf.ClientSize = new Size(1500, 800); Application.DoEvents(); SetF("tab", 0); SetF("welcomeOn", false); SetF("vscroll", 120f);
+                var pmr = typeof(StudioForm).GetMethod("PaintAll", BF); using (var bmr = new Bitmap(1500, 800)) using (var gr = Graphics.FromImage(bmr)) { var per = new PaintEventArgs(gr, new Rectangle(Point.Empty, bmr.Size)); for (int i = 0; i < 3; i++) pmr.Invoke(sf, new object[] { per }); }
+                HitReg rul = null; foreach (object o in (System.Collections.IEnumerable)typeof(StudioForm).GetField("regs", BF).GetValue(sf)) { var rg = (HitReg)o; if (rg.R.Height < 40 && rg.R.Width > 500 && rg.OnDrag != null && (rul == null || rg.R.Y < rul.R.Y)) rul = rg; }   /* the highest one is the ruler (the overview strip is at the bottom) */
+                HitReg hit = rul == null ? null : (HitReg)typeof(StudioForm).GetMethod("TopRegion", BF).Invoke(sf, new object[] { new PointF(rul.R.X + 300, rul.R.Bottom - 2) });
+                Check("a click on the bottom edge of the ruler still moves the needle (a row scrolled up under it does not take the click)", rul != null && hit != null && hit.R.Height < 40 && hit.OnDrag != null, rul == null ? "no ruler" : (hit == null ? "nothing" : hit.R.ToString()));
+                SetF("vscroll", 0f); sf.eng.Tracks.Clear();
+            }
+            {   // copy / paste of plugins and of pieces, the preset shown on the plugin, REMOVE PRESET
+                sf.eng.Tracks.Clear(); var ta = StudioEngine.NewTrack("Row A", "vocal", AudioClip.FromArrays(new float[441000], new float[441000], "t")); sf.eng.Tracks.Add(ta);
+                var d1 = FxRegistry.Create("delay"); d1.Prepare(44100); d1.Set("fb", 61f); var d2 = FxRegistry.Create("delay"); d2.Prepare(44100); var cmp = FxRegistry.Create("comp"); cmp.Prepare(44100); ta.Fx.Add(d2); ta.Fx.Add(cmp);
+                SetF("fxCopyType", d1.Type); SetF("fxCopyData", d1.Serialize()); SetF("fxCopyTitle", d1.Title);
+                sf.PasteFx(d2, ta); Check("PASTE puts the copied settings on a plugin of the same kind", Math.Abs(d2.Get("fb") - 61f) < 0.01f, d2.Get("fb").ToString());
+                int before = ta.Fx.Count; sf.PasteFx(cmp, ta); Check("PASTE on a different kind adds the copied plugin as a new one on the track", ta.Fx.Count == before + 1 && ta.Fx[ta.Fx.Count - 1].Type == "delay" && Math.Abs(ta.Fx[ta.Fx.Count - 1].Get("fb") - 61f) < 0.01f, ta.Fx.Count.ToString());
+                d2.CurPreset = ""; string none = StudioForm.PresetShown(d2); d2.CurPreset = "Slapback"; d2.CurPresetData = d2.Serialize(); string withP = StudioForm.PresetShown(d2); d2.Set("mix", 7f); string changed = StudioForm.PresetShown(d2);
+                Check("the plugin shows which preset is on it (or NONE, or that it was changed by hand)", none == "PRESET: NONE" && withP == "PRESET: SLAPBACK" && changed.StartsWith("PRESET: SLAPBACK") && changed.Contains("CHANGED"), none + " | " + withP + " | " + changed);
+                sf.RemoveFxPreset(d2); Check("REMOVE PRESET takes it off and puts the plugin back to its own defaults", d2.CurPreset == "" && Math.Abs(d2.Get("fb") - d2.Find("fb").Def) < 0.01f);
+                sf.CopyClip(ta); sf.PasteClip(ta, 441000); var pasted = sf.eng.Tracks.Count == 2 ? sf.eng.Tracks[1] : null;
+                Check("right-click Copy then Paste here puts a second piece on the same track, where you clicked", pasted != null && pasted.Host == ta && pasted.Offset == 441000 && pasted.Clip == ta.Clip, sf.eng.Tracks.Count + " tracks");
+                sf.eng.Tracks.Clear();
+            }
+            {   // clicking on the empty part of a track's row (past its audio) does not switch to that track
+                sf.eng.Tracks.Clear(); sf.eng.Tracks.Add(StudioEngine.NewTrack("Long", "vocal", AudioClip.FromArrays(new float[441000], new float[441000], "t"))); sf.eng.Tracks.Add(StudioEngine.NewTrack("Short", "beat", AudioClip.FromArrays(new float[44100], new float[44100], "t")));
+                sf.ClientSize = new Size(1500, 800); Application.DoEvents(); SetF("tab", 0); SetF("welcomeOn", false); SetF("selTrack", 0); SetF("vscroll", 0f); SetF("projBin", false);
+                var pme = typeof(StudioForm).GetMethod("PaintAll", BF); Action paintE = () => { using (var bme = new Bitmap(1500, 800)) using (var ge = Graphics.FromImage(bme)) { var pee = new PaintEventArgs(ge, new Rectangle(Point.Empty, bme.Size)); for (int i = 0; i < 3; i++) pme.Invoke(sf, new object[] { pee }); } }; paintE();
+                var lanes = new List<HitReg>(); foreach (object o in (System.Collections.IEnumerable)typeof(StudioForm).GetField("regs", BF).GetValue(sf)) { var rg = (HitReg)o; if (rg.R.Width > 600 && rg.R.Height > 100 && rg.R.Height < 160 && rg.R.X > 300 && rg.OnDrag != null) lanes.Add(rg); } lanes.Sort((p, r) => p.R.Y.CompareTo(r.R.Y));
+                Func<string, MouseButtons, int, int, object> evt = (nm, b, x, y) => typeof(StudioForm).GetMethod(nm, BF | BindingFlags.DeclaredOnly).Invoke(sf, new object[] { new MouseEventArgs(b, 1, x, y, 0) });
+                bool stayed = false, pickedOn = false; if (lanes.Count >= 2)
+                {
+                    var l2 = lanes[1].R; int ex = (int)(l2.Right - 120), ey = (int)(l2.Y + l2.Height / 2); evt("OnMouseMove", MouseButtons.None, ex, ey); evt("OnMouseDown", MouseButtons.Left, ex, ey); evt("OnMouseUp", MouseButtons.Left, ex, ey); paintE(); stayed = F<int>("selTrack") == 0;
+                    int cx = (int)(l2.X + 20), cy = ey; evt("OnMouseMove", MouseButtons.None, cx, cy); evt("OnMouseDown", MouseButtons.Left, cx, cy); evt("OnMouseUp", MouseButtons.Left, cx, cy); paintE(); pickedOn = F<int>("selTrack") == 1;
+                }
+                Check("clicking past the audio of a track does not change the selected track", stayed, lanes.Count + " lanes");
+                Check("clicking on the audio itself still picks that track", pickedOn);
+                sf.eng.Tracks.Clear();
+            }
             {   // the REVERT box stays at the bottom left and is no wider than the left column of the Mastering page (it never reaches into the next box)
                 var pm = typeof(StudioForm).GetMethod("PaintAll", BF); var rrF = typeof(StudioForm).GetField("revertRect", BF); bool narrow = true; string bad = "";
                 foreach (var szz in new[] { new Size(1366, 768), new Size(1240, 680), new Size(1700, 1000) })

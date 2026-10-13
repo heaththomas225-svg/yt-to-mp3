@@ -723,7 +723,7 @@ partial class StudioForm : Form
             { RectangleF er; if (tr.Clip == null && !tr.Instrument && !tr.IsBus && emptyLanes.TryGetValue(tr, out er)) { var tk = tr; Reg(er, () => { selTrack = idx; fillTrack = tk; try { AddMusicClick(true); } finally { fillTrack = null; } }); } }   // the box of an empty track: click it to pick music for THIS track
             q0 = Prof.T(); PaintHeader(g, tr, i, Rc(0, ys, HeadW, LaneH), sel); Prof.A("mix.header", q0);
             q0 = Prof.T(); NeonLaneChrome(g, tr, Rc(0, ys, HeadW, LaneH), lane, sel); Prof.A("mix.neonchrome", q0);
-            if (sel && n > 1) PaintPickedRow(g, tr, Rc(1, ys + 1, tl.Right - 2, LaneH - 2));
+            if (sel && n > 1) { float rEnd = tl.Right; if (tr.Clip != null && !tr.Instrument && !tr.IsBus) { float mx = -1, v; if (clipRightX.TryGetValue(tr, out v)) mx = v; foreach (var lay2 in eng.Tracks) if (lay2.Host == tr && clipRightX.TryGetValue(lay2, out v)) mx = Math.Max(mx, v); if (mx > 0) rEnd = Math.Min(tl.Right, Math.Max(HeadW + 24, mx + 4)); } PaintPickedRow(g, tr, Rc(1, ys + 1, rEnd - 2, LaneH - 2)); }   // the outline ends where the audio ends
             using (var pen = new Pen(TM.C(70, 140, 85, 210))) g.DrawLine(pen, 0, ys + LaneH, tl.Right, ys + LaneH);
             PaintGhostSlot(g, tr, Rc(0, ys, tl.Right, LaneH));
         }
@@ -731,6 +731,7 @@ partial class StudioForm : Form
         AddTrackRow(g, Math.Max(y, top + RulerH), n);
         { float ey = Math.Max(y, top + RulerH); if (ey < ClientSize.Height) { var em = Reg(Rc(HeadW, ey, tl.Width, ClientSize.Height - ey), () => { toolsTrack = null; MarqueeBegin(); }); em.OnDrag = pt => MarqueeTo(pt); em.OnUp = () => MarqueeEnd(); } }   // empty space: hold and drag a selection box (the needle moves from the ruler only)
         PaintMarquee(g);
+        { var rr2 = Reg(ruler, () => { needleDrag = true; followPaused = false; eng.Seek(scroll + (long)((MousePos.X - HeadW) * spp)); }); rr2.OnDrag = pt => eng.Seek(Math.Max(0, scroll + (long)((pt.X - HeadW) * spp))); rr2.OnUp = () => needleDrag = false; }   // the whole ruler, to its bottom border, moves the needle: registered after the rows so a row scrolled up under it can not take the click
         if (n == 0)
         {
             var r0 = Rc(HeadW + 40, top + RulerH + 60, tl.Width - 80, 150);
@@ -827,6 +828,7 @@ partial class StudioForm : Form
     }
     class PeakCache { public AudioClip Clip; public long Start, Len; public double Spp; public int Px; public float[] Mn, Mx; public Bitmap Img; public int Ver, ImgVer, ImgCol; public long ImgTheme; public RectangleF ImgLane, ImgCr, ImgRel; public float ImgX0; public bool ImgAud, ImgSel; }
     readonly Dictionary<Track, PeakCache> peakCache = new Dictionary<Track, PeakCache>();
+    readonly Dictionary<Track, float> clipRightX = new Dictionary<Track, float>();   // where each clip ends on screen: the outline of the picked row stops there (not at the far end of the lane)
     void PaintWave(Graphics g, Track tr, RectangleF lane, bool sel)
     {
         if (tr.Clip == null) return;
@@ -853,7 +855,7 @@ partial class StudioForm : Form
         }
         if (cr.Width > 0 && !tr.Off) { var gst = g.Save(); g.SetClip(lane, CombineMode.Intersect); float lv = Math.Max(tr.PeakL, tr.PeakR); Glow(g, c, cr, 6, (sel ? 1.2f : 0.8f) + Math.Min(0.6f, lv * 0.9f), 5); g.Restore(gst); }
         { float nx = Math.Max(lane.X, x0) + 8, nw = Math.Min(300, Math.Min(x1, lane.Right) - nx - 6); if (nw > 70) Txt(g, tr.Name, 12, Color.FromArgb(200, 255, 255, 255), Rc(nx, lane.Y + 6, nw, 16), StringAlignment.Near, true); }   // the name stays inside its own clip
-        PaintClipExtras(g, tr, lane, x0, x1, cr);
+        clipRightX[tr] = x1; PaintClipExtras(g, tr, lane, x0, x1, cr);
         PaintClipChrome(g, tr, lane, cr, sel);
     }
 
@@ -1056,15 +1058,59 @@ partial class StudioForm : Form
     }
 
     // Exact height of an effect editor, so the panel scrolls only as far as its content (no endless blank space).
+    // ---- the row under the plugin's name: the preset that is on it, COPY / PASTE of the whole plugin (its settings), and REMOVE PRESET (back to the plugin's own defaults) ----
+    string fxCopyType = "", fxCopyData = "", fxCopyTitle = "";
+    internal static string PresetShown(Fx f) { if (f.CurPreset.Length == 0) return "PRESET: NONE"; return "PRESET: " + f.CurPreset.ToUpper() + (f.Serialize() == f.CurPresetData ? "" : "  (CHANGED)"); }
+    float PaintPresetRow(Graphics g, Fx f, Track tr, RectangleF a, float y)
+    {
+        float x = a.X + 10, right = a.Right - 10; var rm = Rc(right - 64, y - 6, 64, 22); var pa = Rc(rm.X - 54, y - 6, 50, 22); var co = Rc(pa.X - 50, y - 6, 46, 22);
+        float tw = co.X - x - 6; Txt(g, PresetShown(f), 10, f.CurPreset.Length == 0 ? DimC : NeonCyan, Rc(x, y - 6, Math.Max(20, tw), 22), StringAlignment.Near, f.CurPreset.Length > 0);
+        Btn(g, co, "COPY", 0, () => { fxCopyType = f.Type; fxCopyData = f.Serialize(); fxCopyTitle = f.Title; Toast("Copied " + f.Title + " with its settings. PASTE puts them on another plugin, or adds it as a new plugin."); }, 10); Hint2(co, "Copy this plugin with all its settings");
+        Btn(g, pa, "PASTE", fxCopyType.Length > 0 ? 2 : 0, () => PasteFx(f, tr), 10); Hint2(pa, fxCopyType.Length > 0 ? "Paste the copied " + fxCopyTitle + ": onto this plugin if it is the same kind, otherwise as a new plugin on this track" : "Copy a plugin first (COPY)");
+        Btn(g, rm, "REMOVE", f.CurPreset.Length > 0 ? 3 : 0, () => RemoveFxPreset(f), 10); Hint2(rm, "Take the preset off: the plugin goes back to its own default settings (REVERT puts it back)");
+        return y + 28;
+    }
+    void PaintPresetInline(Graphics g, Fx f, Track tr, RectangleF a, float ty)
+    {
+        float x = a.X + 10, right = a.Right - 176 - 8; var rm = Rc(right - 58, ty + 1, 58, 22); var pa = Rc(rm.X - 48, ty + 1, 44, 22); var co = Rc(pa.X - 46, ty + 1, 42, 22);
+        float tx = x + Math.Min(260f, g.MeasureString(f.Title, GfxCache.Font(16, true)).Width + 14); bool room = co.X - tx - 6 >= 92;   // a narrow page has room for the preset's name only: the buttons are on the track's plugin panel
+        float tw = (room ? co.X : right) - tx - 6; if (tw > 40) Txt(g, PresetShown(f), 10, f.CurPreset.Length == 0 ? DimC : NeonCyan, Rc(tx, ty + 1, tw, 22), StringAlignment.Near, f.CurPreset.Length > 0);
+        if (!room) return;
+        Btn(g, co, "COPY", 0, () => { fxCopyType = f.Type; fxCopyData = f.Serialize(); fxCopyTitle = f.Title; Toast("Copied " + f.Title + " with its settings. PASTE puts them on another plugin, or adds it as a new plugin."); }, 10); Hint2(co, "Copy this plugin with all its settings");
+        Btn(g, pa, "PASTE", fxCopyType.Length > 0 ? 2 : 0, () => PasteFx(f, tr), 10); Hint2(pa, fxCopyType.Length > 0 ? "Paste the copied " + fxCopyTitle + ": onto this plugin if it is the same kind, otherwise as a new plugin" : "Copy a plugin first (COPY)");
+        Btn(g, rm, "REMOVE", f.CurPreset.Length > 0 ? 3 : 0, () => RemoveFxPreset(f), 10); Hint2(rm, "Take the preset off: the plugin goes back to its own default settings (REVERT puts it back)");
+    }
+    internal void RemoveFxPreset(Fx f)
+    {
+        if (f.CurPreset.Length == 0) { Toast("No preset is on this plugin."); return; }
+        string before = f.Serialize(), pn = f.CurPreset, pd = f.CurPresetData; bool bp = f.Bypass;
+        lock (eng.Sync) { f.ResetDefaults(); f.Reset(); } f.CurPreset = ""; f.CurPresetData = "";
+        OfferRevert(pn + " removed from " + f.Title, () => { lock (eng.Sync) { f.ResetDefaults(); f.Deserialize(before); f.Bypass = bp; f.Reset(); f.CurPreset = pn; f.CurPresetData = pd; } });
+        Toast("Preset removed: " + f.Title + " is back to its default settings.");
+    }
+    internal void PasteFx(Fx f, Track tr)
+    {
+        if (fxCopyType.Length == 0) { Toast("Nothing is copied yet: press COPY on a plugin."); return; }
+        if (f.Type == fxCopyType)
+        {
+            string before = f.Serialize(), pn = f.CurPreset, pd = f.CurPresetData; bool bp = f.Bypass; lock (eng.Sync) { f.ResetDefaults(); f.Deserialize(fxCopyData); f.Reset(); } f.CurPreset = ""; f.CurPresetData = "";
+            OfferRevert("Pasted settings on " + f.Title, () => { lock (eng.Sync) { f.ResetDefaults(); f.Deserialize(before); f.Bypass = bp; f.Reset(); f.CurPreset = pn; f.CurPresetData = pd; } }); Toast("Pasted the copied settings on " + f.Title + ".");
+            return;
+        }
+        var nf = Presets.Make(fxCopyType, fxCopyData); if (nf == null) { Toast("That plugin cannot be pasted here."); return; }
+        List<Fx> chain = tr == null ? eng.MasterFx : tr.Fx; int at; lock (eng.Sync) { chain.Add(nf); at = chain.Count - 1; }
+        if (tr == null) selMaster = at; else selFx = at;
+        OfferRevert(fxCopyTitle + " pasted as a new plugin", () => { lock (eng.Sync) { chain.Remove(nf); } if (tr == null) selMaster = Math.Min(selMaster, Math.Max(0, chain.Count - 1)); else selFx = -1; }); Toast(fxCopyTitle + " added as a new plugin with the copied settings.");
+    }
     static float EditorHeight(Fx f)
     {
         int n = 0; { var hid = f.Hidden.Length > 0 ? new List<string>(f.Hidden.Split(',')) : new List<string>(); foreach (var p in f.P) if (!hid.Contains(p.Id)) n++; }
         if (f is InstrumentFx) return 34 + 38 + 16;
-        if (f is ParametricEq) return 668;
-        if (f is Spatial8D) return 34 + 190 + Math.Max(0, n - 2) * 30 + 24;
-        if (f is ConvFx) return 34 + 52 + n * 30 + 24;
-        if (f is PitchCorrector) return 34 + 200 + Math.Max(0, n - 3) * 30 + 24;
-        return 34 + n * 30 + 24;
+        if (f is ParametricEq) return 668 + 28;
+        if (f is Spatial8D) return 34 + 28 + 190 + Math.Max(0, n - 2) * 30 + 24;
+        if (f is ConvFx) return 34 + 28 + 52 + n * 30 + 24;
+        if (f is PitchCorrector) return 34 + 28 + 200 + Math.Max(0, n - 3) * 30 + 24;
+        return 34 + 28 + n * 30 + 24;
     }
 
     sealed class PGroup { public string Title = "", Id = ""; public Color Col; public int Kind; public List<int> Items = new List<int>(); }   // one box of the plugin panel (Kind 0 instrument, 1 a preset, 2 your plugins)
@@ -1334,6 +1380,7 @@ partial class StudioForm : Form
         Btn(g, Rc(a.Right - (wide ? 176 : 150), y, wide ? 70 : 66, 24), f.Bypass ? "Bypassed" : "Bypass", f.Bypass ? 4 : 0, () => f.Bypass = !f.Bypass, 11);
         Btn(g, Rc(a.Right - (wide ? 100 : 80), y, wide ? 90 : 70, 24), wide ? "FX presets" : "Presets", 1, () => OpenPresetSheet(f), 12);
         y += 34;
+        if (!(f is InstrumentFx)) { if (wide) PaintPresetInline(g, f, tr, a, y - 34); else y = PaintPresetRow(g, f, tr, a, y); }   // which preset is on, COPY / PASTE of the plugin, and REMOVE PRESET (on the wide Mastering page they sit in the title row: no room is taken from the editor)
         if (eqOwnRow) { var ae2 = Rc(a.X + 10, y - 4, a.Width - 20, 26); Btn(g, ae2, "AUTO EQ", 2, () => AutoEqClick((ParametricEq)f, tr), 12); Hint2(ae2, "The EQ sets itself: it listens to this track and moves bass, mud, presence, upper-mids and air to balance it (it asks first, and you can undo it)"); y += 28; }
         var vstf = f as InstrumentFx; if (vstf != null) { Btn(g, Rc(a.X + 10, y - 2, a.Width - 20, 32), vstf.WindowLabel, 2, () => { vstf.Owner = tr; vstf.ShowWindow(this); }, 14); y += 38; return; }   // an instrument is edited in its own window, like a real plugin: nothing else is listed here
         var skip = new List<string>(); if (f.Hidden.Length > 0) skip.AddRange(f.Hidden.Split(','));

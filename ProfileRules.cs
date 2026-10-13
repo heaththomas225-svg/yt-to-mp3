@@ -78,7 +78,7 @@ static partial class ProfileStore
 
     // ---- a picture in its frame: zoom 0 (the default) shows the WHOLE picture and stretches its edges to fill what is left over; a percent zooms (100 fills the frame) ----
     static void Band(Graphics g, Image src, RectangleF d, RectangleF s, ImageAttributes ia) { g.DrawImage(src, new[] { new PointF(d.Left, d.Top), new PointF(d.Right, d.Top), new PointF(d.Left, d.Bottom) }, s, GraphicsUnit.Pixel, ia); }
-    public static Bitmap RenderFramed(Image src, int w, int h, int zoomPct, int xPct, int yPct, Color bg)
+    public static Bitmap RenderFramed(Image src, int w, int h, int zoomPct, int xPct, int yPct, Color bg, bool bands = true)   // bands false: nothing is stretched, the room left over is the plain background colour (the project pictures)
     {
         var bmp = new Bitmap(w, h, PixelFormat.Format32bppPArgb); double contain = Math.Min(w / (double)src.Width, h / (double)src.Height), cover = Math.Max(w / (double)src.Width, h / (double)src.Height);
         double sc = zoomPct <= 0 ? contain : cover * Math.Max(5, Math.Min(400, zoomPct)) / 100.0, dw = src.Width * sc, dh = src.Height * sc;
@@ -90,8 +90,8 @@ static partial class ProfileStore
             {
                 ia.SetWrapMode(WrapMode.TileFlipXY); int sw = Math.Max(1, Math.Min(src.Width, 3)), sh = Math.Max(1, Math.Min(src.Height, 3));
                 // the empty bands beside (or above and below) the picture are its own edge pixels stretched out
-                if (dw < w - 0.5) { float lw = (float)ox, rx = (float)(ox + dw), rw = w - rx; if (lw > 0.5f) Band(g, src, new RectangleF(0, (float)Math.Max(0, oy), lw, (float)Math.Min(h, dh)), new RectangleF(0, 0, sw, src.Height), ia); if (rw > 0.5f) Band(g, src, new RectangleF(rx, (float)Math.Max(0, oy), rw, (float)Math.Min(h, dh)), new RectangleF(src.Width - sw, 0, sw, src.Height), ia); }
-                if (dh < h - 0.5) { float th = (float)oy, by = (float)(oy + dh), bh = h - by; if (th > 0.5f) Band(g, src, new RectangleF((float)Math.Max(0, ox), 0, (float)Math.Min(w, dw), th), new RectangleF(0, 0, src.Width, sh), ia); if (bh > 0.5f) Band(g, src, new RectangleF((float)Math.Max(0, ox), by, (float)Math.Min(w, dw), bh), new RectangleF(0, src.Height - sh, src.Width, sh), ia); }
+                if (bands && dw < w - 0.5) { float lw = (float)ox, rx = (float)(ox + dw), rw = w - rx; if (lw > 0.5f) Band(g, src, new RectangleF(0, (float)Math.Max(0, oy), lw, (float)Math.Min(h, dh)), new RectangleF(0, 0, sw, src.Height), ia); if (rw > 0.5f) Band(g, src, new RectangleF(rx, (float)Math.Max(0, oy), rw, (float)Math.Min(h, dh)), new RectangleF(src.Width - sw, 0, sw, src.Height), ia); }
+                if (bands && dh < h - 0.5) { float th = (float)oy, by = (float)(oy + dh), bh = h - by; if (th > 0.5f) Band(g, src, new RectangleF((float)Math.Max(0, ox), 0, (float)Math.Min(w, dw), th), new RectangleF(0, 0, src.Width, sh), ia); if (bh > 0.5f) Band(g, src, new RectangleF((float)Math.Max(0, ox), by, (float)Math.Min(w, dw), bh), new RectangleF(0, src.Height - sh, src.Width, sh), ia); }
             }
             g.DrawImage(src, new RectangleF((float)ox, (float)oy, (float)dw, (float)dh));
         }

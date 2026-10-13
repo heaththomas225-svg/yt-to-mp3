@@ -40,10 +40,12 @@ partial class StudioForm
     }
 
     // ---------- split: as many times as you want ----------
+    // where a split goes: exactly where the needle is. It only sits on the grid when a grid line is within a few pixels of it: zoomed in, the grid lines are far apart and snapping would throw the split away from the needle
+    long SplitPoint(long raw) { if (!snapOn) return raw; long sn = Snap(raw); return Math.Abs(sn - raw) / Math.Max(1e-6, spp) <= 8 ? sn : raw; }
     void SplitSelected()
     {
         var row = Selected; if (row == null) { Toast("Select a track first."); return; }
-        long at = Snap(DispPos); var c = ClipAtNeedle(row, at);
+        long at = SplitPoint(DispPos); var c = ClipAtNeedle(row, at);
         if (c == null) { Toast("Move the needle onto a clip of the selected track (click the ruler), then press SPLIT."); return; }
         SplitTrack(c, at);
     }

@@ -7,10 +7,22 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.36.7";
+    public const string Latest = "3.36.8";
 
     public const string Text =
-@"3.36.7  Pictures that fit themselves, a smaller REVERT box, the DAW resets when you leave
+@"3.36.8  One track, one set of effects; copy and paste; project pictures fit; SPLIT works zoomed in
+ + EFFECTS, MUTE, VOLUME AND PAN NOW BELONG TO THE WHOLE TRACK: every piece on a track (made by SPLIT, pasted, or added to the same row) plays through the same plugins, and MUTE, SOLO, the volume and the pan reach all of them. Before, only the first piece was changed and MUTE left the other pieces playing.
+ + COPY AND PASTE: right-click a piece, Copy this piece; right-click any audio track, Paste here (it lands where you clicked, on that track, through its plugins). On every plugin there are now COPY and PASTE buttons: PASTE puts the copied settings on a plugin of the same kind, or adds the copied plugin as a new one.
+ + PRESETS: every plugin shows which preset is on it (PRESET: NONE, or its name, or (CHANGED) when you moved something by hand) and REMOVE takes the preset off (back to the default settings, REVERT puts it back).
+ + The whole ruler, down to its bottom border, moves the needle (a track scrolled up under it used to take the click). Narrow clips get thin grips instead of grips covering the whole clip.
+ + SPLIT: zoomed in, a split now cuts exactly where the needle is. It used to jump to the nearest grid line, which when zoomed in is far away from the needle (and could be outside the clip). It only sits on the grid when a grid line is within a few pixels of the needle.
+ + PROJECT PICTURES: nothing is stretched any more. A picture that is not square sits whole on a plain background (the blurred, stretched copy that filled the square is gone). Every project picture you already had was gone through: the picture itself is found in the middle and kept on its own, fitted to the frame.
+ + EXPORT: the folder you picked last time is the folder the Export box opens with (only the folder is remembered; the other choices start fresh).
+ + MIX: the neon outline round the track you picked used to run on across the whole empty lane after the audio had ended (it looked like an extra box). It now stops where the audio stops.
+ + MIX: clicking on the empty part of a track (past its audio, or between its pieces) no longer switches to that track, and the 'Click: select this track' label is gone there.
+ + SPLIT: the pieces are called Vox (2), Vox (3)... instead of Vox (2) (2) (2), and the plugins run once over the whole track (no cut-off tails at the split points).
+
+3.36.7  Pictures that fit themselves, a smaller REVERT box, the DAW resets when you leave
  + PROJECT PICTURES: a picture with black (or white) bars round it is cut to the picture itself and fitted to the frame by itself. Press the camera on a project: a sheet opens with the same ZOOM, LEFT / RIGHT, UP / DOWN, FIT and FILL controls as your profile picture, plus CHOOSE ANOTHER and REMOVE.
  + The REVERT box is smaller (one line, no wider than the column it sits in) so it does not reach into the next box. The BEFORE / AFTER loudness lines on the Mastering page no longer sit under AUTO EQ, and the box corners are round all the way.
  + LEAVING THE DAW resets it: the next time it opens it is empty and the welcome box with your projects is back, like the first time.

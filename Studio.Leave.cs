@@ -10,7 +10,7 @@ partial class StudioForm
 {
     int editCount, savedEdit; bool leaving, welcomeOn;
     // when Purphex Music is opened it starts on the mix, with a neon box on top: open one of your projects or start a new one (the box goes away with any choice, and the mix is right behind it)
-    internal void ShowWelcome() { welcomeOn = true; tab = 0; welcomeAt = Environment.TickCount; if (!projectsLoaded) { projectsLoaded = true; ProjectLibrary.Load(); ProjectLibrary.Discover(); }
+    internal void ShowWelcome() { welcomeOn = true; tab = 0; welcomeAt = Environment.TickCount; if (!projectsLoaded) { projectsLoaded = true; ProjectLibrary.Load(); ProjectLibrary.Discover(); if (!StudioEnv.UnderTest) System.Threading.ThreadPool.QueueUserWorkItem(_ => { try { if (ProjectLibrary.FitOldCovers() > 0) lastInput = DateTime.Now; } catch { } }); }
         var wt = new System.Windows.Forms.Timer { Interval = 6000 }; wt.Tick += (s2, e2) => { wt.Stop(); wt.Dispose(); EmojiPanel.WarmColours(); }; wt.Start();   // a few seconds after the DAW opens the colour of every emoji is made in the background (once: they are kept in a folder)
     }
     int welcomeAt; internal bool WelcomeShowing { get { return welcomeOn && !HasProject && tab == 0 && !menuOpen; } }

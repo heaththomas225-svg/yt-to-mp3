@@ -7,20 +7,20 @@ using System.Windows.Forms;
 // The Presets sheet for a plugin: a long list with search and the logo scroll bar, USE on any preset, and REVERT at all times (the sheet remembers how the plugin was when you opened it).
 partial class StudioForm
 {
-    bool psOpen; Fx psFx; float psScroll; string psQuery = "", psBefore = ""; bool psBeforeBypass; Func<string, bool> psConfirmHook;
+    bool psOpen; Fx psFx; float psScroll; string psQuery = "", psBefore = "", psName0 = "", psData0 = ""; bool psBeforeBypass; Func<string, bool> psConfirmHook;
 
     internal void OpenPresetSheet(Fx f)
     {
-        psOpen = true; psFx = f; psScroll = 0; psQuery = ""; psBefore = f.Serialize(); psBeforeBypass = f.Bypass; stylesOpen = false; ntOpen = false; busOpen = false; browserOpen = false; cpOpen = false; themeOpen = false; amOpen = false;
+        psOpen = true; psFx = f; psScroll = 0; psQuery = ""; psBefore = f.Serialize(); psBeforeBypass = f.Bypass; psName0 = f.CurPreset; psData0 = f.CurPresetData; stylesOpen = false; ntOpen = false; busOpen = false; browserOpen = false; cpOpen = false; themeOpen = false; amOpen = false;
     }
     void PsKey(char c) { if (c == '\b') { if (psQuery.Length > 0) psQuery = psQuery.Substring(0, psQuery.Length - 1); } else if (!char.IsControl(c) && psQuery.Length < 30) psQuery += c; psScroll = 0; }
     bool PsChanged { get { return psFx != null && (psFx.Serialize() != psBefore || psFx.Bypass != psBeforeBypass); } }
-    void PsRestore() { var f = psFx; lock (eng.Sync) { f.ResetDefaults(); f.Deserialize(psBefore); f.Bypass = psBeforeBypass; f.Reset(); } }
+    void PsRestore() { var f = psFx; lock (eng.Sync) { f.ResetDefaults(); f.Deserialize(psBefore); f.Bypass = psBeforeBypass; f.Reset(); f.CurPreset = psName0; f.CurPresetData = psData0; } }
     // USE: applies the preset, and the REVERT bar (and the REVERT button on the sheet) can put the plugin back exactly as it was
     internal void PsUse(string name, string data)
     {
-        var f = psFx; string before = f.Serialize(); bool bp = f.Bypass; Presets.Apply(f, data);
-        OfferRevert(name + " on " + f.Title, () => { lock (eng.Sync) { f.ResetDefaults(); f.Deserialize(before); f.Bypass = bp; f.Reset(); } });
+        var f = psFx; string before = f.Serialize(); bool bp = f.Bypass; string pn0 = f.CurPreset, pd0 = f.CurPresetData; Presets.Apply(f, data); f.CurPreset = name; f.CurPresetData = f.Serialize();
+        OfferRevert(name + " on " + f.Title, () => { lock (eng.Sync) { f.ResetDefaults(); f.Deserialize(before); f.Bypass = bp; f.Reset(); f.CurPreset = pn0; f.CurPresetData = pd0; } });
         Toast(name + " is on. REVERT puts the plugin back as it was.");
     }
 
@@ -38,7 +38,7 @@ partial class StudioForm
         double tm = Environment.TickCount / 1000.0; bool blink = ((int)(tm * 2) % 2) == 0; Txt(g, psQuery.Length == 0 ? (blink ? "|" : " ") + "  SEARCH THE PRESETS" : psQuery + (blink ? "|" : ""), 13, psQuery.Length == 0 ? DimC : Ink, Rc(sb.X + 12, sb.Y, sb.Width - 50, sb.Height), StringAlignment.Near, false);
         y += 42; float bw = (sheet.Width - 44 - 16) / 3f;
         var c1 = Rc(sheet.X + 22, y, bw, 32); var c2 = Rc(c1.Right + 8, y, bw, 32); var c3 = Rc(c2.Right + 8, y, bw, 32);
-        Btn(g, c1, "COMMUNITY PRESETS", 1, () => { psOpen = false; OpenCommunityPresets("fx:" + f.Type, f.Title, cp => { lock (eng.Sync) { f.ResetDefaults(); f.Deserialize(cp.Data); f.Reset(); } }, () => f.Serialize(), f.Title + " custom"); }, 11); Hint2(c1, "Download presets other producers shared (and share yours)");
+        Btn(g, c1, "COMMUNITY PRESETS", 1, () => { psOpen = false; OpenCommunityPresets("fx:" + f.Type, f.Title, cp => { lock (eng.Sync) { f.ResetDefaults(); f.Deserialize(cp.Data); f.Reset(); f.CurPreset = cp.Name; f.CurPresetData = f.Serialize(); } }, () => f.Serialize(), f.Title + " custom"); }, 11); Hint2(c1, "Download presets other producers shared (and share yours)");
         Btn(g, c2, "SAVE MY SETTINGS", 1, () => { string nm = Ask(Prefs.ShareSaved ? "Preset name (it is also shared with the community):" : "Preset name:", f.Title + " custom"); if (nm != null) { Presets.SaveUser(f.Type, nm, f); Toast("Preset saved"); CommunityPresets.AutoShare("fx:" + f.Type, nm, f.Serialize(), ProjectLibrary.ProfileName, msg => { if (msg != null) BeginInvoke(new Action(() => Toast(msg))); }); } }, 11); Hint2(c2, "Save the settings you have now as a preset of your own");
         Btn(g, c3, "REVERT", PsChanged ? 3 : 0, () => { if (PsChanged) { PsRestore(); Toast("Back to how it was when you opened the list."); } else Toast("Nothing has changed yet."); }, 12); Hint2(c3, "Put the plugin back exactly as it was when you opened this list");
         float top = y + 42, areaBottom = sheet.Bottom - 56, areaH = areaBottom - top; var area = Rc(sheet.X + 10, top, sheet.Width - 20, areaH);

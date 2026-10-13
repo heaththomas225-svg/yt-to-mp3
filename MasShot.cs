@@ -39,6 +39,25 @@ static class MaS
                 var bmp2 = new Bitmap(1366, 768); var pm2 = typeof(StudioForm).GetMethod("PaintAll", BF); using (var g = Graphics.FromImage(bmp2)) { var pe = new PaintEventArgs(g, new Rectangle(0, 0, 1366, 768)); for (int i = 0; i < 3; i++) pm2.Invoke(sf, new object[] { pe }); }
                 bmp2.Save(Path.Combine(outDir, "cover-sheet.png"), System.Drawing.Imaging.ImageFormat.Png); bmp2.Dispose();
             }
+            { // the picked row's outline stops where the audio ends
+                eng.Tracks.Add(StudioEngine.NewTrack("Short", "vocal", Clip(3))); eng.Tracks.Add(StudioEngine.NewTrack("Third", "beat", Clip(8))); sf.ClientSize = new Size(1366, 768); Pump(300); SetF("caOpen", false); SetF("revertAction", null); SetF("tab", 0); SetF("selTrack", 1);
+                var bmp3 = new Bitmap(1366, 768); var pm3 = typeof(StudioForm).GetMethod("PaintAll", BF); using (var g = Graphics.FromImage(bmp3)) { var pe = new PaintEventArgs(g, new Rectangle(0, 0, 1366, 768)); for (int i = 0; i < 3; i++) pm3.Invoke(sf, new object[] { pe }); }
+                bmp3.Save(Path.Combine(outDir, "row-outline.png"), System.Drawing.Imaging.ImageFormat.Png); bmp3.Dispose();
+            }
+            { // the plugin editor: which preset is on, COPY / PASTE / REMOVE
+                eng.Tracks.Clear(); var tk = StudioEngine.NewTrack("Vox", "vocal", Clip(10)); var dfx = FxRegistry.Create("delay"); dfx.Prepare(44100); dfx.CurPreset = "Slapback Echo"; dfx.CurPresetData = dfx.Serialize(); tk.Fx.Add(dfx); eng.Tracks.Add(tk);
+                var cfx = FxRegistry.Create("compressor"); if (cfx != null) { cfx.Prepare(44100); tk.Fx.Add(cfx); }
+                sf.ClientSize = new Size(1366, 768); Pump(300); SetF("caOpen", false); SetF("revertAction", null); SetF("tab", 0); SetF("selTrack", 0); SetF("selFx", 0);
+                var bmp4 = new Bitmap(1366, 768); var pm4 = typeof(StudioForm).GetMethod("PaintAll", BF); using (var g = Graphics.FromImage(bmp4)) { var pe = new PaintEventArgs(g, new Rectangle(0, 0, 1366, 768)); for (int i = 0; i < 3; i++) pm4.Invoke(sf, new object[] { pe }); }
+                bmp4.Save(Path.Combine(outDir, "fx-row.png"), System.Drawing.Imaging.ImageFormat.Png); bmp4.Dispose();
+            }
+            { // a track split into several pieces
+                eng.Tracks.Clear(); var tk2 = StudioEngine.NewTrack("Vox", "vocal", Clip(10)); eng.Tracks.Add(tk2); eng.Tracks.Add(StudioEngine.NewTrack("Beat", "beat", Clip(10)));
+                sf.ClientSize = new Size(1366, 768); Pump(300); SetF("tab", 0); SetF("selTrack", 0); SetF("revertAction", null);
+                var sp = typeof(StudioForm).GetMethod("SplitTrack", BF); foreach (long at in new long[] { 44100 * 2, 44100 * 3 + 100, 44100 * 5, 44100 * 7 }) { Track piece = null; foreach (var t in eng.Tracks.ToArray()) if ((t.Host ?? t) == tk2 && t.Clip != null && at > t.Offset && at < t.Offset + t.UsedLength) piece = t; sp.Invoke(sf, new object[] { piece, at }); }
+                var bmp5 = new Bitmap(1366, 768); var pm5 = typeof(StudioForm).GetMethod("PaintAll", BF); using (var g = Graphics.FromImage(bmp5)) { var pe = new PaintEventArgs(g, new Rectangle(0, 0, 1366, 768)); for (int i = 0; i < 3; i++) pm5.Invoke(sf, new object[] { pe }); }
+                bmp5.Save(Path.Combine(outDir, "split-pieces.png"), System.Drawing.Imaging.ImageFormat.Png); bmp5.Dispose();
+            }
             Console.WriteLine("saved");
         }
         finally { try { Directory.Delete(work, true); } catch { } }

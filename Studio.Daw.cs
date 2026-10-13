@@ -108,6 +108,26 @@ partial class StudioForm
         foreach (var f in t.Fx) { var c = CloneFx(f); if (c != null) { var ic = c as InstrumentFx; if (ic != null) ic.Owner = n; n.Fx.Add(c); } }
         return n;
     }
+    // COPY / PASTE of a piece of audio: right-click a piece, Copy; right-click any audio track where you want it, Paste here (it lands at the spot you clicked)
+    Track clipCopy;
+    internal void CopyClip(Track piece)
+    {
+        if (piece == null || piece.Clip == null || piece.Instrument) { Toast("Copy works on a piece of audio: right-click the piece."); return; }
+        clipCopy = CloneTrack(piece, ""); Toast("Copied. Right-click a track and press Paste here.");
+    }
+    internal void PasteClip(Track tr, long at)
+    {
+        if (clipCopy == null) { Toast("Nothing is copied yet: right-click a piece and press Copy."); return; }
+        var host = tr == null ? null : (tr.Host ?? tr); if (host == null || host.IsBus || host.Instrument) { Toast("Paste works on audio tracks."); return; }
+        if (IsLocked(host)) { Toast(FrozenWhy(host, "Locked: press UNLOCK before pasting on this track.")); return; }
+        PushUndo(); var n = CloneTrack(clipCopy, " (copy)"); n.Offset = Math.Max(0, at);
+        if (host.Clip == null)
+        {   // an empty track: the piece becomes its audio
+            host.Clip = n.Clip; host.Offset = n.Offset; host.ClipStart = n.ClipStart; host.ClipFrames = n.ClipFrames; host.ClipGainDb = n.ClipGainDb; host.FadeIn = n.FadeIn; host.FadeOut = n.FadeOut; host.FadeInDelay = n.FadeInDelay; host.FadeOutTail = n.FadeOutTail; host.Bpm = n.Bpm; host.BpmChecked = n.BpmChecked; if (host.Role == "audio" || host.Role == null || host.Role == "") host.Role = n.Role; toolsTrack = host;
+        }
+        else { n.Host = host; n.Out = host.Out; lock (eng.Sync) eng.Tracks.Insert(FirstBusIndex(), n); toolsTrack = n; }
+        selTrack = Math.Max(0, eng.Tracks.IndexOf(host)); selFx = -1; Toast("Pasted. It plays through this track's plugins.");
+    }
     void InsertAfter(Track after, Track n) { n.Host = after.Host; n.Out = after.Out; lock (eng.Sync) { int i = eng.Tracks.IndexOf(after); eng.Tracks.Insert(i < 0 ? FirstBusIndex() : i + 1, n); } selTrack = Math.Max(0, eng.Tracks.IndexOf(n.Host ?? n)); selFx = -1; }   // a copy of a layer stays a layer; rows stay before layers and buses
 
     void SplitTrack(Track t, long at)
@@ -116,7 +136,7 @@ partial class StudioForm
         if (t.Clip == null || t.Instrument) { Toast("Splitting works on audio tracks."); return; }
         if (IsLocked(t)) { Toast(FrozenWhy(t, "Locked: press UNLOCK before splitting this track.")); return; }
         long rel = at - t.Offset, used = t.UsedLength; if (rel < 800 || rel > used - 800) { Toast("Move the needle into the clip first (click the ruler above the tracks), then split."); return; }
-        PushUndo(); var host = t.Host ?? t; var right = CloneTrack(t, " (2)"); right.Offset = at; right.ClipStart = t.ClipStart + rel; right.ClipFrames = used - rel; t.ClipFrames = rel;
+        PushUndo(); var host = t.Host ?? t; var right = CloneTrack(t, " (2)"); { string baseName = System.Text.RegularExpressions.Regex.Replace(t.Name, @"( (d+))+$", ""); int cnt = 1; foreach (var q in eng.Tracks) if ((q.Host ?? q) == host && q.Clip != null && !q.Instrument) cnt++; right.Name = baseName + " (" + cnt + ")"; } /* the pieces are Vox (2), Vox (3)... not Vox (2) (2) (2) */ right.Offset = at; right.ClipStart = t.ClipStart + rel; right.ClipFrames = used - rel; t.ClipFrames = rel;
         right.FadeIn = 0; right.FadeInDelay = 0; right.FadeOut = t.FadeOut; right.FadeOutTail = t.FadeOutTail; t.FadeOut = 0; t.FadeOutTail = 0;   // the fade out belongs to the end of the clip, which is now the right piece
         right.Host = host; right.Out = host.Out; lock (eng.Sync) eng.Tracks.Insert(FirstBusIndex(), right);   // the new piece stays on the same row: no new track is made
         selTrack = Math.Max(0, eng.Tracks.IndexOf(host)); toolsTrack = right; Toast("Split in two on the same track. Split as often as you like. Drag a piece to move it, drag its ends to trim.");
@@ -176,8 +196,16 @@ partial class StudioForm
         if (Hot(lane)) hintNow = "Click a track to select it and show its buttons.  Drag a clip to move it, drag its ends to trim.  Hold the left button on empty space and drag a box to select several clips.  Move the needle from the ruler at the top.  Right-click = split, cut, fades, gain, lock, delete.";
         return lr;
     }
+    // an audio row where the mouse is past the audio (or between pieces): clicking there does nothing to the selection (it used to switch to this track)
+    bool OverNoAudio(Track tr, PointF p)
+    {
+        var host = tr.Host ?? tr; bool any = false;
+        foreach (var L in eng.Tracks.ToArray()) { if ((L.Host ?? L) != host || L.Instrument || L.Clip == null) continue; any = true; float x0 = HeadW + (float)((L.Offset - scroll) / spp), x1 = x0 + (float)(L.UsedLength / spp); if (p.X >= x0 - 8 && p.X <= x1 + 8) return false; }
+        return any;
+    }
     void LaneDown(Track tr, RectangleF lane)
     {
+        if (OverNoAudio(tr, MousePos)) { laneMode = 0; laneStart = MousePos; marqueeOn = false; laneLocked = false; return; }   // empty part of the row: no change of track
         selTrack = Math.Max(0, eng.Tracks.IndexOf(tr.Host ?? tr)); selFx = -1; laneMode = 0; laneStart = MousePos; toolsTrack = tr; marqueeOn = false;
         if (tr.Clip != null && !tr.Instrument)
         {
@@ -217,7 +245,7 @@ partial class StudioForm
     }
     void LaneMenu(Track tr)
     {
-        selTrack = Math.Max(0, eng.Tracks.IndexOf(tr.Host ?? tr)); var m = Win.NewMenu(); long at = Snap(Math.Max(0, scroll + (long)((MousePos.X - HeadW) * spp)));
+        selTrack = Math.Max(0, eng.Tracks.IndexOf(tr.Host ?? tr)); var m = Win.NewMenu(); long at = SplitPoint(Math.Max(0, scroll + (long)((MousePos.X - HeadW) * spp)));
         if (tr.Instrument) { m.Items.Add("Edit notes (piano roll)...").Click += (a, b) => OpenRoll(tr); m.Items.Add(new ToolStripSeparator()); }
         var piece = PickLayer(tr, MousePos);
         m.Items.Add("Split here (at the needle)").Click += (a, b) => SplitSelected();
@@ -228,6 +256,8 @@ partial class StudioForm
         m.Items.Add("Gain: the volume of this piece...").Click += (a, b) => { toolsTrack = piece; gainAnchor = Rc(MousePos.X - 40, MousePos.Y, 80, 10); OpenGain(); };
         m.Items.Add(IsLocked(tr) ? "Unlock this track" : "Lock this track in place").Click += (a, b) => ToggleLock();
         m.Items.Add(new ToolStripSeparator());
+        m.Items.Add("Copy this piece").Click += (a, b) => CopyClip(piece);
+        { var pasteIt = m.Items.Add("Paste here"); pasteIt.Enabled = clipCopy != null; pasteIt.Click += (a, b) => PasteClip(tr, at); }
         m.Items.Add("Duplicate track").Click += (a, b) => DuplicateTrack(tr);
         m.Items.Add("Rename...  (F2)").Click += (a, b) => RenameTrack(tr);
         m.Items.Add("Delete this piece").Click += (a, b) => DeleteClip(piece);
@@ -238,11 +268,11 @@ partial class StudioForm
     string bubble = ""; PointF bubblePt;
     void PaintClipChrome(Graphics g, Track tr, RectangleF lane, RectangleF cr, bool sel)
     {
-        if (cr.Width < 6 || tr.Instrument) return; bool over = lane.Contains(MousePos) && hover != null && hover.R == lane; int zone = over ? (dragReg != null && laneMode != 0 ? laneMode : ZoneAt(tr, lane, MousePos)) : -1;
+        if (cr.Width < 6 || tr.Instrument) return; bool over = lane.Contains(MousePos) && hover != null && hover.R == lane; int zone = over ? (dragReg != null && laneMode != 0 ? laneMode : ZoneAt(tr, lane, MousePos)) : -1; if (zone == 0 && OverNoAudio(tr, MousePos)) zone = -1;   // past the audio nothing is clickable: no label either
         if (!(toolsTrack == tr || over)) return; var c = Color.FromArgb(tr.Color);
         if (zone == 1) { using (var b = new SolidBrush(Color.FromArgb(34, 255, 255, 255))) g.FillRectangle(b, cr); StrokeRR(g, Color.FromArgb(230, 255, 255, 255), cr, 6, 1.6f); }
         float gh = Math.Min(46, cr.Height - 16), gy = cr.Y + (cr.Height - gh) / 2; bool leftEdge = cr.X > lane.X - 1, rightEdge = cr.Right < lane.Right - 1;
-        bool lockedClip = IsLocked(tr);
+        bool lockedClip = IsLocked(tr); float gw = cr.Width < 24 ? 0f : Math.Min(9f, Math.Max(3f, cr.Width / 5f));   // a narrow clip gets thin grips (none when it is tiny): they never cover the clip
         if (toolsTrack == tr && cr.Width > 40)
         {   // the two round fade handles
             float hx0 = lane.X + (float)((tr.Offset - scroll) / spp), hx1 = hx0 + (float)(tr.UsedLength / spp), hy = lane.Y + 12, bhy = lane.Bottom - 12, dIn = (float)(tr.FadeInDelay / spp), dOut = (float)(tr.FadeOutTail / spp);
@@ -254,8 +284,8 @@ partial class StudioForm
                 using (var pen = new Pen(TM.C(230, 10, 5, 25), 1.5f)) g.DrawEllipse(pen, hx - rr, hyy - rr, rr * 2, rr * 2);
             }
         }
-        if (!lockedClip && (leftEdge || zone == 2)) { var r = Rc(cr.X + 1, gy, 9, gh); FillRR(g, Color.FromArgb(zone == 2 ? 250 : 175, zone == 2 ? Color.White : c), r, 4); Txt(g, "<", 11, TM.C(255, 10, 4, 20), r, StringAlignment.Center, true); }
-        if (!lockedClip && (rightEdge || zone == 3)) { var r = Rc(cr.Right - 10, gy, 9, gh); FillRR(g, Color.FromArgb(zone == 3 ? 250 : 175, zone == 3 ? Color.White : c), r, 4); Txt(g, ">", 11, TM.C(255, 10, 4, 20), r, StringAlignment.Center, true); }
+        if (gw > 0 && !lockedClip && (leftEdge || zone == 2)) { var r = Rc(cr.X + 1, gy, gw, gh); FillRR(g, Color.FromArgb(zone == 2 ? 250 : 175, zone == 2 ? Color.White : c), r, 4); Txt(g, "<", 11, TM.C(255, 10, 4, 20), r, StringAlignment.Center, true); }
+        if (gw > 0 && !lockedClip && (rightEdge || zone == 3)) { var r = Rc(cr.Right - 1 - gw, gy, gw, gh); FillRR(g, Color.FromArgb(zone == 3 ? 250 : 175, zone == 3 ? Color.White : c), r, 4); Txt(g, ">", 11, TM.C(255, 10, 4, 20), r, StringAlignment.Center, true); }
         if (zone >= 0 && zone < ZoneText.Length) { bubble = ZoneText[zone] + (zone == 4 ? "  (" + (tr.FadeIn / (double)StudioEngine.SR).ToString("0.0") + " s, double-click removes it)" : (zone == 5 ? "  (" + (tr.FadeOut / (double)StudioEngine.SR).ToString("0.0") + " s, double-click removes it)" : (zone == 6 ? "  (" + (tr.FadeInDelay / (double)StudioEngine.SR).ToString("0.0") + " s of silence first, double-click resets)" : (zone == 7 ? "  (" + (tr.FadeOutTail / (double)StudioEngine.SR).ToString("0.0") + " s of silence at the end, double-click resets)" : "")))); bubblePt = MousePos; }
     }
     Track EmptyAudioTrack()
