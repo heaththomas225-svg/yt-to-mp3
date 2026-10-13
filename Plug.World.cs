@@ -74,7 +74,7 @@ class MelodyTuneFx : Fx
 
     public MelodyTuneFx()
     {
-        Type = "melody"; Title = "Melody Tune"; Category = "Pitch & Voice";
+        Type = "melody"; Title = "Melody Tune"; Category = "Pitch & Voice"; AutoKeyPending = true;
         AddC("key", "Key", PitchCorrector.Keys, 0); AddC("scale", "Scale", PitchCorrector.Scales, 1);
         AddP("speed", "Tune speed", 0, 400, 30, "ms"); AddP("strength", "Strength", 0, 100, 100, "%"); AddP("natural", "Humanise", 0, 100, 45, "%");
         AddC("range", "Voice range", PitchCorrector.Ranges, 1); AddC("harm", "Melodic layer", Harm, 0); AddP("hlevel", "Layer level", 0, 100, 50, "%"); AddP("spread", "Layer width", 0, 100, 70, "%");

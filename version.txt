@@ -1,4 +1,4 @@
-3.36.9
+3.37.0
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-The side menu opens on hover, a smoother DAW, nicer profile links
-sha256=432520002f0c7e2d9795fd40f2e87fba6b4770957afc59d1dd2869a27f8f7074
+Effects always belong to the track, ALL PLUGINS, copy presets, auto key, reply to messages
+sha256=dac525cf42e9b8f7444b97ff2c9e6dd16e3ff8e0de764f309b8c30a8fdd13284

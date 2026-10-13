@@ -130,7 +130,7 @@ partial class StudioForm
     // ---------------- key detection ----------------
     void DetectKey(PitchCorrector pc, Track tr)
     {
-        if (tr == null || tr.Clip == null) return; int key = 0, scale = 1; double conf = 0; bool found = false;
+        pc.AutoKeyPending = false; if (tr == null || tr.Clip == null) return; int key = 0, scale = 1; double conf = 0; bool found = false;
         RunBusy("Detecting the key of " + tr.Name + "...", false, p => { found = KeyDetect.Detect(tr.Clip, out key, out scale, out conf); }, ok =>
         {
             if (!ok) return;

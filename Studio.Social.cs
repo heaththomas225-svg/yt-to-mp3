@@ -16,7 +16,7 @@ sealed class CollabInfo { public string Id = "", Title = "", State = ""; public 
 
 static partial class ProfApi
 {
-    static Dictionary<string, object> PostJ(string path, string body) { return MiniJson.Parse(Http("POST", path, body)) as Dictionary<string, object>; }
+    static Dictionary<string, object> PostJ(string path, string body) { return MiniJson.Parse(Http("POST", path, body, Edition.Token)) as Dictionary<string, object>; }   /* the link of this PC goes along: a linked PC can write, add friends and collab before it publishes a profile */
     static string KeyId(string key, string id, bool? on = null) { return "{\"key\":" + J(key) + ",\"id\":" + J(id) + (on.HasValue ? ",\"on\":" + (on.Value ? "true" : "false") : "") + "}"; }
     public static string Say(string err)
     {
@@ -109,7 +109,7 @@ static partial class ProfApi
             Action<string, string> part = (n, v) => { var b = Encoding.UTF8.GetBytes("--" + boundary + "\r\nContent-Disposition: form-data; name=\"" + n + "\"\r\n\r\n" + v + "\r\n"); ms.Write(b, 0, b.Length); };
             part("key", key); part("id", id); var h = Encoding.UTF8.GetBytes("--" + boundary + "\r\nContent-Disposition: form-data; name=\"audio\"; filename=\"collab.mp3\"\r\nContent-Type: audio/mpeg\r\n\r\n"); ms.Write(h, 0, h.Length); ms.Write(audio, 0, audio.Length); ms.WriteByte(13); ms.WriteByte(10);
             var end = Encoding.UTF8.GetBytes("--" + boundary + "--\r\n"); ms.Write(end, 0, end.Length);
-            var rq = (HttpWebRequest)WebRequest.Create(CommunityPresets.BaseUrl + "/api/profiles/collab-upload"); rq.Method = "POST"; rq.UserAgent = "PurphexMusic"; rq.Timeout = 600000; rq.ReadWriteTimeout = 180000; rq.ContentType = "multipart/form-data; boundary=" + boundary; rq.ContentLength = ms.Length; rq.AllowWriteStreamBuffering = false;
+            var rq = (HttpWebRequest)WebRequest.Create(CommunityPresets.BaseUrl + "/api/profiles/collab-upload"); rq.Method = "POST"; rq.UserAgent = "PurphexMusic"; rq.Timeout = 600000; rq.ReadWriteTimeout = 180000; rq.ContentType = "multipart/form-data; boundary=" + boundary; rq.ContentLength = ms.Length; rq.AllowWriteStreamBuffering = false; { string bt = Edition.Token; if (bt.Length > 0) rq.Headers["Authorization"] = "Bearer " + bt; }
             using (var s = rq.GetRequestStream()) { ms.Position = 0; ms.CopyTo(s); }
             string body; try { using (var r = (HttpWebResponse)rq.GetResponse()) using (var sr = new StreamReader(r.GetResponseStream(), Encoding.UTF8)) body = sr.ReadToEnd(); }
             catch (WebException ex) { if (ex.Response == null) throw; using (var sr = new StreamReader(ex.Response.GetResponseStream(), Encoding.UTF8)) body = sr.ReadToEnd(); }
@@ -122,7 +122,7 @@ static partial class ProfApi
         err = null;
         try
         {
-            var rq = (HttpWebRequest)WebRequest.Create(CommunityPresets.BaseUrl + path); rq.Method = method; rq.UserAgent = "PurphexMusic"; rq.Timeout = 120000; rq.ReadWriteTimeout = 120000;
+            var rq = (HttpWebRequest)WebRequest.Create(CommunityPresets.BaseUrl + path); rq.Method = method; rq.UserAgent = "PurphexMusic"; rq.Timeout = 120000; rq.ReadWriteTimeout = 120000; { string bt = Edition.Token; if (bt.Length > 0) rq.Headers["Authorization"] = "Bearer " + bt; }
             if (body != null) { var b = Encoding.UTF8.GetBytes(body); rq.ContentType = "application/json"; rq.ContentLength = b.Length; using (var s = rq.GetRequestStream()) s.Write(b, 0, b.Length); }
             using (var r = (HttpWebResponse)rq.GetResponse()) using (var s = r.GetResponseStream()) using (var ms = new MemoryStream()) { var buf = new byte[65536]; int n; while ((n = s.Read(buf, 0, buf.Length)) > 0) { ms.Write(buf, 0, n); if (ms.Length > 40 * 1024 * 1024) { err = "The file is too big."; return null; } } return ms.ToArray(); }
         }
@@ -145,17 +145,19 @@ partial class StudioForm
 
     static string AgoMs(long ms) { try { return ProjectLibrary.Ago(new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc).AddMilliseconds(ms).ToLocalTime()); } catch { return ""; } }
     string AskText(string prompt, string def) { return msgAskHook != null ? msgAskHook(prompt) : StudioDialogs.AskMulti(this, prompt, def); }
-    bool HaveProfile(string what) { if (ProfileStore.Published && ProfileStore.Key.Length >= 32) return true; Toast("Publish your profile first (Profile tab) to " + what + ": people need to see who you are."); return false; }
+    // messages, friends and collabs: a published profile, or a PC linked to a purphexmusic.com account (the same as the website, where anybody with an account can write)
+    bool CanSocial { get { if (ProfileStore.Published && ProfileStore.Key.Length >= 32) return true; if (!Edition.Linked) return false; ProfileStore.EnsureKey(); return ProfileStore.Key.Length >= 32; } }
+    bool HaveProfile(string what) { if (CanSocial) return true; Toast("Link this PC to your purphexmusic.com account (Settings, Account, LINK THIS PC) or publish your profile (Profile tab) to " + what + "."); return false; }
 
     // the unread number (shown on the ARTISTS button) and the conversations; asked again at most every 45 seconds
     void FetchInbox(bool force)
     {
-        if (!ProfileStore.Published || ProfileStore.Key.Length < 32 || msgFetching) return; if (!force && (DateTime.Now - msgFetchAt).TotalSeconds < 45) return; msgFetchAt = DateTime.Now; msgFetching = true; string key = ProfileStore.Key;
+        if (msgFetching || !CanSocial) return; if (!force && (DateTime.Now - msgFetchAt).TotalSeconds < 45) return; msgFetchAt = DateTime.Now; msgFetching = true; string key = ProfileStore.Key;
         ThreadPool.QueueUserWorkItem(o => { int un; var l = ProfApi.Inbox(key, out un); try { BeginInvoke(new Action(() => { msgFetching = false; if (l != null) { msgThreads = l; msgUnread = un; lastInput = DateTime.Now; } })); } catch { msgFetching = false; } });
     }
     void FetchCollabs(bool force)
     {
-        if (!ProfileStore.Published || ProfileStore.Key.Length < 32 || collabFetching) return; if (!force && (DateTime.Now - collabFetchAt).TotalSeconds < 30) return; collabFetchAt = DateTime.Now; collabFetching = true; string key = ProfileStore.Key;
+        if (collabFetching || !CanSocial) return; if (!force && (DateTime.Now - collabFetchAt).TotalSeconds < 30) return; collabFetchAt = DateTime.Now; collabFetching = true; string key = ProfileStore.Key;
         ThreadPool.QueueUserWorkItem(o => { var l = ProfApi.Collabs(key); try { BeginInvoke(new Action(() => { collabFetching = false; if (l != null) { collabList = l; lastInput = DateTime.Now; } })); } catch { collabFetching = false; } });
     }
     internal void OpenMessages(string withId) { tab = 7; artSel = null; artView = 1; msgWithId = withId ?? ""; msgScroll = 0; FetchInbox(true); }
@@ -348,7 +350,7 @@ partial class StudioForm
         var fb0 = Rc(cb.X - 8 - 170, y, 170, h); Btn(g, fb0, "FRIENDS" + (profReqs.Count > 0 ? " (" + profReqs.Count + ")" : ""), 2, () => OpenFriends(), 12); Hint2(fb0, "Your friends and the friend requests, in the same layout as messages");
         y += h + 14; float listW = Math.Min(360, Math.Max(250, W * 0.3f)), px = 24, ph = bottom - y - 12; var left = Rc(px, y, listW, ph); FillRR(g, TM.C(235, 14, 7, 32), left, 14); Win.DrawNeonBox(g, left, false);
         var right = Rc(left.Right + 14, y, W - 56 - left.Right - 14 - 6, ph); FillRR(g, TM.C(235, 14, 7, 32), right, 14); Win.DrawNeonBox(g, right, false);
-        if (!ProfileStore.Published) { TxtWrap(g, "Publish your profile first (Profile tab) to send and get messages, add friends and start collabs. People need to see who you are.", 14, DimC, Rc(right.X + 24, right.Y + 24, right.Width - 48, 80)); return; }
+        if (!CanSocial) { TxtWrap(g, "Link this PC to your purphexmusic.com account (Settings, Account, LINK THIS PC) or publish your profile (Profile tab) to send and get messages, add friends and start collabs.", 14, DimC, Rc(right.X + 24, right.Y + 24, right.Width - 48, 80)); return; }
         // ---- the left side: friend requests, then the conversations ----
         float lh = 0; { float contentTop = left.Y + 8; var gs = g.Save(); g.SetClip(Rc(left.X + 2, left.Y + 2, left.Width - 4, left.Height - 4), CombineMode.Intersect); float ly = contentTop - msgListScroll;
             if (profReqs.Count > 0)
@@ -370,7 +372,7 @@ partial class StudioForm
                 var av = Rc(row.X + 8, row.Y + 8, 40, 40); Bitmap ab = t.With.Avatar ? ArtistImage(t.With.Id, "avatar", t.With.Av, 60, 60) : null; DrawFrameImage(g, av, ab, ProfAccent(t.With.Accent));
                 NameTextC(g, t.With.Shown, 13, Rc(av.Right + 10, row.Y + 6, row.Width - av.Width - 60, 20), Ink, true, t.With.NameRgb, t.With.NameRgb2); string last = t.Msgs.Count > 0 ? (t.Msgs[t.Msgs.Count - 1].Mine ? "You: " : "") + t.Msgs[t.Msgs.Count - 1].Text.Replace('\n', ' ') : ""; Txt(g, last, 11, DimC, Rc(av.Right + 10, row.Y + 28, row.Width - av.Width - 26, 20), StringAlignment.Near, false);
                 if (t.Unread > 0) { var bd = Rc(row.Right - 30, row.Y + 8, 22, 18); FillRR(g, NeonPink, bd, 9); Txt(g, t.Unread.ToString(), 10, Color.White, bd, StringAlignment.Center, true); }
-                var tt = t; var vis = RectangleF.Intersect(row, Rc(left.X, left.Y, left.Width, left.Height)); if (vis.Height > 6) Reg(vis, () => { msgWithId = tt.With.Id; msgScroll = 0; if (tt.Unread > 0) { tt.Unread = 0; msgUnread = Math.Max(0, msgUnread - 1); string key = ProfileStore.Key, wid = tt.With.Id; ThreadPool.QueueUserWorkItem(o => ProfApi.MarkRead(key, wid)); } });
+                var tt = t; var vis = RectangleF.Intersect(row, Rc(left.X, left.Y, left.Width, left.Height)); if (vis.Height > 6) Reg(vis, () => { msgWithId = tt.With.Id; msgScroll = 0; msgTyping = true; msgReplyTo = ""; if (tt.Unread > 0) { tt.Unread = 0; msgUnread = Math.Max(0, msgUnread - 1); string key = ProfileStore.Key, wid = tt.With.Id; ThreadPool.QueueUserWorkItem(o => ProfApi.MarkRead(key, wid)); } });
                 ly += 62;
             }
             lh = ly - contentTop + msgListScroll + 8; g.Restore(gs); }
@@ -381,21 +383,67 @@ partial class StudioForm
         if (cur == null) { TxtWrap(g, msgThreads.Count > 0 ? "CHOOSE A CONVERSATION ON THE LEFT." : "WHEN YOU WRITE TO AN ARTIST (OR THEY WRITE TO YOU) THE CONVERSATION SHOWS HERE.", 14, DimC, Rc(right.X + 24, right.Y + 24, right.Width - 48, 60)); return; }
         { var hd = Rc(right.X + 14, right.Y + 10, right.Width - 28, 44); NameTextC(g, cur.With.Shown, 18, Rc(hd.X, hd.Y, hd.Width - 330, 28), Ink, true, cur.With.NameRgb, cur.With.NameRgb2);
           var wr = Rc(hd.Right - 320, hd.Y + 2, 150, 36); var cu = cur; Btn(g, wr, "WRITE A MESSAGE", 2, () => WriteMessage(cu.With.Id, cu.With.Name, ""), 11); var pr = Rc(wr.Right + 8, hd.Y + 2, 150, 36); Btn(g, pr, "OPEN PROFILE", 0, () => { OpenArtist(cu.With.Id); artView = 0; }, 11); }
-        var conv = Rc(right.X + 14, right.Y + 62, right.Width - 28, right.Height - 76); float bw = Math.Min(conv.Width * 0.7f, 520), cy = 0;
+        float boxH = 50 + (msgReplyTo.Length > 0 ? 24 : 0); var conv = Rc(right.X + 14, right.Y + 62, right.Width - 28, right.Height - 76 - boxH - 8); float bw = Math.Min(conv.Width * 0.7f, 520), cy = 0;
         var fnt = GfxCache.Exact(GfxCache.Grow(13), false); var hs = new List<float>(); foreach (var m in cur.Msgs) { float th = g.MeasureString(m.Text, fnt, (int)(bw - 28)).Height + 16 + (m.About.Length > 0 ? 18 : 0) + 18; hs.Add(th); cy += th + 8; }
         float maxS = Math.Max(0, cy - conv.Height); msgScroll = Math.Max(0, Math.Min(maxS, msgScroll)); regs.Add(new HitReg { R = right, OnWheel = d => msgScroll = Math.Max(0, Math.Min(maxS, msgScroll + d * 50)) });
         { var gs = g.Save(); g.SetClip(conv, CombineMode.Intersect); float yy = conv.Bottom - cy + msgScroll; if (cy < conv.Height) yy = conv.Y;
           for (int i = 0; i < cur.Msgs.Count; i++)
           {
               var m = cur.Msgs[i]; float th = hs[i]; float bx = m.Mine ? conv.Right - bw - 6 : conv.X + 6; var bub = Rc(bx, yy, bw, th); yy += th + 8; if (bub.Bottom < conv.Y || bub.Y > conv.Bottom) continue;
-              FillRR(g, m.Mine ? TM.C(235, 70, 40, 170) : TM.C(235, 34, 20, 66), bub, 14); if (!m.Mine) StrokeRR(g, Color.FromArgb(120, NeonCyan), bub, 14, 1f); float ty = bub.Y + 8;
-              if (m.About.Length > 0) { Txt(g, "ABOUT: " + m.About.ToUpper(), 10, m.Mine ? Color.FromArgb(230, 255, 224, 150) : NeonCyan, Rc(bub.X + 14, ty, bub.Width - 28, 16), StringAlignment.Near, true); ty += 18; }
+              bool hb = Hot(RectangleF.Intersect(bub, conv)); FillRR(g, m.Mine ? TM.C(235, 70, 40, 170) : (hb ? TM.C(235, 46, 28, 90) : TM.C(235, 34, 20, 66)), bub, 14); if (!m.Mine) StrokeRR(g, Color.FromArgb(hb ? 220 : 120, NeonCyan), bub, 14, hb ? 1.6f : 1f); float ty = bub.Y + 8;
+              { var vis = RectangleF.Intersect(bub, conv); var mm = m; if (vis.Height > 6) { Reg(vis, () => { msgReplyTo = Snip(mm.Text, 50); msgTyping = true; }); Hint2(vis, "Press to reply to this message"); } }
+              if (m.About.Length > 0) { Txt(g, (m.About.StartsWith("Reply: ") ? "REPLYING TO: " + m.About.Substring(7) : "ABOUT: " + m.About).ToUpper(), 10, m.Mine ? Color.FromArgb(230, 255, 224, 150) : NeonCyan, Rc(bub.X + 14, ty, bub.Width - 28, 16), StringAlignment.Near, true); ty += 18; }
               TxtWrap(g, m.Text, 13, Ink, Rc(bub.X + 14, ty, bub.Width - 28, th - (ty - bub.Y) - 18)); Txt(g, AgoMs(m.At), 9, Color.FromArgb(170, Ink), Rc(bub.X + 14, bub.Bottom - 20, bub.Width - 28, 14), StringAlignment.Far, false);
           }
           g.Restore(gs); }
         if (cur.Msgs.Count == 0) Txt(g, "NO MESSAGES YET. PRESS WRITE A MESSAGE.", 13, DimC, Rc(conv.X + 10, conv.Y + 10, conv.Width - 20, 24), StringAlignment.Near, false);
         if (maxS > 0) { var sb = Rc(right.Right - 52, conv.Y, 42, conv.Height); VScroll(g, sb, cy, conv.Height, () => maxS - msgScroll, v => msgScroll = maxS - v); }
+        PaintReplyBox(g, Rc(right.X + 14, right.Bottom - 14 - boxH, right.Width - 28, boxH), cur.With);
     }
+    // ---- the reply box: type straight into the conversation (Enter sends, Esc stops typing), press a message to reply to it, emoji from the smiley ----
+    internal string msgDraft = "", msgReplyTo = ""; internal bool msgTyping;
+    static string Snip(string t, int n) { t = (t ?? "").Replace('\n', ' ').Trim(); return t.Length > n ? t.Substring(0, n - 1) + "…" : t; }
+    bool MsgBoxActive { get { return msgTyping && tab == 7 && artView == 1 && !OverlayOpen && (editBox == null || !editBox.Visible); } }
+    void PaintReplyBox(Graphics g, RectangleF r, ArtistInfo to)
+    {
+        float y = r.Y;
+        if (msgReplyTo.Length > 0) { var rb = Rc(r.X, y, r.Width, 20); Txt(g, "REPLYING TO: " + msgReplyTo, 10, NeonCyan, Rc(rb.X + 4, rb.Y, rb.Width - 40, 20), StringAlignment.Near, true); var xb = Rc(rb.Right - 24, rb.Y, 22, 20); Btn(g, xb, "x", 3, () => msgReplyTo = "", 10); Hint2(xb, "Stop replying to that message"); y += 24; }
+        var send = Rc(r.Right - 96, y + 4, 96, 40); var emo = Rc(send.X - 50, y + 4, 44, 40); var box = Rc(r.X, y + 4, emo.X - r.X - 8, 40);
+        FillRR(g, TM.C(240, 8, 4, 20), box, 12); StrokeRR(g, MsgBoxActive ? NeonCyan : Color.FromArgb(150, NeonViolet), box, 12, MsgBoxActive ? 1.8f : 1.2f);
+        bool blink = ((Environment.TickCount / 500) % 2) == 0; string shown = msgDraft.Length == 0 ? (MsgBoxActive ? (blink ? "|" : "") : "Write to " + to.Name + "...  (press here, then type: Enter sends)") : msgDraft.Replace('\n', ' ') + (MsgBoxActive && blink ? "|" : "");
+        if (MsgBoxActive) lastInput = DateTime.Now;
+        var gs = g.Save(); g.SetClip(box, System.Drawing.Drawing2D.CombineMode.Intersect); float tw = g.MeasureString(shown, GfxCache.Font(13, false)).Width; float tx = Math.Min(box.X + 12, box.Right - 12 - tw);
+        Txt(g, shown, 13, msgDraft.Length == 0 && !MsgBoxActive ? DimC : Ink, Rc(tx, box.Y, Math.Max(box.Width - 24, tw + 8), box.Height), StringAlignment.Near, false); g.Restore(gs);
+        Reg(box, () => { msgTyping = true; }); Hint2(box, "Press here and type your message (Enter sends, Esc stops typing, Ctrl+V pastes)");
+        var too = to; Btn(g, emo, ":)", 1, () => EmojiMenu(emo), 12); Hint2(emo, "Add an emoji");
+        Btn(g, send, "SEND", msgDraft.Trim().Length > 0 ? 2 : 0, () => SendDraft(too), 13); Hint2(send, "Send the message (Enter does the same)");
+    }
+    static readonly string[] QuickEmoji = { "\U0001F525", "\U0001F60D", "\U0001F602", "\U0001F64C", "\U0001F44D", "\U0001F3B5", "\U0001F3A7", "\U0001F3B9", "\U0001F4AF", "\u2764\uFE0F", "\U0001F91D", "\U0001F680" };
+    void EmojiMenu(RectangleF at) { var m = Win.NewMenu(); foreach (var e in QuickEmoji) { var em = e; m.Items.Add(em).Click += (a, b) => { msgDraft += em; msgTyping = true; }; } m.Show(this, new Point((int)at.X, (int)at.Bottom)); }
+    void SendDraft(ArtistInfo to)
+    {
+        string text = msgDraft.Trim(); if (text.Length == 0) { msgTyping = true; return; } if (!HaveProfile("send messages")) return; if (text.Length > 600) text = text.Substring(0, 600);
+        string key = ProfileStore.Key, id = to.Id, about = msgReplyTo.Length > 0 ? Snip("Reply: " + msgReplyTo, 60) : ""; msgDraft = ""; msgReplyTo = "";
+        ThreadPool.QueueUserWorkItem(o => { string err = ProfApi.Send(key, id, text, about); try { BeginInvoke(new Action(() => { if (err == null) { msgWithId = id; msgScroll = 0; FetchInbox(true); } else { msgDraft = text; Toast(err); } })); } catch { } });
+    }
+    // keys while the reply box has the cursor: letters go into the message, not to the shortcuts of the DAW
+    internal bool MsgKey(char c)
+    {
+        if (!MsgBoxActive) return false;
+        if (c == '\b') { if (msgDraft.Length > 0) msgDraft = msgDraft.Substring(0, msgDraft.Length - 1); return true; }
+        if (c == '\r') { var cur = msgThreads.Find(t => t.With.Id == msgWithId); ArtistInfo to = cur != null ? cur.With : (artList.Find(x => x.Id == msgWithId) ?? profFriends.Find(x => x.Id == msgWithId)); if (to != null) SendDraft(to); return true; }
+        if (c == 27) { msgTyping = false; return true; }
+        if (!char.IsControl(c) && msgDraft.Length < 600) msgDraft += c; return true;
+    }
+    internal bool MsgCmd(Keys k)
+    {
+        if (!MsgBoxActive) return false;
+        if (k == (Keys.Control | Keys.V)) { try { string t = Clipboard.GetText(); if (!string.IsNullOrEmpty(t)) msgDraft = (msgDraft + t.Replace("\r", "")).Substring(0, Math.Min(600, (msgDraft + t.Replace("\r", "")).Length)); } catch { } return true; }
+        if (k == Keys.Escape) { if (msgReplyTo.Length > 0) msgReplyTo = ""; else msgTyping = false; return true; }
+        return false;
+    }
+    internal bool MsgTakesKey(Keys k) { return MsgBoxActive && (k & Keys.Control) == 0 && (k & Keys.Alt) == 0 && !((k & Keys.KeyCode) >= Keys.F1 && (k & Keys.KeyCode) <= Keys.F24); }
+
     // ================================================================= the Friends page (the same layout as Messages) =================================================================
     string friWithId = ""; float friListScroll;
     internal void OpenFriends() { tab = 7; artSel = null; artView = 3; ProfileRefresh(); }
@@ -413,7 +461,7 @@ partial class StudioForm
         var mb = Rc(cb.X - 8 - 170, y, 170, h); Btn(g, mb, "MESSAGES" + (msgUnread > 0 ? " (" + msgUnread + ")" : ""), 2, () => { artView = 1; FetchInbox(true); }, 12); Hint2(mb, "Write to artists and read what they wrote");
         y += h + 14; float listW = Math.Min(360, Math.Max(250, W * 0.3f)), px = 24, ph = bottom - y - 12; var left = Rc(px, y, listW, ph); FillRR(g, TM.C(235, 14, 7, 32), left, 14); Win.DrawNeonBox(g, left, false);
         var right = Rc(left.Right + 14, y, W - 56 - left.Right - 14 - 6, ph); FillRR(g, TM.C(235, 14, 7, 32), right, 14); Win.DrawNeonBox(g, right, false);
-        if (!ProfileStore.Published) { TxtWrap(g, "Publish your profile first (Profile tab) to add friends. People need to see who you are.", 14, DimC, Rc(right.X + 24, right.Y + 24, right.Width - 48, 80)); return; }
+        if (!CanSocial) { TxtWrap(g, "Link this PC to your purphexmusic.com account (Settings, Account, LINK THIS PC) or publish your profile (Profile tab) to add friends.", 14, DimC, Rc(right.X + 24, right.Y + 24, right.Width - 48, 80)); return; }
         var friends = new List<ArtistInfo>(profFriends); friends.Sort((p, q) => string.Compare(p.Name, q.Name, StringComparison.CurrentCultureIgnoreCase));
         float lh = 0; { float contentTop = left.Y + 8; var gs = g.Save(); g.SetClip(Rc(left.X + 2, left.Y + 2, left.Width - 4, left.Height - 4), CombineMode.Intersect); float ly = contentTop - friListScroll;
             if (profReqs.Count > 0)
@@ -451,9 +499,11 @@ partial class StudioForm
           if (cur.Bio.Length > 0) TxtWrap(g, cur.Bio, 13, PlainInk, Rc(bb.X + 12, bb.Y + 8, bb.Width - 24, bb.Height - 16)); else Txt(g, "No bio yet.", 12, DimC, Rc(bb.X + 12, bb.Y + 8, bb.Width - 24, 20), StringAlignment.Near, false);
           yy = bb.Bottom + 14; if (cur.Tags.Length > 0) TagChips(g, right.X + 16, yy, right.Right - 16, cur.Tags, ProfAccent(cur.Accent), true); }
     }
-    void AnswerRequest(ArtistInfo a, bool accept)
+    internal ArtistInfo answeredReq;   // the request that was answered last (a test reads it)
+    internal void AnswerRequest(ArtistInfo a, bool accept)
     {
-        string key = ProfileStore.Key, id = a.Id, name = a.Name; ThreadPool.QueueUserWorkItem(o => { string ns; string err = ProfApi.Friend(key, id, accept, out ns); try { BeginInvoke(new Action(() => { if (err != null) Toast(err); else Toast(accept ? "You and " + name + " are friends now." : "Request declined."); ProfileRefresh(); })); } catch { } });
+        if (!HaveProfile("answer friend requests")) return; answeredReq = a; profReqs.RemoveAll(x => x.Id == a.Id); if (accept && !profFriends.Exists(x => x.Id == a.Id)) profFriends.Add(a);   // the list changes at once (the website is asked in the background)
+        string key = ProfileStore.Key, id = a.Id, name = a.Name; ThreadPool.QueueUserWorkItem(o => { string ns; string err = ProfApi.Friend(key, id, accept, out ns); try { BeginInvoke(new Action(() => { if (err != null) { Toast(err); if (!profReqs.Exists(x => x.Id == id)) profReqs.Add(a); profFriends.RemoveAll(x => x.Id == id && accept); } else Toast(accept ? "You and " + name + " are friends now." : "Request declined."); ProfileRefresh(); })); } catch { } });
     }
 
     // ================================================================= the floating chat =================================================================
@@ -467,7 +517,7 @@ partial class StudioForm
         Txt(g, "CHAT" + (msgUnread > 0 ? "  (" + msgUnread + " NEW)" : ""), 14, Ink, Rc(box.X + 16, box.Y + 10, box.Width - 130, 24), StringAlignment.Near, true);
         var xb = Rc(box.Right - 38, box.Y + 8, 28, 26); Btn(g, xb, "x", 3, () => chatOpen = false, 12); Hint2(xb, "Close the chat (drag the top of it to move it)");
         var big = Rc(box.Right - 38 - 34, box.Y + 8, 28, 26); Btn(g, big, "[]", 1, () => { chatOpen = false; OpenMessages(chatWith); }, 10); Hint2(big, "Open the big Messages page");
-        if (!ProfileStore.Published) { TxtWrap(g, "Publish your profile first (Profile tab) to chat: people need to see who you are.", 12, DimC, Rc(box.X + 16, box.Y + 54, box.Width - 32, 80)); return; }
+        if (!CanSocial) { TxtWrap(g, "Link this PC to your account (Settings, Account, LINK THIS PC) or publish your profile (Profile tab) to chat.", 12, DimC, Rc(box.X + 16, box.Y + 54, box.Width - 32, 80)); return; }
         // who: a row of the conversations
         float y = box.Y + 44; var show = msgThreads.Count > 6 ? msgThreads.GetRange(0, 6) : msgThreads; float cwid = (box.Width - 24) / Math.Max(1, show.Count > 0 ? show.Count : 1); if (cwid > 70) cwid = 70; float x = box.X + 12;
         foreach (var t in show) { var r = Rc(x, y, cwid - 4, 34); bool sel = t.With.Id == chatWith; FillRR(g, sel ? TM.C(220, 80, 40, 150) : TM.C(130, 44, 24, 80), r, 8); if (sel) StrokeRR(g, NeonCyan, r, 8, 1.2f); string nm = t.With.Name.Length > 8 ? t.With.Name.Substring(0, 8) : t.With.Name; Txt(g, nm, 10, Ink, r, StringAlignment.Center, sel); if (t.Unread > 0) { var bd = Rc(r.Right - 14, r.Y - 3, 16, 14); FillRR(g, NeonPink, bd, 7); Txt(g, t.Unread.ToString(), 8, Color.White, bd, StringAlignment.Center, true); } var tt = t; Reg(r, () => { chatWith = tt.With.Id; chatScroll = 0; if (tt.Unread > 0) { tt.Unread = 0; string key = ProfileStore.Key, wid = tt.With.Id; ThreadPool.QueueUserWorkItem(o2 => ProfApi.MarkRead(key, wid)); FetchInbox(true); } }); Hint2(r, t.With.Name); x += cwid; }
@@ -477,16 +527,17 @@ partial class StudioForm
         float bw = conv.Width * 0.8f; var fnt = GfxCache.Exact(GfxCache.Grow(12), false); float tot = 0; var hs = new List<float>(); foreach (var m in cur.Msgs) { float th = g.MeasureString(m.Text, fnt, (int)(bw - 22)).Height + 14 + (m.About.Length > 0 ? 16 : 0) + 4; hs.Add(th); tot += th + 6; }
         float maxS = Math.Max(0, tot - conv.Height); chatScroll = Math.Max(0, Math.Min(maxS, chatScroll)); regs.Add(new HitReg { R = box, OnWheel = d => chatScroll = Math.Max(0, Math.Min(maxS, chatScroll + d * 40)) });
         { var gs = g.Save(); g.SetClip(conv, CombineMode.Intersect); float yy = tot < conv.Height ? conv.Y : conv.Bottom - tot + chatScroll;
-          for (int i = 0; i < cur.Msgs.Count; i++) { var m = cur.Msgs[i]; float th = hs[i]; var bub = Rc(m.Mine ? conv.Right - bw - 2 : conv.X + 2, yy, bw, th); yy += th + 6; if (bub.Bottom < conv.Y || bub.Y > conv.Bottom) continue; FillRR(g, m.Mine ? TM.C(235, 70, 40, 170) : TM.C(235, 34, 20, 66), bub, 12); float ty = bub.Y + 6; if (m.About.Length > 0) { Txt(g, "ABOUT: " + m.About.ToUpper(), 9, m.Mine ? Color.FromArgb(230, 255, 224, 150) : NeonCyan, Rc(bub.X + 11, ty, bub.Width - 22, 14), StringAlignment.Near, true); ty += 16; } TxtWrap(g, m.Text, 12, Ink, Rc(bub.X + 11, ty, bub.Width - 22, th - (ty - bub.Y) - 2)); }
+          for (int i = 0; i < cur.Msgs.Count; i++) { var m = cur.Msgs[i]; float th = hs[i]; var bub = Rc(m.Mine ? conv.Right - bw - 2 : conv.X + 2, yy, bw, th); yy += th + 6; if (bub.Bottom < conv.Y || bub.Y > conv.Bottom) continue; { var vb = RectangleF.Intersect(bub, conv); var mm = m; var cw0 = cur.With; if (vb.Height > 6) { Reg(vb, () => WriteChat(cw0, Snip("Reply: " + mm.Text, 60))); Hint2(vb, "Press to reply to this message"); } } FillRR(g, m.Mine ? TM.C(235, 70, 40, 170) : TM.C(235, 34, 20, 66), bub, 12); float ty = bub.Y + 6; if (m.About.Length > 0) { Txt(g, (m.About.StartsWith("Reply: ") ? "REPLYING TO: " + m.About.Substring(7) : "ABOUT: " + m.About).ToUpper(), 9, m.Mine ? Color.FromArgb(230, 255, 224, 150) : NeonCyan, Rc(bub.X + 11, ty, bub.Width - 22, 14), StringAlignment.Near, true); ty += 16; } TxtWrap(g, m.Text, 12, Ink, Rc(bub.X + 11, ty, bub.Width - 22, th - (ty - bub.Y) - 2)); }
           g.Restore(gs); }
         if (cur.Msgs.Count == 0) Txt(g, "NO MESSAGES YET.", 12, DimC, Rc(conv.X + 8, conv.Y + 8, conv.Width - 16, 20), StringAlignment.Near, false);
         var wr = Rc(box.X + 12, box.Bottom - 44, box.Width - 24, 34); var cu = cur; Btn(g, wr, "WRITE TO " + cur.With.Name.ToUpper(), 2, () => WriteChat(cu.With), 11); Hint2(wr, "Write a message: it appears here and on the Messages page");
     }
     // a message from the floating chat (the chat stays where it is)
-    void WriteChat(ArtistInfo a)
+    void WriteChat(ArtistInfo a) { WriteChat(a, ""); }
+    void WriteChat(ArtistInfo a, string about)
     {
-        if (!HaveProfile("send messages")) return; string text = AskText("Message to " + a.Name + ":", ""); if (text == null || text.Trim().Length == 0) return; string key = ProfileStore.Key, id = a.Id, name = a.Name; text = text.Trim();
-        ThreadPool.QueueUserWorkItem(o => { string err = ProfApi.Send(key, id, text, ""); try { BeginInvoke(new Action(() => { if (err == null) { chatWith = id; chatScroll = 0; FetchInbox(true); } else Toast(err); })); } catch { } });
+        if (!HaveProfile("send messages")) return; string text = AskText(about.Length > 0 ? "Reply to " + a.Name + " (" + about + "):" : "Message to " + a.Name + ":", ""); if (text == null || text.Trim().Length == 0) return; string key = ProfileStore.Key, id = a.Id, name = a.Name; text = text.Trim();
+        string ab = about; ThreadPool.QueueUserWorkItem(o => { string err = ProfApi.Send(key, id, text, ab); try { BeginInvoke(new Action(() => { if (err == null) { chatWith = id; chatScroll = 0; FetchInbox(true); } else Toast(err); })); } catch { } });
     }
 
     // ================================================================= the Collabs page =================================================================
@@ -496,7 +547,7 @@ partial class StudioForm
         var back = Rc(24, y, 150, h); Btn(g, back, "< ALL ARTISTS", 1, () => { artView = 0; }, 12); Hint2(back, "Back to the list of artists");
         Txt(g, "COLLABS", 22, Ink, Rc(190, y - 2, 240, h + 4), StringAlignment.Near, true); var mb = Rc(W - 56 - 170, y, 170, h); Btn(g, mb, "MESSAGES" + (msgUnread > 0 ? " (" + msgUnread + ")" : ""), 2, () => { artView = 1; FetchInbox(true); }, 12); var fb1 = Rc(mb.X - 8 - 170, y, 170, h); Btn(g, fb1, "FRIENDS" + (profReqs.Count > 0 ? " (" + profReqs.Count + ")" : ""), 2, () => OpenFriends(), 12);
         y += h + 12; TxtWrap(g, "A collab is one track made by two friends. Invite a friend from their artist page. When they accept, each of you sends your own version (your project, mixed and mastered) and gets the other one to put in your own project.", 12, DimC, Rc(24, y, W - 120, 36)); y += 44;
-        if (!ProfileStore.Published) { TxtWrap(g, "Publish your profile first (Profile tab) to start collabs.", 14, DimC, Rc(24, y, W - 120, 40)); return; }
+        if (!CanSocial) { TxtWrap(g, "Link this PC to your account (Settings, Account, LINK THIS PC) or publish your profile (Profile tab) to start collabs.", 14, DimC, Rc(24, y, W - 120, 40)); return; }
         var area = Rc(0, y, W - 56, bottom - y); float cy = y - collabScroll; float contentH = collabList.Count * 96 + 10; float viewH = bottom - y; collabScroll = Math.Max(0, Math.Min(Math.Max(0, contentH - viewH), collabScroll)); regs.Add(new HitReg { R = area, OnWheel = d => collabScroll = Math.Max(0, Math.Min(Math.Max(0, contentH - viewH), collabScroll - d * 60)) });
         var gs = g.Save(); g.SetClip(area, CombineMode.Intersect); float cw = Math.Min(1000, W - 110), cx = (W - 56 - cw) / 2f;
         foreach (var c in collabList)

@@ -18,7 +18,7 @@ partial class StudioForm
     {
         if (!WelcomeShowing) return; float W = ClientSize.Width, H = ClientSize.Height; var all = Rc(0, 0, W, H);
         using (var b = new SolidBrush(TM.C(150, 3, 1, 10))) g.FillRectangle(b, all); Reg(all, () => welcomeOn = false);
-        var list = ProjectLibrary.AllByEdited(); int n = Math.Min(4, list.Count); bool cards = H >= 520; float bw = Math.Min(780, W - 40), gap = 12, cw = (bw - 56 - gap * 3) / 4f, bh = cards ? 168 + cw + 56 + 28 : 196;
+        var list = ProjectLibrary.AllByEdited(); int n = list.Count; bool cards = H >= 520; float bw = Math.Min(780, W - 40), gap = 12, cw = (bw - 56 - gap * 3) / 4f, bh = cards ? 168 + cw + 56 + 28 + (n > 4 ? 22 : 0) : 196;   // every project, in a row that scrolls
         int age = unchecked(Environment.TickCount - welcomeAt); float k = Math.Min(1f, age / 260f), ease = 1 - (1 - k) * (1 - k), grow = 0.93f + 0.07f * ease; lastInput = DateTime.Now;
         var box = Rc(W / 2 - bw * grow / 2, H / 2 - bh * grow / 2 - 10, bw * grow, bh * grow); double pulse = 0.5 + 0.5 * Math.Sin(age / 320.0);
         for (int i = 5; i >= 1; i--) using (var pen = new Pen(Color.FromArgb((int)((16 + 22 * pulse) / i * 2.2f) + 5, NeonCyan), i * 5f)) using (var p = RR(RectangleF.Inflate(box, i * 1.4f, i * 1.4f), 22 + i)) g.DrawPath(pen, p);
@@ -33,17 +33,30 @@ partial class StudioForm
         if (!cards) return;
         Txt(g, "YOUR PROJECTS", 12, DimC, Rc(box.X + 28, box.Y + 142, 300, 20), StringAlignment.Near, true);
         if (n == 0) { TxtWrap(g, "You have no projects yet. Press START A NEW PROJECT, drop in some music and press SAVE: it will be here next time.", 13, DimC, Rc(box.X + 28, box.Y + 176, box.Width - 56, 60)); return; }
-        cw = (box.Width - 56 - gap * 3) / 4f;
+        cw = (box.Width - 56 - gap * 3) / 4f; float viewW = box.Width - 56, total = n * (cw + gap) - gap, maxS = Math.Max(0, total - viewW); welScroll = Math.Max(0, Math.Min(maxS, welScroll));
+        var strip = Rc(box.X + 28, box.Y + 168, viewW, cw + 56); var gsw = g.Save(); g.SetClip(Rc(strip.X - 4, strip.Y - 4, strip.Width + 8, strip.Height + 8), CombineMode.Intersect);
         for (int i = 0; i < n; i++)
         {
-            var e = list[i]; var card = Rc(box.X + 28 + i * (cw + gap), box.Y + 168, cw, cw + 56); bool hot = Hot(card);
+            var e = list[i]; var card = Rc(box.X + 28 + i * (cw + gap) - welScroll, box.Y + 168, cw, cw + 56); if (card.Right < strip.X || card.X > strip.Right) continue; bool hot = Hot(RectangleF.Intersect(card, strip));
             FillRR(g, TM.C(205, 22, 12, 42), card, 12); Win.DrawNeonBox(g, card, hot); var pic = Rc(card.X + 8, card.Y + 8, cw - 16, cw - 16); DrawCover(g, pic, e); Win.DrawNeonBox(g, pic, false);
             if (e.Missing) { using (var b = new SolidBrush(TM.C(170, 8, 4, 16))) g.FillRectangle(b, pic); Txt(g, "FILE NOT FOUND", 12, Color.FromArgb(255, 150, 150), pic, StringAlignment.Center, true); }
             Txt(g, e.Name, 14, Ink, Rc(card.X + 10, card.Y + cw, cw - 20, 22), StringAlignment.Near, true);
-            Txt(g, e.Tracks + " tracks   EDITED " + ProjectLibrary.Ago(e.Updated), 10, DimC, Rc(card.X + 10, card.Y + cw + 22, cw - 20, 18), StringAlignment.Near, false);
-            Reg(card, () => { OpenProjectAsk(e); if (HasProject) welcomeOn = false; }); Hint2(card, "Open this project");
+            Txt(g, "EDITED " + ProjectLibrary.Ago(e.Updated), 10, DimC, Rc(card.X + 10, card.Y + cw + 22, cw - 20, 18), StringAlignment.Near, false);
+            var vis = RectangleF.Intersect(card, strip); if (vis.Width > 8) { Reg(vis, () => { OpenProjectAsk(e); if (HasProject) welcomeOn = false; }); Hint2(vis, "Open this project"); }
+        }
+        g.Restore(gsw);
+        if (maxS > 0)
+        {
+            // the scroll bar of the website: a dark rounded track with a violet-to-pink thumb you can drag (the wheel and a click on the track move it too)
+            regs.Add(new HitReg { R = strip, OnWheel = d => welScroll = Math.Max(0, Math.Min(maxS, welScroll - d * (cw + gap))) });
+            var bar = Rc(strip.X, strip.Bottom + 10, strip.Width, 10); FillRR(g, TM.C(200, 10, 5, 24), bar, 5); StrokeRR(g, Color.FromArgb(70, NeonViolet), bar, 5, 1f);
+            float tw = Math.Max(48, bar.Width * viewW / total), tx = bar.X + (bar.Width - tw) * (welScroll / maxS); var thumb = Rc(tx, bar.Y, tw, bar.Height); bool th = Hot(thumb) || welDrag;
+            using (var p = RR(thumb, 5)) using (var br = new LinearGradientBrush(thumb, NeonViolet, NeonPink, 0f)) g.FillPath(br, p); if (th) Glow(g, NeonPink, thumb, 5, 0.8f, 3);
+            float k2 = maxS / Math.Max(1, bar.Width - tw); var tr2 = Reg(bar, () => { welDrag = true; welGrab = MousePos.X; welGrabS = Rc(tx, 0, tw, 1).Contains(MousePos.X, 0.5f) ? welScroll : Math.Max(0, Math.Min(maxS, (MousePos.X - bar.X - tw / 2) * k2)); welScroll = welGrabS; });
+            tr2.OnDrag = pt => welScroll = Math.Max(0, Math.Min(maxS, welGrabS + (pt.X - welGrab) * k2)); tr2.OnUp = () => welDrag = false; Hint2(bar, "Drag to see all your projects (or use the mouse wheel)");
         }
     }
+    float welScroll, welGrab, welGrabS; bool welDrag;
     // ---- the track list of the Edit menu: LOCK / DUPLICATE / DELETE show a tab of your tracks (TRACK 1, TRACK 2...), so you pick the one to work on ----
     bool tpOpen; int tpMode, tpAt; float tpScroll;
     // the toolbar buttons LOCK, FLEX and DEL: with one track they just do it, with several they ask which track (the tab of TRACK 1, 2, 3...)
@@ -98,11 +111,16 @@ partial class StudioForm
     {
         bool fromX = userX; userX = false;
         if (!leaving && fromX && e.CloseReason == CloseReason.UserClosing && !AskLeave()) { e.Cancel = true; return; }
-        base.OnFormClosing(e);
+        base.OnFormClosing(e); if (!e.Cancel) SilenceAll();
+    }
+    // the DAW window closes (any way: the X, EXIT, the taskbar, the main window): nothing it started keeps playing. The engine belongs to the main window, so without this the mix went on playing
+    internal void SilenceAll()
+    {
+        try { if (mic != null) StopMic(); } catch { } try { if (eng.Playing) eng.Pause(); } catch { } try { StopPreview(); } catch { } try { Auditioner.Stop(); } catch { }
     }
     internal void NoteUserX() { userX = true; }
     // leaving the DAW (the X, after the questions were answered) resets it: the next time it opens it is empty and the welcome box offers your projects again, like the first time
-    protected override void OnFormClosed(FormClosedEventArgs e) { base.OnFormClosed(e); if (leaving) ResetAfterLeave(); }
+    protected override void OnFormClosed(FormClosedEventArgs e) { base.OnFormClosed(e); SilenceAll(); if (leaving) ResetAfterLeave(); }
     internal void ResetAfterLeave()
     {
         try

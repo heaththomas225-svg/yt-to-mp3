@@ -605,6 +605,7 @@ static class ProjectIO
         { var ord = new List<Track>(); foreach (var q in tracks) if (!q.IsBus && q.Host == null) ord.Add(q); foreach (var q in tracks) if (!q.IsBus && q.Host != null) ord.Add(q); foreach (var q in tracks) if (q.IsBus) ord.Add(q); tracks = ord; }   // rows, then layers, then buses   // buses go after the tracks
         lock (eng.Sync) { eng.Tracks.Clear(); eng.Tracks.AddRange(tracks); }
         RestoreMix(eng, mix.ToString()); eng.Seek(0);
+        foreach (var lt in eng.Tracks) foreach (var lf in lt.Fx) lf.AutoKeyPending = false;   // the plugins of a saved project keep the key that was saved
         LyricsKept = Lyrics; return warn;
     }
 }

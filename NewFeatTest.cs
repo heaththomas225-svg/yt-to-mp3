@@ -543,13 +543,15 @@ static class NF
                 var pme = typeof(StudioForm).GetMethod("PaintAll", BF); Action paintE = () => { using (var bme = new Bitmap(1500, 800)) using (var ge = Graphics.FromImage(bme)) { var pee = new PaintEventArgs(ge, new Rectangle(Point.Empty, bme.Size)); for (int i = 0; i < 3; i++) pme.Invoke(sf, new object[] { pee }); } }; paintE();
                 var lanes = new List<HitReg>(); foreach (object o in (System.Collections.IEnumerable)typeof(StudioForm).GetField("regs", BF).GetValue(sf)) { var rg = (HitReg)o; if (rg.R.Width > 600 && rg.R.Height > 100 && rg.R.Height < 160 && rg.R.X > 300 && rg.OnDrag != null) lanes.Add(rg); } lanes.Sort((p, r) => p.R.Y.CompareTo(r.R.Y));
                 Func<string, MouseButtons, int, int, object> evt = (nm, b, x, y) => typeof(StudioForm).GetMethod(nm, BF | BindingFlags.DeclaredOnly).Invoke(sf, new object[] { new MouseEventArgs(b, 1, x, y, 0) });
-                bool stayed = false, pickedOn = false; if (lanes.Count >= 2)
+                bool stayed = false, pickedOn = false, onAudioStayed = false; if (lanes.Count >= 2)
                 {
                     var l2 = lanes[1].R; int ex = (int)(l2.Right - 120), ey = (int)(l2.Y + l2.Height / 2); evt("OnMouseMove", MouseButtons.None, ex, ey); evt("OnMouseDown", MouseButtons.Left, ex, ey); evt("OnMouseUp", MouseButtons.Left, ex, ey); paintE(); stayed = F<int>("selTrack") == 0;
-                    int cx = (int)(l2.X + 20), cy = ey; evt("OnMouseMove", MouseButtons.None, cx, cy); evt("OnMouseDown", MouseButtons.Left, cx, cy); evt("OnMouseUp", MouseButtons.Left, cx, cy); paintE(); pickedOn = F<int>("selTrack") == 1;
+                    int cx = (int)(l2.X + 20), cy = ey; evt("OnMouseMove", MouseButtons.None, cx, cy); evt("OnMouseDown", MouseButtons.Left, cx, cy); evt("OnMouseUp", MouseButtons.Left, cx, cy); paintE(); onAudioStayed = F<int>("selTrack") == 0;
+                    int hx = -1, hy = -1; { var topR2 = typeof(StudioForm).GetMethod("TopRegion", BF); float hw = Convert.ToSingle(typeof(StudioForm).GetField("HeadW", BF | BindingFlags.Static).GetValue(null)); for (int yy2 = (int)l2.Y + 4; yy2 < l2.Bottom - 4 && hx < 0; yy2 += 3) for (int xx2 = 4; xx2 < hw - 4 && hx < 0; xx2 += 3) { var hr = (HitReg)topR2.Invoke(sf, new object[] { new PointF(xx2, yy2) }); if (hr != null && (int)hr.R.Width == (int)hw && (int)hr.R.X == 0) { hx = xx2; hy = yy2; } } } evt("OnMouseMove", MouseButtons.None, hx, hy); evt("OnMouseDown", MouseButtons.Left, hx, hy); evt("OnMouseUp", MouseButtons.Left, hx, hy); paintE(); pickedOn = F<int>("selTrack") == 1;
                 }
                 Check("clicking past the audio of a track does not change the selected track", stayed, lanes.Count + " lanes");
-                Check("clicking on the audio itself still picks that track", pickedOn);
+                Check("clicking on the audio itself does not change the selected track either", onAudioStayed);
+                Check("the box of the track on the left (the header) is what picks the track", pickedOn);
                 sf.eng.Tracks.Clear();
             }
             {   // the side menu: pointing at COMMUNITY (or any menu) shows its tabs at once, no click
@@ -574,6 +576,104 @@ static class NF
                 Prefs.PerfMode = false; sf.ApplyFps(); Check("turning it off puts the frame rate back at once", lp.TargetFps == Math.Max(30, Math.Min(60, FrameLoop.DisplayHz())), lp.TargetFps.ToString());
                 var tickF = typeof(FrameLoop).GetField("lastTickMs", BindingFlags.NonPublic | BindingFlags.Instance); Check("the frame loop measures how long a frame takes, so it can leave time for the mouse", tickF != null);
                 Prefs.PerfMode = pk; Prefs.FpsCap = capK; sf.ApplyFps();
+            }
+            {   // MESSAGES: type straight into the conversation, press a message to reply to it
+                bool pubK = ProfileStore.Published; ProfileStore.Published = true; var th = new MsgThread { With = new ArtistInfo { Id = "a0123456789ab", Name = "Neo" } }; th.Msgs.Add(new MsgItem { Mine = false, At = DateTime.UtcNow.Ticks, Text = "Want to make a track together?" });
+                var thr = (System.Collections.Generic.List<MsgThread>)typeof(StudioForm).GetField("msgThreads", BF).GetValue(sf); thr.Clear(); thr.Add(th); SetF("msgWithId", "a0123456789ab"); SetF("tab", 7); SetF("artView", 1); SetF("artSel", null); SetF("welcomeOn", false); SetF("menuOpen", false);
+                sf.ClientSize = new Size(1500, 860); Application.DoEvents(); var pmg = typeof(StudioForm).GetMethod("PaintAll", BF); Action paintG = () => { using (var bm = new Bitmap(1500, 860)) using (var gg = Graphics.FromImage(bm)) { var pe = new PaintEventArgs(gg, new Rectangle(Point.Empty, bm.Size)); for (int i = 0; i < 2; i++) pmg.Invoke(sf, new object[] { pe }); } }; paintG();
+                HitReg bubble = null, box = null; foreach (object o in (System.Collections.IEnumerable)typeof(StudioForm).GetField("regs", BF).GetValue(sf)) { var rg = (HitReg)o; if (rg.R.Width > 300 && rg.R.Height > 30 && rg.R.Height < 60 && rg.R.Y > 600 && rg.OnDown != null) box = rg; if (rg.R.Width > 200 && rg.R.Height >= 40 && rg.R.Height < 120 && rg.R.Y < 600 && rg.R.X > 400 && rg.OnDown != null) bubble = rg; }
+                Check("the conversation has a reply box under it and the messages can be pressed", box != null && bubble != null);
+                if (bubble != null) bubble.OnDown(); Check("pressing a message starts a reply to it, with the cursor in the box", F<string>("msgReplyTo").Contains("Want to make") && F<bool>("msgTyping"), F<string>("msgReplyTo"));
+                var kp = typeof(StudioForm).GetMethod("OnKeyPress", BF); foreach (char ch in "yes! x") kp.Invoke(sf, new object[] { new KeyPressEventArgs(ch) }); kp.Invoke(sf, new object[] { new KeyPressEventArgs('\b') });
+                Check("letters go into the message (also space and the letters that are shortcuts elsewhere), backspace deletes", F<string>("msgDraft") == "yes! ", "[" + F<string>("msgDraft") + "]");
+                var pck2 = typeof(StudioForm).GetMethod("ProcessCmdKey", BF); bool took = (bool)pck2.Invoke(sf, new object[] { new Message(), Keys.Escape }); Check("Esc first stops the reply, then stops typing", took && F<string>("msgReplyTo") == "" && F<bool>("msgTyping")); pck2.Invoke(sf, new object[] { new Message(), Keys.Escape }); Check("and a second Esc leaves the box", !F<bool>("msgTyping"));
+                SetF("msgDraft", ""); thr.Clear(); SetF("msgWithId", ""); SetF("tab", 0); SetF("artView", 0); ProfileStore.Published = pubK;
+            }
+            {   // closing the DAW in any way (not only the X) pauses the mix: the engine belongs to the main window and used to keep playing
+                var eng2 = (StudioEngine)typeof(StudioForm).GetField("eng", BF).GetValue(sf); var sf2 = new StudioForm(app); sf2.Show(); Pump(150); eng2.Tracks.Add(StudioEngine.NewTrack("Loop", "beat", AudioClip.FromArrays(new float[441000], new float[441000], "x"))); eng2.Play(); Check("before: the mix plays", eng2.Playing);
+                sf2.Close(); Pump(100); Check("after the DAW window closes the mix is paused (nothing keeps playing)", !eng2.Playing); lock (eng2.Sync) eng2.Tracks.Clear();
+            }
+            {   // MESSAGES and FRIENDS: ACCEPT, DECLINE and the conversations take the click (the scroll area of the list was on top of them and ate every click)
+                bool pubK = ProfileStore.Published; ProfileStore.Published = true; var reqs = (System.Collections.Generic.List<ArtistInfo>)typeof(StudioForm).GetField("profReqs", BF).GetValue(sf); reqs.Clear(); reqs.Add(new ArtistInfo { Id = "a0000000000aa", Name = "Rowan" });
+                var thr = (System.Collections.Generic.List<MsgThread>)typeof(StudioForm).GetField("msgThreads", BF).GetValue(sf); thr.Clear(); var th = new MsgThread { With = new ArtistInfo { Id = "a0000000000bb", Name = "Neo" } }; th.Msgs.Add(new MsgItem { Mine = false, At = DateTime.UtcNow.Ticks, Text = "yo" }); thr.Add(th);
+                var topR = typeof(StudioForm).GetMethod("TopRegion", BF); var pmg = typeof(StudioForm).GetMethod("PaintAll", BF);
+                foreach (int view in new[] { 1, 3 })
+                {
+                    SetF("tab", 7); SetF("artView", view); SetF("artSel", null); SetF("welcomeOn", false); SetF("menuOpen", false); SetF("msgWithId", ""); sf.ClientSize = new Size(1500, 860); Application.DoEvents();
+                    using (var bm = new Bitmap(1500, 860)) using (var gg = Graphics.FromImage(bm)) { var pe = new PaintEventArgs(gg, new Rectangle(Point.Empty, bm.Size)); for (int i = 0; i < 2; i++) pmg.Invoke(sf, new object[] { pe }); }
+                    HitReg acc = null, dec = null; foreach (object o in (System.Collections.IEnumerable)typeof(StudioForm).GetField("regs", BF).GetValue(sf)) { var rg = (HitReg)o; if (rg.OnDown != null && (int)rg.R.Width == 92 && (int)rg.R.Height == 24) acc = rg; if (rg.OnDown != null && (int)rg.R.Width == 82 && (int)rg.R.Height == 24) dec = rg; }
+                    string nm = view == 1 ? "Messages" : "Friends"; Check(nm + ": the request has ACCEPT and DECLINE", acc != null && dec != null);
+                    if (acc != null) { var hit = (HitReg)topR.Invoke(sf, new object[] { new PointF(acc.R.X + acc.R.Width / 2, acc.R.Y + acc.R.Height / 2) }); Check(nm + ": a click on ACCEPT reaches ACCEPT (not the scroll area of the list)", hit == acc); }
+                    if (dec != null) { var hit = (HitReg)topR.Invoke(sf, new object[] { new PointF(dec.R.X + dec.R.Width / 2, dec.R.Y + dec.R.Height / 2) }); Check(nm + ": a click on DECLINE reaches DECLINE", hit == dec); }
+                }
+                SetF("tab", 0); SetF("artView", 0); reqs.Clear(); thr.Clear(); ProfileStore.Published = pubK;
+            }
+            {   // a row whose own clip was moved to another row (only pieces are left on it): its plugins still play every piece on the row
+                Func<bool, bool, float> peakOf = (withFx, hostHasClip) => { var e = new StudioEngine(); int nS = 44100; var one = new float[nS]; for (int i = 0; i < nS; i++) one[i] = 0.5f;
+                    var host = StudioEngine.NewTrack("Row", "vocal", hostHasClip ? AudioClip.FromArrays(new float[nS], new float[nS], "h") : null); if (withFx) { var gfx = FxRegistry.Create("gain"); gfx.Prepare(44100); gfx.Set("gain", -24); host.Fx.Add(gfx); }
+                    var p1 = StudioEngine.NewTrack("Piece 1", "vocal", AudioClip.FromArrays(one, (float[])one.Clone(), "p")); p1.Host = host; var p2 = StudioEngine.NewTrack("Piece 2", "vocal", AudioClip.FromArrays(one, (float[])one.Clone(), "p")); p2.Host = host; p2.Offset = nS / 2;
+                    e.Tracks.Add(host); e.Tracks.Add(p1); e.Tracks.Add(p2); float[] L, R; e.Render(0, nS, new RenderOpts { Master = false }, null, out L, out R); float pk = 0; for (int i = 0; i < L.Length; i++) pk = Math.Max(pk, Math.Abs(L[i])); e.Shutdown(); return pk; };
+                float dry = peakOf(false, false), wet = peakOf(true, false), wetClip = peakOf(true, true);
+                Check("pieces on a row whose own track has no audio any more play through that row's plugins (-24 dB gain on the row)", dry > 0.1f && wet < dry * 0.1f, dry + " -> " + wet);
+                Check("and the same when the row still has its own clip", wetClip < dry * 0.1f, dry + " -> " + wetClip);
+            }
+            {   // COPY PRESET / PASTE PRESET and the ALL PLUGINS panel
+                sf.eng.Tracks.Clear(); var tA = StudioEngine.NewTrack("Vox A", "vocal", AudioClip.FromArrays(new float[44100], new float[44100], "a")); var tB = StudioEngine.NewTrack("Vox B", "vocal", AudioClip.FromArrays(new float[44100], new float[44100], "b")); sf.eng.Tracks.Add(tA); sf.eng.Tracks.Add(tB);
+                var own = FxRegistry.Create("delay"); own.Prepare(44100); tB.Fx.Add(own);
+                var pc = new List<Fx>(); var e1 = FxRegistry.Create("eq"); var c1 = FxRegistry.Create("comp"); c1.Set("ratio", 6); pc.Add(e1); pc.Add(c1); foreach (var f in pc) f.Prepare(44100);
+                typeof(StudioForm).GetMethod("PutPreset", BF).Invoke(sf, new object[] { tA, "Technical Rap", pc });
+                string key = tA.Fx[0].PresetId; sf.CopyPreset(tA, key); Check("COPY on a preset copies all its plugins", sf.presetCopy.Count == 2 && sf.presetCopyName == "Technical Rap", sf.presetCopy.Count + " " + sf.presetCopyName);
+                sf.PastePreset(tB); var pres = tB.Fx.FindAll(f => f.Preset == "Technical Rap");
+                Check("PASTE PRESET puts the whole preset on the other track, with its settings, in a box of its own (your own plugins stay)", pres.Count == 2 && tB.Fx.Contains(own) && Math.Abs(pres[1].Get("ratio") - 6) < 0.01 && pres[0].PresetId != key, pres.Count + " / " + tB.Fx.Count);
+                Check("the pasted plugins are new ones (changing them leaves the first track alone)", !tA.Fx.Contains(pres[0]) && !tA.Fx.Contains(pres[1]));
+                sf.OpenAllFx(); SetF("tab", 0); SetF("welcomeOn", false); sf.ClientSize = new Size(1500, 860); Application.DoEvents(); var pmA = typeof(StudioForm).GetMethod("PaintAll", BF);
+                using (var bm = new Bitmap(1500, 860)) using (var gg = Graphics.FromImage(bm)) { var pe = new PaintEventArgs(gg, new Rectangle(Point.Empty, bm.Size)); for (int i = 0; i < 2; i++) pmA.Invoke(sf, new object[] { pe }); if (outDir != null) bm.Save(Path.Combine(outDir, "all-plugins.png")); }
+                var bmA = (Dictionary<string, RectangleF>)typeof(StudioForm).GetField("btnMap", BF).GetValue(sf); int adds = 0, pps = 0; foreach (var kv in bmA) { if (kv.Key.StartsWith("+ ADD")) adds++; if (kv.Key.StartsWith("PASTE PRESET")) pps++; }
+                Check("ALL PLUGINS shows the tracks with + ADD and PASTE PRESET", adds >= 1 && pps >= 1, adds + " " + pps);
+                HitReg openRow = null; foreach (object o in (System.Collections.IEnumerable)typeof(StudioForm).GetField("regs", BF).GetValue(sf)) { var rg = (HitReg)o; if (rg.OnDown != null && (int)rg.R.Width == 224 && (int)rg.R.Height == 26) openRow = rg; }
+                if (openRow != null) openRow.OnDown(); Check("pressing a plugin in the panel opens it on its track (the panel closes)", openRow != null && !sf.allFxOpen && F<int>("selFx") >= 0);
+                sf.allFxOpen = false; sf.eng.Tracks.Clear(); SetF("selFx", -1); SetF("revertAction", null);
+            }
+            {   // AUTO KEY: a pitch correction plugin that is added finds the key of its track by itself; one from a saved project keeps its key
+                sf.eng.Tracks.Clear(); int sr = 44100, nS = sr * 12; var mel = new float[nS]; int[] notes = { 57, 60, 64, 62, 60, 59, 57, 64, 65, 64, 62, 60 };   // an A minor tune
+                for (int i = 0; i < nS; i++) { int ni = (i / sr) % notes.Length; double hz = 440 * Math.Pow(2, (notes[ni] - 69) / 12.0); double env = Math.Min(1, (i % sr) / 2000.0) * Math.Min(1, (sr - i % sr) / 2000.0); mel[i] = (float)(0.4 * env * (Math.Sin(2 * Math.PI * hz * i / sr) + 0.3 * Math.Sin(4 * Math.PI * hz * i / sr))); }
+                var vt = StudioEngine.NewTrack("Tune", "vocal", AudioClip.FromArrays(mel, (float[])mel.Clone(), "tune")); sf.eng.Tracks.Add(vt);
+                var pcA = (PitchCorrector)FxRegistry.Create("pitch"); pcA.Prepare(sr); vt.Fx.Add(pcA); var mt = FxRegistry.Create("lib_melody_tune") ?? FxRegistry.Create("melody"); mt.Prepare(sr); vt.Fx.Add(mt);
+                var kept = (PitchCorrector)FxRegistry.Create("pitch"); kept.Prepare(sr); kept.Set("key", 4); kept.AutoKeyPending = false; vt.Fx.Add(kept);
+                Check("a new pitch correction plugin is waiting to find the key by itself", pcA.AutoKeyPending && mt.AutoKeyPending);
+                SetF("tab", 0); SetF("welcomeOn", false); var end = DateTime.Now.AddSeconds(25); while (DateTime.Now < end && (pcA.AutoKeyPending || mt.AutoKeyPending)) { sf.AutoKeyTick(); Pump(150); }
+                int k1 = (int)pcA.Get("key"), s1 = (int)pcA.Get("scale"); bool am = (k1 == 9 && s1 == 2) || (k1 == 0 && s1 == 1);
+                Check("AUTO KEY sets the key it finds in the audio (an A minor tune: A minor, or its twin C major)", !pcA.AutoKeyPending && am, PitchCorrector.Keys[k1] + " " + PitchCorrector.Scales[s1]);
+                Check("Melody Tune gets the same key", !mt.AutoKeyPending && (int)mt.Get("key") == k1 && (int)mt.Get("scale") == s1, mt.Get("key") + " " + mt.Get("scale"));
+                Check("the notes of the scale follow the key", ((int)pcA.Get("mask") & 4095) == PitchCorrector.MaskFor(k1, s1));
+                Check("a plugin from a saved project keeps the key it was saved with", (int)kept.Get("key") == 4);
+                var pcB = (PitchCorrector)FxRegistry.Create("pitch"); pcB.Prepare(sr); pcB.AutoKeyPending = false; Check("a key picked by hand is never changed by AUTO KEY", !pcB.AutoKeyPending);
+                sf.eng.Tracks.Clear(); SetF("toast", "");
+            }
+            {   // the welcome box lists every project in a row that scrolls, with the website's scroll bar (and no "tracks" on the cards)
+                for (int i = 0; i < 7; i++) { string pp = Path.Combine(StudioEnv.DataDir, "wel" + i + ".ytmproj"); File.WriteAllText(pp, "YTMPROJ\nname|Song " + i + "\n"); ProjectLibrary.Touch(pp, "Song " + i, 3, 120, 100, true, null); }
+                sf.eng.Tracks.Clear(); SetF("tab", 0); SetF("welcomeOn", true); SetF("welScroll", 0f); sf.ClientSize = new Size(1500, 860); Application.DoEvents(); var pmW = typeof(StudioForm).GetMethod("PaintAll", BF);
+                Action paintW = () => { using (var bm = new Bitmap(1500, 860)) using (var gg = Graphics.FromImage(bm)) { var pe = new PaintEventArgs(gg, new Rectangle(Point.Empty, bm.Size)); StudioForm.TxtAudit = new List<StudioForm.AuditText>(); for (int i = 0; i < 2; i++) pmW.Invoke(sf, new object[] { pe }); if (outDir != null) bm.Save(Path.Combine(outDir, "welcome-scroll.png")); } };
+                paintW(); var auW = StudioForm.TxtAudit; StudioForm.TxtAudit = null; bool tracksWord = auW.Any(t => t.S.Contains("tracks   EDITED")); bool seven = auW.Any(t => t.S.StartsWith("EDITED "));
+                Check("the welcome cards do not say how many tracks", !tracksWord && seven);
+                HitReg wheel = null, bar = null; foreach (object o in (System.Collections.IEnumerable)typeof(StudioForm).GetField("regs", BF).GetValue(sf)) { var rg = (HitReg)o; if (rg.OnWheel != null && rg.OnDown == null && rg.R.Height > 150 && rg.R.Height < 300) wheel = rg; if (rg.OnDrag != null && (int)rg.R.Height == 10) bar = rg; }
+                Check("with more than 4 projects there is a scroll bar under them", wheel != null && bar != null);
+                if (wheel != null) wheel.OnWheel(-1); float s1 = F<float>("welScroll"); Check("the mouse wheel moves the row to the next project", s1 > 50, s1.ToString());
+                if (bar != null) { typeof(StudioForm).GetField("MousePos", BF).SetValue(sf, new PointF(bar.R.Right - 2, bar.R.Y + 5)); bar.OnDown(); bar.OnDrag(new PointF(bar.R.Right + 200, bar.R.Y + 5)); if (bar.OnUp != null) bar.OnUp(); }
+                paintW(); float s2 = F<float>("welScroll"); Check("dragging the bar to the end shows the last projects", s2 > s1, s1 + " -> " + s2);
+                SetF("welcomeOn", false); SetF("welScroll", 0f);
+            }
+            {   // dragging the needle to the left edge scrolls the timeline back with it (it never hides behind the track boxes)
+                sf.eng.Tracks.Clear(); sf.eng.Tracks.Add(StudioEngine.NewTrack("Long", "beat", AudioClip.FromArrays(new float[44100 * 60], new float[44100 * 60], "l"))); SetF("tab", 0); SetF("welcomeOn", false); SetF("autoFit", false); SetF("spp", 300.0); SetF("scroll", (long)(44100 * 30)); sf.ClientSize = new Size(1500, 860); Application.DoEvents();
+                var pmN = typeof(StudioForm).GetMethod("PaintAll", BF); Action paintN = () => { using (var bm = new Bitmap(1500, 860)) using (var gg = Graphics.FromImage(bm)) { var pe = new PaintEventArgs(gg, new Rectangle(Point.Empty, bm.Size)); pmN.Invoke(sf, new object[] { pe }); } };
+                paintN(); int hw = Convert.ToInt32(typeof(StudioForm).GetField("HeadW", BF | BindingFlags.Static).GetValue(null)), ry = 70 + 86 + 14;
+                Action<string, MouseButtons, int, int> ev = (m, b, x, y) => typeof(StudioForm).GetMethod(m, BF | BindingFlags.DeclaredOnly).Invoke(sf, new object[] { new MouseEventArgs(b, b == MouseButtons.None ? 0 : 1, x, y, 0) });
+                ev("OnMouseMove", MouseButtons.None, hw + 300, ry); ev("OnMouseDown", MouseButtons.Left, hw + 300, ry); ev("OnMouseMove", MouseButtons.Left, hw - 120, ry);
+                long sc0 = 44100 * 30; for (int i = 0; i < 25; i++) { paintN(); Pump(20); }
+                long sc1 = F<long>("scroll"), pos = sf.eng.Pos; ev("OnMouseUp", MouseButtons.Left, hw - 120, ry);
+                Check("holding the needle past the left edge scrolls the timeline back", sc1 < sc0, sc0 + " -> " + sc1);
+                Check("and the needle stays in view, at the left edge (not behind the track boxes)", pos >= sc1 && pos <= sc1 + (long)(60 * 300.0), pos + " vs view from " + sc1);
+                sf.eng.Tracks.Clear(); SetF("autoFit", true);
             }
             {   // the REVERT box stays at the bottom left and is no wider than the left column of the Mastering page (it never reaches into the next box)
                 var pm = typeof(StudioForm).GetMethod("PaintAll", BF); var rrF = typeof(StudioForm).GetField("revertRect", BF); bool narrow = true; string bad = "";

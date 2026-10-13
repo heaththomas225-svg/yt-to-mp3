@@ -73,9 +73,9 @@ static class K
         M("ToggleLock"); Check("pressing it again unlocks", !row.Locked, "");
 
         // ---- cut closes the gap ----
-        M("CutRange", (long)(SR * 2), (long)(SR * 4)); { long tc = 0, endAt = 0; foreach (var p in Pieces(row)) { tc += p.UsedLength; endAt = Math.Max(endAt, p.Offset + p.UsedLength); } Check("CUT takes the section out and closes the gap", Math.Abs(tc - SR * 18) <= 4 && Math.Abs(endAt - SR * 18) <= 4, tc + " frames, ends at " + endAt); }
+        M("CutRange", (long)(SR * 2), (long)(SR * 4)); { long tc = 0, endAt = 0; foreach (var p in Pieces(row)) { tc += p.UsedLength; endAt = Math.Max(endAt, p.Offset + p.UsedLength); } Check("CUT takes the section out and leaves a gap (the audio after it does not move)", Math.Abs(tc - SR * 18) <= 4 && Math.Abs(endAt - SR * 20) <= 4, tc + " frames, ends at " + endAt); }
         M("SplitTrack", row, (long)(SR * 5)); var pcs = Pieces(row); M("CutRange", (long)(SR * 1), (long)(SR * 3)); pcs = Pieces(row); long tot2 = 0; foreach (var p in pcs) tot2 += p.UsedLength;
-        Check("CUT works across split pieces", Math.Abs(tot2 - SR * 16) <= 4 && pcs.Count == 2, tot2 + " frames in " + pcs.Count + " pieces");
+        Check("CUT works across split pieces (and still moves nothing)", Math.Abs(tot2 - SR * 17) <= 4 && pcs.Max(p => p.Offset + p.UsedLength) == SR * 20, tot2 + " frames in " + pcs.Count + " pieces");
 
         // ---- delete one piece, not the row ----
         int before = Pieces(row).Count; M("DeleteClip", row); var after = Pieces(row);
@@ -152,15 +152,15 @@ static class K
             }
         }
 
-        // ---- CUT deletes the selected piece and closes the gap ----
+        // ---- CUT deletes the selected piece and moves nothing else (a gap is left) ----
         {
             eng.Tracks.Clear(); var ct = StudioEngine.NewTrack("Vox", "vocal", Const(20, 0.4f)); eng.Tracks.Add(ct); SetF("selTrack", 0); SetF("autoFit", true); SetF("toolsTrack", null); Paint();
             var spl = typeof(StudioForm).GetMethod("SplitTrack", BF); spl.Invoke(sf, new object[] { ct, (long)(SR * 5) }); var p2 = Pieces(ct)[1]; spl.Invoke(sf, new object[] { p2, (long)(SR * 10) });
             var cutPcs = Pieces(ct); Check("split twice: three pieces", cutPcs.Count == 3, cutPcs.Count + " pieces"); var mid = cutPcs[1]; SetF("toolsTrack", mid); Paint();
             M("CutClick"); cutPcs = Pieces(ct); long tot = 0; long endAt = 0; foreach (var p in cutPcs) { tot += p.UsedLength; endAt = Math.Max(endAt, p.Offset + p.UsedLength); }
             Check("CUT deletes the selected piece (it does not make two pieces)", cutPcs.Count == 2 && Math.Abs(tot - SR * 15) <= 4, cutPcs.Count + " pieces, " + tot / (double)SR + " s");
-            Check("and the piece after it moves up to close the gap", Math.Abs(endAt - SR * 15) <= 4 && Math.Abs(cutPcs[1].Offset - SR * 5) <= 4, "ends at " + endAt / (double)SR + " s, second piece starts at " + cutPcs[1].Offset / (double)SR + " s");
-            var ro = Render(SR * 14); Check("what you hear has no hole where the piece was", Math.Abs(ro[SR * 5 + 1000] - 0.4f) < 1e-3f && Math.Abs(ro[SR * 12] - 0.4f) < 1e-3f, ro[SR * 5 + 1000].ToString("0.000"));
+            Check("and the piece after it stays exactly where it was (nothing fills the gap)", Math.Abs(endAt - SR * 20) <= 4 && Math.Abs(cutPcs[1].Offset - SR * 10) <= 4, "ends at " + endAt / (double)SR + " s, second piece starts at " + cutPcs[1].Offset / (double)SR + " s");
+            var ro = Render(SR * 14); Check("where the piece was it is silent, and the audio after it plays at its old time", Math.Abs(ro[SR * 7]) < 1e-3f && Math.Abs(ro[SR * 12] - 0.4f) < 1e-3f, ro[SR * 7].ToString("0.000") + " / " + ro[SR * 12].ToString("0.000"));
             typeof(StudioForm).GetMethod("DoUndo", BF).Invoke(sf, null); cutPcs = Pieces(ct); tot = 0; foreach (var p in cutPcs) tot += p.UsedLength; Check("Ctrl+Z puts the piece back", cutPcs.Count == 3 && Math.Abs(tot - SR * 20) <= 4, cutPcs.Count + " pieces");
             ct.Locked = true; SetF("toolsTrack", Pieces(ct)[1]); M("CutClick"); Check("CUT leaves a locked track alone", Pieces(ct).Count == 3, ""); ct.Locked = false;
         }

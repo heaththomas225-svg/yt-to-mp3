@@ -193,7 +193,7 @@ partial class StudioForm
     {
         Track cur = tr;   // the clip under the mouse: this row's own track or one of the tracks layered on it
         var lr = Reg(lane, () => { cur = PickLayer(tr, MousePos); LaneDown(cur, lane); }); lr.OnDrag = pt => LaneDrag(cur, pt); lr.OnUp = () => { LaneDrop(cur); GhostEnd(); MarqueeEnd(); }; lr.OnRight = () => LaneMenu(tr); lr.OnDouble = () => { var pc = PickLayer(tr, MousePos); int z = ZoneAt(pc, lane, MousePos); if (z >= 4) { if (IsLocked(pc)) return; PushUndo(); if (z == 4) { pc.FadeIn = 0; pc.FadeInDelay = 0; } else if (z == 5) { pc.FadeOut = 0; pc.FadeOutTail = 0; } else if (z == 6) pc.FadeInDelay = 0; else pc.FadeOutTail = 0; Toast(z >= 6 ? "Fade start moved back to the edge of the clip" : "Fade " + (z == 4 ? "in" : "out") + " removed"); } else if (tr.Instrument) OpenRoll(tr); };
-        if (Hot(lane)) hintNow = "Click a track to select it and show its buttons.  Drag a clip to move it, drag its ends to trim.  Hold the left button on empty space and drag a box to select several clips.  Move the needle from the ruler at the top.  Right-click = split, cut, fades, gain, lock, delete.";
+        if (Hot(lane)) hintNow = "Click the box of a track on the left to select it.  Drag a clip to move it, drag its ends to trim.  Hold the left button on empty space and drag a box to select several clips.  Move the needle from the ruler at the top.  Right-click = split, cut, fades, gain, lock, delete.";
         return lr;
     }
     // an audio row where the mouse is past the audio (or between pieces): clicking there does nothing to the selection (it used to switch to this track)
@@ -206,7 +206,7 @@ partial class StudioForm
     void LaneDown(Track tr, RectangleF lane)
     {
         if (OverNoAudio(tr, MousePos)) { laneMode = 0; laneStart = MousePos; marqueeOn = false; laneLocked = false; return; }   // empty part of the row: no change of track
-        selTrack = Math.Max(0, eng.Tracks.IndexOf(tr.Host ?? tr)); selFx = -1; laneMode = 0; laneStart = MousePos; toolsTrack = tr; marqueeOn = false;
+        laneMode = 0; laneStart = MousePos; toolsTrack = tr; marqueeOn = false;   // the selected track changes only from its box on the left (the header): clicking the audio moves, trims and edits the clip but leaves the selection alone
         if (tr.Clip != null && !tr.Instrument)
         {
             laneMode = ZoneAt(tr, lane, MousePos); laneMoved = false; lockToldYou = false; laneLocked = IsLocked(tr) && laneMode >= 1 && laneMode <= 3;
@@ -250,7 +250,7 @@ partial class StudioForm
         var piece = PickLayer(tr, MousePos);
         m.Items.Add("Split here (at the needle)").Click += (a, b) => SplitSelected();
         m.Items.Add("Split where I clicked").Click += (a, b) => SplitTrack(piece, at);
-        m.Items.Add("Cut this piece out (delete it and close the gap)").Click += (a, b) => { toolsTrack = piece; CutClick(); };
+        m.Items.Add("Cut this piece out (delete it, nothing else moves)").Click += (a, b) => { toolsTrack = piece; CutClick(); };
         m.Items.Add("Fade in: add / remove").Click += (a, b) => { toolsTrack = piece; ToggleFade(true); };
         m.Items.Add("Fade out: add / remove").Click += (a, b) => { toolsTrack = piece; ToggleFade(false); };
         m.Items.Add("Gain: the volume of this piece...").Click += (a, b) => { toolsTrack = piece; gainAnchor = Rc(MousePos.X - 40, MousePos.Y, 80, 10); OpenGain(); };

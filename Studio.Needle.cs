@@ -33,7 +33,7 @@ partial class StudioForm
         var sm = g.SmoothingMode; g.SmoothingMode = SmoothingMode.AntiAlias; float boost = 1f + peak * 0.9f + (float)pulse * 0.12f;
         // the beam: a wide soft pink glow, a cyan fringe, a hot pink body and a white core
         float[] gw = { 30, 20, 13, 8 }; int[] ga = { 12, 22, 40, 74 };
-        for (int i = 0; i < gw.Length; i++) using (var pen = new Pen(Color.FromArgb(Math.Min(255, (int)(ga[i] * boost)), NeonPink), gw[i] * (0.9f + 0.25f * peak))) { pen.StartCap = LineCap.Round; pen.EndCap = LineCap.Round; g.DrawLine(pen, px, top, px, bottom); }
+        for (int i = 0; i < gw.Length; i++) using (var pen = new Pen(Color.FromArgb(Math.Min(255, (int)(ga[i] * boost)), NeonPink), gw[i] * (0.9f + 0.25f * peak))) { pen.StartCap = LineCap.Round; pen.EndCap = LineCap.Flat; g.DrawLine(pen, px, top, px, bottom); }
         using (var pen = new Pen(TM.C(110, 0, 229, 255), 1f)) { g.DrawLine(pen, px - 2.5f, top + 14, px - 2.5f, bottom); g.DrawLine(pen, px + 2.5f, top + 14, px + 2.5f, bottom); }
         using (var pen = new Pen(Color.FromArgb(215, NeonPink), 3.4f)) g.DrawLine(pen, px, top, px, bottom);
         using (var pen = new Pen(TM.C(250, 255, 245, 255), 1.7f)) g.DrawLine(pen, px, top, px, bottom);

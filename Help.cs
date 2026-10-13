@@ -344,7 +344,7 @@ Open + Add Effect on a track and pick it under PLUGINS (it is listed first). Pre
 - Drag the left or right END of a clip to shorten it. The audio is never deleted, you can drag it back out.
 ## Take a section out (CUT)
 1. SPLIT the track where the part you do not want starts and where it ends, so it is a piece of its own.
-2. Right-click that piece and choose Cut this piece out (or open the side menu and choose Cut a section out). The piece is deleted and the pieces after it move up to close the gap. (SPLIT makes two pieces; CUT removes one.) It also cuts every clip lit by a selection box, leaves locked tracks alone, and Ctrl+Z puts it back.
+2. Right-click that piece and choose Cut this piece out (or open the side menu and choose Cut a section out). The piece is deleted and a gap is left where it was: the audio after it stays exactly where it is. (SPLIT makes two pieces; CUT removes one.) It also cuts every clip lit by a selection box, leaves locked tracks alone, and Ctrl+Z puts it back.
 ## Fade in and fade out
 Click a clip: round handles appear on it. Drag the top handle at the top left to fade in (the farther you drag it, the longer the fade) and the top handle at the top right to fade out. The small bottom handle on a fade moves where the fade starts (or ends), which leaves silence before a fade in or after a fade out. Double-click a handle to remove or reset it. The curve drawn on the clip is exactly the curve you hear.
 ## Gain (volume of one piece)

@@ -175,7 +175,7 @@ class PitchCorrector : Fx
 
     public PitchCorrector()
     {
-        Type = "pitch"; Title = "Pitch Correction";
+        Type = "pitch"; Title = "Pitch Correction"; AutoKeyPending = true;
         AddC("key", "Key", Keys, 0); AddC("scale", "Scale", Scales, 1); AddP("mask", "Notes", 0, 4095, MaskFor(0, 1), "");
         AddP("speed", "Retune speed", 0, 400, 25, "ms"); AddP("strength", "Strength", 0, 100, 100, "%");
         AddP("natural", "Keep vibrato", 0, 100, 40, "%"); AddC("range", "Voice range", Ranges, 1);

@@ -2,6 +2,28 @@
 
 What changed in each version of **Purphex**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.37.0  Effects always belong to the track, ALL PLUGINS, copy presets, auto key, reply to messages
+
+- EFFECTS BELONG TO THE TRACK, ALWAYS: every piece of audio on a track plays through that track's plugins and presets, also after the track's own clip was moved to another track and only split pieces are left on it. Before, those pieces lost the effects of the track they sit on.
+- ALL PLUGINS: a new panel (the ALL PLUGINS button above the plugins, or PRESETS...) shows every track with its plugins side by side, like the mixer of a big DAW. Add, paste, switch off, copy, remove and open plugins on any track from one place.
+- COPY PRESET and PASTE PRESET: every preset box has COPY, which copies the whole preset (all its plugins with their settings). PASTE PRESET (in ALL PLUGINS and in PRESETS...) puts it on any other track in a box of its own.
+- AUTO KEY: Pitch Correction and Melody Tune find the key of their track by themselves when they are added (from + ADD EFFECT, a preset or a style) and tune to it straight away. A key you pick yourself, or one saved in a project, is never changed. DETECT KEY still does it again by hand.
+- MESSAGES: there is a message box under the conversation. Press it (or pick a conversation) and type: Enter sends, Esc stops typing, Ctrl+V pastes, the smiley adds an emoji. Letters you type go into the message, not to the shortcuts of the studio.
+- REPLY: press any message in the conversation to reply to it. The box shows REPLYING TO and the message you answer, and the other person sees what you replied to. The little chat window works the same way.
+- MESSAGES WITHOUT PUBLISHING: a PC linked to your purphexmusic.com account (Settings, Account, LINK THIS PC) can send messages, add friends and start collabs before you publish a profile, the same as on the website. It is the same conversation in the app and on the website.
+- COPY AND PASTE ON EVERY EFFECT: every plugin row in YOUR PLUGINS and on the master has a C button that copies it, and PASTE next to the heading (and next to Add Effect to master) adds the copied plugin with its settings.
+- WEBSITE: purphexmusic.com has a Messages page in the menu (with the number of unread messages) with the same three parts as the app: Messages, Friends and Collabs. It works on phones too.
+- FRIEND REQUESTS: ACCEPT and DECLINE work again in Messages and Friends (the scroll area of the list was lying on top of them and took every click; it took the clicks on the conversations too). The request leaves the list the moment you answer.
+- CLOSING THE DAW PAUSES THE MUSIC: however the DAW window is closed, the mix, a project preview, a song you were listening to and the sound browser all stop. Before, the mix could keep playing after the window was gone.
+- DRAGGING THE NEEDLE scrolls the timeline with it: hold it at the left or right edge and the mix moves along (faster the further past the edge you hold it), so you always see the audio under the needle. It never goes behind the track boxes any more.
+- THE NEEDLE STOPS EXACTLY AT THE END: when the song finishes the needle parks on the last bit of audio (the reverb and delay tail is still heard), and it runs down to the bottom of the last track only, not into the empty space or the bar under it.
+- THE PICKED TRACK OUTLINE ends exactly where the audio of the track ends, also for a track made of pieces (after SPLIT or paste). When the audio ends before the part you see, the outline goes round the track box only. It used to run past the audio, past the end of the timeline and under the plugin panel.
+- PICKING A TRACK: only the box of a track on the left (with its name, M, S, + ADD EFFECT and the volume) picks the track. Clicking the audio moves, trims and edits it, but leaves the picked track alone.
+- CUT NEVER MOVES YOUR AUDIO: cutting a piece or a section out leaves a gap where it was. The audio after it, the notes and the automation all stay exactly where they were (before, everything after the cut slid back to fill the gap).
+- THE WELCOME BOX shows all your projects, not only the newest four: they sit in a row with the scroll bar of the website under it (drag it, click it or use the mouse wheel). The cards no longer say how many tracks a project has.
+- ADD EFFECT: the Plugins... button in its title strip works again (the strip you drag the box by was lying on top of it). The same goes for every button in the title strip of a box you can drag.
+- On a narrow window the COPY, PASTE and REMOVE buttons of a master plugin with a long name (Multiband Compressor) sit on their own row instead of over the name.
+
 ## 3.36.9  The side menu opens on hover, a smoother DAW, nicer profile links
 
 - SIDE MENU: point at a menu (for example COMMUNITY) and its tabs open at once, from where the pointer is. No click needed.

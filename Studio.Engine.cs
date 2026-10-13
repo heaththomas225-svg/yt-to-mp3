@@ -433,7 +433,8 @@ partial class StudioEngine
     // ---- one row = one track: the pieces on a row (made by SPLIT or by adding more audio to it) share the row's plugins, mute, solo, volume and pan ----
     static bool HasInstrFx(Track t) { foreach (var f in t.Fx) { var ifx = f as InstrumentFx; if (ifx != null && ifx.IsInstrument) return true; } return false; }
     // the audio piece that is played through the plugins of the row it sits on (its host): the host mixes it in before the plugins run
-    static bool MergedPiece(Track t, List<Track> list) { var h = t.Host; return h != null && !t.IsBus && !t.Instrument && t.Clip != null && !HasInstrFx(t) && !h.IsBus && !h.Instrument && h.Clip != null && !HasInstrFx(h) && list.Contains(h); }
+    static bool MergedPiece(Track t, List<Track> list) { var h = t.Host; return h != null && !t.IsBus && !t.Instrument && t.Clip != null && !HasInstrFx(t) && !h.IsBus && !h.Instrument && !HasInstrFx(h) && list.Contains(h); }   // the row's own track may have no audio of its own (its clip was moved to another row): its plugins still play every piece on the row
+    static bool HasPieces(Track h, List<Track> list) { foreach (var p in list) if (p.Host == h && MergedPiece(p, list)) return true; return false; }
     // the audio of one clip for this block (its own fades and gain), added to the buffers
     void AddClipAudio(Track p, float[] bl, float[] br, int n, long pos)
     {
@@ -477,7 +478,7 @@ partial class StudioEngine
         foreach (var t in list)
         {
             if (t.IsBus != (pass == 1)) continue;
-            if (t.Clip == null && !t.Instrument && !t.IsBus) continue;
+            if (t.Clip == null && !t.Instrument && !t.IsBus && !HasPieces(t, list)) continue;   // an empty row is skipped, but not a row whose pieces still need its plugins
             if (MergedPiece(t, list)) { if (meters) { t.PeakL = 0; t.PeakR = 0; t.RmsL = 0; t.RmsR = 0; t.Clipped = false; } continue; }   // its audio is mixed into the row's host below
             var row = t.Host != null && !t.IsBus && list.Contains(t.Host) ? t.Host : t;   // the row it sits on: mute, solo, off, volume and pan are the row's
             if ((t.Off || row.Off) && !t.IsBus) { if (!t.fxIdle) { t.fxIdle = true; for (int f = 0; f < t.Fx.Count; f++) t.Fx[f].GR = 0; } if (meters) { t.PeakL = 0; t.PeakR = 0; t.RmsL = 0; t.RmsR = 0; t.Clipped = false; } t.dlyW += n; continue; }   /* off: no reading, no plugins, nothing mixed; the plugins start clean when it is turned on again */
@@ -620,7 +621,7 @@ partial class StudioEngine
             if (Metronome) Click(Pos, n, oL, oR);
             Pos += n;
             long end = EndFrame + SR * 2;   // allow reverb / delay tails
-            if (Pos >= end) { if (Loop) { Pos = 0; ResetStates(); } else { Playing = false; Pos = end; } }
+            if (Pos >= end) { if (Loop) { Pos = 0; ResetStates(); } else { Playing = false; Pos = EndFrame; } }   /* the tail is heard, but the needle parks exactly where the audio ends */
         }
     }
 
@@ -647,7 +648,7 @@ partial class StudioEngine
     public void Play()
     {
         EnsurePlayer();
-        lock (Sync) { if (Pos >= EndFrame + SR * 2) Pos = 0; if (!Playing) { if (CountIn) { LastCountFrames = SR * 4; countLeft = LastCountFrames; /* always 4 clicks, one a second, whatever the tempo is */ } else { LastCountFrames = 0; countLeft = 0; } } Playing = true; }
+        lock (Sync) { if (EndFrame > 0 && Pos >= EndFrame) Pos = 0; if (!Playing) { if (CountIn) { LastCountFrames = SR * 4; countLeft = LastCountFrames; /* always 4 clicks, one a second, whatever the tempo is */ } else { LastCountFrames = 0; countLeft = 0; } } Playing = true; }
     }
     public void Pause() { Playing = false; countLeft = 0; }
     public void Stop() { Playing = false; lock (Sync) { Pos = 0; countLeft = 0; ResetStates(); } }

@@ -250,11 +250,12 @@ partial class StudioForm
             FillRR(g, sel ? TM.C(210, 80, 40, 150) : TM.C(150, 40, 22, 74), row, 8); if (sel) StrokeRR(g, Accent, row, 8, 1.4f);
             Reg(row, () => { selMaster = fi; mpTab = 0; });
             var dot = Rc(row.X + 10, row.Y + (rowH - 18) / 2, 18, 18); using (var b = new SolidBrush(f.Bypass ? TM.C(90, 90, 70, 110) : Good)) g.FillEllipse(b, dot); Reg(dot, () => f.Bypass = !f.Bypass);
-            Txt(g, i < ModNames.Length && f.Type != "gain" ? (i < 7 ? ModNames[i] : f.Title) : f.Title, 14, f.Bypass && !sel ? DimC : Ink, Rc(row.X + 38, row.Y, row.Width - 100, rowH), StringAlignment.Near, sel);
+            Txt(g, i < ModNames.Length && f.Type != "gain" ? (i < 7 ? ModNames[i] : f.Title) : f.Title, 14, f.Bypass && !sel ? DimC : Ink, Rc(row.X + 38, row.Y, row.Width - 126, rowH), StringAlignment.Near, sel);
             if (f.GR > 0.2f) Txt(g, "-" + f.GR.ToString("0.0"), 11, Warn, Rc(row.Right - 78, row.Y, 40, rowH), StringAlignment.Far, false);
+            if (CanCopyFx(f)) { var cpm = Rc(row.Right - (i >= 7 ? 56 : 30), row.Y + (rowH - 22) / 2, 22, 22); Btn(g, cpm, "C", 0, () => CopyFx(f), 10); Hint2(cpm, "Copy this effect with all its settings (PASTE adds it to any track or to the master)"); }
             if (i >= 7) Btn(g, Rc(row.Right - 30, row.Y + (rowH - 22) / 2, 22, 22), "x", 3, () => { lock (eng.Sync) eng.MasterFx.RemoveAt(fi); }, 12);
         }
-        Btn(g, Rc(lp.X + 10, y + 2, lp.Width - 20, 28), "+ Add Effect to master", 1, () => OpenBrowser(true, -1), 12); y += 40;
+        { float aw = lp.Width - 20 - 84; Btn(g, Rc(lp.X + 10, y + 2, aw, 28), "+ Add Effect to master", 1, () => OpenBrowser(true, -1), 12); var pm0 = Rc(lp.X + 10 + aw + 6, y + 2, 78, 28); Btn(g, pm0, "PASTE", fxCopyType.Length > 0 ? 2 : 0, () => PasteFxAsNew(null), 11); Hint2(pm0, fxCopyType.Length > 0 ? "Add the copied " + fxCopyTitle + " with its settings to the master chain" : "Copy an effect first: press C on its row, or COPY in its editor"); } y += 40;
         Txt(g, "ORIGINAL VS MASTERED", 13, Ink, Rc(lp.X + 14, y, 250, 20), StringAlignment.Near, true); y += 24;
         Btn(g, Rc(lp.X + 10, y, 120, 34), "A  ORIGINAL", !eng.MasterBypass ? 0 : 4, () => { eng.MasterBypass = true; ApplyMatch(); }, 13);
         Btn(g, Rc(lp.X + 138, y, 122, 34), "B  MASTERED", eng.MasterBypass ? 0 : 4, () => { eng.MasterBypass = false; }, 13); y += 40;

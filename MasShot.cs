@@ -58,6 +58,12 @@ static class MaS
                 var bmp5 = new Bitmap(1366, 768); var pm5 = typeof(StudioForm).GetMethod("PaintAll", BF); using (var g = Graphics.FromImage(bmp5)) { var pe = new PaintEventArgs(g, new Rectangle(0, 0, 1366, 768)); for (int i = 0; i < 3; i++) pm5.Invoke(sf, new object[] { pe }); }
                 bmp5.Save(Path.Combine(outDir, "split-pieces.png"), System.Drawing.Imaging.ImageFormat.Png); bmp5.Dispose();
             }
+            { // the Messages page with the reply box
+                ProfileStore.Published = true; var th = new MsgThread { With = new ArtistInfo { Id = "a0123456789ab", Name = "Neo" } }; th.Msgs.Add(new MsgItem { Mine = false, At = DateTime.UtcNow.Ticks, Text = "Want to make a track together?" }); th.Msgs.Add(new MsgItem { Mine = true, At = DateTime.UtcNow.Ticks, Text = "Yes! Send me the beat.", About = "Reply: Want to make a track together?" });
+                var thr = (System.Collections.Generic.List<MsgThread>)typeof(StudioForm).GetField("msgThreads", BF).GetValue(sf); thr.Clear(); thr.Add(th); SetF("msgWithId", "a0123456789ab"); SetF("tab", 7); SetF("artView", 1); SetF("artSel", null); SetF("caOpen", false); SetF("revertAction", null); SetF("msgReplyTo", "Want to make a track together?"); SetF("msgDraft", "Sounds good, I'll send it tonight"); SetF("msgTyping", true);
+                sf.ClientSize = new Size(1366, 768); Pump(300); var bmp6 = new Bitmap(1366, 768); var pm6 = typeof(StudioForm).GetMethod("PaintAll", BF); using (var g = Graphics.FromImage(bmp6)) { var pe = new PaintEventArgs(g, new Rectangle(0, 0, 1366, 768)); for (int i = 0; i < 3; i++) pm6.Invoke(sf, new object[] { pe }); }
+                bmp6.Save(Path.Combine(outDir, "messages.png"), System.Drawing.Imaging.ImageFormat.Png); bmp6.Dispose();
+            }
             Console.WriteLine("saved");
         }
         finally { try { Directory.Delete(work, true); } catch { } }

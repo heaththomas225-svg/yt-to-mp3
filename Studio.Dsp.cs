@@ -114,6 +114,7 @@ public abstract class Fx
     public string CurPreset = "", CurPresetData = "";   // the preset that is on this plugin (and its settings right after it was applied: if they differ now it was changed by hand)
     public string Type = "", Title = "", Category = "Plugins", Blurb = "", Error = "";   // Category / Blurb show in the effect browser; Error is set if the plugin crashes
     public bool Bypass;
+    public bool AutoKeyPending;   // a pitch correction plugin that was just added: the studio finds the key of its track by itself and sets it (a plugin from a saved project keeps its key)
     public string Preset = "", PresetId = "";   // PresetId: which use of the preset it came with (the same preset can be on a track more than once, each in its own box)        // the name of the preset this plugin came with ("" = a plugin of your own); the plugin panel shows those apart
     public List<Param> P = new List<Param>();
     public float[] ScL, ScR;          // external sidechain (vocal signal), may be null

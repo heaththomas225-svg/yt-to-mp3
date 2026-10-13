@@ -153,12 +153,12 @@ partial class StudioForm
             foreach (var t in ok)
             {
                 if (!eng.Tracks.Contains(t)) continue; var row = RowHost(t); long len = t.UsedLength, end = t.Offset + len; total += len; DeleteClip(t);
-                foreach (var p in eng.Tracks.ToArray()) if (RowHost(p) == row && p.Clip != null && !p.Instrument && p.Offset >= end - 2) p.Offset = Math.Max(0, p.Offset - len);
+                // nothing after it moves: CUT leaves a gap where the piece was (the audio after it stays exactly where it is)
             }
         }
         finally { undoHold--; }
         multiSel.Clear(); toolsTrack = null; cutMark = -1;
-        Toast("Cut out " + ok.Count + (ok.Count == 1 ? " piece" : " pieces") + " (" + (total / (double)StudioEngine.SR).ToString("0.0") + " s): deleted, and the pieces after it moved up." + (locked > 0 ? " " + locked + " locked left alone." : "") + " Ctrl+Z undoes it.");
+        Toast("Cut out " + ok.Count + (ok.Count == 1 ? " piece" : " pieces") + " (" + (total / (double)StudioEngine.SR).ToString("0.0") + " s): deleted. Nothing else moved." + (locked > 0 ? " " + locked + " locked left alone." : "") + " Ctrl+Z undoes it.");
     }
     void CutCancel() { if (cutMark >= 0) { cutMark = -1; Toast("Cut cancelled"); } }
     void CutRange(long a, long b)
@@ -171,20 +171,20 @@ partial class StudioForm
                 if (t.IsBus) continue; if (IsLocked(t)) { skipped++; continue; }
                 if (t.Instrument)
                 {
-                    lock (t.Midi) { var keep = new List<MidiEv>(); foreach (var m in t.Midi) { if (m.Frame >= a && m.Frame < b) continue; if (m.Frame >= b) m.Frame -= len; keep.Add(m); } t.Midi.Clear(); t.Midi.AddRange(keep); }
+                    lock (t.Midi) { var keep = new List<MidiEv>(); foreach (var m in t.Midi) { if (m.Frame >= a && m.Frame < b) continue; keep.Add(m); } t.Midi.Clear(); t.Midi.AddRange(keep); }
                     touched++; continue;
                 }
                 if (t.Clip == null) continue;
                 long s = t.Offset, e = t.Offset + t.UsedLength;
                 if (e <= a) continue;
-                if (s >= b) { t.Offset = s - len; touched++; continue; }
+                if (s >= b) continue;   // after the cut: it stays exactly where it is
                 if (s < a && e > b)
-                {   // the cut is in the middle of this clip: it becomes two pieces and the right one slides back
-                    var host = t.Host ?? t; var right = CloneTrack(t, " (2)"); right.Host = host; right.Out = host.Out; right.Offset = a; right.ClipStart = t.ClipStart + (b - s); right.ClipFrames = e - b; right.FadeIn = 0; right.FadeOut = t.FadeOut;
+                {   // the cut is in the middle of this clip: it becomes two pieces with a gap between them (the right one stays where it was)
+                    var host = t.Host ?? t; var right = CloneTrack(t, " (2)"); right.Host = host; right.Out = host.Out; right.Offset = b; right.ClipStart = t.ClipStart + (b - s); right.ClipFrames = e - b; right.FadeIn = 0; right.FadeOut = t.FadeOut;
                     t.ClipFrames = a - s; t.FadeOut = 0; eng.Tracks.Insert(FirstBusIndex(), right);
                 }
                 else if (s < a) { t.ClipFrames = a - s; t.FadeOut = 0; }
-                else if (e > b) { long d = b - s; t.ClipStart += d; t.ClipFrames = e - b; t.Offset = a; t.FadeIn = 0; }
+                else if (e > b) { long d = b - s; t.ClipStart += d; t.ClipFrames = e - b; t.Offset = b; t.FadeIn = 0; }
                 else if (t.Host != null) { eng.Tracks.Remove(t); retired.AddRange(t.Fx); }   // the whole piece was inside the cut
                 else t.ClipFrames = 0;                                                       // a row's own piece: emptied below
                 touched++;
@@ -197,10 +197,10 @@ partial class StudioForm
                 if (layers.Count > 0) { var nx = layers[0]; h.Clip = nx.Clip; h.Source = nx.Source; h.Offset = nx.Offset; h.ClipStart = nx.ClipStart; h.ClipFrames = nx.ClipFrames; h.FadeIn = nx.FadeIn; h.FadeOut = nx.FadeOut; h.ClipGainDb = nx.ClipGainDb; eng.Tracks.Remove(nx); retired.AddRange(nx.Fx); }
                 else { h.Clip = null; h.Source = ""; h.ClipStart = 0; h.ClipFrames = -1; h.Offset = 0; h.FadeIn = 0; h.FadeOut = 0; }
             }
-            foreach (var t in eng.Tracks) foreach (var l in t.Auto) { if (IsLocked(t)) continue; foreach (var pt in l.Pts) { if (pt.Frame >= b) pt.Frame -= len; else if (pt.Frame > a) pt.Frame = a; } l.SortPts(); }
+            // the automation stays where it is too: nothing on the timeline moves
         }
         eng.Seek(a);
-        Toast("Cut " + TimeText(a) + " to " + TimeText(b) + " out of " + touched + (touched == 1 ? " track" : " tracks") + " and closed the gap" + (skipped > 0 ? " (" + skipped + " locked left as they were)" : "") + ". Ctrl+Z undoes it.");
+        Toast("Cut " + TimeText(a) + " to " + TimeText(b) + " out of " + touched + (touched == 1 ? " track" : " tracks") + " (the audio after it stays where it is)" + (skipped > 0 ? " (" + skipped + " locked left as they were)" : "") + ". Ctrl+Z undoes it.");
     }
     void PaintCutMark(Graphics g)
     {
