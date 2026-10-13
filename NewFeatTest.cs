@@ -772,6 +772,7 @@ static class NF
                 Check("while the edition reads Free the original theme is shown, but your choice is kept", showsOriginal && kept, Themes.Current.Name + " / " + Prefs.Theme);
                 Check("and when Fantasy is known again your theme is back by itself", back, Themes.Current.Name);
                 string body = SiteTheme.Body(Themes.Current); Check("the website is sent the theme's name, its edition and its colours", body.Contains("\"name\":\"Royal Gold\"") && body.Contains("\"req\":\"fantasy\"") && System.Text.RegularExpressions.Regex.IsMatch(body, "\"violet\":\"#[0-9a-f]{6}\""), body);
+                Edition.Override = Tier.Free; Themes.EnforceEdition(false); bool noFlash = Themes.Current.Name == "Royal Gold"; Edition.Override = Tier.Fantasy; Check("at start on a linked PC (edition still being checked) the theme stays as it is: no flash to the original", noFlash, Themes.Current.Name);
                 Themes.Apply(Themes.IndexOf(keepT));
             }
             {   // EDIT on a bus: its effects show in the plugin panel (open, switch off, remove), BACK TO TRACKS goes back; REMOVE ALL is not in the YOUR PLUGINS box any more

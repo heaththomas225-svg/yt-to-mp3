@@ -2,6 +2,10 @@
 
 What changed in each version of **Purphex**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.37.9  The converter keeps every colour of your theme
+
+- FIXED: after the update the converter window could come up half in your theme and half in purple (the borders in your colours, the buttons purple). At start, while a linked PC was still renewing its licence, the theme flashed to the original and back, and the window took its colours from the wrong one. Now the theme is not touched until your edition is really known, so every window opens fully in your colours.
+
 ## 3.37.8  Copy all the plugins of a track to another track
 
 - COPY ALL PLUGINS and PASTE ALL PLUGINS: in ALL PLUGINS every track has them (and PRESETS... too). COPY ALL PLUGINS takes every plugin of a track with its settings and its preset boxes; PASTE ALL PLUGINS puts them all on another track, and the plugins it already had stay. The instrument (Bass Lab or a VST) stays on its own track.

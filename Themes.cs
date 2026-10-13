@@ -189,11 +189,11 @@ static class Themes
     // the theme you chose is never forgotten: while the edition is not known yet (a licence being renewed, no internet) or lower, the original theme is shown for now,
     // and your own theme comes back by itself as soon as your edition is known again (it used to be reset to the original for good)
     static void Show(int i) { Index = Math.Max(0, Math.Min(list.Count - 1, i)); rainbowT0 = Environment.TickCount / 1000.0; Push(Current); UserBackground.Version++; foreach (Form f in Application.OpenForms) { try { f.Invalidate(true); } catch { } } }
-    public static bool EnforceEdition()
+    public static bool EnforceEdition(bool allowDowngrade = true)
     {
         Ensure(); int want = IndexOfName(Prefs.Theme);
         if (want >= 0 && want != Index && Allowed(list[want])) { Show(want); SiteTheme.Send(Current); return true; }   // your theme is back
-        if (!Allowed(Current)) { Show(0); return true; }   // shown as the original for now; your choice is kept in Prefs.Theme
+        if (!Allowed(Current)) { if (!allowDowngrade) return false; Show(0); return true; }   // at start on a linked PC the licence may still be renewing: no flash to the original (that left the converter half in the old colours)   // shown as the original for now; your choice is kept in Prefs.Theme
         SiteTheme.Send(Current);
         // the Fantasy edition comes with the Fantasy look: the first time it is on this PC the gold Fantasy theme goes on every button and outline of the program (choose any theme you like afterwards)
         if (!StudioEnv.UnderTest && Prefs.FantasyThemeV < 2 && Edition.Current == Tier.Fantasy) { Prefs.FantasyThemed = true; Prefs.FantasyThemeV = 2; int gi = IndexOfName("Royal Gold"); if (gi >= 0 && !list[Index].Special) { Apply(gi); Prefs.Changed(); return true; } Prefs.Changed(); }
