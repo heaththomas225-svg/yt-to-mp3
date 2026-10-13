@@ -31,7 +31,7 @@ partial class StudioForm
     void PaintPickSheet(Graphics g)
     {
         if (!pickOpen) return; float W = ClientSize.Width, H = ClientSize.Height; var all = Rc(0, 0, W, H);
-        using (var b = new SolidBrush(TM.C(160, 3, 1, 10))) g.FillRectangle(b, all); Reg(all, () => pickOpen = false);
+        Reg(all, () => pickOpen = false);
         const float rowH = 60, head = 76; float sw = Math.Min(620, W - 24), sh = Math.Min(H - 40, head + 16 + pickList.Count * rowH); var sheet = PopMove("pick", Rc((W - sw) / 2, (H - sh) / 2, sw, sh), 56, 70);
         FillRR(g, TM.C(252, 16, 10, 34), sheet, 20); Glow(g, NeonViolet, sheet, 20, 0.8f, 4); StrokeRR(g, Color.FromArgb(180, NeonViolet), sheet, 20, 1.5f); Reg(sheet, () => { });
         float tpx = 20; { float tw = g.MeasureString(pickTitle, GfxCache.Font(20, true)).Width; if (tw > sheet.Width - 90) tpx = Math.Max(12, 20 * (sheet.Width - 90) / tw); }
@@ -155,7 +155,7 @@ partial class StudioForm
     {
         if (!keyOn) return; int age = unchecked(Environment.TickCount - keyAt); if (age > 12000) { keyOn = false; return; } lastInput = DateTime.Now;
         float W = ClientSize.Width, H = ClientSize.Height; var all = Rc(0, 0, W, H);
-        using (var b = new SolidBrush(TM.C(130, 3, 1, 10))) g.FillRectangle(b, all); Reg(all, () => keyOn = false);
+        Reg(all, () => keyOn = false);
         float k = Math.Min(1f, age / 260f), ease = 1 - (1 - k) * (1 - k); float bw = Math.Min(560, W - 40), bh = 230, grow = 0.92f + 0.08f * ease;
         var box = Rc(W / 2 - bw * grow / 2, H / 2 - bh * grow / 2 - 20, bw * grow, bh * grow); double pulse = 0.5 + 0.5 * Math.Sin(age / 260.0); Color c1 = keyFound ? NeonCyan : Color.FromArgb(255, 150, 110), c2 = keyFound ? NeonPink : Color.FromArgb(255, 90, 130);
         for (int i = 6; i >= 1; i--) using (var pen = new Pen(Color.FromArgb((int)((20 + 22 * pulse) / i * 2.2f) + 6, c1), i * 5f)) using (var p = RR(RectangleF.Inflate(box, i * 1.4f, i * 1.4f), 24 + i)) g.DrawPath(pen, p);

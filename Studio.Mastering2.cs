@@ -224,6 +224,7 @@ partial class StudioForm
         float y0 = ToolH; using (var br = new SolidBrush(TM.C(255, 22, 12, 40))) g.FillRectangle(br, 0, y0, W, TransH); NeonRule(g, 0, y0 + TransH, W);
         float x = 14, yy = y0 + 8, hh = 36;
         Btn(g, Rc(x, yy, 96, hh), "PLAY", eng.Playing && !mpActive ? 4 : 1, () => { if (mpActive) MasterPreviewStop(); PlayToggle(); }, 15); x += 104;
+        { var pb0 = Rc(x, yy, 96, hh); Btn(g, pb0, "PAUSE", 1, () => { if (mpActive) MasterPreviewStop(); eng.Pause(); }, 15); Hint2(pb0, "Pause the song (PLAY carries on from the same place)"); x += 104; }
         double sec = dispPos / StudioEngine.SR, tot = eng.EndFrame / (double)StudioEngine.SR; var tr = Rc(x, yy, 210, hh); FillRR(g, TM.C(200, 8, 4, 18), tr, 6); StrokeRR(g, Edge, tr, 6, 1);
         Txt(g, Fmt(sec) + "  /  " + Fmt(tot), 19, Accent, tr, StringAlignment.Center, true); x += 222;
         Btn(g, Rc(x, yy, 168, hh), "PREVIEW MASTER", mpActive ? 4 : 2, () => MasterPreviewStart(), 13); Hint2(Rc(x, yy, 168, hh), "Hear your master: a loop of the loudest 20 seconds with the mastering chain on."); x += 174;
@@ -261,6 +262,18 @@ partial class StudioForm
         {
             Txt(g, "BEFORE " + Db(abOrig.I) + "   AFTER " + Db(abMast.I) + " LUFS", 11, Ink, Rc(lp.X + 12, y, lp.Width - 24, 16), StringAlignment.Near, true);
             Txt(g, "MASTERING ADDS " + (abMast.I - abOrig.I).ToString("+0.0;-0.0") + " LU", 11, DimC, Rc(lp.X + 12, y + 16, lp.Width - 24, 16), StringAlignment.Near, false);
+        }
+
+        // AUTO EQ: sets the master EQ for you; after it has run, A ORIGINAL and B EQ'D flip between the EQ as it was and the EQ it made
+        if (y + 34 < lp.Bottom)
+        {
+            y += 8; var aeq = Rc(lp.X + 10, y, lp.Width - 20, 32); Btn(g, aeq, "AUTO EQ", 2, () => { var meq = MasterFind("eq") as ParametricEq; if (meq == null) Toast("AUTO EQ needs the Parametric EQ in the master chain."); else AutoEqClick(meq, null); }, 14); Hint2(aeq, "The master EQ sets itself: it listens to the whole mix and moves bass, mud, presence, upper-mids and air to balance it. It asks first; A ORIGINAL then B EQ'D let you hear the difference, and REVERT puts it back"); y += 38;
+            if (aeqFx != null && eng.MasterFx.Contains(aeqFx) && y + 30 < lp.Bottom)
+            {
+                Txt(g, "ORIGINAL VS EQ'D", 13, Ink, Rc(lp.X + 14, y, 250, 20), StringAlignment.Near, true); y += 22;
+                Btn(g, Rc(lp.X + 10, y, 120, 34), "A  ORIGINAL", aeqOnB ? 0 : 4, () => AeqShow(false), 13); Btn(g, Rc(lp.X + 138, y, 122, 34), "B  EQ'D", aeqOnB ? 4 : 0, () => AeqShow(true), 13); y += 38;
+                if (aeqLine.Length > 0 && y + 16 < lp.Bottom) Txt(g, aeqLine, 10, DimC, Rc(lp.X + 12, y, lp.Width - 24, 30), StringAlignment.Near, false);
+            }
         }
 
         // ---- centre: the editor and the presets ----
@@ -347,7 +360,7 @@ partial class StudioForm
     void PaintAutoMixSheet(Graphics g)
     {
         if (!amOpen || amVersions == null) return; float W = ClientSize.Width, H = ClientSize.Height; var all = Rc(0, 0, W, H);
-        using (var b = new SolidBrush(TM.C(160, 3, 1, 10))) g.FillRectangle(b, all); Reg(all, () => { });
+        Reg(all, () => { });
         float sw = Math.Min(900, W - 24), sh = Math.Min(H - 30, 700); var sheet = PopMove("amaster", Rc((W - sw) / 2, (H - sh) / 2, sw, sh), 54, 70);
         FillRR(g, TM.C(252, 16, 10, 34), sheet, 22); Glow(g, NeonViolet, sheet, 22, 0.8f, 4); StrokeRR(g, Color.FromArgb(180, NeonViolet), sheet, 22, 1.5f); Reg(sheet, () => { });
         Txt(g, "AUTO MASTERING", 22, Ink, Rc(sheet.X + 22, sheet.Y + 14, 400, 34), StringAlignment.Near, true);
@@ -406,6 +419,11 @@ partial class StudioForm
 
     // ---------- AUTO EQ: the Parametric EQ sets itself ----------
     // On the master it listens to the whole mix; on a track it listens to that track on its own, before its effects. It sets the five tone bands (bass, mud, presence, upper-mids, air) and leaves the rest of the EQ as it is.
+    ParametricEq aeqFx; string aeqBefore = "", aeqAfter = "", aeqLine = ""; bool aeqOnB;   // the master EQ before and after AUTO EQ (for A ORIGINAL / B EQ'D)
+    void AeqShow(bool eqd)
+    {
+        if (aeqFx == null) return; lock (eng.Sync) Presets.Apply(aeqFx, eqd ? aeqAfter : aeqBefore); aeqOnB = eqd; Toast(eqd ? "B: the EQ AUTO EQ made." : "A: the EQ as it was before AUTO EQ.");
+    }
     void AutoEqClick(ParametricEq eq, Track tr)
     {
         if (eng.Tracks.Count == 0) { Toast("Add music first."); return; }
@@ -424,6 +442,7 @@ partial class StudioForm
             PushUndo(); int[] band = { 0, 1, 3, 4, 5 }; string[] nm = { "bass", "mud", "presence", "upper-mids", "air" }; var moves = new List<string>();
             lock (eng.Sync) { for (int i = 0; i < 5; i++) { eq.Set("b" + band[i] + "_on", 1); eq.Set("b" + band[i] + "_g", (float)DspMath.Clamp(gains[i], -6, 6)); if (Math.Abs(gains[i]) > 0.05) moves.Add(nm[i] + " " + gains[i].ToString("+0.0;-0.0") + " dB"); } eq.Bypass = false; }
             Toast(moves.Count > 0 ? "AUTO EQ: " + string.Join(", ", moves.ToArray()) + "." : "AUTO EQ: the tone is already balanced, so the EQ was left flat.");
+            if (tr == null) { aeqFx = eq; aeqBefore = before; aeqAfter = eq.Serialize(); aeqOnB = true; aeqLine = moves.Count > 0 ? "AUTO EQ moved: " + string.Join(", ", moves.ToArray()) + "." : "The tone was already balanced."; }
             OfferRevert("AUTO EQ is on this EQ", () => { lock (eng.Sync) Presets.Apply(eq, before); });
         });
     }

@@ -194,7 +194,7 @@ partial class StudioForm
     void PaintCommPresets(Graphics g)
     {
         if (!cpOpen) return; float W = ClientSize.Width, H = ClientSize.Height; var all = Rc(0, 0, W, H);
-        using (var b = new SolidBrush(TM.C(165, 3, 1, 10))) g.FillRectangle(b, all); Reg(all, () => cpOpen = false);
+        Reg(all, () => cpOpen = false);
         float sw = Math.Min(720, W - 24), sh = Math.Min(H - 24, 600); var sheet = PopMove("comm", Rc((W - sw) / 2, (H - sh) / 2, sw, sh), 54, 70);
         FillRR(g, TM.C(252, 16, 10, 34), sheet, 20); Glow(g, NeonViolet, sheet, 20, 0.8f, 4); StrokeRR(g, Color.FromArgb(180, NeonViolet), sheet, 20, 1.5f); Reg(sheet, () => { });
         Txt(g, "COMMUNITY PRESETS", 18, Ink, Rc(sheet.X + 22, sheet.Y + 14, sheet.Width - 90, 28), StringAlignment.Near, true);

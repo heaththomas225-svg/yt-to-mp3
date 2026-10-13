@@ -2,6 +2,18 @@
 
 What changed in each version of **Purphex**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.36.2  Generate Lyrics is gone, the Fantasy DAW buttons, a lock list that stays open, a GAIN box like the track list
+
+- GENERATE LYRICS is removed (the button, the menu item, its window, the recent list and its help page, and the speech recogniser it downloaded): it did not write the words of songs well enough. The lyrics .txt that is saved next to each converted song, and the Lyrics page of the DAW, stay.
+- FANTASY EDITION: every button of the DAW has the pale rim of the converter buttons, and the rim is exactly the same thickness all the way round, corners too, on every button. The Supporter edition keeps its own buttons and does not get this look.
+- LOCK: the list of tracks stays open, so you can lock or unlock several tracks one after another and press DONE. A locked track is gold with a padlock in the list, and its piece on the timeline is gold all round with a big gold padlock.
+- GAIN: the same neon box as the track list (TRACK 1, TRACK 2...): press a track to pick it, then set its volume under the list.
+- The faded dark backdrop behind the movable tabs and sheets (Styles, Themes, Presets, New Track, Key, Auto, Mastering and the Add Effect browser) is gone, so moving them no longer looks glitchy and the page behind stays clear.
+- MASTERING: a PAUSE button next to PLAY.
+- AUTO EQ: after it runs, a block with A ORIGINAL and B EQ'D lets you flip between the EQ as it was and the EQ it made (like ORIGINAL VS MASTERED). The small AUTO EQ button on the master EQ header is removed (the big one stays).
+- The mouse wheel never changes a value any more: plugin sliders, EQ bands, Bass Lab knobs, drop-down lists, number boxes and slider bars only change by click and drag. The wheel only scrolls pages and lists.
+- The message box (Toast) never covers the REVERT bar: it moves above it, so REVERT is always pressable.
+
 ## 3.36.1  Unlimited tracks on your profile, EPs and albums of up to 20 songs, a welcome box that comes back, clickable empty tracks
 
 - PROFILE: your profile can list any number of tracks (there was a limit before), on your profile page and on the artist page other people see.

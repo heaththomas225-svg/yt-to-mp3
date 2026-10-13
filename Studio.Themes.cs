@@ -69,7 +69,7 @@ partial class StudioForm
     void PaintThemeSheet(Graphics g)
     {
         if (!themeOpen) return; float W = ClientSize.Width, H = ClientSize.Height; var all = Rc(0, 0, W, H);
-        using (var b = new SolidBrush(TM.C(160, 3, 1, 10))) g.FillRectangle(b, all); Reg(all, () => themeOpen = false);
+        Reg(all, () => themeOpen = false);
         float sw = Math.Min(800, W - 24), sh = Math.Min(H - 30, 660); var sheet = PopMove("themes", Rc((W - sw) / 2, (H - sh) / 2, sw, sh), 54, 70);
         FillRR(g, TM.C(252, 16, 10, 34), sheet, 22); Glow(g, NeonViolet, sheet, 22, 0.8f, 4); StrokeRR(g, Color.FromArgb(180, NeonViolet), sheet, 22, 1.5f); Reg(sheet, () => { });
         Txt(g, "THEMES", 22, Ink, Rc(sheet.X + 22, sheet.Y + 14, 300, 34), StringAlignment.Near, true);

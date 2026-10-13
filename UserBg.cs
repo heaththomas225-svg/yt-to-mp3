@@ -29,9 +29,6 @@ static class Prefs
     public static string Theme = "Purphex";   // the colour theme (Settings and the Theme tab)
     public static int FantasyThemeV;   // which version of the "Fantasy theme on the DAW" has been applied on this PC (it is applied again when the number goes up)
     public static bool FantasyThemed;   // the Fantasy edition puts the Fantasy theme (Royal Gold) on the whole program the first time it is on this PC; after that the theme is yours to change
-    public static string LyricLang = "auto";   // the language of the lyrics on the Generate Lyrics page ("auto" = the recogniser decides)
-    public static string LyricQuality = "better";   // how well the Generate Lyrics page listens: fast, better or best (a bigger model)
-    public static bool LyricVoice = true;   // take the voice out of the music first (needs the Vocal remover)
     public static bool CountUses = true;     // every finished conversion adds one to the worldwide TIMES USED number (only a number is sent; Settings > General turns it off)
     public static bool SaveLyrics = true;    // after a song is converted its lyrics are looked up and saved as a .txt next to it (Settings > General turns it off)
     public static bool ShareSaved = true;    // a preset you save is also shared with the Community presets: this is always on (community presets are for everybody)
@@ -39,7 +36,7 @@ static class Prefs
 
     public static string[] Lines()
     {
-        return new[] { "bgpath=" + BgPath, "bgdim=" + BgDim, "bgleaves=" + BgLeaves, "bgstudio=" + BgStudio, "outvol=" + OutVol, "outdev=" + OutDev, "buf=" + Buf, "fpscap=" + FpsCap, "perfmode=" + PerfMode, "showfps=" + ShowFps, "savelyrics=" + SaveLyrics, "countuses=" + CountUses, "lyriclang=" + LyricLang, "lyricquality=" + LyricQuality, "lyricvoice=" + LyricVoice, "fantasythemev=" + FantasyThemeV, "fantasytheme=" + FantasyThemed, "midiin=" + MidiDev, "indev=" + InDev, "micmode=" + MicMode, "fontid=" + FontId, "sharesaved=" + ShareSaved, "theme=" + Theme };
+        return new[] { "bgpath=" + BgPath, "bgdim=" + BgDim, "bgleaves=" + BgLeaves, "bgstudio=" + BgStudio, "outvol=" + OutVol, "outdev=" + OutDev, "buf=" + Buf, "fpscap=" + FpsCap, "perfmode=" + PerfMode, "showfps=" + ShowFps, "savelyrics=" + SaveLyrics, "countuses=" + CountUses, "fantasythemev=" + FantasyThemeV, "fantasytheme=" + FantasyThemed, "midiin=" + MidiDev, "indev=" + InDev, "micmode=" + MicMode, "fontid=" + FontId, "sharesaved=" + ShareSaved, "theme=" + Theme };
     }
     public static bool Parse(string k, string v)
     {
@@ -62,9 +59,6 @@ static class Prefs
             case "micmode": if (int.TryParse(v, out n) && n >= 0 && n <= 3) MicMode = n; return true;
             case "savelyrics": if (bool.TryParse(v, out b)) SaveLyrics = b; return true;
             case "countuses": if (bool.TryParse(v, out b)) CountUses = b; return true;
-            case "lyriclang": LyricLang = LyricsLang.Clean(v); return true;
-            case "lyricquality": LyricQuality = LyricsWhisper.CleanQuality(v); return true;
-            case "lyricvoice": if (bool.TryParse(v, out b)) LyricVoice = b; return true;
             case "fantasythemev": { int n2; if (int.TryParse(v, out n2)) FantasyThemeV = n2; return true; }
             case "fantasytheme": if (bool.TryParse(v, out b)) FantasyThemed = b; return true;
             case "sharesaved": ShareSaved = true; return true;   // (always on)

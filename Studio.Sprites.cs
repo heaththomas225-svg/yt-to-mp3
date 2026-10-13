@@ -22,7 +22,7 @@ partial class StudioForm
     const int SpritePad = 10;
     // pictures (the 512 pixel logo shown at 30 to 160 pixels, covers, photos) are shrunk with the best filter: no shimmering or jagged picture edges (CompositingQuality.HighQuality was tried: 7 times slower)
     static void Sharp(Graphics g) { g.InterpolationMode = InterpolationMode.HighQualityBicubic; }
-    long ThemeKey() { long h = Sprites.Seed; foreach (var c in new[] { Violet, BtnC, Accent, Accent2, NeonCyan, NeonViolet, NeonPink }) h = Sprites.H(h, c.ToArgb()); return h; }
+    long ThemeKey() { long h = Sprites.Seed; foreach (var c in new[] { Violet, BtnC, Accent, Accent2, NeonCyan, NeonViolet, NeonPink }) h = Sprites.H(h, c.ToArgb()); return Sprites.H(h, Edition.Has(Tier.Fantasy) ? 7 : 3); }   // (a button picture is kept per edition look)
     long themeKeyFrame = 0; int themeKeyAt = -1;
     long ThemeKeyNow() { int f = Environment.TickCount; if (themeKeyAt != f) { themeKeyAt = f; themeKeyFrame = ThemeKey(); } return themeKeyFrame; }
 

@@ -21,6 +21,27 @@ sealed class SettingsWheel : IMessageFilter
     }
 }
 
+// the wheel never changes a value ANYWHERE in the program: over a drop-down list, a number box or a slider it scrolls the page behind it (or does nothing); a drop-down that is open still scrolls its own list
+sealed class NoValueWheel : IMessageFilter
+{
+    [DllImport("user32.dll")] static extern IntPtr WindowFromPoint(Point p);
+    public static void Install() { Application.AddMessageFilter(new NoValueWheel()); }
+    public static bool IsValueControl(Control c)
+    {
+        for (var k = c; k != null; k = k.Parent) { if (k is ComboBox) return !((ComboBox)k).DroppedDown; if (k is NumericUpDown || k is TrackBar || k is DomainUpDown) return true; if (k is Form) break; }
+        return false;
+    }
+    public bool PreFilterMessage(ref Message m)
+    {
+        if (m.Msg != 0x20A) return false;
+        long lp = (long)m.LParam; var pt = new Point((short)(lp & 0xFFFF), (short)((lp >> 16) & 0xFFFF));
+        var under = Control.FromChildHandle(WindowFromPoint(pt)); if (under == null || !IsValueControl(under)) return false;
+        int delta = (short)((long)m.WParam >> 16);
+        for (var k = under.Parent; k != null; k = k.Parent) { var sc = k as ScrollableControl; if (sc != null && sc.AutoScroll && sc.VerticalScroll.Visible) { int cur = -sc.AutoScrollPosition.Y; sc.AutoScrollPosition = new Point(0, Math.Max(0, cur - delta / 2)); break; } }
+        return true;
+    }
+}
+
 class SettingsForm : Form
 {
     readonly App app; bool setting;

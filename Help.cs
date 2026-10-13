@@ -82,28 +82,6 @@ Every paid edition has a code like PX-ABCD-EFGH-JKLM. It is linked to ONE place 
 - Editions given by the Purphex team (admins and testers) cannot be moved.
 TIP: Press Check again on the Account page if you just paid and the app still says Free."),
 
-        new HelpTopic("lyrics-generator", "Basics", "Generate lyrics from a song or video", false, @"
-## Where it is
-On the first screen, press GENERATE LYRICS (next to Vocal remover and Purphex Music), or Menu, Generate lyrics. It is a page of its own, and it is free in every edition. On the Fantasy edition it wears the Fantasy gold and follows your Fantasy theme.
-## Get the lyrics
-1. Drop a song or a video on it, or press CHOOSE FILE. Any of mp3, wav, flac, m4a, ogg, opus, aac, mp4, mkv, webm, mov and more.
-2. Or paste a link (YouTube; other sites need the link reader the converter installs) in OR PASTE A LINK: the lyrics are found from the video's name, with nothing downloaded and no MP3 needed. If the song is not in the lyrics database, Purphex fetches the sound of the link only to listen to it, writes the words out by listening, and deletes the sound afterwards.
-3. Pick the LANGUAGE the song is sung in (Auto-detect lets the recogniser decide; pick it when it gets the language wrong, and it is remembered). Then press GENERATE LYRICS. The song's tags and file name (or the link) say which song it is, and the lyrics database (LRCLIB) is asked for it.
-4. A song that is not in the database can be written by listening to it (this needs the file, not a link). TRIM START and TRIM END (like 0:30) pick the part of the song that is heard. That uses the Whisper speech recogniser, which runs on your PC: Purphex asks before it downloads it (about 160 MB, once, and your song is never uploaded). A recogniser can mishear a word, so check the words against the song.
-## Which song, and how well it listens
-A file named only with its title is matched by its length, so another song with the same name is not used (if no song of that length is in the database it says so). For a song that has to be heard, the QUALITY drop bar picks the model (Fast about 150 MB, Better about 500 MB, Best about 1.6 GB and slow; only the one you pick is downloaded, once, after you say yes) and HEAR ONLY THE VOICE FIRST takes the singing out of the music with the Vocal remover (about 0.5 GB, once) before listening, which is far more accurate for songs with loud instruments. No program can write every word of every song perfectly: check the words.
-## Grammar and punctuation
-Every result is tidied: capital letters, I, the apostrophes in don't and I'm, spaces round commas, a full stop or question mark at the end of each verse, a comma before and / but / so lines, clean blank lines between verses, and [Verse] and [Chorus] labels. FIX GRAMMAR does the same to words you typed or changed, and UNDO brings your words back.
-## Resize lyrics
-A- and A+ change the size of the writing. FIT TO BOX makes it as big as it can be while the whole lyric still fits in the box (a very long song stops at a readable size and scrolls instead).
-## Recheck
-RECHECK VIDEO + WORDS listens to the song or video file again and compares what is sung with the lyrics in the box: it lists lines that are not heard, finds a verse that is sung but missing, and ADD THE MISSING PASSAGES puts it in the right place (marked to check). It needs the file, not a link, and the speech recogniser (the same one-time download). A recogniser can mishear a word, so it is a guide: listen to anything it flags.
-## Remove
-REMOVE LYRICS takes the lyrics, the title and the notes off the page. Undo brings them back, and what you saved to the DAW stays in RECENT.
-## Keep it
-COPY, SAVE .TXT, or SAVE TO THE DAW: give it a TITLE (it starts as Artist - Title) so you know which song it was. RECENT on the Generate Lyrics page shows the last ones you saved, newest first (the last 30 are kept).
-NOTE: Lyrics belong to their writers. The text is for your own use."),
-
         new HelpTopic("colour-mixer", "Basics", "Colour mixer (on your Profile page)", false, @"
 ## Where it is
 On the Profile page, in a box of its own under Edit your profile (it is not a tab). Every section is in a neon-outlined box.
@@ -290,7 +268,7 @@ For pan type a number from -100 (left) to 100 (right), or L30 / R30 / C."),
 ## Open it
 Press Settings (top right of the main window) or Menu, then Settings. The sections are listed down the left side (Background, Theme, Animation, Audio, Updates, Community, General). Everything you change applies at once. SAVE (at the top and at the bottom) writes it down and closes the window.
 ## Background
-Choose any picture or video. It is cropped to fill the window automatically. Darken makes it easier to read. 'Keep the leaves' puts the floating leaves on top. Remove puts the purple leaves back.
+USE LEAVES and DON'T USE LEAVES turn the floating purple leaves behind the program on or off.
 ## Animation
 Frame rate limit: 60 is smoothest, 30 is lightest on a slow computer. The frame rate is always shown in the title bar.
 PERFORMANCE MODE (the box at the top of this page, or VIEW > Performance mode in the DAW) is for slower PCs: it limits the program to 30 frames a second and almost removes the animation (no moving backgrounds, hover sparks, glow, moving logo or animated profile pictures), so everything runs smoothly. Untick it to get everything back.
@@ -691,7 +669,7 @@ Press the three-lines button at the top left of Purphex Music. Your picture and 
 - View: fit the whole song, thin / normal / tall tracks, Performance mode (almost no animation, for slower PCs), full screen and the converter window. (The frame rate is always shown in the title bar.)
 - Profile: your own profile page (banner, picture, bio, links, privacy and your tracks).
 - Fonts: the Fonts page, with 190+ fonts (drippy, graffiti, neon, gothic, retro, script, handwritten and more) for all the writing in the studio.
-- Themes: pick a colour theme, or download one other people made (the Themes box has MY THEMES, COMMUNITY THEMES, PHOTO and SAVE; the theme under the mouse is outlined). PHOTO turns a picture into a theme: the colours of the program come from the picture and it fills the window. The whole program changes colour at once and remembers your choice. Settings has the same choice.
+- Themes: pick a colour theme, or download one other people made (the Themes box has MY THEMES, PROFILE THEMES, COMMUNITY THEMES and SAVE; the theme under the mouse is outlined). The whole program changes colour at once and remembers your choice. Settings has the same choice.
 ## My Projects
 Every project you save or open is remembered here, newest first, as a card with a picture. Click a card to open it: Purphex asks you to confirm first. The BACK button (top of the page, and in the right-click menu) takes you back to the tracks. The play button on a card PREVIEWS the project: you hear it without opening it and the bar along the bottom becomes a visualiser (press its square STOP button, or click the bar to jump). A project with no picture shows the Purphex logo; any picture is cropped to fill the square. The camera button adds or changes the picture (choose a JPG, PNG, GIF or BMP: it is cropped to a square and kept inside the project file, so it travels with it). The crossed camera button (or Remove picture in the right-click menu) takes your picture off again. Right-click a card for everything: open, preview, rename, change or remove the picture, show in folder, remove from the list and BACK. The x asks whether to take the project off this list only (your file stays on your PC) or to delete the file too: it then goes into the RECYCLING BIN.
 ## Search, sort and filter

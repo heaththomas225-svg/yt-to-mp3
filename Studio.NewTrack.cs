@@ -64,7 +64,7 @@ partial class StudioForm
     void PaintNewTrackSheet(Graphics g)
     {
         if (!ntOpen) return; float W = ClientSize.Width, H = ClientSize.Height; var all = Rc(0, 0, W, H);
-        using (var b = new SolidBrush(TM.C(150, 3, 1, 10))) g.FillRectangle(b, all); Reg(all, () => CloseNewTrackSheet());
+        Reg(all, () => CloseNewTrackSheet());
         var items = NtItems(); const float rowH = 70; bool pick = eng.Tracks.Count > 0;
         float sw = Math.Min(560, W - 24), sh = Math.Min(H - 40, 74 + (pick ? 42 : 0) + items.Count * rowH + 96); var sheet = PopMove("newtrack", Rc((W - sw) / 2, H - sh - 12, sw, sh), 66, 70, false);
         FillRR(g, TM.C(252, 16, 10, 34), sheet, 24); Glow(g, NeonViolet, sheet, 24, 0.8f, 4); StrokeRR(g, Color.FromArgb(180, NeonViolet), sheet, 24, 1.5f); Reg(sheet, () => { });
@@ -115,7 +115,7 @@ partial class StudioForm
     void PaintBusSheet(Graphics g)
     {
         if (!busOpen) return; float W = ClientSize.Width, H = ClientSize.Height; var all = Rc(0, 0, W, H);
-        using (var b = new SolidBrush(TM.C(150, 3, 1, 10))) g.FillRectangle(b, all); Reg(all, () => busOpen = false);
+        Reg(all, () => busOpen = false);
         var buses = new List<Track>(); foreach (var t in eng.Tracks) if (t.IsBus) buses.Add(t);
         const float rowH = 84; float sw = Math.Min(620, W - 24), sh = Math.Min(H - 40, 150 + Math.Max(1, buses.Count) * rowH); var sheet = PopMove("bus", Rc((W - sw) / 2, (H - sh) / 2, sw, sh), 54, 70);
         FillRR(g, TM.C(252, 16, 10, 34), sheet, 22); Glow(g, NeonViolet, sheet, 22, 0.8f, 4); StrokeRR(g, Color.FromArgb(180, NeonViolet), sheet, 22, 1.5f); Reg(sheet, () => { });

@@ -37,7 +37,7 @@ class Job
 partial class App : Form
 {
     // ---- Auto-update settings ----
-    const string Version = "3.36.1";
+    const string Version = "3.36.2";
     // Plain-text manifest: line 1 = newest version, line 2 = direct exe download URL.
     const string UpdateManifestUrl = "https://raw.githubusercontent.com/heaththomas225-svg/yt-to-mp3/main/version.txt";
 
@@ -131,7 +131,7 @@ partial class App : Form
     internal string LastFile;
     internal int MZoomPct = 75;
     MasterForm mf;
-    Button lyricsBtn = new PxButton(), usedBtn = new PxButton();
+    Button usedBtn = new PxButton();
     Button mastBtn = new PxButton(), vocalBtn = new PxButton(), whatsBtn = new PxButton(), prevNormBtn = new PxButton(), helpBtn = new PxButton(); string seenVer = ""; internal string ExtraFilter = ""; Button changeBtn = new PxButton(); Button settingsBtn = new PxButton();
     internal StudioEngine StudioEng = new StudioEngine();
     StudioForm studioForm; Button studioBtn = new PxButton(), addMusicBtn = new PxButton();
@@ -182,7 +182,7 @@ partial class App : Form
         ServicePointManager.SecurityProtocol = (SecurityProtocolType)3072 | SecurityProtocolType.Tls;
         try { File.Delete(Application.ExecutablePath + ".old"); } catch { }
         EmojiSprites.Disabled = false;   // the emoji in the writing are drawn in colour (the tests leave this off)
-        Application.EnableVisualStyles(); Win.WidenBuffers(); CrashGuard.Install();   // a problem is logged to crash.log, not shown as the grey .NET box
+        Application.EnableVisualStyles(); Win.WidenBuffers(); CrashGuard.Install(); NoValueWheel.Install();   // a problem is logged to crash.log, not shown as the grey .NET box
         Application.Run(new App());
     }
 
@@ -272,7 +272,6 @@ partial class App : Form
         {
             var m = Win.NewMenu();
             m.Items.Add("Settings...").Click += (a, b) => ShowSettings();
-            m.Items.Add("Generate lyrics from a song or video...").Click += (a, b) => ShowLyricsGen();
             m.Items.Add("Full screen  (F11)").Click += (a, b) => Win.ToggleFullscreen(this);
             m.Items.Add("Mastering for downloads (Purphex Mastering)...").Click += (a, b) => { if (!Edition.Gate(Tier.Supporter, "Mastering", this)) return; if (mf == null || mf.IsDisposed) { mf = new MasterForm(this); mf.Show(); Win.Bring(mf); } else Win.Bring(mf); };
             m.Items.Add("What's new").Click += (a, b) => Changelog.Show(this);
@@ -280,13 +279,10 @@ partial class App : Form
             m.Items.Add("Open data folder").Click += (a, b) => { try { Directory.CreateDirectory(AppData); Process.Start("explorer.exe", "\"" + AppData + "\""); } catch { } };
             m.Show(whatsBtn, new Point(0, whatsBtn.Height));
         };
-        StyleBtn(studioBtn, TM.C(255, 90, 36, 160)); studioBtn.Text = "Purphex Music"; studioBtn.SetBounds(162, 312, 140, 30);
+        StyleBtn(studioBtn, TM.C(255, 90, 36, 160)); studioBtn.Text = "Purphex Music"; studioBtn.SetBounds(162, 312, 286, 30);
         StyleBtn(usedBtn, TM.C(255, 70, 40, 150)); usedBtn.Text = "Times used"; usedBtn.SetBounds(196, 12, 88, 28); usedBtn.Anchor = AnchorStyles.Top | AnchorStyles.Right;   // next to Changelog, clear of the Purphex logo
         tip.SetToolTip(usedBtn, "How many MP3s and MP4s have been made with Purphex Music all over the world.");
         usedBtn.Click += (s, e) => ShowUsage();
-        StyleBtn(lyricsBtn, TM.C(255, 150, 60, 210)); lyricsBtn.Text = "Generate lyrics"; lyricsBtn.SetBounds(308, 312, 140, 30);
-        tip.SetToolTip(lyricsBtn, "Add any song or video and get its lyrics, tidied and labelled. Free in every edition.");
-        lyricsBtn.Click += (s, e) => ShowLyricsGen();
         tip.SetToolTip(studioBtn, "Open the Logic-style studio: tracks, mixing, Auto-Tune, EQ, effects, mastering and export.");
         studioBtn.Click += (s, e) => { bool fresh = studioForm == null || studioForm.IsDisposed; if (OpenStudio() && fresh) studioForm.ShowWelcome(); }; Edition.Lock(studioBtn, Tier.Supporter);
         StyleBtn(addMusicBtn, TM.C(255, 190, 60, 200)); addMusicBtn.Text = "ADD MUSIC"; addMusicBtn.Font = new Font("Segoe UI Semibold", 10.5f);
@@ -327,7 +323,7 @@ partial class App : Form
         log.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
 
         bg.Controls.AddRange(new Control[] { links, fmt, sr, nameFmt, trimA, trimB, norm, playlist, openDone, animate,
-            mastBtn, vocalBtn, lyricsBtn, usedBtn, prevNormBtn, helpBtn, settingsBtn, changeBtn, studioBtn, addMusicBtn, whatsBtn, outDir, browse, go, cancel, log });
+            mastBtn, vocalBtn, usedBtn, prevNormBtn, helpBtn, settingsBtn, changeBtn, studioBtn, addMusicBtn, whatsBtn, outDir, browse, go, cancel, log });
         Win.CapsAll(bg);   // capitals in the bold font
         CaptureBase();   // the design positions, before any saved window size moves the anchored controls
 
@@ -392,17 +388,11 @@ partial class App : Form
     }
     internal string DataFolder { get { Directory.CreateDirectory(AppData); return AppData; } }
     internal static string FfmpegPath() { return FfmpegExe(); }
-    SettingsForm settingsForm; LyricsGenForm lyricsGenForm; UsageForm usageForm;
+    SettingsForm settingsForm; UsageForm usageForm;
     internal void ShowUsage()
     {
         if (usageForm == null || usageForm.IsDisposed) { usageForm = new UsageForm(); usageForm.Show(this); }
         Win.Bring(usageForm);
-    }
-    // the Generate Lyrics page: a window of its own, free in every edition
-    internal void ShowLyricsGen(string file = null)
-    {
-        if (lyricsGenForm == null || lyricsGenForm.IsDisposed) { lyricsGenForm = new LyricsGenForm(this); lyricsGenForm.Show(); }
-        Win.Bring(lyricsGenForm); if (file != null) lyricsGenForm.LoadFile(file);
     }
     internal void ShowSettings(bool account = false)
     {
@@ -647,7 +637,7 @@ partial class App : Form
         }
         return true;
     }
-    internal static string DenoExe { get { return FindFile(DenoDir, "deno.exe"); } }   // the JavaScript runtime YouTube downloads need (Generate Lyrics uses it to listen to a link)
+    internal static string DenoExe { get { return FindFile(DenoDir, "deno.exe"); } }   // the JavaScript runtime YouTube downloads need (used for YouTube downloads)
     internal static string FfmpegExe() { return FindFile(FfmpegDir, "ffmpeg.exe"); }
     internal static string FfprobeExe() { return FindFile(FfmpegDir, "ffprobe.exe"); }
 

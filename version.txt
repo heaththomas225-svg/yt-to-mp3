@@ -1,4 +1,4 @@
-3.36.1
+3.36.2
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Unlimited tracks on your profile, EPs and albums of up to 20 songs, a welcome box that comes back, clickable empty tracks
-sha256=5be6a7ab46d8628bf6e2c54e16cd060bfd22adb1c59926a558a6e4fe662855c3
+Generate Lyrics is gone, the Fantasy DAW buttons, a lock list that stays open, a GAIN box like the track list, no mouse-wheel changes, AUTO EQ A/B
+sha256=c5fe55f45175d482708332780d841b01522adb309636b73459fe725a19311935

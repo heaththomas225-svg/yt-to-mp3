@@ -93,34 +93,45 @@ partial class StudioForm
         var c = CurClip(); if (c == null) { Toast("Click a clip first, then press GAIN."); return; }
         popOff.Remove("gain"); gainClip = c; gainOpen = true; stylesOpen = false; autoOpen = false; browserOpen = false;
     }
+    // GAIN: the same neon box as the track picker (TRACK 1, TRACK 2...): press a track to pick it, then set its gain under the list
+    float gnScroll; int gnAt;
     void PaintGainPanel(Graphics g)
     {
-        if (!gainOpen) return; var c = gainClip; if (c == null || !eng.Tracks.Contains(c)) { gainOpen = false; return; }
-        float W = ClientSize.Width, H = ClientSize.Height; var all = Rc(0, 0, W, H); Reg(all, () => gainOpen = false);
-        // the tracks that can be picked here (TRACK 1, 2, 3...): the gain is for the one that is lit
+        if (!gainOpen) { gnAt = 0; return; } var c = gainClip; if (c == null || !eng.Tracks.Contains(c)) { gainOpen = false; return; } if (gnAt == 0) gnAt = Environment.TickCount; lastInput = DateTime.Now;
+        float W = ClientSize.Width, H = ClientSize.Height; var all = Rc(0, 0, W, H); using (var bd = new SolidBrush(TM.C(150, 3, 1, 10))) g.FillRectangle(bd, all); Reg(all, () => gainOpen = false);
         var gl = new List<int>(); for (int ti = 0; ti < eng.Tracks.Count; ti++) { var tk = eng.Tracks[ti]; if (tk.Clip != null && !tk.Instrument && !tk.IsBus) gl.Add(ti); }
-        float pw = 360; int perRow = Math.Max(1, (int)((pw - 100) / 40)); int gRows = gl.Count > 1 ? (gl.Count + perRow - 1) / perRow : 0; float extra = gRows > 0 ? gRows * 32 + 8 : 0, ph = 150 + extra; float px = Math.Max(8, Math.Min(W - pw - 8, gainAnchor.X + gainAnchor.Width / 2 - pw / 2)), py = gainAnchor.Bottom + 8; if (py + ph > H - 8) py = H - ph - 8; var box = PopMove("gain", Rc(px, py, pw, ph), 44, 52);
-        FillRR(g, TM.C(252, 18, 10, 38), box, 14); Glow(g, NeonViolet, box, 14, 0.7f, 4); StrokeRR(g, Color.FromArgb(180, NeonViolet), box, 14, 1.4f); Reg(box, () => { });
-        Txt(g, "GAIN", 17, Ink, Rc(box.X + 16, box.Y + 10, 80, 26), StringAlignment.Near, true);
-        Txt(g, c.Name, 12, DimC, Rc(box.X + 70, box.Y + 14, box.Width - 130, 20), StringAlignment.Near, false);
-        var cl = Rc(box.Right - 42, box.Y + 8, 30, 30); FillRR(g, Hot(cl) ? TM.C(160, 70, 38, 130) : TM.C(110, 40, 24, 80), cl, 15); Txt(g, "X", 15, Ink, cl, StringAlignment.Center, true); Reg(cl, () => gainOpen = false);
-        Txt(g, "Volume of just this piece, on top of the track fader.", 11, DimC, Rc(box.X + 16, box.Y + 44, box.Width - 32, 18), StringAlignment.Near, false);
-        if (gRows > 0)
-        {
-            Txt(g, "TRACK", 11, DimC, Rc(box.X + 16, box.Y + 70, 60, 26), StringAlignment.Near, true);
-            for (int q = 0; q < gl.Count; q++)
-            {
-                var tk = eng.Tracks[gl[q]]; var cr0 = Rc(box.X + 78 + (q % perRow) * 40, box.Y + 70 + (q / perRow) * 32, 36, 26); bool on = tk == c; var tkk = tk;
-                Chip(g, cr0, (gl[q] + 1).ToString(), on, () => { gainClip = tkk; selTrack = eng.Tracks.IndexOf(tkk); }, 1); Hint2(cr0, "Track " + (gl[q] + 1) + ": " + tk.Name);
-            }
-        }
-        const float lo = -30f, hi = 12f; float frac = (c.ClipGainDb - lo) / (hi - lo);
-        var sr = Rc(box.X + 18, box.Y + 74 + extra, box.Width - 36 - 84, 22);
+        int n = gl.Count; float rowH = 46, bw = Math.Min(460, W - 40), want = 130 + Math.Min(n, 6) * rowH + 130, bh = Math.Min(H - 60, want);
+        int age = unchecked(Environment.TickCount - gnAt); float k = Math.Min(1f, age / 220f), grow = 0.94f + 0.06f * (1 - (1 - k) * (1 - k)); double pulse = 0.5 + 0.5 * Math.Sin(age / 320.0);
+        var box = Rc(W / 2 - bw * grow / 2, H / 2 - bh * grow / 2, bw * grow, bh * grow);
+        for (int i = 5; i >= 1; i--) using (var pen = new Pen(Color.FromArgb((int)((16 + 22 * pulse) / i * 2.2f) + 5, NeonCyan), i * 5f)) using (var p = RR(RectangleF.Inflate(box, i * 1.4f, i * 1.4f), 22 + i)) g.DrawPath(pen, p);
+        using (var p = RR(box, 22)) { using (var br = new LinearGradientBrush(box, TM.C(250, 26, 12, 58), TM.C(250, 9, 4, 24), 90f)) g.FillPath(br, p); using (var pen = new Pen(NeonCyan, 2.2f)) g.DrawPath(pen, p); }
+        using (var pen = new Pen(Color.FromArgb(110, NeonPink), 1.2f)) using (var p = RR(RectangleF.Inflate(box, -9, -9), 16)) g.DrawPath(pen, p); Reg(box, () => { });
+        Txt(g, "GAIN OF WHICH TRACK?", 20, Ink, Rc(box.X + 24, box.Y + 16, box.Width - 90, 32), StringAlignment.Near, true);
+        Txt(g, "Pick the track by its number, then set its volume.", 12, DimC, Rc(box.X + 24, box.Y + 50, box.Width - 48, 20), StringAlignment.Near, false);
+        var cl = Rc(box.Right - 46, box.Y + 14, 30, 28); Btn(g, cl, "x", 3, () => gainOpen = false, 12);
+        float footH = 118; var lr = Rc(box.X + 20, box.Y + 80, box.Width - 40, box.Height - 80 - footH - 6); float total = n * rowH, maxS = Math.Max(0, total - lr.Height); gnScroll = Math.Max(0, Math.Min(maxS, gnScroll));
+        regs.Add(new HitReg { R = lr, OnWheel = d => gnScroll = Math.Max(0, Math.Min(maxS, gnScroll - d * 40)) });
+        { var gs = g.Save(); g.SetClip(lr, CombineMode.Intersect);
+          for (int q = 0; q < n; q++)
+          {
+              int ri = gl[q]; var t = eng.Tracks[ri]; var row = Rc(lr.X, lr.Y + q * rowH - gnScroll, lr.Width - (maxS > 0 ? 22 : 0), rowH - 6); if (row.Bottom < lr.Y || row.Y > lr.Bottom) continue; bool sel = t == c, hot = Hot(row); var tkk = t;
+              FillRR(g, hot ? TM.C(225, 90, 50, 170) : (sel ? TM.C(210, 62, 34, 130) : TM.C(170, 28, 15, 56)), row, 10); StrokeRR(g, sel ? NeonCyan : Color.FromArgb(hot ? 220 : 90, NeonViolet), row, 10, sel ? 1.8f : 1f); Reg(row, () => { gainClip = tkk; selTrack = eng.Tracks.IndexOf(tkk); });
+              Txt(g, "TRACK " + (ri + 1), 15, NeonCyan, Rc(row.X + 14, row.Y, 96, row.Height), StringAlignment.Near, true);
+              Txt(g, t.Name, 14, Ink, Rc(row.X + 112, row.Y, row.Width - 112 - 96, row.Height), StringAlignment.Near, true);
+              Txt(g, (t.ClipGainDb > 0 ? "+" : "") + t.ClipGainDb.ToString("0.0", CultureInfo.InvariantCulture) + " dB", 12, Math.Abs(t.ClipGainDb) > 0.04f ? Color.FromArgb(255, 255, 200, 90) : DimC, Rc(row.Right - 92, row.Y, 82, row.Height), StringAlignment.Far, true);
+          }
+          g.Restore(gs); }
+        if (maxS > 0) VScroll(g, Rc(lr.Right - 20, lr.Y, 18, lr.Height), total, lr.Height, () => gnScroll, v => gnScroll = v);
+        // the volume of the picked track
+        const float lo = -30f, hi = 12f; float frac = (c.ClipGainDb - lo) / (hi - lo); float fy = box.Bottom - footH;
+        Txt(g, "VOLUME OF TRACK " + (eng.Tracks.IndexOf(c) + 1) + "  (just this piece, on top of the track fader)", 11, DimC, Rc(box.X + 24, fy, box.Width - 48, 18), StringAlignment.Near, true);
+        var sr = Rc(box.X + 24, fy + 28, box.Width - 48 - 96, 22);
         var rg = Slider(g, sr, Clamp01(frac), f => { float v = (float)Math.Round(lo + f * (hi - lo), 1); if (Math.Abs(v) < 0.4f) v = 0; c.ClipGainDb = v; }, Accent2);
         var dn = rg.OnDown; rg.OnDown = () => { PushUndo(); if (dn != null) dn(); }; rg.OnDouble = () => c.ClipGainDb = 0;
-        Txt(g, (c.ClipGainDb > 0 ? "+" : "") + c.ClipGainDb.ToString("0.0", CultureInfo.InvariantCulture) + " dB", 14, Ink, Rc(sr.Right + 8, box.Y + 74 + extra, 76, 22), StringAlignment.Near, true);
-        Btn(g, Rc(box.X + 18, box.Bottom - 40, 90, 28), "Reset to 0", 0, () => { PushUndo(); c.ClipGainDb = 0; }, 12);
-        Txt(g, "-30 dB  ...  +12 dB", 10, DimC, Rc(box.X + 118, box.Bottom - 38, box.Width - 136, 24), StringAlignment.Far, false);
+        Txt(g, (c.ClipGainDb > 0 ? "+" : "") + c.ClipGainDb.ToString("0.0", CultureInfo.InvariantCulture) + " dB", 15, Ink, Rc(sr.Right + 10, fy + 26, 86, 26), StringAlignment.Near, true);
+        Btn(g, Rc(box.X + 24, box.Bottom - 54, 130, 36), "RESET TO 0", 1, () => { PushUndo(); c.ClipGainDb = 0; }, 12);
+        Txt(g, "-30 dB  ...  +12 dB", 10, DimC, Rc(box.X + 166, fy + 54, 150, 18), StringAlignment.Near, false);
+        Btn(g, Rc(box.Right - 24 - 130, box.Bottom - 54, 130, 36), "DONE", 2, () => gainOpen = false, 13);
     }
 
     // ---------- CUT: take a section out of every track that is not locked ----------
@@ -219,6 +230,9 @@ partial class StudioForm
         // the small tags at the top of the clip: gain, lock
         float tx = Math.Max(lane.X, x0) + 8 + g.MeasureString(tr.Name, GfxCache.Font(12, true)).Width + 6;
         if (Math.Abs(tr.ClipGainDb) > 0.04f && tx < cr.Right - 60) { string gt = (tr.ClipGainDb > 0 ? "+" : "") + tr.ClipGainDb.ToString("0.0", CultureInfo.InvariantCulture) + " dB"; var rr = Rc(tx, cr.Y + 3, g.MeasureString(gt, GfxCache.Font(10, true)).Width + 10, 16); FillRR(g, TM.C(200, 70, 40, 150), rr, 5); Txt(g, gt, 10, Color.White, rr, StringAlignment.Center, true); }
-        if (IsLocked(tr) && cr.Width > 40) { float lx = Math.Min(cr.Right, lane.Right) - 22, ly = cr.Y + 6; using (var pen = new Pen(Color.FromArgb(235, 255, 255, 255), 1.8f)) { g.DrawArc(pen, lx + 2, ly - 2, 8, 9, 180, 180); } using (var b = new SolidBrush(Color.FromArgb(255, 255, 255, 255))) g.FillRectangle(b, lx, ly + 3, 12, 9); }
+        if (IsLocked(tr) && cr.Width > 40) {   // a locked piece is gold all round, with a big gold padlock: it is plain which tracks are locked
+            var gold = Color.FromArgb(255, 255, 196, 80); float lx = Math.Min(cr.Right, lane.Right) - 30, ly = cr.Y + 8; var smk = g.SmoothingMode; g.SmoothingMode = SmoothingMode.AntiAlias;
+            using (var pen = new Pen(Color.FromArgb(60, gold), 5f)) using (var pp = RR(RectangleF.Inflate(cr, -1, -1), 5)) g.DrawPath(pen, pp); using (var pen = new Pen(Color.FromArgb(230, gold), 1.6f)) using (var pp = RR(RectangleF.Inflate(cr, -1, -1), 5)) g.DrawPath(pen, pp);
+            using (var bg = new SolidBrush(Color.FromArgb(210, 20, 12, 2))) g.FillEllipse(bg, lx - 6, ly - 8, 30, 32); using (var pen = new Pen(gold, 2.4f)) g.DrawArc(pen, lx + 2, ly - 3, 12, 13, 180, 180); using (var b = new SolidBrush(gold)) g.FillPath(b, RR(Rc(lx, ly + 5, 16, 12), 3)); using (var b = new SolidBrush(Color.FromArgb(255, 60, 36, 8))) g.FillEllipse(b, lx + 6, ly + 9, 4, 4); g.SmoothingMode = smk; }
     }
 }

@@ -124,7 +124,7 @@ partial class StudioForm
         if (!autoOpen || autoLane == null || autoTrack == null) return;
         var fx = autoLane.Fx; var prm = fx.Find(autoLane.Param); if (prm == null || !autoTrack.Fx.Contains(fx)) { autoOpen = false; return; }
         float W = ClientSize.Width, H = ClientSize.Height; var all = Rc(0, 0, W, H);
-        using (var b = new SolidBrush(TM.C(160, 3, 1, 10))) g.FillRectangle(b, all); Reg(all, () => CloseAuto());
+        Reg(all, () => CloseAuto());
         float sw = Math.Min(1040, W - 24), sh = Math.Min(480, H - 30); var sheet = PopMove("auto", Rc((W - sw) / 2, (H - sh) / 2, sw, sh), 50, 70);
         FillRR(g, TM.C(252, 16, 10, 34), sheet, 22); Glow(g, NeonCyan, sheet, 22, 0.7f, 4); StrokeRR(g, Color.FromArgb(180, NeonCyan), sheet, 22, 1.5f); Reg(sheet, () => { });
         Txt(g, "AUTOMATION", 20, Ink, Rc(sheet.X + 22, sheet.Y + 12, 200, 32), StringAlignment.Near, true);

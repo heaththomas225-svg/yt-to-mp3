@@ -376,6 +376,13 @@ static class NF
           // the box of an empty track is clickable: it is the top-most thing under the mouse there (not hidden behind the lane)
           { sf.eng.Tracks.Clear(); sf.eng.Tracks.Add(StudioEngine.NewTrack("Empty one", "audio", null)); SetF("tab", 0); SetF("selTrack", 0); Pump(300); Shot(Path.Combine(outDir ?? Path.GetTempPath(), "empty-track-box.png")); var elD = (System.Collections.IDictionary)typeof(StudioForm).GetField("emptyLanes", BF).GetValue(sf); RectangleF eb = RectangleF.Empty; foreach (System.Collections.DictionaryEntry de in elD) eb = (RectangleF)de.Value; var rgl = (System.Collections.IList)typeof(StudioForm).GetField("regs", BF).GetValue(sf); object top = null; float cxm = eb.X + eb.Width / 2, cym = eb.Y + eb.Height / 2; foreach (var rg in rgl) { var rr = (RectangleF)rg.GetType().GetField("R").GetValue(rg); if (rr.Contains(cxm, cym) && rg.GetType().GetField("OnDown").GetValue(rg) != null) top = rg; }
             Check("an empty track's add-music box is clickable (the top-most region under it is the box)", top != null && Math.Abs(((RectangleF)top.GetType().GetField("R").GetValue(top)).Width - eb.Width) < 0.6f && !eb.IsEmpty, eb + ""); sf.eng.Tracks.Clear(); }
+          // LOCK keeps its tab open: several tracks can be locked one after another, and the locked ones show
+          { sf.eng.Tracks.Clear(); for (int i = 0; i < 3; i++) { var cl = new float[44100]; sf.eng.Tracks.Add(StudioEngine.NewTrack("L" + i, "audio", AudioClip.FromArrays(cl, (float[])cl.Clone(), "l" + i))); } typeof(StudioForm).GetMethod("OpenTrackPicker", BF).Invoke(sf, new object[] { 0 }); var pk = typeof(StudioForm).GetMethod("PickTrack", BF); pk.Invoke(sf, new object[] { 0 }); pk.Invoke(sf, new object[] { 2 }); Pump(250); Check("LOCK keeps the tab open so several tracks can be locked in a row", F<bool>("tpOpen") && sf.eng.Tracks[0].Locked && !sf.eng.Tracks[1].Locked && sf.eng.Tracks[2].Locked); if (outDir != null) Shot(Path.Combine(outDir, "lock-picker.png")); pk.Invoke(sf, new object[] { 0 }); Check("pressing a locked track unlocks it (the tab stays open)", F<bool>("tpOpen") && !sf.eng.Tracks[0].Locked); SetF("tpOpen", false);
+            { for (int i = 0; i < 3; i++) { sf.eng.Tracks[i].Locked = false; } sf.eng.Tracks[1].ClipGainDb = 2.5f; SetF("gainClip", sf.eng.Tracks[1]); SetF("gainOpen", true); Pump(300); if (outDir != null) Shot(Path.Combine(outDir, "gain-picker.png")); Check("the GAIN box lists the tracks like the track picker and the picked one is the one being set", F<bool>("gainOpen") && ReferenceEquals(F<object>("gainClip"), sf.eng.Tracks[1])); SetF("gainOpen", false); } sf.eng.Tracks.Clear(); }
+          // the pale-rimmed button of the converter is the Fantasy edition's look only: Supporter never gets it
+          { var look = typeof(StudioForm).GetMethod("BtnLook", BF); Func<Tier, int> rimBright = tier => { Edition.Override = tier; using (var bm = new Bitmap(120, 40)) { using (var gg = Graphics.FromImage(bm)) { gg.Clear(Color.Black); gg.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias; look.Invoke(sf, new object[] { gg, new RectangleF(10, 6, 100, 28), "TEST", 1, 0f, 13f }); } var px = bm.GetPixel(11, 20); return px.R + px.G + px.B; } };
+            int fantasyRim = rimBright(Tier.Fantasy), supporterRim = rimBright(Tier.Supporter); Edition.Override = Tier.Fantasy;
+            Check("the Fantasy edition has the pale rim all round the buttons, and the Supporter edition does not get it", fantasyRim > 520 && supporterRim < 520 && fantasyRim > supporterRim + 90, "fantasy " + fantasyRim + ", supporter " + supporterRim); }
           // the Edit menu: no CUT, and LOCK / DUPLICATE / DELETE show a tab of the tracks to pick from
           { sf.eng.Tracks.Clear(); for (int i = 0; i < 3; i++) { var cl = new float[4410]; sf.eng.Tracks.Add(StudioEngine.NewTrack("Tr" + i, "audio", AudioClip.FromArrays(cl, (float[])cl.Clone(), "x" + i))); }
             var its = (System.Collections.IList)typeof(StudioForm).GetMethod("MenuItems", BF).Invoke(sf, new object[] { 1 }); var txt = new List<string>(); foreach (var it in its) txt.Add((string)it.GetType().GetField("Text").GetValue(it));
@@ -410,6 +417,26 @@ static class NF
             bool didIt = false; sf.eng.Tracks.RemoveRange(1, 2); typeof(StudioForm).GetMethod("TrackAction", BF).Invoke(sf, new object[] { 0, (Action)(() => didIt = true) }); Check("with one track LOCK just does it (no question)", didIt && !F<bool>("tpOpen")); sf.eng.Tracks.Clear(); }
           // the EMOJIS button opens and closes the panel
           { EmojiPanel.Toggle(sf, e2 => { }); Pump(300); bool o1 = EmojiPanel.IsOpen; EmojiPanel.Toggle(sf, e2 => { }); Pump(300); Check("the EMOJIS button opens the panel and a second press closes it", o1 && !EmojiPanel.IsOpen); }
+        }
+        // the mouse wheel never changes a value: no slider, knob or EQ dot answers it (only big pages and lists scroll), and a drop-down, number box or slider control swallows it
+        {
+            sf.eng.Tracks.Clear(); var wt = StudioEngine.NewTrack("Wheel", "audio", AudioClip.FromArrays(new float[44100 * 3], new float[44100 * 3], "t")); sf.eng.Tracks.Add(wt); SetF("selTrack", 0); SetF("tab", 0);
+            var regsW = (List<HitReg>)typeof(StudioForm).GetField("regs", BF).GetValue(sf); int smallWheel = 0; string which = "";
+            foreach (var typ in new[] { "comp", "eq" })
+            {
+                var fxw = FxRegistry.Create(typ); fxw.Prepare(44100); wt.Fx.Add(fxw); SetF("selFx", wt.Fx.Count - 1); Pump(150); sf.Invalidate(); sf.Update(); Pump(100);
+                lock (regsW) foreach (var rg in regsW.ToArray()) if (rg.OnWheel != null && (rg.R.Height < 90 || rg.R.Width < 90)) { smallWheel++; which += typ + ":" + rg.R + " "; }
+                wt.Fx.Remove(fxw); SetF("selFx", -1);
+            }
+            if (outDir != null) { var osz = sf.ClientSize; sf.ClientSize = new Size(1240, 680); Pump(300); var fq = FxRegistry.Create("eq"); fq.Prepare(44100); wt.Fx.Add(fq); SetF("selFx", wt.Fx.Count - 1); Pump(200); Shot(Path.Combine(outDir, "small-window-eq.png")); SetF("selFx", -1); wt.Fx.Remove(fq); sf.ClientSize = osz; Pump(200); }
+            { var osz2 = sf.ClientSize; sf.ClientSize = new Size(1240, 680); Pump(300); SetF("tab", 0); sf.OfferRevert("Technical Rap added as a preset on Hurricane Wisdom", () => { }); sf.Toast("Technical Rap added as a preset: every plugin is editable, your own plugins stay (REVERT puts it back)"); Pump(200); sf.Invalidate(); sf.Update(); Pump(150);
+              var tr0 = F<RectangleF>("toastRect"); var rv0 = F<RectangleF>("revertRect"); if (outDir != null) Shot(Path.Combine(outDir, "toast-over-revert.png"));
+              Check("the message box never covers the REVERT bar", !tr0.IsEmpty && !rv0.IsEmpty && !tr0.IntersectsWith(rv0) && tr0.Left >= 0 && tr0.Right <= sf.ClientSize.Width && tr0.Top >= 0, tr0 + " vs " + rv0);
+              SetF("revertAction", null); SetF("toast", ""); sf.ClientSize = osz2; Pump(200); }
+            Check("no plugin slider or EQ dot answers the mouse wheel", smallWheel == 0, which);
+            using (var cbw = new ComboBox()) using (var nuw = new NumericUpDown()) using (var tbw = new TrackBar()) using (var btw = new Button())
+                Check("drop-downs, number boxes and slider bars are the controls the wheel is blocked on", NoValueWheel.IsValueControl(cbw) && NoValueWheel.IsValueControl(nuw) && NoValueWheel.IsValueControl(tbw) && !NoValueWheel.IsValueControl(btw));
+            sf.eng.Tracks.Clear();
         }
         Console.WriteLine(fails == 0 ? "=== new feature checks passed ===" : "=== " + fails + " FAILED ===");
         sf.Close(); Environment.Exit(fails == 0 ? 0 : 1);

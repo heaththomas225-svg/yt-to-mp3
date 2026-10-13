@@ -53,11 +53,12 @@ partial class StudioForm
         revertAction = undo; revertText = what; revertUntil = DateTime.Now.AddSeconds(RevertSecs);
     }
     void DoRevert() { var a = revertAction; revertAction = null; if (a == null) return; try { a(); } catch (Exception ex) { Toast("Could not revert: " + ex.Message); return; } Toast("Reverted: " + revertText + " is back as it was."); }
+    RectangleF revertRect = RectangleF.Empty;   // where the REVERT bar is this frame (the message box keeps off it)
     void PaintRevertBar(Graphics g)
     {
-        if (revertAction == null) return; double left = (revertUntil - DateTime.Now).TotalSeconds; if (left <= 0) { revertAction = null; return; }   // after 30 seconds it presses the X for you (the change stays)
+        revertRect = RectangleF.Empty; if (revertAction == null) return; double left = (revertUntil - DateTime.Now).TotalSeconds; if (left <= 0) { revertAction = null; return; }   // after 30 seconds it presses the X for you (the change stays)
         lastInput = DateTime.Now;   // keeps the countdown moving
-        float W = ClientSize.Width, H = ClientSize.Height, bw = Math.Min(W - 28, tab == 0 ? HeadW - 16 : 360), bh = 78, by = H - (tab == 0 ? 50 : 10) - bh; var bar = Rc(tab == 0 ? 8 : 14, by, bw, bh);
+        float W = ClientSize.Width, H = ClientSize.Height, bw = Math.Min(W - 28, tab == 0 ? HeadW - 16 : 360), bh = 78, by = H - (tab == 0 ? 50 : 10) - bh; var bar = Rc(tab == 0 ? 8 : 14, by, bw, bh); revertRect = bar;
         FillRR(g, TM.C(246, 14, 26, 46), bar, 12); Win.DrawNeonBox(g, bar, true);   // its own neat neon box, kept to the left
         var gs = g.Save(); using (var clip = RR(RectangleF.Inflate(bar, -1, -1), 11)) g.SetClip(clip, CombineMode.Intersect);   // everything stays inside the rounded border
         TxtWrap(g, revertText.ToUpper(), 12, Ink, Rc(bar.X + 14, bar.Y + 8, bar.Width - 28, 30));

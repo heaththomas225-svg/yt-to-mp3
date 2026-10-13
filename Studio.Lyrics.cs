@@ -88,21 +88,6 @@ partial class StudioForm
         Btn(g, Rc(bx + 168, H - 54, 78, 30), "Clear", 3, () => { if (lyricBox.Text.Length == 0 || MessageBox.Show(this, "Clear all the lyrics?", "Lyrics", MessageBoxButtons.YesNo) == DialogResult.Yes) { lyricBox.Text = ""; lyricTitle.Text = ""; } }, 12);
     }
 
-    // RECENT GENERATED: the lyrics saved from the Generate Lyrics page, newest first; picking one puts it in the writer
-    int lyrRecentN, lyrRecentTick;   // the count on the button is read from the file every second or so, not on every paint
-    void RecentLyricsMenu()
-    {
-        var all = LyricsRecent.All(); var m = Win.NewMenu();
-        if (all.Count == 0) m.Items.Add("Nothing saved yet. Use GENERATE LYRICS, then SAVE TO THE DAW.").Enabled = false;
-        else for (int i = 0; i < all.Count; i++) { var r = all[i]; string t = r.Title.Length > 50 ? r.Title.Substring(0, 49) + "..." : r.Title; m.Items.Add((i == 0 ? "Last: " : "") + t + "   " + LyricsRecent.Ago(r.When)).Click += (a, b) => UseRecentLyric(r); }
-        m.Show(this, new Point((int)MousePos.X, (int)MousePos.Y));
-    }
-    internal void UseRecentLyric(RecentLyric r)
-    {
-        if (lyricBox.Text.Trim().Length > 0 && MessageBox.Show(this, "Replace the lyrics you have now with \"" + r.Title + "\"?", "Lyrics", MessageBoxButtons.YesNo) != DialogResult.Yes) return;
-        lyricBox.Text = LyricsTools.ToBoxText(r.Text); lyricTitle.Text = r.Title; Toast("Loaded \"" + r.Title + "\" from your recent lyrics.");
-    }
-
     // SAVE .TXT (the button, and the question when you leave the DAW with lyrics that were never saved): false = nothing was saved
     internal Func<string, string> lyricsPathHook;   // a test answers for itself (the file to write)
     internal bool SaveLyricsTxt()

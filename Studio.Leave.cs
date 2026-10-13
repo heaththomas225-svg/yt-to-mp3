@@ -51,7 +51,7 @@ partial class StudioForm
     internal void OpenTrackPicker(int mode) { if (eng.Tracks.Count == 0) { Toast("Add a track first."); return; } if ((mode == 3 || mode == 4) && !eng.Tracks.Exists(tk => tk.Clip != null && !tk.Instrument && !tk.IsBus)) { Toast("No track has a recording yet."); return; } tpMode = mode; tpOpen = true; tpAt = Environment.TickCount; tpScroll = 0; Invalidate(); }
     void PickTrack(int i)
     {
-        tpOpen = false; if (i < 0 || i >= eng.Tracks.Count) return; var t = eng.Tracks[i];
+        if (i < 0 || i >= eng.Tracks.Count) { tpOpen = false; return; } var t = eng.Tracks[i]; if (tpMode != 0) tpOpen = false;   // (LOCK keeps the tab open so several tracks can be locked or unlocked one after another)
         selTrack = i; if (tpMode == 0) ToggleLock(); else if (tpMode == 1) DuplicateTrack(t); else if (tpMode == 3) FlexOpen(); else if (tpMode == 4) DeleteClip(t); else RemoveTrack(t);
     }
     void PaintTrackPicker(Graphics g)
@@ -65,7 +65,7 @@ partial class StudioForm
         using (var p = RR(box, 22)) { using (var br = new LinearGradientBrush(box, TM.C(250, 26, 12, 58), TM.C(250, 9, 4, 24), 90f)) g.FillPath(br, p); using (var pen = new Pen(accent, 2.2f)) g.DrawPath(pen, p); }
         using (var pen = new Pen(Color.FromArgb(110, NeonPink), 1.2f)) using (var p = RR(RectangleF.Inflate(box, -9, -9), 16)) g.DrawPath(pen, p); Reg(box, () => { });
         Txt(g, tpMode == 0 ? "LOCK OR UNLOCK WHICH TRACK?" : (tpMode == 1 ? "DUPLICATE WHICH TRACK?" : (tpMode == 3 ? "FLEX PITCH ON WHICH TRACK?" : (tpMode == 4 ? "DELETE THE PIECE OF WHICH TRACK?" : "DELETE WHICH TRACK?"))), 20, Ink, Rc(box.X + 24, box.Y + 16, box.Width - 90, 32), StringAlignment.Near, true);
-        Txt(g, "Pick the track by its number.", 12, DimC, Rc(box.X + 24, box.Y + 50, box.Width - 48, 20), StringAlignment.Near, false);
+        Txt(g, tpMode == 0 ? "Locked tracks are gold with a padlock. Press DONE when finished." : "Pick the track by its number.", 12, DimC, Rc(box.X + 24, box.Y + 50, box.Width - 48, 20), StringAlignment.Near, false);
         var cl = Rc(box.Right - 46, box.Y + 14, 30, 28); Btn(g, cl, "x", 3, () => tpOpen = false, 12);
         var lr = Rc(box.X + 20, box.Y + 80, box.Width - 40, box.Bottom - box.Y - 80 - 64); float total = n * rowH, maxS = Math.Max(0, total - lr.Height); tpScroll = Math.Max(0, Math.Min(maxS, tpScroll));
         regs.Add(new HitReg { R = lr, OnWheel = d => tpScroll = Math.Max(0, Math.Min(maxS, tpScroll - d * 40)) });
@@ -73,14 +73,16 @@ partial class StudioForm
           for (int i = 0; i < n; i++)
           {
               int realI = shownT[i]; var t = eng.Tracks[realI]; var row = Rc(lr.X, lr.Y + i * rowH - tpScroll, lr.Width - (maxS > 0 ? 22 : 0), rowH - 6); if (row.Bottom < lr.Y || row.Y > lr.Bottom) continue; bool sel = realI == selTrack, hot = Hot(row); int idx = realI;
-              FillRR(g, hot ? TM.C(225, 90, 50, 170) : (sel ? TM.C(210, 62, 34, 130) : TM.C(170, 28, 15, 56)), row, 10); StrokeRR(g, sel ? accent : Color.FromArgb(hot ? 220 : 90, NeonViolet), row, 10, sel ? 1.4f : 1f); Reg(row, () => PickTrack(idx));
+              bool lockedRow = tpMode == 0 && t.Locked; Color amber = Color.FromArgb(255, 255, 196, 80);
+              FillRR(g, lockedRow ? TM.C(hot ? 235 : 215, 120, 82, 14) : (hot ? TM.C(225, 90, 50, 170) : (sel ? TM.C(210, 62, 34, 130) : TM.C(170, 28, 15, 56))), row, 10); StrokeRR(g, lockedRow ? amber : (sel ? accent : Color.FromArgb(hot ? 220 : 90, NeonViolet)), row, 10, lockedRow ? 2f : (sel ? 1.4f : 1f)); Reg(row, () => PickTrack(idx));
+              if (lockedRow) { var pl = Rc(row.Right - 150, row.Y + row.Height / 2 - 12, 20, 24); var smp = g.SmoothingMode; g.SmoothingMode = SmoothingMode.AntiAlias; using (var pen = new Pen(amber, 2.4f)) g.DrawArc(pen, pl.X + 3, pl.Y, pl.Width - 6, 16, 180, 180); using (var br = new SolidBrush(amber)) g.FillPath(br, RR(Rc(pl.X, pl.Y + 9, pl.Width, 15), 3)); using (var br = new SolidBrush(Color.FromArgb(255, 60, 36, 8))) g.FillEllipse(br, pl.X + pl.Width / 2 - 2.2f, pl.Y + 14, 4.4f, 4.4f); g.SmoothingMode = smp; }
               Txt(g, "TRACK " + (realI + 1), 15, accent, Rc(row.X + 14, row.Y, 96, row.Height), StringAlignment.Near, true);
               Txt(g, t.Name, 14, Ink, Rc(row.X + 112, row.Y, row.Width - 112 - 90, row.Height), StringAlignment.Near, true);
-              string tag = t.Locked ? "LOCKED" : (t.Mute ? "MUTED" : ""); if (tag.Length > 0) Txt(g, tag, 10, t.Locked ? Color.FromArgb(255, 255, 200, 90) : DimC, Rc(row.Right - 86, row.Y, 76, row.Height), StringAlignment.Far, true);
+              string tag = t.Locked ? "LOCKED" : (t.Mute ? "MUTED" : ""); if (tag.Length > 0) Txt(g, tag, t.Locked ? 12 : 10, t.Locked ? Color.FromArgb(255, 255, 200, 90) : DimC, Rc(row.Right - 122, row.Y, 112, row.Height), StringAlignment.Far, true);
           }
           g.Restore(gs); }
         if (maxS > 0) VScroll(g, Rc(lr.Right - 20, lr.Y, 18, lr.Height), total, lr.Height, () => tpScroll, v => tpScroll = v);
-        var cb = Rc(box.Right - 24 - 130, box.Bottom - 54, 130, 36); Btn(g, cb, "CANCEL", 1, () => tpOpen = false, 13);
+        var cb = Rc(box.Right - 24 - 130, box.Bottom - 54, 130, 36); Btn(g, cb, tpMode == 0 ? "DONE" : "CANCEL", tpMode == 0 ? 2 : 1, () => tpOpen = false, 13);
     }
     // the question when opening something would replace the project that is open now
     string OverwriteText(string name)

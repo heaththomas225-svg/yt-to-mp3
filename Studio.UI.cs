@@ -53,7 +53,7 @@ partial class StudioForm : Form
     DateTime busyStart; volatile bool busy; string busyText = ""; volatile float busyPct = -1; volatile bool cancelFlag; bool busyCancelable;
     string projPath = "", projName = "Untitled project";
     bool recOn;   // notes played on an instrument are recorded onto its track while the song plays
-    string toast = ""; DateTime toastAt = DateTime.MinValue;
+    RectangleF toastRect = RectangleF.Empty; string toast = ""; DateTime toastAt = DateTime.MinValue;
     double ToastSecs { get { return Math.Max(3.5, Math.Min(11, 2.2 + toast.Length * 0.05)); } }   // a long message stays long enough to read
     float lufsPeakHold = -120;
     TextBox editBox; Action<string> editApply; string editOrig = "";
@@ -370,24 +370,59 @@ partial class StudioForm : Form
         if (TxtAudit == null && r.Width > 4 && r.Height > 4 && r.Width * r.Height < 90000) BtnDrawSprite(g, r, shown0, style, ht, px); else BtnLook(g, r, shown0, style, ht, px);
         k0 = Prof.T(); var rr0 = Reg(r, down); Prof.A("btn.reg", k0); return rr0;
     }
+    // the Fantasy edition has the button of the converter window: a pale rim all round, and inside it a soft shaded button (hot buttons fade from violet to pink); a glow under the mouse.
+    // Every other edition keeps its own look (BtnLookClassic) and never gets this one.
     void BtnLook(Graphics g, RectangleF r, string shown, int style, float ht, float px)
+    {
+        if (!Edition.Has(Tier.Fantasy)) { BtnLookClassic(g, r, shown, style, ht, px); return; }
+        Color c = style == 1 ? Violet : (style == 3 ? TM.C(255, 150, 40, 80) : (style == 4 ? TM.C(255, 150, 70, 230) : BtnC));
+        if (ht > 0) c = Color.FromArgb(Math.Min(255, c.R + (int)(28 * ht)), Math.Min(255, c.G + (int)(22 * ht)), Math.Min(255, c.B + (int)(30 * ht)));
+        c = Contrast.ForWhite(c);
+        Color vA = Contrast.ForWhite(Color.FromArgb(Math.Min(255, Violet.R + 32), Math.Min(255, Violet.G + 8), Math.Min(255, Violet.B + 28))), vB = Contrast.ForWhite(Accent2);
+        float rad = Math.Min(10f, Math.Max(6f, r.Height * 0.3f)); const float rim = 2.6f; var inner = RectangleF.Inflate(r, -rim, -rim); float irad = Math.Max(1f, rad - rim);   // the inner corner is exactly one rim smaller than the outer one, so the rim is the same thickness all the way round (corners too) on every button
+        Color rimC = Color.FromArgb(240, (int)(c.R + (255 - c.R) * 0.82f), (int)(c.G + (255 - c.G) * 0.82f), (int)(c.B + (255 - c.B) * 0.84f));
+        using (var p = RR(r, rad)) using (var br = new SolidBrush(rimC)) g.FillPath(br, p);   // the pale rim
+        if (style == 2) { using (var p = RR(inner, irad)) using (var br = new LinearGradientBrush(inner, vA, vB, 0f)) g.FillPath(br, p); }
+        else using (var p = RR(inner, irad)) using (var br = new LinearGradientBrush(inner, Color.FromArgb(255, Math.Min(255, (int)(c.R * 1.10f) + 4), Math.Min(255, (int)(c.G * 1.10f) + 4), Math.Min(255, (int)(c.B * 1.10f) + 4)), Color.FromArgb(255, (int)(c.R * 0.88f), (int)(c.G * 0.88f), (int)(c.B * 0.88f)), 90f)) g.FillPath(br, p);
+        if (inner.Width > irad * 3) using (var hl = new Pen(Color.FromArgb(style == 2 ? 80 : 52, 255, 255, 255), 1f)) g.DrawLine(hl, inner.X + irad, inner.Y + 1.2f, inner.Right - irad, inner.Y + 1.2f);
+        if (style == 4) Glow(g, Accent2, r, rad, 0.8f, 3); else if (ht > 0.03f) Glow(g, NeonCyan, r, rad, 0.7f * ht, 3);
+        bool bdt = true; float fpx = px, avail = r.Width - 12;   // a label that is too wide for its button gets a smaller size instead of being cut off
+        if (shown.Length * fpx * 0.55f > avail * 0.7f) { while (fpx > 7f && g.MeasureString(shown, GfxCache.Exact(GfxCache.Grow(fpx), bdt)).Width > avail) fpx -= 0.5f; }
+        Color lab = Color.White;   // always white
+        if (shown.Length <= 2 && shown.Trim().Length > 0 && !EmojiText.Has(shown) && !HasLetterOrDigit(shown)) GlyphCentred(g, shown, fpx, lab, r, bdt); else Txt(g, shown, fpx, lab, r, StringAlignment.Center, bdt);
+    }
+    // the button of the Supporter edition: as it always was (the new look below is for the Fantasy edition only)
+    void BtnLookClassic(Graphics g, RectangleF r, string shown, int style, float ht, float px)
     {
         Color c = style == 1 ? Violet : (style == 3 ? TM.C(255, 150, 40, 80) : (style == 4 ? TM.C(255, 150, 70, 230) : BtnC));
         if (ht > 0) c = Color.FromArgb(Math.Min(255, c.R + (int)(28 * ht)), Math.Min(255, c.G + (int)(22 * ht)), Math.Min(255, c.B + (int)(30 * ht)));
         c = Contrast.ForWhite(c);   // white writing: a theme that makes a button too light gets a darker button, not black writing
         Color vA = Contrast.ForWhite(Color.FromArgb(Math.Min(255, Violet.R + 32), Math.Min(255, Violet.G + 8), Math.Min(255, Violet.B + 28))), vB = Contrast.ForWhite(Accent2);
         float rad = Math.Min(10f, Math.Max(6f, r.Height * 0.3f));   // softer corners on every button
-        // the same button as in the converter window (PxButton): a soft shade from top to bottom, a thin lit edge in a lighter shade of the button, a light line on the top edge, a glow under the mouse
-        if (style == 2) c = Contrast.ForWhite(Color.FromArgb(255, (vA.R + vB.R) / 2, (vA.G + vB.G) / 2, (vA.B + vB.B) / 2));   // the hot button is one rich colour (like CONVERT), not a sideways fade
-        using (var p = RR(r, rad)) using (var br = new LinearGradientBrush(r, Color.FromArgb(255, Math.Min(255, (int)(c.R + (255 - c.R) * 0.07f)), Math.Min(255, (int)(c.G + (255 - c.G) * 0.07f)), Math.Min(255, (int)(c.B + (255 - c.B) * 0.07f))), Color.FromArgb(255, (int)(c.R * 0.91f), (int)(c.G * 0.91f), (int)(c.B * 0.91f)), 90f)) g.FillPath(br, p);
-        { float et = 0.35f + 0.1f * ht; Color edge = Color.FromArgb(200, (int)(c.R + (255 - c.R) * et), (int)(c.G + (255 - c.G) * et), (int)(c.B + (255 - c.B) * et)); StrokeRR(g, edge, r, rad, 1.2f); }
-        if (r.Width > rad * 3) using (var hl = new Pen(Color.FromArgb(46, 255, 255, 255), 1f)) g.DrawLine(hl, r.X + rad, r.Y + 1.5f, r.Right - rad, r.Y + 1.5f);
-        if (style == 4) Glow(g, Accent2, r, rad, 0.8f, 3); else if (ht > 0.03f) Glow(g, NeonCyan, r, rad, 0.7f * ht, 3); 
+        if (style == 2)
+        {
+            using (var p = RR(r, rad)) using (var br = new LinearGradientBrush(r, vA, vB, 0f)) g.FillPath(br, p);
+            if (ht > 0) FillRR(g, Color.FromArgb((int)(40 * ht), 255, 255, 255), r, rad);
+        }
+        else using (var p = RR(r, rad)) using (var br = new LinearGradientBrush(r, Color.FromArgb(c.A, Math.Min(255, (int)(c.R * 1.07f) + 2), Math.Min(255, (int)(c.G * 1.07f) + 2), Math.Min(255, (int)(c.B * 1.07f) + 2)), Color.FromArgb(c.A, (int)(c.R * 0.93f), (int)(c.G * 0.93f), (int)(c.B * 0.93f)), 90f)) g.FillPath(br, p);   // a soft shade from top to bottom
+        if (Edition.Has(Tier.Fantasy))
+        {   // the Fantasy look: a lit rim in a lighter shade of the button's own colour, a glassy top and a bright line where the light catches the edge
+            { Color rimBase = style == 2 ? Violet : c; Color rim = Color.FromArgb(Math.Min(255, (int)(rimBase.R + (255 - rimBase.R) * (0.42f + 0.30f * ht))), Math.Min(255, (int)(rimBase.G + (255 - rimBase.G) * (0.42f + 0.30f * ht))), Math.Min(255, (int)(rimBase.B + (255 - rimBase.B) * (0.42f + 0.30f * ht)))); StrokeRR(g, Color.FromArgb(215, rim), r, rad, 1.4f); }
+            if (r.Height >= 18) { var top = Rc(r.X + 1.5f, r.Y + 1.5f, r.Width - 3, (r.Height - 3) * 0.46f); using (var p = RR(top, Math.Max(3f, rad - 1.5f))) using (var br = new LinearGradientBrush(top, Color.FromArgb(style == 2 ? 58 : 40, 255, 255, 255), Color.FromArgb(0, 255, 255, 255), 90f)) g.FillPath(br, p); }
+            if (r.Width > rad * 3) using (var hl = new Pen(Color.FromArgb(style == 2 ? 120 : 80, 255, 255, 255), 1f)) g.DrawLine(hl, r.X + rad, r.Y + 1.5f, r.Right - rad, r.Y + 1.5f);
+        }
+        else
+        {   // the other editions keep the simpler look
+            StrokeRR(g, TM.C(style == 2 ? 200 : 110, 200, 150, 255), r, rad, 1);
+            if (r.Width > rad * 3) using (var hl = new Pen(Color.FromArgb(style == 2 ? 70 : 40, 255, 255, 255), 1f)) g.DrawLine(hl, r.X + rad, r.Y + 1.5f, r.Right - rad, r.Y + 1.5f);   // the light catching the top edge
+        }
+        if (style == 4) Glow(g, Accent2, r, rad, 0.8f, 3); else if (ht > 0.03f) Glow(g, NeonCyan, r, rad, 0.7f * ht, 3); else if (style == 2) Glow(g, NeonViolet, r, rad, 0.5f, 3);
         bool bdt = true; float fpx = px, avail = r.Width - 10;   // a label that is too wide for its button gets a smaller size instead of being cut off
         if (shown.Length * fpx * 0.55f > avail * 0.7f) { while (fpx > 7f && g.MeasureString(shown, GfxCache.Exact(GfxCache.Grow(fpx), bdt)).Width > avail) fpx -= 0.5f; }
         Color lab = Color.White;   // always white
         if (shown.Length <= 2 && shown.Trim().Length > 0 && !EmojiText.Has(shown) && !HasLetterOrDigit(shown)) GlyphCentred(g, shown, fpx, lab, r, bdt); else Txt(g, shown, fpx, lab, r, StringAlignment.Center, bdt);
     }
+
     // a one or two character button (the menu, X, +, -, <, >, |<, >>...): a font puts the glyph where its line box says, which is often above or beside the middle of the picture.
     // So the glyph is drawn by its own ink: the three lines of the menu exactly, any other mark moved until its ink is in the middle of the button
     static bool HasLetterOrDigit(string s) { foreach (char c in s) if (char.IsLetterOrDigit(c)) return true; return false; }   // (letters keep their normal writing; only marks such as the menu, +, - and the arrows are centred by their ink)
@@ -411,7 +446,7 @@ partial class StudioForm : Form
         g.SmoothingMode = sm;
     }
 
-    // horizontal slider; frac 0..1; returns region so callers can add OnDouble / OnWheel
+    // horizontal slider; frac 0..1; returns region so callers can add OnDouble (the wheel never moves a slider: click and drag only)
     HitReg Slider(Graphics g, RectangleF r, float frac, Action<float> set, Color? fill = null)
     {
         float ty = r.Y + r.Height / 2 - 3; var tr = Rc(r.X, ty, r.Width, 6);
@@ -482,10 +517,12 @@ partial class StudioForm : Form
             hintStackY = hr.Y - 8;
         }
         if (busy) PaintBusy(g);
+        toastRect = RectangleF.Empty;
         if ((DateTime.Now - toastAt).TotalSeconds < ToastSecs && toast.Length > 0)
         {   // the message box grows to hold the whole message (it used to cut long ones off with ...), and sits above the hint box
             float tw = Math.Min(ClientSize.Width - 24, 780), inner = tw - 36; var tf = GfxCache.Font(15, false); var tsz = g.MeasureString(toast, tf, (int)inner); float th = Math.Max(38, tsz.Height + 16);
-            var tr = Rc(ClientSize.Width / 2 - tw / 2, hintStackY - th, tw, th); FillRR(g, TM.C(244, 40, 20, 80), tr, 10); StrokeRR(g, Accent, tr, 10, 1.2f);
+            var tr = Rc(ClientSize.Width / 2 - tw / 2, hintStackY - th, tw, th); if (!revertRect.IsEmpty && tr.IntersectsWith(revertRect)) tr = Rc(tr.X, revertRect.Y - th - 6, tw, th);   // never on top of the REVERT bar
+            toastRect = tr; FillRR(g, TM.C(244, 40, 20, 80), tr, 10); StrokeRR(g, Accent, tr, 10, 1.2f);
             using (var sf3 = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center }) using (var br3 = new SolidBrush(Ink)) g.DrawString(toast, tf, br3, new RectangleF(tr.X + 18, tr.Y, inner, tr.Height), sf3);
         }
     }
@@ -1093,7 +1130,6 @@ partial class StudioForm : Form
 
     void PaintBrowser(Graphics g)
     {
-        using (var br = new SolidBrush(TM.C(170, 6, 3, 14))) g.FillRectangle(br, 0, 0, ClientSize.Width, ClientSize.Height);
         Reg(Rc(0, 0, ClientSize.Width, ClientSize.Height), () => { if (!browserBox.Contains(MousePos)) browserOpen = false; });
         float w = 620, h = Math.Min(560, ClientSize.Height - 80), x = (ClientSize.Width - w) / 2, y = 60; browserBox = PopMove("browser", Rc(x, y, w, h), 52, 70); x = browserBox.X; y = browserBox.Y;
         FillRR(g, TM.C(252, 26, 14, 48), browserBox, 14); StrokeRR(g, Accent, browserBox, 14, 1.5f); var wr = new HitReg { R = browserBox, OnWheel = d => browserScroll = Math.Max(0, Math.Min(browserMaxF, browserScroll - d * 40)) }; regs.Add(wr); Reg(browserBox, () => { });
@@ -1291,8 +1327,7 @@ partial class StudioForm : Form
         float x = a.X + 10, y = a.Y + 8, w = a.Width - 20;
         bool wide = tr == null;   // the Mastering page has room for the longer label; the narrow track panel keeps the short one
         bool isEq = f is ParametricEq; float aeW = wide ? 84 : 74, aeGap = wide ? 8 : 6; bool eqOwnRow = isEq && !wide;
-        Txt(g, f.Title, 16, Ink, Rc(x, y, w - (wide ? 190 : 150) - (isEq && !eqOwnRow ? aeW + aeGap : 0), 24), StringAlignment.Near, true);
-        if (isEq && !eqOwnRow) { var ae = Rc(a.Right - (wide ? 176 : 150) - aeGap - aeW, y, aeW, 24); Btn(g, ae, "AUTO EQ", 2, () => AutoEqClick((ParametricEq)f, tr), 11); Hint2(ae, tr == null ? "The EQ sets itself: it listens to the whole mix and moves bass, mud, presence, upper-mids and air to balance it (it asks first, and you can undo it)" : "The EQ sets itself: it listens to this track and moves bass, mud, presence, upper-mids and air to balance it (it asks first, and you can undo it)"); }
+        Txt(g, f.Title, 16, Ink, Rc(x, y, w - (wide ? 190 : 150), 24), StringAlignment.Near, true);
         Btn(g, Rc(a.Right - (wide ? 176 : 150), y, wide ? 70 : 66, 24), f.Bypass ? "Bypassed" : "Bypass", f.Bypass ? 4 : 0, () => f.Bypass = !f.Bypass, 11);
         Btn(g, Rc(a.Right - (wide ? 100 : 80), y, wide ? 90 : 70, 24), wide ? "FX presets" : "Presets", 1, () => OpenPresetSheet(f), 12);
         y += 34;
@@ -1329,7 +1364,6 @@ partial class StudioForm : Form
             {
                 var sr = Rc(row.X + row.Width * 0.40f, row.Y + 4, row.Width * 0.60f - 88 - aw, rowH - 8);
                 var rg = Slider(g, sr, PFrac(p), fr => { f.Set(pp.Id, PFromFrac(pp, fr)); }); rg.OnDouble = () => f.Set(pp.Id, pp.Def);
-                rg.OnWheel = d => f.Set(pp.Id, pp.Val + d * (pp.Max - pp.Min) / 100f);
                 ValueBox(g, Rc(sr.Right + 14, row.Y + 3, 72, rowH - 6), p.Text, Num(p.Val), s => { float v; if (ParseNum(s, out v)) f.Set(pp.Id, v); });
             }
         }
@@ -1423,10 +1457,9 @@ partial class StudioForm : Form
                 double nf = 20 * Math.Pow(1000, DspMath.Clamp((pt.X - plot.X) / plot.Width, 0, 1)); eq.Set("b" + bi + "_f", (float)nf);
                 if ((int)eq.Get("b" + bi + "_t") != 3) eq.Set("b" + bi + "_g", (float)Math.Round(DspMath.Clamp(18 - (pt.Y - plot.Y) / plot.Height * 36, -18, 18), 1));
             };
-            rg.OnWheel = d => eq.Set("b" + bi + "_q", eq.Get("b" + bi + "_q") * (d > 0 ? 1.12f : 0.89f));
             rg.OnRight = () => eq.Set("b" + bi + "_on", 0); rg.OnDouble = () => eq.Set("b" + bi + "_g", 0);
         }
-        Txt(g, "Drag a dot.  Wheel: Q.  Right-click: remove.", 10, DimC, Rc(plot.X, plot.Bottom + 1, plot.Width, 14), StringAlignment.Near, false);
+        Txt(g, "Drag a dot.  Right-click: remove.", 10, DimC, Rc(plot.X, plot.Bottom + 1, plot.Width, 14), StringAlignment.Near, false);
         // band chips
         float cy2 = plot.Bottom + 20; float cw = (a.Width - 8) / 6f;
         for (int b = 0; b < ParametricEq.Bands; b++)

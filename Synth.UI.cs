@@ -143,7 +143,7 @@ partial class SynthCanvas : Control
         float amt0 = msl.Count > 0 ? P("m" + msl[0] + "a").Val : 0; int sl0 = msl.Count > 0 ? msl[0] : 0;
         reg.Down = pt => { downPt = pt; downFrac = FracOf(p, log); };
         reg.Drag = (dx, dy) => { if (sl0 > 0 && (ModifierKeys & Keys.Control) != 0) { SetVal(P("m" + sl0 + "a"), (float)Math.Round(Math.Max(-100, Math.Min(100, amt0 - dy * 0.6)))); return; } float fine = (ModifierKeys & Keys.Shift) != 0 ? 0.25f : 1f; SetVal(p, FromFrac(p, log, downFrac - dy / 160f * fine)); };
-        reg.Wheel = d => { float step = p.IsChoice ? 1 : (p.Max - p.Min) / 50f * ((ModifierKeys & Keys.Shift) != 0 ? 0.2f : 1f); if (p.Id == "auni" || p.Id == "buni" || p.Id == "cuni") step = 1; SetVal(p, (float)Math.Round(p.Val + d * step, p.IsChoice || p.Max - p.Min < 20 ? 0 : 1)); };
+        
         reg.Double = () => TypeValue(p); reg.Right = () => SetVal(p, p.Def);
     }
 
@@ -170,7 +170,7 @@ partial class SynthCanvas : Control
         Fill(g, Hot(r) ? PanelHi : TM.C(255, 20, 11, 38), r, 5); Stroke(g, Color.FromArgb(Hot(r) ? 230 : 130, col), r, 5, 1);
         Txt(g, prefix + p.Text, 11, Ink, Rc(r.X + 5, r.Y, r.Width - 16, r.Height), StringAlignment.Near, false); Txt(g, "V", 9, Dim, Rc(r.Right - 14, r.Y, 12, r.Height), StringAlignment.Center, false);
         reg.Down = pt => { var m = Win.NewMenu(); for (int i = 0; i < p.Choices.Length; i++) { int k = i; var it = new ToolStripMenuItem(p.Choices[i]) { Checked = (int)Math.Round(p.Val) == i }; it.Click += (a, b) => { SetVal(p, k); Poke(); }; m.Items.Add(it); } ShowMenu(m, new Point((int)(pt.X * scale + ox), (int)((r.Bottom) * scale + oy))); };
-        reg.Wheel = d => SetVal(p, (p.Val + (d > 0 ? 1 : -1) + p.Choices.Length) % p.Choices.Length);
+        
     }
 
     void NumBox(Graphics g, string id, RectangleF r, string label)
@@ -180,7 +180,7 @@ partial class SynthCanvas : Control
         Txt(g, p.Val.ToString(p.Max - p.Min >= 100 ? "0" : "+0;-0;0", CultureInfo.InvariantCulture), 11, Ink, Rc(r.X + 22, r.Y, r.Width - 24, r.Height), StringAlignment.Far, false);
         float start = 0; reg.Down = pt => { downPt = pt; start = p.Val; downFrac = p.Val; };
         reg.Drag = (dx, dy) => SetVal(p, (float)Math.Round(downFrac - dy / (p.Max - p.Min > 100 ? 1.0 : 10.0), 0));
-        reg.Wheel = d => SetVal(p, p.Val + d); reg.Double = () => TypeValue(p); reg.Right = () => SetVal(p, p.Def);
+        reg.Double = () => TypeValue(p); reg.Right = () => SetVal(p, p.Def);
     }
 
     // ---------- top-level paint ----------
@@ -280,7 +280,7 @@ partial class SynthCanvas : Control
             Choose(g, "m" + i + "p", Rc(sr.Right + 76, y + 2, 96, 22), Acc);
             { int ii = i; var en = P("m" + i + "e"); bool on = en.Val > 0.5; var eb = Rc(sr.Right + 178, y + 2, 64, 22); Fill(g, on ? Color.FromArgb(130, Good) : TM.C(255, 18, 10, 34), eb, 5); Stroke(g, on ? Good : Edge, eb, 5, 1); Txt(g, on ? "ON" : "OFF", 11, Ink, eb, StringAlignment.Center, on); var er = Add(eb); er.Tip = "Switch this connection on or off without losing it."; er.Down = pt => { SetVal(en, on ? 0 : 1); };
               var xb = Rc(sr.Right + 248, y + 2, 26, 22); Fill(g, Hot(xb) ? Color.FromArgb(160, 200, 60, 90) : TM.C(255, 18, 10, 34), xb, 5); Stroke(g, Edge, xb, 5, 1); Txt(g, "X", 11, Ink, xb, StringAlignment.Center, true); var xr = Add(xb); xr.Tip = "Remove this connection."; xr.Down = pt => { SetVal(P("m" + ii + "s"), 0); SetVal(P("m" + ii + "d"), 0); SetVal(P("m" + ii + "a"), 0); SetVal(en, 1); SetVal(P("m" + ii + "p"), 0); }; }
-            reg.Down = pt => { SetVal(p, FromFrac(p, false, (pt.X - sr.X) / sr.Width)); }; reg.Drag = (dx, dy) => SetVal(p, (float)Math.Round(FromFrac(p, false, (mouse.X - sr.X) / sr.Width))); reg.Wheel = d => SetVal(p, p.Val + d * 2); reg.Double = () => TypeValue(p); reg.Right = () => SetVal(p, 0);
+            reg.Down = pt => { SetVal(p, FromFrac(p, false, (pt.X - sr.X) / sr.Width)); }; reg.Drag = (dx, dy) => SetVal(p, (float)Math.Round(FromFrac(p, false, (mouse.X - sr.X) / sr.Width))); reg.Double = () => TypeValue(p); reg.Right = () => SetVal(p, 0);
         }
     }
 
