@@ -24,6 +24,7 @@ static class ReleaseStore
     }
     public static void Save()
     {
+        Load();   // (reads once) never write before reading
         lock (lk) { try { Directory.CreateDirectory(StudioEnv.DataDir); var sb = new StringBuilder(); foreach (var r in All) sb.Append(r.Id).Append('|').Append(r.Kind).Append('|').Append(Clean(r.Title)).Append('|').Append(string.Join(",", r.Pids.ToArray())).Append('\n'); string tmp = FileP + ".tmp"; File.WriteAllText(tmp, sb.ToString(), Encoding.UTF8); if (File.Exists(FileP)) File.Delete(FileP); File.Move(tmp, FileP); } catch { } }
     }
     public static Release Add(string kind, string title, List<string> pids)

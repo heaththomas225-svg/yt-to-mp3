@@ -22,6 +22,7 @@ static partial class ProfileStore
 {
     public static string Bio = "", Location = "", Tags = "", BannerPath = "", Key = "", Nick = "";   /* Nick: anything you like, shown in brackets after your name on the artists tabs */ public static readonly List<string> Links = new List<string>(); public static readonly Dictionary<string, string> LinkTitles = new Dictionary<string, string>();   /* every link has a title (url -> title) */ public static int Accent = -1, BannerY = 50, BannerX = 50, BannerZoom = 0, AvX = 50, AvY = 50, AvZoom = 0, Followers;   /* Accent: -1 = theme colour, else 0xRRGGBB. Zoom is a percent: 0 (the default) shows the WHOLE picture with its edges stretched to fill the frame, 100 fills the frame, more zooms in */ public static bool Published, Private, HideLocation, HideFollowers;
     public static bool ZoomMigrated; public static int NameRgb = -1, NameRgb2 = -1;   // the colour of your name on your profile: -1 = the normal writing, else 0xRRGGBB; with a second colour the name fades from one to the other
+    static ProfileStore() { Load(); }   // read the saved profile the moment anything first touches it: a Save() that came first (the colour mix, the place picker...) used to write the empty defaults over it
     static string File0 { get { return Path.Combine(StudioEnv.DataDir, "profile-page.txt"); } }   // (profile.txt belongs to the project library: your name and picture)
     public static string Dir { get { string d = Path.Combine(StudioEnv.DataDir, "profile"); try { Directory.CreateDirectory(d); } catch { } return d; } }
     public static void Load()
@@ -170,6 +171,27 @@ partial class StudioForm
     {
         FillRR(g, TM.C(255, 12, 6, 28), r, 14); Win.DrawNeonBox(g, r, false); Txt(g, label, 10, DimC, Rc(r.X, r.Y + 8, r.Width, 14), StringAlignment.Center, true); Txt(g, value, 24, vc, Rc(r.X, r.Y + 24, r.Width, 34), StringAlignment.Center, true);
     }
+    // the colour of a service's brand (the links shine in it)
+    static Color LinkTint(string url)
+    {
+        string sv = ""; try { sv = ProfileStore.ServiceOf(new Uri(url).IdnHost); } catch { }
+        switch (sv)
+        {
+            case "YouTube": return Color.FromArgb(255, 70, 70); case "Spotify": return Color.FromArgb(40, 220, 100); case "SoundCloud": return Color.FromArgb(255, 120, 30); case "Instagram": return Color.FromArgb(235, 60, 170);
+            case "TikTok": return Color.FromArgb(40, 240, 235); case "Apple Music": return Color.FromArgb(255, 90, 125); case "Facebook": return Color.FromArgb(80, 140, 255); case "X (Twitter)": return Color.FromArgb(225, 225, 240);
+            case "Snapchat": return Color.FromArgb(255, 245, 60); case "Bandcamp": return Color.FromArgb(100, 175, 200); case "Discord": return Color.FromArgb(120, 140, 255); case "Twitch": return Color.FromArgb(160, 90, 255);
+            default: return NeonViolet;
+        }
+    }
+    // a sweep of light across a link and a rim in its colour (keeps the page animating while a link is on screen)
+    void LinkShine(Graphics g, RectangleF r, Color tint, int delay)
+    {
+        float ph = ((Environment.TickCount + delay) % 2800) / 2800f; float cx = r.X - r.Height + (r.Width + r.Height * 2) * ph; var gs = g.Save();
+        using (var p = RR(r, 8)) g.SetClip(p, CombineMode.Intersect);
+        using (var br = new SolidBrush(Color.FromArgb(70, Math.Min(255, tint.R + 80), Math.Min(255, tint.G + 80), Math.Min(255, tint.B + 80)))) g.FillPolygon(br, new[] { new PointF(cx - 10, r.Bottom), new PointF(cx + 8, r.Bottom), new PointF(cx + 28, r.Y), new PointF(cx + 10, r.Y) });
+        g.Restore(gs); StrokeRR(g, Color.FromArgb(Hot(r) ? 255 : 170, tint), r, 8, Hot(r) ? 1.8f : 1.2f); if (Hot(r)) Glow(g, tint, r, 8, 0.7f, 3);
+        lastInput = DateTime.Now; btnAnim = true;
+    }
     // links as little buttons: the site's name, and a click opens it in your browser
     float LinkChips(Graphics g, float x0, float y, float maxX, List<string> links, Dictionary<string, string> titles = null)
     {
@@ -177,13 +199,14 @@ partial class StudioForm
         foreach (var l in links)
         {
             string lb = ProfileStore.TitleOf(titles, l); if (lb.Length > 26) lb = lb.Substring(0, 25) + "..."; float w = Math.Min(36 + lb.Length * 7.4f, Math.Max(60, maxX - x0)); if (x + w > maxX && x > x0) { x = x0; y += 34; rows++; } var r = Rc(x, y, w, 28); string url = l;
-            Btn(g, r, "o  " + lb, 1, () => OpenLink(url), 11); Hint2(r, ProfileStore.TitleOf(titles, url) + ": " + url + "  (click to open it in your browser)"); x += w + 8;
+            Btn(g, r, "o  " + lb, 1, () => OpenLink(url), 11); LinkShine(g, r, LinkTint(url), (int)(x * 7)); Hint2(r, ProfileStore.TitleOf(titles, url) + ": " + url + "  (click to open it in your browser)"); x += w + 8;
         }
         return rows * 34 + 2;   // the height used (a row per 34 pixels)
     }
     void OpenLink(string url)
     {
         string u = ProfileStore.CleanLink(url); if (u.Length == 0) { Toast("That link cannot be opened."); return; }
+        if (!ConfirmLeave(u)) return;
         try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(u) { UseShellExecute = true }); } catch (Exception ex) { Toast("Could not open that link: " + ex.Message); }
     }
     // YOUR LINKS: one on each line as a title, a bar and the address; every link needs a title (the window will not save until each one has one)
@@ -307,7 +330,7 @@ partial class StudioForm
     {
         if (profBusy) return; if (ProjectLibrary.ProfileName.Trim().Length < 2) { Toast("Give your profile a name with at least 2 letters first."); return; }
         profBusy = true; profStatus = "Publishing your profile..."; string json; try { json = BuildProfileJson(true); } catch (Exception ex) { profBusy = false; profStatus = "Could not prepare your profile: " + ex.Message; return; }
-        ThreadPool.QueueUserWorkItem(o => { ArtistInfo me; string err = ProfApi.Publish(json, out me); try { BeginInvoke(new Action(() => { profBusy = false; if (err == null) { nameEdited = false; ProfileStore.Published = true; if (me != null) ProfileStore.Followers = me.Followers; ProfileStore.Save(); profStatus = "Your profile is public: other producers can find you in ARTISTS."; ProfileRefresh(); SyncCommunitySongs(); } else if (err == "taken") NameIsTaken(); else profStatus = err; lastInput = DateTime.Now; })); } catch { profBusy = false; } });
+        ThreadPool.QueueUserWorkItem(o => { ArtistInfo me; string err = ProfApi.Publish(json, out me); try { BeginInvoke(new Action(() => { profBusy = false; if (err == null) { nameEdited = false; ProfileStore.Published = true; string renamed = ""; if (me != null) { ProfileStore.Followers = me.Followers; if (me.Name.Length >= 2 && me.Name != ProjectLibrary.ProfileName) { ProjectLibrary.ProfileName = me.Name; ProjectLibrary.Save(); renamed = "That name was already used by another artist, so yours is shown as " + me.Name + " (the first one keeps the plain name). "; } } ProfileStore.Save(); profStatus = renamed + "Your profile is public: other producers can find you in ARTISTS."; ProfileRefresh(); SyncCommunitySongs(); } else if (err == "taken") NameIsTaken(); else profStatus = err; lastInput = DateTime.Now; })); } catch { profBusy = false; } });
     }
     // the artist name is taken by somebody else: a window says so and offers the same name written in other ways (or your own)
     // the server says another artist has this name: the window with other ways to write it opens only when the name was just changed on the Profile tab; a name that is already yours is never asked about
@@ -325,7 +348,7 @@ partial class StudioForm
     }
     void UnpublishProfile()
     {
-        if (profBusy || ProfileStore.Key.Length < 32) return; profBusy = true; profStatus = "Making your profile private..."; string key = ProfileStore.Key;
+        if (profBusy || ProfileStore.Key.Length < 32) return; if (!Sure("make your profile private (nobody can find it until you publish it again)")) return; profBusy = true; profStatus = "Making your profile private..."; string key = ProfileStore.Key;
         ThreadPool.QueueUserWorkItem(o => { bool ok = ProfApi.Remove(key); try { BeginInvoke(new Action(() => { profBusy = false; if (ok) { ProfileStore.Published = false; ProfileStore.Followers = 0; ProfileStore.Save(); profStatus = "Your profile is private again. Nobody can find it."; } else profStatus = "Could not reach the Purphex community. Check your internet connection."; })); } catch { profBusy = false; } });
     }
     // PUBLISH ALL (on the Projects page): every project that is not published yet, after asking
@@ -347,7 +370,9 @@ partial class StudioForm
         var ban = Rc(cx, y, cw, Math.Max(110, Math.Min(240, cw / 5f))); Bitmap bp = ProfileStore.BannerPath.Length > 0 && File.Exists(ProfileStore.BannerPath) ? FramedPic(ProfileStore.BannerPath + File.GetLastWriteTime(ProfileStore.BannerPath).Ticks, () => LoadFileImage(ProfileStore.BannerPath), (int)ban.Width, (int)ban.Height, ProfileStore.BannerZoom, ProfileStore.BannerX, ProfileStore.BannerY) : null;   /* the banner is 5 to 1: any picture is resized to fit it */
         PaintBannerArt(g, ban, bp, ProfileStore.Accent); if (Edition.Has(Tier.Fantasy)) { FantasyBorder(g, Rc(ban.X - 3, ban.Y - 3, ban.Width + 6, ban.Height + 6), 16, "me" + ProjectLibrary.ProfileName); FantasyBadge(g, Rc(ban.X + 12, ban.Y + 12, 100, 24)); } var pill = Rc(ban.Right - 120, ban.Y + 12, 108, 24); FillRR(g, ProfileStore.Published ? TM.C(235, 28, 112, 86) : TM.C(235, 60, 52, 98), pill, 12); Txt(g, ProfileStore.Published ? "PUBLIC" : "PRIVATE", 11, Color.White, pill, StringAlignment.Center, true);
         var av = Rc(ban.X + 28, ban.Bottom - 60, 120, 120); Bitmap ab = ProjectLibrary.AvatarPath.Length > 0 ? FramedPic(AvatarFile + File.GetLastWriteTime(AvatarFile).Ticks, () => LoadFileImage(AvatarFile), 120, 120, ProfileStore.AvZoom, ProfileStore.AvX, ProfileStore.AvY) : null; FillRR(g, TM.C(255, 8, 4, 18), Rc(av.X - 7, av.Y - 7, av.Width + 14, av.Height + 14), 30); DrawFrameImage(g, av, ab, acc);   /* a rounded square: the whole picture can be fitted in it */
-        float tx = av.Right + 24, ty = ban.Bottom + 12; NameText(g, ProjectLibrary.ProfileName.ToUpper(), 28, Rc(tx, ty, cw - (tx - cx) - 220, 40), PlainInk, true); LinksButton(g, Rc(cx + cw - 190, ty + 4, 180, 40), ProfileStore.AllLinks(ProfileStore.Links, ProfileStore.Bio), true, ProfileStore.LinkTitles);
+        float tx = av.Right + 24, ty = ban.Bottom + 12; NameText(g, (ProjectLibrary.ProfileName + (ProfileStore.Nick.Length > 0 ? " (" + ProfileStore.Nick + ")" : "")).ToUpper(), 28, Rc(tx, ty, cw - (tx - cx) - (cw > 760 ? 400 : 220), 40), PlainInk, true);
+        if (cw > 760) { var shB = Rc(cx + cw - 190 - 178, ty + 4, 168, 40); Btn(g, shB, "SHARE PROFILE", 2, () => OpenCommunitySite("/community"), 12); Hint2(shB, "Open the Community on the website: your songs are there to see and share (you leave the DAW)"); }
+        LinksButton(g, Rc(cx + cw - 190, ty + 4, 180, 40), ProfileStore.AllLinks(ProfileStore.Links, ProfileStore.Bio), true, ProfileStore.LinkTitles);
         string sub = (ProfileStore.Location.Length > 0 ? ProfileStore.Location.ToUpper() + "   -   " : "") + ProfileStore.Followers + (ProfileStore.Followers == 1 ? " FOLLOWER" : " FOLLOWERS") + "   -   " + profFollowing.Count + " FOLLOWING"; Txt(g, sub, 12, NeonCyan, Rc(tx, ty + 40, cw - (tx - cx) - 20, 20), StringAlignment.Near, true);
         float by = ban.Bottom + 70 + 6; if (by < av.Bottom + 10) by = av.Bottom + 10; y = by;
         if (ProfileStore.Bio.Length > 0) { y += BioBlock(g, ProfileStore.Bio, 14, ProfileStore.NameRgb >= 0 ? ProfileStore.ColorOf(ProfileStore.NameRgb) : PlainInk, cx + 6, y, cw - 12); } else { Txt(g, "NO BIO YET. WRITE A FEW WORDS ABOUT YOUR MUSIC BELOW.", 12, DimC, Rc(cx + 6, y, cw - 12, 22), StringAlignment.Near, false); y += 28; }
@@ -396,7 +421,7 @@ partial class StudioForm
         if (profFollowing.Count > 0) { Txt(g, "YOU FOLLOW", 14, Ink, Rc(cx + 6, y, 300, 22), StringAlignment.Near, true); y += 28; float fx = cx + 6; foreach (var f in profFollowing) { float fw = Math.Min(220, 30 + f.Name.Length * 9.5f); if (fx + fw > cx + cw) break; var fr = Rc(fx, y, fw, 32); var fa = f; Btn(g, fr, f.Name, 0, () => OpenArtist(fa.Id), 12); Hint2(fr, "Open " + f.Name + "'s profile"); fx += fw + 8; } y += 48; }
         // ---- your tracks ----
         profTracksTop = Math.Max(0, y - y00 - 8); SectionBox(g, cx, y, cw, profPubH); float pubTop = y; y += 14; cx += 14; cw -= 28; Txt(g, "YOUR PUBLISHED PROJECTS", 18, Ink, Rc(cx + 6, y, 400, 28), StringAlignment.Near, true);
-        { int pubN = 0; foreach (var e0 in all) if (e0.OnProfile) pubN++; var noB = Rc(cx + cw - 164, y - 2, 164, 32);           Btn(g, noB, "MAKE ALL PRIVATE", pubN > 0 ? 3 : 0, () => { foreach (var e1 in ProjectLibrary.AllByEdited()) ProjectLibrary.SetOnProfile(e1, false); QueueRepublish(); }, 11); Hint2(noB, "Take every project off your profile"); y += 34;
+        { int pubN = 0; foreach (var e0 in all) if (e0.OnProfile) pubN++; var noB = Rc(cx + cw - 164, y - 2, 164, 32);           Btn(g, noB, "MAKE ALL PRIVATE", pubN > 0 ? 3 : 0, () => { if (!Sure("take every project off your profile")) return; foreach (var e1 in ProjectLibrary.AllByEdited()) ProjectLibrary.SetOnProfile(e1, false); QueueRepublish(); }, 11); Hint2(noB, "Take every project off your profile"); y += 34;
           Txt(g, pubN + " of " + all.Count + " projects are public. The rest are private.", 12, DimC, Rc(cx + 6, y, cw - 12, 20), StringAlignment.Near, false); y += 28; }
         var shownPub = all.FindAll(x0 => x0.OnProfile);
         if (shownPub.Count == 0) { Txt(g, all.Count == 0 ? "Nothing here yet. Make something and press Save: it is private until you publish it." : "No project is published. Press the person button on a project in My Projects, or PUBLISH ALL.", 13, DimC, Rc(cx + 6, y, cw - 12, 24), StringAlignment.Near, false); y += 40; }
@@ -496,9 +521,10 @@ partial class StudioForm
             var a = artList[i]; float cx = ox + (i % cols) * (cardW + gap), cy = y + (i / cols) * (cardH + gap) - artScroll; var card = Rc(cx, cy, cardW, cardH); if (card.Bottom < y || card.Y > bottom) continue; bool hot = Hot(card) && area.Contains(MousePos); Color ac = ProfAccent(a.Accent);
             FillRR(g, TM.C(hot ? 255 : 235, 16, 9, 34), card, 16); Win.DrawNeonBox(g, card, hot); if (a.Fantasy) FantasyBorder(g, card, 16, a.Id); var ban = Rc(card.X + 8, card.Y + 8, card.Width - 16, 78); Bitmap bp = a.Banner ? ArtistImage(a.Id, "banner", a.Bv, (int)ban.Width, (int)ban.Height) : null; PaintBannerArt(g, ban, bp, a.Accent);
             var av = Rc(card.X + 18, ban.Bottom - 30, 60, 60); Bitmap ab = a.Avatar ? ArtistImage(a.Id, "avatar", a.Av, 60, 60) : null; FillRR(g, TM.C(255, 8, 4, 18), Rc(av.X - 4, av.Y - 4, 68, 68), 15); DrawFrameImage(g, av, ab, ac);
-            NameTextC(g, a.Shown, 15, Rc(av.Right + 12, ban.Bottom + 4, card.Right - av.Right - 22, 22), Ink, true, a.NameRgb, a.NameRgb2); if (a.Fantasy) FantasyBadge(g, Rc(ban.X + 8, ban.Y + 8, 92, 20)); Txt(g, (a.FollowersHidden ? "" : a.Followers + (a.Followers == 1 ? " FOLLOWER" : " FOLLOWERS") + "   -   ") + a.Tracks + (a.Tracks == 1 ? " TRACK" : " TRACKS"), 10, NeonCyan, Rc(av.Right + 12, ban.Bottom + 26, card.Right - av.Right - 22, 16), StringAlignment.Near, true);
+            var nameBox = Rc(av.Right + 8, ban.Bottom + 3, card.Right - av.Right - 20, 42); FillRR(g, TM.C(200, 8, 4, 20), nameBox, 8); Win.DrawNeonBox(g, nameBox, hot);
+            NameTextC(g, a.Shown, 15, Rc(nameBox.X + 8, nameBox.Y + 3, nameBox.Width - 14, 20), Ink, true, a.NameRgb, a.NameRgb2); if (a.Fantasy) FantasyBadge(g, Rc(ban.X + 8, ban.Y + 8, 92, 20)); Txt(g, (a.FollowersHidden ? "" : a.Followers + (a.Followers == 1 ? " FOLLOWER" : " FOLLOWERS") + "   -   ") + a.Tracks + (a.Tracks == 1 ? " TRACK" : " TRACKS"), 10, NeonCyan, Rc(nameBox.X + 8, nameBox.Y + 23, nameBox.Width - 14, 16), StringAlignment.Near, true);
             // the bio has a box of its own; when it is longer than the box a little arrow opens the rest
-            bool bioMore = false; RectangleF bioBox = Rc(card.X + 12, av.Bottom + 6, card.Width - 24, 38);
+            bool bioMore = false; RectangleF bioBox = Rc(card.X + 12, Math.Max(av.Bottom, nameBox.Bottom) + 6, card.Width - 24, 38);
             if (a.Bio.Length > 0) { FillRR(g, TM.C(190, 8, 4, 20), bioBox, 8); StrokeRR(g, Color.FromArgb(hot ? 200 : 110, ac), bioBox, 8, 1f); TxtWrap(g, a.Bio, 11, DimC, Rc(bioBox.X + 7, bioBox.Y + 3, bioBox.Width - 30, bioBox.Height - 6)); var fnt = GfxCache.Exact(GfxCache.Grow(11), false); bioMore = g.MeasureString(a.Bio.Replace("\r", "").Replace("\n", " "), fnt, (int)(bioBox.Width - 30)).Height > bioBox.Height - 8; }
             if (a.Tags.Length > 0) TagChips(g, card.X + 14, card.Bottom - 34, card.Right - 12, a.Tags, ac);
             var open = Reg(card, () => OpenArtist(a.Id)); Hint2(card, "Open " + a.Name + "'s profile");

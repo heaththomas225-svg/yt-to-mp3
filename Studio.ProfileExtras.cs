@@ -78,7 +78,7 @@ partial class StudioForm
     {
         string lang = "en"; try { lang = System.Globalization.CultureInfo.CurrentUICulture.TwoLetterISOLanguageName; } catch { }
         string url = TranslateUrl(a.Name, a.Bio, lang); if (openUrlHook != null) { openUrlHook(url); return; }
-        try { System.Diagnostics.Process.Start(url); Toast("Opening Google Translate: it detects the language and translates it to yours."); } catch { Toast("Could not open the browser."); }
+        if (!ConfirmLeave(url)) return; try { System.Diagnostics.Process.Start(url); Toast("Opening Google Translate: it detects the language and translates it to yours."); } catch { Toast("Could not open the browser."); }
     }
     float BioBlock(Graphics g, string s, float px, Color c, float x, float y, float w)
     {
@@ -114,7 +114,7 @@ partial class StudioForm
     {
         var tags = ProfileStore.Tags.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries).ToList(); var m = Win.NewMenu();
         if (tags.Count == 0) { m.Items.Add("You have no tags.").Enabled = false; m.Show(this, new Point((int)at.X, (int)at.Bottom)); return; }
-        Action<List<string>, string> set = (keep, msg) => { ProfileStore.Tags = string.Join(" ", keep.ToArray()); ProfileStore.Save(); QueueRepublish(); tagScrollOwn = 0; Toast(msg); };
+        Action<List<string>, string> set = (keep, msg) => { if (keep.Count == 0 && !Sure("remove all your tags")) return; ProfileStore.Tags = string.Join(" ", keep.ToArray()); ProfileStore.Save(); QueueRepublish(); tagScrollOwn = 0; Toast(msg); };
         m.Items.Add("Remove ALL my tags (" + tags.Count + ")").Click += (a, b) => set(new List<string>(), "All your tags were removed.");
         var custom = tags.FindAll(t => Array.IndexOf(StudioDialogs.SuggestedTagList, t) < 0);
         if (custom.Count > 0) m.Items.Add("Remove only the tags I typed myself (" + custom.Count + ")").Click += (a, b) => set(tags.FindAll(t => Array.IndexOf(StudioDialogs.SuggestedTagList, t) >= 0), custom.Count + " of your own tags were removed.");
@@ -135,7 +135,7 @@ partial class StudioForm
     }
     void LinksButton(Graphics g, RectangleF r, List<string> links, bool mine, Dictionary<string, string> titles = null)
     {
-        Btn(g, r, "LINKS" + (links.Count > 0 ? "  (" + links.Count + ")" : ""), links.Count > 0 ? 2 : 1, () => LinksMenu(r, links, mine, titles), 12);
+        Btn(g, r, "LINKS" + (links.Count > 0 ? "  (" + links.Count + ")" : ""), links.Count > 0 ? 2 : 1, () => LinksMenu(r, links, mine, titles), 12); if (links.Count > 0) LinkShine(g, r, NeonCyan, 0);
         Hint2(r, links.Count > 0 ? "See " + (mine ? "your" : "their") + " streaming and social links, and open one" : (mine ? "Add your links (streaming services and social media only)" : "This artist has not added any links"));
     }
 

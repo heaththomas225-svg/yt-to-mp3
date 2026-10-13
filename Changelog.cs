@@ -7,10 +7,23 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.36.3";
+    public const string Latest = "3.36.4";
 
     public const string Text =
-@"3.36.3  purphexmusic.com on the converter page, a BASS LAB button, a back-to-start button on Mastering
+@"3.36.4  Your profile no longer resets, new links window, the colour mixer fades one colour, asks before leaving or deleting
+ + YOUR PROFILE NO LONGER RESETS after an update: the bio, place, links, banner, nickname, the list of your projects with your name and picture, and your saved colour mixes were being written over with empty ones when something saved before they were read. Everything is read first now (and a test makes sure).
+ + NICKNAME: it shows in brackets after your name on your own profile too (as it does on the ARTISTS tabs and now on the website).
+ + NAMES: a name another artist already uses is no longer refused. You can have it: yours shows with a number after it (for example aheath #598774) and the first artist keeps the plain name. No more 'name taken' window.
+ + The artist cards have the name and the track count in a neon box of their own, like the bio.
+ + LINKS window: a box for the TITLE and a box for the ADDRESS on every row (up to 10). Only streaming services and social media are allowed (YouTube, TikTok, Instagram, Snapchat, Spotify, Apple Music, SoundCloud, Bandcamp, X, Facebook, Twitch...); every row shows OK or what is wrong. Links shine in the colour of their service.
+ + Every link out of the program asks first: 'You are leaving this DAW and being redirected to YOUTUBE' (press YES to go).
+ + SHARE PROFILE button on your profile: it opens the Community on the website, where your songs are (it asks before leaving).
+ + The buttons that delete something ask first: MAKE ALL PRIVATE, MAKE IT PRIVATE, REMOVE BANNER, REMOVE PICTURE, DELETE THIS PRESET (colours), REMOVE ALL tags, and removing an automation. Tracks and plugins do not ask: they have the REVERT bar.
+ + COLOUR MIXER: USE A ONLY and USE B ONLY are switches (press again and both colours are back). With one colour on, the gradient bar still moves: all the way left the colour stays exactly as it is (100%) and the further right the darker it fades. The Purphex logo decorates the colour wheel box.
+ + LOCATION: one click on a place picks it and closes the box.
+ + EMOJIS: the emoji panel opens beside the box you are typing in (never on top of it), so you can see what you type.
+
+3.36.3  purphexmusic.com on the converter page, a BASS LAB button, a back-to-start button on Mastering
  + A box of its own under the log on the converter page: PURPHEXMUSIC.COM. Press it to open the website (downloads, guides, the community and your account). The log box is a little shorter to make room.
  + BASS LAB has its own button next to PRESETS in the plugin panel: press it and the Bass Lab synthesizer is put on the selected track and its window opens, ready to play. The ADD EFFECT box no longer lists Bass Lab: its instrument box is now VST PLUGINS only.
  + MASTERING: the |< button (jump back to the start) sits left of PLAY, the same as on MIX. The LYRICS page already has it, in the same place.

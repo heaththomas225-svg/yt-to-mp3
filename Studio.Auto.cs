@@ -133,7 +133,7 @@ partial class StudioForm
         var lane = autoLane;
         Chip(g, Rc(sheet.Right - 330, sheet.Y + 14, 110, 28), lane.On ? "Automation on" : "Automation off", lane.On, () => { lock (eng.Sync) lane.On = !lane.On; });
         Btn(g, Rc(sheet.Right - 214, sheet.Y + 14, 72, 28), "Flatten", 0, () => { PushUndo(); lock (eng.Sync) { float v = prm.Val; foreach (var pt in lane.Pts) pt.Value = v; } }, 12);
-        Btn(g, Rc(sheet.Right - 136, sheet.Y + 14, 78, 28), "Remove", 3, () => { PushUndo(); lock (eng.Sync) autoTrack.Auto.Remove(lane); CloseAuto(); }, 12);
+        Btn(g, Rc(sheet.Right - 136, sheet.Y + 14, 78, 28), "Remove", 3, () => { if (!Sure("remove this automation")) return; PushUndo(); lock (eng.Sync) autoTrack.Auto.Remove(lane); CloseAuto(); }, 12);
         // the other lanes on this track: press one to switch to it
         float cx = sheet.X + 22, cy = sheet.Y + 54; Txt(g, "Lanes on this track:", 11, DimC, Rc(cx, cy, 120, 22), StringAlignment.Near, false); cx += 122;
         foreach (var other in autoTrack.Auto.ToArray())

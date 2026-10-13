@@ -124,12 +124,22 @@ window.onload=function(){wrapFit();show();q.focus();};
     }
     // the colour pictures of every emoji of the panel are made in the background (once: they are kept), so each one is in colour the moment it is used
     public static void WarmColours() { try { EmojiSprites.Warm(All().Select(x => x.E)); } catch { } }
+    // where the emoji panel goes so it never covers the box you are typing in: to its right, else to its left, else under it, else on top of the screen's free corner
+    public static Point BesideDialog(Rectangle d, Size p, Rectangle wa)
+    {
+        int y = Math.Max(wa.Top + 10, Math.Min(d.Top, wa.Bottom - p.Height - 10));
+        if (d.Right + 8 + p.Width <= wa.Right) return new Point(d.Right + 8, y);
+        if (d.Left - 8 - p.Width >= wa.Left) return new Point(d.Left - 8 - p.Width, y);
+        if (d.Bottom + 8 + p.Height <= wa.Bottom) return new Point(Math.Max(wa.Left + 10, Math.Min(d.Left, wa.Right - p.Width - 10)), d.Bottom + 8);
+        return new Point(d.Left + (d.Width - p.Width) / 2, Math.Max(wa.Top + 10, d.Bottom + 8 > wa.Bottom - 60 ? wa.Top + 10 : d.Bottom + 8));
+    }
     public static void Show(Form owner, Action<string> insert)
     {
         if (open != null && !open.IsDisposed) { if (open.Owner == owner) { open.Activate(); return; } open.Close(); }   // a panel opened for another window is closed: the emojis go where the new one is
         var f = new Form { Text = "Emojis", FormBorderStyle = FormBorderStyle.FixedToolWindow, StartPosition = FormStartPosition.Manual, ShowInTaskbar = false, BackColor = TM.C(255, 24, 12, 44), ClientSize = new Size(520, 600), TopMost = false };
         Win.Dark(f); open = f; f.FormClosed += (s, e) => { open = null; LastBrowser = null; }; f.Owner = owner;
         var wa = Screen.FromControl(owner).WorkingArea; f.Location = new Point(Math.Min(wa.Right - f.Width - 10, owner.Right - f.Width - 30), Math.Max(wa.Top + 10, owner.Top + 90));
+        if (owner.Width < 1000) f.Location = BesideDialog(owner.Bounds, f.Size, wa);   // a small box you type in: the emojis go BESIDE it, so what you type stays in sight
         var wb = new WebBrowser { Dock = DockStyle.Fill, IsWebBrowserContextMenuEnabled = false, AllowWebBrowserDrop = false, ScriptErrorsSuppressed = true, ScrollBarsEnabled = false, WebBrowserShortcutsEnabled = false };
         wb.ObjectForScripting = new EmojiBridge { OnPick = e => { Used(e); EmojiSprites.Want(e); try { insert(e); } catch { } }, OnClear = () => ClearRecent() }; f.Controls.Add(wb); LastBrowser = wb;
         f.Show(owner); wb.DocumentText = BuildPage(); WarmColours();

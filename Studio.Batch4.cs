@@ -75,9 +75,19 @@ partial class StudioForm
 
     // ---------- questions (a test answers for itself) ----------
     Func<string, bool> askHook;
+    // a button that deletes something asks first (tracks do not: they have the REVERT bar)
+    bool Sure(string what) { return AskYes("Are you sure you want to " + what + "?", "Please confirm"); }
+    // every link out of the program asks first: "You are leaving this DAW and being redirected to YOUTUBE"
+    bool ConfirmLeave(string url)
+    {
+        string host = ""; try { host = new Uri(url).IdnHost; } catch { }
+        string sv = ProfileStore.ServiceOf(host); if (sv.Length == 0) sv = host.StartsWith("www.") ? host.Substring(4) : host; if (sv.Length == 0) sv = "another website";
+        return AskYes("You are leaving this DAW and being redirected to " + sv.ToUpper() + ".\n\n" + url + "\n\nPress YES to confirm and go there.", "Leaving Purphex Music");
+    }
     bool AskYes(string text, string title)
     {
         if (askHook != null) return askHook(text);
+        if (StudioEnv.UnderTest) return true;   // a test that did not set an answer is never stopped by a box
         return MessageBox.Show(this, text, title, MessageBoxButtons.YesNo, MessageBoxIcon.Question, MessageBoxDefaultButton.Button2) == DialogResult.Yes;
     }
 

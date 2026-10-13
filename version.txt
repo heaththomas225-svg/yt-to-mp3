@@ -1,4 +1,4 @@
-3.36.3
+3.36.4
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-purphexmusic.com box on the converter page, a BASS LAB button, back-to-start on Mastering, no duplicate ARTISTS button
-sha256=7c2d35e8992ef1c42e61af5b60d23892beec0b35b74e4c5308b3326603736b4e
+Your profile no longer resets, new links window, the colour mixer fades one colour, asks before leaving or deleting
+sha256=9d8e4dd9a1ff6376364ab61b824439845d8deacb4d5f9884608d04c98555423b

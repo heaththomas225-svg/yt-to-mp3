@@ -123,7 +123,23 @@ static class CM
             SetF("mixCatA", MixColours.IndexOf(combos[i][0])); SetF("mixCatB", MixColours.IndexOf(combos[i][1]));
             foreach (float sc in new[] { 1000f, 1700f, 2400f, 3100f }) { SetF("profScroll", sc); Shot(Path.Combine(outDir, "mixer2_" + i + "_" + (int)sc + ".png")); }
         }
+        // one colour on alone: the bar fades it to dark
+        SetF("mixCatA", MixColours.IndexOf("Chrome and mirror")); typeof(StudioForm).GetMethod("MixUseOnly", BF).Invoke(sf, new object[] { 0 }); SetF("mixTS", 0.45f); foreach (float sc in new[] { 1000f, 1700f, 2400f }) { SetF("profScroll", sc); Shot(Path.Combine(outDir, "mixer-solo_" + (int)sc + ".png")); }
         sf.Close();
+        // ---- USE A ONLY / USE B ONLY are switches, and one colour on alone fades to dark along the bar ----
+        {
+            var mu = typeof(StudioForm).GetMethod("MixUseOnly", BF); var msp = typeof(StudioForm).GetMethod("MixSetPos", BF); var mnow = typeof(StudioForm).GetProperty("MixedNow", BF); typeof(StudioForm).GetMethod("MixEnsure", BF).Invoke(sf, null);
+            var ca = Color.FromArgb(255, 200, 100, 50); var cb = Color.FromArgb(255, 20, 100, 220); SetF("mixAOn", true); SetF("mixBOn", true); SetF("mixA", ca); SetF("mixB", cb); SetF("mixTS", 0f); SetF("mixT", 0.5f);
+            Func<Color> now = () => (Color)mnow.GetValue(sf, null); Func<bool> both = () => F<bool>("mixAOn") && F<bool>("mixBOn");
+            mu.Invoke(sf, new object[] { 0 }); Check("USE A ONLY turns colour A on alone", F<bool>("mixAOn") && !F<bool>("mixBOn"));
+            Check("all the way left the one colour is exactly as it is (100%)", now().ToArgb() == ca.ToArgb(), now().ToString());
+            msp.Invoke(sf, new object[] { 1f }); var dark = now(); Check("all the way right it has faded to a dark of the same colour (the A to B mix is not touched)", dark.R < 40 && dark.G < 20 && dark.B < 10 && F<float>("mixT") == 0.5f && F<float>("mixTS") == 1f, dark.ToString());
+            msp.Invoke(sf, new object[] { 0.5f }); var mid = now(); Check("in between it fades gradually", mid.R < 200 && mid.R > dark.R && mid.G < 100 && mid.G > dark.G, mid.ToString());
+            mu.Invoke(sf, new object[] { 0 }); Check("pressing USE A ONLY again turns both colours back on", both());
+            mu.Invoke(sf, new object[] { 1 }); Check("USE B ONLY turns colour B on alone", !F<bool>("mixAOn") && F<bool>("mixBOn")); msp.Invoke(sf, new object[] { 0f }); Check("and at the left it is colour B as it is", now().ToArgb() == cb.ToArgb(), now().ToString());
+            mu.Invoke(sf, new object[] { 1 }); Check("pressing USE B ONLY again turns both back on, and the A to B mix is where it was", both() && Math.Abs(F<float>("mixT") - 0.5f) < 0.001f);
+            SetF("mixTS", 0f);
+        }
         Console.WriteLine(fails == 0 ? "=== colour mixer checks passed ===" : "=== " + fails + " FAILED ==="); Environment.Exit(fails == 0 ? 0 : 1);
     }
 }

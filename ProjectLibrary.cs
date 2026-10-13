@@ -28,11 +28,13 @@ static class ProjectLibrary
     static string ProfileFile { get { return Path.Combine(StudioEnv.DataDir, "profile.txt"); } }
     public static string DefaultFolder { get { return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyMusic), "yt2mp3"); } }
 
+    static bool loadedOnce;   // Save() reads the files first when nothing has yet, so the project list, your name and your picture are never overwritten with empty ones
+    public static void LoadOnce() { if (!loadedOnce) Load(); }
     public static void Load()
     {
         lock (lk)
         {
-            Entries.Clear();
+            loadedOnce = true; Entries.Clear();
             try
             {
                 if (File.Exists(ListFile))
@@ -52,6 +54,7 @@ static class ProjectLibrary
         lock (lk)
             try
             {
+                if (!loadedOnce && Entries.Count == 0) Load();   // nothing has been read yet and nothing is in memory: read what is saved first
                 Directory.CreateDirectory(StudioEnv.DataDir); var sb = new StringBuilder();
                 foreach (var e in Entries) sb.Append("P|").Append(e.Path.Replace("|", "/")).Append('|').Append(e.Name.Replace("|", "/")).Append('|').Append(e.Updated.Ticks).Append('|').Append(e.Opened.Ticks).Append('|').Append(e.Tracks).Append('|').Append(e.Bpm.ToString("0.##", CI)).Append('|').Append(e.Seconds.ToString("0.#", CI)).Append('|').Append(e.Cover).Append('|').Append((e.Desc ?? "").Replace("|", "/").Replace("\n", " ").Replace("\r", "")).Append('|').Append((e.Tags ?? "").Replace("|", "/")).Append('|').Append(e.Custom ? 1 : 0).Append('|').Append(e.Fav ? 1 : 0).Append('|').Append(e.Finished ? 1 : 0).Append('|').Append(e.Kind ?? "").Append('|').Append(e.OnProfile ? 1 : 0).Append('|').Append((e.Video ?? "").Replace("|", "")).Append('\n');
                 Win.WriteAtomic(ListFile, sb.ToString(), Encoding.UTF8);

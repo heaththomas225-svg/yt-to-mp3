@@ -5,5 +5,5 @@ using System.Reflection;
 [assembly: AssemblyCompany("Purphex")]
 [assembly: AssemblyProduct("Purphex")]
 [assembly: AssemblyCopyright("Copyright (c) Purphex")]
-[assembly: AssemblyVersion("3.36.3.0")]
-[assembly: AssemblyFileVersion("3.36.3.0")]
+[assembly: AssemblyVersion("3.36.4.0")]
+[assembly: AssemblyFileVersion("3.36.4.0")]

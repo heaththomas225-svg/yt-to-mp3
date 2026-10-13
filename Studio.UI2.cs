@@ -453,27 +453,43 @@ static class StudioDialogs
         ok.Click += (s, e) => { if (tb.Text.Trim().Length >= 2) { result = tb.Text.Trim(); f.Close(); } }; cancel.Click += (s, e) => f.Close(); f.AcceptButton = ok; f.CancelButton = cancel; f.Controls.AddRange(new Control[] { ok, cancel }); f.ShowDialog(owner); return result;
     }
 
-    // links: one on every line as a TITLE, a bar and the web address (Spotify | https://open.spotify.com/artist/...); every link needs a title, and the window does not save until each line is right
+    // links: a box for the TITLE and a box for the ADDRESS on every row (up to 10). Only streaming services and social media are allowed; a row is ready when it has both, and the window does not save until every row is right.
+    // returns "Title | https://address" lines (what the profile keeps), or null when cancelled
     public static string Links(IWin32Window owner, string current)
     {
-        string result = null; var f = Make("Your links", 640, 400);
-        f.Controls.Add(new Label { Text = "One link on every line, written as a TITLE, then a bar, then the address (up to 10):   My Spotify | https://open.spotify.com/artist/...   Only streaming services and social media are allowed (YouTube, SoundCloud, Spotify, Apple Music, Bandcamp, Instagram, TikTok, X, Facebook...). Every link needs a title, so people know what they are clicking.", Left = 16, Top = 12, Width = 608, Height = 66, ForeColor = TM.C(255, 200, 170, 255) });
-        var tb = new TextBox { Left = 16, Top = 84, Width = 608, Height = 200, Multiline = true, Text = current, BackColor = Fld, ForeColor = Ink, BorderStyle = BorderStyle.FixedSingle, Font = new Font("Segoe UI", 10.5f), AcceptsReturn = true }; Win.NeonBox(tb); NeonScroll.Attach(tb); f.Controls.Add(tb);
-        var info = new Label { Left = 16, Top = 290, Width = 608, Height = 40, ForeColor = TM.C(255, 160, 140, 200) }; f.Controls.Add(info); bool allGood = true;
+        string result = null; var f = Make("Your links", 680, 612);
+        f.Controls.Add(new Label { Text = "Add up to 10 links: give each a TITLE and paste its ADDRESS. Only streaming services and social media work (YouTube, TikTok, Instagram, Snapchat, Spotify, Apple Music, SoundCloud, Bandcamp, X, Facebook, Twitch...). Any other website is refused.", Left = 16, Top = 12, Width = 648, Height = 62, ForeColor = TM.C(255, 255, 200, 170), Font = new Font("Segoe UI Semibold", 9.5f) });
+        f.Controls.Add(new Label { Text = "TITLE  (what people read)", Left = 16, Top = 80, Width = 200, Height = 18, ForeColor = TM.C(255, 200, 170, 255), Font = new Font("Segoe UI Semibold", 9f) });
+        f.Controls.Add(new Label { Text = "ADDRESS  (paste the link)", Left = 226, Top = 80, Width = 330, Height = 18, ForeColor = TM.C(255, 200, 170, 255), Font = new Font("Segoe UI Semibold", 9f) });
+        const int N = 10; var tt = new TextBox[N]; var uu = new TextBox[N]; var st = new Label[N];
+        for (int i = 0; i < N; i++)
+        {
+            int top = 102 + i * 39;
+            tt[i] = new TextBox { Left = 16, Top = top, Width = 200, MaxLength = 30, BackColor = Fld, ForeColor = Ink, BorderStyle = BorderStyle.FixedSingle, Font = new Font("Segoe UI", 10.5f) }; Win.NeonBox(tt[i]); f.Controls.Add(tt[i]);
+            uu[i] = new TextBox { Left = 226, Top = top, Width = 330, MaxLength = 300, BackColor = Fld, ForeColor = Ink, BorderStyle = BorderStyle.FixedSingle, Font = new Font("Segoe UI", 10.5f) }; Win.NeonBox(uu[i]); f.Controls.Add(uu[i]);
+            st[i] = new Label { Left = 566, Top = top + 3, Width = 98, Height = 22, ForeColor = TM.C(255, 160, 140, 190), Font = new Font("Segoe UI Semibold", 8.5f), AutoEllipsis = true }; f.Controls.Add(st[i]);
+        }
+        { int k = 0; foreach (var raw in (current ?? "").Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries)) { if (k >= N) break; string ti, ur; if (ProfileStore.ParseLinkLine(raw, out ti, out ur)) { tt[k].Text = ti; uu[k].Text = ur; k++; } else if (raw.Trim().Length > 0) { int bar = raw.IndexOf('|'); tt[k].Text = bar > 0 ? ProfileStore.CleanTitle(raw.Substring(0, bar)) : ""; uu[k].Text = (bar >= 0 ? raw.Substring(bar + 1) : raw).Trim(); k++; } } }
+        var info = new Label { Left = 16, Top = 102 + N * 39 + 4, Width = 648, Height = 40, ForeColor = TM.C(255, 160, 140, 200) }; f.Controls.Add(info); bool allGood = true; var lines = new List<string>();
         Action check = () =>
         {
-            int ok = 0, noTitle = 0, notAllowed = 0; var seen = new List<string>();
-            foreach (var raw in tb.Text.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries))
+            int ok = 0, bad = 0; lines.Clear(); var seen = new HashSet<string>();
+            for (int i = 0; i < N; i++)
             {
-                if (raw.Trim().Length == 0) continue; string ti, ur; if (ProfileStore.ParseLinkLine(raw, out ti, out ur)) ok++;
-                else { int bar = raw.IndexOf('|'); if (bar < 0 || ProfileStore.CleanTitle(raw.Substring(0, bar)).Length == 0) { if (ProfileStore.CleanLink(bar < 0 ? raw : raw.Substring(bar + 1)).Length > 0 || bar >= 0) noTitle++; else notAllowed++; } else notAllowed++; }
+                string t = ProfileStore.CleanTitle(tt[i].Text), raw = uu[i].Text.Trim(); if (t.Length == 0 && raw.Length == 0) { st[i].Text = ""; continue; }
+                string cu = raw.Length == 0 ? "" : ProfileStore.CleanLink(raw);
+                if (raw.Length == 0) { st[i].Text = "address needed"; st[i].ForeColor = TM.C(255, 255, 150, 150); bad++; }
+                else if (cu.Length == 0) { st[i].Text = "not allowed"; st[i].ForeColor = TM.C(255, 255, 150, 150); bad++; }
+                else if (t.Length == 0) { st[i].Text = "title needed"; st[i].ForeColor = TM.C(255, 255, 150, 150); bad++; }
+                else if (!seen.Add(cu)) { st[i].Text = "same link twice"; st[i].ForeColor = TM.C(255, 255, 150, 150); bad++; }
+                else { string host = ""; try { host = new Uri(cu).IdnHost; } catch { } string sv = ProfileStore.ServiceOf(host); st[i].Text = "OK  " + sv; st[i].ForeColor = TM.C(255, 150, 240, 180); ok++; lines.Add(t + " | " + cu); }
             }
-            allGood = noTitle == 0 && notAllowed == 0; info.ForeColor = allGood ? TM.C(255, 160, 220, 190) : TM.C(255, 255, 150, 150);
-            info.Text = ok + " ready" + (noTitle > 0 ? ",  " + noTitle + " with no title (write the title, a bar, then the address)" : "") + (notAllowed > 0 ? ",  " + notAllowed + " not allowed (only streaming and social links)" : "") + (ok > 10 ? "  (only the first 10 are kept)" : "");
+            allGood = bad == 0; info.ForeColor = allGood ? TM.C(255, 160, 220, 190) : TM.C(255, 255, 150, 150);
+            info.Text = allGood ? (ok == 0 ? "No links yet: type a title and paste an address." : ok + " link" + (ok == 1 ? "" : "s") + " ready: press SAVE LINKS.") : bad + " row" + (bad == 1 ? "" : "s") + " to fix: every link needs a title and an address from a streaming service or social media.";
         };
-        tb.TextChanged += (s, e) => check(); check();
-        var ok2 = B("SAVE LINKS", 440, 346, 120, 36, TM.C(255, 118, 52, 212)); var cancel = B("Cancel", 570, 346, 54, 36, TM.C(255, 70, 40, 120));
-        ok2.Click += (s, e) => { check(); if (!allGood) return; result = tb.Text; f.Close(); }; cancel.Click += (s, e) => f.Close(); f.CancelButton = cancel; f.Controls.AddRange(new Control[] { ok2, cancel }); f.ShowDialog(owner); return result;
+        foreach (var b in tt) b.TextChanged += (s, e) => check(); foreach (var b in uu) b.TextChanged += (s, e) => check(); check();
+        var ok2 = B("SAVE LINKS", 440, 102 + N * 39 + 50, 120, 36, TM.C(255, 118, 52, 212)); var cancel = B("Cancel", 570, 102 + N * 39 + 50, 94, 36, TM.C(255, 70, 40, 120));
+        ok2.Click += (s, e) => { check(); if (!allGood) return; result = string.Join("\r\n", lines.ToArray()); f.Close(); }; cancel.Click += (s, e) => f.Close(); f.CancelButton = cancel; f.Controls.AddRange(new Control[] { ok2, cancel }); f.ShowDialog(owner); return result;
     }
 
     public static void Report(IWin32Window owner, string title, List<string> lines, Action undo)
