@@ -252,14 +252,14 @@ static class K
             var keep = mk("Keeper", Const(4, 0.3f), true); var moved = mk("Moved away", Const(4, 0.3f), true); var fresh = mk("Fresh empty", null, true); var armed = mk("Armed", null, true); armed.Armed = true; var byp = mk("Bypassed", Const(4, 0.3f), true); var plain = mk("No plugins", Const(4, 0.3f), false);
             SetF("selTrack", 0); Paint(); Pump(700); Paint();   // each one is seen holding audio
             moved.Clip = null; byp.Clip = null; byp.Fx[0].Bypass = true; plain.Clip = null; int nTidy = eng.Tracks.Count; Pump(700); Paint(); Pump(700); Paint();
-            Check("a track that is emptied while plugins are on is removed", !eng.Tracks.Contains(moved), eng.Tracks.Count + " tracks left");
+            Check("a track that is emptied (even with plugins on) is never deleted by itself", eng.Tracks.Contains(moved) && eng.Tracks.Count == nTidy, eng.Tracks.Count + " tracks left");
             Check("a track with audio is kept", eng.Tracks.Contains(keep), "");
             Check("a track that never held audio is kept (even with plugins)", eng.Tracks.Contains(fresh), "");
             Check("an armed track waiting for a recording is kept", eng.Tracks.Contains(armed), "");
             Check("an emptied track whose plugins are all bypassed is kept", eng.Tracks.Contains(byp), "");
             Check("an emptied track with no plugins is kept", eng.Tracks.Contains(plain), "");
-            typeof(StudioForm).GetMethod("DoUndo", BF).Invoke(sf, null); Paint(); Pump(700); Paint(); Pump(700); Paint();
-            Check("Ctrl+Z brings the removed track back and it stays", eng.Tracks.Contains(moved) && eng.Tracks.Count == nTidy, eng.Tracks.Count + " tracks");
+            Paint(); Pump(700); Paint();
+            Check("and it is still there a moment later", eng.Tracks.Contains(moved) && eng.Tracks.Count == nTidy, eng.Tracks.Count + " tracks");
             var lay = mk("Has a piece", Const(4, 0.3f), true); var piece = StudioEngine.NewTrack("piece", "vocal", Const(2, 0.3f)); piece.Host = lay; lock (eng.Sync) eng.Tracks.Insert(eng.Tracks.Count, piece); Paint(); Pump(700); Paint(); lay.Clip = null; Pump(700); Paint(); Pump(700); Paint();
             Check("a row that still has a piece on it is kept", eng.Tracks.Contains(lay), "");
         }

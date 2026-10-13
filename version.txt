@@ -1,4 +1,4 @@
-3.37.0
+3.37.1
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Effects always belong to the track, ALL PLUGINS, copy presets, auto key, reply to messages
-sha256=dac525cf42e9b8f7444b97ff2c9e6dd16e3ff8e0de764f309b8c30a8fdd13284
+Move clips freely, duplicate a piece, empty tracks stay
+sha256=f566182d6089871a4ada4217daf48ae73d2d3541cbd90b7d8478e3ee68f3e0b2

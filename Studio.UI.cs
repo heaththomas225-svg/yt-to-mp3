@@ -620,7 +620,7 @@ partial class StudioForm : Form
         float avail = rightStart - 70 - 10, leftTotal = 156 + 232 + 126 + 140 + 84 + 36 + 124; float f = Math.Max(0.5f, Math.Min(1f, avail / leftTotal));
         float x = 70; float fp = Math.Max(11, 15 * f);
         Btn(g, Rc(12, y, 48, h), "≡", 0, () => { if (menuOpen) CloseMenu(); else OpenMenu(); }, 24);
-        Btn(g, Rc(x, y, 156 * f, h), "ADD MUSIC", 2, () => AddMusicClick(), Math.Max(13, 16 * f)); x += 164 * f;
+        { var amR = Rc(x, y, 156 * f, h); Btn(g, amR, "ADD MUSIC", 2, () => AddMusicMenu(amR), Math.Max(13, 16 * f)); } x += 164 * f;
         Btn(g, Rc(x, y, 232 * f, h), "SPLIT VOCALS + BEAT", 1, () => SeparateClick(), Math.Max(12, 14 * f)); x += 240 * f;
         Btn(g, Rc(x, y, 126 * f, h), "AUTO MIX", 2, () => AutoMixClick(), Math.Max(13, 16 * f)); x += 132 * f;
         Btn(g, Rc(x, y + 4, 140 * f, h - 8), "Detect Track key", 0, () => DetectTrackKey(), Math.Max(11, 12 * f)); x += 148 * f;
@@ -732,7 +732,7 @@ partial class StudioForm : Form
             foreach (var lay in eng.Tracks) if (lay.Host == tr) { if (lay.Instrument) PaintMidi(g, lay, lane); else if (lay.Clip != null) PaintWave(g, lay, lane, sel); }   // tracks sharing this row
             Prof.A("mix.wave", q0);
             var lr = LaneReg(lane, tr); int idx = i;
-            { RectangleF er; if (tr.Clip == null && !tr.Instrument && !tr.IsBus && emptyLanes.TryGetValue(tr, out er)) { var tk = tr; Reg(er, () => { selTrack = idx; fillTrack = tk; try { AddMusicClick(true); } finally { fillTrack = null; } }); } }   // the box of an empty track: click it to pick music for THIS track
+            /* an empty track is just an empty lane: no box to click (drag audio onto it, drop files, record with MIC, or right-click it for Add music) */   // the box of an empty track: click it to pick music for THIS track
             q0 = Prof.T(); PaintHeader(g, tr, i, Rc(0, ys, HeadW, LaneH), sel); Prof.A("mix.header", q0);
             q0 = Prof.T(); NeonLaneChrome(g, tr, Rc(0, ys, HeadW, LaneH), lane, sel); Prof.A("mix.neonchrome", q0);
             if (sel && n > 1) { float rEnd = tl.Right - 6; if (!tr.Instrument && !tr.IsBus) { float mx = -1e9f, v; if (tr.Clip != null && clipRightX.TryGetValue(tr, out v)) mx = v; foreach (var lay2 in eng.Tracks) if (lay2.Host == tr && lay2.Clip != null && clipRightX.TryGetValue(lay2, out v)) mx = Math.Max(mx, v); if (mx > -1e8f) rEnd = mx <= HeadW + 2 ? HeadW : Math.Min(tl.Right - 6, mx + 3); } PaintPickedRow(g, tr, Rc(1, ys + 1, rEnd - 1, LaneH - 2)); }   /* audio that ends before the part you see: the outline goes round the track box on the left only (no stub into the timeline) */   /* the outline ends where the audio of the row ends: also a row made only of pieces (SPLIT, paste), and never past the timeline into the plugin panel */   // the outline ends where the audio ends
@@ -975,11 +975,11 @@ partial class StudioForm : Form
         using (var pen = new Pen(Color.FromArgb(drop ? 255 : 140, drop ? NeonCyan : (tr.Armed ? Color.FromArgb(255, 120, 140) : NeonViolet)), 1.6f) { DashStyle = DashStyle.Dash }) { var inner = RectangleF.Inflate(r0, -5, -4); using (var p = RR(inner, 9)) g.DrawPath(pen, p); }
         float tw = r0.Width - 40; bool tall = r0.Height >= 84, mid = r0.Height >= 54;
         Action<string, float, Color, float, bool> line = (t, sz0, col, yy, bold) => { float sz = sz0; while (sz > 9f && g.MeasureString(t, GfxCache.Font(sz, bold)).Width > tw) sz -= 0.5f; if (g.MeasureString(t, GfxCache.Font(sz, bold)).Width > tw) { int cut = Math.Min(t.Length, Math.Max(8, (int)(t.Length * tw / Math.Max(1f, g.MeasureString(t, GfxCache.Font(sz, bold)).Width)) - 3)); t = t.Substring(0, cut).TrimEnd() + "..."; } Txt(g, t, sz, col, Rc(r0.X + 20, yy, tw, sz * 1.7f), StringAlignment.Center, bold); };
-        string t2 = tr.Armed ? "Ready to record: press MIC. Or click this box to pick songs, or drop them here." : "Click this box to pick songs from your computer, or drag and drop them onto it.";
-        if (tall) { line(drop ? "Drop your music here" : "Add your music to start", 18, Ink, r0.Y + r0.Height * 0.14f, true); line(t2, 12, drop ? Ink : DimC, r0.Y + r0.Height * 0.46f, false); line("MP3, WAV, FLAC, M4A, OGG and more.", 10, DimC, r0.Y + r0.Height * 0.72f, false); }
-        else if (mid) { line(drop ? "Drop your music here" : "Add your music to start", 14, Ink, r0.Y + r0.Height * 0.14f, true); line(t2, 10.5f, drop ? Ink : DimC, r0.Y + r0.Height * 0.55f, false); }
-        else line(drop ? "Drop your music here" : "Add your music to start: click here or drop files", 12, Ink, r0.Y + (r0.Height - 20) / 2f, true);
-        if (over) { bubble = "Click to choose music for this track"; bubblePt = MousePos; }
+        string t2 = tr.Armed ? "Ready to record: press MIC. Or drag audio or drop files onto it." : "Drag a clip onto it, drop files on it, record with MIC, or right-click it to add music.";
+        if (tall) { line(drop ? "Drop your music here" : "EMPTY TRACK", 18, Ink, r0.Y + r0.Height * 0.14f, true); line(t2, 12, drop ? Ink : DimC, r0.Y + r0.Height * 0.46f, false); line("MP3, WAV, FLAC, M4A, OGG and more.", 10, DimC, r0.Y + r0.Height * 0.72f, false); }
+        else if (mid) { line(drop ? "Drop your music here" : "EMPTY TRACK", 14, Ink, r0.Y + r0.Height * 0.14f, true); line(t2, 10.5f, drop ? Ink : DimC, r0.Y + r0.Height * 0.55f, false); }
+        else line(drop ? "Drop your music here" : "EMPTY TRACK: drag or drop audio here, or right-click it", 12, Ink, r0.Y + (r0.Height - 20) / 2f, true);
+        if (over) { bubble = "An empty track: drag audio onto it, or right-click it to add music"; bubblePt = MousePos; }
     }
     // the empty track under a point (a drop of files lands on it), null when there is none
     Track EmptyTrackAt(Point p) { foreach (var kv in emptyLanes) { int at; if (kv.Key.Clip == null && eng.Tracks.Contains(kv.Key) && emptyLaneAt.TryGetValue(kv.Key, out at) && unchecked(Environment.TickCount - at) < 400 && kv.Value.Contains(p.X, p.Y)) return kv.Key; } return null; }

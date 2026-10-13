@@ -38,6 +38,11 @@ partial class StudioForm
     {
         if (!ghostOn || ghostTrack == null) return; var tr = ghostTrack; int from = eng.Tracks.IndexOf(tr.Host ?? tr); if (from < 0) { GhostEnd(); return; }
         bool header = ghostKind == 1; float h = header ? LaneH : LaneH - 14, laneTop = ToolH + TransH + RulerH, areaBottom = ClientSize.Height - 24;
+        if (!header && Math.Abs(MousePos.Y - laneStart.Y) < LaneH * 0.5f)
+        {   // sliding along its own track: only the clip itself moves (no see-through copy on top of it), with a thin line where it starts and the exact time
+            float sx = HeadW + (float)((tr.Offset - scroll) / spp); if (sx >= HeadW && sx <= tl.Right) { var gs0 = g.Save(); g.SetClip(Rc(HeadW, laneTop, tl.Width, areaBottom - laneTop), CombineMode.Intersect); GlowLine(g, NeonCyan, sx, laneTop, sx, areaBottom, 1f); g.Restore(gs0); Txt(g, TimeText(tr.Offset), 10, NeonCyan, Rc(Math.Min(tl.Right - 90, sx + 6), laneTop - RulerH + 1, 84, 14), StringAlignment.Near, true); }
+            return;
+        }
         float want = MousePos.Y - ghostGrab + (header ? 0 : 7); want = Math.Max(laneTop - 4, Math.Min(areaBottom - h, want));
         if (!ghostInit) { ghostY = want; ghostInit = true; } else ghostY += (want - ghostY) * 0.38f;   // eases toward the mouse: a little glide instead of a snap
         double pulse = 0.5 + 0.5 * Math.Sin(ghostSw.Elapsed.TotalSeconds * 7); Color c = Neon(tr.Color); int a = 70 + (int)(26 * pulse);
@@ -74,7 +79,7 @@ partial class StudioForm
             g.ResetClip(); g.SetClip(Rc(0, laneTop, ClientSize.Width, areaBottom - laneTop), CombineMode.Intersect);
             using (var pen = new Pen(Color.FromArgb(235, NeonCyan), 1.8f)) g.DrawPath(pen, p);
         }
-        if (!header) { float gx = r.X; GlowLine(g, NeonCyan, gx, laneTop, gx, areaBottom, 1f); Txt(g, "SNAPS TO THE " + GridNames[gridIdx].ToLowerInvariant() + " grid", 10, NeonCyan, Rc(Math.Min(ClientSize.Width - 200, gx + 6), laneTop + 2, 190, 14), StringAlignment.Near, true); }   // the snap guide: where the clip starts
+        if (!header) { float gx = r.X; GlowLine(g, NeonCyan, gx, laneTop, gx, areaBottom, 1f); Txt(g, TimeText(tr.Offset), 10, NeonCyan, Rc(Math.Min(ClientSize.Width - 200, gx + 6), laneTop + 2, 190, 14), StringAlignment.Near, true); }   // the guide: where the clip starts, and its exact time
         if (header) Txt(g, tr.Name, 15, Color.FromArgb(235, 255, 255, 255), Rc(r.X + 30, r.Y + 8, 220, 22), StringAlignment.Near, true);
         else Txt(g, tr.Name, 13, Color.FromArgb(235, 255, 255, 255), Rc(r.X + 10, r.Y + 6, Math.Max(40, r.Width - 20), 20), StringAlignment.Near, true);
         g.Restore(gst);

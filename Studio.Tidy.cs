@@ -14,6 +14,8 @@ partial class StudioForm
         if (unchecked(Environment.TickCount - tidyTick) < 500) return; tidyTick = Environment.TickCount;
         var all = eng.Tracks.ToArray();
         foreach (var t in all) if (t.Clip != null && !t.Instrument && !t.IsBus) t.EverHadClip = true;
+        return;   // a track you made is never deleted by itself any more (an empty track stays where it is, so you can organise your tracks); only X or DELETE removes one
+#pragma warning disable 0162
         if (busy || dragReg != null || ghostOn || mic != null || micArmed || flexOpen || marqueeOn || undoHold > 0) return;
         Track dead = null;
         foreach (var t in all)
@@ -27,5 +29,6 @@ partial class StudioForm
         string name = dead.Name; int n = dead.Fx.Count; DeleteTrackQuiet(dead);
         if (selTrack >= LaneCount) selTrack = Math.Max(0, LaneCount - 1);
         Toast("Removed the empty track " + name + ": nothing was on it any more except " + n + (n == 1 ? " plugin" : " plugins") + ". Ctrl+Z brings it back.");
+#pragma warning restore 0162
     }
 }

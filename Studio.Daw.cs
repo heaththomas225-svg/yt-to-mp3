@@ -141,6 +141,14 @@ partial class StudioForm
         right.Host = host; right.Out = host.Out; lock (eng.Sync) eng.Tracks.Insert(FirstBusIndex(), right);   // the new piece stays on the same row: no new track is made
         selTrack = Math.Max(0, eng.Tracks.IndexOf(host)); toolsTrack = right; Toast("Split in two on the same track. Split as often as you like. Drag a piece to move it, drag its ends to trim.");
     }
+    // DUPLICATE on a piece: a copy of exactly that piece (not the whole track) on a new track right under its track, at the same time, with that track's plugins and settings
+    internal void DuplicatePiece(Track piece)
+    {
+        if (piece == null || piece.Clip == null) return; var host = piece.Host ?? piece; PushUndo();
+        var n = CloneTrack(host, ""); n.Name = piece.Name + " copy"; n.Clip = piece.Clip; n.Source = piece.Source; n.Offset = piece.Offset; n.ClipStart = piece.ClipStart; n.ClipFrames = piece.ClipFrames; n.ClipGainDb = piece.ClipGainDb; n.FadeIn = piece.FadeIn; n.FadeOut = piece.FadeOut; n.FadeInDelay = piece.FadeInDelay; n.FadeOutTail = piece.FadeOutTail; n.Host = null; n.Locked = false;
+        lock (eng.Sync) { int i = eng.Tracks.IndexOf(host); eng.Tracks.Insert(i < 0 ? LaneCount : i + 1, n); }
+        selTrack = Math.Max(0, eng.Tracks.IndexOf(n)); selFx = -1; toolsTrack = n; Toast("Duplicated that piece onto a new track under " + host.Name + ".");
+    }
     void DuplicateTrack(Track t)
     {
         if (t == null) return; PushUndo(); var n = CloneTrack(t, " copy"); InsertAfter(t, n); Toast("Duplicated");
@@ -231,16 +239,16 @@ partial class StudioForm
             return;
         }
         long delta = (long)((pt.X - laneStart.X) * spp);
-        if (laneMode == 1) { if (!laneMoved) { if (Math.Abs(pt.X - laneStart.X) < 4 && Math.Abs(pt.Y - laneStart.Y) < 4) return; PushUndo(); laneMoved = true; } bool grp = InGroup(tr); if (!grp) GhostStart(tr, 0); tr.Offset = Math.Max(0, Snap(l0Offset + delta)); if (grp) { long nd = tr.Offset - l0Offset; foreach (var o in multiSel) { long b0; if (o != tr && !IsLocked(o) && groupOrig.TryGetValue(o, out b0)) o.Offset = Math.Max(0, b0 + nd); } } return; }
+        if (laneMode == 1) { if (!laneMoved) { if (Math.Abs(pt.X - laneStart.X) < 2 && Math.Abs(pt.Y - laneStart.Y) < 2) return; PushUndo(); laneMoved = true; } bool grp = InGroup(tr); if (!grp) GhostStart(tr, 0); tr.Offset = Math.Max(0, l0Offset + delta);   /* free: the clip goes exactly as far as you drag (no jumping to grid lines) */ if (grp) { long nd = tr.Offset - l0Offset; foreach (var o in multiSel) { long b0; if (o != tr && !IsLocked(o) && groupOrig.TryGetValue(o, out b0)) o.Offset = Math.Max(0, b0 + nd); } } return; }
         long avail = Math.Max(0, tr.Clip.Length - l0ClipStart);
         if (laneMode == 2)
         {
-            long newStart = Snap(l0Offset + delta); long d = newStart - l0Offset; d = Math.Max(-l0ClipStart, Math.Min(l0Used - 1000, d)); if (l0Offset + d < 0) d = -l0Offset;
+            long newStart = l0Offset + delta; long d = newStart - l0Offset;   /* trimming is free too */ d = Math.Max(-l0ClipStart, Math.Min(l0Used - 1000, d)); if (l0Offset + d < 0) d = -l0Offset;
             lock (eng.Sync) { tr.Offset = l0Offset + d; tr.ClipStart = l0ClipStart + d; tr.ClipFrames = l0ClipFrames < 0 ? -1 : l0Used - d; } ClampFades(tr);
         }
         else
         {
-            long end = Snap(l0Offset + l0Used + delta); long used = Math.Max(1000, Math.Min(avail, end - l0Offset)); tr.ClipFrames = used >= avail ? (l0ClipFrames < 0 ? -1 : used) : used; ClampFades(tr);
+            long end = l0Offset + l0Used + delta; long used = Math.Max(1000, Math.Min(avail, end - l0Offset)); tr.ClipFrames = used >= avail ? (l0ClipFrames < 0 ? -1 : used) : used; ClampFades(tr);
         }
     }
     void LaneMenu(Track tr)
@@ -248,6 +256,7 @@ partial class StudioForm
         selTrack = Math.Max(0, eng.Tracks.IndexOf(tr.Host ?? tr)); var m = Win.NewMenu(); long at = SplitPoint(Math.Max(0, scroll + (long)((MousePos.X - HeadW) * spp)));
         if (tr.Instrument) { m.Items.Add("Edit notes (piano roll)...").Click += (a, b) => OpenRoll(tr); m.Items.Add(new ToolStripSeparator()); }
         var piece = PickLayer(tr, MousePos);
+        if (tr.Clip == null && !tr.Instrument && !tr.IsBus) { var tk = tr; m.Items.Add("Add music to this track...").Click += (a, b) => { selTrack = Math.Max(0, eng.Tracks.IndexOf(tk)); fillTrack = tk; try { AddMusicClick(true); } finally { fillTrack = null; } }; m.Items.Add(new ToolStripSeparator()); }
         m.Items.Add("Split here (at the needle)").Click += (a, b) => SplitSelected();
         m.Items.Add("Split where I clicked").Click += (a, b) => SplitTrack(piece, at);
         m.Items.Add("Cut this piece out (delete it, nothing else moves)").Click += (a, b) => { toolsTrack = piece; CutClick(); };
@@ -258,7 +267,8 @@ partial class StudioForm
         m.Items.Add(new ToolStripSeparator());
         m.Items.Add("Copy this piece").Click += (a, b) => CopyClip(piece);
         { var pasteIt = m.Items.Add("Paste here"); pasteIt.Enabled = clipCopy != null; pasteIt.Click += (a, b) => PasteClip(tr, at); }
-        m.Items.Add("Duplicate track").Click += (a, b) => DuplicateTrack(tr);
+        if (piece != null && piece.Clip != null && !piece.Instrument) m.Items.Add("Duplicate this piece (onto a new track under this one)").Click += (a, b) => DuplicatePiece(piece);
+        m.Items.Add("Duplicate the whole track").Click += (a, b) => DuplicateTrack(tr);
         m.Items.Add("Rename...  (F2)").Click += (a, b) => RenameTrack(tr);
         m.Items.Add("Delete this piece").Click += (a, b) => DeleteClip(piece);
         m.Show(this, new Point((int)MousePos.X, (int)MousePos.Y));
@@ -287,6 +297,20 @@ partial class StudioForm
         if (gw > 0 && !lockedClip && (leftEdge || zone == 2)) { var r = Rc(cr.X + 1, gy, gw, gh); FillRR(g, Color.FromArgb(zone == 2 ? 250 : 175, zone == 2 ? Color.White : c), r, 4); Txt(g, "<", 11, TM.C(255, 10, 4, 20), r, StringAlignment.Center, true); }
         if (gw > 0 && !lockedClip && (rightEdge || zone == 3)) { var r = Rc(cr.Right - 1 - gw, gy, gw, gh); FillRR(g, Color.FromArgb(zone == 3 ? 250 : 175, zone == 3 ? Color.White : c), r, 4); Txt(g, ">", 11, TM.C(255, 10, 4, 20), r, StringAlignment.Center, true); }
         if (zone >= 0 && zone < ZoneText.Length) { bubble = ZoneText[zone] + (zone == 4 ? "  (" + (tr.FadeIn / (double)StudioEngine.SR).ToString("0.0") + " s, double-click removes it)" : (zone == 5 ? "  (" + (tr.FadeOut / (double)StudioEngine.SR).ToString("0.0") + " s, double-click removes it)" : (zone == 6 ? "  (" + (tr.FadeInDelay / (double)StudioEngine.SR).ToString("0.0") + " s of silence first, double-click resets)" : (zone == 7 ? "  (" + (tr.FadeOutTail / (double)StudioEngine.SR).ToString("0.0") + " s of silence at the end, double-click resets)" : "")))); bubblePt = MousePos; }
+    }
+    // ADD MUSIC asks first: music from your files, or an empty track (an empty vocal track or an empty audio track)
+    internal void AddMusicMenu(RectangleF at)
+    {
+        var m = Win.NewMenu();
+        m.Items.Add("Pick music from your computer...").Click += (a, b) => AddMusicClick();
+        m.Items.Add("Add an empty vocal track (no music)").Click += (a, b) => AddEmptyTrack("vocal");
+        m.Items.Add("Add an empty audio track (no music)").Click += (a, b) => AddEmptyTrack("audio");
+        m.Show(this, new Point((int)at.X, (int)at.Bottom + 2));
+    }
+    internal Track AddEmptyTrack(string role)
+    {
+        PushUndo(); var t = EmptyAudioTrack(); if (role == "vocal") { int k = 1; foreach (var x in eng.Tracks) if (x.Role == "vocal" && x.Host == null) k++; t.Name = "Vocal " + k; t.Role = "vocal"; }
+        lock (eng.Sync) eng.Tracks.Insert(LaneCount, t); selTrack = Math.Max(0, eng.Tracks.IndexOf(t)); selFx = -1; welcomeOn = false; Toast("Added " + t.Name + ": an empty track. Drag audio onto it, drop files on it, record with MIC, or right-click it to add music."); return t;
     }
     Track EmptyAudioTrack()
     {

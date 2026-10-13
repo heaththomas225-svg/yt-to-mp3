@@ -376,7 +376,7 @@ static class NF
             sf.openPickHook = () => null; ((Action)hit.GetType().GetField("OnDown").GetValue(hit))(); Pump(200); Check("cancelling OPEN A PROJECT FILE takes you back to the welcome box", F<bool>("welcomeOn") && sf.WelcomeShowing); sf.openPickHook = null; SetF("welcomeOn", false); }
           // the box of an empty track is clickable: it is the top-most thing under the mouse there (not hidden behind the lane)
           { sf.eng.Tracks.Clear(); sf.eng.Tracks.Add(StudioEngine.NewTrack("Empty one", "audio", null)); SetF("tab", 0); SetF("selTrack", 0); Pump(300); Shot(Path.Combine(outDir ?? Path.GetTempPath(), "empty-track-box.png")); var elD = (System.Collections.IDictionary)typeof(StudioForm).GetField("emptyLanes", BF).GetValue(sf); RectangleF eb = RectangleF.Empty; foreach (System.Collections.DictionaryEntry de in elD) eb = (RectangleF)de.Value; var rgl = (System.Collections.IList)typeof(StudioForm).GetField("regs", BF).GetValue(sf); object top = null; float cxm = eb.X + eb.Width / 2, cym = eb.Y + eb.Height / 2; foreach (var rg in rgl) { var rr = (RectangleF)rg.GetType().GetField("R").GetValue(rg); if (rr.Contains(cxm, cym) && rg.GetType().GetField("OnDown").GetValue(rg) != null) top = rg; }
-            Check("an empty track's add-music box is clickable (the top-most region under it is the box)", top != null && Math.Abs(((RectangleF)top.GetType().GetField("R").GetValue(top)).Width - eb.Width) < 0.6f && !eb.IsEmpty, eb + ""); sf.eng.Tracks.Clear(); }
+            Check("an empty track has no add-music box to click (pressing the lane does not open the file window)", top != null && Math.Abs(((RectangleF)top.GetType().GetField("R").GetValue(top)).Width - eb.Width) >= 0.6f && !eb.IsEmpty, eb + ""); sf.eng.Tracks.Clear(); }
           // LOCK keeps its tab open: several tracks can be locked one after another, and the locked ones show
           { sf.eng.Tracks.Clear(); for (int i = 0; i < 3; i++) { var cl = new float[44100]; sf.eng.Tracks.Add(StudioEngine.NewTrack("L" + i, "audio", AudioClip.FromArrays(cl, (float[])cl.Clone(), "l" + i))); } typeof(StudioForm).GetMethod("OpenTrackPicker", BF).Invoke(sf, new object[] { 0 }); var pk = typeof(StudioForm).GetMethod("PickTrack", BF); pk.Invoke(sf, new object[] { 0 }); pk.Invoke(sf, new object[] { 2 }); Pump(250); Check("LOCK keeps the tab open so several tracks can be locked in a row", F<bool>("tpOpen") && sf.eng.Tracks[0].Locked && !sf.eng.Tracks[1].Locked && sf.eng.Tracks[2].Locked); if (outDir != null) Shot(Path.Combine(outDir, "lock-picker.png")); pk.Invoke(sf, new object[] { 0 }); Check("pressing a locked track unlocks it (the tab stays open)", F<bool>("tpOpen") && !sf.eng.Tracks[0].Locked); SetF("tpOpen", false);
             { for (int i = 0; i < 3; i++) { sf.eng.Tracks[i].Locked = false; } sf.eng.Tracks[1].ClipGainDb = 2.5f; SetF("gainClip", sf.eng.Tracks[1]); SetF("gainOpen", true); Pump(300); if (outDir != null) Shot(Path.Combine(outDir, "gain-picker.png")); Check("the GAIN box lists the tracks like the track picker and the picked one is the one being set", F<bool>("gainOpen") && ReferenceEquals(F<object>("gainClip"), sf.eng.Tracks[1])); SetF("gainOpen", false); } sf.eng.Tracks.Clear(); }
@@ -674,6 +674,39 @@ static class NF
                 Check("holding the needle past the left edge scrolls the timeline back", sc1 < sc0, sc0 + " -> " + sc1);
                 Check("and the needle stays in view, at the left edge (not behind the track boxes)", pos >= sc1 && pos <= sc1 + (long)(60 * 300.0), pos + " vs view from " + sc1);
                 sf.eng.Tracks.Clear(); SetF("autoFit", true);
+            }
+            {   // moving a clip is free: it goes exactly as far as you drag, between the grid lines too (the grid is on)
+                sf.eng.Tracks.Clear(); var mv = StudioEngine.NewTrack("Move me", "vocal", AudioClip.FromArrays(new float[44100 * 4], new float[44100 * 4], "m")); mv.Offset = 44100 * 2; sf.eng.Tracks.Add(mv); sf.eng.Tracks.Add(StudioEngine.NewTrack("Other", "beat", AudioClip.FromArrays(new float[44100 * 20], new float[44100 * 20], "o")));
+                SetF("tab", 0); SetF("welcomeOn", false); SetF("autoFit", false); SetF("spp", 400.0); SetF("scroll", 0L); SetF("snapOn", true); SetF("selTrack", 0); sf.ClientSize = new Size(1500, 860); Application.DoEvents();
+                var pmM = typeof(StudioForm).GetMethod("PaintAll", BF); using (var bm = new Bitmap(1500, 860)) using (var gg = Graphics.FromImage(bm)) { var pe = new PaintEventArgs(gg, new Rectangle(Point.Empty, bm.Size)); pmM.Invoke(sf, new object[] { pe }); }
+                int hwM = Convert.ToInt32(typeof(StudioForm).GetField("HeadW", BF | BindingFlags.Static).GetValue(null)); float topM = 70 + 86 + 28; float laneH = Convert.ToSingle(typeof(StudioForm).GetProperty("LaneH", BF) != null ? typeof(StudioForm).GetProperty("LaneH", BF).GetValue(sf, null) : typeof(StudioForm).GetField("LaneH", BF).GetValue(sf));
+                int cx = hwM + (int)(44100 * 4 / 400.0), cyM = (int)(topM + laneH / 2);
+                Action<string, MouseButtons, int, int> evM = (m, b, x, y) => typeof(StudioForm).GetMethod(m, BF | BindingFlags.DeclaredOnly).Invoke(sf, new object[] { new MouseEventArgs(b, b == MouseButtons.None ? 0 : 1, x, y, 0) });
+                long o0 = mv.Offset; evM("OnMouseMove", MouseButtons.None, cx, cyM); evM("OnMouseDown", MouseButtons.Left, cx, cyM); evM("OnMouseMove", MouseButtons.Left, cx + 7, cyM); if (outDir != null) { evM("OnMouseMove", MouseButtons.Left, cx + 60, cyM); using (var bm2 = new Bitmap(1500, 860)) using (var g2 = Graphics.FromImage(bm2)) { var pe2 = new PaintEventArgs(g2, new Rectangle(Point.Empty, bm2.Size)); for (int q = 0; q < 2; q++) pmM.Invoke(sf, new object[] { pe2 }); bm2.Save(Path.Combine(outDir, "drag-clip.png")); } evM("OnMouseMove", MouseButtons.Left, cx + 7, cyM); } evM("OnMouseUp", MouseButtons.Left, cx + 7, cyM);
+                Check("a clip dragged 7 pixels moves exactly 7 pixels (it does not jump to a grid line)", mv.Offset - o0 == (long)(7 * 400.0), (mv.Offset - o0) + " frames (7 px = " + (long)(7 * 400.0) + ")");
+                sf.eng.Tracks.Clear(); SetF("autoFit", true);
+            }
+            {   // DUPLICATE on a piece copies that piece only, onto a new track right under its track (same time, the track's plugins)
+                sf.eng.Tracks.Clear(); var big = StudioEngine.NewTrack("Vocals", "vocal", AudioClip.FromArrays(new float[44100 * 30], new float[44100 * 30], "v")); big.ClipFrames = 44100 * 10; var eq0 = FxRegistry.Create("eq"); eq0.Prepare(44100); big.Fx.Add(eq0);
+                var small = StudioEngine.NewTrack("Vocals (2)", "vocal", big.Clip); small.Host = big; small.Offset = 44100 * 12; small.ClipStart = 44100 * 12; small.ClipFrames = 44100 * 2;
+                var beat = StudioEngine.NewTrack("Beat", "beat", AudioClip.FromArrays(new float[44100 * 30], new float[44100 * 30], "b"));
+                sf.eng.Tracks.Add(big); sf.eng.Tracks.Add(beat); sf.eng.Tracks.Add(small);
+                sf.DuplicatePiece(small); var dup = sf.eng.Tracks[1];
+                Check("the copy is a new track right under the track of the piece", dup != beat && dup.Host == null && sf.eng.Tracks[2] == beat, dup.Name);
+                Check("it holds exactly that piece (same audio, same time, same length), not the whole track", dup.Clip == small.Clip && dup.Offset == small.Offset && dup.ClipStart == small.ClipStart && dup.UsedLength == small.UsedLength, dup.Offset + " / " + dup.UsedLength);
+                Check("it has the track's plugins", dup.Fx.Count == 1 && dup.Fx[0].Type == "eq");
+                Check("the original track and its pieces are untouched", big.UsedLength == 44100 * 10 && small.Host == big && sf.eng.Tracks.Contains(small));
+                sf.DuplicatePiece(small); Check("pressing it again makes one more copy of that same piece", sf.eng.Tracks[1].UsedLength == small.UsedLength && sf.eng.Tracks[2].UsedLength == small.UsedLength);
+                sf.eng.Tracks.Clear(); SetF("revertAction", null);
+            }
+            {   // ADD MUSIC can add an empty vocal track; an empty track is never deleted by itself
+                sf.eng.Tracks.Clear(); sf.eng.Tracks.Add(StudioEngine.NewTrack("Beat", "beat", AudioClip.FromArrays(new float[44100 * 5], new float[44100 * 5], "b"))); SetF("tab", 0); SetF("welcomeOn", false);
+                var ev2 = sf.AddEmptyTrack("vocal"); var fxE = FxRegistry.Create("eq"); fxE.Prepare(44100); ev2.Fx.Add(fxE); ev2.EverHadClip = true;
+                for (int i = 0; i < 4; i++) { sf.Invalidate(); sf.Update(); Pump(400); }
+                Check("ADD MUSIC can add an empty vocal track (no music)", ev2.Role == "vocal" && ev2.Clip == null && ev2.Name.StartsWith("Vocal"), ev2.Name);
+                Check("an empty track stays (it is never deleted by itself, even with plugins on)", sf.eng.Tracks.Contains(ev2));
+                if (outDir != null) Shot(Path.Combine(outDir, "empty-vocal-track.png"));
+                sf.eng.Tracks.Clear(); SetF("revertAction", null);
             }
             {   // the REVERT box stays at the bottom left and is no wider than the left column of the Mastering page (it never reaches into the next box)
                 var pm = typeof(StudioForm).GetMethod("PaintAll", BF); var rrF = typeof(StudioForm).GetField("revertRect", BF); bool narrow = true; string bad = "";

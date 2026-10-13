@@ -2,6 +2,16 @@
 
 What changed in each version of **Purphex**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.37.1  Move clips freely, duplicate a piece, empty tracks stay
+
+- A CLEAN DRAG: sliding a clip along its track moves just the clip itself, with a thin line and the exact time where it starts. The see-through copy that sat on top of it (and looked doubled and glitchy) only shows when you drag a clip to another track.
+- DUPLICATE A PIECE: right-click a piece and choose Duplicate this piece: exactly that piece is copied onto a new track right under its track, at the same time, with that track's plugins. Duplicate the whole track is still there too.
+- EMPTY TRACKS STAY: a track is never deleted by itself any more. An empty track stays where it is (so you can organise your tracks); only its X or DELETE removes it.
+- ADD MUSIC asks first: pick music from your computer, or add an empty vocal track or an empty audio track (no music).
+- AN EMPTY TRACK has no box to click any more (it used to open the file window): it says EMPTY TRACK. Drag a clip onto it, drop files on it, record with MIC, or right-click it and choose Add music to this track.
+- MOVING A CLIP IS FREE: it goes exactly as far as you drag it, even the smallest amount, anywhere between the grid lines (it used to jump to the nearest grid line, so it would not sit in the gap you wanted). Trimming its start or end is free too.
+- A drag starts after the mouse moves 2 pixels (it was 4), so tiny nudges work.
+
 ## 3.37.0  Effects always belong to the track, ALL PLUGINS, copy presets, auto key, reply to messages
 
 - EFFECTS BELONG TO THE TRACK, ALWAYS: every piece of audio on a track plays through that track's plugins and presets, also after the track's own clip was moved to another track and only split pieces are left on it. Before, those pieces lost the effects of the track they sit on.
