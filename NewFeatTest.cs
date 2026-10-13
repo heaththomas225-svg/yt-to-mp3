@@ -552,6 +552,29 @@ static class NF
                 Check("clicking on the audio itself still picks that track", pickedOn);
                 sf.eng.Tracks.Clear();
             }
+            {   // the side menu: pointing at COMMUNITY (or any menu) shows its tabs at once, no click
+                sf.eng.Tracks.Clear(); sf.ClientSize = new Size(1500, 800); Application.DoEvents(); SetF("tab", 0); SetF("welcomeOn", false); typeof(StudioForm).GetMethod("OpenMenu", BF).Invoke(sf, null);
+                var pmm = typeof(StudioForm).GetMethod("PaintAll", BF); Action paintM = () => { using (var bmm = new Bitmap(1500, 800)) using (var gm = Graphics.FromImage(bmm)) { var pem = new PaintEventArgs(gm, new Rectangle(Point.Empty, bmm.Size)); for (int i = 0; i < 3; i++) pmm.Invoke(sf, new object[] { pem }); } }; paintM();
+                float[] ys = (float[])typeof(StudioForm).GetField("menuYs", BF).GetValue(sf); Action<int, int> mv = (x, y) => typeof(StudioForm).GetMethod("OnMouseMove", BF | BindingFlags.DeclaredOnly).Invoke(sf, new object[] { new MouseEventArgs(MouseButtons.None, 0, x, y, 0) });
+                SetF("menuSec", -1); mv(60, (int)ys[5] + 10); paintM(); int hov = F<int>("menuSec");
+                mv(60, (int)ys[0] + 10); paintM(); int hov0 = F<int>("menuSec");
+                int lastI = ((string[])typeof(StudioForm).GetField("MenuNames", BF | BindingFlags.Static).GetValue(null)).Length - 1; mv(60, (int)ys[lastI] + 10); paintM(); int hovX = F<int>("menuSec");
+                Check("pointing at COMMUNITY opens its tabs (no click), pointing at another menu switches, pointing at a single button closes them", hov == 5 && hov0 == 0 && hovX == -1, hov + " " + hov0 + " " + hovX);
+                SetF("menuOpen", false); SetF("menuSec", -1);
+            }
+            {   // the space bar starts and stops the mix on the Mix page only
+                sf.eng.Tracks.Clear(); sf.eng.Tracks.Add(StudioEngine.NewTrack("Space", "vocal", AudioClip.FromArrays(new float[441000], new float[441000], "t"))); SetF("welcomeOn", false); SetF("menuOpen", false);
+                var pck = typeof(StudioForm).GetMethod("ProcessCmdKey", BF); sf.eng.Stop(); SetF("tab", 1); pck.Invoke(sf, new object[] { new Message(), Keys.Space }); bool otherPage = sf.eng.Playing; sf.eng.Stop();
+                SetF("tab", 0); pck.Invoke(sf, new object[] { new Message(), Keys.Space }); bool mixPage = sf.eng.Playing; sf.eng.Stop(); sf.eng.Tracks.Clear();
+                Check("the space bar does not start the mix on another page, and still does on the Mix page", !otherPage && mixPage, otherPage + " / " + mixPage);
+            }
+            {   // PERFORMANCE MODE: the highest frame rate the screen can show (up to 240), the effects off, and the frame loop never starves the mouse
+                bool pk = Prefs.PerfMode; int capK = Prefs.FpsCap; Prefs.FpsCap = 60; Prefs.PerfMode = false; int offFps = Prefs.FpsEff; Prefs.PerfMode = true; int onFps = Prefs.FpsEff; sf.ApplyFps(); var lp = (FrameLoop)typeof(StudioForm).GetField("studioLoop", BF).GetValue(sf); int loopFps = lp.TargetFps;
+                Check("performance mode asks for 240 frames (the screen decides how many it shows), off it follows the chosen limit", onFps == 240 && offFps == 60 && loopFps == Math.Max(30, Math.Min(240, FrameLoop.DisplayHz())), offFps + " / " + onFps + " / loop " + loopFps);
+                Prefs.PerfMode = false; sf.ApplyFps(); Check("turning it off puts the frame rate back at once", lp.TargetFps == Math.Max(30, Math.Min(60, FrameLoop.DisplayHz())), lp.TargetFps.ToString());
+                var tickF = typeof(FrameLoop).GetField("lastTickMs", BindingFlags.NonPublic | BindingFlags.Instance); Check("the frame loop measures how long a frame takes, so it can leave time for the mouse", tickF != null);
+                Prefs.PerfMode = pk; Prefs.FpsCap = capK; sf.ApplyFps();
+            }
             {   // the REVERT box stays at the bottom left and is no wider than the left column of the Mastering page (it never reaches into the next box)
                 var pm = typeof(StudioForm).GetMethod("PaintAll", BF); var rrF = typeof(StudioForm).GetField("revertRect", BF); bool narrow = true; string bad = "";
                 foreach (var szz in new[] { new Size(1366, 768), new Size(1240, 680), new Size(1700, 1000) })

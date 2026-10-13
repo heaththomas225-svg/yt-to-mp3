@@ -153,7 +153,7 @@ partial class StudioForm
             var pic = Rc(row.X + 10, row.Y + 10, rh - 20, rh - 20); DrawCover(g, pic, new ProjectEntry { Cover = b.Cover ?? "", Name = b.Name }); Win.DrawNeonBox(g, pic, false);
             float bx = row.Right - 12, rw = 110, dw = 156; var del = Rc(bx - dw, row.Y + (rh - 34) / 2, dw, 34); var res = Rc(del.X - 10 - rw, del.Y, rw, 34); float tw = res.X - (pic.Right + 14) - 12;
             Txt(g, b.Name, 15, Ink, Rc(pic.Right + 14, row.Y + 12, tw, 24), StringAlignment.Near, true);
-            string meta = (b.Kind != null && b.Kind.Length > 0 ? b.Kind.ToUpper() + "   " : "") + b.Tracks + " tracks" + (b.Bpm > 0 ? "   " + b.Bpm.ToString("0") + " BPM" : "") + (b.Seconds > 1 ? "   " + ((int)(b.Seconds / 60)) + ":" + ((int)(b.Seconds % 60)).ToString("00") : "");
+            string meta = (b.Kind != null && b.Kind.Length > 0 ? b.Kind.ToUpper() + "   " : "") + (b.Bpm > 0 ? b.Bpm.ToString("0") + " BPM" : "") + (b.Seconds > 1 ? "   " + ((int)(b.Seconds / 60)) + ":" + ((int)(b.Seconds % 60)).ToString("00") : "");
             Txt(g, meta, 11, DimC, Rc(pic.Right + 14, row.Y + 38, tw, 18), StringAlignment.Near, false);
             int left = ProjectLibrary.DaysLeft(b, now); int ago = (int)Math.Floor((now - b.Deleted).TotalDays);
             Txt(g, "REMOVED " + (ago <= 0 ? "TODAY" : ago + (ago == 1 ? " DAY AGO" : " DAYS AGO")) + "  -  " + (left <= 0 ? "DELETED FOR GOOD TOMORROW" : left + (left == 1 ? " DAY LEFT" : " DAYS LEFT")), 11, left <= 3 ? Color.FromArgb(255, 150, 150) : Color.FromArgb(150, 235, 200), Rc(pic.Right + 14, row.Y + 58, tw, 18), StringAlignment.Near, true);

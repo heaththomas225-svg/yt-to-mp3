@@ -14,7 +14,7 @@ using System.Windows.Forms;
 sealed class ArtistTrack { public string Title = "", Tags = "", Video = "", Song = ""; public int Bpm, Secs; public bool VideoUp; }   // Song: the song on the community page (plays here); VideoUp: a music video file was uploaded
 sealed class ArtistInfo
 {
-    public string Id = "", Name = "", Nick = "", Bio = "", Location = ""; public string Shown { get { return Nick.Length > 0 ? Name + " (" + Nick + ")" : Name; } }   /* the name with the nickname in brackets, as the artists tabs show it */ public List<string> Links = new List<string>(); public Dictionary<string, string> LinkTitles = new Dictionary<string, string>(); public string[] Tags = new string[0]; public int Tracks, Followers, Accent = -1, Av, Bv, NameRgb = -1, NameRgb2 = -1; public bool Avatar, Banner, Fantasy, FollowersHidden; public long TimeMade; public int Friends; public List<ArtistTrack> TrackList = new List<ArtistTrack>();
+    public string Id = "", Slug = "", Name = "", Nick = "", Bio = "", Location = ""; public string Shown { get { return Nick.Length > 0 ? Name + " (" + Nick + ")" : Name; } }   /* the name with the nickname in brackets, as the artists tabs show it */ public List<string> Links = new List<string>(); public Dictionary<string, string> LinkTitles = new Dictionary<string, string>(); public string[] Tags = new string[0]; public int Tracks, Followers, Accent = -1, Av, Bv, NameRgb = -1, NameRgb2 = -1; public bool Avatar, Banner, Fantasy, FollowersHidden; public long TimeMade; public int Friends; public List<ArtistTrack> TrackList = new List<ArtistTrack>();
 }
 
 // what is saved about your profile on this PC (profile.txt next to the other settings)
@@ -81,7 +81,7 @@ static partial class ProfApi
     static string Clip(string s, int n) { s = (s ?? "").Replace('<', ' ').Replace('>', ' '); return EmojiText.Cut(s, n); }
     public static ArtistInfo Parse(Dictionary<string, object> d)
     {
-        if (d == null) return null; var a = new ArtistInfo { Id = S(d, "id"), Name = Clip(S(d, "name"), 30), Nick = Clip(S(d, "nick"), 24), Bio = Clip(S(d, "bio"), 20000), Location = Clip(S(d, "location"), 30), Tracks = N(d, "tracks"), Followers = N(d, "followers"), Avatar = B(d, "avatar"), Banner = B(d, "banner"), Fantasy = B(d, "fantasy"), FollowersHidden = B(d, "followersHidden"), Accent = AccentOf(d), Av = N(d, "av"), Bv = N(d, "bv"), NameRgb = HexRgb(S(d, "nameRgb")), NameRgb2 = HexRgb(S(d, "nameRgb2")) };
+        if (d == null) return null; var a = new ArtistInfo { Id = S(d, "id"), Slug = Clip(S(d, "slug"), 60), Name = Clip(S(d, "name"), 30), Nick = Clip(S(d, "nick"), 24), Bio = Clip(S(d, "bio"), 20000), Location = Clip(S(d, "location"), 30), Tracks = N(d, "tracks"), Followers = N(d, "followers"), Avatar = B(d, "avatar"), Banner = B(d, "banner"), Fantasy = B(d, "fantasy"), FollowersHidden = B(d, "followersHidden"), Accent = AccentOf(d), Av = N(d, "av"), Bv = N(d, "bv"), NameRgb = HexRgb(S(d, "nameRgb")), NameRgb2 = HexRgb(S(d, "nameRgb2")) };
         a.Bio = ProfileStore.CleanBio(a.Bio); a.TimeMade = N(d, "timeMade"); a.Friends = N(d, "friends");
         if (a.Id.Length == 0 || a.Name.Length == 0) return null; object t; if (d.TryGetValue("tags", out t) && t is List<object>) { var l = new List<string>(); foreach (var x in (List<object>)t) if (x is string && l.Count < 1000 && !ProfileStore.IsBadTag((string)x)) l.Add(Clip((string)x, 20)); a.Tags = l.ToArray(); }
         object lk, lt; List<object> ltl = d.TryGetValue("linkTitles", out lt) ? lt as List<object> : null; if (d.TryGetValue("links", out lk) && lk is List<object>) { var lkl = (List<object>)lk; for (int li = 0; li < lkl.Count; li++) { var x = lkl[li]; if (!(x is string)) continue; string cl = ProfileStore.CleanLink((string)x); if (cl.Length > 0 && a.Links.Count < 10 && !a.Links.Contains(cl)) { a.Links.Add(cl); string tt = ltl != null && li < ltl.Count && ltl[li] is string ? ProfileStore.CleanTitle((string)ltl[li]) : ""; if (tt.Length > 0) a.LinkTitles[cl] = tt; } } }
@@ -205,12 +205,21 @@ partial class StudioForm
     }
     // SHARE PROFILE: your own public page on the website (/artist/...). The link is copied so it can be sent anywhere, then the page opens (it asks before leaving). A profile that is not public yet opens the Community instead.
     internal string ProfilePageUrl() { string id = ProfileStore.Key.Length >= 32 ? ProfApi.IdOfKey(ProfileStore.Key) : ""; return id.Length > 0 && ProfileStore.Published && !ProfileStore.Private ? CommunityPresets.BaseUrl + "/artist/" + id : ""; }
+    internal string profSlug = "";   // the name the website knows this profile by (it may differ from what you typed: a name somebody else holds gets a number after it)
     void ShareProfile()
     {
         string url = ProfilePageUrl();
         if (url.Length == 0) { Toast("Publish your profile first (and not private) to get your own page: opening the Community meanwhile."); OpenCommunitySite("/community"); return; }
-        try { Clipboard.SetText(url); Toast("Your profile link is copied: " + url); } catch { Toast("Your profile page: " + url); }
-        OpenCommunitySite(url.Substring(CommunityPresets.BaseUrl.Length));
+        string id = url.Substring(url.LastIndexOf('/') + 1);
+        if (profSlug.Length > 0) { ShareProfileGo(profSlug); return; }
+        Toast("Getting your profile link...");
+        System.Threading.ThreadPool.QueueUserWorkItem(_ => { string sl = ""; try { var a = ProfApi.Get(id); if (a != null) sl = a.Slug; } catch { } try { BeginInvoke(new Action(() => { if (sl.Length > 0) profSlug = sl; ShareProfileGo(sl.Length > 0 ? sl : id); })); } catch { } });
+    }
+    void ShareProfileGo(string slugOrId)
+    {
+        string path = "/artist/" + slugOrId, full = CommunityPresets.BaseUrl + path;
+        try { Clipboard.SetText(full); Toast("Your profile link is copied: " + full); } catch { Toast("Your profile page: " + full); }
+        OpenCommunitySite(path);
     }
     void OpenLink(string url)
     {
@@ -390,7 +399,7 @@ partial class StudioForm
         y += 8;
         // ---- numbers ----
         var all = ProjectLibrary.AllByEdited(); int tracks = 0; double secs = 0; foreach (var e in all) { tracks += e.Tracks; secs += e.Seconds; } UseTime.Seed(secs);
-        { float sw = (cw - 3 * 14) / 4f; StatCard(g, Rc(cx, y, sw, 64), "PROJECTS", all.Count.ToString(), Ink); StatCard(g, Rc(cx + (sw + 14), y, sw, 64), "TRACKS", tracks.ToString(), NeonCyan); StatCard(g, Rc(cx + 2 * (sw + 14), y, sw, 64), "TIME MADE", DurMade((long)UseTime.Seconds), NeonPink); StatCard(g, Rc(cx + 3 * (sw + 14), y, sw, 64), "FOLLOWERS", ProfileStore.Followers.ToString(), acc); y += 64 + 20; }
+        { float sw = (cw - 2 * 14) / 3f; StatCard(g, Rc(cx, y, sw, 64), "PROJECTS", all.Count.ToString(), Ink); StatCard(g, Rc(cx + (sw + 14), y, sw, 64), "TIME MADE", DurMade((long)UseTime.Seconds), NeonPink); StatCard(g, Rc(cx + 2 * (sw + 14), y, sw, 64), "FOLLOWERS", ProfileStore.Followers.ToString(), acc); y += 64 + 20; }
         // ---- the editing system ----
         var ed = Rc(cx, y, cw, Math.Max(200, profEditH)); using (var p = RR(ed, 18)) { using (var br = new SolidBrush(TM.C(255, 12, 6, 28))) g.FillPath(br, p); } Win.DrawNeonBox(g, ed, false);   // (the box is drawn first, with the height it had last time)
         float ey = y; Txt(g, "EDIT YOUR PROFILE", 18, Ink, Rc(cx + 18, ey + 12, 400, 28), StringAlignment.Near, true); ey += 48; bool two = cw >= 760; float colW = two ? (cw - 54) / 2f : cw - 36, c1 = cx + 18, c2 = two ? cx + 36 + colW : c1;
@@ -573,9 +582,9 @@ partial class StudioForm
         var fb = Rc(cx + cw - 190, ty + 4, 180, 40); Btn(g, fb, artSelLoading ? "WORKING..." : (artFollowing ? "FOLLOWING  (UNFOLLOW)" : "FOLLOW"), artFollowing ? 0 : 2, () => FollowToggle(), 12); Hint2(fb, artFollowing ? "Stop following this artist" : "Follow this artist: they appear under FOLLOWING and on your profile"); LinksButton(g, Rc(fb.X - 152, ty + 4, 142, 40), ProfileStore.AllLinks(a.Links, a.Bio), false, a.LinkTitles);
         y = Math.Max(ban.Bottom + 118, av.Bottom + 10); y += ArtistBioBox(g, a, cx + 6, y, cw - 12); if (a.Tags.Length > 0) { y += TagBox(g, cx + 6, y, cw - 12, a.Tags, acc, false); }
         var theirLinks = ProfileStore.AllLinks(a.Links, a.Bio); if (theirLinks.Count > 0) { y += LinkChips(g, cx + 6, y, cx + cw, theirLinks, a.LinkTitles); }
-        y += 8; float sw = (cw - 4 * 14) / 5f; StatCard(g, Rc(cx, y, sw, 64), "FOLLOWERS", a.FollowersHidden ? "-" : a.Followers.ToString(), acc); StatCard(g, Rc(cx + sw + 14, y, sw, 64), "FRIENDS", a.Friends.ToString(), NeonPink); StatCard(g, Rc(cx + 2 * (sw + 14), y, sw, 64), "TRACKS", a.Tracks.ToString(), NeonCyan); int tot = 0; foreach (var t in a.TrackList) tot += t.Secs; StatCard(g, Rc(cx + 3 * (sw + 14), y, sw, 64), "TRACKS LENGTH", DurMade(tot), Ink); long tmade = a.TimeMade; if (ProfileStore.Key.Length > 0 && ProfApi.IdOfKey(ProfileStore.Key) == a.Id) tmade = Math.Max(tmade, (long)UseTime.Seconds);   /* your own page shows the time as it is now, not as it was when you last published */
+        y += 8; float sw = (cw - 4 * 14) / 5f; StatCard(g, Rc(cx, y, sw, 64), "FOLLOWERS", a.FollowersHidden ? "-" : a.Followers.ToString(), acc); StatCard(g, Rc(cx + sw + 14, y, sw, 64), "FRIENDS", a.Friends.ToString(), NeonPink); StatCard(g, Rc(cx + 2 * (sw + 14), y, sw, 64), "PROJECTS", a.Tracks.ToString(), NeonCyan); int tot = 0; foreach (var t in a.TrackList) tot += t.Secs; StatCard(g, Rc(cx + 3 * (sw + 14), y, sw, 64), "PROJECTS LENGTH", DurMade(tot), Ink); long tmade = a.TimeMade; if (ProfileStore.Key.Length > 0 && ProfApi.IdOfKey(ProfileStore.Key) == a.Id) tmade = Math.Max(tmade, (long)UseTime.Seconds);   /* your own page shows the time as it is now, not as it was when you last published */
         StatCard(g, Rc(cx + 4 * (sw + 14), y, sw, 64), "TIME MADE", tmade > 0 ? DurMade(tmade) : "-", NeonPink); y += 64 + 22;
-        SectionBox(g, cx, y, cw, artPubH); float pTop = y; y += 14; cx += 14; cw -= 28; Txt(g, "TRACKS", 18, Ink, Rc(cx + 6, y, 400, 28), StringAlignment.Near, true); y += 36;
+        SectionBox(g, cx, y, cw, artPubH); float pTop = y; y += 14; cx += 14; cw -= 28; Txt(g, "PROJECTS", 18, Ink, Rc(cx + 6, y, 400, 28), StringAlignment.Near, true); y += 36;
         if (a.TrackList.Count == 0) { Txt(g, artSelLoading ? "LOADING..." : "THIS ARTIST HAS NOT LISTED ANY TRACKS YET.", 13, DimC, Rc(cx + 6, y, cw - 12, 24), StringAlignment.Near, false); y += 40; }
         foreach (var t in a.TrackList) { var rr0 = Rc(cx, y, cw, 82); if (rr0.Bottom > top - 4 && rr0.Y < bottom + 4) ArtistTrackRow(g, rr0, a, t, acc); y += 90; }
         cx -= 14; cw += 28; artPubH = y - pTop + 4; var rp = Rc(cx, y + 8, 220, 30); Btn(g, rp, artReported == a.Id ? "REPORTED, THANK YOU" : "REPORT THIS PROFILE", 0, () => ReportArtist(a), 11); Hint2(rp, "Tell the staff why this profile is not OK (you must say why)"); y += 54;

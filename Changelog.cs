@@ -7,10 +7,18 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.36.8";
+    public const string Latest = "3.36.9";
 
     public const string Text =
-@"3.36.8  One track, one set of effects; copy and paste; project pictures fit; SPLIT works zoomed in
+@"3.36.9  The side menu opens on hover, a smoother DAW, nicer profile links
+ + SIDE MENU: point at a menu (for example COMMUNITY) and its tabs open at once, from where the pointer is. No click needed.
+ + SPACE BAR plays and pauses on the Mix page only. On any other page it leaves the mix alone.
+ + PROJECTS and PROFILE: the word tracks is gone from the project cards and from your profile page, and the artist pages say PROJECTS.
+ + SHARE PROFILE: the link carries your artist name (purphexmusic.com/artist/aheath), not a row of letters.
+ + The PLUGINS AND EXTENSIONS window opens on top of the window you pressed it in (one at a time), instead of hiding behind it.
+ + SMOOTHER: the program no longer asks for more frames than your PC can paint (it always keeps time for the mouse, so dragging windows and tabs stays smooth), and it paints less while a window is being moved. PERFORMANCE MODE keeps asking for the most your screen can show, up to 240.
+
+3.36.8  One track, one set of effects; copy and paste; project pictures fit; SPLIT works zoomed in
  + EFFECTS, MUTE, VOLUME AND PAN NOW BELONG TO THE WHOLE TRACK: every piece on a track (made by SPLIT, pasted, or added to the same row) plays through the same plugins, and MUTE, SOLO, the volume and the pan reach all of them. Before, only the first piece was changed and MUTE left the other pieces playing.
  + COPY AND PASTE: right-click a piece, Copy this piece; right-click any audio track, Paste here (it lands where you clicked, on that track, through its plugins). On every plugin there are now COPY and PASTE buttons: PASTE puts the copied settings on a plugin of the same kind, or adds the copied plugin as a new one.
  + PRESETS: every plugin shows which preset is on it (PRESET: NONE, or its name, or (CHANGED) when you moved something by hand) and REMOVE takes the preset off (back to the default settings, REVERT puts it back).

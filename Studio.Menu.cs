@@ -149,15 +149,17 @@ partial class StudioForm
             if (i == 1 && tab != 0) { if (menuSec == 1) menuSec = -1; continue; }   // Edit (undo, split...) only makes sense on the Mix page
             bool list = i < MenuLists; bool last = i == MenuNames.Length - 1; if (i == MenuLists || last) y += 8;   // a gap before the single buttons and before Exit
             menuYs[i] = y; int k = i; var r = Rc(10, y, w1 - 20, ih); bool sel = list && menuSec == i;
+            if (Hot(r) && MenuHoverOpens) { int want = list ? i : -1; if (menuSec != want) { menuSec = want; menuSub = -1; sel = list && menuSec == i; } }   // pointing at a menu shows its tabs at once, from where the pointer is (no click needed); pointing at a single button closes the tabs
             if (sel || Hot(r)) { FillRR(g, sel ? TM.C(150, 70, 38, 130) : TM.C(90, 60, 34, 110), r, 10); if (sel) Glow(g, NeonViolet, r, 10, 0.45f, 2); }
             Win.DrawNeonBox(g, r, sel || Hot(r));
             var ic = Rc(r.X + 12, r.Y + (ih - 24) / 2, 24, 24); DrawMenuIcon(g, ic, MenuIcon[i], sel); Txt(g, MenuNames[i], 15, sel ? Ink : TM.C(255, 225, 215, 245), Rc(r.X + 50, r.Y, 150, r.Height), StringAlignment.Near, sel);
-            if (list) { Txt(g, ">", 14, DimC, Rc(r.Right - 34, r.Y, 24, r.Height), StringAlignment.Center, true); Reg(r, () => { menuSec = menuSec == k ? -1 : k; menuSub = -1; }); }
+            if (list) { Txt(g, ">", 14, DimC, Rc(r.Right - 34, r.Y, 24, r.Height), StringAlignment.Center, true); Reg(r, () => { menuSec = k; menuSub = -1; }); }
             else Reg(r, () => { menuSec = -1; MenuDirect(k)(); });
             y += pitch;
         }
         if (menuSec >= 0 && menuSec < MenuLists) PaintMenuColumn(g, w1, w2, H);
     }
+    internal bool MenuHoverOpens = true;   // tests that press buttons turn it off
     void DrawMenuIcon(Graphics g, RectangleF r, int i, bool sel)
     {
         Color c = sel ? NeonCyan : TM.C(200, 190, 150, 255); using (var pen = new Pen(c, 1.8f))
@@ -233,7 +235,7 @@ partial class StudioForm
             FillRR(g, TM.C(205, 22, 12, 42), card, 14); Win.DrawNeonBox(g, card, hot || prev); if (card.Bottom > y0 && card.Y < H) AnimRing(g, card, i % 2 == 0 ? NeonCyan : NeonPink);   // the border runs with lights, like the picture on a profile
             var pic = Rc(card.X + 8, card.Y + 8, cw - 16, cw - 16); DrawCover(g, pic, e); Win.DrawNeonBox(g, pic, false); if (e.Missing) { using (var b = new SolidBrush(TM.C(170, 8, 4, 16))) g.FillRectangle(b, pic); Txt(g, "FILE NOT FOUND", 13, Color.FromArgb(255, 150, 150), pic, StringAlignment.Center, true); }
             Txt(g, e.Name, 15, Ink, Rc(card.X + 12, card.Y + 228, cw - 24, 24), StringAlignment.Near, true);
-            string meta = e.Tracks + " tracks" + (e.Bpm > 0 ? "  " + e.Bpm.ToString("0") + " BPM" : "") + (e.Seconds > 1 ? "  " + ((int)(e.Seconds / 60)) + ":" + ((int)(e.Seconds % 60)).ToString("00") : ""); Txt(g, meta, 11, DimC, Rc(card.X + 12, card.Y + 252, cw - 24, 18), StringAlignment.Near, false);
+            string meta = (e.Bpm > 0 ? e.Bpm.ToString("0") + " BPM" : "") + (e.Seconds > 1 ? "  " + ((int)(e.Seconds / 60)) + ":" + ((int)(e.Seconds % 60)).ToString("00") : ""); meta = meta.Trim(); Txt(g, meta, 11, DimC, Rc(card.X + 12, card.Y + 252, cw - 24, 18), StringAlignment.Near, false);
             ProjectLibrary.EnsureKind(e); Txt(g, "EDITED " + ProjectLibrary.Ago(e.Updated), 11, DimC, Rc(card.X + 12, card.Y + 270, cw - 24 - 62, 18), StringAlignment.Near, false); if (e.Kind.Length > 0 && e.Kind != "Empty") Txt(g, e.Kind, 11, NeonCyan, Rc(card.Right - 12 - 62, card.Y + 270, 62, 18), StringAlignment.Far, true);
             var pv = Rc(card.X + 12 + 2 * 34, card.Y + 290, 30, 26); var cam = Rc(pv.Right + 4, card.Y + 290, 30, 26); var nop = Rc(cam.Right + 4, card.Y + 290, 30, 26); var rm = Rc(nop.Right + 4, card.Y + 290, 26, 26);   /* six buttons in one row, side by side: they never touch */
             Reg(card, () => OpenProjectAsk(e)).OnRight = () => ProjectCardMenu(path);

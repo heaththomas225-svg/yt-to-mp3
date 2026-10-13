@@ -37,7 +37,7 @@ class Job
 partial class App : Form
 {
     // ---- Auto-update settings ----
-    const string Version = "3.36.8";
+    const string Version = "3.36.9";
     // Plain-text manifest: line 1 = newest version, line 2 = direct exe download URL.
     const string UpdateManifestUrl = "https://raw.githubusercontent.com/heaththomas225-svg/yt-to-mp3/main/version.txt";
 
@@ -130,7 +130,7 @@ partial class App : Form
     internal MasterAnalysis LastAn;
     internal string LastFile;
     internal int MZoomPct = 75;
-    MasterForm mf;
+    MasterForm mf; PluginManagerForm pluginWin;
     Button usedBtn = new PxButton(), siteBtn = new PxButton();
     Button mastBtn = new PxButton(), vocalBtn = new PxButton(), whatsBtn = new PxButton(), prevNormBtn = new PxButton(), helpBtn = new PxButton(); string seenVer = ""; internal string ExtraFilter = ""; Button changeBtn = new PxButton(); Button settingsBtn = new PxButton();
     internal StudioEngine StudioEng = new StudioEngine();
@@ -275,7 +275,7 @@ partial class App : Form
             m.Items.Add("Full screen  (F11)").Click += (a, b) => Win.ToggleFullscreen(this);
             m.Items.Add("Mastering for downloads (Purphex Mastering)...").Click += (a, b) => { if (!Edition.Gate(Tier.Supporter, "Mastering", this)) return; if (mf == null || mf.IsDisposed) { mf = new MasterForm(this); mf.Show(); Win.Bring(mf); } else Win.Bring(mf); };
             m.Items.Add("What's new").Click += (a, b) => Changelog.Show(this);
-            m.Items.Add("Plugins and extensions...").Click += (a, b) => { if (!Edition.Gate(Tier.Supporter, "Plugins and extensions", this)) return; new PluginManagerForm(() => ExtraFilter, v => { ExtraFilter = v; SaveSettings(); }).Show(); };
+            m.Items.Add("Plugins and extensions...").Click += (a, b) => { if (!Edition.Gate(Tier.Supporter, "Plugins and extensions", this)) return; if (pluginWin == null || pluginWin.IsDisposed) { pluginWin = new PluginManagerForm(() => ExtraFilter, v => { ExtraFilter = v; SaveSettings(); }); pluginWin.Show(this); } Win.Bring(pluginWin); };
             m.Items.Add("Open data folder").Click += (a, b) => { try { Directory.CreateDirectory(AppData); Process.Start("explorer.exe", "\"" + AppData + "\""); } catch { } };
             m.Show(whatsBtn, new Point(0, whatsBtn.Height));
         };

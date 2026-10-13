@@ -576,7 +576,7 @@ static class StudioDialogs
         var nm = new TextBox { Left = 90, Top = y, Width = 440, Text = defName, BackColor = Fld, ForeColor = Ink, BorderStyle = BorderStyle.FixedSingle }; Win.NeonBox(nm); f.Controls.Add(nm); y += 38;
         f.Controls.Add(new Label { Text = "Folder", Left = 16, Top = y + 4, Width = 70, Height = 22 });
         var dir = new TextBox { Left = 90, Top = y, Width = 350, Text = LastExportDir, BackColor = Fld, ForeColor = Ink, BorderStyle = BorderStyle.FixedSingle }; Win.NeonBox(dir);   /* the folder you used last time (only this is remembered, the other choices start fresh) */ f.Controls.Add(dir);
-        var br = B("Browse...", 448, y - 2, 84, 28, TM.C(255, 70, 40, 120)); br.Click += (s, e) => { using (var d = new FolderBrowserDialog()) if (d.ShowDialog() == DialogResult.OK) dir.Text = d.SelectedPath; }; f.Controls.Add(br); y += 42;
+        var br = B("Browse...", 448, y - 2, 84, 28, TM.C(255, 70, 40, 120)); br.Click += (s, e) => { using (var d = new FolderBrowserDialog()) if (d.ShowDialog() == DialogResult.OK) { dir.Text = d.SelectedPath; LastExportDir = d.SelectedPath; } }; f.Controls.Add(br);   /* the folder is kept the moment you pick it */ y += 42;
         f.Controls.Add(new Label { Text = "All files start at 0:00 with the same length, so stems line up in any DAW. Existing files are never replaced without asking.", Left = 16, Top = y, Width = 520, Height = 40, ForeColor = TM.C(255, 170, 150, 190) });
         var ok = B("Export", 330, 588, 100, 34, TM.C(255, 118, 52, 212)); var cancel = B("Cancel", 440, 588, 100, 34, TM.C(255, 70, 40, 120));
         var tErr = new Label { Left = 16, Top = 592, Width = 300, Height = 26, ForeColor = TM.C(255, 255, 110, 130), Text = "" }; f.Controls.Add(tErr);

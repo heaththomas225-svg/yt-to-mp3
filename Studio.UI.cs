@@ -110,7 +110,7 @@ partial class StudioForm : Form
         ClientSize = new Size(1360, 800); MinimumSize = new Size(1240, 680);
         DoubleBuffered = true; KeyPreview = true; FontKit.Restore(this);   /* AllowDrop is switched on in OnHandleCreated (Studio.Crash.cs) so a refused registration cannot crash */
         SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw | ControlStyles.Selectable, true);
-        studioLoop = new FrameLoop(this, FrameStep) { Slow = () => WindowState == FormWindowState.Minimized }; ApplyFps();
+        studioLoop = new FrameLoop(this, FrameStep) { Slow = () => WindowState == FormWindowState.Minimized || moving || Win.AnyMoving };   // while a window is being dragged around nothing needs painting often ApplyFps();
         InstrumentFx.Recorder = OnMidiNote;
         MinimumSize = new Size(1240, 640);
         FormClosed += (s, e) => { try { if (flexOpen) FlexClose(true); } catch { } flexOpen = false; DisposeRetired(); Auditioner.Shutdown(); };
@@ -123,7 +123,7 @@ partial class StudioForm : Form
         FitView();
     }
 
-    volatile bool moving;
+    volatile bool moving; PluginManagerForm pluginWin;
     // Redraw only when something is changing; an idle studio repaints once a second (for loading and background state). Input times are stamped so hover and drags stay live.
     DateTime lastInput = DateTime.Now, lastFrame = DateTime.MinValue, lastPlayAt = DateTime.MinValue; int lastW, lastH;
     bool NeedsFrame()
@@ -1183,7 +1183,7 @@ partial class StudioForm : Form
         FillRR(g, TM.C(252, 26, 14, 48), browserBox, 14); StrokeRR(g, Accent, browserBox, 14, 1.5f); var wr = new HitReg { R = browserBox, OnWheel = d => browserScroll = Math.Max(0, Math.Min(browserMaxF, browserScroll - d * 40)) }; regs.Add(wr); Reg(browserBox, () => { });
         Txt(g, "ADD EFFECT", 20, Ink, Rc(x + 20, y + 12, 300, 30), StringAlignment.Near, true);
         Btn(g, Rc(x + w - 60, y + 14, 40, 28), "X", 3, () => browserOpen = false, 14);
-        Btn(g, Rc(x + w - 196, y + 14, 130, 28), "Plugins...", 1, () => { browserOpen = false; new PluginManagerForm(() => app.ExtraFilter, s => { app.ExtraFilter = s; app.SaveSettings(); }).Show(this); }, 12);
+        Btn(g, Rc(x + w - 196, y + 14, 130, 28), "Plugins...", 1, () => { browserOpen = false; if (pluginWin == null || pluginWin.IsDisposed) { pluginWin = new PluginManagerForm(() => app.ExtraFilter, s => { app.ExtraFilter = s; app.SaveSettings(); }); pluginWin.Show(this); } Win.Bring(pluginWin); }, 12);
         var sb = Rc(x + 20, y + 52, w - 40, 36); FillRR(g, TM.C(235, 14, 7, 32), sb, 8); StrokeRR(g, Color.FromArgb(60, Accent), Rc(sb.X - 2, sb.Y - 2, sb.Width + 4, sb.Height + 4), 10, 4f); StrokeRR(g, Accent, sb, 8, 2f);   // always active: it is ready to type the moment the list opens
         Reg(sb, () => { });
         if (browserQuery.Length > 0) Btn(g, Rc(sb.Right - 32, sb.Y + 6, 24, 24), "x", 3, () => { browserQuery = ""; browserScroll = 0; }, 12);
@@ -1307,7 +1307,7 @@ partial class StudioForm : Form
         if (ProjSearchCmd(k)) return true; if (ProjSearchTakesKey(k)) return base.ProcessCmdKey(ref msg, k);
         if (ArtSearchCmd(k)) return true; if (ArtSearchTakesKey(k)) return base.ProcessCmdKey(ref msg, k); if (FontSearchCmd(k)) return true; if (FontSearchTakesKey(k)) return base.ProcessCmdKey(ref msg, k);
         if (k == Keys.F1) { app.ShowHelp(null); return true; }
-        if (k == Keys.Space) { PlayToggle(); return true; }
+        if (k == Keys.Space) { if (tab != 0) return base.ProcessCmdKey(ref msg, k); PlayToggle(); return true; }   // the space bar plays and pauses on the Mix page only: on any other page it leaves the mix alone
         if (k == Keys.Home) { eng.Seek(0); scroll = 0; followPaused = false; return true; }
         if (k == (Keys.Control | Keys.Shift | Keys.S)) { SaveClick(true); return true; }
         if (k == Keys.F2 && tab == 0 && selTrack < eng.Tracks.Count) { RenameTrack(eng.Tracks[selTrack]); return true; }

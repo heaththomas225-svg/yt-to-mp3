@@ -407,7 +407,7 @@ class FrameLoop : IDisposable
     }
 
     public int TargetFps = 120; public Func<bool> Slow;
-    readonly Control owner; readonly Action tick; System.Threading.Thread th; volatile bool run = true, pending;
+    readonly Control owner; readonly Action tick; System.Threading.Thread th; volatile bool run = true, pending; volatile float lastTickMs;   // how long the last frame took
 
     public FrameLoop(Control owner, Action tick)
     {
@@ -421,11 +421,11 @@ class FrameLoop : IDisposable
         var sw = System.Diagnostics.Stopwatch.StartNew(); double next = 0;
         while (run)
         {
-            double interval = 1000.0 / ((Slow != null && Slow()) ? 30 : TargetFps); next += interval;
+            double interval = 1000.0 / ((Slow != null && Slow()) ? 30 : TargetFps); interval = Math.Max(interval, lastTickMs * 1.35); next += interval;   // a frame that takes 12 ms is followed by at least 4 ms of rest, whatever FPS was asked for: the mouse is never starved
             if (!pending && owner.IsHandleCreated && !owner.IsDisposed)
             {
                 pending = true;
-                try { owner.BeginInvoke(new Action(() => { try { tick(); } catch { } finally { pending = false; } })); } catch { pending = false; }
+                try { owner.BeginInvoke(new Action(() => { long t0 = System.Diagnostics.Stopwatch.GetTimestamp(); try { tick(); } catch { } finally { lastTickMs = (float)((System.Diagnostics.Stopwatch.GetTimestamp() - t0) * 1000.0 / System.Diagnostics.Stopwatch.Frequency); pending = false; } })); } catch { pending = false; }
             }
             double wait = next - sw.Elapsed.TotalMilliseconds;
             if (wait > 2) System.Threading.Thread.Sleep((int)(wait - 1)); else if (wait < -100) next = sw.Elapsed.TotalMilliseconds;
