@@ -535,8 +535,8 @@ static class StudioDialogs
         bool[] def = { true, false, false, false, false }; int y = 16;
         f.Controls.Add(new Label { Text = "What to export", Left = 16, Top = y, Width = 300, Height = 22, Font = new Font("Segoe UI Semibold", 10.5f) }); y += 28;
         for (int i = 0; i < names.Length; i++) { var c = new DarkCheck { Text = names[i], Left = 24, Top = y, Width = 500, Height = 26, Checked = def[i] }; cks.Add(c); f.Controls.Add(c); y += 28; }
-        // the two complete mixes cannot both be picked: choosing one un-ticks the other
-        cks[0].CheckedChanged += (s0, e0) => { if (cks[0].Checked) cks[1].Checked = false; }; cks[1].CheckedChanged += (s0, e0) => { if (cks[1].Checked) cks[0].Checked = false; };
+        // only ONE of the boxes can be ticked at a time: ticking one un-ticks the others, and the last one cannot be un-ticked
+        { bool settling = false; for (int ci = 0; ci < cks.Count; ci++) { int me = ci; cks[me].CheckedChanged += (s0, e0) => { if (settling) return; settling = true; if (cks[me].Checked) { for (int cj = 0; cj < cks.Count; cj++) if (cj != me) cks[cj].Checked = false; } else { bool any = false; foreach (var cc in cks) if (cc.Checked) any = true; if (!any) cks[me].Checked = true; } settling = false; }; } }
         // the tracks of this project, to pick the ones that are exported as separate files (the tab on the right is live when INDIVIDUAL STEMS is ticked)
         var stemCk = new List<DarkCheck>(); Panel stemBox = null;
         if (side)

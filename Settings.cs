@@ -68,7 +68,7 @@ class SettingsForm : Form
         y += 38; themeNote = new Label { Left = 20, Top = y - 4, Width = 520, Height = 34, ForeColor = Dim, Font = new Font("Segoe UI", 10f) }; Add(themeNote); y += 36;
         var comT = Btn("Community themes...", 20, y, 190, TM.C(255, 140, 60, 220)); comT.Click += (s, e) => app.ShowThemes(true); y += 40;
         NewPage("Animation", ref y); Header("Animation", ref y);
-        perfChk = Chk("PERFORMANCE MODE - almost no animation, for slow PCs (30 fps)", 20, ref y); perfChk.CheckedChanged += (s, e) => { if (!setting) { Prefs.PerfMode = perfChk.Checked; Prefs.Changed(); } }; y += 6;
+        perfChk = Chk("PERFORMANCE MODE - almost no animation, as many frames as your screen shows (up to 240 fps)", 20, ref y); perfChk.CheckedChanged += (s, e) => { if (!setting) { Prefs.PerfMode = perfChk.Checked; Prefs.Changed(); } }; y += 6;
         Add(new Label { Text = "Frame rate limit", Left = 20, Top = y + 3, Width = 150, ForeColor = Ink });
         fpsBox = Combo(180, y, 290, new[] { "30 fps (lightest)", "60 fps (smooth)", "120 fps (fast screens)", "144 fps (gaming screens)", "165 fps", "240 fps (the fastest screens)" }); fpsBox.SelectedIndexChanged += (s, e) => { if (!setting && fpsBox.SelectedIndex >= 0) { Prefs.FpsCap = FpsChoices[fpsBox.SelectedIndex]; Prefs.Changed(); } };
         y += 38;

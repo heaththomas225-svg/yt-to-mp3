@@ -271,7 +271,7 @@ Press Settings (top right of the main window) or Menu, then Settings. The sectio
 USE LEAVES and DON'T USE LEAVES turn the floating purple leaves behind the program on or off.
 ## Animation
 Frame rate limit: 60 is smoothest, 30 is lightest on a slow computer. The frame rate is always shown in the title bar.
-PERFORMANCE MODE (the box at the top of this page, or VIEW > Performance mode in the DAW) is for slower PCs: it limits the program to 30 frames a second and almost removes the animation (no moving backgrounds, hover sparks, glow, moving logo or animated profile pictures), so everything runs smoothly. Untick it to get everything back.
+PERFORMANCE MODE (the box at the top of this page, or VIEW > Performance mode in the DAW) is for slower PCs: it almost removes the animation and runs at the highest frame rate your screen can show (up to 240 frames a second) (no moving backgrounds, hover sparks, glow, moving logo or animated profile pictures), so everything runs smoothly. Untick it to get everything back.
 ## Updates
 Scan for updates checks for a new version right now and always tells you what it found (you are up to date, or an update is ready and its window opens). It even shows an update you pressed Later on before.
 ## Audio

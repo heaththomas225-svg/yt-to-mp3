@@ -20,7 +20,7 @@ static class Prefs
     public static int BufEff { get { return Math.Min(2, Buf + BufBoost); } }
     public static int FpsCap = 60;           // animation frame rate cap: 30, 60, 120, 144, 165 or 240
     public static bool PerfMode;             // PERFORMANCE MODE: almost no animation and 30 fps, for slow PCs
-    public static int FpsEff { get { return PerfMode ? 30 : FpsCap; } }
+    public static int FpsEff { get { return PerfMode ? 240 : FpsCap; } }   // PERFORMANCE MODE takes the effects away, not the frames: 240 (the screen still decides how many are shown)
     public static bool ShowFps { get { return true; } set { } }      // the frame rate is always shown in the title bar (there is no switch for it any more)
     public static string MidiDev = "";       // the MIDI keyboard Bass Lab listens to ("" = off)
     public static int MicMode = 0;           // the MIC button's mode: 0 Automatic, 1 Standard, 2 Voice Isolation, 3 Wide Spectrum (only for what is recorded)

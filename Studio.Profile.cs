@@ -203,6 +203,15 @@ partial class StudioForm
         }
         return rows * 34 + 2;   // the height used (a row per 34 pixels)
     }
+    // SHARE PROFILE: your own public page on the website (/artist/...). The link is copied so it can be sent anywhere, then the page opens (it asks before leaving). A profile that is not public yet opens the Community instead.
+    internal string ProfilePageUrl() { string id = ProfileStore.Key.Length >= 32 ? ProfApi.IdOfKey(ProfileStore.Key) : ""; return id.Length > 0 && ProfileStore.Published && !ProfileStore.Private ? CommunityPresets.BaseUrl + "/artist/" + id : ""; }
+    void ShareProfile()
+    {
+        string url = ProfilePageUrl();
+        if (url.Length == 0) { Toast("Publish your profile first (and not private) to get your own page: opening the Community meanwhile."); OpenCommunitySite("/community"); return; }
+        try { Clipboard.SetText(url); Toast("Your profile link is copied: " + url); } catch { Toast("Your profile page: " + url); }
+        OpenCommunitySite(url.Substring(CommunityPresets.BaseUrl.Length));
+    }
     void OpenLink(string url)
     {
         string u = ProfileStore.CleanLink(url); if (u.Length == 0) { Toast("That link cannot be opened."); return; }
@@ -371,7 +380,7 @@ partial class StudioForm
         PaintBannerArt(g, ban, bp, ProfileStore.Accent); if (Edition.Has(Tier.Fantasy)) { FantasyBorder(g, Rc(ban.X - 3, ban.Y - 3, ban.Width + 6, ban.Height + 6), 16, "me" + ProjectLibrary.ProfileName); FantasyBadge(g, Rc(ban.X + 12, ban.Y + 12, 100, 24)); } var pill = Rc(ban.Right - 120, ban.Y + 12, 108, 24); FillRR(g, ProfileStore.Published ? TM.C(235, 28, 112, 86) : TM.C(235, 60, 52, 98), pill, 12); Txt(g, ProfileStore.Published ? "PUBLIC" : "PRIVATE", 11, Color.White, pill, StringAlignment.Center, true);
         var av = Rc(ban.X + 28, ban.Bottom - 60, 120, 120); Bitmap ab = ProjectLibrary.AvatarPath.Length > 0 ? FramedPic(AvatarFile + File.GetLastWriteTime(AvatarFile).Ticks, () => LoadFileImage(AvatarFile), 120, 120, ProfileStore.AvZoom, ProfileStore.AvX, ProfileStore.AvY) : null; FillRR(g, TM.C(255, 8, 4, 18), Rc(av.X - 7, av.Y - 7, av.Width + 14, av.Height + 14), 30); DrawFrameImage(g, av, ab, acc);   /* a rounded square: the whole picture can be fitted in it */
         float tx = av.Right + 24, ty = ban.Bottom + 12; NameText(g, (ProjectLibrary.ProfileName + (ProfileStore.Nick.Length > 0 ? " (" + ProfileStore.Nick + ")" : "")).ToUpper(), 28, Rc(tx, ty, cw - (tx - cx) - (cw > 760 ? 400 : 220), 40), PlainInk, true);
-        if (cw > 760) { var shB = Rc(cx + cw - 190 - 178, ty + 4, 168, 40); Btn(g, shB, "SHARE PROFILE", 2, () => OpenCommunitySite("/community"), 12); Hint2(shB, "Open the Community on the website: your songs are there to see and share (you leave the DAW)"); }
+        if (cw > 760) { var shB = Rc(cx + cw - 190 - 178, ty + 4, 168, 40); Btn(g, shB, "SHARE PROFILE", 2, () => ShareProfile(), 12); Hint2(shB, "Copy the link to your own page on the website (name, picture, links and songs) and open it. Anybody you send it to can see it"); }
         LinksButton(g, Rc(cx + cw - 190, ty + 4, 180, 40), ProfileStore.AllLinks(ProfileStore.Links, ProfileStore.Bio), true, ProfileStore.LinkTitles);
         string sub = (ProfileStore.Location.Length > 0 ? ProfileStore.Location.ToUpper() + "   -   " : "") + ProfileStore.Followers + (ProfileStore.Followers == 1 ? " FOLLOWER" : " FOLLOWERS") + "   -   " + profFollowing.Count + " FOLLOWING"; Txt(g, sub, 12, NeonCyan, Rc(tx, ty + 40, cw - (tx - cx) - 20, 20), StringAlignment.Near, true);
         float by = ban.Bottom + 70 + 6; if (by < av.Bottom + 10) by = av.Bottom + 10; y = by;

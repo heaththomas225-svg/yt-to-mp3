@@ -146,18 +146,19 @@ static class NF
           sf.eng.Tracks.Clear();
           // PERFORMANCE MODE
           { var st = new SettingsForm(app); st.Show(); Pump(400); var pcb = (CheckBox)typeof(SettingsForm).GetField("perfChk", BF).GetValue(st); Check("Settings has the PERFORMANCE MODE switch", pcb != null && pcb.Text.StartsWith("PERFORMANCE MODE")); for (int pi = 0; pi < 7 && outDir != null; pi++) { typeof(SettingsForm).GetMethod("ShowPage", BF).Invoke(st, new object[] { pi }); Pump(150); if (pcb.Visible) FormShot(st, Path.Combine(outDir, "settings-animation.png")); } pcb.Checked = true; Check("ticking it turns PERFORMANCE MODE on", Prefs.PerfMode); pcb.Checked = false; Check("and unticking turns it off", !Prefs.PerfMode); st.Close(); }
-          Prefs.PerfMode = true; Check("PERFORMANCE MODE caps the frame rate at 30", Prefs.FpsEff == 30); string pl = string.Join("\n", Prefs.Lines()); Check("and is saved", pl.Contains("perfmode=True")); Prefs.PerfMode = false; Prefs.Parse("perfmode", "True"); Check("and read back", Prefs.PerfMode); Prefs.PerfMode = false; Check("normal mode uses your frame rate", Prefs.FpsEff == Prefs.FpsCap);
+          Prefs.PerfMode = true; Check("PERFORMANCE MODE does not limit the frame rate: 240", Prefs.FpsEff == 240); string pl = string.Join("\n", Prefs.Lines()); Check("and is saved", pl.Contains("perfmode=True")); Prefs.PerfMode = false; Prefs.Parse("perfmode", "True"); Check("and read back", Prefs.PerfMode); Prefs.PerfMode = false; Check("normal mode uses your frame rate", Prefs.FpsEff == Prefs.FpsCap);
         }
         { // the export window: the two complete mixes exclude each other, no dry options, a trim
           var res = new List<string>(); var tm = new System.Windows.Forms.Timer { Interval = 500 };
           tm.Tick += (o, e) => { tm.Stop(); var ef = Application.OpenForms.Cast<Form>().FirstOrDefault(x => x.Text == "Export"); if (ef == null) { res.Add("noform"); return; }
             var cks = ef.Controls.OfType<CheckBox>().ToList(); res.Add("n=" + cks.Count); res.Add("dry=" + cks.Any(c => c.Text.IndexOf("dry", StringComparison.OrdinalIgnoreCase) >= 0));
-            res.Add("a=" + cks[0].Checked + cks[1].Checked); cks[1].Checked = true; res.Add("b=" + cks[0].Checked + cks[1].Checked); cks[0].Checked = true; res.Add("c=" + cks[0].Checked + cks[1].Checked);
+            res.Add("a=" + cks[0].Checked + cks[1].Checked); cks[1].Checked = true; res.Add("b=" + cks[0].Checked + cks[1].Checked); cks[0].Checked = true; res.Add("c=" + cks[0].Checked + cks[1].Checked); for (int q = 0; q < cks.Count; q++) { cks[q].Checked = true; int on = 0; foreach (var cc in cks) if (cc.Checked) on++; res.Add("only" + q + "=" + on); } cks[cks.Count - 1].Checked = false; res.Add("last=" + cks[cks.Count - 1].Checked);
             var boxes = ef.Controls.OfType<TextBox>().ToList(); res.Add("t=" + boxes[0].Text + "," + boxes[1].Text);
             if (outDir != null) { res.Add("cs=" + ef.ClientSize.Height + "/" + ef.Height); var bm = new Bitmap(ef.Width, ef.Height); ef.DrawToBitmap(bm, new Rectangle(0, 0, bm.Width, bm.Height)); bm.Save(Path.Combine(outDir, "export-dialog.png"), ImageFormat.Png); bm.Dispose(); }
             ef.Close(); };
           tm.Start(); StudioDialogs.ExportOptions(sf, "My song", 95.0); string rj = string.Join(" ", res);
           Check("the export window has five choices and no dry vocals or dry instrumental", rj.Contains("n=5") && rj.Contains("dry=False"), rj);
+          Check("only ONE export box can be ticked at a time, and the last one cannot be un-ticked", rj.Contains("only0=1") && rj.Contains("only1=1") && rj.Contains("only2=1") && rj.Contains("only3=1") && rj.Contains("only4=1") && rj.Contains("last=True"), rj);
           Check("complete mix without master un-ticks complete mix with master, and the other way round", rj.Contains("a=TrueFalse") && rj.Contains("b=FalseTrue") && rj.Contains("c=TrueFalse"), rj);
           Check("the trim boxes start at 0:00 and end at the end of the song", rj.Contains("t=0:00,1:35"), rj);
         }
@@ -469,6 +470,9 @@ static class NF
               Check("a website that is not a streaming or social one is refused and the window stays open", hadStatus && stayed);
               Check("with both boxes right on every row the links are saved as title and address (YouTube and TikTok work)", lk != null && lk.Contains("My YouTube | https://www.youtube.com/@official_aheath") && lk.Contains("Evil | https://www.tiktok.com/@aheath"), lk ?? "null"); }
             if (outDir != null) { var ai = new ArtistInfo { Id = "a9", Name = "aheath", Nick = "poo", Bio = "aheath on all platforms!", Tracks = 0, Followers = 0, Fantasy = true }; var al = F<List<ArtistInfo>>("artList"); al.Clear(); al.Add(ai); SetF("artSel", null); SetF("tab", 7); Pump(300); sf.Invalidate(); sf.Update(); Pump(200); Shot(Path.Combine(outDir, "artist-cards.png")); SetF("tab", 6); SetF("profScroll", 0f); ProfileStore.Nick = "poo"; Pump(200); Shot(Path.Combine(outDir, "profile-hero.png")); ProfileStore.Nick = ""; al.Clear(); SetF("tab", 0); }
+            { bool pubKeep = ProfileStore.Published, privKeep = ProfileStore.Private; string keyKeep = ProfileStore.Key; ProfileStore.EnsureKey(); ProfileStore.Published = false; string u0 = sf.ProfilePageUrl(); ProfileStore.Published = true; ProfileStore.Private = false; string u1 = sf.ProfilePageUrl(); ProfileStore.Private = true; string u2 = sf.ProfilePageUrl();
+              Check("SHARE PROFILE: your own page on the website once the profile is public (not before, not when private)", u0 == "" && u2 == "" && System.Text.RegularExpressions.Regex.IsMatch(u1, "/artist/a[0-9a-f]{12}$"), u1);
+              ProfileStore.Published = pubKeep; ProfileStore.Private = privKeep; ProfileStore.Key = keyKeep; }
             Check("no plugin slider or EQ dot answers the mouse wheel", smallWheel == 0, which);
             using (var cbw = new ComboBox()) using (var nuw = new NumericUpDown()) using (var tbw = new TrackBar()) using (var btw = new Button())
                 Check("drop-downs, number boxes and slider bars are the controls the wheel is blocked on", NoValueWheel.IsValueControl(cbw) && NoValueWheel.IsValueControl(nuw) && NoValueWheel.IsValueControl(tbw) && !NoValueWheel.IsValueControl(btw));

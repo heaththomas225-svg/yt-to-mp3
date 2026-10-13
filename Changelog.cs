@@ -7,10 +7,15 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.36.4";
+    public const string Latest = "3.36.5";
 
     public const string Text =
-@"3.36.4  Your profile no longer resets, new links window, the colour mixer fades one colour, asks before leaving or deleting
+@"3.36.5  SHARE PROFILE gives your own page, performance mode at 240 fps, one export choice at a time
+ + SHARE PROFILE copies the link to YOUR OWN PAGE on the website (name with your nickname, picture, banner, bio, links, genres, tracks and songs) and opens it. Anybody you send it to can see it, with no sign-in. Publish your profile first (and not private) to have one.
+ + PERFORMANCE MODE no longer limits the frame rate: it takes the effects away and runs at the highest rate your screen can show, up to 240 fps.
+ + EXPORT: only ONE choice can be ticked at a time (complete mix, without mastering, vocals, instrumental, individual stems), and one always stays ticked.
+
+3.36.4  Your profile no longer resets, new links window, the colour mixer fades one colour, asks before leaving or deleting
  + YOUR PROFILE NO LONGER RESETS after an update: the bio, place, links, banner, nickname, the list of your projects with your name and picture, and your saved colour mixes were being written over with empty ones when something saved before they were read. Everything is read first now (and a test makes sure).
  + NICKNAME: it shows in brackets after your name on your own profile too (as it does on the ARTISTS tabs and now on the website).
  + NAMES: a name another artist already uses is no longer refused. You can have it: yours shows with a number after it (for example aheath #598774) and the first artist keeps the plain name. No more 'name taken' window.

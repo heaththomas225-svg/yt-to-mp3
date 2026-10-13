@@ -1,4 +1,4 @@
-3.36.4
+3.36.5
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Your profile no longer resets, new links window, the colour mixer fades one colour, asks before leaving or deleting
-sha256=9d8e4dd9a1ff6376364ab61b824439845d8deacb4d5f9884608d04c98555423b
+SHARE PROFILE gives your own page, performance mode at 240 fps, one export choice at a time
+sha256=5ebd59025cc86938d428c4e0e46242e0c350163257a553b64d50a676754e41ad
