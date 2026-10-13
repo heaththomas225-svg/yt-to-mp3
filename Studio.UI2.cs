@@ -119,12 +119,17 @@ partial class StudioForm
         }, ok =>
         {
             if (!ok || vc == null || ic == null) return;
-            string sname = st.Name; var tv = StudioEngine.NewTrack(sname + " - Vocals", "vocal", vc); var tb = StudioEngine.NewTrack(sname + " - Instrumental", "beat", ic); tv.Offset = off; tb.Offset = off; tv.ClipStart = tb.ClipStart = st.ClipStart; tv.ClipFrames = tb.ClipFrames = st.ClipFrames;
-            st.Mute = true; if (!st.Name.EndsWith("(original)")) st.Name += " (original)";
-            if (st.Clip != null && st.Clip.Length > StudioEngine.SR * 600) st.Clip.Unload();   // long originals leave memory; reloaded if you un-mute them
-            lock (eng.Sync) { int ins = LaneCount; eng.Tracks.Insert(ins, tv); eng.Tracks.Insert(ins + 1, tb); } selTrack = eng.Tracks.IndexOf(tv); selFx = -1;   // the new tracks go with the other rows, never after the buses
-            Toast("Separated: vocals and instrumental are ready, perfectly in sync. Stems saved in " + outDir);
+            FinishSeparation(st, vc, ic, off); Toast("Separated: vocals and instrumental are ready, perfectly in sync, and the original track was removed (Ctrl+Z brings it back). Stems saved in " + outDir);
         });
+    }
+    // after the split: the vocals and the instrumental take the place of the song, and the original track (with any pieces on it) is removed so the project stays tidy (Ctrl+Z brings it back)
+    internal void FinishSeparation(Track st, AudioClip vc, AudioClip ic, long off)
+    {
+        string sname = st.Name.Replace(" (original)", ""); var tv = StudioEngine.NewTrack(sname + " - Vocals", "vocal", vc); var tb = StudioEngine.NewTrack(sname + " - Instrumental", "beat", ic); tv.Offset = off; tb.Offset = off; tv.ClipStart = tb.ClipStart = st.ClipStart; tv.ClipFrames = tb.ClipFrames = st.ClipFrames;
+        lock (eng.Sync) { int at = eng.Tracks.IndexOf(st.Host ?? st); int ins = at >= 0 ? at + 1 : LaneCount; eng.Tracks.Insert(ins, tv); eng.Tracks.Insert(ins + 1, tb); }   // where the song was
+        if (st.Host != null || RowHasPieces(st)) { PushUndo(); lock (eng.Sync) { if (st.Host != null) { eng.Tracks.Remove(st); retired.AddRange(st.Fx); } else { st.Clip = null; st.Source = ""; st.ClipStart = 0; st.ClipFrames = -1; } } }   // only that audio goes: the other pieces of the row stay
+        else DeleteTrackQuiet(st);
+        selTrack = Math.Max(0, eng.Tracks.IndexOf(tv)); selFx = -1;
     }
 
     // ---------------- key detection ----------------

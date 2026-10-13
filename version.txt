@@ -1,4 +1,4 @@
-3.37.3
+3.37.4
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-COPY and PASTE on every plugin, COPY PRESET, the logo scroll bar in the welcome box
-sha256=01d331f71ec9aa3b3879be639f5427efc95a73cc84dd6afaea06b924ff8ef3fe
+SPLIT VOCALS + BEAT removes the original
+sha256=5918c896cf53b252fd08aac43b8586e72ea88362295b9a43563ee6f4ffb0616d

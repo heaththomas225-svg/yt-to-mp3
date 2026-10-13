@@ -741,6 +741,17 @@ static class NF
                 Check("a row with nothing on it still says EMPTY TRACK", elE.Contains(emptyE));
                 sf.eng.Tracks.Clear();
             }
+            {   // SPLIT VOCALS + BEAT: the vocals and the instrumental take the song's place and the original track is removed (Ctrl+Z brings it back)
+                sf.eng.Tracks.Clear(); Func<AudioClip> clipS = () => AudioClip.FromArrays(new float[44100 * 4], new float[44100 * 4], "s");
+                var song = StudioEngine.NewTrack("My Song", "song", clipS()); song.Offset = 44100; var other = StudioEngine.NewTrack("Other", "beat", clipS()); sf.eng.Tracks.Add(song); sf.eng.Tracks.Add(other);
+                sf.FinishSeparation(song, clipS(), clipS(), song.Offset);
+                Check("after the split the original track is gone", !sf.eng.Tracks.Contains(song), string.Join(", ", sf.eng.Tracks.Select(t => t.Name).ToArray()));
+                Check("the vocals and the instrumental are where the song was, in sync", sf.eng.Tracks.Count == 3 && sf.eng.Tracks[0].Name == "My Song - Vocals" && sf.eng.Tracks[1].Name == "My Song - Instrumental" && sf.eng.Tracks[2] == other && sf.eng.Tracks[0].Offset == 44100);
+                typeof(StudioForm).GetMethod("DoUndo", BF).Invoke(sf, null); Check("Ctrl+Z brings the original back", sf.eng.Tracks.Exists(t => t.Name == "My Song"));
+                sf.eng.Tracks.Clear(); var host2 = StudioEngine.NewTrack("Row", "song", clipS()); var piece2 = StudioEngine.NewTrack("Row (2)", "song", clipS()); piece2.Host = host2; piece2.Offset = 44100 * 6; sf.eng.Tracks.Add(host2); sf.eng.Tracks.Add(piece2);
+                sf.FinishSeparation(host2, clipS(), clipS(), 0); Check("splitting a track that has other pieces removes only its own audio (the pieces stay)", sf.eng.Tracks.Contains(piece2) && host2.Clip == null);
+                sf.eng.Tracks.Clear(); SetF("revertAction", null);
+            }
             {   // the REVERT box stays at the bottom left and is no wider than the left column of the Mastering page (it never reaches into the next box)
                 var pm = typeof(StudioForm).GetMethod("PaintAll", BF); var rrF = typeof(StudioForm).GetField("revertRect", BF); bool narrow = true; string bad = "";
                 foreach (var szz in new[] { new Size(1366, 768), new Size(1240, 680), new Size(1700, 1000) })

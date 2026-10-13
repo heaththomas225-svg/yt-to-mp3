@@ -2,6 +2,10 @@
 
 What changed in each version of **Purphex**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.37.4  SPLIT VOCALS + BEAT removes the original
+
+- SPLIT VOCALS + BEAT keeps your project tidy: the vocals and the instrumental take the place of the song, and the original track is removed (it used to stay, muted and marked original). Ctrl+Z brings it back. A track that has other pieces on it keeps those pieces; only the audio that was split goes.
+
 ## 3.37.3  COPY and PASTE on every plugin, COPY PRESET, the logo scroll bar in the welcome box
 
 - FIXED: a track whose own clip was moved away while pieces were still on it showed EMPTY TRACK over those pieces. A track now only says EMPTY TRACK when nothing at all is on it (a test checks it every time).

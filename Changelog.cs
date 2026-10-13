@@ -7,10 +7,13 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.37.3";
+    public const string Latest = "3.37.4";
 
     public const string Text =
-@"3.37.3  COPY and PASTE on every plugin, COPY PRESET, the logo scroll bar in the welcome box
+@"3.37.4  SPLIT VOCALS + BEAT removes the original
+ + SPLIT VOCALS + BEAT keeps your project tidy: the vocals and the instrumental take the place of the song, and the original track is removed (it used to stay, muted and marked original). Ctrl+Z brings it back. A track that has other pieces on it keeps those pieces; only the audio that was split goes.
+
+3.37.3  COPY and PASTE on every plugin, COPY PRESET, the logo scroll bar in the welcome box
  + FIXED: a track whose own clip was moved away while pieces were still on it showed EMPTY TRACK over those pieces. A track now only says EMPTY TRACK when nothing at all is on it (a test checks it every time).
  + The order buttons of a plugin are drawn arrows (up and down) instead of the letters ^ and V, and say what they do when you point at them.
  + The preset boxes no longer have their own COPY button: PRESETS... (Copy preset) and COPY PRESET in ALL PLUGINS copy a preset.
