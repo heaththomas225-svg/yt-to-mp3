@@ -1018,7 +1018,7 @@ partial class StudioForm : Form
         Reg(pr, () => { });
         if (eng.Tracks.Count == 0) { Txt(g, "SELECT A TRACK TO EDIT ITS PLUGINS", 14, DimC, pr, StringAlignment.Center, false); return; }
         var tr = eng.Tracks[Math.Max(0, Math.Min(selTrack, eng.Tracks.Count - 1))];
-        Txt(g, "Plugins: " + tr.Name, 16, Ink, Rc(x + 14, y + 8, w - 28 - 126, 26), StringAlignment.Near, true);
+        PaintPluginsTitle(g, tr, Rc(x + 14, y + 6, w - 28 - 126, 30));   // which track these plugins are on: its number, its kind and the end of its name, in its colour (two tracks of one song start with the same long name)
         { var allB = Rc(x + w - 132, y + 8, 120, 24); Btn(g, allB, "ALL PLUGINS", 2, () => OpenAllFx(), 11); Hint2(allB, "Every track and its plugins in one place: add, paste, copy and open plugins on any track"); }
         Fx[] fxs; lock (eng.Sync) fxs = tr.Fx.ToArray(); float origW = w; { int n0 = fxs.Length; float est = 76 + n0 * 32 + GroupExtra(fxs) + 8 + ((selFx >= 0 && selFx < n0) ? EditorHeight(fxs[selFx]) : 60); if (est - h + 6 > 1 && h > 200) w -= 52; }
         int ti = Array.IndexOf(eng.Tracks.ToArray(), tr);
@@ -1118,6 +1118,17 @@ partial class StudioForm : Form
     }
     // a small drawn arrow (up or down) for the buttons that move a plugin in the chain
     static void ArrowIcon(Graphics g, RectangleF r, bool up) { float cx = r.X + r.Width / 2, cy = r.Y + r.Height / 2, d = up ? -1 : 1; var sm = g.SmoothingMode; g.SmoothingMode = SmoothingMode.AntiAlias; using (var b = new SolidBrush(Color.White)) g.FillPolygon(b, new[] { new PointF(cx - 5, cy - 2.5f * d), new PointF(cx + 5, cy - 2.5f * d), new PointF(cx, cy + 3.5f * d) }); g.SmoothingMode = sm; }
+    // the title of the plugin panel: TRACK 3  BEAT  ...Instrumental, in the colour of the track, so you always see whose plugins you are changing
+    internal static string TailName(string n) { n = n ?? ""; int i = n.LastIndexOf(" - "); string tail = i > 0 && i < n.Length - 3 ? n.Substring(i + 3) : n; return tail.Length > 0 ? tail : n; }
+    void PaintPluginsTitle(Graphics g, Track tr, RectangleF r)
+    {
+        int row = Math.Max(0, eng.Tracks.IndexOf(tr.Host ?? tr)) + 1; Color c = Neon(tr.Color); string kind = tr.IsBus ? "BUS" : (tr.Instrument ? "INSTRUMENT" : (tr.Role ?? "audio").ToUpperInvariant());
+        using (var b = new SolidBrush(c)) g.FillRectangle(b, r.X - 6, r.Y + 4, 4, r.Height - 8);
+        string head = "TRACK " + row + "  " + kind; float hw = Math.Min(r.Width * 0.55f, g.MeasureString(head, GfxCache.Font(12, true)).Width + 10);
+        Txt(g, head, 12, c, Rc(r.X, r.Y, hw, r.Height), StringAlignment.Near, true);
+        Txt(g, TailName(tr.Name), 15, Ink, Rc(r.X + hw, r.Y, r.Width - hw, r.Height), StringAlignment.Near, true);
+        if (Hot(r)) { bubble = "These plugins are on " + tr.Name + ". Press the box of another track on the left to change its plugins."; bubblePt = MousePos; }
+    }
     internal bool RowHasPieces(Track row) { foreach (var p in eng.Tracks) if (p.Host == row && (p.Clip != null || p.Instrument)) return true; return false; }
     static bool CanCopyFx(Fx f) { return !(f is InstrumentFx) || f is SynthFx; }   // every effect and Bass Lab (a VST plugin keeps its own state)
     internal void CopyFx(Fx f) { fxCopyType = f.Type; fxCopyData = f.Serialize(); fxCopyTitle = f.Title; Toast("Copied " + f.Title + " with its settings. PASTE adds it to any track or to the master."); }

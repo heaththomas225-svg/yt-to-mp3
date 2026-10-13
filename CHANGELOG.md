@@ -2,6 +2,12 @@
 
 What changed in each version of **Purphex**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.37.5  Your theme stays (and colours the website), the plugin panel says whose plugins they are
+
+- YOUR THEME STAYS: the theme you choose is never lost any more. While your edition is not known yet (a licence being renewed, or no internet) the original theme is shown for a moment, and your own theme comes back by itself as soon as your edition is known. It used to be reset to the original for good, so a Fantasy or Supporter theme did not carry over.
+- YOUR THEME ON THE WEBSITE: on a PC linked to your account, the theme you choose here colours purphexmusic.com for you too (the menu, buttons, links, tabs, panels and background), for the themes of the edition you are on.
+- WHOSE PLUGINS: the top of the plugin panel says which track they are on: TRACK 2  BEAT  Instrumental, in the colour of that track. Two tracks of one song start with the same long name, so the panel could look like the vocal while it showed the beat (the plugins of one track never change another track: a test checks it).
+
 ## 3.37.4  SPLIT VOCALS + BEAT removes the original
 
 - SPLIT VOCALS + BEAT keeps your project tidy: the vocals and the instrumental take the place of the song, and the original track is removed (it used to stay, muted and marked original). Ctrl+Z brings it back. A track that has other pieces on it keeps those pieces; only the audio that was split goes.

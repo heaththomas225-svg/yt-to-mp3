@@ -181,13 +181,20 @@ static class Themes
     {
         Ensure(); Index = Math.Max(0, Math.Min(list.Count - 1, i)); var t = Current; rainbowT0 = Environment.TickCount / 1000.0; Push(t); Prefs.Theme = t.Name; UserBackground.Version++;
         foreach (Form f in Application.OpenForms) { try { f.Invalidate(true); } catch { } }
+        SiteTheme.Send(t);   // the website gets your colours too
     }
     public static void ApplyByName(string name) { Ensure(); Index = IndexOf(name); Push(Current); }
     // the edition decides which themes can be used: a theme above the edition is put back to the original one
     public static bool Allowed(ThemeDef t) { return Edition.Has(t.Req); }
+    // the theme you chose is never forgotten: while the edition is not known yet (a licence being renewed, no internet) or lower, the original theme is shown for now,
+    // and your own theme comes back by itself as soon as your edition is known again (it used to be reset to the original for good)
+    static void Show(int i) { Index = Math.Max(0, Math.Min(list.Count - 1, i)); rainbowT0 = Environment.TickCount / 1000.0; Push(Current); UserBackground.Version++; foreach (Form f in Application.OpenForms) { try { f.Invalidate(true); } catch { } } }
     public static bool EnforceEdition()
     {
-        Ensure(); if (!Allowed(Current)) { Apply(0); Prefs.Changed(); return true; }
+        Ensure(); int want = IndexOfName(Prefs.Theme);
+        if (want >= 0 && want != Index && Allowed(list[want])) { Show(want); SiteTheme.Send(Current); return true; }   // your theme is back
+        if (!Allowed(Current)) { Show(0); return true; }   // shown as the original for now; your choice is kept in Prefs.Theme
+        SiteTheme.Send(Current);
         // the Fantasy edition comes with the Fantasy look: the first time it is on this PC the gold Fantasy theme goes on every button and outline of the program (choose any theme you like afterwards)
         if (!StudioEnv.UnderTest && Prefs.FantasyThemeV < 2 && Edition.Current == Tier.Fantasy) { Prefs.FantasyThemed = true; Prefs.FantasyThemeV = 2; int gi = IndexOfName("Royal Gold"); if (gi >= 0 && !list[Index].Special) { Apply(gi); Prefs.Changed(); return true; } Prefs.Changed(); }
         return false;
