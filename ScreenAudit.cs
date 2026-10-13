@@ -122,7 +122,7 @@ static class AU
             var a = kids[i]; var b = kids[j]; if (a is TrackBar || b is TrackBar || a is NeonBar || b is NeonBar) continue;   /* the neon scroll bar sits inside the right margin of its text box on purpose */ var x = Rectangle.Intersect(a.Bounds, b.Bounds); if (x.IsEmpty) continue; double area = x.Width * (double)x.Height, min = Math.Min(a.Width * (double)a.Height, b.Width * (double)b.Height);
             if (area > min * 0.1 && area > 30) Report(name + ": \"" + Short(a.Text) + "\" (" + a.GetType().Name + ") overlaps \"" + Short(b.Text) + "\" (" + b.GetType().Name + ")");
         }
-        foreach (var c in kids) if (c.Right > root.ClientSize.Width + 1 || c.Left < -1) Report(name + ": \"" + Short(c.Text) + "\" runs out of the window");
+        foreach (var c in kids) if (c.Right > root.ClientSize.Width + 1 || c.Left < -1 || c.Bottom > root.ClientSize.Height + 1) Report(name + ": \"" + Short(c.Text) + "\" runs out of the window");
     }
     static void AuditWindows(App app)
     {
@@ -139,7 +139,7 @@ static class AU
                 for (int j = i + 1; j < rects.Count; j++) if (rects[i].Value.IntersectsWith(rects[j].Value)) Report("main window labels \"" + rects[i].Key + "\" and \"" + rects[j].Key + "\" run into each other");
                 foreach (Control c in bg.Controls) if (c.Visible && rects[i].Value.IntersectsWith(c.Bounds)) Report("main window label \"" + rects[i].Key + "\" is on top of a " + c.GetType().Name + " \"" + Short(c.Text) + "\"");
             }
-            try { var bm = new Bitmap(app.ClientSize.Width, app.ClientSize.Height); app.DrawToBitmap(bm, new Rectangle(Point.Empty, bm.Size)); Directory.CreateDirectory(Path.Combine(Path.GetTempPath(), "au_forms")); bm.Save(Path.Combine(Path.GetTempPath(), "au_forms", "main-" + sz.Width + "x" + sz.Height + ".png"), System.Drawing.Imaging.ImageFormat.Png); bm.Dispose(); } catch { }
+            try { var bm = new Bitmap(app.Width, app.Height); app.DrawToBitmap(bm, new Rectangle(Point.Empty, bm.Size)); Directory.CreateDirectory(Path.Combine(Path.GetTempPath(), "au_forms")); bm.Save(Path.Combine(Path.GetTempPath(), "au_forms", "main-" + sz.Width + "x" + sz.Height + ".png"), System.Drawing.Imaging.ImageFormat.Png); bm.Dispose(); } catch { }
         }
         app.ClientSize = new Size(640, 712); Pump(300); app.Hide();
         var st = new SettingsForm(app); st.Show(); Pump(500); sizeTag = "settings"; for (int pi = 0; pi < 7; pi++) { typeof(SettingsForm).GetMethod("ShowPage", BF).Invoke(st, new object[] { pi }); Pump(100); screens++; WinAudit("settings page " + pi, st, c => c.Text, 0); } st.Close();

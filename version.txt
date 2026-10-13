@@ -1,4 +1,4 @@
-3.36.2
+3.36.3
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Generate Lyrics is gone, the Fantasy DAW buttons, a lock list that stays open, a GAIN box like the track list, no mouse-wheel changes, AUTO EQ A/B
-sha256=c5fe55f45175d482708332780d841b01522adb309636b73459fe725a19311935
+purphexmusic.com box on the converter page, a BASS LAB button, back-to-start on Mastering, no duplicate ARTISTS button
+sha256=7c2d35e8992ef1c42e61af5b60d23892beec0b35b74e4c5308b3326603736b4e

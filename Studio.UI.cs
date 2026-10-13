@@ -283,7 +283,7 @@ partial class StudioForm : Form
         { "MIX", "The tracks, faders and effects." }, { "≡", "Menu: new, open, recent projects, my projects with pictures, edit, tools, community, settings and help." }, { "+ TRACK", "Add a track: audio from your PC or an instrument, above or below the selected track or at the end." }, { "+ ADD TRACK", "Add a track at the end of the list." }, { "LYRICS", "A page for writing your own lyrics, with line and syllable counts." }, { "MASTERING", "Final loudness and polish on the whole mix, with LUFS meters and A/B compare." },
         { "+ Add Effect", "Pick an effect (EQ, compressor, reverb, Auto-Tune...) to add to this track." },
         { "+ Add Effect to master", "Add an effect to the final mix instead of one track." },
-        { "Presets...", "Load a ready-made effect chain (a rap vocal chain, the instrumental chain or a bus preset like echo, ad-lib or reverb), or save your own." },
+        { "Bass Lab", "Add the Bass Lab synthesizer to this track: wobble bass and leads with oscillators, warp, filters, LFOs and a matrix. Its window opens so you can play it and shape the sound." }, { "Presets...", "Load a ready-made effect chain (a rap vocal chain, the instrumental chain or a bus preset like echo, ad-lib or reverb), or save your own." },
         { "Bypass", "Turn this effect off without removing it." }, { "Presets", "Load or save settings for this effect." }, { "FX presets", "Load or save settings for this one effect. (Whole mastering chains are in the PRESETS tab above.)" },
         { "^", "Move this effect up (it runs earlier)." }, { "v", "Move this effect down (it runs later)." },
         { "x", "Remove it." }, { "M", "Mute this track." }, { "S", "Solo: hear only this track." },
@@ -1007,6 +1007,7 @@ partial class StudioForm : Form
         int ti = Array.IndexOf(eng.Tracks.ToArray(), tr);
         Btn(g, Rc(x + 10, y + 38, 112, 30), "+ Add Effect", 1, () => OpenBrowser(false, ti), 14);
         Btn(g, Rc(x + 128, y + 38, 100, 30), "Presets...", 0, () => ChainMenu(tr), 14);
+        if (origW >= 330) Btn(g, Rc(x + 234, y + 38, Math.Min(104f, origW - 244), 30), "Bass Lab", 2, () => { browserMaster = false; browserTrack = ti; AddFx("synth"); InstrumentFx bf = null; lock (eng.Sync) bf = tr.Fx.Count > 0 ? tr.Fx[tr.Fx.Count - 1] as InstrumentFx : null; if (bf != null) { bf.Owner = tr; bf.ShowWindow(this); } }, 14);   // the Bass Lab synthesizer: added to this track and its window opens
         float ly = y + 76 - panelScroll; int n = fxs.Length; g.SetClip(Rc(x, y + 72, w, h - 72));
         if (selFx >= n) selFx = -1;
         // the boxes: the instrument (Bass Lab or a VST), every preset that was added (each one its own box, they never replace each other) and YOUR PLUGINS (always there)
@@ -1157,7 +1158,7 @@ partial class StudioForm : Form
                 {
                     int ic = 0; for (int q = li; q < list.Count && list[q].Category == "Instruments"; q++) ic++; var ibox = Rc(x + 12, ry - 3, w - 24 - (browserMax > 0 ? 56 : 0), 20 + ic * 48 + 2);
                     FillRR(g, TM.C(120, 14, 24, 52), ibox, 12); Glow(g, NeonCyan, ibox, 12, 0.45f, 3); StrokeRR(g, Color.FromArgb(200, NeonCyan), ibox, 12, 1.3f);
-                    if (ry + 18 > clipR.Y && ry < clipR.Bottom) Txt(g, "INSTRUMENTS AND VSTs  -  they make the sound, they are not effects", 11, NeonCyan, Rc(x + 26, ry, w - 100, 18), StringAlignment.Near, true);
+                    if (ry + 18 > clipR.Y && ry < clipR.Bottom) Txt(g, "VST PLUGINS  -  they make the sound, they are not effects", 11, NeonCyan, Rc(x + 26, ry, w - 100, 18), StringAlignment.Near, true);
                 }
                 else if (ry + 18 > clipR.Y && ry < clipR.Bottom) Txt(g, info.Category.ToUpperInvariant(), 11, Accent, Rc(x + 24, ry, 300, 18), StringAlignment.Near, true);
                 ry += 20;
@@ -1181,7 +1182,7 @@ partial class StudioForm : Form
     {
         string key = browserQuery + "\n" + browserCat; if (blCache != null && key == blKey) return blCache;
         var all = FxRegistry.All; var list = new List<FxRegistry.Info>(); string q = browserQuery.ToLowerInvariant().Trim();
-        foreach (var i in all) { if (i.Type == "gain") continue; if (browserCat.Length > 0 && i.Category != browserCat) continue; if (q.Length == 0 || i.Name.ToLowerInvariant().Contains(q) || i.Category.ToLowerInvariant().Contains(q) || i.Blurb.ToLowerInvariant().Contains(q) || i.Type.Contains(q)) list.Add(i); }
+        foreach (var i in all) { if (i.Type == "gain" || i.Type == "synth") continue;   /* Bass Lab has its own BASS LAB button next to PRESETS: this list is for the VSTs and the effects */ if (browserCat.Length > 0 && i.Category != browserCat) continue; if (q.Length == 0 || i.Name.ToLowerInvariant().Contains(q) || i.Category.ToLowerInvariant().Contains(q) || i.Blurb.ToLowerInvariant().Contains(q) || i.Type.Contains(q)) list.Add(i); }
         var order = new List<string>(); order.Add("Plugins"); foreach (var i in all) if (!order.Contains(i.Category)) order.Add(i.Category);
         var res = new List<FxRegistry.Info>(); foreach (var c in order) foreach (var i in list) if (i.Category == c) res.Add(i); { var inst = res.FindAll(x => x.Category == "Instruments"); if (inst.Count > 0) { res.RemoveAll(x => x.Category == "Instruments"); var bl = inst.Find(x => x.Type == "synth"); if (bl != null) { inst.Remove(bl); inst.Insert(0, bl); } res.InsertRange(0, inst); } }   // the instruments (Bass Lab first, then the VSTs) are together at the top, in one box that fits them exactly
         blCache = res; blKey = key; return res;

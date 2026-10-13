@@ -7,10 +7,16 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.36.2";
+    public const string Latest = "3.36.3";
 
     public const string Text =
-@"3.36.2  Generate Lyrics is gone, the Fantasy DAW buttons, a lock list that stays open, a GAIN box like the track list
+@"3.36.3  purphexmusic.com on the converter page, a BASS LAB button, a back-to-start button on Mastering
+ + A box of its own under the log on the converter page: PURPHEXMUSIC.COM. Press it to open the website (downloads, guides, the community and your account). The log box is a little shorter to make room.
+ + BASS LAB has its own button next to PRESETS in the plugin panel: press it and the Bass Lab synthesizer is put on the selected track and its window opens, ready to play. The ADD EFFECT box no longer lists Bass Lab: its instrument box is now VST PLUGINS only.
+ + MASTERING: the |< button (jump back to the start) sits left of PLAY, the same as on MIX. The LYRICS page already has it, in the same place.
+ + COMMUNITY: the second ARTISTS button on the Community page is gone (the ARTISTS tab in the top bar stays).
+
+3.36.2  Generate Lyrics is gone, the Fantasy DAW buttons, a lock list that stays open, a GAIN box like the track list
  + GENERATE LYRICS is removed (the button, the menu item, its window, the recent list and its help page, and the speech recogniser it downloaded): it did not write the words of songs well enough. The lyrics .txt that is saved next to each converted song, and the Lyrics page of the DAW, stay.
  + FANTASY EDITION: every button of the DAW has the pale rim of the converter buttons, and the rim is exactly the same thickness all the way round, corners too, on every button. The Supporter edition keeps its own buttons and does not get this look.
  + LOCK: the list of tracks stays open, so you can lock or unlock several tracks one after another and press DONE. A locked track is gold with a padlock in the list, and its piece on the timeline is gold all round with a big gold padlock.

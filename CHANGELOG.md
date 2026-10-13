@@ -2,6 +2,13 @@
 
 What changed in each version of **Purphex**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.36.3  purphexmusic.com on the converter page, a BASS LAB button, a back-to-start button on Mastering
+
+- A box of its own under the log on the converter page: PURPHEXMUSIC.COM. Press it to open the website (downloads, guides, the community and your account). The log box is a little shorter to make room.
+- BASS LAB has its own button next to PRESETS in the plugin panel: press it and the Bass Lab synthesizer is put on the selected track and its window opens, ready to play. The ADD EFFECT box no longer lists Bass Lab: its instrument box is now VST PLUGINS only.
+- MASTERING: the |< button (jump back to the start) sits left of PLAY, the same as on MIX. The LYRICS page already has it, in the same place.
+- COMMUNITY: the second ARTISTS button on the Community page is gone (the ARTISTS tab in the top bar stays).
+
 ## 3.36.2  Generate Lyrics is gone, the Fantasy DAW buttons, a lock list that stays open, a GAIN box like the track list
 
 - GENERATE LYRICS is removed (the button, the menu item, its window, the recent list and its help page, and the speech recogniser it downloaded): it did not write the words of songs well enough. The lyrics .txt that is saved next to each converted song, and the Lyrics page of the DAW, stay.

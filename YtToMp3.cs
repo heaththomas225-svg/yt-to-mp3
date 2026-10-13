@@ -37,7 +37,7 @@ class Job
 partial class App : Form
 {
     // ---- Auto-update settings ----
-    const string Version = "3.36.2";
+    const string Version = "3.36.3";
     // Plain-text manifest: line 1 = newest version, line 2 = direct exe download URL.
     const string UpdateManifestUrl = "https://raw.githubusercontent.com/heaththomas225-svg/yt-to-mp3/main/version.txt";
 
@@ -131,7 +131,7 @@ partial class App : Form
     internal string LastFile;
     internal int MZoomPct = 75;
     MasterForm mf;
-    Button usedBtn = new PxButton();
+    Button usedBtn = new PxButton(), siteBtn = new PxButton();
     Button mastBtn = new PxButton(), vocalBtn = new PxButton(), whatsBtn = new PxButton(), prevNormBtn = new PxButton(), helpBtn = new PxButton(); string seenVer = ""; internal string ExtraFilter = ""; Button changeBtn = new PxButton(); Button settingsBtn = new PxButton();
     internal StudioEngine StudioEng = new StudioEngine();
     StudioForm studioForm; Button studioBtn = new PxButton(), addMusicBtn = new PxButton();
@@ -319,11 +319,15 @@ partial class App : Form
 
         log.Multiline = true; log.ReadOnly = true; log.ScrollBars = ScrollBars.Vertical;
         StyleBox(log); log.Font = new Font("Consolas", 9f); NeonScroll.Attach(log);
-        log.SetBounds(16, 514, 608, 180);
+        log.SetBounds(16, 514, 608, 136);
         log.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+        // the website, in a box of its own under the log
+        StyleBtn(siteBtn, TM.C(255, 90, 36, 160)); siteBtn.Text = "purphexmusic.com"; siteBtn.SetBounds(16, 668, 608, 30); siteBtn.Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+        tip.SetToolTip(siteBtn, "Open purphexmusic.com: the website of Purphex Music (downloads, guides, the community and your account).");
+        siteBtn.Click += (s, e) => { try { Process.Start(new ProcessStartInfo("https://purphexmusic.com") { UseShellExecute = true }); } catch { } };
 
         bg.Controls.AddRange(new Control[] { links, fmt, sr, nameFmt, trimA, trimB, norm, playlist, openDone, animate,
-            mastBtn, vocalBtn, usedBtn, prevNormBtn, helpBtn, settingsBtn, changeBtn, studioBtn, addMusicBtn, whatsBtn, outDir, browse, go, cancel, log });
+            mastBtn, vocalBtn, usedBtn, prevNormBtn, helpBtn, settingsBtn, changeBtn, studioBtn, addMusicBtn, whatsBtn, outDir, browse, go, cancel, log, siteBtn });
         Win.CapsAll(bg);   // capitals in the bold font
         CaptureBase();   // the design positions, before any saved window size moves the anchored controls
 

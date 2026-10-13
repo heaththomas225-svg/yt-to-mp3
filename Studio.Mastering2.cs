@@ -223,6 +223,7 @@ partial class StudioForm
         // the second bar: PLAY, the time, PREVIEW, the master meter and the page tabs
         float y0 = ToolH; using (var br = new SolidBrush(TM.C(255, 22, 12, 40))) g.FillRectangle(br, 0, y0, W, TransH); NeonRule(g, 0, y0 + TransH, W);
         float x = 14, yy = y0 + 8, hh = 36;
+        { var bk0 = Rc(x, yy, 44, hh); Btn(g, bk0, "|<", 0, () => { if (mpActive) MasterPreviewStop(); eng.Seek(0); scroll = 0; followPaused = false; }, 15); Hint2(bk0, "Jump back to the start"); x += 50; }   // the same button as on MIX
         Btn(g, Rc(x, yy, 96, hh), "PLAY", eng.Playing && !mpActive ? 4 : 1, () => { if (mpActive) MasterPreviewStop(); PlayToggle(); }, 15); x += 104;
         { var pb0 = Rc(x, yy, 96, hh); Btn(g, pb0, "PAUSE", 1, () => { if (mpActive) MasterPreviewStop(); eng.Pause(); }, 15); Hint2(pb0, "Pause the song (PLAY carries on from the same place)"); x += 104; }
         double sec = dispPos / StudioEngine.SR, tot = eng.EndFrame / (double)StudioEngine.SR; var tr = Rc(x, yy, 210, hh); FillRR(g, TM.C(200, 8, 4, 18), tr, 6); StrokeRR(g, Edge, tr, 6, 1);

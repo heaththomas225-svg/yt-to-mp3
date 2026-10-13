@@ -174,7 +174,7 @@ partial class App
             g.SmoothingMode = SmoothingMode.AntiAlias; g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
             float X = uiX, Y = uiY, S = uiS;
             var cards = new[] { new RectangleF(8 * X, 70 * Y, W - 16 * X, 88 * Y), new RectangleF(8 * X, 164 * Y, W - 16 * X, 142 * Y), new RectangleF(8 * X, 308 * Y, W - 16 * X, 38 * Y),
-                                new RectangleF(8 * X, 350 * Y, W - 16 * X, 108 * Y), new RectangleF(8 * X, 464 * Y, W - 16 * X, 42 * Y), new RectangleF(8 * X, 510 * Y, W - 16 * X, Math.Max(80, H - 518 * Y)) };
+                                new RectangleF(8 * X, 350 * Y, W - 16 * X, 108 * Y), new RectangleF(8 * X, 464 * Y, W - 16 * X, 42 * Y), new RectangleF(8 * X, 510 * Y, W - 16 * X, Math.Max(80, H - 566 * Y)), new RectangleF(8 * X, H - 50 * Y, W - 16 * X, 42 * Y) };
             float tt = t; for (int i = 0; i < cards.Length; i++) Card(g, cards[i], i, tt);
             using (var f = new Font(Win.UiFamily, 9.5f * S)) using (var b = new SolidBrush(TM.C(255, 235, 222, 255))) using (var sb2 = new SolidBrush(Color.FromArgb(200, 0, 0, 0)))
             using (var f2 = new Font("Segoe UI", 10f * S)) using (var b2 = new SolidBrush(TM.C(255, 215, 200, 245)))
