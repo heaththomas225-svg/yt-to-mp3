@@ -18,7 +18,7 @@ partial class StudioForm
     {
         if (!WelcomeShowing) return; float W = ClientSize.Width, H = ClientSize.Height; var all = Rc(0, 0, W, H);
         using (var b = new SolidBrush(TM.C(150, 3, 1, 10))) g.FillRectangle(b, all); Reg(all, () => welcomeOn = false);
-        var list = ProjectLibrary.AllByEdited(); int n = list.Count; bool cards = H >= 520; float bw = Math.Min(780, W - 40), gap = 12, cw = (bw - 56 - gap * 3) / 4f, bh = cards ? 168 + cw + 56 + 28 + (n > 4 ? 22 : 0) : 196;   // every project, in a row that scrolls
+        var list = ProjectLibrary.AllByEdited(); int n = list.Count; bool cards = H >= 520; float bw = Math.Min(780, W - 40), gap = 12, cw = (bw - 56 - gap * 3) / 4f, bh = cards ? 168 + cw + 56 + 28 + (n > 4 ? 44 : 0) : 196;   // every project, in a row that scrolls
         int age = unchecked(Environment.TickCount - welcomeAt); float k = Math.Min(1f, age / 260f), ease = 1 - (1 - k) * (1 - k), grow = 0.93f + 0.07f * ease; lastInput = DateTime.Now;
         var box = Rc(W / 2 - bw * grow / 2, H / 2 - bh * grow / 2 - 10, bw * grow, bh * grow); double pulse = 0.5 + 0.5 * Math.Sin(age / 320.0);
         for (int i = 5; i >= 1; i--) using (var pen = new Pen(Color.FromArgb((int)((16 + 22 * pulse) / i * 2.2f) + 5, NeonCyan), i * 5f)) using (var p = RR(RectangleF.Inflate(box, i * 1.4f, i * 1.4f), 22 + i)) g.DrawPath(pen, p);
@@ -47,13 +47,8 @@ partial class StudioForm
         g.Restore(gsw);
         if (maxS > 0)
         {
-            // the scroll bar of the website: a dark rounded track with a violet-to-pink thumb you can drag (the wheel and a click on the track move it too)
             regs.Add(new HitReg { R = strip, OnWheel = d => welScroll = Math.Max(0, Math.Min(maxS, welScroll - d * (cw + gap))) });
-            var bar = Rc(strip.X, strip.Bottom + 10, strip.Width, 10); FillRR(g, TM.C(200, 10, 5, 24), bar, 5); StrokeRR(g, Color.FromArgb(70, NeonViolet), bar, 5, 1f);
-            float tw = Math.Max(48, bar.Width * viewW / total), tx = bar.X + (bar.Width - tw) * (welScroll / maxS); var thumb = Rc(tx, bar.Y, tw, bar.Height); bool th = Hot(thumb) || welDrag;
-            using (var p = RR(thumb, 5)) using (var br = new LinearGradientBrush(thumb, NeonViolet, NeonPink, 0f)) g.FillPath(br, p); if (th) Glow(g, NeonPink, thumb, 5, 0.8f, 3);
-            float k2 = maxS / Math.Max(1, bar.Width - tw); var tr2 = Reg(bar, () => { welDrag = true; welGrab = MousePos.X; welGrabS = Rc(tx, 0, tw, 1).Contains(MousePos.X, 0.5f) ? welScroll : Math.Max(0, Math.Min(maxS, (MousePos.X - bar.X - tw / 2) * k2)); welScroll = welGrabS; });
-            tr2.OnDrag = pt => welScroll = Math.Max(0, Math.Min(maxS, welGrabS + (pt.X - welGrab) * k2)); tr2.OnUp = () => welDrag = false; Hint2(bar, "Drag to see all your projects (or use the mouse wheel)");
+            HScroll(g, Rc(strip.X, strip.Bottom + 10, strip.Width, 34), total, viewW, () => welScroll, v => welScroll = v, cw + gap);   // the app's own logo scroll bar: arrows at the ends, hold the logo and drag
         }
     }
     float welScroll, welGrab, welGrabS; bool welDrag;

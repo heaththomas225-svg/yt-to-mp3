@@ -149,6 +149,12 @@ partial class StudioForm
         lock (eng.Sync) { int i = eng.Tracks.IndexOf(host); eng.Tracks.Insert(i < 0 ? LaneCount : i + 1, n); }
         selTrack = Math.Max(0, eng.Tracks.IndexOf(n)); selFx = -1; toolsTrack = n; Toast("Duplicated that piece onto a new track under " + host.Name + ".");
     }
+    internal void NudgeRow(Track row, long d)
+    {
+        if (IsLocked(row)) { Toast(FrozenWhy(row, "Locked: press UNLOCK before moving this track.")); return; }
+        var pcs = eng.Tracks.FindAll(x => (x.Host ?? x) == row && x.Clip != null && !x.Instrument); if (pcs.Count == 0) return; long first = long.MaxValue; foreach (var p in pcs) first = Math.Min(first, p.Offset);
+        if (d < 0) d = Math.Max(d, -first); if (d == 0) return; PushUndo(); lock (eng.Sync) foreach (var p in pcs) p.Offset += d;
+    }
     void DuplicateTrack(Track t)
     {
         if (t == null) return; PushUndo(); var n = CloneTrack(t, " copy"); InsertAfter(t, n); Toast("Duplicated");
@@ -270,7 +276,6 @@ partial class StudioForm
         if (piece != null && piece.Clip != null && !piece.Instrument) m.Items.Add("Duplicate this piece (onto a new track under this one)").Click += (a, b) => DuplicatePiece(piece);
         m.Items.Add("Duplicate the whole track").Click += (a, b) => DuplicateTrack(tr);
         m.Items.Add("Rename...  (F2)").Click += (a, b) => RenameTrack(tr);
-        m.Items.Add("Delete this piece").Click += (a, b) => DeleteClip(piece);
         m.Show(this, new Point((int)MousePos.X, (int)MousePos.Y));
     }
 

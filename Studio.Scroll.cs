@@ -110,6 +110,39 @@ partial class StudioForm
         if (Hot(logoR)) { bubble = "Hold the logo and drag it to scroll the list"; bubblePt = MousePos; }
     }
 
+    // The same logo scroll bar lying down, for rows that scroll sideways (the projects in the welcome box): arrows at both ends, the logo is what you hold and drag
+    int hHold; Func<float> hHoldGet; Action<float> hHoldSet; float hHoldMax, hHoldStep;
+    void HScroll(Graphics g, RectangleF bar, float contentW, float viewW, Func<float> get, Action<float> set, float step)
+    {
+        if (contentW <= viewW + 1 || bar.Width < 160) return; bool playing = eng.Playing; VizUpdate(playing); float max = contentW - viewW;
+        if (hHold != 0 && dragReg != null && hHoldSet != null) hHoldSet(Math.Max(0, Math.Min(hHoldMax, hHoldGet() + hHold * 8))); else hHold = 0;
+        FillRR(g, Color.Black, bar, 12); using (var pen = new Pen(Color.FromArgb(playing ? 230 : 150, NeonViolet), 1.3f)) { using (var p = RR(bar, 12)) g.DrawPath(pen, p); }
+        const float cap = 34; var lf = Rc(bar.X, bar.Y, cap, bar.Height); var rt = Rc(bar.Right - cap, bar.Y, cap, bar.Height); var inner = Rc(bar.X + cap, bar.Y + 3, bar.Width - 2 * cap, bar.Height - 6); bool hl = Hot(lf), hr = Hot(rt);
+        float cy = bar.Y + bar.Height / 2, lh = Math.Min(14f, bar.Height / 2 - 3), lhw = lh * 1.16f, pad = lhw + 3, trav = Math.Max(1f, inner.Width - 2 * pad);
+        using (var pen = new Pen(Color.FromArgb(hl ? 255 : 200, NeonCyan), 2.2f) { LineJoin = LineJoin.Round, StartCap = LineCap.Round, EndCap = LineCap.Round }) for (int k = 0; k < 2; k++) g.DrawLines(pen, new[] { new PointF(lf.X + 18 + k * 6, cy - 6), new PointF(lf.X + 12 + k * 6, cy), new PointF(lf.X + 18 + k * 6, cy + 6) });
+        using (var pen = new Pen(Color.FromArgb(hr ? 255 : 200, NeonPink), 2.2f) { LineJoin = LineJoin.Round, StartCap = LineCap.Round, EndCap = LineCap.Round }) for (int k = 0; k < 2; k++) g.DrawLines(pen, new[] { new PointF(rt.Right - 18 - k * 6, cy - 6), new PointF(rt.Right - 12 - k * 6, cy), new PointF(rt.Right - 18 - k * 6, cy + 6) });
+        float frac = max <= 0 ? 0 : Math.Max(0, Math.Min(1, get() / max)); float lcx = inner.X + pad + frac * trav; var logoR = Rc(lcx - lhw - 3, cy - lh - 3, lhw * 2 + 6, lh * 2 + 6);
+        using (var pen = new Pen(Color.FromArgb(60, NeonViolet), 2f)) g.DrawLine(pen, inner.X + 2, cy, inner.Right - 2, cy);
+        if (playing)
+        {   // waves flow out of the logo, to the left and to the right
+            var st = g.Save(); g.SetClip(inner, CombineMode.Intersect); int hlen = vizHist.Length; float maxH = bar.Height / 2 - 4;
+            for (int c = 0; c < 140; c++)
+            {
+                float v = vizHist[(vizHead - 1 - c + hlen * 4) % hlen]; float amp = Math.Max(1f, v * maxH * (1f - c / 200f)); int al = (int)(220 * (1f - c / 150f)); if (al <= 4) break;
+                float xl = lcx - lhw - 4 - c * 2.2f, xr = lcx + lhw + 4 + c * 2.2f;
+                using (var pl = new Pen(TM.C(al, 0, 229, 255), 1.5f)) g.DrawLine(pl, xl, cy - amp, xl, cy + amp); using (var pr = new Pen(TM.C(al, 255, 43, 214), 1.5f)) g.DrawLine(pr, xr, cy - amp, xr, cy + amp);
+            }
+            g.Restore(st);
+        }
+        bool hotLogo = Hot(logoR) || (dragReg != null && dragReg.R == logoR); DrawLogo(g, lcx, cy, lh, playing, hotLogo);
+        Action<float> jump = mx => set(Math.Max(0, Math.Min(max, (mx - inner.X - pad) / trav * max)));
+        var rg = Reg(inner, () => jump(MousePos.X)); rg.OnDrag = pt => jump(pt.X);
+        var rl = Reg(lf, () => { set(Math.Max(0, get() - step)); hHold = -1; hHoldGet = get; hHoldSet = set; hHoldMax = max; }); rl.OnDrag = pt => { }; rl.OnUp = () => hHold = 0;
+        var rr = Reg(rt, () => { set(Math.Min(max, get() + step)); hHold = 1; hHoldGet = get; hHoldSet = set; hHoldMax = max; }); rr.OnDrag = pt => { }; rr.OnUp = () => hHold = 0;
+        float downX = 0, downS = 0; var lg = Reg(logoR, () => { downX = MousePos.X; downS = get(); }); lg.OnDrag = pt => set(Math.Max(0, Math.Min(max, downS + (pt.X - downX) / trav * max)));
+        if (Hot(logoR)) { bubble = "Hold the logo and drag it to see all your projects"; bubblePt = MousePos; }
+    }
+
     // The bar shows the whole song. The lit window is what you see: hold the logo and drag to move it, drag the window's ends to zoom, click the bar to jump, double-click to fit the whole song.
     void PaintOverview(Graphics g, RectangleF tl)
     {

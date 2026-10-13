@@ -22,6 +22,14 @@ partial class StudioForm
         presetCopyName = name; if (presetCopy.Count == 0) { Toast("That preset has no plugins to copy."); return; }
         Toast("Copied the preset " + name + " (" + presetCopy.Count + " plugins with their settings). PASTE PRESET puts it on any track.");
     }
+    // COPY PRESET for a whole track: its one preset, or a list to choose from when it has more than one
+    internal void CopyTrackPreset(Track tr, RectangleF at)
+    {
+        var keys = new List<string>(); var names = new List<string>(); lock (eng.Sync) foreach (var f in tr.Fx) if (!(f is InstrumentFx) && f.Preset.Length > 0 && !keys.Contains(PresetKey(f))) { keys.Add(PresetKey(f)); names.Add(f.Preset); }
+        if (keys.Count == 0) { Toast(tr.Name + " has no preset on it yet (PRESETS... adds one). COPY on a plugin copies one plugin."); return; }
+        if (keys.Count == 1) { CopyPreset(tr, keys[0]); return; }
+        var m = Win.NewMenu(); for (int i = 0; i < keys.Count; i++) { string k = keys[i]; m.Items.Add("Copy the preset " + names[i]).Click += (a, b) => CopyPreset(tr, k); } m.Show(this, new Point((int)at.X, (int)at.Bottom + 2));
+    }
     // PASTE PRESET: the copied preset becomes a box of its own on this track (your own plugins and the other presets stay)
     internal void PastePreset(Track tr)
     {
@@ -38,7 +46,7 @@ partial class StudioForm
         Reg(all, () => allFxOpen = false); using (var dim = new SolidBrush(Color.FromArgb(150, 0, 0, 0))) g.FillRectangle(dim, all);
         var sheet = Rc(16, 24, W - 32, H - 48); FillRR(g, TM.C(252, 14, 8, 30), sheet, 22); Glow(g, NeonViolet, sheet, 22, 0.8f, 4); StrokeRR(g, Color.FromArgb(180, NeonViolet), sheet, 22, 1.5f); Reg(sheet, () => { });
         Txt(g, "ALL PLUGINS", 22, Ink, Rc(sheet.X + 22, sheet.Y + 12, 300, 34), StringAlignment.Near, true);
-        Txt(g, "Every track and its plugins in one place. + ADD and PASTE work on that column's track; press a plugin to open it; COPY on a preset copies the whole preset.", 12, DimC, Rc(sheet.X + 22, sheet.Y + 46, sheet.Width - 200, 20), StringAlignment.Near, false);
+        Txt(g, "Every track and its plugins in one place. + ADD, COPY PRESET and PASTE PRESET work on that column's track; every plugin has COPY and PASTE; press a plugin to open it.", 12, DimC, Rc(sheet.X + 22, sheet.Y + 46, sheet.Width - 200, 20), StringAlignment.Near, false);
         var close = Rc(sheet.Right - 120, sheet.Y + 14, 100, 34); Btn(g, close, "DONE", 2, () => allFxOpen = false, 13); Hint2(close, "Close this panel (Esc does the same)");
         Track[] rows; lock (eng.Sync) rows = eng.Tracks.FindAll(t => t.Host == null).ToArray();
         var area = Rc(sheet.X + 14, sheet.Y + 76, sheet.Width - 28, sheet.Height - 90);
@@ -54,9 +62,9 @@ partial class StudioForm
             var nameR = Rc(col.X + 12, col.Y + 16, colW - 24, 24); Txt(g, (tr.IsBus ? "BUS: " : "") + tr.Name, 14, Ink, nameR, StringAlignment.Near, true);
             { int tix = ti; Reg(nameR, () => { selTrack = tix; selFx = -1; }); Hint2(nameR, "Pick this track"); }
             float by = col.Y + 46, bx = col.X + 10;
-            var addB = Rc(bx, by, 60, 26); var pasteB = Rc(addB.Right + 6, by, 60, 26); var ppB = Rc(pasteB.Right + 6, by, col.Right - 10 - pasteB.Right - 6, 26);
+            var addB = Rc(bx, by, 54, 26); var cpB0 = Rc(addB.Right + 4, by, 78, 26); var ppB = Rc(cpB0.Right + 4, by, col.Right - 10 - cpB0.Right - 4, 26);
             { int tix = ti; Btn(g, addB, "+ ADD", 1, () => { selTrack = tix; OpenBrowser(false, tix); }, 11); Hint2(addB, "Add an effect to " + tr.Name); }
-            { var tk = tr; int tix = ti; Btn(g, pasteB, "PASTE", fxCopyType.Length > 0 ? 2 : 0, () => { selTrack = tix; PasteFxAsNew(tk); }, 11); Hint2(pasteB, fxCopyType.Length > 0 ? "Add the copied " + fxCopyTitle + " to " + tr.Name : "Copy an effect first (C on its row)"); }
+            { var tk = tr; var at0 = cpB0; Btn(g, cpB0, "COPY PRESET", 1, () => CopyTrackPreset(tk, at0), 10); Hint2(cpB0, "Copy a preset of " + tr.Name + " (every plugin in it, with its settings)"); }
             { var tk = tr; int tix = ti; Btn(g, ppB, "PASTE PRESET", presetCopy.Count > 0 ? 2 : 0, () => { selTrack = tix; PastePreset(tk); }, 10); Hint2(ppB, presetCopy.Count > 0 ? "Put the copied preset " + presetCopyName + " on " + tr.Name : "Copy a preset first (COPY on a preset)"); }
             Fx[] fxs; lock (eng.Sync) fxs = tr.Fx.ToArray();
             float ry = by + 36, bottom = col.Bottom - 10; string lastKey = null; int shown = 0;
@@ -69,7 +77,7 @@ partial class StudioForm
                     if (key.Length > 0)
                     {
                         if (ry + 22 > bottom) break; var hr = Rc(col.X + 10, ry, colW - 20, 20); Txt(g, "PRESET: " + f.Preset.ToUpperInvariant(), 10, NeonViolet, Rc(hr.X + 2, hr.Y, hr.Width - 60, 20), StringAlignment.Near, true);
-                        var cpB = Rc(hr.Right - 54, hr.Y, 54, 20); var tk = tr; string k2 = key; Btn(g, cpB, "COPY", 1, () => CopyPreset(tk, k2), 10); Hint2(cpB, "Copy this whole preset (every plugin in it, with its settings)"); ry += 24;
+                        ry += 24;   /* COPY PRESET at the top of the column copies it */
                     }
                     else if (lastKey != null && lastKey.Length > 0) { if (ry + 20 > bottom) break; Txt(g, "YOUR PLUGINS", 10, NeonPink, Rc(col.X + 12, ry, colW - 24, 18), StringAlignment.Near, true); ry += 20; }
                     lastKey = key;
@@ -78,8 +86,8 @@ partial class StudioForm
                 var row = Rc(col.X + 10, ry, colW - 20, 26); bool hot = Hot(row); FillRR(g, hot ? TM.C(200, 70, 36, 130) : TM.C(150, 44, 24, 80), row, 7);
                 { var tk = tr; int tix = ti; Reg(row, () => { allFxOpen = false; tab = 0; selTrack = tix; selFx = fi; }); Hint2(row, "Open " + f.Title + " of " + tr.Name); }
                 var dot = Rc(row.X + 7, row.Y + 7, 12, 12); using (var b2 = new SolidBrush(f.Bypass ? TM.C(90, 90, 70, 110) : Good)) g.FillEllipse(b2, dot); { var ff = f; Reg(Rc(row.X, row.Y, 26, 26), () => ff.Bypass = !ff.Bypass); }
-                Txt(g, f.Title, 12, f.Bypass ? DimC : Ink, Rc(row.X + 26, row.Y, row.Width - 26 - 56, 26), StringAlignment.Near, false);
-                if (CanCopyFx(f)) { var cb = Rc(row.Right - 52, row.Y + 3, 22, 20); var ff = f; Btn(g, cb, "C", 0, () => CopyFx(ff), 10); Hint2(cb, "Copy this effect with its settings"); }
+                float cpl = CopyPasteBtns(g, f, tr, row.Right - 28, row.Y + 3, 20);   // COPY and PASTE on every plugin
+                RowTitle(g, f.Title, 12, f.Bypass ? DimC : Ink, Rc(row.X + 26, row.Y, cpl - row.X - 28, 26), false);
                 { var xb = Rc(row.Right - 26, row.Y + 3, 22, 20); var tk = tr; var ff = f; Btn(g, xb, "x", 3, () => { lock (eng.Sync) { int at = tk.Fx.IndexOf(ff); if (at >= 0) { tk.Fx.RemoveAt(at); tk.Auto.RemoveAll(al => al.Fx == ff); if (ff is IDisposable) { try { ((IDisposable)ff).Dispose(); } catch { } } } } selFx = -1; }, 11); Hint2(xb, "Remove " + f.Title + " from " + tr.Name); }
                 ry += 30; shown++;
             }

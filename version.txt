@@ -1,4 +1,4 @@
-3.37.2
+3.37.3
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-An explosive visualiser, AUTO buttons in seconds, HOME on My Projects
-sha256=0ed1d765afa197faef59541194322c93a600d7386266bb734e793e2f3ea9be1b
+COPY and PASTE on every plugin, COPY PRESET, the logo scroll bar in the welcome box
+sha256=01d331f71ec9aa3b3879be639f5427efc95a73cc84dd6afaea06b924ff8ef3fe

@@ -7,10 +7,21 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.37.2";
+    public const string Latest = "3.37.3";
 
     public const string Text =
-@"3.37.2  An explosive visualiser, AUTO buttons in seconds, HOME on My Projects
+@"3.37.3  COPY and PASTE on every plugin, COPY PRESET, the logo scroll bar in the welcome box
+ + FIXED: a track whose own clip was moved away while pieces were still on it showed EMPTY TRACK over those pieces. A track now only says EMPTY TRACK when nothing at all is on it (a test checks it every time).
+ + The order buttons of a plugin are drawn arrows (up and down) instead of the letters ^ and V, and say what they do when you point at them.
+ + The preset boxes no longer have their own COPY button: PRESETS... (Copy preset) and COPY PRESET in ALL PLUGINS copy a preset.
+ + COPY AND PASTE ON EVERY PLUGIN: every plugin row (on your tracks, on the master and in ALL PLUGINS) has a COPY and a PASTE button. PASTE on a plugin of the same kind puts the copied settings on it; on another kind it adds the copied plugin as a new one. (A VST plugin keeps its settings inside itself, so COPY tells you to use its own preset menu.)
+ + ALL PLUGINS: each track has + ADD, COPY PRESET and PASTE PRESET. COPY PRESET copies the preset on that track (a list lets you pick when it has more than one); PRESETS... has Copy preset too. The plain PASTE button there is gone (every plugin has its own PASTE now).
+ + A long plugin name next to COPY and PASTE on a narrow window goes onto two lines instead of being cut off.
+ + NUDGE: the two small arrow buttons next to the pan move the whole track 10 ms earlier or later (1 ms with Shift), to line up its timing by ear. They now say so when you point at them, move every piece on the track (not only the first), never go before 0:00, and Ctrl+Z undoes them.
+ + The right-click menu no longer has Delete this piece: Cut this piece out does the same now (it deletes the piece and nothing moves).
+ + THE WELCOME BOX scroll bar is now the same as the one under your tracks: a black bar with the arrows at both ends and the logo you hold and drag (waves flow out of it while music plays). Click the arrows to step one project, hold them to keep going, click the bar to jump, or use the mouse wheel.
+
+3.37.2  An explosive visualiser, AUTO buttons in seconds, HOME on My Projects
  + THE VISUALISER HITS: every kick is a BANG (the logo jumps, the stage shakes, rings and sparks fly), once per kick, also on loud dense songs where it used to barely move. Between the hits the bars fall right down, and each band follows the loudest and quietest part of your song, so a loud master still moves all the way. The full visualiser mode gets all of this too.
  + AUTO MASTERING, AUTO LOUDNESS, SET LOUDNESS and AUTO EQ take seconds instead of minutes: the mix is listened to in slices spread over the whole song (a short song whole) and kept until a track changes, the loudness is set by running only the master chain again, and the ten mastered versions are worked out side by side on every processor core. On a test song AUTO MASTERING went from about 52 seconds to about 12 (and about 7 the next time), AUTO LOUDNESS from about 55 to about 7.
  + MY PROJECTS has a HOME button, like the other pages.

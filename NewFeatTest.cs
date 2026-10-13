@@ -656,7 +656,7 @@ static class NF
                 Action paintW = () => { using (var bm = new Bitmap(1500, 860)) using (var gg = Graphics.FromImage(bm)) { var pe = new PaintEventArgs(gg, new Rectangle(Point.Empty, bm.Size)); StudioForm.TxtAudit = new List<StudioForm.AuditText>(); for (int i = 0; i < 2; i++) pmW.Invoke(sf, new object[] { pe }); if (outDir != null) bm.Save(Path.Combine(outDir, "welcome-scroll.png")); } };
                 paintW(); var auW = StudioForm.TxtAudit; StudioForm.TxtAudit = null; bool tracksWord = auW.Any(t => t.S.Contains("tracks   EDITED")); bool seven = auW.Any(t => t.S.StartsWith("EDITED "));
                 Check("the welcome cards do not say how many tracks", !tracksWord && seven);
-                HitReg wheel = null, bar = null; foreach (object o in (System.Collections.IEnumerable)typeof(StudioForm).GetField("regs", BF).GetValue(sf)) { var rg = (HitReg)o; if (rg.OnWheel != null && rg.OnDown == null && rg.R.Height > 150 && rg.R.Height < 300) wheel = rg; if (rg.OnDrag != null && (int)rg.R.Height == 10) bar = rg; }
+                HitReg wheel = null, bar = null; foreach (object o in (System.Collections.IEnumerable)typeof(StudioForm).GetField("regs", BF).GetValue(sf)) { var rg = (HitReg)o; if (rg.OnWheel != null && rg.OnDown == null && rg.R.Height > 150 && rg.R.Height < 300) wheel = rg; if (rg.OnDrag != null && (int)rg.R.Height == 28 && rg.R.Width > 300) bar = rg; }
                 Check("with more than 4 projects there is a scroll bar under them", wheel != null && bar != null);
                 if (wheel != null) wheel.OnWheel(-1); float s1 = F<float>("welScroll"); Check("the mouse wheel moves the row to the next project", s1 > 50, s1.ToString());
                 if (bar != null) { typeof(StudioForm).GetField("MousePos", BF).SetValue(sf, new PointF(bar.R.Right - 2, bar.R.Y + 5)); bar.OnDown(); bar.OnDrag(new PointF(bar.R.Right + 200, bar.R.Y + 5)); if (bar.OnUp != null) bar.OnUp(); }
@@ -730,6 +730,15 @@ static class NF
                 float[] l1, r1, l2, r2; var swF = System.Diagnostics.Stopwatch.StartNew(); sf.SampleMix(out l1, out r1); long first = swF.ElapsedMilliseconds; swF.Restart(); sf.SampleMix(out l2, out r2); long again = swF.ElapsedMilliseconds;
                 Check("the mix is listened to in slices (a 100 s song: 60 s of it) and kept: the second time is instant", l1.Length == 44100 * 60 && ReferenceEquals(l1, l2) && again < 20, l1.Length / 44100 + " s, " + first + " ms then " + again + " ms");
                 tF.VolDb = -3; sf.SampleMix(out l2, out r2); Check("changing a track listens again", !ReferenceEquals(l1, l2));
+                sf.eng.Tracks.Clear();
+            }
+            {   // a row whose own clip moved away but that still has pieces on it is never drawn as EMPTY TRACK (the label lay over the pieces)
+                sf.eng.Tracks.Clear(); var hostE = StudioEngine.NewTrack("Vocals", "vocal", null); var pE = StudioEngine.NewTrack("Vocals (2)", "vocal", AudioClip.FromArrays(new float[44100 * 3], new float[44100 * 3], "p")); pE.Host = hostE; pE.Offset = 44100;
+                var emptyE = StudioEngine.NewTrack("Nothing", "audio", null); sf.eng.Tracks.Add(hostE); sf.eng.Tracks.Add(emptyE); sf.eng.Tracks.Add(pE); SetF("tab", 0); SetF("welcomeOn", false);
+                var elE = (System.Collections.IDictionary)typeof(StudioForm).GetField("emptyLanes", BF).GetValue(sf); elE.Clear(); sf.Invalidate(); sf.Update(); Pump(200);
+                if (outDir != null) Shot(Path.Combine(outDir, "pieces-on-empty-host.png"));
+                Check("a row with pieces on it is not drawn as EMPTY TRACK, even when its own clip is gone", !elE.Contains(hostE));
+                Check("a row with nothing on it still says EMPTY TRACK", elE.Contains(emptyE));
                 sf.eng.Tracks.Clear();
             }
             {   // the REVERT box stays at the bottom left and is no wider than the left column of the Mastering page (it never reaches into the next box)

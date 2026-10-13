@@ -728,7 +728,7 @@ partial class StudioForm : Form
             if (y + LaneH < top + RulerH || y > ClientSize.Height) continue;
             var tr = eng.Tracks[i]; bool sel = i == selTrack; float ys = y + AnimOff(tr);   // ys: where this row is drawn right now (it slides when rows swap)
             var lane = Rc(HeadW, ys, tl.Width, LaneH); q0 = Prof.T(); PaintGrid(g, tl, ys, ys + LaneH, 1f, i % 2 == 0 ? Lane : Lane2); Prof.A("mix.grid", q0);   // the grid sits UNDER the clips, inside each row
-            q0 = Prof.T(); if (tr.IsBus) PaintBusLane(g, tr, lane); else if (tr.Instrument) PaintMidi(g, tr, lane); else if (tr.Clip == null) PaintEmptyLane(g, tr, lane); else PaintWave(g, tr, lane, sel);
+            q0 = Prof.T(); if (tr.IsBus) PaintBusLane(g, tr, lane); else if (tr.Instrument) PaintMidi(g, tr, lane); else if (tr.Clip == null) { if (!RowHasPieces(tr)) PaintEmptyLane(g, tr, lane); } else PaintWave(g, tr, lane, sel);   /* a row only shows EMPTY TRACK when nothing at all is on it (its own clip may have moved away while pieces are still on it) */
             foreach (var lay in eng.Tracks) if (lay.Host == tr) { if (lay.Instrument) PaintMidi(g, lay, lane); else if (lay.Clip != null) PaintWave(g, lay, lane, sel); }   // tracks sharing this row
             Prof.A("mix.wave", q0);
             var lr = LaneReg(lane, tr); int idx = i;
@@ -921,8 +921,9 @@ partial class StudioForm : Form
             Btn(g, thin ? Rc(r.X + 200, r.Y + vy - 2, 66, 22) : Rc(r.X + 220, r.Y + py - 3, 40, 24), "Piano", 1, () => { var vf = tk.Fx.Count > 0 ? tk.Fx[0] as InstrumentFx : null; if (vf != null) { vf.Owner = tk; vf.ShowWindow(this); } }, 11);
         else if (!bus && !thin && tk.Clip != null)
         {
-            Btn(g, Rc(r.X + 220, r.Y + py - 1, 18, 22), "<", 0, () => tk.Offset -= (ModifierKeys & Keys.Shift) != 0 ? 44 : 441, 12);
-            Btn(g, Rc(r.X + 241, r.Y + py - 1, 18, 22), ">", 0, () => tk.Offset += (ModifierKeys & Keys.Shift) != 0 ? 44 : 441, 12);
+            // NUDGE: the whole track (every piece on it) 10 ms earlier or later, 1 ms with Shift, to line up the timing by ear (never before 0:00; Ctrl+Z undoes it)
+            var nl = Rc(r.X + 220, r.Y + py - 1, 18, 22); Btn(g, nl, "<", 0, () => NudgeRow(tk, (ModifierKeys & Keys.Shift) != 0 ? -44 : -441), 12); Hint2(nl, "NUDGE EARLIER: moves this whole track 10 ms earlier (hold Shift: 1 ms), to line up its timing by ear");
+            var nr = Rc(r.X + 241, r.Y + py - 1, 18, 22); Btn(g, nr, ">", 0, () => NudgeRow(tk, (ModifierKeys & Keys.Shift) != 0 ? 44 : 441), 12); Hint2(nr, "NUDGE LATER: moves this whole track 10 ms later (hold Shift: 1 ms), to line up its timing by ear");
         }
         // meters (peak with hold)
         var h = Hold(tr); float[] pk = { tr.PeakL, tr.PeakR };
@@ -1040,9 +1041,8 @@ partial class StudioForm : Form
             float head = 28, bh = head + Math.Max(1, gp.Items.Count) * 32 + 2;
             var box = Rc(x + 6, ly, w - 12, bh); FillRR(g, TM.C(70, 12, 6, 28), box, 10); Glow(g, gp.Col, box, 10, 0.35f, 3); StrokeRR(g, Color.FromArgb(190, gp.Col), box, 10, 1.2f);
             Txt(g, gp.Title, 11, gp.Col, Rc(box.X + 12, box.Y + 4, box.Width - (gp.Kind == 2 ? 200 : (gp.Kind == 1 ? 170 : 110)), 20), StringAlignment.Near, true);
-            if (gp.Kind == 1) { string pid0 = gp.Id; var cpb2 = Rc(box.Right - 86 - 60, box.Y + 4, 54, 20); Btn(g, cpb2, "COPY", 1, () => CopyPreset(tr, pid0), 10); Hint2(cpb2, "Copy this whole preset (every plugin in it, with its settings): PASTE PRESET puts it on any track"); }
             if (gp.Kind == 1) { string pid = gp.Id; var rb = Rc(box.Right - 86, box.Y + 4, 78, 20); Btn(g, rb, "REMOVE", 3, () => { ChainApply(tr, "Preset removed", () => RemovePreset(tr, pid)); selFx = -1; }, 10); Hint2(rb, "Take away this preset only (every other preset and your own plugins stay)"); }
-            if (gp.Kind == 2) { var pst = Rc(box.Right - (anyFx ? 116 + 68 : 74), box.Y + 4, 60, 20); Btn(g, pst, "PASTE", fxCopyType.Length > 0 ? 2 : 0, () => PasteFxAsNew(tr), 10); Hint2(pst, fxCopyType.Length > 0 ? "Add the copied " + fxCopyTitle + " with its settings as a new effect on this track" : "Copy an effect first: press C on its row, or COPY in its editor"); }
+            if (gp.Kind == 2) { var pst = Rc(box.Right - (anyFx ? 116 + 68 : 74), box.Y + 4, 60, 20); Btn(g, pst, "PASTE", fxCopyType.Length > 0 ? 2 : 0, () => PasteFxAsNew(tr), 10); Hint2(pst, fxCopyType.Length > 0 ? "Add the copied " + fxCopyTitle + " with its settings as a new effect on this track" : "Copy an effect first: press COPY on a plugin"); }
             if (gp.Kind == 2 && anyFx) { var ra = Rc(box.Right - 116, box.Y + 4, 108, 20); Btn(g, ra, "REMOVE ALL", 3, () => { ChainApply(tr, "All plugins removed", () => RemoveAllPlugins(tr)); selFx = -1; }, 10); Hint2(ra, "Take off every plugin and preset at once to go RAW (the instrument stays; REVERT brings them all back)"); }
             ly += head;
             if (gp.Items.Count == 0) { Txt(g, "NOTHING HERE YET: PRESS + ADD EFFECT", 11, DimC, Rc(box.X + 14, ly, box.Width - 28, 28), StringAlignment.Near, false); ly += 32; }
@@ -1053,11 +1053,11 @@ partial class StudioForm : Form
                 Reg(row, () => selFx = fi);
                 var dotr = Rc(row.X + 8, row.Y + 7, 14, 14); using (var b2 = new SolidBrush(f.Bypass ? TM.C(90, 90, 70, 110) : Good)) g.FillEllipse(b2, dotr);
                 Reg(dotr, () => { f.Bypass = !f.Bypass; });
-                Txt(g, f.Title, 14, f.Bypass ? DimC : Ink, Rc(row.X + 30, row.Y, row.Width - 176, 28), StringAlignment.Near, sel);
-                if (f.GR > 0.2f) Txt(g, "-" + f.GR.ToString("0.0"), 11, Warn, Rc(row.Right - 146, row.Y, 40, 28), StringAlignment.Far, false);
-                if (CanCopyFx(f)) { var cpb = Rc(row.Right - 102, row.Y + 3, 22, 22); Btn(g, cpb, "C", 0, () => CopyFx(f), 10); Hint2(cpb, "Copy this effect with all its settings (PASTE adds it to any track or to the master)"); }
-                Btn(g, Rc(row.Right - 76, row.Y + 3, 22, 22), "^", 0, () => MoveFx(tr, fi, -1), 11);
-                Btn(g, Rc(row.Right - 52, row.Y + 3, 22, 22), "v", 0, () => MoveFx(tr, fi, 1), 11);
+                float cpl = CopyPasteBtns(g, f, tr, row.Right - 80, row.Y + 3, 22);   // COPY and PASTE on every plugin
+                bool grRoom = cpl - (row.X + 30) > 150; RowTitle(g, f.Title, 14, f.Bypass ? DimC : Ink, Rc(row.X + 30, row.Y, cpl - row.X - 34 - (grRoom && f.GR > 0.2f ? 44 : 0), 28), sel);
+                if (grRoom && f.GR > 0.2f) Txt(g, "-" + f.GR.ToString("0.0"), 11, Warn, Rc(cpl - 46, row.Y, 40, 28), StringAlignment.Far, false);
+                { var ub = Rc(row.Right - 76, row.Y + 3, 22, 22); Btn(g, ub, " ", 0, () => MoveFx(tr, fi, -1), 11); ArrowIcon(g, ub, true); Hint2(ub, "Move " + f.Title + " up the chain (it works on the sound earlier)"); }
+                { var db = Rc(row.Right - 52, row.Y + 3, 22, 22); Btn(g, db, "  ", 0, () => MoveFx(tr, fi, 1), 11); ArrowIcon(g, db, false); Hint2(db, "Move " + f.Title + " down the chain (it works on the sound later)"); }
                 Btn(g, Rc(row.Right - 28, row.Y + 3, 22, 22), "x", 3, () => { lock (eng.Sync) { if (fi < tr.Fx.Count) { var rf = tr.Fx[fi]; tr.Fx.RemoveAt(fi); tr.Auto.RemoveAll(al => al.Fx == rf); if (rf is IDisposable) { try { ((IDisposable)rf).Dispose(); } catch { } } } } selFx = -1; }, 12);
                 ly += 32;
             }
@@ -1102,12 +1102,29 @@ partial class StudioForm : Form
         OfferRevert(pn + " removed from " + f.Title, () => { lock (eng.Sync) { f.ResetDefaults(); f.Deserialize(before); f.Bypass = bp; f.Reset(); f.CurPreset = pn; f.CurPresetData = pd; } });
         Toast("Preset removed: " + f.Title + " is back to its default settings.");
     }
+    // the COPY and PASTE buttons of one plugin, ending at right; returns where they start. PASTE on a plugin of the same kind takes the copied settings, on another kind it adds the copied plugin as a new one
+    internal float CopyPasteBtns(Graphics g, Fx f, Track tr, float right, float y, float h)
+    {
+        var pa = Rc(right - 46, y, 46, h); var co = Rc(pa.X - 44, y, 40, h); var ff = f; var tk = tr;
+        Btn(g, co, "COPY", 0, () => { if (CanCopyFx(ff)) CopyFx(ff); else Toast("A VST plugin keeps its own settings inside it, so it cannot be copied. Its preset menu saves and loads them."); }, 9); Hint2(co, CanCopyFx(f) ? "Copy " + f.Title + " with all its settings" : "A VST plugin keeps its settings inside itself, so it cannot be copied");
+        Btn(g, pa, "PASTE", fxCopyType.Length > 0 ? 2 : 0, () => PasteFx(ff, tk), 9); Hint2(pa, fxCopyType.Length > 0 ? (fxCopyType == f.Type ? "Paste the copied settings onto this " + f.Title : "Add the copied " + fxCopyTitle + " as a new plugin") : "Copy a plugin first (COPY)");
+        return co.X;
+    }
+    // a plugin's name in its row: one line when it fits, else two smaller lines (a long name beside COPY and PASTE on a narrow window)
+    void RowTitle(Graphics g, string s, float px, Color c, RectangleF r, bool bold)
+    {
+        if (s.IndexOf(' ') < 0 || g.MeasureString(s, GfxCache.Font(10.5f, bold)).Width <= r.Width) { Txt(g, s, px, c, r, StringAlignment.Near, bold); return; }
+        TxtWrap(g, s, 10f, c, Rc(r.X, r.Y + 1, r.Width, r.Height - 1));
+    }
+    // a small drawn arrow (up or down) for the buttons that move a plugin in the chain
+    static void ArrowIcon(Graphics g, RectangleF r, bool up) { float cx = r.X + r.Width / 2, cy = r.Y + r.Height / 2, d = up ? -1 : 1; var sm = g.SmoothingMode; g.SmoothingMode = SmoothingMode.AntiAlias; using (var b = new SolidBrush(Color.White)) g.FillPolygon(b, new[] { new PointF(cx - 5, cy - 2.5f * d), new PointF(cx + 5, cy - 2.5f * d), new PointF(cx, cy + 3.5f * d) }); g.SmoothingMode = sm; }
+    internal bool RowHasPieces(Track row) { foreach (var p in eng.Tracks) if (p.Host == row && (p.Clip != null || p.Instrument)) return true; return false; }
     static bool CanCopyFx(Fx f) { return !(f is InstrumentFx) || f is SynthFx; }   // every effect and Bass Lab (a VST plugin keeps its own state)
     internal void CopyFx(Fx f) { fxCopyType = f.Type; fxCopyData = f.Serialize(); fxCopyTitle = f.Title; Toast("Copied " + f.Title + " with its settings. PASTE adds it to any track or to the master."); }
     // PASTE next to the list: the copied effect becomes a NEW effect at the end of the chain (a track, or the master when tr is null)
     internal void PasteFxAsNew(Track tr)
     {
-        if (fxCopyType.Length == 0) { Toast("Nothing is copied yet: press C on an effect or COPY in its editor."); return; }
+        if (fxCopyType.Length == 0) { Toast("Nothing is copied yet: press COPY on a plugin."); return; }
         var nf = Presets.Make(fxCopyType, fxCopyData); if (nf == null) { Toast("That effect cannot be pasted here."); return; }
         List<Fx> chain = tr == null ? eng.MasterFx : tr.Fx; int at; lock (eng.Sync) { chain.Add(nf); at = chain.Count - 1; }
         if (tr == null) selMaster = at; else selFx = at;
@@ -1183,6 +1200,7 @@ partial class StudioForm : Form
         var m = Win.NewMenu(); bool vocal = tr.Role == "vocal";
         m.Items.Add("Rapper Vocal Styles (searchable)...").Click += (a, b) => OpenStyles();
         { var pp = new ToolStripMenuItem(presetCopy.Count > 0 ? "Paste preset: " + presetCopyName + " (" + presetCopy.Count + " plugins)" : "Paste preset (copy one first: COPY on a preset box)") { Enabled = presetCopy.Count > 0 }; pp.Click += (a, b) => PastePreset(tr); m.Items.Add(pp); }
+        { var keys = new List<string>(); foreach (var f in tr.Fx) if (!(f is InstrumentFx) && f.Preset.Length > 0 && !keys.Contains(f.PresetId.Length > 0 ? f.PresetId : f.Preset)) { string k = f.PresetId.Length > 0 ? f.PresetId : f.Preset; keys.Add(k); string nm = f.Preset; m.Items.Add("Copy preset: " + nm).Click += (a, b) => CopyPreset(tr, k); } }
         m.Items.Add("All plugins of every track...").Click += (a, b) => OpenAllFx();
         var rap = new ToolStripMenuItem("Rap vocal presets (your own plugins stay)"); m.Items.Add(rap);
         for (int i = 0; i < Presets.ChainNames.Length; i++) { string nm = Presets.ChainNames[i]; var it = new ToolStripMenuItem(nm) { ToolTipText = Presets.ChainBlurbs[i] }; it.Click += (a, b) => { ChainApply(tr, nm, () => PutPreset(tr, nm, Presets.BuildChain(nm))); selFx = -1; Toast(nm + " added as a preset: every plugin is editable, your own plugins stay (REVERT puts it back)"); }; rap.DropDownItems.Add(it); }
