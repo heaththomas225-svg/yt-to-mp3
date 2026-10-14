@@ -1,4 +1,4 @@
-3.39.8
+3.40.0
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-No more nudge buttons
-sha256=fe640aa65ae2a9aab763e2b2e894e6dce20e0e0816ff800450c8516b96564c21
+Spotify links in the converter
+sha256=ddb7774807cb629d6e1ac4fd5b198acc33904aa68ad30f5945a2f6f56ad7561d

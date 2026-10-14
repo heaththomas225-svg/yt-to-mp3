@@ -37,7 +37,7 @@ class Job
 partial class App : Form
 {
     // ---- Auto-update settings ----
-    const string Version = "3.39.8";
+    const string Version = "3.40.0";
     // Plain-text manifest: line 1 = newest version, line 2 = direct exe download URL.
     const string UpdateManifestUrl = "https://raw.githubusercontent.com/heaththomas225-svg/yt-to-mp3/main/version.txt";
 
@@ -151,7 +151,7 @@ partial class App : Form
         Func<Control, Func<Rectangle>> R = c => (() => new Rectangle(c.Left, c.Top, c.Width, c.Height)); var s = new List<TourStep>();
         if (id.StartsWith("target:")) { if (OpenStudio()) studioForm.ShowOnScreen(id.Substring(7)); return; }
         if (id.StartsWith("studio") || id == "daw" || id == "makesong" || id == "typing") { if (OpenStudio()) studioForm.RunGuide(id); return; }
-        if (id == "start") { s.Add(new TourStep(R(links), "1. Paste a link", "Paste one or more links here (YouTube and 1000+ other video and music sites), or type words to search.")); s.Add(new TourStep(R(fmt), "2. Pick a format", "MP3 320 kbps is the best all-round choice.")); s.Add(new TourStep(R(go), "3. Press Convert", "Your file is saved in the Save to folder, which opens when it is done.")); }
+        if (id == "start") { s.Add(new TourStep(R(links), "1. Paste a link", "Paste one or more links here (YouTube, Spotify songs, albums, playlists and artists, and 1000+ other video and music sites), or type words to search.")); s.Add(new TourStep(R(fmt), "2. Pick a format", "MP3 320 kbps is the best all-round choice.")); s.Add(new TourStep(R(go), "3. Press Convert", "Your file is saved in the Save to folder, which opens when it is done.")); }
         else if (id == "normalize") { s.Add(new TourStep(R(norm), "Normalize loudness", "Tick this to bring downloads to a standard -14 LUFS loudness.")); s.Add(new TourStep(R(prevNormBtn), "Hear it first", "Press Hear to listen to a 30 second sample, original versus normalized, before you convert.")); }
         else if (id == "vocal") { s.Add(new TourStep(R(vocalBtn), "Vocal remover", "Click this, then choose Remove vocals from a song, or Preview to hear a 30 second sample first.")); s.Add(new TourStep(R(outDir), "Where files go", "The instrumental and the vocals-only file are saved in this folder.")); }
         else if (id == "masterassistant") { s.Add(new TourStep(R(addMusicBtn), "Purphex Mastering", "Press ADD MUSIC, then Edit in Purphex Music. The Mastering tab there has the live EQ, loudness and width.")); }
@@ -866,14 +866,25 @@ partial class App : Form
                 + (job.TrimB.Length > 0 ? job.TrimB : "inf") + "\" --force-keyframes-at-cuts ";
 
         int ok = 0, fail = 0; var keptTmp = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        itemTotal = job.Items.Length;
-        for (int i = 0; i < job.Items.Length; i++)
+        // a Spotify link (its audio is locked) becomes its songs: each one is found on YouTube by its artist and title and converted
+        var items = new List<string>(); var fromLink = new Dictionary<int, string>(); var searchOf = new Dictionary<int, string>();
+        foreach (var it0 in job.Items)
+        {
+            if (!SpotifyLinks.Is(it0)) { items.Add(it0); continue; }
+            Log("Spotify link: reading its songs (Spotify's own audio is locked, so each song is found on YouTube by its artist and title)...");
+            string serr; var songs = SpotifyLinks.Resolve(it0, out serr);
+            if (songs.Count == 0) { fail++; Log("Spotify: " + serr); continue; }
+            Log("Spotify: " + songs.Count + (songs.Count == 1 ? " song" : " songs") + " found.");
+            foreach (var sg in songs) { fromLink[items.Count] = it0; searchOf[items.Count] = sg.Value; items.Add(sg.Key); }
+        }
+        itemTotal = items.Count;
+        for (int i = 0; i < items.Count; i++)
         {
             if (cancelReq) break;
             itemIdx = i;
-            string link = job.Items[i];
+            string link = items[i], boxLink = fromLink.ContainsKey(i) ? fromLink[i] : link;   // (a song from a Spotify link: the Spotify link is what leaves the box)
             // plain text -> YouTube search, top result; a " would close the quoted argument (the rest of the line became extra yt-dlp options, even --exec), and trailing backslashes would escape the closing quote
-            string target = NormalizeTarget(link).Replace("\"", "").TrimEnd('\\');
+            string target = (searchOf.ContainsKey(i) ? searchOf[i] : NormalizeTarget(link)).Replace("\"", "").TrimEnd('\\');
             bool bl = IsBandlab(target), coll = bl && BandlabCollection(target);
 
             status = "Item " + (i + 1) + " of " + itemTotal + ": " + (link.Length > 60 ? link.Substring(0, 60) + "..." : link);
@@ -896,7 +907,7 @@ partial class App : Form
             int code = RunProc(YtDlp, args, true);
             if (cancelReq) break;
             if (code != 0) { fail++; Log("Failed (exit " + code + ")."); }
-            else if (!mastering) { ok++; RemoveLinkFromBox(link); UsageStat.CountNew(job.Dir, madeBefore, job.Fmt, 1); if (lyricsBefore != null) LyricsGet.ForNewFiles(job.Dir, lyricsBefore, Log); }
+            else if (!mastering) { ok++; RemoveLinkFromBox(boxLink); UsageStat.CountNew(job.Dir, madeBefore, job.Fmt, 1); if (lyricsBefore != null) LyricsGet.ForNewFiles(job.Dir, lyricsBefore, Log); }
             else
             {
                 var wavs = Array.FindAll(Directory.GetFiles(tmpDir, "*.wav"), f => !keptTmp.Contains(f));
@@ -912,7 +923,7 @@ partial class App : Form
                         pr => { targetPct = (itemIdx * 100f + 60f + 40f * pr) / Math.Max(1, itemTotal); }, out res);
                     if (outp != null)
                     {
-                        ok++; RemoveLinkFromBox(link); LastFile = outp; if (res != null) LastAn = res;
+                        ok++; RemoveLinkFromBox(boxLink); LastFile = outp; if (res != null) LastAn = res;
                         try { File.Delete(w); } catch { }
                         Log("Saved: " + Path.GetFileName(outp)); UsageStat.CountFile(outp); if (Prefs.SaveLyrics) Log(LyricsGet.SaveFor(outp));
                     }

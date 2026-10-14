@@ -39,6 +39,17 @@ static class NF
         StudioEnv.DataDir = Path.Combine(Path.GetTempPath(), "purphex_nf_" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(StudioEnv.DataDir); Application.EnableVisualStyles();
         Edition.Override = Tier.Fantasy;
 
+        // ---- Spotify links in the converter: the songs are read from Spotify's embed page and each is found on YouTube ----
+        {
+            Check("Spotify song, album, playlist and artist links are recognised (also with intl-gb/ and ?si=), other links are not", SpotifyLinks.Is("https://open.spotify.com/track/4cOdK2wGLETKBW3PvgPWqT?si=x") && SpotifyLinks.Is("https://open.spotify.com/intl-gb/album/6N9PS4QXF1D0OWPk0Sxtb4") && SpotifyLinks.Is("open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M") && SpotifyLinks.Is("spotify:track:4cOdK2wGLETKBW3PvgPWqT") && SpotifyLinks.Is("https://open.spotify.com/artist/0gxyHStUsqpMadRV0Di1Qt") && !SpotifyLinks.Is("https://www.youtube.com/watch?v=abc") && !SpotifyLinks.Is("https://open.spotify.com/episode/abc"));
+            SpotifyLinks.FetchHook = u => u.Contains("/track/") ? "<script id=\"__NEXT_DATA__\" type=\"application/json\">{\"props\":{\"pageProps\":{\"state\":{\"data\":{\"entity\":{\"name\":\"Dark \\\"Night\\\"\",\"artists\":[{\"name\":\"Ana Bee\"},{\"name\":\"Cy Dee\"}]}}}}}}</script>"
+                : "<script id=\"__NEXT_DATA__\" type=\"application/json\">{\"props\":{\"pageProps\":{\"state\":{\"data\":{\"entity\":{\"trackList\":[{\"title\":\"One\",\"subtitle\":\"Ana Bee\"},{\"title\":\"Two\",\"subtitle\":\"Ana Bee, Cy Dee\"}]}}}}}}</script>";
+            string se; var tr = SpotifyLinks.Resolve("https://open.spotify.com/track/4cOdK2wGLETKBW3PvgPWqT", out se); var al = SpotifyLinks.Resolve("https://open.spotify.com/album/6N9PS4QXF1D0OWPk0Sxtb4", out se);
+            Check("a Spotify song becomes a YouTube search for its artists and title (nothing in it can break the search)", tr.Count == 1 && tr[0].Key == "Ana Bee, Cy Dee - Dark \"Night\"" && tr[0].Value.StartsWith("ytsearch1:Ana Bee, Cy Dee - Dark  Night") && !tr[0].Value.Contains("\""), tr.Count > 0 ? tr[0].Value : se);
+            Check("a Spotify album or playlist becomes every one of its songs, in order", al.Count == 2 && al[0].Key == "Ana Bee - One" && al[1].Key == "Ana Bee, Cy Dee - Two", al.Count.ToString());
+            SpotifyLinks.FetchHook = u => "<html>nothing</html>"; var none = SpotifyLinks.Resolve("https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M", out se); Check("a Spotify page with no song list says so (nothing is converted)", none.Count == 0 && se != null && se.Length > 10, se ?? "");
+            SpotifyLinks.FetchHook = null;
+        }
         // ---- the emoji panel ----
         Check("there are hundreds of emojis in a dozen groups", EmojiPanel.Count >= 450 && EmojiPanel.GroupNames.Length >= 11, EmojiPanel.Count + " in " + EmojiPanel.GroupNames.Length);
         Check("searching by a word finds them (fire, guitar, heart)", EmojiPanel.Search("fire").Any(i => i.E == "🔥") && EmojiPanel.Search("guitar").Any(i => i.E == "🎸") && EmojiPanel.Search("heart").Count >= 8);

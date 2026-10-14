@@ -7,10 +7,13 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.39.8";
+    public const string Latest = "3.40.0";
 
     public const string Text =
-@"3.39.8  No more nudge buttons
+@"3.40.0  Spotify links in the converter
+ + NEW: Spotify links in the converter. Paste a Spotify song, album, playlist or artist link: Spotify's own audio is locked, so Purphex reads the songs (artist and title) from the link and finds each one on YouTube, then converts it like any other link. An album or playlist converts every song; an artist link converts their top 10.
+
+3.39.8  No more nudge buttons
  + REMOVED: the small < and > nudge buttons on each track. (Drag a clip to move it.)
 
 3.39.7  See the preset you are using

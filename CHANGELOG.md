@@ -2,6 +2,10 @@
 
 What changed in each version of **Purphex**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.40.0  Spotify links in the converter
+
+- NEW: Spotify links in the converter. Paste a Spotify song, album, playlist or artist link: Spotify's own audio is locked, so Purphex reads the songs (artist and title) from the link and finds each one on YouTube, then converts it like any other link. An album or playlist converts every song; an artist link converts their top 10.
+
 ## 3.39.8  No more nudge buttons
 
 - REMOVED: the small < and > nudge buttons on each track. (Drag a clip to move it.)
