@@ -1,4 +1,4 @@
-3.38.8
+3.38.9
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-EPs you can open and play
-sha256=57c69336e237502e353e9dd8ab634bc89a1dc1ab0f42d8a057feb8c7af7e59a8
+ALL PLUGINS: the selected track stands out
+sha256=2d6fd71a11727938505c57b7bc5408347916b6a3bfbe4d5605d3bea59f0c977b

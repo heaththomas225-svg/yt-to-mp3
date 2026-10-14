@@ -83,9 +83,12 @@ partial class StudioForm
         {
             var tr = rows[ci]; float cx = area.X + ci * (colW + gap) - allFxScroll; if (cx + colW < area.X || cx > area.Right) continue;
             int ti = eng.Tracks.IndexOf(tr); var col = Rc(cx, area.Y, colW, area.Height); var nc = Neon(tr.Color); bool picked = ti == selTrack;
-            FillRR(g, TM.C(picked ? 210 : 170, 30, 16, 58), col, 14); StrokeRR(g, Color.FromArgb(picked ? 230 : 120, nc), col, 14, picked ? 1.8f : 1.1f);
-            using (var b = new SolidBrush(nc)) g.FillRectangle(b, col.X + 14, col.Y + 8, colW - 28, 4);
-            var nameR = Rc(col.X + 12, col.Y + 16, colW - 24, 24); Txt(g, (tr.IsBus ? "BUS: " : "") + tr.Name, 14, Ink, nameR, StringAlignment.Near, true);
+            if (picked) { Glow(g, nc, col, 14, 1.3f, 6); FillRR(g, TM.C(240, 52, 26, 96), col, 14); using (var b = new SolidBrush(Color.FromArgb(40, nc))) using (var p = RR(col, 14)) g.FillPath(b, p); StrokeRR(g, nc, col, 14, 3.2f); }   // the selected track: it glows in its colour, a thick lit edge and a SELECTED tag
+            else { FillRR(g, TM.C(150, 30, 16, 58), col, 14); StrokeRR(g, Color.FromArgb(90, nc), col, 14, 1.1f); }
+            { int tixc = ti; float dX = 0, dS = 0; var crg = Reg(col, () => { selTrack = tixc; selFx = -1; dX = MousePos.X; dS = allFxScroll; }); crg.OnDrag = pt => allFxScroll = Math.Max(0, Math.Min(maxS, dS - (pt.X - dX))); }   // a click anywhere on a column picks that track; a drag slides the columns
+            using (var b = new SolidBrush(nc)) g.FillRectangle(b, col.X + 14, col.Y + 8, colW - 28, picked ? 6 : 4);
+            if (picked) { var sp = Rc(col.Right - 12 - 78, col.Y + 18, 78, 20); FillRR(g, nc, sp, 10); Txt(g, "SELECTED", 10, Color.Black, sp, StringAlignment.Center, true); }
+            var nameR = Rc(col.X + 12, col.Y + 16, colW - 24 - (picked ? 84 : 0), 24); Txt(g, (tr.IsBus ? "BUS: " : "") + tr.Name, 14, Ink, nameR, StringAlignment.Near, true);
             { int tix = ti; Reg(nameR, () => { selTrack = tix; selFx = -1; }); Hint2(nameR, "Pick this track"); }
             float by = col.Y + 46, bx = col.X + 10;
             var addB = Rc(bx, by, 54, 26); var cpB0 = Rc(addB.Right + 4, by, 78, 26); var ppB = Rc(cpB0.Right + 4, by, col.Right - 10 - cpB0.Right - 4, 26);
@@ -96,7 +99,8 @@ partial class StudioForm
             { var ca = Rc(bx, by + 32, (colW - 24) / 2, 26); var pa2 = Rc(ca.Right + 4, by + 32, col.Right - 10 - ca.Right - 4, 26); var tk = tr; int tix = ti;
               Btn(g, ca, "COPY ALL PLUGINS", 1, () => CopyAllFx(tk), 9); Hint2(ca, "Copy every plugin of " + tr.Name + " (with its settings and its preset boxes)");
               Btn(g, pa2, "PASTE ALL PLUGINS", allCopy.Count > 0 ? 2 : 0, () => { selTrack = tix; PasteAllFx(tk); }, 9); Hint2(pa2, allCopy.Count > 0 ? "Add all " + allCopy.Count + " copied plugins (from " + allCopyFrom + ") to " + tr.Name : "Copy all the plugins of a track first (COPY ALL PLUGINS)"); }
-            by += 32;
+              { var tk = tr; int tix = ti; var pp1 = Rc(bx, by + 64, colW - 20, 26); Btn(g, pp1, fxCopyType.Length > 0 ? "PASTE PLUGIN: " + fxCopyTitle.ToUpper() : "PASTE PLUGIN", fxCopyType.Length > 0 ? 2 : 0, () => { selTrack = tix; PasteFxAsNew(tk); }, 9); Hint2(pp1, fxCopyType.Length > 0 ? "Add the copied " + fxCopyTitle + " to " + tr.Name + " as a new plugin, with all its settings" : "Copy one plugin first: press COPY on any plugin (its settings come with it)"); }
+            by += 64;   // (the PASTE PLUGIN row)
             float ry = by + 36, bottom = col.Bottom - 10; string lastKey = null; int shown = 0;
             if (fxs.Length == 0) Txt(g, "NO PLUGINS YET", 11, DimC, Rc(col.X + 14, ry, colW - 28, 22), StringAlignment.Near, false);
             for (int i = 0; i < fxs.Length; i++)

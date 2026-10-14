@@ -2,6 +2,10 @@
 
 What changed in each version of **Purphex**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.38.9  ALL PLUGINS: the selected track stands out
+
+- NEW: ALL PLUGINS makes the selected track plain to see: its column glows in the track colour with a thick lit edge and a SELECTED tag (click anywhere on a column to pick that track). Every column has a PASTE PLUGIN button: COPY any one plugin, then PASTE PLUGIN puts it on another track with all its settings.
+
 ## 3.38.8  EPs you can open and play
 
 - NEW: EPs and albums on the Community tab: under ALBUMS and EPS each release is one card. Click it (or the EP name on any of its songs) to see its songs in order, play any one, or press PLAY EP / PLAY ALBUM to hear them all one after another.

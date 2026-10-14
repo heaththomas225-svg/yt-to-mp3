@@ -7,10 +7,13 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.38.8";
+    public const string Latest = "3.38.9";
 
     public const string Text =
-@"3.38.8  EPs you can open and play
+@"3.38.9  ALL PLUGINS: the selected track stands out
+ + NEW: ALL PLUGINS makes the selected track plain to see: its column glows in the track colour with a thick lit edge and a SELECTED tag (click anywhere on a column to pick that track). Every column has a PASTE PLUGIN button: COPY any one plugin, then PASTE PLUGIN puts it on another track with all its settings.
+
+3.38.8  EPs you can open and play
  + NEW: EPs and albums on the Community tab: under ALBUMS and EPS each release is one card. Click it (or the EP name on any of its songs) to see its songs in order, play any one, or press PLAY EP / PLAY ALBUM to hear them all one after another.
  + NEW: EPs and albums on My Projects: the projects of an EP are one EP card (not separate cards). OPEN EP lists its songs: PLAY hears one without opening it, clicking a song asks to open its project. While you search, the songs show one by one.
  + CHANGED: an EP needs at least 4 songs (a short release) and an album at least 5.
