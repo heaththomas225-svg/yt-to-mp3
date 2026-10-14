@@ -576,6 +576,17 @@ static class NF
                     sf.eng.Pause(); sf.LoopWhole(); Check("LOOP the whole song clears the section", sf.eng.Loop && !sf.eng.LoopSection, "");
                     sf.LoopOff(); Check("turning the loop off stops it looping", !sf.eng.Loop, ""); Prefs.OutVol = ov; sf.eng.Pos = 0;
                 }
+                {   // EXPORT as MP4: the picture of the project for exactly as long as the song
+                    string ffx = StudioEnv.Ffmpeg(); if (ffx == null) Console.WriteLine("SKIP  MP4 export (ffmpeg is not installed here)"); else
+                    {
+                        var em = new StudioEngine(); var vt = StudioEngine.NewTrack("Tone", "beat", AudioClip.FromArrays(Enumerable.Range(0, 44100 * 5).Select(k => (float)(0.3 * Math.Sin(k * 0.05))).ToArray(), Enumerable.Range(0, 44100 * 5).Select(k => (float)(0.3 * Math.Sin(k * 0.05))).ToArray(), "t")); em.Tracks.Add(vt);
+                        string vdir = Path.Combine(Path.GetTempPath(), "nf_mp4_" + Guid.NewGuid().ToString("N").Substring(0, 6)); Exporter.VideoFrame = sf.MakeVideoFrame(); var plan = Exporter.Plan(em, true, false, false, false, false, false, false, "Clip", Exporter.Mp4);
+                        string outv = null, verr = ""; try { outv = Exporter.Write(em, plan[0], vdir, Exporter.Mp4, null, null, Exporter.RateFor(Exporter.Mp4, 0)); } catch (Exception ex) { verr = ex.Message; }
+                        int vc; string info = outv != null ? MasterDsp.RunCapture(ffx, "-hide_banner -i \"" + outv + "\"", null, out vc) : ""; var dm = System.Text.RegularExpressions.Regex.Match(info, @"Duration: ([0-9]+):([0-9]+):([0-9.]+)"); double dur = dm.Success ? int.Parse(dm.Groups[1].Value) * 3600 + int.Parse(dm.Groups[2].Value) * 60 + double.Parse(dm.Groups[3].Value, System.Globalization.CultureInfo.InvariantCulture) : -1;
+                        Check("EXPORT as MP4 makes a video (the project picture) with the song, as long as the song", outv != null && outv.EndsWith(".mp4") && info.Contains("Video:") && info.Contains("Audio: aac") && Math.Abs(dur - 7.0) < 0.6, verr + " dur " + dur + " " + info.Replace((char)13, ' ').Replace((char)10, '|').Substring(0, Math.Min(900, info.Length)));
+                        try { File.Delete(Exporter.VideoFrame); Directory.Delete(vdir, true); } catch { }
+                    }
+                }
                 sf.eng.Tracks.Clear();
             }
             {   // copy / paste of plugins and of pieces, the preset shown on the plugin, REMOVE PRESET

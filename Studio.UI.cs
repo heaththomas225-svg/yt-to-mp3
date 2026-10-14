@@ -273,7 +273,7 @@ partial class StudioForm : Form
         { "SPLIT VOCALS + BEAT", "Splits the selected FULL SONG into a vocals track and an instrumental track (AI)." },
         { "AUTO MIX", "Balances the levels and builds an effect chain on every track, then lists what it changed." },
         { "Undo mix", "Puts everything back the way it was before Auto Mix." },
-        { "EXPORT", "Save the finished mix, the vocals, the instrumental or all stems as WAV, FLAC or MP3." },
+        { "EXPORT", "Save the finished mix, the vocals, the instrumental or all stems as WAV, FLAC, MP3, or an MP4 video with your project picture." },
         { "Help", "Open the guides. Each one can show you on screen where to click." },
         { "Open", "Open a saved project (Ctrl+O)." }, { "Save", "Save this project (Ctrl+S)." },
         { "Save as", "Save a copy under a new name (Ctrl+Shift+S)." },

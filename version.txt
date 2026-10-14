@@ -1,4 +1,4 @@
-3.38.9
+3.39.0
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-ALL PLUGINS: the selected track stands out
-sha256=2d6fd71a11727938505c57b7bc5408347916b6a3bfbe4d5605d3bea59f0c977b
+Export your song as an MP4 video
+sha256=55600413aaaff7d1b02b499bc5d54e8244775bf2beca1eb4a304663cc37685ce

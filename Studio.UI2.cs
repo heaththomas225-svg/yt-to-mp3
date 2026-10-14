@@ -160,6 +160,7 @@ partial class StudioForm
         if (exist.Count > 0 && MessageBox.Show(this, exist.Count + " file(s) already exist in that folder and will be replaced:\n\n" + string.Join("\n", exist.GetRange(0, Math.Min(6, exist.Count)).ToArray()) + (exist.Count > 6 ? "\n..." : "") + "\n\nReplace them? (Your original source audio is never overwritten.)", "Replace files?", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes) return;
         // never overwrite one of the project's own source files
         foreach (var it in plan) { string p = Path.GetFullPath(Path.Combine(s.Dir, it.FileName)); foreach (var t in eng.Tracks) if (t.Clip != null && t.Clip.Path != null && string.Equals(Path.GetFullPath(t.Clip.Path), p, StringComparison.OrdinalIgnoreCase)) { MessageBox.Show(this, "Export would overwrite the original audio file \"" + Path.GetFileName(p) + "\". Choose another folder or name."); return; } }
+        if (s.Fmt == Exporter.Mp4) { try { Exporter.VideoFrame = MakeVideoFrame(); } catch (Exception ex) { MessageBox.Show(this, "The picture for the video could not be made: " + ex.Message); return; } }   // MP4: the project's picture, made once for every file of this export
         int n = plan.Count; var done = new List<string>();
         RunBusy("Exporting " + n + " file(s)...", true, prog =>
         {
@@ -170,10 +171,26 @@ partial class StudioForm
             }
         }, ok =>
         {
+            if (s.Fmt == Exporter.Mp4) { try { File.Delete(Exporter.VideoFrame); } catch { } }
             if (!ok) return; Toast("Exported " + done.Count + " file(s)"); try { System.Diagnostics.Process.Start("explorer.exe", "\"" + s.Dir + "\""); } catch { }
         });
     }
 
+    // the picture of an MP4 export: exactly the picture on the project's card (its own picture, or the Purphex logo art when it has none), 1080 x 1080
+    internal string MakeVideoFrame()
+    {
+        const int S = 1080; string outp = Path.Combine(Path.GetTempPath(), "purphex_video_" + Guid.NewGuid().ToString("N").Substring(0, 8) + ".png");
+        var e = projPath.Length > 0 ? ProjectLibrary.Find(projPath) : null; string cover = e != null ? e.Cover : "";
+        if ((cover == null || cover.Length == 0 || !File.Exists(cover)) && ProjectIO.CoverBytes != null && ProjectIO.CoverBytes.Length > 0) { cover = Path.Combine(Path.GetTempPath(), "purphex_vcover_" + Guid.NewGuid().ToString("N").Substring(0, 8) + ".img"); File.WriteAllBytes(cover, ProjectIO.CoverBytes); }
+        using (var bmp = new Bitmap(S, S)) using (var g = Graphics.FromImage(bmp))
+        {
+            g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias; g.Clear(Color.Black);
+            if (string.IsNullOrEmpty(cover) || !File.Exists(cover)) { var lg = AppLogo.Logo; if (lg != null) { g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic; g.DrawImage(lg, new Rectangle(0, 0, S, S)); } }   // no picture: the Purphex logo, edge to edge
+            else DrawCover(g, new RectangleF(0, 0, S, S), new ProjectEntry { Name = projName, Cover = cover });
+            bmp.Save(outp, System.Drawing.Imaging.ImageFormat.Png);
+        }
+        return outp;
+    }
     internal bool HasProject { get { return eng.Tracks.Count > 0; } }
     // SAVE for the question asked when the program is closed: true when the project is saved (a cancelled Save dialog keeps the program open)
     internal bool SaveBeforeClose() { return QuickSaveNamed(); }
@@ -516,12 +533,14 @@ static class StudioDialogs
             case 1: return "WAV 16-bit: CD quality, nothing compressed. Plays everywhere and the files are a little smaller (about 10 MB a minute). Good for sharing, but not the best to keep: 24-bit has more room.";
             case 2: return "WAV 32-bit float: the HIGHEST QUALITY. Nothing is ever clipped or cut off, even if it is louder than the limit. Made for editing in another program. The biggest files (about 21 MB a minute).";
             case 3: return "FLAC 24-bit: the same quality as WAV 24-bit at about half the size, and nothing is lost. A great way to keep your best version (a few players and phones cannot open it).";
+            case 5: return "MP4 VIDEO: your song with the picture of your project (the same picture as on its card in My Projects, or the Purphex logo when it has none) for exactly as long as the song. Ready to post on YouTube, Instagram or TikTok. The sound is AAC 320 kbps.";
             default: return "MP3 320 kbps: the smallest file (about 2.4 MB a minute) and it plays on everything: phones, cars, social media. A little quality is thrown away, so use it to share, not to keep or to edit more.";
         }
     }
     internal static string RateHint(int r, int fmt)
     {
         if (fmt == 4) return "Rate: MP3 only goes up to 48 kHz, so 44.1 kHz (or 48 kHz) is what you get.";
+        if (fmt == 5) return "Rate: the sound of a video is always 48 kHz, the standard for video.";
         if (r <= 1) return "Rate: " + (r == 0 ? "44.1 kHz is CD quality and how your project is made: the right choice for music." : "48 kHz is the standard for video: pick it if the song goes into a video.");
         return "Rate: higher rates make much bigger files and only matter if you will keep processing the sound. For listening, 44.1 or 48 kHz sounds the same.";
     }
@@ -552,9 +571,9 @@ static class StudioDialogs
         f.Controls.Add(new Label { Text = "end", Left = 206, Top = y + 4, Width = 36, Height = 22 }); var tb = new TextBox { Left = 244, Top = y, Width = 80, Text = TimeText(songLen), BackColor = Fld, ForeColor = Ink, BorderStyle = BorderStyle.FixedSingle }; Win.NeonBox(tb); f.Controls.Add(tb);
         f.Controls.Add(new Label { Text = "to export only a part", Left = 336, Top = y + 4, Width = 206, Height = 22, ForeColor = TM.C(255, 170, 150, 190) }); y += 40;
         y += 2; f.Controls.Add(new Label { Text = "Format", Left = 16, Top = y + 4, Width = 70, Height = 22 });
-        var fm = new DarkCombo { Left = 90, Top = y, Width = 190 }; fm.Items.AddRange(Exporter.Formats); fm.Items[2] = Exporter.Formats[2] + "  (best)"; fm.Items[4] = Exporter.Formats[4] + "  (smallest)"; fm.SelectedIndex = 0; f.Controls.Add(fm);
+        var fm = new DarkCombo { Left = 90, Top = y, Width = 190 }; fm.Items.AddRange(Exporter.Formats); fm.Items[2] = Exporter.Formats[2] + "  (best)"; fm.Items[4] = Exporter.Formats[4] + "  (smallest)"; fm.Items[5] = Exporter.Formats[5] + "  (NEW)"; fm.SelectedIndex = 0; f.Controls.Add(fm);
         f.Controls.Add(new Label { Text = "Rate", Left = 292, Top = y + 4, Width = 92, Height = 22 }); var rt = new DarkCombo { Left = 388, Top = y, Width = 146 }; rt.Items.AddRange(Exporter.RateNames); for (int ri = 0; ri < rt.Items.Count && ri < Exporter.Rates.Length; ri++) if (Exporter.Rates[ri] > Edition.MaxRate) rt.Items[ri] = Exporter.RateNames[ri] + "  (Fantasy)"; rt.SelectedIndex = 0; int rtLast = 0; rt.SelectedIndexChanged += (ra, rb) => { int ri = rt.SelectedIndex; if (ri < 0) return; if (ri < Exporter.Rates.Length && Exporter.Rates[ri] > Edition.MaxRate) { Edition.Upsell(Tier.Fantasy, "Exporting at " + Exporter.RateNames[ri], f); rt.SelectedIndex = rtLast; } else rtLast = ri; }; f.Controls.Add(rt); y += 40;
-        var rtNote = new Label { Left = 90, Top = y - 6, Width = 440, Height = 20, ForeColor = TM.C(255, 170, 150, 190), Text = "" }; f.Controls.Add(rtNote); fm.SelectedIndexChanged += (s0, e0) => { rtNote.Text = fm.SelectedIndex == 4 && rt.SelectedIndex > 1 ? "MP3 stops at 48 kHz, so it is saved at 48 kHz." : ""; }; rt.SelectedIndexChanged += (s0, e0) => { rtNote.Text = fm.SelectedIndex == 4 && rt.SelectedIndex > 1 ? "MP3 stops at 48 kHz, so it is saved at 48 kHz." : (rt.SelectedIndex > 0 ? "Made at 44.1 kHz and converted with a high quality filter: bigger files, the same sound." : ""); }; y += 18;
+        var rtNote = new Label { Left = 90, Top = y - 6, Width = 440, Height = 20, ForeColor = TM.C(255, 170, 150, 190), Text = "" }; f.Controls.Add(rtNote); fm.SelectedIndexChanged += (s0, e0) => { rtNote.Text = fm.SelectedIndex == 5 ? "A video is saved with 48 kHz sound." : (fm.SelectedIndex == 4 && rt.SelectedIndex > 1 ? "MP3 stops at 48 kHz, so it is saved at 48 kHz." : ""); }; rt.SelectedIndexChanged += (s0, e0) => { rtNote.Text = fm.SelectedIndex == 4 && rt.SelectedIndex > 1 ? "MP3 stops at 48 kHz, so it is saved at 48 kHz." : (rt.SelectedIndex > 0 ? "Made at 44.1 kHz and converted with a high quality filter: bigger files, the same sound." : ""); }; y += 18;
         // what each format and rate means, in plain words (for people who are new to this)
         var fmDesc = new Label { Left = 90, Top = y + 2, Width = side ? 470 : 446, Height = 78, ForeColor = TM.C(255, 205, 190, 230), Text = "" }; f.Controls.Add(fmDesc);
         Action descUpd = () => { int a0 = Math.Max(0, fm.SelectedIndex), b0 = Math.Max(0, rt.SelectedIndex); fmDesc.Text = FormatHint(a0) + "\r\n" + RateHint(b0, a0); };

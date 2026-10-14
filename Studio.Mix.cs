@@ -625,14 +625,15 @@ class ExportItem { public string Label, FileName; public RenderOpts Opts; }
 
 static class Exporter
 {
-    public static readonly string[] Formats = { "WAV 24-bit", "WAV 16-bit", "WAV 32-bit float", "FLAC 24-bit", "MP3 320 kbps" };
-    static readonly string[] Ext = { "wav", "wav", "wav", "flac", "mp3", "mp3" };
+    public static readonly string[] Formats = { "WAV 24-bit", "WAV 16-bit", "WAV 32-bit float", "FLAC 24-bit", "MP3 320 kbps", "MP4 video" };
+    public const int Mp4 = 5; public static string VideoFrame = "";   // MP4: the picture of the project (a PNG made by the studio just before the export) shown for the whole song
+    static readonly string[] Ext = { "wav", "wav", "wav", "flac", "mp3", "mp4" };
 
     public static string FileExt(int fmt) { return Ext[fmt]; }
     // the sample rate of the finished file: the music is made at 44.1 kHz and converted with a high quality filter (MP3 stops at 48 kHz, which is as high as that format goes)
     public static readonly int[] Rates = { 44100, 48000, 88200, 96000, 176400, 192000, 352800, 384000 };
     public static readonly string[] RateNames = { "44.1 kHz (as made)", "48 kHz", "88.2 kHz", "96 kHz", "176.4 kHz", "192 kHz", "352.8 kHz (DXD)", "384 kHz (the highest)" };
-    public static int RateFor(int fmt, int rateIdx) { int r = Math.Min(Rates[Math.Max(0, Math.Min(Rates.Length - 1, rateIdx))], Edition.MaxRate); return fmt == 4 ? Math.Min(r, 48000) : r; }
+    public static int RateFor(int fmt, int rateIdx) { int r = Math.Min(Rates[Math.Max(0, Math.Min(Rates.Length - 1, rateIdx))], Edition.MaxRate); return fmt >= 4 ? Math.Min(r, 48000) : r; }
 
     public static List<ExportItem> Plan(StudioEngine eng, bool mixMastered, bool mixDry, bool procVocal, bool procBeat, bool dryVocal, bool dryBeat, bool stems, string prefix, int fmt, HashSet<Track> onlyStems = null)
     {
@@ -695,7 +696,15 @@ static class Exporter
             if (frames * 2L * (tbits / 8) > 4000000000L) throw new Exception("That is too long to export as one file (about 4 hours). Export in parts.");
             using (var ws = new WavStream(tmp, StudioEngine.SR, tbits)) eng.RenderStream(from, frames, it.Opts, prog == null ? null : (Action<float>)(x => prog(x * 0.9f)), (l, r, o, n) => ws.Write(l, r, o, n), cancelled);
             if (cancelled != null && cancelled()) throw new Exception("Export cancelled.");
-            int code; string o2 = MasterDsp.RunCapture(ff, "-hide_banner -y -i \"" + tmp + "\" -vn " + (rate != StudioEngine.SR ? "-af aresample=resampler=swr:filter_size=64:cutoff=0.99 -ar " + rate + " " : "") + enc + " \"" + outp + "\"", null, out code);
+            int code; string o2;
+            if (fmt == Mp4)
+            {   // MP4: the project's picture fills the video for exactly as long as the song (a still picture: H.264 1080x1080, AAC 320 kbps at 48 kHz), ready for YouTube, Instagram, TikTok...
+                if (string.IsNullOrEmpty(VideoFrame) || !File.Exists(VideoFrame)) throw new Exception("The picture for the video could not be made.");
+                string vin = "-hide_banner -y -loop 1 -framerate 24 -i \"" + VideoFrame + "\" -i \"" + tmp + "\" -map 0:v:0 -map 1:a:0 ", vout = " -r 24 -c:a aac -b:a 320k -ar 48000 -shortest -movflags +faststart \"" + outp + "\"";
+                o2 = MasterDsp.RunCapture(ff, vin + "-c:v libx264 -preset veryfast -tune stillimage -crf 18 -pix_fmt yuv420p" + vout, null, out code);
+                if (code != 0 || !File.Exists(outp)) o2 = MasterDsp.RunCapture(ff, vin + "-c:v mpeg4 -q:v 2 -pix_fmt yuv420p" + vout, null, out code);   // an ffmpeg without H.264: plain MPEG-4 video still plays everywhere
+            }
+            else o2 = MasterDsp.RunCapture(ff, "-hide_banner -y -i \"" + tmp + "\" -vn " + (rate != StudioEngine.SR ? "-af aresample=resampler=swr:filter_size=64:cutoff=0.99 -ar " + rate + " " : "") + enc + " \"" + outp + "\"", null, out code);
             if (code != 0 || !File.Exists(outp)) throw new Exception("Encoding failed.\n" + o2);
             if (prog != null) prog(1f);
         }
