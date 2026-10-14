@@ -553,6 +553,8 @@ static class NF
                     string pfL = Path.Combine(Path.GetTempPath(), "nf-piecelock.ytmproj"); ra.Source = "x"; lp.Source = "x"; ProjectIO.Save(sf.eng, pfL); var eL = new StudioEngine(); ProjectIO.Load(eL, pfL, s => { }); var lpL = eL.Tracks.Find(t => t.Name == "Clip row (2)"); var raL = eL.Tracks.Find(t => t.Name == "Clip row");
                     Check("a locked section stays locked when the project is saved and opened again", lpL != null && lpL.PieceLocked && raL != null && !raL.PieceLocked && !raL.Locked, lpL == null ? "missing" : lpL.PieceLocked.ToString()); try { File.Delete(pfL); } catch { }
                     sf.TogglePieceLock(lp); Check("Unlock this section frees it again", !(bool)isL.Invoke(sf, new object[] { lp }), "");
+                    { var mm = Win.NewMenu(); mm.Items.Add("Split here"); Check("menus are 40% bigger (13.3 pt text, taller rows) so you do not hit the wrong line", mm.Font.SizeInPoints >= 13f && mm.Items[0].Padding.Top >= 5, mm.Font.SizeInPoints + " pt"); mm.Dispose(); }
+                    { var ppd = (Dictionary<Track, int>)typeof(StudioForm).GetField("powerPulse", BF).GetValue(sf); typeof(StudioForm).GetMethod("ToggleOff", BF).Invoke(sf, new object[] { rb }); bool pulsed = ppd.ContainsKey(rb) && rb.Off; typeof(StudioForm).GetMethod("ToggleOff", BF).Invoke(sf, new object[] { rb }); Check("pressing the power button turns the track off and sends pulse rings out of it (and on again)", pulsed && !rb.Off, ""); }
                     lock (sf.eng.Sync) sf.eng.Tracks.Remove(lp);
                 }
                 {   // LOOP > Loop a section: drag across the timeline, it loops that part (and plays it straight away)

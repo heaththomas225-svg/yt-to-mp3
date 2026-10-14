@@ -2,6 +2,11 @@
 
 What changed in each version of **Purphex**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.38.7  Power buttons, bigger menus
+
+- NEW: the light at the top left of a track is now a real POWER button: bigger, round and glossy with a power sign, lit in the track colour when on and dark red when off, and pressing it sends pulse rings out of it.
+- CHANGED: every menu (right-click on a clip, plugin menus, pickers) is 40% bigger, with bigger text and taller lines, so you do not click the wrong thing.
+
 ## 3.38.6  Lock one section
 
 - NEW: right-click a piece of audio and press Lock this section: only that piece is locked (the rest of the track can still be moved, cut and edited). A locked section has its own look: gold stripes, a glowing gold edge and a LOCKED SECTION tag. Try to move or change it and it tells you: this section is locked, right-click it to unlock. It stays locked when the project is saved.

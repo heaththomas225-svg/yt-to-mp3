@@ -1,4 +1,4 @@
-3.38.6
+3.38.7
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Lock one section
-sha256=da2ffba282eef59b68c7575e05102f554ea27013b4dae15b715c3c82d98d9c48
+Power buttons, bigger menus
+sha256=4119bfd3a67abbcfc21cd2e8e4fbce1bdea25f157a488e28bdab0100bdb05b11

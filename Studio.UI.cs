@@ -880,9 +880,9 @@ partial class StudioForm : Form
         using (var br = new SolidBrush(sel ? TM.C(255, 40, 22, 74) : TM.C(255, 26, 15, 46))) g.FillRectangle(br, r);
         using (var pen = new Pen(sel ? Color.FromArgb(200, Neon(tr.Color)) : Color.FromArgb(70, Neon(tr.Color)), sel ? 1.6f : 1f)) g.DrawRectangle(pen, r.X + 1, r.Y + 1, r.Width - 2, r.Height - 2);
         { var trH = tr; Reg(r, () => { busEdit = null; selTrack = Math.Max(0, eng.Tracks.IndexOf(trH)); selFx = -1; toolsTrack = trH; }); }   // any empty part of the box picks this track (the buttons and sliders on top of it keep their own clicks)
-        Led(g, Neon(tr.Color), r.X + 20, r.Y + 17, 5, !tr.Off);   /* the light is the power switch of the track (press it: the track is off) */
-        Txt(g, tr.Name, 15, Ink, Rc(r.X + 28, r.Y + 6, 150, 22), StringAlignment.Near, true);
-        if (tr.Bpm > 0 && !bus) { var bt = thin ? Rc(r.X + 298, r.Y + 9, 40, 14) : Rc(r.X + 28, r.Y + 26, 120, 14); Txt(g, tr.Bpm.ToString("0.#") + (thin ? "" : " BPM"), 10, Math.Abs(tr.Bpm - Fx.ProjectBpm) < 0.6 ? Color.FromArgb(150, 255, 190) : DimC, bt, StringAlignment.Near, false); if (Hot(bt)) hintNow = "The tempo heard in this track" + (Math.Abs(tr.Bpm - Fx.ProjectBpm) < 0.6 ? ", the same as the project." : ". The project is at " + Fx.ProjectBpm.ToString("0.#") + " BPM: press DETECT to use this track's tempo."); }
+        PaintPowerButton(g, tr, r.X + 20, r.Y + 17, Hot(Rc(r.X + 7, r.Y + 4, 26, 26)));   /* the power button of the track (press it: the track is off) */
+        Txt(g, tr.Name, 15, Ink, Rc(r.X + 36, r.Y + 6, 142, 22), StringAlignment.Near, true);
+        if (tr.Bpm > 0 && !bus) { var bt = thin ? Rc(r.X + 298, r.Y + 9, 40, 14) : Rc(r.X + 36, r.Y + 26, 120, 14); Txt(g, tr.Bpm.ToString("0.#") + (thin ? "" : " BPM"), 10, Math.Abs(tr.Bpm - Fx.ProjectBpm) < 0.6 ? Color.FromArgb(150, 255, 190) : DimC, bt, StringAlignment.Near, false); if (Hot(bt)) hintNow = "The tempo heard in this track" + (Math.Abs(tr.Bpm - Fx.ProjectBpm) < 0.6 ? ", the same as the project." : ". The project is at " + Fx.ProjectBpm.ToString("0.#") + " BPM: press DETECT to use this track's tempo."); }
         string role = bus ? "BUS" : (tr.Instrument ? "SYNTH" : (tr.Role == "vocal" ? "VOCAL" : (tr.Role == "beat" ? "BEAT" : (tr.Role == "song" ? "SONG" : "AUDIO"))));
         int layers = 0; foreach (var lx in eng.Tracks) if (lx.Host == tr) layers++;
         if (layers > 0) { var chip = thin ? Rc(r.X + 242, r.Y + 8, 52, 18) : Rc(r.X + 186, r.Y + 27, 52, 15); FillRR(g, Hot(chip) ? TM.C(200, 90, 50, 170) : TM.C(150, 50, 30, 100), chip, 7); Txt(g, "+" + layers + " layer" + (layers == 1 ? "" : "s"), 9, Ink, chip, StringAlignment.Center, true); var hostTr = tr; Reg(chip, () => LayerMenu(hostTr)); if (Hot(chip)) { bubble = "Tracks sharing this row. Click to mute, separate or delete them."; bubblePt = MousePos; } }
@@ -891,7 +891,7 @@ partial class StudioForm : Form
         Btn(g, Rc(r.Right - 34, r.Y + 7, 22, 22), "x", 3, () => RemoveTrack(tk), 13);
         var nameReg = Reg(Rc(r.X + 4, r.Y + 4, 176, 26), () => HeaderDown(tk)); nameReg.OnDrag = pt => HeaderDrag(tk, pt); nameReg.OnUp = () => { HeaderDrop(tk); GhostEnd(); }; nameReg.OnDouble = () => RenameTrack(tk); nameReg.OnRight = () => RenameTrack(tk);
         if (Hot(Rc(r.X + 4, r.Y + 4, 176, 26))) bubble = "Drag up or down to reorder.  Double-click to rename."; bubblePt = MousePos;
-        { var dotR = Rc(r.X + 8, r.Y + 5, 24, 24); Reg(dotR, () => ToggleOff(tk)); if (Hot(dotR)) { bubble = tk.Off ? "This track is OFF. Click the light to turn it back on." : "Click the light to turn this track completely off: it goes quiet, dims, and shakes apart on the timeline."; bubblePt = MousePos; } }
+        { var dotR = Rc(r.X + 7, r.Y + 4, 26, 26); Reg(dotR, () => ToggleOff(tk)); if (Hot(dotR)) { bubble = tk.Off ? "This track is OFF. Press the power button to turn it back on." : "POWER: turn this track completely off. It goes quiet, dims, and shakes apart on the timeline."; bubblePt = MousePos; } }
         // M / S, + Add Effect, Out
         float bh = thin ? 24 : 30;
         Btn(g, Rc(r.X + 12, r.Y + by, 36, bh), "M", tk.Mute ? 4 : 0, () => ToggleMute(tk), 14);

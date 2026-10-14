@@ -8,23 +8,38 @@ using System.Drawing.Imaging;
 // its header dims, and on the timeline its audio turns very translucent and shakes itself apart: an animated earthquake of broken strips, gaps and cracks.
 partial class StudioForm
 {
+    // the power button of a track (top left of its header): a round glossy button with a power sign, lit in the track colour when on, dark red when off;
+    // pressing it sends pulse rings out of it
+    readonly Dictionary<Track, int> powerPulse = new Dictionary<Track, int>();
+    const float PowerR = 11f;
+    void PaintPowerButton(Graphics g, Track tr, float cx, float cy, bool hot)
+    {
+        bool on = !tr.Off; Color c = on ? Neon(tr.Color) : Color.FromArgb(255, 255, 70, 90); var sm = g.SmoothingMode; g.SmoothingMode = SmoothingMode.AntiAlias; float R = PowerR;
+        int t0; if (powerPulse.TryGetValue(tr, out t0)) { int age = unchecked(Environment.TickCount - t0); if (age > 900) powerPulse.Remove(tr); else { lastInput = DateTime.Now; for (int k = 0; k < 2; k++) { float u = Math.Max(0, (age - k * 220) / 680f); if (u <= 0 || u >= 1) continue; float rr = R + 4 + u * 30; using (var pen = new Pen(Color.FromArgb((int)(220 * (1 - u)), c), 2.6f * (1 - u) + 0.6f)) g.DrawEllipse(pen, cx - rr, cy - rr, rr * 2, rr * 2); } } }
+        if (on || hot) using (var gp = new GraphicsPath()) { gp.AddEllipse(cx - R - 5, cy - R - 5, (R + 5) * 2, (R + 5) * 2); using (var pb = new PathGradientBrush(gp) { CenterColor = Color.FromArgb(on ? 120 : 70, c), SurroundColors = new[] { Color.FromArgb(0, c) } }) g.FillPath(pb, gp); }
+        var face = new RectangleF(cx - R, cy - R, R * 2, R * 2); using (var lb = new LinearGradientBrush(face, on ? TM.C(255, 46, 30, 80) : TM.C(255, 40, 10, 16), on ? TM.C(255, 12, 6, 26) : TM.C(255, 14, 4, 8), 90f)) g.FillEllipse(lb, face);
+        using (var hl = new LinearGradientBrush(new RectangleF(cx - R, cy - R, R * 2, R), Color.FromArgb(70, 255, 255, 255), Color.FromArgb(0, 255, 255, 255), 90f)) g.FillEllipse(hl, cx - R + 2, cy - R + 1, R * 2 - 4, R);
+        using (var pen = new Pen(Color.FromArgb(hot ? 255 : 220, c), 2f)) g.DrawEllipse(pen, face);
+        float s = R * 0.52f; using (var pen = new Pen(Color.FromArgb(on ? 255 : 230, on ? c : Color.FromArgb(255, 255, 120, 130)), 2.2f) { StartCap = LineCap.Round, EndCap = LineCap.Round }) { g.DrawArc(pen, cx - s, cy - s + 1, s * 2, s * 2, -50, 280); g.DrawLine(pen, cx, cy - s - 2, cx, cy + 0.5f); }
+        g.SmoothingMode = sm;
+    }
     bool AnyTrackOff() { foreach (var t in eng.Tracks.ToArray()) if (t.Off) return true; return false; }
     void SetOff(Track tk, bool off) { foreach (var x in eng.Tracks.ToArray()) if (x == tk || x.Host == tk) x.Off = off; }
     // the light turns the whole row off (its own clip and every layer on it); an original that was unloaded after separation is read back first when it is turned on
     void ToggleOff(Track tk)
     {
         if (tk.Off && tk.Clip != null && !tk.Clip.Loaded) { RunBusy("Loading " + tk.Name + " back into memory...", true, p => tk.Clip.Reload(p, () => cancelFlag), ok => { if (ok) SetOff(tk, false); }); return; }
-        bool v = !tk.Off; SetOff(tk, v); lastInput = DateTime.Now; Toast(v ? tk.Name + " is OFF: it makes no sound. Click its light to turn it on again." : tk.Name + " is on again.");
+        bool v = !tk.Off; SetOff(tk, v); lastInput = DateTime.Now; powerPulse[tk] = Environment.TickCount; Toast(v ? tk.Name + " is OFF: it makes no sound. Click its light to turn it on again." : tk.Name + " is on again.");
     }
 
     // the header of a track that is off: everything dimmed, and the light is a hollow ring that slowly breathes (press it to switch the track back on)
     void PaintHeaderOff(Graphics g, RectangleF r, Track tr)
     {
-        { var swallow = Reg(r, () => Toast(tr.Name + " is OFF: click its light (top left) to turn it on before you touch it.")); var light = Rc(r.X + 8, r.Y + 5, 24, 24); Reg(light, () => ToggleOff(tr)); }   // a track that is off cannot be touched: only its light answers
+        { var swallow = Reg(r, () => Toast(tr.Name + " is OFF: press its power button (top left) to turn it on before you touch it.")); var light = Rc(r.X + 7, r.Y + 4, 26, 26); Reg(light, () => ToggleOff(tr)); }   // a track that is off cannot be touched: only its light answers
         using (var br = new SolidBrush(Color.FromArgb(140, 5, 3, 12))) g.FillRectangle(br, r.X + 1, r.Y + 1, r.Width - 2, r.Height - 2);
         var c = Neon(tr.Color); float cx = r.X + 20, cy = r.Y + 17; double pulse = 0.5 + 0.5 * Math.Sin(Environment.TickCount / 420.0);
-        using (var br = new SolidBrush(Color.FromArgb(235, 8, 4, 18))) g.FillEllipse(br, cx - 7.5f, cy - 7.5f, 15, 15);
-        using (var pen = new Pen(Color.FromArgb(90 + (int)(120 * pulse), c), 1.8f)) g.DrawEllipse(pen, cx - 6, cy - 6, 12, 12);
+        PaintPowerButton(g, tr, cx, cy, Hot(Rc(r.X + 7, r.Y + 4, 26, 26)));   // OFF: the power button is dark red
+        using (var pen = new Pen(Color.FromArgb(40 + (int)(90 * pulse), 255, 70, 90), 1.4f)) g.DrawEllipse(pen, cx - PowerR - 3, cy - PowerR - 3, (PowerR + 3) * 2, (PowerR + 3) * 2);   // and a ring that slowly breathes round it
     }
 
     // a number between -1 and 1 that is always the same for the same three numbers

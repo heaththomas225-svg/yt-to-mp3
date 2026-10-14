@@ -245,11 +245,11 @@ static class S
                 Check("each mode has its own little picture in the menu", allDrawn, "");
             }
             {   // the neon light of a track turns it off
-                bool addedTk = false; if (eng.Tracks.Count == 0) { eng.Tracks.Add(StudioEngine.NewTrack("Lead", "vocal", Clip(5))); addedTk = true; } SetF("tab", 0); Paint(); var dots = Regs().FindAll(r => r.OnDown != null && Math.Abs(r.R.Width - 24) < 0.5f && Math.Abs(r.R.Height - 24) < 0.5f && r.R.X < 20 && r.R.Y > 100); dots.Sort((a, b) => a.R.Y.CompareTo(b.R.Y)); var tk0 = eng.Tracks[0]; bool was = tk0.Off;
+                bool addedTk = false; if (eng.Tracks.Count == 0) { eng.Tracks.Add(StudioEngine.NewTrack("Lead", "vocal", Clip(5))); addedTk = true; } SetF("tab", 0); Paint(); var dots = Regs().FindAll(r => r.OnDown != null && Math.Abs(r.R.Width - 26) < 0.5f && Math.Abs(r.R.Height - 26) < 0.5f && r.R.X < 20 && r.R.Y > 100); dots.Sort((a, b) => a.R.Y.CompareTo(b.R.Y)); var tk0 = eng.Tracks[0]; bool was = tk0.Off;
                 Check("every track has a light at the top left of its header that can be pressed", dots.Count >= eng.Tracks.Count, dots.Count + " lights for " + eng.Tracks.Count + " tracks");
                 if (dots.Count > 0) { dots[0].OnDown(); Paint(); Check("pressing the light turns the track off", tk0.Off && !was, ""); string perr = ""; try { for (int q = 0; q < 6; q++) { Paint(); Pump(40); } } catch (Exception ex) { perr = ex.Message; } Check("a track that is off paints (the broken, shaking picture) without a problem", perr.Length == 0, perr);
                   Check("while a track is off the timeline keeps animating", (bool)typeof(StudioForm).GetMethod("AnyTrackOff", BF).Invoke(sf, null), "");
-                  var dots2 = Regs().FindAll(r => r.OnDown != null && Math.Abs(r.R.Width - 24) < 0.5f && Math.Abs(r.R.Height - 24) < 0.5f && r.R.X < 20 && r.R.Y > 100); dots2.Sort((a, b) => a.R.Y.CompareTo(b.R.Y)); if (dots2.Count > 0) dots2[0].OnDown(); Paint(); Check("pressing it again turns the track on", !tk0.Off, ""); }
+                  var dots2 = Regs().FindAll(r => r.OnDown != null && Math.Abs(r.R.Width - 26) < 0.5f && Math.Abs(r.R.Height - 26) < 0.5f && r.R.X < 20 && r.R.Y > 100); dots2.Sort((a, b) => a.R.Y.CompareTo(b.R.Y)); if (dots2.Count > 0) dots2[0].OnDown(); Paint(); Check("pressing it again turns the track on", !tk0.Off, ""); }
                 if (addedTk) { eng.Tracks.Clear(); Paint(); }
             }
         }

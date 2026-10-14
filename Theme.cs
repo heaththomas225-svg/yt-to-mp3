@@ -256,8 +256,9 @@ static class Win
 
     public static ContextMenuStrip NewMenu()
     {
+    // every menu of the app (right-click menus, plugin menus, pickers): 40% bigger than it was (13.3 pt instead of 9.5, taller rows) so you never hit the wrong line
         var m = new ContextMenuStrip { Renderer = new DarkRenderer(), BackColor = TM.C(255, 16, 8, 32), ForeColor = TM.C(255, 240, 232, 255), ShowImageMargin = false, Font = new Font("Segoe UI", 10f) };
-        m.Font = UiFont(9.5f); Action<ToolStripItem> up = null; up = it => { if (!string.IsNullOrEmpty(it.Text) && it.Text.Length <= 70) it.Text = Up(it.Text); var mi = it as ToolStripMenuItem; if (mi != null) { mi.DropDown.ItemAdded += (s2, e2) => up(e2.Item); foreach (ToolStripItem sub in mi.DropDownItems) up(sub); } };
+        m.Font = UiFont(13.3f); Action<ToolStripItem> up = null; up = it => { if (!string.IsNullOrEmpty(it.Text) && it.Text.Length <= 70) it.Text = Up(it.Text); if (!(it is ToolStripSeparator)) it.Padding = new Padding(6, 5, 10, 5); var mi = it as ToolStripMenuItem; if (mi != null) { mi.DropDown.Font = m.Font; mi.DropDown.ItemAdded += (s2, e2) => up(e2.Item); foreach (ToolStripItem sub in mi.DropDownItems) up(sub); } };
         m.ItemAdded += (s, e) => up(e.Item);
         m.Opened += (s, e) => { MenuShownAt = Control.MousePosition; MenuAway = false; };
         m.Closed += (s, e) => { if (e.CloseReason == ToolStripDropDownCloseReason.AppClicked) { MenuAway = true; MenuClosedAt = Environment.TickCount; } };
