@@ -1,4 +1,4 @@
-3.38.4
+3.38.5
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Loop a section, AUTO DETECT key, copy and paste plugins
-sha256=41e054861f7edc566c82100d72afa9014522d1bf720263cab53e89f984098883
+Lock the right track
+sha256=56ddff1aedfa8f83adc4e8d7575bdd14d84c7a14e465a1966de8c5ea0846f4b2

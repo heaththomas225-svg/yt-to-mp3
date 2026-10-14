@@ -7,10 +7,13 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.38.4";
+    public const string Latest = "3.38.5";
 
     public const string Text =
-@"3.38.4  Loop a section, AUTO DETECT key, copy and paste plugins
+@"3.38.5  Lock the right track
+ + FIXED: LOCK (and the DUPLICATE and DELETE track pickers) listed every piece sharing a row as a track of its own, so 7 tracks showed as 9 with the wrong numbers. It lists exactly the tracks on the left now, TRACK 1 is track 1, and locking a track locks that track (with the pieces on its row). The padlock no longer covers the name.
+
+3.38.4  Loop a section, AUTO DETECT key, copy and paste plugins
  + NEW: LOOP asks what to loop: the whole song (it keeps playing round) or a section. For a section, drag across the timeline over the part you want: it plays it again and again, straight away, exact to the beat. The section shows as a band on the ruler; drag its ends to change it.
  + CHANGED: SPLIT VOCALS + BEAT always puts the beat (instrumental) as the first track, with the vocals right under it.
  + CHANGED: the right-click menu on projects is gone: every option is a button on the card (open, preview, rename, picture, favourite, publish, remove).

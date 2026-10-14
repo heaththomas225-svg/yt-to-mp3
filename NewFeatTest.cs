@@ -540,6 +540,12 @@ static class NF
                     SetF("MousePos", p0); ld.Invoke(sf, new object[] { rowT, lane }); ldr.Invoke(sf, new object[] { rowT, new PointF(372 + 5, top + 4) }); bool on = F<bool>("marqueeOn"); var ms = (List<Track>)typeof(StudioForm).GetField("multiSel", BF).GetValue(sf); bool got = ms.Contains(ra); lup.Invoke(sf, null);
                     Check("hold and drag on empty space in " + (rowT == ra ? "the empty part of a row" : "an empty row") + " draws a box that selects the clips", on && got, "box " + on + ", clip picked " + got);
                 }
+                {   // LOCK lists the tracks on the left only (a piece sharing a row is not a track of its own), numbered the same
+                    var lp = StudioEngine.NewTrack("Clip row (2)", "vocal", AudioClip.FromArrays(new float[44100], new float[44100], "t")); lp.Host = ra; lp.Offset = 44100 * 3; lock (sf.eng.Sync) sf.eng.Tracks.Add(lp);
+                    sf.OpenTrackPicker(0); paintS(); var rgsL = (List<HitReg>)typeof(StudioForm).GetField("regs", BF).GetValue(sf); int entries = rgsL.FindAll(r => Math.Abs(r.R.Height - 40) < 0.5f && r.R.Width > 300 && r.OnDown != null).Count;
+                    Check("LOCK lists the 2 tracks on the left, not the piece that shares a row", entries == 2, entries + " entries");
+                    SetF("tpOpen", false); lock (sf.eng.Sync) sf.eng.Tracks.Remove(lp);
+                }
                 {   // LOOP > Loop a section: drag across the timeline, it loops that part (and plays it straight away)
                     int ov = Prefs.OutVol; Prefs.OutVol = 0; SetF("scroll", 0L); SetF("spp", 100.0); sf.LoopPickStart(); paintS();
                     float y0 = top + laneH / 2; var pr = (HitReg)typeof(StudioForm).GetMethod("TopRegion", BF).Invoke(sf, new object[] { new PointF(372 + 100, y0) });

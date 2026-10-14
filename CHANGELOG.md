@@ -2,6 +2,10 @@
 
 What changed in each version of **Purphex**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.38.5  Lock the right track
+
+- FIXED: LOCK (and the DUPLICATE and DELETE track pickers) listed every piece sharing a row as a track of its own, so 7 tracks showed as 9 with the wrong numbers. It lists exactly the tracks on the left now, TRACK 1 is track 1, and locking a track locks that track (with the pieces on its row). The padlock no longer covers the name.
+
 ## 3.38.4  Loop a section, AUTO DETECT key, copy and paste plugins
 
 - NEW: LOOP asks what to loop: the whole song (it keeps playing round) or a section. For a section, drag across the timeline over the part you want: it plays it again and again, straight away, exact to the beat. The section shows as a band on the ruler; drag its ends to change it.

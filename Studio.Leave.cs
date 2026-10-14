@@ -55,7 +55,7 @@ partial class StudioForm
     // ---- the track list of the Edit menu: LOCK / DUPLICATE / DELETE show a tab of your tracks (TRACK 1, TRACK 2...), so you pick the one to work on ----
     bool tpOpen; int tpMode, tpAt; float tpScroll;
     // the toolbar buttons LOCK, FLEX and DEL: with one track they just do it, with several they ask which track (the tab of TRACK 1, 2, 3...)
-    void TrackAction(int mode, Action direct) { int n = eng.Tracks.FindAll(tk => !tk.IsBus && (mode == 0 || (tk.Clip != null && !tk.Instrument))).Count; if (n <= 1) direct(); else OpenTrackPicker(mode); }
+    void TrackAction(int mode, Action direct) { int n = eng.Tracks.FindAll(tk => !tk.IsBus && (mode == 0 ? tk.Host == null : (tk.Clip != null && !tk.Instrument))).Count; if (n <= 1) direct(); else OpenTrackPicker(mode); }
     internal void OpenTrackPicker(int mode) { if (eng.Tracks.Count == 0) { Toast("Add a track first."); return; } if ((mode == 3 || mode == 4) && !eng.Tracks.Exists(tk => tk.Clip != null && !tk.Instrument && !tk.IsBus)) { Toast("No track has a recording yet."); return; } tpMode = mode; tpOpen = true; tpAt = Environment.TickCount; tpScroll = 0; Invalidate(); }
     void PickTrack(int i)
     {
@@ -66,7 +66,7 @@ partial class StudioForm
     {
         if (!tpOpen) return; float W = ClientSize.Width, H = ClientSize.Height; var all = Rc(0, 0, W, H); lastInput = DateTime.Now;
         using (var b = new SolidBrush(TM.C(150, 3, 1, 10))) g.FillRectangle(b, all); Reg(all, () => tpOpen = false);
-        var shownT = new List<int>(); for (int ti = 0; ti < eng.Tracks.Count; ti++) { var tk = eng.Tracks[ti]; if ((tpMode == 3 || tpMode == 4) && (tk.Clip == null || tk.Instrument || tk.IsBus)) continue; shownT.Add(ti); }
+        var shownT = new List<int>(); for (int ti = 0; ti < eng.Tracks.Count; ti++) { var tk = eng.Tracks[ti]; if ((tpMode == 3 || tpMode == 4) && (tk.Clip == null || tk.Instrument || tk.IsBus)) continue; if (tpMode != 3 && tpMode != 4 && (tk.Host != null || (tpMode == 0 && tk.IsBus))) continue; shownT.Add(ti); }   // lock, duplicate and delete list the tracks you see on the left (not the pieces sharing a row), numbered the same
         int n = shownT.Count; float rowH = 46, bw = Math.Min(460, W - 40), bh = Math.Min(H - 60, 150 + n * rowH + 60); int age = unchecked(Environment.TickCount - tpAt); float k = Math.Min(1f, age / 220f), grow = 0.94f + 0.06f * (1 - (1 - k) * (1 - k)); double pulse = 0.5 + 0.5 * Math.Sin(age / 320.0);
         var box = Rc(W / 2 - bw * grow / 2, H / 2 - bh * grow / 2, bw * grow, bh * grow); Color accent = tpMode == 2 || tpMode == 4 ? Color.FromArgb(255, 255, 90, 120) : NeonCyan;
         for (int i = 5; i >= 1; i--) using (var pen = new Pen(Color.FromArgb((int)((16 + 22 * pulse) / i * 2.2f) + 5, accent), i * 5f)) using (var p = RR(RectangleF.Inflate(box, i * 1.4f, i * 1.4f), 22 + i)) g.DrawPath(pen, p);
@@ -84,8 +84,8 @@ partial class StudioForm
               bool lockedRow = tpMode == 0 && t.Locked; Color amber = Color.FromArgb(255, 255, 196, 80);
               FillRR(g, lockedRow ? TM.C(hot ? 235 : 215, 120, 82, 14) : (hot ? TM.C(225, 90, 50, 170) : (sel ? TM.C(210, 62, 34, 130) : TM.C(170, 28, 15, 56))), row, 10); StrokeRR(g, lockedRow ? amber : (sel ? accent : Color.FromArgb(hot ? 220 : 90, NeonViolet)), row, 10, lockedRow ? 2f : (sel ? 1.4f : 1f)); Reg(row, () => PickTrack(idx));
               if (lockedRow) { var pl = Rc(row.Right - 150, row.Y + row.Height / 2 - 12, 20, 24); var smp = g.SmoothingMode; g.SmoothingMode = SmoothingMode.AntiAlias; using (var pen = new Pen(amber, 2.4f)) g.DrawArc(pen, pl.X + 3, pl.Y, pl.Width - 6, 16, 180, 180); using (var br = new SolidBrush(amber)) g.FillPath(br, RR(Rc(pl.X, pl.Y + 9, pl.Width, 15), 3)); using (var br = new SolidBrush(Color.FromArgb(255, 60, 36, 8))) g.FillEllipse(br, pl.X + pl.Width / 2 - 2.2f, pl.Y + 14, 4.4f, 4.4f); g.SmoothingMode = smp; }
-              Txt(g, "TRACK " + (realI + 1), 15, accent, Rc(row.X + 14, row.Y, 96, row.Height), StringAlignment.Near, true);
-              Txt(g, t.Name, 14, Ink, Rc(row.X + 112, row.Y, row.Width - 112 - 90, row.Height), StringAlignment.Near, true);
+              Txt(g, t.IsBus ? "BUS" : "TRACK " + (eng.Tracks.IndexOf(t.Host ?? t) + 1), 15, accent, Rc(row.X + 14, row.Y, 96, row.Height), StringAlignment.Near, true);   // the number of its row, as on the left
+              Txt(g, t.Name, 14, Ink, Rc(row.X + 112, row.Y, row.Width - 112 - (lockedRow ? 160 : 90), row.Height), StringAlignment.Near, true);   // (it stops before the padlock)
               string tag = t.Locked ? "LOCKED" : (t.Mute ? "MUTED" : ""); if (tag.Length > 0) Txt(g, tag, t.Locked ? 12 : 10, t.Locked ? Color.FromArgb(255, 255, 200, 90) : DimC, Rc(row.Right - 122, row.Y, 112, row.Height), StringAlignment.Far, true);
           }
           g.Restore(gs); }
