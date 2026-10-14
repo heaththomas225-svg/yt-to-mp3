@@ -536,6 +536,13 @@ static class NF
                 var sm = typeof(StudioForm).GetMethod("SplitSelected", BF); sm.Invoke(sf, null); long cutAt = sf.eng.Tracks.Count == 2 ? sf.eng.Tracks[1].Offset : -1;
                 Check("zoomed in, SPLIT cuts exactly where the needle is (not at the nearest far-away grid line)", cutAt == 100777, cutAt + " of 100777");
                 sf.eng.Tracks.Clear();
+                {   // zoomed out with the grid on, the needle just beside a grid line: the split still goes exactly at the needle (it used to jump onto the grid line); and right next to the edge of a clip
+                    sf.eng.Tracks.Clear(); sf.eng.Tracks.Add(StudioEngine.NewTrack("Cut me", "vocal", AudioClip.FromArrays(new float[441000], new float[441000], "t"))); SetF("selTrack", 0); SetF("snapOn", true); SetF("spp", 2000.0);
+                    long grid = (long)Convert.ToDouble(typeof(StudioForm).GetProperty("GridFrames", BF).GetValue(sf, null)); long near = grid + 3 * 2000; SetF("dispPos", (double)near); sm.Invoke(sf, null); long cut2 = sf.eng.Tracks.Count == 2 ? sf.eng.Tracks[1].Offset : -1;
+                    Check("a split goes exactly at the needle, even right beside a grid line (no pull to the grid: as free as moving)", cut2 == near, cut2 + " of " + near);
+                    sf.eng.Tracks.Clear(); sf.eng.Tracks.Add(StudioEngine.NewTrack("Edge", "vocal", AudioClip.FromArrays(new float[441000], new float[441000], "t"))); SetF("dispPos", 441.0); sm.Invoke(sf, null);
+                    Check("a split 10 ms from the start of a clip works (it used to be refused that close to the edge)", sf.eng.Tracks.Count == 2 && sf.eng.Tracks[1].Offset == 441, sf.eng.Tracks.Count + " pieces"); sf.eng.Tracks.Clear();
+                }
             }
             {   // the whole ruler moves the needle, down to its bottom border, also when the tracks are scrolled up under it
                 sf.eng.Tracks.Clear(); for (int q = 0; q < 6; q++) sf.eng.Tracks.Add(StudioEngine.NewTrack("Scroll " + q, "vocal", AudioClip.FromArrays(new float[441000], new float[441000], "t")));

@@ -1,4 +1,4 @@
-3.40.0
+3.40.1
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Spotify links in the converter
-sha256=ddb7774807cb629d6e1ac4fd5b198acc33904aa68ad30f5945a2f6f56ad7561d
+Cleaner vocal and beat split, split anywhere
+sha256=baf5ba4fb7a084fbd0db1bfd63015b1652863179ed1acefc1943ad26a9b9b14d

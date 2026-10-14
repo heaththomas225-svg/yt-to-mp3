@@ -7,10 +7,14 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.40.0";
+    public const string Latest = "3.40.1";
 
     public const string Text =
-@"3.40.0  Spotify links in the converter
+@"3.40.1  Cleaner vocal and beat split, split anywhere
+ + NEW: SPLIT VOCALS + BEAT is much cleaner: it uses the best separation model (htdemucs_ft, four fine-tuned AI models instead of one) with smoother joins between the parts it works on, and the beat is now the song itself minus the vocal, so nothing of the beat is lost or muffled and vocals + beat add up to the song exactly. It takes a few minutes (about four times longer), runs on your graphics card, and downloads the model once (about 300 MB).
+ + CHANGED: splitting is as free as moving: a split goes exactly where the needle (or your click) is, it no longer jumps onto the nearest grid line, and you can split anywhere inside a clip, right up to its edges.
+
+3.40.0  Spotify links in the converter
  + NEW: Spotify links in the converter. Paste a Spotify song, album, playlist or artist link: Spotify's own audio is locked, so Purphex reads the songs (artist and title) from the link and finds each one on YouTube, then converts it like any other link. An album or playlist converts every song; an artist link converts their top 10.
 
 3.39.8  No more nudge buttons

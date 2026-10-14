@@ -29,7 +29,7 @@ partial class StudioForm
     void ToggleOff(Track tk)
     {
         if (tk.Off && tk.Clip != null && !tk.Clip.Loaded) { RunBusy("Loading " + tk.Name + " back into memory...", true, p => tk.Clip.Reload(p, () => cancelFlag), ok => { if (ok) SetOff(tk, false); }); return; }
-        bool v = !tk.Off; SetOff(tk, v); lastInput = DateTime.Now; powerPulse[tk] = Environment.TickCount; Toast(v ? tk.Name + " is OFF: it makes no sound. Click its light to turn it on again." : tk.Name + " is on again.");
+        bool v = !tk.Off; SetOff(tk, v); lastInput = DateTime.Now; powerPulse[tk] = Environment.TickCount; Toast(v ? tk.Name + " is OFF: it makes no sound. Press its power button to turn it on again." : tk.Name + " is on again.");
     }
 
     // the header of a track that is off: everything dimmed, and the light is a hollow ring that slowly breathes (press it to switch the track back on)

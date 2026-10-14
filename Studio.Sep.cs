@@ -157,6 +157,7 @@ static class Separator
         }
     }
 
+    public static string Model = "htdemucs_ft";   // the separation model: htdemucs_ft (four fine-tuned models: the cleanest vocals and beat; downloaded once, about 300 MB)
     static Dictionary<string, string> Env(bool fast = false)
     {
         var env = new Dictionary<string, string>();
@@ -164,7 +165,7 @@ static class Separator
         else if (fast && !DisableFast && FastReady && !fastBad) { env["PX_FAST"] = FastDir; env["PX_ROOT"] = Root; }
         string ff = StudioEnv.Ffmpeg(); string ffDir = ff == null ? "" : Path.GetDirectoryName(ff);
         env["PATH"] = ffDir + ";" + Root + ";" + Path.Combine(Root, "Scripts") + ";" + Environment.GetEnvironmentVariable("PATH");
-        env["TORCH_HOME"] = ModelDir; env["PYTHONUTF8"] = "1"; env["PYTHONIOENCODING"] = "utf-8"; env["PYTHONNOUSERSITE"] = "1";
+        env["PX_MODEL"] = Model; env["TORCH_HOME"] = ModelDir; env["PYTHONUTF8"] = "1"; env["PYTHONIOENCODING"] = "utf-8"; env["PYTHONNOUSERSITE"] = "1";
         return env;
     }
 
@@ -263,7 +264,12 @@ try:
     from demucs.pretrained import get_model
     from demucs.apply import apply_model
     from demucs.audio import AudioFile
-    model = get_model('htdemucs'); model.eval()
+    _mn = os.environ.get('PX_MODEL', 'htdemucs')   # htdemucs_ft: four fine-tuned models, the cleanest separation
+    try:
+        model = get_model(_mn)
+    except Exception as e:
+        sys.stderr.write('model %s not available (%s): using htdemucs\n' % (_mn, e)); sys.stderr.flush(); model = get_model('htdemucs')
+    model.eval()
 except Exception as e:
     print('ERR|startup: %s' % e, flush=True); sys.exit(1)
 SR = model.samplerate
@@ -278,9 +284,9 @@ DEV = 'cpu'; GPU = {'info': 'no graphics card test (DirectML not available)'}
 def to_cpu():
     global DEV
     try:
-        inner = model.models[0]
-        if 'spec' in GPU: inner._spec, inner._ispec, inner._mask = GPU['spec'], GPU['ispec'], GPU['mask']
-        inner.to('cpu')
+        for k, inner in enumerate(model.models):   # every model of the bag (htdemucs_ft has four)
+            if 'orig' in GPU: inner._spec, inner._ispec, inner._mask = GPU['orig'][k]
+            inner.to('cpu')
     except Exception:
         pass
     DEV = 'cpu'
@@ -320,13 +326,15 @@ def pick_cuda():
             except Exception: pass
             GPU['info'] = '%s (CUDA): one segment takes %.2fs on the processor and %.2fs on the graphics card (difference %.4f), graphics card used: %s' % (name, tc, tg, rel, use)
         if use:
-            inner.to('cuda'); torch.backends.cudnn.benchmark = True; DEV = 'cuda'; GPU['name'] = name + ' (CUDA)'
+            for m in model.models: m.to('cuda')
+            torch.backends.cudnn.benchmark = True; DEV = 'cuda'; GPU['name'] = name + ' (CUDA)'
         else:
-            inner.to('cpu')
+            for m in model.models: m.to('cpu')
     except Exception as e:
         sys.stderr.write('cuda unavailable: %s\n' % e); sys.stderr.flush()
         GPU['info'] = 'CUDA failed: %s' % e
-        try: model.models[0].to('cpu')
+        try:
+            for m in model.models: m.to('cpu')
         except Exception: pass
         DEV = 'cpu'
 
@@ -350,21 +358,20 @@ def pick_gpu():
             GPU['info'] = name + ': earlier test showed the graphics card is not faster, so the processor is used'
             return
         if use is True: GPU['info'] = name + ': graphics card (earlier test passed)'
-        inner = model.models[0]; dev = torch_directml.device()
-        GPU['spec'], GPU['ispec'], GPU['mask'] = inner._spec, inner._ispec, inner._mask
-        o_spec, o_ispec, o_mask = inner._spec, inner._ispec, inner._mask
-        inner._spec = lambda x: o_spec(x.cpu())            # the FFT needs complex numbers: that part stays on the processor
-        inner._mask = lambda z, m: o_mask(z, m.cpu())
-        inner._ispec = lambda z, length=None, scale=0: o_ispec(z, length, scale).to(dev)
+        dev = torch_directml.device(); GPU['orig'] = [(m._spec, m._ispec, m._mask) for m in model.models]
+        def patch(m, o):
+            o_spec, o_ispec, o_mask = o
+            m._spec = lambda x: o_spec(x.cpu())            # the FFT needs complex numbers: that part stays on the processor
+            m._mask = lambda z, mm: o_mask(z, mm.cpu())
+            m._ispec = lambda z, length=None, scale=0: o_ispec(z, length, scale).to(dev)
+        inner = model.models[0]
         if use is None:
             seg = int(float(inner.segment) * SR); t = np.arange(seg) / SR; rs = np.random.RandomState(5)
             x = sum(np.sin(2 * np.pi * f * t) * 0.1 for f in (110, 220, 330, 440, 880, 1760)) + rs.randn(seg) * 0.05
             w = torch.tensor(np.stack([x, x * 0.9]), dtype=torch.float32)[None]; w = (w - w.mean()) / (w.std() + 1e-8)
-            inner._spec, inner._ispec, inner._mask = GPU['spec'], GPU['ispec'], GPU['mask']
             with torch.no_grad():
                 inner(w); t0 = time.time(); ref = inner(w); tc = time.time() - t0
-            inner._spec, inner._ispec, inner._mask = (lambda x: o_spec(x.cpu())), (lambda z, length=None, scale=0: o_ispec(z, length, scale).to(dev)), (lambda z, m: o_mask(z, m.cpu()))
-            inner.to(dev)
+            patch(inner, GPU['orig'][0]); inner.to(dev)
             with torch.no_grad():
                 inner(w.to(dev)); t0 = time.time(); out = inner(w.to(dev)).cpu(); tg = time.time() - t0
             rel = float((out - ref).pow(2).mean().sqrt() / (ref.pow(2).mean().sqrt() + 1e-9))
@@ -374,7 +381,8 @@ def pick_gpu():
             GPU['info'] = '%s: one segment takes %.2fs on the processor and %.2fs on the graphics card (difference %.4f), graphics card used: %s' % (name, tc, tg, rel, use)
             sys.stderr.write('gpu test: cpu %.2fs gpu %.2fs diff %.4f use=%s\n' % (tc, tg, rel, use)); sys.stderr.flush()
         if use:
-            inner.to(dev); DEV = dev; GPU['name'] = name
+            for m, o in zip(model.models, GPU['orig']): patch(m, o); m.to(dev)   # every model of the bag on the card
+            DEV = dev; GPU['name'] = name
         else:
             to_cpu()
     except Exception as e:
@@ -402,7 +410,7 @@ def run_model(wav, overlap, show, stats=None):
         with torch.no_grad():
             out = apply_model(model, wav[None], device='cpu', shifts=1, split=True, overlap=overlap, progress=show, num_workers=0)[0]
     out = out * sd + mu
-    v = out[VI]; i = out.sum(0) - v
+    v = out[VI]; i = (wav * sd + mu) - v   # the beat is the song itself minus the separated vocal: nothing of the beat is lost, and vocals + beat add up to the song exactly
     return v.cpu().numpy().T, i.cpu().numpy().T
 
 def read(inp, start, dur):
@@ -538,7 +546,7 @@ for line in sys.stdin:
             double ready = sw.Elapsed.TotalSeconds; var jobSw = Stopwatch.StartNew(); double firstP = -1; var userProg = prog; prog = pp => { if (firstP < 0 && pp > 0) firstP = jobSw.Elapsed.TotalSeconds; userProg(pp); };
             wbusy = true; wresult = null; wprog = prog; Directory.CreateDirectory(outDir);
             double dur = AudioClip.ProbeSeconds(input); if (dur > 600) log("Long song (" + (int)(dur / 60) + " min): processing it in chunks to keep memory low.");
-            win.WriteLine("JOB|" + input + "|" + tmp + "|0.1|" + dur.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture) + "|" + (ChunkOverride > 0 ? ChunkOverride : (dur > 600 ? 240 : 0))); win.Flush();
+            win.WriteLine("JOB|" + input + "|" + tmp + "|0.25|" + dur.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture) + "|" + (ChunkOverride > 0 ? ChunkOverride : (dur > 600 ? 240 : 0))); win.Flush();
             while (wresult == null)
             {
                 if (cancelled()) { KillWorker(); return -1; }

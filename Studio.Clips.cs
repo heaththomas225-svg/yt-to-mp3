@@ -21,7 +21,7 @@ partial class StudioForm
     // locked in place, or switched OFF: neither can be moved, trimmed, split, cut, faded or deleted
     bool IsLocked(Track t) { var h = RowHost(t); return (h != null && h.Locked) || (t != null && t.PieceLocked) || IsOffRow(t); }   // the whole track locked, this one piece locked, or the track switched off
     bool IsRowLocked(Track row) { var h = RowHost(row); return (h != null && h.Locked) || IsOffRow(row); }
-    string FrozenWhy(Track t, string lockedMsg) { if (IsOffRow(t)) return "This track is OFF: click its light to turn it on before you edit it."; var h = RowHost(t); if (t != null && t.PieceLocked && !(h != null && h.Locked)) return "This section is locked: right-click it and press Unlock this section to move or edit it."; return lockedMsg; }
+    string FrozenWhy(Track t, string lockedMsg) { if (IsOffRow(t)) return "This track is OFF: press its power button (top left) to turn it on before you edit it."; var h = RowHost(t); if (t != null && t.PieceLocked && !(h != null && h.Locked)) return "This section is locked: right-click it and press Unlock this section to move or edit it."; return lockedMsg; }
     static string TimeText(long frames) { double s = Math.Max(0, frames) / (double)StudioEngine.SR; return ((int)(s / 60)) + ":" + (s % 60).ToString("00.0", CultureInfo.InvariantCulture); }
     // the piece of this row that the needle is on (null when the needle is not on any piece)
     Track ClipAtNeedle(Track row, long at)
@@ -42,7 +42,7 @@ partial class StudioForm
 
     // ---------- split: as many times as you want ----------
     // where a split goes: exactly where the needle is. It only sits on the grid when a grid line is within a few pixels of it: zoomed in, the grid lines are far apart and snapping would throw the split away from the needle
-    long SplitPoint(long raw) { if (!snapOn) return raw; long sn = Snap(raw); return Math.Abs(sn - raw) / Math.Max(1e-6, spp) <= 8 ? sn : raw; }
+    long SplitPoint(long raw) { return Math.Max(0, raw); }   // a split goes exactly where the needle or the click is (no pull to the grid), as free as moving a piece
     void SplitSelected()
     {
         var row = Selected; if (row == null) { Toast("Select a track first."); return; }

@@ -139,7 +139,7 @@ partial class StudioForm
         if (t == null) { Toast("Select a track first."); return; }
         if (t.Clip == null || t.Instrument) { Toast("Splitting works on audio tracks."); return; }
         if (IsLocked(t)) { Toast(FrozenWhy(t, "Locked: press UNLOCK before splitting this track.")); return; }
-        long rel = at - t.Offset, used = t.UsedLength; if (rel < 800 || rel > used - 800) { Toast("Move the needle into the clip first (click the ruler above the tracks), then split."); return; }
+        long rel = at - t.Offset, used = t.UsedLength; if (rel < 64 || rel > used - 64) {   /* (anywhere inside the clip: only the first and last 1.5 ms are off limits, so neither half is empty) */ Toast("Move the needle into the clip first (click the ruler above the tracks), then split."); return; }
         PushUndo(); var host = t.Host ?? t; var right = CloneTrack(t, " (2)"); { string baseName = System.Text.RegularExpressions.Regex.Replace(t.Name, @"( (d+))+$", ""); int cnt = 1; foreach (var q in eng.Tracks) if ((q.Host ?? q) == host && q.Clip != null && !q.Instrument) cnt++; right.Name = baseName + " (" + cnt + ")"; } /* the pieces are Vox (2), Vox (3)... not Vox (2) (2) (2) */ right.Offset = at; right.ClipStart = t.ClipStart + rel; right.ClipFrames = used - rel; t.ClipFrames = rel;
         right.FadeIn = 0; right.FadeInDelay = 0; right.FadeOut = t.FadeOut; right.FadeOutTail = t.FadeOutTail; t.FadeOut = 0; t.FadeOutTail = 0;   // the fade out belongs to the end of the clip, which is now the right piece
         right.Host = host; right.Out = host.Out; lock (eng.Sync) eng.Tracks.Insert(FirstBusIndex(), right);   // the new piece stays on the same row: no new track is made

@@ -109,10 +109,10 @@ partial class StudioForm
         string outDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyMusic), "yt2mp3", "Studio", baseName);
         Separator.OfferTurbo(this);   // NVIDIA cards can run the AI several times faster (asks once)
         AudioClip vc = null, ic = null; bool installNow = !Separator.Installed;
-        RunBusy("Separating vocals and beat with AI...\n(under a minute with a good graphics card)", true, prog =>
+        RunBusy("Separating vocals and beat with AI...\n(best quality: a few minutes; the first time it also downloads the separation model, about 300 MB)", true, prog =>
         {
             if (installNow) { busyText = "Setting up the separation engine (one time)..."; Separator.Install(m => { }, p => prog(p * 0.45f), () => cancelFlag); }
-            busyText = "Separating vocals and beat with AI...\n(under a minute with a good graphics card)";
+            busyText = "Separating vocals and beat with AI...\n(best quality: a few minutes; the first time it also downloads the separation model, about 300 MB)";
             string v, i; float lo = installNow ? 0.45f : 0f;
             if (!Separator.Separate(src, outDir, baseName, "htdemucs", m => { }, p => prog(lo + p * (0.92f - lo)), () => cancelFlag, out v, out i)) throw new Exception(cancelFlag ? "Cancelled." : "Separation failed.");
             busyText = "Loading the separated tracks..."; vc = AudioClip.FromFile(v); prog(0.96f); ic = AudioClip.FromFile(i);
