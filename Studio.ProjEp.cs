@@ -57,11 +57,27 @@ partial class StudioForm
             bool prev = string.Equals(previewPath, e.Path, StringComparison.OrdinalIgnoreCase), hot = Hot(row);
             if (prev) PaintPickedFx(g, row, 10); else { FillRR(g, hot ? TM.C(220, 70, 36, 130) : TM.C(170, 30, 16, 58), row, 10); StrokeRR(g, Color.FromArgb(hot ? 220 : 110, NeonViolet), row, 10, 1.2f); }
             var ee = e; Reg(row, () => { projEpOpen = false; OpenProjectAsk(ee); }); Hint2(row, "Open the project " + e.Name + " (it asks first)");
-            Txt(g, (i + 1).ToString(), 15, NeonCyan, Rc(row.X + 12, row.Y, 30, row.Height), StringAlignment.Near, true);
-            var pic = Rc(row.X + 44, row.Y + 5, row.Height - 10, row.Height - 10); DrawCover(g, pic, e);
-            Txt(g, e.Name, 14, Ink, Rc(pic.Right + 10, row.Y, row.Width - (pic.Right + 10 - row.X) - 120, row.Height), StringAlignment.Near, true);
+            { var tp = Rc(row.X + 10, row.Y + row.Height / 2 - 11, 74, 22); FillRR(g, NeonCyan, tp, 11); Txt(g, "TRACK " + (i + 1), 10, Color.Black, tp, StringAlignment.Center, true); }   // which track of the release it is
+            var pic = Rc(row.X + 92, row.Y + 5, row.Height - 10, row.Height - 10); DrawCover(g, pic, e);
+            Txt(g, e.Name, 14, Ink, Rc(pic.Right + 10, row.Y, row.Width - (pic.Right + 10 - row.X) - 120 - 62, row.Height), StringAlignment.Near, true);
+            { int fi = i; var ub = Rc(row.Right - 108 - 62, row.Y + 8, 28, row.Height - 16); var dbn = Rc(ub.Right + 4, row.Y + 8, 28, row.Height - 16); Btn(g, ub, " ", 1, () => MoveInRelease(fi, -1), 11); ArrowIcon(g, ub, true); Hint2(ub, "Move " + e.Name + " earlier in the " + kw.ToLower()); Btn(g, dbn, "  ", 1, () => MoveInRelease(fi, 1), 11); ArrowIcon(g, dbn, false); Hint2(dbn, "Move " + e.Name + " later in the " + kw.ToLower()); }
             var pb = Rc(row.Right - 108, row.Y + 8, 96, row.Height - 16); Btn(g, pb, prev ? "STOP" : "PLAY", prev ? 4 : 1, () => PreviewToggle(ee), 12); Hint2(pb, prev ? "Stop the preview" : "Hear " + e.Name + " without opening it");
         }
         g.Restore(gs); if (maxS > 0) VScroll(g, Rc(lr.Right - 44, lr.Y, 42, lr.Height), total, lr.Height, () => projEpScroll, v => projEpScroll = v);
+    }
+}
+
+partial class StudioForm
+{
+    // the order of an EP or album: a song moves one place earlier (-1) or later (+1); the profile gets the new order straight away
+    internal void MoveInRelease(int i, int d)
+    {
+        if (projEp == null) return; int j = i + d; if (i < 0 || j < 0 || i >= projEpEnts.Count || j >= projEpEnts.Count) return;
+        var t = projEpEnts[i]; projEpEnts[i] = projEpEnts[j]; projEpEnts[j] = t;
+        string pa = CommunitySongs.PidOf(projEpEnts[i].Path), pb = CommunitySongs.PidOf(projEpEnts[j].Path); int ia = projEp.Pids.IndexOf(pa), ib = projEp.Pids.IndexOf(pb);
+        if (ia >= 0 && ib >= 0) { projEp.Pids[ia] = pb; projEp.Pids[ib] = pa; }   // (songs that are not on this PC keep their places)
+        ReleaseStore.Save(); List<ProjectEntry> ents; if (projRelEnts.TryGetValue(projEp, out ents)) { ents.Clear(); ents.AddRange(projEpEnts); }
+        if (ProfileStore.Published) QueueRepublish();
+        Toast(projEpEnts[j].Name + " is now track " + (j + 1) + " of " + projEp.Title + ".");
     }
 }

@@ -254,7 +254,7 @@ static class NF
           Check("the profile gets the release only with its published projects", ReleaseStore.Json(ProjectLibrary.Entries) == "[]"); for (int q = 1; q < 4; q++) ProjectLibrary.Entries[q].OnProfile = true; Check("an album with only 4 of its songs published does not show yet", !ReleaseStore.Json(ProjectLibrary.Entries).Contains("City Lights")); ProjectLibrary.Entries[4].OnProfile = true; Check("with all 5 published it shows on the profile", ReleaseStore.Json(ProjectLibrary.Entries).Contains("City Lights"));
           {   // My Projects: an EP is ONE card (its projects are inside it), opening it lists them; while you search they show one by one
             var vis = ProjectLibrary.Entries.ToList(); var rels = sf.GroupProjectReleases(vis); Check("on My Projects the album is one card and its songs are not separate cards", rels.Count == 1 && vis.Count == 0, rels.Count + " releases, " + vis.Count + " loose");
-            sf.OpenProjEp(rels[0]); Check("opening it shows its songs in order (click one to open it, PLAY to hear it)", sf.projEpOpen, ""); SetF("projEpOpen", false);
+            sf.OpenProjEp(rels[0]); Check("opening it shows its songs in order (click one to open it, PLAY to hear it)", sf.projEpOpen, ""); var firstPid = rels[0].Pids[0]; sf.MoveInRelease(0, 1); Check("moving a song down in an EP makes it the next track (the order is kept)", rels[0].Pids[1] == firstPid && ReleaseStore.All[0].Pids[1] == firstPid, ""); SetF("projEpOpen", false);
             SetF("projSearch", "Song"); var vis2 = ProjectLibrary.Entries.ToList(); Check("while you search the songs show one by one", sf.GroupProjectReleases(vis2).Count == 0 && vis2.Count == 5, ""); SetF("projSearch", "");
             var fd = new List<FeedSong>(); for (int q = 0; q < 4; q++) fd.Add(new FeedSong { Id = "e" + q, Title = "T" + q, ArtistId = "a1", Artist = "A", Kind = "ep", Coll = "Night EP", Cid = "r9", Ci = 3 - q, Cn = 4 }); fd.Add(new FeedSong { Id = "x1", Title = "Solo", ArtistId = "a1", Artist = "A", Kind = "single" });
             SetF("feed", fd); SetF("commFilter", 3); var shown = (List<FeedSong>)typeof(StudioForm).GetMethod("FeedList", BF).Invoke(sf, null); Check("Community EPS: one card per EP", shown.Count(x => x.Cid == "r9") == 1, shown.Count + " cards");
@@ -576,14 +576,25 @@ static class NF
                     sf.eng.Pause(); sf.LoopWhole(); Check("LOOP the whole song clears the section", sf.eng.Loop && !sf.eng.LoopSection, "");
                     sf.LoopOff(); Check("turning the loop off stops it looping", !sf.eng.Loop, ""); Prefs.OutVol = ov; sf.eng.Pos = 0;
                 }
+                {   // a finished song from the community plays as it is: no mastering chain over it (it squashed every published song a second time)
+                    var loud = new float[44100 * 3]; for (int k = 0; k < loud.Length; k++) loud[k] = (float)(0.9 * Math.Sin(k * 0.06)); var sp = sf.SongPlayer(AudioClip.FromArrays(loud, (float[])loud.Clone(), "s"), "Song");
+                    var bl = new float[4096]; var br2 = new float[4096]; sp.Playing = true; float pk = 0; for (int q = 0; q < 20; q++) { sp.RenderRealtime(bl, br2, 4096); if (q > 4) foreach (var v in bl) pk = Math.Max(pk, Math.Abs(v)); } sp.Playing = false;
+                    Check("a community song plays exactly as it was published (no second mastering squashing it)", sp.MasterFx.TrueForAll(m => m.Bypass) && Math.Abs(pk - 0.9f) < 0.05f, "peak " + pk.ToString("0.000") + " of 0.900"); sp.Shutdown();
+                }
+                {   // EXPORT does not lock the program: its window is open and everything else can still be clicked
+                    var et = StudioEngine.NewTrack("Exp", "beat", AudioClip.FromArrays(new float[44100], new float[44100], "e")); lock (sf.eng.Sync) sf.eng.Tracks.Add(et);
+                    typeof(StudioForm).GetMethod("ExportClick", BF).Invoke(sf, null); Pump(300); var ew = F<Form>("exportWin");
+                    Check("the EXPORT window does not lock the program (the tabs and tracks stay clickable while it is open)", ew != null && ew.Visible && !ew.Modal && sf.Enabled, ew == null ? "no window" : "modal " + ew.Modal);
+                    if (ew != null) ew.Close(); Pump(150); Check("closing it without exporting does nothing", F<Form>("exportWin") == null, ""); lock (sf.eng.Sync) sf.eng.Tracks.Remove(et);
+                }
                 {   // EXPORT as MP4: the picture of the project for exactly as long as the song
                     string ffx = StudioEnv.Ffmpeg(); if (ffx == null) Console.WriteLine("SKIP  MP4 export (ffmpeg is not installed here)"); else
                     {
                         var em = new StudioEngine(); var vt = StudioEngine.NewTrack("Tone", "beat", AudioClip.FromArrays(Enumerable.Range(0, 44100 * 5).Select(k => (float)(0.3 * Math.Sin(k * 0.05))).ToArray(), Enumerable.Range(0, 44100 * 5).Select(k => (float)(0.3 * Math.Sin(k * 0.05))).ToArray(), "t")); em.Tracks.Add(vt);
-                        string vdir = Path.Combine(Path.GetTempPath(), "nf_mp4_" + Guid.NewGuid().ToString("N").Substring(0, 6)); Exporter.VideoFrame = sf.MakeVideoFrame(); var plan = Exporter.Plan(em, true, false, false, false, false, false, false, "Clip", Exporter.Mp4);
+                        string vdir = Path.Combine(Path.GetTempPath(), "nf_mp4_" + Guid.NewGuid().ToString("N").Substring(0, 6)); Exporter.VideoFrame = sf.MakeVideoFrame(1920, 1080); Exporter.SoundRate = 128; var plan = Exporter.Plan(em, true, false, false, false, false, false, false, "Clip", Exporter.Mp4);
                         string outv = null, verr = ""; try { outv = Exporter.Write(em, plan[0], vdir, Exporter.Mp4, null, null, Exporter.RateFor(Exporter.Mp4, 0)); } catch (Exception ex) { verr = ex.Message; }
                         int vc; string info = outv != null ? MasterDsp.RunCapture(ffx, "-hide_banner -i \"" + outv + "\"", null, out vc) : ""; var dm = System.Text.RegularExpressions.Regex.Match(info, @"Duration: ([0-9]+):([0-9]+):([0-9.]+)"); double dur = dm.Success ? int.Parse(dm.Groups[1].Value) * 3600 + int.Parse(dm.Groups[2].Value) * 60 + double.Parse(dm.Groups[3].Value, System.Globalization.CultureInfo.InvariantCulture) : -1;
-                        Check("EXPORT as MP4 makes a video (the project picture) with the song, as long as the song", outv != null && outv.EndsWith(".mp4") && info.Contains("Video:") && info.Contains("Audio: aac") && Math.Abs(dur - 7.0) < 0.6, verr + " dur " + dur + " " + info.Replace((char)13, ' ').Replace((char)10, '|').Substring(0, Math.Min(900, info.Length)));
+                        long vsz = outv != null && File.Exists(outv) ? new FileInfo(outv).Length : 0; Check("EXPORT as MP4 makes a video (the project picture) with the song, as long as the song, at the size you picked (1920 x 1080), and small (" + vsz / 1024 + " KB for 7 s)", outv != null && outv.EndsWith(".mp4") && info.Contains("1920x1080") && vsz < 600 * 1024 && info.Contains("Video:") && info.Contains("Audio: aac") && Math.Abs(dur - 7.0) < 0.6, verr + " dur " + dur + " " + info.Replace((char)13, ' ').Replace((char)10, '|').Substring(0, Math.Min(900, info.Length)));
                         try { File.Delete(Exporter.VideoFrame); Directory.Delete(vdir, true); } catch { }
                     }
                 }

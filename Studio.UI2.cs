@@ -13,7 +13,7 @@ using System.Windows.Forms;
 //  Purphex Music window (part 2): actions (import, separate, auto mix, export, save/open),
 //  busy overlay, mastering tab, and small dialogs.
 // ======================================================================
-class ExportSettings { public bool MixMastered = true, MixDry, ProcVocal, ProcBeat, DryVocal, DryBeat, Stems; public List<int> StemTracks;   /* the tracks (by number) picked for separate files; null = every track */ public double TrimStart, TrimEnd; public int Fmt, RateIdx; public string Dir = "", Prefix = ""; }
+class ExportSettings { public bool MixMastered = true, MixDry, ProcVocal, ProcBeat, DryVocal, DryBeat, Stems; public List<int> StemTracks;   /* the tracks (by number) picked for separate files; null = every track */ public double TrimStart, TrimEnd; public int Fmt, RateIdx, VideoIdx = 1, SoundIdx = 1; public string Dir = "", Prefix = ""; }
 
 partial class StudioForm
 {
@@ -149,10 +149,17 @@ partial class StudioForm
     }
 
     // ---------------- Export / Save / Open ----------------
+    // EXPORT: the window does not lock the program: the tabs, the tracks and everything else stay clickable while it is open (EXPORT again brings it to the front)
+    Form exportWin;
     void ExportClick()
     {
         if (eng.Tracks.Count == 0) { Toast("Nothing to export yet."); return; }
-        var s = StudioDialogs.ExportOptions(this, projName == "Untitled project" ? "My song" : projName, (eng.EndFrame + StudioEngine.SR * 2) / (double)StudioEngine.SR, eng.Tracks.ConvertAll(t => t.Name)); if (s == null) return;
+        if (exportWin != null && !exportWin.IsDisposed) { exportWin.Activate(); return; }
+        StudioDialogs.ExportOptions(this, projName == "Untitled project" ? "My song" : projName, (eng.EndFrame + StudioEngine.SR * 2) / (double)StudioEngine.SR, eng.Tracks.ConvertAll(t => t.Name), s => { exportWin = null; if (s != null && !busy) ExportWith(s); else if (s != null) Toast("Wait for the current job to finish, then press EXPORT again."); }, f => exportWin = f);
+    }
+    void ExportWith(ExportSettings s)
+    {
+        if (eng.Tracks.Count == 0) { Toast("Nothing to export yet."); return; }
         HashSet<Track> only = null; if (s.Stems && s.StemTracks != null) { only = new HashSet<Track>(); foreach (int ti in s.StemTracks) if (ti >= 0 && ti < eng.Tracks.Count) only.Add(eng.Tracks[ti]); }
         var plan = Exporter.Plan(eng, s.MixMastered, s.MixDry, s.ProcVocal, s.ProcBeat, false, false, s.Stems, s.Prefix, s.Fmt, only);
         if (plan.Count == 0) { MessageBox.Show(this, "Nothing selected to export (or the needed tracks aren't in the project)."); return; }
@@ -160,7 +167,7 @@ partial class StudioForm
         if (exist.Count > 0 && MessageBox.Show(this, exist.Count + " file(s) already exist in that folder and will be replaced:\n\n" + string.Join("\n", exist.GetRange(0, Math.Min(6, exist.Count)).ToArray()) + (exist.Count > 6 ? "\n..." : "") + "\n\nReplace them? (Your original source audio is never overwritten.)", "Replace files?", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes) return;
         // never overwrite one of the project's own source files
         foreach (var it in plan) { string p = Path.GetFullPath(Path.Combine(s.Dir, it.FileName)); foreach (var t in eng.Tracks) if (t.Clip != null && t.Clip.Path != null && string.Equals(Path.GetFullPath(t.Clip.Path), p, StringComparison.OrdinalIgnoreCase)) { MessageBox.Show(this, "Export would overwrite the original audio file \"" + Path.GetFileName(p) + "\". Choose another folder or name."); return; } }
-        if (s.Fmt == Exporter.Mp4) { try { Exporter.VideoFrame = MakeVideoFrame(); } catch (Exception ex) { MessageBox.Show(this, "The picture for the video could not be made: " + ex.Message); return; } }   // MP4: the project's picture, made once for every file of this export
+        if (s.Fmt == Exporter.Mp4) { try { int vi = Math.Max(0, Math.Min(Exporter.VideoNames.Length - 1, s.VideoIdx)); Exporter.SoundRate = Exporter.SoundKbps[Math.Max(0, Math.Min(Exporter.SoundKbps.Length - 1, s.SoundIdx))]; Exporter.VideoFrame = MakeVideoFrame(Exporter.VideoWH[vi, 0], Exporter.VideoWH[vi, 1]); } catch (Exception ex) { MessageBox.Show(this, "The picture for the video could not be made: " + ex.Message); return; } }   // MP4: the project's picture, made once for every file of this export
         int n = plan.Count; var done = new List<string>();
         RunBusy("Exporting " + n + " file(s)...", true, prog =>
         {
@@ -176,18 +183,38 @@ partial class StudioForm
         });
     }
 
-    // the picture of an MP4 export: exactly the picture on the project's card (its own picture, or the Purphex logo art when it has none), 1080 x 1080
-    internal string MakeVideoFrame()
+    // the picture of an MP4 export at the size you picked: the picture on the project's card (or the Purphex logo when it has none).
+    // A wide or tall video shows the picture square in the middle, on a blurred and darkened copy of itself that fills the rest.
+    internal string MakeVideoFrame() { return MakeVideoFrame(1080, 1080); }
+    internal string MakeVideoFrame(int W, int H)
     {
-        const int S = 1080; string outp = Path.Combine(Path.GetTempPath(), "purphex_video_" + Guid.NewGuid().ToString("N").Substring(0, 8) + ".png");
+        W = Math.Max(64, W & ~1); H = Math.Max(64, H & ~1); string outp = Path.Combine(Path.GetTempPath(), "purphex_video_" + Guid.NewGuid().ToString("N").Substring(0, 8) + ".png");
         var e = projPath.Length > 0 ? ProjectLibrary.Find(projPath) : null; string cover = e != null ? e.Cover : "";
         if ((cover == null || cover.Length == 0 || !File.Exists(cover)) && ProjectIO.CoverBytes != null && ProjectIO.CoverBytes.Length > 0) { cover = Path.Combine(Path.GetTempPath(), "purphex_vcover_" + Guid.NewGuid().ToString("N").Substring(0, 8) + ".img"); File.WriteAllBytes(cover, ProjectIO.CoverBytes); }
-        using (var bmp = new Bitmap(S, S)) using (var g = Graphics.FromImage(bmp))
+        bool hasPic = !string.IsNullOrEmpty(cover) && File.Exists(cover); int S = Math.Min(W, H);
+        using (var sq = new Bitmap(S, S))
         {
-            g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias; g.Clear(Color.Black);
-            if (string.IsNullOrEmpty(cover) || !File.Exists(cover)) { var lg = AppLogo.Logo; if (lg != null) { g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic; g.DrawImage(lg, new Rectangle(0, 0, S, S)); } }   // no picture: the Purphex logo, edge to edge
-            else DrawCover(g, new RectangleF(0, 0, S, S), new ProjectEntry { Name = projName, Cover = cover });
-            bmp.Save(outp, System.Drawing.Imaging.ImageFormat.Png);
+            using (var g = Graphics.FromImage(sq))
+            {
+                g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias; g.Clear(Color.Black);
+                if (!hasPic) { var lg = AppLogo.Logo; if (lg != null) { g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic; g.DrawImage(lg, new Rectangle(0, 0, S, S)); } }   // no picture: the Purphex logo, edge to edge
+                else DrawCover(g, new RectangleF(0, 0, S, S), new ProjectEntry { Name = projName, Cover = cover });
+            }
+            using (var bmp = new Bitmap(W, H)) using (var g = Graphics.FromImage(bmp))
+            {
+                g.Clear(Color.Black);
+                if (W != H)
+                {   // the backdrop: the same picture made big enough to fill, blurred (shrunk to a tiny copy and stretched back) and darkened
+                    int big = Math.Max(W, H); using (var tiny = new Bitmap(Math.Max(4, big / 40), Math.Max(4, big / 40)))
+                    {
+                        using (var tg = Graphics.FromImage(tiny)) { tg.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBilinear; tg.DrawImage(sq, new Rectangle(0, 0, tiny.Width, tiny.Height)); }
+                        g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBilinear; g.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.Half; g.DrawImage(tiny, new Rectangle((W - big) / 2, (H - big) / 2, big, big));
+                    }
+                    using (var dark = new SolidBrush(Color.FromArgb(150, 0, 0, 0))) g.FillRectangle(dark, 0, 0, W, H);
+                }
+                g.DrawImage(sq, (W - S) / 2, (H - S) / 2, S, S);
+                bmp.Save(outp, System.Drawing.Imaging.ImageFormat.Png);
+            }
         }
         return outp;
     }
@@ -544,7 +571,7 @@ static class StudioDialogs
         if (r <= 1) return "Rate: " + (r == 0 ? "44.1 kHz is CD quality and how your project is made: the right choice for music." : "48 kHz is the standard for video: pick it if the song goes into a video.");
         return "Rate: higher rates make much bigger files and only matter if you will keep processing the sound. For listening, 44.1 or 48 kHz sounds the same.";
     }
-    public static ExportSettings ExportOptions(IWin32Window owner, string defName, double songLen = 0, IList<string> trackNames = null)
+    public static ExportSettings ExportOptions(IWin32Window owner, string defName, double songLen = 0, IList<string> trackNames = null, Action<ExportSettings> done = null, Action<Form> opened = null)   /* done: the window stays open without locking the program, and done gets the choice (null = cancelled) */
     {
         bool side = trackNames != null && trackNames.Count > 0; ExportSettings result = null; var f = Make("Export", side ? 850 : 560, 640);
         var cks = new List<CheckBox>(); string[] names = { "Complete mix (mixed + mastered)", "Complete mix without mastering", "Processed vocals only", "Processed instrumental only", "Individual stems (every track, processed)" };
@@ -577,7 +604,12 @@ static class StudioDialogs
         // what each format and rate means, in plain words (for people who are new to this)
         var fmDesc = new Label { Left = 90, Top = y + 2, Width = side ? 470 : 446, Height = 78, ForeColor = TM.C(255, 205, 190, 230), Text = "" }; f.Controls.Add(fmDesc);
         Action descUpd = () => { int a0 = Math.Max(0, fm.SelectedIndex), b0 = Math.Max(0, rt.SelectedIndex); fmDesc.Text = FormatHint(a0) + "\r\n" + RateHint(b0, a0); };
-        fm.SelectedIndexChanged += (s0, e0) => descUpd(); rt.SelectedIndexChanged += (s0, e0) => descUpd(); descUpd(); y += 84;
+        // MP4: the size of the video and the quality of its sound (they take the place of the description while MP4 is picked)
+        var vLab = new Label { Text = "Video", Left = 16, Top = y + 6, Width = 70, Height = 22 }; var vCb = new DarkCombo { Left = 90, Top = y + 2, Width = 330 }; vCb.Items.AddRange(Exporter.VideoNames); vCb.SelectedIndex = 1;
+        var sLab = new Label { Text = "Sound", Left = 16, Top = y + 44, Width = 70, Height = 22 }; var sCb = new DarkCombo { Left = 90, Top = y + 40, Width = 330 }; sCb.Items.AddRange(Exporter.SoundNames); sCb.SelectedIndex = 1;
+        var vNote = new Label { Left = 428, Top = y + 4, Width = side ? 140 : 110, Height = 72, ForeColor = TM.C(255, 170, 150, 190), Text = "Your picture is kept square; wide and tall videos fill the rest with a blur of it." }; f.Controls.AddRange(new Control[] { vLab, vCb, sLab, sCb, vNote });
+        Action mp4Upd = () => { bool v = fm.SelectedIndex == Exporter.Mp4; vLab.Visible = vCb.Visible = sLab.Visible = sCb.Visible = vNote.Visible = v; fmDesc.Visible = !v; rt.Enabled = !v; };
+        fm.SelectedIndexChanged += (s0, e0) => { descUpd(); mp4Upd(); }; rt.SelectedIndexChanged += (s0, e0) => descUpd(); descUpd(); mp4Upd(); y += 84;
         f.Controls.Add(new Label { Text = "Name", Left = 16, Top = y + 4, Width = 70, Height = 22 });
         var nm = new TextBox { Left = 90, Top = y, Width = 440, Text = defName, BackColor = Fld, ForeColor = Ink, BorderStyle = BorderStyle.FixedSingle }; Win.NeonBox(nm); f.Controls.Add(nm); y += 38;
         f.Controls.Add(new Label { Text = "Folder", Left = 16, Top = y + 4, Width = 70, Height = 22 });
@@ -593,9 +625,10 @@ static class StudioDialogs
             if (songLen > 0 && sa >= songLen) { tErr.Text = "Trim: the start is after the end of the song."; return; }
             List<int> picked = null; if (side && cks[4].Checked) { picked = new List<int>(); for (int i = 0; i < stemCk.Count; i++) if (stemCk[i].Checked) picked.Add(i); if (picked.Count == 0) { tErr.Text = "Pick at least one track for the stems."; return; } if (picked.Count == stemCk.Count) picked = null; }
             bool whole = sa <= 0.0005 && (songLen <= 0 || sb >= songLen - 0.05);   // not trimmed = the whole song
-            result = new ExportSettings { TrimStart = whole ? 0 : sa, TrimEnd = whole ? 0 : sb, MixMastered = cks[0].Checked, MixDry = cks[1].Checked, ProcVocal = cks[2].Checked, ProcBeat = cks[3].Checked, Stems = cks[4].Checked, StemTracks = picked, Fmt = fm.SelectedIndex, RateIdx = rt.SelectedIndex, Dir = dir.Text.Trim(), Prefix = nm.Text.Trim() }; LastExportDir = dir.Text.Trim(); f.Close();
+            result = new ExportSettings { TrimStart = whole ? 0 : sa, TrimEnd = whole ? 0 : sb, MixMastered = cks[0].Checked, MixDry = cks[1].Checked, ProcVocal = cks[2].Checked, ProcBeat = cks[3].Checked, Stems = cks[4].Checked, StemTracks = picked, Fmt = fm.SelectedIndex, RateIdx = rt.SelectedIndex, VideoIdx = Math.Max(0, vCb.SelectedIndex), SoundIdx = Math.Max(0, sCb.SelectedIndex), Dir = dir.Text.Trim(), Prefix = nm.Text.Trim() }; LastExportDir = dir.Text.Trim(); f.Close();
         };
         cancel.Click += (s, e) => f.Close(); f.AcceptButton = ok; f.Controls.AddRange(new Control[] { ok, cancel });
+        if (done != null) { f.FormClosed += (s, e) => done(result); var ow = owner as Form; if (ow != null) { f.StartPosition = FormStartPosition.Manual; f.Location = new Point(ow.Left + Math.Max(0, (ow.Width - f.Width) / 2), ow.Top + Math.Max(0, (ow.Height - f.Height) / 2)); } f.Show(owner); if (opened != null) opened(f); return null; }
         f.ShowDialog(owner); return result;
     }
 }

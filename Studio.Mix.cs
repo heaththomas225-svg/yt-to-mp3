@@ -627,6 +627,12 @@ static class Exporter
 {
     public static readonly string[] Formats = { "WAV 24-bit", "WAV 16-bit", "WAV 32-bit float", "FLAC 24-bit", "MP3 320 kbps", "MP4 video" };
     public const int Mp4 = 5; public static string VideoFrame = "";   // MP4: the picture of the project (a PNG made by the studio just before the export) shown for the whole song
+    // MP4 sizes (square, wide, tall) and sound qualities: the choice is yours
+    public static readonly string[] VideoNames = { "Square 720 x 720", "Square 1080 x 1080  (Instagram)", "Square 1440 x 1440", "Square 2160 x 2160  (4K)", "Wide 854 x 480  (480p)", "Wide 1280 x 720  (720p)", "Wide 1920 x 1080  (YouTube HD)", "Wide 2560 x 1440  (1440p)", "Wide 3840 x 2160  (4K)", "Tall 720 x 1280", "Tall 1080 x 1920  (TikTok, Reels, Shorts)", "Tall 2160 x 3840  (4K)" };
+    public static readonly int[,] VideoWH = { { 720, 720 }, { 1080, 1080 }, { 1440, 1440 }, { 2160, 2160 }, { 854, 480 }, { 1280, 720 }, { 1920, 1080 }, { 2560, 1440 }, { 3840, 2160 }, { 720, 1280 }, { 1080, 1920 }, { 2160, 3840 } };
+    public static readonly string[] SoundNames = { "AAC 128 kbps  (smallest)", "AAC 192 kbps  (small, sounds great)", "AAC 256 kbps", "AAC 320 kbps  (best)" };
+    public static readonly int[] SoundKbps = { 128, 192, 256, 320 };
+    public static int SoundRate = 192;   // the sound quality of the MP4 being made
     static readonly string[] Ext = { "wav", "wav", "wav", "flac", "mp3", "mp4" };
 
     public static string FileExt(int fmt) { return Ext[fmt]; }
@@ -700,9 +706,9 @@ static class Exporter
             if (fmt == Mp4)
             {   // MP4: the project's picture fills the video for exactly as long as the song (a still picture: H.264 1080x1080, AAC 320 kbps at 48 kHz), ready for YouTube, Instagram, TikTok...
                 if (string.IsNullOrEmpty(VideoFrame) || !File.Exists(VideoFrame)) throw new Exception("The picture for the video could not be made.");
-                string vin = "-hide_banner -y -loop 1 -framerate 24 -i \"" + VideoFrame + "\" -i \"" + tmp + "\" -map 0:v:0 -map 1:a:0 ", vout = " -r 24 -c:a aac -b:a 320k -ar 48000 -shortest -movflags +faststart \"" + outp + "\"";
-                o2 = MasterDsp.RunCapture(ff, vin + "-c:v libx264 -preset veryfast -tune stillimage -crf 18 -pix_fmt yuv420p" + vout, null, out code);
-                if (code != 0 || !File.Exists(outp)) o2 = MasterDsp.RunCapture(ff, vin + "-c:v mpeg4 -q:v 2 -pix_fmt yuv420p" + vout, null, out code);   // an ffmpeg without H.264: plain MPEG-4 video still plays everywhere
+                string vin = "-hide_banner -y -loop 1 -framerate 24 -i \"" + VideoFrame + "\" -i \"" + tmp + "\" -map 0:v:0 -map 1:a:0 ", vout = " -r 24 -c:a aac -b:a " + SoundRate + "k -ar 48000 -shortest -movflags +faststart \"" + outp + "\"";
+                o2 = MasterDsp.RunCapture(ff, vin + "-c:v libx264 -preset slow -tune stillimage -crf 23 -g 7200 -keyint_min 7200 -sc_threshold 0 -x264-params mbtree=0:ipratio=6:pbratio=6:aq-mode=0 -pix_fmt yuv420p" + vout, null, out code);   // as small as it can be: the picture never changes, so after the first frame each frame is almost nothing (a long key-frame gap); nearly all of the file is the sound
+                if (code != 0 || !File.Exists(outp)) o2 = MasterDsp.RunCapture(ff, vin + "-c:v mpeg4 -q:v 3 -g 7200 -pix_fmt yuv420p" + vout, null, out code);   // an ffmpeg without H.264: plain MPEG-4 video still plays everywhere
             }
             else o2 = MasterDsp.RunCapture(ff, "-hide_banner -y -i \"" + tmp + "\" -vn " + (rate != StudioEngine.SR ? "-af aresample=resampler=swr:filter_size=64:cutoff=0.99 -ar " + rate + " " : "") + enc + " \"" + outp + "\"", null, out code);
             if (code != 0 || !File.Exists(outp)) throw new Exception("Encoding failed.\n" + o2);

@@ -269,6 +269,12 @@ partial class StudioForm
         string pkey = "artist:" + a.Id + ":" + t.Song; if (string.Equals(previewPath, pkey, StringComparison.Ordinal) && previewEng != null) { StartVideoOverlay(a.Id, t.Song, pkey); return; }
         PlayArtistSong(a, t, true);
     }
+    // a player for a finished song (from the community, an artist page): it plays the song as it is. A new engine starts with the master chain on
+    // (compressor and limiter), which squashed every published song a second time and made it sound broken: here the chain is off
+    internal StudioEngine SongPlayer(AudioClip clip, string title)
+    {
+        var pe = new StudioEngine(); StudioEngine.Current = eng; foreach (var mf in pe.MasterFx) mf.Bypass = true; pe.Tracks.Add(StudioEngine.NewTrack(title, "beat", clip)); return pe;
+    }
     void PlayArtistSong(ArtistInfo a, ArtistTrack t, bool withVideo = false)
     {
         StopPreview(); if (eng.Playing) eng.Pause(); string pkey = "artist:" + a.Id + ":" + t.Song; previewPath = pkey; previewName = a.Name + " - " + t.Title; previewLoading = true; previewPaused = false; string aid = a.Id, sid = t.Song, title = t.Title;
@@ -280,7 +286,7 @@ partial class StudioForm
                 var data = ProfApi.Listen(aid, sid, out err); if (data != null)
                 {
                     tmp = Path.Combine(Path.GetTempPath(), "purphex_listen_" + Guid.NewGuid().ToString("N").Substring(0, 8) + ".mp3"); File.WriteAllBytes(tmp, data); var clip = AudioClip.FromFile(tmp);
-                    pe = new StudioEngine(); StudioEngine.Current = eng; pe.Tracks.Add(StudioEngine.NewTrack(title, "beat", clip));
+                    pe = SongPlayer(clip, title);
                 }
             }
             catch (Exception ex) { err = ex.Message; }
@@ -319,7 +325,9 @@ partial class StudioForm
         var wb = Rc(rx - 150, r.Y + 10, 150, 28); Btn(g, wb, "MESSAGE ABOUT IT", 1, () => WriteMessage(a.Id, a.Name, t.Title), 10); Hint2(wb, "Write to " + a.Name + " about this song (a reply to the track)"); rx -= 158;
         if (hasV) { var vb = Rc(rx - 130, r.Y + 10, 130, 28); Btn(g, vb, "WATCH VIDEO", 2, () => ArtistWatch(a, t), 10); Hint2(vb, t.VideoUp ? "Watch the music video in the player (it has a FULL SCREEN button)" : "Watch the music video of this track (opens " + ProfileStore.LinkLabel(t.Video) + ")"); rx -= 138; }
         // the name, then the line with the details and the label
-        float tx = pb.Right + 16, tw = Math.Max(60, rx - tx - 6); Txt(g, t.Title, 16, Ink, Rc(tx, r.Y + 8, tw, 24), StringAlignment.Near, true);
+        var art = Rc(pb.Right + 12, r.Y + 8, r.Height - 16, r.Height - 16);   // the picture of the song, next to its name (the Purphex art when it has none)
+        { Bitmap sbm = can ? FeedImage(new FeedSong { Id = t.Song, Cover = true }, (int)art.Width, (int)art.Height) : null; if (sbm != null) { var gs3 = g.Save(); using (var p = RR(art, 10)) { g.SetClip(p, CombineMode.Intersect); g.DrawImage(sbm, art); } g.Restore(gs3); } else DrawSquareArt(g, art, new ProjectEntry { Name = t.Title }); using (var pen = new Pen(Color.FromArgb(200, acc), 1.4f)) using (var p = RR(art, 10)) g.DrawPath(pen, p); }
+        float tx = art.Right + 14, tw = Math.Max(60, rx - tx - 6); Txt(g, t.Title, 16, Ink, Rc(tx, r.Y + 8, tw, 24), StringAlignment.Near, true);
         string meta = (t.Bpm > 0 ? t.Bpm + " BPM" : "") + (t.Bpm > 0 && t.Secs > 0 ? "   -   " : "") + (t.Secs > 0 ? Dur(t.Secs) : "") + (t.Tags.Length > 0 ? "   -   #" + t.Tags.Replace(" ", " #") : ""); Txt(g, meta, 11, DimC, Rc(tx, r.Y + 34, tw, 18), StringAlignment.Near, false);
         string lab = hasV ? "MUSIC VIDEO" : "AUDIO ONLY"; float lw = 18 + lab.Length * 7.2f; var pill = Rc(tx, r.Y + r.Height - 26, lw, 18); FillRR(g, hasV ? TM.C(200, 255, 43, 214) : TM.C(160, 60, 40, 110), pill, 9); Txt(g, lab, 9, Color.White, pill, StringAlignment.Center, true);
         if (!can) { var np = Rc(pill.Right + 8, pill.Y, 150, 18); Txt(g, "NO SONG UP YET", 9, DimC, np, StringAlignment.Near, true); }

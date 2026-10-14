@@ -102,7 +102,7 @@ partial class StudioForm
         using (var p = RR(box, 22)) { using (var br = new LinearGradientBrush(box, TM.C(250, 26, 12, 58), TM.C(250, 9, 4, 24), 90f)) g.FillPath(br, p); using (var pen = new Pen(NeonCyan, 2.2f)) g.DrawPath(pen, p); }
         using (var pen = new Pen(Color.FromArgb(110, NeonPink), 1.2f)) using (var p = RR(RectangleF.Inflate(box, -9, -9), 16)) g.DrawPath(pen, p); AnimRing(g, box, NeonCyan); Reg(box, () => { });
         Txt(g, "MAKE AN EP OR ALBUM", 24, Ink, Rc(box.X + 28, box.Y + 16, box.Width - 110, 34), StringAlignment.Near, true);
-        Txt(g, "Pick up to 20 songs: tick them, then move them into the order you want.", 13, DimC, Rc(box.X + 28, box.Y + 52, box.Width - 56, 22), StringAlignment.Near, false);
+        Txt(g, "Tick the songs, then put them in order with UP and DOWN: each picked song shows which track it will be (TRACK 1, TRACK 2...).", 13, DimC, Rc(box.X + 28, box.Y + 52, box.Width - 56, 22), StringAlignment.Near, false);
         var cl = Rc(box.Right - 46, box.Y + 14, 30, 28); Btn(g, cl, "x", 3, () => { relOpen = false; }, 12); Hint2(cl, "Close without making anything");
         float y = box.Y + 86; Txt(g, "NAME", 12, DimC, Rc(box.X + 28, y, 100, 18), StringAlignment.Near, true);
         var nb = new Rectangle((int)(box.X + 28), (int)(y + 20), (int)(box.Width - 56), 32); if (relBoxAt != nb) { relBoxAt = nb; relNameBox.Bounds = nb; } if (!relNameBox.Visible) { relNameBox.Visible = true; relNameBox.BringToFront(); relNameBox.Focus(); }
@@ -122,8 +122,8 @@ partial class StudioForm
               Reg(row, () => { if (!relPick.Add(path)) relPick.Remove(path); relErr = ""; });
               var tick = Rc(row.X + 10, row.Y + row.Height / 2 - 11, 22, 22); FillRR(g, TM.C(255, 8, 4, 20), tick, 6); StrokeRR(g, on ? NeonCyan : Color.FromArgb(150, NeonViolet), tick, 6, 1.4f);
               if (on) { var sm = g.SmoothingMode; g.SmoothingMode = SmoothingMode.AntiAlias; using (var pen = new Pen(NeonCyan, 2.6f) { StartCap = LineCap.Round, EndCap = LineCap.Round, LineJoin = LineJoin.Round }) g.DrawLines(pen, new[] { new PointF(tick.X + 5, tick.Y + 11), new PointF(tick.X + 9.5f, tick.Y + 16), new PointF(tick.X + 17, tick.Y + 6) }); g.SmoothingMode = sm; }
-              int nn; Txt(g, num.TryGetValue(e.Path, out nn) ? nn.ToString() : "", 17, NeonCyan, Rc(tick.Right + 6, row.Y, 34, row.Height), StringAlignment.Center, true);
-              var cov = Rc(tick.Right + 44, row.Y + 5, row.Height - 10, row.Height - 10); DrawCover(g, cov, e);
+              int nn; if (num.TryGetValue(e.Path, out nn)) { var tp = Rc(tick.Right + 8, row.Y + row.Height / 2 - 11, 70, 22); FillRR(g, NeonCyan, tp, 11); Txt(g, "TRACK " + nn, 10, Color.Black, tp, StringAlignment.Center, true); }   // which track of the EP / album it will be
+              var cov = Rc(tick.Right + 84, row.Y + 5, row.Height - 10, row.Height - 10); DrawCover(g, cov, e);
               float tx = cov.Right + 10, bw2 = 118; Txt(g, e.Name, 14, Ink, Rc(tx, row.Y + 5, row.Right - tx - bw2 - 10, 22), StringAlignment.Near, true);
               Txt(g, (e.OnProfile ? "PUBLISHED" : "PRIVATE") + "   " + e.Tracks + " tracks", 10, e.OnProfile ? NeonCyan : DimC, Rc(tx, row.Y + 27, row.Right - tx - bw2 - 10, 16), StringAlignment.Near, false);
               var up = Rc(row.Right - bw2 - 4, row.Y + 10, 54, 26); var dn = Rc(up.Right + 6, row.Y + 10, 54, 26);

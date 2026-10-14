@@ -7,10 +7,19 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.39.1";
+    public const string Latest = "3.39.2";
 
     public const string Text =
-@"3.39.1  Buses in ALL PLUGINS
+@"3.39.2  Songs play right, ALL BUSES, EP order, MP4 sizes
+ + FIXED: songs played from the Community tab and artist pages sounded broken: they went through a second mastering chain (a compressor and limiter) that squashed every published song. They now play exactly as they were published.
+ + FIXED: + ADD in ALL PLUGINS did nothing you could see: the list of effects opened behind the sheet. It now opens on top.
+ + NEW: ALL BUSES: EDIT BUSES (in the Bus drop-down) opens a page with every bus: its level, mute, delete, the tracks that go into it and its plugins. ALL PLUGINS and ALL BUSES have a + ADD BUS button at the top (the big NEW BUS column is gone) and a button to switch between the two.
+ + NEW: change the order of an EP or album: open it on My Projects and move songs up or down; each song shows which track it is (TRACK 1, TRACK 2...), and your profile gets the new order. When you make one, each picked song shows TRACK 1, TRACK 2... too.
+ + CHANGED: the EXPORT window no longer locks the program: the tabs and everything else stay clickable while it is open.
+ + NEW: song pictures next to the names on an artist's page. Emoji in menus (your links on a profile) are in colour.
+ + NEW: MP4 export, your choice of size and sound: 12 video sizes (square 720 to 4K, wide 480p to 4K for YouTube, tall 1080 x 1920 and 4K for TikTok, Reels and Shorts) and AAC 128, 192, 256 or 320 kbps sound. Wide and tall videos keep your picture square in the middle on a blur of itself. The video part is made as small as it can be (the picture never changes), so a 3 minute song is about 4 MB at 128 kbps, 5 MB at 192, 8 MB at 320.
+
+3.39.1  Buses in ALL PLUGINS
  + NEW: ALL PLUGINS has your buses too, so everything is in one place like Logic Pro: each bus is a gold column with its plugins (+ ADD, copy and paste them the same way), it shows which tracks go into it, TRACKS INTO THIS BUS lets you tick the tracks that go through it, and + NEW BUS at the end makes a bus. Picking a bus there edits it in the plugin panel.
 
 3.39.0  Export your song as an MP4 video

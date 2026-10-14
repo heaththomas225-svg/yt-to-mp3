@@ -11,7 +11,7 @@ partial class StudioForm
     internal bool allFxOpen; float allFxScroll;
     internal readonly List<string[]> presetCopy = new List<string[]>(); internal string presetCopyName = "";   // the copied preset: { type, settings, bypass } for each plugin
 
-    internal void OpenAllFx() { allFxOpen = true; allFxScroll = 0; ntOpen = false; busOpen = false; stylesOpen = false; }
+    internal void OpenAllFx() { allFxOpen = true; allBusMode = false; allFxScroll = 0; ntOpen = false; busOpen = false; stylesOpen = false; }
     static string PresetKey(Fx f) { return f.PresetId.Length > 0 ? f.PresetId : f.Preset; }
 
     // COPY PRESET: every plugin of that preset box, with the settings it has now
@@ -69,13 +69,15 @@ partial class StudioForm
         if (!allFxOpen) return; float W = ClientSize.Width, H = ClientSize.Height; var all = Rc(0, 0, W, H);
         Reg(all, () => allFxOpen = false); using (var dim = new SolidBrush(Color.FromArgb(150, 0, 0, 0))) g.FillRectangle(dim, all);
         var sheet = Rc(16, 24, W - 32, H - 48); FillRR(g, TM.C(252, 14, 8, 30), sheet, 22); Glow(g, NeonViolet, sheet, 22, 0.8f, 4); StrokeRR(g, Color.FromArgb(180, NeonViolet), sheet, 22, 1.5f); Reg(sheet, () => { });
-        Txt(g, "ALL PLUGINS", 22, Ink, Rc(sheet.X + 22, sheet.Y + 12, 300, 34), StringAlignment.Near, true);
-        Txt(g, "Every track and every bus with their plugins in one place. + ADD, COPY / PASTE PRESET and COPY / PASTE ALL PLUGINS work on that column; every plugin has COPY and PASTE; press a plugin to open it. + NEW BUS makes a bus.", 12, DimC, Rc(sheet.X + 22, sheet.Y + 46, sheet.Width - 200, 20), StringAlignment.Near, false);
+        Txt(g, allBusMode ? "ALL BUSES" : "ALL PLUGINS", 22, Ink, Rc(sheet.X + 22, sheet.Y + 12, 300, 34), StringAlignment.Near, true);
+        Txt(g, allBusMode ? "Every bus in one place: its level, mute, the tracks that go into it and its plugins. + ADD BUS makes a new one." : "Every track and every bus with their plugins in one place. + ADD, COPY / PASTE PRESET and COPY / PASTE ALL PLUGINS work on that column; every plugin has COPY and PASTE; press a plugin to open it.", 12, DimC, Rc(sheet.X + 22, sheet.Y + 46, sheet.Width - 200, 20), StringAlignment.Near, false);
         var close = Rc(sheet.Right - 120, sheet.Y + 14, 100, 34); Btn(g, close, "DONE", 2, () => allFxOpen = false, 13); Hint2(close, "Close this panel (Esc does the same)");
-        Track[] rows; lock (eng.Sync) rows = eng.Tracks.FindAll(t => t.Host == null).ToArray();
+        { var ab = Rc(close.X - 12 - 150, close.Y, 150, 34); Btn(g, ab, "+ ADD BUS", 1, () => { var nb = AddBus(); busEdit = nb; selFx = -1; allFxScroll = float.MaxValue; Toast(nb.Name + " made. Press TRACKS INTO THIS BUS to send tracks into it, and + ADD for its plugins."); }, 13); Hint2(ab, "Make a new bus (a group: send tracks into it and its plugins work on all of them together)");
+          var sw = Rc(ab.X - 12 - 150, close.Y, 150, 34); Btn(g, sw, allBusMode ? "ALL PLUGINS" : "ALL BUSES", 1, () => { allBusMode = !allBusMode; allFxScroll = 0; }, 13); Hint2(sw, allBusMode ? "Show every track and bus with their plugins" : "Show only your buses, with their levels"); }
+        Track[] rows; lock (eng.Sync) rows = eng.Tracks.FindAll(t => t.Host == null && (!allBusMode || t.IsBus)).ToArray();
         var area = Rc(sheet.X + 14, sheet.Y + 76, sheet.Width - 28, sheet.Height - 90);
-        if (rows.Length == 0) { Txt(g, "NO TRACKS YET: ADD MUSIC OR A NEW TRACK FIRST.", 14, DimC, area, StringAlignment.Center, true); return; }
-        float colW = 244, gap = 12, total = (rows.Length + 1) * (colW + gap) - gap;   /* (+1: the + NEW BUS column at the end) */ if (total > area.Width) area = Rc(area.X, area.Y, area.Width, area.Height - 44);   // room for the logo scroll bar under the columns
+        if (rows.Length == 0) { Txt(g, allBusMode ? "NO BUSES YET: PRESS + ADD BUS." : "NO TRACKS YET: ADD MUSIC OR A NEW TRACK FIRST.", 14, DimC, area, StringAlignment.Center, true); return; }
+        float colW = 244, gap = 12, total = rows.Length * (colW + gap) - gap; if (total > area.Width) area = Rc(area.X, area.Y, area.Width, area.Height - 44);   // room for the logo scroll bar under the columns
         float maxS = Math.Max(0, total - area.Width); allFxScroll = Math.Max(0, Math.Min(maxS, allFxScroll));
         { float downX = 0, downS = 0; var pan = Reg(area, () => { downX = MousePos.X; downS = allFxScroll; }); pan.OnDrag = pt => allFxScroll = Math.Max(0, Math.Min(maxS, downS - (pt.X - downX))); }   // grab any empty part and drag it sideways, like a phone
         var gs = g.Save(); g.SetClip(area, CombineMode.Intersect);
@@ -103,6 +105,11 @@ partial class StudioForm
               { var tk = tr; int tix = ti; var pp1 = Rc(bx, by + 64, colW - 20, 26); Btn(g, pp1, fxCopyType.Length > 0 ? "PASTE PLUGIN: " + fxCopyTitle.ToUpper() : "PASTE PLUGIN", fxCopyType.Length > 0 ? 2 : 0, () => { selTrack = tix; PasteFxAsNew(tk); }, 9); Hint2(pp1, fxCopyType.Length > 0 ? "Add the copied " + fxCopyTitle + " to " + tr.Name + " as a new plugin, with all its settings" : "Copy one plugin first: press COPY on any plugin (its settings come with it)"); }
             by += 64;   // (the PASTE PLUGIN row)
             if (tr.IsBus) { var rb = Rc(bx, by + 32, colW - 20, 26); var tkb = tr; int nIn = eng.Tracks.FindAll(x => x.Out == tr && x.Host == null && !x.IsBus).Count; Btn(g, rb, "TRACKS INTO THIS BUS (" + nIn + ")...", 1, () => BusRouteMenu(tkb, rb), 9); Hint2(rb, "Tick the tracks that go through " + tr.Name); by += 32; }
+            if (tr.IsBus) { var bt = tr; var mb = Rc(bx, by + 32, 30, 22); Btn(g, mb, "M", bt.Mute ? 4 : 0, () => bt.Mute = !bt.Mute, 11); Hint2(mb, bt.Mute ? "Unmute the bus" : "Mute the bus (every track in it goes quiet)");   // the level of the bus: mute, a fader and its dB, and delete
+              float frac = Clamp01((bt.VolDb + 48f) / 54f); var fs = Slider(g, Rc(mb.Right + 8, by + 34, colW - 20 - 38 - 92, 18), frac, fv => bt.VolDb = fv < 0.003f ? -48f : (float)Math.Round(fv * 54f - 48f, 1), Accent2); fs.OnDouble = () => bt.VolDb = 0;
+              Txt(g, (bt.VolDb <= -47.9f ? "-inf" : bt.VolDb.ToString("+0.0;-0.0;0.0")) + " dB", 10, Ink, Rc(col.Right - 10 - 88, by + 32, 54, 22), StringAlignment.Near, false);
+              var xb2 = Rc(col.Right - 10 - 30, by + 32, 30, 22); Btn(g, xb2, "x", 3, () => { if (AskYes("Delete \"" + bt.Name + "\"? Tracks sent to it go straight to the master.", "Delete bus")) { if (busEdit == bt) busEdit = null; DeleteTrackQuiet(bt); } }, 11); Hint2(xb2, "Delete this bus");
+              by += 32; }
             float ry = by + 36, bottom = col.Bottom - 10; string lastKey = null; int shown = 0;
             if (fxs.Length == 0) Txt(g, "NO PLUGINS YET", 11, DimC, Rc(col.X + 14, ry, colW - 28, 22), StringAlignment.Near, false);
             for (int i = 0; i < fxs.Length; i++)
@@ -129,16 +136,6 @@ partial class StudioForm
             }
             if (shown < fxs.Length) Txt(g, "+" + (fxs.Length - shown) + " MORE: PRESS ONE TO OPEN THE TRACK", 10, DimC, Rc(col.X + 12, col.Bottom - 24, colW - 24, 18), StringAlignment.Near, false);
         }
-        {   // the last column: + NEW BUS (a bus is a group: tracks go into it and its plugins work on all of them together)
-            float cx = area.X + rows.Length * (colW + gap) - allFxScroll; if (cx < area.Right && cx + colW > area.X)
-            {
-                var col = Rc(cx, area.Y, colW, area.Height); bool hot = Hot(col); var gold = Color.FromArgb(255, 255, 208, 77); FillRR(g, TM.C(hot ? 190 : 140, 40, 26, 14), col, 14);
-                using (var pen = new Pen(Color.FromArgb(hot ? 255 : 170, gold), 1.8f) { DashStyle = DashStyle.Dash }) using (var p = RR(RectangleF.Inflate(col, -4, -4), 12)) g.DrawPath(pen, p);
-                Txt(g, "+", 50, gold, Rc(col.X, col.Y + 120, colW, 70), StringAlignment.Center, true); Txt(g, "NEW BUS", 16, Ink, Rc(col.X, col.Y + 196, colW, 26), StringAlignment.Center, true);
-                TxtWrap(g, "A bus is a group: send tracks into it and its plugins work on all of them together (like a bus in Logic Pro).", 11, DimC, Rc(col.X + 20, col.Y + 228, colW - 40, 70));
-                Reg(col, () => { var nb = AddBus(); busEdit = nb; selFx = -1; allFxScroll = float.MaxValue; Toast(nb.Name + " made. Press TRACKS INTO THIS BUS to send tracks into it, and + ADD for its plugins."); }); Hint2(col, "Make a new bus");
-            }
-        }
         g.Restore(gs);
         regs.Add(new HitReg { R = area, OnWheel = d => allFxScroll = Math.Max(0, Math.Min(maxS, allFxScroll - d * 90)) });
         if (maxS > 0) HScroll(g, Rc(area.X, area.Bottom + 8, area.Width, 34), total, area.Width, () => allFxScroll, v => allFxScroll = v, colW + gap);   // the app's own logo scroll bar: drag the logo, click the bar, or hold an arrow
@@ -148,6 +145,8 @@ partial class StudioForm
 partial class StudioForm
 {
     // ALL PLUGINS: pick a column; a bus is edited in the plugin panel (like EDIT in the Buses sheet), a track is selected as usual
+    internal bool allBusMode;   // ALL BUSES: the same sheet showing only the buses, with their levels
+    internal void OpenAllBuses() { allFxOpen = true; allBusMode = true; allFxScroll = 0; busOpen = false; tab = 0; }
     internal void PickAllFxColumn(Track t, int index)
     {
         if (t == null) return; selFx = -1;
