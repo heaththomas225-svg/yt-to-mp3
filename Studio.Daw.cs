@@ -494,7 +494,7 @@ partial class StudioForm
         L.Add(new DawBtn { Text = "UNDO", W = 48, Do = () => DoUndo() });
         L.Add(new DawBtn { Text = "REDO", W = 48, Gap = 8, Do = () => DoRedo() });
         L.Add(new DawBtn { Text = "FIT", W = 40, Gap = 6, Do = () => FitView() });
-        L.Add(new DawBtn { Text = "NEW", W = 46, Gap = 6, Do = () => NewProject() });
+        L.Add(new DawBtn { Text = "NEW", W = 46, Gap = 6, Do = () => { NewProject(); if (eng.Tracks.Count == 0) { tab = 0; welcomeOn = true; } } });   // a new project starts on the welcome page
         L.Add(new DawBtn { Text = Prefs.PerfMode ? "PERFORMANCE: ON" : "PERFORMANCE: OFF", W = 142, Px = 10, Style = Prefs.PerfMode ? 4 : 0, Do = () => { Prefs.PerfMode = !Prefs.PerfMode; Prefs.Changed(); Toast(Prefs.PerfMode ? "Performance mode is on: fewer effects and the highest frame rate your screen can show (up to 240), for a smoother DAW." : "Performance mode is off."); }, Hint = "PERFORMANCE MODE: ON turns off the glitch and glow effects and runs at the highest frame rate your screen can show (up to 240 frames a second), so the DAW runs smoother (it is also in the VIEW menu and in Settings)" });
         float need = 0; foreach (var it in L) need += it.W + it.Gap; float kf = Math.Min(1f, (W - x - 20) / need);   // every button shrinks together when the window is narrow
         foreach (var it in L)

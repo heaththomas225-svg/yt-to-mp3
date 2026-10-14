@@ -609,6 +609,11 @@ static class NF
                 }
                 sf.eng.Tracks.Clear();
             }
+            {   // NEW takes you to the welcome page (a fresh start)
+                sf.eng.Tracks.Clear(); SetF("tab", 0); SetF("welcomeOn", false); var pmn = typeof(StudioForm).GetMethod("PaintAll", BF); using (var bmn = new Bitmap(1500, 800)) using (var gn = Graphics.FromImage(bmn)) pmn.Invoke(sf, new object[] { new PaintEventArgs(gn, new Rectangle(0, 0, 1500, 800)) });
+                var bmN = (Dictionary<string, RectangleF>)typeof(StudioForm).GetField("btnMap", BF).GetValue(sf); RectangleF nr; HitReg nreg = bmN.TryGetValue("NEW", out nr) ? (HitReg)typeof(StudioForm).GetMethod("TopRegion", BF).Invoke(sf, new object[] { new PointF(nr.X + nr.Width / 2, nr.Y + nr.Height / 2) }) : null;
+                if (nreg != null) nreg.OnDown(); Check("NEW starts a new project on the welcome page", nreg != null && F<bool>("welcomeOn") && sf.eng.Tracks.Count == 0, nreg == null ? "no NEW button" : ""); SetF("welcomeOn", false);
+            }
             {   // copy / paste of plugins and of pieces, the preset shown on the plugin, REMOVE PRESET
                 sf.eng.Tracks.Clear(); var ta = StudioEngine.NewTrack("Row A", "vocal", AudioClip.FromArrays(new float[441000], new float[441000], "t")); sf.eng.Tracks.Add(ta);
                 var d1 = FxRegistry.Create("delay"); d1.Prepare(44100); d1.Set("fb", 61f); var d2 = FxRegistry.Create("delay"); d2.Prepare(44100); var cmp = FxRegistry.Create("comp"); cmp.Prepare(44100); ta.Fx.Add(d2); ta.Fx.Add(cmp);

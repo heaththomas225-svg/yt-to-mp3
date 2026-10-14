@@ -2,6 +2,10 @@
 
 What changed in each version of **Purphex**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.39.6  NEW goes to the welcome page
+
+- CHANGED: NEW (in the studio toolbar) takes you to the welcome page after it clears the project, so a new song starts from the start.
+
 ## 3.39.5  The whole picture, never cut off
 
 - FIXED: a tall or wide MP4 zoomed right into your picture and cut most of it off. The whole picture is always in the video now, never cropped: it fills SQUARE videos edge to edge (the right size for a square picture), and wide or tall sizes show the whole picture with black only where the shapes differ. The size list says which ones fill.

@@ -7,10 +7,13 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.39.5";
+    public const string Latest = "3.39.6";
 
     public const string Text =
-@"3.39.5  The whole picture, never cut off
+@"3.39.6  NEW goes to the welcome page
+ + CHANGED: NEW (in the studio toolbar) takes you to the welcome page after it clears the project, so a new song starts from the start.
+
+3.39.5  The whole picture, never cut off
  + FIXED: a tall or wide MP4 zoomed right into your picture and cut most of it off. The whole picture is always in the video now, never cropped: it fills SQUARE videos edge to edge (the right size for a square picture), and wide or tall sizes show the whole picture with black only where the shapes differ. The size list says which ones fill.
 
 3.39.4  Your picture fills the video

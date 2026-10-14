@@ -1,4 +1,4 @@
-3.39.5
+3.39.6
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-The whole picture, never cut off
-sha256=dbc4767e5b94f712ad5377a7d0b94c38db6dc853f967fd1dc16294e36daa52d3
+NEW goes to the welcome page
+sha256=c1a69e26d638c49b1e374fd9f7a4e6b10321fb19455999e08cc47dda2c7e63bd
