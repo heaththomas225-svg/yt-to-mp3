@@ -2,6 +2,10 @@
 
 What changed in each version of **Purphex**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.39.4  Your picture fills the video
+
+- FIXED: the picture in an MP4 video now fills the whole video, edge to edge, in every size. A black border inside the picture (from making it smaller with Resize) is trimmed off, and wide or tall videos crop a little off the picture's edges instead of adding black bars.
+
 ## 3.39.3  One picture in your videos
 
 - FIXED: MP4 videos in wide and tall sizes showed your picture twice (a blurred copy filled the sides). Now the picture is shown once, in the middle, on solid black, in every size.

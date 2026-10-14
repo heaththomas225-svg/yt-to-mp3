@@ -581,6 +581,17 @@ static class NF
                     var bl = new float[4096]; var br2 = new float[4096]; sp.Playing = true; float pk = 0; for (int q = 0; q < 20; q++) { sp.RenderRealtime(bl, br2, 4096); if (q > 4) foreach (var v in bl) pk = Math.Max(pk, Math.Abs(v)); } sp.Playing = false;
                     Check("a community song plays exactly as it was published (no second mastering squashing it)", sp.MasterFx.TrueForAll(m => m.Bypass) && Math.Abs(pk - 0.9f) < 0.05f, "peak " + pk.ToString("0.000") + " of 0.900"); sp.Shutdown();
                 }
+                {   // the picture fills the whole video, edge to edge: a black border inside the picture is trimmed off, in square, wide and tall sizes
+                    byte[] keepCover = ProjectIO.CoverBytes; string keepPath = F<string>("projPath");
+                    using (var pic = new Bitmap(600, 600)) { using (var pg = Graphics.FromImage(pic)) { pg.Clear(Color.Black); using (var gb = new SolidBrush(Color.FromArgb(255, 150, 60, 200))) pg.FillRectangle(gb, 100, 100, 400, 400); } using (var ms = new MemoryStream()) { pic.Save(ms, System.Drawing.Imaging.ImageFormat.Png); ProjectIO.CoverBytes = ms.ToArray(); } }
+                    SetF("projPath", ""); bool allFilled = true; string why = "";
+                    foreach (var wh in new[] { new[] { 1080, 1080 }, new[] { 1920, 1080 }, new[] { 1080, 1920 } })
+                    {
+                        string fr = sf.MakeVideoFrame(wh[0], wh[1]); using (var vb = new Bitmap(fr)) foreach (var pt in new[] { new Point(2, 2), new Point(vb.Width - 3, 2), new Point(2, vb.Height - 3), new Point(vb.Width - 3, vb.Height - 3), new Point(vb.Width / 2, vb.Height / 2) }) { var px = vb.GetPixel(pt.X, pt.Y); if (px.R < 60 && px.G < 30 && px.B < 60) { allFilled = false; why += wh[0] + "x" + wh[1] + " black at " + pt + "; "; } }
+                        try { File.Delete(fr); } catch { }
+                    }
+                    Check("the picture fills the whole video edge to edge, with its black border trimmed off (square, wide and tall)", allFilled, why); ProjectIO.CoverBytes = keepCover; SetF("projPath", keepPath);
+                }
                 {   // EXPORT does not lock the program: its window is open and everything else can still be clicked
                     var et = StudioEngine.NewTrack("Exp", "beat", AudioClip.FromArrays(new float[44100], new float[44100], "e")); lock (sf.eng.Sync) sf.eng.Tracks.Add(et);
                     typeof(StudioForm).GetMethod("ExportClick", BF).Invoke(sf, null); Pump(300); var ew = F<Form>("exportWin");

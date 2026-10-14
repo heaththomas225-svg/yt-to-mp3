@@ -1,4 +1,4 @@
-3.39.3
+3.39.4
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-One picture in your videos
-sha256=4966036df0e726a87155b24653092b907e93064f4f7164300b9c21c34be6c314
+Your picture fills the video
+sha256=f41db8af2733215132365c37afb1f23665402b1404c1f53b2db3c99e0f75b8a2

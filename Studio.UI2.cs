@@ -184,30 +184,39 @@ partial class StudioForm
     }
 
     // the picture of an MP4 export at the size you picked: the picture on the project's card (or the Purphex logo when it has none).
-    // A wide or tall video shows the picture once, square in the middle, on solid black (no copies of it).
+    // It fills the whole video, edge to edge, in every size (a black border inside the picture is trimmed off).
     internal string MakeVideoFrame() { return MakeVideoFrame(1080, 1080); }
     internal string MakeVideoFrame(int W, int H)
     {
         W = Math.Max(64, W & ~1); H = Math.Max(64, H & ~1); string outp = Path.Combine(Path.GetTempPath(), "purphex_video_" + Guid.NewGuid().ToString("N").Substring(0, 8) + ".png");
         var e = projPath.Length > 0 ? ProjectLibrary.Find(projPath) : null; string cover = e != null ? e.Cover : "";
         if ((cover == null || cover.Length == 0 || !File.Exists(cover)) && ProjectIO.CoverBytes != null && ProjectIO.CoverBytes.Length > 0) { cover = Path.Combine(Path.GetTempPath(), "purphex_vcover_" + Guid.NewGuid().ToString("N").Substring(0, 8) + ".img"); File.WriteAllBytes(cover, ProjectIO.CoverBytes); }
-        bool hasPic = !string.IsNullOrEmpty(cover) && File.Exists(cover); int S = Math.Min(W, H);
-        using (var sq = new Bitmap(S, S))
+        Bitmap src = !string.IsNullOrEmpty(cover) && File.Exists(cover) ? ProjectLibrary.Picture(cover) : null; if (src == null) src = AppLogo.Logo;   // (no picture: the Purphex logo)
+        using (var bmp = new Bitmap(W, H)) using (var g = Graphics.FromImage(bmp))
         {
-            using (var g = Graphics.FromImage(sq))
-            {
-                g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias; g.Clear(Color.Black);
-                if (!hasPic) { var lg = AppLogo.Logo; if (lg != null) { g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic; g.DrawImage(lg, new Rectangle(0, 0, S, S)); } }   // no picture: the Purphex logo, edge to edge
-                else DrawCover(g, new RectangleF(0, 0, S, S), new ProjectEntry { Name = projName, Cover = cover });
+            g.Clear(Color.Black);
+            if (src != null)
+            {   // the picture fills the whole video, edge to edge: a plain black border inside the picture is trimmed off first, then it is scaled to cover the frame (a wide or tall video crops a little off the edges, never adds black)
+                var c = VideoCrop(src); float k = Math.Max(W / (float)c.Width, H / (float)c.Height), dw = c.Width * k, dh = c.Height * k;
+                g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic; g.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.HighQuality;
+                lock (src) g.DrawImage(src, new RectangleF((W - dw) / 2f, (H - dh) / 2f, dw, dh), c, GraphicsUnit.Pixel);
             }
-            using (var bmp = new Bitmap(W, H)) using (var g = Graphics.FromImage(bmp))
-            {
-                g.Clear(Color.Black);
-                g.DrawImage(sq, (W - S) / 2, (H - S) / 2, S, S);
-                bmp.Save(outp, System.Drawing.Imaging.ImageFormat.Png);
-            }
+            bmp.Save(outp, System.Drawing.Imaging.ImageFormat.Png);
         }
         return outp;
+    }
+    // the part of a picture that is not a plain black border (a picture made smaller with Resize keeps black round it)
+    internal static Rectangle VideoCrop(Bitmap src)
+    {
+        int w = src.Width, h = src.Height; var all = new Rectangle(0, 0, w, h); if (w < 8 || h < 8) return all;
+        Func<Color, bool> dark = cl => cl.R < 22 && cl.G < 22 && cl.B < 22;
+        int step = Math.Max(1, Math.Min(w, h) / 200);
+        Func<int, bool> rowDark = y => { int n = 0, d = 0; lock (src) for (int x = 0; x < w; x += step) { n++; if (dark(src.GetPixel(x, y))) d++; } return d >= n * 0.98; };
+        Func<int, bool> colDark = x => { int n = 0, d = 0; lock (src) for (int y = 0; y < h; y += step) { n++; if (dark(src.GetPixel(x, y))) d++; } return d >= n * 0.98; };
+        int top = 0, bot = h - 1, left = 0, right = w - 1;
+        while (top < bot && rowDark(top)) top += step; while (bot > top && rowDark(bot)) bot -= step; while (left < right && colDark(left)) left += step; while (right > left && colDark(right)) right -= step;
+        int cw = right - left + 1, ch = bot - top + 1; if (cw < w * 0.3 || ch < h * 0.3) return all;   // almost all dark (a dark picture, not a border): keep it whole
+        return new Rectangle(left, top, cw, ch);
     }
     internal bool HasProject { get { return eng.Tracks.Count > 0; } }
     // SAVE for the question asked when the program is closed: true when the project is saved (a cancelled Save dialog keeps the program open)
@@ -598,7 +607,7 @@ static class StudioDialogs
         // MP4: the size of the video and the quality of its sound (they take the place of the description while MP4 is picked)
         var vLab = new Label { Text = "Video", Left = 16, Top = y + 6, Width = 70, Height = 22 }; var vCb = new DarkCombo { Left = 90, Top = y + 2, Width = 330 }; vCb.Items.AddRange(Exporter.VideoNames); vCb.SelectedIndex = 1;
         var sLab = new Label { Text = "Sound", Left = 16, Top = y + 44, Width = 70, Height = 22 }; var sCb = new DarkCombo { Left = 90, Top = y + 40, Width = 330 }; sCb.Items.AddRange(Exporter.SoundNames); sCb.SelectedIndex = 1;
-        var vNote = new Label { Left = 428, Top = y + 4, Width = side ? 140 : 110, Height = 72, ForeColor = TM.C(255, 170, 150, 190), Text = "Your picture is shown once, square; wide and tall videos have solid black either side." }; f.Controls.AddRange(new Control[] { vLab, vCb, sLab, sCb, vNote });
+        var vNote = new Label { Left = 428, Top = y + 4, Width = side ? 140 : 110, Height = 72, ForeColor = TM.C(255, 170, 150, 190), Text = "Your picture fills the whole video, edge to edge (wide and tall sizes crop a little off its edges)." }; f.Controls.AddRange(new Control[] { vLab, vCb, sLab, sCb, vNote });
         Action mp4Upd = () => { bool v = fm.SelectedIndex == Exporter.Mp4; vLab.Visible = vCb.Visible = sLab.Visible = sCb.Visible = vNote.Visible = v; fmDesc.Visible = !v; rt.Enabled = !v; };
         fm.SelectedIndexChanged += (s0, e0) => { descUpd(); mp4Upd(); }; rt.SelectedIndexChanged += (s0, e0) => descUpd(); descUpd(); mp4Upd(); y += 84;
         f.Controls.Add(new Label { Text = "Name", Left = 16, Top = y + 4, Width = 70, Height = 22 });

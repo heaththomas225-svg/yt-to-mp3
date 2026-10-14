@@ -7,10 +7,13 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.39.3";
+    public const string Latest = "3.39.4";
 
     public const string Text =
-@"3.39.3  One picture in your videos
+@"3.39.4  Your picture fills the video
+ + FIXED: the picture in an MP4 video now fills the whole video, edge to edge, in every size. A black border inside the picture (from making it smaller with Resize) is trimmed off, and wide or tall videos crop a little off the picture's edges instead of adding black bars.
+
+3.39.3  One picture in your videos
  + FIXED: MP4 videos in wide and tall sizes showed your picture twice (a blurred copy filled the sides). Now the picture is shown once, in the middle, on solid black, in every size.
 
 3.39.2  Songs play right, ALL BUSES, EP order, MP4 sizes
