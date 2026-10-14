@@ -2,6 +2,10 @@
 
 What changed in each version of **Purphex**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.39.3  One picture in your videos
+
+- FIXED: MP4 videos in wide and tall sizes showed your picture twice (a blurred copy filled the sides). Now the picture is shown once, in the middle, on solid black, in every size.
+
 ## 3.39.2  Songs play right, ALL BUSES, EP order, MP4 sizes
 
 - FIXED: songs played from the Community tab and artist pages sounded broken: they went through a second mastering chain (a compressor and limiter) that squashed every published song. They now play exactly as they were published.

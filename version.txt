@@ -1,4 +1,4 @@
-3.39.2
+3.39.3
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Songs play right, ALL BUSES, EP order, MP4 sizes
-sha256=347e675484f4e24731bb2c2a1496295153fe39efb177715a2e0545e362a546fb
+One picture in your videos
+sha256=4966036df0e726a87155b24653092b907e93064f4f7164300b9c21c34be6c314

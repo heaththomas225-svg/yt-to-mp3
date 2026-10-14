@@ -7,10 +7,13 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.39.2";
+    public const string Latest = "3.39.3";
 
     public const string Text =
-@"3.39.2  Songs play right, ALL BUSES, EP order, MP4 sizes
+@"3.39.3  One picture in your videos
+ + FIXED: MP4 videos in wide and tall sizes showed your picture twice (a blurred copy filled the sides). Now the picture is shown once, in the middle, on solid black, in every size.
+
+3.39.2  Songs play right, ALL BUSES, EP order, MP4 sizes
  + FIXED: songs played from the Community tab and artist pages sounded broken: they went through a second mastering chain (a compressor and limiter) that squashed every published song. They now play exactly as they were published.
  + FIXED: + ADD in ALL PLUGINS did nothing you could see: the list of effects opened behind the sheet. It now opens on top.
  + NEW: ALL BUSES: EDIT BUSES (in the Bus drop-down) opens a page with every bus: its level, mute, delete, the tracks that go into it and its plugins. ALL PLUGINS and ALL BUSES have a + ADD BUS button at the top (the big NEW BUS column is gone) and a button to switch between the two.

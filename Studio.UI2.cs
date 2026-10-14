@@ -184,7 +184,7 @@ partial class StudioForm
     }
 
     // the picture of an MP4 export at the size you picked: the picture on the project's card (or the Purphex logo when it has none).
-    // A wide or tall video shows the picture square in the middle, on a blurred and darkened copy of itself that fills the rest.
+    // A wide or tall video shows the picture once, square in the middle, on solid black (no copies of it).
     internal string MakeVideoFrame() { return MakeVideoFrame(1080, 1080); }
     internal string MakeVideoFrame(int W, int H)
     {
@@ -203,15 +203,6 @@ partial class StudioForm
             using (var bmp = new Bitmap(W, H)) using (var g = Graphics.FromImage(bmp))
             {
                 g.Clear(Color.Black);
-                if (W != H)
-                {   // the backdrop: the same picture made big enough to fill, blurred (shrunk to a tiny copy and stretched back) and darkened
-                    int big = Math.Max(W, H); using (var tiny = new Bitmap(Math.Max(4, big / 40), Math.Max(4, big / 40)))
-                    {
-                        using (var tg = Graphics.FromImage(tiny)) { tg.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBilinear; tg.DrawImage(sq, new Rectangle(0, 0, tiny.Width, tiny.Height)); }
-                        g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBilinear; g.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.Half; g.DrawImage(tiny, new Rectangle((W - big) / 2, (H - big) / 2, big, big));
-                    }
-                    using (var dark = new SolidBrush(Color.FromArgb(150, 0, 0, 0))) g.FillRectangle(dark, 0, 0, W, H);
-                }
                 g.DrawImage(sq, (W - S) / 2, (H - S) / 2, S, S);
                 bmp.Save(outp, System.Drawing.Imaging.ImageFormat.Png);
             }
@@ -607,7 +598,7 @@ static class StudioDialogs
         // MP4: the size of the video and the quality of its sound (they take the place of the description while MP4 is picked)
         var vLab = new Label { Text = "Video", Left = 16, Top = y + 6, Width = 70, Height = 22 }; var vCb = new DarkCombo { Left = 90, Top = y + 2, Width = 330 }; vCb.Items.AddRange(Exporter.VideoNames); vCb.SelectedIndex = 1;
         var sLab = new Label { Text = "Sound", Left = 16, Top = y + 44, Width = 70, Height = 22 }; var sCb = new DarkCombo { Left = 90, Top = y + 40, Width = 330 }; sCb.Items.AddRange(Exporter.SoundNames); sCb.SelectedIndex = 1;
-        var vNote = new Label { Left = 428, Top = y + 4, Width = side ? 140 : 110, Height = 72, ForeColor = TM.C(255, 170, 150, 190), Text = "Your picture is kept square; wide and tall videos fill the rest with a blur of it." }; f.Controls.AddRange(new Control[] { vLab, vCb, sLab, sCb, vNote });
+        var vNote = new Label { Left = 428, Top = y + 4, Width = side ? 140 : 110, Height = 72, ForeColor = TM.C(255, 170, 150, 190), Text = "Your picture is shown once, square; wide and tall videos have solid black either side." }; f.Controls.AddRange(new Control[] { vLab, vCb, sLab, sCb, vNote });
         Action mp4Upd = () => { bool v = fm.SelectedIndex == Exporter.Mp4; vLab.Visible = vCb.Visible = sLab.Visible = sCb.Visible = vNote.Visible = v; fmDesc.Visible = !v; rt.Enabled = !v; };
         fm.SelectedIndexChanged += (s0, e0) => { descUpd(); mp4Upd(); }; rt.SelectedIndexChanged += (s0, e0) => descUpd(); descUpd(); mp4Upd(); y += 84;
         f.Controls.Add(new Label { Text = "Name", Left = 16, Top = y + 4, Width = 70, Height = 22 });
