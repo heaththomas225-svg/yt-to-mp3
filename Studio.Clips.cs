@@ -19,8 +19,9 @@ partial class StudioForm
     Track RowHost(Track t) { return t == null ? null : (t.Host ?? t); }
     bool IsOffRow(Track t) { var h = RowHost(t); return (h != null && h.Off) || (t != null && t.Off); }
     // locked in place, or switched OFF: neither can be moved, trimmed, split, cut, faded or deleted
-    bool IsLocked(Track t) { var h = RowHost(t); return (h != null && h.Locked) || IsOffRow(t); }
-    string FrozenWhy(Track t, string lockedMsg) { return IsOffRow(t) ? "This track is OFF: click its light to turn it on before you edit it." : lockedMsg; }
+    bool IsLocked(Track t) { var h = RowHost(t); return (h != null && h.Locked) || (t != null && t.PieceLocked) || IsOffRow(t); }   // the whole track locked, this one piece locked, or the track switched off
+    bool IsRowLocked(Track row) { var h = RowHost(row); return (h != null && h.Locked) || IsOffRow(row); }
+    string FrozenWhy(Track t, string lockedMsg) { if (IsOffRow(t)) return "This track is OFF: click its light to turn it on before you edit it."; var h = RowHost(t); if (t != null && t.PieceLocked && !(h != null && h.Locked)) return "This section is locked: right-click it and press Unlock this section to move or edit it."; return lockedMsg; }
     static string TimeText(long frames) { double s = Math.Max(0, frames) / (double)StudioEngine.SR; return ((int)(s / 60)) + ":" + (s % 60).ToString("00.0", CultureInfo.InvariantCulture); }
     // the piece of this row that the needle is on (null when the needle is not on any piece)
     Track ClipAtNeedle(Track row, long at)
@@ -82,6 +83,12 @@ partial class StudioForm
     static void ClampFades(Track t) { long u = t.UsedLength, sum = t.FadeIn + t.FadeOut + t.FadeInDelay + t.FadeOutTail; if (u > 0 && sum > u) { double k = u / (double)sum; t.FadeIn = (long)(t.FadeIn * k); t.FadeOut = (long)(t.FadeOut * k); t.FadeInDelay = (long)(t.FadeInDelay * k); t.FadeOutTail = (long)(t.FadeOutTail * k); } }
 
     // ---------- lock ----------
+    // right-click a piece: lock or unlock just that section (the rest of the track can still be moved, cut and edited)
+    internal void TogglePieceLock(Track p)
+    {
+        if (p == null || p.Clip == null || p.Instrument) return; PushUndo(); p.PieceLocked = !p.PieceLocked;
+        Toast(p.PieceLocked ? "This section is locked: it cannot be moved, trimmed, split, cut or deleted. Right-click it and press Unlock this section to free it." : "This section is unlocked.");
+    }
     void ToggleLock()
     {
         var row = Selected; if (row == null || row.IsBus) { Toast("Select a track first."); return; }
@@ -232,6 +239,14 @@ partial class StudioForm
         // the small tags at the top of the clip: gain, lock
         float tx = Math.Max(lane.X, x0) + 8 + g.MeasureString(tr.Name, GfxCache.Font(12, true)).Width + 6;
         if (Math.Abs(tr.ClipGainDb) > 0.04f && tx < cr.Right - 60) { string gt = (tr.ClipGainDb > 0 ? "+" : "") + tr.ClipGainDb.ToString("0.0", CultureInfo.InvariantCulture) + " dB"; var rr = Rc(tx, cr.Y + 3, g.MeasureString(gt, GfxCache.Font(10, true)).Width + 10, 16); FillRR(g, TM.C(200, 70, 40, 150), rr, 5); Txt(g, gt, 10, Color.White, rr, StringAlignment.Center, true); }
+        if (tr.PieceLocked && !IsRowLocked(tr) && cr.Width > 12)
+        {   // a locked SECTION (only this piece) has its own look: gold stripes across it, a glowing gold edge and a LOCKED SECTION tag, so it is never mixed up with a locked track
+            var gold2 = Color.FromArgb(255, 255, 196, 80); var vis = RectangleF.Intersect(cr, lane); var gs2 = g.Save(); g.SetClip(vis, CombineMode.Intersect);
+            using (var hb = new HatchBrush(HatchStyle.WideUpwardDiagonal, Color.FromArgb(70, gold2), Color.Transparent)) g.FillRectangle(hb, cr);
+            using (var b = new SolidBrush(Color.FromArgb(28, gold2))) g.FillRectangle(b, cr); g.Restore(gs2);
+            Glow(g, gold2, vis, 5, 1.0f, 4); using (var pen = new Pen(gold2, 2.4f)) using (var pp = RR(RectangleF.Inflate(vis, -1.2f, -1.2f), 5)) g.DrawPath(pen, pp);
+            float tagW = 108, tagX = Math.Min(cr.Right, lane.Right) - 30 - tagW - 10; if (tagX > Math.Max(lane.X, cr.X) + 6 && cr.Height > 34) { var tg = Rc(tagX, cr.Y + 6, tagW, 20); FillRR(g, Color.FromArgb(235, 40, 26, 4), tg, 6); StrokeRR(g, gold2, tg, 6, 1.2f); Txt(g, "LOCKED SECTION", 9.5f, gold2, tg, StringAlignment.Center, true); }
+        }
         if (IsLocked(tr) && cr.Width > 40) {   // a locked piece is gold all round, with a big gold padlock: it is plain which tracks are locked
             var gold = Color.FromArgb(255, 255, 196, 80); float lx = Math.Min(cr.Right, lane.Right) - 30, ly = cr.Y + 8; var smk = g.SmoothingMode; g.SmoothingMode = SmoothingMode.AntiAlias;
             using (var pen = new Pen(Color.FromArgb(60, gold), 5f)) using (var pp = RR(RectangleF.Inflate(cr, -1, -1), 5)) g.DrawPath(pen, pp); using (var pen = new Pen(Color.FromArgb(230, gold), 1.6f)) using (var pp = RR(RectangleF.Inflate(cr, -1, -1), 5)) g.DrawPath(pen, pp);

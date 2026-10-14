@@ -1,4 +1,4 @@
-3.38.5
+3.38.6
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Lock the right track
-sha256=56ddff1aedfa8f83adc4e8d7575bdd14d84c7a14e465a1966de8c5ea0846f4b2
+Lock one section
+sha256=da2ffba282eef59b68c7575e05102f554ea27013b4dae15b715c3c82d98d9c48

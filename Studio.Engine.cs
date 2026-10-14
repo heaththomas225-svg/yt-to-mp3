@@ -355,6 +355,7 @@ class Track
     public long FadeIn, FadeOut;   // frames: this clip fades in over its first FadeIn frames and out over its last FadeOut frames
     public float ClipGainDb;       // the volume of this clip (piece) on its own, on top of the track fader
     public bool Locked;            // locked in place (set on a row's own track: it covers every piece on the row)
+    public bool PieceLocked;       // just this one piece (section) is locked: the rest of its track can still be edited
     public List<AutoLane> Auto = new List<AutoLane>();   // automation: settings of the plugins above that follow a curve
     public volatile float PeakL, PeakR, RmsL, RmsR; public volatile bool Clipped;
     public float[] TapPre = new float[8192], TapPost = new float[8192]; public volatile int TapPos;

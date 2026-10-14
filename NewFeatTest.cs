@@ -544,7 +544,16 @@ static class NF
                     var lp = StudioEngine.NewTrack("Clip row (2)", "vocal", AudioClip.FromArrays(new float[44100], new float[44100], "t")); lp.Host = ra; lp.Offset = 44100 * 3; lock (sf.eng.Sync) sf.eng.Tracks.Add(lp);
                     sf.OpenTrackPicker(0); paintS(); var rgsL = (List<HitReg>)typeof(StudioForm).GetField("regs", BF).GetValue(sf); int entries = rgsL.FindAll(r => Math.Abs(r.R.Height - 40) < 0.5f && r.R.Width > 300 && r.OnDown != null).Count;
                     Check("LOCK lists the 2 tracks on the left, not the piece that shares a row", entries == 2, entries + " entries");
-                    SetF("tpOpen", false); lock (sf.eng.Sync) sf.eng.Tracks.Remove(lp);
+                    SetF("tpOpen", false);
+                    // right-click a piece: lock just that section
+                    var isL = typeof(StudioForm).GetMethod("IsLocked", BF); sf.TogglePieceLock(lp);
+                    Check("Lock this section locks only that piece (the rest of the track stays editable)", (bool)isL.Invoke(sf, new object[] { lp }) && !(bool)isL.Invoke(sf, new object[] { ra }) && !ra.Locked, "");
+                    SetF("toast", ""); typeof(StudioForm).GetMethod("SplitTrack", BF).Invoke(sf, new object[] { lp, lp.Offset + 10000 });
+                    Check("a locked section says so when you try to change it, and how to unlock it (right-click)", F<string>("toast").Contains("section is locked") && F<string>("toast").Contains("right-click"), F<string>("toast"));
+                    string pfL = Path.Combine(Path.GetTempPath(), "nf-piecelock.ytmproj"); ra.Source = "x"; lp.Source = "x"; ProjectIO.Save(sf.eng, pfL); var eL = new StudioEngine(); ProjectIO.Load(eL, pfL, s => { }); var lpL = eL.Tracks.Find(t => t.Name == "Clip row (2)"); var raL = eL.Tracks.Find(t => t.Name == "Clip row");
+                    Check("a locked section stays locked when the project is saved and opened again", lpL != null && lpL.PieceLocked && raL != null && !raL.PieceLocked && !raL.Locked, lpL == null ? "missing" : lpL.PieceLocked.ToString()); try { File.Delete(pfL); } catch { }
+                    sf.TogglePieceLock(lp); Check("Unlock this section frees it again", !(bool)isL.Invoke(sf, new object[] { lp }), "");
+                    lock (sf.eng.Sync) sf.eng.Tracks.Remove(lp);
                 }
                 {   // LOOP > Loop a section: drag across the timeline, it loops that part (and plays it straight away)
                     int ov = Prefs.OutVol; Prefs.OutVol = 0; SetF("scroll", 0L); SetF("spp", 100.0); sf.LoopPickStart(); paintS();
