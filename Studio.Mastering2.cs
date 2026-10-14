@@ -77,8 +77,8 @@ partial class StudioForm
     // ---------- trying a master preset ----------
     void PresetUse(int i)
     {
-        var before = mpBackup ?? SnapChain(); float tBefore = targetLufs; mpBackup = null; mpPreviewIdx = -1; Presets.ApplyMaster(eng, i); targetLufs = MasterPresets.All[i].Target; abOrig = abMast = null;
-        Toast(MasterPresets.All[i].Name + " applied. Press PREVIEW to hear it, or the loudness buttons to set the level."); OfferRevert(MasterPresets.All[i].Name.Split('(')[0].Trim() + " is on your master", () => { RestoreChain(before); targetLufs = tBefore; abOrig = abMast = null; });
+        var before = mpBackup ?? SnapChain(); float tBefore = targetLufs; int usedBefore = masterPresetUsed; masterPresetUsed = i; mpBackup = null; mpPreviewIdx = -1; Presets.ApplyMaster(eng, i); targetLufs = MasterPresets.All[i].Target; abOrig = abMast = null;
+        Toast(MasterPresets.All[i].Name + " applied. Press PREVIEW to hear it, or the loudness buttons to set the level."); OfferRevert(MasterPresets.All[i].Name.Split('(')[0].Trim() + " is on your master", () => { masterPresetUsed = usedBefore; RestoreChain(before); targetLufs = tBefore; abOrig = abMast = null; });
     }
     void PresetTry(int i)
     {
@@ -348,13 +348,13 @@ partial class StudioForm
         {
             int pi = show[i]; var p = all0[pi]; var card = Rc(a.X + 4 + (i % cols) * (cw + gap), y + (i / cols) * (ch + gap) - mpScroll, cw, ch); if (card.Bottom < y - 2 || card.Y > a.Bottom) continue;
             bool trying = mpBackup != null && mpPreviewIdx == pi, hot = Hot(RectangleF.Intersect(card, area)) && area.Contains(MousePos);
-            NeonCard(g, card, hot, trying);
-            Txt(g, p.Name.ToUpper(), 14, Ink, Rc(card.X + 12, card.Y + 8, card.Width - 24, 22), StringAlignment.Near, true);
+            bool inUse = masterPresetUsed == pi; NeonCard(g, card, hot, trying); if (inUse) PaintInUse(g, card, 12);   // the preset that is on your master stands out
+            Txt(g, p.Name.ToUpper(), 14, Ink, Rc(card.X + 12, card.Y + 8, card.Width - 24 - (inUse ? 80 : 0), 22), StringAlignment.Near, true);
             NeonTag(g, card.X + 12, card.Y + 32, p.Group.ToUpper(), NeonViolet);
             TxtWrap(g, p.Blurb, 11, TM.C(205, 200, 190, 230), Rc(card.X + 12, card.Y + 54, card.Width - 24, 50));
             var pv = Rc(card.X + 12, card.Bottom - 38, 104, 30); var sp0 = Rc(pv.Right + 6, card.Bottom - 38, 62, 30); var us = Rc(sp0.Right + 6, card.Bottom - 38, 70, 30);
             var pva = RectangleF.Intersect(pv, area); if (!pva.IsEmpty) { Btn(g, pv, trying && mpActive ? "PREVIEWING" : "PREVIEW", trying ? 4 : 1, () => PresetTry(pi), 12); Hint2(pv, "Hear this preset on your song now (the loudest 20 seconds, looping)"); var spa = RectangleF.Intersect(sp0, area); if (!spa.IsEmpty) { Btn(g, sp0, "STOP", trying && mpActive ? 3 : 0, () => MasterPreviewStop(), 11); Hint2(sp0, "Stop the preview"); } }
-            var usa = RectangleF.Intersect(us, area); if (!usa.IsEmpty) { Btn(g, us, "USE", 2, () => PresetUse(pi), 12); Hint2(us, "Put this preset on your master and keep it"); }
+            var usa = RectangleF.Intersect(us, area); if (!usa.IsEmpty) { Btn(g, us, inUse ? "IN USE" : "USE", inUse ? 4 : 2, () => PresetUse(pi), 12); Hint2(us, inUse ? "This preset is on your master now" : "Put this preset on your master and keep it"); }
         }
         g.Restore(gs); VScroll(g, Rc(a.Right - 56, y, 42, areaH), total, areaH, () => mpScroll, v => mpScroll = v);
     }

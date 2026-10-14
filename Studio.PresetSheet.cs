@@ -51,13 +51,24 @@ partial class StudioForm
         for (int i = 0; i < rows.Count; i++)
         {
             var kv = rows[i]; var row = Rc(sheet.X + 22, top + i * (rowH + gap) - psScroll, sheet.Width - 44 - vsw, rowH); if (row.Bottom < top - 2 || row.Y > areaBottom) continue; bool isMine = mine.Contains(kv.Key); bool hot = Hot(RectangleF.Intersect(row, area)) && area.Contains(MousePos);
-            NeonCard(g, row, hot, false);
-            Txt(g, kv.Key, 14, Ink, Rc(row.X + 16, row.Y + 7, row.Width - 230, 24), StringAlignment.Near, true); NeonTag(g, row.X + 16, row.Y + 32, isMine ? "MY PRESET" : "BUILT-IN", isMine ? NeonLime : NeonViolet);
-            string data = kv.Value, nm = kv.Key; var us = Rc(row.Right - 100, row.Y + 12, 84, 34); var ua = RectangleF.Intersect(us, area); if (!ua.IsEmpty) { Btn(g, us, "USE", 2, () => PsUse(nm, data), 13); Hint2(us, "Try this preset (REVERT puts it back)"); }
+            bool inUse = f.CurPreset == kv.Key; NeonCard(g, row, hot, false); if (inUse) PaintInUse(g, row, 12, row.Right - 230 - 76);   // the preset that is on the plugin stands out (its tag sits after the name, clear of the buttons)
+            Txt(g, kv.Key, 14, Ink, Rc(row.X + 16, row.Y + 7, row.Width - 230 - (inUse ? 80 : 0), 24), StringAlignment.Near, true); NeonTag(g, row.X + 16, row.Y + 32, isMine ? "MY PRESET" : "BUILT-IN", isMine ? NeonLime : NeonViolet);
+            string data = kv.Value, nm = kv.Key; var us = Rc(row.Right - 100, row.Y + 12, 84, 34); var ua = RectangleF.Intersect(us, area); if (!ua.IsEmpty) { Btn(g, us, inUse ? "IN USE" : "USE", inUse ? 4 : 2, () => PsUse(nm, data), 13); Hint2(us, inUse ? "This preset is on the plugin now" : "Try this preset (REVERT puts it back)"); }
             if (isMine) { var dl = Rc(us.X - 36, row.Y + 15, 28, 28); var da = RectangleF.Intersect(dl, area); if (!da.IsEmpty) { Btn(g, dl, "x", 3, () => { bool ok = psConfirmHook != null ? psConfirmHook(nm) : MessageBox.Show(this, "Delete your preset \"" + nm + "\"?", "Delete preset", MessageBoxButtons.YesNo, MessageBoxIcon.Question, MessageBoxDefaultButton.Button2) == DialogResult.Yes; if (ok) { Presets.DeleteUser(f.Type, nm); Toast("Preset deleted."); } }, 12); Hint2(dl, "Delete this preset of yours"); } }
         }
         g.Restore(gs); VScroll(g, Rc(sheet.Right - 56, top, 42, areaH), total, areaH, () => psScroll, v => psScroll = v);
         var done = Rc(sheet.Right - 22 - 120, sheet.Bottom - 48, 120, 34); Btn(g, done, "DONE", 2, () => psOpen = false, 13); Hint2(done, "Close the list and keep what you have now");
         Txt(g, rows.Count + (rows.Count == 1 ? " PRESET" : " PRESETS"), 11, DimC, Rc(sheet.X + 22, sheet.Bottom - 44, 200, 26), StringAlignment.Near, false);
+    }
+}
+
+partial class StudioForm
+{
+    internal int masterPresetUsed = -1;   // the mastering preset that is on the master (USE), -1 = none
+    // the preset you are using: a lit outline with a glow and an IN USE tag (like the selected track in ALL PLUGINS)
+    void PaintInUse(Graphics g, RectangleF r, float rad, float tagX = -1)
+    {
+        Glow(g, NeonCyan, r, rad, 1.2f, 5); StrokeRR(g, NeonCyan, r, rad, 3f);
+        var tag = Rc(tagX >= 0 ? tagX : r.Right - 12 - 74, r.Y + 8, 74, 20); FillRR(g, NeonCyan, tag, 10); Txt(g, "IN USE", 10, Color.Black, tag, StringAlignment.Center, true);
     }
 }

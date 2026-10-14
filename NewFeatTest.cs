@@ -609,6 +609,10 @@ static class NF
                 }
                 sf.eng.Tracks.Clear();
             }
+            {   // USE on a mastering preset: it is marked IN USE (and REVERT takes the mark back off)
+                sf.eng.Tracks.Clear(); sf.masterPresetUsed = -1; typeof(StudioForm).GetMethod("PresetUse", BF).Invoke(sf, new object[] { 2 });
+                Check("USE on a mastering preset marks it IN USE (a border and a tag)", sf.masterPresetUsed == 2, sf.masterPresetUsed.ToString()); var rv = F<Action>("revertAction"); if (rv != null) rv(); Check("REVERT takes the IN USE mark back off", sf.masterPresetUsed == -1, sf.masterPresetUsed.ToString()); SetF("revertAction", null);
+            }
             {   // NEW takes you to the welcome page (a fresh start)
                 sf.eng.Tracks.Clear(); SetF("tab", 0); SetF("welcomeOn", false); var pmn = typeof(StudioForm).GetMethod("PaintAll", BF); using (var bmn = new Bitmap(1500, 800)) using (var gn = Graphics.FromImage(bmn)) pmn.Invoke(sf, new object[] { new PaintEventArgs(gn, new Rectangle(0, 0, 1500, 800)) });
                 var bmN = (Dictionary<string, RectangleF>)typeof(StudioForm).GetField("btnMap", BF).GetValue(sf); RectangleF nr; HitReg nreg = bmN.TryGetValue("NEW", out nr) ? (HitReg)typeof(StudioForm).GetMethod("TopRegion", BF).Invoke(sf, new object[] { new PointF(nr.X + nr.Width / 2, nr.Y + nr.Height / 2) }) : null;

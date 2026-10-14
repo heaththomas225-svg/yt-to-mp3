@@ -1,4 +1,4 @@
-3.39.6
+3.39.7
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-NEW goes to the welcome page
-sha256=c1a69e26d638c49b1e374fd9f7a4e6b10321fb19455999e08cc47dda2c7e63bd
+See the preset you are using
+sha256=aa887a92c1085a4ea44afdf172e5098d5a0bcc3ee54cb38fad577c0815744e87

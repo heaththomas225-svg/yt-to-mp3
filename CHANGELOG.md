@@ -2,6 +2,10 @@
 
 What changed in each version of **Purphex**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.39.7  See the preset you are using
+
+- NEW: the preset you are using stands out: in the presets of any effect and in the mastering presets, the one you pressed USE on has a glowing outline, an IN USE tag and its button says IN USE (like the selected track in ALL PLUGINS).
+
 ## 3.39.6  NEW goes to the welcome page
 
 - CHANGED: NEW (in the studio toolbar) takes you to the welcome page after it clears the project, so a new song starts from the start.
