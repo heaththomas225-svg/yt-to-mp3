@@ -1,4 +1,4 @@
-3.40.2
+3.40.3
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Pause right on the spot
-sha256=ea7fdd5acb0de7923e1b900c7bc760e4c464c35f88e5ceef838e6ecdf77f7b95
+Lock many sections at once
+sha256=6ce1a1dabc741f61b4f924e8b1d070cf28b956f3d49d562895f11958fb0cfdb2

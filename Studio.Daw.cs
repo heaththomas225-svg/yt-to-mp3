@@ -274,7 +274,11 @@ partial class StudioForm
         m.Items.Add("Fade out: add / remove").Click += (a, b) => { toolsTrack = piece; ToggleFade(false); };
         m.Items.Add("Gain: the volume of this piece...").Click += (a, b) => { toolsTrack = piece; gainAnchor = Rc(MousePos.X - 40, MousePos.Y, 80, 10); OpenGain(); };
         m.Items.Add((tr.Host ?? tr).Locked ? "Unlock this track" : "Lock this track in place").Click += (a, b) => ToggleLock();
-        if (piece != null && piece.Clip != null && !piece.Instrument) { var pk = piece; m.Items.Add(pk.PieceLocked ? "Unlock this section" : "Lock this section only (the rest of the track stays editable)").Click += (a, b) => TogglePieceLock(pk); }
+        if (piece != null && piece.Clip != null && !piece.Instrument)
+        {
+            if (InGroup(piece)) { var grp = multiSel.FindAll(x => x.Clip != null && !x.Instrument && eng.Tracks.Contains(x)); bool allL = grp.TrueForAll(x => x.PieceLocked); m.Items.Add((allL ? "Unlock these " : "Lock these ") + grp.Count + " sections").Click += (a, b) => SetPieceLocks(grp, !allL); }   // several clips picked: lock (or unlock) every one of them
+            else { var pk = piece; m.Items.Add(pk.PieceLocked ? "Unlock this section" : "Lock this section only (the rest of the track stays editable)").Click += (a, b) => TogglePieceLock(pk); }
+        }
         m.Items.Add(new ToolStripSeparator());
         m.Items.Add("Copy this piece").Click += (a, b) => CopyClip(piece);
         { var pasteIt = m.Items.Add("Paste here"); pasteIt.Enabled = clipCopy != null; pasteIt.Click += (a, b) => PasteClip(tr, at); }

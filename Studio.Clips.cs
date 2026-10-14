@@ -83,6 +83,12 @@ partial class StudioForm
     static void ClampFades(Track t) { long u = t.UsedLength, sum = t.FadeIn + t.FadeOut + t.FadeInDelay + t.FadeOutTail; if (u > 0 && sum > u) { double k = u / (double)sum; t.FadeIn = (long)(t.FadeIn * k); t.FadeOut = (long)(t.FadeOut * k); t.FadeInDelay = (long)(t.FadeInDelay * k); t.FadeOutTail = (long)(t.FadeOutTail * k); } }
 
     // ---------- lock ----------
+    // several picked clips: lock (or unlock) every one of them in one go (one Ctrl+Z puts them all back)
+    internal void SetPieceLocks(List<Track> list, bool lockIt)
+    {
+        if (list == null || list.Count == 0) return; PushUndo(); foreach (var p in list) p.PieceLocked = lockIt;
+        Toast(lockIt ? list.Count + " sections are locked: they cannot be moved, trimmed, split, cut or deleted. Right-click one of them to unlock." : list.Count + " sections are unlocked.");
+    }
     // right-click a piece: lock or unlock just that section (the rest of the track can still be moved, cut and edited)
     internal void TogglePieceLock(Track p)
     {

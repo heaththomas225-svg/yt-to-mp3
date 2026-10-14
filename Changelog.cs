@@ -7,10 +7,13 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.40.2";
+    public const string Latest = "3.40.3";
 
     public const string Text =
-@"3.40.2  Pause right on the spot
+@"3.40.3  Lock many sections at once
+ + NEW: pick several clips (drag a box round them) and right-click one: Lock these sections locks every one of them (Unlock these sections when they are all locked). One Ctrl+Z puts them all back.
+
+3.40.2  Pause right on the spot
  + FIXED: PAUSE (and STOP) stop exactly where you are listening. They used to skip ahead by the audio still waiting in the sound card (up to about a fifth of a second), so PLAY carried on a little further on. The sound card now says exactly what it has played, and the needle uses the same, so the needle, pause and play all agree to within a few milliseconds.
 
 3.40.1  Cleaner vocal and beat split, split anywhere
