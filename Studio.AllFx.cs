@@ -18,7 +18,7 @@ partial class StudioForm
     internal void CopyPreset(Track tr, string key)
     {
         presetCopy.Clear(); string name = "";
-        lock (eng.Sync) foreach (var f in tr.Fx) if (!(f is InstrumentFx) && f.Preset.Length > 0 && PresetKey(f) == key) { presetCopy.Add(new[] { f.Type, f.Serialize(), f.Bypass ? "1" : "0" }); name = f.Preset; }
+        lock (eng.Sync) foreach (var f in tr.Fx) if (!(f is InstrumentFx) && f.Preset.Length > 0 && PresetKey(f) == key) { presetCopy.Add(new[] { f.Type, f.Serialize(), f.Bypass ? "1" : "0", f.AutoKeyPending ? "1" : "0" }); name = f.Preset; }
         presetCopyName = name; if (presetCopy.Count == 0) { Toast("That preset has no plugins to copy."); return; }
         Toast("Copied the preset " + name + " (" + presetCopy.Count + " plugins with their settings). PASTE PRESET puts it on any track.");
     }
@@ -26,14 +26,14 @@ partial class StudioForm
     internal readonly List<string[]> allCopy = new List<string[]>(); internal string allCopyFrom = "";   // { type, settings, bypass, preset name, preset box }
     internal void CopyAllFx(Track tr)
     {
-        allCopy.Clear(); int skipped = 0; lock (eng.Sync) foreach (var f in tr.Fx) { if (f is InstrumentFx) { skipped++; continue; } allCopy.Add(new[] { f.Type, f.Serialize(), f.Bypass ? "1" : "0", f.Preset, f.Preset.Length > 0 ? PresetKey(f) : "" }); }
+        allCopy.Clear(); int skipped = 0; lock (eng.Sync) foreach (var f in tr.Fx) { if (f is InstrumentFx) { skipped++; continue; } allCopy.Add(new[] { f.Type, f.Serialize(), f.Bypass ? "1" : "0", f.Preset, f.Preset.Length > 0 ? PresetKey(f) : "", f.AutoKeyPending ? "1" : "0" }); }
         allCopyFrom = tr.Name; if (allCopy.Count == 0) { Toast(tr.Name + " has no plugins to copy."); return; }
         Toast("Copied all " + allCopy.Count + " plugins of " + tr.Name + (skipped > 0 ? " (the instrument stays on its track)" : "") + ". PASTE ALL PLUGINS puts them on any track.");
     }
     internal void PasteAllFx(Track tr)
     {
         if (allCopy.Count == 0) { Toast("Nothing is copied yet: press COPY ALL PLUGINS on a track first."); return; }
-        var made = new List<KeyValuePair<Fx, string[]>>(); foreach (var c in allCopy) { var nf = Presets.Make(c[0], c[1]); if (nf == null) continue; nf.Bypass = c[2] == "1"; made.Add(new KeyValuePair<Fx, string[]>(nf, c)); }
+        var made = new List<KeyValuePair<Fx, string[]>>(); foreach (var c in allCopy) { var nf = Presets.Make(c[0], c[1]); if (nf == null) continue; nf.Bypass = c[2] == "1"; nf.AutoKeyPending = c.Length > 5 && c[5] == "1"; made.Add(new KeyValuePair<Fx, string[]>(nf, c)); }
         if (made.Count == 0) { Toast("Those plugins cannot be pasted here."); return; }
         ChainApply(tr, "All plugins pasted", () =>
         {
@@ -58,7 +58,7 @@ partial class StudioForm
     internal void PastePreset(Track tr)
     {
         if (presetCopy.Count == 0) { Toast("No preset is copied yet: press COPY on a preset box first."); return; }
-        var chain = new List<Fx>(); foreach (var c in presetCopy) { var nf = Presets.Make(c[0], c[1]); if (nf == null) continue; nf.Bypass = c[2] == "1"; chain.Add(nf); }
+        var chain = new List<Fx>(); foreach (var c in presetCopy) { var nf = Presets.Make(c[0], c[1]); if (nf == null) continue; nf.Bypass = c[2] == "1"; nf.AutoKeyPending = c.Length > 3 && c[3] == "1"; chain.Add(nf); }
         if (chain.Count == 0) { Toast("That preset cannot be pasted here."); return; }
         string nm = presetCopyName; ChainApply(tr, "Preset " + nm + " pasted", () => PutPreset(tr, nm, chain)); selFx = -1;
         Toast("Pasted the preset " + nm + " on " + tr.Name + " (" + chain.Count + " plugins).");
@@ -75,7 +75,9 @@ partial class StudioForm
         Track[] rows; lock (eng.Sync) rows = eng.Tracks.FindAll(t => t.Host == null).ToArray();
         var area = Rc(sheet.X + 14, sheet.Y + 76, sheet.Width - 28, sheet.Height - 90);
         if (rows.Length == 0) { Txt(g, "NO TRACKS YET: ADD MUSIC OR A NEW TRACK FIRST.", 14, DimC, area, StringAlignment.Center, true); return; }
-        float colW = 244, gap = 12, total = rows.Length * (colW + gap) - gap; float maxS = Math.Max(0, total - area.Width); allFxScroll = Math.Max(0, Math.Min(maxS, allFxScroll));
+        float colW = 244, gap = 12, total = rows.Length * (colW + gap) - gap; if (total > area.Width) area = Rc(area.X, area.Y, area.Width, area.Height - 44);   // room for the logo scroll bar under the columns
+        float maxS = Math.Max(0, total - area.Width); allFxScroll = Math.Max(0, Math.Min(maxS, allFxScroll));
+        { float downX = 0, downS = 0; var pan = Reg(area, () => { downX = MousePos.X; downS = allFxScroll; }); pan.OnDrag = pt => allFxScroll = Math.Max(0, Math.Min(maxS, downS - (pt.X - downX))); }   // grab any empty part and drag it sideways, like a phone
         var gs = g.Save(); g.SetClip(area, CombineMode.Intersect);
         for (int ci = 0; ci < rows.Length; ci++)
         {
@@ -111,7 +113,7 @@ partial class StudioForm
                     lastKey = key;
                 }
                 if (ry + 26 > bottom) break;
-                var row = Rc(col.X + 10, ry, colW - 20, 26); bool hot = Hot(row); FillRR(g, hot ? TM.C(200, 70, 36, 130) : TM.C(150, 44, 24, 80), row, 7);
+                var row = Rc(col.X + 10, ry, colW - 20, 26); bool hot = Hot(row); if (ti == selTrack && fi == selFx) PaintPickedFx(g, row, 7); else FillRR(g, hot ? TM.C(200, 70, 36, 130) : TM.C(150, 44, 24, 80), row, 7);   // the plugin open in the plugin panel stands out here too
                 { var tk = tr; int tix = ti; Reg(row, () => { allFxOpen = false; tab = 0; selTrack = tix; selFx = fi; }); Hint2(row, "Open " + f.Title + " of " + tr.Name); }
                 var dot = Rc(row.X + 7, row.Y + 7, 12, 12); using (var b2 = new SolidBrush(f.Bypass ? TM.C(90, 90, 70, 110) : Good)) g.FillEllipse(b2, dot); { var ff = f; Reg(Rc(row.X, row.Y, 26, 26), () => ff.Bypass = !ff.Bypass); }
                 float cpl = CopyPasteBtns(g, f, tr, row.Right - 28, row.Y + 3, 20);   // COPY and PASTE on every plugin
@@ -123,6 +125,6 @@ partial class StudioForm
         }
         g.Restore(gs);
         regs.Add(new HitReg { R = area, OnWheel = d => allFxScroll = Math.Max(0, Math.Min(maxS, allFxScroll - d * 90)) });
-        if (maxS > 0) { var sb = Rc(area.X, area.Bottom - 6, area.Width, 5); using (var b = new SolidBrush(Color.FromArgb(60, NeonViolet))) g.FillRectangle(b, sb); float k = area.Width / total; using (var b = new SolidBrush(NeonViolet)) g.FillRectangle(b, sb.X + allFxScroll * k, sb.Y, area.Width * k, sb.Height); }
+        if (maxS > 0) HScroll(g, Rc(area.X, area.Bottom + 8, area.Width, 34), total, area.Width, () => allFxScroll, v => allFxScroll = v, colW + gap);   // the app's own logo scroll bar: drag the logo, click the bar, or hold an arrow
     }
 }

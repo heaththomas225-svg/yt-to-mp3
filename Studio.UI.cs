@@ -161,7 +161,7 @@ partial class StudioForm : Form
     }
 
     bool followPaused, wasPlaying;   // followPaused: you scrolled while it plays, so the view no longer chases the needle
-    void UserScrolled() { if (eng.Playing && !followPaused) { followPaused = true; Toast("The view stays where you put it. Click the ruler, press FIT or press PLAY again to follow the needle."); } else followPaused = true; }
+    void UserScrolled() { followPaused = true; }
     bool autoFit = true; int lastFitW; long lastFitLen;   // while true, the song keeps filling the track area (full screen, resizing, new recordings)
     void FitView()
     {
@@ -178,13 +178,12 @@ partial class StudioForm : Form
         {
             AudioGlitchCheck(DateTime.Now);
         }
-        if (eng.Playing && !wasPlaying) followPaused = false;   // a fresh PLAY follows the needle again
-        wasPlaying = eng.Playing;
-        if (eng.Playing && !followPaused)
-        {   // the view follows the needle until you scroll it yourself (then it stays exactly where you put it)
-            float w = TimelineRect().Width; long x = (long)((DispPos - scroll) / spp);
+        if (eng.Playing && !wasPlaying)
+        {   // PLAY shows the needle once if it is off screen; after that the view never moves by itself while it plays (zoomed in, editing, it used to throw you to the right)
+            followPaused = false; float w = TimelineRect().Width; long x = (long)((DispPos - scroll) / spp);
             if (x > w * 0.92f || x < 0) scroll = Math.Max(0, DispPos - (long)(w * 0.08 * spp));
         }
+        wasPlaying = eng.Playing;
         if (NeedsFrame0() && Environment.TickCount - eqPaintTick < 600) UpdateSpectrum();
     }
 
@@ -279,8 +278,8 @@ partial class StudioForm : Form
         { "Open", "Open a saved project (Ctrl+O)." }, { "Save", "Save this project (Ctrl+S)." },
         { "Save as", "Save a copy under a new name (Ctrl+Shift+S)." },
         { "Full", "Full screen (F11). Esc leaves it." }, { "Window", "Leave full screen (Esc)." },
-        { "PLAY", "Play from the needle (Space)." }, { "PAUSE", "Pause (Space)." }, { "STOP", "Stop and go back to the start." }, { "|<", "Jump back to the start." },
-        { "LOOP", "Repeat the song when it reaches the end." },
+        { "PLAY", "Play from the needle (Space)." }, { "PAUSE", "Pause (Space)." }, { "STOP", "Stop where you are (the needle stays put)." }, { "|<", "Jump back to the start." },
+        { "LOOP", "Loop the whole song, or drag a section on the timeline to hear it again and again." },
         { "MIX", "The tracks, faders and effects." }, { "≡", "Menu: new, open, recent projects, my projects with pictures, edit, tools, community, settings and help." }, { "+ TRACK", "Add a track: audio from your PC or an instrument, above or below the selected track or at the end." }, { "+ ADD TRACK", "Add a track at the end of the list." }, { "LYRICS", "A page for writing your own lyrics, with line and syllable counts." }, { "MASTERING", "Final loudness and polish on the whole mix, with LUFS meters and A/B compare." },
         { "+ Add Effect", "Pick an effect (EQ, compressor, reverb, Auto-Tune...) to add to this track." },
         { "+ Add Effect to master", "Add an effect to the final mix instead of one track." },
@@ -658,8 +657,8 @@ partial class StudioForm : Form
         Btn(g, Rc(x, y, 44, h), "|<", 0, () => { eng.Seek(0); scroll = 0; followPaused = false; }, 15); x += 50;
         Btn(g, Rc(x, y, 70, h), "PLAY", eng.Playing ? 4 : 1, () => { if (!eng.Playing) PlayToggle(); }, 14); x += 76;   // PLAY only plays (it is lit while playing); PAUSE is its own button
         { bool paused = !eng.Playing && eng.Pos > 0; var pb = Rc(x, y, 70, h); Btn(g, pb, "PAUSE", paused ? 4 : 0, () => { if (eng.Playing) eng.Pause(); }, 14); Hint2(pb, "Pause where you are (Space does the same); PLAY carries on from there"); x += 76; }
-        Btn(g, Rc(x, y, 56, h), "STOP", 0, () => { eng.Stop(); scroll = 0; followPaused = false; }, 14); x += 62;
-        Btn(g, Rc(x, y, 62, h), "LOOP", eng.Loop ? 4 : 0, () => eng.Loop = !eng.Loop, 14); x += 72;
+        { var sb = Rc(x, y, 56, h); Btn(g, sb, "STOP", 0, () => { if (mpActive) MasterPreviewStop(); eng.Pause(); }, 14); Hint2(sb, "Stop where you are: the needle and the view stay put (|< takes you back to the start)"); } x += 62;   // STOP stops right here, like PAUSE (it used to throw you back to the start)
+        { var lb = Rc(x, y, 62, h); Btn(g, lb, "LOOP", eng.Loop || loopPick ? 4 : 0, () => LoopMenu(lb), 14); Hint2(lb, eng.LoopSection ? "Looping " + LoopTime(eng.LoopA) + " to " + LoopTime(eng.LoopB) + ": press to change it or turn it off" : (eng.Loop ? "The whole song loops: press to loop a section or turn it off" : "Loop the whole song, or a section you drag on the timeline")); } x += 72;
         double sec = dispPos / StudioEngine.SR, tot = eng.EndFrame / (double)StudioEngine.SR;
         var tr = Rc(x, y, 210, h); FillRR(g, TM.C(200, 8, 4, 18), tr, 6); StrokeRR(g, Edge, tr, 6, 1); Glow(g, Accent, tr, 6, eng.Playing ? 0.85f : 0.5f, 3); using (var pen = new Pen(Color.FromArgb(eng.Playing ? 230 : 150, Accent), 1.2f)) using (var pp = RR(tr, 6)) g.DrawPath(pen, pp);   // a small neon glow that is always there (brighter while it plays)
         Txt(g, Fmt(sec) + "  /  " + Fmt(tot), 19, Accent, tr, StringAlignment.Center, true); x += 222;
@@ -745,6 +744,7 @@ partial class StudioForm : Form
         { float ey = Math.Max(y, top + RulerH); if (ey < ClientSize.Height) { var em = Reg(Rc(HeadW, ey, tl.Width, ClientSize.Height - ey), () => { toolsTrack = null; MarqueeBegin(); }); em.OnDrag = pt => MarqueeTo(pt); em.OnUp = () => MarqueeEnd(); } }   // empty space: hold and drag a selection box (the needle moves from the ruler only)
         PaintMarquee(g);
         { var rr2 = Reg(ruler, () => { needleDrag = true; followPaused = false; eng.Seek(scroll + (long)((MousePos.X - HeadW) * spp)); }); rr2.OnDrag = pt => NeedleDragTo(pt.X, tl); rr2.OnUp = () => needleDrag = false; }   // the whole ruler, to its bottom border, moves the needle: registered after the rows so a row scrolled up under it can not take the click
+        PaintLoop(g, tl, top);   // the loop section (and, while you pick one, the drag that sets it)
         if (n == 0)
         {
             var r0 = Rc(HeadW + 40, top + RulerH + 60, tl.Width - 80, 150);
@@ -966,6 +966,12 @@ partial class StudioForm : Form
     // a track with no audio has its own box inside its border: click it to pick music for THIS track, or drop files on it (the same box as an empty project, made to fit the track)
     readonly Dictionary<Track, RectangleF> emptyLanes = new Dictionary<Track, RectangleF>(); readonly Dictionary<Track, int> emptyLaneAt = new Dictionary<Track, int>(); Track fillTrack;
     // the track that is picked (click its name or its lane): a bright outline round the whole row (the microphone puts a recording on the picked audio track)
+    // the plugin you are editing: bright fill, a neon outline with a glow and a bar down its left side, so you always see which one is open
+    void PaintPickedFx(Graphics g, RectangleF row, float rad)
+    {
+        Glow(g, NeonCyan, row, rad, 0.9f, 4); FillRR(g, TM.C(235, 120, 50, 200), row, rad); FillRR(g, Color.FromArgb(95, NeonCyan), row, rad); StrokeRR(g, NeonCyan, row, rad, 2.2f);
+        using (var b = new SolidBrush(NeonCyan)) g.FillRectangle(b, row.X + 2, row.Y + 5, 3, row.Height - 10);
+    }
     void PaintPickedRow(Graphics g, Track tr, RectangleF row)
     {
         Color c = micArmed || mic != null ? Color.FromArgb(255, 255, 90, 120) : NeonCyan; using (var p = RR(row, 6)) { using (var pen = new Pen(Color.FromArgb(70, c), 5f)) g.DrawPath(pen, p); using (var pen = new Pen(Color.FromArgb(230, c), 1.6f)) g.DrawPath(pen, p); }
@@ -1050,7 +1056,7 @@ partial class StudioForm : Form
             foreach (int i in gp.Items)
             {
                 var f = fxs[i]; int fi = i; bool sel = i == selFx;
-                var row = Rc(x + 14, ly, w - 36, 28); FillRR(g, sel ? TM.C(200, 80, 40, 150) : TM.C(150, 40, 22, 74), row, 6); if (sel) StrokeRR(g, Accent, row, 6, 1.2f);
+                var row = Rc(x + 14, ly, w - 36, 28); if (sel) PaintPickedFx(g, row, 6); else FillRR(g, TM.C(150, 40, 22, 74), row, 6);   // the plugin you are editing stands out
                 Reg(row, () => selFx = fi);
                 var dotr = Rc(row.X + 8, row.Y + 7, 14, 14); using (var b2 = new SolidBrush(f.Bypass ? TM.C(90, 90, 70, 110) : Good)) g.FillEllipse(b2, dotr);
                 Reg(dotr, () => { f.Bypass = !f.Bypass; });
@@ -1107,7 +1113,7 @@ partial class StudioForm : Form
     internal float CopyPasteBtns(Graphics g, Fx f, Track tr, float right, float y, float h)
     {
         var pa = Rc(right - 46, y, 46, h); var co = Rc(pa.X - 44, y, 40, h); var ff = f; var tk = tr;
-        Btn(g, co, "COPY", 0, () => { if (CanCopyFx(ff)) CopyFx(ff); else Toast("A VST plugin keeps its own settings inside it, so it cannot be copied. Its preset menu saves and loads them."); }, 9); Hint2(co, CanCopyFx(f) ? "Copy " + f.Title + " with all its settings" : "A VST plugin keeps its settings inside itself, so it cannot be copied");
+        Btn(g, co, "COPY", 0, () => CopyFx(ff), 9); Hint2(co, "Copy " + f.Title + " with all its settings");
         Btn(g, pa, "PASTE", fxCopyType.Length > 0 ? 2 : 0, () => PasteFx(ff, tk), 9); Hint2(pa, fxCopyType.Length > 0 ? (fxCopyType == f.Type ? "Paste the copied settings onto this " + f.Title : "Add the copied " + fxCopyTitle + " as a new plugin") : "Copy a plugin first (COPY)");
         return co.X;
     }
@@ -1133,13 +1139,14 @@ partial class StudioForm : Form
     internal Track busEdit;   // a bus being edited in the plugin panel (EDIT in the Buses sheet)
     internal void EditBus(Track bt) { busEdit = bt; busOpen = false; tab = 0; selFx = bt.Fx.Count > 0 ? 0 : -1; panelScroll = 0; Toast("Editing " + bt.Name + ": its effects are in the plugin panel. Open, change, switch off, move or remove them. BACK TO TRACKS when you are done."); }
     internal bool RowHasPieces(Track row) { foreach (var p in eng.Tracks) if (p.Host == row && (p.Clip != null || p.Instrument)) return true; return false; }
-    static bool CanCopyFx(Fx f) { return !(f is InstrumentFx) || f is SynthFx; }   // every effect and Bass Lab (a VST plugin keeps its own state)
-    internal void CopyFx(Fx f) { fxCopyType = f.Type; fxCopyData = f.Serialize(); fxCopyTitle = f.Title; Toast("Copied " + f.Title + " with its settings. PASTE adds it to any track or to the master."); }
+    bool fxCopyKeyPending;   // the copied plugin was still waiting to hear the key: a pasted copy keeps the key that was copied, it does not detect a new one over it
+    void Adopt(Fx nf, Track tr) { nf.AutoKeyPending = fxCopyKeyPending; var ic = nf as InstrumentFx; if (ic != null && tr != null) ic.Owner = tr; }
+    internal void CopyFx(Fx f) { fxCopyType = f.Type; fxCopyData = f.Serialize(); fxCopyTitle = f.Title; fxCopyKeyPending = f.AutoKeyPending; Toast("Copied " + f.Title + " with its settings. PASTE adds it to any track or to the master."); }
     // PASTE next to the list: the copied effect becomes a NEW effect at the end of the chain (a track, or the master when tr is null)
     internal void PasteFxAsNew(Track tr)
     {
         if (fxCopyType.Length == 0) { Toast("Nothing is copied yet: press COPY on a plugin."); return; }
-        var nf = Presets.Make(fxCopyType, fxCopyData); if (nf == null) { Toast("That effect cannot be pasted here."); return; }
+        var nf = Presets.Make(fxCopyType, fxCopyData); if (nf == null) { Toast("That effect cannot be pasted here."); return; } Adopt(nf, tr);
         List<Fx> chain = tr == null ? eng.MasterFx : tr.Fx; int at; lock (eng.Sync) { chain.Add(nf); at = chain.Count - 1; }
         if (tr == null) selMaster = at; else selFx = at;
         OfferRevert(fxCopyTitle + " pasted as a new effect", () => { lock (eng.Sync) { chain.Remove(nf); } if (tr == null) selMaster = Math.Min(selMaster, Math.Max(0, chain.Count - 1)); else selFx = -1; }); Toast(fxCopyTitle + " added with the copied settings.");
@@ -1149,11 +1156,11 @@ partial class StudioForm : Form
         if (fxCopyType.Length == 0) { Toast("Nothing is copied yet: press COPY on a plugin."); return; }
         if (f.Type == fxCopyType)
         {
-            string before = f.Serialize(), pn = f.CurPreset, pd = f.CurPresetData; bool bp = f.Bypass; lock (eng.Sync) { f.ResetDefaults(); f.Deserialize(fxCopyData); f.Reset(); } f.CurPreset = ""; f.CurPresetData = "";
-            OfferRevert("Pasted settings on " + f.Title, () => { lock (eng.Sync) { f.ResetDefaults(); f.Deserialize(before); f.Bypass = bp; f.Reset(); f.CurPreset = pn; f.CurPresetData = pd; } }); Toast("Pasted the copied settings on " + f.Title + ".");
+            string before = f.Serialize(), pn = f.CurPreset, pd = f.CurPresetData; bool bp = f.Bypass, kp = f.AutoKeyPending; lock (eng.Sync) { f.ResetDefaults(); f.Deserialize(fxCopyData); f.Reset(); } f.CurPreset = ""; f.CurPresetData = ""; f.AutoKeyPending = fxCopyKeyPending;
+            OfferRevert("Pasted settings on " + f.Title, () => { lock (eng.Sync) { f.ResetDefaults(); f.Deserialize(before); f.Bypass = bp; f.Reset(); f.CurPreset = pn; f.CurPresetData = pd; f.AutoKeyPending = kp; } }); Toast("Pasted the copied settings on " + f.Title + ".");
             return;
         }
-        var nf = Presets.Make(fxCopyType, fxCopyData); if (nf == null) { Toast("That plugin cannot be pasted here."); return; }
+        var nf = Presets.Make(fxCopyType, fxCopyData); if (nf == null) { Toast("That plugin cannot be pasted here (a VST plugin has to be installed on this PC)."); return; } Adopt(nf, tr);
         List<Fx> chain = tr == null ? eng.MasterFx : tr.Fx; int at; lock (eng.Sync) { chain.Add(nf); at = chain.Count - 1; }
         if (tr == null) selMaster = at; else selFx = at;
         OfferRevert(fxCopyTitle + " pasted as a new plugin", () => { lock (eng.Sync) { chain.Remove(nf); } if (tr == null) selMaster = Math.Min(selMaster, Math.Max(0, chain.Count - 1)); else selFx = -1; }); Toast(fxCopyTitle + " added as a new plugin with the copied settings.");
@@ -1166,7 +1173,7 @@ partial class StudioForm : Form
         if (f is Spatial8D) return 34 + 28 + 190 + Math.Max(0, n - 2) * 30 + 24;
         if (f is ConvFx) return 34 + 28 + 52 + n * 30 + 24;
         if (f is PitchCorrector) return 34 + 28 + 200 + Math.Max(0, n - 3) * 30 + 24;
-        return 34 + 28 + n * 30 + 24;
+        return 34 + 28 + (HasKeyParam(f) ? 34 : 0) + n * 30 + 24;   // (a plugin with a key has the AUTO DETECT KEY row)
     }
 
     sealed class PGroup { public string Title = "", Id = ""; public Color Col; public int Kind; public List<int> Items = new List<int>(); }   // one box of the plugin panel (Kind 0 instrument, 1 a preset, 2 your plugins)
@@ -1336,6 +1343,7 @@ partial class StudioForm : Form
             return base.ProcessCmdKey(ref msg, k);
         }
         if (ActiveControl is TextBoxBase && ((Control)ActiveControl).Visible) return base.ProcessCmdKey(ref msg, k);   // typing in the lyrics page: every key belongs to the text box
+        if (loopPick && k == Keys.Escape) { loopPick = false; loopPicking = false; Toast("Loop section cancelled."); return true; }
         if (keyOn && (k == Keys.Escape || k == Keys.Enter)) { keyOn = false; return true; }
         if (busOpen && k == Keys.Escape) { busOpen = false; return true; }
         if (ntOpen && k == Keys.Escape) { CloseNewTrackSheet(); return true; }
@@ -1455,6 +1463,7 @@ partial class StudioForm : Form
         var cvx = f as ConvFx; if (cvx != null) { var lb = Rc(a.X + 10, y - 2, a.Width - 20, 30); Btn(g, lb, "Load your own impulse response...", 2, () => { using (var d = new OpenFileDialog { Title = "Choose an impulse response (a recording of a space or speaker)", Filter = "Audio|*.wav;*.mp3;*.flac;*.ogg;*.aiff|All files|*.*" }) if (d.ShowDialog(this) == DialogResult.OK) cvx.UserPath = d.FileName; }, 12); y += 34; Txt(g, cvx.IrNote.Length > 0 ? "Using: " + cvx.IrNote : "", 11, DimC, Rc(a.X + 14, y - 4, a.Width - 28, 16), StringAlignment.Near, false); y += 18; }
         if (f is Spatial8D) { y = Paint8dEditor(g, (Spatial8D)f, Rc(a.X + 6, y, a.Width - 12, 190)); skip.AddRange(new[] { "hold", "angle" }); }
         if (f is PitchCorrector) { y = PaintPitchEditor(g, (PitchCorrector)f, tr, Rc(a.X + 6, y, a.Width - 12, 200)); skip.AddRange(new[] { "key", "scale", "mask" }); }
+        else if (HasKeyParam(f)) { var ad = Rc(a.X + 10, y - 2, a.Width - 20, 28); var tk = tr; Btn(g, ad, "AUTO DETECT KEY", 2, () => AutoDetectKey(f, tk), 12); Hint2(ad, "Listen to this track and set the key and scale of " + f.Title + " by themselves"); y += 34; }
         paramTrack = tr; PaintParams(g, f, Rc(a.X + 6, y, a.Width - 12, a.Bottom - y - 4), skip);
     }
 
@@ -1612,8 +1621,8 @@ partial class StudioForm : Form
         float x = a.X + 4, y = a.Y, w = a.Width - 8;
         int key = (int)pc.Get("key"), scale = (int)pc.Get("scale"); int mask = (int)pc.Get("mask") & 4095;
         Btn(g, Rc(x, y, 64, 28), "Key " + PitchCorrector.Keys[key], 0, () => { var m = Win.NewMenu(); for (int k = 0; k < 12; k++) { int kk = k; m.Items.Add(PitchCorrector.Keys[k]).Click += (s, e) => { pc.AutoKeyPending = false; pc.Set("key", kk); pc.ApplyScale(); }; } m.Show(this, new Point((int)MousePos.X, (int)MousePos.Y)); }, 12);
-        Btn(g, Rc(x + 70, y, w - 70 - 100, 28), PitchCorrector.Scales[scale], 0, () => { var m = Win.NewMenu(); for (int k = 0; k < PitchCorrector.Scales.Length; k++) { int kk = k; m.Items.Add(PitchCorrector.Scales[k]).Click += (s, e) => { pc.AutoKeyPending = false; pc.Set("scale", kk); pc.ApplyScale(); }; } m.Show(this, new Point((int)MousePos.X, (int)MousePos.Y)); }, 12);
-        Btn(g, Rc(x + w - 94, y, 94, 28), "Detect key", 1, () => DetectKey(pc, tr), 12);
+        Btn(g, Rc(x + 70, y, w - 70 - 110, 28), PitchCorrector.Scales[scale], 0, () => { var m = Win.NewMenu(); for (int k = 0; k < PitchCorrector.Scales.Length; k++) { int kk = k; m.Items.Add(PitchCorrector.Scales[k]).Click += (s, e) => { pc.AutoKeyPending = false; pc.Set("scale", kk); pc.ApplyScale(); }; } m.Show(this, new Point((int)MousePos.X, (int)MousePos.Y)); }, 12);
+        { var ad = Rc(x + w - 104, y, 104, 28); Btn(g, ad, "AUTO DETECT", 2, () => AutoDetectKey(pc, tr), 11); Hint2(ad, "Listen to this track and set the key and scale by themselves"); }
         y += 34; float cw = w / 12f;
         for (int n = 0; n < 12; n++)
         {

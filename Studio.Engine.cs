@@ -381,6 +381,8 @@ partial class StudioEngine
     public List<Fx> MasterFx = new List<Fx>();
     public float MasterVolDb; public bool MasterBypass; public float AbMatchDb;
     public volatile bool Playing; public long Pos; public bool Loop;
+    public long LoopA = -1, LoopB = -1; float[] loopL, loopR;   // LOOP A SECTION: playback goes round from LoopB back to LoopA (-1 = loop the whole song)
+    public bool LoopSection { get { return Loop && LoopA >= 0 && LoopB > LoopA + 2000; } }
     public LufsMeter Lufs = new LufsMeter(SR);
     public volatile float MasterPeakL, MasterPeakR; public float[] MasterTap = new float[8192]; public volatile int MasterTapPos;
     public float[] MasterTapPre = new float[8192];
@@ -622,9 +624,18 @@ partial class StudioEngine
                 Array.Clear(oL, 0, n); Array.Clear(oR, 0, n); MasterPeakL = MasterPeakR = 0; foreach (var t in Tracks) { t.PeakL = t.PeakR = 0; } return;
             }
             if (countLeft > 0) { Array.Clear(oL, 0, n); Array.Clear(oR, 0, n); Click(LastCountFrames - countLeft, n, oL, oR, LastCountFrames, LastCountFrames / 4.0); countLeft = Math.Max(0, countLeft - n); MasterPeakL = MasterPeakR = 0; return; }   // the count-in: only the clicks, the song waits
+            if (LoopSection && (Pos >= LoopB || Pos < 0)) Pos = LoopA;   // a section loop: the needle never runs past the end of the section
+            if (LoopSection && Pos < LoopB && Pos + n > LoopB)
+            {   // the end of the section falls inside this block: the first part plays up to the end, the rest carries on from the start of the section (exact to the sample, no gap)
+                int k = (int)(LoopB - Pos), m = n - k; if (loopL == null || loopL.Length < n) { loopL = new float[n]; loopR = new float[n]; }
+                Mix(Pos, k, Live, oL, oR, true, 0); if (Metronome) Click(Pos, k, oL, oR);
+                Array.Clear(loopL, 0, m); Array.Clear(loopR, 0, m); Mix(LoopA, m, Live, loopL, loopR, true, 0); if (Metronome) Click(LoopA, m, loopL, loopR);
+                Array.Copy(loopL, 0, oL, k, m); Array.Copy(loopR, 0, oR, k, m); Pos = LoopA + m; return;
+            }
             Mix(Pos, n, Live, oL, oR, true, 0);
             if (Metronome) Click(Pos, n, oL, oR);
             Pos += n;
+            if (LoopSection) return;
             long end = EndFrame + SR * 2;   // allow reverb / delay tails
             if (Pos >= end) { if (Loop) { Pos = 0; ResetStates(); } else { Playing = false; Pos = EndFrame; } }   /* the tail is heard, but the needle parks exactly where the audio ends */
         }

@@ -228,8 +228,9 @@ partial class StudioForm
     }
     void LaneDown(Track tr, RectangleF lane)
     {
-        if (OverNoAudio(tr, MousePos)) { laneMode = 0; laneStart = MousePos; marqueeOn = false; laneLocked = false; return; }   // empty part of the row: no change of track
+        if (OverNoAudio(tr, MousePos)) { laneMode = 0; laneStart = MousePos; laneLocked = false; toolsTrack = null; MarqueeBegin(); return; }   // empty part of the row: no change of track; hold and drag a box there to select several clips
         laneMode = 0; laneStart = MousePos; toolsTrack = tr; marqueeOn = false;   // the selected track changes only from its box on the left (the header): clicking the audio moves, trims and edits the clip but leaves the selection alone
+        if (tr.Clip == null && !tr.Instrument && !tr.IsBus) { laneLocked = false; toolsTrack = null; MarqueeBegin(); return; }   // an empty row: hold and drag a box to select clips, like any empty space
         if (tr.Clip != null && !tr.Instrument)
         {
             laneMode = ZoneAt(tr, lane, MousePos); laneMoved = false; lockToldYou = false; laneLocked = IsLocked(tr) && laneMode >= 1 && laneMode <= 3;

@@ -2,6 +2,19 @@
 
 What changed in each version of **Purphex**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.38.4  Loop a section, AUTO DETECT key, copy and paste plugins
+
+- NEW: LOOP asks what to loop: the whole song (it keeps playing round) or a section. For a section, drag across the timeline over the part you want: it plays it again and again, straight away, exact to the beat. The section shows as a band on the ruler; drag its ends to change it.
+- CHANGED: SPLIT VOCALS + BEAT always puts the beat (instrumental) as the first track, with the vocals right under it.
+- CHANGED: the right-click menu on projects is gone: every option is a button on the card (open, preview, rename, picture, favourite, publish, remove).
+- FIXED: ALL PLUGINS scrolls like the rest of the app: the logo scroll bar under the tracks (drag the logo, click the bar, hold an arrow), or grab an empty part and drag it sideways. It only worked with the mouse wheel.
+- NEW: AUTO DETECT on every plugin with a key (Pitch Correction, Melody Tune and every tuner made from them): it listens to the track and sets the key and scale. It also works on a row made of pieces.
+- NEW: the plugin you are editing stands out: a bright neon outline, a glow and a bar on its left, in the plugin list and in ALL PLUGINS.
+- NEW: hold the left button on ANY empty space of the timeline and drag a box to select several clips: the empty part of a track, an empty track, or below the tracks.
+- CHANGED: STOP stops right where you are, like PAUSE: the needle and the view stay put (press |< to go back to the start).
+- CHANGED: while a song plays, the view no longer jumps after the needle when it runs off the screen (zoomed in, you stay where you are editing). Pressing PLAY shows the needle once if it is off screen; |<, STOP, Home and clicking the ruler still take you to it.
+- FIXED: COPY and PASTE on plugins. A pasted Auto-Tune, pitch corrector or Melody Tune kept waiting to detect the key and then threw away the key you copied; it now keeps the copied key (also with PASTE PRESET and PASTE ALL PLUGINS). VST plugins can be copied and pasted now too (with their own patch), and a pasted Bass Lab plays the notes of the track it was pasted on.
+
 ## 3.38.3  Rename projects
 
 - NEW: a RENAME button on every project in My Projects (under UPLOAD MUSIC VIDEO). A published project gets its new name on your profile and the community page too.

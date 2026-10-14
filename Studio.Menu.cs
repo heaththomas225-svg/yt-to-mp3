@@ -240,7 +240,7 @@ partial class StudioForm
             string meta = (e.Bpm > 0 ? e.Bpm.ToString("0") + " BPM" : "") + (e.Seconds > 1 ? "  " + ((int)(e.Seconds / 60)) + ":" + ((int)(e.Seconds % 60)).ToString("00") : ""); meta = meta.Trim(); Txt(g, meta, 11, DimC, Rc(card.X + 12, card.Y + 252, cw - 24, 18), StringAlignment.Near, false);
             ProjectLibrary.EnsureKind(e); Txt(g, "EDITED " + ProjectLibrary.Ago(e.Updated), 11, DimC, Rc(card.X + 12, card.Y + 270, cw - 24 - 62, 18), StringAlignment.Near, false); if (e.Kind.Length > 0 && e.Kind != "Empty") Txt(g, e.Kind, 11, NeonCyan, Rc(card.Right - 12 - 62, card.Y + 270, 62, 18), StringAlignment.Far, true);
             var pv = Rc(card.X + 12 + 2 * 34, card.Y + 290, 30, 26); var cam = Rc(pv.Right + 4, card.Y + 290, 30, 26); var nop = Rc(cam.Right + 4, card.Y + 290, 30, 26); var rm = Rc(nop.Right + 4, card.Y + 290, 26, 26);   /* six buttons in one row, side by side: they never touch */
-            Reg(card, () => OpenProjectAsk(e)).OnRight = () => ProjectCardMenu(path);
+            Reg(card, () => OpenProjectAsk(e));   // no right-click menu: every option is a button on the card
             var star = Rc(card.X + 12, card.Y + 290, 30, 26); FillRR(g, Hot(star) ? TM.C(220, 90, 50, 170) : TM.C(150, 44, 24, 80), star, 7); DrawStar(g, star, e.Fav, Hot(star)); Reg(star, () => ToggleFavourite(e)); Hint2(star, e.Fav ? "Remove from your favourites" : "Add to your favourites (a star)");
             var pfb = Rc(star.Right + 4, card.Y + 290, 30, 26); FillRR(g, e.OnProfile ? TM.C(235, 150, 40, 130) : (Hot(pfb) ? TM.C(220, 90, 50, 170) : TM.C(150, 44, 24, 80)), pfb, 7); DrawPerson(g, pfb, e.OnProfile, Hot(pfb)); Reg(pfb, () => ToggleOnProfile(e)); Hint2(pfb, e.OnProfile ? "On your profile (public): press to make it private again" : "Private: press to PUBLISH TO PROFILE so other people see it on your profile");
             { var rnB = Rc(card.X + 12, card.Y + 392, cw - 24, 26); Btn(g, rnB, "RENAME", 1, () => RenameEntry(e), 10); Hint2(rnB, "Give this project a new name (it shows on your profile and in the community too)"); }
@@ -259,24 +259,6 @@ partial class StudioForm
     void DrawCamera(Graphics g, RectangleF r)
     {
         using (var pen = new Pen(Ink, 1.6f)) { g.DrawRectangle(pen, r.X + 7, r.Y + 8, r.Width - 14, r.Height - 14); g.DrawEllipse(pen, r.X + r.Width / 2 - 4, r.Y + 11, 8, 8); g.DrawLine(pen, r.X + 11, r.Y + 8, r.X + 13, r.Y + 5); g.DrawLine(pen, r.X + 13, r.Y + 5, r.X + 19, r.Y + 5); }
-    }
-    void ProjectCardMenu(string path)
-    {
-        var e = ProjectLibrary.Find(path); var m = Win.NewMenu(); bool ok = e != null && !e.Missing && File.Exists(path);
-        if (tab == 3) m.Items.Add("Open").Click += (a, b) => { if (e != null) OpenProjectAsk(e); };   // a project is opened only from My Projects
-        m.Items.Add(string.Equals(previewPath, path, StringComparison.OrdinalIgnoreCase) ? "Stop the preview" : "Preview (hear it without opening)").Click += (a, b) => { if (e != null) PreviewToggle(e); };
-        m.Items.Add(new ToolStripSeparator());
-        m.Items.Add("Rename...").Click += (a, b) => { if (e != null) RenameEntry(e); };
-        m.Items.Add("Add or change picture...").Click += (a, b) => { if (ok) PickCover(path); };
-        m.Items.Add("Resize picture...").Click += (a, b) => { if (ok) CoverClick(path); };
-        if (e != null) { m.Items.Add(e.Fav ? "Remove from favourites" : "Add to favourites").Click += (a, b) => ToggleFavourite(e); m.Items.Add(e.OnProfile ? "Make private (take it off my profile)" : "Publish to my profile").Click += (a, b) => ToggleOnProfile(e); }
-        m.Items.Add("Remove picture").Click += (a, b) => { if (e != null && e.Cover.Length > 0) { RemoveCover(path); Toast("Picture removed: the Purphex logo is shown again."); } else Toast("This project has no picture of its own."); };
-        m.Items.Add("Show in folder").Click += (a, b) => { try { System.Diagnostics.Process.Start("explorer.exe", "/select,\"" + path + "\""); } catch { } };
-        m.Items.Add(new ToolStripSeparator());
-        m.Items.Add("Remove (list or Recycling Bin)...").Click += (a, b) => { if (e != null) RemoveProjectAsk(e); };
-        m.Items.Add(new ToolStripSeparator());
-        m.Items.Add("HOME (the main studio)").Click += (a, b) => GoHome(); if (ShowBack) m.Items.Add("BACK (the page before)").Click += (a, b) => GoBack();
-        m.Show(this, new Point((int)MousePos.X, (int)MousePos.Y));
     }
 
     // ---------------- Community (a place to build on later) ----------------

@@ -525,12 +525,50 @@ static class NF
                 Check("a click on the bottom edge of the ruler still moves the needle (a row scrolled up under it does not take the click)", rul != null && hit != null && hit.R.Height < 40 && hit.OnDrag != null, rul == null ? "no ruler" : (hit == null ? "nothing" : hit.R.ToString()));
                 SetF("vscroll", 0f); sf.eng.Tracks.Clear();
             }
+            {   // STOP stops where you are (it used to go back to the start); hold and drag a box from ANY empty space, also the empty part of a row and an empty row
+                sf.eng.Tracks.Clear(); var ra = StudioEngine.NewTrack("Clip row", "vocal", AudioClip.FromArrays(new float[44100], new float[44100], "t")); var rb = StudioEngine.NewTrack("Empty row", "audio", null); sf.eng.Tracks.Add(ra); sf.eng.Tracks.Add(rb);
+                sf.ClientSize = new Size(1500, 800); Application.DoEvents(); SetF("tab", 0); SetF("welcomeOn", false); SetF("vscroll", 0f); SetF("autoFit", false); SetF("spp", 100.0); SetF("scroll", 0L);
+                var pmr = typeof(StudioForm).GetMethod("PaintAll", BF); Action paintS = () => { using (var bmr = new Bitmap(1500, 800)) using (var gr = Graphics.FromImage(bmr)) { var per = new PaintEventArgs(gr, new Rectangle(Point.Empty, bmr.Size)); for (int i = 0; i < 2; i++) pmr.Invoke(sf, new object[] { per }); } };
+                paintS(); sf.eng.Pos = 44100 * 5; SetF("scroll", 44100L * 3); var bm = (Dictionary<string, RectangleF>)typeof(StudioForm).GetField("btnMap", BF).GetValue(sf); var stopR = bm["STOP"];
+                var stopReg = (HitReg)typeof(StudioForm).GetMethod("TopRegion", BF).Invoke(sf, new object[] { new PointF(stopR.X + stopR.Width / 2, stopR.Y + stopR.Height / 2) }); stopReg.OnDown();
+                Check("STOP stops where you are: the needle and the view stay put", sf.eng.Pos == 44100 * 5 && F<long>("scroll") == 44100L * 3 && !sf.eng.Playing, sf.eng.Pos / 44100 + " s, view " + F<long>("scroll") / 44100 + " s");
+                SetF("scroll", 0L); paintS(); float laneH = F<int>("LaneH");
+                float top = 70 + 86 + 28; var ld = typeof(StudioForm).GetMethod("LaneDown", BF); var ldr = typeof(StudioForm).GetMethod("LaneDrag", BF); var lup = typeof(StudioForm).GetMethod("MarqueeEnd", BF);
+                foreach (var rowT in new[] { ra, rb })
+                {
+                    int ri = sf.eng.Tracks.IndexOf(rowT); var lane = new RectangleF(372, top + ri * laneH, 1000, laneH); var p0 = new PointF(372 + 900, top + ri * laneH + laneH / 2);   // far right of the row: no audio there
+                    SetF("MousePos", p0); ld.Invoke(sf, new object[] { rowT, lane }); ldr.Invoke(sf, new object[] { rowT, new PointF(372 + 5, top + 4) }); bool on = F<bool>("marqueeOn"); var ms = (List<Track>)typeof(StudioForm).GetField("multiSel", BF).GetValue(sf); bool got = ms.Contains(ra); lup.Invoke(sf, null);
+                    Check("hold and drag on empty space in " + (rowT == ra ? "the empty part of a row" : "an empty row") + " draws a box that selects the clips", on && got, "box " + on + ", clip picked " + got);
+                }
+                {   // LOOP > Loop a section: drag across the timeline, it loops that part (and plays it straight away)
+                    int ov = Prefs.OutVol; Prefs.OutVol = 0; SetF("scroll", 0L); SetF("spp", 100.0); sf.LoopPickStart(); paintS();
+                    float y0 = top + laneH / 2; var pr = (HitReg)typeof(StudioForm).GetMethod("TopRegion", BF).Invoke(sf, new object[] { new PointF(372 + 100, y0) });
+                    SetF("MousePos", new PointF(372 + 100, y0)); pr.OnDown(); pr.OnDrag(new PointF(372 + 400, y0)); pr.OnUp();
+                    bool snapOff = !F<bool>("snapOn"); long wa = 100 * 100, wb = 400 * 100;
+                    Check("LOOP a section: dragging across the tracks sets the section and it plays round from its start", sf.eng.LoopSection && !sf.loopPick && (snapOff ? sf.eng.LoopA == wa && sf.eng.LoopB == wb : sf.eng.LoopA <= wa && sf.eng.LoopB >= wb) && sf.eng.Playing, sf.eng.LoopA + " to " + sf.eng.LoopB + " playing " + sf.eng.Playing);
+                    sf.eng.Pause(); sf.LoopWhole(); Check("LOOP the whole song clears the section", sf.eng.Loop && !sf.eng.LoopSection, "");
+                    sf.LoopOff(); Check("turning the loop off stops it looping", !sf.eng.Loop, ""); Prefs.OutVol = ov; sf.eng.Pos = 0;
+                }
+                sf.eng.Tracks.Clear();
+            }
             {   // copy / paste of plugins and of pieces, the preset shown on the plugin, REMOVE PRESET
                 sf.eng.Tracks.Clear(); var ta = StudioEngine.NewTrack("Row A", "vocal", AudioClip.FromArrays(new float[441000], new float[441000], "t")); sf.eng.Tracks.Add(ta);
                 var d1 = FxRegistry.Create("delay"); d1.Prepare(44100); d1.Set("fb", 61f); var d2 = FxRegistry.Create("delay"); d2.Prepare(44100); var cmp = FxRegistry.Create("comp"); cmp.Prepare(44100); ta.Fx.Add(d2); ta.Fx.Add(cmp);
                 SetF("fxCopyType", d1.Type); SetF("fxCopyData", d1.Serialize()); SetF("fxCopyTitle", d1.Title);
                 sf.PasteFx(d2, ta); Check("PASTE puts the copied settings on a plugin of the same kind", Math.Abs(d2.Get("fb") - 61f) < 0.01f, d2.Get("fb").ToString());
                 int before = ta.Fx.Count; sf.PasteFx(cmp, ta); Check("PASTE on a different kind adds the copied plugin as a new one on the track", ta.Fx.Count == before + 1 && ta.Fx[ta.Fx.Count - 1].Type == "delay" && Math.Abs(ta.Fx[ta.Fx.Count - 1].Get("fb") - 61f) < 0.01f, ta.Fx.Count.ToString());
+                {   // an auto-tune whose key you set keeps that key when it is pasted (the copy used to wait to detect a key and overwrite the one you copied)
+                    var pc = FxRegistry.Create("pitch"); pc.Prepare(44100); pc.Set("key", 7f); pc.AutoKeyPending = false; sf.CopyFx(pc); int n0 = ta.Fx.Count; sf.PasteFxAsNew(ta); var np = ta.Fx.Count > n0 ? ta.Fx[ta.Fx.Count - 1] : null;
+                    Check("a pasted auto-tune keeps the copied key and does not detect a new one over it", np != null && np.Type == "pitch" && Math.Abs(np.Get("key") - 7f) < 0.01f && !np.AutoKeyPending, np == null ? "none" : np.Get("key") + " pending=" + np.AutoKeyPending);
+                    var pc2 = FxRegistry.Create("pitch"); pc2.Prepare(44100); sf.PasteFx(pc2, ta); Check("pasting onto an auto-tune gives it the copied key for good", Math.Abs(pc2.Get("key") - 7f) < 0.01f && !pc2.AutoKeyPending, pc2.Get("key") + " pending=" + pc2.AutoKeyPending);
+                    var bl = FxRegistry.Create("synth"); bl.Prepare(44100); sf.CopyFx(bl); n0 = ta.Fx.Count; sf.PasteFxAsNew(ta); var nb = ta.Fx.Count > n0 ? ta.Fx[ta.Fx.Count - 1] as InstrumentFx : null;
+                    Check("a pasted Bass Lab belongs to the track it was pasted on (it plays that track's notes)", nb != null && nb.Owner == ta, nb == null ? "none" : "owner " + (nb.Owner == null ? "none" : nb.Owner.Name));
+                    lock (sf.eng.Sync) { ta.Fx.RemoveAll(x => x.Type == "pitch" || x.Type == "synth"); }
+                    var keyed = new List<string>(); foreach (var inf in FxRegistry.All) { var kf = FxRegistry.Create(inf.Type); if (kf != null && StudioForm.HasKeyParam(kf)) keyed.Add(inf.Type); }
+                    Check("every plugin with a key gets AUTO DETECT (Pitch Correction, Melody Tune and the tuners made from them), and only those", keyed.Contains("pitch") && keyed.Contains("lib_melody_tune") && !keyed.Contains("comp") && !keyed.Contains("delay"), keyed.Count + ": " + string.Join(", ", keyed.ToArray()));
+                    var mt = FxRegistry.Create("lib_melody_tune"); mt.Prepare(44100); var silent = StudioEngine.NewTrack("Empty", "vocal", null); sf.AutoDetectKey(mt, silent);
+                    Check("AUTO DETECT on a track without audio says so and leaves the key alone", !mt.AutoKeyPending && Math.Abs(mt.Get("key")) < 0.01f && F<string>("toast").Contains("needs audio"), F<string>("toast"));
+                }
                 d2.CurPreset = ""; string none = StudioForm.PresetShown(d2); d2.CurPreset = "Slapback"; d2.CurPresetData = d2.Serialize(); string withP = StudioForm.PresetShown(d2); d2.Set("mix", 7f); string changed = StudioForm.PresetShown(d2);
                 Check("the plugin shows which preset is on it (or NONE, or that it was changed by hand)", none == "PRESET: NONE" && withP == "PRESET: SLAPBACK" && changed.StartsWith("PRESET: SLAPBACK") && changed.Contains("CHANGED"), none + " | " + withP + " | " + changed);
                 sf.RemoveFxPreset(d2); Check("REMOVE PRESET takes it off and puts the plugin back to its own defaults", d2.CurPreset == "" && Math.Abs(d2.Get("fb") - d2.Find("fb").Def) < 0.01f);
@@ -744,10 +782,10 @@ static class NF
             }
             {   // SPLIT VOCALS + BEAT: the vocals and the instrumental take the song's place and the original track is removed (Ctrl+Z brings it back)
                 sf.eng.Tracks.Clear(); Func<AudioClip> clipS = () => AudioClip.FromArrays(new float[44100 * 4], new float[44100 * 4], "s");
-                var song = StudioEngine.NewTrack("My Song", "song", clipS()); song.Offset = 44100; var other = StudioEngine.NewTrack("Other", "beat", clipS()); sf.eng.Tracks.Add(song); sf.eng.Tracks.Add(other);
+                var song = StudioEngine.NewTrack("My Song", "song", clipS()); song.Offset = 44100; var other = StudioEngine.NewTrack("Other", "beat", clipS()); sf.eng.Tracks.Add(other); sf.eng.Tracks.Add(song);
                 sf.FinishSeparation(song, clipS(), clipS(), song.Offset);
                 Check("after the split the original track is gone", !sf.eng.Tracks.Contains(song), string.Join(", ", sf.eng.Tracks.Select(t => t.Name).ToArray()));
-                Check("the vocals and the instrumental are where the song was, in sync", sf.eng.Tracks.Count == 3 && sf.eng.Tracks[0].Name == "My Song - Vocals" && sf.eng.Tracks[1].Name == "My Song - Instrumental" && sf.eng.Tracks[2] == other && sf.eng.Tracks[0].Offset == 44100);
+                Check("the beat is always the first track and the vocals come right under it, in sync", sf.eng.Tracks.Count == 3 && sf.eng.Tracks[0].Name == "My Song - Instrumental" && sf.eng.Tracks[1].Name == "My Song - Vocals" && sf.eng.Tracks[2] == other && sf.eng.Tracks[0].Offset == 44100 && sf.eng.Tracks[1].Offset == 44100, string.Join(", ", sf.eng.Tracks.Select(t => t.Name).ToArray()));
                 typeof(StudioForm).GetMethod("DoUndo", BF).Invoke(sf, null); Check("Ctrl+Z brings the original back", sf.eng.Tracks.Exists(t => t.Name == "My Song"));
                 sf.eng.Tracks.Clear(); var host2 = StudioEngine.NewTrack("Row", "song", clipS()); var piece2 = StudioEngine.NewTrack("Row (2)", "song", clipS()); piece2.Host = host2; piece2.Offset = 44100 * 6; sf.eng.Tracks.Add(host2); sf.eng.Tracks.Add(piece2);
                 sf.FinishSeparation(host2, clipS(), clipS(), 0); Check("splitting a track that has other pieces removes only its own audio (the pieces stay)", sf.eng.Tracks.Contains(piece2) && host2.Clip == null);

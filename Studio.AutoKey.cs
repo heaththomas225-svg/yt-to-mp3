@@ -36,6 +36,26 @@ partial class StudioForm
             }
         }
     }
+    // every plugin with a key setting (Pitch Correction, Melody Tune and the tuners made from them) has an AUTO DETECT button
+    internal static bool HasKeyParam(Fx f) { var p = f == null ? null : f.Find("key"); return p != null && p.Choices != null && p.Choices.Length == 12; }
+    // AUTO DETECT: listen to the track (its clip, else the longest piece on its row) and set the key and scale of this plugin
+    internal void AutoDetectKey(Fx f, Track tr)
+    {
+        f.AutoKeyPending = false; var clip = tr == null ? null : KeySource(tr);
+        if (clip == null) { Toast("AUTO DETECT needs audio on this track first (sung or rapped notes)."); return; }
+        int[] got; if (keyCache.TryGetValue(clip, out got)) { SetKeyFrom(f, tr, got); return; }
+        int key = 0, scale = 1; double conf; bool found = false; var c = clip;
+        RunBusy("Detecting the key of " + tr.Name + "...", false, p => { found = KeyDetect.Detect(c, out key, out scale, out conf); }, ok =>
+        {
+            if (!ok) return; var r = new[] { found ? 1 : 0, key, scale }; keyCache[c] = r; SetKeyFrom(f, tr, r);
+        });
+    }
+    void SetKeyFrom(Fx f, Track tr, int[] r)
+    {
+        if (r[0] == 0) { Toast("No clear key in " + tr.Name + " (it needs sung or rapped notes). Pick the key on " + f.Title + " by hand."); return; }
+        lock (eng.Sync) { f.Set("key", r[1]); if (f.Find("scale") != null) f.Set("scale", r[2]); var pc = f as PitchCorrector; if (pc != null) pc.ApplyScale(); }
+        Toast("AUTO DETECT: " + f.Title + " is set to " + PitchCorrector.Keys[r[1]] + (r[2] == 2 ? " minor" : " major") + " (found in " + tr.Name + ").");
+    }
     void ApplyAutoKey(Fx f, Track tr, int[] r)
     {
         if (!f.AutoKeyPending) return; f.AutoKeyPending = false;   // the key was picked by hand meanwhile: leave it

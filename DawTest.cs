@@ -47,6 +47,19 @@ static class D
             var ro = StudioForm.RowOrder(e5.Tracks); Check("putting the list in order: rows, then pieces", ro.Count == 3 && ro[0] == voc && ro[1] == beat && ro[2] == pc, "");
             try { System.IO.File.Delete(pf5); } catch { }
         }
+        // LOOP A SECTION: playback goes round from the end of the section to its start, exact to the sample, and never stops
+        {
+            int len = 44100 * 4; var ramp = new float[len]; for (int i = 0; i < len; i++) ramp[i] = 0.1f + i / (float)len * 0.5f;
+            var e7 = new StudioEngine(); foreach (var mf in e7.MasterFx) mf.Bypass = true; var lt = StudioEngine.NewTrack("Ramp", "other", AudioClip.FromArrays(ramp, (float[])ramp.Clone(), "r")); e7.Tracks.Add(lt);
+            long A = 44100, B = 44100 * 2; e7.Loop = true; e7.LoopA = A; e7.LoopB = B; Check("(a section loop is on)", e7.LoopSection, "");
+            int n7 = 4096; var oL = new float[n7]; var oR = new float[n7]; e7.Pos = B - 1000; e7.Playing = true; e7.RenderRealtime(oL, oR, n7);
+            double gain = oL[10] / ramp[B - 1000 + 10]; double want = gain * ramp[A + 5], got = oL[1000 + 5];
+            Check("at the end of the section it carries straight on from its start (to the sample)", Math.Abs(got - want) < 1e-3 && Math.Abs(oL[999] - gain * ramp[B - 1]) < 1e-3, "got " + got.ToString("0.0000") + " want " + want.ToString("0.0000"));
+            Check("the needle is back inside the section", e7.Pos == A + (n7 - 1000), (e7.Pos - A) + " frames in");
+            for (int k = 0; k < 200; k++) e7.RenderRealtime(oL, oR, n7); Check("it keeps going round (it never stops or leaves the section)", e7.Playing && e7.Pos >= A && e7.Pos < B, e7.Pos.ToString());
+            e7.Pos = 44100 * 3; e7.RenderRealtime(oL, oR, n7); Check("started after the section, it jumps into the section", e7.Pos >= A && e7.Pos < B, e7.Pos.ToString());
+            e7.LoopA = -1; e7.LoopB = -1; e7.Pos = len + 44100 * 2 + 10; e7.RenderRealtime(oL, oR, n7); Check("loop the whole song still goes back to the start at the end", e7.Playing && e7.Pos < 44100, e7.Pos.ToString());
+        }
         // every built-in Bass Boost preset raises the low end against the rest, leaves the highs close to where they were, and keeps the level under control
         {
             Func<float[], double, int, double> mag = (x, hz, srr) => { double re = 0, im = 0; int st = srr / 2; for (int i = st; i < x.Length; i++) { re += x[i] * Math.Cos(2 * Math.PI * hz * i / srr); im += x[i] * Math.Sin(2 * Math.PI * hz * i / srr); } return Math.Sqrt(re * re + im * im) / (x.Length - st) * 2; };

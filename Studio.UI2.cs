@@ -126,22 +126,10 @@ partial class StudioForm
     internal void FinishSeparation(Track st, AudioClip vc, AudioClip ic, long off)
     {
         string sname = st.Name.Replace(" (original)", ""); var tv = StudioEngine.NewTrack(sname + " - Vocals", "vocal", vc); var tb = StudioEngine.NewTrack(sname + " - Instrumental", "beat", ic); tv.Offset = off; tb.Offset = off; tv.ClipStart = tb.ClipStart = st.ClipStart; tv.ClipFrames = tb.ClipFrames = st.ClipFrames;
-        lock (eng.Sync) { int at = eng.Tracks.IndexOf(st.Host ?? st); int ins = at >= 0 ? at + 1 : LaneCount; eng.Tracks.Insert(ins, tv); eng.Tracks.Insert(ins + 1, tb); }   // where the song was
+        lock (eng.Sync) { eng.Tracks.Insert(0, tb); eng.Tracks.Insert(1, tv); }   // the beat is always the first track, the vocals right under it
         if (st.Host != null || RowHasPieces(st)) { PushUndo(); lock (eng.Sync) { if (st.Host != null) { eng.Tracks.Remove(st); retired.AddRange(st.Fx); } else { st.Clip = null; st.Source = ""; st.ClipStart = 0; st.ClipFrames = -1; } } }   // only that audio goes: the other pieces of the row stay
         else DeleteTrackQuiet(st);
         selTrack = Math.Max(0, eng.Tracks.IndexOf(tv)); selFx = -1;
-    }
-
-    // ---------------- key detection ----------------
-    void DetectKey(PitchCorrector pc, Track tr)
-    {
-        pc.AutoKeyPending = false; if (tr == null || tr.Clip == null) return; int key = 0, scale = 1; double conf = 0; bool found = false;
-        RunBusy("Detecting the key of " + tr.Name + "...", false, p => { found = KeyDetect.Detect(tr.Clip, out key, out scale, out conf); }, ok =>
-        {
-            if (!ok) return;
-            if (!found) { Toast("Couldn't find a clear key (needs sung or rapped pitched notes)."); return; }
-            pc.Set("key", key); pc.Set("scale", scale); pc.ApplyScale(); Toast("Detected " + PitchCorrector.Keys[key] + (scale == 2 ? " minor" : " major") + "  (confidence " + conf.ToString("0.00") + ")");
-        });
     }
 
     // ---------------- Auto Mix ----------------
