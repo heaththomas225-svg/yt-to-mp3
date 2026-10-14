@@ -920,12 +920,6 @@ partial class StudioForm : Form
         // right of the pan row: piano (instrument), arm (empty audio track), nudge (audio), nothing (bus)
         if (tk.Instrument)
             Btn(g, thin ? Rc(r.X + 200, r.Y + vy - 2, 66, 22) : Rc(r.X + 220, r.Y + py - 3, 40, 24), "Piano", 1, () => { var vf = tk.Fx.Count > 0 ? tk.Fx[0] as InstrumentFx : null; if (vf != null) { vf.Owner = tk; vf.ShowWindow(this); } }, 11);
-        else if (!bus && !thin && tk.Clip != null)
-        {
-            // NUDGE: the whole track (every piece on it) 10 ms earlier or later, 1 ms with Shift, to line up the timing by ear (never before 0:00; Ctrl+Z undoes it)
-            var nl = Rc(r.X + 220, r.Y + py - 1, 18, 22); Btn(g, nl, "<", 0, () => NudgeRow(tk, (ModifierKeys & Keys.Shift) != 0 ? -44 : -441), 12); Hint2(nl, "NUDGE EARLIER: moves this whole track 10 ms earlier (hold Shift: 1 ms), to line up its timing by ear");
-            var nr = Rc(r.X + 241, r.Y + py - 1, 18, 22); Btn(g, nr, ">", 0, () => NudgeRow(tk, (ModifierKeys & Keys.Shift) != 0 ? 44 : 441), 12); Hint2(nr, "NUDGE LATER: moves this whole track 10 ms later (hold Shift: 1 ms), to line up its timing by ear");
-        }
         // meters (peak with hold)
         var h = Hold(tr); float[] pk = { tr.PeakL, tr.PeakR };
         for (int c = 0; c < 2; c++)

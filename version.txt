@@ -1,4 +1,4 @@
-3.39.7
+3.39.8
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-See the preset you are using
-sha256=aa887a92c1085a4ea44afdf172e5098d5a0bcc3ee54cb38fad577c0815744e87
+No more nudge buttons
+sha256=fe640aa65ae2a9aab763e2b2e894e6dce20e0e0816ff800450c8516b96564c21

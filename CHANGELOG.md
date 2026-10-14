@@ -2,6 +2,10 @@
 
 What changed in each version of **Purphex**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.39.8  No more nudge buttons
+
+- REMOVED: the small < and > nudge buttons on each track. (Drag a clip to move it.)
+
 ## 3.39.7  See the preset you are using
 
 - NEW: the preset you are using stands out: in the presets of any effect and in the mastering presets, the one you pressed USE on has a glowing outline, an IN USE tag and its button says IN USE (like the selected track in ALL PLUGINS).
