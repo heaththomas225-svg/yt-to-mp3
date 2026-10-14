@@ -485,6 +485,7 @@ partial class StudioForm : Form
     protected override void OnPaint(PaintEventArgs e)
     {
         if (NoWindowPaint) return;
+        try { FixTrackOrder(); } catch { }
         // Background jobs (Auto Mix, separation, presets) change the track and effect lists while we draw; a stale index must never reach the user as a crash.
         var pw = System.Diagnostics.Stopwatch.StartNew();
         try { PaintAll(e); }

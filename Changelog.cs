@@ -7,10 +7,13 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.38.1";
+    public const string Latest = "3.38.2";
 
     public const string Text =
-@"3.38.1  A safer close
+@"3.38.2  Plugins stay on their own track
+ + FIXED: plugins put on one track (your vocal) could also play on another track (the beat). Sharing a row (dragging one track onto another) left the track list out of order, so the plugin panel, the mixer and saved projects pointed at the wrong track. The list is kept in order now and puts itself right if it was already wrong, and reopening a project gives every track back its own plugins, volume and automation.
+
+3.38.1  A safer close
  + FIXED: closing a window at the moment it was being drawn could crash the program (the glow around text boxes was drawn on a surface that was already gone). The button test now also presses every entry of the side menu, its lists and the New Track box.
 
 3.38.0  The release check: 23 fixes in the app

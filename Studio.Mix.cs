@@ -507,10 +507,12 @@ static class ProjectIO
         return sb.ToString();
     }
 
-    public static void RestoreMix(StudioEngine eng, string s)
+    public static void RestoreMix(StudioEngine eng, string s) { RestoreMix(eng, s, null); }
+    // order = the tracks in the order the saved lines number them (a project file numbers them as it wrote them, before they are put back into rows, pieces, buses)
+    public static void RestoreMix(StudioEngine eng, string s, Track[] order)
     {
         // build everything first (plugin loads can take seconds), then swap under the lock and dispose the old plugins afterwards
-        Track[] trs; lock (eng.Sync) trs = eng.Tracks.ToArray();
+        Track[] trs; lock (eng.Sync) trs = order ?? eng.Tracks.ToArray();
         var newFx = new List<Fx>[trs.Length]; for (int k = 0; k < newFx.Length; k++) newFx[k] = new List<Fx>();
         var origFx = new List<Fx>[trs.Length]; for (int k = 0; k < origFx.Length; k++) origFx[k] = new List<Fx>(); var autos = new List<string[]>();   // origFx keeps a place for a plugin that could not be loaded, so automation lanes still find the right plugin
         var newMaster = new List<Fx>(); var tmix = new List<string[]>(); string[] master = null;
@@ -607,11 +609,12 @@ static class ProjectIO
         foreach (var rp in routes) { int ra, rb; if (int.TryParse(rp[1], out ra) && int.TryParse(rp[2], out rb) && ra >= 0 && rb >= 0 && ra < tracks.Count && rb < tracks.Count && tracks[rb].IsBus && ra != rb) tracks[ra].Out = tracks[rb]; }
         foreach (var hp in hosts) { int ha, hb; if (int.TryParse(hp[1], out ha) && int.TryParse(hp[2], out hb) && ha >= 0 && hb >= 0 && ha < tracks.Count && hb < tracks.Count && ha != hb && !tracks[hb].IsBus && !tracks[ha].IsBus) tracks[ha].Host = tracks[hb]; }
         foreach (var q in tracks) if (q.Host != null && q.Host.Host != null) q.Host = q.Host.Host;   // one level only
+        var fileOrder = tracks.ToArray();   // the fx, mix and automation lines number the tracks in the order the file wrote them
         { var ord = new List<Track>(); foreach (var q in tracks) if (!q.IsBus && q.Host == null) ord.Add(q); foreach (var q in tracks) if (!q.IsBus && q.Host != null) ord.Add(q); foreach (var q in tracks) if (q.IsBus) ord.Add(q); tracks = ord; }   // rows, then layers, then buses   // buses go after the tracks
         if (meta != null) { meta.Bpm = m.Bpm; meta.Lyrics = m.Lyrics; meta.LyricsTitle = m.LyricsTitle; meta.Cover = m.Cover; }
         else { if (!double.IsNaN(m.Bpm)) Fx.ProjectBpm = m.Bpm; Lyrics = m.Lyrics; LyricsTitle = m.LyricsTitle; CoverBytes = m.Cover; }
         lock (eng.Sync) { eng.Tracks.Clear(); eng.Tracks.AddRange(tracks); }
-        RestoreMix(eng, mix.ToString()); eng.Seek(0);
+        RestoreMix(eng, mix.ToString(), fileOrder); eng.Seek(0);
         foreach (var lt in eng.Tracks) foreach (var lf in lt.Fx) lf.AutoKeyPending = false;   // the plugins of a saved project keep the key that was saved
         if (meta == null) LyricsKept = Lyrics; return warn;
     }

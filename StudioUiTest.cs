@@ -128,6 +128,13 @@ static class S
             typeof(StudioForm).GetMethod("DoUndo", bf).Invoke(sf, null); Check("order: undo keeps the rule", order() == "", order()); typeof(StudioForm).GetMethod("DoRedo", bf).Invoke(sf, null); Check("order: redo keeps the rule", order() == "", order());
             typeof(StudioForm).GetMethod("DeleteTrackQuiet", bf).Invoke(sf, new object[] { tOrder }); Check("order: deleting a row removes its layers and keeps the rule", order() == "" && !eng.Tracks.Exists(t => t.Host == tOrder), order());
             typeof(StudioForm).GetMethod("DeleteTrackQuiet", bf).Invoke(sf, new object[] { bus1 }); typeof(StudioForm).GetMethod("DeleteTrackQuiet", bf).Invoke(sf, new object[] { tL });
+            {   // the FIRST row shares the last row: it must leave the rows (left among them, every row number below it pointed one track off, and plugins added to the vocal went onto the beat)
+                var tA = StudioEngine.NewTrack("OrdTop", "vocals", Clip(6)); var tZ = StudioEngine.NewTrack("OrdEnd", "other", Clip(6)); lock (eng.Sync) { eng.Tracks.Insert(0, tA); eng.Tracks.Insert((int)typeof(StudioForm).GetProperty("LaneCount", bf).GetValue(sf, null), tZ); }
+                typeof(StudioForm).GetMethod("MergeRows", bf).Invoke(sf, new object[] { tA, tZ }); Check("order: the first row sharing the last row moves after the rows", order() == "" && tA.Host == tZ, order());
+                lock (eng.Sync) { eng.Tracks.Remove(tA); eng.Tracks.Remove(tZ); eng.Tracks.Insert(0, tZ); eng.Tracks.Insert(0, tA); tA.Host = tZ; }   // an older list in the wrong order heals itself before it is drawn
+                Paint(); Check("order: a list left in the wrong order is put right when the studio draws", order() == "", order());
+                lock (eng.Sync) { eng.Tracks.Remove(tA); eng.Tracks.Remove(tZ); }
+            }
         }
         {   // different kinds of track can share one row (nothing is pushed up or down)
             var lane0 = F<int>("LaneH"); int n0 = eng.Tracks.Count, rows0 = (int)typeof(StudioForm).GetProperty("LaneCount", BF).GetValue(sf, null);

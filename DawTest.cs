@@ -34,6 +34,19 @@ static class D
         string pf = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "dawtest.ytmproj"); System.IO.File.WriteAllBytes(System.IO.Path.Combine(System.IO.Path.GetTempPath(), "dawtest.wav"), new byte[0]);
         t.Source = "x"; ProjectIO.Save(eng, pf); var e2 = new StudioEngine(); ProjectIO.Load(e2, pf, s => { });
         Check("project keeps the trim and position", e2.Tracks.Count == 1 && e2.Tracks[0].ClipStart == sr * 2 && e2.Tracks[0].ClipFrames == sr && e2.Tracks[0].Offset == sr * 3, e2.Tracks.Count == 1 ? e2.Tracks[0].ClipStart + "/" + e2.Tracks[0].ClipFrames + "/" + e2.Tracks[0].Offset : "none");
+        // the vocal's plugins stay on the vocal and the beat's on the beat when a piece sat among the rows as the project was saved (they used to swap onto the wrong track on reopening)
+        {
+            var e5 = new StudioEngine(); var voc = StudioEngine.NewTrack("Vocal", "vocals", null); var pc = StudioEngine.NewTrack("Vocal piece", "vocals", null); pc.Host = voc; var beat = StudioEngine.NewTrack("Beat", "other", null);
+            voc.Fx.Add(FxRegistry.Create("eq")); beat.Fx.Add(FxRegistry.Create("comp")); beat.VolDb = -6; e5.Tracks.Add(voc); e5.Tracks.Add(pc); e5.Tracks.Add(beat);
+            Check("(the list is out of row order, as merging two rows used to leave it)", !StudioForm.InRowOrder(e5.Tracks), "");
+            string pf5 = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "dawtest-order.ytmproj"); ProjectIO.Save(e5, pf5); var e6 = new StudioEngine(); ProjectIO.Load(e6, pf5, s => { });
+            Track v6 = e6.Tracks.Find(x => x.Name == "Vocal"), b6 = e6.Tracks.Find(x => x.Name == "Beat"), p6 = e6.Tracks.Find(x => x.Name == "Vocal piece");
+            Check("reopened: the vocal keeps only its own plugin", v6 != null && v6.Fx.Count == 1 && v6.Fx[0].Type == "eq", v6 == null ? "none" : string.Join(",", v6.Fx.ConvertAll(f => f.Type).ToArray()));
+            Check("reopened: the beat keeps only its own plugin and volume", b6 != null && b6.Fx.Count == 1 && b6.Fx[0].Type == "comp" && Math.Abs(b6.VolDb + 6) < 0.01, b6 == null ? "none" : string.Join(",", b6.Fx.ConvertAll(f => f.Type).ToArray()) + " " + b6.VolDb);
+            Check("reopened: the piece is still on the vocal row and the list is in row order", p6 != null && p6.Host == v6 && p6.Fx.Count == 0 && StudioForm.InRowOrder(e6.Tracks), "");
+            var ro = StudioForm.RowOrder(e5.Tracks); Check("putting the list in order: rows, then pieces", ro.Count == 3 && ro[0] == voc && ro[1] == beat && ro[2] == pc, "");
+            try { System.IO.File.Delete(pf5); } catch { }
+        }
         // every built-in Bass Boost preset raises the low end against the rest, leaves the highs close to where they were, and keeps the level under control
         {
             Func<float[], double, int, double> mag = (x, hz, srr) => { double re = 0, im = 0; int st = srr / 2; for (int i = st; i < x.Length; i++) { re += x[i] * Math.Cos(2 * Math.PI * hz * i / srr); im += x[i] * Math.Sin(2 * Math.PI * hz * i / srr); } return Math.Sqrt(re * re + im * im) / (x.Length - st) * 2; };

@@ -109,6 +109,18 @@ partial class StudioForm
 {
     bool busOpen; float busScroll;
     int LaneCount { get { int c = 0; foreach (var t in eng.Tracks) if (!t.IsBus && t.Host == null) c++; return c; } }   // rows on the timeline; layers and buses are kept after them in the list
+    // rows first, then the pieces on them, then the buses: every row number (selTrack, the lanes, a saved project) depends on it, so a list that got out of order is put right before it is drawn
+    internal static bool InRowOrder(List<Track> ts) { int k = 0; for (int i = 0; i < ts.Count; i++) { var t = ts[i]; int c = t.IsBus ? 2 : (t.Host != null ? 1 : 0); if (c < k) return false; k = c; } return true; }
+    internal static List<Track> RowOrder(List<Track> ts) { var o = new List<Track>(); foreach (var q in ts) if (!q.IsBus && q.Host == null) o.Add(q); foreach (var q in ts) if (!q.IsBus && q.Host != null) o.Add(q); foreach (var q in ts) if (q.IsBus) o.Add(q); return o; }
+    internal void FixTrackOrder()
+    {
+        lock (eng.Sync)
+        {
+            if (InRowOrder(eng.Tracks)) return;
+            Track sel = selTrack >= 0 && selTrack < eng.Tracks.Count ? eng.Tracks[selTrack] : null; var o = RowOrder(eng.Tracks); eng.Tracks.Clear(); eng.Tracks.AddRange(o);
+            if (sel != null) selTrack = Math.Max(0, eng.Tracks.IndexOf(sel.Host ?? sel));
+        }
+    }
     int FirstBusIndex() { for (int i = 0; i < eng.Tracks.Count; i++) if (eng.Tracks[i].IsBus) return i; return eng.Tracks.Count; }
     void OpenBusSheet() { busOpen = true; busScroll = 0; ntOpen = false; }
 

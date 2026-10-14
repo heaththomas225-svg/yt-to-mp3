@@ -386,7 +386,8 @@ partial class StudioForm
         lock (eng.Sync)
         {
             foreach (var x in eng.Tracks) if (x.Host == src) { x.Host = dst; x.Solo = false; }
-            src.Host = dst; src.Out = dst.Out; src.Solo = false;   // a piece has no S button, so a Solo left on it could never be turned off eng.Tracks.Remove(src); eng.Tracks.Insert(FirstBusIndex(), src);
+            src.Host = dst; src.Out = dst.Out; src.Solo = false;   // a piece has no S button, so a Solo left on it could never be turned off
+            eng.Tracks.Remove(src); eng.Tracks.Insert(FirstBusIndex(), src);   // pieces live after the rows: left among them, a row number pointed at the wrong track (plugins went onto another track)
         }
         selTrack = Math.Max(0, eng.Tracks.IndexOf(dst)); toolsTrack = null; Toast(src.Name + " now shares the row of " + dst.Name + ". Use the + chip on that row to separate them again.");
     }

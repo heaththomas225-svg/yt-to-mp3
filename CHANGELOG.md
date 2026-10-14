@@ -2,6 +2,10 @@
 
 What changed in each version of **Purphex**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.38.2  Plugins stay on their own track
+
+- FIXED: plugins put on one track (your vocal) could also play on another track (the beat). Sharing a row (dragging one track onto another) left the track list out of order, so the plugin panel, the mixer and saved projects pointed at the wrong track. The list is kept in order now and puts itself right if it was already wrong, and reopening a project gives every track back its own plugins, volume and automation.
+
 ## 3.38.1  A safer close
 
 - FIXED: closing a window at the moment it was being drawn could crash the program (the glow around text boxes was drawn on a surface that was already gone). The button test now also presses every entry of the side menu, its lists and the New Track box.
