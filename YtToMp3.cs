@@ -37,7 +37,7 @@ class Job
 partial class App : Form
 {
     // ---- Auto-update settings ----
-    const string Version = "3.38.2";
+    const string Version = "3.38.3";
     // Plain-text manifest: line 1 = newest version, line 2 = direct exe download URL.
     const string UpdateManifestUrl = "https://raw.githubusercontent.com/heaththomas225-svg/yt-to-mp3/main/version.txt";
 

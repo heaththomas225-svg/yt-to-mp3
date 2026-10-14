@@ -2,6 +2,10 @@
 
 What changed in each version of **Purphex**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.38.3  Rename projects
+
+- NEW: a RENAME button on every project in My Projects (under UPLOAD MUSIC VIDEO). A published project gets its new name on your profile and the community page too.
+
 ## 3.38.2  Plugins stay on their own track
 
 - FIXED: plugins put on one track (your vocal) could also play on another track (the beat). Sharing a row (dragging one track onto another) left the track list out of order, so the plugin panel, the mixer and saved projects pointed at the wrong track. The list is kept in order now and puts itself right if it was already wrong, and reopening a project gives every track back its own plugins, volume and automation.

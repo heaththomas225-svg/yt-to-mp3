@@ -92,7 +92,7 @@ partial class StudioForm
     void RenameEntry(ProjectEntry e)
     {
         string nm = Ask("Project name:", e.Name); if (nm == null) return; nm = nm.Trim(); if (nm.Length == 0) return;
-        e.Name = nm; e.Custom = true; if (string.Equals(e.Path, projPath, StringComparison.OrdinalIgnoreCase)) projName = nm; ProjectLibrary.Save(); Toast("Renamed to " + nm);
+        e.Name = nm; e.Custom = true; if (string.Equals(e.Path, projPath, StringComparison.OrdinalIgnoreCase)) projName = nm; ProjectLibrary.Save(); if (e.OnProfile) QueueRepublish(); Toast("Renamed to " + nm);   // a published project gets its new name on the profile and the community page too
     }
     void DescribeEntry(ProjectEntry e)
     {

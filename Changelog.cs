@@ -7,10 +7,13 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.38.2";
+    public const string Latest = "3.38.3";
 
     public const string Text =
-@"3.38.2  Plugins stay on their own track
+@"3.38.3  Rename projects
+ + NEW: a RENAME button on every project in My Projects (under UPLOAD MUSIC VIDEO). A published project gets its new name on your profile and the community page too.
+
+3.38.2  Plugins stay on their own track
  + FIXED: plugins put on one track (your vocal) could also play on another track (the beat). Sharing a row (dragging one track onto another) left the track list out of order, so the plugin panel, the mixer and saved projects pointed at the wrong track. The list is kept in order now and puts itself right if it was already wrong, and reopening a project gives every track back its own plugins, volume and automation.
 
 3.38.1  A safer close

@@ -1,4 +1,4 @@
-3.38.2
+3.38.3
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Plugins stay on their own track
-sha256=9b68abed93cf5d1c8e8183d2ec55a90953c9097d6f7ada4a1e9789b50117278a
+Rename projects
+sha256=327a495ffd361601bd1abf63621184004ea2b2c4f25e37efeff0af6299108da9
