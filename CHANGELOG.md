@@ -2,6 +2,10 @@
 
 What changed in each version of **Purphex**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.39.5  The whole picture, never cut off
+
+- FIXED: a tall or wide MP4 zoomed right into your picture and cut most of it off. The whole picture is always in the video now, never cropped: it fills SQUARE videos edge to edge (the right size for a square picture), and wide or tall sizes show the whole picture with black only where the shapes differ. The size list says which ones fill.
+
 ## 3.39.4  Your picture fills the video
 
 - FIXED: the picture in an MP4 video now fills the whole video, edge to edge, in every size. A black border inside the picture (from making it smaller with Resize) is trimmed off, and wide or tall videos crop a little off the picture's edges instead of adding black bars.

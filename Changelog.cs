@@ -7,10 +7,13 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.39.4";
+    public const string Latest = "3.39.5";
 
     public const string Text =
-@"3.39.4  Your picture fills the video
+@"3.39.5  The whole picture, never cut off
+ + FIXED: a tall or wide MP4 zoomed right into your picture and cut most of it off. The whole picture is always in the video now, never cropped: it fills SQUARE videos edge to edge (the right size for a square picture), and wide or tall sizes show the whole picture with black only where the shapes differ. The size list says which ones fill.
+
+3.39.4  Your picture fills the video
  + FIXED: the picture in an MP4 video now fills the whole video, edge to edge, in every size. A black border inside the picture (from making it smaller with Resize) is trimmed off, and wide or tall videos crop a little off the picture's edges instead of adding black bars.
 
 3.39.3  One picture in your videos

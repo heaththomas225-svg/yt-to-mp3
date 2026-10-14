@@ -184,7 +184,7 @@ partial class StudioForm
     }
 
     // the picture of an MP4 export at the size you picked: the picture on the project's card (or the Purphex logo when it has none).
-    // It fills the whole video, edge to edge, in every size (a black border inside the picture is trimmed off).
+    // The whole picture is always shown (never cropped); a square picture fills a square video edge to edge.
     internal string MakeVideoFrame() { return MakeVideoFrame(1080, 1080); }
     internal string MakeVideoFrame(int W, int H)
     {
@@ -196,8 +196,8 @@ partial class StudioForm
         {
             g.Clear(Color.Black);
             if (src != null)
-            {   // the picture fills the whole video, edge to edge: a plain black border inside the picture is trimmed off first, then it is scaled to cover the frame (a wide or tall video crops a little off the edges, never adds black)
-                var c = VideoCrop(src); float k = Math.Max(W / (float)c.Width, H / (float)c.Height), dw = c.Width * k, dh = c.Height * k;
+            {   // the WHOLE picture, never cropped: a plain black border inside it is trimmed off first, then it is made as big as the video allows (a square picture fills a square video completely; a wide or tall video has black only where the shapes differ)
+                var c = VideoCrop(src); float k = Math.Min(W / (float)c.Width, H / (float)c.Height), dw = c.Width * k, dh = c.Height * k;
                 g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic; g.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.HighQuality;
                 lock (src) g.DrawImage(src, new RectangleF((W - dw) / 2f, (H - dh) / 2f, dw, dh), c, GraphicsUnit.Pixel);
             }
@@ -607,7 +607,7 @@ static class StudioDialogs
         // MP4: the size of the video and the quality of its sound (they take the place of the description while MP4 is picked)
         var vLab = new Label { Text = "Video", Left = 16, Top = y + 6, Width = 70, Height = 22 }; var vCb = new DarkCombo { Left = 90, Top = y + 2, Width = 330 }; vCb.Items.AddRange(Exporter.VideoNames); vCb.SelectedIndex = 1;
         var sLab = new Label { Text = "Sound", Left = 16, Top = y + 44, Width = 70, Height = 22 }; var sCb = new DarkCombo { Left = 90, Top = y + 40, Width = 330 }; sCb.Items.AddRange(Exporter.SoundNames); sCb.SelectedIndex = 1;
-        var vNote = new Label { Left = 428, Top = y + 4, Width = side ? 140 : 110, Height = 72, ForeColor = TM.C(255, 170, 150, 190), Text = "Your picture fills the whole video, edge to edge (wide and tall sizes crop a little off its edges)." }; f.Controls.AddRange(new Control[] { vLab, vCb, sLab, sCb, vNote });
+        var vNote = new Label { Left = 428, Top = y + 4, Width = side ? 140 : 110, Height = 72, ForeColor = TM.C(255, 170, 150, 190), Text = "The whole picture is always shown. A square picture fills SQUARE sizes completely; wide and tall sizes add black where the shapes differ." }; f.Controls.AddRange(new Control[] { vLab, vCb, sLab, sCb, vNote });
         Action mp4Upd = () => { bool v = fm.SelectedIndex == Exporter.Mp4; vLab.Visible = vCb.Visible = sLab.Visible = sCb.Visible = vNote.Visible = v; fmDesc.Visible = !v; rt.Enabled = !v; };
         fm.SelectedIndexChanged += (s0, e0) => { descUpd(); mp4Upd(); }; rt.SelectedIndexChanged += (s0, e0) => descUpd(); descUpd(); mp4Upd(); y += 84;
         f.Controls.Add(new Label { Text = "Name", Left = 16, Top = y + 4, Width = 70, Height = 22 });

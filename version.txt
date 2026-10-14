@@ -1,4 +1,4 @@
-3.39.4
+3.39.5
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Your picture fills the video
-sha256=f41db8af2733215132365c37afb1f23665402b1404c1f53b2db3c99e0f75b8a2
+The whole picture, never cut off
+sha256=dbc4767e5b94f712ad5377a7d0b94c38db6dc853f967fd1dc16294e36daa52d3
