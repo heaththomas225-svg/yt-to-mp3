@@ -2,6 +2,10 @@
 
 What changed in each version of **Purphex**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.40.2  Pause right on the spot
+
+- FIXED: PAUSE (and STOP) stop exactly where you are listening. They used to skip ahead by the audio still waiting in the sound card (up to about a fifth of a second), so PLAY carried on a little further on. The sound card now says exactly what it has played, and the needle uses the same, so the needle, pause and play all agree to within a few milliseconds.
+
 ## 3.40.1  Cleaner vocal and beat split, split anywhere
 
 - NEW: SPLIT VOCALS + BEAT is much cleaner: it uses the best separation model (htdemucs_ft, four fine-tuned AI models instead of one) with smoother joins between the parts it works on, and the beat is now the song itself minus the vocal, so nothing of the beat is lost or muffled and vocals + beat add up to the song exactly. It takes a few minutes (about four times longer), runs on your graphics card, and downloads the model once (about 300 MB).

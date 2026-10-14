@@ -47,6 +47,19 @@ static class D
             var ro = StudioForm.RowOrder(e5.Tracks); Check("putting the list in order: rows, then pieces", ro.Count == 3 && ro[0] == voc && ro[1] == beat && ro[2] == pc, "");
             try { System.IO.File.Delete(pf5); } catch { }
         }
+        // PAUSE stops exactly where you are listening (it used to skip ahead by the audio still waiting in the sound card)
+        {
+            var ep = new StudioEngine(); foreach (var mf in ep.MasterFx) mf.Bypass = true; ep.Tracks.Add(StudioEngine.NewTrack("Long", "beat", AudioClip.FromArrays(new float[44100 * 20], new float[44100 * 20], "l")));
+            string perr = null; try { ep.Play(); } catch (Exception ex) { perr = ex.Message; }
+            if (perr != null) Console.WriteLine("SKIP  pause test: no sound card here (" + perr + ")");
+            else
+            {
+                var sw = System.Diagnostics.Stopwatch.StartNew(); long firstHeard = -1; while (sw.ElapsedMilliseconds < 4000) { if (firstHeard < 0 && ep.HeardPos > 0) { firstHeard = 1; sw.Restart(); } System.Threading.Thread.Sleep(5); if (firstHeard > 0 && sw.ElapsedMilliseconds >= 2000) break; }
+                double heardS = sw.Elapsed.TotalSeconds; long made = ep.Pos; ep.Pause(); double posS = ep.Pos / 44100.0, aheadMs = (posS - heardS) * 1000;
+                Check("PAUSE stops where you are listening, not ahead of it (the audio still in the sound card is not skipped)", Math.Abs(aheadMs) < 60 && ep.Pos < made, "stopped at " + posS.ToString("0.000") + " s after hearing " + heardS.ToString("0.000") + " s (" + aheadMs.ToString("+0;-0") + " ms), it had made up to " + (made / 44100.0).ToString("0.000") + " s");
+                long at = ep.Pos; ep.Play(); System.Threading.Thread.Sleep(30); long back = ep.HeardPos; ep.Pause(); Check("PLAY after PAUSE carries on from that very spot", back >= at - 2000 && back <= at + 44100 / 10, (back - at) + " frames after the pause point"); ep.Shutdown();
+            }
+        }
         // LOOP A SECTION: playback goes round from the end of the section to its start, exact to the sample, and never stops
         {
             int len = 44100 * 4; var ramp = new float[len]; for (int i = 0; i < len; i++) ramp[i] = 0.1f + i / (float)len * 0.5f;

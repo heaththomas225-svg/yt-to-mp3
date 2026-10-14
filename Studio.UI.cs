@@ -145,7 +145,7 @@ partial class StudioForm : Form
         double nowS = playClock.Elapsed.TotalSeconds, dt = Math.Min(0.1, nowS - lastClockS); lastClockS = nowS;
         if (eng.Playing)
         {
-            double target = Math.Max(0, eng.Pos - WaveOutPlayer.QueuedFrames + 512);
+            double target = eng.HeardPos;   // exactly what you are hearing (the sound card says how much it has played), so the needle and PAUSE agree
             if (Math.Abs(dispPos - target) > 9000) dispPos = target;
             else { dispPos += dt * StudioEngine.SR; dispPos += (target - dispPos) * Math.Min(1.0, dt * 8); }
             { long endF = eng.EndFrame; if (endF > 0 && mic == null && dispPos > endF) dispPos = endF; }   // the reverb / delay tail after the last clip plays on, but the needle stops exactly at the end of the audio (never past the track)

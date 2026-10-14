@@ -667,7 +667,22 @@ partial class StudioEngine
         EnsurePlayer();
         lock (Sync) { if (EndFrame > 0 && Pos >= EndFrame) Pos = 0; if (!Playing) { if (CountIn) { LastCountFrames = SR * 4; countLeft = LastCountFrames; /* always 4 clicks, one a second, whatever the tempo is */ } else { LastCountFrames = 0; countLeft = 0; } } Playing = true; }
     }
-    public void Pause() { Playing = false; countLeft = 0; }
+    // the place in the song you are hearing right now: what has been made, minus what is still waiting in the sound card, minus the delay of the plugins (they all wait for the slowest one)
+    public long HeardPos
+    {
+        get
+        {
+            if (countLeft > 0) return Pos;   // the count-in: the song has not started yet
+            long lat = 0; try { lat = MixLatency(Tracks, Live); } catch { }
+            long sp = player != null ? player.PlayingSongPos() : -1; long h;
+            if (sp >= 0) h = sp - lat;   // the block the sound card is playing says exactly where in the song it is
+            else { long q = player != null ? player.Queued() : 0; h = Pos - q - lat; }
+            if (LoopSection && h >= LoopB) h = LoopA + (h - LoopB);
+            return Math.Max(0, h);
+        }
+    }
+    // PAUSE stops exactly where you are listening: PLAY carries on from that very spot (it used to skip ahead by the audio still waiting in the sound card)
+    public void Pause() { if (!Playing) { countLeft = 0; return; } long h = HeardPos; Playing = false; lock (Sync) { Pos = h; countLeft = 0; ResetStates(); } }
     public void Stop() { Playing = false; lock (Sync) { Pos = 0; countLeft = 0; ResetStates(); } }
 
     static bool gcTuned;
@@ -675,7 +690,7 @@ partial class StudioEngine
     {
         if (player != null) return;
         if (!gcTuned) { gcTuned = true; try { System.Runtime.GCSettings.LatencyMode = System.Runtime.GCLatencyMode.SustainedLowLatency; } catch { } }   // a big memory clean-up never freezes the sound while it plays
-        player = new WaveOutPlayer(RenderRealtime); player.Start();
+        player = new WaveOutPlayer(RenderRealtime) { PosNow = () => Interlocked.Read(ref Pos), PlayingNow = () => Playing && countLeft <= 0 }; player.Start();
     }
     // the code that makes the sound is compiled by a background thread when the studio opens, so the FIRST time you press play nothing has to be compiled while the sound card is waiting (that was the crackle of a first launch)
     static bool warmed;
@@ -754,6 +769,28 @@ class WaveOutPlayer : IDisposable
     [DllImport("winmm.dll")] static extern int waveOutReset(IntPtr h);
     [DllImport("winmm.dll")] static extern int waveOutClose(IntPtr h);
     [DllImport("winmm.dll")] static extern int waveOutPause(IntPtr h);
+    [StructLayout(LayoutKind.Sequential)] struct MMTIME { public uint wType; public uint u; public uint pad; }
+    [DllImport("winmm.dll")] static extern int waveOutGetPosition(IntPtr h, ref MMTIME t, int size);
+    long sent;   // frames handed to the sound card since it was opened
+    public Func<long> PosNow; public Func<bool> PlayingNow;   // the engine: where the song is, and whether it plays
+    readonly long[] bSent = new long[64], bFrom = new long[64], bTo = new long[64]; readonly bool[] bPlay = new bool[64]; int bHead;   // the last blocks sent: where each starts in the sound card, which part of the song it holds
+    // the place in the song the sound card is playing right now (-1 when it cannot tell)
+    public long PlayingSongPos()
+    {
+        try
+        {
+            if (hwo == IntPtr.Zero) return -1; var t = new MMTIME { wType = 2 }; if (waveOutGetPosition(hwo, ref t, Marshal.SizeOf(typeof(MMTIME))) != 0 || t.wType != 2) return -1; long played = t.u;
+            lock (bSent) for (int k = 0; k < 64; k++) { int i = (bHead - 1 - k + 64 * 2) % 64; if (bSent[i] <= played && played < bSent[i] + Frames) { long off = played - bSent[i]; if (!bPlay[i]) return bFrom[i]; if (bTo[i] >= bFrom[i]) return Math.Min(bTo[i], bFrom[i] + off); return bFrom[i] + off; } }
+        }
+        catch { }
+        return -1;
+    }
+    // the frames sent to the sound card that it has not played yet: exactly how far what you hear is behind what has been made
+    public int Queued()
+    {
+        try { if (hwo == IntPtr.Zero) return QueuedFrames; var t = new MMTIME { wType = 2 }; if (waveOutGetPosition(hwo, ref t, Marshal.SizeOf(typeof(MMTIME))) == 0 && t.wType == 2) { long q = Interlocked.Read(ref sent) - t.u; if (q >= 0 && q <= (long)Buffers * Frames) return (int)q; } } catch { }
+        return QueuedFrames;
+    }
     [DllImport("winmm.dll")] static extern int waveOutRestart(IntPtr h);
     [DllImport("avrt.dll", CharSet = CharSet.Unicode)] static extern IntPtr AvSetMmThreadCharacteristicsW(string task, ref uint index);
     const int CALLBACK_EVENT = 0x50000, WHDR_DONE = 1;
@@ -798,6 +835,7 @@ class WaveOutPlayer : IDisposable
 
     void Fill(int i)
     {
+        long from = PosNow != null ? PosNow() : 0; bool pl = PlayingNow != null && PlayingNow();
         try { render(fl, fr, Frames); } catch { Array.Clear(fl, 0, Frames); Array.Clear(fr, 0, Frames); }
         float gn = StudioEnv.UnderTest ? 0f : Math.Min(Gain, Prefs.OutVol / 100f); if (gn != 1f) for (int k = 0; k < Frames; k++) { fl[k] *= gn; fr[k] *= gn; }
         safety.Process(fl, fr, Frames);   // a project that is too loud is brought down smoothly instead of being chopped off (chopped peaks are the crackle and fuzz you hear)
@@ -807,6 +845,8 @@ class WaveOutPlayer : IDisposable
             tmp[k * 2] = (short)(a * 32767f); tmp[k * 2 + 1] = (short)(b * 32767f);
         }
         Marshal.Copy(tmp, 0, data[i], Frames * 2);
+        lock (bSent) { int b = bHead % 64; bSent[b] = Interlocked.Read(ref sent); bFrom[b] = from; bTo[b] = PosNow != null ? PosNow() : from; bPlay[b] = pl && bTo[b] != from; bHead = (bHead + 1) % 64; }
+        Interlocked.Add(ref sent, Frames);
         var h = (WAVEHDR)Marshal.PtrToStructure(hdrs[i], typeof(WAVEHDR)); h.dwFlags &= ~(uint)WHDR_DONE; Marshal.StructureToPtr(h, hdrs[i], false);
         waveOutWrite(hwo, hdrs[i], Marshal.SizeOf(typeof(WAVEHDR)));
     }
