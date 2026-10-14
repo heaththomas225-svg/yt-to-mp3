@@ -877,6 +877,12 @@ static class NF
                 ms.Clear(); ms.Add(sf.eng.Tracks[2]); ms.Add(row3); int before = sf.eng.Tracks.Count; sf.GroupToRows(-5); Check("a group cannot go above the first track (nothing moves)", sf.eng.Tracks.Count == before && row3.Clip != null);
                 ms.Clear(); sf.eng.Tracks.Clear(); SetF("revertAction", null);
             }
+            {   // ALL PLUGINS edits the buses too: picking a bus column edits it in the plugin panel, TRACKS INTO THIS BUS routes a track (with its pieces)
+                sf.eng.Tracks.Clear(); var bt1 = StudioEngine.NewTrack("Vox", "vocal", AudioClip.FromArrays(new float[44100], new float[44100], "a")); var bp1 = StudioEngine.NewTrack("Vox (2)", "vocal", AudioClip.FromArrays(new float[44100], new float[44100], "a")); bp1.Host = bt1; sf.eng.Tracks.Add(bt1); sf.eng.Tracks.Add(bp1);
+                var bb = (Track)typeof(StudioForm).GetMethod("AddBus", BF).Invoke(sf, null); sf.PickAllFxColumn(bb, sf.eng.Tracks.IndexOf(bb)); Check("picking a bus in ALL PLUGINS edits that bus in the plugin panel", sf.busEdit == bb, "");
+                sf.SetTrackBus(bt1, bb); Check("TRACKS INTO THIS BUS sends the track and its pieces through the bus", bt1.Out == bb && bp1.Out == bb, ""); sf.SetTrackBus(bt1, null); Check("and back to the master", bt1.Out == null && bp1.Out == null, "");
+                sf.PickAllFxColumn(bt1, 0); Check("picking a track goes back to tracks", sf.busEdit == null, ""); sf.eng.Tracks.Clear(); SetF("revertAction", null);
+            }
             {   // COPY ALL PLUGINS / PASTE ALL PLUGINS: every plugin of one track (settings and preset boxes) onto another; the plugins already there stay
                 sf.eng.Tracks.Clear(); var cA = StudioEngine.NewTrack("Vox A", "vocal", AudioClip.FromArrays(new float[44100], new float[44100], "a")); var cB = StudioEngine.NewTrack("Vox B", "vocal", AudioClip.FromArrays(new float[44100], new float[44100], "b")); sf.eng.Tracks.Add(cA); sf.eng.Tracks.Add(cB);
                 var pcA = new List<Fx>(); var eqA = FxRegistry.Create("eq"); var cmA = FxRegistry.Create("comp"); cmA.Set("ratio", 7); pcA.Add(eqA); pcA.Add(cmA); foreach (var f in pcA) f.Prepare(44100); typeof(StudioForm).GetMethod("PutPreset", BF).Invoke(sf, new object[] { cA, "Cloud Rap Haze", pcA });

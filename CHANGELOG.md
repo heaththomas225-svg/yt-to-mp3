@@ -2,6 +2,10 @@
 
 What changed in each version of **Purphex**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.39.1  Buses in ALL PLUGINS
+
+- NEW: ALL PLUGINS has your buses too, so everything is in one place like Logic Pro: each bus is a gold column with its plugins (+ ADD, copy and paste them the same way), it shows which tracks go into it, TRACKS INTO THIS BUS lets you tick the tracks that go through it, and + NEW BUS at the end makes a bus. Picking a bus there edits it in the plugin panel.
+
 ## 3.39.0  Export your song as an MP4 video
 
 - NEW: EXPORT as an MP4 VIDEO. Pick MP4 video in the Format box: your song comes out as a video with the picture of your project (the one on its card in My Projects, or the Purphex logo when it has none), for exactly as long as the song. 1080 x 1080 H.264 with AAC 320 kbps sound, ready for YouTube, Instagram and TikTok.
