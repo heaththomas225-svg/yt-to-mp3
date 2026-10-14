@@ -89,10 +89,17 @@ partial class StudioForm
         using (var pen = new Pen(Color.FromArgb(240, c2), 2.2f)) using (var p = RR(r, 14)) g.DrawPath(pen, p);
     }
 
+    // a published project that is renamed: the song on the community page takes the new name straight away (in the background)
+    internal Func<string, string, string, string> renameHook;   // a test answers for the website
+    void RenameOnCommunity(ProjectEntry e, string nm)
+    {
+        if (!ProfileStore.Published || ProfileStore.Key.Length < 32) return; string key = ProfileStore.Key, pid = CommunitySongs.PidOf(e.Path); var hook = renameHook;
+        System.Threading.ThreadPool.QueueUserWorkItem(o => { string err = hook != null ? hook(key, pid, nm) : CommunitySongs.Rename(key, pid, nm); try { BeginInvoke(new Action(() => Toast(err == null ? "Renamed to " + nm + " on the community too." : err))); } catch { } });
+    }
     void RenameEntry(ProjectEntry e)
     {
         string nm = Ask("Project name:", e.Name); if (nm == null) return; nm = nm.Trim(); if (nm.Length == 0) return;
-        e.Name = nm; e.Custom = true; if (string.Equals(e.Path, projPath, StringComparison.OrdinalIgnoreCase)) projName = nm; ProjectLibrary.Save(); if (e.OnProfile) QueueRepublish(); Toast("Renamed to " + nm);   // a published project gets its new name on the profile and the community page too
+        e.Name = nm; e.Custom = true; if (string.Equals(e.Path, projPath, StringComparison.OrdinalIgnoreCase)) projName = nm; ProjectLibrary.Save(); if (e.OnProfile) { QueueRepublish(); RenameOnCommunity(e, nm); } Toast("Renamed to " + nm);   // a published project gets its new name on the profile and the community page too
     }
     void DescribeEntry(ProjectEntry e)
     {

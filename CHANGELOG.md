@@ -2,6 +2,14 @@
 
 What changed in each version of **Purphex**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.38.8  EPs you can open and play
+
+- NEW: EPs and albums on the Community tab: under ALBUMS and EPS each release is one card. Click it (or the EP name on any of its songs) to see its songs in order, play any one, or press PLAY EP / PLAY ALBUM to hear them all one after another.
+- NEW: EPs and albums on My Projects: the projects of an EP are one EP card (not separate cards). OPEN EP lists its songs: PLAY hears one without opening it, clicking a song asks to open its project. While you search, the songs show one by one.
+- CHANGED: an EP needs at least 4 songs (a short release) and an album at least 5.
+- NEW: renaming a published project renames the song on the community straight away.
+- CHANGED: every option in every menu has its own neon box, with a little space between options.
+
 ## 3.38.7  Power buttons, bigger menus
 
 - NEW: the light at the top left of a track is now a real POWER button: bigger, round and glossy with a power sign, lit in the track colour when on and dark red when off, and pressing it sends pulse rings out of it.

@@ -86,6 +86,17 @@ static class CommunitySongs
         }
         catch (Exception ex) { return "Could not reach the Purphex community (" + ex.Message + "). Check your internet connection."; }
     }
+    // a published project was renamed: the song on the community takes the new name straight away (null = it worked, otherwise a sentence)
+    public static string Rename(string key, string pid, string title)
+    {
+        try
+        {
+            var rq = (HttpWebRequest)WebRequest.Create(CommunityPresets.BaseUrl + "/api/profiles/song/rename"); rq.Method = "POST"; rq.UserAgent = "PurphexMusic"; rq.Timeout = 20000; rq.ContentType = "application/json";
+            var b = Encoding.UTF8.GetBytes("{\"key\":" + ProfApi.J(key) + ",\"pid\":" + ProfApi.J(pid) + ",\"title\":" + ProfApi.J(title) + "}"); rq.ContentLength = b.Length; using (var s = rq.GetRequestStream()) s.Write(b, 0, b.Length);
+            using (var r = (HttpWebResponse)rq.GetResponse()) using (var sr = new StreamReader(r.GetResponseStream(), Encoding.UTF8)) { var o = MiniJson.Parse(sr.ReadToEnd()) as Dictionary<string, object>; object ok; return o != null && o.TryGetValue("ok", out ok) && ok is bool && (bool)ok ? null : "The community did not take the new name."; }
+        }
+        catch (Exception ex) { return "Could not reach the Purphex community (" + ex.Message + ")."; }
+    }
     // null = it worked, otherwise a sentence
     public static string Remove(string key, string pid)
     {

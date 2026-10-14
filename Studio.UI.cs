@@ -542,7 +542,7 @@ partial class StudioForm : Form
         PaintSoundDrag(g); PaintPackManager(g);
         if (soundBox != null && soundBox.Visible && !(soundsOpen && tab == 0)) soundBox.Visible = false;
     }
-    void PaintSheets(Graphics g) { PaintCutMark(g); PaintNewTrackSheet(g); PaintBusSheet(g); PaintStylesSheet(g); PaintThemeSheet(g); PaintCoverSheet(g); PaintPresetSheet(g); PaintAutoMixSheet(g); PaintAutoSheet(g); PaintGainPanel(g); PaintPickSheet(g); PaintCommPresets(g); PaintAllFxSheet(g); }
+    void PaintSheets(Graphics g) { PaintCutMark(g); PaintNewTrackSheet(g); PaintBusSheet(g); PaintStylesSheet(g); PaintThemeSheet(g); PaintCoverSheet(g); PaintPresetSheet(g); PaintAutoMixSheet(g); PaintAutoSheet(g); PaintGainPanel(g); PaintPickSheet(g); PaintCommPresets(g); PaintAllFxSheet(g); PaintEpSheet(g); PaintProjEpSheet(g); }
 
     // ---- dragging a pop-up box: the page under it and the box itself are each drawn once into a picture, then the box is just slid across (redrawing the whole studio for every mouse move was the lag) ----
     Bitmap popBase, popLayer; string popCapId = ""; PointF popLayerOff; List<HitReg> popKeepRegs;
@@ -1362,6 +1362,8 @@ partial class StudioForm : Form
         if (k == Keys.Escape && multiSel.Count > 0) { multiSel.Clear(); return true; }
         if (stylesOpen) { if (k == Keys.Escape) { stylesOpen = false; return true; } return base.ProcessCmdKey(ref msg, k); }
         if (allFxOpen && !browserOpen && k == Keys.Escape) { allFxOpen = false; return true; }
+        if (epOpen && k == Keys.Escape) { epOpen = false; return true; }
+        if (projEpOpen && k == Keys.Escape) { projEpOpen = false; return true; }
         if (browserOpen)
         {
             if (k == Keys.Escape) { browserOpen = false; return true; }
@@ -1424,7 +1426,7 @@ partial class StudioForm : Form
     }
     protected override void OnMouseUp(MouseEventArgs e) { base.OnMouseUp(e); lastInput = DateTime.Now; if (dragReg != null && dragReg.OnUp != null) { try { dragReg.OnUp(); } catch { } } dragReg = null; zoomAnchor = 0; if (sndDrag != null) { if (sndDragging) DropSampleAt(e.Location); sndDrag = null; sndDragging = false; } if (panning) { panning = false; Cursor = Cursors.Default; } }
     // true while any pop-up sheet, menu or panel covers the studio: nothing behind it can be clicked, scrolled or typed into
-    bool OverlayOpen { get { return menuOpen || browserOpen || busy || ntOpen || busOpen || stylesOpen || themeOpen || caOpen || psOpen || amOpen || autoOpen || gainOpen || pickOpen || cpOpen || keyOn || packsOpen || allFxOpen; } }
+    bool OverlayOpen { get { return menuOpen || browserOpen || busy || ntOpen || busOpen || stylesOpen || themeOpen || caOpen || psOpen || amOpen || autoOpen || gainOpen || pickOpen || cpOpen || keyOn || packsOpen || allFxOpen || epOpen || projEpOpen; } }
     protected override void OnMouseWheel(MouseEventArgs e)
     {
         base.OnMouseWheel(e); MousePos = e.Location; lastInput = DateTime.Now;

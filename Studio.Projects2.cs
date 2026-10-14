@@ -80,7 +80,7 @@ partial class StudioForm
         if (tab != 3) { projBin = false; projSearchOn = false; }
         if (previewPath.Length == 0) return;
         // a preview keeps playing when you go to another page (the strip with the pause button shows on the projects, community, profile, artists and fonts pages); it stops only when the song reaches its end, when you stop it, or when something plays in the Mix, Mastering or Lyrics pages (below)
-        if (previewEng != null && !previewEng.Playing && previewPlayFn == null && !previewPaused) StopPreview();   // it reached the end
+        if (previewEng != null && !previewEng.Playing && previewPlayFn == null && !previewPaused) { if (!EpQueueNext()) StopPreview(); }   // it reached the end (PLAY EP goes on with the next song)
         if (eng.Playing) StopPreview();
     }
     // the strip along the bottom while a preview plays: the same design as the one under the tracks (solid black, the logo in the middle, waves flowing out of it)

@@ -1,4 +1,4 @@
-3.38.7
+3.38.8
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Power buttons, bigger menus
-sha256=4119bfd3a67abbcfc21cd2e8e4fbce1bdea25f157a488e28bdab0100bdb05b11
+EPs you can open and play
+sha256=57c69336e237502e353e9dd8ab634bc89a1dc1ab0f42d8a057feb8c7af7e59a8

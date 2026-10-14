@@ -222,7 +222,7 @@ partial class StudioForm
         float W = ClientSize.Width, H = ClientSize.Height, top = ToolH; if (!projectsLoaded) { projectsLoaded = true; ProjectLibrary.Load(); ProjectLibrary.Discover(); }
         PaintLogoBackdrop(g, Rc(0, top, W, H - top));
         if (projBin) { PaintBin(g); return; }
-        var list = VisibleProjects(); float y0 = PaintProjectsBar(g, W, top, ProjectLibrary.Entries.Count, list.Count); float cw = 230, ch = 428, gap = 18, x0 = 24; int cols = Math.Max(1, (int)((W - 48 - 56 + gap) / (cw + gap))); int count = list.Count + 1; int rows = (count + cols - 1) / cols; float bottomRoom = previewPath.Length > 0 ? 70 : 20;
+        var list = VisibleProjects(); float y0 = PaintProjectsBar(g, W, top, ProjectLibrary.Entries.Count, list.Count); float cw = 230, ch = 428, gap = 18, x0 = 24; int cols = Math.Max(1, (int)((W - 48 - 56 + gap) / (cw + gap))); var relCards = GroupProjectReleases(list); int count = list.Count + relCards.Count + 1;   /* an EP or album is one card (its projects are inside it) */ int rows = (count + cols - 1) / cols; float bottomRoom = previewPath.Length > 0 ? 70 : 20;
         float maxScroll = Math.Max(0, y0 + rows * (ch + gap) - H + bottomRoom); projScroll = Math.Max(0, Math.Min(maxScroll, projScroll)); var area = Rc(0, y0 - 8, W, H - y0 + 8); Reg(area, () => { }).OnWheel = d => { projScroll = Math.Max(0, Math.Min(maxScroll, projScroll - d * 70)); };
         var gs = g.Save(); g.SetClip(area, CombineMode.Intersect);
         for (int i = 0; i < count; i++)
@@ -233,7 +233,8 @@ partial class StudioForm
                 FillRR(g, TM.C(170, 20, 11, 40), card, 14); Win.DrawNeonBox(g, card, Hot(card)); Txt(g, "+", 54, NeonCyan, Rc(card.X, card.Y + 100, card.Width, 70), StringAlignment.Center, true); Txt(g, "NEW PROJECT", 15, Ink, Rc(card.X, card.Y + 180, card.Width, 26), StringAlignment.Center, true);
                 Txt(g, "START WITH A CLEAN PAGE", 11, DimC, Rc(card.X, card.Y + 208, card.Width, 20), StringAlignment.Center, false); Reg(card, () => { StopPreview(); tab = 0; NewProject(); }); continue;
             }
-            var e = list[i - 1]; string path = e.Path; bool hot = Hot(card); bool prev = string.Equals(previewPath, path, StringComparison.OrdinalIgnoreCase);
+            if (i <= relCards.Count) { PaintReleaseCard(g, card, relCards[i - 1], i); continue; }
+            var e = list[i - 1 - relCards.Count]; string path = e.Path; bool hot = Hot(card); bool prev = string.Equals(previewPath, path, StringComparison.OrdinalIgnoreCase);
             FillRR(g, TM.C(205, 22, 12, 42), card, 14); Win.DrawNeonBox(g, card, hot || prev); if (card.Bottom > y0 && card.Y < H) AnimRing(g, card, i % 2 == 0 ? NeonCyan : NeonPink);   // the border runs with lights, like the picture on a profile
             var pic = Rc(card.X + 8, card.Y + 8, cw - 16, cw - 16); DrawCover(g, pic, e); Win.DrawNeonBox(g, pic, false); if (e.Missing) { using (var b = new SolidBrush(TM.C(170, 8, 4, 16))) g.FillRectangle(b, pic); Txt(g, "FILE NOT FOUND", 13, Color.FromArgb(255, 150, 150), pic, StringAlignment.Center, true); }
             Txt(g, e.Name, 15, Ink, Rc(card.X + 12, card.Y + 228, cw - 24, 24), StringAlignment.Near, true);

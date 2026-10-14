@@ -34,22 +34,23 @@ static class ReleaseStore
     }
     public static void Remove(string id) { Load(); lock (lk) All.RemoveAll(r => r.Id == id); Save(); }
     public static void ResetForTest() { lock (lk) { All.Clear(); loaded = false; try { File.Delete(FileP); } catch { } } }
-    // "collections":[...] for the profile: only the projects that are published count, and a release needs two of them
+    // "collections":[...] for the profile: only the projects that are published count, and an EP needs 4 of them, an album 5
     public static string Json(IEnumerable<ProjectEntry> published)
     {
         Load(); var have = new HashSet<string>(); foreach (var e in published) if (e.OnProfile && !e.Missing) have.Add(CommunitySongs.PidOf(e.Path)); var sb = new StringBuilder("["); int n = 0;
         lock (lk) foreach (var r in All)
         {
-            var ps = r.Pids.FindAll(p => have.Contains(p)); if (ps.Count < 2 || n >= 40) continue; if (n++ > 0) sb.Append(',');
+            var ps = r.Pids.FindAll(p => have.Contains(p)); if (ps.Count < MinSongs(r.Kind) || n >= 40) continue;   // it shows as an EP or album once enough of its songs are published if (n++ > 0) sb.Append(',');
             sb.Append("{\"id\":" + ProfApi.J(r.Id) + ",\"t\":" + ProfApi.J(r.Title) + ",\"k\":" + ProfApi.J(r.Kind) + ",\"p\":[" + string.Join(",", ps.ConvertAll(p => ProfApi.J(p)).ToArray()) + "]}");
         }
         return sb.Append(']').ToString();
     }
     // a sentence when the choice is not allowed, null when it is fine
+    public static int MinSongs(string kind) { return kind == "album" ? 5 : 4; }   // an EP is a short release of 4 or more songs, an album 5 or more
     public static string Check(string kind, string title, int n)
     {
         if ((title ?? "").Trim().Length < 2) return "Give it a name with at least 2 letters.";
-        if (n < 2) return "Pick at least 2 projects: an " + (kind == "album" ? "album" : "EP") + " is several tracks together.";
+        if (n < MinSongs(kind)) return kind == "album" ? "An album needs at least 5 songs: pick " + (5 - n) + " more." : "An EP needs at least 4 songs (it is a short release): pick " + (4 - n) + " more.";
         if (n > 20) return "An EP or an album holds up to 20 songs: pick fewer.";
         return null;
     }
@@ -68,7 +69,7 @@ partial class StudioForm
     }
     internal void NewReleaseClick()
     {
-        var all = ProjectLibrary.AllByEdited().FindAll(x => !x.Missing); if (all.Count < 2) { Toast("Make and save at least 2 projects first."); return; }
+        var all = ProjectLibrary.AllByEdited().FindAll(x => !x.Missing); if (all.Count < 4) { Toast("An EP needs at least 4 songs and an album 5: make and save at least 4 projects first."); return; }
         if (releaseHook == null) { OpenReleaseBuilder(all); return; }
         var r = releaseHook(all); if (r == null) return; FinishRelease(r, all);
     }
@@ -106,7 +107,7 @@ partial class StudioForm
         float y = box.Y + 86; Txt(g, "NAME", 12, DimC, Rc(box.X + 28, y, 100, 18), StringAlignment.Near, true);
         var nb = new Rectangle((int)(box.X + 28), (int)(y + 20), (int)(box.Width - 56), 32); if (relBoxAt != nb) { relBoxAt = nb; relNameBox.Bounds = nb; } if (!relNameBox.Visible) { relNameBox.Visible = true; relNameBox.BringToFront(); relNameBox.Focus(); }
         y += 64;
-        var ec = Rc(box.X + 28, y, 110, 34); var ac = Rc(ec.Right + 10, y, 130, 34); Chip(g, ec, "EP", !relAlbum, () => relAlbum = false, 1); Hint2(ec, "An EP: a short release"); Chip(g, ac, "ALBUM", relAlbum, () => relAlbum = true, 1); Hint2(ac, "An album: a full release (any number of songs)");
+        var ec = Rc(box.X + 28, y, 110, 34); var ac = Rc(ec.Right + 10, y, 130, 34); Chip(g, ec, "EP", !relAlbum, () => relAlbum = false, 1); Hint2(ec, "An EP: a short release of 4 songs or more"); Chip(g, ac, "ALBUM", relAlbum, () => relAlbum = true, 1); Hint2(ac, "An album: a full release of 5 songs or more");
         Txt(g, relPick.Count + (relPick.Count == 1 ? " SONG PICKED" : " SONGS PICKED"), 13, relPick.Count >= 2 ? NeonCyan : DimC, Rc(ac.Right + 20, y, box.Right - ac.Right - 48, 34), StringAlignment.Far, true);
         y += 46; Txt(g, "YOUR PROJECTS", 12, DimC, Rc(box.X + 28, y, 300, 18), StringAlignment.Near, true); y += 22;
         var lr = Rc(box.X + 28, y, box.Width - 56, box.Bottom - y - 96); float rowH = 54, total = relOrder.Count * rowH, maxS = Math.Max(0, total - lr.Height); relScroll = Math.Max(0, Math.Min(maxS, relScroll));
