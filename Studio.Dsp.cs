@@ -959,6 +959,10 @@ public static class FxRegistry
     static readonly List<Info> extra = new List<Info>(); static readonly Dictionary<string, Func<Fx>> factories = new Dictionary<string, Func<Fx>>();
     // Plugins call this (the host does it for you when a plugin DLL is loaded).
     public static void Register(Info info, Func<Fx> factory) { lock (extra) { if (factories.ContainsKey(info.Type)) extra.RemoveAll(i => i.Type == info.Type); extra.Add(info); factories[info.Type] = factory; allCache = null; } }
+    // made when a project asks for it, but not in the list of effects (a retired version of a listed plugin)
+    public static void RegisterHidden(Info info, Func<Fx> factory) { lock (extra) { factories[info.Type] = factory; hidden[info.Type] = info; } }
+    static readonly Dictionary<string, Info> hidden = new Dictionary<string, Info>();
+    public static Info Hidden(string type) { Info i; lock (extra) return hidden.TryGetValue(type, out i) ? i : null; }
     public static bool IsBuiltin(string type) { foreach (var i in Builtin) if (i.Type == type) return true; return PluginLibrary.IsLibrary(type); }
     static FxRegistry() { PluginLibrary.RegisterAll(); }   // the named built-in plugin library
     public static readonly Info[] Builtin = {

@@ -94,7 +94,7 @@ static class PresetPrompt
         }
         if (bs == null) foreach (var gp in Genre) { if (Has(p, gp[0])) { bs = VocalStyles.All.FirstOrDefault(s => s.Name == gp[1]); if (bs != null) { r.Understood.Add("Sound: " + gp[1]); break; } } }
         if (bs == null) { bs = VocalStyles.All.FirstOrDefault(s => s.Name == "ULTIMATE Rap Lead") ?? VocalStyles.All[0]; r.Understood.Add("No artist or genre named: starting from " + bs.Name); }
-        if (rnd != null) { var pool = VocalStyles.All.Where(s => s.Genre == bs.Genre && s.Part == bs.Part && VocalStyles.ArtistOf(s) == VocalStyles.ArtistOf(bs)).ToList(); if (pool.Count > 1) { bs = pool[rnd.Next(pool.Count)]; r.Understood.Add("Another take: starting from " + bs.Name); } }
+        if (rnd != null) r.Understood.Add("Another take: the same sound with its amounts nudged");
         // the job: ad-libs / doubles versions of that sound
         if (Has(p, "ad lib|adlib|ad libs|adlibs") && bs.Part == "Lead" && bs.Name.IndexOf("Ad-Lib", StringComparison.OrdinalIgnoreCase) < 0) { var v = VocalStyles.All.FirstOrDefault(s => s.Name == bs.Name + " - Ad-Libs"); if (v != null) { bs = v; r.Understood.Add("For ad-libs (thin, wide, thrown into an echo)"); } }
         else if (Has(p, "doubles|double track|stack track") && bs.Part == "Lead") { var v = VocalStyles.All.FirstOrDefault(s => s.Name == bs.Name + " - Doubles"); if (v != null) { bs = v; r.Understood.Add("For doubles (wide, tucked under the lead)"); } }
@@ -246,7 +246,7 @@ partial class StudioForm
         foreach (var e in exs) { float cw = 18 + e.Length * 6.3f; if (ex + cw > sheet.Right - 22) { ex = sheet.X + 60; ey += 32; } if (ey > sheet.Y + 230) break; string ee = e; Chip(g, Rc(ex, ey, cw, 26), e, aiPrompt == e, () => { aiPrompt = ee; AiGenerate(); }); ex += cw + 6; }
         {   // REGENERATE (another take on the same words) and RANDOMISE (a surprise) on every AI generator
             float by = sheet.Bottom - 62; var rg = Rc(sheet.Right - 22 - 170 - 12 - 170, by, 170, 42); var rz = Rc(sheet.Right - 22 - 170, by, 170, 42);
-            Btn(g, rg, "REGENERATE", 0, () => AiRegenerate(), 13); Hint2(rg, "Another take on the same words: another starting point and other amounts (press it again for more)");
+            Btn(g, rg, "REGENERATE", 0, () => AiRegenerate(), 13); Hint2(rg, "Another take on the same sound: the same plugins with their amounts nudged a little (press it again for more)");
             Btn(g, rz, "RANDOMISE", 0, () => AiRandomise(), 13); Hint2(rz, "A surprise: random words and what they make (press USE if you like it)");
         }
         float ry = ey + 42; var res = Rc(sheet.X + 22, ry, sheet.Width - 44, sheet.Bottom - 20 - ry - 52); FillRR(g, TM.C(150, 22, 12, 46), res, 14); StrokeRR(g, Color.FromArgb(90, NeonViolet), res, 14, 1);

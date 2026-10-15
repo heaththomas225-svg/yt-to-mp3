@@ -582,9 +582,9 @@ Press PRESETS at the top of the plugin panel (on a bus it says BUS PRESETS and s
 ## AI BUS GENERATOR
 Press AI BUS GENERATOR and describe the bus in your own words, for example: drill drum bus, punchy and dark, or Juice WRLD vocal bus with more glue and a 1/4 echo. It reads the kind of bus, the genre (or the genre of the artist you name), the flavour and changes like more glue, saturation, dry, lots of reverb, echo, telephone, mono, very wide or loud, and shows what it understood before you use it.
 "),
-        new HelpTopic("studio-effectlibrary", "Purphex Music", "The EFFECT LIBRARY: over 10,000 effects, Censor and the demon voices", false, @"
+        new HelpTopic("studio-effectlibrary", "Purphex Music", "ADD EFFECT: one of each type, the AI EFFECT GENERATOR, Censor and the demon voice", false, @"
 ## What it is
-+ ADD EFFECT lists the hand-made plugins first, then the EFFECT LIBRARY: over ten thousand ready-made versions of the app's engines, in categories that end in Library. Every reverb type in every size, tone and character; every delay note value with every feedback and tone; Auto-Tune in 192 kinds that sound different, Auto-Tune with doubles, octaves, formant, chorus and more on top, and Melody Tune with every harmony (the key is set in the plugin or found from your track); pitch and formant shifts, harmonizers and doublers; EQ curves; compressors, OTT, gates, de-essers and limiters; saturation, amps and bitcrushers; chorus, phaser, flanger, tremolo, auto-pan, auto-filter and vibrato; telephone and radio filters; robots and vocoders; stutters and glitches; real spaces, resonators, talkbox vowels and granular clouds. Use Category or type to search (for example: hall dark, 1/8 dotted, auto-tune instant, telephone).
++ ADD EFFECT lists one plugin of each type of effect (125): every kind of reverb, delay, pitch and voice tool, distortion, EQ, dynamics, modulation and creative effect. There are no copies of the same plugin with other settings: open the plugin and set its size, tone, note value, key or mix there. Use Category or type to search.
 ## AI EFFECT GENERATOR
 Press AI EFFECT GENERATOR at the top of + ADD EFFECT (or Tools > AI Effect Generator) and describe the effect: huge dark cathedral reverb with a shimmer, 1/8 dotted ping pong delay with tape and ducking, hard autotune in F# minor, telephone with a bit of distortion, croaky demon voice 9 semitones down. It shows what it understood and which plugins it made; ADD TO TRACK puts them in YOUR PLUGINS. If a word is not an effect it knows, it finds the closest name in the library.
 ## REGENERATE and RANDOMISE
@@ -592,7 +592,7 @@ Every AI generator (presets, buses and effects) has REGENERATE: another take on 
 ## Censor
 The Censor plugins hide a word like a radio or TV edit: Bleep, Mute, Reverse, Muffle, Scramble, Static or Duck. The quickest way: split the clip around the word, right-click that section and press Censor this section, then pick the sound. It adds one Censor plugin to the track and switches it on only over that section (an automation lane you can edit). Uncensor takes it off again.
 ## Demon and monster voices
-Croaky Demon Voice, Satan Voice, Lucifer Layer, Hell Lord, Possessed Whisper and the others are built the way producers make them: the pitch and the formants go down, the new Growl engine adds a croaking vocal fry, a sub-octave and rasp, then drive and a dark reverb. Demon & Monster Voices has 144 more in every depth, growl and space. Growl is also there on its own as Vocal Fry / Croak.
+Croaky Demon Voice is built the way producers make it: the pitch and the formants go down, the new Growl engine adds a croaking vocal fry, a sub-octave and rasp, then drive and a dark reverb. Set how deep, how croaky and how much reverb on the plugin itself. Growl is also there on its own as Vocal Fry / Croak.
 "),
         new HelpTopic("studio-worldecho", "Purphex Music", "Worldwide Echo: throw your voice around the world", false, @"
 ## What it is

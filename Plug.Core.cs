@@ -13,6 +13,7 @@ public static class PluginLibrary
     public class Variant { public string Id, Name, Cat, Blurb, Engine, Preset, Hide; public bool Gen; }   // Gen: made by the EFFECT LIBRARY grids (Plug.Variants.Gen.cs)
     public static bool Generating; static readonly HashSet<string> genIds = new HashSet<string>();
     public static bool IsGenerated(string type) { return type != null && genIds.Contains(type); }
+    public static bool IsListed(Variant v) { return !PluginTables.Retired(v); }
     public static int GeneratedCount { get { return genIds.Count; } }
     public static readonly List<Variant> All = new List<Variant>();
     static readonly HashSet<string> names = new HashSet<string>(StringComparer.OrdinalIgnoreCase), ids = new HashSet<string>();
@@ -35,7 +36,7 @@ public static class PluginLibrary
     public static void RegisterAll()
     {
         if (done) return; done = true; PluginTables.Fill();
-        foreach (var v in All) { var vv = v; FxRegistry.Register(new FxRegistry.Info(vv.Id, vv.Name, vv.Cat, vv.Blurb), () => Make(vv)); }
+        foreach (var v in All) { var vv = v; var info = new FxRegistry.Info(vv.Id, vv.Name, vv.Cat, vv.Blurb); if (PluginTables.Retired(vv)) FxRegistry.RegisterHidden(info, () => Make(vv)); else FxRegistry.Register(info, () => Make(vv)); }
     }
 
     public static Fx Make(Variant v)

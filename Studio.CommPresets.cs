@@ -137,7 +137,7 @@ static class CpShow
         if (p.Kind == "chain") foreach (var line in (p.Data ?? "").Replace("\r", "").Split('\n')) { int i = line.IndexOf('|'); if (i > 0) { string t = line.Substring(0, i).Trim(); if (t.Length > 0 && t.Length < 40 && !l.Contains(t)) l.Add(t); } }
         return l;
     }
-    public static string NameOf(string type) { foreach (var i in FxRegistry.All) if (i.Type == type) return i.Name.Replace(" (synthesizer)", ""); return type; }
+    public static string NameOf(string type) { foreach (var i in FxRegistry.All) if (i.Type == type) return i.Name.Replace(" (synthesizer)", ""); var h = FxRegistry.Hidden(type); return h != null ? h.Name : type; }
     public static string Label(CommPreset p)
     {
         if (p.Kind == "theme") return null; if (p.Kind == "synth") return "BASS LAB"; if (p.Kind.StartsWith("fx:")) return NameOf(p.Kind.Substring(3)).ToUpperInvariant();

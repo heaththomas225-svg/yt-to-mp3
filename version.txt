@@ -1,4 +1,4 @@
-3.43.0
+3.43.1
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-EFFECT LIBRARY: 10,339 effects, BUS PRESETS, AI BUS + EFFECT GENERATORS, Censor, demon voices
-sha256=cafd1b2ef8a3bfee7798378d27ad22677449c14e53a0d462534289ab73ede04a
+One of each type of effect, REGENERATE keeps the sound, AI BUS GENERATOR on ALL BUSES
+sha256=4df54c2f12041af2df4012e8a97d5bbf75070f8ce6564566af435e306081f953

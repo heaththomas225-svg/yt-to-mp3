@@ -2,6 +2,20 @@
 
 What changed in each version of **Purphex**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.43.1  One of each type of effect, REGENERATE keeps the sound, AI BUS GENERATOR on ALL BUSES
+
+- CHANGED: + ADD EFFECT lists one plugin of each type: Room, Hall, Plate, Chamber, Spring, Cathedral, Ambient, Shimmer, Gated and Reverse reverb, early reflections and real spaces; stereo, ping-pong, slapback, tape, analog, multi-tap and reverse delay; and so on for every kind of effect (125 in all). The thousands of versions that were only the same plugin with other settings (a size, a tone, a note value, a key, a mix) are gone from the list, because every one of those settings is on the plugin itself. A project that already uses one of them still opens with it.
+
+- NEW: Cathedral Reverb, Vibrato and one Censor plugin (its sound, Bleep, Mute, Reverse, Muffle, Scramble, Static or Duck, is a setting on it).
+
+- FIXED: REGENERATE on the AI generators gives another take on the same sound every time, for every effect: the same plugins with their amounts nudged a little (it did nothing for some effects, and sometimes jumped to another genre or reverb type).
+
+- NEW: ALL BUSES has an AI BUS GENERATOR button (and BUS PRESETS when the window is wide enough); they work on the selected bus.
+
+- CHANGED: the button that hides the plugin panel is a big glowing handle with an arrow, half way down the panel's left edge (like the side panel on the website); when the panel is tucked away the same handle, arrow pointing back, brings it out.
+
+- FIXED: if the effect list was set to a category that no longer exists it showed nothing; it now shows every effect.
+
 ## 3.43.0  EFFECT LIBRARY: 10,339 effects, BUS PRESETS, AI BUS + EFFECT GENERATORS, Censor, demon voices
 
 - NEW: the EFFECT LIBRARY. + ADD EFFECT now has 10,339 effects (it had 275): every reverb type (room, hall, plate, chamber, spring, cathedral, ambient) in 5 sizes, 5 tones and 6 characters (clean, ducked, gated, reverse, shimmer, modulated) at 3 amounts; every delay mode on every note value with 3 feedbacks, 5 tones and 3 characters, plus slapbacks and throw echoes; Auto-Tune in 192 kinds that sound different (how fast it snaps, how much of your slides it keeps, how hard it pulls, which voice), Auto-Tune with doubles, octave layers, formant, chorus, telephone, distortion, width or lo-fi on top, and Melody Tune with every harmony (the key is set in the plugin or found from your track); pitch and formant shifts, harmonizers and doublers; EQ curves; compressors, parallel compression, OTT, gates, de-essers, limiters and transient shapers; saturation, exciters, amps with cabinets and bitcrushers; chorus, phaser, flanger, tremolo, auto-pan, auto-filter, vibrato and width; telephone and radio filters; ring mods, vocoders and frequency shifters; stutters, glitch chops and tape stops; real spaces, resonators, talkbox vowels and granular clouds. They are in their own categories ending in Library, after the hand-made plugins; Category shows how many each has, and search finds them (try: hall dark, 1/8 dotted, auto-tune instant, telephone).

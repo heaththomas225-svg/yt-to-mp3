@@ -139,7 +139,7 @@ partial class StudioForm
         foreach (var p in list)
         {
             if (p == null || p.Clip == null) continue; var row = p.Host ?? p; Fx cf = null; lock (eng.Sync) cf = row.Fx.Find(f => f is CensorFx);
-            if (cf == null) { cf = FxRegistry.Create(PluginLibrary.IdFor("Censor (Bleep)")); if (cf == null) continue; cf.Prepare(StudioEngine.SR); cf.Set("censor", 0); foreach (var q in cf.P) q.Def = q.Val; lock (eng.Sync) row.Fx.Add(cf); }
+            if (cf == null) { cf = FxRegistry.Create(PluginLibrary.IdFor("Censor")); if (cf == null) continue; cf.Prepare(StudioEngine.SR); cf.Set("censor", 0); foreach (var q in cf.P) q.Def = q.Val; lock (eng.Sync) row.Fx.Add(cf); }
             cf.Set("mode", mode);
             var lane = row.Auto.Find(l => l.Fx == cf && l.Param == "censor"); if (lane == null) { lane = new AutoLane { Fx = cf, Param = "censor" }; lock (eng.Sync) row.Auto.Add(lane); }
             long s0 = p.Offset, e0 = p.Offset + p.UsedLength;

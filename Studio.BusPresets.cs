@@ -125,9 +125,9 @@ static class BusPrompt
             string artist = PresetPrompt.ArtistIn(prompt);
             if (artist != null) { var st = VocalStyles.All.FirstOrDefault(s => VocalStyles.ArtistOf(s) == artist && !string.IsNullOrEmpty(s.BusName)); string bn = st == null ? "" : st.BusName.ToLowerInvariant(); foreach (var bg in BusGenre) if (bn.Contains(bg[0])) { genre = bg[1]; break; } if (genre != null) r.Understood.Add("Artist: " + artist + " (a " + genre + " sound)"); }
         }
-        if (genre == null) { genre = rnd != null ? BusPresets.Genres[rnd.Next(BusPresets.Genres.Length)] : "Trap"; r.Understood.Add("No genre named: " + genre); } else if (!r.Understood.Any(u => u.StartsWith("Artist"))) r.Understood.Add("Genre: " + genre);
+        if (genre == null) { genre = "Trap"; r.Understood.Add("No genre named: " + genre); } else if (!r.Understood.Any(u => u.StartsWith("Artist"))) r.Understood.Add("Genre: " + genre);
         string flav = null; int fAt = int.MaxValue; foreach (var f in FlavourWords) { int at = Find(p, f[0]); if (at >= 0 && at < fAt) { fAt = at; flav = f[1]; } }   // the first flavour named
-        if (flav == null) flav = rnd != null ? BusPresets.Flavours[rnd.Next(BusPresets.Flavours.Length)] : "Clean"; r.Understood.Add("Flavour: " + flav);
+        if (flav == null) flav = "Clean"; if (rnd != null) r.Understood.Add("Another take: the same sound with its amounts nudged"); r.Understood.Add("Flavour: " + flav);
         var bs = BusPresets.All.First(s => s.Name == kind + ": " + genre + " (" + flav + ")"); r.Base = bs.Name;
         var st2 = bs.Chain.Split(new[] { " > " }, StringSplitOptions.RemoveEmptyEntries).ToList(); var tail = new List<string>(); int i;
         Predicate<string> isRev = s => s.StartsWith("reverb{"); Predicate<string> isDly = s => s.StartsWith("delay{");

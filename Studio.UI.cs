@@ -198,7 +198,19 @@ partial class StudioForm : Form
     float PanelOpenK() { float target = Prefs.PanelHidden ? 0f : 1f; double t = (DateTime.Now - panelAt).TotalMilliseconds / 180.0; if (t >= 1 || t < 0) return target; float e = (float)(1 - Math.Pow(1 - t, 3)); return (1 - target) + (target - (1 - target)) * e; }
     bool PanelAnimating { get { double ms = (DateTime.Now - panelAt).TotalMilliseconds; return ms >= 0 && ms < 260; } }
     internal void TogglePanel() { Prefs.PanelHidden = !Prefs.PanelHidden; Prefs.Changed(); panelAt = DateTime.Now; Invalidate(); }
-    void ShowPanel() { if (Prefs.PanelHidden) TogglePanel(); }   // the right-hand panel is wider while the sound browser is open
+    void ShowPanel() { if (Prefs.PanelHidden) TogglePanel(); }
+    // the handle: a tall glowing tab half way down the panel's left edge, sticking out over the timeline, with a big arrow
+    void PanelHandle(Graphics g, float px, float py, float ph, bool open)
+    {
+        float hw = 26, hh = 96; var hr = Rc(px - hw + 6, py + ph / 2 - hh / 2, hw, hh); bool hot = Hot(hr);
+        FillRR(g, hot ? TM.C(250, 70, 34, 130) : TM.C(245, 34, 18, 66), hr, 10); Glow(g, NeonCyan, hr, 10, hot ? 1f : 0.7f, 4); StrokeRR(g, Color.FromArgb(hot ? 255 : 220, NeonCyan), hr, 10, 1.8f);
+        float cx = hr.X + hr.Width / 2, cy = hr.Y + hr.Height / 2, d = open ? 1 : -1;   // open: the arrow points right (the panel goes away); tucked away: it points left (it comes back)
+        using (var pen = new Pen(Color.FromArgb(255, hot ? Color.White : NeonCyan), 3.2f) { StartCap = System.Drawing.Drawing2D.LineCap.Round, EndCap = System.Drawing.Drawing2D.LineCap.Round, LineJoin = System.Drawing.Drawing2D.LineJoin.Round })
+        {
+            foreach (float ox in new[] { -4f, 4f }) g.DrawLines(pen, new[] { new PointF(cx + ox - 4 * d, cy - 12), new PointF(cx + ox + 4 * d, cy), new PointF(cx + ox - 4 * d, cy + 12) });   // a big double arrow
+        }
+        Reg(hr, () => TogglePanel()); Hint2(hr, open ? "Hide the plugin panel for a bigger timeline (this handle brings it back)" : "Show the plugin panel: add, edit and save plugins");
+    }   // the right-hand panel is wider while the sound browser is open
     int LaneH = 132;   // track height: Alt + mouse wheel makes the tracks taller so the waveform shows more detail
     RectangleF TimelineRect() { return new RectangleF(HeadW, ToolH + TransH + RulerH, Math.Max(100, ClientSize.Width - HeadW - PanelW), Math.Max(100, ClientSize.Height - ToolH - TransH - RulerH - 6)); }
 
@@ -1045,7 +1057,7 @@ partial class StudioForm : Form
             var strip = Rc(x, y, PanelW, h); bool hotS = Hot(strip); int nfx = 0; if (eng.Tracks.Count > 0) { var tS = busEdit ?? eng.Tracks[Math.Max(0, Math.Min(selTrack, eng.Tracks.Count - 1))]; lock (eng.Sync) nfx = tS.Fx.Count; }
             using (var br = new SolidBrush(hotS ? TM.C(255, 42, 22, 78) : TM.C(255, 20, 11, 38))) g.FillRectangle(br, strip);
             using (var pen = new Pen(Color.FromArgb(hotS ? 240 : 160, NeonViolet), 1.6f)) g.DrawLine(pen, x, y, x, y + h);
-            Txt(g, "<<", 14, NeonCyan, Rc(x, y + 10, PanelW, 24), StringAlignment.Center, true);
+            PanelHandle(g, x, y, h, false);
             var gs = g.Save(); g.TranslateTransform(x + PanelW / 2f + 8, y + 44); g.RotateTransform(90); Txt(g, "PLUGINS" + (nfx > 0 ? "  (" + nfx + ")" : ""), 12, hotS ? Ink : DimC, new RectangleF(0, 0, 240, 16), StringAlignment.Near, true); g.Restore(gs);
             Reg(strip, () => TogglePanel()); Hint2(strip, "Show the plugin panel: add, edit and save plugins");
             return;
@@ -1053,12 +1065,12 @@ partial class StudioForm : Form
         var pr = Rc(x, y, w, h); using (var br = new SolidBrush(TM.C(255, 20, 11, 38))) g.FillRectangle(br, pr);
         using (var pen = new Pen(Edge)) g.DrawLine(pen, x, y, x, y + h);
         Reg(pr, () => { });
-        if (!(soundsOpen && tab == 0)) { var hb = Rc(x + w - 34, y + 8, 26, 24); Btn(g, hb, ">>", 0, () => TogglePanel(), 11); Hint2(hb, "Hide the plugin panel for a bigger timeline (the tab on the right edge brings it back)"); }
+        if (!(soundsOpen && tab == 0)) PanelHandle(g, x, y, h, true);
         if (eng.Tracks.Count == 0) { Txt(g, "SELECT A TRACK TO EDIT ITS PLUGINS", 14, DimC, pr, StringAlignment.Center, false); return; }
         if (busEdit != null && !eng.Tracks.Contains(busEdit)) busEdit = null; var tr = busEdit ?? eng.Tracks[Math.Max(0, Math.Min(selTrack, eng.Tracks.Count - 1))];   // EDIT on a bus shows that bus here
-        PaintPluginsTitle(g, tr, Rc(x + 14, y + 6, w - 28 - 126 - 32, 30));   // which track these plugins are on: its number, its kind and the end of its name, in its colour (two tracks of one song start with the same long name)
-        if (busEdit != null) { var bk = Rc(x + w - 132 - 32, y + 8, 120, 24); Btn(g, bk, "BACK TO TRACKS", 2, () => { busEdit = null; selFx = -1; }, 10); Hint2(bk, "Stop editing the bus: the plugins of the picked track show again"); }
-        else { var allB = Rc(x + w - 132 - 32, y + 8, 120, 24); Btn(g, allB, "ALL PLUGINS", 2, () => OpenAllFx(), 11); Hint2(allB, "Every track and its plugins in one place: add, paste, copy and open plugins on any track"); }
+        PaintPluginsTitle(g, tr, Rc(x + 14, y + 6, w - 28 - 126, 30));   // which track these plugins are on: its number, its kind and the end of its name, in its colour (two tracks of one song start with the same long name)
+        if (busEdit != null) { var bk = Rc(x + w - 132, y + 8, 120, 24); Btn(g, bk, "BACK TO TRACKS", 2, () => { busEdit = null; selFx = -1; }, 10); Hint2(bk, "Stop editing the bus: the plugins of the picked track show again"); }
+        else { var allB = Rc(x + w - 132, y + 8, 120, 24); Btn(g, allB, "ALL PLUGINS", 2, () => OpenAllFx(), 11); Hint2(allB, "Every track and its plugins in one place: add, paste, copy and open plugins on any track"); }
         Fx[] fxs; lock (eng.Sync) fxs = tr.Fx.ToArray(); float origW = w; { int n0 = fxs.Length; float est = 76 + n0 * 32 + GroupExtra(fxs) + 8 + ((selFx >= 0 && selFx < n0) ? EditorHeight(fxs[selFx]) : 60); if (est - h + 6 > 1 && h > 200) w -= 52; }
         int ti = Array.IndexOf(eng.Tracks.ToArray(), tr);
         Btn(g, Rc(x + 10, y + 38, 106, 30), "+ Add Effect", 1, () => OpenBrowser(false, ti), 13);
@@ -1341,6 +1353,7 @@ partial class StudioForm : Form
     List<FxRegistry.Info> blCache; string blKey = "";
     List<FxRegistry.Info> BrowserList()
     {
+        if (browserCat.Length > 0 && !Array.Exists(FxRegistry.All, i => i.Category == browserCat)) browserCat = "";   // a category that is not in the list any more shows everything
         string key = browserQuery + "\n" + browserCat; if (blCache != null && key == blKey) return blCache;
         var all = FxRegistry.All; var list = new List<FxRegistry.Info>(); string q = browserQuery.ToLowerInvariant().Trim();
         foreach (var i in all) { if (i.Type == "gain" || i.Type == "synth") continue;   /* Bass Lab has its own BASS LAB button next to PRESETS: this list is for the VSTs and the effects */ if (browserCat.Length > 0 && i.Category != browserCat) continue; if (q.Length == 0 || i.Name.ToLowerInvariant().Contains(q) || i.Category.ToLowerInvariant().Contains(q) || i.Blurb.ToLowerInvariant().Contains(q) || i.Type.Contains(q)) list.Add(i); }

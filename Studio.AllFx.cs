@@ -74,7 +74,13 @@ partial class StudioForm
         var close = Rc(sheet.Right - 120, sheet.Y + 14, 100, 34); Btn(g, close, "DONE", 2, () => allFxOpen = false, 13); Hint2(close, "Close this panel (Esc does the same)");
         { var ab = Rc(close.X - 12 - 150, close.Y, 150, 34); Btn(g, ab, "+ ADD BUS", 1, () => { var nb = AddBus(); busEdit = nb; selFx = -1; allFxScroll = float.MaxValue; Toast(nb.Name + " made. Press TRACKS INTO THIS BUS to send tracks into it, and + ADD for its plugins."); }, 13); Hint2(ab, "Make a new bus (a group: send tracks into it and its plugins work on all of them together)");
           var sw = Rc(ab.X - 12 - 150, close.Y, 150, 34); Btn(g, sw, allBusMode ? "ALL PLUGINS" : "ALL BUSES", 1, () => { allBusMode = !allBusMode; allFxScroll = 0; }, 13); Hint2(sw, allBusMode ? "Show every track and bus with their plugins" : "Show only your buses, with their levels");
-          var ra = Rc(sw.X - 12 - 200, close.Y, 200, 34); if (ra.X > sheet.X + 330) { Btn(g, ra, "REMOVE ALL PLUGINS", 3, () => RemoveEveryPlugin(), 12); Hint2(ra, allBusMode ? "Take every plugin off every bus (Ctrl+Z puts them back)" : "Take every plugin off every track and bus (instruments stay; Ctrl+Z puts them back)"); } }
+          var ra = Rc(sw.X - 12 - 200, close.Y, 200, 34); if (ra.X > sheet.X + 330) { Btn(g, ra, "REMOVE ALL PLUGINS", 3, () => RemoveEveryPlugin(), 12); Hint2(ra, allBusMode ? "Take every plugin off every bus (Ctrl+Z puts them back)" : "Take every plugin off every track and bus (instruments stay; Ctrl+Z puts them back)"); }
+          if (allBusMode)
+          {   // the AI BUS GENERATOR and BUS PRESETS work on the picked bus (the SELECTED column), or the only bus there is
+              Action pickBus = () => { if (busEdit == null || !eng.Tracks.Contains(busEdit)) { var bs0 = eng.Tracks.FindAll(t => t.IsBus); if (bs0.Count > 0) busEdit = bs0[0]; } };
+              var aig = Rc(ra.X - 12 - 210, close.Y, 210, 34); if (aig.X > sheet.X + 330) { Btn(g, aig, "AI BUS GENERATOR", 2, () => { pickBus(); allFxOpen = false; OpenAiBus(); }, 12); Hint2(aig, "Describe the bus in your own words (drill drum bus, punchy and dark...) and put it on the selected bus"); }
+              var bpb = Rc(aig.X - 12 - 150, close.Y, 150, 34); if (bpb.X > sheet.X + 330) { Btn(g, bpb, "BUS PRESETS", 1, () => { pickBus(); allFxOpen = false; OpenBusPresets(); }, 12); Hint2(bpb, BusPresets.All.Count + " presets for buses, for the selected bus"); }
+          } }
         Track[] rows; lock (eng.Sync) rows = eng.Tracks.FindAll(t => t.Host == null && (!allBusMode || t.IsBus)).ToArray();
         var area = Rc(sheet.X + 14, sheet.Y + 76, sheet.Width - 28, sheet.Height - 90);
         if (rows.Length == 0) { Txt(g, allBusMode ? "NO BUSES YET: PRESS + ADD BUS." : "NO TRACKS YET: ADD MUSIC OR A NEW TRACK FIRST.", 14, DimC, area, StringAlignment.Center, true); return; }

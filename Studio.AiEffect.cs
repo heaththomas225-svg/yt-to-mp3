@@ -18,15 +18,33 @@ static class AiVary
     static readonly HashSet<string> Mul = new HashSet<string> { "mix", "size", "decay", "damp", "fb", "drive", "ratio", "att", "rel", "width", "depth", "rate", "time", "speed", "natural", "hlevel", "spread", "lc", "hc", "hp_f", "lp_f", "b0_f", "b1_f", "b2_f", "b3_f", "b4_f", "b5_f", "jitter", "sub", "rasp", "dark", "knee", "diff", "mod", "er", "shim", "duck", "sat", "wow", "dens", "len", "q", "hp", "lp", "bump", "noise" };
     static readonly HashSet<string> Add = new HashSet<string> { "b0_g", "b1_g", "b2_g", "b3_g", "b4_g", "b5_g", "g0", "g1", "g2", "g3", "g4", "g5", "g6", "g7", "g8", "g9", "tilt", "makeup", "gain", "level", "thr", "out" };
     static readonly Regex Tok = new Regex(@"([a-z][a-z0-9_]*(?:\.[a-z0-9_]+)?)=(-?[0-9]+(?:\.[0-9]+)?)", RegexOptions.Compiled);
+    // another take (REGENERATE): every plugin in the result is made, and each of its smooth settings is nudged a little (amounts by up to about 15%,
+    // settings that go below zero by a few % of their range); choices, keys, notes and semitone steps stay exactly as they were. The sound stays similar but is never the same.
+    static readonly HashSet<string> Fixed = new HashSet<string> { "mask", "p1", "p2", "p3", "p4", "key", "scale", "note", "every", "shimst", "hold" };
     public static string Jitter(string chain, Random rnd)
     {
         if (rnd == null || string.IsNullOrEmpty(chain)) return chain;
-        return Tok.Replace(chain, m =>
+        var outp = new List<string>();
+        foreach (var part in chain.Split(new[] { " > " }, StringSplitOptions.RemoveEmptyEntries))
         {
-            string id = m.Groups[1].Value, last = id.Contains('.') ? id.Substring(id.IndexOf('.') + 1) : id; double v; if (!double.TryParse(m.Groups[2].Value, NumberStyles.Float, CultureInfo.InvariantCulture, out v)) return m.Value;
-            if (Mul.Contains(last)) v *= 1 + (rnd.NextDouble() - 0.5) * 0.36; else if (Add.Contains(last)) v += (rnd.NextDouble() - 0.5) * (last == "thr" ? 6 : 3); else return m.Value;
-            return id + "=" + v.ToString("0.##", CultureInfo.InvariantCulture);
-        });
+            string st = part.Trim(), type = st, data = ""; int b = st.IndexOf('{'); if (b >= 0) { type = st.Substring(0, b).Trim(); int e = st.LastIndexOf('}'); data = st.Substring(b + 1, (e > b ? e : st.Length) - b - 1); }
+            string id = type.StartsWith("@") ? PluginLibrary.IdFor(type.Substring(1)) : type; Fx fx = null; try { fx = Presets.Make(id, data); } catch { }
+            if (fx == null) { outp.Add(st); continue; }
+            var sb = new StringBuilder();
+            foreach (var p in fx.P)
+            {
+                float v = p.Val; string last = p.Id.Contains('.') ? p.Id.Substring(p.Id.LastIndexOf('.') + 1) : p.Id;
+                if (!p.IsChoice && !Fixed.Contains(last))
+                {
+                    double span = p.Max - p.Min;
+                    if (p.Min < 0) v += (float)((rnd.NextDouble() - 0.5) * span * 0.06); else if (v > 0) v *= (float)(1 + (rnd.NextDouble() - 0.5) * 0.3);
+                    v = Math.Max(p.Min, Math.Min(p.Max, v));
+                }
+                sb.Append(p.Id + "=" + v.ToString("0.###", CultureInfo.InvariantCulture) + ";");
+            }
+            outp.Add(type + "{" + sb.ToString().TrimEnd(';') + "}");
+        }
+        return string.Join(" > ", outp.ToArray());
     }
     public static T Pick<T>(Random rnd, T[] options, T fallback) { return rnd == null ? fallback : options[rnd.Next(options.Length)]; }
     // RANDOMISE: a surprise description in the words each generator understands
@@ -60,14 +78,14 @@ static class EffectPrompt
     static bool Has(string p, string words) { return Find(p, words) >= 0; }
     static string F(double v) { return v.ToString("0.##", CultureInfo.InvariantCulture); }
     // the hand-made plugin of an engine (so the effect saves and loads like any other plugin); the settings go on top of it
-    static string Lib(string engine) { if (FxRegistry.All.Length == 0) return null; var v = PluginLibrary.All.FirstOrDefault(x => x.Engine == engine && !x.Gen && x.Hide.Length == 0) ?? PluginLibrary.All.FirstOrDefault(x => x.Engine == engine); return v == null ? null : "@" + v.Name; }
-    static string Lib(string engine, string name) { if (FxRegistry.All.Length == 0) return null; return PluginLibrary.All.Any(x => x.Name == name && x.Engine == engine) ? "@" + name : Lib(engine); }   // the hand-made one that fits (its name shows in the list)
+    static string Lib(string engine) { if (FxRegistry.All.Length == 0) return null; var v = PluginLibrary.All.FirstOrDefault(x => x.Engine == engine && PluginLibrary.IsListed(x) && x.Hide.Length == 0) ?? PluginLibrary.All.FirstOrDefault(x => x.Engine == engine && PluginLibrary.IsListed(x)) ?? PluginLibrary.All.FirstOrDefault(x => x.Engine == engine); return v == null ? null : "@" + v.Name; }
+    static string Lib(string engine, string name) { if (FxRegistry.All.Length == 0) return null; return PluginLibrary.All.Any(x => x.Name == name && x.Engine == engine && PluginLibrary.IsListed(x)) ? "@" + name : Lib(engine); }   // the hand-made one that fits (its name shows in the list)
     static double Amt(string p) { if (Has(p, "huge|massive|giant|lots|loads|heavy|very|extreme|crazy|big|strong|hard|super")) return 1.6; if (Has(p, "subtle|slight|light|little|bit|touch|gentle|soft|small")) return 0.55; return 1; }
     static int Sync(string p, int def, Random rnd)
     {
         if (Has(p, "1/32|32nd|thirty second")) return 13; if (Has(p, "1/16 triplet|16th triplet")) return 12; if (Has(p, "1/16 dotted|dotted 1/16|dotted 16th")) return 11; if (Has(p, "1/16|16th|sixteenth")) return 10;
         if (Has(p, "1/8 triplet|triplet|triplets")) return 9; if (Has(p, "1/8 dotted|dotted 1/8|dotted eighth|dotted")) return 8; if (Has(p, "1/8|eighth|8th")) return 7; if (Has(p, "1/4 dotted|dotted 1/4|dotted quarter")) return 5; if (Has(p, "1/4|quarter|4th")) return 4;
-        if (Has(p, "1/2|half note|half")) return 2; if (Has(p, "1/1|whole note|1 bar|one bar|bar")) return 1; return rnd == null ? def : new[] { 4, 7, 8, 9, 10 }[rnd.Next(5)];
+        if (Has(p, "1/2|half note|half")) return 2; if (Has(p, "1/1|whole note|1 bar|one bar|bar")) return 1; return def;
     }
     static readonly string[] SyncName = { "free time", "1/1", "1/2", "dotted 1/2", "1/4", "dotted 1/4", "1/4 triplet", "1/8", "dotted 1/8", "1/8 triplet", "1/16", "dotted 1/16", "1/16 triplet", "1/32" };
     static int Num(string p, string after, int def) { var m = Regex.Match(p, @" (?:" + after + @") (-?\d+) "); if (m.Success) return int.Parse(m.Groups[1].Value); m = Regex.Match(p, @" (-?\d+) (?:semitones?|st|steps?) (?:" + after + ") "); return m.Success ? int.Parse(m.Groups[1].Value) : def; }
@@ -107,7 +125,7 @@ static class EffectPrompt
             }
             else
             {
-                double speed = Has(p, "hard|robotic|robot|t pain|tpain|snap|snapped|heavy") ? 0 : Has(p, "fast|tight") ? 8 : Has(p, "natural|subtle|light|gentle|soft") ? 45 : 14; if (rnd != null && !Has(p, "hard|robotic|fast|natural|subtle|gentle")) speed = new[] { 0, 8, 14, 25 }[rnd.Next(4)];
+                double speed = Has(p, "hard|robotic|robot|t pain|tpain|snap|snapped|heavy") ? 0 : Has(p, "fast|tight") ? 8 : Has(p, "natural|subtle|light|gentle|soft") ? 45 : 14; 
                 int rg = Has(p, "low voice|deep voice|bass voice|male") ? 0 : Has(p, "high voice|female|soprano") ? 2 : 1;
                 st.Add("pitch{" + (key >= 0 ? "key=" + key + ";scale=" + scale + ";mask=" + PitchCorrector.MaskFor(key, scale) + ";" : scale > 0 ? "scale=" + scale + ";" : "") + "speed=" + F(speed) + ";strength=100;natural=" + F(speed == 0 ? 0 : speed > 30 ? 55 : 20) + ";range=" + rg + ";mix=100}");
                 said((speed == 0 ? "Hard autotune" : speed > 30 ? "Natural tuning" : "Autotune") + (key >= 0 ? " in " + PitchCorrector.Keys[key] + " " + PitchCorrector.Scales[scale].ToLowerInvariant() + " (kept)" : " (it finds the key of your track)"));
@@ -191,7 +209,7 @@ static class EffectPrompt
             else if (Has(p, "throw|throws|end of the bar|last word")) { int sy = Sync(p, 7, rnd); st.Add(Lib("worldecho") + "{style=0;sync=" + sy + ";send=1;fb=45}"); said("Throw echo on the last beat of each bar (" + SyncName[sy] + ")"); }
             else
             {
-                int mode = Has(p, "ping pong|pingpong|ping") ? 2 : Has(p, "multi tap|multitap") ? 3 : Has(p, "reverse|reversed|backwards") ? 4 : Has(p, "mono") ? 0 : Has(p, "stereo") ? 1 : AiVary.Pick(rnd, new[] { 1, 2, 2, 3 }, 2);
+                int mode = Has(p, "ping pong|pingpong|ping") ? 2 : Has(p, "multi tap|multitap") ? 3 : Has(p, "reverse|reversed|backwards") ? 4 : Has(p, "mono") ? 0 : Has(p, "stereo") ? 1 : 2;
                 int sy = Sync(p, 8, rnd); double fbk = Has(p, "endless|infinite|forever") ? 85 : Has(p, "long|long tail") ? 62 : Has(p, "short") ? 15 : 35;
                 string tone = Has(p, "lofi|lo fi") ? ";lc=400;hc=3000;sat=50;wow=50" : Has(p, "tape|vintage|analog|analogue") ? ";lc=200;hc=4500;sat=30;wow=25" : dark ? ";lc=150;hc=2500" : bright ? ";lc=400;hc=14000" : ";lc=150;hc=7000";
                 string[] dlN = { "Mono Delay", "Stereo Delay", "Ping-Pong Delay", "Multi-Tap Delay", "Reverse Delay" }; string dlB = Has(p, "duck|ducked|ducking") && mode != 2 ? "Duck Delay" : Has(p, "tape|vintage|analog|analogue") && mode < 2 ? "Tape Echo" : dlN[mode];
@@ -207,7 +225,7 @@ static class EffectPrompt
         }
         else if (Has(p, "reverb|verb|hall|plate|room|cathedral|church|chamber|spring|ambient|ambience|space|spacey|atmosphere|shimmer"))
         {
-            int mode = Has(p, "cathedral|church") ? 5 : Has(p, "hall|concert") ? 1 : Has(p, "plate") ? 2 : Has(p, "chamber") ? 3 : Has(p, "spring") ? 4 : Has(p, "ambient|ambience|space|spacey|atmosphere") ? 6 : Has(p, "room") ? 0 : AiVary.Pick(rnd, new[] { 0, 1, 2, 3, 6 }, 1);
+            int mode = Has(p, "cathedral|church") ? 5 : Has(p, "hall|concert") ? 1 : Has(p, "plate") ? 2 : Has(p, "chamber") ? 3 : Has(p, "spring") ? 4 : Has(p, "ambient|ambience|space|spacey|atmosphere") ? 6 : Has(p, "room") ? 0 : 1;
             double[] baseD = { 1.0, 2.6, 1.8, 1.6, 1.5, 4.5, 3.2 }; double size = Has(p, "tiny") ? 15 : Has(p, "small|short|tight") ? 30 : Has(p, "huge|massive|giant|enormous|infinite") ? 92 : Has(p, "big|large|long") ? 72 : 50; double dm = size / 50.0; dm = dm * dm;
             string ch = Has(p, "gated|gate") ? ";gate=1;gthr=-30;ghold=180;grel=40" : Has(p, "reverse|reversed|backwards") ? ";rev=1;rtime=900" : Has(p, "shimmer|heavenly|angelic") ? ";shim=45;shimst=12" : Has(p, "freeze|frozen") ? ";freeze=1" : "";
             if (Has(p, "duck|ducked|ducking")) ch += ";duck=60"; if (Has(p, "modulated|lush|chorused")) ch += ";mod=70";
@@ -221,11 +239,11 @@ static class EffectPrompt
         if (!fx)
         {
             var words = p.Trim().Split(' ').Where(w => w.Length >= 3).ToArray(); PluginLibrary.Variant best = null; int bs = 0;
-            foreach (var v in PluginLibrary.All) { string n = v.Name.ToLowerInvariant(); int sc = words.Count(w => n.Contains(w)); if (sc > bs) { bs = sc; best = v; } }
+            foreach (var v in PluginLibrary.All) { if (!PluginLibrary.IsListed(v)) continue; string n = v.Name.ToLowerInvariant(); int sc = words.Count(w => n.Contains(w)); if (sc > bs) { bs = sc; best = v; } }
             if (best != null) { st.Add("@" + best.Name); said("Closest effect in the library: " + best.Name); }
             else { st.Add(Lib("reverb2") + "{mode=1;size=50;mix=24}"); said("No effect word found: a medium hall reverb to start from (try words like reverb, delay, autotune, distortion, telephone)"); }
         }
-        r.Chain = AiVary.Jitter(string.Join(" > ", st.ToArray()), rnd); r.BusName = null;
+        if (rnd != null) said("Another take: the same effect with its amounts nudged"); r.Chain = AiVary.Jitter(string.Join(" > ", st.ToArray()), rnd); r.BusName = null;
         string title = (prompt ?? "").Trim(); if (title.Length > 42) title = title.Substring(0, 42).TrimEnd() + "..."; r.Name = "AI FX: " + (title.Length > 0 ? char.ToUpper(title[0]) + title.Substring(1) : "Effect");
         return r;
     }
