@@ -107,6 +107,8 @@ partial class StudioForm
         var ru = Reg(up, () => { set(Math.Max(0, get() - 60)); vHold = -1; vHoldGet = get; vHoldSet = set; vHoldMax = max; }); ru.OnDrag = pt => { }; ru.OnUp = () => vHold = 0;
         var rd = Reg(dn, () => { set(Math.Min(max, get() + 60)); vHold = 1; vHoldGet = get; vHoldSet = set; vHoldMax = max; }); rd.OnDrag = pt => { }; rd.OnUp = () => vHold = 0;
         float downY = 0, downS = 0; var lg = Reg(logoR, () => { downY = MousePos.Y; downS = get(); }); lg.OnDrag = pt => set(Math.Max(0, Math.Min(max, downS + (pt.Y - downY) / trav * max)));
+        Action<int> wheel = d => set(Math.Max(0, Math.Min(max, get() - d * 80)));   // the mouse wheel over any part of the bar scrolls too (it used to do nothing there)
+        rg.OnWheel = wheel; ru.OnWheel = wheel; rd.OnWheel = wheel; lg.OnWheel = wheel; rg.ScrollBar = ru.ScrollBar = rd.ScrollBar = lg.ScrollBar = true;
         if (Hot(logoR)) { bubble = "Hold the logo and drag it to scroll the list"; bubblePt = MousePos; }
     }
 

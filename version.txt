@@ -1,4 +1,4 @@
-3.41.3
+3.41.4
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Gain on every section, your preset under MASTERED
-sha256=14579748de5e3c28c4d9e5159616acd9633a5bcdb17eed7c05a70df589b4a363
+SAVE PRESET under your effects, lyrics scroll fixed
+sha256=84b851ee745e1cfb8bc5a601e59848b522847620bf38df3ea00559790b57b399

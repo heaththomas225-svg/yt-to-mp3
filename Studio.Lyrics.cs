@@ -32,7 +32,7 @@ partial class StudioForm
     {
         if (lyricUi) return; lyricUi = true;
         Func<bool, float, TextBox> mk = (multi, size) => { var t = new TextBox { Multiline = multi, Visible = false, BorderStyle = BorderStyle.FixedSingle, BackColor = TM.C(255, 10, 5, 22), ForeColor = Ink, Font = new Font("Segoe UI", size), AcceptsReturn = multi, ScrollBars = ScrollBars.None }; Win.NeonBox(t); Controls.Add(t); Win.DarkControl(t); return t; };
-        lyricBox = mk(true, 15f); lyricBox.AcceptsTab = false; lyricTitle = mk(false, 13f);
+        lyricBox = mk(true, 15f); lyricBox.AcceptsTab = false; lyricBox.MouseWheel += (s, e) => { lastInput = DateTime.Now; Invalidate(); }; lyricBox.KeyUp += (s, e) => Invalidate(); lyricBox.TextChanged += (s, e) => Invalidate(); lyricBox.MouseUp += (s, e) => Invalidate();   /* the logo on the scroll bar follows when you scroll or type in the box */ lyricTitle = mk(false, 13f);
         lyricBox.TextChanged += (s, e) => { lyricStatsDirty = true; ProjectIO.Lyrics = lyricBox.Text; if (lyricBox.Text.Length == 0 && lyricBox.Focused && lyricTitle.Text.Length > 0) lyricTitle.Text = ""; /* clearing all the words clears the title too */ lyricSave.Stop(); lyricSave.Start(); };
         lyricTitle.TextChanged += (s, e) => { ProjectIO.LyricsTitle = lyricTitle.Text; lyricSave.Stop(); lyricSave.Start(); };
         lyricBox.KeyUp += (s, e) => Invalidate(); lyricBox.MouseUp += (s, e) => Invalidate();
@@ -67,6 +67,7 @@ partial class StudioForm
     void PaintLyricBar(Graphics g)
     {
         var b = lyricBox; if (b == null || !b.Visible || !b.IsHandleCreated) return; int total = Math.Max(1, SendMessage(b.Handle, 0xBA, 0, 0)); int lineH = Math.Max(12, b.Font.Height); float viewH = b.Height - 4, content = Math.Max(total * lineH + 4, viewH + 2);   // the bar is always there (it only moves once the lyrics are longer than the box)
+        { float mxL = Math.Max(0, content - viewH); regs.Insert(0, new HitReg { R = Rc(0, b.Top - 60, ClientSize.Width, b.Height + 120), OnWheel = d => { int cur = SendMessage(b.Handle, 0xCE, 0, 0); SendMessage(b.Handle, 0xB6, 0, -d * 3); } }); }   // the wheel anywhere around the lyrics scrolls them (over the box itself Windows does it)
         VScroll(g, Rc(b.Right + 8, b.Top, 42, b.Height), content, viewH, () => SendMessage(b.Handle, 0xCE, 0, 0) * lineH, v => { int cur = SendMessage(b.Handle, 0xCE, 0, 0), want = (int)Math.Round(v / lineH); if (want != cur) SendMessage(b.Handle, 0xB6, 0, want - cur); });
     }
     void PaintLyrics(Graphics g)

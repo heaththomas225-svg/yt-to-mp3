@@ -499,7 +499,7 @@ static class NF
             foreach (var typ in new[] { "comp", "eq" })
             {
                 var fxw = FxRegistry.Create(typ); fxw.Prepare(44100); wt.Fx.Add(fxw); SetF("selFx", wt.Fx.Count - 1); Pump(150); sf.Invalidate(); sf.Update(); Pump(100);
-                lock (regsW) foreach (var rg in regsW.ToArray()) if (rg.OnWheel != null && (rg.R.Height < 90 || rg.R.Width < 90)) { smallWheel++; which += typ + ":" + rg.R + " "; }
+                lock (regsW) foreach (var rg in regsW.ToArray()) if (rg.OnWheel != null && !rg.ScrollBar && (rg.R.Height < 90 || rg.R.Width < 90)) { smallWheel++; which += typ + ":" + rg.R + " "; }
                 wt.Fx.Remove(fxw); SetF("selFx", -1);
             }
             if (outDir != null) { var osz = sf.ClientSize; sf.ClientSize = new Size(1240, 680); Pump(300); var fq = FxRegistry.Create("eq"); fq.Prepare(44100); wt.Fx.Add(fq); SetF("selFx", wt.Fx.Count - 1); Pump(200); Shot(Path.Combine(outDir, "small-window-eq.png")); SetF("selFx", -1); wt.Fx.Remove(fq); sf.ClientSize = osz; Pump(200); }
@@ -692,6 +692,20 @@ static class NF
                     string mixTxt = ProjectIO.SerializeMix(sf.eng); sf.masterPresetUsed = -1; ProjectIO.RestoreMix(sf.eng, mixTxt);
                     Check("the Mastering page shows the preset in use, marks it EDITED after a change, and the project keeps both", fresh && edited && sf.masterPresetUsed == 3 && ProjectIO.MasterPresetEdited(sf.eng) && mixTxt.Contains("mpreset|" + MasterPresets.All[3].Name), sf.masterPresetUsed + " " + fresh + " " + edited);
                     ProjectIO.RestoreMix(sf.eng, mixTxt.Replace("mpreset|", "xx|")); Check("a project without a preset shows none", sf.masterPresetUsed == -1, sf.masterPresetUsed.ToString()); mf = sf.eng.MasterFx[0]; mf.Set(mf.P[0].Id, mpWas);
+                {   // the LYRICS page: the mouse wheel over the logo scroll bar (and around the box) scrolls the lyrics; the arrows and the bar still work
+                    SetF("tab", 2); SetF("welcomeOn", false); Action pnt = () => { Application.DoEvents(); using (var bmL = new Bitmap(sf.ClientSize.Width, sf.ClientSize.Height)) using (var gL = Graphics.FromImage(bmL)) typeof(StudioForm).GetMethod("PaintAll", BF).Invoke(sf, new object[] { new PaintEventArgs(gL, new Rectangle(Point.Empty, sf.ClientSize)) }); Application.DoEvents(); };
+                    pnt(); var lbox = F<TextBox>("lyricBox"); string keepLy = lbox.Text; var sbL = new System.Text.StringBuilder(); for (int q = 1; q <= 200; q++) sbL.Append("Line " + q + " of the lyrics\r\n"); lbox.Text = sbL.ToString(); lbox.SelectionStart = 0; lbox.ScrollToCaret(); pnt(); pnt();
+                    Func<int> firstL = () => (int)typeof(StudioForm).GetMethod("SendMessage", BindingFlags.NonPublic | BindingFlags.Static).Invoke(null, new object[] { lbox.Handle, 0xCE, 0, 0 }); var wm = typeof(StudioForm).GetMethod("OnMouseWheel", BF | BindingFlags.DeclaredOnly);
+                    int bx = lbox.Right + 29, byy = lbox.Top + lbox.Height / 2; int l0 = firstL(); wm.Invoke(sf, new object[] { new MouseEventArgs(MouseButtons.None, 0, bx, byy, -120) }); pnt(); int l1 = firstL(); wm.Invoke(sf, new object[] { new MouseEventArgs(MouseButtons.None, 0, 40, byy, -120) }); pnt(); int l2 = firstL();
+                    Check("on the LYRICS page the mouse wheel over the scroll bar scrolls the lyrics (it did nothing), and so does the wheel beside the box", l1 > l0 && l2 > l1, l0 + " -> " + l1 + " -> " + l2);
+                    lbox.Text = keepLy; SetF("tab", 0);
+                }
+                {   // SAVE PRESET under the effects: the track's plugins (with their settings) become your own preset, found in PRESETS... on any track
+                    var st = StudioEngine.NewTrack("Vox", "vocal", null); st.Fx.Add(Presets.Make("eq", "")); st.Fx.Add(Presets.Make("comp", "")); var empty = StudioEngine.NewTrack("Empty", "vocal", null);
+                    string nmS = "Test Vox Chain " + Guid.NewGuid().ToString("N").Substring(0, 6); sf.savePresetAskHook = q => nmS; bool okS = sf.SaveTrackPreset(st); string pf = Path.Combine(Path.Combine(StudioEnv.DataDir, "chains"), nmS + ".chain"); bool fileS = File.Exists(pf); string txtS = fileS ? File.ReadAllText(pf) : "";
+                    bool noFx = !sf.SaveTrackPreset(empty); sf.savePresetAskHook = q => null; bool cancelled = !sf.SaveTrackPreset(st); sf.savePresetAskHook = null; try { File.Delete(pf); } catch { }
+                    Check("SAVE PRESET saves the track's plugins with their settings as your own preset (nothing to save, or cancel, saves nothing)", okS && fileS && txtS.Contains("eq") && txtS.Contains("comp") && noFx && cancelled, okS + " " + fileS + " " + noFx + " " + cancelled);
+                }
                 {   // whatever put it there (USE, TRY then KEEP, an AUTO MASTERING version) the name of what is on the master is shown, and kept in the project
                     sf.masterPresetUsed = -1; SetF("mpBackup", (object)new string[0]); SetF("mpPreviewIdx", 5); typeof(StudioForm).GetMethod("PresetKeep", BF).Invoke(sf, null); bool kept5 = sf.masterPresetUsed == 5 && sf.MasterPresetName == MasterPresets.All[5].Name;
                     sf.MasterPresetName = "Auto Mastering: Vocal Forward"; string mx = ProjectIO.SerializeMix(sf.eng); sf.MasterPresetName = ""; ProjectIO.RestoreMix(sf.eng, mx); bool amName = sf.MasterPresetName == "Auto Mastering: Vocal Forward" && sf.masterPresetUsed == -1 && !ProjectIO.MasterPresetEdited(sf.eng);

@@ -16,7 +16,7 @@ using System.Windows.Forms;
 // ======================================================================
 class HitReg
 {
-    public RectangleF R; public Action OnDown, OnRight, OnDouble, OnUp; public Action<PointF> OnDrag; public Action<int> OnWheel; public bool WhileBusy;
+    public RectangleF R; public Action OnDown, OnRight, OnDouble, OnUp; public Action<PointF> OnDrag; public Action<int> OnWheel; public bool WhileBusy; public bool ScrollBar;   // ScrollBar: a part of a logo scroll bar (the wheel there scrolls the list, it never changes a value)
 }
 
 partial class StudioForm : Form
@@ -1065,6 +1065,8 @@ partial class StudioForm : Form
             }
             ly += 10;
         }
+        { int nOwn = 0; foreach (var ff in tr.Fx) if (!(ff is InstrumentFx)) nOwn++; var spb = Rc(x + 6, ly, w - 12, 34); Btn(g, spb, "SAVE PRESET", nOwn > 0 ? 2 : 0, () => SaveTrackPreset(tr), 13);   // under the effects: save this chain (every plugin with its settings) as your own preset
+          Hint2(spb, nOwn > 0 ? "Save the " + nOwn + " plugin" + (nOwn == 1 ? "" : "s") + " of " + tr.Name + " (with every setting) as your own preset: it is in PRESETS... on any track" : "Add effects first, then save them as a preset"); ly += 42; }
         float ey = ly + 8;
         float edH = (selFx >= 0 && selFx < n) ? EditorHeight(fxs[selFx]) : 60;
         if (selFx >= 0 && selFx < n) PaintEditor(g, fxs[selFx], Rc(x + 6, ey, w - 12, edH), tr);
@@ -1200,6 +1202,17 @@ partial class StudioForm : Form
         }
     }
     // every plugin and preset off the track (RAW): the instrument stays, it is the sound
+    // SAVE PRESET (the button under the effects, and the right-click menu): every plugin of the track with its settings, under a name you choose; it shows in PRESETS... on every track
+    internal Func<string, string> savePresetAskHook;
+    internal bool SaveTrackPreset(Track tr)
+    {
+        if (tr == null) return false; var own = tr.Fx.FindAll(f => !(f is InstrumentFx)); if (own.Count == 0) { Toast("Add some effects first (+ ADD EFFECT), then press SAVE PRESET."); return false; }
+        string q = Prefs.ShareSaved ? "Name for this preset (it is also shared with the community):" : "Name for this preset:"; string nm = savePresetAskHook != null ? savePresetAskHook(q) : Ask(q, tr.Name + " chain");
+        if (nm == null) return false; nm = nm.Replace("\r", " ").Replace("\n", " ").Trim(); if (nm.Length == 0) { Toast("A preset needs a name."); return false; }
+        Presets.SaveChain(nm, own); Toast("Saved your preset \"" + nm + "\" (" + own.Count + " plugin" + (own.Count == 1 ? "" : "s") + "). Find it in PRESETS... on any track.");
+        if (savePresetAskHook == null) CommunityPresets.AutoShare("chain", nm, Presets.ChainText(own), ProjectLibrary.ProfileName, msg => { if (msg != null) BeginInvoke(new Action(() => Toast(msg))); });
+        return true;
+    }
     void RemoveAllPlugins(Track tr)
     {
         lock (eng.Sync) { var gone = new List<Fx>(); foreach (var f in tr.Fx) if (!(f is InstrumentFx)) gone.Add(f); foreach (var f in gone) tr.Fx.Remove(f); tr.Auto.RemoveAll(al => gone.Contains(al.Fx)); }
@@ -1231,7 +1244,7 @@ partial class StudioForm : Form
         foreach (var nm0 in Presets.UserChains()) { string nm = nm0; var it = new ToolStripMenuItem(nm); it.Click += (a, b) => { var c = Presets.LoadChain(nm); ChainApply(tr, nm, () => PutPreset(tr, nm, c)); selFx = -1; }; mine.DropDownItems.Add(it); }
         if (mine.DropDownItems.Count == 0) mine.DropDownItems.Add(new ToolStripMenuItem("(none yet)") { Enabled = false });
         m.Items.Add(new ToolStripSeparator());
-        m.Items.Add("Save this track's plugins as a preset...").Click += (a, b) => { string nm = Ask(Prefs.ShareSaved ? "Name for this preset (it is also shared with the community):" : "Name for this preset:", tr.Name + " chain"); if (nm != null) { Presets.SaveChain(nm, tr.Fx); Toast("Saved chain \"" + nm + "\""); CommunityPresets.AutoShare("chain", nm, Presets.ChainText(tr.Fx), ProjectLibrary.ProfileName, msg => { if (msg != null) BeginInvoke(new Action(() => Toast(msg))); }); } };
+        m.Items.Add("Save this track's plugins as a preset...").Click += (a, b) => SaveTrackPreset(tr);
         m.Items.Add("Remove all the presets (your own plugins stay)").Click += (a, b) => { ChainApply(tr, "Presets removed", () => RemovePreset(tr)); selFx = -1; };
         m.Items.Add("Remove ALL plugins (go raw)").Click += (a, b) => { ChainApply(tr, "All plugins removed", () => RemoveAllPlugins(tr)); selFx = -1; };
         m.Show(this, new Point((int)MousePos.X, (int)MousePos.Y));

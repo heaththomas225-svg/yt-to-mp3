@@ -2,6 +2,12 @@
 
 What changed in each version of **Purphex**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.41.4  SAVE PRESET under your effects, lyrics scroll fixed
+
+- NEW: SAVE PRESET right under your effects in the panel on the right: every plugin of the track, with all its settings, saved as your own preset under the name you choose. It is in PRESETS... on any track, in every project.
+
+- FIXED: the scroll bar on the LYRICS page did not answer the mouse wheel, and its logo did not follow when you scrolled or typed in the lyrics. The wheel now scrolls the lyrics over the bar and anywhere beside the box, and the logo always shows where you are. The wheel works on every logo scroll bar in the studio now.
+
 ## 3.41.3  Gain on every section, your preset under MASTERED
 
 - NEW: every section of a track has its own gain right on it. Hover a section to see its gain tag (it stays when the gain is not 0 dB): drag the tag up or down to change that section only, half a dB at a time, and double-click it for 0 dB. Right-click a section for Section gain: +6 / +3 / +1 / -1 / -3 / -6 dB, 0 dB, -12 dB for quiet backing, or set it exactly; with several sections picked they all change together.
