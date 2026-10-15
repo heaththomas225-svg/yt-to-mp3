@@ -655,17 +655,27 @@ partial class StudioForm : Form
         using (var br = new SolidBrush(TM.C(255, 22, 12, 40))) g.FillRectangle(br, 0, y0, W, TransH);
         NeonRule(g, 0, y0 + TransH, W);
         float x = 14, y = y0 + 8, h = 36;
-        Btn(g, Rc(x, y, 44, h), "|<", 0, () => { eng.Seek(0); scroll = 0; followPaused = false; }, 15); x += 50;
-        Btn(g, Rc(x, y, 70, h), "PLAY", eng.Playing ? 4 : 1, () => { if (!eng.Playing) PlayToggle(); }, 14); x += 76;   // PLAY only plays (it is lit while playing); PAUSE is its own button
-        { bool paused = !eng.Playing && eng.Pos > 0; var pb = Rc(x, y, 70, h); Btn(g, pb, "PAUSE", paused ? 4 : 0, () => PauseHere(), 14); Hint2(pb, "Pause where you are (Space does the same); PLAY carries on from there"); x += 76; }
-        { var sb = Rc(x, y, 56, h); Btn(g, sb, "STOP", 0, () => { if (mpActive) MasterPreviewStop(); PauseHere(); }, 14); Hint2(sb, "Stop where you are: the needle and the view stay put (|< takes you back to the start)"); } x += 62;   // STOP stops right here, like PAUSE (it used to throw you back to the start)
-        { var lb = Rc(x, y, 62, h); Btn(g, lb, "LOOP", eng.Loop || loopPick ? 4 : 0, () => LoopMenu(lb), 14); Hint2(lb, eng.LoopSection ? "Looping " + LoopTime(eng.LoopA) + " to " + LoopTime(eng.LoopB) + ": press to change it or turn it off" : (eng.Loop ? "The whole song loops: press to loop a section or turn it off" : "Loop the whole song, or a section you drag on the timeline")); } x += 72;
-        double sec = dispPos / StudioEngine.SR, tot = eng.EndFrame / (double)StudioEngine.SR;
-        var tr = Rc(x, y, 210, h); FillRR(g, TM.C(200, 8, 4, 18), tr, 6); StrokeRR(g, Edge, tr, 6, 1); Glow(g, Accent, tr, 6, eng.Playing ? 0.85f : 0.5f, 3); using (var pen = new Pen(Color.FromArgb(eng.Playing ? 230 : 150, Accent), 1.2f)) using (var pp = RR(tr, 6)) g.DrawPath(pen, pp);   // a small neon glow that is always there (brighter while it plays)
-        Txt(g, Fmt(sec) + "  /  " + Fmt(tot), 19, Accent, tr, StringAlignment.Center, true); x += 222;
+        // the row is laid out around PLAY: the recording tools on the left, the transport in the middle with PLAY at its centre (|< and STOP before it,
+        // PAUSE and LOOP after it, then the time), the master meter and the page tabs on the right. On a narrow window the middle slides so nothing overlaps.
         Btn(g, Rc(x, y, 92, h), "MIDI REC", recOn ? 3 : 0, () => { if (!recOn && !AskYes("Would you like to record an instrument?\n\nYour MIDI keyboard (or the piano window) is recorded onto the selected MIDI track while the song plays. Press PLAY after you say Yes. If not, press No.", "MIDI recording")) return; recOn = !recOn; Toast(recOn ? "MIDI recording is on (the button is red): press PLAY, then play your MIDI keyboard or the piano window and the notes are recorded onto the selected MIDI track." : "MIDI recording is off."); }, 13); x += 98;
         { bool rec = mic != null; double el = rec ? (eng.CountBeat > 0 ? 0 : Math.Max(0, (DateTime.Now - micT0).TotalSeconds - micLead / (double)StudioEngine.SR)) : 0; bool armed = micArmed && !rec; var mr = Rc(x, y, rec ? 128 : 60, h); Btn(g, mr, (rec ? "* MIC  " + ((int)(el / 60)).ToString("00") + ":" + ((int)(el % 60)).ToString("00") : "MIC"), rec || armed ? 3 : 0, () => MicClick(), 13); if (armed) { double pl = 0.5 + 0.5 * Math.Sin(Environment.TickCount / 220.0); Glow(g, Color.FromArgb(255, 60, 90), mr, 8, 0.7f + 0.5f * (float)pl, 4); lastInput = DateTime.Now; } if (rec) HBar(g, Rc(mr.X + 6, mr.Bottom - 7, mr.Width - 12, 5), mic.Level); PaintMicDrop(g, Rc(mr.Right + 3, y, 24, h), rec); bool modeRoom = x + mr.Width + 6 + 28 + 69 + 98 <= W - 328 - 8; if (modeRoom) PaintMicModeBox(g, Rc(mr.Right + 3 + 24 + 3, y + 5, 66, h - 10), rec); x += mr.Width + 6 + 28 + (modeRoom ? 69 : 0); }   /* the box that names the microphone mode is there when there is room for it */
         Btn(g, Rc(x, y, 92, h), "SOUNDS", soundsOpen ? 4 : 0, () => { if (soundsOpen) CloseSounds(); else OpenSounds(); }, 12); x += 98;
+
+        float leftEnd = x, tabsX = W - 328;
+        const float wHome = 50, wStop = 70, wPlay = 96, wPause = 76, wLoop = 68, gap = 6, leftHalf = wHome + gap + wStop + gap, rightHalf = gap + wPause + gap + wLoop;
+        float timeW = 210, cx = W / 2;   // PLAY in the middle of the window when it fits
+        cx = Math.Min(cx, tabsX - 12 - (wPlay / 2 + rightHalf + 12 + timeW)); cx = Math.Max(cx, leftEnd + 14 + leftHalf + wPlay / 2);
+        timeW = Math.Max(130, Math.Min(210, tabsX - 12 - (cx + wPlay / 2 + rightHalf + 12)));
+        float px = cx - wPlay / 2, tx0 = px - leftHalf;
+        Btn(g, Rc(tx0, y, wHome, h), "|<", 0, () => { eng.Seek(0); scroll = 0; followPaused = false; }, 15);
+        { var sb = Rc(tx0 + wHome + gap, y, wStop, h); Btn(g, sb, "STOP", 0, () => { if (mpActive) MasterPreviewStop(); PauseHere(); }, 14); Hint2(sb, "Stop where you are: the needle and the view stay put (|< takes you back to the start)"); }
+        { var plb = Rc(px, y, wPlay, h); Btn(g, plb, "PLAY", eng.Playing ? 4 : 1, () => { if (!eng.Playing) PlayToggle(); }, 15); Hint2(plb, "Play from where the needle is (Space does the same)"); }   // PLAY only plays (it is lit while playing); PAUSE is its own button
+        float rx0 = px + wPlay + gap;
+        { bool paused = !eng.Playing && eng.Pos > 0; var pb = Rc(rx0, y, wPause, h); Btn(g, pb, "PAUSE", paused ? 4 : 0, () => PauseHere(), 14); Hint2(pb, "Pause where you are (Space does the same); PLAY carries on from there"); }
+        { var lb = Rc(rx0 + wPause + gap, y, wLoop, h); Btn(g, lb, "LOOP", eng.Loop || loopPick ? 4 : 0, () => LoopMenu(lb), 14); Hint2(lb, eng.LoopSection ? "Looping " + LoopTime(eng.LoopA) + " to " + LoopTime(eng.LoopB) + ": press to change it or turn it off" : (eng.Loop ? "The whole song loops: press to loop a section or turn it off" : "Loop the whole song, or a section you drag on the timeline")); }
+        double sec = dispPos / StudioEngine.SR, tot = eng.EndFrame / (double)StudioEngine.SR;
+        var tr = Rc(rx0 + wPause + gap + wLoop + 12, y, timeW, h); FillRR(g, TM.C(200, 8, 4, 18), tr, 6); StrokeRR(g, Edge, tr, 6, 1); Glow(g, Accent, tr, 6, eng.Playing ? 0.85f : 0.5f, 3); using (var pen = new Pen(Color.FromArgb(eng.Playing ? 230 : 150, Accent), 1.2f)) using (var pp = RR(tr, 6)) g.DrawPath(pen, pp);   // a small neon glow that is always there (brighter while it plays)
+        Txt(g, Fmt(sec) + "  /  " + Fmt(tot), timeW >= 190 ? 19 : 15, Accent, tr, StringAlignment.Center, true); x = tr.Right + 12;
 
         // tabs on the right; master meters in whatever room is left between
         float tx = W - 328;
@@ -1026,7 +1036,7 @@ partial class StudioForm : Form
         Fx[] fxs; lock (eng.Sync) fxs = tr.Fx.ToArray(); float origW = w; { int n0 = fxs.Length; float est = 76 + n0 * 32 + GroupExtra(fxs) + 8 + ((selFx >= 0 && selFx < n0) ? EditorHeight(fxs[selFx]) : 60); if (est - h + 6 > 1 && h > 200) w -= 52; }
         int ti = Array.IndexOf(eng.Tracks.ToArray(), tr);
         Btn(g, Rc(x + 10, y + 38, 112, 30), "+ Add Effect", 1, () => OpenBrowser(false, ti), 14);
-        Btn(g, Rc(x + 128, y + 38, 100, 30), "Presets...", 0, () => ChainMenu(tr), 14);
+        { var pbn = Rc(x + 128, y + 38, 100, 30); Btn(g, pbn, "Presets...", 0, () => ChainMenu(tr), 14); Hint2(pbn, VocalStyles.All.Count + " vocal presets, the AI Preset Generator, and your own and community presets"); }
         if (origW >= 330 && !tr.IsBus) Btn(g, Rc(x + 234, y + 38, Math.Min(104f, origW - 244), 30), "Bass Lab", 2, () => { browserMaster = false; browserTrack = ti; AddFx("synth"); InstrumentFx bf = null; lock (eng.Sync) bf = tr.Fx.Count > 0 ? tr.Fx[tr.Fx.Count - 1] as InstrumentFx : null; if (bf != null) { bf.Owner = tr; bf.ShowWindow(this); } }, 14);   // the Bass Lab synthesizer: added to this track and its window opens
         float ly = y + 76 - panelScroll; int n = fxs.Length; g.SetClip(Rc(x, y + 72, w, h - 72));
         if (selFx >= n) selFx = -1;
@@ -1130,7 +1140,7 @@ partial class StudioForm : Form
         using (var b = new SolidBrush(c)) g.FillRectangle(b, r.X - 6, r.Y + 4, 4, r.Height - 8);
         string head = tr.IsBus ? "EDITING BUS" : "TRACK " + row + "  " + kind; float hw = Math.Min(r.Width * 0.55f, g.MeasureString(head, GfxCache.Font(12, true)).Width + 10);
         Txt(g, head, 12, c, Rc(r.X, r.Y, hw, r.Height), StringAlignment.Near, true);
-        Txt(g, TailName(tr.Name), 15, Ink, Rc(r.X + hw, r.Y, r.Width - hw, r.Height), StringAlignment.Near, true);
+        var rowT = tr.Host ?? tr; string shownName = rowT.Name.Trim().Length > 0 ? rowT.Name : "Track " + row; Txt(g, shownName, 15, Ink, Rc(r.X + hw, r.Y, r.Width - hw, r.Height), StringAlignment.Near, true);   // the name of the track, as on its box on the left
         if (Hot(r)) { bubble = "These plugins are on " + tr.Name + ". Press the box of another track on the left to change its plugins."; bubblePt = MousePos; }
     }
     internal Track busEdit;   // a bus being edited in the plugin panel (EDIT in the Buses sheet)

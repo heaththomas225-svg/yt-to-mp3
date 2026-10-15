@@ -237,7 +237,7 @@ static class S
                 FontKit.All.RemoveAll(e => e.Id == "nosifer" || e.Id == "zzz"); SetF("tab", 0);
             }
             {   // the MIC button has a neon box with a down arrow: a short menu of microphone modes (only for recording)
-                SetF("tab", 0); Paint(); var drops = Regs().FindAll(r => r.OnDown != null && Math.Abs(r.R.Width - 24) < 0.5f && r.R.Y > 60 && r.R.Y < 120 && r.R.Height > 28 && r.R.X > 380);
+                SetF("tab", 0); Paint(); var drops = Regs().FindAll(r => r.OnDown != null && Math.Abs(r.R.Width - 24) < 0.5f && r.R.Y > 60 && r.R.Y < 120 && r.R.Height > 28 && r.R.X > 60 && r.R.X < 420);   // the recording tools are on the left of the transport row
                 Check("the MIC button has a small box with a down arrow beside it", drops.Count >= 1, drops.Count + " found");
                 int keep = Prefs.MicMode; var ch = typeof(StudioForm).GetMethod("ChooseMicMode", BF); ch.Invoke(sf, new object[] { MicMode.VoiceIsolation }); Check("choosing a mode in the menu is remembered (Voice Isolation)", Prefs.MicMode == 2 && Array.IndexOf(Prefs.Lines(), "micmode=2") >= 0, Prefs.MicMode + "");
                 ch.Invoke(sf, new object[] { MicMode.Standard }); Check("and another one replaces it (Standard)", Prefs.MicMode == 1, Prefs.MicMode + ""); Prefs.MicMode = keep;

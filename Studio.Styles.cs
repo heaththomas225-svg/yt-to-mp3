@@ -194,6 +194,7 @@ partial class StudioForm
         chip("Any", stylesPart.Length == 0, () => { stylesPart = ""; stylesScroll = 0; });
         foreach (var pn in VocalStyles.Parts) { string pp = pn; chip(pn, stylesPart == pn, () => { stylesPart = stylesPart == pp ? "" : pp; stylesScroll = 0; }); }
         float top = cy + chH + 12, bottom = sheet.Bottom - 40; var list = VocalStyles.Find(stylesQuery, stylesGenre, stylesFav, stylesPart);
+        { bool filtered = list.Count != VocalStyles.All.Count; Txt(g, filtered ? list.Count + " of " + VocalStyles.All.Count + " presets" : VocalStyles.All.Count + " presets", 13, DimC, Rc(sheet.X + 22 + 214, sheet.Y + 20, 180, 24), StringAlignment.Near, false); }   // the preset counter (like the effects counter)
         const float rowH = 70; float areaH = bottom - top; var area = Rc(sheet.X, top, sheet.Width, areaH); float total = list.Count * rowH; stylesScroll = Math.Max(0, Math.Min(Math.Max(0, total - areaH), stylesScroll)); float vsw = total > areaH ? 56 : 0;
         regs.Add(new HitReg { R = area, OnWheel = d => stylesScroll = Math.Max(0, Math.Min(Math.Max(0, total - areaH), stylesScroll - d * 60)) });
         g.SetClip(area);

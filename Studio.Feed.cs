@@ -61,16 +61,16 @@ partial class StudioForm
         });
     }
     // the images of the covers come from the website in the background and are kept
-    readonly Dictionary<string, Bitmap> feedImgs = new Dictionary<string, Bitmap>(); readonly HashSet<string> feedImgPending = new HashSet<string>(); readonly Dictionary<string, DateTime> feedImgFail = new Dictionary<string, DateTime>();
+    readonly Dictionary<string, Bitmap> feedImgs = new Dictionary<string, Bitmap>(); readonly HashSet<string> feedImgPending = new HashSet<string>(); readonly Dictionary<string, DateTime> feedImgFail = new Dictionary<string, DateTime>(); readonly Dictionary<string, int> feedImgFails = new Dictionary<string, int>();
     Bitmap FeedImage(FeedSong s, int w, int h)
     {
         string k = s.Id + "|" + s.CoverVer + "|" + w + "x" + h; Bitmap b; if (feedImgs.TryGetValue(k, out b)) return b; if (feedImgPending.Contains(k)) return null;
-        DateTime ft; if (feedImgFail.TryGetValue(k, out ft) && (DateTime.Now - ft).TotalSeconds < 60) return null;   // a failed cover is tried again after a minute, not every frame and not never
+        DateTime ft; int fn; feedImgFails.TryGetValue(k, out fn); if (feedImgFail.TryGetValue(k, out ft) && (DateTime.Now - ft).TotalSeconds < Math.Min(60, 5 * Math.Pow(3, Math.Max(0, fn - 1)))) return null;   // a failed cover is tried again soon (5 s, 15 s, 45 s, then every minute), not every frame and not never
         feedImgPending.Add(k); string id = s.Id;
         ThreadPool.QueueUserWorkItem(o =>
         {
             Bitmap res = null; try { var data = ProfApi.Bytes("/api/community/cover/" + id, 3 * 1024 * 1024 + 64 * 1024); using (var ms = new MemoryStream(data)) using (var im = Image.FromStream(ms, false, false)) { res = new Bitmap(w, h, PixelFormat.Format32bppPArgb); double sc = Math.Max(w / (double)im.Width, h / (double)im.Height); float sw = (float)(im.Width * sc), sh = (float)(im.Height * sc); using (var gg = Graphics.FromImage(res)) { gg.InterpolationMode = InterpolationMode.HighQualityBicubic; gg.DrawImage(im, (w - sw) / 2f, (h - sh) / 2f, sw, sh); } } } catch { res = null; }
-            try { BeginInvoke(new Action(() => { if (feedImgs.Count > 150) { foreach (var v in feedImgs.Values) if (v != null) v.Dispose(); feedImgs.Clear(); } if (res != null) { feedImgs[k] = res; feedImgFail.Remove(k); } else feedImgFail[k] = DateTime.Now; feedImgPending.Remove(k); lastInput = DateTime.Now; })); } catch { }
+            try { BeginInvoke(new Action(() => { if (feedImgs.Count > 150) { foreach (var v in feedImgs.Values) if (v != null) v.Dispose(); feedImgs.Clear(); } if (res != null) { feedImgs[k] = res; feedImgFail.Remove(k); feedImgFails.Remove(k); } else { feedImgFail[k] = DateTime.Now; int c0; feedImgFails.TryGetValue(k, out c0); feedImgFails[k] = c0 + 1; } feedImgPending.Remove(k); lastInput = DateTime.Now; })); } catch { }
         });
         return null;
     }

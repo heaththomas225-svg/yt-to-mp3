@@ -1,4 +1,4 @@
-3.42.0
+3.42.1
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-VOCAL PRESETS: 1,482 presets and the AI PRESET GENERATOR
-sha256=da96d94d1a6a95661f0a2231dd81bfb584636306c6ceeb5b0974d5ba4d142d1f
+Community pictures load, centred transport, preset counter
+sha256=4a464b162cce4b21c2239ef2071970fed16db393017c7fd04f9d71ac0b319d6d

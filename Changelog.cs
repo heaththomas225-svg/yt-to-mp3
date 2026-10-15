@@ -7,10 +7,17 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.42.0";
+    public const string Latest = "3.42.1";
 
     public const string Text =
-@"3.42.0  VOCAL PRESETS: 1,482 presets and the AI PRESET GENERATOR
+@"3.42.1  Community pictures load, centred transport, preset counter
+ + FIXED: on the Community tab some songs showed the purple logo instead of their picture. The app only allowed two connections to the website at a time, so the pictures queued behind fonts, avatars and uploads, timed out and waited a minute before trying again. It now uses many connections at once and tries a missing picture again after 5 seconds.
+ + CHANGED: the transport row is laid out around PLAY: PLAY sits in the middle with |< and STOP before it and PAUSE, LOOP and the time after it; the recording tools (MIDI REC, MIC, SOUNDS) are on the left and the page tabs on the right. On a narrower window the middle slides so nothing overlaps.
+ + CHANGED: the plugin panel title shows the name of the track you are on, the same as its box on the left (it showed the song name from the audio file, which looked the same on every track).
+ + NEW: a preset counter beside VOCAL PRESETS (1482 presets, or 111 of 1482 while you search or filter), and the PRESETS... button says how many there are.
+ + CHANGED: the PREVIEW / LOADING name above the preview strip sits in a small black box with a neon edge, so it is easy to read on top of buttons and pictures.
+
+3.42.0  VOCAL PRESETS: 1,482 presets and the AI PRESET GENERATOR
  + NEW: Rapper Vocal Styles is now VOCAL PRESETS, with 1,482 presets (it had 36). Over a hundred are inspired by the sound of an artist, named in brackets: Juice WRLD (emo singing, freestyle, hooks), Eminem (rapid fire, angry, Slim Shady), Drake (smooth OVO, melodic, late night), Mazza (Scouse road rap, northern melodic), Travis Scott, Playboi Carti, Kendrick Lamar, J. Cole, Lil Baby, Future, Young Thug, Lil Uzi Vert, Gunna, Lil Durk, Polo G, Rod Wave, NBA YoungBoy, The Weeknd, SZA, Bryson Tiller, Central Cee, Dave, Stormzy, Skepta, Pop Smoke, Burna Boy and many more: 91 artists. They are sound designs inspired by how those vocals sound, built from this app's plugins, not anyone's real studio settings.
  + NEW: ULTIMATE all-in-one chains (Rap Lead, R&B Vocal, Trap Hook, Drill Lead, Melodic Sing, Boom Bap, Rage, Loud & Clear, Podcast Clean), ULTRA R&B (Glossy and Dark & Moody), and new groups: R&B, Singing (pure singing chains), UK Rap, Afro & Dancehall, Emo & Rock Rap, and Ad-libs & FX (phone, radio, megaphone, demon, chipmunk, robot, stadium throws, chops, glitches, tape stop...).
  + NEW: every sound comes in ten versions, one for each job: Lead, Ad-Libs, Doubles, Hook, Dry Verse, Spacey, Dark, Bright, Radio and Stutter, with a PART row to show only one kind, and an ARTISTS button for every artist preset.

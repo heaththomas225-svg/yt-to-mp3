@@ -1032,7 +1032,7 @@ static class NF
                 sf.eng.Tracks.Clear(); sf.eng.Tracks.Add(StudioEngine.NewTrack("aheath - Song - Vocals", "vocal", AudioClip.FromArrays(new float[44100], new float[44100], "v"))); sf.eng.Tracks.Add(StudioEngine.NewTrack("aheath - Song - Instrumental", "beat", AudioClip.FromArrays(new float[44100], new float[44100], "b")));
                 SetF("tab", 0); SetF("welcomeOn", false); SetF("selTrack", 1); StudioForm.TxtAudit = new List<StudioForm.AuditText>(); sf.Invalidate(); sf.Update(); Pump(150); var auT = StudioForm.TxtAudit; StudioForm.TxtAudit = null;
                 if (outDir != null) Shot(Path.Combine(outDir, "plugins-title.png"));
-                Check("the plugin panel says which track: TRACK 2 BEAT and the end of its name (Instrumental)", auT.Any(t => t.S == "TRACK 2  BEAT") && auT.Any(t => t.S == "Instrumental"), string.Join(" | ", auT.Where(t => t.S.StartsWith("TRACK")).Select(t => t.S).ToArray()));
+                Check("the plugin panel says which track: TRACK 2 BEAT and the track's own name", auT.Any(t => t.S == "TRACK 2  BEAT") && auT.Any(t => t.S == "aheath - Song - Instrumental"), string.Join(" | ", auT.Where(t => t.S.StartsWith("TRACK")).Select(t => t.S).ToArray()));
                 sf.eng.Tracks.Clear();
             }
             {   // the theme you chose is never lost when the edition is briefly not known (a licence being renewed): it comes back by itself; and it is what the website gets

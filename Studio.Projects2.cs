@@ -88,7 +88,11 @@ partial class StudioForm
     {
         if (previewPath.Length == 0) return; float W = ClientSize.Width, H = ClientSize.Height; var ob = Rc(24, H - 48, W - 48, 36); var pe = previewEng; bool playing = pe != null && (pe.Playing || previewPlayFn != null); lastInput = DateTime.Now;
         VizUpdate(playing, pe); FillRR(g, Color.Black, ob, 12); using (var pen = new Pen(Color.FromArgb(playing ? 230 : 150, NeonViolet), 1.3f)) { using (var p = RR(ob, 12)) g.DrawPath(pen, p); }
-        Txt(g, (pe == null ? "LOADING " : "PREVIEW  ") + previewName, 11, NeonCyan, Rc(ob.X + 6, ob.Y - 20, Math.Min(520, ob.Width - 12), 18), StringAlignment.Near, true);
+        {   // the name of what is playing sits in a small black box with a neon edge, so it reads on top of buttons and pictures
+            string lbl = (pe == null ? "LOADING  " : "PREVIEW  ") + previewName; float lw = Math.Min(Math.Min(540, ob.Width - 12), g.MeasureString(lbl, GfxCache.Font(11, true)).Width + 20);
+            var lr = Rc(ob.X + 6, ob.Y - 26, lw, 22); FillRR(g, TM.C(245, 4, 2, 12), lr, 7); Glow(g, NeonCyan, lr, 7, 0.55f, 3); StrokeRR(g, Color.FromArgb(220, NeonCyan), lr, 7, 1.3f);
+            Txt(g, lbl, 11, NeonCyan, Rc(lr.X + 9, lr.Y + 1, lr.Width - 14, lr.Height - 2), StringAlignment.Near, true);
+        }
         var pz = Rc(ob.X + 36, ob.Y + 5, 26, 26); FillRR(g, Hot(pz) ? TM.C(255, 70, 70, 170) : TM.C(255, 48, 44, 120), pz, 7); using (var pb = new SolidBrush(Color.White)) { if (previewPaused) g.FillPolygon(pb, new[] { new PointF(pz.X + 9, pz.Y + 6), new PointF(pz.X + 9, pz.Y + 20), new PointF(pz.X + 20, pz.Y + 13) }); else { g.FillRectangle(pb, pz.X + 8, pz.Y + 7, 4, 12); g.FillRectangle(pb, pz.X + 14, pz.Y + 7, 4, 12); } } Reg(pz, () => PreviewPauseToggle()); if (Hot(pz)) { bubble = previewPaused ? "Continue the preview (Space)" : "Pause the preview (Space)"; bubblePt = MousePos; }
         var stop = Rc(ob.X + 6, ob.Y + 5, 26, 26); FillRR(g, Hot(stop) ? TM.C(255, 160, 40, 80) : TM.C(255, 110, 30, 60), stop, 7); using (var b = new SolidBrush(Color.White)) g.FillRectangle(b, stop.X + 8, stop.Y + 8, 10, 10); Reg(stop, () => StopPreview()); if (Hot(stop)) { bubble = "Stop the preview"; bubblePt = MousePos; }
         double dur = pe == null ? 0 : Math.Max(1, pe.EndFrame), pos = pe == null ? 0 : pe.Pos; var inner = Rc(ob.X + 72, ob.Y + 4, ob.Width - 72 - 112, ob.Height - 8); float cx = inner.X + inner.Width / 2, cy = ob.Y + ob.Height / 2;
