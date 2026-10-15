@@ -89,7 +89,7 @@ static partial class VocalStyles
         {
             string st = part.Trim(), type = st, data = ""; int b = st.IndexOf('{'); if (b >= 0) { type = st.Substring(0, b).Trim(); int e = st.LastIndexOf('}'); data = st.Substring(b + 1, (e > b ? e : st.Length) - b - 1); }
             if (type.StartsWith("@")) type = PluginLibrary.IdFor(type.Substring(1));
-            var f = Presets.Make(type, data); if (f != null) l.Add(f);
+            var f = Presets.Make(type, data); if (f != null) { if (data.IndexOf("key=", StringComparison.Ordinal) >= 0) f.AutoKeyPending = false; l.Add(f); }
         }
         return l;
     }
@@ -128,10 +128,11 @@ static partial class VocalStyles
 
     // the styles that match a search, a subgenre ("" = all) and the favourites filter
     public static List<Style> Find(string query, string genre, bool onlyFav) { return Find(query, genre, onlyFav, ""); }
-    public static List<Style> Find(string query, string genre, bool onlyFav, string part)
+    public static List<Style> Find(string query, string genre, bool onlyFav, string part) { return Find(All, query, genre, onlyFav, part); }
+    public static List<Style> Find(List<Style> src, string query, string genre, bool onlyFav, string part)
     {
         var res = new List<Style>(); string q = (query ?? "").ToLowerInvariant().Trim();
-        foreach (var s in All)
+        foreach (var s in src)
         {
             if (genre == "Artists") { if (ArtistOf(s).Length == 0) continue; } else if (genre.Length > 0 && s.Genre != genre) continue;
             if (!string.IsNullOrEmpty(part) && s.Part != part) continue; if (onlyFav && !IsFav(s.Name)) continue;
@@ -147,7 +148,9 @@ partial class StudioForm
 {
     bool stylesOpen; string stylesQuery = "", stylesGenre = "", stylesPart = ""; bool stylesFav; float stylesScroll;
 
-    void OpenStyles() { stylesOpen = true; stylesQuery = ""; stylesGenre = ""; stylesPart = ""; stylesFav = false; stylesScroll = 0; ntOpen = false; busOpen = false; browserOpen = false; }
+    internal bool stylesBus;   // the same sheet shows BUS PRESETS
+    internal void OpenBusPresets() { OpenStyles(); stylesBus = true; }
+    void OpenStyles() { stylesBus = false; stylesOpen = true; stylesQuery = ""; stylesGenre = ""; stylesPart = ""; stylesFav = false; stylesScroll = 0; ntOpen = false; busOpen = false; browserOpen = false; }
 
     void ApplyStyle(VocalStyles.Style s, bool replace)
     {
@@ -174,31 +177,36 @@ partial class StudioForm
         Reg(all, () => stylesOpen = false);
         float sw = Math.Min(900, W - 24), sh = Math.Min(H - 30, 780); var sheet = PopMove("styles", Rc((W - sw) / 2, (H - sh) / 2, sw, sh), 54, 70);
         FillRR(g, TM.C(252, 16, 10, 34), sheet, 22); Glow(g, NeonViolet, sheet, 22, 0.8f, 4); StrokeRR(g, Color.FromArgb(180, NeonViolet), sheet, 22, 1.5f); Reg(sheet, () => { });
-        Txt(g, "VOCAL PRESETS", 22, Ink, Rc(sheet.X + 22, sheet.Y + 14, 240, 34), StringAlignment.Near, true);
-        { var aib = Rc(sheet.Right - 52 - 12 - 220, sheet.Y + 14, 220, 32); Btn(g, aib, "AI PRESET GENERATOR", 2, () => OpenAiPreset(), 12); Hint2(aib, "Describe the sound in your own words (an artist, a genre, effects like a stutter echo or lots of reverb) and get the plugins"); }
+        var src = stylesBus ? BusPresets.All : VocalStyles.All;
+        Txt(g, stylesBus ? "BUS PRESETS" : "VOCAL PRESETS", 22, Ink, Rc(sheet.X + 22, sheet.Y + 14, 240, 34), StringAlignment.Near, true);
+        var aib = Rc(sheet.Right - 52 - 12 - 220, sheet.Y + 14, 220, 32);
+        if (stylesBus) { Btn(g, aib, "AI BUS GENERATOR", 2, () => OpenAiBus(), 12); Hint2(aib, "Describe the bus in your own words (drill drum bus, punchy and dark; wide R&B reverb bus...) and get the plugins"); }
+        else { Btn(g, aib, "AI PRESET GENERATOR", 2, () => OpenAiPreset(), 12); Hint2(aib, "Describe the sound in your own words (an artist, a genre, effects like a stutter echo or lots of reverb) and get the plugins"); }
+        { var swb = Rc(aib.X - 10 - 176, sheet.Y + 14, 176, 32); Btn(g, swb, stylesBus ? "Vocal Presets" : "Bus Presets", 0, () => { stylesBus = !stylesBus; stylesGenre = ""; stylesPart = ""; stylesScroll = 0; }, 11); Hint2(swb, stylesBus ? "Back to the vocal presets (for a track)" : "Presets for buses: vocal, ad-lib, drums, 808, beat, reverb, echo, FX, glue and mix buses"); }
         string tn = eng.Tracks.Count > 0 ? eng.Tracks[Math.Max(0, Math.Min(selTrack, eng.Tracks.Count - 1))].Name : "(no track)";
-        Txt(g, VocalStyles.All.Count + " presets built from this app's plugins (artist ones are inspired by their sound). For: " + tn, 12, DimC, Rc(sheet.X + 22, sheet.Y + 48, sheet.Width - 44, 20), StringAlignment.Near, false);
+        if (stylesBus) { string bt0 = "a new bus"; if (eng.Tracks.Count > 0) { var st0 = busEdit != null && eng.Tracks.Contains(busEdit) ? busEdit : eng.Tracks[Math.Max(0, Math.Min(selTrack, eng.Tracks.Count - 1))]; var rw0 = st0.Host ?? st0; bt0 = st0.IsBus ? st0.Name : rw0.Out != null && rw0.Out.IsBus ? rw0.Out.Name + " (the bus " + rw0.Name + " goes into)" : "a new bus for " + rw0.Name; } Txt(g, BusPresets.All.Count + " bus presets built from this app's plugins. Use puts it on: " + bt0, 12, DimC, Rc(sheet.X + 22, sheet.Y + 48, sheet.Width - 44, 20), StringAlignment.Near, false); }
+        else Txt(g, VocalStyles.All.Count + " presets built from this app's plugins (artist ones are inspired by their sound). For: " + tn, 12, DimC, Rc(sheet.X + 22, sheet.Y + 48, sheet.Width - 44, 20), StringAlignment.Near, false);
         var close = Rc(sheet.Right - 52, sheet.Y + 14, 32, 32); FillRR(g, Hot(close) ? TM.C(160, 70, 38, 130) : TM.C(110, 40, 24, 80), close, 16); Txt(g, "X", 15, Ink, close, StringAlignment.Center, true); Reg(close, () => stylesOpen = false);
         var sb = Rc(sheet.X + 22, sheet.Y + 76, sheet.Width - 44, 34); FillRR(g, TM.C(235, 14, 7, 32), sb, 8); StrokeRR(g, Accent, sb, 8, 1.6f); Reg(sb, () => { });
         if (stylesQuery.Length > 0) Btn(g, Rc(sb.Right - 30, sb.Y + 5, 24, 24), "x", 3, () => { stylesQuery = ""; stylesScroll = 0; }, 12);
-        Txt(g, stylesQuery.Length == 0 ? (((int)(t * 2) % 2 == 0 ? "|" : " ") + "  Search: an artist (Drake, Juice WRLD, Central Cee...), trap, drill, R&B, dark, echo...") : stylesQuery + ((int)(t * 2) % 2 == 0 ? "|" : ""), 14, stylesQuery.Length == 0 ? DimC : Ink, Rc(sb.X + 12, sb.Y, sb.Width - 50, sb.Height), StringAlignment.Near, false);
+        Txt(g, stylesQuery.Length == 0 ? (((int)(t * 2) % 2 == 0 ? "|" : " ") + (stylesBus ? "  Search: drums, 808, vocal, reverb, echo, drill, R&B, punchy, dark..." : "  Search: an artist (Drake, Juice WRLD, Central Cee...), trap, drill, R&B, dark, echo...")) : stylesQuery + ((int)(t * 2) % 2 == 0 ? "|" : ""), 14, stylesQuery.Length == 0 ? DimC : Ink, Rc(sb.X + 12, sb.Y, sb.Width - 50, sb.Height), StringAlignment.Near, false);
         // the subgenre chips (they wrap onto more lines when the sheet is narrow)
         float cx = sheet.X + 22, cy = sheet.Y + 120; const float chH = 28;
         Action<string, bool, Action> chip = (label, on, act) => { float cw = 22 + label.Length * 7.4f; if (cx + cw > sheet.Right - 22) { cx = sheet.X + 22; cy += chH + 6; } Chip(g, Rc(cx, cy, cw, chH), label, on, act); cx += cw + 6; };
         chip("All", stylesGenre.Length == 0 && !stylesFav, () => { stylesGenre = ""; stylesFav = false; stylesScroll = 0; });
         chip("★ Favourites", stylesFav, () => { stylesFav = !stylesFav; stylesGenre = ""; stylesScroll = 0; });
-        chip("Artists", stylesGenre == "Artists", () => { stylesGenre = stylesGenre == "Artists" ? "" : "Artists"; stylesFav = false; stylesScroll = 0; });
-        foreach (var gn in VocalStyles.Genres) { string gg = gn; chip(gn, stylesGenre == gn, () => { stylesGenre = stylesGenre == gg ? "" : gg; stylesFav = false; stylesScroll = 0; }); }
+        if (!stylesBus) chip("Artists", stylesGenre == "Artists", () => { stylesGenre = stylesGenre == "Artists" ? "" : "Artists"; stylesFav = false; stylesScroll = 0; });
+        foreach (var gn in stylesBus ? BusPresets.Kinds : VocalStyles.Genres) { string gg = gn; chip(gn, stylesGenre == gn, () => { stylesGenre = stylesGenre == gg ? "" : gg; stylesFav = false; stylesScroll = 0; }); }
         // the job: lead, ad-libs, doubles, hook... (every sound comes in each of them)
-        cx = sheet.X + 22; cy += chH + 8; Txt(g, "PART", 10, DimC, Rc(cx, cy, 40, chH), StringAlignment.Near, true); cx += 44;
+        cx = sheet.X + 22; cy += chH + 8; Txt(g, stylesBus ? "GENRE" : "PART", 10, DimC, Rc(cx, cy, 48, chH), StringAlignment.Near, true); cx += stylesBus ? 52 : 44;
         chip("Any", stylesPart.Length == 0, () => { stylesPart = ""; stylesScroll = 0; });
-        foreach (var pn in VocalStyles.Parts) { string pp = pn; chip(pn, stylesPart == pn, () => { stylesPart = stylesPart == pp ? "" : pp; stylesScroll = 0; }); }
-        float top = cy + chH + 12, bottom = sheet.Bottom - 40; var list = VocalStyles.Find(stylesQuery, stylesGenre, stylesFav, stylesPart);
-        { bool filtered = list.Count != VocalStyles.All.Count; Txt(g, filtered ? list.Count + " of " + VocalStyles.All.Count + " presets" : VocalStyles.All.Count + " presets", 13, DimC, Rc(sheet.X + 22 + 214, sheet.Y + 20, 180, 24), StringAlignment.Near, false); }   // the preset counter (like the effects counter)
+        foreach (var pn in stylesBus ? BusPresets.Genres : VocalStyles.Parts) { string pp = pn; chip(pn, stylesPart == pn, () => { stylesPart = stylesPart == pp ? "" : pp; stylesScroll = 0; }); }
+        float top = cy + chH + 12, bottom = sheet.Bottom - 40; var list = VocalStyles.Find(src, stylesQuery, stylesGenre, stylesFav, stylesPart);
+        { bool filtered = list.Count != src.Count; Txt(g, filtered ? list.Count + " of " + src.Count + " presets" : src.Count + " presets", 13, DimC, Rc(sheet.X + 22 + (stylesBus ? 170 : 214), sheet.Y + 20, 180, 24), StringAlignment.Near, false); }   // the preset counter (like the effects counter)
         const float rowH = 70; float areaH = bottom - top; var area = Rc(sheet.X, top, sheet.Width, areaH); float total = list.Count * rowH; stylesScroll = Math.Max(0, Math.Min(Math.Max(0, total - areaH), stylesScroll)); float vsw = total > areaH ? 56 : 0;
         regs.Add(new HitReg { R = area, OnWheel = d => stylesScroll = Math.Max(0, Math.Min(Math.Max(0, total - areaH), stylesScroll - d * 60)) });
         g.SetClip(area);
-        if (list.Count == 0) Txt(g, stylesFav ? "No favourites yet. Press the star on a preset to keep it here." : "No preset matches that. Try the AI PRESET GENERATOR: describe it in your own words.", 14, DimC, Rc(sheet.X + 22, top + 10, sheet.Width - 44, 26), StringAlignment.Near, false);
+        if (list.Count == 0) Txt(g, stylesFav ? "No favourites yet. Press the star on a preset to keep it here." : (stylesBus ? "No bus preset matches that. Try the AI BUS GENERATOR: describe it in your own words." : "No preset matches that. Try the AI PRESET GENERATOR: describe it in your own words."), 14, DimC, Rc(sheet.X + 22, top + 10, sheet.Width - 44, 26), StringAlignment.Near, false);
         for (int i = 0; i < list.Count; i++)
         {
             var s = list[i]; var row = Rc(sheet.X + 14, top + i * rowH - stylesScroll, sheet.Width - 28 - vsw, rowH - 6); if (row.Bottom < top || row.Y > bottom) continue;
@@ -208,9 +216,9 @@ partial class StudioForm
             var tag = Rc(row.X + 44 + nameW + 10, row.Y + 10, 14 + s.Genre.Length * 6.6f, 18); if (tag.Right < row.Right - 130) { FillRR(g, Color.FromArgb(70, NeonViolet), tag, 5); Txt(g, s.Genre, 10, Ink, tag, StringAlignment.Center, false); }
             if (!string.IsNullOrEmpty(s.BusName)) { var bt = Rc(tag.Right + 6, row.Y + 10, 40, 18); if (bt.Right < row.Right - 130) { FillRR(g, Color.FromArgb(200, 255, 208, 77), bt, 5); Txt(g, "+BUS", 9.5f, Color.Black, bt, StringAlignment.Center, true); Hint2(bt, "Comes with " + s.BusName + ": glue and space shared by every vocal you route into it"); } }
             using (var wf = new StringFormat { Trimming = StringTrimming.EllipsisWord, FormatFlags = StringFormatFlags.LineLimit }) using (var wb = new SolidBrush(DimC)) g.DrawString(s.Blurb, GfxCache.Font(11, false), wb, Rc(row.X + 46, row.Y + 33, row.Width - 46 - 134, 32), wf);
-            var st = s; Btn(g, Rc(row.Right - 112, row.Y + 14, 96, 34), "Use", 1, () => ApplyStyle(st, true), 14);
+            var st = s; Btn(g, Rc(row.Right - 112, row.Y + 14, 96, 34), "Use", 1, () => { if (stylesBus) ApplyBusPreset(st); else ApplyStyle(st, true); }, 14);
         }
         g.ResetClip(); VScroll(g, Rc(sheet.Right - 56, top, 42, areaH), total, areaH, () => stylesScroll, v => stylesScroll = v);
-        Txt(g, "Use puts the preset on the selected track (and its vocal bus, if it has one). Ctrl+Z undoes it.  " + list.Count + " preset" + (list.Count == 1 ? "" : "s") + ".   Esc closes.", 11, DimC, Rc(sheet.X + 22, sheet.Bottom - 30, sheet.Width - 44, 20), StringAlignment.Near, false);
+        Txt(g, (stylesBus ? "Use puts the preset on the picked bus, the bus the picked track goes into, or a new bus. Ctrl+Z undoes it.  " : "Use puts the preset on the selected track (and its vocal bus, if it has one). Ctrl+Z undoes it.  ") + list.Count + " preset" + (list.Count == 1 ? "" : "s") + ".   Esc closes.", 11, DimC, Rc(sheet.X + 22, sheet.Bottom - 30, sheet.Width - 44, 20), StringAlignment.Near, false);
     }
 }

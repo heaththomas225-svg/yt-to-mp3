@@ -131,7 +131,7 @@ partial class StudioForm : Form
         EnsureUseTimer(); var now = DateTime.Now;
         if (ClientSize.Width != lastW || ClientSize.Height != lastH) { lastW = ClientSize.Width; lastH = ClientSize.Height; lastFrame = now; return true; }
         if (eng.Playing) lastPlayAt = now;
-        bool vizPage = tab == 5 || (tab == 1 && visStageOn); bool anim = vizPage || eng.Playing || (tab == 0 && AnyTrackOff()) || busy || browserOpen || stylesOpen || aiOpen || autoOpen || dragReg != null || (now - lastInput).TotalMilliseconds < 600 || animOff.Count > 0 || ghostOn || btnAnim || (now - toastAt).TotalSeconds < ToastSecs + 0.2 || (now - lastPlayAt).TotalMilliseconds < 1500 || installing.Length > 0 || mic != null || Auditioner.IsPlaying;   // the 1.5 s after playback lets the meters settle
+        bool vizPage = tab == 5 || (tab == 1 && visStageOn); bool anim = vizPage || eng.Playing || (tab == 0 && AnyTrackOff()) || busy || browserOpen || PanelAnimating || stylesOpen || aiOpen || autoOpen || dragReg != null || (now - lastInput).TotalMilliseconds < 600 || animOff.Count > 0 || ghostOn || btnAnim || (now - toastAt).TotalSeconds < ToastSecs + 0.2 || (now - lastPlayAt).TotalMilliseconds < 1500 || installing.Length > 0 || mic != null || Auditioner.IsPlaying;   // the 1.5 s after playback lets the meters settle
         double gap = (now - lastFrame).TotalMilliseconds;
         // a slow computer redraws less often (paint time x3) so the window never starves the audio
         lastIdle = !anim; if (!(anim ? gap >= Math.Max(vizPage && !eng.Playing ? 45 : FrameGapMs, Math.Min(250, paintMs * 1.5)) : gap >= 1000)) return false;
@@ -190,8 +190,15 @@ partial class StudioForm : Form
     bool NeedsFrame0() { return eng.Playing || (DateTime.Now - lastInput).TotalMilliseconds < 1500; }
 
     // ---------------- geometry ----------------
-    const int ToolH = 70, TransH = 86, HeadW = 372, RulerH = 28;
-    int PanelW { get { return soundsOpen && tab == 0 ? 640 : 380; } }   // the right-hand panel is wider while the sound browser is open
+    const int ToolH = 70, HeadW = 372, RulerH = 28, HintStripH = 26;
+    int TransH { get { return tab == 0 ? 86 + HintStripH : 86; } }   // on the studio page the transport area has the hint strip along its bottom edge
+    int PanelW { get { if (soundsOpen && tab == 0) return 640; return (int)Math.Round(PanelTabW + (380 - PanelTabW) * PanelOpenK()); } }
+    // the plugin panel can be tucked away for a big timeline: a thin tab stays on the right edge; it slides out and back in 0.18 s
+    internal const int PanelTabW = 30; internal DateTime panelAt = DateTime.MinValue;
+    float PanelOpenK() { float target = Prefs.PanelHidden ? 0f : 1f; double t = (DateTime.Now - panelAt).TotalMilliseconds / 180.0; if (t >= 1 || t < 0) return target; float e = (float)(1 - Math.Pow(1 - t, 3)); return (1 - target) + (target - (1 - target)) * e; }
+    bool PanelAnimating { get { double ms = (DateTime.Now - panelAt).TotalMilliseconds; return ms >= 0 && ms < 260; } }
+    internal void TogglePanel() { Prefs.PanelHidden = !Prefs.PanelHidden; Prefs.Changed(); panelAt = DateTime.Now; Invalidate(); }
+    void ShowPanel() { if (Prefs.PanelHidden) TogglePanel(); }   // the right-hand panel is wider while the sound browser is open
     int LaneH = 132;   // track height: Alt + mouse wheel makes the tracks taller so the waveform shows more detail
     RectangleF TimelineRect() { return new RectangleF(HeadW, ToolH + TransH + RulerH, Math.Max(100, ClientSize.Width - HeadW - PanelW), Math.Max(100, ClientSize.Height - ToolH - TransH - RulerH - 6)); }
 
@@ -267,7 +274,7 @@ partial class StudioForm : Form
     bool Hot(RectangleF r) { return hover != null && hover.R == r; }
 
     // Plain-English hints shown at the bottom while the mouse is over a button.
-    string hintNow = "";
+    string hintNow = "", stripHint = "";   // stripHint: the hint of the last frame, shown in the studio's hint strip
     static readonly Dictionary<string, string> Hints = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) {
         { "ADD MUSIC", "Add a song, a vocal recording or a beat. You can also drop files onto this window." },
         { "SPLIT VOCALS + BEAT", "Splits the selected FULL SONG into a vocals track and an instrumental track (AI)." },
@@ -511,8 +518,9 @@ partial class StudioForm : Form
         fpsc.Frame();
         float hintStackY = ClientSize.Height - (tab == 0 ? 56 : (previewPath.Length > 0 ? 56 : 10));
         if (hintNow != hintLast) { hintLast = hintNow; hintSince = DateTime.Now; }
+        bool inStrip = tab == 0 && !OverlayOpen; string stripWas = stripHint; stripHint = inStrip ? hintNow : ""; if (stripHint != stripWas) lastInput = DateTime.Now;   // the strip repaints when the hint changes
         if (hintNow.Length > 0 && !busy && (DateTime.Now - hintSince).TotalMilliseconds < 380) { lastInput = DateTime.Now; }   // a hint waits a moment before it shows, so it does not flash while you move about
-        if (hintNow.Length > 0 && !busy && (DateTime.Now - hintSince).TotalMilliseconds >= 380)
+        if (hintNow.Length > 0 && !busy && !inStrip && (DateTime.Now - hintSince).TotalMilliseconds >= 380)
         {   // the hint is a small see-through label at the bottom edge, as wide as its sentence needs (two lines when long), out of the way of the controls
             float maxw = Math.Min(ClientSize.Width - 24, 760); var hf = GfxCache.Font(12, false); var hsz = g.MeasureString(hintNow, hf, (int)maxw - 28); float hw = Math.Max(150, Math.Min(maxw, hsz.Width + 30)), inner = hw - 24; float hh = Math.Max(24, hsz.Height + 8), bottom = ClientSize.Height - (tab == 0 ? 46 : 8);
             var hr = Rc(ClientSize.Width / 2 - hw / 2, bottom - hh, hw, hh); FillRR(g, TM.C(168, 14, 8, 30), hr, 8); StrokeRR(g, TM.C(110, 140, 85, 210), hr, 8, 1);
@@ -654,6 +662,13 @@ partial class StudioForm : Form
         float y0 = ToolH, W = ClientSize.Width;
         using (var br = new SolidBrush(TM.C(255, 22, 12, 40))) g.FillRectangle(br, 0, y0, W, TransH);
         NeonRule(g, 0, y0 + TransH, W);
+        if (tab == 0)
+        {   // the hint strip, just above the ruler: what the thing under the mouse does (a quiet tip when there is nothing to say)
+            var hs = Rc(10, y0 + 86, W - 20, HintStripH - 4); FillRR(g, TM.C(150, 10, 5, 24), hs, 7); StrokeRR(g, Color.FromArgb(stripHint.Length > 0 ? 120 : 55, NeonViolet), hs, 7, 1);
+            bool has = stripHint.Length > 0; Txt(g, has ? "i" : "", 11, NeonCyan, Rc(hs.X + 6, hs.Y, 16, hs.Height), StringAlignment.Center, true);
+            using (var sfH = new StringFormat { Alignment = StringAlignment.Near, LineAlignment = StringAlignment.Center, Trimming = StringTrimming.EllipsisWord, FormatFlags = StringFormatFlags.NoWrap }) using (var brH = new SolidBrush(has ? Color.FromArgb(235, Ink) : DimC))
+                g.DrawString(has ? stripHint : "Point at anything to see what it does here.", GfxCache.Font(11.5f, false), brH, new RectangleF(hs.X + 26, hs.Y, hs.Width - 34, hs.Height), sfH);
+        }
         float x = 14, y = y0 + 8, h = 36;
         // the row is laid out around PLAY: the recording tools on the left, the transport in the middle with PLAY at its centre (|< and STOP before it,
         // PAUSE and LOOP after it, then the time), the master meter and the page tabs on the right. On a narrow window the middle slides so nothing overlaps.
@@ -663,9 +678,9 @@ partial class StudioForm : Form
 
         float leftEnd = x, tabsX = W - 328;
         const float wHome = 50, wStop = 70, wPlay = 96, wPause = 76, wLoop = 68, gap = 6, leftHalf = wHome + gap + wStop + gap, rightHalf = gap + wPause + gap + wLoop;
-        float timeW = 210, cx = W / 2;   // PLAY in the middle of the window when it fits
-        cx = Math.Min(cx, tabsX - 12 - (wPlay / 2 + rightHalf + 12 + timeW)); cx = Math.Max(cx, leftEnd + 14 + leftHalf + wPlay / 2);
-        timeW = Math.Max(130, Math.Min(210, tabsX - 12 - (cx + wPlay / 2 + rightHalf + 12)));
+        float timeW = 210, cx = W / 2;   // PLAY in the middle of the window when it fits; the time sits just before |<
+        cx = Math.Min(cx, tabsX - 12 - (wPlay / 2 + rightHalf)); cx = Math.Max(cx, leftEnd + 14 + 130 + 12 + leftHalf + wPlay / 2);
+        timeW = Math.Max(130, Math.Min(210, cx - wPlay / 2 - leftHalf - 12 - leftEnd - 14));
         float px = cx - wPlay / 2, tx0 = px - leftHalf;
         Btn(g, Rc(tx0, y, wHome, h), "|<", 0, () => { eng.Seek(0); scroll = 0; followPaused = false; }, 15);
         { var sb = Rc(tx0 + wHome + gap, y, wStop, h); Btn(g, sb, "STOP", 0, () => { if (mpActive) MasterPreviewStop(); PauseHere(); }, 14); Hint2(sb, "Stop where you are: the needle and the view stay put (|< takes you back to the start)"); }
@@ -674,8 +689,8 @@ partial class StudioForm : Form
         { bool paused = !eng.Playing && eng.Pos > 0; var pb = Rc(rx0, y, wPause, h); Btn(g, pb, "PAUSE", paused ? 4 : 0, () => PauseHere(), 14); Hint2(pb, "Pause where you are (Space does the same); PLAY carries on from there"); }
         { var lb = Rc(rx0 + wPause + gap, y, wLoop, h); Btn(g, lb, "LOOP", eng.Loop || loopPick ? 4 : 0, () => LoopMenu(lb), 14); Hint2(lb, eng.LoopSection ? "Looping " + LoopTime(eng.LoopA) + " to " + LoopTime(eng.LoopB) + ": press to change it or turn it off" : (eng.Loop ? "The whole song loops: press to loop a section or turn it off" : "Loop the whole song, or a section you drag on the timeline")); }
         double sec = dispPos / StudioEngine.SR, tot = eng.EndFrame / (double)StudioEngine.SR;
-        var tr = Rc(rx0 + wPause + gap + wLoop + 12, y, timeW, h); FillRR(g, TM.C(200, 8, 4, 18), tr, 6); StrokeRR(g, Edge, tr, 6, 1); Glow(g, Accent, tr, 6, eng.Playing ? 0.85f : 0.5f, 3); using (var pen = new Pen(Color.FromArgb(eng.Playing ? 230 : 150, Accent), 1.2f)) using (var pp = RR(tr, 6)) g.DrawPath(pen, pp);   // a small neon glow that is always there (brighter while it plays)
-        Txt(g, Fmt(sec) + "  /  " + Fmt(tot), timeW >= 190 ? 19 : 15, Accent, tr, StringAlignment.Center, true); x = tr.Right + 12;
+        var tr = Rc(tx0 - 12 - timeW, y, timeW, h); FillRR(g, TM.C(200, 8, 4, 18), tr, 6); StrokeRR(g, Edge, tr, 6, 1); Glow(g, Accent, tr, 6, eng.Playing ? 0.85f : 0.5f, 3); using (var pen = new Pen(Color.FromArgb(eng.Playing ? 230 : 150, Accent), 1.2f)) using (var pp = RR(tr, 6)) g.DrawPath(pen, pp);   // a small neon glow that is always there (brighter while it plays)
+        Txt(g, Fmt(sec) + "  /  " + Fmt(tot), timeW >= 190 ? 19 : 15, Accent, tr, StringAlignment.Center, true); x = rx0 + wPause + gap + wLoop + 12;   // the master meter goes after LOOP
 
         // tabs on the right; master meters in whatever room is left between
         float tx = W - 328;
@@ -1024,20 +1039,31 @@ partial class StudioForm : Form
     // ---------------- plugin panel (right side) ----------------
     void PaintPluginPanel(Graphics g)
     {
-        float x = ClientSize.Width - PanelW, y = ToolH + TransH, w = PanelW, h = ClientSize.Height - y;
+        float x = ClientSize.Width - PanelW, y = ToolH + TransH, w = soundsOpen && tab == 0 ? PanelW : 380, h = ClientSize.Height - y;   // while it slides the panel keeps its full width (the part past the edge is off screen)
+        if (!(soundsOpen && tab == 0) && PanelW <= PanelTabW + 1)
+        {   // tucked away: a thin tab on the right edge (click it, or the >> button brought you here)
+            var strip = Rc(x, y, PanelW, h); bool hotS = Hot(strip); int nfx = 0; if (eng.Tracks.Count > 0) { var tS = busEdit ?? eng.Tracks[Math.Max(0, Math.Min(selTrack, eng.Tracks.Count - 1))]; lock (eng.Sync) nfx = tS.Fx.Count; }
+            using (var br = new SolidBrush(hotS ? TM.C(255, 42, 22, 78) : TM.C(255, 20, 11, 38))) g.FillRectangle(br, strip);
+            using (var pen = new Pen(Color.FromArgb(hotS ? 240 : 160, NeonViolet), 1.6f)) g.DrawLine(pen, x, y, x, y + h);
+            Txt(g, "<<", 14, NeonCyan, Rc(x, y + 10, PanelW, 24), StringAlignment.Center, true);
+            var gs = g.Save(); g.TranslateTransform(x + PanelW / 2f + 8, y + 44); g.RotateTransform(90); Txt(g, "PLUGINS" + (nfx > 0 ? "  (" + nfx + ")" : ""), 12, hotS ? Ink : DimC, new RectangleF(0, 0, 240, 16), StringAlignment.Near, true); g.Restore(gs);
+            Reg(strip, () => TogglePanel()); Hint2(strip, "Show the plugin panel: add, edit and save plugins");
+            return;
+        }
         var pr = Rc(x, y, w, h); using (var br = new SolidBrush(TM.C(255, 20, 11, 38))) g.FillRectangle(br, pr);
         using (var pen = new Pen(Edge)) g.DrawLine(pen, x, y, x, y + h);
         Reg(pr, () => { });
+        if (!(soundsOpen && tab == 0)) { var hb = Rc(x + w - 34, y + 8, 26, 24); Btn(g, hb, ">>", 0, () => TogglePanel(), 11); Hint2(hb, "Hide the plugin panel for a bigger timeline (the tab on the right edge brings it back)"); }
         if (eng.Tracks.Count == 0) { Txt(g, "SELECT A TRACK TO EDIT ITS PLUGINS", 14, DimC, pr, StringAlignment.Center, false); return; }
         if (busEdit != null && !eng.Tracks.Contains(busEdit)) busEdit = null; var tr = busEdit ?? eng.Tracks[Math.Max(0, Math.Min(selTrack, eng.Tracks.Count - 1))];   // EDIT on a bus shows that bus here
-        PaintPluginsTitle(g, tr, Rc(x + 14, y + 6, w - 28 - 126, 30));   // which track these plugins are on: its number, its kind and the end of its name, in its colour (two tracks of one song start with the same long name)
-        if (busEdit != null) { var bk = Rc(x + w - 132, y + 8, 120, 24); Btn(g, bk, "BACK TO TRACKS", 2, () => { busEdit = null; selFx = -1; }, 10); Hint2(bk, "Stop editing the bus: the plugins of the picked track show again"); }
-        else { var allB = Rc(x + w - 132, y + 8, 120, 24); Btn(g, allB, "ALL PLUGINS", 2, () => OpenAllFx(), 11); Hint2(allB, "Every track and its plugins in one place: add, paste, copy and open plugins on any track"); }
+        PaintPluginsTitle(g, tr, Rc(x + 14, y + 6, w - 28 - 126 - 32, 30));   // which track these plugins are on: its number, its kind and the end of its name, in its colour (two tracks of one song start with the same long name)
+        if (busEdit != null) { var bk = Rc(x + w - 132 - 32, y + 8, 120, 24); Btn(g, bk, "BACK TO TRACKS", 2, () => { busEdit = null; selFx = -1; }, 10); Hint2(bk, "Stop editing the bus: the plugins of the picked track show again"); }
+        else { var allB = Rc(x + w - 132 - 32, y + 8, 120, 24); Btn(g, allB, "ALL PLUGINS", 2, () => OpenAllFx(), 11); Hint2(allB, "Every track and its plugins in one place: add, paste, copy and open plugins on any track"); }
         Fx[] fxs; lock (eng.Sync) fxs = tr.Fx.ToArray(); float origW = w; { int n0 = fxs.Length; float est = 76 + n0 * 32 + GroupExtra(fxs) + 8 + ((selFx >= 0 && selFx < n0) ? EditorHeight(fxs[selFx]) : 60); if (est - h + 6 > 1 && h > 200) w -= 52; }
         int ti = Array.IndexOf(eng.Tracks.ToArray(), tr);
-        Btn(g, Rc(x + 10, y + 38, 112, 30), "+ Add Effect", 1, () => OpenBrowser(false, ti), 14);
-        { var pbn = Rc(x + 128, y + 38, 100, 30); Btn(g, pbn, "Presets...", 0, () => ChainMenu(tr), 14); Hint2(pbn, VocalStyles.All.Count + " vocal presets, the AI Preset Generator, and your own and community presets"); }
-        if (origW >= 330 && !tr.IsBus) Btn(g, Rc(x + 234, y + 38, Math.Min(104f, origW - 244), 30), "Bass Lab", 2, () => { browserMaster = false; browserTrack = ti; AddFx("synth"); InstrumentFx bf = null; lock (eng.Sync) bf = tr.Fx.Count > 0 ? tr.Fx[tr.Fx.Count - 1] as InstrumentFx : null; if (bf != null) { bf.Owner = tr; bf.ShowWindow(this); } }, 14);   // the Bass Lab synthesizer: added to this track and its window opens
+        Btn(g, Rc(x + 10, y + 38, 106, 30), "+ Add Effect", 1, () => OpenBrowser(false, ti), 13);
+        { var pbn = Rc(x + 122, y + 38, 124, 30); Btn(g, pbn, tr.IsBus ? "Bus Presets" : "Presets (" + VocalStyles.All.Count + ")", 0, () => ChainMenu(tr), 12); Hint2(pbn, tr.IsBus ? BusPresets.All.Count + " bus presets, the AI Bus Generator, and your own and community presets" : VocalStyles.All.Count + " vocal presets, " + BusPresets.All.Count + " bus presets, the AI generators, and your own and community presets"); }
+        if (origW >= 330 && !tr.IsBus) Btn(g, Rc(x + 252, y + 38, Math.Min(96f, origW - 262), 30), "Bass Lab", 2, () => { browserMaster = false; browserTrack = ti; AddFx("synth"); InstrumentFx bf = null; lock (eng.Sync) bf = tr.Fx.Count > 0 ? tr.Fx[tr.Fx.Count - 1] as InstrumentFx : null; if (bf != null) { bf.Owner = tr; bf.ShowWindow(this); } }, 14);   // the Bass Lab synthesizer: added to this track and its window opens
         float ly = y + 76 - panelScroll; int n = fxs.Length; g.SetClip(Rc(x, y + 72, w, h - 72));
         if (selFx >= n) selFx = -1;
         // the boxes: the instrument (Bass Lab or a VST), every preset that was added (each one its own box, they never replace each other) and YOUR PLUGINS (always there)
@@ -1237,26 +1263,25 @@ partial class StudioForm : Form
     void ChainMenu(Track tr)
     {
         var m = Win.NewMenu(); bool vocal = tr.Role == "vocal";
+        if (tr.IsBus) { m.Items.Add("Bus Presets (searchable)...").Click += (a, b) => OpenBusPresets(); m.Items.Add("AI Bus Generator (describe the bus)...").Click += (a, b) => OpenAiBus(); m.Items.Add(new ToolStripSeparator()); }
         m.Items.Add("Vocal Presets (" + VocalStyles.All.Count + ", searchable)...").Click += (a, b) => OpenStyles();
         m.Items.Add("AI Preset Generator (describe the sound)...").Click += (a, b) => OpenAiPreset();
+        if (!tr.IsBus) { m.Items.Add("Bus Presets (for the bus this track goes into)...").Click += (a, b) => OpenBusPresets(); m.Items.Add("AI Bus Generator (describe the bus)...").Click += (a, b) => OpenAiBus(); }
         { var pp = new ToolStripMenuItem(presetCopy.Count > 0 ? "Paste preset: " + presetCopyName + " (" + presetCopy.Count + " plugins)" : "Paste preset (copy one first: COPY on a preset box)") { Enabled = presetCopy.Count > 0 }; pp.Click += (a, b) => PastePreset(tr); m.Items.Add(pp); }
         { var keys = new List<string>(); foreach (var f in tr.Fx) if (!(f is InstrumentFx) && f.Preset.Length > 0 && !keys.Contains(f.PresetId.Length > 0 ? f.PresetId : f.Preset)) { string k = f.PresetId.Length > 0 ? f.PresetId : f.Preset; keys.Add(k); string nm = f.Preset; m.Items.Add("Copy preset: " + nm).Click += (a, b) => CopyPreset(tr, k); } }
         m.Items.Add("All plugins of every track...").Click += (a, b) => OpenAllFx();
         m.Items.Add("Copy all plugins of this track").Click += (a, b) => CopyAllFx(tr);
         { var pa = new ToolStripMenuItem(allCopy.Count > 0 ? "Paste all plugins (" + allCopy.Count + " from " + allCopyFrom + ")" : "Paste all plugins (copy them from a track first)") { Enabled = allCopy.Count > 0 }; pa.Click += (a, b) => PasteAllFx(tr); m.Items.Add(pa); }
         { var ra = new ToolStripMenuItem("Remove all plugins (go RAW)...") { Enabled = tr.Fx.Exists(f => !(f is InstrumentFx)) }; ra.Click += (a, b) => { if (!Sure("remove every plugin and preset from " + tr.Name)) return; ChainApply(tr, "All plugins removed", () => RemoveAllPlugins(tr)); selFx = -1; }; m.Items.Add(new ToolStripSeparator()); m.Items.Add(ra); }   // REMOVE ALL lives here now (it was in the YOUR PLUGINS box)
-        var rap = new ToolStripMenuItem("Rap vocal presets (your own plugins stay)"); m.Items.Add(rap);
-        for (int i = 0; i < Presets.ChainNames.Length; i++) { string nm = Presets.ChainNames[i]; var it = new ToolStripMenuItem(nm) { ToolTipText = Presets.ChainBlurbs[i] }; it.Click += (a, b) => { ChainApply(tr, nm, () => PutPreset(tr, nm, Presets.BuildChain(nm))); selFx = -1; Toast(nm + " added as a preset: every plugin is editable, your own plugins stay (REVERT puts it back)"); }; rap.DropDownItems.Add(it); }
         var beat = new ToolStripMenuItem("Instrumental chain (EQ, comp, multiband, sat, exciter, imager, ducker, limiter)"); beat.Click += (a, b) => { ChainApply(tr, "Instrumental chain", () => PutPreset(tr, "Instrumental chain", Presets.BeatChain())); selFx = -1; Toast("Beat chain added as a preset (REVERT puts it back)"); }; m.Items.Add(beat);
         var bus = new ToolStripMenuItem("Bus presets (echo, ad-lib, reverb)"); m.Items.Add(bus);
         for (int i = 0; i < Presets.BusNames.Length; i++) { string bn = Presets.BusNames[i]; var bi = new ToolStripMenuItem(bn) { ToolTipText = Presets.BusBlurbs[i] }; bi.Click += (a, b) => { ChainApply(tr, bn, () => PutPreset(tr, bn, Presets.BuildBus(bn))); selFx = -1; Toast(bn + " added as a preset: " + Presets.BusBlurbs[Array.IndexOf(Presets.BusNames, bn)]); }; bus.DropDownItems.Add(bi); }
-        m.Items.Add("Community chains (download and use)...").Click += (a, b) => OpenCommunityPresets("chain", "Plugin chains", cp => { var c = Presets.ChainFromText(cp.Data); if (c.Count == 0) throw new InvalidOperationException("it holds no plugins you have"); PutPreset(tr, cp.Name, c); selFx = -1; }, () => tr.Fx.Count == 0 ? null : Presets.ChainText(tr.Fx), tr.Name + " chain");
-        var mine = new ToolStripMenuItem("My saved chains"); m.Items.Add(mine);
+        m.Items.Add("Community presets (download and use)...").Click += (a, b) => OpenCommunityPresets("chain", "Plugin chains", cp => { var c = Presets.ChainFromText(cp.Data); if (c.Count == 0) throw new InvalidOperationException("it holds no plugins you have"); PutPreset(tr, cp.Name, c); selFx = -1; }, () => tr.Fx.Count == 0 ? null : Presets.ChainText(tr.Fx), tr.Name + " chain");
+        var mine = new ToolStripMenuItem("My saved presets"); m.Items.Add(mine);
         foreach (var nm0 in Presets.UserChains()) { string nm = nm0; var it = new ToolStripMenuItem(nm); it.Click += (a, b) => { var c = Presets.LoadChain(nm); ChainApply(tr, nm, () => PutPreset(tr, nm, c)); selFx = -1; }; mine.DropDownItems.Add(it); }
         if (mine.DropDownItems.Count == 0) mine.DropDownItems.Add(new ToolStripMenuItem("(none yet)") { Enabled = false });
         m.Items.Add(new ToolStripSeparator());
         m.Items.Add("Save this track's plugins as a preset...").Click += (a, b) => SaveTrackPreset(tr);
-        m.Items.Add("Remove all the presets (your own plugins stay)").Click += (a, b) => { ChainApply(tr, "Presets removed", () => RemovePreset(tr)); selFx = -1; };
         m.Items.Add("Remove ALL plugins (go raw)").Click += (a, b) => { ChainApply(tr, "All plugins removed", () => RemoveAllPlugins(tr)); selFx = -1; };
         m.Show(this, new Point((int)MousePos.X, (int)MousePos.Y));
     }
@@ -1271,6 +1296,7 @@ partial class StudioForm : Form
         FillRR(g, TM.C(252, 26, 14, 48), browserBox, 14); StrokeRR(g, Accent, browserBox, 14, 1.5f); var wr = new HitReg { R = browserBox, OnWheel = d => browserScroll = Math.Max(0, Math.Min(browserMaxF, browserScroll - d * 40)) }; regs.Add(wr); Reg(browserBox, () => { });
         Txt(g, "ADD EFFECT", 20, Ink, Rc(x + 20, y + 12, 300, 30), StringAlignment.Near, true);
         Btn(g, Rc(x + w - 60, y + 14, 40, 28), "X", 3, () => browserOpen = false, 14);
+        { var aie = Rc(x + w - 196 - 12 - 196, y + 14, 196, 28); Btn(g, aie, "AI EFFECT GENERATOR", 2, () => OpenAiEffect(true), 11); Hint2(aie, "Describe the effect you want in your own words (huge dark reverb, hard autotune in F# minor, telephone with distortion...) and get it"); }
         Btn(g, Rc(x + w - 196, y + 14, 130, 28), "Plugins...", 1, () => { browserOpen = false; if (pluginWin == null || pluginWin.IsDisposed) { pluginWin = new PluginManagerForm(() => app.ExtraFilter, s => { app.ExtraFilter = s; app.SaveSettings(); }); pluginWin.Show(this); } Win.Bring(pluginWin); }, 12);
         var sb = Rc(x + 20, y + 52, w - 40, 36); FillRR(g, TM.C(235, 14, 7, 32), sb, 8); StrokeRR(g, Color.FromArgb(60, Accent), Rc(sb.X - 2, sb.Y - 2, sb.Width + 4, sb.Height + 4), 10, 4f); StrokeRR(g, Accent, sb, 8, 2f);   // always active: it is ready to type the moment the list opens
         Reg(sb, () => { });
@@ -1335,7 +1361,7 @@ partial class StudioForm : Form
         var f = FxRegistry.Create(type); if (f == null) return; f.Prepare(StudioEngine.SR);
         if (type == "duck") { var v = eng.VocalTrack(); if (v == null) Toast("The ducker listens to a vocal track; add or separate a vocal first."); }
         if (browserMaster) { lock (eng.Sync) eng.MasterFx.Add(f); selMaster = eng.MasterFx.Count - 1; }
-        else if (browserTrack >= 0 && browserTrack < eng.Tracks.Count) { var tr = eng.Tracks[browserTrack]; var vfx = f as InstrumentFx; if (vfx != null) vfx.Owner = tr; lock (eng.Sync) tr.Fx.Add(f); selTrack = browserTrack; selFx = tr.Fx.Count - 1; }
+        else if (browserTrack >= 0 && browserTrack < eng.Tracks.Count) { var tr = eng.Tracks[browserTrack]; var vfx = f as InstrumentFx; if (vfx != null) vfx.Owner = tr; lock (eng.Sync) tr.Fx.Add(f); selTrack = browserTrack; selFx = tr.Fx.Count - 1; ShowPanel(); }
         browserOpen = false; Toast(f.Title + " added");
     }
 

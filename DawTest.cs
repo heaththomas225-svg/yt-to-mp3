@@ -124,7 +124,7 @@ static class D
             mouse2("OnMouseMove", 700, 500); mouse2("OnMouseDown", 700, 500); mouse2("OnMouseUp", 700, 500);
             Check("clicking the empty area below the tracks does NOT move the needle (it only moves from the ruler)", app2.StudioEng.Pos == 44100L * 3, "needle at " + (app2.StudioEng.Pos / 44100.0).ToString("0.00") + " s");
             Check("and hides the button row", tools() == null, "");
-            mouse2("OnMouseMove", 700, 168); mouse2("OnMouseDown", 700, 168); mouse2("OnMouseUp", 700, 168);
+            mouse2("OnMouseMove", 700, 194); mouse2("OnMouseDown", 700, 194); mouse2("OnMouseUp", 700, 194);
             Check("clicking the ruler at the top moves the needle there", Math.Abs(app2.StudioEng.Pos - 44100L * 3) > 44100, "needle at " + (app2.StudioEng.Pos / 44100.0).ToString("0.00") + " s");
             sf2.Dispose();
         }

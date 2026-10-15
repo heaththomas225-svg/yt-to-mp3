@@ -1,4 +1,4 @@
-3.42.1
+3.43.0
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Community pictures load, centred transport, preset counter
-sha256=4a464b162cce4b21c2239ef2071970fed16db393017c7fd04f9d71ac0b319d6d
+EFFECT LIBRARY: 10,339 effects, BUS PRESETS, AI BUS + EFFECT GENERATORS, Censor, demon voices
+sha256=cafd1b2ef8a3bfee7798378d27ad22677449c14e53a0d462534289ab73ede04a

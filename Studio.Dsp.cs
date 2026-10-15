@@ -954,10 +954,11 @@ class GainFx : Fx
 public static class FxRegistry
 {
     public class Info { public string Type, Name, Category, Blurb; public Info(string t, string n, string c, string b) { Type = t; Name = n; Category = c; Blurb = b; } }
-    public static Info[] All { get { var l = new List<Info>(Builtin); lock (extra) l.AddRange(extra); return l.ToArray(); } }
+    static Info[] allCache;   // the full list is built once (it has over ten thousand entries) and again only when something is registered
+    public static Info[] All { get { lock (extra) { if (allCache == null) { var l = new List<Info>(Builtin); l.AddRange(extra); allCache = l.ToArray(); } return allCache; } } }
     static readonly List<Info> extra = new List<Info>(); static readonly Dictionary<string, Func<Fx>> factories = new Dictionary<string, Func<Fx>>();
     // Plugins call this (the host does it for you when a plugin DLL is loaded).
-    public static void Register(Info info, Func<Fx> factory) { lock (extra) { extra.RemoveAll(i => i.Type == info.Type); extra.Add(info); factories[info.Type] = factory; } }
+    public static void Register(Info info, Func<Fx> factory) { lock (extra) { if (factories.ContainsKey(info.Type)) extra.RemoveAll(i => i.Type == info.Type); extra.Add(info); factories[info.Type] = factory; allCache = null; } }
     public static bool IsBuiltin(string type) { foreach (var i in Builtin) if (i.Type == type) return true; return PluginLibrary.IsLibrary(type); }
     static FxRegistry() { PluginLibrary.RegisterAll(); }   // the named built-in plugin library
     public static readonly Info[] Builtin = {

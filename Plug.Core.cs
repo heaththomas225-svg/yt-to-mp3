@@ -10,14 +10,17 @@ using System.Text;
 // ======================================================================
 public static class PluginLibrary
 {
-    public class Variant { public string Id, Name, Cat, Blurb, Engine, Preset, Hide; }
+    public class Variant { public string Id, Name, Cat, Blurb, Engine, Preset, Hide; public bool Gen; }   // Gen: made by the EFFECT LIBRARY grids (Plug.Variants.Gen.cs)
+    public static bool Generating; static readonly HashSet<string> genIds = new HashSet<string>();
+    public static bool IsGenerated(string type) { return type != null && genIds.Contains(type); }
+    public static int GeneratedCount { get { return genIds.Count; } }
     public static readonly List<Variant> All = new List<Variant>();
     static readonly HashSet<string> names = new HashSet<string>(StringComparer.OrdinalIgnoreCase), ids = new HashSet<string>();
     static bool done;
 
     public static string IdFor(string name)
     {
-        var sb = new StringBuilder("lib_"); foreach (char c in name.ToLowerInvariant()) sb.Append(char.IsLetterOrDigit(c) ? c : '_');
+        var sb = new StringBuilder("lib_"); foreach (char c in name.ToLowerInvariant()) { if (c == '#') sb.Append("sharp"); else sb.Append(char.IsLetterOrDigit(c) ? c : '_'); }   // C# and C stay apart
         string s = sb.ToString(); while (s.IndexOf("__", StringComparison.Ordinal) >= 0) s = s.Replace("__", "_"); return s.TrimEnd('_');
     }
     // a name used twice in the list of plugins is only added once
@@ -25,7 +28,7 @@ public static class PluginLibrary
     {
         foreach (var b in FxRegistry.Builtin) if (string.Equals(b.Name, name, StringComparison.OrdinalIgnoreCase)) return;
         if (!names.Add(name)) return; string id = IdFor(name); if (!ids.Add(id)) return;
-        All.Add(new Variant { Id = id, Name = name, Cat = cat, Blurb = blurb, Engine = engine, Preset = preset ?? "", Hide = hide ?? "" });
+        All.Add(new Variant { Id = id, Name = name, Cat = cat, Blurb = blurb, Engine = engine, Preset = preset ?? "", Hide = hide ?? "", Gen = Generating }); if (Generating) genIds.Add(id);
     }
     public static bool IsLibrary(string type) { return type != null && type.StartsWith("lib_", StringComparison.Ordinal) && ids.Contains(type); }
 
@@ -38,7 +41,8 @@ public static class PluginLibrary
     public static Fx Make(Variant v)
     {
         Fx f = Build(v.Engine, v.Name); f.Title = v.Name; f.Category = v.Cat; f.Blurb = v.Blurb; f.Hidden = v.Hide;
-        ApplyPreset(f, v.Preset); f.Type = v.Id; return f;
+        ApplyPreset(f, v.Preset); f.Type = v.Id; if (v.Preset.IndexOf("key=", StringComparison.Ordinal) >= 0) f.AutoKeyPending = false;   // "Auto-Tune: A Minor" stays in A minor (the others find the key of their track)
+        return f;
     }
 
     // "id=value;id[min,max]=value": starting values (and, in brackets, a narrower range) for a variant
@@ -61,6 +65,19 @@ public static class PluginLibrary
         var stages = new List<Fx>(); var names2 = new List<string>();
         foreach (var part in spec.Split('>')) { string id, pre; Split(part.Trim(), out id, out pre); var f = Engine(id); if (f == null) throw new InvalidOperationException("no engine " + id); if (pre.Length > 0) ApplyPreset(f, pre); stages.Add(f); names2.Add(f.Title); }
         return new ChainFx(stages, title);
+    }
+    // every setting a variant names must exist on its engine (a typo would silently do nothing): the problems, or "" when it is right
+    public static string Problems(Variant v)
+    {
+        var parts = new List<string>(); if (v.Engine.IndexOf('>') < 0) parts.Add(v.Engine); else parts.AddRange(v.Engine.Split('>'));
+        var bad = new StringBuilder(); var engines = new List<Fx>();
+        foreach (var part in parts) { string id, pre; Split(part.Trim(), out id, out pre); var f = Engine(id); if (f == null) { bad.Append("no engine " + id + "; "); continue; } engines.Add(f); CheckKeys(f, pre, bad, id); }
+        if (bad.Length == 0 && v.Preset.Length > 0) { var whole = Build(v.Engine, v.Name); CheckKeys(whole, v.Preset, bad, v.Engine); }
+        return bad.ToString();
+    }
+    static void CheckKeys(Fx f, string pre, StringBuilder bad, string where)
+    {
+        foreach (var tok in pre.Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries)) { int eq = tok.IndexOf('='); if (eq < 1) { bad.Append(where + ": bad '" + tok + "'; "); continue; } string key = tok.Substring(0, eq).Trim(); int b = key.IndexOf('['); if (b > 0) key = key.Substring(0, b); if (f.Find(key) == null) bad.Append(where + ": no setting " + key + "; "); float val; if (!float.TryParse(tok.Substring(eq + 1), NumberStyles.Float, CultureInfo.InvariantCulture, out val)) bad.Append(where + ": not a number '" + tok + "'; "); }
     }
     static void Split(string s, out string id, out string pre)
     {
@@ -119,6 +136,8 @@ public static class PluginLibrary
             case "amp": return new AmpFx();
             case "worldecho": return new WorldEchoFx();
             case "melody": return new MelodyTuneFx();
+            case "censor": return new CensorFx();
+            case "growl": return new GrowlFx();
         }
         return FxRegistry.Create(id);
     }

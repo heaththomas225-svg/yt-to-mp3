@@ -130,6 +130,30 @@ partial class StudioForm
         if (p == null || p.Clip == null || p.Instrument) return; PushUndo(); p.PieceMuted = !p.PieceMuted;
         Toast(p.PieceMuted ? "This section is muted: it stays where it is but makes no sound. Right-click it and press Unmute this section to hear it again." : "This section plays again.");
     }
+    // ---------- censor a section ----------
+    // the row gets one Censor plugin (added the first time, switched off) and its CENSOR switch is drawn on over each section: on at the start, off at the end.
+    // Split the clip around the word first to censor only that word. The sound (bleep, mute, reverse...) is the plugin's own setting.
+    internal void CensorSections(List<Track> list, int mode)
+    {
+        if (list == null || list.Count == 0) return; PushUndo(); int done = 0;
+        foreach (var p in list)
+        {
+            if (p == null || p.Clip == null) continue; var row = p.Host ?? p; Fx cf = null; lock (eng.Sync) cf = row.Fx.Find(f => f is CensorFx);
+            if (cf == null) { cf = FxRegistry.Create(PluginLibrary.IdFor("Censor (Bleep)")); if (cf == null) continue; cf.Prepare(StudioEngine.SR); cf.Set("censor", 0); foreach (var q in cf.P) q.Def = q.Val; lock (eng.Sync) row.Fx.Add(cf); }
+            cf.Set("mode", mode);
+            var lane = row.Auto.Find(l => l.Fx == cf && l.Param == "censor"); if (lane == null) { lane = new AutoLane { Fx = cf, Param = "censor" }; lock (eng.Sync) row.Auto.Add(lane); }
+            long s0 = p.Offset, e0 = p.Offset + p.UsedLength;
+            lock (eng.Sync) { lane.Pts.RemoveAll(q => q.Frame >= s0 - 1 && q.Frame <= e0 + 1); if (lane.Pts.Count == 0) lane.Pts.Add(new AutoPoint { Frame = 0, Value = 0 }); lane.Pts.Add(new AutoPoint { Frame = Math.Max(0, s0 - 1), Value = 0 }); lane.Pts.Add(new AutoPoint { Frame = s0, Value = 1 }); lane.Pts.Add(new AutoPoint { Frame = e0, Value = 1 }); lane.Pts.Add(new AutoPoint { Frame = e0 + 1, Value = 0 }); lane.SortPts(); lane.On = true; }
+            done++;
+        }
+        if (done > 0) Toast((done == 1 ? "This section is" : done + " sections are") + " censored (" + CensorFx.Modes[mode] + "). Change the sound on the Censor plugin; split around one word first to censor just that word. Ctrl+Z undoes it.");
+    }
+    internal void UncensorSections(List<Track> list)
+    {
+        if (list == null || list.Count == 0) return; PushUndo(); int done = 0;
+        foreach (var p in list) { if (p == null) continue; var row = p.Host ?? p; long s0 = p.Offset, e0 = p.Offset + p.UsedLength; foreach (var lane in row.Auto) if (lane.Fx is CensorFx && lane.Param == "censor") { lock (eng.Sync) { int before = lane.Pts.Count; lane.Pts.RemoveAll(q => q.Frame >= s0 - 1 && q.Frame <= e0 + 1); if (lane.Pts.Count != before) done++; } } }
+        Toast(done > 0 ? "Not censored any more." : "That section was not censored.");
+    }
     internal void SetPieceMutes(List<Track> list, bool muteIt)
     {
         if (list == null || list.Count == 0) return; PushUndo(); foreach (var p in list) p.PieceMuted = muteIt;
