@@ -2,6 +2,14 @@
 
 What changed in each version of **Purphex**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.41.5  Lyrics: size, fill screen, the whole song
+
+- FIXED: with the lyrics scroll bar at the bottom, the last lines of long lyrics did not show (the text box spaces its lines a little wider than the bar thought). The bottom of the bar is now exactly the end of your lyrics, at any text size.
+
+- NEW: A- and A+ on the LYRICS page make the lyrics smaller or bigger (kept for next time), and FILL SCREEN gives the lyrics the whole window under the play controls, with the song title at the top (EXIT FILL SCREEN goes back).
+
+- CHANGED: clicking the lyrics scroll bar, its arrows or the mouse wheel over it now glides the lyrics there slowly, one line at a time, so you can keep reading while they move (it used to jump). Dragging the logo still follows your hand straight away.
+
 ## 3.41.4  SAVE PRESET under your effects, lyrics scroll fixed
 
 - NEW: SAVE PRESET right under your effects in the panel on the right: every plugin of the track, with all its settings, saved as your own preset under the name you choose. It is in PRESETS... on any track, in every project.

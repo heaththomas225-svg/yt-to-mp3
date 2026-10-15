@@ -32,7 +32,7 @@ partial class StudioForm
     {
         if (lyricUi) return; lyricUi = true;
         Func<bool, float, TextBox> mk = (multi, size) => { var t = new TextBox { Multiline = multi, Visible = false, BorderStyle = BorderStyle.FixedSingle, BackColor = TM.C(255, 10, 5, 22), ForeColor = Ink, Font = new Font("Segoe UI", size), AcceptsReturn = multi, ScrollBars = ScrollBars.None }; Win.NeonBox(t); Controls.Add(t); Win.DarkControl(t); return t; };
-        lyricBox = mk(true, 15f); lyricBox.AcceptsTab = false; lyricBox.MouseWheel += (s, e) => { lastInput = DateTime.Now; Invalidate(); }; lyricBox.KeyUp += (s, e) => Invalidate(); lyricBox.TextChanged += (s, e) => Invalidate(); lyricBox.MouseUp += (s, e) => Invalidate();   /* the logo on the scroll bar follows when you scroll or type in the box */ lyricTitle = mk(false, 13f);
+        lyricBox = mk(true, Prefs.LyricSize); lyricBox.AcceptsTab = false; lyricBox.MouseWheel += (s, e) => { lastInput = DateTime.Now; Invalidate(); }; lyricBox.KeyUp += (s, e) => Invalidate(); lyricBox.TextChanged += (s, e) => Invalidate(); lyricBox.MouseUp += (s, e) => Invalidate();   /* the logo on the scroll bar follows when you scroll or type in the box */ lyricTitle = mk(false, 13f);
         lyricBox.TextChanged += (s, e) => { lyricStatsDirty = true; ProjectIO.Lyrics = lyricBox.Text; if (lyricBox.Text.Length == 0 && lyricBox.Focused && lyricTitle.Text.Length > 0) lyricTitle.Text = ""; /* clearing all the words clears the title too */ lyricSave.Stop(); lyricSave.Start(); };
         lyricTitle.TextChanged += (s, e) => { ProjectIO.LyricsTitle = lyricTitle.Text; lyricSave.Stop(); lyricSave.Start(); };
         lyricBox.KeyUp += (s, e) => Invalidate(); lyricBox.MouseUp += (s, e) => Invalidate();
@@ -44,16 +44,41 @@ partial class StudioForm
     void SyncLyricUi(bool show)
     {
         if (!lyricUi) { if (!show) return; EnsureLyricUi(); }
-        foreach (var c in new Control[] { lyricBox, lyricTitle }) if (c.Visible != show) c.Visible = show;
+        if (lyricBox.Visible != show) lyricBox.Visible = show; bool titleOn = show && !lyricFill; if (lyricTitle.Visible != titleOn) lyricTitle.Visible = titleOn;   // (FILL SCREEN: only the lyrics box)
         if (!show) return;
         if (!lyricBox.Focused) { string lyr = LyricsTools.ToBoxText(ProjectIO.Lyrics); if (lyricBox.Text != lyr) lyricBox.Text = lyr; }
         if (lyricTitle.Text != ProjectIO.LyricsTitle && !lyricTitle.Focused) lyricTitle.Text = ProjectIO.LyricsTitle;
         var sz = ClientSize; if (sz == lyricLayout) return; lyricLayout = sz;
-        float top = ToolH + TransH, w = Math.Min(1100, sz.Width - 64), x = (sz.Width - w) / 2;
+        float top = ToolH + TransH, w = lyricFill ? sz.Width - 32 : Math.Min(1100, sz.Width - 64), x = (sz.Width - w) / 2;
         lyricTitle.SetBounds((int)x + 140, (int)top + 12, (int)w - 140, 28);
-        lyricBox.SetBounds((int)x, (int)top + 90, (int)w - 56, (int)(sz.Height - top - 90 - 64));
+        if (lyricFill) lyricBox.SetBounds((int)x, (int)top + 52, (int)w - 56, (int)(sz.Height - top - 52 - 64)); else lyricBox.SetBounds((int)x, (int)top + 90, (int)w - 56, (int)(sz.Height - top - 90 - 64));
     }
 
+    // A- / A+ and FILL SCREEN on the lyrics page
+    // the lyrics move to a line one line at a time (about 13 lines a second), so you can keep reading while they move
+    internal int lyricGlideTo = -1; System.Windows.Forms.Timer lyricGlideT; internal int LyricGlideMs = 75;
+    internal void LyricGlide(int line)
+    {
+        if (lyricBox == null) return; int total = SendMessage(lyricBox.Handle, 0xBA, 0, 0); lyricGlideTo = Math.Max(0, Math.Min(Math.Max(0, total - 1), line));
+        if (lyricGlideT == null) { lyricGlideT = new System.Windows.Forms.Timer(); lyricGlideT.Tick += (s, e) => LyricGlideStep(); }
+        lyricGlideT.Interval = Math.Max(10, LyricGlideMs); if (!lyricGlideT.Enabled) { LyricGlideStep(); lyricGlideT.Start(); }
+    }
+    internal void LyricGlideStep()
+    {
+        if (lyricBox == null || lyricGlideTo < 0 || !lyricBox.IsHandleCreated) { if (lyricGlideT != null) lyricGlideT.Stop(); lyricGlideTo = -1; return; }
+        int cur = SendMessage(lyricBox.Handle, 0xCE, 0, 0), d = lyricGlideTo - cur;
+        if (d != 0) { SendMessage(lyricBox.Handle, 0xB6, 0, Math.Sign(d)); }
+        int now = SendMessage(lyricBox.Handle, 0xCE, 0, 0); if (now == lyricGlideTo || now == cur) { lyricGlideTo = -1; if (lyricGlideT != null) lyricGlideT.Stop(); }   // there (or it cannot go further)
+        Invalidate();
+    }
+    internal bool lyricFill;
+    internal void LyricSizeBy(float d)
+    {
+        float ns = Math.Max(9f, Math.Min(40f, Prefs.LyricSize + d)); if (Math.Abs(ns - Prefs.LyricSize) < 0.01f) { Toast(d > 0 ? "That is the biggest size." : "That is the smallest size."); return; }
+        Prefs.LyricSize = ns; Prefs.Changed(); if (lyricBox != null) { int sel = lyricBox.SelectionStart; var old = lyricBox.Font; lyricBox.Font = new Font("Segoe UI", ns); old.Dispose(); lyricLineH = 0; lyricBox.SelectionStart = sel; lyricBox.ScrollToCaret(); }
+        Invalidate();
+    }
+    internal void LyricFillToggle() { lyricFill = !lyricFill; lyricLayout = Size.Empty; lyricLineH = 0; Invalidate(); }
     int CaretLineIndex() { return lyricBox.GetLineFromCharIndex(lyricBox.SelectionStart); }
     string CaretLine() { int i = CaretLineIndex(); var ls = lyricBox.Lines; return i >= 0 && i < ls.Length ? ls[i] : ""; }
     void InsertAtCaret(string text, bool onNewLine)
@@ -66,18 +91,42 @@ partial class StudioForm
     // the lyrics box scrolls with the same logo bar as everything else (the box itself shows no Windows scroll bar)
     void PaintLyricBar(Graphics g)
     {
-        var b = lyricBox; if (b == null || !b.Visible || !b.IsHandleCreated) return; int total = Math.Max(1, SendMessage(b.Handle, 0xBA, 0, 0)); int lineH = Math.Max(12, b.Font.Height); float viewH = b.Height - 4, content = Math.Max(total * lineH + 4, viewH + 2);   // the bar is always there (it only moves once the lyrics are longer than the box)
-        { float mxL = Math.Max(0, content - viewH); regs.Insert(0, new HitReg { R = Rc(0, b.Top - 60, ClientSize.Width, b.Height + 120), OnWheel = d => { int cur = SendMessage(b.Handle, 0xCE, 0, 0); SendMessage(b.Handle, 0xB6, 0, -d * 3); } }); }   // the wheel anywhere around the lyrics scrolls them (over the box itself Windows does it)
-        VScroll(g, Rc(b.Right + 8, b.Top, 42, b.Height), content, viewH, () => SendMessage(b.Handle, 0xCE, 0, 0) * lineH, v => { int cur = SendMessage(b.Handle, 0xCE, 0, 0), want = (int)Math.Round(v / lineH); if (want != cur) SendMessage(b.Handle, 0xB6, 0, want - cur); });
+        var b = lyricBox; if (b == null || !b.Visible || !b.IsHandleCreated) return; int total = Math.Max(1, SendMessage(b.Handle, 0xBA, 0, 0)); int lineH = LyricLineHeight(b);
+        int fit = Math.Max(1, b.ClientSize.Height / lineH); float viewH = fit * lineH, content = Math.Max(total * lineH, viewH + 2);   // whole lines in units of the real line height: the bottom of the bar = the last line showing   // the bar is always there (it only moves once the lyrics are longer than the box)
+        { float mxL = Math.Max(0, content - viewH); regs.Insert(0, new HitReg { R = Rc(0, b.Top - 60, ClientSize.Width, b.Height + 120), OnWheel = d => { int cur = lyricGlideTo >= 0 ? lyricGlideTo : SendMessage(b.Handle, 0xCE, 0, 0); LyricGlide(Math.Max(0, cur - d * 3)); } }); }   // the wheel anywhere around the lyrics scrolls them (over the box itself Windows does it)
+        VScroll(g, Rc(b.Right + 8, b.Top, 42, b.Height), content, viewH, () => (lyricGlideTo >= 0 ? lyricGlideTo : SendMessage(b.Handle, 0xCE, 0, 0)) * lineH, v => { int want = (int)Math.Round(v / lineH); if (vLogoDrag) { lyricGlideTo = -1; int cur = SendMessage(b.Handle, 0xCE, 0, 0); if (want != cur) SendMessage(b.Handle, 0xB6, 0, want - cur); } else LyricGlide(want); });
+    }
+    // the real distance between two lines in the text box (where line 2 starts minus where line 1 starts); the font height is only a guess and is a pixel or two short
+    [System.Runtime.InteropServices.DllImport("user32.dll", EntryPoint = "SendMessage")] static extern IntPtr SendMessageP(IntPtr h, int msg, IntPtr w, IntPtr l);
+    int lyricLineH;
+    internal int LyricLineHeight(TextBox b)
+    {
+        try
+        {
+            if (SendMessage(b.Handle, 0xBA, 0, 0) >= 2) { int i0 = SendMessage(b.Handle, 0xBB, 0, 0), i1 = SendMessage(b.Handle, 0xBB, 1, 0);   // EM_LINEINDEX: the first character of line 1 and line 2
+                long p0 = (long)SendMessageP(b.Handle, 0xD6, (IntPtr)i0, IntPtr.Zero), p1 = (long)SendMessageP(b.Handle, 0xD6, (IntPtr)i1, IntPtr.Zero);   // EM_POSFROMCHAR: y is the high word
+                int y0 = (short)((p0 >> 16) & 0xFFFF), y1 = (short)((p1 >> 16) & 0xFFFF); if (i1 > i0 && y1 - y0 >= 8 && y1 - y0 <= 200) lyricLineH = y1 - y0; }
+        }
+        catch { }
+        return lyricLineH > 0 ? lyricLineH : Math.Max(12, TextRenderer.MeasureText("Ag", b.Font).Height);
     }
     void PaintLyrics(Graphics g)
     {
         SyncLyricUi(!OverlayOpen);   // real text boxes sit above everything drawn by hand, so they step aside while a menu or popup is open
         float W = ClientSize.Width, H = ClientSize.Height, top = ToolH + TransH, w = Math.Min(1100, W - 64), x = (W - w) / 2;
+        if (lyricFill) { w = W - 32; x = 16; }
+        Action<float, float> sizeBtns = (bx0, by0) => {
+            var mn = Rc(bx0, by0, 46, 28); Btn(g, mn, "A-", 1, () => LyricSizeBy(-1.5f), 12); Hint2(mn, "Smaller lyrics (now " + Prefs.LyricSize.ToString("0.#") + " pt)");
+            var pl = Rc(bx0 + 52, by0, 46, 28); Btn(g, pl, "A+", 1, () => LyricSizeBy(1.5f), 12); Hint2(pl, "Bigger lyrics (now " + Prefs.LyricSize.ToString("0.#") + " pt)");
+            var fb = Rc(bx0 + 104, by0, lyricFill ? 172 : 128, 28); Btn(g, fb, lyricFill ? "EXIT FILL SCREEN" : "FILL SCREEN", lyricFill ? 4 : 2, () => LyricFillToggle(), 11); Hint2(fb, lyricFill ? "Back to the normal lyrics page (title and section buttons)" : "The lyrics fill the whole window (great for recording, or reading them while you play)"); };
+        if (lyricFill) { Txt(g, "LYRICS" + (ProjectIO.LyricsTitle.Length > 0 ? "  -  " + ProjectIO.LyricsTitle.ToUpper() : ""), 15, Ink, Rc(x, top + 12, w - 340, 28), StringAlignment.Near, true); sizeBtns(x + w - 56 - 276, top + 12); }
+        else {
         Txt(g, "LYRICS", 16, Ink, Rc(x, top + 10, 130, 28), StringAlignment.Near, true); Txt(g, "TITLE", 11, DimC, Rc(x + 74, top + 16, 60, 16), StringAlignment.Near, false);
         string[] sec = { "Verse", "Chorus", "Pre-chorus", "Bridge", "Hook", "Intro", "Outro" }; float sx = x, sy = top + 50;
         foreach (var s0 in sec) { string s1 = s0; float bw = s0.Length > 6 ? 96 : 66; Btn(g, Rc(sx, sy, bw, 28), s0, 0, () => { InsertAtCaret("[" + s1 + "]\r\n", true); }, 11); sx += bw + 6; }
         Btn(g, Rc(sx + 10, sy, 132, 28), "ADD SECTIONS", 2, () => AddLyricSections(), 11);
+        if (sx + 10 + 132 + 12 + 232 <= x + w - 56) sizeBtns(sx + 10 + 132 + 12, sy); else sizeBtns(x + w - 56 - 232, top + 10);   // (on a narrow window they move up beside the title)
+        }
         if (lyricStatsDirty && lyricBox != null) { lyricStatsDirty = false; string txt = lyricBox.Text; int ln = 0; foreach (var l in txt.Split('\n')) if (l.Trim().Length > 0) ln++; statLines = ln; statSyl = LyricsTools.LineSyllables(txt); statWords = LyricsTools.Words(txt); }
         string cur = lyricBox != null ? CaretLine() : ""; int ci = lyricBox != null ? CaretLineIndex() + 1 : 0;
         float stw = Math.Max(120f, x + w - 4 * 84 - 6 - x - 124); Txt(g, statLines + " lines   " + statWords + " words   " + statSyl + " syllables      Line " + ci + ": " + LyricsTools.LineSyllables(cur) + " syllables", 12, DimC, Rc(x, H - 52, stw, 20), StringAlignment.Near, false);

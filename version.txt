@@ -1,4 +1,4 @@
-3.41.4
+3.41.5
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-SAVE PRESET under your effects, lyrics scroll fixed
-sha256=84b851ee745e1cfb8bc5a601e59848b522847620bf38df3ea00559790b57b399
+Lyrics: size, fill screen, the whole song
+sha256=9f2ff00714158477671d185703a5d8d512bfd3b0dbcb63b1737ec7ff99a7e04f

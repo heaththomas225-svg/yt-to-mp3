@@ -25,6 +25,7 @@ static class Prefs
     public static string MidiDev = "";       // the MIDI keyboard Bass Lab listens to ("" = off)
     public static int MicMode = 0;           // the MIC button's mode: 0 Automatic, 1 Standard, 2 Voice Isolation, 3 Wide Spectrum (only for what is recorded)
     public static string FontId = "";        // the studio font chosen on the Fonts page ("" = the original, Bahnschrift)
+    public static float LyricSize = 15f;   // the lyrics page text size (A- / A+)
     public static string InDev = "";         // recording input (microphone), "" = the Windows default
     public static string Theme = "Purphex";   // the colour theme (Settings and the Theme tab)
     public static int FantasyThemeV;   // which version of the "Fantasy theme on the DAW" has been applied on this PC (it is applied again when the number goes up)
@@ -36,7 +37,7 @@ static class Prefs
 
     public static string[] Lines()
     {
-        return new[] { "bgpath=" + BgPath, "bgdim=" + BgDim, "bgleaves=" + BgLeaves, "bgstudio=" + BgStudio, "outvol=" + OutVol, "outdev=" + OutDev, "buf=" + Buf, "fpscap=" + FpsCap, "perfmode=" + PerfMode, "showfps=" + ShowFps, "savelyrics=" + SaveLyrics, "countuses=" + CountUses, "fantasythemev=" + FantasyThemeV, "fantasytheme=" + FantasyThemed, "midiin=" + MidiDev, "indev=" + InDev, "micmode=" + MicMode, "fontid=" + FontId, "sharesaved=" + ShareSaved, "theme=" + Theme };
+        return new[] { "lyrsize=" + LyricSize.ToString(System.Globalization.CultureInfo.InvariantCulture), "bgpath=" + BgPath, "bgdim=" + BgDim, "bgleaves=" + BgLeaves, "bgstudio=" + BgStudio, "outvol=" + OutVol, "outdev=" + OutDev, "buf=" + Buf, "fpscap=" + FpsCap, "perfmode=" + PerfMode, "showfps=" + ShowFps, "savelyrics=" + SaveLyrics, "countuses=" + CountUses, "fantasythemev=" + FantasyThemeV, "fantasytheme=" + FantasyThemed, "midiin=" + MidiDev, "indev=" + InDev, "micmode=" + MicMode, "fontid=" + FontId, "sharesaved=" + ShareSaved, "theme=" + Theme };
     }
     public static bool Parse(string k, string v)
     {
@@ -54,6 +55,7 @@ static class Prefs
             case "perfmode": if (bool.TryParse(v, out b)) PerfMode = b; return true;
             case "showfps": if (bool.TryParse(v, out b)) ShowFps = b; return true;
             case "midiin": MidiDev = v; return true;
+            case "lyrsize": { float ls; if (float.TryParse(v, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out ls)) LyricSize = Math.Max(9f, Math.Min(40f, ls)); return true; }
             case "indev": InDev = v; return true;
             case "fontid": { string fv = v ?? ""; bool okId = fv.Length <= 40; foreach (char fc in fv) if (!((fc >= 'a' && fc <= 'z') || (fc >= '0' && fc <= '9') || fc == '-')) okId = false; FontId = okId ? fv : ""; return true; }
             case "micmode": if (int.TryParse(v, out n) && n >= 0 && n <= 3) MicMode = n; return true;

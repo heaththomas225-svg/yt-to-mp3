@@ -77,6 +77,7 @@ partial class StudioForm
     // The vertical version of that scroll strip, for lists (styles, presets, effects...): solid black, arrows at both ends, the lit window shows where you are,
     // and the logo in the middle is what you hold and drag (waves flow out of it while music plays).
     int vHold; Func<float> vHoldGet; Action<float> vHoldSet; float vHoldMax;
+    internal bool vLogoDrag;   // the logo of a scroll bar is held and dragged right now
     void VScroll(Graphics g, RectangleF bar, float contentH, float viewH, Func<float> get, Action<float> set)
     {
         if (contentH <= viewH + 1 || bar.Height < 160) return; bool playing = eng.Playing; VizUpdate(playing); float max = contentH - viewH;
@@ -106,7 +107,7 @@ partial class StudioForm
         var rg = Reg(inner, () => jump(MousePos.Y)); rg.OnDrag = pt => jump(pt.Y);
         var ru = Reg(up, () => { set(Math.Max(0, get() - 60)); vHold = -1; vHoldGet = get; vHoldSet = set; vHoldMax = max; }); ru.OnDrag = pt => { }; ru.OnUp = () => vHold = 0;
         var rd = Reg(dn, () => { set(Math.Min(max, get() + 60)); vHold = 1; vHoldGet = get; vHoldSet = set; vHoldMax = max; }); rd.OnDrag = pt => { }; rd.OnUp = () => vHold = 0;
-        float downY = 0, downS = 0; var lg = Reg(logoR, () => { downY = MousePos.Y; downS = get(); }); lg.OnDrag = pt => set(Math.Max(0, Math.Min(max, downS + (pt.Y - downY) / trav * max)));
+        float downY = 0, downS = 0; var lg = Reg(logoR, () => { downY = MousePos.Y; downS = get(); vLogoDrag = true; }); lg.OnUp = () => vLogoDrag = false; lg.OnDrag = pt => set(Math.Max(0, Math.Min(max, downS + (pt.Y - downY) / trav * max)));
         Action<int> wheel = d => set(Math.Max(0, Math.Min(max, get() - d * 80)));   // the mouse wheel over any part of the bar scrolls too (it used to do nothing there)
         rg.OnWheel = wheel; ru.OnWheel = wheel; rd.OnWheel = wheel; lg.OnWheel = wheel; rg.ScrollBar = ru.ScrollBar = rd.ScrollBar = lg.ScrollBar = true;
         if (Hot(logoR)) { bubble = "Hold the logo and drag it to scroll the list"; bubblePt = MousePos; }
