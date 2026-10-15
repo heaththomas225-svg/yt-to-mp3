@@ -2,6 +2,10 @@
 
 What changed in each version of **Purphex**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.40.9  Saving a published track updates it live
+
+- NEW: saving a project that is published now updates its song on your profile and the community page straight away: it is exported and the new version replaces the old one, keeping its plays, likes, comments and music video. It used to keep the old version until you published again. Saving with nothing changed sends nothing.
+
 ## 3.40.8  Previews play smoothly straight away
 
 - FIXED: playing a project on My Projects (or a song on Community) could stutter and stay that way until you played something on the mixing page. The fix-it that notices the sound breaking up only watched the mix. It now watches whatever you are listening to, and previews always use the biggest playback buffer (nothing is played live on top of a preview, so the extra delay costs nothing).

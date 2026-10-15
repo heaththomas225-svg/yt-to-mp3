@@ -237,7 +237,7 @@ partial class StudioForm
                 if (d.ShowDialog(this) != DialogResult.OK) return; path = d.FileName;
             }
         }
-        try { ProjectIO.Save(eng, path); projPath = path; projName = Path.GetFileNameWithoutExtension(path); NoteProject(path, true); Toast("Project saved"); }
+        try { ProjectIO.Save(eng, path); projPath = path; projName = Path.GetFileNameWithoutExtension(path); NoteProject(path, true); Toast("Project saved"); { var pubE = ProjectLibrary.AllByEdited().Find(x => x.OnProfile && string.Equals(x.Path, path, StringComparison.OrdinalIgnoreCase)); if (pubE != null) SyncCommunitySongs(); } }   /* a published project: its song on the profile and the community page is updated right away */
         catch (Exception ex) { MessageBox.Show(this, ex.Message, "Save failed"); }
     }
 

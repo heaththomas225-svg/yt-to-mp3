@@ -9,7 +9,8 @@ using System.Text;
 // communitysongs.txt remembers which projects are up there: pid | path | song id ("-" = published before songs went up: not uploaded unless you publish it again).
 static class CommunitySongs
 {
-    public class Rec { public string Pid = "", Path = "", SongId = ""; }
+    public class Rec { public string Pid = "", Path = "", SongId = ""; public long Stamp; }   // Stamp: the save of the project that is up there (its file time)
+    public static long StampOf(string path) { try { return File.Exists(path) ? File.GetLastWriteTimeUtc(path).Ticks : 0; } catch { return 0; } }
     static readonly object lk = new object();
     static string FileName { get { return System.IO.Path.Combine(StudioEnv.DataDir, "communitysongs.txt"); } }
     public static bool Exists { get { return File.Exists(FileName); } }
@@ -22,7 +23,7 @@ static class CommunitySongs
     public static List<Rec> Load()
     {
         var l = new List<Rec>();
-        lock (lk) { try { if (File.Exists(FileName)) foreach (var line in File.ReadAllLines(FileName)) { var f = line.Split('|'); if (f.Length >= 3 && f[0].Length > 0) l.Add(new Rec { Pid = f[0], Path = f[1], SongId = f[2] }); } } catch { } }
+        lock (lk) { try { if (File.Exists(FileName)) foreach (var line in File.ReadAllLines(FileName)) { var f = line.Split('|'); if (f.Length >= 3 && f[0].Length > 0) { long st; if (f.Length < 4 || !long.TryParse(f[3], out st)) st = StampOf(f[1]); l.Add(new Rec { Pid = f[0], Path = f[1], SongId = f[2], Stamp = st }); }   /* (a song uploaded before this counts as the current save: nothing is sent again by itself) */ } } catch { } }
         return l;
     }
     public static void Save(List<Rec> l)
@@ -31,7 +32,7 @@ static class CommunitySongs
         {
             try
             {
-                Directory.CreateDirectory(StudioEnv.DataDir); var sb = new StringBuilder(); foreach (var r in l) sb.Append(r.Pid).Append('|').Append((r.Path ?? "").Replace("|", "/")).Append('|').Append(r.SongId).Append('\n');
+                Directory.CreateDirectory(StudioEnv.DataDir); var sb = new StringBuilder(); foreach (var r in l) sb.Append(r.Pid).Append('|').Append((r.Path ?? "").Replace("|", "/")).Append('|').Append(r.SongId).Append('|').Append(r.Stamp).Append('\n');
                 string tmp = FileName + ".tmp"; File.WriteAllText(tmp, sb.ToString(), Encoding.UTF8); if (File.Exists(FileName)) File.Delete(FileName); File.Move(tmp, FileName);
             }
             catch { }
@@ -146,17 +147,18 @@ partial class StudioForm
         CommunitySongs.Save(recs);
         foreach (var e in ents)
         {
-            if (!e.OnProfile || e.Missing) continue; string pid = CommunitySongs.PidOf(e.Path); if (recs.Exists(x => x.Pid == pid)) continue;
-            SongNote("Putting \"" + e.Name + "\" on the community page: exporting the song...");
+            if (!e.OnProfile || e.Missing) continue; string pid = CommunitySongs.PidOf(e.Path); var had = recs.Find(x => x.Pid == pid); long stamp = CommunitySongs.StampOf(e.Path);
+            if (had != null && (had.SongId == "-" || stamp <= had.Stamp + TimeSpan.TicksPerSecond * 2)) continue;   // up there already, and not saved since
+            bool update = had != null; SongNote(update ? "You saved \"" + e.Name + "\": updating it on your profile and the community page (exporting)..." : "Putting \"" + e.Name + "\" on the community page: exporting the song...");
             string mp3 = null, err = null, id = ""; try { mp3 = RenderSong(e); } catch (Exception ex) { err = ex.Message; }
             if (mp3 != null)
             {
-                SongNote("Putting \"" + e.Name + "\" on the community page: uploading...");
+                SongNote(update ? "Updating \"" + e.Name + "\" on the community page: uploading..." : "Putting \"" + e.Name + "\" on the community page: uploading...");
                 err = CommunitySongs.Upload(key, pid, e.Name, e.Tags, e.Desc, mp3, e.Cover.Length > 0 ? e.Cover : null, out id);
                 try { File.Delete(mp3); string d = Path.GetDirectoryName(mp3); if (d != null && d.IndexOf("purphex_comm_", StringComparison.Ordinal) >= 0) Directory.Delete(d); } catch { }
             }
-            if (err == null) { recs.Add(new CommunitySongs.Rec { Pid = pid, Path = e.Path, SongId = id }); CommunitySongs.Save(recs); SongNote("\"" + e.Name + "\" is on the community page of the website."); }
-            else SongNote("\"" + e.Name + "\" is on your profile, but not on the community page: " + err);
+            if (err == null) { if (had != null) recs.Remove(had); recs.Add(new CommunitySongs.Rec { Pid = pid, Path = e.Path, SongId = id, Stamp = stamp }); CommunitySongs.Save(recs); SongNote(update ? "\"" + e.Name + "\" is updated on the community page: everyone hears the new version (plays, likes and comments are kept)." : "\"" + e.Name + "\" is on the community page of the website."); }
+            else SongNote(update ? "\"" + e.Name + "\" could not be updated on the community page (it tries again next time you save): " + err : "\"" + e.Name + "\" is on your profile, but not on the community page: " + err);
         }
     }
     // the song as a finished mp3 (mixed and mastered, exactly like EXPORT), made from the project file without opening it

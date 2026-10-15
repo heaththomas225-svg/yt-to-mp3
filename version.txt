@@ -1,4 +1,4 @@
-3.40.8
+3.40.9
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Previews play smoothly straight away
-sha256=84d12b5174d950f509da9a5286458d9b4c8acf0fe38da1e31ec3faa45a424ca7
+Saving a published track updates it live
+sha256=a111b4f4ee138e19c8867ffe941b5b10c078fe6b5decf110a4e6281f8970b195
