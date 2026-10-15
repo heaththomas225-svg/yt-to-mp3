@@ -159,7 +159,7 @@ static class PR
               var sfx = new SynthFx(); sfx.Prepare(44100); var sw = new SynthWindow(sfx, null); sw.Show(); Pump(300); sw.ShowHelpTour(); Pump(300); int owned = 0; foreach (Form of in Application.OpenForms.Cast<Form>().ToList()) if (of.Owner == sw && of.FormBorderStyle == FormBorderStyle.None) { owned++; of.Close(); }
               Check("the Bass Lab HELP button starts a tour (a card and a dimmed window with a hole)", owned >= 2, owned + " tour windows"); sw.Close(); }
             // ---- lyrics: clearing clears the title too ----
-            { SetF("tab", 2); Paint(); Pump(200); Paint(); var lbx = F<TextBox>("lyricBox"); var ltt = F<TextBox>("lyricTitle"); lbx.Text = ""; ltt.Text = "My Song"; Paint(); var clr = Regs().FindLast(r => r.OnDown != null && Math.Abs(r.R.Width - 78) < 0.5f && r.R.Y > sf.ClientSize.Height - 70 && r.R.X > 700);
+            { SetF("tab", 2); Paint(); Pump(200); Paint(); var lbx = F<TextBoxBase>("lyricBox"); var ltt = F<TextBox>("lyricTitle"); lbx.Text = ""; ltt.Text = "My Song"; Paint(); var clr = Regs().FindLast(r => r.OnDown != null && Math.Abs(r.R.Width - 78) < 0.5f && r.R.Y > sf.ClientSize.Height - 70 && r.R.X > 700);
               Check("the Clear button is there", clr != null, ""); if (clr != null) { Click(clr.R); Check("Clear (with the words already empty) also clears the title", ltt.Text.Length == 0, ltt.Text); } SetF("tab", 0); }
             Check("the soft logo behind Community and My Projects is made", typeof(StudioForm).GetMethod("BackdropBitmap", BF).Invoke(sf, new object[] { 400 }) != null, "");
             eng.Tracks.Clear();

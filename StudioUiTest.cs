@@ -211,7 +211,7 @@ static class S
             Check("lyrics are saved inside the project file and come back", ProjectIO.Lyrics == "[Verse]\nfirst line\nsecond \"line\" é" && ProjectIO.LyricsTitle == "My Song | test", ProjectIO.LyricsTitle); try { File.Delete(tmp); } catch { }
             // the page itself
             ProjectIO.Lyrics = "I walk alone in the night\nsearching for a light"; ProjectIO.LyricsTitle = "Night walk"; SetF("tab", 2); Paint(); Pump(200); Paint();
-            var lb = F<TextBox>("lyricBox"); Check("the lyrics page shows the saved text in a real text box", lb != null && lb.Visible && lb.Text.Contains("searching for a light"), lb == null ? "none" : lb.Text.Length + " chars");
+            var lb = F<TextBoxBase>("lyricBox"); Check("the lyrics page shows the saved text in a real text box", lb != null && lb.Visible && lb.Text.Contains("searching for a light"), lb == null ? "none" : lb.Text.Length + " chars");
             lb.SelectionStart = lb.Text.Length; Paint(); Check("the text box is big and fits inside the window", lb.Left >= 0 && lb.Right <= sf.ClientSize.Width && lb.Height > 300, lb.Bounds.ToString());
             var bmp2 = new Bitmap(sf.ClientSize.Width, sf.ClientSize.Height); sf.DrawToBitmap(bmp2, new Rectangle(0, 0, sf.Width, sf.Height)); bmp2.Save("_lyrics.png", System.Drawing.Imaging.ImageFormat.Png);
             typeof(StudioForm).GetMethod("OpenMenu", BF).Invoke(sf, null); Paint(); Check("while the side menu is open the lyric text boxes step aside (nothing overlaps)", !lb.Visible, "");

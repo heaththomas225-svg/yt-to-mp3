@@ -88,6 +88,6 @@ partial class StudioForm
         if (lyricBox == null || lyricBox.Text.Trim().Length == 0) { Toast("Write or open some lyrics first, then press ADD SECTIONS."); return; }
         int added; string note; string result = LyricSections.Add(lyricBox.Text, out added, out note);
         if (added == 0) { Toast(note); return; }
-        result = result.Replace("\n", "\r\n"); lyricBox.SelectAll(); lyricBox.SelectedText = result; lyricBox.SelectionStart = 0; lyricBox.SelectionLength = 0; lyricBox.Focus(); Toast(note + " Ctrl+Z undoes it.");
+        result = result.Replace("\r\n", "\n"); lyricBox.SelectAll(); lyricBox.SelectedText = result; lyricBox.SelectionStart = 0; lyricBox.SelectionLength = 0; lyricBox.Focus(); Toast(note + " Ctrl+Z undoes it.");
     }
 }

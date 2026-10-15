@@ -1,4 +1,4 @@
-3.41.5
+3.41.6
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Lyrics: size, fill screen, the whole song
-sha256=9f2ff00714158477671d185703a5d8d512bfd3b0dbcb63b1737ec7ff99a7e04f
+Smooth lyrics scrolling
+sha256=fff52dd0924ed99fdb37fa0b3a33df4d13ef37dd1016f3fd500aef9eb9bbfa2c

@@ -2,6 +2,12 @@
 
 What changed in each version of **Purphex**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.41.6  Smooth lyrics scrolling
+
+- CHANGED: the lyrics scroll smoothly now, pixel by pixel, instead of jumping a whole line at a time. The mouse wheel glides 3 lines a notch, a click on the scroll bar glides there at a reading speed, and dragging the logo follows your hand.
+
+- FIXED: the mouse wheel with the pointer on the lyrics themselves did not scroll them. It does now, the same as over the scroll bar or beside the box.
+
 ## 3.41.5  Lyrics: size, fill screen, the whole song
 
 - FIXED: with the lyrics scroll bar at the bottom, the last lines of long lyrics did not show (the text box spaces its lines a little wider than the bar thought). The bottom of the bar is now exactly the end of your lyrics, at any text size.

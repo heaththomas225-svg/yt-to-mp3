@@ -7,10 +7,14 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.41.5";
+    public const string Latest = "3.41.6";
 
     public const string Text =
-@"3.41.5  Lyrics: size, fill screen, the whole song
+@"3.41.6  Smooth lyrics scrolling
+ + CHANGED: the lyrics scroll smoothly now, pixel by pixel, instead of jumping a whole line at a time. The mouse wheel glides 3 lines a notch, a click on the scroll bar glides there at a reading speed, and dragging the logo follows your hand.
+ + FIXED: the mouse wheel with the pointer on the lyrics themselves did not scroll them. It does now, the same as over the scroll bar or beside the box.
+
+3.41.5  Lyrics: size, fill screen, the whole song
  + FIXED: with the lyrics scroll bar at the bottom, the last lines of long lyrics did not show (the text box spaces its lines a little wider than the bar thought). The bottom of the bar is now exactly the end of your lyrics, at any text size.
  + NEW: A- and A+ on the LYRICS page make the lyrics smaller or bigger (kept for next time), and FILL SCREEN gives the lyrics the whole window under the play controls, with the song title at the top (EXIT FILL SCREEN goes back).
  + CHANGED: clicking the lyrics scroll bar, its arrows or the mouse wheel over it now glides the lyrics there slowly, one line at a time, so you can keep reading while they move (it used to jump). Dragging the logo still follows your hand straight away.

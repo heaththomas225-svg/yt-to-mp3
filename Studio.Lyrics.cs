@@ -25,14 +25,16 @@ static class LyricsTools
 
 partial class StudioForm
 {
-    TextBox lyricBox, lyricTitle; System.Windows.Forms.Timer lyricSave; bool lyricUi; Size lyricLayout;
+    LyricBox lyricBox; TextBox lyricTitle; System.Windows.Forms.Timer lyricSave; bool lyricUi; Size lyricLayout;
 
     bool lyricStatsDirty = true; int statLines, statWords, statSyl;
     void EnsureLyricUi()
     {
         if (lyricUi) return; lyricUi = true;
         Func<bool, float, TextBox> mk = (multi, size) => { var t = new TextBox { Multiline = multi, Visible = false, BorderStyle = BorderStyle.FixedSingle, BackColor = TM.C(255, 10, 5, 22), ForeColor = Ink, Font = new Font("Segoe UI", size), AcceptsReturn = multi, ScrollBars = ScrollBars.None }; Win.NeonBox(t); Controls.Add(t); Win.DarkControl(t); return t; };
-        lyricBox = mk(true, Prefs.LyricSize); lyricBox.AcceptsTab = false; lyricBox.MouseWheel += (s, e) => { lastInput = DateTime.Now; Invalidate(); }; lyricBox.KeyUp += (s, e) => Invalidate(); lyricBox.TextChanged += (s, e) => Invalidate(); lyricBox.MouseUp += (s, e) => Invalidate();   /* the logo on the scroll bar follows when you scroll or type in the box */ lyricTitle = mk(false, 13f);
+        lyricBox = new LyricBox { Visible = false, BorderStyle = BorderStyle.FixedSingle, BackColor = TM.C(255, 10, 5, 22), ForeColor = Ink, Font = new Font("Segoe UI", Prefs.LyricSize), ScrollBars = RichTextBoxScrollBars.None, DetectUrls = false, WordWrap = true, AcceptsTab = false };
+        Win.NeonBox(lyricBox); Controls.Add(lyricBox); Win.DarkControl(lyricBox); lyricBox.Wheel = d => LyricWheel(d);   // a rich text box: it scrolls smoothly (by pixels, not whole lines); pasting is always plain text
+         lyricBox.KeyUp += (s, e) => Invalidate(); lyricBox.TextChanged += (s, e) => Invalidate(); lyricBox.MouseUp += (s, e) => Invalidate();   /* the logo on the scroll bar follows when you scroll or type in the box */ lyricTitle = mk(false, 13f);
         lyricBox.TextChanged += (s, e) => { lyricStatsDirty = true; ProjectIO.Lyrics = lyricBox.Text; if (lyricBox.Text.Length == 0 && lyricBox.Focused && lyricTitle.Text.Length > 0) lyricTitle.Text = ""; /* clearing all the words clears the title too */ lyricSave.Stop(); lyricSave.Start(); };
         lyricTitle.TextChanged += (s, e) => { ProjectIO.LyricsTitle = lyricTitle.Text; lyricSave.Stop(); lyricSave.Start(); };
         lyricBox.KeyUp += (s, e) => Invalidate(); lyricBox.MouseUp += (s, e) => Invalidate();
@@ -46,7 +48,7 @@ partial class StudioForm
         if (!lyricUi) { if (!show) return; EnsureLyricUi(); }
         if (lyricBox.Visible != show) lyricBox.Visible = show; bool titleOn = show && !lyricFill; if (lyricTitle.Visible != titleOn) lyricTitle.Visible = titleOn;   // (FILL SCREEN: only the lyrics box)
         if (!show) return;
-        if (!lyricBox.Focused) { string lyr = LyricsTools.ToBoxText(ProjectIO.Lyrics); if (lyricBox.Text != lyr) lyricBox.Text = lyr; }
+        if (!lyricBox.Focused) { string lyr = (ProjectIO.Lyrics ?? "").Replace("\r\n", "\n"); if (lyricBox.Text.Replace("\r\n", "\n") != lyr) lyricBox.Text = lyr; }
         if (lyricTitle.Text != ProjectIO.LyricsTitle && !lyricTitle.Focused) lyricTitle.Text = ProjectIO.LyricsTitle;
         var sz = ClientSize; if (sz == lyricLayout) return; lyricLayout = sz;
         float top = ToolH + TransH, w = lyricFill ? sz.Width - 32 : Math.Min(1100, sz.Width - 64), x = (sz.Width - w) / 2;
@@ -55,21 +57,28 @@ partial class StudioForm
     }
 
     // A- / A+ and FILL SCREEN on the lyrics page
-    // the lyrics move to a line one line at a time (about 13 lines a second), so you can keep reading while they move
-    internal int lyricGlideTo = -1; System.Windows.Forms.Timer lyricGlideT; internal int LyricGlideMs = 75;
-    internal void LyricGlide(int line)
+    // the lyrics scroll smoothly, by pixels: the wheel glides 3 lines quickly, a click on the scroll bar glides slowly (about 13 lines a second, so you can keep reading)
+    internal int lyricGlideTo = -1; bool lyricGlideSlow; System.Windows.Forms.Timer lyricGlideT;
+    internal void LyricScrollTo(int y, bool slow)
     {
-        if (lyricBox == null) return; int total = SendMessage(lyricBox.Handle, 0xBA, 0, 0); lyricGlideTo = Math.Max(0, Math.Min(Math.Max(0, total - 1), line));
-        if (lyricGlideT == null) { lyricGlideT = new System.Windows.Forms.Timer(); lyricGlideT.Tick += (s, e) => LyricGlideStep(); }
-        lyricGlideT.Interval = Math.Max(10, LyricGlideMs); if (!lyricGlideT.Enabled) { LyricGlideStep(); lyricGlideT.Start(); }
+        if (lyricBox == null || !lyricBox.IsHandleCreated) return; lyricGlideTo = Math.Max(0, Math.Min(lyricBox.MaxScrollY, y)); lyricGlideSlow = slow; lastInput = DateTime.Now;
+        if (lyricGlideT == null) { lyricGlideT = new System.Windows.Forms.Timer { Interval = 15 }; lyricGlideT.Tick += (s, e) => LyricGlideStep(); }
+        if (!lyricGlideT.Enabled) { LyricGlideStep(); lyricGlideT.Start(); }
     }
+    internal void LyricGlide(int line) { if (lyricBox != null) LyricScrollTo(line * lyricBox.LineH, true); }
     internal void LyricGlideStep()
     {
         if (lyricBox == null || lyricGlideTo < 0 || !lyricBox.IsHandleCreated) { if (lyricGlideT != null) lyricGlideT.Stop(); lyricGlideTo = -1; return; }
-        int cur = SendMessage(lyricBox.Handle, 0xCE, 0, 0), d = lyricGlideTo - cur;
-        if (d != 0) { SendMessage(lyricBox.Handle, 0xB6, 0, Math.Sign(d)); }
-        int now = SendMessage(lyricBox.Handle, 0xCE, 0, 0); if (now == lyricGlideTo || now == cur) { lyricGlideTo = -1; if (lyricGlideT != null) lyricGlideT.Stop(); }   // there (or it cannot go further)
-        Invalidate();
+        int cur = lyricBox.ScrollY, d = lyricGlideTo - cur; if (d == 0) { lyricGlideTo = -1; lyricGlideT.Stop(); return; }
+        int step = lyricGlideSlow ? Math.Max(1, (int)Math.Round(lyricBox.LineH * 13 * 0.0156)) : Math.Max(1, (int)Math.Ceiling(Math.Abs(d) * 0.22));   // slow: a steady reading speed; the wheel: quick, easing out
+        lyricBox.ScrollY = cur + Math.Sign(d) * Math.Min(Math.Abs(d), step); lastInput = DateTime.Now;
+        if (lyricBox.ScrollY == cur) { lyricGlideTo = -1; lyricGlideT.Stop(); }   // (it cannot go further)
+    }
+    // the mouse wheel over the lyrics or beside them: 3 lines a notch, gliding there smoothly
+    internal void LyricWheel(int delta)
+    {
+        if (lyricBox == null || !lyricBox.IsHandleCreated || delta == 0) return; int from = lyricGlideTo >= 0 && !lyricGlideSlow ? lyricGlideTo : lyricBox.ScrollY;
+        LyricScrollTo(from - (int)Math.Round(delta / 120.0 * 3 * lyricBox.LineH), false); Invalidate();
     }
     internal bool lyricFill;
     internal void LyricSizeBy(float d)
@@ -83,24 +92,24 @@ partial class StudioForm
     string CaretLine() { int i = CaretLineIndex(); var ls = lyricBox.Lines; return i >= 0 && i < ls.Length ? ls[i] : ""; }
     void InsertAtCaret(string text, bool onNewLine)
     {
-        int at = lyricBox.SelectionStart; string pre = lyricBox.Text.Substring(0, at); if (onNewLine && pre.Length > 0 && !pre.EndsWith("\n")) text = "\r\n" + text;
-        lyricBox.Text = lyricBox.Text.Substring(0, at) + text + lyricBox.Text.Substring(lyricBox.SelectionStart + lyricBox.SelectionLength); lyricBox.SelectionStart = at + text.Length; lyricBox.Focus();
+        text = text.Replace("\r\n", "\n"); int at = lyricBox.SelectionStart; string pre = lyricBox.Text.Substring(0, Math.Min(at, lyricBox.Text.Length)); if (onNewLine && pre.Length > 0 && !pre.EndsWith("\n")) text = "\n" + text;
+        lyricBox.SelectedText = text; lyricBox.Focus();
     }
 
     [System.Runtime.InteropServices.DllImport("user32.dll")] static extern int SendMessage(IntPtr h, int msg, int w, int l);
     // the lyrics box scrolls with the same logo bar as everything else (the box itself shows no Windows scroll bar)
     void PaintLyricBar(Graphics g)
     {
-        var b = lyricBox; if (b == null || !b.Visible || !b.IsHandleCreated) return; int total = Math.Max(1, SendMessage(b.Handle, 0xBA, 0, 0)); int lineH = LyricLineHeight(b);
-        int fit = Math.Max(1, b.ClientSize.Height / lineH); float viewH = fit * lineH, content = Math.Max(total * lineH, viewH + 2);   // whole lines in units of the real line height: the bottom of the bar = the last line showing   // the bar is always there (it only moves once the lyrics are longer than the box)
-        { float mxL = Math.Max(0, content - viewH); regs.Insert(0, new HitReg { R = Rc(0, b.Top - 60, ClientSize.Width, b.Height + 120), OnWheel = d => { int cur = lyricGlideTo >= 0 ? lyricGlideTo : SendMessage(b.Handle, 0xCE, 0, 0); LyricGlide(Math.Max(0, cur - d * 3)); } }); }   // the wheel anywhere around the lyrics scrolls them (over the box itself Windows does it)
-        VScroll(g, Rc(b.Right + 8, b.Top, 42, b.Height), content, viewH, () => (lyricGlideTo >= 0 ? lyricGlideTo : SendMessage(b.Handle, 0xCE, 0, 0)) * lineH, v => { int want = (int)Math.Round(v / lineH); if (vLogoDrag) { lyricGlideTo = -1; int cur = SendMessage(b.Handle, 0xCE, 0, 0); if (want != cur) SendMessage(b.Handle, 0xB6, 0, want - cur); } else LyricGlide(want); });
+        var b = lyricBox; if (b == null || !b.Visible || !b.IsHandleCreated) return; float viewH = b.ClientSize.Height, content = Math.Max(b.MaxScrollY + viewH, viewH + 2);   // in pixels: the bottom of the bar = the end of the lyrics   // the bar is always there (it only moves once the lyrics are longer than the box)
+        { float mxL = Math.Max(0, content - viewH); regs.Insert(0, new HitReg { R = Rc(0, b.Top - 60, ClientSize.Width, b.Height + 120), OnWheel = d => LyricWheel(d * 120) }); }   // the wheel anywhere around the lyrics scrolls them (over the box itself Windows does it)
+        VScroll(g, Rc(b.Right + 8, b.Top, 42, b.Height), content, viewH, () => lyricGlideTo >= 0 ? lyricGlideTo : b.ScrollY, v => { if (vLogoDrag) { lyricGlideTo = -1; if (lyricGlideT != null) lyricGlideT.Stop(); b.ScrollY = (int)Math.Round(v); } else LyricScrollTo((int)Math.Round(v), true); });
     }
     // the real distance between two lines in the text box (where line 2 starts minus where line 1 starts); the font height is only a guess and is a pixel or two short
     [System.Runtime.InteropServices.DllImport("user32.dll", EntryPoint = "SendMessage")] static extern IntPtr SendMessageP(IntPtr h, int msg, IntPtr w, IntPtr l);
     int lyricLineH;
-    internal int LyricLineHeight(TextBox b)
+    internal int LyricLineHeight(TextBoxBase tb)
     {
+        var lb = tb as LyricBox; if (lb != null) return lb.LineH; var b = tb;
         try
         {
             if (SendMessage(b.Handle, 0xBA, 0, 0) >= 2) { int i0 = SendMessage(b.Handle, 0xBB, 0, 0), i1 = SendMessage(b.Handle, 0xBB, 1, 0);   // EM_LINEINDEX: the first character of line 1 and line 2
@@ -159,7 +168,7 @@ partial class StudioForm
             if (d.ShowDialog(this) != DialogResult.OK) return; string text;
             try { var fi = new FileInfo(d.FileName); if (fi.Length > 2 * 1024 * 1024) { Toast("That file is too big to be lyrics."); return; } text = File.ReadAllText(d.FileName, Encoding.UTF8); }
             catch (Exception ex) { Toast("Could not open that file: " + ex.Message); return; }
-            string nl = Environment.NewLine; text = text.Replace("\r\n", "\n").Replace("\r", "\n").Replace("\n", nl); bool add = false;
+            string nl = "\n"; text = text.Replace("\r\n", "\n").Replace("\r", "\n").Replace("\n", nl); bool add = false;
             if (lyricBox.Text.Trim().Length > 0)
             {
                 var r = MessageBox.Show(this, "You already have lyrics here." + nl + nl + "Yes = replace them with this file" + nl + "No = add this file to the end" + nl + "Cancel = leave everything as it is", "Open lyrics", MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question);
@@ -171,4 +180,30 @@ partial class StudioForm
             Toast("Opened " + Path.GetFileName(d.FileName) + (add ? " (added to the end). " : ". ") + (sectionNote.Length > 0 ? sectionNote : "")); sectionNote = "";
         }
     }
+}
+
+// The lyrics box: a rich text box, because it can scroll by single pixels (smooth), not only by whole lines. It always holds plain text:
+// pasting drops any formatting, and the rich-text shortcuts (centre, right, line spacing...) do nothing. The mouse wheel is handed to the studio, which glides the scroll.
+sealed class LyricBox : RichTextBox
+{
+    public Action<int> Wheel;
+    [System.Runtime.InteropServices.DllImport("user32.dll")] static extern IntPtr SendMessage(IntPtr h, int msg, IntPtr w, ref Point p);
+    protected override void WndProc(ref Message m)
+    {
+        if (m.Msg == 0x020A && Wheel != null) { Wheel((short)((m.WParam.ToInt64() >> 16) & 0xFFFF)); m.Result = IntPtr.Zero; return; }   // WM_MOUSEWHEEL
+        base.WndProc(ref m);
+    }
+    protected override void OnKeyDown(KeyEventArgs e)
+    {
+        if ((e.Control && e.KeyCode == Keys.V) || (e.Shift && e.KeyCode == Keys.Insert)) { e.Handled = true; e.SuppressKeyPress = true; try { if (Clipboard.ContainsText()) SelectedText = Clipboard.GetText().Replace("\r\n", "\n").Replace("\r", "\n"); } catch { } return; }
+        if (e.Control && (e.KeyCode == Keys.L || e.KeyCode == Keys.E || e.KeyCode == Keys.R || e.KeyCode == Keys.J || e.KeyCode == Keys.D1 || e.KeyCode == Keys.D2 || e.KeyCode == Keys.D5 || e.KeyCode == Keys.Oemplus || e.KeyCode == Keys.I || e.KeyCode == Keys.B || e.KeyCode == Keys.U)) { e.Handled = true; e.SuppressKeyPress = true; return; }
+        base.OnKeyDown(e);
+    }
+    // where the box is scrolled to, in pixels
+    public int ScrollY { get { var p = new Point(); if (IsHandleCreated) SendMessage(Handle, 0x4DD, IntPtr.Zero, ref p); return p.Y; } set { if (!IsHandleCreated) return; var p = new Point(0, Math.Max(0, Math.Min(MaxScrollY, value))); SendMessage(Handle, 0x4DE, IntPtr.Zero, ref p); } }
+    // the height of one line (from where line 2 starts), and how far it can scroll: until the last line is at the bottom
+    public int LineH { get { try { if (TextLength > 0 && GetLineFromCharIndex(TextLength) >= 1) { int i1 = GetFirstCharIndexFromLine(1); if (i1 > 0) { int d = GetPositionFromCharIndex(i1).Y - GetPositionFromCharIndex(0).Y; if (d >= 8 && d <= 300) return d; } } } catch { } return Math.Max(12, TextRenderer.MeasureText("Ag", Font).Height); } }
+    public int ContentH { get { if (TextLength == 0) return 0; int y = GetPositionFromCharIndex(TextLength - 1).Y + ScrollYRaw() + LineH; if (Text.EndsWith("\n")) y += LineH; return y + 4; } }
+    int ScrollYRaw() { var p = new Point(); if (IsHandleCreated) SendMessage(Handle, 0x4DD, IntPtr.Zero, ref p); return p.Y; }
+    public int MaxScrollY { get { return Math.Max(0, ContentH - ClientSize.Height); } }
 }

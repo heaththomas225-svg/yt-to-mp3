@@ -240,7 +240,7 @@ static class K
             string half = "[Verse 1]\nline one\nline two\n\nHold on\nHold on\n\nHold on\nHold on"; string rh = LyricSections.Add(half, out ad, out nt); Check("parts you labelled yourself stay as they are", rh.StartsWith("[Verse 1]\nline one") && ad == 2 && rh.Contains("[Chorus]"), nt + " / " + rh.Replace("\n", "|"));
             string flat = ""; for (int i = 1; i <= 12; i++) flat += "this is line number " + i + "\n"; string rf = LyricSections.Add(flat, out ad, out nt); Check("lyrics with no blank lines are cut into parts of a few lines", ad == 3 && rf.Contains("\n\n[Verse 2]\n"), nt);
             // the button
-            M("AddLyricSections"); SetF("tab", 2); Paint(); var lbx = F<TextBox>("lyricBox"); lbx.Text = song.Replace("\n", "\r\n"); Paint();
+            M("AddLyricSections"); SetF("tab", 2); Paint(); var lbx = F<TextBoxBase>("lyricBox"); lbx.Text = song.Replace("\n", "\r\n"); Paint();
             var sb = Regs().Find(r => r.R.Width >= 120 && r.R.Width <= 145 && Math.Abs(r.R.Height - 28) < 1 && r.OnDown != null && r.R.Y < 300); Check("the lyrics page has an ADD SECTIONS button", sb != null, "");
             if (sb != null) { int cx = (int)(sb.R.X + 20), cy = (int)(sb.R.Y + 12); Ev("OnMouseMove", MouseButtons.None, 0, cx, cy); Ev("OnMouseDown", MouseButtons.Left, 1, cx, cy); Ev("OnMouseUp", MouseButtons.Left, 1, cx, cy); Paint(); Check("pressing it puts the labels into the writing box", lbx.Text.Contains("[Chorus]") && lbx.Text.Contains("[Verse 1]"), lbx.Text.Length > 30 ? lbx.Text.Substring(0, 30) : lbx.Text); }
             lbx.Text = ""; SetF("tab", 0); Paint();
