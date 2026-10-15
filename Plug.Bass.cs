@@ -8,7 +8,9 @@ using System.Collections.Generic;
 // adds a note an octave below the bass: a divider (square, filtered to a sine) or a pitch-following sine
 class SubFx : Fx
 {
-    Biquad lp = new Biquad(), subLp = new Biquad(), lp2 = new Biquad(); double env, phase, fEst = 60, last; int cnt; bool st, armed = true; float prev;
+    // the sub follows the bass it is made from: as loud as that bass (scaled by Sub level), faded in and out smoothly, never switched,
+    // its note tracked with hysteresis (noise never flips it), the sine gliding to a new note instead of jumping, and a soft ceiling so it never pushes the sound past full scale (no crackle)
+    Biquad lp = new Biquad(), subLp = new Biquad(), lp2 = new Biquad(); double env, phase, fEst = 60, fNow = 60, last, amp, gate; int cnt; bool st, armed = true, open;
     public SubFx()
     {
         Type = "sub"; Title = "Sub-Bass Generator"; Category = "Bass & EDM";
@@ -17,26 +19,31 @@ class SubFx : Fx
     }
     Biquad hpOrig = new Biquad();
     protected override void Update() { lp.Set(Biquad.LowPass, SR, Get("fc"), 0.7071, 0); lp2.Set(Biquad.LowPass, SR, Get("fc"), 0.7071, 0); subLp.Set(Biquad.LowPass, SR, Get("tone"), 0.7071, 0); hpOrig.Set(Biquad.HighPass, SR, Math.Max(20, Get("cut")), 0.7071, 0); }
-    public override void Reset() { base.Reset(); lp.Reset(); lp2.Reset(); subLp.Reset(); hpOrig.Reset(); env = 0; phase = 0; fEst = 60; cnt = 0; st = false; prev = 0; armed = true; }
+    public override void Reset() { base.Reset(); lp.Reset(); lp2.Reset(); subLp.Reset(); hpOrig.Reset(); env = 0; phase = 0; fEst = 60; fNow = 60; cnt = 0; st = false; armed = true; amp = 0; gate = 0; open = false; }
+    // a soft ceiling: nothing changes below 0.97, above it the sound bends smoothly towards 1.0 instead of clipping
+    static float Ceil(float v) { float a = Math.Abs(v); if (a <= 0.97f) return v; float o = 0.97f + 0.03f * (float)Math.Tanh((a - 0.97f) / 0.03f); return v < 0 ? -o : o; }
     public override void Process(float[] l, float[] r, int n)
     {
         CheckDirty(); int mode = (int)Get("mode"); double lv = DspMath.DbToLin(Get("level")), thr = DspMath.DbToLin(Get("thr")), mix = Get("mix") / 100.0; bool cut = Get("cut") > 20.5f;
-        double ae = 1 - Math.Exp(-1.0 / (0.004 * SR)), re = 1 - Math.Exp(-1.0 / (0.05 * SR)), fa = 0.2;
+        double ae = 1 - Math.Exp(-1.0 / (0.004 * SR)), re = 1 - Math.Exp(-1.0 / (0.06 * SR));          // the level of the bass (fast, to catch the note)
+        double aa = 1 - Math.Exp(-1.0 / (0.015 * SR)), ar = 1 - Math.Exp(-1.0 / (0.15 * SR));          // the loudness of the sub (slow: it never reshapes a wave inside one cycle)
+        double ga = 1 - Math.Exp(-1.0 / (0.012 * SR)), glide = 1 - Math.Exp(-1.0 / (0.02 * SR));       // the gate fades in about 12 ms; a new note glides in about 20 ms
         for (int i = 0; i < n; i++)
         {
             float m = (l[i] + r[i]) * 0.5f; float x = lp2.TickL(lp.TickL(m)); double a = Math.Abs(x); env += (a - env) * (a > env ? ae : re); cnt++;
-            if (armed && x > 0.0008f && prev <= 0.0008f) { // a rising crossing
-                if (mode == 0) st = !st; else { if (cnt > SR / 420 && cnt < SR / 28) fEst += (SR / (double)cnt - fEst) * fa; }
+            double hy = Math.Max(0.0008, env * 0.3);   // hysteresis: a crossing counts only after the wave went clearly below, then clearly above
+            if (armed && x > hy) {
+                if (mode == 0) st = !st; else if (cnt > SR / 420 && cnt < SR / 25) fEst += (SR / (double)cnt - fEst) * 0.35;
                 cnt = 0; armed = false; }
-            if (x < -0.0008f) armed = true; prev = x;
-            double sub = 0; if (env > thr)
-            {
-                if (mode == 0) sub = subLp.TickL(st ? 1f : -1f) * 1.8; else { phase += fEst * 0.5 / SR; phase -= Math.Floor(phase); sub = Math.Sin(2 * Math.PI * phase) * Math.Min(1.0, env * 6); }
-                sub *= Math.Min(1.0, env * 7);
-            }
-            else if (mode == 0) subLp.TickL(0f);
-            float o = (float)(sub * lv * mix); float ol = l[i], or = r[i]; if (cut) { ol = hpOrig.TickL(ol); or = hpOrig.TickR(or); }
-            l[i] = Dsp2.Sanitize(ol + o); r[i] = Dsp2.Sanitize(or + o);
+            if (x < -hy) armed = true;
+            if (!open && env > thr) open = true; else if (open && env < thr * 0.5) open = false;   // (opens at the level, closes at half of it: no flutter around it)
+            gate += ((open ? 1.0 : 0.0) - gate) * ga;
+            double target = Math.Min(1.0, env * 1.6) * gate; amp += (target - amp) * (target > amp ? aa : ar);
+            double wave;
+            if (mode == 0) wave = subLp.TickL(st ? 0.85f : -0.85f);
+            else { fNow += (fEst - fNow) * glide; phase += fNow * 0.5 / SR; phase -= Math.Floor(phase); wave = Math.Sin(2 * Math.PI * phase); }
+            float o = (float)(wave * amp * lv * mix); float ol = l[i], or = r[i]; if (cut) { ol = hpOrig.TickL(ol); or = hpOrig.TickR(or); }
+            l[i] = Dsp2.Sanitize(Ceil(ol + o)); r[i] = Dsp2.Sanitize(Ceil(or + o));
         }
     }
 }

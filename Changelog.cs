@@ -7,10 +7,13 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.40.6";
+    public const string Latest = "3.40.7";
 
     public const string Text =
-@"3.40.6  Your preset on the Mastering page, trial countdown
+@"3.40.7  Sub-Bass Generator without the crackle
+ + FIXED: the Sub-Bass Generator crackled and distorted. On loud bass it added a sub at a fixed loudness (so the sound went far past full scale and clipped), and on quiet bass it switched on and off with a click on every note. Now the sub follows the loudness of your bass, fades in and out smoothly, tracks the note without noise flipping it, glides between notes, and a soft ceiling stops it ever pushing the sound past full scale. Your presets keep their settings.
+
+3.40.6  Your preset on the Mastering page, trial countdown
  + NEW: the Mastering page shows the mastering preset that is on your master, right in the top bar (gold), with EDITED once you change the chain after choosing it, or None: your own settings. Click it to open the presets. It is saved with the project, so it is still there when you open it again: handy for showing how presets work.
  + NEW: 3 days of Fantasy free for new members. Your first Purphex account gets the Fantasy Edition free for 3 days (one trial per person, not per account). Settings > Account shows your trial and when it ends.
  + NEW: a live countdown of an edition that ends (the free trial, a monthly plan, a tester pass): under your name in the menu, and in Settings > Account, ticking every second. purphexmusic.com shows it too.

@@ -2,6 +2,10 @@
 
 What changed in each version of **Purphex**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.40.7  Sub-Bass Generator without the crackle
+
+- FIXED: the Sub-Bass Generator crackled and distorted. On loud bass it added a sub at a fixed loudness (so the sound went far past full scale and clipped), and on quiet bass it switched on and off with a click on every note. Now the sub follows the loudness of your bass, fades in and out smoothly, tracks the note without noise flipping it, glides between notes, and a soft ceiling stops it ever pushing the sound past full scale. Your presets keep their settings.
+
 ## 3.40.6  Your preset on the Mastering page, trial countdown
 
 - NEW: the Mastering page shows the mastering preset that is on your master, right in the top bar (gold), with EDITED once you change the chain after choosing it, or None: your own settings. Click it to open the presets. It is saved with the project, so it is still there when you open it again: handy for showing how presets work.

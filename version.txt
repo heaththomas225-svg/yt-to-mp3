@@ -1,4 +1,4 @@
-3.40.6
+3.40.7
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Your preset on the Mastering page, trial countdown
-sha256=da0d4983d78c488bd05c4cf805334f716404a4f9b193ec4703dd59cad6bfab54
+Sub-Bass Generator without the crackle
+sha256=a0cf9cc7967aa608ae1397cd6aacbc886d8ba3a69583997f7f16a7ad2e355625

@@ -59,6 +59,18 @@ static class NF
                   var lp = SpotifyLinks.Pick(lz, lres, out wl); Check("the artist written differently on YouTube (BUSYGETTINLIZZY15 for Busygettinlizzy) still finds the right song", lp != null && lp[0] == "egDndW3cigU", lp == null ? wl : lp[1]);
                   var lz2 = new SpotifyLinks.Song { Key = "Somebody - Next Up", Artist = "Somebody Else", Title = "Next Up", Secs = 135 }; Check("but another artist's song with the same name is still never taken", SpotifyLinks.Pick(lz2, lres, out wl) == null, ""); }
                 Check("an edition that ends counts down live (days, then hours:minutes:seconds), and says when it has ended", Edition.CountdownText(new TimeSpan(2, 5, 6, 59)) == "2d 05:06:59" && Edition.CountdownText(TimeSpan.FromSeconds(3725)) == "01:02:05" && Edition.CountdownText(TimeSpan.FromSeconds(-5)) == "ended", Edition.CountdownText(new TimeSpan(2, 5, 6, 59)));
+                {   // the Sub-Bass Generator: loud 808s never push past full scale, quiet tails never click, in both methods
+                    bool okAll = true; string det = "";
+                    foreach (int md in new[] { 0, 1 }) foreach (double am in new[] { 0.006, 0.7 })
+                    {
+                        int sr = 44100, nn = sr * 3; var l = new float[nn]; var r = new float[nn]; var rq = new Random(5);
+                        for (int i = 0; i < nn; i++) { double t = (i % (sr / 2)) / (double)sr; l[i] = r[i] = (float)(am * Math.Exp(-t * 3) * Math.Sin(2 * Math.PI * 55 * i / sr + 3 * Math.Exp(-t * 30)) + (rq.NextDouble() - 0.5) * 0.002); }
+                        var o0 = (float[])l.Clone(); var sx = new SubFx(); sx.Prepare(sr); sx.Set("mode", md); for (int p = 0; p < nn; p += 512) { int mm = Math.Min(512, nn - p); var bl = new float[mm]; var br = new float[mm]; Array.Copy(l, p, bl, 0, mm); Array.Copy(r, p, br, 0, mm); sx.Process(bl, br, mm); Array.Copy(bl, 0, l, p, mm); }
+                        double sPk = 0, sAp = 0, sMj = 0, sPa = 0; for (int i = 1; i < nn; i++) { double ad = l[i] - o0[i]; sPk = Math.Max(sPk, Math.Abs(l[i])); sAp = Math.Max(sAp, Math.Abs(ad)); sMj = Math.Max(sMj, Math.Abs(ad - sPa)); sPa = ad; }
+                        bool ok = sPk <= 1.0001 && sAp > am * 0.2 && sMj <= sAp * 0.05; if (!ok) okAll = false; det += " m" + md + "/" + am + ": peak " + sPk.ToString("0.000") + " sub " + sAp.ToString("0.000") + " jump " + (sMj / Math.Max(sAp, 1e-9) * 100).ToString("0.0") + "%";
+                    }
+                    Check("the Sub-Bass Generator never crackles: loud 808s stay under full scale and quiet tails do not click (both methods)", okAll, det);
+                }
                 Check("Bass Boost starts with its output at -12 dB (big bass, room for the vocals)", Math.Abs(new BassBoost().Get("level") + 12) < 0.001, new BassBoost().Get("level").ToString());
                 Check("when YouTube does not have the song, nothing is converted (no random song) and it says why", noPick == null && why != null && why.Contains("not found"), why ?? "");
                 SpotifyLinks.SearchHook = q => "PXR|cccccccc1|158|aheath - Topic|WANTED\nPXR|cccccccc2|158|x|Totally Different"; string w2, found; var url = SpotifyLinks.FindOnYouTube("yt-dlp", song, out w2, out found); SpotifyLinks.SearchHook = null;
