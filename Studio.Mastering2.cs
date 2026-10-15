@@ -265,9 +265,9 @@ partial class StudioForm
             var f = eng.MasterFx[i]; int fi = i; bool sel = i == selMaster; var row = Rc(lp.X + 10, y, lp.Width - 20, rowH);
             FillRR(g, sel ? TM.C(210, 80, 40, 150) : TM.C(150, 40, 22, 74), row, 8); if (sel) StrokeRR(g, Accent, row, 8, 1.4f);
             Reg(row, () => { selMaster = fi; mpTab = 0; });
-            var dot = Rc(row.X + 10, row.Y + (rowH - 18) / 2, 18, 18); using (var b = new SolidBrush(f.Bypass ? TM.C(90, 90, 70, 110) : Good)) g.FillEllipse(b, dot); Reg(dot, () => f.Bypass = !f.Bypass);
+            var dot = Rc(row.X + 7, row.Y + (rowH - 27) / 2, 27, 27);   /* the on/off circle, 50% bigger */ using (var b = new SolidBrush(f.Bypass ? TM.C(90, 90, 70, 110) : Good)) g.FillEllipse(b, dot); Reg(dot, () => f.Bypass = !f.Bypass);
             float cpl = CopyPasteBtns(g, f, null, row.Right - (i >= 7 ? 34 : 6), row.Y + (rowH - 22) / 2, 22);   // COPY and PASTE on every master plugin
-            RowTitle(g, i < ModNames.Length && f.Type != "gain" ? (i < 7 ? ModNames[i] : f.Title) : f.Title, 14, f.Bypass && !sel ? DimC : Ink, Rc(row.X + 38, row.Y, cpl - row.X - 42, rowH), sel);
+            RowTitle(g, i < ModNames.Length && f.Type != "gain" ? (i < 7 ? ModNames[i] : f.Title) : f.Title, 14, f.Bypass && !sel ? DimC : Ink, Rc(row.X + 42, row.Y, cpl - row.X - 46, rowH), sel);
             if (i >= 7) Btn(g, Rc(row.Right - 30, row.Y + (rowH - 22) / 2, 22, 22), "x", 3, () => { lock (eng.Sync) eng.MasterFx.RemoveAt(fi); }, 12);
         }
         { float aw = lp.Width - 20 - 84; Btn(g, Rc(lp.X + 10, y + 2, aw, 28), "+ Add Effect to master", 1, () => OpenBrowser(true, -1), 12); var pm0 = Rc(lp.X + 10 + aw + 6, y + 2, 78, 28); Btn(g, pm0, "PASTE", fxCopyType.Length > 0 ? 2 : 0, () => PasteFxAsNew(null), 11); Hint2(pm0, fxCopyType.Length > 0 ? "Add the copied " + fxCopyTitle + " with its settings to the master chain" : "Copy an effect first: press COPY on a plugin"); } y += 40;

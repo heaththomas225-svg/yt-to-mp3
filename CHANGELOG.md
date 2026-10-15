@@ -2,6 +2,10 @@
 
 What changed in each version of **Purphex**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.41.7  Bigger on/off circles on plugins
+
+- CHANGED: the green circle that turns a plugin on or off is 50% bigger, so it is easier to see and to hit: in the panel on the right, on the ALL PLUGINS page and in the mastering chain.
+
 ## 3.41.6  Smooth lyrics scrolling
 
 - CHANGED: the lyrics scroll smoothly now, pixel by pixel, instead of jumping a whole line at a time. The mouse wheel glides 3 lines a notch, a click on the scroll bar glides there at a reading speed, and dragging the logo follows your hand.

@@ -1053,10 +1053,10 @@ partial class StudioForm : Form
                 var f = fxs[i]; int fi = i; bool sel = i == selFx;
                 var row = Rc(x + 14, ly, w - 36, 28); if (sel) PaintPickedFx(g, row, 6); else FillRR(g, TM.C(150, 40, 22, 74), row, 6);   // the plugin you are editing stands out
                 Reg(row, () => selFx = fi);
-                var dotr = Rc(row.X + 8, row.Y + 7, 14, 14); using (var b2 = new SolidBrush(f.Bypass ? TM.C(90, 90, 70, 110) : Good)) g.FillEllipse(b2, dotr);
+                var dotr = Rc(row.X + 6, row.Y + 3.5f, 21, 21);   /* the on/off circle, 50% bigger */ using (var b2 = new SolidBrush(f.Bypass ? TM.C(90, 90, 70, 110) : Good)) g.FillEllipse(b2, dotr);
                 Reg(dotr, () => { f.Bypass = !f.Bypass; });
                 float cpl = CopyPasteBtns(g, f, tr, row.Right - 80, row.Y + 3, 22);   // COPY and PASTE on every plugin
-                bool grRoom = cpl - (row.X + 30) > 150; RowTitle(g, f.Title, 14, f.Bypass ? DimC : Ink, Rc(row.X + 30, row.Y, cpl - row.X - 34 - (grRoom && f.GR > 0.2f ? 44 : 0), 28), sel);
+                bool grRoom = cpl - (row.X + 34) > 150; RowTitle(g, f.Title, 14, f.Bypass ? DimC : Ink, Rc(row.X + 34, row.Y, cpl - row.X - 38 - (grRoom && f.GR > 0.2f ? 44 : 0), 28), sel);
                 if (grRoom && f.GR > 0.2f) Txt(g, "-" + f.GR.ToString("0.0"), 11, Warn, Rc(cpl - 46, row.Y, 40, 28), StringAlignment.Far, false);
                 { var ub = Rc(row.Right - 76, row.Y + 3, 22, 22); Btn(g, ub, " ", 0, () => MoveFx(tr, fi, -1), 11); ArrowIcon(g, ub, true); Hint2(ub, "Move " + f.Title + " up the chain (it works on the sound earlier)"); }
                 { var db = Rc(row.Right - 52, row.Y + 3, 22, 22); Btn(g, db, "  ", 0, () => MoveFx(tr, fi, 1), 11); ArrowIcon(g, db, false); Hint2(db, "Move " + f.Title + " down the chain (it works on the sound later)"); }

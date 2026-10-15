@@ -1,4 +1,4 @@
-3.41.6
+3.41.7
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Smooth lyrics scrolling
-sha256=fff52dd0924ed99fdb37fa0b3a33df4d13ef37dd1016f3fd500aef9eb9bbfa2c
+Bigger on/off circles on plugins
+sha256=02fa278dc35027d5f5ee956483e7df7cea1b6e0056a753c90720b6250efe37dd

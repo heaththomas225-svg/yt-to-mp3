@@ -7,10 +7,13 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.41.6";
+    public const string Latest = "3.41.7";
 
     public const string Text =
-@"3.41.6  Smooth lyrics scrolling
+@"3.41.7  Bigger on/off circles on plugins
+ + CHANGED: the green circle that turns a plugin on or off is 50% bigger, so it is easier to see and to hit: in the panel on the right, on the ALL PLUGINS page and in the mastering chain.
+
+3.41.6  Smooth lyrics scrolling
  + CHANGED: the lyrics scroll smoothly now, pixel by pixel, instead of jumping a whole line at a time. The mouse wheel glides 3 lines a notch, a click on the scroll bar glides there at a reading speed, and dragging the logo follows your hand.
  + FIXED: the mouse wheel with the pointer on the lyrics themselves did not scroll them. It does now, the same as over the scroll bar or beside the box.
 
