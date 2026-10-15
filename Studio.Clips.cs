@@ -61,7 +61,7 @@ partial class StudioForm
         layers.Sort((a, b) => a.Offset.CompareTo(b.Offset)); var nx = layers[0]; PushUndo();
         lock (eng.Sync)
         {   // the row keeps its name, volume and plugins and takes over the next piece
-            t.Clip = nx.Clip; t.Source = nx.Source; t.Offset = nx.Offset; t.ClipStart = nx.ClipStart; t.ClipFrames = nx.ClipFrames; t.FadeIn = nx.FadeIn; t.FadeOut = nx.FadeOut; t.ClipGainDb = nx.ClipGainDb; t.FadeInDelay = nx.FadeInDelay; t.FadeOutTail = nx.FadeOutTail; ClampFades(t);   // the silence before/after belongs to the piece too, not to the one that was deleted
+            t.Clip = nx.Clip; t.Source = nx.Source; t.Offset = nx.Offset; t.ClipStart = nx.ClipStart; t.ClipFrames = nx.ClipFrames; t.FadeIn = nx.FadeIn; t.FadeOut = nx.FadeOut; t.ClipGainDb = nx.ClipGainDb; t.SectionLabel = nx.SectionLabel; t.PieceMuted = nx.PieceMuted; t.FadeInDelay = nx.FadeInDelay; t.FadeOutTail = nx.FadeOutTail; ClampFades(t);   // the silence before/after belongs to the piece too, not to the one that was deleted
             eng.Tracks.Remove(nx); retired.AddRange(nx.Fx);
         }
         toolsTrack = t; Toast("Piece deleted (Ctrl+Z brings it back)");
@@ -81,6 +81,19 @@ partial class StudioForm
 
     // after a trim: the two fades never add up to more than the clip
     static void ClampFades(Track t) { long u = t.UsedLength, sum = t.FadeIn + t.FadeOut + t.FadeInDelay + t.FadeOutTail; if (u > 0 && sum > u) { double k = u / (double)sum; t.FadeIn = (long)(t.FadeIn * k); t.FadeOut = (long)(t.FadeOut * k); t.FadeInDelay = (long)(t.FadeInDelay * k); t.FadeOutTail = (long)(t.FadeOutTail * k); } }
+
+    // ---------- name a section ----------
+    // right-click a piece (or several picked): give it its own name (Yeahs, Adlibs, Hook...); blank takes the name off and the track's name shows again
+    internal Func<string, string> labelAskHook;   // tests answer for themselves
+    internal void RenameSections(List<Track> list)
+    {
+        if (list == null || list.Count == 0) return; string cur = list[0].SectionLabel;
+        string q = (list.Count == 1 ? "Name this section" : "Name these " + list.Count + " sections") + " (for example Yeahs, Adlibs, Hook, Verse 2). Leave it empty to show the track's name again.";
+        string nm = labelAskHook != null ? labelAskHook(q) : StudioDialogs.Ask(this, q, cur, true); if (nm == null) return;
+        nm = nm.Replace("\r", " ").Replace("\n", " ").Trim(); if (nm.Length > 40) nm = nm.Substring(0, 40);
+        PushUndo(); foreach (var p in list) p.SectionLabel = nm;
+        Toast(nm.Length == 0 ? (list.Count == 1 ? "The section shows the track's name again." : "The sections show the track's name again.") : (list.Count == 1 ? "The section is called " + nm + "." : list.Count + " sections are called " + nm + "."));
+    }
 
     // ---------- mute a section ----------
     // right-click a piece: silence just that section (the rest of its track still plays); a muted section still moves, trims and splits like any other
@@ -220,7 +233,7 @@ partial class StudioForm
             {
                 if (h.Host != null || h.IsBus || h.Instrument || h.Clip == null || h.UsedLength > 0) continue;
                 var layers = eng.Tracks.FindAll(x => x.Host == h && !x.Instrument && x.Clip != null); layers.Sort((p, q) => p.Offset.CompareTo(q.Offset));
-                if (layers.Count > 0) { var nx = layers[0]; h.Clip = nx.Clip; h.Source = nx.Source; h.Offset = nx.Offset; h.ClipStart = nx.ClipStart; h.ClipFrames = nx.ClipFrames; h.FadeIn = nx.FadeIn; h.FadeOut = nx.FadeOut; h.ClipGainDb = nx.ClipGainDb; h.FadeInDelay = nx.FadeInDelay; h.FadeOutTail = nx.FadeOutTail; ClampFades(h); eng.Tracks.Remove(nx); retired.AddRange(nx.Fx); }
+                if (layers.Count > 0) { var nx = layers[0]; h.Clip = nx.Clip; h.Source = nx.Source; h.Offset = nx.Offset; h.ClipStart = nx.ClipStart; h.ClipFrames = nx.ClipFrames; h.FadeIn = nx.FadeIn; h.FadeOut = nx.FadeOut; h.ClipGainDb = nx.ClipGainDb; h.SectionLabel = nx.SectionLabel; h.PieceMuted = nx.PieceMuted; h.FadeInDelay = nx.FadeInDelay; h.FadeOutTail = nx.FadeOutTail; ClampFades(h); eng.Tracks.Remove(nx); retired.AddRange(nx.Fx); }
                 else { h.Clip = null; h.Source = ""; h.ClipStart = 0; h.ClipFrames = -1; h.Offset = 0; h.FadeIn = 0; h.FadeOut = 0; h.FadeInDelay = 0; h.FadeOutTail = 0; }
             }
             // the automation stays where it is too: nothing on the timeline moves
@@ -256,7 +269,7 @@ partial class StudioForm
         }
         g.Restore(gs);
         // the small tags at the top of the clip: gain, lock
-        float tx = Math.Max(lane.X, x0) + 8 + g.MeasureString(tr.Name, GfxCache.Font(12, true)).Width + 6;
+        float tx = Math.Max(lane.X, x0) + 8 + g.MeasureString(tr.SectionLabel.Length > 0 ? tr.SectionLabel : tr.Name, GfxCache.Font(12, true)).Width + 6;
         if (Math.Abs(tr.ClipGainDb) > 0.04f && tx < cr.Right - 60) { string gt = (tr.ClipGainDb > 0 ? "+" : "") + tr.ClipGainDb.ToString("0.0", CultureInfo.InvariantCulture) + " dB"; var rr = Rc(tx, cr.Y + 3, g.MeasureString(gt, GfxCache.Font(10, true)).Width + 10, 16); FillRR(g, TM.C(200, 70, 40, 150), rr, 5); Txt(g, gt, 10, Color.White, rr, StringAlignment.Center, true); }
         if (tr.PieceMuted && cr.Width > 6)
         {   // a MUTED section: dark grey over it (the waveform shows through faintly), a dashed edge and a MUTED tag

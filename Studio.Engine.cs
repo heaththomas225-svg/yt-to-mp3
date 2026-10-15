@@ -357,6 +357,7 @@ class Track
     public bool Locked;            // locked in place (set on a row's own track: it covers every piece on the row)
     public bool PieceLocked;       // just this one piece (section) is locked: the rest of its track can still be edited
     public bool PieceMuted;        // just this one piece (section) is silent: the rest of its track still plays
+    public string SectionLabel = "";   // a name for just this piece (Yeahs, Adlibs, Hook...): shown on it instead of the track's name
     public List<AutoLane> Auto = new List<AutoLane>();   // automation: settings of the plugins above that follow a curve
     public volatile float PeakL, PeakR, RmsL, RmsR; public volatile bool Clipped;
     public float[] TapPre = new float[8192], TapPost = new float[8192]; public volatile int TapPos;

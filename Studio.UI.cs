@@ -868,7 +868,7 @@ partial class StudioForm : Form
             var gi = g.Save(); g.SetClip(lane, CombineMode.Intersect); if (tr.Off || IsOffRow(tr)) PaintQuake(g, pc.Img, ix + (dragWave ? (int)Math.Round(x0 - pc.ImgX0) : 0), iy, tr, lane, cr); else g.DrawImageUnscaled(pc.Img, ix + (dragWave ? (int)Math.Round(x0 - pc.ImgX0) : 0), iy); g.Restore(gi);
         }
         if (cr.Width > 0 && !tr.Off) { var gst = g.Save(); g.SetClip(lane, CombineMode.Intersect); float lv = Math.Max(tr.PeakL, tr.PeakR); Glow(g, c, cr, 6, (sel ? 1.2f : 0.8f) + Math.Min(0.6f, lv * 0.9f), 5); g.Restore(gst); }
-        { float nx = Math.Max(lane.X, x0) + 8, nw = Math.Min(300, Math.Min(x1, lane.Right) - nx - 6); if (nw > 70) Txt(g, tr.Name, 12, Color.FromArgb(200, 255, 255, 255), Rc(nx, lane.Y + 6, nw, 16), StringAlignment.Near, true); }   // the name stays inside its own clip
+        { float nx = Math.Max(lane.X, x0) + 8, nw = Math.Min(300, Math.Min(x1, lane.Right) - nx - 6); bool lab = tr.SectionLabel.Length > 0; if (nw > (lab ? 30 : 70)) Txt(g, lab ? tr.SectionLabel : tr.Name, 12, lab ? Color.FromArgb(255, 255, 214, 110) : Color.FromArgb(200, 255, 255, 255), Rc(nx, lane.Y + 6, nw, 16), StringAlignment.Near, true); }   // the name (a named section shows its own name, in gold) stays inside its own clip
         clipRightX[tr] = x1; PaintClipExtras(g, tr, lane, x0, x1, cr);
         PaintClipChrome(g, tr, lane, cr, sel);
     }

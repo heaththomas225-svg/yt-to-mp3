@@ -73,7 +73,8 @@ partial class StudioForm
         Txt(g, allBusMode ? "Every bus in one place: its level, mute, the tracks that go into it and its plugins. + ADD BUS makes a new one." : "Every track and every bus with their plugins in one place. + ADD, COPY / PASTE PRESET and COPY / PASTE ALL PLUGINS work on that column; every plugin has COPY and PASTE; press a plugin to open it.", 12, DimC, Rc(sheet.X + 22, sheet.Y + 46, sheet.Width - 200, 20), StringAlignment.Near, false);
         var close = Rc(sheet.Right - 120, sheet.Y + 14, 100, 34); Btn(g, close, "DONE", 2, () => allFxOpen = false, 13); Hint2(close, "Close this panel (Esc does the same)");
         { var ab = Rc(close.X - 12 - 150, close.Y, 150, 34); Btn(g, ab, "+ ADD BUS", 1, () => { var nb = AddBus(); busEdit = nb; selFx = -1; allFxScroll = float.MaxValue; Toast(nb.Name + " made. Press TRACKS INTO THIS BUS to send tracks into it, and + ADD for its plugins."); }, 13); Hint2(ab, "Make a new bus (a group: send tracks into it and its plugins work on all of them together)");
-          var sw = Rc(ab.X - 12 - 150, close.Y, 150, 34); Btn(g, sw, allBusMode ? "ALL PLUGINS" : "ALL BUSES", 1, () => { allBusMode = !allBusMode; allFxScroll = 0; }, 13); Hint2(sw, allBusMode ? "Show every track and bus with their plugins" : "Show only your buses, with their levels"); }
+          var sw = Rc(ab.X - 12 - 150, close.Y, 150, 34); Btn(g, sw, allBusMode ? "ALL PLUGINS" : "ALL BUSES", 1, () => { allBusMode = !allBusMode; allFxScroll = 0; }, 13); Hint2(sw, allBusMode ? "Show every track and bus with their plugins" : "Show only your buses, with their levels");
+          var ra = Rc(sw.X - 12 - 200, close.Y, 200, 34); if (ra.X > sheet.X + 330) { Btn(g, ra, "REMOVE ALL PLUGINS", 3, () => RemoveEveryPlugin(), 12); Hint2(ra, allBusMode ? "Take every plugin off every bus (Ctrl+Z puts them back)" : "Take every plugin off every track and bus (instruments stay; Ctrl+Z puts them back)"); } }
         Track[] rows; lock (eng.Sync) rows = eng.Tracks.FindAll(t => t.Host == null && (!allBusMode || t.IsBus)).ToArray();
         var area = Rc(sheet.X + 14, sheet.Y + 76, sheet.Width - 28, sheet.Height - 90);
         if (rows.Length == 0) { Txt(g, allBusMode ? "NO BUSES YET: PRESS + ADD BUS." : "NO TRACKS YET: ADD MUSIC OR A NEW TRACK FIRST.", 14, DimC, area, StringAlignment.Center, true); return; }
@@ -145,6 +146,18 @@ partial class StudioForm
 partial class StudioForm
 {
     // ALL PLUGINS: pick a column; a bus is edited in the plugin panel (like EDIT in the Buses sheet), a track is selected as usual
+    // REMOVE ALL PLUGINS: every plugin off every track and bus on the page (instruments stay, so instrument tracks still play); asks first, and one Ctrl+Z puts them all back
+    internal Func<string, bool> removeAllAskHook;
+    internal int RemoveEveryPlugin()
+    {
+        Track[] rows; lock (eng.Sync) rows = eng.Tracks.FindAll(t => !allBusMode || t.IsBus).ToArray(); int n = 0; foreach (var t in rows) foreach (var f in t.Fx) if (!(f is InstrumentFx)) n++;
+        if (n == 0) { Toast("There are no plugins to remove."); return 0; }
+        string q = "Remove all " + n + " plugin" + (n == 1 ? "" : "s") + " from every " + (allBusMode ? "bus" : "track and bus") + "?" + (allBusMode ? "" : " Instruments (Bass Lab, VST instruments) stay.") + "\n\nCtrl+Z puts them all back.";
+        if (!(removeAllAskHook != null ? removeAllAskHook(q) : AskYes(q, "Remove all plugins"))) return 0;
+        PushUndo();
+        lock (eng.Sync) foreach (var t in rows) { var gone = t.Fx.FindAll(f => !(f is InstrumentFx)); foreach (var f in gone) { t.Fx.Remove(f); t.Auto.RemoveAll(al => al.Fx == f); retired.Add(f); } }   // undoable: retired, not disposed, since the undo snapshot still holds them
+        selFx = -1; Toast(n + " plugin" + (n == 1 ? " was" : "s were") + " removed. Ctrl+Z puts them back."); return n;
+    }
     internal bool allBusMode;   // ALL BUSES: the same sheet showing only the buses, with their levels
     internal void OpenAllBuses() { allFxOpen = true; allBusMode = true; allFxScroll = 0; busOpen = false; tab = 0; }
     internal void PickAllFxColumn(Track t, int index)

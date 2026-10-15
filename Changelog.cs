@@ -7,10 +7,14 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.41.1";
+    public const string Latest = "3.41.2";
 
     public const string Text =
-@"3.41.1  Pause and play never jump you around, safer recording
+@"3.41.2  Name your sections, remove all plugins
+ + NEW: right-click a section of a track and press Rename this section to give just that piece its own name (Yeahs, Adlibs, Hook, Verse 2...). The name shows on the piece in gold, the track keeps its own name, and it is saved in the project. Pick several sections to name them all at once; leave it empty to show the track name again. Ctrl+Z undoes it.
+ + NEW: REMOVE ALL PLUGINS on the ALL PLUGINS page takes every plugin off every track and bus in one go (on ALL BUSES, off every bus). It asks first, instruments (Bass Lab, VST instruments) stay, and one Ctrl+Z puts them all back.
+
+3.41.1  Pause and play never jump you around, safer recording
  + NEW: recording onto a track you cannot hear (muted, switched off, or another track is soloed) asks first: unmute it and record, record anyway, or cancel.
  + NEW: when your microphone sends no sound at all (muted on the headset, the mic boom flipped up, switched off), a warning says so within a second of recording, with what to check; a silent take is no longer added as an empty track.
  + FIXED: pressing PLAY threw the view to wherever the needle was (forwards or backwards), so after scrolling away while paused you lost your place. PLAY now never moves the view. And PAUSE stops exactly where the needle is drawn: the needle no longer hops forward a little when you pause, and PLAY carries on from that very spot.

@@ -36,13 +36,13 @@ partial class StudioForm
     // ---------- state ----------
     bool snapOn = true; int gridIdx = 2; static readonly string[] GridNames = { "Bar", "1/2 bar", "Beat", "1/8 note", "1/16 note" }; static readonly string[] GridWhy = { "every bar (4 beats)", "every half bar (2 beats)", "every beat", "every half beat (eighth note)", "every quarter beat (sixteenth note)" }; int gridFlashAt = -100000; static readonly double[] GridBeats = { 4, 2, 1, 0.5, 0.25 };
     readonly List<Fx> retired = new List<Fx>();   // effects of deleted tracks stay alive so Undo can bring the track back
-    class TS { public long Offset, ClipStart, ClipFrames; public float Vol, Pan; public bool Mute, Solo; public string Name; public AudioClip Clip; public Track Host, Out; public List<Fx> Fx; public List<AutoLane> Auto; public long FadeIn, FadeOut, FadeInDelay, FadeOutTail; public bool Mono; public float ClipGain; public bool Locked, PieceLocked, PieceMuted; }
+    class TS { public long Offset, ClipStart, ClipFrames; public float Vol, Pan; public bool Mute, Solo; public string Name; public AudioClip Clip; public Track Host, Out; public List<Fx> Fx; public List<AutoLane> Auto; public long FadeIn, FadeOut, FadeInDelay, FadeOutTail; public bool Mono; public float ClipGain; public bool Locked, PieceLocked, PieceMuted; public string Label = ""; }
     class Snapshot { public List<Track> Order = new List<Track>(); public Dictionary<Track, TS> St = new Dictionary<Track, TS>(); }
     readonly List<Snapshot> undo = new List<Snapshot>(), redo = new List<Snapshot>();
 
     Snapshot TakeSnapshot()
     {
-        var s = new Snapshot(); foreach (var t in eng.Tracks.ToArray()) { s.Order.Add(t); s.St[t] = new TS { Offset = t.Offset, ClipStart = t.ClipStart, ClipFrames = t.ClipFrames, Clip = t.Clip, Vol = t.VolDb, Pan = t.Pan, Mute = t.Mute, Solo = t.Solo, Name = t.Name, Host = t.Host, Out = t.Out, Fx = new List<Fx>(t.Fx), Auto = CloneLanes(t.Auto), FadeIn = t.FadeIn, FadeOut = t.FadeOut, FadeInDelay = t.FadeInDelay, FadeOutTail = t.FadeOutTail, Mono = t.Mono, ClipGain = t.ClipGainDb, Locked = t.Locked, PieceLocked = t.PieceLocked, PieceMuted = t.PieceMuted }; }
+        var s = new Snapshot(); foreach (var t in eng.Tracks.ToArray()) { s.Order.Add(t); s.St[t] = new TS { Offset = t.Offset, ClipStart = t.ClipStart, ClipFrames = t.ClipFrames, Clip = t.Clip, Vol = t.VolDb, Pan = t.Pan, Mute = t.Mute, Solo = t.Solo, Name = t.Name, Host = t.Host, Out = t.Out, Fx = new List<Fx>(t.Fx), Auto = CloneLanes(t.Auto), FadeIn = t.FadeIn, FadeOut = t.FadeOut, FadeInDelay = t.FadeInDelay, FadeOutTail = t.FadeOutTail, Mono = t.Mono, ClipGain = t.ClipGainDb, Locked = t.Locked, PieceLocked = t.PieceLocked, PieceMuted = t.PieceMuted, Label = t.SectionLabel }; }
         return s;
     }
     static List<AutoLane> CloneLanes(List<AutoLane> l) { var r = new List<AutoLane>(); foreach (var x in l) r.Add(x.CloneFor(x.Fx)); return r; }
@@ -55,7 +55,7 @@ partial class StudioForm
         {
             foreach (var t in eng.Tracks) if (!s.St.ContainsKey(t)) gone.Add(t);   // tracks this undo drops (e.g. a just-added instrument): their plugins are retired and windows closed below
             eng.Tracks.Clear(); eng.Tracks.AddRange(s.Order);
-            foreach (var t in s.Order) { var d = s.St[t]; t.EverHadClip = false; t.Clip = d.Clip; t.Offset = d.Offset; t.ClipStart = d.ClipStart; t.ClipFrames = d.ClipFrames; t.VolDb = d.Vol; t.Pan = d.Pan; t.Mute = d.Mute; t.Solo = d.Solo; t.Name = d.Name; t.Host = d.Host; t.Out = d.Out; t.FadeIn = d.FadeIn; t.FadeOut = d.FadeOut; t.FadeInDelay = d.FadeInDelay; t.FadeOutTail = d.FadeOutTail; t.Mono = d.Mono; t.ClipGainDb = d.ClipGain; t.Locked = d.Locked; t.PieceLocked = d.PieceLocked; t.PieceMuted = d.PieceMuted; if (d.Fx != null) { t.Fx.Clear(); t.Fx.AddRange(d.Fx); } if (d.Auto != null) { t.Auto.Clear(); t.Auto.AddRange(CloneLanes(d.Auto)); } }
+            foreach (var t in s.Order) { var d = s.St[t]; t.EverHadClip = false; t.Clip = d.Clip; t.Offset = d.Offset; t.ClipStart = d.ClipStart; t.ClipFrames = d.ClipFrames; t.VolDb = d.Vol; t.Pan = d.Pan; t.Mute = d.Mute; t.Solo = d.Solo; t.Name = d.Name; t.Host = d.Host; t.Out = d.Out; t.FadeIn = d.FadeIn; t.FadeOut = d.FadeOut; t.FadeInDelay = d.FadeInDelay; t.FadeOutTail = d.FadeOutTail; t.Mono = d.Mono; t.ClipGainDb = d.ClipGain; t.Locked = d.Locked; t.PieceLocked = d.PieceLocked; t.PieceMuted = d.PieceMuted; t.SectionLabel = d.Label ?? ""; if (d.Fx != null) { t.Fx.Clear(); t.Fx.AddRange(d.Fx); } if (d.Auto != null) { t.Auto.Clear(); t.Auto.AddRange(CloneLanes(d.Auto)); } }
         }
         foreach (var t in gone) foreach (var f in t.Fx) { if (!retired.Contains(f)) retired.Add(f); var ic = f as InstrumentFx; if (ic != null) ic.CloseWindow(); }
         // keep the same track selected by object; the list order may have changed, and layers/buses after the lanes must never be selected
@@ -107,7 +107,7 @@ partial class StudioForm
     }
     Track CloneTrack(Track t, string suffix)
     {
-        var n = StudioEngine.NewTrack(t.Name + suffix, t.Role, t.Clip); n.Instrument = t.Instrument; n.Offset = t.Offset; n.ClipStart = t.ClipStart; n.ClipFrames = t.ClipFrames; n.Color = t.Color; n.VolDb = t.VolDb; n.Pan = t.Pan; n.Mute = t.Mute; n.Source = t.Source; n.Bpm = t.Bpm; n.BpmChecked = t.BpmChecked; n.FadeIn = t.FadeIn; n.FadeOut = t.FadeOut; n.FadeInDelay = t.FadeInDelay; n.FadeOutTail = t.FadeOutTail; n.Mono = t.Mono; n.ClipGainDb = t.ClipGainDb;
+        var n = StudioEngine.NewTrack(t.Name + suffix, t.Role, t.Clip); n.SectionLabel = t.SectionLabel; n.PieceMuted = t.PieceMuted; n.Instrument = t.Instrument; n.Offset = t.Offset; n.ClipStart = t.ClipStart; n.ClipFrames = t.ClipFrames; n.Color = t.Color; n.VolDb = t.VolDb; n.Pan = t.Pan; n.Mute = t.Mute; n.Source = t.Source; n.Bpm = t.Bpm; n.BpmChecked = t.BpmChecked; n.FadeIn = t.FadeIn; n.FadeOut = t.FadeOut; n.FadeInDelay = t.FadeInDelay; n.FadeOutTail = t.FadeOutTail; n.Mono = t.Mono; n.ClipGainDb = t.ClipGainDb;
         lock (t.Midi) foreach (var m in t.Midi) n.Midi.Add(new MidiEv { Frame = m.Frame, S = m.S, D1 = m.D1, D2 = m.D2 });
         foreach (var f in t.Fx) { var c = CloneFx(f); if (c != null) { var ic = c as InstrumentFx; if (ic != null) ic.Owner = n; n.Fx.Add(c); } }
         return n;
@@ -127,7 +127,7 @@ partial class StudioForm
         PushUndo(); var n = CloneTrack(clipCopy, " (copy)"); n.Offset = Math.Max(0, at);
         if (host.Clip == null)
         {   // an empty track: the piece becomes its audio
-            host.Clip = n.Clip; host.Offset = n.Offset; host.ClipStart = n.ClipStart; host.ClipFrames = n.ClipFrames; host.ClipGainDb = n.ClipGainDb; host.FadeIn = n.FadeIn; host.FadeOut = n.FadeOut; host.FadeInDelay = n.FadeInDelay; host.FadeOutTail = n.FadeOutTail; host.Bpm = n.Bpm; host.BpmChecked = n.BpmChecked; if (host.Role == "audio" || host.Role == null || host.Role == "") host.Role = n.Role; toolsTrack = host;
+            host.Clip = n.Clip; host.Offset = n.Offset; host.ClipStart = n.ClipStart; host.ClipFrames = n.ClipFrames; host.ClipGainDb = n.ClipGainDb; host.SectionLabel = n.SectionLabel; host.PieceMuted = n.PieceMuted; host.FadeIn = n.FadeIn; host.FadeOut = n.FadeOut; host.FadeInDelay = n.FadeInDelay; host.FadeOutTail = n.FadeOutTail; host.Bpm = n.Bpm; host.BpmChecked = n.BpmChecked; if (host.Role == "audio" || host.Role == null || host.Role == "") host.Role = n.Role; toolsTrack = host;
         }
         else { n.Host = host; n.Out = host.Out; lock (eng.Sync) eng.Tracks.Insert(FirstBusIndex(), n); toolsTrack = n; }
         selTrack = Math.Max(0, eng.Tracks.IndexOf(host)); selFx = -1; Toast("Pasted. It plays through this track's plugins.");
@@ -149,7 +149,7 @@ partial class StudioForm
     internal void DuplicatePiece(Track piece)
     {
         if (piece == null || piece.Clip == null) return; var host = piece.Host ?? piece; PushUndo();
-        var n = CloneTrack(host, ""); n.Name = piece.Name + " copy"; n.Clip = piece.Clip; n.Source = piece.Source; n.Offset = piece.Offset; n.ClipStart = piece.ClipStart; n.ClipFrames = piece.ClipFrames; n.ClipGainDb = piece.ClipGainDb; n.FadeIn = piece.FadeIn; n.FadeOut = piece.FadeOut; n.FadeInDelay = piece.FadeInDelay; n.FadeOutTail = piece.FadeOutTail; n.Host = null; n.Locked = false;
+        var n = CloneTrack(host, ""); n.Name = piece.Name + " copy"; n.Clip = piece.Clip; n.Source = piece.Source; n.Offset = piece.Offset; n.ClipStart = piece.ClipStart; n.ClipFrames = piece.ClipFrames; n.SectionLabel = piece.SectionLabel; n.PieceMuted = piece.PieceMuted; n.ClipGainDb = piece.ClipGainDb; n.FadeIn = piece.FadeIn; n.FadeOut = piece.FadeOut; n.FadeInDelay = piece.FadeInDelay; n.FadeOutTail = piece.FadeOutTail; n.Host = null; n.Locked = false;
         lock (eng.Sync) { int i = eng.Tracks.IndexOf(host); eng.Tracks.Insert(i < 0 ? LaneCount : i + 1, n); }
         selTrack = Math.Max(0, eng.Tracks.IndexOf(n)); selFx = -1; toolsTrack = n; Toast("Duplicated that piece onto a new track under " + host.Name + ".");
     }
@@ -280,6 +280,8 @@ partial class StudioForm
             else { var pk = piece; m.Items.Add(pk.PieceLocked ? "Unlock this section" : "Lock this section only (the rest of the track stays editable)").Click += (a, b) => TogglePieceLock(pk); }
             if (InGroup(piece)) { var grpM = multiSel.FindAll(x => x.Clip != null && !x.Instrument && eng.Tracks.Contains(x)); bool allM = grpM.TrueForAll(x => x.PieceMuted); m.Items.Add((allM ? "Unmute these " : "Mute these ") + grpM.Count + " sections").Click += (a, b) => SetPieceMutes(grpM, !allM); }   // several clips picked: mute (or unmute) every one of them
             else { var pm = piece; m.Items.Add(pm.PieceMuted ? "Unmute this section" : "Mute this section only (the rest of the track still plays)").Click += (a, b) => TogglePieceMute(pm); }
+            if (InGroup(piece)) { var grpN = multiSel.FindAll(x => x.Clip != null && !x.Instrument && eng.Tracks.Contains(x)); m.Items.Add("Rename these " + grpN.Count + " sections...").Click += (a, b) => RenameSections(grpN); }
+            else { var pn = piece; m.Items.Add(pn.SectionLabel.Length > 0 ? "Rename this section (" + pn.SectionLabel + ")..." : "Rename this section (Yeahs, Adlibs, Hook...)").Click += (a, b) => RenameSections(new List<Track> { pn }); }
         }
         m.Items.Add(new ToolStripSeparator());
         m.Items.Add("Copy this piece").Click += (a, b) => CopyClip(piece);
@@ -357,7 +359,7 @@ partial class StudioForm
         if (occupied)
         {
             var L = EmptyAudioTrack(); L.Name = src.Name; L.Role = src.Role; L.Color = src.Color; L.Host = dst; L.Out = dst.Out; L.Clip = src.Clip; L.Source = src.Source; L.ClipStart = src.ClipStart; L.ClipFrames = src.ClipFrames; L.Offset = src.Offset;
-            L.FadeIn = src.FadeIn; L.FadeOut = src.FadeOut; L.FadeInDelay = src.FadeInDelay; L.FadeOutTail = src.FadeOutTail; L.ClipGainDb = src.ClipGainDb;
+            L.FadeIn = src.FadeIn; L.FadeOut = src.FadeOut; L.FadeInDelay = src.FadeInDelay; L.FadeOutTail = src.FadeOutTail; L.ClipGainDb = src.ClipGainDb; L.SectionLabel = src.SectionLabel; L.PieceMuted = src.PieceMuted;
             lock (eng.Sync) eng.Tracks.Insert(FirstBusIndex(), L); dst = L;
         }
         else lock (eng.Sync) { dst.Clip = src.Clip; dst.Source = src.Source; dst.ClipStart = src.ClipStart; dst.ClipFrames = src.ClipFrames; dst.Offset = src.Offset; dst.FadeIn = src.FadeIn; dst.FadeOut = src.FadeOut; dst.FadeInDelay = src.FadeInDelay; dst.FadeOutTail = src.FadeOutTail; dst.ClipGainDb = src.ClipGainDb; if (dst.Role == "audio" && src.Role != "audio") dst.Role = src.Role; dst.Color = src.Color; if (dst.Name.StartsWith("Audio ")) dst.Name = src.Name; }

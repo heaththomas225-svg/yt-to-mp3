@@ -2,6 +2,12 @@
 
 What changed in each version of **Purphex**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.41.2  Name your sections, remove all plugins
+
+- NEW: right-click a section of a track and press Rename this section to give just that piece its own name (Yeahs, Adlibs, Hook, Verse 2...). The name shows on the piece in gold, the track keeps its own name, and it is saved in the project. Pick several sections to name them all at once; leave it empty to show the track name again. Ctrl+Z undoes it.
+
+- NEW: REMOVE ALL PLUGINS on the ALL PLUGINS page takes every plugin off every track and bus in one go (on ALL BUSES, off every bus). It asks first, instruments (Bass Lab, VST instruments) stay, and one Ctrl+Z puts them all back.
+
 ## 3.41.1  Pause and play never jump you around, safer recording
 
 - NEW: recording onto a track you cannot hear (muted, switched off, or another track is soloed) asks first: unmute it and record, record anyway, or cancel.
