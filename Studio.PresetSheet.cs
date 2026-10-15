@@ -65,6 +65,8 @@ partial class StudioForm
 partial class StudioForm
 {
     // the mastering preset that is on the master (USE), -1 = none: kept by name in the project (ProjectIO.MasterPreset), so it is still shown after you open the project again
+    // the name on the master (a preset, or an AUTO MASTERING version), "" = your own settings; remembered as it is now, so EDITED shows only after a change
+    internal string MasterPresetName { get { return ProjectIO.MasterPreset; } set { ProjectIO.MasterPreset = value ?? ""; ProjectIO.MasterPresetSnap = ProjectIO.MasterPreset.Length > 0 ? ProjectIO.ChainOf(eng) : null; ProjectIO.MasterPresetWasEdited = false; } }
     internal int masterPresetUsed { get { string n = ProjectIO.MasterPreset; return n.Length == 0 ? -1 : Array.FindIndex(MasterPresets.All, p => p.Name == n); } set { ProjectIO.MasterPreset = value >= 0 && value < MasterPresets.All.Length ? MasterPresets.All[value].Name : ""; ProjectIO.MasterPresetSnap = value >= 0 ? ProjectIO.ChainOf(eng) : null; ProjectIO.MasterPresetWasEdited = false; } }
     // the preset you are using: a lit outline with a glow and an IN USE tag (like the selected track in ALL PLUGINS)
     void PaintInUse(Graphics g, RectangleF r, float rad, float tagX = -1)

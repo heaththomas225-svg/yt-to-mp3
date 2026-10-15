@@ -85,7 +85,7 @@ partial class StudioForm
         if (mpBackup == null) mpBackup = SnapChain(); Presets.ApplyMaster(eng, i); targetLufs = MasterPresets.All[i].Target; mpPreviewIdx = i; abOrig = abMast = null;
         if (!mpActive) MasterPreviewStart();
     }
-    void PresetKeep() { var before = mpBackup; string nm = mpPreviewIdx >= 0 ? MasterPresets.All[mpPreviewIdx].Name.Split('(')[0].Trim() : "The preset"; mpBackup = null; mpPreviewIdx = -1; Toast("Kept. Press PREVIEW to hear it, or the loudness buttons to set the level."); if (before != null) OfferRevert(nm + " is on your master", () => { RestoreChain(before); abOrig = abMast = null; }); }
+    void PresetKeep() { var before = mpBackup; string nm = mpPreviewIdx >= 0 ? MasterPresets.All[mpPreviewIdx].Name.Split('(')[0].Trim() : "The preset"; string wasName = MasterPresetName; if (mpPreviewIdx >= 0) masterPresetUsed = mpPreviewIdx; mpBackup = null; mpPreviewIdx = -1; Toast("Kept. Press PREVIEW to hear it, or the loudness buttons to set the level."); if (before != null) OfferRevert(nm + " is on your master", () => { RestoreChain(before); MasterPresetName = wasName; abOrig = abMast = null; }); }
     void PresetPutBack() { if (mpBackup != null) { RestoreChain(mpBackup); mpBackup = null; mpPreviewIdx = -1; Toast("Put back what you had."); } }
 
     // ---------- AUTO MIX for the master ----------
@@ -169,8 +169,9 @@ partial class StudioForm
     void AmUse(int v)
     {
         RestoreChain(amVersions[v].Snap); targetLufs = MasterPresets.All[amVersions[v].Base].Target; abOrig = amOrigResult; abMast = amVersions[v].Result; ApplyMatch(); amOpen = false; MasterPreviewStop(); eng.MasterBypass = false;
+        string wasName = MasterPresetName; MasterPresetName = "Auto Mastering: " + amVersions[v].Name;
         Toast(amVersions[v].Name + " is on your master. Edit anything in the chain, or press PREVIEW to hear it again.");
-        var origKeep = amOrig; amRevert = origKeep; OfferRevert(amVersions[v].Name + " is on your master", () => { RestoreChain(origKeep); abOrig = abMast = null; amRevert = null; });
+        var origKeep = amOrig; amRevert = origKeep; OfferRevert(amVersions[v].Name + " is on your master", () => { RestoreChain(origKeep); MasterPresetName = wasName; abOrig = abMast = null; amRevert = null; });
     }
     void AmCancel() { if (amOrig != null) RestoreChain(amOrig); amOpen = false; MasterPreviewStop(); amApplied = -2; }
 
@@ -212,14 +213,14 @@ partial class StudioForm
     // CURRENT PRESET on the Mastering page: the mastering preset on your master (gold), (edited) once you change the chain, or your own settings; click it for PRESETS
     void PaintPresetBadge(Graphics g, RectangleF r)
     {
-        if (r.Width < 150) return; int pi = masterPresetUsed; bool on = pi >= 0, edited = on && ProjectIO.MasterPresetEdited(eng), hot = Hot(r);
+        if (r.Width < 150) return; string pn = MasterPresetName; bool on = pn.Length > 0, edited = on && ProjectIO.MasterPresetEdited(eng), hot = Hot(r);
         Color gold = Color.FromArgb(255, 255, 200, 70); FillRR(g, on ? TM.C(hot ? 230 : 200, 70, 50, 10) : TM.C(hot ? 200 : 160, 34, 20, 60), r, r.Height / 2);
         StrokeRR(g, on ? gold : Edge, r, r.Height / 2, on ? 1.8f : 1f);
         var tag = Rc(r.X + 6, r.Y + 5, 74, r.Height - 10); FillRR(g, on ? gold : TM.C(255, 90, 70, 140), tag, tag.Height / 2); Txt(g, "PRESET", 10, on ? Color.Black : Color.White, tag, StringAlignment.Center, true);
-        string name = on ? MasterPresets.All[pi].Name : "None: your own settings"; float nx = tag.Right + 10, ew = edited ? 74 : 0;
+        string name = on ? pn : "None: your own settings"; float nx = tag.Right + 10, ew = edited ? 74 : 0;
         Txt(g, name, 14, on ? Ink : DimC, Rc(nx, r.Y, r.Right - nx - 10 - ew, r.Height), StringAlignment.Near, on);
         if (edited) { var et = Rc(r.Right - ew - 8, r.Y + 6, ew, r.Height - 12); StrokeRR(g, gold, et, et.Height / 2, 1); Txt(g, "EDITED", 9.5f, gold, et, StringAlignment.Center, true); }
-        Reg(r, () => { mpTab = 1; }); Hint2(r, on ? (edited ? MasterPresets.All[pi].Name + " is on your master, and you have changed it since. Click to see the presets." : MasterPresets.All[pi].Name + " is on your master. Click to see the presets.") : "No mastering preset is on your master (you set it up yourself). Click to choose one.");
+        Reg(r, () => { mpTab = 1; }); Hint2(r, on ? (edited ? pn + " is on your master, and you have changed it since. Click to see the presets." : pn + " is on your master. Click to see the presets.") : "No mastering preset is on your master (you set it up yourself). Click to choose one.");
     }
     void PaintMasterBars(Graphics g)
     {

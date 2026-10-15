@@ -7,10 +7,15 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.41.2";
+    public const string Latest = "3.41.3";
 
     public const string Text =
-@"3.41.2  Name your sections, remove all plugins
+@"3.41.3  Gain on every section, your preset under MASTERED
+ + NEW: every section of a track has its own gain right on it. Hover a section to see its gain tag (it stays when the gain is not 0 dB): drag the tag up or down to change that section only, half a dB at a time, and double-click it for 0 dB. Right-click a section for Section gain: +6 / +3 / +1 / -1 / -3 / -6 dB, 0 dB, -12 dB for quiet backing, or set it exactly; with several sections picked they all change together.
+ + NEW: under MASTERED in the Mastering page visualiser (and in the full visualiser) you can always see which preset is on your master, with EDITED once you change it; click it to open the presets.
+ + FIXED: a version from AUTO MASTERING (like Vocal Forward), or a preset you tried and then kept, did not show as the preset in use: the top bar said None. Both show now, and they are kept in the project.
+
+3.41.2  Name your sections, remove all plugins
  + NEW: right-click a section of a track and press Rename this section to give just that piece its own name (Yeahs, Adlibs, Hook, Verse 2...). The name shows on the piece in gold, the track keeps its own name, and it is saved in the project. Pick several sections to name them all at once; leave it empty to show the track name again. Ctrl+Z undoes it.
  + NEW: REMOVE ALL PLUGINS on the ALL PLUGINS page takes every plugin off every track and bus in one go (on ALL BUSES, off every bus). It asks first, instruments (Bass Lab, VST instruments) stay, and one Ctrl+Z puts them all back.
 

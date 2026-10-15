@@ -240,7 +240,7 @@ partial class StudioForm
         Prof.A("vis.seek", v0); v0 = Prof.T();
         // title and what you are hearing
         { string st = eng.MasterBypass ? "ORIGINAL" : "MASTERED"; float ty = a.Y + 8, tx0 = full ? a.X + a.Width / 2 - 62 : a.X + 14; Txt(g, projName.ToUpper(), full ? 20 : 14, Ink, Rc(full ? a.X + a.Width / 2 - 300 : tx0, ty, full ? 600 : Math.Min(320, a.Width - 200), full ? 30 : 22), full ? StringAlignment.Center : StringAlignment.Near, true); var pill = Rc(tx0, ty + (full ? 32 : 24), 124, full ? 24 : 20);
-          FillRR(g, eng.MasterBypass ? TM.C(255, 60, 52, 98) : Color.FromArgb(255, 28, 112, 86), pill, 9); Txt(g, st, full ? 12 : 11, Color.White, pill, StringAlignment.Center, true); if (full) { var hp = Rc(pill.Right + 8, pill.Y, 122, pill.Height); Btn(g, hp, eng.MasterBypass ? "HEAR MASTER" : "HEAR ORIGINAL", 0, () => { eng.MasterBypass = !eng.MasterBypass; ApplyMatch(); }, 10); Hint2(hp, "Switch between your original mix and the mastered sound while you watch"); } }
+          FillRR(g, eng.MasterBypass ? TM.C(255, 60, 52, 98) : Color.FromArgb(255, 28, 112, 86), pill, 9); Txt(g, st, full ? 12 : 11, Color.White, pill, StringAlignment.Center, true); PaintVisPreset(g, a, pill, full); if (full) { var hp = Rc(pill.Right + 8, pill.Y, 122, pill.Height); Btn(g, hp, eng.MasterBypass ? "HEAR MASTER" : "HEAR ORIGINAL", 0, () => { eng.MasterBypass = !eng.MasterBypass; ApplyMatch(); }, 10); Hint2(hp, "Switch between your original mix and the mastered sound while you watch"); } }
         if (!full) { var fvb = Rc(a.Right - 156, a.Y + 6, 144, 26); Btn(g, fvb, "FULL VISUALISER", 1, () => GoTab(5), 11); Hint2(fvb, "Open the visualiser on a page of its own (Esc comes back)"); }
         if (!playing) Txt(g, "PRESS PLAY OR PREVIEW MASTER AND WATCH YOUR MUSIC MOVE", 12, DimC, Rc(a.X, Math.Min(cy + R0 * 2.35f, a.Bottom - (full ? 48f : 42f) - 8 - (full ? Math.Min(150f, a.Height * 0.2f) : Math.Min(64f, a.Height * 0.2f)) * 0.35f - 26), a.Width, 20), StringAlignment.Center, true);
         g.Restore(gs);
@@ -277,5 +277,20 @@ partial class StudioForm
         var pl = Rc(rx - 96, y + 4, 96, h - 8); Btn(g, pl, "PLAY", eng.Playing && !mpActive ? 4 : 1, () => { if (mpActive) MasterPreviewStop(); PlayToggle(); }, 14); rx -= 102;
         var pv = Rc(rx - 168, y + 4, 168, h - 8); Btn(g, pv, "PREVIEW MASTER", mpActive ? 4 : 2, () => MasterPreviewStart(), 13); Hint2(pv, "Loop the loudest 20 seconds of your song with the mastering on"); rx -= 174;
         var sp = Rc(rx - 128, y + 4, 128, h - 8); Btn(g, sp, "STOP PREVIEW", 3, () => MasterPreviewStop(), 12); Hint2(sp, "Stop the preview loop"); rx -= 134;
+    }
+}
+
+partial class StudioForm
+{
+    // under MASTERED: the preset (or AUTO MASTERING version) on your master, gold, with EDITED once you changed the chain; click it for the presets
+    void PaintVisPreset(Graphics g, RectangleF a, RectangleF pill, bool full)
+    {
+        string pn = MasterPresetName; bool on = pn.Length > 0, edited = on && ProjectIO.MasterPresetEdited(eng); float h = full ? 22 : 20, y = pill.Bottom + 6;
+        float w = full ? Math.Min(420, a.Width - 40) : Math.Max(220, Math.Min(360, a.Width / 2 - 50));   /* (beside the logo in the middle, never over it) */ var r = Rc(pill.X, y, w, h); if (r.Bottom > a.Bottom - 40) return;
+        Color gold = Color.FromArgb(255, 255, 200, 70); FillRR(g, on ? Color.FromArgb(215, 60, 44, 8) : Color.FromArgb(170, 30, 20, 50), r, h / 2); StrokeRR(g, on ? gold : Color.FromArgb(160, 170, 150, 220), r, h / 2, 1.2f);
+        var tg = Rc(r.X + 4, r.Y + 3, 58, h - 6); FillRR(g, on ? gold : Color.FromArgb(255, 90, 70, 140), tg, (h - 6) / 2); Txt(g, "PRESET", 9, on ? Color.Black : Color.White, tg, StringAlignment.Center, true);
+        float ew = edited ? 58 : 0; string shown = on && !full && w < 330 && pn.StartsWith("Auto Mastering: ") ? pn.Substring(16) + " (auto)" : pn; Txt(g, on ? shown : "None: your own settings", full ? 12 : 11, on ? Color.FromArgb(255, 255, 232, 170) : Color.FromArgb(255, 190, 180, 220), Rc(tg.Right + 8, r.Y, r.Right - tg.Right - 14 - ew, h), StringAlignment.Near, on);
+        if (edited) { var et = Rc(r.Right - ew - 4, r.Y + 3, ew, h - 6); StrokeRR(g, gold, et, (h - 6) / 2, 1); Txt(g, "EDITED", 8.5f, gold, et, StringAlignment.Center, true); }
+        Reg(r, () => { if (tab != 1) tab = 1; mpTab = 1; }); Hint2(r, on ? pn + " is on your master" + (edited ? ", and you have changed it since" : "") + ". Click to see the presets." : "No preset is on your master (you set it up yourself). Click to choose one.");
     }
 }

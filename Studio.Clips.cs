@@ -82,6 +82,34 @@ partial class StudioForm
     // after a trim: the two fades never add up to more than the clip
     static void ClampFades(Track t) { long u = t.UsedLength, sum = t.FadeIn + t.FadeOut + t.FadeInDelay + t.FadeOutTail; if (u > 0 && sum > u) { double k = u / (double)sum; t.FadeIn = (long)(t.FadeIn * k); t.FadeOut = (long)(t.FadeOut * k); t.FadeInDelay = (long)(t.FadeInDelay * k); t.FadeOutTail = (long)(t.FadeOutTail * k); } }
 
+    // ---------- a section's own gain ----------
+    internal readonly List<KeyValuePair<RectangleF, Track>> gainTagsPending = new List<KeyValuePair<RectangleF, Track>>();
+    Track gainDragT; float gainDragY0, gainDragDb0;
+    // the gain tags of a row are clickable above the row itself (they are painted before the row registers its own drag)
+    void RegGainTags()
+    {
+        foreach (var kv in gainTagsPending)
+        {
+            var t = kv.Value; var h = Reg(kv.Key, () => { PushUndo(); gainDragT = t; gainDragY0 = MousePos.Y; gainDragDb0 = t.ClipGainDb; });
+            h.OnDrag = pt => { if (gainDragT != t) return; float v = gainDragDb0 + (gainDragY0 - pt.Y) * 0.2f; v = (float)(Math.Round(v * 2) / 2.0); t.ClipGainDb = Math.Max(-30f, Math.Min(12f, Math.Abs(v) < 0.25f ? 0f : v)); };
+            h.OnUp = () => { if (gainDragT == t) { gainDragT = null; Toast((t.SectionLabel.Length > 0 ? t.SectionLabel : "This section") + ": " + (t.ClipGainDb > 0 ? "+" : "") + t.ClipGainDb.ToString("0.0", CultureInfo.InvariantCulture) + " dB"); } };
+            h.OnDouble = () => { PushUndo(); t.ClipGainDb = 0; gainDragT = null; };
+            Hint2(kv.Key, "The gain of just this section: drag up or down (half a dB at a time), double-click for 0 dB, right-click the section for quick values");
+        }
+        gainTagsPending.Clear();
+    }
+    // right-click: quick gain values for one section, or for every section picked
+    internal void SetSectionGain(List<Track> list, float db)
+    {
+        if (list == null || list.Count == 0) return; PushUndo(); foreach (var p in list) p.ClipGainDb = Math.Max(-30f, Math.Min(12f, db));
+        Toast((list.Count == 1 ? (list[0].SectionLabel.Length > 0 ? list[0].SectionLabel : "The section") : list.Count + " sections") + ": " + (db > 0 ? "+" : "") + db.ToString("0.0", CultureInfo.InvariantCulture) + " dB");
+    }
+    internal void NudgeSectionGain(List<Track> list, float d)
+    {
+        if (list == null || list.Count == 0) return; PushUndo(); foreach (var p in list) p.ClipGainDb = Math.Max(-30f, Math.Min(12f, p.ClipGainDb + d));
+        Toast((list.Count == 1 ? "The section" : list.Count + " sections") + " " + (d > 0 ? "+" : "") + d.ToString("0.#", CultureInfo.InvariantCulture) + " dB" + (list.Count == 1 ? " (now " + (list[0].ClipGainDb > 0 ? "+" : "") + list[0].ClipGainDb.ToString("0.0", CultureInfo.InvariantCulture) + " dB)" : ""));
+    }
+
     // ---------- name a section ----------
     // right-click a piece (or several picked): give it its own name (Yeahs, Adlibs, Hook...); blank takes the name off and the track's name shows again
     internal Func<string, string> labelAskHook;   // tests answer for themselves
@@ -270,7 +298,13 @@ partial class StudioForm
         g.Restore(gs);
         // the small tags at the top of the clip: gain, lock
         float tx = Math.Max(lane.X, x0) + 8 + g.MeasureString(tr.SectionLabel.Length > 0 ? tr.SectionLabel : tr.Name, GfxCache.Font(12, true)).Width + 6;
-        if (Math.Abs(tr.ClipGainDb) > 0.04f && tx < cr.Right - 60) { string gt = (tr.ClipGainDb > 0 ? "+" : "") + tr.ClipGainDb.ToString("0.0", CultureInfo.InvariantCulture) + " dB"; var rr = Rc(tx, cr.Y + 3, g.MeasureString(gt, GfxCache.Font(10, true)).Width + 10, 16); FillRR(g, TM.C(200, 70, 40, 150), rr, 5); Txt(g, gt, 10, Color.White, rr, StringAlignment.Center, true); }
+        bool gNon0 = Math.Abs(tr.ClipGainDb) > 0.04f, gDrag = gainDragT == tr; var visC = RectangleF.Intersect(cr, lane);
+        if ((gNon0 || gDrag || (Hot(visC) && !tr.Instrument && tr.Clip != null)) && tx < Math.Min(cr.Right, lane.Right) - 70)
+        {   // the section's own gain: drag the tag up or down, double-click for 0 dB, right-click for quick values
+            string gt = (tr.ClipGainDb > 0.04f ? "+" : "") + (gNon0 ? tr.ClipGainDb.ToString("0.0", CultureInfo.InvariantCulture) : "0") + " dB"; var rr = Rc(tx, cr.Y + 3, Math.Max(52, g.MeasureString(gt, GfxCache.Font(10, true)).Width + 18), 17);
+            FillRR(g, gDrag ? TM.C(240, 255, 200, 70) : gNon0 ? TM.C(220, 70, 40, 150) : TM.C(190, 30, 22, 56), rr, 5); StrokeRR(g, gNon0 || gDrag ? Color.FromArgb(255, 255, 210, 110) : Color.FromArgb(160, 200, 190, 230), rr, 5, 1f);
+            Txt(g, "\u2195 " + gt, 10, gDrag ? Color.Black : Color.White, rr, StringAlignment.Center, true); gainTagsPending.Add(new KeyValuePair<RectangleF, Track>(rr, tr));
+        }
         if (tr.PieceMuted && cr.Width > 6)
         {   // a MUTED section: dark grey over it (the waveform shows through faintly), a dashed edge and a MUTED tag
             var vis0 = RectangleF.Intersect(cr, lane); var gs3 = g.Save(); g.SetClip(vis0, CombineMode.Intersect);

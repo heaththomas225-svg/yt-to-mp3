@@ -732,7 +732,7 @@ partial class StudioForm : Form
             q0 = Prof.T(); if (tr.IsBus) PaintBusLane(g, tr, lane); else if (tr.Instrument) PaintMidi(g, tr, lane); else if (tr.Clip == null) { if (!RowHasPieces(tr)) PaintEmptyLane(g, tr, lane); } else PaintWave(g, tr, lane, sel);   /* a row only shows EMPTY TRACK when nothing at all is on it (its own clip may have moved away while pieces are still on it) */
             foreach (var lay in eng.Tracks) if (lay.Host == tr) { if (lay.Instrument) PaintMidi(g, lay, lane); else if (lay.Clip != null) PaintWave(g, lay, lane, sel); }   // tracks sharing this row
             Prof.A("mix.wave", q0);
-            var lr = LaneReg(lane, tr); int idx = i;
+            var lr = LaneReg(lane, tr); int idx = i; RegGainTags();   /* (the gain tags of this row sit above it) */
             /* an empty track is just an empty lane: no box to click (drag audio onto it, drop files, record with MIC, or right-click it for Add music) */   // the box of an empty track: click it to pick music for THIS track
             q0 = Prof.T(); PaintHeader(g, tr, i, Rc(0, ys, HeadW, LaneH), sel); Prof.A("mix.header", q0);
             q0 = Prof.T(); NeonLaneChrome(g, tr, Rc(0, ys, HeadW, LaneH), lane, sel); Prof.A("mix.neonchrome", q0);

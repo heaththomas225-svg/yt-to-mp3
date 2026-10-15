@@ -1,4 +1,4 @@
-3.41.2
+3.41.3
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Name your sections, remove all plugins
-sha256=aefbf7e03955e8b179cbd76d0c271cebae94b1a1fa22e99744829597b731b5db
+Gain on every section, your preset under MASTERED
+sha256=14579748de5e3c28c4d9e5159616acd9633a5bcdb17eed7c05a70df589b4a363
