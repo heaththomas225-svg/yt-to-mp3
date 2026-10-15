@@ -273,7 +273,7 @@ partial class StudioForm
     // (compressor and limiter), which squashed every published song a second time and made it sound broken: here the chain is off
     internal StudioEngine SongPlayer(AudioClip clip, string title)
     {
-        var pe = new StudioEngine(); StudioEngine.Current = eng; foreach (var mf in pe.MasterFx) mf.Bypass = true; pe.Tracks.Add(StudioEngine.NewTrack(title, "beat", clip)); return pe;
+        var pe = new StudioEngine { ListenOnly = true }; StudioEngine.Current = eng; foreach (var mf in pe.MasterFx) mf.Bypass = true; pe.Tracks.Add(StudioEngine.NewTrack(title, "beat", clip)); return pe;
     }
     void PlayArtistSong(ArtistInfo a, ArtistTrack t, bool withVideo = false)
     {

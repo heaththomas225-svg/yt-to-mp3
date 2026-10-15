@@ -1,4 +1,4 @@
-3.40.7
+3.40.8
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Sub-Bass Generator without the crackle
-sha256=a0cf9cc7967aa608ae1397cd6aacbc886d8ba3a69583997f7f16a7ad2e355625
+Previews play smoothly straight away
+sha256=84d12b5174d950f509da9a5286458d9b4c8acf0fe38da1e31ec3faa45a424ca7

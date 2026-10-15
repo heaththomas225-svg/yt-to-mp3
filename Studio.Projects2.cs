@@ -54,7 +54,7 @@ partial class StudioForm
             StudioEngine pe = null; string err = null;
             try
             {   // the preview load gets its own ProjMeta, so your tempo, lyrics and picture are never touched (a save during a slow load used to write the wrong ones)
-                pe = new StudioEngine(); StudioEngine.Current = eng;   /* the preview engine must not become the engine the instruments (the Bass Lab piano) play through */
+                pe = new StudioEngine { ListenOnly = true }; StudioEngine.Current = eng;   /* the preview engine must not become the engine the instruments (the Bass Lab piano) play through */
                 ProjectIO.Load(pe, path, s => { }, new ProjectIO.ProjMeta());
             }
             catch (Exception ex) { err = ex.Message; }

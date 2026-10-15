@@ -174,7 +174,7 @@ partial class StudioForm : Form
         UpdatePlayhead(); Auditioner.Tick(); FlexTick(); PreviewHousekeeping();
         if (mic != null && !eng.Playing) StopMic();
         { string tt = "Purphex Music  -  " + projName + (Prefs.ShowFps ? "    " + (lastIdle ? "idle" : fpsc.Fps + " fps") : ""); if (Text != tt) Text = tt; }
-        if (eng.Playing)
+        if (eng.Playing || (previewEng != null && previewEng.Playing))
         {
             AudioGlitchCheck(DateTime.Now);
         }
@@ -470,12 +470,13 @@ partial class StudioForm : Form
     int lastStalls; DateTime lastRefresh = DateTime.MinValue;
     internal bool AudioGlitchCheck(DateTime now)
     {
-        if (!eng.Playing) { lastUnder = WaveOutPlayer.Underruns; lastStalls = WaveOutPlayer.Stalls; underSince = now; return false; }
+        var ge = eng.Playing ? eng : (previewEng != null && previewEng.Playing ? previewEng : null);   // the engine you are hearing: the mix, or a preview (My Projects, Community)
+        if (ge == null) { lastUnder = WaveOutPlayer.Underruns; lastStalls = WaveOutPlayer.Stalls; underSince = now; return false; }
         int u = WaveOutPlayer.Underruns, st = WaveOutPlayer.Stalls; bool stalled = st != lastStalls, breaking = u - lastUnder >= 2 && (now - underSince).TotalSeconds <= 2;
         if ((now - underSince).TotalSeconds > 2) { underSince = now; lastUnder = u; }
         if (!stalled && !breaking) return false;
         lastUnder = u; lastStalls = st; underSince = now; if ((now - lastRefresh).TotalMilliseconds < 1500) return false; lastRefresh = now;
-        bool bigger = Prefs.BufEff < 2; if (bigger) Prefs.BufBoost++; eng.ReopenOutput();
+        bool bigger = Prefs.BufEff < 2; if (bigger) Prefs.BufBoost++; ge.ReopenOutput();
         Toast(bigger ? "The sound was breaking up, so I refreshed the audio and made the playback buffer bigger for now (your choice in Settings is kept)." : "The sound was breaking up, so I refreshed the audio.");
         return true;
     }

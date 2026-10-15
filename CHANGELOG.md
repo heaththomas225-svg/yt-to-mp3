@@ -2,6 +2,10 @@
 
 What changed in each version of **Purphex**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.40.8  Previews play smoothly straight away
+
+- FIXED: playing a project on My Projects (or a song on Community) could stutter and stay that way until you played something on the mixing page. The fix-it that notices the sound breaking up only watched the mix. It now watches whatever you are listening to, and previews always use the biggest playback buffer (nothing is played live on top of a preview, so the extra delay costs nothing).
+
 ## 3.40.7  Sub-Bass Generator without the crackle
 
 - FIXED: the Sub-Bass Generator crackled and distorted. On loud bass it added a sub at a fixed loudness (so the sound went far past full scale and clipped), and on quiet bass it switched on and off with a click on every note. Now the sub follows the loudness of your bass, fades in and out smoothly, tracks the note without noise flipping it, glides between notes, and a soft ceiling stops it ever pushing the sound past full scale. Your presets keep their settings.

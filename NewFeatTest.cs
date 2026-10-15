@@ -71,6 +71,11 @@ static class NF
                     }
                     Check("the Sub-Bass Generator never crackles: loud 808s stay under full scale and quiet tails do not click (both methods)", okAll, det);
                 }
+                {   // previews (My Projects, Community) always get the biggest buffer, and the stutter watch fixes a preview too (it used to watch only the mix)
+                    var wp = new WaveOutPlayer((x1, x2, x3) => { }, 2); var wf = typeof(WaveOutPlayer).GetField("Frames", BF); var wb = typeof(WaveOutPlayer).GetField("Buffers", BF);
+                    var wn = new WaveOutPlayer((x1, x2, x3) => { }); int bigF = (int)wf.GetValue(wp), bigB = (int)wb.GetValue(wp), setF = (int)wf.GetValue(wn);
+                    Check("a project preview or a community song plays with the biggest buffer (no stutter); the mix keeps the one from Settings", bigF == 2048 && bigB == 8 && setF == (Prefs.BufEff == 0 ? 512 : Prefs.BufEff == 2 ? 2048 : 1024), bigF + "x" + bigB + " / " + setF);
+                }
                 Check("Bass Boost starts with its output at -12 dB (big bass, room for the vocals)", Math.Abs(new BassBoost().Get("level") + 12) < 0.001, new BassBoost().Get("level").ToString());
                 Check("when YouTube does not have the song, nothing is converted (no random song) and it says why", noPick == null && why != null && why.Contains("not found"), why ?? "");
                 SpotifyLinks.SearchHook = q => "PXR|cccccccc1|158|aheath - Topic|WANTED\nPXR|cccccccc2|158|x|Totally Different"; string w2, found; var url = SpotifyLinks.FindOnYouTube("yt-dlp", song, out w2, out found); SpotifyLinks.SearchHook = null;
@@ -677,6 +682,12 @@ static class NF
                     string mixTxt = ProjectIO.SerializeMix(sf.eng); sf.masterPresetUsed = -1; ProjectIO.RestoreMix(sf.eng, mixTxt);
                     Check("the Mastering page shows the preset in use, marks it EDITED after a change, and the project keeps both", fresh && edited && sf.masterPresetUsed == 3 && ProjectIO.MasterPresetEdited(sf.eng) && mixTxt.Contains("mpreset|" + MasterPresets.All[3].Name), sf.masterPresetUsed + " " + fresh + " " + edited);
                     ProjectIO.RestoreMix(sf.eng, mixTxt.Replace("mpreset|", "xx|")); Check("a project without a preset shows none", sf.masterPresetUsed == -1, sf.masterPresetUsed.ToString()); mf = sf.eng.MasterFx[0]; mf.Set(mf.P[0].Id, mpWas);
+                {
+                    var pv = new StudioEngine { ListenOnly = true }; bool mixWas = sf.eng.Playing; sf.eng.Playing = false; typeof(StudioForm).GetField("previewEng", BF).SetValue(sf, pv); pv.Playing = true; int boost0 = Prefs.BufBoost;
+                    typeof(StudioForm).GetField("lastRefresh", BF).SetValue(sf, DateTime.MinValue); sf.AudioGlitchCheck(DateTime.Now); WaveOutPlayer.Underruns += 3; bool fixedIt = sf.AudioGlitchCheck(DateTime.Now.AddMilliseconds(200));
+                    Check("when a preview stutters it is fixed straight away (refreshed, buffer made bigger): it no longer waits for you to play the mix", fixedIt && pv.Reopens == 1, fixedIt + " reopens " + pv.Reopens);
+                    pv.Playing = false; pv.Shutdown(); typeof(StudioForm).GetField("previewEng", BF).SetValue(sf, null); Prefs.BufBoost = boost0; sf.eng.Playing = mixWas;
+                }
                 }
             }
             {   // NEW takes you to the welcome page (a fresh start)

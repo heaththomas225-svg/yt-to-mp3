@@ -685,12 +685,13 @@ partial class StudioEngine
     public void Pause() { if (!Playing) { countLeft = 0; return; } long h = HeardPos; Playing = false; lock (Sync) { Pos = h; countLeft = 0; ResetStates(); } }
     public void Stop() { Playing = false; lock (Sync) { Pos = 0; countLeft = 0; ResetStates(); } }
 
+    public bool ListenOnly;   // a project preview or a community song: nothing is played live on top, so it always gets the biggest playback buffer (no stutter)
     static bool gcTuned;
     void EnsurePlayer()
     {
         if (player != null) return;
         if (!gcTuned) { gcTuned = true; try { System.Runtime.GCSettings.LatencyMode = System.Runtime.GCLatencyMode.SustainedLowLatency; } catch { } }   // a big memory clean-up never freezes the sound while it plays
-        player = new WaveOutPlayer(RenderRealtime) { PosNow = () => Interlocked.Read(ref Pos), PlayingNow = () => Playing && countLeft <= 0 }; player.Start();
+        player = new WaveOutPlayer(RenderRealtime, ListenOnly ? 2 : -1) { PosNow = () => Interlocked.Read(ref Pos), PlayingNow = () => Playing && countLeft <= 0 }; player.Start();
     }
     // the code that makes the sound is compiled by a background thread when the studio opens, so the FIRST time you press play nothing has to be compiled while the sound card is waiting (that was the crackle of a first launch)
     static bool warmed;
@@ -798,10 +799,10 @@ class WaveOutPlayer : IDisposable
     public static volatile int Stalls;          // times the sound card stopped taking audio for a moment (heard as a crackle or a frozen sound)
     long lastDone = Environment.TickCount;
     public static volatile int QueuedFrames = 4096;   // audio waiting in the buffers: how far the sound lags behind the render position
-    readonly int Buffers = Prefs.BufEff == 0 ? 4 : 8;   // more, smaller buffers: the same 23 ms steps but much more slack when the computer is busy
+    readonly int Buffers;   // more, smaller buffers: the same 23 ms steps but much more slack when the computer is busy
     public static volatile float Gain = 1f;   // playback volume from Settings (exports are not affected)
     public static int Device { get { return Prefs.OutDev; } }
-    readonly int Frames = Prefs.BufEff == 0 ? 512 : (Prefs.BufEff == 2 ? 2048 : 1024);
+    readonly int Frames;
     [DllImport("winmm.dll", CharSet = CharSet.Auto)] static extern int waveOutGetNumDevs();
     [DllImport("winmm.dll", CharSet = CharSet.Auto)] static extern int waveOutGetDevCaps(IntPtr id, ref WAVEOUTCAPS caps, int size);
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Auto)] struct WAVEOUTCAPS { public ushort mid, pid; public uint ver; [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)] public string name; public uint formats; public ushort ch, res; public uint support; }
@@ -815,7 +816,8 @@ class WaveOutPlayer : IDisposable
     readonly OutSafety safety = new OutSafety(); Action<float[], float[], int> render; IntPtr hwo; IntPtr[] hdrs, data;
     ManualResetEvent ev = new ManualResetEvent(false); Thread th; volatile bool run; float[] fl, fr; short[] tmp;
 
-    public WaveOutPlayer(Action<float[], float[], int> render) { this.render = render; hdrs = new IntPtr[Buffers]; data = new IntPtr[Buffers]; QueuedFrames = Buffers * Frames; fl = new float[Frames]; fr = new float[Frames]; tmp = new short[Frames * 2]; }
+    // level: the buffer size (0 small, 1 medium, 2 biggest); -1 = the one from Settings (made bigger for the session when the sound broke up)
+    public WaveOutPlayer(Action<float[], float[], int> render, int level = -1) { int lv = level < 0 ? Prefs.BufEff : Math.Min(2, level); Buffers = lv == 0 ? 4 : 8; Frames = lv == 0 ? 512 : (lv == 2 ? 2048 : 1024); this.render = render; hdrs = new IntPtr[Buffers]; data = new IntPtr[Buffers]; QueuedFrames = Buffers * Frames; fl = new float[Frames]; fr = new float[Frames]; tmp = new short[Frames * 2]; }
 
     public void Start()
     {
