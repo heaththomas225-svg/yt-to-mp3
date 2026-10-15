@@ -77,8 +77,8 @@ partial class StudioForm
     // ---------- trying a master preset ----------
     void PresetUse(int i)
     {
-        var before = mpBackup ?? SnapChain(); float tBefore = targetLufs; int usedBefore = masterPresetUsed; masterPresetUsed = i; mpBackup = null; mpPreviewIdx = -1; Presets.ApplyMaster(eng, i); targetLufs = MasterPresets.All[i].Target; abOrig = abMast = null;
-        Toast(MasterPresets.All[i].Name + " applied. Press PREVIEW to hear it, or the loudness buttons to set the level."); OfferRevert(MasterPresets.All[i].Name.Split('(')[0].Trim() + " is on your master", () => { masterPresetUsed = usedBefore; RestoreChain(before); targetLufs = tBefore; abOrig = abMast = null; });
+        var before = mpBackup ?? SnapChain(); float tBefore = targetLufs; int usedBefore = masterPresetUsed; masterPresetUsed = i; mpBackup = null; mpPreviewIdx = -1; Presets.ApplyMaster(eng, i); masterPresetUsed = i; targetLufs = MasterPresets.All[i].Target; abOrig = abMast = null;
+        Toast(MasterPresets.All[i].Name + " applied. Press PREVIEW to hear it, or the loudness buttons to set the level."); OfferRevert(MasterPresets.All[i].Name.Split('(')[0].Trim() + " is on your master", () => { RestoreChain(before); masterPresetUsed = usedBefore; targetLufs = tBefore; abOrig = abMast = null; });
     }
     void PresetTry(int i)
     {
@@ -209,6 +209,18 @@ partial class StudioForm
     }
 
     // ---------- the bars at the top: only what belongs to mastering ----------
+    // CURRENT PRESET on the Mastering page: the mastering preset on your master (gold), (edited) once you change the chain, or your own settings; click it for PRESETS
+    void PaintPresetBadge(Graphics g, RectangleF r)
+    {
+        if (r.Width < 150) return; int pi = masterPresetUsed; bool on = pi >= 0, edited = on && ProjectIO.MasterPresetEdited(eng), hot = Hot(r);
+        Color gold = Color.FromArgb(255, 255, 200, 70); FillRR(g, on ? TM.C(hot ? 230 : 200, 70, 50, 10) : TM.C(hot ? 200 : 160, 34, 20, 60), r, r.Height / 2);
+        StrokeRR(g, on ? gold : Edge, r, r.Height / 2, on ? 1.8f : 1f);
+        var tag = Rc(r.X + 6, r.Y + 5, 74, r.Height - 10); FillRR(g, on ? gold : TM.C(255, 90, 70, 140), tag, tag.Height / 2); Txt(g, "PRESET", 10, on ? Color.Black : Color.White, tag, StringAlignment.Center, true);
+        string name = on ? MasterPresets.All[pi].Name : "None: your own settings"; float nx = tag.Right + 10, ew = edited ? 74 : 0;
+        Txt(g, name, 14, on ? Ink : DimC, Rc(nx, r.Y, r.Right - nx - 10 - ew, r.Height), StringAlignment.Near, on);
+        if (edited) { var et = Rc(r.Right - ew - 8, r.Y + 6, ew, r.Height - 12); StrokeRR(g, gold, et, et.Height / 2, 1); Txt(g, "EDITED", 9.5f, gold, et, StringAlignment.Center, true); }
+        Reg(r, () => { mpTab = 1; }); Hint2(r, on ? (edited ? MasterPresets.All[pi].Name + " is on your master, and you have changed it since. Click to see the presets." : MasterPresets.All[pi].Name + " is on your master. Click to see the presets.") : "No mastering preset is on your master (you set it up yourself). Click to choose one.");
+    }
     void PaintMasterBars(Graphics g)
     {
         float W = ClientSize.Width, y = 12, h = 46;
@@ -222,6 +234,7 @@ partial class StudioForm
         Btn(g, Rc(rx - 72, y + 4, 72, h - 8), "Open", 0, () => OpenClick(), 14); rx -= 78;
         Btn(g, Rc(rx - 72, y + 4, 72, h - 8), "Save", 0, () => SaveClick(false), 14); rx -= 78;
         Btn(g, Rc(rx - 84, y + 4, 84, h - 8), "Save as", 0, () => SaveClick(true), 14);
+        PaintPresetBadge(g, Rc(232, y + 4, Math.Min(460, rx - 84 - 12 - 232), h - 8));
         // the second bar: PLAY, the time, PREVIEW, the master meter and the page tabs
         float y0 = ToolH; using (var br = new SolidBrush(TM.C(255, 22, 12, 40))) g.FillRectangle(br, 0, y0, W, TransH); NeonRule(g, 0, y0 + TransH, W);
         float x = 14, yy = y0 + 8, hh = 36;

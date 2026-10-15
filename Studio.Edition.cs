@@ -105,6 +105,17 @@ static class Edition
     public static string Who { get { Load(); lock (lk) return who; } }
     public static string Until { get { Load(); lock (lk) return lic == null ? "" : lic.Until; } }
     public static string Billing { get { Load(); lock (lk) return billing; } }
+    // the free 3 day Fantasy trial of a new account: it ends with its licence (the website makes that licence run out exactly when the trial does)
+    public static bool OnTrial { get { return Billing == "trial"; } }
+    public static DateTime? EndsAt { get { if (Current == Tier.Free || StudioEnv.UnderTest && !Override.HasValue) return null; DateTime u; if (!DateTime.TryParse(Until, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.AdjustToUniversal | System.Globalization.DateTimeStyles.AssumeUniversal, out u)) return null; return u; } }
+    public static string Countdown() { var e = EndsAt; if (e == null) return ""; return CountdownText(e.Value - DateTime.UtcNow); }
+    public static string CountdownText(TimeSpan left) { if (left.TotalSeconds <= 0) return "ended"; return (left.Days > 0 ? left.Days + "d " : "") + left.Hours.ToString("00") + ":" + left.Minutes.ToString("00") + ":" + left.Seconds.ToString("00"); }
+    public static string TrialLine()
+    {
+        DateTime u; if (!DateTime.TryParse(Until, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.AdjustToUniversal | System.Globalization.DateTimeStyles.AssumeUniversal, out u)) return "Your free Fantasy trial. Get an edition at purphexmusic.com to keep it.";
+        double h = (u - DateTime.UtcNow).TotalHours; string left = h <= 0 ? "it has ended" : CountdownText(u - DateTime.UtcNow) + " left";
+        return "Your free Fantasy trial: every feature until " + u.ToLocalTime().ToString("dddd d MMMM, HH:mm") + " (" + left + "). Get an edition at purphexmusic.com to keep it.";
+    }
     public static bool Linking { get { return linking; } }
     // the highest sample rate this edition can export
     public static int MaxRate { get { var t = Current; return t == Tier.Fantasy ? 384000 : (t == Tier.Supporter ? 192000 : 48000); } }
@@ -166,6 +177,7 @@ static class Edition
     static bool TakeLicense(Dictionary<string, object> o)
     {
         var l = CheckLicense(S(o, "license")); if (l == null) { Note = S(o, "license").Length == 0 ? "This PC is linked, but the website cannot make licences yet (its set-up is not finished). Press CHECK AGAIN in a little while." : "The licence the website sent is not valid for this PC."; return false; }
+        { string tn = S(o, "trialNote"); if (tn.Length > 0) Note = Clean(tn, 160); else if (Note.StartsWith("This PC has already had a free trial")) Note = ""; }   // (a PC that already had a trial on another account: the website says why it stays Free)
         lock (lk) { licText = S(o, "license"); lic = l; who = Clean(S(o, "who"), 40); billing = Clean(S(o, "billing"), 20); long nowS = NowSec(); lastSeen = Math.Abs(nowS - l.Iat) <= 86400 ? Math.Max(l.Iat, nowS) : Math.Max(lastSeen, nowS); Save(); }   /* a fresh server-signed licence with a sane clock resets the anchor, so a clock that was once set ahead cannot lock a paid PC to Free */ Note = ""; return true;
     }
 

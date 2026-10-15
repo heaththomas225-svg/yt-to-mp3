@@ -7,10 +7,15 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.40.5";
+    public const string Latest = "3.40.6";
 
     public const string Text =
-@"3.40.5  EPs stay in place, bass leaves room
+@"3.40.6  Your preset on the Mastering page, trial countdown
+ + NEW: the Mastering page shows the mastering preset that is on your master, right in the top bar (gold), with EDITED once you change the chain after choosing it, or None: your own settings. Click it to open the presets. It is saved with the project, so it is still there when you open it again: handy for showing how presets work.
+ + NEW: 3 days of Fantasy free for new members. Your first Purphex account gets the Fantasy Edition free for 3 days (one trial per person, not per account). Settings > Account shows your trial and when it ends.
+ + NEW: a live countdown of an edition that ends (the free trial, a monthly plan, a tester pass): under your name in the menu, and in Settings > Account, ticking every second. purphexmusic.com shows it too.
+
+3.40.5  EPs stay in place, bass leaves room
  + CHANGED: on My Projects an EP or album is no longer always put first. It sits in the list like any project: where its most recently saved song would be (with the sort you chose), so it moves up when you work on one of its songs and otherwise stays where it was.
  + CHANGED: Bass Boost now starts with its Output level at -12 dB, so you get big bass that leaves room for the vocals (and no clipping). Your saved projects and presets keep their own setting.
  + FIXED: a Spotify, Apple Music or Deezer link could say the song was not on YouTube when the artist writes their name differently there (for example BUSYGETTINLIZZY15 for Busygettinlizzy). The artist is now also matched the way YouTube writes it, and another artist's song with the same name is still never taken.

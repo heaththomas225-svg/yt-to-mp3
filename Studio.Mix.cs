@@ -504,9 +504,14 @@ static class ProjectIO
             AutoIO.Write(sb, i, t);
         }
         foreach (var f in eng.MasterFx) sb.Append("mfx|").Append(f.Type).Append('|').Append(f.Bypass ? 1 : 0).Append('|').Append(f.Serialize()).Append('\n');
+        if (MasterPreset.Length > 0) sb.Append("mpreset|").Append(MasterPreset.Replace('|', ' ').Replace('\n', ' ')).Append('|').Append(MasterPresetEdited(eng) ? 1 : 0).Append('\n');   // the mastering preset on the master (shown on the Mastering page)
         return sb.ToString();
     }
 
+    // the mastering preset that is on the master: its name, the chain as the preset left it, and whether it had been changed when the project was saved
+    public static string MasterPreset = ""; public static string[] MasterPresetSnap; public static bool MasterPresetWasEdited;
+    public static string[] ChainOf(StudioEngine eng) { var l = new List<string>(); lock (eng.Sync) foreach (var f in eng.MasterFx) l.Add((f.Bypass ? "1" : "0") + f.Serialize()); return l.ToArray(); }
+    public static bool MasterPresetEdited(StudioEngine eng) { if (MasterPreset.Length == 0) return false; if (MasterPresetWasEdited) return true; var now = ChainOf(eng); var was = MasterPresetSnap; if (was == null || was.Length != now.Length) return was != null; for (int i = 0; i < now.Length; i++) if (now[i] != was[i]) return true; return false; }
     public static void RestoreMix(StudioEngine eng, string s) { RestoreMix(eng, s, null); }
     // order = the tracks in the order the saved lines number them (a project file numbers them as it wrote them, before they are put back into rows, pieces, buses)
     public static void RestoreMix(StudioEngine eng, string s, Track[] order)
@@ -515,13 +520,14 @@ static class ProjectIO
         Track[] trs; lock (eng.Sync) trs = order ?? eng.Tracks.ToArray();
         var newFx = new List<Fx>[trs.Length]; for (int k = 0; k < newFx.Length; k++) newFx[k] = new List<Fx>();
         var origFx = new List<Fx>[trs.Length]; for (int k = 0; k < origFx.Length; k++) origFx[k] = new List<Fx>(); var autos = new List<string[]>();   // origFx keeps a place for a plugin that could not be loaded, so automation lanes still find the right plugin
-        var newMaster = new List<Fx>(); var tmix = new List<string[]>(); string[] master = null;
+        var newMaster = new List<Fx>(); var tmix = new List<string[]>(); string[] master = null, mpreset = null;
         foreach (var line in s.Split('\n'))
         {
             if (line.Length == 0) continue; var p = line.Split(new[] { '|' }, line.StartsWith("tmix|") ? 7 : 6);   // (a mix line has seven fields now: the last says the track is turned off)
             try
             {
                 if (p[0] == "master") { F(p[1]); F(p[3]); master = p; }
+                else if (p[0] == "mpreset") mpreset = p;
                 else if (p[0] == "tmix") { int i = int.Parse(p[1]); if (i < trs.Length) tmix.Add(p); }
                 else if (p[0] == "auto") autos.Add(p);
                 else if (p[0] == "fx") { int i = int.Parse(p[1]); if (i < trs.Length) { var f = Presets.Make(p[2], p.Length > 4 ? p[4] : ""); origFx[i].Add(f); if (f != null) { f.Bypass = p[3] == "1"; var vf = f as InstrumentFx; if (vf != null) vf.Owner = trs[i]; newFx[i].Add(f); } } }
@@ -545,6 +551,7 @@ static class ProjectIO
             eng.ResetStates();
         }
         foreach (var of in old) if (of is IDisposable) { try { ((IDisposable)of).Dispose(); } catch { } }
+        MasterPreset = mpreset != null && mpreset.Length > 1 ? mpreset[1] : ""; MasterPresetSnap = MasterPreset.Length > 0 ? ChainOf(eng) : null; MasterPresetWasEdited = mpreset != null && mpreset.Length > 2 && mpreset[2].Trim() == "1";
     }
     static float F(string s) { float v; return float.TryParse(s, NumberStyles.Float, CI, out v) ? v : 0; }
 
@@ -604,7 +611,7 @@ static class ProjectIO
             else if (p[0] == "clip" && p.Length >= 6) { int ci; long fiv, fov; if (int.TryParse(p[1], out ci) && ci >= 0 && ci < tracks.Count) { if (long.TryParse(p[2], out fiv)) tracks[ci].FadeIn = fiv; if (long.TryParse(p[3], out fov)) tracks[ci].FadeOut = fov; tracks[ci].ClipGainDb = F(p[4]); tracks[ci].Locked = p[5] == "1"; long dlv, tlv; if (p.Length >= 8) { if (long.TryParse(p[6], out dlv)) tracks[ci].FadeInDelay = dlv; if (long.TryParse(p[7], out tlv)) tracks[ci].FadeOutTail = tlv; } if (p.Length >= 9) tracks[ci].PieceLocked = p[8] == "1"; } }
             else if (p[0] == "route" && p.Length >= 3) routes.Add(p);
             else if (p[0] == "host" && p.Length >= 3) hosts.Add(p);
-            else if (p[0] == "master" || p[0] == "tmix" || p[0] == "fx" || p[0] == "fxp" || p[0] == "mfx" || p[0] == "auto") mix.Append(line).Append('\n');
+            else if (p[0] == "master" || p[0] == "tmix" || p[0] == "fx" || p[0] == "fxp" || p[0] == "mfx" || p[0] == "mpreset" || p[0] == "auto") mix.Append(line).Append('\n');
         }
         foreach (var rp in routes) { int ra, rb; if (int.TryParse(rp[1], out ra) && int.TryParse(rp[2], out rb) && ra >= 0 && rb >= 0 && ra < tracks.Count && rb < tracks.Count && tracks[rb].IsBus && ra != rb) tracks[ra].Out = tracks[rb]; }
         foreach (var hp in hosts) { int ha, hb; if (int.TryParse(hp[1], out ha) && int.TryParse(hp[2], out hb) && ha >= 0 && hb >= 0 && ha < tracks.Count && hb < tracks.Count && ha != hb && !tracks[hb].IsBus && !tracks[ha].IsBus) tracks[ha].Host = tracks[hb]; }

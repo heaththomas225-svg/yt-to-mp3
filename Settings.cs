@@ -148,8 +148,10 @@ class SettingsForm : Form
         bool locked = !Edition.Has(Tier.Supporter);
         foreach (var kv in lockBanners) { foreach (Control c in kv.Key.Controls) if (c != kv.Value) c.Enabled = !locked; kv.Value.Visible = locked; }
     }
+    Timer cdTimer;   // the live countdown of an edition that ends
     void RefreshAccount()
     {
+        if (cdTimer == null) { cdTimer = new Timer { Interval = 1000 }; cdTimer.Tick += (s, e) => { if (IsDisposed) { cdTimer.Stop(); return; } if (Edition.Countdown().Length > 0) RefreshAccount(); }; cdTimer.Start(); Disposed += (s, e) => cdTimer.Dispose(); }
         if (accLine == null) return; var t = Edition.Current; accLine.Text = Edition.Name(t); accLine.ForeColor = t == Tier.Fantasy ? TM.C(255, 255, 110, 230) : (t == Tier.Supporter ? TM.C(255, 255, 200, 90) : Head);
         string sub;
         if (!Edition.Linked) sub = "This PC is not linked to a Purphex account. Free: the MP3 and MP4 converter and the vocal remover.";
@@ -157,6 +159,7 @@ class SettingsForm : Form
         {
             sub = "Linked to " + (Edition.Who.Length > 0 ? Edition.Who : "your account") + ".";
             if (t == Tier.Supporter && Edition.Until.Length > 0) { DateTime u; if (DateTime.TryParse(Edition.Until, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.AdjustToUniversal | System.Globalization.DateTimeStyles.AssumeUniversal, out u)) sub += " " + (Edition.Billing == "gift" ? "A gift until " : "Paid until ") + u.ToLocalTime().ToString("d MMMM yyyy", System.Globalization.CultureInfo.InvariantCulture) + "."; }
+            else if (t == Tier.Fantasy && Edition.OnTrial) sub += " " + Edition.TrialLine();
             else if (t == Tier.Fantasy) sub += " Yours for life.";
             else if (t == Tier.Free) sub += " The account has no paid edition (or this PC could not reach the website for a long time).";
         }

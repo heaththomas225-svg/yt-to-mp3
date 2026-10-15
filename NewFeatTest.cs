@@ -58,6 +58,7 @@ static class NF
                   var lres = new List<string[]> { new[] { "egDndW3cigU", "136", "P110: Music", "BUSYGETTINLIZZY15 - Next Up [Music Video] | P110" }, new[] { "yxw0AknleLk", "130", "P110: Music", "BUSYGETTINLIZZY15 - Hoods Hottest | P110" } };
                   var lp = SpotifyLinks.Pick(lz, lres, out wl); Check("the artist written differently on YouTube (BUSYGETTINLIZZY15 for Busygettinlizzy) still finds the right song", lp != null && lp[0] == "egDndW3cigU", lp == null ? wl : lp[1]);
                   var lz2 = new SpotifyLinks.Song { Key = "Somebody - Next Up", Artist = "Somebody Else", Title = "Next Up", Secs = 135 }; Check("but another artist's song with the same name is still never taken", SpotifyLinks.Pick(lz2, lres, out wl) == null, ""); }
+                Check("an edition that ends counts down live (days, then hours:minutes:seconds), and says when it has ended", Edition.CountdownText(new TimeSpan(2, 5, 6, 59)) == "2d 05:06:59" && Edition.CountdownText(TimeSpan.FromSeconds(3725)) == "01:02:05" && Edition.CountdownText(TimeSpan.FromSeconds(-5)) == "ended", Edition.CountdownText(new TimeSpan(2, 5, 6, 59)));
                 Check("Bass Boost starts with its output at -12 dB (big bass, room for the vocals)", Math.Abs(new BassBoost().Get("level") + 12) < 0.001, new BassBoost().Get("level").ToString());
                 Check("when YouTube does not have the song, nothing is converted (no random song) and it says why", noPick == null && why != null && why.Contains("not found"), why ?? "");
                 SpotifyLinks.SearchHook = q => "PXR|cccccccc1|158|aheath - Topic|WANTED\nPXR|cccccccc2|158|x|Totally Different"; string w2, found; var url = SpotifyLinks.FindOnYouTube("yt-dlp", song, out w2, out found); SpotifyLinks.SearchHook = null;
@@ -658,6 +659,13 @@ static class NF
             {   // USE on a mastering preset: it is marked IN USE (and REVERT takes the mark back off)
                 sf.eng.Tracks.Clear(); sf.masterPresetUsed = -1; typeof(StudioForm).GetMethod("PresetUse", BF).Invoke(sf, new object[] { 2 });
                 Check("USE on a mastering preset marks it IN USE (a border and a tag)", sf.masterPresetUsed == 2, sf.masterPresetUsed.ToString()); var rv = F<Action>("revertAction"); if (rv != null) rv(); Check("REVERT takes the IN USE mark back off", sf.masterPresetUsed == -1, sf.masterPresetUsed.ToString()); SetF("revertAction", null);
+                {   // the Mastering page shows the preset that is on the master: (edited) once the chain is changed, and it is kept in the project
+                    typeof(StudioForm).GetMethod("PresetUse", BF).Invoke(sf, new object[] { 3 }); bool fresh = !ProjectIO.MasterPresetEdited(sf.eng);
+                    var mf = sf.eng.MasterFx[0]; float mpWas = mf.Get(mf.P[0].Id); mf.Set(mf.P[0].Id, mf.P[0].Max); bool edited = ProjectIO.MasterPresetEdited(sf.eng);
+                    string mixTxt = ProjectIO.SerializeMix(sf.eng); sf.masterPresetUsed = -1; ProjectIO.RestoreMix(sf.eng, mixTxt);
+                    Check("the Mastering page shows the preset in use, marks it EDITED after a change, and the project keeps both", fresh && edited && sf.masterPresetUsed == 3 && ProjectIO.MasterPresetEdited(sf.eng) && mixTxt.Contains("mpreset|" + MasterPresets.All[3].Name), sf.masterPresetUsed + " " + fresh + " " + edited);
+                    ProjectIO.RestoreMix(sf.eng, mixTxt.Replace("mpreset|", "xx|")); Check("a project without a preset shows none", sf.masterPresetUsed == -1, sf.masterPresetUsed.ToString()); mf = sf.eng.MasterFx[0]; mf.Set(mf.P[0].Id, mpWas);
+                }
             }
             {   // NEW takes you to the welcome page (a fresh start)
                 sf.eng.Tracks.Clear(); SetF("tab", 0); SetF("welcomeOn", false); var pmn = typeof(StudioForm).GetMethod("PaintAll", BF); using (var bmn = new Bitmap(1500, 800)) using (var gn = Graphics.FromImage(bmn)) pmn.Invoke(sf, new object[] { new PaintEventArgs(gn, new Rectangle(0, 0, 1500, 800)) });

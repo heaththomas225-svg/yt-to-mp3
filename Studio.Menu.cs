@@ -142,7 +142,9 @@ partial class StudioForm
         Win.DrawNeonBox(g, Rc(8, 8, w1 - 16, 84), false);
         var av = Rc(18, 18, 64, 64); DrawAvatar(g, av);   // a picture is never a button: it is changed on the PROFILE page
         Txt(g, ProjectLibrary.ProfileName, 16, Ink, Rc(94, 24, w1 - 106, 24), StringAlignment.Near, true);
-        Txt(g, "PURPHEX MUSIC", 11, DimC, Rc(94, 50, w1 - 106, 18), StringAlignment.Near, false);
+        { string cd = Edition.Countdown();   // an edition that ends counts down live here (the free trial, a monthly plan, a tester pass)
+          if (cd.Length == 0) Txt(g, "PURPHEX MUSIC", 11, DimC, Rc(94, 50, w1 - 106, 18), StringAlignment.Near, false);
+          else { var cr = Rc(94, 48, w1 - 106, 34); string lbl = Edition.OnTrial ? "FANTASY TRIAL" : Edition.Current == Tier.Fantasy ? "FANTASY ENDS IN" : "SUPPORTER ENDS IN"; Txt(g, lbl, 10, Color.FromArgb(255, 255, 200, 70), Rc(cr.X, cr.Y, cr.Width, 14), StringAlignment.Near, true); Txt(g, cd, 14, Color.FromArgb(255, 255, 222, 140), Rc(cr.X, cr.Y + 14, cr.Width, 20), StringAlignment.Near, true); Hint2(cr, Edition.OnTrial ? Edition.TrialLine() : "Time left on your edition. Renew it at purphexmusic.com."); } }
         var close = Rc(w1 - 40, 6, 30, 26); Txt(g, "X", 14, DimC, close, StringAlignment.Center, true); Reg(close, () => CloseMenu());
         float y = 104; using (var pen = new Pen(TM.C(70, 140, 90, 220))) g.DrawLine(pen, 14, y - 10, w1 - 14, y - 10);
         int shown = MenuNames.Length - (tab != 0 ? 1 : 0); float pitch = Math.Min(46f, (H - y - 30f) / shown), ih = Math.Min(40f, pitch - 6f);   // thirteen buttons: they tighten up on a short window so Exit is never cut off

@@ -1,4 +1,4 @@
-3.40.5
+3.40.6
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-EPs stay in place, bass leaves room
-sha256=52f2ace2fdee5e1575bc1d835c5480b19d602cf93f75286f054a62a1855a9452
+Your preset on the Mastering page, trial countdown
+sha256=da0d4983d78c488bd05c4cf805334f716404a4f9b193ec4703dd59cad6bfab54
