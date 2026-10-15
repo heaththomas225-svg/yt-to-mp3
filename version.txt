@@ -1,4 +1,4 @@
-3.43.1
+3.44.0
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-One of each type of effect, REGENERATE keeps the sound, AI BUS GENERATOR on ALL BUSES
-sha256=4df54c2f12041af2df4012e8a97d5bbf75070f8ce6564566af435e306081f953
+Purphex GlitchFlow: our own stutter and beat-repeat plugin
+sha256=2a0a5e2e267ebac9ff45eb20f9b3a1d7a0bf06256dc1d6d7735afaf364aa829c

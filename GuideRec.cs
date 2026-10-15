@@ -185,7 +185,7 @@ static class GR
         Scene(4, "studio"); LoadTracks(); curShow = true; cur = new PointF(900, 400); Run(0.6); Say("The full studio", "A multitrack timeline, mixer, Auto Mix, 8D audio, Flex Pitch and lyrics, all in one window."); var play = Target("PLAY"); if (!play.IsEmpty) Move(Centre(play), 1.0);
         Click("PLAY", 0.4, 0.3); Run(5.0); var am = Target("AUTO MIX"); if (!am.IsEmpty) Move(Centre(am), 1.2); Run(2.2); Hush(); Run(0.3);
         Say("250+ plugins", "EQ, compressors, reverbs, pitch and voice tools, bass and creative effects, all built in."); SetF("selFx", 0); Run(3.4); SetF("selFx", 1); Run(2.4); SetF("selFx", -1); Hush(); Run(0.4);
-        Say("Sound packs", "Drums, basses, synths and loops made on your own PC, ready to drag onto the timeline."); Click("SOUNDS", 1.0, 0.8); Run(3.0); try { M("CloseSounds"); } catch { } Hush(); Run(0.3);
+        Say("Sound packs", "Drums, basses, synths and loops made on your own PC, ready to drag onto the timeline."); Click("SOUND PACKS", 1.0, 0.8); Run(3.0); try { M("CloseSounds"); } catch { } Hush(); Run(0.3);
     }
     static void PresetScene()
     {

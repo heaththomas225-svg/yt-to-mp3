@@ -2,6 +2,26 @@
 
 What changed in each version of **Purphex**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.44.0  Purphex GlitchFlow: our own stutter and beat-repeat plugin
+
+- NEW: Purphex GlitchFlow, our own stutter, beat-repeat and glitch plugin with its own window, at the top of + ADD EFFECT in a new PURPHEX VST box. REPEAT RATE sets how fast the captured slice repeats and REFRESH RATE how often a fresh slice is captured, both locked to the song (1/1 to 1/64, dotted and triplet, 2 and 4 bars) or in free milliseconds. It follows tempo changes, loops, jumps and stopping without clicks or half-recorded audio.
+
+- NEW: GlitchFlow FREEZE holds the captured slice and repeats it for as long as you like; release and it is live again at once, with a fresh slice at the next refresh.
+
+- NEW: GlitchFlow patterns (constant, every other, last-beat fills, last half bar, random, build-up, slow-down, triplet skip, first half, 3-3-2) with intensity, length, decay, fade and four fade shapes, plus reverse, pitch and pitch step for each repeat.
+
+- NEW: GlitchFlow modules, each with its own ON switch: low-pass with resonance, high-pass, telephone, rhythm gate, drive (soft, hard clip, bitcrush), width, modulation (pitch wobble, filter sweep, auto-pan), delay and reverb. Input, output, dry/wet and a fully transparent bypass. A live picture of the captured slice, the repeat steps and in/out meters.
+
+- NEW: 55 original GlitchFlow factory presets (subtle, vocal, drum fills, build-ups, transitions, EDM, drum and bass, UK garage, trap, experimental, aggressive) and your own presets: save, rename and delete, with undo and redo in the window. Every setting can be automated and is saved with the project.
+
+- NEW: GlitchFlow AI GEN describes-to-settings with a real AI (Anthropic Claude) once you add your own API key in its SETUP (kept encrypted on this PC). Without a key it says so and changes nothing; every AI answer is checked against the real settings and their ranges; UNDO and REGENERATE. QUICK MATCH works offline from keywords and is labelled as not AI.
+
+- CHANGED: the PRESETS menu no longer has the old Bus presets (echo, ad-lib, reverb) list; BUS PRESETS (1,440) and the AI BUS GENERATOR replace it.
+
+- CHANGED: MIDI REC and MIC (with its mode) sit just left of the time display, next to the transport.
+
+- CHANGED: SOUNDS is now SOUND PACKS and has moved from the transport row to the plugin panel, next to + ADD EFFECT, PRESETS and BASS LAB (sound packs belong with the effects).
+
 ## 3.43.1  One of each type of effect, REGENERATE keeps the sound, AI BUS GENERATOR on ALL BUSES
 
 - CHANGED: + ADD EFFECT lists one plugin of each type: Room, Hall, Plate, Chamber, Spring, Cathedral, Ambient, Shimmer, Gated and Reverse reverb, early reflections and real spaces; stereo, ping-pong, slapback, tape, analog, multi-tap and reverse delay; and so on for every kind of effect (125 in all). The thousands of versions that were only the same plugin with other settings (a size, a tone, a note value, a key, a mix) are gone from the list, because every one of those settings is on the plugin itself. A project that already uses one of them still opens with it.

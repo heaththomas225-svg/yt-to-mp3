@@ -349,6 +349,7 @@ partial class StudioForm : Form
         { "Flatten", "Remove the curve and keep the setting where it is now." },
         { "Remove", "Remove this automation lane." },
         { "SOUNDS", "Open or close the Purphex Sounds panel: drums, samples and the Bass Lab sounds." },
+        { "SOUND PACKS", "Open or close the sound packs: drums, samples, loops and the Bass Lab sounds." },
         { "Vocal Styles", "Rapper Vocal Styles: pick a ready-made plugin chain for rap vocals and put it on this track." },
         { "Plugins...", "Manage extra plugins (VST) that Purphex can load." },
         { "Load your own impulse response...", "Load a recording of a real room or speaker to use as the reverb." },
@@ -684,16 +685,17 @@ partial class StudioForm : Form
         float x = 14, y = y0 + 8, h = 36;
         // the row is laid out around PLAY: the recording tools on the left, the transport in the middle with PLAY at its centre (|< and STOP before it,
         // PAUSE and LOOP after it, then the time), the master meter and the page tabs on the right. On a narrow window the middle slides so nothing overlaps.
-        Btn(g, Rc(x, y, 92, h), "MIDI REC", recOn ? 3 : 0, () => { if (!recOn && !AskYes("Would you like to record an instrument?\n\nYour MIDI keyboard (or the piano window) is recorded onto the selected MIDI track while the song plays. Press PLAY after you say Yes. If not, press No.", "MIDI recording")) return; recOn = !recOn; Toast(recOn ? "MIDI recording is on (the button is red): press PLAY, then play your MIDI keyboard or the piano window and the notes are recorded onto the selected MIDI track." : "MIDI recording is off."); }, 13); x += 98;
-        { bool rec = mic != null; double el = rec ? (eng.CountBeat > 0 ? 0 : Math.Max(0, (DateTime.Now - micT0).TotalSeconds - micLead / (double)StudioEngine.SR)) : 0; bool armed = micArmed && !rec; var mr = Rc(x, y, rec ? 128 : 60, h); Btn(g, mr, (rec ? "* MIC  " + ((int)(el / 60)).ToString("00") + ":" + ((int)(el % 60)).ToString("00") : "MIC"), rec || armed ? 3 : 0, () => MicClick(), 13); if (armed) { double pl = 0.5 + 0.5 * Math.Sin(Environment.TickCount / 220.0); Glow(g, Color.FromArgb(255, 60, 90), mr, 8, 0.7f + 0.5f * (float)pl, 4); lastInput = DateTime.Now; } if (rec) HBar(g, Rc(mr.X + 6, mr.Bottom - 7, mr.Width - 12, 5), mic.Level); PaintMicDrop(g, Rc(mr.Right + 3, y, 24, h), rec); bool modeRoom = x + mr.Width + 6 + 28 + 69 + 98 <= W - 328 - 8; if (modeRoom) PaintMicModeBox(g, Rc(mr.Right + 3 + 24 + 3, y + 5, 66, h - 10), rec); x += mr.Width + 6 + 28 + (modeRoom ? 69 : 0); }   /* the box that names the microphone mode is there when there is room for it */
-        Btn(g, Rc(x, y, 92, h), "SOUNDS", soundsOpen ? 4 : 0, () => { if (soundsOpen) CloseSounds(); else OpenSounds(); }, 12); x += 98;
 
-        float leftEnd = x, tabsX = W - 328;
+        float recW = 92 + 6 + (mic != null ? 128 : 60) + 6 + 28 + 69, leftEnd = x + recW + 12, tabsX = W - 328;   // MIDI REC and MIC (with its mode) go just left of the time
         const float wHome = 50, wStop = 70, wPlay = 96, wPause = 76, wLoop = 68, gap = 6, leftHalf = wHome + gap + wStop + gap, rightHalf = gap + wPause + gap + wLoop;
         float timeW = 210, cx = W / 2;   // PLAY in the middle of the window when it fits; the time sits just before |<
         cx = Math.Min(cx, tabsX - 12 - (wPlay / 2 + rightHalf)); cx = Math.Max(cx, leftEnd + 14 + 130 + 12 + leftHalf + wPlay / 2);
         timeW = Math.Max(130, Math.Min(210, cx - wPlay / 2 - leftHalf - 12 - leftEnd - 14));
         float px = cx - wPlay / 2, tx0 = px - leftHalf;
+        x = tx0 - 12 - timeW - 12 - recW;
+        Btn(g, Rc(x, y, 92, h), "MIDI REC", recOn ? 3 : 0, () => { if (!recOn && !AskYes("Would you like to record an instrument?\n\nYour MIDI keyboard (or the piano window) is recorded onto the selected MIDI track while the song plays. Press PLAY after you say Yes. If not, press No.", "MIDI recording")) return; recOn = !recOn; Toast(recOn ? "MIDI recording is on (the button is red): press PLAY, then play your MIDI keyboard or the piano window and the notes are recorded onto the selected MIDI track." : "MIDI recording is off."); }, 13); x += 98;
+        { bool rec = mic != null; double el = rec ? (eng.CountBeat > 0 ? 0 : Math.Max(0, (DateTime.Now - micT0).TotalSeconds - micLead / (double)StudioEngine.SR)) : 0; bool armed = micArmed && !rec; var mr = Rc(x, y, rec ? 128 : 60, h); Btn(g, mr, (rec ? "* MIC  " + ((int)(el / 60)).ToString("00") + ":" + ((int)(el % 60)).ToString("00") : "MIC"), rec || armed ? 3 : 0, () => MicClick(), 13); if (armed) { double pl = 0.5 + 0.5 * Math.Sin(Environment.TickCount / 220.0); Glow(g, Color.FromArgb(255, 60, 90), mr, 8, 0.7f + 0.5f * (float)pl, 4); lastInput = DateTime.Now; } if (rec) HBar(g, Rc(mr.X + 6, mr.Bottom - 7, mr.Width - 12, 5), mic.Level); PaintMicDrop(g, Rc(mr.Right + 3, y, 24, h), rec); bool modeRoom = true; if (modeRoom) PaintMicModeBox(g, Rc(mr.Right + 3 + 24 + 3, y + 5, 66, h - 10), rec); x += mr.Width + 6 + 28 + (modeRoom ? 69 : 0); }   /* the box that names the microphone mode is there when there is room for it */
+        x = 0;
         Btn(g, Rc(tx0, y, wHome, h), "|<", 0, () => { eng.Seek(0); scroll = 0; followPaused = false; }, 15);
         { var sb = Rc(tx0 + wHome + gap, y, wStop, h); Btn(g, sb, "STOP", 0, () => { if (mpActive) MasterPreviewStop(); PauseHere(); }, 14); Hint2(sb, "Stop where you are: the needle and the view stay put (|< takes you back to the start)"); }
         { var plb = Rc(px, y, wPlay, h); Btn(g, plb, "PLAY", eng.Playing ? 4 : 1, () => { if (!eng.Playing) PlayToggle(); }, 15); Hint2(plb, "Play from where the needle is (Space does the same)"); }   // PLAY only plays (it is lit while playing); PAUSE is its own button
@@ -1073,9 +1075,10 @@ partial class StudioForm : Form
         else { var allB = Rc(x + w - 132, y + 8, 120, 24); Btn(g, allB, "ALL PLUGINS", 2, () => OpenAllFx(), 11); Hint2(allB, "Every track and its plugins in one place: add, paste, copy and open plugins on any track"); }
         Fx[] fxs; lock (eng.Sync) fxs = tr.Fx.ToArray(); float origW = w; { int n0 = fxs.Length; float est = 76 + n0 * 32 + GroupExtra(fxs) + 8 + ((selFx >= 0 && selFx < n0) ? EditorHeight(fxs[selFx]) : 60); if (est - h + 6 > 1 && h > 200) w -= 52; }
         int ti = Array.IndexOf(eng.Tracks.ToArray(), tr);
-        Btn(g, Rc(x + 10, y + 38, 106, 30), "+ Add Effect", 1, () => OpenBrowser(false, ti), 13);
-        { var pbn = Rc(x + 122, y + 38, 124, 30); Btn(g, pbn, tr.IsBus ? "Bus Presets" : "Presets (" + VocalStyles.All.Count + ")", 0, () => ChainMenu(tr), 12); Hint2(pbn, tr.IsBus ? BusPresets.All.Count + " bus presets, the AI Bus Generator, and your own and community presets" : VocalStyles.All.Count + " vocal presets, " + BusPresets.All.Count + " bus presets, the AI generators, and your own and community presets"); }
-        if (origW >= 330 && !tr.IsBus) Btn(g, Rc(x + 252, y + 38, Math.Min(96f, origW - 262), 30), "Bass Lab", 2, () => { browserMaster = false; browserTrack = ti; AddFx("synth"); InstrumentFx bf = null; lock (eng.Sync) bf = tr.Fx.Count > 0 ? tr.Fx[tr.Fx.Count - 1] as InstrumentFx : null; if (bf != null) { bf.Owner = tr; bf.ShowWindow(this); } }, 14);   // the Bass Lab synthesizer: added to this track and its window opens
+        Btn(g, Rc(x + 10, y + 38, 90, 30), "+ Add Effect", 1, () => OpenBrowser(false, ti), 12);
+        { var pbn = Rc(x + 104, y + 38, 108, 30); Btn(g, pbn, tr.IsBus ? "Bus Presets" : "Presets (" + VocalStyles.All.Count + ")", 0, () => ChainMenu(tr), 11); Hint2(pbn, tr.IsBus ? BusPresets.All.Count + " bus presets, the AI Bus Generator, and your own and community presets" : VocalStyles.All.Count + " vocal presets, " + BusPresets.All.Count + " bus presets, the AI generators, and your own and community presets"); }
+        { var snb = Rc(tr.IsBus ? x + 216 : x + 284, y + 38, 92, 30); Btn(g, snb, "SOUND PACKS", soundsOpen ? 4 : 0, () => { if (soundsOpen) CloseSounds(); else OpenSounds(); }, 10.5f); }   // sound packs, with the effects
+        if (origW >= 330 && !tr.IsBus) Btn(g, Rc(x + 216, y + 38, 64, 30), "Bass Lab", 2, () => { browserMaster = false; browserTrack = ti; AddFx("synth"); InstrumentFx bf = null; lock (eng.Sync) bf = tr.Fx.Count > 0 ? tr.Fx[tr.Fx.Count - 1] as InstrumentFx : null; if (bf != null) { bf.Owner = tr; bf.ShowWindow(this); } }, 11);   // the Bass Lab synthesizer: added to this track and its window opens
         float ly = y + 76 - panelScroll; int n = fxs.Length; g.SetClip(Rc(x, y + 72, w, h - 72));
         if (selFx >= n) selFx = -1;
         // the boxes: the instrument (Bass Lab or a VST), every preset that was added (each one its own box, they never replace each other) and YOUR PLUGINS (always there)
@@ -1214,6 +1217,7 @@ partial class StudioForm : Form
     {
         int n = 0; { var hid = f.Hidden.Length > 0 ? new List<string>(f.Hidden.Split(',')) : new List<string>(); foreach (var p in f.P) if (!hid.Contains(p.Id)) n++; }
         if (f is InstrumentFx) return 34 + 38 + 16;
+        if (f is GlitchFlowFx) return 34 + 28 + 42 + 420;   // its settings scroll inside (the window is where it is played)
         if (f is ParametricEq) return 668 + 28;
         if (f is Spatial8D) return 34 + 28 + 190 + Math.Max(0, n - 2) * 30 + 24;
         if (f is ConvFx) return 34 + 28 + 52 + n * 30 + 24;
@@ -1286,8 +1290,6 @@ partial class StudioForm : Form
         { var pa = new ToolStripMenuItem(allCopy.Count > 0 ? "Paste all plugins (" + allCopy.Count + " from " + allCopyFrom + ")" : "Paste all plugins (copy them from a track first)") { Enabled = allCopy.Count > 0 }; pa.Click += (a, b) => PasteAllFx(tr); m.Items.Add(pa); }
         { var ra = new ToolStripMenuItem("Remove all plugins (go RAW)...") { Enabled = tr.Fx.Exists(f => !(f is InstrumentFx)) }; ra.Click += (a, b) => { if (!Sure("remove every plugin and preset from " + tr.Name)) return; ChainApply(tr, "All plugins removed", () => RemoveAllPlugins(tr)); selFx = -1; }; m.Items.Add(new ToolStripSeparator()); m.Items.Add(ra); }   // REMOVE ALL lives here now (it was in the YOUR PLUGINS box)
         var beat = new ToolStripMenuItem("Instrumental chain (EQ, comp, multiband, sat, exciter, imager, ducker, limiter)"); beat.Click += (a, b) => { ChainApply(tr, "Instrumental chain", () => PutPreset(tr, "Instrumental chain", Presets.BeatChain())); selFx = -1; Toast("Beat chain added as a preset (REVERT puts it back)"); }; m.Items.Add(beat);
-        var bus = new ToolStripMenuItem("Bus presets (echo, ad-lib, reverb)"); m.Items.Add(bus);
-        for (int i = 0; i < Presets.BusNames.Length; i++) { string bn = Presets.BusNames[i]; var bi = new ToolStripMenuItem(bn) { ToolTipText = Presets.BusBlurbs[i] }; bi.Click += (a, b) => { ChainApply(tr, bn, () => PutPreset(tr, bn, Presets.BuildBus(bn))); selFx = -1; Toast(bn + " added as a preset: " + Presets.BusBlurbs[Array.IndexOf(Presets.BusNames, bn)]); }; bus.DropDownItems.Add(bi); }
         m.Items.Add("Community presets (download and use)...").Click += (a, b) => OpenCommunityPresets("chain", "Plugin chains", cp => { var c = Presets.ChainFromText(cp.Data); if (c.Count == 0) throw new InvalidOperationException("it holds no plugins you have"); PutPreset(tr, cp.Name, c); selFx = -1; }, () => tr.Fx.Count == 0 ? null : Presets.ChainText(tr.Fx), tr.Name + " chain");
         var mine = new ToolStripMenuItem("My saved presets"); m.Items.Add(mine);
         foreach (var nm0 in Presets.UserChains()) { string nm = nm0; var it = new ToolStripMenuItem(nm); it.Click += (a, b) => { var c = Presets.LoadChain(nm); ChainApply(tr, nm, () => PutPreset(tr, nm, c)); selFx = -1; }; mine.DropDownItems.Add(it); }
@@ -1327,7 +1329,13 @@ partial class StudioForm : Form
             if (info.Category != lastCat)
             {
                 lastCat = info.Category;
-                if (info.Category == "Instruments")   // Bass Lab and the VSTs are not effects: they sit apart, in a box of their own
+                if (info.Category == "Purphex VST")   // our own plugins with their own window: first, in a box of their own
+                {
+                    int pc = 0; for (int q = li; q < list.Count && list[q].Category == "Purphex VST"; q++) pc++; var pbox = Rc(x + 12, ry - 3, w - 24 - (browserMax > 0 ? 56 : 0), 20 + pc * 48 + 2);
+                    FillRR(g, TM.C(130, 40, 16, 70), pbox, 12); Glow(g, NeonViolet, pbox, 12, 0.6f, 3); StrokeRR(g, Color.FromArgb(220, NeonViolet), pbox, 12, 1.4f);
+                    if (ry + 18 > clipR.Y && ry < clipR.Bottom) Txt(g, "PURPHEX VST  -  our own plugins, each with its own window", 11, NeonViolet, Rc(x + 26, ry, w - 100, 18), StringAlignment.Near, true);
+                }
+                else if (info.Category == "Instruments")   // Bass Lab and the VSTs are not effects: they sit apart, in a box of their own
                 {
                     int ic = 0; for (int q = li; q < list.Count && list[q].Category == "Instruments"; q++) ic++; var ibox = Rc(x + 12, ry - 3, w - 24 - (browserMax > 0 ? 56 : 0), 20 + ic * 48 + 2);
                     FillRR(g, TM.C(120, 14, 24, 52), ibox, 12); Glow(g, NeonCyan, ibox, 12, 0.45f, 3); StrokeRR(g, Color.FromArgb(200, NeonCyan), ibox, 12, 1.3f);
@@ -1358,7 +1366,8 @@ partial class StudioForm : Form
         var all = FxRegistry.All; var list = new List<FxRegistry.Info>(); string q = browserQuery.ToLowerInvariant().Trim();
         foreach (var i in all) { if (i.Type == "gain" || i.Type == "synth") continue;   /* Bass Lab has its own BASS LAB button next to PRESETS: this list is for the VSTs and the effects */ if (browserCat.Length > 0 && i.Category != browserCat) continue; if (q.Length == 0 || i.Name.ToLowerInvariant().Contains(q) || i.Category.ToLowerInvariant().Contains(q) || i.Blurb.ToLowerInvariant().Contains(q) || i.Type.Contains(q)) list.Add(i); }
         var order = new List<string>(); order.Add("Plugins"); foreach (var i in all) if (!order.Contains(i.Category)) order.Add(i.Category);
-        var res = new List<FxRegistry.Info>(); foreach (var c in order) foreach (var i in list) if (i.Category == c) res.Add(i); { var inst = res.FindAll(x => x.Category == "Instruments"); if (inst.Count > 0) { res.RemoveAll(x => x.Category == "Instruments"); var bl = inst.Find(x => x.Type == "synth"); if (bl != null) { inst.Remove(bl); inst.Insert(0, bl); } res.InsertRange(0, inst); } }   // the instruments (Bass Lab first, then the VSTs) are together at the top, in one box that fits them exactly
+        var res = new List<FxRegistry.Info>(); foreach (var c in order) foreach (var i in list) if (i.Category == c) res.Add(i); var pv = res.FindAll(x => x.Category == "Purphex VST"); { res.RemoveAll(x => x.Category == "Purphex VST"); var inst = res.FindAll(x => x.Category == "Instruments"); if (inst.Count > 0) { res.RemoveAll(x => x.Category == "Instruments"); var bl = inst.Find(x => x.Type == "synth"); if (bl != null) { inst.Remove(bl); inst.Insert(0, bl); } res.InsertRange(0, inst); } }   // the instruments (Bass Lab first, then the VSTs) are together at the top, in one box that fits them exactly
+        res.InsertRange(0, pv);   // Purphex VST first of all
         blCache = res; blKey = key; return res;
     }
     void CategoryMenu()
@@ -1375,7 +1384,7 @@ partial class StudioForm : Form
         if (type == "duck") { var v = eng.VocalTrack(); if (v == null) Toast("The ducker listens to a vocal track; add or separate a vocal first."); }
         if (browserMaster) { lock (eng.Sync) eng.MasterFx.Add(f); selMaster = eng.MasterFx.Count - 1; }
         else if (browserTrack >= 0 && browserTrack < eng.Tracks.Count) { var tr = eng.Tracks[browserTrack]; var vfx = f as InstrumentFx; if (vfx != null) vfx.Owner = tr; lock (eng.Sync) tr.Fx.Add(f); selTrack = browserTrack; selFx = tr.Fx.Count - 1; ShowPanel(); }
-        browserOpen = false; Toast(f.Title + " added");
+        browserOpen = false; Toast(f.Title + " added"); { var gf = f as GlitchFlowFx; if (gf != null) GlitchFlowWindow.Show(gf, this); }
     }
 
     protected override void OnKeyPress(KeyPressEventArgs e)
@@ -1520,6 +1529,7 @@ partial class StudioForm : Form
         if (!(f is InstrumentFx)) { bool fitsInline = wide && a.Width - 10 - 184 - 150 - 6 >= Math.Min(260f, g.MeasureString(f.Title, GfxCache.Font(16, true)).Width + 14); if (fitsInline) PaintPresetInline(g, f, tr, a, y - 34); else y = PaintPresetRow(g, f, tr, a, y); }   /* a long name (Multiband Compressor) on a narrow window: the buttons go on their own row instead of over the name */   // which preset is on, COPY / PASTE of the plugin, and REMOVE PRESET (on the wide Mastering page they sit in the title row: no room is taken from the editor)
         if (eqOwnRow) { var ae2 = Rc(a.X + 10, y - 4, a.Width - 20, 26); Btn(g, ae2, "AUTO EQ", 2, () => AutoEqClick((ParametricEq)f, tr), 12); Hint2(ae2, "The EQ sets itself: it listens to this track and moves bass, mud, presence, upper-mids and air to balance it (it asks first, and you can undo it)"); y += 28; }
         var vstf = f as InstrumentFx; if (vstf != null) { Btn(g, Rc(a.X + 10, y - 2, a.Width - 20, 32), vstf.WindowLabel, 2, () => { vstf.Owner = tr; vstf.ShowWindow(this); }, 14); y += 38; return; }   // an instrument is edited in its own window, like a real plugin: nothing else is listed here
+        { var gfx = f as GlitchFlowFx; if (gfx != null) { var ob = Rc(a.X + 10, y - 2, a.Width - 20, 34); Btn(g, ob, "OPEN PURPHEX GLITCHFLOW", 2, () => GlitchFlowWindow.Show(gfx, this), 13); Hint2(ob, "Open the GlitchFlow window: repeat and refresh rates, freeze, patterns, modules, presets and AI GEN"); y += 42; } }
         var skip = new List<string>(); if (f.Hidden.Length > 0) skip.AddRange(f.Hidden.Split(','));
         if (f is ParametricEq) { PaintEqEditor(g, (ParametricEq)f, Rc(a.X + 6, y, a.Width - 12, a.Bottom - y - 4), tr == null ? null : tr.TapPost, tr == null ? 0 : tr.TapPos); return; }
         var cvx = f as ConvFx; if (cvx != null) { var lb = Rc(a.X + 10, y - 2, a.Width - 20, 30); Btn(g, lb, "Load your own impulse response...", 2, () => { using (var d = new OpenFileDialog { Title = "Choose an impulse response (a recording of a space or speaker)", Filter = "Audio|*.wav;*.mp3;*.flac;*.ogg;*.aiff|All files|*.*" }) if (d.ShowDialog(this) == DialogResult.OK) cvx.UserPath = d.FileName; }, 12); y += 34; Txt(g, cvx.IrNote.Length > 0 ? "Using: " + cvx.IrNote : "", 11, DimC, Rc(a.X + 14, y - 4, a.Width - 28, 16), StringAlignment.Near, false); y += 18; }

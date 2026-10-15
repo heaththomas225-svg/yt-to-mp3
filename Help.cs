@@ -594,6 +594,24 @@ The Censor plugins hide a word like a radio or TV edit: Bleep, Mute, Reverse, Mu
 ## Demon and monster voices
 Croaky Demon Voice is built the way producers make it: the pitch and the formants go down, the new Growl engine adds a croaking vocal fry, a sub-octave and rasp, then drive and a dark reverb. Set how deep, how croaky and how much reverb on the plugin itself. Growl is also there on its own as Vocal Fry / Croak.
 "),
+        new HelpTopic("studio-glitchflow", "Purphex Music", "Purphex GlitchFlow: stutter, beat-repeat and glitch", false, @"
+## What it is
+Purphex GlitchFlow is our own stutter and beat-repeat plugin, with its own window. It is at the top of + ADD EFFECT, in PURPHEX VST. Adding it opens its window; OPEN PURPHEX GLITCHFLOW in the plugin panel opens it again.
+## The two main controls
+- REFRESH RATE: how often a new slice is captured, in note values locked to the song (or free time in milliseconds). Each refresh is a window on the song grid.
+- REPEAT RATE: how long the slice is, so how fast it repeats. The first slice of each window plays live (it is being recorded), then it repeats until the next window.
+- The lit steps under the picture show which repeats sound; the picture shows the captured slice and where it is playing.
+## Freeze
+FREEZE holds the slice it has captured and keeps repeating it, however long you hold it. Press it again to release: the sound is live straight away and the next window captures a fresh slice. FREEZE can be automated.
+## Pattern and shape
+PATTERN picks which repeats sound (constant, every other, last beat for fills, last half bar, random, build-up that gets faster, slow-down, triplet skip, first half only, 3-3-2). INTENSITY thins the repeats out, LENGTH shortens each repeat (choppy), DECAY makes each repeat quieter, FADE and the shape (Hard, Smooth, Swell, Fade-out) shape the edges. REVERSE plays the repeats backwards, PITCH and PITCH STEP pitch them (step: each repeat a little higher or lower, for tape-stop and riser effects).
+## Modules
+Low-pass (with resonance), high-pass, telephone, rhythm gate, drive (soft, hard clip, bitcrush), width, modulation (pitch wobble, filter sweep or auto-pan), delay and reverb. Each has its own ON switch and works on the glitched sound; DRY/WET mixes it with the original, INPUT and OUTPUT set the levels. BYPASS lets the sound through untouched.
+## Presets, undo and automation
+PRESETS has 55 factory presets (subtle, vocal, drum fills, build-ups, transitions, EDM, drum and bass, UK garage, trap, experimental, aggressive) and your own: save, rename and delete them there. The arrows step through them. Ctrl+Z and Ctrl+Y undo and redo in the window. Every setting is in the plugin panel too, with its A button for automation, and everything is saved with the project.
+## AI GEN
+AI GEN sets GlitchFlow from a description, using a real AI (Anthropic Claude). It needs your own API key: press SETUP in AI GEN and paste it (it stays on this PC, encrypted for your Windows user). Without a key it says it is not set up and changes nothing. GENERATE plays the result straight away, REGENERATE asks for another take, UNDO puts your settings back. Every answer is checked: only real settings, kept inside their ranges. QUICK MATCH works offline from keywords; it is not AI.
+"),
         new HelpTopic("studio-worldecho", "Purphex Music", "Worldwide Echo: throw your voice around the world", false, @"
 ## What it is
 Worldwide Echo is a wide echo that locks to your project tempo. Its repeats bounce left and right, can melt into reverb, get darker or brighter each time round, and duck out of the way while you are singing.
@@ -870,7 +888,7 @@ class HelpForm : Form
         new[] { "SPLIT VOCALS + BEAT", "SPLIT VOCALS + BEAT" }, new[] { "ADD MUSIC", "ADD MUSIC" }, new[] { "Add music", "ADD MUSIC" }, new[] { "AUTO MASTERING", "AUTO MASTERING" }, new[] { "AUTO LOUDNESS", "AUTO LOUDNESS" }, new[] { "PREVIEW MASTER", "PREVIEW MASTER" }, new[] { "AUTO MIX", "AUTO MIX" }, new[] { "UNDO MIX", "Undo mix" }, new[] { "Undo mix", "Undo mix" }, new[] { "Undo Auto Mix", "Undo mix" },
         new[] { "Detect Track key", "Detect Track key" }, new[] { "Detect key", "Detect Track key" }, new[] { "THIN TRACKS", "THIN TRACKS" }, new[] { "ADD EFFECT", "+ Add Effect" }, new[] { "Add Effect", "+ Add Effect" }, new[] { "Add effect", "+ Add Effect" },
         new[] { "RECYCLING BIN", "RECYCLING BIN" }, new[] { "ADD SECTIONS", "ADD SECTIONS" }, new[] { "COUNT IN", "COUNT IN" }, new[] { "METRONOME", "METRONOME" }, new[] { "GRID SIZE", "GRID SIZE" }, new[] { "DETECT BPM", "DETECT BPM" }, new[] { "MIDI REC", "MIDI REC" }, new[] { "EXPORT", "EXPORT" }, new[] { "SAVE AS", "Save as" }, new[] { "FULLSCREEN", "FULLSCREEN" },
-        new[] { "PLAY", "PLAY" }, new[] { "STOP", "STOP" }, new[] { "LOOP", "LOOP" }, new[] { "MIC", "MIC" }, new[] { "SOUNDS", "SOUNDS" }, new[] { "LYRICS", "LYRICS" }, new[] { "MASTERING", "MASTERING" }, new[] { "FLEX", "FLEX" }, new[] { "SPLIT", "SPLIT" }, new[] { "CUT", "CUT" }, new[] { "GAIN", "GAIN" }, new[] { "LOCK", "LOCK" }, new[] { "DUP", "DUP" }, new[] { "FIT", "FIT" }, new[] { "STEREO", "STEREO" }, new[] { "MONO", "MONO" }, new[] { "UNDO", "UNDO" }, new[] { "REDO", "REDO" },
+        new[] { "PLAY", "PLAY" }, new[] { "STOP", "STOP" }, new[] { "LOOP", "LOOP" }, new[] { "MIC", "MIC" }, new[] { "SOUNDS", "SOUND PACKS" }, new[] { "LYRICS", "LYRICS" }, new[] { "MASTERING", "MASTERING" }, new[] { "FLEX", "FLEX" }, new[] { "SPLIT", "SPLIT" }, new[] { "CUT", "CUT" }, new[] { "GAIN", "GAIN" }, new[] { "LOCK", "LOCK" }, new[] { "DUP", "DUP" }, new[] { "FIT", "FIT" }, new[] { "STEREO", "STEREO" }, new[] { "MONO", "MONO" }, new[] { "UNDO", "UNDO" }, new[] { "REDO", "REDO" },
     };
     // the first button named in a line of the guide (null if none); a single capital word has to be written in capitals so ordinary words do not count
     internal static string FindLabelPublic(string line) { return FindLabel(line); }

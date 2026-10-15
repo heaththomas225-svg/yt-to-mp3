@@ -963,7 +963,7 @@ public static class FxRegistry
     public static void RegisterHidden(Info info, Func<Fx> factory) { lock (extra) { factories[info.Type] = factory; hidden[info.Type] = info; } }
     static readonly Dictionary<string, Info> hidden = new Dictionary<string, Info>();
     public static Info Hidden(string type) { Info i; lock (extra) return hidden.TryGetValue(type, out i) ? i : null; }
-    public static bool IsBuiltin(string type) { foreach (var i in Builtin) if (i.Type == type) return true; return PluginLibrary.IsLibrary(type); }
+    public static bool IsBuiltin(string type) { if (type == "glitchflow") return true; foreach (var i in Builtin) if (i.Type == type) return true; return PluginLibrary.IsLibrary(type); }
     static FxRegistry() { PluginLibrary.RegisterAll(); }   // the named built-in plugin library
     public static readonly Info[] Builtin = {
         new Info("eq", "Parametric EQ", "EQ", "6 bands, shelves, high-pass / low-pass, draggable curve"),
