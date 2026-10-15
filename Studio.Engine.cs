@@ -356,6 +356,7 @@ class Track
     public float ClipGainDb;       // the volume of this clip (piece) on its own, on top of the track fader
     public bool Locked;            // locked in place (set on a row's own track: it covers every piece on the row)
     public bool PieceLocked;       // just this one piece (section) is locked: the rest of its track can still be edited
+    public bool PieceMuted;        // just this one piece (section) is silent: the rest of its track still plays
     public List<AutoLane> Auto = new List<AutoLane>();   // automation: settings of the plugins above that follow a curve
     public volatile float PeakL, PeakR, RmsL, RmsR; public volatile bool Clipped;
     public float[] TapPre = new float[8192], TapPost = new float[8192]; public volatile int TapPos;
@@ -443,6 +444,7 @@ partial class StudioEngine
     // the audio of one clip for this block (its own fades and gain), added to the buffers
     void AddClipAudio(Track p, float[] bl, float[] br, int n, long pos)
     {
+        if (p.PieceMuted) return;   // a muted section is silent
         var pc = p.Clip; if (pc == null) return; float[] cl = pc.L, cr2 = pc.R ?? pc.L; long toff = p.Offset, tcs = p.ClipStart, tcf = p.ClipFrames; long tavail = cl == null ? 0 : Math.Max(0, cl.Length - tcs), ulen = tcf < 0 ? tavail : Math.Min(tcf, tavail);
         bool shaped = p.ClipGainDb != 0f || p.FadeIn > 0 || p.FadeOut > 0 || p.FadeInDelay > 0 || p.FadeOutTail > 0; float cg = DspMath.DbToLin(p.ClipGainDb); long fi = p.FadeIn, fo = p.FadeOut, fd = p.FadeInDelay, ft = p.FadeOutTail;
         if (shaped && fi + fo + fd + ft > ulen && ulen > 0) { double kk = ulen / (double)(fi + fo + fd + ft); fi = (long)(fi * kk); fo = (long)(fo * kk); fd = (long)(fd * kk); ft = (long)(ft * kk); }
@@ -487,7 +489,7 @@ partial class StudioEngine
             if (n > t.tl.Length) { t.tl = new float[n]; t.tr = new float[n]; }
             bool audible = !t.Off && !row.Off && (t.IsBus ? (!o.MuteSolo || !t.Mute) : (!o.MuteSolo || (!row.Mute && (!soloActive || row.Solo))));
             bool idle = !audible && !o.Dry;   // muted / not soloed: skip the plugin chain (the output is discarded anyway)
-            var tclip = o.NoClips ? null : t.Clip; long toff = t.Offset, tcs = t.ClipStart, tcf = t.ClipFrames; float[] cl = tclip == null ? null : tclip.L, cr = tclip == null ? null : (tclip.R ?? tclip.L);
+            var tclip = o.NoClips || t.PieceMuted ? null : t.Clip;   /* (a muted section is silent) */ long toff = t.Offset, tcs = t.ClipStart, tcf = t.ClipFrames; float[] cl = tclip == null ? null : tclip.L, cr = tclip == null ? null : (tclip.R ?? tclip.L);
             long tavail = cl == null ? 0 : Math.Max(0, cl.Length - tcs), ulen = tcf < 0 ? tavail : Math.Min(tcf, tavail);
             if (!t.IsBus) for (int i = 0; i < n; i++)
             {

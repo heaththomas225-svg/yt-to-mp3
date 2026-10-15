@@ -1,4 +1,4 @@
-3.40.9
+3.41.0
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Saving a published track updates it live
-sha256=a111b4f4ee138e19c8867ffe941b5b10c078fe6b5decf110a4e6281f8970b195
+Mute a section of a track
+sha256=2a8c51e5a6981343cd9a2061d368f64fe91db21311d42de98361b9599ae9d882

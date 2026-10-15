@@ -76,6 +76,16 @@ static class NF
                     var wn = new WaveOutPlayer((x1, x2, x3) => { }); int bigF = (int)wf.GetValue(wp), bigB = (int)wb.GetValue(wp), setF = (int)wf.GetValue(wn);
                     Check("a project preview or a community song plays with the biggest buffer (no stutter); the mix keeps the one from Settings", bigF == 2048 && bigB == 8 && setF == (Prefs.BufEff == 0 ? 512 : Prefs.BufEff == 2 ? 2048 : 1024), bigF + "x" + bigB + " / " + setF);
                 }
+                {   // mute one SECTION of a track (right-click): only that piece is silent, the rest of the track plays; it is saved in the project and undo puts it back
+                    int sr = 44100, n2 = sr * 4; var x2 = new float[n2]; for (int i = 0; i < n2; i++) x2[i] = (float)(0.5 * Math.Sin(2 * Math.PI * 440 * i / sr)); var cl2 = AudioClip.FromArrays(x2, (float[])x2.Clone(), "m");
+                    var me = new StudioEngine(); foreach (var mf in me.MasterFx) mf.Bypass = true; var p1 = StudioEngine.NewTrack("Vox", "vocal", cl2); p1.ClipFrames = sr * 2; var p2 = StudioEngine.NewTrack("Vox", "vocal", cl2); p2.Host = p1; p2.ClipStart = sr * 2; p2.Offset = sr * 2; p2.ClipFrames = sr * 2; me.Tracks.Add(p1); me.Tracks.Add(p2);
+                    Func<float[], double, double> rm = (a2, sec) => { int s0 = (int)(sec * sr), s1 = s0 + 4000; double e2 = 0; for (int i = s0; i < s1; i++) e2 += a2[i] * a2[i]; return Math.Sqrt(e2 / 4000); };
+                    float[] aL, aR; p2.PieceMuted = true; me.Render(0, n2, new RenderOpts(), null, out aL, out aR); double on1 = rm(aL, 1.0), off2 = rm(aL, 3.0);
+                    p2.PieceMuted = false; p1.PieceMuted = true; me.Render(0, n2, new RenderOpts(), null, out aL, out aR); double off1 = rm(aL, 1.0), on2 = rm(aL, 3.0);
+                    string mpf = Path.Combine(Path.GetTempPath(), "px_mutesec_" + Guid.NewGuid().ToString("N") + ".ytmproj"); ProjectIO.Save(me, mpf); var me2 = new StudioEngine(); ProjectIO.Load(me2, mpf, z => { }); bool kept = me2.Tracks.Count == 2 && me2.Tracks[0].PieceMuted && !me2.Tracks[1].PieceMuted;   /* (the test has no audio file behind the clip: only the flags are compared) */ try { File.Delete(mpf); } catch { }
+                    Check("a muted section is kept in the project file", kept, me2.Tracks.Count + " tracks");
+                    Check("a muted section is silent and the rest of its track still plays (either piece, playback and export alike)", on1 > 0.2 && off2 < 0.001 && off1 < 0.001 && on2 > 0.2, on1.ToString("0.000") + " " + off2.ToString("0.000") + " | " + off1.ToString("0.000") + " " + on2.ToString("0.000"));
+                }
                 Check("Bass Boost starts with its output at -12 dB (big bass, room for the vocals)", Math.Abs(new BassBoost().Get("level") + 12) < 0.001, new BassBoost().Get("level").ToString());
                 Check("when YouTube does not have the song, nothing is converted (no random song) and it says why", noPick == null && why != null && why.Contains("not found"), why ?? "");
                 SpotifyLinks.SearchHook = q => "PXR|cccccccc1|158|aheath - Topic|WANTED\nPXR|cccccccc2|158|x|Totally Different"; string w2, found; var url = SpotifyLinks.FindOnYouTube("yt-dlp", song, out w2, out found); SpotifyLinks.SearchHook = null;

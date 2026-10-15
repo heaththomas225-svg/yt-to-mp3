@@ -7,10 +7,13 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.40.9";
+    public const string Latest = "3.41.0";
 
     public const string Text =
-@"3.40.9  Saving a published track updates it live
+@"3.41.0  Mute a section of a track
+ + NEW: right-click a section of a track and press Mute this section only: that piece makes no sound (in playback and in every export) while the rest of the track still plays. A muted section is greyed out with a dashed edge and a MUTED tag, it still moves, trims and splits like any other, Ctrl+Z puts it back, and it is saved in the project. With several sections picked, Mute these sections does them all at once; right-click again to unmute.
+
+3.40.9  Saving a published track updates it live
  + NEW: saving a project that is published now updates its song on your profile and the community page straight away: it is exported and the new version replaces the old one, keeping its plays, likes, comments and music video. It used to keep the old version until you published again. Saving with nothing changed sends nothing.
 
 3.40.8  Previews play smoothly straight away

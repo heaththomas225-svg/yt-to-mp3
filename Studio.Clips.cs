@@ -82,6 +82,19 @@ partial class StudioForm
     // after a trim: the two fades never add up to more than the clip
     static void ClampFades(Track t) { long u = t.UsedLength, sum = t.FadeIn + t.FadeOut + t.FadeInDelay + t.FadeOutTail; if (u > 0 && sum > u) { double k = u / (double)sum; t.FadeIn = (long)(t.FadeIn * k); t.FadeOut = (long)(t.FadeOut * k); t.FadeInDelay = (long)(t.FadeInDelay * k); t.FadeOutTail = (long)(t.FadeOutTail * k); } }
 
+    // ---------- mute a section ----------
+    // right-click a piece: silence just that section (the rest of its track still plays); a muted section still moves, trims and splits like any other
+    internal void TogglePieceMute(Track p)
+    {
+        if (p == null || p.Clip == null || p.Instrument) return; PushUndo(); p.PieceMuted = !p.PieceMuted;
+        Toast(p.PieceMuted ? "This section is muted: it stays where it is but makes no sound. Right-click it and press Unmute this section to hear it again." : "This section plays again.");
+    }
+    internal void SetPieceMutes(List<Track> list, bool muteIt)
+    {
+        if (list == null || list.Count == 0) return; PushUndo(); foreach (var p in list) p.PieceMuted = muteIt;
+        Toast(muteIt ? list.Count + " sections are muted. Right-click one of them to unmute." : list.Count + " sections play again.");
+    }
+
     // ---------- lock ----------
     // several picked clips: lock (or unlock) every one of them in one go (one Ctrl+Z puts them all back)
     internal void SetPieceLocks(List<Track> list, bool lockIt)
@@ -245,6 +258,13 @@ partial class StudioForm
         // the small tags at the top of the clip: gain, lock
         float tx = Math.Max(lane.X, x0) + 8 + g.MeasureString(tr.Name, GfxCache.Font(12, true)).Width + 6;
         if (Math.Abs(tr.ClipGainDb) > 0.04f && tx < cr.Right - 60) { string gt = (tr.ClipGainDb > 0 ? "+" : "") + tr.ClipGainDb.ToString("0.0", CultureInfo.InvariantCulture) + " dB"; var rr = Rc(tx, cr.Y + 3, g.MeasureString(gt, GfxCache.Font(10, true)).Width + 10, 16); FillRR(g, TM.C(200, 70, 40, 150), rr, 5); Txt(g, gt, 10, Color.White, rr, StringAlignment.Center, true); }
+        if (tr.PieceMuted && cr.Width > 6)
+        {   // a MUTED section: dark grey over it (the waveform shows through faintly), a dashed edge and a MUTED tag
+            var vis0 = RectangleF.Intersect(cr, lane); var gs3 = g.Save(); g.SetClip(vis0, CombineMode.Intersect);
+            using (var b = new SolidBrush(Color.FromArgb(175, 18, 16, 24))) g.FillRectangle(b, cr); using (var hb = new HatchBrush(HatchStyle.LightUpwardDiagonal, Color.FromArgb(40, 200, 200, 210), Color.Transparent)) g.FillRectangle(hb, cr); g.Restore(gs3);
+            using (var pen = new Pen(Color.FromArgb(220, 170, 170, 185), 1.6f) { DashStyle = DashStyle.Dash }) using (var pp = RR(RectangleF.Inflate(vis0, -1f, -1f), 5)) g.DrawPath(pen, pp);
+            float mw = 74, mx = Math.Max(lane.X, cr.X) + 8; if (mx + mw < Math.Min(cr.Right, lane.Right) - 4 && cr.Height > 30) { var tg = Rc(mx, cr.Bottom - 26, mw, 20); FillRR(g, Color.FromArgb(240, 40, 38, 48), tg, 6); StrokeRR(g, Color.FromArgb(230, 190, 190, 205), tg, 6, 1.2f); Txt(g, "MUTED", 10, Color.FromArgb(255, 225, 225, 235), tg, StringAlignment.Center, true); }
+        }
         if (tr.PieceLocked && !IsRowLocked(tr) && cr.Width > 12)
         {   // a locked SECTION (only this piece) has its own look: gold stripes across it, a glowing gold edge and a LOCKED SECTION tag, so it is never mixed up with a locked track
             var gold2 = Color.FromArgb(255, 255, 196, 80); var vis = RectangleF.Intersect(cr, lane); var gs2 = g.Save(); g.SetClip(vis, CombineMode.Intersect);
