@@ -208,9 +208,9 @@ static class K
         // ---- the view stays where you scroll it while it plays ----
         {
             eng.Tracks.Clear(); eng.Tracks.Add(StudioEngine.NewTrack("Vox", "vocal", Const(120, 0.3f))); SetF("autoFit", false); SetF("spp", 400.0); SetF("scroll", 0L); SetF("followPaused", false); SetF("wasPlaying", false); Paint();
-            int ov = Prefs.OutVol; Prefs.OutVol = 0; eng.Playing = true; eng.Pos = SR * 60; SetF("dispPos", (double)(SR * 60)); M("Tick"); long shown = F<long>("scroll"); Check("pressing PLAY with the needle off screen shows the needle once", shown > SR * 30, "scroll " + shown / SR + " s");
+            int ov = Prefs.OutVol; Prefs.OutVol = 0; eng.Playing = true; eng.Pos = SR * 60; SetF("dispPos", (double)(SR * 60)); M("Tick"); long shown = F<long>("scroll"); Check("pressing PLAY never moves the view, even with the needle off screen (you stay where you were)", shown == 0, "scroll " + shown / SR + " s");
             SetF("scroll", 0L); eng.Pos = SR * 90; SetF("dispPos", (double)(SR * 90)); M("Tick"); M("Tick"); Check("while it plays the view never jumps after the needle (zoomed in and editing, you stay where you are)", F<long>("scroll") == 0, "scroll " + F<long>("scroll") / SR + " s");
-            eng.Playing = false; M("Tick"); eng.Playing = true; M("Tick"); Check("pressing PLAY again shows the needle again", F<long>("scroll") > SR * 30, "scroll " + F<long>("scroll") / SR + " s"); eng.Playing = false; Prefs.OutVol = ov; eng.Pos = 0; SetF("dispPos", 0.0);
+            eng.Playing = false; M("Tick"); eng.Playing = true; M("Tick"); Check("pausing and pressing PLAY again does not move it either", F<long>("scroll") == 0, "scroll " + F<long>("scroll") / SR + " s"); eng.Playing = false; Prefs.OutVol = ov; eng.Pos = 0; SetF("dispPos", 0.0);
         }
 
         // ---- pop-up boxes move; lists have the logo scroll strip ----

@@ -7,10 +7,15 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.41.0";
+    public const string Latest = "3.41.1";
 
     public const string Text =
-@"3.41.0  Mute a section of a track
+@"3.41.1  Pause and play never jump you around, safer recording
+ + NEW: recording onto a track you cannot hear (muted, switched off, or another track is soloed) asks first: unmute it and record, record anyway, or cancel.
+ + NEW: when your microphone sends no sound at all (muted on the headset, the mic boom flipped up, switched off), a warning says so within a second of recording, with what to check; a silent take is no longer added as an empty track.
+ + FIXED: pressing PLAY threw the view to wherever the needle was (forwards or backwards), so after scrolling away while paused you lost your place. PLAY now never moves the view. And PAUSE stops exactly where the needle is drawn: the needle no longer hops forward a little when you pause, and PLAY carries on from that very spot.
+
+3.41.0  Mute a section of a track
  + NEW: right-click a section of a track and press Mute this section only: that piece makes no sound (in playback and in every export) while the rest of the track still plays. A muted section is greyed out with a dashed edge and a MUTED tag, it still moves, trims and splits like any other, Ctrl+Z puts it back, and it is saved in the project. With several sections picked, Mute these sections does them all at once; right-click again to unmute.
 
 3.40.9  Saving a published track updates it live

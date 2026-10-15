@@ -692,6 +692,16 @@ static class NF
                     string mixTxt = ProjectIO.SerializeMix(sf.eng); sf.masterPresetUsed = -1; ProjectIO.RestoreMix(sf.eng, mixTxt);
                     Check("the Mastering page shows the preset in use, marks it EDITED after a change, and the project keeps both", fresh && edited && sf.masterPresetUsed == 3 && ProjectIO.MasterPresetEdited(sf.eng) && mixTxt.Contains("mpreset|" + MasterPresets.All[3].Name), sf.masterPresetUsed + " " + fresh + " " + edited);
                     ProjectIO.RestoreMix(sf.eng, mixTxt.Replace("mpreset|", "xx|")); Check("a project without a preset shows none", sf.masterPresetUsed == -1, sf.masterPresetUsed.ToString()); mf = sf.eng.MasterFx[0]; mf.Set(mf.P[0].Id, mpWas);
+                {   // recording: a microphone that sends pure silence (a muted headset) is noticed; a muted / off / not-soloed track asks before you record onto it
+                    var rec0 = new AudioRecorder(); rec0.SetMode(MicMode.Standard); rec0.Feed(new short[50000], 50000); var rec1 = new AudioRecorder(); rec1.SetMode(MicMode.Standard); var hiss = new short[50000]; var rq2 = new Random(9); for (int i = 0; i < hiss.Length; i++) hiss[i] = (short)rq2.Next(-60, 60); rec1.Feed(hiss, hiss.Length);
+                    Check("a microphone sending pure silence (muted on the headset, switched off) is noticed, a live one (even a quiet room) is not", rec0.AllSilent && !rec1.AllSilent, rec0.AllSilent + " " + rec1.AllSilent);
+                    var tq = StudioEngine.NewTrack("Vox take", "vocal", null); sf.eng.Tracks.Add(tq); SetF("selTrack", sf.eng.Tracks.IndexOf(tq)); string askedQ = "";
+                    tq.Mute = true; sf.ask3Hook = q => { askedQ = q; return DialogResult.Yes; }; bool goYes = sf.CheckRecordTargetAudible();
+                    tq.Mute = true; sf.ask3Hook = q => DialogResult.No; bool goNo = sf.CheckRecordTargetAudible(); bool stillMuted = tq.Mute; sf.ask3Hook = q => DialogResult.Cancel; bool goCancel = sf.CheckRecordTargetAudible();
+                    tq.Mute = false; askedQ = ""; sf.ask3Hook = q => { askedQ = q; return DialogResult.Yes; }; bool goPlain = sf.CheckRecordTargetAudible(); bool notAsked = askedQ.Length == 0;
+                    Check("recording onto a muted track asks first: Yes unmutes it and records, No records anyway, Cancel does not record; an audible track is not asked", goYes && goNo && stillMuted && !goCancel && goPlain && notAsked, goYes + " " + goNo + " " + stillMuted + " " + goCancel + " " + goPlain + " " + notAsked);
+                    sf.ask3Hook = null; sf.eng.Tracks.Remove(tq);
+                }
                 {
                     var pv = new StudioEngine { ListenOnly = true }; bool mixWas = sf.eng.Playing; sf.eng.Playing = false; typeof(StudioForm).GetField("previewEng", BF).SetValue(sf, pv); pv.Playing = true; int boost0 = Prefs.BufBoost;
                     typeof(StudioForm).GetField("lastRefresh", BF).SetValue(sf, DateTime.MinValue); sf.AudioGlitchCheck(DateTime.Now); WaveOutPlayer.Underruns += 3; bool fixedIt = sf.AudioGlitchCheck(DateTime.Now.AddMilliseconds(200));

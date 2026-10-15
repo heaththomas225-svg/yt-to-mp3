@@ -1,4 +1,4 @@
-3.41.0
+3.41.1
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Mute a section of a track
-sha256=2a8c51e5a6981343cd9a2061d368f64fe91db21311d42de98361b9599ae9d882
+Pause and play never jump you around, safer recording
+sha256=9014719c1c582104a3b10b2ffcf33bcdf19985c83bea823f06c3df872d42756e

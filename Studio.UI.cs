@@ -173,15 +173,15 @@ partial class StudioForm : Form
     {
         UpdatePlayhead(); Auditioner.Tick(); FlexTick(); PreviewHousekeeping();
         if (mic != null && !eng.Playing) StopMic();
+        if (mic != null && !micSilentWarned && mic.AllSilent) { micSilentWarned = true; Toast("Your microphone is sending NO sound (muted or switched off). On a headset: flip the mic down or press its mute button. Press MIC to stop."); }
         { string tt = "Purphex Music  -  " + projName + (Prefs.ShowFps ? "    " + (lastIdle ? "idle" : fpsc.Fps + " fps") : ""); if (Text != tt) Text = tt; }
         if (eng.Playing || (previewEng != null && previewEng.Playing))
         {
             AudioGlitchCheck(DateTime.Now);
         }
         if (eng.Playing && !wasPlaying)
-        {   // PLAY shows the needle once if it is off screen; after that the view never moves by itself while it plays (zoomed in, editing, it used to throw you to the right)
-            followPaused = false; float w = TimelineRect().Width; long x = (long)((DispPos - scroll) / spp);
-            if (x > w * 0.92f || x < 0) scroll = Math.Max(0, DispPos - (long)(w * 0.08 * spp));
+        {   // PLAY never moves the view: it stays exactly where you left it (it used to jump to the needle, forwards or backwards); the view never moves by itself while it plays either
+            followPaused = false;
         }
         wasPlaying = eng.Playing;
         if (NeedsFrame0() && Environment.TickCount - eqPaintTick < 600) UpdateSpectrum();
@@ -657,8 +657,8 @@ partial class StudioForm : Form
         float x = 14, y = y0 + 8, h = 36;
         Btn(g, Rc(x, y, 44, h), "|<", 0, () => { eng.Seek(0); scroll = 0; followPaused = false; }, 15); x += 50;
         Btn(g, Rc(x, y, 70, h), "PLAY", eng.Playing ? 4 : 1, () => { if (!eng.Playing) PlayToggle(); }, 14); x += 76;   // PLAY only plays (it is lit while playing); PAUSE is its own button
-        { bool paused = !eng.Playing && eng.Pos > 0; var pb = Rc(x, y, 70, h); Btn(g, pb, "PAUSE", paused ? 4 : 0, () => { if (eng.Playing) eng.Pause(); }, 14); Hint2(pb, "Pause where you are (Space does the same); PLAY carries on from there"); x += 76; }
-        { var sb = Rc(x, y, 56, h); Btn(g, sb, "STOP", 0, () => { if (mpActive) MasterPreviewStop(); eng.Pause(); }, 14); Hint2(sb, "Stop where you are: the needle and the view stay put (|< takes you back to the start)"); } x += 62;   // STOP stops right here, like PAUSE (it used to throw you back to the start)
+        { bool paused = !eng.Playing && eng.Pos > 0; var pb = Rc(x, y, 70, h); Btn(g, pb, "PAUSE", paused ? 4 : 0, () => PauseHere(), 14); Hint2(pb, "Pause where you are (Space does the same); PLAY carries on from there"); x += 76; }
+        { var sb = Rc(x, y, 56, h); Btn(g, sb, "STOP", 0, () => { if (mpActive) MasterPreviewStop(); PauseHere(); }, 14); Hint2(sb, "Stop where you are: the needle and the view stay put (|< takes you back to the start)"); } x += 62;   // STOP stops right here, like PAUSE (it used to throw you back to the start)
         { var lb = Rc(x, y, 62, h); Btn(g, lb, "LOOP", eng.Loop || loopPick ? 4 : 0, () => LoopMenu(lb), 14); Hint2(lb, eng.LoopSection ? "Looping " + LoopTime(eng.LoopA) + " to " + LoopTime(eng.LoopB) + ": press to change it or turn it off" : (eng.Loop ? "The whole song loops: press to loop a section or turn it off" : "Loop the whole song, or a section you drag on the timeline")); } x += 72;
         double sec = dispPos / StudioEngine.SR, tot = eng.EndFrame / (double)StudioEngine.SR;
         var tr = Rc(x, y, 210, h); FillRR(g, TM.C(200, 8, 4, 18), tr, 6); StrokeRR(g, Edge, tr, 6, 1); Glow(g, Accent, tr, 6, eng.Playing ? 0.85f : 0.5f, 3); using (var pen = new Pen(Color.FromArgb(eng.Playing ? 230 : 150, Accent), 1.2f)) using (var pp = RR(tr, 6)) g.DrawPath(pen, pp);   // a small neon glow that is always there (brighter while it plays)

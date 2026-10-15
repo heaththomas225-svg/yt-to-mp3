@@ -23,14 +23,35 @@ partial class StudioForm
     void PlayToggle()
     {
         if (micArmed && mic == null) { StartMic(); return; }
-        if (eng.Playing) eng.Pause(); else PlayGuard();
+        if (eng.Playing) PauseHere(); else PlayGuard();
+    }
+    // PAUSE (the buttons, the space bar): the song stops exactly where the needle is drawn, so the needle does not hop and PLAY carries on from that very spot (the view never moves)
+    internal void PauseHere()
+    {
+        if (!eng.Playing) return; long at = DispPos; eng.Pause();
+        if (at >= 0 && Math.Abs(eng.Pos - at) < StudioEngine.SR / 4) { lock (eng.Sync) eng.Pos = at; }   // (what you saw and what you heard are a few ms apart: what you saw wins)
+        dispPos = eng.Pos;
     }
     // the track a new recording goes onto: the selected audio track (its own row), never a new track made behind your back
     Track RecordTarget() { var s = Selected; if (s == null || s.IsBus || s.Instrument) return null; var h = RowHost(s); return h != null && !h.IsBus && !h.Instrument && !h.Locked ? h : null; }
 
+    internal Func<string, DialogResult> ask3Hook;   // tests answer the three-way question themselves
+    // the track you are about to record onto cannot be heard (muted, switched off, or another track is soloed): you are asked first.
+    // returns false to cancel; true to go on (unmuted / switched on / solo taken off when you chose that)
+    internal bool CheckRecordTargetAudible()
+    {
+        var t = RecordTarget(); if (t == null) return true; var row = RowHost(t) ?? t; bool soloElse = !row.Solo && eng.Tracks.Exists(x => x != row && x.Solo);
+        string why = row.Off ? "is switched OFF (its power button)" : row.Mute ? "is MUTED" : soloElse ? "cannot be heard: another track is soloed" : ""; if (why.Length == 0) return true;
+        string q = "\"" + row.Name + "\" " + why + ", so you will not hear what you record onto it.\n\nYes: " + (row.Off ? "switch it on" : row.Mute ? "unmute it" : "take the solo off") + " and record\nNo: record anyway\nCancel: do not record";
+        var a = ask3Hook != null ? ask3Hook(q) : MessageBox.Show(this, q, "This track is " + (row.Off ? "off" : row.Mute ? "muted" : "not heard"), MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question, MessageBoxDefaultButton.Button1);
+        if (a == DialogResult.Cancel) return false;
+        if (a == DialogResult.Yes) { PushUndo(); if (row.Off) row.Off = false; else if (row.Mute) row.Mute = false; else foreach (var x in eng.Tracks) x.Solo = false; }
+        return true;
+    }
+    bool micSilentWarned;
     void StartMic()
     {
-        micArmed = false;
+        micArmed = false; micSilentWarned = false; if (!CheckRecordTargetAudible()) return;
         var devs = AudioRecorder.Devices();
         if (devs.Count == 0)
         {
@@ -43,10 +64,19 @@ partial class StudioForm
         Toast("Recording" + (micTarget != null ? " onto " + micTarget.Name : "") + ". Press MIC again (or STOP) when you are done. Use headphones so the beat is not recorded too.");
     }
 
+    // the microphone sends pure silence: what to check (a headset is named, so the hint fits it)
+    string SilentMicText()
+    {
+        string dev = Prefs.InDev.Length > 0 ? Prefs.InDev : "your microphone"; bool headset = dev.IndexOf("G3", StringComparison.OrdinalIgnoreCase) >= 0 || dev.IndexOf("LIGHTSPEED", StringComparison.OrdinalIgnoreCase) >= 0 || dev.IndexOf("headset", StringComparison.OrdinalIgnoreCase) >= 0 || dev.IndexOf("Hands-Free", StringComparison.OrdinalIgnoreCase) >= 0;
+        return "The microphone (" + dev + ") is sending no sound at all, not even background hiss, so it is muted or switched off before the sound reaches Purphex Music.\n\n" +
+            (headset ? "On a headset: flip the mic boom down (flipped up mutes it on many headsets) or press its mic mute button, and check it is switched on and charged.\n" : "Check the mic is switched on and not muted.\n") +
+            "In Windows: Settings > System > Sound > Input: the right microphone, and its level up.\nOr pick another input in Purphex Music: Settings > Recording input.";
+    }
     Track micTarget;   // the track chosen when recording started
     void StopMic()
     {
-        micArmed = false; var r = mic; mic = null; if (r == null) return; int frames; float[] s = r.Stop(out frames); if (eng.Playing) eng.Pause();
+        micArmed = false; var r = mic; mic = null; if (r == null) return; bool silent = r.AllSilent; int frames; float[] s = r.Stop(out frames); if (eng.Playing) eng.Pause();
+        if (silent) { MessageBox.Show(this, SilentMicText() + "\n\nNothing was added (the take was silence).", "The microphone sent no sound", MessageBoxButtons.OK, MessageBoxIcon.Warning); return; }
         if (frames < 4410) { Toast("That recording was too short, so nothing was added."); return; }
         try { var t = AddRecording(s, frames, micStart - micLead); Toast("Added " + t.Name + " (" + (frames / (double)StudioEngine.SR).ToString("0.0") + " s). It is saved in Music / yt2mp3 / Recordings."); }
         catch (Exception ex) { MessageBox.Show(this, "Couldn't save the recording: " + ex.Message, "Record"); }

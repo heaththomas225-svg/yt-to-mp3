@@ -240,7 +240,7 @@ partial class StudioForm
         float x = 14, yy = y0 + 8, hh = 36;
         { var bk0 = Rc(x, yy, 44, hh); Btn(g, bk0, "|<", 0, () => { if (mpActive) MasterPreviewStop(); eng.Seek(0); scroll = 0; followPaused = false; }, 15); Hint2(bk0, "Jump back to the start"); x += 50; }   // the same button as on MIX
         Btn(g, Rc(x, yy, 96, hh), "PLAY", eng.Playing && !mpActive ? 4 : 1, () => { if (mpActive) MasterPreviewStop(); PlayToggle(); }, 15); x += 104;
-        { var pb0 = Rc(x, yy, 96, hh); Btn(g, pb0, "PAUSE", 1, () => { if (mpActive) MasterPreviewStop(); eng.Pause(); }, 15); Hint2(pb0, "Pause the song (PLAY carries on from the same place)"); x += 104; }
+        { var pb0 = Rc(x, yy, 96, hh); Btn(g, pb0, "PAUSE", 1, () => { if (mpActive) MasterPreviewStop(); PauseHere(); }, 15); Hint2(pb0, "Pause the song (PLAY carries on from the same place)"); x += 104; }
         double sec = dispPos / StudioEngine.SR, tot = eng.EndFrame / (double)StudioEngine.SR; var tr = Rc(x, yy, 210, hh); FillRR(g, TM.C(200, 8, 4, 18), tr, 6); StrokeRR(g, Edge, tr, 6, 1);
         Txt(g, Fmt(sec) + "  /  " + Fmt(tot), 19, Accent, tr, StringAlignment.Center, true); x += 222;
         Btn(g, Rc(x, yy, 168, hh), "PREVIEW MASTER", mpActive ? 4 : 2, () => MasterPreviewStart(), 13); Hint2(Rc(x, yy, 168, hh), "Hear your master: a loop of the loudest 20 seconds with the mastering chain on."); x += 174;

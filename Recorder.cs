@@ -71,8 +71,12 @@ class AudioRecorder : IDisposable
     }
 
     // converts 16-bit samples to float and keeps them (also used by tests)
+    // what came in from the microphone itself (before any clean-up): a live mic always has some hiss; pure zeros mean it is muted on the headset or switched off
+    float rawPeak; long rawFrames;
+    public bool AllSilent { get { return rawFrames > 44100 && rawPeak < 0.0002f; } }
     internal void Feed(short[] pcm, int n)
     {
+        for (int i = 0; i < n; i++) { float a = Math.Abs(pcm[i] / 32768f); if (a > rawPeak) rawPeak = a; } rawFrames += n;
         var c = new float[n]; float pk = 0; for (int i = 0; i < n; i++) { float v = pcm[i] / 32768f; c[i] = v; float a = Math.Abs(v); if (a > pk) pk = a; }
         lock (chunks)
         {
