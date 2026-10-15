@@ -2,6 +2,18 @@
 
 What changed in each version of **Purphex**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.42.0  VOCAL PRESETS: 1,482 presets and the AI PRESET GENERATOR
+
+- NEW: Rapper Vocal Styles is now VOCAL PRESETS, with 1,482 presets (it had 36). Over a hundred are inspired by the sound of an artist, named in brackets: Juice WRLD (emo singing, freestyle, hooks), Eminem (rapid fire, angry, Slim Shady), Drake (smooth OVO, melodic, late night), Mazza (Scouse road rap, northern melodic), Travis Scott, Playboi Carti, Kendrick Lamar, J. Cole, Lil Baby, Future, Young Thug, Lil Uzi Vert, Gunna, Lil Durk, Polo G, Rod Wave, NBA YoungBoy, The Weeknd, SZA, Bryson Tiller, Central Cee, Dave, Stormzy, Skepta, Pop Smoke, Burna Boy and many more: 91 artists. They are sound designs inspired by how those vocals sound, built from this app's plugins, not anyone's real studio settings.
+
+- NEW: ULTIMATE all-in-one chains (Rap Lead, R&B Vocal, Trap Hook, Drill Lead, Melodic Sing, Boom Bap, Rage, Loud & Clear, Podcast Clean), ULTRA R&B (Glossy and Dark & Moody), and new groups: R&B, Singing (pure singing chains), UK Rap, Afro & Dancehall, Emo & Rock Rap, and Ad-libs & FX (phone, radio, megaphone, demon, chipmunk, robot, stadium throws, chops, glitches, tape stop...).
+
+- NEW: every sound comes in ten versions, one for each job: Lead, Ad-Libs, Doubles, Hook, Dry Verse, Spacey, Dark, Bright, Radio and Stutter, with a PART row to show only one kind, and an ARTISTS button for every artist preset.
+
+- NEW: presets marked +BUS bring a vocal bus (glue compression and space): it is made once, the track goes into it, and the ad-libs and doubles of the same sound go into the same bus, so your vocals sit together like a real vocal chain.
+
+- NEW: AI PRESET GENERATOR (top of VOCAL PRESETS, or right-click PRESETS...): describe the sound in your own words, like Juice WRLD with a stutter delay and lots of reverb, and it builds the plugins. It understands the artists, genres and effect words (stutter, delay 1/4 / 1/8 / dotted / triplet / ping pong, slapback, reverb, hall, plate, dry, dark, bright, autotune or natural, harmony, octave, distortion, telephone, radio, deep or baby voice, wide, doubled, loud, soft, 8D, robot and more, with a bit / lots of for how strong), shows what it understood, and USE puts it on the track; SAVE AS MY PRESET keeps it and shares it in Community presets. It works inside the app, no internet needed.
+
 ## 3.41.7  Bigger on/off circles on plugins
 
 - CHANGED: the green circle that turns a plugin on or off is 50% bigger, so it is easier to see and to hit: in the panel on the right, on the ALL PLUGINS page and in the mastering chain.

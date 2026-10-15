@@ -1,4 +1,4 @@
-3.41.7
+3.42.0
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Bigger on/off circles on plugins
-sha256=02fa278dc35027d5f5ee956483e7df7cea1b6e0056a753c90720b6250efe37dd
+VOCAL PRESETS: 1,482 presets and the AI PRESET GENERATOR
+sha256=da96d94d1a6a95661f0a2231dd81bfb584636306c6ceeb5b0974d5ba4d142d1f

@@ -184,7 +184,7 @@ static class P
             string tmpFav = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "styles-fav-" + Guid.NewGuid().ToString("N") + ".txt"); VocalStyles.FavFile = tmpFav;
             VocalStyles.ToggleFav("Trap Lead"); VocalStyles.ToggleFav("Slow Burn"); bool on = VocalStyles.IsFav("Trap Lead") && System.IO.File.ReadAllText(tmpFav).Contains("Slow Burn"); var onlyFav = VocalStyles.Find("", "", true); VocalStyles.ToggleFav("Slow Burn"); bool off = !VocalStyles.IsFav("Slow Burn");
             Check("favourites can be added, removed, listed on their own and are saved to a file", on && off && onlyFav.Count == 2, onlyFav.Count + " favourites");
-            Check("searching finds styles by name, subgenre and description", VocalStyles.Find("drill", "", false).Count >= 4 && VocalStyles.Find("", "Cloud & Lo-Fi", false).Count == 3 && VocalStyles.Find("phone", "", false).Count >= 1 && VocalStyles.Find("zzzz", "", false).Count == 0, "drill " + VocalStyles.Find("drill", "", false).Count);
+            Check("searching finds styles by name, subgenre and description", VocalStyles.Find("drill", "", false).Count >= 4 && VocalStyles.Find("", "Cloud & Lo-Fi", false).Count >= 3 && VocalStyles.Find("phone", "", false).Count >= 1 && VocalStyles.Find("zzzz", "", false).Count == 0, "drill " + VocalStyles.Find("drill", "", false).Count);
             try { System.IO.File.Delete(tmpFav); } catch { } VocalStyles.FavFile = null;
         }
 

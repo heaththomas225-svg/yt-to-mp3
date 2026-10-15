@@ -548,20 +548,28 @@ Press Automation on to switch the lane off, and the plugin goes back to the valu
 - While a lane is on, the setting follows it: moving the slider by hand will be overridden. Switch the lane off to play with the slider.
 - Before the first point and after the last point the setting holds that point's value.
 "),
-        new HelpTopic("studio-styles", "Purphex Music", "Rapper Vocal Styles: ready-made rap vocal chains", false, @"
+        new HelpTopic("studio-styles", "Purphex Music", "VOCAL PRESETS and the AI PRESET GENERATOR", false, @"
 ## What it is
-Rapper Vocal Styles is a searchable list of 36 original plugin chains for rap vocals, grouped by subgenre: Trap, Melodic Trap, Drill, Boom Bap, Old School, Grime and UK, Cloud and Lo-Fi, Rage and Hyper, Pop Rap, Phonk and Storytelling. Each one is made from this app's own plugins (tuning, EQ, compression, de-essing, saturation, echo, reverb) with settings chosen for that sound. No artist's settings are copied.
+VOCAL PRESETS (it used to be called Rapper Vocal Styles) is a searchable library of more than 1,400 ready-made vocal chains built from this app's plugins: trap, melodic trap, drill, UK rap, grime, boom bap, old school, R&B, singing, pop rap, rage, emo and rock rap, afro and dancehall, cloud and lo-fi, phonk, storytelling, ULTIMATE all-in-one chains and ad-libs and FX.
+Over a hundred are inspired by the sound of a well-known artist, with the artist in brackets, for example Emo Melodic Sing (Juice WRLD style), Rapid Fire (Eminem style), Smooth OVO (Drake style) or Scouse Road Rap (Mazza style). They are sound design inspired by how that artist's vocals sound, not their engineers' real settings (nobody outside their studio knows those).
+Every sound comes in ten versions, one for each job on a track: Lead, Ad-Libs, Doubles, Hook, Dry Verse, Spacey, Dark, Bright, Radio and Stutter.
 ## Opening it
-Select the vocal track, then press Presets... at the top of the plugin panel (right side) and choose Rapper Vocal Styles, or use the side menu: Tools > Rapper Vocal Styles.
+Select the vocal track, then press PRESETS... at the top of the plugin panel (right side) and choose Vocal Presets, or use the side menu: Tools > Vocal Presets.
 ## Using it
-- Type to search by name, subgenre or description (for example drill, dark, warm, echo).
-- Press a subgenre button to show only that kind, or Favourites to see the ones you starred.
-- Press Use to put the style on the selected track. It replaces the plugins that are on the track, and Ctrl+Z puts them back.
-- Press the star to keep a style as a favourite.
-- Every plugin stays fully editable afterwards, and Ctrl+Z undoes the change.
+- Type to search: an artist (Drake, Juice WRLD, Central Cee), a genre, or a word like dark, warm or echo.
+- Press a genre button, Artists (every artist preset) or Favourites; the PART row shows only the leads, the ad-libs, the doubles and so on.
+- Press Use to put the preset on the selected track. Ctrl+Z puts everything back.
+- A preset marked +BUS also brings a vocal bus (glue compression and space). The first time it is made and the track goes into it; route your ad-libs and doubles into the same bus so they all sit together.
+- Press the star to keep a preset as a favourite.
+## AI PRESET GENERATOR
+Press AI PRESET GENERATOR at the top of VOCAL PRESETS and describe the sound in your own words, for example: Juice WRLD with a stutter delay and lots of reverb, or dark drill vocal, dry, bit of distortion.
+- It picks the artist or genre you named as the starting sound, then adds or takes away what you asked for: stutter, delay (1/4, 1/8, dotted, triplet, ping pong), slapback, reverb, dry, dark, bright, autotune or natural, distortion, telephone, radio, megaphone, lo-fi, deep or baby voice, wide, harmony, octave, doubled, loud, soft, breathy, whisper, robot, 8D, tape stop.
+- Words like a bit or lots change how strong each effect is.
+- It shows what it understood before you use it. USE puts it on the selected track; SAVE AS MY PRESET keeps it in PRESETS... (and shares it in Community presets).
+- It works inside the app, with no internet needed.
 ## Tips
-- Use Split vocals + beat first so the style is applied to a clean vocal.
-- Start with the style closest to the song, then adjust the tuning key and the echo level.
+- Use Split vocals + beat first so the preset is applied to a clean vocal.
+- After a preset with tuning, set the key of the song in the pitch plugin (or press its AUTO DETECT).
 "),
         new HelpTopic("studio-worldecho", "Purphex Music", "Worldwide Echo: throw your voice around the world", false, @"
 ## What it is

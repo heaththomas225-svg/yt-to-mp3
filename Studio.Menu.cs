@@ -75,7 +75,7 @@ partial class StudioForm
                 break;
             case 2:   // Tools: they all work on the tracks, so they take you to the Mix page
                 I("Auto Mix", () => { GoMixClose(); AutoMixClick(); }); I("Split vocals + beat", () => { GoMixClose(); SeparateClick(); }); I("Detect BPM", () => { GoMixClose(); DetectBpmClick(); });
-                I("Flex Pitch (edit notes)", () => { GoMixClose(); FlexOpen(); }); I("Sounds and sound packs", () => { GoMixClose(); OpenSounds(); }); I("Rapper Vocal Styles", () => { GoMixClose(); OpenStyles(); });
+                I("Flex Pitch (edit notes)", () => { GoMixClose(); FlexOpen(); }); I("Sounds and sound packs", () => { GoMixClose(); OpenSounds(); }); I("Vocal Presets", () => { GoMixClose(); OpenStyles(); });
                 I("Add a track...", () => { GoMixClose(); ShowAddTrackMenuMain(); });
                 I("Metronome on / off", () => { GoMixClose(); eng.Metronome = !eng.Metronome; }); I(snapOn ? "Snap to grid: ON" : "Snap to grid: OFF", () => { GoMixClose(); snapOn = !snapOn; Toast(snapOn ? "Snap to the grid is on." : "Snap to the grid is off."); });
                 break;

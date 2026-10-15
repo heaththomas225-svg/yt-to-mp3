@@ -6,14 +6,20 @@ using System.IO;
 using System.Windows.Forms;
 
 // ======================================================================
-//  Rapper Vocal Styles: ready-made plugin chains for rap vocals, grouped by subgenre.
+//  VOCAL PRESETS (was Rapper Vocal Styles): ready-made plugin chains for vocals, grouped by subgenre, with versions for each job (lead, ad-libs, doubles, hook...).
+//  The big library (artist-inspired chains and more) is in Studio.Styles2.cs; the AI PRESET GENERATOR (Studio.AiPreset.cs) builds a chain from your own words.
 //  Every style is original sound design made from the plugins in this app (no artist's settings are copied).
 //  A chain is written  stage > stage > stage ; a stage is  type{id=value;id=value}  or  @Plugin name{id=value}  for a named library plugin.
 // ======================================================================
-static class VocalStyles
+static partial class VocalStyles
 {
-    public class Style { public string Name, Genre, Blurb, Chain; }
-    public static readonly string[] Genres = { "Trap", "Melodic Trap", "Drill", "Boom Bap", "Old School", "Grime & UK", "Cloud & Lo-Fi", "Rage & Hyper", "Pop Rap", "Phonk", "Storytelling" };
+    // Part: the job the preset is made for (Lead, Ad-Libs, Doubles, Hook...); BusName / BusChain: a vocal bus it brings along (made once, shared by every preset that names it)
+    public class Style { public string Name, Genre, Blurb, Chain, BusName, BusChain, Part = "Lead"; }
+    public static readonly string[] Genres = { "Ultimate", "Trap", "Melodic Trap", "Drill", "UK Rap", "Grime & UK", "Boom Bap", "Old School", "R&B", "Singing", "Pop Rap", "Rage & Hyper", "Emo & Rock Rap", "Afro & Dancehall", "Cloud & Lo-Fi", "Phonk", "Storytelling", "Ad-libs & FX" };
+    public static readonly string[] Parts = { "Lead", "Ad-Libs", "Doubles", "Hook", "Dry Verse", "Spacey", "Dark", "Bright", "Radio", "Stutter" };
+    static void B(string genre, string name, string blurb, string chain, string busName, string busChain, string part) { All.Add(new Style { Genre = genre, Name = name, Blurb = blurb, Chain = chain, BusName = busName, BusChain = busChain, Part = part ?? "Lead" }); }
+    // the artist a preset is inspired by: "Name (Artist style)" or "Name (Artist style) - Part" gives "Artist" ("" for the others)
+    public static string ArtistOf(Style s) { int b = s.Name.IndexOf(" style)", StringComparison.Ordinal); if (b < 0) return ""; int a = s.Name.LastIndexOf('(', b); return a < 0 ? "" : s.Name.Substring(a + 1, b - a - 1); }
     public static readonly List<Style> All = new List<Style>();
     static void S(string genre, string name, string blurb, string chain) { All.Add(new Style { Genre = genre, Name = name, Blurb = blurb, Chain = chain }); }
 
@@ -71,13 +77,15 @@ static class VocalStyles
         S("Storytelling", "Intimate Confession", "Soft and close with tube warmth and a small, quiet room: made for low, personal verses.", "eq{hp_on=1;hp_f=85;hp_s=1;b0_f=140;b0_g=2.5;b4_f=6500;b4_g=-1.5;lp_on=1;lp_f=14000} > comp{thr=-24;ratio=3;att=18;rel=150;knee=10;makeup=4} > sat{mode=1;drive=6;mix=50} > reverb{size=30;damp=60;pre=12;mix=10}");
         S("Storytelling", "Spoken Word Clear", "Very clear, un-coloured speech: gentle compression, strong de-essing.", ClearEq + " > comp{thr=-23;ratio=2.5;att=15;rel=140;knee=8;makeup=3} > deess{freq=7000;thr=-30;range=10}");
         S("Storytelling", "Slow Burn", "A reflective, spacious vocal with a long reverb and a slow quarter-note echo.", WarmEq + " > comp{thr=-22;ratio=3;att=15;rel=140;knee=8;makeup=3} > delay{mode=0;sync=4;fb=30;hc=4000;mix=16} > reverb{size=75;damp=45;pre=30;mix=22}");
+        AddLibrary();   // the big library (Studio.Styles2.cs)
     }
 
     // build the plugins of a style (null entries are left out: a plugin that is not installed never breaks the style)
-    public static List<Fx> Build(Style s)
+    public static List<Fx> Build(Style s) { return BuildChain(s.Chain); }
+    public static List<Fx> BuildChain(string chainText)
     {
-        var l = new List<Fx>();
-        foreach (var part in s.Chain.Split(new[] { " > " }, StringSplitOptions.RemoveEmptyEntries))
+        var l = new List<Fx>(); if (string.IsNullOrEmpty(chainText)) return l;
+        foreach (var part in chainText.Split(new[] { " > " }, StringSplitOptions.RemoveEmptyEntries))
         {
             string st = part.Trim(), type = st, data = ""; int b = st.IndexOf('{'); if (b >= 0) { type = st.Substring(0, b).Trim(); int e = st.LastIndexOf('}'); data = st.Substring(b + 1, (e > b ? e : st.Length) - b - 1); }
             if (type.StartsWith("@")) type = PluginLibrary.IdFor(type.Substring(1));
@@ -86,10 +94,11 @@ static class VocalStyles
         return l;
     }
     // every id used in a stage must really exist on that plugin (a typo would otherwise do nothing, silently): returns the problems found
-    public static List<string> Check(Style s)
+    public static List<string> Check(Style s) { var bad = CheckChain(s.Name, s.Chain); if (!string.IsNullOrEmpty(s.BusChain)) bad.AddRange(CheckChain(s.Name + " bus", s.BusChain)); return bad; }
+    public static List<string> CheckChain(string label, string chainText)
     {
-        var bad = new List<string>();
-        foreach (var part in s.Chain.Split(new[] { " > " }, StringSplitOptions.RemoveEmptyEntries))
+        var bad = new List<string>(); var s = new Style { Name = label };
+        foreach (var part in chainText.Split(new[] { " > " }, StringSplitOptions.RemoveEmptyEntries))
         {
             string st = part.Trim(), type = st, data = ""; int b = st.IndexOf('{'); if (b >= 0) { type = st.Substring(0, b).Trim(); int e = st.LastIndexOf('}'); data = st.Substring(b + 1, (e > b ? e : st.Length) - b - 1); }
             if (type.StartsWith("@")) type = PluginLibrary.IdFor(type.Substring(1));
@@ -118,12 +127,14 @@ static class VocalStyles
     }
 
     // the styles that match a search, a subgenre ("" = all) and the favourites filter
-    public static List<Style> Find(string query, string genre, bool onlyFav)
+    public static List<Style> Find(string query, string genre, bool onlyFav) { return Find(query, genre, onlyFav, ""); }
+    public static List<Style> Find(string query, string genre, bool onlyFav, string part)
     {
         var res = new List<Style>(); string q = (query ?? "").ToLowerInvariant().Trim();
         foreach (var s in All)
         {
-            if (genre.Length > 0 && s.Genre != genre) continue; if (onlyFav && !IsFav(s.Name)) continue;
+            if (genre == "Artists") { if (ArtistOf(s).Length == 0) continue; } else if (genre.Length > 0 && s.Genre != genre) continue;
+            if (!string.IsNullOrEmpty(part) && s.Part != part) continue; if (onlyFav && !IsFav(s.Name)) continue;
             if (q.Length > 0 && s.Name.ToLowerInvariant().IndexOf(q, StringComparison.Ordinal) < 0 && s.Genre.ToLowerInvariant().IndexOf(q, StringComparison.Ordinal) < 0 && s.Blurb.ToLowerInvariant().IndexOf(q, StringComparison.Ordinal) < 0) continue;
             res.Add(s);
         }
@@ -134,9 +145,9 @@ static class VocalStyles
 // the sheet that shows them
 partial class StudioForm
 {
-    bool stylesOpen; string stylesQuery = "", stylesGenre = ""; bool stylesFav; float stylesScroll;
+    bool stylesOpen; string stylesQuery = "", stylesGenre = "", stylesPart = ""; bool stylesFav; float stylesScroll;
 
-    void OpenStyles() { stylesOpen = true; stylesQuery = ""; stylesGenre = ""; stylesFav = false; stylesScroll = 0; ntOpen = false; busOpen = false; browserOpen = false; }
+    void OpenStyles() { stylesOpen = true; stylesQuery = ""; stylesGenre = ""; stylesPart = ""; stylesFav = false; stylesScroll = 0; ntOpen = false; busOpen = false; browserOpen = false; }
 
     void ApplyStyle(VocalStyles.Style s, bool replace)
     {
@@ -145,45 +156,60 @@ partial class StudioForm
         var chain = VocalStyles.Build(s); if (chain.Count == 0) { Toast("That style could not be built."); return; }
         var snapS = TakeSnapshot(); PushUndo();
         PutPreset(tr, s.Name, chain);   // every use of a style is a preset of its own: nothing that is on the track is taken away
+        string busNote = "";
+        if (!string.IsNullOrEmpty(s.BusName) && !tr.IsBus)
+        {   // the vocal bus: the one with this name if it is already in the project (shared by your other vocals), otherwise made now with its chain
+            var row = tr.Host ?? tr; Track bus = eng.Tracks.Find(x => x.IsBus && x.Name == s.BusName);
+            if (bus == null) { int keep = selTrack; bus = StudioEngine.NewTrack(s.BusName, "bus", null); bus.IsBus = true; bus.Color = unchecked((int)0xFFFFD04D); var bfx = VocalStyles.BuildChain(s.BusChain); lock (eng.Sync) bus.Fx.AddRange(bfx); nextInsert = -1; AddTrack(bus); selTrack = Math.Max(0, Math.Min(eng.Tracks.Count - 1, keep)); busNote = " " + s.BusName + " was made and the track goes into it (route your ad-libs and doubles into it too)."; }
+            else busNote = " The track goes into " + s.BusName + ", with your other vocals.";
+            row.Out = bus;
+        }
         OfferRevert(s.Name + " on " + tr.Name, () => Restore(snapS));
-        selFx = -1; stylesOpen = false; Toast(s.Name + (replace ? " applied to " : " added to ") + tr.Name + ". Every plugin is editable (Ctrl+Z undoes it).");
+        selFx = -1; stylesOpen = false; Toast(s.Name + (replace ? " applied to " : " added to ") + tr.Name + "." + busNote + " Every plugin is editable (Ctrl+Z undoes it).");
     }
 
     void PaintStylesSheet(Graphics g)
     {
         if (!stylesOpen) return; float W = ClientSize.Width, H = ClientSize.Height; var all = Rc(0, 0, W, H);
         Reg(all, () => stylesOpen = false);
-        float sw = Math.Min(760, W - 24), sh = Math.Min(H - 30, 700); var sheet = PopMove("styles", Rc((W - sw) / 2, (H - sh) / 2, sw, sh), 54, 70);
+        float sw = Math.Min(900, W - 24), sh = Math.Min(H - 30, 780); var sheet = PopMove("styles", Rc((W - sw) / 2, (H - sh) / 2, sw, sh), 54, 70);
         FillRR(g, TM.C(252, 16, 10, 34), sheet, 22); Glow(g, NeonViolet, sheet, 22, 0.8f, 4); StrokeRR(g, Color.FromArgb(180, NeonViolet), sheet, 22, 1.5f); Reg(sheet, () => { });
-        Txt(g, "RAPPER VOCAL STYLES", 22, Ink, Rc(sheet.X + 22, sheet.Y + 14, 360, 34), StringAlignment.Near, true);
+        Txt(g, "VOCAL PRESETS", 22, Ink, Rc(sheet.X + 22, sheet.Y + 14, 240, 34), StringAlignment.Near, true);
+        { var aib = Rc(sheet.Right - 52 - 12 - 220, sheet.Y + 14, 220, 32); Btn(g, aib, "AI PRESET GENERATOR", 2, () => OpenAiPreset(), 12); Hint2(aib, "Describe the sound in your own words (an artist, a genre, effects like a stutter echo or lots of reverb) and get the plugins"); }
         string tn = eng.Tracks.Count > 0 ? eng.Tracks[Math.Max(0, Math.Min(selTrack, eng.Tracks.Count - 1))].Name : "(no track)";
-        Txt(g, "Original sound designs for rap vocals, built from this app's plugins. Choose one for: " + tn, 12, DimC, Rc(sheet.X + 22, sheet.Y + 48, sheet.Width - 44, 20), StringAlignment.Near, false);
+        Txt(g, VocalStyles.All.Count + " presets built from this app's plugins (artist ones are inspired by their sound). For: " + tn, 12, DimC, Rc(sheet.X + 22, sheet.Y + 48, sheet.Width - 44, 20), StringAlignment.Near, false);
         var close = Rc(sheet.Right - 52, sheet.Y + 14, 32, 32); FillRR(g, Hot(close) ? TM.C(160, 70, 38, 130) : TM.C(110, 40, 24, 80), close, 16); Txt(g, "X", 15, Ink, close, StringAlignment.Center, true); Reg(close, () => stylesOpen = false);
         var sb = Rc(sheet.X + 22, sheet.Y + 76, sheet.Width - 44, 34); FillRR(g, TM.C(235, 14, 7, 32), sb, 8); StrokeRR(g, Accent, sb, 8, 1.6f); Reg(sb, () => { });
         if (stylesQuery.Length > 0) Btn(g, Rc(sb.Right - 30, sb.Y + 5, 24, 24), "x", 3, () => { stylesQuery = ""; stylesScroll = 0; }, 12);
-        Txt(g, stylesQuery.Length == 0 ? (((int)(t * 2) % 2 == 0 ? "|" : " ") + "  Search styles: trap, drill, dark, warm, echo...") : stylesQuery + ((int)(t * 2) % 2 == 0 ? "|" : ""), 14, stylesQuery.Length == 0 ? DimC : Ink, Rc(sb.X + 12, sb.Y, sb.Width - 50, sb.Height), StringAlignment.Near, false);
+        Txt(g, stylesQuery.Length == 0 ? (((int)(t * 2) % 2 == 0 ? "|" : " ") + "  Search: an artist (Drake, Juice WRLD, Central Cee...), trap, drill, R&B, dark, echo...") : stylesQuery + ((int)(t * 2) % 2 == 0 ? "|" : ""), 14, stylesQuery.Length == 0 ? DimC : Ink, Rc(sb.X + 12, sb.Y, sb.Width - 50, sb.Height), StringAlignment.Near, false);
         // the subgenre chips (they wrap onto more lines when the sheet is narrow)
         float cx = sheet.X + 22, cy = sheet.Y + 120; const float chH = 28;
         Action<string, bool, Action> chip = (label, on, act) => { float cw = 22 + label.Length * 7.4f; if (cx + cw > sheet.Right - 22) { cx = sheet.X + 22; cy += chH + 6; } Chip(g, Rc(cx, cy, cw, chH), label, on, act); cx += cw + 6; };
         chip("All", stylesGenre.Length == 0 && !stylesFav, () => { stylesGenre = ""; stylesFav = false; stylesScroll = 0; });
         chip("★ Favourites", stylesFav, () => { stylesFav = !stylesFav; stylesGenre = ""; stylesScroll = 0; });
+        chip("Artists", stylesGenre == "Artists", () => { stylesGenre = stylesGenre == "Artists" ? "" : "Artists"; stylesFav = false; stylesScroll = 0; });
         foreach (var gn in VocalStyles.Genres) { string gg = gn; chip(gn, stylesGenre == gn, () => { stylesGenre = stylesGenre == gg ? "" : gg; stylesFav = false; stylesScroll = 0; }); }
-        float top = cy + chH + 12, bottom = sheet.Bottom - 40; var list = VocalStyles.Find(stylesQuery, stylesGenre, stylesFav);
+        // the job: lead, ad-libs, doubles, hook... (every sound comes in each of them)
+        cx = sheet.X + 22; cy += chH + 8; Txt(g, "PART", 10, DimC, Rc(cx, cy, 40, chH), StringAlignment.Near, true); cx += 44;
+        chip("Any", stylesPart.Length == 0, () => { stylesPart = ""; stylesScroll = 0; });
+        foreach (var pn in VocalStyles.Parts) { string pp = pn; chip(pn, stylesPart == pn, () => { stylesPart = stylesPart == pp ? "" : pp; stylesScroll = 0; }); }
+        float top = cy + chH + 12, bottom = sheet.Bottom - 40; var list = VocalStyles.Find(stylesQuery, stylesGenre, stylesFav, stylesPart);
         const float rowH = 70; float areaH = bottom - top; var area = Rc(sheet.X, top, sheet.Width, areaH); float total = list.Count * rowH; stylesScroll = Math.Max(0, Math.Min(Math.Max(0, total - areaH), stylesScroll)); float vsw = total > areaH ? 56 : 0;
         regs.Add(new HitReg { R = area, OnWheel = d => stylesScroll = Math.Max(0, Math.Min(Math.Max(0, total - areaH), stylesScroll - d * 60)) });
         g.SetClip(area);
-        if (list.Count == 0) Txt(g, stylesFav ? "No favourites yet. Press the star on a style to keep it here." : "No style matches that.", 14, DimC, Rc(sheet.X + 22, top + 10, sheet.Width - 44, 26), StringAlignment.Near, false);
+        if (list.Count == 0) Txt(g, stylesFav ? "No favourites yet. Press the star on a preset to keep it here." : "No preset matches that. Try the AI PRESET GENERATOR: describe it in your own words.", 14, DimC, Rc(sheet.X + 22, top + 10, sheet.Width - 44, 26), StringAlignment.Near, false);
         for (int i = 0; i < list.Count; i++)
         {
             var s = list[i]; var row = Rc(sheet.X + 14, top + i * rowH - stylesScroll, sheet.Width - 28 - vsw, rowH - 6); if (row.Bottom < top || row.Y > bottom) continue;
             bool hot = Hot(RectangleF.Intersect(row, area)) && area.Contains(MousePos); FillRR(g, hot ? TM.C(200, 60, 34, 112) : TM.C(150, 26, 15, 52), row, 12); StrokeRR(g, Color.FromArgb(hot ? 160 : 80, NeonViolet), row, 12, 1);
             bool fv = VocalStyles.IsFav(s.Name); var star = Rc(row.X + 8, row.Y + 8, 30, 30); Txt(g, fv ? "★" : "☆", 20, fv ? Color.FromArgb(255, 210, 80) : DimC, star, StringAlignment.Center, false); string sn = s.Name; Reg(star, () => VocalStyles.ToggleFav(sn));
             float nameW = g.MeasureString(s.Name, GfxCache.Font(16, true)).Width; Txt(g, s.Name, 16, Ink, Rc(row.X + 44, row.Y + 6, nameW + 12, 26), StringAlignment.Near, true);
-            var tag = Rc(row.X + 44 + nameW + 10, row.Y + 10, 14 + s.Genre.Length * 6.6f, 18); FillRR(g, Color.FromArgb(70, NeonViolet), tag, 5); Txt(g, s.Genre, 10, Ink, tag, StringAlignment.Center, false);
-            using (var wf = new StringFormat { Trimming = StringTrimming.EllipsisWord }) using (var wb = new SolidBrush(DimC)) g.DrawString(s.Blurb, GfxCache.Font(11, false), wb, Rc(row.X + 46, row.Y + 33, row.Width - 46 - 134, 32), wf);
+            var tag = Rc(row.X + 44 + nameW + 10, row.Y + 10, 14 + s.Genre.Length * 6.6f, 18); if (tag.Right < row.Right - 130) { FillRR(g, Color.FromArgb(70, NeonViolet), tag, 5); Txt(g, s.Genre, 10, Ink, tag, StringAlignment.Center, false); }
+            if (!string.IsNullOrEmpty(s.BusName)) { var bt = Rc(tag.Right + 6, row.Y + 10, 40, 18); if (bt.Right < row.Right - 130) { FillRR(g, Color.FromArgb(200, 255, 208, 77), bt, 5); Txt(g, "+BUS", 9.5f, Color.Black, bt, StringAlignment.Center, true); Hint2(bt, "Comes with " + s.BusName + ": glue and space shared by every vocal you route into it"); } }
+            using (var wf = new StringFormat { Trimming = StringTrimming.EllipsisWord, FormatFlags = StringFormatFlags.LineLimit }) using (var wb = new SolidBrush(DimC)) g.DrawString(s.Blurb, GfxCache.Font(11, false), wb, Rc(row.X + 46, row.Y + 33, row.Width - 46 - 134, 32), wf);
             var st = s; Btn(g, Rc(row.Right - 112, row.Y + 14, 96, 34), "Use", 1, () => ApplyStyle(st, true), 14);
         }
         g.ResetClip(); VScroll(g, Rc(sheet.Right - 56, top, 42, areaH), total, areaH, () => stylesScroll, v => stylesScroll = v);
-        Txt(g, "Use puts the style on the selected track and replaces its plugins (Ctrl+Z undoes it).  " + list.Count + " style" + (list.Count == 1 ? "" : "s") + ".   Esc closes.", 11, DimC, Rc(sheet.X + 22, sheet.Bottom - 30, sheet.Width - 44, 20), StringAlignment.Near, false);
+        Txt(g, "Use puts the preset on the selected track (and its vocal bus, if it has one). Ctrl+Z undoes it.  " + list.Count + " preset" + (list.Count == 1 ? "" : "s") + ".   Esc closes.", 11, DimC, Rc(sheet.X + 22, sheet.Bottom - 30, sheet.Width - 44, 20), StringAlignment.Near, false);
     }
 }
