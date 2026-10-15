@@ -1,4 +1,4 @@
-3.40.3
+3.40.4
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Lock many sections at once
-sha256=6ce1a1dabc741f61b4f924e8b1d070cf28b956f3d49d562895f11958fb0cfdb2
+Streaming links get the right song
+sha256=274e8cebf8932027cce59cd3cdfb42e0422e7b5133516ecee096d80c305e832b

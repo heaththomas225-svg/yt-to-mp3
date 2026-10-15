@@ -37,7 +37,7 @@ class Job
 partial class App : Form
 {
     // ---- Auto-update settings ----
-    const string Version = "3.40.3";
+    const string Version = "3.40.4";
     // Plain-text manifest: line 1 = newest version, line 2 = direct exe download URL.
     const string UpdateManifestUrl = "https://raw.githubusercontent.com/heaththomas225-svg/yt-to-mp3/main/version.txt";
 
@@ -151,7 +151,7 @@ partial class App : Form
         Func<Control, Func<Rectangle>> R = c => (() => new Rectangle(c.Left, c.Top, c.Width, c.Height)); var s = new List<TourStep>();
         if (id.StartsWith("target:")) { if (OpenStudio()) studioForm.ShowOnScreen(id.Substring(7)); return; }
         if (id.StartsWith("studio") || id == "daw" || id == "makesong" || id == "typing") { if (OpenStudio()) studioForm.RunGuide(id); return; }
-        if (id == "start") { s.Add(new TourStep(R(links), "1. Paste a link", "Paste one or more links here (YouTube, Spotify songs, albums, playlists and artists, and 1000+ other video and music sites), or type words to search.")); s.Add(new TourStep(R(fmt), "2. Pick a format", "MP3 320 kbps is the best all-round choice.")); s.Add(new TourStep(R(go), "3. Press Convert", "Your file is saved in the Save to folder, which opens when it is done.")); }
+        if (id == "start") { s.Add(new TourStep(R(links), "1. Paste a link", "Paste one or more links here (YouTube, Spotify, Apple Music, Deezer, SoundCloud and 1000+ other video and music sites), or type words to search.")); s.Add(new TourStep(R(fmt), "2. Pick a format", "MP3 320 kbps is the best all-round choice.")); s.Add(new TourStep(R(go), "3. Press Convert", "Your file is saved in the Save to folder, which opens when it is done.")); }
         else if (id == "normalize") { s.Add(new TourStep(R(norm), "Normalize loudness", "Tick this to bring downloads to a standard -14 LUFS loudness.")); s.Add(new TourStep(R(prevNormBtn), "Hear it first", "Press Hear to listen to a 30 second sample, original versus normalized, before you convert.")); }
         else if (id == "vocal") { s.Add(new TourStep(R(vocalBtn), "Vocal remover", "Click this, then choose Remove vocals from a song, or Preview to hear a 30 second sample first.")); s.Add(new TourStep(R(outDir), "Where files go", "The instrumental and the vocals-only file are saved in this folder.")); }
         else if (id == "masterassistant") { s.Add(new TourStep(R(addMusicBtn), "Purphex Mastering", "Press ADD MUSIC, then Edit in Purphex Music. The Mastering tab there has the live EQ, loudness and width.")); }
@@ -867,15 +867,15 @@ partial class App : Form
 
         int ok = 0, fail = 0; var keptTmp = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         // a Spotify link (its audio is locked) becomes its songs: each one is found on YouTube by its artist and title and converted
-        var items = new List<string>(); var fromLink = new Dictionary<int, string>(); var searchOf = new Dictionary<int, string>();
+        var items = new List<string>(); var fromLink = new Dictionary<int, string>(); var songOf = new Dictionary<int, SpotifyLinks.Song>();
         foreach (var it0 in job.Items)
         {
             if (!SpotifyLinks.Is(it0)) { items.Add(it0); continue; }
-            Log("Spotify link: reading its songs (Spotify's own audio is locked, so each song is found on YouTube by its artist and title)...");
+            string svc = SpotifyLinks.ServiceOf(it0); Log(svc + " link: reading its songs (" + svc + "'s own audio is locked, so each song is found on YouTube: the same title, artist and length)...");
             string serr; var songs = SpotifyLinks.Resolve(it0, out serr);
-            if (songs.Count == 0) { fail++; Log("Spotify: " + serr); continue; }
-            Log("Spotify: " + songs.Count + (songs.Count == 1 ? " song" : " songs") + " found.");
-            foreach (var sg in songs) { fromLink[items.Count] = it0; searchOf[items.Count] = sg.Value; items.Add(sg.Key); }
+            if (songs.Count == 0) { fail++; Log(svc + ": " + serr); continue; }
+            Log(svc + ": " + songs.Count + (songs.Count == 1 ? " song" : " songs") + " found.");
+            foreach (var sg in songs) { fromLink[items.Count] = it0; songOf[items.Count] = sg; items.Add(sg.Key); }
         }
         itemTotal = items.Count;
         for (int i = 0; i < items.Count; i++)
@@ -884,7 +884,13 @@ partial class App : Form
             itemIdx = i;
             string link = items[i], boxLink = fromLink.ContainsKey(i) ? fromLink[i] : link;   // (a song from a Spotify link: the Spotify link is what leaves the box)
             // plain text -> YouTube search, top result; a " would close the quoted argument (the rest of the line became extra yt-dlp options, even --exec), and trailing backslashes would escape the closing quote
-            string target = (searchOf.ContainsKey(i) ? searchOf[i] : NormalizeTarget(link)).Replace("\"", "").TrimEnd('\\');
+            string target = NormalizeTarget(link).Replace("\"", "").TrimEnd('\\');
+            if (songOf.ContainsKey(i))
+            {   // a song from a Spotify link: only the YouTube video that really is this song (same title, artist and length) is converted, never just the first search result
+                status = "Item " + (i + 1) + " of " + itemTotal + ": looking for " + link + " on YouTube..."; string why, found; string url = SpotifyLinks.FindOnYouTube(YtDlp, songOf[i], out why, out found);
+                if (url == null) { fail++; Log("--- " + (i + 1) + "/" + itemTotal + ": " + link); Log("Skipped: " + why + " (that service's own audio cannot be downloaded, and YouTube does not seem to have this song.)"); continue; }
+                Log("Found on YouTube: " + found); target = url;
+            }
             bool bl = IsBandlab(target), coll = bl && BandlabCollection(target);
 
             status = "Item " + (i + 1) + " of " + itemTotal + ": " + (link.Length > 60 ? link.Substring(0, 60) + "..." : link);

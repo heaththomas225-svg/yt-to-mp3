@@ -49,6 +49,20 @@ static class NF
             Check("a Spotify album or playlist becomes every one of its songs, in order", al.Count == 2 && al[0].Key == "Ana Bee - One" && al[1].Key == "Ana Bee, Cy Dee - Two", al.Count.ToString());
             SpotifyLinks.FetchHook = u => "<html>nothing</html>"; var none = SpotifyLinks.Resolve("https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M", out se); Check("a Spotify page with no song list says so (nothing is converted)", none.Count == 0 && se != null && se.Length > 10, se ?? "");
             SpotifyLinks.FetchHook = null;
+            {   // finding the RIGHT song on YouTube: same title, the artist in the title or channel, the same length; covers, slowed versions and other songs are passed over
+                var song = new SpotifyLinks.Song { Key = "aheath - WANTED", Artist = "aheath", Title = "WANTED", Secs = 158 }; string why;
+                var res = new List<string[]> { new[] { "aaaaaaaa1", "212", "Some Channel", "Random Hit Song (Official Video)" }, new[] { "aaaaaaaa2", "158", "Covers R Us", "aheath - WANTED (cover)" }, new[] { "aaaaaaaa3", "160", "aheath - Topic", "WANTED" }, new[] { "aaaaaaaa4", "120", "aheath", "aheath - WANTED (slowed + reverb)" } };
+                var pk = SpotifyLinks.Pick(song, res, out why); Check("a Spotify song picks the YouTube video that really is it (title, artist, length), not a cover, a slowed version or a random song", pk != null && pk[0] == "aaaaaaaa3", pk == null ? why : pk[1]);
+                var noPick = SpotifyLinks.Pick(song, new List<string[]> { new[] { "bbbbbbbb1", "200", "Pop Hits", "Another Song - Someone Else" }, new[] { "bbbbbbbb2", "158", "x", "Wanted Dead Or Alive - Bon Jovi" } }, out why);
+                Check("when YouTube does not have the song, nothing is converted (no random song) and it says why", noPick == null && why != null && why.Contains("not found"), why ?? "");
+                SpotifyLinks.SearchHook = q => "PXR|cccccccc1|158|aheath - Topic|WANTED\nPXR|cccccccc2|158|x|Totally Different"; string w2, found; var url = SpotifyLinks.FindOnYouTube("yt-dlp", song, out w2, out found); SpotifyLinks.SearchHook = null;
+                Check("the converter gets the address of that very video", url == "https://www.youtube.com/watch?v=cccccccc1" && found == "WANTED", url ?? w2);
+                SpotifyLinks.FetchHook = u => u.Contains("itunes.apple.com") ? "{\"resultCount\":2,\"results\":[{\"wrapperType\":\"collection\",\"collectionName\":\"Album\"},{\"wrapperType\":\"track\",\"trackName\":\"Lost\",\"artistName\":\"aheath\",\"trackTimeMillis\":143500}]}"
+                    : "{\"data\":[{\"title\":\"Drunk\",\"duration\":140,\"artist\":{\"name\":\"aheath\"}},{\"title\":\"Wanted\",\"duration\":158,\"artist\":{\"name\":\"aheath\"}}]}";
+                string ae; var ap = SpotifyLinks.Resolve("https://music.apple.com/gb/album/lost/123456789?i=987654321", out ae); var dz = SpotifyLinks.Resolve("https://www.deezer.com/en/album/302127", out ae); SpotifyLinks.FetchHook = null;
+                Check("Apple Music and Deezer links are read the same way (the song, its artist and its length) and found on YouTube", ap.Count == 1 && ap[0].Key == "aheath - Lost" && ap[0].Secs == 144 && dz.Count == 2 && dz[1].Key == "aheath - Wanted" && dz[1].Secs == 158 && SpotifyLinks.ServiceOf("https://music.apple.com/gb/song/x/1") == "Apple Music" && SpotifyLinks.ServiceOf("https://deezer.page.link/abc") == "Deezer" && !SpotifyLinks.Is("https://www.youtube.com/watch?v=abc") && !SpotifyLinks.Is("https://soundcloud.com/a/b"), ap.Count + " / " + dz.Count);
+                Check("short Spotify share links (spotify.link) are recognised too", SpotifyLinks.Is("https://spotify.link/AbCdEf123") && SpotifyLinks.Is("spotify.app.link/xyz9"));
+            }
         }
         // ---- the emoji panel ----
         Check("there are hundreds of emojis in a dozen groups", EmojiPanel.Count >= 450 && EmojiPanel.GroupNames.Length >= 11, EmojiPanel.Count + " in " + EmojiPanel.GroupNames.Length);

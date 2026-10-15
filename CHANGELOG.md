@@ -2,6 +2,12 @@
 
 What changed in each version of **Purphex**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.40.4  Streaming links get the right song
+
+- NEW: Apple Music and Deezer links work in the converter too (songs, albums, Deezer playlists, artists' top songs), with the same strict matching on YouTube. YouTube, YouTube Music, SoundCloud, Bandcamp and the other 1000+ supported sites convert the exact song you linked, as before.
+
+- FIXED: a Spotify link could convert a random song: the converter took YouTube's first search result. It now looks at the first 10 results and only converts the one that really is the song: the same title, the artist in the title or channel, and the same length as on Spotify (to within a few seconds). Covers, remixes, slowed or sped-up versions, loops and other artists' songs with the same name are passed over, and a song YouTube does not have is skipped with a message instead. Short spotify.link share links work too.
+
 ## 3.40.3  Lock many sections at once
 
 - NEW: pick several clips (drag a box round them) and right-click one: Lock these sections locks every one of them (Unlock these sections when they are all locked). One Ctrl+Z puts them all back.
