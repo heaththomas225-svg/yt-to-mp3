@@ -69,15 +69,15 @@ static class Y
         // 6. bass boost effect
         foreach (var tc in new[] { new { f = 40.0, exp = 8.0, tol = 1.5 }, new { f = 1000.0, exp = 0.0, tol = 0.4 } })
         {
-            var bb = new BassBoost(); bb.Prepare(44100); bb.Set("freq", 80); bb.Set("gain", 8); bb.Set("harm", 0); bb.Set("tight", 10); bb.Set("q", 0.7f);
+            var bb = new BassBoost(); bb.Prepare(44100); bb.Set("level", 0); bb.Set("freq", 80); bb.Set("gain", 8); bb.Set("harm", 0); bb.Set("tight", 10); bb.Set("q", 0.7f);
             int n = 44100; var l = new float[n]; var r = new float[n]; for (int i = 0; i < n; i++) l[i] = r[i] = (float)(0.2 * Math.Sin(2 * Math.PI * tc.f * i / 44100.0)); var l0 = (float[])l.Clone();
             bb.Process(l, r, n); double db = 20 * Math.Log10(Rms(l, 20000, n) / Rms(l0, 20000, n));
             Check("bass boost at " + tc.f + " Hz: " + tc.exp + " dB", Math.Abs(db - tc.exp) < tc.tol, db.ToString("0.0") + " dB");
         }
-        { var bb = new BassBoost(); bb.Prepare(44100); bb.Set("freq", 60); bb.Set("gain", 0); bb.Set("harm", 0); bb.Set("tight", 10); bb.Set("mix", 100);
+        { var bb = new BassBoost(); bb.Prepare(44100); bb.Set("level", 0); bb.Set("freq", 60); bb.Set("gain", 0); bb.Set("harm", 0); bb.Set("tight", 10); bb.Set("mix", 100);
           int n = 44100; var l = new float[n]; var r = new float[n]; for (int i = 0; i < n; i++) l[i] = r[i] = (float)(0.2 * Math.Sin(2 * Math.PI * 200 * i / 44100.0)); var l0 = (float[])l.Clone(); bb.Process(l, r, n);
           Check("bass boost with 0 dB leaves the sound alone", Math.Abs(20 * Math.Log10(Rms(l, 20000, n) / Rms(l0, 20000, n))) < 0.3, ""); }
-        { var bb = new BassBoost(); bb.Prepare(44100); bb.Set("freq", 60); bb.Set("gain", 0); bb.Set("harm", 100); bb.Set("tight", 10);
+        { var bb = new BassBoost(); bb.Prepare(44100); bb.Set("level", 0); bb.Set("freq", 60); bb.Set("gain", 0); bb.Set("harm", 100); bb.Set("tight", 10);
           int n = 44100; var l = new float[n]; var r = new float[n]; for (int i = 0; i < n; i++) l[i] = r[i] = (float)(0.3 * Math.Sin(2 * Math.PI * 50 * i / 44100.0)); bb.Process(l, r, n);
           // energy at 150 Hz (3rd harmonic) should now exist
           double re = 0, im = 0; for (int i = 20000; i < n; i++) { double a = 2 * Math.PI * 150 * i / 44100.0; re += l[i] * Math.Cos(a); im += l[i] * Math.Sin(a); } double h3 = Math.Sqrt(re * re + im * im) / (n - 20000) * 2;

@@ -118,7 +118,7 @@ static class SpotifyLinks
             if (r.Length < 4) continue; string yt = " " + Norm(r[3]) + " ", ch = " " + Norm(r[2]) + " "; int dur; int.TryParse(r[1], out dur);
             int hit = 0; foreach (var w in words) if (yt.Contains(" " + w + " ")) hit++;
             if (hit < Math.Max(1, (int)Math.Ceiling(words.Count * 0.8))) continue;   // its title must be the song's title
-            int score = 0; bool artist = mainArtist.Length > 0 && (yt.Contains(" " + mainArtist + " ") || ch.Contains(" " + mainArtist + " ")); if (artist) score += 3;
+            int score = 0; string tight = mainArtist.Replace(" ", ""); bool artist = mainArtist.Length > 0 && (yt.Contains(" " + mainArtist + " ") || ch.Contains(" " + mainArtist + " ") || (tight.Length >= 4 && (yt.Replace(" ", "").Contains(tight) || ch.Replace(" ", "").Contains(tight)))); if (artist) score += 3;   // (the artist also as YouTube writes it: BUSYGETTINLIZZY15, LilBaby)
             if (!artist && !(words.Count >= 3 && s.Secs > 0 && dur > 0 && Math.Abs(dur - s.Secs) <= 3)) continue;   // another artist's song with the same words (Wanted by someone else) is never taken: the artist must be there, unless a long title matches to the second
             if (ch.Contains(" topic ")) score += 2;   // "Artist - Topic": the official audio YouTube makes from the release itself
             if (yt.Contains(" audio ")) score += 1; else if ((yt.Contains(" video ") || yt.Contains(" visualizer ")) && !spotNorm.Contains(" video ")) score -= 1;   // with the same length, the audio beats a music video (videos can have an intro or sound effects)

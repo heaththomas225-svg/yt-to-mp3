@@ -233,8 +233,7 @@ partial class StudioForm
                 FillRR(g, TM.C(170, 20, 11, 40), card, 14); Win.DrawNeonBox(g, card, Hot(card)); Txt(g, "+", 54, NeonCyan, Rc(card.X, card.Y + 100, card.Width, 70), StringAlignment.Center, true); Txt(g, "NEW PROJECT", 15, Ink, Rc(card.X, card.Y + 180, card.Width, 26), StringAlignment.Center, true);
                 Txt(g, "START WITH A CLEAN PAGE", 11, DimC, Rc(card.X, card.Y + 208, card.Width, 20), StringAlignment.Center, false); Reg(card, () => { StopPreview(); tab = 0; NewProject(); }); continue;
             }
-            if (i <= relCards.Count) { PaintReleaseCard(g, card, relCards[i - 1], i); continue; }
-            var e = list[i - 1 - relCards.Count]; string path = e.Path; bool hot = Hot(card); bool prev = string.Equals(previewPath, path, StringComparison.OrdinalIgnoreCase);
+            object it = i - 1 < projCardOrder.Count ? projCardOrder[i - 1] : null; if (it is Release) { PaintReleaseCard(g, card, (Release)it, i); continue; } var e = it as ProjectEntry; if (e == null) continue; string path = e.Path; bool hot = Hot(card); bool prev = string.Equals(previewPath, path, StringComparison.OrdinalIgnoreCase);
             FillRR(g, TM.C(205, 22, 12, 42), card, 14); Win.DrawNeonBox(g, card, hot || prev); if (card.Bottom > y0 && card.Y < H) AnimRing(g, card, i % 2 == 0 ? NeonCyan : NeonPink);   // the border runs with lights, like the picture on a profile
             var pic = Rc(card.X + 8, card.Y + 8, cw - 16, cw - 16); DrawCover(g, pic, e); Win.DrawNeonBox(g, pic, false); if (e.Missing) { using (var b = new SolidBrush(TM.C(170, 8, 4, 16))) g.FillRectangle(b, pic); Txt(g, "FILE NOT FOUND", 13, Color.FromArgb(255, 150, 150), pic, StringAlignment.Center, true); }
             Txt(g, e.Name, 15, Ink, Rc(card.X + 12, card.Y + 228, cw - 24, 24), StringAlignment.Near, true);

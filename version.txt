@@ -1,4 +1,4 @@
-3.40.4
+3.40.5
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Streaming links get the right song
-sha256=274e8cebf8932027cce59cd3cdfb42e0422e7b5133516ecee096d80c305e832b
+EPs stay in place, bass leaves room
+sha256=52f2ace2fdee5e1575bc1d835c5480b19d602cf93f75286f054a62a1855a9452

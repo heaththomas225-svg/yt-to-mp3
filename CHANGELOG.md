@@ -2,6 +2,16 @@
 
 What changed in each version of **Purphex**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.40.5  EPs stay in place, bass leaves room
+
+- CHANGED: on My Projects an EP or album is no longer always put first. It sits in the list like any project: where its most recently saved song would be (with the sort you chose), so it moves up when you work on one of its songs and otherwise stays where it was.
+
+- CHANGED: Bass Boost now starts with its Output level at -12 dB, so you get big bass that leaves room for the vocals (and no clipping). Your saved projects and presets keep their own setting.
+
+- FIXED: a Spotify, Apple Music or Deezer link could say the song was not on YouTube when the artist writes their name differently there (for example BUSYGETTINLIZZY15 for Busygettinlizzy). The artist is now also matched the way YouTube writes it, and another artist's song with the same name is still never taken.
+
+- NEW on the website: the Converter is now on purphexmusic.com (in the menu), free with every account and made for phones: paste a link or pick a video (screen recordings, saved videos, any size) and get an MP3 or an MP4 back.
+
 ## 3.40.4  Streaming links get the right song
 
 - NEW: Apple Music and Deezer links work in the converter too (songs, albums, Deezer playlists, artists' top songs), with the same strict matching on YouTube. YouTube, YouTube Music, SoundCloud, Bandcamp and the other 1000+ supported sites convert the exact song you linked, as before.

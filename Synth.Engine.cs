@@ -15,7 +15,7 @@ class BassBoost : Fx
         Type = "bassboost"; Title = "Bass Boost"; Category = "EQ"; Blurb = "Boost the low end: choose the frequency, amount and width";
         AddP("freq", "Frequency", 30, 200, 70, "Hz"); AddP("gain", "Boost", 0, 24, 8, "dB"); AddP("q", "Width (Q)", 0.3f, 2f, 0.7f, "");
         AddP("harm", "Harmonics", 0, 100, 25, "%"); AddP("tight", "Tighten (low cut)", 10, 60, 22, "Hz");
-        AddP("mix", "Mix", 0, 100, 100, "%"); AddP("level", "Output level", -12, 6, 0, "dB");
+        AddP("mix", "Mix", 0, 100, 100, "%"); AddP("level", "Output level", -12, 6, -12, "dB");   // starts at -12 dB: big bass that leaves room for the vocals (and no clipping)
     }
     protected override void Update()
     {
@@ -247,7 +247,7 @@ class SynthFx : InstrumentFx
         chor.Prepare(SR); chor.Set("rate", Get("chrate")); chor.Set("depth", Get("chdepth")); chor.Set("mix", Get("chmix"));
         dly.Prepare(SR); dly.Set("mode", 2); dly.Set("sync", Get("dlsync")); dly.Set("fb", Get("dlfb")); dly.Set("mix", Get("dlmix"));
         rev.Prepare(SR); rev.Set("size", Get("rvsize")); rev.Set("damp", Get("rvdamp")); rev.Set("mix", Get("rvmix"));
-        boost.Prepare(SR); boost.Set("freq", Get("bbfreq")); boost.Set("gain", Get("bbgain")); boost.Set("q", Get("bbq")); boost.Set("harm", Get("bbharm")); boost.Set("tight", Get("bbtight"));
+        boost.Prepare(SR); boost.Set("level", 0); boost.Set("freq", Get("bbfreq"));   /* (the boost inside Bass Lab keeps its level: only a Bass Boost plugin starts at -12 dB) */ boost.Set("gain", Get("bbgain")); boost.Set("q", Get("bbq")); boost.Set("harm", Get("bbharm")); boost.Set("tight", Get("bbtight"));
         sat.Prepare(SR); sat.Set("mode", Get("satmode")); sat.Set("drive", Get("satdrive")); sat.Set("tone", Get("sattone")); sat.Set("mix", Get("satmix")); sat.Set("out", 0);
         comp.Prepare(SR); comp.Set("thr", Get("cpthr")); comp.Set("ratio", Get("cpratio")); comp.Set("att", Get("cpatt")); comp.Set("rel", Get("cprel")); comp.Set("makeup", Get("cpmake")); comp.Set("mix", Get("cpmix"));
         eq.Prepare(SR); for (int b = 0; b < 6; b++) eq.Set("b" + b + "_on", b < 3 ? 1 : 0); eq.Set("b0_t", 1); eq.Set("b0_f", Get("eqlf")); eq.Set("b0_g", Get("eqlg")); eq.Set("b1_t", 0); eq.Set("b1_f", Get("eqmf")); eq.Set("b1_g", Get("eqmg")); eq.Set("b1_q", Get("eqmq")); eq.Set("b2_t", 2); eq.Set("b2_f", Get("eqhf")); eq.Set("b2_g", Get("eqhg")); eqMix = Get("eqmix") / 100.0;

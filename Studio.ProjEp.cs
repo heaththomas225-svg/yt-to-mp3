@@ -10,17 +10,19 @@ partial class StudioForm
 {
     internal bool projEpOpen; Release projEp; List<ProjectEntry> projEpEnts = new List<ProjectEntry>(); float projEpScroll;
     readonly Dictionary<Release, List<ProjectEntry>> projRelEnts = new Dictionary<Release, List<ProjectEntry>>();
+    internal readonly List<object> projCardOrder = new List<object>();   // the cards in order: an EP or album sits where its newest song sits (like any project), never first just because it is an EP
 
     // takes the projects of each EP / album out of the list and returns the releases to show as cards (in the order they were made)
     internal List<Release> GroupProjectReleases(List<ProjectEntry> list)
     {
-        projRelEnts.Clear(); var rels = new List<Release>(); if (projSearch.Trim().Length > 0) return rels; ReleaseStore.Load();
+        projRelEnts.Clear(); projCardOrder.Clear(); var rels = new List<Release>(); if (projSearch.Trim().Length > 0) { projCardOrder.AddRange(list); return rels; } ReleaseStore.Load(); var order = new List<ProjectEntry>(list); var relOf = new Dictionary<ProjectEntry, Release>();
         var byPid = new Dictionary<string, ProjectEntry>(); foreach (var e in list) { string pid = CommunitySongs.PidOf(e.Path); if (!byPid.ContainsKey(pid)) byPid[pid] = e; }
         foreach (var r in ReleaseStore.All.ToArray())
         {
             var ents = new List<ProjectEntry>(); foreach (var p in r.Pids) { ProjectEntry e; if (byPid.TryGetValue(p, out e) && !ents.Contains(e)) ents.Add(e); }
-            if (ents.Count == 0) continue; rels.Add(r); projRelEnts[r] = ents; foreach (var e in ents) list.Remove(e);
+            if (ents.Count == 0) continue; rels.Add(r); projRelEnts[r] = ents; foreach (var e in ents) { list.Remove(e); if (!relOf.ContainsKey(e)) relOf[e] = r; }
         }
+        var placed = new HashSet<Release>(); foreach (var e in order) { Release r; if (!relOf.TryGetValue(e, out r)) projCardOrder.Add(e); else if (placed.Add(r)) projCardOrder.Add(r); }
         return rels;
     }
     void PaintReleaseCard(Graphics g, RectangleF card, Release r, int i)
