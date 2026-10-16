@@ -37,7 +37,7 @@ public static class PluginLibrary
     {
         if (done) return; done = true; PluginTables.Fill();
         FxRegistry.Register(new FxRegistry.Info("glitchflow", "Purphex GlitchFlow", "Purphex VST", "Stutter, beat-repeat and glitch engine with freeze and 9 modules"), () => new GlitchFlowFx());
-        PresetsExtra.Data["glitchflow"] = GlitchFlowPresets.Factory;
+        PresetsExtra.Data["glitchflow"] = GlitchFlowPresets.Factory; PxPlugins.RegisterAll();
         foreach (var v in All) { var vv = v; var info = new FxRegistry.Info(vv.Id, vv.Name, vv.Cat, vv.Blurb); if (PluginTables.Retired(vv)) FxRegistry.RegisterHidden(info, () => Make(vv)); else FxRegistry.Register(info, () => Make(vv)); }
     }
 

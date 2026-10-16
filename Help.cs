@@ -612,6 +612,20 @@ PRESETS has 55 factory presets (subtle, vocal, drum fills, build-ups, transition
 ## AI GEN
 AI GEN sets GlitchFlow from a description, using a real AI (Anthropic Claude). It needs your own API key: press SETUP in AI GEN and paste it (it stays on this PC, encrypted for your Windows user). Without a key it says it is not set up and changes nothing. GENERATE plays the result straight away, REGENERATE asks for another take, UNDO puts your settings back. Every answer is checked: only real settings, kept inside their ranges. QUICK MATCH works offline from keywords; it is not AI.
 "),
+        new HelpTopic("studio-purphexvst", "Purphex Music", "Purphex VSTs: Glow, Curve EQ, Shape and SubForge", false, @"
+## Where they are
+The Purphex VSTs are our own plugins with their own windows. The effects are at the top of + ADD EFFECT in PURPHEX VST (adding one opens its window; OPEN in the plugin panel opens it again). SubForge is an instrument: + ADD TRACK, then a MIDI / instrument track.
+## Glow
+A four-band enhancer. Drag LOW, MID, HIGH and AIR up for more; each band has two characters (thick or punch, warm or broad, shine or excite, silk or sparkle) and its own ON / OFF. WET INJECT turns all four up or down together, FX ONLY lets you hear only what is added, LEVEL MATCH keeps the loudness the same, M/S works the lows and mids on the middle and the highs and air on the sides. Filters and saturation (drive, distort, crush) at the bottom.
+## Curve EQ
+Eight bands over a live spectrum. Double-click to add a band, drag a node to move it, the wheel on a node changes its width, right-click a node for its type or to remove it. DYNAMIC and THRESHOLD make a band move only when that part of the sound is loud (great for harsh S sounds or a boomy note). AUTO GAIN, SCALE, MIX and OUT at the bottom.
+## Shape
+A compressor (ratio, knee, threshold, attack, release, intensity, auto gain, feed-forward or feedback) with four sections you switch on: TRANSIENT (lift or soften the hits), SIDE-CHAIN (what it listens to, with LISTEN), EQ (a tilt before or after) and CLIP (hard to soft). The display shows the level and the gain reduction.
+## SubForge
+An 808 and bass instrument: the wave, octave and tune, a SUB layer, PUNCH (the pitch drop into each note), an envelope, a filter, GLIDE (mono slides between notes), DISTORTION and a COMPRESSOR. Play it from its keyboard or record MIDI.
+## All of them
+ON / OFF at the top turns the plugin off without removing it. PRESETS has factory presets and your own (save, rename, delete); the arrows step through them. Ctrl+Z / Ctrl+Y undo and redo in the window. Every setting is in the plugin panel too, with its A button for automation, and is saved with the project.
+"),
         new HelpTopic("studio-worldecho", "Purphex Music", "Worldwide Echo: throw your voice around the world", false, @"
 ## What it is
 Worldwide Echo is a wide echo that locks to your project tempo. Its repeats bounce left and right, can melt into reverb, get darker or brighter each time round, and duck out of the way while you are singing.

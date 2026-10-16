@@ -846,7 +846,7 @@ class MasterForm : Form
             g.DrawLine(pen, ReanR.X + 28, ReanR.Y + 9, ReanR.X + 28, ReanR.Y + 15); g.DrawLine(pen, ReanR.X + 25, ReanR.Y + 12, ReanR.X + 31, ReanR.Y + 12);
         }
         Txt(g, "REANALYZE", 18, Accent, new RectangleF(ReanR.X + 38, ReanR.Y, 90, ReanR.Height), StringAlignment.Near, false);
-        Btn(g, BypassR, "Bypass", !ms.On, Violet, !ms.On ? White : Accent);
+        Btn(g, BypassR, ms.On ? "ON" : "OFF", ms.On, Violet, ms.On ? White : Accent);
         FillRR(g, ms.Comp ? TM.C(200, 200, 70, 150) : TM.C(150, 90, 30, 90), LoudR, 6);
         Txt(g, "Loudness\nCompensation", 15, ms.Comp ? White : Pink, LoudR, StringAlignment.Center, false);
     }

@@ -7,10 +7,18 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.44.0";
+    public const string Latest = "3.45.0";
 
     public const string Text =
-@"3.44.0  Purphex GlitchFlow: our own stutter and beat-repeat plugin
+@"3.45.0  Purphex VSTs: Glow, Curve EQ, Shape and SubForge
+ + NEW: Purphex Glow (PURPHEX VST): a four-band enhancer. LOW, MID, HIGH and AIR, each with two characters and its own ON / OFF, a big WET INJECT knob, FX ONLY, LEVEL MATCH, stereo or M/S, high-pass / low-pass filters and saturation (drive, distort, crush), with live band meters. Every band at 0 is perfectly transparent.
+ + NEW: Purphex Curve EQ (PURPHEX VST): an 8-band EQ drawn over a live spectrum (before and after). Double-click to add a band, drag nodes, wheel for width, right-click for type (bell, shelves, 12 / 24 dB cuts, notch). Any band can be DYNAMIC (it only moves when that part of the sound is loud). AUTO GAIN, scale 6 / 12 / 18 / 30 dB, mix and output.
+ + NEW: Purphex Shape (PURPHEX VST): a compressor and transient shaper. Ratio, knee, threshold, attack and release (fast and auto modes), intensity, auto gain, feed-forward or feedback, mix and output, plus TRANSIENT, SIDE-CHAIN (with LISTEN), EQ (pre or post) and CLIP sections. A scrolling level and gain-reduction display with in, GR and out meters.
+ + NEW: Purphex SubForge (instrument): an 808 and bass synth. Sine, triangle, saw or square with octave, tune and fine, a SUB layer one or two octaves down, PUNCH (the 808 pitch drop), an envelope you can see, a filter with resonance, envelope and key tracking, GLIDE in mono or play poly, DISTORTION (tube, hard, fold, fuzz) and a COMPRESSOR, with a master spectrum and a keyboard to play.
+ + NEW: every Purphex VST has factory presets (around 14 each) and your own presets (save, rename, delete), undo / redo in its window, automation for every setting and is saved with the project.
+ + CHANGED: BYPASS buttons are now ON / OFF everywhere (the plugin panel, the Purphex VST windows, GlitchFlow and mastering): lit ON means the effect is working, OFF means the sound passes untouched.
+
+3.44.0  Purphex GlitchFlow: our own stutter and beat-repeat plugin
  + NEW: Purphex GlitchFlow, our own stutter, beat-repeat and glitch plugin with its own window, at the top of + ADD EFFECT in a new PURPHEX VST box. REPEAT RATE sets how fast the captured slice repeats and REFRESH RATE how often a fresh slice is captured, both locked to the song (1/1 to 1/64, dotted and triplet, 2 and 4 bars) or in free milliseconds. It follows tempo changes, loops, jumps and stopping without clicks or half-recorded audio.
  + NEW: GlitchFlow FREEZE holds the captured slice and repeats it for as long as you like; release and it is live again at once, with a fresh slice at the next refresh.
  + NEW: GlitchFlow patterns (constant, every other, last-beat fills, last half bar, random, build-up, slow-down, triplet skip, first half, 3-3-2) with intensity, length, decay, fade and four fade shapes, plus reverse, pitch and pitch step for each repeat.

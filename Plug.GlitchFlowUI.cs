@@ -109,7 +109,7 @@ class GlitchFlowWindow : Form
         Reg(new RectangleF(pb.X + 40, pb.Y, pb.Width - 80, pb.Height), () => PresetMenu(new Point((int)pb.X, (int)pb.Bottom)), "Presets: factory presets, your own, save, rename, delete");
         Button(g, new RectangleF(670, 16, 96, 40), "PRESETS", false, Violet, () => PresetMenu(new Point(670, 56)), "Factory presets, your own presets, save, rename and delete");
         Button(g, new RectangleF(774, 16, 96, 40), "AI GEN", aiOpen, Cyan, () => { if (aiOpen) CloseAi(); else OpenAi(); }, "Describe the effect in words: an AI sets GlitchFlow for you (needs an AI provider, see SETUP)");
-        Button(g, new RectangleF(878, 16, 76, 40), fx.Bypass ? "BYPASSED" : "BYPASS", fx.Bypass, Gold, () => fx.Bypass = !fx.Bypass, "Bypass: the sound passes untouched", 11);
+        Button(g, new RectangleF(878, 16, 76, 40), fx.Bypass ? "OFF" : "ON", !fx.Bypass, Gold, () => fx.Bypass = !fx.Bypass, fx.Bypass ? "GlitchFlow is off: the sound passes untouched. Press to turn it on" : "GlitchFlow is on: press to turn it off", 13);
         Button(g, new RectangleF(962, 16, 40, 40), "↶", false, Violet, Undo, "Undo (Ctrl+Z)", 16); Button(g, new RectangleF(1008, 16, 40, 40), "↷", false, Violet, Redo, "Redo (Ctrl+Y)", 16);
 
         // ---- CORE: repeat rate, refresh rate, freeze ----

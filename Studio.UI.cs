@@ -304,7 +304,7 @@ partial class StudioForm : Form
         { "+ Add Effect to master", "Add an effect to the final mix instead of one track." },
         { "ALL PLUGINS", "Every track and its plugins in one place: add, paste, copy and open plugins on any track, and copy a whole preset to another track" },
         { "Bass Lab", "Add the Bass Lab synthesizer to this track: wobble bass and leads with oscillators, warp, filters, LFOs and a matrix. Its window opens so you can play it and shape the sound." }, { "Presets...", "Load a ready-made effect chain (a rap vocal chain, the instrumental chain or a bus preset like echo, ad-lib or reverb), or save your own." },
-        { "Bypass", "Turn this effect off without removing it." }, { "Presets", "Load or save settings for this effect." }, { "FX presets", "Load or save settings for this one effect. (Whole mastering chains are in the PRESETS tab above.)" },
+        { "Bypass", "Turn this effect off without removing it." }, { "ON", "This effect is on: press to turn it off (it stays on the track)." }, { "OFF", "This effect is off: the sound passes untouched. Press to turn it on." }, { "Presets", "Load or save settings for this effect." }, { "FX presets", "Load or save settings for this one effect. (Whole mastering chains are in the PRESETS tab above.)" },
         { "^", "Move this effect up (it runs earlier)." }, { "v", "Move this effect down (it runs later)." },
         { "x", "Remove it." }, { "M", "Mute this track." }, { "S", "Solo: hear only this track." },
 
@@ -1217,7 +1217,7 @@ partial class StudioForm : Form
     {
         int n = 0; { var hid = f.Hidden.Length > 0 ? new List<string>(f.Hidden.Split(',')) : new List<string>(); foreach (var p in f.P) if (!hid.Contains(p.Id)) n++; }
         if (f is InstrumentFx) return 34 + 38 + 16;
-        if (f is GlitchFlowFx) return 34 + 28 + 42 + 420;   // its settings scroll inside (the window is where it is played)
+        if (PxPlugins.HasWindow(f)) return 34 + 28 + 42 + 420;   // its settings scroll inside (the window is where it is played)
         if (f is ParametricEq) return 668 + 28;
         if (f is Spatial8D) return 34 + 28 + 190 + Math.Max(0, n - 2) * 30 + 24;
         if (f is ConvFx) return 34 + 28 + 52 + n * 30 + 24;
@@ -1384,7 +1384,7 @@ partial class StudioForm : Form
         if (type == "duck") { var v = eng.VocalTrack(); if (v == null) Toast("The ducker listens to a vocal track; add or separate a vocal first."); }
         if (browserMaster) { lock (eng.Sync) eng.MasterFx.Add(f); selMaster = eng.MasterFx.Count - 1; }
         else if (browserTrack >= 0 && browserTrack < eng.Tracks.Count) { var tr = eng.Tracks[browserTrack]; var vfx = f as InstrumentFx; if (vfx != null) vfx.Owner = tr; lock (eng.Sync) tr.Fx.Add(f); selTrack = browserTrack; selFx = tr.Fx.Count - 1; ShowPanel(); }
-        browserOpen = false; Toast(f.Title + " added"); { var gf = f as GlitchFlowFx; if (gf != null) GlitchFlowWindow.Show(gf, this); }
+        browserOpen = false; Toast(f.Title + " added"); { if (PxPlugins.HasWindow(f)) PxPlugins.Open(f, this); }
     }
 
     protected override void OnKeyPress(KeyPressEventArgs e)
@@ -1523,13 +1523,13 @@ partial class StudioForm : Form
         bool wide = tr == null;   // the Mastering page has room for the longer label; the narrow track panel keeps the short one
         bool isEq = f is ParametricEq; float aeW = wide ? 84 : 74, aeGap = wide ? 8 : 6; bool eqOwnRow = isEq && !wide;
         Txt(g, f.Title, 16, Ink, Rc(x, y, w - (wide ? 190 : 150), 24), StringAlignment.Near, true);
-        Btn(g, Rc(a.Right - (wide ? 176 : 150), y, wide ? 70 : 66, 24), f.Bypass ? "Bypassed" : "Bypass", f.Bypass ? 4 : 0, () => f.Bypass = !f.Bypass, 11);
+        Btn(g, Rc(a.Right - (wide ? 176 : 150), y, wide ? 70 : 66, 24), f.Bypass ? "OFF" : "ON", f.Bypass ? 0 : 4, () => f.Bypass = !f.Bypass, 11);
         Btn(g, Rc(a.Right - (wide ? 100 : 80), y, wide ? 90 : 70, 24), wide ? "FX presets" : "Presets", 1, () => OpenPresetSheet(f), 12);
         y += 34;
         if (!(f is InstrumentFx)) { bool fitsInline = wide && a.Width - 10 - 184 - 150 - 6 >= Math.Min(260f, g.MeasureString(f.Title, GfxCache.Font(16, true)).Width + 14); if (fitsInline) PaintPresetInline(g, f, tr, a, y - 34); else y = PaintPresetRow(g, f, tr, a, y); }   /* a long name (Multiband Compressor) on a narrow window: the buttons go on their own row instead of over the name */   // which preset is on, COPY / PASTE of the plugin, and REMOVE PRESET (on the wide Mastering page they sit in the title row: no room is taken from the editor)
         if (eqOwnRow) { var ae2 = Rc(a.X + 10, y - 4, a.Width - 20, 26); Btn(g, ae2, "AUTO EQ", 2, () => AutoEqClick((ParametricEq)f, tr), 12); Hint2(ae2, "The EQ sets itself: it listens to this track and moves bass, mud, presence, upper-mids and air to balance it (it asks first, and you can undo it)"); y += 28; }
         var vstf = f as InstrumentFx; if (vstf != null) { Btn(g, Rc(a.X + 10, y - 2, a.Width - 20, 32), vstf.WindowLabel, 2, () => { vstf.Owner = tr; vstf.ShowWindow(this); }, 14); y += 38; return; }   // an instrument is edited in its own window, like a real plugin: nothing else is listed here
-        { var gfx = f as GlitchFlowFx; if (gfx != null) { var ob = Rc(a.X + 10, y - 2, a.Width - 20, 34); Btn(g, ob, "OPEN PURPHEX GLITCHFLOW", 2, () => GlitchFlowWindow.Show(gfx, this), 13); Hint2(ob, "Open the GlitchFlow window: repeat and refresh rates, freeze, patterns, modules, presets and AI GEN"); y += 42; } }
+        { if (PxPlugins.HasWindow(f)) { var pf = f; var ob = Rc(a.X + 10, y - 2, a.Width - 20, 34); Btn(g, ob, "OPEN " + f.Title.ToUpperInvariant(), 2, () => PxPlugins.Open(pf, this), 13); Hint2(ob, "Open the " + f.Title + " window (every setting is also below, with its A button for automation)"); y += 42; } }
         var skip = new List<string>(); if (f.Hidden.Length > 0) skip.AddRange(f.Hidden.Split(','));
         if (f is ParametricEq) { PaintEqEditor(g, (ParametricEq)f, Rc(a.X + 6, y, a.Width - 12, a.Bottom - y - 4), tr == null ? null : tr.TapPost, tr == null ? 0 : tr.TapPos); return; }
         var cvx = f as ConvFx; if (cvx != null) { var lb = Rc(a.X + 10, y - 2, a.Width - 20, 30); Btn(g, lb, "Load your own impulse response...", 2, () => { using (var d = new OpenFileDialog { Title = "Choose an impulse response (a recording of a space or speaker)", Filter = "Audio|*.wav;*.mp3;*.flac;*.ogg;*.aiff|All files|*.*" }) if (d.ShowDialog(this) == DialogResult.OK) cvx.UserPath = d.FileName; }, 12); y += 34; Txt(g, cvx.IrNote.Length > 0 ? "Using: " + cvx.IrNote : "", 11, DimC, Rc(a.X + 14, y - 4, a.Width - 28, 16), StringAlignment.Near, false); y += 18; }
