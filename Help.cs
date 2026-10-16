@@ -612,7 +612,7 @@ PRESETS has 55 factory presets (subtle, vocal, drum fills, build-ups, transition
 ## AI GEN
 AI GEN sets GlitchFlow from a description, using a real AI (Anthropic Claude). It needs your own API key: press SETUP in AI GEN and paste it (it stays on this PC, encrypted for your Windows user). Without a key it says it is not set up and changes nothing. GENERATE plays the result straight away, REGENERATE asks for another take, UNDO puts your settings back. Every answer is checked: only real settings, kept inside their ranges. QUICK MATCH works offline from keywords; it is not AI.
 "),
-        new HelpTopic("studio-purphexvst", "Purphex Music", "Purphex VSTs: Glow, Curve EQ, Shape and SubForge", false, @"
+        new HelpTopic("studio-purphexvst", "Purphex Music", "Purphex VSTs: Glow, Curve EQ, Shape, SubForge, BreathOff, Phantom Gate, Stereo Lab, Vortex, MultiDyn, Prism", false, @"
 ## Where they are
 The Purphex VSTs are our own plugins with their own windows. The effects are at the top of + ADD EFFECT in PURPHEX VST (adding one opens its window; OPEN in the plugin panel opens it again). SubForge is an instrument: + ADD TRACK, then a MIDI / instrument track.
 ## Glow
@@ -623,6 +623,18 @@ Eight bands over a live spectrum. Double-click to add a band, drag a node to mov
 A compressor (ratio, knee, threshold, attack, release, intensity, auto gain, feed-forward or feedback) with four sections you switch on: TRANSIENT (lift or soften the hits), SIDE-CHAIN (what it listens to, with LISTEN), EQ (a tilt before or after) and CLIP (hard to soft). The display shows the level and the gain reduction.
 ## SubForge
 An 808 and bass instrument: the wave, octave and tune, a SUB layer, PUNCH (the pitch drop into each note), an envelope, a filter, GLIDE (mono slides between notes), DISTORTION and a COMPRESSOR. Play it from its keyboard or record MIDI.
+## BreathOff
+Finds the breaths in a vocal and turns them down. Drag the white lines: SENSITIVITY (how breath-like) and GATE (only parts quieter than this). REDUCTION, FADE OUT / FADE IN, MONITOR (hear only the voice or only the breaths) and ROOM TONE (quiet noise in the gaps).
+## Phantom Gate
+A gate: it opens above THRESH and closes under RETURN (a lower line, so it does not chatter), down to FLOOR. SPIKE lets the crack of a hit through, AHEAD opens it before the hit, RELEASE in ms or a note value. SIDE-CHAIN, CURVE, RATIO (softer expander) and DE-BLEED (the spill is darker when closed).
+## Stereo Lab
+A stereo scope and phase meter (red under 0 means it cancels in mono). Input gain, phase flip and pan per side, then WIDTH, PAN, MID - SIDE and BASS MONO. Store two settings in A and B, switch A-B on and slide (or automate) between them.
+## Vortex
+Moves the sound around you: ROTATE (free or synced), SHAPE (circle to figure of eight), SPACE and ECHO, with GAIN, FILTER, WIDTH, BEND and SLICE sections that each have their own amount and mix.
+## MultiDyn
+A five-band compressor: click a band to edit its threshold, ratio, attack, release and gain, ON / OFF and SOLO; drag the crossover lines. A ratio under 1:1 lifts quiet parts. LEARN sets every threshold from the sound playing now. KNEE, CLEAN / VINTAGE, LIMITER, MIX and OUTPUT.
+## Prism
+Makes any sound ring at notes: the NOTE (knob or keyboard) and up to three intervals, UNISON and DETUNE, HARMONICS (all, even, odd), DECAY and damping, BLUR, SHIFT, FREEZE (rings forever) and KILL (stops at once).
 ## All of them
 ON / OFF at the top turns the plugin off without removing it. PRESETS has factory presets and your own (save, rename, delete); the arrows step through them. Ctrl+Z / Ctrl+Y undo and redo in the window. Every setting is in the plugin panel too, with its A button for automation, and is saved with the project.
 "),

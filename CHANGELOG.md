@@ -2,6 +2,20 @@
 
 What changed in each version of **Purphex**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.46.0  Purphex VSTs: BreathOff, Phantom Gate, Stereo Lab, Vortex, MultiDyn and Prism
+
+- NEW: Purphex BreathOff: finds the breaths in a vocal by itself and turns them down, smoothly. Breath and energy graphs with lines you drag (sensitivity and gate), reduction, fade out / in, monitor (voice or breaths only) and room tone. It looks 10 ms ahead so a breath is caught from its start.
+
+- NEW: Purphex Phantom Gate: a gate for drums and vocals with separate THRESH and RETURN lines (no chatter), floor, spike (lets the crack of a hit through), attack, hold, release in ms or note values, look-ahead, side-chain filters with listen, curve, ratio (expander) and de-bleed, with a scrolling picture of the gate at work.
+
+- NEW: Purphex Stereo Lab: a stereo scope and phase meter with input gain, phase flip and pan for each side, width, pan, mid / side balance and bass mono, plus A and B settings with an A-B slider you can automate.
+
+- NEW: Purphex Vortex: a 3D auto-panner. Rotate (free or synced to the song), shape, space and echo, with gain, filter, width, bend and slice sections, and a swirl that turns with the sound.
+
+- NEW: Purphex MultiDyn: a five-band compressor (or upward with a ratio under 1:1) with draggable crossovers, solo and on / off per band, LEARN, knee, clean or vintage, a limiter, and gain reduction shown per band over the spectrum.
+
+- NEW: Purphex Prism: a spectral resonator. Any sound rings at a note and up to three intervals (a chord), with unison, detune, harmonics (all / even / odd), decay, damping, blur, freeze and kill, a rainbow spectrum and a keyboard to pick the note.
+
 ## 3.45.0  Purphex VSTs: Glow, Curve EQ, Shape and SubForge
 
 - NEW: Purphex Glow (PURPHEX VST): a four-band enhancer. LOW, MID, HIGH and AIR, each with two characters and its own ON / OFF, a big WET INJECT knob, FX ONLY, LEVEL MATCH, stereo or M/S, high-pass / low-pass filters and saturation (drive, distort, crush), with live band meters. Every band at 0 is perfectly transparent.

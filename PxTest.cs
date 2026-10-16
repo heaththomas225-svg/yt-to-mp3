@@ -24,7 +24,11 @@ static class PX
     static double Peak(float[] x) { double m = 0; foreach (var v in x) m = Math.Max(m, Math.Abs(v)); return m; }
     static double Goertzel(float[] x, int s, int n, double hz) { double w = 2 * Math.PI * hz / SR, c = 2 * Math.Cos(w), q1 = 0, q2 = 0; for (int i = s; i < s + n; i++) { double q0 = c * q1 - q2 + x[i]; q2 = q1; q1 = q0; } return Math.Sqrt(Math.Max(0, q1 * q1 + q2 * q2 - c * q1 * q2)) / n; }
     // a sound through an effect, or a held note through an instrument
-    static float[] Render(Fx f, float[] src) { var l = (float[])src.Clone(); var r = (float[])src.Clone(); Run(f, l, r, 512); return l; }
+    static float[] Render(Fx f, float[] src) { var l = (float[])src.Clone(); var r = (float[])src.Clone(); if (f is StereoLabFx) for (int i = 0; i < r.Length; i++) r[i] = i >= 37 ? src[i - 37] * 0.7f : 0; Run(f, l, r, 512); return l; }
+    // a vocal with breaths (quiet hiss) between the phrases, and drum hits with spill between them
+    static float[] Breathy(int n) { var v = Voice(n); var rnd = new Random(5); double hp = 0, px = 0; for (int i = 0; i < n; i++) { bool gap = (i / (SR / 2)) % 2 == 1; double nz = rnd.NextDouble() * 2 - 1; hp = 0.9 * (hp + nz - px); px = nz; v[i] = gap ? (float)(hp * 0.012) : v[i]; } return v; }
+    static float[] Hits(int n) { var x = new float[n]; var rnd = new Random(7); for (int i = 0; i < n; i++) { int k = i % (SR / 4); x[i] = (float)(k < 3000 ? 0.6 * Math.Sin(k * 0.12) * Math.Exp(-k / 700.0) : (rnd.NextDouble() - 0.5) * 0.004); } return x; }
+    static float[] SrcFor(string t, int n) { return t == "pxbreath" ? Breathy(n) : t == "pxpgate" ? Hits(n) : Voice(n); }
     static float[] Note(Fx f, int note, int frames, int offAt = -1)
     {
         var inst = (InstrumentFx)f; var l = new float[frames]; var r = new float[frames]; var bl = new float[512]; var br = new float[512]; inst.Midi(0x90, (byte)note, 100, false);
@@ -32,19 +36,20 @@ static class PX
         return l;
     }
     static readonly Dictionary<string, string[]> Skip = new Dictionary<string, string[]> {
-        { "pxglow", new string[0] }, { "pxcurve", new[] { "pre", "post", "scale" } }, { "pxshape", new string[0] }, { "pxsubforge", new[] { "glide", "mono" } } };   // glide and voices need two notes: tested on their own below
+        { "pxglow", new string[0] }, { "pxcurve", new[] { "pre", "post", "scale" } }, { "pxshape", new string[0] }, { "pxsubforge", new[] { "glide", "mono" } }, { "pxbreath", new string[0] }, { "pxpgate", new string[0] }, { "pxvortex", new string[0] }, { "pxmultidyn", new string[0] }, { "pxprism", new[] { "kill" } },
+        { "pxstereo", new[] { "ab", "morph", "a_lg", "a_rg", "a_lpan", "a_rpan", "a_width", "a_pan", "a_ms", "a_bass", "b_lg", "b_rg", "b_lpan", "b_rpan", "b_width", "b_pan", "b_ms", "b_bass" } } };   // A-B morph: tested on its own below   // glide and voices need two notes: tested on their own below
 
     [STAThread]
     static void Main()
     {
         StudioEnv.DataDir = Path.Combine(Path.GetTempPath(), "purphex_px_" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(StudioEnv.DataDir); AppDomain.MonitoringIsEnabled = true;
-        var types = new[] { "pxglow", "pxcurve", "pxshape", "pxsubforge" };
+        var types = new[] { "pxglow", "pxcurve", "pxshape", "pxsubforge", "pxbreath", "pxpgate", "pxstereo", "pxvortex", "pxmultidyn", "pxprism" };
         foreach (var t in types)
         {
             var info = FxRegistry.All.FirstOrDefault(i => i.Type == t); var f = New(t); bool inst = f is InstrumentFx;
             Check(t + ": in the list (" + (inst ? "Instruments" : "Purphex VST") + "), made by the registry, has factory presets", info != null && info.Category == (inst ? "Instruments" : "Purphex VST") && FxRegistry.IsBuiltin(t) && Presets.For(t).Count >= 12, info == null ? "missing" : info.Name + ", " + Presets.For(t).Count + " presets");
             // every setting changes the sound (a change of one step from its default, or to an end, with the sections it needs switched on)
-            var src = Voice(SR * 2); Func<Action<Fx>, float[]> go = set => { var g = New(t); prep(t, g); set(g); return inst ? Note(g, 36, SR * 2, SR) : Render(g, src); };
+            var src = SrcFor(t, SR * 2); Func<Action<Fx>, float[]> go = set => { var g = New(t); prep(t, g); set(g); return inst ? Note(g, 36, SR * 2, SR) : Render(g, src); };
             var b0 = go(x => { }); double rb = Math.Max(1e-4, Rms(b0, 0, b0.Length)); var deaf = new List<string>();
             foreach (var p in f.P)
             {
@@ -57,12 +62,13 @@ static class PX
             Check(t + ": every setting changes the sound (" + f.P.Count + " settings)", deaf.Count == 0, string.Join(", ", deaf.ToArray()));
             // safe at its loudest, presets valid, block size, save/load, real time, no memory on the audio thread
             var hot = New(t); prep(t, hot); foreach (var p in hot.P) if (p.IsChoice && p.Choices.Length == 2 && p.Choices[0] == "Off") hot.Set(p.Id, 1); foreach (var id in new[] { "sat", "d_drive", "cl_gain", "inject", "res" }) if (hot.Find(id) != null) hot.Set(id, hot.Find(id).Max);
+            if (t == "pxbreath") hot.Set("mon", 0); if (t == "pxpgate") hot.Set("sc_listen", 0);
             var ho = inst ? Note(hot, 36, SR * 2) : Render(hot, src); Check(t + ": everything on at its strongest stays finite and below +12 dB", Finite(ho) && Peak(ho) < 4, "peak " + Peak(ho).ToString("0.00"));
             var bad = new List<string>();
             foreach (var kv in Presets.For(t))
             {
                 foreach (var tok in kv.Value.Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries)) { int eq = tok.IndexOf('='); var p = eq > 0 ? f.Find(tok.Substring(0, eq)) : null; float v; if (p == null || !float.TryParse(tok.Substring(eq + 1), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out v) || v < p.Min || v > p.Max) bad.Add(kv.Key + ": " + tok); }
-                var g = New(t); Presets.Apply(g, kv.Value); var o = inst ? Note(g, 36, SR) : Render(g, Voice(SR)); if (!Finite(o) || Peak(o) > 4) bad.Add(kv.Key + " level " + Peak(o).ToString("0.0"));
+                var g = New(t); Presets.Apply(g, kv.Value); var o = inst ? Note(g, 36, SR) : Render(g, SrcFor(t, SR)); if (!Finite(o) || Peak(o) > 4) bad.Add(kv.Key + " level " + Peak(o).ToString("0.0"));
             }
             Check(t + ": every factory preset uses real settings in range and plays safely", bad.Count == 0, string.Join(" | ", bad.Take(3).ToArray()));
             if (!inst)
@@ -107,10 +113,37 @@ static class PX
           { var gg = New("pxsubforge"); gg.Set("punch", 0); gg.Set("sub_on", 0); gg.Set("ftype", 0); gg.Set("s", 100); gg.Set("glide", 100); var inst = (InstrumentFx)gg; var l = new float[SR]; var r = new float[SR]; var bl = new float[512]; var br = new float[512]; inst.Midi(0x90, 45, 100, false);
             for (int p = 0; p < SR; p += 512) { if (p == 22016) inst.Midi(0x90, 57, 100, false); Array.Clear(bl, 0, 512); Array.Clear(br, 0, 512); gg.BeginBlock(null, p, 512, false); gg.Process(bl, br, 512); Array.Copy(bl, 0, l, p, Math.Min(512, SR - p)); }
             int mid = zc(l, 22050 + 2000, 4410), end = zc(l, SR - 4410, 4410); Check("SubForge: GLIDE slides from one note to the next (mono)", end >= 20 && mid > 11 && mid < end - 3, "cycles " + mid + " then " + end); } }
+        // ---- BreathOff ----
+        { var g = New("pxbreath"); var s = Breathy(SR * 3); var o = Render(g, s); int lat = g.Latency; double vIn = Rms(s, SR / 8, SR / 2 - SR / 8), vOut = Rms(o, SR / 8 + lat, SR / 2 - SR / 8 + lat), bIn = Rms(s, SR / 2 + SR / 8, SR - SR / 8), bOut = Rms(o, SR / 2 + SR / 8 + lat, SR - SR / 8 + lat);
+          Check("BreathOff: the breaths are turned right down and the singing is untouched", 20 * Math.Log10(bOut / bIn) < -20 && Math.Abs(20 * Math.Log10(vOut / vIn)) < 0.5, "breath " + (20 * Math.Log10(bOut / bIn)).ToString("0.0") + " dB, voice " + (20 * Math.Log10(vOut / vIn)).ToString("0.00") + " dB");
+          Check("BreathOff: it reports its look-ahead so the studio lines the track up", lat > 0 && lat < SR / 50, lat + " samples"); }
+        // ---- Phantom Gate ----
+        { var g = New("pxpgate"); g.Set("thr", -30); g.Set("floor", -60); g.Set("ahead", 0); g.Set("hold", 5); g.Set("rel", 10); var s = Hits(SR * 2); var o = Render(g, s); double hitIn = Peak(s), hitOut = Peak(o); double spillIn = Rms(s, 9000, 11000), spillOut = Rms(o, 9000, 11000);
+          Check("Phantom Gate: the hits pass and the spill between them is cut", hitOut > hitIn * 0.8 && 20 * Math.Log10((spillOut + 1e-9) / spillIn) < -30, "hits " + hitOut.ToString("0.00") + ", spill " + (20 * Math.Log10((spillOut + 1e-9) / spillIn)).ToString("0") + " dB");
+          var ga = New("pxpgate"); ga.Set("ahead", 10); Check("Phantom Gate: AHEAD is reported as latency", ga.Latency == (int)(0.010 * SR), ga.Latency + " samples"); }
+        // ---- Stereo Lab ----
+        { var g = New("pxstereo"); g.Set("width", 0); var s = Voice(SR); var l = (float[])s.Clone(); var r = new float[SR]; for (int i = 37; i < SR; i++) r[i] = s[i - 37] * 0.7f; Run(g, l, r, 512); Check("Stereo Lab: width 0 makes it mono (left = right)", Diff(l, r) < 1e-6);
+          var gp = New("pxstereo"); var l2 = (float[])s.Clone(); var r2 = new float[SR]; for (int i = 0; i < SR; i++) r2[i] = -s[i]; Run(gp, l2, r2, 512); Check("Stereo Lab: the phase meter shows an out-of-phase sound as negative", ((StereoLabFx)gp).Corr < -0.9, ((StereoLabFx)gp).Corr.ToString("0.00"));
+          var gm = (StereoLabFx)New("pxstereo"); gm.Set("width", 0); gm.Store(false); gm.Set("width", 200); gm.Store(true); gm.Set("width", 100); gm.Set("ab", 1); gm.Set("morph", 50);
+          var l3 = (float[])s.Clone(); var r3 = new float[SR]; for (int i = 37; i < SR; i++) r3[i] = s[i - 37] * 0.7f; Run(gm, l3, r3, 512); var gw = New("pxstereo"); gw.Set("width", 100); var l4 = (float[])s.Clone(); var r4 = new float[SR]; for (int i = 37; i < SR; i++) r4[i] = s[i - 37] * 0.7f; Run(gw, l4, r4, 512);
+          Check("Stereo Lab: the A-B slider half way between width 0 and width 200 sounds like width 100", Diff(l3, l4) < 1e-4, Diff(l3, l4).ToString("0.000000")); }
+        // ---- Vortex ----
+        { var g = New("pxvortex"); g.Set("sync", 0); g.Set("rate", 1); g.Set("f_mix", 0); g.Set("g_mix", 0); var s = Sine(SR, 300, 0.3); var l = (float[])s.Clone(); var r = (float[])s.Clone(); Run(g, l, r, 512);
+          double l1 = Rms(l, SR / 4 - 2000, SR / 4 + 2000), r1 = Rms(r, SR / 4 - 2000, SR / 4 + 2000), l3 = Rms(l, 3 * SR / 4 - 2000, 3 * SR / 4 + 2000), r3 = Rms(r, 3 * SR / 4 - 2000, 3 * SR / 4 + 2000);
+          Check("Vortex: the sound circles: right at a quarter turn, left at three quarters", r1 > l1 * 4 && l3 > r3 * 4, (l1 / (r1 + 1e-9)).ToString("0.00") + " / " + (l3 / (r3 + 1e-9)).ToString("0.00")); }
+        // ---- MultiDyn ----
+        { var g = New("pxmultidyn"); for (int k = 0; k < 5; k++) g.Set("b" + k + "_ratio", 1); var s = Voice(SR); var o = Render(g, s); Check("MultiDyn: at 1:1 every band adds back to exactly the input", Diff(o, s) < 1e-5, Diff(o, s).ToString("0.0000000"));
+          var gs = New("pxmultidyn"); for (int k = 0; k < 5; k++) gs.Set("b" + k + "_ratio", 1); gs.Set("b0_solo", 1); var low = Render(gs, Sine(SR, 60, 0.3)); var high = Render(New("pxmultidyn").Also(x => { for (int k = 0; k < 5; k++) x.Set("b" + k + "_ratio", 1); x.Set("b0_solo", 1); }), Sine(SR, 8000, 0.3));
+          Check("MultiDyn: SOLO on the low band lets the lows through and stops the highs", Rms(low, SR / 2, SR) > 0.15 && Rms(high, SR / 2, SR) < 0.01, Rms(low, SR / 2, SR).ToString("0.000") + " / " + Rms(high, SR / 2, SR).ToString("0.000"));
+          var gc = New("pxmultidyn"); for (int k = 0; k < 5; k++) { gc.Set("b" + k + "_ratio", 10); gc.Set("b" + k + "_thr", -30); } var oc = Render(gc, Sine(SR, 1000, 0.5)); Check("MultiDyn: compresses a loud tone", Rms(oc, SR / 2, SR) < 0.5 * 0.7071 * 0.3, Rms(oc, SR / 2, SR).ToString("0.000")); }
+        // ---- Prism ----
+        { var g = New("pxprism"); g.Set("note", 57); g.Set("i1_on", 0); g.Set("i2_on", 0); g.Set("unison", 1); g.Set("mix", 100); g.Set("decay", 3000); var s = new float[SR]; for (int i = 0; i < 400; i++) s[i] = (float)((new Random(i).NextDouble() - 0.5) * 0.8); var o = Render(g, s);
+          double at = Goertzel(o, SR / 4, SR / 4, 220), off = Goertzel(o, SR / 4, SR / 4, 300); Check("Prism: a click rings on at the note (A3 = 220 Hz)", at > off * 5 && at > 1e-4, at.ToString("0.00000") + " vs " + off.ToString("0.00000"));
+          var gk = New("pxprism"); gk.Set("mix", 100); gk.Set("decay", 8000); var l = (float[])s.Clone(); var r = (float[])s.Clone(); Run(gk, l, r, 512, p => { if (p >= SR / 2) gk.Set("kill", 1); }); Check("Prism: KILL stops the ring at once", Rms(l, SR / 2 + 1024, SR) < 1e-6 && Rms(l, SR / 4, SR / 2) > 1e-4, Rms(l, SR / 4, SR / 2).ToString("0.000000") + " then " + Rms(l, SR / 2 + 1024, SR).ToString("0.0000000")); }
         // ---- windows ----
-        foreach (var t in new[] { "pxglow", "pxcurve", "pxshape", "pxsubforge" })
+        foreach (var t in new[] { "pxglow", "pxcurve", "pxshape", "pxsubforge", "pxbreath", "pxpgate", "pxstereo", "pxvortex", "pxmultidyn", "pxprism" })
         {
-            var f = New(t); PxWindow w = t == "pxglow" ? (PxWindow)new GlowWindow((GlowFx)f) : t == "pxcurve" ? new CurveEqWindow((CurveEqFx)f) : t == "pxshape" ? (PxWindow)new ShapeWindow((ShapeFx)f) : new SubForgeWindow((SubForgeFx)f);
+            var f = New(t); PxWindow w = t == "pxglow" ? (PxWindow)new GlowWindow((GlowFx)f) : t == "pxcurve" ? new CurveEqWindow((CurveEqFx)f) : t == "pxshape" ? (PxWindow)new ShapeWindow((ShapeFx)f) : t == "pxbreath" ? new BreathOffWindow((BreathOffFx)f) : t == "pxpgate" ? new PhantomGateWindow((PhantomGateFx)f) : t == "pxstereo" ? (PxWindow)new StereoLabWindow((StereoLabFx)f) : t == "pxvortex" ? new VortexWindow((VortexFx)f) : t == "pxmultidyn" ? (PxWindow)new MultiDynWindow((MultiDynFx)f) : t == "pxprism" ? (PxWindow)new PrismWindow((PrismFx)f) : new SubForgeWindow((SubForgeFx)f);
             w.CreateControl(); using (var bmp = w.Snapshot()) { } string id = f.P.First(p => !p.IsChoice).Id; float v0 = f.Get(id); w.TestDrag(id, 0.8f); bool moved = Math.Abs(f.Get(id) - v0) > 1e-4; w.Undo(); bool back = Math.Abs(f.Get(id) - v0) < 1e-4;
             Check(t + ": its window draws its controls, a control moves the real setting, undo puts it back", w.HitCount > 15 && moved && back, w.HitCount + " controls"); w.Dispose();
         }
@@ -123,6 +156,12 @@ static class PX
         if (t == "pxglow") { if (id == "hp" || id == "lp" || id == "steep") { g.Set("filt", 1); g.Set("hp", 200); g.Set("lp", 5000); } if (id == "satmode") g.Set("sat", 60); if (id == "lvl") g.Set("inject", 100); }
         if (t == "pxcurve") { if (id.EndsWith("_g") || id.EndsWith("_dyn") || id.EndsWith("_thr") || id.EndsWith("_q")) g.Set(id.Substring(0, 3) + "t", 0); if (id.EndsWith("_dyn") || id.EndsWith("_thr")) { g.Set(id.Substring(0, 3) + "dyn", 12); g.Set(id.Substring(0, 3) + "thr", -40); } if (id == "auto") g.Set("b3_g", 9); if (id.EndsWith("_q")) g.Set(id.Substring(0, 3) + "g", 9); if (id.EndsWith("_t") || id.EndsWith("_f")) g.Set(id.Substring(0, 3) + "g", 9); }
         if (t == "pxshape") { if (id.StartsWith("tr_")) g.Set("tr_on", 1); if (id.StartsWith("sc_")) { g.Set("sc_on", 1); g.Set("ratio", 8); g.Set("thr", -40); g.Set("sc_g", 18); g.Set("sc_f", 300); } if (id.StartsWith("eq_")) { g.Set("eq_on", 1); g.Set("eq_slope", 60); } if (id.StartsWith("cl_")) { g.Set("cl_on", 1); g.Set("cl_gain", 12); } if (id == "knee") { g.Set("ratio", 8); g.Set("thr", -14); } else if (id == "att" || id == "rel" || id == "fatt" || id == "frel" || id == "int" || id == "auto" || id == "mode") { g.Set("ratio", 8); g.Set("thr", -40); } }
+        if (t == "pxbreath") { if (id == "roomlvl") g.Set("room", 1); if (id == "room") g.Set("roomlvl", -40); if (id == "fout" || id == "fin") g.Set("red", -60); }
+        if (t == "pxpgate") { if (id == "spike") { g.Set("thr", 0); g.Set("floor", -80); } if (id.StartsWith("sc_")) { g.Set("sc_on", 1); g.Set("sc_hp", 2000); g.Set("thr", -40); } if (id == "db_f") { g.Set("db_on", 1); g.Set("floor", -3); g.Set("thr", -6); } if (id == "ratio") { g.Set("thr", -20); g.Set("ret", 0); } if (id == "relsync") g.Set("hold", 0); if (id == "curve") { g.Set("att", 10); g.Set("rel", 200); } }
+        if (t == "pxstereo") { if (id == "bass") g.Set("width", 150); if (id == "rg" || id == "rph") g.Set("rpan", 0); }
+        if (t == "pxvortex") { if (id == "color" || id == "freq" || id == "pan" || id == "range" || id == "time") { g.Set("g_mix", 100); g.Set("f_mix", 100); g.Set("w_mix", 100); g.Set("b_mix", 100); g.Set("s_mix", 100); } if (id == "esync") g.Set("echo", 60); if (id == "rate") g.Set("sync", 0); }
+        if (t == "pxmultidyn") { for (int k = 0; k < 5; k++) { g.Set("b" + k + "_ratio", 6); g.Set("b" + k + "_thr", -40); } if (id == "limit" || id == "mode") for (int k = 0; k < 5; k++) g.Set("b" + k + "_gain", 18); if (id.EndsWith("_solo") || id.StartsWith("x")) { } }
+        if (t == "pxprism") { if (id != "mix") g.Set("mix", 100); if (id == "i3") g.Set("i3_on", 1); if (id == "decay" || id == "hfd" || id == "lfd") g.Set("freeze", 0); }
         if (t == "pxsubforge") { if (id.StartsWith("d_")) { g.Set("d_on", 1); g.Set("d_drive", 60); } if (id.StartsWith("c_")) { g.Set("c_on", 1); g.Set("c_thr", -40); } if (id == "sub_lvl" || id == "sub_oct") g.Set("sub_on", 1); if (id == "res" || id == "fenv" || id == "track" || id == "cut") { g.Set("ftype", 1); g.Set("cut", 400); } if (id == "glide" || id == "mono" || id == "vel") { } }
     }
     static T Also<T>(this T x, Action<T> a) { a(x); return x; }
