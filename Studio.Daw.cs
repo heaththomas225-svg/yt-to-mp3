@@ -451,7 +451,7 @@ partial class StudioForm
     }
     void PaintBubble(Graphics g)
     {
-        string t = bubble; if (t.Length == 0) return;
+        string t = bubble; if (t.Length == 0 || sndDragging) return;   // while a sound is dragged in, its own label says what happens
         using (var f = new Font("Segoe UI", 12f, FontStyle.Regular, GraphicsUnit.Pixel))
         {
             var sz = g.MeasureString(t, f); float w = sz.Width + 18, h = 26; float x = Math.Min(ClientSize.Width - w - 6, bubblePt.X + 16), y = Math.Min(ClientSize.Height - h - 6, bubblePt.Y + 22); var r = Rc(x, y, w, h);

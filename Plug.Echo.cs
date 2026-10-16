@@ -268,7 +268,7 @@ static class IrLib
         double e = 0; for (int i = 0; i < n; i++) { double x = imp[i]; foreach (var b in f) x = b.TickL((float)x); double w = i < n * 0.8 ? 1 : 1 - (i - n * 0.8) / (n * 0.2); L[i] = (float)(x * w); R[i] = L[i]; e += L[i] * L[i]; }
         double g = 1.0 / Math.Sqrt(Math.Max(1e-12, e)); for (int i = 0; i < n; i++) { L[i] *= (float)g; R[i] *= (float)g; }
     }
-    public static float[] Resample(float[] x, int from, int to) { if (from == to) return x; int n = (int)((long)x.Length * to / from); var y = new float[n]; double st = from / (double)to; for (int i = 0; i < n; i++) { double p = i * st; int a = (int)p; double f = p - a; float v0 = a < x.Length ? x[a] : 0, v1 = a + 1 < x.Length ? x[a + 1] : v0; y[i] = (float)(v0 + (v1 - v0) * f); } return y; }
+    public static float[] Resample(float[] x, int from, int to) { return HqResample.Run(x, from, to); }
 }
 
 class Convolver

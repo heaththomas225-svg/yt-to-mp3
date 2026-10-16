@@ -321,7 +321,34 @@ static class NF
             SetF("feed", fd); SetF("commFilter", 3); var shown = (List<FeedSong>)typeof(StudioForm).GetMethod("FeedList", BF).Invoke(sf, null); Check("Community EPS: one card per EP", shown.Count(x => x.Cid == "r9") == 1, shown.Count + " cards");
             sf.OpenRelease(fd[0]); Check("clicking the EP shows its songs in order, with PLAY EP", sf.epOpen && sf.epSongs.Count == 4 && sf.epSongs[0].Ci == 0 && sf.epSongs[3].Ci == 3, sf.epSongs.Count + " songs"); SetF("epOpen", false);
             sf.epQueue = new List<FeedSong>(sf.epSongs); sf.epQueueAt = 0; SetF("previewPath", "artist:a1:somethingelse"); Check("PLAY EP stops going on when you play something else", !sf.EpQueueNext() && sf.epQueue == null, "");
+            sf.epQueue = new List<FeedSong>(sf.epSongs); sf.epQueueAt = 0; sf.PlayReleaseNow(fd[0], true); Check("PLAY NOW on a release card pressed again stops it", sf.epQueue == null, "");
+            {   // My Projects: PLAY NOW plays the songs of the EP one after another
+                var t1 = Path.Combine(Path.GetTempPath(), "px-epq-1.pxp"); var t2 = Path.Combine(Path.GetTempPath(), "px-epq-2.pxp"); File.WriteAllText(t1, "x"); File.WriteAllText(t2, "x");
+                var q1 = new ProjectEntry { Path = t1, Name = "Q one" }; var q2 = new ProjectEntry { Path = t2, Name = "Q two" }; var gone = new ProjectEntry { Path = Path.Combine(Path.GetTempPath(), "px-epq-gone.pxp"), Name = "Gone" };
+                sf.projQueue = new List<ProjectEntry> { q1, gone, q2 }; sf.projQueueAt = 0; SetF("previewPath", t1); bool next = sf.ProjQueueNext();
+                Check("when a song of the EP ends the next one starts (a song whose file is gone is skipped)", next && sf.projQueueAt == 2 && string.Equals(F<string>("previewPath"), t2, StringComparison.OrdinalIgnoreCase), sf.projQueueAt + " " + F<string>("previewPath"));
+                SetF("previewPath", t2); Check("after the last song it stops", !sf.ProjQueueNext() && sf.projQueue == null, "");
+                sf.projQueue = new List<ProjectEntry> { q1, q2 }; sf.projQueueAt = 0; SetF("previewPath", "somewhere-else.pxp"); Check("playing something else ends the EP queue", !sf.ProjQueueNext() && sf.projQueue == null, "");
+                typeof(StudioForm).GetMethod("StopPreview", BF).Invoke(sf, null); try { File.Delete(t1); File.Delete(t2); } catch { }
+            }
             SetF("feed", new List<FeedSong>()); SetF("commFilter", 0); }
+        {   // SOUND: pack sounds are converted with a windowed sinc (no grit), and the sound pack player never clicks
+            int n0 = 48000; var src = new float[n0]; for (int i = 0; i < n0; i++) src[i] = (float)(0.5 * Math.Sin(2 * Math.PI * 10000 * i / 48000.0));
+            var y = HqResample.Run(src, 48000, 44100); double err = 0; int cnt = 0; for (int i = 2000; i < y.Length - 2000; i++) { double ideal = 0.5 * Math.Sin(2 * Math.PI * 10000 * i / 44100.0); err += (y[i] - ideal) * (y[i] - ideal); cnt++; }
+            err = Math.Sqrt(err / cnt); Check("48 kHz sounds become 44.1 kHz cleanly (a 10 kHz tone stays a clean tone)", y.Length == 44100 && err < 0.004, "error " + err.ToString("0.00000"));
+            var AT = typeof(Auditioner); var SB = BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.Public; Action<string, object> sa = (nm, v) => AT.GetField(nm, SB).SetValue(null, v);
+            var tone = new float[44100]; for (int i = 0; i < tone.Length; i++) tone[i] = (float)(0.8 * Math.Cos(2 * Math.PI * 100 * i / 44100.0));
+            sa("player", new WaveOutPlayer((a, b, c) => { })); sa("pl", tone); sa("pr", tone); sa("pos", 0); sa("env", 0f); sa("envTarget", 1f); sa("atk", 1f / 66); sa("ol", null); sa("playing", true); sa("resetOnStop", false);
+            float vol = SoundLibrary.AuditionVolume; SoundLibrary.AuditionVolume = 1f; bool loopWas = SoundLibrary.LoopPreview; SoundLibrary.LoopPreview = false;
+            var render = AT.GetMethod("Render", SB); Func<float[]> blk = () => { var l = new float[1024]; var r = new float[1024]; render.Invoke(null, new object[] { l, r, 1024 }); return l; };
+            Func<float[], float, float> jump = (x, prev) => { float m = Math.Abs(x[0] - prev); for (int i = 1; i < x.Length; i++) m = Math.Max(m, Math.Abs(x[i] - x[i - 1])); return m; };
+            var b1 = blk(); float j1 = jump(b1, 0); Check("a sound starts without a click (it fades in over 1.5 ms)", j1 < 0.03, j1.ToString("0.000"));
+            Auditioner.Seek(0.5); var b2 = blk(); float j2 = jump(b2, b1[1023]); Check("jumping to another place in the sound crossfades (no click)", j2 < 0.03, j2.ToString("0.000"));
+            Auditioner.Stop(); var b3 = blk(); float j3 = jump(b3, b2[1023]); Check("stopping fades out (no click) and really stops", j3 < 0.03 && Math.Abs(b3[1023]) < 1e-6 && !Auditioner.IsPlaying, j3.ToString("0.000"));
+            sa("pos", 44100 - 300); sa("env", 1f); sa("envTarget", 1f); sa("playing", true); var b4 = blk(); float j4 = jump(b4, b4[0]); Check("the end of a sound always fades to silence (no click when it ends)", j4 < 0.03 && Math.Abs(b4[1023]) < 1e-6, j4.ToString("0.000"));
+            SoundLibrary.LoopPreview = true; sa("pos", 44100 - 600); sa("env", 1f); sa("playing", true); var b5 = blk(); float j5 = jump(b5, b5[0]); Check("a looping sound crossfades at the loop point (no click)", j5 < 0.03 && Auditioner.IsPlaying, j5.ToString("0.000"));
+            sa("playing", false); sa("player", null); SoundLibrary.AuditionVolume = vol; SoundLibrary.LoopPreview = loopWas;
+        }
           ReleaseStore.ResetForTest(); ProjectLibrary.Entries.Clear(); VideoRecs.ResetForTest(); SetF("tab", 0); }
         { // COLOUR EMOJI in writing: pictures made from the emoji font of this PC (a browser that is never shown), drawn over the outlines of a text box and in the writing the program draws itself
           EmojiSprites.Disabled = false; Func<Bitmap, Func<Color, bool>, int> countPx = (bm, pred) => { int n = 0; for (int y = 0; y < bm.Height; y++) for (int x = 0; x < bm.Width; x++) if (pred(bm.GetPixel(x, y))) n++; return n; };

@@ -1,4 +1,4 @@
-3.48.1
+3.49.0
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Plugin windows follow your theme, text fits its boxes, AI GEN removed
-sha256=76f090df222dc34836e38662a43f238a6b4d8a6a4c3cc0126f9d337f21518c6a
+No more crackling, EPs play in order, see where a sound will land
+sha256=9645c92b58c19fb456da25d682f45880cb11d2f7b67658684c1dd76569e3a033

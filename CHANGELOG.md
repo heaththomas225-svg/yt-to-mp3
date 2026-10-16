@@ -2,6 +2,20 @@
 
 What changed in each version of **Purphex**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.49.0  No more crackling, EPs play in order, see where a sound will land
+
+- FIXED: Crackling when Purphex Music is not the window in front: Windows 11 slowed the app down in the background ("efficiency mode"), which starved the sound. The app and its sound thread now opt out, so playback stays smooth while you use another window or click off an EP.
+
+- FIXED: Clicks and crackles in the sound packs: starting, stopping, switching to another sound, jumping to another place and the loop point all fade over a few milliseconds instead of jumping, and every sound ends at silence.
+
+- IMPROVED: Sounds that are not 44.1 kHz (sound packs, dropped files, impulse responses) are converted with a high-quality filter instead of a straight line between samples, so they no longer get a gritty top end.
+
+- NEW: PLAY NOW under OPEN EP / OPEN ALBUM, on My Projects and on the community page: every song of the release plays in order, one after another (press it again to stop). The EP / album window on My Projects has PLAY EP too.
+
+- NEW: Dragging a sound from the sound packs shows the clip it will make before you let go: its real length and waveform, on the row and at the time it will land (snapped to the grid), with the track name or NEW TRACK.
+
+- FIXED: My Projects said "NO PROJECT MATCHES" over your EP card when every project was inside an EP or album.
+
 ## 3.48.1  Plugin windows follow your theme, text fits its boxes, AI GEN removed
 
 - CHANGED: Every Purphex VST window (GlitchFlow too) now uses the colours of your theme: backgrounds, panels, edges, knobs, buttons and the main colours change with it. ON stays gold.

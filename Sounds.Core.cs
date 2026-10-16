@@ -312,6 +312,9 @@ static class Auditioner
 {
     static WaveOutPlayer player; static float[] pl, pr; static int srate = 44100; static volatile int pos; static volatile bool playing; static readonly object lk = new object(); public static SoundItem Current; public static volatile bool Loading; public static string Error = "";
     static DateTime stoppedAt = DateTime.MinValue;
+    // fades: env is the level of the sound now (0..1), envTarget where it is going; ol / orr is the sound that was playing before, fading out
+    static float env, envTarget = 1, atk = 1f / 66, oenv; static float[] ol, orr; static int opos; static volatile bool resetOnStop;
+    const float Rel = 1f / 220, LoopX = 220;   // 5 ms to fade out; the loop crossfades over 5 ms too
     public static bool IsPlaying { get { return playing; } }
     public static double Seconds { get { return srate > 0 ? pos / (double)srate : 0; } }
     public static double Length { get { return pl == null ? 0 : pl.Length / (double)srate; } }
@@ -329,11 +332,11 @@ static class Auditioner
             if (!SoundIO.Read(s.Path, out l, out r, out sr, out fmt)) { Loading = false; Error = "Couldn't read " + s.Rel + " (is it a damaged file?)."; if (onError != null) onError(Error); return; }
             if (sr != 44100 && sr > 0) { l = Resample(l, sr); r = Resample(r, sr); }
             if (Current != s) { Loading = false; return; }   // another sound was picked while this one loaded
-            lock (lk) { pl = l; pr = r; srate = 44100; pos = 0; playing = true; }
+            lock (lk) { if (playing && pl != null) { ol = pl; orr = pr; opos = pos; oenv = env; } pl = l; pr = r; srate = 44100; pos = 0; env = 0; atk = 1f / 66; envTarget = 1; resetOnStop = false; playing = true; }   // the sound that was playing fades out under the new one
             Loading = false; Ensure();
         }) { IsBackground = true }.Start();
     }
-    static float[] Resample(float[] x, int from) { int n = (int)((long)x.Length * 44100 / from); var y = new float[n]; double st = from / 44100.0; for (int i = 0; i < n; i++) { double p = i * st; int a = (int)p; float f = (float)(p - a); float v0 = a < x.Length ? x[a] : 0, v1 = a + 1 < x.Length ? x[a + 1] : v0; y[i] = v0 + (v1 - v0) * f; } return y; }
+    static float[] Resample(float[] x, int from) { return HqResample.Run(x, from, 44100); }   // windowed sinc: a straight line between samples made pack sounds gritty
     static void Ensure()
     {
         lock (lk)
@@ -344,19 +347,32 @@ static class Auditioner
     }
     static void Render(float[] l, float[] r, int n)
     {
-        float g = SoundLibrary.AuditionVolume; var al = pl; var ar = pr;
+        float g = SoundLibrary.AuditionVolume; var al = pl; var ar = pr; bool loop = SoundLibrary.LoopPreview;
         for (int i = 0; i < n; i++)
         {
-            if (playing && al != null && pos < al.Length) { l[i] = al[pos] * g; r[i] = ar[pos] * g; pos++; }
-            else if (playing && al != null && SoundLibrary.LoopPreview) { pos = 0; l[i] = al[0] * g; r[i] = ar[0] * g; pos = 1; }
-            else { l[i] = 0; r[i] = 0; if (playing) { playing = false; stoppedAt = DateTime.Now; } }
+            float vl = 0, vr = 0;
+            if (playing && al != null && loop && al.Length > LoopX * 8 && pos >= al.Length - LoopX && ol == null) { ol = al; orr = ar; opos = pos; oenv = env; pos = 0; env = 0; atk = Rel; }   // the loop point crossfades instead of jumping (started before the old sound is mixed, so no sample is missed)
+            var oa = ol; if (oa != null) { if (opos < oa.Length && oenv > 0) { vl += oa[opos] * oenv; vr += orr[opos] * oenv; opos++; oenv -= Rel; } else ol = null; }
+            if (playing && al != null)
+            {
+                int len = al.Length;
+                if (pos >= len) { if (loop) { pos = 0; } else { playing = false; stoppedAt = DateTime.Now; env = 0; } }
+                if (playing)
+                {
+                    if (env < envTarget) env = Math.Min(envTarget, env + atk); else if (env > envTarget) env = Math.Max(envTarget, env - Rel);
+                    float tail = loop ? 1f : Math.Min(1f, (len - pos) / 64f);   // the last 1.5 ms of a sound always ends at silence
+                    float k = env * tail; vl += al[pos] * k; vr += ar[pos] * k; pos++;
+                    if (env <= 0 && envTarget <= 0) { playing = false; stoppedAt = DateTime.Now; if (resetOnStop) { pos = 0; resetOnStop = false; } }
+                }
+            }
+            l[i] = vl * g; r[i] = vr * g;
         }
     }
-    public static void Pause() { playing = false; stoppedAt = DateTime.Now; }
-    public static void Resume() { if (pl != null) { if (pos >= pl.Length) pos = 0; playing = true; Ensure(); } }
-    public static void Toggle() { if (playing) Pause(); else Resume(); }
-    public static void Stop() { playing = false; pos = 0; stoppedAt = DateTime.Now; }
-    public static void Seek(double frac) { if (pl != null) pos = (int)Math.Max(0, Math.Min(pl.Length - 1, frac * pl.Length)); }
+    public static void Pause() { envTarget = 0; if (player == null) { playing = false; } stoppedAt = DateTime.Now; }
+    public static void Resume() { if (pl != null) { if (pos >= pl.Length) pos = 0; env = 0; atk = 1f / 66; envTarget = 1; resetOnStop = false; playing = true; Ensure(); } }
+    public static void Toggle() { if (playing && envTarget > 0) Pause(); else Resume(); }
+    public static void Stop() { if (playing && player != null) { envTarget = 0; resetOnStop = true; } else { playing = false; pos = 0; } stoppedAt = DateTime.Now; }
+    public static void Seek(double frac) { if (pl != null) lock (lk) { if (playing) { ol = pl; orr = pr; opos = pos; oenv = env; env = 0; atk = Rel; } pos = (int)Math.Max(0, Math.Min(pl.Length - 1, frac * pl.Length)); } }
     // closes the output a few seconds after the last sound so nothing keeps the sound card busy
     public static void Tick() { if (!playing && player != null && (DateTime.Now - stoppedAt).TotalSeconds > 4) { lock (lk) { try { player.Dispose(); } catch { } player = null; } } }
     public static void Shutdown() { playing = false; lock (lk) { if (player != null) { try { player.Dispose(); } catch { } player = null; } } }

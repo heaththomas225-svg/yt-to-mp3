@@ -256,7 +256,7 @@ partial class StudioForm
         }
         g.Restore(gs);
         { float barTop = y0 - 8, barH = H - barTop - (previewPath.Length > 0 ? 56 : 8); VScroll(g, Rc(W - 54, barTop, 42, barH), barH + maxScroll, barH, () => projScroll, v => projScroll = v); }
-        if (list.Count == 0) { if (ProjectLibrary.Entries.Count > 0) TxtWrap(g, "NO PROJECT MATCHES. Change the search or press CLEAR to see all your projects.", 14, DimC, Rc(x0 + cw + 40, y0 + 90, W - cw - 100, 60)); else TxtWrap(g, "You have not saved a project yet. Make something, press Save, and it will appear here.", 14, DimC, Rc(x0 + cw + 40, y0 + 90, W - cw - 100, 60)); }
+        if (list.Count == 0 && relCards.Count == 0) {   /* the songs of an EP are inside its card: the list is not empty then */ if (ProjectLibrary.Entries.Count > 0) TxtWrap(g, "NO PROJECT MATCHES. Change the search or press CLEAR to see all your projects.", 14, DimC, Rc(x0 + cw + 40, y0 + 90, W - cw - 100, 60)); else TxtWrap(g, "You have not saved a project yet. Make something, press Save, and it will appear here.", 14, DimC, Rc(x0 + cw + 40, y0 + 90, W - cw - 100, 60)); }
     }
     void DrawCamera(Graphics g, RectangleF r)
     {

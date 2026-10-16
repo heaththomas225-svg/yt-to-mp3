@@ -47,7 +47,7 @@ partial class StudioForm
         if (!first && s.Bpm > 0 && Math.Abs(s.Bpm - Fx.ProjectBpm) > 1.5) Toast("Added. This loop is " + s.Bpm.ToString("0") + " BPM and your project is " + Fx.ProjectBpm.ToString("0") + " BPM."); else Toast("Added " + s.Name);
         return null;
     }
-    static float[] Resample(float[] x, int from) { int n = (int)((long)x.Length * StudioEngine.SR / from); var y = new float[n]; double st = from / (double)StudioEngine.SR; for (int i = 0; i < n; i++) { double p = i * st; int a = (int)p; float f = (float)(p - a); float v0 = a < x.Length ? x[a] : 0, v1 = a + 1 < x.Length ? x[a + 1] : v0; y[i] = v0 + (v1 - v0) * f; } return y; }
+    static float[] Resample(float[] x, int from) { return HqResample.Run(x, from, StudioEngine.SR); }   // windowed sinc: a straight line between samples made pack sounds gritty
 
     // a MIDI file dropped on an instrument track puts its notes there
     string DropMidi(SoundItem s, long frame, int laneIndex)
@@ -238,7 +238,22 @@ partial class StudioForm
     void PaintSoundDrag(Graphics g)
     {
         if (!sndDragging || sndDrag == null) return; var tl = TimelineRect(); float top = ToolH + TransH + RulerH; bool over = MousePos.X >= HeadW && MousePos.X <= tl.Right && MousePos.Y >= top;
-        if (over) { using (var pen = new Pen(Color.FromArgb(220, NeonCyan), 2f)) { g.DrawLine(pen, MousePos.X, top, MousePos.X, ClientSize.Height - 20); } }
+        if (over)
+        {
+            long frame = Snap(scroll + (long)((MousePos.X - HeadW) * spp)); float gx = HeadW + (float)((frame - scroll) / spp); int lanes = LaneCount; int lane = Math.Max(0, Math.Min(lanes, (int)((MousePos.Y - top + vscroll) / LaneH)));
+            float gy = top + lane * LaneH - vscroll; double dur = sndDrag.Dur > 0.01 ? sndDrag.Dur : 1; float gw = Math.Max(8, (float)(dur * StudioEngine.SR / spp));
+            var gs = g.Save(); g.SetClip(Rc(HeadW, top, tl.Right - HeadW, ClientSize.Height - top), System.Drawing.Drawing2D.CombineMode.Intersect);
+            var gr = Rc(gx, gy + 4, gw, LaneH - 8); FillRR(g, Color.FromArgb(70, NeonCyan), gr, 8);
+            var pk = sndDrag.Peaks; if (pk != null && pk.Length > 1 && gw > 12)
+            {   // the waveform of the sound, the same way a clip shows it
+                float mid = gr.Y + gr.Height / 2 + 6, amp = (gr.Height - 26) / 2; int bars = (int)Math.Min(gw / 3, 600);
+                using (var pen = new Pen(Color.FromArgb(200, Color.White), 1.4f)) for (int b = 0; b < bars; b++) { float v = pk[Math.Min(pk.Length - 1, b * pk.Length / Math.Max(1, bars))] / 255f * amp; float bx = gr.X + 2 + b * (gw - 4) / bars; g.DrawLine(pen, bx, mid - v, bx, mid + v); }
+            }
+            using (var pen = new Pen(Color.FromArgb(240, NeonCyan), 1.8f) { DashStyle = System.Drawing.Drawing2D.DashStyle.Dash }) using (var p = RR(gr, 8)) g.DrawPath(pen, p);
+            string where = lane >= lanes ? "NEW TRACK" : eng.Tracks[lane].Name.ToUpperInvariant(); Txt(g, sndDrag.Name.Replace(sndDrag.PackName + " - ", "") + "  -  " + where, 10, Color.White, Rc(gr.X + 8, gr.Y + 3, Math.Max(40, gr.Width - 16), 16), StringAlignment.Near, true);
+            using (var pen = new Pen(Color.FromArgb(220, NeonCyan), 2f)) g.DrawLine(pen, gx, top, gx, ClientSize.Height - 20);
+            g.Restore(gs);
+        }
         var r = Rc(MousePos.X + 12, MousePos.Y + 10, 230, 24); FillRR(g, TM.C(235, 30, 14, 64), r, 8); Glow(g, over ? NeonCyan : NeonPink, r, 8, 0.8f, 2); Txt(g, (over ? "Drop to add: " : "Drag to the timeline: ") + sndDrag.Name.Replace(sndDrag.PackName + " - ", ""), 11, Ink, r, StringAlignment.Center, true);
     }
 

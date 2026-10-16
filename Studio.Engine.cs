@@ -796,6 +796,17 @@ class WaveOutPlayer : IDisposable
         return QueuedFrames;
     }
     [DllImport("winmm.dll")] static extern int waveOutRestart(IntPtr h);
+    [StructLayout(LayoutKind.Sequential)] struct POWER_THROTTLING { public uint Version, ControlMask, StateMask; }
+    [DllImport("kernel32.dll")] static extern bool SetProcessInformation(IntPtr h, int cls, ref POWER_THROTTLING s, int size);
+    [DllImport("kernel32.dll")] static extern bool SetThreadInformation(IntPtr h, int cls, ref POWER_THROTTLING s, int size);
+    [DllImport("kernel32.dll")] static extern IntPtr GetCurrentThread();
+    static bool unthrottled;
+    // the whole app opts out of power throttling (execution speed and timer resolution): in the background it keeps full speed, so the sound never breaks up
+    public static void NoThrottle()
+    {
+        if (unthrottled) return; unthrottled = true;
+        try { var p = new POWER_THROTTLING { Version = 1, ControlMask = 0x1 | 0x4, StateMask = 0 }; SetProcessInformation((IntPtr)(-1), 4, ref p, Marshal.SizeOf(typeof(POWER_THROTTLING))); } catch { }
+    }
     [DllImport("avrt.dll", CharSet = CharSet.Unicode)] static extern IntPtr AvSetMmThreadCharacteristicsW(string task, ref uint index);
     const int CALLBACK_EVENT = 0x50000, WHDR_DONE = 1;
     public static volatile int Underruns;       // times the sound card ran out of audio (heard as stutter)
@@ -824,7 +835,7 @@ class WaveOutPlayer : IDisposable
 
     public void Start()
     {
-        var f = new WAVEFORMATEX { wFormatTag = 1, nChannels = 2, nSamplesPerSec = 44100, wBitsPerSample = 16, nBlockAlign = 4, nAvgBytesPerSec = 44100 * 4 };
+        NoThrottle(); var f = new WAVEFORMATEX { wFormatTag = 1, nChannels = 2, nSamplesPerSec = 44100, wBitsPerSample = 16, nBlockAlign = 4, nAvgBytesPerSec = 44100 * 4 };
         int r = waveOutOpen(out hwo, Device, ref f, ev.SafeWaitHandle.DangerousGetHandle(), IntPtr.Zero, CALLBACK_EVENT);
         if (r != 0) throw new Exception("Couldn't open the audio output device (winmm error " + r + ").");
         waveOutPause(hwo);   // the card does not start until every buffer is full: filling them takes a moment, and a card that starts early runs dry (a crackle at the very start)
@@ -858,7 +869,8 @@ class WaveOutPlayer : IDisposable
 
     void Loop()
     {
-        try { uint ix = 0; AvSetMmThreadCharacteristicsW("Pro Audio", ref ix); } catch { }   // Windows treats this thread as pro audio: it gets the processor on time even when the computer is busy
+        try { uint ix = 0; AvSetMmThreadCharacteristicsW("Pro Audio", ref ix); } catch { }
+        try { var t = new POWER_THROTTLING { Version = 1, ControlMask = 1, StateMask = 0 }; SetThreadInformation(GetCurrentThread(), 3, ref t, Marshal.SizeOf(typeof(POWER_THROTTLING))); } catch { }   // and this thread never runs on the slow cores   // Windows treats this thread as pro audio: it gets the processor on time even when the computer is busy
         while (run)
         {
             ev.WaitOne(30); ev.Reset();

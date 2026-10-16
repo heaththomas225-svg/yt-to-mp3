@@ -27,7 +27,7 @@ partial class StudioForm
         if (epSongs.Count < s.Cn && !epFetching)
         {   // the filters (a genre) can hide some of its songs: ask the website for the whole release
             epFetching = true; string cid = s.Cid, kind = s.Kind;
-            ThreadPool.QueueUserWorkItem(o => { List<FeedSong> l = null; try { List<string> tg; l = ProfApi.Feed(kind, false, "", "", out tg); } catch { } try { BeginInvoke(new Action(() => { epFetching = false; if (l != null && epCid == cid) { var all = l.FindAll(x => x.Cid == cid); all.Sort((a, b) => a.Ci.CompareTo(b.Ci)); if (all.Count > epSongs.Count) epSongs = all; } lastInput = DateTime.Now; })); } catch { epFetching = false; } });
+            ThreadPool.QueueUserWorkItem(o => { List<FeedSong> l = null; try { List<string> tg; l = ProfApi.Feed(kind, false, "", "", out tg); } catch { } try { BeginInvoke(new Action(() => { epFetching = false; if (l != null && epCid == cid) { var all = l.FindAll(x => x.Cid == cid); all.Sort((a, b) => a.Ci.CompareTo(b.Ci)); if (all.Count > epSongs.Count) { epSongs = all; if (epQueue != null && epQueue.Count > 0 && epQueue[0].Cid == cid && epQueueAt < epQueue.Count) { string at = epQueue[epQueueAt].Id; epQueue = new List<FeedSong>(all); epQueueAt = Math.Max(0, all.FindIndex(x => x.Id == at)); } } } lastInput = DateTime.Now; })); } catch { epFetching = false; } });
         }
     }
     // PLAY EP: the first song now, the next one each time a song ends
@@ -35,6 +35,12 @@ partial class StudioForm
     {
         if (epSongs.Count == 0) return; epQueue = new List<FeedSong>(epSongs); epQueueAt = 0; var s = epQueue[0];
         PlayArtistSong(StubArtist(s), StubTrack(s)); Toast("Playing the " + (epKind == "album" ? "album" : "EP") + " \"" + epTitle + "\": " + epQueue.Count + " songs, one after another.");
+    }
+    // PLAY NOW on a release card: every song of the EP / album, in order, without opening it (pressed again it stops)
+    internal void PlayReleaseNow(FeedSong s, bool stop)
+    {
+        if (stop) { epQueue = null; StopPreview(); return; }
+        if (s == null || s.Cid.Length == 0) return; OpenRelease(s); epOpen = false; PlayRelease();
     }
     static string FeedKey(FeedSong s) { return "artist:" + s.ArtistId + ":" + s.Id; }
     // called when a preview reaches its end: true = the next song of the EP started

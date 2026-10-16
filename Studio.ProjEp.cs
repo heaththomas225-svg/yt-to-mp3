@@ -2,12 +2,14 @@ using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
+using System.IO;
 using System.Windows.Forms;
 
 // EPs and albums on My Projects: the projects of a release are not separate cards, they are ONE card (EP or ALBUM). Opening it lists its projects in order:
 // PLAY hears one without opening it, clicking a project asks to open it. (While you search, the projects show one by one so you can find them.)
 partial class StudioForm
 {
+    internal List<ProjectEntry> projQueue; internal int projQueueAt; internal Release projQueueRel;   // PLAY NOW: the songs of an EP / album playing one after another
     internal bool projEpOpen; Release projEp; List<ProjectEntry> projEpEnts = new List<ProjectEntry>(); float projEpScroll;
     readonly Dictionary<Release, List<ProjectEntry>> projRelEnts = new Dictionary<Release, List<ProjectEntry>>();
     internal readonly List<object> projCardOrder = new List<object>();   // the cards in order: an EP or album sits where its newest song sits (like any project), never first just because it is an EP
@@ -38,7 +40,24 @@ partial class StudioForm
         Txt(g, ents.Count + (ents.Count == 1 ? " SONG" : " SONGS") + (ents.Count < r.Pids.Count ? "  (" + (r.Pids.Count - ents.Count) + " NOT ON THIS PC)" : ""), 11, NeonCyan, Rc(card.X + 12, card.Y + 252, cw - 24, 18), StringAlignment.Near, true);
         string names = string.Join(", ", ents.ConvertAll(x => x.Name).ToArray()); TxtWrap(g, names, 10.5f, DimC, Rc(card.X + 12, card.Y + 272, cw - 24, 44));
         var ob = Rc(card.X + 12, card.Y + 324, cw - 24, 34); var rr = r; Btn(g, ob, "OPEN " + kw, 2, () => OpenProjEp(rr), 12); Hint2(ob, "See the " + ents.Count + " songs of this " + kw.ToLower() + ": play one, or click one to open it");
+        bool qOn = ProjQueueOn(r); var pn = Rc(card.X + 12, card.Y + 366, cw - 24, 34); Btn(g, pn, qOn ? "STOP  (" + (projQueueAt + 1) + " OF " + projQueue.Count + ")" : "PLAY NOW", qOn ? 4 : 2, () => PlayProjEp(rr), 12); Hint2(pn, qOn ? "Stop playing the " + kw.ToLower() : "Play every song of the " + kw.ToLower() + " in order, one after another");
         Reg(card, () => OpenProjEp(rr)); Hint2(card, "Open the " + kw.ToLower() + " " + r.Title);
+    }
+    internal bool ProjQueueOn(Release r) { return projQueue != null && projQueueRel == r && projQueueAt < projQueue.Count && string.Equals(previewPath, projQueue[projQueueAt].Path, StringComparison.OrdinalIgnoreCase); }
+    internal void PlayProjEp(Release r)
+    {
+        List<ProjectEntry> ents; if (r == null || !projRelEnts.TryGetValue(r, out ents) || ents.Count == 0) return;
+        if (ProjQueueOn(r)) { projQueue = null; StopPreview(); return; }
+        projQueue = new List<ProjectEntry>(ents); projQueueRel = r; projQueueAt = -1; StopPreview(); epQueue = null;
+        if (ProjQueueNext(true)) Toast("Playing the " + (r.Kind == "album" ? "album" : "EP") + " \"" + r.Title + "\": " + projQueue.Count + " songs, one after another."); else projQueue = null;
+    }
+    // the next song of the EP / album that is playing (a song whose file is gone is skipped); false = it has ended or something else was played
+    internal bool ProjQueueNext(bool first = false)
+    {
+        if (projQueue == null) return false;
+        if (!first && (projQueueAt < 0 || projQueueAt >= projQueue.Count || !string.Equals(previewPath, projQueue[projQueueAt].Path, StringComparison.OrdinalIgnoreCase))) { projQueue = null; return false; }
+        while (++projQueueAt < projQueue.Count) { var e = projQueue[projQueueAt]; if (e.Missing || !File.Exists(e.Path)) continue; StopPreview(); PreviewToggle(e); if (string.Equals(previewPath, e.Path, StringComparison.OrdinalIgnoreCase)) return true; }
+        projQueue = null; return false;
     }
     internal void OpenProjEp(Release r) { List<ProjectEntry> ents; if (r == null || !projRelEnts.TryGetValue(r, out ents)) return; projEp = r; projEpEnts = new List<ProjectEntry>(ents); projEpOpen = true; projEpScroll = 0; }
     void PaintProjEpSheet(Graphics g)
@@ -50,7 +69,8 @@ partial class StudioForm
         Txt(g, projEp.Title, 22, Ink, Rc(box.X + 24, box.Y + 46, box.Width - 110, 34), StringAlignment.Near, true);
         Txt(g, "PLAY HEARS A SONG WITHOUT OPENING IT.  CLICK A SONG TO OPEN ITS PROJECT.", 11, DimC, Rc(box.X + 24, box.Y + 82, box.Width - 48, 18), StringAlignment.Near, true);
         var cl = Rc(box.Right - 52, box.Y + 18, 32, 30); Btn(g, cl, "x", 3, () => projEpOpen = false, 13);
-        var lr = Rc(box.X + 20, box.Y + 112, box.Width - 40, box.Bottom - box.Y - 130); float rowH = 56, total = projEpEnts.Count * rowH, maxS = Math.Max(0, total - lr.Height); projEpScroll = Math.Max(0, Math.Min(maxS, projEpScroll));
+        { bool qOn = ProjQueueOn(projEp); var pa = Rc(box.X + 24, box.Y + 108, box.Width - 48, 40); var rel = projEp; Btn(g, pa, qOn ? "PLAYING THE " + kw + "  (" + (projQueueAt + 1) + " OF " + projQueue.Count + ")  -  STOP" : "PLAY " + kw, qOn ? 4 : 2, () => PlayProjEp(rel), 15); Hint2(pa, qOn ? "Stop playing the " + kw.ToLower() : "Play every song of the " + kw.ToLower() + " in order, one after another"); }
+        var lr = Rc(box.X + 20, box.Y + 160, box.Width - 40, box.Bottom - box.Y - 178); float rowH = 56, total = projEpEnts.Count * rowH, maxS = Math.Max(0, total - lr.Height); projEpScroll = Math.Max(0, Math.Min(maxS, projEpScroll));
         regs.Add(new HitReg { R = lr, OnWheel = d => projEpScroll = Math.Max(0, Math.Min(maxS, projEpScroll - d * 50)) });
         var gs = g.Save(); g.SetClip(lr, CombineMode.Intersect);
         for (int i = 0; i < projEpEnts.Count; i++)
