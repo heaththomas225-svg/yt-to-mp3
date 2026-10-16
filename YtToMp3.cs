@@ -37,7 +37,7 @@ class Job
 partial class App : Form
 {
     // ---- Auto-update settings ----
-    const string Version = "3.50.1";
+    const string Version = "3.51.0";
     // Plain-text manifest: line 1 = newest version, line 2 = direct exe download URL.
     const string UpdateManifestUrl = "https://raw.githubusercontent.com/heaththomas225-svg/yt-to-mp3/main/version.txt";
 
@@ -183,6 +183,7 @@ partial class App : Form
         ServicePointManager.SecurityProtocol = (SecurityProtocolType)3072 | SecurityProtocolType.Tls;
         ServicePointManager.DefaultConnectionLimit = Math.Max(ServicePointManager.DefaultConnectionLimit, 16); ServicePointManager.Expect100Continue = false;   // many pictures at once from the website (Windows allowed only 2: covers queued, timed out and never showed)
         try { File.Delete(Application.ExecutablePath + ".old"); } catch { }
+        Wv2Loader.Ensure();   // the Music Hub browser parts are unpacked from the exe when needed
         EmojiSprites.Disabled = false;   // the emoji in the writing are drawn in colour (the tests leave this off)
         Application.EnableVisualStyles(); Win.WidenBuffers(); CrashGuard.Install(); NoValueWheel.Install();   // a problem is logged to crash.log, not shown as the grey .NET box
         Application.Run(new App());

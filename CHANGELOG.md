@@ -2,6 +2,18 @@
 
 What changed in each version of **Purphex**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.51.0  Music Hub: listen to your streaming services inside Purphex
+
+- NEW: MUSIC HUB in the side panel (right under Community): YouTube Music, YouTube, SoundCloud, Spotify, Apple Music, Deezer, Tidal, Amazon Music, Bandcamp, BeatStars, Audiomack and Mixcloud play in their own official players inside Purphex, in a clean frameless view with Purphex buttons: back, forward, reload, straight to your library pages (liked songs, playlists, albums, history), OPEN IN OWN WINDOW, SIGN OUT and BACK TO DAW. You sign in on each service's own page; Purphex never sees your password. Protected music plays through Windows' own Widevine and PlayReady support (nothing is bypassed or downloaded).
+
+- NEW: Now playing with the cover, title and artist from the service, play / pause, next, previous, seek, volume and a queue; a small player stays in the corner of every other page. The hub pauses by itself when your project starts playing, so the two never play over each other.
+
+- NEW: CONNECT ACCOUNTS: connect Spotify, YouTube and SoundCloud through their official APIs (with a free developer app of your own) to see your playlists, liked songs, albums, followed artists, recently played and more as cards inside Purphex. Sign-in goes through each service's own page in your browser (OAuth with PKCE); the tokens are kept encrypted for your Windows user and DISCONNECT deletes them.
+
+- NEW: Search across everything: songs from your connected accounts plus Deezer's and Apple's public catalogues (no account needed); click one to play it on its service. Inside a service, the search box searches that service.
+
+- FIXED: The + ADD TRACK button at the bottom of a long track list was partly cut off.
+
 ## 3.50.1  Buttons, scroll bars and the audio bar always on top; type the bus level
 
 - FIXED: Clicking the audio bar along the bottom (or the name above it) on My Projects, the community, profiles and artists clicked the project or card under it. The whole bar is on top now, and so is every scroll bar, slider, value box and button: whatever sits under them never takes their click.

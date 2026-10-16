@@ -610,6 +610,20 @@ Low-pass (with resonance), high-pass, telephone, rhythm gate, drive (soft, hard 
 ## Presets, undo and automation
 PRESETS has 55 factory presets (subtle, vocal, drum fills, build-ups, transitions, EDM, drum and bass, UK garage, trap, experimental, aggressive) and your own: save, rename and delete them there. The arrows step through them. Ctrl+Z and Ctrl+Y undo and redo in the window. Every setting is in the plugin panel too, with its A button for automation, and everything is saved with the project.
 "),
+        new HelpTopic("studio-musichub", "Purphex Music", "Music Hub: listen to your streaming services inside Purphex", false, @"
+## Where it is
+Open the side panel (the three lines at the top left) and press MUSIC HUB, right under Community.
+## Listening
+Pick a service on the left. It opens in its own official web player inside Purphex: sign in on the service's own page (Purphex never sees your password). The buttons above it go back, forward, reload and straight to your library pages (liked songs, playlists, albums, history). OPEN IN OWN WINDOW opens the service in its own window when something will not work inside Purphex. SIGN OUT deletes that service's sign-in from the hub.
+## Now playing
+The bar at the bottom shows the cover, title and artist, with previous, play / pause, next, seek, volume and the queue. On every other page a small player stays in the corner (the arrow opens the hub again). When your project starts playing, the hub pauses by itself. BACK TO DAW takes you to your project; the music keeps playing.
+## Your libraries
+CONNECT ACCOUNTS connects Spotify, YouTube and SoundCloud through their official APIs, to see your playlists, liked songs, albums, artists and recently played as cards in Purphex. Each needs a free developer app of your own: press SETUP PAGE, make the app, add the Redirect URI (COPY REDIRECT), then SET CLIENT ID (and SET SECRET for YouTube and SoundCloud) and CONNECT. Your browser opens the service's sign-in page; the sign-in is kept encrypted on this PC. DISCONNECT deletes it.
+## What each service allows
+Spotify, Apple Music, Tidal, Amazon Music and Deezer play full songs with their own subscriptions (their free plans have their own limits). YouTube, YouTube Music, SoundCloud, Bandcamp, Audiomack, Mixcloud and BeatStars play in full. Google sometimes will not let you sign in from an app window: YouTube still plays without signing in, or use OPEN IN OWN WINDOW. Next and previous press the service's own buttons where Purphex knows them; otherwise use the ones in its player.
+## Search
+Type in the search box and press SEARCH: songs from your connected accounts and from Deezer's and Apple's public catalogues. Inside a service, the box searches that service.
+"),
         new HelpTopic("studio-purphexvst", "Purphex Music", "Purphex VSTs: Glow, Curve EQ, Shape, SubForge, BreathOff, Phantom Gate, Stereo Lab, Vortex, MultiDyn, Prism, Frost, Tape Dirt, Constellation, Clipper, Smack, Vinyl Stop, Radio, Doubler, Octave Choir, Vowel, Step Shaper, Tri-Drive, Shift, Maximizer, Spectral Gate", false, @"
 ## Where they are
 The Purphex VSTs are our own plugins with their own windows. The effects are at the top of + ADD EFFECT in PURPHEX VST (adding one opens its window; OPEN in the plugin panel opens it again). SubForge is an instrument: + ADD TRACK, then a MIDI / instrument track.

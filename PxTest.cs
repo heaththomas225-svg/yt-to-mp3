@@ -205,7 +205,7 @@ static class PX
             Check(t + ": its window draws its controls, a control moves the real setting, undo puts it back", w.HitCount > 10 && moved && back, w.HitCount + " controls"); w.Dispose();
         }
         // ---- every label fits its box and none sits across a panel edge, in every Purphex window (GlitchFlow too) ----
-        { var wins = typeof(PxWindow).Assembly.GetTypes().Where(t => t.IsSubclassOf(typeof(PxWindow)) && !t.IsAbstract).ToList(); var probs = new List<string>();
+        { Wv2Loader.Ensure(); Type[] allT; try { allT = typeof(PxWindow).Assembly.GetTypes(); } catch (System.Reflection.ReflectionTypeLoadException ex) { allT = ex.Types.Where(x => x != null).ToArray(); } var wins = allT.Where(t => t.IsSubclassOf(typeof(PxWindow)) && !t.IsAbstract).ToList(); var probs = new List<string>();
           foreach (var info in FxRegistry.All.Where(i => PxPlugins.Types.Contains(i.Type) || i.Type == "glitchflow"))
           {
               var f = New(info.Type); Form w = null;

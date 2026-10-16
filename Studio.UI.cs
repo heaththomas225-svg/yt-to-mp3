@@ -105,7 +105,7 @@ partial class StudioForm : Form
 
     public StudioForm(App owner)
     {
-        app = owner; eng = app.StudioEng; Win.Dark(this); InitEdit();
+        Wv2Loader.Ensure(); app = owner; eng = app.StudioEng; Win.Dark(this); InitEdit();
         Text = "Purphex Music"; StartPosition = FormStartPosition.CenterParent; BackColor = Bg0;
         ClientSize = new Size(1360, 800); MinimumSize = new Size(1240, 680);
         DoubleBuffered = true; KeyPreview = true; FontKit.Restore(this);   /* AllowDrop is switched on in OnHandleCreated (Studio.Crash.cs) so a refused registration cannot crash */
@@ -529,11 +529,11 @@ partial class StudioForm : Form
         if (popDragId.Length > 0 && PaintPopDragFast(g)) { fpsc.Frame(); return; }   // dragging a box: the page under it is a stored picture and only the box is moved
         if (popDragId.Length == 0 && popBase != null) PopCacheClear();
         regs.Clear(); regLayer = 0; regG = g; btnRects.Clear(); btnMap.Clear(); PopBegin(g); Prof.Mark("setup");
-        PaintBase(g);
+        PaintBase(g); PaintHubMini(g);
         if (TxtAudit != null && (ntOpen || busOpen || stylesOpen || allFxOpen || themeOpen || caOpen || psOpen || amOpen || autoOpen || gainOpen || pickOpen || cpOpen || relOpen || tpOpen || WelcomeShowing)) TxtAudit.Clear();   // an open sheet covers the screen: only its own text counts
         PaintSheets(g); PopEnd(); Prof.Mark("sheets"); Win.PaintNeonChildren(this, g); Prof.Mark("neon children");
         if (TxtAudit != null && (menuOpen || eng.CountBeat > 0)) TxtAudit.Clear();
-        PaintMenu(g); Prof.Mark("menu");
+        PaintMenu(g); Prof.Mark("menu"); HubTick();
         PaintChatWindow(g); PaintVideoOverlay(g); PaintWelcome(g); PaintReleaseBuilder(g); PaintTrackPicker(g); PaintHoverSparks(g); Prof.Mark("sparks"); PaintRevertBar(g); PaintBubble(g); PaintKeyBox(g); PaintCountIn(g); Prof.Mark("overlays");
         fpsc.Frame();
         float hintStackY = ClientSize.Height - (tab == 0 ? 56 : (previewPath.Length > 0 ? 56 : 10));
@@ -562,10 +562,10 @@ partial class StudioForm : Form
     void PaintBase(Graphics g)
     {
         DrawBackdrop(g); Prof.Mark("backdrop");
-        if (tab == 0) PaintMix(g); else if (tab == 2) PaintLyrics(g); else if (tab == 3) PaintProjects(g); else if (tab == 4) PaintCommunity(g); else if (tab == 5) PaintVisualiser(g); else if (tab == 6) PaintProfile(g); else if (tab == 7) PaintArtists(g); else if (tab == 8) PaintFonts(g); else PaintMastering(g);
+        if (tab == 0) PaintMix(g); else if (tab == 2) PaintLyrics(g); else if (tab == 3) PaintProjects(g); else if (tab == 4) PaintCommunity(g); else if (tab == 5) PaintVisualiser(g); else if (tab == 6) PaintProfile(g); else if (tab == 7) PaintArtists(g); else if (tab == 8) PaintFonts(g); else if (tab == 9) PaintHub(g); else PaintMastering(g);
         Prof.Mark("page " + tab);
         if (tab != 2) SyncLyricUi(false);
-        if (tab == 3 || tab == 4 || tab == 6 || tab == 7 || tab == 8) { PaintSlimBar(g); PaintPreviewBar(g); } else if (tab == 5) PaintVisBar(g); else if (tab == 1) PaintMasterBars(g); else { PaintToolbar(g); Prof.Mark("toolbar"); PaintTransport(g); }   // the Community and My Projects pages have no music controls
+        if (tab == 3 || tab == 4 || tab == 6 || tab == 7 || tab == 8 || tab == 9) { PaintSlimBar(g); if (tab != 9) PaintPreviewBar(g); } else if (tab == 5) PaintVisBar(g); else if (tab == 1) PaintMasterBars(g); else { PaintToolbar(g); Prof.Mark("toolbar"); PaintTransport(g); }   // the Community and My Projects pages have no music controls
         Prof.Mark("bars");
         if (browserOpen && !allFxOpen) { if (TxtAudit != null) TxtAudit.Clear(); PaintBrowser(g); }   // (over ALL PLUGINS the list of effects is drawn on top of the sheet, in PaintSheets)
         PaintSoundDrag(g); PaintPackManager(g);
@@ -1453,6 +1453,7 @@ partial class StudioForm : Form
         if (busy) { if (k == Keys.Escape && busyCancelable) { cancelFlag = true; busyText = "Cancelling..."; return true; } return base.ProcessCmdKey(ref msg, k); }
         if (k == Keys.Escape && tab == 5 && !menuOpen) { tab = 1; return true; }   // Esc leaves the visualiser
         if (k == Keys.Escape && vidFull) { ExitVideoFull(); return true; }
+        if (k == Keys.Space && tab == 9 && hubBObj != null && (hubBox == null || !hubBox.Focused)) { HubToggle(); return true; }   // on the Music Hub page Space plays and pauses the hub
         if (k == Keys.Space && (tab == 3 || tab == 4 || tab == 6 || tab == 7 || tab == 8) && !ProjSearchActive && !ArtSearchActive && previewPath.Length > 0 && previewEng != null) { PreviewPauseToggle(); return true; }   // Space pauses the preview (the search box only takes keys after you click it)
         if (ProjSearchCmd(k)) return true; if (ProjSearchTakesKey(k)) return base.ProcessCmdKey(ref msg, k);
         if (MsgCmd(k)) return true; if (MsgTakesKey(k)) return base.ProcessCmdKey(ref msg, k);
@@ -1511,7 +1512,7 @@ partial class StudioForm : Form
     }
     protected override void OnMouseUp(MouseEventArgs e) { base.OnMouseUp(e); lastInput = DateTime.Now; if (dragReg != null && dragReg.OnUp != null) { try { dragReg.OnUp(); } catch { } } dragReg = null; zoomAnchor = 0; if (sndDrag != null) { if (sndDragging) DropSampleAt(e.Location); sndDrag = null; sndDragging = false; } if (panning) { panning = false; Cursor = Cursors.Default; } }
     // true while any pop-up sheet, menu or panel covers the studio: nothing behind it can be clicked, scrolled or typed into
-    bool OverlayOpen { get { return menuOpen || browserOpen || busy || ntOpen || busOpen || stylesOpen || aiOpen || themeOpen || caOpen || psOpen || amOpen || autoOpen || gainOpen || pickOpen || cpOpen || keyOn || packsOpen || allFxOpen || epOpen || projEpOpen; } }
+    bool OverlayOpen { get { return menuOpen || hubConnOpen || browserOpen || busy || ntOpen || busOpen || stylesOpen || aiOpen || themeOpen || caOpen || psOpen || amOpen || autoOpen || gainOpen || pickOpen || cpOpen || keyOn || packsOpen || allFxOpen || epOpen || projEpOpen; } }
     protected override void OnMouseWheel(MouseEventArgs e)
     {
         base.OnMouseWheel(e); MousePos = e.Location; lastInput = DateTime.Now;

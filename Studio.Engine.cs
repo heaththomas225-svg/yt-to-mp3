@@ -705,7 +705,7 @@ partial class StudioEngine
         {
             try
             {
-                var asm = typeof(StudioEngine).Assembly; var want = new System.Collections.Generic.List<Type>(); foreach (var t in asm.GetTypes()) { try { if (t == typeof(StudioEngine) || t == typeof(Track) || t == typeof(AudioClip) || t == typeof(WaveOutPlayer) || t == typeof(OutSafety) || typeof(Fx).IsAssignableFrom(t)) want.Add(t); } catch { } }
+                var asm = typeof(StudioEngine).Assembly; var want = new System.Collections.Generic.List<Type>(); Type[] all; try { all = asm.GetTypes(); } catch (System.Reflection.ReflectionTypeLoadException ex) { all = Array.FindAll(ex.Types, x => x != null); } foreach (var t in all) { try { if (t == typeof(StudioEngine) || t == typeof(Track) || t == typeof(AudioClip) || t == typeof(WaveOutPlayer) || t == typeof(OutSafety) || typeof(Fx).IsAssignableFrom(t)) want.Add(t); } catch { } }
                 foreach (var t in want) { if (t.ContainsGenericParameters) continue; foreach (var m in t.GetMethods(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.DeclaredOnly)) { try { if (m.IsAbstract || m.ContainsGenericParameters || (m.GetMethodBody() == null)) continue; System.Runtime.CompilerServices.RuntimeHelpers.PrepareMethod(m.MethodHandle); } catch { } } }
             }
             catch { }

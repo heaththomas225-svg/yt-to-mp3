@@ -36,12 +36,12 @@ partial class StudioForm
         float W = ClientSize.Width, y = 12, h = 46;
         using (var br = new SolidBrush(TM.C(255, 18, 10, 34))) g.FillRectangle(br, 0, 0, W, ToolH); NeonRule(g, 0, ToolH, W);
         Btn(g, Rc(12, y, 48, h), "≡", 0, () => { if (menuOpen) CloseMenu(); else OpenMenu(); }, 24);
-        string title = tab == 3 ? "MY PROJECTS" : (tab == 6 ? "PROFILE" : (tab == 7 ? "ARTISTS" : (tab == 8 ? "FONTS" : "COMMUNITY"))); Txt(g, title, 18, Ink, Rc(76, y, 190, h), StringAlignment.Near, true); Btn(g, Rc(270, y + 4, 100, h - 8), "HOME", 2, () => GoHome(), 14); if (ShowBack) Btn(g, Rc(376, y + 4, 100, h - 8), "BACK", 0, () => GoBack(), 14);   /* every page has HOME, My Projects too */
+        string title = tab == 3 ? "MY PROJECTS" : (tab == 6 ? "PROFILE" : (tab == 7 ? "ARTISTS" : (tab == 8 ? "FONTS" : (tab == 9 ? "MUSIC HUB" : "COMMUNITY")))); Txt(g, title, 18, Ink, Rc(76, y, 190, h), StringAlignment.Near, true); Btn(g, Rc(270, y + 4, 100, h - 8), "HOME", 2, () => GoHome(), 14); if (ShowBack) Btn(g, Rc(376, y + 4, 100, h - 8), "BACK", 0, () => GoBack(), 14);   /* every page has HOME, My Projects too */
         float rx = W - 14;
         Btn(g, Rc(rx - 58, y + 4, 58, h - 8), "Help", 2, () => app.ShowHelp(null), 14); rx -= 64;
         Btn(g, Rc(rx - 108, y + 4, 108, h - 8), Win.FullLabel(this), 0, () => Win.ToggleFullscreen(this), 12); rx -= 120;
         if (tab == 3) { string[] tn = { "MIX", "MASTERING", "LYRICS" }; int[] ti = { 0, 1, 2 }; float[] tw = { 90, 124, 98 }; for (int i = 2; i >= 0; i--) { int t = ti[i]; Btn(g, Rc(rx - tw[i], y, tw[i], h), tn[i], 0, () => tab = t, 13); rx -= tw[i] + 6; } }
-        else if (tab != 8)
+        else if (tab != 8 && tab != 9)
         {   // the community pages only link to each other
             FetchInbox(false); string[] tn = { "COMMUNITY", "ARTISTS" + (msgUnread > 0 ? " (" + msgUnread + ")" : ""), "PROFILE" }; int[] ti = { 4, 7, 6 }; float[] tw = { 134, 150, 104 };
             for (int i = 2; i >= 0; i--) { int t = ti[i]; if (t == tab) continue; Btn(g, Rc(rx - tw[i], y + 4, tw[i], h - 8), tn[i], t == 6 ? 2 : 1, () => { if (t == 6) profScroll = 0; if (t == 7) OpenArtists(); else tab = t; }, 13); rx -= tw[i] + 6; }
