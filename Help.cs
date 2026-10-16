@@ -612,7 +612,7 @@ PRESETS has 55 factory presets (subtle, vocal, drum fills, build-ups, transition
 ## AI GEN
 AI GEN sets GlitchFlow from a description, using a real AI (Anthropic Claude). It needs your own API key: press SETUP in AI GEN and paste it (it stays on this PC, encrypted for your Windows user). Without a key it says it is not set up and changes nothing. GENERATE plays the result straight away, REGENERATE asks for another take, UNDO puts your settings back. Every answer is checked: only real settings, kept inside their ranges. QUICK MATCH works offline from keywords; it is not AI.
 "),
-        new HelpTopic("studio-purphexvst", "Purphex Music", "Purphex VSTs: Glow, Curve EQ, Shape, SubForge, BreathOff, Phantom Gate, Stereo Lab, Vortex, MultiDyn, Prism", false, @"
+        new HelpTopic("studio-purphexvst", "Purphex Music", "Purphex VSTs: Glow, Curve EQ, Shape, SubForge, BreathOff, Phantom Gate, Stereo Lab, Vortex, MultiDyn, Prism, Frost, Tape Dirt, Constellation", false, @"
 ## Where they are
 The Purphex VSTs are our own plugins with their own windows. The effects are at the top of + ADD EFFECT in PURPHEX VST (adding one opens its window; OPEN in the plugin panel opens it again). SubForge is an instrument: + ADD TRACK, then a MIDI / instrument track.
 ## Glow
@@ -635,6 +635,12 @@ Moves the sound around you: ROTATE (free or synced), SHAPE (circle to figure of 
 A five-band compressor: click a band to edit its threshold, ratio, attack, release and gain, ON / OFF and SOLO; drag the crossover lines. A ratio under 1:1 lifts quiet parts. LEARN sets every threshold from the sound playing now. KNEE, CLEAN / VINTAGE, LIMITER, MIX and OUTPUT.
 ## Prism
 Makes any sound ring at notes: the NOTE (knob or keyboard) and up to three intervals, UNISON and DETUNE, HARMONICS (all, even, odd), DECAY and damping, BLUR, SHIFT, FREEZE (rings forever) and KILL (stops at once).
+## Frost
+FREEZE (the snowflake) catches the sound and holds it as an endless pad: FADE, WIDTH, MIX and LOW / MID / HIGH shape it, CLEAR lets go. RING MOD (a wave, its frequency and a filter) and FEEDBACK (a delay, ping-pong or not, with a filter) each switch on, an LFO can move the ring frequency, the delay time or a filter, and MASTER sets serial or parallel, DRY, WET and soft clip.
+## Tape Dirt
+A worn tape machine with VU meters. DRIVE warms and rounds the sound; DIRT goes from clean to bad (first duller, then wobbly, then drop-outs). STEREO MODE: normal or de-coupled (each side on its own), LOW CUT and OUTPUT VOLUME.
+## Constellation
+A granular cloud: five lanes, each ON / OFF with a gain and a pitch (drag or wheel the number). GRAINS (how many), GRAIN LENGTH, MAX DELAY (how far back), FEEDBACK, GRAIN PLAYBACK (forwards, backwards, both), WIDTH, REVERB MIX, DRY and WET.
 ## All of them
 ON / OFF at the top turns the plugin off without removing it. PRESETS has factory presets and your own (save, rename, delete); the arrows step through them. Ctrl+Z / Ctrl+Y undo and redo in the window. Every setting is in the plugin panel too, with its A button for automation, and is saved with the project.
 "),

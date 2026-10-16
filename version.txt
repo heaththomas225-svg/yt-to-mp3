@@ -1,4 +1,4 @@
-3.46.0
+3.47.0
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Purphex VSTs: BreathOff, Phantom Gate, Stereo Lab, Vortex, MultiDyn and Prism
-sha256=4bf7c0df08ae59e7ae6cbe3ddd54bd9c3a6cd85e2686290328bf25fd7ca64cf7
+Purphex VSTs: Frost, Tape Dirt and Constellation
+sha256=936b056c447dc5874acdc52b8067eab9d700ec1245dafed8098a041738993c0e

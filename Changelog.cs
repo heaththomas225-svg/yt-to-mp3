@@ -7,10 +7,16 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.46.0";
+    public const string Latest = "3.47.0";
 
     public const string Text =
-@"3.46.0  Purphex VSTs: BreathOff, Phantom Gate, Stereo Lab, Vortex, MultiDyn and Prism
+@"3.47.0  Purphex VSTs: Frost, Tape Dirt and Constellation
+ + NEW: Purphex Frost: spectral freeze. The snowflake holds the sound as an endless pad (fade, width, low / mid / high, clear), with a RING MOD and a FEEDBACK delay you switch on, an LFO that moves the ring, the delay or a filter, and a master with serial or parallel, dry, wet and soft clip.
+ + NEW: Purphex Tape Dirt: a worn tape machine with two VU meters. DRIVE for warm saturation, DIRT from clean to bad (duller highs, then flutter, then drop-outs), normal or de-coupled stereo, low cut and output volume.
+ + NEW: Purphex Constellation: a granular cloud on five lanes, each with on / off, gain and pitch, plus number of grains, grain length, max delay, feedback, forwards / backwards / both, width, reverb, dry and wet. The grains glow as they play.
+ + CHANGED: the top of every Purphex VST window fits smaller windows (the preset bar gets narrower instead of the buttons running off the edge).
+
+3.46.0  Purphex VSTs: BreathOff, Phantom Gate, Stereo Lab, Vortex, MultiDyn and Prism
  + NEW: Purphex BreathOff: finds the breaths in a vocal by itself and turns them down, smoothly. Breath and energy graphs with lines you drag (sensitivity and gate), reduction, fade out / in, monitor (voice or breaths only) and room tone. It looks 10 ms ahead so a breath is caught from its start.
  + NEW: Purphex Phantom Gate: a gate for drums and vocals with separate THRESH and RETURN lines (no chatter), floor, spike (lets the crack of a hit through), attack, hold, release in ms or note values, look-ahead, side-chain filters with listen, curve, ratio (expander) and de-bleed, with a scrolling picture of the gate at work.
  + NEW: Purphex Stereo Lab: a stereo scope and phase meter with input gain, phase flip and pan for each side, width, pan, mid / side balance and bass mono, plus A and B settings with an A-B slider you can automate.

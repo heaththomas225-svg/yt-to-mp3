@@ -140,7 +140,7 @@ abstract class PxWindow : Form
         Txt(g, "PURPHEX", 12, Violet, new RectangleF(16, 8, 140, 16), StringAlignment.Near, true); Txt(g, brand.ToUpperInvariant(), 24, Ink, new RectangleF(14, 22, 300, 30), StringAlignment.Near, true);
         if (SubTitle.Length > 0) Txt(g, SubTitle, 10, Dim, new RectangleF(16, 50, 300, 14), StringAlignment.Near, false);
         using (var pen = new Pen(Color.FromArgb(150, Accent), 2)) g.DrawLine(pen, 16, 66, 200, 66);
-        float pbX = Math.Max(250, W - 690); var pb = new RectangleF(pbX, 16, 330, 38); Fill(g, Color.FromArgb(30, 18, 56), pb, 10); Stroke(g, Edge, pb, 10, 1.2f);
+        float pbX = Math.Max(230, W - 16 - 290 - 330 - 8), pbW = Math.Min(330, W - 16 - 290 - pbX - 8); var pb = new RectangleF(pbX, 16, pbW, 38);   // the preset bar gets narrower in a small window Fill(g, Color.FromArgb(30, 18, 56), pb, 10); Stroke(g, Edge, pb, 10, 1.2f);
         Button(g, new RectangleF(pb.X + 5, pb.Y + 5, 28, 28), "‹", false, Violet, () => StepPreset(-1), "Previous preset", 16);
         Button(g, new RectangleF(pb.Right - 33, pb.Y + 5, 28, 28), "›", false, Violet, () => StepPreset(1), "Next preset", 16);
         Txt(g, PresetName, 13, Ink, new RectangleF(pb.X + 38, pb.Y, pb.Width - 76, pb.Height), StringAlignment.Center, true);
