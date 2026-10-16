@@ -16,7 +16,7 @@ using System.Windows.Forms;
 // ======================================================================
 class HitReg
 {
-    public RectangleF R; public Action OnDown, OnRight, OnDouble, OnUp; public Action<PointF> OnDrag; public Action<int> OnWheel; public bool WhileBusy; public bool ScrollBar; public bool Button; public int Layer;   // Button: made by Btn (a button always takes the click from the card or row it sits on); Layer: which pop-up it belongs to   // ScrollBar: a part of a logo scroll bar (the wheel there scrolls the list, it never changes a value)
+    public RectangleF R; public Action OnDown, OnRight, OnDouble, OnUp; public Action<PointF> OnDrag; public Action<int> OnWheel; public bool WhileBusy; public bool ScrollBar; public bool Button; public int Layer; public bool Overlay;   // Overlay: a bar drawn over the page (the audio bar, a scroll bar): nothing under it takes its clicks   // Button: made by Btn (a button always takes the click from the card or row it sits on); Layer: which pop-up it belongs to   // ScrollBar: a part of a logo scroll bar (the wheel there scrolls the list, it never changes a value)
 }
 
 partial class StudioForm : Form
@@ -92,7 +92,7 @@ partial class StudioForm : Form
     {
         bool hot = Hot(r) && !(editBox != null && editBox.Visible); FillRR(g, hot ? TM.C(225, 22, 12, 50) : TM.C(205, 10, 5, 24), r, 7); Win.DrawNeonBox(g, r, hot);
         Txt(g, shown, px, Ink, r, StringAlignment.Center, bold); if (hot) hintNow = "Click the box to type an exact value. Click anywhere else (or press Enter) to confirm, Esc to cancel.";
-        return Reg(r, () => BeginEdit(r, editText, apply));
+        var vr = Reg(r, () => BeginEdit(r, editText, apply)); vr.Button = true; return vr;   // a value box is a control: it is always on top of what is under it
     }
 
     static bool ParseNum(string s, out float v)
@@ -283,7 +283,13 @@ partial class StudioForm : Form
     static float Clamp01(float v) { return v < 0 ? 0 : (v > 1 ? 1 : v); }
 
     int regLayer;   // goes up by one for every region that covers the whole window (a pop-up sheet starting): nothing under a pop-up can take its clicks
-    HitReg Reg(RectangleF r, Action down) { if (r.Width >= ClientSize.Width - 2 && r.Height >= ClientSize.Height - 2) regLayer++; var g = new HitReg { R = r, OnDown = down, Layer = regLayer }; regs.Add(g); return g; }
+    Graphics regG;   // the picture being painted: its clip is where a click area can reach
+    HitReg Reg(RectangleF r, Action down)
+    {
+        if (regG != null) { try { if (!regG.IsClipEmpty) { var cb = regG.ClipBounds; if (cb.Width < 100000) r = cb.IntersectsWith(r) ? RectangleF.Intersect(r, cb) : new RectangleF(r.X, r.Y, 0, 0); } } catch { } }
+        return Reg0(r, down);
+    }
+    HitReg Reg0(RectangleF r, Action down) { if (r.Width >= ClientSize.Width - 2 && r.Height >= ClientSize.Height - 2) regLayer++; var g = new HitReg { R = r, OnDown = down, Layer = regLayer }; regs.Add(g); return g; }
     bool Hot(RectangleF r) { return hover != null && hover.R == r; }
 
     // Plain-English hints shown at the bottom while the mouse is over a button.
@@ -478,7 +484,7 @@ partial class StudioForm : Form
         var reg = new HitReg { R = r };
         reg.OnDown = () => set(Clamp01((MousePos.X - r.X) / r.Width));
         reg.OnDrag = pt => set(Clamp01((pt.X - r.X) / r.Width));
-        regs.Add(reg); return reg;
+        reg.Layer = regLayer; reg.Button = true; regs.Add(reg); return reg;   // a slider is a control: on top of what is under it, in the pop-up it is drawn in
     }
 
     PointF MousePos;
@@ -522,7 +528,7 @@ partial class StudioForm : Form
         var g = e.Graphics; g.SmoothingMode = SmoothingMode.AntiAlias; g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit; Sharp(g);
         if (popDragId.Length > 0 && PaintPopDragFast(g)) { fpsc.Frame(); return; }   // dragging a box: the page under it is a stored picture and only the box is moved
         if (popDragId.Length == 0 && popBase != null) PopCacheClear();
-        regs.Clear(); regLayer = 0; btnRects.Clear(); btnMap.Clear(); PopBegin(g); Prof.Mark("setup");
+        regs.Clear(); regLayer = 0; regG = g; btnRects.Clear(); btnMap.Clear(); PopBegin(g); Prof.Mark("setup");
         PaintBase(g);
         if (TxtAudit != null && (ntOpen || busOpen || stylesOpen || allFxOpen || themeOpen || caOpen || psOpen || amOpen || autoOpen || gainOpen || pickOpen || cpOpen || relOpen || tpOpen || WelcomeShowing)) TxtAudit.Clear();   // an open sheet covers the screen: only its own text counts
         PaintSheets(g); PopEnd(); Prof.Mark("sheets"); Win.PaintNeonChildren(this, g); Prof.Mark("neon children");
@@ -1470,11 +1476,13 @@ partial class StudioForm : Form
     // the area under the pointer that takes a click: an area that only scrolls (a list's wheel area, added after its rows) never takes the click from the buttons in it (it ate ACCEPT / DECLINE and the conversations in Messages)
     static bool WheelOnly(HitReg r) { return r.OnWheel != null && r.OnDown == null && r.OnRight == null && r.OnDouble == null && r.OnDrag == null && r.OnUp == null; }
     // a button inside the card or row under the pointer takes the click from it (cards and rows were often added after their own buttons, so a click on PLAY opened the project), but never a button from under a pop-up
+    static bool OnTop(HitReg r) { return r.Button || r.ScrollBar || r.Overlay; }
     HitReg TopRegion(PointF p)
     {
         int ti = -1; for (int i = regs.Count - 1; i >= 0; i--) if (regs[i].R.Contains(p) && !WheelOnly(regs[i])) { ti = i; break; }
-        if (ti < 0) return null; var top = regs[ti]; if (top.Button) return top;
-        for (int i = ti - 1; i >= 0; i--) { var b = regs[i]; if (b.Layer != top.Layer) break; if (b.Button && b.R.Contains(p) && top.R.Contains(b.R) && !WheelOnly(b)) return b; }
+        if (ti < 0) return null; var top = regs[ti]; if (OnTop(top)) return top;
+        int start = 0; for (int i = ti; i >= 0; i--) if (regs[i].R.Width >= ClientSize.Width - 2 && regs[i].R.Height >= ClientSize.Height - 2) { start = i; break; }   // where the pop-up it is in begins (nothing before that is reachable)
+        for (int i = ti - 1; i >= start; i--) { var b = regs[i]; if (WheelOnly(b) || !b.R.Contains(p)) continue; if (b.Overlay) return top; if (b.Button || b.ScrollBar) return b; }   // reaching the bar the top one is drawn on: the top one is part of that bar
         return top;
     }
 

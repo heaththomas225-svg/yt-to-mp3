@@ -7,10 +7,15 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.50.0";
+    public const string Latest = "3.50.1";
 
     public const string Text =
-@"3.50.0  Purphex VSTs: Tri-Drive, Shift, Maximizer and Spectral Gate; Rainbow speed
+@"3.50.1  Buttons, scroll bars and the audio bar always on top; type the bus level
+ + FIXED: Clicking the audio bar along the bottom (or the name above it) on My Projects, the community, profiles and artists clicked the project or card under it. The whole bar is on top now, and so is every scroll bar, slider, value box and button: whatever sits under them never takes their click.
+ + FIXED: Cards and rows scrolled out of sight under a bar or a header could still be clicked there. A click now only reaches what you can see.
+ + CHANGED: ALL PLUGINS: the level of a bus is a box you can click and type into (like the tracks), and the preset its plugins came from sits in its own box.
+
+3.50.0  Purphex VSTs: Tri-Drive, Shift, Maximizer and Spectral Gate; Rainbow speed
  + NEW: Purphex Tri-Drive: three-band distortion. Drag the two split lines, then give LOW, MID and HIGH each their own type (tube, tape, fuzz, rectify, crush), drive, level and mix. Steep crossovers keep each band to its own notes (drive the highs and the bass stays clean). After the bands: a filter, a one-knob compressor, feedback for ringing metal, mix and output.
  + NEW: Purphex Shift: two frequency shifters (every frequency moves by the same number of Hz: phaser sweeps when small, metal and bells when big), each with up / down / both, an LFO and mix, in serial or parallel, with feedback for endless rising or falling spirals and stereo spread.
  + NEW: Purphex Maximizer: one big LOUDNESS knob into a look-ahead limiter that never goes over the ceiling, with release, character (clean, warm, punch), low and high tone, mono bass, width, a LUFS meter and TARGET (streaming -14, loud -11, club -9, max -7) that sets the loudness for you.

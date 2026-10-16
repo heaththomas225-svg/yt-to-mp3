@@ -114,7 +114,7 @@ partial class StudioForm
             if (tr.IsBus) { var rb = Rc(bx, by + 32, colW - 20, 26); var tkb = tr; int nIn = eng.Tracks.FindAll(x => x.Out == tr && x.Host == null && !x.IsBus).Count; Btn(g, rb, "TRACKS INTO THIS BUS (" + nIn + ")...", 1, () => BusRouteMenu(tkb, rb), 9); Hint2(rb, "Tick the tracks that go through " + tr.Name); by += 32; }
             if (tr.IsBus) { var bt = tr; var mb = Rc(bx, by + 32, 30, 22); Btn(g, mb, "M", bt.Mute ? 4 : 0, () => bt.Mute = !bt.Mute, 11); Hint2(mb, bt.Mute ? "Unmute the bus" : "Mute the bus (every track in it goes quiet)");   // the level of the bus: mute, a fader and its dB, and delete
               float frac = Clamp01((bt.VolDb + 48f) / 54f); var fs = Slider(g, Rc(mb.Right + 8, by + 34, colW - 20 - 38 - 92, 18), frac, fv => bt.VolDb = fv < 0.003f ? -48f : (float)Math.Round(fv * 54f - 48f, 1), Accent2); fs.OnDouble = () => bt.VolDb = 0;
-              Txt(g, (bt.VolDb <= -47.9f ? "-inf" : bt.VolDb.ToString("+0.0;-0.0;0.0")) + " dB", 10, Ink, Rc(col.Right - 10 - 88, by + 32, 54, 22), StringAlignment.Near, false);
+              ValueBox(g, Rc(col.Right - 10 - 88, by + 32, 54, 22), (bt.VolDb <= -47.9f ? "-inf" : bt.VolDb.ToString("+0.0;-0.0;0.0")) + " dB", bt.VolDb <= -47.9f ? "-inf" : Num(bt.VolDb), s0 => { float v; if (ParseNum(s0, out v)) bt.VolDb = v <= -47.9f ? -48f : Math.Min(6f, v); }, 10);   // click and type the level of the bus
               var xb2 = Rc(col.Right - 10 - 30, by + 32, 30, 22); Btn(g, xb2, "x", 3, () => { if (AskYes("Delete \"" + bt.Name + "\"? Tracks sent to it go straight to the master.", "Delete bus")) { if (busEdit == bt) busEdit = null; DeleteTrackQuiet(bt); } }, 11); Hint2(xb2, "Delete this bus");
               by += 32; }
             float ry = by + 36, bottom = col.Bottom - 10; string lastKey = null; int shown = 0;
@@ -126,8 +126,9 @@ partial class StudioForm
                 {
                     if (key.Length > 0)
                     {
-                        if (ry + 22 > bottom) break; var hr = Rc(col.X + 10, ry, colW - 20, 20); Txt(g, "PRESET: " + f.Preset.ToUpperInvariant(), 10, NeonViolet, Rc(hr.X + 2, hr.Y, hr.Width - 60, 20), StringAlignment.Near, true);
-                        ry += 24;   /* COPY PRESET at the top of the column copies it */
+                        if (ry + 28 > bottom) break; var hr = Rc(col.X + 10, ry, colW - 20, 24); FillRR(g, TM.C(235, 34, 16, 66), hr, 8); StrokeRR(g, Color.FromArgb(220, NeonViolet), hr, 8, 1.3f);   // the preset the plugins below came from, in its own box
+                        Txt(g, "PRESET: " + f.Preset.ToUpperInvariant(), 10, NeonViolet, Rc(hr.X + 9, hr.Y, hr.Width - 16, hr.Height), StringAlignment.Near, true);
+                        ry += 30;   /* COPY PRESET at the top of the column copies it */
                     }
                     else if (lastKey != null && lastKey.Length > 0) { if (ry + 20 > bottom) break; Txt(g, "YOUR PLUGINS", 10, NeonPink, Rc(col.X + 12, ry, colW - 24, 18), StringAlignment.Near, true); ry += 20; }
                     lastKey = key;

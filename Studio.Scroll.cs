@@ -104,12 +104,13 @@ partial class StudioForm
         bool hotLogo = Hot(logoR) || (dragReg != null && dragReg.R == logoR); DrawLogo(g, cx, lcy, lh, playing, hotLogo);
         // click the bar to jump (the logo goes there), arrows: click to step, hold to keep going, logo: hold and drag
         Action<float> jump = my => set(Math.Max(0, Math.Min(max, (my - inner.Y - pad) / trav * max)));
+        var blk = Reg(bar, () => { }); blk.Overlay = true; blk.ScrollBar = true;   // the whole bar is on top of the list (its edges too)
         var rg = Reg(inner, () => jump(MousePos.Y)); rg.OnDrag = pt => jump(pt.Y);
         var ru = Reg(up, () => { set(Math.Max(0, get() - 60)); vHold = -1; vHoldGet = get; vHoldSet = set; vHoldMax = max; }); ru.OnDrag = pt => { }; ru.OnUp = () => vHold = 0;
         var rd = Reg(dn, () => { set(Math.Min(max, get() + 60)); vHold = 1; vHoldGet = get; vHoldSet = set; vHoldMax = max; }); rd.OnDrag = pt => { }; rd.OnUp = () => vHold = 0;
         float downY = 0, downS = 0; var lg = Reg(logoR, () => { downY = MousePos.Y; downS = get(); vLogoDrag = true; }); lg.OnUp = () => vLogoDrag = false; lg.OnDrag = pt => set(Math.Max(0, Math.Min(max, downS + (pt.Y - downY) / trav * max)));
         Action<int> wheel = d => set(Math.Max(0, Math.Min(max, get() - d * 80)));   // the mouse wheel over any part of the bar scrolls too (it used to do nothing there)
-        rg.OnWheel = wheel; ru.OnWheel = wheel; rd.OnWheel = wheel; lg.OnWheel = wheel; rg.ScrollBar = ru.ScrollBar = rd.ScrollBar = lg.ScrollBar = true;
+        blk.OnWheel = wheel; rg.OnWheel = wheel; ru.OnWheel = wheel; rd.OnWheel = wheel; lg.OnWheel = wheel; rg.ScrollBar = ru.ScrollBar = rd.ScrollBar = lg.ScrollBar = true;
         if (Hot(logoR)) { bubble = "Hold the logo and drag it to scroll the list"; bubblePt = MousePos; }
     }
 
@@ -139,7 +140,8 @@ partial class StudioForm
         }
         bool hotLogo = Hot(logoR) || (dragReg != null && dragReg.R == logoR); DrawLogo(g, lcx, cy, lh, playing, hotLogo);
         Action<float> jump = mx => set(Math.Max(0, Math.Min(max, (mx - inner.X - pad) / trav * max)));
-        var rg = Reg(inner, () => jump(MousePos.X)); rg.OnDrag = pt => jump(pt.X);
+        { var hb = Reg(bar, () => { }); hb.Overlay = true; hb.ScrollBar = true; }
+        var rg = Reg(inner, () => jump(MousePos.X)); rg.OnDrag = pt => jump(pt.X); rg.ScrollBar = true;
         var rl = Reg(lf, () => { set(Math.Max(0, get() - step)); hHold = -1; hHoldGet = get; hHoldSet = set; hHoldMax = max; }); rl.OnDrag = pt => { }; rl.OnUp = () => hHold = 0;
         var rr = Reg(rt, () => { set(Math.Min(max, get() + step)); hHold = 1; hHoldGet = get; hHoldSet = set; hHoldMax = max; }); rr.OnDrag = pt => { }; rr.OnUp = () => hHold = 0;
         float downX = 0, downS = 0; var lg = Reg(logoR, () => { downX = MousePos.X; downS = get(); }); lg.OnDrag = pt => set(Math.Max(0, Math.Min(max, downS + (pt.X - downX) / trav * max)));

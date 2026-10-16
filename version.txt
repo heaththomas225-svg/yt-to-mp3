@@ -1,4 +1,4 @@
-3.50.0
+3.50.1
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Purphex VSTs: Tri-Drive, Shift, Maximizer and Spectral Gate; Rainbow speed
-sha256=b779ae1e17589a7ecb5702e064be8e0033741bf4097f35dc15940333153ecd43
+Buttons, scroll bars and the audio bar always on top; type the bus level
+sha256=6dc2582d889101df3f4a37907f787b55fce15ae87608f04df172b60a50972db7

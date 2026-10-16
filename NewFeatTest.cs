@@ -338,6 +338,9 @@ static class NF
             var card = (HitReg)reg.Invoke(sf, new object[] { new RectangleF(50, 50, 230, 400), (Action)(() => { }) });
             Check("a button on a project card takes the click (not the card under it)", top.Invoke(sf, new object[] { new PointF(140, 115) }) == btn, "");
             Check("the rest of the card still opens the project", top.Invoke(sf, new object[] { new PointF(60, 300) }) == card, "");
+            var bar = (HitReg)reg.Invoke(sf, new object[] { new RectangleF(40, 90, 400, 50), (Action)(() => { }) }); bar.Overlay = true;
+            Check("the audio bar (and every bar drawn over the page) takes clicks over a card and over the card's buttons", top.Invoke(sf, new object[] { new PointF(140, 115) }) == bar && top.Invoke(sf, new object[] { new PointF(300, 100) }) == bar, "");
+            regs.Remove(bar);
             reg.Invoke(sf, new object[] { new RectangleF(0, 0, sf.ClientSize.Width, sf.ClientSize.Height), (Action)(() => { }) }); var box = (HitReg)reg.Invoke(sf, new object[] { new RectangleF(20, 20, 600, 500), (Action)(() => { }) });
             Check("a button behind an open pop-up does not take its clicks", top.Invoke(sf, new object[] { new PointF(140, 115) }) == box, "");
             regs.Clear(); regs.AddRange(keep);
