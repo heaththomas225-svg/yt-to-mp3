@@ -67,6 +67,9 @@ static class Q
         Check("dragging a sound shows the drop ghost", F<bool>("sndDragging"), ""); Ev("OnMouseUp", MouseButtons.Left, 1, 600, 330); Paint();
         Check("dropping it on the timeline makes a new track with the sample as a real clip", eng.Tracks.Count == tracks0 + 1 && eng.Tracks[eng.Tracks.Count - 1].Clip != null && eng.Tracks[eng.Tracks.Count - 1].Clip.Length > 1000, eng.Tracks.Count + " tracks");
         Check("the clip knows its source file", eng.Tracks.Count > tracks0 && eng.Tracks[eng.Tracks.Count - 1].Clip.Path == drag.Path, "");
+        { SetF("sndScroll", 120f); Paint(); float before = F<float>("sndScroll"); var pick = Results()[2]; SetF("sndDrag", pick); SetF("sndDragging", true); int nT = eng.Tracks.Count;
+          typeof(StudioForm).GetMethod("DropSampleAt", BindingFlags.NonPublic | BindingFlags.Instance).Invoke(sf, new object[] { new Point(600, 330) }); Paint();
+          Check("after dropping a sound the sound packs stay open where you were (same scroll, same list)", F<bool>("soundsOpen") && eng.Tracks.Count == nT + 1 && Math.Abs(F<float>("sndScroll") - before) < 1 && Results()[2] == pick, "open " + F<bool>("soundsOpen") + ", scroll " + before + " -> " + F<float>("sndScroll")); }
         // dropping somewhere that isn't the timeline does nothing
         int t1 = eng.Tracks.Count; Ev("OnMouseMove", MouseButtons.None, 0, sx, sy); Ev("OnMouseDown", MouseButtons.Left, 1, sx, sy); for (int i = 1; i <= 4; i++) Ev("OnMouseMove", MouseButtons.Left, 0, sx + i * 5, sy + i * 5); Ev("OnMouseUp", MouseButtons.Left, 1, sx + 20, sy + 20); Paint(); Check("letting go over the panel does not add anything", eng.Tracks.Count == t1, "");
         // double click adds at the needle
