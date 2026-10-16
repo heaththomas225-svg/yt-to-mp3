@@ -1,4 +1,4 @@
-3.47.0
+3.48.0
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Purphex VSTs: Frost, Tape Dirt and Constellation
-sha256=936b056c447dc5874acdc52b8067eab9d700ec1245dafed8098a041738993c0e
+Purphex VSTs: Clipper, Smack, Vinyl Stop, Radio, Doubler, Octave Choir, Vowel and Step Shaper
+sha256=3d3ccaf1504591e9a0b04281ce5bbc6365b6c423264048a931ffa21d98f3f0fa

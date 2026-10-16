@@ -7,10 +7,20 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.47.0";
+    public const string Latest = "3.48.0";
 
     public const string Text =
-@"3.47.0  Purphex VSTs: Frost, Tape Dirt and Constellation
+@"3.48.0  Purphex VSTs: Clipper, Smack, Vinyl Stop, Radio, Doubler, Octave Choir, Vowel and Step Shaper
+ + NEW: Purphex Clipper: soft, hard, tape, tube and fold clipping with threshold, softness, pre and post gain (LINK keeps the loudness the same), a curve that shows the shape and a scope that shows what was cut.
+ + NEW: Purphex Smack: a transient shaper. ATTACK lifts or softens the hit, SUSTAIN lifts or cuts the tail, each with its own sensitivity, short / medium / long shape and duration, plus mix, output and a guard (clip or limit) so it never goes over 0 dB.
+ + NEW: Purphex Vinyl Stop: press PLAY / STOP for a record or tape stop in time with the song (length in bars or beats), with curve, pitch, step, digital, wash and SPIN-UP for how fast it comes back.
+ + NEW: Purphex Radio: a broken radio. TUNE drifts in and out of the station, with static, raw signal, AM wobble, ring mod, bitcrush, feedback, skips, bandwidth, drive, noise and squelch.
+ + NEW: Purphex Doubler: four extra voices around the original, each with on / off, octave, gain, pan, delay, feedback, detune and wobble, plus direct gain and pan, a low and high EQ and output.
+ + NEW: Purphex Octave Choir: eight harmony voices with level, pan, delay, feedback, interval and cents. HARMONY can make the 3rds, 6ths and 7ths all major (bright) or all minor (dark), RANDOMIZE loosens the timing, plus input, output and mix.
+ + NEW: Purphex Vowel: a talking filter. Drag the dot between the vowels (or click a vowel button) to make any sound say ""ah"", ""ee"", ""oo"" and the rest, with drive, shift, Q, mix, snap, movement (left-right, up-down or circle, free or in time) and loudness match.
+ + NEW: Purphex Step Shaper: sixteen steps of volume (and a low-pass filter) in time with the song. Draw the bars, pick the grid and rate, add smooth and swing, and FOLLOW makes the filter move with the steps.
+
+3.47.0  Purphex VSTs: Frost, Tape Dirt and Constellation
  + NEW: Purphex Frost: spectral freeze. The snowflake holds the sound as an endless pad (fade, width, low / mid / high, clear), with a RING MOD and a FEEDBACK delay you switch on, an LFO that moves the ring, the delay or a filter, and a master with serial or parallel, dry, wet and soft clip.
  + NEW: Purphex Tape Dirt: a worn tape machine with two VU meters. DRIVE for warm saturation, DIRT from clean to bad (duller highs, then flutter, then drop-outs), normal or de-coupled stereo, low cut and output volume.
  + NEW: Purphex Constellation: a granular cloud on five lanes, each with on / off, gain and pitch, plus number of grains, grain length, max delay, feedback, forwards / backwards / both, width, reverb, dry and wet. The grains glow as they play.

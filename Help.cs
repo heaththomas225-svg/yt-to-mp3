@@ -612,7 +612,7 @@ PRESETS has 55 factory presets (subtle, vocal, drum fills, build-ups, transition
 ## AI GEN
 AI GEN sets GlitchFlow from a description, using a real AI (Anthropic Claude). It needs your own API key: press SETUP in AI GEN and paste it (it stays on this PC, encrypted for your Windows user). Without a key it says it is not set up and changes nothing. GENERATE plays the result straight away, REGENERATE asks for another take, UNDO puts your settings back. Every answer is checked: only real settings, kept inside their ranges. QUICK MATCH works offline from keywords; it is not AI.
 "),
-        new HelpTopic("studio-purphexvst", "Purphex Music", "Purphex VSTs: Glow, Curve EQ, Shape, SubForge, BreathOff, Phantom Gate, Stereo Lab, Vortex, MultiDyn, Prism, Frost, Tape Dirt, Constellation", false, @"
+        new HelpTopic("studio-purphexvst", "Purphex Music", "Purphex VSTs: Glow, Curve EQ, Shape, SubForge, BreathOff, Phantom Gate, Stereo Lab, Vortex, MultiDyn, Prism, Frost, Tape Dirt, Constellation, Clipper, Smack, Vinyl Stop, Radio, Doubler, Octave Choir, Vowel, Step Shaper", false, @"
 ## Where they are
 The Purphex VSTs are our own plugins with their own windows. The effects are at the top of + ADD EFFECT in PURPHEX VST (adding one opens its window; OPEN in the plugin panel opens it again). SubForge is an instrument: + ADD TRACK, then a MIDI / instrument track.
 ## Glow
@@ -641,6 +641,22 @@ FREEZE (the snowflake) catches the sound and holds it as an endless pad: FADE, W
 A worn tape machine with VU meters. DRIVE warms and rounds the sound; DIRT goes from clean to bad (first duller, then wobbly, then drop-outs). STEREO MODE: normal or de-coupled (each side on its own), LOW CUT and OUTPUT VOLUME.
 ## Constellation
 A granular cloud: five lanes, each ON / OFF with a gain and a pitch (drag or wheel the number). GRAINS (how many), GRAIN LENGTH, MAX DELAY (how far back), FEEDBACK, GRAIN PLAYBACK (forwards, backwards, both), WIDTH, REVERB MIX, DRY and WET.
+## Clipper
+Cuts the peaks off. Pick SOFT, HARD, TAPE, TUBE or FOLD, set the THRESHOLD and SOFTNESS, push it with PRE GAIN and set POST GAIN (LINK turns the output down as you push, so it stays as loud). The curve shows the shape; red in the scope is what was cut.
+## Smack
+Shapes the hits. ATTACK (left) lifts or softens the start of each hit, SUSTAIN (right) lifts or cuts the tail. Each has a sensitivity, a short / medium / long shape and a duration. MIX, OUTPUT and GUARD (off, clip or limit) keep it under 0 dB.
+## Vinyl Stop
+Press PLAY / STOP (or automate it) and the sound slows to a stop in time with the song. LENGTH sets how long, CURVE how it slows, VINYL or tape sound, PITCH, STEP and DIGI change the character, WASH blurs it, SPIN-UP is how fast it comes back when you let go.
+## Radio
+Sounds like a radio. TUNE (the big knob) drifts in and out of the station; STATIC, RAW, AM, RM, BITCRUSH, FEEDBACK and SKIP break it up; BANDWIDTH, DRIVE, NOISE and SQUELCH on the right; MIX and OUTPUT at the bottom.
+## Doubler
+Thickens a vocal with up to four extra voices. Each one has ON / OFF, OCTAVE, GAIN, PAN, DELAY, FEEDBACK, DETUNE and a wobble (DEPTH and RATE). DIRECT sets the gain and pan of the original, then a low and high EQ and OUTPUT. The half circle shows where each voice sits.
+## Octave Choir
+Up to eight harmony voices. Each has LEVEL, PAN, DELAY, FEEDBACK, INTERVAL and CENTS (drag the boxes). HARMONY: exact intervals, or every 3rd, 6th and 7th major (bright) or minor (dark). RANDOMIZE loosens the timing; INPUT, OUTPUT and MIX.
+## Vowel
+Makes any sound talk. Drag the dot between the vowels on the pad, or click a vowel button. DRIVE, SHIFT (deeper or higher mouth), Q, MIX and SNAP (pulls toward the nearest vowel). MOVEMENT moves the dot for you (left-right, up-down or circle) free or in time, with RATE and DEPTH. LOUDNESS MATCH keeps the level even.
+## Step Shaper
+Sixteen bars that move the volume in time with the song: click or drag them. GRID (1/4 to 1/32), RATE (half, normal, double), SMOOTH and SWING. VOLUME is how deep it cuts, LP FILTER and RESONANCE add a filter, FOLLOW makes the filter move with the steps too.
 ## All of them
 ON / OFF at the top turns the plugin off without removing it. PRESETS has factory presets and your own (save, rename, delete); the arrows step through them. Ctrl+Z / Ctrl+Y undo and redo in the window. Every setting is in the plugin panel too, with its A button for automation, and is saved with the project.
 "),
