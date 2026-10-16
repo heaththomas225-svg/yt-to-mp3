@@ -609,8 +609,6 @@ PATTERN picks which repeats sound (constant, every other, last beat for fills, l
 Low-pass (with resonance), high-pass, telephone, rhythm gate, drive (soft, hard clip, bitcrush), width, modulation (pitch wobble, filter sweep or auto-pan), delay and reverb. Each has its own ON switch and works on the glitched sound; DRY/WET mixes it with the original, INPUT and OUTPUT set the levels. BYPASS lets the sound through untouched.
 ## Presets, undo and automation
 PRESETS has 55 factory presets (subtle, vocal, drum fills, build-ups, transitions, EDM, drum and bass, UK garage, trap, experimental, aggressive) and your own: save, rename and delete them there. The arrows step through them. Ctrl+Z and Ctrl+Y undo and redo in the window. Every setting is in the plugin panel too, with its A button for automation, and everything is saved with the project.
-## AI GEN
-AI GEN sets GlitchFlow from a description, using a real AI (Anthropic Claude). It needs your own API key: press SETUP in AI GEN and paste it (it stays on this PC, encrypted for your Windows user). Without a key it says it is not set up and changes nothing. GENERATE plays the result straight away, REGENERATE asks for another take, UNDO puts your settings back. Every answer is checked: only real settings, kept inside their ranges. QUICK MATCH works offline from keywords; it is not AI.
 "),
         new HelpTopic("studio-purphexvst", "Purphex Music", "Purphex VSTs: Glow, Curve EQ, Shape, SubForge, BreathOff, Phantom Gate, Stereo Lab, Vortex, MultiDyn, Prism, Frost, Tape Dirt, Constellation, Clipper, Smack, Vinyl Stop, Radio, Doubler, Octave Choir, Vowel, Step Shaper", false, @"
 ## Where they are

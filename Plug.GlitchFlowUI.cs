@@ -16,8 +16,14 @@ class GlitchFlowWindow : Form
     static readonly Dictionary<GlitchFlowFx, GlitchFlowWindow> open = new Dictionary<GlitchFlowFx, GlitchFlowWindow>();
     public static GlitchFlowWindow Show(GlitchFlowFx fx, IWin32Window owner) { GlitchFlowWindow w; if (!open.TryGetValue(fx, out w) || w.IsDisposed) { w = new GlitchFlowWindow(fx); open[fx] = w; if (owner != null) w.Show(owner); else w.Show(); } else { if (w.WindowState == FormWindowState.Minimized) w.WindowState = FormWindowState.Normal; w.Activate(); } return w; }
 
-    static readonly Color Bg = Color.FromArgb(14, 8, 28), Panel = Color.FromArgb(26, 15, 48), Edge = Color.FromArgb(70, 50, 120), Ink = Color.FromArgb(240, 236, 255), Dim = Color.FromArgb(160, 150, 195),
+    static Color Bg = Color.FromArgb(14, 8, 28), Panel = Color.FromArgb(26, 15, 48), Edge = Color.FromArgb(70, 50, 120), Ink = Color.FromArgb(240, 236, 255), Dim = Color.FromArgb(160, 150, 195),
         Violet = Color.FromArgb(168, 92, 255), Cyan = Color.FromArgb(60, 225, 255), Pink = Color.FromArgb(255, 80, 196), Gold = Color.FromArgb(255, 205, 80);
+    static Color Ctl = Color.FromArgb(38, 24, 70), CtlHot = Color.FromArgb(60, 38, 100), Well = Color.FromArgb(12, 7, 26), PBar = Color.FromArgb(30, 18, 56), Top = Color.FromArgb(20, 10, 40), Bot = Color.FromArgb(8, 5, 18);
+    internal static void ApplyTheme(ThemeDef t)
+    {
+        Bg = t.Bg0; Panel = t.Panel; Edge = PxWindow.Mix(t.Panel, t.EdgeC, 0.45); Violet = t.Violet; Cyan = t.Cyan; Pink = t.Pink; Top = t.Bg1; Bot = t.Bg0;
+        Ctl = PxWindow.Mix(t.Panel, Edge, 0.3); CtlHot = PxWindow.Mix(t.Panel, Edge, 0.6); Well = PxWindow.Mix(t.Bg0, Color.Black, 0.3); PBar = PxWindow.Mix(t.Panel, Edge, 0.12);
+    }
     readonly GlitchFlowFx fx; readonly Timer tick;
     class Hit { public RectangleF R; public Action Click, Double; public Action<float> Drag; public Action<int> Wheel; public string Tip = ""; public Param P; }
     readonly List<Hit> hits = new List<Hit>(); Hit dragHit; float dragY0, dragV0; Point mouse; string tip = "";
@@ -54,23 +60,24 @@ class GlitchFlowWindow : Form
     // ---- drawing helpers ----
     static GraphicsPath RR(RectangleF r, float rad) { var p = new GraphicsPath(); float d = rad * 2; p.AddArc(r.X, r.Y, d, d, 180, 90); p.AddArc(r.Right - d, r.Y, d, d, 270, 90); p.AddArc(r.Right - d, r.Bottom - d, d, d, 0, 90); p.AddArc(r.X, r.Bottom - d, d, d, 90, 90); p.CloseFigure(); return p; }
     static void Fill(Graphics g, Color c, RectangleF r, float rad) { using (var p = RR(r, rad)) using (var b = new SolidBrush(c)) g.FillPath(b, p); }
-    static void Stroke(Graphics g, Color c, RectangleF r, float rad, float w) { using (var p = RR(r, rad)) using (var pen = new Pen(c, w)) g.DrawPath(pen, p); }
+    static void Stroke(Graphics g, Color c, RectangleF r, float rad, float w) { if (rad >= 12) UiAudit.Box(r); using (var p = RR(r, rad)) using (var pen = new Pen(c, w)) g.DrawPath(pen, p); }
     static void Txt(Graphics g, string s, float size, Color c, RectangleF r, StringAlignment al, bool bold)
     {
+        size = UiAudit.Fit(g, s, size, bold, r);
         using (var f = new Font("Segoe UI", size, bold ? FontStyle.Bold : FontStyle.Regular, GraphicsUnit.Pixel)) using (var b = new SolidBrush(c)) using (var sf = new StringFormat { Alignment = al, LineAlignment = StringAlignment.Center, Trimming = StringTrimming.EllipsisCharacter, FormatFlags = StringFormatFlags.NoWrap })
-            g.DrawString(s, f, b, r, sf);
+            { UiAudit.Text(g, s, f, r, al); g.DrawString(s, f, b, r, sf); }
     }
     bool Hot(RectangleF r) { return r.Contains(mouse); }
     Hit Reg(RectangleF r, Action click, string tipText = "") { var h = new Hit { R = r, Click = click, Tip = tipText }; hits.Add(h); return h; }
     void Button(Graphics g, RectangleF r, string label, bool lit, Color col, Action click, string tipText = "", float size = 12)
     {
-        bool hot = Hot(r); Fill(g, lit ? Color.FromArgb(hot ? 255 : 230, col) : (hot ? Color.FromArgb(60, 38, 100) : Color.FromArgb(38, 24, 70)), r, 8);
+        bool hot = Hot(r); Fill(g, lit ? Color.FromArgb(hot ? 255 : 230, col) : (hot ? CtlHot : Ctl), r, 8);
         Stroke(g, Color.FromArgb(lit ? 255 : 170, lit ? Color.White : col), r, 8, lit ? 1.6f : 1.2f); Txt(g, label, size, lit ? Color.FromArgb(20, 10, 30) : Ink, r, StringAlignment.Center, true); Reg(r, click, tipText);
     }
     // a choice: shows its value; click lists every choice
     void Choice(Graphics g, RectangleF r, string id, Color col, float size = 11.5f)
     {
-        var p = fx.Find(id); bool hot = Hot(r); Fill(g, hot ? Color.FromArgb(56, 34, 96) : Color.FromArgb(34, 22, 62), r, 7); Stroke(g, Color.FromArgb(200, col), r, 7, 1.2f);
+        var p = fx.Find(id); bool hot = Hot(r); Fill(g, hot ? CtlHot : Ctl, r, 7); Stroke(g, Color.FromArgb(200, col), r, 7, 1.2f);
         Txt(g, p.Text + "  ▾", size, Ink, r, StringAlignment.Center, true);
         Reg(r, () => { var m = new ContextMenuStrip(); for (int k = 0; k < p.Choices.Length; k++) { int kk = k; var it = new ToolStripMenuItem(p.Choices[k]) { Checked = (int)p.Val == k }; it.Click += (a, b) => { Mark(); fx.Set(id, kk); }; m.Items.Add(it); } m.Show(this, new Point((int)r.X, (int)r.Bottom)); }, p.Name);
     }
@@ -78,7 +85,7 @@ class GlitchFlowWindow : Form
     void Knob(Graphics g, float cx, float cy, float rad, string id, string label, Color col, bool big = false)
     {
         var p = fx.Find(id); float frac = Frac(p); var r = new RectangleF(cx - rad, cy - rad, rad * 2, rad * 2); bool hot = Hot(r) || (dragHit != null && dragHit.P == p);
-        using (var b = new SolidBrush(Color.FromArgb(hot ? 50 : 36, 24, hot ? 96 : 72))) g.FillEllipse(b, r);
+        using (var b = new SolidBrush(hot ? CtlHot : Ctl)) g.FillEllipse(b, r);
         using (var pen = new Pen(Color.FromArgb(60, 255, 255, 255), big ? 6 : 4)) g.DrawArc(pen, r.X + 5, r.Y + 5, r.Width - 10, r.Height - 10, 135, 270);
         using (var pen = new Pen(col, big ? 6 : 4) { StartCap = LineCap.Round, EndCap = LineCap.Round }) if (frac > 0.002f) g.DrawArc(pen, r.X + 5, r.Y + 5, r.Width - 10, r.Height - 10, 135, 270 * frac);
         double ang = (135 + 270 * frac) * Math.PI / 180; using (var pen = new Pen(Ink, big ? 3 : 2) { EndCap = LineCap.Round }) g.DrawLine(pen, cx + (float)Math.Cos(ang) * rad * 0.25f, cy + (float)Math.Sin(ang) * rad * 0.25f, cx + (float)Math.Cos(ang) * (rad - 10), cy + (float)Math.Sin(ang) * (rad - 10));
@@ -98,17 +105,16 @@ class GlitchFlowWindow : Form
     {
         var g = e.Graphics; g.SmoothingMode = SmoothingMode.AntiAlias; g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit; hits.Clear();
         float W = ClientSize.Width, H = ClientSize.Height;
-        using (var br = new LinearGradientBrush(new RectangleF(0, 0, W, H), Color.FromArgb(20, 10, 40), Color.FromArgb(8, 5, 18), 90f)) g.FillRectangle(br, 0, 0, W, H);
+        using (var br = new LinearGradientBrush(new RectangleF(0, 0, W, H), Top, Bot, 90f)) g.FillRectangle(br, 0, 0, W, H);
         // ---- header ----
         Txt(g, "PURPHEX", 13, Violet, new RectangleF(18, 10, 120, 18), StringAlignment.Near, true); Txt(g, "GLITCHFLOW", 26, Ink, new RectangleF(16, 24, 260, 32), StringAlignment.Near, true);
         using (var pen = new Pen(Color.FromArgb(150, Cyan), 2)) g.DrawLine(pen, 18, 60, 210, 60);
-        var pb = new RectangleF(300, 16, 360, 40); Fill(g, Color.FromArgb(30, 18, 56), pb, 10); Stroke(g, Edge, pb, 10, 1.2f);
+        var pb = new RectangleF(300, 16, 464, 40); Fill(g, PBar, pb, 10); Stroke(g, Edge, pb, 10, 1.2f);
         Button(g, new RectangleF(pb.X + 6, pb.Y + 6, 28, 28), "‹", false, Violet, () => StepPreset(-1), "Previous preset", 16);
         Button(g, new RectangleF(pb.Right - 34, pb.Y + 6, 28, 28), "›", false, Violet, () => StepPreset(1), "Next preset", 16);
         Txt(g, PresetName, 13, Ink, new RectangleF(pb.X + 40, pb.Y, pb.Width - 80, pb.Height), StringAlignment.Center, true);
         Reg(new RectangleF(pb.X + 40, pb.Y, pb.Width - 80, pb.Height), () => PresetMenu(new Point((int)pb.X, (int)pb.Bottom)), "Presets: factory presets, your own, save, rename, delete");
-        Button(g, new RectangleF(670, 16, 96, 40), "PRESETS", false, Violet, () => PresetMenu(new Point(670, 56)), "Factory presets, your own presets, save, rename and delete");
-        Button(g, new RectangleF(774, 16, 96, 40), "AI GEN", aiOpen, Cyan, () => { if (aiOpen) CloseAi(); else OpenAi(); }, "Describe the effect in words: an AI sets GlitchFlow for you (needs an AI provider, see SETUP)");
+        Button(g, new RectangleF(774, 16, 96, 40), "PRESETS", false, Violet, () => PresetMenu(new Point(774, 56)), "Factory presets, your own presets, save, rename and delete");
         Button(g, new RectangleF(878, 16, 76, 40), fx.Bypass ? "OFF" : "ON", !fx.Bypass, Gold, () => fx.Bypass = !fx.Bypass, fx.Bypass ? "GlitchFlow is off: the sound passes untouched. Press to turn it on" : "GlitchFlow is on: press to turn it off", 13);
         Button(g, new RectangleF(962, 16, 40, 40), "↶", false, Violet, Undo, "Undo (Ctrl+Z)", 16); Button(g, new RectangleF(1008, 16, 40, 40), "↷", false, Violet, Redo, "Redo (Ctrl+Y)", 16);
 
@@ -122,7 +128,7 @@ class GlitchFlowWindow : Form
         Txt(g, rFree ? "free time" : "synced to the song", 10, Dim, new RectangleF(core.X + 40, core.Y + 228, 120, 14), StringAlignment.Center, false);
         Txt(g, fFree ? "free time" : "synced to the song", 10, Dim, new RectangleF(core.X + 200, core.Y + 228, 120, 14), StringAlignment.Center, false);
         bool frz = fx.Get("freeze") >= 0.5f; var fzr = new RectangleF(core.X + 350, core.Y + 40, 104, 104); bool fh = Hot(fzr);
-        using (var b = new SolidBrush(frz ? Color.FromArgb(255, 70, 210, 255) : (fh ? Color.FromArgb(70, 40, 120) : Color.FromArgb(44, 28, 84)))) g.FillEllipse(b, fzr);
+        using (var b = new SolidBrush(frz ? Color.FromArgb(255, 70, 210, 255) : (fh ? CtlHot : Ctl))) g.FillEllipse(b, fzr);
         using (var pen = new Pen(frz ? Color.White : Cyan, frz ? 3 : 2)) g.DrawEllipse(pen, fzr);
         Txt(g, "FREEZE", 15, frz ? Color.FromArgb(10, 10, 30) : Ink, fzr, StringAlignment.Center, true);
         Reg(fzr, () => { Mark(); fx.Set("freeze", frz ? 0 : 1); }, "Freeze: hold the captured slice and keep repeating it; press again to release");
@@ -131,23 +137,23 @@ class GlitchFlowWindow : Form
         // ---- visualiser and levels ----
         var vis = new RectangleF(500, 72, 544, 290); Fill(g, Panel, vis, 16); Stroke(g, Color.FromArgb(160, Cyan), vis, 16, 1.4f);
         Txt(g, fx.ViewFrozen ? "FROZEN SLICE" : "CAPTURED SLICE", 11, fx.ViewFrozen ? Cyan : Violet, new RectangleF(vis.X + 16, vis.Y + 8, 200, 16), StringAlignment.Near, true);
-        var wv = new RectangleF(vis.X + 16, vis.Y + 30, vis.Width - 120, 130); Fill(g, Color.FromArgb(12, 7, 26), wv, 10);
+        var wv = new RectangleF(vis.X + 16, vis.Y + 30, vis.Width - 120, 110); Fill(g, Well, wv, 10);
         float midY = wv.Y + wv.Height / 2; using (var pen = new Pen(fx.ViewActive ? Cyan : Color.FromArgb(150, Violet), 2))
             for (int k = 0; k < 256; k++) { float x = wv.X + 6 + k * (wv.Width - 12) / 255f, a = Math.Min(1, fx.View[k] * 1.6f) * (wv.Height / 2 - 6); g.DrawLine(pen, x, midY - a, x, midY + a); }
         if (fx.ViewActive) { float px = wv.X + 6 + fx.ViewPh * (wv.Width - 12); using (var pen = new Pen(Gold, 2)) g.DrawLine(pen, px, wv.Y + 4, px, wv.Bottom - 4); }
         Txt(g, fx.ViewActive ? (fx.ViewFrozen ? "holding" : "repeating") : "live", 11, fx.ViewActive ? Gold : Dim, new RectangleF(wv.Right - 90, wv.Y + 4, 84, 16), StringAlignment.Far, true);
         // the window: one step per repeat, lit when it repeats; the bar moves through it
-        var steps = new RectangleF(vis.X + 16, vis.Y + 172, vis.Width - 120, 34); int nCyc = Math.Max(1, fx.ViewCycles); float sw = (steps.Width - 4) / nCyc;
+        var steps = new RectangleF(vis.X + 16, vis.Y + 150, vis.Width - 120, 30); int nCyc = Math.Max(1, fx.ViewCycles); float sw = (steps.Width - 4) / nCyc;
         for (int s = 0; s < nCyc; s++)
         {
             var sr = new RectangleF(steps.X + 2 + s * sw, steps.Y, Math.Max(2, sw - 3), steps.Height); bool cur = s == Math.Min(nCyc - 1, (int)(fx.ViewWinPh * nCyc)); bool on = s > 0 && fx.ViewSteps[Math.Min(31, s)];
-            Fill(g, s == 0 ? Color.FromArgb(70, 60, 100) : on ? Color.FromArgb(cur ? 255 : 170, Pink) : Color.FromArgb(40, 30, 70), sr, 4); if (cur) Stroke(g, Color.White, sr, 4, 1.5f);
+            Fill(g, s == 0 ? CtlHot : on ? Color.FromArgb(cur ? 255 : 170, Pink) : Ctl, sr, 4); if (cur) Stroke(g, Color.White, sr, 4, 1.5f);
         }
         Txt(g, "REFRESH WINDOW: first step records (live), lit steps repeat", 10, Dim, new RectangleF(steps.X, steps.Bottom + 2, steps.Width, 14), StringAlignment.Near, false);
         // meters
-        float mx = vis.Right - 92; Meter(g, new RectangleF(mx, vis.Y + 30, 16, 176), fx.InPk, "IN"); Meter(g, new RectangleF(mx + 26, vis.Y + 30, 16, 176), fx.OutPk, "OUT");
-        Knob(g, vis.X + 70, vis.Y + 250, 24, "in", "INPUT", Violet); Knob(g, vis.X + 170, vis.Y + 250, 24, "out", "OUTPUT", Violet);
-        Txt(g, "BPM " + Fx.Bpm.ToString("0.#", CultureInfo.InvariantCulture), 12, Dim, new RectangleF(vis.X + 230, vis.Y + 238, 120, 18), StringAlignment.Near, true);
+        float mx = vis.Right - 92; Meter(g, new RectangleF(mx, vis.Y + 30, 16, 150), fx.InPk, "IN"); Meter(g, new RectangleF(mx + 26, vis.Y + 30, 16, 150), fx.OutPk, "OUT");
+        Knob(g, vis.X + 70, vis.Y + 228, 20, "in", "INPUT", Violet); Knob(g, vis.X + 170, vis.Y + 228, 20, "out", "OUTPUT", Violet);
+        Txt(g, "BPM " + Fx.Bpm.ToString("0.#", CultureInfo.InvariantCulture), 12, Dim, new RectangleF(vis.X + 230, vis.Y + 219, 120, 18), StringAlignment.Near, true);
 
         // ---- PATTERN ----
         var pat = new RectangleF(16, 372, 1028, 112); Fill(g, Panel, pat, 16); Stroke(g, Color.FromArgb(140, Pink), pat, 16, 1.4f);
@@ -174,7 +180,7 @@ class GlitchFlowWindow : Form
         for (int k = 0; k < cards.Length; k++)
         {
             var cd = cards[k]; int row = k / 5, col = k % 5; var cr = new RectangleF(mods.X + col * (cw + 8), mods.Y + 18 + row * (ch + 8), cw, ch); bool on = fx.Get(cd.On) >= 0.5f;
-            Fill(g, on ? Color.FromArgb(40, 22, 74) : Color.FromArgb(24, 15, 44), cr, 12); Stroke(g, Color.FromArgb(on ? 230 : 90, Cyan), cr, 12, on ? 1.6f : 1);
+            Fill(g, on ? Ctl : Panel, cr, 12); Stroke(g, Color.FromArgb(on ? 230 : 90, Cyan), cr, 12, on ? 1.6f : 1);
             Txt(g, cd.T, 11, on ? Ink : Dim, new RectangleF(cr.X + 10, cr.Y + 6, cr.Width - 70, 18), StringAlignment.Near, true); Toggle(g, new RectangleF(cr.Right - 58, cr.Y + 6, 50, 22), cd.On, Cyan);
             float kx2 = cr.X + 34; for (int q = 0; q < cd.K.Length; q++) Knob(g, kx2 + q * 62, cr.Y + 50, 17, cd.K[q], cd.L[q], on ? Cyan : Color.FromArgb(120, Cyan));
             if (cd.C != null) Choice(g, new RectangleF(cr.Right - 80, cr.Y + 36, 72, 24), cd.C, Cyan, 10);
@@ -187,7 +193,7 @@ class GlitchFlowWindow : Form
 
     void Meter(Graphics g, RectangleF r, float pk, string label)
     {
-        Fill(g, Color.FromArgb(12, 7, 26), r, 4); double db = 20 * Math.Log10(Math.Max(1e-5, pk)); float f = (float)Math.Max(0, Math.Min(1, (db + 48) / 54)); var lit = new RectangleF(r.X + 2, r.Bottom - 2 - (r.Height - 4) * f, r.Width - 4, (r.Height - 4) * f);
+        Fill(g, Well, r, 4); double db = 20 * Math.Log10(Math.Max(1e-5, pk)); float f = (float)Math.Max(0, Math.Min(1, (db + 48) / 54)); var lit = new RectangleF(r.X + 2, r.Bottom - 2 - (r.Height - 4) * f, r.Width - 4, (r.Height - 4) * f);
         using (var b = new LinearGradientBrush(new RectangleF(r.X, r.Y, r.Width, r.Height), db > -1 ? Color.Red : Gold, Cyan, 90f)) g.FillRectangle(b, lit);
         Txt(g, label, 9.5f, Dim, new RectangleF(r.X - 8, r.Bottom + 2, r.Width + 16, 14), StringAlignment.Center, true);
     }

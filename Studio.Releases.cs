@@ -40,7 +40,7 @@ static class ReleaseStore
         Load(); var have = new HashSet<string>(); foreach (var e in published) if (e.OnProfile && !e.Missing) have.Add(CommunitySongs.PidOf(e.Path)); var sb = new StringBuilder("["); int n = 0;
         lock (lk) foreach (var r in All)
         {
-            var ps = r.Pids.FindAll(p => have.Contains(p)); if (ps.Count < MinSongs(r.Kind) || n >= 40) continue;   // it shows as an EP or album once enough of its songs are published if (n++ > 0) sb.Append(',');
+            var ps = r.Pids.FindAll(p => have.Contains(p)); if (ps.Count < MinSongs(r.Kind) || n >= 40) continue;   /* it shows as an EP or album once enough of its songs are published */ if (n++ > 0) sb.Append(',');
             sb.Append("{\"id\":" + ProfApi.J(r.Id) + ",\"t\":" + ProfApi.J(r.Title) + ",\"k\":" + ProfApi.J(r.Kind) + ",\"p\":[" + string.Join(",", ps.ConvertAll(p => ProfApi.J(p)).ToArray()) + "]}");
         }
         return sb.Append(']').ToString();

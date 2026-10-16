@@ -187,6 +187,16 @@ static class PX
             w.CreateControl(); using (var bmp = w.Snapshot()) { } string id = f.P.First(p => !p.IsChoice).Id; float v0 = f.Get(id); w.TestDrag(id, 0.8f); bool moved = Math.Abs(f.Get(id) - v0) > 1e-4; w.Undo(); bool back = Math.Abs(f.Get(id) - v0) < 1e-4;
             Check(t + ": its window draws its controls, a control moves the real setting, undo puts it back", w.HitCount > 10 && moved && back, w.HitCount + " controls"); w.Dispose();
         }
+        // ---- every label fits its box and none sits across a panel edge, in every Purphex window (GlitchFlow too) ----
+        { var wins = typeof(PxWindow).Assembly.GetTypes().Where(t => t.IsSubclassOf(typeof(PxWindow)) && !t.IsAbstract).ToList(); var probs = new List<string>();
+          foreach (var info in FxRegistry.All.Where(i => PxPlugins.Types.Contains(i.Type) || i.Type == "glitchflow"))
+          {
+              var f = New(info.Type); Form w = null;
+              foreach (var wt in wins) { var c = wt.GetConstructors().FirstOrDefault(k => k.GetParameters().Length == 1 && k.GetParameters()[0].ParameterType.IsInstanceOfType(f)); if (c != null) { w = (Form)c.Invoke(new object[] { f }); break; } }
+              if (w == null && f is GlitchFlowFx) w = new GlitchFlowWindow((GlitchFlowFx)f); if (w == null) { probs.Add(info.Type + ": no window"); continue; }
+              w.CreateControl(); UiAudit.Begin(); using (var bmp = w is PxWindow ? ((PxWindow)w).Snapshot() : ((GlitchFlowWindow)w).Snapshot()) { } foreach (var s in UiAudit.End().Distinct()) probs.Add(info.Type + ": " + s); w.Dispose();
+          }
+          Check("every Purphex window: no text cut off or across a box edge", probs.Count == 0, string.Join(" | ", probs.Take(6))); }
         Console.WriteLine(fails == 0 ? "=== purphex vst checks passed ===" : "=== " + fails + " FAILED ==="); Environment.Exit(fails == 0 ? 0 : 1);
     }
     // the sections a setting needs to be heard

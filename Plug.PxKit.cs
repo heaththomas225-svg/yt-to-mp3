@@ -22,9 +22,18 @@ abstract class PxWindow : Form
         return w;
     }
 
-    protected static readonly Color Bg0 = Color.FromArgb(20, 10, 40), Bg1 = Color.FromArgb(8, 5, 18), PanelC = Color.FromArgb(26, 15, 48), Edge = Color.FromArgb(70, 50, 120),
+    protected static Color Bg0 = Color.FromArgb(20, 10, 40), Bg1 = Color.FromArgb(8, 5, 18), PanelC = Color.FromArgb(26, 15, 48), Edge = Color.FromArgb(70, 50, 120),
         Ink = Color.FromArgb(240, 236, 255), Dim = Color.FromArgb(160, 150, 195), Violet = Color.FromArgb(168, 92, 255), Cyan = Color.FromArgb(60, 225, 255),
         Pink = Color.FromArgb(255, 80, 196), Gold = Color.FromArgb(255, 205, 80), Lime = Color.FromArgb(120, 240, 140), Orange = Color.FromArgb(255, 150, 70);
+    protected static Color Ctl = Color.FromArgb(38, 24, 70), CtlHot = Color.FromArgb(60, 38, 100), Track = Color.FromArgb(40, 28, 70), Well = Color.FromArgb(12, 7, 26), PBar = Color.FromArgb(30, 18, 56);
+    internal static Color Mix(Color a, Color b, double t) { return Color.FromArgb((int)(a.R + (b.R - a.R) * t), (int)(a.G + (b.G - a.G) * t), (int)(a.B + (b.B - a.B) * t)); }
+    // the app theme: backgrounds, panels, edges, controls and the four main colours of every Purphex window (called when the theme changes)
+    internal static void ApplyTheme(ThemeDef t)
+    {
+        Bg0 = t.Bg1; Bg1 = t.Bg0; PanelC = t.Panel; Edge = Mix(t.Panel, t.EdgeC, 0.45); Violet = t.Violet; Cyan = t.Cyan; Pink = t.Pink; Lime = t.Lime;
+        Ctl = Mix(t.Panel, Edge, 0.3); CtlHot = Mix(t.Panel, Edge, 0.6); Track = Mix(t.Panel, Edge, 0.35); Well = Mix(t.Bg0, Color.Black, 0.3); PBar = Mix(t.Panel, Edge, 0.12);
+        GlitchFlowWindow.ApplyTheme(t);
+    }
     protected readonly Fx fx; protected Color Accent = Cyan; readonly Timer tick; readonly string brand;
     protected class Hit { public RectangleF R; public Action Click, Double, Right; public Action<float> Drag; public Action<PointF> DragAt; public Action Up; public Action<int> Wheel; public string Tip = ""; public Param P; }
     protected readonly List<Hit> hits = new List<Hit>(); Hit dragHit; float dragY0, dragV0; protected Point mouse; string tip = "";
@@ -56,11 +65,12 @@ abstract class PxWindow : Form
     // ---- drawing helpers ----
     protected static GraphicsPath RR(RectangleF r, float rad) { var p = new GraphicsPath(); float d = Math.Max(1, rad * 2); p.AddArc(r.X, r.Y, d, d, 180, 90); p.AddArc(r.Right - d, r.Y, d, d, 270, 90); p.AddArc(r.Right - d, r.Bottom - d, d, d, 0, 90); p.AddArc(r.X, r.Bottom - d, d, d, 90, 90); p.CloseFigure(); return p; }
     protected static void Fill(Graphics g, Color c, RectangleF r, float rad) { using (var p = RR(r, rad)) using (var b = new SolidBrush(c)) g.FillPath(b, p); }
-    protected static void Stroke(Graphics g, Color c, RectangleF r, float rad, float w) { using (var p = RR(r, rad)) using (var pen = new Pen(c, w)) g.DrawPath(pen, p); }
+    protected static void Stroke(Graphics g, Color c, RectangleF r, float rad, float w) { if (rad >= 12) UiAudit.Box(r); using (var p = RR(r, rad)) using (var pen = new Pen(c, w)) g.DrawPath(pen, p); }
     protected static void Txt(Graphics g, string s, float size, Color c, RectangleF r, StringAlignment al, bool bold)
     {
+        size = UiAudit.Fit(g, s, size, bold, r);   // text that is too long for its box gets a little smaller instead of running out
         using (var f = new Font("Segoe UI", size, bold ? FontStyle.Bold : FontStyle.Regular, GraphicsUnit.Pixel)) using (var b = new SolidBrush(c)) using (var sf = new StringFormat { Alignment = al, LineAlignment = StringAlignment.Center, Trimming = StringTrimming.EllipsisCharacter, FormatFlags = StringFormatFlags.NoWrap })
-            g.DrawString(s, f, b, r, sf);
+        { UiAudit.Text(g, s, f, r, al); g.DrawString(s, f, b, r, sf); }
     }
     protected void Panel(Graphics g, RectangleF r, string title, Color col)
     {
@@ -71,12 +81,12 @@ abstract class PxWindow : Form
     protected Hit Reg(RectangleF r, Action click, string tipText = "") { var h = new Hit { R = r, Click = click, Tip = tipText }; hits.Add(h); return h; }
     protected void Button(Graphics g, RectangleF r, string label, bool lit, Color col, Action click, string tipText = "", float size = 12)
     {
-        bool hot = Hot(r); Fill(g, lit ? Color.FromArgb(hot ? 255 : 230, col) : (hot ? Color.FromArgb(60, 38, 100) : Color.FromArgb(38, 24, 70)), r, 8);
+        bool hot = Hot(r); Fill(g, lit ? Color.FromArgb(hot ? 255 : 230, col) : (hot ? CtlHot : Ctl), r, 8);
         Stroke(g, Color.FromArgb(lit ? 255 : 170, lit ? Color.White : col), r, 8, lit ? 1.6f : 1.2f); Txt(g, label, size, lit ? Color.FromArgb(20, 10, 30) : Ink, r, StringAlignment.Center, true); Reg(r, click, tipText);
     }
     protected void Choice(Graphics g, RectangleF r, string id, Color col, float size = 11.5f)
     {
-        var p = fx.Find(id); bool hot = Hot(r); Fill(g, hot ? Color.FromArgb(56, 34, 96) : Color.FromArgb(34, 22, 62), r, 7); Stroke(g, Color.FromArgb(200, col), r, 7, 1.2f);
+        var p = fx.Find(id); bool hot = Hot(r); Fill(g, hot ? CtlHot : Ctl, r, 7); Stroke(g, Color.FromArgb(200, col), r, 7, 1.2f);
         Txt(g, p.Text + "  ▾", size, Ink, r, StringAlignment.Center, true);
         Reg(r, () => { var m = new ContextMenuStrip(); for (int k = 0; k < p.Choices.Length; k++) { int kk = k; var it = new ToolStripMenuItem(p.Choices[k]) { Checked = (int)p.Val == k }; it.Click += (a, b) => { Mark(); fx.Set(id, kk); }; m.Items.Add(it); } m.Show(this, new Point((int)r.X, (int)r.Bottom)); }, p.Name);
     }
@@ -89,7 +99,7 @@ abstract class PxWindow : Form
     protected void Knob(Graphics g, float cx, float cy, float rad, string id, string label, Color col, bool big = false)
     {
         var p = fx.Find(id); float frac = Frac(p); var r = new RectangleF(cx - rad, cy - rad, rad * 2, rad * 2); bool hot = Hot(r) || (dragHit != null && dragHit.P == p);
-        using (var b = new SolidBrush(Color.FromArgb(hot ? 50 : 36, 24, hot ? 96 : 72))) g.FillEllipse(b, r);
+        using (var b = new SolidBrush(hot ? CtlHot : Ctl)) g.FillEllipse(b, r);
         float pw = big ? 6 : rad > 20 ? 4 : 3;
         using (var pen = new Pen(Color.FromArgb(60, 255, 255, 255), pw)) g.DrawArc(pen, r.X + pw, r.Y + pw, r.Width - pw * 2, r.Height - pw * 2, 135, 270);
         if (p.Min < 0 && p.Max > 0)
@@ -109,7 +119,7 @@ abstract class PxWindow : Form
     protected void HSlider(Graphics g, RectangleF r, string id, string label, Color col)
     {
         var p = fx.Find(id); float f = Frac(p); Txt(g, label, 10, Dim, new RectangleF(r.X, r.Y - 15, r.Width, 14), StringAlignment.Near, true); Txt(g, Val(p), 10, Ink, new RectangleF(r.X, r.Y - 15, r.Width, 14), StringAlignment.Far, false);
-        Fill(g, Color.FromArgb(40, 28, 70), r, r.Height / 2); Fill(g, col, new RectangleF(r.X, r.Y, Math.Max(r.Height, r.Width * f), r.Height), r.Height / 2);
+        Fill(g, Track, r, r.Height / 2); Fill(g, col, new RectangleF(r.X, r.Y, Math.Max(r.Height, r.Width * f), r.Height), r.Height / 2);
         var h = Reg(new RectangleF(r.X, r.Y - 4, r.Width, r.Height + 8), null, p.Name); h.P = p; h.DragAt = pt => fx.Set(id, FromFrac(p, Math.Max(0, Math.Min(1, (pt.X - r.X) / r.Width)))); h.Double = () => { Mark(); fx.Set(id, p.Def); };
         h.Wheel = d => { Mark(); fx.Set(id, FromFrac(p, Math.Max(0, Math.Min(1, Frac(p) + d * 0.02f)))); };
     }
@@ -127,7 +137,7 @@ abstract class PxWindow : Form
     protected void Toggle(Graphics g, RectangleF r, string id, Color col, string on = "ON", string off = "OFF") { bool o = fx.Get(id) >= 0.5f; Button(g, r, o ? on : off, o, col, () => { Mark(); fx.Set(id, o ? 0 : 1); }, fx.Find(id).Name + ": switch on or off", 10.5f); }
     protected void Meter(Graphics g, RectangleF r, float lin, string label, bool gr = false)
     {
-        Fill(g, Color.FromArgb(12, 7, 26), r, 4); double db = gr ? -lin : 20 * Math.Log10(Math.Max(1e-5, lin));
+        Fill(g, Well, r, 4); double db = gr ? -lin : 20 * Math.Log10(Math.Max(1e-5, lin));
         if (gr) { float f = (float)Math.Max(0, Math.Min(1, lin / 24)); var lit = new RectangleF(r.X + 2, r.Y + 2, r.Width - 4, (r.Height - 4) * f); using (var b = new SolidBrush(Orange)) g.FillRectangle(b, lit); }
         else { float f = (float)Math.Max(0, Math.Min(1, (db + 48) / 54)); var lit = new RectangleF(r.X + 2, r.Bottom - 2 - (r.Height - 4) * f, r.Width - 4, Math.Max(0.1f, (r.Height - 4) * f)); using (var b = new LinearGradientBrush(new RectangleF(r.X, r.Y - 1, r.Width, r.Height + 2), db > -1 ? Color.Red : Gold, Cyan, 90f)) g.FillRectangle(b, lit); }
         if (label.Length > 0) Txt(g, label, 9.5f, Dim, new RectangleF(r.X - 10, r.Bottom + 2, r.Width + 20, 13), StringAlignment.Center, true);
@@ -140,7 +150,7 @@ abstract class PxWindow : Form
         Txt(g, "PURPHEX", 12, Violet, new RectangleF(16, 8, 140, 16), StringAlignment.Near, true); Txt(g, brand.ToUpperInvariant(), 24, Ink, new RectangleF(14, 22, 300, 30), StringAlignment.Near, true);
         if (SubTitle.Length > 0) Txt(g, SubTitle, 10, Dim, new RectangleF(16, 50, 300, 14), StringAlignment.Near, false);
         using (var pen = new Pen(Color.FromArgb(150, Accent), 2)) g.DrawLine(pen, 16, 66, 200, 66);
-        float pbX = Math.Max(230, W - 16 - 290 - 330 - 8), pbW = Math.Min(330, W - 16 - 290 - pbX - 8); var pb = new RectangleF(pbX, 16, pbW, 38);   // the preset bar gets narrower in a small window Fill(g, Color.FromArgb(30, 18, 56), pb, 10); Stroke(g, Edge, pb, 10, 1.2f);
+        float pbX = Math.Max(230, W - 16 - 290 - 330 - 8), pbW = Math.Min(330, W - 16 - 290 - pbX - 8); var pb = new RectangleF(pbX, 16, pbW, 38);   /* the preset bar gets narrower in a small window */ Fill(g, PBar, pb, 10); Stroke(g, Edge, pb, 10, 1.2f);
         Button(g, new RectangleF(pb.X + 5, pb.Y + 5, 28, 28), "‹", false, Violet, () => StepPreset(-1), "Previous preset", 16);
         Button(g, new RectangleF(pb.Right - 33, pb.Y + 5, 28, 28), "›", false, Violet, () => StepPreset(1), "Next preset", 16);
         Txt(g, PresetName, 13, Ink, new RectangleF(pb.X + 38, pb.Y, pb.Width - 76, pb.Height), StringAlignment.Center, true);
@@ -217,6 +227,33 @@ abstract class PxWindow : Form
 }
 
 // a ring of the latest audio (the window reads it to draw spectra and waveforms; a torn read only draws one odd frame)
+// Text checks for the plugin windows: Fit shrinks a label (to 75 % at most) so it fits its box; with Begin() on (tests only) every label
+// that still does not fit, or that sits across the edge of a panel, is written to Log.
+static class UiAudit
+{
+    [ThreadStatic] public static List<string> Log; [ThreadStatic] static List<RectangleF> boxes; [ThreadStatic] static List<KeyValuePair<string, RectangleF>> texts;
+    public static void Begin() { Log = new List<string>(); boxes = new List<RectangleF>(); texts = new List<KeyValuePair<string, RectangleF>>(); }
+    public static List<string> End()
+    {
+        var res = Log; if (res == null) return new List<string>();
+        foreach (var t in texts) foreach (var bx in boxes) { var tb = t.Value; if (!tb.IntersectsWith(bx)) continue; var inner = RectangleF.Inflate(bx, -2, -2); if (inner.Contains(tb)) continue; if (tb.Contains(bx)) continue;
+            var ov = RectangleF.Intersect(tb, bx); if (ov.Width < 2 || ov.Height < 2) continue; res.Add("'" + t.Key + "' sits across the edge of a box at " + (int)bx.X + "," + (int)bx.Y + " " + (int)bx.Width + "x" + (int)bx.Height); break; }
+        Log = null; boxes = null; texts = null; return res;
+    }
+    public static void Box(RectangleF r) { if (boxes != null) boxes.Add(r); }
+    public static float Fit(Graphics g, string s, float size, bool bold, RectangleF r)
+    {
+        if (string.IsNullOrEmpty(s) || r.Width <= 0) return size;
+        using (var f = new Font("Segoe UI", size, bold ? FontStyle.Bold : FontStyle.Regular, GraphicsUnit.Pixel)) { float w = g.MeasureString(s, f).Width; if (w <= r.Width - 2) return size; return Math.Max(size * 0.75f, size * (r.Width - 2) / w); }
+    }
+    public static void Text(Graphics g, string s, Font f, RectangleF r, StringAlignment al)
+    {
+        if (Log == null || string.IsNullOrEmpty(s)) return; float w = g.MeasureString(s, f).Width, h = f.Size * 0.8f;
+        if (w > r.Width + 1) Log.Add("'" + s + "' is cut off (needs " + (int)w + " px, has " + (int)r.Width + ")");
+        float x = al == StringAlignment.Near ? r.X : al == StringAlignment.Center ? r.X + (r.Width - w) / 2 : r.Right - w; texts.Add(new KeyValuePair<string, RectangleF>(s, new RectangleF(x, r.Y + (r.Height - h) / 2, Math.Min(w, r.Width), h)));
+    }
+}
+
 class PxScope
 {
     public readonly float[] Buf; public volatile int W; public PxScope(int n) { Buf = new float[n]; }

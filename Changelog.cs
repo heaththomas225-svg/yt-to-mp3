@@ -7,10 +7,19 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.48.0";
+    public const string Latest = "3.48.1";
 
     public const string Text =
-@"3.48.0  Purphex VSTs: Clipper, Smack, Vinyl Stop, Radio, Doubler, Octave Choir, Vowel and Step Shaper
+@"3.48.1  Plugin windows follow your theme, text fits its boxes, AI GEN removed
+ + CHANGED: Every Purphex VST window (GlitchFlow too) now uses the colours of your theme: backgrounds, panels, edges, knobs, buttons and the main colours change with it. ON stays gold.
+ + FIXED: Text in the Purphex VST windows no longer runs out of its box or sits on a box edge (GlitchFlow input / output and refresh window, Glow saturation, Radio RM / bitcrush). Long labels shrink a little to fit, and a test now checks every window.
+ + REMOVED: AI GEN on GlitchFlow. The preset bar takes its place.
+ + FIXED: The box behind the preset name at the top of every Purphex VST window was missing.
+ + FIXED: With two or more EPs or albums, the list sent to your profile was broken, so they could fail to show there.
+ + FIXED: The frame rate you picked in Settings was not applied when the studio opened.
+ + FIXED: Number boxes kept a white border on the dark theme.
+
+3.48.0  Purphex VSTs: Clipper, Smack, Vinyl Stop, Radio, Doubler, Octave Choir, Vowel and Step Shaper
  + NEW: Purphex Clipper: soft, hard, tape, tube and fold clipping with threshold, softness, pre and post gain (LINK keeps the loudness the same), a curve that shows the shape and a scope that shows what was cut.
  + NEW: Purphex Smack: a transient shaper. ATTACK lifts or softens the hit, SUSTAIN lifts or cuts the tail, each with its own sensitivity, short / medium / long shape and duration, plus mix, output and a guard (clip or limit) so it never goes over 0 dB.
  + NEW: Purphex Vinyl Stop: press PLAY / STOP for a record or tape stop in time with the song (length in bars or beats), with curve, pitch, step, digital, wash and SPIN-UP for how fast it comes back.

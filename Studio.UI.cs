@@ -110,7 +110,7 @@ partial class StudioForm : Form
         ClientSize = new Size(1360, 800); MinimumSize = new Size(1240, 680);
         DoubleBuffered = true; KeyPreview = true; FontKit.Restore(this);   /* AllowDrop is switched on in OnHandleCreated (Studio.Crash.cs) so a refused registration cannot crash */
         SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw | ControlStyles.Selectable, true);
-        studioLoop = new FrameLoop(this, FrameStep) { Slow = () => WindowState == FormWindowState.Minimized || moving || Win.AnyMoving };   // while a window is being dragged around nothing needs painting often ApplyFps();
+        studioLoop = new FrameLoop(this, FrameStep) { Slow = () => WindowState == FormWindowState.Minimized || moving || Win.AnyMoving };   /* while a window is being dragged around nothing needs painting often */ ApplyFps();
         InstrumentFx.Recorder = OnMidiNote;
         MinimumSize = new Size(1240, 640);
         FormClosed += (s, e) => { try { if (flexOpen) FlexClose(true); } catch { } flexOpen = false; DisposeRetired(); Auditioner.Shutdown(); };

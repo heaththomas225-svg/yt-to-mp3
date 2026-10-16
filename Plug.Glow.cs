@@ -159,9 +159,9 @@ class GlowWindow : PxWindow
         Segments(g, new RectangleF(cx - 230, mid.Y + 40, 150, 28), "ms", Violet); Toggle(g, new RectangleF(cx + 100, mid.Y + 40, 110, 28), "fxonly", Cyan, "FX ONLY", "FX ONLY");
         Toggle(g, new RectangleF(cx + 100, mid.Y + 76, 110, 28), "lvl", Cyan, "LEVEL MATCH", "LEVEL MATCH");
         Knob(g, mid.X + 90, mid.Y + 80, 22, "in", "INPUT", Violet); Knob(g, mid.Right - 90, mid.Y + 80, 22, "out", "OUTPUT", Violet);
-        float by = mid.Bottom - 70;
+        float by = mid.Bottom - 78;
         Toggle(g, new RectangleF(mid.X + 60, by + 6, 80, 26), "filt", Lime, "FILTERS", "FILTERS"); Segments(g, new RectangleF(mid.X + 60, by + 38, 80, 22), "steep", Lime, 9.5f);
         Knob(g, mid.X + 190, by + 22, 18, "hp", "HIGH-PASS", Lime); Knob(g, mid.X + 270, by + 22, 18, "lp", "LOW-PASS", Lime);
-        Knob(g, mid.Right - 230, by + 22, 22, "sat", "SATURATION", Orange); Choice(g, new RectangleF(mid.Right - 170, by + 10, 100, 26), "satmode", Orange);
+        Knob(g, mid.Right - 230, by + 18, 22, "sat", "SATURATION", Orange); Choice(g, new RectangleF(mid.Right - 170, by + 10, 100, 26), "satmode", Orange);
     }
 }

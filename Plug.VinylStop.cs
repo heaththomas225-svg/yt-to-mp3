@@ -141,7 +141,7 @@ class RadioWindow : PxWindow
         Txt(g, msg, 14, Color.FromArgb(120, 255, 140), lcd, StringAlignment.Center, true);
         Knob(g, mid.X + mid.Width / 2, mid.Y + 170, 70, "tune", "TUNE", Lime, true);
         string[] sk = { "static", "fb", "raw", "am", "rm", "crush", "skip" }, sl = { "STATIC", "FEEDBACK", "RAW", "AM", "RM", "BITCRUSH", "SKIP" };
-        float[,] pos = { { 0.12f, 0.36f }, { 0.88f, 0.36f }, { 0.12f, 0.62f }, { 0.12f, 0.88f }, { 0.35f, 0.92f }, { 0.65f, 0.92f }, { 0.88f, 0.62f } };
+        float[,] pos = { { 0.12f, 0.36f }, { 0.88f, 0.36f }, { 0.12f, 0.62f }, { 0.12f, 0.86f }, { 0.35f, 0.84f }, { 0.65f, 0.84f }, { 0.88f, 0.62f } };
         for (int i = 0; i < 7; i++) Knob(g, mid.X + mid.Width * pos[i, 0], mid.Y + mid.Height * pos[i, 1] - 10, 16, sk[i], sl[i], Lime);
         var rc = new RectangleF(mid.Right + 10, a.Y, a.Right - mid.Right - 10, 330); Panel(g, rc, "", Lime); string[] rk = { "bw", "drive", "noise", "squelch" }, rl = { "BANDWIDTH", "DRIVE", "NOISE", "SQUELCH" };
         for (int i = 0; i < 4; i++) Knob(g, rc.X + rc.Width / 2, rc.Y + 48 + i * 74, 22, rk[i], rl[i], i == 1 ? Orange : Lime);

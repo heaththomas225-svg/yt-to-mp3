@@ -217,7 +217,7 @@ static class Win
     static readonly System.Runtime.CompilerServices.ConditionalWeakTable<Control, object> neonBoxes = new System.Runtime.CompilerServices.ConditionalWeakTable<Control, object>(), neonParents = new System.Runtime.CompilerServices.ConditionalWeakTable<Control, object>();
     public static void NeonBox(Control c)
     {
-        if (c == null) return; var tb = c as TextBoxBase; if (tb != null) tb.BorderStyle = BorderStyle.None; var tbx = c as TextBox; if (tbx != null) EmojiOverlay.Attach(tbx);   // its emoji are drawn in colour var nu = c as NumericUpDown; if (nu != null) nu.BorderStyle = BorderStyle.None;
+        if (c == null) return; var tb = c as TextBoxBase; if (tb != null) tb.BorderStyle = BorderStyle.None; var tbx = c as TextBox; if (tbx != null) EmojiOverlay.Attach(tbx);   /* its emoji are drawn in colour */ var nu = c as NumericUpDown; if (nu != null) nu.BorderStyle = BorderStyle.None;
         c.BackColor = TM.C(255, 10, 5, 24); c.ForeColor = TM.C(255, 226, 250, 255);
         object o; if (neonBoxes.TryGetValue(c, out o)) return; neonBoxes.Add(c, true);
         Action<Control> hook = p => { if (p == null) return; object x; if (neonParents.TryGetValue(p, out x)) return; neonParents.Add(p, true); p.Paint += (s, e) => PaintNeonChildren(p, e.Graphics); p.Invalidate(); };

@@ -1,4 +1,4 @@
-3.48.0
+3.48.1
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Purphex VSTs: Clipper, Smack, Vinyl Stop, Radio, Doubler, Octave Choir, Vowel and Step Shaper
-sha256=3d3ccaf1504591e9a0b04281ce5bbc6365b6c423264048a931ffa21d98f3f0fa
+Plugin windows follow your theme, text fits its boxes, AI GEN removed
+sha256=76f090df222dc34836e38662a43f238a6b4d8a6a4c3cc0126f9d337f21518c6a
