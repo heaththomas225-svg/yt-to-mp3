@@ -16,7 +16,7 @@ using System.Windows.Forms;
 // ======================================================================
 class HitReg
 {
-    public RectangleF R; public Action OnDown, OnRight, OnDouble, OnUp; public Action<PointF> OnDrag; public Action<int> OnWheel; public bool WhileBusy; public bool ScrollBar;   // ScrollBar: a part of a logo scroll bar (the wheel there scrolls the list, it never changes a value)
+    public RectangleF R; public Action OnDown, OnRight, OnDouble, OnUp; public Action<PointF> OnDrag; public Action<int> OnWheel; public bool WhileBusy; public bool ScrollBar; public bool Button; public int Layer;   // Button: made by Btn (a button always takes the click from the card or row it sits on); Layer: which pop-up it belongs to   // ScrollBar: a part of a logo scroll bar (the wheel there scrolls the list, it never changes a value)
 }
 
 partial class StudioForm : Form
@@ -282,7 +282,8 @@ partial class StudioForm : Form
     static RectangleF Rc(float x, float y, float w, float h) { return new RectangleF(x, y, w, h); }
     static float Clamp01(float v) { return v < 0 ? 0 : (v > 1 ? 1 : v); }
 
-    HitReg Reg(RectangleF r, Action down) { var g = new HitReg { R = r, OnDown = down }; regs.Add(g); return g; }
+    int regLayer;   // goes up by one for every region that covers the whole window (a pop-up sheet starting): nothing under a pop-up can take its clicks
+    HitReg Reg(RectangleF r, Action down) { if (r.Width >= ClientSize.Width - 2 && r.Height >= ClientSize.Height - 2) regLayer++; var g = new HitReg { R = r, OnDown = down, Layer = regLayer }; regs.Add(g); return g; }
     bool Hot(RectangleF r) { return hover != null && hover.R == r; }
 
     // Plain-English hints shown at the bottom while the mouse is over a button.
@@ -389,7 +390,7 @@ partial class StudioForm : Form
         float ht = HoverAmount(r, text); if (ht > 0.5f && Hot(r)) HoverSparks(r); Prof.A("btn.hover", k0); k0 = Prof.T();
         string shown0 = Win.Up(text); Prof.A("btn.up", k0);
         if (TxtAudit == null && r.Width > 4 && r.Height > 4 && r.Width * r.Height < 90000) BtnDrawSprite(g, r, shown0, style, ht, px); else BtnLook(g, r, shown0, style, ht, px);
-        k0 = Prof.T(); var rr0 = Reg(r, down); Prof.A("btn.reg", k0); return rr0;
+        k0 = Prof.T(); var rr0 = Reg(r, down); rr0.Button = true; Prof.A("btn.reg", k0); return rr0;
     }
     // the Fantasy edition has the button of the converter window: a pale rim all round, and inside it a soft shaded button (hot buttons fade from violet to pink); a glow under the mouse.
     // Every other edition keeps its own look (BtnLookClassic) and never gets this one.
@@ -521,7 +522,7 @@ partial class StudioForm : Form
         var g = e.Graphics; g.SmoothingMode = SmoothingMode.AntiAlias; g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit; Sharp(g);
         if (popDragId.Length > 0 && PaintPopDragFast(g)) { fpsc.Frame(); return; }   // dragging a box: the page under it is a stored picture and only the box is moved
         if (popDragId.Length == 0 && popBase != null) PopCacheClear();
-        regs.Clear(); btnRects.Clear(); btnMap.Clear(); PopBegin(g); Prof.Mark("setup");
+        regs.Clear(); regLayer = 0; btnRects.Clear(); btnMap.Clear(); PopBegin(g); Prof.Mark("setup");
         PaintBase(g);
         if (TxtAudit != null && (ntOpen || busOpen || stylesOpen || allFxOpen || themeOpen || caOpen || psOpen || amOpen || autoOpen || gainOpen || pickOpen || cpOpen || relOpen || tpOpen || WelcomeShowing)) TxtAudit.Clear();   // an open sheet covers the screen: only its own text counts
         PaintSheets(g); PopEnd(); Prof.Mark("sheets"); Win.PaintNeonChildren(this, g); Prof.Mark("neon children");
@@ -1468,7 +1469,14 @@ partial class StudioForm : Form
     // ---------------- mouse ----------------
     // the area under the pointer that takes a click: an area that only scrolls (a list's wheel area, added after its rows) never takes the click from the buttons in it (it ate ACCEPT / DECLINE and the conversations in Messages)
     static bool WheelOnly(HitReg r) { return r.OnWheel != null && r.OnDown == null && r.OnRight == null && r.OnDouble == null && r.OnDrag == null && r.OnUp == null; }
-    HitReg TopRegion(PointF p) { for (int i = regs.Count - 1; i >= 0; i--) if (regs[i].R.Contains(p) && !WheelOnly(regs[i])) return regs[i]; return null; }
+    // a button inside the card or row under the pointer takes the click from it (cards and rows were often added after their own buttons, so a click on PLAY opened the project), but never a button from under a pop-up
+    HitReg TopRegion(PointF p)
+    {
+        int ti = -1; for (int i = regs.Count - 1; i >= 0; i--) if (regs[i].R.Contains(p) && !WheelOnly(regs[i])) { ti = i; break; }
+        if (ti < 0) return null; var top = regs[ti]; if (top.Button) return top;
+        for (int i = ti - 1; i >= 0; i--) { var b = regs[i]; if (b.Layer != top.Layer) break; if (b.Button && b.R.Contains(p) && top.R.Contains(b.R) && !WheelOnly(b)) return b; }
+        return top;
+    }
 
     protected override void OnMouseMove(MouseEventArgs e)
     {

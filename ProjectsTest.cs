@@ -462,6 +462,9 @@ static class PR
               Check("no two themes look alike (every pair differs clearly in its colours)", alike.Length == 0, alike);
               double hT, sT, lT, hG, sG, lG; ThemeDef.ToHsl(Themes.All[Themes.IndexOf("Toxic")].Violet, out hT, out sT, out lT); ThemeDef.ToHsl(Themes.All[Themes.IndexOf("Green")].Violet, out hG, out sG, out lG); Check("Toxic (acid lime) and Green (emerald) are different colours", Math.Abs(hT - hG) > 40, hT.ToString("0") + " vs " + hG.ToString("0") + " degrees"); }
             Themes.Apply(Themes.IndexOf("Rainbow")); var rc0 = ThemeStatic("NeonViolet"); Pump(1500); Themes.Tick(); var rc1 = ThemeStatic("NeonViolet"); Check("the Rainbow theme changes colour by itself", rc0 != rc1, rc0 + " -> " + rc1); Themes.Apply(0);
+            { int keepSp = Prefs.RainbowSpeed; Prefs.RainbowSpeed = 0; double slowDps = Themes.RainbowDegPerSec, slowStep = Themes.RainbowStep; Prefs.RainbowSpeed = 100; double fastDps = Themes.RainbowDegPerSec, fastStep = Themes.RainbowStep; Prefs.RainbowSpeed = keepSp;
+              Check("RAINBOW SPEED: slow is very gentle and every speed fades in small steps (never more than 4 colour changes a second)", slowDps <= 1 && slowStep <= 2 && fastDps >= 20 && fastStep <= 8 && fastDps / fastStep <= 4.01, slowDps + "/s step " + slowStep + ", fast " + fastDps + "/s step " + fastStep);
+              Prefs.RainbowSpeed = 40; Check("the Rainbow speed is saved with the settings", Array.IndexOf(Prefs.Lines(), "rbspeed=40") >= 0, ""); Prefs.RainbowSpeed = keepSp; }
             foreach (var t in Themes.All) { Themes.Apply(Themes.All.IndexOf(t)); Paint(); } Themes.Apply(0); Check("every theme paints the studio without a problem", true, "");
         }
         finally

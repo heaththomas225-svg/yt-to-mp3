@@ -69,7 +69,6 @@ partial class StudioForm
         Txt(g, projEp.Title, 22, Ink, Rc(box.X + 24, box.Y + 46, box.Width - 110, 34), StringAlignment.Near, true);
         Txt(g, "PLAY HEARS A SONG WITHOUT OPENING IT.  CLICK A SONG TO OPEN ITS PROJECT.", 11, DimC, Rc(box.X + 24, box.Y + 82, box.Width - 48, 18), StringAlignment.Near, true);
         var cl = Rc(box.Right - 52, box.Y + 18, 32, 30); Btn(g, cl, "x", 3, () => projEpOpen = false, 13);
-        { bool qOn = ProjQueueOn(projEp); var pa = Rc(box.X + 24, box.Y + 108, box.Width - 48, 40); var rel = projEp; Btn(g, pa, qOn ? "PLAYING THE " + kw + "  (" + (projQueueAt + 1) + " OF " + projQueue.Count + ")  -  STOP" : "PLAY " + kw, qOn ? 4 : 2, () => PlayProjEp(rel), 15); Hint2(pa, qOn ? "Stop playing the " + kw.ToLower() : "Play every song of the " + kw.ToLower() + " in order, one after another"); }
         var lr = Rc(box.X + 20, box.Y + 160, box.Width - 40, box.Bottom - box.Y - 178); float rowH = 56, total = projEpEnts.Count * rowH, maxS = Math.Max(0, total - lr.Height); projEpScroll = Math.Max(0, Math.Min(maxS, projEpScroll));
         regs.Add(new HitReg { R = lr, OnWheel = d => projEpScroll = Math.Max(0, Math.Min(maxS, projEpScroll - d * 50)) });
         var gs = g.Save(); g.SetClip(lr, CombineMode.Intersect);
@@ -78,7 +77,7 @@ partial class StudioForm
             var e = projEpEnts[i]; var row = Rc(lr.X, lr.Y + i * rowH - projEpScroll, lr.Width - (maxS > 0 ? 50 : 0), rowH - 8); if (row.Bottom < lr.Y || row.Y > lr.Bottom) continue;
             bool prev = string.Equals(previewPath, e.Path, StringComparison.OrdinalIgnoreCase), hot = Hot(row);
             if (prev) PaintPickedFx(g, row, 10); else { FillRR(g, hot ? TM.C(220, 70, 36, 130) : TM.C(170, 30, 16, 58), row, 10); StrokeRR(g, Color.FromArgb(hot ? 220 : 110, NeonViolet), row, 10, 1.2f); }
-            var ee = e; Reg(row, () => { projEpOpen = false; OpenProjectAsk(ee); }); Hint2(row, "Open the project " + e.Name + " (it asks first)");
+            var ee = e; Reg(RectangleF.Intersect(row, lr), () => { projEpOpen = false; OpenProjectAsk(ee); }); Hint2(row, "Open the project " + e.Name + " (it asks first)");
             { var tp = Rc(row.X + 10, row.Y + row.Height / 2 - 11, 74, 22); FillRR(g, NeonCyan, tp, 11); Txt(g, "TRACK " + (i + 1), 10, Color.Black, tp, StringAlignment.Center, true); }   // which track of the release it is
             var pic = Rc(row.X + 92, row.Y + 5, row.Height - 10, row.Height - 10); DrawCover(g, pic, e);
             Txt(g, e.Name, 14, Ink, Rc(pic.Right + 10, row.Y, row.Width - (pic.Right + 10 - row.X) - 120 - 62, row.Height), StringAlignment.Near, true);
@@ -86,6 +85,7 @@ partial class StudioForm
             var pb = Rc(row.Right - 108, row.Y + 8, 96, row.Height - 16); Btn(g, pb, prev ? "STOP" : "PLAY", prev ? 4 : 1, () => PreviewToggle(ee), 12); Hint2(pb, prev ? "Stop the preview" : "Hear " + e.Name + " without opening it");
         }
         g.Restore(gs); if (maxS > 0) VScroll(g, Rc(lr.Right - 44, lr.Y, 42, lr.Height), total, lr.Height, () => projEpScroll, v => projEpScroll = v);
+        { bool qOn = ProjQueueOn(projEp); var pa = Rc(box.X + 24, box.Y + 108, box.Width - 48, 40); var rel = projEp; Btn(g, pa, qOn ? "PLAYING THE " + kw + "  (" + (projQueueAt + 1) + " OF " + projQueue.Count + ")  -  STOP" : "PLAY " + kw, qOn ? 4 : 2, () => PlayProjEp(rel), 15); Hint2(pa, qOn ? "Stop playing the " + kw.ToLower() : "Play every song of the " + kw.ToLower() + " in order, one after another"); }
     }
 }
 

@@ -610,7 +610,7 @@ Low-pass (with resonance), high-pass, telephone, rhythm gate, drive (soft, hard 
 ## Presets, undo and automation
 PRESETS has 55 factory presets (subtle, vocal, drum fills, build-ups, transitions, EDM, drum and bass, UK garage, trap, experimental, aggressive) and your own: save, rename and delete them there. The arrows step through them. Ctrl+Z and Ctrl+Y undo and redo in the window. Every setting is in the plugin panel too, with its A button for automation, and everything is saved with the project.
 "),
-        new HelpTopic("studio-purphexvst", "Purphex Music", "Purphex VSTs: Glow, Curve EQ, Shape, SubForge, BreathOff, Phantom Gate, Stereo Lab, Vortex, MultiDyn, Prism, Frost, Tape Dirt, Constellation, Clipper, Smack, Vinyl Stop, Radio, Doubler, Octave Choir, Vowel, Step Shaper", false, @"
+        new HelpTopic("studio-purphexvst", "Purphex Music", "Purphex VSTs: Glow, Curve EQ, Shape, SubForge, BreathOff, Phantom Gate, Stereo Lab, Vortex, MultiDyn, Prism, Frost, Tape Dirt, Constellation, Clipper, Smack, Vinyl Stop, Radio, Doubler, Octave Choir, Vowel, Step Shaper, Tri-Drive, Shift, Maximizer, Spectral Gate", false, @"
 ## Where they are
 The Purphex VSTs are our own plugins with their own windows. The effects are at the top of + ADD EFFECT in PURPHEX VST (adding one opens its window; OPEN in the plugin panel opens it again). SubForge is an instrument: + ADD TRACK, then a MIDI / instrument track.
 ## Glow
@@ -655,6 +655,14 @@ Up to eight harmony voices. Each has LEVEL, PAN, DELAY, FEEDBACK, INTERVAL and C
 Makes any sound talk. Drag the dot between the vowels on the pad, or click a vowel button. DRIVE, SHIFT (deeper or higher mouth), Q, MIX and SNAP (pulls toward the nearest vowel). MOVEMENT moves the dot for you (left-right, up-down or circle) free or in time, with RATE and DEPTH. LOUDNESS MATCH keeps the level even.
 ## Step Shaper
 Sixteen bars that move the volume in time with the song: click or drag them. GRID (1/4 to 1/32), RATE (half, normal, double), SMOOTH and SWING. VOLUME is how deep it cuts, LP FILTER and RESONANCE add a filter, FOLLOW makes the filter move with the steps too.
+## Tri-Drive
+Three-band distortion. Drag the two gold lines to split LOW, MID and HIGH. Each band: ON, TYPE (tube, tape, fuzz, rectify, crush), DRIVE, LEVEL and MIX. Then FILTER (low, band or high-pass with CUTOFF and RES), COMP (one knob, the GR meter shows it working), FEEDBACK and TIME (ringing, metal), MIX and OUTPUT.
+## Shift
+Two frequency shifters. SHIFT moves every frequency by the same number of Hz (small: a slow phaser sweep; big: metal and bells). UP, DOWN or BOTH (ring mod), an LFO (RATE and DEPTH in Hz) and MIX on each. ROUTING serial or parallel, FEEDBACK and TIME (endless rising or falling spirals), SPREAD (left and right shifted apart), MIX and OUTPUT.
+## Maximizer
+Turn LOUDNESS up: a look-ahead limiter makes it louder without ever going over the CEILING (the pink ring is how much it is working). RELEASE, CHARACTER (clean, warm, punch), LOW and HIGH tone, MONO BASS, WIDTH. The meter shows the loudness in LUFS; TARGET (streaming -14, loud -11, club -9, max -7) turns it to that level for you.
+## Spectral Gate
+Turns down spill, hiss, hum and room on every frequency on its own. Play a part with only the unwanted sound and press LEARN SPILL (press again to stop); each frequency then opens MARGIN dB above it. LEARN WANTED as well and the line sits between the two (BIAS). With nothing learned, drag the green THRESHOLD line. REDUCTION (how far down), ATTACK, RELEASE, SMOOTH, RANGE LOW / HIGH (nothing outside it is gated), LISTEN to the result or to what is removed, MIX and OUTPUT. CLEAR LEARNED forgets.
 ## All of them
 ON / OFF at the top turns the plugin off without removing it. PRESETS has factory presets and your own (save, rename, delete); the arrows step through them. Ctrl+Z / Ctrl+Y undo and redo in the window. Every setting is in the plugin panel too, with its A button for automation, and is saved with the project.
 "),

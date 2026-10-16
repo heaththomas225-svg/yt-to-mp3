@@ -2,6 +2,20 @@
 
 What changed in each version of **Purphex**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.50.0  Purphex VSTs: Tri-Drive, Shift, Maximizer and Spectral Gate; Rainbow speed
+
+- NEW: Purphex Tri-Drive: three-band distortion. Drag the two split lines, then give LOW, MID and HIGH each their own type (tube, tape, fuzz, rectify, crush), drive, level and mix. Steep crossovers keep each band to its own notes (drive the highs and the bass stays clean). After the bands: a filter, a one-knob compressor, feedback for ringing metal, mix and output.
+
+- NEW: Purphex Shift: two frequency shifters (every frequency moves by the same number of Hz: phaser sweeps when small, metal and bells when big), each with up / down / both, an LFO and mix, in serial or parallel, with feedback for endless rising or falling spirals and stereo spread.
+
+- NEW: Purphex Maximizer: one big LOUDNESS knob into a look-ahead limiter that never goes over the ceiling, with release, character (clean, warm, punch), low and high tone, mono bass, width, a LUFS meter and TARGET (streaming -14, loud -11, club -9, max -7) that sets the loudness for you.
+
+- NEW: Purphex Spectral Gate: gates every frequency on its own, so spill, hiss, hum and room are turned down where they sit while the wanted sound passes. LEARN SPILL and LEARN WANTED listen and remember (kept with the project); with nothing learned there is one threshold line you drag. Reduction, attack, release, smooth, range, listen to what is removed, mix and output.
+
+- FIXED: Clicking a button on a card or row sometimes clicked the card or project under it instead (PLAY NOW opened the EP, PLAY EP could open a song). Buttons now always take the click from whatever they sit on, everywhere in the app; an open pop-up still blocks what is behind it.
+
+- NEW: RAINBOW SPEED: with the Rainbow theme picked, a slider under the themes sets how fast it moves. It now fades smoothly through the colours in small steps instead of jumping (the jumps flashed), and it starts slow.
+
 ## 3.49.0  No more crackling, EPs play in order, see where a sound will land
 
 - FIXED: Crackling when Purphex Music is not the window in front: Windows 11 slowed the app down in the background ("efficiency mode"), which starved the sound. The app and its sound thread now opt out, so playback stays smooth while you use another window or click off an EP.

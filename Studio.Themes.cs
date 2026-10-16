@@ -82,7 +82,7 @@ partial class StudioForm
         Btn(g, tabB, "COMMUNITY THEMES", 0, () => OpenCommunityThemes(), 13); Hint2(tabB, "Download themes other people made, or share yours");
         float rx = sheet.Right - 22; var exp = Rc(rx - 90, y, 90, 34);
         Btn(g, exp, "SAVE", 1, () => ExportThemeFile(), 12); Hint2(exp, "Save the theme in use as a file you can share");
-        float top = y + 50, bottom = sheet.Bottom - (themeTab == 1 ? 78 : 20); float areaH = bottom - top; var area = Rc(sheet.X + 10, top, sheet.Width - 20, areaH);
+        bool rbBar = themeTab == 0 && Themes.Current.Rainbow; float top = y + 50, bottom = sheet.Bottom - (themeTab == 1 || rbBar ? 78 : 20); float areaH = bottom - top; var area = Rc(sheet.X + 10, top, sheet.Width - 20, areaH);
         var list = Themes.All; var idx = new List<int>(); for (int q0 = 0; q0 < list.Count; q0++) if (Themes.IsProfile(list[q0]) == (themeTab == 1)) idx.Add(q0);
         int cols = sheet.Width >= 700 ? 3 : 2; float vsw = 56, gap = 12, cw = (sheet.Width - 44 - vsw - gap * (cols - 1)) / cols, ch = 96; int rows = (idx.Count + cols - 1) / cols; float total = rows * (ch + gap);
         themeScroll = Math.Max(0, Math.Min(Math.Max(0, total - areaH), themeScroll)); regs.Add(new HitReg { R = area, OnWheel = d => themeScroll = Math.Max(0, Math.Min(Math.Max(0, total - areaH), themeScroll - d * 60)) });
@@ -109,6 +109,17 @@ partial class StudioForm
             if (t.Rainbow && !on) { /* the rainbow card is lit by its own colours */ }
         }
         g.ResetClip(); VScroll(g, Rc(sheet.Right - 56, top, 42, areaH), total, areaH, () => themeScroll, v => themeScroll = v);
+        if (rbBar)
+        {   // RAINBOW SPEED: how fast it fades through the colours (slow is gentle on the eyes)
+            var bar = Rc(sheet.X + 22, sheet.Bottom - 68, sheet.Width - 44 - 56, 52); FillRR(g, TM.C(255, 10, 5, 24), bar, 14); Win.DrawNeonBox(g, bar, false);
+            Txt(g, "RAINBOW SPEED", 12, Ink, Rc(bar.X + 14, bar.Y, 150, bar.Height), StringAlignment.Near, true);
+            var tr = Rc(bar.X + 170, bar.Y + bar.Height / 2 - 4, bar.Width - 170 - 150, 8); float f = Prefs.RainbowSpeed / 100f;
+            FillRR(g, TM.C(255, 40, 28, 70), tr, 4); FillRR(g, NeonCyan, Rc(tr.X, tr.Y, Math.Max(8, tr.Width * f), tr.Height), 4);
+            var kn = Rc(tr.X + tr.Width * f - 9, tr.Y - 7, 18, 22); FillRR(g, Color.White, kn, 6);
+            Txt(g, Prefs.RainbowSpeed <= 10 ? "VERY SLOW" : Prefs.RainbowSpeed <= 35 ? "SLOW" : Prefs.RainbowSpeed <= 65 ? "MEDIUM" : "FAST", 11, NeonCyan, Rc(tr.Right + 14, bar.Y, 120, bar.Height), StringAlignment.Near, true);
+            var hit = Rc(tr.X - 10, bar.Y, tr.Width + 20, bar.Height); Action<PointF> setAt = pt => { Prefs.RainbowSpeed = (int)Math.Round(Math.Max(0, Math.Min(1, (pt.X - tr.X) / tr.Width)) * 100); Prefs.Changed(); };
+            var rg = Reg(hit, () => setAt(MousePos)); rg.OnDrag = setAt; Hint2(hit, "How fast the Rainbow fades through the colours: left is slow and gentle, right is fast");
+        }
         if (themeTab == 1)
         {   // the profile themes: what they are, and a DELETE THEME button under them
             if (idx.Count == 0) TxtWrap(g, "No profile themes yet. On your Profile page, mix two colours and press SAVE AS THEME: it is added here, and nothing changes until you pick it.", 13, DimC, Rc(sheet.X + 30, top + 10, sheet.Width - 120, 60));

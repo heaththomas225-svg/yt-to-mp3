@@ -815,6 +815,7 @@ class WaveOutPlayer : IDisposable
     public static volatile int QueuedFrames = 4096;   // audio waiting in the buffers: how far the sound lags behind the render position
     readonly int Buffers;   // more, smaller buffers: the same 23 ms steps but much more slack when the computer is busy
     public static volatile float Gain = 1f;   // playback volume from Settings (exports are not affected)
+    public static readonly bool MuteAll = Environment.GetEnvironmentVariable("PURPHEX_MUTE") == "1";   // set by the test runner: tests never play out loud, whatever data folder they use
     public static int Device { get { return Prefs.OutDev; } }
     readonly int Frames;
     [DllImport("winmm.dll", CharSet = CharSet.Auto)] static extern int waveOutGetNumDevs();
@@ -853,7 +854,7 @@ class WaveOutPlayer : IDisposable
     {
         long from = PosNow != null ? PosNow() : 0; bool pl = PlayingNow != null && PlayingNow();
         try { render(fl, fr, Frames); } catch { Array.Clear(fl, 0, Frames); Array.Clear(fr, 0, Frames); }
-        float gn = StudioEnv.UnderTest ? 0f : Math.Min(Gain, Prefs.OutVol / 100f); if (gn != 1f) for (int k = 0; k < Frames; k++) { fl[k] *= gn; fr[k] *= gn; }
+        float gn = StudioEnv.UnderTest || MuteAll ? 0f : Math.Min(Gain, Prefs.OutVol / 100f); if (gn != 1f) for (int k = 0; k < Frames; k++) { fl[k] *= gn; fr[k] *= gn; }
         safety.Process(fl, fr, Frames);   // a project that is too loud is brought down smoothly instead of being chopped off (chopped peaks are the crackle and fuzz you hear)
         for (int k = 0; k < Frames; k++)
         {

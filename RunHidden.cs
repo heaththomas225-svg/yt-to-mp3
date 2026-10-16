@@ -27,6 +27,7 @@ static class RunHidden
         var cmd = new StringBuilder(); foreach (var a in args) { if (cmd.Length > 0) cmd.Append(' '); cmd.Append(a.IndexOf(' ') >= 0 ? "\"" + a + "\"" : a); }
         var si = new STARTUPINFO { cb = Marshal.SizeOf(typeof(STARTUPINFO)), lpDesktop = "PurphexTests", dwFlags = 0x100 /* use the std handles */, hStdInput = GetStdHandle(-10), hStdOutput = GetStdHandle(-11), hStdError = GetStdHandle(-12) };
         PROCESS_INFORMATION pi;
+        Environment.SetEnvironmentVariable("PURPHEX_MUTE", "1");   // everything started here is a test: it never makes a sound on the speakers
         if (!CreateProcess(null, cmd, IntPtr.Zero, IntPtr.Zero, true, 0, IntPtr.Zero, Environment.CurrentDirectory, ref si, out pi)) { Console.Error.WriteLine("Could not start " + args[0] + ": " + new Win32Exception(Marshal.GetLastWin32Error()).Message); CloseDesktop(desk); return 4; }
         WaitForSingleObject(pi.hProcess, 0xFFFFFFFF); uint code; GetExitCodeProcess(pi.hProcess, out code);
         CloseHandle(pi.hThread); CloseHandle(pi.hProcess); CloseDesktop(desk); return (int)code;

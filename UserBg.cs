@@ -13,6 +13,7 @@ static class Prefs
     public static int BgDim = 45;            // 0..90, how much the background is darkened so the controls stay readable
     public static bool BgLeaves = true;      // keep the floating leaves on top of a custom background
     public static bool BgStudio = true;      // also use the background (still) in Purphex Music
+    public static int RainbowSpeed = 15;     // how fast the Rainbow theme fades through the colours, 0 (very slow) to 100
     public static int OutVol = 100;          // Purphex Music playback volume, percent (does not change exported files)
     public static int OutDev = -1;           // winmm device id (-1 = system default)
     public static int Buf = 1;               // playback buffer: 0 low latency, 1 normal, 2 safe (YOUR choice: it is saved and never changed behind your back)
@@ -38,7 +39,7 @@ static class Prefs
 
     public static string[] Lines()
     {
-        return new[] { "panelhid=" + (PanelHidden ? 1 : 0), "lyrsize=" + LyricSize.ToString(System.Globalization.CultureInfo.InvariantCulture), "bgpath=" + BgPath, "bgdim=" + BgDim, "bgleaves=" + BgLeaves, "bgstudio=" + BgStudio, "outvol=" + OutVol, "outdev=" + OutDev, "buf=" + Buf, "fpscap=" + FpsCap, "perfmode=" + PerfMode, "showfps=" + ShowFps, "savelyrics=" + SaveLyrics, "countuses=" + CountUses, "fantasythemev=" + FantasyThemeV, "fantasytheme=" + FantasyThemed, "midiin=" + MidiDev, "indev=" + InDev, "micmode=" + MicMode, "fontid=" + FontId, "sharesaved=" + ShareSaved, "theme=" + Theme };
+        return new[] { "panelhid=" + (PanelHidden ? 1 : 0), "lyrsize=" + LyricSize.ToString(System.Globalization.CultureInfo.InvariantCulture), "bgpath=" + BgPath, "bgdim=" + BgDim, "bgleaves=" + BgLeaves, "bgstudio=" + BgStudio, "outvol=" + OutVol, "rbspeed=" + RainbowSpeed, "outdev=" + OutDev, "buf=" + Buf, "fpscap=" + FpsCap, "perfmode=" + PerfMode, "showfps=" + ShowFps, "savelyrics=" + SaveLyrics, "countuses=" + CountUses, "fantasythemev=" + FantasyThemeV, "fantasytheme=" + FantasyThemed, "midiin=" + MidiDev, "indev=" + InDev, "micmode=" + MicMode, "fontid=" + FontId, "sharesaved=" + ShareSaved, "theme=" + Theme };
     }
     public static bool Parse(string k, string v)
     {
@@ -50,6 +51,7 @@ static class Prefs
             case "bgleaves": if (bool.TryParse(v, out b)) BgLeaves = b; return true;
             case "bgstudio": if (bool.TryParse(v, out b)) BgStudio = b; return true;
             case "outvol": if (int.TryParse(v, out n)) OutVol = Math.Max(0, Math.Min(100, n)); return true;
+            case "rbspeed": if (int.TryParse(v, out n)) RainbowSpeed = Math.Max(0, Math.Min(100, n)); return true;
             case "outdev": if (int.TryParse(v, out n)) OutDev = n; return true;
             case "buf": if (int.TryParse(v, out n)) Buf = Math.Max(0, Math.Min(2, n)); return true;
             case "fpscap": if (int.TryParse(v, out n)) FpsCap = n >= 240 ? 240 : (n >= 165 ? 165 : (n >= 144 ? 144 : (n >= 120 ? 120 : (n >= 60 ? 60 : 30)))); return true;

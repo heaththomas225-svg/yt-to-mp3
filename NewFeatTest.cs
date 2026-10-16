@@ -332,6 +332,16 @@ static class NF
                 typeof(StudioForm).GetMethod("StopPreview", BF).Invoke(sf, null); try { File.Delete(t1); File.Delete(t2); } catch { }
             }
             SetF("feed", new List<FeedSong>()); SetF("commFilter", 0); }
+        {   // BUTTONS WIN: a button on a card or row takes the click even when the card was added after it; a pop-up still blocks what is behind it
+            var regs = F<List<HitReg>>("regs"); var keep = new List<HitReg>(regs); regs.Clear(); var top = typeof(StudioForm).GetMethod("TopRegion", BF); var reg = typeof(StudioForm).GetMethod("Reg", BF);
+            SetF("regLayer", 0); var btn = (HitReg)reg.Invoke(sf, new object[] { new RectangleF(100, 100, 80, 30), (Action)(() => { }) }); btn.Button = true;
+            var card = (HitReg)reg.Invoke(sf, new object[] { new RectangleF(50, 50, 230, 400), (Action)(() => { }) });
+            Check("a button on a project card takes the click (not the card under it)", top.Invoke(sf, new object[] { new PointF(140, 115) }) == btn, "");
+            Check("the rest of the card still opens the project", top.Invoke(sf, new object[] { new PointF(60, 300) }) == card, "");
+            reg.Invoke(sf, new object[] { new RectangleF(0, 0, sf.ClientSize.Width, sf.ClientSize.Height), (Action)(() => { }) }); var box = (HitReg)reg.Invoke(sf, new object[] { new RectangleF(20, 20, 600, 500), (Action)(() => { }) });
+            Check("a button behind an open pop-up does not take its clicks", top.Invoke(sf, new object[] { new PointF(140, 115) }) == box, "");
+            regs.Clear(); regs.AddRange(keep);
+        }
         {   // SOUND: pack sounds are converted with a windowed sinc (no grit), and the sound pack player never clicks
             int n0 = 48000; var src = new float[n0]; for (int i = 0; i < n0; i++) src[i] = (float)(0.5 * Math.Sin(2 * Math.PI * 10000 * i / 48000.0));
             var y = HqResample.Run(src, 48000, 44100); double err = 0; int cnt = 0; for (int i = 2000; i < y.Length - 2000; i++) { double ideal = 0.5 * Math.Sin(2 * Math.PI * 10000 * i / 44100.0); err += (y[i] - ideal) * (y[i] - ideal); cnt++; }

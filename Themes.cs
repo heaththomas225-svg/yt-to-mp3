@@ -179,7 +179,7 @@ static class Themes
     // choose a theme: every window of the program repaints in the new colours at once
     public static void Apply(int i)
     {
-        Ensure(); Index = Math.Max(0, Math.Min(list.Count - 1, i)); var t = Current; rainbowT0 = Environment.TickCount / 1000.0; Push(t); Prefs.Theme = t.Name; UserBackground.Version++;
+        Ensure(); Index = Math.Max(0, Math.Min(list.Count - 1, i)); var t = Current; rainbowT0 = Environment.TickCount / 1000.0; rbLastT = rainbowT0; Push(t); Prefs.Theme = t.Name; UserBackground.Version++;
         foreach (Form f in Application.OpenForms) { try { f.Invalidate(true); } catch { } }
         SiteTheme.Send(t);   // the website gets your colours too
     }
@@ -188,7 +188,7 @@ static class Themes
     public static bool Allowed(ThemeDef t) { return Edition.Has(t.Req); }
     // the theme you chose is never forgotten: while the edition is not known yet (a licence being renewed, no internet) or lower, the original theme is shown for now,
     // and your own theme comes back by itself as soon as your edition is known again (it used to be reset to the original for good)
-    static void Show(int i) { Index = Math.Max(0, Math.Min(list.Count - 1, i)); rainbowT0 = Environment.TickCount / 1000.0; Push(Current); UserBackground.Version++; foreach (Form f in Application.OpenForms) { try { f.Invalidate(true); } catch { } } }
+    static void Show(int i) { Index = Math.Max(0, Math.Min(list.Count - 1, i)); rainbowT0 = Environment.TickCount / 1000.0; rbLastT = rainbowT0; Push(Current); UserBackground.Version++; foreach (Form f in Application.OpenForms) { try { f.Invalidate(true); } catch { } } }
     public static bool EnforceEdition(bool allowDowngrade = true)
     {
         Ensure(); int want = IndexOfName(Prefs.Theme);
@@ -204,10 +204,16 @@ static class Themes
     static void Push(ThemeDef t, bool fromTick = false) { if (!fromTick) Sprites.Clear(); StudioForm.ApplyTheme(t); MasterForm.ApplyTheme(t); SynthCanvas.ApplyTheme(t); PxWindow.ApplyTheme(t); if (!fromTick) { try { Win.RethemeAll(); } catch { } } }
     // the Rainbow theme slowly turns through every colour (called once per frame by the studio)
     static double lastRainbowH = -1; static int lastRainbowIdx = -2;
+    static double rbHue, rbLastT = -1;
+    // degrees of the colour wheel a second: 0.5 (very slow) to 30
+    public static double RainbowDegPerSec { get { return 0.5 + Prefs.RainbowSpeed / 100.0 * 29.5; } }
+    // each step rebuilds every button picture and waveform, so a step is never smaller than 2 degrees and never comes more than about 4 times a second
+    public static double RainbowStep { get { return Math.Max(2, RainbowDegPerSec / 4); } }
     public static bool Tick()
     {
-        if (!loaded || Index < 0 || Index >= list.Count || !list[Index].Rainbow) return false;
-        double h = Math.Floor(((Environment.TickCount / 1000.0 - rainbowT0) * 22) % 360 / 15) * 15;   // a new colour every 15 degrees (about every 0.7 s): each step rebuilds every button picture and waveform, so 3-degree steps (7 a second) made frame spikes and piles of bitmaps
+        if (!loaded || Index < 0 || Index >= list.Count || !list[Index].Rainbow) { rbLastT = -1; return false; }
+        double now = Environment.TickCount / 1000.0; if (rbLastT < 0 || now - rbLastT > 5) rbLastT = now; rbHue = (rbHue + (now - rbLastT) * RainbowDegPerSec) % 360; rbLastT = now;
+        double step = RainbowStep, h = Math.Floor(rbHue / step) * step;
         if (h == lastRainbowH && lastRainbowIdx == Index) return false; lastRainbowH = h; lastRainbowIdx = Index; var t = ThemeDef.FromHue("Rainbow", list[Index].Blurb, h).Cleaned(); t.Rainbow = true; Push(t, true); return true;
     }
 

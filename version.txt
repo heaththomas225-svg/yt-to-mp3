@@ -1,4 +1,4 @@
-3.49.0
+3.50.0
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-No more crackling, EPs play in order, see where a sound will land
-sha256=9645c92b58c19fb456da25d682f45880cb11d2f7b67658684c1dd76569e3a033
+Purphex VSTs: Tri-Drive, Shift, Maximizer and Spectral Gate; Rainbow speed
+sha256=b779ae1e17589a7ecb5702e064be8e0033741bf4097f35dc15940333153ecd43
