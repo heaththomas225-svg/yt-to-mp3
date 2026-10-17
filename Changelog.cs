@@ -7,10 +7,18 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.58.0";
+    public const string Latest = "3.59.0";
 
     public const string Text =
-@"3.58.0  Pro layouts for the photo and video editors
+@"3.59.0  Text the PicsArt way, keyframes, and audio tools in the video editor
+ + NEW: Photo Studio: text works like PicsArt. Tap TEXT and a typing box opens at once; press the tick and your words go in the middle of the picture, picked. Then simple tabs: FONT (every font shown with your own words, plus bold, italic, capitals and alignment), COLOUR, STROKE, SHADOW, HIGHLIGHT, BEND, SPACING, OPACITY, EFFECTS (neon, 3D, glitch) and STYLES, each a row of choices and one slider, seen live.
+ + NEW: Photo Studio: every picked layer has a red X on the picture to delete it, a pencil to edit the words, and one corner handle that resizes and turns it in one drag (it clicks to straight angles; Alt turns freely).
+ + NEW: Video Studio: KEYFRAMES for position, size, rotation, opacity and volume: put the playhead where you want, set the value and press the diamond; it changes smoothly in between, in the preview and in the export. Diamonds show on the clips in the timeline.
+ + NEW: Video Studio: AUDIO TOOLS for every clip with sound: an EQ (bass, mid, treble), a compressor, and ducking (mark a voice-over and the music goes down by the amount you choose while it plays). Heard live, and the export sounds the same.
+ + NEW: Video Studio: RIPPLE DELETE (Shift + Delete) deletes a clip and moves the clips after it up; CLOSE GAPS removes the empty space on every track.
+ + CHANGED: The space around the video preview and the photo canvas is in your theme's colours (a soft glow with an accent edge), not flat black.
+
+3.58.0  Pro layouts for the photo and video editors
  + NEW: Video Studio has a professional layout: a bar of categories across the top (Media, Audio, Text, Captions, Stickers, Effects, Filters, Transitions, Speed, Colour, Animation, Overlays, Templates, Settings, Edit clip), the picked one docked on the left (the media bin to start), the big preview beside it and the timeline under. Audio, Speed, Colour, Animation, Effects and Transitions show just the controls for the selected clip.
  + NEW: Photo Studio has a professional layout: an app bar on top (name, save state, undo, redo, zoom, size, EXPORT), a tool strip on the left whose options open beside it, the canvas, and a Properties / Layers panel with a live histogram on the right (the arrow tucks it away). A charcoal look like professional editors, in your theme's accent colour.
  + NEW: Simple starts: the video editor opens with IMPORT VIDEO OR PHOTOS (or your song, your projects, a blank project, and your recent projects); the photo editor with IMPORT A PHOTO, START BLANK, BROWSE TEMPLATES or OPEN A DESIGN.

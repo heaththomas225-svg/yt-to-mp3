@@ -266,6 +266,7 @@ PX.drawVisual = (g, c, t, W, H) => {
 // ---------------- the compositor ----------------
 // draws a visual clip with its transform, crop, fit, effects and the transition it is in
 PX.drawClip = (g, c, t, W, H, exporting) => {
+  if (PX.kfApply) c = PX.kfApply(c, t);   // keyframes: the clip as it is at this moment
   const role = PX.roleAt(c, t); if (!role) return;
   if (c.type === 'text') { if (t >= c.start && t < c.start + c.dur) PX.drawText(g, c, t, W, H); return; }
   if (c.type === 'visual') { if (t >= c.start && t < c.start + c.dur) PX.drawVisual(g, c, t, W, H); return; }
@@ -340,9 +341,9 @@ PX.scheduleAudio = (ctx, dest, t0, t1, live) => {
     const role0 = c.transIn && c.transIn.type !== 'none' && PX.partnerBefore(c) ? c.transIn.dur / 2 : 0, nx = PX.partnerAfter(c), role1 = nx ? nx.transIn.dur / 2 : 0;
     const cs = c.start - role0, ce = c.start + c.dur + role1; if (ce <= t0 || cs >= t1) continue;
     const from = Math.max(cs, t0), mt = c.in + (from - c.start) * c.speed; if (mt < 0 || mt >= ab.duration) continue;
-    const src = ctx.createBufferSource(); src.buffer = ab; src.playbackRate.value = c.speed; const gn = ctx.createGain(); src.connect(gn); gn.connect(dest);
+    const src = ctx.createBufferSource(); src.buffer = ab; src.playbackRate.value = c.speed; const gn = ctx.createGain(); if (PX.audioChain) PX.audioChain(ctx, c, src, gn); else src.connect(gn); gn.connect(dest);
     const level = c.vol * (tr.vol == null ? 1 : tr.vol) * (c.gainNorm || 1), at = (tt) => base + (tt - t0);
-    gn.gain.setValueAtTime(0, at(from)); const env = (tt) => { let gg = level; const lt = tt - c.start; if (c.fadeIn > 0 && lt < c.fadeIn) gg *= PX.clamp(lt / c.fadeIn, 0, 1); if (c.fadeOut > 0 && lt > c.dur - c.fadeOut) gg *= PX.clamp((c.dur - lt) / c.fadeOut, 0, 1); if (role0 > 0 && tt < c.start + role0) gg *= PX.clamp((tt - (c.start - role0)) / (2 * role0), 0, 1); if (role1 > 0 && tt > c.start + c.dur - role1) gg *= PX.clamp((c.start + c.dur + role1 - tt) / (2 * role1), 0, 1); return gg; };
+    gn.gain.setValueAtTime(0, at(from)); const env = (tt) => { let gg = level; const lt = tt - c.start; if (c.fadeIn > 0 && lt < c.fadeIn) gg *= PX.clamp(lt / c.fadeIn, 0, 1); if (c.fadeOut > 0 && lt > c.dur - c.fadeOut) gg *= PX.clamp((c.dur - lt) / c.fadeOut, 0, 1); if (role0 > 0 && tt < c.start + role0) gg *= PX.clamp((tt - (c.start - role0)) / (2 * role0), 0, 1); if (role1 > 0 && tt > c.start + c.dur - role1) gg *= PX.clamp((c.start + c.dur + role1 - tt) / (2 * role1), 0, 1); if (PX.audioMul) gg *= PX.audioMul(c, tt); return gg; };
     for (let tt = from; tt <= ce; tt += 0.05) gn.gain.linearRampToValueAtTime(env(tt), at(tt));
     gn.gain.linearRampToValueAtTime(0, at(ce)); src.start(at(from), mt); src.stop(at(ce) + 0.01); nodes.push(src);
   }
