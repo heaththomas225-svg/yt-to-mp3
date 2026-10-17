@@ -11,6 +11,15 @@ using System.Windows.Forms;
 partial class StudioForm
 {
     const int VisN = 96;
+    internal static readonly string[] VisMotionNames = { "CALM", "SMOOTH", "LIVELY", "WILD" };
+    static readonly float[] vmRise = { 0.30f, 0.55f, 0.8f, 1f }, vmFall = { 3.5f, 6.5f, 12f, 21f }, vmShake = { 0f, 0.3f, 0.65f, 1f }, vmFlash = { 0.35f, 0.65f, 0.9f, 1f }, vmJetGap = { 1.0f, 0.55f, 0.32f, 0.22f }, vmSparks = { 2, 4, 6, 8 }, vmSpin = { 0.35f, 0.6f, 0.85f, 1f }, vmWaveUp = { 0.12f, 0.22f, 0.35f, 0.4f }, vmWaveDown = { 0.03f, 0.07f, 0.18f, 0.4f };
+    static int VM { get { return Math.Max(0, Math.Min(3, Prefs.VisMotion)); } }
+    // the beat: the gaps between the last kicks give the tempo; a BANG is only allowed about one beat after the last one (hi-hats and snares in between do not set it off)
+    readonly List<double> visKicks = new List<double>(); double visPeriod;
+    double VisBeatPeriod() { if (visKicks.Count < 4) return 0; var gaps = new List<double>(); for (int i = 1; i < visKicks.Count; i++) { double d = visKicks[i] - visKicks[i - 1]; while (d > 1.1) d /= 2; if (d >= 0.3) gaps.Add(d); } if (gaps.Count < 3) return 0; gaps.Sort(); return gaps[gaps.Count / 2]; }
+    // the song's own tempo, when Purphex knows it (a track's tempo was heard): the BANG then lands on the beat of the song itself
+    double VisSongBeat() { if (visTestTap != null || !eng.Playing) return 0; foreach (var t in eng.Tracks) if (t.Bpm > 0 && Math.Abs(t.Bpm - Fx.ProjectBpm) < 2.5) return 60.0 / Math.Max(40, Math.Min(220, Fx.ProjectBpm)); return 0; }
+    long visLastBeatNo = -1; float visBassRawAvg, visKickPk = 0.2f;
     readonly float[] visB = new float[VisN], visPre = new float[VisN], visPk = new float[VisN]; readonly float[] visWave = new float[200];
     readonly float[][] visEcho = new float[5][]; double visEchoAt; int visEchoHead;
     double[] visRe = new double[2048], visIm = new double[2048], visHann; float visBeat, visBass, visBassAvg, visMid, visHigh, visFlash, visRot, visHoldL, visHoldR, visShake; double visT; int visFrame; double visBeatAt; bool visStageOn;
@@ -39,7 +48,7 @@ partial class StudioForm
             // each band follows the song's own loudest and quietest level (so a loud master still moves all the way), quiet parts drop right down, and a hit jumps straight up
             float lo = st.Lo[b], hi = st.Hi[b]; hi = nv > hi ? nv : hi - 0.0022f; lo = nv < lo ? nv : lo + 0.0007f; if (hi - lo < 0.16f) { float m = (hi + lo) / 2; hi = m + 0.08f; lo = m - 0.08f; } st.Lo[b] = lo; st.Hi[b] = hi;
             float norm = Math.Max(0, Math.Min(1, (nv - lo) / (hi - lo))); norm = (float)Math.Pow(norm, 1.7); st.Prev[b] = st.Raw[b]; st.Raw[b] = norm;
-            outB[b] = norm >= outB[b] ? norm : Math.Max(norm, outB[b] * 0.70f);
+            float dtb = Math.Max(0.004f, Math.Min(0.05f, hDt)); outB[b] = norm >= outB[b] ? outB[b] + (norm - outB[b]) * vmRise[VM] : Math.Max(norm, outB[b] * (float)Math.Exp(-vmFall[VM] * dtb));
         }
     }
     sealed class VisAgc { public float[] Lo = new float[VisN], Hi = new float[VisN], Raw = new float[VisN], Prev = new float[VisN]; public VisAgc() { for (int i = 0; i < VisN; i++) { Lo[i] = 1; Hi[i] = 0; } } }
@@ -110,15 +119,24 @@ partial class StudioForm
         VisBands(visTestTap ?? eng.MasterTap, visTestTap != null ? 0 : eng.MasterTapPos, visB, playing); if ((visFrame & 1) == 0) VisBands(eng.MasterTapPre, eng.MasterTapPos, visPre, playing);
         float bass = 0, mid = 0, hi = 0; for (int i = 0; i < 14; i++) bass += visB[i]; for (int i = 28; i < 56; i++) mid += visB[i]; for (int i = 70; i < 96; i++) hi += visB[i]; bass /= 14f; mid /= 28f; hi /= 26f;
         visBass += (bass - visBass) * 0.55f; visBassAvg += (bass - visBassAvg) * 0.08f; visMid += (mid - visMid) * 0.3f; visHigh += (hi - visHigh) * 0.3f;
+        float bassRaw = bass; { VisAgc stR; if (visAgc.TryGetValue(visB, out stR)) { bassRaw = 0; for (int i = 0; i < 14; i++) bassRaw += stR.Raw[i]; bassRaw /= 14f; } }
         float flux = BassFlux(); bool fluxHit = flux > visFluxAvg * 1.7f + 0.06f; visFluxAvg += (flux - visFluxAvg) * 0.06f;
-        if (!visArmed && bass < visBassHit * 0.6f) visArmed = true;   // after a BANG the bass has to fall back before the next one (one BANG per kick, never two)
-        bool beat = playing && visArmed && visT - visBeatAt > 0.11 && ((fluxHit && bass > 0.18f) || (bass > visBassAvg * 1.25f + 0.05f && bass > 0.3f));   // BANG: every kick, also on loud dense songs
-        if (beat) { visArmed = false; visBassHit = bass; }
-        if (beat) { visBeat = 1f; visFlash = 1f; visBeatAt = visT; visShake = 1f; }
-        { float lowMid = 0; for (int i = 14; i < 28; i++) lowMid += visB[i]; lowMid /= 14f; float[] eb = { bass, lowMid, mid, hi }; if (jetHit == null) jetHit = new bool[4]; for (int d = 0; d < 4; d++) { jetAvg[d] += (eb[d] - jetAvg[d]) * 0.08f; jetHit[d] = playing && eb[d] > jetAvg[d] * 1.3f + 0.03f && eb[d] > jetMin[d] && visT - jetAt[d] > 0.22; if (jetHit[d]) { jetE[d] = Math.Min(1f, 0.4f + (eb[d] - jetAvg[d]) * 3.2f); jetAt[d] = visT; }   /* a blast is as big as the hit: a soft one is small */ else jetE[d] = Math.Max(0, jetE[d] - dt * 2.6f); } }
+        visBassRawAvg += (bassRaw - visBassRawAvg) * 0.08f; if (!visArmed && bassRaw < visBassHit * 0.6f) visArmed = true;   // after a BANG the bass has to fall back before the next one (one BANG per kick, never two)
+        bool kick = playing && visArmed && visT - visBeatAt > 0.11 && ((fluxHit && bassRaw > 0.18f) || (bassRaw > visBassRawAvg * 1.25f + 0.05f && bassRaw > 0.3f));   // a kick: also on loud dense songs
+        visKickPk = Math.Max(0.2f, visKickPk - dt * 0.05f); bool strong = kick && (VM >= 3 || bassRaw >= visKickPk * 0.72f); if (kick) visKickPk = Math.Max(visKickPk, bassRaw);
+        if (strong) { visKicks.Add(visT); if (visKicks.Count > 12) visKicks.RemoveAt(0); visPeriod = VisBeatPeriod(); }
+        bool beat; double songBeat = VisSongBeat();
+        if (songBeat > 0 && VM < 3)
+        {   // the song's tempo is known: the BANG lands on its beats, while the music is really there
+            long no = (long)Math.Floor(eng.Pos / (double)StudioEngine.SR / songBeat); beat = no != visLastBeatNo && bassRaw > 0.12f; if (no != visLastBeatNo) visLastBeatNo = no;
+        }
+        else beat = strong && (VM >= 3 || (visT - visBeatAt > 0.3 && (visPeriod <= 0 || visT - visBeatAt > visPeriod * (VM == 0 ? 0.9 : 0.72))));   // one BANG per beat at most, never closer than 0.3 s (WILD: every hit, as before)   // one BANG per beat at most (WILD: every hit, as before)
+        if (kick || beat) { visArmed = false; visBassHit = bassRaw; }
+        if (beat) { visBeat = 1f; visFlash = vmFlash[VM]; visBeatAt = visT; visShake = vmShake[VM]; }
+        { float lowMid = 0; for (int i = 14; i < 28; i++) lowMid += visB[i]; lowMid /= 14f; float[] eb = { bass, lowMid, mid, hi }; if (jetHit == null) jetHit = new bool[4]; for (int d = 0; d < 4; d++) { jetAvg[d] += (eb[d] - jetAvg[d]) * 0.08f; jetHit[d] = playing && eb[d] > jetAvg[d] * (1.3f + (3 - VM) * 0.12f) + 0.03f && eb[d] > jetMin[d] && visT - jetAt[d] > vmJetGap[VM] && (VM > 0 || beat); if (jetHit[d]) { jetE[d] = Math.Min(1f, 0.4f + (eb[d] - jetAvg[d]) * 3.2f); jetAt[d] = visT; }   /* a blast is as big as the hit: a soft one is small */ else jetE[d] = Math.Max(0, jetE[d] - dt * 2.6f); } }
         visBeat = Math.Max(0, visBeat - dt * 4.5f);   /* up at once, down fast: BANG BANG BANG, not a slow swell */ visFlash = Math.Max(0, visFlash - dt * 5f); visShake = Math.Max(0, visShake - dt * 6f);
         for (int i = 0; i < VisN; i++) visPk[i] = Math.Max(visB[i], visPk[i] - dt * 0.5f);
-        visRot += dt * (0.10f + visMid * 0.9f + visBeat * 0.9f);
+        visRot += dt * (0.10f + (visMid * 0.9f + visBeat * 0.9f) * vmSpin[VM]);
         if (visT - visEchoAt > 0.07) { visEchoAt = visT; visEchoHead = (visEchoHead + 1) % visEcho.Length; if (visEcho[visEchoHead] == null) visEcho[visEchoHead] = new float[VisN]; Array.Copy(visB, visEcho[visEchoHead], VisN); }
         float floorUp = full ? Math.Min(150f, a.Height * 0.2f) : Math.Min(64f, a.Height * 0.2f), seekH = full ? 48f : 42f;
         float topPad = full ? 64f : 4f; float cx = a.X + a.Width / 2 + (float)Math.Sin(visT * 60) * 7f * visShake, cy = a.Y + topPad + (a.Height - topPad - seekH - floorUp * 0.35f) / 2f + (float)Math.Cos(visT * 53) * 6f * visShake;   // the hit shakes the whole stage
@@ -129,7 +147,7 @@ partial class StudioForm
         VisBackground(g, a, a.X + a.Width / 2, cy - (float)Math.Cos(visT * 53) * 2f * visShake, R0); Prof.A("vis.bg", v0); v0 = Prof.T();
         // ---- stars rushing out from the middle ----
         if (!starsInit) { starsInit = true; for (int i = 0; i < stA.Length; i++) { stA[i] = (float)(visRnd.NextDouble() * Math.PI * 2); stD[i] = (float)visRnd.NextDouble(); stS[i] = 0.05f + (float)visRnd.NextDouble() * 0.2f; } }
-        { float maxR = (float)Math.Sqrt(a.Width * a.Width + a.Height * a.Height) / 2f; float spd = playing ? 1f + visBass * 5f + visBeat * 3f : 0.25f; var sm0 = g.SmoothingMode; g.SmoothingMode = SmoothingMode.None;
+        { float maxR = (float)Math.Sqrt(a.Width * a.Width + a.Height * a.Height) / 2f; float spd = playing ? 1f + (visBass * 5f + visBeat * 3f) * vmSpin[VM] : 0.25f; var sm0 = g.SmoothingMode; g.SmoothingMode = SmoothingMode.None;
           using (var sb = new SolidBrush(Color.White)) using (var pen = new Pen(Color.White, 1f))
             for (int i = 0; i < stA.Length; i++)
             {
@@ -167,7 +185,7 @@ partial class StudioForm
         // ---- four separate blasts: the bass jumps out of the bottom, the low mids of the left, the mids of the right, the highs of the top; each has its own bang (a wave, streaks and sparks) ----
         // each starts just outside the bars and travels as far as there is room on the stage in its direction, so the small light show and the full page get the same blasts
         float[] jS = new float[4], jT = new float[4]; { float[] room = { a.Bottom - seekH - 10 - cy, cx - a.X - 8, a.Right - cx - 8, cy - a.Y - 6 }; for (int d = 0; d < 4; d++) { float s0 = Math.Min(R0 * 2.05f, Math.Max(R0 * 1.2f, room[d] * 0.62f)); jS[d] = s0; jT[d] = Math.Max(s0 + R0 * 0.45f, Math.Min(s0 + R0 * 1.5f, room[d] - 4f)); } }
-        if (jetHit != null) for (int d = 0; d < 4; d++) if (jetHit[d]) { for (int k = 0; k < 7 && visSp.Count < 220; k++) { double an = jetDir[d] + (visRnd.NextDouble() - 0.5) * 1.0; float sp = 150 + (float)visRnd.NextDouble() * 260, rr0 = jS[d], life = 0.45f + (float)visRnd.NextDouble() * 0.5f; visSp.Add(new Spark { X = cx + (float)Math.Cos(an) * rr0, Y = cy + (float)Math.Sin(an) * rr0, VX = (float)Math.Cos(an) * sp, VY = (float)Math.Sin(an) * sp, Life = life, Max = life, R = 1f, C = VisCol(jetCol[d] + (float)visRnd.NextDouble() * 0.12f) }); } }
+        if (jetHit != null) for (int d = 0; d < 4; d++) if (jetHit[d]) { for (int k = 0; k < vmSparks[VM] - 1 && visSp.Count < 220; k++) { double an = jetDir[d] + (visRnd.NextDouble() - 0.5) * 1.0; float sp = 150 + (float)visRnd.NextDouble() * 260, rr0 = jS[d], life = 0.45f + (float)visRnd.NextDouble() * 0.5f; visSp.Add(new Spark { X = cx + (float)Math.Cos(an) * rr0, Y = cy + (float)Math.Sin(an) * rr0, VX = (float)Math.Cos(an) * sp, VY = (float)Math.Sin(an) * sp, Life = life, Max = life, R = 1f, C = VisCol(jetCol[d] + (float)visRnd.NextDouble() * 0.12f) }); } }
         { var smJ = g.SmoothingMode; g.SmoothingMode = SmoothingMode.AntiAlias;
           for (int d = 0; d < 4; d++)
           {
@@ -178,7 +196,7 @@ partial class StudioForm
           }
           g.SmoothingMode = smJ; }
         // ---- shockwaves ----
-        if (beat) { visRings.Add(new[] { R0 * 1.2f, 1f }); for (int k = 0; k < 8 && visSp.Count < 220; k++) { double an = visRnd.NextDouble() * Math.PI * 2; float sp = 120 + (float)visRnd.NextDouble() * 300, rr0 = R0 * 1.3f, life = 0.7f + (float)visRnd.NextDouble() * 0.7f; visSp.Add(new Spark { X = cx + (float)Math.Cos(an) * rr0, Y = cy + (float)Math.Sin(an) * rr0, VX = (float)Math.Cos(an) * sp, VY = (float)Math.Sin(an) * sp, Life = life, Max = life, R = 1f, C = VisCol((float)visRnd.NextDouble()) }); } }
+        if (beat) { visRings.Add(new[] { R0 * 1.2f, 1f }); for (int k = 0; k < vmSparks[VM] && visSp.Count < 220; k++) { double an = visRnd.NextDouble() * Math.PI * 2; float sp = 120 + (float)visRnd.NextDouble() * 300, rr0 = R0 * 1.3f, life = 0.7f + (float)visRnd.NextDouble() * 0.7f; visSp.Add(new Spark { X = cx + (float)Math.Cos(an) * rr0, Y = cy + (float)Math.Sin(an) * rr0, VX = (float)Math.Cos(an) * sp, VY = (float)Math.Sin(an) * sp, Life = life, Max = life, R = 1f, C = VisCol((float)visRnd.NextDouble()) }); } }
         for (int i = visRings.Count - 1; i >= 0; i--) { var rg = visRings[i]; rg[0] += dt * R0 * 1.5f; rg[1] -= dt * 1.7f; if (rg[1] <= 0) { visRings.RemoveAt(i); continue; } using (var pen = new Pen(Color.FromArgb((int)(150 * rg[1]), i % 2 == 0 ? NeonCyan : NeonPink), 2.2f + 3f * rg[1])) g.DrawEllipse(pen, cx - rg[0], cy - rg[0], rg[0] * 2, rg[0] * 2); }
         Prof.A("vis.shock", v0); v0 = Prof.T();
         // ---- the bars: a dim wide one under a bright thin one, each coloured by where it sits on the ring ----
@@ -241,6 +259,7 @@ partial class StudioForm
         // title and what you are hearing
         { string st = eng.MasterBypass ? "ORIGINAL" : "MASTERED"; float ty = a.Y + 8, tx0 = full ? a.X + a.Width / 2 - 62 : a.X + 14; Txt(g, projName.ToUpper(), full ? 20 : 14, Ink, Rc(full ? a.X + a.Width / 2 - 300 : tx0, ty, full ? 600 : Math.Min(320, a.Width - 200), full ? 30 : 22), full ? StringAlignment.Center : StringAlignment.Near, true); var pill = Rc(tx0, ty + (full ? 32 : 24), 124, full ? 24 : 20);
           FillRR(g, eng.MasterBypass ? TM.C(255, 60, 52, 98) : Color.FromArgb(255, 28, 112, 86), pill, 9); Txt(g, st, full ? 12 : 11, Color.White, pill, StringAlignment.Center, true); PaintVisPreset(g, a, pill, full); if (full) { var hp = Rc(pill.Right + 8, pill.Y, 122, pill.Height); Btn(g, hp, eng.MasterBypass ? "HEAR MASTER" : "HEAR ORIGINAL", 0, () => { eng.MasterBypass = !eng.MasterBypass; ApplyMatch(); }, 10); Hint2(hp, "Switch between your original mix and the mastered sound while you watch"); } }
+        if (!full) { float presetR = a.X + 14 + Math.Max(220, Math.Min(360, a.Width / 2 - 50)) + 10; if (a.Right - 12 - 330 >= presetR) VisMotionPicker(g, Rc(a.Right - 12 - 330, a.Y + 38, 330, 24)); else VisMotionButton(g, Rc(a.Right - 156, a.Y + 38, 144, 24)); }   // (the full page has it in its top bar)
         if (!full) { var fvb = Rc(a.Right - 156, a.Y + 6, 144, 26); Btn(g, fvb, "FULL VISUALISER", 1, () => GoTab(5), 11); Hint2(fvb, "Open the visualiser on a page of its own (Esc comes back)"); }
         if (!playing) Txt(g, "PRESS PLAY OR PREVIEW MASTER AND WATCH YOUR MUSIC MOVE", 12, DimC, Rc(a.X, Math.Min(cy + R0 * 2.35f, a.Bottom - (full ? 48f : 42f) - 8 - (full ? Math.Min(150f, a.Height * 0.2f) : Math.Min(64f, a.Height * 0.2f)) * 0.35f - 26), a.Width, 20), StringAlignment.Center, true);
         g.Restore(gs);
@@ -258,6 +277,19 @@ partial class StudioForm
         var lu = eng.Lufs; lu.UpdateIntegrated(); VisCard(g, Rc(70, top + 18, 230, 84), "MOMENTARY", Db(lu.Momentary), "LUFS", Ink); VisCard(g, Rc(70, top + 110, 230, 84), "INTEGRATED", Db(lu.Integrated), "LUFS", NeonCyan);
         VisCard(g, Rc(W - 300, top + 18, 230, 84), "TRUE PEAK", Db(lu.TruePeakDb), "dBTP", lu.TruePeakDb > -0.9 ? Bad : Good); VisCard(g, Rc(W - 300, top + 110, 230, 84), "GAIN REDUCTION", eng.MasterGr.ToString("0.0"), "dB", Warn);
     }
+    // CALM / SMOOTH / LIVELY / WILD: how much the visualisers move (saved)
+    void VisMotionPicker(Graphics g, RectangleF r)
+    {
+        FillRR(g, TM.C(230, 10, 5, 24), r, r.Height / 2); StrokeRR(g, Color.FromArgb(160, NeonViolet), r, r.Height / 2, 1.2f);
+        float lw = 64; Txt(g, "MOTION", 10, DimC, Rc(r.X + 10, r.Y, lw - 10, r.Height), StringAlignment.Near, true); float bw = (r.Width - lw - 6) / 4f;
+        for (int i = 0; i < 4; i++) { var b = Rc(r.X + lw + i * bw, r.Y + 3, bw - 3, r.Height - 6); int ii = i; bool on = VM == i, hot = Hot(b); FillRR(g, on ? Color.FromArgb(245, 240, 236, 255) : (hot ? TM.C(255, 52, 30, 92) : TM.C(255, 26, 15, 48)), b, b.Height / 2); StrokeRR(g, on ? Color.White : Color.FromArgb(150, NeonViolet), b, b.Height / 2, 1f); Txt(g, VisMotionNames[i], 9.5f, on ? Color.FromArgb(255, 20, 8, 34) : Color.White, b, StringAlignment.Center, true); Reg(b, () => { Prefs.VisMotion = ii; Prefs.Changed(); }).Button = true; Hint2(b, new[] { "CALM: slow, soft movement and a gentle pulse on the beat", "SMOOTH: moves with the music and hits on the beat (the default)", "LIVELY: quicker, with more sparks and blasts", "WILD: every hit at full force, like before" }[i]); }
+    }
+    void VisMotionButton(Graphics g, RectangleF r)
+    {
+        Btn(g, r, "MOTION: " + VisMotionNames[VM], 0, () => { Prefs.VisMotion = (VM + 1) % 4; Prefs.Changed(); }, 10); Hint2(r, "How much the visualiser moves: CALM, SMOOTH (the default), LIVELY or WILD. Click to change.");
+    }
+    // the picker in the space there is: four buttons when they fit, otherwise one that steps through them
+    void VisMotionFit(Graphics g, float x0, float x1, float y, float h) { float room = x1 - x0; if (room >= 340) VisMotionPicker(g, Rc(x0, y, Math.Min(380, room), h)); else if (room >= 150) VisMotionButton(g, Rc(x0, y, Math.Min(190, room), h)); }
     void VisCard(Graphics g, RectangleF r, string label, string value, string unit, Color vc)
     {
         FillRR(g, TM.C(255, 9, 5, 22), r, 12); Win.DrawNeonBox(g, r, false);
@@ -277,6 +309,7 @@ partial class StudioForm
         var pl = Rc(rx - 96, y + 4, 96, h - 8); Btn(g, pl, "PLAY", eng.Playing && !mpActive ? 4 : 1, () => { if (mpActive) MasterPreviewStop(); PlayToggle(); }, 14); rx -= 102;
         var pv = Rc(rx - 168, y + 4, 168, h - 8); Btn(g, pv, "PREVIEW MASTER", mpActive ? 4 : 2, () => MasterPreviewStart(), 13); Hint2(pv, "Loop the loudest 20 seconds of your song with the mastering on"); rx -= 174;
         var sp = Rc(rx - 128, y + 4, 128, h - 8); Btn(g, sp, "STOP PREVIEW", 3, () => MasterPreviewStop(), 12); Hint2(sp, "Stop the preview loop"); rx -= 134;
+        VisMotionFit(g, ShowBack ? 490 : 384, rx - 6, y + 7, h - 14);
     }
 }
 

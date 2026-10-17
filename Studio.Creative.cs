@@ -30,7 +30,7 @@ partial class StudioForm
         if (crBObj != null) return true;
         if (HubBrowser.RuntimeVersion() == null) { hubErr = "Creative Studio needs Microsoft Edge WebView2 Runtime (part of Windows 11). Install it from Microsoft, then open it again."; return false; }
         string app = CreativeStore.Dir("app"); var asm = typeof(StudioForm).Assembly;
-        foreach (var f in new[] { "index.html", "app.css", "engine.js", "ui.js", "cover.js", "templates.js" }) using (var st = asm.GetManifestResourceStream("Purphex.creative." + f)) { if (st == null) continue; var path = Path.Combine(app, f); var ms = new MemoryStream(); st.CopyTo(ms); var bytes = ms.ToArray(); if (!File.Exists(path) || !File.ReadAllBytes(path).SequenceEqual(bytes)) File.WriteAllBytes(path, bytes); }
+        foreach (var f in new[] { "index.html", "app.css", "engine.js", "ui.js", "cover.js", "templates.js", "photofx.js" }) using (var st = asm.GetManifestResourceStream("Purphex.creative." + f)) { if (st == null) continue; var path = Path.Combine(app, f); var ms = new MemoryStream(); st.CopyTo(ms); var bytes = ms.ToArray(); if (!File.Exists(path) || !File.ReadAllBytes(path).SequenceEqual(bytes)) File.WriteAllBytes(path, bytes); }
         var b = new HubBrowser(this, Path.Combine(StudioEnv.DataDir, "creativeweb"), HubMuted);
         b.MapHost("app.creative", app); b.MapHost("cache.creative", CreativeStore.Dir("cache")); b.MapHost("art.creative", CreativeStore.Dir("art"));
         b.Message = m => { try { BeginInvoke(new Action(() => CrMessage(m, null))); } catch { } };
@@ -57,6 +57,8 @@ partial class StudioForm
                 case "relink": { string id = HubApi.S(m, "id"); using (var d = new OpenFileDialog { Title = "Find the missing file", Filter = CreativeStore.Filter }) if (d.ShowDialog(this) == DialogResult.OK) { var it = CrMediaItem(d.FileName, id); if (it != null) { CrSend(D("t", "relinked", "id", id, "item", it)); CrAnalyse(d.FileName, id); } } break; }
                 case "proxy": CrProxy(HubApi.S(m, "id")); break;
                 case "song": CrSong(); break;
+                case "myProjects": CrMyProjects(); break;
+                case "fromProject": CrFromProject(HubApi.S(m, "path")); break;
                 case "save": case "autosave": CrSave("video", HubApi.Obj(m, "project"), t == "autosave"); break;
                 case "list": CrSend(D("t", "projects", "list", CreativeStore.List("video").Cast<object>().ToList())); break;
                 case "open": CrOpen(HubApi.S(m, "id")); break;
@@ -158,6 +160,38 @@ partial class StudioForm
             string err = null; try { using (var ws = new WavStream(path, StudioEngine.SR, 16)) eng.RenderStream(0, frames, new RenderOpts(), null, (l, r, o, n) => ws.Write(l, r, o, n), null); } catch (Exception ex) { err = ex.Message; }
             try { BeginInvoke(new Action(() => { if (err != null) { CrSend(D("t", "mediaError", "msg", "Could not mix the song: " + err)); return; } CrSend(D("t", "song", "artist", ProjectLibrary.ProfileName ?? "", "title", projName ?? "")); CrImportPaths(new List<string> { path }); })); } catch { }
         }) { IsBackground = true, Name = "creative-song" }.Start();
+    }
+
+    // ---- your Purphex projects: pick one and its song (mixed and mastered, like EXPORT) and its picture come into the video ----
+    void CrMyProjects()
+    {
+        ProjectLibrary.LoadOnce(); var list = new List<object>();
+        foreach (var e in ProjectLibrary.AllByEdited())
+        {
+            if (e.Missing) continue; string cover = "";
+            try { if (!string.IsNullOrEmpty(e.Cover) && File.Exists(e.Cover) && new FileInfo(e.Cover).Length < 400 * 1024) cover = "data:image/" + (e.Cover.EndsWith(".png", StringComparison.OrdinalIgnoreCase) ? "png" : "jpeg") + ";base64," + Convert.ToBase64String(File.ReadAllBytes(e.Cover)); } catch { }
+            list.Add(D("name", e.Name, "path", e.Path, "secs", e.Seconds, "bpm", e.Bpm, "tracks", e.Tracks, "edited", e.Updated.ToString("yyyy-MM-dd HH:mm"), "cover", cover, "fav", e.Fav, "finished", e.Finished));
+            if (list.Count >= 300) break;
+        }
+        CrSend(D("t", "myProjects", "list", list));
+    }
+    void CrFromProject(string path)
+    {
+        ProjectLibrary.LoadOnce(); ProjectEntry e = null; foreach (var x in ProjectLibrary.AllByEdited()) if (string.Equals(x.Path, path, StringComparison.OrdinalIgnoreCase)) e = x;
+        if (e == null || e.Missing) { CrSend(D("t", "mediaError", "msg", "That project could not be found (moved or deleted).")); return; }
+        CrSend(D("t", "artDone", "msg", "Mixing \"" + e.Name + "\" for the video (your project is not changed)..."));
+        new Thread(() =>
+        {
+            string err = null, outp = null;
+            try { string mp3 = RenderSong(e); outp = Path.Combine(CreativeStore.Dir("media"), Safe(e.Name) + " (" + DateTime.Now.ToString("yyyy-MM-dd HHmm") + ")" + Path.GetExtension(mp3)); File.Copy(mp3, outp, true); try { File.Delete(mp3); } catch { } }
+            catch (Exception ex) { err = ex.Message; }
+            try { BeginInvoke(new Action(() =>
+            {
+                if (err != null) { CrSend(D("t", "mediaError", "msg", "Could not bring in \"" + e.Name + "\": " + err)); return; }
+                var paths = new List<string> { outp }; try { if (!string.IsNullOrEmpty(e.Cover) && File.Exists(e.Cover)) { string cp = Path.Combine(CreativeStore.Dir("media"), Safe(e.Name) + " cover" + Path.GetExtension(e.Cover)); File.Copy(e.Cover, cp, true); paths.Add(cp); } } catch { }
+                CrSend(D("t", "song", "artist", ProjectLibrary.ProfileName ?? "", "title", e.Name)); CrImportPaths(paths);
+            })); } catch { }
+        }) { IsBackground = true, Name = "creative-project" }.Start();
     }
 
     // ---- export: the editor renders each frame; ffmpeg encodes them with the mixed sound ----

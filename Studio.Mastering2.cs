@@ -430,7 +430,7 @@ partial class StudioForm
         poly.Clear(); poly.Add(new PointF(plot.X, plot.Bottom)); poly.AddRange(after); poly.Add(new PointF(plot.Right, plot.Bottom));
         using (var br = new LinearGradientBrush(plot, Color.FromArgb(140, NeonCyan), Color.FromArgb(14, NeonViolet), 90f)) g.FillPolygon(br, poly.ToArray());
         using (var pen = new Pen(Color.FromArgb(60, NeonCyan), 5f) { LineJoin = LineJoin.Round }) g.DrawLines(pen, after); using (var pen = new Pen(NeonCyan, 1.7f) { LineJoin = LineJoin.Round }) g.DrawLines(pen, after);
-        if (master) { Txt(g, "BEFORE", 10, TM.C(200, 205, 205, 235), Rc(plot.X + 8, plot.Y + 4, 60, 14), StringAlignment.Near, true); Txt(g, "AFTER", 10, NeonCyan, Rc(plot.X + 64, plot.Y + 4, 60, 14), StringAlignment.Near, true); Txt(g, "ADDED", 10, NeonLime, Rc(plot.X + 118, plot.Y + 4, 60, 14), StringAlignment.Near, true); Txt(g, "TAKEN AWAY", 10, NeonPink, Rc(plot.X + 172, plot.Y + 4, 90, 14), StringAlignment.Near, true); }
+        if (master) { Txt(g, "BEFORE", 10, TM.C(200, 205, 205, 235), Rc(plot.X + 8, plot.Y + 4, 60, 14), StringAlignment.Near, true); Txt(g, "AFTER", 10, MixC(NeonCyan, Color.White, 0.35f), Rc(plot.X + 64, plot.Y + 4, 60, 14), StringAlignment.Near, true); Txt(g, "ADDED", 10, NeonLime, Rc(plot.X + 118, plot.Y + 4, 60, 14), StringAlignment.Near, true); Txt(g, "TAKEN AWAY", 10, NeonPink, Rc(plot.X + 172, plot.Y + 4, 90, 14), StringAlignment.Near, true); }
         else Txt(g, "LIVE SOUND", 10, NeonCyan, Rc(plot.X + 8, plot.Y + 4, 100, 14), StringAlignment.Near, true);
     }
 

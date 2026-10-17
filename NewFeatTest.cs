@@ -1137,6 +1137,17 @@ static class NF
                 }
                 sf.visTestTap = null;
                 Check("the visualiser goes BANG on every kick, once per kick (a loud steady pad under it)", beatsV >= 9 && beatsV <= 11, beatsV + " BANGs for 10 kicks");
+                // MOTION: CALM moves far less from frame to frame than WILD, shakes nothing, and still hits on the beat; hi-hats between the kicks never add a BANG
+                Func<int, bool, float[]> runV = (mode, hats) => { int keepM = Prefs.VisMotion; Prefs.VisMotion = mode; var sig2 = (float[])sigV.Clone(); if (hats) for (int i = 0; i < nV; i++) { double t = i / (double)srV, ht = (t + 0.25) % 0.5; if (ht < 0.03) sig2[i] += (float)(0.5 * (rndV.NextDouble() - 0.5) * Math.Exp(-ht * 120)); double st = (t + 0.25) % 1.0; if (st < 0.12) sig2[i] += (float)(0.45 * (rndV.NextDouble() - 0.5) * Math.Exp(-st * 30) + 0.3 * Math.Sin(2 * Math.PI * 190 * t) * Math.Exp(-st * 25)); }
+                    sf.visTestTap = new float[8192]; typeof(StudioForm).GetField("visKicks", BF).GetValue(sf).GetType().GetMethod("Clear").Invoke(typeof(StudioForm).GetField("visKicks", BF).GetValue(sf), null); float jit = 0, shakeMax = 0; int bangs = 0; double last = (double)beatAtV.GetValue(sf); var prev = new float[visBV.Length];
+                    using (var bm2 = new Bitmap(900, 600)) using (var g2 = Graphics.FromImage(bm2)) for (int f = 0; f < (int)(secsV * 60); f++) { int endV = (int)((f + 1) / 60.0 * srV); for (int k = 0; k < 8192; k++) { int si = endV - 8192 + k; sf.visTestTap[k] = si >= 0 && si < nV ? sig2[si] : 0; } hdtV.SetValue(sf, 1f / 60f); paintV.Invoke(sf, new object[] { g2, new RectangleF(0, 0, 900, 600), true });
+                        double ba = (double)beatAtV.GetValue(sf); if (ba != last) { if (f > 30) bangs++; last = ba; } if (f > 60) { for (int i = 0; i < visBV.Length; i++) jit += Math.Abs(visBV[i] - prev[i]); shakeMax = Math.Max(shakeMax, (float)typeof(StudioForm).GetField("visShake", BF).GetValue(sf)); } Array.Copy(visBV, prev, prev.Length); }
+                    sf.visTestTap = null; Prefs.VisMotion = keepM; return new[] { jit, shakeMax, bangs }; };
+                var calmV = runV(0, false); var wildV = runV(3, false); var smoothHats = runV(1, true);
+                Check("MOTION CALM moves far less than WILD (smooth bars, no shaking)", calmV[0] < wildV[0] * 0.6f && calmV[1] < 0.01f && wildV[1] > 0.5f, "movement " + calmV[0].ToString("0") + " vs " + wildV[0].ToString("0") + ", shake " + calmV[1].ToString("0.00") + " vs " + wildV[1].ToString("0.00"));
+                Check("CALM still hits on the beat", calmV[2] >= 8 && calmV[2] <= 11, calmV[2] + " BANGs for 10 kicks");
+                Check("SMOOTH goes BANG on the beat only: hi-hats and snares between the kicks add none", smoothHats[2] >= 8 && smoothHats[2] <= 11, smoothHats[2] + " BANGs for 10 kicks (with hats and snares)");
+                Check("MOTION is a saved setting", Prefs.Lines().Any(l9 => l9.StartsWith("vismotion=")), "");
                 Check("between the kicks the bass bars fall right down, and on a kick they hit the top", bMinV < 0.2f && bMaxV > 0.9f, bMinV.ToString("0.00") + " .. " + bMaxV.ToString("0.00"));
             }
             {   // HOME on My Projects; AUTO MASTERING / LOUDNESS / EQ listen to the mix once and keep it until a track changes

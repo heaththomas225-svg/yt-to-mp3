@@ -189,3 +189,16 @@ textarea{resize:vertical;width:100%}
 .vidWelcome .vwproj{display:flex;flex-direction:column;gap:4px}
 .vidWelcome .chips button small{color:var(--dim);font-weight:400}
 .vidWelcome .vwsteps{margin:0;padding-left:18px;font-size:12px;color:var(--dim);line-height:1.7}
+
+/* photo editor part 2 */
+#cvStage{justify-content:flex-start;align-items:flex-start;overflow:auto}
+#cvCanvas{margin:auto;flex:none;max-width:none;max-height:none}
+.layer.dropto{border-color:var(--accent2,#3ce1ff);box-shadow:0 -2px 0 var(--accent2,#3ce1ff)}
+#cvTabs button{font-size:10px;padding:5px 5px}
+
+/* my projects picker */
+.pplist{display:flex;flex-direction:column;gap:6px;max-height:52vh;overflow:auto;min-width:520px}
+.ppitem{display:flex;align-items:center;gap:10px;border:1px solid var(--edge);border-radius:9px;padding:6px 8px;cursor:pointer}
+.ppitem:hover{border-color:var(--accent)}
+.ppc{width:52px;height:52px;border-radius:6px;background:#07031a center/cover no-repeat;display:flex;align-items:center;justify-content:center;font-size:22px;color:var(--dim);flex:none}
+.ppt{flex:1;min-width:0}.ppt .pn{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ppt .pd{font-size:11px;color:var(--dim)}

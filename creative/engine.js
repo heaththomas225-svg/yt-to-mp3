@@ -224,29 +224,40 @@ PX.spectrum = (t, bands, src) => {
   for (let b = 0; b < bands; b++) { const f0 = 30 * Math.pow(16000 / 30, b / bands), f1 = 30 * Math.pow(16000 / 30, (b + 1) / bands); const k0 = Math.max(1, Math.floor(f0 / 48000 * N)), k1 = Math.max(k0 + 1, Math.floor(f1 / 48000 * N)); let mx = 0; for (let k = k0; k < k1 && k < N / 2; k++) mx = Math.max(mx, Math.hypot(re[k], im[k])); out[b] = PX.clamp((20 * Math.log10(mx / (N / 4) + 1e-9) + 70) / 70, 0, 1); }
   return { bands: out, wave: w };
 };
+PX.spectrumSmooth = (t, bands, src, smooth) => {
+  smooth = smooth == null ? 0.6 : PX.clamp(smooth, 0, 1); const now = PX.spectrum(t, bands, src); if (smooth < 0.02) return now;
+  const steps = 2 + Math.round(smooth * 7), gap = 0.022, keep = 0.6 + smooth * 0.3, acc = new Float32Array(bands); let wsum = 0;
+  for (let k = 0; k <= steps; k++) { const sp = k ? PX.spectrum(t - k * gap, bands, src).bands : now.bands, w = Math.pow(keep, k); wsum += w; for (let b = 0; b < bands; b++) acc[b] += sp[b] * w; }
+  const out = new Float32Array(bands); for (let b = 0; b < bands; b++) out[b] = Math.min(1, acc[b] / wsum * (1 + smooth * 0.15));
+  // and the bars next to each other move together a little (no single bar flickering on its own)
+  if (smooth > 0.3) { const o2 = Float32Array.from(out); for (let b = 1; b < bands - 1; b++) out[b] = o2[b] * 0.6 + (o2[b - 1] + o2[b + 1]) * 0.2; }
+  return { bands: out, wave: now.wave };
+};
+// a smoothed waveform: the fast wobble taken out, so the line flows instead of shaking
+PX.smoothWave = (w, smooth) => { const n = Math.round((smooth == null ? 0.6 : smooth) * 28); if (n < 2) return w; const out = new Float32Array(w.length); let acc = 0; for (let i = 0; i < w.length; i++) { acc += w[i]; if (i >= n) acc -= w[i - n]; out[i] = acc / Math.min(i + 1, n) * (1 + n / 14); } return out; };
 // bass energy now compared with the last second: a pulse on every kick
 PX.bassPulse = (t, src) => { const e = (tt) => { const w = PX.mixWindow(tt, 1024, src); let lp = 0, s = 0; for (let i = 0; i < w.length; i++) { lp += (w[i] - lp) * 0.02; s += lp * lp; } return Math.sqrt(s / w.length); }; const now = e(t); let avg = 0; for (let k = 1; k <= 6; k++) avg += e(t - k * 0.15); avg /= 6; return PX.clamp((now - avg * 1.1) / (avg + 0.01) * 1.5, 0, 1); };
 PX.VISUALS = [['bars', 'Spectrum bars'], ['cspec', 'Circular spectrum'], ['wave', 'Horizontal waveform'], ['cwave', 'Circular waveform'], ['minwave', 'Minimal waveform'], ['pulse', 'Bass pulse'], ['gradient', 'Animated gradient (reacts to bass)'], ['geo', 'Geometric shapes (react to the music)']];
-PX.defaultVis = () => ({ style: 'bars', color: '#a85cff', color2: '#3ce1ff', intensity: 1, size: 1, bands: 64, source: 'mix', thick: 1, glow: 1, mirror: true });
+PX.defaultVis = () => ({ style: 'bars', color: '#a85cff', color2: '#3ce1ff', intensity: 1, smooth: 0.6, size: 1, bands: 64, source: 'mix', thick: 1, glow: 1, mirror: true });
 PX.drawVisual = (g, c, t, W, H) => {
   const v = c.vis, k = W / 1920, src = v.source === 'mix' ? null : v.source; const cx = W / 2 + c.x * W / 2, cy = H / 2 + c.y * H / 2, S = Math.min(W, H) * 0.32 * (c.scale || 1) * v.size;
   g.save(); g.globalAlpha = c.opacity; g.translate(cx, cy); g.rotate((c.rot || 0) * Math.PI / 180); if (v.glow > 0) { g.shadowColor = v.color; g.shadowBlur = 18 * k * v.glow; }
   const grad = (a, b) => { const gr = g.createLinearGradient(-S, 0, S, 0); gr.addColorStop(0, v.color); gr.addColorStop(1, v.color2); return gr; };
   if (v.style === 'bars' || v.style === 'cspec') {
-    const sp = PX.spectrum(t, v.bands, src).bands;
+    const sp = PX.spectrumSmooth(t, v.bands, src, v.smooth).bands;
     if (v.style === 'bars') { const w = S * 3, bw = w / sp.length; g.fillStyle = grad(); for (let i = 0; i < sp.length; i++) { const h = sp[i] * S * 1.1 * v.intensity; g.fillRect(-w / 2 + i * bw + bw * 0.15, v.mirror ? -h / 2 : -h, bw * 0.7, Math.max(2 * k, h)); } }
     else { const r0 = S * 0.55; g.strokeStyle = grad(); g.lineWidth = Math.max(2, (Math.PI * 2 * r0 / sp.length) * 0.55); g.lineCap = 'round'; for (let i = 0; i < sp.length; i++) { const an = i / sp.length * Math.PI * 2 - Math.PI / 2, h = sp[i] * S * 0.6 * v.intensity; g.beginPath(); g.moveTo(Math.cos(an) * r0, Math.sin(an) * r0); g.lineTo(Math.cos(an) * (r0 + h + 2 * k), Math.sin(an) * (r0 + h + 2 * k)); g.stroke(); } }
   } else if (v.style === 'wave' || v.style === 'minwave' || v.style === 'cwave') {
-    const w = PX.mixWindow(t, 1024, src); g.strokeStyle = grad(); g.lineWidth = (v.style === 'minwave' ? 2 : 4) * k * v.thick; g.beginPath();
+    const w = PX.smoothWave(PX.mixWindow(t, 1024, src), v.smooth); g.strokeStyle = grad(); g.lineWidth = (v.style === 'minwave' ? 2 : 4) * k * v.thick; g.beginPath();
     if (v.style === 'cwave') { const r0 = S * 0.6; for (let i = 0; i <= w.length; i++) { const an = i / w.length * Math.PI * 2, r = r0 + w[i % w.length] * S * 0.5 * v.intensity; const px = Math.cos(an) * r, py = Math.sin(an) * r; i ? g.lineTo(px, py) : g.moveTo(px, py); } g.closePath(); }
     else { const L = S * 3; for (let i = 0; i < w.length; i++) { const px = -L / 2 + i / (w.length - 1) * L, py = w[i] * S * (v.style === 'minwave' ? 0.35 : 0.8) * v.intensity; i ? g.lineTo(px, py) : g.moveTo(px, py); } }
     g.stroke();
   } else if (v.style === 'pulse') {
-    const p = PX.bassPulse(t, src) * v.intensity; g.fillStyle = v.color; g.globalAlpha *= 0.25 + 0.75 * p; g.beginPath(); g.arc(0, 0, S * (0.5 + p * 0.5), 0, Math.PI * 2); g.fill(); g.globalAlpha = c.opacity * 0.9; g.strokeStyle = v.color2; g.lineWidth = 6 * k; g.beginPath(); g.arc(0, 0, S * (0.7 + p * 0.6), 0, Math.PI * 2); g.stroke();
+    const sm = v.smooth == null ? 0.6 : v.smooth; let p = PX.bassPulse(t, src); if (sm > 0.02) for (let k = 1; k <= 4; k++) p = Math.max(p, PX.bassPulse(t - k * 0.04, src) * Math.pow(0.5 + sm * 0.4, k)); p *= v.intensity; g.fillStyle = v.color; g.globalAlpha *= 0.25 + 0.75 * p; g.beginPath(); g.arc(0, 0, S * (0.5 + p * 0.5), 0, Math.PI * 2); g.fill(); g.globalAlpha = c.opacity * 0.9; g.strokeStyle = v.color2; g.lineWidth = 6 * k; g.beginPath(); g.arc(0, 0, S * (0.7 + p * 0.6), 0, Math.PI * 2); g.stroke();
   } else if (v.style === 'gradient') {
     const p = PX.bassPulse(t, src) * v.intensity; g.shadowBlur = 0; g.setTransform(1, 0, 0, 1, 0, 0); const an = t * 0.4; const gr = g.createLinearGradient(W / 2 + Math.cos(an) * W, H / 2 + Math.sin(an) * H, W / 2 - Math.cos(an) * W, H / 2 - Math.sin(an) * H); gr.addColorStop(0, v.color); gr.addColorStop(1, v.color2); g.fillStyle = gr; g.globalAlpha = c.opacity * (0.55 + 0.45 * p); g.fillRect(0, 0, W, H);
   } else if (v.style === 'geo') {
-    const sp = PX.spectrum(t, 12, src).bands, p = PX.bassPulse(t, src); g.lineWidth = 3 * k; for (let i = 0; i < 6; i++) { const r = S * (0.3 + i * 0.16) * (1 + sp[i * 2] * 0.35 * v.intensity), sides = 3 + (i % 4); g.strokeStyle = i % 2 ? v.color2 : v.color; g.globalAlpha = c.opacity * (0.4 + sp[i * 2] * 0.6); g.beginPath(); for (let s = 0; s <= sides; s++) { const an = s / sides * Math.PI * 2 + t * (0.2 + i * 0.07) * (i % 2 ? 1 : -1) + p * 0.3; const px = Math.cos(an) * r, py = Math.sin(an) * r; s ? g.lineTo(px, py) : g.moveTo(px, py); } g.stroke(); }
+    const sp = PX.spectrumSmooth(t, 12, src, v.smooth).bands, p = PX.bassPulse(t, src); g.lineWidth = 3 * k; for (let i = 0; i < 6; i++) { const r = S * (0.3 + i * 0.16) * (1 + sp[i * 2] * 0.35 * v.intensity), sides = 3 + (i % 4); g.strokeStyle = i % 2 ? v.color2 : v.color; g.globalAlpha = c.opacity * (0.4 + sp[i * 2] * 0.6); g.beginPath(); for (let s = 0; s <= sides; s++) { const an = s / sides * Math.PI * 2 + t * (0.2 + i * 0.07) * (i % 2 ? 1 : -1) + p * 0.3; const px = Math.cos(an) * r, py = Math.sin(an) * r; s ? g.lineTo(px, py) : g.moveTo(px, py); } g.stroke(); }
   }
   g.restore();
 };

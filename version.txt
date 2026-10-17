@@ -1,4 +1,4 @@
-3.55.0
+3.56.0
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Welcome screens, 1,344 photo templates, Distribution in the Music Hub
-sha256=8650b2acd30a0babaaeb4cdb1fb42dae36df63bf4666be37f050ac22965dae61
+PicsArt-style Photo Studio, and visualisers that move to the beat
+sha256=a90afcc58ac4ccd1d63c403b30293f931010cf3d772987675596ec64647e2f37

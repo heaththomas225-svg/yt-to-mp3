@@ -2,6 +2,28 @@
 
 What changed in each version of **Purphex**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.56.0  PicsArt-style Photo Studio, and visualisers that move to the beat
+
+- NEW: Video editor: MY PROJECTS (next to MY SONG, in the song wizard and on the welcome screen) lists your Purphex projects with their pictures; pick one and its song (mixed and mastered, like EXPORT) and its picture come in. Your project is not changed, and IMPORT still takes any file.
+
+- NEW: Photo Studio, CUTOUT tab: REMOVE BACKGROUND (best on fairly plain backgrounds; tolerance and soft edge), a MAGIC ERASER (click a colour and that patch goes) and ERASE / RESTORE brushes. All of it stays editable and can be undone.
+
+- NEW: Photo Studio, EFFECTS tab: glitch, RGB split, pixel art, halftone, pencil sketch, cartoon, posterize, emboss, film noise, VHS, comic, crisp HD, retro game and dreamy in one click, each with its own slider, on one photo or the whole picture.
+
+- NEW: Photo Studio, ADJUST: exposure, highlights, shadows, tint, clarity and sharpen, as well as brightness, contrast, saturation, hue, warmth, fade, grain, vignette and blur.
+
+- NEW: Photo Studio, COLLAGE tab: 14 layouts; click a box to put a photo in it, change the gap and the corners, and zoom or move each photo inside its box.
+
+- NEW: Photo Studio, a sticker pack of 35 drawn stickers with their own colours and words: labels, OUT NOW, banners, LIVE, explicit tag, starburst, speech and thought bubbles, tape, sparkles, scribbles, hearts, vinyl, cassette, headphones, mic, waveform, EQ bars, a music player, play button, barcode, ticket, price tag, pin, verified tick, notification, likes, lightning and more.
+
+- NEW: Photo Studio, canvas tools: CROP with Free, 1:1, 4:5, 9:16, 16:9 and 3:2; line layers up (left, centre, right, top, middle, bottom); a layer snaps to the middle with a guide line as you drag (Alt moves freely); zoom with - / + / FIT or Ctrl + wheel; drag layers in LAYERS to change their order.
+
+- NEW: MOTION for the visualiser (the full page and the light show on the Mastering page): CALM, SMOOTH, LIVELY or WILD, saved. SMOOTH is the new default; WILD is how it moved before. CALM has soft, slow movement, no shaking and a gentle pulse on the beat.
+
+- FIXED: The visualiser no longer goes mental: the bars glide up and ease down instead of jumping every frame, and the BANG (the flash, the rings, the logo jump) comes once per beat: on the song's own beat when Purphex knows its tempo, otherwise on the kick drum, never on hi-hats or snares in between. The shaking, the four blasts, the sparks, the spin and the star speed follow MOTION too, and so do the waves in the scroll bars.
+
+- NEW: Video editor: visualiser clips have a SMOOTH setting (0.6 to start): the bars and shapes flow with the music instead of flickering (measured: about a quarter of the frame-to-frame jitter), and the waveform styles are smoothed. The export looks exactly like the preview.
+
 ## 3.55.0  Welcome screens, 1,344 photo templates, Distribution in the Music Hub
 
 - NEW: WELCOME TO PURPHEX MUSIC PHOTO EDITOR: the first time Photo Studio opens it shows 1,344 templates to start from (album covers, stories and TikToks, Instagram posts, portrait posts, YouTube thumbnails, flyers and banners, in 16 styles such as neon ring, retro sun, glitch, halftone, film grain, polaroid and sticker party, each in its own colours). Search them, filter by size and style, or START BLANK, OPEN PHOTO or open MY DESIGNS. Every layer of a template stays editable, and the text always fits. TEMPLATES > BROWSE ALL opens it again.

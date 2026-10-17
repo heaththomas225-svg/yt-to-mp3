@@ -16,7 +16,7 @@ partial class StudioForm
 
     void VizUpdate(bool playing, StudioEngine src = null)
     { var en = src ?? eng;
-        long now = Environment.TickCount; float lvl = playing ? Math.Max(en.MasterPeakL, en.MasterPeakR) : 0f; vizLevel += (lvl - vizLevel) * 0.4f;
+        long now = Environment.TickCount; float lvl = playing ? Math.Max(en.MasterPeakL, en.MasterPeakR) : 0f; int vm = Math.Max(0, Math.Min(3, Prefs.VisMotion)); vizLevel += (lvl - vizLevel) * (lvl > vizLevel ? vmWaveUp[vm] : vmWaveDown[vm]);
         if (unchecked(now - vizTick) >= 15) { vizTick = now; vizHist[vizHead] = playing ? Math.Min(1f, vizLevel * 1.5f) : 0f; vizHead = (vizHead + 1) % vizHist.Length; }
         if (!playing) { for (int b = 0; b < vizBand.Length; b++) vizBand[b] *= 0.8f; return; }
         if (vzHann == null) { vzHann = new double[512]; for (int i = 0; i < 512; i++) vzHann[i] = 0.5 - 0.5 * Math.Cos(2 * Math.PI * i / 511); }
