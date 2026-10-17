@@ -1,4 +1,4 @@
-3.59.1
+3.60.0
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-ALL BUSES button
-sha256=4c377e993dd31463a687b49f046848317c6c86b5332a3f01cf398a50456fbd33
+Purphex VSTs: Reference, Pathfinder, Modular, Dreamscape, Morph
+sha256=f50cd2d98804d20c9882af7aee1809820f756e13c2c66c19a27b4071a8303e44

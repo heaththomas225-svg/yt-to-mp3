@@ -520,7 +520,13 @@ partial class StudioEngine
                 {
                     var fx = t.Fx[f]; if (fx.Bypass) continue;
                     bool needsSc = fx is Ducker || fx.WantsSidechain || (fx is Compressor && fx.Get("ext") > 0.5f);
-                    if (needsSc && voc != null && voc != t)
+                    Track scSrc = voc; int sct = needsSc ? fx.SidechainTrack : 0; if (sct > 0) { scSrc = null; int ri = 0; foreach (var rt in Tracks) { if (rt.Host != null) continue; if (++ri == sct) { scSrc = rt; break; } } }
+                    if (needsSc && scSrc != null && scSrc != voc && scSrc != t)
+                    {   // another row as the sidechain: its sound straight from its clips (every piece on that row)
+                        Array.Clear(scL, 0, n); Array.Clear(scR, 0, n); if (!scSrc.Off) { AddClipAudio(scSrc, scL, scR, n, pos); foreach (var p in Tracks) if (p.Host == scSrc && !p.Off && MergedPiece(p, Tracks)) AddClipAudio(p, scL, scR, n, pos); }
+                        fx.ScL = scL; fx.ScR = scR;
+                    }
+                    else if (needsSc && voc != null && voc != t && scSrc == voc)
                     {
                         for (int i = 0; i < n; i++) { int w = (int)((pos + i - latSoFar) & (scRL.Length - 1)); scL[i] = scRL[w]; scR[i] = scRR[w]; }
                         fx.ScL = scL; fx.ScR = scR;

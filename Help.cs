@@ -648,7 +648,7 @@ Spotify, Apple Music, Tidal, Amazon Music and Deezer play full songs with their 
 ## Search
 Type in the search box and press SEARCH: songs from your connected accounts and from Deezer's and Apple's public catalogues. Inside a service, the box searches that service.
 "),
-        new HelpTopic("studio-purphexvst", "Purphex Music", "Purphex VSTs: Glow, Curve EQ, Shape, SubForge, BreathOff, Phantom Gate, Stereo Lab, Vortex, MultiDyn, Prism, Frost, Tape Dirt, Constellation, Clipper, Smack, Vinyl Stop, Radio, Doubler, Octave Choir, Vowel, Step Shaper, Tri-Drive, Shift, Maximizer, Spectral Gate, EchoGrid, Modal Filter", false, @"
+        new HelpTopic("studio-purphexvst", "Purphex Music", "Purphex VSTs: Glow, Curve EQ, Shape, SubForge, BreathOff, Phantom Gate, Stereo Lab, Vortex, MultiDyn, Prism, Frost, Tape Dirt, Constellation, Clipper, Smack, Vinyl Stop, Radio, Doubler, Octave Choir, Vowel, Step Shaper, Tri-Drive, Shift, Maximizer, Spectral Gate, EchoGrid, Modal Filter, Reference, Pathfinder, Modular, Dreamscape, Morph", false, @"
 ## Where they are
 The Purphex VSTs are our own plugins with their own windows. The effects are at the top of + ADD EFFECT in PURPHEX VST (adding one opens its window; OPEN in the plugin panel opens it again). SubForge is an instrument: + ADD TRACK, then a MIDI / instrument track.
 ## Glow
@@ -705,6 +705,16 @@ Turns down spill, hiss, hum and room on every frequency on its own. Play a part 
 Eight echoes on a grid of sixteen steps. Click a cell to put that echo on that step (it switches the echo on); ON / OFF on each row. Click ECHO 1 to 8 to edit it below: LEVEL, PAN, TONE (left darker, right thinner), DRIVE, CRUSH and PITCH. GRID sets the step length (1/8, 1/16, 1/32, triplets), FEEDBACK sends the pattern round again, MIX and OUTPUT.
 ## Modal Filter
 Two filters, A and B: TYPE (low-pass, high-pass, band-pass, notch, peak, comb, formant), CUTOFF, RES and DRIVE. ROUTING: MORPH (the MORPH knob fades from A to B), SERIAL (A then B) or PARALLEL (both together). ENVELOPE moves the cutoffs with the loudness (AMOUNT, ATTACK, RELEASE); the LFO moves the cutoffs or the morph (RATE, DEPTH, shape, target). MIX and OUTPUT.
+## Reference
+LOAD A REFERENCE (a song you like). LISTEN: MY MIX or REFERENCE, at the same place in the song (or from its start: REFERENCE PLAYS). LEVEL MATCH plays the reference as loud as your mix. The picture shows both spectrums; LOUDNESS shows both in LUFS (the last 3 seconds); WIDTH how wide each is. MONO checks both in mono; FOCUS listens to the LOWS, MIDS or HIGHS. REF TRIM and OUTPUT.
+## Pathfinder
+A reverse delay. TIME (1/16 to a bar, in time with the song) and DIRECTION (reverse, forward, reverse ping-pong). FEEDBACK lets the echoes build; PITCH moves them up or down; the high and low cut and DIFFUSION blur them; WIDTH spreads them; DUCK keeps them down while the sound is playing. MIX and OUTPUT.
+## Modular
+Four SLOTS in a chain (left to right). Each: a module (drive, fold, crush, rectify, low-pass, high-pass, band-pass, comb, ring, tremolo, downsample), its AMOUNT, and MOD: how much the LFO or the ENVELOPE (MOVED BY) moves it. LFO RATE and shape, envelope SENSITIVITY, INPUT, MIX and OUTPUT.
+## Dreamscape
+SIZE, DECAY (0.5 to 30 seconds), DAMP (darker tail), BLOOM (the sound swells into the space at each phrase), DRIFT, the low and high cut, WIDTH. SHIMMER feeds a copy of the space back an octave (or a fifth...) up. FREEZE holds what is ringing for as long as you like while you play over it. MIX and OUTPUT.
+## Morph
+SOURCE: the other track (VOCAL TRACK, or any track by its number). MODE: MORPH (crossfades what the two sound like by AMOUNT), VOCODER (the source's shape on this track: put it on a synth or pad and the source on a voice), GATE (lets through only what is also in the source; GATE SENSITIVITY). SMOOTHING, FORMANT, ATTACK, RELEASE, MIX and OUTPUT.
 ## All of them
 ON / OFF at the top turns the plugin off without removing it. PRESETS has factory presets and your own (save, rename, delete); the arrows step through them. Ctrl+Z / Ctrl+Y undo and redo in the window. Every setting is in the plugin panel too, with its A button for automation, and is saved with the project.
 "),

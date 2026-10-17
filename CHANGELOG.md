@@ -2,6 +2,20 @@
 
 What changed in each version of **Purphex**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.60.0  Purphex VSTs: Reference, Pathfinder, Modular, Dreamscape, Morph
+
+- NEW: Purphex Reference: load a finished song you like and flip between it and your mix at the same place in the song. LEVEL MATCH plays them equally loud (so louder never just sounds better); the spectrums of both side by side; loudness in LUFS and width of each; MONO checks both in mono; FOCUS listens to the lows, mids or highs.
+
+- NEW: Purphex Pathfinder: a reverse delay in time with the song (1/16 to a bar). Echoes come back backwards, forwards, or backwards bouncing left and right, with PITCH (an octave up or down), FEEDBACK, high and low cut, DIFFUSION, WIDTH and DUCK (out of the way while you sing).
+
+- NEW: Purphex Modular: four slots in a chain, each one of eleven modules (drive, fold, crush, rectify, low-pass, high-pass, band-pass, comb, ring, tremolo, downsample) with its own AMOUNT, moved by the LFO or by an envelope that follows the loudness.
+
+- NEW: Purphex Dreamscape: a huge ambient space. SIZE, DECAY up to 30 seconds, DAMP, SHIMMER (an octave, a fifth, an octave and a fifth up, or an octave down fed back in), BLOOM (it swells in at each phrase), DRIFT, FREEZE (holds the sound forever), low and high cut, WIDTH.
+
+- NEW: Purphex Morph: blends this track with any other track of the project by their spectrums: MORPH crossfades what they sound like, VOCODER puts the shape of a voice on a synth or pad, GATE lets through only what is also in the other track. SOURCE picks the track (the vocal track to start); FORMANT, SMOOTHING, ATTACK and RELEASE.
+
+- NEW: Plugins that listen to another track can now use any track of the project as their sidechain, not only the vocal track.
+
 ## 3.59.1  ALL BUSES button
 
 - NEW: An ALL BUSES button next to ALL PLUGINS in the plugin panel: one click opens every bus with its level, mute, the tracks that go into it and its plugins.

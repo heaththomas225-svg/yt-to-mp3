@@ -128,6 +128,7 @@ public abstract class Fx
     public virtual void PrepareOffline() { }   // offline render: wait for background builds (e.g. convolution IR) so the first block is complete
     public virtual int Latency { get { return 0; } }
     public virtual bool WantsSidechain { get { return false; } }   // true: the host feeds the vocal track into ScL/ScR
+    public virtual int SidechainTrack { get { return 0; } }   // which row feeds the sidechain: 0 = the vocal track, 1.. = that row of the project
     protected Param Add(Param p) { P.Add(p); return p; }
     protected Param AddC(string id, string name, string[] ch, int def) { return Add(Param.Choice(id, name, ch, def)); }
     protected Param AddP(string id, string name, float min, float max, float def, string unit) { return Add(new Param(id, name, min, max, def, unit)); }

@@ -79,12 +79,12 @@ static class PxPlugins
         FxRegistry.Register(new FxRegistry.Info("pxcurve", "Purphex Curve EQ", "Purphex VST", "8-band dynamic EQ with draggable nodes on a live spectrum"), () => new CurveEqFx());
         FxRegistry.Register(new FxRegistry.Info("pxshape", "Purphex Shape", "Purphex VST", "Compressor and transient shaper with side-chain EQ, EQ and clipper"), () => new ShapeFx());
         FxRegistry.Register(new FxRegistry.Info("pxsubforge", "Purphex SubForge", "Instruments", "808 and bass instrument: punch, sub, glide, filter, distortion, compressor"), () => new SubForgeFx());
-        PxPlugins2.RegisterAll(); PxPlugins3.RegisterAll(); PxPlugins4.RegisterAll(); PxPlugins5.RegisterAll(); PxPlugins6.RegisterAll(); PxPlugins7.RegisterAll(); PxPlugins8.RegisterAll();
+        PxPlugins2.RegisterAll(); PxPlugins3.RegisterAll(); PxPlugins4.RegisterAll(); PxPlugins5.RegisterAll(); PxPlugins6.RegisterAll(); PxPlugins7.RegisterAll(); PxPlugins8.RegisterAll(); PxPlugins9.RegisterAll();
         PresetsExtra.Data["pxglow"] = Glow; PresetsExtra.Data["pxcurve"] = Curve; PresetsExtra.Data["pxshape"] = Shape; PresetsExtra.Data["pxsubforge"] = SubForge;
     }
-    public static readonly HashSet<string> Types = new HashSet<string> { "glitchflow", "pxglow", "pxcurve", "pxshape", "pxsubforge", "pxbreath", "pxpgate", "pxstereo", "pxvortex", "pxmultidyn", "pxprism", "pxfrost", "pxtape", "pxconst", "pxclip", "pxsmack", "pxvinyl", "pxradio", "pxdoubler", "pxchoir", "pxvowel", "pxstep", "pxtri", "pxshift", "pxmax", "pxsgate", "pxechogrid", "pxmodal" };
+    public static readonly HashSet<string> Types = new HashSet<string> { "glitchflow", "pxref", "pxpath", "pxmodular", "pxdream", "pxmorph", "pxglow", "pxcurve", "pxshape", "pxsubforge", "pxbreath", "pxpgate", "pxstereo", "pxvortex", "pxmultidyn", "pxprism", "pxfrost", "pxtape", "pxconst", "pxclip", "pxsmack", "pxvinyl", "pxradio", "pxdoubler", "pxchoir", "pxvowel", "pxstep", "pxtri", "pxshift", "pxmax", "pxsgate", "pxechogrid", "pxmodal" };
     // the window of a Purphex VST effect (instruments open their own through ShowWindow)
-    public static bool HasWindow(Fx f) { return f is GlitchFlowFx || f is GlowFx || f is CurveEqFx || f is ShapeFx || f is BreathOffFx || f is PhantomGateFx || f is StereoLabFx || f is VortexFx || f is MultiDynFx || f is PrismFx || f is FrostFx || f is TapeDirtFx || f is ConstellationFx || f is ClipperFx || f is SmackFx || f is VinylStopFx || f is RadioFx || f is DoublerFx || f is OctaveChoirFx || f is PxVowelFx || f is StepShaperFx || f is TriDriveFx || f is ShiftFx || f is MaximizerFx || f is SpectralGateFx || f is EchoGridFx || f is ModalFilterFx; }
+    public static bool HasWindow(Fx f) { return f is GlitchFlowFx || f is ReferenceFx || f is PathfinderFx || f is ModularFx || f is DreamscapeFx || f is MorphFx || f is GlowFx || f is CurveEqFx || f is ShapeFx || f is BreathOffFx || f is PhantomGateFx || f is StereoLabFx || f is VortexFx || f is MultiDynFx || f is PrismFx || f is FrostFx || f is TapeDirtFx || f is ConstellationFx || f is ClipperFx || f is SmackFx || f is VinylStopFx || f is RadioFx || f is DoublerFx || f is OctaveChoirFx || f is PxVowelFx || f is StepShaperFx || f is TriDriveFx || f is ShiftFx || f is MaximizerFx || f is SpectralGateFx || f is EchoGridFx || f is ModalFilterFx; }
     public static void Open(Fx f, IWin32Window owner)
     {
         if (f is GlitchFlowFx) GlitchFlowWindow.Show((GlitchFlowFx)f, owner);
@@ -114,5 +114,10 @@ static class PxPlugins
         else if (f is SpectralGateFx) PxWindow.Show(f, owner, () => new SpectralGateWindow((SpectralGateFx)f));
         else if (f is EchoGridFx) PxWindow.Show(f, owner, () => new EchoGridWindow((EchoGridFx)f));
         else if (f is ModalFilterFx) PxWindow.Show(f, owner, () => new ModalFilterWindow((ModalFilterFx)f));
+        else if (f is ReferenceFx) PxWindow.Show(f, owner, () => new ReferenceWindow((ReferenceFx)f));
+        else if (f is PathfinderFx) PxWindow.Show(f, owner, () => new PathfinderWindow((PathfinderFx)f));
+        else if (f is ModularFx) PxWindow.Show(f, owner, () => new ModularWindow((ModularFx)f));
+        else if (f is DreamscapeFx) PxWindow.Show(f, owner, () => new DreamscapeWindow((DreamscapeFx)f));
+        else if (f is MorphFx) PxWindow.Show(f, owner, () => new MorphWindow((MorphFx)f));
     }
 }
