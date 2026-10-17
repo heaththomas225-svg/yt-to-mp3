@@ -58,6 +58,17 @@ static class SoundGen
     static double Hz(double midi) { return 440.0 * Math.Pow(2, (midi - 69) / 12.0); }
     public static double NoteHz(int midi) { return Hz(midi); }
     static float[] Noise(Rnd r, int n) { var x = new float[n]; for (int i = 0; i < n; i++) x[i] = r.Bi(); return x; }
+    // band-limited oscillators (PolyBLEP): a raw square or saw has harmonics far above what 44.1 kHz can hold, and they fold back as harsh tones that do not belong
+    static double Blep(double t, double dt) { if (t < dt) { t /= dt; return t + t - t * t - 1; } if (t > 1 - dt) { t = (t - 1) / dt; return t * t + t + t + 1; } return 0; }
+    public static double Square(double ph, double dt) { double v = ph < 0.5 ? 1 : -1; v += Blep(ph, dt); double p2 = ph + 0.5; if (p2 >= 1) p2 -= 1; return v - Blep(p2, dt); }   // ph in 0..1
+    public static double Saw(double ph, double dt) { return 2 * ph - 1 - Blep(ph, dt); }
+    // the metallic heart of a hi-hat or cymbal: six square waves at inharmonic ratios, band-limited
+    public static float[] MetalTone(int n, double pitch, double[] ratios)
+    {
+        var x = new float[n]; var ph = new double[ratios.Length];
+        for (int i = 0; i < n; i++) { double s = 0; for (int k = 0; k < ratios.Length; k++) { double dt = ratios[k] * pitch / SR; s += Square(ph[k], dt); ph[k] += dt; if (ph[k] >= 1) ph[k] -= 1; } x[i] = (float)(s / ratios.Length); }
+        return x;
+    }
 
     // ---------------- drums ----------------
     public static Buf Kick(Rnd r, double f0, double fStart, double tauPitch, double decay, double drive, double click, double len)
@@ -99,22 +110,24 @@ static class SoundGen
     static readonly double[] MetalRatios = { 205.3, 304.4, 369.6, 522.7, 540.0, 800.0 };
     public static Buf Hat(Rnd r, double decay, double bright, double len, double pitch)
     {
-        int n = (int)(len * SR); var l = new float[n]; var rr = new float[n]; var hpL = new Svf(); var hpR = new Svf(); var bpL = new Svf(); var bpR = new Svf(); var nz = Noise(r, n);
+        int n = (int)(len * SR); var l = new float[n]; var rr = new float[n]; var hpL = new Svf(); var hpR = new Svf(); var bpL = new Svf(); var bpR = new Svf(); var nz = Noise(r, n); var metal = MetalTone(n, pitch, MetalRatios);
         for (int i = 0; i < n; i++)
         {
-            double t = i / (double)SR; double s = 0; foreach (var f in MetalRatios) s += Math.Sin(2 * Math.PI * f * pitch * t) > 0 ? 1.0 : -1.0; double env = Math.Exp(-t / decay) * Math.Min(1.0, t / 0.0004);
-            float m = (float)(s / 6.0 * 0.7 + nz[i] * 0.3); float a = hpL.Process(bpL.Process(m, (float)(bright * 1000), 0.9f, 1) * 2.2f + m * 0.4f, 6800f, 0.7f, 2); float b = hpR.Process(bpR.Process(m * 0.96f, (float)(bright * 1040), 0.9f, 1) * 2.2f + m * 0.4f, 7200f, 0.7f, 2);
+            double t = i / (double)SR; double env = Math.Exp(-t / decay) * Math.Min(1.0, t / 0.0004);
+            float m = metal[i] * 0.7f + nz[i] * 0.3f; float a = hpL.Process(bpL.Process(m, (float)(bright * 1000), 0.9f, 1) * 2.2f + m * 0.4f, 6800f, 0.7f, 2); float b = hpR.Process(bpR.Process(m * 0.96f, (float)(bright * 1040), 0.9f, 1) * 2.2f + m * 0.4f, 7200f, 0.7f, 2);
             l[i] = a * (float)env; rr[i] = b * (float)env;
         }
         var buf = new Buf(n); buf.L = l; buf.R = rr; return buf;
     }
     public static Buf Cymbal(Rnd r, double decay, double len, bool ride)
     {
-        int n = (int)(len * SR); var l = new float[n]; var rr = new float[n]; var hp = new Svf(); var nz = Noise(r, n); int parts = 14; var fr = new double[parts]; var ph = new double[parts]; for (int k = 0; k < parts; k++) fr[k] = (ride ? 2400 : 3000) + k * (ride ? 520 : 710) + r.Range(-90, 90);
+        int n = (int)(len * SR); var l = new float[n]; var rr = new float[n]; var hpL = new Svf(); var hpR = new Svf(); var bpL = new Svf(); var bpR = new Svf(); var nz = Noise(r, n);
+        var mA = MetalTone(n, (ride ? 1.9 : 2.6) * r.Range(0.97f, 1.03f), MetalRatios); var mB = MetalTone(n, (ride ? 2.05 : 2.85) * r.Range(0.97f, 1.03f), MetalRatios);   // two slightly different clusters: left and right shimmer apart
         for (int i = 0; i < n; i++)
         {
-            double t = i / (double)SR, s = 0; for (int k = 0; k < parts; k++) { ph[k] += 2 * Math.PI * fr[k] / SR; s += Math.Sin(ph[k]) * (1.0 - k / (double)parts * 0.5); }
-            double env = Math.Exp(-t / decay) * (ride ? 1 : Math.Min(1.0, t / 0.002)); float v = hp.Process((float)(s / parts * 1.6) + nz[i] * (ride ? 0.18f : 0.5f), 5200f, 0.7f, 2) * (float)env; l[i] = v; rr[i] = (float)(s / parts * 1.6 * env * 0.9 + nz[(i + 37) % n] * 0.3 * env);
+            double t = i / (double)SR, env = Math.Exp(-t / decay) * (ride ? 1 : Math.Min(1.0, t / 0.002)), body = ride ? 0.45 : 0.25; float nzl = nz[i] * (ride ? 0.25f : 0.55f), nzr = nz[(i + 37) % n] * (ride ? 0.25f : 0.55f);
+            float va = hpL.Process(bpL.Process(mA[i], ride ? 5200f : 7400f, 0.7f, 1) * (float)(1 + body) + nzl, ride ? 3200f : 4600f, 0.7f, 2), vb = hpR.Process(bpR.Process(mB[i], ride ? 5400f : 7800f, 0.7f, 1) * (float)(1 + body) + nzr, ride ? 3200f : 4600f, 0.7f, 2);
+            l[i] = va * (float)env; rr[i] = vb * (float)env;
         }
         var b = new Buf(n); b.L = l; b.R = rr; return b;
     }
@@ -133,8 +146,8 @@ static class SoundGen
     }
     public static Buf Cowbell(Rnd r, double f0, double decay)
     {
-        int n = (int)(0.5 * SR); var x = new float[n]; var bp = new Svf();
-        for (int i = 0; i < n; i++) { double t = i / (double)SR; float sq = (Math.Sin(2 * Math.PI * f0 * t) > 0 ? 1f : -1f) + (Math.Sin(2 * Math.PI * f0 * 1.48 * t) > 0 ? 1f : -1f); x[i] = bp.Process(sq * 0.4f, (float)(f0 * 1.6), 2f, 1) * 2f * (float)(Math.Exp(-t / decay) * 0.8 + Math.Exp(-t / 0.01) * 0.4); }
+        int n = (int)(0.5 * SR); var x = new float[n]; var bp = new Svf(); double pa = 0, pb = 0, da = f0 / SR, db = f0 * 1.48 / SR;
+        for (int i = 0; i < n; i++) { double t = i / (double)SR; float sq = (float)(Square(pa, da) + Square(pb, db)); pa += da; if (pa >= 1) pa -= 1; pb += db; if (pb >= 1) pb -= 1; x[i] = bp.Process(sq * 0.4f, (float)(f0 * 1.6), 2f, 1) * 2f * (float)(Math.Exp(-t / decay) * 0.8 + Math.Exp(-t / 0.01) * 0.4); }
         return new Buf(x);
     }
     public static Buf Conga(Rnd r, double f0)
@@ -164,7 +177,7 @@ static class SoundGen
         for (int i = 0; i < n; i++)
         {
             double u = i / (double)n, f = f0 * Math.Pow(f1 / f0, u), env = Math.Pow(u, 2.2) * (1 - Math.Pow(Math.Max(0, (u - 0.985) / 0.015), 1));
-            float a = bpL.Process(nzL[i], (float)f, 3f, 1) * 4f, b = bpR.Process(nzR[i], (float)f, 3f, 1) * 4f; float tn = 0; if (tone) { ph += 2 * Math.PI * (180 * Math.Pow(8, u)) / SR; tn = (float)(Math.Sin(ph) * 0.18 + ((ph / (2 * Math.PI)) % 1.0 - 0.5) * 0.14); }
+            float a = bpL.Process(nzL[i], (float)f, 3f, 1) * 4f, b = bpR.Process(nzR[i], (float)f, 3f, 1) * 4f; float tn = 0; if (tone) { double dtn = 180 * Math.Pow(8, u) / SR; ph += 2 * Math.PI * dtn; double cyc = (ph / (2 * Math.PI)) % 1.0; tn = (float)(Math.Sin(ph) * 0.18 + Saw(cyc, dtn) * 0.07); }
             l[i] = (a + tn) * (float)env; rr[i] = (b + tn) * (float)env;
         }
         var buf = new Buf(n); buf.L = l; buf.R = rr; return buf;
@@ -188,7 +201,7 @@ static class SoundGen
     public static Buf Siren(double len, double lo, double hi, double rate)
     {
         int n = (int)(len * SR); var x = new float[n]; double ph = 0;
-        for (int i = 0; i < n; i++) { double t = i / (double)SR, f = lo + (hi - lo) * (0.5 + 0.5 * Math.Sin(2 * Math.PI * rate * t - Math.PI / 2)); ph += 2 * Math.PI * f / SR; double env = Math.Min(1, t / 0.05) * Math.Min(1, (len - t) / 0.12); x[i] = (float)((Math.Sin(ph) * 0.6 + ((ph / (2 * Math.PI)) % 1.0 - 0.5) * 0.9) * env * 0.5); }
+        for (int i = 0; i < n; i++) { double t = i / (double)SR, f = lo + (hi - lo) * (0.5 + 0.5 * Math.Sin(2 * Math.PI * rate * t - Math.PI / 2)); ph += 2 * Math.PI * f / SR; double env = Math.Min(1, t / 0.05) * Math.Min(1, (len - t) / 0.12); x[i] = (float)((Math.Sin(ph) * 0.6 + Saw((ph / (2 * Math.PI)) % 1.0, f / SR) * 0.45) * env * 0.5); }
         return new Buf(x);
     }
     public static Buf Atmosphere(Rnd r, double len, int rootMidi, bool minor, double bright)
@@ -226,7 +239,7 @@ static class SoundGen
             for (int i = 0; i < n; i++)
             {
                 double t = i / (double)SR, u = i / (double)n, fz = f0 * (1 + bend * u) * (1 + 0.004 * Math.Sin(2 * Math.PI * 5.2 * t)); double src = 0;
-                for (int v = 0; v < voices; v++) { ph[v] += fz * (1 + (v == 1 ? 0.008 : (v == 2 ? -0.009 : 0))) * (ch == 1 ? 1.002 : 1.0) / SR; ph[v] -= Math.Floor(ph[v]); src += (ph[v] * 2 - 1) - (ph[v] * ph[v] * 0.0); }
+                for (int v = 0; v < voices; v++) { double dv = fz * (1 + (v == 1 ? 0.008 : (v == 2 ? -0.009 : 0))) * (ch == 1 ? 1.002 : 1.0) / SR; ph[v] += dv; ph[v] -= Math.Floor(ph[v]); src += Saw(ph[v], dv); }
                 src /= voices; float x = (float)(src * 0.6) + nz[i] * (float)(0.04 + (shout > 0.5 ? 0.04 : 0)); var A = Vowels[vowel]; var B = Vowels[vowel2 >= 0 ? vowel2 : vowel]; double m = Math.Min(1.0, u * 1.6); float s = 0;
                 for (int k = 0; k < 3; k++) s += f[k].Process(x, (float)(A[k] + (B[k] - A[k]) * m), 8f + k * 2, 1) * (k == 0 ? 1.0f : (k == 1 ? 0.7f : 0.4f));
                 double env = Math.Min(1.0, t / 0.012) * Math.Min(1.0, (len - t) / 0.08) * (1 - 0.35 * u); double cons = 0;
@@ -240,8 +253,9 @@ static class SoundGen
     // plucked string (Karplus-Strong): guitar-like and harp-like loops
     public static Buf Pluck(Rnd r, double hz, double len, double bright)
     {
-        int n = (int)(len * SR), d = Math.Max(2, (int)(SR / hz)); var line = new float[d]; for (int i = 0; i < d; i++) line[i] = r.Bi(); var x = new float[n]; int p = 0; float prev = 0; float damp = (float)(0.992 - (1 - bright) * 0.03);
-        for (int i = 0; i < n; i++) { float v = line[p]; float nv = damp * 0.5f * (v + prev); prev = v; line[p] = nv; p = (p + 1) % d; x[i] = v; }
+        double period = SR / hz - 0.5; int d = Math.Max(2, (int)Math.Floor(period - 0.1)); double frac = period - d; double c = (1 - frac) / (1 + frac);   // whole samples + an all-pass for the fraction: the note is in tune
+        var line = new float[d]; for (int i = 0; i < d; i++) line[i] = r.Bi(); int n = (int)(len * SR); var x = new float[n]; int p = 0; float prev = 0; double apX = 0, apY = 0; float damp = (float)(0.992 - (1 - bright) * 0.03);
+        for (int i = 0; i < n; i++) { float v = line[p]; float avg = damp * 0.5f * (v + prev); prev = v; double ap = c * avg + apX - c * apY; apX = avg; apY = ap; line[p] = (float)ap; p = (p + 1) % d; x[i] = v; }
         return new Buf(x);
     }
 

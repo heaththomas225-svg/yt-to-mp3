@@ -19,11 +19,21 @@ class PackWriter
     public PackWriter(SoundPack p, int seed, Action<string, float> progress, Func<bool> cancel) { Pack = p; this.progress = progress; this.cancel = cancel; R = new Rnd(seed); Directory.CreateDirectory(p.Dir); }
     public bool Cancelled { get { return cancel != null && cancel(); } }
 
+    // even levels while browsing: loops of one kind sit at the same loudness (never above -1 dB peak), and dense one-shots
+    // (sirens, long effects) are kept from jumping out. The stems of a song starter keep their mix, so they are left alone.
+    static void Level(Buf b, string type, string kind)
+    {
+        if (type == "Stem" || type == "Songstarter") return; double e = 0; for (int i = 0; i < b.Length; i++) e += b.L[i] * b.L[i] + b.R[i] * b.R[i]; if (e <= 0) return;
+        double rms = 10 * Math.Log10(e / (2.0 * b.Length)), peak = 20 * Math.Log10(Math.Max(1e-9, b.Peak())), gain;
+        if (kind == "loop") { double target = type == "Drum Loop" || type == "Top Loop" || type == "Drum Fill" ? -11 : type == "Bass Loop" ? -12 : -15; gain = Math.Min(target - rms, -1 - peak); }
+        else { bool heavy = type == "Kick" || type == "808" || type == "Sub Bass"; double cap = heavy ? -6 : -10; gain = rms > cap ? cap - rms : 0; }
+        if (Math.Abs(gain) > 0.05) b.Gain((float)Math.Pow(10, gain / 20));
+    }
     // writes a sound as a 24-bit WAV and lists it
     public SoundItem Audio(Buf b, string folder, string name, string type, string group, string kind, double bpm, string key, string tags, string mood, double peakDb)
     {
         if (Cancelled) throw new OperationCanceledException();
-        b = b.Copy(); b.Normalise(peakDb, kind == "loop" ? 0 : 24, kind == "loop" ? 0 : 160); string file = Clean(name) + ".wav", rel = folder + "/" + file; string path = Path.Combine(Pack.Dir, rel.Replace('/', Path.DirectorySeparatorChar));
+        b = b.Copy(); b.Normalise(peakDb, kind == "loop" ? 0 : 24, kind == "loop" ? 0 : 160); Level(b, type, kind); string file = Clean(name) + ".wav", rel = folder + "/" + file; string path = Path.Combine(Pack.Dir, rel.Replace('/', Path.DirectorySeparatorChar));
         SoundIO.WriteWav(path, b.L, b.R, SoundGen.SR, 24);
         var s = new SoundItem { PackId = Pack.Id, PackName = Pack.Name, Rel = rel, Path = path, Id = Pack.Id + "/" + rel, Name = name, Type = type, Group = group, Kind = kind, Genre = Pack.Genre, Sub = Pack.Sub, Tags = tags, Mood = mood, Bpm = bpm, Key = key ?? "", Dur = b.Length / (double)SoundGen.SR, Rate = SoundGen.SR, Format = "WAV 24-bit", Peaks = SoundIO.Peaks(b.L, b.R, 96) };
         Pack.Items.Add(s); Report(name); return s;

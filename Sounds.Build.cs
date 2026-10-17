@@ -5,9 +5,12 @@ using System.IO;
 static class PackBuilder
 {
     // makes a pack's files on disk and returns the finished pack (null if cancelled)
+    // the sound design version: packs made by an older one are offered an update (2 = band-limited hats, cymbals and saws, in-tune plucks, even loop levels)
+    public const string SoundVersion = "2";
+    public static bool Outdated(SoundPack p) { return p != null && p.Items.Count > 0 && p.Id != SoundLibrary.UserPackId && SoundCatalog.Find(p.Id) != null && p.Version != SoundVersion; }
     public static SoundPack Build(Recipe rec, Action<string, float> progress, Func<bool> cancel)
     {
-        var pack = new SoundPack { Id = rec.Id, Name = rec.Name, Section = rec.Section, Genre = rec.Genre, Sub = rec.Sub, Description = rec.Desc, License = SoundLibrary.LicenceText, Hue = rec.Hue };
+        var pack = new SoundPack { Id = rec.Id, Name = rec.Name, Section = rec.Section, Genre = rec.Genre, Sub = rec.Sub, Description = rec.Desc, License = SoundLibrary.LicenceText, Hue = rec.Hue, Version = SoundVersion };
         try { if (Directory.Exists(pack.Dir)) Directory.Delete(pack.Dir, true); } catch { }
         var w = new PackWriter(pack, rec.Seed, progress, cancel);
         try

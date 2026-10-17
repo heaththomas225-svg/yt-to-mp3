@@ -7,10 +7,17 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.63.0";
+    public const string Latest = "3.63.1";
 
     public const string Text =
-@"3.63.0  Split into 4 stems, and move notes in time in Flex Pitch
+@"3.63.1  Better sounding sound packs, and help links that go to the right place
+ + IMPROVED: Hi-hats, cymbals, cowbells, risers, sirens and the vocal sounds no longer have harsh folded-back tones (band-limited oscillators: about 10 dB cleaner). Cymbals now shimmer like metal and are wide in stereo.
+ + FIXED: Plucked guitar and harp loops were out of tune (up to 14 cents flat on high notes): they are now within 1 cent.
+ + IMPROVED: Loops of the same kind now play at an even loudness while you browse (drum loops within about 4 dB instead of 10, melodic loops matched), and sirens no longer jump out.
+ + FIXED: Help: the SHOW ME links and Show me on screen no longer jump to the wrong button. Words that are part of another control (SAVE AS THEME, MY SOUNDS, STEREO WIDTH) and the controls of plugins, Bass Lab and the Video Studio no longer link to studio buttons with the same name, and every link left is checked to reach a real button.
+ + NEW: Packs made before this show 'Older sound' in SOUND PACKS: press UPDATE on a pack, or Update all, to remake them with the better sound.
+
+3.63.0  Split into 4 stems, and move notes in time in Flex Pitch
  + NEW: Split into 4 stems (side menu, Tools): the AI splits a song into VOCALS, DRUMS, BASS and OTHER (everything else) on four tracks, perfectly in sync, and the four add up to the song exactly. Long songs are done in pieces like the 2-stem split, and the stems are saved next to it.
  + NEW: Flex Pitch: drag a note sideways to move it in time, earlier or later. It keeps its sound, pitch and length, and the audio between it and the notes around it stretches to fit (it cannot pass them). Up and down still changes the pitch.
 

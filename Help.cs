@@ -21,7 +21,7 @@ static class HelpContent
         var l = new List<string[]>(); var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var raw in t.Body.Replace("\r\n", "\n").Split('\n'))
         {
-            string line = raw.Trim(); if (line.Length == 0 || line.StartsWith("## ")) continue; string lb = HelpForm.FindLabelPublic(line); if (lb == null || !seen.Add(lb)) continue;
+            string line = raw.Trim(); if (line.Length == 0 || line.StartsWith("## ")) continue; string lb = HelpForm.FindLabel(line, t.Id); if (lb == null || !seen.Add(lb)) continue;
             string text = line; if (text.Length > 2 && char.IsDigit(text[0]) && text[1] == '.') text = text.Substring(2).Trim(); else if (text.StartsWith("- ")) text = text.Substring(2); else if (text.StartsWith("TIP:")) text = "Tip: " + text.Substring(4).Trim(); else if (text.StartsWith("WARN:")) text = "Careful: " + text.Substring(5).Trim();
             if (text.Length > 230) { int cut = text.IndexOf(". ", 80); text = cut > 0 && cut < 230 ? text.Substring(0, cut + 1) : text.Substring(0, 227) + "..."; }
             l.Add(new[] { lb, text }); if (l.Count >= 9) break;
@@ -1006,14 +1006,24 @@ class HelpForm : Form
         new[] { "PLAY", "PLAY" }, new[] { "STOP", "STOP" }, new[] { "LOOP", "LOOP" }, new[] { "MIC", "MIC" }, new[] { "SOUNDS", "SOUND PACKS" }, new[] { "LYRICS", "LYRICS" }, new[] { "MASTERING", "MASTERING" }, new[] { "FLEX", "FLEX" }, new[] { "SPLIT", "SPLIT" }, new[] { "CUT", "CUT" }, new[] { "GAIN", "GAIN" }, new[] { "LOCK", "LOCK" }, new[] { "DUP", "DUP" }, new[] { "FIT", "FIT" }, new[] { "STEREO", "STEREO" }, new[] { "MONO", "MONO" }, new[] { "UNDO", "UNDO" }, new[] { "REDO", "REDO" },
     };
     // the first button named in a line of the guide (null if none); a single capital word has to be written in capitals so ordinary words do not count
-    internal static string FindLabelPublic(string line) { return FindLabel(line); }
-    internal static string FindLabel(string line)
+    internal static string FindLabelPublic(string line) { return FindLabel(line, null); }
+    // topics about a window of its own (a plugin, Bass Lab, the Video and Photo Studio): a single word there is that window's control (its GAIN, MONO, PLAY),
+    // not the studio button with the same name, so only full studio button names (+ ADD EFFECT, SPLIT VOCALS + BEAT...) get a SHOW ME
+    static readonly HashSet<string> OwnWindow = new HashSet<string> { "studio-purphexvst", "studio-glitchflow", "studio-creative", "basslab", "basslab-basics", "basslab-env", "basslab-fx", "basslab-lfo", "basslab-mod", "basslab-presets" };
+    // a capital word right next to the match means it is part of another control's name (SAVE AS THEME, MY SOUNDS, STEREO WIDTH, PRE GAIN): not this button
+    static bool CapsWord(string s, int from, int dir)
     {
-        string best = null; int bestAt = int.MaxValue;
+        int i = from; while (i >= 0 && i < s.Length && s[i] == ' ') i += dir; int a = i; while (i >= 0 && i < s.Length && char.IsLetter(s[i])) i += dir; int len = Math.Abs(i - a); if (len < 2) return false;
+        int lo = Math.Min(a, i - dir), hi = Math.Max(a, i - dir); for (int k = lo; k <= hi; k++) if (!char.IsUpper(s[k])) return false; return true;
+    }
+    internal static string FindLabel(string line, string topicId)
+    {
+        string best = null; int bestAt = int.MaxValue; bool own = topicId != null && OwnWindow.Contains(topicId);
         foreach (var p in UiLabels)
         {
-            bool multi = p[0].Contains(" ") || p[0].Contains("+"); int at = multi ? line.IndexOf(p[0], StringComparison.OrdinalIgnoreCase) : line.IndexOf(p[0], StringComparison.Ordinal); if (at < 0) continue;
+            bool multi = p[0].Contains(" ") || p[0].Contains("+"); if (own && (!multi || p[1] == "Save as")) continue;   /* (Bass Lab and the plugins have a SAVE AS of their own) */ int at = multi ? line.IndexOf(p[0], StringComparison.OrdinalIgnoreCase) : line.IndexOf(p[0], StringComparison.Ordinal); if (at < 0) continue;
             if (!multi) { bool lb = at == 0 || !char.IsLetterOrDigit(line[at - 1]), rb = at + p[0].Length >= line.Length || !char.IsLetterOrDigit(line[at + p[0].Length]); if (!lb || !rb) continue; }
+            if (CapsWord(line, at - 1, -1) || CapsWord(line, at + p[0].Length, 1)) continue;
             if (at < bestAt) { bestAt = at; best = p[1]; }
         }
         return best;
@@ -1028,11 +1038,11 @@ class HelpForm : Form
             string l = raw.TrimEnd(); if (l.Trim().Length == 0) continue; string label = null;
             if (l.StartsWith("## ")) { Add("", 6, false, Color.White); Indent(0, 0); Add(l.Substring(3), 13, true, TM.C(255, 190, 140, 255)); Add("", 3, false, Color.White); continue; }
             Color col = TM.C(255, 240, 232, 255); string text = l;
-            if (l.Length > 2 && char.IsDigit(l[0]) && l[1] == '.') { Indent(8, 26); label = FindLabel(l); AddStep(l.Substring(0, 2), l.Substring(2).TrimStart(), col, label); Add("", 4, false, Color.White); continue; }
-            else if (l.StartsWith("- ")) { Indent(8, 18); label = FindLabel(l); AddStep("•", l.Substring(2), col, label); Add("", 3, false, Color.White); continue; }
+            if (l.Length > 2 && char.IsDigit(l[0]) && l[1] == '.') { Indent(8, 26); label = FindLabel(l, t.Id); AddStep(l.Substring(0, 2), l.Substring(2).TrimStart(), col, label); Add("", 4, false, Color.White); continue; }
+            else if (l.StartsWith("- ")) { Indent(8, 18); label = FindLabel(l, t.Id); AddStep("•", l.Substring(2), col, label); Add("", 3, false, Color.White); continue; }
             else if (l.StartsWith("TIP:")) { Indent(8, 0); text = "Tip: " + l.Substring(4).Trim(); col = Color.FromArgb(120, 230, 160); }
             else if (l.StartsWith("WARN:")) { Indent(8, 0); text = "Careful: " + l.Substring(5).Trim(); col = Color.FromArgb(255, 190, 90); }
-            else { Indent(0, 0); col = TM.C(255, 215, 205, 235); label = FindLabel(l); }
+            else { Indent(0, 0); col = TM.C(255, 215, 205, 235); label = FindLabel(l, t.Id); }
             AddStep("", text, col, label); Add("", 3, false, Color.White);
         }
         Indent(0, 0); view.SelectionStart = 0; view.ScrollToCaret(); show.Visible = HelpContent.HasGuide(t) && canTour(t.Id);

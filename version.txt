@@ -1,4 +1,4 @@
-3.63.0
+3.63.1
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Split into 4 stems, and move notes in time in Flex Pitch
-sha256=cc180c31c8e467771322f09ba2f546902f09e322d9c17d9588f2e2d06f6ad757
+Better sounding sound packs, and help links that go to the right place
+sha256=9c8768cf368edfb3b5bd0f129a44970923acc84875d64ee9671defb8f30b2253

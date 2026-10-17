@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 
 // Makes real packs on this PC and checks the audio, the metadata and the index.   csc /main:Z ... SoundsTest.cs
 static class Z
@@ -26,6 +27,13 @@ static class Z
             double peak = 0; bool nan = false; for (int i = 0; i < l.Length; i++) { float a = Math.Abs(l[i]); if (float.IsNaN(a) || float.IsInfinity(a)) nan = true; if (a > peak) peak = a; }
             if (nan) { allFinite = false; bad += s.Rel + " (NaN) "; } if (peak < 0.2 || peak > 1.0001) { allAudible = false; bad += s.Rel + " (peak " + peak.ToString("0.00") + ") "; }
         }
+        { var lv = new Dictionary<string, List<double>>(); int clicks = 0; string cl = ""; foreach (var s in pack.Items) { if (!s.IsAudio) continue; float[] l, r; int sr; string fm; if (!SoundIO.Read(s.Path, out l, out r, out sr, out fm)) continue; double e = 0; for (int i = 0; i < l.Length; i++) e += l[i] * l[i] + r[i] * r[i]; double db = 10 * Math.Log10(e / (2.0 * l.Length) + 1e-20);
+            if (s.Kind != "loop" && (Math.Abs(l[0]) > 0.02 || Math.Abs(l[l.Length - 1]) > 0.02)) { clicks++; cl += s.Rel + " "; } List<double> v; if (!lv.TryGetValue(s.Type, out v)) lv[s.Type] = v = new List<double>(); v.Add(db); }
+          Func<string, double> spread = ty => { List<double> v; return lv.TryGetValue(ty, out v) && v.Count > 1 ? v.Max() - v.Min() : 0; }; Func<string, double> top = ty => { List<double> v; return lv.TryGetValue(ty, out v) ? v.Max() : -99; };
+          Check("the pack carries the current sound version (older packs are offered an update)", pack.Version == PackBuilder.SoundVersion && !PackBuilder.Outdated(pack), pack.Version);
+          Check("loops of one kind sit at an even loudness (drum loops within 6 dB, bass and melodic loops within 4 dB)", spread("Drum Loop") < 6 && spread("Bass Loop") < 4 && spread("Chord Loop") < 4, "drum " + spread("Drum Loop").ToString("0.0") + ", bass " + spread("Bass Loop").ToString("0.0") + ", chord " + spread("Chord Loop").ToString("0.0") + " dB");
+          Check("no effect jumps out (sirens no louder than -9.5 dB RMS)", top("Siren") <= -9.5, top("Siren").ToString("0.0") + " dB");
+          Check("no one-shot clicks at its start or end", clicks == 0, cl); }
         Check("every file exists", allExist, bad); Check("every audio file is readable, finite and at a sensible level", allAudible && allFinite, bad);
         // kicks: low-frequency energy; hats: high-frequency; loops: exact bar lengths
         var kick = pack.Items.Find(s => s.Type == "Kick"); float[] kl, kr; int ksr; string kf; SoundIO.Read(kick.Path, out kl, out kr, out ksr, out kf);
