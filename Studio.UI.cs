@@ -848,7 +848,8 @@ partial class StudioForm : Form
         wr.OnWheel = d =>
         {
             if ((ModifierKeys & Keys.Control) != 0 && (ModifierKeys & Keys.Alt) == 0 && (ModifierKeys & Keys.Shift) == 0) autoFit = false;
-            if ((ModifierKeys & Keys.Alt) != 0 || ((ModifierKeys & Keys.Control) != 0 && (ModifierKeys & Keys.Shift) != 0)) { LaneH = Math.Max(64, Math.Min(420, LaneH + (d > 0 ? 16 : -16))); vscroll = Math.Max(0, Math.Min(vscroll, Math.Max(0, n * LaneH - (ClientSize.Height - top - RulerH - 66)))); }
+            if ((ModifierKeys & Keys.Control) != 0 && (ModifierKeys & Keys.Shift) != 0) { }   // Ctrl + Shift + wheel does nothing (it used to resize the tracks by accident)
+            else if ((ModifierKeys & Keys.Alt) != 0) { LaneH = Math.Max(64, Math.Min(420, LaneH + (d > 0 ? 16 : -16))); vscroll = Math.Max(0, Math.Min(vscroll, Math.Max(0, n * LaneH - (ClientSize.Height - top - RulerH - 66)))); }
             else if ((ModifierKeys & Keys.Control) != 0) { double f = d > 0 ? 0.7 : 1.43; double cur = scroll + (MousePos.X - HeadW) * spp; spp = Math.Max(MinSpp, Math.Min(MaxSpp, spp * f)); scroll = Math.Max(0, (long)(cur - (MousePos.X - HeadW) * spp)); }
             else if ((ModifierKeys & Keys.Shift) != 0) ScrollView(-d * 0.25);
             else if (n * LaneH + 50 <= ClientSize.Height - top - RulerH - 46 || MousePos.Y < top + RulerH) ScrollView(-d * 0.25);   // everything fits vertically: the wheel moves along the song (like BandLab)

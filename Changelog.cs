@@ -7,10 +7,13 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.63.1";
+    public const string Latest = "3.63.2";
 
     public const string Text =
-@"3.63.1  Better sounding sound packs, and help links that go to the right place
+@"3.63.2  Ctrl + Shift no longer resizes the tracks
+ + FIXED: Holding Ctrl and Shift while scrolling no longer makes the tracks bigger and smaller. Alt + mouse wheel still changes the track height on purpose.
+
+3.63.1  Better sounding sound packs, and help links that go to the right place
  + IMPROVED: Hi-hats, cymbals, cowbells, risers, sirens and the vocal sounds no longer have harsh folded-back tones (band-limited oscillators: about 10 dB cleaner). Cymbals now shimmer like metal and are wide in stereo.
  + FIXED: Plucked guitar and harp loops were out of tune (up to 14 cents flat on high notes): they are now within 1 cent.
  + IMPROVED: Loops of the same kind now play at an even loudness while you browse (drum loops within about 4 dB instead of 10, melodic loops matched), and sirens no longer jump out.

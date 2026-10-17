@@ -2,6 +2,10 @@
 
 What changed in each version of **Purphex**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.63.2  Ctrl + Shift no longer resizes the tracks
+
+- FIXED: Holding Ctrl and Shift while scrolling no longer makes the tracks bigger and smaller. Alt + mouse wheel still changes the track height on purpose.
+
 ## 3.63.1  Better sounding sound packs, and help links that go to the right place
 
 - IMPROVED: Hi-hats, cymbals, cowbells, risers, sirens and the vocal sounds no longer have harsh folded-back tones (band-limited oscillators: about 10 dB cleaner). Cymbals now shimmer like metal and are wide in stereo.
