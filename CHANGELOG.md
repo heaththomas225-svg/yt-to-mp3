@@ -2,6 +2,10 @@
 
 What changed in each version of **Purphex**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.59.1  ALL BUSES button
+
+- NEW: An ALL BUSES button next to ALL PLUGINS in the plugin panel: one click opens every bus with its level, mute, the tracks that go into it and its plugins.
+
 ## 3.59.0  Text the PicsArt way, keyframes, and audio tools in the video editor
 
 - NEW: Photo Studio: text works like PicsArt. Tap TEXT and a typing box opens at once; press the tick and your words go in the middle of the picture, picked. Then simple tabs: FONT (every font shown with your own words, plus bold, italic, capitals and alignment), COLOUR, STROKE, SHADOW, HIGHLIGHT, BEND, SPACING, OPACITY, EFFECTS (neon, 3D, glitch) and STYLES, each a row of choices and one slider, seen live.

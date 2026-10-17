@@ -1,4 +1,4 @@
-3.59.0
+3.59.1
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Text the PicsArt way, keyframes, and audio tools in the video editor
-sha256=69e5b4cfafde28696ae0652da47f2220b4f1db7aafa976d08e54d184025b4eca
+ALL BUSES button
+sha256=4c377e993dd31463a687b49f046848317c6c86b5332a3f01cf398a50456fbd33

@@ -7,10 +7,13 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.59.0";
+    public const string Latest = "3.59.1";
 
     public const string Text =
-@"3.59.0  Text the PicsArt way, keyframes, and audio tools in the video editor
+@"3.59.1  ALL BUSES button
+ + NEW: An ALL BUSES button next to ALL PLUGINS in the plugin panel: one click opens every bus with its level, mute, the tracks that go into it and its plugins.
+
+3.59.0  Text the PicsArt way, keyframes, and audio tools in the video editor
  + NEW: Photo Studio: text works like PicsArt. Tap TEXT and a typing box opens at once; press the tick and your words go in the middle of the picture, picked. Then simple tabs: FONT (every font shown with your own words, plus bold, italic, capitals and alignment), COLOUR, STROKE, SHADOW, HIGHLIGHT, BEND, SPACING, OPACITY, EFFECTS (neon, 3D, glitch) and STYLES, each a row of choices and one slider, seen live.
  + NEW: Photo Studio: every picked layer has a red X on the picture to delete it, a pencil to edit the words, and one corner handle that resizes and turns it in one drag (it clicks to straight angles; Alt turns freely).
  + NEW: Video Studio: KEYFRAMES for position, size, rotation, opacity and volume: put the playhead where you want, set the value and press the diamond; it changes smoothly in between, in the preview and in the export. Diamonds show on the clips in the timeline.

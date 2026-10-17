@@ -828,6 +828,12 @@ static class NF
                     sf.aiOpen = false;
                     sf.eng.Tracks.Clear(); sf.eng.Tracks.AddRange(keepB); SetF("selTrack", 0);
                 }
+                {   // ALL BUSES next to ALL PLUGINS opens the sheet on its buses view
+                    SetF("tab", 0); var keepAB = sf.eng.Tracks.ToList(); sf.eng.Tracks.Clear(); sf.eng.Tracks.Add(StudioEngine.NewTrack("Vox", "vocal", null)); SetF("selTrack", 0); SetF("busEdit", null); Prefs.PanelHidden = false; SetF("panelAt", DateTime.MinValue);
+                    using (var bmA = new Bitmap(sf.ClientSize.Width, sf.ClientSize.Height)) using (var gA = Graphics.FromImage(bmA)) typeof(StudioForm).GetMethod("PaintAll", BF).Invoke(sf, new object[] { new PaintEventArgs(gA, new Rectangle(Point.Empty, sf.ClientSize)) });
+                    typeof(StudioForm).GetMethod("OpenAllBuses", BF).Invoke(sf, null); bool okA = (bool)typeof(StudioForm).GetField("allFxOpen", BF).GetValue(sf) && (bool)typeof(StudioForm).GetField("allBusMode", BF).GetValue(sf);
+                    Check("ALL BUSES (next to ALL PLUGINS) opens the sheet on its buses view", okA, ""); SetF("allFxOpen", false); SetF("allBusMode", false); sf.eng.Tracks.Clear(); sf.eng.Tracks.AddRange(keepAB);
+                }
                 {   // the track list folds away to a thin strip with an arrow (more room to edit), comes back, and is remembered; THIN TRACKS is remembered too
                     SetF("tab", 0); var keepH = sf.eng.Tracks.ToList(); sf.eng.Tracks.Clear(); sf.eng.Tracks.Add(StudioEngine.NewTrack("Fold me", "vocal", null)); var trmH = typeof(StudioForm).GetMethod("TimelineRect", BF); float hw0 = ((RectangleF)trmH.Invoke(sf, null)).X;
                     sf.ToggleHead(); SetF("headAt", DateTime.MinValue); float hw1 = ((RectangleF)trmH.Invoke(sf, null)).X; bool savedH = Prefs.Lines().Any(l9 => l9 == "headhid=1");
