@@ -533,7 +533,7 @@ partial class StudioForm : Form
         if (TxtAudit != null && (ntOpen || busOpen || stylesOpen || allFxOpen || themeOpen || caOpen || psOpen || amOpen || autoOpen || gainOpen || pickOpen || cpOpen || relOpen || tpOpen || WelcomeShowing)) TxtAudit.Clear();   // an open sheet covers the screen: only its own text counts
         PaintSheets(g); PopEnd(); Prof.Mark("sheets"); Win.PaintNeonChildren(this, g); Prof.Mark("neon children");
         if (TxtAudit != null && (menuOpen || eng.CountBeat > 0)) TxtAudit.Clear();
-        PaintMenu(g); Prof.Mark("menu"); HubTick();
+        PaintMenu(g); Prof.Mark("menu"); HubTick(); CreativeTick();
         PaintChatWindow(g); PaintVideoOverlay(g); PaintWelcome(g); PaintReleaseBuilder(g); PaintTrackPicker(g); PaintHoverSparks(g); Prof.Mark("sparks"); PaintRevertBar(g); PaintBubble(g); PaintKeyBox(g); PaintCountIn(g); Prof.Mark("overlays");
         fpsc.Frame();
         float hintStackY = ClientSize.Height - (tab == 0 ? 56 : (previewPath.Length > 0 ? 56 : 10));
@@ -562,10 +562,10 @@ partial class StudioForm : Form
     void PaintBase(Graphics g)
     {
         DrawBackdrop(g); Prof.Mark("backdrop");
-        if (tab == 0) PaintMix(g); else if (tab == 2) PaintLyrics(g); else if (tab == 3) PaintProjects(g); else if (tab == 4) PaintCommunity(g); else if (tab == 5) PaintVisualiser(g); else if (tab == 6) PaintProfile(g); else if (tab == 7) PaintArtists(g); else if (tab == 8) PaintFonts(g); else if (tab == 9) PaintHub(g); else PaintMastering(g);
+        if (tab == 0) PaintMix(g); else if (tab == 2) PaintLyrics(g); else if (tab == 3) PaintProjects(g); else if (tab == 4) PaintCommunity(g); else if (tab == 5) PaintVisualiser(g); else if (tab == 6) PaintProfile(g); else if (tab == 7) PaintArtists(g); else if (tab == 8) PaintFonts(g); else if (tab == 9) PaintHub(g); else if (tab == 10) PaintCreative(g); else PaintMastering(g);
         Prof.Mark("page " + tab);
         if (tab != 2) SyncLyricUi(false);
-        if (tab == 3 || tab == 4 || tab == 6 || tab == 7 || tab == 8 || tab == 9) { PaintSlimBar(g); if (tab != 9) PaintPreviewBar(g); } else if (tab == 5) PaintVisBar(g); else if (tab == 1) PaintMasterBars(g); else { PaintToolbar(g); Prof.Mark("toolbar"); PaintTransport(g); }   // the Community and My Projects pages have no music controls
+        if (tab == 3 || tab == 4 || tab == 6 || tab == 7 || tab == 8 || tab == 9 || tab == 10) { PaintSlimBar(g); if (tab != 9 && tab != 10) PaintPreviewBar(g); } else if (tab == 5) PaintVisBar(g); else if (tab == 1) PaintMasterBars(g); else { PaintToolbar(g); Prof.Mark("toolbar"); PaintTransport(g); }   // the Community and My Projects pages have no music controls
         Prof.Mark("bars");
         if (browserOpen && !allFxOpen) { if (TxtAudit != null) TxtAudit.Clear(); PaintBrowser(g); }   // (over ALL PLUGINS the list of effects is drawn on top of the sheet, in PaintSheets)
         PaintSoundDrag(g); PaintPackManager(g);

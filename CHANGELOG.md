@@ -2,6 +2,28 @@
 
 What changed in each version of **Purphex**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.52.0  Purphex Creative Studio: Video Studio and AI Cover Studio
+
+- NEW: PURPHEX CREATIVE STUDIO in the side panel (VIDEO STUDIO and COVER STUDIO, under Music Hub): a video editor and a cover art studio inside Purphex, with their own projects kept apart from your songs.
+
+- NEW: Video Studio: import video, audio, photos and transparent PNGs (button or drag and drop) with thumbnails, waveforms and file details; a multitrack timeline (video, audio and text tracks you can add, rename, mute, solo, hide, lock and resize) where clips move, trim, split, duplicate and snap to the playhead, clip edges and markers; select several clips; zoom and scroll; undo and redo.
+
+- NEW: Preview monitor that plays the real composition (layers, positions, opacity, scale, rotation, crop, fit / fill, effects, transitions, text and the audio mix) with play, pause, stop, frame stepping, scrubbing and timecode; drag, scale and rotate a clip right on the monitor, with safe-margin guides.
+
+- NEW: Transitions (cross dissolve, fade through black or white, wipe, slide, zoom, blur, plus fade in and out at a clip's start and end), colour and effects (exposure, brightness, contrast, saturation, temperature, tint, highlights, shadows, blur, sharpen, vignette, fade, sepia, black and white) with looks (cinematic, dark, vibrant, monochrome, music video neon and more), and titles with fonts, size, weight, colour, alignment, spacing, outline, shadow, background shapes and in / out animations, with presets for song titles, artist names, lower thirds, lyric captions, karaoke, credits and promos.
+
+- NEW: Lyric videos: paste the lyrics, play the song and tap SPACE as each line starts; karaoke fill; import .srt and .lrc, export .srt (no automatic speech recognition: the timing is yours).
+
+- NEW: Audio: volume, fades, normalise, mute and solo per track, waveforms; MY SONG brings in a mixed copy of your current Purphex song (your DAW project is never changed). Visualisers (spectrum bars, circular spectrum, waveforms, bass pulse, animated gradient, geometric shapes) read the real audio of the timeline.
+
+- NEW: Make a video from a song: pick the song, a background picture or video, a visualiser, the artist and title and colours, and it is all put on the timeline. Project presets for 16:9, 9:16, 1:1 and 4:5 videos, lyric videos, cover videos, visualiser videos, teasers and 4K, or your own size.
+
+- NEW: Export: MP4 (H.264 or H.265 / HEVC with AAC), WebM (VP9 with Opus) or audio only (M4A or WAV), at the project size, 720p, 1080p or 4K, 24 to 60 fps, four quality levels and audio bitrates, for the whole project or a range, with real progress, cancel and a check of the finished file. What you export is drawn by the same code as the preview.
+
+- NEW: AI Cover Studio: a layered artwork editor (pictures, text, shapes, gradients, textures, vignettes) with brightness, contrast, saturation, hue, filters, crop, borders, shadows and blend modes; text always stays editable; square 3000 / 1600, 16:9, 9:16 and 4:5 sizes; PNG and JPEG export; use it as your song's cover or send it to Video Studio; an artwork library (save, rename, duplicate, delete). AI image generation with style, colour, mood, lighting and composition settings and a history with favourites, through OpenAI with your own API key (AI SETTINGS): nothing is generated without a key.
+
+- NEW: Projects save safely (a broken save never replaces a good one), autosave in the background and are offered back after a crash; missing media files are marked and can be found again.
+
 ## 3.51.0  Music Hub: listen to your streaming services inside Purphex
 
 - NEW: MUSIC HUB in the side panel (right under Community): YouTube Music, YouTube, SoundCloud, Spotify, Apple Music, Deezer, Tidal, Amazon Music, Bandcamp, BeatStars, Audiomack and Mixcloud play in their own official players inside Purphex, in a clean frameless view with Purphex buttons: back, forward, reload, straight to your library pages (liked songs, playlists, albums, history), OPEN IN OWN WINDOW, SIGN OUT and BACK TO DAW. You sign in on each service's own page; Purphex never sees your password. Protected music plays through Windows' own Widevine and PlayReady support (nothing is bypassed or downloaded).

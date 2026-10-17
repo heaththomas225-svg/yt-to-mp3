@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Purphex Creative Studio</title>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<svg id="fxdefs" width="0" height="0" style="position:absolute"><defs></defs></svg>
+<div id="app">
+  <header id="top">
+    <div class="tools" role="tablist">
+      <button id="toolVideo" class="tool on" role="tab" title="Video Studio: edit music videos, lyric videos and promos">VIDEO STUDIO</button>
+      <button id="toolCover" class="tool" role="tab" title="AI Cover Studio: make cover art for your songs">AI COVER STUDIO</button>
+    </div>
+    <div class="proj" id="projBar">
+      <input id="projName" spellcheck="false" title="Project name (click to rename)" aria-label="Project name">
+      <span id="dirty" title="Changes not saved yet"></span>
+      <button data-act="new" title="New video project (Ctrl+N)">NEW</button>
+      <button data-act="open" title="Open a saved project (Ctrl+O)">OPEN</button>
+      <button data-act="save" title="Save (Ctrl+S)">SAVE</button>
+      <button data-act="saveCopy" title="Save a copy under a new name">SAVE COPY</button>
+      <span class="sep"></span>
+      <button data-act="undo" title="Undo (Ctrl+Z)">UNDO</button>
+      <button data-act="redo" title="Redo (Ctrl+Y)">REDO</button>
+    </div>
+    <div class="right">
+      <button data-act="export" class="accent" title="Export the video (Ctrl+E)">EXPORT</button>
+      <button data-act="toDaw" title="Back to the DAW (your project stays as it is)">BACK TO DAW</button>
+    </div>
+  </header>
+
+  <main id="video">
+    <section id="left" class="panel">
+      <nav class="tabs" id="leftTabs">
+        <button data-tab="media" class="on" title="Your media: video, audio, photos, graphics">MEDIA</button>
+        <button data-tab="titles" title="Add titles and text">TITLES</button>
+        <button data-tab="transitions" title="Transitions between clips">TRANSITIONS</button>
+        <button data-tab="effects" title="Looks and colour presets">EFFECTS</button>
+        <button data-tab="lyrics" title="Make a lyric video">LYRICS</button>
+        <button data-tab="visuals" title="Visualisers that move with the music">VISUALS</button>
+      </nav>
+      <div class="tabbody" id="tab-media">
+        <div class="row">
+          <button id="importBtn" class="accent" title="Import video, audio, photos and graphics (or drop files here)">+ IMPORT</button>
+          <button id="songBtn" title="Bring in the song from your current Purphex project (a copy: your DAW project is not changed)">MY SONG</button>
+        </div>
+        <div id="dropHint">Drop video, audio, photos or PNG graphics here</div>
+        <div id="bin" class="bin"></div>
+      </div>
+      <div class="tabbody hidden" id="tab-titles"><div id="titleList" class="grid2"></div></div>
+      <div class="tabbody hidden" id="tab-transitions"><p class="hint">Select a clip, then pick a transition for its start (with the clip before it on the same track).</p><div id="transList" class="grid2"></div></div>
+      <div class="tabbody hidden" id="tab-effects"><p class="hint">Select a clip, then pick a look. Fine-tune it in the inspector.</p><div id="presetList" class="grid2"></div></div>
+      <div class="tabbody hidden" id="tab-lyrics"></div>
+      <div class="tabbody hidden" id="tab-visuals"><p class="hint">Visualisers read the real audio of your timeline (no fake animation).</p><div id="visList" class="grid2"></div></div>
+    </section>
+    <div class="split v" data-split="left" title="Drag to resize"></div>
+
+    <section id="center">
+      <div id="monitorWrap">
+        <canvas id="monitor" tabindex="0" aria-label="Preview monitor"></canvas>
+        <div id="monEmpty" class="empty">Import media and drag it onto the timeline to start.</div>
+        <div id="monBusy" class="busy hidden"></div>
+      </div>
+      <div id="transport">
+        <button data-act="toStart" title="Go to the start (Home)">|&lt;</button>
+        <button data-act="frameBack" title="One frame back (,)">&lt;|</button>
+        <button data-act="play" id="playBtn" class="accent" title="Play / pause (Space)">PLAY</button>
+        <button data-act="stop" title="Stop and go back to where you started">STOP</button>
+        <button data-act="frameFwd" title="One frame forward (.)">|&gt;</button>
+        <span id="tc" title="Timecode (hours:minutes:seconds:frames)">00:00:00:00</span>
+        <span id="dur" class="dim"></span>
+        <span class="grow"></span>
+        <label class="dim" title="Show safe margins for titles and action">SAFE <input type="checkbox" id="safeChk"></label>
+        <select id="aspectSel" title="Canvas size and shape">
+          <option value="1920x1080">16:9  1920x1080</option>
+          <option value="1280x720">16:9  1280x720</option>
+          <option value="1080x1080">1:1  1080x1080</option>
+          <option value="1080x1920">9:16  1080x1920 (vertical)</option>
+          <option value="1080x1350">4:5  1080x1350</option>
+        </select>
+      </div>
+    </section>
+    <div class="split v" data-split="right" title="Drag to resize"></div>
+
+    <section id="right" class="panel">
+      <div class="paneltitle">INSPECTOR</div>
+      <div id="inspector"><div class="empty small">Select a clip to edit it.</div></div>
+    </section>
+  </main>
+
+  <div class="split h" data-split="timeline" title="Drag to resize the timeline"></div>
+  <section id="timeline" class="panel">
+    <div id="tlbar">
+      <button data-act="split" title="Split at the playhead (S)">SPLIT</button>
+      <button data-act="del" title="Delete the selected clips (Delete)">DELETE</button>
+      <button data-act="dup" title="Duplicate (Ctrl+D)">DUPLICATE</button>
+      <span class="sep"></span>
+      <button data-act="addV" title="Add a video track">+ VIDEO TRACK</button>
+      <button data-act="addA" title="Add an audio track">+ AUDIO TRACK</button>
+      <button data-act="addT" title="Add a text track">+ TEXT TRACK</button>
+      <button data-act="marker" title="Add a marker at the playhead (M)">MARKER</button>
+      <span class="sep"></span>
+      <label title="Snap clips to the playhead, clip edges and markers"><input type="checkbox" id="snapChk" checked> SNAP</label>
+      <span class="grow"></span>
+      <span class="dim">ZOOM</span>
+      <input type="range" id="zoom" min="0" max="100" value="40" title="Timeline zoom (Ctrl + wheel)">
+      <button data-act="fit" title="Fit the whole project">FIT</button>
+    </div>
+    <div id="tlmain">
+      <div id="heads"></div>
+      <div id="tlscroll">
+        <div id="ruler"></div>
+        <div id="tracks"></div>
+        <div id="playhead"><div class="knob"></div></div>
+      </div>
+    </div>
+  </section>
+
+  <main id="cover" class="hidden"></main>
+</div>
+<div id="modal" class="hidden"><div class="box" id="modalBox"></div></div>
+<div id="toast" class="hidden"></div>
+<script src="engine.js"></script>
+<script src="ui.js"></script>
+<script src="cover.js"></script>
+</body>
+</html>

@@ -1,4 +1,4 @@
-3.51.0
+3.52.0
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Music Hub: listen to your streaming services inside Purphex
-sha256=f807c7a932f83fce9b8af58c0fa82e7d2c11a2df2c3754f9dd68a63c37cbf928
+Purphex Creative Studio: Video Studio and AI Cover Studio
+sha256=ae26366921be7d6a8b341d4bce1128d19ae705ff5c7e673795c9e2464c04398d

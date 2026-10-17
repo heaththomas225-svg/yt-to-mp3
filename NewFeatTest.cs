@@ -355,6 +355,23 @@ static class NF
             Check("tests never start the music browser (and it would be muted under test)", F<object>("hubBObj") == null && StudioForm.HubMuted, "");
             HubApi.PostHook = null; HubApi.GetHook = null; HubCatalog.GetHook = null; HubVault.Forget("spotify."); SetF("tab", 0);
         }
+        {   // CREATIVE STUDIO: side panel entries, safe project files, autosave recovery, export settings
+            var names = (string[])typeof(StudioForm).GetField("MenuNames", BindingFlags.NonPublic | BindingFlags.Static).GetValue(null); int hi = Array.IndexOf(names, "Music Hub");
+            Check("Video Studio and Cover Studio are in the side panel, under Music Hub", hi >= 0 && names[hi + 1] == "Video Studio" && names[hi + 2] == "Cover Studio", string.Join(",", names));
+            var proj = new Dictionary<string, object> { { "id", "ptest1" }, { "name", "Test video" }, { "clips", new List<object> { new Dictionary<string, object> { { "id", "c1" }, { "start", 1.5 }, { "_err", true } } } } };
+            CreativeStore.Save("video", proj, false); bool rec; var back = CreativeStore.Load("video", "ptest1", out rec);
+            Check("a video project saves and opens again (runtime-only fields are not written)", HubApi.S(back, "name") == "Test video" && !rec && !File.ReadAllText(CreativeStore.ProjPath("video", "ptest1")).Contains("_err"), "");
+            bool refused = false; try { CreativeStore.SafeWrite(CreativeStore.ProjPath("video", "ptest1"), "{ broken"); } catch { refused = true; }
+            Check("a broken save never replaces a good project", refused && HubApi.S(CreativeStore.Load("video", "ptest1", out rec), "name") == "Test video", "");
+            System.Threading.Thread.Sleep(30); proj["name"] = "Unsaved change"; CreativeStore.Save("video", proj, true); var rc = CreativeStore.Load("video", "ptest1", out rec);
+            Check("after a crash the newer autosave is offered back (and the saved project stays as it was)", rec && HubApi.S(rc, "name") == "Unsaved change" && File.ReadAllText(CreativeStore.ProjPath("video", "ptest1")).Contains("Test video"), "");
+            CreativeStore.Rename("video", "ptest1", "Renamed"); string dup = CreativeStore.Duplicate("video", "ptest1"); var lst = CreativeStore.List("video");
+            Check("projects can be renamed, duplicated and listed", lst.Count == 2 && lst.Any(x => HubApi.S(x, "name") == "Renamed copy"), lst.Count.ToString());
+            CreativeStore.Delete("video", dup); CreativeStore.Delete("video", "ptest1"); Check("projects can be deleted", CreativeStore.List("video").Count == 0, "");
+            Check("media kinds are recognised (and unknown files refused)", CreativeStore.KindOf("a.MOV") == "video" && CreativeStore.KindOf("b.flac") == "audio" && CreativeStore.KindOf("c.png") == "image" && CreativeStore.KindOf("d.exe") == null, "");
+            Check("export settings: H.264, HEVC, WebM and audio-only use the right encoders", CreativeStore.ExportArgs("mp4-h264", "high", 192, 30, "a.wav", "o.mp4").Contains("libx264") && CreativeStore.ExportArgs("mp4-h265", "good", 192, 30, "a.wav", "o.mp4").Contains("libx265") && CreativeStore.ExportArgs("webm", "good", 160, 30, "a.wav", "o.webm").Contains("libvpx-vp9") && CreativeStore.ExportArgs("webm", "good", 160, 30, "a.wav", "o.webm").Contains("libopus") && CreativeStore.ExportArgs("m4a", "", 256, 30, "a.wav", "o.m4a").Contains("aac -b:a 256k") && !CreativeStore.ExportArgs("m4a", "", 256, 30, "a.wav", "o.m4a").Contains("image2pipe"), "");
+            Check("AI images are never faked without a provider", !StudioForm.ArtProvider.Configured || HubVault.Get("openai.key").Length > 0, "");
+        }
         {   // BUTTONS WIN: a button on a card or row takes the click even when the card was added after it; a pop-up still blocks what is behind it
             var regs = F<List<HitReg>>("regs"); var keep = new List<HitReg>(regs); regs.Clear(); var top = typeof(StudioForm).GetMethod("TopRegion", BF); var reg = typeof(StudioForm).GetMethod("Reg", BF);
             SetF("regLayer", 0); var btn = (HitReg)reg.Invoke(sf, new object[] { new RectangleF(100, 100, 80, 30), (Action)(() => { }) }); btn.Button = true;

@@ -610,6 +610,26 @@ Low-pass (with resonance), high-pass, telephone, rhythm gate, drive (soft, hard 
 ## Presets, undo and automation
 PRESETS has 55 factory presets (subtle, vocal, drum fills, build-ups, transitions, EDM, drum and bass, UK garage, trap, experimental, aggressive) and your own: save, rename and delete them there. The arrows step through them. Ctrl+Z and Ctrl+Y undo and redo in the window. Every setting is in the plugin panel too, with its A button for automation, and everything is saved with the project.
 "),
+        new HelpTopic("studio-creative", "Purphex Music", "Creative Studio: Video Studio and AI Cover Studio", false, @"
+## Where it is
+Side panel (the three lines at the top left): VIDEO STUDIO or COVER STUDIO, under Music Hub. The two buttons at the top switch between them; BACK TO DAW returns to your song.
+## Your first video
+Press MAKE A VIDEO FROM MY SONG (or MY SONG in MEDIA): pick the song, a background picture or video, a visualiser, the artist and title and the colours, and it is all put on the timeline. Press PLAY to watch, then EXPORT.
+## Editing
+IMPORT (or drop files on MEDIA) adds video, audio, photos and PNG graphics. Drag them onto the timeline. Drag a clip to move it (also to another track), drag its edges to trim, press S to split at the playhead, Ctrl+D to duplicate, Delete to delete. Shift-click selects several. SNAP sticks clips to the playhead, clip edges and markers (M). Ctrl + wheel zooms the timeline. Tracks: rename by clicking the name, M mutes and S solos audio, SHOWN hides a video track, LOCK protects it, drag the bottom of a track to resize it.
+## The inspector
+Click a clip: CLIP (start, length, in point, speed), TRANSFORM (position, scale, rotation, opacity, crop, fit or fill; or drag the box on the monitor), AUDIO (volume, fades, normalise), EFFECTS (colour and looks, HOLD TO COMPARE), TRANSITION (at the start and at the end), TEXT and VISUALISER settings.
+## Titles, lyrics and visualisers
+TITLES adds text at the playhead (song title, artist name, lower third, lyric caption, karaoke, credits, promos). LYRICS: paste the words, press START TAPPING and press SPACE as each line starts; .srt and .lrc files can be imported and exported. Purphex does not hear the words by itself. VISUALS adds visualisers that move with the real audio of the timeline.
+## Export
+EXPORT: MP4 (H.264 or H.265), WebM or audio only, the size, frame rate, quality and range. Every frame is drawn with all effects, transitions and text, then encoded by ffmpeg (installed by the converter the first time you convert something). The finished file is checked.
+## AI Cover Studio
+Layers on the right (pictures, text, shapes, gradients, textures, vignette): click one to edit it, drag text and pictures on the canvas, the wheel resizes them. Text stays separate from pictures, so you can change it any time. EXPORT PNG / JPEG, USE AS SONG COVER (your saved song project) or SEND TO VIDEO STUDIO. LIBRARY keeps your artwork.
+## AI images
+Describe the artwork, pick a style, colours, mood, lighting and composition, and press GENERATE. It uses OpenAI's image service with your own API key: press AI SETTINGS and paste it (platform.openai.com > API keys; kept encrypted on this PC and only sent to OpenAI). Without a key nothing is generated.
+## Safe projects
+SAVE (Ctrl+S) keeps the project; SAVE COPY makes another. Projects also autosave in the background and come back after a crash. Your media files stay where they are: a moved file is marked MISSING (right-click it to find it).
+"),
         new HelpTopic("studio-musichub", "Purphex Music", "Music Hub: listen to your streaming services inside Purphex", false, @"
 ## Where it is
 Open the side panel (the three lines at the top left) and press MUSIC HUB, right under Community.
