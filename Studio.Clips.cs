@@ -221,7 +221,7 @@ partial class StudioForm
         var sr = Rc(box.X + 24, fy + 28, box.Width - 48 - 96, 22);
         var rg = Slider(g, sr, Clamp01(frac), f => { float v = (float)Math.Round(lo + f * (hi - lo), 1); if (Math.Abs(v) < 0.4f) v = 0; c.ClipGainDb = v; }, Accent2);
         var dn = rg.OnDown; rg.OnDown = () => { PushUndo(); if (dn != null) dn(); }; rg.OnDouble = () => c.ClipGainDb = 0;
-        Txt(g, (c.ClipGainDb > 0 ? "+" : "") + c.ClipGainDb.ToString("0.0", CultureInfo.InvariantCulture) + " dB", 15, Ink, Rc(sr.Right + 10, fy + 26, 86, 26), StringAlignment.Near, true);
+        ValueBox(g, Rc(sr.Right + 10, fy + 23, 86, 30), (c.ClipGainDb > 0 ? "+" : "") + c.ClipGainDb.ToString("0.0", CultureInfo.InvariantCulture) + " dB", Num(c.ClipGainDb), s0 => { float v; if (ParseNum(s0, out v)) { PushUndo(); c.ClipGainDb = (float)Math.Round(Math.Max(lo, Math.Min(hi, v)), 1); } }, 14, true);   // type an exact gain
         Btn(g, Rc(box.X + 24, box.Bottom - 54, 130, 36), "RESET TO 0", 1, () => { PushUndo(); c.ClipGainDb = 0; }, 12);
         Txt(g, "-30 dB  ...  +12 dB", 10, DimC, Rc(box.X + 166, fy + 54, 150, 18), StringAlignment.Near, false);
         Btn(g, Rc(box.Right - 24 - 130, box.Bottom - 54, 130, 36), "DONE", 2, () => gainOpen = false, 13);

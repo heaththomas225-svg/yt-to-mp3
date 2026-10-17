@@ -2,6 +2,10 @@
 
 What changed in each version of **Purphex**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.63.3  Type an exact gain
+
+- NEW: The GAIN box has a box for the value: click it, type the gain you want (for example -8.5) and press Enter. It stays between -30 and +12 dB, and Ctrl+Z undoes it.
+
 ## 3.63.2  Ctrl + Shift no longer resizes the tracks
 
 - FIXED: Holding Ctrl and Shift while scrolling no longer makes the tracks bigger and smaller. Alt + mouse wheel still changes the track height on purpose.

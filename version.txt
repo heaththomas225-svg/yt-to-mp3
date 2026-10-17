@@ -1,4 +1,4 @@
-3.63.2
+3.63.3
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Ctrl + Shift no longer resizes the tracks
-sha256=5c7638170f4156c19a6e7c9dab1e67ad7d35e7d7f861f577179b7ba38a2a023f
+Type an exact gain
+sha256=a4cf514bf5309534ba722b535fb7917971c54d25e6a0546e00bedec0f89ec6b5
