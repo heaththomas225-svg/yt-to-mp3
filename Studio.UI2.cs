@@ -122,6 +122,42 @@ partial class StudioForm
             FinishSeparation(st, vc, ic, off); Toast("Separated: vocals and instrumental are ready, perfectly in sync, and the original track was removed (Ctrl+Z brings it back). Stems saved in " + outDir);
         });
     }
+    // ---------------- Split into 4 stems: vocals, drums, bass and other ----------------
+    void Separate4Click() { Separator.Warmup(); PickTrackMenu("Split which track into 4 stems (vocals, drums, bass, other)?", t => t.Clip != null && !t.Instrument && !t.IsBus, SeparateTrack4); }
+    void SeparateTrack4(Track song)
+    {
+        if (song == null) return;
+        if (song.Clip == null || string.IsNullOrEmpty(song.Clip.Path) || !File.Exists(song.Clip.Path)) { MessageBox.Show(this, "That track's audio file couldn't be found on disk."); return; }
+        if (StudioEnv.Ffmpeg() == null) { MessageBox.Show(this, "ffmpeg isn't installed yet. Convert something once in the main window first (that installs ffmpeg)."); return; }
+        if (!Separator.Installed && MessageBox.Show(this,
+            "Splitting into stems uses an AI model (Demucs, MIT licence) that runs on your PC.\n\nOne-time download: about 0.5 GB (a private copy of Python, PyTorch and the model), stored in your AppData folder. Nothing is installed system-wide.\n\nDownload it now?",
+            "Separation setup", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
+        string src = song.Clip.Path, baseName = Path.GetFileNameWithoutExtension(src); long off = song.Offset; Track st = song;
+        string outDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyMusic), "yt2mp3", "Studio", baseName);
+        Separator.OfferTurbo(this);
+        AudioClip[] cl = null; bool installNow = !Separator.Installed; const string say = "Splitting into 4 stems with AI: vocals, drums, bass and other...\n(a few minutes; the first time it also downloads the separation model)";
+        RunBusy(say, true, prog =>
+        {
+            if (installNow) { busyText = "Setting up the separation engine (one time)..."; Separator.Install(m => { }, p => prog(p * 0.45f), () => cancelFlag); }
+            busyText = say; string[] paths; float lo = installNow ? 0.45f : 0f;
+            if (!Separator.Separate4(src, outDir, baseName, m => { }, p => prog(lo + p * (0.92f - lo)), () => cancelFlag, out paths)) throw new Exception(cancelFlag ? "Cancelled." : "Separation failed.");
+            busyText = "Loading the stems..."; var c = new AudioClip[4]; for (int k = 0; k < 4; k++) { c[k] = AudioClip.FromFile(paths[k]); prog(0.92f + 0.02f * (k + 1)); } cl = c;
+        }, ok =>
+        {
+            if (!ok || cl == null) return;
+            FinishSeparation4(st, cl, off); Toast("Split into 4 stems: vocals, drums, bass and other, perfectly in sync, and the original track was removed (Ctrl+Z brings it back). Stems saved in " + outDir);
+        });
+    }
+    // the four stems take the place of the song (drums, bass and other first, the vocals under them); the original is removed as with the 2-stem split
+    internal void FinishSeparation4(Track st, AudioClip[] cl, long off)
+    {
+        string sname = st.Name.Replace(" (original)", ""); string[] nm = { "Vocals", "Drums", "Bass", "Other" }; string[] role = { "vocal", "beat", "beat", "beat" }; var ts = new Track[4];
+        for (int k = 0; k < 4; k++) { ts[k] = StudioEngine.NewTrack(sname + " - " + nm[k], role[k], cl[k]); ts[k].Offset = off; ts[k].ClipStart = st.ClipStart; ts[k].ClipFrames = st.ClipFrames; }
+        lock (eng.Sync) { eng.Tracks.Insert(0, ts[1]); eng.Tracks.Insert(1, ts[2]); eng.Tracks.Insert(2, ts[3]); eng.Tracks.Insert(3, ts[0]); }
+        if (st.Host != null || RowHasPieces(st)) { PushUndo(); lock (eng.Sync) { if (st.Host != null) { eng.Tracks.Remove(st); retired.AddRange(st.Fx); } else { st.Clip = null; st.Source = ""; st.ClipStart = 0; st.ClipFrames = -1; } } }
+        else DeleteTrackQuiet(st);
+        selTrack = Math.Max(0, eng.Tracks.IndexOf(ts[0])); selFx = -1;
+    }
     // after the split: the vocals and the instrumental take the place of the song, and the original track (with any pieces on it) is removed so the project stays tidy (Ctrl+Z brings it back)
     internal void FinishSeparation(Track st, AudioClip vc, AudioClip ic, long off)
     {

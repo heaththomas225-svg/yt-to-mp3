@@ -7,10 +7,14 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.62.0";
+    public const string Latest = "3.63.0";
 
     public const string Text =
-@"3.62.0  Purphex Drum2MIDI: drums into notes
+@"3.63.0  Split into 4 stems, and move notes in time in Flex Pitch
+ + NEW: Split into 4 stems (side menu, Tools): the AI splits a song into VOCALS, DRUMS, BASS and OTHER (everything else) on four tracks, perfectly in sync, and the four add up to the song exactly. Long songs are done in pieces like the 2-stem split, and the stems are saved next to it.
+ + NEW: Flex Pitch: drag a note sideways to move it in time, earlier or later. It keeps its sound, pitch and length, and the audio between it and the notes around it stretches to fit (it cannot pass them). Up and down still changes the pitch.
+
+3.62.0  Purphex Drum2MIDI: drums into notes
  + NEW: Purphex Drum2MIDI: pick a drum track (a beat, a loop, a recorded kit) and press TURN THE DRUMS INTO NOTES. It listens for the KICKS, SNARES and HATS and writes them onto its own track as notes you can edit (kick 36, snare 38, hat 42), from where that track starts, with how hard each was hit. QUANTIZE snaps them to 1/8, 1/16 or 1/32; a sensitivity for each lets you catch quiet hits or only the big ones. Its own kit plays them (kick, snare, clap, closed and open hat, each tunable), or move the notes to any drum instrument.
 
 3.61.1  Closed accounts close their PCs

@@ -1,4 +1,4 @@
-3.62.0
+3.63.0
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Purphex Drum2MIDI: drums into notes
-sha256=3f8e3e798a8310e4d890775a797c1f60fd026cd8a834602e926045a4c20a6080
+Split into 4 stems, and move notes in time in Flex Pitch
+sha256=cc180c31c8e467771322f09ba2f546902f09e322d9c17d9588f2e2d06f6ad757

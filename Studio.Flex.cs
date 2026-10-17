@@ -20,7 +20,7 @@ partial class StudioForm
     // render worker
     Thread flexThread; volatile int flexReq, flexDone; volatile bool flexSwap; float[] flexOutL, flexOutR;
     // mouse drags
-    int flexDragMode; double flexDragMidi0; List<FlexNote> flexDragNotes = new List<FlexNote>(); List<double> flexDragT0 = new List<double>(); PointF flexDown, flexNow; bool flexMoved; FlexNote flexEdgeNote;
+    int flexDragMode; bool flexTimeDrag; readonly List<int> flexDragMove0 = new List<int>(); double flexDragMidi0; List<FlexNote> flexDragNotes = new List<FlexNote>(); List<double> flexDragT0 = new List<double>(); PointF flexDown, flexNow; bool flexMoved; FlexNote flexEdgeNote;
 
     // ---- open / close ----
     void FlexOpen()
@@ -176,7 +176,7 @@ partial class StudioForm
         var ncl = g.Save(); g.SetClip(na); List<FlexNote> list; lock (flexLk) list = new List<FlexNote>(flexAna.Notes); int hop = flexAna.Hop; var ratio = flexRatio;
         foreach (var n in list)
         {
-            float x0 = FlexX((double)n.Start * hop), x1 = FlexX((double)n.End * hop); if (x1 < na.X - 4 || x0 > na.Right + 4) continue; if (x1 - x0 < 16) { float cxm = (x0 + x1) / 2f; x0 = cxm - 8; x1 = cxm + 8; } float yc = FlexY(n.Target, na); float bhh = Math.Max(FlexRowH * 0.84f, 22f); var blk = Rc(x0, yc - bhh / 2f, x1 - x0, bhh);   /* never smaller than 16 x 22: easy to grab without zooming in */ bool sel = flexSel.Contains(n);
+            float x0 = FlexX((double)(n.Start + n.Move) * hop), x1 = FlexX((double)(n.End + n.Move) * hop); if (x1 < na.X - 4 || x0 > na.Right + 4) continue; if (x1 - x0 < 16) { float cxm = (x0 + x1) / 2f; x0 = cxm - 8; x1 = cxm + 8; } float yc = FlexY(n.Target, na); float bhh = Math.Max(FlexRowH * 0.84f, 22f); var blk = Rc(x0, yc - bhh / 2f, x1 - x0, bhh);   /* never smaller than 16 x 22: easy to grab without zooming in */ bool sel = flexSel.Contains(n);
             if (n.Deleted) { using (var pen = new Pen(TM.C(90, 160, 140, 200), 1f) { DashStyle = DashStyle.Dot }) g.DrawRectangle(pen, blk.X, blk.Y, blk.Width, blk.Height); continue; }
             if (n.Edited && Math.Abs(n.Target - n.OrigMidi) > 0.05) { float yo = FlexY(n.OrigMidi, na); using (var pen = new Pen(TM.C(110, 200, 190, 255), 1f) { DashStyle = DashStyle.Dash }) g.DrawRectangle(pen, x0, yo - FlexRowH * 0.42f, x1 - x0, FlexRowH * 0.84f); }
             Color baseC = n.Edited ? NeonCyan : NeonViolet; if (sel) Glow(g, baseC, blk, 4, 0.8f, 3);
@@ -189,7 +189,7 @@ partial class StudioForm
                 using (var pen = new Pen(Color.FromArgb(230, 255, 255, 255), 1.4f))
                 {
                     Action flush = () => { if (pts.Count > 1) { try { g.DrawLines(pen, pts.ToArray()); } catch { } } pts.Clear(); };
-                    for (int f = n.Start; f < n.End; f += step) { double m = flexAna.Midi[f]; if (m <= 0 || Math.Abs(m - n.OrigMidi) > 2.5) { flush(); continue; } double me = ratio != null && f < ratio.Length ? m + 12 * Math.Log(ratio[f], 2) : m; me = Math.Max(lo, Math.Min(hi, me)); pts.Add(new PointF(FlexX((double)f * hop), FlexY(me, na))); }
+                    for (int f = n.Start; f < n.End; f += step) { double m = flexAna.Midi[f]; if (m <= 0 || Math.Abs(m - n.OrigMidi) > 2.5) { flush(); continue; } double me = ratio != null && f < ratio.Length ? m + 12 * Math.Log(ratio[f], 2) : m; me = Math.Max(lo, Math.Min(hi, me)); pts.Add(new PointF(FlexX((double)(f + n.Move) * hop), FlexY(me, na))); }
                     flush();
                 }
             }
@@ -253,20 +253,42 @@ partial class StudioForm
     void FlexSelect(FlexNote n, bool add) { if (add) { if (flexSel.Contains(n)) flexSel.Remove(n); else flexSel.Add(n); } else if (!flexSel.Contains(n)) { flexSel.Clear(); flexSel.Add(n); } }
     void FlexNoteDown(FlexNote n)
     {
-        if (flexSplitTool) { var na0 = FlexNoteArea(); int fr = (int)(FlexSampleAt(MousePos.X) / flexAna.Hop); lock (flexLk) { var s = FlexPitch.Split(flexAna, n, fr); if (s == null) { Toast("Click further inside the note to split it."); } else { flexSel.Clear(); flexSel.Add(n); flexSel.Add(s); FlexChanged(); } } return; }
+        if (flexSplitTool) { var na0 = FlexNoteArea(); int fr = (int)(FlexSampleAt(MousePos.X) / flexAna.Hop) - n.Move; lock (flexLk) { var s = FlexPitch.Split(flexAna, n, fr); if (s == null) { Toast("Click further inside the note to split it."); } else { flexSel.Clear(); flexSel.Add(n); flexSel.Add(s); FlexChanged(); } } return; }
         FlexSelect(n, (ModifierKeys & Keys.Shift) != 0); flexDragMode = 1; flexDown = MousePos; flexMoved = false; var na = FlexNoteArea(); flexDragMidi0 = FlexMidiAt(MousePos.Y, na); flexDragNotes = new List<FlexNote>(flexSel); flexDragT0.Clear(); foreach (var q in flexDragNotes) flexDragT0.Add(q.Target);
     }
     void FlexNoteDrag(PointF pt)
     {
-        if (flexDragMode != 1) return; if (!flexMoved && Math.Abs(pt.Y - flexDown.Y) < 4) return; flexMoved = true; var na = FlexNoteArea(); double delta = FlexMidiAt(pt.Y, na) - flexDragMidi0; bool free = (ModifierKeys & Keys.Alt) != 0;
+        if (flexDragMode != 1) return;
+        if (!flexMoved) { float dx = Math.Abs(pt.X - flexDown.X), dy = Math.Abs(pt.Y - flexDown.Y); if (dx < 6 && dy < 4) return; flexTimeDrag = dx > dy * 1.5f; flexDragMove0.Clear(); foreach (var q in flexDragNotes) flexDragMove0.Add(q.Move); }   // the first move decides: sideways moves the notes in time, up and down changes the pitch
+        if (flexTimeDrag) { flexMoved = true; FlexTimeDrag(pt); return; }
+        flexMoved = true; var na = FlexNoteArea(); double delta = FlexMidiAt(pt.Y, na) - flexDragMidi0; bool free = (ModifierKeys & Keys.Alt) != 0;
         lock (flexLk) for (int i = 0; i < flexDragNotes.Count; i++) { var n = flexDragNotes[i]; double tgt = flexDragT0[i] + delta; if (!free) tgt = Math.Round(tgt); n.Fine = 0; n.Shift = Math.Max(-24, Math.Min(24, tgt - n.OrigMidi)); }
         FlexChanged();
     }
-    void FlexNoteUp() { flexDragMode = 0; flexMoved = false; }
+    void FlexNoteUp() { flexDragMode = 0; flexMoved = false; flexTimeDrag = false; }
+    // the dragged notes move together; they cannot pass the notes around them (a sliver of the gap is always kept)
+    void FlexTimeDrag(PointF pt)
+    {
+        var a = flexAna; if (a == null || flexDragNotes.Count == 0) return; int hop = a.Hop; int delta = (int)Math.Round((FlexSampleAt(pt.X) - FlexSampleAt(flexDown.X)) / hop);
+        lock (flexLk)
+        {
+            var notes = new List<FlexNote>(a.Notes); notes.RemoveAll(q => q.Deleted && !flexDragNotes.Contains(q)); notes.Sort((p, q) => p.Start.CompareTo(q.Start)); int lo = int.MinValue, hi = int.MaxValue;
+            for (int k = 0; k < flexDragNotes.Count; k++)
+            {
+                var n = flexDragNotes[k]; int m0 = flexDragMove0[k], idx = notes.IndexOf(n); FlexNote pv = null, nx = null;
+                for (int j = idx - 1; j >= 0; j--) if (!flexDragNotes.Contains(notes[j])) { pv = notes[j]; break; }
+                for (int j = idx + 1; j < notes.Count; j++) if (!flexDragNotes.Contains(notes[j])) { nx = notes[j]; break; }
+                int minStart = pv != null ? pv.End + pv.Move + 2 : 0, maxEnd = nx != null ? nx.Start + nx.Move - 2 : a.Frames;
+                lo = Math.Max(lo, minStart - (n.Start + m0)); hi = Math.Min(hi, maxEnd - (n.End + m0));
+            }
+            if (lo > hi) return; int d = Math.Max(lo, Math.Min(hi, delta)); for (int k = 0; k < flexDragNotes.Count; k++) flexDragNotes[k].Move = flexDragMove0[k] + d;
+        }
+        FlexChanged();
+    }
     void FlexEdgeDown(FlexNote n, int mode) { flexDragMode = mode; flexEdgeNote = n; flexSel.Clear(); flexSel.Add(n); flexMoved = false; }
     void FlexEdgeDrag(PointF pt)
     {
-        var n = flexEdgeNote; if (n == null || flexAna == null) return; int hop = flexAna.Hop; int f = (int)Math.Round(FlexSampleAt(pt.X) / hop); var notes = flexAna.Notes; int i = notes.IndexOf(n); if (i < 0) return; flexMoved = true;
+        var n = flexEdgeNote; if (n == null || flexAna == null) return; int hop = flexAna.Hop; int f = (int)Math.Round(FlexSampleAt(pt.X) / hop) - n.Move; var notes = flexAna.Notes; int i = notes.IndexOf(n); if (i < 0) return; flexMoved = true;
         lock (flexLk)
         {
             if (flexDragMode == 2) { int lo = i > 0 ? notes[i - 1].End : 0; n.Start = Math.Max(lo, Math.Min(n.End - 6, f)); }
@@ -286,7 +308,7 @@ partial class StudioForm
         if (flexDragMode == 4 && flexMoved && flexAna != null)
         {
             var na = FlexNoteArea(); var m = Rc(Math.Min(flexDown.X, flexNow.X), Math.Min(flexDown.Y, flexNow.Y), Math.Abs(flexNow.X - flexDown.X), Math.Abs(flexNow.Y - flexDown.Y)); int hop = flexAna.Hop;
-            lock (flexLk) foreach (var n in flexAna.Notes) { if (n.Deleted) continue; float x0 = FlexX((double)n.Start * hop), x1 = FlexX((double)n.End * hop), yc = FlexY(n.Target, na); if (m.IntersectsWith(Rc(x0, yc - 8, Math.Max(3, x1 - x0), 16)) && !flexSel.Contains(n)) flexSel.Add(n); }
+            lock (flexLk) foreach (var n in flexAna.Notes) { if (n.Deleted) continue; float x0 = FlexX((double)(n.Start + n.Move) * hop), x1 = FlexX((double)(n.End + n.Move) * hop), yc = FlexY(n.Target, na); if (m.IntersectsWith(Rc(x0, yc - 8, Math.Max(3, x1 - x0), 16)) && !flexSel.Contains(n)) flexSel.Add(n); }
         }
         flexDragMode = 0; flexMoved = false;
     }

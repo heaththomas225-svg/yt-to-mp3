@@ -278,7 +278,7 @@ try:
     torch.set_flush_denormal(True)
 except Exception:
     pass
-VI = model.sources.index('vocals')
+VI = model.sources.index('vocals'); SI = dict((n, model.sources.index(n)) for n in model.sources)
 DEV = 'cpu'; GPU = {'info': 'no graphics card test (DirectML not available)'}
 
 def to_cpu():
@@ -393,7 +393,7 @@ pick_gpu()
 print('INFO|torch %s, %d threads, %s logical cores; %s' % (torch.__version__, torch.get_num_threads(), os.cpu_count(), GPU.get('info', '')), flush=True)
 print('DEVICE|%s' % (('gpu: ' + GPU.get('name', '')) if DEV != 'cpu' else 'cpu'), flush=True)
 
-def run_model(wav, overlap, show, stats=None):
+def run_model(wav, overlap, show, stats=None, four=False):
     # the level the model sees must be the same for every piece of a long song, so the pieces match at the seams: stats = (mean, std) of the WHOLE song
     if stats is None:
         ref = wav.mean(0); mu = float(ref.mean()); sd = float(ref.std()) + 1e-8
@@ -410,8 +410,12 @@ def run_model(wav, overlap, show, stats=None):
         with torch.no_grad():
             out = apply_model(model, wav[None], device='cpu', shifts=1, split=True, overlap=overlap, progress=show, num_workers=0)[0]
     out = out * sd + mu
-    v = out[VI]; i = (wav * sd + mu) - v   # the beat is the song itself minus the separated vocal: nothing of the beat is lost, and vocals + beat add up to the song exactly
-    return v.cpu().numpy().T, i.cpu().numpy().T
+    song = wav * sd + mu; v = out[VI]
+    if four:   # vocals, drums, bass, and the rest is the song minus those three: the four add up to the song exactly
+        dr = out[SI['drums']]; ba = out[SI['bass']]; ot = song - v - dr - ba
+        return [x.cpu().numpy().T for x in (v, dr, ba, ot)]
+    i = song - v   # the beat is the song itself minus the separated vocal: nothing of the beat is lost, and vocals + beat add up to the song exactly
+    return [v.cpu().numpy().T, i.cpu().numpy().T]
 
 def read(inp, start, dur):
     kw = dict(streams=0, samplerate=SR, channels=model.audio_channels)
@@ -435,42 +439,45 @@ for line in sys.stdin:
     line = line.strip()
     if not line.startswith('JOB|'): continue
     try:
-        _, inp, outdir, overlap, dur, chunk = line.split('|', 5)
+        parts = line.split('|')
+        _, inp, outdir, overlap, dur, chunk = parts[:6]
+        four = len(parts) > 6 and parts[6] == '4'   # 4 stems: vocals, drums, bass and the rest; otherwise vocals and the beat
+        names = ['vocals', 'drums', 'bass', 'other'] if four else ['vocals', 'no_vocals']
         overlap = float(overlap); total = float(dur); CH = float(chunk)
         os.makedirs(outdir, exist_ok=True)
-        vp = os.path.join(outdir, 'vocals.wav'); ip = os.path.join(outdir, 'no_vocals.wav')
+        paths = [os.path.join(outdir, n + '.wav') for n in names]
         if CH <= 0 or total <= 0 or total <= CH * 1.3:
-            v, i = run_model(read(inp, None, None), overlap, True)
-            sf.write(vp, v, SR, subtype='FLOAT'); sf.write(ip, i, SR, subtype='FLOAT')
+            outs = run_model(read(inp, None, None), overlap, True, None, four)
+            for p, a in zip(paths, outs): sf.write(p, a, SR, subtype='FLOAT')
         else:
             # long song: process it in chunks with a crossfaded overlap, writing as we go, so memory stays small
             OV = 4.0; ovn = int(OV * SR); big = total > 2400
             stats = song_stats(inp, total)
-            wv = open_wav(vp, big); wi = open_wav(ip, big)
-            pos = 0.0; tail_v = None; tail_i = None; first = True
+            ws = [open_wav(p, big) for p in paths]
+            pos = 0.0; tails = None; first = True
             while True:
                 d = min(CH, total - pos)
                 if total - (pos + d) < 2 * OV: d = total - pos
                 last = (pos + d >= total - 0.01)
-                v, i = run_model(read(inp, pos, d), overlap, False, stats)
-                n = v.shape[0]
+                outs = run_model(read(inp, pos, d), overlap, False, stats, four)
+                n = outs[0].shape[0]
                 if first:
                     cut = n if last else n - ovn
-                    wv.write(v[:cut]); wi.write(i[:cut])
+                    for w, a in zip(ws, outs): w.write(a[:cut])
                 else:
-                    k = min(ovn, n, tail_v.shape[0])
-                    w = np.linspace(0.0, 1.0, k, dtype=np.float32)[:, None]
-                    wv.write(tail_v[:k] * (1 - w) + v[:k] * w); wi.write(tail_i[:k] * (1 - w) + i[:k] * w)
+                    k = min(ovn, n, tails[0].shape[0])
+                    g = np.linspace(0.0, 1.0, k, dtype=np.float32)[:, None]
                     cut = n if last else n - ovn
-                    if cut > k:
-                        wv.write(v[k:cut]); wi.write(i[k:cut])
+                    for w, a, t in zip(ws, outs, tails):
+                        w.write(t[:k] * (1 - g) + a[:k] * g)
+                        if cut > k: w.write(a[k:cut])
                 if not last:
-                    tail_v = v[n - ovn:]; tail_i = i[n - ovn:]
+                    tails = [a[n - ovn:] for a in outs]
                 first = False
                 sys.stderr.write('%d%%|\n' % int(min(99, (pos + d) / total * 100))); sys.stderr.flush()
                 if last: break
                 pos += d - OV
-            wv.close(); wi.close()
+            for w in ws: w.close()
         print('DONE|ok', flush=True)
     except Exception as e:
         print('ERR|%s' % e, flush=True)
@@ -529,9 +536,11 @@ for line in sys.stdin:
     static void MoveOver(string from, string to) { try { if (File.Exists(to)) File.Delete(to); File.Move(from, to); } catch { File.Copy(from, to, true); } }
 
     // 1 = ok, 0 = worker unusable (caller falls back), -1 = cancelled
-    static int SeparateWorker(string input, string outDir, string baseName, Action<string> log, Action<float> prog, Func<bool> cancelled, out string vocalsPath, out string instPath)
+    static readonly string[] Stems2 = { "vocals", "no_vocals" }, Stems4 = { "vocals", "drums", "bass", "other" };
+    static readonly string[] Names2 = { "vocals", "instrumental" }, Names4 = { "vocals", "drums", "bass", "other" };
+    static int SeparateWorker(string input, string outDir, string baseName, Action<string> log, Action<float> prog, Func<bool> cancelled, bool four, out string[] outs)
     {
-        vocalsPath = null; instPath = null; startupDied = false;
+        outs = null; startupDied = false;
         string tmp = Path.Combine(outDir, ".sep_tmp_" + Guid.NewGuid().ToString("N").Substring(0, 6));
         try
         {
@@ -546,7 +555,7 @@ for line in sys.stdin:
             double ready = sw.Elapsed.TotalSeconds; var jobSw = Stopwatch.StartNew(); double firstP = -1; var userProg = prog; prog = pp => { if (firstP < 0 && pp > 0) firstP = jobSw.Elapsed.TotalSeconds; userProg(pp); };
             wbusy = true; wresult = null; wprog = prog; Directory.CreateDirectory(outDir);
             double dur = AudioClip.ProbeSeconds(input); if (dur > 600) log("Long song (" + (int)(dur / 60) + " min): processing it in chunks to keep memory low.");
-            win.WriteLine("JOB|" + input + "|" + tmp + "|0.25|" + dur.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture) + "|" + (ChunkOverride > 0 ? ChunkOverride : (dur > 600 ? 240 : 0))); win.Flush();
+            win.WriteLine("JOB|" + input + "|" + tmp + "|0.25|" + dur.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture) + "|" + (ChunkOverride > 0 ? ChunkOverride : (dur > 600 ? 240 : 0)) + (four ? "|4" : "")); win.Flush();
             while (wresult == null)
             {
                 if (cancelled()) { KillWorker(); return -1; }
@@ -556,10 +565,9 @@ for line in sys.stdin:
             wlast = DateTime.Now; string r = wresult; double took = jobSw.Elapsed.TotalSeconds;
             Diag("app " + System.Reflection.Assembly.GetExecutingAssembly().GetName().Version + ", " + (DisableFast ? "normal engine" : (CudaReady && !cudaBad ? "NVIDIA engine" : (FastReady && !fastBad ? "fast engine" : "normal engine"))) + ", device " + Device + "; model ready after " + ready.ToString("0.0") + " s; song " + dur.ToString("0") + " s; first progress after " + (firstP < 0 ? 0 : firstP).ToString("0.0") + " s; total " + took.ToString("0.0") + " s = " + (dur / Math.Max(0.1, took)).ToString("0.0") + "x realtime; result " + (r.Length > 60 ? r.Substring(0, 60) : r));
             if (!r.StartsWith("DONE|")) { log("Worker: " + r); return 0; }
-            string v = Path.Combine(tmp, "vocals.wav"), i = Path.Combine(tmp, "no_vocals.wav");
-            if (!File.Exists(v) || !File.Exists(i)) return 0;
-            vocalsPath = Path.Combine(outDir, baseName + " - vocals.wav"); instPath = Path.Combine(outDir, baseName + " - instrumental.wav");
-            MoveOver(v, vocalsPath); MoveOver(i, instPath); prog(1f); return 1;
+            var stems = four ? Stems4 : Stems2; var names = four ? Names4 : Names2; foreach (var st in stems) if (!File.Exists(Path.Combine(tmp, st + ".wav"))) return 0;
+            var res = new string[stems.Length]; for (int k = 0; k < stems.Length; k++) { res[k] = Path.Combine(outDir, baseName + " - " + names[k] + ".wav"); MoveOver(Path.Combine(tmp, stems[k] + ".wav"), res[k]); }
+            outs = res; prog(1f); return 1;
         }
         catch (Exception ex) { log("Worker error: " + ex.Message); return 0; }
         finally { wbusy = false; wprog = null; try { if (Directory.Exists(tmp)) Directory.Delete(tmp, true); } catch { } }
@@ -569,7 +577,16 @@ for line in sys.stdin:
     public static bool Separate(string input, string outDir, string baseName, string model, Action<string> log, Action<float> prog, Func<bool> cancelled,
         out string vocalsPath, out string instPath)
     {
-        vocalsPath = null; instPath = null;
+        vocalsPath = null; instPath = null; string[] o; if (!SeparateAny(input, outDir, baseName, model, log, prog, cancelled, false, out o)) return false; vocalsPath = o[0]; instPath = o[1]; return true;
+    }
+    // Splits a song into 4 real stems: VOCALS, DRUMS, BASS and OTHER (everything else). The four add up to the song. Paths in that order.
+    public static bool Separate4(string input, string outDir, string baseName, Action<string> log, Action<float> prog, Func<bool> cancelled, out string[] stems)
+    {
+        return SeparateAny(input, outDir, baseName, "htdemucs", log, prog, cancelled, true, out stems);
+    }
+    static bool SeparateAny(string input, string outDir, string baseName, string model, Action<string> log, Action<float> prog, Func<bool> cancelled, bool four, out string[] outs)
+    {
+        outs = null;
         if (model == "htdemucs" && input.IndexOf('|') < 0 && outDir.IndexOf('|') < 0)
         {
             // the NVIDIA turbo engine, when the user agreed to it
@@ -585,33 +602,32 @@ for line in sys.stdin:
                 KillWorker();   // a worker started earlier (Warmup) used the old engine: start a new one with the fast stack
                 var inner = prog; prog = p => inner(0.15f + p * 0.85f);
             }
-            string v, i; int r = SeparateWorker(input, outDir, baseName, log, prog, cancelled, out v, out i);
+            string[] so; int r = SeparateWorker(input, outDir, baseName, log, prog, cancelled, four, out so);
             if (r == 0 && startupDied && CudaReady && !cudaBad)
             {
                 cudaBad = true; try { File.WriteAllText(CudaFailed, "worker did not start"); } catch { } KillWorker(); log("(the NVIDIA engine did not start here; using the other engine)"); Diag("NVIDIA engine did not start");
-                r = SeparateWorker(input, outDir, baseName, log, prog, cancelled, out v, out i);
+                r = SeparateWorker(input, outDir, baseName, log, prog, cancelled, four, out so);
             }
             if (r == 0 && startupDied && FastReady && !fastBad)
             {
                 // the faster engine would not start on this PC: remember that and use the normal one from now on
                 fastBad = true; try { File.WriteAllText(FastFailed, "worker did not start"); } catch { } KillWorker(); log("(the faster engine did not start here; using the normal one)");
-                r = SeparateWorker(input, outDir, baseName, log, prog, cancelled, out v, out i);
+                r = SeparateWorker(input, outDir, baseName, log, prog, cancelled, four, out so);
             }
-            if (r == 1) { vocalsPath = v; instPath = i; return true; }
+            if (r == 1) { outs = so; return true; }
             if (r == -1) { log("Cancelled."); return false; }
             log("(fast worker unavailable, using the standard path)");
         }
-        return SeparateCli(input, outDir, baseName, model, log, prog, cancelled, out vocalsPath, out instPath);
+        return SeparateCli(input, outDir, baseName, model, log, prog, cancelled, four, out outs);
     }
-    static bool SeparateCli(string input, string outDir, string baseName, string model, Action<string> log, Action<float> prog, Func<bool> cancelled,
-        out string vocalsPath, out string instPath)
+    static bool SeparateCli(string input, string outDir, string baseName, string model, Action<string> log, Action<float> prog, Func<bool> cancelled, bool four, out string[] outs)
     {
-        vocalsPath = null; instPath = null;
+        outs = null;
         string tmp = Path.Combine(outDir, ".sep_tmp_" + Guid.NewGuid().ToString("N").Substring(0, 6)); Directory.CreateDirectory(tmp);
         try
         {
             log("Running AI separation (" + model + ")...  first run also downloads the model (~80 MB).");
-            string args = "-m demucs.separate -n " + model + " --two-stems=vocals --float32 --overlap 0.1 -o \"" + tmp + "\" --filename \"{stem}.{ext}\" \"" + input + "\"";
+            string args = "-m demucs.separate -n " + model + (four ? "" : " --two-stems=vocals") + " --float32 --overlap 0.1 -o \"" + tmp + "\" --filename \"{stem}.{ext}\" \"" + input + "\"";
             var rx = new Regex(@"(\d+)%\|");
             int code = Exec(PyExe, args, l =>
             {
@@ -620,11 +636,11 @@ for line in sys.stdin:
             }, cancelled);
             if (code == -999) { log("Cancelled."); return false; }
             string dir = Path.Combine(tmp, model);
-            string v = Path.Combine(dir, "vocals.wav"), i = Path.Combine(dir, "no_vocals.wav");
-            if (code != 0 || !File.Exists(v) || !File.Exists(i)) { log("Separation failed (exit " + code + ")."); return false; }
-            Directory.CreateDirectory(outDir);
-            vocalsPath = Path.Combine(outDir, baseName + " - vocals.wav"); instPath = Path.Combine(outDir, baseName + " - instrumental.wav");
-            File.Copy(v, vocalsPath, true); File.Copy(i, instPath, true); prog(1f);
+            var stems = four ? Stems4 : Stems2; var names = four ? Names4 : Names2; bool all = code == 0; foreach (var st in stems) if (!File.Exists(Path.Combine(dir, st + ".wav"))) all = false;
+            if (!all) { log("Separation failed (exit " + code + ")."); return false; }
+            Directory.CreateDirectory(outDir); var res = new string[stems.Length];
+            for (int k = 0; k < stems.Length; k++) { res[k] = Path.Combine(outDir, baseName + " - " + names[k] + ".wav"); File.Copy(Path.Combine(dir, stems[k] + ".wav"), res[k], true); }
+            outs = res; prog(1f);
             return true;
         }
         finally { try { Directory.Delete(tmp, true); } catch { } }

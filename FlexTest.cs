@@ -77,6 +77,20 @@ static class F
         var silent = new float[SR * 2]; var asl = FlexPitch.Analyse(silent, silent, silent.Length, SR, null, null); Check("silence gives no notes and does not crash", asl.Notes.Count == 0, "");
         var noise = new float[SR * 2]; var rnd = new Random(3); for (int i = 0; i < noise.Length; i++) noise[i] = (float)((rnd.NextDouble() * 2 - 1) * 0.3); var an = FlexPitch.Analyse(noise, noise, noise.Length, SR, null, null); Check("noise gives few or no notes", an.Notes.Count <= 2, an.Notes.Count + " notes");
         bool finite = true; for (int i = 0; i < dl.Length; i++) if (float.IsNaN(dl[i]) || float.IsInfinity(dl[i])) finite = false; Check("rendered audio is finite", finite, "");
+        // ---- moving a note in time: it keeps its length and pitch, the gap before it shrinks, the rest stays where it was ----
+        {
+            var tma = FlexPitch.Analyse(x, xr, n, SR, null, null); var c4 = tma.Notes[tma.Notes.Count - 1]; int mv = -(int)Math.Round(0.1 * SR / tma.Hop); double sh = mv * tma.Hop / (double)SR; c4.Move = mv; float[] tl, tmr; FlexPitch.Render(x, xr, n, tma, out tl, out tmr);
+            Func<float[], double, double, bool, double> edge = (y, from, to, rising) => { int ww = 441; for (int i = (int)(from * SR); i + ww < Math.Min(y.Length, (int)(to * SR)); i += 110) { double s = 0; for (int k = i; k < i + ww; k++) s += y[k] * y[k]; double r = Math.Sqrt(s / ww); if (rising ? r > 0.2 : r < 0.05) return (i + ww / 2) / (double)SR; } return -1; };
+            double on0 = edge(x, 1.62, 2.7, true), on1 = edge(tl, 1.62, 2.7, true), off0 = edge(x, on0 + 0.2, 2.8, false), off1 = edge(tl, on1 + 0.2, 2.8, false);
+            Check("a note dragged sideways starts earlier by the amount it was moved", Math.Abs((on1 - on0) - sh) < 0.015, "onset " + on0.ToString("0.000") + " -> " + on1.ToString("0.000") + " s (moved " + sh.ToString("0.000") + ")");
+            Check("and keeps its length (it ends earlier by the same amount)", Math.Abs((off1 - off0) - sh) < 0.02, "end " + off0.ToString("0.000") + " -> " + off1.ToString("0.000") + " s");
+            var tb = FlexPitch.Analyse(tl, tmr, n, SR, null, null); double hz = Med(tb, on1 + 0.1, off1 - 0.1); Check("and keeps its pitch (still C4)", Math.Abs(Cents(hz, 261.63)) < 15, hz.ToString("0.0") + " Hz");
+            double d0 = 0; for (int i = 0; i < (int)(0.75 * SR); i++) d0 = Math.Max(d0, Math.Abs(tl[i] - x[i])); Check("the notes before it are untouched", d0 < 1e-3, d0.ToString("0.000000"));
+            Check("the song stays the same length", tl.Length == n && tmr.Length == n, "");
+            double jx = 0, jo = 0; for (int i = 1; i < n; i++) { jx = Math.Max(jx, Math.Abs(x[i] - x[i - 1])); jo = Math.Max(jo, Math.Abs(tl[i] - tl[i - 1])); } Check("no clicks where the audio was stretched", jo < jx * 1.6, jx.ToString("0.000") + " -> " + jo.ToString("0.000"));
+            c4.Move = 0; FlexPitch.Render(x, xr, n, tma, out tl, out tmr); double dz = 0; for (int i = 0; i < n; i++) dz = Math.Max(dz, Math.Abs(tl[i] - x[i])); Check("moved back to 0 the audio is exactly as it was", dz < 1e-6, dz.ToString("0.0000000"));
+            c4.Move = -500; var anc = FlexTime.Anchors(tma, n); bool mono = true; for (int i = 1; i < anc.Count; i++) if (anc[i][0] <= anc[i - 1][0] || anc[i][1] <= anc[i - 1][1]) mono = false; Check("even a move past the previous note never folds time back (the map always runs forward)", mono, ""); c4.Move = 0;
+        }
         Console.WriteLine(fails == 0 ? "=== flex pitch checks passed ===" : "=== " + fails + " FAILED ==="); Environment.Exit(fails == 0 ? 0 : 1);
     }
 }

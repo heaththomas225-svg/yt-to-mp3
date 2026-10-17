@@ -163,7 +163,7 @@ Press Purphex Music (or ADD MUSIC) on the main window.
 1. Press ADD MUSIC and choose a file: MP3, WAV, FLAC, AIFF and more.
 2. Say what is IN the file: Full song with music, Vocals only, or Beat only. Only Full song gets split by the AI (see Full song, Vocals only, Beat only).
 
-3. For a full song press SPLIT VOCALS + BEAT. The AI makes two real files and shows them as two tracks, perfectly in sync. The first time it asks to download the AI (about 0.5 GB).
+3. For a full song press SPLIT VOCALS + BEAT. The AI makes two real files and shows them as two tracks, perfectly in sync. The first time it asks to download the AI (about 0.5 GB). For more control, open the side menu and choose Split into 4 stems: vocals, drums, bass and other on four tracks (together they add up to the song).
 4. Press PLAY (or Space). Use M and S to mute or solo either track.
 TIP: You can also add your own vocal and your own beat as separate tracks.
 TIP: Drag files onto the studio window to add them."),
@@ -771,7 +771,8 @@ A scroll bar runs along the top of Flex Pitch: drag the lit part to move along t
 ## Editing notes
 - Drag a note up or down: it snaps to whole semitones. Hold Alt to move freely.
 - Click a note to select it; Shift-click adds more; drag a box around notes to select several; Ctrl+A selects all.
-- Drag the left or right edge of a note to change where it starts or ends.
+- Drag a note sideways to move it in time, earlier or later: it keeps its sound and its length, and the audio between it and the notes around it stretches to fit (it cannot pass them).
+- Drag the left or right edge of a note to change which part of the recording belongs to it.
 - Double-click a note to reset it. Right-click for more: split, join, snap to the nearest note, steady the pitch, take out the vibrato.
 - The white line inside each note is the real pitch of the voice (drift and vibrato), after your edits.
 ## The note controls (left side)

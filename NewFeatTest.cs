@@ -1189,6 +1189,13 @@ static class NF
                 sf.eng.Tracks.Clear(); var host2 = StudioEngine.NewTrack("Row", "song", clipS()); var piece2 = StudioEngine.NewTrack("Row (2)", "song", clipS()); piece2.Host = host2; piece2.Offset = 44100 * 6; sf.eng.Tracks.Add(host2); sf.eng.Tracks.Add(piece2);
                 sf.FinishSeparation(host2, clipS(), clipS(), 0); Check("splitting a track that has other pieces removes only its own audio (the pieces stay)", sf.eng.Tracks.Contains(piece2) && host2.Clip == null);
                 sf.eng.Tracks.Clear(); SetF("revertAction", null);
+                {   // SPLIT INTO 4 STEMS: drums, bass and other first, the vocals under them, in sync, the original gone (Ctrl+Z brings it back)
+                    var s4 = StudioEngine.NewTrack("Tune", "song", clipS()); s4.Offset = 44100 * 2; var keep = StudioEngine.NewTrack("Keep", "beat", clipS()); sf.eng.Tracks.Add(keep); sf.eng.Tracks.Add(s4);
+                    sf.FinishSeparation4(s4, new[] { clipS(), clipS(), clipS(), clipS() }, s4.Offset); var nm = sf.eng.Tracks.Select(t => t.Name).ToArray();
+                    Check("after a 4-stem split: Drums, Bass, Other, Vocals take the song's place, in sync, the original is gone", !sf.eng.Tracks.Contains(s4) && sf.eng.Tracks.Count == 5 && nm[0] == "Tune - Drums" && nm[1] == "Tune - Bass" && nm[2] == "Tune - Other" && nm[3] == "Tune - Vocals" && sf.eng.Tracks[4] == keep && sf.eng.Tracks.Take(4).All(t => t.Offset == 44100 * 2) && sf.eng.Tracks[3].Role == "vocal", string.Join(", ", nm));
+                    typeof(StudioForm).GetMethod("DoUndo", BF, null, Type.EmptyTypes, null).Invoke(sf, null); Check("Ctrl+Z brings the original back after a 4-stem split", sf.eng.Tracks.Exists(t => t.Name == "Tune"));
+                    sf.eng.Tracks.Clear(); SetF("revertAction", null);
+                }
             }
             {   // a vocal track's plugins never touch the beat on its own track; the plugin panel says clearly whose plugins they are
                 Func<bool, float> beatPeak = (vocFx) => { var e = new StudioEngine(); int nS = 44100; var one = new float[nS]; for (int i = 0; i < nS; i++) one[i] = 0.5f;

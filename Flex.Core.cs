@@ -18,10 +18,11 @@ class FlexNote
     public double GainDb;              // volume of the note
     public double Formant;             // semitones
     public bool Deleted;               // not processed any more (its audio is left as it was)
+    public int Move;                   // analysis frames the note was moved in time (+ later, - earlier); the audio around it stretches to fit
     public double Target { get { return OrigMidi + Shift + Fine / 100.0; } }
-    public bool Edited { get { return Math.Abs(Shift) > 1e-6 || Math.Abs(Fine) > 1e-6 || Drift > 0.01 || Math.Abs(Vib - 100) > 0.01 || Math.Abs(GainDb) > 1e-6 || Math.Abs(Formant) > 1e-6; } }
+    public bool Edited { get { return Math.Abs(Shift) > 1e-6 || Math.Abs(Fine) > 1e-6 || Drift > 0.01 || Math.Abs(Vib - 100) > 0.01 || Math.Abs(GainDb) > 1e-6 || Math.Abs(Formant) > 1e-6 || Move != 0; } }
     public FlexNote Clone() { return (FlexNote)MemberwiseClone(); }
-    public void ResetEdits() { Shift = 0; Fine = 0; Drift = 0; Vib = 100; GainDb = 0; Formant = 0; }
+    public void ResetEdits() { Shift = 0; Fine = 0; Drift = 0; Vib = 100; GainDb = 0; Formant = 0; Move = 0; }
     public static string Name(double midi) { string[] n = { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" }; int m = (int)Math.Round(midi); return n[((m % 12) + 12) % 12] + (m / 12 - 1); }
 }
 
@@ -181,6 +182,7 @@ static class FlexPitch
                 int f = Math.Min(n - 1, s / hop); double tg = Math.Pow(10, gain[f] / 20.0); g += (tg - g) * 0.004; if (Math.Abs(g - 1) > 1e-5) { outL[s] = (float)(outL[s] * g); outR[s] = (float)(outR[s] * g); }
             }
         }
+        FlexTime.Apply(ref outL, ref outR, length, a);   // notes moved in time, last
     }
 
     static void FormantShift(float[] l, float[] r, float semis, int sr)
@@ -221,6 +223,66 @@ static class FlexPitch
     public static double Snap(double midi, int mask)
     {
         int c = (int)Math.Round(midi); double best = c, bd = 1e9; for (int n = c - 6; n <= c + 6; n++) { int pc = ((n % 12) + 12) % 12; if ((mask & (1 << pc)) == 0) continue; double d = Math.Abs(n - midi); if (d < bd) { bd = d; best = n; } }
+        return best;
+    }
+}
+
+// ---------- moving notes in time ----------
+// Each note keeps its length and sound; the audio between the notes is stretched or squeezed to fill (WSOLA: pieces of the original are laid
+// end to end where they line up best, so nothing is pitched or smeared). Where nothing moved, the audio comes back as it was.
+static class FlexTime
+{
+    public static bool AnyMoved(FlexAnalysis a) { foreach (var n in a.Notes) if (!n.Deleted && n.Move != 0) return true; return false; }
+    // the time map as points (output sample, input sample): every note is an anchor at its new place
+    public static List<double[]> Anchors(FlexAnalysis a, int length)
+    {
+        var notes = new List<FlexNote>(a.Notes); notes.Sort((p, q) => p.Start.CompareTo(q.Start)); var pts = new List<double[]> { new double[] { 0, 0 } };
+        foreach (var n in notes)
+        {
+            int mv = n.Deleted ? 0 : n.Move; double s = (double)n.Start * a.Hop, e = (double)n.End * a.Hop, d = (double)mv * a.Hop;
+            foreach (var p in new[] { new[] { s + d, s }, new[] { e + d, e } }) { var last = pts[pts.Count - 1]; if (p[0] > last[0] && p[1] > last[1] && p[0] < length && p[1] < length) pts.Add(p); }
+        }
+        pts.Add(new double[] { length, length }); return pts;
+    }
+    public static double Map(List<double[]> an, double dst)
+    {
+        int lo = 0, hi = an.Count - 1; if (dst <= an[0][0]) return an[0][1] + (dst - an[0][0]); if (dst >= an[hi][0]) return an[hi][1] + (dst - an[hi][0]);
+        while (hi - lo > 1) { int m = (lo + hi) / 2; if (an[m][0] <= dst) lo = m; else hi = m; }
+        var a = an[lo]; var b = an[hi]; return a[1] + (dst - a[0]) * (b[1] - a[1]) / (b[0] - a[0]);
+    }
+    const int N = 1024, H = 512, S = 384;
+    public static void Apply(ref float[] L, ref float[] R, int length, FlexAnalysis a)
+    {
+        if (!AnyMoved(a) || length < N * 2) return; var an = Anchors(a, length);
+        var win = new float[N]; for (int i = 0; i < N; i++) win[i] = (float)(0.5 - 0.5 * Math.Cos(2 * Math.PI * i / N));
+        var oL = new float[length]; var oR = new float[length]; var norm = new float[length]; var mono = new float[length]; for (int i = 0; i < length; i++) mono[i] = (L[i] + R[i]) * 0.5f;
+        int prev = int.MinValue;
+        for (int outPos = -H; outPos < length; outPos += H)
+        {
+            int nominal = (int)Math.Round(Map(an, outPos + N / 2) - N / 2), pick;
+            if (prev == int.MinValue) pick = nominal;
+            else { int natural = prev + H; pick = Math.Abs(natural - nominal) <= 1 ? natural : Search(mono, length, natural, nominal); }   // where the map runs straight, the next piece simply follows on
+            for (int i = 0; i < N; i++)
+            {
+                int o = outPos + i; if (o < 0) continue; if (o >= length) break; int s = pick + i; float w = win[i];
+                if (s >= 0 && s < length) { oL[o] += L[s] * w; oR[o] += R[s] * w; } norm[o] += w;
+            }
+            prev = pick;
+        }
+        for (int i = 0; i < length; i++) { if (norm[i] > 1e-3) { oL[i] /= norm[i]; oR[i] /= norm[i]; } else { int s = (int)Math.Round(Map(an, i)); if (s >= 0 && s < length) { oL[i] = L[s]; oR[i] = R[s]; } } }
+        L = oL; R = oR;
+    }
+    // the start near "nominal" whose sound best continues the piece that would naturally follow the last one (coarse search, then fine)
+    static int Search(float[] x, int length, int natural, int nominal)
+    {
+        int best = nominal; double bs = double.MinValue;
+        Func<int, double> score = c =>
+        {
+            double dot = 0, e1 = 0, e2 = 0; for (int i = 0; i < N / 2; i += 4) { int p = natural + i, q = c + i; float u = p >= 0 && p < length ? x[p] : 0, v = q >= 0 && q < length ? x[q] : 0; dot += u * v; e1 += u * u; e2 += v * v; }
+            return e1 < 1e-12 || e2 < 1e-12 ? (c == nominal ? 0 : -1) : dot / Math.Sqrt(e1 * e2) - Math.Abs(c - nominal) * 1e-6;   // silence: stay on the map
+        };
+        for (int k = 0; k <= S; k += 8) foreach (int c in k == 0 ? new[] { nominal } : new[] { nominal - k, nominal + k }) { double sc = score(c); if (sc > bs + 1e-9) { bs = sc; best = c; } }
+        int coarse = best; for (int k = 1; k < 8; k++) foreach (int c in new[] { coarse - k, coarse + k }) { double sc = score(c); if (sc > bs + 1e-9) { bs = sc; best = c; } }
         return best;
     }
 }
