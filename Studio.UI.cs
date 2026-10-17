@@ -1495,6 +1495,8 @@ partial class StudioForm : Form
         if (k == (Keys.Control | Keys.Shift | Keys.S)) { SaveClick(true); return true; }
         if (k == Keys.F2 && tab == 0 && selTrack < eng.Tracks.Count) { RenameTrack(eng.Tracks[selTrack]); return true; }
         if (k == (Keys.Control | Keys.Z)) { DoUndo(); return true; }
+        if (tab == 0 && k == (Keys.Control | Keys.C)) { CopyKey(); return true; }   // copy the picked piece, or every highlighted section
+        if (tab == 0 && k == (Keys.Control | Keys.V)) { PasteKey(); return true; }   // paste at the needle on the picked track
         if (k == (Keys.Control | Keys.Y) || k == (Keys.Control | Keys.Shift | Keys.Z)) { DoRedo(); return true; }
         if (k == Keys.B && tab == 0) { SplitSelected(); return true; }
         if (k == Keys.Delete && tab == 0 && multiSel.Count > 0) { DeleteSelectedClips(); return true; }

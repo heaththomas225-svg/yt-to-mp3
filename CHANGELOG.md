@@ -2,6 +2,10 @@
 
 What changed in each version of **Purphex**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.63.5  Ctrl+C and Ctrl+V copy and paste clips
+
+- NEW: Ctrl+C copies the clip you picked, or every highlighted section at once. Ctrl+V pastes at the needle on the picked track: several sections keep their spacing in time and between tracks (new tracks are added below if needed). One Ctrl+Z takes the whole paste away. The right-click Copy and Paste here work the same way.
+
 ## 3.63.4  See every clip you drag, and Purphex scroll bars in the Music Hub
 
 - FIXED: Dragging several picked clips to other tracks now shows every one of them lifted, with its waveform, over the row it will land on (only the one you grabbed showed before, and without its audio).

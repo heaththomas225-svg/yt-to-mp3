@@ -1,4 +1,4 @@
-3.63.4
+3.63.5
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-See every clip you drag, and Purphex scroll bars in the Music Hub
-sha256=74ca8f28bc77d3715702a6b71b1596a769ffdbadc9f8bbc30cc4449b145b729e
+Ctrl+C and Ctrl+V copy and paste clips
+sha256=701e8ca65fdbbac8580512b5a23413b5b2bc304651c94a3a4c82ed98f5f99031

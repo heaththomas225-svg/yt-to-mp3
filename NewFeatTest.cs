@@ -966,6 +966,14 @@ static class NF
                 sf.RemoveFxPreset(d2); Check("REMOVE PRESET takes it off and puts the plugin back to its own defaults", d2.CurPreset == "" && Math.Abs(d2.Get("fb") - d2.Find("fb").Def) < 0.01f);
                 sf.CopyClip(ta); sf.PasteClip(ta, 441000); var pasted = sf.eng.Tracks.Count == 2 ? sf.eng.Tracks[1] : null;
                 Check("right-click Copy then Paste here puts a second piece on the same track, where you clicked", pasted != null && pasted.Host == ta && pasted.Offset == 441000 && pasted.Clip == ta.Clip, sf.eng.Tracks.Count + " tracks");
+                {   // Ctrl+C copies every highlighted section, Ctrl+V pastes them at the needle on the picked track, keeping their spacing in time and between tracks
+                    sf.eng.Tracks.Clear(); var ka = StudioEngine.NewTrack("A", "vocal", AudioClip.FromArrays(new float[88200], new float[88200], "a")); ka.Offset = 44100; var kb = StudioEngine.NewTrack("B", "vocal", AudioClip.FromArrays(new float[88200], new float[88200], "b")); kb.Offset = 44100 * 3; sf.eng.Tracks.Add(ka); sf.eng.Tracks.Add(kb);
+                    var msel = F<List<Track>>("multiSel"); msel.Clear(); msel.Add(ka); msel.Add(kb); SetF("tab", 0); var pk = typeof(StudioForm).GetMethod("ProcessCmdKey", BF); Func<Keys, bool> key = kk => { var m = new Message(); return (bool)pk.Invoke(sf, new object[] { m, kk }); };
+                    bool cOk = key(Keys.Control | Keys.C); string afterC = F<string>("toast"); msel.Clear(); SetF("selTrack", 0); sf.eng.Seek(44100 * 10); Application.DoEvents(); bool vOk = key(Keys.Control | Keys.V);
+                    var newA = sf.eng.Tracks.Find(t => t.Host == ka); var newB = sf.eng.Tracks.Find(t => t.Host == kb);
+                    Check("Ctrl+C copies all the highlighted sections and Ctrl+V pastes them at the needle, same spacing, same tracks", cOk && vOk && newA != null && newB != null && newA.Offset == 44100 * 10 && newB.Offset == 44100 * 12 && newA.Clip == ka.Clip && newB.Clip == kb.Clip, (newA == null ? "no A" : newA.Offset.ToString()) + " / " + (newB == null ? "no B" : newB.Offset.ToString()) + "  copy said: " + afterC);
+                    typeof(StudioForm).GetMethod("DoUndo", BF, null, Type.EmptyTypes, null).Invoke(sf, null); Check("one Ctrl+Z takes the whole paste away", sf.eng.Tracks.Count == 2, sf.eng.Tracks.Count + " tracks");
+                }
                 sf.eng.Tracks.Clear();
             }
             {   // clicking on the empty part of a track's row (past its audio) does not switch to that track

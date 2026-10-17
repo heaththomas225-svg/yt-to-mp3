@@ -113,24 +113,45 @@ partial class StudioForm
         return n;
     }
     // COPY / PASTE of a piece of audio: right-click a piece, Copy; right-click any audio track where you want it, Paste here (it lands at the spot you clicked)
-    Track clipCopy;
+    // what was copied: one piece, or every highlighted section (each keeps its distance in time and its row distance from the first)
+    class ClipCopyItem { public Track Copy; public long Rel; public int Row; }
+    readonly List<ClipCopyItem> clipCopies = new List<ClipCopyItem>();
+    Track clipCopy { get { return clipCopies.Count > 0 ? clipCopies[0].Copy : null; } }
     internal void CopyClip(Track piece)
     {
-        if (piece == null || piece.Clip == null || piece.Instrument) { Toast("Copy works on a piece of audio: right-click the piece."); return; }
-        clipCopy = CloneTrack(piece, ""); Toast("Copied. Right-click a track and press Paste here.");
+        var picks = new List<Track>();
+        if (piece != null && InGroup(piece)) { foreach (var o in multiSel) if (o.Clip != null && !o.Instrument && eng.Tracks.Contains(o)) picks.Add(o); }
+        else if (piece != null && piece.Clip != null && !piece.Instrument) picks.Add(piece);
+        if (picks.Count == 0) { Toast("Copy works on a piece of audio: click the piece (or highlight several), then Ctrl+C."); return; }
+        long t0 = long.MaxValue; int r0 = int.MaxValue; foreach (var p in picks) { t0 = Math.Min(t0, p.Offset); r0 = Math.Min(r0, eng.Tracks.IndexOf(p.Host ?? p)); }
+        clipCopies.Clear(); foreach (var p in picks) clipCopies.Add(new ClipCopyItem { Copy = CloneTrack(p, ""), Rel = p.Offset - t0, Row = eng.Tracks.IndexOf(p.Host ?? p) - r0 });
+        Toast(picks.Count == 1 ? "Copied. Ctrl+V pastes it at the needle on the picked track." : "Copied " + picks.Count + " sections. Ctrl+V pastes them at the needle, starting on the picked track (they keep their spacing).");
     }
+    // Ctrl+C: the highlighted sections, or the picked piece
+    void CopyKey() { if (multiSel.Count > 0) { var f = multiSel.Find(o => o.Clip != null && !o.Instrument && eng.Tracks.Contains(o)); if (f != null) { CopyClip(f); return; } } CopyClip(CurClip()); }
+    // Ctrl+V: at the needle, on the picked track
+    void PasteKey() { var row = Selected; PasteClip(row, Math.Max(0, (long)DispPos)); }
     internal void PasteClip(Track tr, long at)
     {
-        if (clipCopy == null) { Toast("Nothing is copied yet: right-click a piece and press Copy."); return; }
-        var host = tr == null ? null : (tr.Host ?? tr); if (host == null || host.IsBus || host.Instrument) { Toast("Paste works on audio tracks."); return; }
+        if (clipCopies.Count == 0) { Toast("Nothing is copied yet: click a piece (or highlight several) and press Ctrl+C."); return; }
+        var host = tr == null ? null : (tr.Host ?? tr); if (host == null || host.IsBus || host.Instrument) { Toast("Paste works on audio tracks: click an audio track first."); return; }
         if (IsRowLocked(host)) { Toast(FrozenWhy(host, "Locked: press UNLOCK before pasting on this track.")); return; }   // (a locked section on the track does not stop a paste: nothing on it moves)
-        PushUndo(); var n = CloneTrack(clipCopy, " (copy)"); n.Offset = Math.Max(0, at);
-        if (host.Clip == null)
-        {   // an empty track: the piece becomes its audio
-            host.Clip = n.Clip; host.Offset = n.Offset; host.ClipStart = n.ClipStart; host.ClipFrames = n.ClipFrames; host.ClipGainDb = n.ClipGainDb; host.SectionLabel = n.SectionLabel; host.PieceMuted = n.PieceMuted; host.FadeIn = n.FadeIn; host.FadeOut = n.FadeOut; host.FadeInDelay = n.FadeInDelay; host.FadeOutTail = n.FadeOutTail; host.Bpm = n.Bpm; host.BpmChecked = n.BpmChecked; if (host.Role == "audio" || host.Role == null || host.Role == "") host.Role = n.Role; toolsTrack = host;
+        PushUndo(); int baseRow = eng.Tracks.IndexOf(host); var made = new List<Track>(); int newTracks = 0;
+        foreach (var it in clipCopies)
+        {
+            int rowI = baseRow + it.Row; Track rowT = rowI < LaneCount ? eng.Tracks[rowI] : null;
+            if (rowT != null && (rowT.IsBus || rowT.Instrument || IsRowLocked(rowT))) rowT = null;   // a bus, an instrument or a locked track in the way: the section goes on a new track instead
+            if (rowT == null) { rowT = EmptyAudioTrack(); lock (eng.Sync) eng.Tracks.Insert(LaneCount, rowT); newTracks++; }
+            var n = CloneTrack(it.Copy, " (copy)"); n.Offset = Math.Max(0, at + it.Rel);
+            if (rowT.Clip == null)
+            {   // an empty track: the piece becomes its audio
+                rowT.Clip = n.Clip; rowT.Offset = n.Offset; rowT.ClipStart = n.ClipStart; rowT.ClipFrames = n.ClipFrames; rowT.ClipGainDb = n.ClipGainDb; rowT.SectionLabel = n.SectionLabel; rowT.PieceMuted = n.PieceMuted; rowT.FadeIn = n.FadeIn; rowT.FadeOut = n.FadeOut; rowT.FadeInDelay = n.FadeInDelay; rowT.FadeOutTail = n.FadeOutTail; rowT.Bpm = n.Bpm; rowT.BpmChecked = n.BpmChecked; if (rowT.Role == "audio" || rowT.Role == null || rowT.Role == "") rowT.Role = n.Role; toolsTrack = host;
+                made.Add(rowT);
+            }
+            else { n.Host = rowT; n.Out = rowT.Out; lock (eng.Sync) eng.Tracks.Insert(FirstBusIndex(), n); made.Add(n); }
         }
-        else { n.Host = host; n.Out = host.Out; lock (eng.Sync) eng.Tracks.Insert(FirstBusIndex(), n); toolsTrack = n; }
-        selTrack = Math.Max(0, eng.Tracks.IndexOf(host)); selFx = -1; Toast("Pasted. It plays through this track's plugins.");
+        selTrack = Math.Max(0, eng.Tracks.IndexOf(host)); selFx = -1; toolsTrack = made[0]; multiSel.Clear(); if (made.Count > 1) multiSel.AddRange(made);
+        Toast(made.Count == 1 ? "Pasted. It plays through this track's plugins." : "Pasted " + made.Count + " sections" + (newTracks > 0 ? " (" + newTracks + " new track" + (newTracks == 1 ? "" : "s") + ")" : "") + ". Ctrl+Z undoes it.");
     }
     void InsertAfter(Track after, Track n) { n.Host = after.Host; n.Out = after.Out; lock (eng.Sync) { int i = eng.Tracks.IndexOf(after); eng.Tracks.Insert(i < 0 ? FirstBusIndex() : i + 1, n); } selTrack = Math.Max(0, eng.Tracks.IndexOf(n.Host ?? n)); selFx = -1; }   // a copy of a layer stays a layer; rows stay before layers and buses
 
@@ -291,8 +312,8 @@ partial class StudioForm
             else { var pn = piece; m.Items.Add(pn.SectionLabel.Length > 0 ? "Rename this section (" + pn.SectionLabel + ")..." : "Rename this section (Yeahs, Adlibs, Hook...)").Click += (a, b) => RenameSections(new List<Track> { pn }); }
         }
         m.Items.Add(new ToolStripSeparator());
-        m.Items.Add("Copy this piece").Click += (a, b) => CopyClip(piece);
-        { var pasteIt = m.Items.Add("Paste here"); pasteIt.Enabled = clipCopy != null; pasteIt.Click += (a, b) => PasteClip(tr, at); }
+        m.Items.Add(InGroup(piece) ? "Copy these " + multiSel.Count + " sections  (Ctrl+C)" : "Copy this piece  (Ctrl+C)").Click += (a, b) => CopyClip(piece);
+        { var pasteIt = m.Items.Add(clipCopies.Count > 1 ? "Paste the " + clipCopies.Count + " sections here  (Ctrl+V)" : "Paste here  (Ctrl+V)"); pasteIt.Enabled = clipCopy != null; pasteIt.Click += (a, b) => PasteClip(tr, at); }
         if (piece != null && piece.Clip != null && !piece.Instrument) m.Items.Add("Duplicate this piece (onto a new track under this one)").Click += (a, b) => DuplicatePiece(piece);
         m.Items.Add("Duplicate the whole track").Click += (a, b) => DuplicateTrack(tr);
         m.Items.Add("Rename...  (F2)").Click += (a, b) => RenameTrack(tr);
