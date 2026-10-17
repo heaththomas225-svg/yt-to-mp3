@@ -2,6 +2,10 @@
 
 What changed in each version of **Purphex**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.62.0  Purphex Drum2MIDI: drums into notes
+
+- NEW: Purphex Drum2MIDI: pick a drum track (a beat, a loop, a recorded kit) and press TURN THE DRUMS INTO NOTES. It listens for the KICKS, SNARES and HATS and writes them onto its own track as notes you can edit (kick 36, snare 38, hat 42), from where that track starts, with how hard each was hit. QUANTIZE snaps them to 1/8, 1/16 or 1/32; a sensitivity for each lets you catch quiet hits or only the big ones. Its own kit plays them (kick, snare, clap, closed and open hat, each tunable), or move the notes to any drum instrument.
+
 ## 3.61.1  Closed accounts close their PCs
 
 - IMPROVED: When the Purphex team closes an account, the app stops on the PCs it was linked to and says why (it used to only fall back to Free, saying the link belonged to another PC). It stays closed offline, and runs again as soon as the account is opened.

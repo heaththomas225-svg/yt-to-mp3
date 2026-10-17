@@ -1,4 +1,4 @@
-3.61.1
+3.62.0
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Closed accounts close their PCs
-sha256=959d8c2c0084f297d88ac11d809796a3058d675b2a132df8925a347c5a8556e7
+Purphex Drum2MIDI: drums into notes
+sha256=3f8e3e798a8310e4d890775a797c1f60fd026cd8a834602e926045a4c20a6080
