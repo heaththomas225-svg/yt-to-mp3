@@ -213,3 +213,67 @@ textarea{resize:vertical;width:100%}
 #cvTabs.rail{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;padding:8px}
 #cvTabs.rail button{display:flex;flex-direction:column;align-items:center;gap:2px;padding:7px 2px;font-size:9.5px;border-radius:10px}
 #cvTabs.rail .ic{font-size:20px;line-height:1;font-family:"Segoe UI Emoji","Segoe UI Symbol"}
+
+/* the pro look: charcoal panels like a professional editor (the accent colour stays the DAW theme's) */
+body{--panel:#232327;--panel2:#2c2c32;--edge:#3a3a42;--bg0:#16161a;--bg1:#1c1c21}
+body{background:#16161a}
+.panel,.cvapp,.cvcats{background:#232327!important;border-color:#34343b!important}
+button{background:#2e2e35;border-color:#43434c}
+button:hover{border-color:var(--accent)}
+.hint{color:#9a9aa6}
+/* photo: tool strip | canvas | properties */
+.cvwork{flex:1;display:flex;min-height:0;position:relative;gap:6px}
+.cvrail{width:74px;flex:none;display:flex;flex-direction:column;gap:2px;overflow-y:auto;background:#232327;border:1px solid #34343b;border-radius:10px;padding:5px 4px;scrollbar-width:none}
+.cvrail button{display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 2px;font-size:9px;border-radius:8px;background:transparent;border-color:transparent}
+.cvrail button.on{background:#34343c;border-color:var(--accent)}
+.cvrail .ic{font-size:18px;line-height:1;font-family:"Segoe UI Emoji","Segoe UI Symbol"}
+.cvrail .lb{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:66px}
+.cvwork #cvStage{flex:1;min-width:0}
+.cvwork .cvpop{left:80px!important;top:0!important;max-height:100%;width:360px}
+.cvside{width:290px;flex:none;display:flex;flex-direction:column;background:#232327;border:1px solid #34343b;border-radius:10px;min-height:0}
+.cvsidehead{display:flex;gap:3px;padding:6px;border-bottom:1px solid #34343b}.cvsidehead button{font-size:10px;padding:5px 8px}.cvsidehead button.on{border-color:var(--accent);background:#34343c}
+#cvHist{width:calc(100% - 16px);height:64px;margin:8px;background:#16161a;border-radius:6px}
+.cvsidebody{flex:1;overflow:auto;padding:4px 8px 8px}
+.cvsidetab{position:absolute;right:0;top:40%;width:22px;height:70px;padding:0;z-index:5}
+.cvapp{border-radius:10px}
+/* photo start */
+.cvstart{position:absolute;inset:0;z-index:35;background:rgba(14,14,18,0.94);display:flex;align-items:center;justify-content:center}
+.cvstartbox{background:#232327;border:1px solid #3a3a42;border-radius:16px;padding:26px 30px;max-width:640px;width:90%}
+.cvstartbox h2{margin:0 0 4px;letter-spacing:.04em}.cvstartbox h2 span{color:var(--accent)}
+.cvstartgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
+.cvstartgrid .big{display:flex;flex-direction:column;align-items:center;gap:8px;padding:20px 10px;font-size:13px;font-weight:800;border-radius:12px}
+.cvstartgrid .ic{font-size:30px;font-family:"Segoe UI Emoji","Segoe UI Symbol"}
+/* video: the docked panel on the left */
+body.vtb #left{display:flex;flex-direction:column}
+.vdock{flex:1;display:flex;flex-direction:column;min-height:0}
+.vdock .vpopbody{flex:1;overflow:auto;padding:6px 8px}
+.vidWelcome{background:rgba(14,14,18,0.96)!important}
+
+/* photo editor: top toolbars instead of side panels */
+#cover.tb #cvCenter{margin:6px;position:relative}
+.cvapp{align-items:center;flex-wrap:wrap;gap:5px!important;background:var(--panel);border:1px solid var(--edge);border-radius:10px;padding:6px 8px;margin:0 0 6px!important}
+.cvapp .cvzoom{display:flex;align-items:center;gap:3px;margin:0 6px}
+.cvsave{font-size:11px;margin:0 6px;white-space:nowrap}.cvsave.ok{color:#78f08c}.cvsave.dirty{color:#ffd23c}
+.cvcats{display:flex;gap:3px;overflow-x:auto;background:var(--panel);border:1px solid var(--edge);border-radius:10px;padding:5px 6px;margin-bottom:6px;scrollbar-width:thin}
+.cvcats button{display:flex;align-items:center;gap:5px;padding:6px 9px;font-size:11px;white-space:nowrap;flex:none}
+.cvcats .ic{font-size:15px;font-family:"Segoe UI Emoji","Segoe UI Symbol"}
+.cvpop{position:absolute;top:98px;z-index:20;width:420px;max-width:calc(100% - 12px);max-height:calc(100% - 110px);display:flex;flex-direction:column;background:var(--panel);border:1px solid var(--accent);border-radius:12px;box-shadow:0 12px 34px #000c}
+.cvpophead{display:flex;align-items:center;gap:6px;padding:8px 10px;border-bottom:1px solid var(--edge)}
+.cvpop #cvTab{overflow:auto;flex:1;padding:8px 10px}
+.chk{display:flex;align-items:center;gap:6px;font-size:12px;margin:4px 2px}
+.upl .card{position:relative;padding:4px}.uth{height:70px;border-radius:6px;background:#07031a center/cover no-repeat;margin-bottom:3px}
+.upl .tiny{position:absolute;top:2px;right:2px;padding:0 5px;font-size:10px}
+.swatch{width:30px;height:30px;border-radius:50%;padding:0;border:2px solid #fff6}
+.aino{font-size:12px;color:var(--dim);border:1px dashed var(--edge);border-radius:8px;padding:6px 8px;margin:4px 0}
+#cover.dropping #cvStage{outline:3px dashed var(--accent2,#3ce1ff);outline-offset:-6px}
+.wcard{position:relative}.wstar{position:absolute;top:4px;right:4px;padding:0 6px;font-size:13px;opacity:.55}.wstar.on{opacity:1;color:#ffd23c}
+
+/* video editor: top toolbars instead of side panels */
+body.vtb #video{position:relative}
+.vcats{margin:6px 6px 0}
+.vpop{top:6px;width:440px;max-height:calc(100% - 14px)}
+.vpopbody{overflow:auto;flex:1;padding:8px 10px}
+.vpopbody .tabbody{padding:0;overflow:visible}
+.vpopbody #inspector{margin-top:6px}
+
+.cvrail button.on{color:#fff}.cvrail button.on .lb{color:#fff}

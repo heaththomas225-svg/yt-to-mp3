@@ -2,6 +2,24 @@
 
 What changed in each version of **Purphex**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.58.0  Pro layouts for the photo and video editors
+
+- NEW: Video Studio has a professional layout: a bar of categories across the top (Media, Audio, Text, Captions, Stickers, Effects, Filters, Transitions, Speed, Colour, Animation, Overlays, Templates, Settings, Edit clip), the picked one docked on the left (the media bin to start), the big preview beside it and the timeline under. Audio, Speed, Colour, Animation, Effects and Transitions show just the controls for the selected clip.
+
+- NEW: Photo Studio has a professional layout: an app bar on top (name, save state, undo, redo, zoom, size, EXPORT), a tool strip on the left whose options open beside it, the canvas, and a Properties / Layers panel with a live histogram on the right (the arrow tucks it away). A charcoal look like professional editors, in your theme's accent colour.
+
+- NEW: Simple starts: the video editor opens with IMPORT VIDEO OR PHOTOS (or your song, your projects, a blank project, and your recent projects); the photo editor with IMPORT A PHOTO, START BLANK, BROWSE TEMPLATES or OPEN A DESIGN.
+
+- NEW: Photo Studio: pick several layers (Shift + click, or drag a box), line them up, space them evenly, group them (Ctrl+G), copy and paste (Ctrl+C / Ctrl+V), pick everything (Ctrl+A); layers snap to each other and to a grid with guide lines; DESIGN has 16 sizes, your own size, see-through background, grid and safe margins.
+
+- NEW: Photo Studio: UPLOADS keeps every picture you add (several at once, or drop them on the editor); add your own font files in FONTS; save text styles; a BRAND KIT for your colours, fonts and logos; hold to see the picture before its adjustments; rounded rectangles, lines, pentagons and octagons.
+
+- NEW: Photo Studio: EXPORT as PNG, JPEG or WebP at half, full or double size, with quality, a see-through background and your own file name. AI TOOLS has what really runs here (remove background, auto enhance) and says honestly what would need an outside AI service.
+
+- NEW: Photo Studio: over 2,000 templates now (logos and wallpapers, and Grunge, Cinematic, Logo emblem, Abstract and Gaming neon styles), with favourites and recently used.
+
+- NEW: Video Studio: stickers (the sticker pack and emoji) go on your video as clips; ten templates build real, editable timelines (photo slideshow cut to the beat, promo advert, intro and outro cards, gaming montage, vertical social clip, music video, lyric video, visualiser, artist promotion); speed buttons from 0.25x to 4x; frame rate and your own size in SETTINGS.
+
 ## 3.57.0  Easier Photo Studio, and CapCut-style video tools
 
 - NEW: Photo Studio: click anything on the picture and its tools appear right on it: EDIT TEXT, FONT, COLOUR, REPLACE, CROP, CUTOUT, EFFECTS, DUPLICATE, FRONT, BACK, LOCK and DELETE. Every word, sticker, shape and photo of a template can be removed or changed in one click (UNDO brings it back). Backgrounds, frames and textures picked in LAYERS get the same toolbar.

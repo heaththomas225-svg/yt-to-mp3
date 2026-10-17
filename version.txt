@@ -1,4 +1,4 @@
-3.57.0
+3.58.0
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Easier Photo Studio, and CapCut-style video tools
-sha256=145f28f60a93c15e025b71a51cc4706b5945bac75bfeba93c2bf1d54a65860b4
+Pro layouts for the photo and video editors
+sha256=eb0f0420a26e11920c4c77b5a9409d8c94c93c91ac6af427ea4d00fcf127ab20

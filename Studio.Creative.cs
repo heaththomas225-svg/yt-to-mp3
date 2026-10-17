@@ -30,7 +30,7 @@ partial class StudioForm
         if (crBObj != null) return true;
         if (HubBrowser.RuntimeVersion() == null) { hubErr = "Creative Studio needs Microsoft Edge WebView2 Runtime (part of Windows 11). Install it from Microsoft, then open it again."; return false; }
         string app = CreativeStore.Dir("app"); var asm = typeof(StudioForm).Assembly;
-        foreach (var f in new[] { "index.html", "app.css", "engine.js", "ui.js", "cover.js", "templates.js", "photofx.js", "easy.js", "capcut.js" }) using (var st = asm.GetManifestResourceStream("Purphex.creative." + f)) { if (st == null) continue; var path = Path.Combine(app, f); var ms = new MemoryStream(); st.CopyTo(ms); var bytes = ms.ToArray(); if (!File.Exists(path) || !File.ReadAllBytes(path).SequenceEqual(bytes)) File.WriteAllBytes(path, bytes); }
+        foreach (var f in new[] { "index.html", "app.css", "engine.js", "ui.js", "cover.js", "templates.js", "photofx.js", "easy.js", "capcut.js", "toolbar.js", "vtoolbar.js" }) using (var st = asm.GetManifestResourceStream("Purphex.creative." + f)) { if (st == null) continue; var path = Path.Combine(app, f); var ms = new MemoryStream(); st.CopyTo(ms); var bytes = ms.ToArray(); if (!File.Exists(path) || !File.ReadAllBytes(path).SequenceEqual(bytes)) File.WriteAllBytes(path, bytes); }
         var b = new HubBrowser(this, Path.Combine(StudioEnv.DataDir, "creativeweb"), HubMuted);
         b.MapHost("app.creative", app); b.MapHost("cache.creative", CreativeStore.Dir("cache")); b.MapHost("art.creative", CreativeStore.Dir("art"));
         b.Message = m => { try { BeginInvoke(new Action(() => CrMessage(m, null))); } catch { } };
@@ -46,6 +46,7 @@ partial class StudioForm
     // ---- what the editor asks for ----
     void CrMessage(string json, List<string> files)
     {
+        if (json == "artdrop") { CrArtFiles(files ?? new List<string>()); return; }
         if (json == "drop" || (files != null && files.Count > 0)) { CrImportPaths(files ?? new List<string>()); return; }
         Dictionary<string, object> m; try { m = MiniJson.Parse(json) as Dictionary<string, object>; } catch { return; } if (m == null) return; string t = HubApi.S(m, "t");
         try
@@ -74,7 +75,13 @@ partial class StudioForm
                 case "playing": crPlaying = m.ContainsKey("on") && m["on"] is bool && (bool)m["on"]; if (crPlaying) { if (eng.Playing) eng.Pause(); if (npPlaying) { HubCmd(HubPlayerJs.Pause(CurSvc ?? HubServices.All[0])); npPlaying = false; } } break;
                 case "tool": crTool = HubApi.S(m, "tool"); break;
                 // Photo Studio
-                case "artImport": using (var d = new OpenFileDialog { Title = "Add a picture", Filter = "Pictures|*.png;*.jpg;*.jpeg;*.webp;*.bmp;*.gif" }) if (d.ShowDialog(this) == DialogResult.OK) { if (new FileInfo(d.FileName).Length > 60L * 1024 * 1024) throw new Exception("That picture is over 60 MB."); string dst = Path.Combine(CreativeStore.Dir("art/uploads"), Guid.NewGuid().ToString("N").Substring(0, 12) + Path.GetExtension(d.FileName).ToLowerInvariant()); File.Copy(d.FileName, dst); CrSend(D("t", "artImported", "url", "https://art.creative/uploads/" + Path.GetFileName(dst), "name", Path.GetFileNameWithoutExtension(d.FileName))); } break;
+                case "artImport": using (var d = new OpenFileDialog { Title = "Add pictures", Filter = "Pictures|*.png;*.jpg;*.jpeg;*.webp;*.bmp;*.gif", Multiselect = m.ContainsKey("multi") }) if (d.ShowDialog(this) == DialogResult.OK) CrArtFiles(d.FileNames.ToList()); break;
+                case "artUploads": CrSend(D("t", "artUploads", "list", CrUploadList())); break;
+                case "artUploadDelete": { string fn = Path.GetFileName(HubApi.S(m, "file")); string p = Path.Combine(CreativeStore.Dir("art/uploads"), fn); if (fn.Length > 0 && File.Exists(p)) { File.Delete(p); CrUploadName(fn, null); } CrSend(D("t", "artUploads", "list", CrUploadList())); break; }
+                case "fontImport": using (var d = new OpenFileDialog { Title = "Add a font", Filter = "Fonts|*.ttf;*.otf;*.woff;*.woff2", Multiselect = true }) if (d.ShowDialog(this) == DialogResult.OK) { foreach (var f in d.FileNames) { if (new FileInfo(f).Length > 25L * 1024 * 1024) continue; string fn = Safe(Path.GetFileNameWithoutExtension(f)).Replace(" ", "_") + Path.GetExtension(f).ToLowerInvariant(); File.Copy(f, Path.Combine(CreativeStore.Dir("art/fonts"), fn), true); } CrSend(D("t", "fontList", "list", CrFontList(), "added", true)); } break;
+                case "fontList": CrSend(D("t", "fontList", "list", CrFontList())); break;
+                case "kvSave": { string k = HubApi.S(m, "key"); if (!System.Text.RegularExpressions.Regex.IsMatch(k, "^[a-z]{2,20}$")) break; string v = HubApi.S(m, "value"); if (v.Length > 2 * 1024 * 1024) break; string kp = Path.Combine(CreativeStore.Dir("art/settings"), k + ".json"); File.WriteAllText(kp + ".tmp", v); if (File.Exists(kp)) File.Replace(kp + ".tmp", kp, null); else File.Move(kp + ".tmp", kp); break; }
+                case "kvLoad": { string k = HubApi.S(m, "key"); if (!System.Text.RegularExpressions.Regex.IsMatch(k, "^[a-z]{2,20}$")) break; string kp = Path.Combine(CreativeStore.Dir("art/settings"), k + ".json"); CrSend(D("t", "kv", "key", k, "value", File.Exists(kp) ? File.ReadAllText(kp) : "")); break; }
                 case "artSave": case "artAutosave": CrSave("art", HubApi.Obj(m, "art"), t == "artAutosave"); break;
                 case "artList": { var l = CreativeStore.List("art"); var d = D("t", "artList", "list", l.Cast<object>().ToList(), "silent", m.ContainsKey("silent")); if (m.ContainsKey("silent")) { string last = CreativeStore.LastId("art"); try { bool rec; if (last.Length > 0) { var a = CreativeStore.Load("art", last, out rec); if (rec) d["recover"] = a; } } catch { } } CrSend(d); break; }
                 case "artOpen": { bool rec; CrSend(D("t", "artOpened", "art", CreativeStore.Load("art", HubApi.S(m, "id"), out rec))); break; }
@@ -263,17 +270,42 @@ partial class StudioForm
         if (tell) CrSend(D("t", "exportCancelled"));
     }
 
+    // pictures for the photo editor: copied into its uploads folder (the originals are not touched) and listed in UPLOADS
+    static readonly string[] ArtExts = { ".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif" };
+    void CrArtFiles(List<string> files)
+    {
+        int bad = 0;
+        foreach (var f in files)
+        {
+            string ext = Path.GetExtension(f).ToLowerInvariant(); if (!File.Exists(f) || Array.IndexOf(ArtExts, ext) < 0 || new FileInfo(f).Length > 60L * 1024 * 1024) { bad++; continue; }
+            string dst = Path.Combine(CreativeStore.Dir("art/uploads"), Guid.NewGuid().ToString("N").Substring(0, 12) + ext); File.Copy(f, dst); CrUploadName(Path.GetFileName(dst), Path.GetFileNameWithoutExtension(f));
+            CrSend(D("t", "artImported", "url", "https://art.creative/uploads/" + Path.GetFileName(dst), "name", Path.GetFileNameWithoutExtension(f), "file", Path.GetFileName(dst)));
+        }
+        if (bad > 0) CrSend(D("t", "artDone", "msg", bad + " file(s) were not added: only PNG, JPEG, WebP, BMP and GIF pictures up to 60 MB.", "err", true));
+    }
+    static string UploadNames { get { return Path.Combine(CreativeStore.Dir("art/uploads"), "names.txt"); } }
+    void CrUploadName(string file, string name)
+    {
+        var lines = File.Exists(UploadNames) ? File.ReadAllLines(UploadNames).Where(l => !l.StartsWith(file + "|")).ToList() : new List<string>(); if (name != null) lines.Add(file + "|" + name.Replace("|", "/").Replace("\n", " ")); File.WriteAllLines(UploadNames, lines);
+    }
+    List<object> CrUploadList()
+    {
+        var names = new Dictionary<string, string>(); if (File.Exists(UploadNames)) foreach (var l in File.ReadAllLines(UploadNames)) { int i = l.IndexOf('|'); if (i > 0) names[l.Substring(0, i)] = l.Substring(i + 1); }
+        var list = new List<object>(); foreach (var f in new DirectoryInfo(CreativeStore.Dir("art/uploads")).GetFiles().Where(x => Array.IndexOf(ArtExts, x.Extension.ToLowerInvariant()) >= 0).OrderByDescending(x => x.LastWriteTimeUtc).Take(500)) { string n; list.Add(D("file", f.Name, "url", "https://art.creative/uploads/" + f.Name, "name", names.TryGetValue(f.Name, out n) ? n : Path.GetFileNameWithoutExtension(f.Name), "kb", (int)(f.Length / 1024))); }
+        return list;
+    }
+    List<object> CrFontList() { var list = new List<object>(); foreach (var f in new DirectoryInfo(CreativeStore.Dir("art/fonts")).GetFiles()) { string e = f.Extension.ToLowerInvariant(); if (e == ".ttf" || e == ".otf" || e == ".woff" || e == ".woff2") list.Add(D("name", Path.GetFileNameWithoutExtension(f.Name).Replace("_", " "), "url", "https://art.creative/fonts/" + f.Name)); } return list; }
     string CrArtUpload(Uri u, byte[] body)
     {
         var q = HubApi.Query(u.Query.Length > 0 ? "?" + u.Query.TrimStart('?') : ""); string what = q.ContainsKey("what") ? q["what"] : "png", name = Safe(q.ContainsKey("name") ? q["name"] : "cover");
-        if (body.Length < 100) return "The picture was empty."; bool png = body[0] == 0x89 && body[1] == 0x50, jpg = body[0] == 0xFF && body[1] == 0xD8; if (!png && !jpg) return "That was not a picture.";
+        if (body.Length < 100) return "The picture was empty."; bool png = body[0] == 0x89 && body[1] == 0x50, jpg = body[0] == 0xFF && body[1] == 0xD8, webp = body.Length > 12 && body[0] == 0x52 && body[1] == 0x49 && body[8] == 0x57 && body[9] == 0x45; if (!png && !jpg && !webp) return "That was not a picture.";
         BeginInvoke(new Action(() =>
         {
             try
             {
-                if (what == "png" || what == "jpg")
+                if (what == "png" || what == "jpg" || what == "webp")
                 {
-                    using (var d = new SaveFileDialog { Title = "Export the artwork", FileName = name + (what == "jpg" ? ".jpg" : ".png"), Filter = what == "jpg" ? "JPEG picture|*.jpg" : "PNG picture|*.png", InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.MyPictures) })
+                    using (var d = new SaveFileDialog { Title = "Export the artwork", FileName = name + (what == "jpg" ? ".jpg" : what == "webp" ? ".webp" : ".png"), Filter = what == "jpg" ? "JPEG picture|*.jpg" : what == "webp" ? "WebP picture|*.webp" : "PNG picture|*.png", InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.MyPictures) })
                     { string op = CrAskSave(d); if (op != null) { File.WriteAllBytes(op, body); CrSend(D("t", "artDone", "msg", "Saved " + Path.GetFileName(op))); } }
                 }
                 else if (what == "daw")

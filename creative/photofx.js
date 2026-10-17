@@ -139,6 +139,7 @@ function cellDraw(g, L, W, H, k) {
   g.restore();
 }
 C.extraDrawAbs = { cell: cellDraw };
+C.vsDraw = vsDraw; C.VST = VST; C.ASPECT = ASPECT;
 C.extraDraw = { vsticker: vsDraw };
 C.boxTypes = ['text', 'image', 'shape', 'sticker', 'vsticker'];
 C.extraBox = { vsticker: (L, W, H, k, cx, cy, s) => ({ cx, cy, w: L.size * k * s, h: L.size * k * s * (ASPECT[L.kind] || 1) }) };
