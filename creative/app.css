@@ -202,3 +202,14 @@ textarea{resize:vertical;width:100%}
 .ppitem:hover{border-color:var(--accent)}
 .ppc{width:52px;height:52px;border-radius:6px;background:#07031a center/cover no-repeat;display:flex;align-items:center;justify-content:center;font-size:22px;color:var(--dim);flex:none}
 .ppt{flex:1;min-width:0}.ppt .pn{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ppt .pd{font-size:11px;color:var(--dim)}
+
+/* photo editor: the toolbar on the picture, the right-click menu, typing on the picture, the big tool tiles */
+.cvbar{position:absolute;z-index:12;display:flex;gap:4px;align-items:center;flex-wrap:nowrap;background:rgba(10,4,24,0.94);border:1px solid var(--accent);border-radius:12px;padding:5px 6px;box-shadow:0 6px 22px #000a;white-space:nowrap}
+.cvbar .nm{font-size:11px;color:var(--dim);max-width:110px;overflow:hidden;text-overflow:ellipsis;margin:0 4px}
+.cvbar button{padding:5px 8px;font-size:11px}
+.cvmenu{position:fixed;z-index:70;display:flex;flex-direction:column;gap:2px;background:var(--panel);border:1px solid var(--accent);border-radius:10px;padding:5px;box-shadow:0 8px 26px #000c;min-width:170px}
+.cvmenu button{text-align:left;padding:7px 10px;font-size:12px}
+.cvinline{position:absolute;z-index:13;background:rgba(10,4,24,0.85);color:#fff;border:2px solid var(--accent2,#3ce1ff);border-radius:8px;padding:6px 8px;resize:both;text-align:center;font-weight:800;outline:none}
+#cvTabs.rail{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;padding:8px}
+#cvTabs.rail button{display:flex;flex-direction:column;align-items:center;gap:2px;padding:7px 2px;font-size:9.5px;border-radius:10px}
+#cvTabs.rail .ic{font-size:20px;line-height:1;font-family:"Segoe UI Emoji","Segoe UI Symbol"}

@@ -156,7 +156,8 @@ C.drawArt = (g, W, H) => {
   if (C.postFx) C.postFx(g, W, H, G);
 };
 C.draw = () => { const cv = $c('#cvCanvas'); if (!cv || !C.art) return; const g = cv.getContext('2d'); C.drawArt(g, cv.width, cv.height); const L = sel(); if (L && C.tool === 'move' && hasBox(L)) { const b = C.box(L, cv.width, cv.height); g.save(); g.translate(b.cx, b.cy); g.rotate((L.rot || 0) * Math.PI / 180); g.strokeStyle = '#3ce1ff'; g.lineWidth = 2; g.setLineDash([8, 6]); g.strokeRect(-b.w / 2, -b.h / 2, b.w, b.h); g.setLineDash([]); g.fillStyle = '#3ce1ff'; for (const [hx, hy] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) g.fillRect(hx * b.w / 2 - 6, hy * b.h / 2 - 6, 12, 12); g.beginPath(); g.arc(0, -b.h / 2 - 24, 7, 0, 7); g.fill(); g.restore(); }
-  if (C._guides) { g.save(); g.strokeStyle = '#ff50c4'; g.lineWidth = 1.5; g.setLineDash([7, 5]); if (C._guides.v) { g.beginPath(); g.moveTo(cv.width / 2, 0); g.lineTo(cv.width / 2, cv.height); g.stroke(); } if (C._guides.h) { g.beginPath(); g.moveTo(0, cv.height / 2); g.lineTo(cv.width, cv.height / 2); g.stroke(); } g.restore(); } };
+  if (C._guides) { g.save(); g.strokeStyle = '#ff50c4'; g.lineWidth = 1.5; g.setLineDash([7, 5]); if (C._guides.v) { g.beginPath(); g.moveTo(cv.width / 2, 0); g.lineTo(cv.width / 2, cv.height); g.stroke(); } if (C._guides.h) { g.beginPath(); g.moveTo(0, cv.height / 2); g.lineTo(cv.width, cv.height / 2); g.stroke(); } g.restore(); }
+  if (C.afterDraw) C.afterDraw(); };
 const hasBox = (L) => (C.boxTypes || ['text', 'image', 'shape', 'sticker']).includes(L.type);
 C.box = (L, W, H) => {
   const k = W / C.art.w, s = L.scale || 1, cx = W / 2 + (L.x || 0) * W / 2, cy = H / 2 + (L.y || 0) * H / 2;

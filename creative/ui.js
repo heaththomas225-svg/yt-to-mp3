@@ -223,6 +223,7 @@ UI.renderInspector = () => {
     num(b, 'Motion', () => v.intensity, s => v.intensity = s, 0.1, 3, 0.05); num(b, 'Smooth', () => v.smooth == null ? 0.6 : v.smooth, s => v.smooth = s, 0, 1, 0.05); num(b, 'Size', () => v.size, s => v.size = s, 0.2, 3, 0.05); num(b, 'Glow', () => v.glow, s => v.glow = s, 0, 3, 0.05); if (v.style === 'bars' || v.style === 'cspec') { num(b, 'Bars', () => v.bands, s => v.bands = Math.round(s), 8, 160, 1); chk(b, 'Mirror', () => v.mirror, s => v.mirror = s); }
     const srcs = [['mix', 'All the timeline audio']].concat(PX.P.clips.filter(o => o.type === 'audio' || o.type === 'video').map(o => [o.id, UI.clipName(o)])); sel(b, 'Listens to', srcs, () => v.source, s => v.source = s);
   });
+  if (UI.extraInspector) UI.extraInspector(c, m, sec, num, sel, col, chk);
   const rb = el('div', 'btnrow'); const d1 = el('button', 'danger', 'DELETE CLIP'); d1.onclick = UI.del; const d2 = el('button', '', 'DUPLICATE'); d2.onclick = UI.dup; rb.appendChild(d2); rb.appendChild(d1); box.appendChild(rb);
 };
 UI.projSection = (box) => { const d = el('div', 'sec'); d.innerHTML = '<h4>PROJECT</h4><div><div class="f"><label>Background</label><input type="color" id="bgCol"></div><p class="hint">Size and shape: the menu under the monitor. Export settings: EXPORT.</p></div>'; box.appendChild(d); const i = $('#bgCol', d); i.value = PX.P.settings.bg; i.oninput = () => { if (!PX._before) PX.begin(); PX.P.settings.bg = i.value; PX.redraw(); }; i.onchange = () => PX.commit('background'); };

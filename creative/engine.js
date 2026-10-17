@@ -181,6 +181,7 @@ PX.drawText = (g, c, t, W, H) => {
   const anim = (type, p) => { const e = ease(p); if (type === 'fade') a *= e; else if (type === 'up') { a *= e; dy += (1 - e) * H * 0.06; } else if (type === 'down') { a *= e; dy -= (1 - e) * H * 0.06; } else if (type === 'left') { a *= e; dx += (1 - e) * W * 0.08; } else if (type === 'pop') { a *= e; sc *= 0.6 + 0.4 * e + Math.sin(e * Math.PI) * 0.08; } else if (type === 'type') shown = Math.min(shown, PX.clamp(p, 0, 1)); else if (type === 'blur') { a *= e; blur = (1 - e) * 18; } };
   if (x.animIn && x.animIn !== 'none' && local < ad) anim(x.animIn, local / ad);
   if (x.animOut && x.animOut !== 'none' && local > c.dur - ad) anim(x.animOut, (c.dur - local) / ad);
+  if (PX.motionAt) { const mo = PX.motionAt(c, t, W, H); sc *= mo.s; dx += mo.dx; dy += mo.dy; a *= mo.a; }
   if (a <= 0.002) return;
   const k = W / 1920, size = x.size * k * (c.scale || 1); let text = x.upper ? x.content.toUpperCase() : x.content; const lines = text.split('\n');
   g.save(); g.globalAlpha = PX.clamp(a, 0, 1); g.translate(W / 2 + c.x * W / 2 + dx, H / 2 + c.y * H / 2 + dy); g.rotate((c.rot || 0) * Math.PI / 180); g.scale(sc, sc); if (blur > 0) g.filter = 'blur(' + (blur * k).toFixed(1) + 'px)';
@@ -277,6 +278,7 @@ PX.drawClip = (g, c, t, W, H, exporting) => {
   let alpha = c.opacity, sc = c.scale, ox = 0, blurAdd = 0, clipRect = null, white = 0, black = 0;
   const p = role.p;
   if (c.ken && c.type === 'image') { const kp = PX.clamp((t - c.start) / c.dur, 0, 1); sc *= 1 + (c.ken.zoom || 0.12) * kp; ox += (c.ken.pan || 0) * kp * W * 0.05; }
+  let oyM = 0, rM = 0; if (PX.motionAt) { const mo = PX.motionAt(c, t, W, H); sc *= mo.s; ox += mo.dx; oyM = mo.dy; rM = mo.r; alpha *= mo.a; white = Math.max(white, mo.white); }
   if (role.role === 'B' || role.role === 'B0') {
     const q = p; switch (role.type) {
       case 'dissolve': if (role.role === 'B') alpha *= q; else alpha *= q; break;
@@ -298,11 +300,12 @@ PX.drawClip = (g, c, t, W, H, exporting) => {
     }
   }
   if (alpha <= 0.002) return;
+  if (PX.blurFill) PX.blurFill(g, c, src, cx0, cy0, cw, ch, W, H, alpha);
   g.save(); g.globalAlpha = PX.clamp(alpha, 0, 1);
   if (clipRect) { g.beginPath(); g.rect(clipRect[0], clipRect[1], clipRect[2], clipRect[3]); g.clip(); }
-  g.translate(W / 2 + c.x * W / 2 + ox, H / 2 + c.y * H / 2); g.rotate((c.rot || 0) * Math.PI / 180); g.scale(sc, sc);
+  g.translate(W / 2 + c.x * W / 2 + ox, H / 2 + c.y * H / 2 + oyM); g.rotate(((c.rot || 0) + rM) * Math.PI / 180); g.scale(sc, sc);
   const f = PX.filterFor(c, W / 1920); g.filter = blurAdd > 0 ? ((f === 'none' ? '' : f + ' ') + 'blur(' + (blurAdd * W / 1920).toFixed(1) + 'px)') : f;
-  try { g.drawImage(src, cx0, cy0, cw, ch, -dw / 2, -dh / 2, dw, dh); } catch (e) { }
+  try { const kd = PX.keyed && PX.keyed(c, src, cx0, cy0, cw, ch, exporting); if (kd) g.drawImage(kd, 0, 0, kd.width, kd.height, -dw / 2, -dh / 2, dw, dh); else g.drawImage(src, cx0, cy0, cw, ch, -dw / 2, -dh / 2, dw, dh); } catch (e) { }
   g.filter = 'none';
   if (c.fx && c.fx.vignette > 0) { const vg = g.createRadialGradient(0, 0, Math.min(dw, dh) * 0.25, 0, 0, Math.hypot(dw, dh) * 0.55); vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,' + (c.fx.vignette / 100 * 0.85).toFixed(3) + ')'); g.fillStyle = vg; g.fillRect(-dw / 2, -dh / 2, dw, dh); }
   if (black > 0) { g.fillStyle = 'rgba(0,0,0,' + PX.clamp(black, 0, 1) + ')'; g.fillRect(-dw / 2 - 2, -dh / 2 - 2, dw + 4, dh + 4); }

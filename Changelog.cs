@@ -7,10 +7,17 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.56.0";
+    public const string Latest = "3.57.0";
 
     public const string Text =
-@"3.56.0  PicsArt-style Photo Studio, and visualisers that move to the beat
+@"3.57.0  Easier Photo Studio, and CapCut-style video tools
+ + NEW: Photo Studio: click anything on the picture and its tools appear right on it: EDIT TEXT, FONT, COLOUR, REPLACE, CROP, CUTOUT, EFFECTS, DUPLICATE, FRONT, BACK, LOCK and DELETE. Every word, sticker, shape and photo of a template can be removed or changed in one click (UNDO brings it back). Backgrounds, frames and textures picked in LAYERS get the same toolbar.
+ + NEW: Photo Studio: double-click text to type straight on the picture (double-click a photo to replace it), right-click anything for a menu, an outline shows what you are pointing at, and the tools are big tiles with pictures.
+ + NEW: Video Studio: FIND BEATS hears your song, works out its tempo and marks every beat on the timeline (clips snap to them). AUTO CUT TO BEAT lays your clips and photos out so every cut lands on a beat (1, 2, 4 or 8 beats each, and can repeat them to fill the song).
+ + NEW: Video Studio: MOTION for clips, text and visualisers: zoom in or out, Ken Burns, pop in, spin in, slide in, bounce, shake, swing, float, and pulse, shake, flash or zoom punch on every beat.
+ + NEW: Video Studio: GREEN SCREEN takes out any colour (tolerance, soft edge, and the green spill on the edges), BLUR FILL puts a blurred copy behind a clip that does not fill the frame, and FREEZE makes a still of the frame under the playhead.
+
+3.56.0  PicsArt-style Photo Studio, and visualisers that move to the beat
  + NEW: Video editor: MY PROJECTS (next to MY SONG, in the song wizard and on the welcome screen) lists your Purphex projects with their pictures; pick one and its song (mixed and mastered, like EXPORT) and its picture come in. Your project is not changed, and IMPORT still takes any file.
  + NEW: Photo Studio, CUTOUT tab: REMOVE BACKGROUND (best on fairly plain backgrounds; tolerance and soft edge), a MAGIC ERASER (click a colour and that patch goes) and ERASE / RESTORE brushes. All of it stays editable and can be undone.
  + NEW: Photo Studio, EFFECTS tab: glitch, RGB split, pixel art, halftone, pencil sketch, cartoon, posterize, emboss, film noise, VHS, comic, crisp HD, retro game and dreamy in one click, each with its own slider, on one photo or the whole picture.
