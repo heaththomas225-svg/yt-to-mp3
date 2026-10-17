@@ -226,7 +226,7 @@ partial class StudioForm
     {
         float W = ClientSize.Width, y = 12, h = 46;
         using (var br = new SolidBrush(TM.C(255, 18, 10, 34))) g.FillRectangle(br, 0, 0, W, ToolH); NeonRule(g, 0, ToolH, W);
-        Btn(g, Rc(12, y, 48, h), "≡", 0, () => { if (menuOpen) CloseMenu(); else OpenMenu(); }, 24);
+        MenuBtn(g, Rc(12, y, 48, h));
         Txt(g, "MASTERING", 18, Ink, Rc(76, y, 190, h), StringAlignment.Near, true); /* no BACK and no HOME: the MIX tab is on this page */
         float rx = W - 14;
         Btn(g, Rc(rx - 106, y, 106, h), "EXPORT", 1, () => ExportClick(), 16); rx -= 112;

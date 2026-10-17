@@ -13,7 +13,7 @@ partial class StudioForm
     void RemoveCover(string p) { ProjectLibrary.ClearCover(p); if (string.Equals(p, projPath, StringComparison.OrdinalIgnoreCase)) ProjectIO.CoverBytes = null; }
     bool menuOpen, projectsLoaded; int menuSec = -1, menuSub = -1; float projScroll; const string ImgFilter = "Pictures|*.jpg;*.jpeg;*.png;*.gif;*.bmp|All files|*.*";
     // the side menu: six lists (File, Edit, Tools, Pages, View, Community) and then single buttons that just take you there (Projects, Profile, Themes, Fonts, Settings, Help, Exit)
-    static readonly string[] MenuNames = { "File", "Edit", "Tools", "Pages", "View", "Community", "Music Hub", "Video Studio", "Cover Studio", "Projects", "Profile", "Themes", "Fonts", "Settings", "Help", "Exit" }; const int MenuLists = 6;
+    static readonly string[] MenuNames = { "File", "Edit", "Tools", "Pages", "View", "Community", "Music Hub", "Video Studio", "Photo Studio", "Projects", "Profile", "Themes", "Fonts", "Settings", "Help", "Exit" }; const int MenuLists = 6;
     static readonly int[] MenuIcon = { 0, 1, 2, 8, 3, 12, 13, 14, 15, 11, 4, 5, 10, 6, 7, 9 };
     Action MenuDirect(int i)
     {
@@ -21,7 +21,7 @@ partial class StudioForm
         {
             case "Music Hub": return () => OpenHub();
             case "Video Studio": return () => OpenCreative("video");   // Purphex Creative Studio: the video editor
-            case "Cover Studio": return () => OpenCreative("cover");   // Purphex Creative Studio: AI cover art   // listen to your streaming services inside Purphex
+            case "Photo Studio": return () => OpenCreative("cover");   // Purphex Creative Studio: the photo editor (covers, posts, thumbnails, flyers)   // listen to your streaming services inside Purphex
             case "Projects": return () => GoTab(3);   // Projects: straight to your saved projects
             case "Profile": return () => { GoTab(6); profScroll = 0; };
             case "Themes": return () => { CloseMenu(); OpenThemeSheet(); };
@@ -54,6 +54,27 @@ partial class StudioForm
 
     void OpenMenu() { menuOpen = true; menuSec = -1; menuSub = -1; if (!projectsLoaded) { projectsLoaded = true; ProjectLibrary.Load(); ProjectLibrary.Discover(); } }
     void CloseMenu() { menuOpen = false; }
+    // the menu button: four glowing tiles that spread out when you point at it, and turn into an X while the menu is open
+    void MenuBtn(Graphics g, RectangleF r)
+    {
+        Btn(g, r, "", menuOpen ? 4 : 0, () => { if (menuOpen) CloseMenu(); else OpenMenu(); }, 12); Hint2(r, menuOpen ? "Close the menu" : "Menu: new, open, recent projects, my projects with pictures, edit, tools, community, settings and help");
+        bool hot = Hot(r); float cx = r.X + r.Width / 2, cy = r.Y + r.Height / 2; var sm = g.SmoothingMode; g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+        if (menuOpen)
+        {
+            using (var pen = new Pen(Color.White, 3.2f) { StartCap = System.Drawing.Drawing2D.LineCap.Round, EndCap = System.Drawing.Drawing2D.LineCap.Round }) { g.DrawLine(pen, cx - 8, cy - 8, cx + 8, cy + 8); g.DrawLine(pen, cx + 8, cy - 8, cx - 8, cy + 8); }
+        }
+        else
+        {
+            float s = 8.5f, gap = hot ? 4.5f : 3f; Color[] cs = { NeonViolet, NeonCyan, NeonPink, Color.White };
+            for (int k = 0; k < 4; k++)
+            {
+                var t = Rc(cx + (k % 2 == 0 ? -gap / 2 - s : gap / 2), cy + (k < 2 ? -gap / 2 - s : gap / 2), s, s);
+                if (hot) Glow(g, cs[k], t, 3, 0.7f, 2);
+                FillRR(g, cs[k], t, 2.6f); StrokeRR(g, Color.FromArgb(150, 255, 255, 255), t, 2.6f, 0.8f);
+            }
+        }
+        g.SmoothingMode = sm;
+    }
     void GoMixClose() { tab = 0; menuOpen = false; }   // the tools work on the tracks, so they take you to the Mix page
     readonly float[] menuYs = new float[16];
     void GoTab(int t) { tab = t; if (t == 3 && !projectsLoaded) { projectsLoaded = true; ProjectLibrary.Load(); ProjectLibrary.Discover(); } if (t == 3) projScroll = 0; CloseMenu(); }

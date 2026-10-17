@@ -7,10 +7,22 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.53.0";
+    public const string Latest = "3.54.0";
 
     public const string Text =
-@"3.53.0  Purphex VSTs: EchoGrid and Modal Filter
+@"3.54.0  Photo Studio, Socials in the Music Hub, a folding track list
+ + NEW: Photo Studio replaces AI Cover Studio (the AI images needed an API key, so they are gone). A photo editor for covers, posts, stories, thumbnails and flyers: TEMPLATES with the right sizes, BACKGROUNDS (colours, 20 gradients, patterns, textures, or a photo), TEXT (14 styles: neon, outline, 3D, glitch, gradient, curved, retro, boxed, sticker and more, plus every font on your PC shown in its own style), STICKERS (over 170 emoji and 15 shapes), PHOTOS with shape masks, crop, border and shadow, FILTERS (20 looks for the whole picture or one photo), ADJUST (brightness, contrast, saturation, hue, warmth, fade, grain, vignette, blur), DRAW (a brush with neon and an eraser) and FRAMES. Move, resize, rotate and flip on the canvas, 15 blend modes, layers you can hide, lock and reorder, undo and redo. Designs from the old cover studio still open.
+ + NEW: The track list on the left folds away like the plugin panel: press the arrow on its edge for more room to edit. A thin strip keeps each track's colour, number and level (click it to pick the track), the arrow brings the list back, and it is remembered.
+ + NEW: THIN TRACKS is a saved setting: switch it on once and the tracks open thin every time.
+ + CHANGED: The menu button at the top left is four glowing tiles (they spread out when you point at it) and turns into an X while the menu is open, instead of three lines.
+ + NEW: Photo Studio: OPEN PHOTO starts a design from any picture of yours (the canvas takes the photo's own size), and PURPHEX VIDEO EDITOR jumps to the video editor.
+ + NEW: Music Hub: a SOCIALS section under the music services: Instagram, TikTok, Facebook, Snapchat, X, Threads, Reddit, Discord, Twitch, Pinterest, LinkedIn, WhatsApp, Messenger, Telegram, Bluesky and Tumblr, each on its own official site inside Purphex (sign in on the site's own page; Purphex never sees a password).
+ + FIXED: Music Hub: SIGNED IN is remembered and checked as soon as the hub opens (before, every card said OPEN TO SIGN IN until you opened a service), and Tidal (and the other services that keep the sign-in in the page) now show SIGNED IN too.
+ + FIXED: Music Hub: sign-in pages with no background of their own (such as Apple's for Tidal) had dark text on the dark hub: that text is white now.
+ + CHANGED: The built-in Purphex plugins have a permanent purple neon border in the effect list (the same purple in every theme), so you can see at a glance they are built in. The last row of the list no longer runs into the help line under it.
+ + CHANGED: The side panel item Cover Studio is now Photo Studio.
+
+3.53.0  Purphex VSTs: EchoGrid and Modal Filter
  + NEW: Purphex EchoGrid: eight echoes on a grid of sixteen steps in time with the song. Click a cell to set when each echo comes back; every echo has its own level, pan, tone, drive, crush and pitch (an octave up or down). Grid (1/8, 1/16, 1/32, triplets), feedback, mix and output.
  + CHANGED: Music Hub: the player buttons are proper round buttons with real play, pause and skip icons (in the hub and in the small corner player).
  + CHANGED: Music Hub: inside a service the ALL MUSIC button now says BACK TO MUSIC HUB (on the front page it says MUSIC HUB).

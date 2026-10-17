@@ -98,7 +98,8 @@ partial class StudioForm
         Toast(t.Name + " is now " + (mono ? "MONO: left and right play the same sound." : "STEREO: left and right are kept apart."));
     }
     int normalLaneH = 132;
-    void ToggleThinTracks() { if (LaneH < 96) LaneH = normalLaneH; else { normalLaneH = LaneH; LaneH = 84; } }
+    void ToggleThinTracks() { if (LaneH < 96) LaneH = normalLaneH; else { normalLaneH = LaneH; LaneH = 84; } Prefs.ThinTracks = LaneH < 96; Prefs.Changed(); }   // remembered: the tracks open thin next time
+    static int InitLaneH() { if (StudioEnv.UnderTest) { Prefs.ThinTracks = false; Prefs.HeadHidden = false; } return Prefs.ThinTracks ? 84 : 132; }   // (the tests always start from normal tracks and an open list)
 
     // ---------- sparks flying off the button you point at ----------
     readonly List<RectangleF> btnRects = new List<RectangleF>(); readonly Dictionary<string, RectangleF> btnMap = new Dictionary<string, RectangleF>(StringComparer.OrdinalIgnoreCase);

@@ -162,38 +162,3 @@ static class CreativeStore
         ok = true; return (video ? info["w"] + "x" + info["h"] + " " + info["vcodec"] + " + " : "") + info["acodec"] + ", " + TimeSpan.FromSeconds(dur).ToString(@"m\:ss") + ", " + (new FileInfo(path).Length / 1048576.0).ToString("0.0") + " MB";
     }
 }
-
-// ---------------- AI images: a provider interface; OpenAI's image API is the one built in (your own key, kept encrypted) ----------------
-interface IArtProvider { string Name { get; } bool Configured { get; } List<byte[]> Generate(string prompt, string size, int n); }
-sealed class OpenAiArt : IArtProvider
-{
-    public string Name { get { return "OpenAI " + Model; } }
-    public static string Model { get { string m = HubVault.Get("openai.model"); return m.Length > 0 ? m : "gpt-image-1"; } }
-    public bool Configured { get { return HubVault.Get("openai.key").Length > 0; } }
-    public static Func<string, string, string> PostHook;   // tests answer for the API
-    public List<byte[]> Generate(string prompt, string size, int n)
-    {
-        if (!Configured) throw new Exception("AI images need an image service: press AI SETTINGS and add your OpenAI API key (platform.openai.com > API keys). Nothing is generated without it.");
-        if (size != "1024x1024" && size != "1536x1024" && size != "1024x1536") size = "1024x1024"; n = Math.Max(1, Math.Min(4, n));
-        string body = "{\"model\":" + Q(Model) + ",\"prompt\":" + Q(CreativeStore.Clip(prompt, 3800)) + ",\"size\":" + Q(size) + ",\"n\":" + n + "}";
-        string resp;
-        if (PostHook != null) resp = PostHook("https://api.openai.com/v1/images/generations", body);
-        else
-        {
-            ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls12; var req = (HttpWebRequest)WebRequest.Create("https://api.openai.com/v1/images/generations"); req.Method = "POST"; req.ContentType = "application/json"; req.Timeout = 180000; req.ReadWriteTimeout = 180000;
-            req.Headers["Authorization"] = "Bearer " + HubVault.Get("openai.key"); var b = Encoding.UTF8.GetBytes(body); using (var s = req.GetRequestStream()) s.Write(b, 0, b.Length);
-            try { using (var r = (HttpWebResponse)req.GetResponse()) using (var rd = new StreamReader(r.GetResponseStream())) resp = rd.ReadToEnd(); }
-            catch (WebException ex)
-            {
-                var hr = ex.Response as HttpWebResponse; int code = hr == null ? 0 : (int)hr.StatusCode; string msg = ""; try { using (var rd = new StreamReader(ex.Response.GetResponseStream())) msg = HubApi.S(HubApi.Obj(MiniJson.Parse(rd.ReadToEnd()), "error"), "message"); } catch { }
-                if (code == 401) throw new Exception("OpenAI did not accept the API key (check it in AI SETTINGS).");
-                if (code == 429) throw new Exception("OpenAI says too many requests or no credit left: " + msg);
-                if (code == 400) throw new Exception("OpenAI refused that prompt: " + msg);
-                throw new Exception("The image service could not be reached: " + (msg.Length > 0 ? msg : ex.Message));
-            }
-        }
-        var list = new List<byte[]>(); foreach (var it in HubApi.Arr(MiniJson.Parse(resp), "data")) { string b64 = HubApi.S(it, "b64_json"); if (b64.Length > 0) list.Add(Convert.FromBase64String(b64)); }
-        if (list.Count == 0) throw new Exception("The image service answered without a picture."); return list;
-    }
-    static string Q(string s) { var sb = new StringBuilder(); JsonOut.Str(sb, s); return sb.ToString(); }
-}

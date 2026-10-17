@@ -610,9 +610,9 @@ Low-pass (with resonance), high-pass, telephone, rhythm gate, drive (soft, hard 
 ## Presets, undo and automation
 PRESETS has 55 factory presets (subtle, vocal, drum fills, build-ups, transitions, EDM, drum and bass, UK garage, trap, experimental, aggressive) and your own: save, rename and delete them there. The arrows step through them. Ctrl+Z and Ctrl+Y undo and redo in the window. Every setting is in the plugin panel too, with its A button for automation, and everything is saved with the project.
 "),
-        new HelpTopic("studio-creative", "Purphex Music", "Creative Studio: Video Studio and AI Cover Studio", false, @"
+        new HelpTopic("studio-creative", "Purphex Music", "Creative Studio: Video Studio and Photo Studio", false, @"
 ## Where it is
-Side panel (the three lines at the top left): VIDEO STUDIO or COVER STUDIO, under Music Hub. The two buttons at the top switch between them; BACK TO DAW returns to your song.
+Side panel (the three lines at the top left): VIDEO STUDIO or PHOTO STUDIO, under Music Hub. The two buttons at the top switch between them; BACK TO DAW returns to your song.
 ## Your first video
 Press MAKE A VIDEO FROM MY SONG (or MY SONG in MEDIA): pick the song, a background picture or video, a visualiser, the artist and title and the colours, and it is all put on the timeline. Press PLAY to watch, then EXPORT.
 ## Editing
@@ -623,10 +623,12 @@ Click a clip: CLIP (start, length, in point, speed), TRANSFORM (position, scale,
 TITLES adds text at the playhead (song title, artist name, lower third, lyric caption, karaoke, credits, promos). LYRICS: paste the words, press START TAPPING and press SPACE as each line starts; .srt and .lrc files can be imported and exported. Purphex does not hear the words by itself. VISUALS adds visualisers that move with the real audio of the timeline.
 ## Export
 EXPORT: MP4 (H.264 or H.265), WebM or audio only, the size, frame rate, quality and range. Every frame is drawn with all effects, transitions and text, then encoded by ffmpeg (installed by the converter the first time you convert something). The finished file is checked.
-## AI Cover Studio
-Layers on the right (pictures, text, shapes, gradients, textures, vignette): click one to edit it, drag text and pictures on the canvas, the wheel resizes them. Text stays separate from pictures, so you can change it any time. EXPORT PNG / JPEG, USE AS SONG COVER (your saved song project) or SEND TO VIDEO STUDIO. LIBRARY keeps your artwork.
-## AI images
-Describe the artwork, pick a style, colours, mood, lighting and composition, and press GENERATE. It uses OpenAI's image service with your own API key: press AI SETTINGS and paste it (platform.openai.com > API keys; kept encrypted on this PC and only sent to OpenAI). Without a key nothing is generated.
+## Photo Studio
+A photo editor for covers, posts, stories, thumbnails and flyers. The tabs on the left: TEMPLATES (ready layouts with the right size), BACKGROUNDS (colours, gradients, patterns, textures, or a photo), TEXT (styles like neon, outline, 3D, glitch, gradient, curved, retro, boxed, and a list of every font on your PC shown in its own style), STICKERS (emoji and shapes), PHOTOS (add your own pictures; PNG transparency is kept), FILTERS (20 looks for the whole picture or one photo), ADJUST (brightness, contrast, saturation, hue, warmth, fade, grain, vignette, blur), DRAW (a brush with neon and an eraser, on its own layer) and FRAMES.
+## Editing on the canvas
+Click a layer to pick it; drag to move, drag a corner to resize, drag the dot above it to rotate (Shift snaps to the centre and to 15 degrees); the mouse wheel resizes too. Arrow keys nudge it. On the right: every setting of the layer (font, size, colours, outline, shadow, glow, 3D, curve, opacity, blend mode, crop and shape mask for photos, flip, duplicate). LAYERS: show or hide, lock, move up or down, delete. Ctrl+Z / Ctrl+Y undo and redo, Ctrl+D duplicates, Delete removes, V is move, B is the brush.
+## Saving and using it
+SAVE keeps the design (every layer stays editable); LIBRARY opens, renames, duplicates and deletes your designs. EXPORT PNG / JPEG at full size, USE AS SONG COVER (the picture of your current song project) or SEND TO VIDEO STUDIO.
 ## Safe projects
 SAVE (Ctrl+S) keeps the project; SAVE COPY makes another. Projects also autosave in the background and come back after a crash. Your media files stay where they are: a moved file is marked MISSING (right-click it to find it).
 "),

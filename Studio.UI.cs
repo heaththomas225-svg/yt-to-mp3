@@ -190,7 +190,34 @@ partial class StudioForm : Form
     bool NeedsFrame0() { return eng.Playing || (DateTime.Now - lastInput).TotalMilliseconds < 1500; }
 
     // ---------------- geometry ----------------
-    const int ToolH = 70, HeadW = 372, RulerH = 28, HintStripH = 26;
+    const int ToolH = 70, HeadFullW = 372, RulerH = 28, HintStripH = 26;
+    internal const int HeadTabW = 46;   // the track list tucked away: a thin strip (colour and number of each track)
+    int HeadW { get { return (int)Math.Round(HeadTabW + (HeadFullW - HeadTabW) * HeadOpenK()); } }
+    DateTime headAt = DateTime.MinValue;
+    float HeadOpenK() { float target = Prefs.HeadHidden ? 0f : 1f; double t = (DateTime.Now - headAt).TotalMilliseconds / 180.0; if (t >= 1 || t < 0) return target; float e = (float)(1 - Math.Pow(1 - t, 3)); return (1 - target) + (target - (1 - target)) * e; }
+    internal void ToggleHead() { Prefs.HeadHidden = !Prefs.HeadHidden; Prefs.Changed(); headAt = DateTime.Now; Invalidate(); }
+    // the arrow on the edge of the track list: hide it for more room to edit, and bring it back
+    void HeadHandle(Graphics g, float top, float bottom)
+    {
+        bool open = !Prefs.HeadHidden; float hw = 26, hh = 96, cyA = top + Math.Min(bottom - top, 520) / 2; var hr = Rc(HeadW - 6, cyA - hh / 2, hw, hh); bool hot = Hot(hr);
+        var gs = g.Save(); g.ResetClip();
+        FillRR(g, hot ? TM.C(250, 70, 34, 130) : TM.C(245, 34, 18, 66), hr, 10); Glow(g, NeonCyan, hr, 10, hot ? 1f : 0.7f, 4); StrokeRR(g, Color.FromArgb(hot ? 255 : 220, NeonCyan), hr, 10, 1.8f);
+        float cx = hr.X + hr.Width / 2, cy = hr.Y + hr.Height / 2, d = open ? -1 : 1;   // open: the arrow points left (the list goes away); tucked away: it points right (it comes back)
+        using (var pen = new Pen(Color.FromArgb(255, hot ? Color.White : NeonCyan), 3.2f) { StartCap = System.Drawing.Drawing2D.LineCap.Round, EndCap = System.Drawing.Drawing2D.LineCap.Round, LineJoin = System.Drawing.Drawing2D.LineJoin.Round })
+            foreach (float ox in new[] { -4f, 4f }) g.DrawLines(pen, new[] { new PointF(cx + ox - 4 * d, cy - 12), new PointF(cx + ox + 4 * d, cy), new PointF(cx + ox - 4 * d, cy + 12) });
+        g.Restore(gs);
+        var rg = Reg(hr, () => ToggleHead()); rg.Button = true; Hint2(hr, open ? "Hide the track list for more room to edit (this arrow brings it back)" : "Show the track list: names, volume, mute, solo and the rest");
+    }
+    // a track while the list is tucked away: its colour, its number, and a level light; click it to pick the track
+    void PaintHeaderMini(Graphics g, Track tr, int i, RectangleF r, bool sel)
+    {
+        var c = Neon(tr.Color); using (var br = new SolidBrush(sel ? TM.C(255, 40, 22, 74) : TM.C(255, 26, 15, 46))) g.FillRectangle(br, r);
+        using (var br = new SolidBrush(Color.FromArgb(tr.Off ? 70 : 230, c))) g.FillRectangle(br, r.X + 3, r.Y + 4, 4, r.Height - 8);
+        Txt(g, (i + 1).ToString(), 15, sel ? Color.White : Ink, Rc(r.X + 8, r.Y + 8, r.Width - 10, 22), StringAlignment.Center, true);
+        float live = Math.Min(1f, Math.Max(tr.PeakL, tr.PeakR)); var m = Rc(r.X + r.Width / 2 - 2, r.Y + 34, 6, Math.Max(10, r.Height - 44)); FillRR(g, TM.C(160, 10, 6, 20), m, 3);
+        if (live > 0.001f) { float mh = m.Height * live; FillRR(g, Color.FromArgb(230, c), Rc(m.X, m.Bottom - mh, m.Width, mh), 3); }
+        var trH = tr; Reg(r, () => { busEdit = null; selTrack = Math.Max(0, eng.Tracks.IndexOf(trH)); selFx = -1; toolsTrack = trH; }); Hint2(r, tr.Name + "  (the track list is tucked away: the arrow brings it back)");
+    }
     int TransH { get { return tab == 0 ? 86 + HintStripH : 86; } }   // on the studio page the transport area has the hint strip along its bottom edge
     int PanelW { get { if (soundsOpen && tab == 0) return 640; return (int)Math.Round(PanelTabW + (380 - PanelTabW) * PanelOpenK()); } }
     // the plugin panel can be tucked away for a big timeline: a thin tab stays on the right edge; it slides out and back in 0.18 s
@@ -211,7 +238,7 @@ partial class StudioForm : Form
         }
         Reg(hr, () => TogglePanel()); Hint2(hr, open ? "Hide the plugin panel for a bigger timeline (this handle brings it back)" : "Show the plugin panel: add, edit and save plugins");
     }   // the right-hand panel is wider while the sound browser is open
-    int LaneH = 132;   // track height: Alt + mouse wheel makes the tracks taller so the waveform shows more detail
+    int LaneH = InitLaneH();   // track height: Alt + mouse wheel makes the tracks taller so the waveform shows more detail
     RectangleF TimelineRect() { return new RectangleF(HeadW, ToolH + TransH + RulerH, Math.Max(100, ClientSize.Width - HeadW - PanelW), Math.Max(100, ClientSize.Height - ToolH - TransH - RulerH - 6)); }
 
     // ---------------- drawing helpers ----------------
@@ -648,7 +675,7 @@ partial class StudioForm : Form
         float rightStart = W - 14; for (int i = 0; i < rw.Length; i++) rightStart -= rw[i] + 6; rightStart += 6;
         float avail = rightStart - 70 - 10, leftTotal = 156 + 232 + 126 + 140 + 84 + 36 + 124; float f = Math.Max(0.5f, Math.Min(1f, avail / leftTotal));
         float x = 70; float fp = Math.Max(11, 15 * f);
-        Btn(g, Rc(12, y, 48, h), "≡", 0, () => { if (menuOpen) CloseMenu(); else OpenMenu(); }, 24);
+        MenuBtn(g, Rc(12, y, 48, h));
         { var amR = Rc(x, y, 156 * f, h); Btn(g, amR, "ADD MUSIC", 2, () => AddMusicMenu(amR), Math.Max(13, 16 * f)); } x += 164 * f;
         Btn(g, Rc(x, y, 232 * f, h), "SPLIT VOCALS + BEAT", 1, () => SeparateClick(), Math.Max(12, 14 * f)); x += 240 * f;
         Btn(g, Rc(x, y, 126 * f, h), "AUTO MIX", 2, () => AutoMixClick(), Math.Max(13, 16 * f)); x += 132 * f;
@@ -780,7 +807,7 @@ partial class StudioForm : Form
             Prof.A("mix.wave", q0);
             var lr = LaneReg(lane, tr); int idx = i; RegGainTags();   /* (the gain tags of this row sit above it) */
             /* an empty track is just an empty lane: no box to click (drag audio onto it, drop files, record with MIC, or right-click it for Add music) */   // the box of an empty track: click it to pick music for THIS track
-            q0 = Prof.T(); PaintHeader(g, tr, i, Rc(0, ys, HeadW, LaneH), sel); Prof.A("mix.header", q0);
+            q0 = Prof.T(); if (HeadW <= HeadTabW + 1) PaintHeaderMini(g, tr, i, Rc(0, ys, HeadW, LaneH), sel); else { var gsH = g.Save(); g.SetClip(Rc(0, ys, HeadW, LaneH), System.Drawing.Drawing2D.CombineMode.Intersect); PaintHeader(g, tr, i, Rc(HeadW - HeadFullW, ys, HeadFullW, LaneH), sel); g.Restore(gsH); } Prof.A("mix.header", q0);   // the list slides away to the left
             q0 = Prof.T(); NeonLaneChrome(g, tr, Rc(0, ys, HeadW, LaneH), lane, sel); Prof.A("mix.neonchrome", q0);
             if (sel && n > 1) { float rEnd = tl.Right - 6; if (!tr.Instrument && !tr.IsBus) { float mx = -1e9f, v; if (tr.Clip != null && clipRightX.TryGetValue(tr, out v)) mx = v; foreach (var lay2 in eng.Tracks) if (lay2.Host == tr && lay2.Clip != null && clipRightX.TryGetValue(lay2, out v)) mx = Math.Max(mx, v); if (mx > -1e8f) rEnd = mx <= HeadW + 2 ? HeadW : Math.Min(tl.Right - 6, mx + 3); } PaintPickedRow(g, tr, Rc(1, ys + 1, rEnd - 1, LaneH - 2)); }   /* audio that ends before the part you see: the outline goes round the track box on the left only (no stub into the timeline) */   /* the outline ends where the audio of the row ends: also a row made only of pieces (SPLIT, paste), and never past the timeline into the plugin panel */   // the outline ends where the audio ends
             using (var pen = new Pen(TM.C(70, 140, 85, 210))) g.DrawLine(pen, 0, ys + LaneH, tl.Right, ys + LaneH);
@@ -788,6 +815,7 @@ partial class StudioForm : Form
         }
         q0 = Prof.T(); PaintGhost(g, tl, top); Prof.A("mix.ghost", q0);
         AddTrackRow(g, Math.Max(y, top + RulerH), n);
+        HeadHandle(g, top + RulerH, ClientSize.Height - 46);
         { float ey = Math.Max(y, top + RulerH); if (ey < ClientSize.Height) { var em = Reg(Rc(HeadW, ey, tl.Width, ClientSize.Height - ey), () => { toolsTrack = null; MarqueeBegin(); }); em.OnDrag = pt => MarqueeTo(pt); em.OnUp = () => MarqueeEnd(); } }   // empty space: hold and drag a selection box (the needle moves from the ruler only)
         PaintMarquee(g);
         { var rr2 = Reg(ruler, () => { needleDrag = true; followPaused = false; eng.Seek(scroll + (long)((MousePos.X - HeadW) * spp)); }); rr2.OnDrag = pt => NeedleDragTo(pt.X, tl); rr2.OnUp = () => needleDrag = false; }   // the whole ruler, to its bottom border, moves the needle: registered after the rows so a row scrolled up under it can not take the click
@@ -1328,7 +1356,7 @@ partial class StudioForm : Form
         float listTop = y + 128;
         float listH = 0; { string lc = ""; foreach (var i2 in list) { if (i2.Category != lc) { lc = i2.Category; listH += 20; } listH += 48; } }
         float browserMax = Math.Max(0, listH - (h - (listTop - y) - 10) + 8); browserMaxF = browserMax; browserScroll = Math.Max(0, Math.Min(browserMax, browserScroll));
-        float ry = listTop - browserScroll; var clipR = Rc(x + 10, listTop - 4, w - 20, h - (listTop - y) - 10); g.SetClip(clipR);
+        float ry = listTop - browserScroll; var clipR = Rc(x + 10, listTop - 4, w - 20, h - (listTop - y) - 28); g.SetClip(clipR);
         string lastCat = "";
         for (int li = 0; li < list.Count; li++)
         {
@@ -1339,8 +1367,8 @@ partial class StudioForm : Form
                 if (info.Category == "Purphex VST")   // our own plugins with their own window: first, in a box of their own
                 {
                     int pc = 0; for (int q = li; q < list.Count && list[q].Category == "Purphex VST"; q++) pc++; var pbox = Rc(x + 12, ry - 3, w - 24 - (browserMax > 0 ? 56 : 0), 20 + pc * 48 + 2);
-                    FillRR(g, TM.C(130, 40, 16, 70), pbox, 12); Glow(g, NeonViolet, pbox, 12, 0.6f, 3); StrokeRR(g, Color.FromArgb(220, NeonViolet), pbox, 12, 1.4f);
-                    if (ry + 18 > clipR.Y && ry < clipR.Bottom) Txt(g, "PURPHEX VST  -  our own plugins, each with its own window", 11, NeonViolet, Rc(x + 26, ry, w - 100, 18), StringAlignment.Near, true);
+                    FillRR(g, Color.FromArgb(130, 40, 16, 70), pbox, 12); Glow(g, PxPurple, pbox, 12, 0.7f, 3); StrokeRR(g, PxPurple, pbox, 12, 1.6f);
+                    if (ry + 18 > clipR.Y && ry < clipR.Bottom) Txt(g, "PURPHEX VST  -  built in: our own plugins, each with its own window", 11, PxPurple, Rc(x + 26, ry, w - 100, 18), StringAlignment.Near, true);
                 }
                 else if (info.Category == "Instruments")   // Bass Lab and the VSTs are not effects: they sit apart, in a box of their own
                 {
@@ -1353,6 +1381,7 @@ partial class StudioForm : Form
             }
             if (ry + 44 < clipR.Y || ry > clipR.Bottom) { ry += 48; continue; }   // off screen: neither drawn nor given a click region (it would lie on top of the header)
             var row = Rc(x + 18, ry, w - 36 - (browserMax > 0 ? 56 : 0), 44); var vis = RectangleF.Intersect(row, clipR); bool hot = Hot(vis); FillRR(g, hot ? TM.C(220, 90, 50, 170) : TM.C(160, 44, 24, 80), row, 8);
+            if (info.Category == "Purphex VST") { var gsB = g.Save(); g.SetClip(clipR, System.Drawing.Drawing2D.CombineMode.Intersect); Glow(g, PxPurple, row, 8, hot ? 1f : 0.6f, 3); StrokeRR(g, Color.FromArgb(hot ? 255 : 230, PxPurple), row, 8, hot ? 2f : 1.5f); g.Restore(gsB); }   // built in: a purple neon border that never changes with the theme
             Txt(g, info.Name, 15, Ink, Rc(row.X + 14, row.Y + 3, row.Width - 120, 20), StringAlignment.Near, true);
             Txt(g, info.Blurb, 12, DimC, Rc(row.X + 14, row.Y + 22, row.Width - 120, 18), StringAlignment.Near, false);
             string type = info.Type; if (vis.Width > 0 && vis.Height > 0) Reg(vis, () => AddFx(type));   /* the whole row adds it; the Add button sits on top of the row */
@@ -1363,6 +1392,7 @@ partial class StudioForm : Form
         Txt(g, "Enter adds the first match  -  Esc closes  -  your plugins are listed first", 11, DimC, Rc(x + 20, y + h - 22, w - 40, 18), StringAlignment.Near, false);
     }
     RectangleF browserBox; float browserMaxF; string browserCat = "";
+    static readonly Color PxPurple = Color.FromArgb(255, 178, 92, 255);   // the built-in plugins' own purple (the same in every theme)
 
     // the effects that match the search and category, grouped by category (your own plugins first)
     List<FxRegistry.Info> blCache; string blKey = "";

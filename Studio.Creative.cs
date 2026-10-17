@@ -10,7 +10,7 @@ using System.Threading;
 using System.Windows.Forms;
 
 // ======================================================================
-//  PURPHEX CREATIVE STUDIO page (side panel > Video Studio / Cover Studio, tab 10). The editor itself is a page of Purphex's own
+//  PURPHEX CREATIVE STUDIO page (side panel > Video Studio / Photo Studio, tab 10). The editor itself is a page of Purphex's own
 //  (creative/*.html, inside the exe) running in WebView2; this side opens files, keeps projects, reads media with ffmpeg, encodes the export
 //  from the frames the editor renders, mixes your song from the DAW and asks the AI image service.
 // ======================================================================
@@ -71,9 +71,7 @@ partial class StudioForm
                 case "toDaw": tab = 0; break;
                 case "playing": crPlaying = m.ContainsKey("on") && m["on"] is bool && (bool)m["on"]; if (crPlaying) { if (eng.Playing) eng.Pause(); if (npPlaying) { HubCmd(HubPlayerJs.Pause(CurSvc ?? HubServices.All[0])); npPlaying = false; } } break;
                 case "tool": crTool = HubApi.S(m, "tool"); break;
-                // AI Cover Studio
-                case "aiSettings": { string k = Ask("OpenAI API key for AI images (from platform.openai.com > API keys). It is kept encrypted on this PC and only sent to OpenAI. Leave empty to remove it.", ""); if (k != null) { HubVault.Set("openai.key", k.Trim()); CrSend(D("t", "artDone", "msg", k.Trim().Length > 0 ? "AI images are set up (OpenAI)." : "AI key removed.")); } break; }
-                case "aiGenerate": CrGenerate(m); break;
+                // Photo Studio
                 case "artImport": using (var d = new OpenFileDialog { Title = "Add a picture", Filter = "Pictures|*.png;*.jpg;*.jpeg;*.webp;*.bmp;*.gif" }) if (d.ShowDialog(this) == DialogResult.OK) { if (new FileInfo(d.FileName).Length > 60L * 1024 * 1024) throw new Exception("That picture is over 60 MB."); string dst = Path.Combine(CreativeStore.Dir("art/uploads"), Guid.NewGuid().ToString("N").Substring(0, 12) + Path.GetExtension(d.FileName).ToLowerInvariant()); File.Copy(d.FileName, dst); CrSend(D("t", "artImported", "url", "https://art.creative/uploads/" + Path.GetFileName(dst), "name", Path.GetFileNameWithoutExtension(d.FileName))); } break;
                 case "artSave": case "artAutosave": CrSave("art", HubApi.Obj(m, "art"), t == "artAutosave"); break;
                 case "artList": { var l = CreativeStore.List("art"); var d = D("t", "artList", "list", l.Cast<object>().ToList(), "silent", m.ContainsKey("silent")); if (m.ContainsKey("silent")) { string last = CreativeStore.LastId("art"); try { bool rec; if (last.Length > 0) { var a = CreativeStore.Load("art", last, out rec); if (rec) d["recover"] = a; } } catch { } } CrSend(d); break; }
@@ -83,7 +81,7 @@ partial class StudioForm
                 case "artDelete": CreativeStore.Delete("art", HubApi.S(m, "id")); CrSend(D("t", "artList", "list", CreativeStore.List("art").Cast<object>().ToList())); break;
             }
         }
-        catch (Exception ex) { CrSend(D("t", t == "aiGenerate" ? "aiError" : t.StartsWith("save") || t == "autosave" ? "saveError" : "mediaError", "msg", ex.Message)); }
+        catch (Exception ex) { CrSend(D("t", t.StartsWith("save") || t == "autosave" ? "saveError" : "mediaError", "msg", ex.Message)); }
     }
     static string Safe(string s) { s = string.Concat((s ?? "").Select(ch => Path.GetInvalidFileNameChars().Contains(ch) ? '_' : ch)).Trim(); return s.Length == 0 ? "video" : s; }
     void CrInit()
@@ -231,23 +229,6 @@ partial class StudioForm
         if (tell) CrSend(D("t", "exportCancelled"));
     }
 
-    // ---- AI Cover Studio ----
-    internal static IArtProvider ArtProvider = new OpenAiArt();
-    void CrGenerate(Dictionary<string, object> m)
-    {
-        var prov = ArtProvider; if (!prov.Configured) { CrSend(D("t", "aiError", "msg", "AI images need an image service. Press AI SETTINGS and add your OpenAI API key (platform.openai.com > API keys). Nothing is generated without it.")); return; }
-        string prompt = HubApi.S(m, "prompt"), user = HubApi.S(m, "userPrompt"), size = HubApi.S(m, "size"); int n = (int)Math.Max(1, Num(m, "n"));
-        ThreadPool.QueueUserWorkItem(_ =>
-        {
-            try
-            {
-                var imgs = prov.Generate(prompt, size, n); var items = new List<object>(); string dir = CreativeStore.Dir("art/gen");
-                foreach (var b in imgs) { string id = DateTime.Now.ToString("yyyyMMdd_HHmmss") + "_" + Guid.NewGuid().ToString("N").Substring(0, 6); string p = Path.Combine(dir, id + ".png"); File.WriteAllBytes(p, b); items.Add(D("url", "https://art.creative/gen/" + id + ".png", "path", "gen/" + id + ".png")); }
-                CrPost(D("t", "aiResult", "items", items, "prompt", prompt, "userPrompt", user, "provider", prov.Name));
-            }
-            catch (Exception ex) { CrPost(D("t", "aiError", "msg", ex.Message)); }
-        });
-    }
     string CrArtUpload(Uri u, byte[] body)
     {
         var q = HubApi.Query(u.Query.Length > 0 ? "?" + u.Query.TrimStart('?') : ""); string what = q.ContainsKey("what") ? q["what"] : "png", name = Safe(q.ContainsKey("name") ? q["name"] : "cover");

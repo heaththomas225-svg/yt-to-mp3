@@ -26,6 +26,8 @@ static class Prefs
     public static string MidiDev = "";       // the MIDI keyboard Bass Lab listens to ("" = off)
     public static int MicMode = 0;           // the MIC button's mode: 0 Automatic, 1 Standard, 2 Voice Isolation, 3 Wide Spectrum (only for what is recorded)
     public static string FontId = "";        // the studio font chosen on the Fonts page ("" = the original, Bahnschrift)
+    public static bool ThinTracks;   // THIN TRACKS is remembered (the tracks open thin next time)
+    public static bool HeadHidden;   // the list of tracks on the left is tucked away (a thin strip and an arrow bring it back)
     public static bool PanelHidden;   // the plugin panel on the right is tucked away (a thin tab brings it back)
     public static float LyricSize = 15f;   // the lyrics page text size (A- / A+)
     public static string InDev = "";         // recording input (microphone), "" = the Windows default
@@ -39,7 +41,7 @@ static class Prefs
 
     public static string[] Lines()
     {
-        return new[] { "panelhid=" + (PanelHidden ? 1 : 0), "lyrsize=" + LyricSize.ToString(System.Globalization.CultureInfo.InvariantCulture), "bgpath=" + BgPath, "bgdim=" + BgDim, "bgleaves=" + BgLeaves, "bgstudio=" + BgStudio, "outvol=" + OutVol, "rbspeed=" + RainbowSpeed, "outdev=" + OutDev, "buf=" + Buf, "fpscap=" + FpsCap, "perfmode=" + PerfMode, "showfps=" + ShowFps, "savelyrics=" + SaveLyrics, "countuses=" + CountUses, "fantasythemev=" + FantasyThemeV, "fantasytheme=" + FantasyThemed, "midiin=" + MidiDev, "indev=" + InDev, "micmode=" + MicMode, "fontid=" + FontId, "sharesaved=" + ShareSaved, "theme=" + Theme };
+        return new[] { "panelhid=" + (PanelHidden ? 1 : 0), "thin=" + (ThinTracks ? 1 : 0), "headhid=" + (HeadHidden ? 1 : 0), "lyrsize=" + LyricSize.ToString(System.Globalization.CultureInfo.InvariantCulture), "bgpath=" + BgPath, "bgdim=" + BgDim, "bgleaves=" + BgLeaves, "bgstudio=" + BgStudio, "outvol=" + OutVol, "rbspeed=" + RainbowSpeed, "outdev=" + OutDev, "buf=" + Buf, "fpscap=" + FpsCap, "perfmode=" + PerfMode, "showfps=" + ShowFps, "savelyrics=" + SaveLyrics, "countuses=" + CountUses, "fantasythemev=" + FantasyThemeV, "fantasytheme=" + FantasyThemed, "midiin=" + MidiDev, "indev=" + InDev, "micmode=" + MicMode, "fontid=" + FontId, "sharesaved=" + ShareSaved, "theme=" + Theme };
     }
     public static bool Parse(string k, string v)
     {
@@ -59,6 +61,8 @@ static class Prefs
             case "showfps": if (bool.TryParse(v, out b)) ShowFps = b; return true;
             case "midiin": MidiDev = v; return true;
             case "panelhid": PanelHidden = v.Trim() == "1"; return true;
+            case "thin": ThinTracks = v.Trim() == "1"; return true;
+            case "headhid": HeadHidden = v.Trim() == "1"; return true;
             case "lyrsize": { float ls; if (float.TryParse(v, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out ls)) LyricSize = Math.Max(9f, Math.Min(40f, ls)); return true; }
             case "indev": InDev = v; return true;
             case "fontid": { string fv = v ?? ""; bool okId = fv.Length <= 40; foreach (char fc in fv) if (!((fc >= 'a' && fc <= 'z') || (fc >= '0' && fc <= '9') || fc == '-')) okId = false; FontId = okId ? fv : ""; return true; }

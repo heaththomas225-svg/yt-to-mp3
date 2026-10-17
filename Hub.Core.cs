@@ -22,6 +22,15 @@ sealed class HubService
     public string Id, Name, Home, SearchUrl, Note; public Color Col; public string[] Origins; public string CookieUrl, LoginCookie;   // LoginCookie: the cookie that is there while you are signed in (null: the service keeps it elsewhere)
     public string[][] Links;           // {label, url}: straight to your library pages on the service
     public string[] PlaySel, NextSel, PrevSel, PagePlaySel;   // the service's own buttons (play / pause, next, previous, play this page)
+    public string[] OutHosts = new string[0];   // where the service sends you when you are not signed in (Tidal: its home page)
+    // the page's own answer while it is open: "1" signed in, "0" not signed in, "" cannot tell yet (a Log in / Sign up button means not signed in)
+    public string SignedJs()
+    {
+        var own = new List<string>(); foreach (var o in Origins) own.Add("'" + new Uri(o).Host + "'"); var outH = new List<string>(); foreach (var o in OutHosts) outH.Add("'" + o + "'");
+        return "(()=>{const h=location.hostname;if([" + string.Join(",", outH) + "].includes(h))return '0';if(h!==[" + string.Join(",", own) + "][0])return '';if(document.readyState!=='complete')return '';" +
+            "const lg=[...document.querySelectorAll('button,a,[role=button]')].some(e=>e.offsetParent!==null&&/^(log ?in|sign ?in|sign ?up|join( free)?|register|create (an )?account|get started)$/i.test((e.textContent||'').trim()));return lg?'0':'1'})()";
+    }
+    public bool Social;                // a social media site (the SOCIALS section of the hub), not a music player
     public string Api;                 // "spotify", "youtube", "soundcloud": it has an official API for your library (with your own developer app)
     public string Search(string q) { return SearchUrl.Replace("{q}", Uri.EscapeDataString(q ?? "")); }
 }
@@ -62,7 +71,7 @@ static class HubServices
             PlaySel = new[] { "[data-testid=\"play_button_pause\"]", "[data-testid=\"play_button_play\"]" }, NextSel = new[] { "[data-testid=\"next_track_button\"]" }, PrevSel = new[] { "[data-testid=\"previous_track_button\"]" }, PagePlaySel = new[] { "[data-testid=\"play\"]" },
             Note = "Deezer's web player inside Purphex (Deezer's free plan has limits). Search also finds Deezer songs with no account." },
         new HubService { Id = "tidal", Name = "Tidal", Col = C(80, 220, 230), Home = "https://listen.tidal.com/", SearchUrl = "https://listen.tidal.com/search?q={q}",
-            Origins = new[] { "https://listen.tidal.com", "https://login.tidal.com" }, CookieUrl = "https://listen.tidal.com", LoginCookie = null,
+            Origins = new[] { "https://listen.tidal.com", "https://login.tidal.com" }, CookieUrl = "https://listen.tidal.com", LoginCookie = null, OutHosts = new[] { "tidal.com", "www.tidal.com" },
             Links = L("Home", "https://listen.tidal.com/", "Tracks", "https://listen.tidal.com/my-collection/tracks", "Playlists", "https://listen.tidal.com/my-collection/playlists", "Albums", "https://listen.tidal.com/my-collection/albums", "Artists", "https://listen.tidal.com/my-collection/artists"),
             PlaySel = new[] { "[data-test=\"pause\"]", "[data-test=\"play\"]" }, NextSel = new[] { "[data-test=\"next\"]" }, PrevSel = new[] { "[data-test=\"previous\"]" }, PagePlaySel = new string[0],
             Note = "Tidal's web player inside Purphex (needs a Tidal subscription to play)." },
@@ -92,7 +101,75 @@ static class HubServices
             PlaySel = new string[0], NextSel = new string[0], PrevSel = new string[0], PagePlaySel = new string[0],
             Note = "Mixcloud's DJ mixes and radio shows inside Purphex." },
     };
-    public static HubService Get(string id) { foreach (var s in All) if (s.Id == id) return s; return null; }
+    // social media: the same official pages inside Purphex (sign in on the site's own page; Purphex never sees a password)
+    public static readonly HubService[] Socials = {
+        new HubService { Id = "instagram", Name = "Instagram", Col = C(225, 48, 108), Home = "https://www.instagram.com/", SearchUrl = "https://www.instagram.com/explore/search/keyword/?q={q}", Social = true,
+            Origins = new[] { "https://www.instagram.com" }, CookieUrl = "https://www.instagram.com", LoginCookie = "sessionid",
+            Links = L("Home", "https://www.instagram.com/", "Messages", "https://www.instagram.com/direct/inbox/", "Reels", "https://www.instagram.com/reels/"), PlaySel = new string[0], NextSel = new string[0], PrevSel = new string[0], PagePlaySel = new string[0],
+            Note = "Instagram inside Purphex: post, check DMs and reels while you work." },
+        new HubService { Id = "tiktok", Name = "TikTok", Col = C(37, 244, 238), Home = "https://www.tiktok.com/", SearchUrl = "https://www.tiktok.com/search?q={q}", Social = true,
+            Origins = new[] { "https://www.tiktok.com" }, CookieUrl = "https://www.tiktok.com", LoginCookie = "sessionid",
+            Links = L("For you", "https://www.tiktok.com/", "Following", "https://www.tiktok.com/following", "Upload", "https://www.tiktok.com/upload"), PlaySel = new string[0], NextSel = new string[0], PrevSel = new string[0], PagePlaySel = new string[0],
+            Note = "TikTok inside Purphex: your feed, uploads and messages." },
+        new HubService { Id = "facebook", Name = "Facebook", Col = C(24, 119, 242), Home = "https://www.facebook.com/", SearchUrl = "https://www.facebook.com/search/top?q={q}", Social = true,
+            Origins = new[] { "https://www.facebook.com" }, CookieUrl = "https://www.facebook.com", LoginCookie = "c_user",
+            Links = L("Home", "https://www.facebook.com/", "Watch", "https://www.facebook.com/watch/"), PlaySel = new string[0], NextSel = new string[0], PrevSel = new string[0], PagePlaySel = new string[0],
+            Note = "Facebook inside Purphex." },
+        new HubService { Id = "snapchat", Name = "Snapchat", Col = C(255, 252, 0), Home = "https://web.snapchat.com/", SearchUrl = "https://web.snapchat.com/", Social = true,
+            Origins = new[] { "https://web.snapchat.com", "https://accounts.snapchat.com" }, CookieUrl = "https://web.snapchat.com", LoginCookie = null, OutHosts = new[] { "www.snapchat.com", "snapchat.com" },
+            Links = L("Chats", "https://web.snapchat.com/"), PlaySel = new string[0], NextSel = new string[0], PrevSel = new string[0], PagePlaySel = new string[0],
+            Note = "Snapchat for the web inside Purphex: chats and calls." },
+        new HubService { Id = "x", Name = "X (Twitter)", Col = C(200, 200, 210), Home = "https://x.com/home", SearchUrl = "https://x.com/search?q={q}", Social = true,
+            Origins = new[] { "https://x.com" }, CookieUrl = "https://x.com", LoginCookie = "auth_token",
+            Links = L("Home", "https://x.com/home", "Messages", "https://x.com/messages"), PlaySel = new string[0], NextSel = new string[0], PrevSel = new string[0], PagePlaySel = new string[0],
+            Note = "X inside Purphex." },
+        new HubService { Id = "threads", Name = "Threads", Col = C(190, 190, 200), Home = "https://www.threads.com/", SearchUrl = "https://www.threads.com/search?q={q}", Social = true,
+            Origins = new[] { "https://www.threads.com" }, CookieUrl = "https://www.threads.com", LoginCookie = null,
+            Links = L("Home", "https://www.threads.com/"), PlaySel = new string[0], NextSel = new string[0], PrevSel = new string[0], PagePlaySel = new string[0],
+            Note = "Threads inside Purphex." },
+        new HubService { Id = "reddit", Name = "Reddit", Col = C(255, 69, 0), Home = "https://www.reddit.com/", SearchUrl = "https://www.reddit.com/search/?q={q}", Social = true,
+            Origins = new[] { "https://www.reddit.com" }, CookieUrl = "https://www.reddit.com", LoginCookie = "reddit_session",
+            Links = L("Home", "https://www.reddit.com/", "Producers", "https://www.reddit.com/r/WeAreTheMusicMakers/"), PlaySel = new string[0], NextSel = new string[0], PrevSel = new string[0], PagePlaySel = new string[0],
+            Note = "Reddit inside Purphex: r/WeAreTheMusicMakers and the rest." },
+        new HubService { Id = "discord", Name = "Discord", Col = C(88, 101, 242), Home = "https://discord.com/app", SearchUrl = "https://discord.com/app", Social = true,
+            Origins = new[] { "https://discord.com" }, CookieUrl = "https://discord.com", LoginCookie = null,
+            Links = L("Open", "https://discord.com/app"), PlaySel = new string[0], NextSel = new string[0], PrevSel = new string[0], PagePlaySel = new string[0],
+            Note = "Discord inside Purphex: your servers and DMs." },
+        new HubService { Id = "twitch", Name = "Twitch", Col = C(145, 70, 255), Home = "https://www.twitch.tv/", SearchUrl = "https://www.twitch.tv/search?term={q}", Social = true,
+            Origins = new[] { "https://www.twitch.tv" }, CookieUrl = "https://www.twitch.tv", LoginCookie = "auth-token",
+            Links = L("Home", "https://www.twitch.tv/", "Music", "https://www.twitch.tv/directory/category/music"), PlaySel = new string[0], NextSel = new string[0], PrevSel = new string[0], PagePlaySel = new string[0],
+            Note = "Twitch inside Purphex: watch or check your stream." },
+        new HubService { Id = "pinterest", Name = "Pinterest", Col = C(230, 0, 35), Home = "https://www.pinterest.com/", SearchUrl = "https://www.pinterest.com/search/pins/?q={q}", Social = true,
+            Origins = new[] { "https://www.pinterest.com" }, CookieUrl = "https://www.pinterest.com", LoginCookie = null,
+            Links = L("Home", "https://www.pinterest.com/"), PlaySel = new string[0], NextSel = new string[0], PrevSel = new string[0], PagePlaySel = new string[0],
+            Note = "Pinterest inside Purphex: ideas for covers and visuals." },
+        new HubService { Id = "linkedin", Name = "LinkedIn", Col = C(10, 102, 194), Home = "https://www.linkedin.com/feed/", SearchUrl = "https://www.linkedin.com/search/results/all/?keywords={q}", Social = true,
+            Origins = new[] { "https://www.linkedin.com" }, CookieUrl = "https://www.linkedin.com", LoginCookie = "li_at",
+            Links = L("Feed", "https://www.linkedin.com/feed/"), PlaySel = new string[0], NextSel = new string[0], PrevSel = new string[0], PagePlaySel = new string[0],
+            Note = "LinkedIn inside Purphex." },
+        new HubService { Id = "whatsapp", Name = "WhatsApp", Col = C(37, 211, 102), Home = "https://web.whatsapp.com/", SearchUrl = "https://web.whatsapp.com/", Social = true,
+            Origins = new[] { "https://web.whatsapp.com" }, CookieUrl = "https://web.whatsapp.com", LoginCookie = null,
+            Links = L("Chats", "https://web.whatsapp.com/"), PlaySel = new string[0], NextSel = new string[0], PrevSel = new string[0], PagePlaySel = new string[0],
+            Note = "WhatsApp Web inside Purphex: link it once with your phone (scan the code)." },
+        new HubService { Id = "messenger", Name = "Messenger", Col = C(0, 132, 255), Home = "https://www.messenger.com/", SearchUrl = "https://www.messenger.com/", Social = true,
+            Origins = new[] { "https://www.messenger.com" }, CookieUrl = "https://www.messenger.com", LoginCookie = "c_user",
+            Links = L("Chats", "https://www.messenger.com/"), PlaySel = new string[0], NextSel = new string[0], PrevSel = new string[0], PagePlaySel = new string[0],
+            Note = "Messenger inside Purphex." },
+        new HubService { Id = "telegram", Name = "Telegram", Col = C(42, 171, 238), Home = "https://web.telegram.org/k/", SearchUrl = "https://web.telegram.org/k/", Social = true,
+            Origins = new[] { "https://web.telegram.org" }, CookieUrl = "https://web.telegram.org", LoginCookie = null,
+            Links = L("Chats", "https://web.telegram.org/k/"), PlaySel = new string[0], NextSel = new string[0], PrevSel = new string[0], PagePlaySel = new string[0],
+            Note = "Telegram Web inside Purphex." },
+        new HubService { Id = "bluesky", Name = "Bluesky", Col = C(17, 133, 254), Home = "https://bsky.app/", SearchUrl = "https://bsky.app/search?q={q}", Social = true,
+            Origins = new[] { "https://bsky.app" }, CookieUrl = "https://bsky.app", LoginCookie = null,
+            Links = L("Home", "https://bsky.app/"), PlaySel = new string[0], NextSel = new string[0], PrevSel = new string[0], PagePlaySel = new string[0],
+            Note = "Bluesky inside Purphex." },
+        new HubService { Id = "tumblr", Name = "Tumblr", Col = C(120, 140, 170), Home = "https://www.tumblr.com/", SearchUrl = "https://www.tumblr.com/search/{q}", Social = true,
+            Origins = new[] { "https://www.tumblr.com" }, CookieUrl = "https://www.tumblr.com", LoginCookie = null,
+            Links = L("Dashboard", "https://www.tumblr.com/dashboard"), PlaySel = new string[0], NextSel = new string[0], PrevSel = new string[0], PagePlaySel = new string[0],
+            Note = "Tumblr inside Purphex." },
+    };
+    public static IEnumerable<HubService> Every { get { foreach (var s in All) yield return s; foreach (var s in Socials) yield return s; } }
+    public static HubService Get(string id) { foreach (var s in Every) if (s.Id == id) return s; return null; }
 }
 
 // a song, playlist, album or artist from an API or a catalogue

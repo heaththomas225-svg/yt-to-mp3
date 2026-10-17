@@ -1,4 +1,4 @@
-3.53.0
+3.54.0
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Purphex VSTs: EchoGrid and Modal Filter
-sha256=4d796124cd74ed232fe0e3b9ef997c4b626a32357abb39c0797878e6339219fb
+Photo Studio, Socials in the Music Hub, a folding track list
+sha256=9af2acdb742540fc4a7c54a904308d5f198b74ab662210b801f9e8f9640d29b0

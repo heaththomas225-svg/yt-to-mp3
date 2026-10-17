@@ -72,9 +72,12 @@ sealed class HubBrowser
     static void LoaderPath() { if (loaderSet) return; loaderSet = true; Wv2Loader.Ensure(); if (Wv2Loader.Dir != null) CoreWebView2Environment.SetLoaderDllFolderPath(Wv2Loader.Dir); }
     public static string RuntimeVersion() { try { LoaderPath(); return CoreWebView2Environment.GetAvailableBrowserVersionString(); } catch { return null; } }
 
-    public HubBrowser(Control parent, string userDataDir, bool mute)
+    // pages with no background of their own (sign-in pages such as Apple's) show the dark backdrop: their dark text is turned white so it can be read
+    internal const string LightTextJs = "(()=>{if(window.__pxLT)return;window.__pxLT=1;const op=c=>c&&c!=='transparent'&&!/rgba\\([^)]*,\\s*0\\)$/.test(c);const bgOf=el=>{for(let e=el;e&&e.nodeType===1;e=e.parentElement){const c=getComputedStyle(e).backgroundColor;if(op(c))return c}return null};const lum=c=>{const m=(c||'').match(/[\\d.]+/g);if(!m||m.length<3)return 1;return (0.2126*m[0]+0.7152*m[1]+0.0722*m[2])/255};let busy=0;const fix=()=>{busy=0;const b=document.body;if(!b)return;const pb=bgOf(b);if(pb&&lum(pb)>0.3)return;let n=0;for(const e of b.querySelectorAll('*')){if(++n>8000)break;let t=/^(INPUT|TEXTAREA|SELECT|LABEL)$/.test(e.tagName);if(!t)for(const k of e.childNodes)if(k.nodeType===3&&k.textContent.trim()){t=true;break}if(!t)continue;const cs=getComputedStyle(e);if(lum(cs.color)>0.55)continue;const bg=bgOf(e);if(bg&&lum(bg)>0.3)continue;e.style.setProperty('color','#f4efff','important');e.style.setProperty('-webkit-text-fill-color','#f4efff','important')}};const go=()=>{if(!busy){busy=1;setTimeout(fix,300)}};const start=()=>{go();new MutationObserver(go).observe(document.documentElement,{childList:true,subtree:true,characterData:true,attributes:true,attributeFilter:['class','style']})};if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start);else start()})();";
+    bool lightText;
+    public HubBrowser(Control parent, string userDataDir, bool mute, bool lightText = false)
     {
-        muted = mute; wv = new WebView2 { Visible = false, DefaultBackgroundColor = Color.FromArgb(255, 10, 5, 24) }; parent.Controls.Add(wv); wv.BringToFront(); var hw = wv.Handle; Init(userDataDir);   // the engine starts only once the view has a window, even a hidden one
+        this.lightText = lightText; muted = mute; wv = new WebView2 { Visible = false, DefaultBackgroundColor = Color.FromArgb(255, 10, 5, 24) }; parent.Controls.Add(wv); wv.BringToFront(); var hw = wv.Handle; Init(userDataDir);   // the engine starts only once the view has a window, even a hidden one
     }
     async void Init(string ud)
     {
@@ -83,7 +86,7 @@ sealed class HubBrowser
             LoaderPath(); Directory.CreateDirectory(ud);
             var env = await CoreWebView2Environment.CreateAsync(null, ud, new CoreWebView2EnvironmentOptions("--autoplay-policy=no-user-gesture-required"));
             await wv.EnsureCoreWebView2Async(env); this.env = env;
-            var c = wv.CoreWebView2; c.IsMuted = muted; c.Settings.AreDevToolsEnabled = false; c.Settings.IsStatusBarEnabled = false; c.Settings.IsZoomControlEnabled = true; c.Settings.IsGeneralAutofillEnabled = false; c.Settings.IsPasswordAutosaveEnabled = false;
+            var c = wv.CoreWebView2; c.IsMuted = muted; c.Settings.AreDevToolsEnabled = false; c.Settings.IsStatusBarEnabled = false; c.Settings.IsZoomControlEnabled = true; c.Settings.IsGeneralAutofillEnabled = false; c.Settings.IsPasswordAutosaveEnabled = false; if (lightText) await c.AddScriptToExecuteOnDocumentCreatedAsync(LightTextJs);
             c.NavigationStarting += (s, e) => { Loading = true; Error = ""; Changed(); };
             c.NavigationCompleted += (s, e) => { Loading = false; if (!e.IsSuccess && e.WebErrorStatus != CoreWebView2WebErrorStatus.OperationCanceled) Error = "The page did not load (" + e.WebErrorStatus + "). Check the internet connection and press RELOAD."; Changed(); };
             c.SourceChanged += (s, e) => { Url = c.Source; Changed(); };
