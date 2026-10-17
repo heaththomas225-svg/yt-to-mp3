@@ -7,10 +7,18 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.52.0";
+    public const string Latest = "3.53.0";
 
     public const string Text =
-@"3.52.0  Purphex Creative Studio: Video Studio and AI Cover Studio
+@"3.53.0  Purphex VSTs: EchoGrid and Modal Filter
+ + NEW: Purphex EchoGrid: eight echoes on a grid of sixteen steps in time with the song. Click a cell to set when each echo comes back; every echo has its own level, pan, tone, drive, crush and pitch (an octave up or down). Grid (1/8, 1/16, 1/32, triplets), feedback, mix and output.
+ + CHANGED: Music Hub: the player buttons are proper round buttons with real play, pause and skip icons (in the hub and in the small corner player).
+ + CHANGED: Music Hub: inside a service the ALL MUSIC button now says BACK TO MUSIC HUB (on the front page it says MUSIC HUB).
+ + CHANGED: Music Hub: the small player in the corner only shows while music is playing, and its arrow hides it (a slim tab at the edge brings it back).
+ + FIXED: The overview bar under the tracks draws every track in one even colour with neat lanes, instead of patchy track colours.
+ + NEW: Purphex Modal Filter: two filters (low-pass, high-pass, band-pass, notch, peak, comb, formant), each with cutoff, resonance and drive, morphed, in series or side by side. An envelope follower and an LFO (sine, triangle, square, random) move the cutoffs or the morph. A live picture of both filters and the result.
+
+3.52.0  Purphex Creative Studio: Video Studio and AI Cover Studio
  + NEW: PURPHEX CREATIVE STUDIO in the side panel (VIDEO STUDIO and COVER STUDIO, under Music Hub): a video editor and a cover art studio inside Purphex, with their own projects kept apart from your songs.
  + NEW: Video Studio: import video, audio, photos and transparent PNGs (button or drag and drop) with thumbnails, waveforms and file details; a multitrack timeline (video, audio and text tracks you can add, rename, mute, solo, hide, lock and resize) where clips move, trim, split, duplicate and snap to the playhead, clip edges and markers; select several clips; zoom and scroll; undo and redo.
  + NEW: Preview monitor that plays the real composition (layers, positions, opacity, scale, rotation, crop, fit / fill, effects, transitions, text and the audio mix) with play, pause, stop, frame stepping, scrubbing and timecode; drag, scale and rotate a clip right on the monitor, with safe-margin guides.

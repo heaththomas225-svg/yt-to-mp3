@@ -1,4 +1,4 @@
-3.52.0
+3.53.0
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Purphex Creative Studio: Video Studio and AI Cover Studio
-sha256=ae26366921be7d6a8b341d4bce1128d19ae705ff5c7e673795c9e2464c04398d
+Purphex VSTs: EchoGrid and Modal Filter
+sha256=4d796124cd74ed232fe0e3b9ef997c4b626a32357abb39c0797878e6339219fb

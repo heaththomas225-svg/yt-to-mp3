@@ -79,12 +79,12 @@ static class PxPlugins
         FxRegistry.Register(new FxRegistry.Info("pxcurve", "Purphex Curve EQ", "Purphex VST", "8-band dynamic EQ with draggable nodes on a live spectrum"), () => new CurveEqFx());
         FxRegistry.Register(new FxRegistry.Info("pxshape", "Purphex Shape", "Purphex VST", "Compressor and transient shaper with side-chain EQ, EQ and clipper"), () => new ShapeFx());
         FxRegistry.Register(new FxRegistry.Info("pxsubforge", "Purphex SubForge", "Instruments", "808 and bass instrument: punch, sub, glide, filter, distortion, compressor"), () => new SubForgeFx());
-        PxPlugins2.RegisterAll(); PxPlugins3.RegisterAll(); PxPlugins4.RegisterAll(); PxPlugins5.RegisterAll(); PxPlugins6.RegisterAll(); PxPlugins7.RegisterAll();
+        PxPlugins2.RegisterAll(); PxPlugins3.RegisterAll(); PxPlugins4.RegisterAll(); PxPlugins5.RegisterAll(); PxPlugins6.RegisterAll(); PxPlugins7.RegisterAll(); PxPlugins8.RegisterAll();
         PresetsExtra.Data["pxglow"] = Glow; PresetsExtra.Data["pxcurve"] = Curve; PresetsExtra.Data["pxshape"] = Shape; PresetsExtra.Data["pxsubforge"] = SubForge;
     }
-    public static readonly HashSet<string> Types = new HashSet<string> { "glitchflow", "pxglow", "pxcurve", "pxshape", "pxsubforge", "pxbreath", "pxpgate", "pxstereo", "pxvortex", "pxmultidyn", "pxprism", "pxfrost", "pxtape", "pxconst", "pxclip", "pxsmack", "pxvinyl", "pxradio", "pxdoubler", "pxchoir", "pxvowel", "pxstep", "pxtri", "pxshift", "pxmax", "pxsgate" };
+    public static readonly HashSet<string> Types = new HashSet<string> { "glitchflow", "pxglow", "pxcurve", "pxshape", "pxsubforge", "pxbreath", "pxpgate", "pxstereo", "pxvortex", "pxmultidyn", "pxprism", "pxfrost", "pxtape", "pxconst", "pxclip", "pxsmack", "pxvinyl", "pxradio", "pxdoubler", "pxchoir", "pxvowel", "pxstep", "pxtri", "pxshift", "pxmax", "pxsgate", "pxechogrid", "pxmodal" };
     // the window of a Purphex VST effect (instruments open their own through ShowWindow)
-    public static bool HasWindow(Fx f) { return f is GlitchFlowFx || f is GlowFx || f is CurveEqFx || f is ShapeFx || f is BreathOffFx || f is PhantomGateFx || f is StereoLabFx || f is VortexFx || f is MultiDynFx || f is PrismFx || f is FrostFx || f is TapeDirtFx || f is ConstellationFx || f is ClipperFx || f is SmackFx || f is VinylStopFx || f is RadioFx || f is DoublerFx || f is OctaveChoirFx || f is PxVowelFx || f is StepShaperFx || f is TriDriveFx || f is ShiftFx || f is MaximizerFx || f is SpectralGateFx; }
+    public static bool HasWindow(Fx f) { return f is GlitchFlowFx || f is GlowFx || f is CurveEqFx || f is ShapeFx || f is BreathOffFx || f is PhantomGateFx || f is StereoLabFx || f is VortexFx || f is MultiDynFx || f is PrismFx || f is FrostFx || f is TapeDirtFx || f is ConstellationFx || f is ClipperFx || f is SmackFx || f is VinylStopFx || f is RadioFx || f is DoublerFx || f is OctaveChoirFx || f is PxVowelFx || f is StepShaperFx || f is TriDriveFx || f is ShiftFx || f is MaximizerFx || f is SpectralGateFx || f is EchoGridFx || f is ModalFilterFx; }
     public static void Open(Fx f, IWin32Window owner)
     {
         if (f is GlitchFlowFx) GlitchFlowWindow.Show((GlitchFlowFx)f, owner);
@@ -112,5 +112,7 @@ static class PxPlugins
         else if (f is ShiftFx) PxWindow.Show(f, owner, () => new ShiftWindow((ShiftFx)f));
         else if (f is MaximizerFx) PxWindow.Show(f, owner, () => new MaximizerWindow((MaximizerFx)f));
         else if (f is SpectralGateFx) PxWindow.Show(f, owner, () => new SpectralGateWindow((SpectralGateFx)f));
+        else if (f is EchoGridFx) PxWindow.Show(f, owner, () => new EchoGridWindow((EchoGridFx)f));
+        else if (f is ModalFilterFx) PxWindow.Show(f, owner, () => new ModalFilterWindow((ModalFilterFx)f));
     }
 }

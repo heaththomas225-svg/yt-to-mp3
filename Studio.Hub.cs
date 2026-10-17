@@ -146,7 +146,7 @@ partial class StudioForm
         var tb = Rectangle.Round(Rc(sr.X + 10, sr.Y + 6, sr.Width - 110, 22)); if (hubBox.Bounds != tb) hubBox.Bounds = tb;
         if (hubBox.Text.Length == 0 && !hubBox.Focused) Txt(g, hubView == 1 && CurSvc != null ? "Search " + CurSvc.Name + "..." : "Search songs, artists, albums...", 12, DimC, Rc(sr.X + 14, sr.Y, sr.Width - 120, sr.Height), StringAlignment.Near, false);
         Btn(g, Rc(sr.Right - 92, sr.Y + 4, 86, 26), "SEARCH", 2, () => HubSearch(hubBox.Text), 11);
-        float bx = sr.Right + 12; var hb = Rc(bx, top, 150, 34); Btn(g, hb, "ALL MUSIC", hubView == 0 ? 4 : 1, () => { hubView = 0; hubResults = null; }, 12); Hint2(hb, "Your services and accounts in one place, and search across them");
+        float bx = sr.Right + 12; var hb = Rc(bx, top, 196, 34); Btn(g, hb, hubView == 0 ? "MUSIC HUB" : "BACK TO MUSIC HUB", hubView == 0 ? 4 : 2, () => { hubView = 0; hubResults = null; }, 12); Hint2(hb, hubView == 0 ? "The Music Hub front page: your services and accounts, and search across them" : "Back to the Music Hub front page (the music keeps playing)");
         var cb = Rc(hb.Right + 8, top, 196, 34); Btn(g, cb, "CONNECT ACCOUNTS", hubConnOpen ? 4 : 1, () => hubConnOpen = true, 12); Hint2(cb, "Connect Spotify, YouTube and SoundCloud to see your playlists, liked songs and more here");
         var back = Rc(W - 24 - 160, top, 160, 34); Btn(g, back, "BACK TO DAW", 2, () => { tab = 0; }, 12); Hint2(back, "Back to your project: the music keeps playing (the small player stays in the corner)");
         // the services on the left
@@ -253,9 +253,9 @@ partial class StudioForm
         string title = npHas || npTitle.Length > 0 ? npTitle : "NOTHING PLAYING"; Txt(g, title, 14, Ink, Rc(pic.Right + 12, r.Y + 10, 330, 22), StringAlignment.Near, true);
         Txt(g, (npArtist.Length > 0 ? npArtist + "  -  " : "") + (s != null ? s.Name.ToUpper() : "PICK A SERVICE ON THE LEFT"), 11, s != null ? s.Col : DimC, Rc(pic.Right + 12, r.Y + 34, 330, 18), StringAlignment.Near, true);
         float cx = r.X + r.Width / 2 - 70; bool live = s != null && hubBObj != null;
-        var pv = Rc(cx - 52, r.Y + 14, 44, 44); Btn(g, pv, "|<", live ? 1 : 0, () => HubSkip(-1), 13); Hint2(pv, "Previous");
-        var pp = Rc(cx, r.Y + 10, 56, 52); Btn(g, pp, npPlaying ? "II" : ">", live ? 2 : 0, () => HubToggle(), 18); Hint2(pp, npPlaying ? "Pause" : "Play");
-        var nx = Rc(cx + 64, r.Y + 14, 44, 44); Btn(g, nx, ">|", live ? 1 : 0, () => HubSkip(1), 13); Hint2(nx, "Next" + (hubQueue != null ? " (queue: " + (hubQAt + 1) + " of " + hubQueue.Count + ")" : ""));
+        var pv = Rc(cx - 50, r.Y + r.Height / 2 - 20, 40, 40); MediaBtn(g, pv, "prev", false, live, () => HubSkip(-1), "Previous");
+        var pp = Rc(cx + 2, r.Y + r.Height / 2 - 27, 54, 54); MediaBtn(g, pp, npPlaying ? "pause" : "play", true, live, () => HubToggle(), npPlaying ? "Pause" : "Play");
+        var nx = Rc(cx + 68, r.Y + r.Height / 2 - 20, 40, 40); MediaBtn(g, nx, "next", false, live, () => HubSkip(1), "Next" + (hubQueue != null ? " (queue: " + (hubQAt + 1) + " of " + hubQueue.Count + ")" : ""));
         var seek = Rc(cx + 130, r.Y + r.Height / 2 - 4, Math.Max(80, r.Right - 330 - (cx + 130)), 8);
         if (npDur > 1) { var sg = Slider(g, seek, (float)(npPos / npDur), f => { npPos = f * npDur; HubCmd(HubPlayerJs.Seek(npPos)); }, NeonCyan); Txt(g, Tm(npPos) + " / " + Tm(npDur), 10, DimC, Rc(seek.X, seek.Bottom + 4, seek.Width, 14), StringAlignment.Center, false); }
         else Txt(g, npHas ? "LIVE" : "", 10, DimC, Rc(seek.X, r.Y, seek.Width, r.Height), StringAlignment.Center, true);
@@ -263,16 +263,46 @@ partial class StudioForm
         var qb = Rc(r.Right - 128, r.Y + r.Height / 2 - 15, 118, 30); Btn(g, qb, hubQueue != null ? "QUEUE " + (hubQAt + 1) + "/" + hubQueue.Count : "QUEUE: NONE", hubQueue != null ? 1 : 0, () => { if (hubQueue != null && AskYes("Clear the queue (" + hubQueue.Count + " songs)?", "Queue")) { hubQueue = null; } }, 10);
         Hint2(qb, hubQueue != null ? "Songs from the list you played from go one after another. Press to clear the queue." : "Play a song from a library or search results: the songs after it become the queue");
     }
+    // a round player button with a drawn icon: "prev", "next", "play" or "pause"
+    void MediaBtn(Graphics g, RectangleF r, string icon, bool main, bool enabled, Action click, string tip)
+    {
+        bool hot = enabled && Hot(r); var c1 = main ? NeonViolet : TM.C(255, 40, 26, 74); var c2 = main ? NeonPink : TM.C(255, 26, 16, 52);
+        if (hot) Glow(g, main ? NeonPink : NeonViolet, r, r.Height / 2, main ? 0.9f : 0.6f, 3);
+        using (var br = new LinearGradientBrush(r, hot ? Lighter(c1) : c1, hot ? Lighter(c2) : c2, 90f)) g.FillEllipse(br, r);
+        using (var pen = new Pen(Color.FromArgb(enabled ? (hot ? 255 : 200) : 90, main ? Color.White : NeonViolet), main ? 1.8f : 1.4f)) g.DrawEllipse(pen, r);
+        float cx = r.X + r.Width / 2, cy = r.Y + r.Height / 2, s = r.Height * (main ? 0.22f : 0.2f); var ic = Color.FromArgb(enabled ? 255 : 110, 255, 255, 255);
+        using (var b = new SolidBrush(ic))
+        {
+            if (icon == "play") g.FillPolygon(b, new[] { new PointF(cx - s * 0.7f, cy - s * 1.1f), new PointF(cx - s * 0.7f, cy + s * 1.1f), new PointF(cx + s * 1.15f, cy) });
+            else if (icon == "pause") { float bw = s * 0.62f, gap = s * 0.42f; FillRR(g, ic, Rc(cx - gap - bw, cy - s * 1.05f, bw, s * 2.1f), bw * 0.3f); FillRR(g, ic, Rc(cx + gap, cy - s * 1.05f, bw, s * 2.1f), bw * 0.3f); }
+            else
+            {
+                float d = icon == "next" ? 1 : -1, bw = s * 0.34f;   // a triangle pointing the way, against a bar
+                g.FillPolygon(b, new[] { new PointF(cx - d * s * 0.8f, cy - s), new PointF(cx - d * s * 0.8f, cy + s), new PointF(cx + d * s * 0.55f, cy) });
+                var bar = d > 0 ? Rc(cx + s * 0.55f, cy - s, bw, s * 2) : Rc(cx - s * 0.55f - bw, cy - s, bw, s * 2); FillRR(g, ic, bar, bw * 0.4f);
+            }
+        }
+        if (enabled) { Reg(r, () => click()).Button = true; Hint2(r, tip); }
+    }
+    static Color Lighter(Color c) { return Color.FromArgb(c.A, Math.Min(255, c.R + 40), Math.Min(255, c.G + 40), Math.Min(255, c.B + 40)); }
     static string Tm(double s) { if (s < 0 || double.IsNaN(s)) s = 0; return ((int)(s / 60)) + ":" + ((int)(s % 60)).ToString("00"); }
     // the small player on every other page
+    internal bool miniHidden;
     void PaintHubMini(Graphics g)
     {
-        if (tab == 9 || hubBObj == null || !(npHas || npPlaying) || OverlayOpen) return; float W = ClientSize.Width, H = ClientSize.Height;
+        if (tab == 9 || hubBObj == null || !npPlaying || OverlayOpen) return; float W = ClientSize.Width, H = ClientSize.Height;
+        if (miniHidden)
+        {   // hidden: a slim tab at the right edge shows something is playing; click it to bring the player back
+            var tb = Rc(W - 26, H - 118, 26, 56); FillRR(g, TM.C(245, 6, 3, 14), tb, 8); StrokeRR(g, Color.FromArgb(220, NeonViolet), tb, 8, 1.3f);
+            using (var b = new SolidBrush(Color.White)) g.FillPolygon(b, new[] { new PointF(tb.X + 16, tb.Y + 20), new PointF(tb.X + 16, tb.Y + 36), new PointF(tb.X + 8, tb.Y + 28) });
+            var rg = Reg(tb, () => miniHidden = false); rg.Button = true; Hint2(tb, "Show the Music Hub player"); return;
+        }
         var r = Rc(W - 24 - 380, H - 120, 380, 60); FillRR(g, TM.C(245, 6, 3, 14), r, 14); Glow(g, NeonViolet, r, 14, 0.5f, 3); StrokeRR(g, Color.FromArgb(220, NeonViolet), r, 14, 1.3f); Reg(r, () => { }).Overlay = true;
         var s = CurSvc; var pic = Rc(r.X + 8, r.Y + 8, 44, 44); var bm = HubArt.Get(npArt); if (bm != null) g.DrawImage(bm, pic); else FillRR(g, TM.C(255, 30, 16, 60), pic, 6);
         Txt(g, npTitle.Length > 0 ? npTitle : "MUSIC HUB", 12, Ink, Rc(pic.Right + 8, r.Y + 8, 170, 20), StringAlignment.Near, true); Txt(g, (npArtist.Length > 0 ? npArtist + " - " : "") + (s != null ? s.Name : ""), 10, s != null ? s.Col : DimC, Rc(pic.Right + 8, r.Y + 30, 170, 18), StringAlignment.Near, false);
-        float bx = r.Right - 158; Btn(g, Rc(bx, r.Y + 14, 34, 32), "|<", 1, () => HubSkip(-1), 11); Btn(g, Rc(bx + 38, r.Y + 12, 40, 36), npPlaying ? "II" : ">", 2, () => HubToggle(), 15); Btn(g, Rc(bx + 82, r.Y + 14, 34, 32), ">|", 1, () => HubSkip(1), 11);
-        var ob = Rc(r.Right - 38, r.Y + 14, 30, 32); Btn(g, ob, "^", 0, () => OpenHub(), 12); Hint2(ob, "Open the Music Hub");
+        float bx = r.Right - 158; MediaBtn(g, Rc(bx, r.Y + 14, 32, 32), "prev", false, true, () => HubSkip(-1), "Previous"); MediaBtn(g, Rc(bx + 37, r.Y + 9, 42, 42), npPlaying ? "pause" : "play", true, true, () => HubToggle(), npPlaying ? "Pause" : "Play"); MediaBtn(g, Rc(bx + 84, r.Y + 14, 32, 32), "next", false, true, () => HubSkip(1), "Next");
+        var ob = Rc(r.Right - 38, r.Y + 6, 30, 22); Btn(g, ob, "HUB", 0, () => OpenHub(), 9); Hint2(ob, "Open the Music Hub");
+        var hd = Rc(r.Right - 38, r.Y + 32, 30, 22); Btn(g, hd, " ", 0, () => miniHidden = true, 9); using (var pen = new Pen(Color.White, 2f) { StartCap = LineCap.Round, EndCap = LineCap.Round }) { g.DrawLine(pen, hd.X + 12, hd.Y + 6, hd.X + 18, hd.Y + 11); g.DrawLine(pen, hd.X + 18, hd.Y + 11, hd.X + 12, hd.Y + 16); }   // a chevron: slide it away to the side Hint2(hd, "Hide the player (a tab at the edge brings it back)");
     }
     // CONNECT ACCOUNTS: the official APIs with your own developer apps
     void PaintHubConnect(Graphics g)

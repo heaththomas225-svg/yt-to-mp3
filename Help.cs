@@ -644,7 +644,7 @@ Spotify, Apple Music, Tidal, Amazon Music and Deezer play full songs with their 
 ## Search
 Type in the search box and press SEARCH: songs from your connected accounts and from Deezer's and Apple's public catalogues. Inside a service, the box searches that service.
 "),
-        new HelpTopic("studio-purphexvst", "Purphex Music", "Purphex VSTs: Glow, Curve EQ, Shape, SubForge, BreathOff, Phantom Gate, Stereo Lab, Vortex, MultiDyn, Prism, Frost, Tape Dirt, Constellation, Clipper, Smack, Vinyl Stop, Radio, Doubler, Octave Choir, Vowel, Step Shaper, Tri-Drive, Shift, Maximizer, Spectral Gate", false, @"
+        new HelpTopic("studio-purphexvst", "Purphex Music", "Purphex VSTs: Glow, Curve EQ, Shape, SubForge, BreathOff, Phantom Gate, Stereo Lab, Vortex, MultiDyn, Prism, Frost, Tape Dirt, Constellation, Clipper, Smack, Vinyl Stop, Radio, Doubler, Octave Choir, Vowel, Step Shaper, Tri-Drive, Shift, Maximizer, Spectral Gate, EchoGrid, Modal Filter", false, @"
 ## Where they are
 The Purphex VSTs are our own plugins with their own windows. The effects are at the top of + ADD EFFECT in PURPHEX VST (adding one opens its window; OPEN in the plugin panel opens it again). SubForge is an instrument: + ADD TRACK, then a MIDI / instrument track.
 ## Glow
@@ -697,6 +697,10 @@ Two frequency shifters. SHIFT moves every frequency by the same number of Hz (sm
 Turn LOUDNESS up: a look-ahead limiter makes it louder without ever going over the CEILING (the pink ring is how much it is working). RELEASE, CHARACTER (clean, warm, punch), LOW and HIGH tone, MONO BASS, WIDTH. The meter shows the loudness in LUFS; TARGET (streaming -14, loud -11, club -9, max -7) turns it to that level for you.
 ## Spectral Gate
 Turns down spill, hiss, hum and room on every frequency on its own. Play a part with only the unwanted sound and press LEARN SPILL (press again to stop); each frequency then opens MARGIN dB above it. LEARN WANTED as well and the line sits between the two (BIAS). With nothing learned, drag the green THRESHOLD line. REDUCTION (how far down), ATTACK, RELEASE, SMOOTH, RANGE LOW / HIGH (nothing outside it is gated), LISTEN to the result or to what is removed, MIX and OUTPUT. CLEAR LEARNED forgets.
+## EchoGrid
+Eight echoes on a grid of sixteen steps. Click a cell to put that echo on that step (it switches the echo on); ON / OFF on each row. Click ECHO 1 to 8 to edit it below: LEVEL, PAN, TONE (left darker, right thinner), DRIVE, CRUSH and PITCH. GRID sets the step length (1/8, 1/16, 1/32, triplets), FEEDBACK sends the pattern round again, MIX and OUTPUT.
+## Modal Filter
+Two filters, A and B: TYPE (low-pass, high-pass, band-pass, notch, peak, comb, formant), CUTOFF, RES and DRIVE. ROUTING: MORPH (the MORPH knob fades from A to B), SERIAL (A then B) or PARALLEL (both together). ENVELOPE moves the cutoffs with the loudness (AMOUNT, ATTACK, RELEASE); the LFO moves the cutoffs or the morph (RATE, DEPTH, shape, target). MIX and OUTPUT.
 ## All of them
 ON / OFF at the top turns the plugin off without removing it. PRESETS has factory presets and your own (save, rename, delete); the arrows step through them. Ctrl+Z / Ctrl+Y undo and redo in the window. Every setting is in the plugin panel too, with its A button for automation, and is saved with the project.
 "),

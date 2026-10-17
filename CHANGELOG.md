@@ -2,6 +2,20 @@
 
 What changed in each version of **Purphex**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.53.0  Purphex VSTs: EchoGrid and Modal Filter
+
+- NEW: Purphex EchoGrid: eight echoes on a grid of sixteen steps in time with the song. Click a cell to set when each echo comes back; every echo has its own level, pan, tone, drive, crush and pitch (an octave up or down). Grid (1/8, 1/16, 1/32, triplets), feedback, mix and output.
+
+- CHANGED: Music Hub: the player buttons are proper round buttons with real play, pause and skip icons (in the hub and in the small corner player).
+
+- CHANGED: Music Hub: inside a service the ALL MUSIC button now says BACK TO MUSIC HUB (on the front page it says MUSIC HUB).
+
+- CHANGED: Music Hub: the small player in the corner only shows while music is playing, and its arrow hides it (a slim tab at the edge brings it back).
+
+- FIXED: The overview bar under the tracks draws every track in one even colour with neat lanes, instead of patchy track colours.
+
+- NEW: Purphex Modal Filter: two filters (low-pass, high-pass, band-pass, notch, peak, comb, formant), each with cutoff, resonance and drive, morphed, in series or side by side. An envelope follower and an LFO (sine, triangle, square, random) move the cutoffs or the morph. A live picture of both filters and the result.
+
 ## 3.52.0  Purphex Creative Studio: Video Studio and AI Cover Studio
 
 - NEW: PURPHEX CREATIVE STUDIO in the side panel (VIDEO STUDIO and COVER STUDIO, under Music Hub): a video editor and a cover art studio inside Purphex, with their own projects kept apart from your songs.

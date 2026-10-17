@@ -167,13 +167,14 @@ partial class StudioForm
         int n = clips ? LaneCount : 0; if (n > 0)
             for (int i = 0; i < n; i++)
             {
-                var tr = eng.Tracks[i]; float a = inner.X + (float)(Math.Max(0, tr.Offset) / total * tw), b = inner.X + (float)(Math.Min(total, tr.Offset + Math.Max(1, tr.UsedLength)) / total * tw), th = (inner.Height) / n;
-                using (var br = new SolidBrush(Color.FromArgb(playing ? 34 : 80, Neon(tr.Color)))) g.FillRectangle(br, a, inner.Y + i * th, Math.Max(2, b - a), Math.Max(1.5f, th - 1));
+                var tr = eng.Tracks[i]; float a = inner.X + (float)(Math.Max(0, tr.Offset) / total * tw), b = inner.X + (float)(Math.Min(total, tr.Offset + Math.Max(1, tr.UsedLength)) / total * tw), th = inner.Height / n, gap = th > 4 ? 1.5f : 0.5f;
+                var lane = Rc(a, inner.Y + i * th + gap / 2, Math.Max(3, b - a), Math.Max(1.2f, th - gap));   // one even colour for every track (the track colours made it look patchy)
+                FillRR(g, Color.FromArgb(playing ? 46 : 70, NeonViolet), lane, Math.Min(3, lane.Height / 2));
             }
         // the window you are looking at
         double win = viewW * spp; float ww = Math.Max(16f, (float)(win / total * tw)), x0 = inner.X + (float)((scroll - baseFrame) / total * tw); x0 = Math.Max(inner.X, Math.Min(inner.Right - ww, x0));
         var thumb = Rc(x0, inner.Y, ww, inner.Height);
-        using (var br = new SolidBrush(TM.C(34, 140, 150, 200))) g.FillRectangle(br, thumb);   // a soft window (no bright box); its two ends can still be dragged to zoom
+        FillRR(g, Color.FromArgb(38, NeonCyan), thumb, 6); StrokeRR(g, Color.FromArgb(110, NeonCyan), thumb, 6, 1.2f);   // the part you are looking at: an even, soft window; its two ends can still be dragged to zoom
         using (var pen = new Pen(TM.C(120, 200, 205, 240), 1.6f) { StartCap = LineCap.Round, EndCap = LineCap.Round }) { float gy = ob.Y + ob.Height / 2; g.DrawLine(pen, thumb.X + 1, gy - 7, thumb.X + 1, gy + 7); g.DrawLine(pen, thumb.Right - 1, gy - 7, thumb.Right - 1, gy + 7); }
         // the logo rides on the window: where the logo is = where you are, and it is what you hold and drag
         float lh = ob.Height / 2 - 2, lhw = lh * 1.16f; float logoCx = Math.Max(inner.X + lhw + 2, Math.Min(inner.Right - lhw - 2, thumb.X + thumb.Width / 2));
