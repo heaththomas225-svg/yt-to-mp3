@@ -33,6 +33,7 @@ function bg(a, type, o) { return add(a, Object.assign({ type, name: 'Background'
 function txt(a, text, o) { return add(a, Object.assign(textBase(), { text, name: text.split('\n')[0].slice(0, 20) }, o || {})); }
 const textBase = () => ({ type: 'text', text: 'TEXT', font: 'Segoe UI', size: 180, weight: 800, color: '#ffffff', color2: '#ff50c4', grad: false, align: 'center', spacing: 0, outline: 0, outlineColor: '#000000', shadow: 0, shadowColor: '#000000', neon: false, glowColor: '#a85cff', extrude: 0, extrudeColor: '#3a1066', glitch: 0, curve: 0, upper: false, italic: false, bg: 'none', bgColor: '#a85cff', lineH: 1.1 });
 const newArt = (name) => { const a = { v: 2, id: uid('a'), name: name || 'Untitled design', w: 3000, h: 3000, layers: [], global: { look: 'none' } }; TEMPLATES[0][3](a); return a; };
+C.lib = { add, bg, txt, textBase };
 C.begin = () => { if (!C._b) C._b = JSON.stringify(C.art); };
 C.commit = () => { C.hist.undo.push(C._b || JSON.stringify(C.art)); C._b = null; if (C.hist.undo.length > 150) C.hist.undo.shift(); C.hist.redo = []; C.dirty = true; C.render(); C.scheduleAuto(); };
 C.undo = () => { if (!C.hist.undo.length) return; C.hist.redo.push(JSON.stringify(C.art)); C.art = JSON.parse(C.hist.undo.pop()); C.dirty = true; C.render(); };
@@ -162,7 +163,7 @@ C.box = (L, W, H) => {
 };
 
 // ---------------- the workspace ----------------
-C.show = () => { if (!C.built) C.build(); if (!C.art) { C.art = newArt(); C.sel = C.art.layers[1].id; PX.send({ t: 'artList', silent: true }); } C.render(); C.size(); };
+C.show = () => { if (!C.built) C.build(); if (!C.art) { C.art = newArt(); C.sel = C.art.layers[1].id; PX.send({ t: 'artList', silent: true }); } C.render(); C.size(); if (!C._welcomed && C.openWelcome) { C._welcomed = true; C.openWelcome(); } };
 C.build = () => {
   C.built = true; const root = document.getElementById('cover');
   root.innerHTML = '<section id="cvLeft" class="panel"><nav class="tabs" id="cvTabs"></nav><div class="tabbody" id="cvTab"></div></section>' +
@@ -184,7 +185,7 @@ C.addLayer = (L, above) => { C.begin(); const n = add(C.art, L); if (above === '
 C.setBackground = (o) => { C.begin(); let b = C.art.layers.find(l => l.name === 'Background'); if (!b) { b = add(C.art, { name: 'Background' }); C.art.layers.pop(); C.art.layers.unshift(b); } for (const k of ['c1', 'c2', 'angle', 'kind', 'color', 'pattern', 'scale', 'url', 'fit']) delete b[k]; Object.assign(b, o, { name: 'Background', vis: true }); C.sel = b.id; C.commit(); };
 C.renderTab = () => {
   const b = $c('#cvTab'); b.innerHTML = ''; document.querySelectorAll('#cvTabs button').forEach(x => x.classList.toggle('on', x.dataset.t === C.tab));
-  if (C.tab === 'templates') { b.appendChild(Object.assign(document.createElement('p'), { className: 'hint', textContent: 'Start from a layout: the size and layers are set for you (everything stays editable).' })); b.appendChild(grid(TEMPLATES, t => esc2(t[1]) + '<small>' + t[2].replace('x', ' x ') + '</small>', t => { const go = () => { C.begin(); const [w, h] = t[2].split('x').map(Number); C.art.w = w; C.art.h = h; C.art.layers = []; C.art.global = { look: 'none' }; t[3](C.art); C.sel = (C.art.layers[1] || C.art.layers[0]).id; C.commit(); C.size(); }; C.art.layers.length > 3 ? PX.UI.confirm('Replace the design with the "' + t[1] + '" template? (UNDO brings it back)', go, 'USE TEMPLATE') : go(); })); }
+  if (C.tab === 'templates') { const wb = document.createElement('button'); wb.className = 'accent'; wb.style.width = '100%'; wb.textContent = 'BROWSE ALL ' + (C.templateCount || 0).toLocaleString() + ' TEMPLATES'; wb.onclick = () => C.openWelcome(); b.appendChild(wb); b.appendChild(Object.assign(document.createElement('p'), { className: 'hint', textContent: 'Or start from one of these quick layouts (everything stays editable).' })); b.appendChild(grid(TEMPLATES, t => esc2(t[1]) + '<small>' + t[2].replace('x', ' x ') + '</small>', t => { const go = () => { C.begin(); const [w, h] = t[2].split('x').map(Number); C.art.w = w; C.art.h = h; C.art.layers = []; C.art.global = { look: 'none' }; t[3](C.art); C.sel = (C.art.layers[1] || C.art.layers[0]).id; C.commit(); C.size(); }; C.art.layers.length > 3 ? PX.UI.confirm('Replace the design with the "' + t[1] + '" template? (UNDO brings it back)', go, 'USE TEMPLATE') : go(); })); }
   else if (C.tab === 'bg') {
     head(b, 'COLOURS'); b.appendChild(grid(COLORS, c => '<span style="display:block;height:28px;border-radius:6px;background:' + c + ';border:1px solid #fff3"></span>', c => C.setBackground({ type: 'color', color: c }), 4));
     head(b, 'GRADIENTS'); b.appendChild(grid(GRADS, g2 => '<span style="display:block;height:34px;border-radius:6px;background:linear-gradient(135deg,' + g2[0] + ',' + g2[1] + ')"></span>', g2 => C.setBackground({ type: 'gradient', c1: g2[0], c2: g2[1], angle: 135, kind: 'linear' }), 4));

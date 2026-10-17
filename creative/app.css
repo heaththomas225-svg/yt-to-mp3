@@ -154,3 +154,38 @@ textarea{resize:vertical;width:100%}
 .fontcard b{font-size:20px;margin-right:6px}
 .fontcard:hover,.fontcard.on{border-color:var(--accent)}
 #cvTabs button{font-size:10px;padding:5px 6px}
+
+/* photo editor welcome screen */
+#cover{position:relative}
+.cvWelcome{position:absolute;inset:0;z-index:30;background:linear-gradient(160deg,var(--bg1,#1a0b3a),var(--bg0,#07031a));display:flex;flex-direction:column;padding:16px 18px;gap:8px;min-height:0}
+.cvWelcome .wtop{display:flex;align-items:flex-start;gap:8px;flex-wrap:wrap}
+.cvWelcome h2{margin:0;font-size:24px;letter-spacing:.04em}
+.cvWelcome h2 span{color:var(--accent)}
+.cvWelcome .wfil{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.cvWelcome #wQ{width:300px}
+.cvWelcome .chips{display:flex;gap:4px;flex-wrap:wrap}
+.cvWelcome .chips button{padding:4px 9px;font-size:11px}
+.cvWelcome .wgrid{flex:1;overflow:auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(168px,1fr));gap:12px;align-content:start;padding:4px 4px 20px}
+.cvWelcome .wcard{background:var(--panel2);border:1px solid var(--edge);border-radius:10px;padding:8px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;min-height:150px}
+.cvWelcome .wcard:hover{border-color:var(--accent);transform:translateY(-2px)}
+.cvWelcome .wcard canvas{border-radius:6px;box-shadow:0 2px 10px #0008;max-width:100%}
+.cvWelcome .wn{font-size:12px;font-weight:700;text-align:center}
+.cvWelcome .wd{font-size:10px;color:var(--dim);text-align:center}
+
+/* video editor welcome screen */
+.vidWelcome{position:fixed;z-index:40}
+#modal{z-index:60!important}
+.vidWelcome .vwbody{flex:1;display:flex;gap:16px;min-height:0;overflow:auto}
+.vidWelcome .vwcards{flex:2;display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;align-content:start}
+.vidWelcome .vwcard{background:var(--panel2);border:1px solid var(--edge);border-radius:12px;padding:16px;cursor:pointer;min-height:96px}
+.vidWelcome .vwcard.big{grid-column:1/-1;background:linear-gradient(120deg,var(--accent),var(--accent2,#3ce1ff));color:#14061f;min-height:110px}
+.vidWelcome .vwcard.big .vd{color:#14061f}
+.vidWelcome .vwcard:hover{border-color:var(--accent);transform:translateY(-2px)}
+.vidWelcome .vt{font-weight:800;font-size:16px;letter-spacing:.03em;margin-bottom:6px}
+.vidWelcome .vwcard.big .vt{font-size:22px}
+.vidWelcome .vd{font-size:12px;color:var(--dim)}
+.vidWelcome .vwside{flex:1;min-width:280px;max-width:420px;display:flex;flex-direction:column;gap:6px}
+.vidWelcome h4{margin:8px 0 2px;font-size:12px;color:var(--dim);letter-spacing:.08em}
+.vidWelcome .vwproj{display:flex;flex-direction:column;gap:4px}
+.vidWelcome .chips button small{color:var(--dim);font-weight:400}
+.vidWelcome .vwsteps{margin:0;padding-left:18px;font-size:12px;color:var(--dim);line-height:1.7}

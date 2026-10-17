@@ -71,7 +71,7 @@ partial class StudioForm
     }
     void HubPolled(string res)
     {
-        if (string.IsNullOrEmpty(res) || res == "null") return; if (CurSvc != null && CurSvc.Social) { npHas = false; npPlaying = false; return; } var inner = MiniJson.Parse(res) as string; if (inner == null) return; var d = MiniJson.Parse(inner) as Dictionary<string, object>; if (d == null) return;
+        if (string.IsNullOrEmpty(res) || res == "null") return; if (CurSvc != null && (CurSvc.Social || CurSvc.Distro)) { npHas = false; npPlaying = false; return; } var inner = MiniJson.Parse(res) as string; if (inner == null) return; var d = MiniJson.Parse(inner) as Dictionary<string, object>; if (d == null) return;
         bool was = npPlaying, wasEnd = npEnded; npHas = d.ContainsKey("has") && d["has"] is bool && (bool)d["has"]; npPlaying = d.ContainsKey("p") && d["p"] is bool && (bool)d["p"]; npEnded = d.ContainsKey("end") && d["end"] is bool && (bool)d["end"];
         string t = HubApi.S(d, "t"), a = HubApi.S(d, "a"); npTitle = t.Length > 0 ? t : (npHas ? HubB.Title : ""); npArtist = a; npArt = HubApi.S(d, "art");
         double v; npPos = double.TryParse(HubApi.S(d, "pos"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out v) ? v : 0; npDur = double.TryParse(HubApi.S(d, "dur"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out v) ? v : 0;
@@ -161,7 +161,7 @@ partial class StudioForm
         // the services on the left
         float ly = top + 48, lw = 236, playerH = 72, bottom = H - 16 - playerH - 8; var left = Rc(24, ly, lw, bottom - ly); FillRR(g, TM.C(200, 16, 9, 34), left, 12); Win.DrawNeonBox(g, left, false);
         Txt(g, "SERVICES", 11, DimC, Rc(left.X + 14, left.Y + 8, 200, 18), StringAlignment.Near, true); float yy = left.Y + 30;
-        float rowH = Math.Max(22f, Math.Min(34f, (left.Height - 150 - ((HubServices.Socials.Length + 1) / 2) * 28 - 28) / HubServices.All.Length));
+        float rowH = Math.Max(22f, Math.Min(34f, (left.Height - 150 - ((HubServices.Socials.Length + 1) / 2) * 28 - 28 - 34) / HubServices.All.Length));
         foreach (var s in HubServices.All)
         {
             var r = Rc(left.X + 8, yy, lw - 16, rowH - 4); bool on = hubView == 1 && hubSvc == s.Id; if (on || Hot(r)) FillRR(g, on ? TM.C(160, 70, 38, 130) : TM.C(90, 60, 34, 110), r, 8);
@@ -173,9 +173,10 @@ partial class StudioForm
         { float sw = (lw - 22) / 2f, sh = 24; for (int i = 0; i < HubServices.Socials.Length; i++) { var s = HubServices.Socials[i]; var r = Rc(left.X + 8 + (i % 2) * (sw + 6), yy + (i / 2) * (sh + 4), sw, sh); bool on = hubView == 1 && hubSvc == s.Id; if (on || Hot(r)) FillRR(g, on ? TM.C(160, 70, 38, 130) : TM.C(90, 60, 34, 110), r, 7);
             int st; hubSigned.TryGetValue(s.Id, out st); using (var b = new SolidBrush(s.Col)) g.FillEllipse(b, r.X + 6, r.Y + r.Height / 2 - 4, 8, 8); Txt(g, s.Name, 10, st == 1 ? NeonLime : Ink, Rc(r.X + 18, r.Y, r.Width - 20, r.Height), StringAlignment.Near, on);
             var ss = s; Reg(r, () => HubOpenService(ss.Id)); Hint2(r, s.Note + (st == 1 ? "  (signed in)" : "")); } yy += ((HubServices.Socials.Length + 1) / 2) * (sh + 4) + 6; }
+        { var dr = Rc(left.X + 8, yy, lw - 16, 26); Btn(g, dr, "DISTRIBUTION  (" + HubServices.Distributors.Length + ")", 1, () => { hubView = 0; hubResults = null; hubScroll = hubDistroY; }, 10); Hint2(dr, "DistroKid, TuneCore, CD Baby, UnitedMasters, Amuse and more: release your music from Purphex"); yy += 34; }
         Txt(g, "YOUR LIBRARIES", 11, DimC, Rc(left.X + 14, yy, 200, 18), StringAlignment.Near, true); yy += 22;
         int nc = 0; foreach (var api in HubApi.All) if (api.Connected) { var r = Rc(left.X + 8, yy, lw - 16, 28); bool on = hubView == 2 && hubApiId == api.Id; Btn(g, r, api.Name.ToUpper() + " LIBRARY", on ? 4 : 1, () => HubLoadLibrary(api.Id, "Playlists"), 11); yy += 32; nc++; }
-        if (nc == 0) TxtWrap(g, "Connect Spotify, YouTube or SoundCloud (CONNECT ACCOUNTS) to see your playlists and liked songs here.", 10.5f, DimC, Rc(left.X + 14, yy, lw - 28, 60));
+        if (nc == 0 && yy + 34 < left.Bottom) TxtWrap(g, "CONNECT ACCOUNTS shows your playlists and liked songs here.", 10.5f, DimC, Rc(left.X + 14, yy, lw - 28, Math.Min(40, left.Bottom - yy - 4)));
         // the middle
         var main = Rc(left.Right + 14, ly, W - 24 - left.Right - 14, bottom - ly);
         if (hubView == 1 && CurSvc != null) PaintHubWeb(g, main); else { hubWebR = RectangleF.Empty; if (hubView == 2) PaintHubLibrary(g, main); else PaintHubHome(g, main); }
@@ -216,6 +217,9 @@ partial class StudioForm
             Txt(g, "SOCIALS", 18, Ink, Rc(a.X, y + 4, a.Width, 28), StringAlignment.Near, true);
             Txt(g, "Your social media inside Purphex: post, reply and check messages without leaving your music. Sign in on each site's own page.", 11, DimC, Rc(a.X, y + 32, a.Width, 18), StringAlignment.Near, false);
             y = PaintHubCards(g, a, HubServices.Socials, y + 60);
+            hubDistroY = y + hubScroll - a.Y; Txt(g, "DISTRIBUTION", 18, Ink, Rc(a.X, y + 4, a.Width, 28), StringAlignment.Near, true);
+            Txt(g, "Release your music: upload songs and covers from your Purphex exports to Spotify, Apple Music, TikTok and the rest, on each distributor's own site.", 11, DimC, Rc(a.X, y + 32, a.Width, 18), StringAlignment.Near, false);
+            y = PaintHubCards(g, a, HubServices.Distributors, y + 60);
         }
         g.Restore(gs); float total = y + hubScroll - a.Y; float maxS = Math.Max(0, total - a.Height); hubScroll = Math.Max(0, Math.Min(maxS, hubScroll));
         regs.Add(new HitReg { R = a, OnWheel = d => hubScroll = Math.Max(0, Math.Min(maxS, hubScroll - d * 70)) });
@@ -231,7 +235,7 @@ partial class StudioForm
                 FillRR(g, hot ? TM.C(230, 40, 20, 70) : TM.C(210, 24, 12, 46), r, 12); using (var br = new SolidBrush(s.Col)) g.FillRectangle(br, r.X + 10, r.Y + 12, 6, ch - 24); Win.DrawNeonBox(g, r, hot);
                 Txt(g, s.Name, 15, Ink, Rc(r.X + 26, r.Y + 10, cw - 34, 24), StringAlignment.Near, true);
                 int st; hubSigned.TryGetValue(s.Id, out st); Txt(g, st == 1 ? "SIGNED IN" : s.LoginCookie == null || st == 0 ? "OPEN TO SIGN IN" : "NOT SIGNED IN", 10, st == 1 ? NeonLime : DimC, Rc(r.X + 26, r.Y + 36, cw - 34, 16), StringAlignment.Near, true);
-                Txt(g, s.Social ? "SOCIAL" : s.Api != null ? "LIBRARY IN PURPHEX TOO" : "WEB PLAYER", 9, NeonCyan, Rc(r.X + 26, r.Y + 56, cw - 34, 14), StringAlignment.Near, true);
+                Txt(g, s.Distro ? "DISTRIBUTION" : s.Social ? "SOCIAL" : s.Api != null ? "LIBRARY IN PURPHEX TOO" : "WEB PLAYER", 9, NeonCyan, Rc(r.X + 26, r.Y + 56, cw - 34, 14), StringAlignment.Near, true);
                 var ob = Rc(r.X + 26, r.Bottom - 30, 80, 22); var ss = s; Btn(g, ob, "OPEN", 2, () => HubOpenService(ss.Id), 10); Reg(r, () => HubOpenService(ss.Id)); Hint2(r, s.Note);
             }
             return y + ((list.Length + cols - 1) / cols) * (ch + gap) + 10;
@@ -308,7 +312,7 @@ partial class StudioForm
     static Color Lighter(Color c) { return Color.FromArgb(c.A, Math.Min(255, c.R + 40), Math.Min(255, c.G + 40), Math.Min(255, c.B + 40)); }
     static string Tm(double s) { if (s < 0 || double.IsNaN(s)) s = 0; return ((int)(s / 60)) + ":" + ((int)(s % 60)).ToString("00"); }
     // the small player on every other page
-    internal bool miniHidden;
+    internal bool miniHidden; float hubDistroY;
     void PaintHubMini(Graphics g)
     {
         if (tab == 9 || hubBObj == null || !npPlaying || OverlayOpen) return; float W = ClientSize.Width, H = ClientSize.Height;

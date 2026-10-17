@@ -197,16 +197,16 @@ partial class StudioForm : Form
     float HeadOpenK() { float target = Prefs.HeadHidden ? 0f : 1f; double t = (DateTime.Now - headAt).TotalMilliseconds / 180.0; if (t >= 1 || t < 0) return target; float e = (float)(1 - Math.Pow(1 - t, 3)); return (1 - target) + (target - (1 - target)) * e; }
     internal void ToggleHead() { Prefs.HeadHidden = !Prefs.HeadHidden; Prefs.Changed(); headAt = DateTime.Now; Invalidate(); }
     // the arrow on the edge of the track list: hide it for more room to edit, and bring it back
-    void HeadHandle(Graphics g, float top, float bottom)
-    {
-        bool open = !Prefs.HeadHidden; float hw = 26, hh = 96, cyA = top + Math.Min(bottom - top, 520) / 2; var hr = Rc(HeadW - 6, cyA - hh / 2, hw, hh); bool hot = Hot(hr);
+    void HeadHandle(Graphics g, float top)
+    {   // it sits in the empty strip above the track list (level with the ruler), so it never covers a track's buttons
+        bool open = !Prefs.HeadHidden; var hr = open ? Rc(HeadW - 128, top + 3, 122, RulerH - 6) : Rc(4, top + 3, HeadW - 8, RulerH - 6); bool hot = Hot(hr);
         var gs = g.Save(); g.ResetClip();
-        FillRR(g, hot ? TM.C(250, 70, 34, 130) : TM.C(245, 34, 18, 66), hr, 10); Glow(g, NeonCyan, hr, 10, hot ? 1f : 0.7f, 4); StrokeRR(g, Color.FromArgb(hot ? 255 : 220, NeonCyan), hr, 10, 1.8f);
-        float cx = hr.X + hr.Width / 2, cy = hr.Y + hr.Height / 2, d = open ? -1 : 1;   // open: the arrow points left (the list goes away); tucked away: it points right (it comes back)
-        using (var pen = new Pen(Color.FromArgb(255, hot ? Color.White : NeonCyan), 3.2f) { StartCap = System.Drawing.Drawing2D.LineCap.Round, EndCap = System.Drawing.Drawing2D.LineCap.Round, LineJoin = System.Drawing.Drawing2D.LineJoin.Round })
-            foreach (float ox in new[] { -4f, 4f }) g.DrawLines(pen, new[] { new PointF(cx + ox - 4 * d, cy - 12), new PointF(cx + ox + 4 * d, cy), new PointF(cx + ox - 4 * d, cy + 12) });
-        g.Restore(gs);
-        var rg = Reg(hr, () => ToggleHead()); rg.Button = true; Hint2(hr, open ? "Hide the track list for more room to edit (this arrow brings it back)" : "Show the track list: names, volume, mute, solo and the rest");
+        FillRR(g, hot ? TM.C(250, 70, 34, 130) : TM.C(245, 30, 16, 60), hr, 7); if (hot) Glow(g, NeonCyan, hr, 7, 0.8f, 3); StrokeRR(g, Color.FromArgb(hot ? 255 : 200, NeonCyan), hr, 7, 1.4f);
+        float d = open ? -1 : 1, cx = open ? hr.X + 16 : hr.X + hr.Width / 2, cy = hr.Y + hr.Height / 2;   // open: the arrows point left (the list goes away); tucked away: right (it comes back)
+        using (var pen = new Pen(hot ? Color.White : NeonCyan, 2.2f) { StartCap = System.Drawing.Drawing2D.LineCap.Round, EndCap = System.Drawing.Drawing2D.LineCap.Round, LineJoin = System.Drawing.Drawing2D.LineJoin.Round })
+            foreach (float ox in new[] { -3f, 3f }) g.DrawLines(pen, new[] { new PointF(cx + ox - 3 * d, cy - 6), new PointF(cx + ox + 3 * d, cy), new PointF(cx + ox - 3 * d, cy + 6) });
+        if (open) Txt(g, "HIDE TRACKS", 10, hot ? Color.White : Ink, Rc(hr.X + 28, hr.Y, hr.Width - 32, hr.Height), StringAlignment.Near, true);
+        var rg = Reg(hr, () => ToggleHead()); rg.Button = true; g.Restore(gs); Hint2(hr, open ? "Hide the track list for more room to edit (the button comes back here)" : "Show the track list: names, volume, mute, solo and the rest");
     }
     // a track while the list is tucked away: its colour, its number, and a level light; click it to pick the track
     void PaintHeaderMini(Graphics g, Track tr, int i, RectangleF r, bool sel)
@@ -815,7 +815,7 @@ partial class StudioForm : Form
         }
         q0 = Prof.T(); PaintGhost(g, tl, top); Prof.A("mix.ghost", q0);
         AddTrackRow(g, Math.Max(y, top + RulerH), n);
-        HeadHandle(g, top + RulerH, ClientSize.Height - 46);
+        HeadHandle(g, top);
         { float ey = Math.Max(y, top + RulerH); if (ey < ClientSize.Height) { var em = Reg(Rc(HeadW, ey, tl.Width, ClientSize.Height - ey), () => { toolsTrack = null; MarqueeBegin(); }); em.OnDrag = pt => MarqueeTo(pt); em.OnUp = () => MarqueeEnd(); } }   // empty space: hold and drag a selection box (the needle moves from the ruler only)
         PaintMarquee(g);
         { var rr2 = Reg(ruler, () => { needleDrag = true; followPaused = false; eng.Seek(scroll + (long)((MousePos.X - HeadW) * spp)); }); rr2.OnDrag = pt => NeedleDragTo(pt.X, tl); rr2.OnUp = () => needleDrag = false; }   // the whole ruler, to its bottom border, moves the needle: registered after the rows so a row scrolled up under it can not take the click

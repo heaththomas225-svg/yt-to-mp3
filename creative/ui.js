@@ -381,7 +381,7 @@ PX.on('saved', m => { if (m.id === PX.P.id) { PX.setDirty(false); PX.toast('Save
 PX.on('saveError', m => PX.toast('Could not save: ' + m.msg + ' (nothing was overwritten).', true));
 UI.openDialog = () => PX.send({ t: 'list' });
 PX.on('projects', m => {
-  const list = m.list || []; UI.modal('<h3>Video projects</h3>' + (list.length ? '<div class="plist" id="pl"></div>' : '<p class="empty small">No saved video projects yet.</p>') + '<div class="acts"><button id="mNo">CLOSE</button><button id="mNew" class="accent">NEW PROJECT</button></div>', b => {
+  const list = m.list || []; if (UI._wl > 0) { UI._wl--; UI.fillWelcomeProjects(list); return; } UI.modal('<h3>Video projects</h3>' + (list.length ? '<div class="plist" id="pl"></div>' : '<p class="empty small">No saved video projects yet.</p>') + '<div class="acts"><button id="mNo">CLOSE</button><button id="mNew" class="accent">NEW PROJECT</button></div>', b => {
     const pl = $('#pl', b); for (const p of list) { const d = el('div', 'pitem', '<div class="pn">' + esc(p.name) + '</div><div class="pd">' + esc(p.modified) + (p.missing ? '  <span style="color:var(--bad)">' + p.missing + ' missing file(s)</span>' : '') + '</div>'); const bo = el('button', 'accent', 'OPEN'), br = el('button', '', 'RENAME'), bd = el('button', '', 'DUPLICATE'), bx = el('button', 'danger', 'DELETE');
       const openIt = () => { const go = () => { UI.close(); PX.send({ t: 'open', id: p.id }); }; PX.dirty ? UI.confirm('Open "' + p.name + '"? Your unsaved changes to "' + PX.P.name + '" will be lost (save first to keep them).', go, 'OPEN') : go(); };
       bo.onclick = openIt; d.ondblclick = openIt; br.onclick = () => UI.prompt('Rename the project', p.name, n => PX.send({ t: 'rename', id: p.id, name: n })); bd.onclick = () => PX.send({ t: 'duplicate', id: p.id }); bx.onclick = () => UI.confirm('Delete the project "' + p.name + '"? Your media files are not deleted.', () => PX.send({ t: 'delete', id: p.id }), 'DELETE');
@@ -431,6 +431,30 @@ UI.act = (a) => {
     split: UI.split, del: UI.del, dup: UI.dup, addV: () => UI.addTrack('video'), addA: () => UI.addTrack('audio'), addT: () => UI.addTrack('text'), marker: UI.marker, fit: UI.fitZoom };
   if (A[a]) A[a]();
 };
+// ---- WELCOME TO PURPHEX MUSIC VIDEO EDITOR: shown the first time the video editor opens ----
+UI.startPreset = (id) => {
+  const p = UI.PRESETS.find(x => x[0] === id); if (!p || id === 'custom') { UI.closeWelcome(); UI.newProjectDialog(); return; }
+  const go = () => { UI.closeWelcome(); UI.loadProject(PX.newProject(p[1], p[2], p[3], p[4], id)); PX.setDirty(true); if (id === 'teaser') PX.P.targetDur = 15; if (['lyr169', 'lyr916', 'cover', 'vis'].includes(id)) UI.songWizard(id); };
+  PX.dirty && PX.P.clips.length ? UI.confirm('Start a new "' + p[1] + '" project? Unsaved changes to "' + PX.P.name + '" will be lost (save first to keep them).', go, 'NEW PROJECT') : go();
+};
+UI.welcome = () => {
+  UI._vw = true; let w = $('#vidWelcome'); if (w) { w.classList.remove('hidden'); UI._wl = (UI._wl || 0) + 1; PX.send({ t: 'list' }); return; }
+  const cards = [['song', 'MAKE A VIDEO FROM MY SONG', 'Your song, a background, a visualiser and the title, put together for you'], ['lyr169', 'LYRIC VIDEO', 'Tap the words in time with the song'], ['vis', 'VISUALISER VIDEO', 'Bars and waves that move with your music'], ['cover', 'COVER ART VIDEO', 'Your artwork, moving, for YouTube and Spotify'], ['teaser', 'PROMO TEASER', 'A 15 second vertical teaser for TikTok and Reels'], ['mv916', 'VERTICAL VIDEO', 'For TikTok, Reels and Shorts'], ['mv169', 'MUSIC VIDEO', 'Edit your clips on a 16:9 timeline'], ['blank', 'BLANK PROJECT', 'Pick any size, start from nothing']];
+  w = el('div', 'cvWelcome vidWelcome', '<div class="wtop"><div><h2>WELCOME TO <span>PURPHEX MUSIC</span> VIDEO EDITOR</h2><p class="hint">Make music videos, lyric videos, visualisers and promos for YouTube, Instagram and TikTok. Pick a starting point:</p></div><span class="grow"></span><button id="vwPhoto">PHOTO EDITOR</button><button id="vwGo" class="accent">START EDITING</button></div>' +
+    '<div class="vwbody"><div class="vwcards" id="vwCards"></div><div class="vwside"><h4>YOUR PROJECTS</h4><div id="vwProj" class="vwproj"><p class="hint">Loading...</p></div><h4>EVERY SIZE</h4><div class="chips" id="vwSizes"></div><h4>HOW IT WORKS</h4><ol class="vwsteps"><li>IMPORT your clips, photos and music (or drop them in MEDIA).</li><li>Drag them onto the timeline. Trim the edges, press S to split.</li><li>Add TITLES, TRANSITIONS, EFFECTS, LYRICS or a VISUALISER.</li><li>EXPORT for YouTube, Instagram or TikTok.</li></ol></div></div>');
+  w.id = 'vidWelcome'; document.body.appendChild(w);
+  const cv = $('#vwCards', w); for (const c of cards) { const d = el('div', 'vwcard' + (c[0] === 'song' ? ' big' : ''), '<div class="vt">' + c[1] + '</div><div class="vd">' + esc(c[2]) + '</div>'); d.dataset.k = c[0]; d.onclick = () => { if (c[0] === 'song') { UI.closeWelcome(); UI.songWizard('mv'); } else if (c[0] === 'blank') { UI.closeWelcome(); UI.newProjectDialog(); } else UI.startPreset(c[0]); }; cv.appendChild(d); }
+  const sz = $('#vwSizes', w); for (const p of UI.PRESETS) { const b = el('button', '', esc(p[1]) + (p[2] ? ' <small>' + p[2] + ' x ' + p[3] + '</small>' : '')); b.onclick = () => UI.startPreset(p[0]); sz.appendChild(b); }
+  $('#vwGo', w).onclick = UI.closeWelcome; $('#vwPhoto', w).onclick = () => { UI.closeWelcome(); UI.setTool('cover'); };
+  if (PX.P.clips.length) $('#vwGo', w).textContent = 'CONTINUE "' + PX.P.name.toUpperCase().slice(0, 28) + '"';
+  UI._wl = (UI._wl || 0) + 1; PX.send({ t: 'list' });
+};
+UI.closeWelcome = () => { const w = $('#vidWelcome'); if (w) w.classList.add('hidden'); };
+UI.fillWelcomeProjects = (list) => {
+  const box = $('#vwProj'); if (!box) return; box.innerHTML = list.length ? '' : '<p class="hint">No saved projects yet: your first one appears here.</p>';
+  for (const p of list.slice(0, 8)) { const d = el('div', 'pitem', '<div class="pn">' + esc(p.name) + '</div><div class="pd">' + esc(p.modified) + '</div>'); const b = el('button', 'accent', 'OPEN'); const open = () => { const go = () => { UI.closeWelcome(); PX.send({ t: 'open', id: p.id }); }; PX.dirty && PX.P.clips.length ? UI.confirm('Open "' + p.name + '"? Unsaved changes to "' + PX.P.name + '" will be lost.', go, 'OPEN') : go(); }; b.onclick = open; d.ondblclick = open; d.appendChild(b); box.appendChild(d); }
+  if (list.length > 8) { const m = el('button', '', 'ALL ' + list.length + ' PROJECTS...'); m.onclick = () => { UI.closeWelcome(); UI.openDialog(); }; box.appendChild(m); }
+};
 UI.onboard = () => {
   if (PX.P.clips.length || UI._obShown) return; UI._obShown = true; const ob = el('div', 'onboard', '<div class="ob"><h3>Welcome to Video Studio</h3><ol><li>IMPORT your clips, photos and music (or drop them in MEDIA).</li><li>Drag them onto the timeline. Trim the edges, press S to split.</li><li>Add TITLES, TRANSITIONS, EFFECTS, LYRICS or a VISUALISER.</li><li>EXPORT a video for YouTube, Instagram or TikTok.</li></ol><div class="btnrow"><button id="obSong" class="accent">MAKE A VIDEO FROM MY SONG</button><button id="obNew">NEW PROJECT...</button><button id="obX">START EDITING</button></div></div>');
   $('#monitorWrap').appendChild(ob); $('#obSong', ob).onclick = () => { ob.remove(); UI.songWizard('mv'); }; $('#obNew', ob).onclick = () => { ob.remove(); UI.newProjectDialog(); }; $('#obX', ob).onclick = () => ob.remove(); PX.listeners.push(() => { if (PX.P.clips.length && ob.parentNode) ob.remove(); });
@@ -455,12 +479,12 @@ UI.init = () => {
   PX.listeners.push((why) => { if (why === 'thumbs' || why === 'audio' || why === 'media') { UI.renderBin(); UI.renderTimeline(); return; } UI.renderBin(); UI.renderTimeline(); UI.renderInspector(); PX.redraw(); if (why === 'undo' || why === 'redo' || why === 'load') UI.renderLyrics(); });
   UI.loadProject(PX.P); PX.send({ t: 'ready' });
 };
-UI.setTool = (t) => { UI.tool = t; $('#toolVideo').classList.toggle('on', t === 'video'); $('#toolCover').classList.toggle('on', t === 'cover'); $('#video').classList.toggle('hidden', t !== 'video'); $('#timeline').classList.toggle('hidden', t !== 'video'); $$('.split.h').forEach(s => s.classList.toggle('hidden', t !== 'video')); $('#cover').classList.toggle('hidden', t !== 'cover'); $('#projBar').classList.toggle('hidden', t !== 'video'); if (t === 'cover' && PX.Cover) PX.Cover.show(); else { PX.stopPlay(false); UI.sizeMonitor(); } PX.send({ t: 'tool', tool: t }); };
-PX.on('init', m => {
+UI.setTool = (t) => { UI.tool = t; if (t !== 'video') UI.closeWelcome(); else if (!UI._vw && PX._inited) setTimeout(() => { if (!UI._vw) UI.welcome(); }, 0); $('#toolVideo').classList.toggle('on', t === 'video'); $('#toolCover').classList.toggle('on', t === 'cover'); $('#video').classList.toggle('hidden', t !== 'video'); $('#timeline').classList.toggle('hidden', t !== 'video'); $$('.split.h').forEach(s => s.classList.toggle('hidden', t !== 'video')); $('#cover').classList.toggle('hidden', t !== 'cover'); $('#projBar').classList.toggle('hidden', t !== 'video'); if (t === 'cover' && PX.Cover) PX.Cover.show(); else { PX.stopPlay(false); UI.sizeMonitor(); } PX.send({ t: 'tool', tool: t }); };
+PX.on('init', m => { PX._inited = true;
   if (m.theme) { const r = document.documentElement.style; for (const k in m.theme) r.setProperty('--' + k, m.theme[k]); }
   if (m.fonts && m.fonts.length) UI.fonts = m.fonts; UI.artist = m.artist || ''; UI.songTitle = m.title || ''; UI.hasFfmpeg = m.ffmpeg;
-  if (m.project) PX.emit('project', { project: m.project, recovered: m.recovered }); else UI.onboard();
-  if (m.tool) UI.setTool(m.tool); UI.renderTabs();
+  if (m.project) PX.emit('project', { project: m.project, recovered: m.recovered });
+  if (m.tool) UI.setTool(m.tool); UI.renderTabs(); if ((m.tool || 'video') === 'video' && !UI._vw) UI.welcome();
 });
 PX.on('tool', m => UI.setTool(m.tool));
 PX.on('theme', m => { const r = document.documentElement.style; for (const k in m.theme) r.setProperty('--' + k, m.theme[k]); });

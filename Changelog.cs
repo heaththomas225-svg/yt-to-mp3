@@ -7,10 +7,17 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.54.0";
+    public const string Latest = "3.55.0";
 
     public const string Text =
-@"3.54.0  Photo Studio, Socials in the Music Hub, a folding track list
+@"3.55.0  Welcome screens, 1,344 photo templates, Distribution in the Music Hub
+ + NEW: WELCOME TO PURPHEX MUSIC PHOTO EDITOR: the first time Photo Studio opens it shows 1,344 templates to start from (album covers, stories and TikToks, Instagram posts, portrait posts, YouTube thumbnails, flyers and banners, in 16 styles such as neon ring, retro sun, glitch, halftone, film grain, polaroid and sticker party, each in its own colours). Search them, filter by size and style, or START BLANK, OPEN PHOTO or open MY DESIGNS. Every layer of a template stays editable, and the text always fits. TEMPLATES > BROWSE ALL opens it again.
+ + NEW: WELCOME TO PURPHEX MUSIC VIDEO EDITOR: the first time the video editor opens it offers MAKE A VIDEO FROM MY SONG, lyric video, visualiser video, cover art video, promo teaser, vertical video, music video and blank project, with your saved projects, every size and how it works.
+ + NEW: Music Hub: a DISTRIBUTION section under Socials: DistroKid, TuneCore, CD Baby, UnitedMasters, Amuse, Ditto Music, RouteNote, LANDR, Symphonic, AWAL, ONErpm, iMusician, Too Lost, Soundrop and FreshTunes, plus Spotify for Artists, Apple Music for Artists, SoundCloud for Artists and YouTube Studio, each on its own official site inside Purphex, so you can release your exports without leaving Purphex. The DISTRIBUTION button on the left jumps straight there.
+ + FIXED: The arrow that hides the track list sat on top of the tracks (over their X button and meters). It is now a HIDE TRACKS button in the empty strip above the track list (a small >> when the list is tucked away), so it never covers a track.
+ + FIXED: Music Hub: the YOUR LIBRARIES text no longer runs out of the bottom of the left column.
+
+3.54.0  Photo Studio, Socials in the Music Hub, a folding track list
  + NEW: Photo Studio replaces AI Cover Studio (the AI images needed an API key, so they are gone). A photo editor for covers, posts, stories, thumbnails and flyers: TEMPLATES with the right sizes, BACKGROUNDS (colours, 20 gradients, patterns, textures, or a photo), TEXT (14 styles: neon, outline, 3D, glitch, gradient, curved, retro, boxed, sticker and more, plus every font on your PC shown in its own style), STICKERS (over 170 emoji and 15 shapes), PHOTOS with shape masks, crop, border and shadow, FILTERS (20 looks for the whole picture or one photo), ADJUST (brightness, contrast, saturation, hue, warmth, fade, grain, vignette, blur), DRAW (a brush with neon and an eraser) and FRAMES. Move, resize, rotate and flip on the canvas, 15 blend modes, layers you can hide, lock and reorder, undo and redo. Designs from the old cover studio still open.
  + NEW: The track list on the left folds away like the plugin panel: press the arrow on its edge for more room to edit. A thin strip keeps each track's colour, number and level (click it to pick the track), the arrow brings the list back, and it is remembered.
  + NEW: THIN TRACKS is a saved setting: switch it on once and the tracks open thin every time.

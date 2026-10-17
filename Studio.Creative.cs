@@ -30,7 +30,7 @@ partial class StudioForm
         if (crBObj != null) return true;
         if (HubBrowser.RuntimeVersion() == null) { hubErr = "Creative Studio needs Microsoft Edge WebView2 Runtime (part of Windows 11). Install it from Microsoft, then open it again."; return false; }
         string app = CreativeStore.Dir("app"); var asm = typeof(StudioForm).Assembly;
-        foreach (var f in new[] { "index.html", "app.css", "engine.js", "ui.js", "cover.js" }) using (var st = asm.GetManifestResourceStream("Purphex.creative." + f)) { if (st == null) continue; var path = Path.Combine(app, f); var ms = new MemoryStream(); st.CopyTo(ms); var bytes = ms.ToArray(); if (!File.Exists(path) || !File.ReadAllBytes(path).SequenceEqual(bytes)) File.WriteAllBytes(path, bytes); }
+        foreach (var f in new[] { "index.html", "app.css", "engine.js", "ui.js", "cover.js", "templates.js" }) using (var st = asm.GetManifestResourceStream("Purphex.creative." + f)) { if (st == null) continue; var path = Path.Combine(app, f); var ms = new MemoryStream(); st.CopyTo(ms); var bytes = ms.ToArray(); if (!File.Exists(path) || !File.ReadAllBytes(path).SequenceEqual(bytes)) File.WriteAllBytes(path, bytes); }
         var b = new HubBrowser(this, Path.Combine(StudioEnv.DataDir, "creativeweb"), HubMuted);
         b.MapHost("app.creative", app); b.MapHost("cache.creative", CreativeStore.Dir("cache")); b.MapHost("art.creative", CreativeStore.Dir("art"));
         b.Message = m => { try { BeginInvoke(new Action(() => CrMessage(m, null))); } catch { } };

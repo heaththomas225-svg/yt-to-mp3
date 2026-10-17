@@ -1,4 +1,4 @@
-3.54.0
+3.55.0
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Photo Studio, Socials in the Music Hub, a folding track list
-sha256=9af2acdb742540fc4a7c54a904308d5f198b74ab662210b801f9e8f9640d29b0
+Welcome screens, 1,344 photo templates, Distribution in the Music Hub
+sha256=8650b2acd30a0babaaeb4cdb1fb42dae36df63bf4666be37f050ac22965dae61
