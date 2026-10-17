@@ -7,10 +7,13 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.61.0";
+    public const string Latest = "3.61.1";
 
     public const string Text =
-@"3.61.0  Purphex instruments: Current, Inferno, ChordPad
+@"3.61.1  Closed accounts close their PCs
+ + IMPROVED: When the Purphex team closes an account, the app stops on the PCs it was linked to and says why (it used to only fall back to Free, saying the link belonged to another PC). It stays closed offline, and runs again as soon as the account is opened.
+
+3.61.0  Purphex instruments: Current, Inferno, ChordPad
  + NEW: Purphex Current: a wavetable synth. Two oscillators, each with eight wavetables (basic, pulse width, vowels, harmonic sweep, digital, metallic, organ drawbars, hollow) and a POSITION that morphs through the table, OCTAVE, SEMI, UNISON up to 7 voices with DETUNE and SPREAD; a SUB and NOISE; a filter (low-pass, high-pass, band-pass, notch) with its own envelope, drive and key tracking; amp and mod envelopes, an LFO and three MOD slots (route the mod envelope, LFO, velocity or note to position, cutoff, pitch, level, detune or resonance); GLIDE and MONO. High notes stay clean (no aliasing). A keyboard in the window to play it.
  + NEW: Purphex Inferno: a growl and wobble bass. Saw, square, supersaw or FM with a second oscillator for a reese, a GROWL filter (low-pass, band-pass or vowel) wobbled in time with the song (1/1 to 1/16 and triplets), and HEAT distortion (tube, hard, fold, crush) with its mix. Glide, width, and a keyboard in the window.
  + NEW: Purphex ChordPad: pick a KEY and SCALE (major, minor, dorian, mixolydian, harmonic minor, phrygian) and eight pads give you the chords of that key, named. One finger plays a whole chord: the white keys from middle C are the steps of the scale. CHORDS (triads, 7ths, 9ths, sus2, power), VOICING (close, open, spread, drop 2), INVERSION, OCTAVE, STRUM and a BASS NOTE; a built-in SOUND (warm pad, keys, pluck). Pick a PROGRESSION and WRITE 8 BARS TO THE TRACK puts it on the track as real notes you can edit.

@@ -1,4 +1,4 @@
-3.61.0
+3.61.1
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Purphex instruments: Current, Inferno, ChordPad
-sha256=511e7d01087bc9b9eacbe37d932b528b18d3db0c6d283727138fb1b76af08c23
+Closed accounts close their PCs
+sha256=959d8c2c0084f297d88ac11d809796a3058d675b2a132df8925a347c5a8556e7

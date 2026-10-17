@@ -37,7 +37,7 @@ class Job
 partial class App : Form
 {
     // ---- Auto-update settings ----
-    const string Version = "3.61.0";
+    const string Version = "3.61.1";
     // Plain-text manifest: line 1 = newest version, line 2 = direct exe download URL.
     const string UpdateManifestUrl = "https://raw.githubusercontent.com/heaththomas225-svg/yt-to-mp3/main/version.txt";
 
@@ -99,9 +99,9 @@ partial class App : Form
         sr.SelectedIndexChanged += (s, e) => { if (relabel) return; int i = sr.SelectedIndex; if (i < 0) return; if (SrOk(i)) { lastSrOk = i; return; } bool quiet = loading; sr.SelectedIndex = lastSrOk; if (!quiet) Edition.Upsell(SrHz[i] > 192000 ? Tier.Fantasy : Tier.Supporter, "Exporting at " + SrNames[i].Replace(" (highest)", ""), this); };
         Edition.OnShowAccount = () => ShowSettings(true);
         Edition.Changed += () => { RelabelLocks(); Edition.RepaintLocked(); Themes.EnforceEdition(); if (!Edition.Has(Tier.Supporter) && norm.Checked) norm.Checked = false; try { bg.Invalidate(); foreach (Form f in Application.OpenForms) f.Invalidate(true); } catch { } };
-        RelabelLocks(); Themes.EnforceEdition(!Edition.Linked); Edition.Refresh();   // a linked PC may still be renewing its licence: the theme is not taken away until the edition is really known (Edition.Changed, or 20 seconds)
+        RelabelLocks(); Themes.EnforceEdition(!Edition.Linked); Edition.Refresh(); PcBan.Check();   // a linked PC may still be renewing its licence: the theme is not taken away until the edition is really known (Edition.Changed, or 20 seconds)
         if (Edition.Linked) { var themeWait = new System.Windows.Forms.Timer { Interval = 20000 }; themeWait.Tick += (s9, e9) => { themeWait.Stop(); themeWait.Dispose(); Themes.EnforceEdition(); }; themeWait.Start(); } Edition.SelfCheck(Version, UpdateManifestUrl); Application.ApplicationExit += (s, e) => Edition.SaveSeen();
-        var edTimer = new System.Windows.Forms.Timer { Interval = 6 * 3600 * 1000 }; edTimer.Tick += (s, e) => Edition.Refresh(); edTimer.Start();
+        var edTimer = new System.Windows.Forms.Timer { Interval = 6 * 3600 * 1000 }; edTimer.Tick += (s, e) => { Edition.Refresh(); PcBan.Check(); }; edTimer.Start();
     }
     static string SrArg(int srIdx, int fmtIdx) { if (srIdx <= 0 || srIdx >= SrArgs.Length) return null; int max = fmtIdx == 0 || fmtIdx == 4 ? 48000 : (fmtIdx == 3 ? 96000 : 384000); int hz = Math.Min(Math.Min(SrHz[srIdx], max), Edition.MaxRate); return "-ar " + hz; }
     static readonly string[] NameNames = { "Title", "Artist - Title", "Title [video id]" };

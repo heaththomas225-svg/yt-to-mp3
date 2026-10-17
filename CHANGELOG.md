@@ -2,6 +2,10 @@
 
 What changed in each version of **Purphex**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.61.1  Closed accounts close their PCs
+
+- IMPROVED: When the Purphex team closes an account, the app stops on the PCs it was linked to and says why (it used to only fall back to Free, saying the link belonged to another PC). It stays closed offline, and runs again as soon as the account is opened.
+
 ## 3.61.0  Purphex instruments: Current, Inferno, ChordPad
 
 - NEW: Purphex Current: a wavetable synth. Two oscillators, each with eight wavetables (basic, pulse width, vowels, harmonic sweep, digital, metallic, organ drawbars, hollow) and a POSITION that morphs through the table, OCTAVE, SEMI, UNISON up to 7 voices with DETUNE and SPREAD; a SUB and NOISE; a filter (low-pass, high-pass, band-pass, notch) with its own envelope, drive and key tracking; amp and mod envelopes, an LFO and three MOD slots (route the mod envelope, LFO, velocity or note to position, cutoff, pitch, level, detune or resonance); GLIDE and MONO. High notes stay clean (no aliasing). A keyboard in the window to play it.

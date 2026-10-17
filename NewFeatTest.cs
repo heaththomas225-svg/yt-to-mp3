@@ -16,6 +16,12 @@ static class NF
 {
     [System.Runtime.InteropServices.DllImport("user32.dll")] static extern int SendMessage(IntPtr h, int msg, int w, int l);
     static long eng0; static int fails; static StudioForm sf; static readonly BindingFlags BF = BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Public;
+    static void BanChecks()
+    {
+        string r; var a = PcBan.Parse("{\"ok\":true,\"banned\":true,\"reason\":\"spam \\\"links\\\"\"}", out r); Check("a closed PC is read as closed, with the reason", a == true && r == "spam \"links\"", r);
+        var b = PcBan.Parse("{\"ok\":true,\"banned\":false,\"reason\":\"\"}", out r); Check("a PC that is fine is read as fine", b == false);
+        Check("no answer or an error is neither (a closed PC then stays closed from what it remembered)", PcBan.Parse(null, out r) == null && PcBan.Parse("{\"ok\":false,\"err\":\"slow\"}", out r) == null && PcBan.Parse("<html>", out r) == null);
+    }
     static void Check(string n, bool ok, string d = "") { if (!ok) fails++; Console.WriteLine((ok ? "PASS  " : "FAIL  ") + n + (d.Length > 0 ? "   " + d : "")); Console.Out.Flush(); }
     static void SetF(string n, object v) { typeof(StudioForm).GetField(n, BF).SetValue(sf, v); }
     static T F<T>(string n) { return (T)typeof(StudioForm).GetField(n, BF).GetValue(sf); }
@@ -37,7 +43,7 @@ static class NF
     {
         string outDir = args.Length > 0 ? args[0] : null; if (outDir != null) Directory.CreateDirectory(outDir);
         StudioEnv.DataDir = Path.Combine(Path.GetTempPath(), "purphex_nf_" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(StudioEnv.DataDir); Application.EnableVisualStyles();
-        Edition.Override = Tier.Fantasy;
+        Edition.Override = Tier.Fantasy; BanChecks();
 
         // ---- Spotify links in the converter: the songs are read from Spotify's embed page and each is found on YouTube ----
         {

@@ -190,6 +190,7 @@ static class Edition
         {
             int st; var o = Obj(Req("GET", "/api/license", null, tok, out st)); bool ok = false;
             if (st == 200 && o != null) { ok = TakeLicense(o); Raise(); }
+            else if (st == 403 && o != null && S(o, "err") == "banned") { lock (lk) { tokenEnc = ""; licText = ""; lic = null; who = ""; billing = ""; lastSeen = NowSec(); Save(); } Note = "This account was closed by the Purphex team."; Raise(); PcBan.Closed(""); }
             else if (st == 401 || st == 403) { lock (lk) { tokenEnc = ""; licText = ""; lic = null; who = ""; billing = ""; lastSeen = NowSec(); Save(); } Note = st == 403 ? "This PC's link belonged to another PC and was removed. Press LINK THIS PC again." : "This PC was unlinked from the account."; Raise(); }
             if (done != null) done(ok);
         });
