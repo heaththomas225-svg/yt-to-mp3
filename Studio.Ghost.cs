@@ -45,7 +45,7 @@ partial class StudioForm
         }
         float want = MousePos.Y - ghostGrab + (header ? 0 : 7); want = Math.Max(laneTop - 4, Math.Min(areaBottom - h, want));
         if (!ghostInit) { ghostY = want; ghostInit = true; } else ghostY += (want - ghostY) * 0.38f;   // eases toward the mouse: a little glide instead of a snap
-        double pulse = 0.5 + 0.5 * Math.Sin(ghostSw.Elapsed.TotalSeconds * 7); Color c = Neon(tr.Color); int a = 70 + (int)(26 * pulse);
+        double pulse = 0.5 + 0.5 * Math.Sin(ghostSw.Elapsed.TotalSeconds * 7); int a = 70 + (int)(26 * pulse);
         // where it would land
         float slot0 = ToolH + TransH + RulerH - vscroll; int row = (int)Math.Floor((MousePos.Y - slot0) / LaneH);
         if (!header && row != from && Math.Abs(MousePos.Y - laneStart.Y) >= LaneH * 0.5f)
@@ -53,7 +53,13 @@ partial class StudioForm
             bool fresh = row >= LaneCount || row < 0 || (row < LaneCount && (eng.Tracks[row].Clip != null || eng.Tracks[row].Instrument)); int rr = Math.Max(0, Math.Min(row, LaneCount)); var land = Rc(HeadW, slot0 + rr * LaneH, tl.Width, LaneH);
             using (var b = new SolidBrush(Color.FromArgb(34, NeonCyan))) g.FillRectangle(b, land);
             using (var pen = new Pen(Color.FromArgb(220, NeonCyan), 1.6f) { DashStyle = fresh ? DashStyle.Dash : DashStyle.Solid }) g.DrawRectangle(pen, land.X + 1, land.Y + 1, land.Width - 2, land.Height - 2);
-            Txt(g, fresh ? "+ new track" : "Drop here", 12, NeonCyan, Rc(land.X + 10, land.Y + 4, 160, 18), StringAlignment.Near, true);
+            Txt(g, fresh ? "+ new track" : "Drop here", 12, NeonCyan, Rc(land.Right - 190, land.Y + 4, 180, 18), StringAlignment.Far, true);   /* at the right end: never on top of a clip name */
+        }
+        var others = new List<Track>(); if (!header && InGroup(tr)) foreach (var o in multiSel) if (o != tr && o.Clip != null && !o.Instrument && !IsLocked(o) && eng.Tracks.Contains(o)) others.Add(o);   // the other picked clips travel with it: show where each one lands too
+        if (!header && row != from && Math.Abs(MousePos.Y - laneStart.Y) >= LaneH * 0.5f) foreach (var o in others)
+        {
+            int orow = eng.Tracks.IndexOf(o.Host ?? o) + (row - from); if (orow < 0) continue; var land = Rc(HeadW, slot0 + orow * LaneH, tl.Width, LaneH);
+            using (var b = new SolidBrush(Color.FromArgb(26, NeonCyan))) g.FillRectangle(b, land); using (var pen = new Pen(Color.FromArgb(170, NeonCyan), 1.3f) { DashStyle = DashStyle.Dash }) g.DrawRectangle(pen, land.X + 1, land.Y + 1, land.Width - 2, land.Height - 2);
         }
         if (header && hdMode == 2 && hdRow >= 0 && hdRow < LaneCount)
         {
@@ -64,24 +70,30 @@ partial class StudioForm
         {
             float ly = slot0 + hdGap * LaneH; GlowLine(g, NeonCyan, 0, ly, tl.Right, ly, 1.6f); Txt(g, "MOVE HERE", 12, NeonCyan, Rc(HeadW + 12, ly - 20, 160, 18), StringAlignment.Near, true);
         }
-        RectangleF r;
-        if (header) r = Rc(0, ghostY, tl.Right, h);
+        var gst = g.Save(); g.SetClip(Rc(0, laneTop, ClientSize.Width, areaBottom - laneTop), CombineMode.Intersect);
+        Action<Track, float, bool> one = (t, gy, main) => {
+        RectangleF r; Color c = Neon(t.Color);
+        if (header) r = Rc(0, gy, tl.Right, h);
         else
         {
-            float x0 = HeadW + (float)((tr.Offset - scroll) / spp), x1 = x0 + (float)(tr.UsedLength / spp); x0 = Math.Max(HeadW, x0); x1 = Math.Min(tl.Right, Math.Max(x0 + 24, x1)); r = Rc(x0, ghostY, x1 - x0, h);
+            float x0 = HeadW + (float)((t.Offset - scroll) / spp), x1 = x0 + (float)(t.UsedLength / spp); if (x1 < HeadW || x0 > tl.Right) return; x0 = Math.Max(HeadW, x0); x1 = Math.Min(tl.Right, Math.Max(x0 + 24, x1)); r = Rc(x0, gy, x1 - x0, h);
         }
-        var gst = g.Save(); g.SetClip(Rc(0, laneTop, ClientSize.Width, areaBottom - laneTop), CombineMode.Intersect);
         for (int i = 3; i >= 1; i--) using (var pen = new Pen(Color.FromArgb(24 + 10 * i, NeonCyan), i * 3f)) using (var p = RR(r, 10)) g.DrawPath(pen, p);   // soft glow so it reads as lifted
         using (var p = RR(r, 10))
         {
             using (var br = new LinearGradientBrush(r, Color.FromArgb(a + 20, c), Color.FromArgb(a - 20, NeonViolet), 0f)) g.FillPath(br, p);
-            g.SetClip(p, CombineMode.Intersect); using (var pen = new Pen(Color.FromArgb(34, 255, 255, 255), 1f)) for (float yy = r.Y + ((float)(ghostSw.Elapsed.TotalSeconds * 40) % 4); yy < r.Bottom; yy += 4) g.DrawLine(pen, r.X, yy, r.Right, yy);   // scanlines, drifting
+            g.SetClip(p, CombineMode.Intersect);
+            PeakCache pcg; if (!header && peakCache.TryGetValue(t, out pcg) && pcg.Img != null && pcg.ImgCr.Width > 1)   // the clip's own waveform rides along inside the lifted copy, so you see the audio you are moving
+            { var src = new RectangleF(pcg.ImgCr.X - (float)Math.Floor(pcg.ImgLane.X), pcg.ImgCr.Y - (float)Math.Floor(pcg.ImgLane.Y), pcg.ImgCr.Width, pcg.ImgCr.Height); float w = Math.Min(src.Width, r.Width); g.DrawImage(pcg.Img, Rc(r.X, r.Y + 2, w, r.Height - 4), new RectangleF(src.X, src.Y, w, src.Height), GraphicsUnit.Pixel); }
+            using (var pen = new Pen(Color.FromArgb(34, 255, 255, 255), 1f)) for (float yy = r.Y + ((float)(ghostSw.Elapsed.TotalSeconds * 40) % 4); yy < r.Bottom; yy += 4) g.DrawLine(pen, r.X, yy, r.Right, yy);   // scanlines, drifting
             g.ResetClip(); g.SetClip(Rc(0, laneTop, ClientSize.Width, areaBottom - laneTop), CombineMode.Intersect);
             using (var pen = new Pen(Color.FromArgb(235, NeonCyan), 1.8f)) g.DrawPath(pen, p);
         }
-        if (!header) { float gx = r.X; GlowLine(g, NeonCyan, gx, laneTop, gx, areaBottom, 1f); Txt(g, TimeText(tr.Offset), 10, NeonCyan, Rc(Math.Min(ClientSize.Width - 200, gx + 6), laneTop + 2, 190, 14), StringAlignment.Near, true); }   // the guide: where the clip starts, and its exact time
-        if (header) Txt(g, tr.Name, 15, Color.FromArgb(235, 255, 255, 255), Rc(r.X + 30, r.Y + 8, 220, 22), StringAlignment.Near, true);
-        else Txt(g, tr.Name, 13, Color.FromArgb(235, 255, 255, 255), Rc(r.X + 10, r.Y + 6, Math.Max(40, r.Width - 20), 20), StringAlignment.Near, true);
+        if (!header && main) { float gx = r.X; GlowLine(g, NeonCyan, gx, laneTop, gx, areaBottom, 1f); Txt(g, TimeText(tr.Offset), 10, NeonCyan, Rc(Math.Min(ClientSize.Width - 200, gx + 6), laneTop + 2, 190, 14), StringAlignment.Near, true); }   // the guide: where the clip starts, and its exact time
+        if (header) Txt(g, t.Name, 15, Color.FromArgb(235, 255, 255, 255), Rc(r.X + 30, r.Y + 8, 220, 22), StringAlignment.Near, true);
+        else Txt(g, t.Name, 13, Color.FromArgb(235, 255, 255, 255), Rc(r.X + 10, r.Y + 6, Math.Max(40, r.Width - 20), 20), StringAlignment.Near, true);
+        };
+        one(tr, ghostY, true); foreach (var o in others) one(o, ghostY + (eng.Tracks.IndexOf(o.Host ?? o) - from) * LaneH, false);
         g.Restore(gst);
     }
 }

@@ -1,4 +1,4 @@
-3.63.3
+3.63.4
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Type an exact gain
-sha256=a4cf514bf5309534ba722b535fb7917971c54d25e6a0546e00bedec0f89ec6b5
+See every clip you drag, and Purphex scroll bars in the Music Hub
+sha256=74ca8f28bc77d3715702a6b71b1596a769ffdbadc9f8bbc30cc4449b145b729e

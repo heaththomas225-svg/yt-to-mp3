@@ -7,10 +7,14 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.63.3";
+    public const string Latest = "3.63.4";
 
     public const string Text =
-@"3.63.3  Type an exact gain
+@"3.63.4  See every clip you drag, and Purphex scroll bars in the Music Hub
+ + FIXED: Dragging several picked clips to other tracks now shows every one of them lifted, with its waveform, over the row it will land on (only the one you grabbed showed before, and without its audio).
+ + IMPROVED: The Music Hub pages use the Purphex scroll bar: a black rail with a violet edge, cyan arrows up, pink arrows down and the logo as the handle.
+
+3.63.3  Type an exact gain
  + NEW: The GAIN box has a box for the value: click it, type the gain you want (for example -8.5) and press Enter. It stays between -30 and +12 dB, and Ctrl+Z undoes it.
 
 3.63.2  Ctrl + Shift no longer resizes the tracks
