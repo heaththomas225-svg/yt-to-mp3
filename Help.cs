@@ -648,9 +648,9 @@ Spotify, Apple Music, Tidal, Amazon Music and Deezer play full songs with their 
 ## Search
 Type in the search box and press SEARCH: songs from your connected accounts and from Deezer's and Apple's public catalogues. Inside a service, the box searches that service.
 "),
-        new HelpTopic("studio-purphexvst", "Purphex Music", "Purphex VSTs: Glow, Curve EQ, Shape, SubForge, BreathOff, Phantom Gate, Stereo Lab, Vortex, MultiDyn, Prism, Frost, Tape Dirt, Constellation, Clipper, Smack, Vinyl Stop, Radio, Doubler, Octave Choir, Vowel, Step Shaper, Tri-Drive, Shift, Maximizer, Spectral Gate, EchoGrid, Modal Filter, Reference, Pathfinder, Modular, Dreamscape, Morph", false, @"
+        new HelpTopic("studio-purphexvst", "Purphex Music", "Purphex VSTs: Glow, Curve EQ, Shape, SubForge, BreathOff, Phantom Gate, Stereo Lab, Vortex, MultiDyn, Prism, Frost, Tape Dirt, Constellation, Clipper, Smack, Vinyl Stop, Radio, Doubler, Octave Choir, Vowel, Step Shaper, Tri-Drive, Shift, Maximizer, Spectral Gate, EchoGrid, Modal Filter, Reference, Pathfinder, Modular, Dreamscape, Morph, Current, Inferno, ChordPad", false, @"
 ## Where they are
-The Purphex VSTs are our own plugins with their own windows. The effects are at the top of + ADD EFFECT in PURPHEX VST (adding one opens its window; OPEN in the plugin panel opens it again). SubForge is an instrument: + ADD TRACK, then a MIDI / instrument track.
+The Purphex VSTs are our own plugins with their own windows. The effects are at the top of + ADD EFFECT in PURPHEX VST (adding one opens its window; OPEN in the plugin panel opens it again). SubForge, Current, Inferno and ChordPad are instruments: + ADD TRACK, then a MIDI / instrument track.
 ## Glow
 A four-band enhancer. Drag LOW, MID, HIGH and AIR up for more; each band has two characters (thick or punch, warm or broad, shine or excite, silk or sparkle) and its own ON / OFF. WET INJECT turns all four up or down together, FX ONLY lets you hear only what is added, LEVEL MATCH keeps the loudness the same, M/S works the lows and mids on the middle and the highs and air on the sides. Filters and saturation (drive, distort, crush) at the bottom.
 ## Curve EQ
@@ -715,6 +715,12 @@ Four SLOTS in a chain (left to right). Each: a module (drive, fold, crush, recti
 SIZE, DECAY (0.5 to 30 seconds), DAMP (darker tail), BLOOM (the sound swells into the space at each phrase), DRIFT, the low and high cut, WIDTH. SHIMMER feeds a copy of the space back an octave (or a fifth...) up. FREEZE holds what is ringing for as long as you like while you play over it. MIX and OUTPUT.
 ## Morph
 SOURCE: the other track (VOCAL TRACK, or any track by its number). MODE: MORPH (crossfades what the two sound like by AMOUNT), VOCODER (the source's shape on this track: put it on a synth or pad and the source on a voice), GATE (lets through only what is also in the source; GATE SENSITIVITY). SMOOTHING, FORMANT, ATTACK, RELEASE, MIX and OUTPUT.
+## Current
+A wavetable synth. OSC A and OSC B: pick a TABLE, then POSITION moves through it (the picture shows the wave you hear). LEVEL, OCTAVE, SEMI, UNISON (up to 7 voices), DETUNE and SPREAD (how wide the voices are). FILTER: the type, CUTOFF, RES, ENV (how much its envelope opens it), DRIVE and KEY TRACK, plus SUB and NOISE. The AMP envelope (A, D, S, R) and the MOD envelope (MOD A, D, S, R). LFO: RATE and shape. MOD SLOTS: a source (mod envelope, LFO, velocity, note), a target and the amount. GLIDE with MONO slides between notes. Play it from the keyboard in the window, MIDI or the piano roll.
+## Inferno
+A growl and wobble bass (one note at a time). OSCILLATOR: the wave (saw, square, supersaw, FM), OCTAVE, FM, OSC 2 and REESE (how far the second oscillator is detuned). GROWL: the filter (low-pass, band-pass, vowel), the wobble RATE (in time with the song), CUTOFF, RES, WOBBLE (how far it moves) and ENVELOPE. HEAT: the type (tube, hard, fold, crush), how much, its MIX and the WIDTH. ATTACK, RELEASE, GLIDE and LEVEL at the bottom, with a keyboard.
+## ChordPad
+Pick the KEY, SCALE, CHORDS (triads, 7ths, 9ths, sus2, power) and VOICING. The eight pads are the chords of the key (hold one to hear it); the white keys from middle C play them too (C = I, D = II...), a black key plays the chord below it, and an octave up plays them an octave higher. INVERSION, OCTAVE, STRUM, BRIGHTNESS, ATTACK, RELEASE, BASS NOTE and the SOUND (pad, keys, pluck). PROGRESSION: pick one and WRITE 8 BARS TO THE TRACK puts it on the track from the start, one chord a bar, as notes you can edit in the piano roll.
 ## All of them
 ON / OFF at the top turns the plugin off without removing it. PRESETS has factory presets and your own (save, rename, delete); the arrows step through them. Ctrl+Z / Ctrl+Y undo and redo in the window. Every setting is in the plugin panel too, with its A button for automation, and is saved with the project.
 "),

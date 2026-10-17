@@ -1,4 +1,4 @@
-3.60.0
+3.61.0
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Purphex VSTs: Reference, Pathfinder, Modular, Dreamscape, Morph
-sha256=f50cd2d98804d20c9882af7aee1809820f756e13c2c66c19a27b4071a8303e44
+Purphex instruments: Current, Inferno, ChordPad
+sha256=511e7d01087bc9b9eacbe37d932b528b18d3db0c6d283727138fb1b76af08c23
