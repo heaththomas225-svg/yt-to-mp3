@@ -7,10 +7,16 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.68.0";
+    public const string Latest = "3.68.1";
 
     public const string Text =
-@"3.68.0  Clean sounds, 50,000+ instant drum and bass loops, every genre labelled properly
+@"3.68.1  Sounds play clean in your song: no more squashed, distorted master
+ + FIXED: The real reason sounds came out crackly and distorted once they were in a song: the default master squashed everything. A new song had the master compressor on at -14 dB and the limiter pushing +3 dB, so every sample and sound-pack loop was limited and distorted the moment it played (measured: a drum loop came out with its peaks held down and changed by up to 1 part in 9). A new song now plays clean: the compressor is off and the limiter is only a safety net at -0.3 dB with no gain push. A pack loop on the timeline now plays exactly as its file. Songs saved with the old untouched default open clean too; a master you set yourself, or a mastering preset, is left as it is. Mastering and AUTO MASTERING still make a song loud when you ask them to.
+ + FIXED: The sound browser preview always uses the biggest audio buffer, so a busy screen can no longer make the sound you are previewing stutter or crackle (with the low-latency setting it used a tiny buffer).
+ + IMPROVED: Clearer drums and basses: the noise in snares, claps, rims, congas, kick and 808 clicks and impacts no longer fizzes right up to the top of the spectrum, hats lose their harshest top end, and no pack bass goes through a distortion or saturation unit any more (growls come from the filter movement alone).
+ + CHANGED: Installed packs offer an update (sound version 5) so their sounds are remade with these changes. Instant loops you already played are remade too.
+
+3.68.0  Clean sounds, 50,000+ instant drum and bass loops, every genre labelled properly
  + FIXED: The crackle in the sound packs is gone. The real cause was found by measuring every sound: drum hits (kicks, snares, toms, cymbals, percussion) and 808s were cut off while they were still ringing, which clicked on every beat of every drum loop. Every hit now rings out to silence. Drum loops are exactly their length, with the last hits wrapping round to the start, so they repeat with no click and no gap.
  + FIXED: No distortion: snares, claps, impacts and voices are no longer driven into saturation, loop mixes are no longer squashed by a saturating glue, the limiter that levels loops is gentler and slower (no gain wobble), the clean basses (sub, reese, organ, pluck, stab, rubber, wobble) have no distortion at all, and the kick and 808 clicks are softer. Plucked guitar notes start softer and end at silence.
  + NEW: The instant library: every genre and style now has hundreds of drum loops and bass loops straight away, without installing anything (50,000+ in all: 120 drum loops and 120 bass loops for every pack, and twice that for a genre with one pack). Filter Trap drum loops and you get 1,800 of them; House bass loops in F minor, hundreds. Each loop is made the first time you play or drag it (a fraction of a second) and kept, so it is there at once next time. Every loop is its own groove: the kicks, hats, rolls, ghost notes, percussion and fills change, and bar two answers bar one.

@@ -1,4 +1,4 @@
-3.68.0
+3.68.1
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Clean sounds, 50,000+ instant drum and bass loops, every genre labelled properly
-sha256=768ce1d845e9ea46d2b9527631896ac14bf407d0106cf210103b939186ae4b4b
+Sounds play clean in your song: no more squashed, distorted master
+sha256=49727ed5f200ce02d4d73a79e0cd164eaf0f8fbed475deccca84e5a67ef6d8c9

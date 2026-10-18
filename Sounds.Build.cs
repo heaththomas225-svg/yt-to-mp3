@@ -6,7 +6,7 @@ static class PackBuilder
 {
     // makes a pack's files on disk and returns the finished pack (null if cancelled)
     // the sound design version: packs made by an older one are offered an update (2 = band-limited hats, cymbals and saws, in-tune plucks, even loop levels)
-    public const string SoundVersion = "4";   // 3: the big packs (260+ sounds each); 4: clean sounds (no clicks, crackle or distortion); installed packs offer an update
+    public const string SoundVersion = "5";   // 3: the big packs (260+ sounds each); 4: clean sounds (no clicks, crackle or distortion); installed packs offer an update
     public static bool Outdated(SoundPack p) { return p != null && p.Items.Count > 0 && p.Id != SoundLibrary.UserPackId && SoundCatalog.Find(p.Id) != null && p.Version != SoundVersion; }
     public static SoundPack Build(Recipe rec, Action<string, float> progress, Func<bool> cancel)
     {

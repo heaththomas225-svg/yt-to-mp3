@@ -58,6 +58,8 @@ static class SoundGen
     static double Hz(double midi) { return 440.0 * Math.Pow(2, (midi - 69) / 12.0); }
     public static double NoteHz(int midi) { return Hz(midi); }
     static float[] Noise(Rnd r, int n) { var x = new float[n]; for (int i = 0; i < n; i++) x[i] = r.Bi(); return x; }
+    // a gentle low-pass (two poles, Butterworth): synthetic noise runs flat up to 22 kHz, which real drums never do; that top end is heard as fizz and crackle
+    public static float[] Soft(float[] x, double hz) { var a = new Svf(); var o = new float[x.Length]; for (int i = 0; i < x.Length; i++) o[i] = a.Process(x[i], (float)hz, 0.707f, 0); return o; }
     // band-limited oscillators (PolyBLEP): a raw square or saw has harmonics far above what 44.1 kHz can hold, and they fold back as harsh tones that do not belong
     static double Blep(double t, double dt) { if (t < dt) { t /= dt; return t + t - t * t - 1; } if (t > 1 - dt) { t = (t - 1) / dt; return t * t + t + t + 1; } return 0; }
     public static double Square(double ph, double dt) { double v = ph < 0.5 ? 1 : -1; v += Blep(ph, dt); double p2 = ph + 0.5; if (p2 >= 1) p2 -= 1; return v - Blep(p2, dt); }   // ph in 0..1
@@ -73,22 +75,22 @@ static class SoundGen
     // ---------------- drums ----------------
     public static Buf Kick(Rnd r, double f0, double fStart, double tauPitch, double decay, double drive, double click, double len)
     {
-        int n = (int)(len * SR); var x = new float[n]; double ph = 0; var hp = new Svf(); var nz = Noise(r, n);
+        int n = (int)(len * SR); var x = new float[n]; double ph = 0; var hp = new Svf(); var nz = Soft(Noise(r, n), 9000);
         for (int i = 0; i < n; i++)
         {
             double t = i / (double)SR, f = f0 + (fStart - f0) * Math.Exp(-t / tauPitch); ph += 2 * Math.PI * f / SR; double env = Math.Exp(-t / decay) * Math.Min(1.0, t / 0.0008);
-            float s = (float)(Math.Sin(ph) * env); s += hp.Process(nz[i], 2500f, 0.8f, 2) * (float)(click * 0.5 * Math.Exp(-t / 0.004) * Math.Min(1.0, t / 0.0003)); s += (float)(Math.Sin(2 * Math.PI * f0 * t) * Math.Exp(-t / (decay * 1.5)) * 0.25);
+            float s = (float)(Math.Sin(ph) * env); s += hp.Process(nz[i], 3500f, 0.7f, 1) * (float)(click * 0.7 * Math.Exp(-t / 0.004) * Math.Min(1.0, t / 0.0003)); s += (float)(Math.Sin(2 * Math.PI * f0 * t) * Math.Exp(-t / (decay * 1.5)) * 0.25);
             x[i] = Sat(s, (float)drive);
         }
         return new Buf(x);
     }
     public static Buf Snare(Rnd r, double body, double noiseHz, double decay, double noiseAmt, double snap, double drive, double len)
     {
-        int n = (int)(len * SR); var x = new float[n]; var nz = Noise(r, n); var bp = new Svf(); var hp = new Svf(); double ph1 = 0, ph2 = 0;
+        int n = (int)(len * SR); var x = new float[n]; var nz = Soft(Noise(r, n), 11000); var bp = new Svf(); var hp = new Svf(); double ph1 = 0, ph2 = 0;
         for (int i = 0; i < n; i++)
         {
             double t = i / (double)SR, drop = 1 + 0.35 * Math.Exp(-t / 0.02); ph1 += 2 * Math.PI * body * drop / SR; ph2 += 2 * Math.PI * body * 1.83 * drop / SR; double be = Math.Exp(-t / 0.085);
-            float s = (float)((Math.Sin(ph1) * 0.8 + Math.Sin(ph2) * 0.35) * be); float nzz = bp.Process(nz[i], (float)noiseHz, 0.8f, 1) * 3.2f + hp.Process(nz[i], 6500f, 0.7f, 2) * 0.5f;
+            float s = (float)((Math.Sin(ph1) * 0.8 + Math.Sin(ph2) * 0.35) * be); float nzz = bp.Process(nz[i], (float)noiseHz, 0.8f, 1) * 3.2f + hp.Process(nz[i], 6500f, 0.8f, 1) * 0.55f;
             s += nzz * (float)(noiseAmt * Math.Exp(-t / decay)); s += nz[i] * (float)(snap * 0.6 * Math.Exp(-t / 0.0025)); x[i] = Sat(s, (float)(1 + (drive - 1) * 0.3));
         }
         return new Buf(x);
@@ -98,7 +100,7 @@ static class SoundGen
         int n = (int)(len * SR); var l = new float[n]; var rr = new float[n]; double[] at = { 0, 0.011, 0.023, 0.036 };
         for (int c = 0; c < 2; c++)
         {
-            var x = c == 0 ? l : rr; var nz = Noise(r, n); var bp = new Svf();
+            var x = c == 0 ? l : rr; var nz = Soft(Noise(r, n), 10000); var bp = new Svf();
             for (int i = 0; i < n; i++)
             {
                 double t = i / (double)SR, env = 0; for (int k = 0; k < at.Length; k++) { double d = t - at[k]; if (d >= 0) env = Math.Max(env, Math.Exp(-d / (k == at.Length - 1 ? tail : 0.006)) * (k == at.Length - 1 ? 1 : 0.8)); }
@@ -117,7 +119,7 @@ static class SoundGen
             float m = metal[i] * 0.7f + nz[i] * 0.3f; float a = hpL.Process(bpL.Process(m, (float)(bright * 1000), 0.9f, 1) * 2.2f + m * 0.4f, 6800f, 0.7f, 2); float b = hpR.Process(bpR.Process(m * 0.96f, (float)(bright * 1040), 0.9f, 1) * 2.2f + m * 0.4f, 7200f, 0.7f, 2);
             l[i] = a * (float)env; rr[i] = b * (float)env;
         }
-        var buf = new Buf(n); buf.L = l; buf.R = rr; return buf;
+        var buf = new Buf(Soft(l, 15000)); buf.R = Soft(rr, 15000); return buf;
     }
     public static Buf Cymbal(Rnd r, double decay, double len, bool ride)
     {
@@ -140,7 +142,7 @@ static class SoundGen
     }
     public static Buf Rim(Rnd r, double f0)
     {
-        int n = (int)(0.12 * SR); var x = new float[n]; var nz = Noise(r, n);
+        int n = (int)(0.12 * SR); var x = new float[n]; var nz = Soft(Noise(r, n), 7000);
         for (int i = 0; i < n; i++) { double t = i / (double)SR; x[i] = (float)((Math.Sin(2 * Math.PI * f0 * t) * 0.7 + Math.Sin(2 * Math.PI * f0 * 2.3 * t) * 0.5) * Math.Exp(-t / 0.018) + nz[i] * Math.Exp(-t / 0.002) * 0.3); }
         return new Buf(x);
     }
@@ -152,7 +154,7 @@ static class SoundGen
     }
     public static Buf Conga(Rnd r, double f0)
     {
-        int n = (int)(0.4 * SR); var x = new float[n]; var nz = Noise(r, n);
+        int n = (int)(0.4 * SR); var x = new float[n]; var nz = Soft(Noise(r, n), 6000);
         for (int i = 0; i < n; i++) { double t = i / (double)SR, f = f0 * (1 + 0.25 * Math.Exp(-t / 0.012)); x[i] = (float)(Math.Sin(2 * Math.PI * f * t) * Math.Exp(-t / 0.11) + Math.Sin(2 * Math.PI * f * 1.6 * t) * Math.Exp(-t / 0.05) * 0.3 + nz[i] * Math.Exp(-t / 0.004) * 0.3); }
         return new Buf(x);
     }
@@ -160,7 +162,7 @@ static class SoundGen
     // a long sub-bass hit tuned to a note: the 808
     public static Buf Eight08(Rnd r, int midi, double decay, double drive, double click, double glideSemis, double len, double slideToMidi = 0, double slideAtSec = 0)
     {
-        int n = (int)(len * SR); var x = new float[n]; double ph = 0, f = Hz(midi); var nz = Noise(r, n); var hp = new Svf();
+        int n = (int)(len * SR); var x = new float[n]; double ph = 0, f = Hz(midi); var nz = Soft(Noise(r, n), 6000); var hp = new Svf();
         for (int i = 0; i < n; i++)
         {
             double t = i / (double)SR, target = Hz(midi); if (slideToMidi > 0 && t > slideAtSec) { double k = Math.Min(1.0, (t - slideAtSec) / 0.09); target = Hz(midi) * Math.Pow(Hz(slideToMidi) / Hz(midi), k); }
@@ -184,7 +186,7 @@ static class SoundGen
     }
     public static Buf Impact(Rnd r, double len, double subHz, double drive)
     {
-        int n = (int)(len * SR); var x = new float[n]; var nz = Noise(r, n); var lp = new Svf(); double ph = 0;
+        int n = (int)(len * SR); var x = new float[n]; var nz = Soft(Noise(r, n), 6000); var lp = new Svf(); double ph = 0;
         for (int i = 0; i < n; i++)
         {
             double t = i / (double)SR, f = subHz * (1 + 1.6 * Math.Exp(-t / 0.07)); ph += 2 * Math.PI * f / SR; float s = (float)(Math.Sin(ph) * Math.Exp(-t / (len * 0.28)) * Math.Min(1.0, t / 0.002));

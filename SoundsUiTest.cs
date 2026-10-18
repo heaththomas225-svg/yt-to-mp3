@@ -48,6 +48,13 @@ static class Q
         { // an instant loop plays and drags like any sound: made on the spot
           var inst0 = InstantLib.Items.Find(s => s.PackId == "uk-drill" || s.Genre == "UK Drill"); int nT0 = eng.Tracks.Count; string am = (string)typeof(StudioForm).GetMethod("AddSample", BF).Invoke(sf, new object[] { inst0, 0L, eng.Tracks.Count });
           Check("an instant loop added to the song becomes a real clip of the right length", am == null && eng.Tracks.Count == nT0 + 1 && eng.Tracks[eng.Tracks.Count - 1].Clip != null && Math.Abs(eng.Tracks[eng.Tracks.Count - 1].Clip.Length - inst0.Dur * 44100) < 50, (am ?? "ok") + ", " + inst0.Name);
+          { // the sound on the timeline plays exactly as the file: the default master does not squash or distort it
+            var lt = eng.Tracks[eng.Tracks.Count - 1]; float[] RL, RR; eng.Render(0, lt.Clip.Length, new RenderOpts { Only = new List<Track> { lt } }, null, out RL, out RR); float[] FL, FR; int fsr; string ffm; SoundIO.Read(inst0.Path, out FL, out FR, out fsr, out ffm);
+            double er = 0, sg = 0; int nn = Math.Min(RL.Length, FL.Length); for (int i = 0; i < nn; i++) { double d = RL[i] - FL[i]; er += d * d; sg += FL[i] * FL[i]; } double diffDb = 10 * Math.Log10(er / Math.Max(1e-12, sg) + 1e-12);
+            Check("a pack loop on the timeline plays exactly as its file (the default master is clean: no compressor, no limiter push)", diffDb < -60 && eng.MasterFx[1].Bypass && Math.Abs(eng.MasterFx[6].Get("gain")) < 0.01, "difference " + diffDb.ToString("0.0") + " dB");
+            var oe = new StudioEngine(); oe.MasterFx[1].Bypass = false; oe.MasterFx[6].Set("gain", 3); oe.MasterFx[6].Set("ceil", -1); bool fixedOld = oe.CleanOldDefaultMaster() && oe.MasterFx[1].Bypass && Math.Abs(oe.MasterFx[6].Get("gain")) < 0.01;
+            var ue = new StudioEngine(); ue.MasterFx[1].Bypass = false; ue.MasterFx[1].Set("thr", -20); ue.MasterFx[6].Set("gain", 3); ue.MasterFx[6].Set("ceil", -1); bool keptUser = !ue.CleanOldDefaultMaster() && !ue.MasterFx[1].Bypass;
+            Check("a project saved with the old squashing default opens clean, a master you set yourself is left alone", fixedOld && keptUser, "old " + fixedOld + ", yours kept " + keptUser); }
         }
         SetF("packsOpen", true); SetF("packScroll", 0f); Paint();
         Check("Open the packs shows the pack manager", F<bool>("packsOpen"), "");

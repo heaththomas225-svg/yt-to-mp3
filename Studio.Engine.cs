@@ -413,18 +413,27 @@ partial class StudioEngine
 
     public long EndFrame { get { long e = 0; foreach (var t in Tracks) e = Math.Max(e, t.EndFrame); return e; } }
 
-    // Default mastering chain (all modules present, gentle defaults; the user toggles / edits them).
+    // Default mastering chain: every module is there, but a new song plays CLEAN (only a safety limiter at -0.3 dB, no gain push, the compressor off).
+    // It used to compress at -14 dB and push the limiter +3 dB: every sample and sound pack loop was squashed and distorted the moment it was on the timeline.
     public void InitMasterChain()
     {
         MasterFx.Clear();
         var eq = new ParametricEq(); eq.Prepare(SR);
-        var comp = new Compressor(); comp.Prepare(SR); comp.Set("thr", -14); comp.Set("ratio", 2); comp.Set("att", 30); comp.Set("rel", 200); comp.Set("knee", 8);
+        var comp = new Compressor(); comp.Prepare(SR); comp.Set("thr", -14); comp.Set("ratio", 2); comp.Set("att", 30); comp.Set("rel", 200); comp.Set("knee", 8); comp.Bypass = true;
         var mb = new MultibandComp(); mb.Prepare(SR); mb.Bypass = true;
         var ex = new Exciter(); ex.Prepare(SR); ex.Set("mix", 25); ex.Bypass = true;
         var sat = new Saturation(); sat.Prepare(SR); sat.Set("drive", 3); sat.Set("mix", 60); sat.Bypass = true;
         var wid = new Widener(); wid.Prepare(SR); wid.Set("width", 105); wid.Bypass = true;
-        var lim = new Limiter(); lim.Prepare(SR); lim.Set("gain", 3);
+        var lim = new Limiter(); lim.Prepare(SR); lim.Set("gain", 0); lim.Set("ceil", -0.3f);
         MasterFx.AddRange(new Fx[] { eq, comp, mb, ex, sat, wid, lim });
+    }
+    // a project saved with the old, untouched default master (compressor at -14 dB, limiter +3 dB, no mastering preset) is opened with the clean one
+    public bool CleanOldDefaultMaster()
+    {
+        if (MasterFx.Count != 7) return false; var comp = MasterFx[1] as Compressor; var lim = MasterFx[6] as Limiter; if (comp == null || lim == null) return false;
+        bool old = !comp.Bypass && Math.Abs(comp.Get("thr") + 14) < 0.01 && Math.Abs(comp.Get("ratio") - 2) < 0.01 && Math.Abs(comp.Get("att") - 30) < 0.01 && Math.Abs(comp.Get("rel") - 200) < 0.01 && !lim.Bypass && Math.Abs(lim.Get("gain") - 3) < 0.01 && Math.Abs(lim.Get("ceil") + 1) < 0.01;
+        for (int k = 2; k <= 5 && old; k++) if (!MasterFx[k].Bypass) old = false;
+        if (!old) return false; comp.Bypass = true; lim.Set("gain", 0); lim.Set("ceil", -0.3f); return true;
     }
 
     // ---------------- mixing ----------------

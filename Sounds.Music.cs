@@ -38,14 +38,15 @@ static class Music
             case "sub": baseName = "Deep Sub"; extra = "f1cut=" + (int)r.Range(260, 480) + ";bbgain=" + (int)r.Range(6, 11); break;
             case "stab": baseName = "Reese Stab"; extra = "f1cut=" + (int)r.Range(700, 1500); break;
             case "rubber": case "elastic": baseName = "Acid Squelch"; extra = "mode=2;glide=" + (int)r.Range(70, 160) + ";f1res=" + (int)r.Range(55, 78) + ";f1cut=" + (int)r.Range(320, 620); break;
-            case "riddim": baseName = "Riddim Chug"; extra = "f1cut=" + (int)r.Range(380, 520); return SmoothCurves((SynthPresets.DataOf(baseName) ?? "") + ";" + extra) + ";e1a=4;f1drive=0;l1smooth=18;l2smooth=12;dstmode=2;dsttone=5000;dstdrive=" + (int)r.Range(2, 5);   // the chug, with soft edges
+            case "riddim": baseName = "Riddim Chug"; extra = "f1cut=" + (int)r.Range(380, 520); return SmoothCurves((SynthPresets.DataOf(baseName) ?? "") + ";" + extra) + ";e1a=4;f1drive=0;l1smooth=18;l2smooth=12;dstmode=2;dsttone=5000;dston=0;dstdrive=0;saton=0;satdrive=0" + Skip(r, 1);   // the chug, with soft edges, no distortion
             case "organ": baseName = "Organ"; extra = "e1d=" + (int)r.Range(150, 300) + ";e1s=" + (int)r.Range(0, 30) + ";e1r=90;aoct=-1"; break;
             case "pluck": baseName = "Pluck Bass"; extra = "f1cut=" + (int)r.Range(260, 420); break;
             default: baseName = "Wobble Bass"; break;
         }
         bool gritty = flavour == "growl" || flavour == "dirty" || flavour == "talking" || flavour == "neuro" || flavour == "metallic";
-        string d = SynthPresets.DataOf(baseName) ?? ""; return SmoothCurves(d + ";" + extra) + ";e1a=4;f1drive=0;l1smooth=8;l2smooth=8;l3smooth=8;l4smooth=8;dstmode=2;dsttone=" + (int)r.Range(4500, 6500) + (gritty ? ";dstdrive=" + (int)r.Range(2, 6) : ";dston=0;dstdrive=0");   // packs: growl without crackle (an overdriven filter and instant jumps are what crackle); the clean basses have no distortion at all
+        string d = SynthPresets.DataOf(baseName) ?? ""; return SmoothCurves(d + ";" + extra) + ";e1a=4;f1drive=0;l1smooth=8;l2smooth=8;l3smooth=8;l4smooth=8;dstmode=2;dsttone=" + (int)r.Range(4500, 6500) + ";dston=0;dstdrive=0;saton=0;satdrive=0" + Skip(r, gritty ? 1 : 0);   /* no distortion on any pack bass */   // packs: growl without crackle (an overdriven filter and instant jumps are what crackle); the clean basses have no distortion at all
     }
+    static string Skip(Rnd r, int n) { for (int i = 0; i < n; i++) r.Next(); return ""; }   // uses up the random numbers a removed setting used, so everything after it stays the same
     public static string LeadPatch(string name, string extra = "") { return (SynthPresets.DataOf(name) ?? "") + ";" + extra; }
 
     // ---- patterns: lists of {start in beats, length in beats, midi note, velocity} ----

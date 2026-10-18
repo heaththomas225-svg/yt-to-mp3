@@ -547,7 +547,7 @@ static class ProjectIO
             eng.MasterFx.AddRange(newMaster);
             if (master != null) { eng.MasterVolDb = F(master[1]); eng.MasterBypass = master[2] == "1"; eng.AbMatchDb = F(master[3]); }
             foreach (var p in tmix) { try { int i = int.Parse(p[1]); var t = trs[i]; t.VolDb = F(p[2]); t.Pan = F(p[3]); t.Mute = p[4] == "1"; t.Solo = p[5] == "1"; t.Off = p.Length > 6 && p[6] == "1"; } catch { } }
-            if (eng.MasterFx.Count == 0) eng.InitMasterChain();
+            if (eng.MasterFx.Count == 0) eng.InitMasterChain(); else if (mpreset == null) eng.CleanOldDefaultMaster();   // (the old default squashed every sound)
             eng.ResetStates();
         }
         foreach (var of in old) if (of is IDisposable) { try { ((IDisposable)of).Dispose(); } catch { } }

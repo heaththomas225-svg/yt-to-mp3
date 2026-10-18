@@ -18,7 +18,8 @@ class SoundItem
     public double Bpm, Dur; public int Rate = 44100; public byte[] Peaks = new byte[0];
     public bool IsAudio { get { string e = System.IO.Path.GetExtension(Rel).ToLowerInvariant(); return e == ".wav" || e == ".mp3" || e == ".flac" || e == ".ogg" || e == ".aiff" || e == ".m4a"; } }
     public bool Exists { get { return File.Exists(Path); } }
-    public string Search { get { return (Name + " " + Type + " " + Group + " " + Kind + " " + Genre + " " + Sub + " " + Tags + " " + Mood + " " + Key + " " + PackName).ToLowerInvariant(); } }
+    string search, sG, sS;   // made once (the browser searches 50,000+ sounds on every key press: building it each time made the garbage collector pause the audio)
+    public string Search { get { if (search == null || !ReferenceEquals(sG, Genre) || !ReferenceEquals(sS, Sub)) { search = (Name + " " + Type + " " + Group + " " + Kind + " " + Genre + " " + Sub + " " + Tags + " " + Mood + " " + Key + " " + PackName).ToLowerInvariant(); sG = Genre; sS = Sub; } return search; } }
     public string PackName = "";
     public string Spec = "";   // an instant loop: the recipe it is made from the first time it is played (see InstantLib)
     public bool Instant { get { return Spec.Length > 0; } }
@@ -346,7 +347,7 @@ static class Auditioner
         lock (lk)
         {
             if (player != null) return;
-            try { player = new WaveOutPlayer(Render); player.Start(); } catch (Exception ex) { player = null; Error = "No sound output: " + ex.Message; playing = false; }
+            try { player = new WaveOutPlayer(Render, 2); player.Start(); }   /* always the biggest buffer (8 x 2048): with the low-latency setting (4 x 512) a busy screen starved the preview and every sound crackled */ catch (Exception ex) { player = null; Error = "No sound output: " + ex.Message; playing = false; }
         }
     }
     static void Render(float[] l, float[] r, int n)

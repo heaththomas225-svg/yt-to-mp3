@@ -14,7 +14,7 @@ static class InstantLib
     public const int DrumPer = 120, BassPer = 120;
     static List<SoundItem> items; static string builtFor = ""; static readonly object lk = new object();
     static readonly Dictionary<string, byte[]> peaks = new Dictionary<string, byte[]>();
-    public static string Dir { get { return Path.Combine(SoundLibrary.Root, "_instant"); } }
+    public static string Dir { get { return Path.Combine(SoundLibrary.Root, "_instant" + PackBuilder.SoundVersion); } }   // one folder per sound version: loops made by older sound design are made again
     static string PeaksFile { get { return Path.Combine(Dir, "peaks.txt"); } }
 
     // the list of every instant loop (made once per data folder; it is only names and numbers until a loop is played)
@@ -25,7 +25,7 @@ static class InstantLib
             lock (lk)
             {
                 if (items != null && builtFor == SoundLibrary.Root) return items;
-                builtFor = SoundLibrary.Root; peaks.Clear(); ReadPeaks(); var l = new List<SoundItem>(); var inGenre = new Dictionary<string, int>(); foreach (var rec in SoundCatalog.Recipes) { int c; inGenre.TryGetValue(rec.Genre, out c); inGenre[rec.Genre] = c + 1; }
+                builtFor = SoundLibrary.Root; peaks.Clear(); ReadPeaks(); try { foreach (var d in Directory.GetDirectories(SoundLibrary.Root, "_instant*")) if (!string.Equals(Path.GetFileName(d), Path.GetFileName(Dir), StringComparison.OrdinalIgnoreCase)) Directory.Delete(d, true); } catch { } var l = new List<SoundItem>(); var inGenre = new Dictionary<string, int>(); foreach (var rec in SoundCatalog.Recipes) { int c; inGenre.TryGetValue(rec.Genre, out c); inGenre[rec.Genre] = c + 1; }
                 foreach (var rec in SoundCatalog.Recipes)
                 {
                     int per = inGenre[rec.Genre] == 1 ? 2 : 1;   // a genre with one pack gets twice as many, so every genre has hundreds
