@@ -321,7 +321,7 @@ static class T
             eng.Tracks.Add(StudioEngine.NewTrack("M", "other", AudioClip.FromArrays(x, Copy(x), "m")));
             float[] oL, oR; eng.Render(0, n, new RenderOpts(), null, out oL, out oR);
             var res = Loudness.Measure(oL, oR, SR, 0, n);
-            Check("master chain: true peak stays under -1 dB", res.TruePeakDb <= -0.8, "true peak " + res.TruePeakDb.ToString("0.00") + " dB, " + res.I.ToString("0.0") + " LUFS");
+            Check("master chain: the safety limiter keeps the true peak under 0 dB (nothing ever clips; the default master is otherwise clean)", res.TruePeakDb <= -0.1, "true peak " + res.TruePeakDb.ToString("0.00") + " dB, " + res.I.ToString("0.0") + " LUFS");
         }
 
         // ---- real-time device ----

@@ -219,7 +219,7 @@ partial class StudioForm : Form
         var trH = tr; Reg(r, () => { busEdit = null; selTrack = Math.Max(0, eng.Tracks.IndexOf(trH)); selFx = -1; toolsTrack = trH; }); Hint2(r, tr.Name + "  (the track list is tucked away: the arrow brings it back)");
     }
     int TransH { get { return tab == 0 ? 86 + HintStripH : 86; } }   // on the studio page the transport area has the hint strip along its bottom edge
-    int PanelW { get { if (soundsOpen && tab == 0) return 640; return (int)Math.Round(PanelTabW + (380 - PanelTabW) * PanelOpenK()); } }
+    int PanelW { get { if (soundsOpen && tab == 0) return sndFull ? Math.Max(640, ClientSize.Width) : 640; return (int)Math.Round(PanelTabW + (380 - PanelTabW) * PanelOpenK()); } }
     // the plugin panel can be tucked away for a big timeline: a thin tab stays on the right edge; it slides out and back in 0.18 s
     internal const int PanelTabW = 30; internal DateTime panelAt = DateTime.MinValue;
     float PanelOpenK() { float target = Prefs.PanelHidden ? 0f : 1f; double t = (DateTime.Now - panelAt).TotalMilliseconds / 180.0; if (t >= 1 || t < 0) return target; float e = (float)(1 - Math.Pow(1 - t, 3)); return (1 - target) + (target - (1 - target)) * e; }

@@ -1,4 +1,4 @@
-3.68.1
+3.69.0
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Sounds play clean in your song: no more squashed, distorted master
-sha256=49727ed5f200ce02d4d73a79e0cd164eaf0f8fbed475deccca84e5a67ef6d8c9
+The complete sound library: 125,000+ sounds in every category, real MIDI, new instruments, any key and tempo
+sha256=97ffc3d405e9ad7099aa3f93c4ea676e8e8968950dc86649635d12d23c390322

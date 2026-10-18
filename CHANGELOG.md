@@ -2,6 +2,30 @@
 
 What changed in each version of **Purphex**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.69.0  The complete sound library: 125,000+ sounds in every category, real MIDI, new instruments, any key and tempo
+
+- NEW: Every pack now has its whole range in the browser straight away, without installing it: drum, top, bass, chord, melody, arp and vocal loops; kicks, snares, claps, hats, percussion, cymbals and 808s; bass, instrument-note and chord-hit one-shots; FX; vocal shouts; and real MIDI files (drum patterns, basslines, chord progressions and melodies). That is 125,416 sounds: 77,992 loops, 26,736 one-shots and 20,688 MIDI files, every one its own recipe (none is a copy of another). Every genre has every category. A sound is made on your PC the first time you play or drag it (a fraction of a second) and kept, so it is there at once after that.
+
+- NEW: New instruments, all synthesised by Purphex (nothing is anyone else's recording): Grand Piano, Electric Piano, Strings, Brass, Acoustic and Nylon Guitar (with strummed chords), Marimba, Kalimba, Bells, Log Drum (for amapiano) and Flute, next to the Bass Lab keys, leads, plucks and pads. Each pack plays the instruments that suit its genre (trap: piano, bells, strings, flute; amapiano: log drum, keys, marimba; lo-fi: electric piano, nylon guitar...). They are in tune, clean and end at silence.
+
+- NEW: Make in: pick a key and a tempo (or your project's tempo) and every instant loop, bass, note, chord and MIDI file in the library is made in that key and tempo, with exact bar lengths. Drum hits and FX stay as they are. Pick F# minor at 128 BPM and there are 6,912 chord loops ready in it.
+
+- NEW: An Instrument filter (every instrument under its family, with how many sounds it has). The filters are in two rows: Genre, Style, Instrument, Type, then Key, BPM, Make in and Toolkit.
+
+- NEW: MIDI is heard in the preview, played through the pack's kit, bass or keys. Dropped where there is no instrument track, a bassline, chords or a melody get a new Bass Lab track with a sound that suits them, and drum MIDI becomes a drum track played with the pack's kit. Dropped below the last track it always makes a new track.
+
+- NEW: Check library (in SOUND PACKS) opens every file the library lists and says what is missing or damaged; Repair makes those packs again. Damaged instant sounds are removed so they are simply made again. It also writes soundslibrary-manifest.json: the whole taxonomy with real counts.
+
+- NEW: Import a whole folder of your samples (and its sub-folders): tempo and key are read from the file names, and each sound gets an instrument label.
+
+- NEW: SOUND PACKS opens inside the sounds panel on the right (no window over the studio): choose, install, browse and check packs there, with < Sounds to go back. A Fullscreen button spreads the sounds browser or the packs over the whole Mix page; Exit full puts it back.
+
+- FIXED: The Clav chord loops in installed packs asked for a Bass Lab preset that did not exist and played the plain default sound; that slot is now a proper FM bell sound.
+
+- IMPROVED: Searching the library is fast even with 125,000+ sounds, and it uses far less memory.
+
+- CHANGED: Installed packs offer an update (sound version 6).
+
 ## 3.68.1  Sounds play clean in your song: no more squashed, distorted master
 
 - FIXED: The real reason sounds came out crackly and distorted once they were in a song: the default master squashed everything. A new song had the master compressor on at -14 dB and the limiter pushing +3 dB, so every sample and sound-pack loop was limited and distorted the moment it played (measured: a drum loop came out with its peaks held down and changed by up to 1 part in 9). A new song now plays clean: the compressor is off and the limiter is only a safety net at -0.3 dB with no gain push. A pack loop on the timeline now plays exactly as its file. Songs saved with the old untouched default open clean too; a master you set yourself, or a mastering preset, is left as it is. Mastering and AUTO MASTERING still make a song loud when you ask them to.

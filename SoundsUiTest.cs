@@ -38,13 +38,29 @@ static class Q
           Check("every filter has loops on it: Trap drum loops and House bass loops in F minor are listed straight away", trapDrums >= 500 && allTrap && houseBass >= 20, trapDrums + " trap drum loops, " + houseBass + " house bass loops in F min");
           Fi.Genre = "House"; Fi.Type = "Drum Loop"; Fi.Key = ""; SetF("sndDirty", true); Paint();
           { var bmpF = new Bitmap(sf.ClientSize.Width, sf.ClientSize.Height); sf.DrawToBitmap(bmpF, new Rectangle(0, 0, sf.Width, sf.Height)); bmpF.Save("C:/Users/thoma/nfout/sounds-filters.png", System.Drawing.Imaging.ImageFormat.Png); }
-          var chips = Regs().FindAll(r => r.R.Y > 300 && r.R.Y < 320 && r.R.X > 880); Check("the filter buttons show what is picked", chips.Count >= 5, chips.Count + " filter buttons");
+          var chips = Regs().FindAll(r => r.R.Y > 295 && r.R.Y < 350 && r.R.X > 870 && r.R.Width > 60 && r.R.Width < 200 && r.R.Height < 30); Check("the filter buttons show what is picked (genre, style, instrument, type, key, BPM, make in, toolkit)", chips.Count >= 8, chips.Count + " filter buttons");
           var gm = sf.GenreMenuStrip(); var gtexts = new List<string>(); foreach (ToolStripItem it in gm.Items) gtexts.Add((it.Text ?? "").ToUpperInvariant());
           bool secs = gtexts.Contains("DRUM & BASS") && gtexts.Contains("HIP-HOP & RAP") && gtexts.Contains("HOUSE") && gtexts.Contains("AFRO & LATIN"); bool counted = gtexts.Exists(t => t.Trim().StartsWith("TRAP   (") && t.Contains("SOUNDS)")) && gtexts.Exists(t => t.Trim().StartsWith("DUBSTEP   ("));
           Check("the Genre menu lists every genre under its section, each with how many sounds it has", secs && counted && !gtexts.Exists(t => t.Contains("ELECTRONIC BASS") || t.Contains("RAP AND VOCALS")), string.Join(" / ", gtexts.GetRange(0, Math.Min(12, gtexts.Count))));
           Fi.Genre = "House"; var sm = sf.StyleMenuStrip(); var stexts = new List<string>(); foreach (ToolStripItem it in sm.Items) stexts.Add((it.Text ?? "").ToUpperInvariant());
           Check("the Style menu lists the chosen genre's styles with counts (House: Tech House, Deep House, Bass House...)", stexts.Exists(t => t.StartsWith("TECH HOUSE   (")) && stexts.Exists(t => t.StartsWith("DEEP HOUSE   (")) && stexts.Exists(t => t.StartsWith("BASS HOUSE   (")), string.Join(" / ", stexts));
-          Fi.Genre = ""; Fi.Type = ""; Fi.Key = ""; Fi.Sub = ""; SetF("sndDirty", true); Paint(); }
+          var im = sf.InstrumentMenuStrip(); var itexts = new List<string>(); foreach (ToolStripItem it in im.Items) itexts.Add((it.Text ?? "").ToUpperInvariant());
+          Check("the Instrument menu lists every instrument under its family with counts (keys, guitars, strings and brass, mallets, drums, bass...)", itexts.Contains("KEYS") && itexts.Contains("GUITAR") && itexts.Contains("STRINGS & BRASS") && itexts.Contains("DRUMS") && itexts.Exists(t => t.Trim().StartsWith("GRAND PIANO   (")) && itexts.Exists(t => t.Trim().StartsWith("LOG DRUM   (")), string.Join(" / ", itexts.GetRange(0, Math.Min(10, itexts.Count))));
+          Fi.Genre = ""; Fi.Sub = ""; Fi.Instrument = "Nylon Guitar"; Fi.Type = ""; SetF("sndDirty", true); Paint(); int guitars = Results().Count; bool allG = Results().TrueForAll(s => s.Instrument == "Nylon Guitar"); Fi.Instrument = "";
+          Check("picking an instrument shows only that instrument", guitars > 100 && allG, guitars + " nylon guitar sounds");
+          var tm = sf.TargetMenuStrip(); Check("the Make in menu offers each pack's key and tempo, the project tempo, every key and every common tempo", tm.Items.Count >= 6, tm.Items.Count + " items");
+          InstantLib.SetTarget("F# min", 128); Fi.Key = "F# min"; Fi.Type = "Chord Loop"; Fi.BpmMin = 125; Fi.BpmMax = 131; SetF("sndDirty", true); Paint(); int inTarget = Results().Count; bool named = Results().Count > 0 && Results()[0].Name.EndsWith("128 BPM F# min");
+          { var bmpT = new Bitmap(sf.ClientSize.Width, sf.ClientSize.Height); sf.DrawToBitmap(bmpT, new Rectangle(0, 0, sf.Width, sf.Height)); bmpT.Save("C:/Users/thoma/nfout/sounds-target.png", System.Drawing.Imaging.ImageFormat.Png); }
+          Check("with Make in F# minor at 128 BPM, every chord loop in the library is offered in that key and tempo", inTarget > 3000 && named, inTarget + " chord loops");
+          InstantLib.SetTarget("", 0); Fi.Genre = ""; Fi.Type = ""; Fi.Key = ""; Fi.Sub = ""; Fi.BpmMin = 0; Fi.BpmMax = 0; SetF("sndDirty", true); Paint(); }
+        { // MIDI: heard in the preview, and dropped anywhere it makes the right track
+          var md = InstantLib.Items.Find(s => s.Type == "MIDI Melody" && s.PackId == "uk-drill"); var mdr = InstantLib.Items.Find(s => s.Type == "MIDI Drums" && s.PackId == "uk-drill");
+          Auditioner.Play(md, null); var tw = DateTime.Now; while ((Auditioner.Loading || Auditioner.Current != md || Auditioner.Length <= 0) && (DateTime.Now - tw).TotalSeconds < 8) Pump(50);
+          Check("a MIDI file plays in the preview (through one of the pack's instruments)", Auditioner.Current == md && Auditioner.Length > 2 && Auditioner.Error == "", Auditioner.Length.ToString("0.0") + " s " + Auditioner.Error); Auditioner.Stop();
+          var addM = typeof(StudioForm).GetMethod("AddSample", BF); int n0 = eng.Tracks.Count; string r1 = (string)addM.Invoke(sf, new object[] { md, 0L, eng.Tracks.Count }); var nt = eng.Tracks.Find(t => t.Instrument && t.Name.Contains("MIDI Melody")) ?? eng.Tracks[eng.Tracks.Count - 1];
+          Check("MIDI dropped where there is no instrument track makes a Bass Lab track with its notes", r1 == null && eng.Tracks.Count == n0 + 1 && nt.Instrument && nt.Midi.Count > 8 && nt.Fx.Exists(f => f is SynthFx), (r1 ?? "ok") + ", " + nt.Name + ", " + nt.Midi.Count + " events");
+          string r2 = (string)addM.Invoke(sf, new object[] { mdr, 0L, eng.Tracks.Count }); var dt = eng.Tracks.Find(t => t.Name.EndsWith("(drums)")) ?? eng.Tracks[eng.Tracks.Count - 1];
+          Check("drum MIDI dropped there becomes a drum track played with the pack's kit", r2 == null && eng.Tracks.Count == n0 + 2 && dt.Clip != null && dt.Clip.Length > 44100, (r2 ?? "ok") + ", " + dt.Name); }
         { // an instant loop plays and drags like any sound: made on the spot
           var inst0 = InstantLib.Items.Find(s => s.PackId == "uk-drill" || s.Genre == "UK Drill"); int nT0 = eng.Tracks.Count; string am = (string)typeof(StudioForm).GetMethod("AddSample", BF).Invoke(sf, new object[] { inst0, 0L, eng.Tracks.Count });
           Check("an instant loop added to the song becomes a real clip of the right length", am == null && eng.Tracks.Count == nT0 + 1 && eng.Tracks[eng.Tracks.Count - 1].Clip != null && Math.Abs(eng.Tracks[eng.Tracks.Count - 1].Clip.Length - inst0.Dur * 44100) < 50, (am ?? "ok") + ", " + inst0.Name);
@@ -103,7 +119,7 @@ static class Q
         SoundItem midi = null; foreach (var s in SoundLibrary.All()) if (s.Kind == "midi") { midi = s; break; } Check("the pack includes MIDI files", midi != null, "");
         if (midi != null)
         {
-            var m = typeof(StudioForm).GetMethod("AddSample", BF); string msg = (string)m.Invoke(sf, new object[] { midi, 0L, -1 }); Check("MIDI dropped on an audio track explains what to do instead of failing silently", msg != null && msg.IndexOf("instrument", StringComparison.OrdinalIgnoreCase) >= 0, msg);
+            var m = typeof(StudioForm).GetMethod("AddSample", BF); int tBefore = eng.Tracks.Count; SetF("selTrack", -1); string msg = (string)m.Invoke(sf, new object[] { midi, 0L, -1 }); Check("MIDI from an installed pack dropped with no instrument track makes the right track for it", msg == null && eng.Tracks.Count == tBefore + 1, msg ?? "ok");
             var ins = StudioEngine.NewTrack("Keys", "instrument", null); ins.Instrument = true; eng.Tracks.Add(ins); msg = (string)m.Invoke(sf, new object[] { midi, 0L, eng.Tracks.Count - 1 }); Check("MIDI dropped on an instrument track adds its notes", msg == null && ins.Midi.Count > 4, msg ?? (ins.Midi.Count + " events"));
         }
         // preset
@@ -123,6 +139,22 @@ static class Q
           pb.Text = ""; SetF("packsOpen", false); Paint(); Check("closing SOUND PACKS hides its search box", !pb.Visible, ""); }
         // a double-click on a sound only plays it (dragging is how a sound goes on the timeline)
         { string src = File.Exists("Studio.Sounds.cs") ? File.ReadAllText("Studio.Sounds.cs") : ""; Check("double-clicking a sound does not put it on a track", src.Length == 0 || (src.Contains("rg.OnDouble = () => SelectSound(s, true);") && !src.Contains("rg.OnDouble = () => AddSampleAtNeedle(s);")), ""); }
+        { // the packs open inside the sounds panel (no window over the studio), and both can go fullscreen
+          SetF("packsOpen", true); SetF("sndFull", false); SetF("toast", ""); Paint(); Paint(); var pb2 = typeof(StudioForm).GetField("packBox", BF).GetValue(sf) as TextBox; int panelX = sf.ClientSize.Width - 640;
+          var instIn = Regs().FindAll(r => Math.Abs(r.R.Width - 160) < 0.5f && Math.Abs(r.R.Height - 32) < 0.5f);
+          Check("SOUND PACKS opens inside the sounds panel: its search and Install buttons are in the panel, the timeline stays visible", pb2 != null && pb2.Visible && pb2.Left >= panelX && instIn.Count >= 3 && instIn.TrueForAll(r => r.R.X >= panelX), "search at " + (pb2 == null ? -1 : pb2.Left) + ", panel from " + panelX + ", " + instIn.Count + " install buttons");
+          { var bm = new Bitmap(sf.ClientSize.Width, sf.ClientSize.Height); sf.DrawToBitmap(bm, new Rectangle(0, 0, sf.Width, sf.Height)); bm.Save("C:/Users/thoma/nfout/packs-panel.png", System.Drawing.Imaging.ImageFormat.Png); }
+          SetF("sndFull", true); Paint(); Paint(); var instFull = Regs().FindAll(r => Math.Abs(r.R.Width - 160) < 0.5f && Math.Abs(r.R.Height - 32) < 0.5f);
+          Check("Fullscreen spreads the packs over the whole Mix page", instFull.Count >= 3 && instFull.Exists(r => r.R.X < panelX) == false && pb2.Left < panelX, instFull.Count + " install buttons, search at " + pb2.Left);
+          { var bm = new Bitmap(sf.ClientSize.Width, sf.ClientSize.Height); sf.DrawToBitmap(bm, new Rectangle(0, 0, sf.Width, sf.Height)); bm.Save("C:/Users/thoma/nfout/packs-full.png", System.Drawing.Imaging.ImageFormat.Png); }
+          SetF("packsOpen", false); Paint(); Paint(); var rowsFull = Regs().FindAll(r => r.R.Height == 50 && r.R.Width > 800);
+          Check("and the sounds browser goes fullscreen too (wider rows)", rowsFull.Count >= 3, rowsFull.Count + " wide rows");
+          { var bm = new Bitmap(sf.ClientSize.Width, sf.ClientSize.Height); sf.DrawToBitmap(bm, new Rectangle(0, 0, sf.Width, sf.Height)); bm.Save("C:/Users/thoma/nfout/sounds-full.png", System.Drawing.Imaging.ImageFormat.Png); }
+          SetF("sndFull", false); Paint(); }
+        // the library check from the pack manager
+        { SetF("packsOpen", true); sf.StartLibraryCheck(); var tc = DateTime.Now; while (F<bool>("checking") && (DateTime.Now - tc).TotalSeconds < 60) Pump(100); Paint(); var lc = (LibraryCheck.Report)typeof(StudioForm).GetField("lastCheck", BF).GetValue(sf);
+          Check("Check library opens every file and reports it (and writes the manifest)", lc != null && lc.Files > 50 && lc.Missing == 0 && File.Exists(lc.ManifestPath), lc == null ? "none" : lc.Summary);
+          { SetF("toast", ""); Paint(); var bmpC = new Bitmap(sf.ClientSize.Width, sf.ClientSize.Height); sf.DrawToBitmap(bmpC, new Rectangle(0, 0, sf.Width, sf.Height)); bmpC.Save("C:/Users/thoma/nfout/packs-check.png", System.Drawing.Imaging.ImageFormat.Png); } SetF("packsOpen", false); Paint(); }
         // removing a pack
         SoundLibrary.RemovePack(wantId); Check("removing a pack deletes its files", !Directory.Exists(Path.Combine(SoundLibrary.Root, wantId)) && SoundLibrary.Pack(wantId) == null, "");
         Auditioner.Shutdown(); eng.Shutdown(); try { Directory.Delete(tmp, true); } catch { } Console.WriteLine(fails == 0 ? "=== sounds UI checks passed ===" : "=== " + fails + " FAILED ==="); Environment.Exit(fails == 0 ? 0 : 1);

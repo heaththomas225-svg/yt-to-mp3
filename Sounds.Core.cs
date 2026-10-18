@@ -14,12 +14,20 @@ using System.Threading;
 // =====================================================================================================
 class SoundItem
 {
-    public string Id = "", PackId = "", Name = "", Type = "", Group = "", Kind = "one-shot", Genre = "", Sub = "", Tags = "", Mood = "", Key = "", Format = "", Path = "", Rel = "";
-    public double Bpm, Dur; public int Rate = 44100; public byte[] Peaks = new byte[0];
+    public string PackId = "", Name = "", Type = "", Group = "", Kind = "one-shot", Genre = "", Sub = "", Tags = "", Mood = "", Key = "", Format = "", Rel = "", Instrument = "";
+    string id, path;   // worked out when first asked for (the library lists 100,000+ sounds; most are never opened)
+    public string Id { get { return id ?? (id = PackId + "/" + Rel); } set { id = value; } }
+    public string Path { get { if (path == null) path = Spec.Length > 0 ? InstantLib.PathOf(this) : ""; return path; } set { path = value; } }
+    public double Bpm, Dur; public int Rate = 44100; public byte[] Peaks = Empty; static readonly byte[] Empty = new byte[0];
+    public string Core = "", BaseKey = ""; public double BaseBpm, Beats;   // instant sounds: the name without tempo and key, the pack's own tempo and key, and the length in beats
     public bool IsAudio { get { string e = System.IO.Path.GetExtension(Rel).ToLowerInvariant(); return e == ".wav" || e == ".mp3" || e == ".flac" || e == ".ogg" || e == ".aiff" || e == ".m4a"; } }
     public bool Exists { get { return File.Exists(Path); } }
-    string search, sG, sS;   // made once (the browser searches 50,000+ sounds on every key press: building it each time made the garbage collector pause the audio)
-    public string Search { get { if (search == null || !ReferenceEquals(sG, Genre) || !ReferenceEquals(sS, Sub)) { search = (Name + " " + Type + " " + Group + " " + Kind + " " + Genre + " " + Sub + " " + Tags + " " + Mood + " " + Key + " " + PackName).ToLowerInvariant(); sG = Genre; sS = Sub; } return search; } }
+    // a search word is in one of the sound's labels (nothing is built per sound: the browser searches every sound on each key press)
+    public bool Matches(string w) { if (Spec.Length > 0) return Tags.IndexOf(w, StringComparison.Ordinal) >= 0 || In(Name, w) || In(Key, w);   // an instant sound carries every label in its (shared, lower-case) tags
+        return (Tags != null && Tags.IndexOf(w, StringComparison.Ordinal) >= 0) || In(Name, w) || Lo(Type, w) || Lo(Instrument, w) || Lo(Key, w) || Lo(PackName, w) || Lo(Genre, w) || Lo(Sub, w) || Lo(Mood, w) || Lo(Group, w) || Lo(Kind, w); }   // (w is lower case)
+    static bool In(string s, string w) { return s != null && s.IndexOf(w, StringComparison.OrdinalIgnoreCase) >= 0; }
+    static readonly System.Collections.Concurrent.ConcurrentDictionary<string, string> lower = new System.Collections.Concurrent.ConcurrentDictionary<string, string>();
+    static bool Lo(string s, string w) { if (string.IsNullOrEmpty(s)) return false; string l; if (!lower.TryGetValue(s, out l)) { l = s.ToLowerInvariant(); if (lower.Count < 20000) lower[s] = l; } return l.IndexOf(w, StringComparison.Ordinal) >= 0; }
     public string PackName = "";
     public string Spec = "";   // an instant loop: the recipe it is made from the first time it is played (see InstantLib)
     public bool Instant { get { return Spec.Length > 0; } }
@@ -50,7 +58,7 @@ static class SoundLibrary
         {
             Packs.Clear(); try { Directory.CreateDirectory(Root); } catch { }
             try { foreach (var d in Directory.GetDirectories(Root)) { var p = ReadPack(Path.Combine(d, "pack.txt")); if (p != null) Packs.Add(p); } } catch { }
-            foreach (var p in Packs) { var rec = SoundCatalog.Find(p.Id); if (rec == null) continue; p.Section = rec.Section; p.Genre = rec.Genre; p.Sub = rec.Sub; foreach (var s in p.Items) { s.Genre = rec.Genre; s.Sub = rec.Sub; } }   // packs installed before a relabel show the right genre and style
+            foreach (var p in Packs) { foreach (var s in p.Items) s.Instrument = InstrumentOf(s); var rec = SoundCatalog.Find(p.Id); if (rec == null) continue; p.Section = rec.Section; p.Genre = rec.Genre; p.Sub = rec.Sub; foreach (var s in p.Items) { s.Genre = rec.Genre; s.Sub = rec.Sub; } }   // packs installed before a relabel show the right genre and style
             if (!Packs.Exists(p => p.Id == UserPackId)) Packs.Add(new SoundPack { Id = UserPackId, Name = "My samples", Section = "Yours", Genre = "Any", Description = "Samples you imported yourself.", License = "Yours: you told Purphex you own or have the rights to these files.", Hue = 200, Installed = true });
             Packs.Sort((a, b) => string.Compare(a.Name, b.Name, StringComparison.OrdinalIgnoreCase));
             ReadUser();
@@ -98,8 +106,8 @@ static class SoundLibrary
     // ---- search ----
     public class Filter
     {
-        public string Text = "", Genre = "", Sub = "", Type = "", Group = "", Key = "", Kind = "", Pack = "", Mood = ""; public double BpmMin, BpmMax; public bool HalfDouble, OnlyFav, OnlyRecent; public string Collection = ""; public string[] AnyType;
-        public bool IsEmpty { get { return Text.Length == 0 && Genre.Length == 0 && Sub.Length == 0 && Type.Length == 0 && Group.Length == 0 && Key.Length == 0 && Kind.Length == 0 && Pack.Length == 0 && Mood.Length == 0 && BpmMax <= 0 && !OnlyFav && !OnlyRecent && Collection.Length == 0 && AnyType == null; } }
+        public string Text = "", Genre = "", Sub = "", Type = "", Group = "", Key = "", Kind = "", Pack = "", Mood = "", Instrument = ""; public double BpmMin, BpmMax; public bool HalfDouble, OnlyFav, OnlyRecent; public string Collection = ""; public string[] AnyType;
+        public bool IsEmpty { get { return Text.Length == 0 && Genre.Length == 0 && Sub.Length == 0 && Type.Length == 0 && Group.Length == 0 && Key.Length == 0 && Kind.Length == 0 && Pack.Length == 0 && Mood.Length == 0 && Instrument.Length == 0 && BpmMax <= 0 && !OnlyFav && !OnlyRecent && Collection.Length == 0 && AnyType == null; } }
         public Filter Copy() { return (Filter)MemberwiseClone(); }
     }
     public static List<SoundItem> Search(Filter f)
@@ -108,15 +116,19 @@ static class SoundLibrary
         foreach (var s in All())
         {
             if (f.OnlyFav && !Favourites.Contains(s.Id)) continue; if (f.OnlyRecent && !Recent.Contains(s.Id)) continue; if (coll != null && !coll.Contains(s.Id)) continue; if (!string.IsNullOrEmpty(f.Collection) && coll == null) continue;
+            if (f.Instrument.Length > 0 && s.Instrument != f.Instrument) continue;
             if (f.Genre.Length > 0 && s.Genre != f.Genre) continue; if (f.Sub.Length > 0 && s.Sub != f.Sub) continue; if (f.Type.Length > 0 && s.Type != f.Type) continue; if (f.Group.Length > 0 && s.Group != f.Group) continue; if (f.Kind.Length > 0 && s.Kind != f.Kind) continue;
             if (f.AnyType != null && Array.IndexOf(f.AnyType, s.Type) < 0) continue; if (f.Pack.Length > 0 && s.PackId != f.Pack) continue; if (f.Mood.Length > 0 && s.Mood.IndexOf(f.Mood, StringComparison.OrdinalIgnoreCase) < 0) continue;
             if (f.Key.Length > 0 && !KeyMatches(s.Key, f.Key)) continue;
             if (f.BpmMax > 0) { if (s.Bpm <= 0) continue; bool ok = s.Bpm >= f.BpmMin && s.Bpm <= f.BpmMax; if (!ok && f.HalfDouble) ok = (s.Bpm * 2 >= f.BpmMin && s.Bpm * 2 <= f.BpmMax) || (s.Bpm / 2 >= f.BpmMin && s.Bpm / 2 <= f.BpmMax); if (!ok) continue; }
-            string hay = s.Search; bool all = true; foreach (var w in words) if (hay.IndexOf(w, StringComparison.Ordinal) < 0) { all = false; break; } if (!all) continue;
+            bool all = true; foreach (var w in words) if (!s.Matches(w)) { all = false; break; } if (!all) continue;
             res.Add(s);
         }
-        if (f.OnlyRecent) res.Sort((a, b) => Recent.IndexOf(b.Id).CompareTo(Recent.IndexOf(a.Id))); else res.Sort((a, b) => { int c = string.Compare(a.PackName, b.PackName, StringComparison.OrdinalIgnoreCase); return c != 0 ? c : string.Compare(a.Name, b.Name, StringComparison.OrdinalIgnoreCase); });
-        return res;
+        if (f.OnlyRecent) { res.Sort((a, b) => Recent.IndexOf(b.Id).CompareTo(Recent.IndexOf(a.Id))); return res; }
+        // pack by pack: the installed sounds are sorted by name, the instant ones are already in pack order; the two lists are merged (sorting 100,000 names on every key press was slow)
+        var mine = res.FindAll(s => !s.Instant); var inst = res.FindAll(s => s.Instant); mine.Sort((a, b) => { int c = string.Compare(a.PackName, b.PackName, StringComparison.OrdinalIgnoreCase); return c != 0 ? c : string.Compare(a.Name, b.Name, StringComparison.OrdinalIgnoreCase); });
+        var outl = new List<SoundItem>(res.Count); int ia = 0, ib = 0; while (ia < mine.Count || ib < inst.Count) { if (ib >= inst.Count || (ia < mine.Count && string.Compare(mine[ia].PackName, inst[ib].PackName, StringComparison.OrdinalIgnoreCase) <= 0)) outl.Add(mine[ia++]); else outl.Add(inst[ib++]); }
+        return outl;
     }
     // "F minor" matches "F min", "Fm" and its relative major "Ab major" is NOT folded in: only the same key (sharps and flats are treated as the same note)
     public static string[] NoteNames = { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" };
@@ -132,6 +144,16 @@ static class SoundLibrary
     }
     public static string KeyName(int root, bool minor) { return NoteNames[((root % 12) + 12) % 12] + (minor ? " min" : " maj"); }
 
+    // the instrument a sound is (for the Instrument filter): from its type, name and tags
+    public static string InstrumentOf(SoundItem s)
+    {
+        string t = s.Type ?? "", h = ((s.Name ?? "") + " " + (s.Tags ?? "")).ToLowerInvariant();
+        switch (t) { case "Kick": return "Kick"; case "Snare": return "Snare"; case "Clap": return "Clap"; case "Hi-Hat": case "Open Hat": return "Hi-Hat"; case "Percussion": case "Percussion Loop": case "Top Loop": return "Percussion"; case "Ride": case "Cymbal": return "Cymbal"; case "808": return "808"; case "Drum Loop": case "Drum Fill": case "MIDI Drums": return "Drums"; }
+        if (t.Contains("Bass") || h.Contains(" bass")) return "Bass Synth"; if (t.Contains("Vocal")) return "Voice"; if (s.Group == "FX" || t == "Riser" || t == "Impact" || t == "Sweep" || t == "Downlifter" || t == "Reverse" || t == "Transition") return "FX";
+        foreach (var ins in Instruments.All) if (h.Contains(ins.Name.ToLowerInvariant()) || (ins.Preset != null && h.Contains(ins.Preset.ToLowerInvariant()))) return ins.Name;
+        if (h.Contains("guitar") || h.Contains("harp")) return "Acoustic Guitar"; if (h.Contains("organ")) return "Organ"; if (h.Contains("pad")) return "Soft Pad"; if (h.Contains("arp") || h.Contains("lead") || h.Contains("synth")) return "Supersaw";
+        return "";
+    }
     public static List<string> Distinct(Func<SoundItem, string> sel) { var set = new SortedDictionary<string, int>(StringComparer.OrdinalIgnoreCase); foreach (var s in All()) { string v = sel(s); if (!string.IsNullOrEmpty(v)) set[v] = 1; } return new List<string>(set.Keys); }
 
     // ---- favourites, recents, collections ----
@@ -181,7 +203,7 @@ static class SoundLibrary
                 if (!File.Exists(to)) File.Copy(f, to); if (progress != null) progress("Importing " + name + "...");
                 if (up.Items.Exists(x => x.Rel == rel)) continue;
                 var s = new SoundItem { PackId = up.Id, PackName = up.Name, Rel = rel, Path = to, Id = up.Id + "/" + rel, Name = name, Genre = "Any", Kind = ext == ".mid" ? "midi" : GuessKind(name), Group = ext == ".mid" ? "MIDI" : "Yours", Type = ext == ".mid" ? "MIDI" : GuessType(name), Tags = "imported" };
-                s.Bpm = GuessBpm(name); s.Key = GuessKey(name);
+                s.Bpm = GuessBpm(name); s.Key = GuessKey(name); s.Instrument = InstrumentOf(s);
                 if (s.IsAudio) { float[] l, r; int sr; string fmt; if (SoundIO.Read(to, out l, out r, out sr, out fmt)) { s.Dur = l.Length / (double)sr; s.Rate = sr; s.Format = fmt; s.Peaks = SoundIO.Peaks(l, r, 96); } else { s.Format = ext.Substring(1).ToUpperInvariant(); } }
                 up.Items.Add(s); n++;
             }
@@ -189,6 +211,8 @@ static class SoundLibrary
         }
         up.Installed = true; WritePack(up); AddOrReplace(up); return n;
     }
+    // every sample file in a folder and its sub-folders (the import keeps the sub-folder in the name so nothing clashes)
+    public static List<string> SamplesIn(string folder) { var l = new List<string>(); try { foreach (var f in Directory.GetFiles(folder, "*.*", SearchOption.AllDirectories)) { string e = Path.GetExtension(f).ToLowerInvariant(); if (e == ".wav" || e == ".mp3" || e == ".flac" || e == ".ogg" || e == ".aiff" || e == ".m4a" || e == ".mid") l.Add(f); } } catch { } l.Sort(StringComparer.OrdinalIgnoreCase); return l; }
     static string GuessKind(string n) { n = n.ToLowerInvariant(); return (n.Contains("loop") || n.Contains("break") || n.Contains("bpm")) ? "loop" : "one-shot"; }
     public static string GuessType(string n)
     {
@@ -332,9 +356,13 @@ static class Auditioner
         new Thread(() =>
         {
             float[] l, r; int sr; string fmt;
-            if (!s.IsAudio) { Loading = false; Error = "MIDI files can't be played here: drag them to a track or open them in your instrument."; if (onError != null) onError(Error); return; }
-            if (s.Instant) { string err = InstantLib.Ensure(s); if (err != null) { Loading = false; Error = err; if (onError != null) onError(Error); return; } }   // made now, the first time (a fraction of a second)
-            if (!SoundIO.Read(s.Path, out l, out r, out sr, out fmt)) { Loading = false; Error = "Couldn't read " + s.Rel + " (is it a damaged file?)."; if (onError != null) onError(Error); return; }
+            if (s.Kind == "midi") { var mb = InstantLib.MidiPreview(s); if (mb == null) { Loading = false; Error = "This MIDI file has no notes to play."; if (onError != null) onError(Error); return; } l = mb.L; r = mb.R; sr = 44100; }   // MIDI is heard through an instrument (the pack's kit, bass or keys)
+            else
+            {
+                if (!s.IsAudio) { Loading = false; Error = "This kind of file can't be played here."; if (onError != null) onError(Error); return; }
+                if (s.Instant) { string err = InstantLib.Ensure(s); if (err != null) { Loading = false; Error = err; if (onError != null) onError(Error); return; } }   // made now, the first time (a fraction of a second)
+                if (!SoundIO.Read(s.Path, out l, out r, out sr, out fmt)) { Loading = false; Error = "Couldn't read " + s.Rel + " (is it a damaged file?)."; if (onError != null) onError(Error); return; }
+            }
             if (sr != 44100 && sr > 0) { l = Resample(l, sr); r = Resample(r, sr); }
             if (Current != s) { Loading = false; return; }   // another sound was picked while this one loaded
             lock (lk) { if (playing && pl != null) { ol = pl; orr = pr; opos = pos; oenv = env; } pl = l; pr = r; srate = 44100; pos = 0; env = 0; atk = 1f / 66; envTarget = 1; resetOnStop = false; playing = true; }   // the sound that was playing fades out under the new one

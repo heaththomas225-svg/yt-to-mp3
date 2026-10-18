@@ -824,8 +824,16 @@ Select a track and press + Add Effect (or use the master chain). The list now ho
 Press SOUNDS (next to MIC) or use the side menu: Tools > Sounds and sound packs. A panel opens on the right of the Mix page. Press it again, or the x, to close it.
 ## Getting sounds
 Sounds come in packs. Press Packs, pick a pack and press Install. The sounds are made on your computer by Purphex's own sound design in a few seconds: they are not recordings and not other people's samples. Installed packs show how many sounds and how much space they use. Remake rebuilds a pack, Remove deletes its files (you can install it again any time). Install all does a whole list.
-## Instant loops
-Every genre and style has hundreds of drum loops and bass loops ready without installing anything (120 of each for every pack). They say PLAY TO MAKE until you first play one: it is made on your computer in a fraction of a second and kept, so it plays at once after that. Drag it onto the timeline like any sound.
+## Instant sounds (the whole library, no install needed)
+Every pack lists its whole range straight away: drum, top, bass, chord, melody, arp and vocal loops; kicks, snares, claps, hats, percussion, cymbals and 808s; bass, instrument and chord one-shots; FX; vocal shouts; and MIDI files (drums, basslines, chords, melodies). That is over 125,000 sounds. They say PLAY TO MAKE until you first play one: it is made on your computer in a fraction of a second and kept, so it plays at once after that. Drag it onto the timeline like any sound.
+## Instruments
+Chord, melody, arp and note sounds are played on Purphex's own instruments: Grand Piano, Electric Piano, Strings, Brass, Acoustic and Nylon Guitar, Marimba, Kalimba, Bells, Log Drum and Flute, plus the Bass Lab keys, leads, plucks and pads. Each pack uses the instruments that suit its genre. Use the Instrument filter to see one instrument across the whole library.
+## Make in: any key and tempo
+Press Make in and pick a key and/or a tempo (or your project's tempo). Every instant loop, bass, note, chord and MIDI file is then made in that key and tempo, with exact bar lengths, so it fits your song straight away. Drum hits and FX stay as they are. Choose Each pack's own key and tempo to go back.
+## MIDI
+Click a MIDI file to hear it (it plays through the pack's kit, bass or keys). Drop it on an instrument track to put its notes there. Dropped anywhere else, a bassline, chords or melody get a new Bass Lab track, and drum MIDI becomes a drum track played with the pack's kit.
+## Checking the library
+In SOUND PACKS press Check library: every file the library lists is opened and checked. Anything missing or damaged is listed, and Repair makes those packs again. It also writes library-manifest.json in the sounds folder (every category with real counts).
 ## Finding a sound
 - Type in the search box: a name, a pack, a style, a key or a tempo (for example: reese 174, F min, kick).
 - Genre, Style, Type, Key and BPM open lists to narrow it down. BPM can also match your project's tempo, and can include half and double time.

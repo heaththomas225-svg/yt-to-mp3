@@ -6,7 +6,7 @@ static class PackBuilder
 {
     // makes a pack's files on disk and returns the finished pack (null if cancelled)
     // the sound design version: packs made by an older one are offered an update (2 = band-limited hats, cymbals and saws, in-tune plucks, even loop levels)
-    public const string SoundVersion = "5";   // 3: the big packs (260+ sounds each); 4: clean sounds (no clicks, crackle or distortion); installed packs offer an update
+    public const string SoundVersion = "6";   // 3: the big packs (260+ sounds each); 4: clean sounds (no clicks, crackle or distortion); installed packs offer an update
     public static bool Outdated(SoundPack p) { return p != null && p.Items.Count > 0 && p.Id != SoundLibrary.UserPackId && SoundCatalog.Find(p.Id) != null && p.Version != SoundVersion; }
     public static SoundPack Build(Recipe rec, Action<string, float> progress, Func<bool> cancel)
     {
@@ -258,7 +258,7 @@ static class PackBuilder
     static string WriterName(string s) { return PackWriter.Clean(s); }
 
     // ---- the big pack: many more takes of every kind of loop, so each pack has well over two hundred sounds ----
-    static readonly string[] ChordPatches = { "Electric Keys", "Organ", "Bell Keys", "Clav", "Choir Pad", "Shimmer Pad", "Soft Pad", "Dark Pad" };
+    static readonly string[] ChordPatches = { "Electric Keys", "Organ", "Bell Keys", "FM Bell Lead", "Choir Pad", "Shimmer Pad", "Soft Pad", "Dark Pad" };
     static readonly string[] LeadPatches = { "Supersaw Lead", "Square Lead", "Mono Saw Lead", "FM Bell Lead", "Short Pluck", "Soft Pluck", "Bell Pluck", "Electric Keys" };
     static void Extra(Ctx c)
     {
