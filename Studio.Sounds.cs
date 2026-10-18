@@ -20,6 +20,20 @@ partial class StudioForm
         tab = 0; soundsOpen = true; sndDirty = true; EnsureSoundBox();
     }
     void CloseSounds() { soundsOpen = false; Auditioner.Stop(); }
+    TextBox packBox; internal string packQuery = "";
+    // the search box of SOUND PACKS: every word must be in the pack's name, genre, style, mood, tags or description
+    internal static bool PackMatches(Recipe r, string q)
+    {
+        if (string.IsNullOrWhiteSpace(q)) return true; string hay = (r.Name + " " + r.Genre + " " + r.Sub + " " + r.Section + " " + r.Mood + " " + r.Tags + " " + r.Desc + " " + string.Join(" ", r.Flavours) + " " + string.Join(" ", Array.ConvertAll(r.Bpms, b => b.ToString("0") + "bpm"))).ToLowerInvariant();
+        foreach (var w in q.ToLowerInvariant().Split(new[] { ' ', ',' }, StringSplitOptions.RemoveEmptyEntries)) if (hay.IndexOf(w, StringComparison.Ordinal) < 0 && hay.IndexOf(w.TrimEnd('s'), StringComparison.Ordinal) < 0) return false;
+        return true;
+    }
+    void EnsurePackBox()
+    {
+        if (packBox != null) return;
+        packBox = new TextBox { Visible = false, BorderStyle = BorderStyle.FixedSingle, BackColor = TM.C(255, 10, 5, 22), ForeColor = Ink, Font = new Font("Segoe UI", 11f) }; Win.NeonBox(packBox); Controls.Add(packBox); Win.DarkControl(packBox);
+        packBox.TextChanged += (s, e) => { packQuery = packBox.Text.Trim(); packScroll = 0; Invalidate(); };
+    }
     void EnsureSoundBox()
     {
         if (soundBox != null) return;
@@ -146,7 +160,7 @@ partial class StudioForm
         var wr = Rc(r.X + 304, r.Y + 10, 90, 30); if (s.Peaks != null && s.Peaks.Length > 0) { using (var pen = new Pen(Color.FromArgb(sel ? 230 : 150, Neon(GroupColour(s.Group))), 1f)) for (int i = 0; i < wr.Width; i += 2) { float v = s.Peaks[Math.Min(s.Peaks.Length - 1, (int)(i / wr.Width * s.Peaks.Length))] / 255f * wr.Height / 2; g.DrawLine(pen, wr.X + i, wr.Y + wr.Height / 2 - v, wr.X + i, wr.Y + wr.Height / 2 + v); } }
         Txt(g, s.Bpm > 0 ? s.Bpm.ToString("0") : "-", 11, s.Bpm > 0 ? Ink : DimC, Rc(r.X + 400, r.Y, 40, r.Height), StringAlignment.Center, false); Txt(g, s.Key.Length > 0 ? s.Key : "-", 11, s.Key.Length > 0 ? Ink : DimC, Rc(r.X + 440, r.Y, 62, r.Height), StringAlignment.Center, false); Txt(g, s.Dur > 0 ? s.Dur.ToString("0.0") + "s" : "", 10, DimC, Rc(r.X + 502, r.Y, 46, r.Height), StringAlignment.Center, false);
         var star = Rc(r.Right - 30, r.Y + 12, 22, 24); bool fav = SoundLibrary.Favourites.Contains(s.Id); Txt(g, fav ? "★" : "☆", 16, fav ? Color.FromArgb(255, 210, 80) : DimC, star, StringAlignment.Center, false);
-        var rg = Reg(r, () => { SelectSound(s, true); sndDrag = s; sndDragFrom = MousePos; sndDragging = false; }); rg.OnDrag = pt => { if (sndDrag != null && !sndDragging && (Math.Abs(pt.X - sndDragFrom.X) + Math.Abs(pt.Y - sndDragFrom.Y)) > 8) sndDragging = true; }; rg.OnDouble = () => AddSampleAtNeedle(s); rg.OnRight = () => SoundMenu(s);
+        var rg = Reg(r, () => { SelectSound(s, true); sndDrag = s; sndDragFrom = MousePos; sndDragging = false; }); rg.OnDrag = pt => { if (sndDrag != null && !sndDragging && (Math.Abs(pt.X - sndDragFrom.X) + Math.Abs(pt.Y - sndDragFrom.Y)) > 8) sndDragging = true; }; rg.OnDouble = () => SelectSound(s, true);   // (drag it onto the timeline to use it: a double-click only plays it again) rg.OnRight = () => SoundMenu(s);
         var sr = Reg(star, () => { SoundLibrary.ToggleFav(s); sndDirty = sndFilter.OnlyFav; sndDrag = null; }); if (Hot(star)) { bubble = fav ? "Remove from favourites" : "Add to favourites"; bubblePt = MousePos; }
     }
 
@@ -162,7 +176,7 @@ partial class StudioForm
     void PaintSoundPreview(Graphics g, RectangleF r)
     {
         FillRR(g, TM.C(150, 24, 13, 46), r, 10); StrokeRR(g, Color.FromArgb(140, NeonViolet), r, 10, 1); var s = sndSel;
-        if (s == null) { Txt(g, "Click a sound to hear it. Double-click or drag it onto the timeline to use it.", 12, DimC, Rc(r.X + 14, r.Y + 20, r.Width - 28, 40), StringAlignment.Near, false); return; }
+        if (s == null) { Txt(g, "Click a sound to hear it. Drag it onto the timeline to use it.", 12, DimC, Rc(r.X + 14, r.Y + 20, r.Width - 28, 40), StringAlignment.Near, false); return; }
         Txt(g, s.Name.Replace(s.PackName + " - ", ""), 13, Ink, Rc(r.X + 12, r.Y + 6, r.Width - 24, 20), StringAlignment.Near, true);
         var wf = Rc(r.X + 12, r.Y + 30, r.Width - 24, 56); FillRR(g, TM.C(200, 8, 4, 20), wf, 6);
         bool cur = Auditioner.Current == s && Auditioner.LeftSamples != null; var col = Neon(GroupColour(s.Group));
@@ -284,16 +298,18 @@ partial class StudioForm
     {
         if (!packsOpen) return; float W = ClientSize.Width, H = ClientSize.Height; var all = Rc(0, 0, W, H); using (var b = new SolidBrush(TM.C(190, 4, 2, 12))) g.FillRectangle(b, all);
         var box = Rc(50, 40, W - 100, H - 80); Reg(all, () => { if (!box.Contains(MousePos)) packsOpen = false; }); FillRR(g, TM.C(252, 24, 13, 46), box, 14); Glow(g, NeonViolet, box, 14, 0.7f, 3); Reg(box, () => { });
-        Txt(g, "PURPHEX SOUND PACKS", 20, Ink, Rc(box.X + 22, box.Y + 14, 400, 30), StringAlignment.Near, true); Btn(g, Rc(box.Right - 100, box.Y + 14, 82, 30), "Close", 0, () => packsOpen = false, 12);
-        Txt(g, "Every sound is made on your computer by Purphex's own sound design: no recordings, no one else's samples. Installing a pack takes a few seconds.", 12, DimC, Rc(box.X + 22, box.Y + 46, box.Width - 44, 18), StringAlignment.Near, false);
+        Txt(g, "PURPHEX SOUND PACKS", 20, Ink, Rc(box.X + 22, box.Y + 14, 400, 30), StringAlignment.Near, true);
+        EnsurePackBox(); { var pr = new Rectangle((int)(box.X + 330), (int)(box.Y + 15), (int)Math.Max(160, box.Width - 330 - 130), 28); if (packBox.Bounds != pr) packBox.Bounds = pr; if (!packBox.Visible) packBox.Visible = true; if (packQuery.Length == 0 && !packBox.Focused) Txt(g, "Search packs: drill, amapiano, dark, guitar, 140 bpm...", 11, DimC, Rc(pr.X + 8, pr.Y + 5, pr.Width - 16, 18), StringAlignment.Near, false); } Btn(g, Rc(box.Right - 100, box.Y + 14, 82, 30), "Close", 0, () => packsOpen = false, 12);
+        Txt(g, SoundCatalog.Recipes.Count + " packs, " + (SoundCatalog.Recipes.Count * 260 / 1000) + ",000+ sounds. Every sound is made on your computer by Purphex's own sound design: no recordings, no one else's samples. A pack takes about a minute to install.", 12, DimC, Rc(box.X + 22, box.Y + 46, box.Width - 44, 18), StringAlignment.Near, false);
         // sections
-        var secs = new List<string> { "All" }; foreach (var r in SoundCatalog.Recipes) if (!secs.Contains(r.Section)) secs.Add(r.Section); secs.Add("Installed"); float sx = box.X + 22;
-        foreach (var sc in secs) { string s2 = sc; float bw = Math.Max(62, sc.Length * 8 + 26); Chip(g, Rc(sx, box.Y + 74, bw, 28), sc, packSection == sc, () => { packSection = s2; packScroll = 0; }); sx += bw + 6; }
+        var secs = new List<string> { "All" }; foreach (var r in SoundCatalog.Recipes) if (!secs.Contains(r.Section)) secs.Add(r.Section); secs.Add("Installed"); float sx = box.X + 22, sy = box.Y + 74;
+        foreach (var sc in secs) { string s2 = sc; float bw = Math.Max(62, sc.Length * 8 + 26); if (sx + bw > box.Right - 22) { sx = box.X + 22; sy += 34; } Chip(g, Rc(sx, sy, bw, 28), sc, packSection == sc, () => { packSection = s2; packScroll = 0; }); sx += bw + 6; }
+        float listTop = sy + 38;
         // list
-        var list = Rc(box.X + 16, box.Y + 112, box.Width - 32, box.Height - 112 - 70); var rows = new List<Recipe>(); foreach (var r in SoundCatalog.Recipes) { var ip = SoundLibrary.Pack(r.Id); bool inst = ip != null && ip.Items.Count > 0; if (packSection == "All" || (packSection == "Installed" ? inst : r.Section == packSection)) rows.Add(r); }
+        var list = Rc(box.X + 16, listTop, box.Width - 32, box.Bottom - 70 - listTop); var rows = new List<Recipe>(); foreach (var r in SoundCatalog.Recipes) { var ip = SoundLibrary.Pack(r.Id); bool inst = ip != null && ip.Items.Count > 0; if ((packSection == "All" || (packSection == "Installed" ? inst : r.Section == packSection)) && PackMatches(r, packQuery)) rows.Add(r); }
         float rowH = 66; float maxS = Math.Max(0, rows.Count * rowH - list.Height); packScroll = Math.Max(0, Math.Min(maxS, packScroll)); Reg(list, () => { }).OnWheel = d => { packScroll = Math.Max(0, Math.Min(maxS, packScroll - d * 66)); };
         var gs = g.Save(); g.SetClip(list, CombineMode.Intersect); int first = Math.Max(0, (int)(packScroll / rowH)), last = Math.Min(rows.Count - 1, first + (int)(list.Height / rowH) + 1);
-        if (rows.Count == 0) Txt(g, "NOTHING HERE YET.", 14, DimC, Rc(list.X + 10, list.Y + 20, 400, 24), StringAlignment.Near, false);
+        if (rows.Count == 0) Txt(g, packQuery.Length > 0 ? "NO PACK MATCHES \"" + packQuery.ToUpperInvariant() + "\"." : "NOTHING HERE YET.", 14, DimC, Rc(list.X + 10, list.Y + 20, 400, 24), StringAlignment.Near, false);
         for (int i = first; i <= last; i++)
         {
             var rec = rows[i]; var rr = Rc(list.X, list.Y + i * rowH - packScroll, list.Width - 52, rowH - 4); var ip = SoundLibrary.Pack(rec.Id); bool inst = ip != null && ip.Items.Count > 0; bool busyNow = installing == rec.Id; bool queued; lock (installQ) queued = installQ.Contains(rec.Id);
@@ -308,7 +324,7 @@ partial class StudioForm
         g.Restore(gs); VScroll(g, Rc(list.Right - 48, list.Y, 42, list.Height), rows.Count * rowH, list.Height, () => packScroll, v => packScroll = v);
         // footer
         float fy = box.Bottom - 56; int notInst = 0; foreach (var r in rows) { var ip = SoundLibrary.Pack(r.Id); if (ip == null || ip.Items.Count == 0) notInst++; }
-        Btn(g, Rc(box.X + 22, fy, 230, 32), "Install all " + notInst + " in this list", notInst > 0 ? 1 : 0, () => { foreach (var r in rows) { var ip = SoundLibrary.Pack(r.Id); if (ip == null || ip.Items.Count == 0) StartInstall(r); } }, 12);
+        Btn(g, Rc(box.X + 22, fy, 230, 32), "Install all " + notInst + " in this list", notInst > 0 ? 1 : 0, () => { if (notInst > 5 && !AskYes("Install " + notInst + " packs? That is about " + (notInst * 260).ToString("N0") + " sounds, roughly " + Math.Max(1, notInst * 300 / 1024) + " GB on this PC, and about " + Math.Max(1, notInst / 60.0).ToString("0.#") + " hours to make (Purphex keeps working while it does; Stop cancels the queue).", "Install many packs")) return; foreach (var r in rows) { var ip = SoundLibrary.Pack(r.Id); if (ip == null || ip.Items.Count == 0) StartInstall(r); } }, 12);
         Btn(g, Rc(box.X + 260, fy, 120, 32), "Import...", 0, () => ImportMenu(), 12);
         { var olds = new List<Recipe>(); foreach (var r in SoundCatalog.Recipes) if (PackBuilder.Outdated(SoundLibrary.Pack(r.Id))) olds.Add(r);   // packs made before the sound got better: one press remakes them all
           if (olds.Count > 0) { Btn(g, Rc(box.X + 388, fy, 250, 32), "Update " + olds.Count + " pack" + (olds.Count == 1 ? "" : "s") + " to the better sound", 2, () => { foreach (var r in olds) StartInstall(r); }, 12); } }

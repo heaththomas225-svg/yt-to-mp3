@@ -974,6 +974,17 @@ static class NF
                     Check("Ctrl+C copies all the highlighted sections and Ctrl+V pastes them at the needle, same spacing, same tracks", cOk && vOk && newA != null && newB != null && newA.Offset == 44100 * 10 && newB.Offset == 44100 * 12 && newA.Clip == ka.Clip && newB.Clip == kb.Clip, (newA == null ? "no A" : newA.Offset.ToString()) + " / " + (newB == null ? "no B" : newB.Offset.ToString()) + "  copy said: " + afterC);
                     typeof(StudioForm).GetMethod("DoUndo", BF, null, Type.EmptyTypes, null).Invoke(sf, null); Check("one Ctrl+Z takes the whole paste away", sf.eng.Tracks.Count == 2, sf.eng.Tracks.Count + " tracks");
                 }
+                {   // Ctrl+X cuts the highlighted audio: copied, then taken off the timeline; Ctrl+V puts it back at the needle; Ctrl+Z undoes the cut
+                    sf.eng.Tracks.Clear(); var xa = StudioEngine.NewTrack("A", "vocal", AudioClip.FromArrays(new float[88200], new float[88200], "xa")); xa.Offset = 44100; var xb = StudioEngine.NewTrack("B", "vocal", AudioClip.FromArrays(new float[88200], new float[88200], "xb")); xb.Offset = 44100 * 3; sf.eng.Tracks.Add(xa); sf.eng.Tracks.Add(xb);
+                    var xclipA = xa.Clip; var xclipB = xb.Clip; var xsel = F<List<Track>>("multiSel"); xsel.Clear(); xsel.Add(xa); xsel.Add(xb); SetF("tab", 0); var xpk = typeof(StudioForm).GetMethod("ProcessCmdKey", BF); Func<Keys, bool> xkey = kk => { var m = new Message(); return (bool)xpk.Invoke(sf, new object[] { m, kk }); };
+                    bool xOk = xkey(Keys.Control | Keys.X); string xToast = F<string>("toast"); bool gone = !sf.eng.Tracks.Exists(t => t.Clip == xclipA) && !sf.eng.Tracks.Exists(t => t.Clip == xclipB);
+                    Check("Ctrl+X cuts every highlighted section (they leave the timeline)", xOk && gone && xToast.StartsWith("Cut"), xToast);
+                    typeof(StudioForm).GetMethod("DoUndo", BF, null, Type.EmptyTypes, null).Invoke(sf, null); Check("Ctrl+Z brings the cut audio back", sf.eng.Tracks.Exists(t => t.Clip == xclipA) && sf.eng.Tracks.Exists(t => t.Clip == xclipB), sf.eng.Tracks.Count + " tracks");
+                    xsel.Clear(); xsel.Add(sf.eng.Tracks.Find(t => t.Clip == xclipA)); xsel.Add(sf.eng.Tracks.Find(t => t.Clip == xclipB)); xkey(Keys.Control | Keys.X); xsel.Clear(); SetF("selTrack", 0); sf.eng.Seek(44100 * 10); Application.DoEvents(); xkey(Keys.Control | Keys.V);
+                    var pa = sf.eng.Tracks.Find(t => t.Clip == xclipA); var pb2 = sf.eng.Tracks.Find(t => t.Clip == xclipB);
+                    Check("after Ctrl+X, Ctrl+V pastes the cut sections at the needle, same spacing", pa != null && pb2 != null && pa.Offset == 44100 * 10 && pb2.Offset == 44100 * 12, (pa == null ? "no A" : pa.Offset.ToString()) + " / " + (pb2 == null ? "no B" : pb2.Offset.ToString()));
+                    xsel.Clear(); string t0 = F<string>("toast"); typeof(StudioForm).GetField("multiSel", BF); SetF("selTrack", -1); bool nothing = xkey(Keys.Control | Keys.X); Check("Ctrl+X with nothing picked deletes nothing", sf.eng.Tracks.Exists(t => t.Clip == xclipA) && sf.eng.Tracks.Exists(t => t.Clip == xclipB));
+                }
                 sf.eng.Tracks.Clear();
             }
             {   // clicking on the empty part of a track's row (past its audio) does not switch to that track

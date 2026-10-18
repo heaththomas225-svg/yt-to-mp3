@@ -72,9 +72,9 @@ static class Q
           Check("after dropping a sound the sound packs stay open where you were (same scroll, same list)", F<bool>("soundsOpen") && eng.Tracks.Count == nT + 1 && Math.Abs(F<float>("sndScroll") - before) < 1 && Results()[2] == pick, "open " + F<bool>("soundsOpen") + ", scroll " + before + " -> " + F<float>("sndScroll")); }
         // dropping somewhere that isn't the timeline does nothing
         int t1 = eng.Tracks.Count; Ev("OnMouseMove", MouseButtons.None, 0, sx, sy); Ev("OnMouseDown", MouseButtons.Left, 1, sx, sy); for (int i = 1; i <= 4; i++) Ev("OnMouseMove", MouseButtons.Left, 0, sx + i * 5, sy + i * 5); Ev("OnMouseUp", MouseButtons.Left, 1, sx + 20, sy + 20); Paint(); Check("letting go over the panel does not add anything", eng.Tracks.Count == t1, "");
-        // double click adds at the needle
+        // a double click only plays it again (sounds go on the timeline by dragging)
         rowsNow = Rows(); var rdc = rowsNow[2]; Ev("OnMouseMove", MouseButtons.None, 0, (int)rdc.R.X + 120, (int)rdc.R.Y + 25); Ev("OnMouseDown", MouseButtons.Left, 2, (int)rdc.R.X + 120, (int)rdc.R.Y + 25); Ev("OnMouseUp", MouseButtons.Left, 1, (int)rdc.R.X + 120, (int)rdc.R.Y + 25); Paint();
-        Check("double-clicking a sound adds it to the song", eng.Tracks.Count == t1 + 1, eng.Tracks.Count + " tracks");
+        Check("double-clicking a sound does not add it to the song (drag it to use it)", eng.Tracks.Count == t1, eng.Tracks.Count + " tracks");
         // midi without an instrument track
         SoundItem midi = null; foreach (var s in SoundLibrary.All()) if (s.Kind == "midi") { midi = s; break; } Check("the pack includes MIDI files", midi != null, "");
         if (midi != null)
@@ -88,6 +88,17 @@ static class Q
         // overlap: menu open hides the search box
         Call("OpenMenu"); Paint(); Check("while the side menu is open the search box steps aside", !box.Visible, ""); Call("CloseMenu"); Paint(); Check("and comes back", box.Visible, "");
         SetF("tab", 3); Paint(); Check("leaving the Mix page hides the search box", !box.Visible, ""); SetF("tab", 0); Paint();
+        // the SOUND PACKS search
+        { Func<string, List<Recipe>> find = q => SoundCatalog.Recipes.FindAll(r => StudioForm.PackMatches(r, q));
+          var dr = find("drill"); var am = find("amapiano"); var both = find("dark trap"); var none = find("zzzz nothing");
+          Check("SOUND PACKS search finds packs by genre and words (drill, amapiano, dark trap) and nothing for nonsense", dr.Count >= 6 && dr.TrueForAll(r => (r.Name + r.Genre + r.Sub + r.Tags + r.Desc + r.Mood).ToLowerInvariant().Contains("drill")) && am.Count >= 4 && both.Count >= 1 && none.Count == 0, dr.Count + " drill, " + am.Count + " amapiano, " + both.Count + " dark trap");
+          Check("search can find packs by tempo (140 bpm)", find("140 bpm").Count >= 10 && find("140bpm").TrueForAll(r => Array.IndexOf(r.Bpms, 140.0) >= 0), find("140 bpm").Count + " packs");
+          SetF("packsOpen", true); Paint(); var pb = typeof(StudioForm).GetField("packBox", BF).GetValue(sf) as TextBox;
+          Check("the search box shows in SOUND PACKS", pb != null && pb.Visible, ""); pb.Text = "amapiano"; Paint(); Check("typing filters the pack list", (string)typeof(StudioForm).GetField("packQuery", BF).GetValue(sf) == "amapiano", "");
+          { var bmp = new Bitmap(sf.ClientSize.Width, sf.ClientSize.Height); using (var gg = Graphics.FromImage(bmp)) typeof(StudioForm).GetMethod("PaintAll", BF).Invoke(sf, new object[] { new PaintEventArgs(gg, new Rectangle(Point.Empty, sf.ClientSize)) }); bmp.Save("C:/Users/thoma/nfout/packs-search.png", System.Drawing.Imaging.ImageFormat.Png); bmp.Dispose(); }
+          pb.Text = ""; SetF("packsOpen", false); Paint(); Check("closing SOUND PACKS hides its search box", !pb.Visible, ""); }
+        // a double-click on a sound only plays it (dragging is how a sound goes on the timeline)
+        { string src = File.Exists("Studio.Sounds.cs") ? File.ReadAllText("Studio.Sounds.cs") : ""; Check("double-clicking a sound does not put it on a track", src.Length == 0 || (src.Contains("rg.OnDouble = () => SelectSound(s, true);") && !src.Contains("rg.OnDouble = () => AddSampleAtNeedle(s);")), ""); }
         // removing a pack
         SoundLibrary.RemovePack(wantId); Check("removing a pack deletes its files", !Directory.Exists(Path.Combine(SoundLibrary.Root, wantId)) && SoundLibrary.Pack(wantId) == null, "");
         Auditioner.Shutdown(); eng.Shutdown(); try { Directory.Delete(tmp, true); } catch { } Console.WriteLine(fails == 0 ? "=== sounds UI checks passed ===" : "=== " + fails + " FAILED ==="); Environment.Exit(fails == 0 ? 0 : 1);

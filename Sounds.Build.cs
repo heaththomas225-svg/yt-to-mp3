@@ -6,7 +6,7 @@ static class PackBuilder
 {
     // makes a pack's files on disk and returns the finished pack (null if cancelled)
     // the sound design version: packs made by an older one are offered an update (2 = band-limited hats, cymbals and saws, in-tune plucks, even loop levels)
-    public const string SoundVersion = "2";
+    public const string SoundVersion = "3";   // 3: the big packs (260+ sounds each); installed packs offer an update
     public static bool Outdated(SoundPack p) { return p != null && p.Items.Count > 0 && p.Id != SoundLibrary.UserPackId && SoundCatalog.Find(p.Id) != null && p.Version != SoundVersion; }
     public static SoundPack Build(Recipe rec, Action<string, float> progress, Func<bool> cancel)
     {
@@ -26,6 +26,7 @@ static class PackBuilder
             if (rec.Has("midi")) MidiSet(ctx);
             if (rec.Has("presets")) Presets(ctx);
             if (rec.Has("kit")) Songstarter(ctx);
+            if (rec.Has("loops") || rec.Has("music")) Extra(ctx);
         }
         catch (OperationCanceledException) { try { Directory.Delete(pack.Dir, true); } catch { } return null; }
         pack.Installed = true; SoundLibrary.WritePack(pack); return pack;
@@ -55,6 +56,22 @@ static class PackBuilder
         else if (d == "drill") { s.KickF0 = 46; s.KickStart = 150; s.KickDecay = 0.4; s.KickDrive = 2.6; s.SnareBody = 175; s.SnareNoise = 3000; s.SnareDrive = 2.2; s.HatC = 0.03; s.HatBright = 10; }
         else if (d == "boombap") { s.KickF0 = 58; s.KickStart = 170; s.KickDecay = 0.3; s.KickDrive = 1.6; s.SnareBody = 175; s.SnareAmt = 0.8; s.SnareDecay = 0.19; s.SnareDrive = 1.5; s.Swing = 0.6; s.HatBright = 8.5; }
         else if (d == "dubstep" || d == "riddim") { s.KickF0 = 50; s.KickStart = 190; s.KickDecay = 0.32; s.KickDrive = 3; s.SnareBody = 180; s.SnareNoise = 3000; s.SnareDrive = 2.8; s.SnareLen = 0.5; }
+        else if (d == "afro") { s.KickF0 = 55; s.KickStart = 170; s.KickDecay = 0.24; s.KickDrive = 1.5; s.ClapCentre = 1250; s.Swing = 0.56; s.HatBright = 9.5; }
+        else if (d == "amapiano") { s.KickF0 = 52; s.KickStart = 150; s.KickDecay = 0.3; s.KickDrive = 1.3; s.KickClick = 0.25; s.ClapCentre = 1150; s.Swing = 0.55; s.HatBright = 9; }
+        else if (d == "dembow" || d == "dancehall") { s.KickF0 = 56; s.KickStart = 190; s.KickDecay = 0.24; s.KickDrive = 2.0; s.SnareBody = 215; s.SnareNoise = 4200; s.SnareDecay = 0.12; s.HatBright = 10; }
+        else if (d == "techno") { s.KickF0 = 50; s.KickStart = 230; s.KickDecay = 0.33; s.KickDrive = 3.0; s.KickClick = 0.7; s.ClapCentre = 1500; s.HatC = 0.03; s.HatBright = 11; }
+        else if (d == "techhouse" || d == "deephouse") { s.KickF0 = 53; s.KickStart = 210; s.KickDecay = 0.28; s.KickDrive = 2.4; s.ClapCentre = 1300; s.Swing = d == "deephouse" ? 0.55 : 0.53; s.HatBright = 10; }
+        else if (d == "lofi") { s.KickF0 = 56; s.KickStart = 150; s.KickDecay = 0.26; s.KickDrive = 1.2; s.KickClick = 0.15; s.SnareBody = 180; s.SnareAmt = 0.7; s.SnareDecay = 0.2; s.SnareDrive = 1.1; s.Swing = 0.62; s.HatBright = 7.5; }
+        else if (d == "rnb") { s.KickF0 = 50; s.KickStart = 160; s.KickDecay = 0.36; s.KickDrive = 1.6; s.SnareBody = 190; s.SnareAmt = 0.8; s.Swing = 0.57; s.ClapCentre = 1200; s.HatBright = 9; }
+        else if (d == "pop" || d == "disco") { s.KickF0 = 55; s.KickStart = 200; s.KickDecay = 0.26; s.KickDrive = 2.0; s.ClapCentre = 1350; s.SnareBody = 205; s.HatBright = 10.5; s.Swing = d == "disco" ? 0.53 : 0.5; }
+        else if (d == "phonk") { s.KickF0 = 46; s.KickStart = 170; s.KickDecay = 0.42; s.KickDrive = 3.4; s.SnareBody = 185; s.SnareNoise = 3500; s.SnareDrive = 2.6; s.HatC = 0.03; s.HatBright = 10.5; }
+        else if (d == "jersey") { s.KickF0 = 54; s.KickStart = 220; s.KickDecay = 0.22; s.KickDrive = 2.8; s.SnareBody = 220; s.SnareNoise = 4300; s.HatBright = 10.5; }
+        else if (d == "hyperpop") { s.KickF0 = 52; s.KickStart = 260; s.KickDecay = 0.3; s.KickDrive = 3.6; s.SnareBody = 230; s.SnareNoise = 5000; s.SnareDrive = 3.0; s.HatC = 0.028; s.HatBright = 12; }
+        else if (d == "grime") { s.KickF0 = 50; s.KickStart = 200; s.KickDecay = 0.3; s.KickDrive = 2.4; s.SnareBody = 200; s.SnareNoise = 3800; s.SnareDrive = 2.2; s.HatBright = 10; }
+        else if (d == "baile") { s.KickF0 = 54; s.KickStart = 200; s.KickDecay = 0.26; s.KickDrive = 2.6; s.SnareBody = 210; s.SnareNoise = 4000; s.ClapCentre = 1400; s.HatBright = 10; }
+        else if (d == "trance") { s.KickF0 = 52; s.KickStart = 250; s.KickDecay = 0.25; s.KickDrive = 2.6; s.ClapCentre = 1400; s.HatC = 0.03; s.HatBright = 11; }
+        else if (d == "futurebass") { s.KickF0 = 50; s.KickStart = 220; s.KickDecay = 0.34; s.KickDrive = 2.4; s.SnareBody = 210; s.SnareNoise = 4200; s.SnareLen = 0.5; s.HatBright = 10.5; }
+        else if (d == "breaks") { s.KickF0 = 57; s.KickStart = 180; s.KickDecay = 0.22; s.KickDrive = 1.9; s.SnareBody = 225; s.SnareNoise = 3500; s.Swing = 0.54; s.HatBright = 9.5; }
         s.KickF0 *= 0.97 + j.Next() * 0.06; s.SnareBody *= 0.96 + j.Next() * 0.08; s.HatBright *= 0.96 + j.Next() * 0.08; return s;
     }
 
@@ -77,9 +94,9 @@ static class PackBuilder
         var w = c.W; var r = new Rnd(c.Rec.Seed + 11);
         for (int i = 0; i < 4; i++)
         {
-            string key = KeyOf(c, i); int pc = Music.Root(key), midi = 24 + pc; double dec = 0.5 + i * 0.35, drv = 1.4 + i * 0.9;
+            string key = KeyOf(c, i); int pc = Music.Root(key), midi = 24 + pc; double dec = 0.5 + i * 0.35, drv = 1.1 + i * 0.2;   // clean 808s: a little warmth, no distortion
             var b = SoundGen.Eight08(r, midi, dec, drv, 0.15 + i * 0.1, i == 3 ? 5 : 2, 0.9 + dec * 1.3); string kn = Kn(key);
-            w.Audio(b, "Basses/808 and Subs", N(c, (i == 0 ? "808 Clean" : i == 1 ? "808 Long" : i == 2 ? "808 Dirty" : "808 Distorted") + " " + Music.NoteName(midi), i), i < 3 ? "808" : "808", "Bass", "one-shot", 0, kn, Tg(c, "808,sub,bass,one-shot," + Music.NoteName(midi).ToLowerInvariant()), c.Rec.Mood, -1.0);
+            w.Audio(b, "Basses/808 and Subs", N(c, (i == 0 ? "808 Clean" : i == 1 ? "808 Long" : i == 2 ? "808 Warm" : "808 Punchy") + " " + Music.NoteName(midi), i), i < 3 ? "808" : "808", "Bass", "one-shot", 0, kn, Tg(c, "808,sub,bass,one-shot," + Music.NoteName(midi).ToLowerInvariant()), c.Rec.Mood, -1.0);
         }
         for (int i = 0; i < 2; i++)
         {
@@ -151,7 +168,7 @@ static class PackBuilder
         {
             double bpm = BpmOf(c, i); string key = KeyOf(c, i); int pc = Music.Root(key); bool minor = Music.IsMinor(key); var notes = Music.Chords(r, 4, pc, minor, 3, "pad");
             var b = SoundGen.RenderSynth(Music.LeadPatch(padNames[i]), notes, bpm, 16, 1.0); b = LoopLen(b, 16, bpm); w.Audio(b, "Synths/Chord Loops", N(c, "Chord Loop " + bpm.ToString("0") + " BPM " + Kn(key), i), "Chord Loop", "Synth", "loop", bpm, Kn(key), Tg(c, "chords,pad,chord loop,loop,synth"), c.Rec.Mood, -2.0);
-            var stabs = Music.Chords(r, 4, pc, minor, 3, "stab"); var sb = SoundGen.RenderSynth(Music.LeadPatch(i == 1 ? "Supersaw Lead" : "Organ", "e1d=180;e1s=0;e1r=100"), stabs, bpm, 16, 0.4); sb = LoopLen(sb, 16, bpm);
+            var stabs = Music.Chords(r, 4, pc, minor, 3, "stab"); var sb = SoundGen.RenderSynth(Music.LeadPatch(i == 1 ? "Supersaw Lead" : "Organ", "voices=16;e1a=9;e1d=180;e1s=0;e1r=100"), stabs, bpm, 16, 0.4); sb = LoopLen(sb, 16, bpm);
             w.Audio(sb, "Synths/Stab Loops", N(c, (i == 1 ? "Rave Stab Loop " : "Organ Stab Loop ") + bpm.ToString("0") + " BPM " + Kn(key), i), i == 1 ? "Rave Stab" : "Organ Stab", "Synth", "loop", bpm, Kn(key), Tg(c, (i == 1 ? "rave stab" : "organ stab") + ",stab,loop,synth"), c.Rec.Mood, -2.0);
         }
         for (int i = 0; i < 2; i++)
@@ -164,7 +181,7 @@ static class PackBuilder
             pl = SoundGen.Wet(pl, 45, 50, 0.2f, pl.Length); pl = LoopLen(pl, 16, bpm); w.Audio(pl, "Synths/Guitar and Pluck Loops", N(c, "Pluck Loop " + bpm.ToString("0") + " BPM " + Kn(key), i), "Guitar Loop", "Synth", "loop", bpm, Kn(key), Tg(c, "guitar,pluck,string,loop,melody"), c.Rec.Mood, -2.0);
         }
         for (int i = 0; i < 2; i++) { string key = KeyOf(c, i); int pc = Music.Root(key); var at = SoundGen.Atmosphere(r, 12, 48 + pc, Music.IsMinor(key), 0.6 + i * 0.3); w.Audio(at, "Synths/Atmospheres", N(c, "Atmosphere " + Kn(key), i), "Atmosphere", "Synth", "one-shot", 0, Kn(key), Tg(c, "atmosphere,pad,texture,ambient"), c.Rec.Mood, -3.0); }
-        var tx = SoundGen.Crackle(r, 10, 0.5); w.Audio(tx, "Synths/Atmospheres", N(c, "Crackle Texture", 0), "Texture", "Synth", "loop", 0, "", Tg(c, "texture,crackle,vinyl,noise"), c.Rec.Mood, -8.0);
+        SoundGen.Crackle(r, 10, 0.5);   // (made and thrown away so the sounds after it stay the same; packs have no crackle)
     }
 
     static void Effects(Ctx c)
@@ -221,7 +238,7 @@ static class PackBuilder
     {
         var w = c.W; var r = new Rnd(c.Rec.Seed + 41); int i = 0;
         foreach (var fl in c.Rec.Flavours) { if (i >= 6) break; w.Preset("Presets", N(c, Cap(fl) + " Preset", i), Music.BassPatch(fl, r), fl + ",bass,synth preset", c.Rec.Mood); i++; }
-        w.Preset("Presets", N(c, "Pad Preset", i), Music.LeadPatch("Dark Pad"), "pad,synth preset", c.Rec.Mood); w.Preset("Presets", N(c, "Stab Preset", i + 1), Music.LeadPatch("Supersaw Lead", "e1d=180;e1s=0;e1r=100"), "stab,synth preset", c.Rec.Mood);
+        w.Preset("Presets", N(c, "Pad Preset", i), Music.LeadPatch("Dark Pad"), "pad,synth preset", c.Rec.Mood); w.Preset("Presets", N(c, "Stab Preset", i + 1), Music.LeadPatch("Supersaw Lead", "voices=16;e1a=9;e1d=180;e1s=0;e1r=100"), "stab,synth preset", c.Rec.Mood);
     }
 
     // a songstarter kit: every part rendered on its own at the same tempo and key, so each can be edited alone
@@ -239,4 +256,90 @@ static class PackBuilder
         w.Midi(fol + "/MIDI", kit + " - Bass", "MIDI Bassline", bpm, Kn(key), Tg(c, "songstarter,midi"), c.Rec.Mood, Music.BassLine(new Rnd(c.Rec.Seed + 43), rh, 4, 36 + pc, minor)); w.Midi(fol + "/MIDI", kit + " - Chords", "MIDI Chords", bpm, Kn(key), Tg(c, "songstarter,midi"), c.Rec.Mood, Music.Chords(new Rnd(c.Rec.Seed + 44), 4, pc, minor, 3, "pad"));
     }
     static string WriterName(string s) { return PackWriter.Clean(s); }
+
+    // ---- the big pack: many more takes of every kind of loop, so each pack has well over two hundred sounds ----
+    static readonly string[] ChordPatches = { "Electric Keys", "Organ", "Bell Keys", "Clav", "Choir Pad", "Shimmer Pad", "Soft Pad", "Dark Pad" };
+    static readonly string[] LeadPatches = { "Supersaw Lead", "Square Lead", "Mono Saw Lead", "FM Bell Lead", "Short Pluck", "Soft Pluck", "Bell Pluck", "Electric Keys" };
+    static void Extra(Ctx c)
+    {
+        var w = c.W; var r = new Rnd(c.Rec.Seed + 53); string rh = Music.RhythmFor(c.Rec.Drums);
+        if (c.Rec.Has("loops"))
+        {
+            // drum loops: eight more grooves, each as the full loop, without the kick, and kick and snare only
+            for (int i = 0; i < 8; i++)
+            {
+                double bpm = BpmOf(c, i + 1); int bars = i % 2 == 0 ? 2 : 4; var lp = DrumKit.Render(c.Kit, c.Style, c.Style.Pat, bpm, bars, c.Style.Swing + (i % 3) * 0.01, c.Rec.Seed + 500 + i * 7, i % 4 == 3); string b = bpm.ToString("0");
+                w.Audio(lp.Mix, "Loops/Drum Loops", N(c, "Drum Groove " + (i + 1) + " " + b + " BPM", 10 + i), "Drum Loop", "Loops", "loop", bpm, "", Tg(c, "drum loop,drums,loop,groove," + b + "bpm"), c.Rec.Mood, -1.5);
+                var nk = new Buf(lp.Mix.Length); nk.Add(lp.Snare, 0, 1f); nk.Add(lp.Hats, 0, 1f); nk.Add(lp.Perc, 0, 0.9f);
+                w.Audio(nk, "Loops/Drum Loops No Kick", N(c, "Drum Groove " + (i + 1) + " " + b + " BPM (no kick)", 10 + i), "Drum Loop", "Loops", "loop", bpm, "", Tg(c, "drum loop,no kick,drums,loop," + b + "bpm"), c.Rec.Mood, -1.5);
+                var ks = new Buf(lp.Mix.Length); ks.Add(lp.Kick, 0, 1f); ks.Add(lp.Snare, 0, 1f);
+                w.Audio(ks, "Loops/Kick and Snare Loops", N(c, "Kick and Snare " + (i + 1) + " " + b + " BPM", 10 + i), "Drum Loop", "Loops", "loop", bpm, "", Tg(c, "kick,snare,drum loop,loop," + b + "bpm"), c.Rec.Mood, -1.5);
+                if (i < 4) { var pc = new Buf(lp.Mix.Length); pc.Add(lp.Perc, 0, 1f); pc.Add(lp.Hats, 0, 0.5f); w.Audio(pc, "Loops/Percussion Loops", N(c, "Percussion Loop " + (i + 1) + " " + b + " BPM", 10 + i), "Percussion Loop", "Loops", "loop", bpm, "", Tg(c, "percussion,perc,loop,shaker," + b + "bpm"), c.Rec.Mood, -2.0); }
+            }
+            // bass loops: three more lines for each bass sound, in other keys
+            int fi = 0; foreach (var fl in c.Rec.Flavours)
+            {
+                if (fi >= 6) break;
+                for (int v = 0; v < 3; v++)
+                {
+                    double bpm = BpmOf(c, fi + v + 1); string key = KeyOf(c, fi + v + 1); int root = 36 + Music.Root(key); bool minor = Music.IsMinor(key);
+                    var notes = Music.BassLine(r, rh, 2, root, minor); var b = LoopLen(SoundGen.RenderSynth(Music.BassPatch(fl, r), notes, bpm, 8, 0.25), 8, bpm);
+                    w.Audio(b, "Basses/Bass Loops", N(c, Cap(fl) + " Bass Line " + (v + 2) + " " + bpm.ToString("0") + " BPM " + Kn(key), 20 + fi * 3 + v), "Bass Loop", "Bass", "loop", bpm, Kn(key), Tg(c, fl + ",bass loop,bass,loop," + Kn(key).ToLowerInvariant()), c.Rec.Mood, -1.5);
+                }
+                fi++;
+            }
+        }
+        if (c.Rec.Has("music"))
+        {
+            bool dark = c.Rec.Mood.IndexOf("dark", StringComparison.OrdinalIgnoreCase) >= 0;
+            // chord loops on every keys and pad sound, in two keys each
+            for (int i = 0; i < ChordPatches.Length; i++) for (int v = 0; v < 2; v++)
+            {
+                double bpm = BpmOf(c, i + v); string key = KeyOf(c, i + v + 2); int pc = Music.Root(key); bool minor = Music.IsMinor(key); string style = i < 4 && v == 1 ? "stab" : "pad";
+                var b = LoopLen(SoundGen.RenderSynth(Music.LeadPatch(ChordPatches[i], style == "stab" ? "voices=16;e1a=9;e1d=200;e1s=10;e1r=120" : "e1a=3"), Music.Chords(r, 4, pc, minor, i % 2 == 0 ? 3 : 4, style), bpm, 16, 1.0), 16, bpm);
+                w.Audio(b, "Synths/Chord Loops", N(c, ChordPatches[i] + (style == "stab" ? " Stabs " : " Chords ") + bpm.ToString("0") + " BPM " + Kn(key), 30 + i * 2 + v), "Chord Loop", "Synth", "loop", bpm, Kn(key), Tg(c, "chords,chord loop,loop,synth," + ChordPatches[i].ToLowerInvariant() + "," + Kn(key).ToLowerInvariant()), c.Rec.Mood, -2.5);
+            }
+            // melody and arp loops on every lead and pluck sound
+            for (int i = 0; i < LeadPatches.Length; i++) for (int v = 0; v < 3; v++)
+            {
+                double bpm = BpmOf(c, i + v); string key = KeyOf(c, i + v + 1); int pc = Music.Root(key); bool minor = Music.IsMinor(key); bool arp = v == 2;
+                var notes = arp ? Music.Arpeggio(r, 4, pc, minor, i % 2 == 0 ? 4 : 5) : Music.Melody(r, 4, pc, minor, v == 0 ? 4 : 5);
+                var b = LoopLen(SoundGen.RenderSynth(Music.LeadPatch(LeadPatches[i]), notes, bpm, 16, 0.8), 16, bpm);
+                w.Audio(b, arp ? "Synths/Arp Loops" : "Synths/Melody Loops", N(c, LeadPatches[i] + (arp ? " Arp " : " Melody " + (v + 1) + " ") + bpm.ToString("0") + " BPM " + Kn(key), 50 + i * 3 + v), arp ? "Synth Loop" : "Melody Loop", "Synth", "loop", bpm, Kn(key), Tg(c, (arp ? "arp,arpeggio," : "melody,lead,") + "loop,synth," + LeadPatches[i].ToLowerInvariant() + "," + Kn(key).ToLowerInvariant()), c.Rec.Mood, -2.5);
+            }
+            // plucked guitar and harp loops
+            for (int i = 0; i < 4; i++)
+            {
+                double bpm = BpmOf(c, i); string key = KeyOf(c, i + 3); int pc = Music.Root(key); bool minor = Music.IsMinor(key); var gr = new Rnd(c.Rec.Seed + 600 + i); int[] sc = minor ? Music.MinPent : new[] { 0, 2, 4, 7, 9 }; double stepS = 60.0 / bpm * SoundGen.SR / (i % 2 == 0 ? 2 : 4);
+                var pl = new Buf((int)(16 * 60.0 / bpm * SoundGen.SR + SoundGen.SR)); int steps = i % 2 == 0 ? 32 : 64;
+                for (int st = 0; st < steps; st++) { if (gr.Next() < (i % 2 == 0 ? 0.3f : 0.5f)) continue; int midi = 12 * 4 + pc + sc[gr.Int(sc.Length)] + (gr.Next() < 0.3f ? 12 : 0); pl.Add(SoundGen.Pluck(gr, SoundGen.NoteHz(midi), i < 2 ? 1.4 : 0.6, i < 2 ? 0.7 : 0.9), (int)(st * stepS), 0.5f); }
+                pl = LoopLen(SoundGen.Wet(pl, 45, 50, 0.2f, pl.Length), 16, bpm);
+                w.Audio(pl, "Synths/Guitar and Pluck Loops", N(c, (i < 2 ? "Guitar Loop " : "Harp Loop ") + (i % 2 + 2) + " " + bpm.ToString("0") + " BPM " + Kn(key), 80 + i), "Guitar Loop", "Synth", "loop", bpm, Kn(key), Tg(c, (i < 2 ? "guitar" : "harp") + ",pluck,string,loop,melody"), c.Rec.Mood, -2.5);
+            }
+            // synth one-shots: a chord hit and a single note on every sound
+            for (int i = 0; i < ChordPatches.Length; i++)
+            {
+                string key = KeyOf(c, i); int pc = Music.Root(key); bool minor = Music.IsMinor(key); double bpm = BpmOf(c, 0); var ch = new List<double[]>(); foreach (int iv in minor ? new[] { 0, 3, 7, 10 } : new[] { 0, 4, 7, 11 }) ch.Add(new double[] { 0, 1.5, 48 + pc + iv, 100 });
+                w.Audio(SoundGen.RenderSynth(Music.LeadPatch(ChordPatches[i]), ch, bpm, 3, 1.2), "Synths/One-Shots", N(c, ChordPatches[i] + " Chord Hit " + Kn(key), 90 + i), "Chord Hit", "Synth", "one-shot", 0, Kn(key), Tg(c, "chord,hit,one-shot,synth," + ChordPatches[i].ToLowerInvariant()), c.Rec.Mood, -2.0);
+            }
+            for (int i = 0; i < LeadPatches.Length; i++)
+            {
+                string key = KeyOf(c, i); int midi = 60 + Music.Root(key); var nt = new List<double[]> { new double[] { 0, 1.0, midi, 105 } };
+                w.Audio(SoundGen.RenderSynth(Music.LeadPatch(LeadPatches[i]), nt, 120, 2.5, 0.9), "Synths/One-Shots", N(c, LeadPatches[i] + " " + Music.NoteName(midi), 100 + i), "Synth One-Shot", "Synth", "one-shot", 0, Kn(key), Tg(c, "lead,note,one-shot,synth," + LeadPatches[i].ToLowerInvariant()), c.Rec.Mood, -2.0);
+            }
+        }
+        if (c.Rec.Has("vocal"))
+        {
+            // more vocal chop loops: different vowels, melodies and speeds in each key
+            double beat0 = 0; for (int v = 0; v < 10; v++)
+            {
+                double bpm = BpmOf(c, v); double beat = 60.0 / bpm * SoundGen.SR; beat0 = beat; string key = KeyOf(c, v + 1); int pc = Music.Root(key); bool minor = Music.IsMinor(key); var mel = Music.Melody(r, 2, pc, minor, v % 3 == 0 ? 5 : 4); var lp = new Buf((int)(8 * 60.0 / bpm * SoundGen.SR + 20000));
+                int vi = v; foreach (var n in mel) { double hz = SoundGen.NoteHz((int)n[2]); lp.Add(SoundGen.VocalSyllable(r, hz, (vi++) % 5, v % 2 == 0 ? -1 : (vi + 2) % 5, Math.Min(v % 3 == 2 ? 0.25 : 0.6, n[1] * 60.0 / bpm * 0.95), v % 4 == 1 ? 0.2 : 0, 0, ""), (int)(n[0] * beat), 0.6f); }
+                lp = LoopLen(SoundGen.Wet(lp, 50, 50, 0.2f, lp.Length), 8, bpm);
+                w.Audio(lp, "Vocals/Chops", N(c, "Vocal Chop Loop " + (v + 3) + " " + bpm.ToString("0") + " BPM " + Kn(key), 120 + v), "Vocal Chop", "Vocal", "loop", bpm, Kn(key), Tg(c, "vocal chop,chop,loop,synth voice,vocal," + Kn(key).ToLowerInvariant()), c.Rec.Mood, -2.0);
+            }
+            // vocal one-shot notes in the key (play them as an instrument)
+            for (int v = 0; v < 6; v++) { string key = KeyOf(c, v); int midi = 57 + Music.Root(key) + (v % 2) * 7; var b = SoundGen.Wet(SoundGen.VocalSyllable(r, SoundGen.NoteHz(midi), v % 5, -1, 0.9, 0, 1, ""), 45, 50, 0.2f, (int)(1.6 * SoundGen.SR)); w.Audio(b, "Vocals/Vocal Notes", N(c, "Vocal Note " + "AEIOU"[v % 5] + " " + Music.NoteName(midi), 130 + v), "Vocal Chop", "Vocal", "one-shot", 0, Kn(key), Tg(c, "vocal,note,one-shot,synth voice"), c.Rec.Mood, -2.0); }
+        }
+    }
 }

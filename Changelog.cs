@@ -7,10 +7,21 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.66.0";
+    public const string Latest = "3.67.0";
 
     public const string Text =
-@"3.66.0  Type titles straight onto your video, and the Creative Suite
+@"3.67.0  The sound library: 218 packs, 56,000+ clean sounds, Ctrl+X, pack search
+ + IMPROVED: No distorted or crackly sounds: every pack sound was measured for clipping, clicks and crackle. The growl, dirty, metallic, neuro and riddim basses no longer crackle (their filters are not overdriven any more and their LFO movements are smoothed), kicks and 808s are clean instead of squared-off (808 Dirty and 808 Distorted are now 808 Warm and 808 Punchy), stab chords and basses start without a click, the vinyl crackle texture is gone, and loud loops are levelled by a clean limiter instead of being clipped. A check of every sound runs with the tests so it stays that way.
+ + NEW: Ctrl+X cuts the audio you highlighted (or the piece you picked): it is copied, then taken off the timeline. Ctrl+V pastes it at the needle, Ctrl+Z puts it back. Pasting when there is no audio track left makes one.
+ + NEW: SOUND PACKS has a search box: type a genre, style, mood or tempo (drill, amapiano, dark trap, guitar, 140 bpm) and only the matching packs are listed.
+ + CHANGED: Sounds go onto the timeline by dragging them. A double-click only plays the sound again, so nothing lands on a track by accident.
+ + NEW: 121 new sound packs in 8 new sections: Hip-Hop (trap, rage, plugg, UK and NY drill, boom bap, jazz hop, grime), House (deep, tech, piano, bass, afro, melodic, disco, French, lo-fi house), Techno and Trance (dark, melodic, hard, acid, psytrance), Afro and Latin (afrobeats, amapiano, reggaeton, latin trap, moombahton, dancehall, baile funk), Pop and R&B (dance pop, synth pop, 90s R&B, neo soul, Jersey club), Lo-Fi (study beats, chillhop, vaporwave), EDM (future bass, big room, breaks) and Phonk (drift phonk, hyperpop). Each genre has its own drum groove, drum sound, bass rhythms, tempos and keys.
+ + NEW: Every pack is now much bigger: 260+ sounds each. 32 drum loops (full, without the kick, and kick and snare only), percussion loops, 24 bass loops and 808s, chord loops on every keys and pad sound, melody and arp loops on every lead, guitar and harp loops, 18 vocal chop loops and vocal notes, chord hits and synth one-shots, FX, MIDI and songstarter stems.
+ + IMPROVED: Every sound is still made on your PC by Purphex (no recordings, no one else's samples), so they are yours to use in your music. A pack takes about a minute to make; installing many at once tells you the space and time it needs first.
+ + IMPROVED: Loops of one kind play at an even loudness while you browse (sparse loops are lifted with a gentle limiter), and the section buttons in SOUND PACKS wrap onto two rows.
+ + IMPROVED: Packs you already have offer an update to the bigger version.
+
+3.66.0  Type titles straight onto your video, and the Creative Suite
  + FIXED: Video Studio: you can type your titles now. + ADD TEXT (or any title style) puts a title on the video with its words picked, so you just start typing on the video, like iMovie. Double-click any title on the video or on the timeline to change its words; Esc or DONE finishes; one Ctrl+Z takes the typing back.
  + NEW: A title bar over the video for the picked title: font (your PC fonts and the font library), smaller / bigger and the exact size, bold, italic, capitals, left / centre / right, the text colour, an outline and its colour, and a box behind the words with its colour.
  + NEW: The Text panel has a YOUR TEXT box with the picked title, and ADD TEXT at the top.

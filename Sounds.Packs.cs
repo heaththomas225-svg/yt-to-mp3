@@ -21,11 +21,23 @@ class PackWriter
 
     // even levels while browsing: loops of one kind sit at the same loudness (never above -1 dB peak), and dense one-shots
     // (sirens, long effects) are kept from jumping out. The stems of a song starter keep their mix, so they are left alone.
+    // a clean look-ahead limiter: the level comes down smoothly just before a peak and back up after it (no clipping, no distortion)
+    public static void Limit(Buf b, float ceiling)
+    {
+        int n = b.Length, la = 220; if (n == 0) return; var need = new float[n];   // 5 ms look-ahead
+        for (int i = 0; i < n; i++) { float a = Math.Max(Math.Abs(b.L[i]), Math.Abs(b.R[i])); need[i] = a > ceiling ? ceiling / a : 1f; }
+        var g = new float[n]; var dq = new int[n]; int h = 0, t = 0;   // the smallest gain needed in the next la samples (a sliding minimum)
+        for (int i = n - 1; i >= 0; i--) { while (t > h && need[dq[t - 1]] >= need[i]) t--; dq[t++] = i; while (dq[h] > i + la) h++; g[i] = need[dq[h]]; }
+        double env = 1, att = 1 - Math.Exp(-1.0 / la), rel = 1 - Math.Exp(-1.0 / (0.08 * 44100));
+        for (int i = 0; i < n; i++) { double target = g[i]; env += (target < env ? att * 3 : rel) * (target - env); if (env > target && target < 1) env = Math.Min(env, target + (env - target) * 0.5); float k = (float)Math.Min(env, 1.0); b.L[i] *= k; b.R[i] *= k; }
+        for (int i = 0; i < n; i++) { if (b.L[i] > ceiling) b.L[i] = ceiling; else if (b.L[i] < -ceiling) b.L[i] = -ceiling; if (b.R[i] > ceiling) b.R[i] = ceiling; else if (b.R[i] < -ceiling) b.R[i] = -ceiling; }   // (only a safety net: the gain above already keeps it under)
+    }
     static void Level(Buf b, string type, string kind)
     {
         if (type == "Stem" || type == "Songstarter") return; double e = 0; for (int i = 0; i < b.Length; i++) e += b.L[i] * b.L[i] + b.R[i] * b.R[i]; if (e <= 0) return;
         double rms = 10 * Math.Log10(e / (2.0 * b.Length)), peak = 20 * Math.Log10(Math.Max(1e-9, b.Peak())), gain;
-        if (kind == "loop") { double target = type == "Drum Loop" || type == "Top Loop" || type == "Drum Fill" ? -11 : type == "Bass Loop" ? -12 : -15; gain = Math.Min(target - rms, -1 - peak); }
+        if (kind == "loop") { double target = type == "Drum Loop" || type == "Top Loop" || type == "Drum Fill" || type == "Percussion Loop" ? -11 : type == "Bass Loop" ? -12 : -15; gain = Math.Min(target - rms, -1 - peak + 5);   /* a sparse loop may go up to 5 dB past its peak: a soft limiter catches only the peaks */
+            if (gain > -1 - peak) { b.Gain((float)Math.Pow(10, gain / 20)); Limit(b, 0.891f); return; } }
         else { bool heavy = type == "Kick" || type == "808" || type == "Sub Bass"; double cap = heavy ? -6 : -10; gain = rms > cap ? cap - rms : 0; }
         if (Math.Abs(gain) > 0.05) b.Gain((float)Math.Pow(10, gain / 20));
     }
@@ -84,9 +96,29 @@ static class Patterns
         { "drill", new Pat { K = "x.......x.....x.", S = "........x.......", C = "........x.......", H = "x.x.x.xtx.x.xtx.", O = "", G = "", P = "" } },
         { "boombap", new Pat { K = "x.....x...x.....", S = "....x.......x...", H = "x.x.x.x.x.x.x.x.", O = "..............x.", G = "......g.........", P = "" } },
         { "dubstep", new Pat { K = "x.........x.....", S = "........x.......", C = "........x.......", H = "x.x.x.x.x.x.x.x.", O = "..............x.", G = "", P = "" } },
+        { "afro", new Pat { K = "x.....x...x.....", S = "", C = "......x.......x.", H = "x.x.x.x.x.x.x.x.", O = "", G = "", P = "..x..x....x..x.." } },
+        { "amapiano", new Pat { K = "x...x...x...x...", S = "", C = ".......x.......x", H = "..x...x...x...x.", O = "", G = "", P = "x.xx.x.xx.x.x.xx" } },
+        { "dembow", new Pat { K = "x...x...x...x...", S = "...x..x....x..x.", H = "x.x.x.x.x.x.x.x.", O = "", G = "", P = "" } },
+        { "techno", new Pat { K = "x...x...x...x...", C = "....x.......x...", H = "..x...x...x...x.", O = "......x.......x.", G = "", P = "x..x..x..x..x..x" } },
+        { "techhouse", new Pat { K = "x...x...x...x...", C = "....x.......x...", H = "x.xxx.xxx.xxx.xx", O = "..x...x...x...x.", G = "", P = ".x.x.x.x.x.x.x.x" } },
+        { "deephouse", new Pat { K = "x...x...x...x...", C = "....x.......x...", H = "..x.x.x...x.x.x.", O = "..x.......x.....", G = "", P = "...x.......x...." } },
+        { "lofi", new Pat { K = "x......x..x.....", S = "....x.......x...", H = "x.x.x.x.x.x.x.x.", O = "", G = "......g.......g.", P = "" } },
+        { "rnb", new Pat { K = "x......x.x......", S = "....x.......x...", C = "....x.......x...", H = "x.x.x.x.x.x.x.xx", O = "", G = "..........g.....", P = "" } },
+        { "pop", new Pat { K = "x...x...x...x...", C = "....x.......x...", H = "x.x.x.x.x.x.x.x.", O = "..............x.", G = "", P = "" } },
+        { "phonk", new Pat { K = "x.....x...x.....", S = "....x.......x...", H = "xxxxxxxxxxxxxxxx", O = "", G = "", P = "x..x..x...x..x.." } },
+        { "jersey", new Pat { K = "x..x..x.x...x...", S = "....x.......x...", H = "x.x.x.x.x.x.x.x.", O = "", G = "", P = "" } },
+        { "hyperpop", new Pat { K = "x.....x.x.......", S = "....x.......x...", H = "xxxxxxxxxxxxtxxx", O = "", G = "", P = "" } },
+        { "grime", new Pat { K = "x.......x.x.....", S = "....x.......x...", H = "x.x.x.x.x.x.x.x.", O = "", G = "", P = "......x......x.." } },
+        { "dancehall", new Pat { K = "x..x..x.x..x..x.", S = "...x..x....x..x.", H = "x.x.x.x.x.x.x.x.", O = "", G = "", P = "" } },
+        { "baile", new Pat { K = "x..x...x..x.x...", S = "....x.......x..x", H = "x.x.x.x.x.x.x.x.", O = "", G = "", P = "x.x..x.x.x..x.x." } },
+        { "trance", new Pat { K = "x...x...x...x...", C = "....x.......x...", H = "xxxxxxxxxxxxxxxx", O = "..x...x...x...x.", G = "", P = "" } },
+        { "futurebass", new Pat { K = "x.........x.....", S = "........x.......", C = "........x.......", H = "x.x.x.x.x.x.x.x.", O = "..............x.", G = "", P = "" } },
+        { "disco", new Pat { K = "x...x...x...x...", C = "....x.......x...", H = "x.x.x.x.x.x.x.x.", O = "..x...x...x...x.", G = "", P = "x.x.x.x.x.x.x.x." } },
+        { "breaks", new Pat { K = "x.........x.x...", S = "....x.......x...", H = "x.x.x.x.x.x.x.x.", O = "", G = ".......g.g......", P = "" } },
         { "riddim", new Pat { K = "x.....x......x..", S = "........x.......", C = "........x.......", H = "x.x.x.x.x.x.x.x.", O = "", G = "", P = "" } },
     };
     public static Pat Get(string k) { Pat p; return d.TryGetValue(k, out p) ? p : d["dnb_twostep"]; }
+    public static bool Has(string k) { return d.ContainsKey(k); }
 }
 
 static class DrumKit
@@ -99,7 +131,7 @@ static class DrumKit
         var r = new Rnd(seed); var k = new Kit(); string[] kn = { "Punch", "Tight", "Deep", "Hard", "Thump", "Clean" };
         for (int i = 0; i < 6; i++)
         {
-            double f0 = s.KickF0 * r.Range(0.9f, 1.12f), st = s.KickStart * r.Range(0.8f, 1.25f), dec = s.KickDecay * r.Range(0.7f, 1.4f), dr = s.KickDrive * r.Range(0.8f, 1.4f);
+            double f0 = s.KickF0 * r.Range(0.9f, 1.12f), st = s.KickStart * r.Range(0.8f, 1.25f), dec = s.KickDecay * r.Range(0.7f, 1.4f), dr = 1 + (s.KickDrive - 1) * 0.3 * r.Range(0.8f, 1.2f);   // clean kicks: only a little saturation
             k.Kicks.Add(SoundGen.Kick(r, f0, st, s.KickTau * r.Range(0.8f, 1.3f), dec, dr, s.KickClick * r.Range(0.5f, 1.4f), s.KickLen)); k.KickNames.Add(kn[i]);
         }
         string[] sn = { "Crack", "Snap", "Fat", "Tight", "Rim Crack", "Bright" };

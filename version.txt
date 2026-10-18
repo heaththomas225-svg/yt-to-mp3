@@ -1,4 +1,4 @@
-3.66.0
+3.67.0
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Type titles straight onto your video, and the Creative Suite
-sha256=953ffc26b811a6f731745d60a85df61991624c71b8b087f3403cb5aedb4c1d27
+The sound library: 218 packs, 56,000+ clean sounds, Ctrl+X, pack search
+sha256=ef4ab01dcabf73bef48fd9d6c2086700622d340337676039174065fc68fdbd75

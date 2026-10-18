@@ -129,14 +129,25 @@ partial class StudioForm
     }
     // Ctrl+C: the highlighted sections, or the picked piece
     void CopyKey() { if (multiSel.Count > 0) { var f = multiSel.Find(o => o.Clip != null && !o.Instrument && eng.Tracks.Contains(o)); if (f != null) { CopyClip(f); return; } } CopyClip(CurClip()); }
+    // Ctrl+X: copy what is highlighted (or the picked piece), then take it off the timeline (Ctrl+V puts it back, Ctrl+Z undoes)
+    internal void CutKey()
+    {
+        var before = clipCopies.Count > 0 ? clipCopies[0].Copy : null; CopyKey();
+        if (clipCopies.Count == 0 || clipCopies[0].Copy == before) return;   // nothing could be copied: nothing is deleted
+        int n = clipCopies.Count; if (multiSel.Count > 0) DeleteSelectedClips(); else { var c = CurClip() ?? Selected; if (c != null && c.Clip != null) DeleteClip(c); }
+        Toast(n == 1 ? "Cut. Ctrl+V pastes it at the needle on the picked track." : "Cut " + n + " sections. Ctrl+V pastes them at the needle (they keep their spacing).");
+    }
     // Ctrl+V: at the needle, on the picked track
     void PasteKey() { var row = Selected; PasteClip(row, Math.Max(0, (long)DispPos)); }
+    bool undoPushed;
     internal void PasteClip(Track tr, long at)
     {
         if (clipCopies.Count == 0) { Toast("Nothing is copied yet: click a piece (or highlight several) and press Ctrl+C."); return; }
-        var host = tr == null ? null : (tr.Host ?? tr); if (host == null || host.IsBus || host.Instrument) { Toast("Paste works on audio tracks: click an audio track first."); return; }
+        var host = tr == null ? null : (tr.Host ?? tr);
+        if (host == null && !eng.Tracks.Exists(t => !t.IsBus && !t.Instrument && t.Host == null)) { PushUndo(); host = EmptyAudioTrack(); lock (eng.Sync) eng.Tracks.Insert(LaneCount, host); undoPushed = true; }   // nothing to paste onto (for example everything was cut): a new audio track
+        if (host == null || host.IsBus || host.Instrument) { Toast("Paste works on audio tracks: click an audio track first."); return; }
         if (IsRowLocked(host)) { Toast(FrozenWhy(host, "Locked: press UNLOCK before pasting on this track.")); return; }   // (a locked section on the track does not stop a paste: nothing on it moves)
-        PushUndo(); int baseRow = eng.Tracks.IndexOf(host); var made = new List<Track>(); int newTracks = 0;
+        if (!undoPushed) PushUndo(); undoPushed = false; int baseRow = eng.Tracks.IndexOf(host); var made = new List<Track>(); int newTracks = 0;
         foreach (var it in clipCopies)
         {
             int rowI = baseRow + it.Row; Track rowT = rowI < LaneCount ? eng.Tracks[rowI] : null;

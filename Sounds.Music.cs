@@ -10,6 +10,20 @@ static class Music
     public static string NoteName(int midi) { return SoundLibrary.NoteNames[((midi % 12) + 12) % 12] + (midi / 12 - 1); }
 
     // each bass flavour starts from a Bass Lab preset; the numbers are nudged by the seed so every pack sounds a little different
+    // a drawn LFO curve that jumps (two points at the same place) clicks every time it jumps: each jump becomes a ramp of 1% of the cycle
+    public static string SmoothCurves(string data)
+    {
+        var parts = data.Split(';'); for (int pi = 0; pi < parts.Length; pi++)
+        {
+            string p = parts[pi]; if (!(p.StartsWith("lc1=") || p.StartsWith("lc2=") || p.StartsWith("lc3=") || p.StartsWith("lc4="))) continue;
+            var pts = p.Substring(4).Split(','); var xs = new double[pts.Length]; var rest = new string[pts.Length]; var ci = System.Globalization.CultureInfo.InvariantCulture;
+            for (int i = 0; i < pts.Length; i++) { int c = pts[i].IndexOf(':'); if (c < 0) { xs = null; break; } xs[i] = double.Parse(pts[i].Substring(0, c), ci); rest[i] = pts[i].Substring(c); }
+            if (xs == null) continue;
+            for (int i = 1; i < xs.Length; i++) if (Math.Abs(xs[i] - xs[i - 1]) < 0.004) { double lo = i >= 2 ? xs[i - 2] : 0, hi = i + 1 < xs.Length ? xs[i + 1] : 1, w = Math.Min(0.006, Math.Min(xs[i - 1] - lo, hi - xs[i]) / 2); if (w <= 0) continue; xs[i - 1] -= w; xs[i] += w; }
+            var sb = new System.Text.StringBuilder(p.Substring(0, 4)); for (int i = 0; i < xs.Length; i++) { if (i > 0) sb.Append(','); sb.Append(Math.Max(0, Math.Min(1, xs[i])).ToString("0.####", ci)).Append(rest[i]); } parts[pi] = sb.ToString();
+        }
+        return string.Join(";", parts);
+    }
     public static string BassPatch(string flavour, Rnd r)
     {
         string baseName; string extra = "";
@@ -24,12 +38,12 @@ static class Music
             case "sub": baseName = "Deep Sub"; extra = "f1cut=" + (int)r.Range(260, 480) + ";bbgain=" + (int)r.Range(6, 11); break;
             case "stab": baseName = "Reese Stab"; extra = "f1cut=" + (int)r.Range(700, 1500); break;
             case "rubber": case "elastic": baseName = "Acid Squelch"; extra = "mode=2;glide=" + (int)r.Range(70, 160) + ";f1res=" + (int)r.Range(55, 78) + ";f1cut=" + (int)r.Range(320, 620); break;
-            case "riddim": baseName = "Riddim Chug"; extra = "f1cut=" + (int)r.Range(380, 520); break;
+            case "riddim": baseName = "Riddim Chug"; extra = "f1cut=" + (int)r.Range(380, 520); return SmoothCurves((SynthPresets.DataOf(baseName) ?? "") + ";" + extra) + ";e1a=4;f1drive=0;l1smooth=18;l2smooth=12;dstmode=2;dsttone=5000;dstdrive=" + (int)r.Range(4, 8);   // the chug, with soft edges
             case "organ": baseName = "Organ"; extra = "e1d=" + (int)r.Range(150, 300) + ";e1s=" + (int)r.Range(0, 30) + ";e1r=90;aoct=-1"; break;
             case "pluck": baseName = "Pluck Bass"; extra = "f1cut=" + (int)r.Range(260, 420); break;
             default: baseName = "Wobble Bass"; break;
         }
-        string d = SynthPresets.DataOf(baseName) ?? ""; return d + ";" + extra;
+        string d = SynthPresets.DataOf(baseName) ?? ""; return SmoothCurves(d + ";" + extra) + ";e1a=4;f1drive=0;l1smooth=8;l2smooth=8;l3smooth=8;l4smooth=8;dstmode=2;dsttone=" + (int)r.Range(4500, 6500) + ";dstdrive=" + (int)r.Range(4, 9);   // packs: growl without crackle (an overdriven filter and instant jumps are what crackle)
     }
     public static string LeadPatch(string name, string extra = "") { return (SynthPresets.DataOf(name) ?? "") + ";" + extra; }
 
@@ -44,10 +58,20 @@ static class Music
         { "bassline", new[] { "x.x.x..x.x.x..x.", "x..x.x.x..x.x.x." } },
         { "minimal", new[] { "x.......x.....x.", "x.....x........." } },
         { "house", new[] { "x.x.x.x.x.x.x.x.", ".x.x.x.x.x.x.x.x" } },
+        { "afro", new[] { "x..x...x..x.x...", "x....x..x..x..x.", "x..x..x...x....." } },
+        { "amapiano", new[] { "x..x..x...x.x...", "x.x...x.x..x....", "...x..x...x..x.x" } },
+        { "dembow", new[] { "x..x..x.x..x..x.", "x..x...xx..x...x" } },
+        { "techno", new[] { "..x...x...x...x.", "x.xxx.xxx.xxx.xx", ".xx..xx..xx..xx." } },
+        { "pop", new[] { "x...x...x...x...", "x.....x.x.......", "x.x...x.x.x...x." } },
+        { "rnb", new[] { "x......x.x......", "x....x....x.x...", "x..........x.x.." } },
+        { "disco", new[] { "x.x.x.x.x.x.x.x.", "x..xx..xx..xx..x" } },
+        { "trance", new[] { "..x...x...x...x.", ".xxx.xxx.xxx.xxx" } },
         { "dub", new[] { "x.......x.......", "x...x...x.x....." } },
     };
     public static string RhythmFor(string drums)
     {
+        if (drums == "afro") return "afro"; if (drums == "amapiano") return "amapiano"; if (drums == "dembow" || drums == "dancehall" || drums == "baile") return "dembow"; if (drums == "techno" || drums == "techhouse") return "techno";
+        if (drums == "pop" || drums == "jersey" || drums == "hyperpop") return "pop"; if (drums == "rnb" || drums == "lofi") return "rnb"; if (drums == "disco" || drums == "deephouse") return "disco"; if (drums == "trance") return "trance"; if (drums == "futurebass" || drums == "phonk" || drums == "grime") return "dub"; if (drums == "breaks") return "roller";
         if (drums.Contains("roller")) return "roller"; if (drums.Contains("jumpup")) return "jumpup"; if (drums.Contains("liquid")) return "liquid"; if (drums.Contains("neuro")) return "neuro"; if (drums.Contains("halftime")) return "halftime"; if (drums.Contains("minimal")) return "minimal";
         if (drums.Contains("ukg")) return "garage"; if (drums.Contains("bassline")) return "bassline"; if (drums.Contains("house")) return "house"; if (drums.Contains("dubstep") || drums.Contains("riddim") || drums.Contains("trap") || drums.Contains("drill")) return "dub"; if (drums.Contains("dark")) return "neuro"; if (drums.Contains("jungle")) return "roller"; return "roller";
     }

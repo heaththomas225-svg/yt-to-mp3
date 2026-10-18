@@ -597,6 +597,7 @@ partial class StudioForm : Form
         if (browserOpen && !allFxOpen) { if (TxtAudit != null) TxtAudit.Clear(); PaintBrowser(g); }   // (over ALL PLUGINS the list of effects is drawn on top of the sheet, in PaintSheets)
         PaintSoundDrag(g); PaintPackManager(g);
         if (soundBox != null && soundBox.Visible && !(soundsOpen && tab == 0)) soundBox.Visible = false;
+        if (packBox != null && packBox.Visible && !packsOpen) packBox.Visible = false;
     }
     void PaintSheets(Graphics g) { PaintCutMark(g); PaintNewTrackSheet(g); PaintBusSheet(g); PaintStylesSheet(g); PaintAiSheet(g); PaintThemeSheet(g); PaintCoverSheet(g); PaintPresetSheet(g); PaintAutoMixSheet(g); PaintAutoSheet(g); PaintGainPanel(g); PaintPickSheet(g); PaintCommPresets(g); PaintAllFxSheet(g); if (browserOpen && allFxOpen) PaintBrowser(g); PaintEpSheet(g); PaintProjEpSheet(g); }
 
@@ -1496,7 +1497,8 @@ partial class StudioForm : Form
         if (k == Keys.F2 && tab == 0 && selTrack < eng.Tracks.Count) { RenameTrack(eng.Tracks[selTrack]); return true; }
         if (k == (Keys.Control | Keys.Z)) { DoUndo(); return true; }
         if (tab == 0 && k == (Keys.Control | Keys.C)) { CopyKey(); return true; }   // copy the picked piece, or every highlighted section
-        if (tab == 0 && k == (Keys.Control | Keys.V)) { PasteKey(); return true; }   // paste at the needle on the picked track
+        if (tab == 0 && k == (Keys.Control | Keys.V)) { PasteKey(); return true; }
+        if (tab == 0 && k == (Keys.Control | Keys.X)) { CutKey(); return true; }   // cut the highlighted audio   // paste at the needle on the picked track
         if (k == (Keys.Control | Keys.Y) || k == (Keys.Control | Keys.Shift | Keys.Z)) { DoRedo(); return true; }
         if (k == Keys.B && tab == 0) { SplitSelected(); return true; }
         if (k == Keys.Delete && tab == 0 && multiSel.Count > 0) { DeleteSelectedClips(); return true; }
