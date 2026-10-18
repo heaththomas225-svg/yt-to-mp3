@@ -20,6 +20,8 @@ class SoundItem
     public bool Exists { get { return File.Exists(Path); } }
     public string Search { get { return (Name + " " + Type + " " + Group + " " + Kind + " " + Genre + " " + Sub + " " + Tags + " " + Mood + " " + Key + " " + PackName).ToLowerInvariant(); } }
     public string PackName = "";
+    public string Spec = "";   // an instant loop: the recipe it is made from the first time it is played (see InstantLib)
+    public bool Instant { get { return Spec.Length > 0; } }
 }
 
 class SoundPack
@@ -47,6 +49,7 @@ static class SoundLibrary
         {
             Packs.Clear(); try { Directory.CreateDirectory(Root); } catch { }
             try { foreach (var d in Directory.GetDirectories(Root)) { var p = ReadPack(Path.Combine(d, "pack.txt")); if (p != null) Packs.Add(p); } } catch { }
+            foreach (var p in Packs) { var rec = SoundCatalog.Find(p.Id); if (rec == null) continue; p.Section = rec.Section; p.Genre = rec.Genre; p.Sub = rec.Sub; foreach (var s in p.Items) { s.Genre = rec.Genre; s.Sub = rec.Sub; } }   // packs installed before a relabel show the right genre and style
             if (!Packs.Exists(p => p.Id == UserPackId)) Packs.Add(new SoundPack { Id = UserPackId, Name = "My samples", Section = "Yours", Genre = "Any", Description = "Samples you imported yourself.", License = "Yours: you told Purphex you own or have the rights to these files.", Hue = 200, Installed = true });
             Packs.Sort((a, b) => string.Compare(a.Name, b.Name, StringComparison.OrdinalIgnoreCase));
             ReadUser();
@@ -88,8 +91,8 @@ static class SoundLibrary
     public static void RemovePack(string id) { lock (Lock) { Packs.RemoveAll(x => x.Id == id && id != UserPackId); } try { string d = Path.Combine(Root, id); if (id != UserPackId && Directory.Exists(d)) Directory.Delete(d, true); } catch { } }
     public static SoundPack Pack(string id) { lock (Lock) return Packs.Find(p => p.Id == id); }
 
-    public static List<SoundItem> All() { var l = new List<SoundItem>(); lock (Lock) foreach (var p in Packs) l.AddRange(p.Items); return l; }
-    public static SoundItem Find(string id) { lock (Lock) foreach (var p in Packs) foreach (var s in p.Items) if (s.Id == id) return s; return null; }
+    public static List<SoundItem> All() { var l = new List<SoundItem>(); lock (Lock) foreach (var p in Packs) l.AddRange(p.Items); l.AddRange(InstantLib.Items); return l; }   // the installed packs, then every instant loop
+    public static SoundItem Find(string id) { lock (Lock) foreach (var p in Packs) foreach (var s in p.Items) if (s.Id == id) return s; return InstantLib.Find(id); }
 
     // ---- search ----
     public class Filter
@@ -323,12 +326,13 @@ static class Auditioner
     public static void Play(SoundItem s, Action<string> onError)
     {
         Error = "";
-        if (s == null) return; if (!s.Exists) { Error = "This file is missing: " + s.Rel + ". Reinstall the pack from the pack manager."; if (onError != null) onError(Error); return; }
+        if (s == null) return; if (!s.Instant && !s.Exists) { Error = "This file is missing: " + s.Rel + ". Reinstall the pack from the pack manager."; if (onError != null) onError(Error); return; }
         Current = s; Loading = true; playing = false;
         new Thread(() =>
         {
             float[] l, r; int sr; string fmt;
             if (!s.IsAudio) { Loading = false; Error = "MIDI files can't be played here: drag them to a track or open them in your instrument."; if (onError != null) onError(Error); return; }
+            if (s.Instant) { string err = InstantLib.Ensure(s); if (err != null) { Loading = false; Error = err; if (onError != null) onError(Error); return; } }   // made now, the first time (a fraction of a second)
             if (!SoundIO.Read(s.Path, out l, out r, out sr, out fmt)) { Loading = false; Error = "Couldn't read " + s.Rel + " (is it a damaged file?)."; if (onError != null) onError(Error); return; }
             if (sr != 44100 && sr > 0) { l = Resample(l, sr); r = Resample(r, sr); }
             if (Current != s) { Loading = false; return; }   // another sound was picked while this one loaded

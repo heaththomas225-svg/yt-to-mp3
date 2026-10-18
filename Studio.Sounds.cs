@@ -51,9 +51,10 @@ partial class StudioForm
     // returns null if it worked, or a message
     string AddSample(SoundItem s, long frame, int insertAt)
     {
-        if (s == null) return "Pick a sound first."; if (!s.Exists) return "This file is missing (" + s.Rel + "). Reinstall the pack in the pack manager."; if (busy) return "Wait for the current job to finish.";
+        if (s == null) return "Pick a sound first."; if (!s.Instant && !s.Exists) return "This file is missing (" + s.Rel + "). Reinstall the pack in the pack manager."; if (busy) return "Wait for the current job to finish.";
         if (s.Kind == "preset") return InstallPreset(s);
         if (s.Kind == "midi") return DropMidi(s, frame, insertAt);
+        if (s.Instant) { string err = InstantLib.Ensure(s); if (err != null) return err; }   // an instant loop is made the first time it is used
         float[] l, r; int sr; string fmt; if (!SoundIO.Read(s.Path, out l, out r, out sr, out fmt)) return "Couldn't read " + s.Rel + ".";
         if (sr != StudioEngine.SR && sr > 0) { l = Resample(l, sr); r = Resample(r, sr); }
         var clip = AudioClip.FromArrays(l, r, s.Name); clip.Path = s.Path; var t = StudioEngine.NewTrack(s.Name, "audio", clip); t.Color = GroupColour(s.Group); t.Offset = Math.Max(0, frame);
@@ -126,7 +127,7 @@ partial class StudioForm
             var r = Rc(rx, ry, rw[i], 24); int k = i; bool on = (i == 0 && F.OnlyFav) || (i == 1 && F.OnlyRecent) || (i == 2 && F.Collection.Length > 0) || (i == 3 && F.Kind == "one-shot") || (i == 4 && F.Kind == "loop") || (i == 5 && F.Kind == "midi");
             Chip(g, r, i == 2 && F.Collection.Length > 0 ? F.Collection : rn[i], on, () => { SoundChipClick(k); }, i == 6 ? 0 : -1); rx += rw[i] + 4;
         }
-        Txt(g, sndResults.Count + (sndResults.Count == 1 ? " sound" : " sounds") + "   (" + installedPacks + " pack" + (installedPacks == 1 ? "" : "s") + " installed)", 11, DimC, Rc(x + 14, y + 148, w - 28, 16), StringAlignment.Near, false);
+        Txt(g, sndResults.Count.ToString("#,0") + (sndResults.Count == 1 ? " sound" : " sounds") + "   (" + installedPacks + " pack" + (installedPacks == 1 ? "" : "s") + " installed + " + InstantLib.Items.Count.ToString("#,0") + " instant drum and bass loops, made when you play them)", 11, DimC, Rc(x + 14, y + 148, w - 28, 16), StringAlignment.Near, false);
         // list
         float py = 170, ph = 214; var list = Rc(x + 8, y + py, w - 16, h - py - ph - 6); var gs = g.Save(); g.SetClip(list, CombineMode.Intersect); float rowH = 52;
         float maxScroll = Math.Max(0, sndResults.Count * rowH - list.Height); sndScroll = Math.Max(0, Math.Min(maxScroll, sndScroll)); Reg(list, () => { }).OnWheel = d => { sndScroll = Math.Max(0, Math.Min(maxScroll, sndScroll - d * 52)); };
@@ -152,12 +153,12 @@ partial class StudioForm
 
     void PaintSoundRow(Graphics g, SoundItem s, RectangleF r)
     {
-        bool sel = s == sndSel, hot = Hot(r), sex = s.Exists; FillRR(g, sel ? TM.C(150, 80, 44, 150) : (hot ? TM.C(130, 60, 34, 110) : TM.C(90, 34, 20, 64)), r, 8); if (sel) StrokeRR(g, NeonCyan, r, 8, 1.4f);
+        bool sel = s == sndSel, hot = Hot(r), sex = s.Instant || s.Exists; FillRR(g, sel ? TM.C(150, 80, 44, 150) : (hot ? TM.C(130, 60, 34, 110) : TM.C(90, 34, 20, 64)), r, 8); if (sel) StrokeRR(g, NeonCyan, r, 8, 1.4f);
         var tile = Rc(r.X + 6, r.Y + 6, 38, 38); DrawPackTile(g, tile, SoundLibrary.Pack(s.PackId), s.PackName);
         Txt(g, s.Name.Replace(s.PackName + " - ", ""), 12, sex ? Ink : Color.FromArgb(255, 140, 140), Rc(r.X + 50, r.Y + 5, 250, 20), StringAlignment.Near, sel);
         Txt(g, s.PackName + "  ·  " + s.Type + (sex ? "" : "  (file missing)"), 10, DimC, Rc(r.X + 50, r.Y + 26, 250, 18), StringAlignment.Near, false);
         // little wave
-        var wr = Rc(r.X + 304, r.Y + 10, 90, 30); if (s.Peaks != null && s.Peaks.Length > 0) { using (var pen = new Pen(Color.FromArgb(sel ? 230 : 150, Neon(GroupColour(s.Group))), 1f)) for (int i = 0; i < wr.Width; i += 2) { float v = s.Peaks[Math.Min(s.Peaks.Length - 1, (int)(i / wr.Width * s.Peaks.Length))] / 255f * wr.Height / 2; g.DrawLine(pen, wr.X + i, wr.Y + wr.Height / 2 - v, wr.X + i, wr.Y + wr.Height / 2 + v); } }
+        var wr = Rc(r.X + 304, r.Y + 10, 90, 30); if (s.Peaks != null && s.Peaks.Length > 0) { using (var pen = new Pen(Color.FromArgb(sel ? 230 : 150, Neon(GroupColour(s.Group))), 1f)) for (int i = 0; i < wr.Width; i += 2) { float v = s.Peaks[Math.Min(s.Peaks.Length - 1, (int)(i / wr.Width * s.Peaks.Length))] / 255f * wr.Height / 2; g.DrawLine(pen, wr.X + i, wr.Y + wr.Height / 2 - v, wr.X + i, wr.Y + wr.Height / 2 + v); } } else if (s.Instant) Txt(g, "PLAY TO MAKE", 9, DimC, wr, StringAlignment.Center, false);   /* an instant loop is made the first time it plays */
         Txt(g, s.Bpm > 0 ? s.Bpm.ToString("0") : "-", 11, s.Bpm > 0 ? Ink : DimC, Rc(r.X + 400, r.Y, 40, r.Height), StringAlignment.Center, false); Txt(g, s.Key.Length > 0 ? s.Key : "-", 11, s.Key.Length > 0 ? Ink : DimC, Rc(r.X + 440, r.Y, 62, r.Height), StringAlignment.Center, false); Txt(g, s.Dur > 0 ? s.Dur.ToString("0.0") + "s" : "", 10, DimC, Rc(r.X + 502, r.Y, 46, r.Height), StringAlignment.Center, false);
         var star = Rc(r.Right - 30, r.Y + 12, 22, 24); bool fav = SoundLibrary.Favourites.Contains(s.Id); Txt(g, fav ? "★" : "☆", 16, fav ? Color.FromArgb(255, 210, 80) : DimC, star, StringAlignment.Center, false);
         var rg = Reg(r, () => { SelectSound(s, true); sndDrag = s; sndDragFrom = MousePos; sndDragging = false; }); rg.OnDrag = pt => { if (sndDrag != null && !sndDragging && (Math.Abs(pt.X - sndDragFrom.X) + Math.Abs(pt.Y - sndDragFrom.Y)) > 8) sndDragging = true; }; rg.OnDouble = () => SelectSound(s, true);   // (drag it onto the timeline to use it: a double-click only plays it again) rg.OnRight = () => SoundMenu(s);
@@ -191,15 +192,40 @@ partial class StudioForm
         float by = cy + 34; bool preset = s.Kind == "preset", midi = s.Kind == "midi";
         Btn(g, Rc(r.X + 12, by, 168, 30), preset ? "Add to Bass Lab" : (midi ? "Add to selected track" : "Add to timeline"), 2, () => { string m = midi ? DropMidi(s, Snap(DispPos), -1) : AddSample(s, Snap(DispPos), eng.Tracks.Count); if (m != null) Toast(m); }, 12);
         bool fav = SoundLibrary.Favourites.Contains(s.Id); Chip(g, Rc(r.X + 184, by, 96, 30), fav ? "★ Favourite" : "☆ Favourite", fav, () => { SoundLibrary.ToggleFav(s); sndDirty = sndFilter.OnlyFav; }); Btn(g, Rc(r.X + 284, by, 104, 30), "Collection...", 0, () => SoundMenu(s), 11);
-        Btn(g, Rc(r.X + 392, by, 70, 30), "Folder", 0, () => { try { System.Diagnostics.Process.Start("explorer.exe", "/select,\"" + s.Path + "\""); } catch { } }, 11); Btn(g, Rc(r.X + 466, by, 80, 30), "Licence", 0, () => { var p = SoundLibrary.Pack(s.PackId); MessageBox.Show(this, (p != null ? p.Name + "\n\n" + p.License : "No licence information."), "Licence"); }, 11);
+        Btn(g, Rc(r.X + 392, by, 70, 30), "Folder", 0, () => { try { System.Diagnostics.Process.Start("explorer.exe", "/select,\"" + s.Path + "\""); } catch { } }, 11); Btn(g, Rc(r.X + 466, by, 80, 30), "Licence", 0, () => { var p = SoundLibrary.Pack(s.PackId); MessageBox.Show(this, (p != null ? p.Name + "\n\n" + p.License : (s.Instant ? s.PackName + "\n\n" + SoundLibrary.LicenceText : "No licence information.")), "Licence"); }, 11);
         string info = (s.Format.Length > 0 ? s.Format : "") + (s.Rate > 0 ? "  ·  " + (s.Rate / 1000.0).ToString("0.#") + " kHz" : "") + (s.Dur > 0 ? "  ·  " + s.Dur.ToString("0.00") + " s" : "") + (s.Bpm > 0 ? "  ·  " + s.Bpm.ToString("0") + " BPM" : "") + (s.Key.Length > 0 ? "  ·  " + s.Key : "") + "  ·  " + s.PackName;
         Txt(g, info, 10, DimC, Rc(r.X + 12, by + 34, r.Width - 24, 16), StringAlignment.Near, false);
     }
 
     // ---- menus ----
     void ShowFilterMenu(ContextMenuStrip m) { m.Show(this, new Point((int)MousePos.X, (int)MousePos.Y)); }
-    void GenreMenu() { var m = Win.NewMenu(); AddAny(m, "Any genre", () => sndFilter.Genre = ""); foreach (var v in SoundLibrary.Distinct(x => x.Genre)) { string vv = v; AddItem(m, v, sndFilter.Genre == v, () => { sndFilter.Genre = vv; sndFilter.Sub = ""; }); } ShowFilterMenu(m); }
-    void StyleMenu() { var m = Win.NewMenu(); AddAny(m, "Any style", () => sndFilter.Sub = ""); foreach (var v in SoundLibrary.Distinct(x => (sndFilter.Genre.Length == 0 || x.Genre == sndFilter.Genre) ? x.Sub : "")) { string vv = v; AddItem(m, v, sndFilter.Sub == v, () => sndFilter.Sub = vv); } ShowFilterMenu(m); }
+    // how many sounds each genre and style has right now (the installed packs and the instant loops)
+    static Dictionary<string, int> CountBy(Func<SoundItem, string> key) { var d = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase); foreach (var s in SoundLibrary.All()) { string k = key(s); if (string.IsNullOrEmpty(k)) continue; int n; d.TryGetValue(k, out n); d[k] = n + 1; } return d; }
+    static string Counted(string name, Dictionary<string, int> counts, string key) { int n; counts.TryGetValue(key, out n); return name + "   (" + n.ToString("#,0") + (n == 1 ? " sound)" : " sounds)"); }
+    // every genre in the library, in its section, with how many sounds it has
+    void GenreMenu() { ShowFilterMenu(GenreMenuStrip()); }
+    internal ContextMenuStrip GenreMenuStrip()
+    {
+        var m = Win.NewMenu(); AddAny(m, "Any genre", () => { sndFilter.Genre = ""; sndFilter.Sub = ""; }); var counts = CountBy(x => x.Genre); var bySec = new SortedDictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+        foreach (var g in SoundCatalog.Genres().Keys) { string sec = SoundCatalog.SectionOf(g); List<string> l; if (!bySec.TryGetValue(sec, out l)) bySec[sec] = l = new List<string>(); l.Add(g); }
+        foreach (var kv in bySec) { var top = new ToolStripMenuItem(kv.Key.ToUpperInvariant()) { Enabled = false }; m.Items.Add(top); foreach (var g in kv.Value) { string gg = g; AddItem(m, "    " + Counted(g, counts, g), sndFilter.Genre == g, () => { sndFilter.Genre = gg; sndFilter.Sub = ""; }); } }
+        int mine; if (counts.TryGetValue("Any", out mine) && mine > 0) { m.Items.Add(new ToolStripSeparator()); AddItem(m, Counted("My samples", counts, "Any"), sndFilter.Genre == "Any", () => { sndFilter.Genre = "Any"; sndFilter.Sub = ""; }); }
+        return m;
+    }
+    // the styles of the chosen genre (or every genre's styles, one menu per genre)
+    void StyleMenu() { ShowFilterMenu(StyleMenuStrip()); }
+    internal ContextMenuStrip StyleMenuStrip()
+    {
+        var m = Win.NewMenu(); AddAny(m, "Any style", () => sndFilter.Sub = ""); var counts = CountBy(x => x.Genre + "|" + x.Sub); var all = SoundCatalog.Genres();
+        if (sndFilter.Genre.Length > 0 && all.ContainsKey(sndFilter.Genre)) { foreach (var v in all[sndFilter.Genre]) { string vv = v; AddItem(m, Counted(v, counts, sndFilter.Genre + "|" + v), sndFilter.Sub == v, () => sndFilter.Sub = vv); } }
+        else foreach (var kv in all)
+        {
+            var top = new ToolStripMenuItem(kv.Key); string g = kv.Key;
+            foreach (var v in kv.Value) { string vv = v; var it = new ToolStripMenuItem(Counted(v, counts, g + "|" + v)) { Checked = sndFilter.Genre == g && sndFilter.Sub == v }; it.Click += (a, b) => { sndFilter.Genre = g; sndFilter.Sub = vv; sndDirty = true; sndScroll = 0; }; top.DropDownItems.Add(it); }
+            m.Items.Add(top);
+        }
+        return m;
+    }
     void TypeMenu()
     {
         var m = Win.NewMenu(); AddAny(m, "Any type", () => { sndFilter.Type = ""; sndFilter.Group = ""; sndFilter.AnyType = null; });
@@ -211,11 +237,18 @@ partial class StudioForm
     void BpmMenu()
     {
         var m = Win.NewMenu(); AddAny(m, "Any tempo", () => { sndFilter.BpmMin = 0; sndFilter.BpmMax = 0; });
-        object[][] opts = { new object[] { "85 - 100  (boom bap, half-time)", 85.0, 100.0 }, new object[] { "120 - 130  (house, tech house)", 120.0, 130.0 }, new object[] { "130 - 138  (garage, bassline)", 130.0, 138.0 }, new object[] { "138 - 150  (trap, drill, dubstep)", 138.0, 150.0 }, new object[] { "160 - 170  (jungle)", 160.0, 170.0 }, new object[] { "170 - 176  (drum and bass)", 170.0, 176.0 } };
-        foreach (var o in opts) { double a = (double)o[1], b = (double)o[2]; AddItem(m, (string)o[0], sndFilter.BpmMin == a && sndFilter.BpmMax == b, () => { sndFilter.BpmMin = a; sndFilter.BpmMax = b; }); }
+        foreach (var o in BpmRanges()) { double a = o.Key, b = o.Value; AddItem(m, a.ToString("0") + " - " + b.ToString("0") + " BPM   (" + BpmGenres(a, b) + ")", sndFilter.BpmMin == a && sndFilter.BpmMax == b, () => { sndFilter.BpmMin = a; sndFilter.BpmMax = b; }); }
         m.Items.Add("Exact tempo...").Click += (a, b) => { string v = Ask("Tempo in BPM (the search allows 3 BPM either way):", Fx.ProjectBpm.ToString("0")); double bpm; if (v != null && double.TryParse(v, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out bpm)) { sndFilter.BpmMin = bpm - 3; sndFilter.BpmMax = bpm + 3; sndDirty = true; sndScroll = 0; } };
         m.Items.Add("Match my project's tempo").Click += (a, b) => { sndFilter.BpmMin = Fx.ProjectBpm - 3; sndFilter.BpmMax = Fx.ProjectBpm + 3; sndDirty = true; sndScroll = 0; };
         var hd = new ToolStripMenuItem("Also show half and double time") { Checked = sndFilter.HalfDouble }; hd.Click += (a, b) => { sndFilter.HalfDouble = !sndFilter.HalfDouble; sndDirty = true; }; m.Items.Add(hd); ShowFilterMenu(m);
+    }
+    // tempo ranges, each labelled with the genres in the library that use it
+    static readonly double[][] bpmR = { new[] { 60.0, 84 }, new[] { 85.0, 99 }, new[] { 100.0, 115 }, new[] { 116.0, 124 }, new[] { 125.0, 132 }, new[] { 133.0, 139 }, new[] { 140.0, 150 }, new[] { 151.0, 165 }, new[] { 166.0, 180 } };
+    internal static List<KeyValuePair<double, double>> BpmRanges() { var l = new List<KeyValuePair<double, double>>(); foreach (var r in bpmR) if (BpmGenres(r[0], r[1]).Length > 0) l.Add(new KeyValuePair<double, double>(r[0], r[1])); return l; }
+    internal static string BpmGenres(double a, double b)
+    {
+        var n = new Dictionary<string, int>(); foreach (var r in SoundCatalog.Recipes) if (r.Has("loops") || r.Has("drums")) foreach (var t in r.Bpms) if (t >= a && t <= b) { int c; n.TryGetValue(r.Genre, out c); n[r.Genre] = c + 1; }
+        var l = new List<KeyValuePair<string, int>>(n); l.Sort((x, y) => y.Value != x.Value ? y.Value.CompareTo(x.Value) : string.Compare(x.Key, y.Key, StringComparison.OrdinalIgnoreCase)); var names = new List<string>(); foreach (var kv in l) { if (names.Count == 5) { names.Add("more"); break; } names.Add(kv.Key); } return string.Join(", ", names);
     }
     void ToolkitMenu() { var m = Win.NewMenu(); foreach (var set in SoundToolkit.Sets) { var st = set; AddItem(m, set.Name, false, () => { var keep = sndFilter.Text; var f = st.Filter.Copy(); sndFilter.Type = f.Type; sndFilter.Group = f.Group; sndFilter.AnyType = f.AnyType; sndFilter.Kind = f.Kind; sndFilter.Pack = f.Pack; sndFilter.Genre = ""; sndFilter.Sub = ""; sndFilter.Key = ""; sndFilter.BpmMin = 0; sndFilter.BpmMax = 0; sndFilter.OnlyFav = false; sndFilter.OnlyRecent = false; sndFilter.Collection = ""; }); } ShowFilterMenu(m); }
     void CollectionsMenu()

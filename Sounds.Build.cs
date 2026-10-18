@@ -6,7 +6,7 @@ static class PackBuilder
 {
     // makes a pack's files on disk and returns the finished pack (null if cancelled)
     // the sound design version: packs made by an older one are offered an update (2 = band-limited hats, cymbals and saws, in-tune plucks, even loop levels)
-    public const string SoundVersion = "3";   // 3: the big packs (260+ sounds each); installed packs offer an update
+    public const string SoundVersion = "4";   // 3: the big packs (260+ sounds each); 4: clean sounds (no clicks, crackle or distortion); installed packs offer an update
     public static bool Outdated(SoundPack p) { return p != null && p.Items.Count > 0 && p.Id != SoundLibrary.UserPackId && SoundCatalog.Find(p.Id) != null && p.Version != SoundVersion; }
     public static SoundPack Build(Recipe rec, Action<string, float> progress, Func<bool> cancel)
     {
@@ -142,7 +142,7 @@ static class PackBuilder
     }
     static void Fills(Ctx c)
     {
-        var w = c.W; for (int i = 0; i < 3; i++) { double bpm = BpmOf(c, i); var lp = DrumKit.Render(c.Kit, c.Style, c.Style.Pat, bpm, 2, c.Style.Swing, c.Rec.Seed + 200 + i, true); var half = lp.Mix.Trim((int)(lp.Mix.Length)); w.Audio(half, "Loops/Drum Fills", N(c, "Drum Fill " + bpm.ToString("0") + " BPM", i), "Drum Fill", "Loops", "loop", bpm, "", Tg(c, "fill,drum fill,drums,transition"), c.Rec.Mood, -1.5); }
+        var w = c.W; for (int i = 0; i < 3; i++) { double bpm = BpmOf(c, i); var lp = DrumKit.Render(c.Kit, c.Style, c.Style.Pat, bpm, 2, c.Style.Swing, c.Rec.Seed + 200 + i, true); w.Audio(lp.Mix, "Loops/Drum Fills", N(c, "Drum Fill " + bpm.ToString("0") + " BPM", i), "Drum Fill", "Loops", "loop", bpm, "", Tg(c, "fill,drum fill,drums,transition"), c.Rec.Mood, -1.5); }
     }
     static void BassLoops(Ctx c)
     {
@@ -158,7 +158,7 @@ static class PackBuilder
         }
     }
     // loops are cut to exactly their length in beats so they repeat without a gap
-    static Buf LoopLen(Buf b, double beats, double bpm) { int n = (int)Math.Round(beats * 60.0 / bpm * SoundGen.SR); var o = b.Trim(n); int tail = Math.Min(Math.Max(0, b.Length - n), SoundGen.SR * 2); for (int k = 0; k < tail && k < n; k++) { o.L[k] += b.L[n + k]; o.R[k] += b.R[n + k]; } return o; }
+    internal static Buf LoopLen(Buf b, double beats, double bpm) { int n = (int)Math.Round(beats * 60.0 / bpm * SoundGen.SR); var o = b.Trim(n); int tail = Math.Min(Math.Max(0, b.Length - n), SoundGen.SR * 2); for (int k = 0; k < tail && k < n; k++) { o.L[k] += b.L[n + k]; o.R[k] += b.R[n + k]; } return o; }
 
     static void MusicLoops(Ctx c)
     {
@@ -176,7 +176,7 @@ static class PackBuilder
             double bpm = BpmOf(c, i); string key = KeyOf(c, i); int pc = Music.Root(key); bool minor = Music.IsMinor(key);
             var arp = SoundGen.RenderSynth(Music.LeadPatch(i == 0 ? "Square Lead" : "FM Bell Lead"), Music.Arpeggio(r, 4, pc, minor, 4), bpm, 16, 0.8); arp = LoopLen(arp, 16, bpm); w.Audio(arp, "Synths/Synth Loops", N(c, "Arp Loop " + bpm.ToString("0") + " BPM " + Kn(key), i), "Synth Loop", "Synth", "loop", bpm, Kn(key), Tg(c, "arp,synth loop,loop,synth"), c.Rec.Mood, -2.0);
             var mel = SoundGen.RenderSynth(Music.LeadPatch(i == 0 ? "Mono Saw Lead" : "Electric Keys"), Music.Melody(r, 4, pc, minor, 4), bpm, 16, 0.8); mel = LoopLen(mel, 16, bpm); w.Audio(mel, "Synths/Melody Loops", N(c, "Melody Loop " + bpm.ToString("0") + " BPM " + Kn(key), i), "Melody Loop", "Synth", "loop", bpm, Kn(key), Tg(c, "melody,synth loop,loop,synth"), c.Rec.Mood, -2.0);
-            var pl = new Buf((int)(16 * 60.0 / bpm * SoundGen.SR + SoundGen.SR)); var gr = new Rnd(c.Rec.Seed + 31 + i); int[] sc = minor ? Music.MinPent : new[] { 0, 2, 4, 7, 9 }; double stepS = 60.0 / bpm * SoundGen.SR / 2;
+            var pl = new Buf((int)(16 * 60.0 / bpm * SoundGen.SR + 2 * SoundGen.SR)); var gr = new Rnd(c.Rec.Seed + 31 + i); int[] sc = minor ? Music.MinPent : new[] { 0, 2, 4, 7, 9 }; double stepS = 60.0 / bpm * SoundGen.SR / 2;
             for (int st = 0; st < 32; st++) { if (gr.Next() < 0.3f) continue; int midi = 12 * 4 + pc + sc[gr.Int(sc.Length)] + (gr.Next() < 0.3f ? 12 : 0); pl.Add(SoundGen.Pluck(gr, SoundGen.NoteHz(midi), 1.4, 0.7), (int)(st * stepS), 0.5f); }
             pl = SoundGen.Wet(pl, 45, 50, 0.2f, pl.Length); pl = LoopLen(pl, 16, bpm); w.Audio(pl, "Synths/Guitar and Pluck Loops", N(c, "Pluck Loop " + bpm.ToString("0") + " BPM " + Kn(key), i), "Guitar Loop", "Synth", "loop", bpm, Kn(key), Tg(c, "guitar,pluck,string,loop,melody"), c.Rec.Mood, -2.0);
         }
@@ -311,7 +311,7 @@ static class PackBuilder
             for (int i = 0; i < 4; i++)
             {
                 double bpm = BpmOf(c, i); string key = KeyOf(c, i + 3); int pc = Music.Root(key); bool minor = Music.IsMinor(key); var gr = new Rnd(c.Rec.Seed + 600 + i); int[] sc = minor ? Music.MinPent : new[] { 0, 2, 4, 7, 9 }; double stepS = 60.0 / bpm * SoundGen.SR / (i % 2 == 0 ? 2 : 4);
-                var pl = new Buf((int)(16 * 60.0 / bpm * SoundGen.SR + SoundGen.SR)); int steps = i % 2 == 0 ? 32 : 64;
+                var pl = new Buf((int)(16 * 60.0 / bpm * SoundGen.SR + 2 * SoundGen.SR)); int steps = i % 2 == 0 ? 32 : 64;
                 for (int st = 0; st < steps; st++) { if (gr.Next() < (i % 2 == 0 ? 0.3f : 0.5f)) continue; int midi = 12 * 4 + pc + sc[gr.Int(sc.Length)] + (gr.Next() < 0.3f ? 12 : 0); pl.Add(SoundGen.Pluck(gr, SoundGen.NoteHz(midi), i < 2 ? 1.4 : 0.6, i < 2 ? 0.7 : 0.9), (int)(st * stepS), 0.5f); }
                 pl = LoopLen(SoundGen.Wet(pl, 45, 50, 0.2f, pl.Length), 16, bpm);
                 w.Audio(pl, "Synths/Guitar and Pluck Loops", N(c, (i < 2 ? "Guitar Loop " : "Harp Loop ") + (i % 2 + 2) + " " + bpm.ToString("0") + " BPM " + Kn(key), 80 + i), "Guitar Loop", "Synth", "loop", bpm, Kn(key), Tg(c, (i < 2 ? "guitar" : "harp") + ",pluck,string,loop,melody"), c.Rec.Mood, -2.5);

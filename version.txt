@@ -1,4 +1,4 @@
-3.67.0
+3.68.0
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-The sound library: 218 packs, 56,000+ clean sounds, Ctrl+X, pack search
-sha256=ef4ab01dcabf73bef48fd9d6c2086700622d340337676039174065fc68fdbd75
+Clean sounds, 50,000+ instant drum and bass loops, every genre labelled properly
+sha256=768ce1d845e9ea46d2b9527631896ac14bf407d0106cf210103b939186ae4b4b

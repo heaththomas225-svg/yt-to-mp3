@@ -77,7 +77,7 @@ static class SoundGen
         for (int i = 0; i < n; i++)
         {
             double t = i / (double)SR, f = f0 + (fStart - f0) * Math.Exp(-t / tauPitch); ph += 2 * Math.PI * f / SR; double env = Math.Exp(-t / decay) * Math.Min(1.0, t / 0.0008);
-            float s = (float)(Math.Sin(ph) * env); s += hp.Process(nz[i], 2500f, 0.8f, 2) * (float)(click * Math.Exp(-t / 0.004)); s += (float)(Math.Sin(2 * Math.PI * f0 * t) * Math.Exp(-t / (decay * 1.5)) * 0.25);
+            float s = (float)(Math.Sin(ph) * env); s += hp.Process(nz[i], 2500f, 0.8f, 2) * (float)(click * 0.5 * Math.Exp(-t / 0.004) * Math.Min(1.0, t / 0.0003)); s += (float)(Math.Sin(2 * Math.PI * f0 * t) * Math.Exp(-t / (decay * 1.5)) * 0.25);
             x[i] = Sat(s, (float)drive);
         }
         return new Buf(x);
@@ -89,7 +89,7 @@ static class SoundGen
         {
             double t = i / (double)SR, drop = 1 + 0.35 * Math.Exp(-t / 0.02); ph1 += 2 * Math.PI * body * drop / SR; ph2 += 2 * Math.PI * body * 1.83 * drop / SR; double be = Math.Exp(-t / 0.085);
             float s = (float)((Math.Sin(ph1) * 0.8 + Math.Sin(ph2) * 0.35) * be); float nzz = bp.Process(nz[i], (float)noiseHz, 0.8f, 1) * 3.2f + hp.Process(nz[i], 6500f, 0.7f, 2) * 0.5f;
-            s += nzz * (float)(noiseAmt * Math.Exp(-t / decay)); s += nz[i] * (float)(snap * Math.Exp(-t / 0.0025)); x[i] = Sat(s, (float)drive);
+            s += nzz * (float)(noiseAmt * Math.Exp(-t / decay)); s += nz[i] * (float)(snap * 0.6 * Math.Exp(-t / 0.0025)); x[i] = Sat(s, (float)(1 + (drive - 1) * 0.3));
         }
         return new Buf(x);
     }
@@ -102,7 +102,7 @@ static class SoundGen
             for (int i = 0; i < n; i++)
             {
                 double t = i / (double)SR, env = 0; for (int k = 0; k < at.Length; k++) { double d = t - at[k]; if (d >= 0) env = Math.Max(env, Math.Exp(-d / (k == at.Length - 1 ? tail : 0.006)) * (k == at.Length - 1 ? 1 : 0.8)); }
-                x[i] = Sat(bp.Process(nz[i], (float)centre * (c == 0 ? 1f : 1.04f), 1.4f, 1) * (float)env * 3f, 1.6f);
+                x[i] = Sat(bp.Process(nz[i], (float)centre * (c == 0 ? 1f : 1.04f), 1.4f, 1) * (float)env * 3f, 1.15f);
             }
         }
         var b = new Buf(n); b.L = l; b.R = rr; return b;
@@ -131,7 +131,7 @@ static class SoundGen
         }
         var b = new Buf(n); b.L = l; b.R = rr; return b;
     }
-    public static Buf Tom(Rnd r, double f0, double decay, double len) { return Kick(r, f0, f0 * 1.9, 0.045, decay, 1.5, 0.15, len); }
+    public static Buf Tom(Rnd r, double f0, double decay, double len) { return Kick(r, f0, f0 * 1.9, 0.045, decay, 1.15, 0.15, len); }
     public static Buf Shaker(Rnd r, double len, double bright)
     {
         int n = (int)(len * SR); var x = new float[n]; var bp = new Svf(); var nz = Noise(r, n);
@@ -141,7 +141,7 @@ static class SoundGen
     public static Buf Rim(Rnd r, double f0)
     {
         int n = (int)(0.12 * SR); var x = new float[n]; var nz = Noise(r, n);
-        for (int i = 0; i < n; i++) { double t = i / (double)SR; x[i] = (float)((Math.Sin(2 * Math.PI * f0 * t) * 0.7 + Math.Sin(2 * Math.PI * f0 * 2.3 * t) * 0.5) * Math.Exp(-t / 0.018) + nz[i] * Math.Exp(-t / 0.002) * 0.6); }
+        for (int i = 0; i < n; i++) { double t = i / (double)SR; x[i] = (float)((Math.Sin(2 * Math.PI * f0 * t) * 0.7 + Math.Sin(2 * Math.PI * f0 * 2.3 * t) * 0.5) * Math.Exp(-t / 0.018) + nz[i] * Math.Exp(-t / 0.002) * 0.3); }
         return new Buf(x);
     }
     public static Buf Cowbell(Rnd r, double f0, double decay)
@@ -165,9 +165,9 @@ static class SoundGen
         {
             double t = i / (double)SR, target = Hz(midi); if (slideToMidi > 0 && t > slideAtSec) { double k = Math.Min(1.0, (t - slideAtSec) / 0.09); target = Hz(midi) * Math.Pow(Hz(slideToMidi) / Hz(midi), k); }
             f = target * Math.Pow(2, glideSemis / 12.0 * Math.Exp(-t / 0.03)); ph += 2 * Math.PI * f / SR; double env = Math.Min(1.0, t / 0.002) * Math.Exp(-t / decay);
-            float s = (float)(Math.Sin(ph) * env + Math.Sin(ph * 2) * env * 0.08); s += hp.Process(nz[i], 1800f, 0.8f, 2) * (float)(click * Math.Exp(-t / 0.005)); x[i] = Sat(s, (float)drive);
+            float s = (float)(Math.Sin(ph) * env + Math.Sin(ph * 2) * env * 0.08); s += hp.Process(nz[i], 1800f, 0.8f, 2) * (float)(click * 0.5 * Math.Exp(-t / 0.005) * Math.Min(1.0, t / 0.0003)); x[i] = Sat(s, (float)drive);
         }
-        return new Buf(x);
+        var o8 = new Buf(x); EndFade(o8, 0.3, (int)(0.35 * SR)); return o8;
     }
 
     // ---------------- effects and transitions ----------------
@@ -188,7 +188,7 @@ static class SoundGen
         for (int i = 0; i < n; i++)
         {
             double t = i / (double)SR, f = subHz * (1 + 1.6 * Math.Exp(-t / 0.07)); ph += 2 * Math.PI * f / SR; float s = (float)(Math.Sin(ph) * Math.Exp(-t / (len * 0.28)) * Math.Min(1.0, t / 0.002));
-            s += lp.Process(nz[i], 2400f, 0.7f, 0) * (float)(Math.Exp(-t / 0.35) * 0.9) + nz[i] * (float)(Math.Exp(-t / 0.004) * 0.7); x[i] = Sat(s, (float)drive);
+            s += lp.Process(nz[i], 2400f, 0.7f, 0) * (float)(Math.Exp(-t / 0.35) * 0.9) + nz[i] * (float)(Math.Exp(-t / 0.004) * 0.35); x[i] = Sat(s, (float)(1 + (drive - 1) * 0.3));
         }
         var b = new Buf(x); return Wet(b, 85, 55, 0.5f, (int)(len * SR));
     }
@@ -244,7 +244,7 @@ static class SoundGen
                 for (int k = 0; k < 3; k++) s += f[k].Process(x, (float)(A[k] + (B[k] - A[k]) * m), 8f + k * 2, 1) * (k == 0 ? 1.0f : (k == 1 ? 0.7f : 0.4f));
                 double env = Math.Min(1.0, t / 0.012) * Math.Min(1.0, (len - t) / 0.08) * (1 - 0.35 * u); double cons = 0;
                 if (consonant == "h") cons = f[3].Process(nz[i], 3500f, 0.7f, 2) * Math.Exp(-t / 0.05) * 1.6; else if (consonant == "t") cons = f[3].Process(nz[i], 4200f, 0.8f, 2) * Math.Exp(-t / 0.012) * 2.2; else if (consonant == "s") cons = f[3].Process(nz[i], 6500f, 0.8f, 2) * Math.Exp(-t / 0.13) * 1.2;
-                o[i] = Sat((float)(s * env * 0.8 + cons * 0.5), shout > 0.5 ? 2.4f : 1.2f);
+                o[i] = Sat((float)(s * env * 0.8 + cons * 0.5), shout > 0.5 ? 1.35f : 1.05f);
             }
         }
         var b = new Buf(n); b.L = l; b.R = rr; return b;
@@ -254,9 +254,9 @@ static class SoundGen
     public static Buf Pluck(Rnd r, double hz, double len, double bright)
     {
         double period = SR / hz - 0.5; int d = Math.Max(2, (int)Math.Floor(period - 0.1)); double frac = period - d; double c = (1 - frac) / (1 + frac);   // whole samples + an all-pass for the fraction: the note is in tune
-        var line = new float[d]; for (int i = 0; i < d; i++) line[i] = r.Bi(); int n = (int)(len * SR); var x = new float[n]; int p = 0; float prev = 0; double apX = 0, apY = 0; float damp = (float)(0.992 - (1 - bright) * 0.03);
+        var line = new float[d]; float sm = 0, k0 = (float)(0.35 + 0.5 * bright); for (int i = 0; i < d; i++) { sm += (r.Bi() - sm) * k0; line[i] = sm * 1.4f; } int n = (int)(len * SR); var x = new float[n]; int p = 0; float prev = 0; double apX = 0, apY = 0; float damp = (float)(0.992 - (1 - bright) * 0.03);
         for (int i = 0; i < n; i++) { float v = line[p]; float avg = damp * 0.5f * (v + prev); prev = v; double ap = c * avg + apX - c * apY; apX = avg; apY = ap; line[p] = (float)ap; p = (p + 1) % d; x[i] = v; }
-        return new Buf(x);
+        var o = new Buf(x); EndFade(o, 0.2, (int)(0.06 * SR)); return o;
     }
 
     // ---------------- the Bass Lab synthesizer, played by notes ----------------
@@ -285,7 +285,13 @@ static class SoundGen
     // light mastering for rendered material: tame the peaks so level and loudness are consistent
     public static void Glue(Buf b, float drive)
     {
-        for (int i = 0; i < b.Length; i++) { b.L[i] = Sat(b.L[i], drive); b.R[i] = Sat(b.R[i], drive); }
+        float p = b.Peak(); if (p > 1f) b.Gain(1f / p);   // (it used to saturate the mix: that is distortion, so it only levels now)
+    }
+    // rounds off the end of a sound over its last part (a raised cosine): a hit that is still ringing never stops dead (that stop is a click)
+    public static void EndFade(Buf b, double frac, int maxSamples)
+    {
+        int n = b.Length, f = Math.Min(n, Math.Min(maxSamples, (int)(n * frac))); if (f < 2) return;
+        for (int i = 0; i < f; i++) { int k = n - f + i; float g = (float)(0.5 + 0.5 * Math.Cos(Math.PI * (i + 1) / f)); b.L[k] *= g; b.R[k] *= g; }
     }
     public static Buf Lowpass(Buf b, double hz) { var o = b.Copy(); var a = new Svf(); var c = new Svf(); for (int i = 0; i < o.Length; i++) { o.L[i] = a.Process(o.L[i], (float)hz, 0.7f, 0); o.R[i] = c.Process(o.R[i], (float)hz, 0.7f, 0); } return o; }
     public static Buf Highpass(Buf b, double hz) { var o = b.Copy(); var a = new Svf(); var c = new Svf(); for (int i = 0; i < o.Length; i++) { o.L[i] = a.Process(o.L[i], (float)hz, 0.7f, 2); o.R[i] = c.Process(o.R[i], (float)hz, 0.7f, 2); } return o; }

@@ -7,10 +7,18 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.67.0";
+    public const string Latest = "3.68.0";
 
     public const string Text =
-@"3.67.0  The sound library: 218 packs, 56,000+ clean sounds, Ctrl+X, pack search
+@"3.68.0  Clean sounds, 50,000+ instant drum and bass loops, every genre labelled properly
+ + FIXED: The crackle in the sound packs is gone. The real cause was found by measuring every sound: drum hits (kicks, snares, toms, cymbals, percussion) and 808s were cut off while they were still ringing, which clicked on every beat of every drum loop. Every hit now rings out to silence. Drum loops are exactly their length, with the last hits wrapping round to the start, so they repeat with no click and no gap.
+ + FIXED: No distortion: snares, claps, impacts and voices are no longer driven into saturation, loop mixes are no longer squashed by a saturating glue, the limiter that levels loops is gentler and slower (no gain wobble), the clean basses (sub, reese, organ, pluck, stab, rubber, wobble) have no distortion at all, and the kick and 808 clicks are softer. Plucked guitar notes start softer and end at silence.
+ + NEW: The instant library: every genre and style now has hundreds of drum loops and bass loops straight away, without installing anything (50,000+ in all: 120 drum loops and 120 bass loops for every pack, and twice that for a genre with one pack). Filter Trap drum loops and you get 1,800 of them; House bass loops in F minor, hundreds. Each loop is made the first time you play or drag it (a fraction of a second) and kept, so it is there at once next time. Every loop is its own groove: the kicks, hats, rolls, ghost notes, percussion and fills change, and bar two answers bar one.
+ + IMPROVED: Every pack is labelled with its real genre and style: Tech House, Bass House and Electro House are House; Dubstep, Riddim and Tearout are Dubstep; Trap, UK Drill, Grime, Boom Bap and R&B are their own genres instead of Rap and Vocals; Hyperpop sits in EDM. The sections are Drum & Bass, UK Bassline, UK Garage, Bass Music, Hip-Hop & Rap, House, Techno & Trance, Afro & Latin, Pop & R&B, Lo-Fi, EDM and Phonk. Installed packs show the new labels too.
+ + IMPROVED: The filters: Genre lists every genre under its section with how many sounds it has, Style lists the styles of the chosen genre (or every genre's styles), and every BPM range is labelled with the genres that use it. The filter buttons show what is picked.
+ + CHANGED: Installed packs offer an update (sound version 4) so their sounds are remade clean.
+
+3.67.0  The sound library: 218 packs, 56,000+ clean sounds, Ctrl+X, pack search
  + IMPROVED: No distorted or crackly sounds: every pack sound was measured for clipping, clicks and crackle. The growl, dirty, metallic, neuro and riddim basses no longer crackle (their filters are not overdriven any more and their LFO movements are smoothed), kicks and 808s are clean instead of squared-off (808 Dirty and 808 Distorted are now 808 Warm and 808 Punchy), stab chords and basses start without a click, the vinyl crackle texture is gone, and loud loops are levelled by a clean limiter instead of being clipped. A check of every sound runs with the tests so it stays that way.
  + NEW: Ctrl+X cuts the audio you highlighted (or the piece you picked): it is copied, then taken off the timeline. Ctrl+V pastes it at the needle, Ctrl+Z puts it back. Pasting when there is no audio track left makes one.
  + NEW: SOUND PACKS has a search box: type a genre, style, mood or tempo (drill, amapiano, dark trap, guitar, 140 bpm) and only the matching packs are listed.

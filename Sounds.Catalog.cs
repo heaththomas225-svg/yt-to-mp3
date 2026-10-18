@@ -255,7 +255,45 @@ static class SoundCatalog
         A("hyperpop", "Hyperpop", "Phonk", "Hyperpop", "Hyperpop", "hyperpop", "growl,dirty,stab,sub,rubber,pluck", "150,160,170", "C maj,D maj,F maj,G maj,A min,E min", "Chaotic, bright", "hyperpop,digicore,hyperpop", "Glitchy drums, bright leads and blown-out bass.");
         A("digicore", "Digicore", "Phonk", "Hyperpop", "Digicore", "hyperpop", "growl,dirty,stab,sub,rubber,pluck", "150,160,170", "C maj,D maj,F maj,G maj,A min,E min", "Chaotic, bright", "hyperpop,digicore,digicore", "Fast drums, plucks and emotional chords.");
         A("glitchcore", "Glitchcore", "Phonk", "Hyperpop", "Glitch", "hyperpop", "growl,dirty,stab,sub,rubber,pluck", "150,160,170", "C maj,D maj,F maj,G maj,A min,E min", "Chaotic, bright", "hyperpop,digicore,glitch", "Stuttered loops and chaotic synths.");
+        Relabel();
     }
+
+    // every pack carries its real genre and style (a tech house pack is House / Tech House, not "Electronic Bass"), and sits in the section of that genre
+    static readonly string[] Relabels = {
+        "Electronic Bass|Bass House=House|Bass House", "Electronic Bass|Tech House=House|Tech House", "Electronic Bass|Electro House=House|Electro House", "Electronic Bass|Minimal House=House|Minimal",
+        "Electronic Bass|Breakbeat=Breaks|Breakbeat", "Electronic Bass|Jungle Breaks=Breaks|Jungle Breaks", "Electronic Bass|Deep Dubstep=Dubstep|Deep Dubstep", "Electronic Bass|Heavy Dubstep=Dubstep|Heavy Dubstep",
+        "Electronic Bass|Dubstep and Riddim=Dubstep|Riddim", "Electronic Bass|Tearout=Dubstep|Tearout", "Electronic Bass|Halftime=Bass Music|Halftime", "Electronic Bass|Glitch Bass=Bass Music|Glitch Bass",
+        "Electronic Bass|Experimental=Bass Music|Experimental", "Electronic Bass|UK Bass=Bass Music|UK Bass", "Electronic Bass|Rave and Hardcore=Rave & Hardcore|Rave and Hardcore",
+        "Rap and Vocals|Boom Bap=Boom Bap|Boom Bap", "Rap and Vocals|Trap=Trap|Trap", "Rap and Vocals|UK Drill=UK Drill|UK Drill", "Rap and Vocals|Grime=Grime|Grime", "Rap and Vocals|R&B=R&B|R&B",
+        "Rap and Vocals|Cloud Rap=Trap|Cloud", "Rap and Vocals|Melodic Rap=Hip-Hop|Melodic Rap", "Rap and Vocals|Dark Rap=Hip-Hop|Dark Rap", "Rap and Vocals|UK Rap=Hip-Hop|UK Rap", "Rap and Vocals|Dark Piano=Hip-Hop|Dark Piano",
+        "Rap and Vocals|Guitar and Synth=Hip-Hop|Guitar and Synth", "Rap and Vocals|Ad-Libs=Vocals|Ad-Libs", "Rap and Vocals|Vocals=Vocals|Vocal Kits", "Rap and Vocals|Vocal Chops=Vocals|Vocal Chops", "Rap and Vocals|Vocal Transitions=Vocals|Vocal Transitions",
+        "Garage House|Deep House=House|Deep House", "Garage House|Disco=House|Nu-Disco", "Garage House|Lo-Fi House=House|Lo-Fi House", "House|Disco=House|Nu-Disco", "Pop|Disco=Pop|Disco Pop",
+        "Techno|Trance=Trance|Trance", "Big Room|Trap=Big Room|Festival Trap", "Cinematic|FX=FX & Cinematic|Cinematic FX", "Signature|Signature=Purphex Signature|All Styles" };
+    public static string SectionOf(string genre)
+    {
+        switch (genre)
+        {
+            case "Drum & Bass": return "Drum & Bass"; case "UK Bassline": return "UK Bassline"; case "UK Garage": return "UK Garage";
+            case "Dubstep": case "Bass Music": case "Breaks": case "Rave & Hardcore": return "Bass Music";
+            case "Trap": case "UK Drill": case "Boom Bap": case "Grime": case "Hip-Hop": case "Vocals": return "Hip-Hop & Rap";
+            case "House": return "House"; case "Techno": case "Trance": return "Techno & Trance";
+            case "Afrobeats": case "Amapiano": case "Reggaeton": case "Dancehall": case "Baile Funk": return "Afro & Latin";
+            case "Pop": case "R&B": case "Jersey Club": return "Pop & R&B"; case "Lo-Fi": return "Lo-Fi";
+            case "Future Bass": case "Big Room": case "Hyperpop": return "EDM"; case "Phonk": return "Phonk";
+            case "FX & Cinematic": return "FX & Cinematic"; case "Purphex Signature": return "Purphex"; default: return "Other";
+        }
+    }
+    static void Relabel()
+    {
+        var map = new Dictionary<string, string>(); foreach (var m in Relabels) { int e = m.IndexOf('='); map[m.Substring(0, e)] = m.Substring(e + 1); }
+        foreach (var r in Recipes) { string v; if (map.TryGetValue(r.Genre + "|" + r.Sub, out v)) { int b = v.IndexOf('|'); r.Genre = v.Substring(0, b); r.Sub = v.Substring(b + 1); } r.Section = SectionOf(r.Genre); r.Family = r.Section; }
+    }
+    // every genre in the catalog with its styles, in a steady order (for the filter menus)
+    public static SortedDictionary<string, SortedSet<string>> Genres()
+    {
+        var d = new SortedDictionary<string, SortedSet<string>>(StringComparer.OrdinalIgnoreCase); foreach (var r in Recipes) { SortedSet<string> s; if (!d.TryGetValue(r.Genre, out s)) d[r.Genre] = s = new SortedSet<string>(StringComparer.OrdinalIgnoreCase); s.Add(r.Sub); } return d;
+    }
+
 }
 
 // the shared toolkit: views over every installed pack (the same files appear in them, nothing is copied)

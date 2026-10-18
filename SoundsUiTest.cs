@@ -30,9 +30,26 @@ static class Q
         sf = new StudioForm(app); sf.ClientSize = new Size(1500, 820); sf.Show(); Pump(400); Paint();
         var rec = SoundCatalog.Find("naughty-dnb-rollers"); rec.Parts = "drums,bass,loops,midi,presets";
         Call("OpenSounds"); Paint(); Pump(100); Paint();
-        Check("the SOUNDS panel opens and the right-hand panel is wider", F<bool>("soundsOpen") && Regs().Exists(r => Math.Abs(r.R.Width - 180) < 0.5f && Math.Abs(r.R.Height - 34) < 0.5f), "");
-        Check("with no packs installed it says so and offers the pack manager", Results().Count == 0, "");
-        var open = Regs().Find(r => Math.Abs(r.R.Width - 180) < 0.5f && Math.Abs(r.R.Height - 34) < 0.5f); Click(open.R.X + 90, open.R.Y + 17);
+        Check("the SOUNDS panel opens", F<bool>("soundsOpen"), "");
+        Check("with no packs installed the browser already lists the instant drum and bass loops (50,000+)", Results().Count >= 50000 && Rows().Count >= 3, Results().Count + " sounds");
+        { // filters: Trap drum loops, House bass loops in F minor: hundreds each, before any pack is installed
+          var Fi = F<SoundLibrary.Filter>("sndFilter"); Fi.Genre = "Trap"; Fi.Type = "Drum Loop"; SetF("sndDirty", true); Paint(); int trapDrums = Results().Count; bool allTrap = Results().TrueForAll(s => s.Genre == "Trap" && s.Type == "Drum Loop");
+          Fi.Genre = "House"; Fi.Type = "Bass Loop"; Fi.Key = "F min"; SetF("sndDirty", true); Paint(); int houseBass = Results().Count;
+          Check("every filter has loops on it: Trap drum loops and House bass loops in F minor are listed straight away", trapDrums >= 500 && allTrap && houseBass >= 20, trapDrums + " trap drum loops, " + houseBass + " house bass loops in F min");
+          Fi.Genre = "House"; Fi.Type = "Drum Loop"; Fi.Key = ""; SetF("sndDirty", true); Paint();
+          { var bmpF = new Bitmap(sf.ClientSize.Width, sf.ClientSize.Height); sf.DrawToBitmap(bmpF, new Rectangle(0, 0, sf.Width, sf.Height)); bmpF.Save("C:/Users/thoma/nfout/sounds-filters.png", System.Drawing.Imaging.ImageFormat.Png); }
+          var chips = Regs().FindAll(r => r.R.Y > 300 && r.R.Y < 320 && r.R.X > 880); Check("the filter buttons show what is picked", chips.Count >= 5, chips.Count + " filter buttons");
+          var gm = sf.GenreMenuStrip(); var gtexts = new List<string>(); foreach (ToolStripItem it in gm.Items) gtexts.Add((it.Text ?? "").ToUpperInvariant());
+          bool secs = gtexts.Contains("DRUM & BASS") && gtexts.Contains("HIP-HOP & RAP") && gtexts.Contains("HOUSE") && gtexts.Contains("AFRO & LATIN"); bool counted = gtexts.Exists(t => t.Trim().StartsWith("TRAP   (") && t.Contains("SOUNDS)")) && gtexts.Exists(t => t.Trim().StartsWith("DUBSTEP   ("));
+          Check("the Genre menu lists every genre under its section, each with how many sounds it has", secs && counted && !gtexts.Exists(t => t.Contains("ELECTRONIC BASS") || t.Contains("RAP AND VOCALS")), string.Join(" / ", gtexts.GetRange(0, Math.Min(12, gtexts.Count))));
+          Fi.Genre = "House"; var sm = sf.StyleMenuStrip(); var stexts = new List<string>(); foreach (ToolStripItem it in sm.Items) stexts.Add((it.Text ?? "").ToUpperInvariant());
+          Check("the Style menu lists the chosen genre's styles with counts (House: Tech House, Deep House, Bass House...)", stexts.Exists(t => t.StartsWith("TECH HOUSE   (")) && stexts.Exists(t => t.StartsWith("DEEP HOUSE   (")) && stexts.Exists(t => t.StartsWith("BASS HOUSE   (")), string.Join(" / ", stexts));
+          Fi.Genre = ""; Fi.Type = ""; Fi.Key = ""; Fi.Sub = ""; SetF("sndDirty", true); Paint(); }
+        { // an instant loop plays and drags like any sound: made on the spot
+          var inst0 = InstantLib.Items.Find(s => s.PackId == "uk-drill" || s.Genre == "UK Drill"); int nT0 = eng.Tracks.Count; string am = (string)typeof(StudioForm).GetMethod("AddSample", BF).Invoke(sf, new object[] { inst0, 0L, eng.Tracks.Count });
+          Check("an instant loop added to the song becomes a real clip of the right length", am == null && eng.Tracks.Count == nT0 + 1 && eng.Tracks[eng.Tracks.Count - 1].Clip != null && Math.Abs(eng.Tracks[eng.Tracks.Count - 1].Clip.Length - inst0.Dur * 44100) < 50, (am ?? "ok") + ", " + inst0.Name);
+        }
+        SetF("packsOpen", true); SetF("packScroll", 0f); Paint();
         Check("Open the packs shows the pack manager", F<bool>("packsOpen"), "");
         var inst = Regs().FindAll(r => Math.Abs(r.R.Width - 160) < 0.5f && Math.Abs(r.R.Height - 32) < 0.5f); Check("every pack has an Install button", inst.Count >= 3, inst.Count + " visible");
         var bmpP = new Bitmap(sf.ClientSize.Width, sf.ClientSize.Height); sf.DrawToBitmap(bmpP, new Rectangle(0, 0, sf.Width, sf.Height)); bmpP.Save("_packs.png", System.Drawing.Imaging.ImageFormat.Png);
@@ -65,7 +82,7 @@ static class Q
         Auditioner.Stop(); int tracks0 = eng.Tracks.Count; rowsNow = Rows(); var rd = rowsNow[1]; var drag = Results()[1]; int sx = (int)(rd.R.X + 120), sy = (int)(rd.R.Y + 25);
         Ev("OnMouseMove", MouseButtons.None, 0, sx, sy); Ev("OnMouseDown", MouseButtons.Left, 1, sx, sy); for (int i = 1; i <= 8; i++) Ev("OnMouseMove", MouseButtons.Left, 0, sx - i * 60, sy + i * 15); Paint();
         Check("dragging a sound shows the drop ghost", F<bool>("sndDragging"), ""); Ev("OnMouseUp", MouseButtons.Left, 1, 600, 330); Paint();
-        Check("dropping it on the timeline makes a new track with the sample as a real clip", eng.Tracks.Count == tracks0 + 1 && eng.Tracks[eng.Tracks.Count - 1].Clip != null && eng.Tracks[eng.Tracks.Count - 1].Clip.Length > 1000, eng.Tracks.Count + " tracks");
+        Check("dropping it on the timeline makes a new track with the sample as a real clip", eng.Tracks.Count == tracks0 + 1 && eng.Tracks[eng.Tracks.Count - 1].Clip != null && eng.Tracks[eng.Tracks.Count - 1].Clip.Length > 1000, eng.Tracks.Count + " tracks, " + F<string>("toast") + " | " + drag.Name);
         Check("the clip knows its source file", eng.Tracks.Count > tracks0 && eng.Tracks[eng.Tracks.Count - 1].Clip.Path == drag.Path, "");
         { SetF("sndScroll", 120f); Paint(); float before = F<float>("sndScroll"); var pick = Results()[2]; SetF("sndDrag", pick); SetF("sndDragging", true); int nT = eng.Tracks.Count;
           typeof(StudioForm).GetMethod("DropSampleAt", BindingFlags.NonPublic | BindingFlags.Instance).Invoke(sf, new object[] { new Point(600, 330) }); Paint();

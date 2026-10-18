@@ -24,28 +24,34 @@ class PackWriter
     // a clean look-ahead limiter: the level comes down smoothly just before a peak and back up after it (no clipping, no distortion)
     public static void Limit(Buf b, float ceiling)
     {
-        int n = b.Length, la = 220; if (n == 0) return; var need = new float[n];   // 5 ms look-ahead
+        int n = b.Length, la = 441; if (n == 0) return; var need = new float[n];   // 10 ms look-ahead
         for (int i = 0; i < n; i++) { float a = Math.Max(Math.Abs(b.L[i]), Math.Abs(b.R[i])); need[i] = a > ceiling ? ceiling / a : 1f; }
         var g = new float[n]; var dq = new int[n]; int h = 0, t = 0;   // the smallest gain needed in the next la samples (a sliding minimum)
         for (int i = n - 1; i >= 0; i--) { while (t > h && need[dq[t - 1]] >= need[i]) t--; dq[t++] = i; while (dq[h] > i + la) h++; g[i] = need[dq[h]]; }
-        double env = 1, att = 1 - Math.Exp(-1.0 / la), rel = 1 - Math.Exp(-1.0 / (0.08 * 44100));
-        for (int i = 0; i < n; i++) { double target = g[i]; env += (target < env ? att * 3 : rel) * (target - env); if (env > target && target < 1) env = Math.Min(env, target + (env - target) * 0.5); float k = (float)Math.Min(env, 1.0); b.L[i] *= k; b.R[i] *= k; }
+        // the average of those minimums over the look-ahead: a smooth ramp that reaches the needed gain exactly at the peak (never above it)
+        double acc = 0, env = 1, rel = 1 - Math.Exp(-1.0 / (0.12 * 44100));
+        for (int i = 0; i < n; i++) { acc += g[i]; if (i >= la) acc -= g[i - la]; double sm = acc / Math.Min(i + 1, la); env = sm < env ? sm : env + (sm - env) * rel; float k = (float)Math.Min(env, 1.0); b.L[i] *= k; b.R[i] *= k; }
         for (int i = 0; i < n; i++) { if (b.L[i] > ceiling) b.L[i] = ceiling; else if (b.L[i] < -ceiling) b.L[i] = -ceiling; if (b.R[i] > ceiling) b.R[i] = ceiling; else if (b.R[i] < -ceiling) b.R[i] = -ceiling; }   // (only a safety net: the gain above already keeps it under)
     }
     static void Level(Buf b, string type, string kind)
     {
         if (type == "Stem" || type == "Songstarter") return; double e = 0; for (int i = 0; i < b.Length; i++) e += b.L[i] * b.L[i] + b.R[i] * b.R[i]; if (e <= 0) return;
         double rms = 10 * Math.Log10(e / (2.0 * b.Length)), peak = 20 * Math.Log10(Math.Max(1e-9, b.Peak())), gain;
-        if (kind == "loop") { double target = type == "Drum Loop" || type == "Top Loop" || type == "Drum Fill" || type == "Percussion Loop" ? -11 : type == "Bass Loop" ? -12 : -15; gain = Math.Min(target - rms, -1 - peak + 5);   /* a sparse loop may go up to 5 dB past its peak: a soft limiter catches only the peaks */
+        if (kind == "loop") { double target = type == "Drum Loop" || type == "Top Loop" || type == "Drum Fill" || type == "Percussion Loop" ? -11 : type == "Bass Loop" ? -12 : -15; gain = Math.Min(target - rms, -1 - peak + 2);   /* a sparse loop may go up to 2 dB past its peak: the clean limiter catches only the peaks */
             if (gain > -1 - peak) { b.Gain((float)Math.Pow(10, gain / 20)); Limit(b, 0.891f); return; } }
         else { bool heavy = type == "Kick" || type == "808" || type == "Sub Bass"; double cap = heavy ? -6 : -10; gain = rms > cap ? cap - rms : 0; }
         if (Math.Abs(gain) > 0.05) b.Gain((float)Math.Pow(10, gain / 20));
+    }
+    // the level every sound is written at (instant loops use it too, so they sit at the same loudness as the packs)
+    public static Buf Finish(Buf b, string type, string kind, double peakDb)
+    {
+        b = b.Copy(); b.Normalise(peakDb, kind == "loop" ? 0 : 24, kind == "loop" ? 0 : Math.Min(1323, b.Length / 10));   /* one-shots end with a 30 ms fade */ Level(b, type, kind); return b;
     }
     // writes a sound as a 24-bit WAV and lists it
     public SoundItem Audio(Buf b, string folder, string name, string type, string group, string kind, double bpm, string key, string tags, string mood, double peakDb)
     {
         if (Cancelled) throw new OperationCanceledException();
-        b = b.Copy(); b.Normalise(peakDb, kind == "loop" ? 0 : 24, kind == "loop" ? 0 : 160); Level(b, type, kind); string file = Clean(name) + ".wav", rel = folder + "/" + file; string path = Path.Combine(Pack.Dir, rel.Replace('/', Path.DirectorySeparatorChar));
+        b = Finish(b, type, kind, peakDb); string file = Clean(name) + ".wav", rel = folder + "/" + file; string path = Path.Combine(Pack.Dir, rel.Replace('/', Path.DirectorySeparatorChar));
         SoundIO.WriteWav(path, b.L, b.R, SoundGen.SR, 24);
         var s = new SoundItem { PackId = Pack.Id, PackName = Pack.Name, Rel = rel, Path = path, Id = Pack.Id + "/" + rel, Name = name, Type = type, Group = group, Kind = kind, Genre = Pack.Genre, Sub = Pack.Sub, Tags = tags, Mood = mood, Bpm = bpm, Key = key ?? "", Dur = b.Length / (double)SoundGen.SR, Rate = SoundGen.SR, Format = "WAV 24-bit", Peaks = SoundIO.Peaks(b.L, b.R, 96) };
         Pack.Items.Add(s); Report(name); return s;
@@ -147,12 +153,14 @@ static class DrumKit
         k.Perc.Add(SoundGen.Tom(r, 110 * r.Range(0.9f, 1.2f), 0.28, 0.6)); k.PercNames.Add("Tom Low"); k.Perc.Add(SoundGen.Tom(r, 170 * r.Range(0.9f, 1.2f), 0.22, 0.5)); k.PercNames.Add("Tom Mid");
         k.Perc.Add(SoundGen.Shaker(r, 0.18, r.Range(0.85f, 1.15f))); k.PercNames.Add("Shaker"); k.Perc.Add(SoundGen.Rim(r, 1700 * r.Range(0.9f, 1.15f))); k.PercNames.Add("Rim"); k.Perc.Add(SoundGen.Conga(r, 330 * r.Range(0.9f, 1.2f))); k.PercNames.Add("Conga");
         k.Perc.Add(SoundGen.Cowbell(r, 540 * r.Range(0.95f, 1.1f), 0.22)); k.PercNames.Add("Bell");
+        // every hit ends at silence: a kick or tom cut off while it still rings clicks each time it plays in a loop
+        foreach (var l in new[] { k.Kicks, k.Snares, k.Claps, k.HatsC, k.HatsO, k.Perc, k.Rides }) foreach (var b in l) SoundGen.EndFade(b, 0.35, (int)(0.25 * SoundGen.SR));
         return k;
     }
 
     // a drum loop built from the kit; returns the full mix and the stems (kick, snare, hats, perc)
     public class Loop { public Buf Mix, Kick, Snare, Hats, Perc; }
-    public static Loop Render(Kit kit, DrumStyle s, Pat p, double bpm, int bars, double swing, int seed, bool fillLastBar, double tailSec = 0.5)
+    public static Loop Render(Kit kit, DrumStyle s, Pat p, double bpm, int bars, double swing, int seed, bool fillLastBar, double tailSec = 1.2)
     {
         var r = new Rnd(seed); double stepS = 60.0 / bpm / 4 * SoundGen.SR; int steps = bars * 16, total = (int)(steps * stepS + tailSec * SoundGen.SR);
         var L = new Loop { Mix = new Buf(total), Kick = new Buf(total), Snare = new Buf(total), Hats = new Buf(total), Perc = new Buf(total) };
@@ -170,7 +178,8 @@ static class DrumKit
             if (pc != '.' && kit.Perc.Count > 0) put(L.Perc, kit.Perc[(st / 2 + sv) % kit.Perc.Count], pos, 0.5f + r.Next() * 0.2f);
             if (lastBar && sp >= 8) { if (sp % 2 == 0 || sp >= 12) { float v = 0.5f + (sp - 8) / 8f * 0.5f; put(L.Snare, kit.Snares[sv], pos, v); if (sp >= 12) put(L.Perc, kit.Perc[0], pos, v * 0.7f); } }
         }
-        L.Mix.Add(L.Kick, 0, 1f); L.Mix.Add(L.Snare, 0, 0.95f); L.Mix.Add(L.Hats, 0, 0.55f); L.Mix.Add(L.Perc, 0, 0.5f); SoundGen.Glue(L.Mix, 1.25f);
+        L.Mix.Add(L.Kick, 0, 1f); L.Mix.Add(L.Snare, 0, 0.95f); L.Mix.Add(L.Hats, 0, 0.55f); L.Mix.Add(L.Perc, 0, 0.5f);
+        double beats = bars * 4; L.Mix = PackBuilder.LoopLen(L.Mix, beats, bpm); L.Kick = PackBuilder.LoopLen(L.Kick, beats, bpm); L.Snare = PackBuilder.LoopLen(L.Snare, beats, bpm); L.Hats = PackBuilder.LoopLen(L.Hats, beats, bpm); L.Perc = PackBuilder.LoopLen(L.Perc, beats, bpm);
         return L;
     }
     static char Ch(string s, int i) { return string.IsNullOrEmpty(s) || i >= s.Length ? '.' : s[i]; }
