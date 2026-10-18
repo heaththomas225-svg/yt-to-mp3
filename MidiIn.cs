@@ -18,6 +18,7 @@ static class MidiInput
 
     static IntPtr dev; static readonly MidiInProc cb = OnMsg;   // kept alive
     public static volatile InstrumentFx Target;                  // the instrument that receives the notes
+    public static Func<byte, byte, byte, bool> BareTrack;         // the studio: records the notes onto the picked MIDI track when it has no instrument (true = taken)
     public static string Status = "MIDI: not started"; public static string OpenName = ""; public static int Received;
 
     public static List<string> Devices()
@@ -53,7 +54,9 @@ static class MidiInput
     // One packed MIDI message: status | data1 << 8 | data2 << 16.
     public static void Handle(uint m)
     {
-        byte s = (byte)(m & 0xFF), d1 = (byte)((m >> 8) & 0xFF), d2 = (byte)((m >> 16) & 0xFF); var t = Target; if (t == null || s >= 0xF0) return;
+        byte s = (byte)(m & 0xFF), d1 = (byte)((m >> 8) & 0xFF), d2 = (byte)((m >> 16) & 0xFF); if (s >= 0xF0) return;
+        var bt = BareTrack; if (bt != null && bt(s, d1, d2)) { Received++; return; }   // the picked track is a MIDI track with no instrument: the notes go straight onto it
+        var t = Target; if (t == null) return;
         Received++; t.Midi(s, d1, d2);
         int kind = s & 0xF0; var rec = InstrumentFx.Recorder;
         if (rec != null && (kind == 0x90 || kind == 0x80)) { bool on = kind == 0x90 && d2 > 0; rec(t.Owner, on, d1, on ? d2 : 0); }

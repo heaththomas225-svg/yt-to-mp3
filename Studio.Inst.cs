@@ -20,6 +20,24 @@ partial class StudioForm
         m.Show(this, new Point((int)MousePos.X, (int)MousePos.Y));
     }
 
+    // an empty MIDI track: what you play on a MIDI keyboard (a piano, a guitar with MIDI...) is recorded onto it; Bass Lab or a VST can be added later from + ADD EFFECT
+    internal Track AddMidiTrack()
+    {
+        var t = StudioEngine.NewTrack("MIDI", "inst", null); t.Instrument = true; t.Color = unchecked((int)0xFF3B8CF5); AddTrack(t); int i = eng.Tracks.IndexOf(t); if (i >= 0) selTrack = i;
+        recOn = true; Toast("MIDI track added and MIDI REC is on: play your MIDI keyboard and it is heard and recorded. It plays with the built-in keys; add Bass Lab or a VST from + ADD EFFECT for other sounds."); return t;
+    }
+    // notes from a MIDI keyboard when the picked track is a MIDI track with no instrument on it: they are recorded onto that track
+    internal bool MidiToBareTrack(byte s, byte d1, byte d2)
+    {
+        try
+        {
+            if (eng.Tracks.Count == 0) return false; var t = eng.Tracks[Math.Max(0, Math.Min(selTrack, eng.Tracks.Count - 1))]; if (!t.Instrument) return false;
+            if (t.HasInstrumentFx) return false;
+            int kind = s & 0xF0; var k = t.Keys; if (kind == 0x90 && d2 > 0) k.NoteOn(d1, d2); else k.Midi(s, d1, d2);   // heard straight away with the built-in keys
+            if (kind == 0x90 || kind == 0x80) { bool on = kind == 0x90 && d2 > 0; OnMidiNote(t, on, d1, on ? d2 : 0); } return true;
+        }
+        catch { return false; }
+    }
     void AddInstrument(string type)
     {
         InstrumentFx f = null;
@@ -52,7 +70,7 @@ partial class StudioForm
     void PaintMidi(Graphics g, Track tr, RectangleF lane)
     {
         int count; lock (tr.Midi) count = tr.Midi.Count;
-        if (count == 0) { Txt(g, "Instrument track: press REC, then PLAY, then play notes in the instrument window (Piano button).", 12, DimC, Rc(lane.X + 10, lane.Y + 44, lane.Width - 20, 40), StringAlignment.Near, false); return; }
+        if (count == 0) { bool bare = !tr.HasInstrumentFx; Txt(g, bare ? "MIDI track (built-in keys): press MIDI REC and play your MIDI keyboard. Add Bass Lab or a VST from + ADD EFFECT for other sounds." : "Instrument track: press MIDI REC, then PLAY, then play your keyboard or the instrument's piano.", 12, DimC, Rc(lane.X + 10, lane.Y + 44, lane.Width - 20, 40), StringAlignment.Near, false); return; }
         MidiEv[] evs; lock (tr.Midi) evs = tr.Midi.ToArray(); var open = new Dictionary<int, long>(); var bars = new List<MBar>(); int lo = 127, hi = 0;
             foreach (var m in evs)
             {

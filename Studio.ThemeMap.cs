@@ -56,7 +56,7 @@ static class TM
     }
     public static Color FromDesign(Color d)
     {
-        if (d.A == 0 || (ident && Math.Abs(satK - 1f) < 0.01f)) return d; float s = d.GetSaturation(), l = d.GetBrightness(); if (s < 0.015f) return d; float nh = ident ? d.GetHue() : Warp(d.GetHue());
+        if (d.A == 0 || Brand || (ident && Math.Abs(satK - 1f) < 0.01f)) return d; float s = d.GetSaturation(), l = d.GetBrightness(); if (s < 0.015f) return d; float nh = ident ? d.GetHue() : Warp(d.GetHue());
         var n = Fit(d, ThemeDef.Hsl(nh, Math.Min(1f, s * satK), l)); return Color.FromArgb(d.A, n.R, n.G, n.B);
     }
     public static Color Remap(Color c, int fromEpoch)
@@ -64,9 +64,10 @@ static class TM
         if (c.A == 0 || fromEpoch == Epoch || fromEpoch < 0 || fromEpoch >= epochs.Count) return c; float s = c.GetSaturation(), l = c.GetBrightness(); if (s < 0.015f) return c;
         float design, kFrom; lock (lk) { design = Unwarp(c.GetHue(), epochs[fromEpoch]); kFrom = epochs[fromEpoch].Length > 3 ? epochs[fromEpoch][3] : 1f; } float nh = ident ? design : Warp(design); float s0 = kFrom > 0.01f ? Math.Min(1f, s / kFrom) : s; var n = Fit(ThemeDef.Hsl(design, s0, l), ThemeDef.Hsl(nh, Math.Min(1f, s0 * satK), l)); return Color.FromArgb(c.A, n.R, n.G, n.B);
     }
+    public static bool Brand;   // true while a plugin window is drawn: the original Purphex colours, whatever the theme
     public static Color C(int a, int r, int g, int b)
     {
-        if (ident) return Color.FromArgb(a, r, g, b);
+        if (ident || Brand) return Color.FromArgb(a, r, g, b);
         int key = (r << 16) | (g << 8) | b, res;
         lock (lk)
         {

@@ -41,7 +41,7 @@ partial class StudioForm
         l.Add(new NtItem { Title = "Voice / Audio", Sub = "Record or add audio. Raw, no effects", Col = C(0xF04438), Icon = 0, Do = () => { CloseNewTrackSheet(); AddEmptyAudioTrack(); } });
         l.Add(new NtItem { Title = "Beat / Instrumental", Sub = "Keep your beat on its own track", Col = C(0x8B5CF6), Icon = 5, Do = () => { CloseNewTrackSheet(); AddBeatTrack(); } });
         l.Add(new NtItem { Title = "Virtual Instruments", Sub = "Bass Lab and VST plugins", Tag = "MIDI", Col = C(0x16C784), Icon = 2, Do = () => { nextInsert = NtInsertAt(); CloseNewTrackSheet(); AddInstrumentClick(true); } });
-        l.Add(new NtItem { Title = "MIDI Track", Sub = "Play your own keyboard or instrument", Tag = "MIDI", Col = C(0x3B8CF5), Icon = 3, Do = () => { nextInsert = NtInsertAt(); CloseNewTrackSheet(); recOn = true; AddInstrument("synth"); } });
+        l.Add(new NtItem { Title = "MIDI Track", Sub = "Play your own keyboard or instrument", Tag = "MIDI", Col = C(0x3B8CF5), Icon = 3, Do = () => { nextInsert = NtInsertAt(); CloseNewTrackSheet(); AddMidiTrack(); } });
         return l;
     }
 

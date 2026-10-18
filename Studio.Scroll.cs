@@ -151,7 +151,7 @@ partial class StudioForm
     // The bar shows the whole song. The lit window is what you see: hold the logo and drag to move it, drag the window's ends to zoom, click the bar to jump, double-click to fit the whole song.
     void PaintOverview(Graphics g, RectangleF tl)
     {
-        const float barH = 34; var ob = Rc(HeadW, ClientSize.Height - barH - 6, tl.Width, barH); double total = Math.Max(eng.EndFrame * 1.04, StudioEngine.SR * 10.0);
+        const float barH = 34; var ob = Rc(HeadW, MixH - barH - 6, tl.Width, barH); double total = Math.Max(eng.EndFrame * 1.04, StudioEngine.SR * 10.0);
         PaintScrollStrip(g, ob, total, 0, tl.Width, true);
     }
     // One scroll strip, used under the tracks and at the top of Flex Pitch: ob = the strip, total = the frames it stands for, baseFrame = the frame at its left end,

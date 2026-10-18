@@ -819,6 +819,23 @@ Select a track and press + Add Effect (or use the master chain). The list now ho
 - Pitch and delay-based effects can add a small delay; Purphex lines the tracks up for you.
 - The fixed-interval harmonizers add the notes you choose (they do not follow your key)."),
 
+        new HelpTopic("studio-mixer", "Purphex Music", "The mixer panel, plugin windows, buses and sends", false, @"
+## Opening it
+Press MIXER (above the track list, on the left) or ALL PLUGINS. The panel opens under the arrangement and shows the track you picked. Drag its top edge to make it taller or shorter; HIDE puts it away and the arrangement gets the space back. It remembers how you left it.
+## CHANNEL
+The channel strip of the picked track: its name and colour, mute, solo and on/off, MONO or STEREO, PHASE (flips the polarity), the volume fader with its level meter (the light at the top turns red if it goes over 0 dB; click it to clear), PAN, TRIM (the level going into the plugins), where the sound comes from and where it goes (Master or a bus), its sends and its plugins in order. Every control here is the same setting as on the track header, so they always agree.
+## Sends
+A send copies the track's sound to a bus at its own level, as well as the track's own output: use it to share one reverb or delay between tracks. + ADD SEND picks a bus (or makes a new one). PRE sends before the fader (the send ignores the track's volume), POST after it. Buses never send, so the sound can never loop back on itself.
+## ALL PLUGINS
+A mixing desk: every track and bus has its own strip, side by side. Each strip has its plugin slots in the order the sound goes through them (click a slot to open that plugin in its own small window, click its dot to turn it on or off, right-click it to move, copy or remove it, + ADD to add one), its sends, its output, pan, the fader with its meter, and M and S. While the song plays, each slot shows a little picture of how much that plugin is doing (ripples for reverbs, a pumping meter for compressors and more); the plugin's window shows a bigger one in a strip along its bottom edge. Click a strip's name to pick that track. Scroll sideways with the mouse wheel. The master is on the Mastering page.
+## Plugin windows
+Each effect has its own small window. Windows stay open while you click anything else, so you can play the song and change the sound while it plays. Drag a window by its title, resize it from the bottom-right corner, and click it to bring it forward. In the window: ON or BYPASSED, the previous and next preset and the preset list, RESET (back to the plugin's defaults) and x (closes the window; the plugin keeps working). ARRANGE WINDOWS tidies them.
+## BUSES
+A bus mixes several tracks and runs shared plugins on them. + NEW makes one, RENAME and DELETE change it (deleting a bus sends its tracks back to the master and removes the sends to it; Ctrl+Z undoes it). Pick a bus to set its level and pan, mute or solo it, see its meter, choose which tracks go to it (OUTPUT) or send to it (+ SEND, with a level), and add effects to it. Buses always go to the master.
+## CLIP and MIDI
+With an audio clip picked: its name, file, start and length, clip gain, fade in and fade out, mute and lock, REVERSE (Ctrl+Z puts it back) and Flex Pitch. With a MIDI track picked: its notes, TRANSPOSE, VELOCITY, QUANTISE (note starts snap to the grid, lengths are kept), its instrument and the piano roll.
+## Your colour in the studio
+Your profile colour (in the colour mixer, with the profile following the mix) is the accent of the studio: selected buttons, tabs, menus, sliders, the picked plugin and the front plugin window. Its finish is drawn too: metallic and chrome bands, a holographic or pearl sheen, chameleon, candy, glitter, matte, or translucent (see-through). Switch the profile back to the theme colour to use the theme's accent again."),
         new HelpTopic("studio-sounds", "Purphex Music", "Purphex Sounds: the sample browser and sound packs", false, @"
 ## Opening it
 Press SOUNDS (next to MIC) or use the side menu: Tools > Sounds and sound packs. A panel opens on the right of the Mix page. Press it again, or the x, to close it.

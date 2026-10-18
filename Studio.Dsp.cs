@@ -119,6 +119,7 @@ public abstract class Fx
     public List<Param> P = new List<Param>();
     public float[] ScL, ScR;          // external sidechain (vocal signal), may be null
     public volatile float GR;         // gain reduction (dB, >= 0) for meters
+    public volatile float Act, OutLvl;   // for the visualisers (live playback only): how much the sound coming out differs from what went in (0 = nothing, 1 = as loud as the input), and how loud it comes out (RMS)
     public int SR = 44100;
     protected volatile bool dirty = true;
     public static double ProjectBpm = 90;

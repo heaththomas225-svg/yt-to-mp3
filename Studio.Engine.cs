@@ -342,10 +342,17 @@ class Track
     public AudioClip Clip; public long Offset;
     public float VolDb, Pan; public bool Mute, Solo; public int Color;
     public bool Off;   // turned off completely with the neon dot: nothing plays, nothing is processed, solo and the vocal sidechain ignore it, exports and mastering leave it out
+    public KeysFx DefaultKeys;   // the built-in keys: the sound of a MIDI track with no instrument on it (made when first needed)
+    public bool HasInstrumentFx { get { foreach (var f in Fx) { var i = f as InstrumentFx; if (i != null && i.IsInstrument && !f.Bypass) return true; } return false; } }
+    // the built-in keys of this MIDI track (it plays the notes when no instrument is on the track)
+    public KeysFx Keys { get { var k = DefaultKeys; if (k == null) { k = new KeysFx(); k.Prepare(StudioEngine.SR); k.Owner = this; DefaultKeys = k; } return k; } }
     public Track Host;   // set = this track shares the row of its Host (an audio clip, a MIDI instrument and more can live on one row)
     public bool IsBus, Armed; public Track Out;   // a bus has no audio of its own: it mixes the tracks sent to it (Out), runs its own plugins, then goes to the master. Armed = an empty audio track waiting for a recording
     public List<Fx> Fx = new List<Fx>();
     public bool Mono;   // the track is summed to mono (left and right the same) after its plugins, before pan and the fader
+    public float TrimDb;   // input trim: the level going into the plugins (the fader is after them)
+    public bool Invert;    // the phase (polarity) is flipped after the plugins
+    public Send[] Sends = new Send[0];   // aux sends to buses (the array is replaced as a whole, so the audio thread never sees half a change)
     public bool EverHadClip;   // it held audio at some point this session (so an emptied track with plugins can be tidied away)
     public double Bpm; public bool BpmChecked;   // the tempo heard in this track (0 = none heard yet) and whether it has been listened to
     // The shape of every fade, 0 -> 1 over the fade (a fade out plays it backwards): an S curve, gentle at both ends, so a fade in starts without a click,
@@ -367,6 +374,9 @@ class Track
     public int Latency() { int s = 0; for (int i = 0; i < Fx.Count; i++) if (!Fx[i].Bypass) s += Fx[i].Latency; return s; }
     public long EndFrame { get { if (Clip != null) return Offset + UsedLength; if (Instrument && Midi.Count > 0) { lock (Midi) return Midi[Midi.Count - 1].Frame + 44100L * 3; } return 0; } }
 }
+
+// an aux send: a copy of a track's sound goes to a bus at its own level, before the fader (pre) or after it (post), as well as the track's own output
+class Send { public Track Bus; public float LevelDb = -6f; public bool Pre; public Send Copy() { return new Send { Bus = Bus, LevelDb = LevelDb, Pre = Pre }; } }
 
 class RenderOpts
 {
@@ -468,6 +478,15 @@ partial class StudioEngine
 
     public Track VocalTrack() { foreach (var t in Tracks) if (t.Role == "vocal") return t; return null; }
 
+    float[] actL = new float[8192], actR = new float[8192];   // the sound going into a plugin (for its visualiser)
+    // how much a plugin changed the sound in this block (its visualiser shows it); fast to rise, slow to fall
+    void MeasureFx(Fx fx, float[] l, float[] r, int n)
+    {
+        double si = 0, so = 0, sd = 0; for (int i = 0; i < n; i++) { float a = actL[i], b = actR[i], c = l[i], d = r[i]; si += a * a + b * b; so += c * c + d * d; float e = c - a, f = d - b; sd += e * e + f * f; }
+        if (n <= 0) return; double rin = Math.Sqrt(si / (2 * n)), rout = Math.Sqrt(so / (2 * n)), rd = Math.Sqrt(sd / (2 * n));
+        float act = rin > 1e-4 ? (float)Math.Min(1.5, rd / rin) : (float)Math.Min(1.0, rout * 4);   // (an instrument: no input, so its output is its work)
+        if (act < 0.004f) act = 0; fx.Act = act > fx.Act ? act : fx.Act * 0.85f + act * 0.15f; fx.OutLvl = (float)rout;
+    }
     void Mix(long pos, int n, RenderOpts o, float[] outL, float[] outR, bool meters, int pad)
     {
         if (n > mixL.Length) { mixL = new float[n]; mixR = new float[n]; scL = new float[n]; scR = new float[n]; foreach (var t in Tracks) { t.tl = new float[n]; t.tr = new float[n]; } }
@@ -521,6 +540,8 @@ partial class StudioEngine
             }
             if (!t.IsBus && !t.Instrument && !o.NoClips) foreach (var pcs in list) if (pcs.Host == t && !pcs.Off && MergedPiece(pcs, list)) AddClipAudio(pcs, t.tl, t.tr, n, pos);   // the other pieces on this row go through the same plugins
             if (!idle && t.fxIdle) { for (int f = 0; f < t.Fx.Count; f++) t.Fx[f].Reset(); Array.Clear(t.dlyL, 0, t.dlyL.Length); Array.Clear(t.dlyR, 0, t.dlyR.Length); t.fxIdle = false; }
+            if (t.Instrument && !t.IsBus && !idle && !o.Dry && !t.HasInstrumentFx) { var kf = t.Keys; kf.BeginBlock(t, pos, n, !meters || Playing); kf.Process(t.tl, t.tr, n); }   // a MIDI track with no instrument plays its notes with the built-in keys
+            if (row.TrimDb != 0f && !t.IsBus) { float tg = DspMath.DbToLin(row.TrimDb); for (int i = 0; i < n; i++) { t.tl[i] *= tg; t.tr[i] *= tg; } }   // the input trim, before the plugins
             if (meters) PushTap(t.TapPre, t, false, t.tl, t.tr, n);
             int latSoFar = 0;
             if (idle) { if (!t.fxIdle) { t.fxIdle = true; for (int f = 0; f < t.Fx.Count; f++) t.Fx[f].GR = 0; } }
@@ -541,8 +562,10 @@ partial class StudioEngine
                         fx.ScL = scL; fx.ScR = scR;
                     }
                     else { fx.ScL = null; fx.ScR = null; }
+                    if (meters) { if (actL.Length < n) { actL = new float[n]; actR = new float[n]; } Array.Copy(t.tl, actL, n); Array.Copy(t.tr, actR, n); }
                     try { var lanes = t.Auto.Count > 0 ? AutoLanes(t, fx) : null; if (lanes == null) { fx.BeginBlock(t, pos, n, !meters || Playing); fx.Process(t.tl, t.tr, n); } else ProcessAuto(t, fx, lanes, pos, n, !meters || Playing, needsSc && voc != null && voc != t); } catch (Exception ex) { fx.Error = ex.Message; fx.Bypass = true; }
                     latSoFar += fx.Latency;
+                    if (meters) MeasureFx(fx, t.tl, t.tr, n);
                 }
             // plugin delay compensation
             int d = o.Dry ? 0 : maxLat - EffLat(t); int mask = t.dlyL.Length - 1;
@@ -554,6 +577,7 @@ partial class StudioEngine
                 }
             t.dlyW += n;
             if (row.Mono && !idle) for (int i = 0; i < n; i++) { float mm = (t.tl[i] + t.tr[i]) * 0.5f; t.tl[i] = mm; t.tr[i] = mm; }
+            if (row.Invert && !idle) for (int i = 0; i < n; i++) { t.tl[i] = -t.tl[i]; t.tr[i] = -t.tr[i]; }   // phase (polarity) flipped
             if (meters) PushTap(t.TapPost, t, true, t.tl, t.tr, n);
 
             Track dest = !t.IsBus && t.Out != null && t.Out.IsBus && t.Out != t && (o.Only == null || o.Only.Contains(t.Out)) ? t.Out : null;
@@ -566,6 +590,14 @@ partial class StudioEngine
                 if (a > 1f || b > 1f) clip = true;
                 if (audible) { if (dest != null) { dest.tl[i] += yl; dest.tr[i] += yr; } else { mixL[i] += yl; mixR[i] += yr; } }
             }
+            var sends = t.IsBus ? null : row.Sends;
+            if (audible && sends != null && sends.Length > 0)
+                foreach (var sd in sends)
+                {
+                    var sb = sd.Bus; if (sb == null || !sb.IsBus || sb == t || (o.Only != null && !o.Only.Contains(sb)) || !list.Contains(sb) || sb.tl.Length < n) continue;
+                    float sg = DspMath.DbToLin(sd.LevelDb) * (sd.Pre ? gl : g * gl), sgr = DspMath.DbToLin(sd.LevelDb) * (sd.Pre ? gr : g * gr);   // pre: after the plugins and pan, before the fader
+                    for (int i = 0; i < n; i++) { sb.tl[i] += t.tl[i] * sg; sb.tr[i] += t.tr[i] * sgr; }
+                }
             if (meters)
             {
                 t.PeakL = audible ? pl : 0; t.PeakR = audible ? pr : 0; t.RmsL = audible ? (float)Math.Sqrt(sl / n) : 0; t.RmsR = audible ? (float)Math.Sqrt(sr / n) : 0;

@@ -158,7 +158,7 @@ partial class StudioForm
         if (!mixFollow) return; ProfileStore.Accent = ProfileStore.Pack(MixedNow); palSeen = ProfileStore.Accent;
         if (mixFade && mixAOn && mixBOn) { ProfileStore.NameRgb = ProfileStore.Pack(MixLegible(mixA)); ProfileStore.NameRgb2 = ProfileStore.Pack(MixLegible(mixB)); } else if (mixFade) { ProfileStore.NameRgb = ProfileStore.Pack(MixLegible(mixAOn ? mixA : mixB)); ProfileStore.NameRgb2 = -1; /* one colour only: the name is in it */ } else { ProfileStore.NameRgb = -1; ProfileStore.NameRgb2 = -1; }   // FADE OFF: the name is in the normal colour (white), whether the profile colour is on or off
     }
-    internal void MixChanged() { mixDirty = DateTime.Now; MixApplyProfile(); }
+    internal void MixChanged() { mixDirty = DateTime.Now; MixApplyProfile(); ApplyProfileLook(); }
     internal void MixFlush()
     {   // saved and sent a moment after the last change (not on every step of a slider)
         mixDirty = DateTime.MinValue; var s = MixStore.State; s.A = mixA; s.A2 = mixA2; s.KA = mixKA; s.NA = mixNameA; s.B = mixB; s.B2 = mixB2; s.KB = mixKB; s.NB = mixNameB; s.T = mixT; MixStore.CatA = mixCatA; MixStore.CatB = mixCatB; MixStore.Follow = mixFollow; MixStore.Fade = mixFade; MixStore.AOn = mixAOn; MixStore.BOn = mixBOn; MixStore.TS = mixTS; MixStore.Save();
@@ -168,7 +168,7 @@ partial class StudioForm
     internal void MixSetFollow(bool on)
     {
         mixFollow = on; if (on) MixApplyProfile(); else { ProfileStore.Accent = -1; palSeen = ProfileStore.Accent; ProfileStore.NameRgb = -1; ProfileStore.NameRgb2 = -1; }
-        mixStatus = on ? "Your profile colour is your mix: " + MixColours.HexOf(MixedNow) + "." : "Your profile is back to the colour of your theme."; mixDirty = DateTime.Now; if (on) MixApplyProfile(); MixFlush(); Toast(mixStatus);
+        mixStatus = on ? "Your profile colour is your mix: " + MixColours.HexOf(MixedNow) + "." : "Your profile is back to the colour of your theme."; mixDirty = DateTime.Now; if (on) MixApplyProfile(); MixFlush(); ApplyProfileLook(); Toast(mixStatus);
     }
     // colour A and colour B each have an ON / OFF switch (one of them always stays on), and USE A ONLY / USE B ONLY make the profile one colour
     internal void MixSetOn(int side, bool on)

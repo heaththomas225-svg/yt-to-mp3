@@ -24,7 +24,7 @@ partial class StudioForm
         }
         neonCache[argb] = r; return r;
     }
-    internal static void ApplyTheme(ThemeDef t) { TM.Set(t.Violet, t.Cyan, t.Pink); Ink = TM.C(255, 240, 232, 255); DimC = TM.C(255, 165, 148, 190); Win.NeonHot = t.Cyan; Win.NeonIdle = t.Violet; NeonViolet = t.Violet; NeonCyan = t.Cyan; NeonPink = t.Pink; NeonLime = t.Lime; Accent = t.Accent; Accent2 = t.Accent2; Violet = t.Btn; BtnC = t.BtnC; Edge = Color.FromArgb(120, t.EdgeC); Panel = Color.FromArgb(235, t.Panel); Lane = Color.FromArgb(255, t.Lane); Lane2 = Color.FromArgb(255, t.Lane2); Bg0 = t.Bg0; Bg1 = t.Bg1; SparkCols = new[] { t.Pink, t.Cyan, Color.White, t.Accent, t.Pink, t.Cyan }; }
+    internal static void ApplyTheme(ThemeDef t) { TM.Set(t.Violet, t.Cyan, t.Pink); Ink = TM.C(255, 240, 232, 255); DimC = TM.C(255, 165, 148, 190); Win.NeonHot = t.Cyan; Win.NeonIdle = t.Violet; NeonViolet = t.Violet; NeonCyan = t.Cyan; NeonPink = t.Pink; NeonLime = t.Lime; Accent = t.Accent; Accent2 = t.Accent2; Violet = t.Btn; BtnC = t.BtnC; Edge = Color.FromArgb(120, t.EdgeC); Panel = Color.FromArgb(235, t.Panel); Lane = Color.FromArgb(255, t.Lane); Lane2 = Color.FromArgb(255, t.Lane2); Bg0 = t.Bg0; Bg1 = t.Bg1; SparkCols = new[] { t.Pink, t.Cyan, Color.White, t.Accent, t.Pink, t.Cyan }; if (UiTokens.Custom) { Accent = MixLegibleAccent(UiTokens.Accent); Win.NeonHot = UiTokens.Accent; } }   // (a theme change keeps your profile accent)
     static Color NeonCyan = TM.C(255, 0, 229, 255), NeonPink = TM.C(255, 255, 43, 214), NeonViolet = TM.C(255, 150, 90, 255), NeonLime = Color.FromArgb(120, 255, 120);
 
     // soft bloom around a rounded rectangle, then a crisp bright edge
@@ -99,6 +99,7 @@ partial class StudioForm
     void NeonLaneChrome(Graphics g, Track tr, RectangleF header, RectangleF lane, bool sel)
     {
         var c = Neon(tr.Color); float live = Math.Max(tr.PeakL, tr.PeakR); float k = (sel ? 0.9f : 0.45f) + Math.Min(0.4f, live * 0.6f);
+        if (sel && UiTokens.Custom) using (var pa = new Pen(Color.FromArgb(200, UiTokens.Accent), 1.6f)) g.DrawRectangle(pa, header.X + 1, header.Y + 1, header.Width - 3, header.Height - 3);   // the selection outline in your accent
         for (int i = 3; i >= 1; i--) using (var pen = new Pen(Color.FromArgb((int)(40 * k / i * 1.4f), c), i * 2.2f)) g.DrawLine(pen, lane.X, lane.Y + 2, lane.X, lane.Bottom - 2);
         using (var pen = new Pen(Color.FromArgb((int)(220 * Math.Min(1f, k)), c), 2f)) g.DrawLine(pen, lane.X, lane.Y + 2, lane.X, lane.Bottom - 2);
         using (var pen = new Pen(Color.FromArgb(sel ? 120 : 60, c), 1f)) g.DrawLine(pen, 0, lane.Bottom - 0.5f, lane.Right, lane.Bottom - 0.5f);
@@ -152,7 +153,7 @@ partial class StudioForm
     // the add-track button that is always on screen: right after the last track, or pinned to the bottom of the list when the tracks run off the screen
     void AddTrackRow(Graphics g, float afterLastY, int n)
     {
-        float by = Math.Min(afterLastY + 6, ClientSize.Height - 44); var r = Rc(HeadW < 100 ? 4 : 10, by, HeadW < 100 ? HeadW - 8 : HeadW - 20, 34); var gsA = g.Save(); g.ResetClip();   // always on screen: never cut by the list of tracks
+        float by = Math.Min(afterLastY + 6, MixH - 44); var r = Rc(HeadW < 100 ? 4 : 10, by, HeadW < 100 ? HeadW - 8 : HeadW - 20, 34); var gsA = g.Save(); g.ResetClip();   // always on screen: never cut by the list of tracks
         FillRR(g, TM.C(235, 14, 8, 30), r, 8); Glow(g, NeonCyan, r, 8, Hot(r) ? 1.1f : 0.55f, 3);
         Txt(g, r.Width < 140 ? "+" : "+ ADD TRACK", r.Width < 140 ? 18 : 13, Ink, r, StringAlignment.Center, true); Reg(r, () => OpenNewTrackSheet(2)); g.Restore(gsA);
     }

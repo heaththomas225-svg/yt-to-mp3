@@ -111,7 +111,7 @@ partial class StudioForm : Form
         DoubleBuffered = true; KeyPreview = true; FontKit.Restore(this);   /* AllowDrop is switched on in OnHandleCreated (Studio.Crash.cs) so a refused registration cannot crash */
         SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw | ControlStyles.Selectable, true);
         studioLoop = new FrameLoop(this, FrameStep) { Slow = () => WindowState == FormWindowState.Minimized || moving || Win.AnyMoving };   /* while a window is being dragged around nothing needs painting often */ ApplyFps();
-        InstrumentFx.Recorder = OnMidiNote;
+        InstrumentFx.Recorder = OnMidiNote; MidiInput.BareTrack = MidiToBareTrack;
         MinimumSize = new Size(1240, 640);
         FormClosed += (s, e) => { try { if (flexOpen) FlexClose(true); } catch { } flexOpen = false; DisposeRetired(); Auditioner.Shutdown(); };
         FormClosed += (s, e) => { if (backdrop != null) { backdrop.Dispose(); backdrop = null; } foreach (var pc0 in peakCache.Values) if (pc0.Img != null) pc0.Img.Dispose(); peakCache.Clear(); };
@@ -206,7 +206,13 @@ partial class StudioForm : Form
         using (var pen = new Pen(hot ? Color.White : NeonCyan, 2.2f) { StartCap = System.Drawing.Drawing2D.LineCap.Round, EndCap = System.Drawing.Drawing2D.LineCap.Round, LineJoin = System.Drawing.Drawing2D.LineJoin.Round })
             foreach (float ox in new[] { -3f, 3f }) g.DrawLines(pen, new[] { new PointF(cx + ox - 3 * d, cy - 6), new PointF(cx + ox + 3 * d, cy), new PointF(cx + ox - 3 * d, cy + 6) });
         if (open) Txt(g, "HIDE TRACKS", 10, hot ? Color.White : Ink, Rc(hr.X + 28, hr.Y, hr.Width - 32, hr.Height), StringAlignment.Near, true);
-        var rg = Reg(hr, () => ToggleHead()); rg.Button = true; g.Restore(gs); Hint2(hr, open ? "Hide the track list for more room to edit (the button comes back here)" : "Show the track list: names, volume, mute, solo and the rest");
+        var rg = Reg(hr, () => ToggleHead()); rg.Button = true; Hint2(hr, open ? "Hide the track list for more room to edit (the button comes back here)" : "Show the track list: names, volume, mute, solo and the rest");
+        if (open)
+        {   // ALL PLUGINS and the inspector: always on the left, whatever the panels show
+            var ap = Rc(6, top + 3, 118, RulerH - 6); bool apOn = InsShown && insTab == 1; Btn(g, ap, "ALL PLUGINS", apOn ? 4 : 1, () => { if (apOn) CloseInspector(); else OpenInspector(1); }, 10); Hint2(ap, "The plugins of the picked track (or bus) in the panel at the bottom: open, add, bypass, move and remove them");
+            var ib = Rc(ap.Right + 4, top + 3, Math.Max(60, hr.X - ap.Right - 8), RulerH - 6); Btn(g, ib, InsShown ? "MIXER ▼" : "MIXER ▲", InsShown ? 4 : 0, () => { if (InsShown) CloseInspector(); else OpenInspector(insTab); }, 10); Hint2(ib, InsShown ? "Hide the mixer panel at the bottom" : "Show the mixer panel at the bottom: channel strip, plugins, buses, clip and MIDI");
+        }
+        g.Restore(gs);
     }
     // a track while the list is tucked away: its colour, its number, and a level light; click it to pick the track
     void PaintHeaderMini(Graphics g, Track tr, int i, RectangleF r, bool sel)
@@ -225,7 +231,7 @@ partial class StudioForm : Form
     float PanelOpenK() { float target = Prefs.PanelHidden ? 0f : 1f; double t = (DateTime.Now - panelAt).TotalMilliseconds / 180.0; if (t >= 1 || t < 0) return target; float e = (float)(1 - Math.Pow(1 - t, 3)); return (1 - target) + (target - (1 - target)) * e; }
     bool PanelAnimating { get { double ms = (DateTime.Now - panelAt).TotalMilliseconds; return ms >= 0 && ms < 260; } }
     internal void TogglePanel() { Prefs.PanelHidden = !Prefs.PanelHidden; Prefs.Changed(); panelAt = DateTime.Now; Invalidate(); }
-    void ShowPanel() { if (Prefs.PanelHidden) TogglePanel(); }
+    void ShowPanel() { if (Prefs.PanelHidden && !InsShown) TogglePanel(); }   // (while the inspector is open it is the place for plugins: the right panel stays tucked away)
     // the handle: a tall glowing tab half way down the panel's left edge, sticking out over the timeline, with a big arrow
     void PanelHandle(Graphics g, float px, float py, float ph, bool open)
     {
@@ -239,7 +245,7 @@ partial class StudioForm : Form
         Reg(hr, () => TogglePanel()); Hint2(hr, open ? "Hide the plugin panel for a bigger timeline (this handle brings it back)" : "Show the plugin panel: add, edit and save plugins");
     }   // the right-hand panel is wider while the sound browser is open
     int LaneH = InitLaneH();   // track height: Alt + mouse wheel makes the tracks taller so the waveform shows more detail
-    RectangleF TimelineRect() { return new RectangleF(HeadW, ToolH + TransH + RulerH, Math.Max(100, ClientSize.Width - HeadW - PanelW), Math.Max(100, ClientSize.Height - ToolH - TransH - RulerH - 6)); }
+    RectangleF TimelineRect() { return new RectangleF(HeadW, ToolH + TransH + RulerH, Math.Max(100, ClientSize.Width - HeadW - PanelW), Math.Max(100, MixH - ToolH - TransH - RulerH - 6)); }
 
     // ---------------- drawing helpers ----------------
     static GraphicsPath RR(RectangleF r, float rad)
@@ -430,17 +436,18 @@ partial class StudioForm : Form
     void BtnLook(Graphics g, RectangleF r, string shown, int style, float ht, float px)
     {
         if (!Edition.Has(Tier.Fantasy)) { BtnLookClassic(g, r, shown, style, ht, px); return; }
-        Color c = style == 1 ? Violet : (style == 3 ? TM.C(255, 150, 40, 80) : (style == 4 ? TM.C(255, 150, 70, 230) : BtnC));
+        Color c = style == 1 ? Violet : (style == 3 ? TM.C(255, 150, 40, 80) : (style == 4 ? (UiTokens.Custom ? UiTokens.Accent : TM.C(255, 150, 70, 230)) : BtnC));
         if (ht > 0) c = Color.FromArgb(Math.Min(255, c.R + (int)(28 * ht)), Math.Min(255, c.G + (int)(22 * ht)), Math.Min(255, c.B + (int)(30 * ht)));
-        c = Contrast.ForWhite(c);
+        c = Contrast.ForWhite(c); if (style == 4 && UiTokens.Glass) c = Color.FromArgb(150, c);   // a translucent accent: the selected button is see-through
         Color vA = Contrast.ForWhite(Color.FromArgb(Math.Min(255, Violet.R + 32), Math.Min(255, Violet.G + 8), Math.Min(255, Violet.B + 28))), vB = Contrast.ForWhite(Accent2);
         float rad = Math.Min(10f, Math.Max(6f, r.Height * 0.3f)); const float rim = 2.6f; var inner = RectangleF.Inflate(r, -rim, -rim); float irad = Math.Max(1f, rad - rim);   // the inner corner is exactly one rim smaller than the outer one, so the rim is the same thickness all the way round (corners too) on every button
-        Color rimC = Color.FromArgb(240, (int)(c.R + (255 - c.R) * 0.82f), (int)(c.G + (255 - c.G) * 0.82f), (int)(c.B + (255 - c.B) * 0.84f));
+        Color rimC = Color.FromArgb(style == 4 && UiTokens.Glass ? 70 : 240, (int)(c.R + (255 - c.R) * 0.82f), (int)(c.G + (255 - c.G) * 0.82f), (int)(c.B + (255 - c.B) * 0.84f));
         using (var p = RR(r, rad)) using (var br = new SolidBrush(rimC)) g.FillPath(br, p);   // the pale rim
         if (style == 2) { using (var p = RR(inner, irad)) using (var br = new LinearGradientBrush(inner, vA, vB, 0f)) g.FillPath(br, p); }
-        else using (var p = RR(inner, irad)) using (var br = new LinearGradientBrush(inner, Color.FromArgb(255, Math.Min(255, (int)(c.R * 1.10f) + 4), Math.Min(255, (int)(c.G * 1.10f) + 4), Math.Min(255, (int)(c.B * 1.10f) + 4)), Color.FromArgb(255, (int)(c.R * 0.88f), (int)(c.G * 0.88f), (int)(c.B * 0.88f)), 90f)) g.FillPath(br, p);
+        else using (var p = RR(inner, irad)) using (var br = new LinearGradientBrush(inner, Color.FromArgb(c.A, Math.Min(255, (int)(c.R * 1.10f) + 4), Math.Min(255, (int)(c.G * 1.10f) + 4), Math.Min(255, (int)(c.B * 1.10f) + 4)), Color.FromArgb(c.A, (int)(c.R * 0.88f), (int)(c.G * 0.88f), (int)(c.B * 0.88f)), 90f)) g.FillPath(br, p);
+        if (style == 4 && UiTokens.Shiny) PaintMaterial(g, inner, irad, c, UiTokens.Finish, false);   // the accent's finish on a selected button
         if (inner.Width > irad * 3) using (var hl = new Pen(Color.FromArgb(style == 2 ? 80 : 52, 255, 255, 255), 1f)) g.DrawLine(hl, inner.X + irad, inner.Y + 1.2f, inner.Right - irad, inner.Y + 1.2f);
-        if (style == 4) Glow(g, Accent2, r, rad, 0.8f, 3); else if (ht > 0.03f) Glow(g, NeonCyan, r, rad, 0.7f * ht, 3);
+        if (style == 4) Glow(g, UiTokens.Sel(Accent2), r, rad, 0.8f, 3); else if (ht > 0.03f) Glow(g, NeonCyan, r, rad, 0.7f * ht, 3);
         bool bdt = true; float fpx = px, avail = r.Width - 12;   // a label that is too wide for its button gets a smaller size instead of being cut off
         if (shown.Length * fpx * 0.55f > avail * 0.7f) { while (fpx > 7f && g.MeasureString(shown, GfxCache.Exact(GfxCache.Grow(fpx), bdt)).Width > avail) fpx -= 0.5f; }
         Color lab = Color.White;   // always white
@@ -449,9 +456,9 @@ partial class StudioForm : Form
     // the button of the Supporter edition: as it always was (the new look below is for the Fantasy edition only)
     void BtnLookClassic(Graphics g, RectangleF r, string shown, int style, float ht, float px)
     {
-        Color c = style == 1 ? Violet : (style == 3 ? TM.C(255, 150, 40, 80) : (style == 4 ? TM.C(255, 150, 70, 230) : BtnC));
+        Color c = style == 1 ? Violet : (style == 3 ? TM.C(255, 150, 40, 80) : (style == 4 ? (UiTokens.Custom ? UiTokens.Accent : TM.C(255, 150, 70, 230)) : BtnC));
         if (ht > 0) c = Color.FromArgb(Math.Min(255, c.R + (int)(28 * ht)), Math.Min(255, c.G + (int)(22 * ht)), Math.Min(255, c.B + (int)(30 * ht)));
-        c = Contrast.ForWhite(c);   // white writing: a theme that makes a button too light gets a darker button, not black writing
+        c = Contrast.ForWhite(c); if (style == 4 && UiTokens.Glass) c = Color.FromArgb(150, c);   // white writing: a theme that makes a button too light gets a darker button, not black writing
         Color vA = Contrast.ForWhite(Color.FromArgb(Math.Min(255, Violet.R + 32), Math.Min(255, Violet.G + 8), Math.Min(255, Violet.B + 28))), vB = Contrast.ForWhite(Accent2);
         float rad = Math.Min(10f, Math.Max(6f, r.Height * 0.3f));   // softer corners on every button
         if (style == 2)
@@ -460,6 +467,7 @@ partial class StudioForm : Form
             if (ht > 0) FillRR(g, Color.FromArgb((int)(40 * ht), 255, 255, 255), r, rad);
         }
         else using (var p = RR(r, rad)) using (var br = new LinearGradientBrush(r, Color.FromArgb(c.A, Math.Min(255, (int)(c.R * 1.07f) + 2), Math.Min(255, (int)(c.G * 1.07f) + 2), Math.Min(255, (int)(c.B * 1.07f) + 2)), Color.FromArgb(c.A, (int)(c.R * 0.93f), (int)(c.G * 0.93f), (int)(c.B * 0.93f)), 90f)) g.FillPath(br, p);   // a soft shade from top to bottom
+        if (style == 4 && UiTokens.Shiny) PaintMaterial(g, r, rad, c, UiTokens.Finish, false);   // the accent's finish on a selected button
         if (Edition.Has(Tier.Fantasy))
         {   // the Fantasy look: a lit rim in a lighter shade of the button's own colour, a glassy top and a bright line where the light catches the edge
             { Color rimBase = style == 2 ? Violet : c; Color rim = Color.FromArgb(Math.Min(255, (int)(rimBase.R + (255 - rimBase.R) * (0.42f + 0.30f * ht))), Math.Min(255, (int)(rimBase.G + (255 - rimBase.G) * (0.42f + 0.30f * ht))), Math.Min(255, (int)(rimBase.B + (255 - rimBase.B) * (0.42f + 0.30f * ht)))); StrokeRR(g, Color.FromArgb(215, rim), r, rad, 1.4f); }
@@ -471,7 +479,7 @@ partial class StudioForm : Form
             StrokeRR(g, TM.C(style == 2 ? 200 : 110, 200, 150, 255), r, rad, 1);
             if (r.Width > rad * 3) using (var hl = new Pen(Color.FromArgb(style == 2 ? 70 : 40, 255, 255, 255), 1f)) g.DrawLine(hl, r.X + rad, r.Y + 1.5f, r.Right - rad, r.Y + 1.5f);   // the light catching the top edge
         }
-        if (style == 4) Glow(g, Accent2, r, rad, 0.8f, 3); else if (ht > 0.03f) Glow(g, NeonCyan, r, rad, 0.7f * ht, 3); else if (style == 2) Glow(g, NeonViolet, r, rad, 0.5f, 3);
+        if (style == 4) Glow(g, UiTokens.Sel(Accent2), r, rad, 0.8f, 3); else if (ht > 0.03f) Glow(g, NeonCyan, r, rad, 0.7f * ht, 3); else if (style == 2) Glow(g, NeonViolet, r, rad, 0.5f, 3);
         bool bdt = true; float fpx = px, avail = r.Width - 10;   // a label that is too wide for its button gets a smaller size instead of being cut off
         if (shown.Length * fpx * 0.55f > avail * 0.7f) { while (fpx > 7f && g.MeasureString(shown, GfxCache.Exact(GfxCache.Grow(fpx), bdt)).Width > avail) fpx -= 0.5f; }
         Color lab = Color.White;   // always white
@@ -588,12 +596,14 @@ partial class StudioForm : Form
     // everything under the pop-up boxes: the backdrop, the page, the bars and the browsers
     void PaintBase(Graphics g)
     {
+        if (!lookApplied) { lookApplied = true; ApplyProfileLook(); }   // your profile colour and its finish become the accent
         DrawBackdrop(g); Prof.Mark("backdrop");
         if (tab == 0) PaintMix(g); else if (tab == 2) PaintLyrics(g); else if (tab == 3) PaintProjects(g); else if (tab == 4) PaintCommunity(g); else if (tab == 5) PaintVisualiser(g); else if (tab == 6) PaintProfile(g); else if (tab == 7) PaintArtists(g); else if (tab == 8) PaintFonts(g); else if (tab == 9) PaintHub(g); else if (tab == 10) PaintCreative(g); else PaintMastering(g);
         Prof.Mark("page " + tab);
         if (tab != 2) SyncLyricUi(false);
         if (tab == 3 || tab == 4 || tab == 6 || tab == 7 || tab == 8 || tab == 9 || tab == 10) { PaintSlimBar(g); if (tab != 9 && tab != 10) PaintPreviewBar(g); } else if (tab == 5) PaintVisBar(g); else if (tab == 1) PaintMasterBars(g); else { PaintToolbar(g); Prof.Mark("toolbar"); PaintTransport(g); }   // the Community and My Projects pages have no music controls
         Prof.Mark("bars");
+        PaintFxWindows(g);   // the floating plugin windows: over the Mix page, under the pop-ups
         if (browserOpen && !allFxOpen) { if (TxtAudit != null) TxtAudit.Clear(); PaintBrowser(g); }   // (over ALL PLUGINS the list of effects is drawn on top of the sheet, in PaintSheets)
         PaintSoundDrag(g); PaintPackManager(g);
         if (soundBox != null && soundBox.Visible && !(soundsOpen && tab == 0)) soundBox.Visible = false;
@@ -786,7 +796,7 @@ partial class StudioForm : Form
     {
         float top = ToolH + TransH; var tl = TimelineRect();
         PruneTrackCaches(); StepAnim(GhostDt()); AutoKeyTick();
-        int n = LaneCount; float viewH = ClientSize.Height - top - RulerH - 46, contentH = n * LaneH + 50; vscroll = Math.Max(0, Math.Min(vscroll, Math.Max(0, contentH - viewH)));   // never stuck scrolled past the tracks   // buses are not lanes: they live in the Buses sheet and in each track's Bus drop-down
+        int n = LaneCount; float viewH = MixH - top - RulerH - 46, contentH = n * LaneH + 50; vscroll = Math.Max(0, Math.Min(vscroll, Math.Max(0, contentH - viewH)));   // never stuck scrolled past the tracks   // buses are not lanes: they live in the Buses sheet and in each track's Bus drop-down
         if (autoFit && !ghostOn && (lastFitW != (int)tl.Width || lastFitLen != eng.EndFrame) && tl.Width > 100) { FitView(); lastFitW = (int)tl.Width; lastFitLen = eng.EndFrame; }
         // clamp selection
         if (selTrack >= n) selTrack = Math.Max(0, n - 1);
@@ -797,10 +807,10 @@ partial class StudioForm : Form
 
         if (needleDrag && dragReg != null) NeedleEdgeScroll(tl);   // the needle dragged to an edge: the timeline scrolls with it
         float y = top + RulerH - vscroll;
-        g.SetClip(Rc(0, top + RulerH, ClientSize.Width - PanelW, ClientSize.Height - top - RulerH - 46));
+        g.SetClip(Rc(0, top + RulerH, ClientSize.Width - PanelW, MixH - top - RulerH - 46));
         for (int i = 0; i < n; i++, y += LaneH)
         {
-            if (y + LaneH < top + RulerH || y > ClientSize.Height) continue;
+            if (y + LaneH < top + RulerH || y > MixH) continue;
             var tr = eng.Tracks[i]; bool sel = i == selTrack; float ys = y + AnimOff(tr);   // ys: where this row is drawn right now (it slides when rows swap)
             var lane = Rc(HeadW, ys, tl.Width, LaneH); q0 = Prof.T(); PaintGrid(g, tl, ys, ys + LaneH, 1f, i % 2 == 0 ? Lane : Lane2); Prof.A("mix.grid", q0);   // the grid sits UNDER the clips, inside each row
             q0 = Prof.T(); if (tr.IsBus) PaintBusLane(g, tr, lane); else if (tr.Instrument) PaintMidi(g, tr, lane); else if (tr.Clip == null) { if (!RowHasPieces(tr)) PaintEmptyLane(g, tr, lane); } else PaintWave(g, tr, lane, sel);   /* a row only shows EMPTY TRACK when nothing at all is on it (its own clip may have moved away while pieces are still on it) */
@@ -817,7 +827,7 @@ partial class StudioForm : Form
         q0 = Prof.T(); PaintGhost(g, tl, top); Prof.A("mix.ghost", q0);
         AddTrackRow(g, Math.Max(y, top + RulerH), n);
         HeadHandle(g, top);
-        { float ey = Math.Max(y, top + RulerH); if (ey < ClientSize.Height) { var em = Reg(Rc(HeadW, ey, tl.Width, ClientSize.Height - ey), () => { toolsTrack = null; MarqueeBegin(); }); em.OnDrag = pt => MarqueeTo(pt); em.OnUp = () => MarqueeEnd(); } }   // empty space: hold and drag a selection box (the needle moves from the ruler only)
+        { float ey = Math.Max(y, top + RulerH); if (ey < MixH) { var em = Reg(Rc(HeadW, ey, tl.Width, MixH - ey), () => { toolsTrack = null; MarqueeBegin(); }); em.OnDrag = pt => MarqueeTo(pt); em.OnUp = () => MarqueeEnd(); } }   // empty space: hold and drag a selection box (the needle moves from the ruler only)
         PaintMarquee(g);
         { var rr2 = Reg(ruler, () => { needleDrag = true; followPaused = false; eng.Seek(scroll + (long)((MousePos.X - HeadW) * spp)); }); rr2.OnDrag = pt => NeedleDragTo(pt.X, tl); rr2.OnUp = () => needleDrag = false; }   // the whole ruler, to its bottom border, moves the needle: registered after the rows so a row scrolled up under it can not take the click
         PaintLoop(g, tl, top);   // the loop section (and, while you pick one, the drag that sets it)
@@ -838,25 +848,26 @@ partial class StudioForm : Form
             Reg(r0, () => AddMusicClick()); if (over) { bubble = "Click to choose music from your computer"; bubblePt = MousePos; }
         }
         g.ResetClip();
-        { q0 = Prof.T(); float gy = Math.Max(y, top + RulerH); PaintGrid(g, tl, gy, ClientSize.Height - 46, 0.5f); Prof.A("mix.grid2", q0); }   // the empty space under the last row
+        { q0 = Prof.T(); float gy = Math.Max(y, top + RulerH); PaintGrid(g, tl, gy, MixH - 46, 0.5f); Prof.A("mix.grid2", q0); }   // the empty space under the last row
         // playhead
         float px = HeadW + (float)((dispPos - scroll) / spp);
-        if (px >= HeadW && px <= tl.Right) { q0 = Prof.T(); float nb = ClientSize.Height - 46; if (n > 0) nb = Math.Min(nb, Math.Max(top + RulerH + 8, y)); PaintNeedle(g, px, top, nb, RulerH);   /* the needle runs down to the bottom of the last track, never into the empty space or the bar under it */ Prof.A("mix.needle", q0); } else if (sparks.Count > 0) sparks.Clear();
+        if (px >= HeadW && px <= tl.Right) { q0 = Prof.T(); float nb = MixH - 46; if (n > 0) nb = Math.Min(nb, Math.Max(top + RulerH + 8, y)); PaintNeedle(g, px, top, nb, RulerH);   /* the needle runs down to the bottom of the last track, never into the empty space or the bar under it */ Prof.A("mix.needle", q0); } else if (sparks.Count > 0) sparks.Clear();
         if (contentH > viewH + 1) VScroll(g, Rc(tl.Right - 50, top + RulerH + 4, 42, viewH - 8), contentH, viewH, () => vscroll, v => vscroll = v);   // the logo scroll bar: hold the logo and drag, or use the arrows
         q0 = Prof.T(); PaintOverview(g, tl); Prof.A("mix.overview", q0);
         // wheel: scroll / zoom
-        var wr = new HitReg { R = Rc(HeadW, top, tl.Width, ClientSize.Height - top) };
+        var wr = new HitReg { R = Rc(HeadW, top, tl.Width, MixH - top) };
         wr.OnWheel = d =>
         {
             if ((ModifierKeys & Keys.Control) != 0 && (ModifierKeys & Keys.Alt) == 0 && (ModifierKeys & Keys.Shift) == 0) autoFit = false;
             if ((ModifierKeys & Keys.Control) != 0 && (ModifierKeys & Keys.Shift) != 0) { }   // Ctrl + Shift + wheel does nothing (it used to resize the tracks by accident)
-            else if ((ModifierKeys & Keys.Alt) != 0) { LaneH = Math.Max(64, Math.Min(420, LaneH + (d > 0 ? 16 : -16))); vscroll = Math.Max(0, Math.Min(vscroll, Math.Max(0, n * LaneH - (ClientSize.Height - top - RulerH - 66)))); }
+            else if ((ModifierKeys & Keys.Alt) != 0) { LaneH = Math.Max(64, Math.Min(420, LaneH + (d > 0 ? 16 : -16))); vscroll = Math.Max(0, Math.Min(vscroll, Math.Max(0, n * LaneH - (MixH - top - RulerH - 66)))); }
             else if ((ModifierKeys & Keys.Control) != 0) { double f = d > 0 ? 0.7 : 1.43; double cur = scroll + (MousePos.X - HeadW) * spp; spp = Math.Max(MinSpp, Math.Min(MaxSpp, spp * f)); scroll = Math.Max(0, (long)(cur - (MousePos.X - HeadW) * spp)); }
             else if ((ModifierKeys & Keys.Shift) != 0) ScrollView(-d * 0.25);
-            else if (n * LaneH + 50 <= ClientSize.Height - top - RulerH - 46 || MousePos.Y < top + RulerH) ScrollView(-d * 0.25);   // everything fits vertically: the wheel moves along the song (like BandLab)
-            else vscroll = Math.Max(0, Math.Min(Math.Max(0, n * LaneH + 50 - (ClientSize.Height - top - RulerH - 46)), vscroll - d * 40));
+            else if (n * LaneH + 50 <= MixH - top - RulerH - 46 || MousePos.Y < top + RulerH) ScrollView(-d * 0.25);   // everything fits vertically: the wheel moves along the song (like BandLab)
+            else vscroll = Math.Max(0, Math.Min(Math.Max(0, n * LaneH + 50 - (MixH - top - RulerH - 46)), vscroll - d * 40));
         };
         regs.Insert(0, wr);
+        q0 = Prof.T(); PaintInspector(g); Prof.A("mix.inspector", q0);   // the bottom inspector, under the arrangement
         q0 = Prof.T(); if (soundsOpen) PaintSoundsPanel(g); else PaintPluginPanel(g); Prof.A("mix.panel", q0);
         if (flexOpen) PaintFlex(g);
     }
@@ -1019,7 +1030,7 @@ partial class StudioForm : Form
         var m = Win.NewMenu(); var master = new ToolStripMenuItem("No bus (straight to the master)") { Checked = tk.Out == null }; master.Click += (a, b) => { PushUndo(); lock (eng.Sync) tk.Out = null; }; m.Items.Add(master);
         foreach (var b0 in eng.Tracks.ToArray()) if (b0.IsBus) { var bus = b0; var it = new ToolStripMenuItem(bus.Name) { Checked = tk.Out == bus }; it.Click += (a, b) => { PushUndo(); lock (eng.Sync) tk.Out = bus; }; m.Items.Add(it); }
         m.Items.Add(new ToolStripSeparator()); m.Items.Add("New bus").Click += (a, b) => { int keep = selTrack; var nb = AddBus(); selTrack = keep; if (nb != null) lock (eng.Sync) tk.Out = nb; };
-        m.Items.Add("Edit buses (levels, plugins)...").Click += (a, b) => OpenAllBuses();   // the ALL BUSES page
+        m.Items.Add("Edit buses (levels, plugins, routing)...").Click += (a, b) => OpenInspector(2);   // the BUSES tab of the bottom inspector
         m.Show(this, new Point((int)MousePos.X, (int)MousePos.Y));
     }
     Track AddBus()
@@ -1040,8 +1051,8 @@ partial class StudioForm : Form
     // the plugin you are editing: bright fill, a neon outline with a glow and a bar down its left side, so you always see which one is open
     void PaintPickedFx(Graphics g, RectangleF row, float rad)
     {
-        Glow(g, NeonCyan, row, rad, 0.9f, 4); FillRR(g, TM.C(235, 120, 50, 200), row, rad); FillRR(g, Color.FromArgb(95, NeonCyan), row, rad); StrokeRR(g, NeonCyan, row, rad, 2.2f);
-        using (var b = new SolidBrush(NeonCyan)) g.FillRectangle(b, row.X + 2, row.Y + 5, 3, row.Height - 10);
+        Color sc = UiTokens.Sel(NeonCyan); Glow(g, sc, row, rad, 0.9f, 4); FillRR(g, TM.C(235, 120, 50, 200), row, rad); FillRR(g, Color.FromArgb(95, sc), row, rad); if (UiTokens.Shiny) PaintMaterial(g, row, rad, sc, UiTokens.Finish, false); StrokeRR(g, sc, row, rad, 2.2f);
+        using (var b = new SolidBrush(sc)) g.FillRectangle(b, row.X + 2, row.Y + 5, 3, row.Height - 10);
     }
     void PaintPickedRow(Graphics g, Track tr, RectangleF row)
     {
@@ -1107,16 +1118,27 @@ partial class StudioForm : Form
         if (!(soundsOpen && tab == 0)) PanelHandle(g, x, y, h, true);
         if (eng.Tracks.Count == 0) { Txt(g, "SELECT A TRACK TO EDIT ITS PLUGINS", 14, DimC, pr, StringAlignment.Center, false); return; }
         if (busEdit != null && !eng.Tracks.Contains(busEdit)) busEdit = null; var tr = busEdit ?? eng.Tracks[Math.Max(0, Math.Min(selTrack, eng.Tracks.Count - 1))];   // EDIT on a bus shows that bus here
-        PaintPluginsTitle(g, tr, Rc(x + 14, y + 6, w - 28 - (busEdit != null ? 126 : 200), 30));   // which track these plugins are on: its number, its kind and the end of its name, in its colour (two tracks of one song start with the same long name)
+        PaintPluginsTitle(g, tr, Rc(x + 14, y + 6, w - 28 - (busEdit != null ? 126 : 0), 30));   // which track these plugins are on: its number, its kind and the end of its name, in its colour (two tracks of one song start with the same long name)
         if (busEdit != null) { var bk = Rc(x + w - 132, y + 8, 120, 24); Btn(g, bk, "BACK TO TRACKS", 2, () => { busEdit = null; selFx = -1; }, 10); Hint2(bk, "Stop editing the bus: the plugins of the picked track show again"); }
-        else { var allB = Rc(x + w - 112, y + 8, 100, 24); Btn(g, allB, "ALL PLUGINS", 2, () => OpenAllFx(), 10); Hint2(allB, "Every track and its plugins in one place: add, paste, copy and open plugins on any track"); var allBu = Rc(allB.X - 6 - 84, y + 8, 84, 24); Btn(g, allBu, "ALL BUSES", 2, () => OpenAllBuses(), 10); Hint2(allBu, "Every bus in one place: its level, what is sent to it and its plugins"); }
-        Fx[] fxs; lock (eng.Sync) fxs = tr.Fx.ToArray(); float origW = w; { int n0 = fxs.Length; float est = 76 + n0 * 32 + GroupExtra(fxs) + 8 + ((selFx >= 0 && selFx < n0) ? EditorHeight(fxs[selFx]) : 60); if (est - h + 6 > 1 && h > 200) w -= 52; }
+        else { }
+        Fx[] fxs; lock (eng.Sync) fxs = tr.Fx.ToArray(); float origW = w; { int n0 = fxs.Length; float est = (tr.IsBus ? 188 : 218) + n0 * 32 + GroupExtra(fxs) + 8 + ((selFx >= 0 && selFx < n0) ? EditorHeight(fxs[selFx]) : 60); if (est - h + 6 > 1 && h > 200) w -= 52; }
         int ti = Array.IndexOf(eng.Tracks.ToArray(), tr);
-        Btn(g, Rc(x + 10, y + 38, 90, 30), "+ Add Effect", 1, () => OpenBrowser(false, ti), 12);
-        { var pbn = Rc(x + 104, y + 38, 108, 30); Btn(g, pbn, tr.IsBus ? "Bus Presets" : "Presets (" + VocalStyles.All.Count + ")", 0, () => ChainMenu(tr), 11); Hint2(pbn, tr.IsBus ? BusPresets.All.Count + " bus presets, the AI Bus Generator, and your own and community presets" : VocalStyles.All.Count + " vocal presets, " + BusPresets.All.Count + " bus presets, the AI generators, and your own and community presets"); }
-        { var snb = Rc(tr.IsBus ? x + 216 : x + 284, y + 38, 92, 30); Btn(g, snb, "SOUND PACKS", soundsOpen ? 4 : 0, () => { if (soundsOpen) CloseSounds(); else OpenSounds(); }, 10.5f); }   // sound packs, with the effects
-        if (origW >= 330 && !tr.IsBus) Btn(g, Rc(x + 216, y + 38, 64, 30), "Bass Lab", 2, () => { browserMaster = false; browserTrack = ti; AddFx("synth"); InstrumentFx bf = null; lock (eng.Sync) bf = tr.Fx.Count > 0 ? tr.Fx[tr.Fx.Count - 1] as InstrumentFx : null; if (bf != null) { bf.Owner = tr; bf.ShowWindow(this); } }, 11);   // the Bass Lab synthesizer: added to this track and its window opens
-        float ly = y + 76 - panelScroll; int n = fxs.Length; g.SetClip(Rc(x, y + 72, w, h - 72));
+        // the tools, one per row (full width, the same height)
+        float hb; { float bx = x + 10, bw2 = w - 20, by = y + 38; int bi = 0; Func<RectangleF> nextRow = () => Rc(bx, by + (bi++) * 30, bw2, 26);
+          var r1 = nextRow(); Btn(g, r1, "ALL PLUGINS", InsShown && insTab == 1 ? 4 : 2, () => OpenInspector(1), 11); Hint2(r1, "This track's plugins in the panel at the bottom: open each in its own window, add, bypass, move and remove them (buses are there too)");
+          var r2 = nextRow(); Btn(g, r2, "+ ADD EFFECT", 1, () => OpenBrowser(false, ti), 11); Hint2(r2, "Add an effect to " + tr.Name);
+          var pbn = nextRow(); Btn(g, pbn, tr.IsBus ? "BUS PRESETS" : "PRESETS (" + VocalStyles.All.Count + ")", 0, () => ChainMenu(tr), 11); Hint2(pbn, tr.IsBus ? BusPresets.All.Count + " bus presets, the AI Bus Generator, and your own and community presets" : VocalStyles.All.Count + " vocal presets, " + BusPresets.All.Count + " bus presets, the AI generators, and your own and community presets"); ;
+          var snb = nextRow(); Btn(g, snb, "SOUND PACKS", soundsOpen ? 4 : 0, () => { if (soundsOpen) CloseSounds(); else OpenSounds(); }, 11);
+          hb = by + bi * 30 + 4; }
+        if (InsShown)
+        {   // the mixer panel is open: every plugin is down there (one place for plugins); a click on a plugin there opens its own window
+            var nb = Rc(x + 6, hb + 4, w - 12, 118); FillRR(g, TM.C(70, 12, 6, 28), nb, 10); Glow(g, NeonPink, nb, 10, 0.35f, 3); StrokeRR(g, Color.FromArgb(190, NeonPink), nb, 10, 1.2f);
+            Txt(g, "YOUR PLUGINS ARE IN THE MIXER", 11, NeonPink, Rc(nb.X + 12, nb.Y + 6, nb.Width - 24, 20), StringAlignment.Near, true);
+            Txt(g, "Every track's plugins are in the panel below.", 10, DimC, Rc(nb.X + 12, nb.Y + 30, nb.Width - 24, 18), StringAlignment.Near, false); Txt(g, "Click a plugin there to open its window.", 10, DimC, Rc(nb.X + 12, nb.Y + 50, nb.Width - 24, 18), StringAlignment.Near, false);
+            var hm = Rc(nb.X + 12, nb.Bottom - 34, nb.Width - 24, 26); Btn(g, hm, "HIDE THE MIXER", 0, () => CloseInspector(), 10); Hint2(hm, "Close the mixer panel: the plugins show here again");
+            return;
+        }
+        float ly = hb - panelScroll; int n = fxs.Length; g.SetClip(Rc(x, hb - 4, w, h - (hb - 4 - y)));
         if (selFx >= n) selFx = -1;
         // the boxes: the instrument (Bass Lab or a VST), every preset that was added (each one its own box, they never replace each other) and YOUR PLUGINS (always there)
         var ig = new PGroup { Title = "INSTRUMENT", Col = NeonCyan, Kind = 0 }; var og = new PGroup { Title = "YOUR PLUGINS", Col = NeonPink, Kind = 2 }; var pgs = new List<PGroup>(); bool anyFx = false;
@@ -1140,7 +1162,7 @@ partial class StudioForm : Form
             {
                 var f = fxs[i]; int fi = i; bool sel = i == selFx;
                 var row = Rc(x + 14, ly, w - 36, 28); if (sel) PaintPickedFx(g, row, 6); else FillRR(g, TM.C(150, 40, 22, 74), row, 6);   // the plugin you are editing stands out
-                Reg(row, () => selFx = fi);
+                Reg(row, () => selFx = fi); { var rw2 = Reg(row, () => selFx = fi); rw2.OnDouble = () => OpenFxWindow(tr, f); }   // double-click: its own window
                 var dotr = Rc(row.X + 6, row.Y + 3.5f, 21, 21);   /* the on/off circle, 50% bigger */ using (var b2 = new SolidBrush(f.Bypass ? TM.C(90, 90, 70, 110) : Good)) g.FillEllipse(b2, dotr);
                 Reg(dotr, () => { f.Bypass = !f.Bypass; });
                 float cpl = CopyPasteBtns(g, f, tr, row.Right - 80, row.Y + 3, 22);   // COPY and PASTE on every plugin
@@ -1161,8 +1183,8 @@ partial class StudioForm : Form
         else Txt(g, "CLICK A PLUGIN TO EDIT IT", 13, DimC, Rc(x, ey, w, 40), StringAlignment.Center, false);
         g.ResetClip();
         float contentBottom = ly + panelScroll + 8 + ((selFx >= 0 && selFx < n) ? edH : 60), maxScroll = Math.Max(0, contentBottom - (y + h) + 6); panelScroll = Math.Min(panelScroll, maxScroll);
-        regs.Insert(0, new HitReg { R = Rc(x, y + 72, origW, h - 72), OnWheel = d => panelScroll = Math.Max(0, Math.Min(maxScroll, panelScroll - d * 50)) });
-        if (origW != w) VScroll(g, Rc(x + origW - 50, y + 76, 42, h - 84), h - 84 + maxScroll, h - 84, () => panelScroll, v => panelScroll = v);
+        regs.Insert(0, new HitReg { R = Rc(x, hb - 4, origW, h - (hb - 4 - y)), OnWheel = d => panelScroll = Math.Max(0, Math.Min(maxScroll, panelScroll - d * 50)) });
+        if (origW != w) VScroll(g, Rc(x + origW - 50, hb, 42, h - (hb - y) - 8), h - (hb - y) - 8 + maxScroll, h - (hb - y) - 8, () => panelScroll, v => panelScroll = v);
     }
 
     // Exact height of an effect editor, so the panel scrolls only as far as its content (no endless blank space).
@@ -1403,10 +1425,11 @@ partial class StudioForm : Form
         if (browserCat.Length > 0 && !Array.Exists(FxRegistry.All, i => i.Category == browserCat)) browserCat = "";   // a category that is not in the list any more shows everything
         string key = browserQuery + "\n" + browserCat; if (blCache != null && key == blKey) return blCache;
         var all = FxRegistry.All; var list = new List<FxRegistry.Info>(); string q = browserQuery.ToLowerInvariant().Trim();
-        foreach (var i in all) { if (i.Type == "gain" || i.Type == "synth") continue;   /* Bass Lab has its own BASS LAB button next to PRESETS: this list is for the VSTs and the effects */ if (browserCat.Length > 0 && i.Category != browserCat) continue; if (q.Length == 0 || i.Name.ToLowerInvariant().Contains(q) || i.Category.ToLowerInvariant().Contains(q) || i.Blurb.ToLowerInvariant().Contains(q) || i.Type.Contains(q)) list.Add(i); }
+        foreach (var i in all) { if (i.Type == "gain") continue; if (browserCat.Length > 0 && i.Category != browserCat) continue; if (q.Length == 0 || i.Name.ToLowerInvariant().Contains(q) || i.Category.ToLowerInvariant().Contains(q) || i.Blurb.ToLowerInvariant().Contains(q) || i.Type.Contains(q)) list.Add(i); }
         var order = new List<string>(); order.Add("Plugins"); foreach (var i in all) if (!order.Contains(i.Category)) order.Add(i.Category);
         var res = new List<FxRegistry.Info>(); foreach (var c in order) foreach (var i in list) if (i.Category == c) res.Add(i); var pv = res.FindAll(x => x.Category == "Purphex VST"); { res.RemoveAll(x => x.Category == "Purphex VST"); var inst = res.FindAll(x => x.Category == "Instruments"); if (inst.Count > 0) { res.RemoveAll(x => x.Category == "Instruments"); var bl = inst.Find(x => x.Type == "synth"); if (bl != null) { inst.Remove(bl); inst.Insert(0, bl); } res.InsertRange(0, inst); } }   // the instruments (Bass Lab first, then the VSTs) are together at the top, in one box that fits them exactly
-        res.InsertRange(0, pv);   // Purphex VST first of all
+        res.InsertRange(0, pv);
+        { var ins2 = res.FindAll(x => x.Category == "Instruments"); res.RemoveAll(x => x.Category == "Instruments"); res.InsertRange(0, ins2); }   // the VSTs that make the sound on top, Bass Lab first of all (it makes all your sounds), then the Purphex VST effects
         blCache = res; blKey = key; return res;
     }
     void CategoryMenu()
@@ -1423,7 +1446,8 @@ partial class StudioForm : Form
         if (type == "duck") { var v = eng.VocalTrack(); if (v == null) Toast("The ducker listens to a vocal track; add or separate a vocal first."); }
         if (browserMaster) { lock (eng.Sync) eng.MasterFx.Add(f); selMaster = eng.MasterFx.Count - 1; }
         else if (browserTrack >= 0 && browserTrack < eng.Tracks.Count) { var tr = eng.Tracks[browserTrack]; var vfx = f as InstrumentFx; if (vfx != null) vfx.Owner = tr; lock (eng.Sync) tr.Fx.Add(f); selTrack = browserTrack; selFx = tr.Fx.Count - 1; ShowPanel(); }
-        browserOpen = false; Toast(f.Title + " added"); { if (PxPlugins.HasWindow(f)) PxPlugins.Open(f, this); }
+        browserOpen = false; Toast(f.Title + " added"); { var addedInst = f as InstrumentFx; if (addedInst != null && !browserMaster) addedInst.ShowWindow(this); }
+        { if (PxPlugins.HasWindow(f)) PxPlugins.Open(f, this); else if (!browserMaster && insAddFor != null && browserTrack >= 0 && browserTrack < eng.Tracks.Count && eng.Tracks[browserTrack] == insAddFor && !(f is InstrumentFx)) OpenFxWindow(insAddFor, f); } insAddFor = null;
     }
 
     protected override void OnKeyPress(KeyPressEventArgs e)
@@ -1537,6 +1561,7 @@ partial class StudioForm : Form
         if (tab == 3 && projSearchOn && !projSearchR.Contains(e.Location)) projSearchOn = false;
         if (tab == 8 && fontSearchOn && !fontSearchR.Contains(e.Location)) fontSearchOn = false;
         if (tab == 7 && artSearchOn && !artSearchR.Contains(e.Location)) artSearchOn = false;   // clicking anywhere else lets go of the search box
+        FxWinMouseDown(e.Location);   // a click in a plugin window brings that window to the front
         var r = TopRegion(e.Location); if (r == null) return;
         if (Win.ClickClosedMenu(this, r.R)) return;   // the click that just closed a menu is not also a click on the button that opened it
         if (busy && !r.WhileBusy) return;   // while a job runs only the Cancel button works
@@ -1568,16 +1593,20 @@ partial class StudioForm : Form
 
     // a see-through colour worked out against the panel it sits on, as one solid colour (blending a big see-through box over a panel on every frame is slow)
     static Color OverPanel(Color c) { float k = c.A / 255f; return Color.FromArgb(255, (int)(Panel.R + (c.R - Panel.R) * k), (int)(Panel.G + (c.G - Panel.G) * k), (int)(Panel.B + (c.B - Panel.B) * k)); }
+    bool editorBare;   // the editor without its own title row (inside a floating plugin window)
     void PaintEditor(Graphics g, Fx f, RectangleF a, Track tr)
     {
         FillRR(g, OverPanel(TM.C(120, 34, 18, 62)), a, 10);
         float x = a.X + 10, y = a.Y + 8, w = a.Width - 20;
         bool wide = tr == null;   // the Mastering page has room for the longer label; the narrow track panel keeps the short one
         bool isEq = f is ParametricEq; float aeW = wide ? 84 : 74, aeGap = wide ? 8 : 6; bool eqOwnRow = isEq && !wide;
-        Txt(g, f.Title, 16, Ink, Rc(x, y, w - (wide ? 190 : 150), 24), StringAlignment.Near, true);
-        Btn(g, Rc(a.Right - (wide ? 176 : 150), y, wide ? 70 : 66, 24), f.Bypass ? "OFF" : "ON", f.Bypass ? 0 : 4, () => f.Bypass = !f.Bypass, 11);
-        Btn(g, Rc(a.Right - (wide ? 100 : 80), y, wide ? 90 : 70, 24), wide ? "FX presets" : "Presets", 1, () => OpenPresetSheet(f), 12);
-        y += 34;
+        if (!editorBare)   // (in a floating window the window's own title bar has the name, bypass and presets)
+        {
+            Txt(g, f.Title, 16, Ink, Rc(x, y, w - (wide ? 190 : 150), 24), StringAlignment.Near, true);
+            Btn(g, Rc(a.Right - (wide ? 176 : 150), y, wide ? 70 : 66, 24), f.Bypass ? "OFF" : "ON", f.Bypass ? 0 : 4, () => f.Bypass = !f.Bypass, 11);
+            Btn(g, Rc(a.Right - (wide ? 100 : 80), y, wide ? 90 : 70, 24), wide ? "FX presets" : "Presets", 1, () => OpenPresetSheet(f), 12);
+            y += 34;
+        }
         if (!(f is InstrumentFx)) { bool fitsInline = wide && a.Width - 10 - 184 - 150 - 6 >= Math.Min(260f, g.MeasureString(f.Title, GfxCache.Font(16, true)).Width + 14); if (fitsInline) PaintPresetInline(g, f, tr, a, y - 34); else y = PaintPresetRow(g, f, tr, a, y); }   /* a long name (Multiband Compressor) on a narrow window: the buttons go on their own row instead of over the name */   // which preset is on, COPY / PASTE of the plugin, and REMOVE PRESET (on the wide Mastering page they sit in the title row: no room is taken from the editor)
         if (eqOwnRow) { var ae2 = Rc(a.X + 10, y - 4, a.Width - 20, 26); Btn(g, ae2, "AUTO EQ", 2, () => AutoEqClick((ParametricEq)f, tr), 12); Hint2(ae2, "The EQ sets itself: it listens to this track and moves bass, mud, presence, upper-mids and air to balance it (it asks first, and you can undo it)"); y += 28; }
         var vstf = f as InstrumentFx; if (vstf != null) { Btn(g, Rc(a.X + 10, y - 2, a.Width - 20, 32), vstf.WindowLabel, 2, () => { vstf.Owner = tr; vstf.ShowWindow(this); }, 14); y += 38; return; }   // an instrument is edited in its own window, like a real plugin: nothing else is listed here
@@ -1667,7 +1696,7 @@ partial class StudioForm : Form
         foreach (var kv in new[] { new KeyValuePair<double, string>(100, "100"), new KeyValuePair<double, string>(1000, "1k"), new KeyValuePair<double, string>(10000, "10k") }) Txt(g, kv.Value, 10, DimC, Rc(FX(kv.Key) - 14, plot.Bottom - 14, 30, 12), StringAlignment.Center, false);
         foreach (int d in new[] { -12, 0, 12 }) Txt(g, d.ToString(), 10, DimC, Rc(a.X, GY(d) - 7, 26, 14), StringAlignment.Far, false);
         // live spectrum: your sound after the EQ, and (in Mastering) before it, with what changed lit up
-        g.SetClip(plot); DrawEqSpectrum(g, plot, tab == 1);
+        var eqClip = g.Save(); g.SetClip(plot, System.Drawing.Drawing2D.CombineMode.Intersect); DrawEqSpectrum(g, plot, tab == 1);
         // curve
         // same maths as ParametricEq.ResponseDb, but each filter is designed once per frame instead of once per pixel
         var secC = new List<double[]>(); var secN = new List<int>();
@@ -1690,7 +1719,7 @@ partial class StudioForm : Form
         }
         using (var pen = new Pen(Color.FromArgb(70, Accent2), 8)) g.DrawLines(pen, cp.ToArray());
         using (var pen = new Pen(Accent2, 2.4f)) g.DrawLines(pen, cp.ToArray());
-        g.ResetClip();
+        g.Restore(eqClip);   // (back to the clip it had: a plugin window clips the editor to itself)
         // draggable nodes
         for (int b = 0; b < ParametricEq.Bands; b++)
         {

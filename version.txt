@@ -1,4 +1,4 @@
-3.69.0
+3.70.0
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-The complete sound library: 125,000+ sounds in every category, real MIDI, new instruments, any key and tempo
-sha256=97ffc3d405e9ad7099aa3f93c4ea676e8e8968950dc86649635d12d23c390322
+The mixer desk, Purphex plugin windows with live visualisers, sends, built-in keys for MIDI tracks, and your profile colour across the studio
+sha256=680b6f26308f9eb9ebc8e6d840ff82d78a68c68e5252247e9a90bdfca56cb140

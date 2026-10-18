@@ -568,6 +568,8 @@ static class ProjectIO
             if (t.SectionLabel.Length > 0) sb.Append("label|").Append(i).Append('|').Append(E(t.SectionLabel)).Append('\n');   // the name of this one section
             if (t.FadeIn > 0 || t.FadeOut > 0 || t.FadeInDelay > 0 || t.FadeOutTail > 0 || t.ClipGainDb != 0f || t.Locked || t.PieceLocked || t.PieceMuted) sb.Append("clip|").Append(i).Append('|').Append(t.FadeIn).Append('|').Append(t.FadeOut).Append('|').Append(t.ClipGainDb.ToString("R", CI)).Append('|').Append(t.Locked ? 1 : 0).Append('|').Append(t.FadeInDelay).Append('|').Append(t.FadeOutTail).Append('|').Append(t.PieceLocked ? 1 : 0).Append('|').Append(t.PieceMuted ? 1 : 0).Append('\n');
             if (t.Out != null && eng.Tracks.IndexOf(t.Out) >= 0) sb.Append("route|").Append(i).Append('|').Append(eng.Tracks.IndexOf(t.Out)).Append('\n');
+            if (t.TrimDb != 0f || t.Invert) sb.Append("strip|").Append(i).Append('|').Append(t.TrimDb.ToString("R", CI)).Append('|').Append(t.Invert ? 1 : 0).Append('\n');
+            foreach (var sd in t.Sends) if (sd.Bus != null && eng.Tracks.IndexOf(sd.Bus) >= 0) sb.Append("send|").Append(i).Append('|').Append(eng.Tracks.IndexOf(sd.Bus)).Append('|').Append(sd.LevelDb.ToString("R", CI)).Append('|').Append(sd.Pre ? 1 : 0).Append('\n');
             if (t.Instrument && t.Midi.Count > 0) { sb.Append("midi|").Append(i).Append('|'); lock (t.Midi) foreach (var m in t.Midi) sb.Append(m.Frame).Append(':').Append(m.S).Append(':').Append(m.D1).Append(':').Append(m.D2).Append(';'); sb.Append('\n'); }
         }
         if (CoverBytes != null && CoverBytes.Length > 0) sb.Append("cover|").Append(Convert.ToBase64String(CoverBytes)).Append((char)10);
@@ -583,7 +585,7 @@ static class ProjectIO
     {
         var warn = new List<string>(); var lines = File.ReadAllLines(path, Encoding.UTF8);
         if (lines.Length == 0 || !lines[0].StartsWith("YTMPROJ")) throw new Exception("That isn't a project file from this app.");
-        string dir = Path.GetDirectoryName(path); var tracks = new List<Track>(); var mix = new StringBuilder(); var routes = new List<string[]>(); var hosts = new List<string[]>();
+        string dir = Path.GetDirectoryName(path); var tracks = new List<Track>(); var mix = new StringBuilder(); var routes = new List<string[]>(); var hosts = new List<string[]>(); var sendsIn = new List<string[]>();
         // read into locals: the shared tempo/lyrics/picture change only once the file has loaded, so a failed open leaves the open project untouched
         var m = new ProjMeta();
         foreach (var line in lines)
@@ -612,9 +614,12 @@ static class ProjectIO
             else if (p[0] == "mono" && p.Length >= 2) { int mi; if (int.TryParse(p[1], out mi) && mi >= 0 && mi < tracks.Count) tracks[mi].Mono = true; }
             else if (p[0] == "clip" && p.Length >= 6) { int ci; long fiv, fov; if (int.TryParse(p[1], out ci) && ci >= 0 && ci < tracks.Count) { if (long.TryParse(p[2], out fiv)) tracks[ci].FadeIn = fiv; if (long.TryParse(p[3], out fov)) tracks[ci].FadeOut = fov; tracks[ci].ClipGainDb = F(p[4]); tracks[ci].Locked = p[5] == "1"; long dlv, tlv; if (p.Length >= 8) { if (long.TryParse(p[6], out dlv)) tracks[ci].FadeInDelay = dlv; if (long.TryParse(p[7], out tlv)) tracks[ci].FadeOutTail = tlv; } if (p.Length >= 9) tracks[ci].PieceLocked = p[8] == "1"; if (p.Length >= 10) tracks[ci].PieceMuted = p[9] == "1"; } }
             else if (p[0] == "route" && p.Length >= 3) routes.Add(p);
+            else if (p[0] == "send" && p.Length >= 5) sendsIn.Add(p);
+            else if (p[0] == "strip" && p.Length >= 4) { int si; if (int.TryParse(p[1], out si) && si >= 0 && si < tracks.Count) { tracks[si].TrimDb = Math.Max(-24, Math.Min(24, F(p[2]))); tracks[si].Invert = p[3] == "1"; } }
             else if (p[0] == "host" && p.Length >= 3) hosts.Add(p);
             else if (p[0] == "master" || p[0] == "tmix" || p[0] == "fx" || p[0] == "fxp" || p[0] == "mfx" || p[0] == "mpreset" || p[0] == "auto") mix.Append(line).Append('\n');
         }
+        foreach (var sp in sendsIn) { int sa, sbI; if (int.TryParse(sp[1], out sa) && int.TryParse(sp[2], out sbI) && sa >= 0 && sbI >= 0 && sa < tracks.Count && sbI < tracks.Count && tracks[sbI].IsBus && !tracks[sa].IsBus && sa != sbI) { var l2 = new List<Send>(tracks[sa].Sends); if (!l2.Exists(x => x.Bus == tracks[sbI])) l2.Add(new Send { Bus = tracks[sbI], LevelDb = Math.Max(-60, Math.Min(6, F(sp[3]))), Pre = sp[4] == "1" }); tracks[sa].Sends = l2.ToArray(); } }
         foreach (var rp in routes) { int ra, rb; if (int.TryParse(rp[1], out ra) && int.TryParse(rp[2], out rb) && ra >= 0 && rb >= 0 && ra < tracks.Count && rb < tracks.Count && tracks[rb].IsBus && ra != rb) tracks[ra].Out = tracks[rb]; }
         foreach (var hp in hosts) { int ha, hb; if (int.TryParse(hp[1], out ha) && int.TryParse(hp[2], out hb) && ha >= 0 && hb >= 0 && ha < tracks.Count && hb < tracks.Count && ha != hb && !tracks[hb].IsBus && !tracks[ha].IsBus) tracks[ha].Host = tracks[hb]; }
         foreach (var q in tracks) if (q.Host != null && q.Host.Host != null) q.Host = q.Host.Host;   // one level only

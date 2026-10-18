@@ -256,9 +256,9 @@ static class Win
 
     public static ContextMenuStrip NewMenu()
     {
-    // every menu of the app (right-click menus, plugin menus, pickers): 40% bigger than it was (13.3 pt instead of 9.5, taller rows) so you never hit the wrong line
+    // every menu of the app (right-click menus, plugin menus, pickers): 10 pt with compact rows (25% smaller than before, so menus take less room), each option in its own neon box
         var m = new ContextMenuStrip { Renderer = new DarkRenderer(), BackColor = TM.C(255, 16, 8, 32), ForeColor = TM.C(255, 240, 232, 255), ShowImageMargin = false, Font = new Font("Segoe UI", 10f) };
-        m.Font = UiFont(13.3f); Action<ToolStripItem> up = null; up = it => { if (!string.IsNullOrEmpty(it.Text) && it.Text.Length <= 70) it.Text = Up(it.Text); if (!(it is ToolStripSeparator)) { it.Padding = new Padding(6, 5, 10, 5); it.Margin = new Padding(0, 2, 0, 2); } var mi = it as ToolStripMenuItem; if (mi != null) { mi.DropDown.Font = m.Font; mi.DropDown.ItemAdded += (s2, e2) => up(e2.Item); foreach (ToolStripItem sub in mi.DropDownItems) up(sub); } };
+        m.Font = UiFont(10f); Action<ToolStripItem> up = null; up = it => { if (!string.IsNullOrEmpty(it.Text) && it.Text.Length <= 70) it.Text = Up(it.Text); if (!(it is ToolStripSeparator)) { it.Padding = new Padding(5, 3, 8, 3); it.Margin = new Padding(0, 1, 0, 1); } var mi = it as ToolStripMenuItem; if (mi != null) { mi.DropDown.Font = m.Font; mi.DropDown.ItemAdded += (s2, e2) => up(e2.Item); foreach (ToolStripItem sub in mi.DropDownItems) up(sub); } };
         m.ItemAdded += (s, e) => up(e.Item);
         m.Opened += (s, e) => { MenuShownAt = Control.MousePosition; MenuAway = false; };
         m.Closed += (s, e) => { if (e.CloseReason == ToolStripDropDownCloseReason.AppClicked) { MenuAway = true; MenuClosedAt = Environment.TickCount; } };
@@ -317,7 +317,7 @@ static class Win
             if (!hover && !chosen)
             {   // every option has its own box: a rounded neon border round it, so you see exactly where one option ends and the next starts
                 base.OnRenderMenuItemBackground(e); if (!(it.Owner is ToolStripDropDown)) return; var g0 = e.Graphics; var sm0 = g0.SmoothingMode; g0.SmoothingMode = SmoothingMode.AntiAlias; var r0 = new Rectangle(3, 1, it.Width - 7, it.Height - 3);
-                using (var p0 = RoundRect(r0, 6)) { using (var br0 = new SolidBrush(Color.FromArgb(it.Enabled ? 34 : 14, NeonIdle))) g0.FillPath(br0, p0); using (var pen0 = new Pen(Color.FromArgb(it.Enabled ? 170 : 70, NeonIdle), 1.2f)) g0.DrawPath(pen0, p0); }
+                using (var p0 = RoundRect(r0, 6)) { using (var br0 = new SolidBrush(Color.FromArgb(it.Enabled ? 40 : 14, NeonIdle))) g0.FillPath(br0, p0); using (var pen0 = new Pen(Color.FromArgb(it.Enabled ? 210 : 70, NeonIdle), 1.3f)) g0.DrawPath(pen0, p0); }
                 g0.SmoothingMode = sm0; return;
             }
             var g = e.Graphics; var sm = g.SmoothingMode; g.SmoothingMode = SmoothingMode.AntiAlias; var r = new Rectangle(3, 1, it.Width - 7, it.Height - 3);

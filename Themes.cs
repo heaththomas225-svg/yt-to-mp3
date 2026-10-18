@@ -201,7 +201,7 @@ static class Themes
     }
     public static string Tag(ThemeDef t) { return t.Special ? (t.Req == Tier.Fantasy ? "FANTASY" : "SUPPORTER") : ""; }
     // fromTick: the Rainbow theme moving a little; the other windows are not recoloured then (that would close an open drop-down and make every control flash), only when a theme is really chosen
-    static void Push(ThemeDef t, bool fromTick = false) { if (!fromTick) Sprites.Clear(); StudioForm.ApplyTheme(t); MasterForm.ApplyTheme(t); SynthCanvas.ApplyTheme(t); PxWindow.ApplyTheme(t); if (!fromTick) { try { Win.RethemeAll(); } catch { } } }
+    static void Push(ThemeDef t, bool fromTick = false) { if (!fromTick) Sprites.Clear(); StudioForm.ApplyTheme(t); MasterForm.ApplyTheme(t); SynthCanvas.ApplyTheme(t); PxWindow.ApplyTheme(All[0]);   /* the Purphex VST windows always wear the brand colours */ if (!fromTick) { try { Win.RethemeAll(); } catch { } } }
     // the Rainbow theme slowly turns through every colour (called once per frame by the studio)
     static double lastRainbowH = -1; static int lastRainbowIdx = -2;
     static double rbHue, rbLastT = -1;

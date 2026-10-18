@@ -306,10 +306,27 @@ class VstFx : InstrumentFx, IDisposable
     public void Dispose() { CloseWindow(); try { Plugin.Dispose(); } catch { } }
 }
 
+// The Purphex bar on top of a VST window: violet into magenta, the logo, the plugin's name and what it is, with a neon line under it
+class PxBrandBar : Panel
+{
+    public const int H = 38; readonly string name, kind;
+    public PxBrandBar(string name, string kind) { this.name = name; this.kind = kind; DoubleBuffered = true; ResizeRedraw = true; BackColor = Color.FromArgb(20, 8, 40); }
+    protected override void OnPaint(PaintEventArgs e)
+    {
+        var g = e.Graphics; g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias; g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit; var r = ClientRectangle; if (r.Width < 4) return;
+        using (var b = new System.Drawing.Drawing2D.LinearGradientBrush(r, Color.FromArgb(92, 40, 200), Color.FromArgb(190, 40, 160), 0f)) g.FillRectangle(b, r);
+        using (var b = new System.Drawing.Drawing2D.LinearGradientBrush(new Rectangle(0, 0, r.Width, r.Height / 2 + 1), Color.FromArgb(70, 255, 255, 255), Color.FromArgb(0, 255, 255, 255), 90f)) g.FillRectangle(b, 0, 0, r.Width, r.Height / 2);
+        using (var p = new Pen(Color.FromArgb(230, 92, 220, 255), 2f)) g.DrawLine(p, 0, r.Height - 1, r.Width, r.Height - 1);
+        var lg = AppLogo.Logo; if (lg != null) g.DrawImage(lg, 9, 6, 26, 26);
+        using (var f1 = new Font("Segoe UI", 11f, FontStyle.Bold)) using (var f2 = new Font("Segoe UI", 8f, FontStyle.Bold)) using (var w = new SolidBrush(Color.FromArgb(250, 245, 255))) using (var d = new SolidBrush(Color.FromArgb(235, 215, 250)))
+        { g.DrawString(name, f1, w, new RectangleF(42, 2, Math.Max(10, r.Width - 160), 20)); g.DrawString(kind + "  ·  PURPHEX MUSIC", f2, d, new RectangleF(43, 20, Math.Max(10, r.Width - 160), 16)); }
+    }
+}
+
 // The plugin's own window (its real interface) plus a keyboard for playing instruments.
 class VstWindow : Form, IKeySink
 {
-    readonly VstFx fx; readonly Track track; Panel host; PianoPanel piano; Timer idle; int octave = 4; readonly HashSet<int> down = new HashSet<int>();
+    readonly VstFx fx; readonly Track track; Panel host; PxBrandBar bar; PianoPanel piano; Timer idle; int octave = 4; readonly HashSet<int> down = new HashSet<int>();
     static readonly Keys[] KeyMap = { Keys.A, Keys.W, Keys.S, Keys.E, Keys.D, Keys.F, Keys.T, Keys.G, Keys.Y, Keys.H, Keys.U, Keys.J, Keys.K, Keys.O, Keys.L, Keys.P, Keys.Oemtilde };
 
     public VstWindow(VstFx fx, Track t)
@@ -317,11 +334,12 @@ class VstWindow : Form, IKeySink
         this.fx = fx; track = t; Text = fx.Title + "  (VST)"; BackColor = Color.FromArgb(10, 4, 20); ForeColor = Color.FromArgb(240, 232, 255); KeyPreview = true; StartPosition = FormStartPosition.CenterParent;
         FormBorderStyle = FormBorderStyle.FixedSingle; MaximizeBox = false; Win.Dark(this);
         var sz = fx.Plugin.HasEditor ? fx.Plugin.GetEditorSize() : new Size(520, 100);
-        host = new Panel { Left = 0, Top = 0, Width = sz.Width, Height = sz.Height, BackColor = Color.Black };
+        bar = new PxBrandBar(fx.Title, fx.IsInstrument ? "VST INSTRUMENT" : "VST EFFECT") { Left = 0, Top = 0, Width = sz.Width, Height = PxBrandBar.H }; Controls.Add(bar);
+        host = new Panel { Left = 0, Top = PxBrandBar.H, Width = sz.Width, Height = sz.Height, BackColor = Color.FromArgb(10, 4, 20) };
         bool keys = fx.IsInstrument; int ph = keys ? 128 : 0;
-        piano = new PianoPanel(this) { Left = 0, Top = sz.Height, Width = sz.Width, Height = ph, Visible = keys };
-        Controls.Add(host); Controls.Add(piano); ClientSize = new Size(Math.Max(520, sz.Width), sz.Height + ph);
-        host.Width = ClientSize.Width; piano.Width = ClientSize.Width;
+        piano = new PianoPanel(this) { Left = 0, Top = PxBrandBar.H + sz.Height, Width = sz.Width, Height = ph, Visible = keys };
+        Controls.Add(host); Controls.Add(piano); ClientSize = new Size(Math.Max(520, sz.Width), PxBrandBar.H + sz.Height + ph);
+        host.Width = ClientSize.Width; piano.Width = ClientSize.Width; bar.Width = ClientSize.Width;
         if (!fx.Plugin.HasEditor) host.Controls.Add(new Label { Text = "This plugin has no window of its own. Use its sliders in the effect panel.", Dock = DockStyle.Fill, ForeColor = Color.FromArgb(200, 180, 230), TextAlign = ContentAlignment.MiddleCenter });
         Shown += (s, e) =>
         {
@@ -345,8 +363,8 @@ class VstWindow : Form, IKeySink
     void OnSizeRequest(object p, int w, int h) { if (p != (object)fx.Plugin || IsDisposed) return; try { BeginInvoke(new Action(() => Resize2(w, h))); } catch { } }
     void Resize2(int w, int h)
     {
-        host.SetBounds(0, 0, Math.Max(100, w), Math.Max(60, h)); int ph = piano.Visible ? piano.Height : 0;
-        piano.SetBounds(0, host.Height, Math.Max(520, w), ph); ClientSize = new Size(Math.Max(520, w), host.Height + ph); host.Width = ClientSize.Width;
+        host.SetBounds(0, PxBrandBar.H, Math.Max(100, w), Math.Max(60, h)); int ph = piano.Visible ? piano.Height : 0;
+        piano.SetBounds(0, PxBrandBar.H + host.Height, Math.Max(520, w), ph); ClientSize = new Size(Math.Max(520, w), PxBrandBar.H + host.Height + ph); host.Width = ClientSize.Width; bar.Width = ClientSize.Width;
     }
 
     // ---- playing notes ----

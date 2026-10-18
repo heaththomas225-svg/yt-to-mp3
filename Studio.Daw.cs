@@ -36,13 +36,13 @@ partial class StudioForm
     // ---------- state ----------
     bool snapOn = true; int gridIdx = 2; static readonly string[] GridNames = { "Bar", "1/2 bar", "Beat", "1/8 note", "1/16 note" }; static readonly string[] GridWhy = { "every bar (4 beats)", "every half bar (2 beats)", "every beat", "every half beat (eighth note)", "every quarter beat (sixteenth note)" }; int gridFlashAt = -100000; static readonly double[] GridBeats = { 4, 2, 1, 0.5, 0.25 };
     readonly List<Fx> retired = new List<Fx>();   // effects of deleted tracks stay alive so Undo can bring the track back
-    class TS { public long Offset, ClipStart, ClipFrames; public float Vol, Pan; public bool Mute, Solo; public string Name; public AudioClip Clip; public Track Host, Out; public List<Fx> Fx; public List<AutoLane> Auto; public long FadeIn, FadeOut, FadeInDelay, FadeOutTail; public bool Mono; public float ClipGain; public bool Locked, PieceLocked, PieceMuted; public string Label = ""; }
+    class TS { public List<MidiEv> Midi; public float Trim; public bool Invert; public Send[] Sends; public long Offset, ClipStart, ClipFrames; public float Vol, Pan; public bool Mute, Solo; public string Name; public AudioClip Clip; public Track Host, Out; public List<Fx> Fx; public List<AutoLane> Auto; public long FadeIn, FadeOut, FadeInDelay, FadeOutTail; public bool Mono; public float ClipGain; public bool Locked, PieceLocked, PieceMuted; public string Label = ""; }
     class Snapshot { public List<Track> Order = new List<Track>(); public Dictionary<Track, TS> St = new Dictionary<Track, TS>(); }
     readonly List<Snapshot> undo = new List<Snapshot>(), redo = new List<Snapshot>();
 
     Snapshot TakeSnapshot()
     {
-        var s = new Snapshot(); foreach (var t in eng.Tracks.ToArray()) { s.Order.Add(t); s.St[t] = new TS { Offset = t.Offset, ClipStart = t.ClipStart, ClipFrames = t.ClipFrames, Clip = t.Clip, Vol = t.VolDb, Pan = t.Pan, Mute = t.Mute, Solo = t.Solo, Name = t.Name, Host = t.Host, Out = t.Out, Fx = new List<Fx>(t.Fx), Auto = CloneLanes(t.Auto), FadeIn = t.FadeIn, FadeOut = t.FadeOut, FadeInDelay = t.FadeInDelay, FadeOutTail = t.FadeOutTail, Mono = t.Mono, ClipGain = t.ClipGainDb, Locked = t.Locked, PieceLocked = t.PieceLocked, PieceMuted = t.PieceMuted, Label = t.SectionLabel }; }
+        var s = new Snapshot(); foreach (var t in eng.Tracks.ToArray()) { s.Order.Add(t); s.St[t] = new TS { Offset = t.Offset, ClipStart = t.ClipStart, ClipFrames = t.ClipFrames, Clip = t.Clip, Vol = t.VolDb, Pan = t.Pan, Mute = t.Mute, Solo = t.Solo, Name = t.Name, Host = t.Host, Out = t.Out, Fx = new List<Fx>(t.Fx), Auto = CloneLanes(t.Auto), FadeIn = t.FadeIn, FadeOut = t.FadeOut, FadeInDelay = t.FadeInDelay, FadeOutTail = t.FadeOutTail, Mono = t.Mono, Trim = t.TrimDb, Invert = t.Invert, Midi = CopyMidi(t), Sends = Array.ConvertAll(t.Sends, x => x.Copy()), ClipGain = t.ClipGainDb, Locked = t.Locked, PieceLocked = t.PieceLocked, PieceMuted = t.PieceMuted, Label = t.SectionLabel }; }
         return s;
     }
     static List<AutoLane> CloneLanes(List<AutoLane> l) { var r = new List<AutoLane>(); foreach (var x in l) r.Add(x.CloneFor(x.Fx)); return r; }
@@ -55,7 +55,7 @@ partial class StudioForm
         {
             foreach (var t in eng.Tracks) if (!s.St.ContainsKey(t)) gone.Add(t);   // tracks this undo drops (e.g. a just-added instrument): their plugins are retired and windows closed below
             eng.Tracks.Clear(); eng.Tracks.AddRange(s.Order);
-            foreach (var t in s.Order) { var d = s.St[t]; t.EverHadClip = false; t.Clip = d.Clip; t.Offset = d.Offset; t.ClipStart = d.ClipStart; t.ClipFrames = d.ClipFrames; t.VolDb = d.Vol; t.Pan = d.Pan; t.Mute = d.Mute; t.Solo = d.Solo; t.Name = d.Name; t.Host = d.Host; t.Out = d.Out; t.FadeIn = d.FadeIn; t.FadeOut = d.FadeOut; t.FadeInDelay = d.FadeInDelay; t.FadeOutTail = d.FadeOutTail; t.Mono = d.Mono; t.ClipGainDb = d.ClipGain; t.Locked = d.Locked; t.PieceLocked = d.PieceLocked; t.PieceMuted = d.PieceMuted; t.SectionLabel = d.Label ?? ""; if (d.Fx != null) { t.Fx.Clear(); t.Fx.AddRange(d.Fx); } if (d.Auto != null) { t.Auto.Clear(); t.Auto.AddRange(CloneLanes(d.Auto)); } }
+            foreach (var t in s.Order) { var d = s.St[t]; t.EverHadClip = false; t.Clip = d.Clip; t.Offset = d.Offset; t.ClipStart = d.ClipStart; t.ClipFrames = d.ClipFrames; t.VolDb = d.Vol; t.Pan = d.Pan; t.Mute = d.Mute; t.Solo = d.Solo; t.Name = d.Name; t.Host = d.Host; t.Out = d.Out; t.FadeIn = d.FadeIn; t.FadeOut = d.FadeOut; t.FadeInDelay = d.FadeInDelay; t.FadeOutTail = d.FadeOutTail; t.Mono = d.Mono; t.TrimDb = d.Trim; t.Invert = d.Invert; if (d.Midi != null) lock (t.Midi) { t.Midi.Clear(); foreach (var me in d.Midi) t.Midi.Add(new MidiEv { Frame = me.Frame, S = me.S, D1 = me.D1, D2 = me.D2 }); } t.Sends = d.Sends ?? new Send[0]; t.ClipGainDb = d.ClipGain; t.Locked = d.Locked; t.PieceLocked = d.PieceLocked; t.PieceMuted = d.PieceMuted; t.SectionLabel = d.Label ?? ""; if (d.Fx != null) { t.Fx.Clear(); t.Fx.AddRange(d.Fx); } if (d.Auto != null) { t.Auto.Clear(); t.Auto.AddRange(CloneLanes(d.Auto)); } }
         }
         foreach (var t in gone) foreach (var f in t.Fx) { if (!retired.Contains(f)) retired.Add(f); var ic = f as InstrumentFx; if (ic != null) ic.CloseWindow(); }
         // keep the same track selected by object; the list order may have changed, and layers/buses after the lanes must never be selected
@@ -107,7 +107,7 @@ partial class StudioForm
     }
     Track CloneTrack(Track t, string suffix)
     {
-        var n = StudioEngine.NewTrack(t.Name + suffix, t.Role, t.Clip); n.SectionLabel = t.SectionLabel; n.PieceMuted = t.PieceMuted; n.Instrument = t.Instrument; n.Offset = t.Offset; n.ClipStart = t.ClipStart; n.ClipFrames = t.ClipFrames; n.Color = t.Color; n.VolDb = t.VolDb; n.Pan = t.Pan; n.Mute = t.Mute; n.Source = t.Source; n.Bpm = t.Bpm; n.BpmChecked = t.BpmChecked; n.FadeIn = t.FadeIn; n.FadeOut = t.FadeOut; n.FadeInDelay = t.FadeInDelay; n.FadeOutTail = t.FadeOutTail; n.Mono = t.Mono; n.ClipGainDb = t.ClipGainDb;
+        var n = StudioEngine.NewTrack(t.Name + suffix, t.Role, t.Clip); n.SectionLabel = t.SectionLabel; n.PieceMuted = t.PieceMuted; n.Instrument = t.Instrument; n.Offset = t.Offset; n.ClipStart = t.ClipStart; n.ClipFrames = t.ClipFrames; n.Color = t.Color; n.VolDb = t.VolDb; n.Pan = t.Pan; n.Mute = t.Mute; n.Source = t.Source; n.Bpm = t.Bpm; n.BpmChecked = t.BpmChecked; n.FadeIn = t.FadeIn; n.FadeOut = t.FadeOut; n.FadeInDelay = t.FadeInDelay; n.FadeOutTail = t.FadeOutTail; n.Mono = t.Mono; n.TrimDb = t.TrimDb; n.Invert = t.Invert; n.Sends = Array.ConvertAll(t.Sends, x => x.Copy()); n.ClipGainDb = t.ClipGainDb;
         lock (t.Midi) foreach (var m in t.Midi) n.Midi.Add(new MidiEv { Frame = m.Frame, S = m.S, D1 = m.D1, D2 = m.D2 });
         foreach (var f in t.Fx) { var c = CloneFx(f); if (c != null) { var ic = c as InstrumentFx; if (ic != null) ic.Owner = n; n.Fx.Add(c); } }
         return n;
@@ -193,7 +193,7 @@ partial class StudioForm
     {
         if (t == null) return; if (toolsTrack == t) toolsTrack = null; PushUndo();
         Track keep = selTrack >= 0 && selTrack < eng.Tracks.Count ? eng.Tracks[selTrack] : null; var removedLayers = new List<Track>();
-        lock (eng.Sync) { eng.Tracks.Remove(t); retired.AddRange(t.Fx); if (t.IsBus) foreach (var x in eng.Tracks) if (x.Out == t) x.Out = null; foreach (var lay in eng.Tracks.FindAll(x => x.Host == t)) { eng.Tracks.Remove(lay); retired.AddRange(lay.Fx); removedLayers.Add(lay); } }
+        lock (eng.Sync) { eng.Tracks.Remove(t); retired.AddRange(t.Fx); if (t.IsBus) foreach (var x in eng.Tracks) { if (x.Out == t) x.Out = null; if (Array.Exists(x.Sends, s => s.Bus == t)) x.Sends = Array.FindAll(x.Sends, s => s.Bus != t); }   /* nothing is left pointing at a deleted bus (outputs go to the master, sends to it go) */ foreach (var lay in eng.Tracks.FindAll(x => x.Host == t)) { eng.Tracks.Remove(lay); retired.AddRange(lay.Fx); removedLayers.Add(lay); } }
         // keep the same track selected by object (a row above it may be gone), never a layer or bus after the lanes
         int k = keep != null ? eng.Tracks.IndexOf(keep) : -1; selTrack = k >= 0 ? k : selTrack; selTrack = Math.Max(0, Math.Min(selTrack, LaneCount - 1)); selFx = -1;
         foreach (var f in t.Fx) { var ic = f as InstrumentFx; if (ic != null) ic.CloseWindow(); }
@@ -203,6 +203,7 @@ partial class StudioForm
     void DisposeRetired() { foreach (var f in retired) { var d = f as IDisposable; if (d != null) { try { d.Dispose(); } catch { } } } retired.Clear(); }
 
     // ---------- mouse on a lane: seek, move the clip (name bar), trim (ends) ----------
+    static List<MidiEv> CopyMidi(Track t) { if (!t.Instrument || t.Midi.Count == 0) return null; var l = new List<MidiEv>(t.Midi.Count); lock (t.Midi) foreach (var m in t.Midi) l.Add(new MidiEv { Frame = m.Frame, S = m.S, D1 = m.D1, D2 = m.D2 }); return l; }
     Track toolsTrack;   // the track you clicked: only its button row and grips are shown
     int laneMode; bool laneMoved; PointF laneStart; long l0Offset, l0ClipStart, l0ClipFrames, l0Used;
     // 0 = empty space (seek), 1 = on the clip (move), 2 = left end (trim start), 3 = right end (trim end)
@@ -518,10 +519,6 @@ partial class StudioForm
     void PaintDawBar(Graphics g, float y0, float W)
     {
         float x = 14, y = y0 + 3, h = 30; var cc = CurClip(); var row = Selected; bool locked = row != null && row.Locked;
-        Txt(g, "BPM", 11, DimC, Rc(x, y, 34, h), StringAlignment.Near, true); x += 34;
-        var bb = Rc(x, y, 64, h); if (Hot(bb)) hintNow = "The tempo of your song in beats per minute. It is found automatically when you add music; click the number to type your own, or press DETECT to listen again."; FillRR(g, TM.C(200, 8, 4, 18), bb, 6); StrokeRR(g, Hot(bb) ? Accent : Edge, bb, 6, 1); Txt(g, Fx.ProjectBpm.ToString("0.#", CultureInfo.InvariantCulture), 15, Ink, bb, StringAlignment.Center, true);
-        Win.DrawNeonBox(g, bb, Hot(bb));
-        ValueEdit(bb, Fx.ProjectBpm.ToString("0.#", CultureInfo.InvariantCulture), s => { float v; if (ParseNum(s, out v) && v >= 20 && v <= 300) { Fx.ProjectBpm = v; bpmUserSet = true; } }); x += 70;
         var L = new List<DawBtn>();
         L.Add(new DawBtn { Text = "DETECT BPM", W = 92, Do = () => DetectBpmClick(), Hint = "Find the tempo of the selected track from its beat." });
         L.Add(new DawBtn { Text = "COUNT IN", W = 70, Style = eng.CountIn ? 4 : 0, Do = () => { eng.CountIn = !eng.CountIn; Toast(eng.CountIn ? "Count In on: press PLAY (or record) and you get one bar of clicks, 1 2 3 4, before it starts." : "Count In off."); } });
@@ -537,7 +534,14 @@ partial class StudioForm
         L.Add(new DawBtn { Text = "FIT", W = 40, Gap = 6, Do = () => FitView() });
         L.Add(new DawBtn { Text = "NEW", W = 46, Gap = 6, Do = () => { NewProject(); if (eng.Tracks.Count == 0) { tab = 0; welcomeOn = true; } } });   // a new project starts on the welcome page
         L.Add(new DawBtn { Text = Prefs.PerfMode ? "PERFORMANCE: ON" : "PERFORMANCE: OFF", W = 142, Px = 10, Style = Prefs.PerfMode ? 4 : 0, Do = () => { Prefs.PerfMode = !Prefs.PerfMode; Prefs.Changed(); Toast(Prefs.PerfMode ? "Performance mode is on: fewer effects and the highest frame rate your screen can show (up to 240), for a smoother DAW." : "Performance mode is off."); }, Hint = "PERFORMANCE MODE: ON turns off the glitch and glow effects and runs at the highest frame rate your screen can show (up to 240 frames a second), so the DAW runs smoother (it is also in the VIEW menu and in Settings)" });
-        float need = 0; foreach (var it in L) need += it.W + it.Gap; float kf = Math.Min(1f, (W - x - 20) / need);   // every button shrinks together when the window is narrow
+        float need = 0; foreach (var it in L) need += it.W + it.Gap;
+        // the row is centred in the window (like the transport above it): BPM, the buttons and the zoom as one group; on a narrow window it starts at the left and every button shrinks together
+        { float bpmW = 104, zoomW = 176, kf0 = Math.Min(1f, (W - 14 - bpmW - 20) / need), total = bpmW + need * kf0 + 6 + zoomW; x = Math.Max(14, (W - total) / 2); }
+        Txt(g, "BPM", 11, DimC, Rc(x, y, 34, h), StringAlignment.Near, true); x += 34;
+        var bb = Rc(x, y, 64, h); if (Hot(bb)) hintNow = "The tempo of your song in beats per minute. It is found automatically when you add music; click the number to type your own, or press DETECT to listen again."; FillRR(g, TM.C(200, 8, 4, 18), bb, 6); StrokeRR(g, Hot(bb) ? Accent : Edge, bb, 6, 1); Txt(g, Fx.ProjectBpm.ToString("0.#", CultureInfo.InvariantCulture), 15, Ink, bb, StringAlignment.Center, true);
+        Win.DrawNeonBox(g, bb, Hot(bb));
+        ValueEdit(bb, Fx.ProjectBpm.ToString("0.#", CultureInfo.InvariantCulture), s => { float v; if (ParseNum(s, out v) && v >= 20 && v <= 300) { Fx.ProjectBpm = v; bpmUserSet = true; } }); x += 70;
+        float kf = Math.Min(1f, (W - x - 20) / need);   // every button shrinks together when the window is narrow   // every button shrinks together when the window is narrow
         foreach (var it in L)
         {
             var r = Rc(x, y, it.W * kf, h); var rg = Btn(g, r, it.Text, it.Style, it.Do, it.Px); if (it.Right != null) rg.OnRight = it.Right; if (it.Key == "gain") gainAnchor = r;
