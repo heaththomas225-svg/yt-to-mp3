@@ -248,6 +248,70 @@ static class CRTEST
           { var vct = B.Capture("C:/Users/thoma/nfout/video-pro-media.png"); var vce = DateTime.Now.AddSeconds(10); while (!vct.IsCompleted && DateTime.Now < vce) Pump(50); }
           Js("PX.UI.close();PX.setDirty(false);PX.UI.loadProject(window.__vkeepP)"); WaitJs("PX.P.media.some(m=>m.name==='photo.jpg')", 8000);
         }
+        // ---- CREATIVE SUITE ----
+        { Js("window.__artSaved=null;window.__saved=null;PX.UI.setTool('cover');(()=>{const C=PX.Cover;const st=document.querySelector('#cvStart');if(st)st.remove();C.art.name='Suite design';C.act('save')})()"); string sid = Js("PX.Cover.art.id"); WaitJs("window.__artSaved==='" + sid + "'", 10000);
+          Js("PX.UI.setTool('video');PX.P.name='Acceptance A';PX.UI.save(false)"); WaitJs("window.__saved===PX.P.id", 10000); Pump(200);
+          Check("SUITE: the button is on the top bar and opens the suite with its 8 parts", Js("(()=>{document.querySelector('#toolSuite').click();return document.querySelectorAll('#suite .suitetile').length})()") == "8");
+          Check("the suite shows the edition from the licence on this PC and the app version", WaitJs("PX.Suite.info&&PX.Suite.info.edition", 5000) && Js("PX.Suite.info.edition") == Edition.Name(Edition.Current) && Js("document.querySelector('#suite .suitechip').textContent").Contains(Edition.Name(Edition.Current)), Js("JSON.stringify({e:PX.Suite.info&&PX.Suite.info.edition,v:PX.Suite.info&&PX.Suite.info.version})"));
+          Pump(400); { var sct = B.Capture("C:/Users/thoma/nfout/suite-home.png"); var sce = DateTime.Now.AddSeconds(10); while (!sct.IsCompleted && DateTime.Now < sce) Pump(50); }
+          Js("document.querySelector('#suite .suitetile[data-k=projects]').click()"); WaitJs("document.querySelectorAll('#suite .sucol').length===3", 5000);
+          Check("ALL PROJECTS lists songs, designs and videos together", Js("(()=>{const t=document.querySelector('#suite').textContent;const I=PX.Suite.info;return String(I.art.length>0&&I.video.length>0&&t.includes(I.art[0].name)&&t.includes(I.video[0].name)&&t.includes('Songs (DAW)'))})()") == "true", Js("document.querySelector('#suite .suitebody').textContent.slice(0,200)"));
+          Pump(300); { var sct = B.Capture("C:/Users/thoma/nfout/suite-projects.png"); var sce = DateTime.Now.AddSeconds(10); while (!sct.IsCompleted && DateTime.Now < sce) Pump(50); }
+          string sid2 = Js("PX.Suite.info.art[0].id"); Js("[...document.querySelectorAll('#suite .sucol')][1].querySelector('.surow button').click()");
+          Check("OPEN on a design switches to Photo Studio PRO and opens it", WaitJs("PX.UI.tool==='cover'&&PX.Cover.art.id==='" + sid2 + "'", 8000) && Js("String(document.querySelector('#suite').classList.contains('hidden'))") == "true");
+          // shared media
+          string up = Path.Combine(media, "suite_upload.png"); using (var ub = new Bitmap(200, 100)) { using (var ug = Graphics.FromImage(ub)) ug.Clear(Color.FromArgb(0, 200, 0)); ub.Save(up, System.Drawing.Imaging.ImageFormat.Png); }
+          Js("window.__imp=0;PX.on('artImported',()=>window.__imp++)"); M("CrArtFiles", new List<string> { up }); WaitJs("window.__imp>=1", 8000);
+          Js("PX.UI.setTool('video');PX.Suite.show('media')"); WaitJs("document.querySelectorAll('#suite .sucard').length>=3&&(PX.Suite.uploads||[]).length>=1", 8000);
+          Check("SHARED MEDIA shows the video frame, the open design, the video's photos and the photo uploads", Js("(()=>{const t=document.querySelector('#suite').textContent;return String(t.includes('Video frame')&&t.includes('Design: '+PX.Cover.art.name)&&t.includes('photo.jpg')&&t.includes('suite_upload'))})()") == "true", Js("[...document.querySelectorAll('#suite .sucard .nm')].map(n=>n.textContent).join(' | ').slice(0,300)"));
+          Pump(300); { var sct = B.Capture("C:/Users/thoma/nfout/suite-media.png"); var sce = DateTime.Now.AddSeconds(10); while (!sct.IsCompleted && DateTime.Now < sce) Pump(50); }
+          int pw3, ph3; using (var pb3 = new Bitmap(Path.Combine(media, "photo.jpg"))) { pw3 = pb3.Width; ph3 = pb3.Height; }
+          Js("[...document.querySelectorAll('#suite .sucard')].find(c=>c.textContent.includes('photo.jpg')).querySelector('button').click()");
+          Check("a video photo TO PHOTO starts a design from it (its own size)", WaitJs("PX.UI.tool==='cover'&&PX.Cover.art.layers.length===1&&PX.Cover.art.layers[0].type==='image'&&PX.Cover.art.w===" + pw3, 8000), Js("PX.Cover.art.w+'x'+PX.Cover.art.h"));
+          Js("PX.UI.setTool('video');PX.Suite.show('media')"); Pump(300); Js("[...document.querySelectorAll('#suite .sucard')].find(c=>c.textContent.includes('Video frame')).querySelector('button').click()");
+          Check("the frame under the playhead TO PHOTO becomes a design the size of the video", WaitJs("PX.UI.tool==='cover'&&PX.Cover.art.layers.length===1&&PX.Cover.art.w===Math.round(PX.P.settings.w*Math.min(1,1920/Math.max(PX.P.settings.w,PX.P.settings.h)))", 8000), Js("PX.Cover.art.w+'x'+PX.Cover.art.h+' / '+PX.P.settings.w"));
+          int sm0 = int.Parse(Js("String(PX.P.media.length)")); Js("PX.UI.setTool('video');PX.Suite.show('media')"); WaitJs("(PX.Suite.uploads||[]).length>=1", 5000); Pump(200);
+          Js("[...document.querySelectorAll('#suite .sucard')].find(c=>c.textContent.includes('suite_upload')).querySelectorAll('button')[2].click()");
+          Check("a photo upload TO VIDEO comes into the video MEDIA", WaitJs("PX.P.media.length>" + sm0 + "&&PX.P.media[PX.P.media.length-1].kind==='image'", 10000), Js("PX.P.media.map(m=>m.name).slice(-2).join(' | ')"));
+          // account and links
+          Js("PX.Suite.show('account')"); WaitJs("!!document.querySelector('#suite .suacct')", 4000);
+          Check("EDITION AND ACCOUNT shows the edition and links", Js("document.querySelector('#suite .suacct .big').textContent") == Edition.Name(Edition.Current) && Js("String(document.querySelectorAll('#suite .suacct button').length)") == "3");
+          StudioForm.SuiteLastUrl = ""; Js("document.querySelector('#suite .suacct button').click()"); var su0 = DateTime.Now.AddSeconds(4); while (StudioForm.SuiteLastUrl.Length == 0 && DateTime.Now < su0) Pump(50);
+          Check("EDITIONS AND PRICES goes to purphexmusic.com/pricing (a fixed page)", StudioForm.SuiteLastUrl == "https://purphexmusic.com/pricing", StudioForm.SuiteLastUrl);
+          Js("PX.send({t:'suiteGo',to:'evil.example.com'})"); Pump(300); Check("any other link is refused", StudioForm.SuiteLastUrl == "https://purphexmusic.com/pricing");
+          Js("PX.Suite.show('home')"); Pump(100); Js("document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}))"); Pump(100);
+          Check("Esc closes the suite", Js("String(document.querySelector('#suite').classList.contains('hidden'))") == "true");
+          Js("PX.Suite.show('home');document.querySelector('#suite .suitetile[data-k=projects]').click()"); Pump(300); Js("[...document.querySelectorAll('#suite .surow button')].find(b=>b.textContent==='IN PROJECTS')||null");
+          Js("PX.send({t:'suiteGo',to:'projects'})"); var su1 = DateTime.Now.AddSeconds(4); while ((int)F("tab") != 3 && DateTime.Now < su1) Pump(50);
+          Check("IN PROJECTS goes to the Projects page of the DAW", (int)F("tab") == 3, F("tab").ToString());
+          M("OpenCreative", "video"); Pump(400); Js("PX.Suite.close();PX.UI.setTool('cover');PX.Cover.openStart();PX.UI.setTool('video')"); Pump(200);
+        }
+        // ---- TITLES TYPED ON THE VIDEO ----
+        { Js("PX.UI.setTool('video');PX.UI.openPanel('text');PX.seek(1)"); Pump(200);
+          Js("[...document.querySelectorAll('#vPopB .vtextpanel button')].find(b=>b.textContent.includes('ADD TEXT')).click()");
+          Check("ADD TEXT puts a title on the video and opens it ready to type (the words picked)", WaitJs("!!document.querySelector('#vTextEdit')&&document.activeElement===document.querySelector('#vTextEdit')&&PX._editText===PX.P.clips.filter(c=>c.type==='text').slice(-1)[0].id&&document.querySelector('#vTextEdit').selectionEnd-document.querySelector('#vTextEdit').selectionStart===9", 4000), Js("(()=>{const t=document.querySelector('#vTextEdit');return !!t+' active='+(document.activeElement&&document.activeElement.id)+' sel='+(t?t.selectionStart+'-'+t.selectionEnd+' v='+t.value:'')+' ed='+PX._editText+' last='+PX.P.clips.filter(c=>c.type==='text').slice(-1)[0].id+' n='+PX.P.clips.filter(c=>c.type==='text').length})()"));
+          Js("(()=>{const t=document.querySelector('#vTextEdit');t.value='PICK UP\\nTHE PHONE';t.dispatchEvent(new Event('input'))})()");
+          Check("typing changes the title as you type", Js("PX.UI.selected()[0].text.content") == "PICK UP\nTHE PHONE");
+          Pump(300); { var tct = B.Capture("C:/Users/thoma/nfout/video-text-typing.png"); var tce = DateTime.Now.AddSeconds(10); while (!tct.IsCompleted && DateTime.Now < tce) Pump(50); }
+          Js("document.querySelector('#vTextEdit').dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}))"); Pump(200);
+          Check("Esc finishes typing; the title is drawn on the video again", Js("String(!document.querySelector('#vTextEdit')&&PX._editText==null)") == "true");
+          string tpx = Js(@"(()=>{const c=PX.UI.selected()[0];c.text.color='#ffffff';c.text.shadow=0;c.text.size=200;c.x=0;c.y=0;const cv=document.createElement('canvas');cv.width=480;cv.height=270;const g=cv.getContext('2d');PX.drawFrame(g,PX.play.t,480,270,true);const d=g.getImageData(0,0,480,270).data;let n=0;for(let i=0;i<d.length;i+=4)if(d[i]>230&&d[i+1]>230&&d[i+2]>230)n++;return n})()");
+          int tpn; int.TryParse(tpx, out tpn); Check("the typed words are drawn on the frame", tpn > 300, tpx);
+          Js("PX.undo()"); Check("one UNDO takes the typing back", Js("PX.UI.selected()[0]?PX.UI.selected()[0].text.content:PX.P.clips.filter(c=>c.type==='text').slice(-1)[0].text.content") == "Your text");
+          Js("PX.redo();PX.UI.sel=new Set([PX.P.clips.filter(c=>c.type==='text').slice(-1)[0].id]);PX.UI.renderSel();PX.redraw()"); Pump(300);
+          // double-click the title on the preview
+          Js(@"(()=>{const c=PX.UI.selected()[0];const cv=document.querySelector('#monitor'),r=cv.getBoundingClientRect();const b=PX.UI.clipBox(c,cv.width,cv.height);const s=r.width/cv.width;cv.dispatchEvent(new MouseEvent('dblclick',{bubbles:true,clientX:r.left+b.cx*s,clientY:r.top+b.cy*s}))})()");
+          Check("double-clicking the title on the video opens it for typing", WaitJs("!!document.querySelector('#vTextEdit')", 3000)); Js("PX.UI.endEditText()");
+          // the title bar
+          Check("the title bar shows over the preview for the picked title (font, size, bold, italic, alignment, colours)", WaitJs("!!document.querySelector('#vTitleBar:not(.hidden) .vtbfont')", 3000) && Js("String(document.querySelectorAll('#vTitleBar button').length>=10&&document.querySelectorAll('#vTitleBar input[type=color]').length===3)") == "true");
+          string tb = Js(@"(()=>{const c=PX.UI.selected()[0],s0=c.text.size;[...document.querySelectorAll('#vTitleBar button')].find(b=>b.textContent==='A+').click();const s1=c.text.size;document.querySelector('#vTitleBar button[title=Italic]').click();document.querySelector('#vTitleBar button[title=""Align left""]').click();const f=document.querySelector('#vTitleBar .vtbfont');f.value=[...f.options].find(o=>o.value!==c.text.font).value;f.dispatchEvent(new Event('change'));return (s1>s0)+' '+c.text.italic+' '+c.text.align+' '+(c.text.font===f.value)})()");
+          Check("the title bar really changes the title (bigger, italic, left, another font)", tb == "true true left true", tb);
+          Js("PX.UI.openPanel('text')"); Pump(200);
+          Check("the Text panel has a box with the title's words to type in", Js("document.querySelector('#vPopB .vtextbox').value") == "PICK UP\nTHE PHONE");
+          Js("(()=>{const t=document.querySelector('#vPopB .vtextbox');t.focus();t.value='NEW WORDS';t.dispatchEvent(new Event('input'));t.dispatchEvent(new Event('change'))})()");
+          Check("typing in the Text panel box changes the title", Js("PX.UI.selected()[0].text.content") == "NEW WORDS");
+          Js("PX.UI.editText(PX.UI.selected()[0],false)"); Pump(400); { var tct = B.Capture("C:/Users/thoma/nfout/video-text-bar.png"); var tce = DateTime.Now.AddSeconds(10); while (!tct.IsCompleted && DateTime.Now < tce) Pump(50); } Js("PX.UI.endEditText();PX.setDirty(false)");
+        }
         // ---- E: the photo editor ----
         Check("Photo Studio starts simply (import a photo, start blank, templates, your designs)", Js("String(!!document.querySelector('#cvStart')&&document.querySelector('#cvStart').textContent.includes('IMPORT A PHOTO')&&document.querySelector('#cvStart').textContent.includes('BROWSE TEMPLATES'))") == "true");
         Js("document.querySelector('#stTpl').click()"); Pump(600);

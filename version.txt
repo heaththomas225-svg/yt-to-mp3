@@ -1,4 +1,4 @@
-3.65.0
+3.66.0
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Video Studio PRO
-sha256=df8ac1df4febd044e644544a98517b18682db03698f9cbea915c5cf8f0fa3838
+Type titles straight onto your video, and the Creative Suite
+sha256=953ffc26b811a6f731745d60a85df61991624c71b8b087f3403cb5aedb4c1d27

@@ -2,6 +2,16 @@
 
 What changed in each version of **Purphex**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.66.0  Type titles straight onto your video, and the Creative Suite
+
+- FIXED: Video Studio: you can type your titles now. + ADD TEXT (or any title style) puts a title on the video with its words picked, so you just start typing on the video, like iMovie. Double-click any title on the video or on the timeline to change its words; Esc or DONE finishes; one Ctrl+Z takes the typing back.
+
+- NEW: A title bar over the video for the picked title: font (your PC fonts and the font library), smaller / bigger and the exact size, bold, italic, capitals, left / centre / right, the text colour, an outline and its colour, and a box behind the words with its colour.
+
+- NEW: The Text panel has a YOUR TEXT box with the picked title, and ADD TEXT at the top.
+
+- NEW: Purphex Creative Suite: the SUITE button at the top left of the Creative Studio. Your songs, designs and videos in one list (make a video from a song, open a design or a video), shared media that moves pictures between the editors (a photo from your video into a new design, the frame under the playhead as a design, a photo upload onto your video), your edition and trial, help and settings.
+
 ## 3.65.0  Video Studio PRO
 
 - NEW: 16 more transitions: push, slide up and down, wipe up and left, barn doors, iris, diamond, heart, clock wipe, spin, zoom through, flash, whip pan, glitch and pixelate (24 in all).

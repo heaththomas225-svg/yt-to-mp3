@@ -341,3 +341,23 @@ details.prosec summary{cursor:pointer;font-weight:700;font-size:11px;letter-spac
 .veditmode{display:flex;gap:4px;align-items:center;flex-wrap:wrap;margin:0 0 8px}.veditmode button{padding:4px 8px;font-size:10px}
 .vstkgrid{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin:6px 0 10px}.vstkgrid .card{padding:2px;min-height:0}.vstkgrid canvas{width:100%;height:auto;display:block}
 .kbd{display:grid;grid-template-columns:1fr;gap:3px;margin:8px 0;max-height:60vh;overflow:auto}.kbd div{display:flex;gap:12px;align-items:baseline}.kbd b{min-width:170px;color:var(--accent2);font-size:12px}.kbd span{font-size:12px}
+
+/* Creative Suite */
+.suitebtn{background:linear-gradient(180deg,#2a1858,#1a0e3a)!important;border-color:var(--accent)!important}
+.suiteov{position:absolute;inset:0;z-index:60;background:rgba(8,5,16,.92);display:flex;align-items:center;justify-content:center}
+.suitebox{background:#1b1626;border:1px solid var(--edge);border-radius:16px;width:min(1100px,94vw);max-height:90vh;display:flex;flex-direction:column;overflow:hidden}
+.suitehead{display:flex;gap:8px;align-items:center;padding:14px 18px;border-bottom:1px solid var(--edge)}.suitehead h2{margin:0;font-size:18px;letter-spacing:.05em}.suitehead h2 span{color:var(--accent)}.suitehead .grow{flex:1}
+.suitechip{padding:4px 10px;border-radius:12px;background:var(--panel2);border:1px solid var(--accent);font-size:11px;font-weight:700}.suitechip.trial{border-color:var(--warn);color:var(--warn)}
+.suitebody{padding:16px 18px;overflow:auto}
+.suitegrid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.suitetile{display:flex;flex-direction:column;align-items:center;gap:6px;padding:18px 8px;border-radius:12px;white-space:normal;text-align:center}.suitetile .ic{font-size:30px;font-family:"Segoe UI Emoji","Segoe UI Symbol"}.suitetile b{font-size:12px}.suitetile small{font-weight:400;opacity:.75;font-size:11px;letter-spacing:0}
+.sucols{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.sucol h3{margin:0 0 6px;font-size:12px;color:var(--accent2);letter-spacing:.05em}.sucol h3 small{color:var(--dim)}
+.surow{display:flex;gap:5px;align-items:center;padding:6px;border:1px solid var(--edge);border-radius:8px;margin-bottom:5px}.surow .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px}.surow .nm small{display:block;color:var(--dim);font-size:10px}.surow button{padding:4px 7px;font-size:10px}
+.sumedia{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px}.sucard{border:1px solid var(--edge);border-radius:10px;padding:6px;background:var(--panel)}.suth{height:100px;border-radius:6px;background:#07031a center/contain no-repeat}.sucard .nm{font-size:11px;margin:5px 0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.sucard .nm small{display:block;color:var(--dim)}.sucard .btnrow button{padding:3px 6px;font-size:10px}
+.suacct .big{font-size:26px;font-weight:800;color:var(--accent);margin-bottom:6px}
+
+/* titles typed on the video */
+.vtxtedit{position:fixed;z-index:80;border:1.5px dashed #3ce1ff;outline:none;resize:none;padding:0 4px;overflow:hidden;white-space:pre;caret-color:#3ce1ff;border-radius:4px;box-sizing:border-box}
+.vtitlebar{position:absolute;top:6px;left:50%;transform:translateX(-50%);z-index:8;display:flex;gap:4px;align-items:center;flex-wrap:wrap;justify-content:center;background:rgba(13,9,24,.95);border:1px solid var(--accent);border-radius:10px;padding:4px 6px;max-width:calc(100% - 16px)}
+.vtitlebar button{padding:4px 8px;min-width:28px}.vtitlebar input[type=color]{width:28px;height:26px;padding:1px}.vtbfont{max-width:170px}.vtbsize{width:58px}
+.vtextpanel{margin-bottom:8px}.vtextbox{width:100%;font-size:15px;margin:4px 0 8px;resize:vertical}

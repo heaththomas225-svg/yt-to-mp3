@@ -30,7 +30,7 @@ partial class StudioForm
         if (crBObj != null) return true;
         if (HubBrowser.RuntimeVersion() == null) { hubErr = "Creative Studio needs Microsoft Edge WebView2 Runtime (part of Windows 11). Install it from Microsoft, then open it again."; return false; }
         string app = CreativeStore.Dir("app"); var asm = typeof(StudioForm).Assembly;
-        foreach (var f in new[] { "index.html", "app.css", "engine.js", "ui.js", "cover.js", "templates.js", "photofx.js", "stickers.js", "easy.js", "capcut.js", "toolbar.js", "picstext.js", "vtoolbar.js", "vpro.js", "pro.js", "vidpro.js" }) using (var st = asm.GetManifestResourceStream("Purphex.creative." + f)) { if (st == null) continue; var path = Path.Combine(app, f); var ms = new MemoryStream(); st.CopyTo(ms); var bytes = ms.ToArray(); if (!File.Exists(path) || !File.ReadAllBytes(path).SequenceEqual(bytes)) File.WriteAllBytes(path, bytes); }
+        foreach (var f in new[] { "index.html", "app.css", "engine.js", "ui.js", "cover.js", "templates.js", "photofx.js", "stickers.js", "easy.js", "capcut.js", "toolbar.js", "picstext.js", "vtoolbar.js", "vpro.js", "pro.js", "vidpro.js", "suite.js", "vtext.js" }) using (var st = asm.GetManifestResourceStream("Purphex.creative." + f)) { if (st == null) continue; var path = Path.Combine(app, f); var ms = new MemoryStream(); st.CopyTo(ms); var bytes = ms.ToArray(); if (!File.Exists(path) || !File.ReadAllBytes(path).SequenceEqual(bytes)) File.WriteAllBytes(path, bytes); }
         var b = new HubBrowser(this, Path.Combine(StudioEnv.DataDir, "creativeweb"), HubMuted);
         b.MapHost("app.creative", app); b.MapHost("cache.creative", CreativeStore.Dir("cache")); b.MapHost("art.creative", CreativeStore.Dir("art"));
         b.Message = m => { try { BeginInvoke(new Action(() => CrMessage(m, null))); } catch { } };
@@ -72,6 +72,9 @@ partial class StudioForm
                 case "subOpen": using (var d = new OpenFileDialog { Title = "Import lyrics with timing", Filter = "Subtitles and lyrics|*.srt;*.lrc|All files|*.*" }) if (d.ShowDialog(this) == DialogResult.OK) { if (new FileInfo(d.FileName).Length > 2 * 1024 * 1024) throw new Exception("That file is too big for lyrics."); CrSend(D("t", "subText", "name", Path.GetFileName(d.FileName), "text", File.ReadAllText(d.FileName))); } break;
                 case "subSave": using (var d = new SaveFileDialog { Title = "Save the lyrics as subtitles", Filter = "SubRip subtitles|*.srt", FileName = Safe(HubApi.S(m, "name")) + ".srt" }) if (d.ShowDialog(this) == DialogResult.OK) { File.WriteAllText(d.FileName, HubApi.S(m, "text"), new UTF8Encoding(false)); CrSend(D("t", "artDone", "msg", "Saved " + Path.GetFileName(d.FileName))); } break;
                 case "toDaw": tab = 0; break;
+                case "suiteInfo": CrSend(D("t", "suiteInfo", "edition", Edition.Name(Edition.Current), "trial", Edition.OnTrial, "countdown", Edition.Countdown(), "linked", Edition.Linked, "who", Edition.Who, "version", typeof(StudioForm).Assembly.GetName().Version.ToString(3), "art", CreativeStore.List("art").Cast<object>().ToList(), "video", CreativeStore.List("video").Cast<object>().ToList(), "daw", CrDawList())); break;
+                case "suiteGo": CrSuiteGo(HubApi.S(m, "to")); break;
+                case "sharedToVideo": { string fn = Path.GetFileName(HubApi.S(m, "file")); string p = Path.Combine(CreativeStore.Dir("art/uploads"), fn); if (fn.Length > 0 && File.Exists(p)) CrImportPaths(new List<string> { p }); break; }
                 case "playing": crPlaying = m.ContainsKey("on") && m["on"] is bool && (bool)m["on"]; if (crPlaying) { if (eng.Playing) eng.Pause(); if (npPlaying) { HubCmd(HubPlayerJs.Pause(CurSvc ?? HubServices.All[0])); npPlaying = false; } } break;
                 case "tool": crTool = HubApi.S(m, "tool"); break;
                 // Photo Studio
@@ -170,6 +173,16 @@ partial class StudioForm
     }
 
     // ---- your Purphex projects: pick one and its song (mixed and mastered, like EXPORT) and its picture come into the video ----
+    // the songs for the suite's project list (newest first)
+    List<object> CrDawList() { ProjectLibrary.LoadOnce(); var l = new List<object>(); foreach (var e in ProjectLibrary.AllByEdited().Take(60)) if (!e.Missing) l.Add(D("name", e.Name, "path", e.Path, "updated", e.Updated.ToString("yyyy-MM-dd HH:mm"))); return l; }
+    // where the suite sends you: the DAW pages, settings, help, or a page of purphexmusic.com (only these fixed pages)
+    internal static string SuiteLastUrl = "";
+    void CrSuiteGo(string to)
+    {
+        if (to == "projects") { GoTab(3); return; } if (to == "settings") { app.ShowSettings(); return; } if (to == "account") { app.ShowSettings(true); return; } if (to == "help") { app.ShowHelp("studio-creative"); return; }
+        string page = to == "pricing" ? "/pricing" : to == "accountWeb" ? "/account" : null; if (page == null) return;
+        SuiteLastUrl = CommunityPresets.BaseUrl + page; if (StudioEnv.UnderTest) return; try { System.Diagnostics.Process.Start(SuiteLastUrl); } catch { }
+    }
     void CrMyProjects()
     {
         ProjectLibrary.LoadOnce(); var list = new List<object>();
