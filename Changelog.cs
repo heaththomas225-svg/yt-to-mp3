@@ -7,10 +7,24 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.63.5";
+    public const string Latest = "3.64.0";
 
     public const string Text =
-@"3.63.5  Ctrl+C and Ctrl+V copy and paste clips
+@"3.64.0  Photo Studio PRO
+ + NEW: Photo Studio is now Photo Studio PRO (side panel > Photo Studio PRO). It opens on quick starts: Single Cover, Album Cover (with a tracklist page), Artist Banner, YouTube Thumbnail, Promotional Post and Story, or start from scratch at any size with a see-through background.
+ + NEW: Pages: one design can hold several pages (the bar at the bottom left of the picture). Add, duplicate, rename and delete them; they are saved with the design, and EXPORT can write every page at once.
+ + NEW: Pro colour tools in Adjust, for one photo or the whole picture: levels, curves (all colours or red, green and blue alone), vibrance, temperature and tint, colour balance for shadows, midtones and highlights, selective colour for eight colour ranges, noise reduction and straighten.
+ + NEW: Layer effects on any layer: two outlines, glow, drop shadow, inner shadow, colour overlay, gradient overlay and a worn distress look. Clip to the layer below puts a photo inside text.
+ + NEW: Selections and masks: rectangle, ellipse and lasso selection. Keep the picked layer only inside the selection or cut it out (a mask you can feather, invert or remove later), fill it, or copy it to a new layer.
+ + NEW: New tools on the app bar: fill bucket (with tolerance), eyedropper, line and arrow (move, turn and resize them; plain, arrow or double arrow, dashed, curved), the fill colour, and rulers with guides that layers snap to. Keys: V, M, E, L, G, I, U, A.
+ + NEW: Sticker library: 342 stickers drawn by Purphex in 25 categories (music and studio, graffiti, sparkles, hearts and faces, flames and lightning, arrows, shapes, nature, weather, Y2K, cyberpunk, spooky, cute, gaming, lettering, doodles, tape and paper, light leaks, comic, equalizers, badges, abstract, seasonal, social media, patterns). Sharp at any size, in two colours you pick, with search, favourites and recently used.
+ + NEW: Background library: 30 drawn backgrounds (bokeh, starfield, nebula, clouds, sunset, concrete, fabric, denim, paper, marble, graffiti, brick, synthwave grid, studio spotlight, light rays, aurora, smoke, low poly, holographic, halftone, glitch, cinematic and more) in your colours, with SHUFFLE for a new arrangement.
+ + NEW: Font library: 143 free open-licence fonts by style (display, sans serif, serif, script, graffiti, retro and tech, gothic), each shown in its own look and downloaded the first time you use it. Your PC fonts and imported fonts are still there.
+ + NEW: Pro text: chrome, gold, glossy, metallic, embossed, distressed, neon, cinematic and minimal styles, warps (wave, rise, bulge, flag, a circle of text) and a second outline.
+ + NEW: Brush hardness and smoothing, a pencil and a soft airbrush. More sizes: YouTube banner, profile picture, X and Facebook headers, SoundCloud banner, logo, poster, 4K and phone wallpapers.
+ + IMPROVED: Export warns you when a format cannot be see-through (JPEG) and says which layer is left out for a see-through export.
+
+3.63.5  Ctrl+C and Ctrl+V copy and paste clips
  + NEW: Ctrl+C copies the clip you picked, or every highlighted section at once. Ctrl+V pastes at the needle on the picked track: several sections keep their spacing in time and between tracks (new tracks are added below if needed). One Ctrl+Z takes the whole paste away. The right-click Copy and Paste here work the same way.
 
 3.63.4  See every clip you drag, and Purphex scroll bars in the Music Hub

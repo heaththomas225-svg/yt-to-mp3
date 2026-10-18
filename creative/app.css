@@ -306,3 +306,29 @@ body.vtb #video{position:relative}
 .pfont{display:flex;flex-direction:column;align-items:flex-start;text-align:left;padding:8px 10px;border-radius:9px}.pfont .ps{font-size:22px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}.pfont .pn{font-size:10px;color:var(--dim)}.pfont.on{border-color:var(--accent);background:#34343c}
 
 .ptabs{flex-wrap:wrap;overflow:visible}
+/* Photo Studio PRO */
+.stklib .stkq,.profonts .stkq{width:100%;margin:4px 0 6px}
+.stkcats{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px}
+.stkcats .chip{padding:3px 7px;font-size:10px;border-radius:12px}
+.stkgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-bottom:10px}
+.card.stk{position:relative;padding:3px;min-height:0}.card.stk canvas{width:100%;height:auto;display:block}
+.card.stk .fav{position:absolute;top:1px;right:3px;font-size:13px;color:#6a5c90;cursor:pointer}.card.stk .fav.on{color:var(--warn)}.card.stk .fav:hover{color:#fff}
+.fgrid{display:grid;grid-template-columns:1fr;gap:4px;margin-bottom:10px}
+.fcard{text-align:left;padding:8px 10px;overflow:hidden;text-overflow:ellipsis;letter-spacing:0;font-weight:400}
+.propages{position:absolute;z-index:6;display:flex;gap:4px;align-items:center;background:rgba(13,9,24,.92);border:1px solid var(--edge);border-radius:10px;padding:4px 6px}
+.propages button{padding:4px 8px;display:flex;gap:5px;align-items:baseline}.propages button small{font-weight:400;opacity:.8;max-width:90px;overflow:hidden;text-overflow:ellipsis}
+.propages button.add{font-family:"Segoe UI Symbol","Segoe UI Emoji";padding:4px 7px}
+.proselbar,.protoolopt{position:absolute;z-index:7;display:flex;gap:5px;align-items:center;flex-wrap:wrap;background:rgba(13,9,24,.95);border:1px solid var(--accent2);border-radius:10px;padding:5px 8px;max-width:calc(100% - 20px)}
+.proselbar b,.protoolopt b{color:var(--accent2);font-size:11px;margin-right:4px}.protoolopt .hint{font-size:11px;margin-left:6px}
+.proruler{position:absolute;z-index:5;cursor:copy;height:18px}.proruler.v{width:18px;height:auto}
+.probar{display:inline-flex;gap:3px;align-items:center;padding:0 6px;border-left:1px solid var(--edge);border-right:1px solid var(--edge);margin:0 4px}
+.probar button{padding:4px 7px;font-family:"Segoe UI Symbol","Segoe UI Emoji","Segoe UI";font-size:13px;min-width:28px}
+.probar input[type=color]{width:28px;height:26px;padding:1px}
+details.prosec{border:1px solid var(--edge);border-radius:8px;margin:8px 0;padding:4px 8px;background:rgba(255,255,255,.02)}
+details.prosec summary{cursor:pointer;font-weight:700;font-size:11px;letter-spacing:.06em;color:var(--accent2);padding:4px 0}
+.proadj{margin-top:12px;border-top:1px solid var(--edge);padding-top:8px}
+.procurve{margin:4px 0 10px}.procurve .btnrow{margin-bottom:5px}
+.cvstartbox.pro{max-width:820px}.cvstartgrid.q{grid-template-columns:repeat(3,1fr)}
+.cvstartgrid .big small{font-weight:400;opacity:.75;font-size:11px}
+.cvstartrow{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:14px;padding:10px;border:1px solid #3a3a42;border-radius:10px}
+.cvstartrow input[type=number]{width:72px}

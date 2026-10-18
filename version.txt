@@ -1,4 +1,4 @@
-3.63.5
+3.64.0
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Ctrl+C and Ctrl+V copy and paste clips
-sha256=701e8ca65fdbbac8580512b5a23413b5b2bc304651c94a3a4c82ed98f5f99031
+Photo Studio PRO
+sha256=00c4e274a660c7138fd8e9a5b340f65be93851ddc7f686cf14d82c5b346e0fc5

@@ -33,7 +33,7 @@ function bg(a, type, o) { return add(a, Object.assign({ type, name: 'Background'
 function txt(a, text, o) { return add(a, Object.assign(textBase(), { text, name: text.split('\n')[0].slice(0, 20) }, o || {})); }
 const textBase = () => ({ type: 'text', text: 'TEXT', font: 'Segoe UI', size: 180, weight: 800, color: '#ffffff', color2: '#ff50c4', grad: false, align: 'center', spacing: 0, outline: 0, outlineColor: '#000000', shadow: 0, shadowColor: '#000000', neon: false, glowColor: '#a85cff', extrude: 0, extrudeColor: '#3a1066', glitch: 0, curve: 0, upper: false, italic: false, bg: 'none', bgColor: '#a85cff', lineH: 1.1 });
 const newArt = (name) => { const a = { v: 2, id: uid('a'), name: name || 'Untitled design', w: 3000, h: 3000, layers: [], global: { look: 'none' } }; TEMPLATES[0][3](a); return a; };
-C.lib = { add, bg, txt, textBase, EMOJI, SHAPES, shapePath };
+C.lib = { add, bg, txt, textBase, EMOJI, SHAPES, shapePath, drawLayer: (g, L, W, H, k) => drawLayer(g, L, W, H, k), finish: (g, x, y, w, h, L, k) => finish(g, x, y, w, h, L, k), imageFilter: (L, k) => imageFilter(L, k), noiseTile: (kind, seed) => noiseTile(kind, seed), SIZES, TEXTFX };
 C.begin = () => { if (!C._b) C._b = JSON.stringify(C.art); };
 C.commit = () => { C.hist.undo.push(C._b || JSON.stringify(C.art)); C._b = null; if (C.hist.undo.length > 150) C.hist.undo.shift(); C.hist.redo = []; C.dirty = true; C.render(); C.scheduleAuto(); if (C.saveState) C.saveState(); };
 C.undo = () => { if (!C.hist.undo.length) return; C.hist.redo.push(JSON.stringify(C.art)); C.art = JSON.parse(C.hist.undo.pop()); C.dirty = true; C.render(); };
@@ -94,8 +94,27 @@ function drawText(g, L, W, H, k) {
   g.font = (L.italic ? 'italic ' : '') + L.weight + ' ' + size + 'px "' + L.font + '"'; g.textAlign = L.align; g.textBaseline = 'middle'; try { g.letterSpacing = (L.spacing * k) + 'px'; } catch (e) { }
   const widths = lines.map(s => g.measureText(s).width), bw = Math.max(1, ...widths), bh = lh * lines.length;
   if (L.bg && L.bg !== 'none') { const pad = size * 0.3; g.fillStyle = L.bgColor; g.beginPath(); const rx = -bw / 2 - pad, ry = -bh / 2 - pad * 0.5; if (g.roundRect) g.roundRect(rx, ry, bw + pad * 2, bh + pad, L.bg === 'pill' ? (bh + pad) / 2 : L.bg === 'round' ? size * 0.2 : 0); else g.rect(rx, ry, bw + pad * 2, bh + pad); g.fill(); }
-  const fill = () => { if (!L.grad) return L.color; const gr = g.createLinearGradient(0, -bh / 2, 0, bh / 2); gr.addColorStop(0, L.color); gr.addColorStop(1, L.color2); return gr; };
+  const fill = () => {
+    const fk = L.fillKind || (L.grad ? 'grad' : 'solid'); if (fk === 'solid') return L.color;
+    const gr = g.createLinearGradient(0, -bh / 2, 0, bh / 2);
+    if (fk === 'chrome') { [[0, '#f7f7ff'], [0.42, '#9aa0b8'], [0.5, '#2a2c38'], [0.56, '#c9cde0'], [1, '#ffffff']].forEach(([o, c]) => gr.addColorStop(o, c)); }
+    else if (fk === 'gold') { [[0, '#fff3b0'], [0.45, '#d4a019'], [0.52, '#7a4e00'], [0.6, '#f2c94c'], [1, '#fff8d6']].forEach(([o, c]) => gr.addColorStop(o, c)); }
+    else if (fk === 'gloss') { gr.addColorStop(0, '#ffffff'); gr.addColorStop(0.48, L.color); gr.addColorStop(0.52, L.color2 || L.color); gr.addColorStop(1, L.color2 || L.color); }
+    else { gr.addColorStop(0, L.color); gr.addColorStop(1, L.color2); }
+    return gr;
+  };
+  const warpOne = (s, x, y) => {   // warped lettering: each letter placed and stretched along the warp
+    const w = L.warp, amt = (L.warpAmt == null ? 50 : L.warpAmt) / 100, total = g.measureText(s).width; let cx = x - total / 2;
+    if (w === 'circle') { const R = Math.max(size, total / (Math.PI * 2) * (1.05 + (1 - amt))); let a = -Math.PI / 2 - total / R / 2; for (const ch of s) { const cw = g.measureText(ch).width; g.save(); g.translate(x + Math.cos(a + cw / 2 / R) * R, y + R + Math.sin(a + cw / 2 / R) * R); g.rotate(a + cw / 2 / R + Math.PI / 2); g.textAlign = 'center'; paint(ch, 0, 0); g.restore(); a += cw / R; } return; }
+    for (const ch of s) { const cw = g.measureText(ch).width, t = total ? (cx + cw / 2 - (x - total / 2)) / total : 0.5; let dy = 0, sy = 1, rot = 0;
+      if (w === 'wave') { dy = Math.sin(t * Math.PI * 2) * size * 0.35 * amt; rot = Math.cos(t * Math.PI * 2) * 0.35 * amt; }
+      else if (w === 'rise') { dy = (0.5 - t) * size * 1.2 * amt; rot = -0.25 * amt; }
+      else if (w === 'bulge') { sy = 1 + Math.sin(t * Math.PI) * 0.9 * amt; }
+      else if (w === 'flag') { dy = Math.sin(t * Math.PI * 1.5) * size * 0.25 * amt; sy = 1 + Math.cos(t * Math.PI * 1.5) * 0.25 * amt; }
+      g.save(); g.translate(cx + cw / 2, y + dy); g.rotate(rot); g.scale(1, sy); g.textAlign = 'center'; paint(ch, 0, 0); g.restore(); cx += cw; }
+  };
   const one = (s, x, y) => {
+    if (L.warp && L.warp !== 'none' && L.warp !== 'arc') { warpOne(s, x, y); return; }
     if (L.curve) { // curved: each letter along an arc
       const R = size * 3000 / Math.max(10, L.curve * 30) , total = g.measureText(s).width; let a = -total / 2 / R; for (const ch of s) { const cw = g.measureText(ch).width; g.save(); g.translate(x + Math.sin(a + cw / 2 / R) * R, y + R - Math.cos(a + cw / 2 / R) * R); g.rotate(a + cw / 2 / R); g.textAlign = 'center'; paint(ch, 0, 0); g.restore(); a += cw / R; } return; }
     paint(s, x, y);
@@ -105,7 +124,9 @@ function drawText(g, L, W, H, k) {
     if (L.glitch > 0) { const o = L.glitch * k; g.save(); g.globalCompositeOperation = 'screen'; g.fillStyle = '#ff0040'; g.fillText(s, x - o, y); g.fillStyle = '#00e5ff'; g.fillText(s, x + o, y); g.restore(); }
     if (L.neon) { g.shadowColor = L.glowColor; for (const b of [60, 30, 12]) { g.shadowBlur = b * k; g.fillStyle = L.glowColor; g.fillText(s, x, y); } g.shadowBlur = 0; }
     if (L.shadow > 0) { g.shadowColor = L.shadowColor; g.shadowBlur = L.shadow * k; g.shadowOffsetY = L.shadow * k * 0.3; }
+    if (L.outline2 > 0) { g.lineWidth = ((L.outline || 0) + L.outline2) * k * 2; g.lineJoin = 'round'; g.strokeStyle = L.outline2Color || '#ff50c4'; g.strokeText(s, x, y); }   // a second, wider outline under the first
     if (L.outline > 0) { g.lineWidth = L.outline * k * 2; g.lineJoin = 'round'; g.strokeStyle = L.outlineColor; g.strokeText(s, x, y); }
+    if (L.emboss > 0) { const e = L.emboss * k * 0.12; g.fillStyle = 'rgba(255,255,255,0.85)'; g.fillText(s, x - e, y - e); g.fillStyle = 'rgba(0,0,0,0.75)'; g.fillText(s, x + e, y + e); }
     g.fillStyle = fill(); g.fillText(s, x, y); g.shadowColor = 'transparent'; g.shadowBlur = 0; g.shadowOffsetY = 0;
   };
   for (let i = 0; i < lines.length; i++) one(lines[i], 0, (i - (lines.length - 1) / 2) * lh);
@@ -136,7 +157,7 @@ function drawLayer(g, L, W, H, k) {
 // the brush: strokes are kept as points (always editable, any size), drawn on their own layer so the eraser only rubs that layer out
 function drawStrokes(g, L, W, H, k) {
   const cv = document.createElement('canvas'); cv.width = W; cv.height = H; const d = cv.getContext('2d'); d.lineCap = 'round'; d.lineJoin = 'round';
-  for (const s of L.strokes || []) { d.globalCompositeOperation = s.erase ? 'destination-out' : 'source-over'; d.globalAlpha = s.opacity; d.strokeStyle = s.color; d.lineWidth = s.size * k * 3; if (s.neon && !s.erase) { d.shadowColor = s.color; d.shadowBlur = s.size * k * 6; } else d.shadowBlur = 0; d.beginPath(); s.pts.forEach((p, i) => i ? d.lineTo(p[0] * W, p[1] * H) : d.moveTo(p[0] * W, p[1] * H)); if (s.pts.length === 1) d.lineTo(s.pts[0][0] * W + 0.1, s.pts[0][1] * H); d.stroke(); }
+  for (const s of L.strokes || []) { d.globalCompositeOperation = s.erase ? 'destination-out' : 'source-over'; d.globalAlpha = s.opacity; d.strokeStyle = s.color; d.lineWidth = s.size * k * 3; d.filter = s.hard != null && s.hard < 100 ? 'blur(' + ((100 - s.hard) / 100 * s.size * k * 1.5) + 'px)' : 'none'; if (s.neon && !s.erase) { d.shadowColor = s.color; d.shadowBlur = s.size * k * 6; } else d.shadowBlur = 0; d.beginPath(); s.pts.forEach((p, i) => i ? d.lineTo(p[0] * W, p[1] * H) : d.moveTo(p[0] * W, p[1] * H)); if (s.pts.length === 1) d.lineTo(s.pts[0][0] * W + 0.1, s.pts[0][1] * H); d.stroke(); }
   g.setTransform(1, 0, 0, 1, 0, 0); g.drawImage(cv, 0, 0);
 }
 function drawFrame(g, L, W, H, k) {

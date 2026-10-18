@@ -367,7 +367,7 @@ static class NF
         }
         {   // CREATIVE STUDIO: side panel entries, safe project files, autosave recovery, export settings
             var names = (string[])typeof(StudioForm).GetField("MenuNames", BindingFlags.NonPublic | BindingFlags.Static).GetValue(null); int hi = Array.IndexOf(names, "Music Hub");
-            Check("Video Studio and Photo Studio are in the side panel, under Music Hub", hi >= 0 && names[hi + 1] == "Video Studio" && names[hi + 2] == "Photo Studio", string.Join(",", names));
+            Check("Video Studio and Photo Studio are in the side panel, under Music Hub", hi >= 0 && names[hi + 1] == "Video Studio" && names[hi + 2] == "Photo Studio PRO", string.Join(",", names));
             var proj = new Dictionary<string, object> { { "id", "ptest1" }, { "name", "Test video" }, { "clips", new List<object> { new Dictionary<string, object> { { "id", "c1" }, { "start", 1.5 }, { "_err", true } } } } };
             CreativeStore.Save("video", proj, false); bool rec; var back = CreativeStore.Load("video", "ptest1", out rec);
             Check("a video project saves and opens again (runtime-only fields are not written)", HubApi.S(back, "name") == "Test video" && !rec && !File.ReadAllText(CreativeStore.ProjPath("video", "ptest1")).Contains("_err"), "");

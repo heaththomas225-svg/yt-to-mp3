@@ -202,7 +202,7 @@ static class CRTEST
             const s0=L.scale||1;fire(b.cx+b.w/2,b.cy+b.h/2,'mousedown');window.dispatchEvent(new MouseEvent('mousemove',{clientX:r.left+(b.cx+b.w)*k,clientY:r.top+(b.cy+b.h)*k}));window.dispatchEvent(new MouseEvent('mouseup',{}));const s1=L.scale;
             const n0=C.art.layers.length;const b2=C.box(L,cv.width,cv.height),a=(L.rot||0)*Math.PI/180;const dx=-b2.w/2,dy=-b2.h/2;fire(b2.cx+dx*Math.cos(a)-dy*Math.sin(a),b2.cy+dx*Math.sin(a)+dy*Math.cos(a),'mousedown');return (s1/s0).toFixed(2)+' '+(n0-C.art.layers.length)})()");
         Check("the corner handle resizes the text in one drag, and the X on the picture deletes it", hd.Split(' ').Length == 2 && double.Parse(hd.Split(' ')[0], System.Globalization.CultureInfo.InvariantCulture) > 1.5 && hd.Split(' ')[1] == "1", hd);
-        Js("(()=>{const C=PX.Cover;C.tab='stickers';C.renderTab();document.querySelector('#cvTab .card').click()})()"); Check("a sticker is added from the STICKERS tab", Js("PX.Cover.art.layers[PX.Cover.art.layers.length-1].type") == "sticker");
+        Js("(()=>{const C=PX.Cover;C.tab='stickers';C.renderTab();document.querySelector('#cvTab .grid2 .card').click()})()"); Check("a sticker is added from the STICKERS tab", Js("PX.Cover.art.layers[PX.Cover.art.layers.length-1].type") == "sticker");
         { string pp = Path.Combine(media, "photo.jpg"); string pu = Js("PX.P.media.find(m=>m.name==='photo.jpg').url");
           Js("(()=>{PX.Cover.startFromPhoto('" + pu + "','photo.jpg')})()"); WaitJs("PX.Cover.art.layers.length===1&&PX.Cover.art.layers[0].type==='image'", 10000); int pw2, ph2; using (var pb = new Bitmap(pp)) { pw2 = pb.Width; ph2 = pb.Height; }
           Check("OPEN PHOTO starts a design from a picture (the canvas takes the photo's own size)", Js("PX.Cover.art.w+'x'+PX.Cover.art.h") == pw2 + "x" + ph2 && Js("PX.Cover.art.layers[0].fit") == "fill", Js("PX.Cover.art.w+'x'+PX.Cover.art.h") + " vs " + pw2 + "x" + ph2);
@@ -286,6 +286,98 @@ window.__at=(x,y)=>Array.from(window.__pg.getImageData(x,y,1,1).data).join(',');
         Js("(()=>{const C=PX.Cover;C.tab='stickers';C.renderTab();const t=document.querySelector('#cvTab');t.scrollTop=t.scrollHeight;})()"); Pump(800); { var ctw = B.Capture("C:/Users/thoma/nfout/photo-stickers.png"); var cew = DateTime.Now.AddSeconds(10); while (!ctw.IsCompleted && DateTime.Now < cew) Pump(50); }
         Js("(()=>{const C=PX.Cover;C.art.layers=[];C.setBackground({type:'color',color:'#14061f'});C.makeCollage([[0,0,.6,1],[.6,0,.4,.5],[.6,.5,.4,.5]]);const c=C.art.layers.filter(l=>l.type==='cell');c[0].url=window.__subj;c[1].url=window.__grad;C.tab='collage';C.render();})()"); Pump(1200); { var ctw = B.Capture("C:/Users/thoma/nfout/photo-collage.png"); var cew = DateTime.Now.AddSeconds(10); while (!ctw.IsCompleted && DateTime.Now < cew) Pump(50); }
         Pump(600); { var ct = B.Capture(@"C:\Users\thoma\nfout\photo-studio.png"); var ce = DateTime.Now.AddSeconds(10); while (!ct.IsCompleted && DateTime.Now < ce) Pump(50); }
+        // ---- PHOTO STUDIO PRO ----
+        { Js("(()=>{const C=PX.Cover;C.closeWelcome&&C.closeWelcome();const st=document.querySelector('#cvStart');if(st)st.remove();C.openPanel(null);C.selection=null;C.tool='move';C.art.pages=null;C.art.page=0;C.art.guides=null;C.art.w=1000;C.art.h=1000;C.art.layers=[];C.setBackground({type:'color',color:'#ff0000'});C.sel=null;C.render();" +
+             "window.__px=(fx,fy,P)=>{const c=document.createElement('canvas');c.width=200;c.height=200;C.drawArt(c.getContext('2d'),200,200);const d=c.getContext('2d').getImageData(Math.floor(fx*200),Math.floor(fy*200),1,1).data;return [d[0],d[1],d[2],d[3]].join(',')};})()");
+          Func<string, int> ToInt = s => { int v; return int.TryParse(s, out v) ? v : -1; };
+          Func<string, int[]> rgba = s => { try { return Array.ConvertAll(s.Split(','), int.Parse); } catch { return new[] { -1, -1, -1, -1 }; } };
+          Func<int[], int, int, int, bool> near = (p, r, g, b) => Math.Abs(p[0] - r) < 40 && Math.Abs(p[1] - g) < 40 && Math.Abs(p[2] - b) < 40;
+          // stickers and backgrounds
+          string plib = Js("(()=>{const C=PX.Cover,L=C.stickerLib.list;return L.length+' '+new Set(L.map(d=>d.cat)).size+' '+new Set(L.map(d=>d.id)).size+' '+C.bgLib.list.length})()");
+          Check("the sticker library: 300+ original stickers in all 25 categories (no duplicate ids) and 30 backgrounds", System.Text.RegularExpressions.Regex.IsMatch(plib ?? "", @"^(3\d\d|[4-9]\d\d) 25 \1 30$"), plib);
+          string pstErr = Js("(()=>{const bad=[];const c=document.createElement('canvas');c.width=c.height=64;const g=c.getContext('2d');for(const d of PX.Cover.stickerLib.list){g.setTransform(1,0,0,1,32,32);g.clearRect(-32,-32,64,64);g.scale(0.6,0.6);try{d.fn(g,'#a85cff','#ffd23c')}catch(e){bad.push(d.id)}g.setTransform(1,0,0,1,0,0);const px=g.getImageData(0,0,64,64).data;let n=0;for(let i=3;i<px.length;i+=4)if(px[i]>20)n++;if(n<12)bad.push(d.id+' empty')}return bad.join(',')||'none'})()");
+          Check("every sticker draws something, without an error", pstErr == "none", pstErr);
+          Js("(()=>{const C=PX.Cover;window.__st=C.addSticker('hearts:heart');window.__st.c1='#00ff00';window.__st.size=800;C.render()})()");
+          var pps = rgba(Js("__px(0.5,0.55)"));
+          Check("a sticker is added as a layer and drawn in the colour you pick", Js("PX.Cover.sel===window.__st.id&&window.__st.type==='pstk'") == "True" && near(pps, 0, 255, 0), string.Join(",", pps));
+          Check("recently used stickers are remembered", WaitJs("PX.Cover.kvGet&&1", 100) && Js("(()=>{PX.Cover.tab='stickers';PX.Cover.renderTab();const r=[...document.querySelectorAll('#cvTab .stkcats .chip')].find(c=>c.textContent==='Recent');r.click();return document.querySelectorAll('#cvTab .stkgrid .card.stk').length>=1})()") == "True");
+          string psrch = Js("(()=>{const q=document.querySelector('#cvTab .stkq');q.value='fire';q.oninput();return document.querySelectorAll('#cvTab .stkgrid .card.stk').length})()");
+          Check("sticker search finds matches (fire)", ToInt(psrch) >= 4, psrch);
+          Js("(()=>{const C=PX.Cover;C.art.layers=C.art.layers.filter(l=>l.type!=='pstk');C.tab='bg';C.renderTab();[...document.querySelectorAll('#cvTab .card')].find(c=>c.title==='Synthwave grid').click()})()");
+          Check("a library background replaces the background", Js("(()=>{const b=PX.Cover.art.layers.find(l=>l.name==='Background');return b.type+' '+b.kind})()") == "pbg synth" && rgba(Js("__px(0.5,0.95)"))[3] == 255);
+          // layer effects, clipping and masks
+          Js("(()=>{const C=PX.Cover;C.art.layers=[];C.setBackground({type:'color',color:'#000000'});window.__sq=C.addLayer({type:'shape',name:'Sq',shape:'rect',color:'#ffffff',w:0.4,h:0.4});window.__sq.fx={outlines:[{size:60,color:'#00ff00'}]};C.render()})()");
+          var po1 = rgba(Js("__px(0.72,0.5)")); var po0 = rgba(Js("__px(0.5,0.5)")); var po2 = rgba(Js("__px(0.9,0.5)"));
+          Check("OUTLINE draws round the layer in its colour (and not inside it or far away)", near(po1, 0, 255, 0) && near(po0, 255, 255, 255) && near(po2, 0, 0, 0), string.Join(",", po1) + " | " + string.Join(",", po0) + " | " + string.Join(",", po2));
+          Js("(()=>{const C=PX.Cover;C.begin();window.__sq.fx={shadow:{on:true,x:120,y:120,blur:0,amt:100,color:'#0000ff'}};C.commit()})()");
+          var psh = rgba(Js("__px(0.78,0.78)"));
+          Check("DROP SHADOW is drawn offset in its colour", near(psh, 0, 0, 255), string.Join(",", psh));
+          Js("(()=>{const C=PX.Cover;C.begin();window.__sq.fx={overlay:{amt:100,color:'#ff00ff'}};C.commit()})()");
+          Check("COLOUR OVERLAY recolours the layer", near(rgba(Js("__px(0.5,0.5)")), 255, 0, 255));
+          Js("(()=>{const C=PX.Cover;C.begin();window.__sq.fx=null;window.__cl=C.addLayer({type:'color',color:'#00ffff'});window.__cl.clip=true;C.commit()})()");
+          Check("CLIPPING: a layer clipped to the one below only shows inside it", near(rgba(Js("__px(0.5,0.5)")), 0, 255, 255) && near(rgba(Js("__px(0.1,0.1)")), 0, 0, 0));
+          Js("(()=>{const C=PX.Cover;C.begin();C.art.layers=C.art.layers.filter(l=>l!==window.__cl);C.commit();C.sel=window.__sq.id;C.selection={kind:'rect',x:0.5,y:0,w:0.5,h:1};C.maskToSelection('keep');C.selection=null})()");
+          Check("a selection mask (KEEP INSIDE) hides the layer outside the selection, and can be removed", near(rgba(Js("__px(0.4,0.5)")), 0, 0, 0) && near(rgba(Js("__px(0.6,0.5)")), 255, 255, 255) && Js("(()=>{PX.Cover.begin();delete window.__sq.smask;PX.Cover.commit();return __px(0.4,0.5)})()").StartsWith("255,255,255"));
+          // pro colour
+          Js("(()=>{const C=PX.Cover;C.art.layers=[];C.setBackground({type:'color',color:'#204080'});C.art.global={look:'none',pro:{levels:{inB:0,inW:255,gamma:1,outB:255,outW:0}}};C.render()})()");
+          var plv = rgba(Js("__px(0.5,0.5)"));
+          Check("LEVELS (output reversed) inverts the picture: #204080 becomes about #dfbf7f", near(plv, 0xdf, 0xbf, 0x7f), string.Join(",", plv));
+          Js("(()=>{const C=PX.Cover;C.art.global={look:'none',pro:{curve:{m:[[0,0],[0.5,0.85],[1,1]]}}};C.render()})()");
+          var pcvp = rgba(Js("__px(0.5,0.5)"));
+          Check("CURVES lift the mid tones", pcvp[0] > 0x20 + 25 && pcvp[2] > 0x80 + 25, string.Join(",", pcvp));
+          Js("(()=>{const C=PX.Cover;C.art.global={look:'none',pro:{temp:100}};C.render()})()"); var pwb = rgba(Js("__px(0.5,0.5)"));
+          Check("TEMPERATURE warms the picture (more red, less blue)", pwb[0] > 0x20 + 15 && pwb[2] < 0x80 - 15, string.Join(",", pwb));
+          Js("(()=>{const C=PX.Cover;C.art.global={look:'none',pro:{hsl:{blue:[0,-100,0]}}};C.render()})()"); var phs = rgba(Js("__px(0.5,0.5)"));
+          Check("SELECTIVE COLOUR: taking the saturation out of the blues greys a blue", Math.Abs(phs[0] - phs[2]) < 30, string.Join(",", phs));
+          Js("(()=>{const C=PX.Cover;C.art.global={look:'none',pro:{vib:100}};C.render()})()"); var pvb = rgba(Js("__px(0.5,0.5)"));
+          Check("VIBRANCE makes a dull colour stronger", pvb[2] - pvb[0] > 0x80 - 0x20 + 10, string.Join(",", pvb));
+          Js("PX.Cover.art.global={look:'none'}");
+          // tools: fill bucket, eyedropper, lines, guides
+          Js("(()=>{const C=PX.Cover;C.art.layers=[];C.setBackground({type:'color',color:'#ff0000'});C.addLayer({type:'shape',name:'Dot',shape:'circle',color:'#00ff00',w:0.4,h:0.4});C.sel=null;window.__ff=C.floodFill(0.05,0.05,'#0000ff',30);})()");
+          Check("FILL BUCKET fills the area you click (the corner) with the colour, on a new layer, and not the circle", near(rgba(Js("__px(0.05,0.05)")), 0, 0, 255) && near(rgba(Js("__px(0.5,0.5)")), 0, 255, 0) && Js("PX.Cover.art.layers[PX.Cover.art.layers.length-1].name") == "Fill");
+          Check("EYEDROPPER picks the colour under the pointer", Js("PX.Cover.pickColorAt(0.5,0.5)") == "#00ff00", Js("PX.Cover.pickColorAt(0.5,0.5)"));
+          Js("(()=>{const C=PX.Cover;C.art.layers=[];C.setBackground({type:'color',color:'#000000'});C.addLayer({type:'pline',name:'Arrow',x:0,y:0,dx:0.8,dy:0,width:40,color:'#ffff00',head:'end',headSize:4})})()");
+          Check("LINE / ARROW layers draw a line with an arrow head", near(rgba(Js("__px(0.2,0.5)")), 255, 255, 0) && near(rgba(Js("__px(0.80,0.53)")), 255, 255, 0) && near(rgba(Js("__px(0.2,0.6)")), 0, 0, 0));
+          string psnap = Js("(()=>{const C=PX.Cover;C.art.guides={v:[750],h:[]};const t=C.addLayer({type:'shape',name:'S',shape:'rect',color:'#fff',w:0.1,h:0.1});t.x=0.49;t.y=0.3;C.snapHook(t,{});const b=C.box(t,1000,1000,true);return Math.round(b.cx)})()");
+          Check("layers snap to GUIDES", psnap == "750", psnap);
+          Js("(()=>{const C=PX.Cover;C.view.rulers=true;C.draw()})()"); Check("RULERS show along the picture", Js("String(!document.querySelector('#proRulerH').classList.contains('hidden'))") == "true"); Js("PX.Cover.view.rulers=false;PX.Cover.art.guides=null;PX.Cover.draw()");
+          // text
+          string ptf = Js("(()=>{const C=PX.Cover;C.art.layers=[];C.setBackground({type:'color',color:'#000'});const t=C.addLayer(Object.assign(C.lib.textBase(),{text:'WAVE',size:200,fillKind:'chrome',warp:'wave',warpAmt:80,outline2:20,outline2Color:'#ff00ff',emboss:40}));C.render();let n=0;for(let x=0.1;x<0.9;x+=0.02){const p=__px(x,0.5).split(',');if(+p[0]>200&&+p[1]<80&&+p[2]>200)n++}return n})()");
+          Check("PRO TEXT: chrome fill, wave warp and a second outline draw", ToInt(ptf) >= 2, ptf);
+          // pages
+          string ppgs = Js("(()=>{const C=PX.Cover;C.art.pages=null;C.art.layers=[];C.setBackground({type:'color',color:'#ff0000'});C.pages.add(false);C.art.layers[0].color='#0000ff';C.pages.add(true);const n=C.art.pages.length,b=__px(0.5,0.5);C.pages.go(0);const a=__px(0.5,0.5);C.pages.go(1);const c=__px(0.5,0.5);return n+'|'+a+'|'+c+'|'+b})()");
+          Check("PAGES: add, duplicate and switch pages (each keeps its own layers)", ppgs == "3|255,0,0,255|0,0,255,255|0,0,255,255", ppgs);
+          Js("PX.Cover.art.name='Pages test';PX.Cover.act('save')"); string ppaid = Js("PX.Cover.art.id"); WaitJs("window.__artSaved==='" + ppaid + "'", 10000);
+          Js("PX.Cover.art.pages=null;PX.Cover.art.layers=[];PX.send({t:'artOpen',id:'" + ppaid + "'})"); Pump(200);
+          WaitJs("PX.Cover.art.pages&&PX.Cover.art.pages.length===3", 8000);
+          Check("PAGES are saved with the project and come back when it is opened", Js("String(PX.Cover.art.pages&&PX.Cover.art.pages.length)") == "3", Js("String(PX.Cover.art.pages&&PX.Cover.art.pages.length)"));
+          int ppn = 0; string ppdir2 = Path.Combine(outDir, "pages"); Directory.CreateDirectory(ppdir2); foreach (var pf0 in Directory.GetFiles(ppdir2)) File.Delete(pf0); StudioForm.CrSaveHook = _ => Path.Combine(ppdir2, "page" + (++ppn) + ".png");
+          Js("PX.Cover.pages.exportAll({fmt:'png',scale:0.25,quality:0.9,transparent:false,name:'Pages test'})"); var ppe = DateTime.Now.AddSeconds(30); while (Directory.GetFiles(ppdir2).Length < 3 && DateTime.Now < ppe) Pump(200); Pump(500); StudioForm.CrSaveHook = null;
+          string ppcols = ""; foreach (var pf0 in Directory.GetFiles(ppdir2).OrderBy(x => x)) using (var pbm = new Bitmap(pf0)) { var pc0 = pbm.GetPixel(pbm.Width / 2, pbm.Height / 2); ppcols += pbm.Width + ":" + pc0.R + "," + pc0.G + "," + pc0.B + " "; }
+          Check("EXPORT ALL PAGES writes one picture per page, each with that page's design", Directory.GetFiles(ppdir2).Length == 3 && ppcols.StartsWith("250:255,0,0") && ppcols.Contains("250:0,0,255 250:0,0,255"), ppcols);
+          // quick starts and all new panels
+          Js("(()=>{const C=PX.Cover;C.openStart();[...document.querySelectorAll('#cvStart .q button')].find(b=>b.textContent.includes('ALBUM COVER')).click()})()"); Pump(300);
+          Check("QUICK START Album Cover makes a 3000 x 3000 cover with a tracklist page", Js("PX.Cover.art.w+'x'+PX.Cover.art.h+' '+PX.Cover.art.pages.length+' '+PX.Cover.art.pages[1].name") == "3000x3000 2 Tracklist", Js("PX.Cover.art.w+'x'+PX.Cover.art.h+' '+(PX.Cover.art.pages||[]).length"));
+          Js("(()=>{const C=PX.Cover;C.openStart();document.querySelector('#stW').value=640;document.querySelector('#stH').value=360;document.querySelector('#stT').checked=true;document.querySelector('#stGo').click()})()");
+          Check("START FROM SCRATCH: your own size with a see-through background", Js("PX.Cover.art.w+'x'+PX.Cover.art.h+' '+PX.Cover.art.layers.length") == "640x360 0");
+          string ppe2 = Js("(()=>{try{const C=PX.Cover;C.art.w=1000;C.art.h=1000;C.art.layers=[];C.setBackground({type:'color',color:'#222'});C.addSticker('music:mic');C.addLayer({type:'pline',name:'L',dx:0.3,dy:0.1});C.addLayer(Object.assign(C.lib.textBase(),{text:'T'}));C.addLayer({type:'draw',name:'D',strokes:[]});for(const t of ['adjust','fonts','text','draw','stickers','bg']){C.tab=t;C.renderTab()}for(const L of C.art.layers){C.sel=L.id;C.renderProps()}C.tool='selRect';C.selection={kind:'ellipse',x:0.2,y:0.2,w:0.3,h:0.3};C.render();C.tool='fill';C.render();C.tool='line';C.render();C.tool='move';C.selection=null;C.render();return 'none'}catch(e){return e.message+' '+e.stack.slice(0,200)}})()");
+          Check("every PRO panel, tool and layer setting opens without an error", ppe2 == "none", ppe2);
+          Check("the PRO tool strip is on the app bar (select, lasso, fill, eyedropper, line, arrow, rulers)", Js("String(document.querySelectorAll('#proBar [data-t]').length===8&&!!document.querySelector('#proRulerBtn'))") == "true");
+          Js("(()=>{const C=PX.Cover;C.loadFont('Anton')})()");
+          Check("the FONT LIBRARY downloads a font when it is used (needs the internet)", WaitJs("document.fonts&&document.fonts.check('700 40px \"Anton\"')&&[...document.fonts].some(f=>f.family.replace(/\"/g,'')==='Anton'&&f.status==='loaded')", 20000), Js("String([...document.fonts].filter(f=>f.family.indexOf('Anton')>=0).map(f=>f.status))"));
+          // screenshots to look at
+          Js("(()=>{const C=PX.Cover;C.art.w=3000;C.art.h=3000;C.art.layers=[];C.art.pages=null;C.lib.bg(C.art,'pbg',{kind:'synth',c1:'#ff50c4',c2:'#a85cff',seed:7});const t=C.addLayer(Object.assign(C.lib.textBase(),{text:'NIGHT DRIVE',size:330,font:'Anton',fillKind:'chrome',y:-0.55}));t.fx={outlines:[{size:14,color:'#14061f'},{size:30,color:'#ff50c4'}],shadow:{on:true,x:20,y:30,blur:30,amt:80,color:'#000'}};const s=C.addSticker('fire:flame1');s.x=0.6;s.y=0.45;const s2=C.addSticker('stars:sparkle3');s2.x=-0.6;s2.y=0.5;s2.c1='#ffffff';C.pages.add(true);C.pages.go(0);C.sel=t.id;C.tool='selRect';C.selection={kind:'rect',x:0.1,y:0.6,w:0.35,h:0.3};C.view.rulers=true;C.art.guides={v:[1500],h:[900]};C.render();C.openPanel('stickers')})()"); Pump(1500);
+          { var pct = B.Capture("C:/Users/thoma/nfout/photo-pro-stickers.png"); var pce = DateTime.Now.AddSeconds(10); while (!pct.IsCompleted && DateTime.Now < pce) Pump(50); }
+          Js("(()=>{const C=PX.Cover;C.selection=null;C.tool='move';C.openPanel('adjust');const t=document.querySelector('#cvTab');t.scrollTop=t.scrollHeight*0.35})()"); Pump(800);
+          { var pct = B.Capture("C:/Users/thoma/nfout/photo-pro-adjust.png"); var pce = DateTime.Now.AddSeconds(10); while (!pct.IsCompleted && DateTime.Now < pce) Pump(50); }
+          Js("(()=>{const C=PX.Cover;C.openPanel('fonts')})()"); Pump(2500);
+          { var pct = B.Capture("C:/Users/thoma/nfout/photo-pro-fonts.png"); var pce = DateTime.Now.AddSeconds(10); while (!pct.IsCompleted && DateTime.Now < pce) Pump(50); }
+          Js("(()=>{const C=PX.Cover;C.openPanel(null);C.sideTab&&C.sideTab('props');C.render();document.querySelectorAll('#cvSideB details.prosec').forEach(d=>d.open=true)})()"); Pump(800);
+          { var pct = B.Capture("C:/Users/thoma/nfout/photo-pro-props.png"); var pce = DateTime.Now.AddSeconds(10); while (!pct.IsCompleted && DateTime.Now < pce) Pump(50); }
+          Js("(()=>{const C=PX.Cover;C.view.rulers=false;C.art.guides=null;C.openStart()})()"); Pump(600);
+          { var pct = B.Capture("C:/Users/thoma/nfout/photo-pro-start.png"); var pce = DateTime.Now.AddSeconds(10); while (!pct.IsCompleted && DateTime.Now < pce) Pump(50); }
+          Js("(()=>{const s=document.querySelector('#cvStart');if(s)s.remove();})()");
+        }
         // ---- song from the DAW ----
         Js("PX.UI.setTool('video')"); int n0 = int.Parse(Js("PX.P.media.length")); var eng = (StudioEngine)F("eng"); int sn = 44100 * 3; var x0 = new float[sn]; for (int i = 0; i < sn; i++) x0[i] = (float)(0.3 * Math.Sin(i * 0.05)); eng.Tracks.Add(StudioEngine.NewTrack("Beat", "beat", AudioClip.FromArrays(x0, x0, "b")));
         M("CrSong"); Check("MY SONG brings the current DAW project in as a mixed copy (the DAW project is not changed)", WaitJs("PX.P.media.length>" + n0 + "&&PX.P.media[PX.P.media.length-1].name.indexOf('(mix')>=0", 30000) && eng.Tracks.Count == 1);

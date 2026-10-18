@@ -13,7 +13,7 @@ partial class StudioForm
     void RemoveCover(string p) { ProjectLibrary.ClearCover(p); if (string.Equals(p, projPath, StringComparison.OrdinalIgnoreCase)) ProjectIO.CoverBytes = null; }
     bool menuOpen, projectsLoaded; int menuSec = -1, menuSub = -1; float projScroll; const string ImgFilter = "Pictures|*.jpg;*.jpeg;*.png;*.gif;*.bmp|All files|*.*";
     // the side menu: six lists (File, Edit, Tools, Pages, View, Community) and then single buttons that just take you there (Projects, Profile, Themes, Fonts, Settings, Help, Exit)
-    static readonly string[] MenuNames = { "File", "Edit", "Tools", "Pages", "View", "Community", "Music Hub", "Video Studio", "Photo Studio", "Projects", "Profile", "Themes", "Fonts", "Settings", "Help", "Exit" }; const int MenuLists = 6;
+    static readonly string[] MenuNames = { "File", "Edit", "Tools", "Pages", "View", "Community", "Music Hub", "Video Studio", "Photo Studio PRO", "Projects", "Profile", "Themes", "Fonts", "Settings", "Help", "Exit" }; const int MenuLists = 6;
     static readonly int[] MenuIcon = { 0, 1, 2, 8, 3, 12, 13, 14, 15, 11, 4, 5, 10, 6, 7, 9 };
     Action MenuDirect(int i)
     {
@@ -21,7 +21,7 @@ partial class StudioForm
         {
             case "Music Hub": return () => OpenHub();
             case "Video Studio": return () => OpenCreative("video");   // Purphex Creative Studio: the video editor
-            case "Photo Studio": return () => OpenCreative("cover");   // Purphex Creative Studio: the photo editor (covers, posts, thumbnails, flyers)   // listen to your streaming services inside Purphex
+            case "Photo Studio PRO": return () => OpenCreative("cover");   // Purphex Creative Studio: the photo editor (covers, posts, thumbnails, flyers)   // listen to your streaming services inside Purphex
             case "Projects": return () => GoTab(3);   // Projects: straight to your saved projects
             case "Profile": return () => { GoTab(6); profScroll = 0; };
             case "Themes": return () => { CloseMenu(); OpenThemeSheet(); };

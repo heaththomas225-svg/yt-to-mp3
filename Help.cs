@@ -612,7 +612,7 @@ PRESETS has 55 factory presets (subtle, vocal, drum fills, build-ups, transition
 "),
         new HelpTopic("studio-creative", "Purphex Music", "Creative Studio: Video Studio and Photo Studio", false, @"
 ## Where it is
-Side panel (the three lines at the top left): VIDEO STUDIO or PHOTO STUDIO, under Music Hub. The two buttons at the top switch between them; BACK TO DAW returns to your song.
+Side panel (the three lines at the top left): VIDEO STUDIO or PHOTO STUDIO PRO, under Music Hub. The two buttons at the top switch between them; BACK TO DAW returns to your song.
 ## Your first video
 Press MAKE A VIDEO FROM MY SONG (or MY SONG in MEDIA): pick the song, a background picture or video, a visualiser, the artist and title and the colours, and it is all put on the timeline. Press PLAY to watch, then EXPORT.
 ## Editing
@@ -627,6 +627,16 @@ EXPORT: MP4 (H.264 or H.265), WebM or audio only, the size, frame rate, quality 
 A photo editor for covers, posts, stories, thumbnails and flyers. The tabs on the left: TEMPLATES (ready layouts with the right size), BACKGROUNDS (colours, gradients, patterns, textures, or a photo), TEXT (styles like neon, outline, 3D, glitch, gradient, curved, retro, boxed, and a list of every font on your PC shown in its own style), STICKERS (emoji and shapes), PHOTOS (add your own pictures; PNG transparency is kept), FILTERS (20 looks for the whole picture or one photo), ADJUST (brightness, contrast, saturation, hue, warmth, fade, grain, vignette, blur), DRAW (a brush with neon and an eraser, on its own layer) and FRAMES.
 ## Editing on the canvas
 Click a layer to pick it; drag to move, drag a corner to resize, drag the dot above it to rotate (Shift snaps to the centre and to 15 degrees); the mouse wheel resizes too. Arrow keys nudge it. On the right: every setting of the layer (font, size, colours, outline, shadow, glow, 3D, curve, opacity, blend mode, crop and shape mask for photos, flip, duplicate). LAYERS: show or hide, lock, move up or down, delete. Ctrl+Z / Ctrl+Y undo and redo, Ctrl+D duplicates, Delete removes, V is move, B is the brush.
+## Photo Studio PRO
+Quick starts: when it opens, pick Single Cover, Album Cover (with a tracklist page), Artist Banner, YouTube Thumbnail, Promotional Post or Story, or start from scratch at any size with a see-through background.
+Pages: a design can hold several pages (the bar at the bottom left of the picture): add, duplicate, delete, double-click to rename. Export can write every page at once.
+Tools on the app bar: move, rectangle, ellipse and lasso selection, fill bucket, eyedropper, line, arrow, the fill colour and the rulers. Keys: V, M, E, L, G, I, U, A; Esc drops the selection. With a selection, keep the picked layer only inside it or cut it out (a mask you can feather, invert or remove later), fill it, or copy it to a new layer.
+Rulers and guides: drag from a ruler to make a guide; layers snap to guides; drag a guide off the picture to remove it.
+Adjust: pro adjust has levels, curves (all colours or red, green and blue alone), vibrance, temperature and tint, colour balance for shadows, midtones and highlights, selective colour for eight colour ranges, noise reduction and straighten, for the picked photo or the whole picture.
+Layer settings: layer effects (two outlines, glow, drop shadow, inner shadow, colour and gradient overlay, a worn distress look) and masks and clipping (clip to the layer below puts a photo inside text).
+Text: pro text styles (chrome, gold, glossy, metallic, embossed, distressed, neon, cinematic, minimal), warps (wave, rise, bulge, flag, a circle of text) and a second outline. Fonts: a library of free open-licence fonts by style, downloaded the first time you use one.
+Stickers: over 300 stickers drawn by Purphex in 25 categories, sharp at any size, in two colours you pick; search them, star favourites, and recent ones are kept. Backgrounds: 30 drawn backgrounds (bokeh, stars, clouds, concrete, fabric, paper, graffiti, studio light, cinematic) with your colours.
+Exports warn you when a format cannot be see-through (JPEG).
 ## Templates
 The first time Photo Studio opens, WELCOME TO PURPHEX MUSIC PHOTO EDITOR shows 1,344 templates: search them or filter by size (album covers, stories, posts, thumbnails, flyers, banners) and style, then click one. START BLANK, OPEN PHOTO and MY DESIGNS are there too. TEMPLATES > BROWSE ALL opens it again.
 ## Saving and using it
