@@ -7,10 +7,20 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.64.0";
+    public const string Latest = "3.65.0";
 
     public const string Text =
-@"3.64.0  Photo Studio PRO
+@"3.65.0  Video Studio PRO
+ + NEW: 16 more transitions: push, slide up and down, wipe up and left, barn doors, iris, diamond, heart, clock wipe, spin, zoom through, flash, whip pan, glitch and pixelate (24 in all).
+ + NEW: Colour grading in COLOUR: lift, gamma and gain for red, green and blue (shadows, midtones, highlights), saturation, temperature, a curve, and 3D .cube LUTs from your camera or a colour pack, with a strength slider. COPY GRADE TO ALL CLIPS grades the whole video in one go.
+ + NEW: Video effects in EFFECTS: RGB split, glitch, VHS, film grain, pixelate, posterize, scan lines, letterbox (cinema bars), mirror (left to right, top to bottom, four ways) and kaleidoscope.
+ + NEW: Keyframe easing: smooth, linear, ease in, ease out, hold, overshoot, bounce and elastic. Play backwards: a clip plays in reverse, picture and sound.
+ + NEW: More text animations: zoom, slide from the right, drop and bounce, spin, flicker, glitch, wipe reveal, stretch, rise and blur. The templates that used a zoom title now really zoom.
+ + NEW: Editing: INSERT mode (I) pushes the rest of the track along and OVERWRITE mode (O) covers what is there; Alt + Left / Right nudges clips one frame (Shift: ten); G goes to a time you type; ? shows every shortcut.
+ + NEW: The media bin can be searched, sorted by name, kind or length, and filtered to what is not used yet. STICKERS has the 342 Purphex stickers too: click one and it goes on your video at the playhead.
+ + IMPROVED: Every effect, grade and transition is drawn the same way in the preview and in the exported video.
+
+3.64.0  Photo Studio PRO
  + NEW: Photo Studio is now Photo Studio PRO (side panel > Photo Studio PRO). It opens on quick starts: Single Cover, Album Cover (with a tracklist page), Artist Banner, YouTube Thumbnail, Promotional Post and Story, or start from scratch at any size with a see-through background.
  + NEW: Pages: one design can hold several pages (the bar at the bottom left of the picture). Add, duplicate, rename and delete them; they are saved with the design, and EXPORT can write every page at once.
  + NEW: Pro colour tools in Adjust, for one photo or the whole picture: levels, curves (all colours or red, green and blue alone), vibrance, temperature and tint, colour balance for shadows, midtones and highlights, selective colour for eight colour ranges, noise reduction and straighten.

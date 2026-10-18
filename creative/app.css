@@ -332,3 +332,12 @@ details.prosec summary{cursor:pointer;font-weight:700;font-size:11px;letter-spac
 .cvstartgrid .big small{font-weight:400;opacity:.75;font-size:11px}
 .cvstartrow{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:14px;padding:10px;border:1px solid #3a3a42;border-radius:10px}
 .cvstartrow input[type=number]{width:72px}
+
+/* Video Studio PRO */
+.vprosec{border-top:1px solid var(--edge);margin-top:10px;padding-top:6px}
+.vprosec h4{margin:4px 0 6px;font-size:11px;letter-spacing:.06em;color:var(--accent2)}
+.vcurve{width:200px;height:200px;border:1px solid var(--edge);border-radius:6px;cursor:crosshair;display:block;margin:4px 0 8px}
+.binbar{display:flex;gap:5px;align-items:center;flex-wrap:wrap;margin:0 0 6px}.binbar input:not([type=checkbox]){flex:1;min-width:90px}
+.veditmode{display:flex;gap:4px;align-items:center;flex-wrap:wrap;margin:0 0 8px}.veditmode button{padding:4px 8px;font-size:10px}
+.vstkgrid{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin:6px 0 10px}.vstkgrid .card{padding:2px;min-height:0}.vstkgrid canvas{width:100%;height:auto;display:block}
+.kbd{display:grid;grid-template-columns:1fr;gap:3px;margin:8px 0;max-height:60vh;overflow:auto}.kbd div{display:flex;gap:12px;align-items:baseline}.kbd b{min-width:170px;color:var(--accent2);font-size:12px}.kbd span{font-size:12px}

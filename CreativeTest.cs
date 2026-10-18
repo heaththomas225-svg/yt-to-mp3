@@ -163,6 +163,91 @@ static class CRTEST
           Js("(()=>{const k=PX.P.clips.find(c=>c.type==='audio');k.kf={vol:[[1,1],[3,0.3]]};PX.UI.sel=new Set([k.id]);PX.UI.renderTimeline();PX.UI.openPanel('audio');document.querySelectorAll('#vPopB .sec.closed').forEach(s=>s.classList.remove('closed'))})()"); Pump(600); { var cta = B.Capture("C:/Users/thoma/nfout/video-audio.png"); var cea = DateTime.Now.AddSeconds(10); while (!cta.IsCompleted && DateTime.Now < cea) Pump(50); } Js("PX.UI.openPanel('media')");
           string rp = Js(@"(()=>{const P=PX.P,vt=P.tracks.find(t=>t.kind==='video');P.clips=P.clips.filter(c=>c.track!==vt.id);const m=P.media.find(q=>q.name==='photo.jpg');const mk=(s)=>{const c={id:PX.uid('c'),type:'image',media:m.id,track:vt.id,start:s,dur:2,in:0,speed:1,vol:1,opacity:1,scale:1,x:0,y:0,rot:0,fit:'fit',crop:{l:0,t:0,r:0,b:0},fx:PX.defaultFx()};P.clips.push(c);return c};const a=mk(0),b=mk(2),c=mk(7);PX.UI.sel=new Set([a.id]);PX.UI.rippleDelete();const r1=b.start+' '+c.start;PX.UI.closeGaps();return r1+' | '+b.start+' '+c.start})()");
           Check("RIPPLE DELETE moves the clips after it up, and CLOSE GAPS removes the empty space", rp == "0 5 | 0 2", rp); }
+        // ---- VIDEO STUDIO PRO ----
+        { foreach (var spec in new[] { new object[] { "vred.png", Color.FromArgb(255, 0, 0), Color.FromArgb(255, 0, 0) }, new object[] { "vblue.png", Color.FromArgb(0, 0, 255), Color.FromArgb(0, 0, 255) }, new object[] { "vgrey.png", Color.FromArgb(128, 128, 128), Color.FromArgb(128, 128, 128) }, new object[] { "vhalves.png", Color.FromArgb(255, 0, 0), Color.FromArgb(0, 0, 255) } })
+            using (var vb = new Bitmap(640, 360)) { using (var vg = Graphics.FromImage(vb)) { using (var b1 = new SolidBrush((Color)spec[1])) vg.FillRectangle(b1, 0, 0, 320, 360); using (var b2 = new SolidBrush((Color)spec[2])) vg.FillRectangle(b2, 320, 0, 320, 360); } vb.Save(Path.Combine(media, (string)spec[0]), System.Drawing.Imaging.ImageFormat.Png); }
+          Js("window.__vkeepP=PX.P;PX.UI.setTool('video');PX.UI.loadProject(PX.newProject('Video PRO test',1280,720,30,'mv169'));"); Pump(300);
+          M("CrImportPaths", new List<string> { Path.Combine(media, "vred.png"), Path.Combine(media, "vblue.png"), Path.Combine(media, "vgrey.png"), Path.Combine(media, "vhalves.png"), Path.Combine(media, "kick120.wav") });
+          WaitJs("PX.P.media.length>=5&&PX.P.media.filter(m=>m.kind==='image').every(m=>m.w>0)&&Object.keys(PX.audio).length>=1", 30000);
+          Js(@"(()=>{window.__vm=n=>PX.P.media.find(m=>m.name===n);for(const m of PX.P.media)if(m.kind==='image')PX.imgFor(m);
+            window.__img=(name,start,dur,extra)=>{const vt=PX.P.tracks.find(t=>t.kind==='video'&&t.name==='Video 1');const c=Object.assign({id:PX.uid('c'),type:'image',media:__vm(name).id,track:vt.id,start,dur,in:0,speed:1,vol:1,opacity:1,scale:1,x:0,y:0,rot:0,fit:'stretch',crop:{l:0,t:0,r:0,b:0},fx:PX.defaultFx(),fadeIn:0,fadeOut:0},extra||{});PX.P.clips.push(c);return c};
+            window.__vpx=(t,fx,fy)=>{const c=document.createElement('canvas');c.width=320;c.height=180;const g=c.getContext('2d');PX.drawFrame(g,t,320,180,true);const d=g.getImageData(Math.floor(fx*320),Math.floor(fy*180),1,1).data;return [d[0],d[1],d[2]].join(',')};})()");
+          WaitJs("PX.P.media.filter(m=>m.kind==='image').every(m=>PX.imgs[m.id]&&PX.imgs[m.id].complete&&PX.imgs[m.id].naturalWidth>0)", 15000);
+          Func<string, int[]> vrgb = s => { try { return Array.ConvertAll(s.Split(','), int.Parse); } catch { return new[] { -1, -1, -1 }; } };
+          Func<int[], int, int, int, bool> vnear = (p, r, g, b) => Math.Abs(p[0] - r) < 45 && Math.Abs(p[1] - g) < 45 && Math.Abs(p[2] - b) < 45;
+          // transitions
+          string vtr = Js("String(['push','iris','clock','barn','heart','glitch','whip','pixelate'].every(k=>PX.TRANSITIONS.some(x=>x[0]===k))&&PX.TRANSITIONS.length>=24)");
+          Check("VIDEO PRO: 16 more transitions (push, iris, clock, barn doors, heart, glitch, whip pan, pixelate...)", vtr == "true", Js("String(PX.TRANSITIONS.length)"));
+          Js("(()=>{PX.P.clips=[];__img('vred.png',0,2);__img('vblue.png',2,2,{transIn:{type:'iris',dur:1}});})()");
+          var ti1 = vrgb(Js("__vpx(2.0,0.5,0.5)")); var ti2 = vrgb(Js("__vpx(2.0,0.02,0.05)"));
+          Check("IRIS: half way through, the middle shows the next clip and the corner the last one", vnear(ti1, 0, 0, 255) && vnear(ti2, 255, 0, 0), string.Join(",", ti1) + " | " + string.Join(",", ti2));
+          Js("(()=>{PX.P.clips.find(c=>c.transIn).transIn.type='push';})()"); var tp1 = vrgb(Js("__vpx(2.0,0.25,0.5)")); var tp2 = vrgb(Js("__vpx(2.0,0.75,0.5)"));
+          Check("PUSH: half way, the old clip fills the left half and the new one the right half", vnear(tp1, 255, 0, 0) && vnear(tp2, 0, 0, 255), string.Join(",", tp1) + " | " + string.Join(",", tp2));
+          Js("(()=>{PX.P.clips.find(c=>c.transIn).transIn.type='clock';})()"); var tc1 = vrgb(Js("__vpx(2.0,0.75,0.3)")); var tc2 = vrgb(Js("__vpx(2.0,0.25,0.3)"));
+          Check("CLOCK WIPE: half way, the right half has turned and the left has not", vnear(tc1, 0, 0, 255) && vnear(tc2, 255, 0, 0), string.Join(",", tc1) + " | " + string.Join(",", tc2));
+          // grading
+          Js("(()=>{PX.P.clips=[];window.__g=__img('vgrey.png',0,3);})()"); var gr0 = vrgb(Js("__vpx(1,0.5,0.5)"));
+          Js("(()=>{__g.grade={gamma:[100,100,100]};})()"); var gr1 = vrgb(Js("__vpx(1,0.5,0.5)"));
+          Js("(()=>{__g.grade={gain:[0,0,100]};})()"); var gr2 = vrgb(Js("__vpx(1,0.5,0.5)"));
+          Check("GRADING: gamma brightens the midtones, gain on blue makes it bluer", gr1[0] > gr0[0] + 30 && gr2[2] > gr0[2] + 30 && Math.Abs(gr2[0] - gr0[0]) < 6, string.Join(",", gr0) + " > " + string.Join(",", gr1) + " / " + string.Join(",", gr2));
+          string lut = Js(@"(()=>{try{const L=PX.parseCube('TITLE ""invert""\nLUT_3D_SIZE 2\n1 1 1\n0 1 1\n1 0 1\n0 0 1\n1 1 0\n0 1 0\n1 0 0\n0 0 0\n');PX.P.clips=[];const c=__img('vred.png',0,3);c.grade={lut:{n:L.n,b64:L.b64},lutMix:100};return L.n+' '+__vpx(1,0.5,0.5)}catch(e){return 'ERR '+e.message}})()");
+          Check("LUT: a .cube file is read and applied (an inverting LUT turns red into cyan)", lut.StartsWith("2 ") && vnear(vrgb(lut.Substring(2)), 0, 255, 255), lut);
+          Check("a broken .cube file is refused with a message", Js("(()=>{try{PX.parseCube('hello');return 'no'}catch(e){return e.message}})()").Contains("LUT_3D_SIZE"));
+          // effects
+          Js("(()=>{PX.P.clips=[];window.__h=__img('vhalves.png',0,3);__h.vfx={mirror:'h'};})()"); var mr = vrgb(Js("__vpx(1,0.9,0.5)"));
+          Check("MIRROR: the left half is mirrored onto the right", vnear(mr, 255, 0, 0), string.Join(",", mr));
+          Js("(()=>{__h.vfx={letterbox:100};})()"); var lb1 = vrgb(Js("__vpx(1,0.25,0.02)")); var lb2 = vrgb(Js("__vpx(1,0.25,0.5)"));
+          Check("LETTERBOX: black bars at the top and bottom, the picture in the middle", vnear(lb1, 0, 0, 0) && vnear(lb2, 255, 0, 0), string.Join(",", lb1) + " | " + string.Join(",", lb2));
+          Js("(()=>{__h.vfx={rgb:40};})()"); var rs = vrgb(Js("__vpx(1,0.495,0.5)"));
+          Check("RGB SPLIT: the colours separate at an edge", rs[0] > 120 && rs[2] > 120, string.Join(",", rs));
+          string vfxErr = Js("(()=>{try{__h.vfx={glitch:80,vhs:80,grain:60,pixel:30,posterize:8,scan:60,kaleido:6};for(let t=0;t<2;t+=0.3)__vpx(t,0.5,0.5);return 'none'}catch(e){return e.message}})()");
+          Check("every video effect draws without an error", vfxErr == "none", vfxErr);
+          // keyframe easing, text animations
+          string ez = Js("(()=>{const c={start:0,kf:{x:[[0,0],[2,1]]}};const r=[];for(const e of ['linear','hold','smooth','bounce']){c.kfEase=e;r.push(PX.kfValue(c,'x',1).toFixed(2))}c.kfEase='back';let over=0;for(let t=0;t<2;t+=0.05)over=Math.max(over,PX.kfValue(c,'x',t));return r.join(' ')+' '+(over>1)})()");
+          Check("KEYFRAME EASING: linear is half way at the middle, hold has not moved, smooth is half way, bounce and overshoot work", ez.StartsWith("0.50 0.00 0.50") && ez.EndsWith("true"), ez);
+          string wipe = Js(@"(()=>{PX.P.clips=[];const tt=PX.P.tracks.find(t=>t.kind==='text');PX.P.clips.push({id:'tw',track:tt.id,type:'text',start:0,dur:4,opacity:1,scale:1,x:0,y:0,rot:0,crop:{l:0,t:0,r:0,b:0},fx:PX.defaultFx(),speed:1,vol:1,in:0,fadeIn:0,fadeOut:0,text:Object.assign(PX.defaultText(),{content:'WWWWWWWWWWWW',size:140,color:'#ffffff',shadow:0,animIn:'wipe',animOut:'none',animDur:1})});
+            const lit=(t,fx)=>{let n=0;for(let y=0.4;y<0.6;y+=0.02){const p=__vpx(t,fx,y).split(',');if(+p[0]>200)n++}return n>0};return [lit(0.3,0.2),lit(0.3,0.8),lit(2,0.8)].join(' ')})()");
+          Check("TEXT ANIMATION wipe: early on only the left of the title shows, later all of it", wipe == "true false true", wipe);
+          Check("the text animations the templates use (zoom) now exist", Js("String(PX.TEXTANIMS_PRO.some(a=>a[0]==='zoom'))") == "true");
+          // reverse
+          string rv = Js(@"(()=>{PX.P.clips=[];const m=__vm('kick120.wav');const au=PX.P.tracks.find(t=>t.kind==='audio');const c={id:'ra',type:'audio',media:m.id,track:au.id,start:0,dur:0.5,in:0,speed:1,vol:1,opacity:1,scale:1,x:0,y:0,rot:0,fit:'fit',crop:{l:0,t:0,r:0,b:0},fx:PX.defaultFx(),fadeIn:0,fadeOut:0};PX.P.clips.push(c);window.__rv=null;
+            const en=(ab,a,b)=>{const d=ab.getChannelData(0);let s=0;for(let i=Math.floor(a*ab.sampleRate);i<Math.floor(b*ab.sampleRate);i++)s+=d[i]*d[i];return s};
+            PX.renderAudio(0,0.5).then(f=>{c.reverse=true;return PX.renderAudio(0,0.5).then(r=>{window.__rv=[en(f,0,0.1)>en(f,0.38,0.48),en(r,0.38,0.48)>en(r,0,0.1),PX.mediaTime(c,0)>0.45].join(' ')})}).catch(e=>window.__rv='ERR '+e.message);return 'started'})()");
+          WaitJs("window.__rv", 20000); string rvr = Js("window.__rv");
+          Check("PLAY BACKWARDS: the sound is reversed (a kick that fades out now swells in) and the picture runs from the end", rvr == "true true true", rvr);
+          // editing
+          string ins = Js(@"(()=>{PX.P.clips=[];const a=__img('vred.png',0,2),b=__img('vblue.png',2,2);PX.UI.editMode='insert';PX.UI.addMediaAt(__vm('vgrey.png'),a.track,1);const r1=PX.P.clips.filter(c=>c.track===a.track).sort((x,y)=>x.start-y.start).map(c=>__vm('vred.png').id===c.media?'R'+c.start.toFixed(1)+'-'+(c.start+c.dur).toFixed(1):__vm('vblue.png').id===c.media?'B'+c.start.toFixed(1):'G'+c.start.toFixed(1)).join(' ');
+            PX.P.clips=[];const a2=__img('vred.png',0,8);PX.UI.editMode='overwrite';PX.UI.addMediaAt(__vm('vgrey.png'),a2.track,1);const r2=PX.P.clips.filter(c=>c.track===a2.track).sort((x,y)=>x.start-y.start).map(c=>(__vm('vred.png').id===c.media?'R':'G')+c.start.toFixed(1)+'-'+(c.start+c.dur).toFixed(1)).join(' ');PX.UI.editMode='normal';return r1+' | '+r2})()");
+          Check("INSERT pushes the rest along (and splits the clip it lands in); OVERWRITE covers what is there", System.Text.RegularExpressions.Regex.IsMatch(ins, @"^R0\.0-1\.0 G1\.0 R6\.0-7\.0 B7\.0 \| R0\.0-1\.0 G1\.0-6\.0 R6\.0-8\.0$"), ins);
+          string ng = Js("(()=>{PX.P.clips=[];const a=__img('vred.png',1,2);PX.UI.sel=new Set([a.id]);PX.UI.nudge(1);const s1=a.start;PX.UI.nudge(-10);return s1.toFixed(4)+' '+a.start.toFixed(4)+' '+PX.UI.parseTC('1:30')+' '+PX.UI.parseTC('0:01:15')})()");
+          Check("NUDGE moves a clip one frame (and ten), and GO TO reads 1:30 and m:ss:frames", ng == "1.0333 0.7000 90 1.5", ng);
+          string bq = Js("(()=>{PX.UI.renderBin();const q=document.querySelector('#binQ');q.value='blue';q.oninput();return [...document.querySelectorAll('#bin .mi')].filter(d=>d.style.display!=='none').length})()");
+          Check("MEDIA BIN search finds the file", bq == "1", bq);
+          Js("(()=>{const q=document.querySelector('#binQ');q.value='';q.oninput();})()");
+          // panels
+          string vpErr = Js("(()=>{try{PX.P.clips=[];const a=__img('vhalves.png',0,3);PX.UI.sel=new Set([a.id]);for(const k of ['media','colour','effects','stickers','transitions','edit','settings','animation','text','captions']){PX.UI.openPanel(k)}return 'none'}catch(e){return e.message+' '+(e.stack||'').slice(0,160)}})()");
+          Check("every VIDEO PRO panel opens without an error", vpErr == "none", vpErr);
+          int nm0 = int.Parse(Js("String(PX.P.media.length)")); Js("(()=>{PX.UI.openPanel('stickers');const c=document.querySelector('#vPopB .vstkgrid .card');c.click()})()");
+          Check("the Purphex sticker library puts a sticker on the video (a real clip)", WaitJs("PX.P.media.length>" + nm0, 15000) && WaitJs("PX.P.clips.some(c=>c.type==='image'&&PX.mediaById(c.media).name.indexOf('Music note')===0)", 10000), Js("PX.P.media.map(m=>m.name).slice(-2).join(' | ')"));
+          // the export has the same picture as the preview
+          Js("(()=>{PX.P.clips=[];const a=__img('vred.png',0,1,{vfx:{letterbox:100}});const b=__img('vgrey.png',1,1,{grade:{gain:[0,0,100]},transIn:{type:'barn',dur:0.4}});})()");
+          string vexp = Export("mp4-h264", "video_pro_export", 640, 360);
+          string fr1 = Path.Combine(outDir, "vp_f1.png"), fr2 = Path.Combine(outDir, "vp_f2.png"); int vcode; foreach (var f in new[] { fr1, fr2 }) try { File.Delete(f); } catch { }
+          if (File.Exists(vexp)) { CreativeStore.Run(ff, "-y -v error -ss 0.5 -i \"" + vexp + "\" -frames:v 1 \"" + fr1 + "\"", 60000, out vcode); CreativeStore.Run(ff, "-y -v error -ss 1.7 -i \"" + vexp + "\" -frames:v 1 \"" + fr2 + "\"", 60000, out vcode); }
+          string vxd = "no file " + vexp; bool vxok = false;
+          if (File.Exists(fr1) && File.Exists(fr2)) using (var b1 = new Bitmap(fr1)) using (var b2 = new Bitmap(fr2)) { var top = b1.GetPixel(320, 4); var vmid = b1.GetPixel(320, 180); var gm = b2.GetPixel(320, 180); vxd = "top " + top.R + "," + top.G + "," + top.B + " mid " + vmid.R + "," + vmid.G + "," + vmid.B + " graded " + gm.R + "," + gm.G + "," + gm.B; vxok = top.R < 40 && top.G < 40 && top.B < 40 && vmid.R > 200 && vmid.G < 60 && gm.B > gm.R + 40; }
+          Check("the exported MP4 has the effects and the grade from the preview (letterbox bars, the blue gain)", vxok, vxd);
+          // screenshots
+          Js("(()=>{PX.P.clips=[];const a=__img('vhalves.png',0,4,{grade:{gain:[20,0,40],sat:20},vfx:{letterbox:100,grain:30}});__img('vblue.png',4,3,{transIn:{type:'heart',dur:1}});PX.UI.sel=new Set([a.id]);PX.UI.renderTimeline();PX.seek(1);PX.UI.openPanel('colour')})()"); Pump(900);
+          { var vct = B.Capture("C:/Users/thoma/nfout/video-pro-colour.png"); var vce = DateTime.Now.AddSeconds(10); while (!vct.IsCompleted && DateTime.Now < vce) Pump(50); }
+          Js("(()=>{PX.UI.openPanel('effects');const b=document.querySelector('#vPopB');b.scrollTop=b.scrollHeight})()"); Pump(700);
+          { var vct = B.Capture("C:/Users/thoma/nfout/video-pro-effects.png"); var vce = DateTime.Now.AddSeconds(10); while (!vct.IsCompleted && DateTime.Now < vce) Pump(50); }
+          Js("(()=>{PX.seek(4.0);PX.UI.openPanel('transitions')})()"); Pump(900);
+          { var vct = B.Capture("C:/Users/thoma/nfout/video-pro-transitions.png"); var vce = DateTime.Now.AddSeconds(10); while (!vct.IsCompleted && DateTime.Now < vce) Pump(50); }
+          Js("PX.UI.openPanel('media');PX.UI.shortcuts()"); Pump(500);
+          { var vct = B.Capture("C:/Users/thoma/nfout/video-pro-media.png"); var vce = DateTime.Now.AddSeconds(10); while (!vct.IsCompleted && DateTime.Now < vce) Pump(50); }
+          Js("PX.UI.close();PX.setDirty(false);PX.UI.loadProject(window.__vkeepP)"); WaitJs("PX.P.media.some(m=>m.name==='photo.jpg')", 8000);
+        }
         // ---- E: the photo editor ----
         Check("Photo Studio starts simply (import a photo, start blank, templates, your designs)", Js("String(!!document.querySelector('#cvStart')&&document.querySelector('#cvStart').textContent.includes('IMPORT A PHOTO')&&document.querySelector('#cvStart').textContent.includes('BROWSE TEMPLATES'))") == "true");
         Js("document.querySelector('#stTpl').click()"); Pump(600);

@@ -215,7 +215,7 @@ UI.renderInspector = () => {
     col(b, 'Colour', () => x.color, v => x.color = v); sel(b, 'Align', [['left', 'Left'], ['center', 'Centre'], ['right', 'Right']], () => x.align, v => x.align = v); num(b, 'Letter spacing', () => x.spacing, v => x.spacing = v, -10, 60, 0.5); chk(b, 'Capitals', () => !!x.upper, v => x.upper = v);
     num(b, 'Outline', () => x.outline, v => x.outline = v, 0, 20, 0.5); col(b, 'Outline colour', () => x.outlineColor, v => x.outlineColor = v); num(b, 'Shadow', () => x.shadow, v => x.shadow = v, 0, 60, 1); col(b, 'Shadow colour', () => x.shadowColor, v => x.shadowColor = v);
     sel(b, 'Background', [['none', 'None'], ['box', 'Box'], ['round', 'Rounded box'], ['pill', 'Pill']], () => x.bg, v => x.bg = v); col(b, 'Background colour', () => x.bgColor, v => x.bgColor = v);
-    const an = [['none', 'None'], ['fade', 'Fade'], ['up', 'Slide up'], ['down', 'Slide down'], ['left', 'Slide in'], ['pop', 'Pop'], ['type', 'Typewriter'], ['blur', 'Blur']]; sel(b, 'Comes in', an, () => x.animIn, v => x.animIn = v); sel(b, 'Goes out', an, () => x.animOut, v => x.animOut = v); num(b, 'Animation (s)', () => x.animDur, v => x.animDur = v, 0, 3, 0.05);
+    const an = [['none', 'None'], ['fade', 'Fade'], ['up', 'Slide up'], ['down', 'Slide down'], ['left', 'Slide in'], ['pop', 'Pop'], ['type', 'Typewriter'], ['blur', 'Blur']].concat(PX.TEXTANIMS_PRO || []); sel(b, 'Comes in', an, () => x.animIn, v => x.animIn = v); sel(b, 'Goes out', an, () => x.animOut, v => x.animOut = v); num(b, 'Animation (s)', () => x.animDur, v => x.animDur = v, 0, 3, 0.05);
     chk(b, 'Karaoke fill', () => !!x.karaoke, v => x.karaoke = v); if (x.karaoke) col(b, 'Fill colour', () => x.hl, v => x.hl = v);
   });
   if (c.type === 'visual') sec('VISUALISER', b => {

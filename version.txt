@@ -1,4 +1,4 @@
-3.64.0
+3.65.0
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Photo Studio PRO
-sha256=00c4e274a660c7138fd8e9a5b340f65be93851ddc7f686cf14d82c5b346e0fc5
+Video Studio PRO
+sha256=df8ac1df4febd044e644544a98517b18682db03698f9cbea915c5cf8f0fa3838
