@@ -652,7 +652,19 @@ partial class StudioEngine
 
     // Real-time callback used by the audio device
     public volatile bool Rendering; readonly object renderGate = new object();
+    public Track Draft;   // the piano roll's pattern that is not on the song yet: it sounds when its notes are played, never in the song or an export
+    float[] dfL, dfR;
     public void RenderRealtime(float[] oL, float[] oR, int n)
+    {
+        RenderRealtime0(oL, oR, n); var d = Draft; if (d == null || Rendering) return;
+        lock (Sync)
+        {
+            var p = StudioForm.PlayerOf(d); if (p == null) return; if (dfL == null || dfL.Length < n) { dfL = new float[n]; dfR = new float[n]; }
+            Array.Clear(dfL, 0, n); Array.Clear(dfR, 0, n); try { p.BeginBlock(d, Pos, n, false); p.Process(dfL, dfR, n); } catch { return; }
+            for (int i = 0; i < n; i++) { oL[i] += dfL[i] * 0.85f; oR[i] += dfR[i] * 0.85f; }
+        }
+    }
+    void RenderRealtime0(float[] oL, float[] oR, int n)
     {
         if (Rendering) { Array.Clear(oL, 0, n); Array.Clear(oR, 0, n); return; }
         lock (Sync)

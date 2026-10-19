@@ -44,7 +44,7 @@ partial class StudioForm
     internal void PrApplyPrefs(string text)
     {
         prGhostOff.Clear(); prJobs.Clear(); prTrack = null; prSel.Clear(); prStamp = -1; prScrollBeats = 0; prScrollY = -1;
-        prSnap = 4; prLenBeats = 0.25; prKeyRoot = 9; prScale = 0; prLock = false; prLabels = true; prPreview = true; prFollow = true; prGhosts = true; prBox = null;   // (a project without piano roll settings starts from the defaults, not from the last project)
+        prSnap = 4; prLenBeats = 0.25; prKeyRoot = 9; prScale = 0; prLock = false; prLabels = true; prPreview = true; prFollow = true; prGhosts = true; prBox = null; prDraft = null; eng.Draft = null;   // (a project without piano roll settings starts from the defaults, not from the last project)
         if (string.IsNullOrEmpty(text)) return;
         var f = text.Split(';'); var ci = System.Globalization.CultureInfo.InvariantCulture; int iv; double dv;
         try
@@ -101,16 +101,19 @@ partial class StudioForm
     // the track plays this sound from now on (an audio track with a clip keeps its audio: a new track gets the sound). type null = the built-in piano
     Track PrUseSound(Track t, string type, string preset, string presetName = null)
     {
-        if (t != null && t.IsBus) return null; PushUndo();
-        bool fresh = t == null || t.Clip != null;
-        if (fresh) { t = StudioEngine.NewTrack(type == null ? "Piano" : "Instrument", "inst", null); t.Color = unchecked((int)0xFF3B8CF5); AddTrack(t); }
+        if (t != null && t.IsBus) return null;
+        bool draft = t == null || t == prDraft || !PrCanEdit(t);   // (a note track you already have changes its sound; anything else becomes your pattern, not a track)
+        if (draft) { if (prDraft == null) { prDraft = StudioEngine.NewTrack("Your pattern", "inst", null); prDraft.Instrument = true; prDraft.Color = unchecked((int)0xFF3B8CF5); } t = prDraft; eng.Draft = prDraft; }
+        else PushUndo();
+        bool fresh = false;
         InstrumentFx f = null;
         if (type != null) { f = FxRegistry.Create(type) as InstrumentFx; if (f == null) { Toast("That instrument couldn't be started."); return null; } f.Prepare(StudioEngine.SR); if (preset != null) { Presets.Apply(f, preset); f.CurPreset = presetName ?? ""; f.CurPresetData = f.Serialize(); } f.Owner = t; }
         lock (eng.Sync) { t.Fx.RemoveAll(x => x is InstrumentFx); if (f != null) t.Fx.Insert(0, f); t.Instrument = true; }
         bool plainName = fresh || t.Name.StartsWith("Audio") || t.Name.StartsWith("MIDI") || t.Name.StartsWith("Instrument") || t.Name == "Piano" || t.Name == "Drums";
         if (plainName) t.Name = type == null ? "Piano" : (presetName ?? (f != null ? f.Title : t.Name));
+        if (t == prDraft) t.Name = "Your pattern: " + (type == null ? "Piano" : (presetName ?? (f != null ? f.Title : "Instrument")));
         int ti = eng.Tracks.IndexOf(t); if (ti >= 0) { selTrack = ti; prLastSel = ti; } prTrack = t; prStamp = -1; prScrollY = -1; OpenInspector(4); Invalidate();
-        Toast(t.Name + " plays " + (type == null ? "the built-in piano" : (presetName ?? f.Title)) + " now: write notes here or play your keyboard"); return t;
+        Toast(t == prDraft ? "Your pattern plays " + (type == null ? "the built-in piano" : (presetName ?? f.Title)) + ": write notes (or GENERATE), then drag the pattern box onto the song. Nothing goes on your tracks until you do." : t.Name + " plays " + (type == null ? "the built-in piano" : (presetName ?? f.Title)) + " now: write notes here or play your keyboard"); return t;
     }
 
     // ---- opening ----
@@ -128,9 +131,10 @@ partial class StudioForm
     // the notes of the active track, read again whenever the track's MIDI changed (recording, undo, another editor)
     static long MidiStamp(Track t) { long h = 17; lock (t.Midi) { h = h * 31 + t.Midi.Count; foreach (var m in t.Midi) h = h * 31 + m.Frame * 7 + m.D1 * 131 + m.D2 + m.S * 977; } return h; }
     int prLastSel = -1;
+    internal Track prDraft; RectangleF prArea;   // your pattern that is not on the song yet (the piano roll's scratch pad): it becomes a track when you drag it onto the song
     void PrSync()
     {
-        if (prTrack != null && (!eng.Tracks.Contains(prTrack))) { prTrack = null; prNotes.Clear(); prSel.Clear(); }
+        if (prTrack != null && prTrack != prDraft && (!eng.Tracks.Contains(prTrack))) { prTrack = null; prNotes.Clear(); prSel.Clear(); }
         if (selTrack != prLastSel) { prLastSel = selTrack; if (selTrack >= 0 && selTrack < eng.Tracks.Count && !eng.Tracks[selTrack].IsBus && eng.Tracks[selTrack] != prTrack) { PrSilence(); prTrack = eng.Tracks[selTrack]; prSel.Clear(); prStamp = -1; prScrollY = -1; } }   // click a track: the piano roll shows it
         if (prTrack == null) { var d = PrDefaultTrack(); if (d != null) prTrack = d; else return; }
         long st = MidiStamp(prTrack); if (st == prStamp && prStampTrack == prTrack) return;
@@ -191,14 +195,14 @@ partial class StudioForm
     // ---- painting ----
     void PaintPianoRoll(Graphics g, RectangleF C)
     {
-        PrSync(); var t = prTrack; float x = C.X, y = C.Y, w = C.Width, h = C.Height;
+        PrSync(); var t = prTrack; float x = C.X, y = C.Y, w = C.Width, h = C.Height; prArea = C;
         // the bar: track picker, what kind of track, snap, length, scale, chords, ghosts, preview, tools
         float bx = x; var tp = Rc(bx, y, 28, 24); Btn(g, tp, "<", 0, () => PrStepTrack(-1), 11); Hint2(tp, "The previous note track"); bx += 30;
-        var tn = Rc(bx, y, 190, 24); string tname = t == null ? "NO NOTE TRACK" : t.Name; Btn(g, tn, tname, 4, () => PrTrackMenu(), 10); Hint2(tn, "The track you are editing: click to pick another (the piano roll stays open)"); bx += 192;
+        var tn = Rc(bx, y, 190, 24); string tname = t == null ? "NO NOTE TRACK" : (t == prDraft ? "YOUR PATTERN" : t.Name); Btn(g, tn, tname, 4, () => PrTrackMenu(), 10); Hint2(tn, "The track you are editing: click to pick another (the piano roll stays open)"); bx += 192;
         var tx2 = Rc(bx, y, 28, 24); Btn(g, tx2, ">", 0, () => PrStepTrack(1), 11); Hint2(tx2, "The next note track"); bx += 34;
         if (t != null) { using (var cb = new SolidBrush(Neon(t.Color))) g.FillEllipse(cb, tn.X + 6, tn.Y + 7, 10, 10); }
         string kind = t == null ? "" : !PrCanEdit(t) ? (t.Clip != null ? "AUDIO TRACK" : "NO SOUND YET") : (PrSampler != null ? (PrSampler.IsKit ? "DRUM KIT (SAMPLER)" : (PrSampler.Zones.Count == 0 ? "SAMPLER: NO SAMPLE YET" : (PrSampler.AnyFollow ? "SAMPLER: FOLLOWS THE NOTES" : "SAMPLER: FIXED PITCH (DRUM)"))) : (t.HasInstrumentFx ? "INSTRUMENT: " + PlayerOf(t).Title.ToUpperInvariant() : "MIDI TRACK: BUILT-IN KEYS"));
-        if (t != null && PrCanEdit(t)) { var sb = Rc(bx, y, 190, 24); Btn(g, sb, "SOUND: " + kind.Replace("INSTRUMENT: ", ""), 2, () => PrSoundMenu(t), 9); Hint2(sb, "What this track plays: the built-in piano, a sample from SOUNDS, the Purphex Wobble, Bass Lab or another instrument (the notes stay)"); }
+        if (t != null && PrCanEdit(t)) { var sb = Rc(bx, y, 190, 24); Btn(g, sb, "SOUND: " + (kind.StartsWith("MIDI") ? "PIANO" : kind.Replace("INSTRUMENT: ", "")), 2, () => PrSoundMenu(t), 9); Hint2(sb, "What this track plays: the built-in piano, a sample from SOUNDS, the Purphex Wobble, Bass Lab or another instrument (the notes stay)"); }
         else Txt(g, kind, 9, DimC, Rc(bx, y, 190, 24), StringAlignment.Near, true);
         bx += 194;
         Func<float, string, bool, Action, string, RectangleF> chip = (cw, label, on, act, hint) => { var r = Rc(bx, y, cw, 24); Btn(g, r, label, on ? 4 : 0, act, 9); Hint2(r, hint); bx += cw + 4; return r; };
@@ -217,7 +221,7 @@ partial class StudioForm
         if (t == null || !PrCanEdit(t))
         {
             var msg = Rc(x, y + 40, w, h - 40);
-            if (t != null && t.Clip != null) { Txt(g, t.Name + " is an audio track: its clip stays real audio on the arrangement (move, trim and stretch it there).", 12, Ink, Rc(msg.X, msg.Y + 20, msg.Width, 22), StringAlignment.Center, true); var lb = Rc(msg.X + msg.Width / 2 - 140, msg.Y + 56, 280, 32); Btn(g, lb, "LOAD IT INTO A SAMPLER TRACK", 2, () => PrAudioToSampler(t), 11); Hint2(lb, "A new sampler track that plays this sound from notes (the audio track stays as it is)"); }
+            if (t != null && t.Clip != null) { Txt(g, t.Name + " is an audio track: its clip stays real audio on the arrangement (move, trim and stretch it there).", 12, Ink, Rc(msg.X, msg.Y + 20, msg.Width, 22), StringAlignment.Center, true); var lb = Rc(msg.X + msg.Width / 2 - 140, msg.Y + 56, 280, 32); Btn(g, lb, "LOAD IT INTO THE PIANO ROLL", 2, () => PrAudioToSampler(t), 11); Hint2(lb, "Play this sound from notes in the piano roll (nothing is added to the song until you drag your pattern there; the audio track stays as it is)"); }
             else PaintChooseSound(g, t, msg);
             if (!prBoxDrag) PaintPatternBox(g, msg);
             return;
@@ -298,6 +302,7 @@ partial class StudioForm
         g.Restore(vgs);
         var vr = Reg(prVel, () => PrVelAt(MousePos, true)); vr.OnDrag = pt => PrVelAt(pt, false); vr.OnUp = () => { prMode = 0; PrCommit(); }; Hint2(prVel, "Drag a bar to set that note's velocity (drag across to set several)");
         if (!prBoxDrag) PaintPatternBox(g, prGrid);
+        if (!prDraftDrag) PaintDraftBox(g, prGrid);
         // the arrangement link: where this view sits in the song
         { var mini = Rc(x, prVel.Bottom - 16, keyW - 6, 14); double songBeats = Math.Max(16, SongFrames() / PrBeatFrames); FillRR(g, TM.C(200, 8, 4, 18), mini, 3); float vx0 = (float)(prScrollBeats / songBeats), vw = (float)(prGrid.Width / prPpb / songBeats); FillRR(g, Color.FromArgb(160, NeonCyan), Rc(mini.X + mini.Width * Math.Min(1, vx0), mini.Y + 2, Math.Max(3, mini.Width * Math.Min(1, vw)), mini.Height - 4), 2); Reg(mini, () => { prScrollBeats = Math.Max(0, (MousePos.X - mini.X) / mini.Width * songBeats - prGrid.Width / prPpb / 2); }).OnDrag = pt => { prScrollBeats = Math.Max(0, (pt.X - mini.X) / mini.Width * songBeats - prGrid.Width / prPpb / 2); }; Hint2(mini, "Where you are in the song: drag to move along it"); }
     }
@@ -417,7 +422,8 @@ partial class StudioForm
     void PrTrackMenu()
     {
         var m = Win.NewMenu(); foreach (var t0 in eng.Tracks) { if (t0.IsBus) continue; var t = t0; string kind = PrCanEdit(t) ? (DrumLike(t) ? "drums" : "notes") : (t.Clip != null ? "audio" : "no sound yet"); var it = new ToolStripMenuItem(t.Name + "   (" + kind + ")") { Checked = t == prTrack, ForeColor = Neon(t.Color) }; it.Click += (a, b) => PrSetTrack(t); m.Items.Add(it); }
-        m.Items.Add(new ToolStripSeparator()); m.Items.Add("New drum track (sampler)...").Click += (a, b) => { var nt = NewSamplerTrack("Drums", null, false, 60); if (nt != null) PrSetTrack(nt); };
+        if (prDraft != null) m.Items.Insert(0, new ToolStripMenuItem("Your pattern (not on the song yet)", null, (a, b) => { prTrack = prDraft; prStamp = -1; }) { Checked = prTrack == prDraft });
+        m.Items.Add(new ToolStripSeparator()); m.Items.Add("New pattern: choose its sound (nothing goes on the song until you drag it)").Click += (a, b) => { prTrack = null; selTrack = -1; prLastSel = -1; Invalidate(); };
         m.Items.Add("New MIDI track (built-in keys)").Click += (a, b) => { var nt = AddMidiTrack(); if (nt != null) PrSetTrack(nt); };
         m.Show(this, new Point((int)MousePos.X, (int)MousePos.Y));
     }
@@ -490,19 +496,37 @@ partial class StudioForm
     {
         if (si == null || !si.IsAudio) return null; if (si.Instant) { string e = InstantLib.Ensure(si); if (e != null) { Toast(e); return null; } }
         bool follow = si.Type == "808" || si.Group == "Bass" || si.Type == "Instrument One-Shot" || si.Type == "Chord Hit"; int root = 60; if (si.Key.Length > 0) { int rt; bool mi; if (SoundLibrary.ParseKey(si.Key, out rt, out mi)) root = (si.Type == "808" ? 24 : (si.Group == "Bass" ? 36 : 48)) + rt; }
-        var t = NewSamplerTrack(si.Name.Replace(si.PackName + " - ", ""), si.Path, follow, root); if (t != null) { OpenPianoRoll(t); Toast(t.Name + " is a sampler track: click the grid to add notes" + (follow ? " (higher notes play it higher)" : "")); } return t;
+        // into the piano roll only (your pattern's sound): nothing goes on the song until you drag the pattern there
+        string nm = si.Name.Replace(si.PackName + " - ", ""); if (!PrShown) OpenPianoRoll(null); if (!PrDraftSample(si.Path, nm, follow, root)) return null;
+        Toast(nm + " is loaded into the piano roll: click the grid to add notes" + (follow ? " (higher notes play it higher)" : "") + ", then drag the pattern box onto the song."); return prDraft;
+    }
+    // your pattern (the scratch pad of the piano roll) plays this sample
+    bool PrDraftSample(string path, string name, bool follow, int root)
+    {
+        var smp = FxRegistry.Create("sampler") as SamplerFx; if (smp == null) return false; smp.Prepare(StudioEngine.SR); string err = smp.SetSingle(path, name, follow, root); if (err != null) { Toast(err); return false; }
+        if (prDraft == null) { prDraft = StudioEngine.NewTrack("Your pattern", "inst", null); prDraft.Instrument = true; prDraft.Color = unchecked((int)0xFFFF9A3D); }
+        lock (eng.Sync) { prDraft.Fx.RemoveAll(x => x is InstrumentFx); smp.Owner = prDraft; prDraft.Fx.Insert(0, smp); } prDraft.Name = "Your pattern: " + name; eng.Draft = prDraft; prTrack = prDraft; prStamp = -1; prScrollY = -1; Invalidate(); return true;
     }
     // an audio track's clip into a sampler (the audio track stays as it is)
     void PrAudioToSampler(Track a)
     {
         if (a == null || a.Clip == null) return; string path = a.Clip.Path; if (string.IsNullOrEmpty(path) || !System.IO.File.Exists(path)) { path = System.IO.Path.Combine(StudioEnv.DataDir, "samples", "clip-" + DateTime.Now.Ticks + ".wav"); SoundIO.WriteWav(path, a.Clip.L, a.Clip.R, StudioEngine.SR, 16); }
-        var t = NewSamplerTrack(a.Name + " (sampler)", path, false, 60); if (t != null) PrSetTrack(t);
+        // into the piano roll only: your pattern plays this audio from notes (nothing goes on the song until you drag the pattern there)
+        if (!PrDraftSample(path, a.Name, true, 60)) return;
+        Toast(a.Name + " is loaded into the piano roll: C4 plays it as it is, other keys play it higher or lower. Write notes, then drag the pattern box onto the song.");
     }
     // a sound dropped on the piano roll: on a kit's key (or the key under the mouse), or as the sample of an empty sampler
     internal bool PrDrop(SoundItem si, Point p)
     {
-        if (!PrShown || si == null || !si.IsAudio || !(prKeys.Contains(p) || prGrid.Contains(p))) return false; var s = PrSampler; if (si.Instant) { string e = InstantLib.Ensure(si); if (e != null) { Toast(e); return true; } }
-        if (s == null) { SoundToSampler(si); return true; }
+        if (!PrShown || si == null || !si.IsAudio || !(prKeys.Contains(p) || prGrid.Contains(p) || prArea.Contains(p))) return false; var s = PrSampler; if (si.Instant) { string e = InstantLib.Ensure(si); if (e != null) { Toast(e); return true; } }
+        if (s == null)
+        {   // into your pattern: a sampler that plays this sound (a drum keeps its pitch, an 808 / bass / note follows the notes)
+            bool follow = si.Type == "808" || si.Group == "Bass" || si.Type == "Instrument One-Shot" || si.Type == "Chord Hit"; int root = 60; int rt; bool mi; if (follow && si.Key.Length > 0 && SoundLibrary.ParseKey(si.Key, out rt, out mi)) root = (si.Type == "808" ? 24 : (si.Group == "Bass" ? 36 : 48)) + rt;
+            var smp = FxRegistry.Create("sampler") as SamplerFx; if (smp == null) return true; smp.Prepare(StudioEngine.SR); string e2 = smp.SetSingle(si.Path, si.Name.Replace(si.PackName + " - ", ""), follow, root); if (e2 != null) { Toast(e2); return true; }
+            if (prDraft == null) { prDraft = StudioEngine.NewTrack("Your pattern", "inst", null); prDraft.Instrument = true; prDraft.Color = unchecked((int)0xFFFF9A3D); }
+            lock (eng.Sync) { prDraft.Fx.RemoveAll(x => x is InstrumentFx); smp.Owner = prDraft; prDraft.Fx.Insert(0, smp); } prDraft.Name = "Your pattern: " + si.Name.Replace(si.PackName + " - ", ""); eng.Draft = prDraft; prTrack = prDraft; prStamp = -1; prScrollY = -1; Invalidate();
+            Toast(si.Name.Replace(si.PackName + " - ", "") + " is your pattern's sound: write notes (or GENERATE), then drag the pattern box onto the song. Nothing goes on your tracks until you do."); return true;
+        }
         PushUndo(); int key = PrNoteAt(p.Y); string err = s.Zones.Count == 0 && prGrid.Contains(p) ? s.SetSingle(si.Path, si.Name.Replace(si.PackName + " - ", ""), false, 60) : s.AddToKit(si.Path, si.Name.Replace(si.PackName + " - ", ""), key);
         Toast(err ?? si.Name.Replace(si.PackName + " - ", "") + (s.IsKit ? " is on " + PrNoteName(key) : " loaded")); return true;
     }

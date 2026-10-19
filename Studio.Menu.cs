@@ -13,19 +13,19 @@ partial class StudioForm
     void RemoveCover(string p) { ProjectLibrary.ClearCover(p); if (string.Equals(p, projPath, StringComparison.OrdinalIgnoreCase)) ProjectIO.CoverBytes = null; }
     bool menuOpen, projectsLoaded; int menuSec = -1, menuSub = -1; float projScroll; const string ImgFilter = "Pictures|*.jpg;*.jpeg;*.png;*.gif;*.bmp|All files|*.*";
     // the side menu: six lists (File, Edit, Tools, Pages, View, Community) and then single buttons that just take you there (Projects, Profile, Themes, Fonts, Settings, Help, Exit)
-    static readonly string[] MenuNames = { "File", "Edit", "Tools", "Pages", "View", "Community", "Music Hub", "Video Studio", "Photo Studio PRO", "Projects", "Profile", "Themes", "Fonts", "Settings", "Help", "Exit" }; const int MenuLists = 6;
+    static readonly string[] MenuNames = { "File", "Edit", "Tools", "Pages", "View", "Community", "Music Hub", "Purphex Video Editor", "Purphex Photo Editor", "Projects", "Profile", "Themes", "Fonts", "Settings", "Help", "Exit" }; const int MenuLists = 6;
     static readonly int[] MenuIcon = { 0, 1, 2, 8, 3, 12, 13, 14, 15, 11, 4, 5, 10, 6, 7, 9 };
     Action MenuDirect(int i)
     {
         switch (MenuNames[i])
         {
             case "Music Hub": return () => OpenHub();
-            case "Video Studio": return () => OpenCreative("video");   // Purphex Creative Studio: the video editor
-            case "Photo Studio PRO": return () => OpenCreative("cover");   // Purphex Creative Studio: the photo editor (covers, posts, thumbnails, flyers)   // listen to your streaming services inside Purphex
+            case "Purphex Video Editor": return () => OpenCreative("video");   // Purphex Creative Studio: the video editor
+            case "Purphex Photo Editor": return () => OpenCreative("cover");   // Purphex Creative Studio: the photo editor (covers, posts, thumbnails, flyers)   // listen to your streaming services inside Purphex
             case "Projects": return () => GoTab(3);   // Projects: straight to your saved projects
             case "Profile": return () => { GoTab(6); profScroll = 0; };
             case "Themes": return () => { CloseMenu(); OpenThemeSheet(); };
-            case "Fonts": return () => { GoTab(8); fontScroll = 0; };
+            case "Fonts": return () => { fontsWin = true; if (tab == 8) GoTab(0); fontScroll = 0; };   // a mini window over the studio (FULLSCREEN in it for the whole page)
             case "Settings": return () => { CloseMenu(); app.ShowSettings(); };
             case "Help": return () => { CloseMenu(); app.ShowHelp(null); };
             default: return () => { CloseMenu(); ExitDawClick(); };
@@ -205,7 +205,7 @@ partial class StudioForm
                 case 8: g.DrawRectangle(pen, r.X + 7, r.Y + 2, r.Width - 11, r.Height - 10); g.DrawRectangle(pen, r.X + 3, r.Y + 7, r.Width - 11, r.Height - 10); break;
                 case 10: Txt(g, "Aa", 15, c, r, StringAlignment.Center, true); break;
                 case 13: g.DrawArc(pen, r.X + 3, r.Y + 3, r.Width - 6, r.Height - 4, 180, 180); using (var fb = new SolidBrush(c)) { g.FillRectangle(fb, r.X + 2, r.Y + 13, 5, 9); g.FillRectangle(fb, r.Right - 7, r.Y + 13, 5, 9); } break;   // headphones: Music Hub
-                case 14: g.DrawRectangle(pen, r.X + 2, r.Y + 5, r.Width - 4, r.Height - 10); for (int q = 0; q < 4; q++) { g.DrawLine(pen, r.X + 5 + q * 5, r.Y + 5, r.X + 5 + q * 5, r.Y + 8); g.DrawLine(pen, r.X + 5 + q * 5, r.Bottom - 8, r.X + 5 + q * 5, r.Bottom - 5); } using (var fb = new SolidBrush(c)) g.FillPolygon(fb, new[] { new PointF(r.X + 10, r.Y + 9), new PointF(r.X + 10, r.Bottom - 9), new PointF(r.X + 16, r.Y + r.Height / 2) }); break;   // film: Video Studio
+                case 14: g.DrawRectangle(pen, r.X + 2, r.Y + 5, r.Width - 4, r.Height - 10); for (int q = 0; q < 4; q++) { g.DrawLine(pen, r.X + 5 + q * 5, r.Y + 5, r.X + 5 + q * 5, r.Y + 8); g.DrawLine(pen, r.X + 5 + q * 5, r.Bottom - 8, r.X + 5 + q * 5, r.Bottom - 5); } using (var fb = new SolidBrush(c)) g.FillPolygon(fb, new[] { new PointF(r.X + 10, r.Y + 9), new PointF(r.X + 10, r.Bottom - 9), new PointF(r.X + 16, r.Y + r.Height / 2) }); break;   // film: Purphex Video Editor
                 case 15: g.DrawRectangle(pen, r.X + 3, r.Y + 3, r.Width - 6, r.Height - 6); g.DrawLine(pen, r.X + 5, r.Bottom - 7, r.X + 11, r.Y + 12); g.DrawLine(pen, r.X + 11, r.Y + 12, r.X + 15, r.Bottom - 10); g.DrawLine(pen, r.X + 15, r.Bottom - 10, r.Right - 5, r.Y + 9); using (var fb = new SolidBrush(c)) g.FillEllipse(fb, r.X + 6, r.Y + 6, 4, 4); break;   // picture: Cover Studio
                 case 11: g.DrawRectangle(pen, r.X + 3, r.Y + 8, r.Width - 6, r.Height - 12); g.DrawLine(pen, r.X + 3, r.Y + 8, r.X + 3, r.Y + 4); g.DrawLine(pen, r.X + 3, r.Y + 4, r.X + 11, r.Y + 4); g.DrawLine(pen, r.X + 11, r.Y + 4, r.X + 13, r.Y + 8); break;
                 case 12: g.DrawEllipse(pen, r.X + 9, r.Y + 2, 7, 7); g.DrawEllipse(pen, r.X + 2, r.Y + 14, 7, 7); g.DrawEllipse(pen, r.X + 15, r.Y + 14, 7, 7); g.DrawLine(pen, r.X + 11, r.Y + 9, r.X + 6, r.Y + 14); g.DrawLine(pen, r.X + 14, r.Y + 9, r.X + 19, r.Y + 14); break;

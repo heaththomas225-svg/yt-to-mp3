@@ -140,8 +140,8 @@ static class PR
           string roll = ProjectIO.Roll; sf.PrApplyPrefs(""); sf.PrApplyPrefs(roll); Check("and the piano roll's settings (key, scale, snap, hidden ghosts)", sf.prKeyRoot == 4 && sf.prScale == 1 && sf.prSnap == 5 && sf.prGhostOff.Contains(bass), roll); }
         // ---- an audio track stays audio; LOAD IT INTO A SAMPLER makes a sampler track from it ----
         { var clip = AudioClip.FromArrays(new float[SR], new float[SR], "loop"); for (int i = 0; i < SR; i++) clip.L[i] = clip.R[i] = (float)(0.3 * Math.Sin(i * 0.05)); var at = StudioEngine.NewTrack("Loop", "audio", clip); eng.Tracks.Add(at);
-          Check("an audio track is not a note track (its clip stays real audio)", !StudioForm.PrCanEdit(at), ""); int before = eng.Tracks.Count; M("PrAudioToSampler", at); var st = eng.Tracks.Last();
-          Check("LOAD IT INTO A SAMPLER makes a new sampler track that plays it from notes", eng.Tracks.Count == before + 1 && st.Fx.OfType<SamplerFx>().Any(z => z.Zones.Count == 1 && z.Zones[0].L != null) && at.Clip == clip, ""); }
+          Check("an audio track is not a note track (its clip stays real audio)", !StudioForm.PrCanEdit(at), ""); int before = eng.Tracks.Count; M("PrAudioToSampler", at); var st = sf.prDraft;
+          Check("LOAD IT INTO THE PIANO ROLL puts the sound in the piano roll only (no new track; the audio track stays)", eng.Tracks.Count == before && st != null && st.Fx.OfType<SamplerFx>().Any(z => z.Zones.Count == 1 && z.Zones[0].L != null) && at.Clip == clip && sf.prTrack == st, eng.Tracks.Count + " tracks"); }
 
         // ---- any track: click it, choose its sound in the piano roll ----
         {
@@ -149,17 +149,22 @@ static class PR
             Check("clicking a track (here an empty one) shows it in the piano roll", sf.prTrack == empty, sf.prTrack == null ? "none" : sf.prTrack.Name);
             var bm = (Dictionary<string, RectangleF>)typeof(StudioForm).GetField("btnMap", BF).GetValue(sf);
             Check("a track with no sound offers the sounds to choose (piano, a sound from SOUNDS, Purphex Wobble, Bass Lab, more)", bm.ContainsKey("PIANO") && bm.ContainsKey("A SOUND FROM SOUNDS") && bm.ContainsKey("PURPHEX WOBBLE") && bm.ContainsKey("BASS LAB"), string.Join(", ", bm.Keys.Where(k => k.Length > 3 && k.ToUpperInvariant() == k).Take(12)));
-            M("PrUseSound", empty, null, null, null); Paint();
-            Check("PIANO makes that same track play the built-in piano (a note track, no extra track)", StudioForm.PrCanEdit(empty) && !empty.HasInstrumentFx && eng.Tracks.Contains(empty) && empty.Name == "Piano", empty.Name);
+            int n00 = eng.Tracks.Count; M("PrUseSound", empty, null, null, null); Paint();
+            Check("PIANO makes your pattern play the piano: nothing is added to or changed on the tracks", sf.prDraft != null && sf.prTrack == sf.prDraft && !StudioForm.PrCanEdit(empty) && eng.Tracks.Count == n00 && !eng.Tracks.Contains(sf.prDraft) && eng.Draft == sf.prDraft, eng.Tracks.Count + " tracks; draft " + (sf.prDraft == null ? "none" : sf.prDraft.Name));
             int n0 = eng.Tracks.Count; string pre = WobbleFx.FactoryPresets()[0]; int kq = pre.IndexOf('|');
-            M("PrUseSound", empty, "wobble", pre.Substring(kq + 1), pre.Substring(0, kq)); Paint();
-            var wf = empty.Fx.OfType<WobbleFx>().FirstOrDefault();
-            Check("SOUND > a Purphex Wobble preset puts the Wobble on the track (the notes stay, no new track)", wf != null && eng.Tracks.Count == n0 && empty.Fx.OfType<InstrumentFx>().Count() == 1 && wf.CurPreset == pre.Substring(0, kq), wf == null ? "none" : wf.CurPreset);
-            M("PrUseSound", empty, "synth", null, null); Paint();
-            Check("changing the sound again swaps the instrument (one instrument on the track)", empty.Fx.OfType<InstrumentFx>().Count() == 1 && empty.Fx.OfType<WobbleFx>().Count() == 0, string.Join(",", empty.Fx.Select(x => x.Type)));
+            var dr = sf.prDraft; M("PrUseSound", dr, "wobble", pre.Substring(kq + 1), pre.Substring(0, kq)); Paint();
+            var wf = dr.Fx.OfType<WobbleFx>().FirstOrDefault();
+            Check("SOUND > a Purphex Wobble preset changes your pattern's sound (still no track)", wf != null && eng.Tracks.Count == n0 && dr.Fx.OfType<InstrumentFx>().Count() == 1 && wf.CurPreset == pre.Substring(0, kq) && sf.prDraft == dr, wf == null ? "none" : wf.CurPreset);
+            M("PrUseSound", dr, "synth", null, null); Paint();
+            Check("changing the sound again swaps the instrument (one instrument on your pattern)", dr.Fx.OfType<InstrumentFx>().Count() == 1 && dr.Fx.OfType<WobbleFx>().Count() == 0, string.Join(",", dr.Fx.Select(x => x.Type)));
+            { double bt = SR * 60.0 / Fx.ProjectBpm; StudioForm.WriteNotes(dr, new List<StudioForm.PrNote> { new StudioForm.PrNote { Start = (long)(bt * 4), Len = (long)bt, Note = 48, Vel = 100 }, new StudioForm.PrNote { Start = (long)(bt * 6), Len = (long)bt, Note = 51, Vel = 100 } });
+              Paint(); var bmD = (Dictionary<string, RectangleF>)typeof(StudioForm).GetField("btnMap", BF).GetValue(sf); Check("your pattern shows as a box to drag onto the song (with ADD TO SONG)", bmD.ContainsKey("ADD TO SONG"), "");
+              int n2 = eng.Tracks.Count; string dmsg2 = (string)M("DropDraft", (long)(bt * 16));
+              var placed = eng.Tracks.Count == n2 + 1 ? eng.Tracks.Last() : null; long firstOn = placed == null ? -1 : placed.Midi.Where(e => (e.S & 0xF0) == 0x90).Min(e => e.Frame);
+              Check("dragging it onto bar 5 makes ONE new track there, with your notes (from their first bar) and its sound", placed != null && Math.Abs(firstOn - (long)(bt * 16)) < 4 && placed.Fx.OfType<InstrumentFx>().Count() == 1 && sf.prDraft == null && eng.Draft == null, dmsg2 + " first note at " + (firstOn / bt).ToString("0.00") + " beats"); }
             var clip2 = AudioClip.FromArrays(new float[SR], new float[SR], "x"); var aud = StudioEngine.NewTrack("Vocal", "vocal", clip2); M("AddTrack", aud); int n1 = eng.Tracks.Count;
             var nt = (Track)M("PrUseSound", aud, null, null, null);
-            Check("an audio track keeps its audio: choosing a sound for it makes a new note track", nt != null && nt != aud && aud.Clip != null && !aud.Instrument && eng.Tracks.Count == n1 + 1, eng.Tracks.Count + " tracks");
+            Check("an audio track keeps its audio: choosing a sound for it makes your pattern (no new track until you drag it)", nt != null && nt == sf.prDraft && aud.Clip != null && !aud.Instrument && eng.Tracks.Count == n1, eng.Tracks.Count + " tracks");
             float wsum = 0; var lb = new float[4096]; var rb = new float[4096]; var w2 = new WobbleFx(); w2.Prepare(SR); w2.Owner = empty; w2.BeginBlock(null, 0, 4096, false); w2.NoteOn(36, 110); w2.BeginBlock(null, 0, 4096, false); for (int b = 0; b < 8; b++) { Array.Clear(lb, 0, 4096); Array.Clear(rb, 0, 4096); w2.Process(lb, rb, 4096); foreach (var v in lb) wsum += Math.Abs(v); }
             Check("the Purphex Wobble really sounds when a note plays", wsum > 100, wsum.ToString("0"));
         }

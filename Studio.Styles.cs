@@ -171,7 +171,9 @@ partial class StudioForm
         selFx = -1; stylesOpen = false; Toast(s.Name + (replace ? " applied to " : " added to ") + tr.Name + "." + busNote + " Every plugin is editable (Ctrl+Z undoes it).");
     }
 
-    void PaintStylesSheet(Graphics g)
+    // the vocal and bus presets open in the Purphex look, like the plugin windows (not the theme)
+    void PaintStylesSheet(Graphics g) { if (!stylesOpen) return; var look = BeginBrand(); try { PaintStylesSheet0(g); } finally { EndBrand(look); } }
+    void PaintStylesSheet0(Graphics g)
     {
         if (!stylesOpen) return; float W = ClientSize.Width, H = ClientSize.Height; var all = Rc(0, 0, W, H);
         Reg(all, () => stylesOpen = false);
@@ -185,7 +187,13 @@ partial class StudioForm
         { var swb = Rc(aib.X - 10 - 176, sheet.Y + 14, 176, 32); Btn(g, swb, stylesBus ? "Vocal Presets" : "Bus Presets", 0, () => { stylesBus = !stylesBus; stylesGenre = ""; stylesPart = ""; stylesScroll = 0; }, 11); Hint2(swb, stylesBus ? "Back to the vocal presets (for a track)" : "Presets for buses: vocal, ad-lib, drums, 808, beat, reverb, echo, FX, glue and mix buses"); }
         string tn = eng.Tracks.Count > 0 ? eng.Tracks[Math.Max(0, Math.Min(selTrack, eng.Tracks.Count - 1))].Name : "(no track)";
         if (stylesBus) { string bt0 = "a new bus"; if (eng.Tracks.Count > 0) { var st0 = busEdit != null && eng.Tracks.Contains(busEdit) ? busEdit : eng.Tracks[Math.Max(0, Math.Min(selTrack, eng.Tracks.Count - 1))]; var rw0 = st0.Host ?? st0; bt0 = st0.IsBus ? st0.Name : rw0.Out != null && rw0.Out.IsBus ? rw0.Out.Name + " (the bus " + rw0.Name + " goes into)" : "a new bus for " + rw0.Name; } Txt(g, BusPresets.All.Count + " bus presets built from this app's plugins. Use puts it on: " + bt0, 12, DimC, Rc(sheet.X + 22, sheet.Y + 48, sheet.Width - 44, 20), StringAlignment.Near, false); }
-        else Txt(g, VocalStyles.All.Count + " presets built from this app's plugins (artist ones are inspired by their sound). For: " + tn, 12, DimC, Rc(sheet.X + 22, sheet.Y + 48, sheet.Width - 44, 20), StringAlignment.Near, false);
+        else
+        {   // which track the preset goes on: pick it here (Track 1, 2, 3...)
+            Txt(g, VocalStyles.All.Count + " presets built from this app's plugins (artist ones are inspired by their sound).", 12, DimC, Rc(sheet.X + 22, sheet.Y + 48, sheet.Width - 300, 20), StringAlignment.Near, false);
+            int si0 = Math.Max(0, Math.Min(selTrack, eng.Tracks.Count - 1)); var fb = Rc(sheet.Right - 286, sheet.Y + 46, 264, 24);
+            Btn(g, fb, "FOR: " + (eng.Tracks.Count > 0 ? (si0 + 1) + ". " + tn : "NO TRACK YET") + "  v", 1, () => { var m = Win.NewMenu(); for (int i = 0; i < eng.Tracks.Count; i++) { var tq = eng.Tracks[i]; if (tq.IsBus || tq.Host != null) continue; int k = i; var it = new ToolStripMenuItem("Track " + (i + 1) + ": " + tq.Name) { Checked = i == selTrack, ForeColor = Neon(tq.Color) }; it.Click += (a2, b2) => { selTrack = k; }; m.Items.Add(it); } if (m.Items.Count == 0) m.Items.Add(new ToolStripMenuItem("Add a track first") { Enabled = false }); m.Show(this, new Point((int)MousePos.X, (int)MousePos.Y)); }, 10);
+            Hint2(fb, "The track the preset goes on when you press USE: click to pick another (Track 1, 2, 3...)");
+        }
         var close = Rc(sheet.Right - 52, sheet.Y + 14, 32, 32); FillRR(g, Hot(close) ? TM.C(160, 70, 38, 130) : TM.C(110, 40, 24, 80), close, 16); Txt(g, "X", 15, Ink, close, StringAlignment.Center, true); Reg(close, () => stylesOpen = false);
         var sb = Rc(sheet.X + 22, sheet.Y + 76, sheet.Width - 44, 34); FillRR(g, TM.C(235, 14, 7, 32), sb, 8); StrokeRR(g, Accent, sb, 8, 1.6f); Reg(sb, () => { });
         if (stylesQuery.Length > 0) Btn(g, Rc(sb.Right - 30, sb.Y + 5, 24, 24), "x", 3, () => { stylesQuery = ""; stylesScroll = 0; }, 12);

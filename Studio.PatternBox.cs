@@ -94,6 +94,46 @@ partial class StudioForm
         var x = Rc(r.Right - 30, r.Y + 6, 22, 20); Btn(g, x, "x", 0, () => { prBox = null; }, 10); Hint2(x, "Throw this beat away");
         var add = Rc(r.Right - 112, r.Bottom - 24, 100, 20); Btn(g, add, "ADD TO SONG", 2, () => { var b = prBox; Toast(DropPatternBox(b, (long)Math.Round(Math.Floor(prScrollBeats / 4) * 4 * PrBeatFrames))); }, 9); Hint2(add, "Put this beat into the song at the bar the piano roll shows, as its own tracks");
     }
+    // ---- your pattern (the piano roll's scratch pad): a box you drag onto the song ----
+    bool prDraftDrag; PointF prDraftAt;
+    void PaintDraftBox(Graphics g, RectangleF grid)
+    {
+        var d = prDraft; if (d == null) return; var notes = NotesOf(d); if (notes.Count == 0 && !prDraftDrag) return;
+        double barF = PrBeatFrames * 4; long first = notes.Count == 0 ? 0 : (long)(Math.Floor(notes.Min(n => n.Start) / barF) * barF), last = notes.Count == 0 ? 0 : notes.Max(n => n.Start + n.Len); int bars = Math.Max(1, (int)Math.Ceiling((last - first) / barF));
+        var r = Rc(grid.Right - 330, grid.Y + 8 + (prBox != null ? 92 : 0), 320, 84);
+        if (prDraftDrag)
+        {
+            r = Rc(prDraftAt.X - 160, prDraftAt.Y - 42, 320, 84); var tl = TimelineRect();
+            if (tl.Contains(prDraftAt) && prDraftAt.Y < MixH) { long frame = scroll + (long)((prDraftAt.X - HeadW) * spp); long at = (long)(Math.Max(0, Math.Round(frame / barF)) * barF); float lx = HeadW + (float)((at - scroll) / spp); using (var pen = new Pen(NeonCyan, 2)) g.DrawLine(pen, lx, ArrTop, lx, MixH); Txt(g, "BAR " + (Math.Round(at / barF) + 1), 10, NeonCyan, Rc(lx + 4, ArrTop + 2, 80, 16), StringAlignment.Near, true); }
+        }
+        FillRR(g, TM.C(240, 22, 12, 44), r, 10); Glow(g, NeonPink, r, 10, prDraftDrag ? 1.2f : 0.8f, 3);
+        Txt(g, "YOUR PATTERN  ·  " + bars + (bars == 1 ? " BAR" : " BARS") + "  ·  " + notes.Count + " NOTES", 11, Ink, Rc(r.X + 12, r.Y + 6, r.Width - 44, 18), StringAlignment.Near, true);
+        float px = r.X + 12, pw = r.Width - 24, py = r.Y + 28, ph = 22; long len = Math.Max(1, (long)(bars * barF)); int lo = 127, hi = 0; foreach (var n in notes) { lo = Math.Min(lo, n.Note); hi = Math.Max(hi, n.Note); } int span = Math.Max(6, hi - lo + 1);
+        using (var br = new SolidBrush(Color.FromArgb(230, Neon(d.Color)))) foreach (var n in notes) g.FillRectangle(br, px + pw * (n.Start - first) / (float)len, py + ph - (n.Note - lo + 1) * ph / span, Math.Max(1.5f, pw * n.Len / (float)len), Math.Max(1.5f, ph / (float)span - 0.3f));
+        Txt(g, prDraftDrag ? "DROP IT ON THE SONG" : "DRAG ME ONTO THE SONG", 9, NeonPink, Rc(r.X + 12, r.Bottom - 22, 190, 16), StringAlignment.Near, true);
+        if (prDraftDrag) return;
+        var reg = Reg(r, () => { prDraftDrag = true; prDraftAt = MousePos; }); reg.OnDrag = pt => { prDraftAt = pt; Invalidate(); }; reg.OnUp = () => DraftDropped();
+        var x = Rc(r.Right - 30, r.Y + 6, 22, 20); Btn(g, x, "x", 0, () => { prDraft = null; eng.Draft = null; if (prTrack != null && !eng.Tracks.Contains(prTrack)) prTrack = null; }, 10); Hint2(x, "Throw your pattern away");
+        var add = Rc(r.Right - 112, r.Bottom - 24, 100, 20); Btn(g, add, "ADD TO SONG", 2, () => Toast(DropDraft((long)Math.Round(Math.Floor(prScrollBeats / 4) * 4 * PrBeatFrames))), 9); Hint2(add, "Put your pattern into the song at the bar the piano roll shows, as a new track");
+    }
+    void DraftDropped()
+    {
+        bool was = prDraftDrag; prDraftDrag = false; if (prDraft == null) return; var tl = TimelineRect();
+        if (was && tl.Contains(prDraftAt) && prDraftAt.Y < MixH) { double barF = PrBeatFrames * 4; long frame = scroll + (long)((prDraftAt.X - HeadW) * spp); Toast(DropDraft((long)(Math.Max(0, Math.Round(frame / barF)) * barF))); }
+        else if (was) Toast("Drop your pattern on the song above (the tracks area) to add it, or press ADD TO SONG.");
+        Invalidate();
+    }
+    // your pattern becomes a track at a bar of the song (its sound and notes move onto it); the scratch pad is then empty
+    internal string DropDraft(long at)
+    {
+        var d = prDraft; if (d == null) return null; var notes = NotesOf(d); if (notes.Count == 0) return "Write some notes first (or GENERATE), then drag your pattern onto the song.";
+        PushUndo(); double barF = PrBeatFrames * 4; long first = (long)(Math.Floor(notes.Min(n => n.Start) / barF) * barF);
+        string nm = d.Name.StartsWith("Your pattern: ") ? d.Name.Substring(14) : "Pattern"; var t = StudioEngine.NewTrack(nm, "inst", null); t.Instrument = true; t.Color = d.Color;
+        lock (eng.Sync) { foreach (var f in d.Fx.ToList()) { var inf = f as InstrumentFx; if (inf != null) inf.Owner = t; t.Fx.Add(f); } d.Fx.Clear(); }
+        WriteNotes(t, notes.Select(n => new PrNote { Start = at + (n.Start - first), Len = n.Len, Note = n.Note, Vel = n.Vel }).ToList()); AddTrack(t);
+        prDraft = null; eng.Draft = null; int i = eng.Tracks.IndexOf(t); if (i >= 0) { selTrack = i; prLastSel = i; } prTrack = t; prStamp = -1; Invalidate();
+        return nm + " added at bar " + ((long)Math.Round(at / barF) + 1) + " as a new track. Choose another sound in the piano roll to start a new pattern.";
+    }
     // released: on the song it becomes tracks at the bar under the mouse
     void PrBoxDropped()
     {

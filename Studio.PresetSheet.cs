@@ -24,7 +24,9 @@ partial class StudioForm
         Toast(name + " is on. REVERT puts the plugin back as it was.");
     }
 
-    void PaintPresetSheet(Graphics g)
+    // the presets of a plugin open in the Purphex look, like the plugin windows themselves (not the theme)
+    void PaintPresetSheet(Graphics g) { if (!psOpen || psFx == null) return; var look = BeginBrand(); try { PaintPresetSheet0(g); } finally { EndBrand(look); } }
+    void PaintPresetSheet0(Graphics g)
     {
         if (!psOpen || psFx == null) return; var f = psFx; float W = ClientSize.Width, H = ClientSize.Height; var all = Rc(0, 0, W, H);
         Reg(all, () => psOpen = false);

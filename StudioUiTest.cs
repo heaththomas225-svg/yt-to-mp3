@@ -226,7 +226,7 @@ static class S
                 SetF("tab", 8); Paint(); string ferr = ""; try { for (int q = 0; q < 3; q++) { Paint(); Pump(30); } } catch (Exception ex) { ferr = ex.Message; }
                 Check("the Fonts page paints (search box, groups and a card for every font)", ferr.Length == 0 && Regs().Count > 25 && FontKit.All.Count >= 25, FontKit.All.Count + " fonts, " + Regs().Count + " areas " + ferr);
                 var names = (string[])typeof(StudioForm).GetField("MenuNames", BindingFlags.NonPublic | BindingFlags.Static).GetValue(null); int fi = Array.IndexOf(names, "Fonts"); Check("the side menu has a Fonts button (a single button, after Themes)", fi == Array.IndexOf(names, "Themes") + 1 && fi >= 5, fi + "");
-                if (fi >= 0) { SetF("tab", 0); ((Action)typeof(StudioForm).GetMethod("MenuDirect", BF).Invoke(sf, new object[] { fi }))(); Check("the Fonts button opens the Fonts page", F<int>("tab") == 8, "tab " + F<int>("tab")); }
+                if (fi >= 0) { SetF("tab", 0); ((Action)typeof(StudioForm).GetMethod("MenuDirect", BF).Invoke(sf, new object[] { fi }))(); Check("the Fonts button opens the Fonts window over the studio (the studio stays behind it)", F<bool>("fontsWin") && F<int>("tab") == 0, "tab " + F<int>("tab")); SetF("fontsWin", false); }
                 var win = FontKit.All.Find(e => e.Installed && e.Id != FontKit.DefaultId); if (win != null)
                 {
                     bool ok = FontKit.Apply(win); Paint(); Check("choosing a font sets the studio writing in it (and remembers it)", ok && FontKit.CurrentId == win.Id && Prefs.FontId == win.Id && FontKit.Scale > 0.4f, win.Name + " scale " + FontKit.Scale.ToString("0.00"));

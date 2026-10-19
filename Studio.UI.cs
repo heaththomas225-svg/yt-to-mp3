@@ -587,7 +587,8 @@ partial class StudioForm : Form
             using (var sf2 = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center }) using (var br2 = new SolidBrush(Color.FromArgb(235, Ink))) g.DrawString(hintNow, hf, br2, new RectangleF(hr.X + 12, hr.Y, inner, hr.Height), sf2);
             hintStackY = hr.Y - 8;
         }
-        if (prBoxDrag) PaintPatternBox(g, RectangleF.Empty);   // a generated beat being dragged onto the song
+        if (prBoxDrag) PaintPatternBox(g, RectangleF.Empty);
+        if (prDraftDrag) PaintDraftBox(g, RectangleF.Empty);   // a generated beat being dragged onto the song
         if (busy) PaintBusy(g);
         toastRect = RectangleF.Empty;
         if ((DateTime.Now - toastAt).TotalSeconds < ToastSecs && toast.Length > 0)
@@ -615,7 +616,7 @@ partial class StudioForm : Form
         if (soundBox != null && soundBox.Visible && !(soundsOpen && tab == 0)) soundBox.Visible = false;
         if (packBox != null && packBox.Visible && !packsOpen) packBox.Visible = false;
     }
-    void PaintSheets(Graphics g) { PaintCutMark(g); PaintNewTrackSheet(g); PaintBusSheet(g); PaintStylesSheet(g); PaintAiSheet(g); PaintThemeSheet(g); PaintCoverSheet(g); PaintPresetSheet(g); PaintAutoMixSheet(g); PaintAutoSheet(g); PaintGainPanel(g); PaintPickSheet(g); PaintCommPresets(g); PaintAllFxSheet(g); if (browserOpen && allFxOpen) PaintBrowser(g); PaintEpSheet(g); PaintProjEpSheet(g); }
+    void PaintSheets(Graphics g) { PaintFontsWindow(g); PaintCutMark(g); PaintNewTrackSheet(g); PaintBusSheet(g); PaintStylesSheet(g); PaintAiSheet(g); PaintThemeSheet(g); PaintCoverSheet(g); PaintPresetSheet(g); PaintAutoMixSheet(g); PaintAutoSheet(g); PaintGainPanel(g); PaintPickSheet(g); PaintCommPresets(g); PaintAllFxSheet(g); if (browserOpen && allFxOpen) PaintBrowser(g); PaintEpSheet(g); PaintProjEpSheet(g); }
 
     // ---- dragging a pop-up box: the page under it and the box itself are each drawn once into a picture, then the box is just slid across (redrawing the whole studio for every mouse move was the lag) ----
     Bitmap popBase, popLayer; string popCapId = ""; PointF popLayerOff; List<HitReg> popKeepRegs;
@@ -815,6 +816,7 @@ partial class StudioForm : Form
         var rr = Reg(ruler, () => { needleDrag = true; followPaused = false; eng.Seek(scroll + (long)((MousePos.X - HeadW) * spp)); }); rr.OnDrag = pt => NeedleDragTo(pt.X, tl); rr.OnUp = () => needleDrag = false;
 
         if (needleDrag && dragReg != null) NeedleEdgeScroll(tl);   // the needle dragged to an edge: the timeline scrolls with it
+        regs.Add(new HitReg { R = Rc(0, top + RulerH, HeadW, Math.Max(0, MixH - top - RulerH)), OnWheel = d => { vscroll = Math.Max(0, vscroll - d * LaneH * 0.5f); Invalidate(); } });   // the wheel over the track headers scrolls the tracks up and down
         float y = top + RulerH - vscroll;
         g.SetClip(Rc(0, top + RulerH, ClientSize.Width - PanelW, MixH - top - RulerH - ArrGap));
         for (int i = 0; i < n; i++, y += LaneH)
@@ -1135,7 +1137,6 @@ partial class StudioForm : Form
         // the tools, one per row (full width, the same height)
         float hb; { float bx = x + 10, bw2 = w - 20, by = y + 38; int bi = 0; Func<RectangleF> nextRow = () => Rc(bx, by + (bi++) * 30, bw2, 26);
           var r1 = nextRow(); Btn(g, r1, "ALL PLUGINS", InsShown && insTab == 1 ? 4 : 2, () => OpenInspector(1), 11); Hint2(r1, "This track's plugins in the panel at the bottom: open each in its own window, add, bypass, move and remove them (buses are there too)");
-          var pbn = nextRow(); Btn(g, pbn, tr.IsBus ? "BUS PRESETS" : "PRESETS (" + VocalStyles.All.Count + ")", 0, () => ChainMenu(tr), 11); Hint2(pbn, tr.IsBus ? BusPresets.All.Count + " bus presets, the AI Bus Generator, and your own and community presets" : VocalStyles.All.Count + " vocal presets, " + BusPresets.All.Count + " bus presets, the AI generators, and your own and community presets"); ;
           var snb = nextRow(); Btn(g, snb, "SOUND PACKS", soundsOpen ? 4 : 0, () => { if (soundsOpen) CloseSounds(); else OpenPacks(); }, 11);
           hb = by + bi * 30 + 4; }
         if (InsShown)
@@ -1343,7 +1344,8 @@ partial class StudioForm : Form
         if (j < 0 || j >= tr.Fx.Count) return; lock (eng.Sync) { if (i >= tr.Fx.Count) return; var f = tr.Fx[i]; tr.Fx.RemoveAt(i); tr.Fx.Insert(j, f); } selFx = j;
     }
 
-    void ChainMenu(Track tr)
+    void ChainMenu(Track tr) { BuildChainMenu(tr).Show(this, new Point((int)MousePos.X, (int)MousePos.Y)); }
+    ContextMenuStrip BuildChainMenu(Track tr)
     {
         var m = Win.NewMenu(); bool vocal = tr.Role == "vocal";
         if (tr.IsBus) { m.Items.Add("Bus Presets (searchable)...").Click += (a, b) => OpenBusPresets(); m.Items.Add("AI Bus Generator (describe the bus)...").Click += (a, b) => OpenAiBus(); m.Items.Add(new ToolStripSeparator()); }
@@ -1361,7 +1363,7 @@ partial class StudioForm : Form
         if (mine.DropDownItems.Count == 0) mine.DropDownItems.Add(new ToolStripMenuItem("(none yet)") { Enabled = false });
         m.Items.Add(new ToolStripSeparator());
         m.Items.Add("Save this track's plugins as a preset...").Click += (a, b) => SaveTrackPreset(tr);
-        m.Show(this, new Point((int)MousePos.X, (int)MousePos.Y));
+        return m;
     }
 
     // ---------------- effect browser (searchable) ----------------
@@ -1565,7 +1567,7 @@ partial class StudioForm : Form
         base.OnMouseDown(e); lastInput = DateTime.Now; Focus(); MousePos = e.Location; if (e.Button == MouseButtons.Middle && tab == 0 && TimelineRect().Contains(e.Location)) { MiddleDown(e.Location); return; }
         if (editBox != null && editBox.Visible) CommitEdit(true);   // clicking off a value box confirms what you typed
         if (tab == 3 && projSearchOn && !projSearchR.Contains(e.Location)) projSearchOn = false;
-        if (tab == 8 && fontSearchOn && !fontSearchR.Contains(e.Location)) fontSearchOn = false;
+        if ((tab == 8 || fontsWin) && fontSearchOn && !fontSearchR.Contains(e.Location)) fontSearchOn = false;
         if (tab == 7 && artSearchOn && !artSearchR.Contains(e.Location)) artSearchOn = false;   // clicking anywhere else lets go of the search box
         FxWinMouseDown(e.Location);   // a click in a plugin window brings that window to the front
         prFocus = PrShown && (prGrid.Contains(e.Location) || prVel.Contains(e.Location) || prKeys.Contains(e.Location) || prRuler.Contains(e.Location));

@@ -227,7 +227,8 @@ partial class StudioForm
         if (c == '\r') AiGenerate(); else if (c == '\b') { if (aiPrompt.Length > 0) aiPrompt = aiPrompt.Substring(0, aiPrompt.Length - 1); } else if (!char.IsControl(c) && aiPrompt.Length < 200) aiPrompt += c;
         return true;
     }
-    void PaintAiSheet(Graphics g)
+    void PaintAiSheet(Graphics g) { var look = BeginBrand(); try { PaintAiSheet0(g); } finally { EndBrand(look); } }
+    void PaintAiSheet0(Graphics g)
     {
         if (!aiOpen) return; float W = ClientSize.Width, H = ClientSize.Height; var all = Rc(0, 0, W, H); Reg(all, () => aiOpen = false);
         float sw = Math.Min(820, W - 24), sh = Math.Min(H - 30, 640); var sheet = PopMove("aipreset", Rc((W - sw) / 2, (H - sh) / 2, sw, sh), 54, 70);

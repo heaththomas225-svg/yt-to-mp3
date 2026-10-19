@@ -161,7 +161,7 @@ static class IN
         // ---- the right panel: one button per row; the menus are smaller ----
         sf.CloseInspector(); Prefs.PanelHidden = false; SetF("panelAt", DateTime.MinValue); SetF("soundsOpen", false); SetF("selTrack", 0); Paint(); Paint();
         float px = sf.ClientSize.Width - 380; var col = Regs().Where(r => Math.Abs(r.R.X - (px + 10)) < 1.5f && Math.Abs(r.R.Height - 26) < 0.5f && r.R.Width > 300).Select(r => r.R).Distinct().OrderBy(r => r.Y).ToList();
-        bool oneEach = col.Count >= 3; for (int i = 1; i < col.Count; i++) if (Math.Abs(col[i].Y - col[i - 1].Y - 30) > 0.5f || Math.Abs(col[i].Width - col[0].Width) > 0.5f) oneEach = false;
+        bool oneEach = col.Count >= 2;   /* (PRESETS moved to the mixer strips) */ for (int i = 1; i < col.Count; i++) if (Math.Abs(col[i].Y - col[i - 1].Y - 30) > 0.5f || Math.Abs(col[i].Width - col[0].Width) > 0.5f) oneEach = false;
         Check("the right panel's tools are one per row, all the same width and height", oneEach, col.Count + " rows");
         Check("there is no ALL BUSES button on the right panel any more (buses are in the inspector)", !File.ReadAllText("Studio.UI.cs").Contains("\"ALL BUSES\", 2, () => OpenAllBuses()"), "");
         Shot("right-panel");

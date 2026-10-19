@@ -1,4 +1,4 @@
-3.73.1
+3.74.0
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Fixes: MIDI files show their notes, distinct drum kits in each pack, more sounds for every instrument, track jobs, piano roll settings per project
-sha256=786f654c15877a0cc0eb7f31e6b779dca2d56ff5469377270d432789ecfa740e
+The piano roll is a scratch pad, PRESETS on the mixer, the Fonts window, the Purphex Video and Photo Editors, Help fixed
+sha256=bdabf4668e5ea64fdebef7b9b322149f4f603ee2f005dafde00a501341fb450d

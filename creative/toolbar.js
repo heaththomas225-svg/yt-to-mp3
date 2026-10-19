@@ -246,7 +246,7 @@ C.afterTextTab = (b) => {
     if (L && L.type === 'text') btn(row(b), 'SAVE THIS STYLE ("' + L.name + '")', () => { const keys = Object.keys(C.lib.textBase()).filter(k => k !== 'type' && k !== 'text'); const style = {}; keys.forEach(k => style[k] = L[k]); list.push({ name: L.name, style }); C.kvSet('textstyles', list); C.renderTab(); });
   });
 };
-// show it when Photo Studio opens
+// show it when Purphex Photo Editor opens
 C.openStart = () => {
   if (document.querySelector('#cvStart')) return; const w = el('div', 'cvstart', '<div class="cvstartbox"><h2>PURPHEX MUSIC <span>PHOTO EDITOR</span></h2><p class="hint">Start from a photo of yours, or from nothing.</p><div class="cvstartgrid"><button id="stPhoto" class="big accent"><span class="ic">🖼️</span>IMPORT A PHOTO</button><button id="stBlank" class="big"><span class="ic">⬜</span>START BLANK</button><button id="stTpl" class="big"><span class="ic">🧩</span>BROWSE TEMPLATES</button><button id="stMine" class="big"><span class="ic">📂</span>OPEN A DESIGN</button></div></div>'); w.id = 'cvStart'; document.getElementById('cover').appendChild(w);
   const close = () => w.remove(); w.querySelector('#stPhoto').onclick = () => { close(); C.act('openPhoto'); }; w.querySelector('#stBlank').onclick = () => { close(); C.begin(); C.art.layers = []; C.art.global = { look: 'none' }; C.lib.bg(C.art, 'color', { color: '#1e1e22' }); C.art.name = 'Untitled design'; C.sel = null; C.commit(); C.openPanel('design'); }; w.querySelector('#stTpl').onclick = () => { close(); C.openWelcome(); }; w.querySelector('#stMine').onclick = () => { close(); C.act('open'); };

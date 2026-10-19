@@ -7,10 +7,23 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.73.1";
+    public const string Latest = "3.74.0";
 
     public const string Text =
-@"3.73.1  Fixes: MIDI files show their notes, distinct drum kits in each pack, track jobs, piano roll settings per project, the background follows the colour mix
+@"3.74.0  The piano roll is a scratch pad, PRESETS on the mixer, the Fonts window, the Purphex Video and Photo Editors, Help fixed
+ + NEW: The piano roll is a scratch pad: choosing a sound, writing notes, GENERATE and loading a sample all happen in the piano roll only. Nothing goes onto your tracks until you drag the pattern box onto the song (or press ADD TO SONG); then it becomes its own track at that bar.
+ + NEW: LOAD IT INTO THE PIANO ROLL (on an audio track) and SOUNDS > right-click > Load it into the piano roll put the sound into the piano roll as your pattern's sound. No track is made.
+ + NEW: PRESETS on every mixer strip and a PRESETS tab in the mixer: vocal presets, bus presets, the AI generators and your own presets as big buttons. The PRESETS button in the right panel is gone (it lives on the strips now).
+ + NEW: Vocal presets ask which track to go on: FOR: 1. Track, 2. Track... at the top of the sheet.
+ + NEW: The plugin preset sheet, the vocal and bus presets and the AI generators open in the Purphex look, like the plugin windows.
+ + NEW: Fonts opens as a small window over the studio so you see your buttons change while you pick, with FULLSCREEN for the whole page.
+ + NEW: A scroll bar under the mixer desk, and the mouse wheel over the track names scrolls the tracks up and down.
+ + CHANGED: Video Studio and Photo Studio PRO are now the Purphex Video Editor and the Purphex Photo Editor.
+ + CHANGED: + ADD TRACK no longer has Drum Track: a MIDI track with the piano roll does everything it did.
+ + CHANGED: The sound library has 42,844 checked sounds in 222 packs: more piano, keys, bells, pads and other instrument loops and notes in every pack, with no copies across packs.
+ + FIXED: Help: every SHOW ME takes you to the right button, and the text no longer names buttons that were removed (CUT, DUP, the Notes button) or old names.
+
+3.73.1  Fixes: MIDI files show their notes, distinct drum kits in each pack, track jobs, piano roll settings per project, the background follows the colour mix
  + FIXED: GENERATE and the pattern box read a track's job from whole words: a track called Custom Lead is no longer taken for a tom, Subtle Pad for a sub bass, and Sub Kick is a kick.
  + FIXED: Opening a project without piano roll settings starts the piano roll from its defaults (snap, length, key, scale, ghost notes) instead of keeping the last project's.
  + FIXED: The studio background follows your colour mix again as soon as you change it (since 3.72.0 it only changed with a new theme). The Rainbow theme still does not redraw it on every small colour step.

@@ -9,7 +9,7 @@ partial class StudioForm
 {
     float fontScroll, fontContentH; string fontQuery = "", fontCat = ""; bool fontSearchOn, fontAsked; RectangleF fontSearchR; FontKit.Entry fontPending;
 
-    bool FontSearchActive { get { return tab == 8 && fontSearchOn && !OverlayOpen && (editBox == null || !editBox.Visible); } }
+    bool FontSearchActive { get { return (tab == 8 || fontsWin) && fontSearchOn && !OverlayOpen && (editBox == null || !editBox.Visible); } }
     bool FontSearchKey(char c)
     {
         if (!FontSearchActive) return false; if (c == '\b') { if (fontQuery.Length > 0) fontQuery = fontQuery.Substring(0, fontQuery.Length - 1); } else if (!char.IsControl(c) && fontQuery.Length < 30) fontQuery += c; else return true;
@@ -47,13 +47,29 @@ partial class StudioForm
         FontKit.Want(e, this, () => { if (FontKit.Ready(e)) { if (fontPending == e) FontPick(e); } else if (fontPending == e) { fontPending = null; Toast("Could not get " + e.Name + ". Check your internet connection and try again."); } Invalidate(); });
     }
 
+    // the whole Fonts page, or the mini window over the studio
+    internal bool fontsWin; RectangleF fontArea;
     void PaintFonts(Graphics g)
     {
-        float W = ClientSize.Width, H = ClientSize.Height, top = ToolH, bottom = H - (previewPath.Length > 0 ? 62 : 0), viewH = bottom - top; PaintLogoBackdrop(g, Rc(0, top, W, viewH)); FontKit.Build();
+        float H0 = ClientSize.Height; fontArea = Rc(0, ToolH, ClientSize.Width, H0 - (previewPath.Length > 0 ? 62 : 0) - ToolH); PaintLogoBackdrop(g, fontArea);
+        var sm = Rc(ClientSize.Width - 230, ToolH + 8, 160, 30); PaintFontsIn(g); Btn(g, sm, "SMALL WINDOW", 0, () => { fontsWin = true; GoTab(0); }, 10); Hint2(sm, "Fonts in a small window over the studio, so you see your buttons change while you pick");
+    }
+    void PaintFontsWindow(Graphics g)
+    {
+        if (!fontsWin || tab == 8) return; float W0 = ClientSize.Width, H0 = ClientSize.Height; float ww = Math.Min(900, W0 - 80), wh = Math.Min(660, H0 - 150); var win = Rc(W0 - ww - 40, 110, ww, wh);
+        Reg(win, () => { }); FillRR(g, TM.C(250, 14, 7, 30), win, 14); Win.DrawNeonBox(g, win, true);
+        Txt(g, "FONTS", 15, Ink, Rc(win.X + 18, win.Y + 8, 200, 26), StringAlignment.Near, true); Txt(g, "Pick one and the whole studio changes at once: look at the buttons behind this window.", 10, DimC, Rc(win.X + 110, win.Y + 12, win.Width - 340, 20), StringAlignment.Near, false);
+        var fsb = Rc(win.Right - 176, win.Y + 8, 120, 28); Btn(g, fsb, "FULLSCREEN", 1, () => { fontsWin = false; GoTab(8); fontScroll = 0; }, 10); Hint2(fsb, "The Fonts page on the whole screen");
+        var xb = Rc(win.Right - 48, win.Y + 8, 34, 28); Btn(g, xb, "x", 0, () => fontsWin = false, 12); Hint2(xb, "Close the fonts window");
+        fontArea = Rc(win.X + 4, win.Y + 42, win.Width - 8, win.Height - 46); var gs0 = g.Save(); g.SetClip(fontArea, CombineMode.Intersect); PaintFontsIn(g); g.Restore(gs0);
+    }
+    void PaintFontsIn(Graphics g)
+    {
+        var A = fontArea; float X0 = A.X, W = A.Width, top = A.Y, bottom = A.Bottom, viewH = bottom - top; FontKit.Build();
         if (!fontAsked) { fontAsked = true; FontKit.Refresh(this, () => Invalidate()); }
-        float cw = Math.Min(1500, W - 110), cx = (W - 54 - cw) / 2f; if (cx < 20) { cx = 20; cw = W - 94; }
-        fontScroll = Math.Max(0, Math.Min(Math.Max(0, fontContentH - viewH + 20), fontScroll)); regs.Add(new HitReg { R = Rc(0, top, W, viewH), OnWheel = d => fontScroll = Math.Max(0, Math.Min(Math.Max(0, fontContentH - viewH + 20), fontScroll - d * 70)) });
-        var gs = g.Save(); g.SetClip(Rc(0, top, W - 56, viewH), CombineMode.Intersect); float y = top + 14 - fontScroll, y00 = y;
+        float cw = Math.Min(1500, W - 110), cx = X0 + (W - 54 - cw) / 2f; if (cx < X0 + 20) { cx = X0 + 20; cw = W - 94; }
+        fontScroll = Math.Max(0, Math.Min(Math.Max(0, fontContentH - viewH + 20), fontScroll)); regs.Add(new HitReg { R = Rc(X0, top, W, viewH), OnWheel = d => fontScroll = Math.Max(0, Math.Min(Math.Max(0, fontContentH - viewH + 20), fontScroll - d * 70)) });
+        var gs = g.Save(); g.SetClip(Rc(X0, top, W - 56, viewH), CombineMode.Intersect); float y = top + 14 - fontScroll, y00 = y;
         // ---- the font in use ----
         var card = Rc(cx, y, cw, FontKit.HardCurrent ? 182 : 150); FillRR(g, TM.C(235, 16, 9, 34), card, 16); Win.DrawNeonBox(g, card, false);
         Txt(g, "YOUR FONT", 12, DimC, Rc(card.X + 20, card.Y + 12, 200, 18), StringAlignment.Near, true); Txt(g, FontKit.CurrentName, 24, Ink, Rc(card.X + 20, card.Y + 30, card.Width - 300, 36), StringAlignment.Near, true);
@@ -92,6 +108,6 @@ partial class StudioForm
         }
         y += ((shown.Count + cols - 1) / cols) * (cardH + gap) + 8;
         fontContentH = y - y00 + 30; g.Restore(gs);
-        VScroll(g, Rc(W - 52, top + 8, 42, viewH - 16), fontContentH + 20, viewH, () => fontScroll, v => fontScroll = v);
+        VScroll(g, Rc(X0 + W - 52, top + 8, 42, viewH - 16), fontContentH + 20, viewH, () => fontScroll, v => fontScroll = v);
     }
 }

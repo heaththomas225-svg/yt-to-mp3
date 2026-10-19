@@ -342,15 +342,15 @@ Open + Add Effect on a track and pick it under PLUGINS (it is listed first). Pre
 2. Press the key B (or right-click the clip and choose Split here). The track becomes two pieces on the SAME track. Split as many times as you like: there is no limit. Drag a piece to move it, or select it to give it its own fade, gain or plugins.
 ## Shorten a track (trim)
 - Drag the left or right END of a clip to shorten it. The audio is never deleted, you can drag it back out.
-## Take a section out (CUT)
+## Take a section out (Cut this piece out)
 1. SPLIT the track where the part you do not want starts and where it ends, so it is a piece of its own.
-2. Right-click that piece and choose Cut this piece out (or open the side menu and choose Cut a section out). The piece is deleted and a gap is left where it was: the audio after it stays exactly where it is. (SPLIT makes two pieces; CUT removes one.) It also cuts every clip lit by a selection box, leaves locked tracks alone, and Ctrl+Z puts it back.
+2. Right-click that piece and choose Cut this piece out (or open the side menu and choose Cut a section out). The piece is deleted and a gap is left where it was: the audio after it stays exactly where it is. (Split makes two pieces; Cut this piece out removes one.) It also cuts every clip lit by a selection box, leaves locked tracks alone, and Ctrl+Z puts it back.
 ## Fade in and fade out
 Click a clip: round handles appear on it. Drag the top handle at the top left to fade in (the farther you drag it, the longer the fade) and the top handle at the top right to fade out. The small bottom handle on a fade moves where the fade starts (or ends), which leaves silence before a fade in or after a fade out. Double-click a handle to remove or reset it. The curve drawn on the clip is exactly the curve you hear.
 ## Gain (volume of one piece)
 Click a piece and press GAIN. A small panel opens with a slider from -30 to +12 dB that only changes that piece, on top of the track volume. Press GAIN again (or the x) to close it. Reset to 0 puts it back.
 ## Lock a track in place
-Press LOCK to lock the selected track: it cannot be moved, trimmed, split, cut or deleted until you press UNLOCK, so you cannot nudge it by accident. A locked track is also left alone by CUT.
+Press LOCK to lock the selected track: it cannot be moved, trimmed, split, cut or deleted until you press UNLOCK, so you cannot nudge it by accident. A locked track is also left alone when you cut pieces out.
 ## Select several clips
 Hold the left mouse button on empty space (between or below the tracks) and drag a box. Every clip the box touches lights up. Drag any lit clip to move them all together, press Delete (or DEL) to remove them, and press Esc or click empty space to let go. Locked tracks do not move or delete.
 ## Moving the boxes
@@ -610,9 +610,9 @@ Low-pass (with resonance), high-pass, telephone, rhythm gate, drive (soft, hard 
 ## Presets, undo and automation
 PRESETS has 55 factory presets (subtle, vocal, drum fills, build-ups, transitions, EDM, drum and bass, UK garage, trap, experimental, aggressive) and your own: save, rename and delete them there. The arrows step through them. Ctrl+Z and Ctrl+Y undo and redo in the window. Every setting is in the plugin panel too, with its A button for automation, and everything is saved with the project.
 "),
-        new HelpTopic("studio-creative", "Purphex Music", "Creative Studio: Video Studio and Photo Studio", false, @"
+        new HelpTopic("studio-creative", "Purphex Music", "Creative Studio: Purphex Video Editor and Purphex Photo Editor", false, @"
 ## Where it is
-Side panel (the three lines at the top left): VIDEO STUDIO or PHOTO STUDIO PRO, under Music Hub. The two buttons at the top switch between them; BACK TO DAW returns to your song.
+Side panel (the three lines at the top left): Purphex Video Editor or Purphex Photo Editor, under Music Hub. The two buttons at the top switch between them; BACK TO DAW returns to your song.
 ## Your first video
 Press MAKE A VIDEO FROM MY SONG (or MY SONG in MEDIA): pick the song, a background picture or video, a visualiser, the artist and title and the colours, and it is all put on the timeline. Press PLAY to watch, then EXPORT.
 ## Editing
@@ -623,7 +623,7 @@ Click a clip: CLIP (start, length, in point, speed), TRANSFORM (position, scale,
 TITLES adds text at the playhead (song title, artist name, lower third, lyric caption, karaoke, credits, promos). LYRICS: paste the words, press START TAPPING and press SPACE as each line starts; .srt and .lrc files can be imported and exported. Purphex does not hear the words by itself. VISUALS adds visualisers that move with the real audio of the timeline.
 ## Export
 EXPORT: MP4 (H.264 or H.265), WebM or audio only, the size, frame rate, quality and range. Every frame is drawn with all effects, transitions and text, then encoded by ffmpeg (installed by the converter the first time you convert something). The finished file is checked.
-## Photo Studio
+## Purphex Photo Editor
 A photo editor for covers, posts, stories, thumbnails and flyers. The tabs on the left: TEMPLATES (ready layouts with the right size), BACKGROUNDS (colours, gradients, patterns, textures, or a photo), TEXT (styles like neon, outline, 3D, glitch, gradient, curved, retro, boxed, and a list of every font on your PC shown in its own style), STICKERS (emoji and shapes), PHOTOS (add your own pictures; PNG transparency is kept), FILTERS (20 looks for the whole picture or one photo), ADJUST (brightness, contrast, saturation, hue, warmth, fade, grain, vignette, blur), DRAW (a brush with neon and an eraser, on its own layer) and FRAMES.
 ## Editing on the canvas
 Click a layer to pick it; drag to move, drag a corner to resize, drag the dot above it to rotate (Shift snaps to the centre and to 15 degrees); the mouse wheel resizes too. Arrow keys nudge it. On the right: every setting of the layer (font, size, colours, outline, shadow, glow, 3D, curve, opacity, blend mode, crop and shape mask for photos, flip, duplicate). LAYERS: show or hide, lock, move up or down, delete. Ctrl+Z / Ctrl+Y undo and redo, Ctrl+D duplicates, Delete removes, V is move, B is the brush.
@@ -631,10 +631,10 @@ Click a layer to pick it; drag to move, drag a corner to resize, drag the dot ab
 Press + ADD TEXT in Text (or a title style) and type straight onto the video. Double-click a title on the video or the timeline to change its words. The bar over the video changes the font, size, bold, italic, capitals, alignment, colours, outline and the box behind the words.
 ## Creative Suite
 SUITE (top left) has all your songs, designs and videos, shared media to move pictures between the editors, your edition and trial, help and settings.
-## Video Studio PRO
+## Purphex Video Editor
 Transitions: 24 kinds, including push, iris, clock wipe, barn doors, heart, glitch, whip pan and pixelate. Colour: grading with lift, gamma and gain, saturation, temperature, a curve and .cube LUTs (copy the grade to every clip). Effects: RGB split, glitch, VHS, film grain, pixelate, posterize, scan lines, letterbox, mirror and kaleidoscope, plus keyframe easing and play backwards.
 Editing keys: I insert mode, O overwrite mode, Alt + Left / Right nudges a clip one frame, G goes to a time, ? shows all the shortcuts. The media bin has search, sorting and a not used yet filter.
-## Photo Studio PRO
+## Purphex Photo Editor
 Quick starts: when it opens, pick Single Cover, Album Cover (with a tracklist page), Artist Banner, YouTube Thumbnail, Promotional Post or Story, or start from scratch at any size with a see-through background.
 Pages: a design can hold several pages (the bar at the bottom left of the picture): add, duplicate, delete, double-click to rename. Export can write every page at once.
 Tools on the app bar: move, rectangle, ellipse and lasso selection, fill bucket, eyedropper, line, arrow, the fill colour and the rulers. Keys: V, M, E, L, G, I, U, A; Esc drops the selection. With a selection, keep the picked layer only inside it or cut it out (a mask you can feather, invert or remove later), fill it, or copy it to a new layer.
@@ -645,9 +645,9 @@ Text: pro text styles (chrome, gold, glossy, metallic, embossed, distressed, neo
 Stickers: over 300 stickers drawn by Purphex in 25 categories, sharp at any size, in two colours you pick; search them, star favourites, and recent ones are kept. Backgrounds: 30 drawn backgrounds (bokeh, stars, clouds, concrete, fabric, paper, graffiti, studio light, cinematic) with your colours.
 Exports warn you when a format cannot be see-through (JPEG).
 ## Templates
-The first time Photo Studio opens, WELCOME TO PURPHEX MUSIC PHOTO EDITOR shows 1,344 templates: search them or filter by size (album covers, stories, posts, thumbnails, flyers, banners) and style, then click one. START BLANK, OPEN PHOTO and MY DESIGNS are there too. TEMPLATES > BROWSE ALL opens it again.
+The first time Purphex Photo Editor opens, WELCOME TO PURPHEX MUSIC PHOTO EDITOR shows 1,344 templates: search them or filter by size (album covers, stories, posts, thumbnails, flyers, banners) and style, then click one. START BLANK, OPEN PHOTO and MY DESIGNS are there too. TEMPLATES > BROWSE ALL opens it again.
 ## Saving and using it
-SAVE keeps the design (every layer stays editable); LIBRARY opens, renames, duplicates and deletes your designs. EXPORT PNG / JPEG at full size, USE AS SONG COVER (the picture of your current song project) or SEND TO VIDEO STUDIO.
+SAVE keeps the design (every layer stays editable); LIBRARY opens, renames, duplicates and deletes your designs. EXPORT PNG / JPEG at full size, USE AS SONG COVER (the picture of your current song project) or SEND TO VIDEO EDITOR.
 ## Safe projects
 SAVE (Ctrl+S) keeps the project; SAVE COPY makes another. Projects also autosave in the background and come back after a crash. Your media files stay where they are: a moved file is marked MISSING (right-click it to find it).
 "),
@@ -823,7 +823,7 @@ Select a track and press + Add Effect (or use the master chain). The list now ho
 ## Opening it
 Press the piano button next to MIDI REC (press it again to close the piano roll). It opens in the panel at the bottom and shows the track you click; < and > (or the track button) switch tracks. Every track keeps its own notes.
 ## Choosing the sound of a track
-Any track can play notes. A track with no sound shows PIANO, A SOUND FROM SOUNDS (a sampler: drag a sound onto the piano roll), PURPHEX WOBBLE (pick a wobble preset), BASS LAB and MORE INSTRUMENTS. SOUND in the bar of the piano roll changes the sound at any time; the notes stay. An audio track (a vocal, a beat) keeps its audio: choosing a sound for it makes a new note track.
+Any track can play notes. A track with no sound shows PIANO, A SOUND FROM SOUNDS (a sampler: drag a sound onto the piano roll), PURPHEX WOBBLE (pick a wobble preset), BASS LAB and MORE INSTRUMENTS. SOUND in the bar of the piano roll changes the sound at any time; the notes stay. The piano roll is a scratch pad: choosing a sound starts your pattern there and nothing goes onto your tracks. When it sounds right, drag the pattern box onto the song (or press ADD TO SONG) and it becomes its own track at that bar. An audio track (a vocal, a beat) always keeps its audio.
 ## The Purphex Wobble
 The wobble bass instrument: a clean sub and a mid layer whose filter is swept by an LFO locked to the song's tempo. LFO RATE is a note length (1/1 to 1/32, triplets) or a rhythm of lengths that changes every beat; LFO SHAPE goes from a smooth wub to a falling yoy and a chop; FILTER can be a vowel filter (talking bass). Depth, cutoff, resonance, grit, fold, FM, detune, sub, mid, attack, release, glide, width, filter envelope and pitch drop are all real controls. The wobble presets of the UK Bassline packs open it with their sound.
 ## Writing notes
@@ -835,7 +835,7 @@ Under the grid, each note has a velocity bar: drag it up or down (the note does 
 ## Ghost notes
 The notes of the other tracks show faintly behind yours (drum tracks as timing columns), so you can line up a snare with the kick and hats with both. They are only a guide: they cannot be clicked, moved or deleted, and they never play twice. GHOSTS turns them off or picks which tracks show.
 ## The sampler
-A sampler track plays your samples from notes. One sample: a drum keeps its pitch on any key; an 808, bass or melodic sound follows the notes from its root note. A kit: a sample on each key (the keys show their names). Make one with + ADD TRACK > Drum Track, or right-click a sound in SOUNDS > Load into a new sampler track, or drag a sound onto the piano roll. SAMPLES loads files and sets fixed pitch or follow, the root note and one-shot. An audio track stays real audio; LOAD IT INTO A SAMPLER makes a sampler track from it.
+A sampler track plays your samples from notes. One sample: a drum keeps its pitch on any key; an 808, bass or melodic sound follows the notes from its root note. A kit: a sample on each key (the keys show their names). Drag a sound onto the piano roll (it becomes your pattern's sound), or right-click a sound in SOUNDS > Load it into the piano roll. SAMPLES loads files and sets fixed pitch or follow, the root note and one-shot. An audio track stays real audio; LOAD IT INTO THE PIANO ROLL puts its sound into the piano roll as your pattern's sound (no track is added until you drag the pattern onto the song).
 ## GENERATE PATTERN
 GENERATE makes a starting beat in a style (Trap, Hip-Hop, Lo-Fi, UK Drill, Drum & Bass, House, Afrobeats, Reggaeton, UK Garage, Phonk) for 4, 8 or 16 bars, in a box at the top right of the piano roll. Drag the box onto the song (a line shows the bar it lands on) or press ADD TO SONG: it becomes its own tracks at that bar (kick, snare or clap, hats, open hat, percussion, 808), so nothing is written over your tracks. Each part plays your own sound when a track of yours has that job (its sound or name, or JOBS), else the sound of that style's pack; the 808 follows the notes and SOUND can make it Bass Lab or the Purphex Wobble. OR WRITE IT ONTO YOUR OWN TRACKS in the menu still writes the parts onto the tracks you have.
 ## Arranging
@@ -849,6 +849,9 @@ The channel strip of the picked track: its name and colour, mute, solo and on/of
 A send copies the track's sound to a bus at its own level, as well as the track's own output: use it to share one reverb or delay between tracks. + ADD SEND picks a bus (or makes a new one). PRE sends before the fader (the send ignores the track's volume), POST after it. Buses never send, so the sound can never loop back on itself.
 ## ALL PLUGINS
 A mixing desk: every track and bus has its own strip, side by side. Each strip has its plugin slots in the order the sound goes through them (click a slot to open that plugin in its own small window, click its dot to turn it on or off, right-click it to move, copy or remove it, + ADD to add one), its sends, its output, pan, the fader with its meter, and M and S. While the song plays, each slot shows a little picture of how much that plugin is doing (ripples for reverbs, a pumping meter for compressors and more); the plugin's window shows a bigger one in a strip along its bottom edge. Click a strip's name to pick that track. Scroll sideways with the mouse wheel. The master is on the Mastering page.
+When there are more strips than fit, a scroll bar under the desk slides it left and right (the mouse wheel over it does too).
+## PRESETS
+PRESETS on a strip (or the PRESETS tab) shows every preset option of that track as big buttons: vocal presets, bus presets, the AI generators and your own and community presets. Buttons with a > open their list. It is drawn in the Purphex look, like the plugin windows.
 ## Plugin windows
 Each effect has its own small window. Windows stay open while you click anything else, so you can play the song and change the sound while it plays. Drag a window by its title, resize it from the bottom-right corner, and click it to bring it forward. In the window: ON or BYPASSED, the previous and next preset and the preset list, RESET (back to the plugin's defaults) and x (closes the window; the plugin keeps working). ARRANGE WINDOWS tidies them.
 ## BUSES
@@ -897,7 +900,7 @@ Press the three-lines button at the top left of Purphex Music. Your picture and 
 - Pages: Mix, Mastering and Lyrics. Projects and Community are buttons of their own (Projects opens your saved projects and nothing else; Community has ARTISTS in its header). Every page also has a BACK button that returns to the page you came from.
 - View: fit the whole song, thin / normal / tall tracks, Performance mode (almost no animation, for slower PCs), full screen and the converter window. (The frame rate is always shown in the title bar.)
 - Profile: your own profile page (banner, picture, bio, links, privacy and your tracks).
-- Fonts: the Fonts page, with 190+ fonts (drippy, graffiti, neon, gothic, retro, script, handwritten and more) for all the writing in the studio.
+- Fonts: a small Fonts window over the studio (FULLSCREEN in it for the whole page), with 190+ fonts (drippy, graffiti, neon, gothic, retro, script, handwritten and more) for all the writing in the studio.
 - Themes: pick a colour theme, or download one other people made (the Themes box has MY THEMES, PROFILE THEMES, COMMUNITY THEMES and SAVE; the theme under the mouse is outlined). The whole program changes colour at once and remembers your choice. Settings has the same choice.
 ## My Projects
 Every project you save or open is remembered here, newest first, as a card with a picture. Click a card to open it: Purphex asks you to confirm first. The BACK button at the top of the page takes you back to the tracks. The play button on a card PREVIEWS the project: you hear it without opening it and the bar along the bottom becomes a visualiser (press its square STOP button, or click the bar to jump). A project with no picture shows the Purphex logo; any picture is cropped to fill the square. The camera button adds or changes the picture (choose a JPG, PNG, GIF or BMP: it is cropped to a square and kept inside the project file, so it travels with it). The crossed camera button takes your picture off again, and RENAME gives the project a new name. The x asks whether to take the project off this list only (your file stays on your PC) or to delete the file too: it then goes into the RECYCLING BIN.
@@ -942,7 +945,7 @@ TIP: Profile pictures are never buttons. Everything about editing your profile i
 
         new HelpTopic("studio-fonts","Purphex Music", "Fonts: 190+ fonts for the studio", false, @"
 ## Pick a font
-1. Open the side menu and press Fonts. The page shows the font in use with a sentence, the alphabet, the numbers and the punctuation written in it.
+1. Open the side menu and press Fonts. A small window opens over the studio, so you can see your buttons change while you pick; FULLSCREEN shows the whole page and SMALL WINDOW goes back. It shows the font in use with a sentence, the alphabet, the numbers and the punctuation written in it.
 2. Search by name, or press a group: Drippy and horror, Gothic and blackletter, Graffiti and street, Neon and futuristic, Retro pixel and arcade, Script and calligraphy, Handwritten, Bold display, Elegant serif, Clean sans and mono, and On this PC (the fonts that came with Windows).
 3. Every card is written in its own font. Click one and the whole studio is set in it. The font is fetched from purphexmusic.com the first time (a few seconds, once) and kept on this PC.
 4. USE THE ORIGINAL FONT goes back to Bahnschrift.
@@ -967,7 +970,7 @@ Move the mouse to the line between two tracks (or above the first, or under the 
 ## Make music with an instrument
 1. Press + ADD TRACK and choose MIDI Track (Bass Lab) or Virtual Instruments (any VST plugin). Play it with your computer keyboard (A S D F G H J = white keys, W E T Y U = black keys, Z / X = octave) or click the piano.
 2. To record your playing: press REC (it turns red), then play a key. The song starts by itself and your notes are recorded onto the track. Press STOP when you are done.
-3. Open the Notes button on the track (or double-click the track) for the piano roll: draw notes by dragging on the grid, drag a note to move it, drag its right end to resize it, right-click to delete it. Everything you draw plays right away. 'Snap notes to grid' tidies your timing.
+3. Press the piano button next to MIDI REC (or double-click the track) for the piano roll: draw notes by dragging on the grid, drag a note to move it, drag its right end to resize it, right-click to delete it. Everything you draw plays right away. 'Snap notes to grid' tidies your timing.
 4. Set the tempo with BPM (or DETECT). Turn on COUNT IN for a 1 2 3 4 countdown (one a second, whatever the tempo) before it plays and METRONOME for a click on every beat. Everything lands on the beat by itself (snap).
 ## Record your voice or an instrument with a microphone
 1. Plug in a microphone. Use headphones, so the beat is not picked up by the microphone. The little box with a down arrow beside MIC chooses the microphone mode (it only changes what you record): AUTOMATIC (a gentle clean-up for most rooms), STANDARD (the microphone exactly as it is), VOICE ISOLATION (only your voice: hiss and room noise taken down hard) and WIDE SPECTRUM (the full range and the whole room with a little air on top). The mode is remembered.
@@ -1068,11 +1071,11 @@ class HelpForm : Form
         new[] { "SPLIT VOCALS + BEAT", "SPLIT VOCALS + BEAT" }, new[] { "ADD MUSIC", "ADD MUSIC" }, new[] { "Add music", "ADD MUSIC" }, new[] { "AUTO MASTERING", "AUTO MASTERING" }, new[] { "AUTO LOUDNESS", "AUTO LOUDNESS" }, new[] { "PREVIEW MASTER", "PREVIEW MASTER" }, new[] { "AUTO MIX", "AUTO MIX" }, new[] { "UNDO MIX", "Undo mix" }, new[] { "Undo mix", "Undo mix" }, new[] { "Undo Auto Mix", "Undo mix" },
         new[] { "Detect Track key", "Detect Track key" }, new[] { "Detect key", "Detect Track key" }, new[] { "THIN TRACKS", "THIN TRACKS" }, new[] { "ADD EFFECT", "+ Add Effect" }, new[] { "Add Effect", "+ Add Effect" }, new[] { "Add effect", "+ Add Effect" },
         new[] { "RECYCLING BIN", "RECYCLING BIN" }, new[] { "ADD SECTIONS", "ADD SECTIONS" }, new[] { "COUNT IN", "COUNT IN" }, new[] { "METRONOME", "METRONOME" }, new[] { "GRID SIZE", "GRID SIZE" }, new[] { "DETECT BPM", "DETECT BPM" }, new[] { "MIDI REC", "MIDI REC" }, new[] { "EXPORT", "EXPORT" }, new[] { "SAVE AS", "Save as" }, new[] { "FULLSCREEN", "FULLSCREEN" },
-        new[] { "PLAY", "PLAY" }, new[] { "STOP", "STOP" }, new[] { "LOOP", "LOOP" }, new[] { "MIC", "MIC" }, new[] { "SOUNDS", "SOUND PACKS" }, new[] { "LYRICS", "LYRICS" }, new[] { "MASTERING", "MASTERING" }, new[] { "FLEX", "FLEX" }, new[] { "SPLIT", "SPLIT" }, new[] { "CUT", "CUT" }, new[] { "GAIN", "GAIN" }, new[] { "LOCK", "LOCK" }, new[] { "DUP", "DUP" }, new[] { "FIT", "FIT" }, new[] { "STEREO", "STEREO" }, new[] { "MONO", "MONO" }, new[] { "UNDO", "UNDO" }, new[] { "REDO", "REDO" },
+        new[] { "PLAY", "PLAY" }, new[] { "STOP", "STOP" }, new[] { "LOOP", "LOOP" }, new[] { "MIC", "MIC" }, new[] { "SOUNDS", "SOUND PACKS" }, new[] { "LYRICS", "LYRICS" }, new[] { "MASTERING", "MASTERING" }, new[] { "FLEX", "FLEX" }, new[] { "SPLIT", "SPLIT" }, new[] { "GAIN", "GAIN" }, new[] { "LOCK", "LOCK" }, new[] { "FIT", "FIT" }, new[] { "STEREO", "STEREO" }, new[] { "MONO", "MONO" }, new[] { "UNDO", "UNDO" }, new[] { "REDO", "REDO" },
     };
     // the first button named in a line of the guide (null if none); a single capital word has to be written in capitals so ordinary words do not count
     internal static string FindLabelPublic(string line) { return FindLabel(line, null); }
-    // topics about a window of its own (a plugin, Bass Lab, the Video and Photo Studio): a single word there is that window's control (its GAIN, MONO, PLAY),
+    // topics about a window of its own (a plugin, Bass Lab, the Video and Purphex Photo Editor): a single word there is that window's control (its GAIN, MONO, PLAY),
     // not the studio button with the same name, so only full studio button names (+ ADD EFFECT, SPLIT VOCALS + BEAT...) get a SHOW ME
     static readonly HashSet<string> OwnWindow = new HashSet<string> { "studio-purphexvst", "studio-glitchflow", "studio-creative", "basslab", "basslab-basics", "basslab-env", "basslab-fx", "basslab-lfo", "basslab-mod", "basslab-presets" };
     // a capital word right next to the match means it is part of another control's name (SAVE AS THEME, MY SOUNDS, STEREO WIDTH, PRE GAIN): not this button

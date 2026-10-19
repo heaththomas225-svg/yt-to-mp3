@@ -306,7 +306,7 @@ body.vtb #video{position:relative}
 .pfont{display:flex;flex-direction:column;align-items:flex-start;text-align:left;padding:8px 10px;border-radius:9px}.pfont .ps{font-size:22px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}.pfont .pn{font-size:10px;color:var(--dim)}.pfont.on{border-color:var(--accent);background:#34343c}
 
 .ptabs{flex-wrap:wrap;overflow:visible}
-/* Photo Studio PRO */
+/* Purphex Photo Editor */
 .stklib .stkq,.profonts .stkq{width:100%;margin:4px 0 6px}
 .stkcats{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px}
 .stkcats .chip{padding:3px 7px;font-size:10px;border-radius:12px}
@@ -333,7 +333,7 @@ details.prosec summary{cursor:pointer;font-weight:700;font-size:11px;letter-spac
 .cvstartrow{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:14px;padding:10px;border:1px solid #3a3a42;border-radius:10px}
 .cvstartrow input[type=number]{width:72px}
 
-/* Video Studio PRO */
+/* Purphex Video Editor */
 .vprosec{border-top:1px solid var(--edge);margin-top:10px;padding-top:6px}
 .vprosec h4{margin:4px 0 6px;font-size:11px;letter-spacing:.06em;color:var(--accent2)}
 .vcurve{width:200px;height:200px;border:1px solid var(--edge);border-radius:6px;cursor:crosshair;display:block;margin:4px 0 8px}

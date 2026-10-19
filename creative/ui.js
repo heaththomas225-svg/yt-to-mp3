@@ -1,6 +1,6 @@
 'use strict';
 // =====================================================================
-//  PURPHEX CREATIVE STUDIO: the Video Studio interface (timeline, media, inspector, monitor, projects, export).
+//  PURPHEX CREATIVE STUDIO: the Purphex Video Editor interface (timeline, media, inspector, monitor, projects, export).
 // =====================================================================
 const $ = (s, r) => (r || document).querySelector(s), $$ = (s, r) => Array.from((r || document).querySelectorAll(s));
 const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
@@ -467,7 +467,7 @@ UI.fillWelcomeProjects = (list) => {
   if (list.length > 8) { const m = el('button', '', 'ALL ' + list.length + ' PROJECTS...'); m.onclick = () => { UI.closeWelcome(); UI.openDialog(); }; box.appendChild(m); }
 };
 UI.onboard = () => {
-  if (PX.P.clips.length || UI._obShown) return; UI._obShown = true; const ob = el('div', 'onboard', '<div class="ob"><h3>Welcome to Video Studio</h3><ol><li>IMPORT your clips, photos and music (or drop them in MEDIA).</li><li>Drag them onto the timeline. Trim the edges, press S to split.</li><li>Add TITLES, TRANSITIONS, EFFECTS, LYRICS or a VISUALISER.</li><li>EXPORT a video for YouTube, Instagram or TikTok.</li></ol><div class="btnrow"><button id="obSong" class="accent">MAKE A VIDEO FROM MY SONG</button><button id="obNew">NEW PROJECT...</button><button id="obX">START EDITING</button></div></div>');
+  if (PX.P.clips.length || UI._obShown) return; UI._obShown = true; const ob = el('div', 'onboard', '<div class="ob"><h3>Welcome to Purphex Video Editor</h3><ol><li>IMPORT your clips, photos and music (or drop them in MEDIA).</li><li>Drag them onto the timeline. Trim the edges, press S to split.</li><li>Add TITLES, TRANSITIONS, EFFECTS, LYRICS or a VISUALISER.</li><li>EXPORT a video for YouTube, Instagram or TikTok.</li></ol><div class="btnrow"><button id="obSong" class="accent">MAKE A VIDEO FROM MY SONG</button><button id="obNew">NEW PROJECT...</button><button id="obX">START EDITING</button></div></div>');
   $('#monitorWrap').appendChild(ob); $('#obSong', ob).onclick = () => { ob.remove(); UI.songWizard('mv'); }; $('#obNew', ob).onclick = () => { ob.remove(); UI.newProjectDialog(); }; $('#obX', ob).onclick = () => ob.remove(); PX.listeners.push(() => { if (PX.P.clips.length && ob.parentNode) ob.remove(); });
 };
 UI.init = () => {

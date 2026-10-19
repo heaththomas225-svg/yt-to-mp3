@@ -10,7 +10,7 @@ using System.Threading;
 using System.Windows.Forms;
 
 // ======================================================================
-//  PURPHEX CREATIVE STUDIO page (side panel > Video Studio / Photo Studio, tab 10). The editor itself is a page of Purphex's own
+//  PURPHEX CREATIVE STUDIO page (side panel > Purphex Video Editor / Purphex Photo Editor, tab 10). The editor itself is a page of Purphex's own
 //  (creative/*.html, inside the exe) running in WebView2; this side opens files, keeps projects, reads media with ffmpeg, encodes the export
 //  from the frames the editor renders, mixes your song from the DAW and asks the AI image service.
 // ======================================================================
@@ -77,7 +77,7 @@ partial class StudioForm
                 case "sharedToVideo": { string fn = Path.GetFileName(HubApi.S(m, "file")); string p = Path.Combine(CreativeStore.Dir("art/uploads"), fn); if (fn.Length > 0 && File.Exists(p)) CrImportPaths(new List<string> { p }); break; }
                 case "playing": crPlaying = m.ContainsKey("on") && m["on"] is bool && (bool)m["on"]; if (crPlaying) { if (eng.Playing) eng.Pause(); if (npPlaying) { HubCmd(HubPlayerJs.Pause(CurSvc ?? HubServices.All[0])); npPlaying = false; } } break;
                 case "tool": crTool = HubApi.S(m, "tool"); break;
-                // Photo Studio
+                // Purphex Photo Editor
                 case "artImport": using (var d = new OpenFileDialog { Title = "Add pictures", Filter = "Pictures|*.png;*.jpg;*.jpeg;*.webp;*.bmp;*.gif", Multiselect = m.ContainsKey("multi") }) if (d.ShowDialog(this) == DialogResult.OK) CrArtFiles(d.FileNames.ToList()); break;
                 case "artUploads": CrSend(D("t", "artUploads", "list", CrUploadList())); break;
                 case "artUploadDelete": { string fn = Path.GetFileName(HubApi.S(m, "file")); string p = Path.Combine(CreativeStore.Dir("art/uploads"), fn); if (fn.Length > 0 && File.Exists(p)) { File.Delete(p); CrUploadName(fn, null); } CrSend(D("t", "artUploads", "list", CrUploadList())); break; }
@@ -328,7 +328,7 @@ partial class StudioForm
                     if (!ProjectLibrary.SetCover(projPath, tmp, out err)) CrSend(D("t", "artDone", "msg", "Could not set the cover: " + err, "err", true)); else { ProjectIO.CoverBytes = ProjectLibrary.MakeSquare(ProjectLibrary.Find(projPath).Cover, 256); CrSend(D("t", "artDone", "msg", "It is now the cover of \"" + projName + "\".")); }
                     try { File.Delete(tmp); } catch { }
                 }
-                else if (what == "video") { string p = Path.Combine(CreativeStore.Dir("media"), name + " " + DateTime.Now.ToString("yyyyMMdd_HHmmss") + ".png"); File.WriteAllBytes(p, body); CrImportPaths(new List<string> { p }); CrSend(D("t", "artDone", "msg", "Added to Video Studio's MEDIA.")); }
+                else if (what == "video") { string p = Path.Combine(CreativeStore.Dir("media"), name + " " + DateTime.Now.ToString("yyyyMMdd_HHmmss") + ".png"); File.WriteAllBytes(p, body); CrImportPaths(new List<string> { p }); CrSend(D("t", "artDone", "msg", "Added to Purphex Video Editor's MEDIA.")); }
             }
             catch (Exception ex) { CrSend(D("t", "artDone", "msg", ex.Message, "err", true)); }
         }));
