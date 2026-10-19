@@ -37,7 +37,7 @@ class PackWriter
     {
         if (type == "Stem" || type == "Songstarter") return; double e = 0; for (int i = 0; i < b.Length; i++) e += b.L[i] * b.L[i] + b.R[i] * b.R[i]; if (e <= 0) return;
         double rms = 10 * Math.Log10(e / (2.0 * b.Length)), peak = 20 * Math.Log10(Math.Max(1e-9, b.Peak())), gain;
-        if (kind == "loop") { double target = type == "Drum Loop" || type == "Top Loop" || type == "Drum Fill" || type == "Percussion Loop" ? -11 : type == "Bass Loop" ? -12 : -15; gain = Math.Min(target - rms, -1 - peak + 2);   /* a sparse loop may go up to 2 dB past its peak: the clean limiter catches only the peaks */
+        if (kind == "loop") { double target = type == "Drum Loop" || type == "Top Loop" || type == "Drum Fill" || type == "Percussion Loop" ? -11 : type == "Bass Loop" ? -12 : -15; gain = Math.Min(target - rms, -1 - peak + (target <= -15 ? 3.5 : 2));   /* (sparse melodic loops get a little more of the clean limiter so they sit level with full ones) */   /* a sparse loop may go up to 2 dB past its peak: the clean limiter catches only the peaks */
             if (gain > -1 - peak) { b.Gain((float)Math.Pow(10, gain / 20)); Limit(b, 0.891f); return; } }
         else { bool heavy = type == "Kick" || type == "808" || type == "Sub Bass"; double cap = heavy ? -6 : -10; gain = rms > cap ? cap - rms : 0; }
         if (Math.Abs(gain) > 0.05) b.Gain((float)Math.Pow(10, gain / 20));

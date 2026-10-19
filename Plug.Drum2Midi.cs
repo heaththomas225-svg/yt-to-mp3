@@ -126,8 +126,8 @@ class Drum2MidiFx : InstrumentFx
             if (!start) continue;
             var pk = new double[B]; var R = new double[B]; for (int b = 0; b < B; b++) { pk[b] = peak(b, f); R[b] = pk[b] - before(b, f); }
             // compared with the loudest moment of each band: a kick fills the lows (its lows build for ~50 ms as its pitch drops), a snare fills the crack, a hat rises in the highs and not in the crack
-            double low8 = -200; for (int k = f; k < Math.Min(frames, f + 9); k++) low8 = Math.Max(low8, L[0][k]);
-            double crackRel = pk[2] - top[2]; bool kick = (low8 - before(0, f) >= rise[0] * 0.75 || (low8 - before(0, f) >= 4.5 && low8 - top[0] >= -6) || (R[1] >= rise[1] && crackRel < -(3 + sensS * 6))) && low8 - top[0] >= -(4 + sensK * 12) && f - lastK >= gapK;   // (kicks in one beat can differ a lot in size, and one can start on the ringing tail of the last)
+            double low8 = -200; for (int k = f; k < Math.Min(frames, f + 14); k++) low8 = Math.Max(low8, L[0][k]);   // (a boomy kick with a slow pitch sweep fills its lows up to ~80 ms after its click)
+            double crackRel = pk[2] - top[2]; bool kick = (low8 - before(0, f) >= rise[0] * 0.75 || (low8 - before(0, f) >= 4.5 && low8 - top[0] >= -6) || (R[1] >= rise[1] && crackRel < -(3 + sensS * 6)) || (low8 - before(0, f) >= 2.5 && R[1] >= rise[1] * 0.6 && crackRel < -(3 + sensS * 6))) && low8 - top[0] >= -(4 + sensK * 12) && f - lastK >= gapK;   // (kicks in one beat can differ a lot in size, and one can start on the ringing tail of the last)
             bool snare = R[2] >= rise[2] && pk[2] - top[2] >= -(3 + sensS * 6) && f - lastS >= gapK;
             // a hat rings on (still near its peak 2 to 3 frames later) where a kick's click is gone, and it rises in the highs more than in the crack (or the crack stays far from a snare's)
             Func<int, bool> hatIn = b => R[b] >= rise[b] && pk[b] - top[b] >= -(6 + sensH * 10) && Math.Max(at(b, Math.Min(frames - 1, f + 2)), at(b, Math.Min(frames - 1, f + 3))) >= pk[b] - 8 && (R[b] - R[2] > 4 || crackRel < -(7 + sensS * 6));

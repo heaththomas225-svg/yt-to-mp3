@@ -821,7 +821,11 @@ Select a track and press + Add Effect (or use the master chain). The list now ho
 
         new HelpTopic("studio-pianoroll", "Purphex Music", "The piano roll, ghost notes, the sampler and GENERATE PATTERN", false, @"
 ## Opening it
-Press PIANO ROLL at the top of the Mix page (or Plugins / PIANO on a track). It opens in the panel at the bottom. < and > (or the track button) switch tracks without closing it; every track keeps its own notes.
+Press the piano button next to MIDI REC (press it again to close the piano roll). It opens in the panel at the bottom and shows the track you click; < and > (or the track button) switch tracks. Every track keeps its own notes.
+## Choosing the sound of a track
+Any track can play notes. A track with no sound shows PIANO, A SOUND FROM SOUNDS (a sampler: drag a sound onto the piano roll), PURPHEX WOBBLE (pick a wobble preset), BASS LAB and MORE INSTRUMENTS. SOUND in the bar of the piano roll changes the sound at any time; the notes stay. An audio track (a vocal, a beat) keeps its audio: choosing a sound for it makes a new note track.
+## The Purphex Wobble
+The wobble bass instrument: a clean sub and a mid layer whose filter is swept by an LFO locked to the song's tempo. LFO RATE is a note length (1/1 to 1/32, triplets) or a rhythm of lengths that changes every beat; LFO SHAPE goes from a smooth wub to a falling yoy and a chop; FILTER can be a vowel filter (talking bass). Depth, cutoff, resonance, grit, fold, FM, detune, sub, mid, attack, release, glide, width, filter envelope and pitch drop are all real controls. The wobble presets of the UK Bassline packs open it with their sound.
 ## Writing notes
 Click the grid to add a note: keep the mouse down and it moves with you. Drag a note to move it (in time and pitch), drag its right edge to make it longer or shorter, right-click or double-click a note to delete it. Ctrl+drag selects a box of notes; Shift+drag copies the notes you drag. Notes land on SNAP (1 bar to 1/32, triplets, or off); LENGTH is the length of the next note. Two notes on the same key never overlap: a note ends where the next one on its key starts.
 ## Keys
@@ -833,7 +837,7 @@ The notes of the other tracks show faintly behind yours (drum tracks as timing c
 ## The sampler
 A sampler track plays your samples from notes. One sample: a drum keeps its pitch on any key; an 808, bass or melodic sound follows the notes from its root note. A kit: a sample on each key (the keys show their names). Make one with + ADD TRACK > Drum Track, or right-click a sound in SOUNDS > Load into a new sampler track, or drag a sound onto the piano roll. SAMPLES loads files and sets fixed pitch or follow, the root note and one-shot. An audio track stays real audio; LOAD IT INTO A SAMPLER makes a sampler track from it.
 ## GENERATE PATTERN
-Put your sounds on tracks first (a kick, a snare or clap, hi-hats, an 808...). GENERATE writes a starting beat in a style (Trap, Hip-Hop, Lo-Fi, UK Drill, Drum & Bass, House, Afrobeats, Reggaeton, UK Garage, Phonk) onto them for 4, 8 or 16 bars, each part on the right track. Each track's job comes from its sound or name; JOBS sets it yourself. With only some parts (a kick and an 808) it writes those and tells you what would make it fuller. PATTERN repeats bars along the song.
+GENERATE makes a starting beat in a style (Trap, Hip-Hop, Lo-Fi, UK Drill, Drum & Bass, House, Afrobeats, Reggaeton, UK Garage, Phonk) for 4, 8 or 16 bars, in a box at the top right of the piano roll. Drag the box onto the song (a line shows the bar it lands on) or press ADD TO SONG: it becomes its own tracks at that bar (kick, snare or clap, hats, open hat, percussion, 808), so nothing is written over your tracks. Each part plays your own sound when a track of yours has that job (its sound or name, or JOBS), else the sound of that style's pack; the 808 follows the notes and SOUND can make it Bass Lab or the Purphex Wobble. OR WRITE IT ONTO YOUR OWN TRACKS in the menu still writes the parts onto the tracks you have.
 ## Arranging
 PATTERN repeats 1, 2, 4 or 8 bars 2, 4, 8 or 16 times; Ctrl+D duplicates a selection; the notes show on the track in the arrangement, and the song plays them like any other track."),
         new HelpTopic("studio-mixer", "Purphex Music", "The mixer panel, plugin windows, buses and sends", false, @"

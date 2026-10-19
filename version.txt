@@ -1,4 +1,4 @@
-3.72.0
+3.73.0
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-The piano roll with ghost notes, the Purphex Sampler, GENERATE PATTERN, and a faster studio
-sha256=84e3bdba7651b876db6959dc0d642bbe9683b977f0c2d15fc9b1939f0b0b08c7
+The sound library rebuilt: real wobble basses, 20 UK Bassline packs, original drum kits, no copies across packs; the piano roll for any track
+sha256=a11d37fb4984259da2c807ce81f56beba87031cf50e045adb76f6d2433c713ef
