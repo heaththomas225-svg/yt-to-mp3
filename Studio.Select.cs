@@ -32,7 +32,7 @@ partial class StudioForm
     void RebuildMarquee()
     {
         var box = RectangleF.FromLTRB(Math.Min(marqueeA.X, marqueeB.X), Math.Min(marqueeA.Y, marqueeB.Y), Math.Max(marqueeA.X, marqueeB.X), Math.Max(marqueeA.Y, marqueeB.Y));
-        multiSel.Clear(); float top = ToolH + TransH + RulerH - vscroll;
+        multiSel.Clear(); float top = ArrTop + RulerH - vscroll;
         foreach (var t in eng.Tracks.ToArray())
         {
             if (t.IsBus || t.Clip == null || t.Instrument) continue; int row = eng.Tracks.IndexOf(t.Host ?? t); if (row < 0 || row >= LaneCount) continue;
@@ -43,7 +43,7 @@ partial class StudioForm
     void PaintMarquee(Graphics g)
     {
         multiSel.RemoveAll(t => !eng.Tracks.Contains(t)); if (!marqueeOn || !marqueeMoved) return;
-        var tl = TimelineRect(); var box = RectangleF.Intersect(RectangleF.FromLTRB(Math.Min(marqueeA.X, marqueeB.X), Math.Min(marqueeA.Y, marqueeB.Y), Math.Max(marqueeA.X, marqueeB.X), Math.Max(marqueeA.Y, marqueeB.Y)), Rc(tl.X, ToolH + TransH + RulerH, tl.Width, ClientSize.Height - ToolH - TransH - RulerH));
+        var tl = TimelineRect(); var box = RectangleF.Intersect(RectangleF.FromLTRB(Math.Min(marqueeA.X, marqueeB.X), Math.Min(marqueeA.Y, marqueeB.Y), Math.Max(marqueeA.X, marqueeB.X), Math.Max(marqueeA.Y, marqueeB.Y)), Rc(tl.X, ArrTop + RulerH, tl.Width, ClientSize.Height - ToolH - TransH - RulerH));
         if (box.IsEmpty) return; lastInput = DateTime.Now;
         using (var b = new SolidBrush(TM.C(46, 0, 229, 255))) g.FillRectangle(b, box); using (var pen = new Pen(TM.C(230, 0, 229, 255), 1.6f)) g.DrawRectangle(pen, box.X, box.Y, box.Width, box.Height);
     }

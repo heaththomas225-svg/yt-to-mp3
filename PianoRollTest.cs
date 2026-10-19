@@ -1,0 +1,149 @@
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Drawing;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Windows.Forms;
+
+// The piano roll: real tracks with real samples (kick, snare, hats, 808 from the sound generator) and the built-in keys, edited with the
+// mouse through the same coordinates the screen uses; ghost notes that cannot be edited; velocity; copy, duplicate, quantise, undo; zoom
+// and scroll alignment; scale and chords; sampler pitch modes and kits heard through the real engine; GENERATE; saving and reopening.
+//   csc /main:PR ... PianoRollTest.cs
+static class PR
+{
+    static int fails; static StudioForm sf; static StudioEngine eng; static readonly BindingFlags BF = BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Public;
+    static void Check(string n, bool ok, string d) { if (!ok) fails++; Console.WriteLine((ok ? "PASS  " : "FAIL  ") + n + "   " + d); Console.Out.Flush(); }
+    static T F<T>(string n) { return (T)typeof(StudioForm).GetField(n, BF).GetValue(sf); }
+    static void SetF(string n, object v) { typeof(StudioForm).GetField(n, BF).SetValue(sf, v); }
+    static object M(string n, params object[] a) { return typeof(StudioForm).GetMethod(n, BF).Invoke(sf, a); }
+    static void Pump(int ms) { var end = DateTime.Now.AddMilliseconds(ms); while (DateTime.Now < end) { Application.DoEvents(); System.Threading.Thread.Sleep(15); } }
+    static void Paint() { sf.Invalidate(); sf.Update(); Application.DoEvents(); }
+    static void Ev(string name, MouseButtons b, int clicks, int x, int y) { typeof(StudioForm).GetMethod(name, BF | BindingFlags.DeclaredOnly).Invoke(sf, new object[] { new MouseEventArgs(b, clicks, x, y, 0) }); }
+    static void Click(float x, float y) { Ev("OnMouseMove", MouseButtons.None, 0, (int)x, (int)y); Ev("OnMouseDown", MouseButtons.Left, 1, (int)x, (int)y); Ev("OnMouseUp", MouseButtons.Left, 1, (int)x, (int)y); Paint(); }
+    static void RClick(float x, float y) { Ev("OnMouseMove", MouseButtons.None, 0, (int)x, (int)y); Ev("OnMouseDown", MouseButtons.Right, 1, (int)x, (int)y); Ev("OnMouseUp", MouseButtons.Right, 1, (int)x, (int)y); Paint(); }
+    static void Drag(float x0, float y0, float x1, float y1) { Ev("OnMouseMove", MouseButtons.None, 0, (int)x0, (int)y0); Ev("OnMouseDown", MouseButtons.Left, 1, (int)x0, (int)y0); for (int i = 1; i <= 6; i++) Ev("OnMouseMove", MouseButtons.Left, 0, (int)(x0 + (x1 - x0) * i / 6), (int)(y0 + (y1 - y0) * i / 6)); Ev("OnMouseUp", MouseButtons.Left, 1, (int)x1, (int)y1); Paint(); }
+    static void Shot(string name) { Paint(); var bm = new Bitmap(sf.ClientSize.Width, sf.ClientSize.Height); sf.DrawToBitmap(bm, new Rectangle(0, 0, sf.Width, sf.Height)); bm.Save("C:/Users/thoma/nfout/" + name + ".png", System.Drawing.Imaging.ImageFormat.Png); }
+    const int SR = 44100;
+    static double BeatF { get { return SR * 60.0 / Fx.ProjectBpm; } }
+    static float XOfBeat(double beat) { return sf.PrX((long)Math.Round(beat * BeatF)); }
+    static float YOfNote(int n) { return sf.PrY(n) + sf.prRowH / 2f; }
+    static List<StudioForm.PrNote> Notes(Track t) { return StudioForm.NotesOf(t); }
+    static float[] RenderOnly(Track t, double seconds) { float[] l, r; eng.Render(0, (long)(seconds * SR), new RenderOpts { Only = new List<Track> { t } }, null, out l, out r); return l; }
+    static string Wav(string dir, string name, Buf b) { string p = Path.Combine(dir, name + ".wav"); SoundIO.WriteWav(p, b.L, b.R, SR, 16); return p; }
+    // the first frame at or after 'from' where the sound jumps up (a hit)
+    static long Onset(float[] x, long from, long to) { int win = 64; double prev = 1e-9; for (long i = Math.Max(0, from); i + win < Math.Min(x.Length, to); i += win) { double e = 0; for (long k = i; k < i + win; k++) e += x[k] * x[k]; e /= win; if (e > 1e-5 && e > prev * 8) return i; prev = Math.Max(e, 1e-9); } return -1; }
+    static double Hz(float[] x, long a, long n) { int zc = 0; for (long i = a + 1; i < a + n && i < x.Length; i++) if (x[i - 1] < 0 && x[i] >= 0) zc++; return zc * (double)SR / n; }
+
+    [STAThread]
+    static void Main()
+    { Edition.Override = Tier.Fantasy;
+        string tmp = Path.Combine(Path.GetTempPath(), "purphex_pianoroll"); try { if (Directory.Exists(tmp)) Directory.Delete(tmp, true); } catch { } Directory.CreateDirectory(tmp); StudioEnv.DataDir = tmp;
+        Application.EnableVisualStyles(); var app = (App)Activator.CreateInstance(typeof(App), true); eng = app.StudioEng; foreach (var m in eng.MasterFx) m.Bypass = true; Fx.ProjectBpm = 120;
+        // real sounds from the sound generator: a kick, a snare, a hat and an 808 of a drill pack
+        var rec = SoundCatalog.Find("uk-drill"); var items = InstantLib.ItemsOf(rec.Id); string err;
+        Func<string, SoundItem> pick = ty => items.First(s => s.Type == ty);
+        string kickP = Wav(tmp, "Kick Punch", InstantLib.MakeBuf(pick("Kick"), out err)), snareP = Wav(tmp, "Snare Crack", InstantLib.MakeBuf(pick("Snare"), out err)), hatP = Wav(tmp, "Hat Closed", InstantLib.MakeBuf(pick("Hi-Hat"), out err));
+        var e8 = items.First(s => s.Type == "808" && s.Core.Contains("Clean")); string e8P = Wav(tmp, "808 Clean Sub", InstantLib.MakeBuf(e8, out err));
+        sf = new StudioForm(app); sf.ClientSize = new Size(1600, 900); sf.Show(); Pump(400); Paint();
+        var kick = sf.NewSamplerTrack("Kick", kickP, false, 60); var snare = sf.NewSamplerTrack("Snare", snareP, false, 60); var hats = sf.NewSamplerTrack("Hats", hatP, false, 60); var bass = sf.NewSamplerTrack("808", e8P, true, 36);
+        var keysT = sf.AddMidiTrack(); keysT.Name = "Melody"; SetF("recOn", false);
+        Check("tracks with real samples load (kick, snare, hats, 808) and a MIDI track", new[] { kick, snare, hats, bass }.All(t => t != null && t.Instrument && t.Fx.OfType<SamplerFx>().First().Zones.Count == 1 && t.Fx.OfType<SamplerFx>().First().Zones[0].L != null), "");
+
+        // ---- opening it: the PIANO ROLL button at the top, a tab of the bottom panel ----
+        Paint(); var bm0 = (Dictionary<string, RectangleF>)typeof(StudioForm).GetField("btnMap", BF).GetValue(sf); Check("there is a PIANO ROLL button at the top of the studio", bm0.Keys.Any(k => k.ToUpperInvariant() == "PIANO ROLL"), "");
+        sf.OpenPianoRoll(kick); sf.prSnap = 2; sf.prLenBeats = 0.25; Paint(); Paint();
+        Check("the piano roll opens on the picked track", sf.PrShown && sf.prTrack == kick, sf.prTrack == null ? "none" : sf.prTrack.Name);
+        // ---- kick: four on the beats of bar 1 (clicks on the grid) ----
+        for (int b = 0; b < 4; b++) Click(XOfBeat(b) + 3, YOfNote(60));
+        var kn = Notes(kick); Check("clicking the grid adds notes exactly on the beats (snap 1 beat)", kn.Count == 4 && kn.Select(n => n.Start).SequenceEqual(new[] { 0L, (long)Math.Round(BeatF), (long)Math.Round(2 * BeatF), (long)Math.Round(3 * BeatF) }.Select(v => v)) && kn.All(n => n.Note == 60), string.Join(",", kn.Select(n => n.Start)));
+        Check("the other tracks are untouched", Notes(snare).Count == 0 && Notes(hats).Count == 0, "");
+        Shot("pr-kick");
+        // ---- snare: the kick shows as ghost notes; clicking where a ghost note is makes a snare note, the kick stays ----
+        sf.PrSetTrack(snare); Paint(); Paint(); var ghosts = (IList)typeof(StudioForm).GetMethod("PrGhostTracks", BF).Invoke(sf, null);
+        Check("switching to the snare shows the kick as ghost notes", ghosts.Count == 1 && sf.prNotes.Count == 0, ghosts.Count + " ghost tracks");
+        Click(XOfBeat(1) + 3, YOfNote(60)); Click(XOfBeat(3) + 3, YOfNote(60));
+        Check("a click on a ghost note's spot adds a snare note and never edits the kick", Notes(snare).Count == 2 && Notes(kick).Count == 4, Notes(snare).Count + " snare, " + Notes(kick).Count + " kick");
+        RClick(XOfBeat(0) + 3, YOfNote(60)); Check("right-clicking a ghost note does not delete it (it is not a note of this track)", Notes(kick).Count == 4, "");
+        Shot("pr-ghosts");
+        // ---- hats: 16ths ----
+        sf.PrSetTrack(hats); sf.prSnap = 4; Paint(); for (int s = 0; s < 16; s++) Click(XOfBeat(s * 0.25) + 2, YOfNote(60));
+        var hn = Notes(hats); Check("sixteen hi-hats on the 1/16 grid", hn.Count == 16 && hn.Select((n, i) => Math.Abs(n.Start - Math.Round(i * 0.25 * BeatF)) <= 1).All(x => x), hn.Count + "");
+        // velocity: drag a bar without moving the note
+        { var n3 = hn[2]; float vx = sf.PrX(n3.Start) + 2; var vel = sf.prVel; Drag(vx, vel.Bottom - 10, vx, vel.Y + 8); var n3b = Notes(hats).First(n => n.Start == n3.Start);
+          Check("the velocity lane changes a note's velocity and leaves it where it is", n3b.Vel > 110 && Notes(hats).Count == 16, n3b.Vel + ""); }
+        { var ns = Notes(hats); var ctx = ns.OrderBy(n => n.Start).ToList(); typeof(StudioForm).GetField("prSel", BF); sf.prSel.Clear(); foreach (var n in sf.prNotes) sf.prSel.Add(n); }
+        // ---- moving and resizing ----
+        { sf.prSel.Clear(); var target = sf.prNotes.OrderBy(n => n.Start).ElementAt(5); long s0 = target.Start; float x = sf.PrX(target.Start) + 3, y = YOfNote(target.Note); Drag(x, y, x + (float)(sf.prPpb * 0.25 * 2), y - sf.prRowH * 2);
+          var moved = Notes(hats).OrderBy(n => n.Start).ToList(); Check("dragging a note moves it in time and pitch (on the grid)", moved.Any(n => Math.Abs(n.Start - (s0 + Math.Round(0.5 * BeatF))) <= 1 && n.Note == 62), "");
+          M("DoUndo"); Paint(); Check("undo puts it back", Notes(hats).All(n => n.Note == 60) && Notes(hats).Count == 16, "");
+          M("DoRedo"); Paint(); Check("redo moves it again", Notes(hats).Any(n => n.Note == 62), ""); M("DoUndo"); Paint(); }
+        { sf.PrSetTrack(kick); Paint(); Paint(); var target = sf.prNotes.OrderBy(n => n.Start).First(); float x1 = sf.PrX(target.Start + target.Len) - 1, y = YOfNote(target.Note); long len0 = target.Len; Drag(x1, y, x1 + (float)(sf.prPpb * 0.5), y);
+          var after = Notes(kick).OrderBy(n => n.Start).First(); Check("dragging a note's right edge makes it longer (on the grid)", after.Len > len0 + BeatF * 0.4 && Notes(kick).Count == 4, len0 + " -> " + after.Len); M("DoUndo"); Paint();
+          sf.PrSetTrack(hats); Paint(); Paint(); var h0 = sf.prNotes.OrderBy(n => n.Start).First(); float hx = sf.PrX(h0.Start + h0.Len) - 1; Drag(hx, YOfNote(60), hx + (float)(sf.prPpb * 0.5), YOfNote(60));
+          var hs2 = Notes(hats).OrderBy(n => n.Start).ToList(); Check("a note stretched over the next note on its key ends where that note starts (they never overlap)", hs2.Count == 16 && hs2[0].Start + hs2[0].Len <= hs2[1].Start, hs2[0].Len + ""); M("DoUndo"); Paint(); }
+        // ---- box select, delete; copy and duplicate ----
+        { Ev("OnMouseMove", MouseButtons.None, 0, (int)XOfBeat(0) + 1, (int)YOfNote(60) - 20); typeof(StudioForm).GetProperty("ModifierKeys"); }
+        sf.PrSetTrack(kick); Paint(); sf.prSel.Clear(); foreach (var n in sf.prNotes) sf.prSel.Add(n); sf.PrDuplicate(); Paint();
+        var kd = Notes(kick); Check("duplicate (Ctrl+D) copies the selected bar after itself", kd.Count == 8 && kd.Count(n => n.Start >= (long)Math.Round(4 * BeatF) - 1) == 4, kd.Count + "");
+        sf.prFocus = true; Check("Delete removes the selected notes (only this track's)", (bool)M("PrKey", Keys.Delete) && Notes(kick).Count == 4 && Notes(snare).Count == 2, Notes(kick).Count + "");
+        // ---- quantise ----
+        { sf.prSnap = 8; Paint(); Click(XOfBeat(2.18) , YOfNote(64)); var off = Notes(kick).First(n => n.Note == 64); sf.prSnap = 4; sf.prSel.Clear(); sf.prSel.Add(sf.prNotes.First(n => n.Note == 64)); sf.PrQuantise(); var q = Notes(kick).First(n => n.Note == 64);
+          Check("a note off the grid (snap off) is moved onto the grid by QUANTISE", Math.Abs(off.Start - Math.Round(2.18 * BeatF)) < BeatF * 0.02 && Math.Abs(q.Start - Math.Round(2.25 * BeatF)) <= 1, off.Start + " -> " + q.Start); sf.prSel.Clear(); sf.prSel.Add(sf.prNotes.First(n => n.Note == 64)); M("PrKey", Keys.Delete); }
+        // ---- zoom and scroll: clicks still land where they are drawn ----
+        { sf.prPpb = 150; sf.prScrollBeats = 6.5; sf.prRowH = 20; sf.prScrollY = 900; sf.prSnap = 4; Paint(); Paint(); int note = sf.PrNoteAt(sf.prGrid.Y + sf.prGrid.Height / 2); double beat = 7.0; Click(XOfBeat(beat) + 2, YOfNote(note));
+          var z = Notes(kick).FirstOrDefault(n => n.Note == note); Check("zoomed in and scrolled, a click still makes the note exactly where it was clicked", z != null && Math.Abs(z.Start - Math.Round(beat * BeatF)) <= 1, z == null ? "none" : z.Start + " vs " + Math.Round(beat * BeatF)); if (z != null) { sf.prSel.Clear(); sf.prSel.Add(sf.prNotes.First(n => n.Note == note)); M("PrKey", Keys.Delete); }
+          sf.prPpb = 64; sf.prScrollBeats = 0; sf.prRowH = 14; sf.prScrollY = -1; Paint(); Paint(); }
+        // ---- scale lock and chords (on the melody track) ----
+        sf.PrSetTrack(keysT); Paint(); Paint(); sf.prKeyRoot = 9; sf.prScale = 1; sf.prLock = true; sf.prSnap = 2; Paint();
+        Click(XOfBeat(0) + 3, YOfNote(58)); var sn = Notes(keysT); Check("with LOCK on an A minor scale, a note clicked off the scale lands on it (A# -> A)", sn.Count == 1 && sn[0].Note == 57, sn.Count > 0 ? StudioForm.PrNoteName(sn[0].Note) : "none");
+        sf.prLock = false; sf.prScale = 0; sf.prChord = 2; Click(XOfBeat(1) + 3, YOfNote(57)); var ch = Notes(keysT).Where(n => Math.Abs(n.Start - BeatF) < 2).Select(n => n.Note).OrderBy(n => n).ToList();
+        Check("CHORDS: minor chord adds the three notes at once", ch.SequenceEqual(new[] { 57, 60, 64 }), string.Join(",", ch)); sf.prChord = 0;
+        // ---- the real engine plays what the piano roll wrote ----
+        { var kr = RenderOnly(kick, 2.5); bool ok = true; string got = ""; for (int b = 0; b < 4; b++) { long want = (long)Math.Round(b * BeatF), o = Onset(kr, want - 400, want + 2000); got += o + " "; if (o < 0 || Math.Abs(o - want) > 0.004 * SR) ok = false; }
+          Check("the engine plays the kick notes at their places (within 4 ms)", ok, got); }
+        { var sp = kick.Fx.OfType<SamplerFx>().First(); lock (kick.Midi) { kick.Midi.Clear(); kick.Midi.Add(new MidiEv { Frame = 0, S = 0x90, D1 = 60, D2 = 110 }); kick.Midi.Add(new MidiEv { Frame = 2000, S = 0x80, D1 = 60 }); kick.Midi.Add(new MidiEv { Frame = SR, S = 0x90, D1 = 72, D2 = 110 }); kick.Midi.Add(new MidiEv { Frame = SR + 2000, S = 0x80, D1 = 72 }); }
+          var kr = RenderOnly(kick, 2); double d = 0, e = 0; for (int i = 0; i < SR / 2; i++) { d += Math.Abs(kr[i] - kr[SR + i]); e += Math.Abs(kr[i]); }
+          Check("a fixed-pitch drum sample sounds the same on any key (C4 and C5 give the same kick)", d / e < 0.02, (d / e).ToString("0.0000")); }
+        { lock (bass.Midi) { bass.Midi.Clear(); bass.Midi.Add(new MidiEv { Frame = 0, S = 0x90, D1 = 36, D2 = 110 }); bass.Midi.Add(new MidiEv { Frame = SR - 4000, S = 0x80, D1 = 36 }); bass.Midi.Add(new MidiEv { Frame = SR, S = 0x90, D1 = 43, D2 = 110 }); bass.Midi.Add(new MidiEv { Frame = 2 * SR - 4000, S = 0x80, D1 = 43 }); }
+          var br = RenderOnly(bass, 2.2); double h1 = Hz(br, 8000, 16000), h2 = Hz(br, SR + 8000, 16000), ratio = h2 / Math.Max(1, h1);
+          Check("the 808 follows the notes: G (7 semitones up from its C root) plays it 1.5x higher", Math.Abs(ratio - Math.Pow(2, 7 / 12.0)) < 0.06, h1.ToString("0.0") + " Hz -> " + h2.ToString("0.0") + " Hz (x" + ratio.ToString("0.00") + ")");
+          double tail = 0; for (int i = (int)(2.1 * SR); i < br.Length; i++) tail = Math.Max(tail, Math.Abs(br[i])); Check("a note that ends stops its sound (no stuck notes)", tail < 0.02, tail.ToString("0.0000")); }
+        // a kit: one track, a sample per key; an unmapped key is silent
+        { var kitT = sf.NewSamplerTrack("Kit", null, false, 60); var ks = kitT.Fx.OfType<SamplerFx>().First(); ks.AddToKit(kickP, "Kick", 36); ks.AddToKit(snareP, "Snare", 38);
+          lock (kitT.Midi) { foreach (var p in new[] { new[] { 0, 36 }, new[] { SR / 2, 38 }, new[] { SR, 40 } }) { kitT.Midi.Add(new MidiEv { Frame = p[0], S = 0x90, D1 = (byte)p[1], D2 = 110 }); kitT.Midi.Add(new MidiEv { Frame = p[0] + 1000, S = 0x80, D1 = (byte)p[1] }); } kitT.Midi.Sort((a, b) => a.Frame.CompareTo(b.Frame)); }
+          var kr = RenderOnly(kitT, 1.6); double e1 = 0, e2 = 0, e3 = 0; for (int i = 0; i < 6000; i++) { e1 += kr[i] * kr[i]; e2 += kr[SR / 2 + i] * kr[SR / 2 + i]; e3 += kr[SR + 4000 + i] * kr[SR + 4000 + i]; }
+          Check("a kit plays the kick on C2 and the snare on D2; a key with no sample is silent", e1 > 1 && e2 > 1 && e3 < e1 * 0.01 && ks.KeyName(38) == "Snare", e1.ToString("0") + " / " + e2.ToString("0") + " / " + e3.ToString("0.00"));
+          sf.PrSetTrack(kitT); Paint(); Paint(); Shot("pr-kit"); M("DeleteTrackQuiet", kitT); }
+        // mute is respected
+        { kick.Mute = true; float[] l, r; eng.Render(0, SR, new RenderOpts { Only = new List<Track> { kick } }, null, out l, out r); double e = l.Sum(v => (double)v * v); kick.Mute = false; Check("a muted track's notes are not heard", e < 1e-6, e.ToString("0.000000")); }
+
+        // ---- GENERATE: a starting beat on the tracks by their jobs ----
+        foreach (var t in new[] { kick, snare, hats, bass }) lock (t.Midi) t.Midi.Clear();
+        Check("each track's job is found from its sound (kick, snare, hats, 808)", sf.JobOf(kick) == 0 && sf.JobOf(snare) == 1 && sf.JobOf(hats) == 2 && sf.JobOf(bass) == 5 && sf.JobOf(keysT) == -1, sf.JobOf(kick) + "," + sf.JobOf(snare) + "," + sf.JobOf(hats) + "," + sf.JobOf(bass));
+        string msg = sf.GeneratePattern(0, 4, 0, true);
+        { var k2 = Notes(kick); var b2 = Notes(bass); double step = SR * 60.0 / 140 / 4;
+          Check("Trap: 140 BPM and real notes on the kick, snare, hats and 808 for 4 bars", Fx.ProjectBpm == 140 && k2.Count > 8 && Notes(snare).Count >= 4 && Notes(hats).Count > 40 && b2.Count == k2.Count, msg);
+          Check("the kick lands on the trap grid and the 808 plays with every kick", k2.All(n => Math.Abs(n.Start / step - Math.Round(n.Start / step)) < 0.01) && b2.Select(n => n.Start).SequenceEqual(k2.Select(n => n.Start)), "");
+          { var hs = Notes(hats).OrderBy(n => n.Start).ToList(); bool dbl = false; for (int i = 1; i < hs.Count; i++) if (hs[i].Start - hs[i - 1].Start < step * 0.75) dbl = true; Check("the hi-hats have rolls (quick doubles) and loud and soft hits", hs.Select(n => n.Vel).Distinct().Count() >= 2 && dbl, hs.Count + " hats"); } }
+        { foreach (var t in new[] { kick, snare, hats, bass }) lock (t.Midi) t.Midi.Clear(); var jobs = F<Dictionary<Track, int>>("prJobs"); jobs[snare] = -1; jobs[hats] = -1; string m2 = sf.GeneratePattern(3, 4, 0, false);
+          Check("with only a kick and an 808 it still writes their parts, and says what would make it fuller", Notes(kick).Count > 0 && Notes(bass).Count > 0 && Notes(snare).Count == 0 && m2.Contains("snare") && m2.Contains("hi-hats"), m2); jobs.Clear(); }
+        { foreach (var t in eng.Tracks.ToList()) M("DeleteTrackQuiet", t); string m3 = sf.GeneratePattern(0, 4, 0, false); Check("with no sounds yet it says to add them on tracks first", m3.StartsWith("Add your sounds first"), m3); }
+
+        // ---- saving and reopening: notes, samples and the piano roll's settings come back ----
+        { kick = sf.NewSamplerTrack("Kick", kickP, false, 60); bass = sf.NewSamplerTrack("808", e8P, true, 36); sf.GeneratePattern(0, 2, 0, false); sf.prKeyRoot = 4; sf.prScale = 1; sf.prSnap = 5; sf.prGhostOff.Add(bass);
+          var kn0 = Notes(kick); var bn0 = Notes(bass); ProjectIO.Roll = sf.PrPrefsText(); string path = Path.Combine(tmp, "beat.ytmproj"); ProjectIO.Save(eng, path);
+          var e2 = new StudioEngine(); ProjectIO.Load(e2, path, s => { }); var k3 = e2.Tracks.First(t => t.Name == "Kick"); var b3 = e2.Tracks.First(t => t.Name == "808"); var s3 = b3.Fx.OfType<SamplerFx>().First();
+          Check("save and reopen: every note (time, length, pitch, velocity) comes back", Notes(k3).Count == kn0.Count && Notes(b3).Select(n => n.Start + "/" + n.Len + "/" + n.Note + "/" + n.Vel).SequenceEqual(bn0.Select(n => n.Start + "/" + n.Len + "/" + n.Note + "/" + n.Vel)), Notes(k3).Count + " kick notes");
+          Check("and the sampler's sample, root note and pitch mode", s3.Zones.Count == 1 && s3.Zones[0].Path == e8P && s3.Zones[0].Root == 36 && s3.Zones[0].Follow && s3.Zones[0].L != null, s3.Zones.Count > 0 ? s3.Zones[0].Path : "no zone");
+          string roll = ProjectIO.Roll; sf.PrApplyPrefs(""); sf.PrApplyPrefs(roll); Check("and the piano roll's settings (key, scale, snap, hidden ghosts)", sf.prKeyRoot == 4 && sf.prScale == 1 && sf.prSnap == 5 && sf.prGhostOff.Contains(bass), roll); }
+        // ---- an audio track stays audio; LOAD IT INTO A SAMPLER makes a sampler track from it ----
+        { var clip = AudioClip.FromArrays(new float[SR], new float[SR], "loop"); for (int i = 0; i < SR; i++) clip.L[i] = clip.R[i] = (float)(0.3 * Math.Sin(i * 0.05)); var at = StudioEngine.NewTrack("Loop", "audio", clip); eng.Tracks.Add(at);
+          Check("an audio track is not a note track (its clip stays real audio)", !StudioForm.PrCanEdit(at), ""); int before = eng.Tracks.Count; M("PrAudioToSampler", at); var st = eng.Tracks.Last();
+          Check("LOAD IT INTO A SAMPLER makes a new sampler track that plays it from notes", eng.Tracks.Count == before + 1 && st.Fx.OfType<SamplerFx>().Any(z => z.Zones.Count == 1 && z.Zones[0].L != null) && at.Clip == clip, ""); }
+
+        Console.WriteLine(fails == 0 ? "=== piano roll checks passed ===" : "=== " + fails + " FAILED ===");
+        try { sf.Close(); } catch { } Environment.Exit(fails == 0 ? 0 : 1);
+    }
+}

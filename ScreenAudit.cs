@@ -147,10 +147,11 @@ static class AU
     static void CheckLogo()
     {
         var regs = ((IEnumerable)typeof(StudioForm).GetField("regs", BF).GetValue(sf)).Cast<HitReg>().ToList(); float H = sf.ClientSize.Height;
-        var bar = regs.FindAll(r => r.R.Y > H - 46 && r.R.Height > 25 && r.R.Height < 40 && r.R.Width > 300).OrderByDescending(r => r.R.Width).FirstOrDefault();   // the strip between the arrows
-        var logo = regs.FindAll(r => r.R.Y > H - 46 && r.R.Width > 30 && r.R.Width < 60 && r.R.Height > 24 && r.OnDouble != null).FirstOrDefault();
-        if (bar == null || logo == null) { Report("bottom bar: could not find the bar or its logo"); return; }
-        float barMid = bar.R.X + bar.R.Width / 2, logoMid = logo.R.X + logo.R.Width / 2; if (logoMid < bar.R.X + 4 || logoMid > bar.R.Right - 4) Report("bottom bar: the logo is at " + (int)logoMid + " which is off the bar (it rides on the bar between the two arrows)");
-        if (bar.R.Bottom > H + 1 || bar.R.X < 0 || bar.R.Right > sf.ClientSize.Width + 1) Report("bottom bar: it does not fit the window");
+        float T0 = (float)typeof(StudioForm).GetProperty("ArrTop", BF).GetValue(sf, null) - 46;   /* the scroll bar has its own band above the timeline ruler */
+        var bar = regs.FindAll(r => r.R.Y >= T0 && r.R.Y < T0 + 46 && r.R.Height > 25 && r.R.Height < 40 && r.R.Width > 300).OrderByDescending(r => r.R.Width).FirstOrDefault();   // the strip between the arrows
+        var logo = regs.FindAll(r => r.R.Y >= T0 && r.R.Y < T0 + 46 && r.R.Width > 30 && r.R.Width < 60 && r.R.Height > 24 && r.OnDouble != null).FirstOrDefault();
+        if (bar == null || logo == null) { Report("scroll bar: could not find the bar or its logo"); return; }
+        float barMid = bar.R.X + bar.R.Width / 2, logoMid = logo.R.X + logo.R.Width / 2; if (logoMid < bar.R.X + 4 || logoMid > bar.R.Right - 4) Report("scroll bar: the logo is at " + (int)logoMid + " which is off the bar (it rides on the bar between the two arrows)");
+        if (bar.R.Bottom > H + 1 || bar.R.X < 0 || bar.R.Right > sf.ClientSize.Width + 1) Report("scroll bar: it does not fit the window");
     }
 }

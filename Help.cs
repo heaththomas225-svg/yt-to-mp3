@@ -819,6 +819,23 @@ Select a track and press + Add Effect (or use the master chain). The list now ho
 - Pitch and delay-based effects can add a small delay; Purphex lines the tracks up for you.
 - The fixed-interval harmonizers add the notes you choose (they do not follow your key)."),
 
+        new HelpTopic("studio-pianoroll", "Purphex Music", "The piano roll, ghost notes, the sampler and GENERATE PATTERN", false, @"
+## Opening it
+Press PIANO ROLL at the top of the Mix page (or Plugins / PIANO on a track). It opens in the panel at the bottom. < and > (or the track button) switch tracks without closing it; every track keeps its own notes.
+## Writing notes
+Click the grid to add a note: keep the mouse down and it moves with you. Drag a note to move it (in time and pitch), drag its right edge to make it longer or shorter, right-click or double-click a note to delete it. Ctrl+drag selects a box of notes; Shift+drag copies the notes you drag. Notes land on SNAP (1 bar to 1/32, triplets, or off); LENGTH is the length of the next note. Two notes on the same key never overlap: a note ends where the next one on its key starts.
+## Keys
+Delete removes the selected notes, Ctrl+A selects all, Ctrl+C copies, Ctrl+V pastes at the song's position, Ctrl+D puts a copy right after the selection, Ctrl+Q quantises, the arrows move the selection by one step or one semitone (Shift: an octave), Ctrl+Z and Ctrl+Y undo and redo.
+## Velocity, scale and chords
+Under the grid, each note has a velocity bar: drag it up or down (the note does not move). Right-click the grid for louder, softer, or loud and soft hats. SCALE lights up the notes of a key and scale; LOCK keeps new and moved notes on it. CHORDS adds a whole chord with one click. LABELS shows note names; PREVIEW plays notes as you add or click them, on the track's own sound.
+## Ghost notes
+The notes of the other tracks show faintly behind yours (drum tracks as timing columns), so you can line up a snare with the kick and hats with both. They are only a guide: they cannot be clicked, moved or deleted, and they never play twice. GHOSTS turns them off or picks which tracks show.
+## The sampler
+A sampler track plays your samples from notes. One sample: a drum keeps its pitch on any key; an 808, bass or melodic sound follows the notes from its root note. A kit: a sample on each key (the keys show their names). Make one with + ADD TRACK > Drum Track, or right-click a sound in SOUNDS > Load into a new sampler track, or drag a sound onto the piano roll. SAMPLES loads files and sets fixed pitch or follow, the root note and one-shot. An audio track stays real audio; LOAD IT INTO A SAMPLER makes a sampler track from it.
+## GENERATE PATTERN
+Put your sounds on tracks first (a kick, a snare or clap, hi-hats, an 808...). GENERATE writes a starting beat in a style (Trap, Hip-Hop, Lo-Fi, UK Drill, Drum & Bass, House, Afrobeats, Reggaeton, UK Garage, Phonk) onto them for 4, 8 or 16 bars, each part on the right track. Each track's job comes from its sound or name; JOBS sets it yourself. With only some parts (a kick and an 808) it writes those and tells you what would make it fuller. PATTERN repeats bars along the song.
+## Arranging
+PATTERN repeats 1, 2, 4 or 8 bars 2, 4, 8 or 16 times; Ctrl+D duplicates a selection; the notes show on the track in the arrangement, and the song plays them like any other track."),
         new HelpTopic("studio-mixer", "Purphex Music", "The mixer panel, plugin windows, buses and sends", false, @"
 ## Opening it
 Press MIXER (above the track list, on the left) or ALL PLUGINS. The panel opens under the arrangement and shows the track you picked. Drag its top edge to make it taller or shorter; HIDE puts it away and the arrangement gets the space back. It remembers how you left it.

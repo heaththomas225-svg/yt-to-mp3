@@ -107,7 +107,7 @@ partial class StudioForm
         if (t == null || !t.Instrument) { Toast("Select an instrument track first (add one with + ADD TRACK, then MIDI Track)."); return; }
         InstrumentFx ins = null; foreach (var f in t.Fx) { var i = f as InstrumentFx; if (i != null && i.IsInstrument) { ins = i; break; } }
         if (ins == null) { Toast("This track has no instrument."); return; }
-        ins.Owner = t; var w = new PianoRollForm(t, ins, eng, () => { if (eng.Playing) eng.Pause(); else PlayGuard(); }); w.Show(this);
+        ins.Owner = t; OpenPianoRoll(t);
     }
 
     void NewProject()
@@ -116,6 +116,6 @@ partial class StudioForm
         if (mic != null) StopMic(); eng.Stop();
         lock (eng.Sync) { foreach (var t in eng.Tracks) retired.AddRange(t.Fx); eng.Tracks.Clear(); }
         foreach (var f in retired) { var ic = f as InstrumentFx; if (ic != null) ic.CloseWindow(); }
-        bpmUserSet = false; bpmAutoSet = false; ProjectIO.Lyrics = ""; ProjectIO.LyricsTitle = ""; ProjectIO.CoverBytes = null; undo.Clear(); redo.Clear(); projPath = ""; projName = "Untitled project"; selTrack = 0; selFx = -1; scroll = 0; FitView(); Toast("New project. Add music, or press + INSTRUMENT to make something.");
+        PrApplyPrefs(""); bpmUserSet = false; bpmAutoSet = false; ProjectIO.Lyrics = ""; ProjectIO.LyricsTitle = ""; ProjectIO.CoverBytes = null; undo.Clear(); redo.Clear(); projPath = ""; projName = "Untitled project"; selTrack = 0; selFx = -1; scroll = 0; FitView(); Toast("New project. Add music, or press + INSTRUMENT to make something.");
     }
 }

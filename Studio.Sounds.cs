@@ -17,7 +17,7 @@ partial class StudioForm
 
     void OpenSounds()
     {
-        if (!soundsLoaded) { soundsLoaded = true; SoundLibrary.Load(); }
+        if (!soundsLoaded) { soundsLoaded = true; LibLoader.Done = () => { try { BeginInvoke(new Action(() => { sndDirty = true; Invalidate(); })); } catch { } }; LibLoader.Start(); }
         tab = 0; soundsOpen = true; sndDirty = true; EnsureSoundBox();
     }
     // the SOUND PACKS button: the packs first (install, browse); SOUNDS is one click away
@@ -126,7 +126,8 @@ partial class StudioForm
     // dropped from the browser onto the timeline
     void DropSampleAt(Point p)
     {
-        var s = sndDrag; sndDrag = null; sndDragging = false; if (s == null) return; var tl = TimelineRect(); float top = ToolH + TransH + RulerH;
+        if (sndDrag != null && PrDrop(sndDrag, p)) return;   // on the piano roll: into the sampler (a kit's key, or its sample)
+        var s = sndDrag; sndDrag = null; sndDragging = false; if (s == null) return; var tl = TimelineRect(); float top = ArrTop + RulerH;
         if (p.X < HeadW || p.X > tl.Right || p.Y < top) { Toast("Drop it on the timeline (the area to the right of the track names)."); return; }
         long frame = Snap(scroll + (long)((p.X - HeadW) * spp)); int lane = (int)((p.Y - top + vscroll) / LaneH); int at = lane >= LaneCount ? LaneCount : lane + 1;
         dropHost = lane >= 0 && lane < LaneCount ? eng.Tracks[lane] : null;   // dropped on a row: it goes on that row (overlapping whatever is there)
@@ -134,10 +135,23 @@ partial class StudioForm
     }
     void AddSampleAtNeedle(SoundItem s) { string msg = AddSample(s, Snap(DispPos), eng.Tracks.Count); if (msg != null) Toast(msg); }
 
+    // the sounds panel while the library loads in the background
+    void PaintLibraryLoading(Graphics g)
+    {
+        float x = ClientSize.Width - PanelW, y = ToolH + TransH, w = PanelW, h = ClientSize.Height - y; var pr = Rc(x, y, w, h);
+        using (var br = new SolidBrush(TM.C(255, 18, 10, 34))) g.FillRectangle(br, pr); using (var pen = new Pen(Color.FromArgb(150, NeonViolet))) g.DrawLine(pen, x, y, x, y + h); Reg(pr, () => { });
+        if (soundBox != null && soundBox.Visible) soundBox.Visible = false; if (packBox != null && packBox.Visible) packBox.Visible = false;
+        var cl = Rc(x + w - 38, y + 8, 28, 26); Btn(g, cl, "x", 0, () => CloseSounds(), 13);
+        Txt(g, "LOADING THE SOUND LIBRARY...", 16, Ink, Rc(x, y + h / 2 - 40, w, 26), StringAlignment.Center, true);
+        Txt(g, "Your sounds are being read in the background. Keep working: this panel fills in by itself in a few seconds.", 11, DimC, Rc(x + 30, y + h / 2 - 8, w - 60, 40), StringAlignment.Center, false);
+        float ph = (Environment.TickCount % 1600) / 1600f; var bar = Rc(x + w / 2 - 120, y + h / 2 + 40, 240, 6); FillRR(g, TM.C(200, 8, 4, 18), bar, 3); FillRR(g, NeonCyan, Rc(bar.X + (bar.Width - 60) * ph, bar.Y, 60, bar.Height), 3); Invalidate();
+    }
     // ---- the browser panel ----
     void PaintSoundsPanel(Graphics g)
     {
-        if (!soundsLoaded) { soundsLoaded = true; SoundLibrary.Load(); } EnsureSoundBox(); if (sndDirty) RefreshSounds(); Auditioner.Tick();
+        if (!soundsLoaded) { soundsLoaded = true; LibLoader.Start(); }
+        if (!LibLoader.Ready) { PaintLibraryLoading(g); return; }   // (it loads in the background: the studio keeps working)
+        EnsureSoundBox(); if (sndDirty) RefreshSounds(); Auditioner.Tick();
         float x = ClientSize.Width - PanelW, y = ToolH + TransH, w = PanelW, h = ClientSize.Height - y; var pr = Rc(x, y, w, h);
         using (var br = new SolidBrush(TM.C(255, 18, 10, 34))) g.FillRectangle(br, pr); using (var pen = new Pen(Color.FromArgb(150, NeonViolet))) g.DrawLine(pen, x, y, x, y + h); Reg(pr, () => { });
         SoundTabs(g, x + 14, y + 7, false);
@@ -419,7 +433,8 @@ partial class StudioForm
     }
     void SoundMenu(SoundItem s)
     {
-        var m = Win.NewMenu(); m.Items.Add("Add to timeline").Click += (a, b) => AddSampleAtNeedle(s); m.Items.Add(SoundLibrary.Favourites.Contains(s.Id) ? "Remove from favourites" : "Add to favourites").Click += (a, b) => { SoundLibrary.ToggleFav(s); sndDirty = true; }; m.Items.Add(new ToolStripSeparator());
+        var m = Win.NewMenu(); m.Items.Add("Add to timeline").Click += (a, b) => AddSampleAtNeedle(s);
+        if (s.IsAudio) { m.Items.Add("Load into a new sampler track (play it from notes)").Click += (a, b) => SoundToSampler(s); if (PrShown && PrSampler != null) m.Items.Add("Put it on the piano roll's sampler (" + prTrack.Name + ")").Click += (a, b) => { PushUndo(); var sp = PrSampler; string e2 = sp.Zones.Count == 0 ? sp.SetSingle(s.Path, s.Name.Replace(s.PackName + " - ", ""), s.Type == "808" || s.Group == "Bass", 60) : sp.AddToKit(s.Path, s.Name.Replace(s.PackName + " - ", ""), 36 + sp.Zones.Count); Toast(e2 ?? "Done"); }; } m.Items.Add(SoundLibrary.Favourites.Contains(s.Id) ? "Remove from favourites" : "Add to favourites").Click += (a, b) => { SoundLibrary.ToggleFav(s); sndDirty = true; }; m.Items.Add(new ToolStripSeparator());
         lock (SoundLibrary.Lock) foreach (var kv in SoundLibrary.Collections) { string n = kv.Key; bool inC = kv.Value.Contains(s.Id); m.Items.Add((inC ? "Remove from collection: " : "Add to collection: ") + n).Click += (a, b) => { if (inC) SoundLibrary.RemoveFromCollection(n, s); else SoundLibrary.AddToCollection(n, s); sndDirty = true; }; }
         m.Items.Add("New collection with this sound...").Click += (a, b) => { string n = Ask("Collection name:", "My collection"); if (n != null) { SoundLibrary.AddToCollection(n.Trim().Replace("|", "/"), s); Toast("Added to " + n); } };
         m.Items.Add(new ToolStripSeparator()); m.Items.Add("Show in folder").Click += (a, b) => { try { System.Diagnostics.Process.Start("explorer.exe", "/select,\"" + s.Path + "\""); } catch { } }; ShowFilterMenu(m);
@@ -450,7 +465,7 @@ partial class StudioForm
     // ---- drag ghost ----
     void PaintSoundDrag(Graphics g)
     {
-        if (!sndDragging || sndDrag == null) return; var tl = TimelineRect(); float top = ToolH + TransH + RulerH; bool over = MousePos.X >= HeadW && MousePos.X <= tl.Right && MousePos.Y >= top;
+        if (!sndDragging || sndDrag == null) return; var tl = TimelineRect(); float top = ArrTop + RulerH; bool over = MousePos.X >= HeadW && MousePos.X <= tl.Right && MousePos.Y >= top;
         if (over)
         {
             long frame = Snap(scroll + (long)((MousePos.X - HeadW) * spp)); float gx = HeadW + (float)((frame - scroll) / spp); int lanes = LaneCount; int lane = Math.Max(0, Math.Min(lanes, (int)((MousePos.Y - top + vscroll) / LaneH)));
@@ -521,6 +536,7 @@ partial class StudioForm
     void PaintPackManager(Graphics g)
     {
         if (!packsOpen) return; if (!soundsOpen || tab != 0) { packsOpen = false; return; }
+        if (!LibLoader.Ready) return;   // (the loading screen of the sounds panel is showing)
         // the packs live in the sounds panel: same place, same size (or the whole Mix page in fullscreen)
         float px0 = ClientSize.Width - PanelW, py0 = ToolH + TransH; var box = Rc(px0, py0, PanelW, ClientSize.Height - py0); bool wide = box.Width >= 1000;
         using (var b = new SolidBrush(TM.C(255, 18, 10, 34))) g.FillRectangle(b, box); using (var pen = new Pen(Color.FromArgb(150, NeonViolet))) g.DrawLine(pen, box.X, box.Y, box.X, box.Bottom); Reg(box, () => { });
