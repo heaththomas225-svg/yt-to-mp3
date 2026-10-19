@@ -637,19 +637,19 @@ partial class StudioForm : Form
 
     string hintLast = ""; DateTime hintSince = DateTime.Now;
     Bitmap backdrop; int backVer = -1;
-    string backTheme = ""; int backAt;   // the theme the background picture was made in (a theme change makes it again)
+    string backTheme = "", backName = ""; int backAt, backEpoch;   // the theme the background picture was made in (a theme change makes it again)
     void DrawBackdrop(Graphics g)
     {
         int w = Math.Max(1, ClientSize.Width), h = Math.Max(1, ClientSize.Height);
         if (moving && backdrop != null) { g.CompositingMode = CompositingMode.SourceCopy; g.DrawImage(backdrop, 0, 0, w, h); g.CompositingMode = CompositingMode.SourceOver; return; }   // while a border is dragged, stretch the old picture; one real rebuild follows when the drag ends
-        string themeNow = Themes.Current.Name + "|" + TM.Epoch; bool themeMoved = backTheme.Split('|')[0] != Themes.Current.Name;   /* (made again when you pick another theme; the Rainbow theme's constant small colour change does not rebuild it: that cost 150 ms each time) */
+        string themeNow = Themes.Current.Name + "|" + TM.Epoch; bool themeMoved = backName != Themes.Current.Name || (backEpoch != TM.Epoch && !Themes.Current.Rainbow && unchecked(Environment.TickCount - backAt) > 300);   /* (also when you change the colour mix; only the Rainbow theme's constant drift is ignored) */   /* (made again when you pick another theme; the Rainbow theme's constant small colour change does not rebuild it: that cost 150 ms each time) */
         if (backdrop == null || backdrop.Width != w || backdrop.Height != h || backVer != UserBackground.Version || themeMoved)
         {
             if (backdrop != null) backdrop.Dispose(); backdrop = new Bitmap(w, h, System.Drawing.Imaging.PixelFormat.Format32bppPArgb);
             using (var bg = Graphics.FromImage(backdrop))
             {
                 bg.SmoothingMode = SmoothingMode.AntiAlias; var full = new RectangleF(0, 0, w, h);
-                backVer = UserBackground.Version; backTheme = themeNow; backAt = Environment.TickCount; var still = Prefs.BgStudio ? UserBackground.Fresh(w, h) : null; bool fromTheme = false;
+                backVer = UserBackground.Version; backTheme = themeNow; backName = Themes.Current.Name; backEpoch = TM.Epoch; backAt = Environment.TickCount; var still = Prefs.BgStudio ? UserBackground.Fresh(w, h) : null; bool fromTheme = false;
                 { var tp = Themes.PhotoFit(w, h); if (tp != null) { if (still != null) still.Dispose(); still = tp; fromTheme = true; } }   // the theme's own photo covers the whole window
                 if (still != null) { bg.DrawImageUnscaled(still, 0, 0); still.Dispose(); using (var dm = new SolidBrush(TM.C(Math.Min(255, Math.Max(fromTheme ? 40 : 150, Prefs.BgDim * 255 / 100 + (fromTheme ? 0 : 70))), 6, 2, 16))) bg.FillRectangle(dm, full); }
                 else

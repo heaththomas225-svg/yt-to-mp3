@@ -7,10 +7,18 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.73.0";
+    public const string Latest = "3.73.1";
 
     public const string Text =
-@"3.73.0  The sound library rebuilt: real wobble basses, 20 UK Bassline packs, original drum kits, no copies across packs; the piano roll for any track
+@"3.73.1  Fixes: MIDI files show their notes, distinct drum kits in each pack, track jobs, piano roll settings per project, the background follows the colour mix
+ + FIXED: GENERATE and the pattern box read a track's job from whole words: a track called Custom Lead is no longer taken for a tom, Subtle Pad for a sub bass, and Sub Kick is a kick.
+ + FIXED: Opening a project without piano roll settings starts the piano roll from its defaults (snap, length, key, scale, ghost notes) instead of keeping the last project's.
+ + FIXED: The studio background follows your colour mix again as soon as you change it (since 3.72.0 it only changed with a new theme). The Rainbow theme still does not redraw it on every small colour step.
+ + FIXED: MIDI files in SOUNDS show their notes: a small piano-roll picture in the list and a bigger one in the preview (with a line where it is playing), instead of an empty box. MIDI no longer says 44.1 kHz. Presets say what they are.
+ + FIXED: Drum hits that looked and sounded alike in one pack (two Tight kicks from the pack's two kits) are now clearly different: each kit of a pack has its own tuning, length and recipe, and drum hits inside a pack must be as different as across packs. The drum hits of every pack were made again.
+ + NEW: Every instrument of a pack has plenty of sounds now: twice the chord and melody loops and arps, and two notes of each instrument (low and high), so pianos, keys, bells, pads, strings, plucks and the rest each fill the INSTRUMENT filter (it used to show 2 or 4 sounds for some).
+
+3.73.0  The sound library rebuilt: real wobble basses, 20 UK Bassline packs, original drum kits, no copies across packs; the piano roll for any track
  + NEW: The Purphex Wobble: a real wobble bass engine, as an instrument (+ ADD EFFECT, with the instruments) and in the sound library. A clean sub under a mid layer (saw, square, reese, FM or a mix) whose filter is swept by an LFO locked to your tempo: 1/1 to 1/32, triplets, or a rhythm of rates that changes every beat. LFO shapes from a smooth wub to a falling yoy and a chop, a vowel filter for talking bass, resonance, grit, fold, FM, sub and mid levels, glide and width. It runs at twice the sample rate, so the grit stays clean.
  + NEW: Twenty dedicated UK Bassline packs, and every bass in them moves with an LFO: Filthy UK Bassline Wobblers, Rubber Bass Laboratory, Bassline Growlers, Nasty FM Wobbles, Talking Bass, Rave Bassline Weapons, Dirty Square-Wave Bass, Neuro and Reese Bass Laboratory, Speed Garage Bass, Bassline Drop Builder, Sub and Mid-Bass Essentials, Bassline Riffs and Phrases, Bassline Synth Presets, Heavy LFO Modulation, Warped Bass and Formants, Metallic Bass and FM Growls, Underground Bassline Tools, Bassline Call-and-Response, Classic and Modern UK Bass, Experimental Rubber and Elastic Bass. Each has its own sound design, its loops are written for the sound (held wobbles, octave jumps, offbeat bounces, call-and-response) and every bass is measured before it is kept: it must really move, with real mid and not only sub. Their presets open in a new Wobble track. (They replace the eight older bassline packs.)
  + NEW: Original drum kits: every pack has its own kit (the kick built from its own body sweep, knock, click, sub tail and drive; its own snare, hats and clap). Before, kicks of packs in the same genre were nearly the same sound.
@@ -169,8 +177,8 @@ static class Changelog
 3.59.1  ALL BUSES button
  + NEW: An ALL BUSES button next to ALL PLUGINS in the plugin panel: one click opens every bus with its level, mute, the tracks that go into it and its plugins.
 
-3.59.0  Text the PicsArt way, keyframes, and audio tools in the video editor
- + NEW: Photo Studio: text works like PicsArt. Tap TEXT and a typing box opens at once; press the tick and your words go in the middle of the picture, picked. Then simple tabs: FONT (every font shown with your own words, plus bold, italic, capitals and alignment), COLOUR, STROKE, SHADOW, HIGHLIGHT, BEND, SPACING, OPACITY, EFFECTS (neon, 3D, glitch) and STYLES, each a row of choices and one slider, seen live.
+3.59.0  Quick text in Photo Studio, keyframes, and audio tools in the video editor
+ + NEW: Photo Studio: quicker text. Tap TEXT and a typing box opens at once; press the tick and your words go in the middle of the picture, picked. Then simple tabs: FONT (every font shown with your own words, plus bold, italic, capitals and alignment), COLOUR, STROKE, SHADOW, HIGHLIGHT, BEND, SPACING, OPACITY, EFFECTS (neon, 3D, glitch) and STYLES, each a row of choices and one slider, seen live.
  + NEW: Photo Studio: every picked layer has a red X on the picture to delete it, a pencil to edit the words, and one corner handle that resizes and turns it in one drag (it clicks to straight angles; Alt turns freely).
  + NEW: Video Studio: KEYFRAMES for position, size, rotation, opacity and volume: put the playhead where you want, set the value and press the diamond; it changes smoothly in between, in the preview and in the export. Diamonds show on the clips in the timeline.
  + NEW: Video Studio: AUDIO TOOLS for every clip with sound: an EQ (bass, mid, treble), a compressor, and ducking (mark a voice-over and the music goes down by the amount you choose while it plays). Heard live, and the export sounds the same.
@@ -194,7 +202,7 @@ static class Changelog
  + NEW: Video Studio: MOTION for clips, text and visualisers: zoom in or out, Ken Burns, pop in, spin in, slide in, bounce, shake, swing, float, and pulse, shake, flash or zoom punch on every beat.
  + NEW: Video Studio: GREEN SCREEN takes out any colour (tolerance, soft edge, and the green spill on the edges), BLUR FILL puts a blurred copy behind a clip that does not fill the frame, and FREEZE makes a still of the frame under the playhead.
 
-3.56.0  PicsArt-style Photo Studio, and visualisers that move to the beat
+3.56.0  A new Photo Studio, and visualisers that move to the beat
  + NEW: Video editor: MY PROJECTS (next to MY SONG, in the song wizard and on the welcome screen) lists your Purphex projects with their pictures; pick one and its song (mixed and mastered, like EXPORT) and its picture come in. Your project is not changed, and IMPORT still takes any file.
  + NEW: Photo Studio, CUTOUT tab: REMOVE BACKGROUND (best on fairly plain backgrounds; tolerance and soft edge), a MAGIC ERASER (click a colour and that patch goes) and ERASE / RESTORE brushes. All of it stays editable and can be undone.
  + NEW: Photo Studio, EFFECTS tab: glitch, RGB split, pixel art, halftone, pencil sketch, cartoon, posterize, emboss, film noise, VHS, comic, crisp HD, retro game and dreamy in one click, each with its own slider, on one photo or the whole picture.

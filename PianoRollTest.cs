@@ -179,6 +179,13 @@ static class PR
             float sum = 0; var lb = new float[2048]; var rb = new float[2048]; var kickT = added[0]; var smp = kickT.Fx.OfType<SamplerFx>().First(); smp.BeginBlock(kickT, 0, 2048, false); smp.NoteOn(smp.Zones[0].Root, 110); for (int q = 0; q < 6; q++) { smp.BeginBlock(kickT, 0, 2048, false); Array.Clear(lb, 0, 2048); smp.Process(lb, rb, 2048); foreach (var v in lb) sum += Math.Abs(v); }
             Check("a generated part really plays its sound", sum > 10, sum.ToString("0"));
         }
+        // ---- 3.73.1 fixes: whole-word track jobs; piano roll settings start from the defaults in a project without them ----
+        {
+            Func<string, int> job = nm => { var t = StudioEngine.NewTrack(nm, "inst", null); t.Instrument = true; return sf.JobOf(t); };
+            Check("track jobs use whole words: Custom Lead is not a tom, Subtle Pad is not a sub, Sub Kick is a kick, Hi Hat is hats", job("Custom Lead") == -1 && job("Subtle Pad") == -1 && job("Sub Kick") == 0 && job("Hi Hat") == 2 && job("808 Slide") == 5 && job("Open Hat") == 3, job("Custom Lead") + " " + job("Subtle Pad") + " " + job("Sub Kick") + " " + job("Hi Hat") + " " + job("808 Slide") + " " + job("Open Hat"));
+            sf.prSnap = 1; sf.prScale = 3; sf.prKeyRoot = 2; sf.prGhosts = false; sf.PrApplyPrefs("");
+            Check("a project without piano roll settings starts from the defaults (not the last project's)", sf.prSnap == 4 && sf.prScale == 0 && sf.prKeyRoot == 9 && sf.prGhosts, sf.prSnap + " " + sf.prScale + " " + sf.prKeyRoot + " " + sf.prGhosts);
+        }
         Console.WriteLine(fails == 0 ? "=== piano roll checks passed ===" : "=== " + fails + " FAILED ===");
         try { sf.Close(); } catch { } Environment.Exit(fails == 0 ? 0 : 1);
     }

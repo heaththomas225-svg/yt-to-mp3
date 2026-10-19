@@ -156,6 +156,24 @@ partial class StudioForm
         Txt(g, "Your sounds are being read in the background. Keep working: this panel fills in by itself in a few seconds.", 11, DimC, Rc(x + 30, y + h / 2 - 8, w - 60, 40), StringAlignment.Center, false);
         float ph = (Environment.TickCount % 1600) / 1600f; var bar = Rc(x + w / 2 - 120, y + h / 2 + 40, 240, 6); FillRR(g, TM.C(200, 8, 4, 18), bar, 3); FillRR(g, NeonCyan, Rc(bar.X + (bar.Width - 60) * ph, bar.Y, 60, bar.Height), 3); Invalidate();
     }
+    // a MIDI file's notes as a small piano-roll picture (read once and kept); the preview also shows where it is playing
+    readonly Dictionary<string, List<double[]>> midiPics = new Dictionary<string, List<double[]>>();
+    void DrawMidiPic(Graphics g, RectangleF r, SoundItem s, Color col, bool big)
+    {
+        List<double[]> notes; string key = s.Id + "|" + s.Bpm + "|" + s.Key;
+        if (!midiPics.TryGetValue(key, out notes))
+        {
+            notes = null; try { if (s.Instant) notes = InstantLib.MidiNotesFor(s); else if (File.Exists(s.Path)) { double bpm; notes = SoundIO.ReadMidi(s.Path, out bpm); } } catch { notes = null; }
+            if (midiPics.Count > 600) midiPics.Clear(); midiPics[key] = notes ?? new List<double[]>();
+        }
+        if (notes == null || notes.Count == 0) { Txt(g, "MIDI", 9, DimC, r, StringAlignment.Center, true); return; }
+        double end = 0; int lo = 127, hi = 0; foreach (var n in notes) { end = Math.Max(end, n[0] + n[1]); lo = Math.Min(lo, (int)n[2]); hi = Math.Max(hi, (int)n[2]); }
+        end = Math.Max(4, Math.Ceiling(end / 4) * 4); int span = Math.Max(6, hi - lo + 1); float rowH = r.Height / span;
+        if (big) using (var gp = new Pen(Color.FromArgb(40, col))) for (int b = 0; b <= (int)end; b += 4) { float gx = r.X + (float)(b / end) * r.Width; g.DrawLine(gp, gx, r.Y, gx, r.Bottom); }
+        using (var br = new SolidBrush(col))
+            foreach (var n in notes) { float x = r.X + (float)(n[0] / end) * r.Width, w = Math.Max(1.5f, (float)(n[1] / end) * r.Width - 0.5f), y = r.Bottom - ((int)n[2] - lo + 1) * rowH; g.FillRectangle(br, x, y, w, Math.Max(1.5f, rowH - (big ? 1 : 0.4f))); }
+        if (big && Auditioner.Current == s && Auditioner.Length > 0) { float px = r.X + (float)(Auditioner.Seconds / Auditioner.Length) * r.Width; using (var pen = new Pen(Color.White, 1.5f)) g.DrawLine(pen, px, r.Y, px, r.Bottom); Invalidate(); }
+    }
     // ---- the browser panel ----
     void PaintSoundsPanel(Graphics g)
     {
@@ -228,7 +246,7 @@ partial class StudioForm
         Txt(g, s.Name.Replace(s.PackName + " - ", ""), 12, sex ? Ink : Color.FromArgb(255, 140, 140), Rc(r.X + 50, r.Y + 5, 250 + dx, 20), StringAlignment.Near, sel);
         Txt(g, s.PackName + "  ·  " + s.Type + (sex ? "" : "  (file missing)"), 10, DimC, Rc(r.X + 50, r.Y + 26, 250 + dx, 18), StringAlignment.Near, false);
         // little wave
-        var wr = Rc(r.X + dx + 304, r.Y + 10, 90, 30); if (s.Peaks != null && s.Peaks.Length > 0) { using (var pen = new Pen(Color.FromArgb(sel ? 230 : 150, Neon(GroupColour(s.Group))), 1f)) for (int i = 0; i < wr.Width; i += 2) { float v = s.Peaks[Math.Min(s.Peaks.Length - 1, (int)(i / wr.Width * s.Peaks.Length))] / 255f * wr.Height / 2; g.DrawLine(pen, wr.X + i, wr.Y + wr.Height / 2 - v, wr.X + i, wr.Y + wr.Height / 2 + v); } } else if (s.Instant) Txt(g, "PLAY TO MAKE", 9, DimC, wr, StringAlignment.Center, false);   /* an instant loop is made the first time it plays */
+        var wr = Rc(r.X + dx + 304, r.Y + 10, 90, 30); if (s.Kind == "midi") DrawMidiPic(g, wr, s, Color.FromArgb(sel ? 235 : 170, Neon(GroupColour(s.Group))), false); else if (s.Kind == "preset") Txt(g, s.Format == "Purphex Wobble preset" ? "WOBBLE PRESET" : "BASS LAB PRESET", 8, DimC, wr, StringAlignment.Center, true); else if (s.Peaks != null && s.Peaks.Length > 0) { using (var pen = new Pen(Color.FromArgb(sel ? 230 : 150, Neon(GroupColour(s.Group))), 1f)) for (int i = 0; i < wr.Width; i += 2) { float v = s.Peaks[Math.Min(s.Peaks.Length - 1, (int)(i / wr.Width * s.Peaks.Length))] / 255f * wr.Height / 2; g.DrawLine(pen, wr.X + i, wr.Y + wr.Height / 2 - v, wr.X + i, wr.Y + wr.Height / 2 + v); } } else if (s.Instant) Txt(g, "PLAY TO MAKE", 9, DimC, wr, StringAlignment.Center, false);   /* an instant loop is made the first time it plays */
         Txt(g, s.Bpm > 0 ? s.Bpm.ToString("0") : "-", 11, s.Bpm > 0 ? Ink : DimC, Rc(r.X + dx + 400, r.Y, 40, r.Height), StringAlignment.Center, false); Txt(g, s.Key.Length > 0 ? s.Key : "-", 11, s.Key.Length > 0 ? Ink : DimC, Rc(r.X + dx + 440, r.Y, 62, r.Height), StringAlignment.Center, false); Txt(g, s.Dur > 0 ? s.Dur.ToString("0.0") + "s" : "", 10, DimC, Rc(r.X + dx + 502, r.Y, 46, r.Height), StringAlignment.Center, false);
         var star = Rc(r.Right - 30, r.Y + 12, 22, 24); bool fav = SoundLibrary.Favourites.Contains(s.Id); Txt(g, fav ? "★" : "☆", 16, fav ? Color.FromArgb(255, 210, 80) : DimC, star, StringAlignment.Center, false);
         var rg = Reg(r, () => { SelectSound(s, true); sndDrag = s; sndDragFrom = MousePos; sndDragging = false; }); rg.OnDrag = pt => { if (sndDrag != null && !sndDragging && (Math.Abs(pt.X - sndDragFrom.X) + Math.Abs(pt.Y - sndDragFrom.Y)) > 8) sndDragging = true; }; rg.OnDouble = () => SelectSound(s, true);   // (drag it onto the timeline to use it: a double-click only plays it again) rg.OnRight = () => SoundMenu(s);
@@ -252,6 +270,8 @@ partial class StudioForm
         var wf = Rc(r.X + 12, r.Y + 30, r.Width - 24, 56); FillRR(g, TM.C(200, 8, 4, 20), wf, 6);
         bool cur = Auditioner.Current == s && Auditioner.LeftSamples != null; var col = Neon(GroupColour(s.Group));
         if (Auditioner.Loading && Auditioner.Current == s) Txt(g, "LOADING...", 12, DimC, wf, StringAlignment.Center, false);
+        else if (s.Kind == "midi") DrawMidiPic(g, Rc(wf.X + 6, wf.Y + 4, wf.Width - 12, wf.Height - 8), s, Color.FromArgb(230, col), true);
+        else if (s.Kind == "preset") Txt(g, s.Format == "Purphex Wobble preset" ? "A PURPHEX WOBBLE PRESET: PLAY IN A WOBBLE TRACK OPENS IT ON A NEW TRACK" : "A BASS LAB PRESET: ADD TO BASS LAB PUTS IT IN ITS PRESET BROWSER", 10, DimC, wf, StringAlignment.Center, true);
         else if (s.Peaks != null && s.Peaks.Length > 0) using (var pen = new Pen(Color.FromArgb(220, col), 1.6f)) for (int i = 0; i < (int)wf.Width; i += 2) { float v = s.Peaks[Math.Min(s.Peaks.Length - 1, (int)(i / wf.Width * s.Peaks.Length))] / 255f * (wf.Height / 2 - 4); g.DrawLine(pen, wf.X + i, wf.Y + wf.Height / 2 - v, wf.X + i, wf.Y + wf.Height / 2 + v); }
         if (cur && Auditioner.Length > 0) { float px = wf.X + (float)(Auditioner.Seconds / Auditioner.Length) * wf.Width; using (var pen = new Pen(Color.White, 1.5f)) g.DrawLine(pen, px, wf.Y + 2, px, wf.Bottom - 2); }
         var wr = Reg(wf, () => { if (cur) Auditioner.Seek((MousePos.X - wf.X) / wf.Width); }); wr.OnDrag = pt => { if (cur) Auditioner.Seek((pt.X - wf.X) / wf.Width); };
@@ -263,7 +283,7 @@ partial class StudioForm
         Btn(g, Rc(r.X + 12, by, 168, 30), preset ? (s.Path.EndsWith(".purphexwobble", StringComparison.OrdinalIgnoreCase) ? "Play in a Wobble track" : "Add to Bass Lab") : (midi ? "Add to selected track" : "Add to timeline"), 2, () => { string m = midi ? DropMidi(s, Snap(DispPos), -1) : AddSample(s, Snap(DispPos), eng.Tracks.Count); if (m != null) Toast(m); }, 12);
         bool fav = SoundLibrary.Favourites.Contains(s.Id); Chip(g, Rc(r.X + 184, by, 96, 30), fav ? "★ Favourite" : "☆ Favourite", fav, () => { SoundLibrary.ToggleFav(s); sndDirty = sndFilter.OnlyFav; }); Btn(g, Rc(r.X + 284, by, 104, 30), "Collection...", 0, () => SoundMenu(s), 11);
         Btn(g, Rc(r.X + 392, by, 70, 30), "Folder", 0, () => { try { System.Diagnostics.Process.Start("explorer.exe", "/select,\"" + s.Path + "\""); } catch { } }, 11); Btn(g, Rc(r.X + 466, by, 80, 30), "Licence", 0, () => { var p = SoundLibrary.Pack(s.PackId); MessageBox.Show(this, (p != null ? p.Name + "\n\n" + p.License : (s.Instant ? s.PackName + "\n\n" + SoundLibrary.LicenceText : "No licence information.")), "Licence"); }, 11);
-        string info = (s.Format.Length > 0 ? s.Format : "") + (s.Rate > 0 ? "  ·  " + (s.Rate / 1000.0).ToString("0.#") + " kHz" : "") + (s.Dur > 0 ? "  ·  " + s.Dur.ToString("0.00") + " s" : "") + (s.Bpm > 0 ? "  ·  " + s.Bpm.ToString("0") + " BPM" : "") + (s.Key.Length > 0 ? "  ·  " + s.Key : "") + "  ·  " + s.PackName;
+        string info = (s.Format.Length > 0 ? s.Format : "") + (s.Rate > 0 && s.IsAudio ? "  ·  " + (s.Rate / 1000.0).ToString("0.#") + " kHz" : "") + (s.Dur > 0 ? "  ·  " + s.Dur.ToString("0.00") + " s" : "") + (s.Bpm > 0 ? "  ·  " + s.Bpm.ToString("0") + " BPM" : "") + (s.Key.Length > 0 ? "  ·  " + s.Key : "") + "  ·  " + s.PackName;
         Txt(g, info, 10, DimC, Rc(r.X + 12, by + 34, r.Width - 24, 16), StringAlignment.Near, false);
     }
 

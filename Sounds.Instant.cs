@@ -172,7 +172,7 @@ static class InstantLib
         }
         if (music)
         {
-            for (int i = 0; i < Math.Min(16, pal.Count); i++) { var ins = pal[i]; inst(mk("on", i, ins.Name + " Note " + (i + 1).ToString("00"), "note-" + N3(i) + ".wav", 0, KeyOf(rec, 0), 0, "note,one-shot,instrument," + ins.Name.ToLowerInvariant() + "," + ins.Group.ToLowerInvariant()), ins); }
+            for (int i = 0; i < Math.Min(18, pal.Count * 2); i++) { var ins = pal[i % pal.Count]; inst(mk("on", i, ins.Name + (i >= pal.Count ? " Note High " : " Note ") + (i + 1).ToString("00"), "note-" + N3(i) + ".wav", 0, KeyOf(rec, 0), 0, "note,one-shot,instrument," + ins.Name.ToLowerInvariant() + "," + ins.Group.ToLowerInvariant()), ins); }
             for (int i = 0; i < 8; i++) { var ins = chordPal[i % chordPal.Count]; inst(mk("och", i, ins.Name + " " + ChordNames[i] + " Hit", "chordhit-" + N3(i) + ".wav", 0, KeyOf(rec, 0), 0, "chord,hit,one-shot," + ChordNames[i].ToLowerInvariant() + "," + ins.Name.ToLowerInvariant()), ins); }
         }
         if (fx)
@@ -195,7 +195,7 @@ static class InstantLib
     // ---- making a sound ----
     static readonly Dictionary<string, DrumKit.Kit> kits = new Dictionary<string, DrumKit.Kit>(); static readonly object makeLock = new object();
     // the pack's kits: kit 0 is the pack's own sound; kits 1 to 5 are tuned differently (lower and longer, higher and tighter, brighter, darker...), so a second set of hits is not a copy of the first
-    static readonly double[][] KitShift = { new[] { 1.0, 1, 1, 1 }, new[] { 0.9, 1.25, 0.93, 0.9 }, new[] { 1.1, 0.75, 1.08, 1.08 }, new[] { 0.95, 1.1, 1.12, 1.12 }, new[] { 1.05, 0.9, 0.9, 0.86 }, new[] { 0.88, 1.4, 1.0, 0.95 } };
+    static readonly double[][] KitShift = { new[] { 1.0, 1, 1, 1 }, new[] { 0.85, 1.45, 0.88, 0.86 }, new[] { 1.15, 0.65, 1.12, 1.12 }, new[] { 0.92, 1.25, 1.16, 1.16 }, new[] { 1.1, 0.8, 0.86, 0.82 }, new[] { 0.82, 1.6, 1.0, 0.94 } };   /* (each kit of a pack clearly its own: a Tight kick of kit 2 is not the Tight kick of kit 1 again) */
     internal static DrumStyle KitStyle(Recipe rec, int kv) { var st = PackBuilder.StyleFor(rec); var k = KitShift[((kv % 6) + 6) % 6]; st.KickF0 *= k[0]; st.KickDecay *= k[1]; st.SnareBody *= k[2]; st.HatBright *= k[3]; st.ClapCentre *= k[2]; st.SnareDecay *= Math.Sqrt(k[1]); return st; }
     static DrumKit.Kit Kit(Recipe rec, int kv) { DrumKit.Kit kit; string kk = rec.Id + "/" + kv; lock (kits) { if (!kits.TryGetValue(kk, out kit)) { if (kits.Count > 24) kits.Clear(); kit = DrumKit.Make(KitStyle(rec, kv), rec.Seed + 1 + kv * 977); kits[kk] = kit; } } return kit; }
     // makes the file for an instant sound if it is not there yet; returns null if it worked, or a message
@@ -290,7 +290,7 @@ static class InstantLib
                 if (BassDesign.UsesEngine(ef)) { double b0 = Bpm(rec, 0); var wn = new List<double[]> { new double[] { 0, shortOne ? 0.9 : 3.8, p, shortOne ? 115 : 105 } }; return WobbleEngine.Render(ShotPatch(rec, i, ef), wn, b0, shortOne ? 1 : 4, 0.45); }   // (at the pack's tempo: the wobble is in time with its loops)
                 var notes = new List<double[]> { new double[] { 0, shortOne ? 0.45 : 2.6, p, shortOne ? 115 : 105 } }; return SoundGen.RenderSynth(Music.BassPatch(fl, r), notes, 120, shortOne ? 1.5 : 3, 0.45);
             }
-            case "on": { var ins = InstOf(s); int baseOct = ins.Name == "Log Drum" ? 2 : (ins.High < 90 ? 3 : 4); int v = rec.Seed & 0xFFFF; int midi = 12 * (baseOct + 1) + pc + ((v >> 3) % 2 == 1 && ins.High >= 90 ? 12 : 0); double len = 0.8 + (v % 6) * 0.3; return Instruments.RenderPart(ins, new List<double[]> { new double[] { 0, len, midi, 78 + (v >> 5) % 42 } }, 120, Math.Max(3, len + 2), 1.5); }
+            case "on": { var ins = InstOf(s); int baseOct = ins.Name == "Log Drum" ? 2 : (ins.High < 90 ? 3 : 4); int v = rec.Seed & 0xFFFF; int midi = 12 * (baseOct + 1) + pc + ((v >> 3) % 2 == 1 && ins.High >= 90 ? 12 : 0) + (i >= Instruments.Palette(rec).Count && ins.High >= 84 ? 12 : (i >= Instruments.Palette(rec).Count ? 7 : 0));   /* (the second note of an instrument: an octave up, or a fifth for low instruments) */ double len = 0.8 + (v % 6) * 0.3; return Instruments.RenderPart(ins, new List<double[]> { new double[] { 0, len, midi, 78 + (v >> 5) % 42 } }, 120, Math.Max(3, len + 2), 1.5); }
             case "och": { var ins = InstOf(s); int oct = ins.Low > 50 ? 4 : 3; var ch = new List<double[]>(); int v = rec.Seed & 0xFFFF, inv = (v >> 2) % 3, k = 0; var ivs = ChordIv[i % ChordIv.Length]; foreach (int iv in ivs) { int up = k++ < inv ? 12 : 0; ch.Add(new double[] { 0, 1.5 + (v % 5) * 0.4, 12 * (oct + 1) + pc + iv + up, 80 + (v >> 4) % 36 }); } return Instruments.RenderPart(ins, ch, 120, 6, 1.5); }   // (each pack voices its chords in its own inversion, length and touch)
             case "of":
             {

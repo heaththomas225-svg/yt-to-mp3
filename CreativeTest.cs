@@ -337,7 +337,7 @@ static class CRTEST
         Check("duplicate and undo work on layers", Js("String(window.__dup&&window.__und)") == "true");
         Js("(()=>{const C=PX.Cover;C.art.layers=[];C.dirty=false;C.openWelcome();document.querySelector('#wCats button[data-c=story]').click();document.querySelector('#wGrid .wcard').click()})()"); Pump(300); Check("a template sets the size and layers (Story 1080 x 1920)", Js("PX.Cover.art.w+'x'+PX.Cover.art.h") == "1080x1920" && Js("String(PX.Cover.art.layers.length>=3)") == "true");
         Js("(()=>{const C=PX.Cover;C.closeWelcome&&C.closeWelcome();const st=document.querySelector('#cvStart');if(st)st.remove();C.sel=null;C.openPanel('text')})()"); Pump(200);
-        Check("TEXT opens a typing box straight away (the PicsArt way)", Js("String(!!document.querySelector('.ptype textarea'))") == "true");
+        Check("TEXT opens a typing box straight away (quick text)", Js("String(!!document.querySelector('.ptype textarea'))") == "true");
         Js("(()=>{const ta=document.querySelector('.ptype textarea');ta.value='HELLO WORLD';document.querySelector('#ptOk').click()})()"); Pump(200);
         Check("pressing the tick puts the words in the middle of the picture, picked, with the text options open", Js("(()=>{const C=PX.Cover,L=C.art.layers.find(l=>l.id===C.sel);return String(!!L&&L.type==='text'&&L.text==='HELLO WORLD'&&Math.abs(L.x||0)<0.01&&!!document.querySelector('#cvTab .ptabs'))})()") == "true");
         Js("(()=>{const C=PX.Cover;C.textTab('styles');C.renderTab();[...document.querySelectorAll('#cvTab .grid2 .card')].find(c=>c.textContent==='Neon glow').click()})()"); Pump(500);
@@ -356,7 +356,7 @@ static class CRTEST
           Js("(()=>{PX.Cover.startFromPhoto('" + pu + "','photo.jpg')})()"); WaitJs("PX.Cover.art.layers.length===1&&PX.Cover.art.layers[0].type==='image'", 10000); int pw2, ph2; using (var pb = new Bitmap(pp)) { pw2 = pb.Width; ph2 = pb.Height; }
           Check("OPEN PHOTO starts a design from a picture (the canvas takes the photo's own size)", Js("PX.Cover.art.w+'x'+PX.Cover.art.h") == pw2 + "x" + ph2 && Js("PX.Cover.art.layers[0].fit") == "fill", Js("PX.Cover.art.w+'x'+PX.Cover.art.h") + " vs " + pw2 + "x" + ph2);
           Js("document.querySelector('#cover [data-c=toVideo]').click()"); Check("PURPHEX VIDEO EDITOR in Photo Studio goes to the video editor", Js("PX.UI.tool") == "video"); Js("PX.UI.setTool('cover')"); Check("there is an OPEN PHOTO button", Js("String(!!document.querySelector('#cover [data-c=openPhoto]'))") == "true"); }
-        // ---- the PicsArt-style tools, checked on real pixels ----
+        // ---- the quick photo tools, checked on real pixels ----
         Js(@"window.__mk=(fn,w,h)=>{const c=document.createElement('canvas');c.width=w||200;c.height=h||200;fn(c.getContext('2d'),c.width,c.height);return c.toDataURL('image/png')};
 window.__subj=__mk((g,w,h)=>{g.fillStyle='#ffffff';g.fillRect(0,0,w,h);g.fillStyle='#ff0000';g.beginPath();g.arc(100,100,50,0,7);g.fill();});
 window.__grad=__mk((g,w,h)=>{const gr=g.createLinearGradient(0,0,w,0);gr.addColorStop(0,'#000');gr.addColorStop(1,'#fff');g.fillStyle=gr;g.fillRect(0,0,w,h);});

@@ -1,6 +1,6 @@
 'use strict';
 // =====================================================================
-//  PURPHEX MUSIC PHOTO EDITOR: text the PicsArt way. Tap TEXT and a typing box opens at once; press the tick and the words go in
+//  PURPHEX MUSIC PHOTO EDITOR: quick text. Tap TEXT and a typing box opens at once; press the tick and the words go in
 //  the middle of the picture, picked. The options are simple tabs (Font, Colour, Stroke, Shadow, Highlight, Bend, Spacing, Opacity,
 //  Effects, Styles): a row of choices and one slider each, seen live. On the picture every picked layer has an X to delete it,
 //  a pencil to edit the words, and one corner handle that resizes and turns it in one drag.

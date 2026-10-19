@@ -43,7 +43,9 @@ partial class StudioForm
     }
     internal void PrApplyPrefs(string text)
     {
-        prGhostOff.Clear(); prJobs.Clear(); prTrack = null; prSel.Clear(); prStamp = -1; prScrollBeats = 0; prScrollY = -1; if (string.IsNullOrEmpty(text)) return;
+        prGhostOff.Clear(); prJobs.Clear(); prTrack = null; prSel.Clear(); prStamp = -1; prScrollBeats = 0; prScrollY = -1;
+        prSnap = 4; prLenBeats = 0.25; prKeyRoot = 9; prScale = 0; prLock = false; prLabels = true; prPreview = true; prFollow = true; prGhosts = true; prBox = null;   // (a project without piano roll settings starts from the defaults, not from the last project)
+        if (string.IsNullOrEmpty(text)) return;
         var f = text.Split(';'); var ci = System.Globalization.CultureInfo.InvariantCulture; int iv; double dv;
         try
         {

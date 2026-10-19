@@ -2,6 +2,20 @@
 
 What changed in each version of **Purphex**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.73.1  Fixes: MIDI files show their notes, distinct drum kits in each pack, track jobs, piano roll settings per project, the background follows the colour mix
+
+- FIXED: GENERATE and the pattern box read a track's job from whole words: a track called Custom Lead is no longer taken for a tom, Subtle Pad for a sub bass, and Sub Kick is a kick.
+
+- FIXED: Opening a project without piano roll settings starts the piano roll from its defaults (snap, length, key, scale, ghost notes) instead of keeping the last project's.
+
+- FIXED: The studio background follows your colour mix again as soon as you change it (since 3.72.0 it only changed with a new theme). The Rainbow theme still does not redraw it on every small colour step.
+
+- FIXED: MIDI files in SOUNDS show their notes: a small piano-roll picture in the list and a bigger one in the preview (with a line where it is playing), instead of an empty box. MIDI no longer says 44.1 kHz. Presets say what they are.
+
+- FIXED: Drum hits that looked and sounded alike in one pack (two Tight kicks from the pack's two kits) are now clearly different: each kit of a pack has its own tuning, length and recipe, and drum hits inside a pack must be as different as across packs. The drum hits of every pack were made again.
+
+- NEW: Every instrument of a pack has plenty of sounds now: twice the chord and melody loops and arps, and two notes of each instrument (low and high), so pianos, keys, bells, pads, strings, plucks and the rest each fill the INSTRUMENT filter (it used to show 2 or 4 sounds for some).
+
 ## 3.73.0  The sound library rebuilt: real wobble basses, 20 UK Bassline packs, original drum kits, no copies across packs; the piano roll for any track
 
 - NEW: The Purphex Wobble: a real wobble bass engine, as an instrument (+ ADD EFFECT, with the instruments) and in the sound library. A clean sub under a mid layer (saw, square, reese, FM or a mix) whose filter is swept by an LFO locked to your tempo: 1/1 to 1/32, triplets, or a rhythm of rates that changes every beat. LFO shapes from a smooth wub to a falling yoy and a chop, a vowel filter for talking bass, resonance, grit, fold, FM, sub and mid levels, glide and width. It runs at twice the sample rate, so the grit stays clean.
@@ -276,9 +290,9 @@ What changed in each version of **Purphex**. The same notes are shown in the app
 
 - NEW: An ALL BUSES button next to ALL PLUGINS in the plugin panel: one click opens every bus with its level, mute, the tracks that go into it and its plugins.
 
-## 3.59.0  Text the PicsArt way, keyframes, and audio tools in the video editor
+## 3.59.0  Quick text in Photo Studio, keyframes, and audio tools in the video editor
 
-- NEW: Photo Studio: text works like PicsArt. Tap TEXT and a typing box opens at once; press the tick and your words go in the middle of the picture, picked. Then simple tabs: FONT (every font shown with your own words, plus bold, italic, capitals and alignment), COLOUR, STROKE, SHADOW, HIGHLIGHT, BEND, SPACING, OPACITY, EFFECTS (neon, 3D, glitch) and STYLES, each a row of choices and one slider, seen live.
+- NEW: Photo Studio: quicker text. Tap TEXT and a typing box opens at once; press the tick and your words go in the middle of the picture, picked. Then simple tabs: FONT (every font shown with your own words, plus bold, italic, capitals and alignment), COLOUR, STROKE, SHADOW, HIGHLIGHT, BEND, SPACING, OPACITY, EFFECTS (neon, 3D, glitch) and STYLES, each a row of choices and one slider, seen live.
 
 - NEW: Photo Studio: every picked layer has a red X on the picture to delete it, a pencil to edit the words, and one corner handle that resizes and turns it in one drag (it clicks to straight angles; Alt turns freely).
 
@@ -320,7 +334,7 @@ What changed in each version of **Purphex**. The same notes are shown in the app
 
 - NEW: Video Studio: GREEN SCREEN takes out any colour (tolerance, soft edge, and the green spill on the edges), BLUR FILL puts a blurred copy behind a clip that does not fill the frame, and FREEZE makes a still of the frame under the playhead.
 
-## 3.56.0  PicsArt-style Photo Studio, and visualisers that move to the beat
+## 3.56.0  A new Photo Studio, and visualisers that move to the beat
 
 - NEW: Video editor: MY PROJECTS (next to MY SONG, in the song wizard and on the welcome screen) lists your Purphex projects with their pictures; pick one and its song (mixed and mastered, like EXPORT) and its picture come in. Your project is not changed, and IMPORT still takes any file.
 

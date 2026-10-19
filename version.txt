@@ -1,4 +1,4 @@
-3.73.0
+3.73.1
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-The sound library rebuilt: real wobble basses, 20 UK Bassline packs, original drum kits, no copies across packs; the piano roll for any track
-sha256=a11d37fb4984259da2c807ce81f56beba87031cf50e045adb76f6d2433c713ef
+Fixes: MIDI files show their notes, distinct drum kits in each pack, more sounds for every instrument, track jobs, piano roll settings per project
+sha256=786f654c15877a0cc0eb7f31e6b779dca2d56ff5469377270d432789ecfa740e

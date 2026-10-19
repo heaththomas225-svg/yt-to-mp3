@@ -1,6 +1,6 @@
 'use strict';
 // =====================================================================
-//  PURPHEX MUSIC PHOTO EDITOR, part 2: PicsArt-style tools. Cutout (remove the background, magic eraser, erase / restore brush),
+//  PURPHEX MUSIC PHOTO EDITOR, part 2: quick photo tools. Cutout (remove the background, magic eraser, erase / restore brush),
 //  photo effects (glitch, RGB split, pixelate, halftone, sketch, cartoon, posterize, emboss, noise), pro adjustments (exposure,
 //  highlights, shadows, tint, clarity, sharpen), collages, sticker packs drawn here, a crop tool with aspect ratios, alignment and
 //  snapping, zoom, and layers you can drag into order. Everything runs on this PC; every change stays editable and is saved.
