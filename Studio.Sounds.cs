@@ -106,8 +106,21 @@ partial class StudioForm
     }
     string InstallPreset(SoundItem s)
     {
+        if (s.Path.EndsWith(".purphexwobble", StringComparison.OrdinalIgnoreCase)) return InstallWobblePreset(s);
         try { Directory.CreateDirectory(SynthPresets.Dir); string name = s.Name; string dest = Path.Combine(SynthPresets.Dir, PackWriter.Clean(name) + ".txt"); File.Copy(s.Path, dest, true); SoundLibrary.MarkUsed(s); Toast("Added to Bass Lab: open its preset browser > My presets > " + name); return null; }
         catch (Exception ex) { return "Couldn't install the preset: " + ex.Message; }
+    }
+
+    // a Wobble preset from a pack: a new instrument track with the Purphex Wobble set to that sound
+    string InstallWobblePreset(SoundItem s)
+    {
+        try
+        {
+            var w = FxRegistry.Create("wobble") as WobbleFx; if (w == null) return "The Wobble couldn't be started."; w.Prepare(StudioEngine.SR); w.LoadPatch(WobblePatch.Load(File.ReadAllText(s.Path, System.Text.Encoding.UTF8)));
+            var t = StudioEngine.NewTrack(s.Name.Replace(s.PackName + " - ", ""), "inst", null); t.Instrument = true; t.Color = unchecked((int)0xFFB14DFF); w.Owner = t; lock (eng.Sync) t.Fx.Add(w); AddTrack(t); int i = eng.Tracks.IndexOf(t); if (i >= 0) selTrack = i;
+            SoundLibrary.MarkUsed(s); OpenPianoRoll(t); Toast("Added a Purphex Wobble track: " + t.Name + ". Click the grid to add notes."); return null;
+        }
+        catch (Exception ex) { return "Couldn't add the Wobble: " + ex.Message; }
     }
 
     Track dropHost;

@@ -6,7 +6,7 @@ static class PackBuilder
 {
     // makes a pack's files on disk and returns the finished pack (null if cancelled)
     // the sound design version: packs made by an older one are offered an update (2 = band-limited hats, cymbals and saws, in-tune plucks, even loop levels)
-    public const string SoundVersion = "6";   // 3: the big packs (260+ sounds each); 4: clean sounds (no clicks, crackle or distortion); installed packs offer an update
+    public const string SoundVersion = "7";   // 3: the big packs (260+ sounds each); 4: clean sounds (no clicks, crackle or distortion); installed packs offer an update
     public static bool Outdated(SoundPack p) { return p != null && p.Items.Count > 0 && p.Id != SoundLibrary.UserPackId && SoundCatalog.Find(p.Id) != null && p.Version != LibraryBaker.Version; }   // packs made before the library baker (real, checked files) offer an update
     public static SoundPack Build(Recipe rec, Action<string, float> progress, Func<bool> cancel)
     {
@@ -50,8 +50,8 @@ static class PackBuilder
         else if (d.StartsWith("dnb_halftime")) { s.KickF0 = 50; s.KickStart = 200; s.KickDecay = 0.4; s.KickDrive = 2.3; s.SnareBody = 170; s.SnareDecay = 0.2; }
         else if (d.StartsWith("dnb_rave")) { s.KickF0 = 60; s.KickStart = 260; s.KickDecay = 0.2; s.KickDrive = 2.2; s.SnareBody = 230; s.SnareNoise = 4500; }
         else if (d == "jungle") { s.KickF0 = 57; s.KickStart = 180; s.KickDecay = 0.2; s.KickDrive = 1.8; s.SnareBody = 235; s.SnareNoise = 3300; s.SnareDecay = 0.17; s.Swing = 0.52; }
-        else if (d.StartsWith("ukg")) { s.KickF0 = 58; s.KickStart = 210; s.KickDecay = 0.2; s.KickDrive = 1.8; s.SnareBody = 205; s.SnareAmt = 0.8; s.Swing = 0.58; s.ClapCentre = 1100; }
-        else if (d.StartsWith("bassline") || d == "house") { s.KickF0 = 56; s.KickStart = 200; s.KickDecay = 0.26; s.KickDrive = 2.7; s.ClapCentre = 1300; s.Swing = d == "house" ? 0.52 : 0.56; s.HatBright = 10.5; }
+        else if (d.StartsWith("ukg")) { s.KickF0 = 58; s.KickStart = 210; s.KickDecay = 0.2; s.KickDrive = 1.8; s.SnareBody = 205; s.SnareAmt = 0.8; s.Swing = 0.60 + new Rnd(r.Seed + 5).Next() * 0.06; s.ClapCentre = 1100; }
+        else if (d.StartsWith("bassline") || d == "house") { s.KickF0 = 56; s.KickStart = 200; s.KickDecay = 0.26; s.KickDrive = 2.7; s.ClapCentre = 1300; s.Swing = d == "house" ? 0.52 : 0.58 + new Rnd(r.Seed + 5).Next() * 0.05; s.HatBright = 10.5; }
         else if (d == "trap") { s.KickF0 = 48; s.KickStart = 160; s.KickDecay = 0.34; s.KickDrive = 2.2; s.SnareBody = 195; s.SnareNoise = 4000; s.HatC = 0.035; s.HatBright = 11.5; s.ClapCentre = 1400; }
         else if (d == "drill") { s.KickF0 = 46; s.KickStart = 150; s.KickDecay = 0.4; s.KickDrive = 2.6; s.SnareBody = 175; s.SnareNoise = 3000; s.SnareDrive = 2.2; s.HatC = 0.03; s.HatBright = 10; }
         else if (d == "boombap") { s.KickF0 = 58; s.KickStart = 170; s.KickDecay = 0.3; s.KickDrive = 1.6; s.SnareBody = 175; s.SnareAmt = 0.8; s.SnareDecay = 0.19; s.SnareDrive = 1.5; s.Swing = 0.6; s.HatBright = 8.5; }
@@ -72,7 +72,11 @@ static class PackBuilder
         else if (d == "trance") { s.KickF0 = 52; s.KickStart = 250; s.KickDecay = 0.25; s.KickDrive = 2.6; s.ClapCentre = 1400; s.HatC = 0.03; s.HatBright = 11; }
         else if (d == "futurebass") { s.KickF0 = 50; s.KickStart = 220; s.KickDecay = 0.34; s.KickDrive = 2.4; s.SnareBody = 210; s.SnareNoise = 4200; s.SnareLen = 0.5; s.HatBright = 10.5; }
         else if (d == "breaks") { s.KickF0 = 57; s.KickStart = 180; s.KickDecay = 0.22; s.KickDrive = 1.9; s.SnareBody = 225; s.SnareNoise = 3500; s.Swing = 0.54; s.HatBright = 9.5; }
-        s.KickF0 *= 0.97 + j.Next() * 0.06; s.SnareBody *= 0.96 + j.Next() * 0.08; s.HatBright *= 0.96 + j.Next() * 0.08; return s;
+        // every pack its own kit: the genre sets the centre, the pack's seed moves the pitch, length, weight and brightness of each hit (so two packs of one genre are two kits, not one kit twice)
+        Func<double, double> m = k => Math.Pow(2, (j.Next() * 2 - 1) * k);   // a multiplier from 2^-k to 2^k, spread evenly in pitch / time
+        s.KickF0 *= m(0.30); s.KickDecay *= m(0.45); s.KickDrive *= m(0.35); s.KickClick *= m(0.60); s.KickStart *= m(0.30);
+        s.SnareBody *= m(0.30); s.SnareNoise *= m(0.40); s.SnareDecay *= m(0.45); s.SnareDrive *= m(0.35); s.SnareSnap *= m(0.50);
+        s.HatBright *= m(0.30); s.HatC *= m(0.70); s.HatO *= m(0.70); s.ClapCentre *= m(0.30); s.ClapTail *= m(0.50); s.HatPitch = m(0.35); s.CymDecay = m(0.45); s.CymPitch = m(0.35); s.Variant = r.Seed % 997; return s;
     }
 
     // ---- one-shots ----

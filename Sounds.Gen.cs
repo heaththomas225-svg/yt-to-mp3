@@ -121,10 +121,10 @@ static class SoundGen
         }
         var buf = new Buf(Soft(l, 15000)); buf.R = Soft(rr, 15000); return buf;
     }
-    public static Buf Cymbal(Rnd r, double decay, double len, bool ride)
+    public static Buf Cymbal(Rnd r, double decay, double len, bool ride, double pitch = 1)
     {
         int n = (int)(len * SR); var l = new float[n]; var rr = new float[n]; var hpL = new Svf(); var hpR = new Svf(); var bpL = new Svf(); var bpR = new Svf(); var nz = Noise(r, n);
-        var mA = MetalTone(n, (ride ? 1.9 : 2.6) * r.Range(0.97f, 1.03f), MetalRatios); var mB = MetalTone(n, (ride ? 2.05 : 2.85) * r.Range(0.97f, 1.03f), MetalRatios);   // two slightly different clusters: left and right shimmer apart
+        var mA = MetalTone(n, (ride ? 1.9 : 2.6) * pitch * r.Range(0.97f, 1.03f), MetalRatios); var mB = MetalTone(n, (ride ? 2.05 : 2.85) * pitch * r.Range(0.97f, 1.03f), MetalRatios);   // two slightly different clusters: left and right shimmer apart
         for (int i = 0; i < n; i++)
         {
             double t = i / (double)SR, env = Math.Exp(-t / decay) * (ride ? 1 : Math.Min(1.0, t / 0.002)), body = ride ? 0.45 : 0.25; float nzl = nz[i] * (ride ? 0.25f : 0.55f), nzr = nz[(i + 37) % n] * (ride ? 0.25f : 0.55f);

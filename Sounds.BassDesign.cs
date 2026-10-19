@@ -128,8 +128,8 @@ static class BassDesign
             for (int st = 0; st < 16; st++)
             {
                 char c = p[st]; if (c == '-' || c == '.') continue; int len = 1; while (st + len < 16 && p[st + len] == '-') len++;
-                double start = (bar * 16 + st) * 0.25; if (st % 2 == 1 && swing > 0.5) start += (swing - 0.5) * 2 * 0.25;   // swung 16ths (UK garage, speed garage)
-                int pitch = rootNow + (deg.ContainsKey(c) ? deg[c] : 0); double l = len * 0.25 * (style == "stab" ? 0.55 : 0.94);
+                double start = (bar * 16 + st) * 0.25, late = 0; if (st % 2 == 1 && swing > 0.5) { late = (swing - 0.5) * 2 * 0.25; start += late; }   // swung 16ths (UK garage, speed garage)
+                int pitch = rootNow + (deg.ContainsKey(c) ? deg[c] : 0); double l = Math.Max(0.05, len * 0.25 * (style == "stab" ? 0.55 : 0.94) - late);   // (a swung note starts late, so it ends where it would have: it never runs into the next note)
                 notes.Add(new[] { start, l, (double)pitch, st % 4 == 0 ? 112.0 : 100.0 });
             }
         }
@@ -138,28 +138,89 @@ static class BassDesign
     // a bassline in the pack's rhythm (the old generator) with the swing of the pack applied to its off 16ths
     public static List<double[]> Swung(List<double[]> notes, double swing)
     {
-        if (swing <= 0.5) return notes; foreach (var n in notes) { double st = n[0] * 4; if (Math.Abs(st - Math.Round(st)) < 1e-6 && ((int)Math.Round(st)) % 2 == 1) n[0] += (swing - 0.5) * 2 * 0.25; } return notes;
+        if (swing <= 0.5) return notes; foreach (var n in notes) { double st = n[0] * 4; if (Math.Abs(st - Math.Round(st)) < 1e-6 && ((int)Math.Round(st)) % 2 == 1) { double d = (swing - 0.5) * 2 * 0.25; n[0] += d; n[1] = Math.Max(0.05, n[1] - d); } } return notes;
     }
 
     // the bass of a pack: notes and the finished sound (one loop or one-shot)
     public static Buf Render(WobblePatch p, List<double[]> notes, double bpm, double beats, double tail) { return WobbleEngine.Render(p, notes, bpm, beats, tail); }
 
     // ---- the check of an LFO'd bass: it must really move, with real mid (not only sub) ----
-    public class Moves { public double Swing, Mid, Rate; public bool Ok; public string Why = ""; }
-    public static Moves Check(Buf b)
+    public class Moves { public double Swing, Mid, Rate, Range, Tilt, Motion, Lsd; public bool Ok; public string Why = ""; }
+    // how much the colour moves INSIDE the notes (the LFO at work): for every note, the tilt between the low mids (140-900 Hz) and the highs (0.9-8 kHz) is measured every 4 ms
+    // and the note's range (highest minus lowest, after a 3-frame smooth) is kept; the median over the notes is the motion. A held filter measures about 1 dB, a wobble 5 to 20 dB.
+    public static double Motion(Buf b, List<double[]> notes, double bpm)
     {
-        var m = new Moves(); int N = 1024, hop = 44100 * 12 / 1000; if (b.Length < N * 4) { m.Why = "too short to measure"; return m; }
-        var re = new double[N]; var im = new double[N]; var band = new List<double>(); var lvl = new List<double>(); var cent = new List<double>(); double midE = 0, all = 0;
+        const int N = 512; int hop = 176, sr = 44100; var re = new double[N]; var im = new double[N]; var ranges = new List<double>(); double spb = 60.0 / bpm * sr;
+        foreach (var nt in notes)
+        {
+            if (nt[1] * 60.0 / bpm < 0.2) continue; int a0 = (int)(nt[0] * spb) + (int)(0.025 * sr), a1 = (int)((nt[0] + nt[1]) * spb) - (int)(0.01 * sr); if (a1 - a0 < hop * 7 || a1 + N / 2 >= b.Length) continue;   // (notes under 0.2 s - stabs - are too short to follow an LFO inside: they are judged against their unmodulated twin)
+            var t = new List<double>();
+            for (int c = a0; c < a1; c += hop)
+            {
+                for (int k = 0; k < N; k++) { int i = c - N / 2 + k; double w = 0.5 - 0.5 * Math.Cos(2 * Math.PI * k / (N - 1)); re[k] = i >= 0 && i < b.Length ? (b.L[i] + b.R[i]) * 0.5 * w : 0; im[k] = 0; }
+                Fft.Transform(re, im, false); double lo = 1e-12, hi = 1e-12; for (int k = 1; k < N / 2; k++) { double hz = k * (double)sr / N, e = re[k] * re[k] + im[k] * im[k]; if (hz > 140 && hz < 900) lo += e; else if (hz >= 900 && hz < 8000) hi += e; }
+                t.Add(10 * Math.Log10(hi) - 10 * Math.Log10(lo));
+            }
+            if (t.Count < 6) continue; var sm = new List<double>(); for (int i = 1; i + 1 < t.Count; i++) sm.Add((t[i - 1] + t[i] + t[i + 1]) / 3); double mn = double.MaxValue, mx = double.MinValue; foreach (var x in sm) { mn = Math.Min(mn, x); mx = Math.Max(mx, x); }
+            ranges.Add(mx - mn);
+        }
+        if (ranges.Count < 2) return -1; ranges.Sort(); return ranges[ranges.Count / 2];
+    }
+    public const double MinMotion = 5.0, MinLsd = 3.0;
+    // the same patch with every modulation switched off (a held filter, a fixed pulse width and FM index)
+    public static WobblePatch Unmodulated(WobblePatch p) { var q = p.Copy(); q.Depth = 0; q.PwMod = 0; q.FmMod = 0; q.Fold = 0; q.EnvAmt = 0; q.Pump = 0; q.Retrig = false; return q; }
+    static List<double[]> Octaves(Buf b, out List<double> level)
+    {
+        const int N = 1024; int hop = 44100 * 12 / 1000; var re = new double[N]; var im = new double[N]; var rows = new List<double[]>(); level = new List<double>();
         for (int a = 0; a + N < b.Length; a += hop)
         {
             for (int k = 0; k < N; k++) { double w = 0.5 - 0.5 * Math.Cos(2 * Math.PI * k / (N - 1)); re[k] = (b.L[a + k] + b.R[a + k]) * 0.5 * w; im[k] = 0; }
-            Fft.Transform(re, im, false); double bE = 0, tE = 0, num = 0, den = 0;
-            for (int k = 1; k < N / 2; k++) { double hz = k * 44100.0 / N, e = re[k] * re[k] + im[k] * im[k]; if (hz > 300 && hz < 3000) bE += e; if (hz > 140) midE += e; if (hz > 140 && hz < 12000) { num += hz * e; den += e; } tE += e; all += e; }
-            if (tE > 1e-9) { band.Add(10 * Math.Log10(bE + 1e-12)); lvl.Add(10 * Math.Log10(tE)); cent.Add(den > 1e-12 ? num / den : 0); }
+            Fft.Transform(re, im, false); var e = new double[8]; double tot = 0;
+            for (int k = 1; k < N / 2; k++) { double hz = k * 44100.0 / N, v = re[k] * re[k] + im[k] * im[k]; tot += v; if (hz < 62 || hz >= 12000) continue; int band = (int)Math.Floor(Math.Log(hz / 62.0, 2)); if (band >= 0 && band < 8) e[band] += v; }
+            for (int j = 0; j < 8; j++) e[j] = 10 * Math.Log10(e[j] + 1e-10); rows.Add(e); level.Add(10 * Math.Log10(tot + 1e-10));
+        }
+        return rows;
+    }
+    // how far the sound is from its own unmodulated version: the average difference over the octave bands and the sounding frames, in dB (for stabs, whose notes are too short to follow the LFO inside)
+    public static double Distance(Buf on, Buf off)
+    {
+        List<double> la, lb; var ra = Octaves(on, out la); var rb = Octaves(off, out lb); int n = Math.Min(ra.Count, rb.Count); if (n < 10) return 0; double top = double.MinValue; foreach (var x in la) top = Math.Max(top, x);
+        double sum = 0; int cnt = 0; for (int i = 0; i < n; i++) { if (la[i] < top - 30) continue; for (int j = 1; j < 7; j++) { sum += Math.Abs(ra[i][j] - rb[i][j]); cnt++; } }
+        return cnt > 0 ? sum / cnt : 0;
+    }
+    public static Moves Check(Buf b, List<double[]> notes, double bpm, WobblePatch patch)
+    {
+        var m = Check(b); m.Why = ""; m.Motion = Motion(b, notes, bpm);
+        if ((m.Motion < 0 || m.Motion < MinMotion) && patch != null) { double spb = 60.0 / bpm * 44100; var off = WobbleEngine.Render(Unmodulated(patch), notes, bpm, b.Length / spb, 0); m.Lsd = Distance(b, off); }
+        if (m.Mid < 0.15) m.Why = "almost all sub (" + (m.Mid * 100).ToString("0") + "% above 140 Hz): no wobble to hear";
+        else if ((m.Motion < 0 || m.Motion < MinMotion) && m.Lsd < MinLsd) m.Why = (m.Motion < 0 ? "" : "the colour hardly moves inside a note (" + m.Motion.ToString("0.0") + " dB) and ") + "the sound hardly differs from an unmodulated one (" + m.Lsd.ToString("0.0") + " dB)";   // a note's colour moving, or the sound clearly unlike its held-filter twin: either shows the LFO at work
+        m.Ok = m.Why.Length == 0; return m;
+    }
+    // the check of an LFO'd bass: it must really move inside its notes, with real mid (not only sub)
+    public static Moves Check(Buf b, List<double[]> notes, double bpm)
+    {
+        var m = Check(b); m.Why = ""; m.Motion = Motion(b, notes, bpm);
+        if (m.Mid < 0.15) m.Why = "almost all sub (" + (m.Mid * 100).ToString("0") + "% above 140 Hz): no wobble to hear";
+        else if (m.Motion >= 0 && m.Motion < MinMotion) m.Why = "the colour hardly moves inside a note (" + m.Motion.ToString("0.0") + " dB)";
+        else if (m.Motion < 0 && m.Swing < 6) m.Why = "the filter hardly moves (" + m.Swing.ToString("0.0") + " dB)";
+        m.Ok = m.Why.Length == 0; return m;
+    }
+    public static Moves Check(Buf b)
+    {
+        var m = new Moves(); int N = 1024, hop = 44100 * 12 / 1000; if (b.Length < N * 4) { m.Why = "too short to measure"; return m; }
+        var re = new double[N]; var im = new double[N]; var band = new List<double>(); var lvl = new List<double>(); var cent = new List<double>(); var tilt = new List<double>(); double midE = 0, all = 0;
+        for (int a = 0; a + N < b.Length; a += hop)
+        {
+            for (int k = 0; k < N; k++) { double w = 0.5 - 0.5 * Math.Cos(2 * Math.PI * k / (N - 1)); re[k] = (b.L[a + k] + b.R[a + k]) * 0.5 * w; im[k] = 0; }
+            Fft.Transform(re, im, false); double bE = 0, tE = 0, num = 0, den = 0, eLo = 0, eHi = 0;
+            for (int k = 1; k < N / 2; k++) { double hz = k * 44100.0 / N, e = re[k] * re[k] + im[k] * im[k]; if (hz > 300 && hz < 3000) bE += e; if (hz > 140) midE += e; if (hz > 140 && hz < 12000) { num += hz * e; den += e; } if (hz > 140 && hz < 900) eLo += e; else if (hz >= 900 && hz < 8000) eHi += e; tE += e; all += e; }
+            if (tE > 1e-9) { band.Add(10 * Math.Log10(bE + 1e-12)); lvl.Add(10 * Math.Log10(tE)); cent.Add(den > 1e-12 ? num / den : 0); tilt.Add(10 * Math.Log10(eHi + 1e-12) - 10 * Math.Log10(eLo + 1e-12)); }
         }
         if (lvl.Count < 12) { m.Why = "too quiet to measure"; return m; }
         double top = double.MinValue; foreach (var x in lvl) top = Math.Max(top, x); var bs = new List<double>(); for (int i = 0; i < band.Count; i++) if (lvl[i] > top - 30) bs.Add(band[i]); bs.Sort();
         if (bs.Count > 10) m.Swing = bs[(int)(bs.Count * 0.9)] - bs[(int)(bs.Count * 0.1)]; m.Mid = midE / Math.Max(1e-12, all);
+        { var ts = new List<double>(); for (int i = 0; i < tilt.Count; i++) if (lvl[i] > top - 30) ts.Add(tilt[i]); ts.Sort(); if (ts.Count > 10) m.Tilt = ts[(int)(ts.Count * 0.9)] - ts[(int)(ts.Count * 0.1)]; }   // how far the colour tilts between the low mids and the highs (a vowel sweep or a filter sweep moves it a lot; a held filter does not)
+        { var cs = new List<double>(); for (int i = 0; i < cent.Count; i++) if (lvl[i] > top - 30 && cent[i] > 0) cs.Add(cent[i]); cs.Sort(); if (cs.Count > 10) m.Range = cs[(int)(cs.Count * 0.9)] / Math.Max(1, cs[(int)(cs.Count * 0.1)]); }   // how far the brightness travels (a vowel sweep moves the colour more than the level)
         // the rate: the first strong repeat of the brightness between 1 and 20 Hz
         double mean = 0; foreach (var x in cent) mean += x; mean /= cent.Count; double fps = 1000.0 / 12; int lo = (int)(fps / 20), hi = (int)fps; var ac = new double[hi + 2]; double best = 0;
         for (int lag = lo; lag <= hi + 1 && lag < cent.Count; lag++) { double acc = 0, n0 = 0; for (int i = 0; i + lag < cent.Count; i++) { acc += (cent[i] - mean) * (cent[i + lag] - mean); n0 += (cent[i] - mean) * (cent[i] - mean); } ac[lag] = acc / Math.Max(1e-12, n0); if (lag <= hi) best = Math.Max(best, ac[lag]); }

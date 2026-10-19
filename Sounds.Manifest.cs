@@ -134,4 +134,17 @@ static class LibraryCheck
         if (dupes.Count > 0) { sb.Append(NL).Append("DUPLICATES").Append(NL); foreach (var d in dupes) sb.Append("  ").Append(d).Append(NL); }
         Directory.CreateDirectory(SoundLibrary.Root); string path = Path.Combine(SoundLibrary.Root, "library-report.txt"); File.WriteAllText(path, sb.ToString(), new UTF8Encoding(false)); return path;
     }
+
+    // ---- no empty filters: every genre, style, pack, section, toolkit and tempo range the menus can offer gives at least one sound ----
+    // avail: "" = the installed (baked) library, "instant" or "all". Returns the options that give nothing (an empty list is the goal).
+    public static List<string> EmptyOptions(string avail)
+    {
+        var bad = new List<string>(); Func<SoundLibrary.Filter, int> n = f => { f.Avail = avail; return SoundLibrary.Search(f).Count; };
+        foreach (var kv in SoundCatalog.Genres()) { if (n(new SoundLibrary.Filter { Genre = kv.Key }) == 0) bad.Add("genre " + kv.Key); foreach (var sub in kv.Value) if (n(new SoundLibrary.Filter { Genre = kv.Key, Sub = sub }) == 0) bad.Add("style " + kv.Key + " / " + sub); }
+        var sections = new HashSet<string>(); foreach (var r in SoundCatalog.Recipes) { sections.Add(r.Section); if (n(new SoundLibrary.Filter { Pack = r.Id }) == 0) bad.Add("pack " + r.Name); }
+        foreach (var sec in sections) { bool any = false; foreach (var r in SoundCatalog.Recipes) if (r.Section == sec && n(new SoundLibrary.Filter { Pack = r.Id }) > 0) { any = true; break; } if (!any) bad.Add("section " + sec); }
+        foreach (var set in SoundToolkit.Sets) { var f = set.Filter.Copy(); if (n(f) == 0) bad.Add("toolkit " + set.Name); }
+        foreach (var r in StudioForm.BpmRanges()) if (n(new SoundLibrary.Filter { BpmMin = r.Key, BpmMax = r.Value }) == 0) bad.Add("tempo " + r.Key + "-" + r.Value + " BPM");
+        return bad;
+    }
 }
