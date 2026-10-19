@@ -15,6 +15,10 @@ partial class StudioForm
 {
     // the Purphex colours: always the brand violet, magenta and cyan, whatever the theme
     internal static readonly Color PxViolet = Color.FromArgb(255, 140, 92, 255), PxMagenta = Color.FromArgb(255, 236, 72, 200), PxCyan = Color.FromArgb(255, 92, 220, 255);
+    // the colours of the pictures and slots: the Purphex design inside plugin and VST windows (TM.Brand is on there), the theme everywhere else
+    Color VzV { get { return TM.Brand ? PxViolet : NeonViolet; } }
+    Color VzP { get { return TM.Brand ? PxMagenta : NeonPink; } }
+    Color VzC { get { return TM.Brand ? PxCyan : NeonCyan; } }
     enum VizKind { Ripples, Echo, Pump, Curve, Crunch, Bend, Bars }
     internal static string VizName(Fx f) { return VizOf(f).ToString(); }
     static VizKind VizOf(Fx f)
@@ -50,7 +54,7 @@ partial class StudioForm
         if (r.Width < 8 || r.Height < 6) return;
         float lvl = VizLevel(f); float[] hist; fxvHist.TryGetValue(f, out hist); if (hist == null) hist = new float[48];
         bool calm = UiTokens.ReducedMotion; double ph = calm ? 0.3 : (Environment.TickCount % 100000) / 1000.0;
-        Color c1 = PxViolet, c2 = PxMagenta, c3 = PxCyan; int baseA = f.Bypass ? 40 : 90;
+        Color c1 = VzV, c2 = VzP, c3 = VzC; int baseA = f.Bypass ? 40 : 90;
         var gs = g.Save(); g.SetClip(r, CombineMode.Intersect); var sm = g.SmoothingMode; g.SmoothingMode = SmoothingMode.AntiAlias;
         float cx = r.X + r.Width * (big ? 0.5f : 0.78f), cy = r.Y + r.Height / 2;
         switch (VizOf(f))
@@ -118,10 +122,10 @@ partial class StudioForm
     internal void PaintPxSlot(Graphics g, RectangleF row, Fx f, bool open)
     {
         float lvl; fxvLvl.TryGetValue(f, out lvl);
-        Color edge = f.Bypass ? DimC : (open ? UiTokens.Sel(PxCyan) : FvMix(PxViolet, PxMagenta, lvl));
+        Color edge = f.Bypass ? DimC : (open ? UiTokens.Sel(VzC) : FvMix(VzV, VzP, lvl));
         using (var p = RR(row, 6))
         {
-            using (var b = new LinearGradientBrush(row, f.Bypass ? Color.FromArgb(170, 34, 26, 46) : Color.FromArgb(230, 52, 18, 110), f.Bypass ? Color.FromArgb(170, 26, 20, 36) : Color.FromArgb(230, 120, 20, 112), 0f)) g.FillPath(b, p);
+            using (var b = new LinearGradientBrush(row, f.Bypass ? TM.C(170, 34, 26, 46) : TM.C(230, 52, 18, 110), f.Bypass ? TM.C(170, 26, 20, 36) : TM.C(230, 120, 20, 112), 0f)) g.FillPath(b, p);
             using (var b = new LinearGradientBrush(row, Color.FromArgb(60, 255, 255, 255), Color.FromArgb(0, 255, 255, 255), 90f)) g.FillRectangle(b, row.X, row.Y, row.Width, row.Height * 0.45f);   // the glass shine on top
         }
         if (!f.Bypass && lvl > 0.05f) Glow(g, edge, row, 6, 0.25f + 0.75f * lvl, 3);

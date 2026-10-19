@@ -135,20 +135,25 @@ static class DrumKit
     public static Kit Make(DrumStyle s, int seed)
     {
         var r = new Rnd(seed); var k = new Kit(); string[] kn = { "Punch", "Tight", "Deep", "Hard", "Thump", "Clean" };
+        // Punch, Tight, Deep, Hard, Thump, Clean: pitch, sweep, sweep speed, length, drive and click set per character (the genre's kick stays the centre)
+        double[][] kc = { new[] { 1.0, 1.25, 0.8, 0.85, 1.2, 1.5 }, new[] { 1.1, 1.1, 0.7, 0.55, 1.0, 1.0 }, new[] { 0.84, 0.85, 1.25, 1.6, 0.9, 0.45 }, new[] { 1.02, 1.35, 0.85, 1.0, 1.7, 1.8 }, new[] { 0.92, 0.75, 1.4, 1.25, 1.1, 0.7 }, new[] { 1.0, 1.0, 1.0, 1.0, 0.6, 0.6 } };
         for (int i = 0; i < 6; i++)
         {
-            double f0 = s.KickF0 * r.Range(0.9f, 1.12f), st = s.KickStart * r.Range(0.8f, 1.25f), dec = s.KickDecay * r.Range(0.7f, 1.4f), dr = 1 + (s.KickDrive - 1) * 0.3 * r.Range(0.8f, 1.2f);   // clean kicks: only a little saturation
-            k.Kicks.Add(SoundGen.Kick(r, f0, st, s.KickTau * r.Range(0.8f, 1.3f), dec, dr, s.KickClick * r.Range(0.5f, 1.4f), s.KickLen)); k.KickNames.Add(kn[i]);
+            var c = kc[i]; double f0 = s.KickF0 * c[0] * r.Range(0.97f, 1.03f), st = s.KickStart * c[1] * r.Range(0.95f, 1.05f), dec = s.KickDecay * c[3] * r.Range(0.93f, 1.07f), dr = 1 + (s.KickDrive - 1) * 0.3 * c[4];   // clean kicks: only a little saturation
+            k.Kicks.Add(SoundGen.Kick(r, f0, st, s.KickTau * c[2], dec, dr, s.KickClick * c[5], s.KickLen * Math.Max(0.8, Math.Min(1.4, c[3])))); k.KickNames.Add(kn[i]);
         }
         string[] sn = { "Crack", "Snap", "Fat", "Tight", "Rim Crack", "Bright" };
+        // Crack, Snap, Fat, Tight, Rim Crack, Bright: body pitch, noise colour, length, noise amount, snap and drive per character
+        double[][] sc = { new[] { 1.1, 1.0, 0.8, 1.0, 1.7, 1.2 }, new[] { 1.0, 1.35, 0.7, 1.15, 1.3, 1.0 }, new[] { 0.82, 0.8, 1.6, 0.9, 0.7, 1.1 }, new[] { 1.05, 1.1, 0.5, 0.85, 1.1, 1.0 }, new[] { 1.3, 0.75, 0.6, 0.6, 2.0, 1.25 }, new[] { 1.0, 1.6, 1.0, 1.2, 1.0, 0.95 } };
         for (int i = 0; i < 6; i++)
         {
-            double body = s.SnareBody * r.Range(0.85f, 1.2f), nz = s.SnareNoise * r.Range(0.8f, 1.3f), dec = s.SnareDecay * r.Range(0.7f, 1.5f);
-            k.Snares.Add(SoundGen.Snare(r, body, nz, dec, s.SnareAmt * r.Range(0.8f, 1.2f), s.SnareSnap * r.Range(0.6f, 1.6f), s.SnareDrive * r.Range(0.9f, 1.4f), s.SnareLen)); k.SnareNames.Add(sn[i]);
+            var c = sc[i]; double body = s.SnareBody * c[0] * r.Range(0.97f, 1.03f), nz = s.SnareNoise * c[1], dec = s.SnareDecay * c[2] * r.Range(0.94f, 1.06f);
+            k.Snares.Add(SoundGen.Snare(r, body, nz, dec, s.SnareAmt * c[3], s.SnareSnap * c[4], s.SnareDrive * c[5], s.SnareLen * Math.Max(0.8, Math.Min(1.5, c[2])))); k.SnareNames.Add(sn[i]);
         }
-        for (int i = 0; i < 3; i++) k.Claps.Add(SoundGen.Clap(r, s.ClapCentre * r.Range(0.85f, 1.2f), s.ClapTail * r.Range(0.7f, 1.4f), 0.5));
-        for (int i = 0; i < 4; i++) k.HatsC.Add(SoundGen.Hat(r, s.HatC * r.Range(0.7f, 1.5f), s.HatBright * r.Range(0.85f, 1.1f), 0.2, r.Range(0.9f, 1.15f)));
-        for (int i = 0; i < 2; i++) k.HatsO.Add(SoundGen.Hat(r, s.HatO * r.Range(0.8f, 1.3f), s.HatBright * r.Range(0.85f, 1.1f), 0.8, r.Range(0.9f, 1.15f)));
+        // claps: tight and bright, wide and roomy, low and thick; closed hats: tight, crisp, dark, long; open hats: short and long
+        double[][] cc = { new[] { 1.25, 0.6 }, new[] { 1.0, 1.6 }, new[] { 0.75, 1.0 } }; for (int i = 0; i < 3; i++) k.Claps.Add(SoundGen.Clap(r, s.ClapCentre * cc[i][0], s.ClapTail * cc[i][1], 0.5 * Math.Max(1, cc[i][1])));
+        double[][] hc = { new[] { 0.6, 1.08, 1.1 }, new[] { 1.0, 1.15, 1.0 }, new[] { 1.1, 0.8, 0.85 }, new[] { 1.9, 0.95, 1.0 } }; for (int i = 0; i < 4; i++) k.HatsC.Add(SoundGen.Hat(r, s.HatC * hc[i][0], s.HatBright * hc[i][1], 0.2 * Math.Max(1, hc[i][0]), hc[i][2]));
+        double[][] ho = { new[] { 0.65, 1.05, 1.05 }, new[] { 1.5, 0.92, 0.95 } }; for (int i = 0; i < 2; i++) k.HatsO.Add(SoundGen.Hat(r, s.HatO * ho[i][0], s.HatBright * ho[i][1], 0.8 * Math.Max(1, ho[i][0]), ho[i][2]));
         k.Rides.Add(SoundGen.Cymbal(r, 0.9, 2.0, true)); k.Rides.Add(SoundGen.Cymbal(r, 1.4, 2.6, false));
         k.Perc.Add(SoundGen.Tom(r, 110 * r.Range(0.9f, 1.2f), 0.28, 0.6)); k.PercNames.Add("Tom Low"); k.Perc.Add(SoundGen.Tom(r, 170 * r.Range(0.9f, 1.2f), 0.22, 0.5)); k.PercNames.Add("Tom Mid");
         k.Perc.Add(SoundGen.Shaker(r, 0.18, r.Range(0.85f, 1.15f))); k.PercNames.Add("Shaker"); k.Perc.Add(SoundGen.Rim(r, 1700 * r.Range(0.9f, 1.15f))); k.PercNames.Add("Rim"); k.Perc.Add(SoundGen.Conga(r, 330 * r.Range(0.9f, 1.2f))); k.PercNames.Add("Conga");

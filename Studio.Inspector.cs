@@ -18,7 +18,7 @@ partial class StudioForm
     internal bool InsShown { get { return insOpen && tab == 0 && !flexOpen; } }
     // the bottom of the arrangement (the inspector takes the space under it)
     internal float MixH { get { return ClientSize.Height - (InsShown ? InsH : 0); } }
-    internal void OpenInspector(int tabIndex) { insOpen = true; insTab = Math.Max(0, Math.Min(3, tabIndex)); tab = 0; if (insTab == 1) EnsureConsoleHeight(); Prefs.InsOpen = true; if (!Prefs.PanelHidden && !soundsOpen) { Prefs.PanelHidden = true; panelAt = DateTime.Now; } Prefs.Changed(); Invalidate(); }   // one place for plugins: the right-hand plugin panel is tucked away (its tab brings it back)
+    internal void OpenInspector(int tabIndex) { insOpen = true; insTab = Math.Max(0, Math.Min(3, tabIndex)); if (insTab == 2) insTab = 1; tab = 0;   /* (buses are strips in ALL PLUGINS now) */ if (insTab == 1) EnsureConsoleHeight(); Prefs.InsOpen = true; if (!Prefs.PanelHidden && !soundsOpen) { Prefs.PanelHidden = true; panelAt = DateTime.Now; } Prefs.Changed(); Invalidate(); }   // one place for plugins: the right-hand plugin panel is tucked away (its tab brings it back)
     internal void CloseInspector() { insOpen = false; Prefs.InsOpen = false; Prefs.Changed(); Invalidate(); }
 
     // which track the panel shows: the bus picked in BUSES, the bus being edited, or the picked track
@@ -27,7 +27,7 @@ partial class StudioForm
         get
         {
             if (insBus != null && !eng.Tracks.Contains(insBus)) insBus = null;
-            if (insTab == 2 && insBus != null) return insBus; if (busEdit != null && eng.Tracks.Contains(busEdit)) return busEdit;
+            if (insBus != null) return insBus; if (busEdit != null && eng.Tracks.Contains(busEdit)) return busEdit;
             if (eng.Tracks.Count == 0) return null; return eng.Tracks[Math.Max(0, Math.Min(selTrack, eng.Tracks.Count - 1))];
         }
     }
@@ -44,14 +44,15 @@ partial class StudioForm
         if (Hot(div) || insDragging) { using (var pen = new Pen(NeonCyan, 3f)) g.DrawLine(pen, x, y, x + w, y); Cursor = Cursors.SizeNS; } Hint2(div, "Drag to make the inspector taller or shorter");
         // header: tabs, what is shown, hide
         var t = InsTarget; var clipT = InsClip; bool midi = t != null && t.Instrument; string fourth = midi ? "MIDI" : "CLIP";
-        string[] tabs = { "CHANNEL", "ALL PLUGINS", "BUSES", fourth }; float tx = x + 10;
-        for (int i = 0; i < tabs.Length; i++) { int k = i; float cw = i == 1 ? 118 : 100; var r = Rc(tx, y + 6, cw, 24); Chip(g, r, tabs[i], insTab == i, () => { if (k == 1) EnsureConsoleHeight(); insTab = k; insScrollX = 0; }); tx += cw + 4; }
+        string[] tabs = { "CHANNEL", "ALL PLUGINS", "", fourth }; float tx = x + 10;
+        for (int i = 0; i < tabs.Length; i++) { if (tabs[i].Length == 0) continue; int k = i; float cw = i == 1 ? 118 : 100; var r = Rc(tx, y + 6, cw, 24); Chip(g, r, tabs[i], insTab == i, () => { if (k == 1) EnsureConsoleHeight(); insTab = k; insScrollX = 0; }); tx += cw + 4; }
         if (t != null) { var nm = Rc(tx + 10, y + 6, Math.Max(60, w - tx - 200), 24); using (var cb = new SolidBrush(Neon(t.Color))) g.FillEllipse(cb, nm.X, nm.Y + 6, 12, 12); Txt(g, (t.IsBus ? "BUS: " : (t.Instrument ? "MIDI: " : "TRACK: ")) + t.Name, 12, Ink, Rc(nm.X + 18, nm.Y, nm.Width - 18, 24), StringAlignment.Near, true); }
         var hide = Rc(x + w - 92, y + 6, 82, 24); Btn(g, hide, "HIDE", 0, () => CloseInspector(), 10); Hint2(hide, "Hide the inspector (the arrangement gets its space back)");
-        if (fxWins.Count > 1) { var ar = Rc(hide.X - 118, y + 6, 112, 24); Btn(g, ar, "ARRANGE WINDOWS", 0, () => ArrangeFxWindows(), 9); }
+        float hx = hide.X; if (fxWins.Count > 1) { var ar = Rc(hide.X - 118, y + 6, 112, 24); Btn(g, ar, "ARRANGE WINDOWS", 0, () => ArrangeFxWindows(), 9); hx = ar.X; }
+        if (t != null && (insTab == 1 || insTab == 0)) { bool any = t.Fx.Exists(f => !(f is InstrumentFx)); var rmb = Rc(hx - 156, y + 6, 150, 24); Btn(g, rmb, "REMOVE ALL PLUGINS", any ? 3 : 0, () => { if (!any) { Toast(t.Name + " has no plugins to remove."); return; } if (!AskYes("Are you sure? Every plugin on " + t.Name + " will be removed (Ctrl+Z brings them back).", "Remove all plugins")) return; ChainApply(t, "All plugins removed", () => RemoveAllPlugins(t)); selFx = -1; }, 9); Hint2(rmb, "Take every plugin off " + t.Name + " (it asks first; Ctrl+Z undoes it)"); }
         var C = Rc(x + 8, y + 36, w - 16, h - 42); if (t == null && insTab != 2) { Txt(g, "ADD A TRACK, THEN PICK IT TO SEE ITS CHANNEL, PLUGINS AND CLIPS HERE", 12, DimC, C, StringAlignment.Center, false); return; }
         var gs = g.Save(); g.SetClip(C, System.Drawing.Drawing2D.CombineMode.Intersect);
-        if (insTab == 0) PaintInsChannel(g, C, t); else if (insTab == 1) PaintInsPlugins(g, C, t); else if (insTab == 2) PaintInsBuses(g, C); else if (midi) PaintInsMidi(g, C, t); else PaintInsClip(g, C, clipT);
+        if (insTab == 0) PaintInsChannel(g, C, t); else if (insTab == 1 || insTab == 2) PaintInsPlugins(g, C, t); else if (midi) PaintInsMidi(g, C, t); else PaintInsClip(g, C, clipT);
         g.Restore(gs);
     }
 
@@ -203,6 +204,10 @@ partial class StudioForm
         float faderH = Math.Max(30, C.Height - fixedH - slots * (SlotH + SlotGap));
         float x = C.X - insScrollX;
         foreach (var t in strips) { if (x + StripW >= C.X - 4 && x <= C.Right + 4) PaintStrip(g, Rc(x, C.Y, StripW, C.Height), t, t == picked, slots, sendRows, faderH); x += StripW + 6; }
+        // + NEW BUS: a bus is made here and gets its own strip (with its effects) next to the tracks
+        if (x + 84 >= C.X - 4 && x <= C.Right + 4) { var nb = Rc(x, C.Y, 84, C.Height); using (var pen = new Pen(Color.FromArgb(120, NeonPink), 1.4f) { DashStyle = System.Drawing.Drawing2D.DashStyle.Dash }) using (var p = RR(nb, 9)) g.DrawPath(pen, p);
+          var nbb = Rc(nb.X + 6, nb.Y + 8, nb.Width - 12, 40); Btn(g, nbb, "+ NEW BUS", 2, () => { var b2 = AddBus(); if (b2 != null) { insBus = b2; } }, 9); Hint2(nbb, "Make a bus: send tracks into it with + BUS on their strips, and give it its own effects"); }
+        x += 90;
         if (strips.Count == 0) Txt(g, "ADD A TRACK: EVERY TRACK GETS ITS OWN STRIP HERE", 11, DimC, Rc(C.X + StripW + 20, C.Y, C.Width - StripW - 30, 40), StringAlignment.Near, false);
         insMaxX = Math.Max(0, (x + insScrollX) - C.Right); insScrollX = Math.Min(insScrollX, insMaxX);
     }
@@ -240,8 +245,8 @@ partial class StudioForm
         y += sendRows * (SlotH + SlotGap) + 6;
         // output
         var ob = Rc(x, y, w, 22);
-        if (t.IsBus) { FillRR(g, TM.C(120, 30, 16, 56), ob, 5); Txt(g, "MASTER", 9, DimC, ob, StringAlignment.Center, true); Hint2(ob, "Buses go to the master"); }
-        else { bool badOut = t.Out != null && (!eng.Tracks.Contains(t.Out) || !t.Out.IsBus); Btn(g, ob, badOut ? "FIX OUTPUT" : (t.Out != null ? t.Out.Name : "MASTER"), badOut ? 3 : 0, () => OutputMenu(tt), 9); Hint2(ob, "Where " + t.Name + " goes: the master or a bus"); }
+        if (t.IsBus) { Btn(g, ob, "BUS OPTIONS", 0, () => BusStripMenu(tt), 9); Hint2(ob, "Rename, recolour or delete this bus, or add an effect to it"); }
+        else { bool badOut = t.Out != null && (!eng.Tracks.Contains(t.Out) || !t.Out.IsBus); Btn(g, ob, badOut ? "FIX BUS" : (t.Out != null ? t.Out.Name : "+ BUS"), badOut ? 3 : (t.Out != null ? 4 : 1), () => StripBusMenu(tt), 9); Hint2(ob, t.Out != null ? t.Name + " goes into the bus " + t.Out.Name + ". Click to change it." : "Put " + t.Name + " into a bus (a new one, or one you have): its effects then work on every track in it"); }
         y += 26;
         // pan
         var pr = Rc(x, y, w, 14); var ps = Slider(g, pr, (t.Pan + 1) / 2, v => tt.Pan = (float)Math.Round(v * 2 - 1, 2), col); ps.OnDouble = () => tt.Pan = 0;
@@ -255,10 +260,31 @@ partial class StudioForm
         // mute / solo
         float hw = (w - 4) / 2; Btn(g, Rc(x, y, hw, 20), "M", t.Mute ? 3 : 0, () => tt.Mute = !tt.Mute, 9.5f); Btn(g, Rc(x + hw + 4, y, hw, 20), "S", t.Solo ? 2 : 0, () => tt.Solo = !tt.Solo, 9.5f);
     }
+    // the + BUS button of a track strip: pick a bus, make a new one, or take the track out of its bus
+    void StripBusMenu(Track t)
+    {
+        var m = Win.NewMenu(); int n = 0;
+        foreach (var b0 in eng.Tracks.ToArray()) if (b0.IsBus) { var bus = b0; n++; var it = new ToolStripMenuItem("Into " + bus.Name) { Checked = t.Out == bus }; it.Click += (a, b) => { PushUndo(); lock (eng.Sync) t.Out = bus; }; m.Items.Add(it); }
+        if (n > 0) m.Items.Add(new ToolStripSeparator());
+        m.Items.Add("New bus with " + t.Name + " in it").Click += (a, b) => { int keep = selTrack; var nb = AddBus(); selTrack = keep; if (nb != null) { PushUndo(); lock (eng.Sync) t.Out = nb; insBus = null; } };
+        if (t.Out != null) m.Items.Add("Take it out of the bus (straight to the master)").Click += (a, b) => { PushUndo(); lock (eng.Sync) t.Out = null; };
+        m.Items.Add(new ToolStripSeparator()); m.Items.Add("Send a copy to a bus (a send)...").Click += (a, b) => AddSendMenu(t);
+        m.Show(this, new Point((int)MousePos.X, (int)MousePos.Y));
+    }
+    // the BUS OPTIONS button of a bus strip
+    void BusStripMenu(Track bus)
+    {
+        var m = Win.NewMenu(); m.Items.Add("Add an effect to " + bus.Name).Click += (a, b) => InsAddEffect(bus); m.Items.Add("Bus presets...").Click += (a, b) => ChainMenu(bus);
+        m.Items.Add(new ToolStripSeparator()); m.Items.Add("Rename...").Click += (a, b) => RenameTrack(bus); m.Items.Add("Colour...").Click += (a, b) => TrackColourMenu(bus);
+        int feeding = 0; foreach (var q in eng.Tracks) if (!q.IsBus && (q.Out == bus || Array.Exists(q.Sends, s => s.Bus == bus))) feeding++;
+        m.Items.Add(new ToolStripMenuItem(feeding == 0 ? "No track goes into this bus yet (use + BUS on a track)" : feeding + " track" + (feeding == 1 ? "" : "s") + " go into this bus") { Enabled = false });
+        m.Items.Add(new ToolStripSeparator()); m.Items.Add("Delete " + bus.Name).Click += (a, b) => { if (AskYes("Delete " + bus.Name + "? Tracks in it go straight to the master again.", "Delete bus")) DeleteBusSafely(bus); };
+        m.Show(this, new Point((int)MousePos.X, (int)MousePos.Y));
+    }
     void PickStrip(Track t)
     {
         if (t.IsBus) { insBus = t; busEdit = null; selFx = -1; return; }
-        int i = eng.Tracks.IndexOf(t); if (i >= 0) { selTrack = i; busEdit = null; selFx = -1; }
+        int i = eng.Tracks.IndexOf(t); if (i >= 0) { selTrack = i; busEdit = null; insBus = null; selFx = -1; }
     }
     // the slots: each plugin in the order the sound goes through them, then an empty slot to add one; when they don't all fit the last slot lists the rest
     void PaintSlots(Graphics g, float x, float y, float w, int slots, Fx[] fxs, Track t)

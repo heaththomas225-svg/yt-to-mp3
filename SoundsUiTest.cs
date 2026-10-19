@@ -31,7 +31,9 @@ static class Q
         var rec = SoundCatalog.Find("naughty-dnb-rollers"); rec.Parts = "drums,bass,loops,midi,presets";
         Call("OpenSounds"); Paint(); Pump(100); Paint();
         Check("the SOUNDS panel opens", F<bool>("soundsOpen"), "");
-        Check("with no packs installed the browser already lists the instant drum and bass loops (50,000+)", Results().Count >= 50000 && Rows().Count >= 3, Results().Count + " sounds");
+        Check("with no packs installed the SOUNDS list says nothing is installed yet (no made-up sounds)", Results().Count == 0 && SoundLibrary.InstalledCount() == 0, Results().Count + " sounds");
+        F<SoundLibrary.Filter>("sndFilter").Avail = "all"; SetF("sndDirty", true); Paint(); Paint();   /* the made-on-play sounds, shown on purpose */
+        Check("Show: made on play lists the instant drum and bass loops (50,000+)", Results().Count >= 50000 && Rows().Count >= 3, Results().Count + " sounds");
         { // filters: Trap drum loops, House bass loops in F minor: hundreds each, before any pack is installed
           var Fi = F<SoundLibrary.Filter>("sndFilter"); Fi.Genre = "Trap"; Fi.Type = "Drum Loop"; SetF("sndDirty", true); Paint(); int trapDrums = Results().Count; bool allTrap = Results().TrueForAll(s => s.Genre == "Trap" && s.Type == "Drum Loop");
           Fi.Genre = "House"; Fi.Type = "Bass Loop"; Fi.Key = "F min"; SetF("sndDirty", true); Paint(); int houseBass = Results().Count;
@@ -44,7 +46,7 @@ static class Q
           Check("the Genre menu lists every genre under its section, each with how many sounds it has", secs && counted && !gtexts.Exists(t => t.Contains("ELECTRONIC BASS") || t.Contains("RAP AND VOCALS")), string.Join(" / ", gtexts.GetRange(0, Math.Min(12, gtexts.Count))));
           Fi.Genre = "House"; var sm = sf.StyleMenuStrip(); var stexts = new List<string>(); foreach (ToolStripItem it in sm.Items) stexts.Add((it.Text ?? "").ToUpperInvariant());
           Check("the Style menu lists the chosen genre's styles with counts (House: Tech House, Deep House, Bass House...)", stexts.Exists(t => t.StartsWith("TECH HOUSE   (")) && stexts.Exists(t => t.StartsWith("DEEP HOUSE   (")) && stexts.Exists(t => t.StartsWith("BASS HOUSE   (")), string.Join(" / ", stexts));
-          var im = sf.InstrumentMenuStrip(); var itexts = new List<string>(); foreach (ToolStripItem it in im.Items) itexts.Add((it.Text ?? "").ToUpperInvariant());
+          Fi.Genre = ""; Fi.Sub = ""; Fi.Type = ""; Fi.Kind = ""; Fi.Group = ""; var im = sf.InstrumentMenuStrip(); var itexts = new List<string>(); foreach (ToolStripItem it in im.Items) itexts.Add((it.Text ?? "").ToUpperInvariant());
           Check("the Instrument menu lists every instrument under its family with counts (keys, guitars, strings and brass, mallets, drums, bass...)", itexts.Contains("KEYS") && itexts.Contains("GUITAR") && itexts.Contains("STRINGS & BRASS") && itexts.Contains("DRUMS") && itexts.Exists(t => t.Trim().StartsWith("GRAND PIANO   (")) && itexts.Exists(t => t.Trim().StartsWith("LOG DRUM   (")), string.Join(" / ", itexts.GetRange(0, Math.Min(10, itexts.Count))));
           Fi.Genre = ""; Fi.Sub = ""; Fi.Instrument = "Nylon Guitar"; Fi.Type = ""; SetF("sndDirty", true); Paint(); int guitars = Results().Count; bool allG = Results().TrueForAll(s => s.Instrument == "Nylon Guitar"); Fi.Instrument = "";
           Check("picking an instrument shows only that instrument", guitars > 100 && allG, guitars + " nylon guitar sounds");

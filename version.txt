@@ -1,4 +1,4 @@
-3.70.0
+3.71.0
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-The mixer desk, Purphex plugin windows with live visualisers, sends, built-in keys for MIDI tracks, and your profile colour across the studio
-sha256=680b6f26308f9eb9ebc8e6d840ff82d78a68c68e5252247e9a90bdfca56cb140
+The real sound library (checked audio files), SOUND PACKS first, buses on the mixer
+sha256=be4e1920a0e4f2f6f51dfe02267dd77c04a66195c42beb0aa9288737a080237c

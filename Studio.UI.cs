@@ -631,17 +631,18 @@ partial class StudioForm : Form
 
     string hintLast = ""; DateTime hintSince = DateTime.Now;
     Bitmap backdrop; int backVer = -1;
+    string backTheme = "";   // the theme the background picture was made in (a theme change makes it again)
     void DrawBackdrop(Graphics g)
     {
         int w = Math.Max(1, ClientSize.Width), h = Math.Max(1, ClientSize.Height);
         if (moving && backdrop != null) { g.CompositingMode = CompositingMode.SourceCopy; g.DrawImage(backdrop, 0, 0, w, h); g.CompositingMode = CompositingMode.SourceOver; return; }   // while a border is dragged, stretch the old picture; one real rebuild follows when the drag ends
-        if (backdrop == null || backdrop.Width != w || backdrop.Height != h || backVer != UserBackground.Version)
+        string themeNow = Themes.Current.Name + "|" + TM.Epoch; if (backdrop == null || backdrop.Width != w || backdrop.Height != h || backVer != UserBackground.Version || backTheme != themeNow)
         {
             if (backdrop != null) backdrop.Dispose(); backdrop = new Bitmap(w, h, System.Drawing.Imaging.PixelFormat.Format32bppPArgb);
             using (var bg = Graphics.FromImage(backdrop))
             {
                 bg.SmoothingMode = SmoothingMode.AntiAlias; var full = new RectangleF(0, 0, w, h);
-                backVer = UserBackground.Version; var still = Prefs.BgStudio ? UserBackground.Fresh(w, h) : null; bool fromTheme = false;
+                backVer = UserBackground.Version; backTheme = themeNow; var still = Prefs.BgStudio ? UserBackground.Fresh(w, h) : null; bool fromTheme = false;
                 { var tp = Themes.PhotoFit(w, h); if (tp != null) { if (still != null) still.Dispose(); still = tp; fromTheme = true; } }   // the theme's own photo covers the whole window
                 if (still != null) { bg.DrawImageUnscaled(still, 0, 0); still.Dispose(); using (var dm = new SolidBrush(TM.C(Math.Min(255, Math.Max(fromTheme ? 40 : 150, Prefs.BgDim * 255 / 100 + (fromTheme ? 0 : 70))), 6, 2, 16))) bg.FillRectangle(dm, full); }
                 else
@@ -985,7 +986,7 @@ partial class StudioForm : Form
         Btn(g, Rc(r.X + 12, r.Y + by, 36, bh), "M", tk.Mute ? 4 : 0, () => ToggleMute(tk), 14);
         if (!bus) Btn(g, Rc(r.X + 54, r.Y + by, 36, bh), "S", tk.Solo ? 4 : 0, () => ToggleSolo(tk), 14);
         float ex = bus ? 54 : 96, ew = bus ? 154 : (tk.Instrument ? 74 : 112);
-        Btn(g, Rc(r.X + ex, r.Y + by, ew, bh), (tk.Instrument || bus ? "+ Effect" : "+ Add Effect") + (tk.Fx.Count > 0 && !tk.Instrument ? " (" + tk.Fx.Count + ")" : ""), 1, () => OpenBrowser(false, ti), 12);
+        { var eb = Rc(r.X + ex, r.Y + by, ew, bh); Btn(g, eb, "Plugins" + (tk.Fx.Count > 0 ? " (" + tk.Fx.Count + ")" : ""), 1, () => { if (bus) insBus = tk; else { selTrack = ti; insBus = null; } busEdit = null; OpenInspector(1); }, 12); Hint2(eb, "Open the mixer at the bottom on " + tk.Name + ": add, open and edit its effects there"); }
         if (!bus)
         {
             string outTxt = tk.Out == null ? "Bus" : tk.Out.Name;
@@ -1030,14 +1031,14 @@ partial class StudioForm : Form
         var m = Win.NewMenu(); var master = new ToolStripMenuItem("No bus (straight to the master)") { Checked = tk.Out == null }; master.Click += (a, b) => { PushUndo(); lock (eng.Sync) tk.Out = null; }; m.Items.Add(master);
         foreach (var b0 in eng.Tracks.ToArray()) if (b0.IsBus) { var bus = b0; var it = new ToolStripMenuItem(bus.Name) { Checked = tk.Out == bus }; it.Click += (a, b) => { PushUndo(); lock (eng.Sync) tk.Out = bus; }; m.Items.Add(it); }
         m.Items.Add(new ToolStripSeparator()); m.Items.Add("New bus").Click += (a, b) => { int keep = selTrack; var nb = AddBus(); selTrack = keep; if (nb != null) lock (eng.Sync) tk.Out = nb; };
-        m.Items.Add("Edit buses (levels, plugins, routing)...").Click += (a, b) => OpenInspector(2);   // the BUSES tab of the bottom inspector
+        m.Items.Add("Edit buses and their effects (the mixer)...").Click += (a, b) => OpenInspector(1);   // buses are strips on the mixer desk
         m.Show(this, new Point((int)MousePos.X, (int)MousePos.Y));
     }
     Track AddBus()
     {
         int n = 1; bool used = true; while (used) { used = false; foreach (var x in eng.Tracks) if (x.IsBus && x.Name == "Bus " + n) { used = true; n++; break; } }
         var t = StudioEngine.NewTrack("Bus " + n, "bus", null); t.IsBus = true; t.Color = unchecked((int)0xFFFFD04D); int keepSel = selTrack; nextInsert = -1; AddTrack(t); selTrack = Math.Max(0, Math.Min(keepSel, LaneCount - 1));
-        Toast(t.Name + " added. Pick it from the Bus drop-down on any track. Levels and plugins: open the Bus drop-down on a track, then Edit buses.");
+        Toast(t.Name + " added: it has its own strip on the mixer (ALL PLUGINS). Put tracks into it with + BUS on their strips, and add its effects there.");
         return t;
     }
     void PaintBusLane(Graphics g, Track tr, RectangleF lane)
@@ -1126,9 +1127,8 @@ partial class StudioForm : Form
         // the tools, one per row (full width, the same height)
         float hb; { float bx = x + 10, bw2 = w - 20, by = y + 38; int bi = 0; Func<RectangleF> nextRow = () => Rc(bx, by + (bi++) * 30, bw2, 26);
           var r1 = nextRow(); Btn(g, r1, "ALL PLUGINS", InsShown && insTab == 1 ? 4 : 2, () => OpenInspector(1), 11); Hint2(r1, "This track's plugins in the panel at the bottom: open each in its own window, add, bypass, move and remove them (buses are there too)");
-          var r2 = nextRow(); Btn(g, r2, "+ ADD EFFECT", 1, () => OpenBrowser(false, ti), 11); Hint2(r2, "Add an effect to " + tr.Name);
           var pbn = nextRow(); Btn(g, pbn, tr.IsBus ? "BUS PRESETS" : "PRESETS (" + VocalStyles.All.Count + ")", 0, () => ChainMenu(tr), 11); Hint2(pbn, tr.IsBus ? BusPresets.All.Count + " bus presets, the AI Bus Generator, and your own and community presets" : VocalStyles.All.Count + " vocal presets, " + BusPresets.All.Count + " bus presets, the AI generators, and your own and community presets"); ;
-          var snb = nextRow(); Btn(g, snb, "SOUND PACKS", soundsOpen ? 4 : 0, () => { if (soundsOpen) CloseSounds(); else OpenSounds(); }, 11);
+          var snb = nextRow(); Btn(g, snb, "SOUND PACKS", soundsOpen ? 4 : 0, () => { if (soundsOpen) CloseSounds(); else OpenPacks(); }, 11);
           hb = by + bi * 30 + 4; }
         if (InsShown)
         {   // the mixer panel is open: every plugin is down there (one place for plugins); a click on a plugin there opens its own window
@@ -1157,7 +1157,7 @@ partial class StudioForm : Form
             if (gp.Kind == 1) { string pid = gp.Id; var rb = Rc(box.Right - 86, box.Y + 4, 78, 20); Btn(g, rb, "REMOVE", 3, () => { ChainApply(tr, "Preset removed", () => RemovePreset(tr, pid)); selFx = -1; }, 10); Hint2(rb, "Take away this preset only (every other preset and your own plugins stay)"); }
             if (gp.Kind == 2) { var pst = Rc(box.Right - 74, box.Y + 4, 60, 20); Btn(g, pst, "PASTE", fxCopyType.Length > 0 ? 2 : 0, () => PasteFxAsNew(tr), 10); Hint2(pst, fxCopyType.Length > 0 ? "Add the copied " + fxCopyTitle + " with its settings as a new effect on this track" : "Copy an effect first: press COPY on a plugin"); }
             ly += head;
-            if (gp.Items.Count == 0) { Txt(g, "NOTHING HERE YET: PRESS + ADD EFFECT", 11, DimC, Rc(box.X + 14, ly, box.Width - 28, 28), StringAlignment.Near, false); ly += 32; }
+            if (gp.Items.Count == 0) { Txt(g, "NOTHING YET: ADD EFFECTS IN THE MIXER (ALL PLUGINS)", 11, DimC, Rc(box.X + 14, ly, box.Width - 28, 28), StringAlignment.Near, false); ly += 32; }
             foreach (int i in gp.Items)
             {
                 var f = fxs[i]; int fi = i; bool sel = i == selFx;
@@ -1344,10 +1344,8 @@ partial class StudioForm : Form
         if (!tr.IsBus) { m.Items.Add("Bus Presets (for the bus this track goes into)...").Click += (a, b) => OpenBusPresets(); m.Items.Add("AI Bus Generator (describe the bus)...").Click += (a, b) => OpenAiBus(); }
         { var pp = new ToolStripMenuItem(presetCopy.Count > 0 ? "Paste preset: " + presetCopyName + " (" + presetCopy.Count + " plugins)" : "Paste preset (copy one first: COPY on a preset box)") { Enabled = presetCopy.Count > 0 }; pp.Click += (a, b) => PastePreset(tr); m.Items.Add(pp); }
         { var keys = new List<string>(); foreach (var f in tr.Fx) if (!(f is InstrumentFx) && f.Preset.Length > 0 && !keys.Contains(f.PresetId.Length > 0 ? f.PresetId : f.Preset)) { string k = f.PresetId.Length > 0 ? f.PresetId : f.Preset; keys.Add(k); string nm = f.Preset; m.Items.Add("Copy preset: " + nm).Click += (a, b) => CopyPreset(tr, k); } }
-        m.Items.Add("All plugins of every track...").Click += (a, b) => OpenAllFx();
         m.Items.Add("Copy all plugins of this track").Click += (a, b) => CopyAllFx(tr);
         { var pa = new ToolStripMenuItem(allCopy.Count > 0 ? "Paste all plugins (" + allCopy.Count + " from " + allCopyFrom + ")" : "Paste all plugins (copy them from a track first)") { Enabled = allCopy.Count > 0 }; pa.Click += (a, b) => PasteAllFx(tr); m.Items.Add(pa); }
-        { var ra = new ToolStripMenuItem("Remove all plugins (go RAW)...") { Enabled = tr.Fx.Exists(f => !(f is InstrumentFx)) }; ra.Click += (a, b) => { if (!Sure("remove every plugin and preset from " + tr.Name)) return; ChainApply(tr, "All plugins removed", () => RemoveAllPlugins(tr)); selFx = -1; }; m.Items.Add(new ToolStripSeparator()); m.Items.Add(ra); }   // REMOVE ALL lives here now (it was in the YOUR PLUGINS box)
         var beat = new ToolStripMenuItem("Instrumental chain (EQ, comp, multiband, sat, exciter, imager, ducker, limiter)"); beat.Click += (a, b) => { ChainApply(tr, "Instrumental chain", () => PutPreset(tr, "Instrumental chain", Presets.BeatChain())); selFx = -1; Toast("Beat chain added as a preset (REVERT puts it back)"); }; m.Items.Add(beat);
         m.Items.Add("Community presets (download and use)...").Click += (a, b) => OpenCommunityPresets("chain", "Plugin chains", cp => { var c = Presets.ChainFromText(cp.Data); if (c.Count == 0) throw new InvalidOperationException("it holds no plugins you have"); PutPreset(tr, cp.Name, c); selFx = -1; }, () => tr.Fx.Count == 0 ? null : Presets.ChainText(tr.Fx), tr.Name + " chain");
         var mine = new ToolStripMenuItem("My saved presets"); m.Items.Add(mine);
@@ -1355,7 +1353,6 @@ partial class StudioForm : Form
         if (mine.DropDownItems.Count == 0) mine.DropDownItems.Add(new ToolStripMenuItem("(none yet)") { Enabled = false });
         m.Items.Add(new ToolStripSeparator());
         m.Items.Add("Save this track's plugins as a preset...").Click += (a, b) => SaveTrackPreset(tr);
-        m.Items.Add("Remove ALL plugins (go raw)").Click += (a, b) => { ChainApply(tr, "All plugins removed", () => RemoveAllPlugins(tr)); selFx = -1; };
         m.Show(this, new Point((int)MousePos.X, (int)MousePos.Y));
     }
 

@@ -19,7 +19,7 @@ partial class StudioForm
         var states = new List<Action>
         {
             () => { tab = 0; }, () => { tab = 1; mpTab = 0; }, () => { tab = 1; mpTab = 1; }, () => { tab = 5; }, () => { tab = 2; }, () => { tab = 3; projBin = false; }, () => { tab = 4; }, () => { tab = 6; profScroll = 0; }, () => { OpenArtists(); },
-            () => { tab = 0; OpenThemeSheet(); }, () => { tab = 0; OpenNewTrackSheet(0); }, () => { tab = 0; OpenStyles(); }, () => { tab = 0; OpenBusSheet(); }, () => { tab = 0; OpenBrowser(false, -1); }, () => { tab = 0; OpenSounds(); },
+            () => { tab = 0; OpenThemeSheet(); }, () => { tab = 0; OpenNewTrackSheet(0); }, () => { tab = 0; OpenStyles(); }, () => { tab = 0; OpenInspector(1); }, () => { tab = 0; OpenBrowser(false, -1); }, () => { tab = 0; OpenPacks(); },
             () => { tab = 0; if (eng.Tracks.Count > 0) { selTrack = 0; if (eng.Tracks[0].Fx.Count == 0) { var f = FxRegistry.Create("eq"); if (f != null) { f.Prepare(StudioEngine.SR); eng.Tracks[0].Fx.Add(f); } } selFx = 0; } },
         };
         int keepTab = tab;

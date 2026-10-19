@@ -15,7 +15,7 @@ static class LibraryCheck
     public class Problem { public string Pack, File, What; }
     public class Report
     {
-        public int Files, Ok, Missing, Broken, InstantChecked, InstantRemoved; public List<Problem> Problems = new List<Problem>(); public DateTime At = DateTime.Now; public string ManifestPath = "";
+        public int Files, Ok, Missing, Broken, InstantChecked, InstantRemoved; public List<Problem> Problems = new List<Problem>(); public DateTime At = DateTime.Now; public string ManifestPath = "", ReportPath = "";
         public List<string> PacksToRepair { get { var l = new List<string>(); foreach (var p in Problems) if (p.Pack != SoundLibrary.UserPackId && SoundCatalog.Find(p.Pack) != null && !l.Contains(p.Pack)) l.Add(p.Pack); return l; } }
         public string Summary
         {
@@ -72,7 +72,7 @@ static class LibraryCheck
             }
         }
         catch { }
-        try { rep.ManifestPath = WriteManifest(); } catch { }
+        try { rep.ManifestPath = WriteManifest(); } catch { } try { rep.ReportPath = Diagnostics(); } catch { }
         if (progress != null) progress("Done", 1f); return rep;
     }
 
@@ -91,5 +91,47 @@ static class LibraryCheck
         foreach (var kv in secs) { sb.Append(f1 ? "\n" : ",\n").Append("    ").Append(J(kv.Key)).Append(": [").Append(string.Join(", ", kv.Value.ConvertAll(x => J(x)))).Append("]"); f1 = false; } sb.Append("\n  },\n");
         sb.Append("  \"installedPacks\": ["); bool f2 = true; lock (SoundLibrary.Lock) foreach (var p in SoundLibrary.Packs) { if (p.Items.Count == 0) continue; sb.Append(f2 ? "\n" : ",\n").Append("    { \"id\": ").Append(J(p.Id)).Append(", \"name\": ").Append(J(p.Name)).Append(", \"version\": ").Append(J(p.Version)).Append(", \"sounds\": ").Append(p.Items.Count).Append(" }"); f2 = false; }
         sb.Append("\n  ]\n}\n"); Directory.CreateDirectory(SoundLibrary.Root); string path = Path.Combine(SoundLibrary.Root, "library-manifest.json"); File.WriteAllText(path, sb.ToString(), new UTF8Encoding(false)); return path;
+    }
+
+    // the diagnostic report (sounds\library-report.txt): how many checked sounds there are by section, genre, kind, type and pack, how big the library is, every sound that
+    // failed its checks with the reason, any audio that is in the library twice, and whether every sound carries its licence and where it came from
+    public static string Diagnostics()
+    {
+        var sb = new StringBuilder(); var inst = SoundLibrary.Installed(); long bytes = 0; int noLic = 0, noSrc = 0; var hashes = new Dictionary<string, string>(); var dupes = new List<string>(); const string NL = "\r\n";
+        foreach (var s in inst)
+        {
+            try { if (File.Exists(s.Path)) bytes += new FileInfo(s.Path).Length; } catch { }
+            if (s.PackId != SoundLibrary.UserPackId) { if (s.Licence.Length == 0) noLic++; if (s.Source.Length == 0) noSrc++; }
+            if (s.Hash.Length > 0) { string o; if (hashes.TryGetValue(s.Hash, out o)) dupes.Add(s.Id + " = " + o); else hashes[s.Hash] = s.Id; }
+        }
+        Func<Func<SoundItem, string>, string> table = key =>
+        {
+            var d = new SortedDictionary<string, int>(StringComparer.OrdinalIgnoreCase); foreach (var s in inst) { string k = key(s); if (string.IsNullOrEmpty(k)) k = "(none)"; int n; d.TryGetValue(k, out n); d[k] = n + 1; }
+            var t = new StringBuilder(); foreach (var kv in d) t.Append("  ").Append(kv.Key.PadRight(40)).Append(kv.Value.ToString("N0").PadLeft(8)).Append(NL); return t.ToString();
+        };
+        int packs = 0; lock (SoundLibrary.Lock) foreach (var p in SoundLibrary.Packs) if (p.Items.Count > 0) packs++;
+        sb.Append("PURPHEX SOUND LIBRARY REPORT  ").Append(DateTime.Now.ToString("yyyy-MM-dd HH:mm")).Append(NL).Append(NL);
+        sb.Append("Installed, checked sounds (real files): ").Append(inst.Count.ToString("N0")).Append(" in ").Append(packs).Append(" packs, ").Append((bytes / 1048576.0).ToString("N0")).Append(" MB").Append(NL);
+        sb.Append("Made-on-play sounds listed (not files until played): ").Append(InstantLib.Items.Count.ToString("N0")).Append(NL);
+        sb.Append("Audio in the library twice: ").Append(dupes.Count).Append("    without a licence: ").Append(noLic).Append("    without a source: ").Append(noSrc).Append(NL).Append(NL);
+        sb.Append("BY SECTION").Append(NL).Append(table(s => { var r = SoundCatalog.Find(s.PackId); return r != null ? r.Section : "Yours"; })).Append(NL);
+        sb.Append("BY GENRE").Append(NL).Append(table(s => s.Genre)).Append(NL).Append("BY KIND").Append(NL).Append(table(s => s.Kind)).Append(NL);
+        sb.Append("BY TYPE").Append(NL).Append(table(s => s.Type)).Append(NL).Append("BY PACK").Append(NL).Append(table(s => s.PackName)).Append(NL);
+        sb.Append("FAILED CHECKS (left out of the library)").Append(NL); int failed = 0; var why = new SortedDictionary<string, int>();
+        List<SoundPack> all; lock (SoundLibrary.Lock) all = new List<SoundPack>(SoundLibrary.Packs);
+        foreach (var p in all)
+        {
+            string ff = Path.Combine(p.Dir, "failed.txt"); if (!File.Exists(ff)) continue;
+            foreach (var line in File.ReadAllLines(ff))
+            {
+                int k = line.IndexOf('\t'); if (k < 0) continue; failed++; string w = line.Substring(k + 1); sb.Append("  ").Append(p.Name).Append(": ").Append(w).Append(NL);
+                int c = w.IndexOf(": "); string reason = c >= 0 ? w.Substring(c + 2) : w;
+                if (reason.StartsWith("exact copy")) reason = "exact copy of another sound"; else if (reason.StartsWith("too much like")) reason = "too much like another sound of its kind"; else { int cut = reason.IndexOf('('); if (cut > 0) reason = reason.Substring(0, cut).Trim(); }
+                int n; why.TryGetValue(reason, out n); why[reason] = n + 1;
+            }
+        }
+        sb.Append(NL).Append("FAILED: ").Append(failed).Append(NL); foreach (var kv in why) sb.Append("  ").Append(kv.Key.PadRight(44)).Append(kv.Value.ToString().PadLeft(6)).Append(NL);
+        if (dupes.Count > 0) { sb.Append(NL).Append("DUPLICATES").Append(NL); foreach (var d in dupes) sb.Append("  ").Append(d).Append(NL); }
+        Directory.CreateDirectory(SoundLibrary.Root); string path = Path.Combine(SoundLibrary.Root, "library-report.txt"); File.WriteAllText(path, sb.ToString(), new UTF8Encoding(false)); return path;
     }
 }

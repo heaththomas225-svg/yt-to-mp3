@@ -831,17 +831,17 @@ A mixing desk: every track and bus has its own strip, side by side. Each strip h
 ## Plugin windows
 Each effect has its own small window. Windows stay open while you click anything else, so you can play the song and change the sound while it plays. Drag a window by its title, resize it from the bottom-right corner, and click it to bring it forward. In the window: ON or BYPASSED, the previous and next preset and the preset list, RESET (back to the plugin's defaults) and x (closes the window; the plugin keeps working). ARRANGE WINDOWS tidies them.
 ## BUSES
-A bus mixes several tracks and runs shared plugins on them. + NEW makes one, RENAME and DELETE change it (deleting a bus sends its tracks back to the master and removes the sends to it; Ctrl+Z undoes it). Pick a bus to set its level and pan, mute or solo it, see its meter, choose which tracks go to it (OUTPUT) or send to it (+ SEND, with a level), and add effects to it. Buses always go to the master.
+A bus mixes several tracks and runs shared effects on them. Buses live on the mixer (ALL PLUGINS) next to the tracks: + BUS on a track strip puts the track in a bus (an existing one or a new one) or takes it out, + NEW BUS at the end makes one, and each bus strip has its own effects, fader, meter and BUS OPTIONS (effects, presets, rename, colour, delete). Deleting a bus sends its tracks back to the master and removes the sends to it; Ctrl+Z undoes it. Buses always go to the master.
 ## CLIP and MIDI
 With an audio clip picked: its name, file, start and length, clip gain, fade in and fade out, mute and lock, REVERSE (Ctrl+Z puts it back) and Flex Pitch. With a MIDI track picked: its notes, TRANSPOSE, VELOCITY, QUANTISE (note starts snap to the grid, lengths are kept), its instrument and the piano roll.
 ## Your colour in the studio
 Your profile colour (in the colour mixer, with the profile following the mix) is the accent of the studio: selected buttons, tabs, menus, sliders, the picked plugin and the front plugin window. Its finish is drawn too: metallic and chrome bands, a holographic or pearl sheen, chameleon, candy, glitter, matte, or translucent (see-through). Switch the profile back to the theme colour to use the theme's accent again."),
         new HelpTopic("studio-sounds", "Purphex Music", "Purphex Sounds: the sample browser and sound packs", false, @"
 ## Opening it
-Press SOUNDS (next to MIC) or use the side menu: Tools > Sounds and sound packs. A panel opens on the right of the Mix page. Press it again, or the x, to close it.
+Press SOUND PACKS (on the right-hand panel) or use the side menu: Tools > Sounds and sound packs. It opens on the packs; the SOUNDS tab next to SOUND PACKS is where you search every sound. Press the x to close it.
 ## Getting sounds
-Sounds come in packs. Press Packs, pick a pack and press Install. The sounds are made on your computer by Purphex's own sound design in a few seconds: they are not recordings and not other people's samples. Installed packs show how many sounds and how much space they use. Remake rebuilds a pack, Remove deletes its files (you can install it again any time). Install all does a whole list.
-## Instant sounds (the whole library, no install needed)
+Sounds come in packs. On SOUND PACKS, Preview plays a drum loop from a pack and Install makes its sounds as real audio files on your computer, by Purphex's own sound design (no recordings, nobody else's samples). Every sound is checked before it is listed: long enough, not silent, not clipped, not broken, a loop exactly its bars long at its tempo, no click, and not a copy of a sound already in your library. What fails is left out, with the reason. A pack says what it holds (drum loops, bass loops, 808s, drum hits...), and Install on an installed pack repairs it; a stopped install carries on next time.
+## Made on play (sounds that are not files yet)
 Every pack lists its whole range straight away: drum, top, bass, chord, melody, arp and vocal loops; kicks, snares, claps, hats, percussion, cymbals and 808s; bass, instrument and chord one-shots; FX; vocal shouts; and MIDI files (drums, basslines, chords, melodies). That is over 125,000 sounds. They say PLAY TO MAKE until you first play one: it is made on your computer in a fraction of a second and kept, so it plays at once after that. Drag it onto the timeline like any sound.
 ## Instruments
 Chord, melody, arp and note sounds are played on Purphex's own instruments: Grand Piano, Electric Piano, Strings, Brass, Acoustic and Nylon Guitar, Marimba, Kalimba, Bells, Log Drum and Flute, plus the Bass Lab keys, leads, plucks and pads. Each pack uses the instruments that suit its genre. Use the Instrument filter to see one instrument across the whole library.
@@ -850,10 +850,10 @@ Press Make in and pick a key and/or a tempo (or your project's tempo). Every ins
 ## MIDI
 Click a MIDI file to hear it (it plays through the pack's kit, bass or keys). Drop it on an instrument track to put its notes there. Dropped anywhere else, a bassline, chords or melody get a new Bass Lab track, and drum MIDI becomes a drum track played with the pack's kit.
 ## Checking the library
-In SOUND PACKS press Check library: every file the library lists is opened and checked. Anything missing or damaged is listed, and Repair makes those packs again. It also writes library-manifest.json in the sounds folder (every category with real counts).
+In SOUND PACKS press Check library: every file the library lists is opened and checked. Anything missing or damaged is listed, and Repair makes those packs again. It also writes library-report.txt in the sounds folder: the real number of checked sounds by section, genre, type and pack, and every sound that was left out and why.
 ## Finding a sound
 - Type in the search box: a name, a pack, a style, a key or a tempo (for example: reese 174, F min, kick).
-- Genre, Style, Type, Key and BPM open lists to narrow it down. BPM can also match your project's tempo, and can include half and double time.
+- SOUNDS shows your installed sounds (real files). Show: made on play adds the sounds made the first time you play them. Genre, Style, Instrument, Type, Key, BPM and Pack only list what is there, with how many sounds each would give with your other filters; More adds length, bars, mono or stereo, family, character, source and recently added. A key filter keeps drums and FX (they have no key) unless you tick Only sounds with a key.
 - Toolkit gives ready-made sets (all kicks, all risers, vocal chops...).
 - Favourites, Recent, One-shots, Loops, MIDI and Collections are quick filters. Clear resets everything.
 ## Hearing it

@@ -31,6 +31,12 @@ class SoundItem
     public string PackName = "";
     public string Spec = "";   // an instant loop: the recipe it is made from the first time it is played (see InstantLib)
     public bool Instant { get { return Spec.Length > 0; } }
+    // the details of an installed sound (checked when it was made; see LibraryBaker): bars, channels, bit depth, peak and loudness, licence, where it came from, how it was made,
+    // when, its check result, a fingerprint and a hash of its audio (for spotting copies), and the sound it is a version of
+    public int Bars, Channels, Bits; public double PeakDb, RmsDb; public string Licence = "", Source = "", Origin = "", Method = "", Created = "", Valid = "", Hash = "", VarOf = ""; public float[] Fp;
+    public SoundItem Copy() { return (SoundItem)MemberwiseClone(); }
+    // a sound with a musical key (drums, percussion and most FX have none: a key filter never hides them)
+    public bool Tonal { get { return Key.Length > 0; } }
 }
 
 class SoundPack
@@ -58,13 +64,15 @@ static class SoundLibrary
         {
             Packs.Clear(); try { Directory.CreateDirectory(Root); } catch { }
             try { foreach (var d in Directory.GetDirectories(Root)) { var p = ReadPack(Path.Combine(d, "pack.txt")); if (p != null) Packs.Add(p); } } catch { }
-            foreach (var p in Packs) { foreach (var s in p.Items) s.Instrument = InstrumentOf(s); var rec = SoundCatalog.Find(p.Id); if (rec == null) continue; p.Section = rec.Section; p.Genre = rec.Genre; p.Sub = rec.Sub; foreach (var s in p.Items) { s.Genre = rec.Genre; s.Sub = rec.Sub; } }   // packs installed before a relabel show the right genre and style
+            foreach (var p in Packs) { foreach (var s in p.Items) if (s.Instrument.Length == 0) s.Instrument = InstrumentOf(s); var rec = SoundCatalog.Find(p.Id); if (rec == null) continue; p.Section = rec.Section; p.Genre = rec.Genre; p.Sub = rec.Sub; foreach (var s in p.Items) { s.Genre = rec.Genre; s.Sub = rec.Sub; } }   // packs installed before a relabel show the right genre and style
             if (!Packs.Exists(p => p.Id == UserPackId)) Packs.Add(new SoundPack { Id = UserPackId, Name = "My samples", Section = "Yours", Genre = "Any", Description = "Samples you imported yourself.", License = "Yours: you told Purphex you own or have the rights to these files.", Hue = 200, Installed = true });
             Packs.Sort((a, b) => string.Compare(a.Name, b.Name, StringComparison.OrdinalIgnoreCase));
             ReadUser();
         }
     }
 
+    // a pack list read from any file (pack.txt, or pack.part while a pack is being installed)
+    internal static SoundPack ReadPackFile(string file, string dir) { var p = ReadPack(file); if (p == null) return null; foreach (var s in p.Items) s.Path = Path.Combine(dir, s.Rel.Replace('/', Path.DirectorySeparatorChar)); return p; }
     static SoundPack ReadPack(string file)
     {
         if (!File.Exists(file)) return null; SoundPack p = null; string dir = Path.GetDirectoryName(file);
@@ -72,9 +80,16 @@ static class SoundLibrary
         {
             var f = line.Split('|');
             if (f[0] == "PACK" && f.Length >= 10) { p = new SoundPack { Id = f[1], Name = U(f[2]), Section = U(f[3]), Genre = U(f[4]), Sub = U(f[5]), Version = f[6], License = U(f[7]), Description = U(f[8]), Installed = true }; int h; if (int.TryParse(f[9], out h)) p.Hue = h; }
+            else if (f[0] == "M" && p != null && p.Items.Count > 0 && f.Length >= 16)
+            {
+                var s = p.Items[p.Items.Count - 1]; int iv; double dv;
+                if (int.TryParse(f[1], out iv)) s.Bars = iv; if (int.TryParse(f[2], out iv)) s.Channels = iv; if (int.TryParse(f[3], out iv)) s.Bits = iv;
+                if (double.TryParse(f[4], NumberStyles.Float, CI, out dv)) s.PeakDb = dv; if (double.TryParse(f[5], NumberStyles.Float, CI, out dv)) s.RmsDb = dv;
+                s.Licence = f[6]; s.Source = f[7]; s.Origin = f[8]; s.Method = f[9]; s.Created = f[10]; s.Valid = f[11]; s.Hash = f[12]; s.VarOf = f[13]; s.Fp = LibraryBaker.FpParse(f[14]); if (double.TryParse(f[15], NumberStyles.Float, CI, out dv)) s.Beats = dv;
+            }
             else if (f[0] == "S" && p != null && f.Length >= 17)
             {
-                var s = new SoundItem { PackId = p.Id, PackName = p.Name, Rel = f[1], Name = U(f[2]), Type = f[3], Group = f[4], Kind = f[5], Genre = U(f[6]), Sub = U(f[7]), Tags = U(f[8]), Key = f[10], Format = U(f[13]), Mood = U(f[15]) };
+                var s = new SoundItem { PackId = p.Id, PackName = p.Name, Rel = f[1], Name = U(f[2]), Type = f[3], Group = f[4], Kind = f[5], Genre = U(f[6]), Sub = U(f[7]), Tags = U(f[8]), Key = f[10], Format = U(f[13]), Instrument = U(f[14]), Mood = U(f[15]) };
                 double b, d; int r; double.TryParse(f[9], NumberStyles.Float, CI, out b); double.TryParse(f[11], NumberStyles.Float, CI, out d); int.TryParse(f[12], out r); s.Bpm = b; s.Dur = d; s.Rate = r > 0 ? r : 44100;
                 try { s.Peaks = Convert.FromBase64String(f[16]); } catch { s.Peaks = new byte[0]; }
                 s.Path = Path.Combine(dir, f[1].Replace('/', Path.DirectorySeparatorChar)); s.Id = p.Id + "/" + f[1]; p.Items.Add(s);
@@ -85,13 +100,24 @@ static class SoundLibrary
 
     public static void WritePack(SoundPack p)
     {
-        Directory.CreateDirectory(p.Dir); var sb = new StringBuilder();
+        Directory.CreateDirectory(p.Dir); string text = PackText(p);
+        string tmp = Path.Combine(p.Dir, "pack.txt.tmp"); File.WriteAllText(tmp, text, Encoding.UTF8); string fin = Path.Combine(p.Dir, "pack.txt"); if (File.Exists(fin)) File.Delete(fin); File.Move(tmp, fin);
+        File.WriteAllText(Path.Combine(p.Dir, "LICENCE.txt"), p.Name + "\r\n" + new string('-', p.Name.Length) + "\r\n" + p.License + "\r\n", Encoding.UTF8);
+    }
+    // the pack list: a PACK line, then an S line per sound (and an M line with its checked details for sounds made by the library baker)
+    internal static string PackText(SoundPack p)
+    {
+        var sb = new StringBuilder();
         sb.Append("PACK|").Append(p.Id).Append('|').Append(E(p.Name)).Append('|').Append(E(p.Section)).Append('|').Append(E(p.Genre)).Append('|').Append(E(p.Sub)).Append('|').Append(p.Version).Append('|').Append(E(p.License)).Append('|').Append(E(p.Description)).Append('|').Append(p.Hue).Append('\n');
         foreach (var s in p.Items)
+        {
             sb.Append("S|").Append(s.Rel).Append('|').Append(E(s.Name)).Append('|').Append(s.Type).Append('|').Append(s.Group).Append('|').Append(s.Kind).Append('|').Append(E(s.Genre)).Append('|').Append(E(s.Sub)).Append('|').Append(E(s.Tags)).Append('|')
-              .Append(s.Bpm.ToString("0.##", CI)).Append('|').Append(s.Key).Append('|').Append(s.Dur.ToString("0.###", CI)).Append('|').Append(s.Rate).Append('|').Append(E(s.Format)).Append('|').Append("").Append('|').Append(E(s.Mood)).Append('|').Append(Convert.ToBase64String(s.Peaks ?? new byte[0])).Append('\n');
-        string tmp = Path.Combine(p.Dir, "pack.txt.tmp"); File.WriteAllText(tmp, sb.ToString(), Encoding.UTF8); string fin = Path.Combine(p.Dir, "pack.txt"); if (File.Exists(fin)) File.Delete(fin); File.Move(tmp, fin);
-        File.WriteAllText(Path.Combine(p.Dir, "LICENCE.txt"), p.Name + "\r\n" + new string('-', p.Name.Length) + "\r\n" + p.License + "\r\n", Encoding.UTF8);
+              .Append(s.Bpm.ToString("0.##", CI)).Append('|').Append(s.Key).Append('|').Append(s.Dur.ToString("0.###", CI)).Append('|').Append(s.Rate).Append('|').Append(E(s.Format)).Append('|').Append(E(s.Instrument)).Append('|').Append(E(s.Mood)).Append('|').Append(Convert.ToBase64String(s.Peaks ?? new byte[0])).Append('\n');
+            if (s.Valid.Length > 0 || s.Origin.Length > 0)
+                sb.Append("M|").Append(s.Bars).Append('|').Append(s.Channels).Append('|').Append(s.Bits).Append('|').Append(s.PeakDb.ToString("0.##", CI)).Append('|').Append(s.RmsDb.ToString("0.##", CI)).Append('|').Append(E(s.Licence)).Append('|').Append(E(s.Source)).Append('|').Append(E(s.Origin))
+                  .Append('|').Append(E(s.Method)).Append('|').Append(s.Created).Append('|').Append(s.Valid).Append('|').Append(s.Hash).Append('|').Append(E(s.VarOf)).Append('|').Append(LibraryBaker.FpText(s.Fp)).Append('|').Append(s.Beats.ToString("0.##", CI)).Append('\n');
+        }
+        return sb.ToString();
     }
     static string E(string s) { return (s ?? "").Replace("|", "/").Replace("\r", " ").Replace("\n", " "); }
     static string U(string s) { return s; }
@@ -107,19 +133,31 @@ static class SoundLibrary
     public class Filter
     {
         public string Text = "", Genre = "", Sub = "", Type = "", Group = "", Key = "", Kind = "", Pack = "", Mood = "", Instrument = ""; public double BpmMin, BpmMax; public bool HalfDouble, OnlyFav, OnlyRecent; public string Collection = ""; public string[] AnyType;
+        // Avail: "" = installed sounds only (real files), "instant" = sounds made when first played, "all" = both
+        public string Avail = ""; public double DurMin, DurMax; public int Bars, Channels; public string Source = "", Family = ""; public int AddedDays; public bool OnlyKeyed;
         public bool IsEmpty { get { return Text.Length == 0 && Genre.Length == 0 && Sub.Length == 0 && Type.Length == 0 && Group.Length == 0 && Key.Length == 0 && Kind.Length == 0 && Pack.Length == 0 && Mood.Length == 0 && Instrument.Length == 0 && BpmMax <= 0 && !OnlyFav && !OnlyRecent && Collection.Length == 0 && AnyType == null; } }
         public Filter Copy() { return (Filter)MemberwiseClone(); }
     }
+    // where a sound came from (the Source filter)
+    public static string SourceOf(SoundItem s) { if (s.PackId == UserPackId) return "My samples"; if (s.Instant) return "Purphex (made on play)"; return "Purphex original"; }
+    public static string FamilyOfItem(SoundItem s) { switch (s.Group) { case "Drums": case "Loops": return s.Type.IndexOf("Bass", StringComparison.OrdinalIgnoreCase) >= 0 ? "Bass" : "Drums"; case "Bass": return "Bass"; case "FX": return "FX"; case "Vocal": return "Vocals"; case "MIDI": return "MIDI"; } return s.Group.Length > 0 ? s.Group : "Other"; }
+    static bool AddedWithin(SoundItem s, int days) { DateTime d; return s.Created.Length > 0 && DateTime.TryParse(s.Created, CI, DateTimeStyles.AssumeUniversal, out d) && (DateTime.UtcNow - d).TotalDays <= days; }
+    public static int InstalledCount() { int n = 0; lock (Lock) foreach (var p in Packs) n += p.Items.Count; return n; }
+    // the installed (real) sounds only
+    public static List<SoundItem> Installed() { var l = new List<SoundItem>(); lock (Lock) foreach (var p in Packs) l.AddRange(p.Items); return l; }
     public static List<SoundItem> Search(Filter f)
     {
         var res = new List<SoundItem>(); var words = (f.Text ?? "").ToLowerInvariant().Split(new[] { ' ', ',' }, StringSplitOptions.RemoveEmptyEntries); List<string> coll = null; if (!string.IsNullOrEmpty(f.Collection)) lock (Lock) Collections.TryGetValue(f.Collection, out coll);
         foreach (var s in All())
         {
+            if (s.Instant ? f.Avail.Length == 0 : f.Avail == "instant") continue;   // installed (real files) or made on play
+            if (f.DurMax > 0 && (s.Dur < f.DurMin || s.Dur > f.DurMax)) continue; if (f.Bars > 0 && (s.Beats > 0 ? (int)Math.Round(s.Beats / 4) : s.Bars) != f.Bars) continue; if (f.Channels > 0 && s.Channels != f.Channels) continue;
+            if (f.Source.Length > 0 && SourceOf(s) != f.Source) continue; if (f.Family.Length > 0 && FamilyOfItem(s) != f.Family) continue; if (f.AddedDays > 0 && !AddedWithin(s, f.AddedDays)) continue;
             if (f.OnlyFav && !Favourites.Contains(s.Id)) continue; if (f.OnlyRecent && !Recent.Contains(s.Id)) continue; if (coll != null && !coll.Contains(s.Id)) continue; if (!string.IsNullOrEmpty(f.Collection) && coll == null) continue;
             if (f.Instrument.Length > 0 && s.Instrument != f.Instrument) continue;
             if (f.Genre.Length > 0 && s.Genre != f.Genre) continue; if (f.Sub.Length > 0 && s.Sub != f.Sub) continue; if (f.Type.Length > 0 && s.Type != f.Type) continue; if (f.Group.Length > 0 && s.Group != f.Group) continue; if (f.Kind.Length > 0 && s.Kind != f.Kind) continue;
             if (f.AnyType != null && Array.IndexOf(f.AnyType, s.Type) < 0) continue; if (f.Pack.Length > 0 && s.PackId != f.Pack) continue; if (f.Mood.Length > 0 && s.Mood.IndexOf(f.Mood, StringComparison.OrdinalIgnoreCase) < 0) continue;
-            if (f.Key.Length > 0 && !KeyMatches(s.Key, f.Key)) continue;
+            if (f.Key.Length > 0 && (s.Tonal || f.OnlyKeyed) && !KeyMatches(s.Key, f.Key)) continue;
             if (f.BpmMax > 0) { if (s.Bpm <= 0) continue; bool ok = s.Bpm >= f.BpmMin && s.Bpm <= f.BpmMax; if (!ok && f.HalfDouble) ok = (s.Bpm * 2 >= f.BpmMin && s.Bpm * 2 <= f.BpmMax) || (s.Bpm / 2 >= f.BpmMin && s.Bpm / 2 <= f.BpmMax); if (!ok) continue; }
             bool all = true; foreach (var w in words) if (!s.Matches(w)) { all = false; break; } if (!all) continue;
             res.Add(s);
@@ -243,15 +281,16 @@ static class SoundLibrary
 // ---- audio and MIDI files ----
 static class SoundIO
 {
-    public static void WriteWav(string path, float[] l, float[] r, int sr, int bits)
+    public static void WriteWav(string path, float[] l, float[] r, int sr, int bits) { WriteWav(path, l, r, sr, bits, 2); }
+    public static void WriteWav(string path, float[] l, float[] r, int sr, int bits, int ch)
     {
-        Directory.CreateDirectory(Path.GetDirectoryName(path)); int n = l.Length, bytes = bits / 8, ch = 2, dataLen = n * ch * bytes;
+        Directory.CreateDirectory(Path.GetDirectoryName(path)); int n = l.Length, bytes = bits / 8, dataLen = n * ch * bytes;
         using (var fs = new FileStream(path, FileMode.Create)) using (var w = new BinaryWriter(fs))
         {
             w.Write(Encoding.ASCII.GetBytes("RIFF")); w.Write(36 + dataLen); w.Write(Encoding.ASCII.GetBytes("WAVEfmt ")); w.Write(16); w.Write((short)1); w.Write((short)ch); w.Write(sr); w.Write(sr * ch * bytes); w.Write((short)(ch * bytes)); w.Write((short)bits);
             w.Write(Encoding.ASCII.GetBytes("data")); w.Write(dataLen);
             for (int i = 0; i < n; i++)
-                for (int c = 0; c < 2; c++)
+                for (int c = 0; c < ch; c++)
                 {
                     float v = c == 0 ? l[i] : r[i]; if (v > 1) v = 1; else if (v < -1) v = -1;
                     if (bits == 16) w.Write((short)Math.Round(v * 32767.0)); else { int q = (int)Math.Round(v * 8388607.0); w.Write((byte)q); w.Write((byte)(q >> 8)); w.Write((byte)(q >> 16)); }
@@ -374,7 +413,7 @@ static class Auditioner
     {
         lock (lk)
         {
-            if (player != null) return;
+            if (player != null || StudioEnv.UnderTest) return;   // (a test never plays out of the speakers)
             try { player = new WaveOutPlayer(Render, 2); player.Start(); }   /* always the biggest buffer (8 x 2048): with the low-latency setting (4 x 512) a busy screen starved the preview and every sound crackled */ catch (Exception ex) { player = null; Error = "No sound output: " + ex.Message; playing = false; }
         }
     }

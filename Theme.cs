@@ -257,12 +257,29 @@ static class Win
     public static ContextMenuStrip NewMenu()
     {
     // every menu of the app (right-click menus, plugin menus, pickers): 10 pt with compact rows (25% smaller than before, so menus take less room), each option in its own neon box
-        var m = new ContextMenuStrip { Renderer = new DarkRenderer(), BackColor = TM.C(255, 16, 8, 32), ForeColor = TM.C(255, 240, 232, 255), ShowImageMargin = false, Font = new Font("Segoe UI", 10f) };
-        m.Font = UiFont(10f); Action<ToolStripItem> up = null; up = it => { if (!string.IsNullOrEmpty(it.Text) && it.Text.Length <= 70) it.Text = Up(it.Text); if (!(it is ToolStripSeparator)) { it.Padding = new Padding(5, 3, 8, 3); it.Margin = new Padding(0, 1, 0, 1); } var mi = it as ToolStripMenuItem; if (mi != null) { mi.DropDown.Font = m.Font; mi.DropDown.ItemAdded += (s2, e2) => up(e2.Item); foreach (ToolStripItem sub in mi.DropDownItems) up(sub); } };
+        var m = new PxMenu { Renderer = new DarkRenderer(), BackColor = TM.C(255, 16, 8, 32), ForeColor = TM.C(255, 240, 232, 255), ShowImageMargin = false, Font = new Font("Segoe UI", 10f) };
+        m.Font = UiFont(10f); Action<ToolStripItem> up = null; up = it => { if (!string.IsNullOrEmpty(it.Text) && it.Text.Length <= 70) it.Text = Up(it.Text); if (!(it is ToolStripSeparator)) { it.Padding = new Padding(5, 3, 8, 3); it.Margin = new Padding(0, 1, 0, 1); } var mi = it as ToolStripMenuItem; if (mi != null) { mi.DropDown.Font = m.Font; mi.DropDownOpened += (s3, e3) => KeepInApp(mi.DropDown); mi.DropDown.ItemAdded += (s2, e2) => up(e2.Item); foreach (ToolStripItem sub in mi.DropDownItems) up(sub); } };
         m.ItemAdded += (s, e) => up(e.Item);
         m.Opened += (s, e) => { MenuShownAt = Control.MousePosition; MenuAway = false; };
         m.Closed += (s, e) => { if (e.CloseReason == ToolStripDropDownCloseReason.AppClicked) { MenuAway = true; MenuClosedAt = Environment.TickCount; } };
         return m;
+    }
+    // Menus always open inside the Purphex window (never on another monitor): the part of the screen the app covers
+    internal static Rectangle AppArea()
+    {
+        try { var f = Form.ActiveForm; if (f == null || !f.Visible) foreach (Form o in Application.OpenForms) if (o.Visible && o.WindowState != FormWindowState.Minimized) { f = o; break; } if (f == null) return Rectangle.Empty; return f.RectangleToScreen(f.ClientRectangle); } catch { return Rectangle.Empty; }
+    }
+    internal static Rectangle Clamp(Rectangle b, Rectangle a)
+    {
+        if (a.IsEmpty) return b; int x = b.X, y = b.Y;
+        if (x + b.Width > a.Right) x = a.Right - b.Width; if (x < a.Left) x = a.Left; if (y + b.Height > a.Bottom) y = a.Bottom - b.Height; if (y < a.Top) y = a.Top;
+        return new Rectangle(x, y, b.Width, b.Height);
+    }
+    // a sub-menu that opened past the edge of the window comes back inside it (on the other side of its menu if there is no room)
+    internal static void KeepInApp(ToolStripDropDown d)
+    {
+        var a = AppArea(); if (a.IsEmpty || d == null) return; if (d.MaximumSize.Height != a.Height) d.MaximumSize = new Size(Math.Max(200, a.Width), Math.Max(120, a.Height));
+        var b = d.Bounds; var c = Clamp(b, a); if (c.Location != b.Location) d.Location = c.Location;
     }
     // Clicking the same button again while its menu is open must close the menu, not open it a second time. The click that closes a menu
     // also reaches the window, so the window asks here whether a click lands where the menu came from, right after it was closed that way.
@@ -502,5 +519,16 @@ static class GfxCache
         int k = (int)ha * 2 + (ellipsis ? 1 : 0); StringFormat s;
         lock (fmts) { if (!fmts.TryGetValue(k, out s)) { s = new StringFormat { Alignment = ha, LineAlignment = StringAlignment.Center, FormatFlags = StringFormatFlags.NoWrap, Trimming = ellipsis ? StringTrimming.EllipsisCharacter : StringTrimming.None }; fmts[k] = s; } }
         return s;
+    }
+}
+
+// every Purphex menu: wherever it is asked to open, it stays inside the app window (it scrolls if it is taller than the window)
+class PxMenu : ContextMenuStrip
+{
+    protected override void OnOpening(System.ComponentModel.CancelEventArgs e) { var a = Win.AppArea(); if (!a.IsEmpty) MaximumSize = new Size(Math.Max(200, a.Width), Math.Max(120, a.Height)); base.OnOpening(e); }
+    protected override void SetBoundsCore(int x, int y, int width, int height, BoundsSpecified specified)
+    {
+        var a = Win.AppArea(); if (!a.IsEmpty) { var c = Win.Clamp(new Rectangle(x, y, width, height), a); x = c.X; y = c.Y; }
+        base.SetBoundsCore(x, y, width, height, specified);
     }
 }

@@ -17,7 +17,7 @@ partial class StudioForm
 {
     internal class FxWin { public Fx Fx; public Track Track; public RectangleF R; public long Seq; }
     internal readonly List<FxWin> fxWins = new List<FxWin>(); long fxWinSeq; FxWin fxWinDrag; PointF fxWinGrab; bool fxWinResize;
-    const float FwTitle = 34, FwTool = 30, FwViz = 46;
+    const float FwTitle = 34, FwTool = 30, FwViz = 69;
 
     // open (or bring forward) the window of this plugin instance
     internal void OpenFxWindow(Track tr, Fx f)
