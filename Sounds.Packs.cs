@@ -76,7 +76,7 @@ class DrumStyle
 {
     public double KickF0 = 55, KickStart = 240, KickTau = 0.025, KickDecay = 0.22, KickDrive = 2.2, KickClick = 0.5, KickLen = 0.55;
     public double SnareBody = 190, SnareNoise = 3200, SnareDecay = 0.14, SnareAmt = 0.9, SnareDrive = 1.8, SnareSnap = 0.3, SnareLen = 0.4;
-    public double HatC = 0.045, HatO = 0.28, HatBright = 10, ClapCentre = 1200, ClapTail = 0.1, Swing = 0.5, HatPitch = 1, CymDecay = 1, CymPitch = 1; public int Variant; public string Pattern = "dnb_twostep"; public double SnareBodyMul = 1;
+    public double HatC = 0.045, HatO = 0.28, HatBright = 10, ClapCentre = 1200, ClapTail = 0.1, Swing = 0.5, HatPitch = 1, CymDecay = 1, CymPitch = 1, HatHp = 6800, HatMetal = 0.7, CymTone = 1; public int Variant, HatSet, CymSet; public string Pattern = "dnb_twostep"; public double SnareBodyMul = 1;
     public Pat Pat { get { return Patterns.Get(Pattern); } }
 }
 class Pat { public string K = "", S = "", C = "", H = "", O = "", P = "", G = ""; public int Bars = 1; public string Fill = ""; }
@@ -152,9 +152,9 @@ static class DrumKit
         }
         // claps: tight and bright, wide and roomy, low and thick; closed hats: tight, crisp, dark, long; open hats: short and long
         double[][] cc = { new[] { 1.25, 0.6 }, new[] { 1.0, 1.6 }, new[] { 0.75, 1.0 } }; for (int i = 0; i < 3; i++) k.Claps.Add(SoundGen.Clap(r, s.ClapCentre * cc[i][0], s.ClapTail * cc[i][1], 0.5 * Math.Max(1, cc[i][1])));
-        double[][] hc = { new[] { 0.6, 1.08, 1.1 }, new[] { 1.0, 1.15, 1.0 }, new[] { 1.1, 0.8, 0.85 }, new[] { 1.9, 0.95, 1.0 } }; for (int i = 0; i < 4; i++) k.HatsC.Add(SoundGen.Hat(r, s.HatC * hc[i][0], s.HatBright * hc[i][1], 0.2 * Math.Max(1, hc[i][0]), hc[i][2] * s.HatPitch));
-        double[][] ho = { new[] { 0.65, 1.05, 1.05 }, new[] { 1.5, 0.92, 0.95 } }; for (int i = 0; i < 2; i++) k.HatsO.Add(SoundGen.Hat(r, s.HatO * ho[i][0], s.HatBright * ho[i][1], 0.8 * Math.Max(1, ho[i][0]), ho[i][2] * s.HatPitch));
-        k.Rides.Add(SoundGen.Cymbal(r, 0.9 * s.CymDecay, 2.0, true, s.CymPitch)); k.Rides.Add(SoundGen.Cymbal(r, 1.4 * s.CymDecay, 2.6, false, s.CymPitch));
+        double[][] hc = { new[] { 0.6, 1.08, 1.1 }, new[] { 1.0, 1.15, 1.0 }, new[] { 1.1, 0.8, 0.85 }, new[] { 1.9, 0.95, 1.0 } }; for (int i = 0; i < 4; i++) k.HatsC.Add(SoundGen.Hat(r, s.HatC * hc[i][0], s.HatBright * hc[i][1], 0.2 * Math.Max(1, hc[i][0]), hc[i][2] * s.HatPitch, s.HatHp, s.HatMetal, s.HatSet));
+        double[][] ho = { new[] { 0.65, 1.05, 1.05 }, new[] { 1.5, 0.92, 0.95 } }; for (int i = 0; i < 2; i++) k.HatsO.Add(SoundGen.Hat(r, s.HatO * ho[i][0], s.HatBright * ho[i][1], 0.8 * Math.Max(1, ho[i][0]), ho[i][2] * s.HatPitch, s.HatHp, s.HatMetal, s.HatSet));
+        k.Rides.Add(SoundGen.Cymbal(r, 0.9 * s.CymDecay, 2.0, true, s.CymPitch, s.CymTone, s.CymSet)); k.Rides.Add(SoundGen.Cymbal(r, 1.4 * s.CymDecay, 2.6, false, s.CymPitch, s.CymTone, s.CymSet));
         k.Perc.Add(SoundGen.Tom(r, 110 * r.Range(0.9f, 1.2f), 0.28, 0.6)); k.PercNames.Add("Tom Low"); k.Perc.Add(SoundGen.Tom(r, 170 * r.Range(0.9f, 1.2f), 0.22, 0.5)); k.PercNames.Add("Tom Mid");
         k.Perc.Add(SoundGen.Shaker(r, 0.18, r.Range(0.85f, 1.15f))); k.PercNames.Add("Shaker"); k.Perc.Add(SoundGen.Rim(r, 1700 * r.Range(0.9f, 1.15f))); k.PercNames.Add("Rim"); k.Perc.Add(SoundGen.Conga(r, 330 * r.Range(0.9f, 1.2f))); k.PercNames.Add("Conga");
         k.Perc.Add(SoundGen.Cowbell(r, 540 * r.Range(0.95f, 1.1f), 0.22)); k.PercNames.Add("Bell");

@@ -70,11 +70,11 @@ static class LibraryBaker
         else { double startA = Math.Max(Math.Abs(b.L[0]), Math.Abs(b.R[0])); if (startA > 0.25) { c.Why = "starts with a click"; return c; } }
         c.Fp = Fingerprint(b, loop); c.Hash = PcmHash(b, c.Channels); c.Ok = true; return c;
     }
-    // a picture of the sound for comparing: the loudness of 24 frequency bands (30 Hz to 16 kHz, log spaced) in 32 slices of time (64 for a loop; a one-shot's first 2 seconds),
+    // a picture of the sound for comparing: the loudness of 36 frequency bands (30 Hz to 20 kHz, log spaced) in 32 slices of time (64 for a loop; a one-shot's first 2 seconds),
     // in dB, then normalised. Two sounds count as copies only if these pictures are almost the same (see SimilarLimit, measured on real sounds)
     internal static float[] Fingerprint(Buf b, bool loop)
     {
-        const int B = 24; var re1 = new double[1024]; var im1 = new double[1024]; var re2 = new double[2048]; var im2 = new double[2048]; int T = loop ? 64 : 32, n = b.Length; var v = new float[T * B]; double lo = Math.Log(30), k2 = B / (Math.Log(16000) - lo);
+        const int B = 36; var re1 = new double[1024]; var im1 = new double[1024]; var re2 = new double[2048]; var im2 = new double[2048]; int T = loop ? 64 : 32, n = b.Length; var v = new float[T * B]; double lo = Math.Log(30), k2 = B / (Math.Log(20000) - lo);
         for (int t = 0; t < T; t++)
         {
             // a loop: T slices spread over its whole length. A one-shot: real time, not stretched to its length (a short hat and a long hat must differ): the first 16 slices are 10 ms apart (the attack),
@@ -83,7 +83,7 @@ static class LibraryBaker
             var re = N == 1024 ? re1 : re2; var im = N == 1024 ? im1 : im2; var e = new double[B];
             for (int k = 0; k < N; k++) { int i = c - N / 2 + k; double w = 0.5 - 0.5 * Math.Cos(2 * Math.PI * k / (N - 1)); re[k] = i >= 0 && i < n ? (b.L[i] + b.R[i]) * 0.5 * w : 0; im[k] = 0; }
             Fft.Transform(re, im, false);
-            for (int k = 1; k < N / 2; k++) { double hz = k * (double)SoundGen.SR / N; if (hz < 30 || hz >= 16000) continue; int band = (int)((Math.Log(hz) - lo) * k2); if (band >= 0 && band < B) e[band] += re[k] * re[k] + im[k] * im[k]; }
+            for (int k = 1; k < N / 2; k++) { double hz = k * (double)SoundGen.SR / N; if (hz < 30 || hz >= 20000) continue; int band = (int)((Math.Log(hz) - lo) * k2); if (band >= 0 && band < B) e[band] += re[k] * re[k] + im[k] * im[k]; }
             for (int j = 0; j < B; j++) v[t * B + j] = (float)(10 * Math.Log10(e[j] + 1e-10));
         }
         float top = float.MinValue; foreach (var x in v) if (x > top) top = x; for (int i = 0; i < v.Length; i++) if (v[i] < top - 50) v[i] = top - 50;
@@ -169,7 +169,7 @@ static class LibraryBaker
                 {
                     var notes = InstantLib.MidiNotesFor(src); if (notes == null || notes.Count == 0) why = "no notes";
                     else { var nsb = new StringBuilder(); nsb.Append(src.BaseBpm.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)); foreach (var nt in notes) nsb.Append(';').Append(string.Join(",", Array.ConvertAll(nt, v => v.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture)))); string mh; using (var sha = System.Security.Cryptography.SHA1.Create()) mh = "m" + BitConverter.ToString(sha.ComputeHash(Encoding.UTF8.GetBytes(nsb.ToString()))).Replace("-", "").Substring(0, 19).ToLowerInvariant(); string otherM;
-                    if (hashes.TryGetValue(mh, out otherM)) { why = "exact copy of " + otherM; res.Duplicates++; } else { item.Hash = mh; hashes[mh] = item.Id; SoundIO.WriteMidi(tmp, src.BaseBpm, name, notes); Replace(tmp, item.Path); double bb; var back = SoundIO.ReadMidi(item.Path, out bb); if (back.Count != notes.Count) why = "the MIDI file did not read back (" + back.Count + " of " + notes.Count + " notes)"; else { item.Dur = src.Beats * 60.0 / Math.Max(1, src.BaseBpm); item.Channels = 0; item.Valid = "ok"; } } }
+                    if (hashes.TryGetValue(mh, out otherM) || FpIndex.HasHash(mh, rec.Id, out otherM)) { why = "exact copy of " + otherM; res.Duplicates++; } else { item.Hash = mh; hashes[mh] = item.Id; SoundIO.WriteMidi(tmp, src.BaseBpm, name, notes); Replace(tmp, item.Path); double bb; var back = SoundIO.ReadMidi(item.Path, out bb); if (back.Count != notes.Count) why = "the MIDI file did not read back (" + back.Count + " of " + notes.Count + " notes)"; else { item.Dur = src.Beats * 60.0 / Math.Max(1, src.BaseBpm); item.Channels = 0; item.Valid = "ok"; } } }
                 }
                 else
                 {
@@ -180,7 +180,7 @@ static class LibraryBaker
                         if (!c.Ok) why = c.Why;
                         else
                         {
-                            string other; if (hashes.TryGetValue(c.Hash, out other)) { why = "exact copy of " + other; res.Duplicates++; }
+                            string other; if (hashes.TryGetValue(c.Hash, out other) || FpIndex.HasHash(c.Hash, rec.Id, out other)) { why = "exact copy of " + other; res.Duplicates++; }
                             else
                             {
                                 List<SoundItem> same; if (!fps.TryGetValue(item.Type, out same)) fps[item.Type] = same = new List<SoundItem>();
@@ -223,7 +223,7 @@ static class LibraryBaker
                 string origin = "preset|" + rec.Id + "|" + kv.Key; if (done.Contains(OriginKey(origin))) continue; bool wobP = wobNames.Contains(kv.Key); string rel = (wobP ? "Wobble Presets/" : "Bass Lab Presets/") + Safe(kv.Key) + (wobP ? ".purphexwobble" : ".purphexsynth"); string path = Path.Combine(dir, rel.Replace('/', Path.DirectorySeparatorChar));
                 string why = null; string hash = "";
                 if (string.IsNullOrEmpty(kv.Value) || kv.Value.IndexOf('=') < 0) why = "empty patch";
-                else { using (var sha = System.Security.Cryptography.SHA1.Create()) hash = BitConverter.ToString(sha.ComputeHash(Encoding.UTF8.GetBytes(kv.Value))).Replace("-", "").Substring(0, 20).ToLowerInvariant(); string other; if (hashes.TryGetValue(hash, out other)) why = "exact copy of " + other; }
+                else { using (var sha = System.Security.Cryptography.SHA1.Create()) hash = BitConverter.ToString(sha.ComputeHash(Encoding.UTF8.GetBytes(kv.Value))).Replace("-", "").Substring(0, 20).ToLowerInvariant(); string other; if (hashes.TryGetValue(hash, out other) || FpIndex.HasHash(hash, rec.Id, out other)) why = "exact copy of " + other; }
                 if (why == null) { Directory.CreateDirectory(Path.GetDirectoryName(path)); File.WriteAllText(path, kv.Value, Encoding.UTF8); if (File.ReadAllText(path, Encoding.UTF8) != kv.Value) why = "the preset did not read back"; }
                 if (why != null) { res.Failed++; res.Failures.Add(kv.Key + ": " + why); fails.Append(origin).Append('\t').Append(kv.Key + ": " + why).Append('\n'); continue; }
                 var it = new SoundItem { PackId = rec.Id, PackName = rec.Name, Rel = rel, Path = path, Id = rec.Id + "/" + rel, Name = rec.Name + " - " + kv.Key, Type = wobP ? "Wobble Preset" : "Synth Preset", Group = "Presets", Kind = "preset", Genre = rec.Genre, Sub = rec.Sub, Mood = rec.Mood, Tags = (rec.Genre + "," + rec.Sub + (wobP ? ",wobble preset,purphex wobble,lfo,preset" : ",synth preset,bass lab,preset")).ToLowerInvariant(), Format = wobP ? "Wobble preset" : "Bass Lab preset", Instrument = wobP ? "Wobble" : "Bass Synth",
@@ -250,7 +250,8 @@ static class LibraryBaker
 // =====================================================================================================
 static class FpIndex
 {
-    public class Entry { public string Pack, Name, Id, Type; public double Dur; public byte[] Q; }
+    public class Entry { public string Pack, Name, Id, Type, Hash = ""; public double Dur; public byte[] Q; }
+    static readonly Dictionary<string, Entry> byHash = new Dictionary<string, Entry>();
     static readonly Dictionary<string, List<Entry>> byType = new Dictionary<string, List<Entry>>(); static readonly Dictionary<string, DateTime> seen = new Dictionary<string, DateTime>(); static readonly object lk = new object();
     internal static byte[] Quant(float[] f) { var q = new byte[f.Length]; for (int i = 0; i < f.Length; i++) q[i] = (byte)Math.Max(0, Math.Min(255, (int)Math.Round(f[i] * 30 + 128))); return q; }
     static double Cos(byte[] a, byte[] b)
@@ -267,12 +268,12 @@ static class FpIndex
         {
             string[] dirs; try { dirs = Directory.GetDirectories(SoundLibrary.Root); } catch { return; }
             var present = new HashSet<string>(); foreach (var d in dirs) if (File.Exists(Path.Combine(d, "fp.bin"))) present.Add(Path.GetFileName(d));
-            foreach (var gone in new List<string>(seen.Keys)) if (!present.Contains(gone)) { foreach (var l in byType.Values) l.RemoveAll(e => e.Pack == gone); seen.Remove(gone); }   // (a pack that was removed no longer holds back the others)
+            foreach (var gone in new List<string>(seen.Keys)) if (!present.Contains(gone)) { foreach (var l in byType.Values) l.RemoveAll(e => e.Pack == gone); RemoveHashes(gone); seen.Remove(gone); }   // (a pack that was removed no longer holds back the others)
             foreach (var d in dirs)
             {
                 string id = Path.GetFileName(d); if (id.StartsWith("_") || id == selfId) continue; string f = Path.Combine(d, "fp.bin"); if (!File.Exists(f)) continue;
                 DateTime t = File.GetLastWriteTimeUtc(f); DateTime was; if (seen.TryGetValue(id, out was) && was == t) continue;
-                foreach (var l in byType.Values) l.RemoveAll(e => e.Pack == id);
+                foreach (var l in byType.Values) l.RemoveAll(e => e.Pack == id); RemoveHashes(id);
                 try { Read(f, id); seen[id] = t; } catch { }
             }
         }
@@ -281,13 +282,20 @@ static class FpIndex
     {
         using (var br = new BinaryReader(File.OpenRead(file), Encoding.UTF8))
         {
-            if (br.ReadString() != "fp1") return; int n = br.ReadInt32();
+            if (br.ReadString() != "fp2") return; int n = br.ReadInt32();
             for (int i = 0; i < n; i++)
             {
-                var e = new Entry { Pack = pack, Id = br.ReadString(), Name = br.ReadString(), Type = br.ReadString(), Dur = br.ReadDouble() }; int len = br.ReadInt32(); e.Q = br.ReadBytes(len);
-                List<Entry> l; if (!byType.TryGetValue(e.Type, out l)) byType[e.Type] = l = new List<Entry>(); l.Add(e);
+                var e = new Entry { Pack = pack, Id = br.ReadString(), Name = br.ReadString(), Type = br.ReadString(), Dur = br.ReadDouble(), Hash = br.ReadString() }; int len = br.ReadInt32(); e.Q = br.ReadBytes(len);
+                if (e.Hash.Length > 0 && !byHash.ContainsKey(e.Hash)) byHash[e.Hash] = e;
+                if (len > 0) { List<Entry> l; if (!byType.TryGetValue(e.Type, out l)) byType[e.Type] = l = new List<Entry>(); l.Add(e); }
             }
         }
+    }
+    static void RemoveHashes(string pack) { var gone = new List<string>(); foreach (var kv in byHash) if (kv.Value.Pack == pack) gone.Add(kv.Key); foreach (var h in gone) byHash.Remove(h); }
+    // is this exact sound (its hash) already in another pack?
+    public static bool HasHash(string hash, string selfId, out string where)
+    {
+        where = ""; if (hash == null || hash.Length == 0) return false; lock (lk) { Entry e; if (byHash.TryGetValue(hash, out e) && e.Pack != selfId) { where = e.Id; return true; } } return false;
     }
     // the most alike sound of another pack (same type, about the same length), or null
     public static Entry Nearest(string type, double dur, float[] fp, string selfId, out double sim)
@@ -301,8 +309,8 @@ static class FpIndex
     {
         try
         {
-            var l = new List<SoundItem>(); foreach (var s in items) if (s.Fp != null && s.Kind != "midi" && s.Kind != "preset") l.Add(s); string tmp = Path.Combine(dir, "fp.bin.tmp");
-            using (var bw = new BinaryWriter(File.Create(tmp), Encoding.UTF8)) { bw.Write("fp1"); bw.Write(l.Count); foreach (var s in l) { var q = Quant(s.Fp); bw.Write(s.Id); bw.Write(s.Name); bw.Write(s.Type); bw.Write(s.Dur); bw.Write(q.Length); bw.Write(q); } }
+            var l = new List<SoundItem>(); foreach (var s in items) if (s.Fp != null || s.Hash.Length > 0) l.Add(s); string tmp = Path.Combine(dir, "fp.bin.tmp");
+            using (var bw = new BinaryWriter(File.Create(tmp), Encoding.UTF8)) { bw.Write("fp2"); bw.Write(l.Count); foreach (var s in l) { var q = s.Fp != null ? Quant(s.Fp) : new byte[0]; bw.Write(s.Id); bw.Write(s.Name); bw.Write(s.Type); bw.Write(s.Dur); bw.Write(s.Hash ?? ""); bw.Write(q.Length); bw.Write(q); } }
             string dest = Path.Combine(dir, "fp.bin"); if (File.Exists(dest)) File.Delete(dest); File.Move(tmp, dest);
         }
         catch { }

@@ -93,10 +93,19 @@ static class Music
         }
         return notes;
     }
-    public static int[] ChordRoots(Rnd r, bool minor) { int[][] m = { new[] { 0, 8, 3, 10 }, new[] { 0, 5, 8, 7 }, new[] { 0, 3, 8, 10 } }, j = { new[] { 0, 7, 9, 5 }, new[] { 0, 5, 9, 7 } }; return minor ? m[r.Int(m.Length)] : j[r.Int(j.Length)]; }
+    // four-chord progressions (semitones above the key): fourteen minor and ten major ones, so the chord loops and MIDI chords of two packs in one key are not the same
+    static readonly int[][] MinorProg = { new[] { 0, 8, 3, 10 }, new[] { 0, 5, 8, 7 }, new[] { 0, 3, 8, 10 }, new[] { 0, 10, 8, 10 }, new[] { 0, 8, 10, 0 }, new[] { 0, 5, 10, 3 }, new[] { 0, 7, 8, 5 }, new[] { 0, 3, 10, 8 }, new[] { 0, 8, 5, 10 }, new[] { 0, 5, 0, 7 }, new[] { 0, 10, 3, 8 }, new[] { 0, 5, 7, 0 }, new[] { 8, 10, 0, 0 }, new[] { 0, 8, 10, 7 } };
+    static readonly int[][] MajorProg = { new[] { 0, 7, 9, 5 }, new[] { 0, 5, 9, 7 }, new[] { 0, 5, 7, 5 }, new[] { 0, 9, 5, 7 }, new[] { 9, 5, 0, 7 }, new[] { 0, 4, 5, 7 }, new[] { 0, 2, 5, 7 }, new[] { 0, 9, 2, 7 }, new[] { 0, 5, 0, 7 }, new[] { 9, 7, 5, 7 } };
+    public static int[] ChordRoots(Rnd r, bool minor) { var l = minor ? MinorProg : MajorProg; return l[r.Int(l.Length)]; }
+    // the notes of each chord: a seventh, a ninth, a plain triad, an added ninth or a suspended chord
+    static int[] ChordTones(Rnd r, bool minor)
+    {
+        int[][] m = { new[] { 0, 3, 7, 10 }, new[] { 0, 3, 7, 10, 14 }, new[] { 0, 3, 7 }, new[] { 0, 3, 7, 14 }, new[] { 0, 5, 7, 10 } }, j = { new[] { 0, 4, 7, 11 }, new[] { 0, 4, 7, 11, 14 }, new[] { 0, 4, 7 }, new[] { 0, 4, 7, 14 }, new[] { 0, 5, 7, 11 } };
+        var l = minor ? m : j; return l[r.Int(l.Length)];
+    }
     public static List<double[]> Chords(Rnd r, int bars, int rootPc, bool minor, int octave, string style)
     {
-        var notes = new List<double[]>(); int[] roots = ChordRoots(r, minor); int[] tones = minor ? new[] { 0, 3, 7, 10 } : new[] { 0, 4, 7, 11 }; string stab = "x..x..x.x.......";
+        var notes = new List<double[]>(); int[] roots = ChordRoots(r, minor); int[] tones = ChordTones(r, minor); string stab = r.Pick(new[] { "x..x..x.x.......", ".x..x..x..x.....", "x.x...x...x.x...", "..x..x..x..x.x.." });
         for (int bar = 0; bar < bars; bar++)
         {
             int cr = 12 * (octave + 1) + rootPc + roots[bar % roots.Length];

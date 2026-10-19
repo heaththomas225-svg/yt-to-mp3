@@ -196,7 +196,7 @@ static class InstantLib
     static readonly Dictionary<string, DrumKit.Kit> kits = new Dictionary<string, DrumKit.Kit>(); static readonly object makeLock = new object();
     // the pack's kits: kit 0 is the pack's own sound; kits 1 to 5 are tuned differently (lower and longer, higher and tighter, brighter, darker...), so a second set of hits is not a copy of the first
     static readonly double[][] KitShift = { new[] { 1.0, 1, 1, 1 }, new[] { 0.9, 1.25, 0.93, 0.9 }, new[] { 1.1, 0.75, 1.08, 1.08 }, new[] { 0.95, 1.1, 1.12, 1.12 }, new[] { 1.05, 0.9, 0.9, 0.86 }, new[] { 0.88, 1.4, 1.0, 0.95 } };
-    internal static DrumStyle KitStyle(Recipe rec, int kv) { var st = PackBuilder.StyleFor(rec); var k = KitShift[((kv % 6) + 6) % 6]; st.KickF0 *= k[0]; st.KickDecay *= k[1]; st.SnareBody *= k[2]; st.HatBright *= k[3]; st.ClapCentre *= k[2]; st.SnareDecay *= Math.Sqrt(k[1]); st.HatPitch *= k[3]; st.CymDecay *= Math.Sqrt(k[1]); st.CymPitch *= k[2]; return st; }
+    internal static DrumStyle KitStyle(Recipe rec, int kv) { var st = PackBuilder.StyleFor(rec); var k = KitShift[((kv % 6) + 6) % 6]; st.KickF0 *= k[0]; st.KickDecay *= k[1]; st.SnareBody *= k[2]; st.HatBright *= k[3]; st.ClapCentre *= k[2]; st.SnareDecay *= Math.Sqrt(k[1]); st.HatPitch *= k[3]; st.CymDecay *= Math.Sqrt(k[1]); st.CymPitch *= k[2]; st.HatHp *= Math.Sqrt(k[3]); st.HatMetal = Math.Max(0.3, Math.Min(0.95, st.HatMetal * (0.85 + (kv % 3) * 0.12))); st.CymTone *= Math.Sqrt(k[2]); return st; }
     static DrumKit.Kit Kit(Recipe rec, int kv) { DrumKit.Kit kit; string kk = rec.Id + "/" + kv; lock (kits) { if (!kits.TryGetValue(kk, out kit)) { if (kits.Count > 24) kits.Clear(); kit = DrumKit.Make(KitStyle(rec, kv), rec.Seed + 1 + kv * 977); kits[kk] = kit; } } return kit; }
     // makes the file for an instant sound if it is not there yet; returns null if it worked, or a message
     public static string Ensure(SoundItem s)
@@ -306,8 +306,8 @@ static class InstantLib
                     default: return SoundGen.Sweep(r, 1.2, 800, 6000, 1.5);
                 }
             }
-            case "oa": { var at = SoundGen.Atmosphere(r, 12, 48 + pc, minor, 0.35 + (i % 6) * 0.13); return at; }
-            case "ox": { var at = SoundGen.Atmosphere(r, 10, 72 + pc + (i % 2) * 12, minor, 1.0); return SoundGen.Highpass(at, 900 + i * 400); }
+            case "oa": { var pj = new Rnd(rec.Seed + 4040); double lf = 0.05 + pj.Next() * 0.18, dt = 0.03 + pj.Next() * 0.14, nz = 0.03 + pj.Next() * 0.1; return SoundGen.Atmosphere(r, 12, 48 + pc, minor, 0.3 + (i % 6) * 0.13, i + (rec.Seed & 7), lf, dt, nz); }
+            case "ox": { var pj = new Rnd(rec.Seed + 4141); double lf = 0.08 + pj.Next() * 0.3, dt = 0.05 + pj.Next() * 0.2, nz = 0.1 + pj.Next() * 0.25; var at = SoundGen.Atmosphere(r, 10, 72 + pc + (i % 2) * 12, minor, 0.8 + pj.Next() * 0.6, (rec.Seed >> 3) + i * 3, lf, dt, nz); return SoundGen.Highpass(at, 700 + (int)(pj.Next() * 1600) + i * 300); }
             case "ks": return SongKit(rec, i / 6, bpm, s.Key.Length > 0 ? s.Key : rec.Keys[(i / 6) % rec.Keys.Length])[i % 6];
             case "ov":
             {
@@ -325,8 +325,8 @@ static class InstantLib
         {
             case "md":
             {
-                var p = Grooves.Vary(PackBuilder.StyleFor(rec), i, i % 8); var nt = new List<double[]>(); int steps = 16 * 4;
-                for (int st = 0; st < steps; st++) { int pi = st % (16 * p.Bars); Action<string, int, double> add = (s2, note, vel) => { if (pi < s2.Length && s2[pi] != '.') nt.Add(new[] { st * 0.25, 0.2, (double)note, s2[pi] == 't' ? vel * 0.8 : vel }); }; add(p.K, 36, 110); add(p.S, 38, 105); add(p.C, 39, 100); add(p.H, 42, 80); add(p.O, 46, 85); add(p.G, 38, 40); add(p.P, 37, 70); }
+                var mst = PackBuilder.StyleFor(rec); var p = Grooves.Vary(mst, i, i % 8); int vr = mst.Variant; var nt = new List<double[]>(); int steps = 16 * 4;
+                for (int st = 0; st < steps; st++) { int pi = st % (16 * p.Bars); Action<string, int, double> add = (s2, note, vel) => { if (pi < s2.Length && s2[pi] != '.') nt.Add(new[] { st * 0.25, 0.2, (double)note, Math.Max(20, Math.Min(127, (s2[pi] == 't' ? vel * 0.8 : vel) + ((st * 7 + note * 3 + vr) % 9 - 4) * 2)) }); };   /* (each pack plays its own velocities: a feel, and no two packs write the same file) */ add(p.K, 36, 110); add(p.S, 38, 105); add(p.C, 39, 100); add(p.H, 42, 80); add(p.O, 46, 85); add(p.G, 38, 40); add(p.P, 37, 70); }
                 return nt;
             }
             case "mb":

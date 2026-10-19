@@ -76,7 +76,7 @@ static class PackBuilder
         Func<double, double> m = k => Math.Pow(2, (j.Next() * 2 - 1) * k);   // a multiplier from 2^-k to 2^k, spread evenly in pitch / time
         s.KickF0 *= m(0.30); s.KickDecay *= m(0.45); s.KickDrive *= m(0.35); s.KickClick *= m(0.60); s.KickStart *= m(0.30);
         s.SnareBody *= m(0.30); s.SnareNoise *= m(0.40); s.SnareDecay *= m(0.45); s.SnareDrive *= m(0.35); s.SnareSnap *= m(0.50);
-        s.HatBright *= m(0.30); s.HatC *= m(0.70); s.HatO *= m(0.70); s.ClapCentre *= m(0.30); s.ClapTail *= m(0.50); s.HatPitch = m(0.35); s.CymDecay = m(0.45); s.CymPitch = m(0.35); s.Variant = r.Seed % 997; return s;
+        s.HatBright *= m(0.30); s.HatC *= m(0.70); s.HatO *= m(0.70); s.ClapCentre *= m(0.30); s.ClapTail *= m(0.50); s.HatPitch = m(0.35); s.CymDecay = m(0.45); s.CymPitch = m(0.35); s.HatHp = 6800 * m(0.35); s.HatMetal = Math.Max(0.3, Math.Min(0.95, 0.7 * m(0.5))); s.CymTone = m(0.3); s.Variant = r.Seed % 997; s.HatSet = (r.Seed / 997) % 4; s.CymSet = (r.Seed / 3989) % 4; return s;
     }
 
     // ---- one-shots ----

@@ -110,25 +110,27 @@ static class SoundGen
         var b = new Buf(n); b.L = l; b.R = rr; return b;
     }
     static readonly double[] MetalRatios = { 205.3, 304.4, 369.6, 522.7, 540.0, 800.0 };
-    public static Buf Hat(Rnd r, double decay, double bright, double len, double pitch)
+    // other clusters of inharmonic partials: a pack's hats and cymbals are built on one of these, so two packs do not share a metal
+    static readonly double[][] MetalSets = { MetalRatios, new[] { 263.0, 349, 421, 593, 709, 853 }, new[] { 180.0, 259, 394, 480, 677, 910 }, new[] { 232.0, 337, 459, 566, 640, 760 } };
+    public static Buf Hat(Rnd r, double decay, double bright, double len, double pitch, double hp = 6800, double metalMix = 0.7, int set = 0)
     {
-        int n = (int)(len * SR); var l = new float[n]; var rr = new float[n]; var hpL = new Svf(); var hpR = new Svf(); var bpL = new Svf(); var bpR = new Svf(); var nz = Noise(r, n); var metal = MetalTone(n, pitch, MetalRatios);
+        int n = (int)(len * SR); var l = new float[n]; var rr = new float[n]; var hpL = new Svf(); var hpR = new Svf(); var bpL = new Svf(); var bpR = new Svf(); var nz = Noise(r, n); var metal = MetalTone(n, pitch, MetalSets[((set % 4) + 4) % 4]);
         for (int i = 0; i < n; i++)
         {
             double t = i / (double)SR; double env = Math.Exp(-t / decay) * Math.Min(1.0, t / 0.0004);
-            float m = metal[i] * 0.7f + nz[i] * 0.3f; float a = hpL.Process(bpL.Process(m, (float)(bright * 1000), 0.9f, 1) * 2.2f + m * 0.4f, 6800f, 0.7f, 2); float b = hpR.Process(bpR.Process(m * 0.96f, (float)(bright * 1040), 0.9f, 1) * 2.2f + m * 0.4f, 7200f, 0.7f, 2);
+            float m = metal[i] * (float)metalMix + nz[i] * (float)(1 - metalMix); float a = hpL.Process(bpL.Process(m, (float)(bright * 1000), 0.9f, 1) * 2.2f + m * 0.4f, (float)hp, 0.7f, 2); float b = hpR.Process(bpR.Process(m * 0.96f, (float)(bright * 1040), 0.9f, 1) * 2.2f + m * 0.4f, (float)(hp * 1.06), 0.7f, 2);
             l[i] = a * (float)env; rr[i] = b * (float)env;
         }
         var buf = new Buf(Soft(l, 15000)); buf.R = Soft(rr, 15000); return buf;
     }
-    public static Buf Cymbal(Rnd r, double decay, double len, bool ride, double pitch = 1)
+    public static Buf Cymbal(Rnd r, double decay, double len, bool ride, double pitch = 1, double tone = 1, int set = 0)
     {
         int n = (int)(len * SR); var l = new float[n]; var rr = new float[n]; var hpL = new Svf(); var hpR = new Svf(); var bpL = new Svf(); var bpR = new Svf(); var nz = Noise(r, n);
-        var mA = MetalTone(n, (ride ? 1.9 : 2.6) * pitch * r.Range(0.97f, 1.03f), MetalRatios); var mB = MetalTone(n, (ride ? 2.05 : 2.85) * pitch * r.Range(0.97f, 1.03f), MetalRatios);   // two slightly different clusters: left and right shimmer apart
+        var mA = MetalTone(n, (ride ? 1.9 : 2.6) * pitch * r.Range(0.97f, 1.03f), MetalSets[((set % 4) + 4) % 4]); var mB = MetalTone(n, (ride ? 2.05 : 2.85) * pitch * r.Range(0.97f, 1.03f), MetalSets[((set % 4) + 4) % 4]);   // two slightly different clusters: left and right shimmer apart
         for (int i = 0; i < n; i++)
         {
             double t = i / (double)SR, env = Math.Exp(-t / decay) * (ride ? 1 : Math.Min(1.0, t / 0.002)), body = ride ? 0.45 : 0.25; float nzl = nz[i] * (ride ? 0.25f : 0.55f), nzr = nz[(i + 37) % n] * (ride ? 0.25f : 0.55f);
-            float va = hpL.Process(bpL.Process(mA[i], ride ? 5200f : 7400f, 0.7f, 1) * (float)(1 + body) + nzl, ride ? 3200f : 4600f, 0.7f, 2), vb = hpR.Process(bpR.Process(mB[i], ride ? 5400f : 7800f, 0.7f, 1) * (float)(1 + body) + nzr, ride ? 3200f : 4600f, 0.7f, 2);
+            float tn = (float)tone; float va = hpL.Process(bpL.Process(mA[i], (ride ? 5200f : 7400f) * tn, 0.7f, 1) * (float)(1 + body) + nzl, (ride ? 3200f : 4600f) * tn, 0.7f, 2), vb = hpR.Process(bpR.Process(mB[i], (ride ? 5400f : 7800f) * tn, 0.7f, 1) * (float)(1 + body) + nzr, (ride ? 3200f : 4600f) * tn, 0.7f, 2);
             l[i] = va * (float)env; rr[i] = vb * (float)env;
         }
         var b = new Buf(n); b.L = l; b.R = rr; return b;
@@ -206,14 +208,25 @@ static class SoundGen
         for (int i = 0; i < n; i++) { double t = i / (double)SR, f = lo + (hi - lo) * (0.5 + 0.5 * Math.Sin(2 * Math.PI * rate * t - Math.PI / 2)); ph += 2 * Math.PI * f / SR; double env = Math.Min(1, t / 0.05) * Math.Min(1, (len - t) / 0.12); x[i] = (float)((Math.Sin(ph) * 0.6 + Saw((ph / (2 * Math.PI)) % 1.0, f / SR) * 0.45) * env * 0.5); }
         return new Buf(x);
     }
-    public static Buf Atmosphere(Rnd r, double len, int rootMidi, bool minor, double bright)
+    // the chord an atmosphere is built on: nine voicings, from a warm minor or major ninth to open fifths and stacked fourths
+    static int[] AtmoShapes(int shape, bool minor)
     {
-        int n = (int)(len * SR); var l = new float[n]; var rr = new float[n]; int[] ch = minor ? new[] { 0, 3, 7, 10, 14 } : new[] { 0, 4, 7, 11, 14 }; var lpA = new Svf(); var lpB = new Svf(); var nzA = Noise(r, n); var nzB = Noise(r, n); var ph = new double[ch.Length * 2];
+        switch (((shape % 9) + 9) % 9)
+        {
+            case 1: return new[] { 0, 2, 7, 9, 14 }; case 2: return new[] { 0, 5, 7, 12, 17 }; case 3: return minor ? new[] { 0, 7, 12, 15, 19 } : new[] { 0, 7, 12, 16, 19 };
+            case 4: return minor ? new[] { 0, 3, 7, 10, 14, 17 } : new[] { 0, 4, 7, 9, 14 }; case 5: return new[] { 0, 5, 10, 15, 20 }; case 6: return minor ? new[] { 0, 3, 7, 8, 12 } : new[] { 0, 4, 7, 11, 18 };
+            case 7: return new[] { 0, 7, 14, 19, 26 }; case 8: return minor ? new[] { 0, 3, 6, 10, 15 } : new[] { 0, 4, 8, 11, 14 };
+        }
+        return minor ? new[] { 0, 3, 7, 10, 14 } : new[] { 0, 4, 7, 11, 14 };
+    }
+    public static Buf Atmosphere(Rnd r, double len, int rootMidi, bool minor, double bright, int shape = 0, double lfoHz = 0.11, double detune = 0.07, double noise = 0.07)
+    {
+        int n = (int)(len * SR); var l = new float[n]; var rr = new float[n]; int[] ch = AtmoShapes(shape, minor); var lpA = new Svf(); var lpB = new Svf(); var nzA = Noise(r, n); var nzB = Noise(r, n); var ph = new double[ch.Length * 2];
         for (int i = 0; i < n; i++)
         {
-            double t = i / (double)SR, lfo = 0.5 + 0.5 * Math.Sin(2 * Math.PI * 0.11 * t), env = Math.Min(1, t / (len * 0.3)) * Math.Min(1, (len - t) / (len * 0.35)); double sl = 0, sr = 0;
-            for (int k = 0; k < ch.Length; k++) { for (int s = 0; s < 2; s++) { ph[k * 2 + s] += 2 * Math.PI * Hz(rootMidi + ch[k] + (s == 0 ? 0.07 : -0.07)) / SR; double v = Math.Sin(ph[k * 2 + s]) + Math.Sin(ph[k * 2 + s] * 2) * 0.3; if (s == 0) sl += v; else sr += v; } }
-            l[i] = lpA.Process((float)(sl * 0.1) + nzA[i] * 0.07f, (float)(500 + 2600 * bright * lfo), 1.1f, 0) * (float)env; rr[i] = lpB.Process((float)(sr * 0.1) + nzB[i] * 0.07f, (float)(500 + 2600 * bright * (1 - lfo)), 1.1f, 0) * (float)env;
+            double t = i / (double)SR, lfo = 0.5 + 0.5 * Math.Sin(2 * Math.PI * lfoHz * t), env = Math.Min(1, t / (len * 0.3)) * Math.Min(1, (len - t) / (len * 0.35)); double sl = 0, sr = 0;
+            for (int k = 0; k < ch.Length; k++) { for (int s = 0; s < 2; s++) { ph[k * 2 + s] += 2 * Math.PI * Hz(rootMidi + ch[k] + (s == 0 ? detune : -detune)) / SR; double v = Math.Sin(ph[k * 2 + s]) + Math.Sin(ph[k * 2 + s] * 2) * 0.3; if (s == 0) sl += v; else sr += v; } }
+            l[i] = lpA.Process((float)(sl * 0.1) + nzA[i] * (float)noise, (float)(500 + 2600 * bright * lfo), 1.1f, 0) * (float)env; rr[i] = lpB.Process((float)(sr * 0.1) + nzB[i] * (float)noise, (float)(500 + 2600 * bright * (1 - lfo)), 1.1f, 0) * (float)env;
         }
         var b = new Buf(n); b.L = l; b.R = rr; return Wet(b, 80, 45, 0.45f, n);
     }

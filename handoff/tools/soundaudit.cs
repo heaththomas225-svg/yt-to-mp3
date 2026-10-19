@@ -25,6 +25,12 @@ static class SA
             case "bass": Bass(arg); break;
             case "drums": Drums(arg); break;
             case "control": Control(); break;
+            case "exp4": {
+                // how many of the library's hats / open hats / rides / crashes are distinct (greedy, in pack order, the baker's rule)
+                foreach (var what in new[] { "HatsC", "HatsO", "Rides" }) { var kept = new List<KeyValuePair<double, float[]>>(); int total = 0, dropped = 0;
+                    foreach (var rec in SoundCatalog.Recipes.OrderBy(r => r.Id)) { if (!(rec.Has("drums") || rec.Has("loops"))) continue; for (int kv = 0; kv < 2; kv++) { var kit = DrumKit.Make(InstantLib.KitStyle(rec, kv), rec.Seed + 1 + kv * 977); var list = what == "HatsC" ? kit.HatsC : what == "HatsO" ? kit.HatsO : kit.Rides; for (int j = 0; j < list.Count; j++) { total++; var b = list[j]; var fp = LibraryBaker.Fingerprint(b, false); double d = b.Length / 44100.0; bool dup = false; foreach (var k in kept) if (Math.Abs(k.Key - d) <= Math.Max(0.05, d * 0.02) && LibraryBaker.Similarity(k.Value, fp) >= LibraryBaker.CrossLimit) { dup = true; break; } if (dup) dropped++; else kept.Add(new KeyValuePair<double, float[]>(d, fp)); } } }
+                    Console.WriteLine(what + ": " + total + " candidates, " + kept.Count + " distinct, " + dropped + " too alike"); }
+                break; }
             case "audit": Audit(); break;
             case "exp3": { foreach (var id in arg.Split(',')) { var st = PackBuilder.StyleFor(SoundCatalog.Find(id)); var p = Grooves.Vary(st, 0, 0); Console.WriteLine(id + " variant " + st.Variant + " pattern " + st.Pattern + " K " + p.K + " P " + p.P + " H " + p.H); } break; }
             case "exp2": {
