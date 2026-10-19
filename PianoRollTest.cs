@@ -163,6 +163,22 @@ static class PR
             float wsum = 0; var lb = new float[4096]; var rb = new float[4096]; var w2 = new WobbleFx(); w2.Prepare(SR); w2.Owner = empty; w2.BeginBlock(null, 0, 4096, false); w2.NoteOn(36, 110); w2.BeginBlock(null, 0, 4096, false); for (int b = 0; b < 8; b++) { Array.Clear(lb, 0, 4096); Array.Clear(rb, 0, 4096); w2.Process(lb, rb, 4096); foreach (var v in lb) wsum += Math.Abs(v); }
             Check("the Purphex Wobble really sounds when a note plays", wsum > 100, wsum.ToString("0"));
         }
+        // ---- GENERATE makes a box of its own; dropped on the song it becomes its own tracks ----
+        {
+            var before = eng.Tracks.ToList(); var notesBefore = before.ToDictionary(t => t, t => { lock (t.Midi) return t.Midi.Count; });
+            var box = (StudioForm.PatBox)M("BuildPattern", 0, 4); sf.prBox = box; Paint();
+            Check("GENERATE makes a beat in its own box (kick, snare, hats, open hat, 808...) without touching your tracks", box != null && box.Parts.Count >= 4 && box.Parts.Any(p => p.Job == 0) && box.Parts.Any(p => p.Job == 5) && before.All(t => { lock (t.Midi) return t.Midi.Count == notesBefore[t]; }), box == null ? "none" : box.Parts.Count + " parts");
+            Check("every part of the box has a sound (your own or the style's pack)", box.Parts.All(p => p.Sound != null && p.Sound.Zones.Count == 1 && p.Sound.Zones[0].L != null), string.Join(", ", box.Parts.Select(p => p.Name + ":" + (p.Sound == null ? "none" : p.Sound.Zones[0].Name))));
+            var bm = (Dictionary<string, RectangleF>)typeof(StudioForm).GetField("btnMap", BF).GetValue(sf); Check("the box shows in the piano roll with ADD TO SONG", bm.ContainsKey("ADD TO SONG"), "");
+            double bar = SR * 60.0 / Fx.ProjectBpm * 4; string dmsg = (string)M("DropPatternBox", box, (long)(bar * 2));
+            var added = eng.Tracks.Where(t => !before.Contains(t)).ToList();
+            Check("dropping it at bar 3 makes its own tracks (one per part), the notes start at bar 3", added.Count == box.Parts.Count && added.All(t => StudioForm.PrCanEdit(t) && t.Midi.Count > 0 && t.Midi.Min(e => e.Frame) >= (long)(bar * 2) - 2), added.Count + " tracks; " + dmsg);
+            Check("your own tracks keep their notes (nothing is written over them)", before.All(t => { lock (t.Midi) return t.Midi.Count == notesBefore[t]; }), "");
+            var bassT = added.FirstOrDefault(t => t.Name.Contains("808")); Check("the 808 part follows the notes (it can be switched to Bass Lab with SOUND)", bassT != null && bassT.Fx.OfType<SamplerFx>().Any(z => z.AnyFollow), bassT == null ? "none" : bassT.Name);
+            Check("the box is used up", sf.prBox == null, "");
+            float sum = 0; var lb = new float[2048]; var rb = new float[2048]; var kickT = added[0]; var smp = kickT.Fx.OfType<SamplerFx>().First(); smp.BeginBlock(kickT, 0, 2048, false); smp.NoteOn(smp.Zones[0].Root, 110); for (int q = 0; q < 6; q++) { smp.BeginBlock(kickT, 0, 2048, false); Array.Clear(lb, 0, 2048); smp.Process(lb, rb, 2048); foreach (var v in lb) sum += Math.Abs(v); }
+            Check("a generated part really plays its sound", sum > 10, sum.ToString("0"));
+        }
         Console.WriteLine(fails == 0 ? "=== piano roll checks passed ===" : "=== " + fails + " FAILED ===");
         try { sf.Close(); } catch { } Environment.Exit(fails == 0 ? 0 : 1);
     }

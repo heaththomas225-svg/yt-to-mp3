@@ -1,0 +1,109 @@
+using System;
+using System.Collections.Generic;
+using System.Drawing;
+using System.Linq;
+using System.Windows.Forms;
+
+// =====================================================================================================
+//  THE PATTERN BOX: GENERATE makes a beat as a box of its own (it does not write onto your tracks). Drag the box onto the song (or press
+//  ADD TO SONG) and it becomes its own tracks at the bar you drop it on: kick, snare or clap, hats, open hat, percussion and 808, each a
+//  note track you can edit in the piano roll. Each part plays your own sound when you have a track with that job (its sampler is copied),
+//  else the sound of that style's pack in the library, so a generated beat always plays. The 808 follows the notes: SOUND can switch it to
+//  Bass Lab or the Purphex Wobble to play the line with a synth.
+// =====================================================================================================
+partial class StudioForm
+{
+    internal class PatPart { public int Job; public string Name; public List<PrNote> Notes = new List<PrNote>(); public SamplerFx Sound; }
+    internal class PatBox { public string Style; public int StyleIndex, Bars; public double Bpm; public List<PatPart> Parts = new List<PatPart>(); }
+    internal PatBox prBox; bool prBoxDrag; PointF prBoxAt;
+    static readonly string[] PatPackOf = { "trap-starter", "boom-bap-classics", "lofi-essentials", "uk-drill-starter", "dnb-rollers", "house-essentials", "afrobeats-essentials", "reggaeton-essentials", "uk-garage", "drift-phonk" };
+
+    // the beat as notes from bar 0 (frames at the song's tempo), one part per job the style plays
+    internal PatBox BuildPattern(int styleIndex, int bars)
+    {
+        var st = PatStyles[styleIndex]; var box = new PatBox { Style = st.Name, StyleIndex = styleIndex, Bars = bars, Bpm = Fx.ProjectBpm };
+        double beat = StudioEngine.SR * 60.0 / Fx.ProjectBpm, step = beat / 4; string[] P = { st.Kick, st.Snare, st.Hat, st.Open, st.Perc };
+        for (int j = 0; j < 5; j++)
+        {
+            string p = P[j]; if (string.IsNullOrEmpty(p)) continue; var part = new PatPart { Job = j, Name = Jobs[j] }; bool swingOk = j >= 2;
+            for (int s = 0; s < bars * 16; s++)
+            {
+                char c = p[s % p.Length]; if (c == '.') continue; double sw = swingOk && st.Swing > 0.5 && s % 2 == 1 ? (st.Swing - 0.5) * 2 * step : 0; long at = (long)Math.Round(s * step + sw); int vel = j == 2 ? 100 : 112;
+                int v = c == 'g' ? vel * 55 / 100 : (c == 'r' ? vel * 80 / 100 : vel); if (j == 2 && c == 'x') v = s % 2 == 0 ? vel : vel * 75 / 100;
+                part.Notes.Add(new PrNote { Start = at, Len = (long)(step * 0.9), Note = 60, Vel = Math.Max(1, Math.Min(127, v)) });
+                if (c == 'r') part.Notes.Add(new PrNote { Start = at + (long)(step / 2), Len = (long)(step * 0.45), Note = 60, Vel = Math.Max(1, v * 85 / 100) });
+            }
+            box.Parts.Add(part);
+        }
+        { // the 808 on the kick's rhythm, in the piano roll's key
+            var part = new PatPart { Job = 5, Name = Jobs[5] }; var hits = new List<int>(); for (int s = 0; s < bars * 16; s++) if (st.Kick[s % st.Kick.Length] == 'x') hits.Add(s);
+            bool minor = prScale != 2 && prScale != 7; int baseNote = 24 + prKeyRoot;
+            for (int i = 0; i < hits.Count; i++) { int s = hits[i], next = i + 1 < hits.Count ? hits[i + 1] : bars * 16; int deg = st.Bass[(s / 16) % st.Bass.Length]; if (!minor && (deg == 3 || deg == 8 || deg == 10)) deg++; int n = baseNote + deg; if (st.Slide && i % 4 == 3) n += 12; part.Notes.Add(new PrNote { Start = (long)Math.Round(s * step), Len = (long)Math.Round((next - s) * step * 0.95), Note = n, Vel = 110 }); }
+            box.Parts.Add(part);
+        }
+        foreach (var part in box.Parts) part.Sound = PartSound(part.Job, styleIndex);
+        return box;
+    }
+    // the sound of a part: your track with that job (its sampler copied), else the style's pack in the library
+    SamplerFx PartSound(int job, int styleIndex)
+    {
+        foreach (var t in eng.Tracks) { if (JobOf(t) != job) continue; var src = t.Fx.OfType<SamplerFx>().FirstOrDefault(); if (src == null || src.Zones.Count == 0) continue; var c = new SamplerFx(); c.Prepare(StudioEngine.SR); c.Deserialize(src.Serialize()); return c; }
+        try
+        {
+            var rec = SoundCatalog.Find(PatPackOf[Math.Max(0, Math.Min(PatPackOf.Length - 1, styleIndex))]); if (rec == null) return null; string[] codes = { "ok|", "os|", "oh|", "oo|", "op|", "o8|" };
+            var it = InstantLib.ItemsOf(rec.Id).FirstOrDefault(x => x.Spec.StartsWith(codes[job])); if (job == 1 && (rec.Drums == "trap" || rec.Drums == "drill" || rec.Drums == "house")) it = InstantLib.ItemsOf(rec.Id).FirstOrDefault(x => x.Spec.StartsWith("oc|")) ?? it;
+            if (it == null || InstantLib.Ensure(it) != null) return null; var s = new SamplerFx(); s.Prepare(StudioEngine.SR);
+            int root = 60; if (job == 5) { int rt; bool mi; root = SoundLibrary.ParseKey(it.Key, out rt, out mi) ? 24 + rt : 24; }
+            s.SetSingle(it.Path, it.Name.Replace(it.PackName + " - ", ""), job == 5, root); return s;
+        }
+        catch { return null; }
+    }
+    // the box becomes its own tracks at a bar of the song
+    internal string DropPatternBox(PatBox box, long at)
+    {
+        if (box == null) return null; PushUndo(); var colors = new[] { 0xFFFF5C7A, 0xFFFFB84D, 0xFF4DD9FF, 0xFF7AF0C2, 0xFFB98CFF, 0xFF9B5CFF }; Track first = null;
+        foreach (var part in box.Parts)
+        {
+            var t = StudioEngine.NewTrack(box.Style + " " + part.Name.Replace(" / ", "/"), "inst", null); t.Instrument = true; t.Color = unchecked((int)colors[Math.Min(colors.Length - 1, part.Job)]);
+            if (part.Sound != null) { part.Sound.Owner = t; lock (eng.Sync) t.Fx.Add(part.Sound); }
+            var notes = part.Notes.Select(n => new PrNote { Start = at + n.Start, Len = n.Len, Note = part.Sound != null && !part.Sound.AnyFollow && part.Sound.Zones.Count > 0 ? part.Sound.Zones[0].Root : n.Note, Vel = n.Vel }).ToList();
+            WriteNotes(t, notes); AddTrack(t); prJobs[t] = part.Job; if (first == null) first = t;
+        }
+        if (first != null) { int i = eng.Tracks.IndexOf(first); if (i >= 0) { selTrack = i; prLastSel = i; } prTrack = first; prStamp = -1; }
+        prBox = null; prBoxDrag = false; Invalidate();
+        long bar = (long)Math.Round(at / (StudioEngine.SR * 60.0 / Fx.ProjectBpm * 4)); return box.Style + " beat added at bar " + (bar + 1) + ": " + box.Parts.Count + " new tracks (" + string.Join(", ", box.Parts.Select(p => p.Name)) + "). SOUND in the piano roll changes any part's sound (the 808 can be Bass Lab or the Wobble).";
+    }
+    // the box in the piano roll (top right of the grid): drag it onto the song
+    void PaintPatternBox(Graphics g, RectangleF grid)
+    {
+        if (prBox == null) return; var box = prBox; var r = Rc(grid.Right - 330, grid.Y + 8, 320, 84);
+        if (prBoxDrag)
+        {
+            r = Rc(prBoxAt.X - 160, prBoxAt.Y - 42, 320, 84); var tl = TimelineRect();
+            if (tl.Contains(prBoxAt) && prBoxAt.Y < MixH) { double barF = StudioEngine.SR * 60.0 / Fx.ProjectBpm * 4; long frame = scroll + (long)((prBoxAt.X - HeadW) * spp); long at = (long)(Math.Max(0, Math.Round(frame / barF)) * barF); float lx = HeadW + (float)((at - scroll) / spp); using (var pen = new Pen(NeonCyan, 2)) g.DrawLine(pen, lx, ArrTop, lx, MixH); Txt(g, "BAR " + (Math.Round(at / barF) + 1), 10, NeonCyan, Rc(lx + 4, ArrTop + 2, 80, 16), StringAlignment.Near, true); }
+        }
+        FillRR(g, TM.C(240, 22, 12, 44), r, 10); Glow(g, NeonCyan, r, 10, prBoxDrag ? 1.2f : 0.8f, 3);
+        Txt(g, box.Style.ToUpperInvariant() + " BEAT  ·  " + box.Bars + " BARS  ·  " + box.Parts.Count + " PARTS", 11, Ink, Rc(r.X + 12, r.Y + 6, r.Width - 44, 18), StringAlignment.Near, true);
+        // a little picture of the parts
+        float px = r.X + 12, pw = r.Width - 24, py = r.Y + 28, ph = 22; var gsP = g.Save(); g.SetClip(Rc(px, py, pw, ph + 1), System.Drawing.Drawing2D.CombineMode.Intersect); long len = (long)(box.Bars * 4 * StudioEngine.SR * 60.0 / Fx.ProjectBpm); int k = 0;
+        foreach (var part in box.Parts) { float y = py + k * (ph / box.Parts.Count); using (var br = new SolidBrush(Color.FromArgb(220, Neon(unchecked((int)new[] { 0xFFFF5C7A, 0xFFFFB84D, 0xFF4DD9FF, 0xFF7AF0C2, 0xFFB98CFF, 0xFF9B5CFF }[Math.Min(5, part.Job)]))))) foreach (var n in part.Notes) g.FillRectangle(br, px + pw * n.Start / (float)Math.Max(1, len), y, Math.Max(1.5f, pw * n.Len / (float)Math.Max(1, len)), Math.Max(1.5f, ph / box.Parts.Count - 0.5f)); k++; }
+        g.Restore(gsP);
+        Txt(g, prBoxDrag ? "DROP IT ON THE SONG" : "DRAG ME ONTO THE SONG", 9, NeonCyan, Rc(r.X + 12, r.Bottom - 22, 190, 16), StringAlignment.Near, true);
+        if (prBoxDrag) return;
+        var reg = Reg(r, () => { prBoxDrag = true; prBoxAt = MousePos; }); reg.OnDrag = pt => { prBoxAt = pt; Invalidate(); }; reg.OnUp = () => PrBoxDropped();
+        var x = Rc(r.Right - 30, r.Y + 6, 22, 20); Btn(g, x, "x", 0, () => { prBox = null; }, 10); Hint2(x, "Throw this beat away");
+        var add = Rc(r.Right - 112, r.Bottom - 24, 100, 20); Btn(g, add, "ADD TO SONG", 2, () => { var b = prBox; Toast(DropPatternBox(b, (long)Math.Round(Math.Floor(prScrollBeats / 4) * 4 * PrBeatFrames))); }, 9); Hint2(add, "Put this beat into the song at the bar the piano roll shows, as its own tracks");
+    }
+    // released: on the song it becomes tracks at the bar under the mouse
+    void PrBoxDropped()
+    {
+        var b = prBox; bool wasDrag = prBoxDrag; prBoxDrag = false; if (b == null) return; var tl = TimelineRect();
+        if (wasDrag && tl.Contains(prBoxAt) && prBoxAt.Y < MixH)
+        {
+            double barF = StudioEngine.SR * 60.0 / Fx.ProjectBpm * 4; long frame = scroll + (long)((prBoxAt.X - HeadW) * spp); long at = (long)(Math.Max(0, Math.Round(frame / barF)) * barF);
+            Toast(DropPatternBox(b, at));
+        }
+        else if (wasDrag) Toast("Drop the beat on the song above (the tracks area) to add it, or press ADD TO SONG.");
+        Invalidate();
+    }
+}

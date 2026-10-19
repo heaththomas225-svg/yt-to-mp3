@@ -99,12 +99,20 @@ partial class StudioForm
     void PrGenerateMenu()
     {
         var m = Win.NewMenu(); int from = (int)Math.Floor(prScrollBeats / 4);
-        m.Items.Add(new ToolStripMenuItem("A STARTING BEAT ON YOUR TRACKS (KICK, SNARE, HATS, 808...)") { Enabled = false });
+        m.Items.Add(new ToolStripMenuItem("A BEAT IN ITS OWN BOX: DRAG IT ONTO THE SONG (IT BECOMES ITS OWN TRACKS)") { Enabled = false });
+        for (int i = 0; i < PatStyles.Length; i++)
+        {
+            int k = i; var it = new ToolStripMenuItem(PatStyles[i].Name + "   (" + PatStyles[i].Bpm + " BPM)");
+            foreach (int bars0 in new[] { 4, 8, 16 }) { int bars = bars0; it.DropDownItems.Add(bars + " bars").Click += (a, b) => { prBox = BuildPattern(k, bars); Toast(PatStyles[k].Name + " beat ready in the box at the top right of the piano roll: drag it onto the song, or press ADD TO SONG."); }; }
+            m.Items.Add(it);
+        }
+        m.Items.Add(new ToolStripSeparator());
+        var onTracks = new ToolStripMenuItem("Or write it onto your own tracks (kick, snare, hats, 808...)"); m.Items.Add(onTracks);
         for (int i = 0; i < PatStyles.Length; i++)
         {
             int k = i; var it = new ToolStripMenuItem(PatStyles[i].Name + "   (" + PatStyles[i].Bpm + " BPM)");
             foreach (int bars0 in new[] { 4, 8, 16 }) { int bars = bars0; it.DropDownItems.Add(bars + " bars from bar " + (from + 1)).Click += (a, b) => { bool tempo = Math.Abs(Fx.ProjectBpm - PatStyles[k].Bpm) > 0.5 && AskYes("Set the song to " + PatStyles[k].Bpm + " BPM (the usual " + PatStyles[k].Name + " tempo)? No keeps " + Fx.ProjectBpm.ToString("0.##") + " BPM.", "Generate pattern"); Toast(GeneratePattern(k, bars, from, tempo)); }; }
-            m.Items.Add(it);
+            onTracks.DropDownItems.Add(it);
         }
         m.Items.Add(new ToolStripSeparator()); var jobs = new ToolStripMenuItem("Jobs of your tracks");
         foreach (var t0 in eng.Tracks) { var t = t0; if (!PrCanEdit(t)) continue; int j = JobOf(t); var it = new ToolStripMenuItem(t.Name + ":  " + (j == 100 ? "drum kit" : (j >= 0 ? Jobs[j] : "not a drum or bass part")), null) { ForeColor = Neon(t.Color) };

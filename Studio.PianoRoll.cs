@@ -217,6 +217,7 @@ partial class StudioForm
             var msg = Rc(x, y + 40, w, h - 40);
             if (t != null && t.Clip != null) { Txt(g, t.Name + " is an audio track: its clip stays real audio on the arrangement (move, trim and stretch it there).", 12, Ink, Rc(msg.X, msg.Y + 20, msg.Width, 22), StringAlignment.Center, true); var lb = Rc(msg.X + msg.Width / 2 - 140, msg.Y + 56, 280, 32); Btn(g, lb, "LOAD IT INTO A SAMPLER TRACK", 2, () => PrAudioToSampler(t), 11); Hint2(lb, "A new sampler track that plays this sound from notes (the audio track stays as it is)"); }
             else PaintChooseSound(g, t, msg);
+            if (!prBoxDrag) PaintPatternBox(g, msg);
             return;
         }
         // the areas
@@ -294,6 +295,7 @@ partial class StudioForm
         foreach (var n in prNotes) { float vx = PrX(n.Start); if (vx < prVel.X - 4 || vx > prVel.Right) continue; float vh = (prVel.Height - 6) * n.Vel / 127f; bool sl = prSel.Contains(n); using (var b = new SolidBrush(Color.FromArgb(sl ? 255 : 200, sl ? accSel : acc))) g.FillRectangle(b, vx, prVel.Bottom - 3 - vh, 4, vh); using (var b = new SolidBrush(Color.White)) g.FillEllipse(b, vx - 1.5f, prVel.Bottom - 3 - vh - 3, 7, 7); }
         g.Restore(vgs);
         var vr = Reg(prVel, () => PrVelAt(MousePos, true)); vr.OnDrag = pt => PrVelAt(pt, false); vr.OnUp = () => { prMode = 0; PrCommit(); }; Hint2(prVel, "Drag a bar to set that note's velocity (drag across to set several)");
+        if (!prBoxDrag) PaintPatternBox(g, prGrid);
         // the arrangement link: where this view sits in the song
         { var mini = Rc(x, prVel.Bottom - 16, keyW - 6, 14); double songBeats = Math.Max(16, SongFrames() / PrBeatFrames); FillRR(g, TM.C(200, 8, 4, 18), mini, 3); float vx0 = (float)(prScrollBeats / songBeats), vw = (float)(prGrid.Width / prPpb / songBeats); FillRR(g, Color.FromArgb(160, NeonCyan), Rc(mini.X + mini.Width * Math.Min(1, vx0), mini.Y + 2, Math.Max(3, mini.Width * Math.Min(1, vw)), mini.Height - 4), 2); Reg(mini, () => { prScrollBeats = Math.Max(0, (MousePos.X - mini.X) / mini.Width * songBeats - prGrid.Width / prPpb / 2); }).OnDrag = pt => { prScrollBeats = Math.Max(0, (pt.X - mini.X) / mini.Width * songBeats - prGrid.Width / prPpb / 2); }; Hint2(mini, "Where you are in the song: drag to move along it"); }
     }

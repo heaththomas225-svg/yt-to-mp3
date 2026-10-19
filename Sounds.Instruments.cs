@@ -54,7 +54,7 @@ static class Instruments
         else if (g.Contains("lo-fi") || g.Contains("r&b") || g.Contains("soul") || g.Contains("jazz")) names = new[] { "Electric Piano", "Grand Piano", "Nylon Guitar", "Strings", "Kalimba", "Flute", "Soft Pad", "Bells" };
         else if (g.Contains("trap") || g.Contains("drill") || g.Contains("hip-hop") || g.Contains("boom bap") || g.Contains("grime") || g.Contains("phonk") || g.Contains("vocals")) names = new[] { "Grand Piano", "Bells", "Strings", "Flute", "Choir", "Electric Piano", "Brass", "Dark Pad" };
         else if (g.Contains("house") || g.Contains("garage") || g.Contains("disco")) names = new[] { "Grand Piano", "Organ", "Electric Piano", "Strings", "Pluck", "Soft Pad", "Brass", "Bell Keys" };
-        else if (g.Contains("techno") || g.Contains("trance")) names = new[] { "Supersaw", "Pluck", "Shimmer Pad", "Saw Lead", "Bells", "Strings", "Dark Pad", "FM Bell" };
+        else if (g.Contains("techno") || g.Contains("trance")) names = new[] { "Supersaw", "Grand Piano", "Pluck", "Shimmer Pad", "Saw Lead", "Bells", "Strings", "Dark Pad", "FM Bell" };
         else if (g.Contains("pop") || g.Contains("jersey")) names = new[] { "Grand Piano", "Acoustic Guitar", "Electric Piano", "Strings", "Supersaw", "Pluck", "Brass", "Bells" };
         else if (g.Contains("drum & bass") || g.Contains("bassline") || g.Contains("bass music") || g.Contains("dubstep") || g.Contains("breaks") || g.Contains("rave")) names = new[] { "Soft Pad", "Electric Piano", "Grand Piano", "Strings", "Supersaw", "Organ", "Bells", "Pluck" };
         else names = new[] { "Supersaw", "Pluck", "Grand Piano", "Strings", "Bells", "Soft Pad", "Electric Piano", "Brass" };

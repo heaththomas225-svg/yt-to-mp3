@@ -93,15 +93,31 @@ static class Music
         }
         return notes;
     }
-    public static int[] ChordRoots(Rnd r, bool minor) { int[][] m = { new[] { 0, 8, 3, 10 }, new[] { 0, 5, 8, 7 }, new[] { 0, 3, 8, 10 } }, j = { new[] { 0, 7, 9, 5 }, new[] { 0, 5, 9, 7 } }; return minor ? m[r.Int(m.Length)] : j[r.Int(j.Length)]; }
+    // chord progressions (roots as semitones from the key): many, so two packs in one key do not play the same chords
+    static readonly int[][] MinProg = { new[] { 0, 8, 3, 10 }, new[] { 0, 5, 8, 7 }, new[] { 0, 3, 8, 10 }, new[] { 0, 10, 8, 7 }, new[] { 0, 8, 10, 0 }, new[] { 0, 5, 10, 3 }, new[] { 0, 7, 8, 5 }, new[] { 0, 3, 10, 8 }, new[] { 0, 8, 5, 7 }, new[] { 0, 10, 5, 8 }, new[] { 0, 0, 8, 10 }, new[] { 0, 5, 3, 7 }, new[] { 8, 10, 0, 0 }, new[] { 0, 3, 5, 8 } };
+    static readonly int[][] MajProg = { new[] { 0, 7, 9, 5 }, new[] { 0, 5, 9, 7 }, new[] { 0, 9, 5, 7 }, new[] { 0, 5, 7, 5 }, new[] { 0, 2, 5, 7 }, new[] { 0, 9, 2, 7 }, new[] { 0, 4, 5, 7 }, new[] { 0, 5, 0, 7 }, new[] { 5, 7, 0, 0 }, new[] { 0, 4, 9, 5 } };
+    public static int[] ChordRoots(Rnd r, bool minor) { return minor ? MinProg[r.Int(MinProg.Length)] : MajProg[r.Int(MajProg.Length)]; }
+    // the chord on a degree of the key, as it really is in that key (in a minor key the sixth and seventh are major, the second diminished)
+    static int[] Quality(int deg, bool minor, int ext)
+    {
+        bool maj, dim = false; deg = ((deg % 12) + 12) % 12;
+        if (minor) { maj = deg == 3 || deg == 8 || deg == 10; dim = deg == 2; } else { maj = deg == 0 || deg == 5 || deg == 7; dim = deg == 11; }
+        int third = maj ? 4 : 3, fifth = dim ? 6 : 7; var t = new List<int> { 0, third, fifth };
+        if (ext == 1) t.Add(maj && !(deg == 7 && !minor) ? 11 : 10); else if (ext == 2) t.Add(14); else if (ext == 3) { t.Add(maj ? 11 : 10); t.Add(14); }
+        return t.ToArray();
+    }
+    static readonly string[] StabRhythms = { "x..x..x.x.......", "x.....x...x.....", "..x...x...x...x.", "x..x...x..x..x..", "x.x...x.x.x...x.", "x.......x..x...." };
     public static List<double[]> Chords(Rnd r, int bars, int rootPc, bool minor, int octave, string style)
     {
-        var notes = new List<double[]>(); int[] roots = ChordRoots(r, minor); int[] tones = minor ? new[] { 0, 3, 7, 10 } : new[] { 0, 4, 7, 11 }; string stab = "x..x..x.x.......";
+        var notes = new List<double[]>(); int[] roots = ChordRoots(r, minor); int ext = r.Int(4); string stab = StabRhythms[r.Int(StabRhythms.Length)]; double prevAvg = 12 * (octave + 1) + rootPc + 5;
         for (int bar = 0; bar < bars; bar++)
         {
-            int cr = 12 * (octave + 1) + rootPc + roots[bar % roots.Length];
-            if (style == "pad") foreach (int t in tones) notes.Add(new[] { bar * 4.0, 3.9, cr + t, 80 });
-            else for (int st = 0; st < 16; st++) if (stab[st] == 'x') foreach (int t in tones) notes.Add(new[] { (bar * 16 + st) * 0.25, 0.22, cr + t, st == 0 ? 105 : 90 });
+            int deg = roots[bar % roots.Length], cr = 12 * (octave + 1) + rootPc + deg; var q = Quality(deg, minor, ext);
+            // the inversion closest to the chord before (smooth voice leading, no jumping block chords)
+            int[] best = null; double bd = 1e9; for (int inv = 0; inv < q.Length; inv++) { var v = new int[q.Length]; for (int k = 0; k < q.Length; k++) v[k] = cr + q[k] + (k < inv ? 12 : 0); foreach (int sh in new[] { -12, 0 }) { double avg = 0; foreach (int x in v) avg += x + sh; avg /= v.Length; if (Math.Abs(avg - prevAvg) < bd) { bd = Math.Abs(avg - prevAvg); best = Array.ConvertAll(v, x => x + sh); } } }
+            double av = 0; foreach (int x in best) av += x; prevAvg = av / best.Length;
+            if (style == "pad") foreach (int t in best) notes.Add(new[] { bar * 4.0, 3.9, (double)t, 80 });
+            else for (int st = 0; st < 16; st++) if (stab[st] == 'x') foreach (int t in best) notes.Add(new[] { (bar * 16 + st) * 0.25, 0.22, (double)t, st == 0 ? 105 : 90 });
         }
         return notes;
     }

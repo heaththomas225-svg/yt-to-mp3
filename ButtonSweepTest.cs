@@ -117,7 +117,8 @@ static class BS
         var a = StudioEngine.NewTrack("Lead vocal", "vocal", Clip(8)); var b = StudioEngine.NewTrack("Beat", "beat", Clip(10)); var p = StudioEngine.NewTrack("Lead vocal (2)", "vocal", Clip(3)); p.Host = a; p.Offset = 44100 * 9;
         foreach (var ty in new[] { "eq", "comp", "pitch" }) { var f = FxRegistry.Create(ty); f.Prepare(44100); f.AutoKeyPending = false; a.Fx.Add(f); }
         var d = FxRegistry.Create("delay"); d.Prepare(44100); b.Fx.Add(d);
-        lock (eng.Sync) { eng.Tracks.Add(a); eng.Tracks.Add(b); eng.Tracks.Add(p); }
+        var keys = StudioEngine.NewTrack("Keys", "inst", null); keys.Instrument = true; var empty = StudioEngine.NewTrack("Audio 5", "audio", null);
+        lock (eng.Sync) { eng.Tracks.Add(a); eng.Tracks.Add(b); eng.Tracks.Add(p); eng.Tracks.Add(keys); eng.Tracks.Add(empty); }
     }
 
     [STAThread]
@@ -160,6 +161,13 @@ static class BS
         Page("COLLABS", () => { SetF("tab", 7); SetF("artView", 2); });
         Page("FRIENDS", () => { SetF("tab", 7); SetF("artView", 3); });
         Page("FONTS", () => { SetF("tab", 8); });
+        Func<string, int> ti = nm => sf.eng.Tracks.FindIndex(x => x.Name == nm);
+        Page("PIANO ROLL on a note track", () => { SetF("tab", 0); SetF("selTrack", ti("Keys")); sf.OpenPianoRoll(null); });
+        Page("PIANO ROLL choose a sound", () => { SetF("tab", 0); int e = ti("Audio 5"); if (e < 0) e = ti("Piano"); SetF("selTrack", e); sf.OpenPianoRoll(null); });
+        Page("MIXER panel: ALL PLUGINS", () => { SetF("tab", 0); SetF("selTrack", 0); typeof(StudioForm).GetMethod("OpenInspector", BF).Invoke(sf, new object[] { 1 }); });
+        Page("MIXER panel: CHANNEL", () => { SetF("tab", 0); SetF("selTrack", 1); typeof(StudioForm).GetMethod("OpenInspector", BF).Invoke(sf, new object[] { 0 }); });
+        Page("SOUND PACKS", () => { SetF("tab", 0); typeof(StudioForm).GetMethod("OpenPacks", BF).Invoke(sf, null); });
+        Page("SOUNDS", () => { SetF("tab", 0); typeof(StudioForm).GetMethod("OpenSounds", BF).Invoke(sf, null); });
         closer.Dispose(); Pump(200);
         Console.WriteLine("=== " + reached + " buttons checked on every page, " + pressed + " pressed, " + closedWins + " windows that opened were closed again ===");
         Console.WriteLine(fails == 0 ? "=== button sweep passed ===" : "=== " + fails + " FAILED ===");

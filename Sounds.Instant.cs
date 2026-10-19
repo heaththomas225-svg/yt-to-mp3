@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.IO;
 using System.Text;
 
@@ -124,7 +125,7 @@ static class InstantLib
     {
         bool loops = rec.Has("loops"), drums = rec.Has("drums") || loops, bass = (rec.Has("bass") || loops) && rec.Flavours != null && rec.Flavours.Length > 0 && rec.Flavours[0].Length > 0;
         bool music = rec.Has("music") || loops, vocal = rec.Has("vocal") || loops, fx = rec.Has("fx") || loops, s808 = rec.Has("sub808") || loops;
-        var pal = Instruments.Palette(rec); var chordPal = pal.FindAll(x => x.Chords); var melPal = pal.FindAll(x => x.Melody); if (chordPal.Count == 0) chordPal = pal; if (melPal.Count == 0) melPal = pal;
+        var pal = Instruments.Palette(rec); var chordPal = pal.FindAll(x => x.Chords); var melPal = pal.FindAll(x => x.Melody); if (chordPal.Count == 0) chordPal = pal; if (melPal.Count == 0) melPal = pal; Func<Instrument, int> keysFirst = x => x.Group == "Keys" ? 0 : 1; chordPal = chordPal.Select((x, n) => new { x, n }).OrderBy(z => keysFirst(z.x)).ThenBy(z => z.n).Select(z => z.x).ToList(); melPal = melPal.Select((x, n) => new { x, n }).OrderBy(z => (z.x.Group == "Keys" && z.n > 1) ? 0 : 1).ThenBy(z => z.n).Select(z => z.x).ToList();   /* pianos and keys first: the loops a pack makes always include them */
         string tg = (rec.Genre + "," + rec.Sub + "," + rec.Tags).ToLowerInvariant();
         Func<string, int, string, string, double, string, double, string, SoundItem> mk = (code, i, core, file, bpm, key, beats, extraTags) =>
         {
@@ -134,7 +135,7 @@ static class InstantLib
         Action<SoundItem, Instrument> inst = (s, ins) => { s.Group = ins.Group; s.Instrument = ins.Name; };
         if (drums) for (int i = 0; i < DrumPer * per; i++) { string feel = Feel(i); mk("d", i, "Drum Loop " + N3(i) + (feel.Length > 0 ? " (" + feel + ")" : ""), "drum-" + N3(i) + ".wav", Bpm(rec, i), "", Bars(i) * 4, "drum loop,drums,loop,beat," + feel); }
         if (drums) for (int i = 0; i < 12; i++) { int bars = StemBars(i); mk("dk", i, "Kick Loop " + N3(i), "kickloop-" + N3(i) + ".wav", Bpm(rec, i), "", bars * 4, "kick loop,kick,drums,loop"); mk("ds", i, "Snare Loop " + N3(i), "snareloop-" + N3(i) + ".wav", Bpm(rec, i + 1), "", bars * 4, "snare loop,snare,clap,drums,loop");
-            mk("dh", i, "Hi-Hat Loop " + N3(i), "hatloop-" + N3(i) + ".wav", Bpm(rec, i + 2), "", bars * 4, "hi-hat loop,hats,hihat,drums,loop"); mk("dp", i, "Percussion Loop " + N3(i), "percloop-" + N3(i) + ".wav", Bpm(rec, i + 3), "", bars * 4, "percussion loop,percussion,perc,drums,loop"); }
+            mk("dh", i, "Hi-Hat Loop " + N3(i), "hatloop-" + N3(i) + ".wav", Bpm(rec, i + 2), "", bars * 4, "hi-hat loop,hats,hihat,drums,loop"); if (Grooves.HasPerc(rec.Drums)) mk("dp", i, "Percussion Loop " + N3(i), "percloop-" + N3(i) + ".wav", Bpm(rec, i + 3), "", bars * 4, "percussion loop,percussion,perc,drums,loop"); }
         if (drums) for (int i = 0; i < 16; i++) mk("df", i, "Drum Fill " + N3(i), "fill-" + N3(i) + ".wav", Bpm(rec, i), "", 4, "fill,drum fill,drums,transition,loop");
         if (s808) for (int i = 0; i < 24; i++) mk("l8", i, (rec.Drums == "drill" || i % 2 == 1 ? "Sliding 808 Loop " : "808 Loop ") + N3(i), "808loop-" + N3(i) + ".wav", Bpm(rec, i), KeyOf(rec, i), 8, "808 loop,808,sub,bass,loop" + (rec.Drums == "drill" || i % 2 == 1 ? ",slide,sliding" : ""));
         if (drums && loops) for (int i = 0; i < 24; i++) mk("t", i, "Top Loop " + N3(i), "top-" + N3(i) + ".wav", Bpm(rec, i + 1), "", 8, "top loop,hats,percussion,loop");
@@ -293,22 +294,23 @@ static class InstantLib
             case "och": { var ins = InstOf(s); int oct = ins.Low > 50 ? 4 : 3; var ch = new List<double[]>(); int v = rec.Seed & 0xFFFF, inv = (v >> 2) % 3, k = 0; var ivs = ChordIv[i % ChordIv.Length]; foreach (int iv in ivs) { int up = k++ < inv ? 12 : 0; ch.Add(new double[] { 0, 1.5 + (v % 5) * 0.4, 12 * (oct + 1) + pc + iv + up, 80 + (v >> 4) % 36 }); } return Instruments.RenderPart(ins, ch, 120, 6, 1.5); }   // (each pack voices its chords in its own inversion, length and touch)
             case "of":
             {
-                double bar = 4 * 60.0 / Bpm(rec, 0);
+                double bar = 4 * 60.0 / Bpm(rec, 0); var pv = new Rnd(rec.Seed * 53 + 3); double fa = 0.55 + pv.Next() * 0.9, fb = 0.6 + pv.Next() * 0.5, lm = 0.75 + pv.Next() * 0.6, sh = 0.75 + pv.Next() * 0.6, dm = 0.8 + pv.Next() * 0.7, q = 1.2 + pv.Next() * 3; bool tone = pv.Next() < 0.5f;   // each pack its own FX: pitch range, length, weight, drive and colour
                 switch (i)
                 {
-                    case 0: return SoundGen.Riser(r, bar * 4, 300, 9000, true); case 1: return SoundGen.Riser(r, bar * 2, 350, 9500, true); case 2: return SoundGen.Riser(r, bar, 400, 10000, false);
-                    case 3: { var b = SoundGen.Riser(r, bar * 2, 300, 9000, true); b.Reverse(); return b; } case 4: { var b = SoundGen.Riser(r, bar, 400, 9000, false); b.Reverse(); return b; }
-                    case 5: return SoundGen.Impact(r, 3.2, 48, 1.4); case 6: return SoundGen.Impact(r, 2.6, 60, 1.6); case 7: return SoundGen.Impact(r, 4.0, 42, 1.3);
-                    case 8: return SoundGen.Sweep(r, bar, 400, 12000, 2.5); case 9: return SoundGen.Sweep(r, bar, 12000, 400, 2.5);
-                    case 10: { var cr = SoundGen.Wet(SoundGen.Cymbal(r, 1.6, 3.0, false), 80, 40, 0.5f, (int)(4.5 * SoundGen.SR)); cr.Reverse(); return cr; }
-                    default: return SoundGen.Sweep(r, 1.2, 800, 6000, 1.5);
+                    case 0: return SoundGen.Riser(r, bar * 4, 300 * fa, 9000 * fb, true); case 1: return SoundGen.Riser(r, bar * 2, 350 * fa, 9500 * fb, tone); case 2: return SoundGen.Riser(r, bar, 400 * fa, 10000 * fb, !tone);
+                    case 3: { var b = SoundGen.Riser(r, bar * 2, 300 * fa, 9000 * fb, tone); b.Reverse(); return b; } case 4: { var b = SoundGen.Riser(r, bar, 400 * fa, 9000 * fb, !tone); b.Reverse(); return b; }
+                    case 5: return SoundGen.Impact(r, 3.2 * lm, 48 * sh, 1.4 * dm); case 6: return SoundGen.Impact(r, 2.6 * lm, 60 * sh, 1.6 * dm); case 7: return SoundGen.Impact(r, 4.0 * lm, 42 * sh, 1.3 * dm);
+                    case 8: return SoundGen.Sweep(r, bar, 400 * fa, 12000 * fb, q); case 9: return SoundGen.Sweep(r, bar, 12000 * fb, 400 * fa, q);
+                    case 10: { var cr = SoundGen.Wet(SoundGen.Cymbal(r, 1.6 * lm, 3.0, pv.Next() < 0.3f), (float)(60 + 40 * fb), 40, 0.5f, (int)(4.5 * SoundGen.SR)); cr.Reverse(); return cr; }
+                    default: return SoundGen.Sweep(r, 1.2 * lm, 800 * fa, 6000 * fb, q * 0.6);
                 }
             }
             case "ov":
             {
                 if (i >= 6) { int midi = 57 + pc + (i == 7 ? 7 : 0); return SoundGen.Wet(SoundGen.VocalSyllable(r, SoundGen.NoteHz(midi), i == 6 ? 0 : 4, -1, 0.9, 0, 1, ""), 45, 50, 0.2f, (int)(1.6 * SoundGen.SR)); }
                 var sh = new[] { new object[] { 230.0, 1, 2, 0.34, 0.15, "h" }, new object[] { 190.0, 3, 4, 0.42, -0.1, "" }, new object[] { 210.0, 3, 4, 0.5, 0.05, "" }, new object[] { 150.0, 0, 0, 0.26, -0.15, "" }, new object[] { 240.0, 0, 2, 0.45, 0.1, "" }, new object[] { 200.0, 1, 0, 0.5, -0.05, "" } }[i];
-                var b2 = SoundGen.VocalSyllable(r, (double)sh[0] * r.Range(0.93f, 1.08f), (int)sh[1], (int)sh[2], (double)sh[3], (double)sh[4], 1, (string)sh[5]); return SoundGen.Wet(b2, 35, 50, 0.18f, b2.Length + 12000);
+                var vv = new Rnd(rec.Seed * 59 + 11); double vp = 0.72 + vv.Next() * 0.7, vl = 0.8 + vv.Next() * 0.5, vb = (vv.Next() - 0.5) * 0.3; float room = (float)(20 + vv.Next() * 45);   // each pack its own voice: pitch, length, bend and room
+                var b2 = SoundGen.VocalSyllable(r, (double)sh[0] * vp * r.Range(0.95f, 1.05f), (int)sh[1], (int)sh[2], (double)sh[3] * vl, (double)sh[4] + vb, 1, (string)sh[5]); return SoundGen.Wet(b2, room, 50, 0.18f, b2.Length + 12000);
             }
         }
         return null;

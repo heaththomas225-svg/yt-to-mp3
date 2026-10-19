@@ -587,6 +587,7 @@ partial class StudioForm : Form
             using (var sf2 = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center }) using (var br2 = new SolidBrush(Color.FromArgb(235, Ink))) g.DrawString(hintNow, hf, br2, new RectangleF(hr.X + 12, hr.Y, inner, hr.Height), sf2);
             hintStackY = hr.Y - 8;
         }
+        if (prBoxDrag) PaintPatternBox(g, RectangleF.Empty);   // a generated beat being dragged onto the song
         if (busy) PaintBusy(g);
         toastRect = RectangleF.Empty;
         if ((DateTime.Now - toastAt).TotalSeconds < ToastSecs && toast.Length > 0)
