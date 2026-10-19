@@ -23,7 +23,7 @@ sealed class SamplerFx : InstrumentFx
         public Zone Copy() { return new Zone { Path = Path, Name = Name, Lo = Lo, Hi = Hi, Root = Root, Follow = Follow, OneShot = OneShot, GainDb = GainDb, L = L, R = R, Rate = Rate, Missing = Missing }; }
     }
     class Voice { public bool On, Releasing; public Zone Z; public int Note; public double Pos, Step, Gain, Env, Rel; }
-    public readonly List<Zone> Zones = new List<Zone>(); readonly Voice[] voices = new Voice[48]; List<KeyValuePair<int, MidiEv>> pending; readonly object zl = new object();
+    public readonly List<Zone> Zones = new List<Zone>(); readonly Voice[] voices = new Voice[48]; List<KeyValuePair<int, MidiEv>> pending; internal readonly object zl = new object();
     public SamplerFx()
     {
         Type = "sampler"; Title = "Purphex Sampler"; Category = "Instruments"; Blurb = "Plays your samples from notes: one sample (kick, snare, 808...) or a kit mapped to keys, fixed pitch or following the notes";

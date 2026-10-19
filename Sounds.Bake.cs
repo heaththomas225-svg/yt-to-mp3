@@ -74,13 +74,13 @@ static class LibraryBaker
     // in dB, then normalised. Two sounds count as copies only if these pictures are almost the same (see SimilarLimit, measured on real sounds)
     internal static float[] Fingerprint(Buf b, bool loop)
     {
-        const int B = 24; int T = loop ? 64 : 32, n = b.Length; var v = new float[T * B]; double lo = Math.Log(30), k2 = B / (Math.Log(16000) - lo);
+        const int B = 24; var re1 = new double[1024]; var im1 = new double[1024]; var re2 = new double[2048]; var im2 = new double[2048]; int T = loop ? 64 : 32, n = b.Length; var v = new float[T * B]; double lo = Math.Log(30), k2 = B / (Math.Log(16000) - lo);
         for (int t = 0; t < T; t++)
         {
             // a loop: T slices spread over its whole length. A one-shot: real time, not stretched to its length (a short hat and a long hat must differ): the first 16 slices are 10 ms apart (the attack),
             // the next 16 are spread evenly in log time from 0.16 s to 2 s (the body and tail)
             int c; int N; if (loop) { c = (int)((t + 0.5) * n / T); N = 2048; } else if (t < 16) { c = (int)((t + 0.5) * 0.010 * SoundGen.SR); N = 1024; } else { c = (int)(0.16 * Math.Pow(2.0 / 0.16, (t - 16 + 0.5) / 16.0) * SoundGen.SR); N = 2048; }
-            var re = new double[N]; var im = new double[N]; var e = new double[B];
+            var re = N == 1024 ? re1 : re2; var im = N == 1024 ? im1 : im2; var e = new double[B];
             for (int k = 0; k < N; k++) { int i = c - N / 2 + k; double w = 0.5 - 0.5 * Math.Cos(2 * Math.PI * k / (N - 1)); re[k] = i >= 0 && i < n ? (b.L[i] + b.R[i]) * 0.5 * w : 0; im[k] = 0; }
             Fft.Transform(re, im, false);
             for (int k = 1; k < N / 2; k++) { double hz = k * (double)SoundGen.SR / N; if (hz < 30 || hz >= 16000) continue; int band = (int)((Math.Log(hz) - lo) * k2); if (band >= 0 && band < B) e[band] += re[k] * re[k] + im[k] * im[k]; }
@@ -116,9 +116,9 @@ static class LibraryBaker
     public const double SimilarLimit = 0.993;   // measured: a sound against itself with a gain change and noise 50 dB down scores about 0.995; sounds made to differ score lower
 
     // ---- the library-wide list of what is already there (for spotting copies across packs) ----
-    static Dictionary<string, string> HashesInLibrary()
+    static Dictionary<string, string> HashesInLibrary(string exceptPack)
     {
-        var d = new Dictionary<string, string>(); lock (SoundLibrary.Lock) foreach (var p in SoundLibrary.Packs) foreach (var s in p.Items) if (!string.IsNullOrEmpty(s.Hash) && !d.ContainsKey(s.Hash)) d[s.Hash] = s.Id;
+        var d = new Dictionary<string, string>(); lock (SoundLibrary.Lock) foreach (var p in SoundLibrary.Packs) if (p.Id != exceptPack) foreach (var s in p.Items) if (!string.IsNullOrEmpty(s.Hash) && !d.ContainsKey(s.Hash)) d[s.Hash] = s.Id;
         return d;
     }
 
@@ -141,7 +141,8 @@ static class LibraryBaker
         if (carry) { var old = old0; foreach (var s in old.Items) if (s.Exists) { float[] rl, rr; int rsr; string fmt; if (s.Kind != "midi" && SoundIO.Read(s.Path, out rl, out rr, out rsr, out fmt)) s.Fp = Fingerprint(new Buf(rl.Length) { L = rl, R = rr }, s.Kind == "loop"); pack.Items.Add(s); done.Add(OriginKey(s.Origin)); res.Resumed++; } }
         else { try { foreach (var f in Directory.GetFiles(dir, "*", SearchOption.AllDirectories)) if (!f.EndsWith("pack.part")) File.Delete(f); } catch { } }
         if (File.Exists(failFile) && carry) foreach (var line in File.ReadAllLines(failFile)) { int k = line.IndexOf('\t'); if (k > 0) failedIds[OriginKey(line.Substring(0, k))] = line.Substring(k + 1); }
-        var hashes = HashesInLibrary(); foreach (var s in pack.Items) if (s.Hash.Length > 0) hashes[s.Hash] = s.Id;
+        var hashes = HashesInLibrary(rec.Id);   // (not the pack's own older sounds: a sound that comes out the same as before is not a copy of itself)
+         foreach (var s in pack.Items) if (s.Hash.Length > 0) hashes[s.Hash] = s.Id;
         var fps = new Dictionary<string, List<SoundItem>>(); foreach (var s in pack.Items) { string c = s.Type; List<SoundItem> l; if (!fps.TryGetValue(c, out l)) fps[c] = l = new List<SoundItem>(); l.Add(s); }
         var used = new HashSet<string>(StringComparer.OrdinalIgnoreCase); foreach (var s in pack.Items) used.Add(s.Rel);
         var fails = new StringBuilder(); foreach (var kv in failedIds) fails.Append(kv.Key).Append('\t').Append(kv.Value).Append('\n');
@@ -209,17 +210,17 @@ static class LibraryBaker
         // Bass Lab presets: the pack's bass sounds as playable instrument settings (a preset is its own kind: not a loop, not a one-shot)
         if (rec.Flavours != null && rec.Flavours.Length > 0 && rec.Flavours[0].Length > 0)
         {
-            var pr = new Rnd(rec.Seed + 41); var names = new List<KeyValuePair<string, string>>(); var seenFl = new HashSet<string>();
+            var pr = new Rnd(rec.Seed + 41); var wobNames = new HashSet<string>(); var names = new List<KeyValuePair<string, string>>(); var seenFl = new HashSet<string>();
             for (int fi = 0; fi < rec.Flavours.Length; fi++)
             {
                 string fl = InstantLib.BassFl(rec, fi); if (!seenFl.Add(fl) || names.Count >= 6) continue;
-                if (BassDesign.UsesEngine(fl)) names.Add(new KeyValuePair<string, string>(BassDesign.Title(fl) + " Wobble Preset", InstantLib.EnginePatch(rec, fl, fi).Save()));   // a wobble bass is a Purphex Wobble preset, not a Bass Lab one
+                if (BassDesign.UsesEngine(fl)) { string wn = BassDesign.Title(fl) + (BassDesign.Title(fl).Contains("Wobble") ? " Preset" : " Wobble Preset"); wobNames.Add(wn); names.Add(new KeyValuePair<string, string>(wn, InstantLib.EnginePatch(rec, fl, fi).Save())); }   // a wobble bass is a Purphex Wobble preset, not a Bass Lab one
                 else names.Add(new KeyValuePair<string, string>(char.ToUpperInvariant(fl[0]) + fl.Substring(1) + " Bass Preset", Music.BassPatch(fl, pr)));
             }
             names.Add(new KeyValuePair<string, string>("Pad Preset", Music.LeadPatch("Dark Pad"))); names.Add(new KeyValuePair<string, string>("Stab Preset", Music.LeadPatch("Supersaw Lead", "voices=16;e1a=9;e1d=180;e1s=0;e1r=100")));
             foreach (var kv in names)
             {
-                string origin = "preset|" + rec.Id + "|" + kv.Key; if (done.Contains(OriginKey(origin))) continue; bool wobP = kv.Key.EndsWith("Wobble Preset"); string rel = (wobP ? "Wobble Presets/" : "Bass Lab Presets/") + Safe(kv.Key) + (wobP ? ".purphexwobble" : ".purphexsynth"); string path = Path.Combine(dir, rel.Replace('/', Path.DirectorySeparatorChar));
+                string origin = "preset|" + rec.Id + "|" + kv.Key; if (done.Contains(OriginKey(origin))) continue; bool wobP = wobNames.Contains(kv.Key); string rel = (wobP ? "Wobble Presets/" : "Bass Lab Presets/") + Safe(kv.Key) + (wobP ? ".purphexwobble" : ".purphexsynth"); string path = Path.Combine(dir, rel.Replace('/', Path.DirectorySeparatorChar));
                 string why = null; string hash = "";
                 if (string.IsNullOrEmpty(kv.Value) || kv.Value.IndexOf('=') < 0) why = "empty patch";
                 else { using (var sha = System.Security.Cryptography.SHA1.Create()) hash = BitConverter.ToString(sha.ComputeHash(Encoding.UTF8.GetBytes(kv.Value))).Replace("-", "").Substring(0, 20).ToLowerInvariant(); string other; if (hashes.TryGetValue(hash, out other)) why = "exact copy of " + other; }
@@ -265,6 +266,8 @@ static class FpIndex
         lock (lk)
         {
             string[] dirs; try { dirs = Directory.GetDirectories(SoundLibrary.Root); } catch { return; }
+            var present = new HashSet<string>(); foreach (var d in dirs) if (File.Exists(Path.Combine(d, "fp.bin"))) present.Add(Path.GetFileName(d));
+            foreach (var gone in new List<string>(seen.Keys)) if (!present.Contains(gone)) { foreach (var l in byType.Values) l.RemoveAll(e => e.Pack == gone); seen.Remove(gone); }   // (a pack that was removed no longer holds back the others)
             foreach (var d in dirs)
             {
                 string id = Path.GetFileName(d); if (id.StartsWith("_") || id == selfId) continue; string f = Path.Combine(d, "fp.bin"); if (!File.Exists(f)) continue;
@@ -289,9 +292,8 @@ static class FpIndex
     // the most alike sound of another pack (same type, about the same length), or null
     public static Entry Nearest(string type, double dur, float[] fp, string selfId, out double sim)
     {
-        sim = 0; if (fp == null) return null; List<Entry> l; lock (lk) { if (!byType.TryGetValue(type, out l)) return null; l = new List<Entry>(l); }
-        var q = Quant(fp); Entry best = null;
-        foreach (var e in l) { if (e.Pack == selfId || Math.Abs(e.Dur - dur) > Math.Max(0.05, dur * 0.02)) continue; double s = Cos(q, e.Q); if (s > sim) { sim = s; best = e; } }
+        sim = 0; if (fp == null) return null; var q = Quant(fp); Entry best = null;
+        lock (lk) { List<Entry> l; if (!byType.TryGetValue(type, out l)) return null; foreach (var e in l) { if (e.Pack == selfId || Math.Abs(e.Dur - dur) > Math.Max(0.05, dur * 0.02)) continue; double s = Cos(q, e.Q); if (s > sim) { sim = s; best = e; } } }
         return best;
     }
     // a pack's fingerprints into its folder (the sounds that have one)

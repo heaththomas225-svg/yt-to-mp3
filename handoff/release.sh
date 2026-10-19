@@ -10,7 +10,7 @@ cd "$(dirname "$0")/.."; [ -f _env.sh ] || { echo "copy handoff/env.sh to _env.s
 grep -q "const string Version = \"$VER\"" YtToMp3.cs || { echo "YtToMp3.cs is not at version $VER"; exit 1; }
 grep -q "Latest = \"$VER\"" Changelog.cs || { echo "Changelog.cs is not at version $VER"; exit 1; }
 grep -q "^## $VER " CHANGELOG.md || { echo "CHANGELOG.md has no section for $VER"; exit 1; }
-out=$(build_app); echo "$out"; echo "$out" | grep -q BUILD_OK || { echo "BUILD FAILED"; exit 1; }
+out=$(build_app) || true; echo "$out"; echo "$out" | grep -q BUILD_OK || { echo "BUILD FAILED"; exit 1; }
 run_tests 2>&1 | tee _rt.txt
 # every line must be ' 0 failed', 'checks passed', 'audit passed' or 'ok=1' (never grep -v passed: '111 passed, 1 failed' contains passed)
 bad=$(grep -v " 0 failed\|checks passed\|audit passed\|^ok=1" _rt.txt || true)

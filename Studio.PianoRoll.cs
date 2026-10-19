@@ -43,7 +43,9 @@ partial class StudioForm
     }
     internal void PrApplyPrefs(string text)
     {
-        prGhostOff.Clear(); prJobs.Clear(); prTrack = null; prSel.Clear(); prStamp = -1; prScrollBeats = 0; prScrollY = -1; if (string.IsNullOrEmpty(text)) return;
+        prGhostOff.Clear(); prJobs.Clear(); prTrack = null; prSel.Clear(); prStamp = -1; prScrollBeats = 0; prScrollY = -1;
+        prSnap = 4; prLenBeats = 0.25; prKeyRoot = 9; prScale = 0; prLock = false; prLabels = true; prPreview = true; prFollow = true; prGhosts = true;   // (a project without piano roll settings starts from the defaults, not from the last project)
+        if (string.IsNullOrEmpty(text)) return;
         var f = text.Split(';'); var ci = System.Globalization.CultureInfo.InvariantCulture; int iv; double dv;
         try
         {
@@ -121,10 +123,11 @@ partial class StudioForm
     internal void PrSilence() { if (prAudNote >= 0 && prAudTrack != null) { var p = PlayerOf(prAudTrack); if (p != null) p.NoteOff(prAudNote); } prAudNote = -1; prAudTrack = null; }
 
     // the notes that do not belong to the active track (shown faintly; never edited here)
+    readonly Dictionary<Track, KeyValuePair<long, List<PrNote>>> ghostCache = new Dictionary<Track, KeyValuePair<long, List<PrNote>>>();
     List<KeyValuePair<Track, List<PrNote>>> PrGhostTracks()
     {
         var l = new List<KeyValuePair<Track, List<PrNote>>>(); if (!prGhosts) return l;
-        foreach (var t in eng.Tracks) { if (t == prTrack || !PrCanEdit(t) || prGhostOff.Contains(t)) continue; int c; lock (t.Midi) c = t.Midi.Count; if (c == 0) continue; l.Add(new KeyValuePair<Track, List<PrNote>>(t, NotesOf(t))); }
+        foreach (var t in eng.Tracks) { if (t == prTrack || !PrCanEdit(t) || prGhostOff.Contains(t)) continue; int c; lock (t.Midi) c = t.Midi.Count; if (c == 0) continue; long stamp = MidiStamp(t); KeyValuePair<long, List<PrNote>> got; if (!ghostCache.TryGetValue(t, out got) || got.Key != stamp) { got = new KeyValuePair<long, List<PrNote>>(stamp, NotesOf(t)); ghostCache[t] = got; } l.Add(new KeyValuePair<Track, List<PrNote>>(t, got.Value)); }   // (a track's ghost notes are read again only when its notes change)
         return l;
     }
     static bool DrumLike(Track t) { foreach (var f in t.Fx) { var s = f as SamplerFx; if (s != null) return !s.AnyFollow; } return false; }
@@ -405,7 +408,7 @@ partial class StudioForm
             var root = new ToolStripMenuItem("Root note (plays the sample as it is)"); for (int n = 24; n <= 84; n++) { int nn = n; if (n % 12 != 0 && n % 12 != 5 && n % 12 != 7 && n % 12 != 9) continue; var it = new ToolStripMenuItem(PrNoteName(n)) { Checked = z.Root == n }; it.Click += (a, b) => { PushUndo(); z.Root = nn; }; root.DropDownItems.Add(it); } m.Items.Add(root);
             var os = new ToolStripMenuItem("One-shot (plays to the end, whatever the note's length)") { Checked = z.OneShot }; os.Click += (a, b) => { PushUndo(); z.OneShot = !z.OneShot; }; m.Items.Add(os);
         }
-        if (s.Zones.Count > 0) { var rm = new ToolStripMenuItem("Remove a sample"); foreach (var z0 in s.Zones.ToArray()) { var z = z0; rm.DropDownItems.Add(z.Name + (z.Lo == z.Hi ? "  (" + PrNoteName(z.Lo) + ")" : "")).Click += (a, b) => { PushUndo(); lock (s.Zones) s.Zones.Remove(z); }; } m.Items.Add(rm); }
+        if (s.Zones.Count > 0) { var rm = new ToolStripMenuItem("Remove a sample"); foreach (var z0 in s.Zones.ToArray()) { var z = z0; rm.DropDownItems.Add(z.Name + (z.Lo == z.Hi ? "  (" + PrNoteName(z.Lo) + ")" : "")).Click += (a, b) => { PushUndo(); lock (s.zl) s.Zones.Remove(z); }; /* the lock the audio thread uses */ } m.Items.Add(rm); }
         foreach (var z in s.Zones) if (z.Missing) { m.Items.Add(new ToolStripSeparator()); m.Items.Add(new ToolStripMenuItem("Missing: " + z.Name) { Enabled = false }); }
         m.Show(this, new Point((int)MousePos.X, (int)MousePos.Y));
     }

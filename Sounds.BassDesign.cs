@@ -190,10 +190,10 @@ static class BassDesign
     }
     public static Moves Check(Buf b, List<double[]> notes, double bpm, WobblePatch patch)
     {
-        var m = Check(b); m.Why = ""; m.Motion = Motion(b, notes, bpm);
-        if ((m.Motion < 0 || m.Motion < MinMotion) && patch != null) { double spb = 60.0 / bpm * 44100; var off = WobbleEngine.Render(Unmodulated(patch), notes, bpm, b.Length / spb, 0); m.Lsd = Distance(b, off); }
+        var m = Check(b); if (m.Why.StartsWith("too ")) return m; m.Why = ""; m.Motion = Motion(b, notes, bpm);
+        if (m.Motion < MinMotion && patch != null) { double spb = 60.0 / bpm * 44100; var off = WobbleEngine.Render(Unmodulated(patch), notes, bpm, b.Length / spb, 0); m.Lsd = Distance(b, off); }
         if (m.Mid < 0.15) m.Why = "almost all sub (" + (m.Mid * 100).ToString("0") + "% above 140 Hz): no wobble to hear";
-        else if ((m.Motion < 0 || m.Motion < MinMotion) && m.Lsd < MinLsd) m.Why = (m.Motion < 0 ? "" : "the colour hardly moves inside a note (" + m.Motion.ToString("0.0") + " dB) and ") + "the sound hardly differs from an unmodulated one (" + m.Lsd.ToString("0.0") + " dB)";   // a note's colour moving, or the sound clearly unlike its held-filter twin: either shows the LFO at work
+        else if (m.Motion < MinMotion && m.Lsd < MinLsd) m.Why = (m.Motion < 0 ? "" : "the colour hardly moves inside a note (" + m.Motion.ToString("0.0") + " dB) and ") + "the sound hardly differs from an unmodulated one (" + m.Lsd.ToString("0.0") + " dB)";   // a note's colour moving, or the sound clearly unlike its held-filter twin: either shows the LFO at work
         m.Ok = m.Why.Length == 0; return m;
     }
     // the check of an LFO'd bass: it must really move inside its notes, with real mid (not only sub)
@@ -243,7 +243,8 @@ sealed class WobbleFx : InstrumentFx
     static readonly string[] RateCodes = { "1", "2", "4", "8", "16", "32", "6", "12", "24", "4,8,16,8", "8,12,16,24", "16,8,4,8", "8,16,8,32" };
     public static readonly string[] Vowels = { "aoui", "oaei", "uoa", "aeo", "iaou", "ouai", "eao", "iou", "aie", "iaeu" }, Ratios = { "0.5", "1", "1.41", "1.5", "2", "2.73", "3", "3.5" };
     public static readonly string[] Shapes = { "Wub", "Sine", "Yoy (falling)", "Rising", "Chop", "Triangle" };
-    readonly WobblePatch patch = new WobblePatch(); WobbleVoice voice; List<KeyValuePair<int, MidiEv>> pending; readonly List<int> held = new List<int>(); string sig = "";
+    readonly WobblePatch patch = new WobblePatch(); WobblePatch hid = new WobblePatch { FmMod = 0.8 }; string customRates; int customIdx = -1; WobbleVoice voice;   // (hid: what a library sound has that the controls do not show, kept with the plugin)
+     List<KeyValuePair<int, MidiEv>> pending; readonly List<int> held = new List<int>(); string sig = "";
     public WobbleFx()
     {
         Type = "wobble"; Title = "Purphex Wobble"; Category = "Instruments"; Blurb = "The wobble bass engine: tempo-synced LFO filter, vowels, FM, grit, sub and mid layers";
@@ -267,8 +268,8 @@ sealed class WobbleFx : InstrumentFx
     void Sync()
     {
         int src = (int)Get("src"); patch.Saw = src == 0 || src == 4 || src == 5 ? 1 : 0; patch.Square = src == 1 || src == 4 ? 1 : 0; patch.Reese = src == 2 || src == 6 ? 1 : 0; patch.Fm = src == 3 || src == 5 || src == 6 ? 1 : 0;
-        patch.Rates = RateCodes[Math.Max(0, Math.Min(RateCodes.Length - 1, (int)Get("rate")))]; patch.Shape = (int)Get("shape"); patch.Formant = Get("filter") >= 0.5f;
-        patch.Depth = Get("depth"); patch.Cutoff = Get("cutoff"); patch.Res = Get("res") / 100.0; patch.Drive = Get("grit") / 100.0; patch.Fold = Get("fold") / 100.0; patch.FmIndex = Get("fm"); patch.FmMod = 0.8; patch.Detune = Get("detune");
+        patch.Rates = customRates != null && (int)Get("rate") == customIdx ? customRates : RateCodes[Math.Max(0, Math.Min(RateCodes.Length - 1, (int)Get("rate")))]; patch.Shape = (int)Get("shape"); patch.Formant = Get("filter") >= 0.5f;
+        patch.Depth = Get("depth"); patch.Cutoff = Get("cutoff"); patch.Res = Get("res") / 100.0; patch.Drive = Get("grit") / 100.0; patch.Fold = Get("fold") / 100.0; patch.FmIndex = Get("fm"); patch.FmMod = hid.FmMod; patch.PwMod = hid.PwMod; patch.EnvDecay = hid.EnvDecay; patch.PitchDecay = hid.PitchDecay; patch.Retrig = hid.Retrig; patch.Pump = hid.Pump; patch.Tone = hid.Tone; patch.Detune = Get("detune");
         patch.Sub = Get("sub") / 100.0; patch.Mid = Get("mid") / 100.0; patch.Attack = Get("attack") / 1000.0; patch.Release = Get("release") / 1000.0; patch.Glide = Get("glide") / 1000.0; patch.Width = Get("width") / 100.0;
         patch.EnvAmt = Get("env"); patch.PitchEnv = Get("pitchenv"); patch.Vowels = Vowels[Math.Max(0, Math.Min(Vowels.Length - 1, (int)Get("vowels")))]; patch.FmRatio = double.Parse(Ratios[Math.Max(0, Math.Min(Ratios.Length - 1, (int)Get("ratio")))], CultureInfo.InvariantCulture); patch.Pw = Get("pw") / 100.0;
         string s = patch.Rates + "|" + patch.Vowels; if (voice != null && s != sig) voice.Refresh(); sig = s;
@@ -277,10 +278,17 @@ sealed class WobbleFx : InstrumentFx
     public void LoadPatch(WobblePatch p)
     {
         int src = p.Reese > 0.5 && p.Fm > 0.2 ? 6 : p.Reese > 0.5 ? 2 : p.Fm > 0.5 && p.Saw > 0.2 ? 5 : p.Fm > 0.5 ? 3 : p.Square > 0.5 && p.Saw > 0.5 ? 4 : p.Square > 0.5 ? 1 : 0;
-        Set("src", src); int ri = Array.IndexOf(RateCodes, p.Rates); Set("rate", ri >= 0 ? ri : 3); Set("shape", p.Shape); Set("filter", p.Formant ? 1 : 0);
+        Set("src", src); int ri = Array.IndexOf(RateCodes, p.Rates); Set("rate", ri >= 0 ? ri : 3); customRates = ri >= 0 ? null : p.Rates; customIdx = ri >= 0 ? -1 : 3;   // (a rhythm that is not in the list stays what it was until the rate is changed) Set("shape", p.Shape); Set("filter", p.Formant ? 1 : 0);
         Set("depth", (float)p.Depth); Set("cutoff", (float)p.Cutoff); Set("res", (float)(p.Res * 100)); Set("grit", (float)(p.Drive * 100)); Set("fold", (float)(p.Fold * 100)); Set("fm", (float)p.FmIndex); Set("detune", (float)p.Detune);
         Set("sub", (float)(p.Sub * 100)); Set("mid", (float)(p.Mid * 100)); Set("attack", (float)(p.Attack * 1000)); Set("release", (float)(p.Release * 1000)); Set("glide", (float)(p.Glide * 1000)); Set("width", (float)(p.Width * 100));
-        Set("env", (float)p.EnvAmt); Set("pitchenv", (float)p.PitchEnv); int vi = Array.IndexOf(Vowels, p.Vowels); Set("vowels", vi >= 0 ? vi : 0); int fi = 0; double bd = 99; for (int k = 0; k < Ratios.Length; k++) { double d = Math.Abs(double.Parse(Ratios[k], CultureInfo.InvariantCulture) - p.FmRatio); if (d < bd) { bd = d; fi = k; } } Set("ratio", fi); Set("pw", (float)(p.Pw * 100)); patch.Vowels = p.Vowels; patch.Pw = p.Pw; patch.PwMod = p.PwMod; patch.FmRatio = p.FmRatio; patch.EnvDecay = p.EnvDecay; patch.PitchDecay = p.PitchDecay; patch.Retrig = p.Retrig; patch.Pump = p.Pump; patch.Tone = p.Tone;
+        Set("env", (float)p.EnvAmt); Set("pitchenv", (float)p.PitchEnv); int vi = Array.IndexOf(Vowels, p.Vowels); Set("vowels", vi >= 0 ? vi : 0); int fi = 0; double bd = 99; for (int k = 0; k < Ratios.Length; k++) { double d = Math.Abs(double.Parse(Ratios[k], CultureInfo.InvariantCulture) - p.FmRatio); if (d < bd) { bd = d; fi = k; } } Set("ratio", fi); Set("pw", (float)(p.Pw * 100)); patch.Vowels = p.Vowels; patch.Pw = p.Pw; patch.FmRatio = p.FmRatio; hid = new WobblePatch { FmMod = p.FmMod, PwMod = p.PwMod, EnvDecay = p.EnvDecay, PitchDecay = p.PitchDecay, Retrig = p.Retrig, Pump = p.Pump, Tone = p.Tone, Rates = customRates ?? "" };
+    }
+    // the saved plugin: the controls, and what the controls do not show
+    public override string Serialize() { return base.Serialize() + ";wx=" + Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(hid.Save())); }
+    public override void Deserialize(string s)
+    {
+        base.Deserialize(s); if (s == null) return; int k = s.IndexOf(";wx="); if (k < 0) return; string b64 = s.Substring(k + 4); int e = b64.IndexOf(';'); if (e >= 0) b64 = b64.Substring(0, e);
+        try { hid = WobblePatch.Load(System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(b64))); customRates = hid.Rates.Length > 0 ? hid.Rates : null; customIdx = customRates != null ? (int)Get("rate") : -1; } catch { }
     }
     void Set(string id, float v) { var p = Find(id); if (p != null) p.Val = Math.Max(p.Min, Math.Min(p.Max, v)); }
     public override void Process(float[] l, float[] r, int n)
@@ -303,7 +311,7 @@ sealed class WobbleFx : InstrumentFx
     public static string[] FactoryPresets()
     {
         var l = new List<string>(); var fls = new[] { "wobble", "filthy", "rubber", "elastic", "growl", "talking", "fm", "square", "reese", "neuro", "metallic", "riddim", "speedgarage", "subwob", "organwob", "stabwob", "warped", "classic", "laser", "experimental" };
-        foreach (var fl in fls) for (int v = 0; v < 2; v++) { var p = BassDesign.Patch(fl, new Rnd(1000 + v * 77 + fl.Length * 13)); var fx = new WobbleFx(); fx.LoadPatch(p); var sb = new System.Text.StringBuilder(); foreach (var q in fx.P) sb.Append(q.Id).Append('=').Append(q.Val.ToString("0.###", CultureInfo.InvariantCulture)).Append(';'); l.Add(BassDesign.Title(fl) + " " + (v == 0 ? "A" : "B") + " (" + BassDesign.RateWords(p.Rates) + ")|" + sb.ToString().TrimEnd(';')); }
+        foreach (var fl in fls) for (int v = 0; v < 2; v++) { var p = BassDesign.Patch(fl, new Rnd(1000 + v * 77 + fl.Length * 13)); var fx = new WobbleFx(); fx.LoadPatch(p); var sb = new System.Text.StringBuilder(); foreach (var q in fx.P) sb.Append(q.Id).Append('=').Append(q.Val.ToString("0.###", CultureInfo.InvariantCulture)).Append(';'); sb.Append("wx=").Append(Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(fx.hid.Save()))).Append(';'); l.Add(BassDesign.Title(fl) + " " + (v == 0 ? "A" : "B") + " (" + BassDesign.RateWords(p.Rates) + ")|" + sb.ToString().TrimEnd(';')); }
         return l.ToArray();
     }
 }

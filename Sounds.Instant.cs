@@ -347,11 +347,11 @@ static class InstantLib
         if (s.Instant) { string e = Ensure(s); if (e != null) return null; }
         double bpm; var notes = SoundIO.ReadMidi(s.Path, out bpm); if (notes.Count == 0) return null; if (bpm <= 0) bpm = s.Bpm > 0 ? s.Bpm : 120;
         double end = 0; foreach (var n in notes) end = Math.Max(end, n[0] + n[1]); end = Math.Max(4, Math.Ceiling(end / 4) * 4);
-        var rec = SoundCatalog.Find(s.PackId) ?? SoundCatalog.Recipes[0]; string ty = (s.Type + " " + s.Name).ToLowerInvariant(); Buf b;
+        var rec = SoundCatalog.Find(s.PackId) ?? SoundCatalog.Recipes[0]; string ty = s.Type.ToLowerInvariant(); Buf b;   // (the type only: the pack's name can say Bassline too)
         if (ty.Contains("drum")) b = Instruments.RenderDrums(Kit(rec, 0), notes, bpm, end);
         else if (ty.Contains("bass") || ty.Contains("808"))
         {
-            int bi = 0; try { bi = int.Parse(s.Spec.Split('|')[2]); } catch { }
+            int bi = 0; try { bi = int.Parse((s.Spec.Length > 0 ? s.Spec : s.Origin.Replace('/', '|')).Split('|')[2]); } catch { }
             string fl = rec.Flavours != null && rec.Flavours.Length > 0 && rec.Flavours[0].Length > 0 ? BassFl(rec, bi) : "sub";
             if (BassDesign.UsesEngine(fl)) b = BassDesign.Render(EnginePatch(rec, fl, bi), notes, bpm, end, 0.5); else b = SoundGen.RenderSynth(Music.BassPatch(fl, new Rnd(rec.Seed)), notes, bpm, end, 0.5);
         }
@@ -406,13 +406,14 @@ static class InstantLib
         return BassDesign.Swung(Music.BassLine(r, Music.RhythmFor(rec.Drums), bars, root, minor), swing);
     }
     // a UK Bassline bass must really move (BassDesign.Check): a patch that hardly moves is pushed (deeper sweep, more resonance, more mid) until it does; the same push every time, so the sound stays the same
+    static readonly bool Debug = Environment.GetEnvironmentVariable("PURPHEX_DBG") != null;
     internal static List<double[]> LastNotes; internal static double LastBpm; internal static WobblePatch LastPatch;   // (the notes of the last engine bass made, for the audit tool)
     static Buf Moving(Recipe rec, WobblePatch p, List<double[]> notes, double bpm, Func<WobblePatch, Buf> make)
     {
         Buf b = null; bool must = BassDesign.IsBassline(rec); LastNotes = notes; LastBpm = bpm;
         for (int t = 0; t < 5; t++)
         {
-            b = make(p); LastPatch = p; if (!must) return b; var m = BassDesign.Check(b, notes, bpm, p); if (Environment.GetEnvironmentVariable("PURPHEX_DBG") != null) Console.WriteLine("   try " + t + ": motion " + m.Motion.ToString("0.0") + " lsd " + m.Lsd.ToString("0.0") + " mid " + (m.Mid * 100).ToString("0") + " depth " + p.Depth.ToString("0.0") + " res " + p.Res.ToString("0.00") + " cut " + p.Cutoff.ToString("0") + " fm " + p.Fm + " fold " + p.Fold + " drive " + p.Drive.ToString("0.00") + " rates " + p.Rates + " shape " + p.Shape + " ok " + m.Ok); if (m.Ok) return b;
+            b = make(p); LastPatch = p; if (!must) return b; var m = BassDesign.Check(b, notes, bpm, p); if (Debug) Console.WriteLine("   try " + t + ": motion " + m.Motion.ToString("0.0") + " lsd " + m.Lsd.ToString("0.0") + " mid " + (m.Mid * 100).ToString("0") + " depth " + p.Depth.ToString("0.0") + " res " + p.Res.ToString("0.00") + " cut " + p.Cutoff.ToString("0") + " fm " + p.Fm + " fold " + p.Fold + " drive " + p.Drive.ToString("0.00") + " rates " + p.Rates + " shape " + p.Shape + " ok " + m.Ok); if (m.Ok) return b;
             p = p.Copy(); p.Depth += 0.5; p.Res = Math.Min(0.88, p.Res + 0.05); p.Cutoff = Math.Max(70, p.Cutoff * 0.92); p.Drive = Math.Max(0.1, p.Drive * 0.7); p.Fold *= 0.8; if (p.Formant) { p.Vowels = t % 2 == 0 ? "iau" : "uiao"; p.Res = Math.Min(0.92, p.Res + 0.1); p.Shape = 5; }   // (a vowel sweep needs vowels that are far apart and sharp)   // (heavy grit flattens the sweep: less grit shows more movement)
             if (m.Mid < 0.2) { p.Mid *= 1.35; p.Sub *= 0.8; p.Drive = Math.Min(1, p.Drive + 0.08); }
         }

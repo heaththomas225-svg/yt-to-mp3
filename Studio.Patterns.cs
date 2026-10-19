@@ -35,8 +35,12 @@ partial class StudioForm
     {
         int j; if (prJobs.TryGetValue(t, out j)) return j; if (!PrCanEdit(t)) return -1; string h = t.Name.ToLowerInvariant();
         foreach (var f in t.Fx) { var s = f as SamplerFx; if (s != null) { if (s.IsKit) return 100; foreach (var z in s.Zones) h += " " + z.Name.ToLowerInvariant() + " " + System.IO.Path.GetFileNameWithoutExtension(z.Path).ToLowerInvariant(); } }
-        if (h.Contains("808") || h.Contains("bass") || h.Contains("sub")) return 5; if (h.Contains("kick") || h.Contains(" bd")) return 0; if (h.Contains("snare") || h.Contains("clap") || h.Contains("rim crack")) return 1;
-        if (h.Contains("open hat") || h.Contains("openhat") || h.Contains("hat open")) return 3; if (h.Contains("hat") || h.Contains("hh")) return 2; if (h.Contains("perc") || h.Contains("shaker") || h.Contains("conga") || h.Contains("tom") || h.Contains("rim") || h.Contains("bell") || h.Contains("cowbell")) return 4;
+        // whole words only ("custom" is not a tom, "subtle" is not a sub), and the drums win over the bass ("Sub Kick" is a kick)
+        h = System.Text.RegularExpressions.Regex.Replace(h, "[^a-z0-9]+", " "); Func<string, bool> w = x => (" " + h + " ").Contains(" " + x + " ");
+        if (w("kick") || w("kicks") || w("bd")) return 0; if (w("snare") || w("clap") || w("snap") || w("rim crack")) return 1;
+        if (w("open hat") || w("openhat") || w("hat open") || w("oh")) return 3; if (w("hat") || w("hats") || w("hihat") || w("hh") || w("hi hat")) return 2;
+        if (w("808") || w("bass") || w("sub")) return 5;
+        if (w("perc") || w("percussion") || w("shaker") || w("conga") || w("tom") || w("rim") || w("bell") || w("cowbell")) return 4;
         return -1;
     }
     static readonly int[] KitKeys = { 36, 38, 42, 46, 54 };   // a kit track: kick, snare, closed hat, open hat, percussion (General MIDI keys)
