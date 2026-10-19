@@ -40,16 +40,18 @@ static class Prefs
     public static bool ShareSaved = true;    // a preset you save is also shared with the Community presets: this is always on (community presets are for everybody)
     public static Action Changed = delegate { };
 
+    public static bool ProfileTheme = true;   // FANTASY EDITION: your profile colour (and its finish) is the theme of the whole studio
     public static bool InsOpen; public static int InsH = 300;   // the bottom inspector: shown or not, and its height
     public static string[] Lines()
     {
-        return new[] { "insopen=" + (InsOpen ? 1 : 0), "insh=" + InsH, "panelhid=" + (PanelHidden ? 1 : 0), "thin=" + (ThinTracks ? 1 : 0), "vismotion=" + VisMotion, "headhid=" + (HeadHidden ? 1 : 0), "lyrsize=" + LyricSize.ToString(System.Globalization.CultureInfo.InvariantCulture), "bgpath=" + BgPath, "bgdim=" + BgDim, "bgleaves=" + BgLeaves, "bgstudio=" + BgStudio, "outvol=" + OutVol, "rbspeed=" + RainbowSpeed, "outdev=" + OutDev, "buf=" + Buf, "fpscap=" + FpsCap, "perfmode=" + PerfMode, "showfps=" + ShowFps, "savelyrics=" + SaveLyrics, "countuses=" + CountUses, "fantasythemev=" + FantasyThemeV, "fantasytheme=" + FantasyThemed, "midiin=" + MidiDev, "indev=" + InDev, "micmode=" + MicMode, "fontid=" + FontId, "sharesaved=" + ShareSaved, "theme=" + Theme };
+        return new[] { "proftheme=" + (ProfileTheme ? 1 : 0), "insopen=" + (InsOpen ? 1 : 0), "insh=" + InsH, "panelhid=" + (PanelHidden ? 1 : 0), "thin=" + (ThinTracks ? 1 : 0), "vismotion=" + VisMotion, "headhid=" + (HeadHidden ? 1 : 0), "lyrsize=" + LyricSize.ToString(System.Globalization.CultureInfo.InvariantCulture), "bgpath=" + BgPath, "bgdim=" + BgDim, "bgleaves=" + BgLeaves, "bgstudio=" + BgStudio, "outvol=" + OutVol, "rbspeed=" + RainbowSpeed, "outdev=" + OutDev, "buf=" + Buf, "fpscap=" + FpsCap, "perfmode=" + PerfMode, "showfps=" + ShowFps, "savelyrics=" + SaveLyrics, "countuses=" + CountUses, "fantasythemev=" + FantasyThemeV, "fantasytheme=" + FantasyThemed, "midiin=" + MidiDev, "indev=" + InDev, "micmode=" + MicMode, "fontid=" + FontId, "sharesaved=" + ShareSaved, "theme=" + Theme };
     }
     public static bool Parse(string k, string v)
     {
         int n; bool b;
         switch (k)
         {
+            case "proftheme": ProfileTheme = v == "1"; return true;
             case "insopen": InsOpen = v == "1"; return true;
             case "insh": if (int.TryParse(v, out n)) InsH = Math.Max(170, Math.Min(900, n)); return true;
             case "bgpath": return true;   // (no more picture or video backgrounds)

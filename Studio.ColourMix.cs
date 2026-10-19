@@ -277,7 +277,8 @@ partial class StudioForm
                     break;
                 case 6:   // candy: a deep, wet colour with a bright highlight
                     using (var br = new LinearGradientBrush(r, sh(c, 0.22f), sh(c, -0.42f), 90f)) g.FillPath(br, p);
-                    using (var br = new SolidBrush(Color.FromArgb(120, 255, 255, 255))) g.FillEllipse(br, r.X + r.Width * 0.12f, r.Y + r.Height * 0.07f, r.Width * 0.55f, r.Height * 0.3f);
+                    if (r.Width > r.Height * 2.5f) { var gl = new RectangleF(r.X, r.Y, r.Width, r.Height * 0.46f); using (var br = new LinearGradientBrush(gl, Color.FromArgb(120, 255, 255, 255), Color.FromArgb(0, 255, 255, 255), 90f)) g.FillRectangle(br, gl); var hl = new RectangleF(r.X + r.Width * 0.06f, r.Y + r.Height * 0.08f, r.Width * 0.3f, r.Height * 0.16f); using (var hp = new GraphicsPath()) { hp.AddEllipse(hl); using (var pb = new PathGradientBrush(hp) { CenterColor = Color.FromArgb(150, 255, 255, 255), SurroundColors = new[] { Color.FromArgb(0, 255, 255, 255) } }) g.FillEllipse(pb, hl); } }   // a wide surface (a banner): a wet gloss across the top and a soft hot spot
+                    else using (var br = new SolidBrush(Color.FromArgb(120, 255, 255, 255))) g.FillEllipse(br, r.X + r.Width * 0.12f, r.Y + r.Height * 0.07f, r.Width * 0.55f, r.Height * 0.3f);
                     using (var pen = new Pen(Color.FromArgb(60, 0, 0, 0), 3f)) g.DrawPath(pen, p);
                     break;
                 case 7:   // chrome: a mirror: sky above, a dark horizon, ground below
@@ -460,7 +461,7 @@ partial class StudioForm
         Txt(g, "COLOUR MIXER", 18, Ink, Rc(px, yy, 400, 28), StringAlignment.Near, true); yy += 32;
         TxtWrap(g, "Choose colour A on the left and colour B on the right: A merges into B. Whatever you change here is your profile colour. " + MixColours.Total + " colours in every finish.", 12, DimC, Rc(px, yy, pw, 36)); yy += 44;
         // ---- A + B = merged, the mix, swap and the two switches ----
-        var merged = MixedNow; float dA = Math.Max(72, Math.Min(124, pw * 0.11f)), dM = dA * 1.22f, gapA = Math.Max(50, Math.Min(170, pw * 0.12f)), rowW = dA + gapA + dM + gapA + dA, rowH = dM; var b1 = Rc(px, yy, pw, rowH + 24 + 44 + 44 + 42 + 12); MixBox(g, b1);
+        var merged = MixedNow; float dA = Math.Max(72, Math.Min(124, pw * 0.11f)), dM = dA * 1.22f, gapA = Math.Max(50, Math.Min(170, pw * 0.12f)), rowW = dA + gapA + dM + gapA + dA, rowH = dM; var b1 = Rc(px, yy, pw, rowH + 24 + 44 + 44 + 42 + 42 + 12); MixBox(g, b1);
         { float rx = px + (pw - rowW) / 2, ty = yy + 12, cyC = ty + rowH / 2;
           if (vis(ty, ty + rowH))
           {
@@ -489,6 +490,13 @@ partial class StudioForm
               Chip(g, q2, "COLOUR B: " + (mixBOn ? "ON" : "OFF"), mixBOn, () => MixSetOn(1, !mixBOn), 1); Hint2(q2, "Switch colour B on or off. With B off the mix is colour A only (one colour). One of the two always stays on");
               Btn(g, q3, "USE A ONLY", mixAOn && !mixBOn ? 4 : 1, () => MixUseOnly(0), 12); Hint2(q3, "Your profile colour is colour A, nothing else");
               Btn(g, q4, "USE B ONLY", mixBOn && !mixAOn ? 4 : 1, () => MixUseOnly(1), 12); Hint2(q4, "Your profile colour is colour B, nothing else");
+          }
+          float cy5 = cy4 + 42; if (vis(cy5, cy5 + 34))
+          {
+              bool fan = Edition.Has(Tier.Fantasy); var pt = Rc(px + 14, cy5, Math.Min(560, pw - 28), 32);
+              Chip(g, pt, fan ? "STUDIO THEME = MY PROFILE COLOUR: " + (Prefs.ProfileTheme ? "ON" : "OFF") : "STUDIO THEME = MY PROFILE COLOUR  -  FANTASY EDITION", fan && Prefs.ProfileTheme, () => SetProfileTheme(!(fan && Prefs.ProfileTheme)), 1);
+              Hint2(pt, fan ? "ON: your profile colour and its finish (metal, chrome, candy...) are the theme of the whole studio. OFF: the studio uses your theme, your profile keeps its colour" : "Fantasy Edition: your profile colour and its finish become the theme of the whole studio. On every edition the colour and its finish are on your profile");
+              if (!fan) Txt(g, "Your colour and its finish are on your profile. The whole studio in it is Fantasy Edition.", 11, DimC, Rc(pt.Right + 12, cy5, pw - (pt.Right - px) - 26, 32), StringAlignment.Near, false);
           } }
         yy += b1.Height + 14;
         // ---- the two sides of the palette ----

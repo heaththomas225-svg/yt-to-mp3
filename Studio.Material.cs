@@ -34,10 +34,36 @@ partial class StudioForm
     static Color MixLegibleAccent(Color c) { for (int i = 0; i < 8 && MixColours.Luma(c) < 0.30; i++) c = MixColours.Mix(c, Color.White, 0.15f); return c; }   // an accent that still shows on the dark pages
     internal void ApplyProfileLook()
     {
-        MixEnsure(); bool custom = mixFollow && ProfileStore.Accent >= 0;
+        MixEnsure(); bool custom = mixFollow && ProfileStore.Accent >= 0 && ProfileThemeOn;   // (Fantasy Edition only: on the other editions the colour is on the profile, the studio keeps its theme)
         ApplyProfileTokens(custom, custom ? ProfileStore.ColorOf(ProfileStore.Accent) : Color.Empty, custom ? MixedKind : MixColours.Plain, custom ? MixedSecond : Color.Empty);
     }
-    bool lookApplied;
+    bool lookApplied; int lookEdition = -1;
+    // your profile colour as the theme of the whole studio: a FANTASY EDITION thing (switch it off to use a normal theme)
+    internal static bool ProfileThemeOn { get { return Prefs.ProfileTheme && Edition.Has(Tier.Fantasy); } }
+    internal void SetProfileTheme(bool on)
+    {
+        if (on && !Edition.Has(Tier.Fantasy)) { Edition.Upsell(Tier.Fantasy, "Your profile colour as the theme of the whole studio (metal, chrome, candy and every finish on every button)", this); return; }
+        Prefs.ProfileTheme = on; Prefs.Changed(); ApplyProfileLook(); Invalidate();
+    }
+    // the finish of your profile colour (Plain when you have none): drawn on your profile on every edition
+    internal int ProfFinish { get { MixEnsure(); return mixFollow && ProfileStore.Accent >= 0 ? MixedKind : MixColours.Plain; } }
+    // a name written in a finish (metal, chrome, candy...): the letters are cut out of the material; false when it cannot be drawn that way
+    internal bool NameMaterial(Graphics g, string s, float px, RectangleF r, Color c, int finish, Color second, float phase)
+    {
+        if (finish == MixColours.Plain || NoTextDraw || EmojiText.Has(s) || string.IsNullOrEmpty(s)) return false;
+        var f = GfxCache.Exact(GfxCache.Grow(px), true); var sf = GfxCache.Fmt(StringAlignment.Near, false); float em = f.SizeInPoints * g.DpiY / 72f;
+        using (var path = new GraphicsPath())
+        {
+            try { path.AddString(s, f.FontFamily, (int)f.Style, em, new RectangleF(r.X, r.Y, Math.Max(r.Width, 4000), r.Height), sf);   /* laid out like the normal name (centred on the line) */ } catch { return false; }
+            var b = path.GetBounds(); if (b.Width < 2 || b.Height < 2) return false;
+            if (b.Right > r.Right) { float k = (r.Right - r.X) / (b.Right - r.X); using (var m = new Matrix()) { m.Translate(r.X, b.Y); m.Scale(k, k); m.Translate(-r.X, -b.Y); path.Transform(m); } b = path.GetBounds(); }
+            var sm = g.SmoothingMode; g.SmoothingMode = SmoothingMode.AntiAlias;
+            using (var sh = new Pen(Color.FromArgb(150, 0, 0, 0), 4f) { LineJoin = LineJoin.Round }) { g.TranslateTransform(1.5f, 2f); g.DrawPath(sh, path); g.TranslateTransform(-1.5f, -2f); }
+            var gs = g.Save(); g.SetClip(path, CombineMode.Intersect); MixSwatch(g, RectangleF.Inflate(b, 2, 2), c, finish, 0, second, phase); g.Restore(gs);
+            using (var pen = new Pen(Color.FromArgb(120, 255, 255, 255), 1f)) g.DrawPath(pen, path); g.SmoothingMode = sm;
+        }
+        return true;
+    }
 
     // the material drawn over a shape that is already filled with its colour (clipped to the shape)
     internal void PaintMaterial(Graphics g, RectangleF r, float rad, Color c, int finish, bool animate)

@@ -48,7 +48,7 @@ partial class StudioForm
     }
 
     // the whole Fonts page, or the mini window over the studio
-    internal bool fontsWin; RectangleF fontArea;
+    internal bool fontsWin; RectangleF fontArea; internal PointF fontsWinAt = new PointF(-1, -1); PointF fontsGrab; bool fontsDrag; internal RectangleF fontsWinR;
     void PaintFonts(Graphics g)
     {
         float H0 = ClientSize.Height; fontArea = Rc(0, ToolH, ClientSize.Width, H0 - (previewPath.Length > 0 ? 62 : 0) - ToolH); PaintLogoBackdrop(g, fontArea);
@@ -56,9 +56,11 @@ partial class StudioForm
     }
     void PaintFontsWindow(Graphics g)
     {
-        if (!fontsWin || tab == 8) return; float W0 = ClientSize.Width, H0 = ClientSize.Height; float ww = Math.Min(900, W0 - 80), wh = Math.Min(660, H0 - 150); var win = Rc(W0 - ww - 40, 110, ww, wh);
-        Reg(win, () => { }); FillRR(g, TM.C(250, 14, 7, 30), win, 14); Win.DrawNeonBox(g, win, true);
-        Txt(g, "FONTS", 15, Ink, Rc(win.X + 18, win.Y + 8, 200, 26), StringAlignment.Near, true); Txt(g, "Pick one and the whole studio changes at once: look at the buttons behind this window.", 10, DimC, Rc(win.X + 110, win.Y + 12, win.Width - 340, 20), StringAlignment.Near, false);
+        if (!fontsWin || tab == 8) return; float W0 = ClientSize.Width, H0 = ClientSize.Height; float ww = Math.Min(900, W0 - 80), wh = Math.Min(660, H0 - 150); float wx = fontsWinAt.X >= 0 ? fontsWinAt.X : W0 - ww - 40, wy = fontsWinAt.Y >= 0 ? fontsWinAt.Y : 110; wx = Math.Max(0, Math.Min(W0 - ww, wx)); wy = Math.Max(ToolH * 0.5f, Math.Min(H0 - 60, wy)); var win = Rc(wx, wy, ww, wh); fontsWinR = win;
+        Reg(win, () => { });
+        { var ttl = Rc(win.X, win.Y, win.Width - 190, 40); var tr = Reg(ttl, () => { fontsDrag = true; fontsGrab = new PointF(MousePos.X - win.X, MousePos.Y - win.Y); });   // drag the title bar to move the window
+          tr.OnDrag = pt => { if (!fontsDrag) return; fontsWinAt = new PointF(pt.X - fontsGrab.X, pt.Y - fontsGrab.Y); Invalidate(); }; tr.OnUp = () => fontsDrag = false; Hint2(ttl, "Drag here to move the fonts window"); } FillRR(g, TM.C(250, 14, 7, 30), win, 14); Win.DrawNeonBox(g, win, true);
+        Txt(g, "FONTS", 15, Ink, Rc(win.X + 18, win.Y + 8, 200, 26), StringAlignment.Near, true); Txt(g, "Pick one and the whole studio changes at once (drag this bar to move the window).", 10, DimC, Rc(win.X + 110, win.Y + 12, win.Width - 340, 20), StringAlignment.Near, false);
         var fsb = Rc(win.Right - 176, win.Y + 8, 120, 28); Btn(g, fsb, "FULLSCREEN", 1, () => { fontsWin = false; GoTab(8); fontScroll = 0; }, 10); Hint2(fsb, "The Fonts page on the whole screen");
         var xb = Rc(win.Right - 48, win.Y + 8, 34, 28); Btn(g, xb, "x", 0, () => fontsWin = false, 12); Hint2(xb, "Close the fonts window");
         fontArea = Rc(win.X + 4, win.Y + 42, win.Width - 8, win.Height - 46); var gs0 = g.Save(); g.SetClip(fontArea, CombineMode.Intersect); PaintFontsIn(g); g.Restore(gs0);

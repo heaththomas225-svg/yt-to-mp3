@@ -2,6 +2,24 @@
 
 What changed in each version of **Purphex**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.75.0  Profile colour themes are Fantasy Edition, finishes on your profile, VSTS with a track picker, MIXER and a mixer button at the top, a movable Fonts window
+
+- CHANGED: Your profile colour as the theme of the whole studio is now FANTASY EDITION only: STUDIO THEME = MY PROFILE COLOUR in the colour mixer (metal, chrome, candy and every finish on every button). On Free and Supporter your colour and its finish stay on your profile and the studio keeps your theme.
+
+- NEW: Your finish is drawn on your profile itself: the banner (when it has no picture) is made of it, there is a frame of it round the banner and round your picture, and your name is written in it. Metal has its bands, chrome its mirror, candy its wet gloss, glitter its sparks.
+
+- CHANGED: ALL PLUGINS is called MIXER (the tab, the button on the left and in the right panel). The button next to it is HIDE / OPEN for the panel.
+
+- NEW: A mixer button next to the piano roll button at the top: it opens the mixer and closes it again.
+
+- NEW: VSTS in the right panel: Bass Lab, your VST instruments and the Purphex VSTs in one box, with FOR at the top to choose the track they go on (one of your tracks or a new track). + ADD YOUR OWN (top right) adds your own VST plugins. ADD EFFECT now lists effects only.
+
+- NEW: The Fonts window can be moved: drag it by its title bar.
+
+- CHANGED: On small windows (under 1320 wide) the microphone mode name is left out of the top bar so everything fits; the arrow next to MIC still picks the mode.
+
+- FIXED: Choosing a theme no longer switches off your profile colour: it stays on your profile (on Fantasy only the studio theme switches to the one you chose).
+
 ## 3.74.0  The piano roll is a scratch pad, PRESETS on the mixer, the Fonts window, the Purphex Video and Photo Editors, Help fixed
 
 - NEW: The piano roll is a scratch pad: choosing a sound, writing notes, GENERATE and loading a sample all happen in the piano roll only. Nothing goes onto your tracks until you drag the pattern box onto the song (or press ADD TO SONG); then it becomes its own track at that bar.

@@ -59,6 +59,12 @@ partial class StudioForm
     }
 
     // a small keyboard drawn on the piano button
+    void MixerGlyph(Graphics g, RectangleF r)
+    {
+        float hgt = Math.Min(20, r.Height - 10), oy = r.Y + (r.Height - hgt) / 2, ox = r.X + r.Width / 2 - 10; float[] knob = { 0.65f, 0.25f, 0.5f };
+        using (var line = new Pen(Color.FromArgb(220, 255, 255, 255), 2f)) using (var kb = new SolidBrush(Color.FromArgb(255, 255, 255, 255))) using (var kp = new Pen(Color.FromArgb(200, 20, 12, 36), 1f))
+            for (int i = 0; i < 3; i++) { float lx = ox + i * 10; g.DrawLine(line, lx, oy, lx, oy + hgt); float ky = oy + hgt * knob[i]; g.FillRectangle(kb, lx - 4, ky - 2.5f, 8, 5); g.DrawRectangle(kp, lx - 4, ky - 2.5f, 8, 5); }
+    }
     void PianoGlyph(Graphics g, RectangleF r)
     {
         float kw = 5, kh = Math.Min(18, r.Height - 12), ox = r.X + (r.Width - kw * 5) / 2, oy = r.Y + (r.Height - kh) / 2;

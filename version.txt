@@ -1,4 +1,4 @@
-3.74.0
+3.75.0
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-The piano roll is a scratch pad, PRESETS on the mixer, the Fonts window, the Purphex Video and Photo Editors, Help fixed
-sha256=bdabf4668e5ea64fdebef7b9b322149f4f603ee2f005dafde00a501341fb450d
+Profile colour themes are Fantasy Edition, finishes on your profile, VSTS with a track picker, MIXER and a mixer button at the top, a movable Fonts window
+sha256=76ad26391c1b98f5727c54d05429664379ac3663c2ca65bd39f6f686df8838dc

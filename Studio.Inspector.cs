@@ -44,7 +44,7 @@ partial class StudioForm
         if (Hot(div) || insDragging) { using (var pen = new Pen(NeonCyan, 3f)) g.DrawLine(pen, x, y, x + w, y); Cursor = Cursors.SizeNS; } Hint2(div, "Drag to make the inspector taller or shorter");
         // header: tabs, what is shown, hide
         var t = InsTarget; var clipT = InsClip; bool midi = t != null && t.Instrument; string fourth = midi ? "MIDI" : "CLIP";
-        string[] tabs = { "CHANNEL", "ALL PLUGINS", "PRESETS", fourth, "PIANO ROLL" }; float tx = x + 10;
+        string[] tabs = { "CHANNEL", "MIXER", "PRESETS", fourth, "PIANO ROLL" }; float tx = x + 10;
         for (int i = 0; i < tabs.Length; i++) { if (tabs[i].Length == 0) continue; int k = i; float cw = i == 1 ? 118 : 100; var r = Rc(tx, y + 6, cw, 24); Chip(g, r, tabs[i], insTab == i, () => { if (k == 1) EnsureConsoleHeight(); insTab = k; insScrollX = 0; }); tx += cw + 4; }
         if (t != null) { var nm = Rc(tx + 10, y + 6, Math.Max(60, w - tx - 200), 24); using (var cb = new SolidBrush(Neon(t.Color))) g.FillEllipse(cb, nm.X, nm.Y + 6, 12, 12); Txt(g, (t.IsBus ? "BUS: " : (t.Instrument ? "MIDI: " : "TRACK: ")) + t.Name, 12, Ink, Rc(nm.X + 18, nm.Y, nm.Width - 18, 24), StringAlignment.Near, true); }
         var hide = Rc(x + w - 92, y + 6, 82, 24); Btn(g, hide, "HIDE", 0, () => CloseInspector(), 10); Hint2(hide, "Hide the inspector (the arrangement gets its space back)");

@@ -54,6 +54,11 @@ static class CM
         sf.MixSet(0, gold, 1, "Gold"); sf.MixSet(1, purple, 0, "Purple"); Check("choosing colour A and colour B sets the two sides", F<Color>("mixA") == gold && F<Color>("mixB") == purple && F<int>("mixKA") == 1);
         Check("the merged colour is the middle of A and B", sf.MixedNow == MixColours.Blend(gold, purple, 0.5f));
         Check("and it IS the profile colour at once (no button to press)", ProfileStore.Accent == ProfileStore.Pack(sf.MixedNow), ProfileStore.Accent.ToString("X6"));
+        sf.ApplyProfileLook(); Check("on the Free Edition the profile colour stays on the profile: the studio keeps its theme (the profile theme is Fantasy Edition)", !UiTokens.Custom, "");
+        sf.SetProfileTheme(true); Check("and STUDIO THEME = MY PROFILE COLOUR does not switch on without Fantasy Edition", !UiTokens.Custom, "");
+        Edition.Override = Tier.Fantasy; Prefs.ProfileTheme = true; sf.ApplyProfileLook(); Check("with Fantasy Edition the profile colour is the theme of the whole studio", UiTokens.Custom && UiTokens.Accent.ToArgb() == ProfileStore.ColorOf(ProfileStore.Accent).ToArgb(), UiTokens.Accent.ToString());
+        sf.SetProfileTheme(false); Check("and it can be switched off (the studio goes back to the theme, the profile keeps the colour)", !UiTokens.Custom && ProfileStore.Accent >= 0, "");
+        sf.SetProfileTheme(true); Edition.Override = Tier.Supporter; sf.ApplyProfileLook(); Check("Supporter Edition does not get the profile theme either", !UiTokens.Custom, ""); Edition.Override = Tier.Free; sf.ApplyProfileLook();
         Check("the name fades from A to B (both ends readable on the dark page)", ProfileStore.NameRgb >= 0 && ProfileStore.NameRgb2 >= 0 && MixColours.Luma(ProfileStore.ColorOf(ProfileStore.NameRgb)) >= 0.38 && MixColours.Luma(ProfileStore.ColorOf(ProfileStore.NameRgb2)) >= 0.38);
         sf.MixSetT(0.25f); Check("the MIX slider moves the merged colour and the profile colour with it", sf.MixedNow == MixColours.Blend(gold, purple, 0.25f) && ProfileStore.Accent == ProfileStore.Pack(sf.MixedNow));
         sf.MixSetFade(false); Check("FADE MY NAME OFF: the name is in the normal colour (white), with the profile colour on", ProfileStore.NameRgb == -1 && ProfileStore.NameRgb2 == -1 && ProfileStore.Accent >= 0); sf.MixSetFade(true); Check("and ON again fades it", ProfileStore.NameRgb2 >= 0);
