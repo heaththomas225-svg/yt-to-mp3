@@ -245,7 +245,12 @@ partial class StudioForm : Form
         Reg(hr, () => TogglePanel()); Hint2(hr, open ? "Hide the plugin panel for a bigger timeline (this handle brings it back)" : "Show the plugin panel: add, edit and save plugins");
     }   // the right-hand panel is wider while the sound browser is open
     int LaneH = InitLaneH();   // track height: Alt + mouse wheel makes the tracks taller so the waveform shows more detail
-    RectangleF TimelineRect() { return new RectangleF(HeadW, ToolH + TransH + RulerH, Math.Max(100, ClientSize.Width - HeadW - PanelW), Math.Max(100, MixH - ToolH - TransH - RulerH - 6)); }
+    // the scroll bar of the arrangement has its own band above the timeline ruler; the arrangement (ruler, rows, headers) starts under it
+    internal int OverH { get { return tab == 0 ? 46 : 0; } }
+    internal float ArrTop { get { return ToolH + TransH + OverH; } }
+    // the gap under the rows: when the tracks run off the bottom, room for the pinned + ADD TRACK button (it never covers a track's buttons)
+    float ArrGap { get { return LaneCount * LaneH + 50 > MixH - ArrTop - RulerH - 6 ? 46 : 6; } }
+    RectangleF TimelineRect() { return new RectangleF(HeadW, ArrTop + RulerH, Math.Max(100, ClientSize.Width - HeadW - PanelW), Math.Max(100, MixH - ArrTop - RulerH - 6)); }
 
     // ---------------- drawing helpers ----------------
     static GraphicsPath RR(RectangleF r, float rad)
@@ -596,7 +601,7 @@ partial class StudioForm : Form
     // everything under the pop-up boxes: the backdrop, the page, the bars and the browsers
     void PaintBase(Graphics g)
     {
-        if (!lookApplied) { lookApplied = true; ApplyProfileLook(); }   // your profile colour and its finish become the accent
+        if (!lookApplied) { lookApplied = true; ApplyProfileLook(); if (!StudioEnv.UnderTest) { var lt = new System.Windows.Forms.Timer { Interval = 1500 }; lt.Tick += (s0, e0) => { lt.Stop(); lt.Dispose(); if (!soundsLoaded) { soundsLoaded = true; LibLoader.Done = () => { try { BeginInvoke(new Action(() => { sndDirty = true; Invalidate(); })); } catch { } }; LibLoader.Start(); } }; lt.Start(); } }   // your profile colour and its finish become the accent
         DrawBackdrop(g); Prof.Mark("backdrop");
         if (tab == 0) PaintMix(g); else if (tab == 2) PaintLyrics(g); else if (tab == 3) PaintProjects(g); else if (tab == 4) PaintCommunity(g); else if (tab == 5) PaintVisualiser(g); else if (tab == 6) PaintProfile(g); else if (tab == 7) PaintArtists(g); else if (tab == 8) PaintFonts(g); else if (tab == 9) PaintHub(g); else if (tab == 10) PaintCreative(g); else PaintMastering(g);
         Prof.Mark("page " + tab);
@@ -631,18 +636,19 @@ partial class StudioForm : Form
 
     string hintLast = ""; DateTime hintSince = DateTime.Now;
     Bitmap backdrop; int backVer = -1;
-    string backTheme = "";   // the theme the background picture was made in (a theme change makes it again)
+    string backTheme = ""; int backAt;   // the theme the background picture was made in (a theme change makes it again)
     void DrawBackdrop(Graphics g)
     {
         int w = Math.Max(1, ClientSize.Width), h = Math.Max(1, ClientSize.Height);
         if (moving && backdrop != null) { g.CompositingMode = CompositingMode.SourceCopy; g.DrawImage(backdrop, 0, 0, w, h); g.CompositingMode = CompositingMode.SourceOver; return; }   // while a border is dragged, stretch the old picture; one real rebuild follows when the drag ends
-        string themeNow = Themes.Current.Name + "|" + TM.Epoch; if (backdrop == null || backdrop.Width != w || backdrop.Height != h || backVer != UserBackground.Version || backTheme != themeNow)
+        string themeNow = Themes.Current.Name + "|" + TM.Epoch; bool themeMoved = backTheme.Split('|')[0] != Themes.Current.Name;   /* (made again when you pick another theme; the Rainbow theme's constant small colour change does not rebuild it: that cost 150 ms each time) */
+        if (backdrop == null || backdrop.Width != w || backdrop.Height != h || backVer != UserBackground.Version || themeMoved)
         {
             if (backdrop != null) backdrop.Dispose(); backdrop = new Bitmap(w, h, System.Drawing.Imaging.PixelFormat.Format32bppPArgb);
             using (var bg = Graphics.FromImage(backdrop))
             {
                 bg.SmoothingMode = SmoothingMode.AntiAlias; var full = new RectangleF(0, 0, w, h);
-                backVer = UserBackground.Version; backTheme = themeNow; var still = Prefs.BgStudio ? UserBackground.Fresh(w, h) : null; bool fromTheme = false;
+                backVer = UserBackground.Version; backTheme = themeNow; backAt = Environment.TickCount; var still = Prefs.BgStudio ? UserBackground.Fresh(w, h) : null; bool fromTheme = false;
                 { var tp = Themes.PhotoFit(w, h); if (tp != null) { if (still != null) still.Dispose(); still = tp; fromTheme = true; } }   // the theme's own photo covers the whole window
                 if (still != null) { bg.DrawImageUnscaled(still, 0, 0); still.Dispose(); using (var dm = new SolidBrush(TM.C(Math.Min(255, Math.Max(fromTheme ? 40 : 150, Prefs.BgDim * 255 / 100 + (fromTheme ? 0 : 70))), 6, 2, 16))) bg.FillRectangle(dm, full); }
                 else
@@ -686,7 +692,7 @@ partial class StudioForm : Form
         float rx = W - 14; string[] rn = { "EXPORT", "Help", "Full", "Open", "Save", "Save as" }; float[] rw = { 106, 58, 108, 72, 72, 84 };
         float rightStart = W - 14; for (int i = 0; i < rw.Length; i++) rightStart -= rw[i] + 6; rightStart += 6;
         float avail = rightStart - 70 - 10, leftTotal = 156 + 232 + 126 + 140 + 84 + 36 + 124; float f = Math.Max(0.5f, Math.Min(1f, avail / leftTotal));
-        float x = 70; float fp = Math.Max(11, 15 * f);
+        float groupW = (164 + 240 + 132 + 148 + 90 + 118) * f; float x = 70 + Math.Max(0, (avail - groupW) / 2); float fp = Math.Max(11, 15 * f);   // ADD MUSIC to THIN TRACKS sit in the middle of the room between the side menu and the right-hand buttons (the side menu stays at the left)
         MenuBtn(g, Rc(12, y, 48, h));
         { var amR = Rc(x, y, 156 * f, h); Btn(g, amR, "ADD MUSIC", 2, () => AddMusicMenu(amR), Math.Max(13, 16 * f)); } x += 164 * f;
         Btn(g, Rc(x, y, 232 * f, h), "SPLIT VOCALS + BEAT", 1, () => SeparateClick(), Math.Max(12, 14 * f)); x += 240 * f;
@@ -795,9 +801,9 @@ partial class StudioForm : Form
     // ---------------- MIX view ----------------
     void PaintMix(Graphics g)
     {
-        float top = ToolH + TransH; var tl = TimelineRect();
+        float top = ArrTop; var tl = TimelineRect();
         PruneTrackCaches(); StepAnim(GhostDt()); AutoKeyTick();
-        int n = LaneCount; float viewH = MixH - top - RulerH - 46, contentH = n * LaneH + 50; vscroll = Math.Max(0, Math.Min(vscroll, Math.Max(0, contentH - viewH)));   // never stuck scrolled past the tracks   // buses are not lanes: they live in the Buses sheet and in each track's Bus drop-down
+        int n = LaneCount; float viewH = MixH - top - RulerH - ArrGap, contentH = n * LaneH + 50; vscroll = Math.Max(0, Math.Min(vscroll, Math.Max(0, contentH - viewH)));   // never stuck scrolled past the tracks   // buses are not lanes: they live in the Buses sheet and in each track's Bus drop-down
         if (autoFit && !ghostOn && (lastFitW != (int)tl.Width || lastFitLen != eng.EndFrame) && tl.Width > 100) { FitView(); lastFitW = (int)tl.Width; lastFitLen = eng.EndFrame; }
         // clamp selection
         if (selTrack >= n) selTrack = Math.Max(0, n - 1);
@@ -808,7 +814,7 @@ partial class StudioForm : Form
 
         if (needleDrag && dragReg != null) NeedleEdgeScroll(tl);   // the needle dragged to an edge: the timeline scrolls with it
         float y = top + RulerH - vscroll;
-        g.SetClip(Rc(0, top + RulerH, ClientSize.Width - PanelW, MixH - top - RulerH - 46));
+        g.SetClip(Rc(0, top + RulerH, ClientSize.Width - PanelW, MixH - top - RulerH - ArrGap));
         for (int i = 0; i < n; i++, y += LaneH)
         {
             if (y + LaneH < top + RulerH || y > MixH) continue;
@@ -849,10 +855,10 @@ partial class StudioForm : Form
             Reg(r0, () => AddMusicClick()); if (over) { bubble = "Click to choose music from your computer"; bubblePt = MousePos; }
         }
         g.ResetClip();
-        { q0 = Prof.T(); float gy = Math.Max(y, top + RulerH); PaintGrid(g, tl, gy, MixH - 46, 0.5f); Prof.A("mix.grid2", q0); }   // the empty space under the last row
+        { q0 = Prof.T(); float gy = Math.Max(y, top + RulerH); PaintGrid(g, tl, gy, MixH - ArrGap, 0.5f); Prof.A("mix.grid2", q0); }   // the empty space under the last row
         // playhead
         float px = HeadW + (float)((dispPos - scroll) / spp);
-        if (px >= HeadW && px <= tl.Right) { q0 = Prof.T(); float nb = MixH - 46; if (n > 0) nb = Math.Min(nb, Math.Max(top + RulerH + 8, y)); PaintNeedle(g, px, top, nb, RulerH);   /* the needle runs down to the bottom of the last track, never into the empty space or the bar under it */ Prof.A("mix.needle", q0); } else if (sparks.Count > 0) sparks.Clear();
+        if (px >= HeadW && px <= tl.Right) { q0 = Prof.T(); float nb = MixH - ArrGap; if (n > 0) nb = Math.Min(nb, Math.Max(top + RulerH + 8, y)); PaintNeedle(g, px, top, nb, RulerH);   /* the needle runs down to the bottom of the last track, never into the empty space or the bar under it */ Prof.A("mix.needle", q0); } else if (sparks.Count > 0) sparks.Clear();
         if (contentH > viewH + 1) VScroll(g, Rc(tl.Right - 50, top + RulerH + 4, 42, viewH - 8), contentH, viewH, () => vscroll, v => vscroll = v);   // the logo scroll bar: hold the logo and drag, or use the arrows
         q0 = Prof.T(); PaintOverview(g, tl); Prof.A("mix.overview", q0);
         // wheel: scroll / zoom
@@ -1478,6 +1484,7 @@ partial class StudioForm : Form
         if (menuOpen && k == Keys.Escape) { CloseMenu(); return true; }
         if ((menuOpen || busOpen || ntOpen || keyOn) && !flexOpen) return base.ProcessCmdKey(ref msg, k);   // while a menu or sheet is open the keys do not play, split or delete things behind it
         if (flexOpen && !menuOpen && !browserOpen && FlexKey(k)) return true;
+        if (!menuOpen && !browserOpen && PrKey(k)) return true;   // the piano roll's keys (when you last clicked in it)
         if (autoOpen) { if (k == Keys.Escape) { CloseAuto(); return true; } return base.ProcessCmdKey(ref msg, k); }
         if (cpOpen) { if (k == Keys.Escape) { cpOpen = false; return true; } return base.ProcessCmdKey(ref msg, k); }
         if (themeOpen) { if (k == Keys.Escape) { themeOpen = false; return true; } return base.ProcessCmdKey(ref msg, k); }
@@ -1559,6 +1566,7 @@ partial class StudioForm : Form
         if (tab == 8 && fontSearchOn && !fontSearchR.Contains(e.Location)) fontSearchOn = false;
         if (tab == 7 && artSearchOn && !artSearchR.Contains(e.Location)) artSearchOn = false;   // clicking anywhere else lets go of the search box
         FxWinMouseDown(e.Location);   // a click in a plugin window brings that window to the front
+        prFocus = PrShown && (prGrid.Contains(e.Location) || prVel.Contains(e.Location) || prKeys.Contains(e.Location) || prRuler.Contains(e.Location));
         var r = TopRegion(e.Location); if (r == null) return;
         if (Win.ClickClosedMenu(this, r.R)) return;   // the click that just closed a menu is not also a click on the button that opened it
         if (busy && !r.WhileBusy) return;   // while a job runs only the Cancel button works

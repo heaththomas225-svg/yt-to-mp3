@@ -117,14 +117,14 @@ static class D
             var sf2 = new StudioForm(app2); sf2.ClientSize = new System.Drawing.Size(1500, 700); sf2.Show(); sf2.Invalidate(); sf2.Update(); System.Windows.Forms.Application.DoEvents();
             Action<string, int, int> mouse2 = (name, x, y) => typeof(StudioForm).GetMethod(name, bf2).Invoke(sf2, new object[] { new System.Windows.Forms.MouseEventArgs(System.Windows.Forms.MouseButtons.Left, 1, x, y, 0) });
             Func<object> tools = () => typeof(StudioForm).GetField("toolsTrack", bf2).GetValue(sf2); app2.StudioEng.Seek(44100 * 3);
-            Check("before any click no track shows its buttons", tools() == null, "");
-            mouse2("OnMouseMove", 600, 250); mouse2("OnMouseDown", 600, 250); mouse2("OnMouseUp", 600, 250); sf2.Invalidate(); sf2.Update();
+            Check("before any click no track shows its buttons", tools() == null, ""); int oh = (int)typeof(StudioForm).GetProperty("OverH", bf2).GetValue(sf2, null);   /* (the scroll bar band above the ruler moves the arrangement down) */
+            mouse2("OnMouseMove", 600, 250 + oh); mouse2("OnMouseDown", 600, 250 + oh); mouse2("OnMouseUp", 600, 250 + oh); sf2.Invalidate(); sf2.Update();
             Check("clicking a clip does not move the needle", app2.StudioEng.Pos == 44100 * 3, "needle at " + (app2.StudioEng.Pos / 44100.0).ToString("0.00") + " s (was 3.00 s)");
             Check("clicking a clip shows that track's buttons", tools() == trk, tools() == null ? "none" : "the clicked track");
-            mouse2("OnMouseMove", 700, 500); mouse2("OnMouseDown", 700, 500); mouse2("OnMouseUp", 700, 500);
+            mouse2("OnMouseMove", 700, 500 + oh); mouse2("OnMouseDown", 700, 500 + oh); mouse2("OnMouseUp", 700, 500 + oh);
             Check("clicking the empty area below the tracks does NOT move the needle (it only moves from the ruler)", app2.StudioEng.Pos == 44100L * 3, "needle at " + (app2.StudioEng.Pos / 44100.0).ToString("0.00") + " s");
             Check("and hides the button row", tools() == null, "");
-            mouse2("OnMouseMove", 700, 194); mouse2("OnMouseDown", 700, 194); mouse2("OnMouseUp", 700, 194);
+            mouse2("OnMouseMove", 700, 194 + oh); mouse2("OnMouseDown", 700, 194 + oh); mouse2("OnMouseUp", 700, 194 + oh);
             Check("clicking the ruler at the top moves the needle there", Math.Abs(app2.StudioEng.Pos - 44100L * 3) > 44100, "needle at " + (app2.StudioEng.Pos / 44100.0).ToString("0.00") + " s");
             sf2.Dispose();
         }

@@ -73,7 +73,11 @@ static class InstantLib
         }
     }
     public static SoundItem Find(string id) { foreach (var s in Items) if (s.Id == id) return s; return null; }
-    public static List<SoundItem> ItemsOf(string packId) { var l = new List<SoundItem>(); foreach (var s in Items) if (s.PackId == packId) l.Add(s); return l; }
+    static Dictionary<string, List<SoundItem>> byPack; static List<SoundItem> byPackOf;
+    public static List<SoundItem> ItemsOf(string packId)
+    {
+        var all = Items; lock (lk) { if (byPack == null || !ReferenceEquals(byPackOf, all)) { byPack = new Dictionary<string, List<SoundItem>>(); foreach (var s in all) { List<SoundItem> l0; if (!byPack.TryGetValue(s.PackId, out l0)) byPack[s.PackId] = l0 = new List<SoundItem>(); l0.Add(s); } byPackOf = all; } List<SoundItem> l; return byPack.TryGetValue(packId, out l) ? new List<SoundItem>(l) : new List<SoundItem>(); }
+    }
     // the finished sound of an instant item, in its pack's own key and tempo (the library baker writes and checks it)
     public static Buf MakeBuf(SoundItem s, out string err)
     {

@@ -273,7 +273,7 @@ partial class StudioForm
                 if (d.ShowDialog(this) != DialogResult.OK) return; path = d.FileName;
             }
         }
-        try { ProjectIO.Save(eng, path); projPath = path; projName = Path.GetFileNameWithoutExtension(path); NoteProject(path, true); Toast("Project saved"); { var pubE = ProjectLibrary.AllByEdited().Find(x => x.OnProfile && string.Equals(x.Path, path, StringComparison.OrdinalIgnoreCase)); if (pubE != null) SyncCommunitySongs(); } }   /* a published project: its song on the profile and the community page is updated right away */
+        try { ProjectIO.Roll = PrPrefsText(); ProjectIO.Save(eng, path); projPath = path; projName = Path.GetFileNameWithoutExtension(path); NoteProject(path, true); Toast("Project saved"); { var pubE = ProjectLibrary.AllByEdited().Find(x => x.OnProfile && string.Equals(x.Path, path, StringComparison.OrdinalIgnoreCase)); if (pubE != null) SyncCommunitySongs(); } }   /* a published project: its song on the profile and the community page is updated right away */
         catch (Exception ex) { MessageBox.Show(this, ex.Message, "Save failed"); }
     }
 
@@ -295,7 +295,7 @@ partial class StudioForm
         List<string> warn = null;
         RunBusy("Opening project...", false, p => { warn = ProjectIO.Load(eng, path, s => busyText = s); }, ok =>
         {
-            if (!ok) return; bpmUserSet = true; projPath = path; projName = Path.GetFileNameWithoutExtension(path); selTrack = 0; selFx = -1; undo.Clear(); redo.Clear(); FitView(); NoteProject(path, false);
+            if (!ok) return; PrApplyPrefs(ProjectIO.Roll); bpmUserSet = true; projPath = path; projName = Path.GetFileNameWithoutExtension(path); selTrack = 0; selFx = -1; undo.Clear(); redo.Clear(); FitView(); NoteProject(path, false);
             if (warn != null && warn.Count > 0) MessageBox.Show(this, string.Join("\n", warn.ToArray()), "Some audio files are missing"); else Toast("Project opened");
         });
     }

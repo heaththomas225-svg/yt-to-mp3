@@ -153,7 +153,7 @@ partial class StudioForm
     // the add-track button that is always on screen: right after the last track, or pinned to the bottom of the list when the tracks run off the screen
     void AddTrackRow(Graphics g, float afterLastY, int n)
     {
-        float by = Math.Min(afterLastY + 6, MixH - 44); var r = Rc(HeadW < 100 ? 4 : 10, by, HeadW < 100 ? HeadW - 8 : HeadW - 20, 34); var gsA = g.Save(); g.ResetClip();   // always on screen: never cut by the list of tracks
+        float by = Math.Min(afterLastY + 6, MixH - 40); var r = Rc(HeadW < 100 ? 4 : 10, by, HeadW < 100 ? HeadW - 8 : HeadW - 20, 34); var gsA = g.Save(); g.ResetClip();   // always on screen: never cut by the list of tracks
         FillRR(g, TM.C(235, 14, 8, 30), r, 8); Glow(g, NeonCyan, r, 8, Hot(r) ? 1.1f : 0.55f, 3);
         Txt(g, r.Width < 140 ? "+" : "+ ADD TRACK", r.Width < 140 ? 18 : 13, Ink, r, StringAlignment.Center, true); Reg(r, () => OpenNewTrackSheet(2)); g.Restore(gsA);
     }

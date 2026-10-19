@@ -157,7 +157,7 @@ partial class StudioForm
             try { Directory.CreateDirectory(ProjectLibrary.DefaultFolder); } catch { }
             path = Path.Combine(ProjectLibrary.DefaultFolder, nm + ".ytmproj"); int n = 2; while (File.Exists(path)) path = Path.Combine(ProjectLibrary.DefaultFolder, nm + " " + (n++) + ".ytmproj");
         }
-        try { ProjectIO.Save(eng, path); projPath = path; projName = Path.GetFileNameWithoutExtension(path); NoteProject(path, true); Toast("Project saved: " + projName + " (in My Projects)"); return true; }
+        try { ProjectIO.Roll = PrPrefsText(); ProjectIO.Save(eng, path); projPath = path; projName = Path.GetFileNameWithoutExtension(path); NoteProject(path, true); Toast("Project saved: " + projName + " (in My Projects)"); return true; }
         catch (Exception ex) { MessageBox.Show(this, "Could not save the project: " + ex.Message, "Save"); return false; }
     }
 }

@@ -21,7 +21,7 @@ partial class StudioForm
         if (animOff.Count == 0) return; float k = (float)Math.Exp(-dt * 14);
         foreach (var t in new List<Track>(animOff.Keys)) { float v = animOff[t] * k; if (Math.Abs(v) < 0.6f) animOff.Remove(t); else animOff[t] = v; }
     }
-    float SlotTop(Track t) { return ToolH + TransH + RulerH - vscroll + Math.Max(0, eng.Tracks.IndexOf(t.Host ?? t)) * LaneH; }
+    float SlotTop(Track t) { return ArrTop + RulerH - vscroll + Math.Max(0, eng.Tracks.IndexOf(t.Host ?? t)) * LaneH; }
     void GhostGrab(Track t) { ghostGrab = MousePos.Y - SlotTop(t); }
     void GhostStart(Track t, int kind) { if (!ghostOn || ghostTrack != t || ghostKind != kind) ghostInit = false; ghostOn = true; ghostTrack = t; ghostKind = kind; }
     void GhostEnd() { ghostOn = false; ghostTrack = null; ghostInit = false; }
@@ -37,7 +37,7 @@ partial class StudioForm
     void PaintGhost(Graphics g, RectangleF tl, float top)
     {
         if (!ghostOn || ghostTrack == null) return; var tr = ghostTrack; int from = eng.Tracks.IndexOf(tr.Host ?? tr); if (from < 0) { GhostEnd(); return; }
-        bool header = ghostKind == 1; float h = header ? LaneH : LaneH - 14, laneTop = ToolH + TransH + RulerH, areaBottom = ClientSize.Height - 24;
+        bool header = ghostKind == 1; float h = header ? LaneH : LaneH - 14, laneTop = ArrTop + RulerH, areaBottom = ClientSize.Height - 24;
         if (!header && Math.Abs(MousePos.Y - laneStart.Y) < LaneH * 0.5f)
         {   // sliding along its own track: only the clip itself moves (no see-through copy on top of it), with a thin line where it starts and the exact time
             float sx = HeadW + (float)((tr.Offset - scroll) / spp); if (sx >= HeadW && sx <= tl.Right) { var gs0 = g.Save(); g.SetClip(Rc(HeadW, laneTop, tl.Width, areaBottom - laneTop), CombineMode.Intersect); GlowLine(g, NeonCyan, sx, laneTop, sx, areaBottom, 1f); g.Restore(gs0); Txt(g, TimeText(tr.Offset), 10, NeonCyan, Rc(Math.Min(tl.Right - 90, sx + 6), laneTop - RulerH + 1, 84, 14), StringAlignment.Near, true); }
@@ -47,7 +47,7 @@ partial class StudioForm
         if (!ghostInit) { ghostY = want; ghostInit = true; } else ghostY += (want - ghostY) * 0.38f;   // eases toward the mouse: a little glide instead of a snap
         double pulse = 0.5 + 0.5 * Math.Sin(ghostSw.Elapsed.TotalSeconds * 7); int a = 70 + (int)(26 * pulse);
         // where it would land
-        float slot0 = ToolH + TransH + RulerH - vscroll; int row = (int)Math.Floor((MousePos.Y - slot0) / LaneH);
+        float slot0 = ArrTop + RulerH - vscroll; int row = (int)Math.Floor((MousePos.Y - slot0) / LaneH);
         if (!header && row != from && Math.Abs(MousePos.Y - laneStart.Y) >= LaneH * 0.5f)
         {
             bool fresh = row >= LaneCount || row < 0 || (row < LaneCount && (eng.Tracks[row].Clip != null || eng.Tracks[row].Instrument)); int rr = Math.Max(0, Math.Min(row, LaneCount)); var land = Rc(HeadW, slot0 + rr * LaneH, tl.Width, LaneH);

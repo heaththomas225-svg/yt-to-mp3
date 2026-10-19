@@ -1,4 +1,4 @@
-3.71.0
+3.72.0
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-The real sound library (checked audio files), SOUND PACKS first, buses on the mixer
-sha256=be4e1920a0e4f2f6f51dfe02267dd77c04a66195c42beb0aa9288737a080237c
+The piano roll with ghost notes, the Purphex Sampler, GENERATE PATTERN, and a faster studio
+sha256=84e3bdba7651b876db6959dc0d642bbe9683b977f0c2d15fc9b1939f0b0b08c7

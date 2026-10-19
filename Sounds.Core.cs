@@ -46,6 +46,18 @@ class SoundPack
     public long Bytes { get { long b = 0; foreach (var i in Items) { try { if (i.Exists) b += new FileInfo(i.Path).Length; } catch { } } return b; } }
 }
 
+// loads the library on its own thread when the studio starts (a test loads it at once)
+static class LibLoader
+{
+    public static volatile bool Ready; static volatile bool started; public static Action Done;
+    public static void Start()
+    {
+        if (started) return; started = true;
+        if (StudioEnv.UnderTest) { SoundLibrary.Load(); int n0 = InstantLib.Items.Count; Ready = true; return; }
+        new System.Threading.Thread(() => { try { SoundLibrary.Load(); int n = InstantLib.Items.Count; } catch { } Ready = true; var d = Done; if (d != null) try { d(); } catch { } }) { IsBackground = true, Priority = System.Threading.ThreadPriority.BelowNormal, Name = "library" }.Start();
+    }
+}
+
 static class SoundLibrary
 {
     public static string Root { get { return Path.Combine(StudioEnv.DataDir, "sounds"); } }

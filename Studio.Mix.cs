@@ -486,6 +486,7 @@ static class ProjectIO
 {
     public static byte[] CoverBytes;   // the project's picture (a small JPEG), saved inside the project file
     public static string LyricsKept = "";   // the lyrics as they were when they were last put in a project file or saved as a .txt (leaving asks about lyrics that differ)
+    public static string Roll = "";   // the piano roll's settings (snap, key and scale, ghosts, jobs of tracks): saved with the project
     public static string Lyrics = "", LyricsTitle = "";   // the lyrics page; saved in the project file
     static readonly CultureInfo CI = CultureInfo.InvariantCulture;
     static string E(string s) { return (s ?? "").Replace("%", "%25").Replace("|", "%7C").Replace("\n", "%0A").Replace("\r", ""); }
@@ -573,6 +574,7 @@ static class ProjectIO
             if (t.Instrument && t.Midi.Count > 0) { sb.Append("midi|").Append(i).Append('|'); lock (t.Midi) foreach (var m in t.Midi) sb.Append(m.Frame).Append(':').Append(m.S).Append(':').Append(m.D1).Append(':').Append(m.D2).Append(';'); sb.Append('\n'); }
         }
         if (CoverBytes != null && CoverBytes.Length > 0) sb.Append("cover|").Append(Convert.ToBase64String(CoverBytes)).Append((char)10);
+        if (Roll.Length > 0) sb.Append("roll|").Append(Convert.ToBase64String(Encoding.UTF8.GetBytes(Roll))).Append('\n');
         if (Lyrics.Length > 0 || LyricsTitle.Length > 0) sb.Append("lyrics|").Append(Convert.ToBase64String(Encoding.UTF8.GetBytes(LyricsTitle))).Append('|').Append(Convert.ToBase64String(Encoding.UTF8.GetBytes(Lyrics))).Append((char)10);
         sb.Append(SerializeMix(eng)); Win.WriteAtomic(path, sb.ToString(), Encoding.UTF8); LyricsKept = Lyrics;
     }
@@ -583,7 +585,7 @@ static class ProjectIO
     public static List<string> Load(StudioEngine eng, string path, Action<string> progress) { return Load(eng, path, progress, null); }
     public static List<string> Load(StudioEngine eng, string path, Action<string> progress, ProjMeta meta)
     {
-        var warn = new List<string>(); var lines = File.ReadAllLines(path, Encoding.UTF8);
+        if (meta == null) Roll = ""; var warn = new List<string>(); var lines = File.ReadAllLines(path, Encoding.UTF8);
         if (lines.Length == 0 || !lines[0].StartsWith("YTMPROJ")) throw new Exception("That isn't a project file from this app.");
         string dir = Path.GetDirectoryName(path); var tracks = new List<Track>(); var mix = new StringBuilder(); var routes = new List<string[]>(); var hosts = new List<string[]>(); var sendsIn = new List<string[]>();
         // read into locals: the shared tempo/lyrics/picture change only once the file has loaded, so a failed open leaves the open project untouched
@@ -592,6 +594,7 @@ static class ProjectIO
         {
             var p = line.Split('|');
             if (p[0] == "cover" && p.Length >= 2) { try { m.Cover = Convert.FromBase64String(p[1]); } catch { } }
+            else if (p[0] == "roll" && p.Length >= 2) { if (meta == null) try { Roll = Encoding.UTF8.GetString(Convert.FromBase64String(p[1])); } catch { Roll = ""; } }
             else if (p[0] == "lyrics" && p.Length >= 3) { try { string lt0 = Encoding.UTF8.GetString(Convert.FromBase64String(p[1])), ly0 = Encoding.UTF8.GetString(Convert.FromBase64String(p[2])); m.LyricsTitle = lt0; m.Lyrics = ly0; } catch { } }
             else if (p[0] == "bpm" && p.Length > 1) { double b; if (double.TryParse(p[1], NumberStyles.Float, CI, out b)) m.Bpm = b; }
             else if (p[0] == "track" && p.Length >= 6)

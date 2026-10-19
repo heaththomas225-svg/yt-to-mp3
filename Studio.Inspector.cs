@@ -14,11 +14,11 @@ using System.Windows.Forms;
 partial class StudioForm
 {
     internal bool insOpen; internal int insTab; internal Track insBus; float insScrollX; bool insDragging;
-    internal float InsH { get { float mx = Math.Max(180, ClientSize.Height * 0.6f); return Math.Max(170, Math.Min(mx, Prefs.InsH)); } }
+    internal float InsH { get { float mx = Math.Max(180, ClientSize.Height * (insTab == 4 ? 0.74f : 0.6f)); return Math.Max(170, Math.Min(mx, Prefs.InsH)); } }
     internal bool InsShown { get { return insOpen && tab == 0 && !flexOpen; } }
     // the bottom of the arrangement (the inspector takes the space under it)
     internal float MixH { get { return ClientSize.Height - (InsShown ? InsH : 0); } }
-    internal void OpenInspector(int tabIndex) { insOpen = true; insTab = Math.Max(0, Math.Min(3, tabIndex)); if (insTab == 2) insTab = 1; tab = 0;   /* (buses are strips in ALL PLUGINS now) */ if (insTab == 1) EnsureConsoleHeight(); Prefs.InsOpen = true; if (!Prefs.PanelHidden && !soundsOpen) { Prefs.PanelHidden = true; panelAt = DateTime.Now; } Prefs.Changed(); Invalidate(); }   // one place for plugins: the right-hand plugin panel is tucked away (its tab brings it back)
+    internal void OpenInspector(int tabIndex) { insOpen = true; insTab = Math.Max(0, Math.Min(4, tabIndex)); if (insTab == 2) insTab = 1; tab = 0;   /* (buses are strips in ALL PLUGINS now) */ if (insTab == 1) EnsureConsoleHeight(); Prefs.InsOpen = true; if (!Prefs.PanelHidden && !soundsOpen) { Prefs.PanelHidden = true; panelAt = DateTime.Now; } Prefs.Changed(); Invalidate(); }   // one place for plugins: the right-hand plugin panel is tucked away (its tab brings it back)
     internal void CloseInspector() { insOpen = false; Prefs.InsOpen = false; Prefs.Changed(); Invalidate(); }
 
     // which track the panel shows: the bus picked in BUSES, the bus being edited, or the picked track
@@ -40,19 +40,19 @@ partial class StudioForm
         using (var b = new SolidBrush(TM.C(255, 14, 7, 30))) g.FillRectangle(b, P); using (var pen = new Pen(Color.FromArgb(200, Accent), 1.5f)) g.DrawLine(pen, x, y, x + w, y);
         Reg(P, () => { }).Overlay = true; var wheel = new HitReg { R = P, OnWheel = d => insScrollX = Math.Max(0, insScrollX - d * 60) }; regs.Add(wheel);
         // the divider: drag to resize (the arrangement gets the rest)
-        var div = Rc(x, y - 3, w, 8); var dr = Reg(div, () => insDragging = true); dr.OnDrag = pt => { Prefs.InsH = (int)Math.Max(170, Math.Min(ClientSize.Height * 0.6f, ClientSize.Height - pt.Y)); }; dr.OnUp = () => { insDragging = false; Prefs.Changed(); };
+        var div = Rc(x, y - 3, w, 8); var dr = Reg(div, () => insDragging = true); dr.OnDrag = pt => { Prefs.InsH = (int)Math.Max(170, Math.Min(ClientSize.Height * (insTab == 4 ? 0.74f : 0.6f), ClientSize.Height - pt.Y)); }; dr.OnUp = () => { insDragging = false; Prefs.Changed(); };
         if (Hot(div) || insDragging) { using (var pen = new Pen(NeonCyan, 3f)) g.DrawLine(pen, x, y, x + w, y); Cursor = Cursors.SizeNS; } Hint2(div, "Drag to make the inspector taller or shorter");
         // header: tabs, what is shown, hide
         var t = InsTarget; var clipT = InsClip; bool midi = t != null && t.Instrument; string fourth = midi ? "MIDI" : "CLIP";
-        string[] tabs = { "CHANNEL", "ALL PLUGINS", "", fourth }; float tx = x + 10;
+        string[] tabs = { "CHANNEL", "ALL PLUGINS", "", fourth, "PIANO ROLL" }; float tx = x + 10;
         for (int i = 0; i < tabs.Length; i++) { if (tabs[i].Length == 0) continue; int k = i; float cw = i == 1 ? 118 : 100; var r = Rc(tx, y + 6, cw, 24); Chip(g, r, tabs[i], insTab == i, () => { if (k == 1) EnsureConsoleHeight(); insTab = k; insScrollX = 0; }); tx += cw + 4; }
         if (t != null) { var nm = Rc(tx + 10, y + 6, Math.Max(60, w - tx - 200), 24); using (var cb = new SolidBrush(Neon(t.Color))) g.FillEllipse(cb, nm.X, nm.Y + 6, 12, 12); Txt(g, (t.IsBus ? "BUS: " : (t.Instrument ? "MIDI: " : "TRACK: ")) + t.Name, 12, Ink, Rc(nm.X + 18, nm.Y, nm.Width - 18, 24), StringAlignment.Near, true); }
         var hide = Rc(x + w - 92, y + 6, 82, 24); Btn(g, hide, "HIDE", 0, () => CloseInspector(), 10); Hint2(hide, "Hide the inspector (the arrangement gets its space back)");
         float hx = hide.X; if (fxWins.Count > 1) { var ar = Rc(hide.X - 118, y + 6, 112, 24); Btn(g, ar, "ARRANGE WINDOWS", 0, () => ArrangeFxWindows(), 9); hx = ar.X; }
         if (t != null && (insTab == 1 || insTab == 0)) { bool any = t.Fx.Exists(f => !(f is InstrumentFx)); var rmb = Rc(hx - 156, y + 6, 150, 24); Btn(g, rmb, "REMOVE ALL PLUGINS", any ? 3 : 0, () => { if (!any) { Toast(t.Name + " has no plugins to remove."); return; } if (!AskYes("Are you sure? Every plugin on " + t.Name + " will be removed (Ctrl+Z brings them back).", "Remove all plugins")) return; ChainApply(t, "All plugins removed", () => RemoveAllPlugins(t)); selFx = -1; }, 9); Hint2(rmb, "Take every plugin off " + t.Name + " (it asks first; Ctrl+Z undoes it)"); }
-        var C = Rc(x + 8, y + 36, w - 16, h - 42); if (t == null && insTab != 2) { Txt(g, "ADD A TRACK, THEN PICK IT TO SEE ITS CHANNEL, PLUGINS AND CLIPS HERE", 12, DimC, C, StringAlignment.Center, false); return; }
+        var C = Rc(x + 8, y + 36, w - 16, h - 42); if (t == null && insTab != 2 && insTab != 4) { Txt(g, "ADD A TRACK, THEN PICK IT TO SEE ITS CHANNEL, PLUGINS AND CLIPS HERE", 12, DimC, C, StringAlignment.Center, false); return; }
         var gs = g.Save(); g.SetClip(C, System.Drawing.Drawing2D.CombineMode.Intersect);
-        if (insTab == 0) PaintInsChannel(g, C, t); else if (insTab == 1 || insTab == 2) PaintInsPlugins(g, C, t); else if (midi) PaintInsMidi(g, C, t); else PaintInsClip(g, C, clipT);
+        if (insTab == 4) PaintPianoRoll(g, C); else if (insTab == 0) PaintInsChannel(g, C, t); else if (insTab == 1 || insTab == 2) PaintInsPlugins(g, C, t); else if (midi) PaintInsMidi(g, C, t); else PaintInsClip(g, C, clipT);
         g.Restore(gs);
     }
 
@@ -456,7 +456,7 @@ partial class StudioForm
             Txt(g, "STARTS " + Clock(first / sr) + "   LENGTH " + Clock((last - first) / sr) + " (" + bars.ToString("0.#") + " BARS)", 9.5f, DimC, Rc(a.X, a.Y + 48, a.Width, 16), StringAlignment.Near, false);
             Txt(g, "VELOCITY " + on.Min(m => m.D2) + " TO " + on.Max(m => m.D2), 9.5f, DimC, Rc(a.X, a.Y + 66, a.Width, 16), StringAlignment.Near, false);
         }
-        Btn(g, Rc(a.X, a.Bottom - 24, a.Width, 24), "OPEN PIANO ROLL", 1, () => OpenRoll(t), 10);
+        Btn(g, Rc(a.X, a.Bottom - 24, a.Width, 24), "OPEN PIANO ROLL", 1, () => OpenPianoRoll(t), 10);
         x += 308;
         var tb = InsBox(g, Rc(x, y, 250, h), "TRANSPOSE · VELOCITY", col); float bw = (tb.Width - 12) / 4;
         Txt(g, "TRANSPOSE", 9.5f, DimC, Rc(tb.X, tb.Y, tb.Width, 16), StringAlignment.Near, true);

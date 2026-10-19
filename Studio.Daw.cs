@@ -231,7 +231,7 @@ partial class StudioForm
     internal Cursor CursorAt(PointF p)
     {
         foreach (var ph in popRects) if (ph.Contains(p)) return Cursors.SizeAll;   // the top strip of a pop-up box: drag to move it
-        if (tab != 0 || busy || browserOpen) return Cursors.Default; float top = ToolH + TransH + RulerH - vscroll; var tl = TimelineRect();
+        if (tab != 0 || busy || browserOpen) return Cursors.Default; float top = ArrTop + RulerH - vscroll; var tl = TimelineRect();
         for (int i = 0; i < LaneCount; i++)
         {
             var lane = Rc(HeadW, top + i * LaneH, tl.Width, LaneH); if (!lane.Contains(p)) continue;
@@ -297,7 +297,7 @@ partial class StudioForm
     void LaneMenu(Track tr)
     {
         selTrack = Math.Max(0, eng.Tracks.IndexOf(tr.Host ?? tr)); var m = Win.NewMenu(); long at = SplitPoint(Math.Max(0, scroll + (long)((MousePos.X - HeadW) * spp)));
-        if (tr.Instrument) { m.Items.Add("Edit notes (piano roll)...").Click += (a, b) => OpenRoll(tr); m.Items.Add(new ToolStripSeparator()); }
+        if (tr.Instrument) { m.Items.Add("Edit notes (piano roll)...").Click += (a, b) => OpenPianoRoll(tr); m.Items.Add(new ToolStripSeparator()); }
         var piece = PickLayer(tr, MousePos);
         if (tr.Clip == null && !tr.Instrument && !tr.IsBus) { var tk = tr; m.Items.Add("Add music to this track...").Click += (a, b) => { selTrack = Math.Max(0, eng.Tracks.IndexOf(tk)); fillTrack = tk; try { AddMusicClick(true); } finally { fillTrack = null; } }; m.Items.Add(new ToolStripSeparator()); }
         m.Items.Add("Split here (at the needle)").Click += (a, b) => SplitSelected();
@@ -384,7 +384,7 @@ partial class StudioForm
     void LaneDrop(Track src)
     {
         if (laneMode != 1 || !laneMoved || src.Clip == null || src.Instrument) return;
-        float top = ToolH + TransH + RulerH - vscroll; int row = (int)Math.Floor((MousePos.Y - top) / LaneH), fromRow = eng.Tracks.IndexOf(src.Host ?? src);
+        float top = ArrTop + RulerH - vscroll; int row = (int)Math.Floor((MousePos.Y - top) / LaneH), fromRow = eng.Tracks.IndexOf(src.Host ?? src);
         if (row < 0 || fromRow < 0 || row == fromRow || Math.Abs(MousePos.Y - laneStart.Y) < LaneH * 0.5f) return;
         if (InGroup(src)) { GroupToRows(row - fromRow); return; }   // several clips picked: they all go up or down together
         PushUndo(); bool occupied; var dst = MoveClipToRow(src, row, out occupied);
@@ -467,7 +467,7 @@ partial class StudioForm
     {
         if (IsLocked(tr)) { if (!lockToldYou) { lockToldYou = true; Toast(FrozenWhy(tr, "This track is locked in place. Press UNLOCK in the toolbar to move it.")); } return; }
         int i = eng.Tracks.IndexOf(tr); if (i < 0 || tr.Host != null) return; GhostStart(tr, 1);
-        float pos = (pt.Y - (ToolH + TransH + RulerH - vscroll)) / LaneH; int row = (int)Math.Floor(pos); float fr = pos - row; int n = LaneCount;
+        float pos = (pt.Y - (ArrTop + RulerH - vscroll)) / LaneH; int row = (int)Math.Floor(pos); float fr = pos - row; int n = LaneCount;
         if (row >= n) { hdRow = n - 1; hdGap = n; hdMode = n - 1 == i ? 0 : 1; if (i == n - 1) hdMode = 0; return; }
         if (row < 0) { hdRow = 0; hdGap = 0; hdMode = i == 0 ? 0 : 1; return; }
         if (row == i) { hdMode = 0; return; }
@@ -520,6 +520,7 @@ partial class StudioForm
     {
         float x = 14, y = y0 + 3, h = 30; var cc = CurClip(); var row = Selected; bool locked = row != null && row.Locked;
         var L = new List<DawBtn>();
+        L.Add(new DawBtn { Text = "PIANO ROLL", W = 92, Style = PrShown ? 4 : 2, Do = () => { if (PrShown) CloseInspector(); else OpenPianoRoll(null); }, Hint = "The piano roll: write the notes of any track (drums, 808, melodies), with the other tracks' notes as ghost notes and GENERATE for a starting beat" });
         L.Add(new DawBtn { Text = "DETECT BPM", W = 92, Do = () => DetectBpmClick(), Hint = "Find the tempo of the selected track from its beat." });
         L.Add(new DawBtn { Text = "COUNT IN", W = 70, Style = eng.CountIn ? 4 : 0, Do = () => { eng.CountIn = !eng.CountIn; Toast(eng.CountIn ? "Count In on: press PLAY (or record) and you get one bar of clicks, 1 2 3 4, before it starts." : "Count In off."); } });
         L.Add(new DawBtn { Text = "METRONOME", W = 84, Style = eng.Metronome ? 4 : 0, Do = () => { eng.Metronome = !eng.Metronome; Toast(eng.Metronome ? "Metronome on: a click on every beat while it plays." : "Metronome off."); } });

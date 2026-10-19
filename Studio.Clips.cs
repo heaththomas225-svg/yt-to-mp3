@@ -296,7 +296,7 @@ partial class StudioForm
     void PaintCutMark(Graphics g)
     {
         if (cutMark < 0 || tab != 0) return; var tl = TimelineRect(); float x = tl.X + (float)((cutMark - scroll) / spp); if (x < tl.X || x > tl.Right) return;
-        float top = ToolH + TransH, bottom = tl.Bottom;
+        float top = ArrTop, bottom = tl.Bottom;
         using (var pen = new Pen(Color.FromArgb(235, 255, 80, 120), 2f) { DashStyle = DashStyle.Dash }) g.DrawLine(pen, x, top + RulerH - 4, x, bottom);
         var flag = Rc(x - 1, Math.Min(bottom, ClientSize.Height - 48) - 24, 70, 18); FillRR(g, TM.C(235, 255, 60, 110), flag, 5); Txt(g, "CUT START", 10, Color.White, flag, StringAlignment.Center, true);
     }
