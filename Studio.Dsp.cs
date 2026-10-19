@@ -987,6 +987,7 @@ public static class FxRegistry
         new Info("8d", "8D Audio Tuner", "Space", "Orbit the sound around your head (headphones)"),
         new Info("bassboost", "Bass Boost", "EQ", "Raise the low end: pick the frequency, amount and width, plus optional harmonics"),
         new Info("synth", "Bass Lab (synthesizer)", "Instruments", "Wobble bass synth: oscillators, warp, filters, LFOs, matrix, bass boost"),
+        new Info("wobble", "Purphex Wobble", "Instruments", "The wobble bass engine: tempo-synced LFO filter, vowels, FM, grit, sub and mid layers"),
         new Info("sampler", "Purphex Sampler", "Instruments", "Plays your samples from notes: one sample (kick, snare, 808...) or a kit mapped to keys"),
         new Info("gain", "Gain", "Utility", "Simple gain trim") };
 
@@ -995,6 +996,7 @@ public static class FxRegistry
         switch (type)
         {
             case "sampler": return new SamplerFx();
+            case "wobble": return new WobbleFx();
             case "eq": return new ParametricEq();
             case "comp": return new Compressor();
             case "mbcomp": return new MultibandComp();

@@ -520,7 +520,6 @@ partial class StudioForm
     {
         float x = 14, y = y0 + 3, h = 30; var cc = CurClip(); var row = Selected; bool locked = row != null && row.Locked;
         var L = new List<DawBtn>();
-        L.Add(new DawBtn { Text = "PIANO ROLL", W = 92, Style = PrShown ? 4 : 2, Do = () => { if (PrShown) CloseInspector(); else OpenPianoRoll(null); }, Hint = "The piano roll: write the notes of any track (drums, 808, melodies), with the other tracks' notes as ghost notes and GENERATE for a starting beat" });
         L.Add(new DawBtn { Text = "DETECT BPM", W = 92, Do = () => DetectBpmClick(), Hint = "Find the tempo of the selected track from its beat." });
         L.Add(new DawBtn { Text = "COUNT IN", W = 70, Style = eng.CountIn ? 4 : 0, Do = () => { eng.CountIn = !eng.CountIn; Toast(eng.CountIn ? "Count In on: press PLAY (or record) and you get one bar of clicks, 1 2 3 4, before it starts." : "Count In off."); } });
         L.Add(new DawBtn { Text = "METRONOME", W = 84, Style = eng.Metronome ? 4 : 0, Do = () => { eng.Metronome = !eng.Metronome; Toast(eng.Metronome ? "Metronome on: a click on every beat while it plays." : "Metronome off."); } });

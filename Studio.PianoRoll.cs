@@ -56,23 +56,80 @@ partial class StudioForm
         catch { }
     }
 
+    // a small keyboard drawn on the piano button
+    void PianoGlyph(Graphics g, RectangleF r)
+    {
+        float kw = 5, kh = Math.Min(18, r.Height - 12), ox = r.X + (r.Width - kw * 5) / 2, oy = r.Y + (r.Height - kh) / 2;
+        using (var wb = new SolidBrush(Color.FromArgb(235, 255, 255, 255))) using (var bb = new SolidBrush(Color.FromArgb(255, 20, 12, 36))) using (var pen = new Pen(Color.FromArgb(160, 20, 12, 36)))
+        {
+            for (int i = 0; i < 5; i++) { g.FillRectangle(wb, ox + i * kw, oy, kw - 1, kh); }
+            foreach (int i in new[] { 0, 1, 3 }) g.FillRectangle(bb, ox + i * kw + kw * 0.6f, oy, kw * 0.75f, kh * 0.58f);
+        }
+    }
+    // ---- choosing the sound of a track (any track: pick it, then choose what it plays) ----
+    void PaintChooseSound(Graphics g, Track t, RectangleF msg)
+    {
+        Txt(g, t == null ? "PICK A TRACK, THEN CHOOSE ITS SOUND" : "CHOOSE A SOUND FOR " + t.Name.ToUpperInvariant(), 14, Ink, Rc(msg.X, msg.Y + 12, msg.Width, 24), StringAlignment.Center, true);
+        Txt(g, t == null ? "Click a track on the left, or make a new one here." : "Then write its notes in this piano roll, or play them on your keyboard.", 11, DimC, Rc(msg.X, msg.Y + 38, msg.Width, 20), StringAlignment.Center, false);
+        var opts = new List<KeyValuePair<string, Action>> {
+            new KeyValuePair<string, Action>("PIANO", () => PrUseSound(t, null, null)),
+            new KeyValuePair<string, Action>("A SOUND FROM SOUNDS", () => { var nt = PrUseSound(t, "sampler", null); if (nt != null) { OpenSounds(); Toast("Drag a sound from SOUNDS onto the piano roll (or right-click it > Load into a new sampler track)"); } }),
+            new KeyValuePair<string, Action>("PURPHEX WOBBLE", () => PrWobbleMenu(t)),
+            new KeyValuePair<string, Action>("BASS LAB", () => PrUseSound(t, "synth", null)),
+            new KeyValuePair<string, Action>("MORE INSTRUMENTS...", () => PrSoundMenu(t)) };
+        float bw = 168, gap = 10, total = opts.Count * bw + (opts.Count - 1) * gap, ox = msg.X + Math.Max(10, (msg.Width - total) / 2);
+        for (int i = 0; i < opts.Count; i++) { var r = Rc(ox + i * (bw + gap), msg.Y + 70, bw, 40); var act = opts[i].Value; Btn(g, r, opts[i].Key, i == 0 ? 2 : 0, act, 11); }
+    }
+    // the menu of every sound a track can play
+    void PrSoundMenu(Track t)
+    {
+        var m = Win.NewMenu();
+        m.Items.Add("Piano (built-in keys)").Click += (a, b) => PrUseSound(t, null, null);
+        m.Items.Add("A sound from SOUNDS (sampler: drums, 808s, one-shots...)").Click += (a, b) => { var nt = PrUseSound(t, "sampler", null); if (nt != null) { OpenSounds(); Toast("Drag a sound from SOUNDS onto the piano roll"); } };
+        var wm = new ToolStripMenuItem("Purphex Wobble (wobble bass presets)"); foreach (var s in WobbleFx.FactoryPresets()) { int k = s.IndexOf('|'); string nm = s.Substring(0, k), data = s.Substring(k + 1); wm.DropDownItems.Add(nm).Click += (a, b) => PrUseSound(t, "wobble", data, nm); } m.Items.Add(wm);
+        m.Items.Add(new ToolStripSeparator());
+        foreach (var i in FxRegistry.All) { if (i.Category != "Instruments" || i.Type == "keys" || i.Type == "sampler" || i.Type == "wobble" || i.Type == "pxdrum2midi") continue; string ty = i.Type; m.Items.Add(i.Name).Click += (a, b) => PrUseSound(t, ty, null); }
+        m.Show(this, new Point((int)MousePos.X, (int)MousePos.Y));
+    }
+    void PrWobbleMenu(Track t)
+    {
+        var m = Win.NewMenu(); foreach (var s in WobbleFx.FactoryPresets()) { int k = s.IndexOf('|'); string nm = s.Substring(0, k), data = s.Substring(k + 1); m.Items.Add(nm).Click += (a, b) => PrUseSound(t, "wobble", data, nm); }
+        m.Show(this, new Point((int)MousePos.X, (int)MousePos.Y));
+    }
+    // the track plays this sound from now on (an audio track with a clip keeps its audio: a new track gets the sound). type null = the built-in piano
+    Track PrUseSound(Track t, string type, string preset, string presetName = null)
+    {
+        if (t != null && t.IsBus) return null; PushUndo();
+        bool fresh = t == null || t.Clip != null;
+        if (fresh) { t = StudioEngine.NewTrack(type == null ? "Piano" : "Instrument", "inst", null); t.Color = unchecked((int)0xFF3B8CF5); AddTrack(t); }
+        InstrumentFx f = null;
+        if (type != null) { f = FxRegistry.Create(type) as InstrumentFx; if (f == null) { Toast("That instrument couldn't be started."); return null; } f.Prepare(StudioEngine.SR); if (preset != null) { Presets.Apply(f, preset); f.CurPreset = presetName ?? ""; f.CurPresetData = f.Serialize(); } f.Owner = t; }
+        lock (eng.Sync) { t.Fx.RemoveAll(x => x is InstrumentFx); if (f != null) t.Fx.Insert(0, f); t.Instrument = true; }
+        bool plainName = fresh || t.Name.StartsWith("Audio") || t.Name.StartsWith("MIDI") || t.Name.StartsWith("Instrument") || t.Name == "Piano" || t.Name == "Drums";
+        if (plainName) t.Name = type == null ? "Piano" : (presetName ?? (f != null ? f.Title : t.Name));
+        int ti = eng.Tracks.IndexOf(t); if (ti >= 0) { selTrack = ti; prLastSel = ti; } prTrack = t; prStamp = -1; prScrollY = -1; OpenInspector(4); Invalidate();
+        Toast(t.Name + " plays " + (type == null ? "the built-in piano" : (presetName ?? f.Title)) + " now: write notes here or play your keyboard"); return t;
+    }
+
     // ---- opening ----
     internal void OpenPianoRoll(Track t)
     {
         if (t == null) { t = PrDefaultTrack(); }
         if (t != null) PrSetTrack(t); OpenInspector(4); if (Prefs.InsH < 420) { Prefs.InsH = 420; Prefs.Changed(); }
     }
-    Track PrDefaultTrack() { var cur = eng.Tracks.Count > 0 ? eng.Tracks[Math.Max(0, Math.Min(selTrack, eng.Tracks.Count - 1))] : null; if (cur != null && PrCanEdit(cur)) return cur; foreach (var x in eng.Tracks) if (PrCanEdit(x)) return x; return cur; }
+    Track PrDefaultTrack() { var cur = eng.Tracks.Count > 0 ? eng.Tracks[Math.Max(0, Math.Min(selTrack, eng.Tracks.Count - 1))] : null; if (cur != null && !cur.IsBus) return cur;   /* the track you picked, whatever it is (no sound yet: choose one here) */ foreach (var x in eng.Tracks) if (PrCanEdit(x)) return x; return cur; }
     internal static bool PrCanEdit(Track t) { return t != null && !t.IsBus && t.Instrument; }
     internal void PrSetTrack(Track t)
     {
-        if (t == prTrack) return; PrSilence(); prTrack = t; prSel.Clear(); prStamp = -1; prScrollY = -1; int i = eng.Tracks.IndexOf(t); if (i >= 0 && !t.IsBus) selTrack = i;
+        if (t == prTrack) return; PrSilence(); prTrack = t; prSel.Clear(); prStamp = -1; prScrollY = -1; int i = eng.Tracks.IndexOf(t); if (i >= 0 && !t.IsBus) { selTrack = i; prLastSel = i; }
     }
     // the notes of the active track, read again whenever the track's MIDI changed (recording, undo, another editor)
     static long MidiStamp(Track t) { long h = 17; lock (t.Midi) { h = h * 31 + t.Midi.Count; foreach (var m in t.Midi) h = h * 31 + m.Frame * 7 + m.D1 * 131 + m.D2 + m.S * 977; } return h; }
+    int prLastSel = -1;
     void PrSync()
     {
         if (prTrack != null && (!eng.Tracks.Contains(prTrack))) { prTrack = null; prNotes.Clear(); prSel.Clear(); }
+        if (selTrack != prLastSel) { prLastSel = selTrack; if (selTrack >= 0 && selTrack < eng.Tracks.Count && !eng.Tracks[selTrack].IsBus && eng.Tracks[selTrack] != prTrack) { PrSilence(); prTrack = eng.Tracks[selTrack]; prSel.Clear(); prStamp = -1; prScrollY = -1; } }   // click a track: the piano roll shows it
         if (prTrack == null) { var d = PrDefaultTrack(); if (d != null) prTrack = d; else return; }
         long st = MidiStamp(prTrack); if (st == prStamp && prStampTrack == prTrack) return;
         prNotes.Clear(); prNotes.AddRange(NotesOf(prTrack)); prSel.Clear(); prStamp = st; prStampTrack = prTrack;
@@ -138,8 +195,10 @@ partial class StudioForm
         var tn = Rc(bx, y, 190, 24); string tname = t == null ? "NO NOTE TRACK" : t.Name; Btn(g, tn, tname, 4, () => PrTrackMenu(), 10); Hint2(tn, "The track you are editing: click to pick another (the piano roll stays open)"); bx += 192;
         var tx2 = Rc(bx, y, 28, 24); Btn(g, tx2, ">", 0, () => PrStepTrack(1), 11); Hint2(tx2, "The next note track"); bx += 34;
         if (t != null) { using (var cb = new SolidBrush(Neon(t.Color))) g.FillEllipse(cb, tn.X + 6, tn.Y + 7, 10, 10); }
-        string kind = t == null ? "" : (PrSampler != null ? (PrSampler.IsKit ? "DRUM KIT (SAMPLER)" : (PrSampler.Zones.Count == 0 ? "SAMPLER: NO SAMPLE YET" : (PrSampler.AnyFollow ? "SAMPLER: FOLLOWS THE NOTES" : "SAMPLER: FIXED PITCH (DRUM)"))) : (t.HasInstrumentFx ? "INSTRUMENT: " + PlayerOf(t).Title.ToUpperInvariant() : "MIDI TRACK: BUILT-IN KEYS"));
-        Txt(g, kind, 9, DimC, Rc(bx, y, 190, 24), StringAlignment.Near, true); bx += 194;
+        string kind = t == null ? "" : !PrCanEdit(t) ? (t.Clip != null ? "AUDIO TRACK" : "NO SOUND YET") : (PrSampler != null ? (PrSampler.IsKit ? "DRUM KIT (SAMPLER)" : (PrSampler.Zones.Count == 0 ? "SAMPLER: NO SAMPLE YET" : (PrSampler.AnyFollow ? "SAMPLER: FOLLOWS THE NOTES" : "SAMPLER: FIXED PITCH (DRUM)"))) : (t.HasInstrumentFx ? "INSTRUMENT: " + PlayerOf(t).Title.ToUpperInvariant() : "MIDI TRACK: BUILT-IN KEYS"));
+        if (t != null && PrCanEdit(t)) { var sb = Rc(bx, y, 190, 24); Btn(g, sb, "SOUND: " + kind.Replace("INSTRUMENT: ", ""), 2, () => PrSoundMenu(t), 9); Hint2(sb, "What this track plays: the built-in piano, a sample from SOUNDS, the Purphex Wobble, Bass Lab or another instrument (the notes stay)"); }
+        else Txt(g, kind, 9, DimC, Rc(bx, y, 190, 24), StringAlignment.Near, true);
+        bx += 194;
         Func<float, string, bool, Action, string, RectangleF> chip = (cw, label, on, act, hint) => { var r = Rc(bx, y, cw, 24); Btn(g, r, label, on ? 4 : 0, act, 9); Hint2(r, hint); bx += cw + 4; return r; };
         chip(122, "SNAP " + PrSnapShort(prSnap), false, () => PrSnapMenu(), "Where notes land: 1 bar down to 1/32, triplets, or no snap");
         chip(104, "LENGTH " + PrBeatsName(prLenBeats), false, () => PrLenMenu(), "The length of the next note you add (drag a note's right edge to change one)");
@@ -157,7 +216,7 @@ partial class StudioForm
         {
             var msg = Rc(x, y + 40, w, h - 40);
             if (t != null && t.Clip != null) { Txt(g, t.Name + " is an audio track: its clip stays real audio on the arrangement (move, trim and stretch it there).", 12, Ink, Rc(msg.X, msg.Y + 20, msg.Width, 22), StringAlignment.Center, true); var lb = Rc(msg.X + msg.Width / 2 - 140, msg.Y + 56, 280, 32); Btn(g, lb, "LOAD IT INTO A SAMPLER TRACK", 2, () => PrAudioToSampler(t), 11); Hint2(lb, "A new sampler track that plays this sound from notes (the audio track stays as it is)"); }
-            else Txt(g, "PICK A TRACK THAT PLAYS NOTES: A MIDI TRACK, AN INSTRUMENT OR A SAMPLER. + ADD TRACK makes one (MIDI Track, Drum Track).", 12, DimC, msg, StringAlignment.Center, true);
+            else PaintChooseSound(g, t, msg);
             return;
         }
         // the areas
@@ -350,10 +409,10 @@ partial class StudioForm
     }
 
     // ---- menus ----
-    void PrStepTrack(int d) { var l = eng.Tracks.Where(PrCanEdit).ToList(); if (l.Count == 0) return; int i = l.IndexOf(prTrack); PrSetTrack(l[((i < 0 ? 0 : i + d) % l.Count + l.Count) % l.Count]); }
+    void PrStepTrack(int d) { var l = eng.Tracks.Where(x => !x.IsBus).ToList(); if (l.Count == 0) return; int i = l.IndexOf(prTrack); PrSetTrack(l[((i < 0 ? 0 : i + d) % l.Count + l.Count) % l.Count]); }
     void PrTrackMenu()
     {
-        var m = Win.NewMenu(); foreach (var t0 in eng.Tracks) { if (t0.IsBus) continue; var t = t0; string kind = PrCanEdit(t) ? (DrumLike(t) ? "drums" : "notes") : (t.Clip != null ? "audio" : ""); if (kind.Length == 0) continue; var it = new ToolStripMenuItem(t.Name + "   (" + kind + ")") { Checked = t == prTrack, ForeColor = Neon(t.Color) }; it.Click += (a, b) => PrSetTrack(t); m.Items.Add(it); }
+        var m = Win.NewMenu(); foreach (var t0 in eng.Tracks) { if (t0.IsBus) continue; var t = t0; string kind = PrCanEdit(t) ? (DrumLike(t) ? "drums" : "notes") : (t.Clip != null ? "audio" : "no sound yet"); var it = new ToolStripMenuItem(t.Name + "   (" + kind + ")") { Checked = t == prTrack, ForeColor = Neon(t.Color) }; it.Click += (a, b) => PrSetTrack(t); m.Items.Add(it); }
         m.Items.Add(new ToolStripSeparator()); m.Items.Add("New drum track (sampler)...").Click += (a, b) => { var nt = NewSamplerTrack("Drums", null, false, 60); if (nt != null) PrSetTrack(nt); };
         m.Items.Add("New MIDI track (built-in keys)").Click += (a, b) => { var nt = AddMidiTrack(); if (nt != null) PrSetTrack(nt); };
         m.Show(this, new Point((int)MousePos.X, (int)MousePos.Y));

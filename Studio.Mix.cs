@@ -75,6 +75,7 @@ static class Presets
         var l = new List<KeyValuePair<string, string>>();
         string[] arr; if (Builtin.TryGetValue(type, out arr))
             foreach (var s in arr) { int i = s.IndexOf('|'); l.Add(new KeyValuePair<string, string>(s.Substring(0, i), s.Substring(i + 1))); }
+        if (type == "wobble") foreach (var s in WobbleFx.FactoryPresets()) { int i = s.IndexOf('|'); l.Add(new KeyValuePair<string, string>(s.Substring(0, i), s.Substring(i + 1))); }
         string[] more; if (PresetsExtra.Data.TryGetValue(type, out more)) foreach (var s in more) { int i = s.IndexOf('|'); l.Add(new KeyValuePair<string, string>(s.Substring(0, i), s.Substring(i + 1))); }
         return l;
     }

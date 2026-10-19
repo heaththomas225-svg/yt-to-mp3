@@ -72,7 +72,12 @@ static class PackBuilder
         else if (d == "trance") { s.KickF0 = 52; s.KickStart = 250; s.KickDecay = 0.25; s.KickDrive = 2.6; s.ClapCentre = 1400; s.HatC = 0.03; s.HatBright = 11; }
         else if (d == "futurebass") { s.KickF0 = 50; s.KickStart = 220; s.KickDecay = 0.34; s.KickDrive = 2.4; s.SnareBody = 210; s.SnareNoise = 4200; s.SnareLen = 0.5; s.HatBright = 10.5; }
         else if (d == "breaks") { s.KickF0 = 57; s.KickStart = 180; s.KickDecay = 0.22; s.KickDrive = 1.9; s.SnareBody = 225; s.SnareNoise = 3500; s.Swing = 0.54; s.HatBright = 9.5; }
-        s.KickF0 *= 0.97 + j.Next() * 0.06; s.SnareBody *= 0.96 + j.Next() * 0.08; s.HatBright *= 0.96 + j.Next() * 0.08; return s;
+        // each pack its own kit (two packs of one genre used to differ by 3%): pitch, punch, length, click, snare colour, hats and clap all move
+        s.KickF0 *= 0.9 + j.Next() * 0.2; s.SnareBody *= 0.88 + j.Next() * 0.26; s.HatBright *= 0.9 + j.Next() * 0.22;
+        var k2 = new Rnd(r.Seed * 7 + 11); s.KickDecay *= 0.78 + k2.Next() * 0.5; s.KickStart *= 0.85 + k2.Next() * 0.35; s.KickClick *= 0.5 + k2.Next(); s.SnareNoise *= 0.8 + k2.Next() * 0.45; s.SnareDecay *= 0.85 + k2.Next() * 0.3;
+        s.HatC *= 0.8 + k2.Next() * 0.45; s.ClapCentre *= 0.85 + k2.Next() * 0.35; s.ClapTail *= 0.8 + k2.Next() * 0.5;
+        if (d == "ukg_2step") s.Swing = 0.6 + k2.Next() * 0.06; else if (d == "ukg_speed") s.Swing = 0.56 + k2.Next() * 0.05;   // garage swings properly (the hats, ghosts and bass)
+        return s;
     }
 
     // ---- one-shots ----

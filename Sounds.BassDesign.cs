@@ -16,11 +16,12 @@ static class BassDesign
     // the flavours the wobble engine plays (the others - sub, pluck, organ, stab outside bassline - stay on the Bass Lab synthesizer)
     static readonly HashSet<string> EngineFl = new HashSet<string> { "wobble", "filthy", "rubber", "elastic", "growl", "dirty", "talking", "fm", "square", "reese", "neuro", "metallic", "riddim", "speedgarage", "subwob", "organwob", "stabwob", "warped", "classic", "experimental", "laser" };
     public static bool UsesEngine(string fl) { return EngineFl.Contains(fl); }
+    static readonly HashSet<string> NoWobble = new HashSet<string> { "Trap", "UK Drill", "Hip-Hop", "Boom Bap", "Grime", "Vocals", "Lo-Fi", "R&B", "Pop", "Jersey Club", "Afrobeats", "Amapiano", "Reggaeton", "Dancehall", "Baile Funk", "Phonk" };
     public static bool IsBassline(Recipe r) { return r != null && r.Genre == "UK Bassline"; }
     // the flavour a pack really plays: in a UK Bassline pack every bass is LFO'd
     public static string FlavourFor(Recipe r, string fl)
     {
-        if (!IsBassline(r)) return fl;
+        if (!IsBassline(r)) { if (r != null && NoWobble.Contains(r.Genre) && (fl == "dirty" || fl == "growl" || fl == "rubber" || fl == "elastic")) return "bl_" + fl; return fl; }   // rap, trap, drill, afro, pop... keep their 808 and synth basses (a wobble does not belong there)
         switch (fl) { case "sub": return "subwob"; case "organ": return "organwob"; case "stab": return "stabwob"; case "pluck": return "rubber"; case "dirty": return "square"; default: return UsesEngine(fl) ? fl : "wobble"; }
     }
     // a readable name for each archetype (sound names and types)
@@ -61,41 +62,41 @@ static class BassDesign
         switch (fl)
         {
             case "wobble":
-                p.Saw = 1; p.Square = R(r, 0, 0.5); p.Cutoff = R(r, 120, 260); p.Depth = R(r, 3.6, 5.0); p.Res = R(r, 0.4, 0.7); p.Rates = Pick(r, new[] { "8", "4", "16", "8,8,16,16", "4,8,16,8", "12", "8,4,8,16" }); p.Shape = Pick(r, new[] { 0, 0, 1, 5 }); p.Drive = R(r, 0.3, 0.6); p.Sub = R(r, 0.5, 0.65); p.Glide = Pick(r, new[] { 0.0, 0.0, 0.03 }); break;
+                p.Saw = 1; p.Square = R(r, 0, 0.5); p.Cutoff = R(r, 110, 220); p.Depth = R(r, 4.0, 5.2); p.Res = R(r, 0.45, 0.72); p.Rates = Pick(r, new[] { "8", "4", "16", "8,8,16,16", "4,8,16,8", "12", "8,4,8,16" }); p.Shape = Pick(r, new[] { 0, 0, 1, 5 }); p.Drive = R(r, 0.3, 0.6); p.Sub = R(r, 0.5, 0.65); p.Glide = Pick(r, new[] { 0.0, 0.0, 0.03 }); break;
             case "filthy":
                 p.Saw = 1; p.Square = R(r, 0.3, 0.8); p.Fold = R(r, 0.2, 0.5); p.Drive = R(r, 0.6, 0.9); p.Rates = Pick(r, new[] { "8,16,8,24", "16,8,12,16", "4,16,8,32", "8,8,16,12", "16,16,8,24" }); p.Shape = Pick(r, new[] { 0, 2, 4 }); p.Res = R(r, 0.5, 0.75); p.Cutoff = R(r, 150, 250); p.Depth = R(r, 4.0, 5.2); p.Sub = R(r, 0.45, 0.6); break;
             case "rubber":
-                p.Saw = 0; p.Square = 1; p.Pw = R(r, 0.3, 0.45); p.PwMod = R(r, 0.3, 0.5); p.EnvAmt = R(r, 1.2, 2.4); p.EnvDecay = R(r, 0.08, 0.2); p.Res = R(r, 0.65, 0.85); p.Rates = Pick(r, new[] { "4", "2", "6", "4,4,8,4" }); p.Shape = Pick(r, new[] { 1, 5 }); p.Glide = R(r, 0.03, 0.09); p.Cutoff = R(r, 120, 200); p.Depth = R(r, 2.5, 3.5); p.PitchEnv = R(r, 3, 7); p.PitchDecay = R(r, 0.03, 0.06); p.Drive = R(r, 0.25, 0.45); break;
+                p.Saw = 0; p.Square = 1; p.Pw = R(r, 0.3, 0.45); p.PwMod = R(r, 0.3, 0.5); p.EnvAmt = R(r, 1.2, 2.4); p.EnvDecay = R(r, 0.08, 0.2); p.Res = R(r, 0.65, 0.85); p.Rates = Pick(r, new[] { "4", "2", "6", "4,4,8,4" }); p.Shape = Pick(r, new[] { 1, 5 }); p.Glide = R(r, 0.03, 0.09); p.Cutoff = R(r, 95, 160); p.Depth = R(r, 3.6, 4.6); p.PitchEnv = R(r, 3, 7); p.PitchDecay = R(r, 0.03, 0.06); p.Drive = R(r, 0.25, 0.45); break;
             case "elastic":
-                p.Saw = 0.7; p.Square = 0.7; p.Glide = R(r, 0.06, 0.14); p.PitchEnv = Pick(r, new[] { -5.0, 7.0, 12.0 }); p.PitchDecay = R(r, 0.05, 0.12); p.Rates = Pick(r, new[] { "6", "12", "4,6,4,12" }); p.Shape = 5; p.Res = R(r, 0.6, 0.8); p.Cutoff = R(r, 140, 230); p.Depth = R(r, 3.0, 4.0); p.Drive = R(r, 0.3, 0.5); break;
+                p.Saw = 0.7; p.Square = 0.7; p.Glide = R(r, 0.06, 0.14); p.PitchEnv = Pick(r, new[] { -5.0, 7.0, 12.0 }); p.PitchDecay = R(r, 0.05, 0.12); p.Rates = Pick(r, new[] { "6", "12", "4,6,4,12" }); p.Shape = 5; p.Res = R(r, 0.6, 0.8); p.Cutoff = R(r, 110, 190); p.Depth = R(r, 3.8, 4.8); p.Drive = R(r, 0.3, 0.5); break;
             case "growl": case "dirty":
-                p.Saw = 0.3; p.Fm = 1; p.FmRatio = Pick(r, new[] { 1.0, 2.0, 0.5 }); p.FmIndex = R(r, 2, 4); p.FmMod = R(r, 0.5, 1.0); p.Rates = Pick(r, new[] { "16", "16,8,16,32", "12,16", "16,16,8,8" }); p.Shape = Pick(r, new[] { 2, 0 }); p.Drive = R(r, 0.6, 0.85); p.Cutoff = R(r, 250, 450); p.Depth = R(r, 2.8, 3.8); p.Fold = R(r, 0.1, 0.3); p.Res = R(r, 0.45, 0.65); break;
+                p.Saw = 0.3; p.Fm = 1; p.FmRatio = Pick(r, new[] { 1.0, 2.0, 0.5 }); p.FmIndex = R(r, 2, 4); p.FmMod = R(r, 0.5, 1.0); p.Rates = Pick(r, new[] { "16", "16,8,16,32", "12,16", "16,16,8,8" }); p.Shape = Pick(r, new[] { 2, 0 }); p.Drive = R(r, 0.6, 0.85); p.Cutoff = R(r, 250, 450); p.Depth = R(r, 2.8, 3.8); p.Fold = R(r, 0.1, 0.3); p.Res = R(r, 0.45, 0.65); p.Cutoff = Math.Min(p.Cutoff, 330); p.Depth = Math.Max(p.Depth, 3.4); break;
             case "talking":
-                p.Saw = 1; p.Square = R(r, 0.3, 0.7); p.Formant = true; p.Vowels = Pick(r, new[] { "aoui", "oaei", "uoa", "aeo", "iaou", "ouai" }); p.Rates = Pick(r, new[] { "8", "4", "8,4,8,16", "12" }); p.Shape = Pick(r, new[] { 5, 1 }); p.Res = R(r, 0.5, 0.75); p.Cutoff = R(r, 500, 900); p.Depth = R(r, 1.5, 2.5); p.Drive = R(r, 0.3, 0.5); break;
+                p.Saw = 1; p.Square = R(r, 0.3, 0.7); p.Formant = true; p.Vowels = Pick(r, new[] { "aoui", "oaei", "uoa", "aeo", "iaou", "ouai" }); p.Rates = Pick(r, new[] { "8", "4", "8,4,8,16", "12" }); p.Shape = Pick(r, new[] { 5, 1 }); p.Res = R(r, 0.55, 0.78); p.Cutoff = R(r, 300, 520); p.Depth = R(r, 2.6, 3.4); p.Drive = R(r, 0.3, 0.5); break;
             case "fm":
-                p.Saw = 0; p.Fm = 1; p.FmRatio = Pick(r, new[] { 1.5, 2.0, 3.0, 0.5 }); p.FmIndex = R(r, 3, 6); p.FmMod = R(r, 0.8, 1.4); p.Rates = Pick(r, new[] { "8", "16", "8,16", "4,8" }); p.Shape = Pick(r, new[] { 0, 1, 2 }); p.Cutoff = R(r, 300, 600); p.Depth = R(r, 2.5, 3.5); p.Res = R(r, 0.35, 0.55); p.Drive = R(r, 0.4, 0.65); break;
+                p.Saw = 0; p.Fm = 1; p.FmRatio = Pick(r, new[] { 1.5, 2.0, 3.0, 0.5 }); p.FmIndex = R(r, 3, 6); p.FmMod = R(r, 0.8, 1.4); p.Rates = Pick(r, new[] { "8", "16", "8,16", "4,8" }); p.Shape = Pick(r, new[] { 0, 1, 2 }); p.Cutoff = R(r, 180, 320); p.Depth = R(r, 3.6, 4.6); p.Res = R(r, 0.4, 0.6); p.Drive = R(r, 0.4, 0.6); break;
             case "square":
-                p.Saw = 0; p.Square = 1; p.Pw = 0.5; p.PwMod = R(r, 0.2, 0.4); p.Drive = R(r, 0.7, 0.9); p.Rates = Pick(r, new[] { "8", "4", "16", "8,16" }); p.Shape = Pick(r, new[] { 0, 1, 4 }); p.Res = R(r, 0.3, 0.5); p.Cutoff = R(r, 200, 350); p.Depth = R(r, 3.0, 4.0); break;
+                p.Saw = 0; p.Square = 1; p.Pw = 0.5; p.PwMod = R(r, 0.2, 0.4); p.Drive = R(r, 0.7, 0.9); p.Rates = Pick(r, new[] { "8", "4", "16", "8,16" }); p.Shape = Pick(r, new[] { 0, 1, 4 }); p.Res = R(r, 0.4, 0.6); p.Cutoff = R(r, 110, 200); p.Depth = R(r, 4.0, 5.0); p.Drive = R(r, 0.5, 0.7); break;
             case "reese":
                 p.Saw = 0; p.Reese = 1; p.Detune = R(r, 14, 30); p.Cutoff = R(r, 200, 400); p.Depth = R(r, 1.5, 2.5); p.Rates = Pick(r, new[] { "1", "2", "4" }); p.Shape = 1; p.Res = R(r, 0.3, 0.5); p.Drive = R(r, 0.4, 0.6); p.Retrig = false; break;
             case "neuro":
-                p.Saw = 0; p.Reese = 1; p.Fm = 0.4; p.Fold = R(r, 0.3, 0.6); p.Detune = R(r, 18, 30); p.Rates = Pick(r, new[] { "16,8,32,16", "16", "8,24,16,12", "32,16,8,16" }); p.Shape = Pick(r, new[] { 2, 4 }); p.Drive = R(r, 0.6, 0.9); p.Res = R(r, 0.55, 0.8); p.Cutoff = R(r, 200, 350); p.Depth = R(r, 3.0, 4.2); break;
+                p.Saw = 0; p.Reese = 1; p.Fm = 0.4; p.Fold = R(r, 0.3, 0.6); p.Detune = R(r, 18, 30); p.Rates = Pick(r, new[] { "16,8,32,16", "16", "8,24,16,12", "32,16,8,16" }); p.Shape = Pick(r, new[] { 2, 4 }); p.Drive = R(r, 0.6, 0.9); p.Res = R(r, 0.55, 0.8); p.Cutoff = R(r, 150, 260); p.Depth = R(r, 3.8, 4.8); break;
             case "metallic":
-                p.Saw = 0; p.Fm = 1; p.FmRatio = Pick(r, new[] { 1.41, 2.73, 3.5 }); p.FmIndex = R(r, 3, 5); p.Fold = R(r, 0.3, 0.5); p.Rates = Pick(r, new[] { "16", "8,16", "16,32" }); p.Res = R(r, 0.55, 0.7); p.Shape = 2; p.Cutoff = R(r, 300, 500); p.Depth = R(r, 2.5, 3.5); p.Drive = R(r, 0.5, 0.75); break;
+                p.Saw = 0; p.Fm = 1; p.FmRatio = Pick(r, new[] { 1.41, 2.73, 3.5 }); p.FmIndex = R(r, 3, 5); p.Fold = R(r, 0.3, 0.5); p.Rates = Pick(r, new[] { "16", "8,16", "16,32" }); p.Res = R(r, 0.55, 0.72); p.Shape = 2; p.Cutoff = R(r, 180, 300); p.Depth = R(r, 3.6, 4.6); p.Drive = R(r, 0.45, 0.65); break;
             case "riddim":
                 p.Saw = 0; p.Square = 1; p.Shape = 4; p.Rates = Pick(r, new[] { "8", "16", "8,8,16,8" }); p.Drive = R(r, 0.75, 0.9); p.Cutoff = R(r, 160, 220); p.Depth = R(r, 4.0, 4.8); p.Res = R(r, 0.35, 0.5); break;
             case "speedgarage":
                 p.Saw = 0.5; p.Square = 0.7; p.EnvAmt = R(r, 1.6, 2.4); p.EnvDecay = R(r, 0.1, 0.18); p.Rates = Pick(r, new[] { "8", "4", "8,4" }); p.Shape = 1; p.Glide = 0.02; p.PitchEnv = Pick(r, new[] { 12.0, 7.0, -12.0 }); p.PitchDecay = R(r, 0.05, 0.1); p.Res = R(r, 0.5, 0.7); p.Cutoff = R(r, 180, 300); p.Depth = R(r, 2.5, 3.5); p.Drive = R(r, 0.35, 0.55); break;
             case "subwob":
-                p.Saw = 1; p.Sub = R(r, 0.75, 0.85); p.Mid = R(r, 0.9, 1.1); p.Cutoff = R(r, 90, 140); p.Depth = R(r, 3.0, 3.8); p.Res = R(r, 0.3, 0.45); p.Rates = Pick(r, new[] { "4", "8", "2" }); p.Shape = 1; p.Drive = R(r, 0.15, 0.3); break;
+                p.Saw = 1; p.Sub = R(r, 0.6, 0.7); p.Mid = R(r, 1.25, 1.45); p.Cutoff = R(r, 110, 170); p.Depth = R(r, 3.6, 4.4); p.Res = R(r, 0.3, 0.45); p.Rates = Pick(r, new[] { "4", "8", "2" }); p.Shape = 1; p.Drive = R(r, 0.15, 0.3); break;
             case "organwob":
-                p.Saw = 0; p.Square = 1; p.Fm = 0.35; p.FmRatio = 2; p.FmIndex = R(r, 0.6, 1.2); p.Rates = Pick(r, new[] { "8", "16", "12" }); p.Shape = Pick(r, new[] { 4, 1 }); p.EnvAmt = R(r, 0.8, 1.4); p.EnvDecay = 0.12; p.Res = R(r, 0.35, 0.55); p.Cutoff = R(r, 250, 400); p.Depth = R(r, 2.2, 3.0); p.Drive = R(r, 0.3, 0.5); break;
+                p.Saw = 0; p.Square = 1; p.Fm = 0.35; p.FmRatio = 2; p.FmIndex = R(r, 0.6, 1.2); p.Rates = Pick(r, new[] { "8", "16", "12" }); p.Shape = Pick(r, new[] { 4, 1 }); p.EnvAmt = R(r, 0.8, 1.4); p.EnvDecay = 0.12; p.Res = R(r, 0.4, 0.6); p.Cutoff = R(r, 150, 260); p.Depth = R(r, 3.4, 4.2); p.Drive = R(r, 0.3, 0.5); break;
             case "stabwob":
-                p.Saw = 1; p.Square = R(r, 0.4, 0.8); p.Rates = Pick(r, new[] { "16", "32", "24" }); p.Shape = 0; p.EnvAmt = R(r, 1.6, 2.6); p.EnvDecay = R(r, 0.06, 0.12); p.Res = R(r, 0.5, 0.7); p.Cutoff = R(r, 180, 300); p.Depth = R(r, 3.0, 4.0); p.Drive = R(r, 0.4, 0.6); p.Release = 0.04; break;
+                p.Saw = 1; p.Square = R(r, 0.4, 0.8); p.Rates = Pick(r, new[] { "16", "8", "12" }); p.Shape = 0; p.EnvAmt = R(r, 1.2, 2.0); p.EnvDecay = R(r, 0.06, 0.12); p.Res = R(r, 0.5, 0.7); p.Cutoff = R(r, 110, 200); p.Depth = R(r, 4.0, 5.0); p.Drive = R(r, 0.4, 0.6); p.Release = 0.04; break;
             case "warped":
-                p.Saw = 1; p.Formant = true; p.Vowels = Pick(r, new[] { "eao", "iou", "aie" }); p.Fold = R(r, 0.25, 0.45); p.Rates = Pick(r, new[] { "6", "12,6", "4,12" }); p.Shape = 3; p.PitchEnv = R(r, -4, 4); p.Res = R(r, 0.55, 0.75); p.Cutoff = R(r, 450, 800); p.Depth = R(r, 1.8, 2.6); p.Drive = R(r, 0.45, 0.7); break;
+                p.Saw = 1; p.Formant = true; p.Vowels = Pick(r, new[] { "eao", "iou", "aie" }); p.Fold = R(r, 0.25, 0.45); p.Rates = Pick(r, new[] { "6", "12,6", "4,12" }); p.Shape = 3; p.PitchEnv = R(r, -4, 4); p.Res = R(r, 0.55, 0.78); p.Cutoff = R(r, 280, 480); p.Depth = R(r, 2.8, 3.6); p.Drive = R(r, 0.45, 0.65); break;
             case "classic":
-                p.Saw = 1; p.Square = R(r, 0.5, 1.0); p.Rates = Pick(r, new[] { "8", "4", "8,8,4,4" }); p.Shape = 1; p.Glide = R(r, 0.03, 0.06); p.Res = R(r, 0.45, 0.6); p.Cutoff = R(r, 160, 260); p.Depth = R(r, 3.2, 4.2); p.Drive = R(r, 0.35, 0.55); break;
+                p.Saw = 1; p.Square = R(r, 0.5, 1.0); p.Rates = Pick(r, new[] { "8", "4", "8,8,4,4" }); p.Shape = 1; p.Glide = R(r, 0.03, 0.06); p.Res = R(r, 0.5, 0.65); p.Cutoff = R(r, 120, 200); p.Depth = R(r, 4.0, 5.0); p.Drive = R(r, 0.35, 0.55); break;
             case "laser":
                 p.Saw = 1; p.Square = 0.5; p.Rates = Pick(r, new[] { "16", "32" }); p.Shape = 3; p.Res = R(r, 0.75, 0.9); p.Cutoff = R(r, 300, 500); p.Depth = R(r, 3.0, 3.8); p.Drive = R(r, 0.5, 0.7); break;
             default: /* experimental */
@@ -145,7 +146,7 @@ static class BassDesign
     public static Buf Render(WobblePatch p, List<double[]> notes, double bpm, double beats, double tail) { return WobbleEngine.Render(p, notes, bpm, beats, tail); }
 
     // ---- the check of an LFO'd bass: it must really move, with real mid (not only sub) ----
-    public class Moves { public double Swing, Mid, Rate; public bool Ok; public string Why = ""; }
+    public class Moves { public double Swing, Mid, Rate, Bright; public bool Ok; public string Why = ""; }
     public static Moves Check(Buf b)
     {
         var m = new Moves(); int N = 1024, hop = 44100 * 12 / 1000; if (b.Length < N * 4) { m.Why = "too short to measure"; return m; }
@@ -164,8 +165,9 @@ static class BassDesign
         double mean = 0; foreach (var x in cent) mean += x; mean /= cent.Count; double fps = 1000.0 / 12; int lo = (int)(fps / 20), hi = (int)fps; var ac = new double[hi + 2]; double best = 0;
         for (int lag = lo; lag <= hi + 1 && lag < cent.Count; lag++) { double acc = 0, n0 = 0; for (int i = 0; i + lag < cent.Count; i++) { acc += (cent[i] - mean) * (cent[i + lag] - mean); n0 += (cent[i] - mean) * (cent[i] - mean); } ac[lag] = acc / Math.Max(1e-12, n0); if (lag <= hi) best = Math.Max(best, ac[lag]); }
         for (int lag = lo + 1; lag <= hi && lag + 1 < ac.Length; lag++) if (ac[lag] >= ac[lag - 1] && ac[lag] >= ac[lag + 1] && ac[lag] > 0.3 && ac[lag] >= best * 0.8) { m.Rate = fps / lag; break; }
+        { var cs = new List<double>(); for (int i = 0; i < cent.Count; i++) if (lvl[i] > top - 30 && cent[i] > 0) cs.Add(cent[i]); cs.Sort(); if (cs.Count > 10) m.Bright = cs[(int)(cs.Count * 0.9)] / Math.Max(1, cs[(int)(cs.Count * 0.1)]); }   // how far the brightness moves (a vowel filter moves inside the band)
         if (m.Mid < 0.15) m.Why = "almost all sub (" + (m.Mid * 100).ToString("0") + "% above 140 Hz): no wobble to hear";
-        else if (m.Swing < 6) m.Why = "the filter hardly moves (" + m.Swing.ToString("0.0") + " dB)";
+        else if (m.Swing < 6 && m.Bright < 1.35) m.Why = "the filter hardly moves (" + m.Swing.ToString("0.0") + " dB, brightness x" + m.Bright.ToString("0.00") + ")";
         m.Ok = m.Why.Length == 0; return m;
     }
 }
@@ -238,6 +240,8 @@ sealed class WobbleFx : InstrumentFx
             if (!voice.Active) continue; double a, b; voice.Next(out a, out b); l[i] += (float)(a * g); r[i] += (float)(b * g);
         }
     }
+    // a patch as the instrument's saved settings (the library's .purphexwobble preset files)
+    public static string PresetText(WobblePatch p) { var fx = new WobbleFx(); fx.LoadPatch(p); return fx.Serialize(); }
     // the factory presets: one of every archetype (the plugin's preset menu)
     public static string[] FactoryPresets()
     {

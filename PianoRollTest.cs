@@ -52,7 +52,7 @@ static class PR
         Check("tracks with real samples load (kick, snare, hats, 808) and a MIDI track", new[] { kick, snare, hats, bass }.All(t => t != null && t.Instrument && t.Fx.OfType<SamplerFx>().First().Zones.Count == 1 && t.Fx.OfType<SamplerFx>().First().Zones[0].L != null), "");
 
         // ---- opening it: the PIANO ROLL button at the top, a tab of the bottom panel ----
-        Paint(); var bm0 = (Dictionary<string, RectangleF>)typeof(StudioForm).GetField("btnMap", BF).GetValue(sf); Check("there is a PIANO ROLL button at the top of the studio", bm0.Keys.Any(k => k.ToUpperInvariant() == "PIANO ROLL"), "");
+        Paint(); var bm0 = (Dictionary<string, RectangleF>)typeof(StudioForm).GetField("btnMap", BF).GetValue(sf); Check("there is a piano button right next to MIDI REC (and no second PIANO ROLL button)", bm0.ContainsKey("PIANO ROLL") && bm0.ContainsKey("MIDI REC") && bm0["PIANO ROLL"].Right <= bm0["MIDI REC"].X && bm0["MIDI REC"].X - bm0["PIANO ROLL"].Right < 12 && Math.Abs(bm0["PIANO ROLL"].Y - bm0["MIDI REC"].Y) < 2, bm0.ContainsKey("PIANO ROLL") ? bm0["PIANO ROLL"].ToString() : "missing");
         sf.OpenPianoRoll(kick); sf.prSnap = 2; sf.prLenBeats = 0.25; Paint(); Paint();
         Check("the piano roll opens on the picked track", sf.PrShown && sf.prTrack == kick, sf.prTrack == null ? "none" : sf.prTrack.Name);
         // ---- kick: four on the beats of bar 1 (clicks on the grid) ----
@@ -143,6 +143,26 @@ static class PR
           Check("an audio track is not a note track (its clip stays real audio)", !StudioForm.PrCanEdit(at), ""); int before = eng.Tracks.Count; M("PrAudioToSampler", at); var st = eng.Tracks.Last();
           Check("LOAD IT INTO A SAMPLER makes a new sampler track that plays it from notes", eng.Tracks.Count == before + 1 && st.Fx.OfType<SamplerFx>().Any(z => z.Zones.Count == 1 && z.Zones[0].L != null) && at.Clip == clip, ""); }
 
+        // ---- any track: click it, choose its sound in the piano roll ----
+        {
+            var empty = StudioEngine.NewTrack("Audio 9", "audio", null); M("AddTrack", empty); int ei = eng.Tracks.IndexOf(empty); typeof(StudioForm).GetField("selTrack", BF).SetValue(sf, ei); sf.OpenPianoRoll(null); Paint(); Paint();
+            Check("clicking a track (here an empty one) shows it in the piano roll", sf.prTrack == empty, sf.prTrack == null ? "none" : sf.prTrack.Name);
+            var bm = (Dictionary<string, RectangleF>)typeof(StudioForm).GetField("btnMap", BF).GetValue(sf);
+            Check("a track with no sound offers the sounds to choose (piano, a sound from SOUNDS, Purphex Wobble, Bass Lab, more)", bm.ContainsKey("PIANO") && bm.ContainsKey("A SOUND FROM SOUNDS") && bm.ContainsKey("PURPHEX WOBBLE") && bm.ContainsKey("BASS LAB"), string.Join(", ", bm.Keys.Where(k => k.Length > 3 && k.ToUpperInvariant() == k).Take(12)));
+            M("PrUseSound", empty, null, null, null); Paint();
+            Check("PIANO makes that same track play the built-in piano (a note track, no extra track)", StudioForm.PrCanEdit(empty) && !empty.HasInstrumentFx && eng.Tracks.Contains(empty) && empty.Name == "Piano", empty.Name);
+            int n0 = eng.Tracks.Count; string pre = WobbleFx.FactoryPresets()[0]; int kq = pre.IndexOf('|');
+            M("PrUseSound", empty, "wobble", pre.Substring(kq + 1), pre.Substring(0, kq)); Paint();
+            var wf = empty.Fx.OfType<WobbleFx>().FirstOrDefault();
+            Check("SOUND > a Purphex Wobble preset puts the Wobble on the track (the notes stay, no new track)", wf != null && eng.Tracks.Count == n0 && empty.Fx.OfType<InstrumentFx>().Count() == 1 && wf.CurPreset == pre.Substring(0, kq), wf == null ? "none" : wf.CurPreset);
+            M("PrUseSound", empty, "synth", null, null); Paint();
+            Check("changing the sound again swaps the instrument (one instrument on the track)", empty.Fx.OfType<InstrumentFx>().Count() == 1 && empty.Fx.OfType<WobbleFx>().Count() == 0, string.Join(",", empty.Fx.Select(x => x.Type)));
+            var clip2 = AudioClip.FromArrays(new float[SR], new float[SR], "x"); var aud = StudioEngine.NewTrack("Vocal", "vocal", clip2); M("AddTrack", aud); int n1 = eng.Tracks.Count;
+            var nt = (Track)M("PrUseSound", aud, null, null, null);
+            Check("an audio track keeps its audio: choosing a sound for it makes a new note track", nt != null && nt != aud && aud.Clip != null && !aud.Instrument && eng.Tracks.Count == n1 + 1, eng.Tracks.Count + " tracks");
+            float wsum = 0; var lb = new float[4096]; var rb = new float[4096]; var w2 = new WobbleFx(); w2.Prepare(SR); w2.Owner = empty; w2.BeginBlock(null, 0, 4096, false); w2.NoteOn(36, 110); w2.BeginBlock(null, 0, 4096, false); for (int b = 0; b < 8; b++) { Array.Clear(lb, 0, 4096); Array.Clear(rb, 0, 4096); w2.Process(lb, rb, 4096); foreach (var v in lb) wsum += Math.Abs(v); }
+            Check("the Purphex Wobble really sounds when a note plays", wsum > 100, wsum.ToString("0"));
+        }
         Console.WriteLine(fails == 0 ? "=== piano roll checks passed ===" : "=== " + fails + " FAILED ===");
         try { sf.Close(); } catch { } Environment.Exit(fails == 0 ? 0 : 1);
     }

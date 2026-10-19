@@ -147,7 +147,7 @@ sealed class WobbleVoice
                 double k2 = 1.4142; double hq = (y - (k2 + g) * s3 - s4) / (1 + g * (g + k2)); double bq = g * hq + s3; s3 = g * hq + bq; double lq = g * bq + s4; s4 = g * bq + lq; y = lq;
             }
             // grit: smooth drive (tanh), level kept
-            double dr = 1 + P.Drive * 0.8; y = Math.Tanh(y * dr) / Math.Tanh(dr);
+            double dr = 1 + P.Drive * 0.35; y = Math.Tanh(y * dr) / Math.Tanh(dr);   /* (gentle: strong drive after the filter would fill the closed filter back up and flatten the wobble) */
             // the mid layer above the sub: 24 dB/oct high-pass at 150 Hz (two Butterworth stages), so the low end is only the clean sub
             for (int st = 0; st < 2; st++)
             {

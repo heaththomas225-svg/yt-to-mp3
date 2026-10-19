@@ -106,6 +106,16 @@ partial class StudioForm
     }
     string InstallPreset(SoundItem s)
     {
+        if (s.Path.EndsWith(".purphexwobble", StringComparison.OrdinalIgnoreCase))   // a wobble preset: a new track with the Purphex Wobble on it, ready to play in the piano roll
+        {
+            try
+            {
+                var w = FxRegistry.Create("wobble") as WobbleFx; if (w == null) return "The Purphex Wobble couldn't be started."; w.Prepare(StudioEngine.SR); w.Deserialize(File.ReadAllText(s.Path)); w.CurPreset = s.Name.Replace(s.PackName + " - ", "");
+                var t = StudioEngine.NewTrack(w.CurPreset, "inst", null); t.Instrument = true; t.Color = unchecked((int)0xFF9B5CFF); w.Owner = t; lock (eng.Sync) t.Fx.Add(w); AddTrack(t); int ti = eng.Tracks.IndexOf(t); if (ti >= 0) selTrack = ti;
+                SoundLibrary.MarkUsed(s); OpenPianoRoll(t); Toast("A new Wobble track with " + w.CurPreset + ": play it from the keyboard or write notes in the piano roll"); return null;
+            }
+            catch (Exception ex) { return "Couldn't open the preset: " + ex.Message; }
+        }
         try { Directory.CreateDirectory(SynthPresets.Dir); string name = s.Name; string dest = Path.Combine(SynthPresets.Dir, PackWriter.Clean(name) + ".txt"); File.Copy(s.Path, dest, true); SoundLibrary.MarkUsed(s); Toast("Added to Bass Lab: open its preset browser > My presets > " + name); return null; }
         catch (Exception ex) { return "Couldn't install the preset: " + ex.Message; }
     }
@@ -250,7 +260,7 @@ partial class StudioForm
         Chip(g, Rc(r.X + 136, cy, 56, 28), "Loop", SoundLibrary.LoopPreview, () => { SoundLibrary.LoopPreview = !SoundLibrary.LoopPreview; }); Chip(g, Rc(r.X + 196, cy, 78, 28), "Autoplay", SoundLibrary.AutoPlay, () => { SoundLibrary.AutoPlay = !SoundLibrary.AutoPlay; SoundLibrary.SaveUser(); });
         Txt(g, "VOL", 10, DimC, Rc(r.X + 282, cy + 6, 24, 16), StringAlignment.Near, false); var vs = Slider(g, Rc(r.X + 306, cy + 5, r.Width - 306 - 16 + r.X - r.X, 18), SoundLibrary.AuditionVolume, f => { SoundLibrary.AuditionVolume = f; }, NeonCyan); vs.OnDouble = () => SoundLibrary.AuditionVolume = 0.8f;
         float by = cy + 34; bool preset = s.Kind == "preset", midi = s.Kind == "midi";
-        Btn(g, Rc(r.X + 12, by, 168, 30), preset ? "Add to Bass Lab" : (midi ? "Add to selected track" : "Add to timeline"), 2, () => { string m = midi ? DropMidi(s, Snap(DispPos), -1) : AddSample(s, Snap(DispPos), eng.Tracks.Count); if (m != null) Toast(m); }, 12);
+        Btn(g, Rc(r.X + 12, by, 168, 30), preset ? (s.Path.EndsWith(".purphexwobble", StringComparison.OrdinalIgnoreCase) ? "Play in a Wobble track" : "Add to Bass Lab") : (midi ? "Add to selected track" : "Add to timeline"), 2, () => { string m = midi ? DropMidi(s, Snap(DispPos), -1) : AddSample(s, Snap(DispPos), eng.Tracks.Count); if (m != null) Toast(m); }, 12);
         bool fav = SoundLibrary.Favourites.Contains(s.Id); Chip(g, Rc(r.X + 184, by, 96, 30), fav ? "★ Favourite" : "☆ Favourite", fav, () => { SoundLibrary.ToggleFav(s); sndDirty = sndFilter.OnlyFav; }); Btn(g, Rc(r.X + 284, by, 104, 30), "Collection...", 0, () => SoundMenu(s), 11);
         Btn(g, Rc(r.X + 392, by, 70, 30), "Folder", 0, () => { try { System.Diagnostics.Process.Start("explorer.exe", "/select,\"" + s.Path + "\""); } catch { } }, 11); Btn(g, Rc(r.X + 466, by, 80, 30), "Licence", 0, () => { var p = SoundLibrary.Pack(s.PackId); MessageBox.Show(this, (p != null ? p.Name + "\n\n" + p.License : (s.Instant ? s.PackName + "\n\n" + SoundLibrary.LicenceText : "No licence information.")), "Licence"); }, 11);
         string info = (s.Format.Length > 0 ? s.Format : "") + (s.Rate > 0 ? "  ·  " + (s.Rate / 1000.0).ToString("0.#") + " kHz" : "") + (s.Dur > 0 ? "  ·  " + s.Dur.ToString("0.00") + " s" : "") + (s.Bpm > 0 ? "  ·  " + s.Bpm.ToString("0") + " BPM" : "") + (s.Key.Length > 0 ? "  ·  " + s.Key : "") + "  ·  " + s.PackName;
@@ -521,9 +531,9 @@ partial class StudioForm
     string PackContents(Recipe rec, SoundPack ip)
     {
         bool inst = ip != null && ip.Items.Count > 0; string key = rec.Id + (inst ? "#" + ip.Items.Count : ""); string v; if (packContents.TryGetValue(key, out v)) return v;
-        var n = new Dictionary<string, int>(); Func<SoundItem, string> kind = s => s.Kind == "preset" ? "Bass Lab presets" : s.Kind == "midi" ? "MIDI" : (s.Kind == "loop" ? (s.Group == "Bass" ? "bass loops" : (s.Type == "Drum Loop" || s.Type == "Top Loop" ? "drum loops" : (s.Type == "Drum Fill" ? "fills" : (s.Type.EndsWith(" Loop") && (s.Instrument == "Kick" || s.Instrument == "Snare" || s.Instrument == "Hi-Hat" || s.Instrument == "Percussion") ? "kit loops" : "music loops")))) : (s.Type == "808" ? "808s" : (s.Group == "Drums" ? "drum hits" : (s.Group == "Bass" ? "bass shots" : (s.Group == "FX" ? "FX" : "one-shots")))));
+        var n = new Dictionary<string, int>(); Func<SoundItem, string> kind = s => s.Kind == "preset" ? (s.Format == "Purphex Wobble preset" ? "Wobble presets" : "Bass Lab presets") : s.Kind == "midi" ? "MIDI" : (s.Kind == "loop" ? (s.Group == "Bass" ? "bass loops" : (s.Type == "Drum Loop" || s.Type == "Top Loop" ? "drum loops" : (s.Type == "Drum Fill" ? "fills" : (s.Type.EndsWith(" Loop") && (s.Instrument == "Kick" || s.Instrument == "Snare" || s.Instrument == "Hi-Hat" || s.Instrument == "Percussion") ? "kit loops" : "music loops")))) : (s.Type == "808" ? "808s" : (s.Group == "Drums" ? "drum hits" : (s.Group == "Bass" ? "bass shots" : (s.Group == "FX" ? "FX" : "one-shots")))));
         foreach (var s in inst ? ip.Items : LibraryBaker.Plan(rec)) { string k = kind(s); int c; n.TryGetValue(k, out c); n[k] = c + 1; }
-        var order = new[] { "drum loops", "bass loops", "808s", "drum hits", "kit loops", "fills", "music loops", "bass shots", "one-shots", "FX", "MIDI", "Bass Lab presets" }; var parts = new List<string>(); int total = 0;
+        var order = new[] { "drum loops", "bass loops", "808s", "drum hits", "kit loops", "fills", "music loops", "bass shots", "one-shots", "FX", "MIDI", "Wobble presets", "Bass Lab presets" }; var parts = new List<string>(); int total = 0;
         foreach (var k in order) { int c; if (n.TryGetValue(k, out c) && c > 0) { parts.Add(c + " " + k); total += c; } }
         v = (inst ? "" : "Installs ") + total + " sounds: " + string.Join(", ", parts.Take(4).ToArray()) + (parts.Count > 4 ? " and more" : ""); packContents[key] = v; return v;
     }

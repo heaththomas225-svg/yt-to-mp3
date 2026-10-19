@@ -98,10 +98,10 @@ static class InstantLib
         switch (c)
         {
             case "d": case "t": case "dk": case "ds": case "dh": case "dp": case "df": return "drum machine: the pack's synthesised kit playing a varied pattern of its genre (swing, feel and fills set per loop)";
-            case "b": return "bass synthesis (Bass Lab engine): a " + s.Tags.Split(',')[0] + " patch playing a bassline in the genre's rhythm";
+            case "b": { string fl0 = FlavourOf(s); if (BassDesign.UsesEngine(fl0)) return "bass synthesis (Purphex Wobble engine): a " + BassDesign.Title(fl0) + " patch, sub and mid layers, its filter swept by a tempo-synced LFO, playing a bassline written for it"; return "bass synthesis (Bass Lab engine): a " + fl0 + " patch playing a bassline in the genre's rhythm"; }
             case "l8": return "808 synthesis (sine with drive, click and pitch slides) playing a sub line in the genre's rhythm";
             case "o8": return "808 synthesis: sine body, drive, click and pitch envelope";
-            case "ob": return "bass synthesis (Bass Lab engine): one note of a bass patch";
+            case "ob": return BassDesign.UsesEngine(FlavourOf(s)) ? "bass synthesis (Purphex Wobble engine): one note with its tempo-synced LFO" : "bass synthesis (Bass Lab engine): one note of a bass patch";
             case "c": case "m": case "a": case "on": case "och": return "instrument model (" + s.Instrument + "): additive, FM, plucked-string or modal synthesis playing generated notes";
             case "v": case "ov": return "formant voice synthesis (no recorded voice)";
             case "of": return "noise and tone synthesis with filter sweeps (risers, impacts, sweeps)";
@@ -138,7 +138,12 @@ static class InstantLib
         if (drums) for (int i = 0; i < 16; i++) mk("df", i, "Drum Fill " + N3(i), "fill-" + N3(i) + ".wav", Bpm(rec, i), "", 4, "fill,drum fill,drums,transition,loop");
         if (s808) for (int i = 0; i < 24; i++) mk("l8", i, (rec.Drums == "drill" || i % 2 == 1 ? "Sliding 808 Loop " : "808 Loop ") + N3(i), "808loop-" + N3(i) + ".wav", Bpm(rec, i), KeyOf(rec, i), 8, "808 loop,808,sub,bass,loop" + (rec.Drums == "drill" || i % 2 == 1 ? ",slide,sliding" : ""));
         if (drums && loops) for (int i = 0; i < 24; i++) mk("t", i, "Top Loop " + N3(i), "top-" + N3(i) + ".wav", Bpm(rec, i + 1), "", 8, "top loop,hats,percussion,loop");
-        if (bass) for (int i = 0; i < BassPer * per; i++) { int nf = rec.Flavours.Length; string fl = rec.Flavours[i % nf]; mk("b", i, Cap(fl) + " Bass Loop " + N3(i), "bass-" + N3(i) + ".wav", Bpm(rec, i / 2), KeyOf(rec, i / nf), 8, fl + ",bass loop,bass,loop"); }
+        if (bass) for (int i = 0; i < BassPer * per; i++)
+        {
+            int nf = rec.Flavours.Length; string fl = rec.Flavours[i % nf]; string ef = BassDesign.FlavourFor(rec, fl);
+            if (BassDesign.UsesEngine(ef)) { var wp = LoopPatch(rec, i, ef); string rw = BassDesign.RateWords(wp.Rates); var s = mk("b", i, BassDesign.Title(ef) + " Bass Loop " + N3(i) + " (" + rw + ")", "bass-" + N3(i) + ".wav", Bpm(rec, i / 2), KeyOf(rec, i / nf), 8, ef + "," + BassDesign.Title(ef).ToLowerInvariant() + ",wobble,lfo," + rw + ",bass loop,bass,loop"); }
+            else mk("b", i, Cap(fl) + " Bass Loop " + N3(i), "bass-" + N3(i) + ".wav", Bpm(rec, i / 2), KeyOf(rec, i / nf), 8, fl + ",bass loop,bass,loop");
+        }
         if (music)
         {
             for (int i = 0; i < 32; i++) { var ins = chordPal[i % chordPal.Count]; inst(mk("c", i, ins.Name + " Chords " + N3(i), "chords-" + N3(i) + ".wav", Bpm(rec, i), KeyOf(rec, i + 1), 16, "chords,chord loop,loop," + ins.Name.ToLowerInvariant() + "," + ins.Group.ToLowerInvariant()), ins); }
@@ -158,7 +163,12 @@ static class InstantLib
             for (int i = 0; i < 4; i++) { var s = mk("oy", i, (i % 2 == 0 ? "Ride " : "Crash ") + (i / 2 + 1).ToString("00"), "cymbal-" + N3(i) + ".wav", 0, "", 0, (i % 2 == 0 ? "ride" : "crash") + ",cymbal,drums,one-shot"); s.Type = i % 2 == 0 ? "Ride" : "Cymbal"; }
         }
         if (s808) for (int i = 0; i < 12; i++) mk("o8", i, "808 " + Eight08Names[i], "808-" + N3(i) + ".wav", 0, KeyOf(rec, 0), 0, "808,sub,bass,one-shot," + Eight08Names[i].ToLowerInvariant());   // twelve different 808s (sound, length, drive, slide), all tuned to the pack's key: play them at any pitch in a sampler
-        if (bass) for (int i = 0; i < 12; i++) { string fl = rec.Flavours[i % rec.Flavours.Length]; var s = mk("ob", i, Cap(fl) + (i >= 6 ? " Bass Short " : " Bass ") + (i + 1).ToString("00"), "bassshot-" + N3(i) + ".wav", 0, KeyOf(rec, 0), 0, fl + ",bass,one-shot"); s.Type = PackBuilder.BassType(fl); }
+        if (bass) for (int i = 0; i < 12; i++)
+        {
+            string fl = rec.Flavours[i % rec.Flavours.Length]; string ef = BassDesign.FlavourFor(rec, fl);
+            if (BassDesign.UsesEngine(ef)) { var wp = ShotPatch(rec, i, ef); string rw = BassDesign.RateWords(wp.Rates); var s = mk("ob", i, BassDesign.Title(ef) + (i >= 6 ? " Bass Short " : " Bass ") + (i + 1).ToString("00") + " (" + rw + " at " + Bpm(rec, 0).ToString("0") + " BPM)", "bassshot-" + N3(i) + ".wav", 0, KeyOf(rec, 0), 0, ef + "," + BassDesign.Title(ef).ToLowerInvariant() + ",wobble,lfo," + rw + ",bass,one-shot"); s.Type = BassDesign.TypeOf(ef); }
+            else { var s = mk("ob", i, Cap(fl) + (i >= 6 ? " Bass Short " : " Bass ") + (i + 1).ToString("00"), "bassshot-" + N3(i) + ".wav", 0, KeyOf(rec, 0), 0, fl + ",bass,one-shot"); s.Type = PackBuilder.BassType(fl); }
+        }
         if (music)
         {
             for (int i = 0; i < Math.Min(16, pal.Count); i++) { var ins = pal[i]; inst(mk("on", i, ins.Name + " Note " + (i + 1).ToString("00"), "note-" + N3(i) + ".wav", 0, KeyOf(rec, 0), 0, "note,one-shot,instrument," + ins.Name.ToLowerInvariant() + "," + ins.Group.ToLowerInvariant()), ins); }
@@ -220,7 +230,7 @@ static class InstantLib
         switch (code)
         {
             case "d": return RenderDrum(rec, i, bpm);
-            case "t": { var st = PackBuilder.StyleFor(rec); var lp = DrumKit.Render(Kit(rec, i % 6), st, Vary(st.Pat, new Rnd(rec.Seed * 3 + i * 71), i % 2 == 0 ? 1 : 6), bpm, 2, st.Swing, rec.Seed + 700 + i, false); var top = new Buf(lp.Hats.Length); top.Add(lp.Hats, 0, 1f); top.Add(lp.Perc, 0, 0.9f); return top; }
+            case "t": { var st = PackBuilder.StyleFor(rec); var lp = DrumKit.Render(Kit(rec, i % 6), st, VaryS(st.Pattern, Grooves.Get(st.Pattern, i / 2 + rec.Seed % 5), new Rnd(rec.Seed * 3 + i * 71), i % 2 == 0 ? 1 : 6), bpm, 2, st.Swing, rec.Seed + 700 + i, false); var top = new Buf(lp.Hats.Length); top.Add(lp.Hats, 0, 1f); top.Add(lp.Perc, 0, 0.9f); return top; }
             case "b": return RenderBass(rec, i, bpm, s.Key);
             case "c": { var ins = InstOf(s); int oct = ins.Low > 50 ? 4 : 3; bool stab = (ins.Group == "Keys" && i % 3 == 2) || (ins.Group == "Guitar" && i % 2 == 1); var notes = Music.Chords(r, 4, pc, minor, oct, stab ? "stab" : "pad"); return PackBuilder.LoopLen(Instruments.RenderPart(ins, notes, bpm, 16, 2.0), 16, bpm); }
             case "m": { var ins = InstOf(s); int oct = ins.Name == "Log Drum" ? 2 : (ins.High < 90 ? 4 : 5); var notes = Music.Melody(r, 4, pc, minor, oct); return PackBuilder.LoopLen(Instruments.RenderPart(ins, notes, bpm, 16, 2.0), 16, bpm); }
@@ -240,11 +250,11 @@ static class InstantLib
             case "oy": return Kit(rec, i / 2).Rides[i % 2];
             case "dk": case "ds": case "dh": case "dp":
             {
-                var st = PackBuilder.StyleFor(rec); var r2 = new Rnd(rec.Seed * 5 + i * 151 + CodeSeed(code)); var pat = Vary(st.Pat, r2, code == "dp" ? 6 : (i * 3 + 1) % 8); int bars = StemBars(i);
+                var st = PackBuilder.StyleFor(rec); var r2 = new Rnd(rec.Seed * 5 + i * 151 + CodeSeed(code)); var pat = VaryS(st.Pattern, Grooves.Get(st.Pattern, i + rec.Seed % 5), r2, code == "dp" ? 6 : (i * 3 + 1) % 8); int bars = StemBars(i);
                 var lp = DrumKit.Render(Kit(rec, i % 6), st, pat, bpm, bars, st.Swing + (r2.Next() - 0.5) * 0.02, rec.Seed + 1300 + i * 17, false);
                 var stem = code == "dk" ? lp.Kick : code == "ds" ? lp.Snare : code == "dh" ? lp.Hats : lp.Perc; return PackBuilder.LoopLen(stem, bars * 4, bpm);
             }
-            case "df": { var st = PackBuilder.StyleFor(rec); var r2 = new Rnd(rec.Seed * 9 + i * 173 + 3); var lp = DrumKit.Render(Kit(rec, i % 6), st, Vary(st.Pat, r2, 3), bpm, 1, st.Swing, rec.Seed + 1700 + i * 19, true); return PackBuilder.LoopLen(lp.Mix, 4, bpm); }
+            case "df": { var st = PackBuilder.StyleFor(rec); var r2 = new Rnd(rec.Seed * 9 + i * 173 + 3); var lp = DrumKit.Render(Kit(rec, i % 6), st, VaryS(st.Pattern, Grooves.Get(st.Pattern, i + rec.Seed % 5), r2, 3), bpm, 1, st.Swing, rec.Seed + 1700 + i * 19, true); return PackBuilder.LoopLen(lp.Mix, 4, bpm); }
             case "l8":
             {
                 bool slide = rec.Drums == "drill" || i % 2 == 1; var line = Music.Sub808Line(r, 2, 24 + pc, slide); double spb = 60.0 / bpm * SoundGen.SR; var buf = new Buf((int)(8 * spb) + SoundGen.SR);
@@ -254,25 +264,31 @@ static class InstantLib
             }
             case "o8":
             {
-                int m0 = 24 + pc;
+                int m0 = 24 + pc; var pv = new Rnd(rec.Seed * 41 + 7); double dM = 0.8 + pv.Next() * 0.45, drA = pv.Next() * 0.35, ckM = 0.6 + pv.Next() * 0.9;   // each pack its own 808s (length, drive, click): two packs in one key never share an 808
+                Func<Buf, Buf> keep = x => x; double[] P8 = { dM, drA, ckM };
                 switch (i)
                 {
-                    case 0: return SoundGen.Eight08(r, m0, 0.9, 1.0, 0.06, 0, 2.0);
-                    case 1: return SoundGen.Eight08(r, m0, 2.8, 1.03, 0.06, 0, 3.8);
-                    case 2: return SoundGen.Eight08(r, m0, 0.3, 1.25, 0.5, 2, 0.8);
-                    case 3: return SoundGen.Eight08(r, m0, 1.2, 2.4, 0.2, 2, 2.2);
-                    case 4: return SoundGen.Eight08(r, m0, 0.7, 1.6, 0.12, 1, 1.4);
-                    case 5: return SoundGen.Eight08(r, m0, 0.5, 2.0, 0.6, 5, 1.2);
-                    case 6: return SoundGen.Eight08(r, m0 + 7, 1.4, 1.15, 0.12, 0, 2.2, m0, 0.2);
-                    case 7: return SoundGen.Eight08(r, m0, 1.4, 1.12, 0.1, 0, 2.2, m0 + 5, 0.25);
-                    case 8: return SoundGen.Eight08(r, m0, 0.5, 1.4, 0.95, 12, 1.1);
-                    case 9: return SoundGen.Eight08(r, m0, 0.18, 1.15, 0.3, 1, 0.55);
-                    case 10: return SoundGen.Eight08(r, m0 + 12, 1.1, 1.05, 0.08, 0, 2.0);
-                    default: return SoundGen.Eight08(r, m0 + 12, 0.8, 1.7, 0.3, 2, 1.6);
+                    case 0: return SoundGen.Eight08(r, m0, 0.9 * dM, 1.0 + drA, 0.06 * ckM, 0, 2.0);
+                    case 1: return SoundGen.Eight08(r, m0, 2.8 * dM, 1.03 + drA, 0.06 * ckM, 0, 3.8);
+                    case 2: return SoundGen.Eight08(r, m0, 0.3 * dM, 1.25 + drA, 0.5 * ckM, 2, 0.8);
+                    case 3: return SoundGen.Eight08(r, m0, 1.2 * dM, 2.4 + drA, 0.2 * ckM, 2, 2.2);
+                    case 4: return SoundGen.Eight08(r, m0, 0.7 * dM, 1.6 + drA, 0.12 * ckM, 1, 1.4);
+                    case 5: return SoundGen.Eight08(r, m0, 0.5 * dM, 2.0 + drA, 0.6 * ckM, 5, 1.2);
+                    case 6: return SoundGen.Eight08(r, m0 + 7, 1.4 * dM, 1.15 + drA, 0.12 * ckM, 0, 2.2, m0, 0.2);
+                    case 7: return SoundGen.Eight08(r, m0, 1.4 * dM, 1.12 + drA, 0.1 * ckM, 0, 2.2, m0 + 5, 0.25);
+                    case 8: return SoundGen.Eight08(r, m0, 0.5 * dM, 1.4 + drA, 0.95 * ckM, 12, 1.1);
+                    case 9: return SoundGen.Eight08(r, m0, 0.18 * dM, 1.15 + drA, 0.3 * ckM, 1, 0.55);
+                    case 10: return SoundGen.Eight08(r, m0 + 12, 1.1 * dM, 1.05 + drA, 0.08 * ckM, 0, 2.0);
+                    default: return SoundGen.Eight08(r, m0 + 12, 0.8 * dM, 1.7 + drA, 0.3 * ckM, 2, 1.6);
                 }
             }
             case "o8old": { bool longOne = rec.Drums == "drill" || rec.Drums == "trap" || rec.Drums == "phonk" || rec.Tags.Contains("drill"); double dec = (longOne ? 1.0 : 0.5) + (i % 3) * 0.3; return SoundGen.Eight08(r, 24 + i, dec, 1.1 + (i % 2) * 0.15, 0.2, i % 4 == 3 ? 4 : 2, 0.9 + dec * 1.3); }
-            case "ob": { string fl = rec.Flavours[i % rec.Flavours.Length]; int p = 36 + pc; bool shortOne = i >= 6; var notes = new List<double[]> { new double[] { 0, shortOne ? 0.45 : 2.6, p, shortOne ? 115 : 105 } }; return SoundGen.RenderSynth(Music.BassPatch(fl, r), notes, 120, shortOne ? 1.5 : 3, 0.45); }
+            case "ob":
+            {
+                string fl = rec.Flavours[i % rec.Flavours.Length]; string ef = BassDesign.FlavourFor(rec, fl); int p = 36 + pc; bool shortOne = i >= 6;
+                if (BassDesign.UsesEngine(ef)) { double b0 = Bpm(rec, 0); var wn = new List<double[]> { new double[] { 0, shortOne ? 0.9 : 3.8, p, shortOne ? 115 : 105 } }; return WobbleEngine.Render(ShotPatch(rec, i, ef), wn, b0, shortOne ? 1 : 4, 0.45); }   // (at the pack's tempo: the wobble is in time with its loops)
+                var notes = new List<double[]> { new double[] { 0, shortOne ? 0.45 : 2.6, p, shortOne ? 115 : 105 } }; return SoundGen.RenderSynth(Music.BassPatch(fl, r), notes, 120, shortOne ? 1.5 : 3, 0.45);
+            }
             case "on": { var ins = InstOf(s); int baseOct = ins.Name == "Log Drum" ? 2 : (ins.High < 90 ? 3 : 4); int v = rec.Seed & 0xFFFF; int midi = 12 * (baseOct + 1) + pc + ((v >> 3) % 2 == 1 && ins.High >= 90 ? 12 : 0); double len = 0.8 + (v % 6) * 0.3; return Instruments.RenderPart(ins, new List<double[]> { new double[] { 0, len, midi, 78 + (v >> 5) % 42 } }, 120, Math.Max(3, len + 2), 1.5); }
             case "och": { var ins = InstOf(s); int oct = ins.Low > 50 ? 4 : 3; var ch = new List<double[]>(); int v = rec.Seed & 0xFFFF, inv = (v >> 2) % 3, k = 0; var ivs = ChordIv[i % ChordIv.Length]; foreach (int iv in ivs) { int up = k++ < inv ? 12 : 0; ch.Add(new double[] { 0, 1.5 + (v % 5) * 0.4, 12 * (oct + 1) + pc + iv + up, 80 + (v >> 4) % 36 }); } return Instruments.RenderPart(ins, ch, 120, 6, 1.5); }   // (each pack voices its chords in its own inversion, length and touch)
             case "of":
@@ -304,11 +320,16 @@ static class InstantLib
         {
             case "md":
             {
-                var p = Vary(PackBuilder.StyleFor(rec).Pat, r, i % 8); var nt = new List<double[]>(); int steps = 16 * 4;
-                for (int st = 0; st < steps; st++) { int pi = st % (16 * p.Bars); Action<string, int, double> add = (s2, note, vel) => { if (pi < s2.Length && s2[pi] != '.') nt.Add(new[] { st * 0.25, 0.2, (double)note, s2[pi] == 't' ? vel * 0.8 : vel }); }; add(p.K, 36, 110); add(p.S, 38, 105); add(p.C, 39, 100); add(p.H, 42, 80); add(p.O, 46, 85); add(p.G, 38, 40); add(p.P, 37, 70); }
+                var p = Vary(Grooves.Get(PackBuilder.StyleFor(rec).Pattern, i / 8 + rec.Seed % 5), r, i % 8); var nt = new List<double[]>(); int steps = 16 * 4;
+                for (int st = 0; st < steps; st++) { int pi = st % (16 * p.Bars); Action<string, int, double> add = (s2, note, vel) => { if (pi < s2.Length && s2[pi] != '.') nt.Add(new[] { st * 0.25, 0.2, (double)note, s2[pi] == 't' ? vel * 0.8 : vel }); }; add(p.K, 36, 110); add(p.S, 38, 105); add(p.C, 39, 100); add(p.H, 42, 80); add(p.O, 46, 85); add(p.G, 38, 40); for (int k9 = 0; k9 < 1; k9++) { if (pi < p.P.Length && p.P[pi] != '.') { int pidx = Grooves.PercIndex(p.P[pi], PackBuilder.StyleFor(rec).Pattern); nt.Add(new[] { st * 0.25, 0.2, (double)new[] { 45, 47, 70, 37, 63, 56 }[pidx], 70 }); } } }   /* percussion: GM low tom, mid tom, maracas, side stick, conga, cowbell */
                 return nt;
             }
-            case "mb": { bool slide = rec.Drums == "drill" || rec.Drums == "trap"; if (slide && i % 2 == 1) { var line = Music.Sub808Line(r, 4, 24 + pc, rec.Drums == "drill"); var nt = new List<double[]>(); foreach (var n in line) nt.Add(new[] { n[0], n[1], n[2], n[3] }); return nt; } return Music.BassLine(r, Music.RhythmFor(rec.Drums), 4, 36 + pc, minor); }
+            case "mb":
+            {
+                bool slide = rec.Drums == "drill" || rec.Drums == "trap"; if (slide && i % 2 == 1) { var line = Music.Sub808Line(r, 4, 24 + pc, rec.Drums == "drill"); var nt = new List<double[]>(); foreach (var n in line) nt.Add(new[] { n[0], n[1], n[2], n[3] }); return nt; }
+                string ef = BassDesign.FlavourFor(rec, rec.Flavours[i % rec.Flavours.Length]); if (BassDesign.UsesEngine(ef)) return BassDesign.Phrase(r, BassDesign.StyleOf(ef), 4, 36 + pc, minor, SwingOf(rec));
+                return BassDesign.Swung(Music.BassLine(r, Music.RhythmFor(rec.Drums), 4, 36 + pc, minor), SwingOf(rec));
+            }
             case "mc": return Music.Chords(r, 4, pc, minor, 3, i % 3 == 2 ? "stab" : "pad");
             default: return Music.Melody(r, 4, pc, minor, i % 2 == 0 ? 5 : 4);
         }
@@ -322,7 +343,7 @@ static class InstantLib
         double end = 0; foreach (var n in notes) end = Math.Max(end, n[0] + n[1]); end = Math.Max(4, Math.Ceiling(end / 4) * 4);
         var rec = SoundCatalog.Find(s.PackId) ?? SoundCatalog.Recipes[0]; string ty = (s.Type + " " + s.Name).ToLowerInvariant(); Buf b;
         if (ty.Contains("drum")) b = Instruments.RenderDrums(Kit(rec, 0), notes, bpm, end);
-        else if (ty.Contains("bass") || ty.Contains("808")) { string fl = rec.Flavours != null && rec.Flavours.Length > 0 && rec.Flavours[0].Length > 0 ? rec.Flavours[0] : "sub"; b = SoundGen.RenderSynth(Music.BassPatch(fl, new Rnd(rec.Seed)), notes, bpm, end, 0.5); }
+        else if (ty.Contains("bass") || ty.Contains("808")) { string fl = rec.Flavours != null && rec.Flavours.Length > 0 && rec.Flavours[0].Length > 0 ? rec.Flavours[0] : "sub"; string ef = BassDesign.FlavourFor(rec, fl); b = BassDesign.UsesEngine(ef) && !ty.Contains("808") ? WobbleEngine.Render(LoopPatch(rec, 0, ef), notes, bpm, end, 0.5) : SoundGen.RenderSynth(Music.BassPatch(fl, new Rnd(rec.Seed)), notes, bpm, end, 0.5); }
         else { var pal = Instruments.Palette(rec); bool chords = ty.Contains("chord"); var ins = pal.Find(x => chords ? x.Chords : x.Melody) ?? Instruments.Get("Grand Piano"); b = Instruments.RenderPart(ins, notes, bpm, end, 1.5); }
         return PackWriter.Finish(b, "Melody Loop", "loop", -2.0);
     }
@@ -330,13 +351,15 @@ static class InstantLib
     public static Buf RenderDrum(Recipe rec, int i, double bpm)
     {
         var st = PackBuilder.StyleFor(rec); var kit = Kit(rec, i % 6);
-        var r = new Rnd(rec.Seed * 7 + i * 131 + 5); var pat = Vary(st.Pat, r, i % 8); double sw = st.Swing + (r.Next() - 0.5) * 0.03;
+        var r = new Rnd(rec.Seed * 7 + i * 131 + 5); var pat = VaryS(st.Pattern, Grooves.Get(st.Pattern, i / 8 + rec.Seed % 5), r, i % 8); double sw = st.Swing + (r.Next() - 0.5) * 0.03;
         var lp = DrumKit.Render(kit, st, pat, bpm, Bars(i), sw, rec.Seed + 900 + i * 13, i % 8 == 3);
         return lp.Mix;
     }
     public static Buf RenderDrum(Recipe rec, int i) { return RenderDrum(rec, i, Bpm(rec, i)); }
     // a groove from the pack's own pattern: the backbeat stays, the kicks, hats, ghosts and percussion move, and bar two answers bar one
-    public static Pat Vary(Pat p, Rnd r, int feel)
+    public static Pat Vary(Pat p, Rnd r, int feel) { return Vary(p, r, feel, ""); }
+    static Pat VaryS(string style, Pat p, Rnd r, int feel) { return Vary(p, r, feel, style); }
+    public static Pat Vary(Pat p, Rnd r, int feel, string style)
     {
         int n = 16 * p.Bars; Func<string, string> norm = s => { s = s ?? ""; if (s.Length == 0) return ""; var sb = new StringBuilder(); for (int k = 0; k < n; k++) sb.Append(s[k % s.Length]); return sb.ToString(); };
         var o = new Pat { K = norm(p.K), S = norm(p.S), C = norm(p.C), H = norm(p.H), O = norm(p.O), P = norm(p.P), G = norm(p.G), Bars = p.Bars };
@@ -344,14 +367,13 @@ static class InstantLib
         Func<int, bool> backbeat = k => at(o.S, k) != '.' || at(o.C, k) != '.';
         var K = (o.K.Length == 0 ? new string('.', n) : o.K).ToCharArray(); var H = (o.H.Length == 0 ? new string('.', n) : o.H).ToCharArray(); var O = (o.O.Length == 0 ? new string('.', n) : o.O).ToCharArray(); var G = (o.G.Length == 0 ? new string('.', n) : o.G).ToCharArray(); var P = (o.P.Length == 0 ? new string('.', n) : o.P).ToCharArray();
         bool fourFloor = o.K.StartsWith("x...x...x...x..."); bool hasRoll = o.H.IndexOf('t') >= 0;
-        int moves = 1 + r.Int(2); for (int m = 0; m < moves; m++) { int k = r.Int(n); if (k % 4 == 0 && fourFloor) continue; if (backbeat(k)) continue; if (K[k] == '.') K[k] = 'x'; else if (k % 8 != 0 && !fourFloor) K[k] = '.'; }
-        if (feel == 1) { for (int k = 0; k < n; k++) if (H[k] == '.' && r.Next() < 0.5f) H[k] = 'x'; }
-        else if (feel == 2) { for (int k = 0; k < n; k++) if (H[k] != '.' && k % 4 != 0 && r.Next() < 0.45f) H[k] = '.'; for (int k = 0; k < n; k++) if (P[k] != '.' && r.Next() < 0.5f) P[k] = '.'; }
-        else if (feel == 5) { int rolls = 1 + r.Int(3); for (int m = 0; m < rolls; m++) { int k = r.Int(n); if (!hasRoll && r.Next() < 0.5f) k = k - k % 2 + 1; H[k % n] = 't'; } }
-        else if (feel == 6) { for (int k = 0; k < n; k++) if (P[k] == '.' && !backbeat(k) && r.Next() < 0.28f) P[k] = 'x'; }
-        else if (feel == 7) { for (int k = 0; k < n; k++) if (G[k] == '.' && !backbeat(k) && K[k] == '.' && r.Next() < 0.22f) G[k] = 'g'; }
-        else { for (int k = 0; k < n; k++) if (r.Next() < 0.08f && k % 4 != 0) H[k] = H[k] == '.' ? 'x' : '.'; }
-        if (r.Next() < 0.5f) { for (int k = 0; k < n; k++) if (O[k] != '.' && r.Next() < 0.5f) O[k] = '.'; int k2 = (r.Int(n / 2) * 2 + 2) % n; if (!backbeat(k2)) O[k2] = 'x'; }
+        bool hatsOn8 = true; for (int k = 1; k < n; k += 2) if (H[k] != '.') hatsOn8 = false; bool perc = P.Length > 0 && Array.IndexOf(P, 'x') + Array.IndexOf(P, 's') + Array.IndexOf(P, 'r') + Array.IndexOf(P, 'c') + Array.IndexOf(P, 'b') > -5;
+        if (feel == 1) { if (hatsOn8) for (int k = 1; k < n; k += 2) if (k % 4 == 3) H[k] = 'x'; }   // busy hats: the off 16ths after each beat's offbeat (a written shuffle, not random)
+        else if (feel == 2) { for (int k = 0; k < n; k++) if (H[k] != '.' && k % 4 != 0 && k % 4 != 2) H[k] = '.'; for (int k = 0; k < n; k++) if (k % 8 != 2) P[k] = '.'; O = new string('.', n).ToCharArray(); }   // sparse: hats on the 8ths only, little percussion
+        else if (feel == 5) { if (hasRoll) { int k = r.Next() < 0.5f ? 13 : 5; if (k < n && H[k] != '.') H[k] = 't'; } else if (n >= 16) { H[14] = 'x'; H[15] = 'x'; } }   // rolls only where the style rolls (trap, drill...)
+        else if (feel == 6) { if (!perc) { char pc0 = Grooves.HasPerc(style) ? 'x' : '.'; if (pc0 != '.') for (int k = 2; k < n; k += 4) P[k] = pc0; } }   // percussion: the style's own sound on the offbeats (never in trap or drill)
+        else if (feel == 7) { int[] spots = { 7, 15, 3, 11 }; int done = 0; foreach (int k in spots) { if (done >= 2 || k >= n) continue; if (G[k] == '.' && !backbeat(k) && K[k] == '.') { G[k] = 'g'; done++; } } }   // ghost snares in the gaps
+        else if (feel == 0) { }   // the groove as written
         o.K = new string(K); o.H = new string(H); o.O = new string(O); o.G = new string(G); o.P = new string(P);
         if (o.Bars == 1)
         {
@@ -364,9 +386,25 @@ static class InstantLib
     public static Buf RenderBass(Recipe rec, int i, double bpm, string key)
     {
         int nf = rec.Flavours.Length; string fl = rec.Flavours[i % nf]; if (string.IsNullOrEmpty(key)) key = rec.Keys[(i / nf) % rec.Keys.Length];
-        var r = new Rnd(rec.Seed * 13 + i * 197 + 3); int root = 36 + Music.Root(key); bool minor = Music.IsMinor(key);
-        var notes = Music.BassLine(r, Music.RhythmFor(rec.Drums), 2, root, minor); var patch = Music.BassPatch(fl, r);
+        var r = new Rnd(rec.Seed * 13 + i * 197 + 3); int root = 36 + Music.Root(key); bool minor = Music.IsMinor(key); string ef = BassDesign.FlavourFor(rec, fl); double sw = SwingOf(rec);
+        if (BassDesign.UsesEngine(ef))   // the wobble engine: a patch of this flavour (this pack's own numbers) playing a phrase written for it
+        {
+            var ph = BassDesign.Phrase(r, BassDesign.StyleOf(ef), 2, root, minor, sw);
+            return PackBuilder.LoopLen(WobbleEngine.Render(LoopPatch(rec, i, ef), ph, bpm, 8, 0.3), 8, bpm);
+        }
+        var notes = BassDesign.Swung(Music.BassLine(r, Music.RhythmFor(rec.Drums), 2, root, minor), sw); var patch = Music.BassPatch(fl, r);
         return PackBuilder.LoopLen(SoundGen.RenderSynth(patch, notes, bpm, 8, 0.3), 8, bpm);
     }
+    // the patch of bass loop i (and one-shot i) of a pack: the same in its name and its sound
+    // the bass flavour a sound really plays (a bass loop or bass one-shot; "" for anything else)
+    public static string FlavourOf(SoundItem s)
+    {
+        if (s == null || string.IsNullOrEmpty(s.Spec)) return ""; var f = s.Spec.Split('|'); if (f.Length < 3 || (f[0] != "b" && f[0] != "ob")) return ""; var rec = SoundCatalog.Find(f[1]); int i; if (rec == null || rec.Flavours == null || rec.Flavours.Length == 0 || !int.TryParse(f[2], out i)) return "";
+        return BassDesign.FlavourFor(rec, rec.Flavours[i % rec.Flavours.Length]);
+    }
+    internal static WobblePatch LoopPatch(Recipe rec, int i, string ef) { return BassDesign.Patch(ef, new Rnd(rec.Seed * 31 + i * 101 + 17)); }
+    internal static WobblePatch ShotPatch(Recipe rec, int i, string ef) { return BassDesign.Patch(ef, new Rnd(rec.Seed * 37 + i * 13 + 5)); }
+    // the swing of a pack's bass lines (the same as its drums: UK garage and bassline swing, the rest are straight)
+    internal static double SwingOf(Recipe rec) { string d = rec.Drums ?? ""; return d.StartsWith("ukg") || d.StartsWith("bassline") ? PackBuilder.StyleFor(rec).Swing : 0.5; }
     public static Buf RenderBass(Recipe rec, int i) { return RenderBass(rec, i, Bpm(rec, i / 2), ""); }
 }
