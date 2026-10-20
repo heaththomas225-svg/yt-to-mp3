@@ -73,7 +73,8 @@ namespace System.Drawing
     public sealed class FontFamily : IDisposable
     {
         public string Name { get; } internal readonly SKTypeface Face;
-        public FontFamily(string name) { Name = name; Face = SKTypeface.FromFamilyName(name) ?? SKTypeface.Default; }
+        internal readonly bool ByName;   // made from a name (not a font file): bold / italic and missing Windows fonts go through FontFallback
+        public FontFamily(string name) { Name = name; ByName = true; Face = FontFallback.Resolve(name, false, false); }
         internal FontFamily(string name, SKTypeface face) { Name = name; Face = face ?? SKTypeface.Default; }
         public static FontFamily GenericSansSerif { get { return new FontFamily("Arial"); } }
         public static FontFamily GenericMonospace { get { return new FontFamily("Courier New"); } }
@@ -91,7 +92,7 @@ namespace System.Drawing
         public Font(FontFamily family, float size, FontStyle style = FontStyle.Regular, GraphicsUnit unit = GraphicsUnit.Point)
         {
             FontFamily = family; Size = size; Style = style; Unit = unit;
-            var face = family.Face; if ((style & (FontStyle.Bold | FontStyle.Italic)) != 0) { var w = (style & FontStyle.Bold) != 0 ? SKFontStyleWeight.Bold : SKFontStyleWeight.Normal; var sl = (style & FontStyle.Italic) != 0 ? SKFontStyleSlant.Italic : SKFontStyleSlant.Upright; var f2 = SKFontManager.Default.MatchFamily(family.Name, new SKFontStyle(w, SKFontStyleWidth.Normal, sl)); if (f2 != null && string.Equals(f2.FamilyName, face.FamilyName, StringComparison.OrdinalIgnoreCase)) face = f2; }
+            var face = family.Face; if (family.ByName) face = FontFallback.Resolve(family.Name, (style & FontStyle.Bold) != 0, (style & FontStyle.Italic) != 0); else if ((style & (FontStyle.Bold | FontStyle.Italic)) != 0) { var w = (style & FontStyle.Bold) != 0 ? SKFontStyleWeight.Bold : SKFontStyleWeight.Normal; var sl = (style & FontStyle.Italic) != 0 ? SKFontStyleSlant.Italic : SKFontStyleSlant.Upright; var f2 = SKFontManager.Default.MatchFamily(family.Name, new SKFontStyle(w, SKFontStyleWidth.Normal, sl)); if (f2 != null && string.Equals(f2.FamilyName, face.FamilyName, StringComparison.OrdinalIgnoreCase)) face = f2; }
             Sk_ = new SKFont(face, SizeInPoints * 96f / 72f) { Subpixel = true, Edging = SKFontEdging.SubpixelAntialias };
             if ((style & FontStyle.Bold) != 0 && !face.IsBold) Sk_.Embolden = true;
         }

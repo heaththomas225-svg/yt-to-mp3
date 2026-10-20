@@ -145,6 +145,11 @@ namespace System.Windows.Forms
             if (up) return; up = true;
             var life = new ClassicDesktopStyleApplicationLifetime { ShutdownMode = Avalonia.Controls.ShutdownMode.OnMainWindowClose }; Life = life;
             AppBuilder.Configure<PurphexAvaloniaApp>().UsePlatformDetect().WithInterFont().LogToTrace().SetupWithLifetime(life);
+            // Inter (shipped with Avalonia) stands in for Segoe UI where Windows fonts are missing
+            foreach (var w in new[] { new { F = "Thin", W = 100 }, new { F = "ExtraLight", W = 200 }, new { F = "Light", W = 300 }, new { F = "Regular", W = 400 }, new { F = "Medium", W = 500 }, new { F = "SemiBold", W = 600 }, new { F = "Bold", W = 700 } })
+            {
+                try { using (var st = Avalonia.Platform.AssetLoader.Open(new Uri("avares://Avalonia.Fonts.Inter/Assets/Inter-" + w.F + ".ttf"))) { var ms = new System.IO.MemoryStream(); st.CopyTo(ms); ms.Position = 0; System.Drawing.FontFallback.Register("Inter", w.W, SkiaSharp.SKTypeface.FromStream(ms)); } } catch { }
+            }
             Dispatcher.UIThread.UnhandledException += (s, e) => { e.Handled = true; if (Control.WinOnly(e.Exception)) Control.NoteWinOnly(e.Exception); else Application.ReportError(e.Exception); };
         }
     }
