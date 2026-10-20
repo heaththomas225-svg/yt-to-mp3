@@ -8,6 +8,7 @@
 **Linux** (64-bit, X11 or Wayland with XWayland)
 1. Download `Purphex-Linux-x64.tar.gz` and unpack it: `tar -xzf Purphex-Linux-x64.tar.gz`
 2. Run `./Purphex/Purphex`, or run `./Purphex/install.sh` to add it to your app menu.
+3. No sound? Install SDL2 from your package manager, for example `sudo apt install libsdl2-2.0-0` (Ubuntu, Debian, Mint) or `sudo dnf install SDL2` (Fedora).
 
 **Not in the beta yet:** the Music Hub and the Video / Photo editors (they need a web view, coming next), VST plugins from other makers, and Split Vocals + Beat (coming soon). The converter needs ffmpeg: Purphex uses the one already on your computer (Homebrew, apt) or downloads it once.
 

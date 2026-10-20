@@ -28,13 +28,13 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
-      - name: Build the core
-        run: dotnet build cross/Purphex.Core/Purphex.Core.csproj -c Release -nologo
+      - name: Build the core and the smoke test
+        run: dotnet build cross/Purphex.Smoke/Purphex.Smoke.csproj -c Release -nologo
       - name: Linux sound and window libraries
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq xvfb libasound2t64 libpulse0 libx11-6 libxext6 libxcursor1 libxi6 libxrandr2 libxss1 libxfixes3 libice6 libsm6 libfontconfig1 libwayland-client0 libdrm2 libgbm1 > /dev/null
+          sudo apt-get install -y -qq xvfb libasound2t64 libpulse0 libx11-6 libxext6 libxcursor1 libxi6 libxrandr2 libxss1 libxfixes3 libice6 libsm6 libfontconfig1 libwayland-client0 libdrm2 libgbm1 libsdl2-2.0-0 > /dev/null
           so=$(find ~/.nuget/packages/ultz.native.sdl -path '*linux-x64*' -name 'libSDL2*.so*' | head -1); echo "SDL: $so"; [ -n "$so" ] && ldd "$so" | grep 'not found' || echo 'SDL: every library it needs is here'
       - name: Smoke test (every plugin, a rendered song, loudness, WAV, live playback)
         run: dotnet run --project cross/Purphex.Smoke/Purphex.Smoke.csproj -c Release -- smoke-out
@@ -72,7 +72,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq xvfb libasound2t64 libpulse0 libx11-6 libxext6 libxcursor1 libxi6 libxrandr2 libxss1 libxfixes3 libice6 libsm6 libfontconfig1 libwayland-client0 libdrm2 libgbm1 > /dev/null
+          sudo apt-get install -y -qq xvfb libasound2t64 libpulse0 libx11-6 libxext6 libxcursor1 libxi6 libxrandr2 libxss1 libxfixes3 libice6 libsm6 libfontconfig1 libwayland-client0 libdrm2 libgbm1 libsdl2-2.0-0 > /dev/null
           so=$(find ~/.nuget/packages/ultz.native.sdl -path '*linux-x64*' -name 'libSDL2*.so*' | head -1); echo "SDL: $so"; [ -n "$so" ] && ldd "$so" | grep 'not found' || echo 'SDL: every library it needs is here'
       - name: Start the app and take a picture of its window (Linux)
         continue-on-error: true   # the packages are still made; the pictures show whether it started
