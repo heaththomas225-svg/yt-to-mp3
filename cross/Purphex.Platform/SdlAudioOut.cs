@@ -15,13 +15,34 @@ static class PlatformAudio
         if (ready) return true;
         try
         {
-            sdl = Sdl.GetApi();
+            sdl = Load();
             if (sdl.Init(Sdl.InitAudio) < 0) { Status = "no sound device: " + sdl.GetErrorS(); return false; }
             ready = true; Status = "SDL audio (" + sdl.GetCurrentAudioDriverS() + ")";
             AudioOut.Factory = (render, level) => new SdlAudioOut(sdl, render, level);
             return true;
         }
         catch (Exception e) { Status = "SDL could not start: " + e.Message; return false; }
+    }
+    // the SDL copy shipped with the app first, then the system's; when none loads, the reason for each is kept (it ends up in Status)
+    static Sdl Load()
+    {
+        try { return Sdl.GetApi(); } catch (Exception first)
+        {
+            var why = new System.Text.StringBuilder(first.Message);
+            string rid = (OperatingSystem.IsMacOS() ? "osx" : OperatingSystem.IsLinux() ? "linux" : "win") + (OperatingSystem.IsMacOS() ? "" : "-" + System.Runtime.InteropServices.RuntimeInformation.OSArchitecture.ToString().ToLowerInvariant());
+            string b = AppContext.BaseDirectory;
+            var names = new System.Collections.Generic.List<string>();
+            foreach (var n in new[] { "libSDL2-2.0.so", "libSDL2-2.0.so.0", "libSDL2.so", "libSDL2-2.0.0.dylib", "libSDL2.dylib", "SDL2.dll" })
+            { names.Add(System.IO.Path.Combine(b, n)); names.Add(System.IO.Path.Combine(b, "runtimes", rid, "native", n)); }
+            names.AddRange(new[] { "libSDL2-2.0.so.0", "libSDL2-2.0.so", "/usr/lib/x86_64-linux-gnu/libSDL2-2.0.so.0", "/usr/lib64/libSDL2-2.0.so.0", "/opt/homebrew/lib/libSDL2-2.0.0.dylib", "/usr/local/lib/libSDL2-2.0.0.dylib" });
+            foreach (var n in names)
+            {
+                if (n.IndexOf('/') >= 0 && !System.IO.File.Exists(n)) continue;
+                try { System.Runtime.InteropServices.NativeLibrary.Free(System.Runtime.InteropServices.NativeLibrary.Load(n)); return new Sdl(new Silk.NET.Core.Contexts.DefaultNativeContext(n)); }
+                catch (Exception e) { why.Append(" | ").Append(n).Append(": ").Append(e.Message); }
+            }
+            throw new Exception(why.ToString());
+        }
     }
 }
 
