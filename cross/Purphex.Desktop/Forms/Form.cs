@@ -150,6 +150,12 @@ namespace System.Windows.Forms
             {
                 try { using (var st = Avalonia.Platform.AssetLoader.Open(new Uri("avares://Avalonia.Fonts.Inter/Assets/Inter-" + w.F + ".ttf"))) { var ms = new System.IO.MemoryStream(); st.CopyTo(ms); ms.Position = 0; System.Drawing.FontFallback.Register("Inter", w.W, SkiaSharp.SKTypeface.FromStream(ms)); } } catch { }
             }
+            if (Environment.GetEnvironmentVariable("PURPHEX_FONTTEST") == "1")   // prints what the Windows font names become here, then quits
+            {
+                foreach (var n in new[] { "Segoe UI", "Segoe UI Semibold", "Segoe UI Black", "Segoe UI Light", "Segoe UI NotHere", "Segoe UI NotHere Semibold", "Consolas", "Bahnschrift", "Bahnschrift SemiBold", "Bahnschrift NotHere SemiBold" })
+                    foreach (var b in new[] { false, true }) { var t = System.Drawing.FontFallback.Resolve(n, b, false); Console.WriteLine(n + (b ? " +bold" : "") + " -> " + t.FamilyName + " " + t.FontStyle.Weight); }
+                Environment.Exit(0);
+            }
             Dispatcher.UIThread.UnhandledException += (s, e) => { e.Handled = true; if (Control.WinOnly(e.Exception)) Control.NoteWinOnly(e.Exception); else Application.ReportError(e.Exception); };
         }
     }

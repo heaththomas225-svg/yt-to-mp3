@@ -20,6 +20,7 @@ namespace System.Drawing
             }
         }
         static readonly string[] Sans = { "Inter", "Helvetica Neue", "Noto Sans", "Liberation Sans", "Arimo", "Arial", "Ubuntu", "Cantarell", "DejaVu Sans" };
+        static readonly string[] Condensed = { "DIN Alternate", "Barlow", "Roboto Condensed", "Inter", "Noto Sans", "Liberation Sans Narrow", "Arial", "DejaVu Sans" };   // Bahnschrift (the buttons)
         static readonly string[] Mono = { "Menlo", "SF Mono", "Noto Sans Mono", "Liberation Mono", "Ubuntu Mono", "DejaVu Sans Mono" };
         static readonly Dictionary<string, SKTypeface> cache = new Dictionary<string, SKTypeface>();
 
@@ -39,9 +40,14 @@ namespace System.Drawing
             if (sys != null && string.Equals(sys.FamilyName, name, StringComparison.OrdinalIgnoreCase)) return sys;   // it is on this computer
             // "Segoe UI Semibold" = Segoe UI at weight 600, and so on
             string[] list = Sans; string lower = name.ToLowerInvariant();
-            if (lower.StartsWith("segoe ui") || lower == "tahoma" || lower == "verdana" || lower == "calibri" || lower == "microsoft sans serif")
+            bool segoe = lower.StartsWith("segoe ui"), bahn = lower.StartsWith("bahnschrift");
+            if (segoe || bahn || lower == "tahoma" || lower == "verdana" || lower == "calibri" || lower == "microsoft sans serif")
             {
                 if (lower.Contains("semibold")) weight = bold ? 800 : 600; else if (lower.Contains("black")) weight = 900; else if (lower.Contains("semilight")) weight = bold ? 600 : 350; else if (lower.Contains("light")) weight = bold ? 600 : 300; else if (lower.Contains("bold")) weight = 700;
+                // Windows names the weights as their own families ("Segoe UI Semibold") but reports them as the base family: try that first
+                string baseFam = segoe ? "Segoe UI" : bahn ? "Bahnschrift" : null;
+                if (baseFam != null) { var t0 = SKTypeface.FromFamilyName(baseFam, new SKFontStyle(weight, (int)SKFontStyleWidth.Normal, slant)); if (t0 != null && string.Equals(t0.FamilyName, baseFam, StringComparison.OrdinalIgnoreCase)) return t0; }
+                if (bahn) list = Condensed;
             }
             else if (lower.Contains("consolas") || lower.Contains("cascadia") || lower.Contains("courier") || lower.Contains("mono")) list = Mono;
             else return sys ?? SKTypeface.Default;   // a font the user picked (Fonts page) or a named display font: the system match

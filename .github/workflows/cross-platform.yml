@@ -80,6 +80,7 @@ jobs:
         timeout-minutes: 4
         run: |
           chmod +x out/Purphex/Purphex
+          PURPHEX_FONTTEST=1 out/Purphex/Purphex || true   # which fonts stand in for the Windows ones
           PURPHEX_SNAP="$PWD/shot-converter.png;20" xvfb-run -a -s "-screen 0 1600x1000x24" out/Purphex/Purphex
           PURPHEX_SNAP="$PWD/shot-studio.png;30" PURPHEX_SNAP_CLICK="PURPHEX MUSIC" xvfb-run -a -s "-screen 0 1600x1000x24" out/Purphex/Purphex
       - name: Start the app and take a picture of its window (macOS)
