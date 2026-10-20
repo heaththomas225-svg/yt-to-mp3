@@ -29,8 +29,10 @@ partial class StudioForm
     long ThemeKeyNow() { int f = Environment.TickCount; if (themeKeyAt != f) { themeKeyAt = f; themeKeyFrame = ThemeKey(); } return themeKeyFrame; }
 
     // a button picture: fill, border, glow and label; drawn once for every look the button can have
+    internal static bool DirectDraw;   // draw buttons straight onto the screen instead of from a cached picture (used when the studio is drawn scaled up, e.g. a 4K recording)
     void BtnDrawSprite(Graphics g, RectangleF r, string shown, int style, float ht, float px)
     {
+        if (DirectDraw) { var gs0 = g.Save(); g.SmoothingMode = SmoothingMode.AntiAlias; g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit; BtnLook(g, r, shown, style, (int)(ht * 4 + 0.5f) / 4f, px); g.Restore(gs0); return; }
         long key = Sprites.H(Sprites.H(Sprites.H(Sprites.H(Sprites.H(Sprites.H(ThemeKeyNow(), (long)Math.Round(r.Width)), (long)Math.Round(r.Height)), style), (int)(ht * 4 + 0.5f)), (long)(px * 4)), shown);
         long pt0 = Prof.T(); var sp = Sprites.Get(key);
         if (sp == null)

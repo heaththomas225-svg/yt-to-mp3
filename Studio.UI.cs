@@ -822,6 +822,7 @@ partial class StudioForm : Form
         regs.Add(new HitReg { R = Rc(0, top + RulerH, HeadW, Math.Max(0, MixH - top - RulerH)), OnWheel = d => { vscroll = Math.Max(0, vscroll - d * LaneH * 0.5f); Invalidate(); } });   // the wheel over the track headers scrolls the tracks up and down
         float y = top + RulerH - vscroll;
         g.SetClip(Rc(0, top + RulerH, ClientSize.Width - PanelW, MixH - top - RulerH - ArrGap));
+        int regs0 = regs.Count;
         for (int i = 0; i < n; i++, y += LaneH)
         {
             if (y + LaneH < top + RulerH || y > MixH) continue;
@@ -838,6 +839,7 @@ partial class StudioForm : Form
             using (var pen = new Pen(TM.C(70, 140, 85, 210))) g.DrawLine(pen, 0, ys + LaneH, tl.Right, ys + LaneH);
             PaintGhostSlot(g, tr, Rc(0, ys, tl.Right, LaneH));
         }
+        { float visBot = MixH - ArrGap; for (int k = regs.Count - 1; k >= regs0; k--) if (regs[k].R.Y >= visBot) regs.RemoveAt(k); }   // a row half under the bottom panel: its hidden buttons are not clickable things
         q0 = Prof.T(); PaintGhost(g, tl, top); Prof.A("mix.ghost", q0);
         AddTrackRow(g, Math.Max(y, top + RulerH), n);
         HeadHandle(g, top);

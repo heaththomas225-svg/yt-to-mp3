@@ -50,7 +50,7 @@ partial class StudioForm
     {
         var st = PatStyles[styleIndex]; var parts = new Dictionary<int, List<Track>>(); var kits = new List<Track>();
         foreach (var t in eng.Tracks) { int j = JobOf(t); if (j == 100) kits.Add(t); else if (j >= 0) { List<Track> l; if (!parts.TryGetValue(j, out l)) parts[j] = l = new List<Track>(); l.Add(t); } }
-        if (parts.Count == 0 && kits.Count == 0) return "Add your sounds first: put a kick, a snare or clap, hi-hats and an 808 on tracks 1, 2, 3, 4... (in SOUNDS: right-click a sound > Load into a new sampler track), then generate again. Or use the GENERATE box: it brings its own sounds. A track's job comes from its sound or name (JOBS sets it yourself).";
+        if (parts.Count == 0 && kits.Count == 0) return "Add your sounds first: put a kick, a snare or clap, hi-hats and an 808 on tracks 1, 2, 3, 4... (drag a sound from SOUNDS onto the piano roll, then drag your pattern onto the song), then generate again. Or use the GENERATE box: it brings its own sounds. A track's job comes from its sound or name (JOBS sets it yourself).";
         PushUndo(); if (setTempo) { Fx.ProjectBpm = st.Bpm; bpmUserSet = true; }
         double beat = StudioEngine.SR * 60.0 / Fx.ProjectBpm, step = beat / 4; long a = (long)Math.Round(fromBar * 4 * beat), len = (long)Math.Round(bars * 4 * beat);
         Func<string, string> pat = j => j == "" ? "" : j;

@@ -2,6 +2,16 @@
 
 What changed in each version of **Purphex**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.75.1  Fixes from the release audit
+
+- FIXED: The Photo Editor tab at the top of the Creative suite said PHOTO STUDIO PRO: it is PHOTO EDITOR now, like everywhere else.
+
+- FIXED: Two hints still told you to use SOUNDS > Load into a new sampler track (that option is Load it into the piano roll since 3.74.0).
+
+- FIXED: With the bottom panel open, a track row half hidden under it still had its buttons there (M, S, PLUGINS...): they could not be seen, and now they are not clickable things either.
+
+- CHANGED: Buttons can be drawn directly at any size (used for the new 4K showcase video on purphexmusic.com); nothing changes in normal use.
+
 ## 3.75.0  Profile colour themes are Fantasy Edition, finishes on your profile, VSTS with a track picker, MIXER and a mixer button at the top, a movable Fonts window
 
 - CHANGED: Your profile colour as the theme of the whole studio is now FANTASY EDITION only: STUDIO THEME = MY PROFILE COLOUR in the colour mixer (metal, chrome, candy and every finish on every button). On Free and Supporter your colour and its finish stay on your profile and the studio keeps your theme.

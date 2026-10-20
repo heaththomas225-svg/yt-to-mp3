@@ -1,4 +1,4 @@
-3.75.0
+3.75.1
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Profile colour themes are Fantasy Edition, finishes on your profile, VSTS with a track picker, MIXER and a mixer button at the top, a movable Fonts window
-sha256=76ad26391c1b98f5727c54d05429664379ac3663c2ca65bd39f6f686df8838dc
+Fixes from the release audit
+sha256=b9ce4915847dabb0519a24ceaed3dacaa5deb0661c257a771c7eec7691ca1a88

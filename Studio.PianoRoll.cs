@@ -81,7 +81,7 @@ partial class StudioForm
         Txt(g, t == null ? "Click a track on the left, or make a new one here." : "Then write its notes in this piano roll, or play them on your keyboard.", 11, DimC, Rc(msg.X, msg.Y + 38, msg.Width, 20), StringAlignment.Center, false);
         var opts = new List<KeyValuePair<string, Action>> {
             new KeyValuePair<string, Action>("PIANO", () => PrUseSound(t, null, null)),
-            new KeyValuePair<string, Action>("A SOUND FROM SOUNDS", () => { var nt = PrUseSound(t, "sampler", null); if (nt != null) { OpenSounds(); Toast("Drag a sound from SOUNDS onto the piano roll (or right-click it > Load into a new sampler track)"); } }),
+            new KeyValuePair<string, Action>("A SOUND FROM SOUNDS", () => { var nt = PrUseSound(t, "sampler", null); if (nt != null) { OpenSounds(); Toast("Drag a sound from SOUNDS onto the piano roll (or right-click it > Load it into the piano roll)"); } }),
             new KeyValuePair<string, Action>("PURPHEX WOBBLE", () => PrWobbleMenu(t)),
             new KeyValuePair<string, Action>("BASS LAB", () => PrUseSound(t, "synth", null)),
             new KeyValuePair<string, Action>("MORE INSTRUMENTS...", () => PrSoundMenu(t)) };
