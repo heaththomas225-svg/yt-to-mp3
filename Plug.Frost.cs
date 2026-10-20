@@ -107,6 +107,7 @@ class FrostFx : Fx
     }
 }
 
+#if !PURPHEX_CORE
 class FrostWindow : PxWindow
 {
     readonly FrostFx fr;
@@ -142,3 +143,4 @@ class FrostWindow : PxWindow
     }
     void Sec(Graphics g, RectangleF r, string title, string on, Color col) { bool o = fx.Get(on) >= 0.5f; Fill(g, o ? Color.FromArgb(34, 26, 70) : PanelC, r, 12); Stroke(g, Color.FromArgb(o ? 220 : 90, col), r, 12, o ? 1.6f : 1); Txt(g, title, 12, o ? Ink : Dim, new RectangleF(r.X + 12, r.Y + 8, r.Width - 80, 18), StringAlignment.Near, true); Toggle(g, new RectangleF(r.Right - 60, r.Y + 6, 50, 22), on, col); }
 }
+#endif

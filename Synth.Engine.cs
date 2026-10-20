@@ -111,7 +111,10 @@ class SynthFx : InstrumentFx
     float[] outL = new float[8192], outR = new float[8192];
     Distortion dist = new Distortion(); Chorus chor = new Chorus(); Delay dly = new Delay(); Reverb rev = new Reverb(); BassBoost boost = new BassBoost();
     Saturation sat = new Saturation(); Compressor comp = new Compressor(); ParametricEq eq = new ParametricEq(); Phaser phs = new Phaser(); Flanger fln = new Flanger(); Widener wid = new Widener();
-    SynthWindow window; public string PresetName = "Wobble Bass";
+#if !PURPHEX_CORE
+    SynthWindow window;
+#endif
+    public string PresetName = "Wobble Bass";
     public volatile float OutPeakL, OutPeakR; public readonly float[] SrcPeak = new float[5];   // level meters (OSC A, B, C, SUB, NOISE)
     readonly float[] blockPeak = new float[5];
 
@@ -629,9 +632,16 @@ class SynthFx : InstrumentFx
     // ---- window ----
     public override void ShowWindow(IWin32Window owner)
     {
+#if !PURPHEX_CORE
         if (window != null && !window.IsDisposed) { window.Activate(); window.WindowState = FormWindowState.Normal; return; }
         window = new SynthWindow(this, Owner); window.Show(owner);
+#endif
     }
+#if !PURPHEX_CORE
     public override void CloseWindow() { try { if (window != null && !window.IsDisposed) window.Close(); } catch { } window = null; }
+#endif
+#if PURPHEX_CORE
+    public override void CloseWindow() { }
+#endif
     public override string WindowLabel { get { return "Open Bass Lab (the synthesizer)"; } }
 }

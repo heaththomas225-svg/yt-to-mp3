@@ -389,7 +389,7 @@ static class SoundIO
 // ---- auditioning: plays one sound at a time on its own audio output, independent of the song ----
 static class Auditioner
 {
-    static WaveOutPlayer player; static float[] pl, pr; static int srate = 44100; static volatile int pos; static volatile bool playing; static readonly object lk = new object(); public static SoundItem Current; public static volatile bool Loading; public static string Error = "";
+    static AudioOut player; static float[] pl, pr; static int srate = 44100; static volatile int pos; static volatile bool playing; static readonly object lk = new object(); public static SoundItem Current; public static volatile bool Loading; public static string Error = "";
     static DateTime stoppedAt = DateTime.MinValue;
     // fades: env is the level of the sound now (0..1), envTarget where it is going; ol / orr is the sound that was playing before, fading out
     static float env, envTarget = 1, atk = 1f / 66, oenv; static float[] ol, orr; static int opos; static volatile bool resetOnStop;
@@ -426,7 +426,7 @@ static class Auditioner
         lock (lk)
         {
             if (player != null || StudioEnv.UnderTest) return;   // (a test never plays out of the speakers)
-            try { player = new WaveOutPlayer(Render, 2); player.Start(); }   /* always the biggest buffer (8 x 2048): with the low-latency setting (4 x 512) a busy screen starved the preview and every sound crackled */ catch (Exception ex) { player = null; Error = "No sound output: " + ex.Message; playing = false; }
+            try { player = AudioOut.Create(Render, 2); player.Start(); }   /* always the biggest buffer (8 x 2048): with the low-latency setting (4 x 512) a busy screen starved the preview and every sound crackled */ catch (Exception ex) { player = null; Error = "No sound output: " + ex.Message; playing = false; }
         }
     }
     static void Render(float[] l, float[] r, int n)

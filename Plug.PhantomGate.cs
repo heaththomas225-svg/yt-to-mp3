@@ -68,6 +68,7 @@ class PhantomGateFx : Fx
     }
 }
 
+#if !PURPHEX_CORE
 class PhantomGateWindow : PxWindow
 {
     readonly PhantomGateFx gt;
@@ -99,3 +100,4 @@ class PhantomGateWindow : PxWindow
         Knob(g, sec.X + 125, sec.Y + 205, 17, "db_f", "DARKNESS", Cyan);
     }
 }
+#endif

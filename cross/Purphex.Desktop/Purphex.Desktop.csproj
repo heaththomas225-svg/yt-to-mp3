@@ -1,0 +1,136 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Purphex desktop for macOS and Linux: the studio window and the rest of the app (the same files as Windows), on Purphex.Gfx (drawing) and Avalonia (the window) -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <NoWarn>CS0162;CS0168;CS0169;CS0219;CS0414;CS0649;CS0618;CS0612;CS1998;CA1416;SYSLIB0011;SYSLIB0014;CS8981;CS0108;CS0114;CS0436</NoWarn>
+    <DefineConstants>$(DefineConstants);PURPHEX_DESKTOP</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Purphex.Core/Purphex.Core.csproj" />
+    <ProjectReference Include="../Purphex.Gfx/Purphex.Gfx.csproj" />
+    <ProjectReference Include="../Purphex.Platform/Purphex.Platform.csproj" />
+    <PackageReference Include="Avalonia" Version="11.1.3" />
+    <PackageReference Include="Avalonia.Desktop" Version="11.1.3" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.1.3" />
+    <PackageReference Include="Avalonia.Fonts.Inter" Version="11.1.3" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="../../ScrollSkin.cs" />
+    <Compile Include="../../ProfileRules.cs" />
+    <Compile Include="../../Studio.ProfileExtras.cs" />
+    <Compile Include="../../PlacePicker.cs" />
+    <Compile Include="../../EmojiPanel.cs" />
+    <Compile Include="../../CommunitySongs.cs" />
+    <Compile Include="../../Studio.Social.cs" />
+    <Compile Include="../../Studio.Leave.cs" />
+    <Compile Include="../../Studio.Releases.cs" />
+    <Compile Include="../../Studio.Feed.cs" />
+    <Compile Include="../../Studio.Video.cs" />
+    <Compile Include="../../EmojiSprites.cs" />
+    <Compile Include="../../YtToMp3.cs" />
+    <Compile Include="../../Theme.cs" />
+    <Compile Include="../../Background.cs" />
+    <Compile Include="../../Changelog.cs" />
+    <Compile Include="../../Plugins.cs" />
+    <Compile Include="../../Preview.cs" />
+    <Compile Include="../../Help.cs" />
+    <Compile Include="../../UserBg.cs" />
+    <Compile Include="../../Settings.cs" />
+    <Compile Include="../../Vst.cs" />
+    <Compile Include="../../Vst3.cs" />
+    <Compile Include="../../MidiIn.cs" />
+    <Compile Include="../../Recorder.cs" />
+    <Compile Include="../../PianoRoll.cs" />
+    <Compile Include="../../Synth.UI.cs" />
+    <Compile Include="../../Synth.UI.Osc.cs" />
+    <Compile Include="../../Synth.UI.Lfo.cs" />
+    <Compile Include="../../Synth.UI.Mod.cs" />
+    <Compile Include="../../Synth.UI.Fx.cs" />
+    <Compile Include="../../Synth.UI.Env.cs" />
+    <Compile Include="../../Synth.UI.Browse.cs" />
+    <Compile Include="../../Synth.UI.Wave.cs" />
+    <Compile Include="../../Studio.Sep.cs" />
+    <Compile Include="../../Studio.UI.cs" />
+    <Compile Include="../../Studio.Neon.cs" />
+    <Compile Include="../../Studio.Lyrics.cs" />
+    <Compile Include="../../Studio.Menu.cs" />
+    <Compile Include="../../Studio.Sounds.cs" />
+    <Compile Include="../../Studio.Flex.cs" />
+    <Compile Include="../../ProjectLibrary.cs" />
+    <Compile Include="../../AppLogo.cs" />
+    <Compile Include="../../Studio.FxWindows.cs" />
+    <Compile Include="../../Studio.Inspector.cs" />
+    <Compile Include="../../Studio.Material.cs" />
+    <Compile Include="../../Studio.FxViz.cs" />
+    <Compile Include="../../Studio.PianoRoll.cs" />
+    <Compile Include="../../Studio.Patterns.cs" />
+    <Compile Include="../../Studio.PatternBox.cs" />
+    <Compile Include="../../Studio.UI2.cs" />
+    <Compile Include="../../Studio.8D.cs" />
+    <Compile Include="../../Studio.Inst.cs" />
+    <Compile Include="../../Studio.Daw.cs" />
+    <Compile Include="../../Studio.Rec.cs" />
+    <Compile Include="../../Studio.NewTrack.cs" />
+    <Compile Include="../../Studio.Community.cs" />
+    <Compile Include="../../Studio.Ghost.cs" />
+    <Compile Include="../../Studio.KeyBox.cs" />
+    <Compile Include="../../Studio.AiPreset.cs" />
+    <Compile Include="../../Plug.GlitchFlowAi.cs" />
+    <Compile Include="../../Plug.GlitchFlowUI.cs" />
+    <Compile Include="../../Plug.PxKit.cs" />
+    <Compile Include="../../Studio.Ban.cs" />
+    <Compile Include="../../Hub.Web.cs" />
+    <Compile Include="../../Hub.Core.cs" />
+    <Compile Include="../../Studio.Hub.cs" />
+    <Compile Include="../../Creative.Core.cs" />
+    <Compile Include="../../Studio.Creative.cs" />
+    <Compile Include="../../Studio.Clips.cs" />
+    <Compile Include="../../Studio.Scroll.cs" />
+    <Compile Include="../../Studio.Select.cs" />
+    <Compile Include="../../Studio.Needle.cs" />
+    <Compile Include="../../Studio.AutoBpm.cs" />
+    <Compile Include="../../Studio.Tidy.cs" />
+    <Compile Include="../../Studio.LyricSections.cs" />
+    <Compile Include="../../Studio.Pop.cs" />
+    <Compile Include="../../Studio.Projects2.cs" />
+    <Compile Include="../../Themes.cs" />
+    <Compile Include="../../Studio.Projects3.cs" />
+    <Compile Include="../../Studio.Themes.cs" />
+    <Compile Include="../../Studio.PresetSheet.cs" />
+    <Compile Include="../../Studio.Visualiser.cs" />
+    <Compile Include="../../Studio.Sprites.cs" />
+    <Compile Include="../../Studio.ThemeMap.cs" />
+    <Compile Include="../../Studio.Guide.cs" />
+    <Compile Include="../../Studio.Profile.cs" />
+    <Compile Include="../../Studio.Edition.cs" />
+    <Compile Include="../../Studio.Crash.cs" />
+    <Compile Include="../../Studio.ProfileLook.cs" />
+    <Compile Include="../../Studio.Emoji.cs" />
+    <Compile Include="../../Studio.Contrast.cs" />
+    <Compile Include="../../Studio.Off.cs" />
+    <Compile Include="../../Studio.PresetCards.cs" />
+    <Compile Include="../../PxButton.cs" />
+    <Compile Include="../../LyricsGet.cs" />
+    <Compile Include="../../Studio.ColourMix.cs" />
+    <Compile Include="../../UsageStat.cs" />
+    <Compile Include="../../Studio.UseTime.cs" />
+    <Compile Include="../../Studio.MicUI.cs" />
+    <Compile Include="../../Studio.Fonts.cs" />
+    <Compile Include="../../Studio.FontsUI.cs" />
+    <Compile Include="../../Studio.CoverAdjust.cs" />
+    <Compile Include="../../Studio.AllFx.cs" />
+    <Compile Include="../../Studio.AutoKey.cs" />
+    <Compile Include="../../Studio.LoopSel.cs" />
+    <Compile Include="../../Studio.EpView.cs" />
+    <Compile Include="../../Studio.ProjEp.cs" />
+    <Compile Include="../../Studio.FastAuto.cs" />
+    <Compile Include="../../Studio.SiteTheme.cs" />
+    <Compile Include="Forms/*.cs" />
+  </ItemGroup>
+</Project>

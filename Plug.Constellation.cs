@@ -74,6 +74,7 @@ class ConstellationFx : Fx
     }
 }
 
+#if !PURPHEX_CORE
 class ConstellationWindow : PxWindow
 {
     readonly ConstellationFx c;
@@ -99,3 +100,4 @@ class ConstellationWindow : PxWindow
         HSlider(g, new RectangleF(bot.X + 320, bot.Y + 40, bot.Width - 360, 8), "dry", "DRY", Violet); HSlider(g, new RectangleF(bot.X + 320, bot.Y + 84, bot.Width - 360, 8), "wet", "WET", Pink);
     }
 }
+#endif

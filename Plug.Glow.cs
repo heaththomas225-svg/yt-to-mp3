@@ -123,6 +123,7 @@ class GlowFx : Fx
     }
 }
 
+#if !PURPHEX_CORE
 class GlowWindow : PxWindow
 {
     readonly GlowFx g0;
@@ -165,3 +166,4 @@ class GlowWindow : PxWindow
         Knob(g, mid.Right - 230, by + 18, 22, "sat", "SATURATION", Orange); Choice(g, new RectangleF(mid.Right - 170, by + 10, 100, 26), "satmode", Orange);
     }
 }
+#endif

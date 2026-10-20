@@ -50,6 +50,7 @@ class VinylStopFx : Fx
     }
 }
 
+#if !PURPHEX_CORE
 class VinylStopWindow : PxWindow
 {
     readonly VinylStopFx v;
@@ -78,6 +79,7 @@ class VinylStopWindow : PxWindow
         var h = Reg(new RectangleF(r.X - 10, r.Y - 8, r.Width + 20, r.Height + 16), null, p.Name + ": drag up or down"); h.P = p; h.DragAt = pt => fx.Set(id, FromFrac(p, Math.Max(0, Math.Min(1, (r.Bottom - pt.Y) / r.Height)))); h.Double = () => { Mark(); fx.Set(id, p.Def); };
     }
 }
+#endif
 
 // ======================================================================
 //  PURPHEX RADIO: a broken radio. TUNE drifts off and on the station (between stations: static); STATIC, FEEDBACK (it howls), RAW (dry signal
@@ -128,6 +130,7 @@ class RadioFx : Fx
     static double Band(double x, double ha, double la, ref double h1, ref double h2, ref double l1, ref double l2) { l1 += (x - l1) * la; l2 += (l1 - l2) * la; h1 += (l2 - h1) * (1 - ha); double y = l2 - h1; h2 += (y - h2) * (1 - ha); return y - h2; }
 }
 
+#if !PURPHEX_CORE
 class RadioWindow : PxWindow
 {
     readonly RadioFx rd;
@@ -150,3 +153,4 @@ class RadioWindow : PxWindow
         Txt(g, "GOOD LUCK OUT THERE", 16, Color.FromArgb(90, 170, 200, 160), new RectangleF(bot.X + 380, bot.Y + 40, bot.Width - 400, 40), StringAlignment.Center, true);
     }
 }
+#endif

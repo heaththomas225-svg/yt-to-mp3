@@ -62,6 +62,7 @@ class PxVowelFx : Fx
     double Bp(double x, double g, double k, int j) { double hp = (x - (k + g) * s1[j] - s2[j]) / (1 + g * (g + k)); double v1 = g * hp, bp = v1 + s1[j]; s1[j] = bp + v1; double v2 = g * bp, lp = v2 + s2[j]; s2[j] = lp + v2; return bp * k; }   // a state-variable band-pass, unity gain at its centre
 }
 
+#if !PURPHEX_CORE
 class PxVowelWindow : PxWindow
 {
     readonly PxVowelFx v;
@@ -86,6 +87,7 @@ class PxVowelWindow : PxWindow
         Toggle(g, new RectangleF(lk.X + 16, lk.Bottom - 40, 150, 26), "lm", Cyan, "LOUDNESS MATCH", "LOUDNESS MATCH");
     }
 }
+#endif
 
 // ======================================================================
 //  PURPHEX STEP SHAPER: sixteen steps move the volume (and a low-pass filter) in time with the song. Click or drag the bars to set each step,
@@ -126,6 +128,7 @@ class StepShaperFx : SyncFx
     static double Lp(double x, double g, double k, ref double s1, ref double s2) { double hp = (x - (k + g) * s1 - s2) / (1 + g * (g + k)); double v1 = g * hp, bp = v1 + s1; s1 = bp + v1; double v2 = g * bp, lp = v2 + s2; s2 = lp + v2; return lp; }
 }
 
+#if !PURPHEX_CORE
 class StepShaperWindow : PxWindow
 {
     readonly StepShaperFx s;
@@ -150,3 +153,4 @@ class StepShaperWindow : PxWindow
         var h = Reg(st, null, "Click or drag across the bars to draw the steps"); h.DragAt = pt => { int k = (int)((pt.X - st.X - 10) / bw); if (k < 0 || k > 15) return; fx.Set("s" + k, Math.Max(0, Math.Min(100, (st.Bottom - 10 - pt.Y) / (st.Height - 20) * 100))); };
     }
 }
+#endif

@@ -83,6 +83,7 @@ class MultiDynFx : Fx
     }
 }
 
+#if !PURPHEX_CORE
 class MultiDynWindow : PxWindow
 {
     readonly MultiDynFx m; int sel = 2; RectangleF gr;
@@ -124,3 +125,4 @@ class MultiDynWindow : PxWindow
         Meter(g, new RectangleF(gp.Right - 50, gp.Y + 110, 10, gp.Height - 140), m.InPk, "IN"); Meter(g, new RectangleF(gp.Right - 30, gp.Y + 110, 10, gp.Height - 140), m.OutPk, "OUT");
     }
 }
+#endif

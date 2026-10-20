@@ -84,6 +84,7 @@ class MaximizerFx : Fx
     }
 }
 
+#if !PURPHEX_CORE
 class MaximizerWindow : PxWindow
 {
     readonly MaximizerFx mx;
@@ -110,6 +111,7 @@ class MaximizerWindow : PxWindow
         Meter(g, new RectangleF(rp.X + 40, rp.Y + 190, 16, rp.Height - 220), mx.InPk, "IN"); Meter(g, new RectangleF(rp.X + rp.Width / 2 - 8, rp.Y + 190, 16, rp.Height - 220), mx.GRdb, "GR", true); Meter(g, new RectangleF(rp.Right - 56, rp.Y + 190, 16, rp.Height - 220), mx.OutPk, "OUT");
     }
 }
+#endif
 
 // ======================================================================
 //  PURPHEX SPECTRAL GATE: a gate that works on every frequency on its own, so spill (other drums in a mic, hiss, hum, room) is turned down
@@ -197,6 +199,7 @@ class SpectralGateFx : Fx
     }
 }
 
+#if !PURPHEX_CORE
 class SpectralGateWindow : PxWindow
 {
     readonly SpectralGateFx s;
@@ -238,3 +241,4 @@ class SpectralGateWindow : PxWindow
         Knob(g, rp.X + rp.Width * 0.28f, rp.Y + 190, 20, "mix", "MIX", Ink); Knob(g, rp.X + rp.Width * 0.72f, rp.Y + 190, 20, "out", "OUTPUT", Ink);
     }
 }
+#endif

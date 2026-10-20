@@ -111,6 +111,7 @@ class TriDriveFx : Fx
     }
 }
 
+#if !PURPHEX_CORE
 class TriDriveWindow : PxWindow
 {
     readonly TriDriveFx t; static readonly string[] BandName = { "LOW", "MID", "HIGH" };
@@ -157,6 +158,7 @@ class TriDriveWindow : PxWindow
         Meter(g, new RectangleF(q.Right - 50, q.Y + 14, 12, q.Height - 44), t.InPk, "IN"); Meter(g, new RectangleF(q.Right - 30, q.Y + 14, 12, q.Height - 44), t.OutPk, "OUT");
     }
 }
+#endif
 
 // ======================================================================
 //  PURPHEX SHIFT: two frequency shifters (A and B). A frequency shifter moves every frequency by the same number of Hz (not like pitch:
@@ -229,6 +231,7 @@ class ShiftFx : Fx
     }
 }
 
+#if !PURPHEX_CORE
 class ShiftWindow : PxWindow
 {
     readonly ShiftFx s;
@@ -259,3 +262,4 @@ class ShiftWindow : PxWindow
         Knob(g, m.X + 60, m.Y + 290, 20, "mix", "MIX", Ink); Knob(g, m.X + 150, m.Y + 290, 20, "out", "OUTPUT", Ink);
     }
 }
+#endif

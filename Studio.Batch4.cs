@@ -24,6 +24,7 @@ sealed class OutSafety
     }
 }
 
+#if !PURPHEX_CORE
 partial class StudioForm
 {
     // ---------- navigation: BACK goes to the page you came from ----------
@@ -177,3 +178,4 @@ partial class StudioForm
         g.Restore(gs); lastInput = DateTime.Now; btnAnim = true;
     }
 }
+#endif

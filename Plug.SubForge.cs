@@ -34,7 +34,11 @@ class SubForgeFx : InstrumentFx
         for (int i = 0; i < voices.Length; i++) voices[i] = new Voice();
     }
     public override bool IsInstrument { get { return true; } }
+#if !PURPHEX_CORE
     public override void ShowWindow(IWin32Window owner) { PxWindow.Show(this, owner, () => new SubForgeWindow(this)); }
+#else
+    public override void ShowWindow(IWin32Window owner) { }
+#endif
     public override void CloseWindow() { }
     public override string WindowLabel { get { return "Open Purphex SubForge"; } }
     public override void Reset() { base.Reset(); foreach (var v in voices) { v.On = false; v.Env = 0; v.S1 = v.S2 = 0; } held.Clear(); dLp = dHp = dHpx = compEnv = 0; }
@@ -132,6 +136,7 @@ class SubForgeFx : InstrumentFx
     }
 }
 
+#if !PURPHEX_CORE
 class SubForgeWindow : PxWindow
 {
     readonly SubForgeFx sf; int octave = 2; readonly HashSet<int> down = new HashSet<int>();
@@ -200,3 +205,4 @@ class SubForgeWindow : PxWindow
     void Play(int n) { if (down.Add(n)) sf.NoteOn(n, 100); }
     void Stop(int n) { if (down.Remove(n)) sf.NoteOff(n); }
 }
+#endif

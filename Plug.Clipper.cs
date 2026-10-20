@@ -50,6 +50,7 @@ class ClipperFx : Fx
     }
 }
 
+#if !PURPHEX_CORE
 class ClipperWindow : PxWindow
 {
     readonly ClipperFx c;
@@ -79,6 +80,7 @@ class ClipperWindow : PxWindow
     }
     static string Db(float v) { double d = 20 * Math.Log10(Math.Max(1e-5, v)); return d < -90 ? "-inf" : d.ToString("0.0"); }
 }
+#endif
 
 // ======================================================================
 //  PURPHEX SMACK: a transient shaper. ATTACK lifts or softens the start of each hit, SUSTAIN lifts or shortens the tail, each with its own
@@ -118,6 +120,7 @@ class SmackFx : Fx
     }
 }
 
+#if !PURPHEX_CORE
 class SmackWindow : PxWindow
 {
     readonly SmackFx s;
@@ -139,3 +142,4 @@ class SmackWindow : PxWindow
         Txt(g, s.Gr > 0.05f ? "-" + s.Gr.ToString("0.0") + " dB" : "", 10, Orange, new RectangleF(a.Right - 280, by + 8, 200, 14), StringAlignment.Near, false);
     }
 }
+#endif

@@ -9,7 +9,6 @@ using System.Windows.Forms;
 // builds the EQ by itself and gives three versions to hear, master presets you can try before you keep them (Bass Boost Master, Vocal Enhance Master and more), automatic loudness
 // (and manual for the picky), and an EQ picture that shows the sound before and after.
 
-sealed class MasterPreset { public string Name, Blurb; public float Target; public string[] Slots; public string Group; }
 static class MasterPresets
 {
     // slots: Parametric EQ, Compressor, Multiband, Exciter, Saturation, Stereo imaging, Limiter (null = that module is off)
@@ -34,6 +33,7 @@ static class MasterPresets
 
 sealed class AmVersion { public string Name, Blurb, Eq; public bool Recommended; public int Base; public string[] Snap; public double Lufs; public LoudnessResult Result; }
 
+#if !PURPHEX_CORE
 partial class StudioForm
 {
     // ---------- the chain as text (so a preview can be tried and undone) ----------
@@ -463,3 +463,4 @@ partial class StudioForm
         });
     }
 }
+#endif

@@ -1,0 +1,5 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- draws typical Purphex UI with the cross-platform drawing layer and saves a PNG, to compare with the Windows app -->
+  <PropertyGroup><TargetFramework>net8.0</TargetFramework><OutputType>Exe</OutputType><Nullable>disable</Nullable><ImplicitUsings>disable</ImplicitUsings></PropertyGroup>
+  <ItemGroup><ProjectReference Include="../Purphex.Gfx/Purphex.Gfx.csproj" /></ItemGroup>
+</Project>

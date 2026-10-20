@@ -73,6 +73,7 @@ class VortexFx : Fx
     static readonly double[] EchoBeats = { 1, 0.75, 0.5, 0.25 };
 }
 
+#if !PURPHEX_CORE
 class VortexWindow : PxWindow
 {
     readonly VortexFx v;
@@ -103,3 +104,4 @@ class VortexWindow : PxWindow
         HSlider(g, new RectangleF(a.X + 20, a.Bottom - 30, 220, 8), "in", "IN", Cyan); HSlider(g, new RectangleF(a.X + a.Width / 2 - 110, a.Bottom - 30, 220, 8), "mix", "MIX", Violet); HSlider(g, new RectangleF(a.Right - 240, a.Bottom - 30, 220, 8), "out", "OUT", Orange);
     }
 }
+#endif

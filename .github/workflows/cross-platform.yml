@@ -1,0 +1,38 @@
+# Builds the Purphex cross-platform core and runs its smoke test on real Windows, macOS (Apple silicon and Intel) and Linux machines.
+name: Cross-platform core
+
+on:
+  push:
+    branches: [main]
+    paths: ['*.cs', 'cross/**', '.github/workflows/cross-platform.yml']
+  pull_request:
+    paths: ['*.cs', 'cross/**', '.github/workflows/cross-platform.yml']
+  workflow_dispatch:
+
+jobs:
+  core:
+    name: Core on ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, macos-13, windows-latest]
+    runs-on: ${{ matrix.os }}
+    env:
+      SDL_AUDIODRIVER: dummy   # the cloud machines have no speakers: SDL plays into a dummy device at real speed
+      PURPHEX_MUTE: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Build the core
+        run: dotnet build cross/Purphex.Core/Purphex.Core.csproj -c Release -nologo
+      - name: Smoke test (every plugin, a rendered song, loudness, WAV, live playback)
+        run: dotnet run --project cross/Purphex.Smoke/Purphex.Smoke.csproj -c Release -- smoke-out
+      - name: Keep the rendered mix
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-${{ matrix.os }}
+          path: smoke-out/purphex-smoke.wav
+          if-no-files-found: ignore

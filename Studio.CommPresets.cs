@@ -147,6 +147,7 @@ static class CpShow
     public static string Uses(CommPreset p) { if (p.Kind == "theme") return ""; var t = Types(p); if (t.Count == 0) return ""; var names = new List<string>(); foreach (var x in t) names.Add(NameOf(x)); return "USES: " + string.Join(", ", names.ToArray()); }
 }
 
+#if !PURPHEX_CORE
 partial class StudioForm
 {
     readonly Dictionary<string, ThemeDef> cpThemes = new Dictionary<string, ThemeDef>(); bool cpOpen, cpLoading; string cpKind = "", cpTitle = "", cpSort = "popular", cpQuery = "", cpStatus = "", cpDefName = ""; List<CommPreset> cpList = new List<CommPreset>(); float cpScroll; int cpGen;
@@ -230,3 +231,4 @@ partial class StudioForm
         Txt(g, "Shared presets are public. Only share sounds you made.", 11, DimC, Rc(sheet.X + 366, sheet.Bottom - 58, sheet.Right - sheet.X - 366 - 22, 40), StringAlignment.Far, false);
     }
 }
+#endif

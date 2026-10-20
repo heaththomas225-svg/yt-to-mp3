@@ -74,6 +74,7 @@ class DoublerFx : Fx
     }
 }
 
+#if !PURPHEX_CORE
 class DoublerWindow : PxWindow
 {
     static readonly Color[] Col = { Cyan, Lime, Gold, Pink };
@@ -108,6 +109,7 @@ class DoublerWindow : PxWindow
         using (var b = new SolidBrush(c)) g.FillEllipse(b, x - 8, y - 8, 16, 16); Txt(g, t, 9, Color.Black, new RectangleF(x - 8, y - 8, 16, 16), StringAlignment.Center, true);
     }
 }
+#endif
 
 // ======================================================================
 //  PURPHEX OCTAVE CHOIR: eight harmony voices. Each VOICE has ON / OFF, LEVEL, PAN, its own DELAY and FEEDBACK, an INTERVAL (semitones up
@@ -161,6 +163,7 @@ class OctaveChoirFx : Fx
     }
 }
 
+#if !PURPHEX_CORE
 class OctaveChoirWindow : PxWindow
 {
     public OctaveChoirWindow(OctaveChoirFx f) : base(f, "Octave Choir", new Size(1060, 640)) { Accent = Orange; }
@@ -194,3 +197,4 @@ class OctaveChoirWindow : PxWindow
     }
     static string IvName(int st) { if (st == 0) return "unison"; string[] n = { "", "min 2nd", "2nd", "min 3rd", "3rd", "4th", "tritone", "5th", "min 6th", "6th", "min 7th", "7th" }; int a = Math.Abs(st); string s = a % 12 == 0 ? (a / 12) + " oct" : (a > 12 ? (a / 12) + " oct + " : "") + n[a % 12]; return (st > 0 ? "+" : "-") + s; }
 }
+#endif

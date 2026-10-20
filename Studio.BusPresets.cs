@@ -159,6 +159,7 @@ static class BusPrompt
     }
 }
 
+#if !PURPHEX_CORE
 partial class StudioForm
 {
     // a bus preset goes on: the bus you picked, or the bus the picked track goes into, or a new bus of that kind (the picked track is routed into it)
@@ -186,3 +187,4 @@ partial class StudioForm
         selFx = -1; stylesOpen = false; Toast(s.Name + " added" + note + " Every plugin is editable (Ctrl+Z undoes it).");
     }
 }
+#endif

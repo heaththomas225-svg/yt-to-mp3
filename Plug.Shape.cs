@@ -90,6 +90,7 @@ class ShapeFx : Fx
     }
 }
 
+#if !PURPHEX_CORE
 class ShapeWindow : PxWindow
 {
     readonly ShapeFx s;
@@ -132,3 +133,4 @@ class ShapeWindow : PxWindow
         if (extra != null) { var p = fx.Find(extra); if (p.Choices.Length == 2 && p.Choices[0] == "Off") Toggle(g, new RectangleF(r.X + r.Width / 2 - 40, r.Bottom - 30, 80, 22), extra, col, "LISTENING", "LISTEN"); else Segments(g, new RectangleF(r.X + 14, r.Bottom - 30, r.Width - 28, 22), extra, col, 10); }
     }
 }
+#endif

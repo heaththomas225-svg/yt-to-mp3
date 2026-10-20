@@ -6,41 +6,7 @@ using System.Globalization;
 using System.Text;
 using System.Windows.Forms;
 
-// ======================================================================
-//  Parameter automation: a setting of a plugin follows a curve while the song plays (and in every export).
-//  Each automated setting has a "lane": points of (song position, value) joined by straight lines (steps for a choice list).
-// ======================================================================
-class AutoPoint { public long Frame; public float Value; }
 
-class AutoLane
-{
-    public Fx Fx; public string Param = ""; public bool On = true; public readonly List<AutoPoint> Pts = new List<AutoPoint>();
-    public void SortPts() { Pts.Sort((a, b) => a.Frame.CompareTo(b.Frame)); }
-    // the value at a song position (frames). Before the first point and after the last one it holds that point's value. NaN when there are no points.
-    public float ValueAt(long frame, bool steps)
-    {
-        int n = Pts.Count; if (n == 0) return float.NaN; if (n == 1 || frame <= Pts[0].Frame) return Pts[0].Value; if (frame >= Pts[n - 1].Frame) return Pts[n - 1].Value;
-        int lo = 0, hi = n - 1; while (hi - lo > 1) { int m = (lo + hi) / 2; if (Pts[m].Frame <= frame) lo = m; else hi = m; }
-        var a = Pts[lo]; var b = Pts[hi]; if (steps) return a.Value;
-        double t = (frame - a.Frame) / (double)Math.Max(1, b.Frame - a.Frame); return (float)(a.Value + (b.Value - a.Value) * t);
-    }
-    public AutoLane CloneFor(Fx fx) { var c = new AutoLane { Fx = fx, Param = Param, On = On }; foreach (var p in Pts) c.Pts.Add(new AutoPoint { Frame = p.Frame, Value = p.Value }); return c; }
-
-    // "frame:value,frame:value" for the project file
-    public string PointsText()
-    {
-        var sb = new StringBuilder(); foreach (var p in Pts) { if (sb.Length > 0) sb.Append(','); sb.Append(p.Frame.ToString(CultureInfo.InvariantCulture)).Append(':').Append(p.Value.ToString("R", CultureInfo.InvariantCulture)); }
-        return sb.ToString();
-    }
-    public static void ParsePoints(AutoLane lane, string s)
-    {
-        foreach (var part in (s ?? "").Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries))
-        {
-            var q = part.Split(':'); long fr; float v; if (q.Length == 2 && long.TryParse(q[0], NumberStyles.Integer, CultureInfo.InvariantCulture, out fr) && float.TryParse(q[1], NumberStyles.Float, CultureInfo.InvariantCulture, out v) && fr >= 0) lane.Pts.Add(new AutoPoint { Frame = fr, Value = v });
-        }
-        lane.SortPts();
-    }
-}
 
 // the engine side: run a plugin while its settings follow their lanes
 partial class StudioEngine
@@ -91,6 +57,7 @@ static class AutoIO
     }
 }
 
+#if !PURPHEX_CORE
 // the editor
 partial class StudioForm
 {
@@ -200,3 +167,4 @@ partial class StudioForm
         Txt(g, "Click to add a point, drag a point to move it, right-click a point to delete it. The plugin follows this line while the song plays. Switch Automation off to set it by hand.", 11, DimC, Rc(sheet.X + 22, sheet.Bottom - 40, sheet.Width - 44, 30), StringAlignment.Near, false);
     }
 }
+#endif

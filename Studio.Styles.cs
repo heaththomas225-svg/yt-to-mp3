@@ -143,6 +143,7 @@ static partial class VocalStyles
     }
 }
 
+#if !PURPHEX_CORE
 // the sheet that shows them
 partial class StudioForm
 {
@@ -230,3 +231,4 @@ partial class StudioForm
         Txt(g, (stylesBus ? "Use puts the preset on the picked bus, the bus the picked track goes into, or a new bus. Ctrl+Z undoes it.  " : "Use puts the preset on the selected track (and its vocal bus, if it has one). Ctrl+Z undoes it.  ") + list.Count + " preset" + (list.Count == 1 ? "" : "s") + ".   Esc closes.", 11, DimC, Rc(sheet.X + 22, sheet.Bottom - 30, sheet.Width - 44, 20), StringAlignment.Near, false);
     }
 }
+#endif

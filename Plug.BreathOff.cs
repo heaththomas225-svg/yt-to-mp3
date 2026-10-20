@@ -69,6 +69,7 @@ class BreathOffFx : Fx
     }
 }
 
+#if !PURPHEX_CORE
 class BreathOffWindow : PxWindow
 {
     readonly BreathOffFx b;
@@ -103,3 +104,4 @@ class BreathOffWindow : PxWindow
         for (int k = 0; k <= 4; k++) { float v = lo + (hi - lo) * k / 4; Txt(g, v.ToString("0"), 9.5f, Dim, new RectangleF(r.X - 34, r.Bottom - k * r.Height / 4 - 7, 30, 13), StringAlignment.Far, false); }
     }
 }
+#endif

@@ -78,6 +78,7 @@ class PrismFx : Fx
     }
 }
 
+#if !PURPHEX_CORE
 class PrismWindow : PxWindow
 {
     readonly PrismFx p;
@@ -112,3 +113,4 @@ class PrismWindow : PxWindow
     bool Lit(int note, int root) { if (note == root) return true; for (int k = 1; k <= 3; k++) if (fx.Get("i" + k + "_on") >= 0.5f && note == root + (int)Math.Round(fx.Get("i" + k))) return true; return false; }
     static Color HueColor(float h) { h = Math.Max(0, Math.Min(1, h)) * 300; int i = (int)(h / 60) % 6; float f = h / 60 - (int)(h / 60); int q = (int)(255 * (1 - f)), t = (int)(255 * f); switch (i) { case 0: return Color.FromArgb(255, t, 60); case 1: return Color.FromArgb(q, 255, 60); case 2: return Color.FromArgb(60, 255, t); case 3: return Color.FromArgb(60, q, 255); default: return Color.FromArgb(t, 60, 255); } }
 }
+#endif

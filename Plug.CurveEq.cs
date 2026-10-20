@@ -85,6 +85,7 @@ class CurveEqFx : Fx
     }
 }
 
+#if !PURPHEX_CORE
 class CurveEqWindow : PxWindow
 {
     readonly CurveEqFx eq; RectangleF graph; static readonly float[] ScaleDb = { 6, 12, 18, 30 };
@@ -170,3 +171,4 @@ class CurveEqWindow : PxWindow
         m.Show(this, mouse);
     }
 }
+#endif

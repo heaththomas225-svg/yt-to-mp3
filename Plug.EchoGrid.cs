@@ -52,6 +52,7 @@ class EchoGridFx : SyncFx
     }
 }
 
+#if !PURPHEX_CORE
 class EchoGridWindow : PxWindow
 {
     readonly EchoGridFx e; int selEcho;
@@ -84,6 +85,7 @@ class EchoGridWindow : PxWindow
         Knob(g, gp.X + gp.Width * 0.25f, gp.Y + 110, 22, "fb", "FEEDBACK", Gold); Knob(g, gp.X + gp.Width * 0.5f, gp.Y + 110, 22, "mix", "MIX", Ink); Knob(g, gp.X + gp.Width * 0.75f, gp.Y + 110, 22, "out", "OUTPUT", Ink);
     }
 }
+#endif
 
 // ======================================================================
 //  PURPHEX MODAL FILTER: two filters (A and B), each with its own TYPE (low-pass, high-pass, band-pass, notch, peak, comb, formant),
@@ -163,6 +165,7 @@ class ModalFilterFx : Fx
     }
 }
 
+#if !PURPHEX_CORE
 class ModalFilterWindow : PxWindow
 {
     readonly ModalFilterFx m;
@@ -205,3 +208,4 @@ class ModalFilterWindow : PxWindow
         Knob(g, mr.Right - 160, cy, 20, "mix", "MIX", Ink); Knob(g, mr.Right - 70, cy, 20, "out", "OUTPUT", Ink);
     }
 }
+#endif

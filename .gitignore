@@ -4,3 +4,8 @@ _*
 obj/
 _audit/
 *.pdb
+
+# cross-platform build output
+cross/**/bin/
+cross/**/obj/
+smoke-out/

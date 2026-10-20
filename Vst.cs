@@ -27,7 +27,6 @@ static class VstNative
 [UnmanagedFunctionPointer(CallingConvention.Cdecl)] delegate float VstGetParam(IntPtr effect, int index);
 [UnmanagedFunctionPointer(CallingConvention.Cdecl)] delegate IntPtr VstHostCb(IntPtr effect, int opcode, int index, IntPtr value, IntPtr ptr, float opt);
 
-class MidiEv { public long Frame; public byte S, D1, D2; }
 
 class VstPlugin : IVstHosted
 {

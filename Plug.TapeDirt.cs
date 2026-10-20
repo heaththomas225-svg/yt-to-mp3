@@ -62,6 +62,7 @@ class TapeDirtFx : Fx
     double Read(float[] b, double d) { double rp = bw - d; if (rp < 0) rp += b.Length; int i0 = (int)rp, i1 = (i0 + 1) % b.Length; double fr = rp - i0; return b[i0] + (b[i1] - b[i0]) * fr; }
 }
 
+#if !PURPHEX_CORE
 class TapeDirtWindow : PxWindow
 {
     readonly TapeDirtFx t;
@@ -89,3 +90,4 @@ class TapeDirtWindow : PxWindow
         Txt(g, "VU", 14, Color.FromArgb(60, 40, 20), new RectangleF(cx - 30, face.Bottom - 30, 60, 20), StringAlignment.Center, true); Txt(g, label, 10, Dim, new RectangleF(r.X, r.Y - 2, r.Width, 12), StringAlignment.Center, true);
     }
 }
+#endif

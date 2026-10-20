@@ -181,6 +181,7 @@ partial class StudioForm
     int PrToScale(int n) { if (!prLock || PrScaleSteps[prScale] == null) return n; for (int d = 0; d < 7; d++) { if (PrInScale(n - d)) return n - d; if (PrInScale(n + d)) return n + d; } return n; }
 
     // the instrument that plays the track (its own, or the built-in keys of a MIDI track with none)
+    static readonly bool hookPlayer = SetPlayerHook(); static bool SetPlayerHook() { StudioEngine.InstrumentOf = PlayerOf; return true; }
     internal static InstrumentFx PlayerOf(Track t) { if (t == null) return null; foreach (var f in t.Fx) { var i = f as InstrumentFx; if (i != null && i.IsInstrument && !f.Bypass) return i; } return t.Instrument ? t.Keys : null; }
     internal SamplerFx PrSampler { get { if (prTrack == null) return null; foreach (var f in prTrack.Fx) { var s = f as SamplerFx; if (s != null) return s; } return null; } }
     void PrAudition(int note, int vel)

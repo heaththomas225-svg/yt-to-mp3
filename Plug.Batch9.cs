@@ -73,6 +73,7 @@ class ReferenceFx : SyncFx
     }
 }
 
+#if !PURPHEX_CORE
 class ReferenceWindow : PxWindow
 {
     readonly ReferenceFx e;
@@ -106,6 +107,7 @@ class ReferenceWindow : PxWindow
     }
     static string Corr(float c) { return c > 0.9 ? "narrow" : c > 0.5 ? "medium" : c > 0.1 ? "wide" : "very wide"; }
 }
+#endif
 
 // ======================================================================
 //  PURPHEX PATHFINDER: a reverse delay. Every echo comes back backwards (or forwards, or backwards bouncing left and right), in time with
@@ -163,6 +165,7 @@ class PathfinderFx : SyncFx
     }
 }
 
+#if !PURPHEX_CORE
 class PathfinderWindow : PxWindow
 {
     readonly PathfinderFx e;
@@ -186,6 +189,7 @@ class PathfinderWindow : PxWindow
         Knob(g, p2.X + kw * 0.5f, r2, 22, "width", "WIDTH", Violet); Knob(g, p2.X + kw * 1.5f, r2, 22, "duck", "DUCK", Lime); Knob(g, p2.X + kw * 2.5f, r2, 22, "mix", "MIX", Ink); Knob(g, p2.X + kw * 3.5f, r2, 22, "out", "OUTPUT", Ink);
     }
 }
+#endif
 
 // ======================================================================
 //  PURPHEX MODULAR: four slots in a row, each one a module you pick (drive, fold, crush, rectify, low-pass, high-pass, band-pass, comb, ring,
@@ -245,6 +249,7 @@ class ModularFx : Fx
     }
 }
 
+#if !PURPHEX_CORE
 class ModularWindow : PxWindow
 {
     readonly ModularFx e; static readonly Color[] Col = { Color.FromArgb(255, 255, 80, 196), Color.FromArgb(255, 60, 225, 255), Color.FromArgb(255, 255, 205, 80), Color.FromArgb(255, 120, 240, 140) };
@@ -270,6 +275,7 @@ class ModularWindow : PxWindow
         Knob(g, bot.Right - 160, cy, 20, "mix", "MIX", Ink); Knob(g, bot.Right - 70, cy, 20, "out", "OUTPUT", Ink);
     }
 }
+#endif
 
 // ======================================================================
 //  PURPHEX DREAMSCAPE: a huge ambient space. SIZE and DECAY (up to 30 seconds), DAMP darkens the tail, SHIMMER feeds an octave (or a fifth)
@@ -324,6 +330,7 @@ class DreamscapeFx : Fx
     }
 }
 
+#if !PURPHEX_CORE
 class DreamscapeWindow : PxWindow
 {
     readonly DreamscapeFx e; readonly float[] hist = new float[160]; int hw;
@@ -344,6 +351,7 @@ class DreamscapeWindow : PxWindow
         Knob(g, p2.X + p2.Width * 0.3f, p2.Y + 240, 20, "mix", "MIX", Ink); Knob(g, p2.X + p2.Width * 0.7f, p2.Y + 240, 20, "out", "OUTPUT", Ink);
     }
 }
+#endif
 
 // ======================================================================
 //  PURPHEX MORPH: blends this track with another one, by their spectrums. MORPH crossfades what the two sound like (not just their volume);
@@ -415,6 +423,7 @@ class MorphFx : Fx
     }
 }
 
+#if !PURPHEX_CORE
 class MorphWindow : PxWindow
 {
     readonly MorphFx e;
@@ -437,3 +446,4 @@ class MorphWindow : PxWindow
         Knob(g, p2.X + p2.Width * 0.5f, p2.Y + 90, 22, "sens", "GATE SENSITIVITY", Lime); Knob(g, p2.X + p2.Width * 0.3f, p2.Y + 230, 20, "mix", "MIX", Ink); Knob(g, p2.X + p2.Width * 0.7f, p2.Y + 230, 20, "out", "OUTPUT", Ink);
     }
 }
+#endif

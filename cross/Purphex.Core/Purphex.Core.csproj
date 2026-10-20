@@ -1,0 +1,124 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Purphex core: the audio engine, DSP, plugins and sound library for Windows, macOS and Linux (.NET 8).
+       The .cs files are the same ones the Windows app builds (linked from the repo root); Platform/ holds the cross-platform stand-ins. -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <OutputType>Library</OutputType>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <NoWarn>CS0162;CS0168;CS0169;CS0219;CS0414;CS0649;CS0618;CS0612;CS1998;CA1416;SYSLIB0011;SYSLIB0014;CS8981;CS0108;CS0114</NoWarn>
+    <DefineConstants>$(DefineConstants);PURPHEX_CORE</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Purphex.Smoke" />
+    <InternalsVisibleTo Include="Purphex.Desktop" />
+    <InternalsVisibleTo Include="Purphex.Platform" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="../../Audio.Out.cs" />
+    <Compile Include="../../Midi.Ev.cs" />
+    <Compile Include="../../Core.Scope.cs" />
+    <Compile Include="../../Core.Types2.cs" />
+    <Compile Include="../../Core.Types.cs" />
+    <Compile Include="../../Mastering.cs" />
+    <Compile Include="../../Instrument.cs" />
+    <Compile Include="../../Wavetables.cs" />
+    <Compile Include="../../Synth.Lfo.cs" />
+    <Compile Include="../../Synth.Fx.cs" />
+    <Compile Include="../../Synth.Engine.cs" />
+    <Compile Include="../../Synth.Presets.cs" />
+    <Compile Include="../../Studio.Dsp.cs" />
+    <Compile Include="../../Studio.Pitch.cs" />
+    <Compile Include="../../Studio.Engine.cs" />
+    <Compile Include="../../Studio.Mix.cs" />
+    <Compile Include="../../Plug.Core.cs" />
+    <Compile Include="../../Plug.Pitch.cs" />
+    <Compile Include="../../Plug.Tone.cs" />
+    <Compile Include="../../Plug.Variants.cs" />
+    <Compile Include="../../Plug.Variants.Echo.cs" />
+    <Compile Include="../../Plug.Echo.cs" />
+    <Compile Include="../../Plug.Eq.cs" />
+    <Compile Include="../../Plug.Variants.Eq.cs" />
+    <Compile Include="../../Plug.Vocal.cs" />
+    <Compile Include="../../Plug.Creative.cs" />
+    <Compile Include="../../Plug.Bass.cs" />
+    <Compile Include="../../Plug.Variants.More.cs" />
+    <Compile Include="../../Flex.Core.cs" />
+    <Compile Include="../../Sounds.Core.cs" />
+    <Compile Include="../../Sounds.Gen.cs" />
+    <Compile Include="../../Sounds.Packs.cs" />
+    <Compile Include="../../Sounds.Music.cs" />
+    <Compile Include="../../Sounds.Build.cs" />
+    <Compile Include="../../Sounds.Catalog.cs" />
+    <Compile Include="../../Sounds.Instant.cs" />
+    <Compile Include="../../Sounds.Instruments.cs" />
+    <Compile Include="../../Sounds.Manifest.cs" />
+    <Compile Include="../../Sounds.Bake.cs" />
+    <Compile Include="../../Sounds.Wobble.cs" />
+    <Compile Include="../../Sounds.BassDesign.cs" />
+    <Compile Include="../../Sounds.Grooves.cs" />
+    <Compile Include="../../Sounds.DrumDesign.cs" />
+    <Compile Include="../../Instrument.Keys.cs" />
+    <Compile Include="../../Instrument.Sampler.cs" />
+    <Compile Include="../../Plug.World.cs" />
+    <Compile Include="../../Studio.Styles.cs" />
+    <Compile Include="../../Studio.Styles2.cs" />
+    <Compile Include="../../Plug.Censor.cs" />
+    <Compile Include="../../Plug.Retired.cs" />
+    <Compile Include="../../Plug.GlitchFlow.cs" />
+    <Compile Include="../../Plug.GlitchFlowPresets.cs" />
+    <Compile Include="../../Plug.Glow.cs" />
+    <Compile Include="../../Plug.CurveEq.cs" />
+    <Compile Include="../../Plug.Shape.cs" />
+    <Compile Include="../../Plug.SubForge.cs" />
+    <Compile Include="../../Plug.PxPresets.cs" />
+    <Compile Include="../../Plug.BreathOff.cs" />
+    <Compile Include="../../Plug.PhantomGate.cs" />
+    <Compile Include="../../Plug.StereoLab.cs" />
+    <Compile Include="../../Plug.PxPresets2.cs" />
+    <Compile Include="../../Plug.Vortex.cs" />
+    <Compile Include="../../Plug.MultiDyn.cs" />
+    <Compile Include="../../Plug.Prism.cs" />
+    <Compile Include="../../Plug.PxPresets3.cs" />
+    <Compile Include="../../Plug.Frost.cs" />
+    <Compile Include="../../Plug.TapeDirt.cs" />
+    <Compile Include="../../Plug.Constellation.cs" />
+    <Compile Include="../../Plug.PxPresets4.cs" />
+    <Compile Include="../../Plug.Clipper.cs" />
+    <Compile Include="../../Plug.VinylStop.cs" />
+    <Compile Include="../../Plug.PxPresets5.cs" />
+    <Compile Include="../../Plug.Doubler.cs" />
+    <Compile Include="../../Plug.Vowel.cs" />
+    <Compile Include="../../Plug.PxPresets6.cs" />
+    <Compile Include="../../Plug.TriDrive.cs" />
+    <Compile Include="../../Plug.Maximizer.cs" />
+    <Compile Include="../../Plug.PxPresets7.cs" />
+    <Compile Include="../../Plug.EchoGrid.cs" />
+    <Compile Include="../../Plug.Batch9.cs" />
+    <Compile Include="../../Plug.PxPresets9.cs" />
+    <Compile Include="../../Plug.Batch10.cs" />
+    <Compile Include="../../Plug.PxPresets10.cs" />
+    <Compile Include="../../Plug.Drum2Midi.cs" />
+    <Compile Include="../../Plug.PxPresets11.cs" />
+    <Compile Include="../../Plug.PxPresets8.cs" />
+    <Compile Include="../../Studio.HqResample.cs" />
+    <Compile Include="../../Plug.Variants.Gen.cs" />
+    <Compile Include="../../Studio.BusPresets.cs" />
+    <Compile Include="../../Studio.AiEffect.cs" />
+    <Compile Include="../../Studio.Auto.cs" />
+    <Compile Include="../../Studio.CommPresets.cs" />
+    <Compile Include="../../Studio.Batch4.cs" />
+    <Compile Include="../../Studio.Mastering2.cs" />
+    <Compile Include="../../Studio.MasterPresets.cs" />
+    <Compile Include="../../Studio.PresetsExtra.cs" />
+    <Compile Include="../../Studio.Perf.cs" />
+    <Compile Include="../../Studio.Resample.cs" />
+    <Compile Include="../../Studio.MicFx.cs" />
+    <Compile Include="../../SpotifyLinks.cs" />
+    <Compile Include="Platform/CoreShims.cs" />
+    <Compile Include="Platform/WinShims.cs" />
+  </ItemGroup>
+</Project>

@@ -58,6 +58,7 @@ class StereoLabFx : Fx
     }
 }
 
+#if !PURPHEX_CORE
 class StereoLabWindow : PxWindow
 {
     readonly StereoLabFx s;
@@ -103,3 +104,4 @@ class StereoLabWindow : PxWindow
         Txt(g, label, 9.5f, Dim, new RectangleF(r.X - 64, r.Y - 3, 60, 13), StringAlignment.Far, false);
     }
 }
+#endif

@@ -33,7 +33,11 @@ sealed class SamplerFx : InstrumentFx
     public override bool IsInstrument { get { return true; } }
     public override bool HasWindow { get { return false; } }
     public override string WindowLabel { get { return "Open the piano roll"; } }
+#if !PURPHEX_CORE
     public override void ShowWindow(IWin32Window owner) { var sf = owner as StudioForm; if (sf != null && Owner != null) sf.OpenPianoRoll(Owner); }
+#else
+    public override void ShowWindow(IWin32Window owner) { }
+#endif
     public override void CloseWindow() { }
     public override void Reset() { base.Reset(); foreach (var v in voices) v.On = false; }
     protected override void OnEvents(List<KeyValuePair<int, MidiEv>> ev) { pending = ev; }

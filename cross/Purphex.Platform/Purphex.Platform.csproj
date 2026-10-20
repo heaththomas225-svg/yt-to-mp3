@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Purphex platform layer for macOS and Linux (and Windows when run cross-platform): sound output through SDL2
+       (CoreAudio on macOS; PulseAudio, PipeWire or ALSA on Linux; WASAPI on Windows). -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <OutputType>Library</OutputType>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Purphex.Core/Purphex.Core.csproj" />
+    <PackageReference Include="Silk.NET.SDL" Version="2.21.0" />
+    <InternalsVisibleTo Include="Purphex.Smoke" />
+    <InternalsVisibleTo Include="Purphex.Desktop" />
+  </ItemGroup>
+</Project>

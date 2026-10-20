@@ -243,7 +243,7 @@ static class MasterDsp
     public static MasterAnalysis Analyze(string file, bool bands, bool corr, Action<Process> reg)
     {
         var an = new MasterAnalysis();
-        string ff = App.FfmpegExe();
+        string ff = StudioEnv.Ffmpeg();
         if (ff == null || !File.Exists(file)) return an;
         int code;
         string o = RunCapture(ff, "-hide_banner -nostats -t 180 -i \"" + file + "\" -vn -af ebur128=peak=true:framelog=info -f null -", reg, out code);
@@ -301,7 +301,7 @@ static class MasterDsp
         Action<string> log, Action<Process> reg, Func<bool> cancelled, Action<float> prog, out MasterAnalysis result)
     {
         result = null;
-        string ff = App.FfmpegExe(), fp = App.FfprobeExe();
+        string ff = StudioEnv.Ffmpeg(), fp = StudioEnv.Ffprobe();
         if (ff == null) { log("ffmpeg not found."); return null; }
         int code;
 
@@ -386,6 +386,7 @@ static class MasterDsp
     }
 }
 
+#if !PURPHEX_CORE
 // ======================================================================
 //  The window. Designed in a 1400x880 space and scaled by the View zoom.
 // ======================================================================
@@ -1025,7 +1026,7 @@ class MasterForm : Form
                 file = d.FileName; app.LastFile = file;
             }
         }
-        if (App.FfmpegExe() == null) { MessageBox.Show(this, "Convert something once first. That installs ffmpeg, which the analysis needs."); return; }
+        if (StudioEnv.Ffmpeg() == null) { MessageBox.Show(this, "Convert something once first. That installs ffmpeg, which the analysis needs."); return; }
         analyzing = true; analyzeText = "Analyzing " + Path.GetFileName(file) + "...";
         string f = file;
         new Thread(() =>
@@ -1046,3 +1047,4 @@ class MasterForm : Form
         }) { IsBackground = true }.Start();
     }
 }
+#endif

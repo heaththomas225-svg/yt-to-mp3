@@ -84,7 +84,11 @@ class CurrentFx : InstrumentFx
         for (int i = 0; i < voices.Length; i++) voices[i] = new Voice(); PxTables.Get();
     }
     public override bool IsInstrument { get { return true; } }
+#if !PURPHEX_CORE
     public override void ShowWindow(IWin32Window owner) { PxWindow.Show(this, owner, () => new CurrentWindow(this)); }
+#else
+    public override void ShowWindow(IWin32Window owner) { }
+#endif
     public override void CloseWindow() { }
     public override string WindowLabel { get { return "Open Purphex Current"; } }
     public override void Reset() { base.Reset(); foreach (var v in voices) { v.On = false; v.Env = v.Env2 = 0; v.S1L = v.S2L = v.S1R = v.S2R = 0; } held.Clear(); lfoPh = 0; }
@@ -150,6 +154,7 @@ class CurrentFx : InstrumentFx
     static double Svf(double x, double g, double k, ref double s1, ref double s2, int t) { double hp = (x - (k + g) * s1 - s2) / (1 + g * (g + k)); double v1 = g * hp, bp = v1 + s1; s1 = bp + v1; double v2 = g * bp, lp = v2 + s2; s2 = lp + v2; return t == 1 ? hp : t == 2 ? bp * k : t == 3 ? lp + hp : lp; }
 }
 
+#if !PURPHEX_CORE
 abstract class PxInstWindow : PxWindow
 {
     readonly InstrumentFx inst; int octave = 3; readonly HashSet<int> down = new HashSet<int>();
@@ -176,7 +181,9 @@ abstract class PxInstWindow : PxWindow
     void Stop(int n) { if (down.Remove(n)) inst.NoteOff(n); }
     protected override void OnFormClosed(FormClosedEventArgs e) { foreach (var n in new List<int>(down)) inst.NoteOff(n); down.Clear(); base.OnFormClosed(e); }
 }
+#endif
 
+#if !PURPHEX_CORE
 class CurrentWindow : PxInstWindow
 {
     readonly CurrentFx e;
@@ -211,6 +218,7 @@ class CurrentWindow : PxInstWindow
         Keys(g, new RectangleF(bot.X + 280, bot.Y + 10, bot.Width - 400, bot.Height - 20));
     }
 }
+#endif
 
 // ======================================================================
 //  PURPHEX INFERNO: a growl and wobble bass. OSC (saw, square, supersaw or FM) with a second oscillator for a reese (DETUNE), a GROWL filter
@@ -233,7 +241,11 @@ class InfernoFx : InstrumentFx
         for (int i = 0; i < voices.Length; i++) voices[i] = new Voice();
     }
     public override bool IsInstrument { get { return true; } }
+#if !PURPHEX_CORE
     public override void ShowWindow(IWin32Window owner) { PxWindow.Show(this, owner, () => new InfernoWindow(this)); }
+#else
+    public override void ShowWindow(IWin32Window owner) { }
+#endif
     public override void CloseWindow() { }
     public override string WindowLabel { get { return "Open Purphex Inferno"; } }
     public override void Reset() { base.Reset(); foreach (var v in voices) { v.On = false; v.Env = 0; v.S1 = v.S2 = v.F1a = v.F1b = v.F2a = v.F2b = 0; } held.Clear(); hold = lp = 0; hc = 0; }
@@ -286,6 +298,7 @@ class InfernoFx : InstrumentFx
     }
 }
 
+#if !PURPHEX_CORE
 class InfernoWindow : PxInstWindow
 {
     readonly InfernoFx e;
@@ -307,6 +320,7 @@ class InfernoWindow : PxInstWindow
         Keys(g, new RectangleF(bot.X + 310, bot.Y + 10, bot.Width - 430, bot.Height - 20));
     }
 }
+#endif
 
 // ======================================================================
 //  PURPHEX CHORDPAD: pick a KEY and SCALE and eight pads give you the chords of that key. Play one key and a whole chord plays (one-finger
@@ -329,7 +343,11 @@ class ChordPadFx : InstrumentFx
         for (int i = 0; i < voices.Length; i++) voices[i] = new Voice();
     }
     public override bool IsInstrument { get { return true; } }
+#if !PURPHEX_CORE
     public override void ShowWindow(IWin32Window owner) { PxWindow.Show(this, owner, () => new ChordPadWindow(this)); }
+#else
+    public override void ShowWindow(IWin32Window owner) { }
+#endif
     public override void CloseWindow() { }
     public override string WindowLabel { get { return "Open Purphex ChordPad"; } }
     public override void Reset() { base.Reset(); foreach (var v in voices) { v.On = false; v.Env = 0; } playing.Clear(); }
@@ -403,6 +421,7 @@ class ChordPadFx : InstrumentFx
     }
 }
 
+#if !PURPHEX_CORE
 class ChordPadWindow : PxWindow
 {
     readonly ChordPadFx e; int held = -1;
@@ -437,3 +456,4 @@ class ChordPadWindow : PxWindow
         Txt(g, "Tip: the white keys from middle C play the pads (C = I, D = II...).", 10, Dim, new RectangleF(p2.X + 14, p2.Bottom - 30, p2.Width - 28, 16), StringAlignment.Center, false);
     }
 }
+#endif

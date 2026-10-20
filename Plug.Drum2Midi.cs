@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+#if !PURPHEX_CORE
 using System.Drawing;
+#endif
 using System.Linq;
 using System.Windows.Forms;
 
@@ -46,7 +48,11 @@ class Drum2MidiFx : InstrumentFx
         for (int i = 0; i < voices.Length; i++) voices[i] = new Voice();
     }
     public override bool IsInstrument { get { return true; } }
+#if !PURPHEX_CORE
     public override void ShowWindow(IWin32Window owner) { PxWindow.Show(this, owner, () => new Drum2MidiWindow(this)); }
+#else
+    public override void ShowWindow(IWin32Window owner) { }
+#endif
     public override void CloseWindow() { }
     public override string WindowLabel { get { return "Open Purphex Drum2MIDI"; } }
     public override void Reset() { base.Reset(); foreach (var v in voices) v.On = false; }
@@ -170,6 +176,7 @@ class Drum2MidiFx : InstrumentFx
     }
 }
 
+#if !PURPHEX_CORE
 class Drum2MidiWindow : PxWindow
 {
     readonly Drum2MidiFx e; string msg = "Pick the drum track, then press TURN THE DRUMS INTO NOTES."; int held = -1;
@@ -209,3 +216,4 @@ class Drum2MidiWindow : PxWindow
             var h = Reg(r, () => { held = kk; e.NoteOn(pn[kk], 110); }, "Play the " + pads[k].ToLower()); h.DragAt = pt => { }; h.Up = () => { if (held >= 0) e.NoteOff(pn[held]); held = -1; }; }
     }
 }
+#endif
