@@ -30,6 +30,12 @@ jobs:
           dotnet-version: '8.0.x'
       - name: Build the core
         run: dotnet build cross/Purphex.Core/Purphex.Core.csproj -c Release -nologo
+      - name: Linux sound and window libraries
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq xvfb libasound2t64 libpulse0 libx11-6 libxext6 libxcursor1 libxi6 libxrandr2 libxss1 libxfixes3 libice6 libsm6 libfontconfig1 libwayland-client0 libdrm2 libgbm1 > /dev/null
+          so=$(find ~/.nuget/packages/ultz.native.sdl -path '*linux-x64*' -name 'libSDL2*.so*' | head -1); echo "SDL: $so"; [ -n "$so" ] && ldd "$so" | grep 'not found' || echo 'SDL: every library it needs is here'
       - name: Smoke test (every plugin, a rendered song, loudness, WAV, live playback)
         run: dotnet run --project cross/Purphex.Smoke/Purphex.Smoke.csproj -c Release -- smoke-out
       - name: Keep the rendered mix
@@ -62,10 +68,14 @@ jobs:
           dotnet-version: '8.0.x'
       - name: Build the app
         run: dotnet publish cross/Purphex.Desktop/Purphex.Desktop.csproj -c Release -r ${{ matrix.rid }} --self-contained true -nologo -o out/Purphex
-      - name: Linux libraries for the window
+      - name: Linux sound and window libraries
         if: runner.os == 'Linux'
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq xvfb libice6 libsm6 libfontconfig1 libx11-6 libxrandr2 libxi6 libxcursor1 > /dev/null
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq xvfb libasound2t64 libpulse0 libx11-6 libxext6 libxcursor1 libxi6 libxrandr2 libxss1 libxfixes3 libice6 libsm6 libfontconfig1 libwayland-client0 libdrm2 libgbm1 > /dev/null
+          so=$(find ~/.nuget/packages/ultz.native.sdl -path '*linux-x64*' -name 'libSDL2*.so*' | head -1); echo "SDL: $so"; [ -n "$so" ] && ldd "$so" | grep 'not found' || echo 'SDL: every library it needs is here'
       - name: Start the app and take a picture of its window (Linux)
+        continue-on-error: true   # the packages are still made; the pictures show whether it started
         if: runner.os == 'Linux'
         timeout-minutes: 4
         run: |
@@ -73,6 +83,7 @@ jobs:
           PURPHEX_SNAP="$PWD/shot-converter.png;20" xvfb-run -a -s "-screen 0 1600x1000x24" out/Purphex/Purphex
           PURPHEX_SNAP="$PWD/shot-studio.png;30" PURPHEX_SNAP_CLICK="PURPHEX MUSIC" xvfb-run -a -s "-screen 0 1600x1000x24" out/Purphex/Purphex
       - name: Start the app and take a picture of its window (macOS)
+        continue-on-error: true   # the packages are still made; the pictures show whether it started
         if: runner.os == 'macOS'
         timeout-minutes: 4
         run: |

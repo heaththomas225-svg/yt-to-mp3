@@ -50,13 +50,13 @@ namespace System.Windows.Forms
             else if (StartPosition == FormStartPosition.CenterParent) win.WindowStartupLocation = AC.WindowStartupLocation.CenterOwner;
             else if (StartPosition == FormStartPosition.Manual) win.Position = new PixelPoint(Left, Top);
             if (state != FormWindowState.Normal) WindowState = state;
-            win.SizeChanged += (s, e) => { if (win.ClientSize.Width > 0) base.SetBoundsFromWindow((int)win.ClientSize.Width, (int)win.ClientSize.Height); };
-            win.PositionChanged += (s, e) => base.MoveFromWindow(win.Position.X, win.Position.Y);
-            win.Activated += (s, e) => { active = true; OnActivated(EventArgs.Empty); }; win.Deactivated += (s, e) => { active = false; OnDeactivate(EventArgs.Empty); };
-            win.PropertyChanged += (s, e) => { if (e.Property == AC.Window.WindowStateProperty) { var ws = win.WindowState; state = ws == AC.WindowState.Maximized || ws == AC.WindowState.FullScreen ? FormWindowState.Maximized : ws == AC.WindowState.Minimized ? FormWindowState.Minimized : FormWindowState.Normal; } };
-            win.Closing += (s, e) => { if (closing) return; var fc = new FormClosingEventArgs(CloseReason.UserClosing, false); OnFormClosing(fc); if (fc.Cancel) e.Cancel = true; };
-            win.Closed += (s, e) => { Application.forms.Remove(this); OnFormClosed(new FormClosedEventArgs(CloseReason.UserClosing)); if (Application.mainForm == this) Application.Exit(); };
-            win.KeyDown += (s, e) => { if (e.Handled) return; var k = Map.Key(e.Key) | Map.ModKeys(e.KeyModifiers); if (RouteCmdKey(k)) { e.Handled = true; return; } if (k == Keys.Enter && AcceptButton != null) { AcceptButton.PerformClick(); e.Handled = true; } else if (k == Keys.Escape && CancelButton != null) { CancelButton.PerformClick(); e.Handled = true; } };
+            win.SizeChanged += (s, e) => Guard(() => { if (win.ClientSize.Width > 0) base.SetBoundsFromWindow((int)win.ClientSize.Width, (int)win.ClientSize.Height); });
+            win.PositionChanged += (s, e) => Guard(() => base.MoveFromWindow(win.Position.X, win.Position.Y));
+            win.Activated += (s, e) => Guard(() => { active = true; OnActivated(EventArgs.Empty); }); win.Deactivated += (s, e) => Guard(() => { active = false; OnDeactivate(EventArgs.Empty); });
+            win.PropertyChanged += (s, e) => Guard(() => { if (e.Property == AC.Window.WindowStateProperty) { var ws = win.WindowState; state = ws == AC.WindowState.Maximized || ws == AC.WindowState.FullScreen ? FormWindowState.Maximized : ws == AC.WindowState.Minimized ? FormWindowState.Minimized : FormWindowState.Normal; } });
+            win.Closing += (s, e) => Guard(() => { if (closing) return; var fc = new FormClosingEventArgs(CloseReason.UserClosing, false); OnFormClosing(fc); if (fc.Cancel) e.Cancel = true; });
+            win.Closed += (s, e) => Guard(() => { Application.forms.Remove(this); OnFormClosed(new FormClosedEventArgs(CloseReason.UserClosing)); if (Application.mainForm == this) Application.Exit(); });
+            win.KeyDown += (s, e) => Guard(() => { if (e.Handled) return; var k = Map.Key(e.Key) | Map.ModKeys(e.KeyModifiers); if (RouteCmdKey(k)) { e.Handled = true; return; } if (k == Keys.Enter && AcceptButton != null) { AcceptButton.PerformClick(); e.Handled = true; } else if (k == Keys.Escape && CancelButton != null) { CancelButton.PerformClick(); e.Handled = true; } });
         }
         public override string Text { get { return base.Text; } set { base.Text = value; if (win != null) win.Title = value; } }
         public override Size ClientSize { get { return base.ClientSize; } set { base.ClientSize = value; if (win != null) { win.Width = value.Width; win.Height = value.Height; } } }
@@ -98,7 +98,7 @@ namespace System.Windows.Forms
         internal static AC.Window MainWindow { get { return mainForm != null ? mainForm.win : null; } }
         public static void EnableVisualStyles() { } public static void SetCompatibleTextRenderingDefault(bool b) { } public static void SetHighDpiMode(int m) { } public static void SetUnhandledExceptionMode(UnhandledExceptionMode m) { }
         public static void AddMessageFilter(IMessageFilter f) { } public static void RemoveMessageFilter(IMessageFilter f) { }
-        internal static void ReportError(Exception e) { var h = ThreadException; if (h != null) h(null, new ThreadExceptionEventArgs(e)); else Console.Error.WriteLine(e); }
+        internal static void ReportError(Exception e) { if (Control.WinOnly(e)) { Control.NoteWinOnly(e); return; } var h = ThreadException; if (h != null) h(null, new ThreadExceptionEventArgs(e)); else Console.Error.WriteLine(e); }
         // the Avalonia app runs on this thread; Run(form) shows the first window and returns when it closes
         static bool looping;
         public static void Run(Form main)
@@ -145,6 +145,7 @@ namespace System.Windows.Forms
             if (up) return; up = true;
             var life = new ClassicDesktopStyleApplicationLifetime { ShutdownMode = Avalonia.Controls.ShutdownMode.OnMainWindowClose }; Life = life;
             AppBuilder.Configure<PurphexAvaloniaApp>().UsePlatformDetect().WithInterFont().LogToTrace().SetupWithLifetime(life);
+            Dispatcher.UIThread.UnhandledException += (s, e) => { e.Handled = true; if (Control.WinOnly(e.Exception)) Control.NoteWinOnly(e.Exception); else Application.ReportError(e.Exception); };
         }
     }
     sealed class PurphexAvaloniaApp : Avalonia.Application

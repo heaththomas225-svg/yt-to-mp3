@@ -125,6 +125,11 @@ namespace System.Windows.Forms
         internal bool RouteCmdKey(Keys k) { var m = new Message(); return ProcessCmdKey(ref m, k); }
 
         // painting
+        // Windows-only calls (user32, winmm, ...) inside the app fail on macOS / Linux: they are skipped there (noted once in the log) instead of stopping the app
+        internal static bool WinOnly(Exception e) { for (var x = e; x != null; x = x.InnerException) if (x is DllNotFoundException || x is EntryPointNotFoundException) return true; return false; }
+        static readonly HashSet<string> noted = new HashSet<string>();
+        internal static void NoteWinOnly(Exception e) { var key = e.Message.Length > 80 ? e.Message.Substring(0, 80) : e.Message; lock (noted) if (!noted.Add(key)) return; Console.Error.WriteLine("Windows-only call skipped: " + e.Message + Environment.NewLine + e.StackTrace); }
+        internal static void Guard(Action a) { try { a(); } catch (Exception e) when (WinOnly(e)) { NoteWinOnly(e); } }
         internal void RaisePaint(Graphics g) { var e = new PaintEventArgs(g, ClientRectangle); if (!PaintsItself) OnPaintBackground(e); OnPaint(e); }
         protected virtual bool PaintsItself { get { return false; } }
         public void Invalidate() { if (native != null) Dispatcher.UIThread.Post(() => { var s = native as PaintSurface ?? Surface; if (s != null) s.InvalidateVisual(); }, DispatcherPriority.Render); }
@@ -144,7 +149,7 @@ namespace System.Windows.Forms
             if (TipText != null) AC.ToolTip.SetTip(native, TipText);
             Hook(native); NativeText(text); NativeFont(); NativeColors();
             if (Controls.Count > 0) EnsureKids();
-            Place(); OnHandleCreated(EventArgs.Empty);
+            Place(); Guard(() => OnHandleCreated(EventArgs.Empty));
         }
         void EnsureKids()
         {
@@ -203,20 +208,20 @@ namespace System.Windows.Forms
         int clicks; DateTime lastClick; Point lastClickAt;
         void Hook(AC.Control n)
         {
-            n.PointerPressed += (s, e) => { var p = e.GetCurrentPoint(n); var pt = new Point((int)p.Position.X, (int)p.Position.Y); var b = Map.Btn(p.Properties); MouseButtons |= b; Mods(e.KeyModifiers); MousePosition = pt;
+            n.PointerPressed += (s, e) => Guard(() => { var p = e.GetCurrentPoint(n); var pt = new Point((int)p.Position.X, (int)p.Position.Y); var b = Map.Btn(p.Properties); MouseButtons |= b; Mods(e.KeyModifiers); MousePosition = pt;
                 var now = DateTime.Now; clicks = (now - lastClick).TotalMilliseconds < SystemInformation.DoubleClickTime && Math.Abs(pt.X - lastClickAt.X) < 5 && Math.Abs(pt.Y - lastClickAt.Y) < 5 ? clicks + 1 : 1; lastClick = now; lastClickAt = pt;
                 if (n is PaintSurface) { n.Focus(); e.Pointer.Capture(n); }
-                var me = new MouseEventArgs(b, clicks, pt.X, pt.Y, 0); OnMouseDown(me); if (clicks == 2) { OnMouseDoubleClick(me); OnDoubleClick(EventArgs.Empty); } if (n is PaintSurface) e.Handled = true; };
-            n.PointerReleased += (s, e) => { var p = e.GetCurrentPoint(n); var pt = new Point((int)p.Position.X, (int)p.Position.Y); var b = e.InitialPressMouseButton == Avalonia.Input.MouseButton.Right ? MouseButtons.Right : (e.InitialPressMouseButton == Avalonia.Input.MouseButton.Middle ? MouseButtons.Middle : MouseButtons.Left); MouseButtons &= ~b; Mods(e.KeyModifiers);
+                var me = new MouseEventArgs(b, clicks, pt.X, pt.Y, 0); OnMouseDown(me); if (clicks == 2) { OnMouseDoubleClick(me); OnDoubleClick(EventArgs.Empty); } if (n is PaintSurface) e.Handled = true; });
+            n.PointerReleased += (s, e) => Guard(() => { var p = e.GetCurrentPoint(n); var pt = new Point((int)p.Position.X, (int)p.Position.Y); var b = e.InitialPressMouseButton == Avalonia.Input.MouseButton.Right ? MouseButtons.Right : (e.InitialPressMouseButton == Avalonia.Input.MouseButton.Middle ? MouseButtons.Middle : MouseButtons.Left); MouseButtons &= ~b; Mods(e.KeyModifiers);
                 var me = new MouseEventArgs(b, clicks, pt.X, pt.Y, 0); OnMouseUp(me); if (new Rectangle(0, 0, w, h).Contains(pt)) { OnMouseClick(me); OnClick(EventArgs.Empty); }
-                if (b == MouseButtons.Right && ContextMenuStrip != null) ContextMenuStrip.Show(this, pt); if (n is PaintSurface) e.Handled = true; };
-            n.PointerMoved += (s, e) => { var p = e.GetCurrentPoint(n); var pt = new Point((int)p.Position.X, (int)p.Position.Y); MousePosition = pt; Mods(e.KeyModifiers); OnMouseMove(new MouseEventArgs(MouseButtons, 0, pt.X, pt.Y, 0)); };
-            n.PointerWheelChanged += (s, e) => { var p = e.GetCurrentPoint(n); Mods(e.KeyModifiers); OnMouseWheel(new HandledMouseEventArgs(MouseButtons.None, 0, (int)p.Position.X, (int)p.Position.Y, (int)Math.Round(e.Delta.Y * 120))); if (n is PaintSurface) e.Handled = true; };
-            n.PointerEntered += (s, e) => OnMouseEnter(EventArgs.Empty); n.PointerExited += (s, e) => OnMouseLeave(EventArgs.Empty);
-            n.GotFocus += (s, e) => { OnGotFocus(EventArgs.Empty); OnEnter(EventArgs.Empty); }; n.LostFocus += (s, e) => { OnLostFocus(EventArgs.Empty); OnLeave(EventArgs.Empty); };
-            n.KeyDown += (s, e) => { Mods(e.KeyModifiers); var k = Map.Key(e.Key) | Map.ModKeys(e.KeyModifiers); var f = FindForm(); if (f != null && f.RouteCmdKey(k)) { e.Handled = true; return; } var ke = new KeyEventArgs(k); OnKeyDown(ke); if (ke.Handled || ke.SuppressKeyPress) e.Handled = true; };
-            n.KeyUp += (s, e) => { Mods(e.KeyModifiers); var ke = new KeyEventArgs(Map.Key(e.Key) | Map.ModKeys(e.KeyModifiers)); OnKeyUp(ke); };
-            n.TextInput += (s, e) => { if (string.IsNullOrEmpty(e.Text)) return; foreach (char ch in e.Text) { var kp = new KeyPressEventArgs(ch); OnKeyPress(kp); if (kp.Handled) e.Handled = true; } };
+                if (b == MouseButtons.Right && ContextMenuStrip != null) ContextMenuStrip.Show(this, pt); if (n is PaintSurface) e.Handled = true; });
+            n.PointerMoved += (s, e) => Guard(() => { var p = e.GetCurrentPoint(n); var pt = new Point((int)p.Position.X, (int)p.Position.Y); MousePosition = pt; Mods(e.KeyModifiers); OnMouseMove(new MouseEventArgs(MouseButtons, 0, pt.X, pt.Y, 0)); });
+            n.PointerWheelChanged += (s, e) => Guard(() => { var p = e.GetCurrentPoint(n); Mods(e.KeyModifiers); OnMouseWheel(new HandledMouseEventArgs(MouseButtons.None, 0, (int)p.Position.X, (int)p.Position.Y, (int)Math.Round(e.Delta.Y * 120))); if (n is PaintSurface) e.Handled = true; });
+            n.PointerEntered += (s, e) => Guard(() => OnMouseEnter(EventArgs.Empty)); n.PointerExited += (s, e) => Guard(() => OnMouseLeave(EventArgs.Empty));
+            n.GotFocus += (s, e) => Guard(() => { OnGotFocus(EventArgs.Empty); OnEnter(EventArgs.Empty); }); n.LostFocus += (s, e) => Guard(() => { OnLostFocus(EventArgs.Empty); OnLeave(EventArgs.Empty); });
+            n.KeyDown += (s, e) => Guard(() => { Mods(e.KeyModifiers); var k = Map.Key(e.Key) | Map.ModKeys(e.KeyModifiers); var f = FindForm(); if (f != null && f.RouteCmdKey(k)) { e.Handled = true; return; } var ke = new KeyEventArgs(k); OnKeyDown(ke); if (ke.Handled || ke.SuppressKeyPress) e.Handled = true; });
+            n.KeyUp += (s, e) => Guard(() => { Mods(e.KeyModifiers); var ke = new KeyEventArgs(Map.Key(e.Key) | Map.ModKeys(e.KeyModifiers)); OnKeyUp(ke); });
+            n.TextInput += (s, e) => Guard(() => { if (string.IsNullOrEmpty(e.Text)) return; foreach (char ch in e.Text) { var kp = new KeyPressEventArgs(ch); OnKeyPress(kp); if (kp.Handled) e.Handled = true; } });
             Avalonia.Input.DragDrop.SetAllowDrop(n, true);
             n.AddHandler(Avalonia.Input.DragDrop.DropEvent, (s, e) => { if (!AllowDrop) return; var files = e.Data.GetFiles(); var list = new List<string>(); if (files != null) foreach (var f in files) { var p = Avalonia.Platform.Storage.StorageProviderExtensions.TryGetLocalPath(f); if (p != null) list.Add(p); } var d = new DataObject(); if (list.Count > 0) d.SetData(DataFormats.FileDrop, list.ToArray()); var t = e.Data.GetText(); if (t != null) d.SetData(DataFormats.Text, t); var pos = e.GetPosition(n); var de = new DragEventArgs(d, 0, (int)pos.X, (int)pos.Y, DragDropEffects.Copy, DragDropEffects.Copy); OnDragEnter(de); OnDragDrop(de); });
             n.AddHandler(Avalonia.Input.DragDrop.DragOverEvent, (s, e) => { if (AllowDrop) e.DragEffects = Avalonia.Input.DragDropEffects.Copy; });
