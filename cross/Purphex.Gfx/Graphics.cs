@@ -95,6 +95,8 @@ namespace System.Drawing
             Sk_ = new SKFont(face, SizeInPoints * 96f / 72f) { Subpixel = true, Edging = SKFontEdging.SubpixelAntialias };
             if ((style & FontStyle.Bold) != 0 && !face.IsBold) Sk_.Embolden = true;
         }
+        public Font(string family, float size, GraphicsUnit unit) : this(new FontFamily(family), size, FontStyle.Regular, unit) { }
+        public Font(FontFamily family, float size, GraphicsUnit unit) : this(family, size, FontStyle.Regular, unit) { }
         public Font(Font proto, FontStyle style) : this(proto.FontFamily, proto.Size, style, proto.Unit) { }
         public float SizeInPoints { get { return Unit == GraphicsUnit.Pixel ? Size * 72f / 96f : (Unit == GraphicsUnit.Inch ? Size * 72f : (Unit == GraphicsUnit.Millimeter ? Size * 72f / 25.4f : Size)); } }
         public int Height { get { return (int)Math.Ceiling(GetHeight()); } }
@@ -127,6 +129,7 @@ namespace System.Drawing
         public void Save(string path) { Save(path, path.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase) || path.EndsWith(".jpeg", StringComparison.OrdinalIgnoreCase) ? ImageFormat.Jpeg : ImageFormat.Png); }
         public void Save(string path, ImageFormat f) { using (var s = System.IO.File.Create(path)) Save(s, f); }
         public void Save(System.IO.Stream s, ImageFormat f) { using (var img = SKImage.FromBitmap(Bmp)) using (var data = img.Encode(f == ImageFormat.Jpeg ? SKEncodedImageFormat.Jpeg : (f == ImageFormat.Bmp ? SKEncodedImageFormat.Bmp : SKEncodedImageFormat.Png), 92)) data.SaveTo(s); }
+        public void Save(System.IO.Stream s, ImageCodecInfo enc, EncoderParameters p) { Save(s, enc != null && enc.MimeType == "image/jpeg" ? ImageFormat.Jpeg : ImageFormat.Png); }
         public void Save(string path, ImageCodecInfo enc, EncoderParameters p) { Save(path, enc != null && enc.MimeType == "image/jpeg" ? ImageFormat.Jpeg : ImageFormat.Png); }
         public void RotateFlip(RotateFlipType t) { if (t == RotateFlipType.RotateNoneFlipNone) return; var n = new SKBitmap(t == RotateFlipType.Rotate90FlipNone || t == RotateFlipType.Rotate270FlipNone ? Height : Width, t == RotateFlipType.Rotate90FlipNone || t == RotateFlipType.Rotate270FlipNone ? Width : Height); using (var c = new SKCanvas(n)) { if (t == RotateFlipType.RotateNoneFlipX) { c.Scale(-1, 1); c.Translate(-Width, 0); } else if (t == RotateFlipType.RotateNoneFlipY) { c.Scale(1, -1); c.Translate(0, -Height); } else if (t == RotateFlipType.Rotate90FlipNone) { c.Translate(Height, 0); c.RotateDegrees(90); } else if (t == RotateFlipType.Rotate180FlipNone) { c.Translate(Width, Height); c.RotateDegrees(180); } else if (t == RotateFlipType.Rotate270FlipNone) { c.Translate(0, Width); c.RotateDegrees(270); } c.DrawBitmap(Bmp, 0, 0); } Bmp.Dispose(); Bmp = n; }
         public Image GetThumbnailImage(int w, int h, Func<bool> abort, IntPtr data) { return new Bitmap(this, w, h); }
@@ -155,7 +158,7 @@ namespace System.Drawing
     }
     static class SkExt { public static SKRectI ToSKRectI(this SKRect r) { return new SKRectI((int)r.Left, (int)r.Top, (int)r.Right, (int)r.Bottom); } }
     public enum RotateFlipType { RotateNoneFlipNone = 0, Rotate90FlipNone = 1, Rotate180FlipNone = 2, Rotate270FlipNone = 3, RotateNoneFlipX = 4, RotateNoneFlipY = 6 }
-    public sealed class Icon : IDisposable { public Icon(System.IO.Stream s) { } public Icon(string p) { } public static Icon FromHandle(IntPtr h) { return new Icon((string)null); } public Bitmap ToBitmap() { return new Bitmap(32, 32); } public void Dispose() { } }
+    public sealed class Icon : IDisposable { public Icon(System.IO.Stream s) { } public Icon(string p) { } public static Icon FromHandle(IntPtr h) { return new Icon((string)null); } public static Icon ExtractAssociatedIcon(string path) { return null; } public Bitmap ToBitmap() { return new Bitmap(32, 32); } public void Dispose() { } }
 
     // ---------------- regions ----------------
     public sealed class Region : IDisposable
@@ -167,6 +170,7 @@ namespace System.Drawing
         public bool IsVisible(PointF p) { return Path.Contains(p.X, p.Y); } public bool IsVisible(float x, float y) { return Path.Contains(x, y); }
         public RectangleF GetBounds(Graphics g) { var b = Path.Bounds; return RectangleF.FromLTRB(b.Left, b.Top, b.Right, b.Bottom); }
         public void Union(RectangleF r) { using (var o = new SKPath()) { o.AddRect(Sk.R(r)); Path = Path.Op(o, SKPathOp.Union) ?? Path; } }
+        public void Exclude(GraphicsPath gp) { Path = Path.Op(gp.P, SKPathOp.Difference) ?? Path; } public void Union(GraphicsPath gp) { Path = Path.Op(gp.P, SKPathOp.Union) ?? Path; } public void Intersect(GraphicsPath gp) { Path = Path.Op(gp.P, SKPathOp.Intersect) ?? Path; } public void Exclude(Region r) { Path = Path.Op(r.Path, SKPathOp.Difference) ?? Path; } public bool IsEmpty(Graphics g) { return Path.IsEmpty; } public void MakeEmpty() { Path = new SKPath(); } public void MakeInfinite() { Path = new SKPath(); Path.AddRect(new SKRect(-1e6f, -1e6f, 1e6f, 1e6f)); } public Region Clone() { return new Region { Path = new SKPath(Path) }; }
         public void Exclude(RectangleF r) { using (var o = new SKPath()) { o.AddRect(Sk.R(r)); Path = Path.Op(o, SKPathOp.Difference) ?? Path; } }
         public void Intersect(RectangleF r) { using (var o = new SKPath()) { o.AddRect(Sk.R(r)); Path = Path.Op(o, SKPathOp.Intersect) ?? Path; } }
         public void Dispose() { }
@@ -201,6 +205,7 @@ namespace System.Drawing
         public void IntersectClip(RectangleF r) { c.ClipRect(Sk.R(r), SKClipOperation.Intersect, true); } public void ExcludeClip(Rectangle r) { c.ClipRect(Sk.R(r), SKClipOperation.Difference, true); }
         public Region Clip { get { var b = c.LocalClipBounds; return new Region(RectangleF.FromLTRB(b.Left, b.Top, b.Right, b.Bottom)); } set { ResetClip(); if (value != null) c.ClipPath(value.Path, SKClipOperation.Intersect, true); } }
         public RectangleF ClipBounds { get { var b = c.LocalClipBounds; return RectangleF.FromLTRB(b.Left, b.Top, b.Right, b.Bottom); } }
+        public bool IsClipEmpty { get { return c.LocalClipBounds.IsEmpty; } } public bool IsVisibleClipEmpty { get { return IsClipEmpty; } }
         public RectangleF VisibleClipBounds { get { return ClipBounds; } }
         public bool IsVisible(RectangleF r) { return !c.QuickReject(Sk.R(r)); } public bool IsVisible(PointF p) { return ClipBounds.Contains(p); }
 
@@ -262,6 +267,9 @@ namespace System.Drawing
         public void DrawImage(Image img, Rectangle dst, int sx, int sy, int sw, int sh, GraphicsUnit u) { Img(img, Sk.R(dst), new SKRect(sx, sy, sx + sw, sy + sh), null); }
         public void DrawImage(Image img, Rectangle dst, int sx, int sy, int sw, int sh, GraphicsUnit u, ImageAttributes ia) { Img(img, Sk.R(dst), new SKRect(sx, sy, sx + sw, sy + sh), ia); }
         public void DrawImage(Image img, Rectangle dst, float sx, float sy, float sw, float sh, GraphicsUnit u, ImageAttributes ia) { Img(img, Sk.R(dst), new SKRect(sx, sy, sx + sw, sy + sh), ia); }
+        public void DrawImage(Image img, Rectangle dst, float sx, float sy, float sw, float sh, GraphicsUnit u) { Img(img, Sk.R(dst), new SKRect(sx, sy, sx + sw, sy + sh), null); }
+        public void DrawImage(Image img, PointF[] dst, RectangleF src, GraphicsUnit u, ImageAttributes ia) { if (dst.Length < 3) return; Img(img, new SKRect(dst[0].X, dst[0].Y, dst[1].X, dst[2].Y), Sk.R(src), ia); }
+        public void DrawImage(Image img, PointF[] dst, RectangleF src, GraphicsUnit u) { DrawImage(img, dst, src, u, null); }
         public void DrawImage(Image img, PointF[] dstParallelogram) { if (dstParallelogram.Length < 3) return; var a = dstParallelogram[0]; var b = dstParallelogram[1]; var d = dstParallelogram[2]; Img(img, new SKRect(a.X, a.Y, b.X, d.Y), null, null); }
         public void DrawImageUnscaled(Image img, int x, int y) { DrawImage(img, (float)x, y); } public void DrawImageUnscaled(Image img, Point p) { DrawImage(img, (float)p.X, p.Y); }
         public void DrawImageUnscaledAndClipped(Image img, Rectangle r) { var s = c.Save(); c.ClipRect(Sk.R(r)); DrawImage(img, (float)r.X, r.Y); c.RestoreToCount(s); }

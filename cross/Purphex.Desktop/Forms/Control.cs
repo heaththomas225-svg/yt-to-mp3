@@ -43,11 +43,12 @@ namespace System.Windows.Forms
     public class ControlCollection : IEnumerable<Control>
     {
         readonly Control owner; readonly List<Control> list = new List<Control>(); internal ControlCollection(Control o) { owner = o; }
-        public void Add(Control c) { if (c == null || list.Contains(c)) return; if (c.Parent != null) c.Parent.Controls.Remove(c); list.Add(c); c.parent = owner; owner.AttachChild(c); }
+        public void Add(Control c) { if (c == null || list.Contains(c)) return; if (c.Parent != null) c.Parent.Controls.Remove(c); list.Add(c); c.parent = owner; owner.AttachChild(c); c.RaiseParentChanged(); c.NoteAnchor(); owner.DoLayout(); }
         public void AddRange(Control[] cs) { foreach (var c in cs) Add(c); }
-        public void Remove(Control c) { if (c == null || !list.Remove(c)) return; owner.DetachChild(c); c.parent = null; }
+        public void Remove(Control c) { if (c == null || !list.Remove(c)) return; owner.DetachChild(c); c.parent = null; c.RaiseParentChanged(); owner.DoLayout(); }
         public void Clear() { foreach (var c in list.ToArray()) Remove(c); } public bool Contains(Control c) { return list.Contains(c); }
-        public int Count { get { return list.Count; } } public Control this[int i] { get { return list[i]; } } public int IndexOf(Control c) { return list.IndexOf(c); } public void SetChildIndex(Control c, int i) { }
+        public int Count { get { return list.Count; } } public Control this[int i] { get { return list[i]; } } public int IndexOf(Control c) { return list.IndexOf(c); } public void SetChildIndex(Control c, int i) { if (!list.Remove(c)) return; list.Insert(Math.Max(0, Math.Min(list.Count, i)), c); owner.ReorderKids(); owner.DoLayout(); } public int GetChildIndex(Control c) { return list.IndexOf(c); }
+        internal List<Control> List { get { return list; } }
         public IEnumerator<Control> GetEnumerator() { return list.GetEnumerator(); } IEnumerator IEnumerable.GetEnumerator() { return list.GetEnumerator(); }
     }
 
@@ -57,9 +58,16 @@ namespace System.Windows.Forms
         int x, y, w = 100, h = 30; bool visible = true, enabled = true; string text = ""; Font font; Color back = Color.Empty, fore = Color.Empty; Cursor cursor;
         public Control() { Controls = new ControlCollection(this); }
         public ControlCollection Controls { get; }
+        public event EventHandler ParentChanged; protected virtual void OnParentChanged(EventArgs e) { if (ParentChanged != null) ParentChanged(this, e); }
+        public bool HasChildren { get { return Controls.Count > 0; } }
+        public static Control FromChildHandle(IntPtr h) { return null; } public static Control FromHandle(IntPtr h) { return null; } internal void RaiseParentChanged() { OnParentChanged(EventArgs.Empty); }
+        public bool Contains(Control c) { for (var p = c == null ? null : c.Parent; p != null; p = p.Parent) if (p == this) return true; return false; }
+        protected bool ShowFocusCues { get { return true; } }
+        protected Size SizeFromClientSize(Size s) { return s; }
+        public DragDropEffects DoDragDrop(object data, DragDropEffects allowed) { return DragDropEffects.None; }
         public Control Parent { get { return parent; } set { if (value == null) { if (parent != null) parent.Controls.Remove(this); } else value.Controls.Add(this); } }
-        public string Name { get; set; } = ""; public object Tag { get; set; } public bool TabStop { get; set; } public int TabIndex { get; set; } public bool CausesValidation { get; set; } public AnchorStyles Anchor { get; set; } = AnchorStyles.Top | AnchorStyles.Left;
-        public DockStyle Dock { get; set; } public Padding Padding { get; set; } public Padding Margin { get; set; } public bool AllowDrop { get; set; } public bool AutoSize { get; set; } public Size MinimumSize { get; set; } public Size MaximumSize { get; set; } public ContextMenuStrip ContextMenuStrip { get; set; } public RightToLeft RightToLeft { get; set; } public ImeMode ImeMode { get; set; } public Region Region { get; set; } public string AccessibleName { get; set; } public string AccessibleDescription { get; set; }
+        public string Name { get; set; } = ""; public object Tag { get; set; } public bool TabStop { get; set; } public int TabIndex { get; set; } public bool CausesValidation { get; set; } public AnchorStyles Anchor { get { return anchor; } set { anchor = value; NoteAnchor(); } } AnchorStyles anchor = AnchorStyles.Top | AnchorStyles.Left;
+        public DockStyle Dock { get { return dock; } set { if (dock == value) return; dock = value; if (parent != null) parent.DoLayout(); } } DockStyle dock; public Padding Padding { get { return padding; } set { padding = value; DoLayout(); } } Padding padding; public Padding Margin { get; set; } public bool AllowDrop { get; set; } public bool AutoSize { get; set; } public Size MinimumSize { get; set; } public Size MaximumSize { get; set; } public ContextMenuStrip ContextMenuStrip { get; set; } public RightToLeft RightToLeft { get; set; } public ImeMode ImeMode { get; set; } public Region Region { get; set; } public string AccessibleName { get; set; } public string AccessibleDescription { get; set; }
         protected bool DoubleBuffered { get; set; } protected bool ResizeRedraw { get; set; }
         protected void SetStyle(ControlStyles s, bool on) { } protected void UpdateStyles() { }
         public virtual string Text { get { return text; } set { text = value ?? ""; OnTextChanged(EventArgs.Empty); NativeText(text); } }
@@ -78,10 +86,10 @@ namespace System.Windows.Forms
         public virtual Size ClientSize { get { return new Size(w, h); } set { SetBounds(x, y, value.Width, value.Height); } }
         public Rectangle ClientRectangle { get { var s = ClientSize; return new Rectangle(0, 0, s.Width, s.Height); } } public Rectangle DisplayRectangle { get { return ClientRectangle; } }
         public void SetBounds(int nx, int ny, int nw, int nh) { SetBoundsCore(nx, ny, nw, nh, BoundsSpecified.All); }
-        protected virtual void SetBoundsCore(int nx, int ny, int nw, int nh, BoundsSpecified s) { bool moved = nx != x || ny != y, sized = nw != w || nh != h; x = nx; y = ny; w = Math.Max(0, nw); h = Math.Max(0, nh); Place(); if (moved) OnMove(EventArgs.Empty); if (moved) OnLocationChanged(EventArgs.Empty); if (sized) { OnSizeChanged(EventArgs.Empty); OnResize(EventArgs.Empty); OnClientSizeChanged(EventArgs.Empty); } }
+        protected virtual void SetBoundsCore(int nx, int ny, int nw, int nh, BoundsSpecified s) { bool moved = nx != x || ny != y, sized = nw != w || nh != h; x = nx; y = ny; w = Math.Max(0, nw); h = Math.Max(0, nh); Place(); if (!laying) NoteAnchor(); if (sized) DoLayout(); if (moved) OnMove(EventArgs.Empty); if (moved) OnLocationChanged(EventArgs.Empty); if (sized) { OnSizeChanged(EventArgs.Empty); OnResize(EventArgs.Empty); OnClientSizeChanged(EventArgs.Empty); } }
         public void SetBounds(int nx, int ny, int nw, int nh, BoundsSpecified s) { SetBoundsCore(nx, ny, nw, nh, s); }
         // the window was resized or moved by the user: take its size without pushing it back
-        internal void SetBoundsFromWindow(int nw, int nh) { if (nw == w && nh == h) return; w = nw; h = nh; if (root != null) { native.Width = w; native.Height = h; } OnSizeChanged(EventArgs.Empty); OnResize(EventArgs.Empty); OnClientSizeChanged(EventArgs.Empty); Invalidate(); }
+        internal void SetBoundsFromWindow(int nw, int nh) { if (nw == w && nh == h) return; w = nw; h = nh; if (root != null) { native.Width = w; native.Height = h; } DoLayout(); OnSizeChanged(EventArgs.Empty); OnResize(EventArgs.Empty); OnClientSizeChanged(EventArgs.Empty); Invalidate(); }
         internal void MoveFromWindow(int nx, int ny) { if (nx == x && ny == y) return; x = nx; y = ny; OnMove(EventArgs.Empty); OnLocationChanged(EventArgs.Empty); }
         public IntPtr Handle { get { CreateHandleIfNeeded(); return new IntPtr(GetHashCode() | 1); } } public bool IsHandleCreated { get { return native != null; } } public bool IsDisposed { get; private set; } public bool Disposing { get; private set; }
         public bool Created { get { return native != null; } } public bool Focused { get { return native != null && native.IsFocused; } } public bool ContainsFocus { get { return Focused; } } public bool CanFocus { get { return visible && enabled; } } public bool Capture { get; set; }
@@ -141,10 +149,48 @@ namespace System.Windows.Forms
         void EnsureKids()
         {
             if (kids != null) return; kids = new AC.Canvas { ClipToBounds = true }; root = new AC.Panel(); root.Children.Add(native); root.Children.Add(kids);
-            foreach (var c in Controls) { var n = c.Native; if (n.Parent == null) kids.Children.Add(n); }
+            var cl = Controls.List; for (int i = cl.Count - 1; i >= 0; i--) { var n = cl[i].Native; if (n.Parent == null) kids.Children.Add(n); }
         }
-        internal void AttachChild(Control c) { if (native == null) return; EnsureKids(); var n = c.Native; if (n.Parent == null) kids.Children.Add(n); c.Place(); }
+        internal void AttachChild(Control c) { if (native == null) return; EnsureKids(); var n = c.Native; if (n.Parent == null) kids.Children.Insert(0, n); c.Place(); }
         internal void DetachChild(Control c) { if (kids != null && c.root != null) kids.Children.Remove(c.root); else if (kids != null && c.native != null) kids.Children.Remove(c.native); }
+        // Windows Forms layout: docked children take the edges in z-order from the back (the last in Controls first), Fill takes what is left;
+        // anchored children keep their distance to the right / bottom edges when this control is resized.
+        bool laying; int anchorR, anchorB; internal bool anchorKnown;
+        internal void NoteAnchor() { if (parent == null || dock != DockStyle.None) return; var cs = parent.ClientSize; if (cs.Width <= 0 && cs.Height <= 0) return; anchorR = cs.Width - (x + w); anchorB = cs.Height - (y + h); anchorKnown = true; }
+        internal void DoLayout()
+        {
+            if (laying || Controls.Count == 0) return; laying = true;
+            try
+            {
+                var cs = ClientSize; int l = padding.Left, t = padding.Top, r = cs.Width - padding.Right, b = cs.Height - padding.Bottom;
+                var list = Controls.List;
+                for (int i = list.Count - 1; i >= 0; i--)
+                {
+                    var c = list[i]; if (!c.visible) continue;
+                    switch (c.dock)
+                    {
+                        case DockStyle.Top: c.LayBounds(l, t, r - l, c.h); t += c.h; break;
+                        case DockStyle.Bottom: c.LayBounds(l, b - c.h, r - l, c.h); b -= c.h; break;
+                        case DockStyle.Left: c.LayBounds(l, t, c.w, b - t); l += c.w; break;
+                        case DockStyle.Right: c.LayBounds(r - c.w, t, c.w, b - t); r -= c.w; break;
+                    }
+                }
+                for (int i = list.Count - 1; i >= 0; i--) { var c = list[i]; if (c.visible && c.dock == DockStyle.Fill) c.LayBounds(l, t, Math.Max(0, r - l), Math.Max(0, b - t)); }
+                foreach (var c in list)
+                {
+                    if (c.dock != DockStyle.None || !c.anchorKnown) continue;
+                    int nx = c.x, ny = c.y, nw = c.w, nh = c.h; var a = c.anchor;
+                    if ((a & AnchorStyles.Right) != 0) { if ((a & AnchorStyles.Left) != 0) nw = Math.Max(0, cs.Width - c.anchorR - c.x); else nx = cs.Width - c.anchorR - c.w; }
+                    if ((a & AnchorStyles.Bottom) != 0) { if ((a & AnchorStyles.Top) != 0) nh = Math.Max(0, cs.Height - c.anchorB - c.y); else ny = cs.Height - c.anchorB - c.h; }
+                    if (nx != c.x || ny != c.y || nw != c.w || nh != c.h) c.LayBounds(nx, ny, nw, nh);
+                }
+            }
+            finally { laying = false; }
+            OnLayout(new LayoutEventArgs(this, ""));
+        }
+        public event LayoutEventHandler Layout; protected virtual void OnLayout(LayoutEventArgs e) { if (Layout != null) Layout(this, e); }
+        void LayBounds(int nx, int ny, int nw, int nh) { laying = true; try { SetBounds(nx, ny, nw, nh); } finally { laying = false; } }
+        internal void ReorderKids() { if (kids == null) return; kids.Children.Clear(); var l = Controls.List; for (int i = l.Count - 1; i >= 0; i--) { var n = l[i].root ?? l[i].native; if (n != null && n.Parent == null) kids.Children.Add(n); } }
         internal virtual void Place()
         {
             var n = root ?? native; if (n == null) return; n.Width = Math.Max(0, w); n.Height = Math.Max(0, h);
@@ -171,15 +217,16 @@ namespace System.Windows.Forms
             n.KeyDown += (s, e) => { Mods(e.KeyModifiers); var k = Map.Key(e.Key) | Map.ModKeys(e.KeyModifiers); var f = FindForm(); if (f != null && f.RouteCmdKey(k)) { e.Handled = true; return; } var ke = new KeyEventArgs(k); OnKeyDown(ke); if (ke.Handled || ke.SuppressKeyPress) e.Handled = true; };
             n.KeyUp += (s, e) => { Mods(e.KeyModifiers); var ke = new KeyEventArgs(Map.Key(e.Key) | Map.ModKeys(e.KeyModifiers)); OnKeyUp(ke); };
             n.TextInput += (s, e) => { if (string.IsNullOrEmpty(e.Text)) return; foreach (char ch in e.Text) { var kp = new KeyPressEventArgs(ch); OnKeyPress(kp); if (kp.Handled) e.Handled = true; } };
-            AC.DragDrop.SetAllowDrop(n, true);
-            n.AddHandler(AC.DragDrop.DropEvent, (s, e) => { if (!AllowDrop) return; var files = e.Data.GetFiles(); var list = new List<string>(); if (files != null) foreach (var f in files) { var p = f.TryGetLocalPath(); if (p != null) list.Add(p); } var d = new DataObject(); if (list.Count > 0) d.SetData(DataFormats.FileDrop, list.ToArray()); var t = e.Data.GetText(); if (t != null) d.SetData(DataFormats.Text, t); var pos = e.GetPosition(n); var de = new DragEventArgs(d, 0, (int)pos.X, (int)pos.Y, DragDropEffects.Copy, DragDropEffects.Copy); OnDragEnter(de); OnDragDrop(de); });
-            n.AddHandler(AC.DragDrop.DragOverEvent, (s, e) => { if (AllowDrop) e.DragEffects = Avalonia.Input.DragDropEffects.Copy; });
+            Avalonia.Input.DragDrop.SetAllowDrop(n, true);
+            n.AddHandler(Avalonia.Input.DragDrop.DropEvent, (s, e) => { if (!AllowDrop) return; var files = e.Data.GetFiles(); var list = new List<string>(); if (files != null) foreach (var f in files) { var p = Avalonia.Platform.Storage.StorageProviderExtensions.TryGetLocalPath(f); if (p != null) list.Add(p); } var d = new DataObject(); if (list.Count > 0) d.SetData(DataFormats.FileDrop, list.ToArray()); var t = e.Data.GetText(); if (t != null) d.SetData(DataFormats.Text, t); var pos = e.GetPosition(n); var de = new DragEventArgs(d, 0, (int)pos.X, (int)pos.Y, DragDropEffects.Copy, DragDropEffects.Copy); OnDragEnter(de); OnDragDrop(de); });
+            n.AddHandler(Avalonia.Input.DragDrop.DragOverEvent, (s, e) => { if (AllowDrop) e.DragEffects = Avalonia.Input.DragDropEffects.Copy; });
         }
         static void Mods(KeyModifiers m) { ModifierKeys = Map.ModKeys(m); }
+        internal void PerformClickInternal() { OnClick(EventArgs.Empty); OnMouseClick(new MouseEventArgs(MouseButtons.Left, 1, 1, 1, 0)); }
         public Form FindForm() { Control c = this; while (c != null && !(c is Form)) c = c.parent; return c as Form; }
         public Control TopLevelControl { get { return FindForm(); } }
         public bool Focus() { CreateHandleIfNeeded(); return native.Focus(); } public void Select() { Focus(); }
-        public void BringToFront() { } public void SendToBack() { } public void Show() { Visible = true; } public void Hide() { Visible = false; } public void PerformLayout() { } public void SuspendLayout() { } public void ResumeLayout() { } public void ResumeLayout(bool b) { }
+        public void BringToFront() { if (parent == null) return; var l = parent.Controls.List; l.Remove(this); l.Insert(0, this); parent.ReorderKids(); parent.DoLayout(); } public void SendToBack() { if (parent == null) return; var l = parent.Controls.List; l.Remove(this); l.Add(this); parent.ReorderKids(); parent.DoLayout(); } public void Show() { Visible = true; } public void Hide() { Visible = false; } public void PerformLayout() { DoLayout(); } public void SuspendLayout() { } public void ResumeLayout() { } public void ResumeLayout(bool b) { }
         public Point PointToScreen(Point p) { var n = Native; var top = AC.TopLevel.GetTopLevel(n); if (top == null) return p; var tp = n.TranslatePoint(new Avalonia.Point(p.X, p.Y), top); if (!tp.HasValue) return p; var s = top.PointToScreen(tp.Value); return new Point(s.X, s.Y); }
         public Point PointToClient(Point p) { var n = Native; var top = AC.TopLevel.GetTopLevel(n); if (top == null) return p; var c = top.PointToClient(new PixelPoint(p.X, p.Y)); var tp = top.TranslatePoint(c, n); return tp.HasValue ? new Point((int)tp.Value.X, (int)tp.Value.Y) : p; }
         public Rectangle RectangleToScreen(Rectangle r) { var p = PointToScreen(r.Location); return new Rectangle(p, r.Size); } public Rectangle RectangleToClient(Rectangle r) { var p = PointToClient(r.Location); return new Rectangle(p, r.Size); }
@@ -188,11 +235,11 @@ namespace System.Windows.Forms
         protected override void Dispose(bool disposing) { if (IsDisposed) return; Disposing = true; foreach (var c in Controls) c.Dispose(); if (parent != null) parent.Controls.Remove(this); IsDisposed = true; OnHandleDestroyed(EventArgs.Empty); Disposed?.Invoke(this, EventArgs.Empty); base.Dispose(disposing); }
     }
     public enum ControlStyles { UserPaint = 2, Opaque = 4, ResizeRedraw = 16, Selectable = 512, AllPaintingInWmPaint = 8192, OptimizedDoubleBuffer = 131072, DoubleBuffer = 65536, SupportsTransparentBackColor = 2048, StandardClick = 256, StandardDoubleClick = 4096, UserMouse = 1024 }
-    public abstract class ScrollableControl : Control { public bool AutoScroll { get; set; } public Point AutoScrollPosition { get; set; } public Size AutoScrollMinSize { get; set; } }
+    public abstract class ScrollableControl : Control { public VScrollProperties VerticalScroll { get; } = new VScrollProperties(); public HScrollProperties HorizontalScroll { get; } = new HScrollProperties(); public bool AutoScroll { get; set; } public Point AutoScrollPosition { get; set; } public Size AutoScrollMinSize { get; set; } }
     public class ContainerControl : ScrollableControl { public Control ActiveControl { get; set; } }
     public class UserControl : ContainerControl { }
     public class Panel : ScrollableControl { public BorderStyle BorderStyle { get; set; } }
-    public class FlowLayoutPanel : Panel { public bool WrapContents { get; set; } public FlowDirection FlowDirection { get; set; } }
+    public class FlowLayoutPanel : Panel { public AutoSizeMode AutoSizeMode { get; set; } public bool WrapContents { get; set; } public FlowDirection FlowDirection { get; set; } }
     public enum FlowDirection { LeftToRight, TopDown, RightToLeft, BottomUp }
     public class PictureBox : Control { public Image Image { get; set; } public PictureBoxSizeMode SizeMode { get; set; } protected override void OnPaint(PaintEventArgs e) { if (Image != null) e.Graphics.DrawImage(Image, ClientRectangle); base.OnPaint(e); } }
     public enum PictureBoxSizeMode { Normal, StretchImage, AutoSize, CenterImage, Zoom }

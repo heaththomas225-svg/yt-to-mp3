@@ -16,8 +16,8 @@ namespace System.Windows.Forms
     static class Bridge
     {
         public static IBrush Brush(Color c) { return new SolidColorBrush(Avalonia.Media.Color.FromArgb(c.A, c.R, c.G, c.B)); }
-        public static void FontOn(AC.Primitives.TemplatedControl n, System.Drawing.Font f) { if (n == null || f == null) return; n.FontFamily = new FontFamily(f.Name); n.FontSize = f.SizeInPoints * 96f / 72f; n.FontWeight = f.Bold ? FontWeight.Bold : FontWeight.Normal; n.FontStyle = f.Italic ? Avalonia.Media.FontStyle.Italic : Avalonia.Media.FontStyle.Normal; }
-        public static void FontOn(AC.TextBlock n, System.Drawing.Font f) { if (n == null || f == null) return; n.FontFamily = new FontFamily(f.Name); n.FontSize = f.SizeInPoints * 96f / 72f; n.FontWeight = f.Bold ? FontWeight.Bold : FontWeight.Normal; }
+        public static void FontOn(AC.Primitives.TemplatedControl n, System.Drawing.Font f) { if (n == null || f == null) return; n.FontFamily = new Avalonia.Media.FontFamily(f.Name); n.FontSize = f.SizeInPoints * 96f / 72f; n.FontWeight = f.Bold ? FontWeight.Bold : FontWeight.Normal; n.FontStyle = f.Italic ? Avalonia.Media.FontStyle.Italic : Avalonia.Media.FontStyle.Normal; }
+        public static void FontOn(AC.TextBlock n, System.Drawing.Font f) { if (n == null || f == null) return; n.FontFamily = new Avalonia.Media.FontFamily(f.Name); n.FontSize = f.SizeInPoints * 96f / 72f; n.FontWeight = f.Bold ? FontWeight.Bold : FontWeight.Normal; }
     }
 
     public abstract class TextBoxBase : Control
@@ -50,12 +50,13 @@ namespace System.Windows.Forms
         protected override void NativeFont() { Bridge.FontOn(Box, Font); }
         protected override void NativeColors() { if (Box == null) return; Box.Background = Bridge.Brush(BackColor); Box.Foreground = Bridge.Brush(ForeColor); }
     }
-    public class TextBox : TextBoxBase { public HorizontalAlignment TextAlign { get; set; } public CharacterCasing CharacterCasing { get; set; } public bool UseSystemPasswordChar { get { return PasswordChar != '\0'; } set { PasswordChar = value ? '•' : '\0'; } } public AutoCompleteMode AutoCompleteMode { get; set; } public AutoCompleteSource AutoCompleteSource { get; set; } public string PlaceholderText { get { return Box != null ? Box.Watermark : ""; } set { CreateHandleIfNeeded(); Box.Watermark = value; } } }
+    public class TextBox : TextBoxBase { public int PreferredHeight { get { return Font != null ? (int)Math.Ceiling(Font.GetHeight()) + 8 : 24; } } public HorizontalAlignment TextAlign { get; set; } public CharacterCasing CharacterCasing { get; set; } public bool UseSystemPasswordChar { get { return PasswordChar != '\0'; } set { PasswordChar = value ? '•' : '\0'; } } public AutoCompleteMode AutoCompleteMode { get; set; } public AutoCompleteSource AutoCompleteSource { get; set; } public string PlaceholderText { get { return Box != null ? Box.Watermark : ""; } set { CreateHandleIfNeeded(); Box.Watermark = value; } } }
     public enum CharacterCasing { Normal, Upper, Lower }
     public enum AutoCompleteMode { None, Suggest, Append, SuggestAppend }
     public enum AutoCompleteSource { None, CustomSource, FileSystem, HistoryList, RecentlyUsedList, AllUrl, AllSystemSources, FileSystemDirectories, ListItems }
     public class RichTextBox : TextBoxBase
     {
+        public new RichTextBoxScrollBars ScrollBars { get; set; } public int SelectionIndent { get; set; } public int SelectionRightIndent { get; set; } public int SelectionHangingIndent { get; set; } public bool SelectionBullet { get; set; } public int BulletIndent { get; set; } public int RightMargin { get; set; }
         public RichTextBox() { Multiline = true; }
         public string Rtf { get { return Text; } set { Text = value; } } public Color SelectionColor { get; set; } public Font SelectionFont { get; set; } public Color SelectionBackColor { get; set; } public HorizontalAlignment SelectionAlignment { get; set; } public bool DetectUrls { get; set; } public float ZoomFactor { get; set; } = 1f; public RichTextBoxScrollBars ScrollBarsRich { get; set; } public bool EnableAutoDragDrop { get; set; }
         public event ContentsResizedEventHandler ContentsResized; public event EventHandler SelectionChanged, VScroll;
@@ -163,5 +164,5 @@ namespace System.Windows.Forms
 
     // the Windows web view (Music Hub, the Video and Photo Editors): on macOS / Linux these open in the system browser until the
     // cross-platform web view lands (Phase 4). Present so the app compiles and the rest runs.
-    public class WebBrowser : Control { public Uri Url { get; set; } public string DocumentText { get; set; } public bool ScriptErrorsSuppressed { get; set; } public bool IsWebBrowserContextMenuEnabled { get; set; } public bool WebBrowserShortcutsEnabled { get; set; } public bool AllowWebBrowserDrop { get; set; } public event EventHandler DocumentCompleted; public void Navigate(string url) { Url = new Uri(url); } public void Navigate(Uri u) { Url = u; } }
+    public class WebBrowser : Control { public bool ScrollBarsEnabled { get; set; } public object ObjectForScripting { get; set; } public object Document { get { return null; } } public Uri Url { get; set; } public string DocumentText { get; set; } public bool ScriptErrorsSuppressed { get; set; } public bool IsWebBrowserContextMenuEnabled { get; set; } public bool WebBrowserShortcutsEnabled { get; set; } public bool AllowWebBrowserDrop { get; set; } public event EventHandler DocumentCompleted; public void Navigate(string url) { Url = new Uri(url); } public void Navigate(Uri u) { Url = u; } }
 }

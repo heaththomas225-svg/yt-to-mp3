@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Purphex Music
+Comment=Make music, split vocals, mix and master
+Exec=Purphex
+Icon=purphex
+Terminal=false
+Categories=AudioVideo;Audio;Music;

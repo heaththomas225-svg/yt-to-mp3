@@ -28,6 +28,7 @@ namespace System.Windows.Forms
 
     public abstract class ToolStripItem : Component
     {
+        public Padding Margin { get; set; } public virtual bool Pressed { get { return false; } }
         public virtual string Text { get; set; } = ""; public bool Enabled { get; set; } = true; public bool Visible { get; set; } = true; public bool Available { get { return Visible; } set { Visible = value; } } public Image Image { get; set; } public object Tag { get; set; } public string Name { get; set; } = ""; public string ToolTipText { get; set; }
         public Color ForeColor { get; set; } = Color.Empty; public Color BackColor { get; set; } = Color.Empty; public Font Font { get; set; } public ToolStripItemDisplayStyle DisplayStyle { get; set; } = ToolStripItemDisplayStyle.ImageAndText; public Padding Padding { get; set; } public Size Size { get; set; } public bool AutoSize { get; set; } = true; public bool AutoToolTip { get; set; }
         public ContentAlignment TextAlign { get; set; } public ContentAlignment ImageAlign { get; set; } public ToolStripItemImageScaling ImageScaling { get; set; } public bool Selected { get { return false; } } public Rectangle Bounds { get { return Rectangle.Empty; } } public int Width { get { return Size.Width; } set { Size = new Size(value, Size.Height); } } public int Height { get { return Size.Height; } set { Size = new Size(Size.Width, value); } }
@@ -62,6 +63,7 @@ namespace System.Windows.Forms
 
     public class ToolStrip : Control
     {
+        public event ToolStripItemEventHandler ItemAdded, ItemRemoved; internal void RaiseItemAdded(ToolStripItem i) { if (ItemAdded != null) ItemAdded(this, new ToolStripItemEventArgs(i)); }
         public ToolStrip() { Items = new ToolStripItemCollection(); } public ToolStripItemCollection Items { get; }
         public ToolStripRenderer Renderer { get; set; } public ToolStripRenderMode RenderMode { get; set; } public bool ShowItemToolTips { get; set; } public ToolStripGripStyle GripStyle { get; set; } public bool ShowImageMargin { get; set; } = true; public bool ShowCheckMargin { get; set; } public Size ImageScalingSize { get; set; } public bool DropShadowEnabled { get; set; } = true; public bool AutoClose { get; set; } = true;
     }

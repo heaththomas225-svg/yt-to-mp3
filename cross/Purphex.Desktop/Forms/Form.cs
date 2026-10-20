@@ -23,18 +23,18 @@ namespace System.Windows.Forms
     public class Form : ContainerControl
     {
         protected virtual bool ShowWithoutActivation { get { return false; } }
-        internal AC.Window win; bool shown, closing; FormWindowState state; bool topMost, showInTaskbar = true; FormBorderStyle border = FormBorderStyle.Sizable; double opacity = 1; Icon icon;
+        internal AC.Window win; internal volatile bool active; bool shown, closing; FormWindowState state; bool topMost, showInTaskbar = true; FormBorderStyle border = FormBorderStyle.Sizable; double opacity = 1; Icon icon;
         public Form() { Width = 800; Height = 600; }
         public FormStartPosition StartPosition { get; set; } = FormStartPosition.WindowsDefaultLocation; public bool KeyPreview { get; set; } public IButtonControl AcceptButton { get; set; } public IButtonControl CancelButton { get; set; }
         public DialogResult DialogResult { get; set; } public bool ControlBox { get; set; } = true; public bool MaximizeBox { get; set; } = true; public bool MinimizeBox { get; set; } = true; public bool ShowIcon { get; set; } = true; public Color TransparencyKey { get; set; } public bool Modal { get; private set; } public bool IsMdiContainer { get; set; } public SizeGripStyle SizeGripStyle { get; set; } public AutoScaleMode AutoScaleMode { get; set; } public SizeF AutoScaleDimensions { get; set; }
         public Form Owner { get; set; } public Form[] OwnedForms { get { return Application.OpenForms.Cast<Form>().Where(f => f.Owner == this).ToArray(); } }
-        public static Form ActiveForm { get { foreach (Form f in Application.OpenForms) if (f.win != null && f.win.IsActive) return f; return null; } }
+        public static Form ActiveForm { get { foreach (Form f in Application.OpenForms) if (f.active) return f; return null; } }
         public Icon Icon { get { return icon; } set { icon = value; } }
         public bool TopMost { get { return topMost; } set { topMost = value; if (win != null) win.Topmost = value; } }
         public bool ShowInTaskbar { get { return showInTaskbar; } set { showInTaskbar = value; if (win != null) win.ShowInTaskbar = value; } }
         public double Opacity { get { return opacity; } set { opacity = value; if (win != null) win.Opacity = value; } }
         public FormBorderStyle FormBorderStyle { get { return border; } set { border = value; ApplyBorder(); } }
-        public FormWindowState WindowState { get { return win != null ? (win.WindowState == AC.WindowState.Maximized || win.WindowState == AC.WindowState.FullScreen ? FormWindowState.Maximized : (win.WindowState == AC.WindowState.Minimized ? FormWindowState.Minimized : FormWindowState.Normal)) : state; } set { state = value; if (win != null) win.WindowState = value == FormWindowState.Maximized ? AC.WindowState.Maximized : (value == FormWindowState.Minimized ? AC.WindowState.Minimized : AC.WindowState.Normal); } }
+        public FormWindowState WindowState { get { return state; } set { state = value; if (win != null) win.WindowState = value == FormWindowState.Maximized ? AC.WindowState.Maximized : (value == FormWindowState.Minimized ? AC.WindowState.Minimized : AC.WindowState.Normal); } }
         public Rectangle RestoreBounds { get { return Bounds; } } public Rectangle DesktopBounds { get { return Bounds; } set { Bounds = value; } }
         public event EventHandler Load, Shown, Activated, Deactivate, ResizeBegin, ResizeEnd; public event FormClosingEventHandler FormClosing; public event FormClosedEventHandler FormClosed;
         protected virtual void OnLoad(EventArgs e) { Load?.Invoke(this, e); } protected virtual void OnShown(EventArgs e) { Shown?.Invoke(this, e); } protected virtual void OnActivated(EventArgs e) { Activated?.Invoke(this, e); } protected virtual void OnDeactivate(EventArgs e) { Deactivate?.Invoke(this, e); }
@@ -52,7 +52,8 @@ namespace System.Windows.Forms
             if (state != FormWindowState.Normal) WindowState = state;
             win.SizeChanged += (s, e) => { if (win.ClientSize.Width > 0) base.SetBoundsFromWindow((int)win.ClientSize.Width, (int)win.ClientSize.Height); };
             win.PositionChanged += (s, e) => base.MoveFromWindow(win.Position.X, win.Position.Y);
-            win.Activated += (s, e) => OnActivated(EventArgs.Empty); win.Deactivated += (s, e) => OnDeactivate(EventArgs.Empty);
+            win.Activated += (s, e) => { active = true; OnActivated(EventArgs.Empty); }; win.Deactivated += (s, e) => { active = false; OnDeactivate(EventArgs.Empty); };
+            win.PropertyChanged += (s, e) => { if (e.Property == AC.Window.WindowStateProperty) { var ws = win.WindowState; state = ws == AC.WindowState.Maximized || ws == AC.WindowState.FullScreen ? FormWindowState.Maximized : ws == AC.WindowState.Minimized ? FormWindowState.Minimized : FormWindowState.Normal; } };
             win.Closing += (s, e) => { if (closing) return; var fc = new FormClosingEventArgs(CloseReason.UserClosing, false); OnFormClosing(fc); if (fc.Cancel) e.Cancel = true; };
             win.Closed += (s, e) => { Application.forms.Remove(this); OnFormClosed(new FormClosedEventArgs(CloseReason.UserClosing)); if (Application.mainForm == this) Application.Exit(); };
             win.KeyDown += (s, e) => { if (e.Handled) return; var k = Map.Key(e.Key) | Map.ModKeys(e.KeyModifiers); if (RouteCmdKey(k)) { e.Handled = true; return; } if (k == Keys.Enter && AcceptButton != null) { AcceptButton.PerformClick(); e.Handled = true; } else if (k == Keys.Escape && CancelButton != null) { CancelButton.PerformClick(); e.Handled = true; } };
@@ -99,18 +100,30 @@ namespace System.Windows.Forms
         public static void AddMessageFilter(IMessageFilter f) { } public static void RemoveMessageFilter(IMessageFilter f) { }
         internal static void ReportError(Exception e) { var h = ThreadException; if (h != null) h(null, new ThreadExceptionEventArgs(e)); else Console.Error.WriteLine(e); }
         // the Avalonia app runs on this thread; Run(form) shows the first window and returns when it closes
+        static bool looping;
         public static void Run(Form main)
         {
             mainForm = main;
-            if (app == null)
+            if (!looping)
             {
-                var builder = AppBuilder.Configure<PurphexAvaloniaApp>().UsePlatformDetect().WithInterFont().LogToTrace();
-                builder.StartWithClassicDesktopLifetime(new string[0], ShutdownMode.OnMainWindowClose);
+                looping = true; Boot.Up(); Started(); Boot.Life.Start(Environment.GetCommandLineArgs());
                 return;
             }
             main.Show(); var cts = new CancellationTokenSource(); main.FormClosed += (s, e) => cts.Cancel(); Dispatcher.UIThread.MainLoop(cts.Token);
         }
-        internal static void Started() { if (mainForm != null) { mainForm.Show(); if (Avalonia.Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime d) d.MainWindow = mainForm.win; } Dispatcher.UIThread.Post(() => Idle?.Invoke(null, EventArgs.Empty), DispatcherPriority.Background); }
+        // PURPHEX_SNAP=<file.png>[;seconds]: saves a picture of the main window after it has been up a while, then quits (used by the build checks)
+        static void Snap()
+        {
+            var spec = Environment.GetEnvironmentVariable("PURPHEX_SNAP"); if (string.IsNullOrEmpty(spec)) return;
+            var parts = spec.Split(';'); double secs = parts.Length > 1 ? double.Parse(parts[1], System.Globalization.CultureInfo.InvariantCulture) : 6;
+            var t = new DispatcherTimer { Interval = TimeSpan.FromSeconds(secs) };
+            var click = Environment.GetEnvironmentVariable("PURPHEX_SNAP_CLICK");   // presses the button with this text first (e.g. PURPHEX MUSIC opens the studio)
+            if (!string.IsNullOrEmpty(click)) { var c0 = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) }; c0.Tick += (s, e) => { c0.Stop(); var b = FindByText(mainForm, click); Console.WriteLine(b == null ? "snap: no button " + click : "snap: pressing " + click); if (b != null) b.PerformClickInternal(); }; c0.Start(); }
+            t.Tick += (s, e) => { t.Stop(); try { AC.Window w = null; foreach (Form f in OpenForms) if (f.win != null && f.win.IsVisible) w = f.win; w = w ?? MainWindow; var sz = new PixelSize(Math.Max(1, (int)w.Bounds.Width), Math.Max(1, (int)w.Bounds.Height)); using (var bmp = new Avalonia.Media.Imaging.RenderTargetBitmap(sz)) { bmp.Render(w); bmp.Save(parts[0]); } Console.WriteLine("snap saved " + sz); } catch (Exception ex) { Console.WriteLine("snap failed: " + ex); } Environment.Exit(0); };
+            t.Start();
+        }
+        static Control FindByText(Control root, string text) { if (root == null) return null; foreach (var c in root.Controls) { if (c.Text == text) return c; var r = FindByText(c, text); if (r != null) return r; } return null; }
+        internal static void Started() { Snap(); if (mainForm != null) { mainForm.Show(); if (Avalonia.Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime d) d.MainWindow = mainForm.win; } Dispatcher.UIThread.Post(() => Idle?.Invoke(null, EventArgs.Empty), DispatcherPriority.Background); }
         public static void Run() { if (mainForm != null) Run(mainForm); }
         public static void DoEvents() { Dispatcher.UIThread.RunJobs(); }
         public static void Exit() { ApplicationExit?.Invoke(null, EventArgs.Empty); if (Avalonia.Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime d) d.Shutdown(); else Environment.Exit(0); }
@@ -122,10 +135,22 @@ namespace System.Windows.Forms
     public delegate void ThreadExceptionEventHandler(object sender, ThreadExceptionEventArgs e);
     public class ThreadExceptionEventArgs : EventArgs { public Exception Exception { get; } public ThreadExceptionEventArgs(Exception e) { Exception = e; } }
 
+    // Avalonia is set up before Main runs (the app makes timers and windows in its constructor, and those need the platform ready)
+    static class Boot
+    {
+        internal static ClassicDesktopStyleApplicationLifetime Life; static bool up;
+        [System.Runtime.CompilerServices.ModuleInitializer] internal static void Init() { try { Up(); } catch (Exception e) { Console.Error.WriteLine("Avalonia setup: " + e); } }
+        internal static void Up()
+        {
+            if (up) return; up = true;
+            var life = new ClassicDesktopStyleApplicationLifetime { ShutdownMode = Avalonia.Controls.ShutdownMode.OnMainWindowClose }; Life = life;
+            AppBuilder.Configure<PurphexAvaloniaApp>().UsePlatformDetect().WithInterFont().LogToTrace().SetupWithLifetime(life);
+        }
+    }
     sealed class PurphexAvaloniaApp : Avalonia.Application
     {
         public override void Initialize() { Styles.Add(new Avalonia.Themes.Fluent.FluentTheme()); RequestedThemeVariant = Avalonia.Styling.ThemeVariant.Dark; Application.Init(this); }
-        public override void OnFrameworkInitializationCompleted() { base.OnFrameworkInitializationCompleted(); Clipboard.GetTextImpl = () => { var top = Application.MainWindow; return top?.Clipboard?.GetTextAsync().GetAwaiter().GetResult(); }; Clipboard.SetTextImpl = t => { var top = Application.MainWindow; top?.Clipboard?.SetTextAsync(t ?? "").GetAwaiter().GetResult(); }; Application.Started(); }
+        public override void OnFrameworkInitializationCompleted() { base.OnFrameworkInitializationCompleted(); Clipboard.GetTextImpl = () => { var top = Application.MainWindow; return top?.Clipboard == null ? null : CommonDialog.Wait(top.Clipboard.GetTextAsync()); }; Clipboard.SetTextImpl = t => { var top = Application.MainWindow; if (top?.Clipboard != null) CommonDialog.Wait(top.Clipboard.SetTextAsync(t ?? "").ContinueWith(_ => true)); }; }
     }
 
     public class Timer : Component
@@ -181,8 +206,8 @@ namespace System.Windows.Forms
         public override DialogResult ShowDialog()
         {
             var sp = Storage; if (sp == null) return DialogResult.Cancel;
-            var files = Wait(System.Threading.Tasks.Task.Run(async () => await Dispatcher.UIThread.InvokeAsync(async () => await sp.OpenFilePickerAsync(new FilePickerOpenOptions { Title = Title, AllowMultiple = Multiselect, FileTypeFilter = Types(), SuggestedStartLocation = await Start() }))).Unwrap());
-            if (files == null || files.Count == 0) return DialogResult.Cancel; FileNames = files.Select(f => f.TryGetLocalPath()).Where(p => p != null).ToArray(); if (FileNames.Length == 0) return DialogResult.Cancel; FileName = FileNames[0]; return DialogResult.OK;
+            var start = Wait(Start()); var files = Wait(sp.OpenFilePickerAsync(new FilePickerOpenOptions { Title = Title, AllowMultiple = Multiselect, FileTypeFilter = Types(), SuggestedStartLocation = start }));
+            if (files == null || files.Count == 0) return DialogResult.Cancel; FileNames = files.Select(f => ((IStorageItem)f).TryGetLocalPath()).Where(p => p != null).ToArray(); if (FileNames.Length == 0) return DialogResult.Cancel; FileName = FileNames[0]; return DialogResult.OK;
         }
         public System.IO.Stream OpenFile() { return System.IO.File.OpenRead(FileName); }
     }
@@ -192,8 +217,8 @@ namespace System.Windows.Forms
         public override DialogResult ShowDialog()
         {
             var sp = Storage; if (sp == null) return DialogResult.Cancel;
-            var file = Wait(System.Threading.Tasks.Task.Run(async () => await Dispatcher.UIThread.InvokeAsync(async () => await sp.SaveFilePickerAsync(new FilePickerSaveOptions { Title = Title, SuggestedFileName = System.IO.Path.GetFileName(FileName), DefaultExtension = DefaultExt, FileTypeChoices = Types(), ShowOverwritePrompt = OverwritePrompt, SuggestedStartLocation = await Start() }))).Unwrap());
-            var p = file?.TryGetLocalPath(); if (p == null) return DialogResult.Cancel; FileName = p; FileNames = new[] { p }; return DialogResult.OK;
+            var start = Wait(Start()); var file = Wait(sp.SaveFilePickerAsync(new FilePickerSaveOptions { Title = Title, SuggestedFileName = System.IO.Path.GetFileName(FileName), DefaultExtension = DefaultExt, FileTypeChoices = Types(), ShowOverwritePrompt = OverwritePrompt, SuggestedStartLocation = start }));
+            var p = file == null ? null : ((IStorageItem)file).TryGetLocalPath(); if (p == null) return DialogResult.Cancel; FileName = p; FileNames = new[] { p }; return DialogResult.OK;
         }
     }
     public sealed class FolderBrowserDialog : CommonDialog
@@ -202,8 +227,8 @@ namespace System.Windows.Forms
         public override DialogResult ShowDialog()
         {
             var sp = Storage; if (sp == null) return DialogResult.Cancel;
-            var folders = Wait(System.Threading.Tasks.Task.Run(async () => await Dispatcher.UIThread.InvokeAsync(async () => await sp.OpenFolderPickerAsync(new FolderPickerOpenOptions { Title = Description, AllowMultiple = false }))).Unwrap());
-            var p = folders != null && folders.Count > 0 ? folders[0].TryGetLocalPath() : null; if (p == null) return DialogResult.Cancel; SelectedPath = p; return DialogResult.OK;
+            var folders = Wait(sp.OpenFolderPickerAsync(new FolderPickerOpenOptions { Title = Description, AllowMultiple = false }));
+            var p = folders != null && folders.Count > 0 ? ((IStorageItem)folders[0]).TryGetLocalPath() : null; if (p == null) return DialogResult.Cancel; SelectedPath = p; return DialogResult.OK;
         }
     }
     public sealed class ColorDialog : CommonDialog { public Color Color { get; set; } public bool FullOpen { get; set; } public bool AnyColor { get; set; } public int[] CustomColors { get; set; } public override DialogResult ShowDialog() { return DialogResult.Cancel; } }

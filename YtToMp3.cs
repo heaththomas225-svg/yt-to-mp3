@@ -45,7 +45,13 @@ partial class App : Form
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "YtToMp3");
     static string Tools = Path.Combine(AppData, "tools");
     static string SettingsFile = Path.Combine(AppData, "settings.txt");
+#if PURPHEX_DESKTOP
+    internal static string YtDlp = Path.Combine(Tools, CrossTools.Exe("yt-dlp"));   // macOS / Linux: the same tools without .exe
+    static string ExeName(string n) { return CrossTools.Exe(n); }
+#else
     internal static string YtDlp = Path.Combine(Tools, "yt-dlp.exe");
+    static string ExeName(string n) { return n + ".exe"; }
+#endif
     static string FfmpegDir = Path.Combine(Tools, "ffmpeg");
     static string DenoDir = Path.Combine(Tools, "deno");
 
@@ -186,6 +192,9 @@ partial class App : Form
         Wv2Loader.Ensure();   // the Music Hub browser parts are unpacked from the exe when needed
         EmojiSprites.Disabled = false;   // the emoji in the writing are drawn in colour (the tests leave this off)
         Application.EnableVisualStyles(); Win.WidenBuffers(); CrashGuard.Install(); NoValueWheel.Install();   // a problem is logged to crash.log, not shown as the grey .NET box
+#if PURPHEX_DESKTOP
+        PlatformAudio.Install();   // macOS / Linux: sound through SDL
+#endif
         Application.Run(new App());
     }
 
@@ -644,9 +653,18 @@ partial class App : Form
         }
         return true;
     }
-    internal static string DenoExe { get { return FindFile(DenoDir, "deno.exe"); } }   // the JavaScript runtime YouTube downloads need (used for YouTube downloads)
-    internal static string FfmpegExe() { return FindFile(FfmpegDir, "ffmpeg.exe"); }
-    internal static string FfprobeExe() { return FindFile(FfmpegDir, "ffprobe.exe"); }
+    internal static string DenoExe { get { return FindTool(DenoDir, "deno"); } }   // the JavaScript runtime YouTube downloads need (used for YouTube downloads)
+    internal static string FfmpegExe() { return FindTool(FfmpegDir, "ffmpeg"); }
+    internal static string FfprobeExe() { return FindTool(FfmpegDir, "ffprobe"); }
+    // a helper program in its tools folder (macOS / Linux: or already installed on the computer)
+    static string FindTool(string dir, string name)
+    {
+        var f = FindFile(dir, ExeName(name));
+#if PURPHEX_DESKTOP
+        if (f == null && CrossTools.Unix) f = CrossTools.Which(name);
+#endif
+        return f;
+    }
 
     // Most recently written audio file in a folder (used so "Reanalyze" knows what you just made).
     static string NewestAudio(string dir)
@@ -778,8 +796,13 @@ partial class App : Form
         if (!File.Exists(YtDlp))
         {
             Log("First run: downloading yt-dlp...");
+#if PURPHEX_DESKTOP
+            Download("https://github.com/yt-dlp/yt-dlp/releases/latest/download/" + CrossTools.YtDlpAsset, YtDlp, "Downloading yt-dlp...");
+            Verify(YtDlp, "https://github.com/yt-dlp/yt-dlp/releases/latest/download/SHA2-256SUMS", CrossTools.YtDlpAsset); CrossTools.MakeRunnable(YtDlp);
+#else
             Download("https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe", YtDlp, "Downloading yt-dlp...");
             Verify(YtDlp, "https://github.com/yt-dlp/yt-dlp/releases/latest/download/SHA2-256SUMS", "yt-dlp.exe");
+#endif
         }
         else
         {
@@ -787,7 +810,14 @@ partial class App : Form
             RunProc(YtDlp, "-U", false);   // keeps site support working as sites change
         }
 
-        string ff = FindFile(FfmpegDir, "ffmpeg.exe");
+        string ff = FindTool(FfmpegDir, "ffmpeg");
+#if PURPHEX_DESKTOP
+        if (ff == null && CrossTools.Unix)
+        {
+            Log("First run: downloading ffmpeg (one time)...");
+            CrossTools.InstallFfmpeg(Tools, FfmpegDir, Download, Verify); ff = FindTool(FfmpegDir, "ffmpeg");
+        }
+#endif
         if (ff == null)
         {
             Log("First run: downloading ffmpeg (~100 MB, one time)...");
@@ -798,12 +828,28 @@ partial class App : Form
             if (Directory.Exists(FfmpegDir)) Directory.Delete(FfmpegDir, true);
             ZipFile.ExtractToDirectory(zip, FfmpegDir);
             File.Delete(zip);
-            ff = FindFile(FfmpegDir, "ffmpeg.exe");
+            ff = FindTool(FfmpegDir, "ffmpeg");
         }
         if (ff == null) throw new Exception("ffmpeg setup failed.");
 
         // YouTube needs a JavaScript runtime or downloads fail with 403 / missing formats.
-        string deno = FindFile(DenoDir, "deno.exe");
+        string deno = FindTool(DenoDir, "deno");
+#if PURPHEX_DESKTOP
+        if (deno == null && CrossTools.Unix)
+        {
+            try
+            {
+                Log("First run: downloading Deno (JavaScript runtime YouTube needs)...");
+                string zip = Path.Combine(Tools, "deno.zip"), asset = CrossTools.DenoAsset;
+                Download("https://github.com/denoland/deno/releases/latest/download/" + asset, zip, "Downloading Deno...");
+                Verify(zip, "https://github.com/denoland/deno/releases/latest/download/" + asset + ".sha256sum", asset);
+                if (Directory.Exists(DenoDir)) Directory.Delete(DenoDir, true);
+                ZipFile.ExtractToDirectory(zip, DenoDir); File.Delete(zip); CrossTools.MakeAllRunnable(DenoDir);
+                deno = FindTool(DenoDir, "deno");
+            }
+            catch (Exception ex) { Log("Couldn't set up Deno (" + ex.Message + "); YouTube may fail."); }
+        }
+#endif
         if (deno == null)
         {
             try
@@ -815,7 +861,7 @@ partial class App : Form
                 if (Directory.Exists(DenoDir)) Directory.Delete(DenoDir, true);
                 ZipFile.ExtractToDirectory(zip, DenoDir);
                 File.Delete(zip);
-                deno = FindFile(DenoDir, "deno.exe");
+                deno = FindTool(DenoDir, "deno");
             }
             catch (Exception ex) { Log("Couldn't set up Deno (" + ex.Message + "); YouTube may fail."); }
         }

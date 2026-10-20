@@ -50,6 +50,9 @@ static class Edition
             if (fpCache == null)
             {
                 string g = ""; try { using (var bk = Microsoft.Win32.RegistryKey.OpenBaseKey(Microsoft.Win32.RegistryHive.LocalMachine, Microsoft.Win32.RegistryView.Registry64)) using (var k = bk.OpenSubKey(@"SOFTWARE\Microsoft\Cryptography")) g = Convert.ToString(k.GetValue("MachineGuid")); } catch { }
+#if PURPHEX_DESKTOP
+                if (g.Length == 0) g = CrossPc.MachineId();   // macOS: the hardware UUID; Linux: /etc/machine-id
+#endif
                 if (g.Length == 0) g = Environment.MachineName; using (var sha = SHA256.Create()) fpCache = BitConverter.ToString(sha.ComputeHash(Encoding.UTF8.GetBytes("purphex-pc|" + g + "|" + Environment.UserName))).Replace("-", "").ToLowerInvariant();
             }
             return fpCache;
@@ -64,7 +67,11 @@ static class Edition
             var parts = (text ?? "").Split('.'); if (parts.Length != 3 || parts[0] != "L1") return null;
             var data = Encoding.ASCII.GetBytes("purphex-license-v1." + parts[1]); var sig = B64U(parts[2]); if (sig.Length != 64) return null;
             var blob = new byte[72]; blob[0] = 0x45; blob[1] = 0x43; blob[2] = 0x53; blob[3] = 0x31; blob[4] = 32; Array.Copy(PubX, 0, blob, 8, 32); Array.Copy(PubY, 0, blob, 40, 32);   // "ECS1" + 32 + X + Y
+#if PURPHEX_DESKTOP
+            using (var ec = ECDsa.Create(new ECParameters { Curve = ECCurve.NamedCurves.nistP256, Q = new ECPoint { X = PubX, Y = PubY } })) { if (!ec.VerifyData(data, sig, HashAlgorithmName.SHA256)) return null; }   // macOS / Linux have no CNG
+#else
             using (var key = CngKey.Import(blob, CngKeyBlobFormat.EccPublicBlob)) using (var ec = new ECDsaCng(key)) { if (!ec.VerifyData(data, sig)) return null; }
+#endif
             var o = MiniJson.Parse(Encoding.UTF8.GetString(B64U(parts[1]))) as Dictionary<string, object>; if (o == null || Num(o, "v") != 1) return null;
             if (!string.Equals(S(o, "fp"), Fingerprint, StringComparison.Ordinal)) return null;   // made for another PC
             return new Lic { T = ParseTier(S(o, "tier")), Until = Clean(S(o, "until"), 40), Iat = (long)Num(o, "iat"), Exp = (long)Num(o, "exp") };
@@ -233,7 +240,11 @@ static class Edition
             {
                 string[] lines; using (var wc = new WebClient()) lines = wc.DownloadString(manifestUrl + "?t=" + DateTime.UtcNow.Ticks).Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
                 if (lines.Length < 4 || lines[0].Trim() != version) return;   // a newer or older release is out: nothing to compare
-                string want = ""; foreach (var l in lines) if (l.StartsWith("sha256=", StringComparison.OrdinalIgnoreCase)) want = l.Substring(7).Trim().ToLowerInvariant(); if (want.Length != 64) return;
+                string key = "sha256=";
+#if PURPHEX_DESKTOP
+                key = "sha256-" + System.Runtime.InteropServices.RuntimeInformation.RuntimeIdentifier + "=";   // each macOS / Linux build has its own line (no line yet: nothing to compare)
+#endif
+                string want = ""; foreach (var l in lines) if (l.StartsWith(key, StringComparison.OrdinalIgnoreCase)) want = l.Substring(key.Length).Trim().ToLowerInvariant(); if (want.Length != 64) return;
                 string have; using (var fs = new FileStream(Application.ExecutablePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite)) using (var sha = SHA256.Create()) have = BitConverter.ToString(sha.ComputeHash(fs)).Replace("-", "").ToLowerInvariant();
                 if (have != want) { tampered = true; Note = "This copy of Purphex Music is not the published one, so the paid features are locked. Download it again from purphexmusic.com."; Raise(); }
             }

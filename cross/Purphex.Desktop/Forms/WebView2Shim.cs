@@ -32,8 +32,8 @@ namespace Microsoft.Web.WebView2.Core
     public class CoreWebView2DownloadStartingEventArgs : EventArgs { public bool Cancel { get; set; } public bool Handled { get; set; } public string ResultFilePath { get; set; } }
     public class CoreWebView2ContextMenuRequestedEventArgs : EventArgs { public bool Handled { get; set; } }
     public class CoreWebView2Settings { public bool AreDevToolsEnabled { get; set; } public bool AreDefaultContextMenusEnabled { get; set; } public bool IsStatusBarEnabled { get; set; } public bool IsZoomControlEnabled { get; set; } public bool AreBrowserAcceleratorKeysEnabled { get; set; } public bool IsScriptEnabled { get; set; } = true; public bool IsWebMessageEnabled { get; set; } = true; public bool AreDefaultScriptDialogsEnabled { get; set; } = true; public bool IsGeneralAutofillEnabled { get; set; } public bool IsPasswordAutosaveEnabled { get; set; } public bool IsPinchZoomEnabled { get; set; } public bool IsSwipeNavigationEnabled { get; set; } public bool AreHostObjectsAllowed { get; set; } public bool IsBuiltInErrorPageEnabled { get; set; } public string UserAgent { get; set; } }
-    public class CoreWebView2Cookie { }
-    public class CoreWebView2CookieManager { public void DeleteAllCookies() { } public void DeleteCookies(string name, string uri) { } public Task<List<CoreWebView2Cookie>> GetCookiesAsync(string uri) { return Task.FromResult(new List<CoreWebView2Cookie>()); } }
+    public class CoreWebView2Cookie { public string Name { get; set; } public string Value { get; set; } public string Domain { get; set; } public string Path { get; set; } }
+    public class CoreWebView2CookieManager { public void DeleteAllCookies() { } public void DeleteCookie(CoreWebView2Cookie c) { } public void DeleteCookies(string name, string uri) { } public Task<List<CoreWebView2Cookie>> GetCookiesAsync(string uri) { return Task.FromResult(new List<CoreWebView2Cookie>()); } }
 #pragma warning disable 67
     public class CoreWebView2
     {
