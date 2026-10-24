@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.IO;
 using System.Linq;
 using System.Windows.Forms;
 
@@ -88,11 +89,11 @@ partial class StudioForm
         float px = r.X + 12, pw = r.Width - 24, py = r.Y + 28, ph = 22; var gsP = g.Save(); g.SetClip(Rc(px, py, pw, ph + 1), System.Drawing.Drawing2D.CombineMode.Intersect); long len = (long)(box.Bars * 4 * StudioEngine.SR * 60.0 / Fx.ProjectBpm); int k = 0;
         foreach (var part in box.Parts) { float y = py + k * (ph / box.Parts.Count); using (var br = new SolidBrush(Color.FromArgb(220, Neon(unchecked((int)new[] { 0xFFFF5C7A, 0xFFFFB84D, 0xFF4DD9FF, 0xFF7AF0C2, 0xFFB98CFF, 0xFF9B5CFF }[Math.Min(5, part.Job)]))))) foreach (var n in part.Notes) g.FillRectangle(br, px + pw * n.Start / (float)Math.Max(1, len), y, Math.Max(1.5f, pw * n.Len / (float)Math.Max(1, len)), Math.Max(1.5f, ph / box.Parts.Count - 0.5f)); k++; }
         g.Restore(gsP);
-        Txt(g, prBoxDrag ? "DROP IT ON THE SONG" : "DRAG ME ONTO THE SONG", 9, NeonCyan, Rc(r.X + 12, r.Bottom - 22, 190, 16), StringAlignment.Near, true);
+        Txt(g, prBoxDrag ? "DROP IT ON THE SONG (AUDIO CLIP)" : "DRAG ME ONTO THE SONG", 9, NeonCyan, Rc(r.X + 12, r.Bottom - 22, 190, 16), StringAlignment.Near, true);
         if (prBoxDrag) return;
         var reg = Reg(r, () => { prBoxDrag = true; prBoxAt = MousePos; }); reg.OnDrag = pt => { prBoxAt = pt; Invalidate(); }; reg.OnUp = () => PrBoxDropped();
         var x = Rc(r.Right - 30, r.Y + 6, 22, 20); Btn(g, x, "x", 0, () => { prBox = null; }, 10); Hint2(x, "Throw this beat away");
-        var add = Rc(r.Right - 112, r.Bottom - 24, 100, 20); Btn(g, add, "ADD TO SONG", 2, () => { var b = prBox; Toast(DropPatternBox(b, (long)Math.Round(Math.Floor(prScrollBeats / 4) * 4 * PrBeatFrames))); }, 9); Hint2(add, "Put this beat into the song at the bar the piano roll shows, as its own tracks");
+        var add = Rc(r.Right - 112, r.Bottom - 24, 100, 20); Btn(g, add, "ADD TO SONG", 2, () => { var b = prBox; Toast(DropPatternBox(b, (long)Math.Round(Math.Floor(prScrollBeats / 4) * 4 * PrBeatFrames))); }, 9); Hint2(add, "Put this beat into the song at the bar the piano roll shows, as note tracks you can still edit (dragging the box makes one audio clip instead)");
     }
     // ---- your pattern (the piano roll's scratch pad): a box you drag onto the song ----
     bool prDraftDrag; PointF prDraftAt;
@@ -110,16 +111,16 @@ partial class StudioForm
         Txt(g, "YOUR PATTERN  ·  " + bars + (bars == 1 ? " BAR" : " BARS") + "  ·  " + notes.Count + " NOTES", 11, Ink, Rc(r.X + 12, r.Y + 6, r.Width - 44, 18), StringAlignment.Near, true);
         float px = r.X + 12, pw = r.Width - 24, py = r.Y + 28, ph = 22; long len = Math.Max(1, (long)(bars * barF)); int lo = 127, hi = 0; foreach (var n in notes) { lo = Math.Min(lo, n.Note); hi = Math.Max(hi, n.Note); } int span = Math.Max(6, hi - lo + 1);
         using (var br = new SolidBrush(Color.FromArgb(230, Neon(d.Color)))) foreach (var n in notes) g.FillRectangle(br, px + pw * (n.Start - first) / (float)len, py + ph - (n.Note - lo + 1) * ph / span, Math.Max(1.5f, pw * n.Len / (float)len), Math.Max(1.5f, ph / (float)span - 0.3f));
-        Txt(g, prDraftDrag ? "DROP IT ON THE SONG" : "DRAG ME ONTO THE SONG", 9, NeonPink, Rc(r.X + 12, r.Bottom - 22, 190, 16), StringAlignment.Near, true);
+        Txt(g, prDraftDrag ? "DROP IT ON THE SONG (AUDIO CLIP)" : "DRAG ME ONTO THE SONG", 9, NeonPink, Rc(r.X + 12, r.Bottom - 22, 190, 16), StringAlignment.Near, true);
         if (prDraftDrag) return;
         var reg = Reg(r, () => { prDraftDrag = true; prDraftAt = MousePos; }); reg.OnDrag = pt => { prDraftAt = pt; Invalidate(); }; reg.OnUp = () => DraftDropped();
         var x = Rc(r.Right - 30, r.Y + 6, 22, 20); Btn(g, x, "x", 0, () => { prDraft = null; eng.Draft = null; if (prTrack != null && !eng.Tracks.Contains(prTrack)) prTrack = null; }, 10); Hint2(x, "Throw your pattern away");
-        var add = Rc(r.Right - 112, r.Bottom - 24, 100, 20); Btn(g, add, "ADD TO SONG", 2, () => Toast(DropDraft((long)Math.Round(Math.Floor(prScrollBeats / 4) * 4 * PrBeatFrames))), 9); Hint2(add, "Put your pattern into the song at the bar the piano roll shows, as a new track");
+        var add = Rc(r.Right - 112, r.Bottom - 24, 100, 20); Btn(g, add, "ADD TO SONG", 2, () => Toast(DropDraft((long)Math.Round(Math.Floor(prScrollBeats / 4) * 4 * PrBeatFrames))), 9); Hint2(add, "Put your pattern into the song at the bar the piano roll shows, as a note track you can still edit (dragging the box makes an audio clip instead)");
     }
     void DraftDropped()
     {
         bool was = prDraftDrag; prDraftDrag = false; if (prDraft == null) return; var tl = TimelineRect();
-        if (was && tl.Contains(prDraftAt) && prDraftAt.Y < MixH) { double barF = PrBeatFrames * 4; long frame = scroll + (long)((prDraftAt.X - HeadW) * spp); Toast(DropDraft((long)(Math.Max(0, Math.Round(frame / barF)) * barF))); }
+        if (was && tl.Contains(prDraftAt) && prDraftAt.Y < MixH) { double barF = PrBeatFrames * 4; long frame = scroll + (long)((prDraftAt.X - HeadW) * spp); Toast(DropDraftAsAudio((long)(Math.Max(0, Math.Round(frame / barF)) * barF))); }
         else if (was) Toast("Drop your pattern on the song above (the tracks area) to add it, or press ADD TO SONG.");
         Invalidate();
     }
@@ -134,6 +135,49 @@ partial class StudioForm
         prDraft = null; eng.Draft = null; int i = eng.Tracks.IndexOf(t); if (i >= 0) { selTrack = i; prLastSel = i; } prTrack = t; prStamp = -1; Invalidate();
         return nm + " added at bar " + ((long)Math.Round(at / barF) + 1) + " as a new track. Choose another sound in the piano roll to start a new pattern.";
     }
+    // ---- dragged onto the song: the notes are played into an audio clip (a WAV, so the project can reopen it) that moves, trims and copies like any sound ----
+    // the pattern stays where it was, so you can change it and drag it again; ADD TO SONG still adds note tracks you can edit
+    static string PatternAudioDir() { string d = StudioEnv.UnderTest ? Path.Combine(StudioEnv.DataDir, "patterns") : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyMusic), "yt2mp3", "Patterns"); Directory.CreateDirectory(d); return d; }
+    // plays tracks (from frame 0) for len frames plus the ring-out, which is cut where it falls silent
+    void RenderParts(List<Track> parts, long len, out float[] l, out float[] r)
+    {
+        long tail = StudioEngine.SR * 3; eng.Render(0, len + tail, new RenderOpts { Master = false, Fader = false, MuteSolo = false, Only = parts }, null, out l, out r);
+        long end = len; for (long i = l.Length - 1; i >= len; i--) if (Math.Abs(l[i]) > 1e-4f || Math.Abs(r[i]) > 1e-4f) { end = i + 1; break; }
+        if (end < l.Length) { Array.Resize(ref l, (int)end); Array.Resize(ref r, (int)end); }
+        int fade = (int)Math.Min(l.Length, StudioEngine.SR / 100); for (int i = 0; i < fade; i++) { float k = i / (float)fade; l[l.Length - 1 - i] *= k; r[r.Length - 1 - i] *= k; }   // no click at the very end
+    }
+    Track AddPatternClip(float[] l, float[] r, string name, int color, long at)
+    {
+        string safe = new string(name.Select(c => Path.GetInvalidFileNameChars().Contains(c) ? '-' : c).ToArray()).Trim(); if (safe.Length == 0) safe = "Pattern";
+        string path = Path.Combine(PatternAudioDir(), safe + " " + DateTime.Now.ToString("yyyy-MM-dd HH-mm-ss-fff") + ".wav"); WavIO.Write(path, l, r, StudioEngine.SR, 24);
+        var clip = AudioClip.FromArrays(l, r, name); clip.Path = path; var a = StudioEngine.NewTrack(name, "audio", clip); a.Color = color; a.Offset = Math.Max(0, at);
+        AddTrack(a); int i = eng.Tracks.IndexOf(a); if (i >= 0) selTrack = i; Invalidate(); return a;
+    }
+    internal string DropDraftAsAudio(long at)
+    {
+        var d = prDraft; if (d == null) return null; var notes = NotesOf(d); if (notes.Count == 0) return "Write some notes first (or GENERATE), then drag your pattern onto the song.";
+        double barF = PrBeatFrames * 4; long first = (long)(Math.Floor(notes.Min(n => n.Start) / barF) * barF), last = notes.Max(n => n.Start + n.Len); long len = (long)(Math.Max(1, Math.Ceiling((last - first) / barF)) * barF);
+        string nm = d.Name.StartsWith("Your pattern: ") ? d.Name.Substring(14) : "Pattern"; var t = StudioEngine.NewTrack(nm, "inst", null); t.Instrument = true;
+        float[] l, r; var moved = new List<Fx>();
+        lock (eng.Sync) { foreach (var f in d.Fx.ToList()) { var inf = f as InstrumentFx; if (inf != null) inf.Owner = t; t.Fx.Add(f); moved.Add(f); } d.Fx.Clear(); }   // the pattern's sound plays it, then goes back
+        try { WriteNotes(t, notes.Select(n => new PrNote { Start = n.Start - first, Len = n.Len, Note = n.Note, Vel = n.Vel }).ToList()); RenderParts(new List<Track> { t }, len, out l, out r); }
+        finally { lock (eng.Sync) { t.Fx.Clear(); foreach (var f in moved) { var inf = f as InstrumentFx; if (inf != null) inf.Owner = d; try { f.Reset(); } catch { } d.Fx.Add(f); } } }
+        PushUndo(); AddPatternClip(l, r, nm, d.Color, at);
+        return nm + " added at bar " + ((long)Math.Round(at / barF) + 1) + " as an audio clip: move, trim or copy it like any sound. Your pattern stays in the piano roll, so you can change it and drag it again (ADD TO SONG adds editable notes instead).";
+    }
+    internal string DropPatternBoxAsAudio(PatBox box, long at)
+    {
+        if (box == null) return null; var parts = new List<Track>();
+        foreach (var part in box.Parts)
+        {
+            var t = StudioEngine.NewTrack(part.Name, "inst", null); t.Instrument = true;
+            SamplerFx snd = null; if (part.Sound != null) { snd = new SamplerFx(); snd.Prepare(StudioEngine.SR); snd.Deserialize(part.Sound.Serialize()); snd.Owner = t; t.Fx.Add(snd); }   // a copy: the box keeps its own sounds
+            WriteNotes(t, part.Notes.Select(n => new PrNote { Start = n.Start, Len = n.Len, Note = snd != null && !snd.AnyFollow && snd.Zones.Count > 0 ? snd.Zones[0].Root : n.Note, Vel = n.Vel }).ToList()); parts.Add(t);
+        }
+        long len = (long)Math.Round(box.Bars * 4 * StudioEngine.SR * 60.0 / Fx.ProjectBpm); float[] l, r; RenderParts(parts, len, out l, out r);
+        PushUndo(); string nm = box.Style + " beat"; AddPatternClip(l, r, nm, unchecked((int)0xFFFF5C7A), at); prBox = null; prBoxDrag = false;
+        long bar = (long)Math.Round(at / (StudioEngine.SR * 60.0 / Fx.ProjectBpm * 4)); return nm + " added at bar " + (bar + 1) + " as one audio clip: move, trim or copy it like any sound. (ADD TO SONG puts it in as note tracks you can edit.)";
+    }
     // released: on the song it becomes tracks at the bar under the mouse
     void PrBoxDropped()
     {
@@ -141,7 +185,7 @@ partial class StudioForm
         if (wasDrag && tl.Contains(prBoxAt) && prBoxAt.Y < MixH)
         {
             double barF = StudioEngine.SR * 60.0 / Fx.ProjectBpm * 4; long frame = scroll + (long)((prBoxAt.X - HeadW) * spp); long at = (long)(Math.Max(0, Math.Round(frame / barF)) * barF);
-            Toast(DropPatternBox(b, at));
+            Toast(DropPatternBoxAsAudio(b, at));
         }
         else if (wasDrag) Toast("Drop the beat on the song above (the tracks area) to add it, or press ADD TO SONG.");
         Invalidate();

@@ -139,10 +139,12 @@ partial class StudioForm
         if (sndDrag != null && PrDrop(sndDrag, p)) return;   // on the piano roll: into the sampler (a kit's key, or its sample)
         var s = sndDrag; sndDrag = null; sndDragging = false; if (s == null) return; var tl = TimelineRect(); float top = ArrTop + RulerH;
         if (p.X < HeadW || p.X > tl.Right || p.Y < top) { Toast("Drop it on the timeline (the area to the right of the track names)."); return; }
-        long frame = Snap(scroll + (long)((p.X - HeadW) * spp)); int lane = (int)((p.Y - top + vscroll) / LaneH); int at = lane >= LaneCount ? LaneCount : lane + 1;
+        long frame = DropFrame(p.X); int lane = (int)((p.Y - top + vscroll) / LaneH); int at = lane >= LaneCount ? LaneCount : lane + 1;
         dropHost = lane >= 0 && lane < LaneCount ? eng.Tracks[lane] : null;   // dropped on a row: it goes on that row (overlapping whatever is there)
         string msg = AddSample(s, frame, s.Kind == "midi" ? lane : at); dropHost = null; if (msg != null) Toast(msg);
     }
+    // where a sound dragged from the packs lands: exactly under the mouse, so it can go anywhere (hold Shift to snap it to the grid)
+    long DropFrame(float x) { long f = Math.Max(0, scroll + (long)((x - HeadW) * spp)); return (ModifierKeys & Keys.Shift) != 0 ? Snap(f) : f; }
     void AddSampleAtNeedle(SoundItem s) { string msg = AddSample(s, Snap(DispPos), eng.Tracks.Count); if (msg != null) Toast(msg); }
 
     // the sounds panel while the library loads in the background
@@ -498,7 +500,7 @@ partial class StudioForm
         if (!sndDragging || sndDrag == null) return; var tl = TimelineRect(); float top = ArrTop + RulerH; bool over = MousePos.X >= HeadW && MousePos.X <= tl.Right && MousePos.Y >= top;
         if (over)
         {
-            long frame = Snap(scroll + (long)((MousePos.X - HeadW) * spp)); float gx = HeadW + (float)((frame - scroll) / spp); int lanes = LaneCount; int lane = Math.Max(0, Math.Min(lanes, (int)((MousePos.Y - top + vscroll) / LaneH)));
+            long frame = DropFrame(MousePos.X); float gx = HeadW + (float)((frame - scroll) / spp); int lanes = LaneCount; int lane = Math.Max(0, Math.Min(lanes, (int)((MousePos.Y - top + vscroll) / LaneH)));
             float gy = top + lane * LaneH - vscroll; double dur = sndDrag.Dur > 0.01 ? sndDrag.Dur : 1; float gw = Math.Max(8, (float)(dur * StudioEngine.SR / spp));
             var gs = g.Save(); g.SetClip(Rc(HeadW, top, tl.Right - HeadW, ClientSize.Height - top), System.Drawing.Drawing2D.CombineMode.Intersect);
             var gr = Rc(gx, gy + 4, gw, LaneH - 8); FillRR(g, Color.FromArgb(70, NeonCyan), gr, 8);
