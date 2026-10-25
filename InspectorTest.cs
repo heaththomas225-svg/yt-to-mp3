@@ -183,6 +183,7 @@ static class IN
           sf.OpenInspector(1); sf.OpenFxWindow(vox, rev); Paint(); Shot("theme-metal");
           StudioForm.ApplyProfileTokens(true, Color.FromArgb(255, 80, 160, 255), MixColours.Holo, Color.Empty); Paint(); Shot("theme-holo");
           // the colour mixer drives it (the real path): set a colour with a finish and switch the profile to follow it
+          Prefs.ProfileTheme = true;   // (STUDIO THEME = MY PROFILE COLOUR on: it does not depend on the settings of the PC running the test)
           M("MixSet", 0, Color.FromArgb(255, 200, 160, 40), MixColours.Chrome, "Gold Chrome", Color.Empty); M("MixSetOn", 1, false); M("MixSetFollow", true);
           Check("the colour mixer drives it: a chrome gold profile colour makes the accent gold with a chrome finish", UiTokens.Custom && UiTokens.Finish == MixColours.Chrome && Math.Abs(UiTokens.Accent.GetHue() - 43) < 20, "finish " + UiTokens.Finish + ", hue " + UiTokens.Accent.GetHue().ToString("0"));
           M("MixSetFollow", false); Check("switching the profile back to the theme colour puts the theme's own accent back", !UiTokens.Custom && Win.NeonHot == Themes.Current.Cyan, ""); }

@@ -1691,7 +1691,7 @@ partial class StudioForm : Form
     bool editorBare;   // the editor without its own title row (inside a floating plugin window)
     void PaintEditor(Graphics g, Fx f, RectangleF a, Track tr)
     {
-        FillRR(g, OverPanel(TM.C(120, 34, 18, 62)), a, 10);
+        if (!editorBare) FillRR(g, OverPanel(TM.C(120, 34, 18, 62)), a, 10);   // (in a floating window the galaxy shows through)
         float x = a.X + 10, y = a.Y + 8, w = a.Width - 20;
         bool wide = tr == null;   // the Mastering page has room for the longer label; the narrow track panel keeps the short one
         bool isEq = f is ParametricEq; float aeW = wide ? 84 : 74, aeGap = wide ? 8 : 6; bool eqOwnRow = isEq && !wide;
@@ -1717,6 +1717,7 @@ partial class StudioForm : Form
 
     void PaintParams(Graphics g, Fx f, RectangleF a, List<string> skip)
     {
+        if (editorBare) { PaintParamKnobs(g, f, a, skip); return; }   // in a floating plugin window the settings are knobs
         var ps = new List<Param>(); foreach (var p in f.P) if (!skip.Contains(p.Id)) ps.Add(p);
         float rowH = 30, total = ps.Count * rowH; float maxScroll = Math.Max(0, total - a.Height); var aFull = a; RectangleF? barR = null;
         if (maxScroll > 0 && a.Height >= 160) { barR = Rc(a.Right - 46, a.Y, 42, a.Height); a = Rc(a.X, a.Y, a.Width - 52, a.Height); }

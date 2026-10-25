@@ -17,7 +17,7 @@ partial class StudioForm
 {
     internal class FxWin { public Fx Fx; public Track Track; public RectangleF R; public long Seq; }
     internal readonly List<FxWin> fxWins = new List<FxWin>(); long fxWinSeq; FxWin fxWinDrag; PointF fxWinGrab; bool fxWinResize;
-    const float FwTitle = 34, FwTool = 30, FwViz = 69;
+    const float FwTitle = 50, FwTool = 30, FwViz = 69;
 
     // open (or bring forward) the window of this plugin instance
     internal void OpenFxWindow(Track tr, Fx f)
@@ -67,12 +67,13 @@ partial class StudioForm
         var wr = new HitReg { R = r, OnWheel = d => { } }; regs.Add(wr);
         // title bar: plugin, its kind, its track; drag it to move the window
         var title = Rc(r.X, r.Y, r.Width, FwTitle); var tbr = Rc(r.X + 1, r.Y + 1, r.Width - 2, FwTitle);
-        using (var p = RR(tbr, 11)) { using (var tb = new LinearGradientBrush(tbr, Color.FromArgb(front ? 255 : 200, 92, 40, 200), Color.FromArgb(front ? 255 : 200, 190, 40, 160), 0f)) g.FillPath(tb, p);  using (var sh2 = new LinearGradientBrush(tbr, Color.FromArgb(70, 255, 255, 255), Color.FromArgb(0, 255, 255, 255), 90f)) g.FillRectangle(sh2, tbr.X, tbr.Y, tbr.Width, tbr.Height * 0.5f); }   // the Purphex bar: violet into magenta with a glass shine
-        { var lg = AppLogo.Logo; if (lg != null) g.DrawImage(lg, r.X + 10, r.Y + 6, 22, 22); }   // the Purphex mark
-        if (front && UiTokens.Shiny) PaintMaterial(g, Rc(r.X + 1, r.Y + 1, r.Width - 2, FwTitle), 11, acc, UiTokens.Finish, true);   // the accent's finish on the front window's title bar (its sheen moves unless motion is reduced)
+        // the header: a deep galaxy band with the PURPHEX logo and the plugin's name under it, and what it is / which track on the right
+        using (var p = RR(tbr, 11)) { using (var tb = new LinearGradientBrush(tbr, Color.FromArgb(255, 14, 6, 34), Color.FromArgb(255, 34, 12, 70), 0f)) g.FillPath(tb, p); var gsH = g.Save(); g.SetClip(p, System.Drawing.Drawing2D.CombineMode.Intersect); PaintGalaxy(g, tbr, f.Type.GetHashCode(), front ? 1.2f : 0.8f); g.Restore(gsH); }
+        using (var pen = new Pen(Color.FromArgb(front ? 200 : 120, acc), 1.2f)) g.DrawLine(pen, r.X + 10, r.Y + FwTitle, r.Right - 10, r.Y + FwTitle);
+        if (front && UiTokens.Shiny) PaintMaterial(g, Rc(r.X + 1, r.Y + 1, r.Width - 2, FwTitle), 11, acc, UiTokens.Finish, true);   // the accent's finish on the front window's header (its sheen moves unless motion is reduced)
         string trackName = w.Track == null ? "MASTER" : w.Track.Name; string cat = FxCategory(f);
-        Txt(g, f.Title, 13, Ink, Rc(r.X + 38, r.Y + 3, r.Width - 174, 18), StringAlignment.Near, true);
-        Txt(g, cat + "  ·  " + trackName, 9.5f, Color.FromArgb(255, 235, 215, 250), Rc(r.X + 38, r.Y + 18, r.Width - 174, 14), StringAlignment.Near, false);
+        PaintPurphexMark(g, r.X + 12, r.Y + 1, 34, f.Title, acc);
+        Txt(g, (cat + "  ·  " + trackName).ToUpperInvariant(), 9, Color.FromArgb(255, 200, 185, 240), Rc(r.Right - 250, r.Y + 32, 238, 14), StringAlignment.Far, true);
         var tr2 = Reg(title, () => { fxWinDrag = w; fxWinResize = false; fxWinGrab = new PointF(MousePos.X - w.R.X, MousePos.Y - w.R.Y); }); tr2.OnDrag = pt => { if (fxWinDrag == w && !fxWinResize) w.R = new RectangleF(pt.X - fxWinGrab.X, pt.Y - fxWinGrab.Y, w.R.Width, w.R.Height); }; tr2.OnUp = () => fxWinDrag = null;
         var cl = Rc(r.Right - 36, r.Y + 5, 26, 24); Btn(g, cl, "x", 3, () => CloseFxWindow(f), 12); Hint2(cl, "Close this window (the plugin keeps working)");
         var bp = Rc(cl.X - 72, r.Y + 5, 66, 24); Btn(g, bp, f.Bypass ? "BYPASSED" : "ON", f.Bypass ? 0 : 4, () => f.Bypass = !f.Bypass, 10); Hint2(bp, f.Bypass ? "Bypassed: the sound goes past this plugin. Click to switch it back on." : "On: click to bypass this plugin (it stays in the chain)");
@@ -94,6 +95,8 @@ partial class StudioForm
           using (var pen = new Pen(FvMix(PxViolet, PxMagenta, 0.5f), 1.6f)) g.DrawLine(pen, vb.X + 8, vb.Y, vb.Right - 8, vb.Y);   // the neon line that separates it from the controls
           if (!eng.Playing) Txt(g, "PRESS PLAY TO SEE WHAT " + f.Title.ToUpperInvariant() + " IS DOING", 9, DimC, vb, StringAlignment.Center, true); }
         var body = Rc(r.X + 6, r.Y + FwTitle + FwTool + 6, r.Width - 12, r.Height - FwTitle - FwTool - FwViz - 14); float edH = EditorHeight(f) - 34;   // (without the editor's own title row)
+        if (KnobEditor(f)) { int nv = 0; var hid = f.Hidden.Length > 0 ? new HashSet<string>(f.Hidden.Split(',')) : new HashSet<string>(); foreach (var pq in f.P) if (!hid.Contains(pq.Id)) nv++; edH = edH - nv * 30 + KnobGridHeight(f, body.Width - 12); }   // the settings are knobs here
+        { var gsB = g.Save(); g.SetClip(body, System.Drawing.Drawing2D.CombineMode.Intersect); PaintGalaxy(g, Rc(r.X, r.Y + FwTitle, r.Width, r.Height - FwTitle - FwViz), f.Type.GetHashCode() ^ 0x5a5a, 1.1f); g.Restore(gsB); }
         var gs = g.Save(); g.SetClip(body, System.Drawing.Drawing2D.CombineMode.Intersect); float scrollY; fxWinScroll.TryGetValue(f, out scrollY); scrollY = Math.Max(0, Math.Min(scrollY, Math.Max(0, edH - body.Height)));
         int reg0 = regs.Count; editorBare = true; try { PaintEditor(g, f, Rc(body.X, body.Y - scrollY, body.Width, edH), w.Track); } finally { editorBare = false; } g.Restore(gs);
         for (int i = regs.Count - 1; i >= reg0; i--) { var rr = regs[i]; if (!rr.R.IntersectsWith(body)) regs.RemoveAt(i); else rr.R = RectangleF.Intersect(rr.R, body); }   // controls scrolled out of the window can not be clicked through it
@@ -103,6 +106,8 @@ partial class StudioForm
         var gr = Reg(grip, () => { fxWinDrag = w; fxWinResize = true; }); gr.OnDrag = pt => { if (fxWinDrag == w && fxWinResize) w.R = new RectangleF(w.R.X, w.R.Y, pt.X - w.R.X + 4, pt.Y - w.R.Y + 4); }; gr.OnUp = () => { fxWinDrag = null; fxWinResize = false; }; Hint2(grip, "Drag to resize the window");
     }
     readonly Dictionary<Fx, float> fxWinScroll = new Dictionary<Fx, float>();
+    // the plugins whose settings are drawn by the general editor (so a window shows them as knobs)
+    static bool KnobEditor(Fx f) { return !(f is InstrumentFx) && !PxPlugins.HasWindow(f) && !(f is ParametricEq); }
     internal static List<KeyValuePair<string, string>> FxPresetList(Fx f) { var l = new List<KeyValuePair<string, string>>(); try { l.AddRange(Presets.User(f.Type)); l.AddRange(Presets.For(f.Type)); } catch { } return l; }
     internal void StepFxPreset(Fx f, int d)
     {
