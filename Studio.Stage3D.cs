@@ -22,9 +22,10 @@ partial class StudioForm
     }
     void RemoveFromStage(Track t) { var f = StageOf(t); if (f == null) return; PushUndo(); lock (eng.Sync) t.Fx.Remove(f); if (stageSel == t) stageSel = null; }
 
-    void PaintStage3D(Graphics g)
+    void PaintStage3D(Graphics g) { PaintStage3D(g, Rc(14, ToolH + 10, ClientSize.Width - 28, ClientSize.Height - ToolH - 24)); }
+    void PaintStage3D(Graphics g, RectangleF area)
     {
-        float W = ClientSize.Width, H = ClientSize.Height, top = ToolH + 10; var listR = Rc(14, top, 300, H - top - 14); var stage = Rc(listR.Right + 14, top, W - listR.Right - 28, H - top - 14);
+        float lw = Math.Min(300, area.Width * 0.3f); var listR = Rc(area.X, area.Y, lw, area.Height); var stage = Rc(listR.Right + 14, area.Y, area.Right - listR.Right - 14, area.Height);
         // the track list
         FillRR(g, TM.C(225, 14, 7, 32), listR, 14); StrokeRR(g, Color.FromArgb(160, NeonViolet), listR, 14, 1.2f);
         Txt(g, "TRACKS", 14, Ink, Rc(listR.X + 14, listR.Y + 10, 200, 22), StringAlignment.Near, true);

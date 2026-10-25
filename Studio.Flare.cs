@@ -64,7 +64,7 @@ partial class StudioForm
         if (textGalaxy == null)
         {   // a bright, pale galaxy: the nebula and stars laid over white, so the words glow and still read
             var gal = MakeGalaxy(300, 90, 0x7E7, 2.0f, new[] { Color.FromArgb(255, 220, 60, 255), Color.FromArgb(255, 140, 70, 255), Color.FromArgb(255, 80, 170, 255), Color.FromArgb(255, 255, 90, 210), Color.FromArgb(255, 170, 90, 255) });
-            textGalaxy = new Bitmap(300, 90); using (var tg = Graphics.FromImage(textGalaxy)) { tg.Clear(Color.FromArgb(255, 250, 240, 255)); var cm = new System.Drawing.Imaging.ColorMatrix { Matrix33 = 0.62f }; using (var ia = new System.Drawing.Imaging.ImageAttributes()) { ia.SetColorMatrix(cm); tg.DrawImage(gal, new Rectangle(0, 0, 300, 90), 0, 0, 300, 90, GraphicsUnit.Pixel, ia); } } gal.Dispose();
+            textGalaxy = new Bitmap(300, 90); using (var tg = Graphics.FromImage(textGalaxy)) { tg.Clear(Color.FromArgb(255, 250, 240, 255)); var cm = new System.Drawing.Imaging.ColorMatrix(new[] { new[] { 1.5f, 0, 0, 0, 0 }, new[] { 0, 1.5f, 0, 0, 0 }, new[] { 0, 0, 1.5f, 0, 0 }, new[] { 0, 0, 0, 1f, 0 }, new[] { 0.42f, 0.36f, 0.48f, 0, 1f } });   /* brightened: the dark sky becomes pale, the nebula and stars stay coloured */ using (var ia = new System.Drawing.Imaging.ImageAttributes()) { ia.SetColorMatrix(cm); tg.DrawImage(gal, new Rectangle(0, 0, 300, 90), 0, 0, 300, 90, GraphicsUnit.Pixel, ia); } } gal.Dispose();
         }
         using (var pth = new GraphicsPath())
         {

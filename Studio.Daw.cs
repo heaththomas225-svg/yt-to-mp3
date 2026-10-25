@@ -46,7 +46,7 @@ partial class StudioForm
         return s;
     }
     static List<AutoLane> CloneLanes(List<AutoLane> l) { var r = new List<AutoLane>(); foreach (var x in l) r.Add(x.CloneFor(x.Fx)); return r; }
-    void PushUndo() { editCount++; if (undoHold > 0) return; undo.Add(TakeSnapshot()); if (undo.Count > 60) undo.RemoveAt(0); redo.Clear(); }
+    void PushUndo() { editCount++; HistNote(); if (undoHold > 0) return; undo.Add(TakeSnapshot()); if (undo.Count > 60) undo.RemoveAt(0); redo.Clear(); }
     void Restore(Snapshot s)
     {
         toolsTrack = null; if (flexOpen) FlexClose(false);

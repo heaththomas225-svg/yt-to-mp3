@@ -131,6 +131,8 @@
     <Compile Include="../../Studio.Stage3D.cs" />
     <Compile Include="../../Studio.Profiler.cs" />
     <Compile Include="../../Studio.Arrange.cs" />
+    <Compile Include="../../Studio.History.cs" />
+    <Compile Include="../../Studio.ToolWindows.cs" />
     <Compile Include="../../Studio.UI2.cs" />
     <Compile Include="../../Studio.8D.cs" />
     <Compile Include="../../Studio.Inst.cs" />

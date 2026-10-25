@@ -117,6 +117,8 @@ partial class StudioForm : Form
         FormClosed += (s, e) => { try { if (flexOpen) FlexClose(true); } catch { } flexOpen = false; DisposeRetired(); Auditioner.Shutdown(); };
         FormClosed += (s, e) => { if (backdrop != null) { backdrop.Dispose(); backdrop = null; } foreach (var pc0 in peakCache.Values) if (pc0.Img != null) pc0.Img.Dispose(); peakCache.Clear(); };
         FormClosed += (s, e) => { timer.Stop(); if (studioLoop != null) studioLoop.Dispose(); eng.Pause(); };
+        FormClosed += (s, e) => { try { if (histDue != DateTime.MinValue) HistWrite(); } catch { } SessionEnd(); };   // a proper close: no crash marker left
+        Shown += (s, e) => BeginInvoke(new Action(SessionStart));   // a crash last time? offer the autosave back
         DragEnter += (s, e) => { if (e.Data.GetDataPresent(DataFormats.FileDrop)) { e.Effect = DragDropEffects.Copy; dragOver = true; Invalidate(); } };
         DragOver += (s, e) => { if (e.Data.GetDataPresent(DataFormats.FileDrop)) { e.Effect = DragDropEffects.Copy; if (!dragOver) { dragOver = true; Invalidate(); } } };
         DragLeave += (s, e) => { dragOver = false; Invalidate(); };
@@ -571,8 +573,8 @@ partial class StudioForm : Form
         if (TxtAudit != null && (ntOpen || busOpen || stylesOpen || allFxOpen || themeOpen || caOpen || psOpen || amOpen || autoOpen || gainOpen || pickOpen || cpOpen || relOpen || tpOpen || WelcomeShowing)) TxtAudit.Clear();   // an open sheet covers the screen: only its own text counts
         PaintSheets(g); PopEnd(); Prof.Mark("sheets"); Win.PaintNeonChildren(this, g); Prof.Mark("neon children");
         if (TxtAudit != null && (menuOpen || eng.CountBeat > 0)) TxtAudit.Clear();
-        PaintMenu(g); Prof.Mark("menu"); HubTick(); CreativeTick();
-        PaintChatWindow(g); PaintVideoOverlay(g); PaintWelcome(g); PaintReleaseBuilder(g); PaintTrackPicker(g); PaintHoverSparks(g); Prof.Mark("sparks"); PaintRevertBar(g); PaintBubble(g); PaintKeyBox(g); PaintCountIn(g); Prof.Mark("overlays");
+        PaintMenu(g); Prof.Mark("menu"); HubTick(); CreativeTick(); HistTick();
+        PaintChatWindow(g); PaintVideoOverlay(g); PaintWelcome(g); PaintRecoveryReport(g); PaintReleaseBuilder(g); PaintTrackPicker(g); PaintHoverSparks(g); Prof.Mark("sparks"); PaintRevertBar(g); PaintBubble(g); PaintKeyBox(g); PaintCountIn(g); Prof.Mark("overlays");
         fpsc.Frame();
         float hintStackY = ClientSize.Height - (tab == 0 ? 56 : (previewPath.Length > 0 ? 56 : 10));
         if (hintNow != hintLast) { hintLast = hintNow; hintSince = DateTime.Now; }
@@ -604,12 +606,13 @@ partial class StudioForm : Form
         if (lookApplied && lookEdition != Edition.Version) { lookEdition = Edition.Version; ApplyProfileLook(); }   // a new edition: the profile theme is Fantasy only
         if (!lookApplied) { lookApplied = true; lookEdition = Edition.Version; ApplyProfileLook(); if (!StudioEnv.UnderTest) { var lt = new System.Windows.Forms.Timer { Interval = 1500 }; lt.Tick += (s0, e0) => { lt.Stop(); lt.Dispose(); if (!soundsLoaded) { soundsLoaded = true; LibLoader.Done = () => { try { BeginInvoke(new Action(() => { sndDirty = true; Invalidate(); })); } catch { } }; LibLoader.Start(); } }; lt.Start(); } }   // your profile colour and its finish become the accent
         FreePageGuard(); DrawBackdrop(g); Prof.Mark("backdrop");
-        SyncConverter(); if (tab == 11) PaintConverterPage(g); else if (tab == 12) PaintStage3D(g); else if (tab == 13) PaintProfiler(g); else if (tab == 14) PaintArrangement(g); else if (tab == 0) PaintMix(g); else if (tab == 2) PaintLyrics(g); else if (tab == 3) PaintProjects(g); else if (tab == 4) PaintCommunity(g); else if (tab == 5) PaintVisualiser(g); else if (tab == 6) PaintProfile(g); else if (tab == 7) PaintArtists(g); else if (tab == 8) PaintFonts(g); else if (tab == 9) PaintHub(g); else if (tab == 10) PaintCreative(g); else PaintMastering(g);
+        SyncConverter(); if (tab == 11) PaintConverterPage(g); else if (tab == 12) PaintStage3D(g); else if (tab == 13) PaintProfiler(g); else if (tab == 14) PaintArrangement(g); else if (tab == 15) PaintHistory(g); else if (tab == 0) PaintMix(g); else if (tab == 2) PaintLyrics(g); else if (tab == 3) PaintProjects(g); else if (tab == 4) PaintCommunity(g); else if (tab == 5) PaintVisualiser(g); else if (tab == 6) PaintProfile(g); else if (tab == 7) PaintArtists(g); else if (tab == 8) PaintFonts(g); else if (tab == 9) PaintHub(g); else if (tab == 10) PaintCreative(g); else PaintMastering(g);
         Prof.Mark("page " + tab);
         if (tab != 2) SyncLyricUi(false);
         if (tab == 3 || tab == 4 || tab == 6 || tab == 7 || tab == 8 || tab == 9 || tab == 10 || tab >= 11) { PaintSlimBar(g); if (tab != 9 && tab < 10) PaintPreviewBar(g); } else if (tab == 5) PaintVisBar(g); else if (tab == 1) PaintMasterBars(g); else { PaintToolbar(g); Prof.Mark("toolbar"); PaintTransport(g); }   // the Community and My Projects pages have no music controls
         Prof.Mark("bars");
         PaintFxWindows(g);   // the floating plugin windows: over the Mix page, under the pop-ups
+        PaintToolWindows(g);   // the tool windows (3D stage, profiler, arrangement, history)
         if (browserOpen && !allFxOpen) { if (TxtAudit != null) TxtAudit.Clear(); PaintBrowser(g); }   // (over ALL PLUGINS the list of effects is drawn on top of the sheet, in PaintSheets)
         PaintSoundDrag(g); PaintPackManager(g);
         if (soundBox != null && soundBox.Visible && !(soundsOpen && tab == 0)) soundBox.Visible = false;
@@ -923,14 +926,16 @@ partial class StudioForm : Form
         {
             float d = Math.Min(r.Height + 6, r.Width); var c = new RectangleF(r.X + (r.Width - d) / 2, r.Y + (r.Height - d) / 2, d, d);
             for (int k = 3; k >= 1; k--) using (var gb = new SolidBrush(Color.FromArgb((lit ? 34 : 22) + (hot ? 10 : 0), ca))) g.FillEllipse(gb, c.X - k * 2.5f, c.Y - k * 2.5f, c.Width + k * 5, c.Height + k * 5);   // the glow
-            using (var br = new LinearGradientBrush(c, ControlPaint.Light(ca, 0.25f), cv, 90f)) g.FillEllipse(br, c);
+            using (var pth = new GraphicsPath()) { pth.AddEllipse(c); var tex = ButtonGalaxy(); using (var tb = new TextureBrush(tex, WrapMode.TileFlipXY)) { tb.TranslateTransform(c.X - 60, c.Y - 30); g.FillPath(tb, pth); }   // a galaxy orb
+              using (var br = new LinearGradientBrush(c, Color.FromArgb(120, ControlPaint.Light(ca, 0.25f)), Color.FromArgb(150, cv), 90f)) g.FillPath(br, pth);
+              using (var hl = new GraphicsPath()) { hl.AddEllipse(c.X + d * 0.18f, c.Y + d * 0.08f, d * 0.5f, d * 0.3f); using (var hb = new PathGradientBrush(hl) { CenterColor = Color.FromArgb(150, 255, 255, 255), SurroundColors = new[] { Color.FromArgb(0, 255, 255, 255) } }) g.FillPath(hb, hl); } }
             using (var pen = new Pen(Color.FromArgb(lit || hot ? 255 : 190, Color.White), lit ? 2f : 1.4f)) g.DrawEllipse(pen, c);
             float tcx = c.X + c.Width / 2 + d * 0.05f, tcy = c.Y + c.Height / 2, ts = d * 0.22f;
             using (var tb = new SolidBrush(ink)) g.FillPolygon(tb, new[] { new PointF(tcx - ts * 0.8f, tcy - ts), new PointF(tcx + ts, tcy), new PointF(tcx - ts * 0.8f, tcy + ts) });
         }
         else
         {
-            FillRR(g, lit ? TM.C(230, 50, 24, 100) : (hot ? TM.C(230, 34, 18, 72) : TM.C(220, 16, 8, 34)), r, r.Height / 2);
+            GalaxyFace(g, r, r.Height / 2, lit ? Accent : (hot ? NeonViolet : TM.C(255, 40, 20, 80)), 0, key);   // the galaxy face, like every button
             StrokeRR(g, Color.FromArgb(lit ? 255 : (hot ? 220 : 140), lit ? ca : cv), r, r.Height / 2, lit ? 1.8f : 1.2f); if (lit) Glow(g, ca, r, r.Height / 2, 0.8f, 3);
             float cx = r.X + r.Width / 2, cy = r.Y + r.Height / 2, s0 = Math.Min(r.Height, r.Width) * 0.2f; Color gc = lit ? ink : TM.C(255, 220, 205, 255);
             using (var b = new SolidBrush(gc)) using (var pen = new Pen(gc, 2f) { StartCap = LineCap.Round, EndCap = LineCap.Round })

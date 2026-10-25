@@ -23,10 +23,10 @@ partial class StudioForm
             double old; profLoad.TryGetValue(f, out old); double sm = old * 0.6 + load * 0.4; profLoad[f] = sm; double pk; profPeak.TryGetValue(f, out pk); profPeak[f] = Math.Max(pk * 0.97, load);
         }
     }
-    void PaintProfiler(Graphics g)
+    void PaintProfiler(Graphics g) { PaintProfiler(g, Rc(14, ToolH + 12, ClientSize.Width - 28, ClientSize.Height - ToolH - 26)); }
+    void PaintProfiler(Graphics g, RectangleF a)
     {
         if (eng.Playing) { ProfSample(); lastInput = DateTime.Now; }
-        float W = ClientSize.Width, H = ClientSize.Height, top = ToolH + 12; var a = Rc(14, top, W - 28, H - top - 14);
         FillRR(g, TM.C(225, 12, 6, 28), a, 14); StrokeRR(g, Color.FromArgb(180, NeonViolet), a, 14, 1.3f);
         var rows = new List<ProfRow>();
         foreach (var t in eng.Tracks.ToArray()) foreach (var f in t.Fx.ToArray()) { double l, p; profLoad.TryGetValue(f, out l); profPeak.TryGetValue(f, out p); rows.Add(new ProfRow { T = t, F = f, Load = l, Peak = p, Lat = f.Latency }); }

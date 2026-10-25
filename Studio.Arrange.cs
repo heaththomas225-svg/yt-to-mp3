@@ -88,9 +88,9 @@ partial class StudioForm
     static readonly Color[] ArrCols = { Color.FromArgb(255, 90, 140, 255), Color.FromArgb(255, 61, 217, 255), Color.FromArgb(255, 255, 120, 60), Color.FromArgb(255, 176, 92, 255), Color.FromArgb(255, 255, 92, 200) };
     static Color ArrColour(string name) { switch (name) { case "Intro": return ArrCols[0]; case "Verse": return ArrCols[1]; case "Chorus": return ArrCols[2]; case "Break": return ArrCols[3]; default: return ArrCols[4]; } }
 
-    void PaintArrangement(Graphics g)
+    void PaintArrangement(Graphics g) { PaintArrangement(g, Rc(14, ToolH + 12, ClientSize.Width - 28, ClientSize.Height - ToolH - 26)); }
+    void PaintArrangement(Graphics g, RectangleF a)
     {
-        float W = ClientSize.Width, H = ClientSize.Height, top = ToolH + 12; var a = Rc(14, top, W - 28, H - top - 14);
         FillRR(g, TM.C(225, 12, 6, 28), a, 14); StrokeRR(g, Color.FromArgb(180, NeonViolet), a, 14, 1.3f);
         var an = Rc(a.Right - 220, a.Y + 12, 206, 34); Btn(g, an, arr == null ? "ANALYSE THE SONG" : "ANALYSE AGAIN", 2, () => AnalyseArrangement(), 12); Hint2(an, "Play the song once through the master and measure its arrangement (nothing is changed)");
         Txt(g, "ARRANGEMENT INTELLIGENCE", 16, Ink, Rc(a.X + 16, a.Y + 14, 500, 26), StringAlignment.Near, true);
