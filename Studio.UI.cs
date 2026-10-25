@@ -450,8 +450,7 @@ partial class StudioForm : Form
         float rad = Math.Min(10f, Math.Max(6f, r.Height * 0.3f)); const float rim = 2.6f; var inner = RectangleF.Inflate(r, -rim, -rim); float irad = Math.Max(1f, rad - rim);   // the inner corner is exactly one rim smaller than the outer one, so the rim is the same thickness all the way round (corners too) on every button
         Color rimC = Color.FromArgb(style == 4 && UiTokens.Glass ? 70 : 240, (int)(c.R + (255 - c.R) * 0.82f), (int)(c.G + (255 - c.G) * 0.82f), (int)(c.B + (255 - c.B) * 0.84f));
         using (var p = RR(r, rad)) using (var br = new SolidBrush(rimC)) g.FillPath(br, p);   // the pale rim
-        if (style == 2) { using (var p = RR(inner, irad)) using (var br = new LinearGradientBrush(inner, vA, vB, 0f)) g.FillPath(br, p); }
-        else using (var p = RR(inner, irad)) using (var br = new LinearGradientBrush(inner, Color.FromArgb(c.A, Math.Min(255, (int)(c.R * 1.10f) + 4), Math.Min(255, (int)(c.G * 1.10f) + 4), Math.Min(255, (int)(c.B * 1.10f) + 4)), Color.FromArgb(c.A, (int)(c.R * 0.88f), (int)(c.G * 0.88f), (int)(c.B * 0.88f)), 90f)) g.FillPath(br, p);
+        GalaxyFace(g, inner, irad, style == 2 ? vA : c, style, shown);   // the galaxy face, tinted with the button's colour
         if (style == 4 && UiTokens.Shiny) PaintMaterial(g, inner, irad, c, UiTokens.Finish, false);   // the accent's finish on a selected button
         if (inner.Width > irad * 3) using (var hl = new Pen(Color.FromArgb(style == 2 ? 80 : 52, 255, 255, 255), 1f)) g.DrawLine(hl, inner.X + irad, inner.Y + 1.2f, inner.Right - irad, inner.Y + 1.2f);
         if (style == 4) Glow(g, UiTokens.Sel(Accent2), r, rad, 0.8f, 3); else if (ht > 0.03f) Glow(g, NeonCyan, r, rad, 0.7f * ht, 3);
@@ -468,12 +467,9 @@ partial class StudioForm : Form
         c = Contrast.ForWhite(c); if (style == 4 && UiTokens.Glass) c = Color.FromArgb(150, c);   // white writing: a theme that makes a button too light gets a darker button, not black writing
         Color vA = Contrast.ForWhite(Color.FromArgb(Math.Min(255, Violet.R + 32), Math.Min(255, Violet.G + 8), Math.Min(255, Violet.B + 28))), vB = Contrast.ForWhite(Accent2);
         float rad = Math.Min(10f, Math.Max(6f, r.Height * 0.3f));   // softer corners on every button
-        if (style == 2)
-        {
-            using (var p = RR(r, rad)) using (var br = new LinearGradientBrush(r, vA, vB, 0f)) g.FillPath(br, p);
-            if (ht > 0) FillRR(g, Color.FromArgb((int)(40 * ht), 255, 255, 255), r, rad);
-        }
-        else using (var p = RR(r, rad)) using (var br = new LinearGradientBrush(r, Color.FromArgb(c.A, Math.Min(255, (int)(c.R * 1.07f) + 2), Math.Min(255, (int)(c.G * 1.07f) + 2), Math.Min(255, (int)(c.B * 1.07f) + 2)), Color.FromArgb(c.A, (int)(c.R * 0.93f), (int)(c.G * 0.93f), (int)(c.B * 0.93f)), 90f)) g.FillPath(br, p);   // a soft shade from top to bottom
+        GalaxyFace(g, r, rad, style == 2 ? vA : c, style, shown);   // the galaxy face, tinted with the button's colour
+        if (style == 2 && ht > 0) FillRR(g, Color.FromArgb((int)(40 * ht), 255, 255, 255), r, rad);
+        StrokeRR(g, Color.FromArgb(200, Math.Min(255, c.R + 70), Math.Min(255, c.G + 60), Math.Min(255, c.B + 80)), r, rad, 1.2f);   // a lit edge
         if (style == 4 && UiTokens.Shiny) PaintMaterial(g, r, rad, c, UiTokens.Finish, false);   // the accent's finish on a selected button
         if (Edition.Has(Tier.Fantasy))
         {   // the Fantasy look: a lit rim in a lighter shade of the button's own colour, a glassy top and a bright line where the light catches the edge

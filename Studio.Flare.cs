@@ -43,6 +43,38 @@ partial class StudioForm
         }
         return bmp;
     }
+    // GALAXY BUTTONS: a button's face is a little piece of galaxy (in the theme's colours), tinted with the button's own colour
+    static Bitmap btnGalaxy; static long btnGalaxyKey;
+    Bitmap ButtonGalaxy()
+    {
+        long key = ((long)NeonViolet.ToArgb() << 32) ^ (uint)Accent.ToArgb() ^ ((long)NeonCyan.ToArgb() << 7);
+        if (btnGalaxy == null || btnGalaxyKey != key) { if (btnGalaxy != null) btnGalaxy.Dispose(); btnGalaxy = MakeGalaxy(420, 160, 0xB77, 1.35f, new[] { NeonViolet, Accent, NeonCyan, Light(NeonViolet), Accent }); btnGalaxyKey = key; }
+        return btnGalaxy;
+    }
+    void GalaxyFace(Graphics g, RectangleF r, float rad, Color tint, int style, string label)
+    {
+        if (r.Width < 8 || r.Height < 8) return; var tex = ButtonGalaxy(); int off = Math.Abs((label ?? "").GetHashCode());
+        using (var tb = new TextureBrush(tex, WrapMode.TileFlipXY)) { tb.TranslateTransform(r.X - off % tex.Width, r.Y - (off / 7) % tex.Height); using (var p = RR(r, rad)) g.FillPath(tb, p); }
+        using (var p = RR(r, rad)) using (var br = new LinearGradientBrush(r, Color.FromArgb(style == 2 ? 105 : 115, tint), Color.FromArgb(style == 2 ? 55 : 75, tint), 90f)) g.FillPath(br, p);   // the button's own colour over its galaxy
+    }
+    // GALAXY WRITING: words filled with a bright piece of galaxy, with a dark edge so they always read
+    static Bitmap textGalaxy;
+    void GalaxyText(Graphics g, string text, Font f, float x, float y)
+    {
+        if (textGalaxy == null)
+        {   // a bright, pale galaxy: the nebula and stars laid over white, so the words glow and still read
+            var gal = MakeGalaxy(300, 90, 0x7E7, 2.0f, new[] { Color.FromArgb(255, 220, 60, 255), Color.FromArgb(255, 140, 70, 255), Color.FromArgb(255, 80, 170, 255), Color.FromArgb(255, 255, 90, 210), Color.FromArgb(255, 170, 90, 255) });
+            textGalaxy = new Bitmap(300, 90); using (var tg = Graphics.FromImage(textGalaxy)) { tg.Clear(Color.FromArgb(255, 250, 240, 255)); var cm = new System.Drawing.Imaging.ColorMatrix { Matrix33 = 0.62f }; using (var ia = new System.Drawing.Imaging.ImageAttributes()) { ia.SetColorMatrix(cm); tg.DrawImage(gal, new Rectangle(0, 0, 300, 90), 0, 0, 300, 90, GraphicsUnit.Pixel, ia); } } gal.Dispose();
+        }
+        using (var pth = new GraphicsPath())
+        {
+            pth.AddString(text, f.FontFamily, (int)f.Style, f.Size, new PointF(x, y), StringFormat.GenericTypographic);
+            using (var pen = new Pen(Color.FromArgb(235, 8, 2, 20), 3.2f) { LineJoin = LineJoin.Round }) g.DrawPath(pen, pth);   // the dark edge
+            using (var white = new SolidBrush(Color.FromArgb(255, 245, 235, 255))) g.FillPath(white, pth);
+            using (var tb = new TextureBrush(textGalaxy, WrapMode.TileFlipXY)) { tb.TranslateTransform(x, y); var gs = g.Save(); using (var tex = new SolidBrush(Color.FromArgb(0, 0, 0, 0))) { } g.FillPath(tb, pth); g.Restore(gs); }
+            using (var pen = new Pen(Color.FromArgb(120, 255, 255, 255), 0.7f)) g.DrawPath(pen, pth);   // a fine light rim
+        }
+    }
     static Color Light(Color c) { return Color.FromArgb(255, c.R + (255 - c.R) / 2, c.G + (255 - c.G) / 2, c.B + (255 - c.B) / 2); }
 
     // the big flare of a plugin window: a long beam of light from the planet out across the whole window, behind the knobs

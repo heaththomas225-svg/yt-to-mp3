@@ -196,13 +196,14 @@ partial class StudioForm
         {
             var sz = g.MeasureString("PURPHEX", f); var tr = new RectangleF(x, y, sz.Width + 4, sz.Height);
             for (int k = 3; k >= 1; k--) using (var gb = new SolidBrush(Color.FromArgb(40, 150, 90, 255))) g.DrawString("PURPHEX", f, gb, x - k * 0.8f, y + k * 0.5f);
-            using (var br = new SolidBrush(Color.White)) g.DrawString("PURPHEX", f, br, x, y);
+            var oldSm = g.SmoothingMode; g.SmoothingMode = SmoothingMode.AntiAlias;
+            GalaxyText(g, "PURPHEX", f, x, y + sz.Height * 0.08f);
             if (!string.IsNullOrEmpty(sub)) using (var f2 = new Font("Segoe UI", Math.Max(13f, h * 0.42f), FontStyle.Bold, GraphicsUnit.Pixel))
-            {   // the plugin's name: bold white with a dark outline, so it reads on the galaxy
-                string spaced = string.Join(" ", sub.ToUpperInvariant().ToCharArray().Select(ch => ch.ToString()).ToArray()); float sx = x + 3, sy = y + sz.Height * 0.72f;
-                using (var sh = new SolidBrush(Color.FromArgb(230, 6, 2, 16))) for (int ox = -1; ox <= 1; ox++) for (int oy = -1; oy <= 1; oy++) if (ox != 0 || oy != 0) g.DrawString(spaced, f2, sh, sx + ox * 1.2f, sy + oy * 1.2f);
-                using (var b2 = new SolidBrush(Color.White)) g.DrawString(spaced, f2, b2, sx, sy);
+            {   // the plugin's name, in galaxy writing too, letters spaced out
+                string spaced = string.Join("\u2009", sub.ToUpperInvariant().ToCharArray().Select(ch => ch.ToString()).ToArray());
+                GalaxyText(g, spaced, f2, x + 3, y + sz.Height * 0.74f);
             }
+            g.SmoothingMode = oldSm;
         }
         g.TextRenderingHint = oldT;
     }
