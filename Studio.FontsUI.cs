@@ -20,7 +20,7 @@ partial class StudioForm
         if (!FontSearchActive) return false; if (k == Keys.Escape) { if (fontQuery.Length > 0) { fontQuery = ""; fontScroll = 0; } else fontSearchOn = false; return true; } if (k == Keys.Enter || k == Keys.Return) { fontSearchOn = false; return true; } return false;
     }
     bool FontSearchTakesKey(Keys k) { return FontSearchActive && (k & Keys.Control) == 0 && (k & Keys.Alt) == 0 && !((k & Keys.KeyCode) >= Keys.F1 && (k & Keys.KeyCode) <= Keys.F24); }
-    internal void OpenFonts() { tab = 8; fontScroll = 0; foreach (var e in FontKit.All) if (e.State == 2) e.State = 0; }
+    internal void OpenFonts() { if (!Paid("Fonts")) return; tab = 8; fontScroll = 0; foreach (var e in FontKit.All) if (e.State == 2) e.State = 0; }
 
     // a card or a sample: the text in its own font, made smaller (never cut) when the box is too narrow
     void TxtIn(Graphics g, string s, FontKit.Entry e, float px, bool bold, Color c, RectangleF r, StringAlignment ha)

@@ -19,6 +19,7 @@ static class Edition
     // the highest export sample rate the account's edition allows (Free 48 kHz, Supporter 192 kHz, Fantasy 384 kHz); the host sets it from the signed-in account
     public static Func<int> MaxRateOf = () => 48000;
     public static int MaxRate { get { return MaxRateOf(); } }
+    public static int StudioMaxRate { get { return MaxRateOf(); } }
 }
 
 class ThemeDef

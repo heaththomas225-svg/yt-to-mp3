@@ -7,10 +7,19 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.75.1";
+    public const string Latest = "3.76.0";
 
     public const string Text =
-@"3.75.1  Fixes from the release audit
+@"3.76.0  The Free Edition gets a studio, new prices, preset knobs, Space plays from anywhere in the mix, dragged patterns become audio clips
+ + NEW: The Free Edition opens the studio: a limited Purphex Music for everyone. It has tracks and the mixer, every effect, the piano roll, sound packs, lyrics, your profile, the Music Hub, the Mastering page with two master presets (Gentle and Clean & Transparent) and export of the mix, the master or the stems as WAV (up to 32-bit) or MP3 320 kbps at 44.1 kHz.
+ + CHANGED: On the Free Edition these show a padlock (Supporter Edition and up): VSTS, vocal presets, bus presets, community presets, the AI generators, Auto Mix, Flex Pitch, Auto EQ, Auto Loudness, AUTO MASTERING, the other master presets, the visualiser, themes and fonts, FLAC and MP4 export and rates above 44.1 kHz. The Video and Photo Editors are not in the side panel on the Free Edition, and Help shows only the guides for what the Free Edition has.
+ + CHANGED: New prices: the Supporter Edition is £7.99 a month or £79.99 a year, and the Fantasy Edition is £399.99 once, for life.
+ + NEW: Every preset list has little knobs on each preset, turned to what that preset really does: SPACE, PUNCH and BRIGHT on vocal and bus presets, LOUD, PUNCH and BRIGHT on mastering presets, and a plugin's own settings on its presets. They keep the Purphex look whatever theme you use.
+ + FIXED: Space plays and pauses the song again after you clicked a search box (clicking anywhere in the studio gives the keys back). In the sound packs, Space pauses and plays the sound you are hearing, and playing the song stops a sound you were hearing there.
+ + NEW: Drag your pattern or a GENERATE beat from the piano roll onto the song and it becomes an audio clip you can move, trim and copy like any sound (saved as a WAV in Music / yt2mp3 / Patterns). ADD TO SONG still adds note tracks you can edit.
+ + FIXED: A sound dragged from the sound packs lands exactly where you drop it, not pulled onto the grid. Hold Shift to snap it to the grid.
+
+3.75.1  Fixes from the release audit
  + FIXED: The Photo Editor tab at the top of the Creative suite said PHOTO STUDIO PRO: it is PHOTO EDITOR now, like everywhere else.
  + FIXED: Two hints still told you to use SOUNDS > Load into a new sampler track (that option is Load it into the piano roll since 3.74.0).
  + FIXED: With the bottom panel open, a track row half hidden under it still had its buttons there (M, S, PLUGINS...): they could not be seen, and now they are not clickable things either.

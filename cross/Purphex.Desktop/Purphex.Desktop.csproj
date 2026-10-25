@@ -122,6 +122,8 @@
     <Compile Include="../../Studio.PianoRoll.cs" />
     <Compile Include="../../Studio.Patterns.cs" />
     <Compile Include="../../Studio.PatternBox.cs" />
+    <Compile Include="../../Studio.FreeLimits.cs" />
+    <Compile Include="../../Studio.PresetKnobs.cs" />
     <Compile Include="../../Studio.UI2.cs" />
     <Compile Include="../../Studio.8D.cs" />
     <Compile Include="../../Studio.Inst.cs" />

@@ -77,11 +77,13 @@ partial class StudioForm
     // ---------- trying a master preset ----------
     void PresetUse(int i)
     {
+        if (!FreeMasterPreset(i) && !Paid("Every master preset (the Free Edition has Gentle and Clean & Transparent)")) return;
         var before = mpBackup ?? SnapChain(); float tBefore = targetLufs; int usedBefore = masterPresetUsed; masterPresetUsed = i; mpBackup = null; mpPreviewIdx = -1; Presets.ApplyMaster(eng, i); masterPresetUsed = i; targetLufs = MasterPresets.All[i].Target; abOrig = abMast = null;
         Toast(MasterPresets.All[i].Name + " applied. Press PREVIEW to hear it, or the loudness buttons to set the level."); OfferRevert(MasterPresets.All[i].Name.Split('(')[0].Trim() + " is on your master", () => { RestoreChain(before); masterPresetUsed = usedBefore; targetLufs = tBefore; abOrig = abMast = null; });
     }
     void PresetTry(int i)
     {
+        if (!FreeMasterPreset(i) && !Paid("Every master preset (the Free Edition has Gentle and Clean & Transparent)")) return;
         if (mpBackup == null) mpBackup = SnapChain(); Presets.ApplyMaster(eng, i); targetLufs = MasterPresets.All[i].Target; mpPreviewIdx = i; abOrig = abMast = null;
         if (!mpActive) MasterPreviewStart();
     }
@@ -109,6 +111,7 @@ partial class StudioForm
     string[] amRevert;   // the master chain from before the version that is on your master now (kept until you revert or start again)
     void AutoMasterClick()
     {
+        if (!Paid("Auto Master")) return;
         if (!AskYes("Are you sure you want to run AUTO MASTERING?\n\nIt listens to the whole mix and builds ten mastered versions for you to preview. Nothing changes on your master until you press USE THIS on one, you can hear your mix before and after, and REVERT puts everything back afterwards.", "Auto Mastering")) return;
         AutoMixMaster();
     }
@@ -179,6 +182,7 @@ partial class StudioForm
     // the two loudness buttons ask first, like AUTO MASTERING, so a stray click never changes the limiter (Ctrl+Z puts it back)
     void AutoLoudnessClick()
     {
+        if (!Paid("Auto Loudness")) return;
         if (!AskYes("Are you sure you want to run AUTO LOUDNESS?\n\nIt listens to the whole mix, picks the best level for this track, evens it out and sets the Limiter and the Compressor to match. Ctrl+Z puts the master back as it was.", "Auto Loudness")) return;
         AutoLoudnessAuto();
     }
@@ -363,8 +367,9 @@ partial class StudioForm
             int pi = show[i]; var p = all0[pi]; var card = Rc(a.X + 4 + (i % cols) * (cw + gap), y + (i / cols) * (ch + gap) - mpScroll, cw, ch); if (card.Bottom < y - 2 || card.Y > a.Bottom) continue;
             bool trying = mpBackup != null && mpPreviewIdx == pi, hot = Hot(RectangleF.Intersect(card, area)) && area.Contains(MousePos);
             bool inUse = masterPresetUsed == pi; NeonCard(g, card, hot, trying); if (inUse) PaintInUse(g, card, 12);   // the preset that is on your master stands out
-            Txt(g, p.Name.ToUpper(), 14, Ink, Rc(card.X + 12, card.Y + 8, card.Width - 24 - (inUse ? 80 : 0), 22), StringAlignment.Near, true);
-            NeonTag(g, card.X + 12, card.Y + 32, p.Group.ToUpper(), NeonViolet);
+            Txt(g, p.Name.ToUpper(), 14, Ink, Rc(card.X + 12, card.Y + 8, card.Width - 24 - 142 - (inUse ? 80 : 0), 22), StringAlignment.Near, true);
+            PresetKnobs(g, card.Right - 8, card.Y + 26, MasterKnobs(p), MasterKnobNames, "this preset does it");
+            NeonTag(g, card.X + 12, card.Y + 32, p.Group.ToUpper(), NeonViolet); if (!FreeMasterPreset(pi)) { Edition.Padlock(g, Rc(card.X + 110, card.Y + 30, 14, 17), Color.FromArgb(255, 255, 200, 90)); Hint2(Rc(card.X + 104, card.Y + 28, 26, 22), "Supporter Edition and up (the Free Edition has Gentle and Clean & Transparent)"); }
             TxtWrap(g, p.Blurb, 11, TM.C(205, 200, 190, 230), Rc(card.X + 12, card.Y + 54, card.Width - 24, 50));
             var pv = Rc(card.X + 12, card.Bottom - 38, 104, 30); var sp0 = Rc(pv.Right + 6, card.Bottom - 38, 62, 30); var us = Rc(sp0.Right + 6, card.Bottom - 38, 70, 30);
             var pva = RectangleF.Intersect(pv, area); if (!pva.IsEmpty) { Btn(g, pv, trying && mpActive ? "PREVIEWING" : "PREVIEW", trying ? 4 : 1, () => PresetTry(pi), 12); Hint2(pv, "Hear this preset on your song now (the loudest 20 seconds, looping)"); var spa = RectangleF.Intersect(sp0, area); if (!spa.IsEmpty) { Btn(g, sp0, "STOP", trying && mpActive ? 3 : 0, () => MasterPreviewStop(), 11); Hint2(sp0, "Stop the preview"); } }
@@ -443,6 +448,7 @@ partial class StudioForm
     }
     void AutoEqClick(ParametricEq eq, Track tr)
     {
+        if (!Paid("Auto EQ")) return;
         if (eng.Tracks.Count == 0) { Toast("Add music first."); return; }
         if (tr != null && tr.Clip == null && !tr.Instrument) { Toast("This track has no sound to listen to yet."); return; }
         string who = tr == null ? "the whole mix" : "the track \"" + tr.Name + "\"";

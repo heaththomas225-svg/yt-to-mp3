@@ -25,6 +25,7 @@ partial class StudioForm
     // ---- open / close ----
     void FlexOpen()
     {
+        if (!Paid("Flex Pitch")) return;
         var t = Selected; if (t == null || t.Clip == null || !t.Clip.Loaded || t.Instrument) { Toast("Select a track that has a recording first. Flex Pitch works best on a single voice or instrument."); return; }
         if (flexOpen) FlexClose(true); PushUndo(); flexTrack = t; flexClip0 = t.Clip; flexStart0 = t.ClipStart; flexFrames0 = t.ClipFrames; flexName = t.Name; flexHist = null; flexHistDirty = false;
         long len = t.UsedLength; if (len < 4096) { Toast("That recording is too short to edit."); return; }

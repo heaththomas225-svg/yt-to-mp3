@@ -156,6 +156,7 @@ partial class StudioForm
     // one sheet for every kind of preset: what to ask the community for, what to do with the one you pick, and where your own settings come from
     internal void OpenCommunityPresets(string kind, string title, Action<CommPreset> apply, Func<string> getData, string defName)
     {
+        if (!Paid("Community presets")) return;
         cpOpen = true; cpKind = kind; cpTitle = title; cpApply = apply; cpData = getData; cpDefName = defName; cpQuery = ""; cpScroll = 0; cpSort = "popular"; stylesOpen = false; autoOpen = false; gainOpen = false; pickOpen = false; browserOpen = false; ntOpen = false; busOpen = false; CpFetch();
     }
     void CpFetch()

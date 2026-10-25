@@ -150,8 +150,8 @@ partial class StudioForm
     bool stylesOpen; string stylesQuery = "", stylesGenre = "", stylesPart = ""; bool stylesFav; float stylesScroll;
 
     internal bool stylesBus;   // the same sheet shows BUS PRESETS
-    internal void OpenBusPresets() { OpenStyles(); stylesBus = true; }
-    void OpenStyles() { stylesBus = false; stylesOpen = true; stylesQuery = ""; stylesGenre = ""; stylesPart = ""; stylesFav = false; stylesScroll = 0; ntOpen = false; busOpen = false; browserOpen = false; }
+    internal void OpenBusPresets() { if (!Paid("Bus presets")) return; OpenStyles(); stylesBus = true; }
+    void OpenStyles() { if (!Paid("Vocal presets")) return; stylesBus = false; stylesOpen = true; stylesQuery = ""; stylesGenre = ""; stylesPart = ""; stylesFav = false; stylesScroll = 0; ntOpen = false; busOpen = false; browserOpen = false; }
 
     void ApplyStyle(VocalStyles.Style s, bool replace)
     {
@@ -221,10 +221,11 @@ partial class StudioForm
             var s = list[i]; var row = Rc(sheet.X + 14, top + i * rowH - stylesScroll, sheet.Width - 28 - vsw, rowH - 6); if (row.Bottom < top || row.Y > bottom) continue;
             bool hot = Hot(RectangleF.Intersect(row, area)) && area.Contains(MousePos); FillRR(g, hot ? TM.C(200, 60, 34, 112) : TM.C(150, 26, 15, 52), row, 12); StrokeRR(g, Color.FromArgb(hot ? 160 : 80, NeonViolet), row, 12, 1);
             bool fv = VocalStyles.IsFav(s.Name); var star = Rc(row.X + 8, row.Y + 8, 30, 30); Txt(g, fv ? "★" : "☆", 20, fv ? Color.FromArgb(255, 210, 80) : DimC, star, StringAlignment.Center, false); string sn = s.Name; Reg(star, () => VocalStyles.ToggleFav(sn));
-            float nameW = g.MeasureString(s.Name, GfxCache.Font(16, true)).Width; Txt(g, s.Name, 16, Ink, Rc(row.X + 44, row.Y + 6, nameW + 12, 26), StringAlignment.Near, true);
-            var tag = Rc(row.X + 44 + nameW + 10, row.Y + 10, 14 + s.Genre.Length * 6.6f, 18); if (tag.Right < row.Right - 130) { FillRR(g, Color.FromArgb(70, NeonViolet), tag, 5); Txt(g, s.Genre, 10, Ink, tag, StringAlignment.Center, false); }
-            if (!string.IsNullOrEmpty(s.BusName)) { var bt = Rc(tag.Right + 6, row.Y + 10, 40, 18); if (bt.Right < row.Right - 130) { FillRR(g, Color.FromArgb(200, 255, 208, 77), bt, 5); Txt(g, "+BUS", 9.5f, Color.Black, bt, StringAlignment.Center, true); Hint2(bt, "Comes with " + s.BusName + ": glue and space shared by every vocal you route into it"); } }
-            using (var wf = new StringFormat { Trimming = StringTrimming.EllipsisWord, FormatFlags = StringFormatFlags.LineLimit }) using (var wb = new SolidBrush(DimC)) g.DrawString(s.Blurb, GfxCache.Font(11, false), wb, Rc(row.X + 46, row.Y + 33, row.Width - 46 - 134, 32), wf);
+            float nameW = g.MeasureString(s.Name, GfxCache.Font(16, true)).Width; Txt(g, s.Name, 16, Ink, Rc(row.X + 44, row.Y + 6, Math.Min(nameW + 12, row.Width - 44 - 270), 26), StringAlignment.Near, true);
+            var tag = Rc(row.X + 44 + nameW + 10, row.Y + 10, 14 + s.Genre.Length * 6.6f, 18); if (tag.Right < row.Right - 270) { FillRR(g, Color.FromArgb(70, NeonViolet), tag, 5); Txt(g, s.Genre, 10, Ink, tag, StringAlignment.Center, false); }
+            if (!string.IsNullOrEmpty(s.BusName)) { var bt = Rc(tag.Right + 6, row.Y + 10, 40, 18); if (bt.Right < row.Right - 270) { FillRR(g, Color.FromArgb(200, 255, 208, 77), bt, 5); Txt(g, "+BUS", 9.5f, Color.Black, bt, StringAlignment.Center, true); Hint2(bt, "Comes with " + s.BusName + ": glue and space shared by every vocal you route into it"); } }
+            using (var wf = new StringFormat { Trimming = StringTrimming.EllipsisWord, FormatFlags = StringFormatFlags.LineLimit }) using (var wb = new SolidBrush(DimC)) g.DrawString(s.Blurb, GfxCache.Font(11, false), wb, Rc(row.X + 46, row.Y + 33, row.Width - 46 - 134 - 146, 32), wf);
+            PresetKnobs(g, row.Right - 122, row.Y + row.Height / 2 + 2, ChainKnobs(s.Chain), ChainKnobNames, "this preset adds");
             var st = s; Btn(g, Rc(row.Right - 112, row.Y + 14, 96, 34), "Use", 1, () => { if (stylesBus) ApplyBusPreset(st); else ApplyStyle(st, true); }, 14);
         }
         g.ResetClip(); VScroll(g, Rc(sheet.Right - 56, top, 42, areaH), total, areaH, () => stylesScroll, v => stylesScroll = v);

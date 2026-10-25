@@ -606,7 +606,7 @@ partial class StudioForm : Form
     {
         if (lookApplied && lookEdition != Edition.Version) { lookEdition = Edition.Version; ApplyProfileLook(); }   // a new edition: the profile theme is Fantasy only
         if (!lookApplied) { lookApplied = true; lookEdition = Edition.Version; ApplyProfileLook(); if (!StudioEnv.UnderTest) { var lt = new System.Windows.Forms.Timer { Interval = 1500 }; lt.Tick += (s0, e0) => { lt.Stop(); lt.Dispose(); if (!soundsLoaded) { soundsLoaded = true; LibLoader.Done = () => { try { BeginInvoke(new Action(() => { sndDirty = true; Invalidate(); })); } catch { } }; LibLoader.Start(); } }; lt.Start(); } }   // your profile colour and its finish become the accent
-        DrawBackdrop(g); Prof.Mark("backdrop");
+        FreePageGuard(); DrawBackdrop(g); Prof.Mark("backdrop");
         if (tab == 0) PaintMix(g); else if (tab == 2) PaintLyrics(g); else if (tab == 3) PaintProjects(g); else if (tab == 4) PaintCommunity(g); else if (tab == 5) PaintVisualiser(g); else if (tab == 6) PaintProfile(g); else if (tab == 7) PaintArtists(g); else if (tab == 8) PaintFonts(g); else if (tab == 9) PaintHub(g); else if (tab == 10) PaintCreative(g); else PaintMastering(g);
         Prof.Mark("page " + tab);
         if (tab != 2) SyncLyricUi(false);
@@ -790,8 +790,10 @@ partial class StudioForm : Form
         using (var br = new LinearGradientBrush(r, Violet, c, 0f)) using (var p = RR(Rc(r.X, r.Y, r.Width * f, r.Height), r.Height / 2)) g.FillPath(br, p);
     }
 
+    internal bool keysInSounds;
     void PlayGuard()
     {
+        Auditioner.Stop();   // the song starting stops a sound you were hearing in the sound packs
         try { eng.Play(); } catch (Exception ex) { MessageBox.Show(this, ex.Message, "Playback"); }
     }
 
@@ -1377,6 +1379,7 @@ partial class StudioForm : Form
     // the VSTS button: the VSTs, put on the track you choose at the top (FOR:), the picked track to start with
     internal void OpenVsts()
     {
+        if (!Paid("VSTS (Purphex VSTs and your own)")) return;
         int t = selTrack; if (t < 0 || t >= eng.Tracks.Count || eng.Tracks[t].IsBus || eng.Tracks[t].Host != null) t = eng.Tracks.FindIndex(x => !x.IsBus && x.Host == null);
         OpenBrowser(false, t); browserVst = true; browserCat = ""; blCache = null;
     }
@@ -1544,6 +1547,7 @@ partial class StudioForm : Form
         if (MsgCmd(k)) return true; if (MsgTakesKey(k)) return base.ProcessCmdKey(ref msg, k);
         if (ArtSearchCmd(k)) return true; if (ArtSearchTakesKey(k)) return base.ProcessCmdKey(ref msg, k); if (FontSearchCmd(k)) return true; if (FontSearchTakesKey(k)) return base.ProcessCmdKey(ref msg, k);
         if (k == Keys.F1) { app.ShowHelp(null); return true; }
+        if (k == Keys.Space && tab == 0 && soundsOpen && keysInSounds) { Auditioner.Toggle(); Invalidate(); return true; }   // in the sound packs: Space pauses and plays the sound you are hearing
         if (k == Keys.Space) { if (tab != 0) return base.ProcessCmdKey(ref msg, k); PlayToggle(); return true; }   // the space bar plays and pauses on the Mix page only: on any other page it leaves the mix alone
         if (k == Keys.Home) { eng.Seek(0); scroll = 0; followPaused = false; return true; }
         if (k == (Keys.Control | Keys.Shift | Keys.S)) { SaveClick(true); return true; }
@@ -1585,7 +1589,9 @@ partial class StudioForm : Form
     }
     protected override void OnMouseDown(MouseEventArgs e)
     {
-        base.OnMouseDown(e); lastInput = DateTime.Now; Focus(); MousePos = e.Location; if (e.Button == MouseButtons.Middle && tab == 0 && TimelineRect().Contains(e.Location)) { MiddleDown(e.Location); return; }
+        base.OnMouseDown(e); lastInput = DateTime.Now; if (ActiveControl is TextBoxBase && ActiveControl != editBox) ActiveControl = null; Focus(); MousePos = e.Location;   // clicking the studio takes the keys back from a search box (so Space plays again)
+        keysInSounds = soundsOpen && tab == 0 && e.X >= ClientSize.Width - PanelW && e.Y >= ToolH + TransH;   // the last click was in the sound packs: Space plays and pauses the sound there
+        if (e.Button == MouseButtons.Middle && tab == 0 && TimelineRect().Contains(e.Location)) { MiddleDown(e.Location); return; }
         if (editBox != null && editBox.Visible) CommitEdit(true);   // clicking off a value box confirms what you typed
         if (tab == 3 && projSearchOn && !projSearchR.Contains(e.Location)) projSearchOn = false;
         if ((tab == 8 || fontsWin) && fontSearchOn && !fontSearchR.Contains(e.Location)) fontSearchOn = false;

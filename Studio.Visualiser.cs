@@ -113,6 +113,7 @@ partial class StudioForm
     }
     void PaintVisStage(Graphics g, RectangleF a, bool full)
     {
+        if (FreeStudio) { PaintVisLocked(g, a); return; }   // the visualiser is a paid feature
         float dt = Math.Min(0.05f, hDt); bool playing = eng.Playing || visTestTap != null; visT += dt; visFrame++;
         var gs = g.Save(); g.SetClip(a, CombineMode.Intersect); long v0 = Prof.T();
         // ---- listening: the sound after mastering, and (every other frame) the sound before it ----

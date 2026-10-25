@@ -13,6 +13,7 @@ partial class StudioForm
 
     internal void OpenThemeSheet(bool community = false)
     {
+        if (!Paid("Themes")) return;
         if (community) { OpenCommunityThemes(); return; }
         themeOpen = true; themeScroll = 0; stylesOpen = false; ntOpen = false; busOpen = false; browserOpen = false; cpOpen = false; menuOpen = false;
     }

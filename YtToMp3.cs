@@ -37,7 +37,7 @@ class Job
 partial class App : Form
 {
     // ---- Auto-update settings ----
-    const string Version = "3.75.1";
+    const string Version = "3.76.0";
     // Plain-text manifest: line 1 = newest version, line 2 = direct exe download URL.
     const string UpdateManifestUrl = "https://raw.githubusercontent.com/heaththomas225-svg/yt-to-mp3/main/version.txt";
 
@@ -173,7 +173,6 @@ partial class App : Form
 
     bool OpenStudio()
     {
-        if (!Edition.Gate(Tier.Supporter, "The Purphex Music studio", this)) return false;
         if (studioForm == null || studioForm.IsDisposed) { studioForm = new StudioForm(this); studioForm.Show(); Win.Bring(studioForm); }   // an independent window: click either window and it comes to the front
         else Win.Bring(studioForm);
         return true;
@@ -296,7 +295,7 @@ partial class App : Form
         tip.SetToolTip(usedBtn, "How many MP3s and MP4s have been made with Purphex Music all over the world.");
         usedBtn.Click += (s, e) => ShowUsage();
         tip.SetToolTip(studioBtn, "Open the Logic-style studio: tracks, mixing, Auto-Tune, EQ, effects, mastering and export.");
-        studioBtn.Click += (s, e) => { bool fresh = studioForm == null || studioForm.IsDisposed; if (OpenStudio() && fresh) studioForm.ShowWelcome(); }; Edition.Lock(studioBtn, Tier.Supporter);
+        studioBtn.Click += (s, e) => { bool fresh = studioForm == null || studioForm.IsDisposed; if (OpenStudio() && fresh) studioForm.ShowWelcome(); };
         StyleBtn(addMusicBtn, TM.C(255, 190, 60, 200)); addMusicBtn.Text = "ADD MUSIC"; addMusicBtn.Font = new Font("Segoe UI Semibold", 10.5f);
         addMusicBtn.SetBounds(454, 312, 170, 30); addMusicBtn.Anchor = AnchorStyles.Top | AnchorStyles.Right;
         tip.SetToolTip(addMusicBtn, "Add music from your PC: edit it in Purphex Music, remove the vocals or the beat, or trim the start and end.");

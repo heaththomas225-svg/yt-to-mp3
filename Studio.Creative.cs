@@ -21,6 +21,7 @@ partial class StudioForm
     string CrAskSave(SaveFileDialog d) { if (CrSaveHook != null) return CrSaveHook(d.FileName); return d.ShowDialog(this) == DialogResult.OK ? d.FileName : null; }
     void OpenCreative(string tool)
     {
+        if (!Paid(tool == "video" ? "The Purphex Video Editor" : "The Purphex Photo Editor")) return;
         crTool = tool; GoTab(10); if (eng.Playing) eng.Pause();
         if (crBObj == null) { if (!EnsureCreative()) { Toast(hubErr); tab = 0; } }
         else CrSend("{\"t\":\"tool\",\"tool\":\"" + tool + "\"}");

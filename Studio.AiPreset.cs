@@ -15,7 +15,7 @@ partial class StudioForm
     internal bool aiFx, aiFxFromBrowser; internal int aiSeed; readonly Random aiRnd = new Random();   // aiFx: the AI EFFECT GENERATOR (opened from ADD EFFECT it adds to that track or the master)
     static readonly string[] AiFxExamples = { "Huge dark cathedral reverb with a shimmer", "1/8 dotted ping pong delay, tape, ducked", "Hard autotune in F# minor", "Telephone with a bit of distortion", "Croaky demon voice 9 semitones down", "Slow tremolo on 1/4 notes", "Cut the mud and add air", "Bleep censor" };
     int aiKindLast = -1;   // the words typed stay while you reopen the same generator; another generator starts empty
-    void AiOpenCore(int kind) { aiOpen = true; aiBus = kind == 1; aiFx = kind == 2; aiFxFromBrowser = false; aiSeed = 0; stylesOpen = false; aiResult = null; browserOpen = false; if (kind != aiKindLast) aiPrompt = ""; aiKindLast = kind; }
+    void AiOpenCore(int kind) { if (!Paid("The AI generators")) return; aiOpen = true; aiBus = kind == 1; aiFx = kind == 2; aiFxFromBrowser = false; aiSeed = 0; stylesOpen = false; aiResult = null; browserOpen = false; if (kind != aiKindLast) aiPrompt = ""; aiKindLast = kind; }
     internal void OpenAiPreset() { AiOpenCore(0); }
     internal void OpenAiBus() { AiOpenCore(1); }
     internal void OpenAiEffect(bool fromBrowser) { bool m = browserMaster; int bt = browserTrack; AiOpenCore(2); aiFxFromBrowser = fromBrowser; browserMaster = fromBrowser && m; browserTrack = bt; }

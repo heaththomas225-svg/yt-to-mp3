@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Reflection;
 using System.Text;
@@ -16,6 +17,7 @@ static class ED
     static int fails; static readonly BindingFlags BF = BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Public;
     static void Check(string n, bool ok, string d = "") { if (!ok) fails++; Console.WriteLine((ok ? "PASS  " : "FAIL  ") + n + (d.Length > 0 ? "   " + d : "")); }
     static object F(object o, string n) { return o.GetType().GetField(n, BF).GetValue(o); }
+    static void F(object o, string n, object v) { o.GetType().GetField(n, BF).SetValue(o, v); }
     static void Pump(int ms) { var end = DateTime.Now.AddMilliseconds(ms); while (DateTime.Now < end) { Application.DoEvents(); Thread.Sleep(10); } }
     static ECDsaCng tkey; static string lastFp = "";
     static string B64U(byte[] b) { return Convert.ToBase64String(b).TrimEnd('=').Replace('+', '-').Replace('/', '_'); }
@@ -61,9 +63,10 @@ static class ED
         // ---- the rules, one edition at a time ----
         Edition.Override = Tier.Free;
         Check("Free: has Free, not Supporter, not Fantasy", Edition.Has(Tier.Free) && !Edition.Has(Tier.Supporter) && !Edition.Has(Tier.Fantasy));
-        Check("Free: exports stop at 48 kHz", Edition.MaxRate == 48000 && Exporter.RateFor(1, 7) == 48000 && Exporter.RateFor(1, 0) == 44100);
-        Check("Free: the help keeps the converter and the vocal remover and hides the studio", Edition.HelpVisible("vocal") && Edition.HelpVisible("start") && Edition.HelpVisible("trim") && !Edition.HelpVisible("studio-mix") && !Edition.HelpVisible("basslab") && !Edition.HelpVisible("masterassistant"));
-        int shown = 0; foreach (var t in HelpContent.All) if (Edition.HelpVisible(t.Id)) shown++; Check("Free: only a part of the help guides are listed", shown > 5 && shown < HelpContent.All.Length - 20, shown + " of " + HelpContent.All.Length);
+        Check("Free: the converter stops at 48 kHz and the studio exports at 44.1 kHz", Edition.MaxRate == 48000 && Edition.StudioMaxRate == 44100 && Exporter.RateFor(1, 7) == 44100 && Exporter.RateFor(1, 0) == 44100);
+        Check("Free: the help shows the converter and the free studio, and hides the paid parts", Edition.HelpVisible("vocal") && Edition.HelpVisible("start") && Edition.HelpVisible("studio-mix") && Edition.HelpVisible("basslab") && Edition.HelpVisible("studio-pianoroll") && Edition.HelpVisible("studio-master") && Edition.HelpVisible("studio-musichub")
+            && !Edition.HelpVisible("studio-styles") && !Edition.HelpVisible("studio-buspresets") && !Edition.HelpVisible("studio-flex") && !Edition.HelpVisible("studio-automix") && !Edition.HelpVisible("studio-creative") && !Edition.HelpVisible("vst") && !Edition.HelpVisible("studio-purphexvst") && !Edition.HelpVisible("masterassistant"));
+        int shown = 0; foreach (var t in HelpContent.All) if (Edition.HelpVisible(t.Id)) shown++; Check("Free: only a part of the help guides are listed", shown > 5 && shown < HelpContent.All.Length - 8, shown + " of " + HelpContent.All.Length);
         Check("Free: only the original theme can be used", Themes.Allowed(Themes.All[0]) && !Themes.Allowed(Themes.All[Themes.IndexOf("Ocean")]) && !Themes.Allowed(Themes.All[Themes.IndexOf("Nebula")]));
         Check("a photo background is gone for every edition", !UserBackground.Active);
         Edition.Override = Tier.Supporter;
@@ -86,8 +89,21 @@ static class ED
         var app = (App)Activator.CreateInstance(typeof(App), true); app.ShowInTaskbar = false; app.Opacity = 0; app.Show(); Pump(300);
         Edition.Override = Tier.Free; Edition.LastUpsell = "";
         var openStudio = typeof(App).GetMethod("OpenStudio", BF); bool opened = (bool)openStudio.Invoke(app, null);
-        Check("Free: the studio does not open, and the padlock asks for it", !opened && F(app, "studioForm") == null && Edition.LastUpsell == "The Purphex Music studio", Edition.LastUpsell);
-        Edition.LastUpsell = ""; ((Button)F(app, "studioBtn")).PerformClick(); Check("Free: pressing PURPHEX MUSIC does the same", F(app, "studioForm") == null && Edition.LastUpsell == "The Purphex Music studio");
+        Check("Free: the studio opens (the limited free studio)", opened && F(app, "studioForm") != null && Edition.LastUpsell == "", Edition.LastUpsell);
+        { var fs = (StudioForm)F(app, "studioForm"); Func<string, object[], string> tryIt = (m, a) => { Edition.LastUpsell = ""; typeof(StudioForm).GetMethod(m, BF).Invoke(fs, a); return Edition.LastUpsell; };
+          Check("Free studio: vocal presets, bus presets and community presets are locked", tryIt("OpenStyles", null) == "Vocal presets" && !(bool)F(fs, "stylesOpen") && tryIt("OpenBusPresets", null) == "Bus presets" && tryIt("OpenCommunityPresets", new object[] { "x", "x", null, null, "x" }) == "Community presets");
+          Check("Free studio: VSTS, themes and fonts are locked", tryIt("OpenVsts", null).StartsWith("VSTS") && tryIt("OpenThemeSheet", new object[] { false }) == "Themes" && !(bool)F(fs, "themeOpen") && tryIt("OpenFonts", null) == "Fonts");
+          Check("Free studio: Auto Mix, Flex Pitch, the AI generators and AUTO MASTERING are locked", tryIt("AutoMixClick", null) == "Auto Mix" && tryIt("FlexOpen", null) == "Flex Pitch" && tryIt("OpenAiPreset", null) == "The AI generators" && tryIt("AutoMasterClick", null) == "Auto Master");
+          Check("Free studio: Auto Loudness and Auto EQ are locked", tryIt("AutoLoudnessClick", null) == "Auto Loudness" && tryIt("AutoEqClick", new object[] { null, null }) == "Auto EQ");
+          Check("Free studio: the Video and Photo Editors are locked and not in the side panel", tryIt("OpenCreative", new object[] { "video" }) == "The Purphex Video Editor" && (bool)typeof(StudioForm).GetMethod("FreeHidden", BF | BindingFlags.Static).Invoke(null, new object[] { "Purphex Photo Editor" }));
+          int loud = -1, gentle = -1; for (int q = 0; q < MasterPresets.All.Length; q++) { if (MasterPresets.All[q].Name.StartsWith("Loud")) loud = q; if (MasterPresets.All[q].Name.StartsWith("Gentle")) gentle = q; }
+          Check("Free studio: only two master presets (Gentle and Clean & Transparent) can be used", StudioForm.FreeMasterPreset(gentle) && !StudioForm.FreeMasterPreset(loud) && tryIt("PresetUse", new object[] { loud }).StartsWith("Every master preset") && Enumerable.Range(0, MasterPresets.All.Length).Count(StudioForm.FreeMasterPreset) == 2);
+          Check("Free studio: export as WAV (16, 24, 32-bit) or MP3 only", StudioForm.FreeFormat(0) && StudioForm.FreeFormat(1) && StudioForm.FreeFormat(2) && StudioForm.FreeFormat(4) && !StudioForm.FreeFormat(3) && !StudioForm.FreeFormat(5));
+          F(fs, "tab", 5); typeof(StudioForm).GetMethod("FreePageGuard", BF).Invoke(fs, null); Check("Free studio: the full visualiser is locked (it goes back to Mastering)", (int)F(fs, "tab") == 1);
+          F(fs, "tab", 6); typeof(StudioForm).GetMethod("FreePageGuard", BF).Invoke(fs, null); Check("Free studio: the profile page is free", (int)F(fs, "tab") == 6); F(fs, "tab", 0);
+          fs.Close(); Pump(100); }
+        Edition.LastUpsell = ""; ((Button)F(app, "studioBtn")).PerformClick(); Check("Free: pressing PURPHEX MUSIC opens the studio too", F(app, "studioForm") != null && Edition.LastUpsell == "");
+        try { ((Form)F(app, "studioForm")).Close(); Pump(100); } catch { }
         var fmt = (ComboBox)F(app, "fmt"); var sr = (ComboBox)F(app, "sr"); var norm = (CheckBox)F(app, "norm");
         fmt.SelectedIndex = 1; Check("Free: WAV is refused (stays on MP3)", fmt.SelectedIndex == 0 && Edition.LastUpsell == "That format", fmt.SelectedIndex + " " + Edition.LastUpsell);
         fmt.SelectedIndex = 6; Check("Free: an MP4 quality is allowed", fmt.SelectedIndex == 6); fmt.SelectedIndex = 11; Check("Free: MKV is refused", fmt.SelectedIndex == 6); fmt.SelectedIndex = 0;

@@ -125,10 +125,15 @@ static class Edition
     }
     public static bool Linking { get { return linking; } }
     // the highest sample rate this edition can export
+    public static int StudioMaxRate { get { return Current == Tier.Free ? 44100 : MaxRate; } }   // the studio's exports: the Free Edition makes 44.1 kHz
     public static int MaxRate { get { var t = Current; return t == Tier.Fantasy ? 384000 : (t == Tier.Supporter ? 192000 : 48000); } }
 
     // the help guides a Free edition keeps: the converter, the vocal remover and the basics
-    static readonly HashSet<string> FreeHelp = new HashSet<string> { "start", "formats", "batch", "trim", "vocal", "settings", "fullscreen", "download-video", "updates", "trouble", "long", "editions", "lyrics-getter", "times-used", "colour-mixer" };
+    static readonly HashSet<string> FreeHelp = new HashSet<string> { "start", "formats", "batch", "trim", "vocal", "settings", "fullscreen", "download-video", "updates", "trouble", "long", "editions", "lyrics-getter", "times-used", "colour-mixer",
+        // the limited studio
+        "studio-start", "studio-mix", "studio-autotune", "studio-eq", "studio-fx", "studio-8d", "studio-master", "studio-export", "typing", "studio-roles", "studio-rename", "studio-browser", "sample-plugin", "daw",
+        "basslab-basics", "basslab", "basslab-lfo", "basslab-mod", "basslab-env", "basslab-fx", "basslab-presets", "studio-community", "studio-automation", "studio-effectlibrary", "studio-musichub",
+        "studio-worldecho", "studio-melody", "studio-plugins", "studio-pianoroll", "studio-mixer", "studio-sounds", "studio-menu", "makesong" };
     public static bool HelpVisible(string id) { return Has(Tier.Supporter) || FreeHelp.Contains(id); }
 
     // ---- saved state ----
@@ -325,6 +330,6 @@ sealed class UpsellForm : Form
         Edition.Padlock(g, new RectangleF(28, 30, 44, 50), c);
         using (var f = new Font("Segoe UI Semibold", 15f)) using (var br = new SolidBrush(TM.C(255, 245, 238, 255))) g.DrawString(what + " is locked", f, br, new RectangleF(92, 26, 410, 30));
         string line = need == Tier.Fantasy ? "It is part of the Fantasy Edition (one payment, for life)." : "It is part of the Supporter Edition and the Fantasy Edition.";
-        using (var f = new Font("Segoe UI", 10f)) using (var br = new SolidBrush(TM.C(255, 190, 170, 240))) g.DrawString(line + "\n\nThe Free Edition has the MP3 and MP4 converter and the vocal remover. Pick an edition on the website, then press LINK THIS PC in Settings and this PC unlocks by itself.", f, br, new RectangleF(92, 62, 410, 110));
+        using (var f = new Font("Segoe UI", 10f)) using (var br = new SolidBrush(TM.C(255, 190, 170, 240))) g.DrawString(line + "\n\nThe Free Edition has the converter, the vocal remover and a limited studio. Pick an edition on the website, then press LINK THIS PC in Settings and this PC unlocks by itself.", f, br, new RectangleF(92, 62, 410, 110));
     }
 }

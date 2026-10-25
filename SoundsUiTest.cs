@@ -99,6 +99,16 @@ static class Q
         var rowsNow = Rows(); var r0 = rowsNow[0]; Click(r0.R.X + 120, r0.R.Y + 25); var sel = F<SoundItem>("sndSel"); Check("clicking a sound selects it", sel != null && sel == Results()[0], sel == null ? "none" : sel.Name);
         t0 = DateTime.Now; while (Auditioner.Loading && (DateTime.Now - t0).TotalSeconds < 5) Pump(50); Pump(300);
         Check("and starts playing it (instant preview)", Auditioner.Current == sel && (Auditioner.IsPlaying || Auditioner.Seconds > 0 || Auditioner.Length > 0), "length " + Auditioner.Length.ToString("0.00") + " s, error '" + Auditioner.Error + "'");
+        { // Space: in the sound packs it pauses the sound; in the mix it plays the song (even after the search box had the keys), and the song stops the sound
+          var envF = typeof(Auditioner).GetField("envTarget", BindingFlags.NonPublic | BindingFlags.Static); var pck = typeof(StudioForm).GetMethod("ProcessCmdKey", BF | BindingFlags.DeclaredOnly);
+          Func<bool> space = () => (bool)pck.Invoke(sf, new object[] { new Message(), Keys.Space });
+          int pw = (int)typeof(StudioForm).GetProperty("PanelW", BF).GetValue(sf, null); int px0 = sf.ClientSize.Width - pw / 2, py0 = sf.ClientSize.Height - 40;
+          Auditioner.Resume(); Ev("OnMouseDown", MouseButtons.Left, 1, px0, py0); Ev("OnMouseUp", MouseButtons.Left, 1, px0, py0);
+          bool took = space(); Check("in the sound packs Space pauses the sound you are hearing (not the song)", took && F<bool>("keysInSounds") && (float)envF.GetValue(null) == 0f && !eng.Playing, "env " + envF.GetValue(null));
+          box.Visible = true; sf.ActiveControl = box; var tlr = (RectangleF)typeof(StudioForm).GetMethod("TimelineRect", BF).Invoke(sf, null); int mx = (int)(tlr.X + 40), my = (int)(tlr.Y + 60);
+          Ev("OnMouseDown", MouseButtons.Left, 1, mx, my); Ev("OnMouseUp", MouseButtons.Left, 1, mx, my);
+          Check("clicking the mix takes the keys back from the search box (so Space plays again)", sf.ActiveControl != box && !F<bool>("keysInSounds"), sf.ActiveControl == null ? "none" : sf.ActiveControl.GetType().Name);
+          Auditioner.Resume(); typeof(StudioForm).GetMethod("PlayGuard", BF).Invoke(sf, null); Check("playing the song stops the sound you were hearing in the sound packs", !Auditioner.IsPlaying || (float)envF.GetValue(null) == 0f, "playing " + Auditioner.IsPlaying + " env " + envF.GetValue(null)); try { eng.Pause(); } catch { } }
         Paint(); var bmpA = new Bitmap(sf.ClientSize.Width, sf.ClientSize.Height); sf.DrawToBitmap(bmpA, new Rectangle(0, 0, sf.Width, sf.Height)); bmpA.Save("_sounds_ui.png", System.Drawing.Imaging.ImageFormat.Png);
         // favourite
         var star = Regs().Find(r => Math.Abs(r.R.Width - 22) < 0.5f && Math.Abs(r.R.Height - 24) < 0.5f); Click(star.R.X + 11, star.R.Y + 12); Check("the star adds a favourite", SoundLibrary.Favourites.Contains(sel.Id), "");
