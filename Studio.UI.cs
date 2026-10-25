@@ -658,11 +658,8 @@ partial class StudioForm : Form
                 else
                 {
                     using (var br = new LinearGradientBrush(full, Bg0, Bg1, 80f)) bg.FillRectangle(br, full);
-                    using (var gp = new GraphicsPath())
-                    {
-                    float rad = 420; gp.AddEllipse(w * 0.7f - rad, 80 - rad, rad * 2, rad * 2);
-                    using (var pg = new PathGradientBrush(gp)) { pg.CenterColor = TM.C(46, 150, 60, 240); pg.SurroundColors = new[] { TM.C(0, 150, 60, 240) }; bg.FillPath(pg, gp); }
-                    }
+                    // the studio's sky: a galaxy in the theme's own colours (nebula light, a dusty band of stars, spiral galaxies, stars), kept soft so everything on it reads
+                    using (var gal = MakeGalaxy(w, h, 0x50E, 0.55f, new[] { NeonViolet, Accent, NeonCyan, ControlPaint.Light(NeonViolet, 0.3f), Accent })) bg.DrawImageUnscaled(gal, 0, 0);
                 }
             }
             Win.ForceOpaque(backdrop);   // no pixel may be see-through

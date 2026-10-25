@@ -73,7 +73,7 @@ partial class StudioForm
         using (var pen = new Pen(Color.FromArgb(front ? 200 : 120, acc), 1.2f)) g.DrawLine(pen, r.X + 10, r.Y + FwTitle, r.Right - 10, r.Y + FwTitle);
         if (front && UiTokens.Shiny) PaintMaterial(g, Rc(r.X + 1, r.Y + 1, r.Width - 2, FwTitle), 11, acc, UiTokens.Finish, true);   // the accent's finish on the front window's header (its sheen moves unless motion is reduced)
         string trackName = w.Track == null ? "MASTER" : w.Track.Name; string cat = FxCategory(f);
-        PaintPurphexMark(g, r.X + 12, r.Y + 1, 34, f.Title, acc);
+        PaintPurphexMark(g, r.X + 12, r.Y + 1, 31, f.Title, acc);
         Txt(g, (cat + "  ·  " + trackName).ToUpperInvariant(), 9, Color.FromArgb(255, 200, 185, 240), Rc(r.Right - 250, r.Y + 32, 238, 14), StringAlignment.Far, true);
         var tr2 = Reg(title, () => { fxWinDrag = w; fxWinResize = false; fxWinGrab = new PointF(MousePos.X - w.R.X, MousePos.Y - w.R.Y); }); tr2.OnDrag = pt => { if (fxWinDrag == w && !fxWinResize) w.R = new RectangleF(pt.X - fxWinGrab.X, pt.Y - fxWinGrab.Y, w.R.Width, w.R.Height); }; tr2.OnUp = () => fxWinDrag = null;
         var cl = Rc(r.Right - 36, r.Y + 5, 26, 24); Btn(g, cl, "x", 3, () => CloseFxWindow(f), 12); Hint2(cl, "Close this window (the plugin keeps working)");

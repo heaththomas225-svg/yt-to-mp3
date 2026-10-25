@@ -131,13 +131,13 @@ partial class StudioForm
         Bitmap bmp; lock (galaxyCache) { if (!galaxyCache.TryGetValue(key, out bmp)) { if (galaxyCache.Count > 24) { foreach (var b0 in galaxyCache.Values) b0.Dispose(); galaxyCache.Clear(); } bmp = MakeGalaxy(w, h, seed, strength); galaxyCache[key] = bmp; } }
         g.DrawImage(bmp, r.X, r.Y, w, h);
     }
-    static Bitmap MakeGalaxy(int w, int h, int seed, float strength)
+    internal static Bitmap MakeGalaxy(int w, int h, int seed, float strength, Color[] palette = null)
     {
         var bmp = new Bitmap(w, h, System.Drawing.Imaging.PixelFormat.Format32bppPArgb); var rnd = new Random(seed);
         using (var g = Graphics.FromImage(bmp))
         {
             g.SmoothingMode = SmoothingMode.AntiAlias; var r = new RectangleF(0, 0, w, h); Func<int, int> A = v => Math.Max(0, Math.Min(255, (int)(v * strength)));
-            Color[] neb = { Color.FromArgb(255, 130, 60, 255), Color.FromArgb(255, 220, 60, 220), Color.FromArgb(255, 110, 80, 255), Color.FromArgb(255, 160, 110, 255), Color.FromArgb(255, 170, 70, 255) };
+            Color[] neb = palette ?? new[] { Color.FromArgb(255, 130, 60, 255), Color.FromArgb(255, 220, 60, 220), Color.FromArgb(255, 110, 80, 255), Color.FromArgb(255, 160, 110, 255), Color.FromArgb(255, 170, 70, 255) };
             Action<float, float, float, float, Color, int> cloud = (cx, cy, rw, rh, c, al) => { using (var pth = new GraphicsPath()) { pth.AddEllipse(cx - rw, cy - rh, rw * 2, rh * 2); using (var pb = new PathGradientBrush(pth) { CenterColor = Color.FromArgb(A(al), c), SurroundColors = new[] { Color.FromArgb(0, c) } }) g.FillPath(pb, pth); } };
             float big = Math.Max(w, h);
             // nebula: big soft clouds, then smaller bright knots inside them
@@ -183,8 +183,12 @@ partial class StudioForm
             var sz = g.MeasureString("PURPHEX", f); var tr = new RectangleF(x, y, sz.Width + 4, sz.Height);
             for (int k = 3; k >= 1; k--) using (var gb = new SolidBrush(Color.FromArgb(28, glow))) g.DrawString("PURPHEX", f, gb, x - k * 0.6f, y - k * 0.4f);
             using (var br = new LinearGradientBrush(tr, Color.White, Color.FromArgb(255, 210, 170, 255), 90f)) g.DrawString("PURPHEX", f, br, x, y);
-            if (!string.IsNullOrEmpty(sub)) using (var f2 = new Font("Segoe UI Semibold", Math.Max(9.5f, h * 0.29f), FontStyle.Regular, GraphicsUnit.Pixel)) using (var b2 = new SolidBrush(Color.FromArgb(255, 225, 215, 250)))
-            { string spaced = string.Join(" ", sub.ToUpperInvariant().ToCharArray().Select(ch => ch.ToString()).ToArray()); g.DrawString(spaced, f2, b2, x + 3, y + sz.Height * 0.74f); }
+            if (!string.IsNullOrEmpty(sub)) using (var f2 = new Font("Segoe UI", Math.Max(13f, h * 0.42f), FontStyle.Bold, GraphicsUnit.Pixel))
+            {   // the plugin's name: bold white with a dark outline, so it reads on the galaxy
+                string spaced = string.Join(" ", sub.ToUpperInvariant().ToCharArray().Select(ch => ch.ToString()).ToArray()); float sx = x + 3, sy = y + sz.Height * 0.72f;
+                using (var sh = new SolidBrush(Color.FromArgb(230, 6, 2, 16))) for (int ox = -1; ox <= 1; ox++) for (int oy = -1; oy <= 1; oy++) if (ox != 0 || oy != 0) g.DrawString(spaced, f2, sh, sx + ox * 1.2f, sy + oy * 1.2f);
+                using (var b2 = new SolidBrush(Color.White)) g.DrawString(spaced, f2, b2, sx, sy);
+            }
         }
         g.TextRenderingHint = oldT;
     }
