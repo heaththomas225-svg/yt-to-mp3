@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Drawing.Drawing2D;
 using System.Linq;
 using System.Windows.Forms;
 
@@ -80,15 +81,27 @@ partial class StudioForm
     // a vertical fader (dB) with its readout; double-click puts it back to 0 dB
     void VFader(Graphics g, RectangleF r, float db, Action<float> set, Color col)
     {
-        float f = DbToFrac(db); FillRR(g, TM.C(200, 8, 4, 18), Rc(r.X + r.Width / 2 - 3, r.Y, 6, r.Height), 3); float zy = r.Bottom - r.Height * DbToFrac(0); using (var pen = new Pen(Color.FromArgb(120, Ink))) g.DrawLine(pen, r.X + 2, zy, r.Right - 2, zy);
-        float ky = r.Bottom - r.Height * f; FillRR(g, col, Rc(r.X + r.Width / 2 - 3, ky, 6, r.Bottom - ky), 3); var knob = Rc(r.X, ky - 7, r.Width, 14); FillRR(g, TM.C(255, 230, 222, 250), knob, 4); StrokeRR(g, col, knob, 4, 1.5f);
+        float f = DbToFrac(db), cx = r.X + r.Width / 2; var groove = Rc(cx - 3.5f, r.Y, 7, r.Height);
+        FillRR(g, TM.C(235, 6, 2, 16), groove, 3.5f); StrokeRR(g, Color.FromArgb(110, NeonViolet), groove, 3.5f, 1f);
+        for (int k = 0; k <= 6; k++) { float ty = r.Y + r.Height * k / 6f; using (var pen = new Pen(Color.FromArgb(70, NeonCyan), 1f)) { g.DrawLine(pen, r.X, ty, cx - 6, ty); g.DrawLine(pen, cx + 6, ty, r.Right, ty); } }   // the scale marks
+        float zy = r.Bottom - r.Height * DbToFrac(0); using (var pen = new Pen(Color.FromArgb(150, Ink))) g.DrawLine(pen, r.X, zy, r.Right, zy);
+        float ky = r.Bottom - r.Height * f; var fill = Rc(cx - 3.5f, ky, 7, r.Bottom - ky);
+        if (fill.Height > 1) { using (var gl = new SolidBrush(Color.FromArgb(50, col))) g.FillRectangle(gl, fill.X - 3, fill.Y, fill.Width + 6, fill.Height); using (var p = RR(fill, 3.5f)) using (var br = new LinearGradientBrush(new RectangleF(fill.X, r.Y, fill.Width, r.Height), NeonPink, col, 90f)) g.FillPath(br, p); }
+        var knob = Rc(r.X - 2, ky - 9, r.Width + 4, 18); using (var gl = new SolidBrush(Color.FromArgb(80, col))) g.FillEllipse(gl, knob.X - 6, knob.Y - 6, knob.Width + 12, knob.Height + 12);   // the glowing cap
+        using (var p = RR(knob, 4)) using (var br = new LinearGradientBrush(knob, Color.White, TM.C(255, 175, 150, 250), 90f)) g.FillPath(br, p); StrokeRR(g, col, knob, 4, 1.6f);
+        using (var pen = new Pen(Color.FromArgb(220, col), 1.6f)) g.DrawLine(pen, knob.X + 3, knob.Y + knob.Height / 2, knob.Right - 3, knob.Y + knob.Height / 2);
         var rg = Reg(Rc(r.X - 4, r.Y - 8, r.Width + 8, r.Height + 16), () => set(FracToDb((r.Bottom - MousePos.Y) / r.Height))); rg.OnDrag = pt => set(FracToDb((r.Bottom - pt.Y) / r.Height)); rg.OnDouble = () => set(0);
     }
     // a level meter (peak of each side) with the clip light (click it to clear)
     void Meter(Graphics g, RectangleF r, Track t)
     {
         float l = MeterFrac(t.PeakL), rr = MeterFrac(t.PeakR); float bw = (r.Width - 3) / 2;
-        for (int s = 0; s < 2; s++) { var bar = Rc(r.X + s * (bw + 3), r.Y + 12, bw, r.Height - 12); FillRR(g, TM.C(220, 6, 3, 14), bar, 2); float v = s == 0 ? l : rr; float hh = bar.Height * v; if (hh > 1) using (var br = new System.Drawing.Drawing2D.LinearGradientBrush(new PointF(0, bar.Bottom), new PointF(0, bar.Y), Good, Warn)) g.FillRectangle(br, bar.X, bar.Bottom - hh, bar.Width, hh); }
+        for (int s2 = 0; s2 < 2; s2++)
+        {
+            var bar = Rc(r.X + s2 * (bw + 3), r.Y + 12, bw, r.Height - 12); FillRR(g, TM.C(235, 4, 2, 12), bar, 2); float v = s2 == 0 ? l : rr; float hh = bar.Height * v;
+            if (hh > 1) { var lit = Rc(bar.X, bar.Bottom - hh, bar.Width, hh); using (var br = new LinearGradientBrush(bar, Color.Red, Color.Lime, 90f)) { br.InterpolationColors = new ColorBlend(5) { Colors = new[] { Color.FromArgb(255, 255, 40, 70), Color.FromArgb(255, 255, 200, 40), Color.FromArgb(255, 80, 255, 120), Color.FromArgb(255, 60, 200, 255), Color.FromArgb(255, 140, 80, 255) }, Positions = new[] { 0f, 0.15f, 0.4f, 0.7f, 1f } }; g.FillRectangle(br, lit); }
+              for (float yy = bar.Bottom - 3; yy > lit.Y; yy -= 3) using (var pen = new Pen(Color.FromArgb(90, 0, 0, 0), 1f)) g.DrawLine(pen, bar.X, yy, bar.Right, yy); }   // LED segments
+        }
         var led = Rc(r.X, r.Y, r.Width, 9); FillRR(g, t.Clipped ? TM.C(255, 255, 60, 80) : TM.C(160, 50, 30, 60), led, 3); Reg(led, () => t.Clipped = false); Hint2(led, t.Clipped ? "It went over 0 dB (clipping). Click to clear." : "Lights up red if the track goes over 0 dB");
     }
 

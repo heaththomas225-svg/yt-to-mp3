@@ -515,12 +515,20 @@ partial class StudioForm : Form
     }
 
     // horizontal slider; frac 0..1; returns region so callers can add OnDouble (the wheel never moves a slider: click and drag only)
+    // a slider: a dark glass groove with a neon edge, a glowing gradient fill (theme colours) and a bright glowing cap
     HitReg Slider(Graphics g, RectangleF r, float frac, Action<float> set, Color? fill = null)
     {
-        float ty = r.Y + r.Height / 2 - 3; var tr = Rc(r.X, ty, r.Width, 6);
-        FillRR(g, TM.C(180, 10, 4, 22), tr, 3);
-        float fx = r.X + r.Width * Clamp01(frac); if (fx - r.X > 1) FillRR(g, fill ?? Accent, Rc(r.X, ty, fx - r.X, 6), 3);
-        using (var b = new SolidBrush(TM.C(255, 255, 236, 255))) g.FillEllipse(b, fx - 6, r.Y + r.Height / 2 - 6, 12, 12);
+        float ty = r.Y + r.Height / 2 - 3.5f; var tr = Rc(r.X, ty, r.Width, 7); frac = Clamp01(frac); float fx = r.X + r.Width * frac;
+        FillRR(g, TM.C(230, 6, 2, 16), tr, 3.5f); StrokeRR(g, Color.FromArgb(110, NeonViolet), tr, 3.5f, 1f);
+        if (fx - r.X > 1)
+        {
+            Color c0 = fill ?? NeonCyan, c1 = fill.HasValue ? Color.FromArgb(255, Math.Min(255, fill.Value.R + 60), Math.Min(255, fill.Value.G + 30), Math.Min(255, fill.Value.B + 60)) : NeonPink;
+            var fr = Rc(r.X, ty, fx - r.X, 7); using (var gl = new SolidBrush(Color.FromArgb(50, c0))) g.FillRectangle(gl, fr.X, fr.Y - 3, fr.Width, fr.Height + 6);   // the glow round the fill
+            using (var p = RR(fr, 3.5f)) using (var br = new LinearGradientBrush(new RectangleF(r.X, ty, Math.Max(2, r.Width), 7), c0, c1, 0f)) g.FillPath(br, p);
+        }
+        var cap = Rc(fx - 5.5f, r.Y + r.Height / 2 - 9, 11, 18); using (var gl = new SolidBrush(Color.FromArgb(70, NeonCyan))) g.FillEllipse(gl, cap.X - 6, cap.Y - 4, cap.Width + 12, cap.Height + 8);
+        using (var p = RR(cap, 3)) using (var br = new LinearGradientBrush(cap, Color.White, TM.C(255, 190, 160, 255), 90f)) g.FillPath(br, p); StrokeRR(g, NeonCyan, cap, 3, 1.2f);
+        using (var pen = new Pen(Color.FromArgb(200, 80, 40, 160), 1.2f)) g.DrawLine(pen, cap.X + 2, cap.Y + cap.Height / 2, cap.Right - 2, cap.Y + cap.Height / 2);
         var reg = new HitReg { R = r };
         reg.OnDown = () => set(Clamp01((MousePos.X - r.X) / r.Width));
         reg.OnDrag = pt => set(Clamp01((pt.X - r.X) / r.Width));

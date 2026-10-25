@@ -48,6 +48,7 @@ static class PresetShots
         { Themes.Apply(0); Call("PlaceOnStage", eng.Tracks[0]); Call("PlaceOnStage", eng.Tracks[1]); Call("OpenToolWin", 12); Pump(300); Shot("stage3d");
           Call("OpenToolWin", 13); Pump(300); Shot("profiler");
           var mres = typeof(StudioForm).GetMethod("MeasureArrangement", BF).Invoke(sf, new object[] { (long)(44100 * 30), (Action<float>)(x => { }) }); SetF("arr", mres); Call("OpenToolWin", 14); Pump(300); Shot("arrangement"); typeof(StudioForm).GetField("toolWins", BF).FieldType.GetMethod("Clear").Invoke(typeof(StudioForm).GetField("toolWins", BF).GetValue(sf), null); }
+        { Themes.Apply(0); sf.OpenInspector(1); Pump(300); Shot("mixer"); Call("CloseInspector"); Pump(100); }
         // the Free Edition studio
         Edition.Override = Tier.Free; Themes.Apply(0); Pump(200);
         SetF("tab", 1); SetF("mpTab", 0); Pump(100); Shot("free-mastering"); SetF("mpTab", 1); Pump(100); Shot("free-mastering-presets"); SetF("mpTab", 0); SetF("tab", 0);
