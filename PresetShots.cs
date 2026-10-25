@@ -47,7 +47,8 @@ static class PresetShots
           var keep = new System.Collections.Generic.List<Track>(eng.Tracks); eng.Tracks.Clear(); Call("ShowWelcome"); Pump(600); Shot("welcome"); SetF("welcomeOn", false); eng.Tracks.AddRange(keep); }
         { Themes.Apply(0); Call("PlaceOnStage", eng.Tracks[0]); Call("PlaceOnStage", eng.Tracks[1]); Call("OpenToolWin", 12); Pump(300); Shot("stage3d");
           Call("OpenToolWin", 13); Pump(300); Shot("profiler");
-          var mres = typeof(StudioForm).GetMethod("MeasureArrangement", BF).Invoke(sf, new object[] { (long)(44100 * 30), (Action<float>)(x => { }) }); SetF("arr", mres); Call("OpenToolWin", 14); Pump(300); Shot("arrangement"); typeof(StudioForm).GetField("toolWins", BF).FieldType.GetMethod("Clear").Invoke(typeof(StudioForm).GetField("toolWins", BF).GetValue(sf), null); }
+          var mres = typeof(StudioForm).GetMethod("MeasureArrangement", BF).Invoke(sf, new object[] { (long)(44100 * 30), (Action<float>)(x => { }) }); SetF("arr", mres); Call("OpenToolWin", 14); Pump(300); Shot("arrangement"); SetF("selTrack", 0); Pump(100); { var t0 = eng.Tracks[0]; var c = t0.Clip; var rl = (float[])c.L.Clone(); var rr = (float[])(c.R ?? c.L).Clone(); Array.Reverse(rl); Array.Reverse(rr); t0.Clip = AudioClip.FromArrays(rl, rr, c.Name + " (reversed)"); Pump(200); t0.Clip = AudioClip.FromArrays((float[])c.L.Clone(), (float[])(c.R ?? c.L).Clone(), c.Name); Pump(200); }
+          Call("OpenToolWin", 16); Pump(300); Shot("timemachine"); Call("OpenToolWin", 17); for (int i = 0; i < 80; i++) { Pump(250); sf.Invalidate(); } Shot("autopsy"); typeof(StudioForm).GetField("toolWins", BF).FieldType.GetMethod("Clear").Invoke(typeof(StudioForm).GetField("toolWins", BF).GetValue(sf), null); }
         { Themes.Apply(0); sf.OpenInspector(1); Pump(300); Shot("mixer"); Call("CloseInspector"); Pump(100); }
         // the Free Edition studio
         Edition.Override = Tier.Free; Themes.Apply(0); Pump(200);

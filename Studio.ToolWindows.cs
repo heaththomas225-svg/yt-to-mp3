@@ -12,7 +12,7 @@ partial class StudioForm
 {
     sealed class ToolWin { public int Kind; public RectangleF R, Before; public bool Full; public int Seq; }
     readonly List<ToolWin> toolWins = new List<ToolWin>(); int toolSeq; ToolWin toolDrag; bool toolResize; PointF toolGrab;
-    static string ToolTitle(int k) { return k == 12 ? "3D SOUND STAGE" : k == 13 ? "LIVE PROFILER" : k == 14 ? "ARRANGEMENT" : k == 15 ? "HISTORY" : "TOOL"; }
+    static string ToolTitle(int k) { return k == 12 ? "3D SOUND STAGE" : k == 13 ? "LIVE PROFILER" : k == 14 ? "ARRANGEMENT" : k == 15 ? "HISTORY" : k == 16 ? "TIME MACHINE" : k == 17 ? "INSTRUMENT AUTOPSY" : "TOOL"; }
     internal void OpenToolWin(int kind)
     {
         CloseMenu(); var w = toolWins.Find(x => x.Kind == kind);
@@ -41,7 +41,7 @@ partial class StudioForm
             var fs = Rc(cl.X - 132, r.Y + 8, 124, 30); Btn(g, fs, w.Full ? "WINDOW" : "FULLSCREEN", w.Full ? 4 : 1, () => ToggleToolFull(ww0), 11); Hint2(fs, w.Full ? "Back to a window you can move" : "Fill the studio with this window (double-click the title does the same)");
             // the page itself
             var body = Rc(r.X + 10, r.Y + th + 8, r.Width - 20, r.Height - th - 18); var gs2 = g.Save(); g.SetClip(body, System.Drawing.Drawing2D.CombineMode.Intersect); int reg0 = regs.Count;
-            try { if (w.Kind == 12) PaintStage3D(g, body); else if (w.Kind == 13) PaintProfiler(g, body); else if (w.Kind == 14) PaintArrangement(g, body); else if (w.Kind == 15) PaintHistory(g, body); } finally { g.Restore(gs2); }
+            try { if (w.Kind == 12) PaintStage3D(g, body); else if (w.Kind == 13) PaintProfiler(g, body); else if (w.Kind == 14) PaintArrangement(g, body); else if (w.Kind == 15) PaintHistory(g, body); else if (w.Kind == 16) PaintTimeMachine(g, body); else if (w.Kind == 17) PaintAutopsy(g, body); } finally { g.Restore(gs2); }
             for (int i = regs.Count - 1; i >= reg0; i--) { var rr = regs[i]; if (!rr.R.IntersectsWith(body)) regs.RemoveAt(i); else rr.R = RectangleF.Intersect(rr.R, body); }
             // resize from the corner
             if (!w.Full) { var grip = Rc(r.Right - 20, r.Bottom - 20, 18, 18); using (var pen = new Pen(Color.FromArgb(200, acc), 1.6f)) { g.DrawLine(pen, grip.Right - 4, grip.Y + 4, grip.X + 4, grip.Bottom - 4); g.DrawLine(pen, grip.Right - 4, grip.Y + 10, grip.X + 10, grip.Bottom - 4); }
