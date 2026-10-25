@@ -112,6 +112,7 @@ public class Param
 public abstract class Fx
 {
     public string CurPreset = "", CurPresetData = "";   // the preset that is on this plugin (and its settings right after it was applied: if they differ now it was changed by hand)
+    public long CpuTicks;   // how long this plugin has spent working (Stopwatch ticks), for the live profiler
     public string Type = "", Title = "", Category = "Plugins", Blurb = "", Error = "";   // Category / Blurb show in the effect browser; Error is set if the plugin crashes
     public bool Bypass;
     public bool AutoKeyPending;   // a pitch correction plugin that was just added: the studio finds the key of its track by itself and sets it (a plugin from a saved project keeps its key)
@@ -985,6 +986,7 @@ public static class FxRegistry
         new Info("denoise", "Noise Reduction", "Repair", "Spectral noise reduction"),
         new Info("pitch", "Pitch Correction", "Pitch", "Key / scale pitch correction (Auto-Tune style)"),
         new Info("8d", "8D Audio Tuner", "Space", "Orbit the sound around your head (headphones)"),
+        new Info("stage3d", "3D Sound Stage", "Space", "Place the track anywhere round your head (headphones); see Tools > 3D sound stage"),
         new Info("bassboost", "Bass Boost", "EQ", "Raise the low end: pick the frequency, amount and width, plus optional harmonics"),
         new Info("synth", "Bass Lab (synthesizer)", "Instruments", "Wobble bass synth: oscillators, warp, filters, LFOs, matrix, bass boost"),
         new Info("wobble", "Purphex Wobble", "Instruments", "The wobble bass engine: tempo-synced LFO filter, vowels, FM, grit, sub and mid layers"),
@@ -1014,6 +1016,7 @@ public static class FxRegistry
             case "denoise": return new NoiseReduction();
             case "pitch": return new PitchCorrector();
             case "8d": return new Spatial8D();
+            case "stage3d": return new Stage3DFx();
             case "bassboost": return new BassBoost();
             case "synth": return new SynthFx();
             case "gain": return new GainFx();

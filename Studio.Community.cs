@@ -36,7 +36,7 @@ partial class StudioForm
         float W = ClientSize.Width, y = 12, h = 46;
         using (var br = new SolidBrush(TM.C(255, 18, 10, 34))) g.FillRectangle(br, 0, 0, W, ToolH); NeonRule(g, 0, ToolH, W);
         MenuBtn(g, Rc(12, y, 48, h));
-        string title = tab == 3 ? "MY PROJECTS" : (tab == 6 ? "PROFILE" : (tab == 7 ? "ARTISTS" : (tab == 8 ? "FONTS" : (tab == 9 ? "MUSIC HUB" : tab == 10 ? "CREATIVE STUDIO" : tab == 11 ? "CONVERTER" : "COMMUNITY")))); Txt(g, title, 18, Ink, Rc(76, y, 190, h), StringAlignment.Near, true); Btn(g, Rc(270, y + 4, 100, h - 8), "HOME", 2, () => GoHome(), 14); if (ShowBack) Btn(g, Rc(376, y + 4, 100, h - 8), "BACK", 0, () => GoBack(), 14);   /* every page has HOME, My Projects too */
+        string title = tab == 3 ? "MY PROJECTS" : (tab == 6 ? "PROFILE" : (tab == 7 ? "ARTISTS" : (tab == 8 ? "FONTS" : (tab == 9 ? "MUSIC HUB" : tab == 10 ? "CREATIVE STUDIO" : tab == 11 ? "CONVERTER" : tab == 12 ? "3D SOUND STAGE" : tab == 13 ? "LIVE PROFILER" : tab == 14 ? "ARRANGEMENT" : "COMMUNITY")))); Txt(g, title, 18, Ink, Rc(76, y, 190, h), StringAlignment.Near, true); Btn(g, Rc(270, y + 4, 100, h - 8), "HOME", 2, () => GoHome(), 14); if (ShowBack) Btn(g, Rc(376, y + 4, 100, h - 8), "BACK", 0, () => GoBack(), 14);   /* every page has HOME, My Projects too */
         float rx = W - 14;
         Btn(g, Rc(rx - 58, y + 4, 58, h - 8), "Help", 2, () => app.ShowHelp(null), 14); rx -= 64;
         Btn(g, Rc(rx - 108, y + 4, 108, h - 8), Win.FullLabel(this), 0, () => Win.ToggleFullscreen(this), 12); rx -= 120;

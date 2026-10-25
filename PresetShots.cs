@@ -45,6 +45,9 @@ static class PresetShots
           SetF("tab", 0); Call("OpenFxWindow", t0, c1); Pump(200); Shot("plugin-window-comp"); Call("CloseFxWindow", c1); Call("OpenFxWindow", t0, r1); Pump(200); Shot("plugin-window-reverb"); Call("CloseFxWindow", r1); }
         { Themes.Apply(0); Call("GoTab", 11); Pump(600); sf.Invalidate(); Pump(300); var b2 = new Bitmap(sf.Width, sf.Height); sf.DrawToBitmap(b2, new Rectangle(0, 0, sf.Width, sf.Height)); b2.Save(Path.Combine(outDir, "converter.png"), ImageFormat.Png); Console.WriteLine("saved converter"); Call("GoTab", 0); Pump(400);
           var keep = new System.Collections.Generic.List<Track>(eng.Tracks); eng.Tracks.Clear(); Call("ShowWelcome"); Pump(600); Shot("welcome"); SetF("welcomeOn", false); eng.Tracks.AddRange(keep); }
+        { Themes.Apply(0); Call("PlaceOnStage", eng.Tracks[0]); Call("PlaceOnStage", eng.Tracks[1]); Call("GoTab", 12); Pump(300); Shot("stage3d");
+          Call("GoTab", 13); Pump(300); Shot("profiler");
+          var mres = typeof(StudioForm).GetMethod("MeasureArrangement", BF).Invoke(sf, new object[] { (long)(44100 * 30), (Action<float>)(x => { }) }); SetF("arr", mres); Call("GoTab", 14); Pump(300); Shot("arrangement"); Call("GoTab", 0); }
         // the Free Edition studio
         Edition.Override = Tier.Free; Themes.Apply(0); Pump(200);
         SetF("tab", 1); SetF("mpTab", 0); Pump(100); Shot("free-mastering"); SetF("mpTab", 1); Pump(100); Shot("free-mastering-presets"); SetF("mpTab", 0); SetF("tab", 0);

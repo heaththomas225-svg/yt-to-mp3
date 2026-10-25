@@ -98,6 +98,7 @@ partial class StudioForm
                 I("Lock or unlock a track", () => { CloseMenu(); OpenTrackPicker(0); }); I("Duplicate track", () => { CloseMenu(); OpenTrackPicker(1); }); I("Delete track", () => { CloseMenu(); OpenTrackPicker(2); });
                 break;
             case 2:   // Tools: they all work on the tracks, so they take you to the Mix page
+                I("3D sound stage", () => { if (Paid("The 3D sound stage")) GoTab(12); }); I("Live profiler (which plugins are heavy)", () => { if (Paid("The live profiler")) GoTab(13); }); I("Arrangement intelligence", () => { if (Paid("Arrangement intelligence")) GoTab(14); });
                 I("Auto Mix", () => { GoMixClose(); AutoMixClick(); }); I("Split vocals + beat", () => { GoMixClose(); SeparateClick(); }); I("Split into 4 stems", () => { GoMixClose(); Separate4Click(); }); I("Detect BPM", () => { GoMixClose(); DetectBpmClick(); });
                 I("Flex Pitch (edit notes)", () => { GoMixClose(); FlexOpen(); }); I("Sounds and sound packs", () => { GoMixClose(); OpenPacks(); }); I("Vocal Presets", () => { GoMixClose(); OpenStyles(); }); I("Bus Presets", () => { GoMixClose(); OpenBusPresets(); }); I("AI Effect Generator", () => { GoMixClose(); OpenAiEffect(false); });
                 I("Add a track...", () => { GoMixClose(); ShowAddTrackMenuMain(); });

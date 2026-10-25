@@ -21,6 +21,7 @@
     <Compile Include="../../Audio.Out.cs" />
     <Compile Include="../../Midi.Ev.cs" />
     <Compile Include="../../Core.Scope.cs" />
+    <Compile Include="../../Fx.Stage3D.cs" />
     <Compile Include="../../Core.Types2.cs" />
     <Compile Include="../../Core.Types.cs" />
     <Compile Include="../../Mastering.cs" />

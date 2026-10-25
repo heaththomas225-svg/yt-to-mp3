@@ -564,7 +564,9 @@ partial class StudioEngine
                     }
                     else { fx.ScL = null; fx.ScR = null; }
                     if (meters) { if (actL.Length < n) { actL = new float[n]; actR = new float[n]; } Array.Copy(t.tl, actL, n); Array.Copy(t.tr, actR, n); }
+                    long cpu0 = System.Diagnostics.Stopwatch.GetTimestamp();   // (the live profiler: how long each plugin works)
                     try { var lanes = t.Auto.Count > 0 ? AutoLanes(t, fx) : null; if (lanes == null) { fx.BeginBlock(t, pos, n, !meters || Playing); fx.Process(t.tl, t.tr, n); } else ProcessAuto(t, fx, lanes, pos, n, !meters || Playing, needsSc && voc != null && voc != t); } catch (Exception ex) { fx.Error = ex.Message; fx.Bypass = true; }
+                    fx.CpuTicks += System.Diagnostics.Stopwatch.GetTimestamp() - cpu0;
                     latSoFar += fx.Latency;
                     if (meters) MeasureFx(fx, t.tl, t.tr, n);
                 }
