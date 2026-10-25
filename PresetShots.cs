@@ -35,6 +35,7 @@ static class PresetShots
         {
             string tag = pass == 0 ? "default" : "theme";
             if (pass == 1) { int pick = -1; for (int i = 0; i < Themes.All.Count; i++) if (i != Themes.Index && Themes.All[i].Name.IndexOf("Purphex", StringComparison.OrdinalIgnoreCase) < 0) { pick = i; break; } if (pick >= 0) { Themes.Apply(pick); Console.WriteLine("theme " + Themes.All[pick].Name); } Pump(200); }
+            SetF("tab", 0); Pump(100); Shot(tag + "-mix");
             Call("OpenStyles"); Pump(100); Shot(tag + "-vocal-presets"); SetF("stylesOpen", false);
             Call("OpenBusPresets"); Pump(100); Shot(tag + "-bus-presets"); SetF("stylesOpen", false);
             SetF("tab", 1); SetF("mpTab", 1); Pump(100); Shot(tag + "-mastering"); SetF("mpTab", 0); SetF("tab", 0);

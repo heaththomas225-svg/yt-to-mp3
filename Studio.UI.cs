@@ -754,12 +754,12 @@ partial class StudioForm : Form
         Btn(g, Rc(x, y, 92, h), "MIDI REC", recOn ? 3 : 0, () => { if (!recOn && !AskYes("Would you like to record an instrument?\n\nYour MIDI keyboard (or the piano window) is recorded onto the selected MIDI track while the song plays. Press PLAY after you say Yes. If not, press No.", "MIDI recording")) return; recOn = !recOn; Toast(recOn ? "MIDI recording is on (the button is red): press PLAY, then play your MIDI keyboard or the piano window and the notes are recorded onto the selected MIDI track." : "MIDI recording is off."); }, 13); x += 98;
         { bool rec = mic != null; double el = rec ? (eng.CountBeat > 0 ? 0 : Math.Max(0, (DateTime.Now - micT0).TotalSeconds - micLead / (double)StudioEngine.SR)) : 0; bool armed = micArmed && !rec; var mr = Rc(x, y, rec ? 128 : 60, h); Btn(g, mr, (rec ? "* MIC  " + ((int)(el / 60)).ToString("00") + ":" + ((int)(el % 60)).ToString("00") : "MIC"), rec || armed ? 3 : 0, () => MicClick(), 13); if (armed) { double pl = 0.5 + 0.5 * Math.Sin(Environment.TickCount / 220.0); Glow(g, Color.FromArgb(255, 60, 90), mr, 8, 0.7f + 0.5f * (float)pl, 4); lastInput = DateTime.Now; } if (rec) HBar(g, Rc(mr.X + 6, mr.Bottom - 7, mr.Width - 12, 5), mic.Level); PaintMicDrop(g, Rc(mr.Right + 3, y, 24, h), rec); bool modeRoom = W >= 1320; if (modeRoom) PaintMicModeBox(g, Rc(mr.Right + 3 + 24 + 3, y + 5, 66, h - 10), rec); x += mr.Width + 6 + 28 + (modeRoom ? 69 : 0); }   /* the box that names the microphone mode is there when there is room for it */
         x = 0;
-        Btn(g, Rc(tx0, y, wHome, h), "|<", 0, () => { eng.Seek(0); scroll = 0; followPaused = false; }, 15);
-        { var sb = Rc(tx0 + wHome + gap, y, wStop, h); Btn(g, sb, "STOP", 0, () => { if (mpActive) MasterPreviewStop(); PauseHere(); }, 14); Hint2(sb, "Stop where you are: the needle and the view stay put (|< takes you back to the start)"); }
-        { var plb = Rc(px, y, wPlay, h); Btn(g, plb, "PLAY", eng.Playing ? 4 : 1, () => { if (!eng.Playing) PlayToggle(); }, 15); Hint2(plb, "Play from where the needle is (Space does the same)"); }   // PLAY only plays (it is lit while playing); PAUSE is its own button
+        { var hb = Rc(tx0, y, wHome, h); TransportBtn(g, hb, "|<", 0, false, () => { eng.Seek(0); scroll = 0; followPaused = false; }); Hint2(hb, "Jump back to the start"); }
+        { var sb = Rc(tx0 + wHome + gap, y, wStop, h); TransportBtn(g, sb, "STOP", 1, false, () => { if (mpActive) MasterPreviewStop(); PauseHere(); }); Hint2(sb, "Stop where you are: the needle and the view stay put (|< takes you back to the start)"); }
+        { var plb = Rc(px, y, wPlay, h); TransportBtn(g, plb, "PLAY", 2, eng.Playing, () => { if (!eng.Playing) PlayToggle(); }); Hint2(plb, "Play from where the needle is (Space does the same)"); }   // PLAY only plays (it is lit while playing); PAUSE is its own button
         float rx0 = px + wPlay + gap;
-        { bool paused = !eng.Playing && eng.Pos > 0; var pb = Rc(rx0, y, wPause, h); Btn(g, pb, "PAUSE", paused ? 4 : 0, () => PauseHere(), 14); Hint2(pb, "Pause where you are (Space does the same); PLAY carries on from there"); }
-        { var lb = Rc(rx0 + wPause + gap, y, wLoop, h); Btn(g, lb, "LOOP", eng.Loop || loopPick ? 4 : 0, () => LoopMenu(lb), 14); Hint2(lb, eng.LoopSection ? "Looping " + LoopTime(eng.LoopA) + " to " + LoopTime(eng.LoopB) + ": press to change it or turn it off" : (eng.Loop ? "The whole song loops: press to loop a section or turn it off" : "Loop the whole song, or a section you drag on the timeline")); }
+        { bool paused = !eng.Playing && eng.Pos > 0; var pb = Rc(rx0, y, wPause, h); TransportBtn(g, pb, "PAUSE", 3, paused, () => PauseHere()); Hint2(pb, "Pause where you are (Space does the same); PLAY carries on from there"); }
+        { var lb = Rc(rx0 + wPause + gap, y, wLoop, h); TransportBtn(g, lb, "LOOP", 4, eng.Loop || loopPick, () => LoopMenu(lb)); Hint2(lb, eng.LoopSection ? "Looping " + LoopTime(eng.LoopA) + " to " + LoopTime(eng.LoopB) + ": press to change it or turn it off" : (eng.Loop ? "The whole song loops: press to loop a section or turn it off" : "Loop the whole song, or a section you drag on the timeline")); }
         double sec = dispPos / StudioEngine.SR, tot = eng.EndFrame / (double)StudioEngine.SR;
         var tr = Rc(tx0 - 12 - timeW, y, timeW, h); FillRR(g, TM.C(200, 8, 4, 18), tr, 6); StrokeRR(g, Edge, tr, 6, 1); Glow(g, Accent, tr, 6, eng.Playing ? 0.85f : 0.5f, 3); using (var pen = new Pen(Color.FromArgb(eng.Playing ? 230 : 150, Accent), 1.2f)) using (var pp = RR(tr, 6)) g.DrawPath(pen, pp);   // a small neon glow that is always there (brighter while it plays)
         Txt(g, Fmt(sec) + "  /  " + Fmt(tot), timeW >= 190 ? 19 : 15, Accent, tr, StringAlignment.Center, true); x = rx0 + wPause + gap + wLoop + 12;   // the master meter goes after LOOP
@@ -917,33 +917,92 @@ partial class StudioForm : Form
         if (gone != null) foreach (var k in gone) hold.Remove(k);
     }
     // the clip picture (fill + heartbeat line) for one lane, drawn in song-area coordinates; PaintWave caches it in a bitmap
+    // a clip's waveform: glowing bars on a little galaxy (a dark sky, soft nebula light and stars) in a framed box with cut corners,
+    // in the colours of your theme (its cyan and violet, with the track colour in the middle). It is drawn once into the clip's picture.
+    // the transport buttons: icons on dark glass with a neon edge, and PLAY a big glowing round button in the middle (theme colours)
+    // kind: 0 to the start, 1 stop, 2 play, 3 pause, 4 loop
+    void TransportBtn(Graphics g, RectangleF r, string key, int kind, bool lit, Action act)
+    {
+        bool hot = Hot(r); var oldSm = g.SmoothingMode; g.SmoothingMode = SmoothingMode.AntiAlias; Color ca = Accent, cv = NeonViolet, ink = Color.White;
+        if (kind == 2)
+        {
+            float d = Math.Min(r.Height + 6, r.Width); var c = new RectangleF(r.X + (r.Width - d) / 2, r.Y + (r.Height - d) / 2, d, d);
+            for (int k = 3; k >= 1; k--) using (var gb = new SolidBrush(Color.FromArgb((lit ? 34 : 22) + (hot ? 10 : 0), ca))) g.FillEllipse(gb, c.X - k * 2.5f, c.Y - k * 2.5f, c.Width + k * 5, c.Height + k * 5);   // the glow
+            using (var br = new LinearGradientBrush(c, ControlPaint.Light(ca, 0.25f), cv, 90f)) g.FillEllipse(br, c);
+            using (var pen = new Pen(Color.FromArgb(lit || hot ? 255 : 190, Color.White), lit ? 2f : 1.4f)) g.DrawEllipse(pen, c);
+            float tcx = c.X + c.Width / 2 + d * 0.05f, tcy = c.Y + c.Height / 2, ts = d * 0.22f;
+            using (var tb = new SolidBrush(ink)) g.FillPolygon(tb, new[] { new PointF(tcx - ts * 0.8f, tcy - ts), new PointF(tcx + ts, tcy), new PointF(tcx - ts * 0.8f, tcy + ts) });
+        }
+        else
+        {
+            FillRR(g, lit ? TM.C(230, 50, 24, 100) : (hot ? TM.C(230, 34, 18, 72) : TM.C(220, 16, 8, 34)), r, r.Height / 2);
+            StrokeRR(g, Color.FromArgb(lit ? 255 : (hot ? 220 : 140), lit ? ca : cv), r, r.Height / 2, lit ? 1.8f : 1.2f); if (lit) Glow(g, ca, r, r.Height / 2, 0.8f, 3);
+            float cx = r.X + r.Width / 2, cy = r.Y + r.Height / 2, s0 = Math.Min(r.Height, r.Width) * 0.2f; Color gc = lit ? ink : TM.C(255, 220, 205, 255);
+            using (var b = new SolidBrush(gc)) using (var pen = new Pen(gc, 2f) { StartCap = LineCap.Round, EndCap = LineCap.Round })
+            {
+                if (kind == 0) { g.FillRectangle(b, cx - s0 - 2, cy - s0, 2.4f, s0 * 2); g.FillPolygon(b, new[] { new PointF(cx + s0, cy - s0), new PointF(cx - s0 + 1, cy), new PointF(cx + s0, cy + s0) }); }
+                else if (kind == 1) { var q = new RectangleF(cx - s0 * 0.85f, cy - s0 * 0.85f, s0 * 1.7f, s0 * 1.7f); using (var rp = RR(q, 2)) g.FillPath(b, rp); }
+                else if (kind == 3) { g.FillRectangle(b, cx - s0 * 0.75f, cy - s0, s0 * 0.5f, s0 * 2); g.FillRectangle(b, cx + s0 * 0.25f, cy - s0, s0 * 0.5f, s0 * 2); }
+                else if (kind == 4) { float rr = s0 * 1.05f; g.DrawArc(pen, cx - rr, cy - rr, rr * 2, rr * 2, 200, 250); g.FillPolygon(b, new[] { new PointF(cx - rr - 3.5f, cy - 2), new PointF(cx - rr + 3.5f, cy - 2), new PointF(cx - rr, cy + 3.5f) }); }
+            }
+        }
+        g.SmoothingMode = oldSm; btnMap[key] = r; Reg(r, act);
+    }
     void PaintWaveBody(Graphics g, RectangleF lane, RectangleF cr, Color c, bool audible, bool sel, float cy, float amp, int px, float[] wmn, float[] wmx)
     {
-        if (cr.Width > 0) { using (var p = RR(cr, 6)) using (var gb = new LinearGradientBrush(cr, Color.FromArgb(sel ? 70 : 44, c), Color.FromArgb(sel ? 14 : 8, c), 90f)) g.FillPath(gb, p); }
-        if (cr.Width > 4)
+        if (cr.Width <= 0) return;
+        Color ca = NeonCyan, cb = NeonViolet; int al = audible ? 255 : 110; float cut = Math.Min(10f, Math.Min(cr.Width, cr.Height) / 4f);
+        var oldSm = g.SmoothingMode; g.SmoothingMode = SmoothingMode.AntiAlias;
+        using (var frame = new GraphicsPath())
         {
-            // heartbeat-style line: one clean zig-zag through the peaks (a point every few pixels), blue > track colour > purple, with a soft glow
-            var gst0 = g.Save(); g.SetClip(cr, CombineMode.Intersect); g.SmoothingMode = SmoothingMode.AntiAlias;
-            int i0 = Math.Max(0, (int)(cr.X - lane.X)), i1 = Math.Min(px, (int)Math.Ceiling(cr.Right - lane.X)); int step = Math.Max(8, Math.Min(20, px / 110));
-            var pts = new List<PointF>(); pts.Add(new PointF(cr.X, cy));
-            for (int i = i0; i < i1; i += step)
+            frame.AddPolygon(new[] { new PointF(cr.X + cut, cr.Y), new PointF(cr.Right - cut, cr.Y), new PointF(cr.Right, cr.Y + cut), new PointF(cr.Right, cr.Bottom - cut), new PointF(cr.Right - cut, cr.Bottom), new PointF(cr.X + cut, cr.Bottom), new PointF(cr.X, cr.Bottom - cut), new PointF(cr.X, cr.Y + cut) });
+            // the sky
+            using (var sky = new LinearGradientBrush(cr, TM.C(sel ? 250 : 238, 6, 4, 18), TM.C(sel ? 250 : 238, 10, 6, 28), 90f)) g.FillPath(sky, frame);
+            var gs = g.Save(); g.SetClip(frame, CombineMode.Intersect);
+            if (cr.Width > 30 && cr.Height > 24)
             {
-                float mx = 0, mn = 0; bool any = false; for (int j = i; j < Math.Min(i1, i + step); j++) { if (wmx[j] == 0 && wmn[j] == 0) continue; any = true; if (wmx[j] > mx) mx = wmx[j]; if (wmn[j] < mn) mn = wmn[j]; }
-                float x = lane.X + i + step / 2f; if (!any) { pts.Add(new PointF(x, cy)); continue; }
-                Func<float, float> sh = v => (float)(Math.Sign(v) * Math.Pow(Math.Min(1f, Math.Abs(v)), 0.85));
-                pts.Add(new PointF(x - step * 0.22f, cy - sh(mx) * amp)); pts.Add(new PointF(x + step * 0.22f, cy - sh(mn) * amp));
+                // nebula light in two corners (and one in the middle of long clips), from the clip's own place so it stays still while you scroll
+                int seed = (int)((long)(cr.X - lane.X) * 31 + (int)cr.Width * 7) ^ c.ToArgb(); var rnd = new Random(seed);
+                Action<float, float, float, Color> neb = (nx, ny, nr, nc) => { using (var pth = new GraphicsPath()) { pth.AddEllipse(nx - nr, ny - nr * 0.6f, nr * 2, nr * 1.2f); using (var pb = new PathGradientBrush(pth) { CenterColor = Color.FromArgb(audible ? 70 : 30, nc), SurroundColors = new[] { Color.FromArgb(0, nc) } }) g.FillPath(pb, pth); } };
+                float nr0 = Math.Min(cr.Height * 0.9f, 90f);
+                neb(cr.X + nr0 * 0.5f, cr.Y + cr.Height * 0.3f, nr0, ca); neb(cr.Right - nr0 * 0.5f, cr.Bottom - cr.Height * 0.3f, nr0, cb);
+                if (cr.Width > 400) neb(cr.X + cr.Width * (0.35f + (float)rnd.NextDouble() * 0.3f), cr.Y + cr.Height * 0.5f, nr0 * 0.8f, c);
+                // stars
+                int stars = Math.Min(120, (int)(cr.Width * cr.Height / 900)); using (var sb = new SolidBrush(Color.FromArgb(audible ? 150 : 60, 235, 230, 255))) for (int i = 0; i < stars; i++) { float sx = cr.X + (float)rnd.NextDouble() * cr.Width, sy = cr.Y + (float)rnd.NextDouble() * cr.Height, sz = rnd.Next(10) == 0 ? 1.8f : 1f; g.FillEllipse(sb, sx, sy, sz, sz); }
             }
-            pts.Add(new PointF(cr.Right, cy));
-            using (var pen = new Pen(TM.C(audible ? 60 : 20, 120, 150, 255), 1f)) g.DrawLine(pen, cr.X, cy, cr.Right, cy);
-            var bounds = new RectangleF(cr.X - 1, cr.Y, Math.Max(2, cr.Width + 2), cr.Height); int al = audible ? 255 : 100;
-            using (var gb = new LinearGradientBrush(bounds, TM.C(al, 70, 150, 255), TM.C(al, 190, 90, 255), 0f))
+            // the dotted centre line
+            using (var pen = new Pen(Color.FromArgb(audible ? 120 : 40, ca), 1f) { DashPattern = new[] { 1f, 3f } }) g.DrawLine(pen, cr.X + 4, cy, cr.Right - 4, cy);
+            // the bars: one every 3 pixels, mirrored round the centre, a soft glow under a bright core; big peaks get a white tip
+            if (cr.Width > 4)
             {
-                gb.InterpolationColors = new ColorBlend(3) { Colors = new[] { TM.C(al, 70, 150, 255), Color.FromArgb(al, c), TM.C(al, 190, 90, 255) }, Positions = new[] { 0f, 0.5f, 1f } };
-                using (var gl = new LinearGradientBrush(bounds, Color.Blue, Color.Purple, 0f)) { gl.InterpolationColors = new ColorBlend(3) { Colors = new[] { TM.C(audible ? 46 : 14, 70, 150, 255), Color.FromArgb(audible ? 46 : 14, c), TM.C(audible ? 46 : 14, 190, 90, 255) }, Positions = new[] { 0f, 0.5f, 1f } }; using (var pen = new Pen(gl, 5.5f)) { pen.LineJoin = LineJoin.Round; if (pts.Count > 1) g.DrawLines(pen, pts.ToArray()); } }
-                using (var pen = new Pen(gb, 1.8f)) { pen.LineJoin = LineJoin.Round; if (pts.Count > 1) g.DrawLines(pen, pts.ToArray()); }
+                int i0 = Math.Max(0, (int)(cr.X - lane.X)), i1 = Math.Min(px, (int)Math.Ceiling(cr.Right - lane.X)); const int step = 3;
+                var bounds = new RectangleF(cr.X - 1, cr.Y, Math.Max(2, cr.Width + 2), cr.Height);
+                using (var core = new LinearGradientBrush(bounds, ca, cb, 0f)) using (var glow = new LinearGradientBrush(bounds, ca, cb, 0f))
+                {
+                    core.InterpolationColors = new ColorBlend(3) { Colors = new[] { Color.FromArgb(al, ca), Color.FromArgb(al, c), Color.FromArgb(al, cb) }, Positions = new[] { 0f, 0.5f, 1f } };
+                    glow.InterpolationColors = new ColorBlend(3) { Colors = new[] { Color.FromArgb(audible ? 60 : 20, ca), Color.FromArgb(audible ? 60 : 20, c), Color.FromArgb(audible ? 60 : 20, cb) }, Positions = new[] { 0f, 0.5f, 1f } };
+                    using (var pg = new Pen(glow, 3.6f)) using (var pc2 = new Pen(core, 1.4f)) using (var tip = new Pen(Color.FromArgb(audible ? 230 : 90, 255, 255, 255), 1f))
+                        for (int i = i0; i < i1; i += step)
+                        {
+                            float v = 0; for (int j = i; j < Math.Min(i1, i + step); j++) v = Math.Max(v, Math.Max(wmx[j], -wmn[j])); if (v <= 0.002f) continue;
+                            float h = (float)Math.Pow(Math.Min(1f, v), 0.8) * amp, x = lane.X + i + 1;
+                            g.DrawLine(pg, x, cy - h, x, cy + h); g.DrawLine(pc2, x, cy - h, x, cy + h);
+                            if (v > 0.7f) g.DrawLine(tip, x, cy - h * 0.55f, x, cy + h * 0.55f);
+                        }
+                }
             }
-            g.Restore(gst0);
+            g.Restore(gs);
+            // the frame: a glowing outline with cut corners, little ticks near the corners and a star at the top and bottom middle
+            using (var pg = new Pen(Color.FromArgb(audible ? (sel ? 110 : 60) : 25, ca), 4f)) g.DrawPath(pg, frame);
+            using (var fb = new LinearGradientBrush(new RectangleF(cr.X - 1, cr.Y, cr.Width + 2, cr.Height), Color.FromArgb(al, ca), Color.FromArgb(al, cb), 0f)) using (var pf = new Pen(fb, sel ? 1.8f : 1.2f)) g.DrawPath(pf, frame);
+            if (cr.Width > 120 && cr.Height > 30)
+            {
+                using (var pt = new Pen(Color.FromArgb(audible ? 200 : 70, ca), 1.4f)) { float ty = cr.Y + 4; for (int k = 0; k < 4; k++) { g.DrawLine(pt, cr.X + cut + 8 + k * 6, ty, cr.X + cut + 11 + k * 6, ty); g.DrawLine(pt, cr.Right - cut - 11 - k * 6, cr.Bottom - 4, cr.Right - cut - 8 - k * 6, cr.Bottom - 4); } }
+                Action<float, float, float> star = (sx, sy, r) => { using (var sp = new GraphicsPath()) { sp.AddPolygon(new[] { new PointF(sx, sy - r), new PointF(sx + r * 0.22f, sy - r * 0.22f), new PointF(sx + r, sy), new PointF(sx + r * 0.22f, sy + r * 0.22f), new PointF(sx, sy + r), new PointF(sx - r * 0.22f, sy + r * 0.22f), new PointF(sx - r, sy), new PointF(sx - r * 0.22f, sy - r * 0.22f) }); using (var sb = new SolidBrush(Color.FromArgb(al, 235, 240, 255))) g.FillPath(sb, sp); } };
+                float mx = cr.X + cr.Width / 2; star(mx, cr.Y + 1, 5f); star(mx, cr.Bottom - 1, 5f);
+            }
         }
+        g.SmoothingMode = oldSm;
     }
     class PeakCache { public AudioClip Clip; public long Start, Len; public double Spp; public int Px; public float[] Mn, Mx; public Bitmap Img; public int Ver, ImgVer, ImgCol; public long ImgTheme; public RectangleF ImgLane, ImgCr, ImgRel; public float ImgX0; public bool ImgAud, ImgSel; }
     readonly Dictionary<Track, PeakCache> peakCache = new Dictionary<Track, PeakCache>();

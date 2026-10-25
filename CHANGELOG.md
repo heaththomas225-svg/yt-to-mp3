@@ -8,7 +8,7 @@ What changed in each version of **Purphex**. The same notes are shown in the app
 
 - CHANGED: On the Free Edition these show a padlock (Supporter Edition and up): VSTS, vocal presets, bus presets, community presets, the AI generators, Auto Mix, Flex Pitch, Auto EQ, Auto Loudness, AUTO MASTERING, the other master presets, the visualiser, themes and fonts, FLAC and MP4 export and rates above 44.1 kHz. The Video and Photo Editors are not in the side panel on the Free Edition, and Help shows only the guides for what the Free Edition has.
 
-- CHANGED: New prices: the Supporter Edition is £7.99 a month or £79.99 a year, and the Fantasy Edition is £399.99 once, for life.
+- CHANGED: New prices: the Supporter Edition is £7.99 a month or £69.99 a year, and the Fantasy Edition is £399.99 once, for life.
 
 - NEW: Every preset list has little knobs on each preset, turned to what that preset really does: SPACE, PUNCH and BRIGHT on vocal and bus presets, LOUD, PUNCH and BRIGHT on mastering presets, and a plugin's own settings on its presets. They keep the Purphex look whatever theme you use.
 

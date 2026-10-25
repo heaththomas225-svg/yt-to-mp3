@@ -69,7 +69,7 @@ Press Cancel at any time. Files already finished are kept."),
         new HelpTopic("editions", "Basics", "Editions, edition codes and linking this PC", false, @"
 ## The editions
 - Free: the MP3 and MP4 converter, the vocal remover and a limited studio, for everyone, for ever. The free studio has tracks and the mixer, every effect, the piano roll, sound packs, lyrics, your profile, the Music Hub, mastering with 2 presets (Gentle and Clean & Transparent) and export of the mix, the master or the stems as WAV (up to 32-bit) or MP3 320 kbps at 44.1 kHz.
-- Supporter (£7.99 a month or £79.99 a year): the whole studio: VSTS, vocal, bus and community presets, the AI generators, Auto Mix, Flex Pitch, Auto EQ, Auto Loudness, AUTO MASTERING and every master preset, the visualiser, themes and fonts, the Purphex Video and Photo Editors, and exports up to 192 kHz.
+- Supporter (£7.99 a month or £69.99 a year): the whole studio: VSTS, vocal, bus and community presets, the AI generators, Auto Mix, Flex Pitch, Auto EQ, Auto Loudness, AUTO MASTERING and every master preset, the visualiser, themes and fonts, the Purphex Video and Photo Editors, and exports up to 192 kHz.
 - Fantasy (£399.99 once): everything, for life, with every future update and 384 kHz exports.
 Nothing is paid inside the app: you choose an edition on the website, and the app unlocks.
 ## Unlock this PC
