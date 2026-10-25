@@ -434,6 +434,7 @@ partial class StudioForm : Form
         long k0 = Prof.T(); btnRects.Add(r); if (!btnMap.ContainsKey(text)) btnMap[text] = r; if (Hot(r)) { string hh; if (Hints.TryGetValue(text, out hh)) hintNow = hh; } Prof.A("btn.a", k0); k0 = Prof.T();
         float ht = HoverAmount(r, text); if (ht > 0.5f && Hot(r)) HoverSparks(r); Prof.A("btn.hover", k0); k0 = Prof.T();
         string shown0 = Win.Up(text); Prof.A("btn.up", k0);
+        if (TxtAudit == null) DrawBtnHalo(g, r, style, ht);   // the galaxy flare behind it
         if (TxtAudit == null && r.Width > 4 && r.Height > 4 && r.Width * r.Height < 90000) BtnDrawSprite(g, r, shown0, style, ht, px); else BtnLook(g, r, shown0, style, ht, px);
         k0 = Prof.T(); var rr0 = Reg(r, down); rr0.Button = true; Prof.A("btn.reg", k0); return rr0;
     }

@@ -126,6 +126,7 @@
     <Compile Include="../../Studio.PresetKnobs.cs" />
     <Compile Include="../../Studio.PluginLook.cs" />
     <Compile Include="../../Studio.Converter.cs" />
+    <Compile Include="../../Studio.Flare.cs" />
     <Compile Include="../../Studio.UI2.cs" />
     <Compile Include="../../Studio.8D.cs" />
     <Compile Include="../../Studio.Inst.cs" />

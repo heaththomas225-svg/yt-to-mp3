@@ -60,12 +60,12 @@ partial class StudioForm
         var slots = new List<PointF>(); bool mid = cols >= 4; RectangleF vizBox;
         if (mid) { vizBox = Rc(a.X + 6 + cw + 6, y0, cw * (cols - 2) - 12, 2 * KnobCellH - 6); slots.Add(new PointF(0, 0)); slots.Add(new PointF(cols - 1, 0)); slots.Add(new PointF(0, 1)); slots.Add(new PointF(cols - 1, 1)); for (int k = 4; k < nums.Count; k++) slots.Add(new PointF((k - 4) % cols, 2 + (k - 4) / cols)); }
         else { vizBox = Rc(a.X + 6, y0, a.Width - 12, VizBoxH); y0 += VizBoxH + 10; for (int k = 0; k < nums.Count; k++) slots.Add(new PointF(k % cols, k / cols)); }
+        PaintWindowFlare(g, a, vizBox.Y + vizBox.Height / 2 - 6);   // the planet's light runs right across the window, behind the knobs
         PaintVizBox(g, vizBox, f);
         int lastRow = 0;
         for (int i = 0; i < nums.Count; i++)
         {
             var p = nums[i]; var pp = p; int cx0 = (int)slots[i].X, ry = (int)slots[i].Y; lastRow = Math.Max(lastRow, ry); var cell = Rc(a.X + 6 + cx0 * cw, y0 + ry * KnobCellH, cw, KnobCellH - 6);
-            using (var cb = new SolidBrush(Color.FromArgb(70, 12, 6, 28))) using (var cp = RR(Rc(cell.X + 3, cell.Y, cell.Width - 6, cell.Height), 10)) g.FillPath(cb, cp);
             string nm = Win.Up(p.Name); Txt(g, nm, 9, Color.FromArgb(255, 220, 210, 245), Rc(cell.X + 4, cell.Y + 3, cell.Width - 8, 14), StringAlignment.Center, true);
             Color col = KnobCols[i % KnobCols.Length];
             KnobCtl(g, cell.X + cell.Width / 2, cell.Y + 50, 46, PFrac(p), fr => f.Set(pp.Id, PFromFrac(pp, fr)), col, () => f.Set(pp.Id, pp.Def));
