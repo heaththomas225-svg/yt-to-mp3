@@ -200,9 +200,9 @@ static class K
         // ---- the transport: PLAY stays PLAY, MIC does not change its words, REC is MIDI REC ----
         {
             eng.Tracks.Clear(); eng.Tracks.Add(StudioEngine.NewTrack("Vox", "vocal", Const(4, 0.3f))); Paint(); StudioForm.TxtAudit = new List<StudioForm.AuditText>(); Paint(); var words = new List<string>(); foreach (var a in StudioForm.TxtAudit) words.Add(a.S); StudioForm.TxtAudit = null;
-            Check("the transport shows PLAY, MIC and MIDI REC", words.Contains("PLAY") && words.Contains("MIC") && words.Contains("MIDI REC") && !words.Contains("REC"), string.Join(",", words.GetRange(0, Math.Min(12, words.Count))));
+            var bmap = (System.Collections.Generic.Dictionary<string, RectangleF>)typeof(StudioForm).GetField("btnMap", BF).GetValue(sf); Check("the transport shows PLAY (the round icon button), MIC and MIDI REC", bmap.ContainsKey("PLAY") && words.Contains("MIC") && words.Contains("MIDI REC") && !words.Contains("REC"), string.Join(",", words.GetRange(0, Math.Min(12, words.Count))));
             int ov = Prefs.OutVol; Prefs.OutVol = 0; SetF("micArmed", true); eng.Playing = true; StudioForm.TxtAudit = new List<StudioForm.AuditText>(); Paint(); words.Clear(); foreach (var a in StudioForm.TxtAudit) words.Add(a.S); StudioForm.TxtAudit = null; eng.Playing = false; SetF("micArmed", false); Prefs.OutVol = ov;
-            Check("while playing and with the mic ready it says PLAY, PAUSE and MIC (no RECORD or MIC READY)", words.Contains("PLAY") && words.Contains("MIC") && words.Contains("PAUSE") && !words.Contains("RECORD") && !words.Contains("MIC READY"), string.Join(",", words.FindAll(w => w.Contains("PLAY") || w.Contains("PAUSE") || w.Contains("MIC") || w.Contains("RECORD"))));
+            Check("while playing and with the mic ready it has PLAY, PAUSE (icon buttons) and MIC (no RECORD or MIC READY)", bmap.ContainsKey("PLAY") && words.Contains("MIC") && bmap.ContainsKey("PAUSE") && !words.Contains("RECORD") && !words.Contains("MIC READY"), string.Join(",", words.FindAll(w => w.Contains("PLAY") || w.Contains("PAUSE") || w.Contains("MIC") || w.Contains("RECORD"))));
         }
 
         // ---- the view stays where you scroll it while it plays ----

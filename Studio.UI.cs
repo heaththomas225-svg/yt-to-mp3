@@ -452,7 +452,7 @@ partial class StudioForm : Form
         float rad = Math.Min(10f, Math.Max(6f, r.Height * 0.3f)); const float rim = 2.6f; var inner = RectangleF.Inflate(r, -rim, -rim); float irad = Math.Max(1f, rad - rim);   // the inner corner is exactly one rim smaller than the outer one, so the rim is the same thickness all the way round (corners too) on every button
         Color rimC = Color.FromArgb(style == 4 && UiTokens.Glass ? 70 : 240, (int)(c.R + (255 - c.R) * 0.82f), (int)(c.G + (255 - c.G) * 0.82f), (int)(c.B + (255 - c.B) * 0.84f));
         using (var p = RR(r, rad)) using (var br = new SolidBrush(rimC)) g.FillPath(br, p);   // the pale rim
-        GalaxyFace(g, inner, irad, style == 2 ? vA : c, style, shown);   // the galaxy face, tinted with the button's colour
+        if (style == 4 && UiTokens.Shiny && !UiTokens.Glass) FillRR(g, c, inner, irad); else GalaxyFace(g, inner, irad, style == 2 ? vA : c, style, shown);   // the galaxy face, tinted with the button's colour (a selected button with your profile's finish shows that finish instead)
         if (style == 4 && UiTokens.Shiny) PaintMaterial(g, inner, irad, c, UiTokens.Finish, false);   // the accent's finish on a selected button
         if (inner.Width > irad * 3) using (var hl = new Pen(Color.FromArgb(style == 2 ? 80 : 52, 255, 255, 255), 1f)) g.DrawLine(hl, inner.X + irad, inner.Y + 1.2f, inner.Right - irad, inner.Y + 1.2f);
         if (style == 4) Glow(g, UiTokens.Sel(Accent2), r, rad, 0.8f, 3); else if (ht > 0.03f) Glow(g, NeonCyan, r, rad, 0.7f * ht, 3);
@@ -469,7 +469,7 @@ partial class StudioForm : Form
         c = Contrast.ForWhite(c); if (style == 4 && UiTokens.Glass) c = Color.FromArgb(150, c);   // white writing: a theme that makes a button too light gets a darker button, not black writing
         Color vA = Contrast.ForWhite(Color.FromArgb(Math.Min(255, Violet.R + 32), Math.Min(255, Violet.G + 8), Math.Min(255, Violet.B + 28))), vB = Contrast.ForWhite(Accent2);
         float rad = Math.Min(10f, Math.Max(6f, r.Height * 0.3f));   // softer corners on every button
-        GalaxyFace(g, r, rad, style == 2 ? vA : c, style, shown);   // the galaxy face, tinted with the button's colour
+        if (style == 4 && UiTokens.Shiny && !UiTokens.Glass) FillRR(g, c, r, rad); else GalaxyFace(g, r, rad, style == 2 ? vA : c, style, shown);   // the galaxy face, tinted with the button's colour (a selected button with your profile's finish shows that finish instead)
         if (style == 2 && ht > 0) FillRR(g, Color.FromArgb((int)(40 * ht), 255, 255, 255), r, rad);
         StrokeRR(g, Color.FromArgb(200, Math.Min(255, c.R + 70), Math.Min(255, c.G + 60), Math.Min(255, c.B + 80)), r, rad, 1.2f);   // a lit edge
         if (style == 4 && UiTokens.Shiny) PaintMaterial(g, r, rad, c, UiTokens.Finish, false);   // the accent's finish on a selected button
@@ -782,7 +782,7 @@ partial class StudioForm : Form
         Btn(g, Rc(tx, y, 106, h), "MIX", tab == 0 ? 4 : 0, () => tab = 0, 14);
         Btn(g, Rc(tx + 112, y, 106, h), "MASTERING", tab == 1 ? 4 : 0, () => tab = 1, 13);
         Btn(g, Rc(tx + 224, y, 90, h), "LYRICS", tab == 2 ? 4 : 0, () => tab = 2, 13);
-        { var cvb = Rc(tx + 320, y, 112, h); Btn(g, cvb, "CONVERTER", tab == 11 ? 4 : 0, () => GoTab(11), 12); Hint2(cvb, "The MP3 / MP4 converter, here in the studio"); }
+        { var cvb = Rc(tx + 320, y, 112, h); Btn(g, cvb, "CONVERTER", tab == 11 ? 4 : 0, () => GoTab(11), 12); Hint2(cvb, "The MP3 / MP4 converter, here in the studio"); if (Hot(cvb)) hintNow = "The MP3 / MP4 converter, here in the studio: paste a link and get an MP3 or MP4."; }
         if (tab == 0) PaintDawBar(g, y0 + 52, W);   // the editing tools only belong to the track view
     }
 
@@ -954,7 +954,7 @@ partial class StudioForm : Form
                 else if (kind == 4) { float rr = s0 * 1.05f; g.DrawArc(pen, cx - rr, cy - rr, rr * 2, rr * 2, 200, 250); g.FillPolygon(b, new[] { new PointF(cx - rr - 3.5f, cy - 2), new PointF(cx - rr + 3.5f, cy - 2), new PointF(cx - rr, cy + 3.5f) }); }
             }
         }
-        g.SmoothingMode = oldSm; btnMap[key] = r; Reg(r, act);
+        g.SmoothingMode = oldSm; btnMap[key] = r; Reg(r, act); string th; if (hot && Hints.TryGetValue(key, out th)) hintNow = th;   // the hint strip, like every labelled button
     }
     void PaintWaveBody(Graphics g, RectangleF lane, RectangleF cr, Color c, bool audible, bool sel, float cy, float amp, int px, float[] wmn, float[] wmx)
     {

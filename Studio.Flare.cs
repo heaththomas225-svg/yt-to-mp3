@@ -55,7 +55,7 @@ partial class StudioForm
     {
         if (r.Width < 8 || r.Height < 8) return; var tex = ButtonGalaxy(); int off = Math.Abs((label ?? "").GetHashCode());
         using (var tb = new TextureBrush(tex, WrapMode.TileFlipXY)) { tb.TranslateTransform(r.X - off % tex.Width, r.Y - (off / 7) % tex.Height); using (var p = RR(r, rad)) g.FillPath(tb, p); }
-        using (var p = RR(r, rad)) using (var br = new LinearGradientBrush(r, Color.FromArgb(style == 2 ? 105 : 115, tint), Color.FromArgb(style == 2 ? 55 : 75, tint), 90f)) g.FillPath(br, p);   // the button's own colour over its galaxy
+        using (var p = RR(r, rad)) using (var br = new LinearGradientBrush(r, Color.FromArgb(style == 4 ? 200 : style == 2 ? 105 : 115, tint), Color.FromArgb(style == 4 ? 165 : style == 2 ? 55 : 75, tint), 90f)) g.FillPath(br, p);   // the button's own colour over its galaxy (a selected button is mostly its colour: your profile colour and its finish show)
     }
     // GALAXY WRITING: words filled with a bright piece of galaxy, with a dark edge so they always read
     static Bitmap textGalaxy;

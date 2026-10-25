@@ -40,7 +40,7 @@ partial class StudioForm
         if (!cards) return;
         Txt(g, "YOUR PROJECTS", 12, DimC, Rc(box.X + 28, box.Y + 142, 300, 20), StringAlignment.Near, true);
         if (n == 0) { TxtWrap(g, "You have no projects yet. Press START A NEW PROJECT, drop in some music and press SAVE: it will be here next time.", 13, DimC, Rc(box.X + 28, box.Y + 176, box.Width - 56 - side * grow, 60)); return; }
-        cw = (box.Width - 56 - gap * 3) / 4f; float viewW = box.Width - 56, total = n * (cw + gap) - gap, maxS = Math.Max(0, total - viewW); welScroll = Math.Max(0, Math.Min(maxS, welScroll));
+        float viewW = box.Width - 56 - (side > 0 ? side * grow + 8 : 0); cw = (viewW - gap * 3) / 4f; float total = n * (cw + gap) - gap, maxS = Math.Max(0, total - viewW); welScroll = Math.Max(0, Math.Min(maxS, welScroll));
         var strip = Rc(box.X + 28, box.Y + 168, viewW, cw + 56); var gsw = g.Save(); g.SetClip(Rc(strip.X - 4, strip.Y - 4, strip.Width + 8, strip.Height + 8), CombineMode.Intersect);
         for (int i = 0; i < n; i++)
         {
