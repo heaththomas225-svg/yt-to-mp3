@@ -43,6 +43,8 @@ static class PresetShots
         }
         { Themes.Apply(0); Pump(100); var t0 = eng.Tracks[0]; var c1 = FxRegistry.Create("comp"); c1.Prepare(44100); var r1 = FxRegistry.Create("reverb"); r1.Prepare(44100); t0.Fx.Add(c1); t0.Fx.Add(r1);
           SetF("tab", 0); Call("OpenFxWindow", t0, c1); Pump(200); Shot("plugin-window-comp"); Call("CloseFxWindow", c1); Call("OpenFxWindow", t0, r1); Pump(200); Shot("plugin-window-reverb"); Call("CloseFxWindow", r1); }
+        { Themes.Apply(0); Call("GoTab", 11); Pump(600); sf.Invalidate(); Pump(300); var b2 = new Bitmap(sf.Width, sf.Height); sf.DrawToBitmap(b2, new Rectangle(0, 0, sf.Width, sf.Height)); b2.Save(Path.Combine(outDir, "converter.png"), ImageFormat.Png); Console.WriteLine("saved converter"); Call("GoTab", 0); Pump(400);
+          var keep = new System.Collections.Generic.List<Track>(eng.Tracks); eng.Tracks.Clear(); Call("ShowWelcome"); Pump(600); Shot("welcome"); SetF("welcomeOn", false); eng.Tracks.AddRange(keep); }
         // the Free Edition studio
         Edition.Override = Tier.Free; Themes.Apply(0); Pump(200);
         SetF("tab", 1); SetF("mpTab", 0); Pump(100); Shot("free-mastering"); SetF("mpTab", 1); Pump(100); Shot("free-mastering-presets"); SetF("mpTab", 0); SetF("tab", 0);

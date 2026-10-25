@@ -18,7 +18,7 @@ partial class StudioForm
     {
         if (!WelcomeShowing) return; float W = ClientSize.Width, H = ClientSize.Height; var all = Rc(0, 0, W, H);
         using (var b = new SolidBrush(TM.C(150, 3, 1, 10))) g.FillRectangle(b, all); Reg(all, () => welcomeOn = false);
-        var list = ProjectLibrary.AllByEdited(); int n = list.Count; bool cards = H >= 520; float bw = Math.Min(780, W - 40), gap = 12, cw = (bw - 56 - gap * 3) / 4f, bh = cards ? 168 + cw + 56 + 28 + (n > 4 ? 44 : 0) : 196;   // every project, in a row that scrolls
+        var list = ProjectLibrary.AllByEdited(); int n = list.Count; bool cards = H >= 520; float bw = Math.Min(1080, W - 40), side = bw >= 900 ? 280 : 0, gap = 12, cw = (bw - side - 56 - gap * 3) / 4f, bh = cards ? 168 + cw + 56 + 28 + (n > 4 ? 44 : 0) : 196;   // every project, in a row that scrolls
         int age = unchecked(Environment.TickCount - welcomeAt); float k = Math.Min(1f, age / 260f), ease = 1 - (1 - k) * (1 - k), grow = 0.93f + 0.07f * ease; lastInput = DateTime.Now;
         var box = Rc(W / 2 - bw * grow / 2, H / 2 - bh * grow / 2 - 10, bw * grow, bh * grow); double pulse = 0.5 + 0.5 * Math.Sin(age / 320.0);
         for (int i = 5; i >= 1; i--) using (var pen = new Pen(Color.FromArgb((int)((16 + 22 * pulse) / i * 2.2f) + 5, NeonCyan), i * 5f)) using (var p = RR(RectangleF.Inflate(box, i * 1.4f, i * 1.4f), 22 + i)) g.DrawPath(pen, p);
@@ -30,9 +30,16 @@ partial class StudioForm
         var nb = Rc(box.X + 28, box.Y + 92, 240, 34); Btn(g, nb, "START A NEW PROJECT", 2, () => { welcomeOn = false; tab = 0; NewProject(); }, 13); Hint2(nb, "An empty project: add music, record or add an instrument");
         var ob = Rc(nb.Right + 12, box.Y + 92, 240, 34); Btn(g, ob, "OPEN A PROJECT FILE...", 1, () => { welcomeOn = false; if (!OpenClick()) { welcomeOn = true; welcomeAt = Environment.TickCount; } }, 13);   /* cancelling the window brings the welcome box back */ Hint2(ob, "Find a project file (.ytmproj) on your PC");
         if (list.Count > 4 || !cards) { var mp = Rc(ob.Right + 12, box.Y + 92, Math.Max(120, box.Right - 28 - ob.Right - 12), 34); Btn(g, mp, "ALL MY PROJECTS", 1, () => { welcomeOn = false; GoTab(3); }, 13); Hint2(mp, "Every project you have, with search and filters"); }
+        if (side > 0)
+        {   // the converter beside your projects
+            var cv = Rc(box.Right - side * grow - 4, box.Y + 92, side * grow - 24, box.Height - 120); FillRR(g, TM.C(200, 14, 6, 34), cv, 14); StrokeRR(g, Color.FromArgb(200, NeonPink), cv, 14, 1.4f);
+            Txt(g, "CONVERTER", 16, Ink, Rc(cv.X + 16, cv.Y + 14, cv.Width - 32, 24), StringAlignment.Near, true);
+            TxtWrap(g, "Paste a link and get an MP3 or an MP4, right here in the studio. It is always one click away: the CONVERTER button at the top.", 12, DimC, Rc(cv.X + 16, cv.Y + 44, cv.Width - 32, 90));
+            var go = Rc(cv.X + 16, cv.Bottom - 50, cv.Width - 32, 34); Btn(g, go, "OPEN THE CONVERTER", 2, () => { welcomeOn = false; GoTab(11); }, 13); Hint2(go, "The MP3 / MP4 converter, inside the studio");
+        }
         if (!cards) return;
         Txt(g, "YOUR PROJECTS", 12, DimC, Rc(box.X + 28, box.Y + 142, 300, 20), StringAlignment.Near, true);
-        if (n == 0) { TxtWrap(g, "You have no projects yet. Press START A NEW PROJECT, drop in some music and press SAVE: it will be here next time.", 13, DimC, Rc(box.X + 28, box.Y + 176, box.Width - 56, 60)); return; }
+        if (n == 0) { TxtWrap(g, "You have no projects yet. Press START A NEW PROJECT, drop in some music and press SAVE: it will be here next time.", 13, DimC, Rc(box.X + 28, box.Y + 176, box.Width - 56 - side * grow, 60)); return; }
         cw = (box.Width - 56 - gap * 3) / 4f; float viewW = box.Width - 56, total = n * (cw + gap) - gap, maxS = Math.Max(0, total - viewW); welScroll = Math.Max(0, Math.Min(maxS, welScroll));
         var strip = Rc(box.X + 28, box.Y + 168, viewW, cw + 56); var gsw = g.Save(); g.SetClip(Rc(strip.X - 4, strip.Y - 4, strip.Width + 8, strip.Height + 8), CombineMode.Intersect);
         for (int i = 0; i < n; i++)

@@ -69,7 +69,7 @@ partial class StudioForm
         // title bar: plugin, its kind, its track; drag it to move the window
         var title = Rc(r.X, r.Y, r.Width, FwTitle); var tbr = Rc(r.X + 1, r.Y + 1, r.Width - 2, FwTitle);
         // the header: a deep galaxy band with the PURPHEX logo and the plugin's name under it, and what it is / which track on the right
-        using (var p = RR(tbr, 11)) { using (var tb = new LinearGradientBrush(tbr, Color.FromArgb(255, 14, 6, 34), Color.FromArgb(255, 34, 12, 70), 0f)) g.FillPath(tb, p); var gsH = g.Save(); g.SetClip(p, System.Drawing.Drawing2D.CombineMode.Intersect); PaintGalaxy(g, tbr, f.Type.GetHashCode(), front ? 1.2f : 0.8f); g.Restore(gsH); }
+        using (var p = RR(tbr, 11)) { using (var tb = new LinearGradientBrush(tbr, Color.FromArgb(255, 22, 9, 46), Color.FromArgb(255, 9, 4, 22), 90f)) g.FillPath(tb, p); var gsH = g.Save(); g.SetClip(p, System.Drawing.Drawing2D.CombineMode.Intersect); PaintGalaxy(g, tbr, f.Type.GetHashCode(), front ? 0.35f : 0.25f); g.Restore(gsH);   /* a deep dark purple header: the white name stands out on it */ }
         using (var pen = new Pen(Color.FromArgb(front ? 200 : 120, acc), 1.2f)) g.DrawLine(pen, r.X + 10, r.Y + FwTitle, r.Right - 10, r.Y + FwTitle);
         if (front && UiTokens.Shiny) PaintMaterial(g, Rc(r.X + 1, r.Y + 1, r.Width - 2, FwTitle), 11, acc, UiTokens.Finish, true);   // the accent's finish on the front window's header (its sheen moves unless motion is reduced)
         string trackName = w.Track == null ? "MASTER" : w.Track.Name; string cat = FxCategory(f);

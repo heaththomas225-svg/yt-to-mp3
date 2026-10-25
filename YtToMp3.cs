@@ -209,6 +209,7 @@ partial class App : Form
             Activated += (s2, e2) => ThreadPool.QueueUserWorkItem(_ => { try { CheckForUpdate(); } catch { } });   // coming back to the app checks for a new version right away
             BeginInvoke(new Action(() => { try { PluginHost.LoadEnabled(); } catch { } }));   // on the UI thread (VST plugins expect it), after the window is visible
             new Thread(UpdateLoop) { IsBackground = true }.Start();
+            if (!StudioEnv.UnderTest) BeginInvoke(new Action(() => { try { if (OpenStudio()) { studioForm.ShowWelcome(); studioForm.FormClosed += (s3, e3) => { if (!Visible) Application.Exit(); }; Hide(); } } catch { } }));   // Purphex opens straight into the DAW: the converter is its CONVERTER tab
         };
         FormClosing += (s, e) => { if (e.CloseReason == CloseReason.UserClosing && !ConfirmClose()) e.Cancel = true; };   // the X asks first (and offers to save the project)
         FormClosing += (s, e) => { if (e.Cancel) return; var others = new List<Form>(); foreach (Form of in Application.OpenForms) if (of != this) others.Add(of); foreach (var of2 in others) { try { of2.Close(); } catch { } } };   // closing the main window closes the others
@@ -1229,6 +1230,11 @@ partial class App : Form
         bg.Controls.Remove(card); card.Dispose(); card = null;
     }
 
+    // the converter inside the studio: its whole panel moves onto the studio's CONVERTER page, and back here when you leave that page
+    internal Rectangle ConverterBounds { get { return bg.Bounds; } }
+    internal bool ConverterInStudio { get { return bg.Parent != null && bg.Parent != this; } }
+    internal void EmbedConverter(Control host, Rectangle r) { if (bg.Parent != host) { bg.Dock = DockStyle.None; host.Controls.Add(bg); } if (bg.Bounds != r) bg.Bounds = r; if (!bg.Visible) bg.Visible = true; bg.BringToFront(); }
+    internal void ReleaseConverter() { if (bg.Parent == this) return; Controls.Add(bg); bg.Dock = DockStyle.Fill; }
     void CenterCard()
     {
         if (card != null)

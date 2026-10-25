@@ -607,10 +607,10 @@ partial class StudioForm : Form
         if (lookApplied && lookEdition != Edition.Version) { lookEdition = Edition.Version; ApplyProfileLook(); }   // a new edition: the profile theme is Fantasy only
         if (!lookApplied) { lookApplied = true; lookEdition = Edition.Version; ApplyProfileLook(); if (!StudioEnv.UnderTest) { var lt = new System.Windows.Forms.Timer { Interval = 1500 }; lt.Tick += (s0, e0) => { lt.Stop(); lt.Dispose(); if (!soundsLoaded) { soundsLoaded = true; LibLoader.Done = () => { try { BeginInvoke(new Action(() => { sndDirty = true; Invalidate(); })); } catch { } }; LibLoader.Start(); } }; lt.Start(); } }   // your profile colour and its finish become the accent
         FreePageGuard(); DrawBackdrop(g); Prof.Mark("backdrop");
-        if (tab == 0) PaintMix(g); else if (tab == 2) PaintLyrics(g); else if (tab == 3) PaintProjects(g); else if (tab == 4) PaintCommunity(g); else if (tab == 5) PaintVisualiser(g); else if (tab == 6) PaintProfile(g); else if (tab == 7) PaintArtists(g); else if (tab == 8) PaintFonts(g); else if (tab == 9) PaintHub(g); else if (tab == 10) PaintCreative(g); else PaintMastering(g);
+        SyncConverter(); if (tab == 11) PaintConverterPage(g); else if (tab == 0) PaintMix(g); else if (tab == 2) PaintLyrics(g); else if (tab == 3) PaintProjects(g); else if (tab == 4) PaintCommunity(g); else if (tab == 5) PaintVisualiser(g); else if (tab == 6) PaintProfile(g); else if (tab == 7) PaintArtists(g); else if (tab == 8) PaintFonts(g); else if (tab == 9) PaintHub(g); else if (tab == 10) PaintCreative(g); else PaintMastering(g);
         Prof.Mark("page " + tab);
         if (tab != 2) SyncLyricUi(false);
-        if (tab == 3 || tab == 4 || tab == 6 || tab == 7 || tab == 8 || tab == 9 || tab == 10) { PaintSlimBar(g); if (tab != 9 && tab != 10) PaintPreviewBar(g); } else if (tab == 5) PaintVisBar(g); else if (tab == 1) PaintMasterBars(g); else { PaintToolbar(g); Prof.Mark("toolbar"); PaintTransport(g); }   // the Community and My Projects pages have no music controls
+        if (tab == 3 || tab == 4 || tab == 6 || tab == 7 || tab == 8 || tab == 9 || tab == 10 || tab == 11) { PaintSlimBar(g); if (tab != 9 && tab != 10 && tab != 11) PaintPreviewBar(g); } else if (tab == 5) PaintVisBar(g); else if (tab == 1) PaintMasterBars(g); else { PaintToolbar(g); Prof.Mark("toolbar"); PaintTransport(g); }   // the Community and My Projects pages have no music controls
         Prof.Mark("bars");
         PaintFxWindows(g);   // the floating plugin windows: over the Mix page, under the pop-ups
         if (browserOpen && !allFxOpen) { if (TxtAudit != null) TxtAudit.Clear(); PaintBrowser(g); }   // (over ALL PLUGINS the list of effects is drawn on top of the sheet, in PaintSheets)
@@ -739,7 +739,7 @@ partial class StudioForm : Form
         // the row is laid out around PLAY: the recording tools on the left, the transport in the middle with PLAY at its centre (|< and STOP before it,
         // PAUSE and LOOP after it, then the time), the master meter and the page tabs on the right. On a narrow window the middle slides so nothing overlaps.
 
-        float recW = 44 + 6 + 44 + 6 + 92 + 6 + (mic != null ? 128 : 60) + 6 + 28 + (W >= 1320 ? 69 : 0), leftEnd = x + recW + 12, tabsX = W - 328;   // MIDI REC and MIC (with its mode) go just left of the time
+        float recW = 44 + 6 + 44 + 6 + 92 + 6 + (mic != null ? 128 : 60) + 6 + 28 + (W >= 1320 ? 69 : 0), leftEnd = x + recW + 12, tabsX = W - TabsW;   // MIDI REC and MIC (with its mode) go just left of the time
         const float wHome = 50, wStop = 70, wPlay = 96, wPause = 76, wLoop = 68, gap = 6, leftHalf = wHome + gap + wStop + gap, rightHalf = gap + wPause + gap + wLoop;
         float timeW = 210, cx = W / 2;   // PLAY in the middle of the window when it fits; the time sits just before |<
         cx = Math.Min(cx, tabsX - 12 - (wPlay / 2 + rightHalf)); cx = Math.Max(cx, leftEnd + 14 + 130 + 12 + leftHalf + wPlay / 2);
@@ -762,7 +762,7 @@ partial class StudioForm : Form
         Txt(g, Fmt(sec) + "  /  " + Fmt(tot), timeW >= 190 ? 19 : 15, Accent, tr, StringAlignment.Center, true); x = rx0 + wPause + gap + wLoop + 12;   // the master meter goes after LOOP
 
         // tabs on the right; master meters in whatever room is left between
-        float tx = W - 328;
+        float tx = W - TabsW;
         float mx = Math.Max(x + 16, W - PanelW - 300); bool showBack = false; float room = tx - 12 - mx - (showBack ? 106 : 0);   /* no HOME here: the MIX tab is beside it */ float bx0 = tx - 6;
         if (showBack) { bx0 -= 100; Btn(g, Rc(bx0, y, 100, h), "BACK", 0, () => GoBack(), 14); bx0 -= 6; }
         if (room >= 70)
@@ -774,6 +774,7 @@ partial class StudioForm : Form
         Btn(g, Rc(tx, y, 106, h), "MIX", tab == 0 ? 4 : 0, () => tab = 0, 14);
         Btn(g, Rc(tx + 112, y, 106, h), "MASTERING", tab == 1 ? 4 : 0, () => tab = 1, 13);
         Btn(g, Rc(tx + 224, y, 90, h), "LYRICS", tab == 2 ? 4 : 0, () => tab = 2, 13);
+        { var cvb = Rc(tx + 320, y, 112, h); Btn(g, cvb, "CONVERTER", tab == 11 ? 4 : 0, () => GoTab(11), 12); Hint2(cvb, "The MP3 / MP4 converter, here in the studio"); }
         if (tab == 0) PaintDawBar(g, y0 + 52, W);   // the editing tools only belong to the track view
     }
 
