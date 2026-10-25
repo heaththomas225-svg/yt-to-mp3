@@ -42,7 +42,7 @@ static class PresetShots
             { var comp = FxRegistry.Create("comp"); comp.Prepare(44100); eng.Tracks[0].Fx.Add(comp); Call("OpenPresetSheet", comp); Pump(100); Shot(tag + "-plugin-presets"); SetF("psOpen", false); eng.Tracks[0].Fx.Remove(comp); }
         }
         { Themes.Apply(0); Pump(100); var t0 = eng.Tracks[0]; var c1 = FxRegistry.Create("comp"); c1.Prepare(44100); var r1 = FxRegistry.Create("reverb"); r1.Prepare(44100); t0.Fx.Add(c1); t0.Fx.Add(r1);
-          SetF("tab", 0); Call("OpenFxWindow", t0, c1); Call("OpenFxWindow", t0, r1); Pump(200); Shot("plugin-windows"); }
+          SetF("tab", 0); Call("OpenFxWindow", t0, c1); Pump(200); Shot("plugin-window-comp"); Call("CloseFxWindow", c1); Call("OpenFxWindow", t0, r1); Pump(200); Shot("plugin-window-reverb"); Call("CloseFxWindow", r1); }
         // the Free Edition studio
         Edition.Override = Tier.Free; Themes.Apply(0); Pump(200);
         SetF("tab", 1); SetF("mpTab", 0); Pump(100); Shot("free-mastering"); SetF("mpTab", 1); Pump(100); Shot("free-mastering-presets"); SetF("mpTab", 0); SetF("tab", 0);

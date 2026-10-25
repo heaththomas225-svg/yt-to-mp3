@@ -110,7 +110,7 @@ static class IN
           Check("ALL PLUGINS shows one strip for every track and bus, side by side, and no master strip", names.Count == eng.Tracks.Count && !File.ReadAllText("Studio.Inspector.cs").Contains("PaintMasterStrip"), names.Count + " strips, " + eng.Tracks.Count + " tracks");
           sf.fxWins.Clear(); Paint(); int vi = eng.Tracks.Where(q => !q.IsBus).ToList().IndexOf(vox), ri2 = vox.Fx.IndexOf(rev); float sx = names.OrderBy(v => v).ElementAt(vi);
           Click(sx + 50, ny + 26 + ri2 * 27 + 12); Paint(); var rw = sf.FxWindowOf(rev);
-          Check("clicking a plugin slot on a strip opens that plugin in its own small window", rw != null && rw.Fx == rev && rw.R.Width <= 431, rw == null ? "no window" : rw.R.Width + " wide");
+          Check("clicking a plugin slot on a strip opens that plugin in its own window (room for its knobs round the display)", rw != null && rw.Fx == rev && rw.R.Width <= 621, rw == null ? "no window" : rw.R.Width + " wide");
           Click(sx + 8, ny + 26 + ri2 * 27 + 12); Paint(); bool byp = rev.Bypass; Click(sx + 8, ny + 26 + ri2 * 27 + 12); Paint();
           Check("the dot on a slot bypasses the plugin and turns it back on", byp && !rev.Bypass, "");
           Prefs.PanelHidden = false; SetF("panelAt", DateTime.MinValue); SetF("soundsOpen", false); Paint(); Paint(); float px2 = sf.ClientSize.Width - 380;

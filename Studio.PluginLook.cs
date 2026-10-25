@@ -13,7 +13,7 @@ using System.Linq;
 partial class StudioForm
 {
     static readonly Color[] KnobCols = { Color.FromArgb(255, 61, 217, 255), Color.FromArgb(255, 255, 92, 200), Color.FromArgb(255, 176, 92, 255), Color.FromArgb(255, 90, 140, 255), Color.FromArgb(255, 122, 240, 194) };
-    const float KnobCellW = 96, KnobCellH = 118, ChoiceRowH = 36;
+    const float KnobCellW = 96, KnobCellH = 118, ChoiceRowH = 36, VizBoxH = 150;
     float knobDragFrac, knobDragY;
 
     // how tall the knob grid of a plugin is in a window this wide
@@ -21,8 +21,10 @@ partial class StudioForm
     {
         var hid = f.Hidden.Length > 0 ? new HashSet<string>(f.Hidden.Split(',')) : new HashSet<string>(); int nums = 0, chs = 0;
         foreach (var p in f.P) { if (hid.Contains(p.Id)) continue; if (p.IsChoice) chs++; else nums++; }
-        int cols = Math.Max(1, (int)((width - 12) / KnobCellW)); int rows = (nums + cols - 1) / cols;
-        return rows * KnobCellH + chs * ChoiceRowH + 16;
+        int cols = Math.Max(1, (int)((width - 12) / KnobCellW)); float h;
+        if (cols >= 4) { int rest = Math.Max(0, nums - 4); h = 2 * KnobCellH + ((rest + cols - 1) / cols) * KnobCellH; }   // the display in the middle of the first two rows, a knob each side
+        else h = VizBoxH + 10 + ((nums + cols - 1) / cols) * KnobCellH;   // narrow: the display across the top
+        return h + chs * ChoiceRowH + 16;
     }
 
     // a knob: drag up / down to turn it (Shift = fine), double-click = default
@@ -34,11 +36,10 @@ partial class StudioForm
         using (var gl = new SolidBrush(Color.FromArgb(hot ? 50 : 26, col))) g.FillEllipse(gl, r.X - 6, r.Y - 6, r.Width + 12, r.Height + 12);
         using (var pen = new Pen(Color.FromArgb(60, 255, 255, 255), 3f)) g.DrawArc(pen, r.X - 3, r.Y - 3, d + 6, d + 6, 135, 270);
         using (var pen = new Pen(col, 3f) { StartCap = LineCap.Round, EndCap = LineCap.Round }) g.DrawArc(pen, r.X - 3, r.Y - 3, d + 6, d + 6, 135, Math.Max(1f, 270f * frac));
-        // the body: dark metal with a soft top light
-        using (var body = new LinearGradientBrush(r, Color.FromArgb(255, 58, 44, 92), Color.FromArgb(255, 10, 6, 22), 90f)) g.FillEllipse(body, r);
-        var inner = new RectangleF(r.X + d * 0.12f, r.Y + d * 0.12f, d * 0.76f, d * 0.76f);
-        using (var ib = new LinearGradientBrush(inner, Color.FromArgb(255, 34, 24, 60), Color.FromArgb(255, 16, 10, 32), 90f)) g.FillEllipse(ib, inner);
-        using (var pen = new Pen(Color.FromArgb(hot ? 220 : 140, col), 1.2f)) g.DrawEllipse(pen, r);
+        // the body: a glossy glass sphere lit from the top left, with a purple rim
+        using (var pth = new GraphicsPath()) { pth.AddEllipse(r); using (var pb = new PathGradientBrush(pth) { CenterPoint = new PointF(cx - d * 0.18f, cy - d * 0.22f), CenterColor = Color.FromArgb(255, 120, 80, 200), SurroundColors = new[] { Color.FromArgb(255, 12, 6, 28) } }) g.FillPath(pb, pth); }
+        using (var pen = new Pen(Color.FromArgb(hot ? 255 : 200, 176, 92, 255), 1.6f)) g.DrawEllipse(pen, r);
+        using (var hl = new GraphicsPath()) { var hr = new RectangleF(cx - d * 0.3f, cy - d * 0.42f, d * 0.45f, d * 0.26f); hl.AddEllipse(hr); using (var hb = new PathGradientBrush(hl) { CenterColor = Color.FromArgb(150, 255, 255, 255), SurroundColors = new[] { Color.FromArgb(0, 255, 255, 255) } }) g.FillPath(hb, hl); }   // the shine
         // the pointer
         double a = (135 + 270 * frac) * Math.PI / 180; float px = cx + (float)Math.Cos(a) * d * 0.36f, py = cy + (float)Math.Sin(a) * d * 0.36f;
         using (var pen = new Pen(Color.White, 2.4f) { StartCap = LineCap.Round, EndCap = LineCap.Round }) g.DrawLine(pen, cx + (float)Math.Cos(a) * d * 0.12f, cy + (float)Math.Sin(a) * d * 0.12f, px, py);
@@ -55,9 +56,15 @@ partial class StudioForm
     {
         var nums = new List<Param>(); var chs = new List<Param>(); foreach (var p in f.P) { if (skip.Contains(p.Id)) continue; if (p.IsChoice) chs.Add(p); else nums.Add(p); }
         int cols = Math.Max(1, (int)((a.Width - 12) / KnobCellW)); float cw = (a.Width - 12) / cols, y0 = a.Y + 6;
+        // where each knob goes: with room, the effect display sits in the middle of the first two rows (a knob each side of it), the rest follow below
+        var slots = new List<PointF>(); bool mid = cols >= 4; RectangleF vizBox;
+        if (mid) { vizBox = Rc(a.X + 6 + cw + 6, y0, cw * (cols - 2) - 12, 2 * KnobCellH - 6); slots.Add(new PointF(0, 0)); slots.Add(new PointF(cols - 1, 0)); slots.Add(new PointF(0, 1)); slots.Add(new PointF(cols - 1, 1)); for (int k = 4; k < nums.Count; k++) slots.Add(new PointF((k - 4) % cols, 2 + (k - 4) / cols)); }
+        else { vizBox = Rc(a.X + 6, y0, a.Width - 12, VizBoxH); y0 += VizBoxH + 10; for (int k = 0; k < nums.Count; k++) slots.Add(new PointF(k % cols, k / cols)); }
+        PaintVizBox(g, vizBox, f);
+        int lastRow = 0;
         for (int i = 0; i < nums.Count; i++)
         {
-            var p = nums[i]; var pp = p; int cx0 = i % cols, ry = i / cols; var cell = Rc(a.X + 6 + cx0 * cw, y0 + ry * KnobCellH, cw, KnobCellH - 6);
+            var p = nums[i]; var pp = p; int cx0 = (int)slots[i].X, ry = (int)slots[i].Y; lastRow = Math.Max(lastRow, ry); var cell = Rc(a.X + 6 + cx0 * cw, y0 + ry * KnobCellH, cw, KnobCellH - 6);
             using (var cb = new SolidBrush(Color.FromArgb(70, 12, 6, 28))) using (var cp = RR(Rc(cell.X + 3, cell.Y, cell.Width - 6, cell.Height), 10)) g.FillPath(cb, cp);
             string nm = Win.Up(p.Name); Txt(g, nm, 9, Color.FromArgb(255, 220, 210, 245), Rc(cell.X + 4, cell.Y + 3, cell.Width - 8, 14), StringAlignment.Center, true);
             Color col = KnobCols[i % KnobCols.Length];
@@ -66,7 +73,7 @@ partial class StudioForm
             ValueBox(g, Rc(cell.X + 8, cell.Y + 84, cell.Width - 16 - (paramTrack != null ? 24 : 0), 24), p.Text, Num(p.Val), s => { float v; if (ParseNum(s, out v)) f.Set(pp.Id, v); });
             if (paramTrack != null) { var lane0 = FindLane(paramTrack, f, p.Id); var atr = paramTrack; Btn(g, Rc(cell.Right - 30, cell.Y + 84, 22, 24), "A", lane0 != null && lane0.On ? 4 : 0, () => OpenAuto(atr, f, pp), 10); }
         }
-        float y = y0 + ((nums.Count + cols - 1) / cols) * KnobCellH;
+        float y = y0 + (mid ? Math.Max(2, lastRow + 1) : (nums.Count + cols - 1) / cols) * KnobCellH;
         foreach (var p in chs)
         {
             var pp = p; var row = Rc(a.X + 6, y, a.Width - 12, ChoiceRowH - 6); y += ChoiceRowH;
@@ -77,31 +84,94 @@ partial class StudioForm
         }
     }
 
+    // the live picture of what the plugin is doing, in a glass box (in the middle of the knobs)
+    void PaintVizBox(Graphics g, RectangleF b, Fx f)
+    {
+        using (var p = RR(b, 12)) { using (var br = new LinearGradientBrush(b, Color.FromArgb(255, 6, 2, 18), Color.FromArgb(255, 18, 6, 40), 90f)) g.FillPath(br, p); var gs = g.Save(); g.SetClip(p, CombineMode.Intersect); PaintGalaxy(g, b, f.Type.GetHashCode() ^ 0x77, 1.3f); PaintOrb(g, b); PaintFxViz(g, Rc(b.X + 8, b.Y + 8, b.Width - 16, b.Height - 16), f, false); g.Restore(gs); }
+        Glow(g, Color.FromArgb(255, 176, 92, 255), b, 12, 0.7f, 3); StrokeRR(g, Color.FromArgb(220, 176, 92, 255), b, 12, 1.4f);
+        if (!eng.Playing) Txt(g, "PRESS PLAY TO SEE WHAT " + f.Title.ToUpperInvariant() + " IS DOING", 9, DimC, Rc(b.X + 8, b.Bottom - 26, b.Width - 16, 18), StringAlignment.Center, true);
+    }
+
+    // a glowing planet with orbit rings and a little moon, in the middle of the display (it turns slowly while the song plays)
+    void PaintOrb(Graphics g, RectangleF b)
+    {
+        float R0 = Math.Min(b.Height * 0.3f, b.Width * 0.22f), cx = b.X + b.Width / 2, cy = b.Y + b.Height / 2 - 6; var oldSm = g.SmoothingMode; g.SmoothingMode = SmoothingMode.AntiAlias;
+        double t = eng.Playing ? Environment.TickCount / 1400.0 : 0.6; if (eng.Playing) lastInput = DateTime.Now;
+        Action<float, float, float, float, Color, int> glow = (gx, gy, rw, rh, c, al) => { using (var pth = new GraphicsPath()) { pth.AddEllipse(gx - rw, gy - rh, rw * 2, rh * 2); using (var pb = new PathGradientBrush(pth) { CenterColor = Color.FromArgb(Math.Min(255, al), c), SurroundColors = new[] { Color.FromArgb(0, c) } }) g.FillPath(pb, pth); } };
+        // the bloom: a big soft violet light round the planet
+        glow(cx, cy, R0 * 2.6f, R0 * 2.3f, Color.FromArgb(255, 150, 80, 255), 150); glow(cx, cy, R0 * 1.6f, R0 * 1.6f, Color.FromArgb(255, 190, 120, 255), 170);
+        // the rings: a soft glow under a bright line (back halves first)
+        Action<float, float, int, bool> ring = (rx, ry, al, front) => { int st = front ? 0 : 180; using (var pg = new Pen(Color.FromArgb(al / 3, 190, 140, 255), 6f)) g.DrawArc(pg, cx - rx, cy - ry, rx * 2, ry * 2, st, 180); using (var pen = new Pen(Color.FromArgb(al, 230, 205, 255), 1.6f)) g.DrawArc(pen, cx - rx, cy - ry, rx * 2, ry * 2, st, 180); };
+        ring(R0 * 1.75f, R0 * 0.42f, 150, false); ring(R0 * 2.25f, R0 * 0.56f, 100, false);
+        // the planet: a lit violet sphere with swirling bands and a bright rim
+        var pr = new RectangleF(cx - R0, cy - R0, R0 * 2, R0 * 2);
+        using (var pth = new GraphicsPath()) { pth.AddEllipse(pr); using (var pb = new PathGradientBrush(pth) { CenterPoint = new PointF(cx - R0 * 0.38f, cy - R0 * 0.42f), CenterColor = Color.FromArgb(255, 245, 220, 255), SurroundColors = new[] { Color.FromArgb(255, 70, 20, 160) } }) g.FillPath(pb, pth);
+          var gs = g.Save(); g.SetClip(pth, CombineMode.Intersect); for (int k = 0; k < 5; k++) { float yy = cy - R0 + (k + 0.5f) * R0 * 0.4f + (float)Math.Sin(t + k) * 3; using (var pen = new Pen(Color.FromArgb(60, 120, 60, 255), R0 * 0.12f)) g.DrawArc(pen, cx - R0 * 1.4f, yy - R0 * 0.3f, R0 * 2.8f, R0 * 0.6f, 0, 180); }
+          using (var rim = new Pen(Color.FromArgb(160, 210, 160, 255), R0 * 0.1f)) g.DrawArc(rim, pr.X + R0 * 0.05f, pr.Y + R0 * 0.05f, R0 * 1.9f, R0 * 1.9f, 20, 140); g.Restore(gs); }   // light catching the lower edge
+        using (var pen = new Pen(Color.FromArgb(240, 225, 195, 255), 1.6f)) g.DrawEllipse(pen, pr);
+        ring(R0 * 1.75f, R0 * 0.42f, 230, true); ring(R0 * 2.25f, R0 * 0.56f, 150, true);
+        // the flare: a white starburst on the top left of the planet, with long rays
+        float fx = cx - R0 * 0.42f, fy = cy - R0 * 0.48f; float pulse = eng.Playing ? 0.85f + 0.15f * (float)Math.Sin(t * 3) : 1f;
+        glow(fx, fy, R0 * 0.75f * pulse, R0 * 0.75f * pulse, Color.FromArgb(255, 230, 210, 255), 230); glow(fx, fy, R0 * 0.22f, R0 * 0.22f, Color.White, 255);
+        Action<float, float, float, int> ray = (ang, len, wid, al) => { float dx = (float)Math.Cos(ang), dy = (float)Math.Sin(ang); using (var pth = new GraphicsPath()) { pth.AddPolygon(new[] { new PointF(fx - dy * wid, fy + dx * wid), new PointF(fx + dx * len, fy + dy * len), new PointF(fx + dy * wid, fy - dx * wid), new PointF(fx - dx * len, fy - dy * len) }); using (var lb = new PathGradientBrush(pth) { CenterPoint = new PointF(fx, fy), CenterColor = Color.FromArgb(al, 255, 255, 255), SurroundColors = new[] { Color.FromArgb(0, 220, 200, 255) } }) g.FillPath(lb, pth); } };
+        ray(0, R0 * 1.9f * pulse, 2.2f, 230); ray((float)Math.PI / 2, R0 * 1.5f * pulse, 2.2f, 230); ray((float)Math.PI / 4, R0 * 0.8f, 1.4f, 170); ray(-(float)Math.PI / 4, R0 * 0.8f, 1.4f, 170);
+        // the moon, and sparkles on the rings
+        float mx = cx + (float)Math.Cos(t) * R0 * 2.25f, my = cy + (float)Math.Sin(t) * R0 * 0.56f; glow(mx, my, 9, 9, Color.FromArgb(255, 210, 230, 255), 200); using (var mb = new SolidBrush(Color.White)) g.FillEllipse(mb, mx - 2.5f, my - 2.5f, 5, 5);
+        for (int k = 0; k < 6; k++) { double a2 = t * 0.6 + k * 1.05; float sx = cx + (float)Math.Cos(a2) * R0 * 1.75f, sy = cy + (float)Math.Sin(a2) * R0 * 0.42f; if (Math.Sin(a2) < 0) continue; glow(sx, sy, 5, 5, Color.White, 220); }
+        g.SmoothingMode = oldSm;
+    }
+
     // a galaxy in a box: a deep sky, nebula light and stars (the same picture every time for the same window)
+    // a full galaxy: deep space, layered nebula clouds, a dusty band of stars, spiral galaxies and a sky of stars. It is drawn once per size
+    // into a picture and reused (so a window full of it costs nothing while you play).
+    static readonly Dictionary<string, Bitmap> galaxyCache = new Dictionary<string, Bitmap>();
     void PaintGalaxy(Graphics g, RectangleF r, int seed, float strength)
     {
-        var rnd = new Random(seed); var oldSm = g.SmoothingMode; g.SmoothingMode = SmoothingMode.AntiAlias;
-        Color[] neb = { Color.FromArgb(255, 120, 60, 255), Color.FromArgb(255, 210, 60, 230), Color.FromArgb(255, 60, 130, 255), Color.FromArgb(255, 150, 80, 255) };
-        for (int i = 0; i < 5; i++)
+        int w = Math.Max(1, (int)r.Width), h = Math.Max(1, (int)r.Height); string key = w + "x" + h + ":" + seed + ":" + strength.ToString("0.00");
+        Bitmap bmp; lock (galaxyCache) { if (!galaxyCache.TryGetValue(key, out bmp)) { if (galaxyCache.Count > 24) { foreach (var b0 in galaxyCache.Values) b0.Dispose(); galaxyCache.Clear(); } bmp = MakeGalaxy(w, h, seed, strength); galaxyCache[key] = bmp; } }
+        g.DrawImage(bmp, r.X, r.Y, w, h);
+    }
+    static Bitmap MakeGalaxy(int w, int h, int seed, float strength)
+    {
+        var bmp = new Bitmap(w, h, System.Drawing.Imaging.PixelFormat.Format32bppPArgb); var rnd = new Random(seed);
+        using (var g = Graphics.FromImage(bmp))
         {
-            float nx = r.X + (float)rnd.NextDouble() * r.Width, ny = r.Y + (float)rnd.NextDouble() * r.Height, nr = (float)(0.22 + rnd.NextDouble() * 0.3) * Math.Max(r.Width, r.Height); Color c = neb[i % neb.Length];
-            using (var pth = new GraphicsPath()) { pth.AddEllipse(nx - nr, ny - nr * 0.5f, nr * 2, nr); using (var pb = new PathGradientBrush(pth) { CenterColor = Color.FromArgb(Math.Min(255, (int)(105 * strength)), c), SurroundColors = new[] { Color.FromArgb(0, c) } }) g.FillPath(pb, pth); }
+            g.SmoothingMode = SmoothingMode.AntiAlias; var r = new RectangleF(0, 0, w, h); Func<int, int> A = v => Math.Max(0, Math.Min(255, (int)(v * strength)));
+            Color[] neb = { Color.FromArgb(255, 130, 60, 255), Color.FromArgb(255, 220, 60, 220), Color.FromArgb(255, 110, 80, 255), Color.FromArgb(255, 160, 110, 255), Color.FromArgb(255, 170, 70, 255) };
+            Action<float, float, float, float, Color, int> cloud = (cx, cy, rw, rh, c, al) => { using (var pth = new GraphicsPath()) { pth.AddEllipse(cx - rw, cy - rh, rw * 2, rh * 2); using (var pb = new PathGradientBrush(pth) { CenterColor = Color.FromArgb(A(al), c), SurroundColors = new[] { Color.FromArgb(0, c) } }) g.FillPath(pb, pth); } };
+            float big = Math.Max(w, h);
+            // nebula: big soft clouds, then smaller bright knots inside them
+            for (int i = 0; i < 9; i++) { float cx = (float)rnd.NextDouble() * w, cy = (float)rnd.NextDouble() * h, rw = big * (float)(0.15 + rnd.NextDouble() * 0.3); cloud(cx, cy, rw, rw * (float)(0.35 + rnd.NextDouble() * 0.4), neb[rnd.Next(neb.Length)], 120); }
+            for (int i = 0; i < 14; i++) { float cx = (float)rnd.NextDouble() * w, cy = (float)rnd.NextDouble() * h, rw = big * (float)(0.04 + rnd.NextDouble() * 0.09); cloud(cx, cy, rw, rw * 0.6f, neb[rnd.Next(neb.Length)], 150); }
+            // a dusty band of stars across it (a milky way)
+            { double ang = (rnd.NextDouble() - 0.5) * 0.9; float bx0 = 0, by0 = h * (float)(0.3 + rnd.NextDouble() * 0.4); int n = Math.Min(2500, w * h / 60); float band = h * 0.22f;
+              for (int i = 0; i < n; i++) { float t = (float)rnd.NextDouble() * (w + 40) - 20, off = (float)((rnd.NextDouble() + rnd.NextDouble() + rnd.NextDouble() - 1.5) / 1.5) * band; float x = bx0 + t, y = by0 + (float)Math.Tan(ang) * t + off; int al = A(60 + rnd.Next(120)); using (var sb = new SolidBrush(Color.FromArgb(al, 210, 200, 255))) g.FillRectangle(sb, x, y, 1.2f, 1.2f); }
+              using (var pth = new GraphicsPath()) { pth.AddEllipse(-w * 0.1f, by0 - band * 1.2f + (float)Math.Tan(ang) * w * 0.5f, w * 1.2f, band * 2.4f); using (var pb = new PathGradientBrush(pth) { CenterColor = Color.FromArgb(A(70), 150, 110, 255), SurroundColors = new[] { Color.FromArgb(0, 150, 110, 255) } }) g.FillPath(pb, pth); } }
+            // spiral galaxies (one, or two in a wide box)
+            int gals = w > 500 ? 2 : (w > 160 && h > 60 ? 1 : 0);
+            for (int gi = 0; gi < gals; gi++)
+            {
+                float gr = Math.Min(h * 0.42f, 90f) * (gi == 0 ? 1f : 0.7f), gx = gi == 0 ? w - gr * 1.3f : gr * 1.4f, gy = h * (gi == 0 ? 0.4f : 0.7f); double tilt = 0.35 + rnd.NextDouble() * 0.3, rot = rnd.NextDouble() * Math.PI;
+                cloud(gx, gy, gr * 1.3f, gr * 1.3f * (float)tilt * 1.4f, Color.FromArgb(255, 120, 80, 255), 110);
+                for (int arm = 0; arm < 3; arm++) for (int k = 0; k < 220; k++)
+                {
+                    double t = k / 220.0, ang = rot + arm * Math.PI * 2 / 3 + t * 4.6, rr = gr * (0.08 + t) + (rnd.NextDouble() - 0.5) * gr * 0.12; float x = gx + (float)(Math.Cos(ang) * rr), y = gy + (float)(Math.Sin(ang) * rr * tilt);
+                    Color c = t < 0.3 ? Color.FromArgb(255, 240, 230, 255) : (t < 0.65 ? Color.FromArgb(255, 160, 140, 255) : Color.FromArgb(255, 140, 110, 255)); float sz = (float)(1.0 + rnd.NextDouble() * 1.4);
+                    using (var sb = new SolidBrush(Color.FromArgb(A((int)(230 * (1.05 - t))), c))) g.FillEllipse(sb, x - sz / 2, y - sz / 2, sz, sz);
+                }
+                cloud(gx, gy, gr * 0.28f, gr * 0.28f * (float)tilt * 1.3f, Color.FromArgb(255, 255, 245, 255), 255); cloud(gx, gy, gr * 0.12f, gr * 0.1f, Color.White, 255);   // the bright core
+            }
+            // stars: lots of small ones, some coloured, a few bright with a twinkle
+            int stars = Math.Min(900, w * h / 300);
+            for (int i = 0; i < stars; i++)
+            {
+                float x = (float)rnd.NextDouble() * w, y = (float)rnd.NextDouble() * h; int kind = rnd.Next(40); float sz = kind == 0 ? 2.8f : (kind < 6 ? 1.8f : 1.1f);
+                Color c = kind % 7 == 1 ? Color.FromArgb(255, 160, 210, 255) : (kind % 7 == 2 ? Color.FromArgb(255, 255, 190, 240) : Color.FromArgb(255, 240, 238, 255));
+                using (var sb = new SolidBrush(Color.FromArgb(A(kind == 0 ? 255 : 120 + rnd.Next(110)), c))) g.FillEllipse(sb, x - sz / 2, y - sz / 2, sz, sz);
+                if (kind == 0) { cloud(x, y, 7, 7, Color.FromArgb(255, 200, 190, 255), 120); using (var pen = new Pen(Color.FromArgb(A(170), 225, 220, 255), 0.9f)) { g.DrawLine(pen, x - 7, y, x + 7, y); g.DrawLine(pen, x, y - 7, x, y + 7); } }
+            }
         }
-        // a small spiral galaxy in one corner (when there is room)
-        if (r.Width > 200 && r.Height > 80)
-        {
-            float gx = rnd.Next(2) == 0 ? r.Right - r.Height * 0.55f : r.X + r.Height * 0.55f, gy = r.Y + r.Height * 0.45f, gr = Math.Min(60f, r.Height * 0.4f);
-            using (var core = new GraphicsPath()) { core.AddEllipse(gx - gr * 0.35f, gy - gr * 0.2f, gr * 0.7f, gr * 0.4f); using (var pb = new PathGradientBrush(core) { CenterColor = Color.FromArgb(Math.Min(255, (int)(230 * strength)), 230, 220, 255), SurroundColors = new[] { Color.FromArgb(0, 120, 90, 255) } }) g.FillPath(pb, core); }
-            for (int arm = 0; arm < 2; arm++) for (int k = 0; k < 70; k++) { double t = k / 70.0 * 4.2, ang = t + arm * Math.PI; float rr = (float)(gr * 0.12 + gr * t / 4.2); float sx = gx + (float)Math.Cos(ang) * rr, sy = gy + (float)Math.Sin(ang) * rr * 0.45f; int al = (int)(Math.Min(255, 200 * strength) * (1 - t / 5)); using (var sb = new SolidBrush(Color.FromArgb(Math.Max(0, al), 170, 150, 255))) g.FillEllipse(sb, sx - 1.2f, sy - 1.2f, 2.4f, 2.4f); }
-        }
-        int stars = Math.Min(260, (int)(r.Width * r.Height / 900));
-        for (int i = 0; i < stars; i++)
-        {
-            float sx = r.X + (float)rnd.NextDouble() * r.Width, sy = r.Y + (float)rnd.NextDouble() * r.Height; bool big = rnd.Next(14) == 0; float sz = big ? 2.6f : 1.5f;
-            using (var sb = new SolidBrush(Color.FromArgb(Math.Min(255, (int)((big ? 240 : 170) * strength)), 235, 230, 255))) g.FillEllipse(sb, sx - sz / 2, sy - sz / 2, sz, sz);
-            if (big) using (var pen = new Pen(Color.FromArgb(Math.Min(255, (int)(110 * strength)), 220, 210, 255), 0.8f)) { g.DrawLine(pen, sx - 4, sy, sx + 4, sy); g.DrawLine(pen, sx, sy - 4, sx, sy + 4); }   // a little twinkle
-        }
-        g.SmoothingMode = oldSm;
+        return bmp;
     }
 
     // the PURPHEX logo with a plugin's name under it (like PURPHEX / ANALOG EQ)
