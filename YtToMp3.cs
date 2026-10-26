@@ -209,7 +209,7 @@ partial class App : Form
             Activated += (s2, e2) => ThreadPool.QueueUserWorkItem(_ => { try { CheckForUpdate(); } catch { } });   // coming back to the app checks for a new version right away
             BeginInvoke(new Action(() => { try { PluginHost.LoadEnabled(); } catch { } }));   // on the UI thread (VST plugins expect it), after the window is visible
             new Thread(UpdateLoop) { IsBackground = true }.Start();
-            if (!StudioEnv.UnderTest) BeginInvoke(new Action(() => { try { if (OpenStudio()) { studioForm.ShowWelcome(); studioForm.FormClosed += (s3, e3) => { if (!Visible) Application.Exit(); }; Hide(); } } catch { } }));   // Purphex opens straight into the DAW: the converter is its CONVERTER tab
+            if (!StudioEnv.UnderTest) BeginInvoke(new Action(() => { try { if (OpenStudio()) { studioForm.ShowWelcome(); studioForm.FormClosed += (s3, e3) => { if (!Visible) BeginInvoke(new Action(() => { try { if (!Visible && !IsDisposed) Close(); } catch { } })); };   /* closing the studio closes Purphex: after the studio has finished closing (Application.Exit inside its close threw "collection was modified") */ Hide(); } } catch { } }));   // Purphex opens straight into the DAW: the converter is its CONVERTER tab
         };
         FormClosing += (s, e) => { if (e.CloseReason == CloseReason.UserClosing && !ConfirmClose()) e.Cancel = true; };   // the X asks first (and offers to save the project)
         FormClosing += (s, e) => { if (e.Cancel) return; var others = new List<Form>(); foreach (Form of in Application.OpenForms) if (of != this) others.Add(of); foreach (var of2 in others) { try { of2.Close(); } catch { } } };   // closing the main window closes the others
