@@ -75,6 +75,7 @@ partial class StudioForm
             using (var pen = new Pen(Color.FromArgb(120, 255, 255, 255), 0.7f)) g.DrawPath(pen, pth);   // a fine light rim
         }
     }
+    static Color LightC(Color c, float f) { f = Math.Max(0, Math.Min(1, f)); return Color.FromArgb(c.A, (int)(c.R + (255 - c.R) * f), (int)(c.G + (255 - c.G) * f), (int)(c.B + (255 - c.B) * f)); }   // lighter towards white (works on every platform)
     static Color Light(Color c) { return Color.FromArgb(255, c.R + (255 - c.R) / 2, c.G + (255 - c.G) / 2, c.B + (255 - c.B) / 2); }
 
     // the big flare of a plugin window: a long beam of light from the planet out across the whole window, behind the knobs

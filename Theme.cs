@@ -45,12 +45,16 @@ static class Win
     public static bool GalaxyInTests;   // a picture-taking test turns it on
     public static void GalaxyBack(Form f)
     {
+#if PURPHEX_DESKTOP
+        return;   // (the macOS / Linux windows have no background pictures)
+#else
         if (StudioEnv.UnderTest && !GalaxyInTests) return; if (f is StudioForm || f is App || f is MasterForm) return;   // (those draw their own galaxy every frame)
         Action make = () => { try { int w = Math.Max(1, f.ClientSize.Width), h = Math.Max(1, f.ClientSize.Height); var old = f.BackgroundImage; var bmp = StudioForm.MakeGalaxy(w, h, w * 31 + h, 0.8f, new[] { TM.C(255, 150, 70, 255), TM.C(255, 220, 70, 230), TM.C(255, 110, 80, 255), TM.C(255, 180, 120, 255), TM.C(255, 120, 60, 230) }); using (var g = Graphics.FromImage(bmp)) using (var dim = new SolidBrush(Color.FromArgb(70, f.BackColor))) g.FillRectangle(dim, 0, 0, w, h); f.BackgroundImage = bmp; f.BackgroundImageLayout = ImageLayout.Stretch; if (old != null) old.Dispose(); } catch { } };
         var t = new Timer { Interval = 250 }; t.Tick += (s, e) => { t.Stop(); make(); };
         f.Shown += (s, e) => { make(); foreach (Control c in f.Controls) if ((c is Label || c is CheckBox || c is RadioButton) && c.BackColor == f.BackColor) c.BackColor = Color.Transparent; };
         f.ResizeEnd += (s, e) => { t.Stop(); t.Start(); }; f.SizeChanged += (s, e) => { if (f.Visible) { t.Stop(); t.Start(); } };
         f.FormClosed += (s, e) => { t.Dispose(); var b = f.BackgroundImage; f.BackgroundImage = null; if (b != null) b.Dispose(); };
+#endif
     }
     public static void Dark(Form f)
     {

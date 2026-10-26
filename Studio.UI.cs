@@ -667,7 +667,7 @@ partial class StudioForm : Form
                 {
                     using (var br = new LinearGradientBrush(full, Bg0, Bg1, 80f)) bg.FillRectangle(br, full);
                     // the studio's sky: a galaxy in the theme's own colours (nebula light, a dusty band of stars, spiral galaxies, stars), kept soft so everything on it reads
-                    using (var gal = MakeGalaxy(w, h, 0x50E, 0.55f, new[] { NeonViolet, Accent, NeonCyan, ControlPaint.Light(NeonViolet, 0.3f), Accent })) bg.DrawImageUnscaled(gal, 0, 0);
+                    using (var gal = MakeGalaxy(w, h, 0x50E, 0.55f, new[] { NeonViolet, Accent, NeonCyan, LightC(NeonViolet, 0.3f), Accent })) bg.DrawImageUnscaled(gal, 0, 0);
                 }
             }
             Win.ForceOpaque(backdrop);   // no pixel may be see-through
@@ -935,7 +935,7 @@ partial class StudioForm : Form
             float d = Math.Min(r.Height + 6, r.Width); var c = new RectangleF(r.X + (r.Width - d) / 2, r.Y + (r.Height - d) / 2, d, d);
             for (int k = 3; k >= 1; k--) using (var gb = new SolidBrush(Color.FromArgb((lit ? 34 : 22) + (hot ? 10 : 0), ca))) g.FillEllipse(gb, c.X - k * 2.5f, c.Y - k * 2.5f, c.Width + k * 5, c.Height + k * 5);   // the glow
             using (var pth = new GraphicsPath()) { pth.AddEllipse(c); var tex = ButtonGalaxy(); using (var tb = new TextureBrush(tex, WrapMode.TileFlipXY)) { tb.TranslateTransform(c.X - 60, c.Y - 30); g.FillPath(tb, pth); }   // a galaxy orb
-              using (var br = new LinearGradientBrush(c, Color.FromArgb(120, ControlPaint.Light(ca, 0.25f)), Color.FromArgb(150, cv), 90f)) g.FillPath(br, pth);
+              using (var br = new LinearGradientBrush(c, Color.FromArgb(120, LightC(ca, 0.25f)), Color.FromArgb(150, cv), 90f)) g.FillPath(br, pth);
               using (var hl = new GraphicsPath()) { hl.AddEllipse(c.X + d * 0.18f, c.Y + d * 0.08f, d * 0.5f, d * 0.3f); using (var hb = new PathGradientBrush(hl) { CenterColor = Color.FromArgb(150, 255, 255, 255), SurroundColors = new[] { Color.FromArgb(0, 255, 255, 255) } }) g.FillPath(hb, hl); } }
             using (var pen = new Pen(Color.FromArgb(lit || hot ? 255 : 190, Color.White), lit ? 2f : 1.4f)) g.DrawEllipse(pen, c);
             float tcx = c.X + c.Width / 2 + d * 0.05f, tcy = c.Y + c.Height / 2, ts = d * 0.22f;

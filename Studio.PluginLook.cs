@@ -154,10 +154,10 @@ partial class StudioForm
                 var p1 = new PointF(x0 + (float)(rnd.NextDouble() - 0.5) * len, y0 + (float)(rnd.NextDouble() - 0.5) * len * 0.8f); var p2 = new PointF(p3.X + (float)(rnd.NextDouble() - 0.5) * len, p3.Y + (float)(rnd.NextDouble() - 0.5) * len * 0.8f);
                 Color c = neb[rnd.Next(neb.Length)]; bool bright = rnd.Next(3) == 0;
                 foreach (var lay in new[] { new[] { 34f, 9f }, new[] { 20f, 18f }, new[] { 10f, 32f }, new[] { 4.5f, bright ? 60f : 42f }, new[] { 1.8f, bright ? 85f : 55f } })
-                    using (var pen = new Pen(Color.FromArgb(A((int)lay[1]), lay[0] < 2f ? System.Windows.Forms.ControlPaint.Light(c, 0.35f) : c), lay[0]) { StartCap = LineCap.Round, EndCap = LineCap.Round }) g.DrawBezier(pen, p0, p1, p2, p3);
+                    using (var pen = new Pen(Color.FromArgb(A((int)lay[1]), lay[0] < 2f ? LightC(c, 0.35f) : c), lay[0]) { StartCap = LineCap.Round, EndCap = LineCap.Round }) g.DrawBezier(pen, p0, p1, p2, p3);
             }
             // bright knots where the gas glows hardest
-            for (int i = 0; i < 10; i++) { float cx = (float)rnd.NextDouble() * w, cy = (float)rnd.NextDouble() * h, rw = big * (float)(0.02 + rnd.NextDouble() * 0.05); cloud(cx, cy, rw, rw * 0.6f, System.Windows.Forms.ControlPaint.Light(neb[rnd.Next(neb.Length)], 0.3f), 170); }
+            for (int i = 0; i < 10; i++) { float cx = (float)rnd.NextDouble() * w, cy = (float)rnd.NextDouble() * h, rw = big * (float)(0.02 + rnd.NextDouble() * 0.05); cloud(cx, cy, rw, rw * 0.6f, LightC(neb[rnd.Next(neb.Length)], 0.3f), 170); }
             // a dusty band of faint stars (a milky way)
             { double ang = (rnd.NextDouble() - 0.5) * 0.9; float by0 = h * (float)(0.3 + rnd.NextDouble() * 0.4); int n = Math.Min(3000, w * h / 50); float band = h * 0.2f;
               for (int i = 0; i < n; i++) { float t = (float)rnd.NextDouble() * (w + 40) - 20, off = (float)((rnd.NextDouble() + rnd.NextDouble() + rnd.NextDouble() - 1.5) / 1.5) * band; float x = t, y = by0 + (float)Math.Tan(ang) * t + off; using (var sb = new SolidBrush(Color.FromArgb(A(40 + rnd.Next(110)), 215, 205, 255))) g.FillRectangle(sb, x, y, 1.1f, 1.1f); } }
