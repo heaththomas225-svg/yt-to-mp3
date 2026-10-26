@@ -7,10 +7,29 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.76.0";
+    public const string Latest = "3.77.0";
 
     public const string Text =
-@"3.76.0  The Free Edition gets a studio, new prices, preset knobs, Space plays from anywhere in the mix, dragged patterns become audio clips
+@"3.77.0  The galaxy look, the converter inside the studio, 3D sound stage, audio time machine, instrument autopsy, live profiler, arrangement intelligence and history across sessions
+ + NEW: The galaxy look: the studio sits on a deep galaxy in your theme's colours, every button has a galaxy face with a glow, a light beam and a star glint behind it, and plugin names are written in galaxy writing.
+ + NEW: Plugin windows are redesigned: a dark purple PURPHEX header, a full galaxy background, a glossy knob for every setting (drag it, Shift for fine moves, double-click to reset, or type a value) and the effect's display in a box in the middle of the knobs, with a shining planet.
+ + NEW: Waveforms on clips are drawn as galaxy light in your theme's colours. The transport has icon buttons and a round galaxy PLAY button.
+ + NEW: The mixer's faders and sliders are neon glass with glowing caps, and the level meters are rainbow LEDs.
+ + NEW: The converter is inside the studio: the CONVERTER button at the top (next to LYRICS) opens it, and the welcome box shows it beside your projects. Purphex opens straight into the studio; closing the studio closes Purphex.
+ + NEW: 3D sound stage (Tools > 3D sound stage): place tracks round your head and drag them to move them; the mouse wheel raises or lowers them. Each placed track plays through the new 3D Sound Stage plugin (binaural, for headphones), so its place can be automated.
+ + NEW: Audio time machine (Tools > Audio time machine): every time a track's audio is replaced (reversed, Flex, or any edit that makes new audio) the old version is kept. Scrub through the stages, from the original audio to each plugin in turn, hear 8 seconds of any stage and RESTORE older audio (the audio you had is kept too).
+ + NEW: Instrument autopsy (Tools > Instrument autopsy): takes a sound apart into its transient, tonal body, resonant tail, modulation and microstructure (with how often it repeats). Hear each part on its own or USE IT as a new track. The parts stay linked to the source: change it or the settings and they are made again. It is a spectral guess, not a perfect separation.
+ + NEW: Live profiler (Tools > Live profiler): how much processor every plugin and track uses, live, with FREEZE to play a heavy track as audio (UNFREEZE brings it back).
+ + NEW: Arrangement intelligence (Tools > Arrangement intelligence): finds the sections of your song and names them, with notes on energy and length.
+ + NEW: History across sessions (Tools > History): your project's past states are kept on disk, so you can go back after closing Purphex, restore all of it or a single track. The studio autosaves every 2 minutes and offers your work back if Purphex did not close properly. Tools > Session recovery test checks that recovery works.
+ + NEW: The tool windows (3D stage, profiler, arrangement, history, time machine, autopsy) are their own windows over the studio: drag them, resize them from the corner, or press FULLSCREEN.
+ + NEW: Every window and dialog has the galaxy background.
+ + FIXED: Closing the studio no longer shows an error.
+ + FIXED: On the welcome box, with five or more projects the row of projects ran under the converter card.
+ + FIXED: Pointing at the transport buttons and the CONVERTER button shows their hint in the hint strip again.
+ + FIXED: A selected button shows your profile colour clearly over its galaxy face, and your METALLIC, CHROME or HOLO finish is drawn on it.
+
+3.76.0  The Free Edition gets a studio, new prices, preset knobs, Space plays from anywhere in the mix, dragged patterns become audio clips
  + NEW: The Free Edition opens the studio: a limited Purphex Music for everyone. It has tracks and the mixer, every effect, the piano roll, sound packs, lyrics, your profile, the Music Hub, the Mastering page with two master presets (Gentle and Clean & Transparent) and export of the mix, the master or the stems as WAV (up to 32-bit) or MP3 320 kbps at 44.1 kHz.
  + CHANGED: On the Free Edition these show a padlock (Supporter Edition and up): VSTS, vocal presets, bus presets, community presets, the AI generators, Auto Mix, Flex Pitch, Auto EQ, Auto Loudness, AUTO MASTERING, the other master presets, the visualiser, themes and fonts, FLAC and MP4 export and rates above 44.1 kHz. The Video and Photo Editors are not in the side panel on the Free Edition, and Help shows only the guides for what the Free Edition has.
  + CHANGED: New prices: the Supporter Edition is £7.99 a month or £69.99 a year, and the Fantasy Edition is £399.99 once, for life.

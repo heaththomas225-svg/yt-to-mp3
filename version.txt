@@ -1,4 +1,4 @@
-3.76.0
+3.77.0
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-The Free Edition gets a studio, new prices, preset knobs and more
-sha256=28132fd2b3dd5e671efbcc1080bd544a8b14e9deaa1d313aae1c1e1529c3ccd6
+The galaxy look, the converter in the studio, 3D sound stage, time machine, instrument autopsy and more
+sha256=47a07097fe358655103459a79ec2b943d78bf1469b4fc3f80cc3d651c87a3e35
