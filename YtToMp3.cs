@@ -1285,15 +1285,26 @@ partial class App : Form
         updating = true; SetBusy(true); Log("Downloading update..."); if (!Visible && studioForm != null && !studioForm.IsDisposed && studioForm.Visible) studioForm.Toast("Downloading the update... Purphex restarts by itself when it is ready.");
         new Thread(() =>
         {
-            string exe = Application.ExecutablePath, tmp = exe + ".new", old = exe + ".old";
+            string exe = Application.ExecutablePath, tmp = Path.Combine(Path.GetTempPath(), "purphex-update-" + Guid.NewGuid().ToString("N").Substring(0, 8) + ".exe"), old = exe + ".old";   // downloaded to the temp folder first: Purphex's own folder may not be writable
             try
             {
                 Download(downloadUrl, tmp, "Downloading update...");
                 if (new FileInfo(tmp).Length < 10000) throw new Exception("Downloaded file looks invalid.");
                 if (expectSha.Length > 0 && Sha256Of(tmp) != expectSha) { try { File.Delete(tmp); } catch { } throw new Exception("The downloaded update does not match the checksum the release publishes, so it was thrown away and not installed."); }
-                try { File.Delete(old); } catch { }
-                File.Move(exe, old);          // a running exe can be renamed, not overwritten
-                File.Move(tmp, exe);
+                try
+                {
+                    try { File.Delete(old); } catch { }
+                    File.Move(exe, old);          // a running exe can be renamed, not overwritten
+                    File.Copy(tmp, exe); try { File.Delete(tmp); } catch { }
+                }
+                catch (Exception swapEx)
+                {   if (!(swapEx is UnauthorizedAccessException || swapEx is IOException)) throw;   // Purphex's folder is protected (Program Files, a locked drive...): the new version goes to Downloads and opens from there
+                    try { if (File.Exists(old) && !File.Exists(exe)) File.Move(old, exe); } catch { }
+                    string dest = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads", "Purphex Music.exe"); Directory.CreateDirectory(Path.GetDirectoryName(dest)); File.Copy(tmp, dest, true); try { File.Delete(tmp); } catch { }
+                    SaveSettings();
+                    try { Invoke(new Action(() => MessageBox.Show("Purphex could not replace itself in\n" + Path.GetDirectoryName(exe) + "\n(" + swapEx.Message + ")\n\nThe new version is in your Downloads folder (Purphex Music.exe) and opens now. Use that one from now on, or move it where you keep Purphex.", "Purphex update", MessageBoxButtons.OK, MessageBoxIcon.Information))); } catch { }
+                    Process.Start(dest); Environment.Exit(0); return;
+                }
                 try { string named = Path.Combine(Path.GetDirectoryName(exe), "Purphex Music.exe"); if (!string.Equals(exe, named, StringComparison.OrdinalIgnoreCase)) File.Copy(exe, named, true); } catch { }   // the program is now called Purphex Music: older copies get a file with the new name next to them
                 SaveSettings();
                 Process.Start(exe);
