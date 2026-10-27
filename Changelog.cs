@@ -7,10 +7,14 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.77.3";
+    public const string Latest = "3.77.4";
 
     public const string Text =
-@"3.77.3  Bass Lab modulation like the big synths, galaxy everywhere, plugins in the mixer, update button on the welcome box
+@"3.77.4  A failed update says why instead of asking again and again
+ + FIXED: If an update could not be installed, Purphex offered it again every few seconds without saying anything. Now the studio says why it failed and where to download it, and does not offer it again until you restart Purphex.
+ + NEW: While an update downloads, the studio says so (Purphex restarts by itself when it is ready).
+
+3.77.3  Bass Lab modulation like the big synths, galaxy everywhere, plugins in the mixer, update button on the welcome box
  + NEW: Bass Lab modulation works like the big synths: every LFO, envelope and macro has a glowing circle you drag. While you drag, every knob it can move lights up, and you can drop it on a filter's curve (its cutoff) or an oscillator's wave (its wave position) too. Drag the coloured ring round a knob to set how much (no Ctrl needed).
  + NEW: Shaping an LFO is smoother: bends are firmer and never spike (Shift for fine bends), and the shape is a soft filled curve with a glowing line and ring points.
  + NEW: Bass Lab sounds: EXPORT and IMPORT buttons for .bsound files, and DRAG TO SONG: drag the circle onto the studio and the sound you are playing goes on the song as an audio clip.

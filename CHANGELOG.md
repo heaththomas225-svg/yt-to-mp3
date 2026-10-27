@@ -2,6 +2,12 @@
 
 What changed in each version of **Purphex**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.77.4  A failed update says why instead of asking again and again
+
+- FIXED: If an update could not be installed, Purphex offered it again every few seconds without saying anything. Now the studio says why it failed and where to download it, and does not offer it again until you restart Purphex.
+
+- NEW: While an update downloads, the studio says so (Purphex restarts by itself when it is ready).
+
 ## 3.77.3  Bass Lab modulation like the big synths, galaxy everywhere, plugins in the mixer, update button on the welcome box
 
 - NEW: Bass Lab modulation works like the big synths: every LFO, envelope and macro has a glowing circle you drag. While you drag, every knob it can move lights up, and you can drop it on a filter's curve (its cutoff) or an oscillator's wave (its wave position) too. Drag the coloured ring round a knob to set how much (no Ctrl needed).

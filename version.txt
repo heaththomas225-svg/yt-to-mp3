@@ -1,4 +1,4 @@
-3.77.3
+3.77.4
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Bass Lab modulation like the big synths, galaxy everywhere, plugins in the mixer, update button on the welcome box
-sha256=608bff9cd2c098a8674835c734a7e33171749795e30396102b6b21a6bef83546
+A failed update says why instead of asking again and again
+sha256=f3047b249718b28c00839e85fd0cabd3c3c175cf718124876378b3b0cf31a834
