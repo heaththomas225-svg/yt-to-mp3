@@ -7,10 +7,17 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.77.1";
+    public const string Latest = "3.77.2";
 
     public const string Text =
-@"3.77.1  Smooth with many windows open, knobs in the EQ window, galaxy on VSTs, Bass Lab and the converter
+@"3.77.2  Updates show up in the studio, one question when closing, no converter flash, the studio reopens where it was
+ + FIXED: Updates show again. Since 3.77.0 Purphex opens straight into the studio, and the update card was in the hidden converter window, so you only saw it on the CONVERTER page. Now an UPDATE AVAILABLE box appears over the studio, on any page, with UPDATE NOW and LATER.
+ + FIXED: Purphex looks for an update the moment it opens, and an update it finds before the studio has finished opening is shown as soon as the studio is up.
+ + FIXED: Closing the studio asks once. A second question (are you sure you want to close Purphex?) came up after you had answered the studio's own question.
+ + FIXED: The old converter window no longer flashes up for a moment when Purphex opens.
+ + NEW: The studio opens where you left it: the same screen (your second monitor too), place and size, maximised or not. If that screen is not connected any more it opens on the main screen.
+
+3.77.1  Smooth with many windows open, knobs in the EQ window, galaxy on VSTs, Bass Lab and the converter
  + FIXED: The studio stays smooth with several plugin and tool windows open: a window you are not using is drawn once and reused until it changes (it still moves while the song plays), and windows of a similar size share one galaxy. With six plugin windows open a frame takes about a quarter of the time it did.
  + NEW: The Parametric EQ window has knobs like every plugin window: FREQ, GAIN and Q for the band you picked, and the high-pass and low-pass frequencies, with the band's shape and the filter switches in a row above them.
  + NEW: VST windows have the plugin windows' look: the deep purple PURPHEX header with the plugin's name in galaxy writing, a galaxy frame with a neon edge round the plugin's own window, a galaxy strip along the bottom, and a galaxy keyboard (pressed keys glow) on instruments.
