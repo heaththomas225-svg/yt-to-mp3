@@ -7,10 +7,18 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.77.0";
+    public const string Latest = "3.77.1";
 
     public const string Text =
-@"3.77.0  The galaxy look, the converter inside the studio, 3D sound stage, audio time machine, instrument autopsy, live profiler, arrangement intelligence and history across sessions
+@"3.77.1  Smooth with many windows open, knobs in the EQ window, galaxy on VSTs, Bass Lab and the converter
+ + FIXED: The studio stays smooth with several plugin and tool windows open: a window you are not using is drawn once and reused until it changes (it still moves while the song plays), and windows of a similar size share one galaxy. With six plugin windows open a frame takes about a quarter of the time it did.
+ + NEW: The Parametric EQ window has knobs like every plugin window: FREQ, GAIN and Q for the band you picked, and the high-pass and low-pass frequencies, with the band's shape and the filter switches in a row above them.
+ + NEW: VST windows have the plugin windows' look: the deep purple PURPHEX header with the plugin's name in galaxy writing, a galaxy frame with a neon edge round the plugin's own window, a galaxy strip along the bottom, and a galaxy keyboard (pressed keys glow) on instruments.
+ + NEW: The Purphex VSTs, GlitchFlow and Bass Lab are on the galaxy (Bass Lab's panels are see-through so it shows behind them), and so is the converter page.
+ + FIXED: The white lines on loud parts of the waveforms are gone.
+ + FIXED: On the welcome box, ALL MY PROJECTS no longer runs under the converter card.
+
+3.77.0  The galaxy look, the converter inside the studio, 3D sound stage, audio time machine, instrument autopsy, live profiler, arrangement intelligence and history across sessions
  + NEW: The galaxy look: the studio sits on a deep galaxy in your theme's colours, every button has a galaxy face with a glow, a light beam and a star glint behind it, and plugin names are written in galaxy writing.
  + NEW: Plugin windows are redesigned: a dark purple PURPHEX header, a full galaxy background, a glossy knob for every setting (drag it, Shift for fine moves, double-click to reset, or type a value) and the effect's display in a box in the middle of the knobs, with a shining planet.
  + NEW: Waveforms on clips are drawn as galaxy light in your theme's colours. The transport has icon buttons and a round galaxy PLAY button.

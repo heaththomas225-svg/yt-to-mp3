@@ -1,4 +1,4 @@
-3.77.0
+3.77.1
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-The galaxy look, the converter in the studio, 3D sound stage, time machine, instrument autopsy and more
-sha256=47a07097fe358655103459a79ec2b943d78bf1469b4fc3f80cc3d651c87a3e35
+Smooth with many windows, knobs in the EQ, galaxy on VSTs, Bass Lab and the converter
+sha256=20014ddd15081681eee5d84aea061c520034ae11feefd2de09499431d857d2c3
