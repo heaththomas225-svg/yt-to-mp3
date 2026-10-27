@@ -24,6 +24,12 @@ partial class StudioForm
     string updVer = "", updHave = ""; List<string> updNotes; Action updYes, updNo;
     string bannerVer; Action bannerYes;   // the update stays on the welcome box (where your projects are) until it is installed, even after LATER
     internal void ShowUpdateBox(string ver, string have, List<string> notes, Action yes, Action later) { updVer = ver; updHave = have; updNotes = notes ?? new List<string>(); updYes = yes; updNo = later; bannerVer = ver; bannerYes = yes; Invalidate(); }
+    // the update could not be installed: say why and where to get it (it is not offered again until Purphex restarts)
+    internal void UpdateFailed(string ver, string why)
+    {
+        bannerYes = null; updYes = null; updNo = null;
+        Toast("Purphex " + ver + " could not be installed: " + why + "  Download it from purphexmusic.com and replace your Purphex file.");
+    }
     // the welcome box's update button (top right, next to the X)
     void PaintWelcomeUpdate(Graphics g, RectangleF box)
     {

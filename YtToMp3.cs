@@ -1282,7 +1282,7 @@ partial class App : Form
     {
         if (!downloadUrl.StartsWith("https://github.com/heaththomas225-svg/yt-to-mp3/", StringComparison.OrdinalIgnoreCase)) { Log("Update refused: the download address is not this project's release page."); return; }
         string expectSha = updateSha;
-        updating = true; SetBusy(true); Log("Downloading update...");
+        updating = true; SetBusy(true); Log("Downloading update..."); if (!Visible && studioForm != null && !studioForm.IsDisposed && studioForm.Visible) studioForm.Toast("Downloading the update... Purphex restarts by itself when it is ready.");
         new Thread(() =>
         {
             string exe = Application.ExecutablePath, tmp = exe + ".new", old = exe + ".old";
@@ -1305,6 +1305,8 @@ partial class App : Form
                 Log("Update failed: " + ex.Message);
                 updating = false;
                 SetBusy(false);
+                string failVer = updPendVer ?? "", why = ex.Message;   // say so in the studio (this window may be hidden) and stop offering it again and again until Purphex restarts
+                try { BeginInvoke(new Action(() => { dismissedVer = failVer; if (studioForm != null && !studioForm.IsDisposed && studioForm.Visible) studioForm.UpdateFailed(failVer, why); })); } catch { }
             }
         }) { IsBackground = true }.Start();
     }
