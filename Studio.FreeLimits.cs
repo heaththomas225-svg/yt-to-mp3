@@ -4,10 +4,10 @@ using System.Windows.Forms;
 
 // =====================================================================================================
 //  THE FREE EDITION STUDIO: the Free Edition opens the studio too, a limited version of it.
-//  Free: tracks and the mixer, every effect, the piano roll, sound packs, lyrics, the profile, the Music Hub, the Mastering page with two
+//  Free: tracks and the mixer, every effect, the piano roll, Bass Lab (it comes with the studio), sound packs, lyrics, the profile, the Music Hub, the Mastering page with two
 //  master presets (Gentle and Clean & Transparent), and export of every kind (mix + master down to stems) as WAV (up to 32-bit) or
 //  MP3 320 kbps at 44.1 kHz.
-//  Paid only (Supporter Edition and up): themes and fonts, VSTS (Purphex VSTs and your own), vocal presets, bus presets and community
+//  Paid only (Supporter Edition and up): themes and fonts, the other VSTs (Purphex VSTs and your own: padlocked in VSTS), the producer tag generator, vocal presets, bus presets and community
 //  presets, the AI generators, Auto Mix, Flex Pitch, Auto EQ, Auto Loudness, AUTO MASTERING, the other master presets, the visualiser,
 //  FLAC and MP4 export and rates above 44.1 kHz, and the Video and Photo Editors (hidden from the side panel on the Free Edition).
 //  Help shows only the guides for what the Free Edition has (Edition.FreeHelp).

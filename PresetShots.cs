@@ -56,10 +56,14 @@ static class PresetShots
           var mres = typeof(StudioForm).GetMethod("MeasureArrangement", BF).Invoke(sf, new object[] { (long)(44100 * 30), (Action<float>)(x => { }) }); SetF("arr", mres); Call("OpenToolWin", 14); Pump(300); Shot("arrangement"); SetF("selTrack", 0); Pump(100); { var t0 = eng.Tracks[0]; var c = t0.Clip; var rl = (float[])c.L.Clone(); var rr = (float[])(c.R ?? c.L).Clone(); Array.Reverse(rl); Array.Reverse(rr); t0.Clip = AudioClip.FromArrays(rl, rr, c.Name + " (reversed)"); Pump(200); t0.Clip = AudioClip.FromArrays((float[])c.L.Clone(), (float[])(c.R ?? c.L).Clone(), c.Name); Pump(200); }
           Call("OpenToolWin", 16); Pump(300); Shot("timemachine"); Call("OpenToolWin", 17); for (int i = 0; i < 80; i++) { Pump(250); sf.Invalidate(); } Shot("autopsy"); typeof(StudioForm).GetField("toolWins", BF).FieldType.GetMethod("Clear").Invoke(typeof(StudioForm).GetField("toolWins", BF).GetValue(sf), null); }
         { Themes.Apply(0); sf.OpenInspector(1); Pump(300); Shot("mixer"); Call("CloseInspector"); Pump(100); }
+        { Themes.Apply(0); Call("OpenToolWin", 18); string terr; var dry = TagMaker.Speak("Produced by Purphex", 0, 0, out terr); var ts = (TagSettings)typeof(StudioForm).GetField("tagSet", BF).GetValue(sf); ts.Fx[0] = true; ts.Fx[1] = true; ts.Character = 1;
+          if (dry != null) { typeof(StudioForm).GetField("tagOut", BF).SetValue(sf, TagMaker.Process(dry, ts)); typeof(StudioForm).GetField("tagOutSig", BF).SetValue(sf, ts.Sig()); }
+          Pump(300); Shot("producer-tag"); var tw = (System.Collections.IList)typeof(StudioForm).GetField("toolWins", BF).GetValue(sf); tw.Clear(); Pump(100); }
         // the Free Edition studio
         Edition.Override = Tier.Free; Themes.Apply(0); Pump(200);
         SetF("tab", 1); SetF("mpTab", 0); Pump(100); Shot("free-mastering"); SetF("mpTab", 1); Pump(100); Shot("free-mastering-presets"); SetF("mpTab", 0); SetF("tab", 0);
         SetF("menuOpen", true); Pump(100); Shot("free-menu"); SetF("menuOpen", false);
+        { Call("OpenVsts"); Pump(300); Shot("free-vsts"); SetF("browserOpen", false); Pump(100); }
         StudioDialogs.ExportOptions(sf, "My song", 60, new[] { "Lead vocal", "Beat" }, r => { }, fm => { Pump(300); var b = new Bitmap(fm.Width, fm.Height); fm.DrawToBitmap(b, new Rectangle(0, 0, fm.Width, fm.Height)); b.Save(Path.Combine(outDir, "free-export.png"), ImageFormat.Png); Console.WriteLine("saved free-export"); fm.Close(); });
         Pump(500);
         Environment.Exit(0);
