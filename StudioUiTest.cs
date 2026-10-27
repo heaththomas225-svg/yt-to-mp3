@@ -86,8 +86,10 @@ static class S
         }
         {   // automation editor: A next to a setting opens a curve; click adds a point, drag moves it, right-click deletes it
             var tr0 = eng.Tracks[0]; var gfx = new GainFx(); gfx.Prepare(44100); tr0.Fx.Add(gfx); SetF("selTrack", 0); SetF("selFx", 0); int undo0 = ((IList)F<object>("undo")).Count; SetF("revertAction", null); Prefs.PanelHidden = false; /* (the right panel holds the plugin editor) */   /* the REVERT box of the step before sits at the bottom left, on top of the lowest A button: this test is about the A button */
-            Paint(); float pxL = sf.ClientSize.Width - 400; var abtn = Regs().FindAll(r => r.R.X > pxL && Math.Abs(r.R.Width - 22) < 0.5f && r.R.Height > 20 && r.R.Height < 24 && r.OnDown != null); Check("the plugin editor shows an A (automate) button next to a setting", abtn.Count >= 1, abtn.Count + " buttons");
+            typeof(StudioForm).GetMethod("OpenFxWindow", BF).Invoke(sf, new object[] { tr0, gfx }); /* plugins are edited in their own window (the right panel points to the mixer) */
+            Paint(); var abtn = Regs().FindAll(r => Math.Abs(r.R.Width - 22) < 0.5f && r.R.Height > 20 && r.R.Height <= 24.5f && r.OnDown != null); Check("the plugin editor shows an A (automate) button next to a setting", abtn.Count >= 1, abtn.Count + " buttons");
             if (abtn.Count > 0) { var ab = abtn[abtn.Count - 1]; int ax = (int)(ab.R.X + 11), ay = (int)(ab.R.Y + ab.R.Height / 2); Ev("OnMouseMove", MouseButtons.None, 0, ax, ay); Ev("OnMouseDown", MouseButtons.Left, 1, ax, ay); Ev("OnMouseUp", MouseButtons.Left, 1, ax, ay); Paint(); }
+            typeof(StudioForm).GetMethod("CloseFxWindow", BF).Invoke(sf, new object[] { gfx }); Ev("OnMouseMove", MouseButtons.None, 0, 5, 5); Paint();
             Check("pressing A opens the automation editor and starts a lane for that setting", F<bool>("autoOpen") && tr0.Auto.Count == 1 && tr0.Auto[0].Pts.Count == 2, tr0.Auto.Count + " lanes");
             var rgs = Regs(); int bi = rgs.FindLastIndex(r => r.R.Width >= 1499 && r.R.Height >= 799); var plot = rgs.GetRange(Math.Max(0, bi), rgs.Count - Math.Max(0, bi)).Find(r => r.OnRight != null && r.OnDrag != null && r.OnUp != null && r.R.Width > 500);
             Check("the editor has a curve area", plot != null, "");

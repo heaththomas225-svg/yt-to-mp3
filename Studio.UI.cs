@@ -1215,7 +1215,7 @@ partial class StudioForm : Form
           { var vb = nextRow(); Btn(g, vb, "VSTS", browserOpen && browserVst ? 4 : 2, () => OpenVsts(), 11); Hint2(vb, "Bass Lab, your VST instruments and the Purphex VSTs: choose the track (FOR) and add one"); }
           var snb = nextRow(); Btn(g, snb, "SOUND PACKS", soundsOpen ? 4 : 0, () => { if (soundsOpen) CloseSounds(); else OpenPacks(); }, 11);
           hb = by + bi * 30 + 4; }
-        if (InsShown || PluginsInMixerOnly)
+        if (InsShown || (PluginsInMixerOnly && busEdit == null))   // (EDIT on a bus still shows that bus here)
         {   // plugins live in the mixer only (one place for effects): the panel points there, open or not; a click on a plugin there opens its own window
             var nb = Rc(x + 6, hb + 4, w - 12, 118); FillRR(g, TM.C(70, 12, 6, 28), nb, 10); Glow(g, NeonPink, nb, 10, 0.35f, 3); StrokeRR(g, Color.FromArgb(190, NeonPink), nb, 10, 1.2f);
             Txt(g, "YOUR PLUGINS ARE IN THE MIXER", 11, NeonPink, Rc(nb.X + 12, nb.Y + 6, nb.Width - 24, 20), StringAlignment.Near, true);

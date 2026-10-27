@@ -94,8 +94,7 @@ partial class SynthCanvas
             if (dragPt == null) return; int idx = c.Pts.IndexOf(dragPt); if (idx < 0) return;
             float x = LfoSnapX(Math.Max(0, Math.Min(1, (m.X - ird.X) / ird.Width))), y = LfoSnapY(Math.Max(-1, Math.Min(1, 1 - 2 * (m.Y - ird.Y) / ird.Height)));
             if (idx == 0) x = 0; else if (idx == c.Pts.Count - 1) x = 1; else x = Math.Max(c.Pts[idx - 1].X, Math.Min(c.Pts[idx + 1].X, x));
-            float ease = (ModifierKeys & Keys.Shift) != 0 ? 0.25f : 0.6f; dragPt.X += (x - dragPt.X) * ease; dragPt.Y += (y - dragPt.Y) * ease;   // the point glides after the mouse (Shift: fine moves)
-            if (lfoSnap) { dragPt.X = x; dragPt.Y = y; } c.Rebuild(); modified = true;
+            dragPt.X = x; dragPt.Y = y; c.Rebuild(); modified = true;   // the point stays under the mouse
         };
         rg.Right = () =>
         {
