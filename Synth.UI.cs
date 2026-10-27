@@ -82,7 +82,7 @@ partial class SynthCanvas : Control
 {
     class Reg { public RectangleF R; public Action<PointF> Down; public Action<float, float> Drag; public Action<int> Wheel; public Action Double; public Action Right; public string Tip = ""; public Param P; public bool Log; public float Step; }
     readonly SynthFx fx; readonly SynthWindow win; readonly List<Reg> regs = new List<Reg>(); Reg hover, active; PointF mouse, downPt; float downFrac; DateTime lastInput = DateTime.Now; bool modified;
-    int tab, modTab = 4, matPage; const float W = 1240, H = 716; float scale = 1, ox, oy;
+    int tab, modTab = 4, matPage; bool ringDrag; const float W = 1240, H = 716; float scale = 1, ox, oy;
     public bool Typing;
     internal static void ApplyTheme(ThemeDef t) { Bg0 = Color.FromArgb(t.Bg0.R + 6, t.Bg0.G + 3, t.Bg0.B + 10); Bg1 = Color.FromArgb(t.Bg1.R + 8, t.Bg1.G + 5, t.Bg1.B + 12); Panel = Color.FromArgb(200, t.Panel.R + 12, t.Panel.G + 7, t.Panel.B + 22); PanelHi = Color.FromArgb(215, t.Panel.R + 26, t.Panel.G + 16, t.Panel.B + 46); Edge = Color.FromArgb(t.EdgeC.R * 2 / 3, t.EdgeC.G * 2 / 3, t.EdgeC.B * 3 / 4); Acc = t.Accent; Acc2 = t.Accent2; }
     static Color Bg0 = TM.C(255, 13, 7, 26), Bg1 = TM.C(255, 26, 13, 48), Panel = TM.C(200, 30, 17, 56), PanelHi = TM.C(215, 44, 26, 80), Edge = TM.C(255, 96, 62, 160), Ink = TM.C(255, 240, 232, 255), Dim = TM.C(255, 150, 132, 190),
@@ -105,13 +105,13 @@ partial class SynthCanvas : Control
 
     // ---------- drawing helpers ----------
     static void Txt(Graphics g, string s, float px, Color c, RectangleF r, StringAlignment ha, bool bold)
-    { using (var b = new SolidBrush(c)) g.DrawString(s, GfxCache.Font(px, bold), b, r, GfxCache.Fmt(ha, true)); }
+    { if (s == "Init") s = "Blank"; else if (s == "INIT") s = "START FROM SCRATCH";   /* the empty starting sound, in plain words (its stored name stays Init) */ using (var b = new SolidBrush(c)) g.DrawString(s, GfxCache.Font(px, bold), b, r, GfxCache.Fmt(ha, true)); }
     static GraphicsPath RR(RectangleF r, float rad)
     {
         var p = new GraphicsPath(); float d = Math.Min(rad * 2, Math.Min(r.Width, r.Height)); if (d < 1) { p.AddRectangle(r); return p; }
         p.AddArc(r.X, r.Y, d, d, 180, 90); p.AddArc(r.Right - d, r.Y, d, d, 270, 90); p.AddArc(r.Right - d, r.Bottom - d, d, d, 0, 90); p.AddArc(r.X, r.Bottom - d, d, d, 90, 90); p.CloseFigure(); return p;
     }
-    static void Fill(Graphics g, Color c, RectangleF r, float rad) { using (var p = RR(r, rad)) using (var b = new SolidBrush(c)) g.FillPath(b, p); }
+    static void Fill(Graphics g, Color c, RectangleF r, float rad) { if (r.Height <= 44 && r.Width <= 320 && c.A > 60) { GalaxyBg.Face(g, r, rad, c, Math.Min(115, (int)c.A)); return; } using (var p = RR(r, rad)) using (var b = new SolidBrush(c)) g.FillPath(b, p); }   // button-sized boxes get a galaxy face
     static void Stroke(Graphics g, Color c, RectangleF r, float rad, float w) { using (var p = RR(r, rad)) using (var pen = new Pen(c, w)) g.DrawPath(pen, p); }
     static RectangleF Rc(float x, float y, float w, float h) { return new RectangleF(x, y, w, h); }
     Reg Add(RectangleF r) { var g = new Reg { R = r }; regs.Add(g); return g; }
@@ -130,19 +130,25 @@ partial class SynthCanvas : Control
         var area = Rc(cx - 28, cy - rad - 4, 56, rad * 2 + 24); var reg = Add(area); reg.P = p; reg.Log = log; reg.Tip = Tips.ContainsKey(id) ? Tips[id] : p.Name;
         bool hot = Hot(area) || active == reg;
         var kr = Rc(cx - rad, cy - rad, rad * 2, rad * 2);
-        using (var br = new LinearGradientBrush(kr, TM.C(255, 62, 44, 100), TM.C(255, 20, 12, 40), 90f)) g.FillEllipse(br, kr);
-        using (var pen = new Pen(Color.FromArgb(hot ? 220 : 120, Acc), 1.2f)) g.DrawEllipse(pen, kr);
+        GalaxyBg.Sphere(g, cx, cy, rad * 2, hot);   // the plugin windows' galaxy knob
         var ar = Rc(cx - rad - 3, cy - rad - 3, rad * 2 + 6, rad * 2 + 6);
         using (var pen = new Pen(TM.C(70, 120, 90, 170), 3f)) g.DrawArc(pen, ar, 135, 270);
         bool bipolar = p.Min < 0 && p.Max > 0 && !p.IsChoice; float zero = bipolar ? (0 - p.Min) / (p.Max - p.Min) : 0;
         float a0 = bipolar ? zero : 0, sweep = (f - a0) * 270f;
         using (var pen = new Pen(col, 3f)) { pen.StartCap = LineCap.Round; pen.EndCap = LineCap.Round; if (Math.Abs(sweep) > 0.5f) g.DrawArc(pen, ar, 135 + a0 * 270f, sweep); }
         int dest = DestOf(id); var msl = SlotsOn(dest); if (msl.Count > 0) DrawModRing(g, ar, f, msl, dest);
+        if (dragSrc != 0 && dest != 0)
+        {   // dragging an LFO / envelope / macro: every knob it can move lights up as a place to drop it (like Vital)
+            float pulse = (float)(0.5 + 0.5 * Math.Sin(Environment.TickCount / 160.0)); var tr = RectangleF.Inflate(ar, 6, 6); Color sc = SrcCols[Math.Min(dragSrc, SrcCols.Length - 1)];
+            using (var gb = new SolidBrush(Color.FromArgb((int)(30 + 40 * pulse), sc))) g.FillEllipse(gb, tr);
+            using (var pen = new Pen(Color.FromArgb(hot ? 255 : (int)(150 + 90 * pulse), sc), hot ? 2.6f : 1.6f) { DashPattern = hot ? new[] { 1f } : new[] { 3f, 2f } }) g.DrawEllipse(pen, tr);
+        }
         double ang = (135 + f * 270) * Math.PI / 180; using (var pen = new Pen(Ink, 2f)) { pen.StartCap = LineCap.Round; pen.EndCap = LineCap.Round; g.DrawLine(pen, cx + (float)Math.Cos(ang) * rad * 0.35f, cy + (float)Math.Sin(ang) * rad * 0.35f, cx + (float)Math.Cos(ang) * rad * 0.85f, cy + (float)Math.Sin(ang) * rad * 0.85f); }
         Txt(g, hot ? p.Text : label, hot ? 11 : 10, hot ? Ink : Dim, Rc(cx - 30, cy + rad + 3, 60, 14), StringAlignment.Center, hot);
         float amt0 = msl.Count > 0 ? P("m" + msl[0] + "a").Val : 0; int sl0 = msl.Count > 0 ? msl[0] : 0;
-        reg.Down = pt => { downPt = pt; downFrac = FracOf(p, log); };
-        reg.Drag = (dx, dy) => { if (sl0 > 0 && (ModifierKeys & Keys.Control) != 0) { SetVal(P("m" + sl0 + "a"), (float)Math.Round(Math.Max(-100, Math.Min(100, amt0 - dy * 0.6)))); return; } float fine = (ModifierKeys & Keys.Shift) != 0 ? 0.25f : 1f; SetVal(p, FromFrac(p, log, downFrac - dy / 160f * fine)); };
+        reg.Down = pt => { downPt = pt; downFrac = FracOf(p, log); ringDrag = sl0 > 0 && Math.Sqrt((pt.X - cx) * (pt.X - cx) + (pt.Y - cy) * (pt.Y - cy)) > rad + 1; };   // on the coloured ring (outside the knob): set how much it is moved
+        if (sl0 > 0) reg.Tip = reg.Tip + "  -  drag the coloured ring to set how much it is modulated";
+        reg.Drag = (dx, dy) => { if (sl0 > 0 && (ringDrag || (ModifierKeys & Keys.Control) != 0)) { SetVal(P("m" + sl0 + "a"), (float)Math.Round(Math.Max(-100, Math.Min(100, amt0 - dy * 0.6)))); return; } float fine = (ModifierKeys & Keys.Shift) != 0 ? 0.25f : 1f; SetVal(p, FromFrac(p, log, downFrac - dy / 160f * fine)); };
         
         reg.Double = () => TypeValue(p); reg.Right = () => SetVal(p, p.Def);
     }
@@ -190,7 +196,7 @@ partial class SynthCanvas : Control
     }
     void Paint2(Graphics g)
     {
-        regs.Clear(); scale = Math.Min(ClientSize.Width / W, ClientSize.Height / H); if (scale <= 0) return; ox = (ClientSize.Width - W * scale) / 2; oy = (ClientSize.Height - H * scale) / 2;
+        regs.Clear(); dispTargets.Clear(); scale = Math.Min(ClientSize.Width / W, ClientSize.Height / H); if (scale <= 0) return; ox = (ClientSize.Width - W * scale) / 2; oy = (ClientSize.Height - H * scale) / 2;
         g.SmoothingMode = SmoothingMode.AntiAlias; g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
         using (var br = new LinearGradientBrush(new RectangleF(0, 0, ClientSize.Width, ClientSize.Height), Bg0, Bg1, 80f)) g.FillRectangle(br, 0, 0, ClientSize.Width, ClientSize.Height);
         GalaxyBg.Paint(g, new Rectangle(0, 0, ClientSize.Width, ClientSize.Height), 0xBA55, 0.9f, Bg1, 70);   // Bass Lab on the studio's galaxy
@@ -328,7 +334,13 @@ partial class SynthCanvas : Control
         for (int i = 0; i < 8; i++)
         {
             int k = i; var r = Rc(x + i * (tw + 2), y, tw, 28); bool sel = modTab == i; Fill(g, sel ? PanelHi : Panel, r, 6); Stroke(g, sel ? Acc : Edge, r, 6, sel ? 2 : 1);
-            Txt(g, tn[i] + (i == 0 ? "  (volume)" : ""), 12, sel ? Ink : Dim, r, StringAlignment.Center, true); var rg = Add(r); rg.Tip = i == 0 ? "Envelope 1 shapes the volume of every note" : "Open " + tn[i]; rg.Down = pt => { modTab = k; };
+            int srcI = i >= 4 ? i - 3 : (i >= 1 ? 4 + i : 0); string srcName = i >= 4 ? "LFO " + (i - 3) : "Envelope " + (i + 1);
+            Txt(g, tn[i] + (i == 0 ? "  (volume)" : ""), 12, sel ? Ink : Dim, r, StringAlignment.Center, true); var rg = Add(r); rg.Tip = i == 0 ? "Envelope 1 shapes the volume of every note" : "Open " + tn[i] + ", or drag it onto any knob to make it move that knob"; rg.Down = pt => { modTab = k; };
+            if (srcI > 0)
+            {   // a grip on the tab: grab it and drop it on a knob (every knob it can move lights up)
+                DragOrb(g, r.Right - 16, r.Y + r.Height / 2, 20, SrcCols[Math.Min(srcI, SrcCols.Length - 1)], Hot(r) || dragSrc == srcI);   // the circle you drag onto a knob
+                rg.Drag = (dx, dy) => { if (dragSrc == 0 && Math.Abs(dx) + Math.Abs(dy) > 8) { dragSrc = srcI; dragName = srcName; } };
+            }
         }
         var pn = Rc(144, y + 32, W - 152, 274); Fill(g, Panel, pn, 8); Stroke(g, Edge, pn, 8, 1);
         if (modTab < 4) PaintEnv(g, pn, modTab + 1); else PaintLfo(g, pn, modTab - 3);
@@ -373,7 +385,7 @@ partial class SynthCanvas : Control
         if (e.Clicks == 2 && r.Double != null) { r.Double(); return; }
         downPt = mouse; if (r.Down != null) r.Down(mouse); if (r.Drag != null) active = r; Poke();
     }
-    protected override void OnMouseUp(MouseEventArgs e) { base.OnMouseUp(e); mouse = ToLogical(e.Location); active = null; if (dragSrc != 0) DropOnKnob(HitTest(mouse)); Poke(); }
+    protected override void OnMouseUp(MouseEventArgs e) { base.OnMouseUp(e); mouse = ToLogical(e.Location); active = null; if (dragSrc != 0) { var ht = HitTest(mouse); if (ht == null || ht.P == null || DestOf(ht.P.Id) == 0) ht = DisplayTargetAt(mouse) ?? ht; DropOnKnob(ht); } Poke(); }
     protected override void OnMouseWheel(MouseEventArgs e) { base.OnMouseWheel(e); var r = HitTest(ToLogical(e.Location)); if (r != null && r.Wheel != null) { r.Wheel(e.Delta > 0 ? 1 : -1); Poke(); } }
     protected override void OnMouseLeave(EventArgs e) { base.OnMouseLeave(e); hover = null; Invalidate(); }
 }

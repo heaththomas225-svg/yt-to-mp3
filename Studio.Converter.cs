@@ -22,10 +22,18 @@ partial class StudioForm
     }
     // an update was found while you are in the studio: a box over the studio with UPDATE NOW and LATER (the converter window, where its card lives, is hidden)
     string updVer = "", updHave = ""; List<string> updNotes; Action updYes, updNo;
-    internal void ShowUpdateBox(string ver, string have, List<string> notes, Action yes, Action later) { updVer = ver; updHave = have; updNotes = notes ?? new List<string>(); updYes = yes; updNo = later; Invalidate(); }
+    string bannerVer; Action bannerYes;   // the update stays on the welcome box (where your projects are) until it is installed, even after LATER
+    internal void ShowUpdateBox(string ver, string have, List<string> notes, Action yes, Action later) { updVer = ver; updHave = have; updNotes = notes ?? new List<string>(); updYes = yes; updNo = later; bannerVer = ver; bannerYes = yes; Invalidate(); }
+    // the welcome box's update button (top right, next to the X)
+    void PaintWelcomeUpdate(Graphics g, RectangleF box)
+    {
+        if (bannerYes == null) return; var r = Rc(box.Right - 56 - 330, box.Y + 14, 324, 32); double pulse = 0.5 + 0.5 * Math.Sin(Environment.TickCount / 300.0);
+        Glow(g, NeonPink, r, 12, 0.6f + 0.4f * (float)pulse, 4); Btn(g, r, "UPDATE " + bannerVer + " AVAILABLE · UPDATE NOW", 2, () => { var a = bannerYes; bannerYes = null; updYes = null; updNo = null; if (a != null) a(); }, 11);
+        Hint2(r, "Purphex " + bannerVer + " is ready: download it and restart Purphex with it (save your project first)");
+    }
     void PaintUpdateBox(Graphics g)
     {
-        if (updYes == null) return; float W = ClientSize.Width, H = ClientSize.Height; int nl = Math.Min(8, updNotes.Count); var box = Rc(W / 2 - 300, H / 2 - (150 + nl * 22) / 2f, 600, 150 + nl * 22 + (nl > 0 ? 30 : 0));
+        if (updYes == null || welcomeOn) return; /* (on the welcome box the update is its button at the top) */ float W = ClientSize.Width, H = ClientSize.Height; int nl = Math.Min(8, updNotes.Count); var box = Rc(W / 2 - 300, H / 2 - (150 + nl * 22) / 2f, 600, 150 + nl * 22 + (nl > 0 ? 30 : 0));
         using (var b = new SolidBrush(TM.C(160, 2, 1, 8))) g.FillRectangle(b, 0, 0, W, H); Reg(Rc(0, 0, W, H), () => { });
         using (var p = RR(box, 18)) { using (var b = new SolidBrush(TM.C(255, 12, 5, 28))) g.FillPath(b, p); var gs = g.Save(); g.SetClip(p, System.Drawing.Drawing2D.CombineMode.Intersect); PaintGalaxy(g, box, 0x0DA7E, 0.7f); g.Restore(gs); }
         Glow(g, NeonCyan, box, 18, 0.9f, 4); StrokeRR(g, NeonCyan, box, 18, 2f);

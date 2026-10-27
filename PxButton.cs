@@ -37,6 +37,7 @@ class PxButton : Button
         using (var path = Round(rc, rad))
         {
             using (var br = new LinearGradientBrush(new RectangleF(0, 0, Width, Height), Mix(baseC, Color.White, 0.07f), Mix(baseC, Color.Black, 0.09f), 90f)) g.FillPath(br, path);
+            { var gs = g.Save(); g.SetClip(path, CombineMode.Intersect); GalaxyBg.Paint(g, new Rectangle(0, 0, Width, Height), 0xB077, 1.1f, baseC, 140); g.Restore(gs); }   // a galaxy face in the button's own colour, like the studio's buttons
             Color edge = FlatAppearance.BorderColor.IsEmpty || FlatAppearance.BorderColor.A == 0 ? Mix(baseC, Color.White, 0.35f) : Mix(FlatAppearance.BorderColor, baseC, 0.35f); if (hot) edge = Mix(edge, Color.White, 0.3f); if (!Enabled) edge = Mix(edge, behind, 0.6f);
             using (var pen = new Pen(Color.FromArgb(200, edge), 1.2f)) g.DrawPath(pen, path);
             using (var hl = new Pen(Color.FromArgb(46, 255, 255, 255), 1f)) g.DrawLine(hl, rc.X + rad, rc.Y + 1.2f, rc.Right - rad, rc.Y + 1.2f);

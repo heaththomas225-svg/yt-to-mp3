@@ -35,7 +35,7 @@ partial class SynthCanvas
         for (int o = 0; o < 3; o++)
         {
             string s = "abc"[o].ToString(); var r = Rc(x, y, ws[1 + o], h); ModuleFrame(g, r, "OSC " + s.ToUpper(), s + "on");
-            DrawOscShape(g, Rc(r.X + 6, r.Y + 28, r.Width - 12, 86), s);
+            DrawOscShape(g, Rc(r.X + 6, r.Y + 28, r.Width - 12, 86), s); DisplayTarget(g, Rc(r.X + 6, r.Y + 28, r.Width - 12, 86), s + "wt");
             Choose(g, s + "src", Rc(r.X + 6, r.Y + 118, 92, 20), Acc); var tbl = P(s + "tbl"); bool wtMode = P(s + "src").Val < 0.5f;
             Choose(g, s + "tbl", Rc(r.X + 102, r.Y + 118, 90, 20), wtMode ? Acc2 : TM.C(255, 90, 80, 120));
             Choose(g, s + "warp", Rc(r.X + 6, r.Y + 142, 82, 20), Acc2); NumBox(g, s + "oct", Rc(r.X + 92, r.Y + 142, 48, 20), "OCT"); NumBox(g, s + "sem", Rc(r.X + 142, r.Y + 142, 50, 20), "SEM");
@@ -52,7 +52,7 @@ partial class SynthCanvas
         Choose(g, "nztype", Rc(nz.X + 8, nz.Y + 120, nz.Width - 16, 20), Acc); Knob(g, "nzlvl", nz.X + 32, nz.Y + 206, "LEVEL", Acc); Knob(g, "nzpan", nz.X + 86, nz.Y + 206, "PAN", Acc, 13); x += ws[4] + 3;
         for (int k = 1; k <= 2; k++)
         {
-            var r = Rc(x, y, ws[4 + k], h); ModuleFrame(g, r, "FILTER " + k, "f" + k + "on"); DrawFilter(g, Rc(r.X + 6, r.Y + 28, r.Width - 12, 90), k);
+            var r = Rc(x, y, ws[4 + k], h); ModuleFrame(g, r, "FILTER " + k, "f" + k + "on"); DrawFilter(g, Rc(r.X + 6, r.Y + 28, r.Width - 12, 90), k); DisplayTarget(g, Rc(r.X + 6, r.Y + 28, r.Width - 12, 90), "f" + k + "cut");
             Choose(g, "f" + k + "type", Rc(r.X + 6, r.Y + 122, 108, 20), Acc2); Choose(g, "f" + k + "slope", Rc(r.X + 118, r.Y + 122, 68, 20), Acc);
             if (k == 2) Choose(g, "froute", Rc(r.X + 6, r.Y + 146, 108, 20), Acc); NumBox(g, "f" + k + "key", Rc(r.X + 118, r.Y + 146, 68, 20), "KEY");
             Knob(g, "f" + k + "cut", r.X + 40, r.Y + 214, "CUTOFF", Acc2, 17); Knob(g, "f" + k + "res", r.X + 96, r.Y + 214, "RES", Acc, 17); Knob(g, "f" + k + "drive", r.X + 152, r.Y + 214, "DRIVE", Acc, 17);

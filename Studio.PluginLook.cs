@@ -37,9 +37,7 @@ partial class StudioForm
         using (var pen = new Pen(Color.FromArgb(60, 255, 255, 255), 3f)) g.DrawArc(pen, r.X - 3, r.Y - 3, d + 6, d + 6, 135, 270);
         using (var pen = new Pen(col, 3f) { StartCap = LineCap.Round, EndCap = LineCap.Round }) g.DrawArc(pen, r.X - 3, r.Y - 3, d + 6, d + 6, 135, Math.Max(1f, 270f * frac));
         // the body: a glossy glass sphere lit from the top left, with a purple rim
-        using (var pth = new GraphicsPath()) { pth.AddEllipse(r); using (var pb = new PathGradientBrush(pth) { CenterPoint = new PointF(cx - d * 0.18f, cy - d * 0.22f), CenterColor = Color.FromArgb(255, 120, 80, 200), SurroundColors = new[] { Color.FromArgb(255, 12, 6, 28) } }) g.FillPath(pb, pth); }
-        using (var pen = new Pen(Color.FromArgb(hot ? 255 : 200, 176, 92, 255), 1.6f)) g.DrawEllipse(pen, r);
-        using (var hl = new GraphicsPath()) { var hr = new RectangleF(cx - d * 0.3f, cy - d * 0.42f, d * 0.45f, d * 0.26f); hl.AddEllipse(hr); using (var hb = new PathGradientBrush(hl) { CenterColor = Color.FromArgb(150, 255, 255, 255), SurroundColors = new[] { Color.FromArgb(0, 255, 255, 255) } }) g.FillPath(hb, hl); }   // the shine
+        GalaxyBg.Sphere(g, cx, cy, d, hot);   // a glossy glass sphere with a galaxy inside
         // the pointer
         double a = (135 + 270 * frac) * Math.PI / 180; float px = cx + (float)Math.Cos(a) * d * 0.36f, py = cy + (float)Math.Sin(a) * d * 0.36f;
         using (var pen = new Pen(Color.White, 2.4f) { StartCap = LineCap.Round, EndCap = LineCap.Round }) g.DrawLine(pen, cx + (float)Math.Cos(a) * d * 0.12f, cy + (float)Math.Sin(a) * d * 0.12f, px, py);

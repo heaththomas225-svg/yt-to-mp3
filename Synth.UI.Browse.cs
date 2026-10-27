@@ -117,7 +117,13 @@ partial class SynthCanvas
         bx = Action(g, "DUPLICATE", bx, by, 96, true, "Make a copy you can change.", () => { try { string n2 = SynthPresets.DuplicateUser(fx.PresetName); SynthPresets.Apply(fx, n2); modified = false; soundTab = 1; browseMsg = "Made " + n2; } catch (Exception ex) { browseMsg = ex.Message; } });
         bx = Action(g, "RENAME", bx, by, 90, isUser, "Rename the sound you are playing (one of yours).", () => { string s = AskName("New name:", fx.PresetName); if (s == null) return; try { string old = fx.PresetName; SynthPresets.RenameUser(old, s); fx.PresetName = s.Trim(); browseMsg = "Renamed to " + s.Trim(); } catch (Exception ex) { browseMsg = ex.Message; } });
         by += 36; bx = x0;
-        bx = Action(g, "INITIALISE PATCH", bx, by, 150, true, "Reset everything to a clean, plain sound.", () => { SynthPresets.Initialise(fx); modified = false; browseMsg = "Patch initialised."; });
+        bx = Action(g, "START FROM SCRATCH", bx, by, 160, true, "Reset everything to a blank, plain sound to build your own from.", () => { SynthPresets.Initialise(fx); modified = false; browseMsg = "A blank sound: build yours from here."; });
+        bx = Action(g, "EXPORT...", bx, by, 96, true, "Save the sound you are playing as a .bsound file (to share it or keep a copy).", () => ExportSound());
+        bx = Action(g, "IMPORT...", bx, by, 96, true, "Add .bsound files to MY SOUNDS.", () => ImportSounds());
+        {   // the sound itself onto the song: a glowing circle you drag onto the studio
+            var dr = Rc(bx, by - 2, Math.Max(120, x0 + iw - bx), 34); bool dh = Hot(dr); DragOrb(g, dr.X + 17, dr.Y + 17, 30, Acc2, dh); Txt(g, "DRAG TO SONG", 11, dh ? Ink : Dim, Rc(dr.X + 38, dr.Y, dr.Width - 38, dr.Height), StringAlignment.Near, true);
+            var drg = Add(dr); drg.Tip = "Drag this onto the studio: the sound you are playing goes on the song as an audio clip (one note, 3 seconds)"; drg.Down = pt => DragSoundToSong();
+        }
         var pub = Rc(x0, by + 36, iw, 34); bool phot = Hot(pub); Fill(g, phot ? TM.C(255, 170, 60, 200) : TM.C(255, 130, 44, 170), pub, 8); Stroke(g, Acc2, pub, 8, 1.6f); Txt(g, "PUBLISH SOUNDS TO COMMUNITY", 13, Ink, pub, StringAlignment.Center, true);
         { var pr = Add(pub); pr.Tip = "Publish a sound for everyone to use (you pick which)."; pr.Down = pt => PublishMenu(); }
         Txt(g, browseMsg, 11, Good, Rc(x0, by + 76, iw, 16), StringAlignment.Near, true);
@@ -168,6 +174,40 @@ partial class SynthCanvas
         });
     }
 
+    // EXPORT / IMPORT: .bsound files
+    void ExportSound()
+    {
+        using (var d = new SaveFileDialog { Title = "Export the sound", Filter = "Bass Lab sound|*" + SynthPresets.FileExt, FileName = (fx.PresetName == "Init" ? "My sound" : fx.PresetName) + SynthPresets.FileExt })
+        {
+            Typing = true; try { if (d.ShowDialog(FindForm()) != DialogResult.OK) return; System.IO.File.Copy(SynthPresets.ExportFile(fx.PresetName, fx.Serialize()), d.FileName, true); browseMsg = "Exported " + System.IO.Path.GetFileName(d.FileName); }
+            catch (Exception ex) { browseMsg = ex.Message; } finally { Typing = false; Poke(); }
+        }
+    }
+    void ImportSounds()
+    {
+        using (var d = new OpenFileDialog { Title = "Import sounds", Filter = "Bass Lab sounds|*" + SynthPresets.FileExt + ";*.txt", Multiselect = true })
+        { Typing = true; try { if (d.ShowDialog(FindForm()) != DialogResult.OK) return; browseMsg = DropSoundFiles(d.FileNames); soundTab = 1; browseScroll = 0; } finally { Typing = false; Poke(); } }
+    }
+    // the sound you are playing as audio: one note (held 2 s, then let go) rendered to a WAV and dragged out (drop it on the studio)
+    internal static string RenderNote(SynthFx src, int note, string dir)
+    {
+        var f2 = new SynthFx(); f2.Prepare(44100); SynthPresets.ApplyData(f2, src.PresetName, src.Serialize());
+        int frames = 44100 * 3, off = 44100 * 2, pos = 0; var l = new float[frames]; var r = new float[frames]; f2.NoteOn(note, 110);
+        while (pos < frames) { int c = Math.Min(1024, frames - pos); var bl = new float[c]; var br = new float[c]; if (pos <= off && off < pos + c) f2.NoteOff(note); f2.BeginBlock(null, pos, c, false); f2.Process(bl, br, c); Array.Copy(bl, 0, l, pos, c); Array.Copy(br, 0, r, pos, c); pos += c; }
+        System.IO.Directory.CreateDirectory(dir); string name = (src.PresetName == "Init" ? "Bass Lab" : src.PresetName); foreach (var ch in System.IO.Path.GetInvalidFileNameChars()) name = name.Replace(ch, '-');
+        string p = System.IO.Path.Combine(dir, name + " " + DateTime.Now.ToString("HH-mm-ss") + ".wav"); WavIO.Write(p, l, r, 44100, 24); return p;
+    }
+    void DragSoundToSong()
+    {
+        if (draggingOut) return; draggingOut = true; active = null;
+        try
+        {
+            string dir = StudioEnv.UnderTest ? System.IO.Path.Combine(StudioEnv.DataDir, "basslab") : System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyMusic), "yt2mp3", "Bass Lab");
+            string p = RenderNote(fx, 48, dir); DoDragDrop(new DataObject(DataFormats.FileDrop, new[] { p }), DragDropEffects.Copy); browseMsg = "Your sound is " + System.IO.Path.GetFileName(p) + " (in Music / yt2mp3 / Bass Lab)";
+        }
+        catch (Exception ex) { browseMsg = ex.Message; }
+        finally { draggingOut = false; Poke(); }
+    }
     // ---- drag and drop ----
     void DragOut(string name, string data)
     {

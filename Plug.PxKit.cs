@@ -74,19 +74,19 @@ abstract class PxWindow : Form
     }
     protected void Panel(Graphics g, RectangleF r, string title, Color col)
     {
-        Fill(g, PanelC, r, 14); Stroke(g, Color.FromArgb(150, col), r, 14, 1.3f);
+        Fill(g, Color.FromArgb(185, PanelC), r, 14); Stroke(g, Color.FromArgb(150, col), r, 14, 1.3f);
         if (title.Length > 0) Txt(g, title, 11, col, new RectangleF(r.X + 14, r.Y + 6, r.Width - 28, 16), StringAlignment.Near, true);
     }
     protected bool Hot(RectangleF r) { return r.Contains(mouse); }
     protected Hit Reg(RectangleF r, Action click, string tipText = "") { var h = new Hit { R = r, Click = click, Tip = tipText }; hits.Add(h); return h; }
     protected void Button(Graphics g, RectangleF r, string label, bool lit, Color col, Action click, string tipText = "", float size = 12)
     {
-        bool hot = Hot(r); Fill(g, lit ? Color.FromArgb(hot ? 255 : 230, col) : (hot ? CtlHot : Ctl), r, 8);
+        bool hot = Hot(r); GalaxyBg.Face(g, r, 8, lit ? col : (hot ? CtlHot : Ctl), lit ? (hot ? 170 : 150) : 95);   // a galaxy face
         Stroke(g, Color.FromArgb(lit ? 255 : 170, lit ? Color.White : col), r, 8, lit ? 1.6f : 1.2f); Txt(g, label, size, lit ? Color.FromArgb(20, 10, 30) : Ink, r, StringAlignment.Center, true); Reg(r, click, tipText);
     }
     protected void Choice(Graphics g, RectangleF r, string id, Color col, float size = 11.5f)
     {
-        var p = fx.Find(id); bool hot = Hot(r); Fill(g, hot ? CtlHot : Ctl, r, 7); Stroke(g, Color.FromArgb(200, col), r, 7, 1.2f);
+        var p = fx.Find(id); bool hot = Hot(r); GalaxyBg.Face(g, r, 7, hot ? CtlHot : Ctl, 95); Stroke(g, Color.FromArgb(200, col), r, 7, 1.2f);
         Txt(g, p.Text + "  ▾", size, Ink, r, StringAlignment.Center, true);
         Reg(r, () => { var m = new ContextMenuStrip(); for (int k = 0; k < p.Choices.Length; k++) { int kk = k; var it = new ToolStripMenuItem(p.Choices[k]) { Checked = (int)p.Val == k }; it.Click += (a, b) => { Mark(); fx.Set(id, kk); }; m.Items.Add(it); } m.Show(this, new Point((int)r.X, (int)r.Bottom)); }, p.Name);
     }
@@ -99,8 +99,7 @@ abstract class PxWindow : Form
     protected void Knob(Graphics g, float cx, float cy, float rad, string id, string label, Color col, bool big = false)
     {
         var p = fx.Find(id); float frac = Frac(p); var r = new RectangleF(cx - rad, cy - rad, rad * 2, rad * 2); bool hot = Hot(r) || (dragHit != null && dragHit.P == p);
-        using (var b = new SolidBrush(hot ? CtlHot : Ctl)) g.FillEllipse(b, r);
-        float pw = big ? 6 : rad > 20 ? 4 : 3;
+        float pw = big ? 6 : rad > 20 ? 4 : 3; GalaxyBg.Sphere(g, cx, cy, rad * 2 - pw * 3.2f, hot);   // the galaxy knob, inside its ring
         using (var pen = new Pen(Color.FromArgb(60, 255, 255, 255), pw)) g.DrawArc(pen, r.X + pw, r.Y + pw, r.Width - pw * 2, r.Height - pw * 2, 135, 270);
         if (p.Min < 0 && p.Max > 0)
         {   // a value that goes both ways is drawn from the middle

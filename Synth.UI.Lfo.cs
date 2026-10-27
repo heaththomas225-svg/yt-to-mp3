@@ -56,7 +56,13 @@ partial class SynthCanvas
             double y = SynthFx.LfoShape(shape, Math.Min(p, 0.99999), hold, cur); if (c == 0 && i == 0) last = y; last += (y - last) * a;
             if (c == 1) pts.Add(LfoPx(ir, (float)p, (float)Math.Max(-1, Math.Min(1, last))));
         }
-        using (var pen = new Pen(Good, 2.5f)) { var sv = g.SmoothingMode; g.SmoothingMode = SmoothingMode.AntiAlias; g.DrawLines(pen, pts.ToArray()); g.SmoothingMode = sv; }
+        {   // the shape: a soft filled area under a smooth glowing line
+            var sv = g.SmoothingMode; g.SmoothingMode = SmoothingMode.AntiAlias; float baseY = uni ? ir.Bottom : ir.Y + ir.Height / 2;
+            var poly = new List<PointF>(pts); poly.Add(new PointF(pts[pts.Count - 1].X, baseY)); poly.Add(new PointF(pts[0].X, baseY));
+            using (var fb = new LinearGradientBrush(new RectangleF(ir.X, ir.Y - 1, ir.Width, ir.Height + 2), Color.FromArgb(110, Good), Color.FromArgb(25, Good), 90f)) g.FillPolygon(fb, poly.ToArray());
+            using (var gp = new Pen(Color.FromArgb(60, Good), 7f) { LineJoin = LineJoin.Round }) g.DrawLines(gp, pts.ToArray());
+            using (var pen = new Pen(Good, 2.4f) { LineJoin = LineJoin.Round, StartCap = LineCap.Round, EndCap = LineCap.Round }) g.DrawLines(pen, pts.ToArray()); g.SmoothingMode = sv;
+        }
         // playback marker (follows the real LFO phase)
         double ph = fx.LfoPhaseUi(k - 1); float mx0 = ir.X + (float)ph * ir.Width; var mp = LfoPx(ir, (float)ph, SynthFx.LfoShape(shape, Math.Min(ph, 0.99999), hold, cur) * 1f > 1 ? 1f : (float)SynthFx.LfoShape(shape, Math.Min(ph, 0.99999), hold, cur));
         if (fx.ActiveVoices > 0) { using (var pen = new Pen(Color.FromArgb(120, 255, 255, 255), 1f)) g.DrawLine(pen, mx0, ir.Y, mx0, ir.Bottom); using (var b = new SolidBrush(Color.White)) g.FillEllipse(b, mp.X - 4, mp.Y - 4, 8, 8); }
@@ -64,7 +70,9 @@ partial class SynthCanvas
         if (custom)
         {
             for (int i = 0; i < cur.Pts.Count - 1; i++) { var p0 = cur.Pts[i]; var p1 = cur.Pts[i + 1]; if (p1.X - p0.X < 0.03f) continue; float mx = (p0.X + p1.X) / 2; var q = LfoPx(ir, mx, cur.Eval(mx)); using (var pen = new Pen(Color.FromArgb(200, Acc2), 1.2f)) g.DrawPolygon(pen, new[] { new PointF(q.X, q.Y - 4), new PointF(q.X + 4, q.Y), new PointF(q.X, q.Y + 4), new PointF(q.X - 4, q.Y) }); }
-            foreach (var p in cur.Pts) { var q = LfoPx(ir, p.X, p.Y); bool sel = p == dragPt; using (var b = new SolidBrush(sel ? Color.White : (p.Smooth ? Acc2 : Acc))) g.FillEllipse(b, q.X - 5, q.Y - 5, 10, 10); using (var pen = new Pen(Color.White, 1f)) g.DrawEllipse(pen, q.X - 5, q.Y - 5, 10, 10); }
+            var smP = g.SmoothingMode; g.SmoothingMode = SmoothingMode.AntiAlias;
+            foreach (var p in cur.Pts) { var q = LfoPx(ir, p.X, p.Y); bool sel = p == dragPt; if (sel) using (var gl = new SolidBrush(Color.FromArgb(70, Good))) g.FillEllipse(gl, q.X - 10, q.Y - 10, 20, 20); using (var b = new SolidBrush(sel ? Color.White : Disp)) g.FillEllipse(b, q.X - 5.5f, q.Y - 5.5f, 11, 11); using (var pen = new Pen(p.Smooth ? Acc2 : Good, 2f)) g.DrawEllipse(pen, q.X - 5.5f, q.Y - 5.5f, 11, 11); }   // rings, like Vital
+            g.SmoothingMode = smP;
         }
         Txt(g, "LFO " + k + ":  " + SynthTables.LfoShapes[shape] + ",  " + (sy == 0 ? hz.ToString("0.00") + " Hz" : SynthTables.Syncs[sy] + " note  =  " + hz.ToString("0.00") + " Hz at " + bpm.ToString("0") + " BPM"), 11, Ink, Rc(disp.X + 10, disp.Y + 4, disp.Width - 20, 16), StringAlignment.Near, true);
         Txt(g, custom ? "Click: add. Drag: move. Right-click: delete. Double-click: round. Diamond: bend." : "Click or drag on the picture to draw your own shape from this one.", 10, Dim, Rc(disp.X + 10, disp.Bottom - 15, disp.Width - 20, 14), StringAlignment.Near, false);
@@ -82,11 +90,12 @@ partial class SynthCanvas
         rg.Drag = (dx, dy) =>
         {
             var c = fx.LfoCurves[k - 1]; var ird = LfoInner(disp); var m = mouse;
-            if (bendPt != null) { int i = c.Pts.IndexOf(bendPt); if (i >= 0 && i < c.Pts.Count - 1) { float dir = c.Pts[i + 1].Y >= bendPt.Y ? 1 : -1; bendPt.C = Math.Max(-1, Math.Min(1, bendC0 + dir * (m.Y - bendDownY) / 70f)); c.Rebuild(); modified = true; } return; }
+            if (bendPt != null) { int i = c.Pts.IndexOf(bendPt); if (i >= 0 && i < c.Pts.Count - 1) { float dir = c.Pts[i + 1].Y >= bendPt.Y ? 1 : -1; bendPt.C = Math.Max(-0.9f, Math.Min(0.9f, bendC0 + dir * (m.Y - bendDownY) / 150f * ((ModifierKeys & Keys.Shift) != 0 ? 0.35f : 1f)));   /* firm: a long drag for a full bend, never a spike */ c.Rebuild(); modified = true; } return; }
             if (dragPt == null) return; int idx = c.Pts.IndexOf(dragPt); if (idx < 0) return;
             float x = LfoSnapX(Math.Max(0, Math.Min(1, (m.X - ird.X) / ird.Width))), y = LfoSnapY(Math.Max(-1, Math.Min(1, 1 - 2 * (m.Y - ird.Y) / ird.Height)));
             if (idx == 0) x = 0; else if (idx == c.Pts.Count - 1) x = 1; else x = Math.Max(c.Pts[idx - 1].X, Math.Min(c.Pts[idx + 1].X, x));
-            dragPt.X = x; dragPt.Y = y; c.Rebuild(); modified = true;
+            float ease = (ModifierKeys & Keys.Shift) != 0 ? 0.25f : 0.6f; dragPt.X += (x - dragPt.X) * ease; dragPt.Y += (y - dragPt.Y) * ease;   // the point glides after the mouse (Shift: fine moves)
+            if (lfoSnap) { dragPt.X = x; dragPt.Y = y; } c.Rebuild(); modified = true;
         };
         rg.Right = () =>
         {

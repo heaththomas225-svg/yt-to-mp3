@@ -1184,6 +1184,7 @@ partial class StudioForm : Form
     }
 
     // ---------------- plugin panel (right side) ----------------
+    const bool PluginsInMixerOnly = true;   // the right panel never lists plugins: effects are done in the mixer (the list below is kept for the bus editor's code paths)
     void PaintPluginPanel(Graphics g)
     {
         float x = ClientSize.Width - PanelW, y = ToolH + TransH, w = soundsOpen && tab == 0 ? PanelW : 380, h = ClientSize.Height - y;   // while it slides the panel keeps its full width (the part past the edge is off screen)
@@ -1214,12 +1215,12 @@ partial class StudioForm : Form
           { var vb = nextRow(); Btn(g, vb, "VSTS", browserOpen && browserVst ? 4 : 2, () => OpenVsts(), 11); Hint2(vb, "Bass Lab, your VST instruments and the Purphex VSTs: choose the track (FOR) and add one"); }
           var snb = nextRow(); Btn(g, snb, "SOUND PACKS", soundsOpen ? 4 : 0, () => { if (soundsOpen) CloseSounds(); else OpenPacks(); }, 11);
           hb = by + bi * 30 + 4; }
-        if (InsShown)
-        {   // the mixer panel is open: every plugin is down there (one place for plugins); a click on a plugin there opens its own window
+        if (InsShown || PluginsInMixerOnly)
+        {   // plugins live in the mixer only (one place for effects): the panel points there, open or not; a click on a plugin there opens its own window
             var nb = Rc(x + 6, hb + 4, w - 12, 118); FillRR(g, TM.C(70, 12, 6, 28), nb, 10); Glow(g, NeonPink, nb, 10, 0.35f, 3); StrokeRR(g, Color.FromArgb(190, NeonPink), nb, 10, 1.2f);
             Txt(g, "YOUR PLUGINS ARE IN THE MIXER", 11, NeonPink, Rc(nb.X + 12, nb.Y + 6, nb.Width - 24, 20), StringAlignment.Near, true);
             Txt(g, "Every track's plugins are in the panel below.", 10, DimC, Rc(nb.X + 12, nb.Y + 30, nb.Width - 24, 18), StringAlignment.Near, false); Txt(g, "Click a plugin there to open its window.", 10, DimC, Rc(nb.X + 12, nb.Y + 50, nb.Width - 24, 18), StringAlignment.Near, false);
-            var hm = Rc(nb.X + 12, nb.Bottom - 34, nb.Width - 24, 26); Btn(g, hm, "HIDE THE MIXER", 0, () => CloseInspector(), 10); Hint2(hm, "Close the mixer panel: the plugins show here again");
+            var hm = Rc(nb.X + 12, nb.Bottom - 34, nb.Width - 24, 26); if (InsShown) { Btn(g, hm, "HIDE THE MIXER", 0, () => CloseInspector(), 10); Hint2(hm, "Close the mixer panel"); } else { Btn(g, hm, "OPEN THE MIXER", 2, () => OpenInspector(1), 10); Hint2(hm, "Open the mixer: every track's plugins, add, bypass, move, remove and open them"); }
             return;
         }
         float ly = hb - panelScroll; int n = fxs.Length; g.SetClip(Rc(x, hb - 4, w, h - (hb - 4 - y)));
@@ -1476,8 +1477,8 @@ partial class StudioForm : Form
         else { var cb = Rc(x + 20, y + 94, 250, 26); Btn(g, cb, "Category: " + (browserCat.Length == 0 ? "All" : browserCat), browserCat.Length == 0 ? 0 : 4, () => CategoryMenu(), 12); Txt(g, list.Count + (list.Count == 1 ? " effect" : " effects"), 12, DimC, Rc(x + 280, y + 94, 200, 26), StringAlignment.Near, false); }
         float listTop = y + 128;
         float listH = 0; { string lc = ""; foreach (var i2 in list) { if (i2.Category != lc) { lc = i2.Category; listH += 20; } listH += 48; } }
-        float browserMax = Math.Max(0, listH - (h - (listTop - y) - 10) + 8); browserMaxF = browserMax; browserScroll = Math.Max(0, Math.Min(browserMax, browserScroll));
-        float ry = listTop - browserScroll; var clipR = Rc(x + 10, listTop - 4, w - 20, h - (listTop - y) - 28); g.SetClip(clipR);
+        float browserMax = Math.Max(0, listH - (h - (listTop - y) - 40) + 8); browserMaxF = browserMax; browserScroll = Math.Max(0, Math.Min(browserMax, browserScroll));
+        float ry = listTop - browserScroll; var clipR = Rc(x + 10, listTop - 4, w - 20, h - (listTop - y) - 36); g.SetClip(clipR);   // the list stops above the line over the hints
         string lastCat = "";
         for (int li = 0; li < list.Count; li++)
         {
@@ -1504,12 +1505,13 @@ partial class StudioForm : Form
             var row = Rc(x + 18, ry, w - 36 - (browserMax > 0 ? 56 : 0), 44); var vis = RectangleF.Intersect(row, clipR); bool hot = Hot(vis); FillRR(g, hot ? TM.C(220, 90, 50, 170) : TM.C(160, 44, 24, 80), row, 8);
             if (info.Category == "Purphex VST") { var gsB = g.Save(); g.SetClip(clipR, System.Drawing.Drawing2D.CombineMode.Intersect); Glow(g, PxPurple, row, 8, hot ? 1f : 0.6f, 3); StrokeRR(g, Color.FromArgb(hot ? 255 : 230, PxPurple), row, 8, hot ? 2f : 1.5f); g.Restore(gsB); }   // built in: a purple neon border that never changes with the theme
             Txt(g, info.Name, 15, Ink, Rc(row.X + 14, row.Y + 3, row.Width - 120, 20), StringAlignment.Near, true);
-            Txt(g, info.Blurb, 12, DimC, Rc(row.X + 14, row.Y + 22, row.Width - 120, 18), StringAlignment.Near, false);
+            using (var sfB = new StringFormat(StringFormatFlags.NoWrap) { Trimming = StringTrimming.EllipsisCharacter, LineAlignment = StringAlignment.Center }) using (var bb = new SolidBrush(DimC)) g.DrawString(info.Blurb, GfxCache.Font(11.5f, false), bb, Rc(row.X + 14, row.Y + 22, row.Width - 120, 18), sfB);   // every description the same size (a long one ends with ...)
             string type = info.Type; if (vis.Width > 0 && vis.Height > 0) Reg(vis, () => AddFx(type));   /* the whole row adds it; the Add button sits on top of the row */
             if (row.Y + 8 >= clipR.Y && row.Y + 36 <= clipR.Bottom) Btn(g, Rc(row.Right - 86, row.Y + 8, 72, 28), "Add", 1, () => AddFx(type), 13); ry += 48;
         }
         if (list.Count == 0) Txt(g, "No plugin matches \"" + browserQuery + "\"", 14, DimC, Rc(x, y + 140, w, 30), StringAlignment.Center, false);
-        g.ResetClip(); VScroll(g, Rc(x + w - 56, listTop, 42, h - (listTop - y) - 30), listH, h - (listTop - y) - 30, () => browserScroll, v => browserScroll = v);
+        g.ResetClip(); using (var pen = new Pen(Color.FromArgb(150, Accent), 1.2f)) g.DrawLine(pen, x + 18, clipR.Bottom + 2, x + w - 18, clipR.Bottom + 2);
+        VScroll(g, Rc(x + w - 56, listTop, 42, h - (listTop - y) - 38), listH, h - (listTop - y) - 38, () => browserScroll, v => browserScroll = v);
         Txt(g, browserVst ? "Pick the track with FOR, then press Add  -  Enter adds the first match  -  Esc closes" : "Enter adds the first match  -  Esc closes  -  the VSTs are under VSTS in the right panel", 11, DimC, Rc(x + 20, y + h - 22, w - 40, 18), StringAlignment.Near, false);
     }
     RectangleF browserBox; float browserMaxF; string browserCat = "";

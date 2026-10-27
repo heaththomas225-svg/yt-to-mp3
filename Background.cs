@@ -205,12 +205,21 @@ partial class App
         float pulse = (float)(Math.Sin(tt * 1.7f + idx * 0.9f) * 0.5 + 0.5);
         using (var p = RoundRect(r, 14))
         {
-            using (var br = new LinearGradientBrush(r, TM.C(238, 5, 3, 12), TM.C(238, 20, 9, 42), 90f)) g.FillPath(br, p);
+            var gs = g.Save(); g.SetClip(p, CombineMode.Intersect); g.DrawImage(CardGalaxy((int)Math.Ceiling(r.Width), (int)Math.Ceiling(r.Height), idx), r.X, r.Y); g.Restore(gs);   // a galaxy in every box
+            using (var br = new LinearGradientBrush(r, TM.C(120, 5, 3, 12), TM.C(100, 20, 9, 42), 90f)) g.FillPath(br, p);   // darkened a little so the writing reads
             using (var pen = new Pen(TM.C((int)(16 + 26 * pulse), 190, 90, 255), 7f)) g.DrawPath(pen, p);
             using (var pen = new Pen(TM.C((int)(95 + 90 * pulse), 170, 100, 255), 1.4f)) g.DrawPath(pen, p);
         }
     }
 
+    // the boxes' galaxies (made on the layer thread, kept only for it)
+    readonly Dictionary<string, Bitmap> cardGal = new Dictionary<string, Bitmap>();
+    Bitmap CardGalaxy(int w, int h, int idx)
+    {
+        string k = w + "x" + h + ":" + idx; Bitmap b; if (cardGal.TryGetValue(k, out b)) return b;
+        if (cardGal.Count > 24) { foreach (var o in cardGal.Values) o.Dispose(); cardGal.Clear(); }
+        b = StudioForm.MakeGalaxy(Math.Max(1, w), Math.Max(1, h), 0xCA0 + idx * 77, 0.9f); cardGal[k] = b; return b;
+    }
     static GraphicsPath RoundRect(RectangleF r, float rad)
     {
         var p = new GraphicsPath(); float d = rad * 2;

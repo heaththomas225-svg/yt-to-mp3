@@ -15,7 +15,7 @@ using System.Windows.Forms;
 // =====================================================================================================
 partial class StudioForm
 {
-    internal class FxWin { public Fx Fx; public Track Track; public RectangleF R; public long Seq; }
+    internal class FxWin { public Fx Fx; public Track Track; public RectangleF R; public long Seq; public float WantH; }   // WantH: the height it should have (it only gets shorter while the studio is too short for it)
     internal readonly List<FxWin> fxWins = new List<FxWin>(); long fxWinSeq; FxWin fxWinDrag; PointF fxWinGrab; bool fxWinResize;
     const float FwTitle = 50, FwTool = 30, FwViz = 69;
 
@@ -31,7 +31,7 @@ partial class StudioForm
             float ww = Math.Max(340, Math.Min(430, ClientSize.Width * 0.25f)), hh = Math.Min(FwTitle + FwTool + (f is ParametricEq ? 8 : FwViz) + (f is ParametricEq ? 470 : EditorHeight(f) - 34) + 18, Math.Max(260, ClientSize.Height - ToolH - TransH - 40));
             if (KnobEditor(f)) { ww = Math.Max(420, Math.Min(620, ClientSize.Width * 0.36f)); int nv = 0; var hid = f.Hidden.Length > 0 ? new HashSet<string>(f.Hidden.Split(',')) : new HashSet<string>(); foreach (var pq in f.P) if (!hid.Contains(pq.Id)) nv++; hh = Math.Min(FwTitle + FwTool + 8 + EditorHeight(f) - 34 - nv * 30 + KnobGridHeight(f, ww - 24) + 22, Math.Max(260, ClientSize.Height - ToolH - TransH - 40)); }   // room for the display in the middle of the knobs   // narrow, as tall as its controls need (it floats over the mixer, like a desk plugin window)
             int k = fxWins.Count; float x = Math.Max(HeadW + 20, (ClientSize.Width - PanelW - ww) / 2 + k * 28), y = ToolH + TransH + 40 + k * 28;
-            w = new FxWin { Fx = f, Track = tr, R = new RectangleF(x, y, ww, hh) }; fxWins.Add(w);
+            w = new FxWin { Fx = f, Track = tr, R = new RectangleF(x, y, ww, hh), WantH = hh }; fxWins.Add(w);
         }
         w.Seq = ++fxWinSeq; tab = 0; Invalidate();
     }
@@ -57,8 +57,8 @@ partial class StudioForm
     void KeepFxWinOnScreen(FxWin w)
     {
         float minW = 340, minH = FwTitle + FwTool + 120; var r = w.R; r.Width = Math.Max(minW, Math.Min(ClientSize.Width - 20, r.Width)); r.Height = Math.Max(minH, Math.Min(ClientSize.Height - ToolH - 20, r.Height));
-        r.X = Math.Max(-r.Width + 120, Math.Min(ClientSize.Width - 120, r.X)); r.Y = Math.Max(ToolH, Math.Min(ClientSize.Height - FwTitle - 4, r.Y));
-        if (r.Bottom > ClientSize.Height - 6) r.Height = Math.Max(Math.Min(minH, ClientSize.Height - 6 - r.Y), ClientSize.Height - 6 - r.Y);   // a window never runs off the bottom (its editor scrolls instead)
+        if (w.WantH <= 0) w.WantH = r.Height; float avail = ClientSize.Height - 6 - ToolH; r.Height = Math.Max(Math.Min(minH, avail), Math.Min(w.WantH, avail));   // its own height whenever it fits (it grows back after the studio was short)
+        r.X = Math.Max(-r.Width + 120, Math.Min(ClientSize.Width - 120, r.X)); r.Y = Math.Max(ToolH, Math.Min(ClientSize.Height - 6 - r.Height, r.Y));   // dragged low, it stops at the bottom edge instead of getting shorter
         w.R = r;
     }
     void PaintFxWindow(Graphics g, FxWin w)
@@ -109,7 +109,7 @@ partial class StudioForm
         if (edH > body.Height + 1) { float sMax = edH - body.Height; wr.OnWheel = d => { float s0; fxWinScroll.TryGetValue(f, out s0); fxWinScroll[f] = Math.Max(0, Math.Min(sMax, s0 - d * 40)); }; }
         // resize from the bottom-right corner
         var grip = Rc(r.Right - 18, r.Bottom - 18, 16, 16); using (var pen = new Pen(Color.FromArgb(180, acc), 1.5f)) { g.DrawLine(pen, grip.Right - 3, grip.Y + 3, grip.X + 3, grip.Bottom - 3); g.DrawLine(pen, grip.Right - 3, grip.Y + 9, grip.X + 9, grip.Bottom - 3); }
-        var gr = Reg(grip, () => { fxWinDrag = w; fxWinResize = true; }); gr.OnDrag = pt => { if (fxWinDrag == w && fxWinResize) w.R = new RectangleF(w.R.X, w.R.Y, pt.X - w.R.X + 4, pt.Y - w.R.Y + 4); }; gr.OnUp = () => { fxWinDrag = null; fxWinResize = false; }; Hint2(grip, "Drag to resize the window");
+        var gr = Reg(grip, () => { fxWinDrag = w; fxWinResize = true; }); gr.OnDrag = pt => { if (fxWinDrag == w && fxWinResize) { w.R = new RectangleF(w.R.X, w.R.Y, pt.X - w.R.X + 4, pt.Y - w.R.Y + 4); w.WantH = w.R.Height; } }; gr.OnUp = () => { fxWinDrag = null; fxWinResize = false; }; Hint2(grip, "Drag to resize the window");
     }
     readonly Dictionary<Fx, float> fxWinScroll = new Dictionary<Fx, float>();
     // the plugins whose settings are drawn by the general editor (so a window shows them as knobs)

@@ -54,4 +54,31 @@ static class GalaxyBg
         g.DrawImage(bmp, r, new Rectangle(0, 0, r.Width, r.Height), GraphicsUnit.Pixel);
         if (dimAlpha > 0) using (var b = new SolidBrush(Color.FromArgb(dimAlpha, dim))) g.FillRectangle(b, r);
     }
+    // a knob's body: a glossy glass sphere with a galaxy inside it, lit from the top left, with a purple rim (the plugin windows' knob)
+    public static void Sphere(Graphics g, float cx, float cy, float d, bool hot)
+    {
+        if (d < 6) return; var r = new RectangleF(cx - d / 2, cy - d / 2, d, d); var oldSm = g.SmoothingMode; g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+        using (var pth = new System.Drawing.Drawing2D.GraphicsPath())
+        {
+            pth.AddEllipse(r); var gs = g.Save(); g.SetClip(pth, System.Drawing.Drawing2D.CombineMode.Intersect);
+            Paint(g, new Rectangle((int)r.X, (int)r.Y, (int)Math.Ceiling(d) + 1, (int)Math.Ceiling(d) + 1), 0x5F3E, 1.3f, Color.FromArgb(12, 6, 28), 70);   // the galaxy inside
+            g.Restore(gs);
+            using (var pb = new System.Drawing.Drawing2D.PathGradientBrush(pth) { CenterPoint = new PointF(cx - d * 0.18f, cy - d * 0.22f), CenterColor = Color.FromArgb(90, 150, 110, 230), SurroundColors = new[] { Color.FromArgb(170, 8, 4, 20) } }) g.FillPath(pb, pth);   // the glass: lit top left, dark at the edge
+        }
+        using (var pen = new Pen(Color.FromArgb(hot ? 255 : 200, 176, 92, 255), Math.Max(1.2f, d / 30f))) g.DrawEllipse(pen, r);
+        using (var hl = new System.Drawing.Drawing2D.GraphicsPath()) { hl.AddEllipse(cx - d * 0.3f, cy - d * 0.42f, d * 0.45f, d * 0.26f); using (var hb = new System.Drawing.Drawing2D.PathGradientBrush(hl) { CenterColor = Color.FromArgb(150, 255, 255, 255), SurroundColors = new[] { Color.FromArgb(0, 255, 255, 255) } }) g.FillPath(hb, hl); }   // the shine
+        g.SmoothingMode = oldSm;
+    }
+    // a button's face: a piece of galaxy in a rounded box, tinted with the button's colour
+    public static void Face(Graphics g, RectangleF r, float rad, Color tint, int tintAlpha)
+    {
+        if (r.Width < 4 || r.Height < 4) return; float d = Math.Max(1, Math.Min(rad * 2, Math.Min(r.Width, r.Height)));
+        using (var p = new System.Drawing.Drawing2D.GraphicsPath())
+        {
+            p.AddArc(r.X, r.Y, d, d, 180, 90); p.AddArc(r.Right - d, r.Y, d, d, 270, 90); p.AddArc(r.Right - d, r.Bottom - d, d, d, 0, 90); p.AddArc(r.X, r.Bottom - d, d, d, 90, 90); p.CloseFigure();
+            var gs = g.Save(); g.SetClip(p, System.Drawing.Drawing2D.CombineMode.Intersect);
+            Paint(g, new Rectangle((int)r.X, (int)r.Y, (int)Math.Ceiling(r.Width) + 1, (int)Math.Ceiling(r.Height) + 1), 0xB077, 1.1f, Color.FromArgb(255, tint), tintAlpha);
+            g.Restore(gs);
+        }
+    }
 }
