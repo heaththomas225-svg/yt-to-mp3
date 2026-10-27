@@ -2,6 +2,26 @@
 
 What changed in each version of **Purphex**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.77.3  Bass Lab modulation like the big synths, galaxy everywhere, plugins in the mixer, update button on the welcome box
+
+- NEW: Bass Lab modulation works like the big synths: every LFO, envelope and macro has a glowing circle you drag. While you drag, every knob it can move lights up, and you can drop it on a filter's curve (its cutoff) or an oscillator's wave (its wave position) too. Drag the coloured ring round a knob to set how much (no Ctrl needed).
+
+- NEW: Shaping an LFO is smoother: bends are firmer and never spike (Shift for fine bends), and the shape is a soft filled curve with a glowing line and ring points.
+
+- NEW: Bass Lab sounds: EXPORT and IMPORT buttons for .bsound files, and DRAG TO SONG: drag the circle onto the studio and the sound you are playing goes on the song as an audio clip.
+
+- CHANGED: Init in Bass Lab is now shown as Blank (under START FROM SCRATCH): the plain sound to build your own from. INITIALISE PATCH is now START FROM SCRATCH.
+
+- NEW: Galaxy knobs (glass spheres with a galaxy inside) and galaxy buttons in Bass Lab, the Purphex VSTs, GlitchFlow and the plugin windows; the boxes of the Purphex VSTs, GlitchFlow and Bass Lab are see-through so the galaxy shows. The converter's boxes and buttons are on the galaxy too.
+
+- CHANGED: Plugins live in the mixer only: the right panel no longer lists a track's plugins when the mixer is hidden; it points you to the mixer with OPEN THE MIXER.
+
+- NEW: An update shows on the welcome box (where your projects are) as UPDATE AVAILABLE, and stays there after LATER until you update.
+
+- FIXED: A plugin window dragged to the bottom of the studio no longer shrinks (and one that shrank grows back).
+
+- FIXED: In the VSTS list every description is the same size (long ones end with ...), and the last plugin no longer runs under the hints at the bottom.
+
 ## 3.77.2  Updates show up in the studio, one question when closing, no converter flash, the studio reopens where it was
 
 - FIXED: Updates show again. Since 3.77.0 Purphex opens straight into the studio, and the update card was in the hidden converter window, so you only saw it on the CONVERTER page. Now an UPDATE AVAILABLE box appears over the studio, on any page, with UPDATE NOW and LATER.

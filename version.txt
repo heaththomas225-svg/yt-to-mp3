@@ -1,4 +1,4 @@
-3.77.2
+3.77.3
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Updates show in the studio, one question when closing, no converter flash, the studio reopens where it was
-sha256=14824da8f12cafa2b3e18f6113c6532177a05719bbca1055f96d1be17591de5a
+Bass Lab modulation like the big synths, galaxy everywhere, plugins in the mixer, update button on the welcome box
+sha256=608bff9cd2c098a8674835c734a7e33171749795e30396102b6b21a6bef83546
