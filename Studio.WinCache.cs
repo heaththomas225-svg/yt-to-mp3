@@ -11,29 +11,57 @@ using System.Drawing.Drawing2D;
 // =====================================================================================================
 partial class StudioForm
 {
-    sealed class WinPic { public Bitmap Bmp; public Rectangle R; public string Sig = ""; public int At; public List<HitReg> Regs = new List<HitReg>(); }
+    sealed class WinPic { public Bitmap Bmp; public Rectangle R; public string Sig = ""; public int At, Hot = -2, HotAt; public string Hint; public List<HitReg> Regs = new List<HitReg>(); }   // Hot: the control the mouse was on when it was drawn; Hint: the hint that control showed
     readonly Dictionary<object, WinPic> winPics = new Dictionary<object, WinPic>();
     const int WinPicPad = 16;   // room round the window for its shadow and glow
     // draws the window through its picture; maxAgeMs: how old the picture may get (0 = until its signature changes)
     void PaintCachedWin(Graphics g, object key, RectangleF r, string sig, int maxAgeMs, Action<Graphics> paint)
     {
-        var ri = Rectangle.Round(r); bool live = dragReg != null || Rectangle.Inflate(ri, 6, 6).Contains(Point.Round(MousePos)) || TxtAudit != null;
+        var ri = Rectangle.Round(r); bool over = Rectangle.Inflate(ri, 6, 6).Contains(Point.Round(MousePos)); bool live = (over && dragReg != null) || TxtAudit != null;   // dragging a knob or the window: drawn fresh
         WinPic p; winPics.TryGetValue(key, out p);
         if (live) { if (p != null) { p.Bmp.Dispose(); winPics.Remove(key); } paint(g); return; }
         string full = sig + "|" + UiTokens.Version + "|" + Themes.Index + "|" + ri;
         int now = Environment.TickCount;
-        if (p != null && p.Sig == full && (maxAgeMs <= 0 || unchecked(now - p.At) < maxAgeMs)) { g.DrawImageUnscaled(p.Bmp, ri.X - WinPicPad, ri.Y - WinPicPad); regs.AddRange(p.Regs); return; }
+        // the mouse resting on the window: its picture is kept while the mouse stays on the same control (it is drawn again when the mouse moves to
+        // another control, for a moment after so its glow can fade in, and when anything in the window changes)
+        bool sameHot = !over || (p != null && HotIn(p.Regs, ri) == p.Hot && unchecked(now - p.HotAt) > 350);
+        if (p != null && p.Sig == full && sameHot && (maxAgeMs <= 0 || unchecked(now - p.At) < maxAgeMs)) { g.DrawImageUnscaled(p.Bmp, ri.X - WinPicPad, ri.Y - WinPicPad); regs.AddRange(p.Regs); if (over && p.Hint != null) hintNow = p.Hint; return; }
         int w = ri.Width + WinPicPad * 2, h = ri.Height + WinPicPad * 2; if (w < 4 || h < 4 || w * h > 2600 * 1600) { paint(g); return; }
         if (p == null || p.Bmp.Width != w || p.Bmp.Height != h) { if (p != null) p.Bmp.Dispose(); p = new WinPic { Bmp = new Bitmap(w, h, System.Drawing.Imaging.PixelFormat.Format32bppPArgb) }; winPics[key] = p; }
-        int r0 = regs.Count;
+        int r0 = regs.Count; string h0 = hintNow;
         using (var gb = Graphics.FromImage(p.Bmp))
         {
             gb.Clear(Color.Transparent); gb.SmoothingMode = SmoothingMode.AntiAlias; gb.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit; Sharp(gb);
             gb.TranslateTransform(WinPicPad - ri.X, WinPicPad - ri.Y); paint(gb);
         }
-        p.Regs = regs.GetRange(r0, regs.Count - r0); p.Sig = full; p.R = ri; p.At = now;
+        p.Regs = regs.GetRange(r0, regs.Count - r0); p.Sig = full; p.R = ri; p.At = now; p.Hint = hintNow != h0 ? hintNow : null;
+        { int hot = over ? HotIn(p.Regs, ri) : -1; if (hot != p.Hot) { p.Hot = hot; p.HotAt = now; } }
         g.DrawImageUnscaled(p.Bmp, ri.X - WinPicPad, ri.Y - WinPicPad);
     }
+    // A part of a window that does not change (its glowing frame, the galaxy band, the planet in its display) drawn once into a picture and then
+    // stamped: the window under the mouse is drawn fresh every frame, and drawing these again each time made the plugin windows lag.
+    readonly Dictionary<string, Bitmap> layers = new Dictionary<string, Bitmap>();
+    void CachedLayer(Graphics g, string key, RectangleF r, int pad, Action<Graphics> paint)
+    {
+        var ri = Rectangle.Round(r); string full = key + "|" + ri.Width + "x" + ri.Height + "|" + UiTokens.Version + "|" + Themes.Index; Bitmap bmp;
+        if (!layers.TryGetValue(full, out bmp))
+        {
+            if (layers.Count > 60) { foreach (var b in layers.Values) b.Dispose(); layers.Clear(); }
+            bmp = new Bitmap(ri.Width + pad * 2, ri.Height + pad * 2, System.Drawing.Imaging.PixelFormat.Format32bppPArgb);
+            using (var gb = Graphics.FromImage(bmp)) { gb.Clear(Color.Transparent); gb.SmoothingMode = SmoothingMode.AntiAlias; gb.TranslateTransform(pad - ri.X, pad - ri.Y); paint(gb); }
+            layers[full] = bmp;
+        }
+        g.DrawImageUnscaled(bmp, ri.X - pad, ri.Y - pad);
+    }
+
+    // which control of a window the mouse is on (its place in the window's list; -1: none)
+    int HotIn(List<HitReg> l, Rectangle win)
+    {
+        float big = win.Width * win.Height * 0.5f; var m = MousePos;
+        for (int i = l.Count - 1; i >= 0; i--) { var rr = l[i].R; if (rr.Width * rr.Height < big && rr.Contains(m)) return i; }
+        return -1;
+    }
+
     // pictures of windows that are closed are let go
     void TrimWinPics(ICollection<object> open)
     {
@@ -55,7 +83,23 @@ static class GalaxyBg
         if (dimAlpha > 0) using (var b = new SolidBrush(Color.FromArgb(dimAlpha, dim))) g.FillRectangle(b, r);
     }
     // a knob's body: a glossy glass sphere with a galaxy inside it, lit from the top left, with a purple rim (the plugin windows' knob)
+    // a knob's glass sphere: drawn once per size (at the screen's real size, so it stays sharp when zoomed) and then stamped; drawing it fresh for every knob on every frame made the plugin windows lag
+    static readonly Dictionary<long, Bitmap> spheres = new Dictionary<long, Bitmap>();
     public static void Sphere(Graphics g, float cx, float cy, float d, bool hot)
+    {
+        if (d < 6) return; float sc; using (var m = g.Transform) { var e = m.Elements; sc = (float)Math.Sqrt(Math.Abs(e[0] * e[3] - e[1] * e[2])); } if (sc <= 0.01f || sc > 8) { SphereFresh(g, cx, cy, d, hot); return; }
+        int px = (int)Math.Ceiling(d * sc) + 6; long key = ((long)Math.Round(d * sc * 4) << 1) | (hot ? 1L : 0L); Bitmap bmp;
+        lock (spheres)
+        {
+            if (!spheres.TryGetValue(key, out bmp))
+            {
+                if (spheres.Count > 80) { foreach (var b in spheres.Values) b.Dispose(); spheres.Clear(); }
+                bmp = new Bitmap(px, px, System.Drawing.Imaging.PixelFormat.Format32bppPArgb); using (var bg = Graphics.FromImage(bmp)) { bg.Clear(Color.Transparent); SphereFresh(bg, px / 2f, px / 2f, d * sc, hot); } spheres[key] = bmp;
+            }
+        }
+        var im = g.InterpolationMode; g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBilinear; float lw = px / sc; g.DrawImage(bmp, new RectangleF(cx - lw / 2, cy - lw / 2, lw, lw)); g.InterpolationMode = im;
+    }
+    static void SphereFresh(Graphics g, float cx, float cy, float d, bool hot)
     {
         if (d < 6) return; var r = new RectangleF(cx - d / 2, cy - d / 2, d, d); var oldSm = g.SmoothingMode; g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
         using (var pth = new System.Drawing.Drawing2D.GraphicsPath())

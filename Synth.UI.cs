@@ -386,6 +386,10 @@ partial class SynthCanvas : Control
         downPt = mouse; if (r.Down != null) r.Down(mouse); if (r.Drag != null) active = r; Poke();
     }
     protected override void OnMouseUp(MouseEventArgs e) { base.OnMouseUp(e); mouse = ToLogical(e.Location); active = null; if (dragSrc != 0) { var ht = HitTest(mouse); if (ht == null || ht.P == null || DestOf(ht.P.Id) == 0) ht = DisplayTargetAt(mouse) ?? ht; DropOnKnob(ht); } Poke(); }
-    protected override void OnMouseWheel(MouseEventArgs e) { base.OnMouseWheel(e); var r = HitTest(ToLogical(e.Location)); if (r != null && r.Wheel != null) { r.Wheel(e.Delta > 0 ? 1 : -1); Poke(); } }
+    protected override void OnMouseWheel(MouseEventArgs e)
+    {   // the wheel goes to the top thing under the mouse that takes it (over a sound in a list, or its scroll bar, the list scrolls)
+        base.OnMouseWheel(e); var pt = ToLogical(e.Location);
+        for (int i = regs.Count - 1; i >= 0; i--) { var r = regs[i]; if (!r.R.Contains(pt)) continue; if (r.Wheel != null) { r.Wheel(e.Delta > 0 ? 1 : -1); Poke(); return; } if (r.P != null) return; }   // (a knob without a wheel action keeps it)
+    }
     protected override void OnMouseLeave(EventArgs e) { base.OnMouseLeave(e); hover = null; Invalidate(); }
 }

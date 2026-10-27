@@ -66,6 +66,20 @@ static class SQ
             Check("the piano: a key struck again does not click (it fades the old note)", rs < steady * 2.5, "restrike " + rs.ToString("0.0000") + " vs steady " + steady.ToString("0.0000"));
             Check("the piano: a loud 7-note chord is not clipped", pk < 0.9, "peak " + pk.ToString("0.000"));
         }
+        {   // every instrument: a key struck again or a note switched does not click, and nothing goes past full scale (the engine's guard on instruments)
+            int isr = StudioEngine.SR, B = 256, N = isr * 2; var evs = new List<int[]> { new[] { 0, 0x90, 48, 110 }, new[] { isr / 2, 0x80, 48, 0 }, new[] { isr / 2, 0x90, 48, 110 }, new[] { isr, 0x90, 51, 110 }, new[] { isr, 0x80, 48, 0 } };
+            foreach (int kn in new[] { 48, 55, 60, 63, 67 }) evs.Add(new[] { isr * 3 / 2, 0x90, kn, 127 });
+            Func<InstrumentFx, float[]> render = k => { var L = new float[N]; for (int p0 = 0; p0 < N; p0 += B) { foreach (var m in evs) if (m[0] / B * B == p0) k.Midi((byte)m[1], (byte)m[2], (byte)m[3], false); k.BeginBlock(null, p0, B, false); var bl = new float[B]; var br = new float[B]; k.Process(bl, br, B); k.Guard.Run(bl, br, B); Array.Copy(bl, 0, L, p0, Math.Min(B, N - p0)); } return L; };
+            Func<float[], int, int, double> spk = (L, a0, b0) => { double m = 0; for (int i = Math.Max(2, a0); i < Math.Min(L.Length, b0); i++) m = Math.Max(m, Math.Abs(L[i] - 2 * L[i - 1] + L[i - 2])); return m; };
+            foreach (var nm in new[] { "Reese Bass", "Supersaw Lead", "Triplet Wobble", "Sub Square" })
+            {
+                var f = new SynthFx(); f.Prepare(isr); SynthPresets.Apply(f, nm); var L = render(f); double worst = 0;
+                foreach (int t in new[] { isr / 2 / B * B, isr / B * B }) { double before = Math.Max(spk(L, t - 1500, t - 50), spk(L, t + 1500, t + 3000)), after = spk(L, t - 2, t + 300); worst = Math.Max(worst, after / Math.Max(before, 0.002)); }
+                double pk = 0; foreach (var v in L) pk = Math.Max(pk, Math.Abs(v));
+                Check("Bass Lab " + nm + ": a key struck again or a new note does not click, and it is not clipped", worst < 4 && pk < 1, "click x" + worst.ToString("0.0") + " peak " + pk.ToString("0.00"));
+            }
+            foreach (var ty in new[] { "pxchord", "wobble", "pxcurrent" }) { var f = (InstrumentFx)FxRegistry.Create(ty); f.Prepare(isr); var L = render(f); double pk = 0; foreach (var v in L) pk = Math.Max(pk, Math.Abs(v)); Check(f.Title + " never goes past full scale (it crackled when it did)", pk < 1, "peak " + pk.ToString("0.00")); }
+        }
         Console.WriteLine(fails == 0 ? "=== sound quality checks passed ===" : "=== " + fails + " FAILED ==="); Environment.Exit(fails == 0 ? 0 : 1);
     }
 }

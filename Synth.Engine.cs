@@ -98,7 +98,7 @@ class SynthFx : InstrumentFx
     class Voice
     {
         public bool On, Released, HeldBySustain; public int Note; public float Vel; public long Age; public double Cur;
-        public double[,] Ph = new double[3, 7]; public double SubPh; public double[] LastOut = new double[3];
+        public double[,] Ph = new double[3, 7]; public double SubPh; public double[] LastOut = new double[3]; public double OutL, OutR, OffL, OffR; public bool Fresh;   // declick: what it last played, and the jump still being smoothed away
         public double[] F = new double[64];                  // filter state: [filter * 32 + stage * 4 + ch * 2 + {0,1}]
         public float[][] Comb = { new float[2048], new float[2048], new float[2048], new float[2048] }; public int[] CombW = new int[4];
         public double[] Env = new double[4]; public int[] Stage = new int[4];
@@ -265,7 +265,7 @@ class SynthFx : InstrumentFx
     {
         base.Reset();
         foreach (var v in voices) { v.On = false; v.Released = false; for (int i = 0; i < 4; i++) { v.Env[i] = 0; v.Stage[i] = 0; } Array.Clear(v.F, 0, v.F.Length); foreach (var c in v.Comb) Array.Clear(c, 0, c.Length); }
-        held.Clear(); sustain = false; dist.Reset(); chor.Reset(); dly.Reset(); rev.Reset(); boost.Reset(); sat.Reset(); comp.Reset(); eq.Reset(); phs.Reset(); fln.Reset(); wid.Reset();
+        held.Clear(); sustain = false; limit.Reset(); foreach (var v in voices) { v.OutL = v.OutR = v.OffL = v.OffR = 0; v.Fresh = false; } dist.Reset(); chor.Reset(); dly.Reset(); rev.Reset(); boost.Reset(); sat.Reset(); comp.Reset(); eq.Reset(); phs.Reset(); fln.Reset(); wid.Reset();
     }
 
     protected override void OnEvents(List<KeyValuePair<int, MidiEv>> ev) { pending = ev; }
@@ -275,7 +275,7 @@ class SynthFx : InstrumentFx
     {
         held.Remove(note); held.Add(note); var v = AllocVoice(note);
         bool legatoOverlap = mode == 2 && v.On && !v.Released && v.Stage[0] != 0;
-        v.Note = note; v.Vel = vel / 127f; v.Age = ++ageCounter; v.Released = false; v.HeldBySustain = false;
+        v.Note = note; v.Vel = vel / 127f; v.Age = ++ageCounter; v.Released = false; v.HeldBySustain = false; if (!legatoOverlap) v.Fresh = true;   // a new strike: any jump from what it played is smoothed away (a re-struck or stolen voice clicked)
         if (!v.On || glide <= 0 || mode == 0) v.Cur = note;
         if (!legatoOverlap)
         {
@@ -357,7 +357,7 @@ class SynthFx : InstrumentFx
         CheckDirty();
         if (n > outL.Length) { outL = new float[n]; outR = new float[n]; }
         gAge = 0; Array.Clear(gmod, 0, gmod.Length); Array.Clear(outL, 0, n); Array.Clear(outR, 0, n); for (int i = 0; i < 5; i++) blockPeak[i] = 0;
-        int pos = 0, ei = 0; var ev = pending; pending = new List<KeyValuePair<int, MidiEv>>();
+        dkK = Math.Exp(-1.0 / (0.002 * SR)); int pos = 0, ei = 0; var ev = pending; pending = new List<KeyValuePair<int, MidiEv>>();
         while (pos < n)
         {
             while (ei < ev.Count && ev[ei].Key <= pos) { Midi(ev[ei].Value); ei++; }
@@ -368,7 +368,8 @@ class SynthFx : InstrumentFx
         ApplyGlobalMods();
         // effects on the summed voices
         for (int s = 0; s < 11; s++) RunFx(fxOrder[s], n);
-        float pl = 0, pr = 0; for (int i = 0; i < n; i++) { float a = Soft(outL[i]), b = Soft(outR[i]); l[i] += a; r[i] += b; if (Math.Abs(a) > pl) pl = Math.Abs(a); if (Math.Abs(b) > pr) pr = Math.Abs(b); }
+        limit.Run(outL, outR, n);   // too loud: turned down smoothly instead of squashed (heard 1.5 ms late so the level is down before a peak)
+        float pl = 0, pr = 0; for (int i = 0; i < n; i++) { float a = outL[i], b = outR[i]; l[i] += a; r[i] += b; if (Math.Abs(a) > pl) pl = Math.Abs(a); if (Math.Abs(b) > pr) pr = Math.Abs(b); }
         OutPeakL = Math.Max(pl, OutPeakL * 0.85f); OutPeakR = Math.Max(pr, OutPeakR * 0.85f); for (int i = 0; i < 5; i++) SrcPeak[i] = Math.Max(blockPeak[i], SrcPeak[i] * 0.85f);
     }
     // one slot of the chain (the order is set by the fo0..fo10 knobs); effects without their own mix get a wet/dry blend here
@@ -393,6 +394,7 @@ class SynthFx : InstrumentFx
             t[q].Set(GKeys[q], (float)val); gWas[q] = Math.Abs(m) > 1e-9;
         }
     }
+    readonly Declip limit = new Declip(64, 0.85); double dkK = 0.99;
     static float Soft(float x) { float a = Math.Abs(x); if (a < 0.8f) return x; float s = x < 0 ? -1f : 1f; return s * (0.8f + 0.2f * (float)Math.Tanh((a - 0.8f) / 0.2f)); }
 
     double[] src = new double[14], dst = new double[62];
@@ -414,7 +416,7 @@ class SynthFx : InstrumentFx
             if (!v.On) continue;
             // ---- envelopes (control rate) ----
             for (int e = 1; e < 4; e++) StepEnv(v, e, len);   // envelope 1 (amp) is stepped per sample below
-            if (v.Stage[0] == 0 && v.Released) { v.On = false; continue; }
+            if (v.Stage[0] == 0 && v.Released) { v.On = false; v.OutL = v.OutR = v.OffL = v.OffR = 0; continue; }
             v.Time += dtc;
             // ---- modulation sources ----
             for (int k = 0; k < 4; k++)
@@ -543,8 +545,10 @@ class SynthFx : InstrumentFx
                     xl = y1l + b2l; xr = y1r + b2r; if (fp[1].On) { xl = Filt(v, 1, xl, 0); xr = Filt(v, 1, xr, 1); }
                 }
                 xl += dl; xr += dr;
-                double g = gain * aenv;
-                outL[start + i] += (float)(xl * g * pl2); outR[start + i] += (float)(xr * g * pr2);
+                double g = gain * aenv, yl = xl * g * pl2, yr = xr * g * pr2;
+                if (v.Fresh) { v.OffL = v.OutL - yl; v.OffR = v.OutR - yr; v.Fresh = false; }
+                yl += v.OffL; yr += v.OffR; v.OffL *= dkK; v.OffR *= dkK; v.OutL = yl; v.OutR = yr;
+                outL[start + i] += (float)yl; outR[start + i] += (float)yr;
                 StepAmp(v);
             }
         }
@@ -623,7 +627,7 @@ class SynthFx : InstrumentFx
             case 1: if (P.A <= 0.5) { v.Env[0] = 1; v.Stage[0] = 2; } else { v.Env[0] += 1.0 / (P.A * 0.001 * sr); if (v.Env[0] >= 1) { v.Env[0] = 1; v.Stage[0] = 2; } } break;
             case 2: { double c = Math.Exp(-4.6 / (Math.Max(1, P.D) * 0.001 * sr)); v.Env[0] = P.S + (v.Env[0] - P.S) * c; break; }
             case 3: v.Env[0] = P.S; break;
-            case 4: v.Env[0] *= Math.Exp(-4.6 / (Math.Max(1, P.R) * 0.001 * sr)); if (v.Env[0] < 0.0003) { v.Env[0] = 0; v.Stage[0] = 0; v.On = false; } break;
+            case 4: v.Env[0] *= Math.Exp(-4.6 / (Math.Max(1, P.R) * 0.001 * sr)); if (v.Env[0] < 0.0003) { v.Env[0] = 0; v.Stage[0] = 0; v.On = false; v.OutL = v.OutR = v.OffL = v.OffR = 0; } break;
         }
     }
 

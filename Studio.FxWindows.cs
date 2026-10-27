@@ -63,24 +63,30 @@ partial class StudioForm
     }
     void PaintFxWindow(Graphics g, FxWin w)
     {
-        KeepFxWinOnScreen(w); var r = w.R; var f = w.Fx; bool front = w.Seq == fxWinSeq; Color acc = front ? UiTokens.Sel(NeonCyan) : NeonViolet;
+        long q0 = Prof.T(); KeepFxWinOnScreen(w); var r = w.R; var f = w.Fx; bool front = w.Seq == fxWinSeq; Color acc = front ? UiTokens.Sel(NeonCyan) : NeonViolet;
         // the window: a rounded neon box with a soft shadow
-        using (var sh = new SolidBrush(Color.FromArgb(90, 0, 0, 0))) g.FillRectangle(sh, r.X + 6, r.Y + 8, r.Width, r.Height);
-        FillRR(g, TM.C(250, 20, 10, 40), r, 12); Glow(g, acc, r, 12, front ? 0.9f : 0.45f, 3); StrokeRR(g, Color.FromArgb(front ? 230 : 150, acc), r, 12, 1.4f);
+        r = Rectangle.Round(r);   // whole pixels, so the frame picture below lines up exactly
+        var title = Rc(r.X, r.Y, r.Width, FwTitle); var tbr = Rc(r.X + 1, r.Y + 1, r.Width - 2, FwTitle);
+        CachedLayer(g, "fw|" + f.Type + "|" + front + "|" + acc.ToArgb(), r, 16, gg =>
+        {   // the window's frame and its header band: they only change with its size, the theme and which window is in front
+            using (var sh = new SolidBrush(Color.FromArgb(90, 0, 0, 0))) gg.FillRectangle(sh, r.X + 6, r.Y + 8, r.Width, r.Height);
+            FillRR(gg, TM.C(250, 20, 10, 40), r, 12); Glow(gg, acc, r, 12, front ? 0.9f : 0.45f, 3); StrokeRR(gg, Color.FromArgb(front ? 230 : 150, acc), r, 12, 1.4f);
+            // the header: a deep galaxy band (the PURPHEX logo and the plugin's name go on it below)
+            using (var p = RR(tbr, 11)) { using (var tb = new LinearGradientBrush(tbr, Color.FromArgb(255, 22, 9, 46), Color.FromArgb(255, 9, 4, 22), 90f)) gg.FillPath(tb, p); var gsH = gg.Save(); gg.SetClip(p, System.Drawing.Drawing2D.CombineMode.Intersect); PaintGalaxy(gg, tbr, f.Type.GetHashCode(), front ? 0.35f : 0.25f); gg.Restore(gsH);   /* a deep dark purple header: the white name stands out on it */ }
+            using (var pen = new Pen(Color.FromArgb(front ? 200 : 120, acc), 1.2f)) gg.DrawLine(pen, r.X + 10, r.Y + FwTitle, r.Right - 10, r.Y + FwTitle);
+        });
         Reg(r, () => { }).Overlay = true;   // the window takes its own clicks: nothing behind it reacts (not even a button under it)
         var wr = new HitReg { R = r, OnWheel = d => { } }; regs.Add(wr);
         // title bar: plugin, its kind, its track; drag it to move the window
-        var title = Rc(r.X, r.Y, r.Width, FwTitle); var tbr = Rc(r.X + 1, r.Y + 1, r.Width - 2, FwTitle);
-        // the header: a deep galaxy band with the PURPHEX logo and the plugin's name under it, and what it is / which track on the right
-        using (var p = RR(tbr, 11)) { using (var tb = new LinearGradientBrush(tbr, Color.FromArgb(255, 22, 9, 46), Color.FromArgb(255, 9, 4, 22), 90f)) g.FillPath(tb, p); var gsH = g.Save(); g.SetClip(p, System.Drawing.Drawing2D.CombineMode.Intersect); PaintGalaxy(g, tbr, f.Type.GetHashCode(), front ? 0.35f : 0.25f); g.Restore(gsH);   /* a deep dark purple header: the white name stands out on it */ }
-        using (var pen = new Pen(Color.FromArgb(front ? 200 : 120, acc), 1.2f)) g.DrawLine(pen, r.X + 10, r.Y + FwTitle, r.Right - 10, r.Y + FwTitle);
+        Prof.A("fw.frame", q0); q0 = Prof.T();
         if (front && UiTokens.Shiny) PaintMaterial(g, Rc(r.X + 1, r.Y + 1, r.Width - 2, FwTitle), 11, acc, UiTokens.Finish, true);   // the accent's finish on the front window's header (its sheen moves unless motion is reduced)
         string trackName = w.Track == null ? "MASTER" : w.Track.Name; string cat = FxCategory(f);
-        PaintPurphexMark(g, r.X + 12, r.Y + 1, 31, f.Title, acc);
+        { float mx = r.X + 12, my = r.Y + 1; CachedLayer(g, "mark|" + f.Title + "|" + acc.ToArgb(), Rc(mx, my, Math.Min(360, r.Width - 160), FwTitle - 2), 4, gg => PaintPurphexMark(gg, mx, my, 31, f.Title, acc)); }   // the logo and name in galaxy writing: drawn once
         Txt(g, (cat + "  ·  " + trackName).ToUpperInvariant(), 9, Color.FromArgb(255, 200, 185, 240), Rc(r.Right - 250, r.Y + 32, 238, 14), StringAlignment.Far, true);
         var tr2 = Reg(title, () => { fxWinDrag = w; fxWinResize = false; fxWinGrab = new PointF(MousePos.X - w.R.X, MousePos.Y - w.R.Y); }); tr2.OnDrag = pt => { if (fxWinDrag == w && !fxWinResize) w.R = new RectangleF(pt.X - fxWinGrab.X, pt.Y - fxWinGrab.Y, w.R.Width, w.R.Height); }; tr2.OnUp = () => fxWinDrag = null;
         var cl = Rc(r.Right - 36, r.Y + 5, 26, 24); Btn(g, cl, "x", 3, () => CloseFxWindow(f), 12); Hint2(cl, "Close this window (the plugin keeps working)");
         var bp = Rc(cl.X - 72, r.Y + 5, 66, 24); Btn(g, bp, f.Bypass ? "BYPASSED" : "ON", f.Bypass ? 0 : 4, () => f.Bypass = !f.Bypass, 10); Hint2(bp, f.Bypass ? "Bypassed: the sound goes past this plugin. Click to switch it back on." : "On: click to bypass this plugin (it stays in the chain)");
+        Prof.A("fw.header", q0); q0 = Prof.T();
         // toolbar: presets (previous / next / pick), reset
         float ty = r.Y + FwTitle + 2; var presets = FxPresetList(f); int cur = presets.FindIndex(kv => kv.Key == f.CurPreset);
         if (presets.Count > 0)
@@ -93,7 +99,7 @@ partial class StudioForm
         if (f.Error != null && f.Error.Length > 0) Txt(g, "ERROR: " + f.Error, 10, Warn, Rc(r.X + 12, ty + 26, r.Width - 24, 14), StringAlignment.Near, true);
         // the plugin's own editor (its real controls), scrolling if the window is shorter than the editor
         // the live picture of what this plugin is doing, in its own neon box
-        bool knobWin = KnobEditor(f) || f is ParametricEq; float fwViz = knobWin ? 8 : FwViz;   /* (the EQ's graph is its live display) */   // a knob window has its display in the middle of the knobs
+        Prof.A("fw.toolbar", q0); q0 = Prof.T(); bool knobWin = KnobEditor(f) || f is ParametricEq; float fwViz = knobWin ? 8 : FwViz;   /* (the EQ's graph is its live display) */   // a knob window has its display in the middle of the knobs
         if (!knobWin)
         { var vb = Rc(r.X + 1.5f, r.Bottom - FwViz, r.Width - 3, FwViz - 1.5f);   // the strip along the bottom edge of the window, part of the window itself
           using (var p = new System.Drawing.Drawing2D.GraphicsPath()) { float rd = 11; p.AddLine(vb.X, vb.Y, vb.Right, vb.Y); p.AddLine(vb.Right, vb.Y, vb.Right, vb.Bottom - rd); p.AddArc(vb.Right - 2 * rd, vb.Bottom - 2 * rd, 2 * rd, 2 * rd, 0, 90); p.AddArc(vb.X, vb.Bottom - 2 * rd, 2 * rd, 2 * rd, 90, 90); p.CloseFigure();
@@ -102,9 +108,9 @@ partial class StudioForm
           if (!eng.Playing) Txt(g, "PRESS PLAY TO SEE WHAT " + f.Title.ToUpperInvariant() + " IS DOING", 9, DimC, vb, StringAlignment.Center, true); }
         var body = Rc(r.X + 6, r.Y + FwTitle + FwTool + 6, r.Width - 12, r.Height - FwTitle - FwTool - fwViz - 14); float edH = f is ParametricEq ? 470 : EditorHeight(f) - 34;   // (without the editor's own title row; the EQ's knob layout is shorter)
         if (KnobEditor(f)) { int nv = 0; var hid = f.Hidden.Length > 0 ? new HashSet<string>(f.Hidden.Split(',')) : new HashSet<string>(); foreach (var pq in f.P) if (!hid.Contains(pq.Id)) nv++; edH = edH - nv * 30 + KnobGridHeight(f, body.Width - 12); }   // the settings are knobs here
-        { var gsB = g.Save(); g.SetClip(body, System.Drawing.Drawing2D.CombineMode.Intersect); PaintGalaxy(g, Rc(r.X, r.Y + FwTitle, r.Width, r.Height - FwTitle - fwViz), f.Type.GetHashCode() ^ 0x5a5a, 1.1f); g.Restore(gsB); }
-        var gs = g.Save(); g.SetClip(body, System.Drawing.Drawing2D.CombineMode.Intersect); float scrollY; fxWinScroll.TryGetValue(f, out scrollY); scrollY = Math.Max(0, Math.Min(scrollY, Math.Max(0, edH - body.Height)));
-        int reg0 = regs.Count; editorBare = true; try { PaintEditor(g, f, Rc(body.X, body.Y - scrollY, body.Width, edH), w.Track); } finally { editorBare = false; } g.Restore(gs);
+        Prof.A("fw.viz", q0); q0 = Prof.T(); { var gsB = g.Save(); g.SetClip(body, System.Drawing.Drawing2D.CombineMode.Intersect); PaintGalaxy(g, Rc(r.X, r.Y + FwTitle, r.Width, r.Height - FwTitle - fwViz), f.Type.GetHashCode() ^ 0x5a5a, 1.1f); g.Restore(gsB); }
+        Prof.A("fw.galaxy", q0); q0 = Prof.T(); var gs = g.Save(); g.SetClip(body, System.Drawing.Drawing2D.CombineMode.Intersect); float scrollY; fxWinScroll.TryGetValue(f, out scrollY); scrollY = Math.Max(0, Math.Min(scrollY, Math.Max(0, edH - body.Height)));
+        int reg0 = regs.Count; editorBare = true; try { PaintEditor(g, f, Rc(body.X, body.Y - scrollY, body.Width, edH), w.Track); } finally { editorBare = false; } g.Restore(gs); Prof.A("fw.editor", q0);
         for (int i = regs.Count - 1; i >= reg0; i--) { var rr = regs[i]; if (!rr.R.IntersectsWith(body)) regs.RemoveAt(i); else rr.R = RectangleF.Intersect(rr.R, body); }   // controls scrolled out of the window can not be clicked through it
         if (edH > body.Height + 1) { float sMax = edH - body.Height; wr.OnWheel = d => { float s0; fxWinScroll.TryGetValue(f, out s0); fxWinScroll[f] = Math.Max(0, Math.Min(sMax, s0 - d * 40)); }; }
         // resize from the bottom-right corner

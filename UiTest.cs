@@ -54,6 +54,9 @@ static class U
         // ---- the preset browser ----
         var nameReg = Find(r => r.Tip == "YOUR SOUNDS (drag n drop)"); Check("the menu button is on screen", nameReg != null, ""); if (nameReg != null) { Click(Center(nameReg.Rect)); Paint(); }
         Check("clicking it opens YOUR SOUNDS", F<bool>("browseOpen"), "");
+        { SetF("menuT", 1f); SetF("browseCat", ""); Paint(); var row = Find(r => r.Tip != null && r.Tip.StartsWith("Click to load")); float s0 = F<float>("browseScroll");
+          if (row != null) { var wpt = ToClient(Center(row.Rect)); typeof(SynthCanvas).GetMethod("OnMouseWheel", BF | BindingFlags.DeclaredOnly).Invoke(cv, new object[] { new MouseEventArgs(MouseButtons.None, 0, wpt.X, wpt.Y, -120) }); }
+          Check("the mouse wheel over a sound in YOUR SOUNDS scrolls the list", row != null && F<float>("browseScroll") > s0, s0 + " -> " + F<float>("browseScroll")); SetF("browseScroll", 0f); }
         SetF("menuT", 1f); var dnb = Find(r => r.Tip == "Click to load DnB Roller"); SetF("browseCat", "DnB"); Paint(); dnb = Find(r => r.Tip == "Click to load DnB Roller");
         if (dnb != null) { Click(Center(dnb.Rect)); Check("clicking a preset loads it", fx.PresetName == "DnB Roller", fx.PresetName); }
         var init = Find(r => r.Tip == "Reset everything to a clean, plain sound."); if (init != null) { Click(Center(init.Rect)); Check("INITIALISE PATCH resets the sound", fx.PresetName == "Init", fx.PresetName); }

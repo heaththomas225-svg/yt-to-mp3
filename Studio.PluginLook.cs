@@ -58,18 +58,18 @@ partial class StudioForm
         var slots = new List<PointF>(); bool mid = cols >= 4; RectangleF vizBox;
         if (mid) { vizBox = Rc(a.X + 6 + cw + 6, y0, cw * (cols - 2) - 12, 2 * KnobCellH - 6); slots.Add(new PointF(0, 0)); slots.Add(new PointF(cols - 1, 0)); slots.Add(new PointF(0, 1)); slots.Add(new PointF(cols - 1, 1)); for (int k = 4; k < nums.Count; k++) slots.Add(new PointF((k - 4) % cols, 2 + (k - 4) / cols)); }
         else { vizBox = Rc(a.X + 6, y0, a.Width - 12, VizBoxH); y0 += VizBoxH + 10; for (int k = 0; k < nums.Count; k++) slots.Add(new PointF(k % cols, k / cols)); }
-        PaintWindowFlare(g, a, vizBox.Y + vizBox.Height / 2 - 6);   // the planet's light runs right across the window, behind the knobs
-        PaintVizBox(g, vizBox, f);
+        long k0 = Prof.T(); PaintWindowFlare(g, a, vizBox.Y + vizBox.Height / 2 - 6); Prof.A("pk.flare", k0); k0 = Prof.T();   // the planet's light runs right across the window, behind the knobs
+        PaintVizBox(g, vizBox, f); Prof.A("pk.viz", k0);
         int lastRow = 0;
         for (int i = 0; i < nums.Count; i++)
         {
             var p = nums[i]; var pp = p; int cx0 = (int)slots[i].X, ry = (int)slots[i].Y; lastRow = Math.Max(lastRow, ry); var cell = Rc(a.X + 6 + cx0 * cw, y0 + ry * KnobCellH, cw, KnobCellH - 6);
-            string nm = Win.Up(p.Name); Txt(g, nm, 9, Color.FromArgb(255, 220, 210, 245), Rc(cell.X + 4, cell.Y + 3, cell.Width - 8, 14), StringAlignment.Center, true);
+            k0 = Prof.T(); string nm = Win.Up(p.Name); Txt(g, nm, 9, Color.FromArgb(255, 220, 210, 245), Rc(cell.X + 4, cell.Y + 3, cell.Width - 8, 14), StringAlignment.Center, true);
             Color col = KnobCols[i % KnobCols.Length];
-            KnobCtl(g, cell.X + cell.Width / 2, cell.Y + 50, 46, PFrac(p), fr => f.Set(pp.Id, PFromFrac(pp, fr)), col, () => f.Set(pp.Id, pp.Def));
+            Prof.A("pk.name", k0); k0 = Prof.T(); KnobCtl(g, cell.X + cell.Width / 2, cell.Y + 50, 46, PFrac(p), fr => f.Set(pp.Id, PFromFrac(pp, fr)), col, () => f.Set(pp.Id, pp.Def));
             Hint2(Rc(cell.X, cell.Y, cell.Width, 80), nm + ": drag up or down to turn it (Shift for fine steps), double-click for the default, or type a value below");
-            ValueBox(g, Rc(cell.X + 8, cell.Y + 84, cell.Width - 16 - (paramTrack != null ? 24 : 0), 24), p.Text, Num(p.Val), s => { float v; if (ParseNum(s, out v)) f.Set(pp.Id, v); });
-            if (paramTrack != null) { var lane0 = FindLane(paramTrack, f, p.Id); var atr = paramTrack; Btn(g, Rc(cell.Right - 30, cell.Y + 84, 22, 24), "A", lane0 != null && lane0.On ? 4 : 0, () => OpenAuto(atr, f, pp), 10); }
+            Prof.A("pk.knob", k0); k0 = Prof.T(); ValueBox(g, Rc(cell.X + 8, cell.Y + 84, cell.Width - 16 - (paramTrack != null ? 24 : 0), 24), p.Text, Num(p.Val), s => { float v; if (ParseNum(s, out v)) f.Set(pp.Id, v); });
+            if (paramTrack != null) { var lane0 = FindLane(paramTrack, f, p.Id); var atr = paramTrack; Btn(g, Rc(cell.Right - 30, cell.Y + 84, 22, 24), "A", lane0 != null && lane0.On ? 4 : 0, () => OpenAuto(atr, f, pp), 10); } Prof.A("pk.value", k0);
         }
         float y = y0 + (mid ? Math.Max(2, lastRow + 1) : (nums.Count + cols - 1) / cols) * KnobCellH;
         foreach (var p in chs)
@@ -85,16 +85,21 @@ partial class StudioForm
     // the live picture of what the plugin is doing, in a glass box (in the middle of the knobs)
     void PaintVizBox(Graphics g, RectangleF b, Fx f)
     {
-        using (var p = RR(b, 12)) { using (var br = new LinearGradientBrush(b, Color.FromArgb(255, 6, 2, 18), Color.FromArgb(255, 18, 6, 40), 90f)) g.FillPath(br, p); var gs = g.Save(); g.SetClip(p, CombineMode.Intersect); PaintGalaxy(g, b, f.Type.GetHashCode() ^ 0x77, 1.3f); PaintOrb(g, b); PaintFxViz(g, Rc(b.X + 8, b.Y + 8, b.Width - 16, b.Height - 16), f, false); g.Restore(gs); }
-        Glow(g, Color.FromArgb(255, 176, 92, 255), b, 12, 0.7f, 3); StrokeRR(g, Color.FromArgb(220, 176, 92, 255), b, 12, 1.4f);
+        b = Rectangle.Round(b);
+        CachedLayer(g, "viz|" + f.Type, b, 10, gg =>
+        {   // the box, its galaxy and the planet: drawn once (the live picture goes on top every frame)
+            using (var p = RR(b, 12)) { using (var br = new LinearGradientBrush(b, Color.FromArgb(255, 6, 2, 18), Color.FromArgb(255, 18, 6, 40), 90f)) gg.FillPath(br, p); var gs0 = gg.Save(); gg.SetClip(p, CombineMode.Intersect); PaintGalaxy(gg, b, f.Type.GetHashCode() ^ 0x77, 1.3f); PaintOrb(gg, b, true); gg.Restore(gs0); }
+            Glow(gg, Color.FromArgb(255, 176, 92, 255), b, 12, 0.7f, 3); StrokeRR(gg, Color.FromArgb(220, 176, 92, 255), b, 12, 1.4f);
+        });
+        using (var p = RR(b, 12)) { var gs = g.Save(); g.SetClip(p, CombineMode.Intersect); PaintFxViz(g, Rc(b.X + 8, b.Y + 8, b.Width - 16, b.Height - 16), f, false); g.Restore(gs); }
         if (!eng.Playing) Txt(g, "PRESS PLAY TO SEE WHAT " + f.Title.ToUpperInvariant() + " IS DOING", 9, DimC, Rc(b.X + 8, b.Bottom - 26, b.Width - 16, 18), StringAlignment.Center, true);
     }
 
     // a glowing planet with orbit rings and a little moon, in the middle of the display (it turns slowly while the song plays)
-    void PaintOrb(Graphics g, RectangleF b)
+    void PaintOrb(Graphics g, RectangleF b, bool still = false)
     {
         float R0 = Math.Min(b.Height * 0.3f, b.Width * 0.22f), cx = b.X + b.Width / 2, cy = b.Y + b.Height / 2 - 6; var oldSm = g.SmoothingMode; g.SmoothingMode = SmoothingMode.AntiAlias;
-        double t = eng.Playing ? Environment.TickCount / 1400.0 : 0.6; if (eng.Playing) lastInput = DateTime.Now;
+        double t = eng.Playing && !still ? Environment.TickCount / 1400.0 : 0.6; if (eng.Playing && !still) lastInput = DateTime.Now;
         Action<float, float, float, float, Color, int> glow = (gx, gy, rw, rh, c, al) => { using (var pth = new GraphicsPath()) { pth.AddEllipse(gx - rw, gy - rh, rw * 2, rh * 2); using (var pb = new PathGradientBrush(pth) { CenterColor = Color.FromArgb(Math.Min(255, al), c), SurroundColors = new[] { Color.FromArgb(0, c) } }) g.FillPath(pb, pth); } };
         // the bloom: a big soft violet light round the planet
         glow(cx, cy, R0 * 2.6f, R0 * 2.3f, Color.FromArgb(255, 150, 80, 255), 150); glow(cx, cy, R0 * 1.6f, R0 * 1.6f, Color.FromArgb(255, 190, 120, 255), 170);

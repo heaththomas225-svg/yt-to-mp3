@@ -223,9 +223,9 @@ partial class StudioForm
         var strips = new List<Track>(); foreach (var q in eng.Tracks) if (!q.IsBus) strips.Add(q); foreach (var q in eng.Tracks) if (q.IsBus) strips.Add(q);
         int maxFx = 0, maxSends = 0; foreach (var q in strips) { lock (eng.Sync) maxFx = Math.Max(maxFx, q.Fx.Count); if (!q.IsBus) maxSends = Math.Max(maxSends, q.Sends.Length); }
         // the shared rows: name, slots, sends, output, pan, fader, mute / solo (the slots and the fader share what is left)
-        int sendRows = Math.Min(3, maxSends + 1); float fixedH = 26 + 6 + sendRows * (SlotH + SlotGap) + 6 + 26 + 26 + 20 + 26, faderMin = 70;   /* (a row for PRESETS under the output) */
+        int sendRows = Math.Min(3, maxSends + 1); float fixedH = 26 + 6 + sendRows * (SlotH + SlotGap) + 6 + 26 + 26 + 20 + 36, faderMin = 70;   /* (a row for PRESETS under the output) */
         int fit = Math.Max(1, (int)((C.Height - fixedH - faderMin) / (SlotH + SlotGap))); int slots = Math.Max(1, Math.Min(fit, Math.Max(3, maxFx + 1)));
-        float faderH = Math.Max(30, C.Height - fixedH - slots * (SlotH + SlotGap));
+        float faderH = Math.Max(24, C.Height - fixedH - slots * (SlotH + SlotGap));
         float x = C.X - insScrollX;
         foreach (var t in strips) { if (x + StripW >= C.X - 4 && x <= C.Right + 4) PaintStrip(g, Rc(x, C.Y, StripW, C.Height), t, t == picked, slots, sendRows, faderH); x += StripW + 6; }
         // + NEW BUS: a bus is made here and gets its own strip (with its effects) next to the tracks
@@ -296,13 +296,13 @@ partial class StudioForm
         var pr = Rc(x, y, w, 14); var ps = Slider(g, pr, (t.Pan + 1) / 2, v => tt.Pan = (float)Math.Round(v * 2 - 1, 2), col); ps.OnDouble = () => tt.Pan = 0;
         Hint2(pr, "Pan " + (Math.Abs(t.Pan) < 0.01f ? "centre" : (t.Pan < 0 ? "left " : "right ") + Math.Abs(t.Pan * 100).ToString("0")) + " (double-click: centre)");
         y += 20;
+        // mute / solo: right under the pan, big enough to read and hit (at the bottom they were cut off when the mixer was short)
+        { float hw = (w - 4) / 2; Btn(g, Rc(x, y, hw, 30), "M", t.Mute ? 3 : 0, () => tt.Mute = !tt.Mute, 15); Btn(g, Rc(x + hw + 4, y, hw, 30), "S", t.Solo ? 2 : 0, () => tt.Solo = !tt.Solo, 15); }
+        y += 36;
         // fader and meter
         VFader(g, Rc(x + 6, y + 6, 26, faderH - 12), t.VolDb, v => tt.VolDb = (float)Math.Round(v, 1), col); Meter(g, Rc(x + 40, y, 18, faderH), t);
         Txt(g, (t.VolDb > 0 ? "+" : "") + t.VolDb.ToString("0.0"), 9, Ink, Rc(x + 60, y, w - 60, 14), StringAlignment.Far, true);
         float pk = Math.Max(t.PeakL, t.PeakR); Txt(g, pk > 1e-5f ? (20 * Math.Log10(pk)).ToString("0.0") : "-inf", 8.5f, pk > 1 ? Warn : DimC, Rc(x + 60, y + 16, w - 60, 14), StringAlignment.Far, false);
-        y += faderH + 4;
-        // mute / solo
-        float hw = (w - 4) / 2; Btn(g, Rc(x, y, hw, 20), "M", t.Mute ? 3 : 0, () => tt.Mute = !tt.Mute, 9.5f); Btn(g, Rc(x + hw + 4, y, hw, 20), "S", t.Solo ? 2 : 0, () => tt.Solo = !tt.Solo, 9.5f);
     }
     // the + BUS button of a track strip: pick a bus, make a new one, or take the track out of its bus
     void StripBusMenu(Track t)
