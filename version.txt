@@ -1,4 +1,4 @@
-3.77.5
+3.77.6
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Updates install even when Purphex is in a protected folder
-sha256=5879496c4ec69c35a339139985cd5a5e3c435d3d947d8315b0ac93d5197d73c5
+Generate just this track, no more crackly piano, drag dots on the Bass Lab graphs
+sha256=063b906fcda82642ffcc012b640a3f418a35f42c48aa214d209f3de9e12a4199

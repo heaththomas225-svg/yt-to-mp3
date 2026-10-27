@@ -46,10 +46,12 @@ partial class StudioForm
     static readonly int[] KitKeys = { 36, 38, 42, 46, 54 };   // a kit track: kick, snare, closed hat, open hat, percussion (General MIDI keys)
 
     // write the pattern; returns what it did (or why it could not)
-    internal string GeneratePattern(int styleIndex, int bars, int fromBar, bool setTempo)
+    // only: just that track gets its part (nothing is written on the others); a track that is not a drum or bass gets chords in the key
+    internal string GeneratePattern(int styleIndex, int bars, int fromBar, bool setTempo, Track only = null)
     {
         var st = PatStyles[styleIndex]; var parts = new Dictionary<int, List<Track>>(); var kits = new List<Track>();
-        foreach (var t in eng.Tracks) { int j = JobOf(t); if (j == 100) kits.Add(t); else if (j >= 0) { List<Track> l; if (!parts.TryGetValue(j, out l)) parts[j] = l = new List<Track>(); l.Add(t); } }
+        if (only != null && JobOf(only) == -1) return GenerateChords(st, only, bars, fromBar, setTempo);
+        foreach (var t in eng.Tracks) { if (only != null && t != only) continue; int j = JobOf(t); if (j == 100) kits.Add(t); else if (j >= 0) { List<Track> l; if (!parts.TryGetValue(j, out l)) parts[j] = l = new List<Track>(); l.Add(t); } }
         if (parts.Count == 0 && kits.Count == 0) return "Add your sounds first: put a kick, a snare or clap, hi-hats and an 808 on tracks 1, 2, 3, 4... (drag a sound from SOUNDS onto the piano roll, then drag your pattern onto the song), then generate again. Or use the GENERATE box: it brings its own sounds. A track's job comes from its sound or name (JOBS sets it yourself).";
         PushUndo(); if (setTempo) { Fx.ProjectBpm = st.Bpm; bpmUserSet = true; }
         double beat = StudioEngine.SR * 60.0 / Fx.ProjectBpm, step = beat / 4; long a = (long)Math.Round(fromBar * 4 * beat), len = (long)Math.Round(bars * 4 * beat);
@@ -87,8 +89,29 @@ partial class StudioForm
             }
             done.Add(Jobs[5]);
         }
-        prStamp = -1; var missing = new List<string>(); if (!parts.ContainsKey(0) && kits.Count == 0) missing.Add("a kick"); if (!parts.ContainsKey(1) && kits.Count == 0) missing.Add("a snare or clap"); if (!parts.ContainsKey(2) && kits.Count == 0) missing.Add("hi-hats"); if (!parts.ContainsKey(5)) missing.Add("an 808");
+        prStamp = -1; if (only != null) return st.Name + " " + (JobOf(only) == 100 ? "beat" : Jobs[JobOf(only)].ToLowerInvariant()) + " written on " + only.Name + " only (bars " + (fromBar + 1) + "-" + (fromBar + bars) + (setTempo ? ", " + st.Bpm + " BPM" : "") + "). Open another track and do the same to build it up.";
+        var missing = new List<string>(); if (!parts.ContainsKey(0) && kits.Count == 0) missing.Add("a kick"); if (!parts.ContainsKey(1) && kits.Count == 0) missing.Add("a snare or clap"); if (!parts.ContainsKey(2) && kits.Count == 0) missing.Add("hi-hats"); if (!parts.ContainsKey(5)) missing.Add("an 808");
         return st.Name + " pattern written for " + string.Join(", ", done) + " (bars " + (fromBar + 1) + "-" + (fromBar + bars) + (setTempo ? ", " + st.Bpm + " BPM" : "") + ")." + (missing.Count > 0 ? " Add " + string.Join(", ", missing) + " to make it fuller." : "");
+    }
+    // a piano, lead or pad: the style's chord movement (the same roots its 808 plays) as chords in the piano roll's key, in the style's rhythm
+    string GenerateChords(PatStyle st, Track t, int bars, int fromBar, bool setTempo)
+    {
+        PushUndo(); if (setTempo) { Fx.ProjectBpm = st.Bpm; bpmUserSet = true; }
+        double beat = StudioEngine.SR * 60.0 / Fx.ProjectBpm, step = beat / 4; long a = (long)Math.Round(fromBar * 4 * beat), len = (long)Math.Round(bars * 4 * beat);
+        var notes = NotesOf(t); notes.RemoveAll(n => n.Start >= a && n.Start < a + len); bool minor = prScale != 2 && prScale != 7;
+        int[] sc = minor ? new[] { 0, 2, 3, 5, 7, 8, 10 } : new[] { 0, 2, 4, 5, 7, 9, 11 }; int root = 48 + prKeyRoot; if (root > 54) root -= 12;
+        bool stabs = st.Bpm >= 120 && st.Name != "Drum & Bass";   // fast dance styles: off-beat stabs; the rest: held chords
+        for (int bar = 0; bar < bars; bar++)
+        {
+            int deg = st.Bass[bar % st.Bass.Length]; if (!minor && (deg == 3 || deg == 8 || deg == 10)) deg++;
+            int di = 0; for (int i = 0; i < 7; i++) if (sc[i] == deg) di = i;   // the scale step of the root
+            var chord = new List<int>(); for (int k = 0; k < 3; k++) { int ii = di + k * 2; chord.Add(root + sc[ii % 7] + 12 * (ii / 7)); }
+            long b0 = a + (long)Math.Round(bar * 16 * step);
+            if (stabs) { foreach (int s0 in new[] { 2, 6, 10, 14 }) foreach (int n in chord) notes.Add(new PrNote { Start = b0 + (long)Math.Round(s0 * step), Len = (long)(step * 1.5), Note = n, Vel = 96 }); }
+            else foreach (int n in chord) notes.Add(new PrNote { Start = b0, Len = (long)Math.Round(16 * step * 0.97), Note = n, Vel = 92 });
+        }
+        WriteNotes(t, notes); prStamp = -1;
+        return st.Name + " chords written on " + t.Name + " only (bars " + (fromBar + 1) + "-" + (fromBar + bars) + (setTempo ? ", " + st.Bpm + " BPM" : "") + ", in the key picked in the piano roll). Open another track and do the same to build it up.";
     }
     // the note a drum track's hits use (a fixed-pitch sample plays the same on any key: its root, so it shows on one row)
     int DrumNote(Track t) { foreach (var f in t.Fx) { var s = f as SamplerFx; if (s != null && s.Zones.Count > 0) return s.Zones[0].Follow ? s.Zones[0].Root : (s.Zones[0].Lo == s.Zones[0].Hi ? s.Zones[0].Lo : 60); } return 60; }
@@ -103,6 +126,18 @@ partial class StudioForm
     void PrGenerateMenu()
     {
         var m = Win.NewMenu(); int from = (int)Math.Floor(prScrollBeats / 4);
+        if (prTrack != null && PrCanEdit(prTrack))
+        {   // just the track you are on: its own part with its own sound (no claps or other sounds added)
+            var me = prTrack; int jm = JobOf(me); string what = jm == 100 ? "its drum kit" : (jm >= 0 ? Jobs[jm].ToLowerInvariant() : "chords");
+            var just = new ToolStripMenuItem("JUST THIS TRACK: " + me.Name + " (" + what + ")") { Font = new Font(m.Font, FontStyle.Bold) }; m.Items.Add(just);
+            for (int i = 0; i < PatStyles.Length; i++)
+            {
+                int k = i; var it = new ToolStripMenuItem(PatStyles[i].Name + "   (" + PatStyles[i].Bpm + " BPM)");
+                foreach (int bars0 in new[] { 4, 8, 16 }) { int bars = bars0; it.DropDownItems.Add(bars + " bars from bar " + (from + 1)).Click += (a, b) => { bool tempo = Math.Abs(Fx.ProjectBpm - PatStyles[k].Bpm) > 0.5 && AskYes("Set the song to " + PatStyles[k].Bpm + " BPM (the usual " + PatStyles[k].Name + " tempo)? No keeps " + Fx.ProjectBpm.ToString("0.##") + " BPM.", "Generate"); Toast(GeneratePattern(k, bars, from, tempo, me)); }; }
+                just.DropDownItems.Add(it);
+            }
+            m.Items.Add(new ToolStripSeparator());
+        }
         m.Items.Add(new ToolStripMenuItem("A BEAT IN ITS OWN BOX: DRAG IT ONTO THE SONG (IT BECOMES ITS OWN TRACKS)") { Enabled = false });
         for (int i = 0; i < PatStyles.Length; i++)
         {

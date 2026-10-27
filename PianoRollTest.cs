@@ -129,6 +129,10 @@ static class PR
           { var hs = Notes(hats).OrderBy(n => n.Start).ToList(); bool dbl = false; for (int i = 1; i < hs.Count; i++) if (hs[i].Start - hs[i - 1].Start < step * 0.75) dbl = true; Check("the hi-hats have rolls (quick doubles) and loud and soft hits", hs.Select(n => n.Vel).Distinct().Count() >= 2 && dbl, hs.Count + " hats"); } }
         { foreach (var t in new[] { kick, snare, hats, bass }) lock (t.Midi) t.Midi.Clear(); var jobs = F<Dictionary<Track, int>>("prJobs"); jobs[snare] = -1; jobs[hats] = -1; string m2 = sf.GeneratePattern(3, 4, 0, false);
           Check("with only a kick and an 808 it still writes their parts, and says what would make it fuller", Notes(kick).Count > 0 && Notes(bass).Count > 0 && Notes(snare).Count == 0 && m2.Contains("snare") && m2.Contains("hi-hats"), m2); jobs.Clear(); }
+        { foreach (var t in new[] { kick, snare, hats, bass, keysT }) lock (t.Midi) t.Midi.Clear(); string m4 = sf.GeneratePattern(0, 8, 0, false, bass);
+          Check("JUST THIS TRACK: the 808 gets 8 bars and no other track gets anything (no claps added)", Notes(bass).Count > 8 && Notes(bass).Max(n => n.Start) > SR * 60.0 / Fx.ProjectBpm * 4 * 7 && Notes(kick).Count == 0 && Notes(snare).Count == 0 && Notes(hats).Count == 0 && Notes(keysT).Count == 0, m4);
+          string m5 = sf.GeneratePattern(1, 4, 0, false, keysT); var kc = Notes(keysT);
+          Check("JUST THIS TRACK on a piano: chords in the key for 4 bars, the others left alone", kc.Count >= 12 && kc.GroupBy(n => n.Start).All(gr => gr.Count() == 3) && Notes(kick).Count == 0 && Notes(snare).Count == 0, m5 + " / " + kc.Count); }
         { foreach (var t in eng.Tracks.ToList()) M("DeleteTrackQuiet", t); string m3 = sf.GeneratePattern(0, 4, 0, false); Check("with no sounds yet it says to add them on tracks first", m3.StartsWith("Add your sounds first"), m3); }
 
         // ---- saving and reopening: notes, samples and the piano roll's settings come back ----

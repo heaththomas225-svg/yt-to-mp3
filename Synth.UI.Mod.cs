@@ -27,11 +27,51 @@ partial class SynthCanvas
         var ring = RectangleF.Inflate(ar, 4.5f, 4.5f);
         foreach (int s in slots)
         {
-            int src = (int)P("m" + s + "s").Val; double amt = P("m" + s + "a").Val / 100.0 * RingScale(dest); int pol = (int)P("m" + s + "p").Val; bool bipolarSrc = src <= 4 || src == 9;
-            double lo, hi; if (pol == 0 && bipolarSrc) { lo = f - Math.Abs(amt); hi = f + Math.Abs(amt); } else { double a = amt * (pol == 2 ? -1 : 1); lo = Math.Min(f, f + a); hi = Math.Max(f, f + a); }
-            lo = Math.Max(0, lo); hi = Math.Min(1, hi); if (hi - lo < 0.004) continue;
+            int src = (int)P("m" + s + "s").Val; double lo, hi, tip; ModRange(s, f, dest, out lo, out hi, out tip); if (hi - lo < 0.004) continue;
             using (var pen = new Pen(Color.FromArgb(220, SrcCols[Math.Min(src, SrcCols.Length - 1)]), 2.2f)) g.DrawArc(pen, ring, 135 + (float)lo * 270f, (float)(hi - lo) * 270f);
         }
+    }
+
+    // where slot s moves a knob that sits at f (0..1): the two ends of its sweep, as the coloured ring draws them; tip = the end the amount points to
+    void ModRange(int s, float f, int dest, out double lo, out double hi, out double tip)
+    {
+        int src = (int)P("m" + s + "s").Val; double amt = P("m" + s + "a").Val / 100.0 * RingScale(dest); int pol = (int)P("m" + s + "p").Val; bool bipolarSrc = src <= 4 || src == 9;
+        if (pol == 0 && bipolarSrc) { lo = f - Math.Abs(amt); hi = f + Math.Abs(amt); tip = hi; } else { double a = amt * (pol == 2 ? -1 : 1); lo = Math.Min(f, f + a); hi = Math.Max(f, f + a); tip = f + a; }
+        lo = Math.Max(0, lo); hi = Math.Min(1, hi); tip = Math.Max(0, Math.Min(1, tip));
+    }
+
+    // on a graph: every source aimed at this param shows its sweep as a band in its colour, with a dot at the end you drag to set how much (like Vital)
+    void ModOnGraph(Graphics g, RectangleF r, string paramId, float baseY)
+    {
+        int dest = DestOf(paramId); var p = P(paramId); if (dest == 0 || p == null) return; var sl = SlotsOn(dest); if (sl.Count == 0) return;
+        float f = Math.Max(0, Math.Min(1, FracOf(p, IsLog(p)))), x0 = r.X + 4, w = r.Width - 8, xf = x0 + w * f; int row = 0; var sm = g.SmoothingMode; g.SmoothingMode = SmoothingMode.AntiAlias;
+        foreach (int s in sl)
+        {
+            double lo, hi, tip; ModRange(s, f, dest, out lo, out hi, out tip); int src = (int)P("m" + s + "s").Val; Color sc = SrcCols[Math.Min(src, SrcCols.Length - 1)];
+            float xl = x0 + w * (float)lo, xh = x0 + w * (float)hi, xt = x0 + w * (float)tip, hy = baseY - row * 14;
+            using (var b = new SolidBrush(Color.FromArgb(40, sc))) g.FillRectangle(b, xl, r.Y + 2, Math.Max(1, xh - xl), r.Height - 4);
+            using (var pen = new Pen(Color.FromArgb(170, sc), 1.2f) { DashPattern = new[] { 3f, 2f } }) { g.DrawLine(pen, xl, r.Y + 3, xl, r.Bottom - 3); g.DrawLine(pen, xh, r.Y + 3, xh, r.Bottom - 3); }
+            using (var pen = new Pen(Color.FromArgb(230, sc), 2.4f) { StartCap = LineCap.Round, EndCap = LineCap.Round }) g.DrawLine(pen, xf, hy, xt, hy);   // from where the knob is to how far the source pushes it
+            var hr = Rc(xt - 8, hy - 8, 16, 16); bool hot = Hot(hr); float d = hot ? 14 : 10;
+            using (var b = new SolidBrush(Color.FromArgb(hot ? 90 : 45, sc))) g.FillEllipse(b, xt - d, hy - d, d * 2, d * 2);
+            using (var b = new SolidBrush(sc)) g.FillEllipse(b, xt - d / 2, hy - d / 2, d, d); using (var pen = new Pen(Color.White, 1.5f)) g.DrawEllipse(pen, xt - d / 2, hy - d / 2, d, d);
+            string nm = SynthTables.Sources[Math.Min(src, SynthTables.Sources.Length - 1)].ToUpperInvariant() + " " + (int)Math.Round(P("m" + s + "a").Val) + "%"; bool left = xt > r.X + r.Width / 2;
+            float lw = nm.Length * 5.4f + 8; var lr = Rc(left ? xt - 10 - lw : xt + 10, hy - 7, lw, 14); Fill(g, TM.C(200, 12, 5, 28), lr, 4); Txt(g, nm, 9, Ink, lr, StringAlignment.Center, true);   // on a dark tag so it reads over the curve
+            var rg = Add(hr); rg.P = p; rg.Tip = nm + " moves " + p.Name + ": drag the dot left / right to set how much. Right-click removes it.";
+            int ss = s, pol = (int)P("m" + s + "p").Val; bool sym = pol == 0 && (src <= 4 || src == 9); float scl = RingScale(dest), sign = P("m" + s + "a").Val < 0 ? -1 : 1;
+            rg.Down = pt => { }; rg.Drag = (dx, dy) => { double t = Math.Max(0, Math.Min(1, (mouse.X - x0) / w)), a = (t - f) / scl * 100; if (sym) a = Math.Abs(a) * sign; else if (pol == 2) a = -a; SetVal(P("m" + ss + "a"), (float)Math.Round(Math.Max(-100, Math.Min(100, a)))); };
+            rg.Right = () => SetVal(P("m" + ss + "s"), 0);
+            row++;
+        }
+        g.SmoothingMode = sm;
+    }
+    // the dot on a graph you grab to change it
+    void GraphDot(Graphics g, float x, float y, Color c, bool hot)
+    {
+        var sm = g.SmoothingMode; g.SmoothingMode = SmoothingMode.AntiAlias; float d = hot ? 13 : 10;
+        using (var b = new SolidBrush(Color.FromArgb(hot ? 100 : 50, c))) g.FillEllipse(b, x - d, y - d, d * 2, d * 2);
+        using (var b = new SolidBrush(hot ? Color.White : c)) g.FillEllipse(b, x - d / 2, y - d / 2, d, d); using (var pen = new Pen(Color.White, 1.5f)) g.DrawEllipse(pen, x - d / 2, y - d / 2, d, d);
+        g.SmoothingMode = sm;
     }
 
     // a small handle you grab and drop on a knob
@@ -79,7 +119,7 @@ partial class SynthCanvas
         if (slot < 0) for (int i = 1; i <= 16; i++) if ((int)P("m" + i + "s").Val == 0 || (int)P("m" + i + "d").Val == 0) { slot = i; break; }
         if (slot < 0) { dropMsg = "All 8 matrix slots are in use. Remove one on the MATRIX page."; dropMsgAt = DateTime.Now; return; }
         SetVal(P("m" + slot + "s"), src); SetVal(P("m" + slot + "d"), dest); SetVal(P("m" + slot + "e"), 1); if (Math.Abs(P("m" + slot + "a").Val) < 1) SetVal(P("m" + slot + "a"), 50);
-        dropMsg = dragName + " now moves " + target.P.Name + ". Ctrl + drag the knob to set how much."; dropMsgAt = DateTime.Now;
+        dropMsg = dragName + " now moves " + target.P.Name + ". Drag the dot on the graph or the ring round the knob to set how much."; dropMsgAt = DateTime.Now;
     }
 
     void PaintDragGhost(Graphics g)
@@ -87,7 +127,7 @@ partial class SynthCanvas
         if (dragSrc != 0)
         {
             var h = HitTest(mouse); bool ok = h != null && h.P != null && DestOf(h.P.Id) != 0;
-            if (h != null && h.P != null) using (var pen = new Pen(ok ? Good : Color.FromArgb(255, 120, 130), 2f)) g.DrawEllipse(pen, h.R.X + 4, h.R.Y + 2, h.R.Width - 8, h.R.Width - 8);
+            if (h != null && h.P != null && !ok && Math.Abs(h.R.Width - 56) < 0.5f) { float kr = (h.R.Height - 24) / 2 + 9, kx = h.R.X + h.R.Width / 2, ky = h.R.Y + 4 + (h.R.Height - 24) / 2; using (var pen = new Pen(Color.FromArgb(255, 120, 130), 2f)) g.DrawEllipse(pen, kx - kr, ky - kr, kr * 2, kr * 2); }   // it cannot go here: a red ring centred on the knob (a knob it can go on lights up by itself)
             var r = Rc(mouse.X + 12, mouse.Y + 10, 150, 20); Fill(g, TM.C(230, 40, 20, 80), r, 6); Stroke(g, SrcCols[Math.Min(dragSrc, SrcCols.Length - 1)], r, 6, 1.5f); Txt(g, dragName + (ok ? "  > drop" : ""), 11, Ink, r, StringAlignment.Center, true);
         }
         else if ((DateTime.Now - dropMsgAt).TotalSeconds < 4 && dropMsg.Length > 0) { var r = Rc(8, H - 44, W - 16, 20); Fill(g, TM.C(230, 40, 20, 80), r, 6); Txt(g, dropMsg, 11, Good, r, StringAlignment.Center, true); }

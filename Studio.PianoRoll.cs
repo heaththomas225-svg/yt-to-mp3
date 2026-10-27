@@ -223,7 +223,7 @@ partial class StudioForm
         chip(66, "LABELS", prLabels, () => prLabels = !prLabels, "Note names on the notes");
         chip(82, "QUANTISE", false, () => PrQuantise(), "Move the selected notes (or all) onto the snap grid (Ctrl+Q)");
         chip(82, "PATTERN", false, () => PrPatternMenu(), "Repeat a pattern of bars along the song, or clear bars");
-        chip(92, "GENERATE", false, () => PrGenerateMenu(), "A starting beat in a style (trap, hip-hop, lo-fi, drill, DnB...) written onto your kick, snare, hats and 808 tracks");
+        chip(92, "GENERATE", false, () => PrGenerateMenu(), "JUST THIS TRACK: 4, 8 or 16 bars for the track you are on, with its own sound. Or a starting beat in a style (trap, hip-hop, lo-fi, drill, DnB...) written onto your kick, snare, hats and 808 tracks");
         if (PrSampler != null) chip(84, "SAMPLES", PrSampler.Zones.Count == 0, () => PrSamplesMenu(), "Load a sample, build a kit (one sample per key), fixed pitch or follow the notes");
         if (t == null || !PrCanEdit(t))
         {

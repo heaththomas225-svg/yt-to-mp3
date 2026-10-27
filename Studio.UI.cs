@@ -450,16 +450,18 @@ partial class StudioForm : Form
         if (ht > 0) c = Color.FromArgb(Math.Min(255, c.R + (int)(28 * ht)), Math.Min(255, c.G + (int)(22 * ht)), Math.Min(255, c.B + (int)(30 * ht)));
         c = Contrast.ForWhite(c); if (style == 4 && UiTokens.Glass) c = Color.FromArgb(150, c);   // a translucent accent: the selected button is see-through
         Color vA = Contrast.ForWhite(Color.FromArgb(Math.Min(255, Violet.R + 32), Math.Min(255, Violet.G + 8), Math.Min(255, Violet.B + 28))), vB = Contrast.ForWhite(Accent2);
-        float rad = Math.Min(10f, Math.Max(6f, r.Height * 0.3f)); const float rim = 2.6f; var inner = RectangleF.Inflate(r, -rim, -rim); float irad = Math.Max(1f, rad - rim);   // the inner corner is exactly one rim smaller than the outer one, so the rim is the same thickness all the way round (corners too) on every button
+        bool small = r.Height < 26; float rad = Math.Min(10f, Math.Max(6f, r.Height * 0.3f)); float rim = small ? 1.4f : 2.6f; var inner = RectangleF.Inflate(r, -rim, -rim); float irad = Math.Max(1f, rad - rim);   // the inner corner is exactly one rim smaller than the outer one, so the rim is the same thickness all the way round (corners too) on every button
         Color rimC = Color.FromArgb(style == 4 && UiTokens.Glass ? 70 : 240, (int)(c.R + (255 - c.R) * 0.82f), (int)(c.G + (255 - c.G) * 0.82f), (int)(c.B + (255 - c.B) * 0.84f));
         using (var p = RR(r, rad)) using (var br = new SolidBrush(rimC)) g.FillPath(br, p);   // the pale rim
         if (style == 4 && UiTokens.Shiny && !UiTokens.Glass) FillRR(g, c, inner, irad); else GalaxyFace(g, inner, irad, style == 2 ? vA : c, style, shown);   // the galaxy face, tinted with the button's colour (a selected button with your profile's finish shows that finish instead)
         if (style == 4 && UiTokens.Shiny) PaintMaterial(g, inner, irad, c, UiTokens.Finish, false);   // the accent's finish on a selected button
         if (inner.Width > irad * 3) using (var hl = new Pen(Color.FromArgb(style == 2 ? 80 : 52, 255, 255, 255), 1f)) g.DrawLine(hl, inner.X + irad, inner.Y + 1.2f, inner.Right - irad, inner.Y + 1.2f);
+        if (small && style != 4) FillRR(g, Color.FromArgb(110, 10, 4, 26), inner, irad);   // small buttons (M, S): a thinner rim and a darker face so the white letter reads
         if (style == 4) Glow(g, UiTokens.Sel(Accent2), r, rad, 0.8f, 3); else if (ht > 0.03f) Glow(g, NeonCyan, r, rad, 0.7f * ht, 3);
         bool bdt = true; float fpx = px, avail = r.Width - 12;   // a label that is too wide for its button gets a smaller size instead of being cut off
         if (shown.Length * fpx * 0.55f > avail * 0.7f) { while (fpx > 7f && g.MeasureString(shown, GfxCache.Exact(GfxCache.Grow(fpx), bdt)).Width > avail) fpx -= 0.5f; }
         Color lab = Color.White;   // always white
+        if (small && !NoTextDraw) using (var sb = new SolidBrush(Color.FromArgb(220, 8, 2, 20))) using (var sfm = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center }) { var sh = r; sh.Offset(0.8f, 1f); g.DrawString(shown, GfxCache.Exact(GfxCache.Grow(fpx), bdt), sb, sh, sfm); }   // a dark shadow under the letter (a shadow, not writing of its own)
         if (shown.Length <= 2 && shown.Trim().Length > 0 && !EmojiText.Has(shown) && !HasLetterOrDigit(shown)) GlyphCentred(g, shown, fpx, lab, r, bdt); else Txt(g, shown, fpx, lab, r, StringAlignment.Center, bdt);
     }
     // the button of the Supporter edition: as it always was (the new look below is for the Fantasy edition only)

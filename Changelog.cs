@@ -7,10 +7,18 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.77.5";
+    public const string Latest = "3.77.6";
 
     public const string Text =
-@"3.77.5  Updates install even when Purphex is in a protected folder
+@"3.77.6  Generate just this track, no more crackly piano, drag dots on the Bass Lab graphs
+ + FIXED: The built-in piano (the piano roll keys and any MIDI track with no instrument) crackled. Chords were clipped (a loud chord went far past full scale and was cut off), a key struck again restarted dead, and every note began with a burst of raw noise. Now the level of many notes at once is turned down smoothly instead of clipped, a key struck again fades the old note out in a few milliseconds, and the hammer is a soft thud. Measured: a loud 7-note chord peaks at 0.85 instead of being cut at 1.2, and its clicks are 7 times smaller. A check runs with the tests so it stays that way.
+ + NEW: Bass Lab graphs have dots you drag: the filter curve has a dot for cutoff (left / right) and resonance (up / down) that moves from where it is, and each oscillator has a wave position dot along the bottom.
+ + NEW: Bass Lab shows where your modulation went: an LFO, envelope or macro dropped on the filter or the wave shows its sweep on the graph as a band in its colour, with a labelled dot (for example LFO 1 45%) you drag to set how much. Right-click the dot to remove it.
+ + FIXED: While dragging an LFO, the circle on a knob it cannot go on sat off-centre; it is now centred on the knob.
+ + FIXED: The M and S buttons in the mixer were hard to read (white on a pale face). Small buttons now have a thinner rim, a darker face and a shadow under the letter.
+ + NEW: GENERATE in the piano roll has JUST THIS TRACK at the top: pick a style and 4, 8 or 16 bars and only the track you are on gets a part, with its own sound (no claps or other sounds added). A kick, snare, hats or percussion track gets its drum part, an 808 or bass gets a bass line in the key, and a piano, lead or pad gets chords in the key. Then open your next track and do the same to build the beat up.
+
+3.77.5  Updates install even when Purphex is in a protected folder
  + FIXED: An update could fail without a word when Purphex is kept in a folder it is not allowed to change (such as Program Files). The update is now downloaded to the temp folder first; if Purphex cannot replace itself, the new version is put in your Downloads folder (Purphex Music.exe) and opens from there, with a note saying so.
 
 3.77.4  A failed update says why instead of asking again and again

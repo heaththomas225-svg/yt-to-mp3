@@ -72,6 +72,14 @@ partial class SynthCanvas
         using (var pen = new Pen(c, 2f)) g.DrawLines(pen, pts.ToArray()); using (var pen = new Pen(TM.C(40, 150, 130, 200))) g.DrawLine(pen, r.X + 4, r.Y + r.Height / 2, r.Right - 4, r.Y + r.Height / 2);
         if (src == 0) { var t = Wavetables.Table(tbl); string nm = t.Name + "  (" + t.Frames + (t.Frames == 1 ? " frame)" : " frames)"); Txt(g, nm, 9, Dim, Rc(r.X + 6, r.Y + 2, r.Width - 12, 12), StringAlignment.Near, false); }
         else Txt(g, Wavetables.Sources[src], 9, Dim, Rc(r.X + 6, r.Y + 2, r.Width - 12, 12), StringAlignment.Near, false);
+        if (src != 0) return;
+        {   // the wave position: a dot on a line along the bottom you drag left / right
+            var pw = P(s + "wt"); float x0 = r.X + 4, w = r.Width - 8, wy = r.Bottom - 7, wf = Math.Max(0, Math.Min(1, FracOf(pw, false)));
+            using (var pen = new Pen(TM.C(110, 150, 130, 200), 2f)) g.DrawLine(pen, x0, wy, x0 + w, wy); using (var pen = new Pen(c, 2f)) g.DrawLine(pen, x0, wy, x0 + w * wf, wy);
+            var reg = Add(r); reg.P = pw; reg.Tip = "Drag left / right = wave position"; float f0 = 0;
+            reg.Down = pt => { f0 = FracOf(pw, false); }; reg.Drag = (dx, dy) => SetVal(pw, FromFrac(pw, false, f0 + dx / w));
+            GraphDot(g, x0 + w * wf, wy, c, Hot(r)); ModOnGraph(g, r, s + "wt", wy - 15);
+        }
     }
     void DrawSubShape(Graphics g, RectangleF r)
     {
@@ -136,8 +144,12 @@ partial class SynthCanvas
         var c = on ? TM.C(255, 236, 92, 226) : Color.FromArgb(90, 90, 110); var poly = new List<PointF>(pts); poly.Add(new PointF(r.Right - 4, r.Bottom - 2)); poly.Add(new PointF(r.X + 4, r.Bottom - 2));
         using (var b = new SolidBrush(Color.FromArgb(on ? 55 : 20, c))) g.FillPolygon(b, poly.ToArray()); using (var pen = new Pen(c, 2f)) g.DrawLines(pen, pts.ToArray());
         float cx = r.X + 4 + (r.Width - 8) * (float)(Math.Log(fc / 20.0) / Math.Log(1000)); using (var pen = new Pen(Color.FromArgb(120, Ink), 1f)) g.DrawLine(pen, cx, r.Y + 4, cx, r.Bottom - 4);
-        var reg = Add(r); reg.Tip = "Drag left / right = cutoff, up / down = resonance"; reg.P = P("f" + k + "cut"); var pc = P("f" + k + "cut"); var pr = P("f" + k + "res"); RectangleF rr = r;
-        reg.Down = pt => { }; reg.Drag = (dx, dy) => { double fr = Math.Max(0, Math.Min(1, (mouse.X - rr.X - 4) / (rr.Width - 8))); SetVal(pc, (float)Math.Max(20, Math.Min(20000, 20 * Math.Pow(1000, fr)))); SetVal(pr, (float)Math.Max(0, Math.Min(100, (rr.Bottom - mouse.Y) / rr.Height * 130 - 10))); };
+        var reg = Add(r); reg.Tip = "Drag the dot: left / right = cutoff, up / down = resonance"; reg.P = P("f" + k + "cut"); var pc = P("f" + k + "cut"); var pr = P("f" + k + "res"); RectangleF rr = r; double c0 = 0, r0 = 0;
+        reg.Down = pt => { c0 = Math.Log(pc.Val / 20.0) / Math.Log(1000); r0 = pr.Val; };   // the dot moves from where it is (no jump)
+        reg.Drag = (dx, dy) => { double fr = Math.Max(0, Math.Min(1, c0 + dx / (rr.Width - 8))); SetVal(pc, (float)Math.Max(20, Math.Min(20000, 20 * Math.Pow(1000, fr)))); SetVal(pr, (float)Math.Max(0, Math.Min(100, r0 - dy / rr.Height * 130))); };
+        float dbc = (float)Math.Max(-48, Math.Min(24, FilterDb(type, st, fc, res, gdb, fc))), cy = r.Bottom - 6 - (dbc + 48) / 72f * (r.Height - 12); cy = Math.Max(r.Y + 8, Math.Min(r.Bottom - 8, cy));
+        GraphDot(g, cx, cy, c, Hot(r)); if (Hot(r)) Txt(g, pc.Text + "  " + pr.Text, 9, Ink, Rc(r.X + 6, r.Y + 2, r.Width - 12, 12), StringAlignment.Far, true);
+        ModOnGraph(g, r, "f" + k + "cut", r.Bottom - 9);
     }
 
     // ---------- MIX page ----------

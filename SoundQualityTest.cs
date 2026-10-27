@@ -52,6 +52,20 @@ static class SQ
         Check("plucked notes (guitar and harp loops) are in tune from C3 to C6", worstNew < 3, "worst " + worstOld.ToString("0.0") + " cents -> " + worstNew.ToString("0.0") + " cents  (note:old/new" + det + ")");
         { var h = SoundGen.Hat(new Rnd(3), 0.05, 10, 0.2, 1.0); bool fin = true; foreach (var v in h.L) if (float.IsNaN(v) || float.IsInfinity(v)) fin = false; var c = SoundGen.Cymbal(new Rnd(3), 1.2, 2.0, false); double dl = 0, sm = 0; for (int i = 0; i < c.Length; i++) { dl += (c.L[i] - c.R[i]) * (c.L[i] - c.R[i]); sm += c.L[i] * c.L[i]; }
           Check("hats and cymbals still render cleanly, cymbals wide in stereo", fin && h.Peak() > 0.05 && c.Peak() > 0.05 && dl / (sm + 1e-12) > 0.3, "cymbal side/mid " + (dl / (sm + 1e-12)).ToString("0.00")); }
+        {   // the built-in piano (piano roll keys): a key struck again, and a loud chord, without clicks or clipping
+            int ksr = StudioEngine.SR, B = 256, N = ksr * 2; var k = new KeysFx(); k.Prepare(ksr); var L = new float[N];
+            Func<int, int, double> spike = (a0, b0) => { double m = 0; for (int i = Math.Max(2, a0); i < Math.Min(N, b0); i++) m = Math.Max(m, Math.Abs(L[i] - 2 * L[i - 1] + L[i - 2])); return m; };
+            int re = ksr / 2 / B * B, ch = ksr / B * B;
+            for (int p0 = 0; p0 < N; p0 += B)
+            {
+                if (p0 == 0) k.Midi(0x90, 60, 110, false); if (p0 == re) { k.Midi(0x80, 60, 0, false); k.Midi(0x90, 60, 110, false); }
+                if (p0 == ch) foreach (int kn in new[] { 48, 52, 55, 60, 64, 67, 72 }) k.Midi(0x90, (byte)kn, 127, false);
+                k.BeginBlock(null, p0, B, false); var bl = new float[B]; var br = new float[B]; k.Process(bl, br, B); Array.Copy(bl, 0, L, p0, Math.Min(B, N - p0));
+            }
+            double steady = spike(ksr / 4, ksr / 4 + 2000), rs = spike(re - 4, re + 400), pk = 0; for (int i = ch; i < N; i++) pk = Math.Max(pk, Math.Abs(L[i]));
+            Check("the piano: a key struck again does not click (it fades the old note)", rs < steady * 2.5, "restrike " + rs.ToString("0.0000") + " vs steady " + steady.ToString("0.0000"));
+            Check("the piano: a loud 7-note chord is not clipped", pk < 0.9, "peak " + pk.ToString("0.000"));
+        }
         Console.WriteLine(fails == 0 ? "=== sound quality checks passed ===" : "=== " + fails + " FAILED ==="); Environment.Exit(fails == 0 ? 0 : 1);
     }
 }
