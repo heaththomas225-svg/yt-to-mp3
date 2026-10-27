@@ -980,7 +980,7 @@ partial class StudioForm : Form
             }
             // the dotted centre line
             using (var pen = new Pen(Color.FromArgb(audible ? 120 : 40, ca), 1f) { DashPattern = new[] { 1f, 3f } }) g.DrawLine(pen, cr.X + 4, cy, cr.Right - 4, cy);
-            // the bars: one every 3 pixels, mirrored round the centre, a soft glow under a bright core; big peaks get a white tip
+            // the bars: one every 3 pixels, mirrored round the centre, a soft glow under a bright core
             if (cr.Width > 4)
             {
                 int i0 = Math.Max(0, (int)(cr.X - lane.X)), i1 = Math.Min(px, (int)Math.Ceiling(cr.Right - lane.X)); const int step = 3;
@@ -995,7 +995,6 @@ partial class StudioForm : Form
                             float v = 0; for (int j = i; j < Math.Min(i1, i + step); j++) v = Math.Max(v, Math.Max(wmx[j], -wmn[j])); if (v <= 0.002f) continue;
                             float h = (float)Math.Pow(Math.Min(1f, v), 0.8) * amp, x = lane.X + i + 1;
                             g.DrawLine(pg, x, cy - h, x, cy + h); g.DrawLine(pc2, x, cy - h, x, cy + h);
-                            if (v > 0.7f) g.DrawLine(tip, x, cy - h * 0.55f, x, cy + h * 0.55f);
                         }
                 }
             }
@@ -1787,7 +1786,7 @@ partial class StudioForm : Form
     void PaintEqEditor(Graphics g, ParametricEq eq, RectangleF a, float[] tap, int tapPos)
     {
         eqPaintTick = Environment.TickCount;
-        var plot = Rc(a.X + 28, a.Y + 4, a.Width - 36, Math.Min(230, a.Height * 0.52f));
+        var plot = Rc(a.X + 28, a.Y + 4, a.Width - 36, editorBare ? 190 : Math.Min(230, a.Height * 0.52f));   // (in a plugin window the knobs go under it)
         FillEqBackdrop(g, plot);
         Func<double, float> FX = f => plot.X + plot.Width * (float)(Math.Log10(f / 20.0) / 3.0);
         Func<double, float> GY = db => plot.Y + plot.Height * (float)((18 - db) / 36.0);
@@ -1854,6 +1853,7 @@ partial class StudioForm : Form
         }
         // selected band controls
         float y = cy2 + 34; int s = eqBand; string pfx = "b" + s + "_";
+        if (editorBare) { PaintEqKnobs(g, eq, Rc(a.X, y, a.Width, a.Bottom - y)); return; }   // in a plugin window: knobs, like every plugin
         var tb = Rc(a.X + 4, y, 118, 26); Btn(g, tb, eq.Find(pfx + "t").Text, 0, () => eq.Set(pfx + "t", (eq.Get(pfx + "t") + 1) % 4), 12); y += 32;
         foreach (var id in new[] { "f", "g", "q" })
         {
@@ -1869,6 +1869,29 @@ partial class StudioForm : Form
             var p = eq.Find(k + "_f"); var sr = Rc(a.X + 80, y + 2, a.Width - 218, 20); var rg = Slider(g, sr, PFrac(p), fr => eq.Set(k + "_f", PFromFrac(p, fr)), Accent); rg.OnDouble = () => eq.Set(k + "_f", p.Def);
             ValueBox(g, Rc(sr.Right + 14, y, 70, 24), p.Text, Num(p.Val), str => { float v; if (ParseNum(str, out v)) eq.Set(k + "_f", v); });
             Btn(g, Rc(a.Right - 52, y, 48, 24), eq.Find(k + "_s").Text, 0, () => eq.Set(k + "_s", eq.Get(k + "_s") > 0.5f ? 0 : 1), 11); y += 28;
+        }
+    }
+
+    // the EQ in a plugin window: the band's type and the filters' switches in a row, then knobs for the band (FREQ, GAIN, Q) and the filters
+    void PaintEqKnobs(Graphics g, ParametricEq eq, RectangleF a)
+    {
+        int s = eqBand; string pfx = "b" + s + "_"; float y = a.Y, bw = (a.Width - 8 - 4 * 6) / 5f;
+        var tb = Rc(a.X + 4, y, bw, 26); Btn(g, tb, "BAND " + (s + 1) + ": " + eq.Find(pfx + "t").Text.ToUpperInvariant(), 0, () => eq.Set(pfx + "t", (eq.Get(pfx + "t") + 1) % 4), 10); Hint2(tb, "The shape of band " + (s + 1) + " (press to change it)");
+        int ci = 1; foreach (var kind in new[] { "hp", "lp" })
+        {
+            string k = kind; bool on = eq.Get(k + "_on") > 0.5f; var ob = Rc(a.X + 4 + ci * (bw + 6), y, bw, 26); ci++;
+            Btn(g, ob, kind == "hp" ? "HIGH-PASS" : "LOW-PASS", on ? 4 : 0, () => eq.Set(k + "_on", on ? 0 : 1), 10); Hint2(ob, (kind == "hp" ? "Cut the lows below the HP knob" : "Cut the highs above the LP knob") + " (press to switch it " + (on ? "off)" : "on)"));
+            var sb = Rc(a.X + 4 + ci * (bw + 6), y, bw, 26); ci++; Btn(g, sb, (kind == "hp" ? "HP " : "LP ") + eq.Find(k + "_s").Text, 0, () => eq.Set(k + "_s", eq.Get(k + "_s") > 0.5f ? 0 : 1), 10); Hint2(sb, "How steep the " + (kind == "hp" ? "high-pass" : "low-pass") + " is");
+        }
+        y += 36; float cw = (a.Width - 8) / 5f; var ids = new[] { pfx + "f", pfx + "g", pfx + "q", "hp_f", "lp_f" }; var names = new[] { "FREQ", "GAIN", "Q", "HP FREQ", "LP FREQ" };
+        for (int i = 0; i < 5; i++)
+        {
+            var p = eq.Find(ids[i]); if (p == null) continue; var pp = p; var cell = Rc(a.X + 4 + i * cw, y, cw, KnobCellH - 6); bool dim = (i == 3 && eq.Get("hp_on") < 0.5f) || (i == 4 && eq.Get("lp_on") < 0.5f) || (i == 1 && (int)eq.Get(pfx + "t") == 3);
+            Txt(g, names[i], 9, dim ? DimC : Color.FromArgb(255, 220, 210, 245), Rc(cell.X + 2, cell.Y + 3, cell.Width - 4, 14), StringAlignment.Center, true);
+            Color col = i < 3 ? BandCol[s] : KnobCols[(i + 2) % KnobCols.Length]; if (dim) col = Color.FromArgb(150, col);
+            KnobCtl(g, cell.X + cell.Width / 2, cell.Y + 50, 46, PFrac(p), fr => eq.Set(pp.Id, PFromFrac(pp, fr)), col, () => eq.Set(pp.Id, pp.Def));
+            Hint2(Rc(cell.X, cell.Y, cell.Width, 80), names[i] + ": drag up or down to turn it (Shift for fine steps), double-click for the default, or type a value below");
+            ValueBox(g, Rc(cell.X + 6, cell.Y + 84, cell.Width - 12, 24), p.Text, Num(p.Val), str => { float v; if (ParseNum(str, out v)) eq.Set(pp.Id, v); });
         }
     }
 

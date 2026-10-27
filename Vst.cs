@@ -313,8 +313,9 @@ class PxBrandBar : Panel
     protected override void OnPaint(PaintEventArgs e)
     {
         var g = e.Graphics; g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias; g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit; var r = ClientRectangle; if (r.Width < 4) return;
-        using (var b = new System.Drawing.Drawing2D.LinearGradientBrush(r, Color.FromArgb(92, 40, 200), Color.FromArgb(190, 40, 160), 0f)) g.FillRectangle(b, r);
-        using (var b = new System.Drawing.Drawing2D.LinearGradientBrush(new Rectangle(0, 0, r.Width, r.Height / 2 + 1), Color.FromArgb(70, 255, 255, 255), Color.FromArgb(0, 255, 255, 255), 90f)) g.FillRectangle(b, 0, 0, r.Width, r.Height / 2);
+        using (var b = new System.Drawing.Drawing2D.LinearGradientBrush(r, Color.FromArgb(22, 9, 46), Color.FromArgb(9, 4, 22), 90f)) g.FillRectangle(b, r);   // the deep purple galaxy band of the plugin windows
+        GalaxyBg.Paint(g, r, name.GetHashCode(), 0.5f, Color.FromArgb(14, 6, 30), 40);
+        using (var b = new System.Drawing.Drawing2D.LinearGradientBrush(new Rectangle(0, 0, r.Width, r.Height / 2 + 1), Color.FromArgb(40, 255, 255, 255), Color.FromArgb(0, 255, 255, 255), 90f)) g.FillRectangle(b, 0, 0, r.Width, r.Height / 2);
         using (var p = new Pen(Color.FromArgb(230, 92, 220, 255), 2f)) g.DrawLine(p, 0, r.Height - 1, r.Width, r.Height - 1);
         var lg = AppLogo.Logo; if (lg != null) g.DrawImage(lg, 9, 6, 26, 26);
         using (var f1 = new Font("Segoe UI", 11f, FontStyle.Bold)) using (var f2 = new Font("Segoe UI", 8f, FontStyle.Bold)) using (var w = new SolidBrush(Color.FromArgb(250, 245, 255))) using (var d = new SolidBrush(Color.FromArgb(235, 215, 250)))

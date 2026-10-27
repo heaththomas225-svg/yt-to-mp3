@@ -127,9 +127,10 @@ partial class StudioForm
     static readonly Dictionary<string, Bitmap> galaxyCache = new Dictionary<string, Bitmap>();
     void PaintGalaxy(Graphics g, RectangleF r, int seed, float strength)
     {
-        int w = Math.Max(1, (int)r.Width), h = Math.Max(1, (int)r.Height); string key = w + "x" + h + ":" + seed + ":" + strength.ToString("0.00");
-        Bitmap bmp; lock (galaxyCache) { if (!galaxyCache.TryGetValue(key, out bmp)) { if (galaxyCache.Count > 24) { foreach (var b0 in galaxyCache.Values) b0.Dispose(); galaxyCache.Clear(); } bmp = MakeGalaxy(w, h, seed, strength); galaxyCache[key] = bmp; } }
-        g.DrawImage(bmp, r.X, r.Y, w, h);
+        int w = Math.Max(1, (int)r.Width), h = Math.Max(1, (int)r.Height), bw = (w + 127) / 128 * 128, bh = (h + 127) / 128 * 128;   // made in steps of 128 pixels and cut to size, so windows of nearly the same size share one galaxy
+        string key = bw + "x" + bh + ":" + seed + ":" + strength.ToString("0.00");
+        Bitmap bmp; lock (galaxyCache) { if (!galaxyCache.TryGetValue(key, out bmp)) { if (galaxyCache.Count > 40) { foreach (var b0 in galaxyCache.Values) b0.Dispose(); galaxyCache.Clear(); } bmp = MakeGalaxy(bw, bh, seed, strength); galaxyCache[key] = bmp; } }
+        g.DrawImage(bmp, new Rectangle((int)r.X, (int)r.Y, w, h), new Rectangle(0, 0, w, h), GraphicsUnit.Pixel);   // unscaled: much faster than stretching
     }
     internal static Bitmap MakeGalaxy(int w, int h, int seed, float strength, Color[] palette = null)
     {

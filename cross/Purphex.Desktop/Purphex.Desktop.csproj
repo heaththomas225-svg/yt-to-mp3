@@ -133,6 +133,7 @@
     <Compile Include="../../Studio.Arrange.cs" />
     <Compile Include="../../Studio.History.cs" />
     <Compile Include="../../Studio.ToolWindows.cs" />
+    <Compile Include="../../Studio.WinCache.cs" />
     <Compile Include="../../Studio.TimeMachine.cs" />
     <Compile Include="../../Studio.Autopsy.cs" />
     <Compile Include="../../Studio.UI2.cs" />

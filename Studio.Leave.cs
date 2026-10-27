@@ -29,7 +29,7 @@ partial class StudioForm
         var cl = Rc(box.Right - 46, box.Y + 14, 30, 28); Btn(g, cl, "x", 3, () => welcomeOn = false, 12); Hint2(cl, "Close this and go to the mix");
         var nb = Rc(box.X + 28, box.Y + 92, 240, 34); Btn(g, nb, "START A NEW PROJECT", 2, () => { welcomeOn = false; tab = 0; NewProject(); }, 13); Hint2(nb, "An empty project: add music, record or add an instrument");
         var ob = Rc(nb.Right + 12, box.Y + 92, 240, 34); Btn(g, ob, "OPEN A PROJECT FILE...", 1, () => { welcomeOn = false; if (!OpenClick()) { welcomeOn = true; welcomeAt = Environment.TickCount; } }, 13);   /* cancelling the window brings the welcome box back */ Hint2(ob, "Find a project file (.ytmproj) on your PC");
-        if (list.Count > 4 || !cards) { var mp = Rc(ob.Right + 12, box.Y + 92, Math.Max(120, box.Right - 28 - ob.Right - 12), 34); Btn(g, mp, "ALL MY PROJECTS", 1, () => { welcomeOn = false; GoTab(3); }, 13); Hint2(mp, "Every project you have, with search and filters"); }
+        if (list.Count > 4 || !cards) { var mp = Rc(ob.Right + 12, box.Y + 92, Math.Max(120, box.Right - 28 - (side > 0 ? side * grow + 8 : 0) - ob.Right - 12), 34); Btn(g, mp, "ALL MY PROJECTS", 1, () => { welcomeOn = false; GoTab(3); }, 13); Hint2(mp, "Every project you have, with search and filters"); }
         if (side > 0)
         {   // the converter beside your projects
             var cv = Rc(box.Right - side * grow - 4, box.Y + 92, side * grow - 24, box.Height - 120); FillRR(g, TM.C(200, 14, 6, 34), cv, 14); StrokeRR(g, Color.FromArgb(200, NeonPink), cv, 14, 1.4f);

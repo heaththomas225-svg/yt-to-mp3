@@ -28,7 +28,7 @@ partial class StudioForm
         var w = fxWins.Find(x => ReferenceEquals(x.Fx, f));
         if (w == null)
         {
-            float ww = Math.Max(340, Math.Min(430, ClientSize.Width * 0.25f)), hh = Math.Min(FwTitle + FwTool + FwViz + EditorHeight(f) - 34 + 18, Math.Max(260, ClientSize.Height - ToolH - TransH - 40));
+            float ww = Math.Max(340, Math.Min(430, ClientSize.Width * 0.25f)), hh = Math.Min(FwTitle + FwTool + (f is ParametricEq ? 8 : FwViz) + (f is ParametricEq ? 470 : EditorHeight(f) - 34) + 18, Math.Max(260, ClientSize.Height - ToolH - TransH - 40));
             if (KnobEditor(f)) { ww = Math.Max(420, Math.Min(620, ClientSize.Width * 0.36f)); int nv = 0; var hid = f.Hidden.Length > 0 ? new HashSet<string>(f.Hidden.Split(',')) : new HashSet<string>(); foreach (var pq in f.P) if (!hid.Contains(pq.Id)) nv++; hh = Math.Min(FwTitle + FwTool + 8 + EditorHeight(f) - 34 - nv * 30 + KnobGridHeight(f, ww - 24) + 22, Math.Max(260, ClientSize.Height - ToolH - TransH - 40)); }   // room for the display in the middle of the knobs   // narrow, as tall as its controls need (it floats over the mixer, like a desk plugin window)
             int k = fxWins.Count; float x = Math.Max(HeadW + 20, (ClientSize.Width - PanelW - ww) / 2 + k * 28), y = ToolH + TransH + 40 + k * 28;
             w = new FxWin { Fx = f, Track = tr, R = new RectangleF(x, y, ww, hh) }; fxWins.Add(w);
@@ -48,7 +48,10 @@ partial class StudioForm
     void PaintFxWindows(Graphics g)
     {
         if (tab != 0) return; fxWins.RemoveAll(w => !FxWinAlive(w)); if (fxWins.Count == 0) return;
-        var look = BeginBrand(); try { foreach (var w in fxWins.OrderBy(x => x.Seq)) PaintFxWindow(g, w); } finally { EndBrand(look); }   // every plugin window in the Purphex look, whatever the theme
+        var look = BeginBrand(); try { foreach (var w in fxWins.OrderBy(x => x.Seq)) { KeepFxWinOnScreen(w); var ww = w; float sy; fxWinScroll.TryGetValue(w.Fx, out sy);
+              string sig = "fx|" + w.Fx.Serialize() + "|" + w.Fx.Bypass + "|" + w.Fx.CurPreset + "|" + (w.Seq == fxWinSeq) + "|" + sy + "|" + eqBand + "|" + eng.Playing + "|" + (w.Track != null ? w.Track.Auto.Count : -1);
+              PaintCachedWin(g, w, w.R, sig, eng.Playing ? 150 : 1000, gg => PaintFxWindow(gg, ww)); } } finally { EndBrand(look); }
+        TrimWinPics(new HashSet<object>(fxWins.Cast<object>().Concat(toolWins.Cast<object>())));   // every plugin window in the Purphex look, whatever the theme
     }
     // keep a window reachable: its title bar always stays inside the studio
     void KeepFxWinOnScreen(FxWin w)
@@ -90,14 +93,14 @@ partial class StudioForm
         if (f.Error != null && f.Error.Length > 0) Txt(g, "ERROR: " + f.Error, 10, Warn, Rc(r.X + 12, ty + 26, r.Width - 24, 14), StringAlignment.Near, true);
         // the plugin's own editor (its real controls), scrolling if the window is shorter than the editor
         // the live picture of what this plugin is doing, in its own neon box
-        bool knobWin = KnobEditor(f); float fwViz = knobWin ? 8 : FwViz;   // a knob window has its display in the middle of the knobs
+        bool knobWin = KnobEditor(f) || f is ParametricEq; float fwViz = knobWin ? 8 : FwViz;   /* (the EQ's graph is its live display) */   // a knob window has its display in the middle of the knobs
         if (!knobWin)
         { var vb = Rc(r.X + 1.5f, r.Bottom - FwViz, r.Width - 3, FwViz - 1.5f);   // the strip along the bottom edge of the window, part of the window itself
           using (var p = new System.Drawing.Drawing2D.GraphicsPath()) { float rd = 11; p.AddLine(vb.X, vb.Y, vb.Right, vb.Y); p.AddLine(vb.Right, vb.Y, vb.Right, vb.Bottom - rd); p.AddArc(vb.Right - 2 * rd, vb.Bottom - 2 * rd, 2 * rd, 2 * rd, 0, 90); p.AddArc(vb.X, vb.Bottom - 2 * rd, 2 * rd, 2 * rd, 90, 90); p.CloseFigure();
             using (var b = new LinearGradientBrush(vb, Color.FromArgb(255, 14, 6, 32), Color.FromArgb(255, 30, 8, 52), 90f)) g.FillPath(b, p); var gs2 = g.Save(); g.SetClip(p, System.Drawing.Drawing2D.CombineMode.Intersect); PaintFxViz(g, Rc(vb.X + 12, vb.Y + 4, vb.Width - 24, vb.Height - 8), f, true); g.Restore(gs2); }
           using (var pen = new Pen(FvMix(PxViolet, PxMagenta, 0.5f), 1.6f)) g.DrawLine(pen, vb.X + 8, vb.Y, vb.Right - 8, vb.Y);   // the neon line that separates it from the controls
           if (!eng.Playing) Txt(g, "PRESS PLAY TO SEE WHAT " + f.Title.ToUpperInvariant() + " IS DOING", 9, DimC, vb, StringAlignment.Center, true); }
-        var body = Rc(r.X + 6, r.Y + FwTitle + FwTool + 6, r.Width - 12, r.Height - FwTitle - FwTool - fwViz - 14); float edH = EditorHeight(f) - 34;   // (without the editor's own title row)
+        var body = Rc(r.X + 6, r.Y + FwTitle + FwTool + 6, r.Width - 12, r.Height - FwTitle - FwTool - fwViz - 14); float edH = f is ParametricEq ? 470 : EditorHeight(f) - 34;   // (without the editor's own title row; the EQ's knob layout is shorter)
         if (KnobEditor(f)) { int nv = 0; var hid = f.Hidden.Length > 0 ? new HashSet<string>(f.Hidden.Split(',')) : new HashSet<string>(); foreach (var pq in f.P) if (!hid.Contains(pq.Id)) nv++; edH = edH - nv * 30 + KnobGridHeight(f, body.Width - 12); }   // the settings are knobs here
         { var gsB = g.Save(); g.SetClip(body, System.Drawing.Drawing2D.CombineMode.Intersect); PaintGalaxy(g, Rc(r.X, r.Y + FwTitle, r.Width, r.Height - FwTitle - fwViz), f.Type.GetHashCode() ^ 0x5a5a, 1.1f); g.Restore(gsB); }
         var gs = g.Save(); g.SetClip(body, System.Drawing.Drawing2D.CombineMode.Intersect); float scrollY; fxWinScroll.TryGetValue(f, out scrollY); scrollY = Math.Max(0, Math.Min(scrollY, Math.Max(0, edH - body.Height)));

@@ -165,6 +165,7 @@ abstract class PxWindow : Form
         var g = e.Graphics; g.SmoothingMode = SmoothingMode.AntiAlias; g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit; hits.Clear();
         float W = ClientSize.Width, H = ClientSize.Height;
         using (var br = new LinearGradientBrush(new RectangleF(0, 0, W, H), Bg0, Bg1, 90f)) g.FillRectangle(br, 0, 0, W, H);
+        GalaxyBg.Paint(g, new Rectangle(0, 0, (int)W, (int)H), brand.GetHashCode(), 0.85f, Bg1, 80);   // the galaxy, like every Purphex window
         PaintHeader(g, W); PaintBody(g, new RectangleF(16, 76, W - 32, H - 76 - 24));
         tip = ""; foreach (var h in hits) if (h.R.Contains(mouse) && h.Tip.Length > 0) tip = h.Tip;
         if (tip.Length > 0) Txt(g, tip, 11, Dim, new RectangleF(16, H - 20, W - 32, 18), StringAlignment.Near, false);

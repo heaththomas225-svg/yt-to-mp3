@@ -106,6 +106,7 @@ class GlitchFlowWindow : Form
         var g = e.Graphics; g.SmoothingMode = SmoothingMode.AntiAlias; g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit; hits.Clear();
         float W = ClientSize.Width, H = ClientSize.Height;
         using (var br = new LinearGradientBrush(new RectangleF(0, 0, W, H), Top, Bot, 90f)) g.FillRectangle(br, 0, 0, W, H);
+        GalaxyBg.Paint(g, new Rectangle(0, 0, (int)W, (int)H), 0x6F10, 0.85f, Bot, 80);   // the galaxy, like every Purphex window
         // ---- header ----
         Txt(g, "PURPHEX", 13, Violet, new RectangleF(18, 10, 120, 18), StringAlignment.Near, true); Txt(g, "GLITCHFLOW", 26, Ink, new RectangleF(16, 24, 260, 32), StringAlignment.Near, true);
         using (var pen = new Pen(Color.FromArgb(150, Cyan), 2)) g.DrawLine(pen, 18, 60, 210, 60);

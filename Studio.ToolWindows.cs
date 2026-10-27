@@ -21,12 +21,18 @@ partial class StudioForm
     }
     void PaintToolWindows(Graphics g)
     {
-        if (toolWins.Count == 0 || tab != 0) return;
+        if (toolWins.Count == 0 || tab != 0) return; TrimWinPics(new HashSet<object>(fxWins.Cast<object>().Concat(toolWins.Cast<object>())));
         foreach (var w in toolWins.OrderBy(x => x.Seq).ToList())
         {
             if (w.Full) w.R = Rc(4, ToolH + 4, ClientSize.Width - 8, ClientSize.Height - ToolH - 8);
             var r = w.R; r.Width = Math.Max(520, Math.Min(ClientSize.Width - 8, r.Width)); r.Height = Math.Max(360, Math.Min(ClientSize.Height - ToolH - 8, r.Height)); r.X = Math.Max(-r.Width + 140, Math.Min(ClientSize.Width - 140, r.X)); r.Y = Math.Max(ToolH, Math.Min(ClientSize.Height - 50, r.Y)); w.R = r;
-            bool front = w.Seq == toolSeq; Color acc = front ? NeonCyan : NeonViolet; const float th = 46;
+            var wq = w; PaintCachedWin(g, w, r, "tool|" + w.Kind + "|" + w.Full + "|" + (w.Seq == toolSeq) + "|" + selTrack + "|" + eng.Tracks.Count + "|" + eng.Playing + "|" + (toolDrag != null), 250, gg => PaintToolWin(gg, wq));
+        }
+    }
+    void PaintToolWin(Graphics g, ToolWin w)
+    {
+        {
+            var r = w.R; bool front = w.Seq == toolSeq; Color acc = front ? NeonCyan : NeonViolet; const float th = 46;
             using (var sh = new SolidBrush(Color.FromArgb(110, 0, 0, 0))) g.FillRectangle(sh, r.X + 8, r.Y + 10, r.Width, r.Height);
             using (var p = RR(r, 14)) { using (var b = new SolidBrush(TM.C(255, 8, 3, 20))) g.FillPath(b, p); var gs = g.Save(); g.SetClip(p, System.Drawing.Drawing2D.CombineMode.Intersect); PaintGalaxy(g, r, w.Kind * 7919, 0.75f); g.Restore(gs); }
             Glow(g, acc, r, 14, front ? 0.9f : 0.4f, 3); StrokeRR(g, Color.FromArgb(front ? 230 : 140, acc), r, 14, 1.5f);
