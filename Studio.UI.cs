@@ -114,6 +114,7 @@ partial class StudioForm : Form
         studioLoop = new FrameLoop(this, FrameStep) { Slow = () => WindowState == FormWindowState.Minimized || moving || Win.AnyMoving };   /* while a window is being dragged around nothing needs painting often */ ApplyFps();
         InstrumentFx.Recorder = OnMidiNote; MidiInput.BareTrack = MidiToBareTrack;
         MinimumSize = new Size(1240, 640);
+        Load += (s, e) => RestorePlace(); FormClosing += (s, e) => { if (!e.Cancel) SavePlace(); };   // it reopens where it was
         FormClosed += (s, e) => { try { if (flexOpen) FlexClose(true); } catch { } flexOpen = false; DisposeRetired(); Auditioner.Shutdown(); };
         FormClosed += (s, e) => { if (backdrop != null) { backdrop.Dispose(); backdrop = null; } foreach (var pc0 in peakCache.Values) if (pc0.Img != null) pc0.Img.Dispose(); peakCache.Clear(); };
         FormClosed += (s, e) => { timer.Stop(); if (studioLoop != null) studioLoop.Dispose(); eng.Pause(); };

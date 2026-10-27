@@ -35,6 +35,23 @@ partial class StudioForm
         var yb = Rc(box.X + 24, box.Bottom - 52, 260, 36); Btn(g, yb, "UPDATE NOW", 2, () => { var a = updYes; updYes = null; updNo = null; if (a != null) a(); }, 13); Hint2(yb, "Download " + updVer + " and restart Purphex with it");
         var lb = Rc(box.Right - 284, box.Bottom - 52, 260, 36); Btn(g, lb, "LATER", 1, () => { var a = updNo; updYes = null; updNo = null; if (a != null) a(); }, 13); Hint2(lb, "Keep working: Purphex asks again the next time you open it");
     }
+    // where the studio window was, so it opens there next time (on the same screen, the same size, maximised or not)
+    void SavePlace()
+    {
+        if (StudioEnv.UnderTest || WindowState == FormWindowState.Minimized) return; var b = WindowState == FormWindowState.Normal ? Bounds : RestoreBounds;
+        Prefs.StudioPlace = b.X + "," + b.Y + "," + b.Width + "," + b.Height + "," + (WindowState == FormWindowState.Maximized ? 1 : 0);
+    }
+    void RestorePlace()
+    {
+        if (StudioEnv.UnderTest) return; var p = (Prefs.StudioPlace ?? "").Split(','); int x, y, w, h; if (p.Length < 5 || !int.TryParse(p[0], out x) || !int.TryParse(p[1], out y) || !int.TryParse(p[2], out w) || !int.TryParse(p[3], out h)) return;
+        var r = new Rectangle(x, y, Math.Max(MinimumSize.Width, w), Math.Max(MinimumSize.Height, h));
+        foreach (var scr in Screen.AllScreens)
+        {
+            var vis = Rectangle.Intersect(scr.WorkingArea, r); if (vis.Width < 200 || vis.Height < 150) continue;   // that screen is still connected and the window would be on it
+            if (r.Width > scr.WorkingArea.Width || r.Height > scr.WorkingArea.Height) r = new Rectangle(scr.WorkingArea.X, scr.WorkingArea.Y, Math.Min(r.Width, scr.WorkingArea.Width), Math.Min(r.Height, scr.WorkingArea.Height));
+            StartPosition = FormStartPosition.Manual; Bounds = r; if (p[4] == "1") WindowState = FormWindowState.Maximized; return;
+        }
+    }
     void BeginInvokeSafe(Action a) { try { if (IsHandleCreated) BeginInvoke(a); else a(); } catch { } }
     void PaintConverterPage(Graphics g)
     {

@@ -29,6 +29,7 @@ static class Prefs
     public static int VisMotion = 1;   // the visualisers: 0 CALM, 1 SMOOTH (the default), 2 LIVELY, 3 WILD (how wild they move)
     public static bool ThinTracks;   // THIN TRACKS is remembered (the tracks open thin next time)
     public static bool HeadHidden;   // the list of tracks on the left is tucked away (a thin strip and an arrow bring it back)
+    public static string StudioPlace = "";   // where the studio window was: x,y,w,h,maximised (it reopens there if that screen is still connected)
     public static bool PanelHidden;   // the plugin panel on the right is tucked away (a thin tab brings it back)
     public static float LyricSize = 15f;   // the lyrics page text size (A- / A+)
     public static string InDev = "";         // recording input (microphone), "" = the Windows default
@@ -44,7 +45,7 @@ static class Prefs
     public static bool InsOpen; public static int InsH = 300;   // the bottom inspector: shown or not, and its height
     public static string[] Lines()
     {
-        return new[] { "proftheme=" + (ProfileTheme ? 1 : 0), "insopen=" + (InsOpen ? 1 : 0), "insh=" + InsH, "panelhid=" + (PanelHidden ? 1 : 0), "thin=" + (ThinTracks ? 1 : 0), "vismotion=" + VisMotion, "headhid=" + (HeadHidden ? 1 : 0), "lyrsize=" + LyricSize.ToString(System.Globalization.CultureInfo.InvariantCulture), "bgpath=" + BgPath, "bgdim=" + BgDim, "bgleaves=" + BgLeaves, "bgstudio=" + BgStudio, "outvol=" + OutVol, "rbspeed=" + RainbowSpeed, "outdev=" + OutDev, "buf=" + Buf, "fpscap=" + FpsCap, "perfmode=" + PerfMode, "showfps=" + ShowFps, "savelyrics=" + SaveLyrics, "countuses=" + CountUses, "fantasythemev=" + FantasyThemeV, "fantasytheme=" + FantasyThemed, "midiin=" + MidiDev, "indev=" + InDev, "micmode=" + MicMode, "fontid=" + FontId, "sharesaved=" + ShareSaved, "theme=" + Theme };
+        return new[] { "proftheme=" + (ProfileTheme ? 1 : 0), "insopen=" + (InsOpen ? 1 : 0), "insh=" + InsH, "panelhid=" + (PanelHidden ? 1 : 0), "studioplace=" + StudioPlace, "thin=" + (ThinTracks ? 1 : 0), "vismotion=" + VisMotion, "headhid=" + (HeadHidden ? 1 : 0), "lyrsize=" + LyricSize.ToString(System.Globalization.CultureInfo.InvariantCulture), "bgpath=" + BgPath, "bgdim=" + BgDim, "bgleaves=" + BgLeaves, "bgstudio=" + BgStudio, "outvol=" + OutVol, "rbspeed=" + RainbowSpeed, "outdev=" + OutDev, "buf=" + Buf, "fpscap=" + FpsCap, "perfmode=" + PerfMode, "showfps=" + ShowFps, "savelyrics=" + SaveLyrics, "countuses=" + CountUses, "fantasythemev=" + FantasyThemeV, "fantasytheme=" + FantasyThemed, "midiin=" + MidiDev, "indev=" + InDev, "micmode=" + MicMode, "fontid=" + FontId, "sharesaved=" + ShareSaved, "theme=" + Theme };
     }
     public static bool Parse(string k, string v)
     {
@@ -67,6 +68,7 @@ static class Prefs
             case "showfps": if (bool.TryParse(v, out b)) ShowFps = b; return true;
             case "midiin": MidiDev = v; return true;
             case "panelhid": PanelHidden = v.Trim() == "1"; return true;
+            case "studioplace": StudioPlace = v.Trim(); return true;
             case "thin": ThinTracks = v.Trim() == "1"; return true;
             case "vismotion": if (int.TryParse(v, out n)) VisMotion = Math.Max(0, Math.Min(3, n)); return true;
             case "headhid": HeadHidden = v.Trim() == "1"; return true;

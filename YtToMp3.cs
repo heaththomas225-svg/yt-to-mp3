@@ -204,14 +204,15 @@ partial class App : Form
         MinimumSize = new Size(560, 640);
         StudioEnv.Ffmpeg = FfmpegExe; StudioEnv.Ffprobe = FfprobeExe; UserBackground.Ffmpeg = FfmpegExe; Prefs.Changed = ApplyPrefs;
         Font = new Font("Segoe UI", 9.5f);
+        if (!StudioEnv.UnderTest) Opacity = 0;   // Purphex opens into the studio: the converter window is not flashed up first
         Shown += (s, e) =>
         {
             Activated += (s2, e2) => ThreadPool.QueueUserWorkItem(_ => { try { CheckForUpdate(); } catch { } });   // coming back to the app checks for a new version right away
             BeginInvoke(new Action(() => { try { PluginHost.LoadEnabled(); } catch { } }));   // on the UI thread (VST plugins expect it), after the window is visible
             new Thread(UpdateLoop) { IsBackground = true }.Start();
-            if (!StudioEnv.UnderTest) BeginInvoke(new Action(() => { try { if (OpenStudio()) { studioForm.ShowWelcome(); studioForm.FormClosed += (s3, e3) => { if (!Visible) BeginInvoke(new Action(() => { try { if (!Visible && !IsDisposed) Close(); } catch { } })); };   /* closing the studio closes Purphex: after the studio has finished closing (Application.Exit inside its close threw "collection was modified") */ Hide(); UpdateToStudio(); } } catch { } }));   // Purphex opens straight into the DAW (an update found before the studio opened is shown in it): the converter is its CONVERTER tab
+            if (!StudioEnv.UnderTest) BeginInvoke(new Action(() => { try { if (OpenStudio()) { studioForm.ShowWelcome(); studioForm.FormClosed += (s3, e3) => { if (!Visible) BeginInvoke(new Action(() => { try { if (!Visible && !IsDisposed) { closingWithStudio = true; Close(); } } catch { } })); };   /* closing the studio closes Purphex: after the studio has finished closing (Application.Exit inside its close threw "collection was modified") */ Hide(); Opacity = 1; UpdateToStudio(); } else Opacity = 1; } catch { Opacity = 1; } }));   // Purphex opens straight into the DAW (an update found before the studio opened is shown in it): the converter is its CONVERTER tab
         };
-        FormClosing += (s, e) => { if (e.CloseReason == CloseReason.UserClosing && !ConfirmClose()) e.Cancel = true; };   // the X asks first (and offers to save the project)
+        FormClosing += (s, e) => { if (e.CloseReason == CloseReason.UserClosing && !closingWithStudio && !ConfirmClose()) e.Cancel = true; };   // (closing the studio asked already)   // the X asks first (and offers to save the project)
         FormClosing += (s, e) => { if (e.Cancel) return; var others = new List<Form>(); foreach (Form of in Application.OpenForms) if (of != this) others.Add(of); foreach (var of2 in others) { try { of2.Close(); } catch { } } };   // closing the main window closes the others
         FormClosing += (s, e) => { if (e.Cancel) return; SaveSettings(); KillCurrent(); StudioEng.Shutdown(); Separator.KillWorker(); layerRun = false; UserBackground.StopVideo(); frameLoop.Dispose(); };
 
@@ -1227,6 +1228,7 @@ partial class App : Form
     }
     // the update waiting on the card, kept so the studio can show it (the check runs the moment Purphex starts, maybe before the studio is open)
     string updPendVer, updPendDl; List<string> updPendNotes;
+    bool closingWithStudio;   // Purphex is closing because the studio was closed (its own question was answered)
     void UpdateToStudio()
     {
         if (card == null || updPendVer == null || Visible || studioForm == null || studioForm.IsDisposed || !studioForm.Visible) return;   // Purphex is in the studio (this window is hidden): the studio shows the update itself
