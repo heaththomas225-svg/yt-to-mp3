@@ -1527,7 +1527,7 @@ partial class StudioForm : Form
             if (info.Category == "Purphex VST") { var gsB = g.Save(); g.SetClip(clipR, System.Drawing.Drawing2D.CombineMode.Intersect); Glow(g, PxPurple, row, 8, hot ? 1f : 0.6f, 3); StrokeRR(g, Color.FromArgb(hot ? 255 : 230, PxPurple), row, 8, hot ? 2f : 1.5f); g.Restore(gsB); }   // built in: a purple neon border that never changes with the theme
             Txt(g, info.Name, 15, Ink, Rc(row.X + 14, row.Y + 3, row.Width - 120, 20), StringAlignment.Near, true);
             using (var sfB = new StringFormat(StringFormatFlags.NoWrap) { Trimming = StringTrimming.EllipsisCharacter, LineAlignment = StringAlignment.Center }) using (var bb = new SolidBrush(DimC)) g.DrawString(info.Blurb, GfxCache.Font(11.5f, false), bb, Rc(row.X + 14, row.Y + 22, row.Width - 120, 18), sfB);   // every description the same size (a long one ends with ...)
-            if (browserVst && FreeStudio && !FreeVst(info.Type)) { var lk = Rc(row.Right - 196, row.Y + 12, 104, 20); FillRR(g, TM.C(200, 60, 40, 10), lk, 6); Edition.Padlock(g, new RectangleF(lk.X + 6, lk.Y + 3, 10, 14), Color.FromArgb(255, 255, 200, 90)); Txt(g, "SUPPORTER", 9, Color.FromArgb(255, 255, 210, 120), Rc(lk.X + 18, lk.Y, lk.Width - 20, lk.Height), StringAlignment.Center, true); }   // paid on the Free Edition
+            if (browserVst && FreeStudio && !FreeVst(info.Type)) { var lk = Rc(row.Right - 196, row.Y + 4, 104, 18); FillRR(g, TM.C(200, 60, 40, 10), lk, 6); Edition.Padlock(g, new RectangleF(lk.X + 6, lk.Y + 3, 10, 14), Color.FromArgb(255, 255, 200, 90)); Txt(g, "SUPPORTER", 9, Color.FromArgb(255, 255, 210, 120), Rc(lk.X + 18, lk.Y, lk.Width - 20, lk.Height), StringAlignment.Center, true); }   // paid on the Free Edition
             string type = info.Type; if (vis.Width > 0 && vis.Height > 0) Reg(vis, () => AddFx(type));   /* the whole row adds it; the Add button sits on top of the row */
             if (row.Y + 8 >= clipR.Y && row.Y + 36 <= clipR.Bottom) Btn(g, Rc(row.Right - 86, row.Y + 8, 72, 28), "Add", 1, () => AddFx(type), 13); ry += 48;
         }
@@ -1561,8 +1561,8 @@ partial class StudioForm : Form
         m.Show(this, new Point((int)MousePos.X, (int)MousePos.Y));
     }
 
-    // the one VST the Free Edition has: Bass Lab (it comes with the studio)
-    internal static bool FreeVst(string type) { return type == "synth"; }
+    // what the Free Edition has in VSTS: Bass Lab (it comes with the studio) and the Sampler
+    internal static bool FreeVst(string type) { return type == "synth" || type == "sampler"; }   // (the Sampler plays the sound packs, which are free)
     void AddFx(string type)
     {
         if (browserVst && FreeStudio && !FreeVst(type)) { var inf = Array.Find(FxRegistry.All, i => i.Type == type); if (!Paid(inf != null ? inf.Name : "This VST")) return; }

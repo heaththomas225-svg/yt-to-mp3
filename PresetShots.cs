@@ -58,7 +58,9 @@ static class PresetShots
         { Themes.Apply(0); sf.OpenInspector(1); Pump(300); Shot("mixer"); Call("CloseInspector"); Pump(100); }
         { Themes.Apply(0); Call("OpenToolWin", 18); string terr; var dry = TagMaker.Speak("Produced by Purphex", 0, 0, out terr); var ts = (TagSettings)typeof(StudioForm).GetField("tagSet", BF).GetValue(sf); ts.Fx[0] = true; ts.Fx[1] = true; ts.Character = 1;
           if (dry != null) { typeof(StudioForm).GetField("tagOut", BF).SetValue(sf, TagMaker.Process(dry, ts)); typeof(StudioForm).GetField("tagOutSig", BF).SetValue(sf, ts.Sig()); }
-          Pump(300); Shot("producer-tag"); var tw = (System.Collections.IList)typeof(StudioForm).GetField("toolWins", BF).GetValue(sf); tw.Clear(); Pump(100); }
+          Pump(300); Shot("producer-tag");
+          { var tw0 = (System.Collections.IList)typeof(StudioForm).GetField("toolWins", BF).GetValue(sf); tw0.Clear(); string wv = Path.Combine(outDir, "bl", "drag test.wav"); Directory.CreateDirectory(Path.GetDirectoryName(wv)); var nx = new float[44100 * 2]; for (int i = 0; i < nx.Length; i++) nx[i] = (float)(0.6 * Math.Sin(i * 0.012) * Math.Exp(-i / 30000.0)); SoundIO.WriteWav(wv, nx, nx, 44100, 24);
+            typeof(StudioForm).GetMethod("ExtDragStart", BF).Invoke(sf, new object[] { new[] { wv } }); typeof(StudioForm).GetField("MousePos", BF).SetValue(sf, new PointF(700, 330)); Pump(200); Shot("ext-drag"); typeof(StudioForm).GetMethod("ExtDragEnd", BF).Invoke(sf, null); Pump(100); } var tw = (System.Collections.IList)typeof(StudioForm).GetField("toolWins", BF).GetValue(sf); tw.Clear(); Pump(100); }
         // the Free Edition studio
         Edition.Override = Tier.Free; Themes.Apply(0); Pump(200);
         SetF("tab", 1); SetF("mpTab", 0); Pump(100); Shot("free-mastering"); SetF("mpTab", 1); Pump(100); Shot("free-mastering-presets"); SetF("mpTab", 0); SetF("tab", 0);
