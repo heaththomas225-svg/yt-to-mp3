@@ -7,10 +7,15 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.77.7";
+    public const string Latest = "3.77.8";
 
     public const string Text =
-@"3.77.7  No crackle from any instrument, plugin windows 4 times faster, big M and S
+@"3.77.8  Producer tag generator, drop sounds onto any track, Bass Lab on the Free Edition
+ + NEW: PRODUCER TAG (under SOUND PACKS): make your producer tag in its own window (drag it, resize it, galaxy look). Type what it says and press PREVIEW to hear it. Pick a voice on this PC (no account, no key, nothing goes online; more free voices can be added in this PC's Settings > Time & language > Speech) or record your own voice with MY VOICE. Pick a character (Natural, Deep, Giant, Monster, High, Chipmunk, Robot, Radio, Alien), the speed and pitch, any effects (reverb, echo, stutter, reverse swell, tape stop, distortion, wide, low cut: each one says what it does) and, if you like, one of the studio's vocal presets. SAVE TAG keeps it in Music / yt2mp3 / Producer Tags, ADD TO SONG puts it at the needle, or drag the circle onto any track. Supporter Edition and up.
+ + CHANGED: A sound dragged in from Bass Lab (DRAG TO SONG) or from a folder now shows where it will land while you drag (its waveform on the track and time under the mouse) and goes onto that track at that time, like the sounds from the packs. It no longer makes a new track (drop it below the last track for a new one).
+ + CHANGED: Bass Lab comes with the studio on the Free Edition too: VSTS opens on the Free Edition with Bass Lab (and the Sampler that plays the sound packs) ready to use, and the other VSTs show a padlock (Supporter Edition and up). In the piano roll, the piano, sounds from SOUNDS and Bass Lab are free; the other instruments are paid.
+
+3.77.7  No crackle from any instrument, plugin windows 4 times faster, big M and S
  + FIXED: Crackle in Bass Lab and the other instruments. Every instrument (Bass Lab, the Purphex instruments, the Sampler and VSTs) now has a guard on what it plays: when it gets near full scale the level comes down smoothly instead of clipping. Measured on every Bass Lab sound and every Purphex instrument: ChordPad went to 1.54 times full scale and now stays under it, and Wobble and the loud Bass Lab sounds no longer sit in clipping.
  + FIXED: Bass Lab clicked when you played its piano: a key struck again, a new note on a mono sound, or a note that took the place of another one jumped. Now any jump fades away in about 2 ms, and its level is kept in check without squashing it (heard 1.5 ms late, too little to notice).
  + FIXED: Plugin windows lagged with the mouse on them: the window under the mouse was drawn again in full every frame. Now its frame, header, logo and display are drawn once and kept, and the window is only drawn again when you move to another control or change something. Measured with 6 windows open and the mouse on one: 77 ms a frame before, 18 ms now. Turning a knob is about twice as smooth.
