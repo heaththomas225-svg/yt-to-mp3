@@ -7,10 +7,13 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.77.4";
+    public const string Latest = "3.77.5";
 
     public const string Text =
-@"3.77.4  A failed update says why instead of asking again and again
+@"3.77.5  Updates install even when Purphex is in a protected folder
+ + FIXED: An update could fail without a word when Purphex is kept in a folder it is not allowed to change (such as Program Files). The update is now downloaded to the temp folder first; if Purphex cannot replace itself, the new version is put in your Downloads folder (Purphex Music.exe) and opens from there, with a note saying so.
+
+3.77.4  A failed update says why instead of asking again and again
  + FIXED: If an update could not be installed, Purphex offered it again every few seconds without saying anything. Now the studio says why it failed and where to download it, and does not offer it again until you restart Purphex.
  + NEW: While an update downloads, the studio says so (Purphex restarts by itself when it is ready).
 

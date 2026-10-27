@@ -1,4 +1,4 @@
-3.77.4
+3.77.5
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-A failed update says why instead of asking again and again
-sha256=f3047b249718b28c00839e85fd0cabd3c3c175cf718124876378b3b0cf31a834
+Updates install even when Purphex is in a protected folder
+sha256=5879496c4ec69c35a339139985cd5a5e3c435d3d947d8315b0ac93d5197d73c5

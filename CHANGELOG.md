@@ -2,6 +2,10 @@
 
 What changed in each version of **Purphex**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.77.5  Updates install even when Purphex is in a protected folder
+
+- FIXED: An update could fail without a word when Purphex is kept in a folder it is not allowed to change (such as Program Files). The update is now downloaded to the temp folder first; if Purphex cannot replace itself, the new version is put in your Downloads folder (Purphex Music.exe) and opens from there, with a note saying so.
+
 ## 3.77.4  A failed update says why instead of asking again and again
 
 - FIXED: If an update could not be installed, Purphex offered it again every few seconds without saying anything. Now the studio says why it failed and where to download it, and does not offer it again until you restart Purphex.
