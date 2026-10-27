@@ -108,6 +108,7 @@ partial class StudioForm
     Track PrUseSound(Track t, string type, string preset, string presetName = null)
     {
         if (t != null && t.IsBus) return null;
+        if (type != null && type != "synth" && type != "sampler" && FreeStudio && !Paid(type == "wobble" ? "Purphex Wobble" : "This instrument")) return null;   // Free Edition: the piano, sounds from SOUNDS and Bass Lab; the other instruments are paid
         bool draft = t == null || t == prDraft || !PrCanEdit(t);   // (a note track you already have changes its sound; anything else becomes your pattern, not a track)
         if (draft) { if (prDraft == null) { prDraft = StudioEngine.NewTrack("Your pattern", "inst", null); prDraft.Instrument = true; prDraft.Color = unchecked((int)0xFF3B8CF5); } t = prDraft; eng.Draft = prDraft; }
         else PushUndo();

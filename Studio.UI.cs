@@ -120,10 +120,10 @@ partial class StudioForm : Form
         FormClosed += (s, e) => { timer.Stop(); if (studioLoop != null) studioLoop.Dispose(); eng.Pause(); };
         FormClosed += (s, e) => { try { if (histDue != DateTime.MinValue) HistWrite(); } catch { } SessionEnd(); };   // a proper close: no crash marker left
         Shown += (s, e) => BeginInvoke(new Action(SessionStart));   // a crash last time? offer the autosave back
-        DragEnter += (s, e) => { if (e.Data.GetDataPresent(DataFormats.FileDrop)) { e.Effect = DragDropEffects.Copy; dragOver = true; Invalidate(); } };
-        DragOver += (s, e) => { if (e.Data.GetDataPresent(DataFormats.FileDrop)) { e.Effect = DragDropEffects.Copy; if (!dragOver) { dragOver = true; Invalidate(); } } };
-        DragLeave += (s, e) => { dragOver = false; Invalidate(); };
-        DragDrop += (s, e) => { dragOver = false; Invalidate(); var fl = (string[])e.Data.GetData(DataFormats.FileDrop); var dropOn = EmptyTrackAt(PointToClient(new Point(e.X, e.Y))); bool firstFile = true; foreach (var f in fl) { if (firstFile && dropOn != null && !f.EndsWith(".ytmproj", StringComparison.OrdinalIgnoreCase)) fillTrack = dropOn; firstFile = false; try { PromptImport(f); } finally { fillTrack = null; } } }; StudioEngine.WarmUp();
+        DragEnter += (s, e) => { if (e.Data.GetDataPresent(DataFormats.FileDrop)) { e.Effect = DragDropEffects.Copy; dragOver = true; ExtDragStart(e.Data.GetData(DataFormats.FileDrop) as string[]); Invalidate(); } };
+        DragOver += (s, e) => { if (e.Data.GetDataPresent(DataFormats.FileDrop)) { e.Effect = DragDropEffects.Copy; if (extDrag) { MousePos = PointToClient(new Point(e.X, e.Y)); lastInput = DateTime.Now; Invalidate(); } else if (!dragOver) { dragOver = true; Invalidate(); } } };
+        DragLeave += (s, e) => { dragOver = false; ExtDragEnd(); Invalidate(); };
+        DragDrop += (s, e) => { dragOver = false; Invalidate(); var pc = PointToClient(new Point(e.X, e.Y)); if (extDrag && OverTimeline(pc)) { MousePos = pc; extDrag = false; sndDragging = false; DropSampleAt(pc); sndDrag = null; return; } ExtDragEnd(); var fl = (string[])e.Data.GetData(DataFormats.FileDrop); var dropOn = EmptyTrackAt(PointToClient(new Point(e.X, e.Y))); bool firstFile = true; foreach (var f in fl) { if (firstFile && dropOn != null && !f.EndsWith(".ytmproj", StringComparison.OrdinalIgnoreCase)) fillTrack = dropOn; firstFile = false; try { PromptImport(f); } finally { fillTrack = null; } } }; StudioEngine.WarmUp();
         FitView();
     }
 
@@ -1159,6 +1159,24 @@ partial class StudioForm : Form
         if (over) { bubble = "An empty track: drag audio onto it, or right-click it to add music"; bubblePt = MousePos; }
     }
     // the empty track under a point (a drop of files lands on it), null when there is none
+    // a sound file dragged in from outside (Bass Lab's DRAG TO SONG, a folder): it shows where it will land like a sound from the packs, and goes on the row under
+    // the mouse at that time (the track that is there, not a new one; below the last track it is a new track)
+    bool extDrag;
+    void ExtDragStart(string[] files)
+    {
+        extDrag = false; if (files == null || files.Length != 1) return; string f = files[0], ext = Path.GetExtension(f).ToLowerInvariant();
+        if (ext != ".wav" && ext != ".mp3" && ext != ".flac" && ext != ".ogg" && ext != ".aiff" && ext != ".aif" && ext != ".m4a") return;
+        try
+        {
+            var it = new SoundItem { Name = Path.GetFileNameWithoutExtension(f), Path = f, Rel = Path.GetFileName(f), Kind = "one-shot" };
+            if (new FileInfo(f).Length < 60L * 1024 * 1024) { float[] l, r; int sr; string fmt; if (SoundIO.Read(f, out l, out r, out sr, out fmt) && l.Length > 0) { it.Dur = l.Length / (double)Math.Max(1, sr); var pk = new byte[200]; for (int k = 0; k < 200; k++) { int a = k * l.Length / 200, e2 = Math.Min(l.Length, (k + 1) * l.Length / 200); float m = 0; for (int i = a; i < e2; i++) m = Math.Max(m, Math.Abs(l[i])); pk[k] = (byte)Math.Min(255, m * 255); } it.Peaks = pk; } }
+            sndDrag = it; sndDragging = true; extDrag = true;
+        }
+        catch { extDrag = false; }
+    }
+    void ExtDragEnd() { if (!extDrag) return; extDrag = false; sndDrag = null; sndDragging = false; }
+    bool OverTimeline(Point p) { var tl = TimelineRect(); return tab == 0 && p.X >= HeadW && p.X <= tl.Right && p.Y >= ArrTop + RulerH; }
+
     Track EmptyTrackAt(Point p) { foreach (var kv in emptyLanes) { int at; if (kv.Key.Clip == null && eng.Tracks.Contains(kv.Key) && emptyLaneAt.TryGetValue(kv.Key, out at) && unchecked(Environment.TickCount - at) < 400 && kv.Value.Contains(p.X, p.Y)) return kv.Key; } return null; }
 
     void RenameTrack(Track tr)
@@ -1216,6 +1234,7 @@ partial class StudioForm : Form
           var r1 = nextRow(); Btn(g, r1, "MIXER", InsShown && insTab == 1 ? 4 : 2, () => OpenInspector(1), 11); Hint2(r1, "This track's plugins in the panel at the bottom: open each in its own window, add, bypass, move and remove them (buses are there too)");
           { var vb = nextRow(); Btn(g, vb, "VSTS", browserOpen && browserVst ? 4 : 2, () => OpenVsts(), 11); Hint2(vb, "Bass Lab, your VST instruments and the Purphex VSTs: choose the track (FOR) and add one"); }
           var snb = nextRow(); Btn(g, snb, "SOUND PACKS", soundsOpen ? 4 : 0, () => { if (soundsOpen) CloseSounds(); else OpenPacks(); }, 11);
+          { var ptb = nextRow(); Btn(g, ptb, "PRODUCER TAG", toolWins.Exists(q => q.Kind == TagKind) ? 4 : 0, () => OpenProducerTag(), 11); Hint2(ptb, "Make your producer tag: type it, pick a voice or record your own, add effects and a vocal preset" + (FreeStudio ? " (Supporter Edition and up)" : "")); }
           hb = by + bi * 30 + 4; }
         if (InsShown || (PluginsInMixerOnly && busEdit == null))   // (EDIT on a bus still shows that bus here)
         {   // plugins live in the mixer only (one place for effects): the panel points there, open or not; a click on a plugin there opens its own window
@@ -1449,7 +1468,7 @@ partial class StudioForm : Form
     // the VSTS button: the VSTs, put on the track you choose at the top (FOR:), the picked track to start with
     internal void OpenVsts()
     {
-        if (!Paid("VSTS (Purphex VSTs and your own)")) return;
+        // (the Free Edition opens it too: Bass Lab comes with the studio; the other VSTs show a padlock and ask for the Supporter Edition)
         int t = selTrack; if (t < 0 || t >= eng.Tracks.Count || eng.Tracks[t].IsBus || eng.Tracks[t].Host != null) t = eng.Tracks.FindIndex(x => !x.IsBus && x.Host == null);
         OpenBrowser(false, t); browserVst = true; browserCat = ""; blCache = null;
     }
@@ -1508,6 +1527,7 @@ partial class StudioForm : Form
             if (info.Category == "Purphex VST") { var gsB = g.Save(); g.SetClip(clipR, System.Drawing.Drawing2D.CombineMode.Intersect); Glow(g, PxPurple, row, 8, hot ? 1f : 0.6f, 3); StrokeRR(g, Color.FromArgb(hot ? 255 : 230, PxPurple), row, 8, hot ? 2f : 1.5f); g.Restore(gsB); }   // built in: a purple neon border that never changes with the theme
             Txt(g, info.Name, 15, Ink, Rc(row.X + 14, row.Y + 3, row.Width - 120, 20), StringAlignment.Near, true);
             using (var sfB = new StringFormat(StringFormatFlags.NoWrap) { Trimming = StringTrimming.EllipsisCharacter, LineAlignment = StringAlignment.Center }) using (var bb = new SolidBrush(DimC)) g.DrawString(info.Blurb, GfxCache.Font(11.5f, false), bb, Rc(row.X + 14, row.Y + 22, row.Width - 120, 18), sfB);   // every description the same size (a long one ends with ...)
+            if (browserVst && FreeStudio && !FreeVst(info.Type)) { var lk = Rc(row.Right - 196, row.Y + 12, 104, 20); FillRR(g, TM.C(200, 60, 40, 10), lk, 6); Edition.Padlock(g, new RectangleF(lk.X + 6, lk.Y + 3, 10, 14), Color.FromArgb(255, 255, 200, 90)); Txt(g, "SUPPORTER", 9, Color.FromArgb(255, 255, 210, 120), Rc(lk.X + 18, lk.Y, lk.Width - 20, lk.Height), StringAlignment.Center, true); }   // paid on the Free Edition
             string type = info.Type; if (vis.Width > 0 && vis.Height > 0) Reg(vis, () => AddFx(type));   /* the whole row adds it; the Add button sits on top of the row */
             if (row.Y + 8 >= clipR.Y && row.Y + 36 <= clipR.Bottom) Btn(g, Rc(row.Right - 86, row.Y + 8, 72, 28), "Add", 1, () => AddFx(type), 13); ry += 48;
         }
@@ -1541,8 +1561,11 @@ partial class StudioForm : Form
         m.Show(this, new Point((int)MousePos.X, (int)MousePos.Y));
     }
 
+    // the one VST the Free Edition has: Bass Lab (it comes with the studio)
+    internal static bool FreeVst(string type) { return type == "synth"; }
     void AddFx(string type)
     {
+        if (browserVst && FreeStudio && !FreeVst(type)) { var inf = Array.Find(FxRegistry.All, i => i.Type == type); if (!Paid(inf != null ? inf.Name : "This VST")) return; }
         var f = FxRegistry.Create(type); if (f == null) return; f.Prepare(StudioEngine.SR);
         if (type == "duck") { var v = eng.VocalTrack(); if (v == null) Toast("The ducker listens to a vocal track; add or separate a vocal first."); }
         if (browserMaster) { lock (eng.Sync) eng.MasterFx.Add(f); selMaster = eng.MasterFx.Count - 1; }

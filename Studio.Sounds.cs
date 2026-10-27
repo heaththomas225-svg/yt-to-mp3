@@ -68,7 +68,7 @@ partial class StudioForm
         float[] l, r; int sr; string fmt; if (!SoundIO.Read(s.Path, out l, out r, out sr, out fmt)) return "Couldn't read " + s.Rel + ".";
         if (sr != StudioEngine.SR && sr > 0) { l = Resample(l, sr); r = Resample(r, sr); }
         var clip = AudioClip.FromArrays(l, r, s.Name); clip.Path = s.Path; var t = StudioEngine.NewTrack(s.Name, "audio", clip); t.Color = GroupColour(s.Group); t.Offset = Math.Max(0, frame);
-        bool first = eng.Tracks.Count == 0; if (first && s.Bpm > 0) Fx.ProjectBpm = s.Bpm; nextInsert = insertAt; PlaceDropped(t); SoundLibrary.MarkUsed(s);
+        bool first = eng.Tracks.Count == 0; if (first && s.Bpm > 0) Fx.ProjectBpm = s.Bpm; nextInsert = insertAt; PlaceDropped(t); if (s.PackId.Length > 0) SoundLibrary.MarkUsed(s);
         if (!first && s.Bpm > 0 && Math.Abs(s.Bpm - Fx.ProjectBpm) > 1.5) Toast("Added. This loop is " + s.Bpm.ToString("0") + " BPM and your project is " + Fx.ProjectBpm.ToString("0") + " BPM."); else Toast("Added " + s.Name);
         return null;
     }

@@ -1314,6 +1314,20 @@ static class NF
             }
             sf.eng.Tracks.Clear();
         }
+        {   // a sound file dragged in from outside (Bass Lab's DRAG TO SONG): it shows where it lands and goes onto the track under the mouse, not a new track
+            sf.eng.Tracks.Clear(); int n0 = 44100 * 10; var bx = new float[n0]; for (int i = 0; i < n0; i++) bx[i] = (float)(0.3 * Math.Sin(i * 0.02)); var beat = StudioEngine.NewTrack("Beat", "beat", AudioClip.FromArrays(bx, (float[])bx.Clone(), "b")); sf.eng.Tracks.Add(beat);
+            SetF("tab", 0); sf.Refresh(); Pump(100);
+            string wv = Path.Combine(StudioEnv.DataDir, "bass lab note.wav"); var nx = new float[44100]; for (int i = 0; i < nx.Length; i++) nx[i] = (float)(0.5 * Math.Sin(i * 0.01)); SoundIO.WriteWav(wv, nx, nx, 44100, 24);
+            Func<string, float> V = nm => { var fi = typeof(StudioForm).GetField(nm, BF | BindingFlags.Static); if (fi != null) return Convert.ToSingle(fi.GetValue(fi.IsStatic ? null : sf)); var pi = typeof(StudioForm).GetProperty(nm, BF | BindingFlags.Static); return Convert.ToSingle(pi.GetValue(pi.GetGetMethod(true).IsStatic ? null : sf, null)); };
+            var pt = new Point((int)V("HeadW") + 200, (int)(V("ArrTop") + V("RulerH") + V("LaneH") / 2 - V("vscroll")));
+            typeof(StudioForm).GetMethod("ExtDragStart", BF).Invoke(sf, new object[] { new[] { wv } }); SetF("MousePos", new PointF(pt.X, pt.Y)); sf.Refresh();
+            var sd = (SoundItem)typeof(StudioForm).GetField("sndDrag", BF).GetValue(sf); Check("a sound file dragged in shows its preview while it is dragged", sd != null && (bool)typeof(StudioForm).GetField("sndDragging", BF).GetValue(sf) && sd.Peaks.Length == 200 && Math.Abs(sd.Dur - 1) < 0.05, sd == null ? "none" : sd.Dur.ToString("0.00"));
+            long want = (long)typeof(StudioForm).GetMethod("FrameAtX", BF).Invoke(sf, new object[] { (float)pt.X });
+            typeof(StudioForm).GetField("extDrag", BF).SetValue(sf, false); typeof(StudioForm).GetField("sndDragging", BF).SetValue(sf, false); typeof(StudioForm).GetMethod("DropSampleAt", BF).Invoke(sf, new object[] { pt }); typeof(StudioForm).GetField("sndDrag", BF).SetValue(sf, null);
+            var piece = sf.eng.Tracks.FirstOrDefault(t => t != beat);
+            Check("dropped on a track that has audio, it goes on that track at that time (no new track)", sf.eng.Tracks.Count == 2 && piece != null && piece.Host == beat && Math.Abs(piece.Offset - want) < 44100 / 10, sf.eng.Tracks.Count + " tracks, offset " + (piece == null ? -1 : piece.Offset) + " want " + want);
+            sf.eng.Tracks.Clear();
+        }
         Console.WriteLine(fails == 0 ? "=== new feature checks passed ===" : "=== " + fails + " FAILED ===");
         sf.Close(); Environment.Exit(fails == 0 ? 0 : 1);
     }
