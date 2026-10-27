@@ -308,18 +308,17 @@ class VstFx : InstrumentFx, IDisposable
 // The Purphex bar on top of a VST window: violet into magenta, the logo, the plugin's name and what it is, with a neon line under it
 class PxBrandBar : Panel
 {
-    public const int H = 38; readonly string name, kind;
+    public const int H = 50; readonly string name, kind;
     public PxBrandBar(string name, string kind) { this.name = name; this.kind = kind; DoubleBuffered = true; ResizeRedraw = true; BackColor = Color.FromArgb(20, 8, 40); }
     protected override void OnPaint(PaintEventArgs e)
     {
         var g = e.Graphics; g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias; g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit; var r = ClientRectangle; if (r.Width < 4) return;
-        using (var b = new System.Drawing.Drawing2D.LinearGradientBrush(r, Color.FromArgb(22, 9, 46), Color.FromArgb(9, 4, 22), 90f)) g.FillRectangle(b, r);   // the deep purple galaxy band of the plugin windows
-        GalaxyBg.Paint(g, r, name.GetHashCode(), 0.5f, Color.FromArgb(14, 6, 30), 40);
-        using (var b = new System.Drawing.Drawing2D.LinearGradientBrush(new Rectangle(0, 0, r.Width, r.Height / 2 + 1), Color.FromArgb(40, 255, 255, 255), Color.FromArgb(0, 255, 255, 255), 90f)) g.FillRectangle(b, 0, 0, r.Width, r.Height / 2);
-        using (var p = new Pen(Color.FromArgb(230, 92, 220, 255), 2f)) g.DrawLine(p, 0, r.Height - 1, r.Width, r.Height - 1);
-        var lg = AppLogo.Logo; if (lg != null) g.DrawImage(lg, 9, 6, 26, 26);
-        using (var f1 = new Font("Segoe UI", 11f, FontStyle.Bold)) using (var f2 = new Font("Segoe UI", 8f, FontStyle.Bold)) using (var w = new SolidBrush(Color.FromArgb(250, 245, 255))) using (var d = new SolidBrush(Color.FromArgb(235, 215, 250)))
-        { g.DrawString(name, f1, w, new RectangleF(42, 2, Math.Max(10, r.Width - 160), 20)); g.DrawString(kind + "  ·  PURPHEX MUSIC", f2, d, new RectangleF(43, 20, Math.Max(10, r.Width - 160), 16)); }
+        using (var b = new System.Drawing.Drawing2D.LinearGradientBrush(r, Color.FromArgb(22, 9, 46), Color.FromArgb(9, 4, 22), 90f)) g.FillRectangle(b, r);   // the plugin windows' deep purple band
+        GalaxyBg.Paint(g, r, 0x4EAD, 0.35f, Color.Empty, 0);
+        using (var p = new Pen(Color.FromArgb(200, 92, 220, 255), 1.2f)) g.DrawLine(p, 10, r.Height - 1, r.Width - 10, r.Height - 1);
+        StudioForm.PaintPurphexMark(g, 12, 1, 31, name, Color.FromArgb(92, 220, 255));
+        using (var f2 = new Font("Segoe UI", 7f, FontStyle.Bold)) using (var d = new SolidBrush(Color.FromArgb(200, 185, 240)))
+        using (var sf = new StringFormat { Alignment = StringAlignment.Far }) g.DrawString(kind + "  ·  PURPHEX MUSIC", f2, d, new RectangleF(r.Width - 260, 32, 250, 14), sf);
     }
 }
 
@@ -329,17 +328,18 @@ class VstWindow : Form, IKeySink
     readonly VstFx fx; readonly Track track; Panel host; PxBrandBar bar; PianoPanel piano; Timer idle; int octave = 4; readonly HashSet<int> down = new HashSet<int>();
     static readonly Keys[] KeyMap = { Keys.A, Keys.W, Keys.S, Keys.E, Keys.D, Keys.F, Keys.T, Keys.G, Keys.Y, Keys.H, Keys.U, Keys.J, Keys.K, Keys.O, Keys.L, Keys.P, Keys.Oemtilde };
 
+    const int Pad = 12, Foot = 26;   // the galaxy frame round the plugin's own window, and the strip along the bottom
     public VstWindow(VstFx fx, Track t)
     {
         this.fx = fx; track = t; Text = fx.Title + "  (VST)"; BackColor = Color.FromArgb(10, 4, 20); ForeColor = Color.FromArgb(240, 232, 255); KeyPreview = true; StartPosition = FormStartPosition.CenterParent;
         FormBorderStyle = FormBorderStyle.FixedSingle; MaximizeBox = false; Win.Dark(this);
         var sz = fx.Plugin.HasEditor ? fx.Plugin.GetEditorSize() : new Size(520, 100);
         bar = new PxBrandBar(fx.Title, fx.IsInstrument ? "VST INSTRUMENT" : "VST EFFECT") { Left = 0, Top = 0, Width = sz.Width, Height = PxBrandBar.H }; Controls.Add(bar);
-        host = new Panel { Left = 0, Top = PxBrandBar.H, Width = sz.Width, Height = sz.Height, BackColor = Color.FromArgb(10, 4, 20) };
+        host = new Panel { Left = Pad, Top = PxBrandBar.H + Pad, Width = sz.Width, Height = sz.Height, BackColor = Color.FromArgb(10, 4, 20) };
+        SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.UserPaint | ControlStyles.ResizeRedraw, true);
         bool keys = fx.IsInstrument; int ph = keys ? 128 : 0;
-        piano = new PianoPanel(this) { Left = 0, Top = PxBrandBar.H + sz.Height, Width = sz.Width, Height = ph, Visible = keys };
-        Controls.Add(host); Controls.Add(piano); ClientSize = new Size(Math.Max(520, sz.Width), PxBrandBar.H + sz.Height + ph);
-        host.Width = ClientSize.Width; piano.Width = ClientSize.Width; bar.Width = ClientSize.Width;
+        piano = new PianoPanel(this) { Left = Pad, Top = PxBrandBar.H + Pad + sz.Height + Pad, Width = sz.Width, Height = ph, Visible = keys };
+        Controls.Add(host); Controls.Add(piano); Layout2(sz.Width, sz.Height);
         if (!fx.Plugin.HasEditor) host.Controls.Add(new Label { Text = "This plugin has no window of its own. Use its sliders in the effect panel.", Dock = DockStyle.Fill, ForeColor = Color.FromArgb(200, 180, 230), TextAlign = ContentAlignment.MiddleCenter });
         Shown += (s, e) =>
         {
@@ -361,10 +361,27 @@ class VstWindow : Form, IKeySink
     }
 
     void OnSizeRequest(object p, int w, int h) { if (p != (object)fx.Plugin || IsDisposed) return; try { BeginInvoke(new Action(() => Resize2(w, h))); } catch { } }
-    void Resize2(int w, int h)
+    void Resize2(int w, int h) { Layout2(w, h); }
+    // the plugin's window in the middle of the galaxy frame; the keyboard (instruments) under it; the strip at the bottom
+    void Layout2(int w, int h)
     {
-        host.SetBounds(0, PxBrandBar.H, Math.Max(100, w), Math.Max(60, h)); int ph = piano.Visible ? piano.Height : 0;
-        piano.SetBounds(0, PxBrandBar.H + host.Height, Math.Max(520, w), ph); ClientSize = new Size(Math.Max(520, w), PxBrandBar.H + host.Height + ph); host.Width = ClientSize.Width; bar.Width = ClientSize.Width;
+        int cw = Math.Max(520, Math.Max(100, w) + Pad * 2), ih = Math.Max(60, h); int ph = piano.Visible ? piano.Height : 0;
+        host.SetBounds(Pad + (cw - Pad * 2 - Math.Max(100, w)) / 2, PxBrandBar.H + Pad, Math.Max(100, w), ih);
+        piano.SetBounds(Pad, PxBrandBar.H + Pad + ih + (ph > 0 ? Pad : 0), cw - Pad * 2, ph);
+        ClientSize = new Size(cw, PxBrandBar.H + Pad + ih + (ph > 0 ? Pad + ph : 0) + Foot); bar.Width = cw; Invalidate();
+    }
+    protected override void OnPaint(PaintEventArgs e)
+    {
+        var g = e.Graphics; g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias; g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit; var cr = ClientRectangle;
+        using (var b = new SolidBrush(Color.FromArgb(10, 4, 20))) g.FillRectangle(b, cr);
+        GalaxyBg.Paint(g, cr, fx.Title.GetHashCode() ^ 0x5A5A, 0.95f, Color.FromArgb(10, 4, 20), 40);   // the studio's galaxy all round the plugin
+        Action<Rectangle, Color> edge = (r, c) => { for (int k = 4; k >= 1; k--) using (var pen = new Pen(Color.FromArgb(18 * k, c), k * 2.2f)) g.DrawRectangle(pen, r.X - k, r.Y - k, r.Width + k * 2 - 1, r.Height + k * 2 - 1); using (var pen = new Pen(c, 1.4f)) g.DrawRectangle(pen, r.X - 1, r.Y - 1, r.Width + 1, r.Height + 1); };
+        edge(host.Bounds, Color.FromArgb(230, 92, 220, 255)); if (piano.Visible) edge(piano.Bounds, Color.FromArgb(230, 200, 90, 255));
+        var foot = new Rectangle(0, cr.Height - Foot, cr.Width, Foot);
+        using (var b = new System.Drawing.Drawing2D.LinearGradientBrush(foot, Color.FromArgb(150, 22, 9, 46), Color.FromArgb(220, 9, 4, 22), 90f)) g.FillRectangle(b, foot);
+        using (var pen = new Pen(Color.FromArgb(200, 190, 120, 255), 1.2f)) g.DrawLine(pen, 10, foot.Y, cr.Width - 10, foot.Y);
+        using (var f1 = new Font("Segoe UI Black", 10f, FontStyle.Italic)) using (var f2 = new Font("Segoe UI", 8.5f, FontStyle.Bold)) using (var w1 = new SolidBrush(Color.FromArgb(245, 225, 255))) using (var d = new SolidBrush(Color.FromArgb(200, 185, 240)))
+        { g.DrawString("PURPHEX", f1, w1, 10, foot.Y + 4); g.DrawString((fx.IsInstrument ? "VST INSTRUMENT" : "VST EFFECT") + "  ·  " + fx.Title, f2, d, 92, foot.Y + 6); }
     }
 
     // ---- playing notes ----
@@ -411,13 +428,15 @@ class PianoPanel : Panel
     protected override void OnPaint(PaintEventArgs e)
     {
         var g = e.Graphics; g.Clear(BackColor); g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-        using (var f = new Font("Segoe UI", 9f)) using (var b = new SolidBrush(Color.FromArgb(190, 170, 230)))
+        GalaxyBg.Paint(g, ClientRectangle, 0x7E1, 0.9f, Color.FromArgb(10, 4, 20), 60);   // the galaxy behind the keys
+        using (var f = new Font("Segoe UI", 9f)) using (var b = new SolidBrush(Color.FromArgb(220, 205, 250)))
             g.DrawString("Keyboard: A S D F G H J = white keys, W E T Y U = black.  Z / X = octave (now " + w.Octave + ")", f, b, 6, 3);
         for (int pass = 0; pass < 2; pass++)
             for (int i = 0; i < Keys3; i++)
             {
                 bool black; var r = KeyRect(i, out black); if ((pass == 0) == black) continue; int note = w.BaseNote + i; bool on = w.IsDown(note);
                 Color c = black ? (on ? Color.FromArgb(200, 90, 240) : Color.FromArgb(20, 12, 36)) : (on ? Color.FromArgb(220, 150, 255) : Color.FromArgb(235, 228, 250));
+                if (on) for (int k = 3; k >= 1; k--) using (var gb = new SolidBrush(Color.FromArgb(40, 200, 120, 255))) g.FillRectangle(gb, r.X - k * 2, r.Y - k * 2, r.Width + k * 4, r.Height + k * 4);   // a pressed key glows
                 using (var br = new SolidBrush(c)) g.FillRectangle(br, r); using (var pen = new Pen(Color.FromArgb(90, 60, 140))) g.DrawRectangle(pen, r.X, r.Y, r.Width, r.Height);
             }
     }

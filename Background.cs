@@ -271,6 +271,7 @@ partial class App
             g.CompositingMode = CompositingMode.SourceCopy; g.DrawImageUnscaled(atmo, 0, 0); g.CompositingMode = CompositingMode.SourceOver;
         }
         else using (var br = new LinearGradientBrush(r, TM.C(255, 3, 1, 8), TM.C(255, 26, 6, 54), 72f)) g.FillRectangle(br, r);
+        if (!custom) GalaxyBg.Paint(g, r, 0x50E, 0.9f, TM.C(255, 6, 2, 16), 50);   // the studio's galaxy (the converter is a page of the studio)
 
         if (anim && sprites != null && Prefs.BgLeaves)
         {

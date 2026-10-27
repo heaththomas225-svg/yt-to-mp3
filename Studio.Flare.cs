@@ -59,7 +59,7 @@ partial class StudioForm
     }
     // GALAXY WRITING: words filled with a bright piece of galaxy, with a dark edge so they always read
     static Bitmap textGalaxy;
-    void GalaxyText(Graphics g, string text, Font f, float x, float y)
+    internal static void GalaxyText(Graphics g, string text, Font f, float x, float y)
     {
         if (textGalaxy == null)
         {   // a bright, pale galaxy: the nebula and stars laid over white, so the words glow and still read

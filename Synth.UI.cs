@@ -84,8 +84,8 @@ partial class SynthCanvas : Control
     readonly SynthFx fx; readonly SynthWindow win; readonly List<Reg> regs = new List<Reg>(); Reg hover, active; PointF mouse, downPt; float downFrac; DateTime lastInput = DateTime.Now; bool modified;
     int tab, modTab = 4, matPage; const float W = 1240, H = 716; float scale = 1, ox, oy;
     public bool Typing;
-    internal static void ApplyTheme(ThemeDef t) { Bg0 = Color.FromArgb(t.Bg0.R + 6, t.Bg0.G + 3, t.Bg0.B + 10); Bg1 = Color.FromArgb(t.Bg1.R + 8, t.Bg1.G + 5, t.Bg1.B + 12); Panel = Color.FromArgb(t.Panel.R + 12, t.Panel.G + 7, t.Panel.B + 22); PanelHi = Color.FromArgb(t.Panel.R + 26, t.Panel.G + 16, t.Panel.B + 46); Edge = Color.FromArgb(t.EdgeC.R * 2 / 3, t.EdgeC.G * 2 / 3, t.EdgeC.B * 3 / 4); Acc = t.Accent; Acc2 = t.Accent2; }
-    static Color Bg0 = TM.C(255, 13, 7, 26), Bg1 = TM.C(255, 26, 13, 48), Panel = TM.C(255, 30, 17, 56), PanelHi = TM.C(255, 44, 26, 80), Edge = TM.C(255, 96, 62, 160), Ink = TM.C(255, 240, 232, 255), Dim = TM.C(255, 150, 132, 190),
+    internal static void ApplyTheme(ThemeDef t) { Bg0 = Color.FromArgb(t.Bg0.R + 6, t.Bg0.G + 3, t.Bg0.B + 10); Bg1 = Color.FromArgb(t.Bg1.R + 8, t.Bg1.G + 5, t.Bg1.B + 12); Panel = Color.FromArgb(200, t.Panel.R + 12, t.Panel.G + 7, t.Panel.B + 22); PanelHi = Color.FromArgb(215, t.Panel.R + 26, t.Panel.G + 16, t.Panel.B + 46); Edge = Color.FromArgb(t.EdgeC.R * 2 / 3, t.EdgeC.G * 2 / 3, t.EdgeC.B * 3 / 4); Acc = t.Accent; Acc2 = t.Accent2; }
+    static Color Bg0 = TM.C(255, 13, 7, 26), Bg1 = TM.C(255, 26, 13, 48), Panel = TM.C(200, 30, 17, 56), PanelHi = TM.C(215, 44, 26, 80), Edge = TM.C(255, 96, 62, 160), Ink = TM.C(255, 240, 232, 255), Dim = TM.C(255, 150, 132, 190),
         Acc = TM.C(255, 188, 120, 255), Acc2 = TM.C(255, 236, 92, 226), Good = Color.FromArgb(120, 232, 150), Disp = TM.C(255, 14, 8, 28);
     static readonly Dictionary<string, string> Tips = new Dictionary<string, string> {
         { "f1cut", "Cutoff: how bright the sound is. Wobble comes from an LFO moving this." }, { "f1res", "Resonance: the 'wah' peak at the cutoff." }, { "f1drive", "Drive: pushes the filter input for a dirtier bass." },
@@ -193,6 +193,7 @@ partial class SynthCanvas : Control
         regs.Clear(); scale = Math.Min(ClientSize.Width / W, ClientSize.Height / H); if (scale <= 0) return; ox = (ClientSize.Width - W * scale) / 2; oy = (ClientSize.Height - H * scale) / 2;
         g.SmoothingMode = SmoothingMode.AntiAlias; g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
         using (var br = new LinearGradientBrush(new RectangleF(0, 0, ClientSize.Width, ClientSize.Height), Bg0, Bg1, 80f)) g.FillRectangle(br, 0, 0, ClientSize.Width, ClientSize.Height);
+        GalaxyBg.Paint(g, new Rectangle(0, 0, ClientSize.Width, ClientSize.Height), 0xBA55, 0.9f, Bg1, 70);   // Bass Lab on the studio's galaxy
         g.TranslateTransform(ox, oy); g.ScaleTransform(scale, scale);
         PaintTop(g);
         switch (tab) { case 0: PaintOsc(g); break; case 1: PaintMix(g); break; case 2: PaintFx(g); break; case 3: PaintMatrix(g); break; default: PaintGlobal(g); break; }

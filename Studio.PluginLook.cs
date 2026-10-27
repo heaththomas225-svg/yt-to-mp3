@@ -190,7 +190,7 @@ partial class StudioForm
     }
 
     // the PURPHEX logo with a plugin's name under it (like PURPHEX / ANALOG EQ)
-    void PaintPurphexMark(Graphics g, float x, float y, float h, string sub, Color glow)
+    internal static void PaintPurphexMark(Graphics g, float x, float y, float h, string sub, Color glow)
     {
         float fs = h * 0.62f; var oldT = g.TextRenderingHint; g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAlias;
         using (var f = new Font("Segoe UI Black", fs, FontStyle.Italic, GraphicsUnit.Pixel))
