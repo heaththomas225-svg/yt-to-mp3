@@ -1223,6 +1223,8 @@ partial class App : Form
         CenterCard();
         card.BringToFront();
         Activate();
+        if (!Visible && studioForm != null && !studioForm.IsDisposed && studioForm.Visible)   // Purphex is in the studio (this window is hidden): the studio shows the update itself
+            studioForm.ShowUpdateBox(newVer, Version, notes, () => { HideCard(); ApplyUpdate(dl); }, () => { dismissedVer = newVer; HideCard(); });
     }
     void HideCard()
     {

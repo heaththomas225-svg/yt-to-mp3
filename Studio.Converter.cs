@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Drawing;
 using System.Windows.Forms;
 
@@ -17,6 +19,21 @@ partial class StudioForm
         if (app == null || convSyncQueued) return; bool want = tab == 11, has = app.ConverterInStudio;
         if (want == has && (!want || app.ConverterBounds == ConverterRect)) return;   // already where it belongs
         convSyncQueued = true; BeginInvokeSafe(() => { convSyncQueued = false; if (tab == 11) app.EmbedConverter(this, ConverterRect); else app.ReleaseConverter(); Invalidate(); });
+    }
+    // an update was found while you are in the studio: a box over the studio with UPDATE NOW and LATER (the converter window, where its card lives, is hidden)
+    string updVer = "", updHave = ""; List<string> updNotes; Action updYes, updNo;
+    internal void ShowUpdateBox(string ver, string have, List<string> notes, Action yes, Action later) { updVer = ver; updHave = have; updNotes = notes ?? new List<string>(); updYes = yes; updNo = later; Invalidate(); }
+    void PaintUpdateBox(Graphics g)
+    {
+        if (updYes == null) return; float W = ClientSize.Width, H = ClientSize.Height; int nl = Math.Min(8, updNotes.Count); var box = Rc(W / 2 - 300, H / 2 - (150 + nl * 22) / 2f, 600, 150 + nl * 22 + (nl > 0 ? 30 : 0));
+        using (var b = new SolidBrush(TM.C(160, 2, 1, 8))) g.FillRectangle(b, 0, 0, W, H); Reg(Rc(0, 0, W, H), () => { });
+        using (var p = RR(box, 18)) { using (var b = new SolidBrush(TM.C(255, 12, 5, 28))) g.FillPath(b, p); var gs = g.Save(); g.SetClip(p, System.Drawing.Drawing2D.CombineMode.Intersect); PaintGalaxy(g, box, 0x0DA7E, 0.7f); g.Restore(gs); }
+        Glow(g, NeonCyan, box, 18, 0.9f, 4); StrokeRR(g, NeonCyan, box, 18, 2f);
+        using (var f = new Font("Segoe UI Black", 22f, FontStyle.Italic, GraphicsUnit.Pixel)) { var sm = g.SmoothingMode; g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias; GalaxyText(g, "UPDATE AVAILABLE", f, box.X + 24, box.Y + 18); g.SmoothingMode = sm; }
+        Txt(g, "Purphex " + updVer + " is ready (you have " + updHave + "). Update now? Purphex restarts by itself; save your project first.", 11.5f, Ink, Rc(box.X + 24, box.Y + 54, box.Width - 48, 36), StringAlignment.Near, false);
+        float y = box.Y + 96; if (nl > 0) { Txt(g, "WHAT'S NEW", 11, NeonPink, Rc(box.X + 24, y, 200, 18), StringAlignment.Near, true); y += 24; foreach (var l in updNotes.Take(nl)) { Txt(g, "•  " + l, 10.5f, DimC, Rc(box.X + 24, y, box.Width - 48, 20), StringAlignment.Near, false); y += 22; } }
+        var yb = Rc(box.X + 24, box.Bottom - 52, 260, 36); Btn(g, yb, "UPDATE NOW", 2, () => { var a = updYes; updYes = null; updNo = null; if (a != null) a(); }, 13); Hint2(yb, "Download " + updVer + " and restart Purphex with it");
+        var lb = Rc(box.Right - 284, box.Bottom - 52, 260, 36); Btn(g, lb, "LATER", 1, () => { var a = updNo; updYes = null; updNo = null; if (a != null) a(); }, 13); Hint2(lb, "Keep working: Purphex asks again the next time you open it");
     }
     void BeginInvokeSafe(Action a) { try { if (IsHandleCreated) BeginInvoke(a); else a(); } catch { } }
     void PaintConverterPage(Graphics g)

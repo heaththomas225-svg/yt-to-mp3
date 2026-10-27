@@ -582,7 +582,7 @@ partial class StudioForm : Form
         PaintSheets(g); PopEnd(); Prof.Mark("sheets"); Win.PaintNeonChildren(this, g); Prof.Mark("neon children");
         if (TxtAudit != null && (menuOpen || eng.CountBeat > 0)) TxtAudit.Clear();
         PaintMenu(g); Prof.Mark("menu"); HubTick(); CreativeTick(); HistTick(); TmWatch(); AutTick();
-        PaintChatWindow(g); PaintVideoOverlay(g); PaintWelcome(g); PaintRecoveryReport(g); PaintReleaseBuilder(g); PaintTrackPicker(g); PaintHoverSparks(g); Prof.Mark("sparks"); PaintRevertBar(g); PaintBubble(g); PaintKeyBox(g); PaintCountIn(g); Prof.Mark("overlays");
+        PaintChatWindow(g); PaintVideoOverlay(g); PaintWelcome(g); PaintRecoveryReport(g); PaintUpdateBox(g); PaintReleaseBuilder(g); PaintTrackPicker(g); PaintHoverSparks(g); Prof.Mark("sparks"); PaintRevertBar(g); PaintBubble(g); PaintKeyBox(g); PaintCountIn(g); Prof.Mark("overlays");
         fpsc.Frame();
         float hintStackY = ClientSize.Height - (tab == 0 ? 56 : (previewPath.Length > 0 ? 56 : 10));
         if (hintNow != hintLast) { hintLast = hintNow; hintSince = DateTime.Now; }
