@@ -1,4 +1,4 @@
-3.77.1
+3.77.2
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Smooth with many windows, knobs in the EQ, galaxy on VSTs, Bass Lab and the converter
-sha256=20014ddd15081681eee5d84aea061c520034ae11feefd2de09499431d857d2c3
+Updates show in the studio, one question when closing, no converter flash, the studio reopens where it was
+sha256=f84ccb01125b6baef0368d2e198f60ed1afd1ad92bf409bbc5cfa28a953188c8
