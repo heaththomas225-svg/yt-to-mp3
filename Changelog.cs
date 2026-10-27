@@ -7,10 +7,17 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.77.6";
+    public const string Latest = "3.77.7";
 
     public const string Text =
-@"3.77.6  Generate just this track, no more crackly piano, drag dots on the Bass Lab graphs
+@"3.77.7  No crackle from any instrument, plugin windows 4 times faster, big M and S
+ + FIXED: Crackle in Bass Lab and the other instruments. Every instrument (Bass Lab, the Purphex instruments, the Sampler and VSTs) now has a guard on what it plays: when it gets near full scale the level comes down smoothly instead of clipping. Measured on every Bass Lab sound and every Purphex instrument: ChordPad went to 1.54 times full scale and now stays under it, and Wobble and the loud Bass Lab sounds no longer sit in clipping.
+ + FIXED: Bass Lab clicked when you played its piano: a key struck again, a new note on a mono sound, or a note that took the place of another one jumped. Now any jump fades away in about 2 ms, and its level is kept in check without squashing it (heard 1.5 ms late, too little to notice).
+ + FIXED: Plugin windows lagged with the mouse on them: the window under the mouse was drawn again in full every frame. Now its frame, header, logo and display are drawn once and kept, and the window is only drawn again when you move to another control or change something. Measured with 6 windows open and the mouse on one: 77 ms a frame before, 18 ms now. Turning a knob is about twice as smooth.
+ + FIXED: The M and S buttons in the mixer were small and cut off at the bottom when the mixer was short. They are now big (30 pixels high) and sit right under the pan slider, so they always show.
+ + FIXED: In Bass Lab, the mouse wheel did nothing over a sound in YOUR SOUNDS or over its scroll bar (only in the gaps between sounds). It now scrolls the list wherever the mouse is on it.
+
+3.77.6  Generate just this track, no more crackly piano, drag dots on the Bass Lab graphs
  + FIXED: The built-in piano (the piano roll keys and any MIDI track with no instrument) crackled. Chords were clipped (a loud chord went far past full scale and was cut off), a key struck again restarted dead, and every note began with a burst of raw noise. Now the level of many notes at once is turned down smoothly instead of clipped, a key struck again fades the old note out in a few milliseconds, and the hammer is a soft thud. Measured: a loud 7-note chord peaks at 0.85 instead of being cut at 1.2, and its clicks are 7 times smaller. A check runs with the tests so it stays that way.
  + NEW: Bass Lab graphs have dots you drag: the filter curve has a dot for cutoff (left / right) and resonance (up / down) that moves from where it is, and each oscillator has a wave position dot along the bottom.
  + NEW: Bass Lab shows where your modulation went: an LFO, envelope or macro dropped on the filter or the wave shows its sweep on the graph as a band in its colour, with a labelled dot (for example LFO 1 45%) you drag to set how much. Right-click the dot to remove it.

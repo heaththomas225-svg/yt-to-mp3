@@ -1,4 +1,4 @@
-3.77.6
+3.77.7
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Generate just this track, no more crackly piano, drag dots on the Bass Lab graphs
-sha256=063b906fcda82642ffcc012b640a3f418a35f42c48aa214d209f3de9e12a4199
+No crackle from any instrument, plugin windows 4 times faster, big M and S
+sha256=2abf48861da2844dbfeff6310b4283362b6c5ba4c0883a61dc172c90e13e8653
