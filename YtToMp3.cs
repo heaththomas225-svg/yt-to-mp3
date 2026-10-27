@@ -209,7 +209,7 @@ partial class App : Form
             Activated += (s2, e2) => ThreadPool.QueueUserWorkItem(_ => { try { CheckForUpdate(); } catch { } });   // coming back to the app checks for a new version right away
             BeginInvoke(new Action(() => { try { PluginHost.LoadEnabled(); } catch { } }));   // on the UI thread (VST plugins expect it), after the window is visible
             new Thread(UpdateLoop) { IsBackground = true }.Start();
-            if (!StudioEnv.UnderTest) BeginInvoke(new Action(() => { try { if (OpenStudio()) { studioForm.ShowWelcome(); studioForm.FormClosed += (s3, e3) => { if (!Visible) BeginInvoke(new Action(() => { try { if (!Visible && !IsDisposed) Close(); } catch { } })); };   /* closing the studio closes Purphex: after the studio has finished closing (Application.Exit inside its close threw "collection was modified") */ Hide(); } } catch { } }));   // Purphex opens straight into the DAW: the converter is its CONVERTER tab
+            if (!StudioEnv.UnderTest) BeginInvoke(new Action(() => { try { if (OpenStudio()) { studioForm.ShowWelcome(); studioForm.FormClosed += (s3, e3) => { if (!Visible) BeginInvoke(new Action(() => { try { if (!Visible && !IsDisposed) Close(); } catch { } })); };   /* closing the studio closes Purphex: after the studio has finished closing (Application.Exit inside its close threw "collection was modified") */ Hide(); UpdateToStudio(); } } catch { } }));   // Purphex opens straight into the DAW (an update found before the studio opened is shown in it): the converter is its CONVERTER tab
         };
         FormClosing += (s, e) => { if (e.CloseReason == CloseReason.UserClosing && !ConfirmClose()) e.Cancel = true; };   // the X asks first (and offers to save the project)
         FormClosing += (s, e) => { if (e.Cancel) return; var others = new List<Form>(); foreach (Form of in Application.OpenForms) if (of != this) others.Add(of); foreach (var of2 in others) { try { of2.Close(); } catch { } } };   // closing the main window closes the others
@@ -1223,8 +1223,14 @@ partial class App : Form
         CenterCard();
         card.BringToFront();
         Activate();
-        if (!Visible && studioForm != null && !studioForm.IsDisposed && studioForm.Visible)   // Purphex is in the studio (this window is hidden): the studio shows the update itself
-            studioForm.ShowUpdateBox(newVer, Version, notes, () => { HideCard(); ApplyUpdate(dl); }, () => { dismissedVer = newVer; HideCard(); });
+        updPendVer = newVer; updPendDl = dl; updPendNotes = notes; UpdateToStudio();
+    }
+    // the update waiting on the card, kept so the studio can show it (the check runs the moment Purphex starts, maybe before the studio is open)
+    string updPendVer, updPendDl; List<string> updPendNotes;
+    void UpdateToStudio()
+    {
+        if (card == null || updPendVer == null || Visible || studioForm == null || studioForm.IsDisposed || !studioForm.Visible) return;   // Purphex is in the studio (this window is hidden): the studio shows the update itself
+        string v = updPendVer, dl = updPendDl; studioForm.ShowUpdateBox(v, Version, updPendNotes, () => { HideCard(); ApplyUpdate(dl); }, () => { dismissedVer = v; HideCard(); });
     }
     void HideCard()
     {
