@@ -1,4 +1,4 @@
-3.77.8
+3.77.9
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Producer tag generator, drop sounds onto any track, Bass Lab on the Free Edition
-sha256=9897ea83995e84dcecf157bf1f51cbd436f66d012c232bd90c6ba70017affb10
+Producer tag fixes (no freeze on vocal presets), smooth window resizing, fast menus, 64 genres in GENERATE
+sha256=3b2763f730c8159f1865b3aea9e813e96833fde75ef5c99704890392656cb179

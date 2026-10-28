@@ -7,10 +7,17 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.77.8";
+    public const string Latest = "3.77.9";
 
     public const string Text =
-@"3.77.8  Producer tag generator, drop sounds onto any track, Bass Lab on the Free Edition
+@"3.77.9  Producer tag fixes, smooth window resizing, every menu opens fast, 64 genres in GENERATE
+ + FIXED: Pressing VOCAL PRESET in the producer tag froze the studio for about a minute. It now opens the studio's VOCAL PRESETS window (search, genres, favourites) and USE puts the preset on your tag.
+ + FIXED: In the producer tag, the hint under the mouse no longer flashes on and off, and what you type in the tag box starts at the left, in bigger writing.
+ + FIXED: Dragging the edge of Bass Lab, an instrument or a plugin window to make it smaller no longer stutters or tears: the window follows the mouse and is drawn properly again when you let go. The producer tag (and the other windows inside the studio) can no longer be made so small that their contents get jumbled.
+ + FIXED: Every menu with a lot of options (presets, sounds, genres) opens straight away. A menu of 650 options took 38 seconds before; it now takes a quarter of a second.
+ + NEW: GENERATE in the piano roll has 64 genres in 8 groups (Hip-Hop and Trap, UK and Drill, R&B and Soul, Pop and Rock, Afro and Latin, House and Techno, Bass and Breaks, Chill and Lo-Fi): Melodic Trap, Rage, Plugg, Pluggnb, Detroit, Memphis, Jersey Club, Brooklyn and Chicago Drill, Grime, Afroswing, R&B, Neo Soul, Funk, Pop, Synthwave, Disco, Rock, Hyperpop, Dancehall, Amapiano, Baile Funk, Dembow, Techno, Tech House, Trance, Dubstep, Riddim, Jungle, Footwork and more. Each genre has its own drums, tempo, swing and bass line, played by a pack of its own style.
+
+3.77.8  Producer tag generator, drop sounds onto any track, Bass Lab on the Free Edition
  + NEW: PRODUCER TAG (under SOUND PACKS): make your producer tag in its own window (drag it, resize it, galaxy look). Type what it says and press PREVIEW to hear it. Pick a voice on this PC (no account, no key, nothing goes online; more free voices can be added in this PC's Settings > Time & language > Speech) or record your own voice with MY VOICE. Pick a character (Natural, Deep, Giant, Monster, High, Chipmunk, Robot, Radio, Alien), the speed and pitch, any effects (reverb, echo, stutter, reverse swell, tape stop, distortion, wide, low cut: each one says what it does) and, if you like, one of the studio's vocal presets. SAVE TAG keeps it in Music / yt2mp3 / Producer Tags, ADD TO SONG puts it at the needle, or drag the circle onto any track. Supporter Edition and up.
  + CHANGED: A sound dragged in from Bass Lab (DRAG TO SONG) or from a folder now shows where it will land while you drag (its waveform on the track and time under the mouse) and goes onto that track at that time, like the sounds from the packs. It no longer makes a new track (drop it below the last track for a new one).
  + CHANGED: Bass Lab comes with the studio on the Free Edition too: VSTS opens on the Free Edition with Bass Lab (and the Sampler that plays the sound packs) ready to use, and the other VSTs show a padlock (Supporter Edition and up). In the piano roll, the piano, sounds from SOUNDS and Bass Lab are free; the other instruments are paid.
