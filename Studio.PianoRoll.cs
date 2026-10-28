@@ -39,12 +39,14 @@ partial class StudioForm
     {
         var ci = System.Globalization.CultureInfo.InvariantCulture; var off = new List<string>(); foreach (var t in prGhostOff) { int i = eng.Tracks.IndexOf(t); if (i >= 0) off.Add(i.ToString()); }
         var jobs = new List<string>(); foreach (var kv in prJobs) { int i = eng.Tracks.IndexOf(kv.Key); if (i >= 0) jobs.Add(i + ":" + kv.Value); }
-        return prSnap + ";" + prLenBeats.ToString("R", ci) + ";" + prKeyRoot + ";" + prScale + ";" + (prLock ? 1 : 0) + ";" + (prLabels ? 1 : 0) + ";" + (prPreview ? 1 : 0) + ";" + (prGhosts ? 1 : 0) + ";" + (prFollow ? 1 : 0) + ";" + string.Join(",", off) + ";" + string.Join(",", jobs);
+        string bl = blPads.Any(p => p.Sound != null) || blPats.Count > 1 ? ";BL=" + B64(BlSave()) : "";   // the Beat Lab (its pads, steps and slots) after the piano roll's own settings
+        return prSnap + ";" + prLenBeats.ToString("R", ci) + ";" + prKeyRoot + ";" + prScale + ";" + (prLock ? 1 : 0) + ";" + (prLabels ? 1 : 0) + ";" + (prPreview ? 1 : 0) + ";" + (prGhosts ? 1 : 0) + ";" + (prFollow ? 1 : 0) + ";" + string.Join(",", off) + ";" + string.Join(",", jobs) + bl;
     }
     internal void PrApplyPrefs(string text)
     {
         prGhostOff.Clear(); prJobs.Clear(); prTrack = null; prSel.Clear(); prStamp = -1; prScrollBeats = 0; prScrollY = -1;
         prSnap = 4; prLenBeats = 0.25; prKeyRoot = 9; prScale = 0; prLock = false; prLabels = true; prPreview = true; prFollow = true; prGhosts = true; prBox = null; prDraft = null; eng.Draft = null;   // (a project without piano roll settings starts from the defaults, not from the last project)
+        BlLoad("", true); if (!string.IsNullOrEmpty(text)) { int bi = text.IndexOf(";BL=", StringComparison.Ordinal); if (bi >= 0) { BlLoad(Un64(text.Substring(bi + 4).Split(';')[0]), true); text = text.Substring(0, bi); } }
         if (string.IsNullOrEmpty(text)) return;
         var f = text.Split(';'); var ci = System.Globalization.CultureInfo.InvariantCulture; int iv; double dv;
         try
@@ -64,6 +66,12 @@ partial class StudioForm
         float hgt = Math.Min(20, r.Height - 10), oy = r.Y + (r.Height - hgt) / 2, ox = r.X + r.Width / 2 - 10; float[] knob = { 0.65f, 0.25f, 0.5f };
         using (var line = new Pen(Color.FromArgb(220, 255, 255, 255), 2f)) using (var kb = new SolidBrush(Color.FromArgb(255, 255, 255, 255))) using (var kp = new Pen(Color.FromArgb(200, 20, 12, 36), 1f))
             for (int i = 0; i < 3; i++) { float lx = ox + i * 10; g.DrawLine(line, lx, oy, lx, oy + hgt); float ky = oy + hgt * knob[i]; g.FillRectangle(kb, lx - 4, ky - 2.5f, 8, 5); g.DrawRectangle(kp, lx - 4, ky - 2.5f, 8, 5); }
+    }
+    // the Beat Lab's button: a 4 x 4 grid of pads, a few of them lit
+    void PadsGlyph(Graphics g, RectangleF r)
+    {
+        float s = Math.Min(20, r.Height - 12), c = s / 4, ox = r.X + (r.Width - s) / 2, oy = r.Y + (r.Height - s) / 2; int[] lit = { 0, 5, 6, 10, 15 };
+        for (int i = 0; i < 16; i++) using (var b = new SolidBrush(Array.IndexOf(lit, i) >= 0 ? Color.FromArgb(255, 255, 120, 200) : Color.FromArgb(230, 255, 255, 255))) g.FillRectangle(b, ox + (i % 4) * c + 0.5f, oy + (i / 4) * c + 0.5f, c - 1.5f, c - 1.5f);
     }
     void PianoGlyph(Graphics g, RectangleF r)
     {
@@ -203,6 +211,7 @@ partial class StudioForm
     // ---- painting ----
     void PaintPianoRoll(Graphics g, RectangleF C)
     {
+        if (blOn) { prArea = C; PaintBeatLab(g, C); return; }   // the Beat Lab lives in the piano roll
         PrSync(); var t = prTrack; float x = C.X, y = C.Y, w = C.Width, h = C.Height; prArea = C;
         // the bar: track picker, what kind of track, snap, length, scale, chords, ghosts, preview, tools
         float bx = x; var tp = Rc(bx, y, 28, 24); Btn(g, tp, "<", 0, () => PrStepTrack(-1), 11); Hint2(tp, "The previous note track"); bx += 30;
@@ -225,6 +234,7 @@ partial class StudioForm
         chip(82, "QUANTISE", false, () => PrQuantise(), "Move the selected notes (or all) onto the snap grid (Ctrl+Q)");
         chip(82, "PATTERN", false, () => PrPatternMenu(), "Repeat a pattern of bars along the song, or clear bars");
         chip(92, "GENERATE", false, () => PrGenerateMenu(), "JUST THIS TRACK: 4, 8 or 16 bars for the track you are on, with its own sound. Or a starting beat in a style (trap, hip-hop, lo-fi, drill, DnB...) written onto your kick, snare, hats and 808 tracks");
+        chip(84, "BEAT LAB", false, () => OpenBeatLab(), "The drum machine: 16 or 32 pads, a step sequencer, swing, humanise and variations");
         if (PrSampler != null) chip(84, "SAMPLES", PrSampler.Zones.Count == 0, () => PrSamplesMenu(), "Load a sample, build a kit (one sample per key), fixed pitch or follow the notes");
         if (t == null || !PrCanEdit(t))
         {

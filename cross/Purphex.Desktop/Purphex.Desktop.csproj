@@ -138,6 +138,8 @@
     <Compile Include="../../Studio.Autopsy.cs" />
     <Compile Include="../../TagMaker.cs" />
     <Compile Include="../../Studio.ProducerTag.cs" />
+    <Compile Include="../../Studio.BeatLab.cs" />
+    <Compile Include="../../Studio.MidiClips.cs" />
     <Compile Include="../../Studio.UI2.cs" />
     <Compile Include="../../Studio.8D.cs" />
     <Compile Include="../../Studio.Inst.cs" />

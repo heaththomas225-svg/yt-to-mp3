@@ -136,6 +136,7 @@ partial class StudioForm
     // dropped from the browser onto the timeline
     void DropSampleAt(Point p)
     {
+        if (sndDrag != null && BlDrop(sndDrag, p)) { sndDrag = null; sndDragging = false; return; }   // on a Beat Lab pad: the pad plays it
         if (sndDrag != null && PrDrop(sndDrag, p)) return;   // on the piano roll: into the sampler (a kit's key, or its sample)
         var s = sndDrag; sndDrag = null; sndDragging = false; if (s == null) return; var tl = TimelineRect(); float top = ArrTop + RulerH;
         if (p.X < HeadW || p.X > tl.Right || p.Y < top) { Toast("Drop it on the timeline (the area to the right of the track names)."); return; }

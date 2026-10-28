@@ -125,7 +125,7 @@ partial class StudioForm : Form
         DragEnter += (s, e) => { if (e.Data.GetDataPresent(DataFormats.FileDrop)) { e.Effect = DragDropEffects.Copy; dragOver = true; ExtDragStart(e.Data.GetData(DataFormats.FileDrop) as string[]); Invalidate(); } };
         DragOver += (s, e) => { if (e.Data.GetDataPresent(DataFormats.FileDrop)) { e.Effect = DragDropEffects.Copy; if (extDrag) { MousePos = PointToClient(new Point(e.X, e.Y)); lastInput = DateTime.Now; Invalidate(); } else if (!dragOver) { dragOver = true; Invalidate(); } } };
         DragLeave += (s, e) => { dragOver = false; ExtDragEnd(); Invalidate(); };
-        DragDrop += (s, e) => { dragOver = false; Invalidate(); var pc = PointToClient(new Point(e.X, e.Y)); if (extDrag && OverTimeline(pc)) { MousePos = pc; extDrag = false; sndDragging = false; DropSampleAt(pc); sndDrag = null; return; } ExtDragEnd(); var fl = (string[])e.Data.GetData(DataFormats.FileDrop); var dropOn = EmptyTrackAt(PointToClient(new Point(e.X, e.Y))); bool firstFile = true; foreach (var f in fl) { if (firstFile && dropOn != null && !f.EndsWith(".ytmproj", StringComparison.OrdinalIgnoreCase)) fillTrack = dropOn; firstFile = false; try { PromptImport(f); } finally { fillTrack = null; } } }; StudioEngine.WarmUp();
+        DragDrop += (s, e) => { dragOver = false; Invalidate(); var pc = PointToClient(new Point(e.X, e.Y)); if (extDrag && sndDrag != null && BlPadAt(pc) >= 0) { var sd = sndDrag; extDrag = false; sndDragging = false; sndDrag = null; BlDrop(sd, pc); return; } if (extDrag && OverTimeline(pc)) { MousePos = pc; extDrag = false; sndDragging = false; DropSampleAt(pc); sndDrag = null; return; } ExtDragEnd(); var fl = (string[])e.Data.GetData(DataFormats.FileDrop); var dropOn = EmptyTrackAt(PointToClient(new Point(e.X, e.Y))); bool firstFile = true; foreach (var f in fl) { if (firstFile && dropOn != null && !f.EndsWith(".ytmproj", StringComparison.OrdinalIgnoreCase)) fillTrack = dropOn; firstFile = false; try { PromptImport(f); } finally { fillTrack = null; } } }; StudioEngine.WarmUp();
         FitView();
     }
 
@@ -577,7 +577,7 @@ partial class StudioForm : Form
 
     void PaintAll(PaintEventArgs e)
     {
-        Prof.Start(); EditionWatch(); hintNow = ""; bubble = ""; btnAnim = false; NavTrack(); MasterTick(); HoverTick(); if (Themes.Tick()) { lastInput = DateTime.Now; btnAnim = true; } AutoBpmTick(); TidyEmptyTracks();
+        Prof.Start(); EditionWatch(); hintNow = ""; bubble = ""; blLive = false; mcLanes.Clear(); btnAnim = false; NavTrack(); MasterTick(); HoverTick(); if (Themes.Tick()) { lastInput = DateTime.Now; btnAnim = true; } AutoBpmTick(); TidyEmptyTracks();
         var g = e.Graphics; g.SmoothingMode = SmoothingMode.AntiAlias; g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit; Sharp(g);
         if (popDragId.Length > 0 && PaintPopDragFast(g)) { fpsc.Frame(); return; }   // dragging a box: the page under it is a stored picture and only the box is moved
         if (popDragId.Length == 0 && popBase != null) PopCacheClear();
@@ -752,14 +752,15 @@ partial class StudioForm : Form
         // the row is laid out around PLAY: the recording tools on the left, the transport in the middle with PLAY at its centre (|< and STOP before it,
         // PAUSE and LOOP after it, then the time), the master meter and the page tabs on the right. On a narrow window the middle slides so nothing overlaps.
 
-        float recW = 44 + 6 + 44 + 6 + 92 + 6 + (mic != null ? 128 : 60) + 6 + 28 + (W >= 1320 ? 69 : 0), leftEnd = x + recW + 12, tabsX = W - TabsW;   // MIDI REC and MIC (with its mode) go just left of the time
+        float recW = 44 + 6 + 44 + 6 + 44 + 6 + 92 + 6 + (mic != null ? 128 : 60) + 6 + 28 + (W >= 1320 ? 69 : 0), leftEnd = x + recW + 12, tabsX = W - TabsW;   // MIDI REC and MIC (with its mode) go just left of the time
         const float wHome = 50, wStop = 70, wPlay = 96, wPause = 76, wLoop = 68, gap = 6, leftHalf = wHome + gap + wStop + gap, rightHalf = gap + wPause + gap + wLoop;
         float timeW = 210, cx = W / 2;   // PLAY in the middle of the window when it fits; the time sits just before |<
         cx = Math.Min(cx, tabsX - 12 - (wPlay / 2 + rightHalf)); cx = Math.Max(cx, leftEnd + 14 + 130 + 12 + leftHalf + wPlay / 2);
         timeW = Math.Max(130, Math.Min(210, cx - wPlay / 2 - leftHalf - 12 - leftEnd - 14));
         float px = cx - wPlay / 2, tx0 = px - leftHalf;
         x = tx0 - 12 - timeW - 12 - recW;
-        { var pk = Rc(x, y, 44, h); bool prOn = InsShown && insTab == 4; Btn(g, pk, "", prOn ? 4 : 0, () => { if (prOn) CloseInspector(); else OpenPianoRoll(null); }, 10); PianoGlyph(g, pk); btnMap["PIANO ROLL"] = pk; if (Hot(pk)) hintNow = "Piano roll: click a track, choose its sound and write notes. Press again to close it."; Hint2(pk, "Piano roll: click a track, choose its sound, write notes (click again to close)"); x += 50; }
+        { var pk = Rc(x, y, 44, h); bool prOn = InsShown && insTab == 4 && !blOn; Btn(g, pk, "", prOn ? 4 : 0, () => { if (prOn) CloseInspector(); else { if (blOn) { blOn = false; BlPlay(false); } OpenPianoRoll(null); } }, 10); PianoGlyph(g, pk); btnMap["PIANO ROLL"] = pk; if (Hot(pk)) hintNow = "Piano roll: click a track, choose its sound and write notes. Press again to close it."; Hint2(pk, "Piano roll: click a track, choose its sound, write notes (click again to close)"); x += 50; }
+        { var bk = Rc(x, y, 44, h); bool blIs = BlShown; Btn(g, bk, "", blIs ? 4 : 0, () => { if (blIs) { BlPlay(false); CloseInspector(); } else OpenBeatLab(); }, 10); PadsGlyph(g, bk); btnMap["BEAT LAB"] = bk; if (Hot(bk)) hintNow = "Beat Lab: 16 or 32 pads and a step sequencer inside the piano roll. Press again to close it."; Hint2(bk, "Beat Lab: tap pads, build a beat on the steps, make variations, drag it onto the song (click again to close)"); x += 50; }
         { var mk = Rc(x, y, 44, h); bool mxOn = InsShown && insTab == 1; Btn(g, mk, "", mxOn ? 4 : 0, () => { if (mxOn) CloseInspector(); else OpenInspector(1); }, 10); MixerGlyph(g, mk); btnMap["MIXER TOP"] = mk; if (Hot(mk)) hintNow = "Mixer: every track and bus as a strip with its plugins, sends, pan and fader. Press again to close it."; Hint2(mk, "Mixer: every track and bus as a strip with its plugins, sends, pan and fader (click again to close)"); x += 50; }
         Btn(g, Rc(x, y, 92, h), "MIDI REC", recOn ? 3 : 0, () => { if (!recOn && !AskYes("Would you like to record an instrument?\n\nYour MIDI keyboard (or the piano window) is recorded onto the selected MIDI track while the song plays. Press PLAY after you say Yes. If not, press No.", "MIDI recording")) return; recOn = !recOn; Toast(recOn ? "MIDI recording is on (the button is red): press PLAY, then play your MIDI keyboard or the piano window and the notes are recorded onto the selected MIDI track." : "MIDI recording is off."); }, 13); x += 98;
         { bool rec = mic != null; double el = rec ? (eng.CountBeat > 0 ? 0 : Math.Max(0, (DateTime.Now - micT0).TotalSeconds - micLead / (double)StudioEngine.SR)) : 0; bool armed = micArmed && !rec; var mr = Rc(x, y, rec ? 128 : 60, h); Btn(g, mr, (rec ? "* MIC  " + ((int)(el / 60)).ToString("00") + ":" + ((int)(el % 60)).ToString("00") : "MIC"), rec || armed ? 3 : 0, () => MicClick(), 13); if (armed) { double pl = 0.5 + 0.5 * Math.Sin(Environment.TickCount / 220.0); Glow(g, Color.FromArgb(255, 60, 90), mr, 8, 0.7f + 0.5f * (float)pl, 4); lastInput = DateTime.Now; } if (rec) HBar(g, Rc(mr.X + 6, mr.Bottom - 7, mr.Width - 12, 5), mic.Level); PaintMicDrop(g, Rc(mr.Right + 3, y, 24, h), rec); bool modeRoom = W >= 1320; if (modeRoom) PaintMicModeBox(g, Rc(mr.Right + 3 + 24 + 3, y + 5, 66, h - 10), rec); x += mr.Width + 6 + 28 + (modeRoom ? 69 : 0); }   /* the box that names the microphone mode is there when there is room for it */
@@ -844,7 +845,7 @@ partial class StudioForm : Form
             q0 = Prof.T(); if (tr.IsBus) PaintBusLane(g, tr, lane); else if (tr.Instrument) PaintMidi(g, tr, lane); else if (tr.Clip == null) { if (!RowHasPieces(tr)) PaintEmptyLane(g, tr, lane); } else PaintWave(g, tr, lane, sel);   /* a row only shows EMPTY TRACK when nothing at all is on it (its own clip may have moved away while pieces are still on it) */
             foreach (var lay in eng.Tracks) if (lay.Host == tr) { if (lay.Instrument) PaintMidi(g, lay, lane); else if (lay.Clip != null) PaintWave(g, lay, lane, sel); }   // tracks sharing this row
             Prof.A("mix.wave", q0);
-            var lr = LaneReg(lane, tr); int idx = i; RegGainTags();   /* (the gain tags of this row sit above it) */
+            var lr = LaneReg(lane, tr); int idx = i; RegGainTags(); RegMidiClips(tr, lane); foreach (var lay in eng.Tracks) if (lay.Host == tr && lay.Instrument) RegMidiClips(lay, lane);   // the MIDI clips take their clicks before the row   /* (the gain tags of this row sit above it) */
             /* an empty track is just an empty lane: no box to click (drag audio onto it, drop files, record with MIC, or right-click it for Add music) */   // the box of an empty track: click it to pick music for THIS track
             q0 = Prof.T(); if (HeadW <= HeadTabW + 1) PaintHeaderMini(g, tr, i, Rc(0, ys, HeadW, LaneH), sel); else { var gsH = g.Save(); g.SetClip(Rc(0, ys, HeadW, LaneH), System.Drawing.Drawing2D.CombineMode.Intersect); PaintHeader(g, tr, i, Rc(HeadW - HeadFullW, ys, HeadFullW, LaneH), sel); g.Restore(gsH); } Prof.A("mix.header", q0);   // the list slides away to the left
             q0 = Prof.T(); NeonLaneChrome(g, tr, Rc(0, ys, HeadW, LaneH), lane, sel); Prof.A("mix.neonchrome", q0);
@@ -1608,6 +1609,8 @@ partial class StudioForm : Form
         if (menuOpen && k == Keys.Escape) { CloseMenu(); return true; }
         if ((menuOpen || busOpen || ntOpen || keyOn) && !flexOpen) return base.ProcessCmdKey(ref msg, k);   // while a menu or sheet is open the keys do not play, split or delete things behind it
         if (flexOpen && !menuOpen && !browserOpen && FlexKey(k)) return true;
+        if (!menuOpen && !browserOpen && McKey(k)) return true;   // the selected MIDI clips: Delete, Ctrl+D
+        if (!menuOpen && !browserOpen && BlKey(k)) return true;   // the Beat Lab's pads (1234 / QWER / ASDF / ZXCV...)
         if (!menuOpen && !browserOpen && PrKey(k)) return true;   // the piano roll's keys (when you last clicked in it)
         if (autoOpen) { if (k == Keys.Escape) { CloseAuto(); return true; } return base.ProcessCmdKey(ref msg, k); }
         if (cpOpen) { if (k == Keys.Escape) { cpOpen = false; return true; } return base.ProcessCmdKey(ref msg, k); }
