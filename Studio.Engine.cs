@@ -336,7 +336,7 @@ static class Loudness
 class Track
 {
     public string Name = "Track", Role = "other", Source = "";
-    public bool Instrument; public readonly List<MidiEv> Midi = new List<MidiEv>();   // an instrument track has no audio file: a VST instrument plays recorded notes
+    public bool Instrument; public readonly List<MidiEv> Midi = new List<MidiEv>(); public List<MidiClip> MClips = new List<MidiClip>();   // MClips: the clips its notes sit in on the song (Studio.MidiClips.cs)   // an instrument track has no audio file: a VST instrument plays recorded notes
     public long ClipStart; public long ClipFrames = -1;   // the part of the audio file that is used (after splitting / trimming); -1 = to the end
     public long UsedLength { get { if (Clip == null) return 0; long avail = Math.Max(0, Clip.Length - ClipStart); return ClipFrames < 0 ? avail : Math.Min(ClipFrames, avail); } }
     public AudioClip Clip; public long Offset;
@@ -655,11 +655,12 @@ partial class StudioEngine
 
     // Real-time callback used by the audio device
     public volatile bool Rendering; readonly object renderGate = new object();
+    public static Action<float[], float[], int> Extra;   // the Beat Lab: its pads and its own loop, heard on top (never in the song or an export)
     public Track Draft;   // the piano roll's pattern that is not on the song yet: it sounds when its notes are played, never in the song or an export
     float[] dfL, dfR;
     public void RenderRealtime(float[] oL, float[] oR, int n)
     {
-        RenderRealtime0(oL, oR, n); var d = Draft; if (d == null || Rendering) return;
+        RenderRealtime0(oL, oR, n); { var x = Extra; if (x != null && !Rendering) try { x(oL, oR, n); } catch { } } var d = Draft; if (d == null || Rendering) return;
         lock (Sync)
         {
             var p = InstrumentOf != null ? InstrumentOf(d) : null; if (p == null) return; if (dfL == null || dfL.Length < n) { dfL = new float[n]; dfR = new float[n]; }

@@ -31,6 +31,7 @@ partial class StudioForm
     {
         try
         {
+            if (BlMidi(s, d1, d2)) return true;   // the Beat Lab is open: the keyboard's pads play its pads
             if (eng.Tracks.Count == 0) return false; var t = eng.Tracks[Math.Max(0, Math.Min(selTrack, eng.Tracks.Count - 1))]; if (!t.Instrument) return false;
             if (t.HasInstrumentFx) return false;
             int kind = s & 0xF0; var k = t.Keys; if (kind == 0x90 && d2 > 0) k.NoteOn(d1, d2); else k.Midi(s, d1, d2);   // heard straight away with the built-in keys
@@ -71,6 +72,7 @@ partial class StudioForm
     {
         int count; lock (tr.Midi) count = tr.Midi.Count;
         if (count == 0) { bool bare = !tr.HasInstrumentFx; Txt(g, bare ? "MIDI track (built-in keys): press MIDI REC and play your MIDI keyboard. Add Bass Lab or a VST from + ADD EFFECT for other sounds." : "Instrument track: press MIDI REC, then PLAY, then play your keyboard or the instrument's piano.", 12, DimC, Rc(lane.X + 10, lane.Y + 44, lane.Width - 20, 40), StringAlignment.Near, false); return; }
+        PaintMidiClips(g, tr, lane); if (tr.MClips.Count > 0) return;   // the notes in their clips
         MidiEv[] evs; lock (tr.Midi) evs = tr.Midi.ToArray(); var open = new Dictionary<int, long>(); var bars = new List<MBar>(); int lo = 127, hi = 0;
             foreach (var m in evs)
             {
