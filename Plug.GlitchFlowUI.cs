@@ -37,7 +37,7 @@ class GlitchFlowWindow : Form
         fx = f; Text = "Purphex GlitchFlow"; ClientSize = new Size(1060, 744); MinimumSize = new Size(1076, 783); BackColor = Bg; KeyPreview = true; StartPosition = FormStartPosition.CenterParent;
         SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.UserPaint | ControlStyles.ResizeRedraw, true);
         try { Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath); } catch { }
-        tick = new Timer { Interval = 33 }; tick.Tick += (a, b) => Invalidate(); tick.Start();
+        tick = new Timer { Interval = 33 }; tick.Tick += (a, b) => { if (!Win.AnyMoving) Invalidate(); }; tick.Start();
         aiBox = new TextBox { Visible = false, BorderStyle = BorderStyle.FixedSingle, BackColor = Color.FromArgb(10, 6, 22), ForeColor = Ink, Font = new Font("Segoe UI", 11f) }; Controls.Add(aiBox);
         aiBox.KeyDown += (a, e) => { if (e.KeyCode == Keys.Enter) { e.SuppressKeyPress = true; AiRun(false); } };
         keyBox = new TextBox { Visible = false, BorderStyle = BorderStyle.FixedSingle, BackColor = Color.FromArgb(10, 6, 22), ForeColor = Ink, Font = new Font("Segoe UI", 10f), UseSystemPasswordChar = true }; Controls.Add(keyBox);
@@ -101,9 +101,12 @@ class GlitchFlowWindow : Form
     static string Val(Param p) { if (p.IsChoice) return p.Text; string u = p.Unit; float v = p.Val; if (u == "Hz" && v >= 1000) return (v / 1000).ToString("0.0#", CultureInfo.InvariantCulture) + " kHz"; return v.ToString(Math.Abs(v) < 10 ? "0.#" : "0", CultureInfo.InvariantCulture) + (u.Length > 0 ? " " + u : ""); }
     void Toggle(Graphics g, RectangleF r, string id, Color col) { bool on = fx.Get(id) >= 0.5f; Button(g, r, on ? "ON" : "OFF", on, col, () => { Mark(); fx.Set(id, on ? 0 : 1); }, fx.Find(id).Name + ": switch on or off", 10.5f); }
 
-    protected override void OnPaint(PaintEventArgs e)
+    readonly ResizeSnap snap = new ResizeSnap();
+    protected override void WndProc(ref Message m) { Win.TrackMove(this, ref m); base.WndProc(ref m); }
+    protected override void OnPaint(PaintEventArgs e) { snap.Paint(this, e.Graphics, PaintAll); }
+    void PaintAll(Graphics g)
     {
-        var g = e.Graphics; g.SmoothingMode = SmoothingMode.AntiAlias; g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit; hits.Clear();
+        g.SmoothingMode = SmoothingMode.AntiAlias; g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit; hits.Clear();
         float W = ClientSize.Width, H = ClientSize.Height;
         using (var br = new LinearGradientBrush(new RectangleF(0, 0, W, H), Top, Bot, 90f)) g.FillRectangle(br, 0, 0, W, H);
         GalaxyBg.Paint(g, new Rectangle(0, 0, (int)W, (int)H), 0x6F10, 0.85f, Bot, 80);   // the galaxy, like every Purphex window

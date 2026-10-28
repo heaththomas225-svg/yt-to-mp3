@@ -56,6 +56,7 @@ class SynthWindow : Form, IKeySink
         Deactivate += (s, e) => ReleaseAll();
     }
 
+    protected override void WndProc(ref Message m) { Win.TrackMove(this, ref m); base.WndProc(ref m); }   // resized by its edge: the last picture is stretched until the mouse is let go
     public void PanicAll() { down.Clear(); fx.Panic(); piano.Invalidate(); }
     public void TestSound() { fx.NoteOn(48, 100); var t = new Timer { Interval = 700 }; t.Tick += (s, e) => { t.Stop(); t.Dispose(); fx.NoteOff(48); }; t.Start(); }
     public void KeyOn(int note, int vel) { if (!down.Add(note)) return; fx.NoteOn(note, vel); var f = InstrumentFx.Recorder; if (f != null) f(track, true, note, vel); piano.Invalidate(); }
@@ -190,9 +191,10 @@ partial class SynthCanvas : Control
     }
 
     // ---------- top-level paint ----------
+    readonly ResizeSnap snap = new ResizeSnap();
     protected override void OnPaint(PaintEventArgs e)
     {
-        try { Paint2(e.Graphics); } catch (ArgumentException) { } catch (InvalidOperationException) { } catch (NullReferenceException) { }
+        try { snap.Paint(this, e.Graphics, Paint2); } catch (ArgumentException) { } catch (InvalidOperationException) { } catch (NullReferenceException) { }
     }
     void Paint2(Graphics g)
     {

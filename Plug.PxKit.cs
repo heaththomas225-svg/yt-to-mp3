@@ -45,7 +45,7 @@ abstract class PxWindow : Form
         fx = f; brand = name; Text = "Purphex " + name; ClientSize = size; MinimumSize = new Size(size.Width + 16, size.Height + 39); BackColor = Bg1; KeyPreview = true; StartPosition = FormStartPosition.CenterParent;
         SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.UserPaint | ControlStyles.ResizeRedraw, true);
         try { Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath); } catch { }
-        tick = new Timer { Interval = 33 }; tick.Tick += (a, b) => Invalidate(); tick.Start();
+        tick = new Timer { Interval = 33 }; tick.Tick += (a, b) => { if (!Win.AnyMoving) Invalidate(); }; tick.Start();
         FormClosed += (a, b) => { tick.Stop(); open.Remove(fx); };
         if (!string.IsNullOrEmpty(fx.CurPreset)) PresetName = fx.CurPreset;
     }
@@ -159,9 +159,12 @@ abstract class PxWindow : Form
         Button(g, new RectangleF(x, 16, 38, 38), "↶", false, Violet, Undo, "Undo (Ctrl+Z)", 16); Button(g, new RectangleF(x + 44, 16, 38, 38), "↷", false, Violet, Redo, "Redo (Ctrl+Y)", 16);
     }
     protected abstract void PaintBody(Graphics g, RectangleF area);
-    protected override void OnPaint(PaintEventArgs e)
+    readonly ResizeSnap snap = new ResizeSnap();
+    protected override void WndProc(ref Message m) { Win.TrackMove(this, ref m); base.WndProc(ref m); }
+    protected override void OnPaint(PaintEventArgs e) { snap.Paint(this, e.Graphics, PaintAll); }
+    void PaintAll(Graphics g)
     {
-        var g = e.Graphics; g.SmoothingMode = SmoothingMode.AntiAlias; g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit; hits.Clear();
+        g.SmoothingMode = SmoothingMode.AntiAlias; g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit; hits.Clear();
         float W = ClientSize.Width, H = ClientSize.Height;
         using (var br = new LinearGradientBrush(new RectangleF(0, 0, W, H), Bg0, Bg1, 90f)) g.FillRectangle(br, 0, 0, W, H);
         GalaxyBg.Paint(g, new Rectangle(0, 0, (int)W, (int)H), brand.GetHashCode(), 0.85f, Bg1, 80);   // the galaxy, like every Purphex window

@@ -27,7 +27,7 @@ partial class StudioForm
         if (tagRec != null) { Invalidate(); if ((DateTime.Now - tagRecAt).TotalSeconds > 10) TagStopRecording(); }
         // the tag and PREVIEW
         Txt(g, "YOUR TAG", 11, NeonCyan, Rc(x, y, 200, 18), StringAlignment.Near, true); y += 20;
-        var tb = Rc(x, y, w - 150, 40); ValueBox(g, tb, tagSet.Text.Length > 0 ? tagSet.Text : "(click to type your tag)", tagSet.Text, s => { tagSet.Text = s.Trim(); }, 16, true); Hint2(tb, "Click and type what the tag says, for example your producer name");
+        var tb = Rc(x, y, w - 150, 40); ValueBox(g, tb, tagSet.Text.Length > 0 ? tagSet.Text : "(click to type your tag)", tagSet.Text, s => { tagSet.Text = s.Trim(); }, 16, true, true); Hint2(tb, "Click and type what the tag says, for example your producer name");
         var pv = Rc(tb.Right + 8, y, 142, 40); Btn(g, pv, tagBusy ? "MAKING..." : (Auditioner.IsPlaying && Auditioner.Current != null && Auditioner.Current.Name == "Producer tag" ? "STOP" : "PREVIEW"), 4, () => TagPreview(), 15); Hint2(pv, "Hear what is in the box with the voice, character, effects and vocal preset you picked");
         y += 50;
         // the voice
@@ -123,16 +123,8 @@ partial class StudioForm
         if (tagOut != null) { var L = tagOut[0]; s.Dur = L.Length / (double)TagMaker.SR; var pk = new byte[200]; for (int k = 0; k < 200; k++) { int a = k * L.Length / 200, e = Math.Min(L.Length, (k + 1) * L.Length / 200); float m = 0; for (int i = a; i < e; i++) m = Math.Max(m, Math.Abs(L[i])); pk[k] = (byte)Math.Min(255, m * 255); } s.Peaks = pk; }
         return s;
     }
-    void TagPresetMenu()
-    {
-        var m = Win.NewMenu(); var none = new ToolStripMenuItem("None") { Checked = tagSet.VocalPreset.Length == 0 }; none.Click += (a, b) => tagSet.VocalPreset = ""; m.Items.Add(none); m.Items.Add(new ToolStripSeparator());
-        foreach (var gname in VocalStyles.Genres)
-        {
-            var it = new ToolStripMenuItem(gname); foreach (var st in VocalStyles.All.Where(x => x.Genre == gname)) { var nm = st.Name; var si = new ToolStripMenuItem(nm) { Checked = nm == tagSet.VocalPreset, ToolTipText = st.Blurb }; si.Click += (a, b) => { tagSet.VocalPreset = nm; Invalidate(); }; it.DropDownItems.Add(si); }
-            if (it.DropDownItems.Count > 0) m.Items.Add(it);
-        }
-        m.Show(this, new Point((int)MousePos.X, (int)MousePos.Y));
-    }
+    // the studio's VOCAL PRESETS sheet (search, genres, favourites) picks one for the tag (a menu of all of them took a minute to open)
+    void TagPresetMenu() { OpenStyles(); stylesPick = st => { tagSet.VocalPreset = st.Name; Toast(st.Name + " is on your tag: press PREVIEW."); Invalidate(); }; }
     // ---- your own voice ----
     void TagStartRecording()
     {

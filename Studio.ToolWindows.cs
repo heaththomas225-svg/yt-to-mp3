@@ -25,7 +25,7 @@ partial class StudioForm
         foreach (var w in toolWins.OrderBy(x => x.Seq).ToList())
         {
             if (w.Full) w.R = Rc(4, ToolH + 4, ClientSize.Width - 8, ClientSize.Height - ToolH - 8);
-            var r = w.R; r.Width = Math.Max(520, Math.Min(ClientSize.Width - 8, r.Width)); r.Height = Math.Max(360, Math.Min(ClientSize.Height - ToolH - 8, r.Height)); r.X = Math.Max(-r.Width + 140, Math.Min(ClientSize.Width - 140, r.X)); r.Y = Math.Max(ToolH, Math.Min(ClientSize.Height - 50, r.Y)); w.R = r;
+            var r = w.R; float mw = w.Kind == TagKind ? 820 : 520, mh = w.Kind == TagKind ? 640 : 360;   /* the smallest it can be made: the producer tag needs room for all of its rows */ r.Width = Math.Max(Math.Min(mw, ClientSize.Width - 8), Math.Min(ClientSize.Width - 8, r.Width)); r.Height = Math.Max(Math.Min(mh, ClientSize.Height - ToolH - 8), Math.Min(ClientSize.Height - ToolH - 8, r.Height)); r.X = Math.Max(-r.Width + 140, Math.Min(ClientSize.Width - 140, r.X)); r.Y = Math.Max(ToolH, Math.Min(ClientSize.Height - 50, r.Y)); w.R = r;   // drawn at the size it is shown at (dragged smaller than it can be, its contents were laid out for the smaller size and came out jumbled) w.R = r;
             var wq = w; PaintCachedWin(g, w, r, "tool|" + w.Kind + "|" + w.Full + "|" + (w.Seq == toolSeq) + "|" + selTrack + "|" + eng.Tracks.Count + "|" + eng.Playing + "|" + (toolDrag != null) + (w.Kind == TagKind ? "|" + TagWinSig() : ""), 250, gg => PaintToolWin(gg, wq));
         }
     }

@@ -73,10 +73,12 @@ partial class StudioForm : Form
     }
 
     // Click a value to type an exact number. Click anywhere else (or press Enter) to confirm it, Esc to cancel. Nothing changes if you did not type anything.
-    void BeginEdit(RectangleF r, string text, Action<string> apply)
+    // left: the writing starts at the left of the box (a line of words, like the producer tag) instead of in the middle (a number)
+    void BeginEdit(RectangleF r, string text, Action<string> apply, bool left = false)
     {
         if (editBox.Visible) CommitEdit(true);
-        editApply = apply; editOrig = text ?? ""; editBox.Text = editOrig; int bh = editBox.PreferredHeight; editBox.SetBounds((int)r.X + 3, (int)(r.Y + (r.Height - bh) / 2), (int)Math.Max(40, r.Width) - 6, bh);
+        editBox.TextAlign = left ? HorizontalAlignment.Left : HorizontalAlignment.Center; float fpt = left ? Math.Max(10.5f, Math.Min(15f, r.Height * 0.32f)) : 10.5f; if (Math.Abs(editBox.Font.Size - fpt) > 0.1f) editBox.Font = new Font("Segoe UI", fpt);
+        editApply = apply; editOrig = text ?? ""; editBox.Text = editOrig; int bh = editBox.PreferredHeight; int pad = left ? 12 : 3; editBox.SetBounds((int)r.X + pad, (int)(r.Y + (r.Height - bh) / 2), (int)Math.Max(40, r.Width) - pad * 2, bh);
         editBox.Visible = true; editBox.BringToFront(); editBox.Focus(); editBox.SelectAll();
     }
 
@@ -89,11 +91,11 @@ partial class StudioForm : Form
 
     HitReg ValueEdit(RectangleF r, string text, Action<string> apply) { return Reg(r, () => BeginEdit(r, text, apply)); }
     // a value you can type over: a neon box with the number inside it (the click area is exactly the box, kept well away from the slider and the words)
-    HitReg ValueBox(Graphics g, RectangleF r, string shown, string editText, Action<string> apply, float px = 12, bool bold = false)
+    HitReg ValueBox(Graphics g, RectangleF r, string shown, string editText, Action<string> apply, float px = 12, bool bold = false, bool left = false)
     {
         bool hot = Hot(r) && !(editBox != null && editBox.Visible); FillRR(g, hot ? TM.C(225, 22, 12, 50) : TM.C(205, 10, 5, 24), r, 7); Win.DrawNeonBox(g, r, hot);
-        Txt(g, shown, px, Ink, r, StringAlignment.Center, bold); if (hot) hintNow = "Click the box to type an exact value. Click anywhere else (or press Enter) to confirm, Esc to cancel.";
-        var vr = Reg(r, () => BeginEdit(r, editText, apply)); vr.Button = true; return vr;   // a value box is a control: it is always on top of what is under it
+        if (left) Txt(g, shown, px, Ink, Rc(r.X + 12, r.Y, r.Width - 24, r.Height), StringAlignment.Near, bold); else Txt(g, shown, px, Ink, r, StringAlignment.Center, bold); if (hot) hintNow = left ? "Click the box and type. Press Enter (or click anywhere else) to keep it, Esc to cancel." : "Click the box to type an exact value. Click anywhere else (or press Enter) to confirm, Esc to cancel.";
+        var vr = Reg(r, () => BeginEdit(r, editText, apply, left)); vr.Button = true; return vr;   // a value box is a control: it is always on top of what is under it
     }
 
     static bool ParseNum(string s, out float v)

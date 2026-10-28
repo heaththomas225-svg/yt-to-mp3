@@ -147,11 +147,12 @@ static partial class VocalStyles
 // the sheet that shows them
 partial class StudioForm
 {
+    Action<VocalStyles.Style> stylesPick;   // set: the sheet picks a preset for something else (the producer tag) instead of putting it on a track
     bool stylesOpen; string stylesQuery = "", stylesGenre = "", stylesPart = ""; bool stylesFav; float stylesScroll;
 
     internal bool stylesBus;   // the same sheet shows BUS PRESETS
     internal void OpenBusPresets() { if (!Paid("Bus presets")) return; OpenStyles(); stylesBus = true; }
-    void OpenStyles() { if (!Paid("Vocal presets")) return; stylesBus = false; stylesOpen = true; stylesQuery = ""; stylesGenre = ""; stylesPart = ""; stylesFav = false; stylesScroll = 0; ntOpen = false; busOpen = false; browserOpen = false; }
+    void OpenStyles() { if (!Paid("Vocal presets")) return; stylesPick = null; stylesBus = false; stylesOpen = true; stylesQuery = ""; stylesGenre = ""; stylesPart = ""; stylesFav = false; stylesScroll = 0; ntOpen = false; busOpen = false; browserOpen = false; }
 
     void ApplyStyle(VocalStyles.Style s, bool replace)
     {
@@ -184,10 +185,11 @@ partial class StudioForm
         Txt(g, stylesBus ? "BUS PRESETS" : "VOCAL PRESETS", 22, Ink, Rc(sheet.X + 22, sheet.Y + 14, 240, 34), StringAlignment.Near, true);
         var aib = Rc(sheet.Right - 52 - 12 - 220, sheet.Y + 14, 220, 32);
         if (stylesBus) { Btn(g, aib, "AI BUS GENERATOR", 2, () => OpenAiBus(), 12); Hint2(aib, "Describe the bus in your own words (drill drum bus, punchy and dark; wide R&B reverb bus...) and get the plugins"); }
-        else { Btn(g, aib, "AI PRESET GENERATOR", 2, () => OpenAiPreset(), 12); Hint2(aib, "Describe the sound in your own words (an artist, a genre, effects like a stutter echo or lots of reverb) and get the plugins"); }
-        { var swb = Rc(aib.X - 10 - 176, sheet.Y + 14, 176, 32); Btn(g, swb, stylesBus ? "Vocal Presets" : "Bus Presets", 0, () => { stylesBus = !stylesBus; stylesGenre = ""; stylesPart = ""; stylesScroll = 0; }, 11); Hint2(swb, stylesBus ? "Back to the vocal presets (for a track)" : "Presets for buses: vocal, ad-lib, drums, 808, beat, reverb, echo, FX, glue and mix buses"); }
+        else { if (stylesPick == null) Btn(g, aib, "AI PRESET GENERATOR", 2, () => OpenAiPreset(), 12); Hint2(aib, "Describe the sound in your own words (an artist, a genre, effects like a stutter echo or lots of reverb) and get the plugins"); }
+        if (stylesPick == null) { var swb = Rc(aib.X - 10 - 176, sheet.Y + 14, 176, 32); Btn(g, swb, stylesBus ? "Vocal Presets" : "Bus Presets", 0, () => { stylesBus = !stylesBus; stylesGenre = ""; stylesPart = ""; stylesScroll = 0; }, 11); Hint2(swb, stylesBus ? "Back to the vocal presets (for a track)" : "Presets for buses: vocal, ad-lib, drums, 808, beat, reverb, echo, FX, glue and mix buses"); }
         string tn = eng.Tracks.Count > 0 ? eng.Tracks[Math.Max(0, Math.Min(selTrack, eng.Tracks.Count - 1))].Name : "(no track)";
         if (stylesBus) { string bt0 = "a new bus"; if (eng.Tracks.Count > 0) { var st0 = busEdit != null && eng.Tracks.Contains(busEdit) ? busEdit : eng.Tracks[Math.Max(0, Math.Min(selTrack, eng.Tracks.Count - 1))]; var rw0 = st0.Host ?? st0; bt0 = st0.IsBus ? st0.Name : rw0.Out != null && rw0.Out.IsBus ? rw0.Out.Name + " (the bus " + rw0.Name + " goes into)" : "a new bus for " + rw0.Name; } Txt(g, BusPresets.All.Count + " bus presets built from this app's plugins. Use puts it on: " + bt0, 12, DimC, Rc(sheet.X + 22, sheet.Y + 48, sheet.Width - 44, 20), StringAlignment.Near, false); }
+        else if (stylesPick != null) Txt(g, "Pick a vocal preset for your producer tag: USE puts it on the tag.", 12, DimC, Rc(sheet.X + 22, sheet.Y + 48, sheet.Width - 80, 20), StringAlignment.Near, false);
         else
         {   // which track the preset goes on: pick it here (Track 1, 2, 3...)
             Txt(g, VocalStyles.All.Count + " presets built from this app's plugins (artist ones are inspired by their sound).", 12, DimC, Rc(sheet.X + 22, sheet.Y + 48, sheet.Width - 300, 20), StringAlignment.Near, false);
@@ -226,10 +228,10 @@ partial class StudioForm
             if (!string.IsNullOrEmpty(s.BusName)) { var bt = Rc(tag.Right + 6, row.Y + 10, 40, 18); if (bt.Right < row.Right - 270) { FillRR(g, Color.FromArgb(200, 255, 208, 77), bt, 5); Txt(g, "+BUS", 9.5f, Color.Black, bt, StringAlignment.Center, true); Hint2(bt, "Comes with " + s.BusName + ": glue and space shared by every vocal you route into it"); } }
             using (var wf = new StringFormat { Trimming = StringTrimming.EllipsisWord, FormatFlags = StringFormatFlags.LineLimit }) using (var wb = new SolidBrush(DimC)) g.DrawString(s.Blurb, GfxCache.Font(11, false), wb, Rc(row.X + 46, row.Y + 33, row.Width - 46 - 134 - 146, 32), wf);
             PresetKnobs(g, row.Right - 122, row.Y + row.Height / 2 + 2, ChainKnobs(s.Chain), ChainKnobNames, "this preset adds");
-            var st = s; Btn(g, Rc(row.Right - 112, row.Y + 14, 96, 34), "Use", 1, () => { if (stylesBus) ApplyBusPreset(st); else ApplyStyle(st, true); }, 14);
+            var st = s; Btn(g, Rc(row.Right - 112, row.Y + 14, 96, 34), "Use", 1, () => { if (stylesPick != null) { var pk = stylesPick; stylesPick = null; stylesOpen = false; pk(st); } else if (stylesBus) ApplyBusPreset(st); else ApplyStyle(st, true); }, 14);
         }
         g.ResetClip(); VScroll(g, Rc(sheet.Right - 56, top, 42, areaH), total, areaH, () => stylesScroll, v => stylesScroll = v);
-        Txt(g, (stylesBus ? "Use puts the preset on the picked bus, the bus the picked track goes into, or a new bus. Ctrl+Z undoes it.  " : "Use puts the preset on the selected track (and its vocal bus, if it has one). Ctrl+Z undoes it.  ") + list.Count + " preset" + (list.Count == 1 ? "" : "s") + ".   Esc closes.", 11, DimC, Rc(sheet.X + 22, sheet.Bottom - 30, sheet.Width - 44, 20), StringAlignment.Near, false);
+        Txt(g, (stylesPick != null ? "Use puts the preset on your producer tag.  " : stylesBus ? "Use puts the preset on the picked bus, the bus the picked track goes into, or a new bus. Ctrl+Z undoes it.  " : "Use puts the preset on the selected track (and its vocal bus, if it has one). Ctrl+Z undoes it.  ") + list.Count + " preset" + (list.Count == 1 ? "" : "s") + ".   Esc closes.", 11, DimC, Rc(sheet.X + 22, sheet.Bottom - 30, sheet.Width - 44, 20), StringAlignment.Near, false);
     }
 }
 #endif

@@ -37,6 +37,8 @@ static class Win
     }
     public static volatile bool AnyMoving;   // true while any of our windows is being dragged or resized: every animation pauses so the drag stays smooth
     public static void TrackMove(ref Message m) { if (m.Msg == 0x231) AnyMoving = true; else if (m.Msg == 0x232) AnyMoving = false; }
+    // the same for a window drawn with a ResizeSnap: when the drag ends it is drawn properly again at its new size
+    public static void TrackMove(Form f, ref Message m) { TrackMove(ref m); if (m.Msg == 0x232) f.Invalidate(true); }
     [DllImport("dwmapi.dll")] static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int val, int size);
     [DllImport("uxtheme.dll", CharSet = CharSet.Unicode)] static extern int SetWindowTheme(IntPtr h, string app, string ids);
 
@@ -274,7 +276,7 @@ static class Win
     {
     // every menu of the app (right-click menus, plugin menus, pickers): 10 pt with compact rows (25% smaller than before, so menus take less room), each option in its own neon box
         var m = new PxMenu { Renderer = new DarkRenderer(), BackColor = TM.C(255, 16, 8, 32), ForeColor = TM.C(255, 240, 232, 255), ShowImageMargin = false, Font = new Font("Segoe UI", 10f) };
-        m.Font = UiFont(10f); Action<ToolStripItem> up = null; up = it => { if (!string.IsNullOrEmpty(it.Text) && it.Text.Length <= 70) it.Text = Up(it.Text); if (!(it is ToolStripSeparator)) { it.Padding = new Padding(5, 3, 8, 3); it.Margin = new Padding(0, 1, 0, 1); } var mi = it as ToolStripMenuItem; if (mi != null) { mi.DropDown.Font = m.Font; mi.DropDownOpened += (s3, e3) => KeepInApp(mi.DropDown); mi.DropDown.ItemAdded += (s2, e2) => up(e2.Item); foreach (ToolStripItem sub in mi.DropDownItems) up(sub); } };
+        m.Font = UiFont(10f); Action<ToolStripItem> up = null; up = it => { if (!string.IsNullOrEmpty(it.Text) && it.Text.Length <= 70) it.Text = Up(it.Text); if (!(it is ToolStripSeparator)) { it.Padding = new Padding(5, 3, 8, 3); it.Margin = new Padding(0, 1, 0, 1); } var mi = it as ToolStripMenuItem; if (mi != null) { var dd = mi.DropDown; dd.SuspendLayout(); try { dd.Font = m.Font; foreach (ToolStripItem sub in mi.DropDownItems) up(sub); } finally { dd.ResumeLayout(false); } mi.DropDownOpened += (s3, e3) => KeepInApp(mi.DropDown); dd.ItemAdded += (s2, e2) => up(e2.Item); } };   // the layout waits until a sub-menu's options are all styled (laid out after each one, a menu of the 1,400 vocal presets took a minute to open)
         m.ItemAdded += (s, e) => up(e.Item);
         m.Opened += (s, e) => { MenuShownAt = Control.MousePosition; MenuAway = false; };
         m.Closed += (s, e) => { if (e.CloseReason == ToolStripDropDownCloseReason.AppClicked) { MenuAway = true; MenuClosedAt = Environment.TickCount; } };
@@ -539,6 +541,26 @@ static class GfxCache
 }
 
 // every Purphex menu: wherever it is asked to open, it stays inside the app window (it scrolls if it is taller than the window)
+// A window being dragged by its edge shows its last picture stretched to the new size until the mouse is let go, and is drawn properly
+// again then (Win.TrackMove(form, ...)). Drawing all of Bass Lab at every step of the drag made it stutter and tear while it was resized.
+sealed class ResizeSnap
+{
+    Bitmap last;
+    public void Paint(Control c, Graphics g, Action<Graphics> paint)
+    {
+        int w = c.ClientSize.Width, h = c.ClientSize.Height; if (w < 2 || h < 2) return;
+        if (Win.AnyMoving && last != null)
+        {
+            if (last.Width == w && last.Height == h) { g.DrawImageUnscaled(last, 0, 0); return; }
+            var im = g.InterpolationMode; var cm = g.CompositingMode; g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.NearestNeighbor; g.CompositingMode = System.Drawing.Drawing2D.CompositingMode.SourceCopy; g.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.Half;
+            g.DrawImage(last, new Rectangle(0, 0, w, h)); g.InterpolationMode = im; g.CompositingMode = cm; return;   // the quickest stretch: it is only seen while the edge is held
+        }
+        if (last == null || last.Width != w || last.Height != h) { if (last != null) last.Dispose(); last = new Bitmap(w, h, System.Drawing.Imaging.PixelFormat.Format32bppPArgb); }
+        using (var gb = Graphics.FromImage(last)) paint(gb);
+        g.DrawImageUnscaled(last, 0, 0);
+    }
+}
+
 class PxMenu : ContextMenuStrip
 {
     protected override void OnOpening(System.ComponentModel.CancelEventArgs e) { var a = Win.AppArea(); if (!a.IsEmpty) MaximumSize = new Size(Math.Max(200, a.Width), Math.Max(120, a.Height)); base.OnOpening(e); }

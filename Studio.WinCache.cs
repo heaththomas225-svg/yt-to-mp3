@@ -11,7 +11,7 @@ using System.Drawing.Drawing2D;
 // =====================================================================================================
 partial class StudioForm
 {
-    sealed class WinPic { public Bitmap Bmp; public Rectangle R; public string Sig = ""; public int At, Hot = -2, HotAt; public string Hint; public List<HitReg> Regs = new List<HitReg>(); }   // Hot: the control the mouse was on when it was drawn; Hint: the hint that control showed
+    sealed class WinPic { public Bitmap Bmp; public Rectangle R; public string Sig = ""; public int At, Hot = -2, HotAt; public string Hint, Bubble; public List<HitReg> Regs = new List<HitReg>(); }   // Hot: the control the mouse was on when it was drawn; Hint: the hint that control showed
     readonly Dictionary<object, WinPic> winPics = new Dictionary<object, WinPic>();
     const int WinPicPad = 16;   // room round the window for its shadow and glow
     // draws the window through its picture; maxAgeMs: how old the picture may get (0 = until its signature changes)
@@ -25,16 +25,16 @@ partial class StudioForm
         // the mouse resting on the window: its picture is kept while the mouse stays on the same control (it is drawn again when the mouse moves to
         // another control, for a moment after so its glow can fade in, and when anything in the window changes)
         bool sameHot = !over || (p != null && HotIn(p.Regs, ri) == p.Hot && unchecked(now - p.HotAt) > 350);
-        if (p != null && p.Sig == full && sameHot && (maxAgeMs <= 0 || unchecked(now - p.At) < maxAgeMs)) { g.DrawImageUnscaled(p.Bmp, ri.X - WinPicPad, ri.Y - WinPicPad); regs.AddRange(p.Regs); if (over && p.Hint != null) hintNow = p.Hint; return; }
+        if (p != null && p.Sig == full && sameHot && (maxAgeMs <= 0 || unchecked(now - p.At) < maxAgeMs)) { g.DrawImageUnscaled(p.Bmp, ri.X - WinPicPad, ri.Y - WinPicPad); regs.AddRange(p.Regs); if (over && p.Hint != null) hintNow = p.Hint; if (over && p.Bubble != null) { bubble = p.Bubble; bubblePt = MousePos; } return; }
         int w = ri.Width + WinPicPad * 2, h = ri.Height + WinPicPad * 2; if (w < 4 || h < 4 || w * h > 2600 * 1600) { paint(g); return; }
         if (p == null || p.Bmp.Width != w || p.Bmp.Height != h) { if (p != null) p.Bmp.Dispose(); p = new WinPic { Bmp = new Bitmap(w, h, System.Drawing.Imaging.PixelFormat.Format32bppPArgb) }; winPics[key] = p; }
-        int r0 = regs.Count; string h0 = hintNow;
+        int r0 = regs.Count; string h0 = hintNow, b0 = bubble;
         using (var gb = Graphics.FromImage(p.Bmp))
         {
             gb.Clear(Color.Transparent); gb.SmoothingMode = SmoothingMode.AntiAlias; gb.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit; Sharp(gb);
             gb.TranslateTransform(WinPicPad - ri.X, WinPicPad - ri.Y); paint(gb);
         }
-        p.Regs = regs.GetRange(r0, regs.Count - r0); p.Sig = full; p.R = ri; p.At = now; p.Hint = hintNow != h0 ? hintNow : null;
+        p.Regs = regs.GetRange(r0, regs.Count - r0); p.Sig = full; p.R = ri; p.At = now; p.Hint = hintNow != h0 ? hintNow : null; p.Bubble = bubble != b0 ? bubble : null;
         { int hot = over ? HotIn(p.Regs, ri) : -1; if (hot != p.Hot) { p.Hot = hot; p.HotAt = now; } }
         g.DrawImageUnscaled(p.Bmp, ri.X - WinPicPad, ri.Y - WinPicPad);
     }
