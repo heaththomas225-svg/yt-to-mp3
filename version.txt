@@ -1,4 +1,4 @@
-3.77.9
+3.78.0
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Producer tag fixes (no freeze on vocal presets), smooth window resizing, fast menus, 64 genres in GENERATE
-sha256=3b2763f730c8159f1865b3aea9e813e96833fde75ef5c99704890392656cb179
+Beat Lab (pads and steps in the piano roll), MIDI clips you can move, loop, trim, split and merge
+sha256=18263b325abd6de4aee27776ab798955edd05ef77da6e0add5d3f466ce606f7c

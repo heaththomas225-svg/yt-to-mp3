@@ -2,6 +2,14 @@
 
 What changed in each version of **Purphex**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.78.0  Beat Lab (pads and steps in the piano roll), MIDI clips you can move, loop, trim, split and merge
+
+- NEW: BEAT LAB, a drum machine inside the piano roll: the pads button next to PIANO ROLL at the top (or BEAT LAB in the piano roll) opens it, in the galaxy look. 16 or 32 pads: tap one with the mouse (higher on the pad = harder), the keys 1234 / QWER / ASDF / ZXCV (5678 / TYUI / GHJK / BNM for pads 17 to 32) or the pads of your MIDI keyboard, and it sounds straight away, recording or not. Drag a sound from SOUNDS, Bass Lab or a folder onto a pad; KIT fills the pads from any genre's pack. Every pad with a sound has a row of 16 or 32 steps: click to switch a step on, drag to paint, the mouse wheel sets how hard it hits, and the velocity lane sets each step of the picked pad. SWING, HUMANISE (the hits move a little in time and strength, the same way every time), mute, solo and a volume per pad. PLAY loops the beat on its own and REC writes the pads you hit into the steps. FILL writes any genre's beat into the steps. VARIATION makes a new version of the beat in its own slot (B, C, D...) and your beat stays as it is. DRAG TO SONG puts the beat on a bar as one audio clip, ADD TO SONG as a note track per pad you can edit. The Beat Lab is saved with your project.
+
+- NEW: MIDI clips. The notes of every note track sit in clips on the song (recorded, written, generated or from an older project: a clip is made around them). Drag a clip to move the whole melody, onto another note track too. The bottom-right corner trims or extends it, the left edge trims its start, the top-right circle loops it (the notes repeat). Right-click: duplicate, split at the needle, merge the selected clips into one, rename, open in the piano roll, delete. Shift+click selects several clips, Ctrl+D duplicates, Delete deletes, double-click opens the piano roll there. Every change is one undo step, and the clips are saved with your project.
+
+- FIXED: After clicking in the Beat Lab, a click anywhere else gives the keys back (Delete, Ctrl+D and the rest work on what you clicked).
+
 ## 3.77.9  Producer tag fixes, smooth window resizing, every menu opens fast, 64 genres in GENERATE
 
 - FIXED: Pressing VOCAL PRESET in the producer tag froze the studio for about a minute. It now opens the studio's VOCAL PRESETS window (search, genres, favourites) and USE puts the preset on your tag.
