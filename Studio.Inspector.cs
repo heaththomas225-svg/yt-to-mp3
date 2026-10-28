@@ -144,7 +144,7 @@ partial class StudioForm
         x += sw2 + 8;
         // INSERTS
         var ib = InsBox(g, Rc(x, y, 230, h), "PLUGINS (IN ORDER)", NeonViolet); Fx[] fxs; lock (eng.Sync) fxs = t.Fx.ToArray(); float iy = ib.Y;
-        for (int i = 0; i < fxs.Length && iy + 22 <= ib.Bottom - 26; i++) { var f = fxs[i]; var row = Rc(ib.X, iy, ib.Width, 22); bool open = FxWindowOf(f) != null; FillRR(g, open ? TM.C(160, 60, 30, 110) : TM.C(110, 40, 22, 74), row, 5); var dot = Rc(row.X + 4, row.Y + 4, 14, 14); using (var b2 = new SolidBrush(f.Bypass ? TM.C(90, 90, 70, 110) : Good)) g.FillEllipse(b2, dot); Reg(dot, () => f.Bypass = !f.Bypass); Txt(g, f.Title, 10, f.Bypass ? DimC : Ink, Rc(row.X + 22, row.Y, row.Width - 26, 22), StringAlignment.Near, false); var rr = Reg(Rc(row.X + 20, row.Y, row.Width - 20, 22), () => OpenFxWindow(t, f)); Hint2(row, "Open " + f.Title + " in its own window"); iy += 25; }
+        for (int i = 0; i < fxs.Length && iy + 22 <= ib.Bottom - 26; i++) { var f = fxs[i]; var row = Rc(ib.X, iy, ib.Width, 22); bool open = FxWindowOf(f) != null; FillRR(g, open ? TM.C(160, 60, 30, 110) : TM.C(110, 40, 22, 74), row, 5); var dot = Rc(row.X + 4, row.Y + 4, 14, 14); using (var b2 = new SolidBrush(f.Bypass ? TM.C(90, 90, 70, 110) : Good)) g.FillEllipse(b2, dot); Reg(dot, () => f.Bypass = !f.Bypass); Txt(g, f.Title, 10, f.Bypass ? DimC : Ink, Rc(row.X + 22, row.Y, row.Width - 26, 22), StringAlignment.Near, false); var rr = Reg(Rc(row.X + 20, row.Y, row.Width - 20, 22), () => OpenFxWindow(t, f)); Hint2(row, "Open " + f.Title + " in its own window. " + FxHelp.About(f)); iy += 25; }
         if (fxs.Length == 0) Txt(g, "NO PLUGINS YET", 10, DimC, Rc(ib.X, iy, ib.Width, 20), StringAlignment.Near, false);
         Btn(g, Rc(ib.X, ib.Bottom - 24, ib.Width, 24), "+ ADD EFFECT", 1, () => InsAddEffect(t), 10);
         insMaxX = Math.Max(0, (x + 238 + insScrollX) - C.Right); insScrollX = Math.Min(insScrollX, insMaxX);
@@ -345,7 +345,7 @@ partial class StudioForm
                 Txt(g, f.Title, 8.5f, Color.FromArgb(120, 0, 0, 0), Rc(row.X + 20, row.Y + 1, row.Width - 22, SlotH), StringAlignment.Near, true); Txt(g, f.Title, 8.5f, f.Bypass ? DimC : Ink, Rc(row.X + 19, row.Y, row.Width - 22, SlotH), StringAlignment.Near, true);   // (a soft shadow keeps the name readable over the picture)
                 var rg = Reg(Rc(row.X + 16, row.Y, row.Width - 16, SlotH), () => { OpenFxWindow(t, f); if (!master) PickStrip(t); }); rg.OnRight = () => SlotMenu(t, f);
                 Reg(Rc(row.X, row.Y, 16, SlotH), () => f.Bypass = !f.Bypass);
-                Hint2(row, f.Title + (f.Bypass ? " (bypassed)" : "") + ": click to open its window, the dot turns it on or off, right-click for more");
+                Hint2(row, f.Title + (f.Bypass ? " (bypassed)" : "") + ": " + FxHelp.About(f) + "  Click to open its window, the dot turns it on or off, right-click for more");
             }
             else if (i == room && room < fxs.Length)
             {   // more plugins than slots: this one lists them all

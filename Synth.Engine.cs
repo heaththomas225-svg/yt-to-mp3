@@ -98,7 +98,7 @@ class SynthFx : InstrumentFx
     class Voice
     {
         public bool On, Released, HeldBySustain; public int Note; public float Vel; public long Age; public double Cur;
-        public double[,] Ph = new double[3, 7]; public double SubPh; public double[] LastOut = new double[3]; public double OutL, OutR, OffL, OffR; public bool Fresh;   // declick: what it last played, and the jump still being smoothed away
+        public double[,] Ph = new double[3, 7]; public double SubPh; public double[] LastOut = new double[3]; public double OutL, OutR, OffL, OffR; public bool Fresh; public double[] SG = new double[2], SK = new double[2], SN = new double[3]; public double SGain, SSub, SNz; public bool SSet;   // declick: what it last played, and the jump still being smoothed away
         public double[] F = new double[64];                  // filter state: [filter * 32 + stage * 4 + ch * 2 + {0,1}]
         public float[][] Comb = { new float[2048], new float[2048], new float[2048], new float[2048] }; public int[] CombW = new int[4];
         public double[] Env = new double[4]; public int[] Stage = new int[4];
@@ -282,7 +282,7 @@ class SynthFx : InstrumentFx
             v.Time = 0; for (int i = 0; i < 4; i++) { v.Stage[i] = 1; if (!v.On) v.Env[i] = 0; }
             for (int k = 0; k < 4; k++) { if (lp[k].Retrig) { v.Lfo[k] = lp[k].Phase; v.LfoAcc[k] = 0; v.LfoSm[k] = 0; v.LfoHold[k] = RandBi(); } }
             for (int o = 0; o < 3; o++) for (int u = 0; u < 7; u++) v.Ph[o, u] = op[o].Phase + (u == 0 ? 0 : RandUni() * (op[o].Phase > 0 ? 0 : 1));
-            if (!v.On) { Array.Clear(v.F, 0, v.F.Length); foreach (var c in v.Comb) Array.Clear(c, 0, c.Length); }
+            if (!v.On) { Array.Clear(v.F, 0, v.F.Length); foreach (var c in v.Comb) Array.Clear(c, 0, c.Length); v.SSet = false; }
         }
         v.On = true;
     }
@@ -487,9 +487,20 @@ class SynthFx : InstrumentFx
             double gain = volLin * velAmp * 0.55 * Math.Max(0, 1 + dst[1]);
             double pan = Math.Max(-1, Math.Min(1, dst[23]));
             double pl2 = Math.Sqrt(0.5 * (1 - pan)) * 1.4142, pr2 = Math.Sqrt(0.5 * (1 + pan)) * 1.4142;
+            // the values above are worked out every 16 samples: each sample glides from where the voice was to them (jumping at every step
+            // made a fast filter or level sweep a staircase, heard as crackle when playing the keys)
+            tG[0] = fg[0]; tG[1] = fg[1]; tK[0] = fk[0]; tK[1] = fk[1]; tN[0] = onrm[0]; tN[1] = onrm[1]; tN[2] = onrm[2]; double tGain = gain, tSub = subL, tNz = nzL;
+            if (!v.SSet) { v.SG[0] = tG[0]; v.SG[1] = tG[1]; v.SK[0] = tK[0]; v.SK[1] = tK[1]; v.SN[0] = tN[0]; v.SN[1] = tN[1]; v.SN[2] = tN[2]; v.SGain = tGain; v.SSub = tSub; v.SNz = tNz; v.SSet = true; }
+            bool fMove0 = fp[0].On && (Math.Abs(tG[0] - v.SG[0]) > 1e-9 || Math.Abs(tK[0] - v.SK[0]) > 1e-9), fMove1 = fp[1].On && (Math.Abs(tG[1] - v.SG[1]) > 1e-9 || Math.Abs(tK[1] - v.SK[1]) > 1e-9);
+            if (v.SSub > 0 && subL <= 0) subL = 1e-12; if (v.SNz > 0 && nzL <= 0) nzL = 1e-12;   // a level going to nothing still glides down
             // ---- per-sample ----
             for (int i = 0; i < len; i++)
             {
+                { double fr = (i + 1.0) / len;
+                  if (fMove0) SetFilt(0, v.SG[0] + (tG[0] - v.SG[0]) * fr, v.SK[0] + (tK[0] - v.SK[0]) * fr);
+                  if (fMove1) SetFilt(1, v.SG[1] + (tG[1] - v.SG[1]) * fr, v.SK[1] + (tK[1] - v.SK[1]) * fr);
+                  for (int o = 0; o < 3; o++) onrm[o] = v.SN[o] + (tN[o] - v.SN[o]) * fr;
+                  gain = v.SGain + (tGain - v.SGain) * fr; subL = v.SSub + (tSub - v.SSub) * fr; nzL = v.SNz + (tNz - v.SNz) * fr; }
                 double aenv = v.Env[0]; double b1l = 0, b1r = 0, b2l = 0, b2r = 0, dl = 0, dr = 0;
                 for (int oi = 2; oi >= 0; oi--)
                 {
@@ -551,8 +562,12 @@ class SynthFx : InstrumentFx
                 outL[start + i] += (float)yl; outR[start + i] += (float)yr;
                 StepAmp(v);
             }
+            v.SG[0] = tG[0]; v.SG[1] = tG[1]; v.SK[0] = tK[0]; v.SK[1] = tK[1]; v.SN[0] = tN[0]; v.SN[1] = tN[1]; v.SN[2] = tN[2]; v.SGain = tGain; v.SSub = tSub; v.SNz = tNz;
         }
     }
+    readonly double[] tG = new double[2], tK = new double[2], tN = new double[3];
+    // a filter's coefficients for a cutoff (as tan(pi f / SR)) and damping, set sample by sample while they glide
+    void SetFilt(int k, double g, double kk) { fg[k] = g; fk[k] = kk; fa1[k] = 1 / (1 + g * (g + kk)); fa2[k] = g * fa1[k]; fa3[k] = g * fa2[k]; fb1[k] = 1 / (1 + g * (g + 1.41421)); fb2[k] = g * fb1[k]; fb3[k] = g * fb2[k]; }
 
     // where a sound source goes: filter 1, filter 2, both (in series that is just filter 1, which feeds filter 2), or straight to the output
     void Route(int route, double l, double r, ref double b1l, ref double b1r, ref double b2l, ref double b2r, ref double dl, ref double dr)
@@ -624,7 +639,7 @@ class SynthFx : InstrumentFx
         var P = ep[0]; double sr = SR;
         switch (v.Stage[0])
         {
-            case 1: if (P.A <= 0.5) { v.Env[0] = 1; v.Stage[0] = 2; } else { v.Env[0] += 1.0 / (P.A * 0.001 * sr); if (v.Env[0] >= 1) { v.Env[0] = 1; v.Stage[0] = 2; } } break;
+            case 1: { v.Env[0] += 1.0 / (Math.Max(2.0, P.A) * 0.001 * sr); if (v.Env[0] >= 1) { v.Env[0] = 1; v.Stage[0] = 2; } break; }   // never quicker than 2 ms: a 0 ms attack switched the sound on in one sample (a click on every note)
             case 2: { double c = Math.Exp(-4.6 / (Math.Max(1, P.D) * 0.001 * sr)); v.Env[0] = P.S + (v.Env[0] - P.S) * c; break; }
             case 3: v.Env[0] = P.S; break;
             case 4: v.Env[0] *= Math.Exp(-4.6 / (Math.Max(1, P.R) * 0.001 * sr)); if (v.Env[0] < 0.0003) { v.Env[0] = 0; v.Stage[0] = 0; v.On = false; v.OutL = v.OutR = v.OffL = v.OffR = 0; } break;

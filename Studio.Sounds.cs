@@ -187,8 +187,8 @@ partial class StudioForm
         using (var br = new SolidBrush(TM.C(255, 18, 10, 34))) g.FillRectangle(br, pr); using (var pen = new Pen(Color.FromArgb(150, NeonViolet))) g.DrawLine(pen, x, y, x, y + h); Reg(pr, () => { });
         SoundTabs(g, x + 14, y + 7, false);
         var cl = Rc(x + w - 38, y + 8, 28, 26); Btn(g, cl, "x", 0, () => CloseSounds(), 13);
-        Btn(g, Rc(x + w - 130, y + 8, 84, 26), "Import", 0, () => ImportMenu(), 11);
-        Btn(g, Rc(x + w - 248, y + 8, 112, 26), sndFull ? "Exit full" : "Fullscreen", sndFull ? 4 : 0, () => { sndFull = !sndFull; }, 11);
+        { var ib = Rc(x + w - 150, y + 8, 104, 26); var ir = Btn(g, ib, "IMPORT AUDIO", 2, () => ImportAudioAsk(), 10); ir.OnRight = () => ImportMenu(); Hint2(ib, "Add sounds from your computer to your library (kept in My samples). Right-click: a whole folder or a sound pack"); }
+        Btn(g, Rc(x + w - 268, y + 8, 112, 26), sndFull ? "Exit full" : "Fullscreen", sndFull ? 4 : 0, () => { sndFull = !sndFull; }, 11);
         int installedPacks = 0; lock (SoundLibrary.Lock) foreach (var p in SoundLibrary.Packs) if (p.Items.Count > 0) installedPacks++;
         Txt(g, "Search by name, pack, style, key or tempo (for example: reese 174, F min, kick):", 10, DimC, Rc(x + 14, y + 38, w - 28, 14), StringAlignment.Near, false);
         var sb = Rc(x + 14, y + 54, w - 28, 28); if (soundBox.Visible != !(packsOpen || menuOpen || browserOpen || busy)) soundBox.Visible = !(packsOpen || menuOpen || browserOpen || busy);
@@ -474,6 +474,19 @@ partial class StudioForm
     }
     void AddAny(ContextMenuStrip m, string text, Action a) { var it = new ToolStripMenuItem(text); it.Click += (x, y) => { a(); sndDirty = true; sndScroll = 0; }; m.Items.Add(it); m.Items.Add(new ToolStripSeparator()); }
     void AddItem(ContextMenuStrip m, string text, bool on, Action a) { var it = new ToolStripMenuItem(text) { Checked = on }; it.Click += (x, y) => { a(); sndDirty = true; sndScroll = 0; }; m.Items.Add(it); }
+    // IMPORT AUDIO (under PRODUCER TAG and in the sound packs): sounds from your computer are copied into My samples, so they stay in your library
+    internal void ImportAudioAsk()
+    {
+        using (var d = new OpenFileDialog { Title = "Import sounds from your computer", Multiselect = true, Filter = "Audio and MIDI|*.wav;*.mp3;*.flac;*.ogg;*.aiff;*.aif;*.m4a;*.mid|All files|*.*" })
+            if (d.ShowDialog(this) == DialogResult.OK) Toast(ImportAudioFrom(d.FileNames));
+    }
+    internal string ImportAudioFrom(string[] files)
+    {
+        int n = SoundLibrary.ImportFiles(files, null); if (n == 0) return "Nothing new was imported (already in My samples, or not a sound file: WAV, MP3, FLAC, OGG, AIFF, M4A or MIDI).";
+        OpenSounds(); packsOpen = false; sndFilter.Text = ""; sndFilter.Genre = ""; sndFilter.Sub = ""; sndFilter.Type = ""; sndFilter.Group = ""; sndFilter.Kind = ""; sndFilter.OnlyFav = false; sndFilter.OnlyRecent = false; sndFilter.Collection = ""; sndFilter.Pack = SoundLibrary.UserPackId;
+        if (soundBox != null && soundBox.Text.Length > 0) soundBox.Text = ""; sndDirty = true; sndScroll = 0; Invalidate();
+        return "Imported " + n + " sound" + (n == 1 ? "" : "s") + " into My samples (saved in your library): drag them onto the song, a pad or the piano roll.";
+    }
     void ImportMenu()
     {
         var m = Win.NewMenu();

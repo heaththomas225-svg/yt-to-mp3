@@ -215,7 +215,7 @@ partial class StudioForm
         PrSync(); var t = prTrack; float x = C.X, y = C.Y, w = C.Width, h = C.Height; prArea = C;
         // the bar: track picker, what kind of track, snap, length, scale, chords, ghosts, preview, tools
         float bx = x; var tp = Rc(bx, y, 28, 24); Btn(g, tp, "<", 0, () => PrStepTrack(-1), 11); Hint2(tp, "The previous note track"); bx += 30;
-        var tn = Rc(bx, y, 190, 24); string tname = t == null ? "NO NOTE TRACK" : (t == prDraft ? "YOUR PATTERN" : t.Name); Btn(g, tn, tname, 4, () => PrTrackMenu(), 10); Hint2(tn, "The track you are editing: click to pick another (the piano roll stays open)"); bx += 192;
+        var tn = Rc(bx, y, 190, 24); string tname = t == null ? "NO NOTE TRACK" : (t == prDraft ? "YOUR PATTERN" : t.Name); Btn(g, tn, "", 4, () => PrTrackMenu(), 10); Txt(g, tname.ToUpperInvariant(), 10, Color.White, Rc(tn.X + 22, tn.Y, tn.Width - 28, tn.Height), StringAlignment.Near, true);   /* the name beside the colour dot, never under it */ Hint2(tn, "The track you are editing: click to pick another (the piano roll stays open)"); bx += 192;
         var tx2 = Rc(bx, y, 28, 24); Btn(g, tx2, ">", 0, () => PrStepTrack(1), 11); Hint2(tx2, "The next note track"); bx += 34;
         if (t != null) { using (var cb = new SolidBrush(Neon(t.Color))) g.FillEllipse(cb, tn.X + 6, tn.Y + 7, 10, 10); }
         string kind = t == null ? "" : !PrCanEdit(t) ? (t.Clip != null ? "AUDIO TRACK" : "NO SOUND YET") : (PrSampler != null ? (PrSampler.IsKit ? "DRUM KIT (SAMPLER)" : (PrSampler.Zones.Count == 0 ? "SAMPLER: NO SAMPLE YET" : (PrSampler.AnyFollow ? "SAMPLER: FOLLOWS THE NOTES" : "SAMPLER: FIXED PITCH (DRUM)"))) : (t.HasInstrumentFx ? "INSTRUMENT: " + PlayerOf(t).Title.ToUpperInvariant() : "MIDI TRACK: BUILT-IN KEYS"));
