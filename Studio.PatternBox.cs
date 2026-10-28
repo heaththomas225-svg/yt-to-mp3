@@ -19,6 +19,8 @@ partial class StudioForm
     internal PatBox prBox; bool prBoxDrag; PointF prBoxAt;
     static readonly string[] PatPackOf = { "trap-starter", "boom-bap-classics", "lofi-essentials", "uk-drill-starter", "dnb-rollers", "house-essentials", "afrobeats-essentials", "reggaeton-essentials", "uk-garage", "drift-phonk" };
 
+    // the library pack whose drums a style plays (its own Pack, else one of the first ten)
+    internal static string PackOfStyle(int i) { var st = PatStyles[Math.Max(0, Math.Min(PatStyles.Length - 1, i))]; return st.Pack.Length > 0 ? st.Pack : PatPackOf[Math.Max(0, Math.Min(PatPackOf.Length - 1, i))]; }
     // the beat as notes from bar 0 (frames at the song's tempo), one part per job the style plays
     internal PatBox BuildPattern(int styleIndex, int bars)
     {
@@ -51,7 +53,7 @@ partial class StudioForm
         foreach (var t in eng.Tracks) { if (JobOf(t) != job) continue; var src = t.Fx.OfType<SamplerFx>().FirstOrDefault(); if (src == null || src.Zones.Count == 0) continue; var c = new SamplerFx(); c.Prepare(StudioEngine.SR); c.Deserialize(src.Serialize()); return c; }
         try
         {
-            var rec = SoundCatalog.Find(PatPackOf[Math.Max(0, Math.Min(PatPackOf.Length - 1, styleIndex))]); if (rec == null) return null; string[] codes = { "ok|", "os|", "oh|", "oo|", "op|", "o8|" };
+            var rec = SoundCatalog.Find(PackOfStyle(styleIndex)); if (rec == null) return null; string[] codes = { "ok|", "os|", "oh|", "oo|", "op|", "o8|" };
             var it = InstantLib.ItemsOf(rec.Id).FirstOrDefault(x => x.Spec.StartsWith(codes[job])); if (job == 1 && (rec.Drums == "trap" || rec.Drums == "drill" || rec.Drums == "house")) it = InstantLib.ItemsOf(rec.Id).FirstOrDefault(x => x.Spec.StartsWith("oc|")) ?? it;
             if (it == null || InstantLib.Ensure(it) != null) return null; var s = new SamplerFx(); s.Prepare(StudioEngine.SR);
             int root = 60; if (job == 5) { int rt; bool mi; root = SoundLibrary.ParseKey(it.Key, out rt, out mi) ? 24 + rt : 24; }
