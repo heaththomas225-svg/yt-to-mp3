@@ -1,4 +1,4 @@
-3.78.0
+3.78.1
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Beat Lab (pads and steps in the piano roll), MIDI clips you can move, loop, trim, split and merge
-sha256=18263b325abd6de4aee27776ab798955edd05ef77da6e0add5d3f466ce606f7c
+Own tracks on Beat Lab rows, drop highlight, GENERATE one sound at a time, plugin descriptions
+sha256=e986c74d577164a5a6acd250a1995e0b6a30ac3df028f97ef7fd34d28eade22e
