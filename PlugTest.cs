@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Diagnostics;
 
 // Checks every built-in library plugin processes audio safely, and the DSP engines do what they claim.   csc /main:P ... PlugTest.cs
@@ -225,6 +226,9 @@ static class P
         Check("all " + n + " library plugins tested (" + skipped + " more library versions share their engines) create, run and are safe", bad == 0, bad + " problems, " + sw.Elapsed.TotalSeconds.ToString("0") + " s");
         times.Sort((a, b) => { double x = double.Parse(a.Substring(a.LastIndexOf(' ') + 1).TrimEnd('%')), y = double.Parse(b.Substring(b.LastIndexOf(' ') + 1).TrimEnd('%')); return y.CompareTo(x); });
         Console.WriteLine("heaviest: " + string.Join(", ", times.GetRange(0, Math.Min(6, times.Count)).ToArray()));
+        { var missing = FxRegistry.All.Where(i => i.Type != "gain" && (!FxHelp.Has(i.Name) || FxHelp.Use(i.Name).Length < 8 || FxHelp.What(i.Name, "").Length < 8)).Select(i => i.Name).ToList();
+          var badW = new List<string>(); foreach (var i in FxRegistry.All) { string t = FxHelp.Full(i.Name, i.Blurb); foreach (var w in new[] { "Auto-Tune", "Serum", "Ableton", "FL Studio", "Waves", "Xfer", "Roland", "Antares" }) if (t.IndexOf(w, StringComparison.OrdinalIgnoreCase) >= 0) badW.Add(i.Name + ": " + w); }
+          Check("every effect and VST in the list says what it does and what to use it for, in plain words (no other companies' products named)", missing.Count == 0 && badW.Count == 0, string.Join(", ", missing.Concat(badW))); }
         Console.WriteLine(fails == 0 ? "=== plugin checks passed ===" : "=== " + fails + " FAILED ==="); Environment.Exit(fails == 0 ? 0 : 1);
     }
 }

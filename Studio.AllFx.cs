@@ -135,7 +135,7 @@ partial class StudioForm
                 }
                 if (ry + 26 > bottom) break;
                 var row = Rc(col.X + 10, ry, colW - 20, 26); bool hot = Hot(row); if (ti == selTrack && fi == selFx) PaintPickedFx(g, row, 7); else FillRR(g, hot ? TM.C(200, 70, 36, 130) : TM.C(150, 44, 24, 80), row, 7);   // the plugin open in the plugin panel stands out here too
-                { var tk = tr; int tix = ti; Reg(row, () => { allFxOpen = false; tab = 0; PickAllFxColumn(tk, tix); selFx = fi; }); Hint2(row, "Open " + f.Title + " of " + tr.Name); }
+                { var tk = tr; int tix = ti; Reg(row, () => { allFxOpen = false; tab = 0; PickAllFxColumn(tk, tix); selFx = fi; }); Hint2(row, "Open " + f.Title + " of " + tr.Name + ". " + FxHelp.About(f)); }
                 var dot = Rc(row.X + 5, row.Y + 4, 18, 18);   /* the on/off circle, 50% bigger */ using (var b2 = new SolidBrush(f.Bypass ? TM.C(90, 90, 70, 110) : Good)) g.FillEllipse(b2, dot); { var ff = f; Reg(Rc(row.X, row.Y, 28, 26), () => ff.Bypass = !ff.Bypass); }
                 float cpl = CopyPasteBtns(g, f, tr, row.Right - 28, row.Y + 3, 20);   // COPY and PASTE on every plugin
                 RowTitle(g, f.Title, 12, f.Bypass ? DimC : Ink, Rc(row.X + 30, row.Y, cpl - row.X - 32, 26), false);

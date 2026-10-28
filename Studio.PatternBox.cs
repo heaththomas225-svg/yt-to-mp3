@@ -22,13 +22,14 @@ partial class StudioForm
     // the library pack whose drums a style plays (its own Pack, else one of the first ten)
     internal static string PackOfStyle(int i) { var st = PatStyles[Math.Max(0, Math.Min(PatStyles.Length - 1, i))]; return st.Pack.Length > 0 ? st.Pack : PatPackOf[Math.Max(0, Math.Min(PatPackOf.Length - 1, i))]; }
     // the beat as notes from bar 0 (frames at the song's tempo), one part per job the style plays
-    internal PatBox BuildPattern(int styleIndex, int bars)
+    // onlyJob: just that one sound (a kick, the hats, the 808...) in the box, nothing else
+    internal PatBox BuildPattern(int styleIndex, int bars, int onlyJob = -1)
     {
         var st = PatStyles[styleIndex]; var box = new PatBox { Style = st.Name, StyleIndex = styleIndex, Bars = bars, Bpm = Fx.ProjectBpm };
         double beat = StudioEngine.SR * 60.0 / Fx.ProjectBpm, step = beat / 4; string[] P = { st.Kick, st.Snare, st.Hat, st.Open, st.Perc };
         for (int j = 0; j < 5; j++)
         {
-            string p = P[j]; if (string.IsNullOrEmpty(p)) continue; var part = new PatPart { Job = j, Name = Jobs[j] }; bool swingOk = j >= 2;
+            string p = P[j]; if (string.IsNullOrEmpty(p) || (onlyJob >= 0 && j != onlyJob)) continue; var part = new PatPart { Job = j, Name = Jobs[j] }; bool swingOk = j >= 2;
             for (int s = 0; s < bars * 16; s++)
             {
                 char c = p[s % p.Length]; if (c == '.') continue; double sw = swingOk && st.Swing > 0.5 && s % 2 == 1 ? (st.Swing - 0.5) * 2 * step : 0; long at = (long)Math.Round(s * step + sw); int vel = j == 2 ? 100 : 112;
@@ -38,6 +39,7 @@ partial class StudioForm
             }
             box.Parts.Add(part);
         }
+        if (onlyJob < 0 || onlyJob == 5)
         { // the 808 on the kick's rhythm, in the piano roll's key
             var part = new PatPart { Job = 5, Name = Jobs[5] }; var hits = new List<int>(); for (int s = 0; s < bars * 16; s++) if (st.Kick[s % st.Kick.Length] == 'x') hits.Add(s);
             bool minor = prScale != 2 && prScale != 7; int baseNote = 24 + prKeyRoot;

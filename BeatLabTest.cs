@@ -42,11 +42,16 @@ static class BeatLabTest
         { string withBl = (string)M("PrPrefsText"); M("PrApplyPrefs", ""); M("PrApplyPrefs", withBl); Check("...through the project's piano roll settings too", sf.BlSave() == saved, withBl.Length + " chars"); }
         { var si = new SoundItem { Name = "Test Clap", Path = MakeWav(), Kind = "one-shot", Rel = "x.wav", Type = "Clap" }; sf.blPadCount = 32; sf.BlSetPad(20, si); Check("a sound dropped on a pad goes on that pad (32 pads)", sf.blPads[20].Sound != null && sf.blPads[20].Name == "Test Clap" && sf.blPads[20].Job == 1); }
         { sf.blCur = 0; int n0 = eng.Tracks.Count; string msg = (string)M("BlAddToSong"); int added = eng.Tracks.Count - n0; Check("ADD TO SONG puts the beat in as note tracks, one per pad that plays", added >= 4 && eng.Tracks.Skip(n0).All(x => x.Instrument && x.Midi.Count > 0), added + " tracks: " + msg); }
+        { var nt = eng.Tracks.Last(x => x.Instrument && x.Midi.Count > 0); string m1 = sf.BlPadFromTrack(25, nt, true); string m2 = sf.BlPadFromTrack(26, nt, false);
+          var al = new float[44100]; for (int i = 0; i < al.Length; i++) al[i] = (float)(0.5 * Math.Sin(i * 2 * Math.PI * 220 / 44100) * (i < 22050 ? 1 : 0)); var at = StudioEngine.NewTrack("My Loop", "audio", AudioClip.FromArrays(al, al, "My Loop")); at.Offset = 44100; eng.Tracks.Add(at);
+          string m3 = sf.BlPadFromTrack(27, at, false); var s27 = sf.blPads[27].Sound;
+          Check("your own tracks go on pads: one hit of a note track, its whole part, an audio track (with silence cut off)", sf.blPads[25].Sound != null && sf.blPads[26].Sound != null && s27 != null && sf.blPads[27].Name == "My Loop", m1 + " / " + m2 + " / " + m3);
+          eng.Tracks.Remove(at); }
         sf.blRec = true; sf.blPlaying = true; Render(3, out pk); int b4 = sf.blPats[0].Vel[5].Count(v => v > 0); sf.BlHit(5, 120); int af = sf.blPats[0].Vel[5].Count(v => v > 0); sf.blPlaying = false; sf.blRec = false;
         Check("REC writes a pad you hit into the steps while the beat loops", af >= b4 && sf.blPats[0].Vel[5].Any(v => v == 120), b4 + " -> " + af);
         // ---- the MIDI clips ----
         foreach (var t0 in eng.Tracks.ToList()) M("DeleteTrackQuiet", t0);
-        var box = (StudioForm.PatBox)M("BuildPattern", 0, 4); M("DropPatternBox", box, 0L); var t = eng.Tracks.First(x => x.Instrument); var bass = eng.Tracks.Last(x => x.Instrument);
+        var box = (StudioForm.PatBox)M("BuildPattern", 0, 4, -1); M("DropPatternBox", box, 0L); var t = eng.Tracks.First(x => x.Instrument); var bass = eng.Tracks.Last(x => x.Instrument);
         double bar = 44100 * 60.0 / Fx.ProjectBpm * 4; lock (t.Midi) foreach (var b in new[] { 6, 7 }) { t.Midi.Add(new MidiEv { Frame = (long)(b * bar), S = 0x90, D1 = 60, D2 = 100 }); t.Midi.Add(new MidiEv { Frame = (long)(b * bar + 2000), S = 0x80, D1 = 60, D2 = 0 }); }
         M("McSort", t); sf.McSync(t); Check("notes always sit in clips: a bar or more of silence starts a new one", t.MClips.Count == 2 && t.MClips[0].Start == 0 && Math.Abs(t.MClips[0].Len - 4 * bar) < 2 && Math.Abs(t.MClips[1].Start - 6 * bar) < 2, string.Join(", ", t.MClips.Select(c => (c.Start / bar).ToString("0.#") + "+" + (c.Len / bar).ToString("0.#"))));
         Paint(); int n0n = Ons(t);

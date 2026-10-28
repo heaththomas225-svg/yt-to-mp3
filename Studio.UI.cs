@@ -123,9 +123,11 @@ partial class StudioForm : Form
         FormClosed += (s, e) => { try { if (histDue != DateTime.MinValue) HistWrite(); } catch { } SessionEnd(); };   // a proper close: no crash marker left
         Shown += (s, e) => BeginInvoke(new Action(SessionStart));   // a crash last time? offer the autosave back
         DragEnter += (s, e) => { if (e.Data.GetDataPresent(DataFormats.FileDrop)) { e.Effect = DragDropEffects.Copy; dragOver = true; ExtDragStart(e.Data.GetData(DataFormats.FileDrop) as string[]); Invalidate(); } };
-        DragOver += (s, e) => { if (e.Data.GetDataPresent(DataFormats.FileDrop)) { e.Effect = DragDropEffects.Copy; if (extDrag) { MousePos = PointToClient(new Point(e.X, e.Y)); lastInput = DateTime.Now; Invalidate(); } else if (!dragOver) { dragOver = true; Invalidate(); } } };
+        DragOver += (s, e) => { if (e.Data.GetDataPresent(DataFormats.FileDrop)) { e.Effect = DragDropEffects.Copy; if (extDrag) { MousePos = PointToClient(new Point(e.X, e.Y)); lastInput = DateTime.Now; Invalidate(); } else { if (BlShown) { MousePos = PointToClient(new Point(e.X, e.Y)); Invalidate(); } if (!dragOver) { dragOver = true; Invalidate(); } } } };
         DragLeave += (s, e) => { dragOver = false; ExtDragEnd(); Invalidate(); };
-        DragDrop += (s, e) => { dragOver = false; Invalidate(); var pc = PointToClient(new Point(e.X, e.Y)); if (extDrag && sndDrag != null && BlPadAt(pc) >= 0) { var sd = sndDrag; extDrag = false; sndDragging = false; sndDrag = null; BlDrop(sd, pc); return; } if (extDrag && OverTimeline(pc)) { MousePos = pc; extDrag = false; sndDragging = false; DropSampleAt(pc); sndDrag = null; return; } ExtDragEnd(); var fl = (string[])e.Data.GetData(DataFormats.FileDrop); var dropOn = EmptyTrackAt(PointToClient(new Point(e.X, e.Y))); bool firstFile = true; foreach (var f in fl) { if (firstFile && dropOn != null && !f.EndsWith(".ytmproj", StringComparison.OrdinalIgnoreCase)) fillTrack = dropOn; firstFile = false; try { PromptImport(f); } finally { fillTrack = null; } } }; StudioEngine.WarmUp();
+        DragDrop += (s, e) => { dragOver = false; Invalidate(); var pc = PointToClient(new Point(e.X, e.Y)); if (extDrag && sndDrag != null && BlPadAt(pc) >= 0) { var sd = sndDrag; extDrag = false; sndDragging = false; sndDrag = null; BlDrop(sd, pc); return; } if (extDrag && OverTimeline(pc)) { MousePos = pc; extDrag = false; sndDragging = false; DropSampleAt(pc); sndDrag = null; return; } ExtDragEnd(); var fl = (string[])e.Data.GetData(DataFormats.FileDrop);
+        { int bp = BlPadAt(pc); if (bp >= 0 && fl != null && fl.Length > 0 && AudioExts.Contains("*" + System.IO.Path.GetExtension(fl[0]).ToLowerInvariant() + ";")) { BlSetPad(bp, new SoundItem { Name = System.IO.Path.GetFileNameWithoutExtension(fl[0]), Path = fl[0], Kind = "one-shot", Rel = System.IO.Path.GetFileName(fl[0]) }); return; } }   /* a sound from a folder dropped on a Beat Lab row */
+        var dropOn = EmptyTrackAt(PointToClient(new Point(e.X, e.Y))); bool firstFile = true; foreach (var f in fl) { if (firstFile && dropOn != null && !f.EndsWith(".ytmproj", StringComparison.OrdinalIgnoreCase)) fillTrack = dropOn; firstFile = false; try { PromptImport(f); } finally { fillTrack = null; } } }; StudioEngine.WarmUp();
         FitView();
     }
 
@@ -1238,6 +1240,7 @@ partial class StudioForm : Form
           { var vb = nextRow(); Btn(g, vb, "VSTS", browserOpen && browserVst ? 4 : 2, () => OpenVsts(), 11); Hint2(vb, "Bass Lab, your VST instruments and the Purphex VSTs: choose the track (FOR) and add one"); }
           var snb = nextRow(); Btn(g, snb, "SOUND PACKS", soundsOpen ? 4 : 0, () => { if (soundsOpen) CloseSounds(); else OpenPacks(); }, 11);
           { var ptb = nextRow(); Btn(g, ptb, "PRODUCER TAG", toolWins.Exists(q => q.Kind == TagKind) ? 4 : 0, () => OpenProducerTag(), 11); Hint2(ptb, "Make your producer tag: type it, pick a voice or record your own, add effects and a vocal preset" + (FreeStudio ? " (Supporter Edition and up)" : "")); }
+          { var iab = nextRow(); Btn(g, iab, "IMPORT AUDIO", 0, () => ImportAudioAsk(), 11); Hint2(iab, "Add sounds from your computer to your library: they are kept in My samples in the sound packs"); }
           hb = by + bi * 30 + 4; }
         if (InsShown || (PluginsInMixerOnly && busEdit == null))   // (EDIT on a bus still shows that bus here)
         {   // plugins live in the mixer only (one place for effects): the panel points there, open or not; a click on a plugin there opens its own window
@@ -1271,7 +1274,7 @@ partial class StudioForm : Form
             {
                 var f = fxs[i]; int fi = i; bool sel = i == selFx;
                 var row = Rc(x + 14, ly, w - 36, 28); if (sel) PaintPickedFx(g, row, 6); else FillRR(g, TM.C(150, 40, 22, 74), row, 6);   // the plugin you are editing stands out
-                Reg(row, () => selFx = fi); { var rw2 = Reg(row, () => selFx = fi); rw2.OnDouble = () => OpenFxWindow(tr, f); }   // double-click: its own window
+                Reg(row, () => selFx = fi); { var rw2 = Reg(row, () => selFx = fi); rw2.OnDouble = () => OpenFxWindow(tr, f); } { string ab = FxHelp.About(f); if (ab.Length > 0) Hint2(row, f.Title + ": " + ab + "  (double-click opens it)"); }   // double-click: its own window
                 var dotr = Rc(row.X + 6, row.Y + 3.5f, 21, 21);   /* the on/off circle, 50% bigger */ using (var b2 = new SolidBrush(f.Bypass ? TM.C(90, 90, 70, 110) : Good)) g.FillEllipse(b2, dotr);
                 Reg(dotr, () => { f.Bypass = !f.Bypass; });
                 float cpl = CopyPasteBtns(g, f, tr, row.Right - 80, row.Y + 3, 22);   // COPY and PASTE on every plugin
@@ -1500,7 +1503,7 @@ partial class StudioForm : Form
         if (browserVst) { var fb = Rc(x + 20, y + 94, 330, 26); var bt = browserTrack >= 0 && browserTrack < eng.Tracks.Count ? eng.Tracks[browserTrack] : null; Btn(g, fb, "FOR: " + (bt != null ? (browserTrack + 1) + ". " + bt.Name : "CHOOSE A TRACK") + "  v", bt != null ? 1 : 3, () => VstTrackMenu(), 12); Hint2(fb, "The track the VST goes on: pick one of your tracks or a new track"); Txt(g, list.Count + (list.Count == 1 ? " VST" : " VSTs"), 12, DimC, Rc(fb.Right + 12, y + 94, 160, 26), StringAlignment.Near, false); }
         else { var cb = Rc(x + 20, y + 94, 250, 26); Btn(g, cb, "Category: " + (browserCat.Length == 0 ? "All" : browserCat), browserCat.Length == 0 ? 0 : 4, () => CategoryMenu(), 12); Txt(g, list.Count + (list.Count == 1 ? " effect" : " effects"), 12, DimC, Rc(x + 280, y + 94, 200, 26), StringAlignment.Near, false); }
         float listTop = y + 128;
-        float listH = 0; { string lc = ""; foreach (var i2 in list) { if (i2.Category != lc) { lc = i2.Category; listH += 20; } listH += 48; } }
+        float listH = 0; { string lc = ""; foreach (var i2 in list) { if (i2.Category != lc) { lc = i2.Category; listH += 20; } listH += 88; } }
         float browserMax = Math.Max(0, listH - (h - (listTop - y) - 40) + 8); browserMaxF = browserMax; browserScroll = Math.Max(0, Math.Min(browserMax, browserScroll));
         float ry = listTop - browserScroll; var clipR = Rc(x + 10, listTop - 4, w - 20, h - (listTop - y) - 36); g.SetClip(clipR);   // the list stops above the line over the hints
         string lastCat = "";
@@ -1512,27 +1515,29 @@ partial class StudioForm : Form
                 lastCat = info.Category;
                 if (info.Category == "Purphex VST")   // our own plugins with their own window: first, in a box of their own
                 {
-                    int pc = 0; for (int q = li; q < list.Count && list[q].Category == "Purphex VST"; q++) pc++; var pbox = Rc(x + 12, ry - 3, w - 24 - (browserMax > 0 ? 56 : 0), 20 + pc * 48 + 2);
+                    int pc = 0; for (int q = li; q < list.Count && list[q].Category == "Purphex VST"; q++) pc++; var pbox = Rc(x + 12, ry - 3, w - 24 - (browserMax > 0 ? 56 : 0), 20 + pc * 88 + 2);
                     FillRR(g, Color.FromArgb(130, 40, 16, 70), pbox, 12); Glow(g, PxPurple, pbox, 12, 0.7f, 3); StrokeRR(g, PxPurple, pbox, 12, 1.6f);
                     if (ry + 18 > clipR.Y && ry < clipR.Bottom) Txt(g, "PURPHEX VST  -  built in: our own plugins, each with its own window", 11, PxPurple, Rc(x + 26, ry, w - 100, 18), StringAlignment.Near, true);
                 }
                 else if (info.Category == "Instruments")   // Bass Lab and the VSTs are not effects: they sit apart, in a box of their own
                 {
-                    int ic = 0; for (int q = li; q < list.Count && list[q].Category == "Instruments"; q++) ic++; var ibox = Rc(x + 12, ry - 3, w - 24 - (browserMax > 0 ? 56 : 0), 20 + ic * 48 + 2);
+                    int ic = 0; for (int q = li; q < list.Count && list[q].Category == "Instruments"; q++) ic++; var ibox = Rc(x + 12, ry - 3, w - 24 - (browserMax > 0 ? 56 : 0), 20 + ic * 88 + 2);
                     FillRR(g, TM.C(120, 14, 24, 52), ibox, 12); Glow(g, NeonCyan, ibox, 12, 0.45f, 3); StrokeRR(g, Color.FromArgb(200, NeonCyan), ibox, 12, 1.3f);
                     if (ry + 18 > clipR.Y && ry < clipR.Bottom) Txt(g, "VST PLUGINS  -  they make the sound, they are not effects", 11, NeonCyan, Rc(x + 26, ry, w - 100, 18), StringAlignment.Near, true);
                 }
                 else if (ry + 18 > clipR.Y && ry < clipR.Bottom) Txt(g, info.Category.ToUpperInvariant(), 11, Accent, Rc(x + 24, ry, 300, 18), StringAlignment.Near, true);
                 ry += 20;
             }
-            if (ry + 44 < clipR.Y || ry > clipR.Bottom) { ry += 48; continue; }   // off screen: neither drawn nor given a click region (it would lie on top of the header)
-            var row = Rc(x + 18, ry, w - 36 - (browserMax > 0 ? 56 : 0), 44); var vis = RectangleF.Intersect(row, clipR); bool hot = Hot(vis); FillRR(g, hot ? TM.C(220, 90, 50, 170) : TM.C(160, 44, 24, 80), row, 8);
+            if (ry + 84 < clipR.Y || ry > clipR.Bottom) { ry += 88; continue; }   // off screen: neither drawn nor given a click region (it would lie on top of the header)
+            var row = Rc(x + 18, ry, w - 36 - (browserMax > 0 ? 56 : 0), 84); var vis = RectangleF.Intersect(row, clipR); bool hot = Hot(vis); FillRR(g, hot ? TM.C(220, 90, 50, 170) : TM.C(160, 44, 24, 80), row, 8);
             if (info.Category == "Purphex VST") { var gsB = g.Save(); g.SetClip(clipR, System.Drawing.Drawing2D.CombineMode.Intersect); Glow(g, PxPurple, row, 8, hot ? 1f : 0.6f, 3); StrokeRR(g, Color.FromArgb(hot ? 255 : 230, PxPurple), row, 8, hot ? 2f : 1.5f); g.Restore(gsB); }   // built in: a purple neon border that never changes with the theme
             Txt(g, info.Name, 15, Ink, Rc(row.X + 14, row.Y + 3, row.Width - 120, 20), StringAlignment.Near, true);
-            using (var sfB = new StringFormat(StringFormatFlags.NoWrap) { Trimming = StringTrimming.EllipsisCharacter, LineAlignment = StringAlignment.Center }) using (var bb = new SolidBrush(DimC)) g.DrawString(info.Blurb, GfxCache.Font(11.5f, false), bb, Rc(row.X + 14, row.Y + 22, row.Width - 120, 18), sfB);   // every description the same size (a long one ends with ...)
+            // what it does and what to use it for, in plain words (Studio.FxHelp.cs); the whole of it shows when you point at the row
+            string what = PluginLibrary.IsLibrary(info.Type) || !FxHelp.Has(info.Name) ? info.Blurb : FxHelp.What(info.Name, info.Blurb), use = FxHelp.Use(info.Name);
+            using (var sfB = new StringFormat(StringFormatFlags.LineLimit) { Trimming = StringTrimming.EllipsisWord }) { using (var bb = new SolidBrush(Ink)) g.DrawString(what, GfxCache.Font(11.5f, false), bb, Rc(row.X + 14, row.Y + 23, row.Width - 120, 31), sfB); float wh = Math.Min(31, g.MeasureString(what, GfxCache.Font(11.5f, false), (int)(row.Width - 120), sfB).Height); if (use.Length > 0) using (var ub = new SolidBrush(DimC)) g.DrawString("Use it for: " + use, GfxCache.Font(11f, false), ub, Rc(row.X + 14, row.Y + 25 + wh, row.Width - 120, 29), sfB); }   // the second line right under the first
             if (browserVst && FreeStudio && !FreeVst(info.Type)) { var lk = Rc(row.Right - 196, row.Y + 4, 104, 18); FillRR(g, TM.C(200, 60, 40, 10), lk, 6); Edition.Padlock(g, new RectangleF(lk.X + 6, lk.Y + 3, 10, 14), Color.FromArgb(255, 255, 200, 90)); Txt(g, "SUPPORTER", 9, Color.FromArgb(255, 255, 210, 120), Rc(lk.X + 18, lk.Y, lk.Width - 20, lk.Height), StringAlignment.Center, true); }   // paid on the Free Edition
-            string type = info.Type; if (vis.Width > 0 && vis.Height > 0) Reg(vis, () => AddFx(type));   /* the whole row adds it; the Add button sits on top of the row */
-            if (row.Y + 8 >= clipR.Y && row.Y + 36 <= clipR.Bottom) Btn(g, Rc(row.Right - 86, row.Y + 8, 72, 28), "Add", 1, () => AddFx(type), 13); ry += 48;
+            string type = info.Type; if (vis.Width > 0 && vis.Height > 0) { Reg(vis, () => AddFx(type)); Hint2(vis, info.Name + ": " + what + (use.Length > 0 ? "  Use it for: " + use : "")); }   /* the whole row adds it; the Add button sits on top of the row */
+            if (row.Y + 28 >= clipR.Y && row.Y + 56 <= clipR.Bottom) Btn(g, Rc(row.Right - 86, row.Y + 28, 72, 28), "Add", 1, () => AddFx(type), 13); ry += 88;
         }
         if (list.Count == 0) Txt(g, "No plugin matches \"" + browserQuery + "\"", 14, DimC, Rc(x, y + 140, w, 30), StringAlignment.Center, false);
         g.ResetClip(); using (var pen = new Pen(Color.FromArgb(150, Accent), 1.2f)) g.DrawLine(pen, x + 18, clipR.Bottom + 2, x + w - 18, clipR.Bottom + 2);
@@ -1549,7 +1554,7 @@ partial class StudioForm : Form
         if (browserCat.Length > 0 && !Array.Exists(FxRegistry.All, i => i.Category == browserCat)) browserCat = "";   // a category that is not in the list any more shows everything
         string key = browserQuery + "\n" + browserCat + "\n" + browserVst; if (blCache != null && key == blKey) return blCache;
         var all = FxRegistry.All; var list = new List<FxRegistry.Info>(); string q = browserQuery.ToLowerInvariant().Trim();
-        foreach (var i in all) { if (i.Type == "gain") continue; if (IsVstCat(i.Category) != browserVst) continue;   /* the VSTs are under VSTS, the effects under ADD EFFECT */ if (browserCat.Length > 0 && i.Category != browserCat) continue; if (q.Length == 0 || i.Name.ToLowerInvariant().Contains(q) || i.Category.ToLowerInvariant().Contains(q) || i.Blurb.ToLowerInvariant().Contains(q) || i.Type.Contains(q)) list.Add(i); }
+        foreach (var i in all) { if (i.Type == "gain") continue; if (IsVstCat(i.Category) != browserVst) continue;   /* the VSTs are under VSTS, the effects under ADD EFFECT */ if (browserCat.Length > 0 && i.Category != browserCat) continue; if (q.Length == 0 || i.Name.ToLowerInvariant().Contains(q) || i.Category.ToLowerInvariant().Contains(q) || i.Blurb.ToLowerInvariant().Contains(q) || i.Type.Contains(q) || FxHelp.Full(i.Name, "").ToLowerInvariant().Contains(q)) list.Add(i); }
         var order = new List<string>(); order.Add("Plugins"); foreach (var i in all) if (!order.Contains(i.Category)) order.Add(i.Category);
         var res = new List<FxRegistry.Info>(); foreach (var c in order) foreach (var i in list) if (i.Category == c) res.Add(i); var pv = res.FindAll(x => x.Category == "Purphex VST"); { res.RemoveAll(x => x.Category == "Purphex VST"); var inst = res.FindAll(x => x.Category == "Instruments"); if (inst.Count > 0) { res.RemoveAll(x => x.Category == "Instruments"); var bl = inst.Find(x => x.Type == "synth"); if (bl != null) { inst.Remove(bl); inst.Insert(0, bl); } res.InsertRange(0, inst); } }   // the instruments (Bass Lab first, then the VSTs) are together at the top, in one box that fits them exactly
         res.InsertRange(0, pv);

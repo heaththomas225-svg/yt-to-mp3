@@ -109,6 +109,53 @@ partial class StudioForm
         BlMark(); var pad = blPads[i]; pad.Sound = smp; pad.Name = si.Name.Replace(si.PackName + " - ", ""); pad.Job = BlGuessJob(pad.Name + " " + si.Type + " " + si.Group); blSel = i; BlHit(i, 105);
         Toast(pad.Name + " is on pad " + (i + 1) + ": tap it, or switch on its steps.");
     }
+    // YOUR OWN TRACKS ON THE PADS: a song track's audio (its clips through its plugins, silence at the ends cut off) or one hit of its instrument
+    internal int BlFreePad() { for (int i = 0; i < blPadCount; i++) if (blPads[i].Sound == null) return i; return blSel; }
+    void BlTrackMenu(int pad) { var m = Win.NewMenu(); BlTrackItems(m.Items, pad); m.Show(this, Point.Round(MousePos)); }
+    void BlTrackItems(ToolStripItemCollection items, int pad)
+    {
+        var rows = eng.Tracks.Where(t => t.Host == null && !t.IsBus && !t.Off && BlTrackHasSound(t)).ToList();
+        if (rows.Count == 0) { items.Add(new ToolStripMenuItem("This song has no tracks with sound yet") { Enabled = false }); return; }
+        items.Add(new ToolStripMenuItem("Onto pad " + (pad + 1)) { Enabled = false });
+        foreach (var t in rows)
+        {
+            var tt = t;
+            if (t.Instrument)
+            {
+                var it = new ToolStripMenuItem(t.Name); it.DropDownItems.Add(new ToolStripMenuItem("One hit of its instrument (plays in tune with the pad's notes)", null, (a, b) => Toast(BlPadFromTrack(pad, tt, true))));
+                it.DropDownItems.Add(new ToolStripMenuItem("Its whole part as audio", null, (a, b) => Toast(BlPadFromTrack(pad, tt, false)))); items.Add(it);
+            }
+            else items.Add(new ToolStripMenuItem(t.Name, null, (a, b) => Toast(BlPadFromTrack(pad, tt, false))));
+        }
+    }
+    bool BlTrackHasSound(Track t) { foreach (var p in Exporter.RowSet(eng, t)) { if (p.Clip != null && p.UsedLength > 0) return true; if (p.Instrument) lock (p.Midi) if (p.Midi.Count > 0 || p.Fx.Any(f => f is InstrumentFx)) return true; } return false; }
+    internal string BlPadFromTrack(int pad, Track t, bool oneHit)
+    {
+        if (pad < 0 || pad >= 32) return "No pad to put it on."; int SR = StudioEngine.SR; float[] l, r;
+        if (oneHit)
+        {
+            // a copy of the track playing one middle C for half a second, its tail let ring
+            var c = CloneTrack(t, ""); c.Offset = 0; c.Mute = false; c.Out = null; lock (c.Midi) { c.Midi.Clear(); c.Midi.Add(new MidiEv { Frame = 0, S = 0x90, D1 = 60, D2 = 110 }); c.Midi.Add(new MidiEv { Frame = SR / 2, S = 0x80, D1 = 60, D2 = 0 }); } c.MClips.Clear();
+            eng.Render(0, SR * 3, new RenderOpts { Master = false, Fader = false, MuteSolo = false, Only = new List<Track> { c } }, null, out l, out r);
+        }
+        else
+        {
+            var only = Exporter.RowSet(eng, t); long a = long.MaxValue, e = 0;
+            foreach (var p in only) { if (p.Clip != null && p.UsedLength > 0) { a = Math.Min(a, p.Offset); e = Math.Max(e, p.Offset + p.UsedLength); } if (p.Instrument) lock (p.Midi) foreach (var m in p.Midi) { a = Math.Min(a, m.Frame); e = Math.Max(e, m.Frame + SR); } }
+            if (a == long.MaxValue || e <= a) return t.Name + " has no sound to put on a pad yet.";
+            e = Math.Min(e, a + SR * 30L);   // a pad holds up to 30 s
+            eng.Render(a, e - a + SR / 2, new RenderOpts { Master = false, Fader = false, MuteSolo = false, Only = only }, null, out l, out r);
+        }
+        int s0 = 0, s1 = l.Length; const float gate = 0.001f;   // -60 dB
+        while (s0 < s1 && Math.Abs(l[s0]) < gate && Math.Abs(r[s0]) < gate) s0++; while (s1 > s0 && Math.Abs(l[s1 - 1]) < gate && Math.Abs(r[s1 - 1]) < gate) s1--;
+        if (s1 - s0 < SR / 100) return t.Name + " is silent there: nothing to put on the pad.";
+        s0 = Math.Max(0, s0 - 32); s1 = Math.Min(l.Length, s1 + SR / 50); var L = new float[s1 - s0]; var R = new float[s1 - s0]; Array.Copy(l, s0, L, 0, L.Length); Array.Copy(r, s0, R, 0, R.Length);
+        for (int i = 0; i < Math.Min(32, L.Length); i++) { float k = i / 32f; L[i] *= k; R[i] *= k; } for (int i = 0; i < Math.Min(SR / 50, L.Length); i++) { float k = i / (SR / 50f); L[L.Length - 1 - i] *= k; R[R.Length - 1 - i] *= k; }   // no click at either end
+        string nm = t.Name + (oneHit ? " hit" : ""); string path = Path.Combine(PatternAudioDir(), "Pad " + string.Join("_", nm.Split(Path.GetInvalidFileNameChars())) + " " + DateTime.Now.ToString("yyyy-MM-dd HH-mm-ss-fff") + ".wav"); WavIO.Write(path, L, R, SR, 24);
+        var smp = new SamplerFx(); smp.Prepare(SR); string err = smp.SetSingle(path, nm, oneHit, 60); if (err != null) return err;
+        BlMark(); var pd = blPads[pad]; pd.Sound = smp; pd.Name = nm; pd.Job = BlGuessJob(t.Name + " " + t.Role); blSel = pad; if (pad >= blPadCount) blPadCount = 32; BlHit(pad, 105);
+        return nm + " is on pad " + (pad + 1) + ": tap it, or switch on its steps.";
+    }
     static int BlGuessJob(string h) { h = " " + h.ToLowerInvariant() + " "; if (h.Contains("kick")) return 0; if (h.Contains("snare") || h.Contains("clap") || h.Contains("rim")) return 1; if (h.Contains("open")) return 3; if (h.Contains("hat") || h.Contains("ride") || h.Contains("cymbal")) return 2; if (h.Contains("808") || h.Contains("bass")) return 5; return 4; }
     // KIT: the pads from a genre's pack (kicks, snares, claps, hats, open hat, percussion, ride, 808, an FX and a vocal chop)
     internal void BlLoadKit(int styleIndex)
@@ -230,8 +277,9 @@ partial class StudioForm
         chip(70, blPlaying ? "STOP" : "PLAY", blPlaying ? 3 : 4, () => BlPlay(!blPlaying), "Loop the beat on its own (the song does not play)");
         chip(54, "REC", blRec ? 3 : 0, () => { blRec = !blRec; if (blRec && !blPlaying) BlPlay(true); }, "While the beat loops, the pads you hit are written into the steps");
         chip(86, blSteps + " STEPS", 0, () => { BlMark(); blSteps = blSteps == 16 ? 32 : 16; if (blSteps == 32) foreach (var p2 in blPats) for (int i = 0; i < 32; i++) if (Enumerable.Range(16, 16).All(s => p2.Vel[i][s] == 0)) Array.Copy(p2.Vel[i], 0, p2.Vel[i], 16, 16); }, "16 steps (one bar) or 32 (two bars: the first bar is copied into the second to start from)");
-        chip(80, blPadCount + " PADS", 0, () => { blPadCount = blPadCount == 16 ? 32 : 16; blSel = Math.Min(blSel, blPadCount - 1); }, "16 or 32 pads");
+        chip(80, blPadCount + " ROWS", 0, () => { blPadCount = blPadCount == 16 ? 32 : 16; blSel = Math.Min(blSel, blPadCount - 1); }, "Up to 16 or 32 sounds (rows)");
         chip(70, "KIT  v", 0, () => BlStyleMenu("Put a genre's drum kit on the pads", BlLoadKit), "Fill the pads with a genre's kit from the sound library (kicks, snares, claps, hats, percussion, 808...)");
+        chip(92, "+ TRACK  v", 2, () => BlTrackMenu(BlFreePad()), "Put one of this song's tracks on a pad: its audio (with its plugins), or one hit of its instrument");
         chip(70, "FILL  v", 0, () => BlStyleMenu("Write a genre's beat into the steps", BlFill), "Write a genre's beat into this slot's steps, on the pads with those jobs");
         chip(96, "VARIATION", 2, () => BlVariation(), "A new version of this beat in its own slot: hats rolled or thinned, the kick moved, ghost snares, a fill. The beat you made stays as it is");
         chip(62, "CLEAR", 0, () => { BlMark(); for (int i = 0; i < 32; i++) Array.Clear(pat.Vel[i], 0, 32); }, "Switch off every step in this slot");
@@ -250,37 +298,26 @@ partial class StudioForm
         { float vx = x; Txt(g, "SLOTS", 9, DimC, Rc(vx, y + 4, 44, 16), StringAlignment.Near, true); vx += 46;
           for (int i = 0; i < blPats.Count; i++) { int k = i; var r = Rc(vx, y, 30, 22); var hr = Btn(g, r, blPats[i].Name, i == blCur ? 4 : 0, () => blCur = k, 10); Hint2(r, "Slot " + blPats[i].Name + ": click to hear and edit it"); hr.OnRight = () => { if (blPats.Count > 1) { BlMark(); blPats.RemoveAt(k); blCur = Math.Max(0, Math.Min(blCur, blPats.Count - 1)); Toast("Slot removed (the Beat Lab's undo brings it back)."); } }; vx += 34; }
           var cp = Rc(vx + 4, y, 70, 22); Btn(g, cp, "+ COPY", 0, () => { if (blPats.Count >= 26) return; BlMark(); blPats.Add(BlNow.Copy(((char)('A' + blPats.Count)).ToString())); blCur = blPats.Count - 1; }, 9); Hint2(cp, "A copy of this slot to change by hand (right-click a slot's letter to delete it)");
-          Txt(g, "Tap a pad or press its key. Drag a sound from SOUNDS, Bass Lab or a folder onto a pad. Click steps to switch them on, drag to paint, the wheel sets how hard.", 9, DimC, Rc(cp.Right + 12, y + 3, x + w - cp.Right - 12, 16), StringAlignment.Near, false); }
+          Txt(g, "Tap a row's name or press its key. Drag a sound from SOUNDS or a folder onto a row (or below them for a new one). Click steps to switch them on, drag to paint, the wheel sets how hard.", 9, DimC, Rc(cp.Right + 12, y + 3, x + w - cp.Right - 12, 16), StringAlignment.Near, false); }
         y += 30;
-        // the pads (left)
-        int cols = blPadCount == 32 ? 8 : 4, rowsN = 4; float padW = blPadCount == 32 ? Math.Min(560, w * 0.42f) : Math.Min(340, w * 0.3f); float ps = Math.Min((padW - (cols - 1) * 8) / cols, (C.Bottom - y - 8 - (rowsN - 1) * 8) / rowsN); ps = Math.Max(26, ps);   // 32 pads: two blocks of 16 side by side (like the keys: 1234... on the left, 5678... on the right)
+        // no pad grid: the rows are the pads (tap a row's name, press its key, drop a sound on a row); their spots are kept for dropping
         if (blPadRects.Length != 32) blPadRects = new RectangleF[32];
         for (int i = 0; i < 32; i++) blPadRects[i] = RectangleF.Empty;
-        for (int i = 0; i < blPadCount; i++)
-        {
-            int within = i % 16, row = within / 4, col = within % 4 + (i / 16) * 4; int dispRow = rowsN - 1 - row; var r = Rc(x + col * (ps + 8), y + dispRow * (ps + 8), ps, ps); blPadRects[i] = r; var pad = blPads[i]; int k = i;
-            Color col0 = pad.Sound == null ? TM.C(255, 60, 40, 100) : Neon(BlJobColors[Math.Max(0, Math.Min(5, pad.Job))]); float flash = Math.Max(0, 1 - unchecked(now - blFlash[i]) / 260f); bool hot = Hot(r);
-            GalaxyBg.Face(g, r, 9, col0, pad.Sound == null ? 40 : (int)(70 + 120 * flash + (hot ? 25 : 0)));
-            if (flash > 0) { Glow(g, col0, r, 9, 0.6f + flash, 3); Invalidate(); }
-            StrokeRR(g, Color.FromArgb(pad.Sound == null ? 90 : 210, i == blSel ? Color.White : col0), r, 9, i == blSel ? 2f : 1.3f);
-            Txt(g, BlKeyNames[i], 9, Color.FromArgb(200, 255, 255, 255), Rc(r.X + 5, r.Y + 3, 20, 12), StringAlignment.Near, true);
-            Txt(g, pad.Sound == null ? (ps > 84 ? "DROP A SOUND" : "+") : pad.Name, pad.Sound == null && ps <= 84 ? 16 : (ps > 60 ? 9 : 7.5f), pad.Sound == null ? DimC : Ink, Rc(r.X + 3, r.Y + ps * 0.3f, r.Width - 6, ps * 0.6f), StringAlignment.Center, pad.Sound != null);
-            var pr = Reg(r, () => { blFocus = true; float fy = (MousePos.Y - r.Y) / r.Height; BlHit(k, (int)Math.Round(127 - fy * 60)); }); pr.OnRight = () => BlPadMenu(k); pr.Button = true;
-            Hint2(r, pad.Sound == null ? "Pad " + (i + 1) + ": drag a sound here (right-click for more)" : pad.Name + ": tap to hear it (higher on the pad = harder). Key " + BlKeyNames[i] + ". Right-click: rename, job, clear");
-        }
-        // the steps (right): one row per pad with a sound
-        float gx = x + padW + 16, gw = x + w - gx; var list = Enumerable.Range(0, blPadCount).Where(i => blPads[i].Sound != null).ToList();
+        // the steps: one row per pad with a sound
+        float gx = x, gw = w; var list = Enumerable.Range(0, blPadCount).Where(i => blPads[i].Sound != null).ToList();
         float velH = 54, rowH = 26, nameW = Math.Min(190, gw * 0.26f), top = y, bottom = C.Bottom - velH - 8; var area = Rc(gx, top, gw, bottom - top);
-        float total = list.Count * rowH; blScroll = Math.Max(0, Math.Min(Math.Max(0, total - area.Height), blScroll)); regs.Add(new HitReg { R = area, OnWheel = d => blScroll = Math.Max(0, Math.Min(Math.Max(0, total - area.Height), blScroll - d * 40)) });
+        float total = (list.Count + 1) * rowH; blScroll = Math.Max(0, Math.Min(Math.Max(0, total - area.Height), blScroll)); regs.Add(new HitReg { R = area, OnWheel = d => blScroll = Math.Max(0, Math.Min(Math.Max(0, total - area.Height), blScroll - d * 40)) });
         float cellX = gx + nameW + 112, cellW = (gx + gw - cellX - 4) / blSteps; double stepF = StudioEngine.SR * 60.0 / Math.Max(30, Fx.ProjectBpm) / 4; int playStep = blPlaying ? (int)(blPos / stepF) % blSteps : -1;
-        if (list.Count == 0) Txt(g, "Drag sounds onto the pads (or press KIT) and their rows of steps show here.", 11, DimC, area, StringAlignment.Center, false);
+        if (list.Count == 0) Txt(g, "Press KIT, + TRACK, or drag a sound here: each sound gets its own row of steps.", 11, DimC, area, StringAlignment.Center, false);
         var gsS = g.Save(); g.SetClip(area);
         for (int li = 0; li < list.Count; li++)
         {
-            int pi = list[li]; var pad = blPads[pi]; float ry = top + li * rowH - blScroll; if (ry + rowH < top || ry > bottom) continue; Color pc = Neon(BlJobColors[Math.Max(0, Math.Min(5, pad.Job))]);
+            int pi = list[li]; var pad = blPads[pi]; float ry = top + li * rowH - blScroll; if (ry + rowH < top || ry > bottom) continue; blPadRects[pi] = RectangleF.Intersect(Rc(gx, ry, gw, rowH), area); Color pc = Neon(BlJobColors[Math.Max(0, Math.Min(5, pad.Job))]);
             var mb = Rc(gx, ry + 2, 24, rowH - 4); Btn(g, mb, "M", pad.Mute ? 3 : 0, () => pad.Mute = !pad.Mute, 9); Hint2(mb, "Mute this pad");
             var sb2 = Rc(gx + 27, ry + 2, 24, rowH - 4); Btn(g, sb2, "S", pad.Solo ? 4 : 0, () => pad.Solo = !pad.Solo, 9); Hint2(sb2, "Solo this pad");
-            var nb = Rc(gx + 54, ry + 2, nameW, rowH - 4); int kq = pi; Btn(g, nb, pad.Name, pi == blSel ? 4 : 1, () => { blSel = kq; BlHit(kq, 105); }, 9); Hint2(nb, "Pick this pad (its velocity lane shows below) and hear it");
+            var nb = Rc(gx + 54, ry + 2, nameW - 76, rowH - 4); int kq = pi; var nh = Btn(g, nb, pad.Name, pi == blSel ? 4 : 1, () => { blSel = kq; BlHit(kq, 105); }, 9); nh.OnRight = () => BlPadMenu(kq); Hint2(nb, pad.Name + ": tap to hear it and pick it (its velocity lane shows below). Key " + BlKeyNames[pi] + ". Right-click: change its sound");
+            { float fl = Math.Max(0, 1 - unchecked(now - blFlash[pi]) / 260f); if (fl > 0) { Glow(g, pc, nb, 6, 0.5f + fl, 3); Invalidate(); } }   // a row lights up when it plays
+            var ch = Rc(nb.Right + 3, ry + 2, 73, rowH - 4); Btn(g, ch, "TRACK ▼", 2, () => BlPadMenu(kq), 9); Hint2(ch, "Choose what this row plays: any track from your song, a sound file, or rename it");
             var vs = Rc(gx + 58 + nameW, ry + 9, 48, 8); Slider(g, vs, (pad.VolDb + 24) / 30f, v => pad.VolDb = Math.Max(-24, Math.Min(6, v * 30 - 24)), pc).OnDouble = () => pad.VolDb = 0; Hint2(vs, pad.Name + " volume " + pad.VolDb.ToString("0.0") + " dB (double-click: 0 dB)");
             for (int s = 0; s < blSteps; s++)
             {
@@ -289,6 +326,21 @@ partial class StudioForm
                 using (var p = new Pen(v > 0 ? Color.FromArgb(230, Color.White) : Color.FromArgb(beat ? 150 : 90, NeonViolet), v > 0 ? 1.2f : 1f)) g.DrawRectangle(p, cr.X, cr.Y, cr.Width - 1, cr.Height - 1);
                 if (s == playStep) using (var p = new Pen(Color.FromArgb(220, 255, 255, 255), 1.5f)) g.DrawRectangle(p, cr.X, cr.Y, cr.Width, cr.Height);
             }
+        }
+        // under the rows: a new row (drop a sound on it, or click it to put one of your tracks there)
+        { int fp = -1; for (int i = 0; i < blPadCount; i++) if (blPads[i].Sound == null) { fp = i; break; }
+          float ny = top + list.Count * rowH - blScroll; if (fp >= 0 && list.Count > 0 && ny + rowH > top && ny < bottom)
+          { var nr = Rc(gx + 54, ny + 2, gw - 58, rowH - 4); blPadRects[fp] = RectangleF.Intersect(Rc(gx, ny, gw, rowH), area); bool hn = Hot(nr);
+            using (var pen = new Pen(Color.FromArgb(hn ? 230 : 130, NeonCyan), 1.2f) { DashStyle = System.Drawing.Drawing2D.DashStyle.Dash }) g.DrawRectangle(pen, nr.X, nr.Y, nr.Width, nr.Height);
+            Txt(g, "+  NEW ROW: drop a sound here, or click to use one of your tracks", 9, hn ? Ink : DimC, nr, StringAlignment.Center, true); int fq = fp; Reg(nr, () => BlTrackMenu(fq)); Hint2(nr, "A new row of steps: drag a sound from SOUNDS or a folder here, or click to put one of your song's tracks on it"); } }
+        // dragging a sound: every row shows it can take it, the one under the mouse lights up (that is where it lands)
+        if ((sndDragging && sndDrag != null) || dragOver)
+        {
+            int over = BlPadAt(Point.Round(MousePos));
+            for (int i = 0; i < blPadCount; i++) { var r = blPadRects[i]; if (r.Width <= 0) continue; bool on = i == over;
+                using (var b = new SolidBrush(Color.FromArgb(on ? 70 : 18, NeonCyan))) g.FillRectangle(b, r); using (var pen = new Pen(Color.FromArgb(on ? 255 : 90, NeonCyan), on ? 2.2f : 1f)) g.DrawRectangle(pen, r.X + 1, r.Y + 1, r.Width - 3, r.Height - 3);
+                if (on) { Glow(g, NeonCyan, r, 4, 0.9f, 3); string dl = blPads[i].Sound == null ? "DROP: A NEW ROW" : "DROP: REPLACES " + blPads[i].Name.ToUpperInvariant(); float dw = Math.Min(r.Width - 8, g.MeasureString(dl, GfxCache.Font(10, true)).Width + 22); var lr = Rc(r.Right - dw - 6, r.Y + 2, dw, r.Height - 4); FillRR(g, TM.C(235, 10, 30, 52), lr, 6); StrokeRR(g, NeonCyan, lr, 6, 1.2f); Txt(g, dl, 10, Color.White, lr, StringAlignment.Center, true); } }
+            Invalidate();
         }
         g.Restore(gsS);
         // one region for every step: click to switch, drag to paint, the wheel changes how hard
@@ -319,6 +371,7 @@ partial class StudioForm
     void BlPadMenu(int i)
     {
         var pad = blPads[i]; var m = Win.NewMenu();
+        var tm = new ToolStripMenuItem("Use a track from this song"); BlTrackItems(tm.DropDownItems, i); m.Items.Add(tm);
         m.Items.Add(new ToolStripMenuItem("Load a sound from a file...", null, (a, b) => { using (var d = new OpenFileDialog { Filter = "Sounds|*.wav;*.mp3;*.flac;*.ogg;*.aif;*.aiff|All files|*.*" }) if (d.ShowDialog(this) == DialogResult.OK) BlSetPad(i, new SoundItem { Name = Path.GetFileNameWithoutExtension(d.FileName), Path = d.FileName, Kind = "one-shot", Rel = Path.GetFileName(d.FileName) }); }));
         if (pad.Sound != null)
         {

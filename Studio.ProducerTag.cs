@@ -70,10 +70,12 @@ partial class StudioForm
         }
         else Txt(g, tagMsg.Length > 0 ? tagMsg : "Press PREVIEW to make your tag", 11, DimC, wave, StringAlignment.Center, false);
         if (tagMsg.Length > 0 && tagOut != null) Txt(g, tagMsg, 9, Warn, Rc(wave.X + 8, wave.Y + 4, wave.Width - 80, 14), StringAlignment.Near, false);
-        y = wave.Bottom + 8; float bw = (w - 60 - 18) / 3;
+        y = wave.Bottom + 8; float bw = (w - 60 - 4 * 6) / 5;
         var sv = Rc(x, y, bw, 32); Btn(g, sv, "SAVE TAG", 2, () => TagMakeThen(p => { string f = TagSave(p); if (f != null) Toast("Saved: Music / yt2mp3 / Producer Tags / " + Path.GetFileName(f)); }), 11); Hint2(sv, "Keep the tag as a WAV file in Music / yt2mp3 / Producer Tags");
-        var ad = Rc(sv.Right + 6, y, bw, 32); Btn(g, ad, "ADD TO SONG", 2, () => TagMakeThen(p => { string f = TagSave(p); if (f == null) return; string m = AddSample(TagItem(f), Snap(DispPos), eng.Tracks.Count); if (m != null) Toast(m); }), 11); Hint2(ad, "Put the tag on a new track at the needle");
-        var op = Rc(ad.Right + 6, y, bw, 32); Btn(g, op, "OPEN FOLDER", 0, () => { try { Directory.CreateDirectory(TagDir()); System.Diagnostics.Process.Start(TagDir()); } catch { } }, 11); Hint2(op, "Open the folder with your saved tags");
+        var ex = Rc(sv.Right + 6, y, bw, 32); Btn(g, ex, "EXPORT...", 0, () => TagMakeThen(p => TagExportAsk(p)), 11); Hint2(ex, "Save your tag anywhere on your computer, as a WAV or an MP3");
+        var ad = Rc(ex.Right + 6, y, bw, 32); Btn(g, ad, "ADD TO SONG", 2, () => TagMakeThen(p => { string f = TagSave(p); if (f == null) return; string m = AddSample(TagItem(f), Snap(DispPos), eng.Tracks.Count); if (m != null) Toast(m); }), 11); Hint2(ad, "Put the tag on a new track at the needle");
+        var im = Rc(ad.Right + 6, y, bw, 32); Btn(g, im, "IMPORT TAG...", 0, () => TagImportAsk(), 11); Hint2(im, "Put a tag you saved or downloaded on the selected track, at the needle");
+        var op = Rc(im.Right + 6, y, bw, 32); Btn(g, op, "OPEN FOLDER", 0, () => { try { Directory.CreateDirectory(TagDir()); System.Diagnostics.Process.Start(TagDir()); } catch { } }, 11); Hint2(op, "Open the folder with your saved tags");
         { float dcx = op.Right + 30, dcy = y + 16; var dr = Rc(dcx - 22, dcy - 22, 44, 44); var dsm = g.SmoothingMode; g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias; GalaxyBg.Sphere(g, dcx, dcy, 34, Hot(dr)); using (var pen = new Pen(Color.White, 2f)) { g.DrawLine(pen, dcx - 8, dcy, dcx + 8, dcy); g.DrawLine(pen, dcx, dcy - 8, dcx, dcy + 8); } g.SmoothingMode = dsm;
           var drg = Reg(dr, () => { if (tagPath.Length == 0 || tagOutSig != tagSet.Sig()) { Toast("Press PREVIEW first, then drag your tag onto a track."); return; } string f = TagSave(tagPath); if (f == null) return; sndDrag = TagItem(f); sndDragFrom = MousePos; sndDragging = false; });
           drg.OnDrag = pt => { if (sndDrag != null && !sndDragging && (Math.Abs(pt.X - sndDragFrom.X) + Math.Abs(pt.Y - sndDragFrom.Y) > 6)) sndDragging = true; }; Hint2(dr, "Drag your tag onto any track (it goes where you drop it)"); }
@@ -125,6 +127,42 @@ partial class StudioForm
     }
     // the studio's VOCAL PRESETS sheet (search, genres, favourites) picks one for the tag (a menu of all of them took a minute to open)
     void TagPresetMenu() { OpenStyles(); stylesPick = st => { tagSet.VocalPreset = st.Name; Toast(st.Name + " is on your tag: press PREVIEW."); Invalidate(); }; }
+    // ---- export and import ----
+    void TagExportAsk(string tmp)
+    {
+        string nm = Path.GetFileNameWithoutExtension(TagSave(tmp) ?? "Producer tag");
+        using (var d = new SaveFileDialog { Title = "Export your producer tag", FileName = nm, Filter = "WAV (best quality)|*.wav|MP3|*.mp3", DefaultExt = "wav", AddExtension = true, OverwritePrompt = true })
+        { if (d.ShowDialog(this) != DialogResult.OK) return; string err = TagExportTo(tmp, d.FileName); Toast(err ?? "Tag exported: " + d.FileName); }
+    }
+    // the tag as a WAV (copied) or an MP3 (320 kbps, made with ffmpeg); null = done, else what went wrong
+    internal string TagExportTo(string tmp, string path)
+    {
+        try
+        {
+            if (!File.Exists(tmp)) return "Press PREVIEW first, then export your tag.";
+            string dir = Path.GetDirectoryName(path); if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
+            if (!path.EndsWith(".mp3", StringComparison.OrdinalIgnoreCase)) { File.Copy(tmp, path, true); return null; }
+            string ff = StudioEnv.Ffmpeg(); if (ff == null) return "MP3 needs ffmpeg (convert something once in the main window first), or export as WAV.";
+            int code; MasterDsp.RunCapture(ff, "-hide_banner -loglevel error -y -i \"" + tmp + "\" -c:a libmp3lame -b:a 320k \"" + path + "\"", null, out code);
+            return code == 0 && File.Exists(path) ? null : "The MP3 could not be made: try WAV.";
+        }
+        catch (Exception ex) { return "Couldn't export the tag: " + ex.Message; }
+    }
+    void TagImportAsk()
+    {
+        using (var d = new OpenFileDialog { Title = "Import a producer tag", Filter = "Sounds|*.wav;*.mp3;*.flac;*.ogg;*.m4a;*.aif;*.aiff|All files|*.*" })
+        { try { Directory.CreateDirectory(TagDir()); d.InitialDirectory = TagDir(); } catch { } if (d.ShowDialog(this) != DialogResult.OK) return; string err = TagImportFrom(d.FileName, Snap(DispPos)); if (err != null) Toast(err); }
+    }
+    // a tag file goes on the selected track at a time (a note track or a bus can't hold audio: it gets a track of its own)
+    internal string TagImportFrom(string path, long at)
+    {
+        if (!File.Exists(path)) return "That file is missing.";
+        var cur = eng.Tracks.Count > 0 ? RowHost(eng.Tracks[Math.Max(0, Math.Min(selTrack, eng.Tracks.Count - 1))]) : null;
+        bool onIt = cur != null && !cur.IsBus && !cur.Instrument; if (onIt) dropHost = cur;
+        var s = new SoundItem { Name = Path.GetFileNameWithoutExtension(path), Path = path, Kind = "one-shot", Group = "Vocal", Rel = Path.GetFileName(path) };
+        string err = AddSample(s, Math.Max(0, at), eng.Tracks.Count); dropHost = null; if (err != null) return err;
+        Toast(s.Name + (onIt ? " is on " + cur.Name : " is on a new track") + " at the needle."); return null;
+    }
     // ---- your own voice ----
     void TagStartRecording()
     {

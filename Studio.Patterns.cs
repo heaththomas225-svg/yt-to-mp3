@@ -90,7 +90,11 @@ partial class StudioForm
         int j; if (prJobs.TryGetValue(t, out j)) return j; if (!PrCanEdit(t)) return -1; string h = t.Name.ToLowerInvariant();
         foreach (var f in t.Fx) { var s = f as SamplerFx; if (s != null) { if (s.IsKit) return 100; foreach (var z in s.Zones) h += " " + z.Name.ToLowerInvariant() + " " + System.IO.Path.GetFileNameWithoutExtension(z.Path).ToLowerInvariant(); } }
         // whole words only ("custom" is not a tom, "subtle" is not a sub), and the drums win over the bass ("Sub Kick" is a kick)
-        h = System.Text.RegularExpressions.Regex.Replace(h, "[^a-z0-9]+", " "); Func<string, bool> w = x => (" " + h + " ").Contains(" " + x + " ");
+        return JobFromWords(h);
+    }
+    static int JobFromWords(string h)
+    {
+        h = System.Text.RegularExpressions.Regex.Replace(h.ToLowerInvariant(), "[^a-z0-9]+", " "); Func<string, bool> w = x => (" " + h + " ").Contains(" " + x + " ");
         if (w("kick") || w("kicks") || w("bd")) return 0; if (w("snare") || w("clap") || w("snap") || w("rim crack")) return 1;
         if (w("open hat") || w("openhat") || w("hat open")) return 3; if (w("hat") || w("hats") || w("hihat") || w("hh") || w("hi hat")) return 2;
         if (w("808") || w("bass") || w("sub")) return 5;
@@ -125,7 +129,7 @@ partial class StudioForm
         };
         var done = new List<string>(); string[] P = { st.Kick, st.Snare, st.Hat, st.Open, st.Perc };
         for (int j = 0; j < 5; j++) { List<Track> l; if (!parts.TryGetValue(j, out l)) continue; if (string.IsNullOrEmpty(P[j])) continue; foreach (var t in l) write(t, P[j], DrumNote(t), j == 2 ? 100 : 112, j >= 2); done.Add(Jobs[j]); }
-        foreach (var k in kits) { for (int j = 0; j < 5; j++) if (!string.IsNullOrEmpty(P[j])) write(k, P[j], KitKeys[j], j == 2 ? 100 : 112, j >= 2); done.Add("the kit on " + k.Name); }
+        foreach (var k in kits) { int kj = only != null ? JobFromWords(k.Name) : -1; for (int j = 0; j < 5; j++) if (!string.IsNullOrEmpty(P[j]) && (kj < 0 || kj > 4 || j == kj)) write(k, P[j], KitKeys[j], j == 2 ? 100 : 112, j >= 2); done.Add("the kit on " + k.Name); }
         // the 808 / bass: on the kick's rhythm, notes from the key, each held until the next
         List<Track> bassT; if (parts.TryGetValue(5, out bassT))
         {
@@ -182,6 +186,7 @@ partial class StudioForm
     void PrGenerateMenu()
     {
         var m = Win.NewMenu(); int from = (int)Math.Floor(prScrollBeats / 4);
+        m.Items.Add(new ToolStripMenuItem("ONE SOUND AT A TIME") { Enabled = false });
         if (prTrack != null && PrCanEdit(prTrack))
         {   // just the track you are on: its own part with its own sound (no claps or other sounds added)
             var me = prTrack; int jm = JobOf(me); string what = jm == 100 ? "its drum kit" : (jm >= 0 ? Jobs[jm].ToLowerInvariant() : "chords");
@@ -193,18 +198,30 @@ partial class StudioForm
                 Fam(fj, PatStyles[k].Family).DropDownItems.Add(it);
             }
             foreach (var f in fj) just.DropDownItems.Add(f);
-            m.Items.Add(new ToolStripSeparator());
         }
-        m.Items.Add(new ToolStripMenuItem("A BEAT IN ITS OWN BOX: DRAG IT ONTO THE SONG (IT BECOMES ITS OWN TRACKS)") { Enabled = false });
+        // one new sound in the box: only that part (a kick is only a kick, no hats come with it)
+        for (int j0 = 0; j0 < Jobs.Length; j0++)
+        {
+            int jj = j0; var one = new ToolStripMenuItem("A new " + Jobs[j0].ToLowerInvariant() + " on its own (in the box, with its own sound)"); var fo = new List<ToolStripMenuItem>();
+            for (int i = 0; i < PatStyles.Length; i++)
+            {
+                int k = i; if (jj < 5 && string.IsNullOrEmpty(new[] { PatStyles[i].Kick, PatStyles[i].Snare, PatStyles[i].Hat, PatStyles[i].Open, PatStyles[i].Perc }[jj])) continue;
+                var it = new ToolStripMenuItem(PatStyles[i].Name + "   (" + PatStyles[i].Bpm + " BPM)");
+                foreach (int bars0 in new[] { 4, 8, 16 }) { int bars = bars0; it.DropDownItems.Add(bars + " bars").Click += (a, b) => { prBox = BuildPattern(k, bars, jj); Toast(PatStyles[k].Name + " " + Jobs[jj].ToLowerInvariant() + " on its own, ready in the box at the top right of the piano roll: drag it onto the song, or press ADD TO SONG."); }; }
+                Fam(fo, PatStyles[k].Family).DropDownItems.Add(it);
+            }
+            foreach (var f in fo) one.DropDownItems.Add(f); m.Items.Add(one);
+        }
+        m.Items.Add(new ToolStripSeparator());
+        var whole = new ToolStripMenuItem("A whole beat in the box: kick, snare, hats and 808 together"); m.Items.Add(whole);
         var fb = new List<ToolStripMenuItem>(); for (int i = 0; i < PatStyles.Length; i++)
         {
             int k = i; var it = new ToolStripMenuItem(PatStyles[i].Name + "   (" + PatStyles[i].Bpm + " BPM)");
             foreach (int bars0 in new[] { 4, 8, 16 }) { int bars = bars0; it.DropDownItems.Add(bars + " bars").Click += (a, b) => { prBox = BuildPattern(k, bars); Toast(PatStyles[k].Name + " beat ready in the box at the top right of the piano roll: drag it onto the song, or press ADD TO SONG."); }; }
             Fam(fb, PatStyles[k].Family).DropDownItems.Add(it);
         }
-        foreach (var f in fb) m.Items.Add(f);
-        m.Items.Add(new ToolStripSeparator());
-        var onTracks = new ToolStripMenuItem("Or write it onto your own tracks (kick, snare, hats, 808...)"); m.Items.Add(onTracks);
+        foreach (var f in fb) whole.DropDownItems.Add(f);
+        var onTracks = new ToolStripMenuItem("A whole beat written onto your own tracks (kick, snare, hats, 808...)"); m.Items.Add(onTracks);
         var ft = new List<ToolStripMenuItem>(); for (int i = 0; i < PatStyles.Length; i++)
         {
             int k = i; var it = new ToolStripMenuItem(PatStyles[i].Name + "   (" + PatStyles[i].Bpm + " BPM)");
