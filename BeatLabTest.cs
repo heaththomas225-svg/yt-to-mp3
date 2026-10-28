@@ -65,7 +65,9 @@ static class BeatLabTest
           M("DoUndo"); sf.McSync(bass); Check("undo brings the trimmed notes back", Ons(bass) == bn * 2, Ons(bass) + ""); }
         { string pp = Path.Combine(StudioEnv.DataDir, "mc.ytmproj"); var names = t.MClips.Select(c => c.Start + ":" + c.Len).ToList(); t.MClips[0].Name = "Verse kick"; ProjectIO.Save(eng, pp); var e2 = new StudioEngine(); ProjectIO.Load(e2, pp, null); bool ok = e2.Tracks.Count > 0; var t2 = ok ? e2.Tracks.FirstOrDefault(x => x.Name == t.Name) : null;
           Check("the clips are saved with the project (where, how long, their names)", t2 != null && t2.MClips.Select(c => c.Start + ":" + c.Len).SequenceEqual(names) && t2.MClips[0].Name == "Verse kick", t2 == null ? "not loaded" : t2.MClips.Count + " clips"); }
-        { sf.mcSel.Clear(); sf.mcSel.Add(t.MClips[0]); int before2 = t.MClips.Count; Check("Delete removes the selected clip and its notes", sf.McKey(Keys.Delete) && t.MClips.Count == before2 - 1); }
+        { var tl = (RectangleF)typeof(StudioForm).GetMethod("TimelineRect", BF).Invoke(sf, null); typeof(Control).GetMethod("OnMouseDown", BF).Invoke(sf, new object[] { new MouseEventArgs(MouseButtons.Left, 1, (int)tl.X + 30, (int)tl.Y + 4, 0) }); typeof(Control).GetMethod("OnMouseUp", BF).Invoke(sf, new object[] { new MouseEventArgs(MouseButtons.Left, 1, (int)tl.X + 30, (int)tl.Y + 4, 0) });
+          Check("a click on the song gives the keys back from the Beat Lab", !(bool)typeof(StudioForm).GetField("blFocus", BF).GetValue(sf));
+          sf.mcSel.Clear(); sf.mcSel.Add(t.MClips[0]); int before2 = t.MClips.Count; Check("Delete removes the selected clip and its notes", sf.McKey(Keys.Delete) && t.MClips.Count == before2 - 1); }
         Paint(); Check("the song draws with the clips (no errors)", true);
     }
     static string MakeWav() { string p = Path.Combine(StudioEnv.DataDir, "clap.wav"); var x = new float[8000]; var rnd = new Random(3); for (int i = 0; i < x.Length; i++) x[i] = (float)((rnd.NextDouble() * 2 - 1) * Math.Exp(-i / 900.0) * 0.8); SoundIO.WriteWav(p, x, x, 44100, 24); return p; }

@@ -1696,6 +1696,7 @@ partial class StudioForm : Form
         if ((tab == 8 || fontsWin) && fontSearchOn && !fontSearchR.Contains(e.Location)) fontSearchOn = false;
         if (tab == 7 && artSearchOn && !artSearchR.Contains(e.Location)) artSearchOn = false;   // clicking anywhere else lets go of the search box
         FxWinMouseDown(e.Location);   // a click in a plugin window brings that window to the front
+        blFocus = BlShown && prArea.Contains(e.Location);   // the Beat Lab keeps the keys (its pads) only while you click in it
         prFocus = PrShown && (prGrid.Contains(e.Location) || prVel.Contains(e.Location) || prKeys.Contains(e.Location) || prRuler.Contains(e.Location));
         var r = TopRegion(e.Location); if (r == null) return;
         if (Win.ClickClosedMenu(this, r.R)) return;   // the click that just closed a menu is not also a click on the button that opened it
