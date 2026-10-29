@@ -194,6 +194,13 @@ static class IN
           foreach (var r in Regs().Where(q => q.R.Y > sf.MixH && q.R.Height <= 24 && q.OnDown != null).ToList()) { T.GetField("MousePos", BF).SetValue(sf, new PointF(r.R.X + r.R.Width / 2, r.R.Y + r.R.Height / 2)); T.GetField("hover", BF).SetValue(sf, r); Paint(); string b = F<string>("bubble") ?? ""; if (b.Contains("plays in stereo") || b.Contains("plays in mono")) { monoBtn = r; seen = b; break; } }
           if (monoBtn != null) monoBtn.OnDown(); Check("a mixer strip has the STEREO / MONO button (it switches the track)", monoBtn != null && !sf.eng.Tracks.Select(q => q.Mono).SequenceEqual(monoBefore), seen);
           foreach (var q in sf.eng.Tracks) q.Mono = false; }
+        { // CLIP: gain and fades are knobs (drag up turns them up), each with a box to type the value
+          var T = typeof(StudioForm); var lc = sf.eng.Tracks.FirstOrDefault(q => !q.IsBus && q.Clip != null);
+          if (lc != null) { T.GetField("selTrack", BF).SetValue(sf, sf.eng.Tracks.IndexOf(lc)); sf.OpenInspector(3); Paint(); float g0 = lc.ClipGainDb; HitReg knob = null;
+            foreach (var r in Regs().Where(q => q.R.Y > sf.MixH && q.OnDrag != null).ToList()) { T.GetField("hover", BF).SetValue(sf, r); Paint(); if ((F<string>("bubble") ?? "").Contains("The level of this clip")) { knob = r; break; } }
+            if (knob != null) { knob.OnDown(); knob.OnDrag(new PointF(knob.R.X, knob.R.Y - 60)); }
+            Check("CLIP: the GAIN knob turns the clip gain up when dragged up", knob != null && lc.ClipGainDb > g0, g0 + " -> " + lc.ClipGainDb); lc.ClipGainDb = g0; }
+          else Check("CLIP: a clip to try the GAIN knob on", false, "no audio clip"); }
         sf.OpenInspector(0); Paint(); Shot("ins-final");
         eng.Shutdown(); try { Directory.Delete(tmp, true); } catch { } Console.WriteLine(fails == 0 ? "=== inspector checks passed ===" : "=== " + fails + " FAILED ==="); Environment.Exit(fails == 0 ? 0 : 1);
     }

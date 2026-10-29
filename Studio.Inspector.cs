@@ -474,24 +474,36 @@ partial class StudioForm
         Txt(g, "STARTS " + Clock(c.Offset / sr) + "   LENGTH " + Clock(c.UsedLength / sr) + "   ENDS " + Clock((c.Offset + c.UsedLength) / sr), 9.5f, Ink, Rc(a.X, a.Y + 46, a.Width, 16), StringAlignment.Near, true);
         Txt(g, "TRIM: STARTS " + (c.ClipStart / sr).ToString("0.00") + " s INTO THE FILE", 9, DimC, Rc(a.X, a.Y + 64, a.Width, 16), StringAlignment.Near, false);
         // the picture of the part that plays
-        var wv = Rc(a.X, a.Y + 84, a.Width, Math.Max(20, a.Bottom - a.Y - 84 - 30)); FillRR(g, TM.C(200, 8, 4, 18), wv, 5); DrawMiniWave(g, c, wv, col);
+        var wv = Rc(a.X, a.Y + 84, a.Width, Math.Max(20, a.Bottom - a.Y - 84 - 32)); FillRR(g, TM.C(200, 8, 4, 18), wv, 5); { var gw = g.Save(); g.SetClip(wv, System.Drawing.Drawing2D.CombineMode.Intersect); DrawMiniWave(g, c, wv, col); g.Restore(gw); }   // (kept inside its box: a loud clip drew over MUTE, LOCK and REVERSE)
         float bw = (a.Width - 8) / 3, by = a.Bottom - 24;
         Btn(g, Rc(a.X, by, bw, 24), c.PieceMuted ? "MUTED" : "MUTE", c.PieceMuted ? 3 : 0, () => { PushUndo(); c.PieceMuted = !c.PieceMuted; }, 9.5f);
         Btn(g, Rc(a.X + bw + 4, by, bw, 24), c.PieceLocked ? "LOCKED" : "LOCK", c.PieceLocked ? 4 : 0, () => { PushUndo(); c.PieceLocked = !c.PieceLocked; }, 9.5f);
         Btn(g, Rc(a.X + 2 * (bw + 4), by, bw, 24), "REVERSE", 0, () => ReverseClip(c), 9.5f);
         x += 308;
-        var gb = InsBox(g, Rc(x, y, 260, h), "GAIN · FADES", col);
-        Txt(g, "CLIP GAIN  " + (c.ClipGainDb > 0 ? "+" : "") + c.ClipGainDb.ToString("0.0") + " dB", 10, Ink, Rc(gb.X, gb.Y, gb.Width, 16), StringAlignment.Near, true);
-        var gs = Slider(g, Rc(gb.X, gb.Y + 18, gb.Width, 18), (c.ClipGainDb + 24) / 36, v => c.ClipGainDb = (float)Math.Round(v * 36 - 24, 1), col); gs.OnDouble = () => c.ClipGainDb = 0;
-        double maxFade = Math.Max(0.05, Math.Min(10, c.UsedLength / sr / 2));
-        Txt(g, "FADE IN  " + (c.FadeIn / sr).ToString("0.00") + " s", 10, Ink, Rc(gb.X, gb.Y + 44, gb.Width, 16), StringAlignment.Near, true); Slider(g, Rc(gb.X, gb.Y + 62, gb.Width, 18), (float)(c.FadeIn / sr / maxFade), v => c.FadeIn = (long)(v * maxFade * sr), col);
-        Txt(g, "FADE OUT  " + (c.FadeOut / sr).ToString("0.00") + " s", 10, Ink, Rc(gb.X, gb.Y + 88, gb.Width, 16), StringAlignment.Near, true); Slider(g, Rc(gb.X, gb.Y + 106, gb.Width, 18), (float)(c.FadeOut / sr / maxFade), v => c.FadeOut = (long)(v * maxFade * sr), col);
+        var gb = InsBox(g, Rc(x, y, 260, h), "GAIN · FADES", col); double maxFade = Math.Max(0.05, Math.Min(10, c.UsedLength / sr / 2)); float kw = gb.Width / 3;
+        // three knobs: turn them (drag up / down, the wheel, double-click for the default) or click the box under one to type the value
+        KnobBox(g, Rc(gb.X, gb.Y, kw, gb.Height), "GAIN", (c.ClipGainDb > 0 ? "+" : "") + c.ClipGainDb.ToString("0.0") + " dB", (c.ClipGainDb + 24) / 36f, v => c.ClipGainDb = (float)Math.Round(v * 36 - 24, 1), col, () => c.ClipGainDb = 0,
+            "Clip gain in dB (-24 to +12):", c.ClipGainDb.ToString("0.0"), d => { PushUndo(); c.ClipGainDb = (float)Math.Max(-24, Math.Min(12, d)); }, "The level of this clip on its own (before the track's fader)");
+        KnobBox(g, Rc(gb.X + kw, gb.Y, kw, gb.Height), "FADE IN", (c.FadeIn / sr).ToString("0.00") + " s", (float)(c.FadeIn / sr / maxFade), v => c.FadeIn = (long)(v * maxFade * sr), col, () => c.FadeIn = 0,
+            "Fade in, in seconds (0 to " + maxFade.ToString("0.00") + "):", (c.FadeIn / sr).ToString("0.00"), d => { PushUndo(); c.FadeIn = (long)(Math.Max(0, Math.Min(maxFade, d)) * sr); }, "How long the clip takes to come up from silence at its start");
+        KnobBox(g, Rc(gb.X + 2 * kw, gb.Y, kw, gb.Height), "FADE OUT", (c.FadeOut / sr).ToString("0.00") + " s", (float)(c.FadeOut / sr / maxFade), v => c.FadeOut = (long)(v * maxFade * sr), col, () => c.FadeOut = 0,
+            "Fade out, in seconds (0 to " + maxFade.ToString("0.00") + "):", (c.FadeOut / sr).ToString("0.00"), d => { PushUndo(); c.FadeOut = (long)(Math.Max(0, Math.Min(maxFade, d)) * sr); }, "How long the clip takes to go down to silence at its end");
         x += 268;
         var pb = InsBox(g, Rc(x, y, 230, h), "PITCH · TIME", col);
         Txt(g, "Fix or change the pitch of this clip note by note, or tune it to a key, in Flex Pitch.", 9.5f, DimC, Rc(pb.X, pb.Y, pb.Width, 34), StringAlignment.Near, false);
         Btn(g, Rc(pb.X, pb.Y + 40, pb.Width, 26), "OPEN FLEX PITCH", 1, () => { toolsTrack = c; selTrack = Math.Max(0, eng.Tracks.IndexOf(RowHost(c))); FlexOpen(); }, 10);
         Txt(g, c.Bpm > 0 ? "TEMPO HEARD: " + c.Bpm.ToString("0.#") + " BPM" : "TEMPO: NOT DETECTED YET", 9.5f, Ink, Rc(pb.X, pb.Y + 74, pb.Width, 16), StringAlignment.Near, true);
         insMaxX = Math.Max(0, (x + 238 + insScrollX) - C.Right); insScrollX = Math.Min(insScrollX, insMaxX);
+    }
+    // a galaxy knob with its name above and its value in a box under it: click the box to type a number (an unreadable entry changes nothing)
+    internal void KnobBox(Graphics g, RectangleF cell, string name, string value, float frac, Action<float> set, Color col, Action toDefault, string askText, string askDef, Action<double> typed, string hint)
+    {
+        Txt(g, name, 9.5f, Ink, Rc(cell.X, cell.Y, cell.Width, 16), StringAlignment.Center, true);
+        float d = Math.Max(26, Math.Min(46, Math.Min(cell.Width - 18, cell.Height - 60))); var kr = KnobCtl(g, cell.X + cell.Width / 2, cell.Y + 22 + d / 2, d, frac, set, col, toDefault);
+        var vb = Rc(cell.X + 6, cell.Y + 30 + d, cell.Width - 12, 22); FillRR(g, TM.C(220, 8, 4, 18), vb, 5); StrokeRR(g, Color.FromArgb(Hot(vb) ? 255 : 150, col), vb, 5, 1.1f);
+        Txt(g, value, 9.5f, Ink, vb, StringAlignment.Center, true);
+        Reg(vb, () => { string sv = Ask(askText, askDef); if (sv == null) return; double dv; sv = sv.Trim().Replace("dB", "").Replace("db", "").Replace("s", "").Replace(",", ".").Trim(); if (double.TryParse(sv, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out dv)) typed(dv); else Toast("That is not a number: nothing changed."); });
+        Hint2(vb, name + ": " + value + ". Click to type a value."); Hint2(kr.R, hint + ". Drag up or down (Shift: finer), the wheel, double-click for the default.");
     }
     static string Clock(double s) { if (s < 0) s = 0; int m = (int)(s / 60); return m + ":" + (s - m * 60).ToString("00.00"); }
     void DrawMiniWave(Graphics g, Track c, RectangleF r, Color col)
