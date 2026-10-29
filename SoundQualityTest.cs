@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 
 // Measures the sound quality fixes against exact references: the band-limited metal tone (hi-hats, cymbals) and saws against ideal additive
@@ -32,6 +32,14 @@ static class SQ
     }
     static float[] OldPluck(Rnd r, double hz, double len, double bright) { int n = (int)(len * SR), d = Math.Max(2, (int)(SR / hz)); var line = new float[d]; for (int i = 0; i < d; i++) line[i] = r.Bi(); var x = new float[n]; int p = 0; float prev = 0; float damp = (float)(0.992 - (1 - bright) * 0.03); for (int i = 0; i < n; i++) { float v = line[p]; float nv = damp * 0.5f * (v + prev); prev = v; line[p] = nv; p = (p + 1) % d; x[i] = v; } return x; }
 
+    // crackle: 2 ms windows of the top end (the 4th difference) much louder than the windows around them
+    static int Bursts(float[] x, int sr)
+    {
+        var h = new float[x.Length]; for (int i = 4; i < x.Length; i++) h[i] = x[i] - 4 * x[i - 1] + 6 * x[i - 2] - 4 * x[i - 3] + x[i - 4];
+        int W = sr / 500, n = h.Length / W; var e = new double[n]; for (int k = 0; k < n; k++) { double m = 0; for (int i = k * W; i < (k + 1) * W; i++) m = Math.Max(m, Math.Abs(h[i])); e[k] = m; }
+        int b = 0; for (int k = 12; k < n - 12; k++) { var a = new List<double>(); for (int j = k - 12; j <= k + 12; j++) if (Math.Abs(j - k) > 2) a.Add(e[j]); a.Sort(); double med = a[a.Count / 2]; if (e[k] > 0.03 && e[k] / Math.Max(med, 0.004) > 5) { b++; k += 2; } }
+        return b;
+    }
     static void Main()
     {
         double[] ratios = { 205.3, 304.4, 369.6, 522.7, 540.0, 800.0 }; int n = SR;
@@ -79,6 +87,17 @@ static class SQ
                 Check("Bass Lab " + nm + ": a key struck again or a new note does not click, and it is not clipped", worst < 4 && pk < 1, "click x" + worst.ToString("0.0") + " peak " + pk.ToString("0.00"));
             }
             foreach (var ty in new[] { "pxchord", "wobble", "pxcurrent" }) { var f = (InstrumentFx)FxRegistry.Create(ty); f.Prepare(isr); var L = render(f); double pk = 0; foreach (var v in L) pk = Math.Max(pk, Math.Abs(v)); Check(f.Title + " never goes past full scale (it crackled when it did)", pk < 1, "peak " + pk.ToString("0.00")); }
+        }
+        { // ChordPad played fast with chords held (all 24 voices busy): a voice taken for a new note fades out instead of being cut (that clicked)
+            var cp = (InstrumentFx)FxRegistry.Create("pxchord"); cp.Prepare(44100); var ct = StudioEngine.NewTrack("C", "inst", null); ct.Instrument = true; cp.Owner = ct; ct.Fx.Add(cp); StudioEngine.Current = null;   /* (no sound card) */ int blk = 1024, total = 44100 * 6; var L = new float[total]; var bl = new float[blk]; var br = new float[blk]; var rnd = new Random(7); int[] mel = { 48, 51, 55, 58, 60, 63, 55, 51 }; var down = new List<int>(); int ev = 0;
+            for (int p = 0; p < total; p += blk)
+            {
+                double tt = p / 44100.0;
+                if (rnd.NextDouble() < (tt > 2.5 && tt < 3.5 ? 0.9 : 0.45)) { int nn = mel[ev++ % mel.Length] + (rnd.Next(3) - 1) * 12; if (down.Count > 3 || (down.Count > 0 && rnd.NextDouble() < 0.5)) { int o = down[0]; down.RemoveAt(0); cp.NoteOff(o); } if (!down.Contains(nn)) { cp.NoteOn(nn, 70 + rnd.Next(50)); down.Add(nn); } }
+                if (Math.Abs(tt - 4.5) < 0.012) foreach (int nn in new[] { 48, 55, 60, 63, 67 }) if (!down.Contains(nn)) { cp.NoteOn(nn, 120); down.Add(nn); }
+                Array.Clear(bl, 0, blk); Array.Clear(br, 0, blk); cp.BeginBlock(ct, p, blk, false); cp.Process(bl, br, blk); Array.Copy(bl, 0, L, p, Math.Min(blk, total - p));
+            }
+            int bursts = Bursts(L, 44100); Check("ChordPad played fast (more notes than voices) has no clicks", bursts == 0, bursts + " clicks");
         }
         Console.WriteLine(fails == 0 ? "=== sound quality checks passed ===" : "=== " + fails + " FAILED ==="); Environment.Exit(fails == 0 ? 0 : 1);
     }

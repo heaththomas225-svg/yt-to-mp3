@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -332,7 +332,7 @@ class ChordPadFx : InstrumentFx
     public static readonly string[] Keys = { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" }, Scales = { "Major", "Minor", "Dorian", "Mixolydian", "Harmonic minor", "Phrygian" }, Kinds = { "Triads", "7ths", "9ths", "Sus2", "Power (5ths)" }, Voicings = { "Close", "Open", "Spread", "Drop 2" }, Sounds = { "Warm pad", "Keys", "Pluck" };
     static readonly int[][] ScaleSteps = { new[] { 0, 2, 4, 5, 7, 9, 11 }, new[] { 0, 2, 3, 5, 7, 8, 10 }, new[] { 0, 2, 3, 5, 7, 9, 10 }, new[] { 0, 2, 4, 5, 7, 9, 10 }, new[] { 0, 2, 3, 5, 7, 8, 11 }, new[] { 0, 1, 3, 5, 7, 8, 10 } };
     public static readonly string[] ProgNames = { "I - V - vi - IV (pop)", "vi - IV - I - V (emotional)", "i - VI - III - VII (trap minor)", "ii - V - I - vi (soul)", "I - vi - IV - V (classic)", "i - iv - v - i (dark)" }; public static readonly int[][] Progs = { new[] { 0, 4, 5, 3 }, new[] { 5, 3, 0, 4 }, new[] { 0, 5, 2, 6 }, new[] { 1, 4, 0, 5 }, new[] { 0, 5, 3, 4 }, new[] { 0, 3, 4, 0 } };
-    class Voice { public bool On, Rel; public int Note; public double Vel, Env, Ph1, Ph2, Ph3, S1, S2; public long Start; public int Delay; public readonly double[] ks = new double[2048]; public int kw; public double kLen; }
+    class Voice { public bool On, Rel; public int Note; public double Vel, Env, Ph1, Ph2, Ph3, S1, S2, OutL, OutR, TailL, TailR; public long Start; public int Delay; public readonly double[] ks = new double[2048]; public int kw; public double kLen; }
     readonly Voice[] voices = new Voice[24]; List<KeyValuePair<int, MidiEv>> pending; readonly Dictionary<int, int[]> playing = new Dictionary<int, int[]>(); uint seed = 9; long clock;
     public volatile int ShowPad = -1; public readonly PxScope Scope = new PxScope(4096);
     public ChordPadFx()
@@ -379,7 +379,10 @@ class ChordPadFx : InstrumentFx
         int pc = note % 12, deg = Array.IndexOf(White, pc); if (deg < 0) deg = Array.IndexOf(White, pc - 1);   // the white keys are the steps of the scale (C = I, D = II...); a black key plays the step below it
         int shift = Math.Max(-12, Math.Min(12, (note / 12 - 5) * 12));   // from middle C up; an octave higher plays the chords an octave higher
         var ns = Chord(deg); for (int i = 0; i < ns.Length; i++) ns[i] += shift; playing[note] = ns; ShowPad = deg; double strum = Get("strum") * 0.001 * SR;
-        for (int i = 0; i < ns.Length; i++) { Voice v = null; foreach (var x in voices) if (!x.On) { v = x; break; } if (v == null) { v = voices[0]; foreach (var x in voices) if (x.Start < v.Start) v = x; } v.On = true; v.Rel = false; v.Note = ns[i]; v.Vel = vel / 127.0; v.Env = 0; v.Start = ++clock; v.Delay = (int)(strum * i); v.Ph1 = v.Ph2 = v.Ph3 = 0; v.S1 = v.S2 = 0;
+        for (int i = 0; i < ns.Length; i++) { Voice v = null; foreach (var x in voices) if (!x.On) { v = x; break; }
+            // all 24 busy (fast playing with a long release): take the quietest note that is fading out, else the oldest, and let what it was playing fade away in 3 ms (cut in one sample it clicked)
+            if (v == null) { foreach (var x in voices) if (x.Rel && (v == null || x.Env < v.Env)) v = x; if (v == null) { v = voices[0]; foreach (var x in voices) if (Math.Abs(x.Start) < Math.Abs(v.Start)) v = x; } v.TailL += v.OutL; v.TailR += v.OutR; }
+            v.On = true; v.Rel = false; v.Note = ns[i]; v.Vel = vel / 127.0; v.Env = 0; v.Start = ++clock; v.Delay = (int)(strum * i); v.Ph1 = v.Ph2 = v.Ph3 = 0; v.S1 = v.S2 = 0;
             double hz = 440 * Math.Pow(2, (v.Note - 69) / 12.0); v.kLen = Math.Min(2047, SR / hz); for (int k = 0; k < 2048; k++) { seed = seed * 1664525 + 1013904223; v.ks[k] = ((seed >> 8) / 8388608.0 - 1); } v.kw = 0; }
     }
     void Stop(int note) { int[] ns; if (!playing.TryGetValue(note, out ns)) return; playing.Remove(note); foreach (var v in voices) if (v.On && !v.Rel && Array.IndexOf(ns, v.Note) >= 0) v.Rel = true; if (playing.Count == 0) ShowPad = -1; }
@@ -387,21 +390,22 @@ class ChordPadFx : InstrumentFx
     public override void Process(float[] l, float[] r, int n)
     {
         CheckDirty(); var ev = pending; pending = null; int ei = 0; int sound = (int)Get("sound"); double bright = Get("bright") / 100, aS = Math.Max(1, Get("att") * 0.001 * SR), rC = Math.Exp(-4.6 / Math.Max(1, Get("rel") * 0.001 * SR)), level = Math.Pow(10, Get("level") / 20);
-        double fc = 300 * Math.Pow(40, bright), gF = Math.Tan(Math.PI * Math.Min(SR * 0.45, fc) / SR), kF = 1.2; double keysDecay = Math.Exp(-1.0 / (1.2 * SR));
+        double fc = 300 * Math.Pow(40, bright), gF = Math.Tan(Math.PI * Math.Min(SR * 0.45, fc) / SR), kF = 1.2; double keysDecay = Math.Exp(-1.0 / (1.2 * SR)); double tailK = Math.Exp(-1.0 / (0.003 * SR));
         for (int i = 0; i < n; i++)
         {
             while (ev != null && ei < ev.Count && ev[ei].Key <= i) { Event(ev[ei].Value); ei++; }
             double sl = 0, sr = 0;
             foreach (var v in voices)
             {
-                if (!v.On) continue; if (v.Delay > 0) { v.Delay--; continue; }
-                if (v.Rel) { v.Env *= rC; if (v.Env < 0.0003) { v.On = false; continue; } } else { if (sound == 0) { v.Env += (1 - v.Env) / aS * 3; } else if (v.Env < 1 && v.Start > 0) { v.Env = Math.Min(1, v.Env + 1.0 / Math.Max(1, aS * 0.05)); if (v.Env >= 1) v.Start = -v.Start; } else v.Env *= sound == 1 ? keysDecay : 1; }
+                if (v.TailL != 0 || v.TailR != 0) { sl += v.TailL; sr += v.TailR; v.TailL *= tailK; v.TailR *= tailK; if (Math.Abs(v.TailL) + Math.Abs(v.TailR) < 1e-6) v.TailL = v.TailR = 0; }
+                if (!v.On) { v.OutL = v.OutR = 0; continue; } if (v.Delay > 0) { v.Delay--; v.OutL = v.OutR = 0; continue; }
+                if (v.Rel) { v.Env *= rC; if (v.Env < 0.0003) { v.On = false; v.OutL = v.OutR = 0; continue; } } else { if (sound == 0) { v.Env += (1 - v.Env) / aS * 3; } else if (v.Env < 1 && v.Start > 0) { v.Env = Math.Min(1, v.Env + 1.0 / Math.Max(1, aS * 0.05)); if (v.Env >= 1) v.Start = -v.Start; } else v.Env *= sound == 1 ? keysDecay : 1; }
                 double hz = 440 * Math.Pow(2, (v.Note - 69) / 12.0), dt = hz / SR, s;
                 if (sound == 0) { v.Ph1 += dt; v.Ph2 += dt * 1.004; v.Ph3 += dt * 0.996; if (v.Ph1 >= 1) v.Ph1 -= 1; if (v.Ph2 >= 1) v.Ph2 -= 1; if (v.Ph3 >= 1) v.Ph3 -= 1; s = ((2 * v.Ph1 - 1) + (2 * v.Ph2 - 1) + (2 * v.Ph3 - 1)) / 3; }
                 else if (sound == 1) { v.Ph1 += dt; if (v.Ph1 >= 1) v.Ph1 -= 1; double p = 2 * Math.PI * v.Ph1; s = Math.Sin(p) + 0.5 * Math.Sin(2 * p) * v.Env + 0.25 * Math.Sin(3 * p) * v.Env * v.Env + 0.12 * Math.Sin(5 * p) * v.Env * v.Env; }
                 else { int L = Math.Max(2, (int)v.kLen), i0 = v.kw % L, i1 = (v.kw + 1) % L; double y = (v.ks[i0] + v.ks[i1]) * 0.5 * (0.98 + bright * 0.019); v.ks[i0] = y; v.kw = i1; s = y; }
                 double hp = (s - (kF + gF) * v.S1 - v.S2) / (1 + gF * (gF + kF)); double v1 = gF * hp, bp = v1 + v.S1; v.S1 = bp + v1; double v2 = gF * bp, lp = v2 + v.S2; v.S2 = lp + v2; s = sound == 2 ? s * 0.6 + lp * 0.4 : lp;
-                double amp = v.Env * (0.5 + 0.5 * v.Vel) * 0.22, pan = 0.5 + ((v.Note % 7) - 3) * 0.06; sl += s * amp * Math.Cos(pan * Math.PI / 2) * 1.414; sr += s * amp * Math.Sin(pan * Math.PI / 2) * 1.414;
+                double amp = v.Env * (0.5 + 0.5 * v.Vel) * 0.22, pan = 0.5 + ((v.Note % 7) - 3) * 0.06; v.OutL = s * amp * Math.Cos(pan * Math.PI / 2) * 1.414; v.OutR = s * amp * Math.Sin(pan * Math.PI / 2) * 1.414; sl += v.OutL; sr += v.OutR;
             }
             sl *= level; sr *= level; if (double.IsNaN(sl + sr) || double.IsInfinity(sl + sr)) { Reset(); sl = sr = 0; }
             l[i] = (float)sl; r[i] = (float)sr; Scope.Push((float)((sl + sr) * 0.5));
