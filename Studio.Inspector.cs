@@ -282,7 +282,7 @@ partial class StudioForm
                     var sd = sends[i]; int si = i; bool bad = sd.Bus == null || !eng.Tracks.Contains(sd.Bus) || !sd.Bus.IsBus;
                     FillRR(g, TM.C(140, 60, 20, 70), row, 5); var nb = Rc(row.X, row.Y, 44, SlotH); Txt(g, bad ? "?" : sd.Bus.Name, 8.5f, bad ? Warn : NeonPink, Rc(nb.X + 4, nb.Y, nb.Width - 4, SlotH), StringAlignment.Near, true);
                     var nr = Reg(nb, () => SendBusMenu(tt, si)); nr.OnRight = () => { PushUndo(); var l = new List<Send>(tt.Sends); if (si < l.Count) l.RemoveAt(si); tt.Sends = l.ToArray(); };
-                    var sl = Slider(g, Rc(row.X + 46, row.Y + 3, row.Width - 48, SlotH - 6), DbToFrac(sd.LevelDb), v => sd.LevelDb = (float)Math.Round(FracToDb(v), 1), NeonPink); sl.OnDouble = () => sd.LevelDb = 0;
+                    var sl = KnobCtl(g, row.X + 58, row.Y + SlotH / 2, 16, DbToFrac(sd.LevelDb), v => sd.LevelDb = (float)Math.Round(FracToDb(v), 1), NeonPink, () => sd.LevelDb = 0); sl.OnWheel = null; Txt(g, sd.LevelDb.ToString("0.#"), 8f, Ink, Rc(row.X + 70, row.Y, row.Width - 72, SlotH), StringAlignment.Far, true);   // (a galaxy knob and its level in dB)
                     Hint2(row, "Send to " + (bad ? "a missing bus" : sd.Bus.Name) + ": " + sd.LevelDb.ToString("0.0") + " dB " + (sd.Pre ? "(pre-fader)" : "(post-fader)") + ". Click the name to change the bus, right-click it to remove the send.");
                 }
                 else if (i == shown) { Btn(g, row, "+ SEND", 0, () => AddSendMenu(tt), 8.5f); Hint2(row, "Send a copy of " + t.Name + " to a bus (for example a shared reverb)"); }

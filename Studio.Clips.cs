@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -219,8 +219,10 @@ partial class StudioForm
         const float lo = -30f, hi = 12f; float frac = (c.ClipGainDb - lo) / (hi - lo); float fy = box.Bottom - footH;
         Txt(g, "VOLUME OF TRACK " + (eng.Tracks.IndexOf(c) + 1) + "  (just this piece, on top of the track fader)", 11, DimC, Rc(box.X + 24, fy, box.Width - 48, 18), StringAlignment.Near, true);
         var sr = Rc(box.X + 24, fy + 28, box.Width - 48 - 96, 22);
-        var rg = Slider(g, sr, Clamp01(frac), f => { float v = (float)Math.Round(lo + f * (hi - lo), 1); if (Math.Abs(v) < 0.4f) v = 0; c.ClipGainDb = v; }, Accent2);
-        var dn = rg.OnDown; rg.OnDown = () => { PushUndo(); if (dn != null) dn(); }; rg.OnDouble = () => c.ClipGainDb = 0;
+        // a galaxy knob (drag up / down, Shift for finer steps, double-click for 0 dB) with the dB scale beside it
+        var rg = KnobCtl(g, sr.X + 22, sr.Y + 11, 34, Clamp01(frac), f => { float v = (float)Math.Round(lo + f * (hi - lo), 1); if (Math.Abs(v) < 0.4f) v = 0; c.ClipGainDb = v; }, Accent2, () => c.ClipGainDb = 0); rg.OnWheel = null;
+        var dn = rg.OnDown; rg.OnDown = () => { PushUndo(); if (dn != null) dn(); };
+        Txt(g, "Drag up or down, double-click: 0 dB", 10f, DimC, Rc(sr.X + 50, sr.Y, sr.Width - 50, sr.Height), StringAlignment.Near, false);
         ValueBox(g, Rc(sr.Right + 10, fy + 23, 86, 30), (c.ClipGainDb > 0 ? "+" : "") + c.ClipGainDb.ToString("0.0", CultureInfo.InvariantCulture) + " dB", Num(c.ClipGainDb), s0 => { float v; if (ParseNum(s0, out v)) { PushUndo(); c.ClipGainDb = (float)Math.Round(Math.Max(lo, Math.Min(hi, v)), 1); } }, 14, true);   // type an exact gain
         Btn(g, Rc(box.X + 24, box.Bottom - 54, 130, 36), "RESET TO 0", 1, () => { PushUndo(); c.ClipGainDb = 0; }, 12);
         Txt(g, "-30 dB  ...  +12 dB", 10, DimC, Rc(box.X + 166, fy + 54, 150, 18), StringAlignment.Near, false);

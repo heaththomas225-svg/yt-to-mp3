@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Drawing;
@@ -283,8 +283,8 @@ static class K
         {
             eng.Tracks.Clear(); var vt = StudioEngine.NewTrack("Vox", "vocal", Const(6, 0.3f)); eng.Tracks.Add(vt); SetF("selTrack", 0); SetF("toolsTrack", null); Paint(); Paint();
             Func<HitReg> volBox = () => Regs().Find(r => Math.Abs(r.R.Width - 80) < 0.5f && Math.Abs(r.R.Height - 20) < 0.5f && r.R.X < 300 && r.OnDown != null);
-            var slid = Regs().Find(r => r.OnDrag != null && Math.Abs(r.R.Width - 112) < 0.5f && Math.Abs(r.R.Height - 18) < 0.5f && r.R.X < 300); var vb = volBox();
-            Check("the volume value is a box of its own, well away from the slider", vb != null && slid != null && vb.R.X - slid.R.Right >= 10, vb == null || slid == null ? "not found" : "gap " + (vb.R.X - slid.R.Right) + " px");
+            var vb = volBox(); var slid = vb == null ? null : Regs().Find(r => r.OnDrag != null && Math.Abs(r.R.Width - r.R.Height) < 0.5f && r.R.Width <= 34 && r.R.X < vb.R.X && Math.Abs((r.R.Y + r.R.Height / 2) - (vb.R.Y + vb.R.Height / 2)) < 6);   // the VOL knob on the same row
+            Check("the volume value is a box of its own, clear of the VOL knob", vb != null && slid != null && vb.R.X - slid.R.Right >= 6, vb == null || slid == null ? "not found" : "gap " + (vb.R.X - slid.R.Right) + " px");
             var eb = F<TextBox>("editBox"); Action<HitReg> click = r => { int cx = (int)(r.R.X + r.R.Width / 2), cy = (int)(r.R.Y + r.R.Height / 2); Ev("OnMouseMove", MouseButtons.None, 0, cx, cy); Ev("OnMouseDown", MouseButtons.Left, 1, cx, cy); Ev("OnMouseUp", MouseButtons.Left, 1, cx, cy); Paint(); };
             vt.VolDb = 0.3333f; click(vb); Check("clicking the box opens a text box over it", eb.Visible, "");
             Ev("OnMouseMove", MouseButtons.None, 0, 700, 650); Ev("OnMouseDown", MouseButtons.Left, 1, 700, 650); Ev("OnMouseUp", MouseButtons.Left, 1, 700, 650); Paint();
