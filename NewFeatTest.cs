@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Drawing;
@@ -172,6 +172,13 @@ static class NF
           var asked = new List<string>(); var ans = new Queue<DialogResult>(); sf.exitAsk = t => { asked.Add(t); return ans.Count > 0 ? ans.Dequeue() : DialogResult.Yes; };
           sf.eng.Tracks.Clear(); sf.eng.Tracks.Add(StudioEngine.NewTrack("T", "beat", null)); ans.Enqueue(DialogResult.Cancel); typeof(StudioForm).GetMethod("ExitDawClick", BF).Invoke(sf, null); Check("Exit asks to save first (this will close the DAW) and Cancel keeps it open", asked.Count == 1 && asked[0].Contains("close the DAW") && asked[0].Contains("Save your project now") && !sf.IsDisposed);
           sf.eng.Tracks.Clear(); sf.exitAsk = null; }
+        { // the X while music plays: the music stops at once and the leave question comes (No keeps the DAW open)
+          var asked = new List<string>(); sf.exitAsk = t => { asked.Add(t); return DialogResult.No; };
+          sf.eng.Tracks.Clear(); sf.eng.Tracks.Add(StudioEngine.NewTrack("Quiet", "beat", AudioClip.FromArrays(new float[44100 * 20], new float[44100 * 20], "q"))); sf.eng.Seek(0); sf.eng.Play(); Application.DoEvents(); bool xWas = sf.eng.Playing;
+          var msg = Message.Create(sf.Handle, 0x00A1, (IntPtr)20, IntPtr.Zero); var wargs = new object[] { msg }; typeof(StudioForm).GetMethod("WndProc", BF).Invoke(sf, wargs);
+          for (int i = 0; i < 10; i++) { Application.DoEvents(); System.Threading.Thread.Sleep(10); }
+          Check("pressing the X while music plays stops it straight away and asks to leave (No keeps the DAW open)", xWas && !sf.eng.Playing && asked.Count == 1 && asked[0].Contains("LEAVING THE DAW") && !sf.IsDisposed, "was=" + xWas + " playing=" + sf.eng.Playing + " asked=" + asked.Count);
+          sf.eng.Stop(); sf.eng.Tracks.Clear(); sf.exitAsk = null; }
         { // the list that asks which track: one button for a row that was split into pieces
           sf.eng.Tracks.Clear(); Func<int, AudioClip> mkc = sec => AudioClip.FromArrays(new float[44100 * sec], new float[44100 * sec], "t"); var row0 = StudioEngine.NewTrack("Row", "beat", mkc(2)); var pc1 = StudioEngine.NewTrack("Row piece", "beat", mkc(5)); var pc2 = StudioEngine.NewTrack("Row piece 2", "beat", mkc(1)); pc1.Host = row0; pc2.Host = row0; var other = StudioEngine.NewTrack("Other", "vocal", mkc(3));
           sf.eng.Tracks.Add(row0); sf.eng.Tracks.Add(pc1); sf.eng.Tracks.Add(pc2); sf.eng.Tracks.Add(other); var picked = new List<Track>();

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -163,6 +163,9 @@ partial class StudioForm : Form
     protected override void WndProc(ref Message m)
     {
         if (m.Msg == 0x0112 && (((int)m.WParam) & 0xFFF0) == 0xF060) NoteUserX();   // WM_SYSCOMMAND SC_CLOSE: the X was pressed
+        // the X pressed with the mouse: the music stops at once and the DAW closes (the questions still come if something is not saved). Left to Windows, the
+        // press on the X waited for its release while the studio drew 60 frames a second, and while music played the X often did nothing
+        if (m.Msg == 0x00A1 && (int)m.WParam == 20) { SilenceAll(); BeginInvoke(new Action(() => { if (IsDisposed) return; userX = true; Close(); })); m.Result = IntPtr.Zero; return; }   // WM_NCLBUTTONDOWN on HTCLOSE
         Win.TrackMove(ref m); if (m.Msg == 0x231) moving = true; else if (m.Msg == 0x232) moving = false;
         if (m.Msg == 0x020E && tab == 0) { int dlt = (short)(((long)m.WParam >> 16) & 0xFFFF); ScrollView(dlt / 120.0 * 0.15); Invalidate(); }   // touch pad: swipe sideways
         base.WndProc(ref m);
