@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
@@ -165,7 +165,7 @@ static class BS
         Page("PIANO ROLL on a note track", () => { SetF("tab", 0); SetF("selTrack", ti("Keys")); sf.OpenPianoRoll(null); });
         Page("PIANO ROLL choose a sound", () => { SetF("tab", 0); int e = ti("Audio 5"); if (e < 0) e = ti("Piano"); SetF("selTrack", e); sf.OpenPianoRoll(null); });
         Page("MIXER panel: ALL PLUGINS", () => { SetF("tab", 0); SetF("selTrack", 0); typeof(StudioForm).GetMethod("OpenInspector", BF).Invoke(sf, new object[] { 1 }); });
-        Page("MIXER panel: CHANNEL", () => { SetF("tab", 0); SetF("selTrack", 1); typeof(StudioForm).GetMethod("OpenInspector", BF).Invoke(sf, new object[] { 0 }); });
+        Page("MIXER panel: strips", () => { SetF("tab", 0); SetF("selTrack", 1); typeof(StudioForm).GetMethod("OpenInspector", BF).Invoke(sf, new object[] { 1 }); });
         Page("SOUND PACKS", () => { SetF("tab", 0); typeof(StudioForm).GetMethod("OpenPacks", BF).Invoke(sf, null); });
         Page("SOUNDS", () => { SetF("tab", 0); typeof(StudioForm).GetMethod("OpenSounds", BF).Invoke(sf, null); });
         closer.Dispose(); Pump(200);

@@ -19,7 +19,7 @@ partial class StudioForm
     internal bool InsShown { get { return insOpen && tab == 0 && !flexOpen; } }
     // the bottom of the arrangement (the inspector takes the space under it)
     internal float MixH { get { return ClientSize.Height - (InsShown ? InsH : 0); } }
-    internal void OpenInspector(int tabIndex) { insOpen = true; insTab = Math.Max(0, Math.Min(4, tabIndex)); tab = 0;   /* (2 = PRESETS) */ if (insTab == 1) EnsureConsoleHeight(); Prefs.InsOpen = true; if (!Prefs.PanelHidden && !soundsOpen) { Prefs.PanelHidden = true; panelAt = DateTime.Now; } Prefs.Changed(); Invalidate(); }   // one place for plugins: the right-hand plugin panel is tucked away (its tab brings it back)
+    internal void OpenInspector(int tabIndex) { insOpen = true; insTab = Math.Max(1, Math.Min(4, tabIndex));   /* (the CHANNEL tab is gone: its controls are on every mixer strip) */ tab = 0;   /* (2 = PRESETS) */ if (insTab == 1) EnsureConsoleHeight(); Prefs.InsOpen = true; if (!Prefs.PanelHidden && !soundsOpen) { Prefs.PanelHidden = true; panelAt = DateTime.Now; } Prefs.Changed(); Invalidate(); }   // one place for plugins: the right-hand plugin panel is tucked away (its tab brings it back)
     internal void CloseInspector() { insOpen = false; Prefs.InsOpen = false; Prefs.Changed(); Invalidate(); }
 
     // which track the panel shows: the bus picked in BUSES, the bus being edited, or the picked track
@@ -45,7 +45,7 @@ partial class StudioForm
         if (Hot(div) || insDragging) { using (var pen = new Pen(NeonCyan, 3f)) g.DrawLine(pen, x, y, x + w, y); Cursor = Cursors.SizeNS; } Hint2(div, "Drag to make the inspector taller or shorter");
         // header: tabs, what is shown, hide
         var t = InsTarget; var clipT = InsClip; bool midi = t != null && t.Instrument; string fourth = midi ? "MIDI" : "CLIP";
-        string[] tabs = { "CHANNEL", "MIXER", "PRESETS", fourth, "PIANO ROLL", "BEAT LAB" }; float tx = x + 10;   // BEAT LAB: the drum machine, in the piano roll's place
+        string[] tabs = { "", "MIXER", "PRESETS", fourth, "PIANO ROLL", "BEAT LAB" }; float tx = x + 10;   // BEAT LAB: the drum machine, in the piano roll's place
         for (int i = 0; i < tabs.Length; i++)
         {
             if (tabs[i].Length == 0) continue; int k = i; float cw = i == 1 ? 118 : 100; var r = Rc(tx, y + 6, cw, 24); bool on = i == 5 ? insTab == 4 && blOn : (i == 4 ? insTab == 4 && !blOn : insTab == i);
@@ -228,7 +228,7 @@ partial class StudioForm
         var strips = new List<Track>(); foreach (var q in eng.Tracks) if (!q.IsBus) strips.Add(q); foreach (var q in eng.Tracks) if (q.IsBus) strips.Add(q);
         int maxFx = 0, maxSends = 0; foreach (var q in strips) { lock (eng.Sync) maxFx = Math.Max(maxFx, q.Fx.Count); if (!q.IsBus) maxSends = Math.Max(maxSends, q.Sends.Length); }
         // the shared rows: name, slots, sends, output, pan, fader, mute / solo (the slots and the fader share what is left)
-        int sendRows = Math.Min(3, maxSends + 1); float fixedH = 26 + 6 + sendRows * (SlotH + SlotGap) + 6 + 26 + 26 + 20 + 36, faderMin = 70;   /* (a row for PRESETS under the output) */
+        int sendRows = Math.Min(3, maxSends + 1); float fixedH = 26 + 6 + sendRows * (SlotH + SlotGap) + 6 + 26 + 26 + 20 + 36 + 26 + 20, faderMin = 70;   /* (+ the STEREO / PHASE / ON row and TRIM, from the old CHANNEL tab) */   /* (a row for PRESETS under the output) */
         int fit = Math.Max(1, (int)((C.Height - fixedH - faderMin) / (SlotH + SlotGap))); int slots = Math.Max(1, Math.Min(fit, Math.Max(3, maxFx + 1)));
         float faderH = Math.Max(24, C.Height - fixedH - slots * (SlotH + SlotGap));
         float x = C.X - insScrollX;
@@ -304,6 +304,22 @@ partial class StudioForm
         // mute / solo: right under the pan, big enough to read and hit (at the bottom they were cut off when the mixer was short)
         { float hw = (w - 4) / 2; Btn(g, Rc(x, y, hw, 30), "M", t.Mute ? 3 : 0, () => tt.Mute = !tt.Mute, 15); Btn(g, Rc(x + hw + 4, y, hw, 30), "S", t.Solo ? 2 : 0, () => tt.Solo = !tt.Solo, 15); }
         y += 36;
+        // stereo / mono, phase and on / off, then the input trim (they were on the CHANNEL tab)
+        {
+            float bw3 = (w - 4) / 3; var onb = Rc(x + (bw3 + 2) * 2, y, bw3, 22); Btn(g, onb, t.Off ? "OFF" : "ON", t.Off ? 3 : 4, () => tt.Off = !tt.Off, 8.5f); Hint2(onb, t.Name + " is " + (t.Off ? "OFF: it makes no sound and is not processed. Click to switch it on." : "ON. Click to switch it off (no sound, no processing)."));
+            if (!t.IsBus)
+            {
+                var mb = Rc(x, y, bw3, 22); Btn(g, mb, t.Mono ? "MONO" : "ST", t.Mono ? 4 : 0, () => { PushUndo(); tt.Mono = !tt.Mono; }, 8.5f); Hint2(mb, t.Mono ? t.Name + " plays in mono. Click for stereo." : t.Name + " plays in stereo. Click for mono.");
+                var phb = Rc(x + bw3 + 2, y, bw3, 22); Btn(g, phb, "Ø", t.Invert ? 4 : 0, () => { PushUndo(); tt.Invert = !tt.Invert; }, 10); Hint2(phb, "Flip the phase (polarity) of " + t.Name + (t.Invert ? ": flipped now" : ""));
+            }
+            y += 26;
+            if (!t.IsBus)
+            {
+                var trr = Rc(x, y + 1, w, 12); var tsl = Slider(g, trr, (t.TrimDb + 24) / 48, v => tt.TrimDb = (float)Math.Round(v * 48 - 24, 1), NeonCyan); tsl.OnDouble = () => tt.TrimDb = 0;
+                Hint2(trr, "TRIM " + (t.TrimDb > 0 ? "+" : "") + t.TrimDb.ToString("0.0") + " dB: the level going into the plugins (double-click for 0 dB)");
+            }
+            y += 20;
+        }
         // fader and meter
         VFader(g, Rc(x + 6, y + 6, 26, faderH - 12), t.VolDb, v => tt.VolDb = (float)Math.Round(v, 1), col); Meter(g, Rc(x + 40, y, 18, faderH), t);
         Txt(g, (t.VolDb > 0 ? "+" : "") + t.VolDb.ToString("0.0"), 9, Ink, Rc(x + 60, y, w - 60, 14), StringAlignment.Far, true);

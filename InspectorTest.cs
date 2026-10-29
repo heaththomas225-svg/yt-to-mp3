@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Drawing;
@@ -88,8 +88,8 @@ static class IN
           sf.OpenInspector(1); Paint(); Shot("fx-viz"); eng.Playing = false; eng.Pos = 0; eq.Bypass = false; rev.Set("mix", 33);
           Check("the picture grows with the plugin's work and settles when it is bypassed", busy > still * 1.5 && busy > 40, "working " + busy + " lit, bypassed " + still); }
         // the windows stay open while the studio is clicked; each stays bound to its own plugin
-        var revWin = sf.FxWindowOf(rev); var tl2 = (RectangleF)M("TimelineRect"); Click(tl2.X + tl2.Width - 60, tl2.Y + 20); SetF("selTrack", 1); Paint(); Click(60, sf.MixH + 18);   /* the inspector (the mixer): its CHANNEL tab */
-        Check("clicking the arrangement, another track and the mixer does not close the windows", F<int>("insTab") == 0 && sf.fxWins.Count == 3 && sf.FxWindowOf(rev) == revWin, sf.fxWins.Count + " windows");
+        var revWin = sf.FxWindowOf(rev); var tl2 = (RectangleF)M("TimelineRect"); Click(tl2.X + tl2.Width - 60, tl2.Y + 20); SetF("selTrack", 1); Paint(); Click(60, sf.MixH + 18);   /* the inspector (the mixer): its MIXER tab, the first one */
+        Check("clicking the arrangement, another track and the mixer does not close the windows", F<int>("insTab") == 1 && sf.fxWins.Count == 3 && sf.FxWindowOf(rev) == revWin, sf.fxWins.Count + " windows");
         float m0 = comp.Get("thr"); revWin.Fx.Set("mix", 33); Check("with Track B picked, Track A's reverb window still edits Track A's reverb (B is untouched)", Math.Abs(rev.Get("mix") - 33) < 0.01 && Math.Abs(comp.Get("thr") - m0) < 0.001 && revWin.Track == vox, "");
         // drag a window by its title bar; clicking inside brings it forward
         { var w = sf.FxWindowOf(eq); sf.FxWinMouseDown(new Point((int)w.R.X + 10, (int)w.R.Y + 10)); Paint(); bool front = sf.fxWins.Max(q => q.Seq) == w.Seq; float x0 = w.R.X, y0 = w.R.Y;
@@ -188,6 +188,12 @@ static class IN
           Check("the colour mixer drives it: a chrome gold profile colour makes the accent gold with a chrome finish", UiTokens.Custom && UiTokens.Finish == MixColours.Chrome && Math.Abs(UiTokens.Accent.GetHue() - 43) < 20, "finish " + UiTokens.Finish + ", hue " + UiTokens.Accent.GetHue().ToString("0"));
           M("MixSetFollow", false); Check("switching the profile back to the theme colour puts the theme's own accent back", !UiTokens.Custom && Win.NeonHot == Themes.Current.Cyan, ""); }
         // the transport and the editing row are centred
+        { // the CHANNEL tab is gone: MONO, phase, ON and trim are on every mixer strip
+          sf.OpenInspector(0); Paint(); Check("asking for the old CHANNEL tab opens the MIXER", F<int>("insTab") == 1, F<int>("insTab").ToString());
+          var T = typeof(StudioForm); var monoBefore = sf.eng.Tracks.Select(q => q.Mono).ToList(); HitReg monoBtn = null; string seen = "";
+          foreach (var r in Regs().Where(q => q.R.Y > sf.MixH && q.R.Height <= 24 && q.OnDown != null).ToList()) { T.GetField("MousePos", BF).SetValue(sf, new PointF(r.R.X + r.R.Width / 2, r.R.Y + r.R.Height / 2)); T.GetField("hover", BF).SetValue(sf, r); Paint(); string b = F<string>("bubble") ?? ""; if (b.Contains("plays in stereo") || b.Contains("plays in mono")) { monoBtn = r; seen = b; break; } }
+          if (monoBtn != null) monoBtn.OnDown(); Check("a mixer strip has the STEREO / MONO button (it switches the track)", monoBtn != null && !sf.eng.Tracks.Select(q => q.Mono).SequenceEqual(monoBefore), seen);
+          foreach (var q in sf.eng.Tracks) q.Mono = false; }
         sf.OpenInspector(0); Paint(); Shot("ins-final");
         eng.Shutdown(); try { Directory.Delete(tmp, true); } catch { } Console.WriteLine(fails == 0 ? "=== inspector checks passed ===" : "=== " + fails + " FAILED ==="); Environment.Exit(fails == 0 ? 0 : 1);
     }
