@@ -2,6 +2,16 @@
 
 What changed in each version of **Purphex**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.78.2  The X closes the DAW while music plays, GENERATE fixes, menus open on a click
+
+- FIXED: The X of the DAW did nothing while music was playing. Now one press on the X stops the music at once and closes the DAW (if your project or lyrics are not saved, it still asks first).
+
+- FIXED: GENERATE, JUST THIS TRACK on your pattern: pressing YES (or NO) to the tempo question made nothing. It now writes the part onto your pattern.
+
+- FIXED: The GENERATE menus vanished when the mouse moved over them, so a genre like HOUSE was impossible to pick. Sub-menus now open when you click them and stay open until you click another option, click outside or press Esc (in every menu of the app), and each one opens beside the last, never on top of it.
+
+- CHANGED: GENERATE is two steps shorter: pick the LENGTH (4, 8 or 16 bars) at the top of the menu (it stays open), then click a style and it is made straight away.
+
 ## 3.78.1  Own tracks on Beat Lab rows, drop highlight, GENERATE one sound at a time, plugin descriptions
 
 - NEW: Your own tracks on Beat Lab rows. TRACK on any row (or + TRACK at the top, or the NEW ROW box under the rows) lists the tracks of your song: an audio track goes on the row as its sound, an instrument track as one hit of its instrument or its whole part as audio.

@@ -7,10 +7,16 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.78.1";
+    public const string Latest = "3.78.2";
 
     public const string Text =
-@"3.78.1  Own tracks on Beat Lab rows, drop highlight, GENERATE one sound at a time, plugin descriptions
+@"3.78.2  The X closes the DAW while music plays, GENERATE fixes, menus open on a click
+ + FIXED: The X of the DAW did nothing while music was playing. Now one press on the X stops the music at once and closes the DAW (if your project or lyrics are not saved, it still asks first).
+ + FIXED: GENERATE, JUST THIS TRACK on your pattern: pressing YES (or NO) to the tempo question made nothing. It now writes the part onto your pattern.
+ + FIXED: The GENERATE menus vanished when the mouse moved over them, so a genre like HOUSE was impossible to pick. Sub-menus now open when you click them and stay open until you click another option, click outside or press Esc (in every menu of the app), and each one opens beside the last, never on top of it.
+ + CHANGED: GENERATE is two steps shorter: pick the LENGTH (4, 8 or 16 bars) at the top of the menu (it stays open), then click a style and it is made straight away.
+
+3.78.1  Own tracks on Beat Lab rows, drop highlight, GENERATE one sound at a time, plugin descriptions
  + NEW: Your own tracks on Beat Lab rows. TRACK on any row (or + TRACK at the top, or the NEW ROW box under the rows) lists the tracks of your song: an audio track goes on the row as its sound, an instrument track as one hit of its instrument or its whole part as audio.
  + CHANGED: The Beat Lab pad grid is gone, so the step rows get the whole width. Each row is its own pad: tap its name or press its key to hear it, and it lights up when it plays. Drop a sound below the last row for a new one.
  + NEW: While you drag a sound onto the Beat Lab (from SOUNDS or a folder), the row under the mouse lights up and says what will happen: DROP: REPLACES and the sound's name, or DROP: A NEW ROW. A sound file dragged straight from a folder now goes onto the row instead of into the song.
