@@ -276,7 +276,7 @@ static class Win
     {
     // every menu of the app (right-click menus, plugin menus, pickers): 10 pt with compact rows (25% smaller than before, so menus take less room), each option in its own neon box
         var m = new PxMenu { Renderer = new DarkRenderer(), BackColor = TM.C(255, 16, 8, 32), ForeColor = TM.C(255, 240, 232, 255), ShowImageMargin = false, Font = new Font("Segoe UI", 10f) };
-        m.Font = UiFont(10f); Action<ToolStripItem> up = null; up = it => { if (!string.IsNullOrEmpty(it.Text) && it.Text.Length <= 70) it.Text = Up(it.Text); if (!(it is ToolStripSeparator)) { it.Padding = new Padding(5, 3, 8, 3); it.Margin = new Padding(0, 1, 0, 1); } var mi = it as ToolStripMenuItem; if (mi != null) { var dd = mi.DropDown; dd.SuspendLayout(); try { dd.Font = m.Font; foreach (ToolStripItem sub in mi.DropDownItems) up(sub); } finally { dd.ResumeLayout(false); } mi.DropDownOpening += (s3, e3) => SideInApp(mi); mi.DropDownOpened += (s3, e3) => KeepInApp(mi.DropDown); dd.ItemAdded += (s2, e2) => up(e2.Item); } };   // the layout waits until a sub-menu's options are all styled (laid out after each one, a menu of the 1,400 vocal presets took a minute to open)
+        m.Font = UiFont(10f); var ct = new ClickTree(); m.Opening += (s, e) => ct.AllGo = false; m.Closed += (s, e) => ct.CloseAll(); Action<ToolStripItem> up = null; up = it => { if (!string.IsNullOrEmpty(it.Text) && it.Text.Length <= 70) it.Text = Up(it.Text); if (!(it is ToolStripSeparator)) { it.Padding = new Padding(5, 3, 8, 3); it.Margin = new Padding(0, 1, 0, 1); } var mi = it as ToolStripMenuItem; if (mi != null) { var dd = mi.DropDown; dd.SuspendLayout(); try { dd.Font = m.Font; foreach (ToolStripItem sub in mi.DropDownItems) up(sub); } finally { dd.ResumeLayout(false); } ClickToOpen(mi, ct); mi.DropDownOpening += (s3, e3) => SideInApp(mi); mi.DropDownOpened += (s3, e3) => KeepInApp(mi.DropDown); dd.ItemAdded += (s2, e2) => up(e2.Item); } };   // the layout waits until a sub-menu's options are all styled (laid out after each one, a menu of the 1,400 vocal presets took a minute to open)
         m.ItemAdded += (s, e) => up(e.Item);
         m.Opened += (s, e) => { MenuShownAt = Control.MousePosition; MenuAway = false; };
         m.Closed += (s, e) => { if (e.CloseReason == ToolStripDropDownCloseReason.AppClicked) { MenuAway = true; MenuClosedAt = Environment.TickCount; } };
@@ -294,6 +294,28 @@ static class Win
         return new Rectangle(x, y, b.Width, b.Height);
     }
     // a sub-menu that opened past the edge of the window comes back inside it (on the other side of its menu if there is no room)
+    // Sub-menus open when you click them, not when the mouse passes over, and stay open until you click another option, click outside or press Esc
+    // (opening and closing as the mouse went by made the deep menus vanish before you could reach them)
+    internal class ClickTree
+    {
+        public bool AllGo; public int Going; public readonly System.Collections.Generic.List<ToolStripMenuItem> Subs = new System.Collections.Generic.List<ToolStripMenuItem>();
+        public void CloseAll() { AllGo = true; foreach (var x in Subs) if (x.DropDown.Visible) x.DropDown.Close(); }
+        public void CloseSub(ToolStripMenuItem od) { Going++; try { od.HideDropDown(); } finally { Going--; } }
+    }
+    [System.Runtime.InteropServices.DllImport("user32.dll")] static extern short GetAsyncKeyState(int k);
+    static bool KeyOpens() { foreach (int k in new[] { 0x27, 0x25, 0x0D, 0x20 }) if ((GetAsyncKeyState(k) & 0x8000) != 0) return true; return false; }   // right, left, Enter, space: the keyboard still opens them
+    internal static void ClickToOpen(ToolStripMenuItem mi, ClickTree ct)
+    {
+        ct.Subs.Add(mi); bool ok = false;
+        mi.DropDown.Opening += (s, e) => { if (!ok && !KeyOpens() && Control.MouseButtons == MouseButtons.None) e.Cancel = true; ok = false; };
+        mi.DropDown.Closing += (s, e) => { if ((e.CloseReason == ToolStripDropDownCloseReason.CloseCalled || e.CloseReason == ToolStripDropDownCloseReason.AppFocusChange) && !ct.AllGo && ct.Going == 0) e.Cancel = true; };
+        mi.MouseDown += (s, e) =>
+        {
+            if (e.Button != MouseButtons.Left || !mi.HasDropDownItems) return; var par = mi.Owner;
+            if (par != null) foreach (ToolStripItem o in par.Items) { var od = o as ToolStripMenuItem; if (od != null && od != mi && od.HasDropDownItems && od.DropDown.Visible) ct.CloseSub(od); }
+            if (!mi.DropDown.Visible) { ok = true; mi.ShowDropDown(); }
+        };
+    }
     // before a sub-menu opens: the side of its menu with room for it inside the window (right if it fits, else left), so it never lands on a menu already open
     internal static void SideInApp(ToolStripMenuItem mi)
     {
