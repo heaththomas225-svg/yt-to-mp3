@@ -2,6 +2,18 @@
 
 What changed in each version of **Purphex**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.78.3  Galaxy knobs, BEAT LAB tab, mixer strips with the channel controls, ChordPad without clicks
+
+- FIXED: Clicks in the Purphex ChordPad when you played fast: with all its voices busy, the oldest note was cut off in one sample. Now the quietest fading note is taken first and what it was playing fades away in 3 ms. Measured playing fast: 73 clicks before, none now.
+
+- NEW: A BEAT LAB tab beside PIANO ROLL in the panel at the bottom.
+
+- CHANGED: The CHANNEL tab is gone: every mixer strip now has STEREO / MONO, phase, ON / OFF and TRIM of its own.
+
+- CHANGED: Galaxy knobs instead of sliders: track volume and pan, mixer pan, trim and sends, the GAIN panel, and swing, humanise and each row's volume in the Beat Lab. Drag a knob up or down (Shift for finer), double-click for its default; the mouse wheel still scrolls the lists.
+
+- CHANGED: The CLIP tab has GAIN, FADE IN and FADE OUT as knobs, each with a box to type the exact value, and a loud clip's waveform stays in its box (it covered MUTE, LOCK and REVERSE).
+
 ## 3.78.2  The X closes the DAW while music plays, GENERATE fixes, menus open on a click
 
 - FIXED: The X of the DAW did nothing while music was playing. Now one press on the X stops the music at once and closes the DAW (if your project or lyrics are not saved, it still asks first).

@@ -1,4 +1,4 @@
-3.78.2
+3.78.3
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-The X closes the DAW while music plays, GENERATE fixes, menus open on a click
-sha256=46c8a1f126f44d907a690b5e485f2459537132bb4f133d34b16d11955c20f604
+Galaxy knobs, BEAT LAB tab, mixer strips with the channel controls, ChordPad without clicks
+sha256=9cdac339b84c0895a89fabb0a2a5058229706a5ada5421f8492bfebc874154d3

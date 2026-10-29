@@ -7,10 +7,17 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.78.2";
+    public const string Latest = "3.78.3";
 
     public const string Text =
-@"3.78.2  The X closes the DAW while music plays, GENERATE fixes, menus open on a click
+@"3.78.3  Galaxy knobs, BEAT LAB tab, mixer strips with the channel controls, ChordPad without clicks
+ + FIXED: Clicks in the Purphex ChordPad when you played fast: with all its voices busy, the oldest note was cut off in one sample. Now the quietest fading note is taken first and what it was playing fades away in 3 ms. Measured playing fast: 73 clicks before, none now.
+ + NEW: A BEAT LAB tab beside PIANO ROLL in the panel at the bottom.
+ + CHANGED: The CHANNEL tab is gone: every mixer strip now has STEREO / MONO, phase, ON / OFF and TRIM of its own.
+ + CHANGED: Galaxy knobs instead of sliders: track volume and pan, mixer pan, trim and sends, the GAIN panel, and swing, humanise and each row's volume in the Beat Lab. Drag a knob up or down (Shift for finer), double-click for its default; the mouse wheel still scrolls the lists.
+ + CHANGED: The CLIP tab has GAIN, FADE IN and FADE OUT as knobs, each with a box to type the exact value, and a loud clip's waveform stays in its box (it covered MUTE, LOCK and REVERSE).
+
+3.78.2  The X closes the DAW while music plays, GENERATE fixes, menus open on a click
  + FIXED: The X of the DAW did nothing while music was playing. Now one press on the X stops the music at once and closes the DAW (if your project or lyrics are not saved, it still asks first).
  + FIXED: GENERATE, JUST THIS TRACK on your pattern: pressing YES (or NO) to the tempo question made nothing. It now writes the part onto your pattern.
  + FIXED: The GENERATE menus vanished when the mouse moved over them, so a genre like HOUSE was impossible to pick. Sub-menus now open when you click them and stay open until you click another option, click outside or press Esc (in every menu of the app), and each one opens beside the last, never on top of it.
