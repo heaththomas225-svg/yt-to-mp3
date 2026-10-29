@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Runtime.InteropServices;
@@ -276,7 +276,7 @@ static class Win
     {
     // every menu of the app (right-click menus, plugin menus, pickers): 10 pt with compact rows (25% smaller than before, so menus take less room), each option in its own neon box
         var m = new PxMenu { Renderer = new DarkRenderer(), BackColor = TM.C(255, 16, 8, 32), ForeColor = TM.C(255, 240, 232, 255), ShowImageMargin = false, Font = new Font("Segoe UI", 10f) };
-        m.Font = UiFont(10f); Action<ToolStripItem> up = null; up = it => { if (!string.IsNullOrEmpty(it.Text) && it.Text.Length <= 70) it.Text = Up(it.Text); if (!(it is ToolStripSeparator)) { it.Padding = new Padding(5, 3, 8, 3); it.Margin = new Padding(0, 1, 0, 1); } var mi = it as ToolStripMenuItem; if (mi != null) { var dd = mi.DropDown; dd.SuspendLayout(); try { dd.Font = m.Font; foreach (ToolStripItem sub in mi.DropDownItems) up(sub); } finally { dd.ResumeLayout(false); } mi.DropDownOpened += (s3, e3) => KeepInApp(mi.DropDown); dd.ItemAdded += (s2, e2) => up(e2.Item); } };   // the layout waits until a sub-menu's options are all styled (laid out after each one, a menu of the 1,400 vocal presets took a minute to open)
+        m.Font = UiFont(10f); Action<ToolStripItem> up = null; up = it => { if (!string.IsNullOrEmpty(it.Text) && it.Text.Length <= 70) it.Text = Up(it.Text); if (!(it is ToolStripSeparator)) { it.Padding = new Padding(5, 3, 8, 3); it.Margin = new Padding(0, 1, 0, 1); } var mi = it as ToolStripMenuItem; if (mi != null) { var dd = mi.DropDown; dd.SuspendLayout(); try { dd.Font = m.Font; foreach (ToolStripItem sub in mi.DropDownItems) up(sub); } finally { dd.ResumeLayout(false); } mi.DropDownOpening += (s3, e3) => SideInApp(mi); mi.DropDownOpened += (s3, e3) => KeepInApp(mi.DropDown); dd.ItemAdded += (s2, e2) => up(e2.Item); } };   // the layout waits until a sub-menu's options are all styled (laid out after each one, a menu of the 1,400 vocal presets took a minute to open)
         m.ItemAdded += (s, e) => up(e.Item);
         m.Opened += (s, e) => { MenuShownAt = Control.MousePosition; MenuAway = false; };
         m.Closed += (s, e) => { if (e.CloseReason == ToolStripDropDownCloseReason.AppClicked) { MenuAway = true; MenuClosedAt = Environment.TickCount; } };
@@ -294,10 +294,35 @@ static class Win
         return new Rectangle(x, y, b.Width, b.Height);
     }
     // a sub-menu that opened past the edge of the window comes back inside it (on the other side of its menu if there is no room)
+    // before a sub-menu opens: the side of its menu with room for it inside the window (right if it fits, else left), so it never lands on a menu already open
+    internal static void SideInApp(ToolStripMenuItem mi)
+    {
+        try
+        {
+            var a = AppArea(); var owner = mi.Owner; if (a.IsEmpty || owner == null) return;
+            var o = owner.Bounds; int w = mi.DropDown.GetPreferredSize(Size.Empty).Width;
+            // keep going the way the menus already go (once they turned left, the next one goes left too, not back over the first menu)
+            var pd = owner as ToolStripDropDown; var pi = pd != null ? pd.OwnerItem as ToolStripMenuItem : null;
+            bool goingLeft = pi != null && pd.Bounds.Right <= (pi.Owner != null ? pi.Owner.Bounds.Left + 4 : int.MinValue);
+            if (goingLeft && o.Left - w >= a.Left) mi.DropDownDirection = ToolStripDropDownDirection.Left;
+            else if (o.Right + w <= a.Right) mi.DropDownDirection = ToolStripDropDownDirection.Right;
+            else if (o.Left - w >= a.Left) mi.DropDownDirection = ToolStripDropDownDirection.Left;
+            else mi.DropDownDirection = o.Right + w - a.Right < a.Left - (o.Left - w) ? ToolStripDropDownDirection.Right : ToolStripDropDownDirection.Left;
+        }
+        catch { }
+    }
     internal static void KeepInApp(ToolStripDropDown d)
     {
         var a = AppArea(); if (a.IsEmpty || d == null) return; if (d.MaximumSize.Height != a.Height) d.MaximumSize = new Size(Math.Max(200, a.Width), Math.Max(120, a.Height));
-        var b = d.Bounds; var c = Clamp(b, a); if (c.Location != b.Location) d.Location = c.Location;
+        var b = d.Bounds; var c = Clamp(b, a);
+        // past the right or left edge: open on the other side of the menu it came from, never on top of it (it covered the option under the mouse and the menus closed)
+        var owner = d.OwnerItem != null ? d.OwnerItem.Owner : null;
+        if (owner != null && c.X != b.X)
+        {
+            var o = owner.Bounds; int x = b.Right > a.Right ? o.Left - b.Width : o.Right;
+            if (x >= a.Left && x + b.Width <= a.Right) c = new Rectangle(x, c.Y, c.Width, c.Height);
+        }
+        if (c.Location != b.Location) d.Location = c.Location;
     }
     // Clicking the same button again while its menu is open must close the menu, not open it a second time. The click that closes a menu
     // also reaches the window, so the window asks here whether a click lands where the menu came from, right after it was closed that way.

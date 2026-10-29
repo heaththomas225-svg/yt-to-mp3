@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
@@ -109,7 +109,7 @@ partial class StudioForm
     {
         var st = PatStyles[styleIndex]; var parts = new Dictionary<int, List<Track>>(); var kits = new List<Track>();
         if (only != null && JobOf(only) == -1) return GenerateChords(st, only, bars, fromBar, setTempo);
-        foreach (var t in eng.Tracks) { if (only != null && t != only) continue; int j = JobOf(t); if (j == 100) kits.Add(t); else if (j >= 0) { List<Track> l; if (!parts.TryGetValue(j, out l)) parts[j] = l = new List<Track>(); l.Add(t); } }
+        foreach (var t in only != null ? new List<Track> { only } : eng.Tracks) { int j = JobOf(t);   /* (just this track can be your pattern, which is not on the song yet) */ if (j == 100) kits.Add(t); else if (j >= 0) { List<Track> l; if (!parts.TryGetValue(j, out l)) parts[j] = l = new List<Track>(); l.Add(t); } }
         if (parts.Count == 0 && kits.Count == 0) return "Add your sounds first: put a kick, a snare or clap, hi-hats and an 808 on tracks 1, 2, 3, 4... (drag a sound from SOUNDS onto the piano roll, then drag your pattern onto the song), then generate again. Or use the GENERATE box: it brings its own sounds. A track's job comes from its sound or name (JOBS sets it yourself).";
         PushUndo(); if (setTempo) { Fx.ProjectBpm = st.Bpm; bpmUserSet = true; }
         double beat = StudioEngine.SR * 60.0 / Fx.ProjectBpm, step = beat / 4; long a = (long)Math.Round(fromBar * 4 * beat), len = (long)Math.Round(bars * 4 * beat);
@@ -183,18 +183,27 @@ partial class StudioForm
     // the styles are listed in their families (Hip-Hop & Trap, UK & Drill, R&B & Soul...): a sub-menu each, in the order they first come
     static ToolStripMenuItem Fam(List<ToolStripMenuItem> fams, string name) { var f = fams.Find(x => x.Name == name); if (f == null) { f = new ToolStripMenuItem(name) { Name = name }; fams.Add(f); } return f; }
     // the GENERATE menu: styles, how many bars, the song's tempo, and each track's job
+    static int prGenBars = 4;
     void PrGenerateMenu()
     {
         var m = Win.NewMenu(); int from = (int)Math.Floor(prScrollBeats / 4);
+        // how long: 4, 8 or 16 bars, picked here (the menu stays open) so a style is one click away, two levels deep at most (deeper menus ran off the window)
+        m.Items.Add(new ToolStripMenuItem("LENGTH") { Enabled = false }); var lens = new List<ToolStripMenuItem>(); bool keep = false;
+        foreach (int b0 in new[] { 4, 8, 16 }) { int bb = b0; var li = new ToolStripMenuItem(bb + " bars") { Checked = prGenBars == bb, Tag = "len" }; li.Click += (a1, b1) => { prGenBars = bb; foreach (var x in lens) x.Checked = x == li; }; lens.Add(li); m.Items.Add(li); }
+        m.ItemClicked += (s1, e1) => keep = e1.ClickedItem != null && (e1.ClickedItem.Tag as string) == "len";
+        m.Closing += (s1, e1) => { if (keep && e1.CloseReason == ToolStripDropDownCloseReason.ItemClicked) e1.Cancel = true; keep = false; };
+        m.Items.Add(new ToolStripSeparator());
+        Func<int, string> styleName = i => PatStyles[i].Name + "   (" + PatStyles[i].Bpm + " BPM)";
+        Func<int, bool> askTempo = k => Math.Abs(Fx.ProjectBpm - PatStyles[k].Bpm) > 0.5 && AskYes("Set the song to " + PatStyles[k].Bpm + " BPM (the usual " + PatStyles[k].Name + " tempo)? No keeps " + Fx.ProjectBpm.ToString("0.##") + " BPM.", "Generate");
         m.Items.Add(new ToolStripMenuItem("ONE SOUND AT A TIME") { Enabled = false });
         if (prTrack != null && PrCanEdit(prTrack))
         {   // just the track you are on: its own part with its own sound (no claps or other sounds added)
             var me = prTrack; int jm = JobOf(me); string what = jm == 100 ? "its drum kit" : (jm >= 0 ? Jobs[jm].ToLowerInvariant() : "chords");
-            var just = new ToolStripMenuItem("JUST THIS TRACK: " + me.Name + " (" + what + ")") { Font = new Font(m.Font, FontStyle.Bold) }; m.Items.Add(just);
+            string nm = me.Name.Length > 26 ? me.Name.Substring(0, 25) + "..." : me.Name;
+            var just = new ToolStripMenuItem("JUST THIS TRACK: " + nm + " (" + what + ")") { Font = new Font(m.Font, FontStyle.Bold) }; m.Items.Add(just);
             var fj = new List<ToolStripMenuItem>(); for (int i = 0; i < PatStyles.Length; i++)
             {
-                int k = i; var it = new ToolStripMenuItem(PatStyles[i].Name + "   (" + PatStyles[i].Bpm + " BPM)");
-                foreach (int bars0 in new[] { 4, 8, 16 }) { int bars = bars0; it.DropDownItems.Add(bars + " bars from bar " + (from + 1)).Click += (a, b) => { bool tempo = Math.Abs(Fx.ProjectBpm - PatStyles[k].Bpm) > 0.5 && AskYes("Set the song to " + PatStyles[k].Bpm + " BPM (the usual " + PatStyles[k].Name + " tempo)? No keeps " + Fx.ProjectBpm.ToString("0.##") + " BPM.", "Generate"); Toast(GeneratePattern(k, bars, from, tempo, me)); }; }
+                int k = i; var it = new ToolStripMenuItem(styleName(i)); it.Click += (a, b) => { bool tempo = askTempo(k); Toast(GeneratePattern(k, prGenBars, from, tempo, me)); };
                 Fam(fj, PatStyles[k].Family).DropDownItems.Add(it);
             }
             foreach (var f in fj) just.DropDownItems.Add(f);
@@ -202,30 +211,27 @@ partial class StudioForm
         // one new sound in the box: only that part (a kick is only a kick, no hats come with it)
         for (int j0 = 0; j0 < Jobs.Length; j0++)
         {
-            int jj = j0; var one = new ToolStripMenuItem("A new " + Jobs[j0].ToLowerInvariant() + " on its own (in the box, with its own sound)"); var fo = new List<ToolStripMenuItem>();
+            int jj = j0; var one = new ToolStripMenuItem("A new " + Jobs[j0].ToLowerInvariant() + " on its own"); var fo = new List<ToolStripMenuItem>();
             for (int i = 0; i < PatStyles.Length; i++)
             {
                 int k = i; if (jj < 5 && string.IsNullOrEmpty(new[] { PatStyles[i].Kick, PatStyles[i].Snare, PatStyles[i].Hat, PatStyles[i].Open, PatStyles[i].Perc }[jj])) continue;
-                var it = new ToolStripMenuItem(PatStyles[i].Name + "   (" + PatStyles[i].Bpm + " BPM)");
-                foreach (int bars0 in new[] { 4, 8, 16 }) { int bars = bars0; it.DropDownItems.Add(bars + " bars").Click += (a, b) => { prBox = BuildPattern(k, bars, jj); Toast(PatStyles[k].Name + " " + Jobs[jj].ToLowerInvariant() + " on its own, ready in the box at the top right of the piano roll: drag it onto the song, or press ADD TO SONG."); }; }
+                var it = new ToolStripMenuItem(styleName(i)); it.Click += (a, b) => { prBox = BuildPattern(k, prGenBars, jj); Toast(PatStyles[k].Name + " " + Jobs[jj].ToLowerInvariant() + " on its own (" + prGenBars + " bars), ready in the box at the top right of the piano roll: drag it onto the song, or press ADD TO SONG."); };
                 Fam(fo, PatStyles[k].Family).DropDownItems.Add(it);
             }
             foreach (var f in fo) one.DropDownItems.Add(f); m.Items.Add(one);
         }
         m.Items.Add(new ToolStripSeparator());
-        var whole = new ToolStripMenuItem("A whole beat in the box: kick, snare, hats and 808 together"); m.Items.Add(whole);
+        var whole = new ToolStripMenuItem("A whole beat in the box (kick, snare, hats, 808)"); m.Items.Add(whole);
         var fb = new List<ToolStripMenuItem>(); for (int i = 0; i < PatStyles.Length; i++)
         {
-            int k = i; var it = new ToolStripMenuItem(PatStyles[i].Name + "   (" + PatStyles[i].Bpm + " BPM)");
-            foreach (int bars0 in new[] { 4, 8, 16 }) { int bars = bars0; it.DropDownItems.Add(bars + " bars").Click += (a, b) => { prBox = BuildPattern(k, bars); Toast(PatStyles[k].Name + " beat ready in the box at the top right of the piano roll: drag it onto the song, or press ADD TO SONG."); }; }
+            int k = i; var it = new ToolStripMenuItem(styleName(i)); it.Click += (a, b) => { prBox = BuildPattern(k, prGenBars); Toast(PatStyles[k].Name + " beat (" + prGenBars + " bars) ready in the box at the top right of the piano roll: drag it onto the song, or press ADD TO SONG."); };
             Fam(fb, PatStyles[k].Family).DropDownItems.Add(it);
         }
         foreach (var f in fb) whole.DropDownItems.Add(f);
-        var onTracks = new ToolStripMenuItem("A whole beat written onto your own tracks (kick, snare, hats, 808...)"); m.Items.Add(onTracks);
+        var onTracks = new ToolStripMenuItem("A whole beat on your own tracks, from bar " + (from + 1)); m.Items.Add(onTracks);
         var ft = new List<ToolStripMenuItem>(); for (int i = 0; i < PatStyles.Length; i++)
         {
-            int k = i; var it = new ToolStripMenuItem(PatStyles[i].Name + "   (" + PatStyles[i].Bpm + " BPM)");
-            foreach (int bars0 in new[] { 4, 8, 16 }) { int bars = bars0; it.DropDownItems.Add(bars + " bars from bar " + (from + 1)).Click += (a, b) => { bool tempo = Math.Abs(Fx.ProjectBpm - PatStyles[k].Bpm) > 0.5 && AskYes("Set the song to " + PatStyles[k].Bpm + " BPM (the usual " + PatStyles[k].Name + " tempo)? No keeps " + Fx.ProjectBpm.ToString("0.##") + " BPM.", "Generate pattern"); Toast(GeneratePattern(k, bars, from, tempo)); }; }
+            int k = i; var it = new ToolStripMenuItem(styleName(i)); it.Click += (a, b) => { bool tempo = askTempo(k); Toast(GeneratePattern(k, prGenBars, from, tempo)); };
             Fam(ft, PatStyles[k].Family).DropDownItems.Add(it);
         }
         foreach (var f in ft) onTracks.DropDownItems.Add(f);

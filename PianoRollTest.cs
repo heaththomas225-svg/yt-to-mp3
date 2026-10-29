@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Drawing;
@@ -131,6 +131,8 @@ static class PR
           Check("with only a kick and an 808 it still writes their parts, and says what would make it fuller", Notes(kick).Count > 0 && Notes(bass).Count > 0 && Notes(snare).Count == 0 && m2.Contains("snare") && m2.Contains("hi-hats"), m2); jobs.Clear(); }
         { foreach (var t in new[] { kick, snare, hats, bass, keysT }) lock (t.Midi) t.Midi.Clear(); string m4 = sf.GeneratePattern(0, 8, 0, false, bass);
           Check("JUST THIS TRACK: the 808 gets 8 bars and no other track gets anything (no claps added)", Notes(bass).Count > 8 && Notes(bass).Max(n => n.Start) > SR * 60.0 / Fx.ProjectBpm * 4 * 7 && Notes(kick).Count == 0 && Notes(snare).Count == 0 && Notes(hats).Count == 0 && Notes(keysT).Count == 0, m4);
+          { var pat = StudioEngine.NewTrack("Your pattern: Filthy Jump-up 808", "inst", null); pat.Instrument = true; int nT = eng.Tracks.Count; string mp = sf.GeneratePattern(0, 4, 0, true, pat);
+            Check("JUST THIS TRACK on your pattern (not on the song yet) writes its notes there, with the tempo set too", Notes(pat).Count > 4 && eng.Tracks.Count == nT && !mp.StartsWith("Add your sounds"), mp); }
           string m5 = sf.GeneratePattern(1, 4, 0, false, keysT); var kc = Notes(keysT);
           { var bk = (StudioForm.PatBox)M("BuildPattern", 0, 4, 0); var b8 = (StudioForm.PatBox)M("BuildPattern", 0, 4, 5); var bh = (StudioForm.PatBox)M("BuildPattern", 0, 4, 2);
             Check("a new kick on its own is only a kick (no hats, no 808), an 808 only an 808, hats only hats", bk.Parts.Count == 1 && bk.Parts[0].Job == 0 && b8.Parts.Count == 1 && b8.Parts[0].Job == 5 && bh.Parts.Count == 1 && bh.Parts[0].Job == 2, bk.Parts.Count + "/" + b8.Parts.Count + "/" + bh.Parts.Count); }
