@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -49,7 +49,7 @@ class SynthWindow : Form, IKeySink
         piano = new PianoPanel(this, 49) { Dock = DockStyle.Bottom, Height = 124 };
         Controls.Add(canvas); Controls.Add(piano); ClientSize = new Size(1240, 716 + 124);
         Activated += (s, e) => { MidiInput.Target = fx; };
-        Shown += (s, e) => { MidiInput.Target = fx; if (Prefs.MidiDev.Length > 0 && MidiInput.OpenName != Prefs.MidiDev) MidiInput.Open(Prefs.MidiDev); var se = StudioEngine.Current; if (se != null) se.EnsureAudio(); };
+        Shown += (s, e) => { MidiInput.Target = fx; if (Prefs.MidiDev.Length > 0 && Prefs.MidiDev != MidiInput.OffName && MidiInput.OpenName != Prefs.MidiDev) MidiInput.Open(Prefs.MidiDev); var se = StudioEngine.Current; if (se != null) se.EnsureAudio(); };
         tick = new Timer { Interval = 33 }; tick.Tick += (s, e) => { if (!Win.AnyMoving) canvas.Step(); }; tick.Start();
         FormClosed += (s, e) => { if (MidiInput.Target == fx) MidiInput.Target = null; };
         FormClosing += (s, e) => { tick.Stop(); ReleaseAll(); };
@@ -313,15 +313,15 @@ partial class SynthCanvas : Control
         var pan = Rc(ap.X + 138, ap.Y + 72, 110, 24); Fill(g, Hot(pan) ? TM.C(255, 150, 40, 80) : TM.C(255, 110, 30, 60), pan, 5); Stroke(g, Acc2, pan, 5, 1); Txt(g, "PANIC", 12, Ink, pan, StringAlignment.Center, true);
         var pr = Add(pan); pr.Tip = "Stops every note and every ringing tail right now."; pr.Down = pt => win.PanicAll();
         var md = Rc(r.X + 20, r.Y + 176, 330, 26); Fill(g, Hot(md) ? PanelHi : TM.C(255, 20, 11, 38), md, 5); Stroke(g, Acc, md, 5, 1);
-        Txt(g, "MIDI keyboard: " + (Prefs.MidiDev.Length == 0 ? "Off" : Prefs.MidiDev), 12, Ink, Rc(md.X + 8, md.Y, md.Width - 24, md.Height), StringAlignment.Near, false); Txt(g, "V", 9, Dim, Rc(md.Right - 16, md.Y, 12, md.Height), StringAlignment.Center, false);
+        Txt(g, "MIDI keyboard: " + (Prefs.MidiDev == MidiInput.OffName ? "Off" : (MidiInput.OpenName.Length > 0 ? MidiInput.OpenName : "none plugged in")), 12, Ink, Rc(md.X + 8, md.Y, md.Width - 24, md.Height), StringAlignment.Near, false); Txt(g, "V", 9, Dim, Rc(md.Right - 16, md.Y, 12, md.Height), StringAlignment.Center, false);
         var mr = Add(md); mr.Tip = "Choose a plugged-in MIDI keyboard or controller. Notes, pitch bend and sustain pedal work."; mr.Down = pt => MidiMenu(md);
         Txt(g, "Computer keyboard: A S D F G H J = white keys, W E T Y U = black keys, Z / X = octave.  Mouse: click and hold a piano key (lower on the key = louder).", 11, Dim, Rc(r.X + 20, r.Y + 212, 1100, 30), StringAlignment.Near, false);
     }
     void MidiMenu(RectangleF at)
     {
         var m = Win.NewMenu(); var devs = MidiInput.Devices();
-        var off = new ToolStripMenuItem("Off") { Checked = Prefs.MidiDev.Length == 0 }; off.Click += (a, b) => { Prefs.MidiDev = ""; MidiInput.Open(""); Prefs.Changed(); Poke(); }; m.Items.Add(off);
-        foreach (var d in devs) { string dn = d; var it = new ToolStripMenuItem(d) { Checked = Prefs.MidiDev == d }; it.Click += (a, b) => { Prefs.MidiDev = dn; MidiInput.Target = fx; MidiInput.Open(dn); Prefs.Changed(); Poke(); }; m.Items.Add(it); }
+        var off = new ToolStripMenuItem("Off") { Checked = Prefs.MidiDev == MidiInput.OffName }; off.Click += (a, b) => { Prefs.MidiDev = MidiInput.OffName; MidiInput.Open(""); Prefs.Changed(); Poke(); }; m.Items.Add(off);
+        foreach (var d in devs) { string dn = d; var it = new ToolStripMenuItem(d) { Checked = MidiInput.OpenName == d }; it.Click += (a, b) => { Prefs.MidiDev = dn; MidiInput.Target = fx; MidiInput.Open(dn); Prefs.Changed(); Poke(); }; m.Items.Add(it); }
         if (devs.Count == 0) m.Items.Add("(no MIDI device found: plug one in and open this menu again)").Enabled = false;
         ShowMenu(m, new Point((int)(at.X * scale + ox), (int)(at.Bottom * scale + oy)));
     }

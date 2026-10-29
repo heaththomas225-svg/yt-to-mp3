@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Windows.Forms;
@@ -32,12 +32,38 @@ partial class StudioForm
         try
         {
             if (BlMidi(s, d1, d2)) return true;   // the Beat Lab is open: the keyboard's pads play its pads
-            if (eng.Tracks.Count == 0) return false; var t = eng.Tracks[Math.Max(0, Math.Min(selTrack, eng.Tracks.Count - 1))]; if (!t.Instrument) return false;
-            if (t.HasInstrumentFx) return false;
-            int kind = s & 0xF0; var k = t.Keys; if (kind == 0x90 && d2 > 0) k.NoteOn(d1, d2); else k.Midi(s, d1, d2);   // heard straight away with the built-in keys
+            if (MidiInput.Target != null) return false;   // an instrument's own window is in front: it gets the keys while you use it
+            if (eng.Tracks.Count == 0) return false; var t = eng.Tracks[Math.Max(0, Math.Min(selTrack, eng.Tracks.Count - 1))]; if (!t.Instrument || t.IsBus) return false;
+            // the picked MIDI track plays what is on it (a VST, Bass Lab, a Purphex instrument, or the built-in keys when it has none), through its effects, and MIDI REC records it
+            // (before, only an instrument whose window was in front got the keyboard: pick a track with a VST and nothing played or recorded)
+            InstrumentFx k = null; foreach (var f in t.Fx) { var i = f as InstrumentFx; if (i != null && i.IsInstrument && !f.Bypass) { k = i; break; } } if (k == null) k = t.Keys; k.Owner = t;
+            int kind = s & 0xF0; if (kind == 0x90 && d2 > 0) k.NoteOn(d1, d2); else k.Midi(s, d1, d2);   // heard straight away
             if (kind == 0x90 || kind == 0x80) { bool on = kind == 0x90 && d2 > 0; OnMidiNote(t, on, d1, on ? d2 : 0); } return true;
         }
         catch { return false; }
+    }
+    // the MIDI keyboard is connected by itself: the one you picked, else the first one plugged in (checked every few seconds, so plugging it in later works too)
+    System.Windows.Forms.Timer midiTimer; string midiToastFor = "";
+    internal void MidiAutoConnect()
+    {
+        if (StudioEnv.UnderTest || Prefs.MidiDev == MidiInput.OffName) return;
+        try
+        {
+            var devs = MidiInput.Devices(); if (MidiInput.OpenName.Length > 0) { if (devs.Contains(MidiInput.OpenName)) return; MidiInput.Close(); }
+            if (devs.Count == 0) return; string want = Prefs.MidiDev.Length > 0 && devs.Contains(Prefs.MidiDev) ? Prefs.MidiDev : devs[0];
+            bool ok = MidiInput.Open(want); string key = want + (ok ? "|ok" : "|" + MidiInput.Status);
+            if (key != midiToastFor) { midiToastFor = key; Toast(ok ? "MIDI keyboard connected: " + want + ". It plays the selected MIDI track (right-click MIDI REC to pick another keyboard)." : MidiInput.Status); }
+        }
+        catch { }
+    }
+    void MidiDeviceMenu()
+    {
+        var m = Win.NewMenu(); var devs = MidiInput.Devices(); m.Items.Add(new ToolStripMenuItem("MIDI KEYBOARD: " + (MidiInput.OpenName.Length > 0 ? MidiInput.OpenName : "not connected")) { Enabled = false });
+        foreach (var d0 in devs) { string d = d0; var it = new ToolStripMenuItem(d) { Checked = MidiInput.OpenName == d }; it.Click += (a, b) => { Prefs.MidiDev = d; Prefs.Changed(); MidiInput.Close(); midiToastFor = ""; MidiAutoConnect(); }; m.Items.Add(it); }
+        if (devs.Count == 0) m.Items.Add(new ToolStripMenuItem("No MIDI keyboard found: plug one in (it connects by itself)") { Enabled = false });
+        var off = new ToolStripMenuItem("Off (no MIDI keyboard)") { Checked = Prefs.MidiDev == MidiInput.OffName }; off.Click += (a, b) => { Prefs.MidiDev = MidiInput.OffName; Prefs.Changed(); MidiInput.Close(); Toast("MIDI keyboard off."); }; m.Items.Add(off);
+        if (Prefs.MidiDev == MidiInput.OffName) { var on = new ToolStripMenuItem("Switch the MIDI keyboard back on"); on.Click += (a, b) => { Prefs.MidiDev = ""; Prefs.Changed(); midiToastFor = ""; MidiAutoConnect(); }; m.Items.Add(on); }
+        m.Show(this, new Point((int)MousePos.X, (int)MousePos.Y));
     }
     void AddInstrument(string type)
     {

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 
@@ -19,7 +19,7 @@ static class MidiInput
     static IntPtr dev; static readonly MidiInProc cb = OnMsg;   // kept alive
     public static volatile InstrumentFx Target;                  // the instrument that receives the notes
     public static Func<byte, byte, byte, bool> BareTrack;         // the studio: records the notes onto the picked MIDI track when it has no instrument (true = taken)
-    public static string Status = "MIDI: not started"; public static string OpenName = ""; public static int Received;
+    public static string Status = "MIDI: not started"; public static string OpenName = ""; public static int Received; public const string OffName = "-";   // Prefs.MidiDev: "" = the first keyboard plugged in, "-" = off
 
     public static List<string> Devices()
     {
@@ -31,7 +31,7 @@ static class MidiInput
     // Opens the device with this name ("" = close). Returns true when it is listening.
     public static bool Open(string name)
     {
-        Close(); if (string.IsNullOrEmpty(name)) { Status = "MIDI input is off"; return false; }
+        Close(); if (string.IsNullOrEmpty(name) || name == OffName) { Status = "MIDI input is off"; return false; }
         var d = Devices(); int idx = d.IndexOf(name);
         if (d.Count == 0) { Status = "No MIDI device found. Plug in a MIDI keyboard, then pick it again."; return false; }
         if (idx < 0) { Status = "MIDI device '" + name + "' is not connected."; return false; }

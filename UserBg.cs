@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -23,7 +23,7 @@ static class Prefs
     public static bool PerfMode;             // PERFORMANCE MODE: almost no animation and 30 fps, for slow PCs
     public static int FpsEff { get { return PerfMode ? 240 : FpsCap; } }   // PERFORMANCE MODE takes the effects away, not the frames: 240 (the screen still decides how many are shown)
     public static bool ShowFps { get { return true; } set { } }      // the frame rate is always shown in the title bar (there is no switch for it any more)
-    public static string MidiDev = "";       // the MIDI keyboard Bass Lab listens to ("" = off)
+    public static string MidiDev = "";       // the MIDI keyboard ("" = the first one plugged in, "-" = off)
     public static int MicMode = 0;           // the MIC button's mode: 0 Automatic, 1 Standard, 2 Voice Isolation, 3 Wide Spectrum (only for what is recorded)
     public static string FontId = "";        // the studio font chosen on the Fonts page ("" = the original, Bahnschrift)
     public static int VisMotion = 1;   // the visualisers: 0 CALM, 1 SMOOTH (the default), 2 LIVELY, 3 WILD (how wild they move)

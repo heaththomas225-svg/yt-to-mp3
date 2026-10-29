@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Drawing;
@@ -78,9 +78,9 @@ static class S
             Ev("OnMouseMove", MouseButtons.None, 0, ux, uy); Ev("OnMouseDown", MouseButtons.Left, 1, ux, uy); Ev("OnMouseUp", MouseButtons.Left, 1, ux, uy); Paint();
             Check("pressing Use builds that style's plugins on the selected track and closes the sheet", !F<bool>("stylesOpen") && eng.Tracks[0].Fx.Count >= 4, "plugins on the track: " + fx0 + " -> " + eng.Tracks[0].Fx.Count);
             typeof(StudioForm).GetMethod("DoUndo", BF).Invoke(sf, null); Check("Ctrl+Z takes a vocal style off the track again (the plugin chain comes back as it was)", eng.Tracks[0].Fx.Count == fx0, "plugins on the track: " + eng.Tracks[0].Fx.Count);
-            typeof(StudioForm).GetMethod("OpenStyles", BF).Invoke(sf, null); Paint(); var rgs = Regs(); int bdi = rgs.FindLastIndex(r => r.R.Width >= 1499 && r.R.Height >= 799); var starReg = rgs.GetRange(Math.Max(0, bdi), rgs.Count - Math.Max(0, bdi)).Find(r => Math.Abs(r.R.Width - 30) < 0.5f && Math.Abs(r.R.Height - 30) < 0.5f && r.OnDown != null);
+            typeof(StudioForm).GetMethod("OpenStyles", BF).Invoke(sf, null); Paint(); var rgs = Regs(); int bdi = rgs.FindLastIndex(r => r.R.Width >= 1499 && r.R.Height >= 799); var starReg = rgs.GetRange(Math.Max(0, bdi), rgs.Count - Math.Max(0, bdi)).Find(r => Math.Abs(r.R.Width - 30) < 0.5f && Math.Abs(r.R.Height - 30) < 0.5f && r.OnDrag == null && r.OnDown != null);
             if (starReg != null) { int sx = (int)(starReg.R.X + 15), sy = (int)(starReg.R.Y + 15); Ev("OnMouseMove", MouseButtons.None, 0, sx, sy); Ev("OnMouseDown", MouseButtons.Left, 1, sx, sy); Ev("OnMouseUp", MouseButtons.Left, 1, sx, sy); Paint(); }
-            Check("pressing a star keeps the style as a favourite", starReg != null && VocalStyles.Find("", "", true).Count == 1, "favourites " + VocalStyles.Find("", "", true).Count);
+            Check("pressing a star keeps the style as a favourite", starReg != null && VocalStyles.Find("", "", true).Count == 1, "favourites " + VocalStyles.Find("", "", true).Count + (starReg == null ? ", no star found" : ", star at " + starReg.R));
             typeof(StudioForm).GetMethod("ProcessCmdKey", BF).Invoke(sf, new object[] { new Message(), Keys.Escape }); Paint(); Check("Esc closes the Vocal Styles sheet", !F<bool>("stylesOpen"), "");
             eng.Tracks[0].Fx.Clear(); try { File.Delete(tmpFav); } catch { } VocalStyles.FavFile = null;
         }

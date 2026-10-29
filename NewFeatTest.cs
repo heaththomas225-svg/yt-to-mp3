@@ -179,6 +179,13 @@ static class NF
           for (int i = 0; i < 10; i++) { Application.DoEvents(); System.Threading.Thread.Sleep(10); }
           Check("pressing the X while music plays stops it straight away and asks to leave (No keeps the DAW open)", xWas && !sf.eng.Playing && asked.Count == 1 && asked[0].Contains("LEAVING THE DAW") && !sf.IsDisposed, "was=" + xWas + " playing=" + sf.eng.Playing + " asked=" + asked.Count);
           sf.eng.Stop(); sf.eng.Tracks.Clear(); sf.exitAsk = null; }
+        { // the MIDI keyboard plays the selected track's own instrument (not only an instrument whose window is in front), and MIDI REC records it
+          sf.eng.Stop(); sf.eng.Tracks.Clear(); var it = StudioEngine.NewTrack("Chords", "inst", null); it.Instrument = true; var cp = (InstrumentFx)FxRegistry.Create("pxchord"); cp.Prepare(StudioEngine.SR); cp.Owner = it; it.Fx.Add(cp); sf.eng.Tracks.Add(it);
+          typeof(StudioForm).GetField("selTrack", BF).SetValue(sf, 0); typeof(StudioForm).GetField("recOn", BF).SetValue(sf, true); MidiInput.Target = null; var keep = StudioEngine.Current; StudioEngine.Current = null;
+          MidiInput.Handle(0x90u | (60u << 8) | (100u << 16)); var bl = new float[4096]; var br = new float[4096]; cp.BeginBlock(it, 0, 4096, false); cp.Process(bl, br, 4096); float pk = 0; foreach (var v in bl) pk = Math.Max(pk, Math.Abs(v));
+          MidiInput.Handle(0x80u | (60u << 8)); StudioEngine.Current = keep; int rec; lock (it.Midi) rec = it.Midi.Count(e => (e.S & 0xF0) == 0x90 && e.D1 == 60);
+          Check("a MIDI keyboard note plays the instrument on the selected track (no window open) and MIDI REC records it", pk > 0.001f && rec == 1, "peak " + pk.ToString("0.000") + ", recorded " + rec);
+          typeof(StudioForm).GetField("recOn", BF).SetValue(sf, false); sf.eng.Stop(); sf.eng.Tracks.Clear(); }
         { // the list that asks which track: one button for a row that was split into pieces
           sf.eng.Tracks.Clear(); Func<int, AudioClip> mkc = sec => AudioClip.FromArrays(new float[44100 * sec], new float[44100 * sec], "t"); var row0 = StudioEngine.NewTrack("Row", "beat", mkc(2)); var pc1 = StudioEngine.NewTrack("Row piece", "beat", mkc(5)); var pc2 = StudioEngine.NewTrack("Row piece 2", "beat", mkc(1)); pc1.Host = row0; pc2.Host = row0; var other = StudioEngine.NewTrack("Other", "vocal", mkc(3));
           sf.eng.Tracks.Add(row0); sf.eng.Tracks.Add(pc1); sf.eng.Tracks.Add(pc2); sf.eng.Tracks.Add(other); var picked = new List<Track>();
