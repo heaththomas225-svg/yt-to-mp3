@@ -306,6 +306,7 @@ static class Win
     static bool KeyOpens() { foreach (int k in new[] { 0x27, 0x25, 0x0D, 0x20 }) if ((GetAsyncKeyState(k) & 0x8000) != 0) return true; return false; }   // right, left, Enter, space: the keyboard still opens them
     internal static void ClickToOpen(ToolStripMenuItem mi, ClickTree ct)
     {
+#if !PURPHEX_DESKTOP
         ct.Subs.Add(mi); bool ok = false;
         mi.DropDown.Opening += (s, e) => { if (!ok && !KeyOpens() && Control.MouseButtons == MouseButtons.None) e.Cancel = true; ok = false; };
         mi.DropDown.Closing += (s, e) => { if ((e.CloseReason == ToolStripDropDownCloseReason.CloseCalled || e.CloseReason == ToolStripDropDownCloseReason.AppFocusChange) && !ct.AllGo && ct.Going == 0) e.Cancel = true; };
@@ -315,10 +316,12 @@ static class Win
             if (par != null) foreach (ToolStripItem o in par.Items) { var od = o as ToolStripMenuItem; if (od != null && od != mi && od.HasDropDownItems && od.DropDown.Visible) ct.CloseSub(od); }
             if (!mi.DropDown.Visible) { ok = true; mi.ShowDropDown(); }
         };
+#endif
     }
     // before a sub-menu opens: the side of its menu with room for it inside the window (right if it fits, else left), so it never lands on a menu already open
     internal static void SideInApp(ToolStripMenuItem mi)
     {
+#if !PURPHEX_DESKTOP
         try
         {
             var a = AppArea(); var owner = mi.Owner; if (a.IsEmpty || owner == null) return;
@@ -332,18 +335,21 @@ static class Win
             else mi.DropDownDirection = o.Right + w - a.Right < a.Left - (o.Left - w) ? ToolStripDropDownDirection.Right : ToolStripDropDownDirection.Left;
         }
         catch { }
+#endif
     }
     internal static void KeepInApp(ToolStripDropDown d)
     {
         var a = AppArea(); if (a.IsEmpty || d == null) return; if (d.MaximumSize.Height != a.Height) d.MaximumSize = new Size(Math.Max(200, a.Width), Math.Max(120, a.Height));
         var b = d.Bounds; var c = Clamp(b, a);
         // past the right or left edge: open on the other side of the menu it came from, never on top of it (it covered the option under the mouse and the menus closed)
+#if !PURPHEX_DESKTOP
         var owner = d.OwnerItem != null ? d.OwnerItem.Owner : null;
         if (owner != null && c.X != b.X)
         {
             var o = owner.Bounds; int x = b.Right > a.Right ? o.Left - b.Width : o.Right;
             if (x >= a.Left && x + b.Width <= a.Right) c = new Rectangle(x, c.Y, c.Width, c.Height);
         }
+#endif
         if (c.Location != b.Location) d.Location = c.Location;
     }
     // Clicking the same button again while its menu is open must close the menu, not open it a second time. The click that closes a menu

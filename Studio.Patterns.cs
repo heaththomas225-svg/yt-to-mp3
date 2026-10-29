@@ -190,8 +190,10 @@ partial class StudioForm
         // how long: 4, 8 or 16 bars, picked here (the menu stays open) so a style is one click away, two levels deep at most (deeper menus ran off the window)
         m.Items.Add(new ToolStripMenuItem("LENGTH") { Enabled = false }); var lens = new List<ToolStripMenuItem>(); bool keep = false;
         foreach (int b0 in new[] { 4, 8, 16 }) { int bb = b0; var li = new ToolStripMenuItem(bb + " bars") { Checked = prGenBars == bb, Tag = "len" }; li.Click += (a1, b1) => { prGenBars = bb; foreach (var x in lens) x.Checked = x == li; }; lens.Add(li); m.Items.Add(li); }
+#if !PURPHEX_DESKTOP
         m.ItemClicked += (s1, e1) => keep = e1.ClickedItem != null && (e1.ClickedItem.Tag as string) == "len";
         m.Closing += (s1, e1) => { if (keep && e1.CloseReason == ToolStripDropDownCloseReason.ItemClicked) e1.Cancel = true; keep = false; };
+#endif
         m.Items.Add(new ToolStripSeparator());
         Func<int, string> styleName = i => PatStyles[i].Name + "   (" + PatStyles[i].Bpm + " BPM)";
         Func<int, bool> askTempo = k => Math.Abs(Fx.ProjectBpm - PatStyles[k].Bpm) > 0.5 && AskYes("Set the song to " + PatStyles[k].Bpm + " BPM (the usual " + PatStyles[k].Name + " tempo)? No keeps " + Fx.ProjectBpm.ToString("0.##") + " BPM.", "Generate");
