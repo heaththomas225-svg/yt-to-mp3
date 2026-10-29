@@ -1092,14 +1092,15 @@ partial class StudioForm : Form
         if (tk.Instrument) Btn(g, Rc(r.X + 176, r.Y + by, 32, bh), "C", 0, () => { if (MessageBox.Show(this, "Delete every recorded note on \"" + tk.Name + "\"?", "Clear notes", MessageBoxButtons.YesNo) == DialogResult.Yes) lock (tk.Midi) tk.Midi.Clear(); }, 12);
         // fader
         float frac = Clamp01((tk.VolDb + 48f) / 54f);
-        Txt(g, "VOL", 11, DimC, Rc(r.X + 12, r.Y + vy, 30, 18), StringAlignment.Near, false);
-        var fs = Slider(g, Rc(r.X + (thin ? 40 : 44), r.Y + vy, thin ? 84 : 112, 18), frac, f => tk.VolDb = f < 0.003f ? -48f : (float)Math.Round(f * 54f - 48f, 1), Accent2);
-        fs.OnDouble = () => tk.VolDb = 0;
-        ValueBox(g, Rc(r.X + (thin ? 130 : 172), r.Y + vy - 1, thin ? 64 : 80, 20), (tk.VolDb <= -47.9f ? "-inf" : tk.VolDb.ToString("+0.0;-0.0;0.0")) + " dB", tk.VolDb <= -47.9f ? "-inf" : Num(tk.VolDb), s => { float v; if (ParseNum(s, out v)) tk.VolDb = v <= -47.9f ? -48f : Math.Min(12f, v); });
+        Txt(g, "VOL", 10, DimC, Rc(r.X + 10, r.Y + vy, 34, 18), StringAlignment.Near, false);
+        // a galaxy knob (drag up / down, double-click for 0 dB; the wheel scrolls the tracks) and the box to type the value
+        float kd = thin || compact ? 16 : 22; var fs = KnobCtl(g, r.X + 56, r.Y + vy + 9, kd, frac, f => tk.VolDb = f < 0.003f ? -48f : (float)Math.Round(f * 54f - 48f, 1), Accent2, () => tk.VolDb = 0); fs.OnWheel = null;   /* (the wheel scrolls the tracks, it never turns a knob by accident) */
+        Hint2(fs.R, tk.Name + " volume: " + (tk.VolDb <= -47.9f ? "-inf" : tk.VolDb.ToString("+0.0;-0.0;0.0")) + " dB. Drag up or down (Shift: finer), double-click for 0 dB.");
+        ValueBox(g, Rc(r.X + 74, r.Y + vy - 1, thin ? 64 : 80, 20), (tk.VolDb <= -47.9f ? "-inf" : tk.VolDb.ToString("+0.0;-0.0;0.0")) + " dB", tk.VolDb <= -47.9f ? "-inf" : Num(tk.VolDb), s => { float v; if (ParseNum(s, out v)) tk.VolDb = v <= -47.9f ? -48f : Math.Min(12f, v); });
         // pan
-        if (thin) Txt(g, "PAN", 11, DimC, Rc(r.X + 200, r.Y + vy, 30, 18), StringAlignment.Near, false); else Txt(g, "PAN", 11, DimC, Rc(r.X + 12, r.Y + py, 30, 18), StringAlignment.Near, false);
-        if (!thin) { var ps = Slider(g, Rc(r.X + 44, r.Y + py, 112, 18), (tk.Pan + 1) / 2, f => tk.Pan = (float)Math.Round(f * 2 - 1, 2)); ps.OnDouble = () => tk.Pan = 0; }
-        if (!(thin && tk.Instrument)) ValueBox(g, thin ? Rc(r.X + 228, r.Y + vy - 1, 40, 20) : Rc(r.X + 172, r.Y + py - 1, 40, 20), tk.Pan == 0 ? "C" : (tk.Pan < 0 ? "L" + (int)(-tk.Pan * 100) : "R" + (int)(tk.Pan * 100)), Num(tk.Pan * 100), s => { string u = s.Trim().ToUpperInvariant(); float v; if (u.StartsWith("C")) tk.Pan = 0; else if (ParseNum(u, out v)) { if (u.StartsWith("L")) v = -Math.Abs(v); else if (u.StartsWith("R")) v = Math.Abs(v); tk.Pan = Math.Max(-1f, Math.Min(1f, v / 100f)); } });
+        if (thin) Txt(g, "PAN", 11, DimC, Rc(r.X + 200, r.Y + vy, 30, 18), StringAlignment.Near, false); else Txt(g, "PAN", 10, DimC, Rc(r.X + 10, r.Y + py, 34, 18), StringAlignment.Near, false);
+        if (!thin) { var ps = KnobCtl(g, r.X + 56, r.Y + py + 9, kd, (tk.Pan + 1) / 2, f => tk.Pan = (float)Math.Round(f * 2 - 1, 2), NeonCyan, () => tk.Pan = 0); ps.OnWheel = null; Hint2(ps.R, tk.Name + " pan: " + (tk.Pan == 0 ? "centre" : (tk.Pan < 0 ? "left " : "right ") + (int)Math.Abs(tk.Pan * 100)) + ". Drag up or down, double-click for the centre."); }
+        if (!(thin && tk.Instrument)) ValueBox(g, thin ? Rc(r.X + 228, r.Y + vy - 1, 40, 20) : Rc(r.X + 74, r.Y + py - 1, 40, 20), tk.Pan == 0 ? "C" : (tk.Pan < 0 ? "L" + (int)(-tk.Pan * 100) : "R" + (int)(tk.Pan * 100)), Num(tk.Pan * 100), s => { string u = s.Trim().ToUpperInvariant(); float v; if (u.StartsWith("C")) tk.Pan = 0; else if (ParseNum(u, out v)) { if (u.StartsWith("L")) v = -Math.Abs(v); else if (u.StartsWith("R")) v = Math.Abs(v); tk.Pan = Math.Max(-1f, Math.Min(1f, v / 100f)); } });
         // right of the pan row: piano (instrument), arm (empty audio track), nudge (audio), nothing (bus)
         if (tk.Instrument)
             Btn(g, thin ? Rc(r.X + 200, r.Y + vy - 2, 66, 22) : Rc(r.X + 220, r.Y + py - 3, 40, 24), "Piano", 1, () => { var vf = tk.Fx.Count > 0 ? tk.Fx[0] as InstrumentFx : null; if (vf != null) { vf.Owner = tk; vf.ShowWindow(this); } }, 11);

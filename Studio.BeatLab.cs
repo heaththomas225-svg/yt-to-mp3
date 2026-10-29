@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
@@ -286,8 +286,11 @@ partial class StudioForm
         chip(30, "<", 0, () => BlUndoStep(true), "Undo in the Beat Lab"); chip(30, ">", 0, () => BlUndoStep(false), "Redo in the Beat Lab");
         // swing and humanise
         float sx = bx + 6, sw = Math.Max(90, Math.Min(150, (x + w - 240 - sx) / 2 - 10));
-        Txt(g, "SWING " + (int)Math.Round(blSwing * 100) + "%", 9, DimC, Rc(sx, y - 1, sw, 12), StringAlignment.Near, true); var ss = Slider(g, Rc(sx, y + 14, sw, 10), (blSwing - 0.5f) / 0.25f, v => blSwing = 0.5f + Math.Max(0, Math.Min(1, v)) * 0.25f, NeonCyan); ss.OnDouble = () => blSwing = 0.5f; Hint2(Rc(sx, y, sw, 26), "Pushes every second 16th later for a looser groove (50% = straight, double-click)");
-        sx += sw + 14; Txt(g, "HUMANISE " + (int)Math.Round(blHuman * 100) + "%", 9, DimC, Rc(sx, y - 1, sw, 12), StringAlignment.Near, true); var hs = Slider(g, Rc(sx, y + 14, sw, 10), blHuman, v => blHuman = Math.Max(0, Math.Min(1, v)), NeonPink); hs.OnDouble = () => blHuman = 0; Hint2(Rc(sx, y, sw, 26), "Moves every hit a little in time and strength, like a drummer (0% = exact, double-click)");
+        // galaxy knobs: drag up / down, double-click for the default (the wheel scrolls)
+        var ss = KnobCtl(g, sx + 12, y + 12, 20, (blSwing - 0.5f) / 0.25f, v => blSwing = 0.5f + Math.Max(0, Math.Min(1, v)) * 0.25f, NeonCyan, () => blSwing = 0.5f); ss.OnWheel = null; Txt(g, "SWING " + (int)Math.Round(blSwing * 100) + "%", 9, DimC, Rc(sx + 28, y + 5, sw - 28, 14), StringAlignment.Near, true);
+        Hint2(ss.R, "Swing " + (int)Math.Round(blSwing * 100) + "%: pushes every second 16th later for a looser groove (50% = straight, double-click)");
+        sx += sw + 14; var hs = KnobCtl(g, sx + 12, y + 12, 20, blHuman, v => blHuman = Math.Max(0, Math.Min(1, v)), NeonPink, () => blHuman = 0); hs.OnWheel = null; Txt(g, "HUMANISE " + (int)Math.Round(blHuman * 100) + "%", 9, DimC, Rc(sx + 28, y + 5, sw - 28, 14), StringAlignment.Near, true);
+        Hint2(hs.R, "Humanise " + (int)Math.Round(blHuman * 100) + "%: moves every hit a little in time and strength, like a drummer (0% = exact, double-click)");
         // onto the song
         var add = Rc(x + w - 226, y, 110, 26); Btn(g, add, "ADD TO SONG", 2, () => Toast(BlAddToSong()), 9.5f); Hint2(add, "Put this beat into the song at the bar of the needle: a note track per pad, editable in the piano roll");
         var drg = Rc(x + w - 110, y, 110, 26); var dr = Btn(g, drg, "DRAG TO SONG", 4, () => { var b = BlToBox(); if (b.Parts.Count == 0) { Toast("Switch on some steps first."); return; } prBox = b; prBoxDrag = true; prBoxAt = MousePos; }, 9.5f); Hint2(drg, "Hold and drag the beat onto a bar of the song (it goes in as one audio clip)");
@@ -318,7 +321,7 @@ partial class StudioForm
             var nb = Rc(gx + 54, ry + 2, nameW - 76, rowH - 4); int kq = pi; var nh = Btn(g, nb, pad.Name, pi == blSel ? 4 : 1, () => { blSel = kq; BlHit(kq, 105); }, 9); nh.OnRight = () => BlPadMenu(kq); Hint2(nb, pad.Name + ": tap to hear it and pick it (its velocity lane shows below). Key " + BlKeyNames[pi] + ". Right-click: change its sound");
             { float fl = Math.Max(0, 1 - unchecked(now - blFlash[pi]) / 260f); if (fl > 0) { Glow(g, pc, nb, 6, 0.5f + fl, 3); Invalidate(); } }   // a row lights up when it plays
             var ch = Rc(nb.Right + 3, ry + 2, 73, rowH - 4); Btn(g, ch, "TRACK ▼", 2, () => BlPadMenu(kq), 9); Hint2(ch, "Choose what this row plays: any track from your song, a sound file, or rename it");
-            var vs = Rc(gx + 58 + nameW, ry + 9, 48, 8); Slider(g, vs, (pad.VolDb + 24) / 30f, v => pad.VolDb = Math.Max(-24, Math.Min(6, v * 30 - 24)), pc).OnDouble = () => pad.VolDb = 0; Hint2(vs, pad.Name + " volume " + pad.VolDb.ToString("0.0") + " dB (double-click: 0 dB)");
+            var vk = KnobCtl(g, gx + 58 + nameW + 24, ry + rowH / 2, Math.Min(16, rowH - 8), (pad.VolDb + 24) / 30f, v => pad.VolDb = Math.Max(-24, Math.Min(6, v * 30 - 24)), pc, () => pad.VolDb = 0); vk.OnWheel = null; Hint2(vk.R, pad.Name + " volume " + pad.VolDb.ToString("0.0") + " dB: drag up or down, double-click for 0 dB");
             for (int s = 0; s < blSteps; s++)
             {
                 var cr = Rc(cellX + s * cellW + 1, ry + 3, cellW - 2, rowH - 6); int v = pat.Vel[pi][s]; bool beat = s % 4 == 0;

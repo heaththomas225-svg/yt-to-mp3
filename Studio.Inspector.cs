@@ -298,9 +298,20 @@ partial class StudioForm
         { var prb = Rc(x, y, w, 22); Btn(g, prb, "PRESETS", 0, () => { int ti = eng.Tracks.IndexOf(tt); if (tt.IsBus) insBus = tt; else { insBus = null; if (ti >= 0) selTrack = ti; } OpenInspector(2); }, 9); Hint2(prb, tt.IsBus ? "Bus presets and the AI Bus Generator for this bus" : "Vocal presets (" + VocalStyles.All.Count + "), bus presets, the AI generators and your own and community presets for " + t.Name); }
         y += 26;
         // pan
-        var pr = Rc(x, y, w, 14); var ps = Slider(g, pr, (t.Pan + 1) / 2, v => tt.Pan = (float)Math.Round(v * 2 - 1, 2), col); ps.OnDouble = () => tt.Pan = 0;
-        Hint2(pr, "Pan " + (Math.Abs(t.Pan) < 0.01f ? "centre" : (t.Pan < 0 ? "left " : "right ") + Math.Abs(t.Pan * 100).ToString("0")) + " (double-click: centre)");
-        y += 20;
+        // pan and trim: two galaxy knobs (drag up / down, double-click for the default; the wheel scrolls the strips)
+        {
+            float cxP = t.IsBus ? x + w / 2 : x + w * 0.27f, cxT = x + w * 0.73f, ky = y + 13;
+            var ps = KnobCtl(g, cxP, ky, 22, (t.Pan + 1) / 2, v => tt.Pan = (float)Math.Round(v * 2 - 1, 2), col, () => tt.Pan = 0); ps.OnWheel = null;
+            string pn = Math.Abs(t.Pan) < 0.01f ? "C" : (t.Pan < 0 ? "L" : "R") + Math.Abs(t.Pan * 100).ToString("0"); Txt(g, "PAN " + pn, 7.5f, DimC, Rc(cxP - 30, y + 27, 60, 12), StringAlignment.Center, true);
+            Hint2(ps.R, "Pan " + (Math.Abs(t.Pan) < 0.01f ? "centre" : (t.Pan < 0 ? "left " : "right ") + Math.Abs(t.Pan * 100).ToString("0")) + ". Drag up or down, double-click for the centre.");
+            if (!t.IsBus)
+            {
+                var tk2 = KnobCtl(g, cxT, ky, 22, (t.TrimDb + 24) / 48, v => tt.TrimDb = (float)Math.Round(v * 48 - 24, 1), NeonCyan, () => tt.TrimDb = 0); tk2.OnWheel = null;
+                Txt(g, "TRIM " + (t.TrimDb > 0 ? "+" : "") + t.TrimDb.ToString("0.#"), 7.5f, DimC, Rc(cxT - 30, y + 27, 60, 12), StringAlignment.Center, true);
+                Hint2(tk2.R, "TRIM " + (t.TrimDb > 0 ? "+" : "") + t.TrimDb.ToString("0.0") + " dB: the level going into the plugins. Double-click for 0 dB.");
+            }
+        }
+        y += 40;
         // mute / solo: right under the pan, big enough to read and hit (at the bottom they were cut off when the mixer was short)
         { float hw = (w - 4) / 2; Btn(g, Rc(x, y, hw, 30), "M", t.Mute ? 3 : 0, () => tt.Mute = !tt.Mute, 15); Btn(g, Rc(x + hw + 4, y, hw, 30), "S", t.Solo ? 2 : 0, () => tt.Solo = !tt.Solo, 15); }
         y += 36;
@@ -313,12 +324,6 @@ partial class StudioForm
                 var phb = Rc(x + bw3 + 2, y, bw3, 22); Btn(g, phb, "Ø", t.Invert ? 4 : 0, () => { PushUndo(); tt.Invert = !tt.Invert; }, 10); Hint2(phb, "Flip the phase (polarity) of " + t.Name + (t.Invert ? ": flipped now" : ""));
             }
             y += 26;
-            if (!t.IsBus)
-            {
-                var trr = Rc(x, y + 1, w, 12); var tsl = Slider(g, trr, (t.TrimDb + 24) / 48, v => tt.TrimDb = (float)Math.Round(v * 48 - 24, 1), NeonCyan); tsl.OnDouble = () => tt.TrimDb = 0;
-                Hint2(trr, "TRIM " + (t.TrimDb > 0 ? "+" : "") + t.TrimDb.ToString("0.0") + " dB: the level going into the plugins (double-click for 0 dB)");
-            }
-            y += 20;
         }
         // fader and meter
         VFader(g, Rc(x + 6, y + 6, 26, faderH - 12), t.VolDb, v => tt.VolDb = (float)Math.Round(v, 1), col); Meter(g, Rc(x + 40, y, 18, faderH), t);
@@ -481,7 +486,7 @@ partial class StudioForm
         Btn(g, Rc(a.X + 2 * (bw + 4), by, bw, 24), "REVERSE", 0, () => ReverseClip(c), 9.5f);
         x += 308;
         var gb = InsBox(g, Rc(x, y, 260, h), "GAIN · FADES", col); double maxFade = Math.Max(0.05, Math.Min(10, c.UsedLength / sr / 2)); float kw = gb.Width / 3;
-        // three knobs: turn them (drag up / down, the wheel, double-click for the default) or click the box under one to type the value
+        // three knobs: turn them (drag up / down, double-click for the default) or click the box under one to type the value
         KnobBox(g, Rc(gb.X, gb.Y, kw, gb.Height), "GAIN", (c.ClipGainDb > 0 ? "+" : "") + c.ClipGainDb.ToString("0.0") + " dB", (c.ClipGainDb + 24) / 36f, v => c.ClipGainDb = (float)Math.Round(v * 36 - 24, 1), col, () => c.ClipGainDb = 0,
             "Clip gain in dB (-24 to +12):", c.ClipGainDb.ToString("0.0"), d => { PushUndo(); c.ClipGainDb = (float)Math.Max(-24, Math.Min(12, d)); }, "The level of this clip on its own (before the track's fader)");
         KnobBox(g, Rc(gb.X + kw, gb.Y, kw, gb.Height), "FADE IN", (c.FadeIn / sr).ToString("0.00") + " s", (float)(c.FadeIn / sr / maxFade), v => c.FadeIn = (long)(v * maxFade * sr), col, () => c.FadeIn = 0,
@@ -499,11 +504,11 @@ partial class StudioForm
     internal void KnobBox(Graphics g, RectangleF cell, string name, string value, float frac, Action<float> set, Color col, Action toDefault, string askText, string askDef, Action<double> typed, string hint)
     {
         Txt(g, name, 9.5f, Ink, Rc(cell.X, cell.Y, cell.Width, 16), StringAlignment.Center, true);
-        float d = Math.Max(26, Math.Min(46, Math.Min(cell.Width - 18, cell.Height - 60))); var kr = KnobCtl(g, cell.X + cell.Width / 2, cell.Y + 22 + d / 2, d, frac, set, col, toDefault);
+        float d = Math.Max(26, Math.Min(46, Math.Min(cell.Width - 18, cell.Height - 60))); var kr = KnobCtl(g, cell.X + cell.Width / 2, cell.Y + 22 + d / 2, d, frac, set, col, toDefault); kr.OnWheel = null;
         var vb = Rc(cell.X + 6, cell.Y + 30 + d, cell.Width - 12, 22); FillRR(g, TM.C(220, 8, 4, 18), vb, 5); StrokeRR(g, Color.FromArgb(Hot(vb) ? 255 : 150, col), vb, 5, 1.1f);
         Txt(g, value, 9.5f, Ink, vb, StringAlignment.Center, true);
         Reg(vb, () => { string sv = Ask(askText, askDef); if (sv == null) return; double dv; sv = sv.Trim().Replace("dB", "").Replace("db", "").Replace("s", "").Replace(",", ".").Trim(); if (double.TryParse(sv, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out dv)) typed(dv); else Toast("That is not a number: nothing changed."); });
-        Hint2(vb, name + ": " + value + ". Click to type a value."); Hint2(kr.R, hint + ". Drag up or down (Shift: finer), the wheel, double-click for the default.");
+        Hint2(vb, name + ": " + value + ". Click to type a value."); Hint2(kr.R, hint + ". Drag up or down (Shift: finer), double-click for the default.");
     }
     static string Clock(double s) { if (s < 0) s = 0; int m = (int)(s / 60); return m + ":" + (s - m * 60).ToString("00.00"); }
     void DrawMiniWave(Graphics g, Track c, RectangleF r, Color col)
