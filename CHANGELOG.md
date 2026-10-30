@@ -2,6 +2,14 @@
 
 What changed in each version of **Purphex**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.78.8  Your MIDI keyboard pads play Purphex Pads, no crackle from the pads
+
+- FIXED: The pads of your MIDI keyboard did not play Purphex Pads unless its track was the picked one, and the Beat Lab took them first when it was open. Now Purphex Pads (and Key Map) take your MIDI keyboard while their window is in front, whatever track is picked. The window says whether your keyboard is connected and shows the note of the last pad you hit, and if no pad plays that note it tells you to use LEARN.
+
+- FIXED: Crackle in Purphex Pads, Key Map and the Sampler: a pad hit again now stops its last hit with a 3 ms fade, like a drum machine (an 808 or kick hit fast piled up copies of itself), and when every voice is busy the one taken for a new hit fades out instead of being cut in one sample.
+
+- CHANGED: Purphex Pads has pad 1 at the top left, with 1 2 3 4 across the top row.
+
 ## 3.78.7  The PAN label reads PAN on thin tracks
 
 - FIXED: With THIN TRACKS on, the pan label of a track read PA... (its box was too narrow). It reads PAN again, and on a MIDI track it no longer sits under the Piano button.

@@ -1,4 +1,4 @@
-3.78.7
+3.78.8
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-The PAN label reads PAN on thin tracks
-sha256=b0816b2ff997d7617c8aec4e816acfe5067c067c115dca18bcaf6797b6a68566
+Your MIDI keyboard pads play Purphex Pads, no crackle from the pads
+sha256=7d794edf1ef9a4b4d067ebb44d8e87938499a0f62ced3e670600f1818534ae4f
