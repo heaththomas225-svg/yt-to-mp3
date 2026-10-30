@@ -180,6 +180,7 @@ static class NF
           Check("pressing the X while music plays stops it straight away and asks to leave (No keeps the DAW open)", xWas && !sf.eng.Playing && asked.Count == 1 && asked[0].Contains("LEAVING THE DAW") && !sf.IsDisposed, "was=" + xWas + " playing=" + sf.eng.Playing + " asked=" + asked.Count);
           sf.eng.Stop(); sf.eng.Tracks.Clear(); sf.exitAsk = null; }
         { // the MIDI keyboard plays the selected track's own instrument (not only an instrument whose window is in front), and MIDI REC records it
+          sf.CloseInspector();   /* (with the piano roll open the keyboard plays the track it shows: this is about the picked track) */
           sf.eng.Stop(); sf.eng.Tracks.Clear(); var it = StudioEngine.NewTrack("Chords", "inst", null); it.Instrument = true; var cp = (InstrumentFx)FxRegistry.Create("pxchord"); cp.Prepare(StudioEngine.SR); cp.Owner = it; it.Fx.Add(cp); sf.eng.Tracks.Add(it);
           typeof(StudioForm).GetField("selTrack", BF).SetValue(sf, 0); typeof(StudioForm).GetField("recOn", BF).SetValue(sf, true); MidiInput.Target = null; var keep = StudioEngine.Current; StudioEngine.Current = null;
           MidiInput.Handle(0x90u | (60u << 8) | (100u << 16)); var bl = new float[4096]; var br = new float[4096]; cp.BeginBlock(it, 0, 4096, false); cp.Process(bl, br, 4096); float pk = 0; foreach (var v in bl) pk = Math.Max(pk, Math.Abs(v));
