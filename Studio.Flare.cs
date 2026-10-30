@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -15,7 +15,8 @@ partial class StudioForm
     void DrawBtnHalo(Graphics g, RectangleF r, int style, float ht)
     {
         if (r.Width < 18 || r.Height < 14 || r.Width > 700) return;   // (a cached picture: cheap even in PERFORMANCE MODE)
-        int lvl = style == 4 || style == 2 ? 2 : (ht > 0.4f ? 2 : (ht > 0.05f ? 1 : 0)); Color c = style == 3 ? TM.C(255, 230, 60, 110) : (style == 4 ? (UiTokens.Custom ? UiTokens.Accent : Accent) : NeonViolet);
+        int lvl = style == 4 || style == 2 ? 2 : (ht > 0.4f ? 2 : (ht > 0.05f ? 1 : 0));
+        if (lvl == 0 && r.Height < 30) return;   /* a small resting button (the mixer slots, M / S, the rows of chips) has no flare: packed together their flares piled up and cost a third of the frame; it lights up when you point at it */ Color c = style == 3 ? TM.C(255, 230, 60, 110) : (style == 4 ? (UiTokens.Custom ? UiTokens.Accent : Accent) : NeonViolet);
         int w = (int)r.Width, h = (int)r.Height; long key = ((long)w << 40) ^ ((long)h << 28) ^ ((long)lvl << 24) ^ (uint)c.ToArgb();
         Bitmap b; lock (haloCache) { if (!haloCache.TryGetValue(key, out b)) { if (haloCache.Count > 300) { foreach (var x in haloCache.Values) x.Dispose(); haloCache.Clear(); } b = MakeHalo(w, h, lvl, c); haloCache[key] = b; } }
         g.DrawImageUnscaled(b, (int)r.X - HaloPadX, (int)r.Y - HaloPadY);

@@ -139,6 +139,14 @@ partial class StudioForm
         AddTrack(t);
     }
 
+    // Up / Down after a click in the sound list: the next or previous sound is picked (and heard, with Autoplay), and the list follows it
+    float sndListH = 300;
+    internal bool SoundListKey(bool down)
+    {
+        if (sndResults.Count == 0) return false; int i = sndSel == null ? -1 : sndResults.IndexOf(sndSel); i = Math.Max(0, Math.Min(sndResults.Count - 1, i < 0 ? 0 : i + (down ? 1 : -1)));
+        SelectSound(sndResults[i], true); const float rowH = 52; if (i * rowH < sndScroll) sndScroll = i * rowH; else if ((i + 1) * rowH > sndScroll + sndListH) sndScroll = (i + 1) * rowH - sndListH; Invalidate(); return true;
+    }
+
     // ---- duplicates found by an import: LOCATE shows each sound it was a copy of (one after another), so you can find the one you already have ----
     readonly List<SoundItem> dupeFind = new List<SoundItem>(); int dupeAt;
     internal void NoteDupes() { dupeFind.Clear(); dupeAt = 0; foreach (var d in SoundLibrary.LastDupeItems) if (d != null && !dupeFind.Contains(d)) dupeFind.Add(d); }
@@ -294,7 +302,7 @@ partial class StudioForm
           var av = Rc(x + w - 14 - 150, y + 176, 150, 22); Chip(g, av, F.Avail == "" ? "Show: installed" : (F.Avail == "instant" ? "Show: made on play" : "Show: all"), F.Avail != "", AvailMenu); Hint2(av, "Installed: real sound files on this PC (from the packs you installed and your own samples). Made on play: sounds that are made the first time you play them.");
           Txt(g, sndResults.Count.ToString("#,0") + (sndResults.Count == 1 ? " sound" : " sounds") + " (" + what + ")  ·  " + real.ToString("#,0") + " real files in " + installedPacks + " pack" + (installedPacks == 1 ? "" : "s"), 11, DimC, Rc(x + 14, y + 178, w - 28 - 160, 18), StringAlignment.Near, false); }
         // list
-        float py = 200, ph = 214; var list = Rc(x + 8, y + py, w - 16, h - py - ph - 6); var gs = g.Save(); g.SetClip(list, CombineMode.Intersect); float rowH = 52;
+        float py = 200, ph = 214; var list = Rc(x + 8, y + py, w - 16, h - py - ph - 6); var gs = g.Save(); g.SetClip(list, CombineMode.Intersect); float rowH = 52; sndListH = list.Height;
         float maxScroll = Math.Max(0, sndResults.Count * rowH - list.Height); sndScroll = Math.Max(0, Math.Min(maxScroll, sndScroll)); Reg(list, () => { }).OnWheel = d => { sndScroll = Math.Max(0, Math.Min(maxScroll, sndScroll - d * 52)); };
         if (sndResults.Count == 0 && F.Avail == "" && SoundLibrary.InstalledCount() == 0)
         {

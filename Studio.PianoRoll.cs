@@ -203,16 +203,25 @@ partial class StudioForm
     List<KeyValuePair<Track, List<PrNote>>> PrGhostTracks()
     {
         var l = new List<KeyValuePair<Track, List<PrNote>>>(); if (!prGhosts) return l;
-        foreach (var t in eng.Tracks) { if (t == prTrack || !PrCanEdit(t) || prGhostOff.Contains(t)) continue; int c; lock (t.Midi) c = t.Midi.Count; if (c == 0) continue; l.Add(new KeyValuePair<Track, List<PrNote>>(t, NotesOf(t))); }
+        foreach (var t in eng.Tracks) { if (t == prTrack || !PrCanEdit(t) || prGhostOff.Contains(t)) continue; int c; lock (t.Midi) c = t.Midi.Count; if (c == 0) continue; l.Add(new KeyValuePair<Track, List<PrNote>>(t, GhostNotesOf(t))); }
         return l;
+    }
+    // the other tracks' notes, worked out again only when their MIDI changed (a quick fingerprint of the events), not on every frame
+    readonly Dictionary<Track, KeyValuePair<long, List<PrNote>>> ghostCache = new Dictionary<Track, KeyValuePair<long, List<PrNote>>>();
+    List<PrNote> GhostNotesOf(Track t)
+    {
+        long fp = 17; lock (t.Midi) { fp = fp * 31 + t.Midi.Count; foreach (var m in t.Midi) fp = unchecked(fp * 1000003 + m.Frame * 131 + m.S * 7 + m.D1 * 3 + m.D2); }
+        KeyValuePair<long, List<PrNote>> c; if (ghostCache.TryGetValue(t, out c) && c.Key == fp) return c.Value;
+        if (ghostCache.Count > 64) ghostCache.Clear(); var l = NotesOf(t); ghostCache[t] = new KeyValuePair<long, List<PrNote>>(fp, l); return l;
     }
     static bool DrumLike(Track t) { foreach (var f in t.Fx) { var s = f as SamplerFx; if (s != null) return !s.AnyFollow; } return false; }
 
+    Bitmap prGridImg; string prGridKey;
     // ---- painting ----
     void PaintPianoRoll(Graphics g, RectangleF C)
     {
         if (blOn) { prArea = C; PaintBeatLab(g, C); return; }   // the Beat Lab lives in the piano roll
-        PrSync(); var t = prTrack; float x = C.X, y = C.Y, w = C.Width, h = C.Height; prArea = C;
+        long pq = Prof.T(); PrSync(); Prof.A("pr.sync", pq); pq = Prof.T(); var t = prTrack; float x = C.X, y = C.Y, w = C.Width, h = C.Height; prArea = C;
         // the bar: track picker, what kind of track, snap, length, scale, chords, ghosts, preview, tools
         float bx = x; var tp = Rc(bx, y, 28, 24); Btn(g, tp, "<", 0, () => PrStepTrack(-1), 11); Hint2(tp, "The previous note track"); bx += 30;
         var tn = Rc(bx, y, 190, 24); string tname = t == null ? "NO NOTE TRACK" : (t == prDraft ? "YOUR PATTERN" : t.Name); Btn(g, tn, "", 4, () => PrTrackMenu(), 10); Txt(g, tname.ToUpperInvariant(), 10, Color.White, Rc(tn.X + 22, tn.Y, tn.Width - 28, tn.Height), StringAlignment.Near, true);   /* the name beside the colour dot, never under it */ Hint2(tn, "The track you are editing: click to pick another (the piano roll stays open)"); bx += 192;
@@ -246,6 +255,7 @@ partial class StudioForm
             if (!prBoxDrag) PaintPatternBox(g, msg);
             return;
         }
+        Prof.A("pr.bar", pq); pq = Prof.T();
         // the areas
         var sam = PrSampler; float keyW = sam != null && sam.IsKit ? 120 : 64, velH = Math.Min(70, Math.Max(40, h * 0.18f)), rulerH = 18;
         prKeys = Rc(x, y + 30 + rulerH, keyW, h - 30 - rulerH - velH - 6); prRuler = Rc(x + keyW, y + 30, w - keyW, rulerH); prGrid = Rc(x + keyW, prKeys.Y, w - keyW, prKeys.Height); prVel = Rc(x + keyW, prGrid.Bottom + 6, w - keyW, velH);
@@ -255,32 +265,51 @@ partial class StudioForm
         // follow the playhead
         if (prFollow && eng.Playing && prMode == 0) { double pb = DispPos / PrBeatFrames, vis = prGrid.Width / prPpb; if (pb < prScrollBeats || pb > prScrollBeats + vis * 0.92) prScrollBeats = Math.Max(0, Math.Floor(pb / 4) * 4); }
         var gs = g.Save(); g.SetClip(prGrid, CombineMode.Intersect);
-        using (var b = new SolidBrush(TM.C(255, 12, 6, 26))) g.FillRectangle(b, prGrid);
-        for (int n = PrHigh; n >= PrLow; n--)
-        {
-            float ry = PrY(n); if (ry + prRowH < prGrid.Y || ry > prGrid.Bottom) continue; bool black = NoteNm[n % 12].Length > 1, inS = prScale != 0 && PrInScale(n), root = prScale != 0 && ((n - prKeyRoot) % 12 + 12) % 12 == 0;
-            Color rc = root ? TM.C(255, 44, 22, 78) : (inS ? TM.C(255, 32, 16, 60) : (black ? TM.C(255, 14, 7, 28) : TM.C(255, 20, 10, 38))); using (var b = new SolidBrush(rc)) g.FillRectangle(b, prGrid.X, ry, prGrid.Width, prRowH);
-            if (n % 12 == 0) using (var p = new Pen(TM.C(120, 120, 80, 200))) g.DrawLine(p, prGrid.X, ry + prRowH, prGrid.Right, ry + prRowH);
+        {   // the rows and the beat grid are one picture, drawn again only when the view changes (scroll, zoom, scale, snap, size, theme): it was redrawn line by line every frame
+            string gk = (int)prGrid.Width + "x" + (int)prGrid.Height + "|" + prScrollY.ToString("0.##") + "|" + prScrollBeats.ToString("0.####") + "|" + prPpb.ToString("0.###") + "|" + prRowH + "|" + prScale + "|" + prKeyRoot + "|" + prSnap + "|" + ThemeKeyNow();
+            if (prGridImg == null || prGridKey != gk)
+            {
+                int gw = Math.Max(1, (int)Math.Ceiling(prGrid.Width)), gh = Math.Max(1, (int)Math.Ceiling(prGrid.Height)); if (prGridImg == null || prGridImg.Width != gw || prGridImg.Height != gh) { if (prGridImg != null) prGridImg.Dispose(); prGridImg = new Bitmap(gw, gh, System.Drawing.Imaging.PixelFormat.Format32bppPArgb); }
+                var realGrid = prGrid; var realG = g;
+                using (var gg = Graphics.FromImage(prGridImg))
+                {
+                    gg.TranslateTransform(-realGrid.X, -realGrid.Y); g = gg;
+            using (var b = new SolidBrush(TM.C(255, 12, 6, 26))) g.FillRectangle(b, prGrid);
+            for (int n = PrHigh; n >= PrLow; n--)
+            {
+                float ry = PrY(n); if (ry + prRowH < prGrid.Y || ry > prGrid.Bottom) continue; bool black = NoteNm[n % 12].Length > 1, inS = prScale != 0 && PrInScale(n), root = prScale != 0 && ((n - prKeyRoot) % 12 + 12) % 12 == 0;
+                Color rc = root ? TM.C(255, 44, 22, 78) : (inS ? TM.C(255, 32, 16, 60) : (black ? TM.C(255, 14, 7, 28) : TM.C(255, 20, 10, 38))); using (var b = new SolidBrush(rc)) g.FillRectangle(b, prGrid.X, ry, prGrid.Width, prRowH);
+                if (n % 12 == 0) using (var p = new Pen(TM.C(120, 120, 80, 200))) g.DrawLine(p, prGrid.X, ry + prRowH, prGrid.Right, ry + prRowH);
+            }
+            // the beat grid: snap lines faint, beats stronger, bars strongest
+            { double step = PrSnapBeats[prSnap] > 0 ? PrSnapBeats[prSnap] : 0.25; while (step * prPpb < 7) step *= 2; double b0 = Math.Floor(prScrollBeats / step) * step;
+              using (var thin = new Pen(TM.C(28, 190, 150, 255))) using (var beatP = new Pen(TM.C(60, 190, 150, 255))) using (var barP = new Pen(TM.C(130, 210, 170, 255), 1.4f))
+                for (double bt = b0; ; bt += step) { float gx = prGrid.X + (float)((bt - prScrollBeats) * prPpb); if (gx > prGrid.Right) break; bool bar = Math.Abs(bt / 4 - Math.Round(bt / 4)) < 1e-6, beat = Math.Abs(bt - Math.Round(bt)) < 1e-6; g.DrawLine(bar ? barP : (beat ? beatP : thin), gx, prGrid.Y, gx, prGrid.Bottom); } }
+                    g = realG;
+                }
+                prGridKey = gk;
+            }
+            g.DrawImageUnscaled(prGridImg, (int)prGrid.X, (int)prGrid.Y);
         }
-        // the beat grid: snap lines faint, beats stronger, bars strongest
-        { double step = PrSnapBeats[prSnap] > 0 ? PrSnapBeats[prSnap] : 0.25; while (step * prPpb < 7) step *= 2; double b0 = Math.Floor(prScrollBeats / step) * step;
-          using (var thin = new Pen(TM.C(28, 190, 150, 255))) using (var beatP = new Pen(TM.C(60, 190, 150, 255))) using (var barP = new Pen(TM.C(130, 210, 170, 255), 1.4f))
-            for (double bt = b0; ; bt += step) { float gx = prGrid.X + (float)((bt - prScrollBeats) * prPpb); if (gx > prGrid.Right) break; bool bar = Math.Abs(bt / 4 - Math.Round(bt / 4)) < 1e-6, beat = Math.Abs(bt - Math.Round(bt)) < 1e-6; g.DrawLine(bar ? barP : (beat ? beatP : thin), gx, prGrid.Y, gx, prGrid.Bottom); } }
+        Prof.A("pr.grid", pq); pq = Prof.T();
         // the song's loop section
         if (eng.Loop && eng.LoopB > eng.LoopA) { float lx0 = PrX(eng.LoopA), lx1 = PrX(eng.LoopB); using (var b = new SolidBrush(Color.FromArgb(18, NeonCyan))) g.FillRectangle(b, lx0, prGrid.Y, lx1 - lx0, prGrid.Height); }
         // ghost notes: faint, behind, never clickable
-        g.SmoothingMode = SmoothingMode.AntiAlias;
+        g.SmoothingMode = SmoothingMode.None;   // (faint boxes: sharp edges look the same and draw many times faster than smoothed, dotted ones)
         foreach (var kv in PrGhostTracks())
         {
-            bool cols = DrumLike(kv.Key) || (sam != null && sam.IsKit && DrumLike(kv.Key)); Color gc = Color.FromArgb(255, (Neon(kv.Key.Color).R + 150) / 2, (Neon(kv.Key.Color).G + 140) / 2, (Neon(kv.Key.Color).B + 200) / 2);
+            bool cols = DrumLike(kv.Key) || (sam != null && sam.IsKit && DrumLike(kv.Key)); var nc = Neon(kv.Key.Color); Color gc = Color.FromArgb(255, (nc.R + 150) / 2, (nc.G + 140) / 2, (nc.B + 200) / 2);
+            using (var colB = new SolidBrush(Color.FromArgb(26, gc))) using (var colP = new Pen(Color.FromArgb(70, gc), 1f)) using (var nb = new SolidBrush(Color.FromArgb(46, gc))) using (var np = new Pen(Color.FromArgb(90, gc), 1f))
             foreach (var n in kv.Value)
             {
                 float gx0 = PrX(n.Start), gx1 = PrX(n.Start + n.Len); if (gx1 < prGrid.X || gx0 > prGrid.Right) continue;
-                if (cols) { using (var b = new SolidBrush(Color.FromArgb(26, gc))) g.FillRectangle(b, gx0, prGrid.Y, Math.Max(3, Math.Min(gx1 - gx0, (float)prPpb * 0.25f)), prGrid.Height); using (var p = new Pen(Color.FromArgb(70, gc), 1f)) g.DrawLine(p, gx0, prGrid.Y, gx0, prGrid.Bottom); }
-                float gy = PrY(n.Note); if (gy + prRowH < prGrid.Y || gy > prGrid.Bottom) continue; var gr = Rc(gx0, gy + 2, Math.Max(3, gx1 - gx0), prRowH - 4);
-                using (var b = new SolidBrush(Color.FromArgb(46, gc))) using (var p = RR(gr, 3)) { g.FillPath(b, p); using (var pen = new Pen(Color.FromArgb(90, gc), 1f) { DashStyle = DashStyle.Dot }) g.DrawPath(pen, p); }
+                if (cols) { g.FillRectangle(colB, gx0, prGrid.Y, Math.Max(3, Math.Min(gx1 - gx0, (float)prPpb * 0.25f)), prGrid.Height); g.DrawLine(colP, gx0, prGrid.Y, gx0, prGrid.Bottom); }
+                float gy = PrY(n.Note); if (gy + prRowH < prGrid.Y || gy > prGrid.Bottom) continue; float gw = Math.Max(3, gx1 - gx0), gh = prRowH - 4;
+                g.FillRectangle(nb, gx0, gy + 2, gw, gh); g.DrawRectangle(np, gx0, gy + 2, gw - 1, gh - 1);
             }
         }
+        g.SmoothingMode = SmoothingMode.AntiAlias;
+        Prof.A("pr.ghosts", pq); pq = Prof.T();
         // the active track's notes: bright, on top
         Color acc = UiTokens.Sel(NeonViolet), accSel = NeonPink;
         foreach (var n in prNotes)
@@ -291,6 +320,7 @@ partial class StudioForm
             using (var hb = new SolidBrush(Color.FromArgb(110, 255, 255, 255))) g.FillRectangle(hb, nr.Right - 3, nr.Y + 2, 2, nr.Height - 4);   // the resize edge
             if (prLabels && nr.Width > 22 && prRowH >= 11) Txt(g, PrNoteName(n.Note), 7.5f, Color.FromArgb(235, 255, 255, 255), Rc(nr.X + 3, nr.Y, nr.Width - 6, nr.Height), StringAlignment.Near, true);
         }
+        Prof.A("pr.notes", pq); pq = Prof.T();
         // the box being drawn, and the playhead
         if (prMode == 4) { var br = PrBox(); using (var b = new SolidBrush(Color.FromArgb(40, NeonCyan))) g.FillRectangle(b, br); using (var p = new Pen(NeonCyan, 1f) { DashStyle = DashStyle.Dash }) g.DrawRectangle(p, br.X, br.Y, br.Width, br.Height); }
         { float px = PrX((long)DispPos); if (px >= prGrid.X && px <= prGrid.Right) using (var p = new Pen(Color.FromArgb(240, NeonPink), 2f)) g.DrawLine(p, px, prGrid.Y, px, prGrid.Bottom); }
@@ -303,6 +333,7 @@ partial class StudioForm
         { double b0 = Math.Floor(prScrollBeats / 4) * 4; for (double bt = b0; ; bt += 4) { float rx = prRuler.X + (float)((bt - prScrollBeats) * prPpb); if (rx > prRuler.Right) break; if (rx < prRuler.X - 30) continue; using (var p = new Pen(TM.C(140, 210, 170, 255))) g.DrawLine(p, rx, prRuler.Y + 8, rx, prRuler.Bottom); Txt(g, ((int)(bt / 4) + 1).ToString(), 8.5f, Ink, Rc(rx + 3, prRuler.Y, 40, prRuler.Height), StringAlignment.Near, false); } }
         { float px = PrX((long)DispPos); if (px >= prRuler.X && px <= prRuler.Right) using (var b = new SolidBrush(NeonPink)) g.FillPolygon(b, new[] { new PointF(px - 5, prRuler.Y), new PointF(px + 5, prRuler.Y), new PointF(px, prRuler.Bottom) }); }
         var rr = Reg(prRuler, () => { eng.Seek(PrFrameAt(MousePos.X)); }); rr.OnDrag = pt => eng.Seek(PrFrameAt(pt.X)); Hint2(prRuler, "Click or drag to move the song's position");
+        Prof.A("pr.ruler", pq); pq = Prof.T();
         // the keyboard (kit tracks: the sample on each key)
         var kgs = g.Save(); g.SetClip(prKeys, CombineMode.Intersect);
         for (int n = PrHigh; n >= PrLow; n--)
@@ -315,14 +346,16 @@ partial class StudioForm
         }
         g.Restore(kgs);
         var kr = Reg(prKeys, () => { int kn = PrNoteAt(MousePos.Y); PrAudition(kn, 100); }); kr.OnDrag = pt => { int kn = PrNoteAt(pt.Y); if (kn != prAudNote) PrAudition(kn, 100); }; kr.OnUp = () => PrSilence(); kr.OnWheel = d => PrWheel(d, MousePos); Hint2(prKeys, sam != null && sam.IsKit ? "Each key plays its sample: click to hear it (drag a sound from SOUNDS onto a key to put it there)" : "Click a key to hear it on this track's sound");
+        Prof.A("pr.keys", pq); pq = Prof.T();
         // the velocity lane: each note's velocity, set without moving the note
         using (var b = new SolidBrush(TM.C(255, 14, 7, 28))) g.FillRectangle(b, prVel); StrokeRR(g, Color.FromArgb(90, NeonViolet), prVel, 4, 1f); Txt(g, "VELOCITY", 8, DimC, Rc(x, prVel.Y, keyW - 4, 16), StringAlignment.Far, true);
         var vgs = g.Save(); g.SetClip(prVel, CombineMode.Intersect);
         foreach (var n in prNotes) { float vx = PrX(n.Start); if (vx < prVel.X - 4 || vx > prVel.Right) continue; float vh = (prVel.Height - 6) * n.Vel / 127f; bool sl = prSel.Contains(n); using (var b = new SolidBrush(Color.FromArgb(sl ? 255 : 200, sl ? accSel : acc))) g.FillRectangle(b, vx, prVel.Bottom - 3 - vh, 4, vh); using (var b = new SolidBrush(Color.White)) g.FillEllipse(b, vx - 1.5f, prVel.Bottom - 3 - vh - 3, 7, 7); }
         g.Restore(vgs);
         var vr = Reg(prVel, () => PrVelAt(MousePos, true)); vr.OnDrag = pt => PrVelAt(pt, false); vr.OnUp = () => { prMode = 0; PrCommit(); }; Hint2(prVel, "Drag a bar to set that note's velocity (drag across to set several)");
+        Prof.A("pr.vel", pq); pq = Prof.T();
         if (!prBoxDrag) PaintPatternBox(g, prGrid);
-        if (!prDraftDrag) PaintDraftBox(g, prGrid);
+        if (!prDraftDrag) PaintDraftBox(g, prGrid); Prof.A("pr.boxes", pq);
         // the arrangement link: where this view sits in the song
         { var mini = Rc(x, prVel.Bottom - 16, keyW - 6, 14); double songBeats = Math.Max(16, SongFrames() / PrBeatFrames); FillRR(g, TM.C(200, 8, 4, 18), mini, 3); float vx0 = (float)(prScrollBeats / songBeats), vw = (float)(prGrid.Width / prPpb / songBeats); FillRR(g, Color.FromArgb(160, NeonCyan), Rc(mini.X + mini.Width * Math.Min(1, vx0), mini.Y + 2, Math.Max(3, mini.Width * Math.Min(1, vw)), mini.Height - 4), 2); Reg(mini, () => { prScrollBeats = Math.Max(0, (MousePos.X - mini.X) / mini.Width * songBeats - prGrid.Width / prPpb / 2); }).OnDrag = pt => { prScrollBeats = Math.Max(0, (pt.X - mini.X) / mini.Width * songBeats - prGrid.Width / prPpb / 2); }; Hint2(mini, "Where you are in the song: drag to move along it"); }
     }

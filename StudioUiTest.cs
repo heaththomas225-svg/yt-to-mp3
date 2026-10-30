@@ -26,6 +26,7 @@ static class S
         eng.Tracks.Add(StudioEngine.NewTrack("A", "vocal", Clip(60))); eng.Tracks.Add(StudioEngine.NewTrack("B", "beat", Clip(60)));
         sf = new StudioForm(app); sf.ClientSize = new Size(1500, 800); sf.Show(); Pump(500); Paint();
         Check("tracks are tall enough that the header is not squashed (132 px)", F<int>("LaneH") == 132, "lane height " + F<int>("LaneH"));
+        typeof(StudioForm).GetMethod("CloseSounds", BF).Invoke(sf, null); SetF("autoFit", true); Paint(); Paint();   // (a sounds panel left open by an earlier run narrows the timeline)
         double spp0 = F<double>("spp"); Check("the whole song fits the view at the start (auto-fit)", F<bool>("autoFit") && spp0 > 100, "frames per pixel " + spp0.ToString("0"));
         // overview bar: the 16 px strip with a double-click handler
         var ob = Regs().FindLast(r => r.OnDouble != null && Math.Abs(r.R.Height - 34) < 0.5f && r.R.Y > 150 && r.R.Y < 260);   /* (it sits above the timeline ruler) */ Check("the overview bar is on screen", ob != null, "");
@@ -34,7 +35,7 @@ static class S
             float right = ob.R.Right - 12; int y = (int)(ob.R.Y + 8);
             // drag the right end of the lit window to the left: zoom in
             double total = Math.Max(eng.EndFrame * 1.04, 44100 * 10.0); float tw = ob.R.Width; var tl = (RectangleF)typeof(StudioForm).GetMethod("TimelineRect", BF).Invoke(sf, null);
-            float thumbRight = ob.R.X + (float)(F<long>("scroll") / total * tw) + (float)(tl.Width * spp0 / total * tw);
+            float thumbRight = ob.R.X + (float)(F<long>("scroll") / total * tw) + (float)(tl.Width * spp0 / total * tw); thumbRight = Math.Min(thumbRight, ob.R.Right - 3);   // (the lit window can reach the very end of the bar)
             Ev("OnMouseMove", MouseButtons.None, 0, (int)thumbRight - 1, y); Ev("OnMouseDown", MouseButtons.Left, 1, (int)thumbRight - 1, y);
             for (int i = 1; i <= 8; i++) Ev("OnMouseMove", MouseButtons.Left, 0, (int)(thumbRight - 1 - i * (tw * 0.6f) / 8), y); Ev("OnMouseUp", MouseButtons.Left, 1, (int)(thumbRight - tw * 0.6f), y); Paint();
             double spp1 = F<double>("spp"); Check("dragging the end of the overview window zooms in", spp1 < spp0 * 0.6 && spp1 >= 4 && !F<bool>("autoFit"), spp0.ToString("0") + " -> " + spp1.ToString("0") + " frames per pixel");
