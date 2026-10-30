@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
@@ -85,7 +85,7 @@ class SettingsForm : Form
         devBox.SelectedIndexChanged += (s, e) => { if (!setting) { Prefs.OutDev = devBox.SelectedIndex - 1; Prefs.Changed(); app.StudioEng.ReopenOutput(); } };
         y += 38;
         Add(new Label { Text = "Playback buffer", Left = 20, Top = y + 3, Width = 150, ForeColor = Ink });
-        bufBox = Combo(180, y, 360, new[] { "Low latency (11 ms) - fastest response", "Normal (23 ms)", "Safe (46 ms) - for slow computers or heavy effects" });
+        bufBox = Combo(180, y, 360, new[] { "Low latency (35 ms) - fastest response", "Normal (46 ms)", "Safe (139 ms) - for slow computers or heavy effects" });
         bufBox.SelectedIndexChanged += (s, e) => { if (!setting) { Prefs.Buf = bufBox.SelectedIndex; Prefs.BufBoost = 0; Prefs.Changed(); app.StudioEng.ReopenOutput(); } };
         y += 38;
         Add(new Label { Text = "Recording input", Left = 20, Top = y + 3, Width = 150, ForeColor = Ink });
