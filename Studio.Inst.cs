@@ -29,13 +29,18 @@ partial class StudioForm
     // notes from a MIDI keyboard when the picked track is a MIDI track with no instrument on it: they are recorded onto that track
     // back in the studio: the keyboard plays the picked track again, unless a Purphex Pads or Key Map window is open (it keeps the keyboard until it closes)
     internal void StudioActivatedMidi() { if (!MidiWindow.Holds(MidiInput.Target)) MidiInput.Target = null; }
+    volatile bool keysTrackAsked;
     internal bool MidiToBareTrack(byte s, byte d1, byte d2)
     {
         try
         {
             if (MidiInput.Target != null) return false;   // an instrument's own window is in front (Purphex Pads, Key Map, Bass Lab, a VST): it gets the keys while you use it
             if (BlMidi(s, d1, d2)) return true;   // the Beat Lab is open: the keyboard's pads play its pads
-            if (eng.Tracks.Count == 0) return false; var t = eng.Tracks[Math.Max(0, Math.Min(selTrack, eng.Tracks.Count - 1))]; if (!t.Instrument || t.IsBus) return false;
+            // the picked track when it is a MIDI track, else the first MIDI track of the song (an audio track picked played nothing at all);
+            // a song with no MIDI track gets one ("Keys", the built-in piano) the first time a key is pressed
+            Track t = eng.Tracks.Count > 0 ? eng.Tracks[Math.Max(0, Math.Min(selTrack, eng.Tracks.Count - 1))] : null;
+            if (t == null || !t.Instrument || t.IsBus) { t = null; lock (eng.Sync) foreach (var q in eng.Tracks) if (q.Instrument && !q.IsBus && q.Host == null) { t = q; break; } }
+            if (t == null) { if ((s & 0xF0) == 0x90 && d2 > 0 && !keysTrackAsked) { keysTrackAsked = true; try { BeginInvoke(new Action(() => { var kt = StudioEngine.NewTrack("Keys", "inst", null); kt.Instrument = true; kt.Color = unchecked((int)0xFF3B8CF5); AddTrack(kt); Toast("Your MIDI keyboard plays the new track Keys (the built-in piano). Add an instrument or a VST to it from + ADD EFFECT for other sounds."); keysTrackAsked = false; })); } catch { keysTrackAsked = false; } } return true; }
             // the picked MIDI track plays what is on it (a VST, Bass Lab, a Purphex instrument, or the built-in keys when it has none), through its effects, and MIDI REC records it
             // (before, only an instrument whose window was in front got the keyboard: pick a track with a VST and nothing played or recorded)
             InstrumentFx k = null; foreach (var f in t.Fx) { var i = f as InstrumentFx; if (i != null && i.IsInstrument && !f.Bypass) { k = i; break; } } if (k == null) k = t.Keys; k.Owner = t;
@@ -51,17 +56,24 @@ partial class StudioForm
         if (StudioEnv.UnderTest || Prefs.MidiDev == MidiInput.OffName) return;
         try
         {
-            var devs = MidiInput.Devices(); if (MidiInput.OpenName.Length > 0) { if (devs.Contains(MidiInput.OpenName)) { StudioEngine.LiveUntil = Environment.TickCount + 4500; return; } MidiInput.Close(); }   // (a keyboard plugged in keeps the sound engine awake: a hit never waits for the sound card)
-            if (devs.Count == 0) return; string want = Prefs.MidiDev.Length > 0 && devs.Contains(Prefs.MidiDev) ? Prefs.MidiDev : devs[0];
-            bool ok = MidiInput.Open(want); string key = want + (ok ? "|ok" : "|" + MidiInput.Status);
-            if (key != midiToastFor) { midiToastFor = key; Toast(ok ? "MIDI keyboard connected: " + want + ". It plays the selected MIDI track (right-click MIDI REC to pick another keyboard)." : MidiInput.Status); }
+            if (Prefs.MidiDev.Length == 0)
+            {   // every MIDI input at once (a keyboard often has two ports: its keys could be on the second one); new ones are picked up as they are plugged in
+                var added = MidiInput.OpenAll();
+                if (added.Count > 0) Toast("MIDI keyboard connected: " + string.Join(", ", added) + ". It plays the selected MIDI track (or your first MIDI track).");
+            }
+            else
+            {
+                var devs = MidiInput.Devices(); if (MidiInput.OpenName == Prefs.MidiDev && devs.Contains(Prefs.MidiDev)) { } else if (devs.Contains(Prefs.MidiDev)) { bool ok = MidiInput.Open(Prefs.MidiDev); string key = Prefs.MidiDev + (ok ? "|ok" : "|" + MidiInput.Status); if (key != midiToastFor) { midiToastFor = key; Toast(ok ? "MIDI keyboard connected: " + Prefs.MidiDev + "." : MidiInput.Status); } }
+            }
+            if (MidiInput.OpenName.Length > 0) StudioEngine.LiveUntil = Environment.TickCount + 4500;   // a keyboard plugged in keeps the sound engine awake: a hit never waits for the sound card
         }
         catch { }
     }
     void MidiDeviceMenu()
     {
         var m = Win.NewMenu(); var devs = MidiInput.Devices(); m.Items.Add(new ToolStripMenuItem("MIDI KEYBOARD: " + (MidiInput.OpenName.Length > 0 ? MidiInput.OpenName : "not connected")) { Enabled = false });
-        foreach (var d0 in devs) { string d = d0; var it = new ToolStripMenuItem(d) { Checked = MidiInput.OpenName == d }; it.Click += (a, b) => { Prefs.MidiDev = d; Prefs.Changed(); MidiInput.Close(); midiToastFor = ""; MidiAutoConnect(); }; m.Items.Add(it); }
+        { var all = new ToolStripMenuItem("All MIDI inputs at once (best: a keyboard often has two ports)") { Checked = Prefs.MidiDev.Length == 0 }; all.Click += (a, b) => { Prefs.MidiDev = ""; Prefs.Changed(); MidiInput.Close(); midiToastFor = ""; MidiAutoConnect(); }; m.Items.Add(all); }
+        foreach (var d0 in devs) { string d = d0; var it = new ToolStripMenuItem("Only " + d) { Checked = Prefs.MidiDev == d }; it.Click += (a, b) => { Prefs.MidiDev = d; Prefs.Changed(); MidiInput.Close(); midiToastFor = ""; MidiAutoConnect(); }; m.Items.Add(it); }
         if (devs.Count == 0) m.Items.Add(new ToolStripMenuItem("No MIDI keyboard found: plug one in (it connects by itself)") { Enabled = false });
         m.Items.Add(new ToolStripSeparator());
         m.Items.Add("MIDI MAPPING... (your controller's knobs, keys and pads on any control, profiles)").Click += (a, b) => OpenMidiMap();

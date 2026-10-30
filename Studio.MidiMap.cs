@@ -109,8 +109,15 @@ partial class StudioForm
         var pr = Rc(box.X + 24, box.Y + 76, 330, 30); Btn(g, pr, "PROFILE: " + MidiMap.Profile + "  ▾", 2, () => ProfileMenu(), 11); Hint2(pr, "Your controller profiles: switch, make a new one, copy, rename or delete");
         bool lit = unchecked(Environment.TickCount - MidiMap.ActivityAt) < 160 && MidiMap.ActivityAt != 0; var led = Rc(pr.Right + 16, pr.Y + 9, 12, 12); using (var b = new SolidBrush(lit ? NeonCyan : TM.C(150, 60, 60, 90))) g.FillEllipse(b, led); if (lit) lastInput = DateTime.Now;
         Txt(g, MidiInput.OpenName.Length == 0 ? "NO MIDI KEYBOARD CONNECTED" : (MidiMap.LastIn.Length > 0 ? "IN: " + MidiMap.LastIn : "IN: " + MidiInput.OpenName + " (move something on it)"), 10.5f, lit ? NeonCyan : DimC, Rc(led.Right + 8, pr.Y, box.Right - led.Right - 32, 30), StringAlignment.Near, true);
+        // the check: every MIDI input Windows reports and what it is doing, and the sound card
+        var rep = MidiInput.Report(); float cy = pr.Bottom + 10; var chk = Rc(box.X + 24, cy, box.Width - 48, 22 + rep.Count * 18 + 18); FillRR(g, TM.C(200, 10, 6, 24), chk, 10);
+        Txt(g, "CHECK: YOUR MIDI INPUTS", 10, NeonCyan, Rc(chk.X + 12, chk.Y + 4, chk.Width - 24, 16), StringAlignment.Near, true);
+        for (int i = 0; i < rep.Count; i++) Txt(g, rep[i], 10, rep[i].Contains("LISTENING") ? Good : Warn, Rc(chk.X + 12, chk.Y + 22 + i * 18, chk.Width - 24, 16), StringAlignment.Near, false);
+        int lv = Prefs.BufEff; string buf = lv == 0 ? "4 x 512 (46 ms)" : lv == 2 ? "8 x 2048 (372 ms)" : "8 x 1024 (186 ms)";
+        Txt(g, "SOUND CARD: buffer " + buf + ",  dropouts since the studio opened: " + WaveOutPlayer.Underruns + " (each one is a crackle)", 10, WaveOutPlayer.Underruns > 0 ? Warn : DimC, Rc(chk.X + 12, chk.Bottom - 20, chk.Width - 24, 16), StringAlignment.Near, false);
+        if (unchecked(Environment.TickCount - MidiMap.ActivityAt) < 400) lastInput = DateTime.Now;
         // the maps
-        var maps = MidiMap.All; var list = Rc(box.X + 24, pr.Bottom + 14, box.Width - 48, box.Bottom - pr.Bottom - 74); FillRR(g, TM.C(200, 8, 4, 18), list, 10);
+        var maps = MidiMap.All; var list = Rc(box.X + 24, chk.Bottom + 10, box.Width - 48, box.Bottom - chk.Bottom - 70); FillRR(g, TM.C(200, 8, 4, 18), list, 10);
         if (maps.Count == 0) Txt(g, "No MIDI mappings in this profile yet.", 12, DimC, list, StringAlignment.Center, false);
         float rh = 38, y0 = list.Y + 6 - mmScroll; var gs = g.Save(); g.SetClip(list);
         foreach (var m0 in maps)

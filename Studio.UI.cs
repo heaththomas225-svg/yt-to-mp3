@@ -558,7 +558,7 @@ partial class StudioForm : Form
     int lastStalls; DateTime lastRefresh = DateTime.MinValue;
     internal bool AudioGlitchCheck(DateTime now)
     {
-        var ge = eng.Playing ? eng : (previewEng != null && previewEng.Playing ? previewEng : (unchecked(Environment.TickCount - StudioEngine.LiveUntil) < 0 ? eng : null));   // the engine you are hearing: the mix, a preview (My Projects, Community), or the instruments you are playing live (pads, keys)
+        var ge = eng.Playing ? eng : (previewEng != null && previewEng.Playing ? previewEng : null);   // the engine you are hearing: the mix, or a preview (My Projects, Community). (Not live playing: restarting the output there made gaps and grew the buffer.)
         if (ge == null) { lastUnder = WaveOutPlayer.Underruns; lastStalls = WaveOutPlayer.Stalls; underSince = now; return false; }
         int u = WaveOutPlayer.Underruns, st = WaveOutPlayer.Stalls; bool stalled = st != lastStalls, breaking = u - lastUnder >= 2 && (now - underSince).TotalSeconds <= 2;
         if ((now - underSince).TotalSeconds > 2) { underSince = now; lastUnder = u; }

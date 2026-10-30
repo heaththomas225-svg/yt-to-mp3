@@ -227,6 +227,16 @@ static class NF
           var pw = new PadsWindow(pf); pw.Show(sf); Pump(150); bool held = MidiInput.Target == pf; sf.StudioActivatedMidi(); bool kept = MidiInput.Target == pf;
           pw.Close(); Pump(100); sf.StudioActivatedMidi(); bool freed = MidiInput.Target == null; sf.eng.Tracks.Remove(pt);
           Check("an open Pads window keeps the MIDI keyboard when you click in the studio, and lets go when it closes", held && kept && freed, "held " + held + ", kept " + kept + ", freed " + freed); }
+        { // the keyboard always plays something: an audio track picked, it plays the first MIDI track; a song with no MIDI track gets a Keys track on the first key
+          sf.eng.Stop(); sf.eng.Tracks.Clear(); MidiInput.Target = null; var keepC = StudioEngine.Current; StudioEngine.Current = null;
+          var aud = StudioEngine.NewTrack("Beat", "beat", AudioClip.FromArrays(new float[44100], new float[44100], "b")); var mt = StudioEngine.NewTrack("Lead", "inst", null); mt.Instrument = true; var cp2 = (InstrumentFx)FxRegistry.Create("pxchord"); cp2.Prepare(44100); cp2.Owner = mt; mt.Fx.Add(cp2);
+          sf.eng.Tracks.Add(aud); sf.eng.Tracks.Add(mt); typeof(StudioForm).GetField("selTrack", BF).SetValue(sf, 0);
+          MidiInput.Handle(0x90u | (60u << 8) | (100u << 16)); var fl = new float[4096]; var fr = new float[4096]; cp2.BeginBlock(mt, 0, 4096, false); cp2.Process(fl, fr, 4096); MidiInput.Handle(0x80u | (60u << 8)); float fpk = 0; foreach (var v in fl) fpk = Math.Max(fpk, Math.Abs(v));
+          bool fb = fpk > 0.001f || ((ChordPadFx)cp2).ShowPad >= 0;
+          sf.eng.Tracks.Clear(); sf.eng.Tracks.Add(aud); typeof(StudioForm).GetField("selTrack", BF).SetValue(sf, 0); MidiInput.Handle(0x90u | (62u << 8) | (100u << 16)); Pump(200); MidiInput.Handle(0x80u | (62u << 8));
+          bool made = sf.eng.Tracks.Any(q => q.Instrument && q.Name == "Keys"); StudioEngine.Current = keepC;
+          Check("the MIDI keyboard always plays: with an audio track picked it plays the first MIDI track, and a song with no MIDI track gets a Keys track", fb && made, "fallback " + fb + ", keys track " + made);
+          sf.eng.Tracks.Clear(); }
         { // the list that asks which track: one button for a row that was split into pieces
           sf.eng.Tracks.Clear(); Func<int, AudioClip> mkc = sec => AudioClip.FromArrays(new float[44100 * sec], new float[44100 * sec], "t"); var row0 = StudioEngine.NewTrack("Row", "beat", mkc(2)); var pc1 = StudioEngine.NewTrack("Row piece", "beat", mkc(5)); var pc2 = StudioEngine.NewTrack("Row piece 2", "beat", mkc(1)); pc1.Host = row0; pc2.Host = row0; var other = StudioEngine.NewTrack("Other", "vocal", mkc(3));
           sf.eng.Tracks.Add(row0); sf.eng.Tracks.Add(pc1); sf.eng.Tracks.Add(pc2); sf.eng.Tracks.Add(other); var picked = new List<Track>();
