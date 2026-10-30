@@ -366,6 +366,10 @@ static class PX
             Check("Key Map: it is an instrument with a window, listed with the instruments, and says what it does", km.IsInstrument && km.HasWindow && FxRegistry.All.Any(i => i.Type == "pxkeymap" && i.Category == "Instruments") && FxHelp.Has("Purphex Key Map"), "");
             var w = new KeyMapWindow(km); w.Show(); Application.DoEvents(); var shot = w.Snapshot(); string sp = System.IO.Path.Combine(dir, "keymap_window.png"); shot.Save(sp, System.Drawing.Imaging.ImageFormat.Png); Console.WriteLine("key map window picture: " + sp); int hc = w.HitCount; w.Close();
             Check("Key Map: the window draws the keys and their controls", hc >= 60, hc + " controls");
+            { // your MIDI keyboard's keys play the Key Map: a key with its own sound, and a key inside a pitched spread
+              Func<int, double> viaKeyboard = note => { km.Reset(); MidiInput.Target = km; MidiInput.Handle(0x90u | ((uint)note << 8) | (100u << 16)); var l = new float[8192]; var r = new float[8192]; km.BeginBlock(kt, 0, 8192, false); km.Process(l, r, 8192); MidiInput.Handle(0x80u | ((uint)note << 8)); MidiInput.Target = null; return freq(l) * (peak(l) > 0.05 ? 1 : 0); };
+              double f66 = viaKeyboard(66), f55 = viaKeyboard(55), f61 = viaKeyboard(61);
+              Check("Key Map: keys pressed on the MIDI keyboard play their sounds (a key's own sound, a spread one pitched, and nothing where there is no sound)", f66 > 700 && f55 > 150 && f55 < 300 && (km.KeyName(61).Length == 0 ? f61 == 0 : f61 > 0), "F#4 " + f66.ToString("0") + " Hz, G3 " + f55.ToString("0") + " Hz"); }
             { var w2 = new KeyMapWindow(km); w2.Show(); Application.DoEvents(); w2.Snapshot(); var kr = w2.KeyRect(77); bool took = !kr.IsEmpty && w2.DropSound(w2.PointToScreen(new System.Drawing.Point((int)(kr.X + kr.Width / 2), (int)(kr.Bottom - 10))), tone(1200), "Dragged"); w2.Close();
               Check("Key Map: a sound dragged from the studio and let go over a key lands on that key", took && km.KeyName(77) == "Dragged", "F5 is '" + km.KeyName(77) + "'"); }
             StudioEngine.Current = keep;
