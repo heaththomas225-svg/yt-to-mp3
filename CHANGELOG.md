@@ -2,6 +2,24 @@
 
 What changed in each version of **Purphex**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.78.9  MIDI mapping across the studio, POP OUT plugins, pads that overlap with no crackle, auto trim
+
+- NEW: MIDI mapping across the whole studio. Right-click a knob, fader or button and pick MIDI Learn, then move a knob or press a key or pad on your controller: it drives that control from then on. It works on plugin knobs (in the studio and in the plugin windows), track volume, pan, mute and solo, the mixer's pan, trim and faders, PLAY, STOP and MIDI REC, Beat Lab rows and each pad of Purphex Pads (several pads at once). Right-click again to learn it again or take the mapping off. Keys that are not mapped still play your instruments, pitch bend and mod wheel included.
+
+- NEW: MIDI MAPPING (right-click MIDI REC): every mapping with RE-LEARN and REMOVE, and controller profiles: as many as you like, switch, copy, rename and delete them, saved as you go and back when the studio opens. A ready profile for the Akai MPK Mini turns the plugin in front with its 8 knobs; its pads play Purphex Pads and the Beat Lab.
+
+- NEW: A light in the corner of MIDI REC flashes on every message from your controller; point at it to see what came in.
+
+- NEW: POP OUT on the plugin windows inside the studio: the plugin opens in a window of its own (every knob and choice, presets, SAVE), so you can drag it to another monitor. Every plugin window opens where you left it last time, on whichever monitor.
+
+- FIXED: Purphex Pads: putting a sound on a pad no longer plays it (pads only sound when you hit them), and a pad hit again plays over its last hits like a drum (up to 6 copies of one pad; past that the oldest fades out in 10 ms instead of piling up). Different pads always play over each other.
+
+- FIXED: Crackle and late hits when playing pads and keys: the sound engine now stays awake while Pads or Key Map is open or a MIDI keyboard is plugged in (a hit no longer waits for the sound card, and a sound still ringing is no longer cut off), the sound breaking up while you play live is now caught and fixed like it is during playback, and playing live no longer makes garbage on the sound thread.
+
+- NEW: Drag a pad onto another pad in Purphex Pads to move its sound there (the two pads swap sounds and levels).
+
+- NEW: Auto trim: audio you add with ADD MUSIC, drop from a folder or drag in as a one-shot from SOUNDS starts where the sound starts: the silence before it is trimmed off (tempo loops keep their start, their silence is part of the rhythm). Right-click any audio clip for Trim the silence at the start.
+
 ## 3.78.8  Your MIDI keyboard pads play Purphex Pads, no crackle from the pads
 
 - FIXED: The pads of your MIDI keyboard did not play Purphex Pads unless its track was the picked one, and the Beat Lab took them first when it was open. Now Purphex Pads (and Key Map) take your MIDI keyboard while their window is in front, whatever track is picked. The window says whether your keyboard is connected and shows the note of the last pad you hit, and if no pad plays that note it tells you to use LEARN.

@@ -1,4 +1,4 @@
-3.78.8
+3.78.9
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Your MIDI keyboard pads play Purphex Pads, no crackle from the pads
-sha256=7d794edf1ef9a4b4d067ebb44d8e87938499a0f62ced3e670600f1818534ae4f
+MIDI mapping across the studio, POP OUT plugins, pads that overlap with no crackle, auto trim
+sha256=4fa88f83ba631ec9ee76a57cbb8ddf251d30632589fb9345d81c9a9c438f0b66
