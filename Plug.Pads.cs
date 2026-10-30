@@ -97,11 +97,11 @@ class PadsWindow : PxWindow, ISoundDrop
         // what comes in from your MIDI keyboard: connected or not, the last pad or key you hit, and whether a pad plays it
         int ln = e.LastIn; string inTxt = MidiInput.OpenName.Length == 0 ? "MIDI KEYBOARD: NOT CONNECTED (right-click MIDI REC in the studio to pick it)" : ln < 0 ? "MIDI KEYBOARD: " + MidiInput.OpenName.ToUpperInvariant() + "  ·  hit a pad on it" : "LAST HIT: " + PadsFx.NoteName(ln) + (e.PadOf(ln) >= 0 ? "  ·  PAD " + (e.PadOf(ln) + 1) : "  ·  NO PAD PLAYS THIS NOTE: pick a pad, press LEARN, hit it again");
         Txt(g, inTxt, 10.5f, MidiInput.OpenName.Length == 0 || (ln >= 0 && e.PadOf(ln) < 0) ? Gold : Cyan, new RectangleF(a.X, top.Bottom + 2, a.Width * 0.66f, 16), StringAlignment.Near, true);
-        // the 16 pads: pad 1 at the bottom left, like the pads on a MIDI keyboard
+        // the 16 pads: pad 1 at the top left, then across and down (1 2 3 4 on the top row)
         float gw = a.Width * 0.66f, gh = a.Bottom - top.Bottom - 26, gap = 10, pw = (gw - gap * 3) / 4, ph = (gh - gap * 3) / 4; int now = Environment.TickCount;
         for (int i = 0; i < PadsFx.N; i++)
         {
-            int col = i % 4, row = 3 - i / 4; var r = new RectangleF(a.X + col * (pw + gap), top.Bottom + 26 + row * (ph + gap), pw, ph); padRects[i] = r;
+            int col = i % 4, row = i / 4; var r = new RectangleF(a.X + col * (pw + gap), top.Bottom + 26 + row * (ph + gap), pw, ph); padRects[i] = r;
             int note = e.PadNote(i); string nm = e.PadName(i); bool has = nm.Length > 0, lit = held == i || unchecked(now - e.HitAt[note]) < 140, me = sel == i;
             Color c = has ? Pink : Edge; Fill(g, lit ? Color.FromArgb(240, c) : (has ? Color.FromArgb(120, Ctl) : Color.FromArgb(70, Ctl)), r, 12);
             Stroke(g, me ? Color.White : Color.FromArgb(lit ? 255 : 150, c), r, 12, me ? 2.2f : 1.3f); if (Hot(r) && !lit) Stroke(g, Color.FromArgb(120, Cyan), RectangleF.Inflate(r, 2, 2), 13, 1.2f);
