@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Linq;
 
@@ -25,7 +25,7 @@ static class TagTest
         Check("exporting before there is a tag says to press PREVIEW", sf.TagExportTo(Path.Combine(StudioEnv.DataDir, "none.wav"), outW) != null);
         var x = new float[44100 * 8]; var beat = StudioEngine.NewTrack("Beat", "beat", AudioClip.FromArrays(x, (float[])x.Clone(), "beat")); eng.Tracks.Add(beat); typeof(StudioForm).GetField("selTrack", BF).SetValue(sf, 0);
         int n0 = eng.Tracks.Count; string e3 = sf.TagImportFrom(outW, 44100 * 2); var added = eng.Tracks.Skip(n0).ToList();
-        Check("IMPORT TAG puts the tag on the selected track at the needle", e3 == null && added.Count == 1 && added[0].Host == beat && Math.Abs(added[0].Offset - 44100 * 2) < 2, e3 ?? added.Count + " added");
+        Check("IMPORT TAG puts the tag on the selected track at the needle", e3 == null && added.Count == 1 && added[0].Host == beat && Math.Abs(added[0].Offset - added[0].ClipStart - 44100 * 2) < 2, e3 ?? added.Count + " added");
         var midi = StudioEngine.NewTrack("Keys", "inst", null); midi.Instrument = true; eng.Tracks.Insert(0, midi); typeof(StudioForm).GetField("selTrack", BF).SetValue(sf, 0); var before = eng.Tracks.ToList(); sf.TagImportFrom(outW, 0); added = eng.Tracks.Where(q => !before.Contains(q)).ToList();
         Check("on a note track (no audio there) it goes on a track of its own", added.Count == 1 && added[0].Host == null && added[0].Clip != null, added.Count + " added; " + string.Join(",", eng.Tracks.Select(q => q.Name + (q.Host != null ? "@" + q.Host.Name : ""))));
         sf.Close();
