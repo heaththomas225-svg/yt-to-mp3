@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Globalization;
@@ -31,7 +31,7 @@ partial class StudioForm
     {
         if (StudioEnv.UnderTest && !autoTest) return;   // (a test switches it on when it checks it)
         if (histDue != DateTime.MinValue && DateTime.Now >= histDue && !busy) { histDue = DateTime.MinValue; try { HistWrite(); } catch { } }
-        if (DateTime.Now >= autoDue) { autoDue = DateTime.Now.AddMinutes(2); try { Autosave(); } catch { } }
+        if (DateTime.Now >= autoDue) { autoDue = DateTime.Now.AddSeconds(30); try { Autosave(); } catch { } }
     }
     void HistEnsureLoaded() { string d = HistDirNow(); if (d == histDir) return; histDir = d; hist.Clear(); histN = 0; HistRead(); }
     void HistRead()
@@ -119,7 +119,10 @@ partial class StudioForm
     }
 
     // ---------------- autosave and crash recovery ----------------
-    DateTime autoDue = DateTime.Now.AddMinutes(2);
+    // (this is never a save of your project: your project file only changes when you press SAVE. It is a hidden copy, kept only so a crash or a
+    //  power cut can offer your unsaved work back; it is written every 30 seconds while there are changes you have not saved)
+    DateTime autoDue = DateTime.Now.AddSeconds(30);
+    internal Func<string, System.Windows.Forms.DialogResult> recoverAsk;   // a test answers for itself
     static string AutoDir { get { return Path.Combine(StudioEnv.DataDir, "autosave"); } }
     static string AutoFile { get { return Path.Combine(AutoDir, "autosave.ytproj"); } }
     static string LockFile { get { return Path.Combine(AutoDir, "session.open"); } }
@@ -132,8 +135,14 @@ partial class StudioForm
         {
             Directory.CreateDirectory(AutoDir); bool crashed = File.Exists(LockFile) && File.Exists(AutoFile); File.WriteAllText(LockFile, DateTime.Now.Ticks.ToString());
             if (!crashed || StudioEnv.UnderTest) return; var info = File.Exists(Path.Combine(AutoDir, "autosave.txt")) ? File.ReadAllLines(Path.Combine(AutoDir, "autosave.txt")) : new string[0]; string name = info.Length > 1 ? info[1] : "your project";
-            if (!AskYes("Purphex did not close properly last time.\n\nThere is an autosave of \"" + name + "\" from " + File.GetLastWriteTime(AutoFile).ToString("ddd HH:mm") + ". Open it?", "Recover your work")) return;
-            string file = AutoFile; RunBusy("Recovering...", false, p => ProjectIO.Load(eng, file, s => busyText = s), ok => { projPath = info.Length > 0 ? info[0] : ""; projName = name; editCount++; FitView(); Toast("Recovered. Press SAVE to keep it."); });
+            string real = info.Length > 0 ? info[0] : ""; bool hasReal = real.Length > 0 && File.Exists(real);
+            string q = "Purphex closed unexpectedly last time (it crashed or the PC turned off) at " + File.GetLastWriteTime(AutoFile).ToString("ddd HH:mm") + ".\n\nYour work on \"" + name + "\" is still here, including what you had not saved.\n\n"
+                + "YES: carry on from where you were (like you never closed it). Nothing is saved until you press SAVE.\n"
+                + (hasReal ? "NO: open your last save instead (" + File.GetLastWriteTime(real).ToString("ddd HH:mm") + ").\n" : "NO: start without it.\n")
+                + "CANCEL: start fresh.\n\nYour last save is never changed by this, so you can still open it later.";
+            var a = (recoverAsk ?? (t => System.Windows.Forms.MessageBox.Show(this, t, "Pick up where you left off?", System.Windows.Forms.MessageBoxButtons.YesNoCancel, System.Windows.Forms.MessageBoxIcon.Question)))(q);
+            if (a == System.Windows.Forms.DialogResult.Yes) { string file = AutoFile; RunBusy("Bringing your work back...", false, p => ProjectIO.Load(eng, file, s => busyText = s), ok => { projPath = real; projName = name; editCount++; FitView(); Toast("You're back where you were. Press SAVE to keep it (your last save is untouched until then)."); }); }
+            else if (a == System.Windows.Forms.DialogResult.No && hasReal) { RunBusy("Opening your last save...", false, p => ProjectIO.Load(eng, real, s => busyText = s), ok => { projPath = real; projName = name; FitView(); Toast("Opened your last save of " + name + "."); }); }
         }
         catch { }
     }

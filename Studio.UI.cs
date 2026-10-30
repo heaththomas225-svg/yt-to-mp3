@@ -714,24 +714,26 @@ partial class StudioForm : Form
         NeonRule(g, 0, ToolH, W); Prof.A("tb.rule", z0);
         float y = 12, h = 46;
         // right group first (fixed sizes from the right edge), then the left group is squeezed to fit what is left
-        float rx = W - 14; string[] rn = { "EXPORT", "Help", "Full", "Open", "Save", "Save as" }; float[] rw = { 106, 58, 108, 72, 72, 84 };
-        float rightStart = W - 14; for (int i = 0; i < rw.Length; i++) rightStart -= rw[i] + 6; rightStart += 6;
-        float avail = rightStart - 70 - 10, leftTotal = 156 + 232 + 126 + 140 + 84 + 36 + 124; float f = Math.Max(0.5f, Math.Min(1f, avail / leftTotal));
-        float groupW = (164 + 240 + 132 + 148 + 90 + 118) * f; float x = 70 + Math.Max(0, (avail - groupW) / 2); float fp = Math.Max(11, 15 * f);   // ADD MUSIC to THIN TRACKS sit in the middle of the room between the side menu and the right-hand buttons (the side menu stays at the left)
+        // every button on this row is the same height with the same size of writing, and the same gap between them (they looked uneven:
+        // some were taller or had bigger writing than their neighbours); the left group shrinks together if the window is narrow
+        const float gap = 8; float rx = W - 14; float[] rw = { 106, 70, 124, 80, 76, 96 };   // EXPORT, HELP, FULLSCREEN, OPEN, SAVE, SAVE AS
+        float rightStart = W - 14; for (int i = 0; i < rw.Length; i++) rightStart -= rw[i] + gap; rightStart += gap;
+        float[] lw = { 150, 226, 128, 168, 112, 136 }; float leftTotal = gap * (lw.Length - 1); foreach (var v in lw) leftTotal += v;   // ADD MUSIC, SPLIT VOCALS + BEAT, AUTO MIX, DETECT TRACK KEY, UNDO MIX, THIN TRACKS
+        float avail = rightStart - 70 - 10; float f = Math.Max(0.5f, Math.Min(1f, avail / leftTotal)); float x = 70 + Math.Max(0, (avail - leftTotal * f) / 2), fs = Math.Max(10, 13.5f * f);   // they sit in the middle of the room between the side menu and the right-hand buttons
         MenuBtn(g, Rc(12, y, 48, h));
-        { var amR = Rc(x, y, 156 * f, h); Btn(g, amR, "ADD MUSIC", 2, () => AddMusicMenu(amR), Math.Max(13, 16 * f)); } x += 164 * f;
-        Btn(g, Rc(x, y, 232 * f, h), "SPLIT VOCALS + BEAT", 1, () => SeparateClick(), Math.Max(12, 14 * f)); x += 240 * f;
-        Btn(g, Rc(x, y, 126 * f, h), "AUTO MIX", 2, () => AutoMixClick(), Math.Max(13, 16 * f)); x += 132 * f;
-        Btn(g, Rc(x, y + 4, 140 * f, h - 8), "Detect Track key", 0, () => DetectTrackKey(), Math.Max(11, 12 * f)); x += 148 * f;
-        Btn(g, Rc(x, y + 4, 84 * f, h - 8), "Undo mix", 0, () => { if (AutoMix.LastSnapshot != null) { AutoMix.Undo(eng); Toast("Auto Mix undone"); } }, Math.Max(12, 13 * f)); x += 90 * f;
-        Btn(g, Rc(x, y + 4, 118 * f, h - 8), "THIN TRACKS", LaneH < 96 ? 4 : 0, () => ToggleThinTracks(), Math.Max(11, 12 * f)); x += 118 * f;
-        float leftEnd = x;
-        Btn(g, Rc(rx - 106, y, 106, h), "EXPORT", 1, () => ExportClick(), 16); rx -= 112;
-        Btn(g, Rc(rx - 58, y + 4, 58, h - 8), "Help", 2, () => app.ShowHelp(null), 14); rx -= 64;
-        Btn(g, Rc(rx - 108, y + 4, 108, h - 8), Win.FullLabel(this), 0, () => Win.ToggleFullscreen(this), 12); rx -= 114;
-        Btn(g, Rc(rx - 72, y + 4, 72, h - 8), "Open", 0, () => OpenClick(), 14); rx -= 78;
-        Btn(g, Rc(rx - 72, y + 4, 72, h - 8), "Save", 0, () => SaveClick(false), 14); rx -= 78;
-        Btn(g, Rc(rx - 84, y + 4, 84, h - 8), "Save as", 0, () => SaveClick(true), 14); rx -= 90;
+        { var amR = Rc(x, y, lw[0] * f, h); Btn(g, amR, "ADD MUSIC", 2, () => AddMusicMenu(amR), fs); } x += (lw[0] + gap) * f;
+        Btn(g, Rc(x, y, lw[1] * f, h), "SPLIT VOCALS + BEAT", 1, () => SeparateClick(), fs); x += (lw[1] + gap) * f;
+        Btn(g, Rc(x, y, lw[2] * f, h), "AUTO MIX", 2, () => AutoMixClick(), fs); x += (lw[2] + gap) * f;
+        Btn(g, Rc(x, y, lw[3] * f, h), "Detect Track key", 0, () => DetectTrackKey(), fs); x += (lw[3] + gap) * f;
+        Btn(g, Rc(x, y, lw[4] * f, h), "Undo mix", 0, () => { if (AutoMix.LastSnapshot != null) { AutoMix.Undo(eng); Toast("Auto Mix undone"); } }, fs); x += (lw[4] + gap) * f;
+        Btn(g, Rc(x, y, lw[5] * f, h), "THIN TRACKS", LaneH < 96 ? 4 : 0, () => ToggleThinTracks(), fs); x += lw[5] * f;
+        float leftEnd = x; const float rf = 13.5f;
+        Btn(g, Rc(rx - rw[0], y, rw[0], h), "EXPORT", 1, () => ExportClick(), rf); rx -= rw[0] + gap;
+        Btn(g, Rc(rx - rw[1], y, rw[1], h), "Help", 2, () => app.ShowHelp(null), rf); rx -= rw[1] + gap;
+        Btn(g, Rc(rx - rw[2], y, rw[2], h), Win.FullLabel(this), 0, () => Win.ToggleFullscreen(this), rf); rx -= rw[2] + gap;
+        Btn(g, Rc(rx - rw[3], y, rw[3], h), "Open", 0, () => OpenClick(), rf); rx -= rw[3] + gap;
+        Btn(g, Rc(rx - rw[4], y, rw[4], h), "Save", 0, () => SaveClick(false), rf); rx -= rw[4] + gap;
+        Btn(g, Rc(rx - rw[5], y, rw[5], h), "Save as", 0, () => SaveClick(true), rf); rx -= rw[5] + gap;
         // project name only when there is clear room (it is always in the window title too)
         float room = rx - leftEnd - 12;
         if (room > 90) { var pn = Rc(leftEnd + 12, y, room, h); Txt(g, projName, 13, Hot(pn) ? Ink : DimC, pn, StringAlignment.Far, false); Reg(pn, () => { }).OnDouble = RenameProject; regs[regs.Count - 1].OnRight = RenameProject; }
@@ -895,6 +897,12 @@ partial class StudioForm : Form
         float px = HeadW + (float)((dispPos - scroll) / spp);
         if (px >= HeadW && px <= tl.Right) { q0 = Prof.T(); float nb = MixH - ArrGap; if (n > 0) nb = Math.Min(nb, Math.Max(top + RulerH + 8, y)); PaintNeedle(g, px, top, nb, RulerH);   /* the needle runs down to the bottom of the last track, never into the empty space or the bar under it */ Prof.A("mix.needle", q0); } else if (sparks.Count > 0) sparks.Clear();
         TrackScrollBar(g, Rc(HeadPanelW, top + RulerH, VBarW, viewH), contentH, viewH);   // the up/down bar on the left, always there
+        if (syncHeld && dragReg != null && laneMode == 1 && laneMoved)
+        {   // the clip being moved up or down is held in time: a gold line where it starts, from the ruler down
+            float sx = HeadW + (float)((l0Offset - scroll) / spp); if (sx >= HeadW && sx <= tl.Right)
+            { var gold = Color.FromArgb(255, 255, 206, 84); using (var pen = new Pen(Color.FromArgb(70, gold), 6f)) g.DrawLine(pen, sx, top + RulerH, sx, MixH - ArrGap); using (var pen = new Pen(gold, 1.6f) { DashStyle = DashStyle.Dash }) g.DrawLine(pen, sx, top + RulerH, sx, MixH - ArrGap);
+              var tag = Rc(sx + 4, top + RulerH + 2, 70, 16); FillRR(g, gold, tag, 4); Txt(g, "IN SYNC", 8, TM.C(255, 40, 24, 0), tag, StringAlignment.Center, true); }
+        }
         q0 = Prof.T(); PaintOverview(g, tl); Prof.A("mix.overview", q0);
         // wheel: scroll / zoom
         var wr = new HitReg { R = Rc(HeadW, top, tl.Width, MixH - top) };
@@ -903,8 +911,8 @@ partial class StudioForm : Form
             if ((ModifierKeys & Keys.Control) != 0 && (ModifierKeys & Keys.Alt) == 0 && (ModifierKeys & Keys.Shift) == 0) autoFit = false;
             if ((ModifierKeys & Keys.Control) != 0 && (ModifierKeys & Keys.Shift) != 0) { }   // Ctrl + Shift + wheel does nothing (it used to resize the tracks by accident)
             else if ((ModifierKeys & Keys.Alt) != 0) { LaneH = Math.Max(64, Math.Min(420, LaneH + (d > 0 ? 16 : -16))); vscroll = Math.Max(0, Math.Min(vscroll, Math.Max(0, n * LaneH - (MixH - top - RulerH - 66)))); }
-            else if ((ModifierKeys & Keys.Control) != 0) { double f = d > 0 ? 0.7 : 1.43; double cur = scroll + (MousePos.X - HeadW) * spp; spp = Math.Max(MinSpp, Math.Min(MaxSpp, spp * f)); scroll = Math.Max(0, (long)(cur - (MousePos.X - HeadW) * spp)); }
-            else if ((ModifierKeys & Keys.Shift) != 0 || MousePos.Y < top + RulerH) ScrollView(-d * 0.25);   // Shift + wheel, or the wheel on the ruler: along the song
+            else if ((ModifierKeys & (Keys.Control | Keys.Shift)) != 0 && MousePos.Y >= top + RulerH) ZoomAtCursor(d);   // Shift or Ctrl + wheel: zoom, held exactly on the point under the mouse
+            else if (MousePos.Y < top + RulerH) ScrollView(-d * 0.25);   // the wheel on the ruler: along the song
             else ScrollTracks(-d * 40);   // the wheel scrolls the tracks up and down (it never shoots off sideways); Left / Right and the bar at the top go along the song
         };
         regs.Insert(0, wr);
@@ -1031,6 +1039,14 @@ partial class StudioForm : Form
     class PeakCache { public AudioClip Clip; public long Start, Len; public double Spp; public int Px; public float[] Mn, Mx; public Bitmap Img; public int Ver, ImgVer, ImgCol; public long ImgTheme; public RectangleF ImgLane, ImgCr, ImgRel; public float ImgX0; public bool ImgAud, ImgSel; }
     readonly Dictionary<Track, PeakCache> peakCache = new Dictionary<Track, PeakCache>();
     readonly Dictionary<Track, float> clipRightX = new Dictionary<Track, float>();   // where each clip ends on screen: the outline of the picked row stops there (not at the far end of the lane)
+    // zoom in or out keeping the moment under the mouse exactly where it is (it drifted to the left: the song follow pulled the view, and the steps were coarse)
+    internal void ZoomAtCursor(int d)
+    {
+        double f = d > 0 ? 0.8 : 1.25, ns = Math.Max(MinSpp, Math.Min(MaxSpp, spp * f)); if (Math.Abs(ns - spp) < 1e-9) return;
+        double mx = Math.Max(0, MousePos.X - HeadW), at = scroll + mx * spp; spp = ns; scroll = (long)Math.Round(Math.Max(0, at - mx * spp)); autoFit = false; if (scrollHold == 0) UserScrolled(); Invalidate();
+    }
+    // how zoomed out the view is: 0 up close, rising to 1 when about 40 ms or more of sound sits in each pixel (the whole song in view)
+    float ZoomOutK() { return (float)Math.Max(0, Math.Min(1, (spp - 400) / 1400.0)); }
     void PaintWave(Graphics g, Track tr, RectangleF lane, bool sel)
     {
         if (tr.Clip == null) return;
@@ -1042,6 +1058,11 @@ partial class StudioForm : Form
         Color c = Neon(tr.Color); bool audible = !tr.Mute && !tr.Off; float cy = lane.Y + lane.Height / 2, amp = lane.Height * 0.42f;
         long clipStart = tr.Offset, clipEnd = tr.Offset + tr.UsedLength;
         float x0 = lane.X + (float)((clipStart - scroll) / spp), x1 = lane.X + (float)((clipEnd - scroll) / spp);
+        float zk = ZoomOutK(); if (zk > 0)
+        {   // zoomed out: the wave is drawn bigger (a quiet clip fills its row, so you can see what is where), and a short clip is never thinner than 8 px
+            float pk = 0.0001f; for (int i = 0; i < px && i < wmx.Length; i++) pk = Math.Max(pk, Math.Max(wmx[i], -wmn[i])); amp *= 1 + zk * (Math.Min(4f, 0.95f / pk) - 1);
+            if (x1 - x0 < 8) x1 = x0 + 8;
+        }
         var cr = RectangleF.Intersect(Rc(x0, lane.Y + 5, x1 - x0, lane.Height - 10), lane);
         if (cr.Width > 0)
         {
@@ -1056,7 +1077,8 @@ partial class StudioForm : Form
             var gi = g.Save(); g.SetClip(lane, CombineMode.Intersect); if (tr.Off || IsOffRow(tr)) PaintQuake(g, pc.Img, ix + (dragWave ? (int)Math.Round(x0 - pc.ImgX0) : 0), iy, tr, lane, cr); else g.DrawImageUnscaled(pc.Img, ix + (dragWave ? (int)Math.Round(x0 - pc.ImgX0) : 0), iy); g.Restore(gi);
         }
         if (cr.Width > 0 && !tr.Off) { var gst = g.Save(); g.SetClip(lane, CombineMode.Intersect); float lv = Math.Max(tr.PeakL, tr.PeakR); Glow(g, c, cr, 6, (sel ? 1.2f : 0.8f) + Math.Min(0.6f, lv * 0.9f), 5); g.Restore(gst); }
-        { float nx = Math.Max(lane.X, x0) + 8, nw = Math.Min(300, Math.Min(x1, lane.Right) - nx - 6); bool lab = tr.SectionLabel.Length > 0; if (nw > (lab ? 30 : 70)) Txt(g, lab ? tr.SectionLabel : tr.Name, 12, lab ? Color.FromArgb(255, 255, 214, 110) : Color.FromArgb(200, 255, 255, 255), Rc(nx, lane.Y + 6, nw, 16), StringAlignment.Near, true); }   // the name (a named section shows its own name, in gold) stays inside its own clip
+        { float nx = Math.Max(lane.X, x0) + (zk > 0 ? 4 : 8), nw = Math.Min(300, Math.Min(x1, lane.Right) - nx - (zk > 0 ? 2 : 6)); bool lab = tr.SectionLabel.Length > 0; if (zk > 0 && nw > 22 && nw <= (lab ? 30 : 70)) { var nr = Rc(nx, lane.Y + 6, nw, 14); FillRR(g, Color.FromArgb(170, 6, 3, 16), nr, 4); Txt(g, lab ? tr.SectionLabel : tr.Name, 9, Color.White, nr, StringAlignment.Near, true); } else if (nw > (lab ? 30 : 70)) Txt(g, lab ? tr.SectionLabel : tr.Name, 12, lab ? Color.FromArgb(255, 255, 214, 110) : Color.FromArgb(200, 255, 255, 255), Rc(nx, lane.Y + 6, nw, 16), StringAlignment.Near, true); }   // the name (a named section shows its own name, in gold) stays inside its own clip
+        if (zk > 0 && cr.Width > 0) { var gse = g.Save(); g.SetClip(lane, CombineMode.Intersect); using (var pen = new Pen(Color.FromArgb((int)(120 + 120 * zk), Color.White), 1.4f)) { g.DrawLine(pen, x0 + 0.7f, cr.Y + 2, x0 + 0.7f, cr.Bottom - 2); g.DrawLine(pen, x1 - 0.7f, cr.Y + 2, x1 - 0.7f, cr.Bottom - 2); } g.Restore(gse); }   // zoomed out: a bright edge at each end, so clips side by side are easy to tell apart
         clipRightX[tr] = x1; PaintClipExtras(g, tr, lane, x0, x1, cr);
         PaintClipChrome(g, tr, lane, cr, sel);
     }

@@ -250,11 +250,13 @@ partial class StudioForm
     bool OverNoAudio(Track tr, PointF p)
     {
         var host = tr.Host ?? tr; bool any = false;
-        foreach (var L in eng.Tracks.ToArray()) { if ((L.Host ?? L) != host || L.Instrument || L.Clip == null) continue; any = true; float x0 = HeadW + (float)((L.Offset - scroll) / spp), x1 = x0 + (float)(L.UsedLength / spp); if (p.X >= x0 - 8 && p.X <= x1 + 8) return false; }
+        foreach (var L in eng.Tracks.ToArray()) { if ((L.Host ?? L) != host || L.Instrument || L.Clip == null) continue; any = true; float x0 = HeadW + (float)((L.Offset - scroll) / spp), x1 = x0 + Math.Max(8f, (float)(L.UsedLength / spp)), tol = 8 + 8 * ZoomOutK(); if (p.X >= x0 - tol && p.X <= x1 + tol) return false; }
         return any;
     }
+    const float SyncPullPx = 22; bool syncFree, syncHeld;   // a clip dragged to another row keeps its time unless pulled sideways this far (see LaneDrag)
     void LaneDown(Track tr, RectangleF lane)
     {
+        syncFree = false; syncHeld = false;
         mcSel.Clear();   // a click on the row (not on a MIDI clip) lets go of the selected clips
         if (OverNoAudio(tr, MousePos)) { laneMode = 0; laneStart = MousePos; laneLocked = false; toolsTrack = null; MarqueeBegin(); return; }   // empty part of the row: no change of track; hold and drag a box there to select several clips
         laneMode = 0; laneStart = MousePos; toolsTrack = tr; marqueeOn = false;   // the selected track changes only from its box on the left (the header): clicking the audio moves, trims and edits the clip but leaves the selection alone
@@ -283,6 +285,12 @@ partial class StudioForm
             return;
         }
         long delta = (long)((pt.X - laneStart.X) * spp);
+        if (laneMode == 1)
+        {   // moving a clip up or down to another row: it holds its place in time (a gold line shows it is still in sync) until you clearly pull it sideways, then it moves freely
+            float dxp = Math.Abs(pt.X - laneStart.X), dyp = Math.Abs(pt.Y - laneStart.Y);
+            if (dxp >= SyncPullPx) syncFree = true;
+            syncHeld = !syncFree && dyp > LaneH * 0.35f; if (syncHeld) delta = 0;
+        }
         if (laneMode == 1) { if (!laneMoved) { if (Math.Abs(pt.X - laneStart.X) < 2 && Math.Abs(pt.Y - laneStart.Y) < 2) return; PushUndo(); laneMoved = true; } bool grp = InGroup(tr); GhostStart(tr, 0);   /* the landing row shows for a group too */ long gd = delta; if (grp) { long minO = l0Offset; foreach (var o in multiSel) { long b1; if (o != tr && !IsLocked(o) && groupOrig.TryGetValue(o, out b1)) minO = Math.Min(minO, b1); } gd = Math.Max(delta, -minO); }   /* a group stops as a whole when its first clip reaches the start: the clips keep their spacing (each stopped on its own, they squashed together) */ tr.Offset = Math.Max(0, l0Offset + gd);   /* free: the clip goes exactly as far as you drag (no jumping to grid lines) */ if (grp) { long nd = tr.Offset - l0Offset; foreach (var o in multiSel) { long b0; if (o != tr && !IsLocked(o) && groupOrig.TryGetValue(o, out b0)) o.Offset = Math.Max(0, b0 + nd); } } return; }
         long avail = Math.Max(0, tr.Clip.Length - l0ClipStart);
         if (laneMode == 2)
@@ -385,8 +393,14 @@ partial class StudioForm
     // letting go of a dragged clip on another row moves it there. On a row that already has something, the clip joins that row as a layer (nothing is pushed up or down); below the last row a new track is made.
     Track PickLayer(Track host, PointF p)
     {
-        Track best = host; foreach (var L in eng.Tracks) if (L.Host == host && !L.Instrument && L.Clip != null) { float x0 = HeadW + (float)((L.Offset - scroll) / spp), x1 = x0 + (float)(L.UsedLength / spp); if (p.X >= x0 - 8 && p.X <= x1 + 8) best = L; }
-        return best;
+        Track best = null; float bestW = float.MaxValue, bestD = float.MaxValue; float tol = 8 + 8 * ZoomOutK();
+        foreach (var L in eng.Tracks)
+        {
+            if ((L != host && L.Host != host) || L.Instrument || L.Clip == null) continue; float x0 = HeadW + (float)((L.Offset - scroll) / spp), x1 = x0 + (float)(L.UsedLength / spp); if (x1 - x0 < 8) x1 = x0 + 8;
+            if (p.X >= x0 && p.X <= x1) { float w = x1 - x0; if (bestD > 0 || w < bestW) { best = L; bestW = w; bestD = 0; } }   // right on it: the shortest wins (a small clip on top of a long one)
+            else if (bestD > 0) { float d = p.X < x0 ? x0 - p.X : p.X - x1; if (d <= tol && d < bestD) { best = L; bestD = d; } }
+        }
+        return best ?? host;
     }
     void LaneDrop(Track src)
     {

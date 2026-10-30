@@ -169,7 +169,7 @@ partial class StudioForm
         if (eng.Playing && f.OutLvl > 0.0005f) { float outDb = (float)(20 * Math.Log10(Math.Max(1e-5, f.OutLvl))) + 3, inDb = Math.Max(lo, Math.Min(hi, outDb + f.GR)); float dx = X(inDb), dy = Y(curve(inDb)); using (var gl = new SolidBrush(Color.FromArgb(70, ScPink))) g.FillEllipse(gl, dx - 9, dy - 9, 18, 18); using (var dot = new SolidBrush(Color.White)) g.FillEllipse(dot, dx - 3.5f, dy - 3.5f, 7, 7); }
         if (sq.Right + 120 < r.Right)
         {   // how much it squeezed over the last few seconds, hanging from the top (the newest on the right)
-            var hr = Rc(sq.Right + 26, r.Y, r.Right - 64 - sq.Right - 26, r.Height); float[] gh; if (!scGr.TryGetValue(f, out gh)) { gh = new float[120]; scGr[f] = gh; }
+            var hr = Rc(sq.Right + 26, r.Y, r.Right - 64 - sq.Right - 26, r.Height); float[] gh; if (!scGr.TryGetValue(f, out gh)) { if (scGr.Count > 200) { scGr.Clear(); scGrT.Clear(); } gh = new float[120]; scGr[f] = gh; }
             int nowT = Environment.TickCount, lastT; scGrT.TryGetValue(f, out lastT); if (nowT - lastT >= 33) { scGrT[f] = nowT; Array.Copy(gh, 1, gh, 0, gh.Length - 1); gh[gh.Length - 1] = eng.Playing ? f.GR : 0; }
             for (int d = 0; d <= 24; d += 6) { float yy = hr.Y + hr.Height * d / 24f; ScHLine(g, hr, yy, d == 0 ? null : "-" + d, d == 0); }
             var gp = new List<PointF>(); for (int i = 0; i < gh.Length; i++) gp.Add(new PointF(hr.X + hr.Width * i / (gh.Length - 1), hr.Y + hr.Height * Math.Min(24, gh[i]) / 24f));
