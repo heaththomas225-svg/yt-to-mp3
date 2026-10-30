@@ -330,6 +330,17 @@ static class PX
             Check("Pads: it is an instrument with a window, listed with the instruments, and says what it does", pads.IsInstrument && pads.HasWindow && FxRegistry.All.Any(i => i.Type == "pxpads" && i.Category == "Instruments") && FxHelp.Has("Purphex Pads"), "");
             var w = new PadsWindow(pads); w.Show(); Application.DoEvents(); var shot = w.Snapshot(); string shotPath = System.IO.Path.Combine(dir, "pads_window.png"); shot.Save(shotPath, System.Drawing.Imaging.ImageFormat.Png); Console.WriteLine("pads window picture: " + shotPath); int hc = w.HitCount; w.Close();
             Check("Pads: the window draws its 16 pads and their controls", hc >= 16 + 8, hc + " controls");
+            { // only the pads play the pads: a key (channel 1) with a pad's note is not taken; the pad (channel 10) is; LEARN takes the channel of the hit
+              var pc = (PadsFx)FxRegistry.Create("pxpads"); pc.Prepare(44100);
+              bool key = pc.Accepts(0x90, 36), pad = pc.Accepts(0x99, 36); pc.LearnPad = 2; bool learnAny = pc.Accepts(0x91, 70); pc.LearnPad = -1;
+              Check("Pads: a key with a pad's note does not set off that pad (only the drum channel's pads do), and LEARN takes a pad on any channel", !key && pad && learnAny && pc.LearnedCh == 2 && pc.Ignored.Contains("channel 1"), "key " + key + ", pad " + pad + ", learn " + learnAny + " ch " + pc.LearnedCh); }
+            { // headroom: four full-level drum hits together (a kick, a snare, an 808, a clap) stay under full scale, so nothing is crushed by the limiter (that crushing was the crackle)
+              var ph = (PadsFx)FxRegistry.Create("pxpads"); ph.Prepare(44100); var th = StudioEngine.NewTrack("H", "inst", null); th.Instrument = true; ph.Owner = th; th.Fx.Add(ph);
+              string full = System.IO.Path.Combine(dir, "full.wav"); { var x = new float[22050]; for (int i = 0; i < x.Length; i++) x[i] = (float)(0.89 * Math.Sin(i * 2 * Math.PI * 60 / 44100.0)); WavIO.Write(full, x, x, 44100, 24); }
+              for (int i = 0; i < 4; i++) ph.SetPad(i, full, "F" + i); for (int i = 0; i < 4; i++) ph.NoteOn(ph.PadNote(i), 127);
+              var hl = new float[4096]; var hr = new float[4096]; ph.BeginBlock(th, 0, 4096, false); ph.Process(hl, hr, 4096); double hpk = 0; foreach (var v in hl) hpk = Math.Max(hpk, Math.Abs(v));
+              var old = (PadsFx)FxRegistry.Create("pxpads"); old.Prepare(44100); old.Deserialize("gain=3;vel=70;rel=60"); var fresh = (PadsFx)FxRegistry.Create("pxpads"); fresh.Prepare(44100); fresh.Deserialize(ph.Serialize());
+              Check("Pads: four full-level hits together stay under full scale (12 dB of headroom), and a Pads saved before gets it too (its own level change kept)", hpk < 1.0 && Math.Abs(ph.Get("gain") + 12) < 0.01 && Math.Abs(old.Get("gain") + 9) < 0.01 && Math.Abs(fresh.Get("gain") + 12) < 0.01, "peak " + hpk.ToString("0.00") + ", old pads level " + old.Get("gain") + " dB"); }
             { var p3 = (PadsFx)FxRegistry.Create("pxpads"); p3.Prepare(44100); var t3 = StudioEngine.NewTrack("P3", "inst", null); t3.Instrument = true; p3.Owner = t3; t3.Fx.Add(p3);
               p3.NoteOn(40, 100); System.Threading.Thread.Sleep(650); p3.BeginBlock(t3, 0, 512, false); p3.Process(new float[512], new float[512], 512); bool stale = p3.LastIn == -1;
               p3.NoteOn(41, 100); p3.BeginBlock(t3, 0, 512, false); p3.Process(new float[512], new float[512], 512);
@@ -342,7 +353,7 @@ static class PX
               double pk = 0; foreach (var v in L) pk = Math.Max(pk, Math.Abs(v)); int clicks = Clicks(L, 44100);
               { pp.Reset(); MidiInput.Target = pp; MidiInput.Handle(0x99u | (36u << 8) | (110u << 16)); var ml = new float[2048]; var mr = new float[2048]; pp.BeginBlock(t9, 0, 2048, false); pp.Process(ml, mr, 2048); MidiInput.Handle(0x89u | (36u << 8)); MidiInput.Target = null; double mpk = 0; foreach (var v in ml) mpk = Math.Max(mpk, Math.Abs(v));
                 Check("Pads: with its window in front, a pad hit on the MIDI keyboard (drum channel 10, note 36) plays pad 1, and the window can show it came in", mpk > 0.1 && pp.LastIn == 36, "peak " + mpk.ToString("0.00") + ", last in " + pp.LastIn); }
-              Check("Pads: one pad hit fast (" + hits + " hits): the hits overlap (never more than 6 copies) and nothing clicks", pk > 0.75 && pk < 6 * 0.7 + 0.1 && clicks == 0, "peak " + pk.ToString("0.00") + ", clicks " + clicks);
+              Check("Pads: one pad hit fast (" + hits + " hits): the hits overlap (never more than 6 copies) and nothing clicks", pk > 0.7 * 0.251 * 1.1 && pk < 6 * 0.7 * 0.251 + 0.05 && clicks == 0, "peak " + pk.ToString("0.00") + ", clicks " + clicks);
               pp.SetPad(3, boom, "Other"); pp.SwapPads(0, 5); Check("Pads: a pad dragged onto another moves its sound there (the two swap)", pp.PadName(5) == "Boom" && pp.PadName(0) == "", "pad 6 '" + pp.PadName(5) + "', pad 1 '" + pp.PadName(0) + "'"); }
             { // kits: saved under names you choose (as many as you like, the same genre twice), with copies of their sounds, so a kit still plays after the original files are gone
               string orig = tone(330); pads.SetPad(2, orig, "Orig"); Presets.SaveUser("pxpads", "Trap kit", pads); string second = Presets.FreeName("pxpads", "Trap kit"); Presets.SaveUser("pxpads", second, pads);

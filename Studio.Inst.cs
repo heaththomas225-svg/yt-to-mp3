@@ -34,7 +34,8 @@ partial class StudioForm
     {
         try
         {
-            if (MidiInput.Target != null) return false;   // an instrument's own window is in front (Purphex Pads, Key Map, Bass Lab, a VST): it gets the keys while you use it
+            var tg = MidiInput.Target; var tgp = tg as PadsFx;
+            if (tg != null && (tgp == null || tgp.Accepts(s, d1))) return false;   // an instrument's own window holds the keyboard (Pads, Key Map, Bass Lab, a VST); with Pads, only its pads: your keys still play your instrument
             if (BlMidi(s, d1, d2)) return true;   // the Beat Lab is open: the keyboard's pads play its pads
             // the picked track when it is a MIDI track, else the first MIDI track of the song (an audio track picked played nothing at all);
             // a song with no MIDI track gets one ("Keys", the built-in piano) the first time a key is pressed
@@ -43,7 +44,13 @@ partial class StudioForm
             if (t == null) { if ((s & 0xF0) == 0x90 && d2 > 0 && !keysTrackAsked) { keysTrackAsked = true; try { BeginInvoke(new Action(() => { var kt = StudioEngine.NewTrack("Keys", "inst", null); kt.Instrument = true; kt.Color = unchecked((int)0xFF3B8CF5); AddTrack(kt); Toast("Your MIDI keyboard plays the new track Keys (the built-in piano). Add an instrument or a VST to it from + ADD EFFECT for other sounds."); keysTrackAsked = false; })); } catch { keysTrackAsked = false; } } return true; }
             // the picked MIDI track plays what is on it (a VST, Bass Lab, a Purphex instrument, or the built-in keys when it has none), through its effects, and MIDI REC records it
             // (before, only an instrument whose window was in front got the keyboard: pick a track with a VST and nothing played or recorded)
-            InstrumentFx k = null; foreach (var f in t.Fx) { var i = f as InstrumentFx; if (i != null && i.IsInstrument && !f.Bypass) { k = i; break; } } if (k == null) k = t.Keys; k.Owner = t;
+            InstrumentFx k = null; foreach (var f in t.Fx) { var i = f as InstrumentFx; if (i != null && i.IsInstrument && !f.Bypass) { k = i; break; } } if (k == null) k = t.Keys;
+            if (k is PadsFx && !((PadsFx)k).Accepts(s, d1))
+            {   // a key that is not a pad, on a Pads track: it plays the first MIDI track that is not Pads (the pads only take their pads)
+                t = null; k = null; lock (eng.Sync) foreach (var q in eng.Tracks) { if (!q.Instrument || q.IsBus || q.Host != null) continue; InstrumentFx qi = null; foreach (var f in q.Fx) { var i = f as InstrumentFx; if (i != null && i.IsInstrument && !f.Bypass) { qi = i; break; } } if (qi == null) qi = q.Keys; if (qi is PadsFx) continue; t = q; k = qi; break; }
+                if (k == null) return true;
+            }
+            k.Owner = t;
             int kind = s & 0xF0; if (kind == 0x90 && d2 > 0) k.NoteOn(d1, d2); else k.Midi(s, d1, d2);   // heard straight away
             if (kind == 0x90 || kind == 0x80) { bool on = kind == 0x90 && d2 > 0; OnMidiNote(t, on, d1, on ? d2 : 0); } return true;
         }

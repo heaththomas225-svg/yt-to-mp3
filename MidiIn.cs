@@ -93,7 +93,7 @@ static class MidiInput
         byte s = (byte)(m & 0xFF), d1 = (byte)((m >> 8) & 0xFF), d2 = (byte)((m >> 16) & 0xFF); if (s >= 0xF0) return;
         if (MidiMap.Handle(s, d1, d2)) { Received++; return; }   // a mapped knob, key or pad (or a MIDI Learn) does its job and plays nothing else
         var bt = BareTrack; if (bt != null && bt(s, d1, d2)) { Received++; return; }   // the studio plays it on a track (the picked one, else the first MIDI track)
-        var t = Target; if (t == null) return;
+        var t = Target; if (t == null) return; var tp = t as PadsFx; if (tp != null && !tp.Accepts(s, d1)) return;   // (a key that is not a pad: the studio played it on your instrument)
         if ((s & 0xF0) == 0x90 && d2 > 0) { var se = StudioEngine.Current; if (se != null) se.EnsureAudio(); }   // a key or pad hit wakes the sound card if it is off (it stays open once it is)
         Received++; t.Midi(s, d1, d2);
         int kind = s & 0xF0; var rec = InstrumentFx.Recorder;

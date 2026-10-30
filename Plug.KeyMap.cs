@@ -11,7 +11,12 @@ using System.Windows.Forms;
 class KeyMapFx : SamplerFx
 {
     public readonly int[] HitAt = new int[128]; public volatile int LastNote = -1;   // the window lights the keys and can follow your playing
-    public KeyMapFx() { Type = "pxkeymap"; Title = "Purphex Key Map"; Category = "Instruments"; Blurb = "Any sound on any key of your MIDI keyboard, on one key or played across a range of keys"; }
+    public KeyMapFx()
+    {
+        Type = "pxkeymap"; Title = "Purphex Key Map"; Category = "Instruments"; Blurb = "Any sound on any key of your MIDI keyboard, on one key or played across a range of keys";
+        AddP("hv", "Headroom version", 0, 9, 1, ""); Hidden = "hv"; var gp = Find("gain"); gp.Def = -9; Set("gain", -9);   // headroom: full-level sounds played as chords went far past full scale and the limiter crunched them
+    }
+    public override void Deserialize(string s) { base.Deserialize(s); if (s != null && s.IndexOf("hv=", StringComparison.Ordinal) < 0 && s.IndexOf("gain=", StringComparison.Ordinal) >= 0) Set("gain", Math.Max(-24, Get("gain") - 9)); }
     // the sound a key plays (a range covering it counts), and the zone that gives it
     public Zone ZoneOf(int key) { return ZoneFor(key); }
     public string KeyName(int key) { var z = ZoneFor(key); return z == null ? "" : z.Name; }
