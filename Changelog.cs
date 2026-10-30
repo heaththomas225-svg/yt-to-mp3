@@ -7,10 +7,15 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.80.0";
+    public const string Latest = "3.80.1";
 
     public const string Text =
-@"3.80.0  Real effect displays, TRIM and versions in MY SOUNDS, clips stay in sync
+@"3.80.1  Faster piano roll and mixer, arrow keys in the sound list
+ + FASTER: The piano roll draws about a third faster (the other tracks' faint notes and the grid are no longer redrawn from scratch every frame).
+ + FASTER: The Mixer panel draws faster: small buttons only glow when you point at them, instead of every one glowing all the time.
+ + NEW: In the sound list, Up and Down step through the sounds (and play each one with Autoplay), after you click in the list. Everywhere else they scroll the tracks.
+
+3.80.0  Real effect displays, TRIM and versions in MY SOUNDS, clips stay in sync
  + NEW: After a crash or a power cut, Purphex asks: carry on from where you were (with everything you had not saved), open your last save instead, or start fresh. Your project is never saved by itself: only SAVE changes it. The hidden recovery copy is now kept every 30 seconds.
  + NEW: Moving a clip up or down to another row keeps it in time: a gold IN SYNC line shows it is held. Pull it clearly sideways and it moves freely again.
  + NEW: Zoomed out, clips are easier to see and grab: the wave is drawn bigger, short clips are never too thin to click, each clip has a bright edge at both ends, and the names show on smaller clips too.

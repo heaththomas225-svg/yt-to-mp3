@@ -1,4 +1,4 @@
-3.80.0
+3.80.1
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Real effect displays, TRIM and versions in MY SOUNDS, clips stay in sync
-sha256=803d232b82c94228cbb24e682f035faff298ed95eb9abf4f0d74de00569bf381
+Faster piano roll and mixer, arrow keys in the sound list
+sha256=a6eebbe21892751b8b3dc7fa4ed6d7ff71841178df1eb43652636f89db282f4c

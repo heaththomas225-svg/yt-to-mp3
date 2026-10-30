@@ -2,6 +2,14 @@
 
 What changed in each version of **Purphex**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.80.1  Faster piano roll and mixer, arrow keys in the sound list
+
+- FASTER: The piano roll draws about a third faster (the other tracks' faint notes and the grid are no longer redrawn from scratch every frame).
+
+- FASTER: The Mixer panel draws faster: small buttons only glow when you point at them, instead of every one glowing all the time.
+
+- NEW: In the sound list, Up and Down step through the sounds (and play each one with Autoplay), after you click in the list. Everywhere else they scroll the tracks.
+
 ## 3.80.0  Real effect displays, TRIM and versions in MY SOUNDS, clips stay in sync
 
 - NEW: After a crash or a power cut, Purphex asks: carry on from where you were (with everything you had not saved), open your last save instead, or start fresh. Your project is never saved by itself: only SAVE changes it. The hidden recovery copy is now kept every 30 seconds.
