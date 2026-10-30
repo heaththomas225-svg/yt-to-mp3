@@ -22,7 +22,8 @@ class SamplerFx : InstrumentFx   // (Purphex Pads is a sampler with a window of 
         public bool Plays(int note) { return note >= Lo && note <= Hi; }
         public Zone Copy() { return new Zone { Path = Path, Name = Name, Lo = Lo, Hi = Hi, Root = Root, Follow = Follow, OneShot = OneShot, GainDb = GainDb, L = L, R = R, Rate = Rate, Missing = Missing }; }
     }
-    class Voice { public bool On, Releasing; public Zone Z; public int Note; public double Pos, Step, Gain, Env, Rel; }
+    class Voice { public bool On, Releasing, Choked; public Zone Z; public int Note; public double Pos, Step, Gain, Env, Rel, LastL, LastR; }
+    double tailL, tailR;   // what a voice taken for a new note was playing, fading away in 3 ms (cut in one sample it clicked)
     public readonly List<Zone> Zones = new List<Zone>(); readonly Voice[] voices = new Voice[48]; List<KeyValuePair<int, MidiEv>> pending; protected readonly object zl = new object();   // (the audio thread reads the zones under it)
     public SamplerFx()
     {
@@ -115,14 +116,17 @@ class SamplerFx : InstrumentFx   // (Purphex Pads is a sampler with a window of 
     void Start(int note, int vel)
     {
         var z = ZoneFor(note); if (z == null || z.L == null) return;
-        Voice v = null; foreach (var x in voices) if (!x.On) { v = x; break; } if (v == null) { v = voices[0]; foreach (var x in voices) if (x.Pos > v.Pos) v = x; }
+        // a drum pad or key hit again stops its last hit (fading in 3 ms), like a drum machine: the hits of an 808 or a kick no longer pile up on each other
+        if (z.OneShot && z.Lo == z.Hi) foreach (var x in voices) if (x.On && x.Note == note && x.Z == z && !x.Choked) { x.Releasing = true; x.Choked = true; }
+        Voice v = null; foreach (var x in voices) if (!x.On) { v = x; break; }
+        if (v == null) { foreach (var x in voices) if (x.Choked || x.Releasing) { if (v == null || x.Env < v.Env) v = x; } if (v == null) { v = voices[0]; foreach (var x in voices) if (x.Pos > v.Pos) v = x; } tailL += v.LastL; tailR += v.LastR; }
         double rate = z.Rate / (double)SR, pitch = z.Follow ? Math.Pow(2, (note - z.Root) / 12.0) : 1.0; double vs = Get("vel") / 100.0;
-        v.On = true; v.Releasing = false; v.Z = z; v.Note = note; v.Pos = 0; v.Step = rate * pitch; v.Gain = ((1 - vs) + vs * vel / 127.0) * Math.Pow(10, z.GainDb / 20.0); v.Env = 1; v.Rel = 0;
+        v.On = true; v.Releasing = false; v.Choked = false; v.LastL = v.LastR = 0; v.Z = z; v.Note = note; v.Pos = 0; v.Step = rate * pitch; v.Gain = ((1 - vs) + vs * vel / 127.0) * Math.Pow(10, z.GainDb / 20.0); v.Env = 1; v.Rel = 0;
     }
     void Stop(int note) { foreach (var v in voices) if (v.On && v.Note == note && !v.Releasing && !v.Z.OneShot) v.Releasing = true; }
     public override void Process(float[] l, float[] r, int n)
     {
-        var ev = pending; pending = null; int ei = 0; double relK = Math.Exp(-1.0 / (Math.Max(5, Get("rel")) / 1000.0 * SR)), master = Math.Pow(10, Get("gain") / 20.0); double fadeIn = SR * 0.0015;
+        var ev = pending; pending = null; int ei = 0; double relK = Math.Exp(-1.0 / (Math.Max(5, Get("rel")) / 1000.0 * SR)), master = Math.Pow(10, Get("gain") / 20.0); double fadeIn = SR * 0.0015, chokeK = Math.Exp(-1.0 / (0.003 * SR));
         for (int i = 0; i < n; i++)
         {
             while (ev != null && ei < ev.Count && ev[ei].Key <= i)
@@ -130,17 +134,17 @@ class SamplerFx : InstrumentFx   // (Purphex Pads is a sampler with a window of 
                 var m = ev[ei].Value; int kind = m.S & 0xF0; ei++;
                 if (kind == 0x90 && m.D2 > 0) Start(m.D1, m.D2);
                 else if (kind == 0x80 || kind == 0x90) Stop(m.D1);
-                else if (kind == 0xB0 && (m.D1 == 123 || m.D1 == 120)) foreach (var v in voices) if (v.On) v.Releasing = true;
+                else if (kind == 0xB0 && (m.D1 == 123 || m.D1 == 120)) foreach (var v in voices) if (v.On) { v.Releasing = true; if (m.D1 == 120) v.Choked = true; }
             }
-            double sl = 0, sr = 0;
+            double sl = tailL, sr = tailR; if (tailL != 0 || tailR != 0) { tailL *= chokeK; tailR *= chokeK; if (Math.Abs(tailL) + Math.Abs(tailR) < 1e-7) tailL = tailR = 0; }
             for (int k = 0; k < voices.Length; k++)
             {
                 var v = voices[k]; if (!v.On) continue; var z = v.Z; var L = z.L; var R = z.R; if (L == null) { v.On = false; continue; }
                 int p = (int)v.Pos; if (p >= L.Length - 1) { v.On = false; continue; } double fr = v.Pos - p;
                 double a = L[p] + (L[p + 1] - L[p]) * fr, b = R[p] + (R[p + 1] - R[p]) * fr;
-                if (v.Releasing) { v.Env *= relK; if (v.Env < 1e-4) { v.On = false; continue; } }
+                if (v.Releasing) { v.Env *= v.Choked ? chokeK : relK; if (v.Env < 1e-4) { v.On = false; continue; } }
                 double att = !z.Follow || v.Pos * (1 / v.Step) > fadeIn ? 1 : v.Pos / v.Step / fadeIn;   // (a pitched sample starts with a tiny fade: no click when it starts mid-wave)
-                double g = v.Gain * v.Env * att; sl += a * g; sr += b * g; v.Pos += v.Step;
+                double g = v.Gain * v.Env * att; sl += a * g; sr += b * g; v.LastL = a * g; v.LastR = b * g; v.Pos += v.Step;
                 int left = L.Length - 1 - (int)v.Pos; if (left < 64 && left >= 0) { double t = left / 64.0; sl -= a * g * (1 - t); sr -= b * g * (1 - t); }   // (the last 64 samples fade out: no click at the end)
             }
             l[i] += (float)(sl * master); r[i] += (float)(sr * master);

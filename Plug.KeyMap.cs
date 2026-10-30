@@ -62,7 +62,7 @@ class KeyMapWindow : PxWindow, ISoundDrop
     readonly List<KeyValuePair<int, RectangleF>> keyRects = new List<KeyValuePair<int, RectangleF>>();
     public KeyMapWindow(KeyMapFx f) : base(f, "Key Map", new Size(1080, 600))
     {
-        e = f; Accent = Cyan; AllowDrop = true;
+        e = f; Accent = Cyan; AllowDrop = true; MidiWindow.Hook(this, f);
         DragEnter += (s, a) => { a.Effect = SoundSources.AudioFiles(a.Data).Count > 0 ? DragDropEffects.Copy : DragDropEffects.None; };
         DragOver += (s, a) => { mouse = PointToClient(new Point(a.X, a.Y)); a.Effect = SoundSources.AudioFiles(a.Data).Count > 0 ? DragDropEffects.Copy : DragDropEffects.None; };
         DragDrop += (s, a) =>

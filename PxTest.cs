@@ -9,7 +9,7 @@ using System.Windows.Forms;
 static class PX
 {
     static int fails = 0; const int SR = 44100;
-    static void Check(string name, bool ok, string info = "") { Console.WriteLine((ok ? "PASS  " : "FAIL  ") + name + (info.Length > 0 ? "   " + info : "")); if (!ok) fails++; }
+    static void Check(string name, bool ok, string info = "") { Console.WriteLine((ok ? "PASS  " : "FAIL  ") + name + (info.Length > 0 ? "   " + info : "")); Console.Out.Flush(); if (!ok) fails++; }
     static Fx New(string type) { var f = FxRegistry.Create(type); f.Prepare(SR); f.Reset(); return f; }
     static void Run(Fx f, float[] l, float[] r, int block, Action<int> between = null)
     {
@@ -42,6 +42,14 @@ static class PX
        
         { "pxstereo", new[] { "ab", "morph", "a_lg", "a_rg", "a_lpan", "a_rpan", "a_width", "a_pan", "a_ms", "a_bass", "b_lg", "b_rg", "b_lpan", "b_rpan", "b_width", "b_pan", "b_ms", "b_bass" } } };   // A-B morph: tested on its own below   // glide and voices need two notes: tested on their own below
 
+    // clicks: 2 ms windows of the top end (the 4th difference) much louder than the windows around them
+    static int Clicks(float[] x, int sr)
+    {
+        var h = new float[x.Length]; for (int i = 4; i < x.Length; i++) h[i] = x[i] - 4 * x[i - 1] + 6 * x[i - 2] - 4 * x[i - 3] + x[i - 4];
+        int W = sr / 500, n = h.Length / W; var e = new double[n]; for (int k = 0; k < n; k++) { double m = 0; for (int i = k * W; i < (k + 1) * W; i++) m = Math.Max(m, Math.Abs(h[i])); e[k] = m; }
+        int b = 0; for (int k = 12; k < n - 12; k++) { var a = new List<double>(); for (int j = k - 12; j <= k + 12; j++) if (Math.Abs(j - k) > 2) a.Add(e[j]); a.Sort(); double med = a[a.Count / 2]; if (e[k] > 0.03 && e[k] / Math.Max(med, 0.004) > 5) { b++; k += 2; } }
+        return b;
+    }
     [STAThread]
     static void Main()
     {
@@ -322,6 +330,15 @@ static class PX
             Check("Pads: it is an instrument with a window, listed with the instruments, and says what it does", pads.IsInstrument && pads.HasWindow && FxRegistry.All.Any(i => i.Type == "pxpads" && i.Category == "Instruments") && FxHelp.Has("Purphex Pads"), "");
             var w = new PadsWindow(pads); w.Show(); Application.DoEvents(); var shot = w.Snapshot(); string shotPath = System.IO.Path.Combine(dir, "pads_window.png"); shot.Save(shotPath, System.Drawing.Imaging.ImageFormat.Png); Console.WriteLine("pads window picture: " + shotPath); int hc = w.HitCount; w.Close();
             Check("Pads: the window draws its 16 pads and their controls", hc >= 16 + 8, hc + " controls");
+            { // hitting one pad fast (an 808 rolled on a keyboard pad): the hits do not pile up and nothing clicks, even past the 48 voices
+              string boom = System.IO.Path.Combine(dir, "boom.wav"); { var x = new float[88200]; for (int i = 0; i < x.Length; i++) x[i] = (float)(0.7 * Math.Sin(i * 2 * Math.PI * 55 / 44100) * Math.Min(1, i / 40.0)); WavIO.Write(boom, x, x, 44100, 24); }
+              var pp = (PadsFx)FxRegistry.Create("pxpads"); pp.Prepare(44100); var t9 = StudioEngine.NewTrack("P", "inst", null); t9.Instrument = true; pp.Owner = t9; t9.Fx.Add(pp); pp.SetPad(0, boom, "Boom");
+              int blk = 512, total = 44100 * 3; var L = new float[total]; var bl = new float[blk]; var br = new float[blk]; int hits = 0;
+              for (int p = 0; p < total; p += blk) { if (p < 44100 * 2 && (p / blk) % 2 == 0) { pp.NoteOn(36, 120); hits++; } Array.Clear(bl, 0, blk); Array.Clear(br, 0, blk); pp.BeginBlock(t9, p, blk, false); pp.Process(bl, br, blk); Array.Copy(bl, 0, L, p, Math.Min(blk, total - p)); }
+              double pk = 0; foreach (var v in L) pk = Math.Max(pk, Math.Abs(v)); int clicks = Clicks(L, 44100);
+              { pp.Reset(); MidiInput.Target = pp; MidiInput.Handle(0x99u | (36u << 8) | (110u << 16)); var ml = new float[2048]; var mr = new float[2048]; pp.BeginBlock(t9, 0, 2048, false); pp.Process(ml, mr, 2048); MidiInput.Handle(0x89u | (36u << 8)); MidiInput.Target = null; double mpk = 0; foreach (var v in ml) mpk = Math.Max(mpk, Math.Abs(v));
+                Check("Pads: with its window in front, a pad hit on the MIDI keyboard (drum channel 10, note 36) plays pad 1, and the window can show it came in", mpk > 0.1 && pp.LastIn == 36, "peak " + mpk.ToString("0.00") + ", last in " + pp.LastIn); }
+              Check("Pads: one pad hit fast (" + hits + " hits) does not pile up (it stays as loud as one hit) and does not click", pk < 1.0 && clicks == 0, "peak " + pk.ToString("0.00") + ", clicks " + clicks); }
             { // kits: saved under names you choose (as many as you like, the same genre twice), with copies of their sounds, so a kit still plays after the original files are gone
               string orig = tone(330); pads.SetPad(2, orig, "Orig"); Presets.SaveUser("pxpads", "Trap kit", pads); string second = Presets.FreeName("pxpads", "Trap kit"); Presets.SaveUser("pxpads", second, pads);
               System.IO.File.Delete(orig); var kits = Presets.User("pxpads"); var fresh = (PadsFx)FxRegistry.Create("pxpads"); fresh.Prepare(44100); Presets.Apply(fresh, kits.First(kv => kv.Key == "Trap kit").Value);
@@ -349,6 +366,10 @@ static class PX
             Check("Key Map: it is an instrument with a window, listed with the instruments, and says what it does", km.IsInstrument && km.HasWindow && FxRegistry.All.Any(i => i.Type == "pxkeymap" && i.Category == "Instruments") && FxHelp.Has("Purphex Key Map"), "");
             var w = new KeyMapWindow(km); w.Show(); Application.DoEvents(); var shot = w.Snapshot(); string sp = System.IO.Path.Combine(dir, "keymap_window.png"); shot.Save(sp, System.Drawing.Imaging.ImageFormat.Png); Console.WriteLine("key map window picture: " + sp); int hc = w.HitCount; w.Close();
             Check("Key Map: the window draws the keys and their controls", hc >= 60, hc + " controls");
+            { // your MIDI keyboard's keys play the Key Map: a key with its own sound, and a key inside a pitched spread
+              Func<int, double> viaKeyboard = note => { km.Reset(); MidiInput.Target = km; MidiInput.Handle(0x90u | ((uint)note << 8) | (100u << 16)); var l = new float[8192]; var r = new float[8192]; km.BeginBlock(kt, 0, 8192, false); km.Process(l, r, 8192); MidiInput.Handle(0x80u | ((uint)note << 8)); MidiInput.Target = null; return freq(l) * (peak(l) > 0.05 ? 1 : 0); };
+              double f66 = viaKeyboard(66), f55 = viaKeyboard(55), f61 = viaKeyboard(61);
+              Check("Key Map: keys pressed on the MIDI keyboard play their sounds (a key's own sound, a spread one pitched, and nothing where there is no sound)", f66 > 700 && f55 > 150 && f55 < 300 && (km.KeyName(61).Length == 0 ? f61 == 0 : f61 > 0), "F#4 " + f66.ToString("0") + " Hz, G3 " + f55.ToString("0") + " Hz"); }
             { var w2 = new KeyMapWindow(km); w2.Show(); Application.DoEvents(); w2.Snapshot(); var kr = w2.KeyRect(77); bool took = !kr.IsEmpty && w2.DropSound(w2.PointToScreen(new System.Drawing.Point((int)(kr.X + kr.Width / 2), (int)(kr.Bottom - 10))), tone(1200), "Dragged"); w2.Close();
               Check("Key Map: a sound dragged from the studio and let go over a key lands on that key", took && km.KeyName(77) == "Dragged", "F5 is '" + km.KeyName(77) + "'"); }
             StudioEngine.Current = keep;
