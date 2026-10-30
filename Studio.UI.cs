@@ -450,8 +450,8 @@ partial class StudioForm : Form
         long k0 = Prof.T(); btnRects.Add(r); if (!btnMap.ContainsKey(text)) btnMap[text] = r; if (Hot(r)) { string hh; if (Hints.TryGetValue(text, out hh)) hintNow = hh; } Prof.A("btn.a", k0); k0 = Prof.T();
         float ht = HoverAmount(r, text); if (ht > 0.5f && Hot(r)) HoverSparks(r); Prof.A("btn.hover", k0); k0 = Prof.T();
         string shown0 = Win.Up(text); Prof.A("btn.up", k0);
-        if (TxtAudit == null) DrawBtnHalo(g, r, style, ht);   // the galaxy flare behind it
-        if (TxtAudit == null && r.Width > 4 && r.Height > 4 && r.Width * r.Height < 90000) BtnDrawSprite(g, r, shown0, style, ht, px); else BtnLook(g, r, shown0, style, ht, px);
+        k0 = Prof.T(); if (TxtAudit == null) DrawBtnHalo(g, r, style, ht); Prof.A("btn.halo", k0); k0 = Prof.T();   // the galaxy flare behind it
+        if (TxtAudit == null && r.Width > 4 && r.Height > 4 && r.Width * r.Height < 90000) BtnDrawSprite(g, r, shown0, style, ht, px); else BtnLook(g, r, shown0, style, ht, px); Prof.A("btn.face", k0);
         k0 = Prof.T(); var rr0 = Reg(r, down); rr0.Button = true; Prof.A("btn.reg", k0); return rr0;
     }
     // the Fantasy edition has the button of the converter window: a pale rim all round, and inside it a soft shaded button (hot buttons fade from violet to pink); a glow under the mouse.
@@ -1714,6 +1714,7 @@ partial class StudioForm : Form
         if (k == Keys.Space) { if (tab != 0) return base.ProcessCmdKey(ref msg, k); PlayToggle(); return true; }   // the space bar plays and pauses on the Mix page only: on any other page it leaves the mix alone
         if (k == Keys.Home) { eng.Seek(0); scroll = 0; followPaused = false; return true; }
         if (tab == 0 && (k == Keys.Left || k == Keys.Right)) { ScrollView(k == Keys.Right ? 0.15 : -0.15); return true; }   // the arrow keys move around the song: Left / Right along it, Up / Down through the tracks
+        if (tab == 0 && soundsOpen && keysInSounds && !packsOpen && (k == Keys.Up || k == Keys.Down) && SoundListKey(k == Keys.Down)) return true;   // in the sound list: Up / Down go through the sounds
         if (tab == 0 && (k == Keys.Up || k == Keys.Down)) { ScrollTracks(k == Keys.Down ? LaneH * 0.5f : -LaneH * 0.5f); return true; }
         if (k == (Keys.Control | Keys.Shift | Keys.S)) { SaveClick(true); return true; }
         if (k == Keys.F2 && tab == 0 && selTrack < eng.Tracks.Count) { RenameTrack(eng.Tracks[selTrack]); return true; }
