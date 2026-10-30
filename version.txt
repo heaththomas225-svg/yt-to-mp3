@@ -1,4 +1,4 @@
-3.79.0
+3.79.1
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Pads play instantly again, less crackle, MIDI MAPPING easier to find
-sha256=d5c67b9aa9c3810ab535f7371d628f84939363ef12751e7ac08797441182fd9b
+Your MIDI keyboard always plays, every MIDI input listened to, no gaps while playing live
+sha256=0bf171e520d7b9311a1a5a0fbc1e6203466662a49f7d53718c615903cac25000

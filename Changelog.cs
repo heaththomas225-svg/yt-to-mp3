@@ -7,10 +7,16 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.79.0";
+    public const string Latest = "3.79.1";
 
     public const string Text =
-@"3.79.0  Pads play instantly again, less crackle, MIDI MAPPING easier to find
+@"3.79.1  Your MIDI keyboard always plays, every MIDI input listened to, no gaps while playing live
+ + FIXED: Your MIDI keyboard could do nothing: Purphex listened to only the first MIDI input, and many keyboards have two (their keys and a DAW or control port). Now every MIDI input is listened to at once, like other DAWs (right-click MIDI REC to pick only one).
+ + FIXED: With an audio track picked, your MIDI keyboard played nothing. Now it plays the picked MIDI track, else the first MIDI track of the song, and a song with no MIDI track gets a Keys track (the built-in piano) the first time you press a key.
+ + FIXED: Gaps and crackle while playing live: with a keyboard plugged in, a busy moment could make Purphex restart the sound output (a gap) and make its buffer bigger (later hits) again and again. It no longer does that while you play live.
+ + NEW: A check in MIDI MAPPING: every MIDI input Windows reports, whether Purphex is listening to it and how many messages it sent (or that another program has it), the sound card buffer and how many dropouts there have been.
+
+3.79.0  Pads play instantly again, less crackle, MIDI MAPPING easier to find
  + FIXED: Empty pads seemed to play a sound: after a click in the studio your keyboard pads went to the Beat Lab (with its kit) or the picked track's instrument. Now an open Purphex Pads or Key Map window keeps your MIDI keyboard until you close it, so only what is on its pads and keys plays.
  + FIXED: Pads and instruments went silent and then played seconds later. When the sound broke up while you played with the song stopped, Purphex refreshed the sound output but only switched it back on if the song was playing, so your hits waited until something woke the sound. Now the output comes straight back while you play, a key or pad hit wakes the sound card if it is off, and a hit that had to wait more than half a second is dropped instead of coming out late.
  + FIXED: Less crackle: every instrument made new lists for every block of sound, during playback and live playing; that garbage could make the sound stutter. They are now made once and reused.
