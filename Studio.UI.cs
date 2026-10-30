@@ -29,6 +29,7 @@ partial class StudioForm : Form
     // one step of the studio loop: housekeeping about 60 times a second, drawing as fast as the chosen frame rate allows
     void FrameStep()
     {
+        SoundDrop.Hover = sndDragging && sndDrag != null && !extDrag && MouseButtons == MouseButtons.Left ? Cursor.Position : Point.Empty;   // Purphex Pads and Key Map light the pad or key a dragged sound would land on
         if (moving) return; double now = studioClock.Elapsed.TotalMilliseconds; if (now - lastTickMs >= 15) { lastTickMs = now; Tick(); }
         if (NeedsFrame()) { double dt = (now - lastStepMs) / 1000.0; lastStepMs = now; if (dt > 0.1) dt = 0.033; if (dt < 0.001) dt = 0.001; t += (float)dt; Invalidate(); }
     }
@@ -1246,7 +1247,7 @@ partial class StudioForm : Form
           { var vb = nextRow(); Btn(g, vb, "VSTS", browserOpen && browserVst ? 4 : 2, () => OpenVsts(), 11); Hint2(vb, "Bass Lab, your VST instruments and the Purphex VSTs: choose the track (FOR) and add one"); }
           var snb = nextRow(); Btn(g, snb, "SOUND PACKS", soundsOpen ? 4 : 0, () => { if (soundsOpen) CloseSounds(); else OpenPacks(); }, 11);
           { var ptb = nextRow(); Btn(g, ptb, "PRODUCER TAG", toolWins.Exists(q => q.Kind == TagKind) ? 4 : 0, () => OpenProducerTag(), 11); Hint2(ptb, "Make your producer tag: type it, pick a voice or record your own, add effects and a vocal preset" + (FreeStudio ? " (Supporter Edition and up)" : "")); }
-          { var iab = nextRow(); Btn(g, iab, "IMPORT AUDIO", 0, () => ImportAudioAsk(), 11); Hint2(iab, "Add sounds from your computer to your library: they are kept in My samples in the sound packs"); }
+          { var iab = nextRow(); Btn(g, iab, "IMPORT AUDIO", 0, () => ImportAudioAsk(), 11); Hint2(iab, "Add sounds from your computer to your library: they are kept for good in MY SOUNDS (the tab beside SOUNDS)"); }
           hb = by + bi * 30 + 4; }
         if (InsShown || (PluginsInMixerOnly && busEdit == null))   // (EDIT on a bus still shows that bus here)
         {   // plugins live in the mixer only (one place for effects): the panel points there, open or not; a click on a plugin there opens its own window

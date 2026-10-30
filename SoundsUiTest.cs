@@ -1,5 +1,6 @@
-using System;
+﻿using System;
 using System.Collections;
+using System.Linq;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
@@ -172,6 +173,15 @@ static class Q
           { SetF("toast", ""); Paint(); var bmpC = new Bitmap(sf.ClientSize.Width, sf.ClientSize.Height); sf.DrawToBitmap(bmpC, new Rectangle(0, 0, sf.Width, sf.Height)); bmpC.Save("C:/Users/thoma/nfout/packs-check.png", System.Drawing.Imaging.ImageFormat.Png); } SetF("packsOpen", false); Paint(); }
         // removing a pack
         SoundLibrary.RemovePack(wantId); Check("removing a pack deletes its files", !Directory.Exists(Path.Combine(SoundLibrary.Root, wantId)) && SoundLibrary.Pack(wantId) == null, "");
+        { // MY SOUNDS: an imported sound is kept in the library and the panel shows it on its own tab
+            var x = new float[22050]; for (int i = 0; i < x.Length; i++) x[i] = (float)(0.5 * Math.Sin(i * 0.05)); string src = Path.Combine(tmp, "My Snare 01.wav"); WavIO.Write(src, x, x, 44100, 24);
+            string msg = (string)typeof(StudioForm).GetMethod("ImportAudioFrom", BF).Invoke(sf, new object[] { new[] { src } }); var flt = (SoundLibrary.Filter)typeof(StudioForm).GetField("sndFilter", BF).GetValue(sf);
+            int mine; lock (SoundLibrary.Lock) { var up = SoundLibrary.Packs.Find(q => q.Id == SoundLibrary.UserPackId); mine = up == null ? 0 : up.Items.Count(it => it.Name.Contains("My Snare")); }
+            bool kept = Directory.Exists(Path.Combine(SoundLibrary.Root, SoundLibrary.UserPackId)) && Directory.GetFiles(Path.Combine(SoundLibrary.Root, SoundLibrary.UserPackId), "*My Snare*", SearchOption.AllDirectories).Length > 0;
+            Check("an imported sound is kept in the library and the panel opens on MY SOUNDS", mine == 1 && kept && flt.Pack == SoundLibrary.UserPackId && msg.Contains("MY SOUNDS"), "in pack " + mine + ", file kept " + kept + ", " + msg);
+            Paint(); Check("MY SOUNDS is a tab of its own beside SOUNDS, with how many you imported", Regs().Any(r => Math.Abs(r.R.Width - 124) < 0.5f && Math.Abs(r.R.Height - 28) < 0.5f), "");
+            typeof(StudioForm).GetField("packsOpen", BF).SetValue(sf, false); flt.Pack = ""; Paint();
+        }
         Auditioner.Shutdown(); eng.Shutdown(); try { Directory.Delete(tmp, true); } catch { } Console.WriteLine(fails == 0 ? "=== sounds UI checks passed ===" : "=== " + fails + " FAILED ==="); Environment.Exit(fails == 0 ? 0 : 1);
     }
 }

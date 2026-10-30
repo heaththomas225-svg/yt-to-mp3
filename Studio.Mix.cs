@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -92,14 +92,25 @@ static class Presets
         return l;
     }
 
+    // your own presets: as many as you like, one file each. A sampler's preset (Purphex Pads, Key Map, the Sampler) gets copies of its
+    // sounds in a folder of its own, so the kit still plays after the original files are moved or deleted
     public static void SaveUser(string type, string name, Fx fx)
     {
         string d = Path.Combine(Root, type); Directory.CreateDirectory(d);
-        foreach (char c in Path.GetInvalidFileNameChars()) name = name.Replace(c, '_');
+        name = SafeName(name);
+        var sm = fx as SamplerFx; if (sm != null) sm.PackSounds(Path.Combine(d, name + " sounds"));
         File.WriteAllText(Path.Combine(d, name + ".txt"), fx.Serialize());
     }
+    public static string SafeName(string name) { foreach (char c in Path.GetInvalidFileNameChars()) name = name.Replace(c, '_'); return name.Trim(); }
+    public static bool UserExists(string type, string name) { return File.Exists(Path.Combine(Root, type, SafeName(name) + ".txt")); }
+    // a name for a new preset that no preset of yours has yet: the name, else the name with the next number ("Trap kit 2")
+    public static string FreeName(string type, string name)
+    {
+        name = SafeName(name); if (name.Length == 0) name = "My preset"; if (!UserExists(type, name)) return name;
+        string stem = System.Text.RegularExpressions.Regex.Replace(name, @"\s+\d+$", ""); for (int i = 2; ; i++) if (!UserExists(type, stem + " " + i)) return stem + " " + i;
+    }
 
-    public static void DeleteUser(string type, string name) { try { File.Delete(Path.Combine(Root, type, name + ".txt")); } catch { } }
+    public static void DeleteUser(string type, string name) { try { File.Delete(Path.Combine(Root, type, name + ".txt")); } catch { } try { string sd = Path.Combine(Root, type, name + " sounds"); if (Directory.Exists(sd)) Directory.Delete(sd, true); } catch { } }
 
     public static void Apply(Fx fx, string data) { var e = StudioEngine.Current; object gate = e != null ? e.Sync : new object(); lock (gate) { fx.ResetDefaults(); fx.Deserialize(data); fx.Reset(); } }
 

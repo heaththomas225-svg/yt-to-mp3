@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -149,12 +149,13 @@ abstract class PxWindow : Form
         Txt(g, "PURPHEX", 12, Violet, new RectangleF(16, 8, 140, 16), StringAlignment.Near, true); Txt(g, brand.ToUpperInvariant(), 24, Ink, new RectangleF(14, 22, 300, 30), StringAlignment.Near, true);
         if (SubTitle.Length > 0) Txt(g, SubTitle, 10, Dim, new RectangleF(16, 50, 300, 14), StringAlignment.Near, false);
         using (var pen = new Pen(Color.FromArgb(150, Accent), 2)) g.DrawLine(pen, 16, 66, 200, 66);
-        float pbX = Math.Max(230, W - 16 - 290 - 330 - 8), pbW = Math.Min(330, W - 16 - 290 - pbX - 8); var pb = new RectangleF(pbX, 16, pbW, 38);   /* the preset bar gets narrower in a small window */ Fill(g, PBar, pb, 10); Stroke(g, Edge, pb, 10, 1.2f);
+        float pbX = Math.Max(230, W - 16 - 370 - 330 - 8), pbW = Math.Min(330, W - 16 - 370 - pbX - 8); var pb = new RectangleF(pbX, 16, pbW, 38);   /* the preset bar gets narrower in a small window */ Fill(g, PBar, pb, 10); Stroke(g, Edge, pb, 10, 1.2f);
         Button(g, new RectangleF(pb.X + 5, pb.Y + 5, 28, 28), "‹", false, Violet, () => StepPreset(-1), "Previous preset", 16);
         Button(g, new RectangleF(pb.Right - 33, pb.Y + 5, 28, 28), "›", false, Violet, () => StepPreset(1), "Next preset", 16);
         Txt(g, PresetName, 13, Ink, new RectangleF(pb.X + 38, pb.Y, pb.Width - 76, pb.Height), StringAlignment.Center, true);
         Reg(new RectangleF(pb.X + 38, pb.Y, pb.Width - 76, pb.Height), () => PresetMenu(new Point((int)pb.X, (int)pb.Bottom)), "Presets: factory and your own; save, rename, delete");
         float x = pb.Right + 8; Button(g, new RectangleF(x, 16, 92, 38), "PRESETS", false, Violet, () => PresetMenu(new Point((int)x, 54)), "Factory presets, your own presets, save, rename and delete"); x += 100;
+        Button(g, new RectangleF(x, 16, 72, 38), "SAVE", false, Lime, SaveMine, "Save these settings as a preset of your own, with a name (as many as you like)", 12); x += 80;
         Button(g, new RectangleF(x, 16, 92, 38), fx.Bypass ? "OFF" : "ON", !fx.Bypass, Gold, () => fx.Bypass = !fx.Bypass, fx.Bypass ? "Off: the sound passes untouched. Press to turn it on" : "On: press to turn it off", 13); x += 100;
         Button(g, new RectangleF(x, 16, 38, 38), "↶", false, Violet, Undo, "Undo (Ctrl+Z)", 16); Button(g, new RectangleF(x + 44, 16, 38, 38), "↷", false, Violet, Redo, "Redo (Ctrl+Y)", 16);
     }
@@ -195,7 +196,15 @@ abstract class PxWindow : Form
         var del = new ToolStripMenuItem("Delete this preset...") { Enabled = isMine }; del.Click += (a, b) => { if (MessageBox.Show(this, "Delete your preset \"" + PresetName + "\"?", Text, MessageBoxButtons.YesNo) == DialogResult.Yes) { Presets.DeleteUser(fx.Type, PresetName); PresetName = "(unsaved)"; } }; m.Items.Add(del);
         m.Show(this, at);
     }
-    string AskName(string q, string def)
+    // SAVE: these settings as a preset of yours under a name you give (a free name is offered; an existing name asks first)
+    protected void SaveMine()
+    {
+        string def = Presets.FreeName(fx.Type, PresetName == "Init" || PresetName.Length == 0 ? fx.Title.Replace("Purphex ", "") + " 1" : (PresetName.Contains(": ") ? PresetName.Substring(PresetName.IndexOf(": ") + 2) : PresetName));
+        string nm = AskName("Name for your preset (you can save as many as you like):", def); if (nm == null) return;
+        if (Presets.UserExists(fx.Type, nm) && MessageBox.Show(this, "You already have a preset called \"" + nm + "\". Replace it?", Text, MessageBoxButtons.YesNo) != DialogResult.Yes) return;
+        Presets.SaveUser(fx.Type, nm, fx); PresetName = nm; fx.CurPreset = nm; fx.CurPresetData = fx.Serialize();
+    }
+    protected string AskName(string q, string def)
     {
         using (var f = new Form { Text = Text, ClientSize = new Size(420, 120), FormBorderStyle = FormBorderStyle.FixedDialog, StartPosition = FormStartPosition.CenterParent, MaximizeBox = false, MinimizeBox = false, BackColor = PanelC, ForeColor = Ink })
         {

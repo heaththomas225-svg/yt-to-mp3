@@ -322,6 +322,35 @@ static class PX
             Check("Pads: it is an instrument with a window, listed with the instruments, and says what it does", pads.IsInstrument && pads.HasWindow && FxRegistry.All.Any(i => i.Type == "pxpads" && i.Category == "Instruments") && FxHelp.Has("Purphex Pads"), "");
             var w = new PadsWindow(pads); w.Show(); Application.DoEvents(); var shot = w.Snapshot(); string shotPath = System.IO.Path.Combine(dir, "pads_window.png"); shot.Save(shotPath, System.Drawing.Imaging.ImageFormat.Png); Console.WriteLine("pads window picture: " + shotPath); int hc = w.HitCount; w.Close();
             Check("Pads: the window draws its 16 pads and their controls", hc >= 16 + 8, hc + " controls");
+            { // kits: saved under names you choose (as many as you like, the same genre twice), with copies of their sounds, so a kit still plays after the original files are gone
+              string orig = tone(330); pads.SetPad(2, orig, "Orig"); Presets.SaveUser("pxpads", "Trap kit", pads); string second = Presets.FreeName("pxpads", "Trap kit"); Presets.SaveUser("pxpads", second, pads);
+              System.IO.File.Delete(orig); var kits = Presets.User("pxpads"); var fresh = (PadsFx)FxRegistry.Create("pxpads"); fresh.Prepare(44100); Presets.Apply(fresh, kits.First(kv => kv.Key == "Trap kit").Value);
+              var z = fresh.PadZone(2); bool plays = z != null && !z.Missing && System.IO.File.Exists(z.Path);
+              Check("Pads: SAVE KIT keeps copies of the sounds, so a saved kit loads and plays after the original file is deleted", plays && fresh.PadName(2) == "Orig", z == null ? "no zone" : z.Path);
+              Check("Pads: kits get their own names, the same genre as often as you like (a free name is offered: Trap kit 2)", second == "Trap kit 2" && kits.Count == 2, second + ", " + kits.Count + " kits");
+              Presets.DeleteUser("pxpads", "Trap kit 2"); Check("Pads: deleting a kit takes its copied sounds with it", Presets.User("pxpads").Count == 1, ""); }
+            { var w2 = new PadsWindow(pads); w2.Show(); Application.DoEvents(); w2.Snapshot(); var pr3 = w2.PadRect(9); bool took = w2.DropSound(w2.PointToScreen(new System.Drawing.Point((int)(pr3.X + pr3.Width / 2), (int)(pr3.Y + pr3.Height / 2))), tone(1200), "Dragged"); w2.Close();
+              Check("Pads: a sound dragged from the studio and let go over a pad lands on that pad", took && pads.PadName(9) == "Dragged", "pad 10 is '" + pads.PadName(9) + "'"); }
+            StudioEngine.Current = keep;
+        }
+        { // Purphex Key Map: any sound on any key, or one sound pitched across a range; a new sound cuts what was under it; saved; its window
+            string dir = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "pxkeys_" + Guid.NewGuid().ToString("N")); System.IO.Directory.CreateDirectory(dir);
+            Func<double, string> tone = hz => { var x = new float[22050]; for (int i = 0; i < x.Length; i++) x[i] = (float)(0.6 * Math.Sin(i * 2 * Math.PI * hz / 44100)); string f = System.IO.Path.Combine(dir, hz + ".wav"); WavIO.Write(f, x, x, 44100, 24); return f; };
+            var km = (KeyMapFx)FxRegistry.Create("pxkeymap"); km.Prepare(44100); var kt = StudioEngine.NewTrack("Keys", "inst", null); kt.Instrument = true; km.Owner = kt; kt.Fx.Add(km); var keep = StudioEngine.Current; StudioEngine.Current = null;
+            Func<int, float[]> play = note => { km.Reset(); km.NoteOn(note, 110); var l = new float[8192]; var r = new float[8192]; km.BeginBlock(kt, 0, 8192, false); km.Process(l, r, 8192); km.NoteOff(note); return l; };
+            Func<float[], double> peak = x => { double p = 0; foreach (var v in x) p = Math.Max(p, Math.Abs(v)); return p; };
+            Func<float[], double> freq = x => { int z = 0; for (int i = 2001; i < 8000; i++) if ((x[i - 1] < 0) != (x[i] < 0)) z++; return z / 2.0 / (6000 / 44100.0); };
+            string a1 = km.SetKey(60, tone(300), "Bell"), a2 = km.SetKey(62, tone(500), "Pluck");
+            Check("Key Map: a sound on a key plays from that key only, at its own pitch", a1 == null && peak(play(60)) > 0.1 && peak(play(61)) < 0.001 && Math.Abs(freq(play(60)) - 300) < 15 && km.KeyName(62) == "Pluck", "C4 " + freq(play(60)).ToString("0") + " Hz, C#4 " + peak(play(61)).ToString("0.000"));
+            km.Spread(60, 48, 72); double up = freq(play(72)), at = freq(play(60));
+            Check("Key Map: PLAY IT ACROSS spreads the sound over the keys, pitched (an octave up is twice the pitch), and it takes the keys it covers", Math.Abs(up / at - 2) < 0.1 && km.KeyName(62) == "Bell", at.ToString("0") + " -> " + up.ToString("0") + " Hz, D4 is " + km.KeyName(62));
+            km.SetKey(66, tone(800), "Hit"); Check("Key Map: a new sound on one key inside a range cuts the range there (the keys below keep it)", km.KeyName(66) == "Hit" && km.KeyName(60) == "Bell" && km.KeyName(70) == "", km.KeyName(60) + " / " + km.KeyName(66) + " / '" + km.KeyName(70) + "'");
+            var k2 = (KeyMapFx)FxRegistry.Create("pxkeymap"); k2.Prepare(44100); k2.Deserialize(km.Serialize()); Check("Key Map: the keys and their sounds are saved with the project", k2.KeyName(66) == "Hit" && k2.KeyName(55) == "Bell", k2.KeyName(66) + " / " + k2.KeyName(55));
+            Check("Key Map: it is an instrument with a window, listed with the instruments, and says what it does", km.IsInstrument && km.HasWindow && FxRegistry.All.Any(i => i.Type == "pxkeymap" && i.Category == "Instruments") && FxHelp.Has("Purphex Key Map"), "");
+            var w = new KeyMapWindow(km); w.Show(); Application.DoEvents(); var shot = w.Snapshot(); string sp = System.IO.Path.Combine(dir, "keymap_window.png"); shot.Save(sp, System.Drawing.Imaging.ImageFormat.Png); Console.WriteLine("key map window picture: " + sp); int hc = w.HitCount; w.Close();
+            Check("Key Map: the window draws the keys and their controls", hc >= 60, hc + " controls");
+            { var w2 = new KeyMapWindow(km); w2.Show(); Application.DoEvents(); w2.Snapshot(); var kr = w2.KeyRect(77); bool took = !kr.IsEmpty && w2.DropSound(w2.PointToScreen(new System.Drawing.Point((int)(kr.X + kr.Width / 2), (int)(kr.Bottom - 10))), tone(1200), "Dragged"); w2.Close();
+              Check("Key Map: a sound dragged from the studio and let go over a key lands on that key", took && km.KeyName(77) == "Dragged", "F5 is '" + km.KeyName(77) + "'"); }
             StudioEngine.Current = keep;
         }
         Console.WriteLine(fails == 0 ? "=== purphex vst checks passed ===" : "=== " + fails + " FAILED ==="); Environment.Exit(fails == 0 ? 0 : 1);

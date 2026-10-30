@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -25,9 +25,13 @@ partial class StudioForm
     // the two tabs at the top of both screens
     void SoundTabs(Graphics g, float x, float y, bool packs)
     {
-        var a = Rc(x, y, 132, 28); var b = Rc(x + 136, y, 96, 28);
+        var a = Rc(x, y, 132, 28); var b = Rc(x + 136, y, 96, 28); var c = Rc(x + 236, y, 124, 28); bool mineOn = !packs && sndFilter.Pack == SoundLibrary.UserPackId;
         Btn(g, a, "SOUND PACKS", packs ? 4 : 0, () => { packsOpen = true; packScroll = 0; }, 12); Hint2(a, "The packs: install them (each makes real, checked sound files on this PC) and browse what is in them");
-        Btn(g, b, "SOUNDS", packs ? 0 : 4, () => { packsOpen = false; sndDirty = true; }, 12); Hint2(b, "Search every installed sound: loops, one-shots, 808s and MIDI, with filters");
+        Btn(g, b, "SOUNDS", packs || mineOn ? 0 : 4, () => { packsOpen = false; if (sndFilter.Pack == SoundLibrary.UserPackId) sndFilter.Pack = ""; sndDirty = true; }, 12); Hint2(b, "Search every installed sound: loops, one-shots, 808s and MIDI, with filters");
+        // MY SOUNDS: everything you imported, always one click away (it was only in the genre list before, so imports were hard to find)
+        int mine = 0; lock (SoundLibrary.Lock) { var up = SoundLibrary.Packs.Find(q => q.Id == SoundLibrary.UserPackId); if (up != null) mine = up.Items.Count; }
+        Btn(g, c, "MY SOUNDS" + (mine > 0 ? " (" + mine + ")" : ""), mineOn ? 4 : 0, () => { ShowMySounds(); if (mine == 0) Toast("No imported sounds yet: press IMPORT AUDIO to add sounds from your computer. They stay here for good."); }, 11);
+        Hint2(c, mine > 0 ? "The " + mine + " sound" + (mine == 1 ? "" : "s") + " you imported (kept in your library for good)" : "Your imported sounds will be here (press IMPORT AUDIO)");
     }
     void CloseSounds() { soundsOpen = false; packsOpen = false; sndFull = false; Auditioner.Stop(); }
     TextBox packBox; internal string packQuery = "";
@@ -133,9 +137,18 @@ partial class StudioForm
         AddTrack(t);
     }
 
+    // a sound let go over a window that takes sounds (Purphex Pads, Key Map): made on this PC first if it is a library sound that is made when first used
+    bool SoundToWindow(SoundItem s)
+    {
+        var w = SoundDrop.At(Cursor.Position); if (w == null) return false;
+        if (s.Spec.Length > 0) { string err = InstantLib.Ensure(s); if (err != null) { Toast(err); return true; } }
+        string path = s.Path; if (string.IsNullOrEmpty(path) || !File.Exists(path) || !SoundSources.IsAudio(path)) { Toast(s.Name + " is not a sound file a pad can play (MIDI and loops-to-be go on the song or the piano roll)."); return true; }
+        w.DropSound(Cursor.Position, path, s.Name.Replace(s.PackName + " - ", "")); return true;
+    }
     // dropped from the browser onto the timeline
     void DropSampleAt(Point p)
     {
+        if (sndDrag != null && SoundToWindow(sndDrag)) { sndDrag = null; sndDragging = false; SoundDrop.Hover = Point.Empty; return; }   // over Purphex Pads or Key Map: the pad or key under the mouse takes it
         if (sndDrag != null && BlDrop(sndDrag, p)) { sndDrag = null; sndDragging = false; return; }   // on a Beat Lab pad: the pad plays it
         if (sndDrag != null && PrDrop(sndDrag, p)) return;   // on the piano roll: into the sampler (a kit's key, or its sample)
         var s = sndDrag; sndDrag = null; sndDragging = false; if (s == null) return; var tl = TimelineRect(); float top = ArrTop + RulerH;
@@ -483,9 +496,14 @@ partial class StudioForm
     internal string ImportAudioFrom(string[] files)
     {
         int n = SoundLibrary.ImportFiles(files, null); if (n == 0) return "Nothing new was imported (already in My samples, or not a sound file: WAV, MP3, FLAC, OGG, AIFF, M4A or MIDI).";
+        ShowMySounds();
+        return "Imported " + n + " sound" + (n == 1 ? "" : "s") + " into MY SOUNDS (kept in your library for good, the tab beside SOUNDS): drag them onto the song, a pad or the piano roll.";
+    }
+    // the sounds panel showing only your imported sounds (MY SOUNDS)
+    internal void ShowMySounds()
+    {
         OpenSounds(); packsOpen = false; sndFilter.Text = ""; sndFilter.Genre = ""; sndFilter.Sub = ""; sndFilter.Type = ""; sndFilter.Group = ""; sndFilter.Kind = ""; sndFilter.OnlyFav = false; sndFilter.OnlyRecent = false; sndFilter.Collection = ""; sndFilter.Pack = SoundLibrary.UserPackId;
         if (soundBox != null && soundBox.Text.Length > 0) soundBox.Text = ""; sndDirty = true; sndScroll = 0; Invalidate();
-        return "Imported " + n + " sound" + (n == 1 ? "" : "s") + " into My samples (saved in your library): drag them onto the song, a pad or the piano roll.";
     }
     void ImportMenu()
     {
@@ -493,12 +511,12 @@ partial class StudioForm
         m.Items.Add("Import my own samples (wav, mp3, flac, midi...)").Click += (a, b) =>
         {
             using (var d = new OpenFileDialog { Title = "Choose samples you own", Multiselect = true, Filter = "Audio and MIDI|*.wav;*.mp3;*.flac;*.ogg;*.aiff;*.m4a;*.mid|All files|*.*" })
-                if (d.ShowDialog(this) == DialogResult.OK) { int n = SoundLibrary.ImportFiles(d.FileNames, null); sndDirty = true; Toast("Imported " + n + " sound" + (n == 1 ? "" : "s") + " into My samples"); }
+                if (d.ShowDialog(this) == DialogResult.OK) { int n = SoundLibrary.ImportFiles(d.FileNames, null); ShowMySounds(); Toast("Imported " + n + " sound" + (n == 1 ? "" : "s") + " into MY SOUNDS (kept for good)"); }
         };
         m.Items.Add("Import a folder of samples (and its sub-folders)").Click += (a, b) =>
         {
             using (var d = new FolderBrowserDialog { Description = "Choose a folder of samples you own (WAV, MP3, FLAC, OGG, AIFF, M4A and MIDI are read, with the tempo and key in their names)" })
-                if (d.ShowDialog(this) == DialogResult.OK) { var files = SoundLibrary.SamplesIn(d.SelectedPath); int n = SoundLibrary.ImportFiles(files.ToArray(), null); sndDirty = true; Toast("Imported " + n + " of " + files.Count + " files from " + Path.GetFileName(d.SelectedPath) + " into My samples"); }
+                if (d.ShowDialog(this) == DialogResult.OK) { var files = SoundLibrary.SamplesIn(d.SelectedPath); int n = SoundLibrary.ImportFiles(files.ToArray(), null); ShowMySounds(); Toast("Imported " + n + " of " + files.Count + " files from " + Path.GetFileName(d.SelectedPath) + " into MY SOUNDS (kept for good)"); }
         };
         m.Items.Add("Import a sound pack (.zip)").Click += (a, b) =>
         {
@@ -588,7 +606,7 @@ partial class StudioForm
         using (var b = new SolidBrush(TM.C(255, 18, 10, 34))) g.FillRectangle(b, box); using (var pen = new Pen(Color.FromArgb(150, NeonViolet))) g.DrawLine(pen, box.X, box.Y, box.X, box.Bottom); Reg(box, () => { });
         SoundTabs(g, box.X + 14, box.Y + 7, true);
         var clp = Rc(box.Right - 38, box.Y + 8, 28, 26); Btn(g, clp, "x", 0, () => CloseSounds(), 13); Btn(g, Rc(box.Right - 156, box.Y + 8, 112, 26), sndFull ? "Exit full" : "Fullscreen", sndFull ? 4 : 0, () => { sndFull = !sndFull; }, 11);
-        EnsurePackBox(); { var pr = wide ? new Rectangle((int)(box.X + 256), (int)(box.Y + 8), (int)Math.Max(160, box.Width - 256 - 176), 26) : new Rectangle((int)(box.X + 14), (int)(box.Y + 40), (int)(box.Width - 28), 26); if (packBox.Bounds != pr) packBox.Bounds = pr; if (!packBox.Visible) packBox.Visible = true; if (packQuery.Length == 0 && !packBox.Focused) Txt(g, "Search packs: drill, amapiano, dark, guitar, 140 bpm...", 11, DimC, Rc(pr.X + 8, pr.Y + 5, pr.Width - 16, 18), StringAlignment.Near, false); }
+        EnsurePackBox(); { var pr = wide ? new Rectangle((int)(box.X + 376), (int)(box.Y + 8), (int)Math.Max(160, box.Width - 376 - 176), 26) : new Rectangle((int)(box.X + 14), (int)(box.Y + 40), (int)(box.Width - 28), 26); if (packBox.Bounds != pr) packBox.Bounds = pr; if (!packBox.Visible) packBox.Visible = true; if (packQuery.Length == 0 && !packBox.Focused) Txt(g, "Search packs: drill, amapiano, dark, guitar, 140 bpm...", 11, DimC, Rc(pr.X + 8, pr.Y + 5, pr.Width - 16, 18), StringAlignment.Near, false); }
         float infoY = wide ? box.Y + 40 : box.Y + 70;
         { int instN = 0, files0 = 0; lock (SoundLibrary.Lock) foreach (var p in SoundLibrary.Packs) if (p.Items.Count > 0 && p.Id != SoundLibrary.UserPackId) { instN++; files0 += p.Items.Count; }
           Txt(g, SoundCatalog.Recipes.Count + " packs  ·  " + instN + " installed (" + files0.ToString("#,0") + " real sound files). Install makes a pack's sounds on this PC and checks every one" + (wide ? " (tempo, length, clipping, silence, copies)." : "."), 11, DimC, Rc(box.X + 14, infoY, box.Width - 28, 18), StringAlignment.Near, false); }

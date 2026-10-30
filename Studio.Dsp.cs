@@ -991,6 +991,7 @@ public static class FxRegistry
         new Info("synth", "Bass Lab (synthesizer)", "Instruments", "Wobble bass synth: oscillators, warp, filters, LFOs, matrix, bass boost"),
         new Info("wobble", "Purphex Wobble", "Instruments", "The wobble bass engine: tempo-synced LFO filter, vowels, FM, grit, sub and mid layers"),
         new Info("sampler", "Purphex Sampler", "Instruments", "Plays your samples from notes: one sample (kick, snare, 808...) or a kit mapped to keys"),
+        new Info("pxkeymap", "Purphex Key Map", "Instruments", "Any sound on any key of your MIDI keyboard, on one key or played across a range of keys"),
         new Info("pxpads", "Purphex Pads", "Instruments", "16 pads, any sound on each (library, your files or your tracks), played from your MIDI keyboard's pads"),
         new Info("gain", "Gain", "Utility", "Simple gain trim") };
 
@@ -1000,6 +1001,7 @@ public static class FxRegistry
         {
             case "sampler": return new SamplerFx();
             case "pxpads": return new PadsFx();
+            case "pxkeymap": return new KeyMapFx();
             case "wobble": return new WobbleFx();
             case "eq": return new ParametricEq();
             case "comp": return new Compressor();
