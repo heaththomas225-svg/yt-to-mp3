@@ -39,7 +39,8 @@ partial class StudioForm
             if (BlMidi(s, d1, d2)) return true;   // the Beat Lab is open: the keyboard's pads play its pads
             // the picked track when it is a MIDI track, else the first MIDI track of the song (an audio track picked played nothing at all);
             // a song with no MIDI track gets one ("Keys", the built-in piano) the first time a key is pressed
-            Track t = eng.Tracks.Count > 0 ? eng.Tracks[Math.Max(0, Math.Min(selTrack, eng.Tracks.Count - 1))] : null;
+            // the piano roll open on a track (or on your pattern): the keyboard plays and records that, the one you are looking at
+            Track t = PrShown && prTrack != null && prTrack.Instrument && !prTrack.IsBus ? prTrack : (eng.Tracks.Count > 0 ? eng.Tracks[Math.Max(0, Math.Min(selTrack, eng.Tracks.Count - 1))] : null);
             if (t == null || !t.Instrument || t.IsBus) { t = null; lock (eng.Sync) foreach (var q in eng.Tracks) if (q.Instrument && !q.IsBus && q.Host == null) { t = q; break; } }
             if (t == null) { if ((s & 0xF0) == 0x90 && d2 > 0 && !keysTrackAsked) { keysTrackAsked = true; try { BeginInvoke(new Action(() => { var kt = StudioEngine.NewTrack("Keys", "inst", null); kt.Instrument = true; kt.Color = unchecked((int)0xFF3B8CF5); AddTrack(kt); Toast("Your MIDI keyboard plays the new track Keys (the built-in piano). Add an instrument or a VST to it from + ADD EFFECT for other sounds."); keysTrackAsked = false; })); } catch { keysTrackAsked = false; } } return true; }
             // the picked MIDI track plays what is on it (a VST, Bass Lab, a Purphex instrument, or the built-in keys when it has none), through its effects, and MIDI REC records it
@@ -103,9 +104,11 @@ partial class StudioForm
     }
 
     // Notes played in an instrument window are recorded onto its track while the song plays and REC is armed.
+    Track recToastFor;
     void OnMidiNote(Track t, bool on, int note, int vel)
     {
         if (!recOn || t == null || !t.Instrument) return;
+        if (on && recToastFor != t) { recToastFor = t; var tn = t.Name; try { BeginInvoke(new Action(() => Toast("Recording your MIDI keyboard onto " + tn + "."))); } catch { } }
         long frame;
         if (!eng.Playing) { frame = eng.Pos; try { BeginInvoke(new Action(() => { if (!eng.Playing) PlayGuard(); })); } catch { } }   // the first note starts the song and is recorded at the needle
         else frame = Math.Max(0, (long)dispPos);

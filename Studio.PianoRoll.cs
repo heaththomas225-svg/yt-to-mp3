@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -223,6 +223,8 @@ partial class StudioForm
         else Txt(g, kind, 9, DimC, Rc(bx, y, 190, 24), StringAlignment.Near, true);
         bx += 194;
         Func<float, string, bool, Action, string, RectangleF> chip = (cw, label, on, act, hint) => { var r = Rc(bx, y, cw, 24); Btn(g, r, label, on ? 4 : 0, act, 9); Hint2(r, hint); bx += cw + 4; return r; };
+        { var recR = chip(70, recOn ? "● REC" : "○ REC", recOn, () => { recOn = !recOn; Toast(recOn ? "Recording is on (red): play your MIDI keyboard and the notes go into " + (prTrack != null ? prTrack.Name : "this piano roll") + ", from the needle (the first note starts the song). Press REC again to stop." : "Recording is off."); }, "Record your MIDI keyboard into this piano roll (" + (prTrack != null ? prTrack.Name : "its track") + "), from the needle: the first note starts the song");
+          if (recOn) using (var pen = new Pen(Color.FromArgb(220, 255, 70, 90), 2f)) using (var pth = RR(recR, 6)) g.DrawPath(pen, pth); }
         chip(122, "SNAP " + PrSnapShort(prSnap), false, () => PrSnapMenu(), "Where notes land: 1 bar down to 1/32, triplets, or no snap");
         chip(104, "LENGTH " + PrBeatsName(prLenBeats), false, () => PrLenMenu(), "The length of the next note you add (drag a note's right edge to change one)");
         chip(118, prScale == 0 ? "SCALE: OFF" : NoteNm[prKeyRoot] + " " + PrScales[prScale].ToUpperInvariant(), prScale != 0, () => PrScaleMenu(), "Light up the notes of a key and scale (you can still use any note unless LOCK is on)");
