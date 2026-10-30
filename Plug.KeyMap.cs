@@ -89,8 +89,10 @@ class KeyMapWindow : PxWindow, ISoundDrop
         Txt(g, KeyMapFx.NoteLabel(low) + " to " + KeyMapFx.NoteLabel(low + 59), 12, Ink, new RectangleF(top.X + 60, top.Y, 150, top.Height), StringAlignment.Center, true);
         Button(g, new RectangleF(top.X + 214, top.Y + 10, 44, 36), "▶", false, Cyan, () => low = Math.Min(67, low + 12), "Show higher keys", 14);
         Button(g, new RectangleF(top.X + 272, top.Y + 10, 210, 36), follow ? "PICK BY PLAYING: ON" : "PICK BY PLAYING: OFF", follow, Gold, () => follow = !follow, "On: the key you play on your MIDI keyboard is picked, ready for a sound", 10.5f);
-        Button(g, new RectangleF(top.X + 492, top.Y + 10, 120, 36), "CLEAR ALL", false, Violet, () => { if (MessageBox.Show(this, "Take the sound off every key?", Text, MessageBoxButtons.YesNo) != DialogResult.Yes) return; Mark(); e.ClearAll(); }, "Take every sound off the keyboard", 11);
-        Txt(g, "Drop sound files on a key, or right-click a key to choose its sound", 11, Dim, new RectangleF(top.X + 626, top.Y, top.Width - 638, top.Height), StringAlignment.Near, false);
+        Button(g, new RectangleF(top.X + 492, top.Y + 10, 110, 36), "CLEAR ALL", false, Violet, () => { if (MessageBox.Show(this, "Take the sound off every key?", Text, MessageBoxButtons.YesNo) != DialogResult.Yes) return; Mark(); e.ClearAll(); }, "Take every sound off the keyboard", 11);
+        Button(g, new RectangleF((top.X + 612), top.Y + 10, 110, 36), "SAVE MAP", false, Lime, SaveMine, "Save these sounds as a key map of yours, with a name: its sounds are copied in, so it always works", 11);
+        Button(g, new RectangleF((top.X + 612) + 118, top.Y + 10, 120, 36), "MY MAPS  ▾", false, Lime, () => KitsMenu(new Point((int)((top.X + 612) + 118), (int)top.Y + 46)), "Your saved key maps: pick one to load it (the arrows at the top step through them)", 11);
+        Txt(g, "Drop sounds on a key, or right-click a key", 10.5f, Dim, new RectangleF(top.X + 862, top.Y, top.Width - 874, top.Height), StringAlignment.Near, false);
         // the keyboard: 5 octaves, the sounds' names above the keys they play
         var kb = new RectangleF(a.X, top.Bottom + 12, a.Width, 250); Panel(g, kb, "", Cyan); keyRects.Clear();
         float lane = 44, kx = kb.X + 12, ky = kb.Y + 12 + lane, kw = (kb.Width - 24) / 35f, kh = kb.Height - 24 - lane; int now = Environment.TickCount;
@@ -123,11 +125,11 @@ class KeyMapWindow : PxWindow, ISoundDrop
         var zs = e.ZoneOf(sel); string sn = zs == null ? "No sound on this key yet" : zs.Name + (zs.Lo != zs.Hi ? "   (pitched, " + KeyMapFx.NoteLabel(zs.Lo) + " to " + KeyMapFx.NoteLabel(zs.Hi) + ")" : "");
         Txt(g, sn, 14, zs == null ? Dim : Ink, new RectangleF(pk.X + 14, pk.Y + 26, pk.Width * 0.45f, 24), StringAlignment.Near, true);
         int s0 = sel; float bx = pk.X + 14, by = pk.Y + 58;
-        Button(g, new RectangleF(bx, by, 220, 34), "CHOOSE ITS SOUND  ▾", true, Cyan, () => KeyMenu(s0), "A sound from the library, a file on your PC, or one of your song's tracks", 11.5f);
-        Button(g, new RectangleF(bx + 230, by, 200, 34), "A SOUND FILE ON MY PC...", false, Pink, () => { string f = SoundSources.PickFile(this, "A sound for " + KeyMapFx.NoteLabel(s0)); if (f != null) PutKey(s0, f, Path.GetFileNameWithoutExtension(f)); }, "Choose a WAV, MP3, FLAC, OGG, AIFF or M4A file", 10.5f);
-        Button(g, new RectangleF(bx + 440, by, 150, 34), "CLEAR THIS KEY", false, Violet, () => { Mark(); e.ClearKey(s0); }, zs != null && zs.Lo != zs.Hi ? "Take this sound off all the keys it plays" : "Take the sound off this key", 10.5f);
+        Button(g, new RectangleF(bx, by, 196, 34), "CHOOSE ITS SOUND  ▾", true, Cyan, () => KeyMenu(s0), "A sound from the library, a file on your PC, or one of your song's tracks", 11.5f);
+        Button(g, new RectangleF(bx + 204, by, 186, 34), "A SOUND FILE ON MY PC...", false, Pink, () => { string f = SoundSources.PickFile(this, "A sound for " + KeyMapFx.NoteLabel(s0)); if (f != null) PutKey(s0, f, Path.GetFileNameWithoutExtension(f)); }, "Choose a WAV, MP3, FLAC, OGG, AIFF or M4A file", 10.5f);
+        Button(g, new RectangleF(bx + 398, by, 140, 34), "CLEAR THIS KEY", false, Violet, () => { Mark(); e.ClearKey(s0); }, zs != null && zs.Lo != zs.Hi ? "Take this sound off all the keys it plays" : "Take the sound off this key", 10.5f);
         // play it across: this key only, an octave each side, the whole keyboard (pitched)
-        float sx = pk.X + pk.Width * 0.5f + 20; Txt(g, "PLAY IT ACROSS", 10, Dim, new RectangleF(sx, pk.Y + 26, 300, 14), StringAlignment.Near, true);
+        float sx = Math.Max(pk.X + pk.Width * 0.5f + 20, bx + 556);   /* (right of the three buttons, never over them) */ Txt(g, "PLAY IT ACROSS", 10, Dim, new RectangleF(sx, pk.Y + 26, 300, 14), StringAlignment.Near, true);
         string[] spans = { "THIS KEY ONLY", "AN OCTAVE EACH SIDE", "THE WHOLE KEYBOARD" }; float sw = (a.Right - sx - 14 - 12) / 3;
         int span = zs == null ? -1 : (zs.Lo == zs.Hi ? 0 : (zs.Lo <= 0 && zs.Hi >= 127 ? 2 : 1));
         for (int i = 0; i < 3; i++)
@@ -144,6 +146,14 @@ class KeyMapWindow : PxWindow, ISoundDrop
             Button(g, new RectangleF(sx + 170, pk.Y + 90, 44, 30), "−", false, Cyan, () => { Mark(); e.Nudge(s0, -1.5f); }, "Quieter", 14);
             Button(g, new RectangleF(sx + 220, pk.Y + 90, 44, 30), "+", false, Cyan, () => { Mark(); e.Nudge(s0, 1.5f); }, "Louder", 14);
         }
+    }
+    void KitsMenu(Point at)
+    {
+        var m = Win.NewMenu(); var mine = Presets.User(fx.Type);
+        foreach (var kv in mine) { var k2 = kv; var it = new ToolStripMenuItem(kv.Key) { Checked = kv.Key == PresetName }; it.Click += (a, b) => ApplyPreset(k2.Key, k2.Value); m.Items.Add(it); }
+        if (mine.Count == 0) m.Items.Add(new ToolStripMenuItem("No key maps saved yet: put sounds on, then press SAVE MAP") { Enabled = false });
+        m.Items.Add(new ToolStripSeparator()); m.Items.Add("Save these sounds as a new key map...").Click += (a, b) => SaveMine();
+        m.Show(this, at);
     }
     void KeyMenu(int key)
     {

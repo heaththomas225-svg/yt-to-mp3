@@ -389,6 +389,11 @@ partial class StudioForm
         var m = Win.NewMenu(); var list = t == null ? eng.MasterFx : t.Fx; int fi; lock (eng.Sync) fi = list.IndexOf(f); if (fi < 0) return;
         m.Items.Add("Open " + f.Title).Click += (a, b) => OpenFxWindow(t, f);
         m.Items.Add(f.Bypass ? "Turn on" : "Bypass").Click += (a, b) => f.Bypass = !f.Bypass;
+        m.Items.Add(new ToolStripSeparator());
+        m.Items.Add("Save as my preset...").Click += (a, b) => SaveFxPreset(f);
+        { var pm = new ToolStripMenuItem("Presets"); var all = FxPresetList(f); var mineNames = new HashSet<string>(Presets.User(f.Type).Select(kv => kv.Key));
+          foreach (var kv0 in all) { var kv = kv0; var it = new ToolStripMenuItem((mineNames.Contains(kv.Key) ? "★ " : "") + kv.Key) { Checked = kv.Key == f.CurPreset }; it.Click += (a, b) => { PushUndo(); lock (eng.Sync) Presets.Apply(f, kv.Value); f.CurPreset = kv.Key; f.CurPresetData = kv.Value; }; pm.DropDownItems.Add(it); }
+          if (all.Count == 0) pm.DropDownItems.Add(new ToolStripMenuItem("None yet: Save as my preset makes one") { Enabled = false }); m.Items.Add(pm); }
         if (t != null)
         {
             m.Items.Add(new ToolStripSeparator());

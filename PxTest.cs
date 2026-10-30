@@ -322,6 +322,13 @@ static class PX
             Check("Pads: it is an instrument with a window, listed with the instruments, and says what it does", pads.IsInstrument && pads.HasWindow && FxRegistry.All.Any(i => i.Type == "pxpads" && i.Category == "Instruments") && FxHelp.Has("Purphex Pads"), "");
             var w = new PadsWindow(pads); w.Show(); Application.DoEvents(); var shot = w.Snapshot(); string shotPath = System.IO.Path.Combine(dir, "pads_window.png"); shot.Save(shotPath, System.Drawing.Imaging.ImageFormat.Png); Console.WriteLine("pads window picture: " + shotPath); int hc = w.HitCount; w.Close();
             Check("Pads: the window draws its 16 pads and their controls", hc >= 16 + 8, hc + " controls");
+            { // kits: saved under names you choose (as many as you like, the same genre twice), with copies of their sounds, so a kit still plays after the original files are gone
+              string orig = tone(330); pads.SetPad(2, orig, "Orig"); Presets.SaveUser("pxpads", "Trap kit", pads); string second = Presets.FreeName("pxpads", "Trap kit"); Presets.SaveUser("pxpads", second, pads);
+              System.IO.File.Delete(orig); var kits = Presets.User("pxpads"); var fresh = (PadsFx)FxRegistry.Create("pxpads"); fresh.Prepare(44100); Presets.Apply(fresh, kits.First(kv => kv.Key == "Trap kit").Value);
+              var z = fresh.PadZone(2); bool plays = z != null && !z.Missing && System.IO.File.Exists(z.Path);
+              Check("Pads: SAVE KIT keeps copies of the sounds, so a saved kit loads and plays after the original file is deleted", plays && fresh.PadName(2) == "Orig", z == null ? "no zone" : z.Path);
+              Check("Pads: kits get their own names, the same genre as often as you like (a free name is offered: Trap kit 2)", second == "Trap kit 2" && kits.Count == 2, second + ", " + kits.Count + " kits");
+              Presets.DeleteUser("pxpads", "Trap kit 2"); Check("Pads: deleting a kit takes its copied sounds with it", Presets.User("pxpads").Count == 1, ""); }
             { var w2 = new PadsWindow(pads); w2.Show(); Application.DoEvents(); w2.Snapshot(); var pr3 = w2.PadRect(9); bool took = w2.DropSound(w2.PointToScreen(new System.Drawing.Point((int)(pr3.X + pr3.Width / 2), (int)(pr3.Y + pr3.Height / 2))), tone(1200), "Dragged"); w2.Close();
               Check("Pads: a sound dragged from the studio and let go over a pad lands on that pad", took && pads.PadName(9) == "Dragged", "pad 10 is '" + pads.PadName(9) + "'"); }
             StudioEngine.Current = keep;

@@ -68,6 +68,22 @@ class SamplerFx : InstrumentFx   // (Purphex Pads is a sampler with a window of 
     public Zone ZoneAt(int key) { lock (zl) { foreach (var z in Zones) if (z.Lo == key && z.Hi == key) return z; } return null; }
     public void RemoveKey(int key) { lock (zl) Zones.RemoveAll(q => q.Lo == key && q.Hi == key); }
     public void SwapKeys(int a, int b) { lock (zl) foreach (var z in Zones) if (z.Lo == z.Hi) { if (z.Lo == a) { z.Lo = z.Hi = z.Root = b; } else if (z.Lo == b) { z.Lo = z.Hi = z.Root = a; } } }
+    // every sound copied into a folder (a saved kit keeps its own copies); the zones then play the copies
+    public void PackSounds(string folder)
+    {
+        List<Zone> zs; lock (zl) zs = new List<Zone>(Zones); if (zs.Count == 0) return;
+        try
+        {
+            Directory.CreateDirectory(folder); string full = Path.GetFullPath(folder).TrimEnd('\\') + "\\"; var done = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase); int n = 0;
+            foreach (var z in zs)
+            {
+                if (string.IsNullOrEmpty(z.Path) || !File.Exists(z.Path)) continue; if (Path.GetFullPath(z.Path).StartsWith(full, StringComparison.OrdinalIgnoreCase)) continue;
+                string to; if (!done.TryGetValue(z.Path, out to)) { to = Path.Combine(folder, (++n).ToString("00") + " " + Path.GetFileName(z.Path)); File.Copy(z.Path, to, true); done[z.Path] = to; }
+                z.Path = to;
+            }
+        }
+        catch { }
+    }
     public bool IsKit { get { lock (zl) return Zones.Count > 1 || (Zones.Count == 1 && Zones[0].Lo == Zones[0].Hi); } }
     public bool AnyFollow { get { lock (zl) { foreach (var z in Zones) if (z.Follow) return true; } return false; } }
     // the name shown on a key of the piano roll (a kit's sample on that key)

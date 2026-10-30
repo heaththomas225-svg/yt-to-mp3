@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -90,10 +90,10 @@ partial class StudioForm
         Prof.A("fw.header", q0); q0 = Prof.T();
         // toolbar: presets (previous / next / pick), reset
         float ty = r.Y + FwTitle + 2; var presets = FxPresetList(f); int cur = presets.FindIndex(kv => kv.Key == f.CurPreset);
-        if (presets.Count > 0)
         {
             var pv = Rc(r.X + 10, ty, 28, 24); Btn(g, pv, "<", 0, () => StepFxPreset(f, -1), 11); Hint2(pv, "Previous preset");
-            var pk = Rc(pv.Right + 4, ty, r.Width - 200, 24); Btn(g, pk, f.CurPreset.Length > 0 ? f.CurPreset : "PRESETS (" + presets.Count + ")", f.CurPreset.Length > 0 ? 4 : 0, () => OpenPresetSheet(f), 10); Hint2(pk, "Pick a preset (" + presets.Count + " for " + f.Title + ")");
+            var sv = Rc(r.Right - 84 - 70, ty, 64, 24); Btn(g, sv, "SAVE", 1, () => SaveFxPreset(f), 10); Hint2(sv, "Save these settings as a preset of your own, with a name (as many as you like)");
+            var pk = Rc(pv.Right + 4, ty, r.Width - 270, 24); Btn(g, pk, f.CurPreset.Length > 0 ? f.CurPreset : "PRESETS (" + presets.Count + ")", f.CurPreset.Length > 0 ? 4 : 0, () => OpenPresetSheet(f), 10); Hint2(pk, "Pick a preset (" + presets.Count + " for " + f.Title + ")");
             var nx = Rc(pk.Right + 4, ty, 28, 24); Btn(g, nx, ">", 0, () => StepFxPreset(f, 1), 11); Hint2(nx, "Next preset");
         }
         var rs = Rc(r.Right - 84, ty, 74, 24); Btn(g, rs, "RESET", 0, () => { if (AskYes("Reset " + f.Title + " to its default settings?", "Reset plugin")) { lock (eng.Sync) { f.ResetDefaults(); f.Reset(); f.CurPreset = ""; f.CurPresetData = ""; } } }, 10); Hint2(rs, "Back to this plugin's default settings");
@@ -122,6 +122,14 @@ partial class StudioForm
     // the plugins whose settings are drawn by the general editor (so a window shows them as knobs)
     static bool KnobEditor(Fx f) { return !(f is InstrumentFx) && !PxPlugins.HasWindow(f) && !(f is ParametricEq); }
     internal static List<KeyValuePair<string, string>> FxPresetList(Fx f) { var l = new List<KeyValuePair<string, string>>(); try { l.AddRange(Presets.User(f.Type)); l.AddRange(Presets.For(f.Type)); } catch { } return l; }
+    // SAVE: a plugin's settings as a preset of yours, under a name (a free name is offered; an existing one asks first). As many as you like.
+    internal void SaveFxPreset(Fx f)
+    {
+        string def = Presets.FreeName(f.Type, f.CurPreset.Length > 0 && Presets.User(f.Type).Exists(kv => kv.Key == f.CurPreset) ? f.CurPreset : f.Title.Replace("Purphex ", "") + " 1");
+        string nm = Ask("Name for your " + f.Title + " preset (save as many as you like):", def); if (nm == null || nm.Trim().Length == 0) return; nm = nm.Trim();
+        if (Presets.UserExists(f.Type, nm) && !AskYes("You already have a " + f.Title + " preset called \"" + nm + "\". Replace it?", "Save preset")) return;
+        Presets.SaveUser(f.Type, nm, f); f.CurPreset = Presets.SafeName(nm); f.CurPresetData = f.Serialize(); Toast("Saved \"" + nm + "\": it is in PRESETS (and the arrows) for " + f.Title + " from now on.");
+    }
     internal void StepFxPreset(Fx f, int d)
     {
         var l = FxPresetList(f); if (l.Count == 0) return; int cur = l.FindIndex(kv => kv.Key == f.CurPreset); int nxt = cur < 0 ? (d > 0 ? 0 : l.Count - 1) : ((cur + d) % l.Count + l.Count) % l.Count;

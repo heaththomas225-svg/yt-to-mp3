@@ -88,8 +88,10 @@ class PadsWindow : PxWindow, ISoundDrop
         var top = new RectangleF(a.X, a.Y, a.Width, 56); Panel(g, top, "", Pink);
         Button(g, new RectangleF(top.X + 12, top.Y + 10, 230, 36), "KIT FROM A GENRE  ▾", false, Pink, () => KitMenu(new Point((int)top.X + 12, (int)top.Y + 46)), "Fill all 16 pads with a genre's drum kit from the sound library", 12);
         Button(g, new RectangleF(top.X + 252, top.Y + 10, 180, 36), e.LearnPad >= 0 ? "HIT A PAD ON YOUR KEYBOARD..." : "LEARN", e.LearnPad >= 0, Gold, () => e.LearnPad = e.LearnPad >= 0 ? -1 : sel, "LEARN: then hit a pad (or key) on your MIDI keyboard, and the picked pad plays from it", 11);
-        Button(g, new RectangleF(top.X + 442, top.Y + 10, 130, 36), "CLEAR ALL", false, Violet, () => { if (MessageBox.Show(this, "Take the sound off every pad?", Text, MessageBoxButtons.YesNo) != DialogResult.Yes) return; Mark(); for (int i = 0; i < PadsFx.N; i++) e.ClearPad(i); }, "Take the sounds off all the pads", 11);
-        Txt(g, "Drop sound files on a pad, or right-click a pad to choose its sound", 11, Dim, new RectangleF(top.X + 586, top.Y, top.Width - 598, top.Height), StringAlignment.Near, false);
+        Button(g, new RectangleF(top.X + 442, top.Y + 10, 120, 36), "CLEAR ALL", false, Violet, () => { if (MessageBox.Show(this, "Take the sound off every pad?", Text, MessageBoxButtons.YesNo) != DialogResult.Yes) return; Mark(); for (int i = 0; i < PadsFx.N; i++) e.ClearPad(i); }, "Take the sounds off all the pads", 11);
+        Button(g, new RectangleF((top.X + 572), top.Y + 10, 110, 36), "SAVE KIT", false, Lime, SaveMine, "Save these sounds as a kit of yours, with a name: its sounds are copied in, so it always works", 11);
+        Button(g, new RectangleF((top.X + 572) + 118, top.Y + 10, 120, 36), "MY KITS  ▾", false, Lime, () => KitsMenu(new Point((int)((top.X + 572) + 118), (int)top.Y + 46)), "Your saved kits: pick one to load it (the arrows at the top step through them)", 11);
+        Txt(g, "Drop or right-click a pad", 10.5f, Dim, new RectangleF(top.X + 822, top.Y, top.Width - 834, top.Height), StringAlignment.Near, false);
         // the 16 pads: pad 1 at the bottom left, like the pads on a MIDI keyboard
         float gw = a.Width * 0.66f, gh = a.Bottom - top.Bottom - 12, gap = 10, pw = (gw - gap * 3) / 4, ph = (gh - gap * 3) / 4; int now = Environment.TickCount;
         for (int i = 0; i < PadsFx.N; i++)
@@ -129,6 +131,14 @@ class PadsWindow : PxWindow, ISoundDrop
         var cl = new ToolStripMenuItem("Clear this pad") { Enabled = e.PadName(pad).Length > 0 }; cl.Click += (a, b) => { Mark(); e.ClearPad(pad); }; m.Items.Add(cl);
         m.Show(this, PointToClient(Cursor.Position));
     }
+    void KitsMenu(Point at)
+    {
+        var m = Win.NewMenu(); var mine = Presets.User(fx.Type);
+        foreach (var kv in mine) { var k2 = kv; var it = new ToolStripMenuItem(kv.Key) { Checked = kv.Key == PresetName }; it.Click += (a, b) => ApplyPreset(k2.Key, k2.Value); m.Items.Add(it); }
+        if (mine.Count == 0) m.Items.Add(new ToolStripMenuItem("No kits saved yet: put sounds on, then press SAVE KIT") { Enabled = false });
+        m.Items.Add(new ToolStripSeparator()); m.Items.Add("Save these sounds as a new kit...").Click += (a, b) => SaveMine();
+        m.Show(this, at);
+    }
     void KitMenu(Point at)
     {
         var m = Win.NewMenu(); var fams = new Dictionary<string, ToolStripMenuItem>();
@@ -155,7 +165,7 @@ class PadsWindow : PxWindow, ISoundDrop
             }
         }
         finally { Cursor = Cursors.Default; }
-        if (put == 0) MessageBox.Show(this, "Nothing could be loaded from that kit.", Text);
+        if (put == 0) MessageBox.Show(this, "Nothing could be loaded from that kit.", Text); else { PresetName = StudioForm.PatStyles[style].Name + " kit"; fx.CurPreset = ""; }   // (SAVE KIT offers this name, numbered if you have one already)
     }
 }
 // A sound dragged from the studio (SOUNDS, MY SOUNDS) and let go over Purphex Pads or Key Map: the studio keeps the mouse while it drags,
