@@ -1,4 +1,4 @@
-3.79.4
+3.80.0
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-A group of clips keeps its spacing at the start of the song
-sha256=d7511fd3fd3052c98aea782a0ea16fbe44a58f2a3a7d14f7c1e67c54019e4c3f
+Real effect displays, TRIM and versions in MY SOUNDS, clips stay in sync
+sha256=803d232b82c94228cbb24e682f035faff298ed95eb9abf4f0d74de00569bf381

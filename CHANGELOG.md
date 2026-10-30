@@ -2,6 +2,50 @@
 
 What changed in each version of **Purphex**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.80.0  Real effect displays, TRIM and versions in MY SOUNDS, clips stay in sync
+
+- NEW: After a crash or a power cut, Purphex asks: carry on from where you were (with everything you had not saved), open your last save instead, or start fresh. Your project is never saved by itself: only SAVE changes it. The hidden recovery copy is now kept every 30 seconds.
+
+- NEW: Moving a clip up or down to another row keeps it in time: a gold IN SYNC line shows it is held. Pull it clearly sideways and it moves freely again.
+
+- NEW: Zoomed out, clips are easier to see and grab: the wave is drawn bigger, short clips are never too thin to click, each clip has a bright edge at both ends, and the names show on smaller clips too.
+
+- NEW: The furthest zoom-out is the song filling the whole timeline (a short song no longer ends up tiny in a corner).
+
+- FIXED: Shift or Ctrl and the mouse wheel zoom exactly on the point under the mouse, in finer steps (it drifted to the left).
+
+- FIXED: Every row of buttons is even: the same height, the same size of writing and the same gaps (top bar, Mastering bar and the editing row).
+
+- FIXED: Removing a duplicate from MY SOUNDS never deletes the file, so a pad or project using it keeps working.
+
+- NEW: Every effect window shows what the effect really does, instead of the galaxy. Reverb shows its tail, delay its echoes, compressors and limiters their curve and how hard they squeeze, EQs and filters their frequency curve, drive its shaping curve, plus pitch correction, stereo width, noise removal, harmonics and 8D. It moves as you turn a knob and while the song plays.
+
+- NEW: The mouse wheel scrolls the tracks up and down (it never shoots off sideways). The arrow keys move around: Left and Right along the song, Up and Down through the tracks. Shift and the wheel, or the bar at the top, still go along the song.
+
+- NEW: A scroll bar for the tracks that is always there, on the left, between the track list and the timeline.
+
+- NEW: MIDI MAP button on the top bar: set up your MIDI keyboard and controller in one click.
+
+- NEW: PINNED at the top of VSTS: Bass Lab always, Purphex Pads and Key Map right under it, and a PIN button on every VST to keep your favourites up there.
+
+- NEW: TRIM in MY SOUNDS: drag the gold handles on a sound to keep only the part you want. Dragging it into the song, a pad or a key uses that part, and the original sample is never changed.
+
+- NEW: Importing sounds skips duplicates (the same sound, whatever its name) and removes copies already in MY SOUNDS. A different sound with the same name is kept as (2), and LOCATE shows you the copy you already have.
+
+- NEW: Edited a sound from MY SOUNDS? Right-click the clip and add it back: it asks whether to replace the original. Say no and the edit goes right next to it as v2 (then v3...), so you keep every version for your beats.
+
+- NEW: Right-click an audio clip to save it as a WAV on your PC, or add it to MY SOUNDS (only the part that plays, with its gain and fades).
+
+- NEW: Fades of any length, from a tiny click-killer to the whole clip, with IN CURVE and OUT CURVE to bend each one.
+
+- FIXED: Pads and samplers skip the silent gap at the start of a sound, so a hit plays the moment you press it.
+
+- FIXED: The selection box grew huge when you zoomed out. It stays on the same clips now, and dragging it to an edge scrolls the view.
+
+- FIXED: Thin tracks have a PAN knob again.
+
+- FIXED: The right-click menu of tracks and clips is easier to read: clear writing, bigger, with roomier rows.
+
 ## 3.79.4  A group of clips keeps its spacing at the start of the song
 
 - FIXED: Dragging a group of selected clips all the way to the left squashed them together at the start and ruined their placement. Now the group stops as a whole when its first clip reaches the start, and the clips keep their spacing.
