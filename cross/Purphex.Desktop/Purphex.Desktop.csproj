@@ -140,6 +140,7 @@
     <Compile Include="../../Studio.ProducerTag.cs" />
     <Compile Include="../../Studio.BeatLab.cs" />
     <Compile Include="../../Studio.FxHelp.cs" />
+    <Compile Include="../../Plug.Pads.cs" />
     <Compile Include="../../Studio.MidiClips.cs" />
     <Compile Include="../../Studio.UI2.cs" />
     <Compile Include="../../Studio.8D.cs" />

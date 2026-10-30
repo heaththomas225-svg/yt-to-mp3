@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -309,6 +309,21 @@ static class PX
               w.CreateControl(); UiAudit.Begin(); using (var bmp = w is PxWindow ? ((PxWindow)w).Snapshot() : ((GlitchFlowWindow)w).Snapshot()) { } foreach (var s in UiAudit.End().Distinct()) probs.Add(info.Type + ": " + s); w.Dispose();
           }
           Check("every Purphex window: no text cut off or across a box edge", probs.Count == 0, string.Join(" | ", probs.Take(6))); }
+        { // Purphex Pads: any sound on a pad, played from the keyboard's pad notes (36 up), LEARN moves a pad, saved with the project, and its window
+            string dir = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "pxpads_" + Guid.NewGuid().ToString("N")); System.IO.Directory.CreateDirectory(dir);
+            Func<double, string> tone = hz => { var x = new float[22050]; for (int i = 0; i < x.Length; i++) x[i] = (float)(0.6 * Math.Sin(i * 2 * Math.PI * hz / 44100) * Math.Exp(-i / 6000.0)); string f = System.IO.Path.Combine(dir, hz + ".wav"); WavIO.Write(f, x, x, 44100, 24); return f; };
+            var pads = (PadsFx)FxRegistry.Create("pxpads"); pads.Prepare(44100); var pt = StudioEngine.NewTrack("Pads", "inst", null); pt.Instrument = true; pads.Owner = pt; pt.Fx.Add(pads); var keep = StudioEngine.Current; StudioEngine.Current = null;
+            string err = pads.SetPad(0, tone(200), "Low"); pads.SetPad(5, tone(900), "High");
+            Func<int, double> hit = note => { pads.Reset(); pads.NoteOn(note, 110);   /* (a pad plays its sound to the end, like a drum pad: start each hit from silence) */ var l = new float[4096]; var r = new float[4096]; pads.BeginBlock(pt, 0, 4096, false); pads.Process(l, r, 4096); pads.NoteOff(note); pads.BeginBlock(pt, 0, 4096, false); pads.Process(new float[4096], new float[4096], 4096); double pk = 0; foreach (var v in l) pk = Math.Max(pk, Math.Abs(v)); return pk; };
+            Check("Pads: a sound put on pad 1 plays from note 36 (the first pad of a MIDI keyboard), an empty pad stays silent", err == null && hit(36) > 0.05 && hit(37) < 0.001 && hit(41) > 0.05, "pad1 " + hit(36).ToString("0.00") + ", pad2 " + hit(37).ToString("0.000"));
+            pads.MovePad(0, 41); Check("Pads: LEARN moves a pad to another key, and the pad that had it takes the old one (no two pads share a key)", pads.PadNote(0) == 41 && pads.PadNote(5) == 36 && pads.PadName(0) == "Low" && pads.PadName(5) == "High", pads.PadNote(0) + " / " + pads.PadNote(5));
+            pads.Set("g5", -12); double before = hit(36); pads.Set("g5", 0); double after = hit(36); Check("Pads: each pad has its own level", after > before * 2.5, before.ToString("0.000") + " -> " + after.ToString("0.000"));
+            var p2 = (PadsFx)FxRegistry.Create("pxpads"); p2.Prepare(44100); p2.Deserialize(pads.Serialize()); Check("Pads: the pads, their sounds and keys are saved with the project", p2.PadName(0) == "Low" && p2.PadNote(0) == 41 && p2.PadName(5) == "High", p2.PadName(0) + "@" + p2.PadNote(0));
+            Check("Pads: it is an instrument with a window, listed with the instruments, and says what it does", pads.IsInstrument && pads.HasWindow && FxRegistry.All.Any(i => i.Type == "pxpads" && i.Category == "Instruments") && FxHelp.Has("Purphex Pads"), "");
+            var w = new PadsWindow(pads); w.Show(); Application.DoEvents(); var shot = w.Snapshot(); string shotPath = System.IO.Path.Combine(dir, "pads_window.png"); shot.Save(shotPath, System.Drawing.Imaging.ImageFormat.Png); Console.WriteLine("pads window picture: " + shotPath); int hc = w.HitCount; w.Close();
+            Check("Pads: the window draws its 16 pads and their controls", hc >= 16 + 8, hc + " controls");
+            StudioEngine.Current = keep;
+        }
         Console.WriteLine(fails == 0 ? "=== purphex vst checks passed ===" : "=== " + fails + " FAILED ==="); Environment.Exit(fails == 0 ? 0 : 1);
     }
     // the sections a setting needs to be heard

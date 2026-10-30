@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 
 // =====================================================================================================
@@ -42,6 +42,7 @@ static class FxHelp
         A("Bass Boost", "Raises the low end at the frequency you pick, and can add harmonics so the bass shows on small speakers.", "making kicks and 808s hit harder, especially on phones and laptops.");
         A("Bass Lab (synthesizer)", "A full synth that makes its own sound from notes: basses, leads, pads, wobbles.", "making 808s, bass lines, leads and pads from scratch in the piano roll.");
         A("Purphex Wobble", "A bass synth built for wobbles: a filter that moves in time with the song, vowels, grit and sub.", "dubstep and riddim wobble basses, growls and talking basses.");
+        A("Purphex Pads", "16 pads, each playing any sound you pick: from the sound library, a file on your PC or one of your tracks.", "playing your own drum kit from the pads of your MIDI keyboard.");
         A("Purphex Sampler", "Plays your own sounds from notes: one sample at any pitch, or a whole drum kit on the keys.", "playing kicks, snares and 808s in the piano roll; turning any sound into an instrument.");
         A("Gain", "Turns the volume up or down before the next plugin.", "fixing a sound that is too quiet or too loud going into an effect.");
         // ---- the Purphex VSTs ----

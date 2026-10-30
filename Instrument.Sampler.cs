@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -13,7 +13,7 @@ using System.Windows.Forms;
 //  (with a short release, so nothing clicks). It runs inside the studio's own engine like every instrument: mute, solo, the track's
 //  plugins, buses and the mixer all apply. The samples are referenced by file (the sound library's files, or your own).
 // =====================================================================================================
-sealed class SamplerFx : InstrumentFx
+class SamplerFx : InstrumentFx   // (Purphex Pads is a sampler with a window of 16 pads)
 {
     public class Zone
     {
@@ -64,6 +64,10 @@ sealed class SamplerFx : InstrumentFx
         var z = new Zone { Path = path, Name = name ?? System.IO.Path.GetFileNameWithoutExtension(path), Lo = key, Hi = key, Root = key, Follow = false, OneShot = true };
         string err = LoadInto(z); lock (zl) { Zones.RemoveAll(q => q.Lo == key && q.Hi == key); Zones.Add(z); } return err;
     }
+    // the sound on one key, taking a key's sound off, and two keys swapping their sounds (Purphex Pads moves a pad to another key)
+    public Zone ZoneAt(int key) { lock (zl) { foreach (var z in Zones) if (z.Lo == key && z.Hi == key) return z; } return null; }
+    public void RemoveKey(int key) { lock (zl) Zones.RemoveAll(q => q.Lo == key && q.Hi == key); }
+    public void SwapKeys(int a, int b) { lock (zl) foreach (var z in Zones) if (z.Lo == z.Hi) { if (z.Lo == a) { z.Lo = z.Hi = z.Root = b; } else if (z.Lo == b) { z.Lo = z.Hi = z.Root = a; } } }
     public bool IsKit { get { lock (zl) return Zones.Count > 1 || (Zones.Count == 1 && Zones[0].Lo == Zones[0].Hi); } }
     public bool AnyFollow { get { lock (zl) { foreach (var z in Zones) if (z.Follow) return true; } return false; } }
     // the name shown on a key of the piano roll (a kit's sample on that key)

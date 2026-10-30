@@ -131,7 +131,15 @@ partial class StudioForm
     bool BlTrackHasSound(Track t) { foreach (var p in Exporter.RowSet(eng, t)) { if (p.Clip != null && p.UsedLength > 0) return true; if (p.Instrument) lock (p.Midi) if (p.Midi.Count > 0 || p.Fx.Any(f => f is InstrumentFx)) return true; } return false; }
     internal string BlPadFromTrack(int pad, Track t, bool oneHit)
     {
-        if (pad < 0 || pad >= 32) return "No pad to put it on."; int SR = StudioEngine.SR; float[] l, r;
+        if (pad < 0 || pad >= 32) return "No pad to put it on."; int SR = StudioEngine.SR; string path, nm; string err0 = TrackToSound(t, oneHit, out path, out nm); if (err0 != null) return err0;
+        var smp = new SamplerFx(); smp.Prepare(SR); string err = smp.SetSingle(path, nm, oneHit, 60); if (err != null) return err;
+        BlMark(); var pd = blPads[pad]; pd.Sound = smp; pd.Name = nm; pd.Job = BlGuessJob(t.Name + " " + t.Role); blSel = pad; if (pad >= blPadCount) blPadCount = 32; BlHit(pad, 105);
+        return nm + " is on pad " + (pad + 1) + ": tap it, or switch on its steps.";
+    }
+    // a track of the song as a sound file: one hit of its instrument, or its whole part (up to 30 s), silence trimmed and both ends faded (the Beat Lab and Purphex Pads use it)
+    internal string TrackToSound(Track t, bool oneHit, out string path, out string nm)
+    {
+        path = null; nm = null; int SR = StudioEngine.SR; float[] l, r;
         if (oneHit)
         {
             // a copy of the track playing one middle C for half a second, its tail let ring
@@ -151,10 +159,8 @@ partial class StudioForm
         if (s1 - s0 < SR / 100) return t.Name + " is silent there: nothing to put on the pad.";
         s0 = Math.Max(0, s0 - 32); s1 = Math.Min(l.Length, s1 + SR / 50); var L = new float[s1 - s0]; var R = new float[s1 - s0]; Array.Copy(l, s0, L, 0, L.Length); Array.Copy(r, s0, R, 0, R.Length);
         for (int i = 0; i < Math.Min(32, L.Length); i++) { float k = i / 32f; L[i] *= k; R[i] *= k; } for (int i = 0; i < Math.Min(SR / 50, L.Length); i++) { float k = i / (SR / 50f); L[L.Length - 1 - i] *= k; R[R.Length - 1 - i] *= k; }   // no click at either end
-        string nm = t.Name + (oneHit ? " hit" : ""); string path = Path.Combine(PatternAudioDir(), "Pad " + string.Join("_", nm.Split(Path.GetInvalidFileNameChars())) + " " + DateTime.Now.ToString("yyyy-MM-dd HH-mm-ss-fff") + ".wav"); WavIO.Write(path, L, R, SR, 24);
-        var smp = new SamplerFx(); smp.Prepare(SR); string err = smp.SetSingle(path, nm, oneHit, 60); if (err != null) return err;
-        BlMark(); var pd = blPads[pad]; pd.Sound = smp; pd.Name = nm; pd.Job = BlGuessJob(t.Name + " " + t.Role); blSel = pad; if (pad >= blPadCount) blPadCount = 32; BlHit(pad, 105);
-        return nm + " is on pad " + (pad + 1) + ": tap it, or switch on its steps.";
+        nm = t.Name + (oneHit ? " hit" : ""); path = Path.Combine(PatternAudioDir(), "Pad " + string.Join("_", nm.Split(Path.GetInvalidFileNameChars())) + " " + DateTime.Now.ToString("yyyy-MM-dd HH-mm-ss-fff") + ".wav"); WavIO.Write(path, L, R, SR, 24);
+        return null;
     }
     static int BlGuessJob(string h) { h = " " + h.ToLowerInvariant() + " "; if (h.Contains("kick")) return 0; if (h.Contains("snare") || h.Contains("clap") || h.Contains("rim")) return 1; if (h.Contains("open")) return 3; if (h.Contains("hat") || h.Contains("ride") || h.Contains("cymbal")) return 2; if (h.Contains("808") || h.Contains("bass")) return 5; return 4; }
     // KIT: the pads from a genre's pack (kicks, snares, claps, hats, open hat, percussion, ride, 808, an FX and a vocal chop)
