@@ -272,11 +272,18 @@ static class Win
         g.SmoothingMode = sm;
     }
 
+    // a menu that is easy to read: plain clear writing (not capitals), a bit bigger, with roomier rows (the right-click menus of tracks and clips)
+    public static ContextMenuStrip NewReadableMenu()
+    {
+        var m = NewMenu(); m.Tag = "readable"; m.Font = new Font("Segoe UI Semibold", 11.5f);
+        m.ItemAdded += (s, e) => { var mi = e.Item as ToolStripMenuItem; if (mi != null) { mi.Padding = new Padding(4, 5, 4, 5); } };
+        return m;
+    }
     public static ContextMenuStrip NewMenu()
     {
     // every menu of the app (right-click menus, plugin menus, pickers): 10 pt with compact rows (25% smaller than before, so menus take less room), each option in its own neon box
         var m = new PxMenu { Renderer = new DarkRenderer(), BackColor = TM.C(255, 16, 8, 32), ForeColor = TM.C(255, 240, 232, 255), ShowImageMargin = false, Font = new Font("Segoe UI", 10f) };
-        m.Font = UiFont(10f); var ct = new ClickTree(); m.Opening += (s, e) => ct.AllGo = false; m.Closed += (s, e) => ct.CloseAll(); Action<ToolStripItem> up = null; up = it => { if (!string.IsNullOrEmpty(it.Text) && it.Text.Length <= 70) it.Text = Up(it.Text); if (!(it is ToolStripSeparator)) { it.Padding = new Padding(5, 3, 8, 3); it.Margin = new Padding(0, 1, 0, 1); } var mi = it as ToolStripMenuItem; if (mi != null) { var dd = mi.DropDown; dd.SuspendLayout(); try { dd.Font = m.Font; foreach (ToolStripItem sub in mi.DropDownItems) up(sub); } finally { dd.ResumeLayout(false); } ClickToOpen(mi, ct); mi.DropDownOpening += (s3, e3) => SideInApp(mi); mi.DropDownOpened += (s3, e3) => KeepInApp(mi.DropDown); dd.ItemAdded += (s2, e2) => up(e2.Item); } };   // the layout waits until a sub-menu's options are all styled (laid out after each one, a menu of the 1,400 vocal presets took a minute to open)
+        m.Font = UiFont(10f); var ct = new ClickTree(); m.Opening += (s, e) => ct.AllGo = false; m.Closed += (s, e) => ct.CloseAll(); Action<ToolStripItem> up = null; up = it => { if (Equals(m.Tag, "readable")) return; if (!string.IsNullOrEmpty(it.Text) && it.Text.Length <= 70) it.Text = Up(it.Text); if (!(it is ToolStripSeparator)) { it.Padding = new Padding(5, 3, 8, 3); it.Margin = new Padding(0, 1, 0, 1); } var mi = it as ToolStripMenuItem; if (mi != null) { var dd = mi.DropDown; dd.SuspendLayout(); try { dd.Font = m.Font; foreach (ToolStripItem sub in mi.DropDownItems) up(sub); } finally { dd.ResumeLayout(false); } ClickToOpen(mi, ct); mi.DropDownOpening += (s3, e3) => SideInApp(mi); mi.DropDownOpened += (s3, e3) => KeepInApp(mi.DropDown); dd.ItemAdded += (s2, e2) => up(e2.Item); } };   // the layout waits until a sub-menu's options are all styled (laid out after each one, a menu of the 1,400 vocal presets took a minute to open)
         m.ItemAdded += (s, e) => up(e.Item);
         m.Opened += (s, e) => { MenuShownAt = Control.MousePosition; MenuAway = false; };
         m.Closed += (s, e) => { if (e.CloseReason == ToolStripDropDownCloseReason.AppClicked) { MenuAway = true; MenuClosedAt = Environment.TickCount; } };

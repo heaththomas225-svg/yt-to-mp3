@@ -72,7 +72,8 @@ partial class StudioForm
         float[] l, r; int sr; string fmt; if (!SoundIO.Read(s.Path, out l, out r, out sr, out fmt)) return "Couldn't read " + s.Rel + ".";
         if (sr != StudioEngine.SR && sr > 0) { l = Resample(l, sr); r = Resample(r, sr); }
         var clip = AudioClip.FromArrays(l, r, s.Name); clip.Path = s.Path; var t = StudioEngine.NewTrack(s.Name, "audio", clip); t.Color = GroupColour(s.Group); t.Offset = Math.Max(0, frame);
-        if (s.Bpm <= 0) TrimLeadingSilence(t);   // AUTO TRIM a one-shot or a file of yours: it starts where the sound starts (a tempo loop keeps its start, its silence is part of the rhythm)
+        float[] tr0 = SoundTrim(s); if (tr0 != null) { long n0 = clip.Length; t.ClipStart = (long)(tr0[0] * n0); t.ClipFrames = Math.Max(64, (long)((tr0[1] - tr0[0]) * n0)); }   // TRIM in MY SOUNDS: only the part you kept (the file itself is never changed)
+        else if (s.Bpm <= 0) TrimLeadingSilence(t);   // AUTO TRIM a one-shot or a file of yours: it starts where the sound starts (a tempo loop keeps its start, its silence is part of the rhythm)
         bool first = eng.Tracks.Count == 0; if (first && s.Bpm > 0) Fx.ProjectBpm = s.Bpm; nextInsert = insertAt; PlaceDropped(t); if (s.PackId.Length > 0) SoundLibrary.MarkUsed(s);
         if (!first && s.Bpm > 0 && Math.Abs(s.Bpm - Fx.ProjectBpm) > 1.5) Toast("Added. This loop is " + s.Bpm.ToString("0") + " BPM and your project is " + Fx.ProjectBpm.ToString("0") + " BPM."); else Toast("Added " + s.Name);
         return null;
@@ -138,13 +139,80 @@ partial class StudioForm
         AddTrack(t);
     }
 
+    // ---- duplicates found by an import: LOCATE shows each sound it was a copy of (one after another), so you can find the one you already have ----
+    readonly List<SoundItem> dupeFind = new List<SoundItem>(); int dupeAt;
+    internal void NoteDupes() { dupeFind.Clear(); dupeAt = 0; foreach (var d in SoundLibrary.LastDupeItems) if (d != null && !dupeFind.Contains(d)) dupeFind.Add(d); }
+    internal void LocateDupe()
+    {
+        if (dupeFind.Count == 0) return; var it = dupeFind[dupeAt % dupeFind.Count]; dupeAt = (dupeAt + 1) % dupeFind.Count; it = SoundLibrary.Find(it.Id) ?? it;
+        ShowMySounds(); if (soundBox != null) soundBox.Text = it.Name; sndFilter.Text = it.Name; sndDirty = true; SelectSound(it, false); Toast("Here it is: " + it.Name + " (already in MY SOUNDS).");
+    }
+    void PaintDupeBar(Graphics g, RectangleF r)
+    {
+        var gold = Color.FromArgb(255, 255, 206, 84); FillRR(g, Color.FromArgb(70, 120, 90, 10), r, 5); StrokeRR(g, Color.FromArgb(200, gold), r, 5, 1f);
+        int n = dupeFind.Count; Txt(g, n + " duplicate" + (n == 1 ? " was" : "s were") + " already in MY SOUNDS", 9, gold, Rc(r.X + 8, r.Y, r.Width - 180, r.Height), StringAlignment.Near, true);
+        var lb = Rc(r.Right - 140, r.Y + 1, 112, r.Height - 2); Btn(g, lb, n > 1 ? "LOCATE (" + (dupeAt % n + 1) + "/" + n + ")" : "LOCATE", 2, () => LocateDupe(), 9); Hint2(lb, "Show the sound you already have (each press shows the next one)");
+        var xb = Rc(r.Right - 24, r.Y + 1, 22, r.Height - 2); Btn(g, xb, "x", 0, () => dupeFind.Clear(), 9); Hint2(xb, "Hide this");
+    }
+
+    // ---- TRIM in the sounds panel: drag the two handles on the waveform to keep only a part of a sound; dragging it into the song, a pad or a key
+    //      then uses that part. The sound file is never changed (the trim is remembered for that sound, and RESET puts it back to the whole sound). ----
+    Dictionary<string, float[]> sndTrims;
+    static string TrimFile { get { return Path.Combine(StudioEnv.DataDir, "sound_trims.txt"); } }
+    internal float[] SoundTrim(SoundItem s)
+    {
+        if (sndTrims == null) { sndTrims = new Dictionary<string, float[]>(); try { if (File.Exists(TrimFile)) foreach (var ln in File.ReadAllLines(TrimFile)) { var p = ln.Split('|'); float a, b; if (p.Length == 3 && float.TryParse(p[1], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out a) && float.TryParse(p[2], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out b)) sndTrims[p[0]] = new[] { a, b }; } } catch { } }
+        float[] t; return s != null && sndTrims.TryGetValue(s.Id, out t) ? t : null;
+    }
+    internal void SetSoundTrim(SoundItem s, float a, float b)
+    {
+        SoundTrim(s); a = Math.Max(0, Math.Min(1, a)); b = Math.Max(0, Math.Min(1, b)); if (b - a < 0.01f) return;
+        if (a <= 0.0005f && b >= 0.9995f) sndTrims.Remove(s.Id); else sndTrims[s.Id] = new[] { a, b };
+        try { Directory.CreateDirectory(StudioEnv.DataDir); var l = new List<string>(); foreach (var kv in sndTrims) l.Add(kv.Key + "|" + kv.Value[0].ToString("R", System.Globalization.CultureInfo.InvariantCulture) + "|" + kv.Value[1].ToString("R", System.Globalization.CultureInfo.InvariantCulture)); File.WriteAllLines(TrimFile, l.ToArray()); } catch { }
+    }
+    // the trimmed part as a WAV of its own (for a pad or a key), made once per trim
+    string TrimmedFile(SoundItem s, string path)
+    {
+        var t = SoundTrim(s); if (t == null) return path;
+        try
+        {
+            string dir = Path.Combine(StudioEnv.DataDir, "trimmed"); Directory.CreateDirectory(dir); string nm = s.Name; foreach (char ch in Path.GetInvalidFileNameChars()) nm = nm.Replace(ch, ' ');
+            string f = Path.Combine(dir, nm + " (" + (int)(t[0] * 10000) + "-" + (int)(t[1] * 10000) + ").wav"); if (File.Exists(f)) return f;
+            float[] l, r; int sr; string fmt; if (!SoundIO.Read(path, out l, out r, out sr, out fmt)) return path; r = r ?? l; int a = (int)(t[0] * l.Length), n = Math.Max(64, (int)((t[1] - t[0]) * l.Length)); n = Math.Min(n, l.Length - a);
+            var L = new float[n]; var R = new float[n]; Array.Copy(l, a, L, 0, n); Array.Copy(r, a, R, 0, n); int fd = Math.Min(n / 4, sr / 500); for (int i = 0; i < fd; i++) { float k = i / (float)fd; L[i] *= k; R[i] *= k; L[n - 1 - i] *= k; R[n - 1 - i] *= k; }   // (2 ms fades: no click at the cut)
+            WavIO.Write(f, L, R, sr, 24); return f;
+        }
+        catch { return path; }
+    }
+    void PaintSoundTrim(Graphics g, RectangleF wf, SoundItem s)
+    {
+        var t = SoundTrim(s); float a = t == null ? 0 : t[0], b = t == null ? 1 : t[1]; float xa = wf.X + a * wf.Width, xb = wf.X + b * wf.Width; var gold = Color.FromArgb(255, 255, 206, 84);
+        using (var dim = new SolidBrush(Color.FromArgb(170, 6, 3, 16))) { if (xa > wf.X) g.FillRectangle(dim, wf.X, wf.Y, xa - wf.X, wf.Height); if (xb < wf.Right) g.FillRectangle(dim, xb, wf.Y, wf.Right - xb, wf.Height); }
+        if (t != null) using (var pen = new Pen(Color.FromArgb(200, gold), 1.2f)) { g.DrawLine(pen, xa, wf.Y, xb, wf.Y); g.DrawLine(pen, xa, wf.Bottom - 1, xb, wf.Bottom - 1); }
+        Action<float, bool> handle = (x, left) =>
+        {
+            using (var pen = new Pen(gold, 2f)) g.DrawLine(pen, x, wf.Y, x, wf.Bottom); var grip = Rc(left ? x : x - 9, wf.Y + wf.Height / 2 - 11, 9, 22); FillRR(g, gold, grip, 3);
+            using (var pen = new Pen(Color.FromArgb(200, 60, 30, 0), 1f)) for (int k = -1; k <= 1; k++) g.DrawLine(pen, grip.X + 2, grip.Y + 11 + k * 4, grip.Right - 2, grip.Y + 11 + k * 4);
+            var hr = Reg(Rc(x - 7, wf.Y, 14, wf.Height), () => { }); hr.Button = true;
+            hr.OnDrag = pt => { float f = (pt.X - wf.X) / wf.Width; var cur = SoundTrim(s); float ca = cur == null ? 0 : cur[0], cb = cur == null ? 1 : cur[1]; if (left) SetSoundTrim(s, Math.Min(f, cb - 0.01f), cb); else SetSoundTrim(s, ca, Math.Max(f, ca + 0.01f)); };
+            Hint2(hr.R, left ? "TRIM: drag to where the part you want starts. Dragging the sound into the song, a pad or a key then uses only this part (the file is not changed)." : "TRIM: drag to where the part you want ends. The file itself is not changed.");
+        };
+        handle(xa, true); handle(xb, false);
+        if (t != null)
+        {
+            double len = s.Dur > 0 ? s.Dur : 0; Txt(g, "TRIMMED" + (len > 0 ? "  " + (a * len).ToString("0.00") + " - " + (b * len).ToString("0.00") + " s" : ""), 8, gold, Rc(wf.X + 6, wf.Y + 2, wf.Width - 70, 12), StringAlignment.Near, true);
+            var rb = Rc(wf.Right - 58, wf.Y + 3, 54, 16); Btn(g, rb, "RESET", 0, () => SetSoundTrim(s, 0, 1), 8); Hint2(rb, "Use the whole sound again");
+        }
+        else if (Hot(wf)) Txt(g, "DRAG THE GOLD HANDLES TO TRIM", 8, Color.FromArgb(220, gold), Rc(wf.X + 14, wf.Y + 2, wf.Width - 28, 12), StringAlignment.Center, true);
+    }
+
     // a sound let go over a window that takes sounds (Purphex Pads, Key Map): made on this PC first if it is a library sound that is made when first used
     bool SoundToWindow(SoundItem s)
     {
         var w = SoundDrop.At(Cursor.Position); if (w == null) return false;
         if (s.Spec.Length > 0) { string err = InstantLib.Ensure(s); if (err != null) { Toast(err); return true; } }
         string path = s.Path; if (string.IsNullOrEmpty(path) || !File.Exists(path) || !SoundSources.IsAudio(path)) { Toast(s.Name + " is not a sound file a pad can play (MIDI and loops-to-be go on the song or the piano roll)."); return true; }
-        w.DropSound(Cursor.Position, path, s.Name.Replace(s.PackName + " - ", "")); return true;
+        path = TrimmedFile(s, path); w.DropSound(Cursor.Position, path, s.Name.Replace(s.PackName + " - ", "")); return true;
     }
     // dropped from the browser onto the timeline
     void DropSampleAt(Point p)
@@ -204,7 +272,8 @@ partial class StudioForm
         { var ib = Rc(x + w - 150, y + 8, 104, 26); var ir = Btn(g, ib, "IMPORT AUDIO", 2, () => ImportAudioAsk(), 10); ir.OnRight = () => ImportMenu(); Hint2(ib, "Add sounds from your computer to your library (kept in My samples). Right-click: a whole folder or a sound pack"); }
         Btn(g, Rc(x + w - 268, y + 8, 112, 26), sndFull ? "Exit full" : "Fullscreen", sndFull ? 4 : 0, () => { sndFull = !sndFull; }, 11);
         int installedPacks = 0; lock (SoundLibrary.Lock) foreach (var p in SoundLibrary.Packs) if (p.Items.Count > 0) installedPacks++;
-        Txt(g, "Search by name, pack, style, key or tempo (for example: reese 174, F min, kick):", 10, DimC, Rc(x + 14, y + 38, w - 28, 14), StringAlignment.Near, false);
+        if (dupeFind.Count > 0) PaintDupeBar(g, Rc(x + 14, y + 35, w - 28, 18));
+        else Txt(g, "Search by name, pack, style, key or tempo (for example: reese 174, F min, kick):", 10, DimC, Rc(x + 14, y + 38, w - 28, 14), StringAlignment.Near, false);
         var sb = Rc(x + 14, y + 54, w - 28, 28); if (soundBox.Visible != !(packsOpen || menuOpen || browserOpen || busy)) soundBox.Visible = !(packsOpen || menuOpen || browserOpen || busy);
         var nb = new Rectangle((int)sb.X, (int)sb.Y, (int)sb.Width, (int)sb.Height); if (soundBox.Bounds != nb) soundBox.Bounds = nb;
         // filters
@@ -294,6 +363,7 @@ partial class StudioForm
         else if (s.Peaks != null && s.Peaks.Length > 0) using (var pen = new Pen(Color.FromArgb(220, col), 1.6f)) for (int i = 0; i < (int)wf.Width; i += 2) { float v = s.Peaks[Math.Min(s.Peaks.Length - 1, (int)(i / wf.Width * s.Peaks.Length))] / 255f * (wf.Height / 2 - 4); g.DrawLine(pen, wf.X + i, wf.Y + wf.Height / 2 - v, wf.X + i, wf.Y + wf.Height / 2 + v); }
         if (cur && Auditioner.Length > 0) { float px = wf.X + (float)(Auditioner.Seconds / Auditioner.Length) * wf.Width; using (var pen = new Pen(Color.White, 1.5f)) g.DrawLine(pen, px, wf.Y + 2, px, wf.Bottom - 2); }
         var wr = Reg(wf, () => { if (cur) Auditioner.Seek((MousePos.X - wf.X) / wf.Width); }); wr.OnDrag = pt => { if (cur) Auditioner.Seek((pt.X - wf.X) / wf.Width); };
+        if (s.IsAudio && s.Kind != "midi" && s.Kind != "preset") PaintSoundTrim(g, wf, s);
         float cy = r.Y + 92; bool playing = cur && Auditioner.IsPlaying;
         Btn(g, Rc(r.X + 12, cy, 66, 28), playing ? "Pause" : "Play", 1, () => { if (cur) { if (!playing && eng.Playing) PauseHere(); Auditioner.Toggle(); } else if (s.IsAudio || s.Kind == "midi") PreviewSound(s); }, 12); Btn(g, Rc(r.X + 82, cy, 50, 28), "Stop", 0, () => Auditioner.Stop(), 11);
         Chip(g, Rc(r.X + 136, cy, 56, 28), "Loop", SoundLibrary.LoopPreview, () => { SoundLibrary.LoopPreview = !SoundLibrary.LoopPreview; }); Chip(g, Rc(r.X + 196, cy, 78, 28), "Autoplay", SoundLibrary.AutoPlay, () => { SoundLibrary.AutoPlay = !SoundLibrary.AutoPlay; SoundLibrary.SaveUser(); });
@@ -498,7 +568,7 @@ partial class StudioForm
     }
     internal string ImportAudioFrom(string[] files)
     {
-        int n = SoundLibrary.ImportFiles(files, null); if (n == 0) return "Nothing new was imported (already in My samples, or not a sound file: WAV, MP3, FLAC, OGG, AIFF, M4A or MIDI).";
+        int n = SoundLibrary.ImportFiles(files, null); NoteDupes(); if (n == 0) return "Nothing new was imported (already in My samples, or not a sound file: WAV, MP3, FLAC, OGG, AIFF, M4A or MIDI)." + SoundLibrary.DupeText;
         ShowMySounds();
         return "Imported " + n + " sound" + (n == 1 ? "" : "s") + " into MY SOUNDS (kept in your library for good, the tab beside SOUNDS): drag them onto the song, a pad or the piano roll.";
     }
@@ -514,12 +584,12 @@ partial class StudioForm
         m.Items.Add("Import my own samples (wav, mp3, flac, midi...)").Click += (a, b) =>
         {
             using (var d = new OpenFileDialog { Title = "Choose samples you own", Multiselect = true, Filter = "Audio and MIDI|*.wav;*.mp3;*.flac;*.ogg;*.aiff;*.m4a;*.mid|All files|*.*" })
-                if (d.ShowDialog(this) == DialogResult.OK) { int n = SoundLibrary.ImportFiles(d.FileNames, null); ShowMySounds(); Toast("Imported " + n + " sound" + (n == 1 ? "" : "s") + " into MY SOUNDS (kept for good)"); }
+                if (d.ShowDialog(this) == DialogResult.OK) { int n = SoundLibrary.ImportFiles(d.FileNames, null); ShowMySounds(); Toast("Imported " + n + " sound" + (n == 1 ? "" : "s") + " into MY SOUNDS (kept for good)" + SoundLibrary.DupeText); NoteDupes(); }
         };
         m.Items.Add("Import a folder of samples (and its sub-folders)").Click += (a, b) =>
         {
             using (var d = new FolderBrowserDialog { Description = "Choose a folder of samples you own (WAV, MP3, FLAC, OGG, AIFF, M4A and MIDI are read, with the tempo and key in their names)" })
-                if (d.ShowDialog(this) == DialogResult.OK) { var files = SoundLibrary.SamplesIn(d.SelectedPath); int n = SoundLibrary.ImportFiles(files.ToArray(), null); ShowMySounds(); Toast("Imported " + n + " of " + files.Count + " files from " + Path.GetFileName(d.SelectedPath) + " into MY SOUNDS (kept for good)"); }
+                if (d.ShowDialog(this) == DialogResult.OK) { var files = SoundLibrary.SamplesIn(d.SelectedPath); int n = SoundLibrary.ImportFiles(files.ToArray(), null); ShowMySounds(); Toast("Imported " + n + " of " + files.Count + " files from " + Path.GetFileName(d.SelectedPath) + " into MY SOUNDS (kept for good)" + SoundLibrary.DupeText); NoteDupes(); }
         };
         m.Items.Add("Import a sound pack (.zip)").Click += (a, b) =>
         {

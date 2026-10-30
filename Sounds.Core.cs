@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -241,25 +241,88 @@ static class SoundLibrary
     public static void RemoveFromCollection(string name, SoundItem s) { List<string> l; if (Collections.TryGetValue(name, out l)) { l.Remove(s.Id); if (l.Count == 0) Collections.Remove(name); SaveUser(); } }
 
     // ---- importing your own samples (files you own) ----
+    // duplicates: a sound that is already in My samples (the same file, whatever its name) is not imported again, and copies already there are removed
+    public static int LastDupes;   // how many the last import skipped or removed as duplicates
+    public static readonly List<SoundItem> LastDupeItems = new List<SoundItem>();   // the sounds in My samples those duplicates are copies of (LOCATE finds them)
+    static readonly Dictionary<string, string> hashCache = new Dictionary<string, string>();
+    static string FileHash(string path)
+    {
+        try
+        {
+            var fi = new FileInfo(path); if (!fi.Exists) return null; string key = fi.FullName.ToLowerInvariant() + "|" + fi.Length + "|" + fi.LastWriteTimeUtc.Ticks; string h;
+            lock (hashCache) if (hashCache.TryGetValue(key, out h)) return h;
+            using (var md5 = System.Security.Cryptography.MD5.Create()) using (var st = File.OpenRead(path)) h = fi.Length + ":" + BitConverter.ToString(md5.ComputeHash(st));
+            lock (hashCache) hashCache[key] = h; return h;
+        }
+        catch { return null; }
+    }
+    // removes the extra copies of the same sound from My samples (the first one stays); returns how many went
+    public static int RemoveDuplicates(SoundPack up)
+    {
+        if (up == null) return 0; var seen = new Dictionary<string, SoundItem>(); var gone = new List<SoundItem>();
+        foreach (var s in up.Items) { string h = FileHash(s.Path); if (h == null) continue; SoundItem keep; if (seen.TryGetValue(h, out keep)) { gone.Add(s); if (!LastDupeItems.Contains(keep)) LastDupeItems.Add(keep); } else seen[h] = s; }
+        foreach (var s in gone) { up.Items.Remove(s); try { if (s.Path.StartsWith(up.Dir, StringComparison.OrdinalIgnoreCase) && !up.Items.Exists(x => string.Equals(x.Path, s.Path, StringComparison.OrdinalIgnoreCase))) File.Delete(s.Path); } catch { } }   // (only our own copy in My samples is deleted, never your original file)
+        return gone.Count;
+    }
     public static int ImportFiles(string[] files, Action<string> progress)
     {
-        var up = Pack(UserPackId) ?? new SoundPack { Id = UserPackId, Name = "My samples" }; Directory.CreateDirectory(up.Dir); int n = 0;
+        var up = Pack(UserPackId) ?? new SoundPack { Id = UserPackId, Name = "My samples" }; Directory.CreateDirectory(up.Dir); int n = 0; LastDupeItems.Clear(); LastDupes = RemoveDuplicates(up);
+        var have = new Dictionary<string, SoundItem>(); foreach (var s0 in up.Items) { string h0 = FileHash(s0.Path); if (h0 != null && !have.ContainsKey(h0)) have[h0] = s0; }
         foreach (var f in files)
         {
             try
             {
                 string ext = Path.GetExtension(f).ToLowerInvariant(); if (ext != ".wav" && ext != ".mp3" && ext != ".flac" && ext != ".ogg" && ext != ".aiff" && ext != ".m4a" && ext != ".mid") continue;
-                string name = Path.GetFileNameWithoutExtension(f), rel = "imports/" + Path.GetFileName(f); string dest = Path.Combine(up.Dir, "imports"); Directory.CreateDirectory(dest); string to = Path.Combine(dest, Path.GetFileName(f));
-                if (!File.Exists(to)) File.Copy(f, to); if (progress != null) progress("Importing " + name + "...");
-                if (up.Items.Exists(x => x.Rel == rel)) continue;
+                string hf = FileHash(f); SoundItem was; if (hf != null && have.TryGetValue(hf, out was)) { LastDupes++; if (was != null && !LastDupeItems.Contains(was)) LastDupeItems.Add(was); continue; }   // the same sound is already in My samples (or twice in this import)
+                if (hf != null) have[hf] = null;
+                string name = Path.GetFileNameWithoutExtension(f), fn = Path.GetFileName(f); string dest = Path.Combine(up.Dir, "imports"); Directory.CreateDirectory(dest);
+                for (int k = 2; File.Exists(Path.Combine(dest, fn)) || up.Items.Exists(x => x.Rel == "imports/" + fn); k++) { name = Path.GetFileNameWithoutExtension(f) + " (" + k + ")"; fn = name + ext; }   // a different sound with the same name keeps both
+                string rel = "imports/" + fn, to = Path.Combine(dest, fn);
+                File.Copy(f, to); if (progress != null) progress("Importing " + name + "...");
                 var s = new SoundItem { PackId = up.Id, PackName = up.Name, Rel = rel, Path = to, Id = up.Id + "/" + rel, Name = name, Genre = "Any", Kind = ext == ".mid" ? "midi" : GuessKind(name), Group = ext == ".mid" ? "MIDI" : "Yours", Type = ext == ".mid" ? "MIDI" : GuessType(name), Tags = "imported" };
                 s.Bpm = GuessBpm(name); s.Key = GuessKey(name); s.Instrument = InstrumentOf(s);
                 if (s.IsAudio) { float[] l, r; int sr; string fmt; if (SoundIO.Read(to, out l, out r, out sr, out fmt)) { s.Dur = l.Length / (double)sr; s.Rate = sr; s.Format = fmt; s.Peaks = SoundIO.Peaks(l, r, 96); } else { s.Format = ext.Substring(1).ToUpperInvariant(); } }
-                up.Items.Add(s); n++;
+                up.Items.Add(s); n++; if (hf != null) have[hf] = s;
             }
             catch { }
         }
         up.Installed = true; WritePack(up); AddOrReplace(up); return n;
+    }
+    static string DupeNote() { return LastDupes > 0 ? " (" + LastDupes + " duplicate" + (LastDupes == 1 ? "" : "s") + " skipped or removed)" : ""; }
+    public static string DupeText { get { return DupeNote(); } }
+    // the library sound a file is (by its path), so an edit of it can go back beside it
+    public static SoundItem ItemAtPath(string path)
+    {
+        if (string.IsNullOrEmpty(path)) return null; string full, fn; try { full = Path.GetFullPath(path); fn = Path.GetFileName(full); } catch { return null; }
+        lock (Lock) foreach (var p in Packs) foreach (var s in p.Items) if (s.Rel.EndsWith(fn, StringComparison.OrdinalIgnoreCase) && string.Equals(s.Path, full, StringComparison.OrdinalIgnoreCase)) return s;   // (the name first: a path is worked out only for a sound with the same file name)
+        return null;
+    }
+    // an edited copy of a sound (a WAV): replace puts it in place of the original in My samples (same name; a sound in a pack is never changed),
+    // otherwise it is kept as a new version, "Kick v2" (v3...), right after the original, so both are there to compare
+    public static SoundItem AddVersion(SoundItem orig, string wav, bool replace)
+    {
+        float[] l, r; int sr; string fmt; if (orig == null || !SoundIO.Read(wav, out l, out r, out sr, out fmt) || l.Length == 0) return null;
+        var up = Pack(UserPackId) ?? new SoundPack { Id = UserPackId, Name = "My samples" }; string dest = Path.Combine(up.Dir, "imports"); Directory.CreateDirectory(dest);
+        { var cur = up.Items.Find(x => x.Id == orig.Id); if (cur != null) orig = cur; }   // (the library may have been reloaded since the sound was found: use the one in the list now)
+        SoundItem s;
+        if (replace && orig.PackId == UserPackId && up.Items.Contains(orig))
+        {
+            s = orig; string to = Path.GetExtension(orig.Path).ToLowerInvariant() == ".wav" ? orig.Path : Path.Combine(dest, Path.GetFileNameWithoutExtension(orig.Path) + ".wav");
+            if (!string.Equals(to, orig.Path, StringComparison.OrdinalIgnoreCase)) { if (File.Exists(to)) to = Path.Combine(dest, Path.GetFileNameWithoutExtension(orig.Path) + " " + Guid.NewGuid().ToString("N").Substring(0, 6) + ".wav"); File.Copy(wav, to); try { File.Delete(orig.Path); } catch { } s.Rel = "imports/" + Path.GetFileName(to); s.Path = to; }
+            else File.Copy(wav, to, true);   // (the same file, so favourites and kits that point at it get the edit)
+        }
+        else
+        {
+            string bn = System.Text.RegularExpressions.Regex.Replace(orig.Name, @"\s+v\d+$", ""), nm; int v = 2;
+            while (up.Items.Exists(x => x.Name.Equals(bn + " v" + v, StringComparison.OrdinalIgnoreCase)) || File.Exists(Path.Combine(dest, bn + " v" + v + ".wav"))) v++;
+            nm = bn + " v" + v; string to = Path.Combine(dest, nm + ".wav"); File.Copy(wav, to);
+            s = new SoundItem { PackId = up.Id, PackName = up.Name, Rel = "imports/" + nm + ".wav", Path = to, Name = nm, Genre = orig.Genre.Length > 0 ? orig.Genre : "Any", Kind = orig.Kind, Group = "Yours", Type = orig.Type, Tags = (orig.Tags + " edit").Trim(), Key = orig.Key, Bpm = orig.Bpm, Mood = orig.Mood, Sub = orig.Sub };
+            s.Id = up.Id + "/" + s.Rel; s.Instrument = orig.Instrument.Length > 0 ? orig.Instrument : InstrumentOf(s);
+            var vre = new System.Text.RegularExpressions.Regex("^" + System.Text.RegularExpressions.Regex.Escape(bn) + @"\s+v\d+$", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            int at = up.Items.IndexOf(orig); if (at >= 0) { while (at + 1 < up.Items.Count && vre.IsMatch(up.Items[at + 1].Name)) at++; up.Items.Insert(at + 1, s); } else up.Items.Add(s);
+        }
+        s.Dur = l.Length / (double)sr; s.Rate = sr; s.Format = fmt; s.Peaks = SoundIO.Peaks(l, r, 96);
+        up.Installed = true; WritePack(up); AddOrReplace(up); return s;
     }
     // every sample file in a folder and its sub-folders (the import keeps the sub-folder in the name so nothing clashes)
     public static List<string> SamplesIn(string folder) { var l = new List<string>(); try { foreach (var f in Directory.GetFiles(folder, "*.*", SearchOption.AllDirectories)) { string e = Path.GetExtension(f).ToLowerInvariant(); if (e == ".wav" || e == ".mp3" || e == ".flac" || e == ".ogg" || e == ".aiff" || e == ".m4a" || e == ".mid") l.Add(f); } } catch { } l.Sort(StringComparer.OrdinalIgnoreCase); return l; }

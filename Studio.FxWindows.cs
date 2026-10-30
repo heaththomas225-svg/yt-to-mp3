@@ -17,7 +17,7 @@ partial class StudioForm
 {
     internal class FxWin { public Fx Fx; public Track Track; public RectangleF R; public long Seq; public float WantH; }   // WantH: the height it should have (it only gets shorter while the studio is too short for it)
     internal readonly List<FxWin> fxWins = new List<FxWin>(); long fxWinSeq; FxWin fxWinDrag; PointF fxWinGrab; bool fxWinResize;
-    const float FwTitle = 50, FwTool = 30, FwViz = 69;
+    const float FwTitle = 50, FwTool = 30, FwViz = 124;
 
     // open (or bring forward) the window of this plugin instance
     internal void OpenFxWindow(Track tr, Fx f)
@@ -110,9 +110,9 @@ partial class StudioForm
         if (!knobWin)
         { var vb = Rc(r.X + 1.5f, r.Bottom - FwViz, r.Width - 3, FwViz - 1.5f);   // the strip along the bottom edge of the window, part of the window itself
           using (var p = new System.Drawing.Drawing2D.GraphicsPath()) { float rd = 11; p.AddLine(vb.X, vb.Y, vb.Right, vb.Y); p.AddLine(vb.Right, vb.Y, vb.Right, vb.Bottom - rd); p.AddArc(vb.Right - 2 * rd, vb.Bottom - 2 * rd, 2 * rd, 2 * rd, 0, 90); p.AddArc(vb.X, vb.Bottom - 2 * rd, 2 * rd, 2 * rd, 90, 90); p.CloseFigure();
-            using (var b = new LinearGradientBrush(vb, Color.FromArgb(255, 14, 6, 32), Color.FromArgb(255, 30, 8, 52), 90f)) g.FillPath(b, p); var gs2 = g.Save(); g.SetClip(p, System.Drawing.Drawing2D.CombineMode.Intersect); PaintFxViz(g, Rc(vb.X + 12, vb.Y + 4, vb.Width - 24, vb.Height - 8), f, true); g.Restore(gs2); }
+            using (var b = new LinearGradientBrush(vb, Color.FromArgb(255, 14, 6, 32), Color.FromArgb(255, 30, 8, 52), 90f)) g.FillPath(b, p); var gs2 = g.Save(); g.SetClip(p, System.Drawing.Drawing2D.CombineMode.Intersect); g.Restore(gs2); } PaintFxScope(g, Rc(vb.X + 8, vb.Y + 6, vb.Width - 16, vb.Height - 10), f);
           using (var pen = new Pen(FvMix(PxViolet, PxMagenta, 0.5f), 1.6f)) g.DrawLine(pen, vb.X + 8, vb.Y, vb.Right - 8, vb.Y);   // the neon line that separates it from the controls
-          if (!eng.Playing) Txt(g, "PRESS PLAY TO SEE WHAT " + f.Title.ToUpperInvariant() + " IS DOING", 9, DimC, vb, StringAlignment.Center, true); }
+        }
         var body = Rc(r.X + 6, r.Y + FwTitle + FwTool + 6, r.Width - 12, r.Height - FwTitle - FwTool - fwViz - 14); float edH = f is ParametricEq ? 470 : EditorHeight(f) - 34;   // (without the editor's own title row; the EQ's knob layout is shorter)
         if (KnobEditor(f)) { int nv = 0; var hid = f.Hidden.Length > 0 ? new HashSet<string>(f.Hidden.Split(',')) : new HashSet<string>(); foreach (var pq in f.P) if (!hid.Contains(pq.Id)) nv++; edH = edH - nv * 30 + KnobGridHeight(f, body.Width - 12); }   // the settings are knobs here
         Prof.A("fw.viz", q0); q0 = Prof.T(); { var gsB = g.Save(); g.SetClip(body, System.Drawing.Drawing2D.CombineMode.Intersect); PaintGalaxy(g, Rc(r.X, r.Y + FwTitle, r.Width, r.Height - FwTitle - fwViz), f.Type.GetHashCode() ^ 0x5a5a, 1.1f); g.Restore(gsB); }

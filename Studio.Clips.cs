@@ -71,9 +71,32 @@ partial class StudioForm
         }
     }
     // right-click a clip: Add this clip to MY SOUNDS (a copy in your library, there for good)
+    internal Func<string, DialogResult> clipAsk;   // a test answers for itself
     internal string AddClipToMySounds(Track t)
     {
         float[] L, R; ClipAudio(t, out L, out R); if (L.Length == 0) { Toast("That clip has no sound to add."); return null; }
+        // a sound from the library: Replace the original, or keep both (the edit goes right next to it as "v2", and the list shows the two together)
+        var orig = SoundLibrary.ItemAtPath(t.Source) ?? (t.Clip != null ? SoundLibrary.ItemAtPath(t.Clip.Path) : null);
+        if (orig != null)
+        {
+            bool mine = orig.PackId == SoundLibrary.UserPackId, replace = false;
+            if (mine)
+            {
+                var a = (clipAsk ?? (q => MessageBox.Show(this, q, "Replace the original?", MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question, MessageBoxDefaultButton.Button2)))("Replace the original \"" + orig.Name + "\" in MY SOUNDS with this edit?\n\nYes: the edit takes its place (same name, and pads using it play the edit).\nNo: keep both. The edit goes right next to the original as a new version, so you can compare them.");
+                if (a == DialogResult.Cancel) return null; replace = a == DialogResult.Yes;
+            }
+            string dir = Path.Combine(Path.GetTempPath(), "purphex_clip_" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                Directory.CreateDirectory(dir); string f = Path.Combine(dir, "edit.wav"); WavIO.Write(f, L, R, StudioEngine.SR, 24); var it = SoundLibrary.AddVersion(orig, f, replace);
+                if (it == null) { Toast("Couldn't add the clip."); return null; }
+                if (replace) ReloadSample(it.Path);
+                ShowMySounds(); string bn = System.Text.RegularExpressions.Regex.Replace(orig.Name, @"\s+v\d+$", ""); if (soundBox != null) soundBox.Text = bn; sndFilter.Text = bn; sndDirty = true; sndSel = it;   // (the original and its versions, side by side)
+                Toast(replace ? orig.Name + " is replaced by the edit." : it.Name + " is next to " + orig.Name + " in MY SOUNDS" + (mine ? "" : " (the pack's own sound stays as it is)") + "."); return it.Path;
+            }
+            catch (Exception ex) { Toast("Couldn't add the clip: " + ex.Message); return null; }
+            finally { try { Directory.Delete(dir, true); } catch { } }
+        }
         try
         {
             string dir = Path.Combine(Path.GetTempPath(), "purphex_clip_" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(dir); string f = Path.Combine(dir, ClipFileName(t) + ".wav");
@@ -82,6 +105,11 @@ partial class StudioForm
             ShowMySounds(); Toast(ClipFileName(t) + " is in MY SOUNDS now (kept in your library for good)."); return f;
         }
         catch (Exception ex) { Toast("Couldn't add the clip: " + ex.Message); return null; }
+    }
+    // a sound replaced in MY SOUNDS: every sampler and pad holding it plays the new one
+    void ReloadSample(string path)
+    {
+        foreach (var tr in eng.Tracks.ToArray()) foreach (var fx in tr.Fx.ToArray()) { var sm = fx as SamplerFx; if (sm == null) continue; foreach (var z in sm.ZonesCopy()) if (string.Equals(z.Path, path, StringComparison.OrdinalIgnoreCase)) SamplerFx.LoadInto(z); }
     }
     internal static long LeadingSilence(Track t)
     {
@@ -114,7 +142,7 @@ partial class StudioForm
         layers.Sort((a, b) => a.Offset.CompareTo(b.Offset)); var nx = layers[0]; PushUndo();
         lock (eng.Sync)
         {   // the row keeps its name, volume and plugins and takes over the next piece
-            t.Clip = nx.Clip; t.Source = nx.Source; t.Offset = nx.Offset; t.ClipStart = nx.ClipStart; t.ClipFrames = nx.ClipFrames; t.FadeIn = nx.FadeIn; t.FadeOut = nx.FadeOut; t.ClipGainDb = nx.ClipGainDb; t.SectionLabel = nx.SectionLabel; t.PieceMuted = nx.PieceMuted; t.FadeInDelay = nx.FadeInDelay; t.FadeOutTail = nx.FadeOutTail; ClampFades(t);   // the silence before/after belongs to the piece too, not to the one that was deleted
+            t.Clip = nx.Clip; t.Source = nx.Source; t.Offset = nx.Offset; t.ClipStart = nx.ClipStart; t.ClipFrames = nx.ClipFrames; t.FadeIn = nx.FadeIn; t.FadeOut = nx.FadeOut; t.FadeInBend = nx.FadeInBend; t.FadeOutBend = nx.FadeOutBend; t.ClipGainDb = nx.ClipGainDb; t.SectionLabel = nx.SectionLabel; t.PieceMuted = nx.PieceMuted; t.FadeInDelay = nx.FadeInDelay; t.FadeOutTail = nx.FadeOutTail; ClampFades(t);   // the silence before/after belongs to the piece too, not to the one that was deleted
             eng.Tracks.Remove(nx); retired.AddRange(nx.Fx);
         }
         toolsTrack = t; Toast("Piece deleted (Ctrl+Z brings it back)");
@@ -340,7 +368,7 @@ partial class StudioForm
             {
                 if (h.Host != null || h.IsBus || h.Instrument || h.Clip == null || h.UsedLength > 0) continue;
                 var layers = eng.Tracks.FindAll(x => x.Host == h && !x.Instrument && x.Clip != null); layers.Sort((p, q) => p.Offset.CompareTo(q.Offset));
-                if (layers.Count > 0) { var nx = layers[0]; h.Clip = nx.Clip; h.Source = nx.Source; h.Offset = nx.Offset; h.ClipStart = nx.ClipStart; h.ClipFrames = nx.ClipFrames; h.FadeIn = nx.FadeIn; h.FadeOut = nx.FadeOut; h.ClipGainDb = nx.ClipGainDb; h.SectionLabel = nx.SectionLabel; h.PieceMuted = nx.PieceMuted; h.FadeInDelay = nx.FadeInDelay; h.FadeOutTail = nx.FadeOutTail; ClampFades(h); eng.Tracks.Remove(nx); retired.AddRange(nx.Fx); }
+                if (layers.Count > 0) { var nx = layers[0]; h.Clip = nx.Clip; h.Source = nx.Source; h.Offset = nx.Offset; h.ClipStart = nx.ClipStart; h.ClipFrames = nx.ClipFrames; h.FadeIn = nx.FadeIn; h.FadeOut = nx.FadeOut; h.FadeInBend = nx.FadeInBend; h.FadeOutBend = nx.FadeOutBend; h.ClipGainDb = nx.ClipGainDb; h.SectionLabel = nx.SectionLabel; h.PieceMuted = nx.PieceMuted; h.FadeInDelay = nx.FadeInDelay; h.FadeOutTail = nx.FadeOutTail; ClampFades(h); eng.Tracks.Remove(nx); retired.AddRange(nx.Fx); }
                 else { h.Clip = null; h.Source = ""; h.ClipStart = 0; h.ClipFrames = -1; h.Offset = 0; h.FadeIn = 0; h.FadeOut = 0; h.FadeInDelay = 0; h.FadeOutTail = 0; }
             }
             // the automation stays where it is too: nothing on the timeline moves

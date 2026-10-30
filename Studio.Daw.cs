@@ -181,7 +181,7 @@ partial class StudioForm
     internal void DuplicatePiece(Track piece)
     {
         if (piece == null || piece.Clip == null) return; var host = piece.Host ?? piece; PushUndo();
-        var n = CloneTrack(host, ""); n.Name = piece.Name + " copy"; n.Clip = piece.Clip; n.Source = piece.Source; n.Offset = piece.Offset; n.ClipStart = piece.ClipStart; n.ClipFrames = piece.ClipFrames; n.SectionLabel = piece.SectionLabel; n.PieceMuted = piece.PieceMuted; n.ClipGainDb = piece.ClipGainDb; n.FadeIn = piece.FadeIn; n.FadeOut = piece.FadeOut; n.FadeInDelay = piece.FadeInDelay; n.FadeOutTail = piece.FadeOutTail; n.Host = null; n.Locked = false;
+        var n = CloneTrack(host, ""); n.Name = piece.Name + " copy"; n.Clip = piece.Clip; n.Source = piece.Source; n.Offset = piece.Offset; n.ClipStart = piece.ClipStart; n.ClipFrames = piece.ClipFrames; n.SectionLabel = piece.SectionLabel; n.PieceMuted = piece.PieceMuted; n.ClipGainDb = piece.ClipGainDb; n.FadeIn = piece.FadeIn; n.FadeOut = piece.FadeOut; n.FadeInBend = piece.FadeInBend; n.FadeOutBend = piece.FadeOutBend; n.FadeInDelay = piece.FadeInDelay; n.FadeOutTail = piece.FadeOutTail; n.Host = null; n.Locked = false;
         lock (eng.Sync) { int i = eng.Tracks.IndexOf(host); eng.Tracks.Insert(i < 0 ? LaneCount : i + 1, n); }
         selTrack = Math.Max(0, eng.Tracks.IndexOf(n)); selFx = -1; toolsTrack = n; Toast("Duplicated that piece onto a new track under " + host.Name + ".");
     }
@@ -297,7 +297,7 @@ partial class StudioForm
     }
     void LaneMenu(Track tr)
     {
-        selTrack = Math.Max(0, eng.Tracks.IndexOf(tr.Host ?? tr)); var m = Win.NewMenu(); long at = SplitPoint(Math.Max(0, scroll + (long)((MousePos.X - HeadW) * spp)));
+        selTrack = Math.Max(0, eng.Tracks.IndexOf(tr.Host ?? tr)); var m = Win.NewReadableMenu(); long at = SplitPoint(Math.Max(0, scroll + (long)((MousePos.X - HeadW) * spp)));
         if (tr.Instrument) { m.Items.Add("Edit notes (piano roll)...").Click += (a, b) => OpenPianoRoll(tr); m.Items.Add(new ToolStripSeparator()); }
         var piece = PickLayer(tr, MousePos);
         if (tr.Clip == null && !tr.Instrument && !tr.IsBus) { var tk = tr; m.Items.Add("Add music to this track...").Click += (a, b) => { selTrack = Math.Max(0, eng.Tracks.IndexOf(tk)); fillTrack = tk; try { AddMusicClick(true); } finally { fillTrack = null; } }; m.Items.Add(new ToolStripSeparator()); }
@@ -409,7 +409,7 @@ partial class StudioForm
             L.FadeIn = src.FadeIn; L.FadeOut = src.FadeOut; L.FadeInDelay = src.FadeInDelay; L.FadeOutTail = src.FadeOutTail; L.ClipGainDb = src.ClipGainDb; L.SectionLabel = src.SectionLabel; L.PieceMuted = src.PieceMuted;
             lock (eng.Sync) eng.Tracks.Insert(FirstBusIndex(), L); dst = L;
         }
-        else lock (eng.Sync) { dst.Clip = src.Clip; dst.Source = src.Source; dst.ClipStart = src.ClipStart; dst.ClipFrames = src.ClipFrames; dst.Offset = src.Offset; dst.FadeIn = src.FadeIn; dst.FadeOut = src.FadeOut; dst.FadeInDelay = src.FadeInDelay; dst.FadeOutTail = src.FadeOutTail; dst.ClipGainDb = src.ClipGainDb; if (dst.Role == "audio" && src.Role != "audio") dst.Role = src.Role; dst.Color = src.Color; if (dst.Name.StartsWith("Audio ")) dst.Name = src.Name; }
+        else lock (eng.Sync) { dst.Clip = src.Clip; dst.Source = src.Source; dst.ClipStart = src.ClipStart; dst.ClipFrames = src.ClipFrames; dst.Offset = src.Offset; dst.FadeIn = src.FadeIn; dst.FadeOut = src.FadeOut; dst.FadeInBend = src.FadeInBend; dst.FadeOutBend = src.FadeOutBend; dst.FadeInDelay = src.FadeInDelay; dst.FadeOutTail = src.FadeOutTail; dst.ClipGainDb = src.ClipGainDb; if (dst.Role == "audio" && src.Role != "audio") dst.Role = src.Role; dst.Color = src.Color; if (dst.Name.StartsWith("Audio ")) dst.Name = src.Name; }
         lock (eng.Sync)
         {
             if (src.Host != null) { eng.Tracks.Remove(src); retired.AddRange(src.Fx); }   // a piece that was moved away is simply gone from its old row
@@ -444,7 +444,7 @@ partial class StudioForm
     }
     void LayerMenu(Track host)
     {
-        var m = Win.NewMenu();
+        var m = Win.NewReadableMenu();
         foreach (var l0 in eng.Tracks.ToArray()) if (l0.Host == host)
         {
             var L = l0; var sub = new ToolStripMenuItem(L.Name + (L.Instrument ? "  (MIDI)" : "")); m.Items.Add(sub);

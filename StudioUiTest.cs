@@ -64,7 +64,19 @@ static class S
             long w0 = F<long>("scroll"); Ev("OnMouseMove", MouseButtons.None, 0, 700, 400); Ev("OnMouseWheel", MouseButtons.None, 0, 700, 400);
         }
         { var mw = typeof(StudioForm).GetMethod("OnMouseWheel", BF | BindingFlags.DeclaredOnly); long w1 = F<long>("scroll"); Paint(); mw.Invoke(sf, new object[] { new MouseEventArgs(MouseButtons.None, 0, 700, 400, -120) }); Paint(); long w2 = F<long>("scroll");
-          Check("the mouse wheel scrolls along the song (the tracks all fit, so it goes sideways)", w2 > w1, w1 + " -> " + w2); mw.Invoke(sf, new object[] { new MouseEventArgs(MouseButtons.None, 0, 700, 400, 120) }); Paint(); Check("and back again", F<long>("scroll") < w2, F<long>("scroll").ToString()); }
+          Check("the mouse wheel never shoots off along the song (it scrolls the tracks up and down)", w2 == w1, w1 + " -> " + w2);
+          var pck = typeof(StudioForm).GetMethod("ProcessCmdKey", BF | BindingFlags.DeclaredOnly); Func<Keys, bool> key = kk => { var msg = new Message(); return (bool)pck.Invoke(sf, new object[] { msg, kk }); };
+          key(Keys.Right); Paint(); long w3 = F<long>("scroll"); Check("the Right arrow goes along the song", w3 > w1, w1 + " -> " + w3); key(Keys.Left); Paint(); Check("and Left comes back", F<long>("scroll") < w3, F<long>("scroll").ToString());
+          var eng0 = sf.eng; for (int i = 0; i < 14; i++) lock (eng0.Sync) eng0.Tracks.Add(StudioEngine.NewTrack("Scroll " + i, "other", null)); Paint(); Paint(); SetF("vscroll", 0f);
+          mw.Invoke(sf, new object[] { new MouseEventArgs(MouseButtons.None, 0, 700, 400, -120) }); Paint(); float v1 = F<float>("vscroll"); long w4 = F<long>("scroll");
+          Check("with more tracks than fit, the wheel scrolls them down (and the song stays put)", v1 > 0 && w4 == F<long>("scroll"), v1.ToString("0"));
+          key(Keys.Down); Paint(); float v2 = F<float>("vscroll"); key(Keys.Up); Paint(); key(Keys.Up); Paint(); Check("Down and Up scroll the tracks too", v2 > v1 && F<float>("vscroll") < v2, v1.ToString("0") + " / " + v2.ToString("0") + " / " + F<float>("vscroll").ToString("0"));
+          int bars = 0; float hw = (int)typeof(StudioForm).GetProperty("HeadW", BF).GetValue(sf, null); foreach (var r in Regs()) if (r.ScrollBar && Math.Abs(r.R.Right - hw) < 1.5f && r.R.X >= hw - StudioForm.VBarW - 1 && r.R.Height > 100) bars++;
+          Check("the up/down scroll bar is on the left, between the track list and the timeline", bars >= 1, bars + "");
+          { string sd = Environment.GetEnvironmentVariable("PADS_SHOT"); if (!string.IsNullOrEmpty(sd)) { SetF("vscroll", 120f); Paint(); Paint(); using (var bm = new Bitmap(sf.ClientSize.Width, sf.ClientSize.Height)) { sf.DrawToBitmap(bm, new Rectangle(Point.Empty, sf.ClientSize)); try { bm.Save(System.IO.Path.Combine(sd, "vscroll-left.png")); } catch { } } } }
+          lock (eng0.Sync) eng0.Tracks.RemoveAll(t => t.Name.StartsWith("Scroll ")); SetF("vscroll", 0f); Paint(); }
+        { var bmM = (Dictionary<string, RectangleF>)typeof(StudioForm).GetField("btnMap", BF).GetValue(sf); bool has = bmM.ContainsKey("MIDI MAP"); if (has) { var rM = bmM["MIDI MAP"]; foreach (var r in Regs()) if (r.R == rM && r.OnDown != null) { r.OnDown(); break; } }
+          Check("MIDI MAP is a button on the top bar and opens MIDI mapping", has && F<bool>("mmOpen"), has + " / " + F<bool>("mmOpen")); SetF("mmOpen", false); Paint(); }
         // the new-track sheet, and inserting where asked
         Paint(); int strips = 0; foreach (var r in Regs()) if (Math.Abs(r.R.Width - 250) < 0.5f && Math.Abs(r.R.Height - 16) < 0.5f) strips++;
         Check("no glitchy add-track strips float between tracks any more", strips == 0, strips + " strips");
@@ -240,7 +252,7 @@ static class S
                 FontKit.All.RemoveAll(e => e.Id == "nosifer" || e.Id == "zzz"); SetF("tab", 0);
             }
             {   // the MIC button has a neon box with a down arrow: a short menu of microphone modes (only for recording)
-                SetF("tab", 0); Paint(); var drops = Regs().FindAll(r => r.OnDown != null && Math.Abs(r.R.Width - 24) < 0.5f && r.R.Y > 60 && r.R.Y < 120 && r.R.Height > 28 && r.R.X > 60 && r.R.X < 420);   // the recording tools are on the left of the transport row
+                SetF("tab", 0); Paint(); var drops = Regs().FindAll(r => r.OnDown != null && Math.Abs(r.R.Width - 24) < 0.5f && r.R.Y > 60 && r.R.Y < 120 && r.R.Height > 28 && r.R.X > 60 && r.R.X < 520);   // the recording tools are on the left of the transport row
                 Check("the MIC button has a small box with a down arrow beside it", drops.Count >= 1, drops.Count + " found");
                 int keep = Prefs.MicMode; var ch = typeof(StudioForm).GetMethod("ChooseMicMode", BF); ch.Invoke(sf, new object[] { MicMode.VoiceIsolation }); Check("choosing a mode in the menu is remembered (Voice Isolation)", Prefs.MicMode == 2 && Array.IndexOf(Prefs.Lines(), "micmode=2") >= 0, Prefs.MicMode + "");
                 ch.Invoke(sf, new object[] { MicMode.Standard }); Check("and another one replaces it (Standard)", Prefs.MicMode == 1, Prefs.MicMode + ""); Prefs.MicMode = keep;
