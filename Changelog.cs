@@ -7,10 +7,14 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.79.1";
+    public const string Latest = "3.79.2";
 
     public const string Text =
-@"3.79.1  Your MIDI keyboard always plays, every MIDI input listened to, no gaps while playing live
+@"3.79.2  No more crackle from the pads, only your pads play the pads
+ + FIXED: The crackle when playing pads: drum sounds come at full level, and a kick, an 808 and a clap together went to 4 times full scale, so the safety limiter crushed them by 12 dB, which is the crunchy crackle. Purphex Pads now plays 12 dB lower and Key Map 9 dB lower, so a whole kit fits cleanly (turn the track or the master up if you want it louder). Pads and Key Maps you already made get the same headroom, your own level changes kept.
+ + FIXED: Keys of your MIDI keyboard set off pads: while Purphex Pads held the keyboard, every key with a pad's note played that pad. Now only the pads play the pads (they listen on the drum channel, 10, where keyboards send their pads), and your keys play your instrument. If your pads send on another channel, LEARN takes that channel too, and the Pads window tells you when a hit came on a channel the pads do not listen to.
+
+3.79.1  Your MIDI keyboard always plays, every MIDI input listened to, no gaps while playing live
  + FIXED: Your MIDI keyboard could do nothing: Purphex listened to only the first MIDI input, and many keyboards have two (their keys and a DAW or control port). Now every MIDI input is listened to at once, like other DAWs (right-click MIDI REC to pick only one).
  + FIXED: With an audio track picked, your MIDI keyboard played nothing. Now it plays the picked MIDI track, else the first MIDI track of the song, and a song with no MIDI track gets a Keys track (the built-in piano) the first time you press a key.
  + FIXED: Gaps and crackle while playing live: with a keyboard plugged in, a busy moment could make Purphex restart the sound output (a gap) and make its buffer bigger (later hits) again and again. It no longer does that while you play live.
