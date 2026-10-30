@@ -30,7 +30,7 @@ partial class StudioForm : Form
     void FrameStep()
     {
         SoundDrop.Hover = sndDragging && sndDrag != null && !extDrag && MouseButtons == MouseButtons.Left ? Cursor.Position : Point.Empty;
-        FadePluginWindows();   // Purphex Pads and Key Map light the pad or key a dragged sound would land on
+        FadePluginWindows(); if (marqueeOn && MouseButtons == MouseButtons.Left) MarqueeTo(MousePos);   // (a box held at an edge keeps scrolling)   // Purphex Pads and Key Map light the pad or key a dragged sound would land on
         if (moving) return; double now = studioClock.Elapsed.TotalMilliseconds; if (now - lastTickMs >= 15) { lastTickMs = now; Tick(); }
         if (NeedsFrame()) { double dt = (now - lastStepMs) / 1000.0; lastStepMs = now; if (dt > 0.1) dt = 0.033; if (dt < 0.001) dt = 0.001; t += (float)dt; Invalidate(); }
     }

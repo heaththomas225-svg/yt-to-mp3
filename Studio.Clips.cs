@@ -1,5 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
+using System.Collections.Generic; using System.IO;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Globalization;
@@ -45,6 +45,44 @@ partial class StudioForm
     long SplitPoint(long raw) { return Math.Max(0, raw); }   // a split goes exactly where the needle or the click is (no pull to the grid), as free as moving a piece
     // AUTO TRIM: the silence before the sound starts is taken off the start of a clip: the clip now starts where the sound starts, and the sound
     // stays at its place in the song (nothing moves in time). Below -54 dB counts as silence; 5 ms is left before the first sound so its attack is kept whole. Returns the frames trimmed.
+    // the sound of a clip as you hear it on its row: the part that plays, with its clip gain and fades (not the track's fader or plugins)
+    internal static void ClipAudio(Track t, out float[] L, out float[] R)
+    {
+        var c = t.Clip; long st = t.ClipStart, n = t.UsedLength; if (c == null || c.L == null || n <= 0) { L = R = new float[0]; return; }
+        var cl = c.L; var cr = c.R ?? c.L; n = Math.Min(n, cl.Length - st); L = new float[n]; R = new float[n];
+        float cg = DspMath.DbToLin(t.ClipGainDb); long fi = t.FadeIn, fo = t.FadeOut, fd = t.FadeInDelay, ft = t.FadeOutTail;
+        if (fi + fo + fd + ft > n && n > 0) { double kk = n / (double)(fi + fo + fd + ft); fi = (long)(fi * kk); fo = (long)(fo * kk); fd = (long)(fd * kk); ft = (long)(ft * kk); }
+        for (long i = 0; i < n; i++)
+        {
+            float g = cg; if (i < fd) g = 0; else if (fi > 0 && i < fd + fi) g *= Track.FadeCurve((i - fd) / (double)fi, t.FadeInBend);
+            if (i >= n - ft) g = 0; else if (fo > 0 && i >= n - ft - fo) g *= Track.FadeCurve((n - ft - i) / (double)fo, t.FadeOutBend);
+            L[i] = cl[st + i] * g; R[i] = cr[st + i] * g;
+        }
+    }
+    static string ClipFileName(Track t) { string nm = (t.SectionLabel.Length > 0 ? t.SectionLabel : t.Name).Trim(); foreach (char ch in Path.GetInvalidFileNameChars()) nm = nm.Replace(ch, ' '); return nm.Length == 0 ? "Clip" : nm; }
+    // right-click a clip: Save this clip as a WAV on my PC
+    internal void SaveClipToPc(Track t)
+    {
+        float[] L, R; ClipAudio(t, out L, out R); if (L.Length == 0) { Toast("That clip has no sound to save."); return; }
+        using (var d = new SaveFileDialog { Title = "Save the clip " + ClipFileName(t), FileName = ClipFileName(t) + ".wav", Filter = "WAV (best quality)|*.wav" })
+        {
+            if (d.ShowDialog(this) != DialogResult.OK) return;
+            try { WavIO.Write(d.FileName, L, R, StudioEngine.SR, 24); Toast("Saved " + Path.GetFileName(d.FileName) + " (" + (L.Length / (double)StudioEngine.SR).ToString("0.0") + " s)."); } catch (Exception ex) { Toast("Couldn't save the clip: " + ex.Message); }
+        }
+    }
+    // right-click a clip: Add this clip to MY SOUNDS (a copy in your library, there for good)
+    internal string AddClipToMySounds(Track t)
+    {
+        float[] L, R; ClipAudio(t, out L, out R); if (L.Length == 0) { Toast("That clip has no sound to add."); return null; }
+        try
+        {
+            string dir = Path.Combine(Path.GetTempPath(), "purphex_clip_" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(dir); string f = Path.Combine(dir, ClipFileName(t) + ".wav");
+            WavIO.Write(f, L, R, StudioEngine.SR, 24); int n = SoundLibrary.ImportFiles(new[] { f }, null); try { Directory.Delete(dir, true); } catch { }
+            if (n == 0) { Toast("That clip is already in MY SOUNDS."); return null; }
+            ShowMySounds(); Toast(ClipFileName(t) + " is in MY SOUNDS now (kept in your library for good)."); return f;
+        }
+        catch (Exception ex) { Toast("Couldn't add the clip: " + ex.Message); return null; }
+    }
     internal static long LeadingSilence(Track t)
     {
         var c = t.Clip; if (c == null || c.L == null) return 0; var L = c.L; var R = c.R ?? c.L; long st = t.ClipStart, end = t.ClipFrames > 0 ? Math.Min(L.Length, st + t.ClipFrames) : L.Length; const float gate = 0.002f;

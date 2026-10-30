@@ -798,6 +798,14 @@ static class NF
                     SetF("MousePos", p0); ld.Invoke(sf, new object[] { rowT, lane }); ldr.Invoke(sf, new object[] { rowT, new PointF(372 + 5, top + 4) }); bool on = F<bool>("marqueeOn"); var ms = (List<Track>)typeof(StudioForm).GetField("multiSel", BF).GetValue(sf); bool got = ms.Contains(ra); lup.Invoke(sf, null);
                     Check("hold and drag on empty space in " + (rowT == ra ? "the empty part of a row" : "an empty row") + " draws a box that selects the clips", on && got, "box " + on + ", clip picked " + got);
                 }
+                {   // the box stays on the same part of the song when you zoom (it grew huge on zooming out), and dragging it to the right edge scrolls the view
+                    int ri = sf.eng.Tracks.IndexOf(ra); var lane = new RectangleF(372, top + ri * laneH, 1000, laneH); var mb = typeof(StudioForm).GetMethod("MarqueeBox", BF); var mt = typeof(StudioForm).GetMethod("MarqueeTo", BF);
+                    SetF("MousePos", new PointF(372 + 900, top + ri * laneH + 4)); ld.Invoke(sf, new object[] { ra, lane }); var pB = new PointF(372 + 500, top + ri * laneH + laneH - 4); SetF("MousePos", pB); mt.Invoke(sf, new object[] { pB });
+                    float w1 = ((RectangleF)mb.Invoke(sf, null)).Width; SetF("spp", 200.0); float w2 = ((RectangleF)mb.Invoke(sf, null)).Width; SetF("spp", 100.0);
+                    Check("zooming out while a box is drawn: the box shrinks with the song instead of growing", w1 > 300 && Math.Abs(w2 - w1 / 2) < 3, w1.ToString("0") + " px, zoomed out " + w2.ToString("0") + " px");
+                    var tl = (RectangleF)typeof(StudioForm).GetMethod("TimelineRect", BF).Invoke(sf, null); long sc0 = F<long>("scroll"); var pE = new PointF(tl.Right - 2, pB.Y); for (int i = 0; i < 5; i++) mt.Invoke(sf, new object[] { pE });
+                    Check("a box dragged to the right edge scrolls the view along", F<long>("scroll") > sc0, sc0 + " to " + F<long>("scroll")); lup.Invoke(sf, null); SetF("scroll", 0L);
+                }
                 {   // LOCK lists the tracks on the left only (a piece sharing a row is not a track of its own), numbered the same
                     var lp = StudioEngine.NewTrack("Clip row (2)", "vocal", AudioClip.FromArrays(new float[44100], new float[44100], "t")); lp.Host = ra; lp.Offset = 44100 * 3; lock (sf.eng.Sync) sf.eng.Tracks.Add(lp);
                     sf.OpenTrackPicker(0); paintS(); var rgsL = (List<HitReg>)typeof(StudioForm).GetField("regs", BF).GetValue(sf); int entries = rgsL.FindAll(r => Math.Abs(r.R.Height - 40) < 0.5f && r.R.Width > 300 && r.OnDown != null).Count;

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Windows.Forms;
@@ -12,10 +12,24 @@ partial class StudioForm
     readonly Dictionary<Track, long> groupOrig = new Dictionary<Track, long>();
     bool InGroup(Track t) { return t != null && multiSel.Count > 1 && multiSel.Contains(t); }
 
-    void MarqueeBegin() { multiSel.Clear(); marqueeOn = true; marqueeMoved = false; marqueeA = marqueeB = MousePos; }
+    // the box is kept in the song (time and rows), not on the screen: zooming or scrolling while it is drawn keeps it on the same clips
+    // (in screen pixels it grew huge when you zoomed out); dragged to an edge of the tracks, the view scrolls so the box can reach any track
+    double mqFrA, mqFrB; float mqYA, mqYB;   // frames along the song, and the height down the rows (vscroll included)
+    double MqFrameAtX(float x) { return scroll + (x - HeadW) * spp; }
+    float XAtFrame(double f) { return HeadW + (float)((f - scroll) / spp); }
+    float RowsY(float y) { return y - (ArrTop + RulerH) + vscroll; }
+    float ScreenY(float ry) { return ry + (ArrTop + RulerH) - vscroll; }
+    void MarqueeBegin() { multiSel.Clear(); marqueeOn = true; marqueeMoved = false; marqueeA = marqueeB = MousePos; mqFrA = mqFrB = MqFrameAtX(MousePos.X); mqYA = mqYB = RowsY(MousePos.Y); }
     void MarqueeTo(PointF p)
     {
-        if (!marqueeOn) return; marqueeB = p;
+        if (!marqueeOn) return;
+        // at an edge of the tracks the view scrolls along (faster the further out), so the box can reach tracks and bars you cannot see
+        var tl = TimelineRect(); float topY = ArrTop + RulerH, botY = MixH - 4; float viewH = MixH - topY - ArrGap, contentH = LaneCount * LaneH + 50;
+        if (p.Y > botY - 18) vscroll = Math.Min(Math.Max(0, contentH - viewH), vscroll + Math.Min(40, (p.Y - (botY - 18)) * 0.6f + 4));
+        else if (p.Y < topY + 12) vscroll = Math.Max(0, vscroll - Math.Min(40, (topY + 12 - p.Y) * 0.6f + 4));
+        if (p.X > tl.Right - 18) scroll = (long)Math.Max(0, scroll + spp * Math.Min(40, (p.X - (tl.Right - 18)) * 0.6f + 4));
+        else if (p.X < HeadW + 12 && scroll > 0) scroll = (long)Math.Max(0, scroll - spp * Math.Min(40, (HeadW + 12 - p.X) * 0.6f + 4));
+        mqFrB = MqFrameAtX(p.X); mqYB = RowsY(p.Y); marqueeA = new PointF(XAtFrame(mqFrA), ScreenY(mqYA)); marqueeB = p;
         if (!marqueeMoved && (Math.Abs(p.X - marqueeA.X) > 4 || Math.Abs(p.Y - marqueeA.Y) > 4)) marqueeMoved = true;
         if (marqueeMoved) RebuildMarquee();
     }
@@ -31,7 +45,7 @@ partial class StudioForm
     }
     void RebuildMarquee()
     {
-        var box = RectangleF.FromLTRB(Math.Min(marqueeA.X, marqueeB.X), Math.Min(marqueeA.Y, marqueeB.Y), Math.Max(marqueeA.X, marqueeB.X), Math.Max(marqueeA.Y, marqueeB.Y));
+        var box = MarqueeBox();
         multiSel.Clear(); float top = ArrTop + RulerH - vscroll;
         foreach (var t in eng.Tracks.ToArray())
         {
@@ -40,10 +54,16 @@ partial class StudioForm
             if (box.IntersectsWith(RectangleF.FromLTRB(x0, ly + 4, Math.Max(x1, x0 + 2), ly + LaneH - 4))) multiSel.Add(t);
         }
     }
+    // the box on the screen now, from its place in the song (it follows zooming and scrolling)
+    RectangleF MarqueeBox()
+    {
+        float xa = XAtFrame(mqFrA), xb = XAtFrame(mqFrB), ya = ScreenY(mqYA), yb = ScreenY(mqYB);
+        return RectangleF.FromLTRB(Math.Min(xa, xb), Math.Min(ya, yb), Math.Max(xa, xb), Math.Max(ya, yb));
+    }
     void PaintMarquee(Graphics g)
     {
         multiSel.RemoveAll(t => !eng.Tracks.Contains(t)); if (!marqueeOn || !marqueeMoved) return;
-        var tl = TimelineRect(); var box = RectangleF.Intersect(RectangleF.FromLTRB(Math.Min(marqueeA.X, marqueeB.X), Math.Min(marqueeA.Y, marqueeB.Y), Math.Max(marqueeA.X, marqueeB.X), Math.Max(marqueeA.Y, marqueeB.Y)), Rc(tl.X, ArrTop + RulerH, tl.Width, ClientSize.Height - ToolH - TransH - RulerH));
+        var tl = TimelineRect(); var box = RectangleF.Intersect(MarqueeBox(), Rc(tl.X, ArrTop + RulerH, tl.Width, ClientSize.Height - ToolH - TransH - RulerH));
         if (box.IsEmpty) return; lastInput = DateTime.Now;
         using (var b = new SolidBrush(TM.C(46, 0, 229, 255))) g.FillRectangle(b, box); using (var pen = new Pen(TM.C(230, 0, 229, 255), 1.6f)) g.DrawRectangle(pen, box.X, box.Y, box.Width, box.Height);
     }

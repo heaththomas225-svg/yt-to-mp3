@@ -38,7 +38,11 @@ static class D
           Check("fade curve: the middle is the S it always was, right comes up fast, left starts slow, and each goes from silence to full", Math.Abs(s0 - b0) < 1e-6 && up > s0 + 0.2 && dn < s0 - 0.05 && Track.FadeCurve(0, 1f) == 0 && Track.FadeCurve(1, -1f) == 1, s0.ToString("0.00") + " / " + up.ToString("0.00") + " / " + dn.ToString("0.00"));
           t.FadeInBend = 0.6f; t.FadeOutBend = -0.4f; t.FadeIn = sr / 2; ProjectIO.Save(eng, pf); var eF = new StudioEngine(); ProjectIO.Load(eF, pf, s => { });
           Check("the fade curves are saved with the project", eF.Tracks.Count == 1 && Math.Abs(eF.Tracks[0].FadeInBend - 0.6f) < 1e-4 && Math.Abs(eF.Tracks[0].FadeOutBend + 0.4f) < 1e-4, eF.Tracks.Count == 1 ? eF.Tracks[0].FadeInBend + " / " + eF.Tracks[0].FadeOutBend : "");
-          t.FadeInBend = 0; t.FadeOutBend = 0; t.FadeIn = 0; }
+          t.FadeInBend = 0; t.FadeOutBend = 0; t.FadeIn = 0;
+          // right-click Save / Add to MY SOUNDS takes the clip as heard on its row: only the used part, with its clip gain and fades
+          t.ClipGainDb = -6; t.FadeIn = sr / 2; float[] cL, cR; StudioForm.ClipAudio(t, out cL, out cR); float g6 = DspMath.DbToLin(-6);
+          Check("a saved clip is just the part that plays, with its gain and fade", cL.Length == sr && Math.Abs(cL[0]) < 1e-6 && Math.Abs(cL[sr - 1] + 0.5f * g6) < 1e-3 && Math.Abs(cL[sr / 4] + 0.5f * g6 * Track.FadeCurve(0.5)) < 1e-3, cL.Length + " frames, end " + (cL.Length > 0 ? cL[cL.Length - 1].ToString("0.000") : ""));
+          t.ClipGainDb = 0; t.FadeIn = 0; }
         Check("project keeps the trim and position", e2.Tracks.Count == 1 && e2.Tracks[0].ClipStart == sr * 2 && e2.Tracks[0].ClipFrames == sr && e2.Tracks[0].Offset == sr * 3, e2.Tracks.Count == 1 ? e2.Tracks[0].ClipStart + "/" + e2.Tracks[0].ClipFrames + "/" + e2.Tracks[0].Offset : "none");
         // the vocal's plugins stay on the vocal and the beat's on the beat when a piece sat among the rows as the project was saved (they used to swap onto the wrong track on reopening)
         {
