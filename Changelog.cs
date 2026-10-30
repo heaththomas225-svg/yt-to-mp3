@@ -7,10 +7,17 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.78.5";
+    public const string Latest = "3.78.6";
 
     public const string Text =
-@"3.78.5  Purphex Pads, VST3 instruments play from your MIDI keyboard
+@"3.78.6  Purphex Key Map, kits you save and name, SAVE on every plugin, drag sounds onto pads and keys, MY SOUNDS
+ + NEW: Purphex Key Map (in the instruments): any sound on any key of your MIDI keyboard. Right-click a key (or drop a sound on it) and pick a sound from the library, a file on your PC or one of your tracks. PLAY IT ACROSS spreads a sound over the keys, pitched (an octave each side, or the whole keyboard), so one sound becomes an instrument. PICK BY PLAYING picks the key you press on your keyboard. Each sound has its own level and everything is saved with your project.
+ + NEW: Drag any sound from SOUNDS or MY SOUNDS onto a pad of Purphex Pads or a key of Purphex Key Map: the pad or key under the mouse lights up and takes it. Sound files dragged from your folders work too.
+ + NEW: MY SOUNDS, a tab beside SOUNDS and SOUND PACKS: every sound you imported, kept in your library for good, with how many there are. After you import, the panel opens on it.
+ + NEW: Save your sounds as kits: SAVE KIT and MY KITS in Purphex Pads, SAVE MAP and MY MAPS in Key Map. Give each one a name (the same genre as often as you like: a second Trap kit is offered as Trap kit 2) and step through them with the arrows at the top. A saved kit keeps copies of its sounds, so it still plays after the original files are moved or deleted.
+ + NEW: SAVE on every plugin window (the Purphex ones and the plugin windows inside the studio), and right-click any plugin in the mixer for Save as my preset and Presets. Save as many as you like; each gets its own name, and an existing name asks before it is replaced.
+
+3.78.5  Purphex Pads, VST3 instruments play from your MIDI keyboard
  + FIXED: VST3 instruments with a sidechain input (many modern synths have one) were taken for effects, so your MIDI keyboard played the built-in piano instead of them and they made no sound. A VST3 now counts as an instrument when it says it is one, and the MIDI keyboard plays it.
  + NEW: Purphex Pads (in the instruments): 16 pads, each playing any sound you choose: from the sound library, a sound file on your PC (pick it, or drop it on a pad) or one of your song's tracks. KIT FROM A GENRE fills all 16 at once. The pads of your MIDI keyboard play it straight away (pads 1 to 16 start on the usual drum-pad notes), and LEARN lets any pad or key of your keyboard play any pad. Each pad has its own level, the piano roll shows the pad names on its keys, and everything is saved with your project.
 
