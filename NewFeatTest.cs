@@ -217,7 +217,7 @@ static class NF
           var a0 = new float[44100 * 2]; for (int i = 22050; i < a0.Length; i++) a0[i] = (float)(0.4 * Math.Sin(i * 0.05)); var tt = StudioEngine.NewTrack("Late start", "audio", AudioClip.FromArrays(a0, a0, "late")); tt.Offset = 44100;
           long cut = (long)typeof(StudioForm).GetMethod("TrimLeadingSilence", BF).Invoke(sf, new object[] { tt });
           var quiet = StudioEngine.NewTrack("Silent", "audio", AudioClip.FromArrays(new float[44100], new float[44100], "s")); long cut2 = (long)typeof(StudioForm).GetMethod("TrimLeadingSilence", BF).Invoke(sf, new object[] { quiet });
-          Check("auto trim: a clip that starts with half a second of silence starts where the sound starts (5 ms kept before it), and stays where it was", Math.Abs(cut - (22050 - 220)) < 40 && tt.ClipStart == cut && tt.Offset == 44100 && cut2 == 0, "trimmed " + cut + " frames, silent clip " + cut2); }
+          Check("auto trim: a clip that starts with half a second of silence starts where the sound starts (5 ms kept before it), and the sound stays where it was in the song", Math.Abs(cut - (22050 - 220)) < 40 && tt.ClipStart == cut && tt.Offset == 44100 + cut && cut2 == 0, "trimmed " + cut + " frames, silent clip " + cut2); }
         { // the sound output refreshed while an instrument is being played live comes straight back (it went away until something woke it: hits came out seconds late)
           sf.eng.Stop(); sf.eng.EnsureAudio(); StudioEngine.LiveUntil = Environment.TickCount + 3000; sf.eng.ReopenOutput(); bool liveBack = sf.eng.OutputOpen;
           StudioEngine.LiveUntil = Environment.TickCount - 100000; sf.eng.ReopenOutput(); bool idleOff = !sf.eng.OutputOpen; sf.eng.EnsureAudio();

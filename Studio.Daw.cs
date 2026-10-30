@@ -301,7 +301,7 @@ partial class StudioForm
         if (tr.Instrument) { m.Items.Add("Edit notes (piano roll)...").Click += (a, b) => OpenPianoRoll(tr); m.Items.Add(new ToolStripSeparator()); }
         var piece = PickLayer(tr, MousePos);
         if (tr.Clip == null && !tr.Instrument && !tr.IsBus) { var tk = tr; m.Items.Add("Add music to this track...").Click += (a, b) => { selTrack = Math.Max(0, eng.Tracks.IndexOf(tk)); fillTrack = tk; try { AddMusicClick(true); } finally { fillTrack = null; } }; m.Items.Add(new ToolStripSeparator()); }
-        if (piece.Clip != null && !piece.Instrument) m.Items.Add("Trim the silence at the start (the clip starts where the sound starts)").Click += (a, b) => { PushUndo(); long cut = TrimLeadingSilence(piece); Toast(cut > 0 ? "Trimmed " + (cut / (double)StudioEngine.SR).ToString("0.00") + " s of silence off the start of " + piece.Name + "." : piece.Name + " has no silence at its start to trim."); };
+        if (piece.Clip != null && !piece.Instrument) m.Items.Add("Trim the silence at the start (the sound stays where it is)").Click += (a, b) => { PushUndo(); long cut = TrimLeadingSilence(piece); Toast(cut > 0 ? "Trimmed " + (cut / (double)StudioEngine.SR).ToString("0.00") + " s of silence off the start of " + piece.Name + "." : piece.Name + " has no silence at its start to trim."); };
         m.Items.Add("Split here (at the needle)").Click += (a, b) => SplitSelected();
         m.Items.Add("Split where I clicked").Click += (a, b) => SplitTrack(piece, at);
         m.Items.Add("Cut this piece out (delete it, nothing else moves)").Click += (a, b) => { toolsTrack = piece; CutClick(); };
