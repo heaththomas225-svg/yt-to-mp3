@@ -490,7 +490,7 @@ partial class StudioForm
         Btn(g, Rc(a.X + bw + 4, by, bw, 24), c.PieceLocked ? "LOCKED" : "LOCK", c.PieceLocked ? 4 : 0, () => { PushUndo(); c.PieceLocked = !c.PieceLocked; }, 9.5f);
         Btn(g, Rc(a.X + 2 * (bw + 4), by, bw, 24), "REVERSE", 0, () => ReverseClip(c), 9.5f);
         x += 308;
-        var gb = InsBox(g, Rc(x, y, 260, h), "GAIN · FADES", col); double maxFade = Math.Max(0.05, Math.Min(10, c.UsedLength / sr / 2)); float kw = gb.Width / 3;
+        var gb = InsBox(g, Rc(x, y, 430, h), "GAIN · FADES", col); double maxFade = Math.Max(0.01, c.UsedLength / sr); float kw = gb.Width / 5;   // a fade can be as short as you like and as long as the whole clip (the two share the clip if they meet)
         // three knobs: turn them (drag up / down, double-click for the default) or click the box under one to type the value
         KnobBox(g, Rc(gb.X, gb.Y, kw, gb.Height), "GAIN", (c.ClipGainDb > 0 ? "+" : "") + c.ClipGainDb.ToString("0.0") + " dB", (c.ClipGainDb + 24) / 36f, v => c.ClipGainDb = (float)Math.Round(v * 36 - 24, 1), col, () => c.ClipGainDb = 0,
             "Clip gain in dB (-24 to +12):", c.ClipGainDb.ToString("0.0"), d => { PushUndo(); c.ClipGainDb = (float)Math.Max(-24, Math.Min(12, d)); }, "The level of this clip on its own (before the track's fader)");
@@ -498,7 +498,13 @@ partial class StudioForm
             "Fade in, in seconds (0 to " + maxFade.ToString("0.00") + "):", (c.FadeIn / sr).ToString("0.00"), d => { PushUndo(); c.FadeIn = (long)(Math.Max(0, Math.Min(maxFade, d)) * sr); }, "How long the clip takes to come up from silence at its start");
         KnobBox(g, Rc(gb.X + 2 * kw, gb.Y, kw, gb.Height), "FADE OUT", (c.FadeOut / sr).ToString("0.00") + " s", (float)(c.FadeOut / sr / maxFade), v => c.FadeOut = (long)(v * maxFade * sr), col, () => c.FadeOut = 0,
             "Fade out, in seconds (0 to " + maxFade.ToString("0.00") + "):", (c.FadeOut / sr).ToString("0.00"), d => { PushUndo(); c.FadeOut = (long)(Math.Max(0, Math.Min(maxFade, d)) * sr); }, "How long the clip takes to go down to silence at its end");
-        x += 268;
+        // the shape of each fade: S in the middle (as always), slow start that swells (left), fast start that eases off (right)
+        Func<float, string> shape = b => Math.Abs(b) < 0.02f ? "S-CURVE" : (b > 0 ? "FAST " : "SLOW ") + (int)Math.Round(Math.Abs(b) * 100) + "%";
+        KnobBox(g, Rc(gb.X + 3 * kw, gb.Y, kw, gb.Height), "IN CURVE", shape(c.FadeInBend), (c.FadeInBend + 1) / 2, v => c.FadeInBend = (float)Math.Round(v * 2 - 1, 2), col, () => c.FadeInBend = 0,
+            "Fade in curve, -100 (slow start, swells) to 100 (fast start, eases off); 0 is the S-curve:", ((int)Math.Round(c.FadeInBend * 100)).ToString(), d => { PushUndo(); c.FadeInBend = (float)Math.Max(-1, Math.Min(1, d / 100)); }, "The shape of the fade in: left starts slow and swells, right comes up fast, the middle is the smooth S");
+        KnobBox(g, Rc(gb.X + 4 * kw, gb.Y, kw, gb.Height), "OUT CURVE", shape(c.FadeOutBend), (c.FadeOutBend + 1) / 2, v => c.FadeOutBend = (float)Math.Round(v * 2 - 1, 2), col, () => c.FadeOutBend = 0,
+            "Fade out curve, -100 to 100; 0 is the S-curve:", ((int)Math.Round(c.FadeOutBend * 100)).ToString(), d => { PushUndo(); c.FadeOutBend = (float)Math.Max(-1, Math.Min(1, d / 100)); }, "The shape of the fade out: right keeps the level up and drops at the end, left falls away fast then tails off softly, the middle is the smooth S");
+        x += 438;
         var pb = InsBox(g, Rc(x, y, 230, h), "PITCH · TIME", col);
         Txt(g, "Fix or change the pitch of this clip note by note, or tune it to a key, in Flex Pitch.", 9.5f, DimC, Rc(pb.X, pb.Y, pb.Width, 34), StringAlignment.Near, false);
         Btn(g, Rc(pb.X, pb.Y + 40, pb.Width, 26), "OPEN FLEX PITCH", 1, () => { toolsTrack = c; selTrack = Math.Max(0, eng.Tracks.IndexOf(RowHost(c))); FlexOpen(); }, 10);

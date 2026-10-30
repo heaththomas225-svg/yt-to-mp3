@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 
 // Tests the DAW editing model: trim / split playback, project save of trims, tempo detection, Auto Mix on an unsplit song.   csc /main:D ... DawTest.cs
@@ -33,6 +33,12 @@ static class D
         // save and reopen keeps the trim
         string pf = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "dawtest.ytmproj"); System.IO.File.WriteAllBytes(System.IO.Path.Combine(System.IO.Path.GetTempPath(), "dawtest.wav"), new byte[0]);
         t.Source = "x"; ProjectIO.Save(eng, pf); var e2 = new StudioEngine(); ProjectIO.Load(e2, pf, s => { });
+        { // fades: any length (up to the whole clip) and a curve that bends both ways; the curves are saved with the project
+          double s0 = Track.FadeCurve(0.25), b0 = Track.FadeCurve(0.25, 0f), up = Track.FadeCurve(0.25, 1f), dn = Track.FadeCurve(0.25, -1f);
+          Check("fade curve: the middle is the S it always was, right comes up fast, left starts slow, and each goes from silence to full", Math.Abs(s0 - b0) < 1e-6 && up > s0 + 0.2 && dn < s0 - 0.05 && Track.FadeCurve(0, 1f) == 0 && Track.FadeCurve(1, -1f) == 1, s0.ToString("0.00") + " / " + up.ToString("0.00") + " / " + dn.ToString("0.00"));
+          t.FadeInBend = 0.6f; t.FadeOutBend = -0.4f; t.FadeIn = sr / 2; ProjectIO.Save(eng, pf); var e3 = new StudioEngine(); ProjectIO.Load(e3, pf, s => { });
+          Check("the fade curves are saved with the project", e3.Tracks.Count == 1 && Math.Abs(e3.Tracks[0].FadeInBend - 0.6f) < 1e-4 && Math.Abs(e3.Tracks[0].FadeOutBend + 0.4f) < 1e-4, e3.Tracks.Count == 1 ? e3.Tracks[0].FadeInBend + " / " + e3.Tracks[0].FadeOutBend : "");
+          t.FadeInBend = 0; t.FadeOutBend = 0; t.FadeIn = 0; }
         Check("project keeps the trim and position", e2.Tracks.Count == 1 && e2.Tracks[0].ClipStart == sr * 2 && e2.Tracks[0].ClipFrames == sr && e2.Tracks[0].Offset == sr * 3, e2.Tracks.Count == 1 ? e2.Tracks[0].ClipStart + "/" + e2.Tracks[0].ClipFrames + "/" + e2.Tracks[0].Offset : "none");
         // the vocal's plugins stay on the vocal and the beat's on the beat when a piece sat among the rows as the project was saved (they used to swap onto the wrong track on reopening)
         {

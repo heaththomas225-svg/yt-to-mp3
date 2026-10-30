@@ -326,13 +326,13 @@ partial class StudioForm
         float top = cr.Y, bot = cr.Bottom, hgt = bot - top;
         if (tr.FadeIn > 0)
         {
-            float fw = (float)(tr.FadeIn / spp), dl = (float)(tr.FadeInDelay / spp); var curve = new List<PointF>(); if (dl > 0.5f) curve.Add(new PointF(x0, bot)); for (int i = 0; i <= 24; i++) { double u = i / 24.0; curve.Add(new PointF(x0 + dl + (float)(u * fw), bot - Track.FadeCurve(u) * hgt)); }
+            float fw = (float)(tr.FadeIn / spp), dl = (float)(tr.FadeInDelay / spp); var curve = new List<PointF>(); if (dl > 0.5f) curve.Add(new PointF(x0, bot)); for (int i = 0; i <= 24; i++) { double u = i / 24.0; curve.Add(new PointF(x0 + dl + (float)(u * fw), bot - Track.FadeCurve(u, tr.FadeInBend) * hgt)); }
             var poly = new List<PointF>(curve); poly.Add(new PointF(x0 + dl + fw, top)); poly.Add(new PointF(x0, top));
             using (var b = new SolidBrush(TM.C(120, 6, 3, 16))) g.FillPolygon(b, poly.ToArray()); using (var pen = new Pen(TM.C(235, 0, 229, 255), 1.8f)) g.DrawLines(pen, curve.ToArray());
         }
         if (tr.FadeOut > 0)
         {
-            float fw = (float)(tr.FadeOut / spp), tl2 = (float)(tr.FadeOutTail / spp); var curve = new List<PointF>(); for (int i = 0; i <= 24; i++) { double u = i / 24.0; curve.Add(new PointF(x1 - tl2 - fw + (float)(u * fw), bot - Track.FadeCurve(1 - u) * hgt)); } if (tl2 > 0.5f) curve.Add(new PointF(x1, bot));
+            float fw = (float)(tr.FadeOut / spp), tl2 = (float)(tr.FadeOutTail / spp); var curve = new List<PointF>(); for (int i = 0; i <= 24; i++) { double u = i / 24.0; curve.Add(new PointF(x1 - tl2 - fw + (float)(u * fw), bot - Track.FadeCurve(1 - u, tr.FadeOutBend) * hgt)); } if (tl2 > 0.5f) curve.Add(new PointF(x1, bot));
             var poly = new List<PointF>(curve); poly.Add(new PointF(x1, top)); poly.Add(new PointF(x1 - tl2 - fw, top));
             using (var b = new SolidBrush(TM.C(120, 6, 3, 16))) g.FillPolygon(b, poly.ToArray()); using (var pen = new Pen(TM.C(235, 0, 229, 255), 1.8f)) g.DrawLines(pen, curve.ToArray());
         }
