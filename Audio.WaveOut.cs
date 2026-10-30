@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -70,7 +70,7 @@ class WaveOutPlayer : AudioOut
     ManualResetEvent ev = new ManualResetEvent(false); Thread th; volatile bool run; float[] fl, fr; short[] tmp;
 
     // level: the buffer size (0 small, 1 medium, 2 biggest); -1 = the one from Settings (made bigger for the session when the sound broke up)
-    public WaveOutPlayer(Action<float[], float[], int> render, int level = -1) { int lv = level < 0 ? Prefs.BufEff : Math.Min(2, level); Buffers = lv == 0 ? 4 : 8; Frames = lv == 0 ? 512 : (lv == 2 ? 2048 : 1024); this.render = render; hdrs = new IntPtr[Buffers]; data = new IntPtr[Buffers]; QueuedFrames = Buffers * Frames; fl = new float[Frames]; fr = new float[Frames]; tmp = new short[Frames * 2]; }
+    public WaveOutPlayer(Action<float[], float[], int> render, int level = -1) { int lv = level < 0 ? Prefs.BufEff : Math.Min(2, level); Buffers = lv == 0 ? 3 : (lv == 2 ? 6 : 4); Frames = lv == 2 ? 1024 : 512;   /* low latency 35 ms, normal 46 ms, safe 139 ms of sound queued (normal was 186 ms: every pad hit came out that late) */ this.render = render; hdrs = new IntPtr[Buffers]; data = new IntPtr[Buffers]; QueuedFrames = Buffers * Frames; fl = new float[Frames]; fr = new float[Frames]; tmp = new short[Frames * 2]; }
 
     public override void Start()
     {

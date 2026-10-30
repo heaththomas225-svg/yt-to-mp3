@@ -237,6 +237,19 @@ static class NF
           bool made = sf.eng.Tracks.Any(q => q.Instrument && q.Name == "Keys"); StudioEngine.Current = keepC;
           Check("the MIDI keyboard always plays: with an audio track picked it plays the first MIDI track, and a song with no MIDI track gets a Keys track", fb && made, "fallback " + fb + ", keys track " + made);
           sf.eng.Tracks.Clear(); }
+        { // the piano roll's REC: with the piano roll open on a track, the MIDI keyboard plays and records into that track (not the picked one)
+          sf.eng.Stop(); sf.eng.Tracks.Clear(); MidiInput.Target = null; var keepR = StudioEngine.Current; StudioEngine.Current = null;
+          var other = StudioEngine.NewTrack("Other", "inst", null); other.Instrument = true; var shown = StudioEngine.NewTrack("Shown", "inst", null); shown.Instrument = true; sf.eng.Tracks.Add(other); sf.eng.Tracks.Add(shown);
+          typeof(StudioForm).GetField("selTrack", BF).SetValue(sf, 0); sf.OpenPianoRoll(shown); Pump(100); typeof(StudioForm).GetField("recOn", BF).SetValue(sf, true);
+          MidiInput.Handle(0x90u | (64u << 8) | (100u << 16)); MidiInput.Handle(0x80u | (64u << 8)); Pump(100); typeof(StudioForm).GetField("recOn", BF).SetValue(sf, false); sf.eng.Stop(); StudioEngine.Current = keepR;
+          int inShown, inOther; lock (shown.Midi) inShown = shown.Midi.Count(e => (e.S & 0xF0) == 0x90 && e.D1 == 64); lock (other.Midi) inOther = other.Midi.Count(e => (e.S & 0xF0) == 0x90 && e.D1 == 64);
+          Check("REC in the piano roll records the MIDI keyboard into the track the piano roll shows (not the picked one)", sf.PrShown && inShown == 1 && inOther == 0, "shown " + inShown + ", other " + inOther);
+          sf.CloseInspector(); sf.eng.Tracks.Clear(); }
+        { // previewing a sound in SOUNDS pauses the song
+          sf.eng.Stop(); sf.eng.Tracks.Clear(); sf.eng.Tracks.Add(StudioEngine.NewTrack("Song", "beat", AudioClip.FromArrays(new float[44100 * 20], new float[44100 * 20], "s"))); sf.eng.Play(); for (int w = 0; w < 30 && !sf.eng.Playing; w++) Pump(50); bool wasP = sf.eng.Playing;
+          string wv2 = Path.Combine(StudioEnv.DataDir, "prev.wav"); { var x = new float[22050]; WavIO.Write(wv2, x, x, 44100, 24); }
+          sf.PreviewSound(new SoundItem { Name = "Prev", Kind = "one-shot", Path = wv2, Rel = "prev.wav" }); Pump(100); bool paused = !sf.eng.Playing; Auditioner.Stop(); sf.eng.Stop();
+          Check("previewing a sound in SOUNDS or the packs pauses the song", wasP && paused, "was playing " + wasP + ", paused " + paused); sf.eng.Tracks.Clear(); }
         { // the list that asks which track: one button for a row that was split into pieces
           sf.eng.Tracks.Clear(); Func<int, AudioClip> mkc = sec => AudioClip.FromArrays(new float[44100 * sec], new float[44100 * sec], "t"); var row0 = StudioEngine.NewTrack("Row", "beat", mkc(2)); var pc1 = StudioEngine.NewTrack("Row piece", "beat", mkc(5)); var pc2 = StudioEngine.NewTrack("Row piece 2", "beat", mkc(1)); pc1.Host = row0; pc2.Host = row0; var other = StudioEngine.NewTrack("Other", "vocal", mkc(3));
           sf.eng.Tracks.Add(row0); sf.eng.Tracks.Add(pc1); sf.eng.Tracks.Add(pc2); sf.eng.Tracks.Add(other); var picked = new List<Track>();

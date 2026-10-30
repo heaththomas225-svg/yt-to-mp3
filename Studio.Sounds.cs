@@ -277,7 +277,9 @@ partial class StudioForm
         if (logoSmall == null) { var lg = AppLogo.Logo; if (lg != null) { try { logoSmall = new Bitmap(28, 28, System.Drawing.Imaging.PixelFormat.Format32bppPArgb); using (var lgg = Graphics.FromImage(logoSmall)) { lgg.InterpolationMode = InterpolationMode.HighQualityBicubic; lgg.DrawImage(lg, new Rectangle(0, 0, 28, 28)); } } catch { logoSmall = null; } } } if (logoSmall != null) { var q = Rc(r.Right - 15, r.Bottom - 15, 14, 14); g.DrawImage(logoSmall, q); }
     }
 
-    void SelectSound(SoundItem s, bool play) { sndSel = s; if (play && SoundLibrary.AutoPlay && (s.IsAudio || s.Kind == "midi")) Auditioner.Play(s, m => Toast(m)); }   // a MIDI file is heard through an instrument
+    // a sound previewed in SOUNDS or the packs: the song pauses (at the needle), so you hear only the sound you are trying
+    internal void PreviewSound(SoundItem s) { if (eng.Playing) PauseHere(); Auditioner.Play(s, m => Toast(m)); }
+    void SelectSound(SoundItem s, bool play) { sndSel = s; if (play && SoundLibrary.AutoPlay && (s.IsAudio || s.Kind == "midi")) PreviewSound(s); }   // a MIDI file is heard through an instrument
 
     void PaintSoundPreview(Graphics g, RectangleF r)
     {
@@ -293,7 +295,7 @@ partial class StudioForm
         if (cur && Auditioner.Length > 0) { float px = wf.X + (float)(Auditioner.Seconds / Auditioner.Length) * wf.Width; using (var pen = new Pen(Color.White, 1.5f)) g.DrawLine(pen, px, wf.Y + 2, px, wf.Bottom - 2); }
         var wr = Reg(wf, () => { if (cur) Auditioner.Seek((MousePos.X - wf.X) / wf.Width); }); wr.OnDrag = pt => { if (cur) Auditioner.Seek((pt.X - wf.X) / wf.Width); };
         float cy = r.Y + 92; bool playing = cur && Auditioner.IsPlaying;
-        Btn(g, Rc(r.X + 12, cy, 66, 28), playing ? "Pause" : "Play", 1, () => { if (cur) Auditioner.Toggle(); else if (s.IsAudio || s.Kind == "midi") Auditioner.Play(s, m => Toast(m)); }, 12); Btn(g, Rc(r.X + 82, cy, 50, 28), "Stop", 0, () => Auditioner.Stop(), 11);
+        Btn(g, Rc(r.X + 12, cy, 66, 28), playing ? "Pause" : "Play", 1, () => { if (cur) { if (!playing && eng.Playing) PauseHere(); Auditioner.Toggle(); } else if (s.IsAudio || s.Kind == "midi") PreviewSound(s); }, 12); Btn(g, Rc(r.X + 82, cy, 50, 28), "Stop", 0, () => Auditioner.Stop(), 11);
         Chip(g, Rc(r.X + 136, cy, 56, 28), "Loop", SoundLibrary.LoopPreview, () => { SoundLibrary.LoopPreview = !SoundLibrary.LoopPreview; }); Chip(g, Rc(r.X + 196, cy, 78, 28), "Autoplay", SoundLibrary.AutoPlay, () => { SoundLibrary.AutoPlay = !SoundLibrary.AutoPlay; SoundLibrary.SaveUser(); });
         Txt(g, "VOL", 10, DimC, Rc(r.X + 282, cy + 6, 24, 16), StringAlignment.Near, false); var vs = Slider(g, Rc(r.X + 306, cy + 5, r.Width - 306 - 16 + r.X - r.X, 18), SoundLibrary.AuditionVolume, f => { SoundLibrary.AuditionVolume = f; }, NeonCyan); vs.OnDouble = () => SoundLibrary.AuditionVolume = 0.8f;
         float by = cy + 34; bool preset = s.Kind == "preset", midi = s.Kind == "midi";
@@ -596,7 +598,7 @@ partial class StudioForm
     void PreviewPack(Recipe rec)
     {
         SoundItem first = null; foreach (var s in InstantLib.ItemsOf(rec.Id)) if (s.Type == "Drum Loop" || (first == null && s.Kind == "loop")) { first = s; if (s.Type == "Drum Loop") break; }
-        if (first == null) { Toast("This pack has nothing to preview."); return; } Auditioner.Play(first, m => Toast(m)); Toast("Previewing " + rec.Name + ": " + first.Core);
+        if (first == null) { Toast("This pack has nothing to preview."); return; } PreviewSound(first); Toast("Previewing " + rec.Name + ": " + first.Core);
     }
     void PaintPackManager(Graphics g)
     {

@@ -113,7 +113,7 @@ partial class StudioForm
         var rep = MidiInput.Report(); float cy = pr.Bottom + 10; var chk = Rc(box.X + 24, cy, box.Width - 48, 22 + rep.Count * 18 + 18); FillRR(g, TM.C(200, 10, 6, 24), chk, 10);
         Txt(g, "CHECK: YOUR MIDI INPUTS", 10, NeonCyan, Rc(chk.X + 12, chk.Y + 4, chk.Width - 24, 16), StringAlignment.Near, true);
         for (int i = 0; i < rep.Count; i++) Txt(g, rep[i], 10, rep[i].Contains("LISTENING") ? Good : Warn, Rc(chk.X + 12, chk.Y + 22 + i * 18, chk.Width - 24, 16), StringAlignment.Near, false);
-        int lv = Prefs.BufEff; string buf = lv == 0 ? "4 x 512 (46 ms)" : lv == 2 ? "8 x 2048 (372 ms)" : "8 x 1024 (186 ms)";
+        int lv = Prefs.BufEff; string buf = lv == 0 ? "3 x 512 (35 ms)" : lv == 2 ? "6 x 1024 (139 ms)" : "4 x 512 (46 ms)";
         Txt(g, "SOUND CARD: buffer " + buf + ",  dropouts since the studio opened: " + WaveOutPlayer.Underruns + " (each one is a crackle)", 10, WaveOutPlayer.Underruns > 0 ? Warn : DimC, Rc(chk.X + 12, chk.Bottom - 20, chk.Width - 24, 16), StringAlignment.Near, false);
         if (unchecked(Environment.TickCount - MidiMap.ActivityAt) < 400) lastInput = DateTime.Now;
         // the maps
