@@ -7,10 +7,14 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.78.3";
+    public const string Latest = "3.78.4";
 
     public const string Text =
-@"3.78.3  Galaxy knobs, BEAT LAB tab, mixer strips with the channel controls, ChordPad without clicks
+@"3.78.4  The MIDI keyboard plays and records the selected track, VSTs and all
+ + FIXED: The MIDI keyboard did nothing unless a Bass Lab window had been opened, and it only played an instrument whose window was in front: pick a track with a VST or a Purphex instrument and nothing played, and MIDI REC recorded nothing. Now the MIDI keyboard plays whatever is on the selected MIDI track (a VST, Bass Lab, a Purphex instrument, or the built-in keys), through that track's effects, and MIDI REC records it. An instrument window you have open in front still gets the keys while you use it.
+ + NEW: The MIDI keyboard connects by itself when the studio opens, and when you plug it in later. Right-click MIDI REC to pick another keyboard or switch it off. If another program is using the keyboard, Purphex says so.
+
+3.78.3  Galaxy knobs, BEAT LAB tab, mixer strips with the channel controls, ChordPad without clicks
  + FIXED: Clicks in the Purphex ChordPad when you played fast: with all its voices busy, the oldest note was cut off in one sample. Now the quietest fading note is taken first and what it was playing fades away in 3 ms. Measured playing fast: 73 clicks before, none now.
  + NEW: A BEAT LAB tab beside PIANO ROLL in the panel at the bottom.
  + CHANGED: The CHANNEL tab is gone: every mixer strip now has STEREO / MONO, phase, ON / OFF and TRIM of its own.
