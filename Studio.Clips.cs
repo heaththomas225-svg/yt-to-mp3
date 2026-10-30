@@ -43,8 +43,8 @@ partial class StudioForm
     // ---------- split: as many times as you want ----------
     // where a split goes: exactly where the needle is. It only sits on the grid when a grid line is within a few pixels of it: zoomed in, the grid lines are far apart and snapping would throw the split away from the needle
     long SplitPoint(long raw) { return Math.Max(0, raw); }   // a split goes exactly where the needle or the click is (no pull to the grid), as free as moving a piece
-    // AUTO TRIM: the silence before the sound starts is taken off the start of a clip (the clip stays where it is on the song, so the sound now
-    // starts with the clip). Below -54 dB counts as silence; 5 ms is left before the first sound so its attack is kept whole. Returns the frames trimmed.
+    // AUTO TRIM: the silence before the sound starts is taken off the start of a clip: the clip now starts where the sound starts, and the sound
+    // stays at its place in the song (nothing moves in time). Below -54 dB counts as silence; 5 ms is left before the first sound so its attack is kept whole. Returns the frames trimmed.
     internal static long LeadingSilence(Track t)
     {
         var c = t.Clip; if (c == null || c.L == null) return 0; var L = c.L; var R = c.R ?? c.L; long st = t.ClipStart, end = t.ClipFrames > 0 ? Math.Min(L.Length, st + t.ClipFrames) : L.Length; const float gate = 0.002f;
@@ -55,7 +55,7 @@ partial class StudioForm
     internal long TrimLeadingSilence(Track t)
     {
         long cut = LeadingSilence(t); if (cut <= 0) return 0;
-        lock (eng.Sync) { t.ClipStart += cut; if (t.ClipFrames > 0) t.ClipFrames = Math.Max(1, t.ClipFrames - cut); }
+        lock (eng.Sync) { t.ClipStart += cut; t.Offset += cut; if (t.ClipFrames > 0) t.ClipFrames = Math.Max(1, t.ClipFrames - cut); }   // the clip starts later and the sound stays exactly where it was in the song (it used to move forward)
         return cut;
     }
     void SplitSelected()

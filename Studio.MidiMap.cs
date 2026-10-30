@@ -9,6 +9,18 @@ using System.Windows.Forms;
 partial class StudioForm
 {
     bool mmOpen; float mmScroll;
+    // while a clip or a sound is dragged the plugin windows get out of the way: those in the studio show only an outline, the separate ones fade almost
+    // away (Purphex Pads and Key Map stay when a sound from SOUNDS is dragged: they are where it can be dropped)
+    internal bool DragThrough { get { return (sndDragging && sndDrag != null) || (dragReg != null && laneMoved); } }   // (both end when the mouse is let go)
+    internal void FadePluginWindows()
+    {
+        bool drag = DragThrough;
+        foreach (Form f in Application.OpenForms)
+        {
+            if (!(f is PxWindow) || f.IsDisposed) continue; double want = drag && !(sndDragging && f is ISoundDrop) ? 0.15 : 1.0;
+            if (Math.Abs(f.Opacity - want) > 0.01) try { f.Opacity = want; } catch { }
+        }
+    }
     void MidiMapInit()
     {
         MidiMap.Load();
