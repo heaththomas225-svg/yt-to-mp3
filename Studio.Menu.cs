@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -102,6 +102,7 @@ partial class StudioForm
                 I("Auto Mix", () => { GoMixClose(); AutoMixClick(); }); I("Split vocals + beat", () => { GoMixClose(); SeparateClick(); }); I("Split into 4 stems", () => { GoMixClose(); Separate4Click(); }); I("Detect BPM", () => { GoMixClose(); DetectBpmClick(); });
                 I("Flex Pitch (edit notes)", () => { GoMixClose(); FlexOpen(); }); I("Sounds and sound packs", () => { GoMixClose(); OpenPacks(); }); I("Vocal Presets", () => { GoMixClose(); OpenStyles(); }); I("Bus Presets", () => { GoMixClose(); OpenBusPresets(); }); I("AI Effect Generator", () => { GoMixClose(); OpenAiEffect(false); });
                 I("Add a track...", () => { GoMixClose(); ShowAddTrackMenuMain(); });
+                I("MIDI mapping (your controller's knobs, keys and pads)", () => { GoMixClose(); OpenMidiMap(); });
                 I("Metronome on / off", () => { GoMixClose(); eng.Metronome = !eng.Metronome; }); I(snapOn ? "Snap to grid: ON" : "Snap to grid: OFF", () => { GoMixClose(); snapOn = !snapOn; Toast(snapOn ? "Snap to the grid is on." : "Snap to the grid is off."); });
                 break;
             case 5:   // Community: the side panel stays open so you pick the community tab or the artists page

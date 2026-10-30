@@ -755,9 +755,15 @@ partial class StudioEngine
 
     public bool ListenOnly;   // a project preview or a community song: nothing is played live on top, so it always gets the biggest playback buffer (no stutter)
     static bool gcTuned;
+    public bool OutputOpen { get { return player != null; } }
+    readonly object playerGate = new object();   // (the MIDI thread can wake the sound card too)
     void EnsurePlayer()
     {
         if (player != null) return;
+        lock (playerGate) { if (player != null) return; OpenPlayer(); }
+    }
+    void OpenPlayer()
+    {
         if (!gcTuned) { gcTuned = true; try { System.Runtime.GCSettings.LatencyMode = System.Runtime.GCLatencyMode.SustainedLowLatency; } catch { } }   // a big memory clean-up never freezes the sound while it plays
         player = AudioOut.Create(RenderRealtime, ListenOnly ? 2 : -1); player.PosNow = () => Interlocked.Read(ref Pos); player.PlayingNow = () => Playing && countLeft <= 0; player.Start();
     }
@@ -778,8 +784,15 @@ partial class StudioEngine
     }
 
     public int Reopens;   // how many times the sound output was refreshed (for the tests)
-    public void ReopenOutput() { Reopens++; bool was = Playing; if (player != null) { player.Dispose(); player = null; } if (was) { try { EnsurePlayer(); } catch { Playing = false; } } }
-    public void Shutdown() { Playing = false; if (player != null) { player.Dispose(); player = null; } }
+    // a fresh sound output (the sound was breaking up): it comes straight back when the song plays or an instrument is being played live
+    // (it only came back for the song before: playing pads with the song stopped, the sound went away until something woke it, and the hits came out seconds late)
+    public void ReopenOutput()
+    {
+        Reopens++; bool was = Playing, live = unchecked(Environment.TickCount - LiveUntil) < 0;
+        lock (playerGate) { if (player != null) { player.Dispose(); player = null; } }
+        if (was || live) { try { EnsurePlayer(); } catch { Playing = false; } }
+    }
+    public void Shutdown() { Playing = false; lock (playerGate) { if (player != null) { player.Dispose(); player = null; } } }
 
     // ---------------- offline render (export, analysis) ----------------
     public int RenderLatency(RenderOpts o)

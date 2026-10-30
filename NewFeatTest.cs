@@ -218,6 +218,10 @@ static class NF
           long cut = (long)typeof(StudioForm).GetMethod("TrimLeadingSilence", BF).Invoke(sf, new object[] { tt });
           var quiet = StudioEngine.NewTrack("Silent", "audio", AudioClip.FromArrays(new float[44100], new float[44100], "s")); long cut2 = (long)typeof(StudioForm).GetMethod("TrimLeadingSilence", BF).Invoke(sf, new object[] { quiet });
           Check("auto trim: a clip that starts with half a second of silence starts where the sound starts (5 ms kept before it), and stays where it was", Math.Abs(cut - (22050 - 220)) < 40 && tt.ClipStart == cut && tt.Offset == 44100 && cut2 == 0, "trimmed " + cut + " frames, silent clip " + cut2); }
+        { // the sound output refreshed while an instrument is being played live comes straight back (it went away until something woke it: hits came out seconds late)
+          sf.eng.Stop(); sf.eng.EnsureAudio(); StudioEngine.LiveUntil = Environment.TickCount + 3000; sf.eng.ReopenOutput(); bool liveBack = sf.eng.OutputOpen;
+          StudioEngine.LiveUntil = Environment.TickCount - 100000; sf.eng.ReopenOutput(); bool idleOff = !sf.eng.OutputOpen; sf.eng.EnsureAudio();
+          Check("a refreshed sound output comes straight back while you play an instrument live (and stays off when nothing plays)", liveBack && idleOff, "live " + liveBack + ", idle off " + idleOff); }
         { // the list that asks which track: one button for a row that was split into pieces
           sf.eng.Tracks.Clear(); Func<int, AudioClip> mkc = sec => AudioClip.FromArrays(new float[44100 * sec], new float[44100 * sec], "t"); var row0 = StudioEngine.NewTrack("Row", "beat", mkc(2)); var pc1 = StudioEngine.NewTrack("Row piece", "beat", mkc(5)); var pc2 = StudioEngine.NewTrack("Row piece 2", "beat", mkc(1)); pc1.Host = row0; pc2.Host = row0; var other = StudioEngine.NewTrack("Other", "vocal", mkc(3));
           sf.eng.Tracks.Add(row0); sf.eng.Tracks.Add(pc1); sf.eng.Tracks.Add(pc2); sf.eng.Tracks.Add(other); var picked = new List<Track>();

@@ -330,6 +330,10 @@ static class PX
             Check("Pads: it is an instrument with a window, listed with the instruments, and says what it does", pads.IsInstrument && pads.HasWindow && FxRegistry.All.Any(i => i.Type == "pxpads" && i.Category == "Instruments") && FxHelp.Has("Purphex Pads"), "");
             var w = new PadsWindow(pads); w.Show(); Application.DoEvents(); var shot = w.Snapshot(); string shotPath = System.IO.Path.Combine(dir, "pads_window.png"); shot.Save(shotPath, System.Drawing.Imaging.ImageFormat.Png); Console.WriteLine("pads window picture: " + shotPath); int hc = w.HitCount; w.Close();
             Check("Pads: the window draws its 16 pads and their controls", hc >= 16 + 8, hc + " controls");
+            { var p3 = (PadsFx)FxRegistry.Create("pxpads"); p3.Prepare(44100); var t3 = StudioEngine.NewTrack("P3", "inst", null); t3.Instrument = true; p3.Owner = t3; t3.Fx.Add(p3);
+              p3.NoteOn(40, 100); System.Threading.Thread.Sleep(650); p3.BeginBlock(t3, 0, 512, false); p3.Process(new float[512], new float[512], 512); bool stale = p3.LastIn == -1;
+              p3.NoteOn(41, 100); p3.BeginBlock(t3, 0, 512, false); p3.Process(new float[512], new float[512], 512);
+              Check("a hit that waited more than half a second for the sound card is dropped (it never comes out late), a fresh one plays", stale && p3.LastIn == 41, "last in " + p3.LastIn); }
             { // hitting one pad fast (an 808 rolled on a keyboard pad): the hits do not pile up and nothing clicks, even past the 48 voices
               string boom = System.IO.Path.Combine(dir, "boom.wav"); { var x = new float[88200]; for (int i = 0; i < x.Length; i++) x[i] = (float)(0.7 * Math.Sin(i * 2 * Math.PI * 55 / 44100) * Math.Min(1, i / 40.0)); WavIO.Write(boom, x, x, 44100, 24); }
               var pp = (PadsFx)FxRegistry.Create("pxpads"); pp.Prepare(44100); var t9 = StudioEngine.NewTrack("P", "inst", null); t9.Instrument = true; pp.Owner = t9; t9.Fx.Add(pp); pp.SetPad(0, boom, "Boom");

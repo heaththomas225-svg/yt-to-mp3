@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Windows.Forms;
 
@@ -33,7 +33,10 @@ abstract class InstrumentFx : Fx
     public Track Owner;
     public readonly Declip Guard = new Declip(0, 0.88);   // run by the engine on what the instrument plays (any instrument, VSTs too): never clipped
     public static Action<Track, bool, int, int> Recorder;   // the studio records notes while REC is armed
-    readonly object q = new object(); readonly List<MidiEv> live = new List<MidiEv>(); bool wasTransport;
+    static readonly MidiEv AllOff = new MidiEv { S = 0xB0, D1 = 123, D2 = 0 };
+    readonly object q = new object(); readonly List<MidiEv> live = new List<MidiEv>(); readonly List<int> liveAt = new List<int>(); bool wasTransport;
+    // the events handed over each block: two lists used in turn (a new list every block for every instrument was garbage on the sound thread, the kind that makes crackle)
+    readonly List<KeyValuePair<int, MidiEv>>[] evBuf = { new List<KeyValuePair<int, MidiEv>>(), new List<KeyValuePair<int, MidiEv>>() }; int evTurn;
 
     public abstract bool IsInstrument { get; }
     public abstract void ShowWindow(IWin32Window owner);
@@ -44,7 +47,7 @@ abstract class InstrumentFx : Fx
     // ---- live MIDI (keyboard / piano) ----
     public void Midi(byte status, byte d1, byte d2, bool keepAlive = true)
     {
-        lock (q) { if (live.Count < 256) live.Add(new MidiEv { S = status, D1 = d1, D2 = d2 }); }
+        lock (q) { if (live.Count < 256) { live.Add(new MidiEv { S = status, D1 = d1, D2 = d2 }); liveAt.Add(Environment.TickCount); } }
         if (keepAlive) StudioEngine.LiveUntil = Environment.TickCount + (status == 0x80 ? 4000 : 8000);   // keep rendering while it rings out
     }
     public void NoteOn(int note, int vel) { var e = StudioEngine.Current; if (e != null) e.EnsureAudio(); Midi(0x90, (byte)note, (byte)vel); }
@@ -61,9 +64,14 @@ abstract class InstrumentFx : Fx
     public override void BeginBlock(object track, long pos, int n, bool transport)
     {
         var t = track as Track; OnBlock(pos, n, transport);
-        var ev = new List<KeyValuePair<int, MidiEv>>();
-        if (!transport && wasTransport) ev.Add(new KeyValuePair<int, MidiEv>(0, new MidiEv { S = 0xB0, D1 = 123, D2 = 0 }));   // stopped: let go of every held note (first, so a note played right now still sounds)
-        lock (q) { foreach (var m in live) ev.Add(new KeyValuePair<int, MidiEv>(0, m)); live.Clear(); }
+        evTurn ^= 1; var ev = evBuf[evTurn]; ev.Clear();
+        if (!transport && wasTransport) ev.Add(new KeyValuePair<int, MidiEv>(0, AllOff));   // stopped: let go of every held note (first, so a note played right now still sounds)
+        lock (q)
+        {   // a hit that waited more than half a second (the sound card was off) is dropped: it would come out late, out of nowhere. Note-offs always pass.
+            int now = Environment.TickCount;
+            for (int i = 0; i < live.Count; i++) { var m = live[i]; if ((m.S & 0xF0) == 0x90 && m.D2 > 0 && unchecked(now - liveAt[i]) > 500) continue; ev.Add(new KeyValuePair<int, MidiEv>(0, m)); }
+            live.Clear(); liveAt.Clear();
+        }
         wasTransport = transport;
         if (transport && t != null && t.Midi.Count > 0)
             lock (t.Midi)
@@ -72,11 +80,7 @@ abstract class InstrumentFx : Fx
                 while (lo < hi) { int mid = (lo + hi) / 2; if (t.Midi[mid].Frame < pos) lo = mid + 1; else hi = mid; }
                 for (int i = lo; i < t.Midi.Count && t.Midi[i].Frame < pos + n; i++) ev.Add(new KeyValuePair<int, MidiEv>((int)(t.Midi[i].Frame - pos), t.Midi[i]));
             }
-        if (ev.Count > 0)
-        {
-            var idx = new Dictionary<MidiEv, int>(); for (int i = 0; i < ev.Count; i++) idx[ev[i].Value] = i;
-            ev.Sort((a, b) => { int c = a.Key.CompareTo(b.Key); return c != 0 ? c : idx[a.Value].CompareTo(idx[b.Value]); });   // in time order, same-time events keep their order
-        }
+        for (int i = 1; i < ev.Count; i++) { var x = ev[i]; int j = i - 1; while (j >= 0 && ev[j].Key > x.Key) { ev[j + 1] = ev[j]; j--; } ev[j + 1] = x; }   // in time order, same-time events keep their order (an insertion sort: no garbage)
         OnEvents(ev);
     }
 }
