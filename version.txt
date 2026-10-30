@@ -1,4 +1,4 @@
-3.78.4
+3.78.5
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-The MIDI keyboard plays and records the selected track, VSTs and all
-sha256=3f5dbd656c4dadeece13f59c29b6eae0e179b6d682473d7d6199cd92c4091269
+Purphex Pads, VST3 instruments play from your MIDI keyboard
+sha256=d6c3ffd52ac71bfef2e735fb6d73e1a15c6ba8a75dcdd82facac98fe8852adc3

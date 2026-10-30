@@ -7,10 +7,14 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.78.4";
+    public const string Latest = "3.78.5";
 
     public const string Text =
-@"3.78.4  The MIDI keyboard plays and records the selected track, VSTs and all
+@"3.78.5  Purphex Pads, VST3 instruments play from your MIDI keyboard
+ + FIXED: VST3 instruments with a sidechain input (many modern synths have one) were taken for effects, so your MIDI keyboard played the built-in piano instead of them and they made no sound. A VST3 now counts as an instrument when it says it is one, and the MIDI keyboard plays it.
+ + NEW: Purphex Pads (in the instruments): 16 pads, each playing any sound you choose: from the sound library, a sound file on your PC (pick it, or drop it on a pad) or one of your song's tracks. KIT FROM A GENRE fills all 16 at once. The pads of your MIDI keyboard play it straight away (pads 1 to 16 start on the usual drum-pad notes), and LEARN lets any pad or key of your keyboard play any pad. Each pad has its own level, the piano roll shows the pad names on its keys, and everything is saved with your project.
+
+3.78.4  The MIDI keyboard plays and records the selected track, VSTs and all
  + FIXED: The MIDI keyboard did nothing unless a Bass Lab window had been opened, and it only played an instrument whose window was in front: pick a track with a VST or a Purphex instrument and nothing played, and MIDI REC recorded nothing. Now the MIDI keyboard plays whatever is on the selected MIDI track (a VST, Bass Lab, a Purphex instrument, or the built-in keys), through that track's effects, and MIDI REC records it. An instrument window you have open in front still gets the keys while you use it.
  + NEW: The MIDI keyboard connects by itself when the studio opens, and when you plug it in later. Right-click MIDI REC to pick another keyboard or switch it off. If another program is using the keyboard, Purphex says so.
 
