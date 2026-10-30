@@ -1,4 +1,4 @@
-3.78.9
+3.79.0
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-MIDI mapping across the studio, POP OUT plugins, pads that overlap with no crackle, auto trim
-sha256=4fa88f83ba631ec9ee76a57cbb8ddf251d30632589fb9345d81c9a9c438f0b66
+Pads play instantly again, less crackle, MIDI MAPPING easier to find
+sha256=d5c67b9aa9c3810ab535f7371d628f84939363ef12751e7ac08797441182fd9b
