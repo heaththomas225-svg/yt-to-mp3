@@ -7,10 +7,19 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.79.2";
+    public const string Latest = "3.79.3";
 
     public const string Text =
-@"3.79.2  No more crackle from the pads, only your pads play the pads
+@"3.79.3  REC in the piano roll, much less delay on pads, trim keeps the sound in place, plugin windows step aside while you drag
+ + NEW: REC in the piano roll: press it and play your MIDI keyboard; the notes go into what the piano roll shows (your pattern or a track) from the needle, and the first note starts the song.
+ + FIXED: MIDI REC recorded onto the picked track while the piano roll showed another one (often your pattern), so the notes seemed to go nowhere. With the piano roll open, your MIDI keyboard now plays and records the track it shows, and a message says where it records.
+ + FIXED: The delay when you hit a pad or a key: Purphex kept 186 ms of sound queued for the sound card, so every hit came out that late. Normal is now 46 ms (low latency 35 ms, safe 139 ms for slow computers, in Settings, which now shows the real sizes). If the sound breaks up while a song plays, Purphex still moves to a bigger buffer by itself.
+ + CHANGED: Pressing play on a sound in SOUNDS or the sound packs pauses the song, so you hear only the sound you are trying.
+ + FIXED: Clicking one of several selected clips (without dragging) now lets go of the others, so only that clip is picked.
+ + FIXED: Trim the silence at the start (and the auto trim) moved the sound forward in the song. Now only the empty part goes: the clip starts later and the sound stays exactly where it was.
+ + NEW: While you drag a clip or a sound, the plugin windows step out of the way so you can see where it lands: those inside the studio show only an outline (the mouse goes through them), the separate ones fade almost away, and they come back when you let go. Purphex Pads and Key Map stay when you drag a sound from SOUNDS, since you can drop it on them.
+
+3.79.2  No more crackle from the pads, only your pads play the pads
  + FIXED: The crackle when playing pads: drum sounds come at full level, and a kick, an 808 and a clap together went to 4 times full scale, so the safety limiter crushed them by 12 dB, which is the crunchy crackle. Purphex Pads now plays 12 dB lower and Key Map 9 dB lower, so a whole kit fits cleanly (turn the track or the master up if you want it louder). Pads and Key Maps you already made get the same headroom, your own level changes kept.
  + FIXED: Keys of your MIDI keyboard set off pads: while Purphex Pads held the keyboard, every key with a pad's note played that pad. Now only the pads play the pads (they listen on the drum channel, 10, where keyboards send their pads), and your keys play your instrument. If your pads send on another channel, LEARN takes that channel too, and the Pads window tells you when a hit came on a channel the pads do not listen to.
 
