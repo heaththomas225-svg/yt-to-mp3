@@ -222,6 +222,11 @@ static class NF
           sf.eng.Stop(); sf.eng.EnsureAudio(); StudioEngine.LiveUntil = Environment.TickCount + 3000; sf.eng.ReopenOutput(); bool liveBack = sf.eng.OutputOpen;
           StudioEngine.LiveUntil = Environment.TickCount - 100000; sf.eng.ReopenOutput(); bool idleOff = !sf.eng.OutputOpen; sf.eng.EnsureAudio();
           Check("a refreshed sound output comes straight back while you play an instrument live (and stays off when nothing plays)", liveBack && idleOff, "live " + liveBack + ", idle off " + idleOff); }
+        { // an open Purphex Pads window keeps the MIDI keyboard when you click in the studio (the keys went to the Beat Lab's kit or the picked track's instrument), and gives it back when it closes
+          var pt = StudioEngine.NewTrack("Pads", "inst", null); pt.Instrument = true; var pf = (PadsFx)FxRegistry.Create("pxpads"); pf.Prepare(44100); pf.Owner = pt; pt.Fx.Add(pf); sf.eng.Tracks.Add(pt);
+          var pw = new PadsWindow(pf); pw.Show(sf); Pump(150); bool held = MidiInput.Target == pf; sf.StudioActivatedMidi(); bool kept = MidiInput.Target == pf;
+          pw.Close(); Pump(100); sf.StudioActivatedMidi(); bool freed = MidiInput.Target == null; sf.eng.Tracks.Remove(pt);
+          Check("an open Pads window keeps the MIDI keyboard when you click in the studio, and lets go when it closes", held && kept && freed, "held " + held + ", kept " + kept + ", freed " + freed); }
         { // the list that asks which track: one button for a row that was split into pieces
           sf.eng.Tracks.Clear(); Func<int, AudioClip> mkc = sec => AudioClip.FromArrays(new float[44100 * sec], new float[44100 * sec], "t"); var row0 = StudioEngine.NewTrack("Row", "beat", mkc(2)); var pc1 = StudioEngine.NewTrack("Row piece", "beat", mkc(5)); var pc2 = StudioEngine.NewTrack("Row piece 2", "beat", mkc(1)); pc1.Host = row0; pc2.Host = row0; var other = StudioEngine.NewTrack("Other", "vocal", mkc(3));
           sf.eng.Tracks.Add(row0); sf.eng.Tracks.Add(pc1); sf.eng.Tracks.Add(pc2); sf.eng.Tracks.Add(other); var picked = new List<Track>();

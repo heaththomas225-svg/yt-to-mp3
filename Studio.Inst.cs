@@ -27,6 +27,8 @@ partial class StudioForm
         recOn = true; Toast("MIDI track added and MIDI REC is on: play your MIDI keyboard and it is heard and recorded. It plays with the built-in keys; add Bass Lab or a VST from + ADD EFFECT for other sounds."); return t;
     }
     // notes from a MIDI keyboard when the picked track is a MIDI track with no instrument on it: they are recorded onto that track
+    // back in the studio: the keyboard plays the picked track again, unless a Purphex Pads or Key Map window is open (it keeps the keyboard until it closes)
+    internal void StudioActivatedMidi() { if (!MidiWindow.Holds(MidiInput.Target)) MidiInput.Target = null; }
     internal bool MidiToBareTrack(byte s, byte d1, byte d2)
     {
         try

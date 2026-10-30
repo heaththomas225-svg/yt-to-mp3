@@ -116,7 +116,7 @@ partial class StudioForm : Form
         SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw | ControlStyles.Selectable, true);
         studioLoop = new FrameLoop(this, FrameStep) { Slow = () => WindowState == FormWindowState.Minimized || moving || Win.AnyMoving };   /* while a window is being dragged around nothing needs painting often */ ApplyFps();
         InstrumentFx.Recorder = OnMidiNote; MidiInput.BareTrack = MidiToBareTrack; MidiMapInit();
-        Activated += (s, e) => { MidiInput.Target = null; };   // back in the studio: the keyboard plays the selected track again (an instrument window takes it while it is in front)
+        Activated += (s, e) => StudioActivatedMidi();
         Shown += (s, e) => { MidiAutoConnect(); if (!StudioEnv.UnderTest) { midiTimer = new System.Windows.Forms.Timer { Interval = 3000 }; midiTimer.Tick += (s2, e2) => MidiAutoConnect(); midiTimer.Start(); } };
         MinimumSize = new Size(1240, 640);
         Load += (s, e) => RestorePlace(); FormClosing += (s, e) => { if (!e.Cancel) SavePlace(); };   // it reopens where it was

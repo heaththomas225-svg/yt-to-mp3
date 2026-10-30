@@ -197,10 +197,15 @@ static class SoundDrop
 // play the pads whatever track is picked in the studio, and the sound card is woken up for them
 static class MidiWindow
 {
+    // the windows that hold the keyboard: while one is open (in front or not) your keyboard plays it, so a click in the studio no longer sends your pads
+    // to the Beat Lab's kit or the picked track's instrument (an empty pad seemed to play a sound); the last one you used wins
+    static readonly List<InstrumentFx> open = new List<InstrumentFx>();
+    public static bool Holds(InstrumentFx fx) { lock (open) return fx != null && open.Contains(fx); }
     public static void Hook(Form w, InstrumentFx fx)
     {
-        w.Activated += (s, e) => { MidiInput.Target = fx; var se = StudioEngine.Current; if (se != null) se.EnsureAudio(); if (Prefs.MidiDev != MidiInput.OffName && MidiInput.OpenName.Length == 0) { var sf = w.Owner as StudioForm; if (sf != null) sf.MidiAutoConnect(); } };
-        w.FormClosed += (s, e) => { if (MidiInput.Target == fx) MidiInput.Target = null; };
+        w.Shown += (s, e) => { lock (open) { open.Remove(fx); open.Add(fx); } MidiInput.Target = fx; };
+        w.FormClosed += (s, e) => { InstrumentFx next = null; lock (open) { open.Remove(fx); if (open.Count > 0) next = open[open.Count - 1]; } if (MidiInput.Target == fx || MidiInput.Target == null) MidiInput.Target = next; };
+        w.Activated += (s, e) => { lock (open) { open.Remove(fx); open.Add(fx); } MidiInput.Target = fx; var se = StudioEngine.Current; if (se != null) se.EnsureAudio(); if (Prefs.MidiDev != MidiInput.OffName && MidiInput.OpenName.Length == 0) { var sf = w.Owner as StudioForm; if (sf != null) sf.MidiAutoConnect(); } };
         var awake = new Timer { Interval = 1000 }; awake.Tick += (s, e) => { if (w.Visible) StudioEngine.LiveUntil = Environment.TickCount + 3000; }; awake.Start(); w.FormClosed += (s, e) => { awake.Stop(); awake.Dispose(); };
         w.Shown += (s, e) => { StudioEngine.LiveUntil = Environment.TickCount + 3000; var se = StudioEngine.Current; if (se != null) se.EnsureAudio(); };
     }
