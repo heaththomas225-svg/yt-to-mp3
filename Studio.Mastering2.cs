@@ -232,14 +232,14 @@ partial class StudioForm
         using (var br = new SolidBrush(TM.C(255, 18, 10, 34))) g.FillRectangle(br, 0, 0, W, ToolH); NeonRule(g, 0, ToolH, W);
         MenuBtn(g, Rc(12, y, 48, h));
         Txt(g, "MASTERING", 18, Ink, Rc(76, y, 190, h), StringAlignment.Near, true); /* no BACK and no HOME: the MIX tab is on this page */
-        const float gap = 8, rf = 13.5f; float rx = W - 14; float[] rw = { 106, 70, 124, 80, 76, 96 };   // the same buttons as on the Mix page: one height, one size of writing, even gaps
+        const float gap = 8, rf = 14.5f; float rx = W - 14; float[] rw = { 106, 70, 124, 80, 76, 96 };   // the same buttons as on the Mix page: one height, one size of writing, even gaps
         Btn(g, Rc(rx - rw[0], y, rw[0], h), "EXPORT", 1, () => ExportClick(), rf); rx -= rw[0] + gap;
         Btn(g, Rc(rx - rw[1], y, rw[1], h), "Help", 2, () => app.ShowHelp(null), rf); rx -= rw[1] + gap;
         Btn(g, Rc(rx - rw[2], y, rw[2], h), Win.FullLabel(this), 0, () => Win.ToggleFullscreen(this), rf); rx -= rw[2] + gap;
         Btn(g, Rc(rx - rw[3], y, rw[3], h), "Open", 0, () => OpenClick(), rf); rx -= rw[3] + gap;
         Btn(g, Rc(rx - rw[4], y, rw[4], h), "Save", 0, () => SaveClick(false), rf); rx -= rw[4] + gap;
         Btn(g, Rc(rx - rw[5], y, rw[5], h), "Save as", 0, () => SaveClick(true), rf); rx -= rw[5];
-        PaintPresetBadge(g, Rc(232, y + 4, Math.Min(460, rx - 12 - 232), h - 8));
+        { float bw0 = Math.Min(460, rx - 12 - 232); if (bw0 >= 120) PaintPresetBadge(g, Rc(232, y + 4, bw0, h - 8)); }   // (no room on a narrow window: no badge, rather than a box of minus width)
         // the second bar: PLAY, the time, PREVIEW, the master meter and the page tabs
         float y0 = ToolH; using (var br = new SolidBrush(TM.C(255, 22, 12, 40))) g.FillRectangle(br, 0, y0, W, TransH); NeonRule(g, 0, y0 + TransH, W);
         float x = 14, yy = y0 + 8, hh = 36;
