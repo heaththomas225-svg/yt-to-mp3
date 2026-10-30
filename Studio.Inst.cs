@@ -31,8 +31,8 @@ partial class StudioForm
     {
         try
         {
+            if (MidiInput.Target != null) return false;   // an instrument's own window is in front (Purphex Pads, Key Map, Bass Lab, a VST): it gets the keys while you use it
             if (BlMidi(s, d1, d2)) return true;   // the Beat Lab is open: the keyboard's pads play its pads
-            if (MidiInput.Target != null) return false;   // an instrument's own window is in front: it gets the keys while you use it
             if (eng.Tracks.Count == 0) return false; var t = eng.Tracks[Math.Max(0, Math.Min(selTrack, eng.Tracks.Count - 1))]; if (!t.Instrument || t.IsBus) return false;
             // the picked MIDI track plays what is on it (a VST, Bass Lab, a Purphex instrument, or the built-in keys when it has none), through its effects, and MIDI REC records it
             // (before, only an instrument whose window was in front got the keyboard: pick a track with a VST and nothing played or recorded)

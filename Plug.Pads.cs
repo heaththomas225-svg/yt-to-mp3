@@ -12,7 +12,7 @@ class PadsFx : SamplerFx
 {
     public const int N = 16;
     public readonly int[] HitAt = new int[128];   // when each note was last hit (the window lights the pad)
-    public volatile int LearnPad = -1, Learned = -1;   // LEARN: the pad waiting for a key, and the key that came
+    public volatile int LearnPad = -1, Learned = -1, LastIn = -1;   // LEARN: the pad waiting for a key, and the key that came; LastIn: the last note that came in
     public PadsFx()
     {
         Type = "pxpads"; Title = "Purphex Pads"; Category = "Instruments"; Blurb = "16 pads, any sound on each (library, your files or your tracks), played from your MIDI keyboard's pads";
@@ -35,12 +35,14 @@ class PadsFx : SamplerFx
     }
     protected override void OnEvents(List<KeyValuePair<int, MidiEv>> ev)
     {
-        if (ev != null) foreach (var kv in ev) { var m = kv.Value; if ((m.S & 0xF0) == 0x90 && m.D2 > 0) { HitAt[m.D1 & 127] = Environment.TickCount; if (LearnPad >= 0) Learned = m.D1; } }
+        if (ev != null) foreach (var kv in ev) { var m = kv.Value; if ((m.S & 0xF0) == 0x90 && m.D2 > 0) { HitAt[m.D1 & 127] = Environment.TickCount; LastIn = m.D1; if (LearnPad >= 0) Learned = m.D1; } }
         base.OnEvents(ev);
     }
+    Param[] noteP, gainP;   // looked up once: the audio thread makes no strings (garbage there can make dropouts)
     public override void Process(float[] l, float[] r, int n)
     {
-        for (int i = 0; i < N; i++) { var z = PadZone(i); if (z != null) z.GainDb = Get("g" + i); }   // each pad's level
+        if (gainP == null) { var np = new Param[N]; var gp = new Param[N]; for (int i = 0; i < N; i++) { np[i] = Find("n" + i); gp[i] = Find("g" + i); } noteP = np; gainP = gp; }
+        for (int i = 0; i < N; i++) { var z = ZoneAt((int)Math.Round(noteP[i].Val)); if (z != null) z.GainDb = gainP[i].Val; }   // each pad's level (used when a pad is hit)
         base.Process(l, r, n);
     }
     public override bool HasWindow { get { return true; } }
@@ -60,7 +62,7 @@ class PadsWindow : PxWindow, ISoundDrop
     readonly PadsFx e; int sel, held = -1;
     public PadsWindow(PadsFx f) : base(f, "Pads", new Size(1000, 660))
     {
-        e = f; Accent = Pink; AllowDrop = true;
+        e = f; Accent = Pink; AllowDrop = true; MidiWindow.Hook(this, f);
         DragEnter += (s, a) => { a.Effect = SoundSources.AudioFiles(a.Data).Count > 0 ? DragDropEffects.Copy : DragDropEffects.None; };
         DragOver += (s, a) => { mouse = PointToClient(new Point(a.X, a.Y)); a.Effect = SoundSources.AudioFiles(a.Data).Count > 0 ? DragDropEffects.Copy : DragDropEffects.None; };
         DragDrop += (s, a) =>
@@ -92,11 +94,14 @@ class PadsWindow : PxWindow, ISoundDrop
         Button(g, new RectangleF((top.X + 572), top.Y + 10, 110, 36), "SAVE KIT", false, Lime, SaveMine, "Save these sounds as a kit of yours, with a name: its sounds are copied in, so it always works", 11);
         Button(g, new RectangleF((top.X + 572) + 118, top.Y + 10, 120, 36), "MY KITS  ▾", false, Lime, () => KitsMenu(new Point((int)((top.X + 572) + 118), (int)top.Y + 46)), "Your saved kits: pick one to load it (the arrows at the top step through them)", 11);
         Txt(g, "Drop or right-click a pad", 10.5f, Dim, new RectangleF(top.X + 822, top.Y, top.Width - 834, top.Height), StringAlignment.Near, false);
+        // what comes in from your MIDI keyboard: connected or not, the last pad or key you hit, and whether a pad plays it
+        int ln = e.LastIn; string inTxt = MidiInput.OpenName.Length == 0 ? "MIDI KEYBOARD: NOT CONNECTED (right-click MIDI REC in the studio to pick it)" : ln < 0 ? "MIDI KEYBOARD: " + MidiInput.OpenName.ToUpperInvariant() + "  ·  hit a pad on it" : "LAST HIT: " + PadsFx.NoteName(ln) + (e.PadOf(ln) >= 0 ? "  ·  PAD " + (e.PadOf(ln) + 1) : "  ·  NO PAD PLAYS THIS NOTE: pick a pad, press LEARN, hit it again");
+        Txt(g, inTxt, 10.5f, MidiInput.OpenName.Length == 0 || (ln >= 0 && e.PadOf(ln) < 0) ? Gold : Cyan, new RectangleF(a.X, top.Bottom + 2, a.Width * 0.66f, 16), StringAlignment.Near, true);
         // the 16 pads: pad 1 at the bottom left, like the pads on a MIDI keyboard
-        float gw = a.Width * 0.66f, gh = a.Bottom - top.Bottom - 12, gap = 10, pw = (gw - gap * 3) / 4, ph = (gh - gap * 3) / 4; int now = Environment.TickCount;
+        float gw = a.Width * 0.66f, gh = a.Bottom - top.Bottom - 26, gap = 10, pw = (gw - gap * 3) / 4, ph = (gh - gap * 3) / 4; int now = Environment.TickCount;
         for (int i = 0; i < PadsFx.N; i++)
         {
-            int col = i % 4, row = 3 - i / 4; var r = new RectangleF(a.X + col * (pw + gap), top.Bottom + 12 + row * (ph + gap), pw, ph); padRects[i] = r;
+            int col = i % 4, row = 3 - i / 4; var r = new RectangleF(a.X + col * (pw + gap), top.Bottom + 26 + row * (ph + gap), pw, ph); padRects[i] = r;
             int note = e.PadNote(i); string nm = e.PadName(i); bool has = nm.Length > 0, lit = held == i || unchecked(now - e.HitAt[note]) < 140, me = sel == i;
             Color c = has ? Pink : Edge; Fill(g, lit ? Color.FromArgb(240, c) : (has ? Color.FromArgb(120, Ctl) : Color.FromArgb(70, Ctl)), r, 12);
             Stroke(g, me ? Color.White : Color.FromArgb(lit ? 255 : 150, c), r, 12, me ? 2.2f : 1.3f); if (Hot(r) && !lit) Stroke(g, Color.FromArgb(120, Cyan), RectangleF.Inflate(r, 2, 2), 13, 1.2f);
@@ -108,7 +113,7 @@ class PadsWindow : PxWindow, ISoundDrop
             h.Up = () => { if (held >= 0) e.NoteOff(e.PadNote(held)); held = -1; }; h.Right = () => { sel = k; SoundMenu(k); };
         }
         // the picked pad
-        var side = new RectangleF(a.X + gw + 14, top.Bottom + 12, a.Right - a.X - gw - 14, gh); Panel(g, side, "PAD " + (sel + 1), Pink);
+        var side = new RectangleF(a.X + gw + 14, top.Bottom + 26, a.Right - a.X - gw - 14, gh); Panel(g, side, "PAD " + (sel + 1), Pink);
         string sn = e.PadName(sel); Txt(g, sn.Length > 0 ? sn : "No sound yet", 15, sn.Length > 0 ? Ink : Dim, new RectangleF(side.X + 14, side.Y + 28, side.Width - 28, 26), StringAlignment.Near, true);
         Button(g, new RectangleF(side.X + 14, side.Y + 62, side.Width - 28, 34), "CHOOSE ITS SOUND  ▾", true, Pink, () => SoundMenu(sel), "A sound from the library, a file on your PC, or one of your song's tracks", 11.5f);
         Button(g, new RectangleF(side.X + 14, side.Y + 104, side.Width - 28, 30), "A SOUND FILE ON MY PC...", false, Cyan, () => PickFile(sel), "Choose a WAV, MP3, FLAC, OGG, AIFF or M4A file", 10.5f);
@@ -178,6 +183,17 @@ static class SoundDrop
     public static ISoundDrop At(Point screen)
     {
         try { var c = Control.FromChildHandle(WindowFromPoint(screen)); var f = c == null ? null : (c as Form ?? c.FindForm()); return f as ISoundDrop; } catch { return null; }
+    }
+}
+
+// Purphex Pads and Key Map take your MIDI keyboard while their window is in front (like Bass Lab and the VST windows): your keyboard's pads
+// play the pads whatever track is picked in the studio, and the sound card is woken up for them
+static class MidiWindow
+{
+    public static void Hook(Form w, InstrumentFx fx)
+    {
+        w.Activated += (s, e) => { MidiInput.Target = fx; var se = StudioEngine.Current; if (se != null) se.EnsureAudio(); if (Prefs.MidiDev != MidiInput.OffName && MidiInput.OpenName.Length == 0) { var sf = w.Owner as StudioForm; if (sf != null) sf.MidiAutoConnect(); } };
+        w.FormClosed += (s, e) => { if (MidiInput.Target == fx) MidiInput.Target = null; };
     }
 }
 
