@@ -536,7 +536,7 @@ partial class StudioForm
         zs.OnDown = () => { var tz = TimelineRect(); zoomAnchor = Math.Max(0, Math.Min(eng.EndFrame, scroll + tz.Width / 2 * spp)); if (zd != null) zd(); };
         if (Hot(Rc(x, y + 6, sliderW + 38, 18))) hintNow = "Zoom in and out along the time. Double-click it to see the whole recording.";
     }
-    class DawBtn { public string Text, Hint = "", Key = ""; public float W, Px = 10, Gap = 4; public int Style; public Action Do, Right; }
+    class DawBtn { public string Text, Hint = "", Key = ""; public float W, Px = 10, Gap = 6; public int Style; public Action Do, Right; }
     void PaintDawBar(Graphics g, float y0, float W)
     {
         float x = 14, y = y0 + 3, h = 30; var cc = CurClip(); var row = Selected; bool locked = row != null && row.Locked;
@@ -549,11 +549,11 @@ partial class StudioForm
         L.Add(new DawBtn { Text = "GAIN", W = 46, Style = cc != null && Math.Abs(cc.ClipGainDb) > 0.04f ? 4 : 0, Key = "gain", Do = () => { if (gainOpen) gainOpen = false; else OpenGain(); }, Hint = "The volume of the selected piece on its own (each piece of a split clip can have its own gain)." });
         L.Add(new DawBtn { Text = locked ? "UNLOCK" : "LOCK", W = locked ? 58 : 50, Style = locked ? 4 : 0, Do = () => TrackAction(0, () => ToggleLock()), Hint = "Lock a track in place so it cannot be moved, trimmed, split, cut or deleted until you unlock it. With more than one track it asks which track (TRACK 1, 2, 3...)." });
         L.Add(new DawBtn { Text = flexOpen ? "FLEX*" : "FLEX", W = 46, Style = flexOpen ? 4 : 0, Do = () => { if (flexOpen) FlexClose(true); else TrackAction(3, () => FlexOpen()); }, Hint = "Flex Pitch: drag the notes of a recording to tune them. With more than one track it asks which track (TRACK 1, 2, 3...)." });
-        L.Add(new DawBtn { Text = "DEL", W = 40, Style = 3, Gap = 8, Do = () => { if (multiSel.Count > 0) DeleteSelectedClips(); else TrackAction(4, () => DeleteClip(cc ?? Selected)); }, Hint = "Delete a piece: every clip lit by a selection box, or (with more than one track) the piece of the track you choose (TRACK 1, 2, 3...). Ctrl+Z brings them back." });
+        L.Add(new DawBtn { Text = "DEL", W = 40, Style = 3, Do = () => { if (multiSel.Count > 0) DeleteSelectedClips(); else TrackAction(4, () => DeleteClip(cc ?? Selected)); }, Hint = "Delete a piece: every clip lit by a selection box, or (with more than one track) the piece of the track you choose (TRACK 1, 2, 3...). Ctrl+Z brings them back." });
         L.Add(new DawBtn { Text = "UNDO", W = 48, Do = () => DoUndo() });
-        L.Add(new DawBtn { Text = "REDO", W = 48, Gap = 8, Do = () => DoRedo() });
-        L.Add(new DawBtn { Text = "FIT", W = 40, Gap = 6, Do = () => FitView() });
-        L.Add(new DawBtn { Text = "NEW", W = 46, Gap = 6, Do = () => { NewProject(); if (eng.Tracks.Count == 0) { tab = 0; welcomeOn = true; } } });   // a new project starts on the welcome page
+        L.Add(new DawBtn { Text = "REDO", W = 48, Do = () => DoRedo() });
+        L.Add(new DawBtn { Text = "FIT", W = 40, Do = () => FitView() });
+        L.Add(new DawBtn { Text = "NEW", W = 46, Do = () => { NewProject(); if (eng.Tracks.Count == 0) { tab = 0; welcomeOn = true; } } });   // a new project starts on the welcome page
         L.Add(new DawBtn { Text = Prefs.PerfMode ? "PERFORMANCE: ON" : "PERFORMANCE: OFF", W = 142, Px = 10, Style = Prefs.PerfMode ? 4 : 0, Do = () => { Prefs.PerfMode = !Prefs.PerfMode; Prefs.Changed(); Toast(Prefs.PerfMode ? "Performance mode is on: fewer effects and the highest frame rate your screen can show (up to 240), for a smoother DAW." : "Performance mode is off."); }, Hint = "PERFORMANCE MODE: ON turns off the glitch and glow effects and runs at the highest frame rate your screen can show (up to 240 frames a second), so the DAW runs smoother (it is also in the VIEW menu and in Settings)" });
         float need = 0; foreach (var it in L) need += it.W + it.Gap;
         // the row is centred in the window (like the transport above it): BPM, the buttons and the zoom as one group; on a narrow window it starts at the left and every button shrinks together

@@ -719,15 +719,15 @@ partial class StudioForm : Form
         const float gap = 8; float rx = W - 14; float[] rw = { 106, 70, 124, 80, 76, 96 };   // EXPORT, HELP, FULLSCREEN, OPEN, SAVE, SAVE AS
         float rightStart = W - 14; for (int i = 0; i < rw.Length; i++) rightStart -= rw[i] + gap; rightStart += gap;
         float[] lw = { 150, 226, 128, 168, 112, 136 }; float leftTotal = gap * (lw.Length - 1); foreach (var v in lw) leftTotal += v;   // ADD MUSIC, SPLIT VOCALS + BEAT, AUTO MIX, DETECT TRACK KEY, UNDO MIX, THIN TRACKS
-        float avail = rightStart - 70 - 10; float f = Math.Max(0.5f, Math.Min(1f, avail / leftTotal)); float x = 70 + Math.Max(0, (avail - leftTotal * f) / 2), fs = Math.Max(10, 13.5f * f);   // they sit in the middle of the room between the side menu and the right-hand buttons
+        float avail = rightStart - 70 - 10; float lsum = leftTotal - gap * (lw.Length - 1); float f = Math.Max(0.5f, Math.Min(1f, (avail - gap * (lw.Length - 1)) / lsum)); float x = 70 + Math.Max(0, (avail - lsum * f - gap * (lw.Length - 1)) / 2), fs = Math.Max(11, 13.5f * f);   // they sit in the middle of the room between the side menu and the right-hand buttons
         MenuBtn(g, Rc(12, y, 48, h));
-        { var amR = Rc(x, y, lw[0] * f, h); Btn(g, amR, "ADD MUSIC", 2, () => AddMusicMenu(amR), fs); } x += (lw[0] + gap) * f;
-        Btn(g, Rc(x, y, lw[1] * f, h), "SPLIT VOCALS + BEAT", 1, () => SeparateClick(), fs); x += (lw[1] + gap) * f;
-        Btn(g, Rc(x, y, lw[2] * f, h), "AUTO MIX", 2, () => AutoMixClick(), fs); x += (lw[2] + gap) * f;
-        Btn(g, Rc(x, y, lw[3] * f, h), "Detect Track key", 0, () => DetectTrackKey(), fs); x += (lw[3] + gap) * f;
-        Btn(g, Rc(x, y, lw[4] * f, h), "Undo mix", 0, () => { if (AutoMix.LastSnapshot != null) { AutoMix.Undo(eng); Toast("Auto Mix undone"); } }, fs); x += (lw[4] + gap) * f;
+        { var amR = Rc(x, y, lw[0] * f, h); Btn(g, amR, "ADD MUSIC", 2, () => AddMusicMenu(amR), fs); } x += lw[0] * f + gap;
+        Btn(g, Rc(x, y, lw[1] * f, h), "SPLIT VOCALS + BEAT", 1, () => SeparateClick(), fs); x += lw[1] * f + gap;
+        Btn(g, Rc(x, y, lw[2] * f, h), "AUTO MIX", 2, () => AutoMixClick(), fs); x += lw[2] * f + gap;
+        Btn(g, Rc(x, y, lw[3] * f, h), "Detect Track key", 0, () => DetectTrackKey(), fs); x += lw[3] * f + gap;
+        Btn(g, Rc(x, y, lw[4] * f, h), "Undo mix", 0, () => { if (AutoMix.LastSnapshot != null) { AutoMix.Undo(eng); Toast("Auto Mix undone"); } }, fs); x += lw[4] * f + gap;
         Btn(g, Rc(x, y, lw[5] * f, h), "THIN TRACKS", LaneH < 96 ? 4 : 0, () => ToggleThinTracks(), fs); x += lw[5] * f;
-        float leftEnd = x; const float rf = 13.5f;
+        float leftEnd = x; float rf = fs;   // (the right-hand buttons use the same size of writing as the left)
         Btn(g, Rc(rx - rw[0], y, rw[0], h), "EXPORT", 1, () => ExportClick(), rf); rx -= rw[0] + gap;
         Btn(g, Rc(rx - rw[1], y, rw[1], h), "Help", 2, () => app.ShowHelp(null), rf); rx -= rw[1] + gap;
         Btn(g, Rc(rx - rw[2], y, rw[2], h), Win.FullLabel(this), 0, () => Win.ToggleFullscreen(this), rf); rx -= rw[2] + gap;
