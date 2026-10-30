@@ -9,7 +9,7 @@ using System.Windows.Forms;
 static class PX
 {
     static int fails = 0; const int SR = 44100;
-    static void Check(string name, bool ok, string info = "") { Console.WriteLine((ok ? "PASS  " : "FAIL  ") + name + (info.Length > 0 ? "   " + info : "")); if (!ok) fails++; }
+    static void Check(string name, bool ok, string info = "") { Console.WriteLine((ok ? "PASS  " : "FAIL  ") + name + (info.Length > 0 ? "   " + info : "")); Console.Out.Flush(); if (!ok) fails++; }
     static Fx New(string type) { var f = FxRegistry.Create(type); f.Prepare(SR); f.Reset(); return f; }
     static void Run(Fx f, float[] l, float[] r, int block, Action<int> between = null)
     {
@@ -42,7 +42,6 @@ static class PX
        
         { "pxstereo", new[] { "ab", "morph", "a_lg", "a_rg", "a_lpan", "a_rpan", "a_width", "a_pan", "a_ms", "a_bass", "b_lg", "b_rg", "b_lpan", "b_rpan", "b_width", "b_pan", "b_ms", "b_bass" } } };   // A-B morph: tested on its own below   // glide and voices need two notes: tested on their own below
 
-    [STAThread]
     // clicks: 2 ms windows of the top end (the 4th difference) much louder than the windows around them
     static int Clicks(float[] x, int sr)
     {
@@ -51,6 +50,7 @@ static class PX
         int b = 0; for (int k = 12; k < n - 12; k++) { var a = new List<double>(); for (int j = k - 12; j <= k + 12; j++) if (Math.Abs(j - k) > 2) a.Add(e[j]); a.Sort(); double med = a[a.Count / 2]; if (e[k] > 0.03 && e[k] / Math.Max(med, 0.004) > 5) { b++; k += 2; } }
         return b;
     }
+    [STAThread]
     static void Main()
     {
         StudioEnv.DataDir = Path.Combine(Path.GetTempPath(), "purphex_px_" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(StudioEnv.DataDir); AppDomain.MonitoringIsEnabled = true;
