@@ -48,6 +48,11 @@ partial class StudioForm
     void PaintFxWindows(Graphics g)
     {
         if (tab != 0) return; fxWins.RemoveAll(w => !FxWinAlive(w)); if (fxWins.Count == 0) return;
+        if (DragThrough)
+        {   // a clip or a sound is being dragged: the plugin windows step aside (a faint outline only, and the mouse goes through them), so you see where it lands
+            foreach (var w in fxWins) using (var pen = new Pen(Color.FromArgb(90, NeonCyan), 1.2f) { DashStyle = System.Drawing.Drawing2D.DashStyle.Dash }) using (var p = RR(w.R, 12)) g.DrawPath(pen, p);
+            return;
+        }
         var look = BeginBrand(); try { foreach (var w in fxWins.OrderBy(x => x.Seq)) { KeepFxWinOnScreen(w); var ww = w; float sy; fxWinScroll.TryGetValue(w.Fx, out sy);
               string sig = "fx|" + w.Fx.Serialize() + "|" + w.Fx.Bypass + "|" + w.Fx.CurPreset + "|" + (w.Seq == fxWinSeq) + "|" + sy + "|" + eqBand + "|" + eng.Playing + "|" + (w.Track != null ? w.Track.Auto.Count : -1);
               PaintCachedWin(g, w, w.R, sig, eng.Playing ? 150 : 1000, gg => PaintFxWindow(gg, ww)); } } finally { EndBrand(look); }

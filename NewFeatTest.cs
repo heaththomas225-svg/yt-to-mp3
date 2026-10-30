@@ -250,6 +250,12 @@ static class NF
           string wv2 = Path.Combine(StudioEnv.DataDir, "prev.wav"); { var x = new float[22050]; WavIO.Write(wv2, x, x, 44100, 24); }
           sf.PreviewSound(new SoundItem { Name = "Prev", Kind = "one-shot", Path = wv2, Rel = "prev.wav" }); Pump(100); bool paused = !sf.eng.Playing; Auditioner.Stop(); sf.eng.Stop();
           Check("previewing a sound in SOUNDS or the packs pauses the song", wasP && paused, "was playing " + wasP + ", paused " + paused); sf.eng.Tracks.Clear(); }
+        { // dragging a clip or a sound: plugin windows step aside (fade), except Pads when a sound is dragged (it is a place to drop it); back when it ends
+          var eqf = FxRegistry.Create("eq"); eqf.Prepare(44100); var gw = new GenericFxWindow(eqf); gw.Show(sf); var pdf = (PadsFx)FxRegistry.Create("pxpads"); pdf.Prepare(44100); var pw2 = new PadsWindow(pdf); pw2.Show(sf); Pump(100);
+          typeof(StudioForm).GetField("sndDrag", BF).SetValue(sf, new SoundItem { Name = "x" }); typeof(StudioForm).GetField("sndDragging", BF).SetValue(sf, true); sf.FadePluginWindows();
+          double gOp = gw.Opacity, pOp = pw2.Opacity; typeof(StudioForm).GetField("sndDragging", BF).SetValue(sf, false); typeof(StudioForm).GetField("sndDrag", BF).SetValue(sf, null); sf.FadePluginWindows(); double gBack = gw.Opacity;
+          gw.Close(); pw2.Close(); Pump(50);
+          Check("while a sound is dragged plugin windows fade out of the way (Pads stays, you can drop on it) and come back after", gOp < 0.3 && pOp > 0.9 && gBack > 0.9, "plugin " + gOp.ToString("0.00") + ", pads " + pOp.ToString("0.00") + ", after " + gBack.ToString("0.00")); }
         { // the list that asks which track: one button for a row that was split into pieces
           sf.eng.Tracks.Clear(); Func<int, AudioClip> mkc = sec => AudioClip.FromArrays(new float[44100 * sec], new float[44100 * sec], "t"); var row0 = StudioEngine.NewTrack("Row", "beat", mkc(2)); var pc1 = StudioEngine.NewTrack("Row piece", "beat", mkc(5)); var pc2 = StudioEngine.NewTrack("Row piece 2", "beat", mkc(1)); pc1.Host = row0; pc2.Host = row0; var other = StudioEngine.NewTrack("Other", "vocal", mkc(3));
           sf.eng.Tracks.Add(row0); sf.eng.Tracks.Add(pc1); sf.eng.Tracks.Add(pc2); sf.eng.Tracks.Add(other); var picked = new List<Track>();
