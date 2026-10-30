@@ -283,7 +283,7 @@ partial class StudioForm
             return;
         }
         long delta = (long)((pt.X - laneStart.X) * spp);
-        if (laneMode == 1) { if (!laneMoved) { if (Math.Abs(pt.X - laneStart.X) < 2 && Math.Abs(pt.Y - laneStart.Y) < 2) return; PushUndo(); laneMoved = true; } bool grp = InGroup(tr); GhostStart(tr, 0);   /* the landing row shows for a group too */ tr.Offset = Math.Max(0, l0Offset + delta);   /* free: the clip goes exactly as far as you drag (no jumping to grid lines) */ if (grp) { long nd = tr.Offset - l0Offset; foreach (var o in multiSel) { long b0; if (o != tr && !IsLocked(o) && groupOrig.TryGetValue(o, out b0)) o.Offset = Math.Max(0, b0 + nd); } } return; }
+        if (laneMode == 1) { if (!laneMoved) { if (Math.Abs(pt.X - laneStart.X) < 2 && Math.Abs(pt.Y - laneStart.Y) < 2) return; PushUndo(); laneMoved = true; } bool grp = InGroup(tr); GhostStart(tr, 0);   /* the landing row shows for a group too */ long gd = delta; if (grp) { long minO = l0Offset; foreach (var o in multiSel) { long b1; if (o != tr && !IsLocked(o) && groupOrig.TryGetValue(o, out b1)) minO = Math.Min(minO, b1); } gd = Math.Max(delta, -minO); }   /* a group stops as a whole when its first clip reaches the start: the clips keep their spacing (each stopped on its own, they squashed together) */ tr.Offset = Math.Max(0, l0Offset + gd);   /* free: the clip goes exactly as far as you drag (no jumping to grid lines) */ if (grp) { long nd = tr.Offset - l0Offset; foreach (var o in multiSel) { long b0; if (o != tr && !IsLocked(o) && groupOrig.TryGetValue(o, out b0)) o.Offset = Math.Max(0, b0 + nd); } } return; }
         long avail = Math.Max(0, tr.Clip.Length - l0ClipStart);
         if (laneMode == 2)
         {
