@@ -7,10 +7,13 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.79.3";
+    public const string Latest = "3.79.4";
 
     public const string Text =
-@"3.79.3  REC in the piano roll, much less delay on pads, trim keeps the sound in place, plugin windows step aside while you drag
+@"3.79.4  A group of clips keeps its spacing at the start of the song
+ + FIXED: Dragging a group of selected clips all the way to the left squashed them together at the start and ruined their placement. Now the group stops as a whole when its first clip reaches the start, and the clips keep their spacing.
+
+3.79.3  REC in the piano roll, much less delay on pads, trim keeps the sound in place, plugin windows step aside while you drag
  + NEW: REC in the piano roll: press it and play your MIDI keyboard; the notes go into what the piano roll shows (your pattern or a track) from the needle, and the first note starts the song.
  + FIXED: MIDI REC recorded onto the picked track while the piano roll showed another one (often your pattern), so the notes seemed to go nowhere. With the piano roll open, your MIDI keyboard now plays and records the track it shows, and a message says where it records.
  + FIXED: The delay when you hit a pad or a key: Purphex kept 186 ms of sound queued for the sound card, so every hit came out that late. Normal is now 46 ms (low latency 35 ms, safe 139 ms for slow computers, in Settings, which now shows the real sizes). If the sound breaks up while a song plays, Purphex still moves to a bigger buffer by itself.

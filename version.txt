@@ -1,4 +1,4 @@
-3.79.3
+3.79.4
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-REC in the piano roll, much less delay on pads, trim keeps the sound in place, plugin windows step aside while you drag
-sha256=447ea9711ae517d469e246c81d19c194d0af5d97740eaa92b45f0dbd0ecda705
+A group of clips keeps its spacing at the start of the song
+sha256=d7511fd3fd3052c98aea782a0ea16fbe44a58f2a3a7d14f7c1e67c54019e4c3f

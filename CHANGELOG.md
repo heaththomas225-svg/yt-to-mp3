@@ -2,6 +2,10 @@
 
 What changed in each version of **Purphex**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.79.4  A group of clips keeps its spacing at the start of the song
+
+- FIXED: Dragging a group of selected clips all the way to the left squashed them together at the start and ruined their placement. Now the group stops as a whole when its first clip reaches the start, and the clips keep their spacing.
+
 ## 3.79.3  REC in the piano roll, much less delay on pads, trim keeps the sound in place, plugin windows step aside while you drag
 
 - NEW: REC in the piano roll: press it and play your MIDI keyboard; the notes go into what the piano roll shows (your pattern or a track) from the needle, and the first note starts the song.
