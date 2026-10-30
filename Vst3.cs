@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
@@ -86,7 +86,7 @@ static class Vst3
         IidAudioProcessor = Iid(0x42043F99, 0xB7DA453C, 0xA569E79D, 0x9AAEC33D), IidEditController = Iid(0xDCD7BBE3, 0x7742448D, 0xA874AACC, 0x979C759E), IidComponentHandler = Iid(0x93A0BEA3, 0x0BD045DB, 0x8E890B0C, 0xC1E46AC6),
         IidHostApplication = Iid(0x58E595CC, 0xDB2D4969, 0x8B6AAF8C, 0x36A664E5), IidConnectionPoint = Iid(0x70A4156F, 0x6E6E4026, 0x989148BF, 0xAA60D8D1), IidPlugView = Iid(0x5BC32507, 0xD06049EA, 0xA6151B52, 0x2B755B29),
         IidPlugFrame = Iid(0x367FAF01, 0xAFA94693, 0x8D4DA2A0, 0xED0882A3), IidEventList = Iid(0x3A2C4214, 0x346349FE, 0xB2C4F397, 0xB9695A44), IidParameterChanges = Iid(0xA4779663, 0x0BB64A56, 0xB44284A0, 0x1B1AA946),
-        IidParamValueQueue = Iid(0x01263A18, 0xED074F6F, 0x98C9D356, 0x4686F9BA), IidBStream = Iid(0xC3BF6EA2, 0x30994752, 0x9B6BF990, 0x1EE33E9B);
+        IidParamValueQueue = Iid(0x01263A18, 0xED074F6F, 0x98C9D356, 0x4686F9BA), IidBStream = Iid(0xC3BF6EA2, 0x30994752, 0x9B6BF990, 0x1EE33E9B), IidPluginFactory2 = Iid(0x0007B650, 0xF24B4C0B, 0xA464EDB9, 0xF00B2ABB);
     public static bool Same(byte[] a, byte[] b) { for (int i = 0; i < 16; i++) if (a[i] != b[i]) return false; return true; }
     public static T Fn<T>(IntPtr obj, int slot) where T : class { IntPtr vt = Marshal.ReadIntPtr(obj); return (T)(object)Marshal.GetDelegateForFunctionPointer(Marshal.ReadIntPtr(vt, slot * IntPtr.Size), typeof(T)); }
     public static void Release(IntPtr obj) { if (obj != IntPtr.Zero) try { Fn<ComRef>(obj, 2)(obj); } catch { } }
@@ -116,7 +116,7 @@ class Vst3Plugin : IVstHosted
 {
     public const int MaxBlock = 8192, MaxEvents = 256, MaxChanges = 64;
     IntPtr lib, factory, component, processor, controller, view, connComp, connCtrl; bool disposed, controllerSeparate, exitDll;
-    string name = "", vendor = "", path = ""; int numIn, numOut, sampleRate = 44100; bool synth, hasEditor; Size editorSize = new Size(640, 480);
+    string name = "", vendor = "", path = "", subCats = ""; int numIn, numOut, sampleRate = 44100; bool synth, hasEditor;   /* subCats: what the plugin says it is ("Instrument|Synth", "Fx|Reverb"...) */ Size editorSize = new Size(640, 480);
     readonly List<uint> paramIds = new List<uint>(); readonly List<string> paramNames = new List<string>();
     readonly object callLock = new object();
     D_IP processFn; D_IUD setParamFn; D_U latFn; volatile int latency;
@@ -159,7 +159,9 @@ class Vst3Plugin : IVstHosted
         {
             if (Vst3.Fn<D_IP>(factory, 3)(factory, info) == 0) vendor = Vst3.Ansi(info, 0, 64);
             int n = Vst3.Fn<D_I>(factory, 4)(factory); byte[] cid = null; var getInfo = Vst3.Fn<D_IIP>(factory, 5);
-            for (int i = 0; i < n && cid == null; i++) { if (getInfo(factory, i, info) != 0) continue; if (Vst3.Ansi(info, 20, 32) == "Audio Module Class") { cid = new byte[16]; Marshal.Copy(info, cid, 0, 16); name = Vst3.Ansi(info, 52, 64); } }
+            int ci = -1; for (int i = 0; i < n && cid == null; i++) { if (getInfo(factory, i, info) != 0) continue; if (Vst3.Ansi(info, 20, 32) == "Audio Module Class") { cid = new byte[16]; Marshal.Copy(info, cid, 0, 16); name = Vst3.Ansi(info, 52, 64); ci = i; } }
+            // what it is, from its own label (IPluginFactory2): an instrument says "Instrument" even when it has an audio input for a sidechain
+            if (ci >= 0) { IntPtr f2 = Vst3.Query(factory, Vst3.IidPluginFactory2); if (f2 != IntPtr.Zero) { try { if (Vst3.Fn<D_IIP>(f2, 7)(f2, ci, info) == 0) subCats = Vst3.Ansi(info, 120, 128); } catch { } Vst3.Release(f2); } }
             if (cid == null) throw new Exception("This file has no audio plugin inside.");
             host = MakeHost(); handler = MakeHandler(); frame = MakeFrame();
             component = CreateInstance(cid, Vst3.IidComponent); if (component == IntPtr.Zero) throw new Exception("The plugin couldn't be created.");
@@ -177,7 +179,7 @@ class Vst3Plugin : IVstHosted
                 Vst3.Fn<D_IP>(controller, 16)(controller, handler.Ptr);   // setComponentHandler
                 if (controllerSeparate) { connComp = Vst3.Query(component, Vst3.IidConnectionPoint); connCtrl = Vst3.Query(controller, Vst3.IidConnectionPoint); if (connComp != IntPtr.Zero && connCtrl != IntPtr.Zero) { Vst3.Fn<D_IP>(connComp, 3)(connComp, connCtrl); Vst3.Fn<D_IP>(connCtrl, 3)(connCtrl, connComp); } }
             }
-            var busCount = Vst3.Fn<D_III>(component, 7); numIn = busCount(component, 0, 0); numOut = busCount(component, 0, 1); synth = numIn == 0;
+            var busCount = Vst3.Fn<D_III>(component, 7); numIn = busCount(component, 0, 0); numOut = busCount(component, 0, 1); synth = numIn == 0 || subCats.IndexOf("Instrument", StringComparison.OrdinalIgnoreCase) >= 0;   // (only "no audio input" counted before: a synth with a sidechain input was taken for an effect, so the MIDI keyboard played the built-in piano instead of it)
             // every bus stereo
             IntPtr arr = Marshal.AllocHGlobal(8 * 32); try { for (int i = 0; i < 32; i++) Marshal.WriteInt64(arr, i * 8, 3); IntPtr ia = numIn > 0 ? arr : IntPtr.Zero; Vst3.Fn<D_IPIPI>(processor, 3)(processor, ia, Math.Min(32, numIn), arr, Math.Min(32, numOut)); } finally { Marshal.FreeHGlobal(arr); }
             var act = Vst3.Fn<D_IIIIB>(component, 10);

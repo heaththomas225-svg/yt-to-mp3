@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -11,14 +11,14 @@ using System.Text;
 
 class MockV3
 {
-    public bool Effect; public ComObject Factory, Comp, Proc, Ctrl, View; public double Vol = 1.0; public static int SR = 44100;
+    public bool Effect, SideChainSynth; public ComObject Factory, Comp, Proc, Ctrl, View; public double Vol = 1.0; public static int SR = 44100;
     public double Freq, Phase, Amp; public byte[] GotState; public IntPtr Hwnd; public bool Removed, Attached, ControllerSetState; public IntPtr FramePtr; public List<string> Log = new List<string>(); public bool Active, Processing;
     public IntPtr HandlerPtr, HostCtx;
     readonly byte[] cid = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16 };
 
-    public MockV3(bool effect)
+    public MockV3(bool effect, bool sideChainSynth = false)
     {
-        Effect = effect;
+        Effect = effect; SideChainSynth = sideChainSynth;
         Comp = new ComObject(new[] { Vst3.IidComponent, Vst3.IidPluginBase }, new D_IP((s, ctx) => { HostCtx = ctx; return 0; }), new D_I(s => 0), new D_IP((s, p) => 1), new D_II((s, m) => 0), new D_III(BusCount), new M_IIIIP((s, a, b, c, d) => 1), new D_IPP((s, a, b) => 1),
             new D_IIIIB((s, a, b, c, d) => 0), new D_IB((s, st) => { Active = st != 0; return 0; }), new D_IP(SetState), new D_IP(GetState));
         Proc = new ComObject(new[] { Vst3.IidAudioProcessor }, new D_IPIPI((s, a, na, b, nb) => 0), new D_IIP((s, i, p) => 1), new D_II((s, t) => t == 0 ? 0 : 1), new D_U(s => 0), new D_IP((s, st) => { SR = (int)BitConverter.Int64BitsToDouble(Marshal.ReadInt64(st, 16)); return 0; }),
@@ -29,12 +29,14 @@ class MockV3
             new D_IP((s, r) => { Marshal.WriteInt32(r, 0, 0); Marshal.WriteInt32(r, 4, 0); Marshal.WriteInt32(r, 8, 300); Marshal.WriteInt32(r, 12, 200); return 0; }), new D_IP((s, r) => 0), new D_IB((s, f) => 0), new D_IP((s, f) => { FramePtr = f; return 0; }), new D_I(s => 0), new D_IP((s, r) => 0));
         Func<byte[], IntPtr> res = iid => Vst3.Same(iid, Vst3.IidComponent) ? Comp.Ptr : (Vst3.Same(iid, Vst3.IidAudioProcessor) ? Proc.Ptr : (Vst3.Same(iid, Vst3.IidEditController) ? Ctrl.Ptr : IntPtr.Zero));
         Comp.Resolver = res; Proc.Resolver = res; Ctrl.Resolver = res;
-        Factory = new ComObject(null, new D_IP((s, info) => { var b = Encoding.ASCII.GetBytes("MockCo\0"); Marshal.Copy(b, 0, info, b.Length); return 0; }), new D_I(s => 1), new D_IIP(ClassInfo), new D_IPPP((s, c, iid, obj) =>
-        {
-            var b = new byte[16]; Marshal.Copy(iid, b, 0, 16); IntPtr r = res(b); Marshal.WriteIntPtr(obj, r); return r != IntPtr.Zero ? 0 : -1;
-        }));
+        D_IPPP create = (s, c, iid, obj) => { var b = new byte[16]; Marshal.Copy(iid, b, 0, 16); IntPtr r = res(b); Marshal.WriteIntPtr(obj, r); return r != IntPtr.Zero ? 0 : -1; };
+        D_IP finfo = (s, info) => { var b = Encoding.ASCII.GetBytes("MockCo\0"); Marshal.Copy(b, 0, info, b.Length); return 0; };
+        // a synth with a sidechain audio input labels itself "Instrument|Synth" through IPluginFactory2 (getClassInfo2), as real ones do
+        if (sideChainSynth) Factory = new ComObject(new[] { Vst3.IidPluginFactory2 }, finfo, new D_I(s => 1), new D_IIP(ClassInfo), create, new D_IIP(ClassInfo2));
+        else Factory = new ComObject(null, finfo, new D_I(s => 1), new D_IIP(ClassInfo), create);
     }
-    int BusCount(IntPtr s, int type, int dir) { if (type == 0) return dir == 0 ? (Effect ? 1 : 0) : 1; return dir == 0 && !Effect ? 1 : 0; }
+    int BusCount(IntPtr s, int type, int dir) { if (type == 0) return dir == 0 ? (Effect || SideChainSynth ? 1 : 0) : 1; return dir == 0 && !Effect ? 1 : 0; }
+    int ClassInfo2(IntPtr s, int i, IntPtr info) { if (i != 0) return 1; for (int o = 0; o < 440; o += 8) Marshal.WriteInt64(info, o, 0); Marshal.Copy(cid, 0, info, 16); Put(info, 20, "Audio Module Class"); Put(info, 52, "Mock V3 Sidechain Synth"); Put(info, 120, "Instrument|Synth"); return 0; }
     int ClassInfo(IntPtr s, int i, IntPtr info)
     {
         if (i != 0) return 1; Marshal.Copy(cid, 0, info, 16); Marshal.WriteInt32(info, 16, 0x7FFFFFFF); Put(info, 20, "Audio Module Class"); Put(info, 52, Effect ? "Mock V3 Effect" : "Mock V3 Synth"); return 0;
@@ -116,6 +118,11 @@ static class W3
         var me = new MockV3(true); var pe = Vst3Plugin.FromFactory(me.Factory.Ptr, "mockfx.vst3", 44100); var el = new float[1024]; var er = new float[1024]; for (int i = 0; i < 1024; i++) { el[i] = 0.8f; er[i] = -0.8f; }
         pe.SetParam(0, 0.5f); pe.Process(el, er, 1024); pe.Process(el, er, 1024);
         Check("an effect plugin processes the audio it is given (and is not mistaken for an instrument)", !pe.IsSynth && Math.Abs(el[500]) < 0.45 && Math.Abs(el[500]) > 0.2, "sample " + el[500].ToString("0.00"));
+        // a synth with a sidechain audio input: an instrument all the same (it says so), so the MIDI keyboard plays it
+        var ms = new MockV3(false, true); var ps = Vst3Plugin.FromFactory(ms.Factory.Ptr, "mocksc.vst3", 44100); var sl = new float[2048]; var sr2 = new float[2048];
+        ps.SendMidi(new List<KeyValuePair<int, MidiEv>> { new KeyValuePair<int, MidiEv>(0, new MidiEv { S = 0x90, D1 = 69, D2 = 100 }) }); ps.Process(sl, sr2, 2048);
+        Check("a synth with a sidechain input counts as an instrument (its label says Instrument) and plays the notes it is sent", ps.IsSynth && Peak(sl, 0, 2048) > 0.1, "synth=" + ps.IsSynth + " peak " + Peak(sl, 0, 2048).ToString("0.00"));
+        ps.Dispose();
         p.Dispose(); pe.Dispose();
         Check("plugins close cleanly", true, "");
         Check("a missing file gives a clear message", Throws(() => Vst3Plugin.Load(@"C:\nope\missing.vst3", 44100)), "");
