@@ -49,7 +49,7 @@ partial class StudioForm
         if (StudioEnv.UnderTest || Prefs.MidiDev == MidiInput.OffName) return;
         try
         {
-            var devs = MidiInput.Devices(); if (MidiInput.OpenName.Length > 0) { if (devs.Contains(MidiInput.OpenName)) return; MidiInput.Close(); }
+            var devs = MidiInput.Devices(); if (MidiInput.OpenName.Length > 0) { if (devs.Contains(MidiInput.OpenName)) { StudioEngine.LiveUntil = Environment.TickCount + 4500; return; } MidiInput.Close(); }   // (a keyboard plugged in keeps the sound engine awake: a hit never waits for the sound card)
             if (devs.Count == 0) return; string want = Prefs.MidiDev.Length > 0 && devs.Contains(Prefs.MidiDev) ? Prefs.MidiDev : devs[0];
             bool ok = MidiInput.Open(want); string key = want + (ok ? "|ok" : "|" + MidiInput.Status);
             if (key != midiToastFor) { midiToastFor = key; Toast(ok ? "MIDI keyboard connected: " + want + ". It plays the selected MIDI track (right-click MIDI REC to pick another keyboard)." : MidiInput.Status); }

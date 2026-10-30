@@ -76,7 +76,7 @@ class KeyMapWindow : PxWindow, ISoundDrop
     int DragKey { get { if (SoundDrop.Hover.IsEmpty || SoundDrop.At(SoundDrop.Hover) != this) return -1; return KeyAt(PointToClient(SoundDrop.Hover)); } }
     internal RectangleF KeyRect(int key) { foreach (var kv in keyRects) if (kv.Key == key) return kv.Value; return RectangleF.Empty; }
     int KeyAt(Point p) { for (int i = keyRects.Count - 1; i >= 0; i--) if (keyRects[i].Value.Contains(p)) return keyRects[i].Key; return -1; }   // (black keys are drawn last, so they win)
-    void PutKey(int key, string path, string name) { Mark(); string err = e.SetKey(key, path, name); sel = key; if (err != null) MessageBox.Show(this, err, Text); else Audition(key); }
+    void PutKey(int key, string path, string name) { Mark(); string err = e.SetKey(key, path, name); sel = key; if (err != null) MessageBox.Show(this, err, Text); }   // (no preview: a key only sounds when you play it)
     void Audition(int key) { e.NoteOn(key, 105); var t = new Timer { Interval = 450 }; t.Tick += (a, b) => { t.Stop(); t.Dispose(); e.NoteOff(key); }; t.Start(); }
     static Color ColourOf(string name) { int h = 0; foreach (char c in name) h = h * 31 + c; Color[] cs = { Pink, Cyan, Gold, Lime, Violet, Orange }; return cs[((h % cs.Length) + cs.Length) % cs.Length]; }
 

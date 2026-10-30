@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
@@ -22,7 +22,7 @@ class GenericFxWindow : PxWindow
         int cols = Math.Max(4, Math.Min(7, n)), rows = Math.Max(1, (n + cols - 1) / cols);
         return new Size(Math.Max(760, 32 + cols * CellW + 24), Math.Min(980, 76 + 30 + rows * CellH + (c > 0 ? 24 + ((c + 2) / 3) * 44 : 0) + 40));
     }
-    protected override string SubTitle { get { return FxHelp.What(fx.Title, fx.Blurb); } }
+    protected override string SubTitle { get { return "popped out of the studio"; } }   // (what it does is in the hint of its title in the studio: the long text did not fit here)
     protected override void PaintBody(Graphics g, RectangleF a)
     {
         int cols = Math.Max(1, (int)((a.Width - 24) / CellW)); float knobsH = Math.Max(1, (nums.Count + cols - 1) / cols) * CellH + 30;

@@ -1,4 +1,4 @@
-using System.Linq;
+﻿using System.Linq;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -218,7 +218,7 @@ static class PR
               WaveOutPlayer.Underruns += 1; bool did = go(); Check("two starved buffers refresh the sound output at once", did && eng.Reopens == r0 + 1, "reopens " + (eng.Reopens - r0));
               WaveOutPlayer.Underruns += 3; bool again = go(); Check("and it does not refresh again within a second and a half", !again && eng.Reopens == r0 + 1, "");
               System.Threading.Thread.Sleep(1600); WaveOutPlayer.Stalls += 1; did = go(); Check("a sound card that stops for a moment is refreshed too", did && eng.Reopens == r0 + 2, "reopens " + (eng.Reopens - r0));
-              eng.Playing = false; WaveOutPlayer.Underruns += 5; Check("nothing is refreshed while nothing plays", !go() && eng.Reopens == r0 + 2, ""); Prefs.BufBoost = keepBoost; }
+              eng.Playing = false; StudioEngine.LiveUntil = Environment.TickCount - 100000; WaveOutPlayer.Underruns += 5; Check("nothing is refreshed while nothing plays", !go() && eng.Reopens == r0 + 2, ""); Prefs.BufBoost = keepBoost; }
             SetF("tab", 0); eng.Tracks.Clear();
             foreach (var pp in ps) ProjectLibrary.Remove(pp); ProjectLibrary.Remove(p2);
 

@@ -116,8 +116,8 @@ class SamplerFx : InstrumentFx   // (Purphex Pads is a sampler with a window of 
     void Start(int note, int vel)
     {
         var z = ZoneFor(note); if (z == null || z.L == null) return;
-        // a drum pad or key hit again stops its last hit (fading in 3 ms), like a drum machine: the hits of an 808 or a kick no longer pile up on each other
-        if (z.OneShot && z.Lo == z.Hi) foreach (var x in voices) if (x.On && x.Note == note && x.Z == z && !x.Choked) { x.Releasing = true; x.Choked = true; }
+        // a pad or key hit again plays over its last hits (they overlap, like hitting a drum again); past 6 copies of the same pad the oldest fades out in 10 ms, so they never pile up into a mess
+        { int same = 0; Voice oldest = null; foreach (var x in voices) if (x.On && x.Note == note && x.Z == z && !x.Releasing) { same++; if (oldest == null || x.Pos > oldest.Pos) oldest = x; } if (same >= 6 && oldest != null) { oldest.Releasing = true; oldest.Choked = true; } }
         Voice v = null; foreach (var x in voices) if (!x.On) { v = x; break; }
         if (v == null) { foreach (var x in voices) if (x.Choked || x.Releasing) { if (v == null || x.Env < v.Env) v = x; } if (v == null) { v = voices[0]; foreach (var x in voices) if (x.Pos > v.Pos) v = x; } tailL += v.LastL; tailR += v.LastR; }
         double rate = z.Rate / (double)SR, pitch = z.Follow ? Math.Pow(2, (note - z.Root) / 12.0) : 1.0; double vs = Get("vel") / 100.0;
@@ -126,7 +126,7 @@ class SamplerFx : InstrumentFx   // (Purphex Pads is a sampler with a window of 
     void Stop(int note) { foreach (var v in voices) if (v.On && v.Note == note && !v.Releasing && !v.Z.OneShot) v.Releasing = true; }
     public override void Process(float[] l, float[] r, int n)
     {
-        var ev = pending; pending = null; int ei = 0; double relK = Math.Exp(-1.0 / (Math.Max(5, Get("rel")) / 1000.0 * SR)), master = Math.Pow(10, Get("gain") / 20.0); double fadeIn = SR * 0.0015, chokeK = Math.Exp(-1.0 / (0.003 * SR));
+        var ev = pending; pending = null; int ei = 0; double relK = Math.Exp(-1.0 / (Math.Max(5, Get("rel")) / 1000.0 * SR)), master = Math.Pow(10, Get("gain") / 20.0); double fadeIn = SR * 0.0015, chokeK = Math.Exp(-1.0 / (0.010 * SR));
         for (int i = 0; i < n; i++)
         {
             while (ev != null && ei < ev.Count && ev[ei].Key <= i)
