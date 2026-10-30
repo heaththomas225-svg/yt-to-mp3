@@ -301,19 +301,19 @@ partial class StudioForm
         // pan and trim: two galaxy knobs (drag up / down, double-click for the default; the wheel scrolls the strips)
         {
             float cxP = t.IsBus ? x + w / 2 : x + w * 0.27f, cxT = x + w * 0.73f, ky = y + 13;
-            var ps = KnobCtl(g, cxP, ky, 22, (t.Pan + 1) / 2, v => tt.Pan = (float)Math.Round(v * 2 - 1, 2), col, () => tt.Pan = 0); ps.OnWheel = null;
+            var ps = KnobCtl(g, cxP, ky, 22, (t.Pan + 1) / 2, v => tt.Pan = (float)Math.Round(v * 2 - 1, 2), col, () => tt.Pan = 0); ps.OnWheel = null; LearnOn(ps, "pan|" + t.Name, t.Name + " pan");
             string pn = Math.Abs(t.Pan) < 0.01f ? "C" : (t.Pan < 0 ? "L" : "R") + Math.Abs(t.Pan * 100).ToString("0"); Txt(g, "PAN " + pn, 7.5f, DimC, Rc(cxP - 30, y + 27, 60, 12), StringAlignment.Center, true);
             Hint2(ps.R, "Pan " + (Math.Abs(t.Pan) < 0.01f ? "centre" : (t.Pan < 0 ? "left " : "right ") + Math.Abs(t.Pan * 100).ToString("0")) + ". Drag up or down, double-click for the centre.");
             if (!t.IsBus)
             {
-                var tk2 = KnobCtl(g, cxT, ky, 22, (t.TrimDb + 24) / 48, v => tt.TrimDb = (float)Math.Round(v * 48 - 24, 1), NeonCyan, () => tt.TrimDb = 0); tk2.OnWheel = null;
+                var tk2 = KnobCtl(g, cxT, ky, 22, (t.TrimDb + 24) / 48, v => tt.TrimDb = (float)Math.Round(v * 48 - 24, 1), NeonCyan, () => tt.TrimDb = 0); tk2.OnWheel = null; LearnOn(tk2, "trim|" + t.Name, t.Name + " trim");
                 Txt(g, "TRIM " + (t.TrimDb > 0 ? "+" : "") + t.TrimDb.ToString("0.#"), 7.5f, DimC, Rc(cxT - 30, y + 27, 60, 12), StringAlignment.Center, true);
                 Hint2(tk2.R, "TRIM " + (t.TrimDb > 0 ? "+" : "") + t.TrimDb.ToString("0.0") + " dB: the level going into the plugins. Double-click for 0 dB.");
             }
         }
         y += 40;
         // mute / solo: right under the pan, big enough to read and hit (at the bottom they were cut off when the mixer was short)
-        { float hw = (w - 4) / 2; Btn(g, Rc(x, y, hw, 30), "M", t.Mute ? 3 : 0, () => tt.Mute = !tt.Mute, 15); Btn(g, Rc(x + hw + 4, y, hw, 30), "S", t.Solo ? 2 : 0, () => tt.Solo = !tt.Solo, 15); }
+        { float hw = (w - 4) / 2; LearnOn(Btn(g, Rc(x, y, hw, 30), "M", t.Mute ? 3 : 0, () => tt.Mute = !tt.Mute, 15), "mute|" + t.Name, t.Name + " mute"); LearnOn(Btn(g, Rc(x + hw + 4, y, hw, 30), "S", t.Solo ? 2 : 0, () => tt.Solo = !tt.Solo, 15), "solo|" + t.Name, t.Name + " solo"); }
         y += 36;
         // stereo / mono, phase and on / off, then the input trim (they were on the CHANNEL tab)
         {
@@ -326,7 +326,7 @@ partial class StudioForm
             y += 26;
         }
         // fader and meter
-        VFader(g, Rc(x + 6, y + 6, 26, faderH - 12), t.VolDb, v => tt.VolDb = (float)Math.Round(v, 1), col); Meter(g, Rc(x + 40, y, 18, faderH), t);
+        { int r0 = regs.Count; VFader(g, Rc(x + 6, y + 6, 26, faderH - 12), t.VolDb, v => tt.VolDb = (float)Math.Round(v, 1), col); LearnOnNew(r0, "vol|" + t.Name, t.Name + " volume", true); } Meter(g, Rc(x + 40, y, 18, faderH), t);
         Txt(g, (t.VolDb > 0 ? "+" : "") + t.VolDb.ToString("0.0"), 9, Ink, Rc(x + 60, y, w - 60, 14), StringAlignment.Far, true);
         float pk = Math.Max(t.PeakL, t.PeakR); Txt(g, pk > 1e-5f ? (20 * Math.Log10(pk)).ToString("0.0") : "-inf", 8.5f, pk > 1 ? Warn : DimC, Rc(x + 60, y + 16, w - 60, 14), StringAlignment.Far, false);
     }

@@ -132,6 +132,9 @@ class PadsWindow : PxWindow, ISoundDrop
     {
         var m = Win.NewMenu(); m.Items.Add(new ToolStripMenuItem("PAD " + (pad + 1) + (e.PadName(pad).Length > 0 ? ": " + e.PadName(pad) : "")) { Enabled = false });
         SoundSources.Add(m.Items, this, (path, nm) => Put(pad, path, nm));
+        { var tr = e.Owner; string tgt = tr == null ? null : "pad|" + tr.Name + "|" + pad; var ml = tgt == null ? null : MidiMap.ForTarget(tgt);
+          var li = new ToolStripMenuItem(ml == null ? "MIDI Learn this pad (any pad, key or button of your controller)" : "MIDI Learn this pad again (now: " + MidiMap.SrcText(ml.Src) + ")") { Enabled = tgt != null }; li.Click += (a, b) => MidiMap.StartLearn(tgt, "Pad " + (pad + 1) + " of Purphex Pads on " + tr.Name); m.Items.Add(li);
+          if (ml != null) m.Items.Add("Remove this pad's MIDI mapping").Click += (a, b) => MidiMap.Remove(tgt); }
         m.Items.Add(new ToolStripSeparator());
         var cl = new ToolStripMenuItem("Clear this pad") { Enabled = e.PadName(pad).Length > 0 }; cl.Click += (a, b) => { Mark(); e.ClearPad(pad); }; m.Items.Add(cl);
         m.Show(this, PointToClient(Cursor.Position));

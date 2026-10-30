@@ -34,6 +34,7 @@ abstract class PxWindow : Form
         Ctl = Mix(t.Panel, Edge, 0.3); CtlHot = Mix(t.Panel, Edge, 0.6); Track = Mix(t.Panel, Edge, 0.35); Well = Mix(t.Bg0, Color.Black, 0.3); PBar = Mix(t.Panel, Edge, 0.12);
         GlitchFlowWindow.ApplyTheme(t);
     }
+    internal Fx Plugin { get { return fx; } }   // (MIDI mapping: the plugin in front)
     protected readonly Fx fx; protected Color Accent = Cyan; readonly Timer tick; readonly string brand;
     protected class Hit { public RectangleF R; public Action Click, Double, Right; public Action<float> Drag; public Action<PointF> DragAt; public Action Up; public Action<int> Wheel; public string Tip = ""; public Param P; }
     protected readonly List<Hit> hits = new List<Hit>(); Hit dragHit; float dragY0, dragV0; protected Point mouse; string tip = "";
@@ -47,6 +48,10 @@ abstract class PxWindow : Form
         try { Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath); } catch { }
         tick = new Timer { Interval = 33 }; tick.Tick += (a, b) => { if (!Win.AnyMoving) Invalidate(); }; tick.Start();
         FormClosed += (a, b) => { tick.Stop(); open.Remove(fx); };
+        // it opens where it was left last time (another monitor too), and remembers where it is put
+        { Point at; if (WindowPlaces.Get(fx.Type, Size, out at)) { StartPosition = FormStartPosition.Manual; Location = at; } }
+        FormClosing += (a, b) => { if (WindowState == FormWindowState.Normal) WindowPlaces.Set(fx.Type, Location); };
+        ResizeEnd += (a, b) => { if (WindowState == FormWindowState.Normal) WindowPlaces.Set(fx.Type, Location); };
         if (!string.IsNullOrEmpty(fx.CurPreset)) PresetName = fx.CurPreset;
     }
 
@@ -110,7 +115,8 @@ abstract class PxWindow : Form
         double ang = (135 + 270 * frac) * Math.PI / 180; using (var pen = new Pen(Ink, big ? 3 : 2) { EndCap = LineCap.Round }) g.DrawLine(pen, cx + (float)Math.Cos(ang) * rad * 0.25f, cy + (float)Math.Sin(ang) * rad * 0.25f, cx + (float)Math.Cos(ang) * (rad - pw * 2), cy + (float)Math.Sin(ang) * (rad - pw * 2));
         if (label.Length > 0) Txt(g, label, big ? 13 : 10.5f, Dim, new RectangleF(cx - 60, cy + rad + 2, 120, 15), StringAlignment.Center, true);
         Txt(g, Val(p), big ? 13 : 10.5f, Ink, new RectangleF(cx - 60, cy + rad + (label.Length > 0 ? (big ? 18 : 15) : 2), 120, 15), StringAlignment.Center, false);
-        var h = Reg(new RectangleF(r.X, r.Y, r.Width, r.Height + (big ? 34 : 30)), null, p.Name + ": drag up or down, wheel, double-click resets"); h.P = p;
+        var h = Reg(new RectangleF(r.X, r.Y, r.Width, r.Height + (big ? 34 : 30)), null, p.Name + ": drag up or down, wheel, double-click resets, right-click for MIDI Learn"); h.P = p;
+        string pid = id, pnm = p.Name; h.Right = () => MidiMap.Menu(this, mouse, MidiMap.FxTarget(fx, pid), fx.Title + ": " + pnm);
         h.Drag = dy => { float nf = Math.Max(0, Math.Min(1, dragV0 + dy)); float v = FromFrac(p, nf); fx.Set(id, p.IsChoice ? (float)Math.Round(v) : v); };
         h.Double = () => { Mark(); fx.Set(id, p.Def); }; h.Wheel = d => { Mark(); float v = FromFrac(p, Math.Max(0, Math.Min(1, Frac(p) + d * (p.IsChoice ? 1f / Math.Max(1, p.Max - p.Min) : 0.02f)))); fx.Set(id, p.IsChoice ? (float)Math.Round(v) : v); };
     }

@@ -61,6 +61,10 @@ partial class StudioForm
         var m = Win.NewMenu(); var devs = MidiInput.Devices(); m.Items.Add(new ToolStripMenuItem("MIDI KEYBOARD: " + (MidiInput.OpenName.Length > 0 ? MidiInput.OpenName : "not connected")) { Enabled = false });
         foreach (var d0 in devs) { string d = d0; var it = new ToolStripMenuItem(d) { Checked = MidiInput.OpenName == d }; it.Click += (a, b) => { Prefs.MidiDev = d; Prefs.Changed(); MidiInput.Close(); midiToastFor = ""; MidiAutoConnect(); }; m.Items.Add(it); }
         if (devs.Count == 0) m.Items.Add(new ToolStripMenuItem("No MIDI keyboard found: plug one in (it connects by itself)") { Enabled = false });
+        m.Items.Add(new ToolStripSeparator());
+        m.Items.Add("MIDI MAPPING... (your controller's knobs, keys and pads on any control, profiles)").Click += (a, b) => OpenMidiMap();
+        m.Items.Add("MIDI Learn this button (MIDI REC)").Click += (a, b) => MidiMap.StartLearn("transport|rec", "MIDI REC");
+        m.Items.Add(new ToolStripSeparator());
         var off = new ToolStripMenuItem("Off (no MIDI keyboard)") { Checked = Prefs.MidiDev == MidiInput.OffName }; off.Click += (a, b) => { Prefs.MidiDev = MidiInput.OffName; Prefs.Changed(); MidiInput.Close(); Toast("MIDI keyboard off."); }; m.Items.Add(off);
         if (Prefs.MidiDev == MidiInput.OffName) { var on = new ToolStripMenuItem("Switch the MIDI keyboard back on"); on.Click += (a, b) => { Prefs.MidiDev = ""; Prefs.Changed(); midiToastFor = ""; MidiAutoConnect(); }; m.Items.Add(on); }
         m.Show(this, new Point((int)MousePos.X, (int)MousePos.Y));
