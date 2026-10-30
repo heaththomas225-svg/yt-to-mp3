@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -142,6 +142,24 @@ partial class StudioForm
         autoFit = false; var tl = TimelineRect(); double cur = zoomAnchor > 0 ? zoomAnchor : scroll + tl.Width / 2 * spp; spp = Math.Max(MinSpp, Math.Min(MaxSpp, newSpp)); scroll = Math.Max(0, (long)Math.Min(Math.Max(0, eng.EndFrame * 1.04 - tl.Width * spp), cur - tl.Width / 2 * spp));
     }
     // move the view along the song by a fraction of its width (wheel, touch pad, keys)
+    // the tracks up and down by some pixels (the wheel, Up / Down, the bar on the left)
+    void ScrollTracks(float by)
+    {
+        float viewH = MixH - (ArrTop + RulerH) - ArrGap, contentH = LaneCount * LaneH + 50; vscroll = Math.Max(0, Math.Min(Math.Max(0, contentH - viewH), vscroll + by)); Invalidate();
+    }
+    // the slim up/down bar of the tracks, on the left: always drawn (when the tracks all fit its handle fills it); drag the handle, click above or below it to page
+    void TrackScrollBar(Graphics g, RectangleF bar, float contentH, float viewH)
+    {
+        if (bar.Height < 30) return; float max = Math.Max(0, contentH - viewH);
+        using (var b = new SolidBrush(TM.C(255, 12, 6, 24))) g.FillRectangle(b, bar); using (var p = new Pen(Color.FromArgb(120, NeonViolet), 1f)) { g.DrawLine(p, bar.X, bar.Y, bar.X, bar.Bottom); g.DrawLine(p, bar.Right - 1, bar.Y, bar.Right - 1, bar.Bottom); }
+        var track = Rc(bar.X + 3, bar.Y + 4, bar.Width - 6, bar.Height - 8); float th = max <= 0 ? track.Height : Math.Max(36, track.Height * viewH / contentH), ty = track.Y + (max <= 0 ? 0 : (track.Height - th) * (vscroll / max));
+        var thumb = Rc(track.X, ty, track.Width, th); bool hot = Hot(thumb) || (dragReg != null && dragReg.R == thumb);
+        FillRR(g, Color.FromArgb(max <= 0 ? 70 : (hot ? 255 : 200), NeonViolet), thumb, 5); if (max > 0) StrokeRR(g, Color.FromArgb(hot ? 255 : 160, NeonCyan), thumb, 5, 1f);
+        var areaR = new HitReg { R = bar, Overlay = true, ScrollBar = true, OnDown = () => { if (max <= 0) return; ScrollTracks(MousePos.Y < ty ? -viewH * 0.9f : viewH * 0.9f); }, OnWheel = d => ScrollTracks(-d * 40) }; regs.Add(areaR);
+        float grabDy = 0; var thR = new HitReg { R = thumb, Overlay = true, ScrollBar = true, OnWheel = d => ScrollTracks(-d * 40) };
+        thR.OnDown = () => grabDy = MousePos.Y - ty; thR.OnDrag = pt => { if (max <= 0) return; float f = (pt.Y - grabDy - track.Y) / Math.Max(1, track.Height - th); vscroll = Math.Max(0, Math.Min(max, f * max)); Invalidate(); };
+        regs.Add(thR); Hint2(bar, max <= 0 ? "The tracks all fit: this bar scrolls them up and down when there are more (so do the wheel and the Up / Down keys)" : "Scroll the tracks up and down: drag the handle, click above or below it, or use the wheel and the Up / Down keys");
+    }
     void ScrollView(double screens)
     {
         autoFit = false; if (scrollHold == 0) UserScrolled(); var tl = TimelineRect(); double maxS = Math.Max(0, eng.EndFrame * 1.04 - tl.Width * spp); scroll = (long)Math.Max(0, Math.Min(maxS, scroll + screens * tl.Width * spp));
@@ -153,7 +171,7 @@ partial class StudioForm
     // the add-track button that is always on screen: right after the last track, or pinned to the bottom of the list when the tracks run off the screen
     void AddTrackRow(Graphics g, float afterLastY, int n)
     {
-        float by = Math.Min(afterLastY + 6, MixH - 40); var r = Rc(HeadW < 100 ? 4 : 10, by, HeadW < 100 ? HeadW - 8 : HeadW - 20, 34); var gsA = g.Save(); g.ResetClip();   // always on screen: never cut by the list of tracks
+        float by = Math.Min(afterLastY + 6, MixH - 40); var r = Rc(HeadPanelW < 100 ? 4 : 10, by, HeadPanelW < 100 ? HeadPanelW - 8 : HeadPanelW - 20, 34); var gsA = g.Save(); g.ResetClip();   // always on screen: never cut by the list of tracks
         FillRR(g, TM.C(235, 14, 8, 30), r, 8); Glow(g, NeonCyan, r, 8, Hot(r) ? 1.1f : 0.55f, 3);
         Txt(g, r.Width < 140 ? "+" : "+ ADD TRACK", r.Width < 140 ? 18 : 13, Ink, r, StringAlignment.Center, true); Reg(r, () => OpenNewTrackSheet(2)); g.Restore(gsA);
     }

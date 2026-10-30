@@ -18,9 +18,9 @@ class SamplerFx : InstrumentFx   // (Purphex Pads is a sampler with a window of 
     public class Zone
     {
         public string Path = "", Name = ""; public int Lo, Hi = 127, Root = 60; public bool Follow, OneShot = true; public float GainDb;
-        internal float[] L, R; internal int Rate = 44100; public bool Missing;
+        internal float[] L, R; internal int Rate = 44100; public bool Missing; internal int Lead;   // Lead: the silence at the front of the file, skipped when a one-shot is hit
         public bool Plays(int note) { return note >= Lo && note <= Hi; }
-        public Zone Copy() { return new Zone { Path = Path, Name = Name, Lo = Lo, Hi = Hi, Root = Root, Follow = Follow, OneShot = OneShot, GainDb = GainDb, L = L, R = R, Rate = Rate, Missing = Missing }; }
+        public Zone Copy() { return new Zone { Path = Path, Name = Name, Lo = Lo, Hi = Hi, Root = Root, Follow = Follow, OneShot = OneShot, GainDb = GainDb, L = L, R = R, Rate = Rate, Missing = Missing, Lead = Lead }; }
     }
     class Voice { public bool On, Releasing, Choked; public Zone Z; public int Note; public double Pos, Step, Gain, Env, Rel, LastL, LastR; }
     double tailL, tailR;   // what a voice taken for a new note was playing, fading away in 3 ms (cut in one sample it clicked)
@@ -51,8 +51,15 @@ class SamplerFx : InstrumentFx   // (Purphex Pads is a sampler with a window of 
         float[] l, r; int sr; string fmt; z.Missing = false;
         if (string.IsNullOrEmpty(z.Path) || !File.Exists(z.Path)) { z.Missing = true; z.L = z.R = null; return "The sample is missing: " + z.Path; }
         if (!SoundIO.Read(z.Path, out l, out r, out sr, out fmt) || l.Length == 0) { z.Missing = true; z.L = z.R = null; return "The sample could not be read: " + z.Path; }
-        z.L = l; z.R = r; z.Rate = sr > 0 ? sr : 44100; return null;
+        z.L = l; z.R = r; z.Rate = sr > 0 ? sr : 44100; z.Lead = LeadOf(l, r, z.Rate); return null;
     }
+    // the silence before the sound starts (under -48 dB), keeping 1 ms before the hit so its attack is whole; at most 2 s
+    public static int LeadOf(float[] l, float[] r, int sr)
+    {
+        int n = Math.Min(l.Length, sr * 2), i = 0; for (; i < n; i++) if (Math.Abs(l[i]) > 0.004f || (r != null && i < r.Length && Math.Abs(r[i]) > 0.004f)) break;
+        return i >= n ? 0 : Math.Max(0, i - sr / 1000);
+    }
+    public List<Zone> ZonesCopy() { lock (zl) return new List<Zone>(Zones); }
     // one sample on every key (a drum hit keeps its pitch; an 808 or melodic sample follows the notes from its root note)
     public string SetSingle(string path, string name, bool follow, int root)
     {
@@ -121,7 +128,7 @@ class SamplerFx : InstrumentFx   // (Purphex Pads is a sampler with a window of 
         Voice v = null; foreach (var x in voices) if (!x.On) { v = x; break; }
         if (v == null) { foreach (var x in voices) if (x.Choked || x.Releasing) { if (v == null || x.Env < v.Env) v = x; } if (v == null) { v = voices[0]; foreach (var x in voices) if (x.Pos > v.Pos) v = x; } tailL += v.LastL; tailR += v.LastR; }
         double rate = z.Rate / (double)SR, pitch = z.Follow ? Math.Pow(2, (note - z.Root) / 12.0) : 1.0; double vs = Get("vel") / 100.0;
-        v.On = true; v.Releasing = false; v.Choked = false; v.LastL = v.LastR = 0; v.Z = z; v.Note = note; v.Pos = 0; v.Step = rate * pitch; v.Gain = ((1 - vs) + vs * vel / 127.0) * Math.Pow(10, z.GainDb / 20.0); v.Env = 1; v.Rel = 0;
+        v.On = true; v.Releasing = false; v.Choked = false; v.LastL = v.LastR = 0; v.Z = z; v.Note = note; v.Pos = z.OneShot ? z.Lead : 0; v.Step = rate * pitch; v.Gain = ((1 - vs) + vs * vel / 127.0) * Math.Pow(10, z.GainDb / 20.0); v.Env = 1; v.Rel = 0;
     }
     void Stop(int note) { foreach (var v in voices) if (v.On && v.Note == note && !v.Releasing && !v.Z.OneShot) v.Releasing = true; }
     public override void Process(float[] l, float[] r, int n)

@@ -358,6 +358,14 @@ class Track
     // The shape of every fade, 0 -> 1 over the fade (a fade out plays it backwards): an S curve, gentle at both ends, so a fade in starts without a click,
     // a fade out dies away without a sudden plunge at the end, and the middle is a steady -6 dB. The picture on the clip is drawn from this same function.
     public static float FadeCurve(double t) { if (t <= 0) return 0f; if (t >= 1) return 1f; return (float)(t * t * (3 - 2 * t)); }
+    // a fade with a shape: bend 0 is the smooth S above; up to +1 it rises fast and eases in at the top (log-like), down to -1 it starts slow and swells (exponential-like)
+    public static float FadeCurve(double t, float bend)
+    {
+        if (t <= 0) return 0f; if (t >= 1) return 1f; if (Math.Abs(bend) < 0.02f) return FadeCurve(t);
+        double p = 1 + Math.Abs(bend) * 4, s = t * t * (3 - 2 * t), c = bend > 0 ? 1 - Math.Pow(1 - t, p) : Math.Pow(t, p), w = Math.Min(1, Math.Abs(bend) * 3);
+        return (float)(s + (c - s) * w);   // (blended from the S, so a small bend is a small change)
+    }
+    public float FadeInBend, FadeOutBend;   // the shape of each fade (see FadeCurve)
     public long FadeInDelay, FadeOutTail;   // frames of silence before a fade in starts / after a fade out has finished (the bottom point of a fade can be moved too)
     public long FadeIn, FadeOut;   // frames: this clip fades in over its first FadeIn frames and out over its last FadeOut frames
     public float ClipGainDb;       // the volume of this clip (piece) on its own, on top of the track fader
@@ -472,7 +480,7 @@ partial class StudioEngine
         for (int i = 0; i < n; i++)
         {
             long idx = pos + i - toff, k = idx + tcs; if (cl == null || idx < 0 || idx >= ulen || k >= cl.Length || k >= cr2.Length) continue; float gg = 1f;
-            if (shaped) { gg = cg; if (idx < fd) gg = 0; else if (fi > 0 && idx < fd + fi) gg *= Track.FadeCurve((idx - fd) / (double)fi); if (idx >= ulen - ft) gg = 0; else if (fo > 0 && idx >= ulen - ft - fo) gg *= Track.FadeCurve((ulen - ft - idx) / (double)fo); }
+            if (shaped) { gg = cg; if (idx < fd) gg = 0; else if (fi > 0 && idx < fd + fi) gg *= Track.FadeCurve((idx - fd) / (double)fi, p.FadeInBend); if (idx >= ulen - ft) gg = 0; else if (fo > 0 && idx >= ulen - ft - fo) gg *= Track.FadeCurve((ulen - ft - idx) / (double)fo, p.FadeOutBend); }
             bl[i] += cl[k] * gg; br[i] += cr2[k] * gg;
         }
     }
@@ -534,8 +542,8 @@ partial class StudioEngine
                 for (int i = 0; i < n; i++)
                 {
                     long idx = pos + i - toff; if (idx < 0 || idx >= ulen) continue; float gg = cg;
-                    if (idx < fd) gg = 0; else if (fi > 0 && idx < fd + fi) gg *= Track.FadeCurve((idx - fd) / (double)fi);
-                    if (idx >= ulen - ft) gg = 0; else if (fo > 0 && idx >= ulen - ft - fo) gg *= Track.FadeCurve((ulen - ft - idx) / (double)fo);
+                    if (idx < fd) gg = 0; else if (fi > 0 && idx < fd + fi) gg *= Track.FadeCurve((idx - fd) / (double)fi, t.FadeInBend);
+                    if (idx >= ulen - ft) gg = 0; else if (fo > 0 && idx >= ulen - ft - fo) gg *= Track.FadeCurve((ulen - ft - idx) / (double)fo, t.FadeOutBend);
                     t.tl[i] *= gg; t.tr[i] *= gg;
                 }
             }

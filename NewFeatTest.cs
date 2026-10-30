@@ -663,7 +663,15 @@ static class NF
             sf.OpenVsts(); var bl2 = (System.Collections.IList)typeof(StudioForm).GetMethod("BrowserList", BF).Invoke(sf, null);
             Check("Bass Lab is the very first plugin in the VSTS box (it makes all your sounds)", bl2.Count > 0 && (string)bl2[0].GetType().GetField("Type").GetValue(bl2[0]) == "synth");
             var cats9 = new List<string>(); foreach (var it in bl2) cats9.Add((string)it.GetType().GetField("Category").GetValue(it)); int in9 = 0; while (in9 < cats9.Count && cats9[in9] == "Instruments") in9++; int pv9 = in9; while (pv9 < cats9.Count && cats9[pv9] == "Purphex VST") pv9++; string third = pv9 < cats9.Count ? cats9[pv9] : "";
-            Check("the instruments (Bass Lab first, then the VSTs) are the first group, together, then the Purphex VST effects", in9 >= 3 && pv9 > in9 && !cats9.Skip(pv9).Contains("Purphex VST") && !cats9.Skip(pv9).Contains("Instruments"), in9 + " instruments, then " + (pv9 - in9) + " Purphex VST, then " + third); if (outDir != null) Shot(Path.Combine(outDir, "add-effect-boxes2.png")); SetF("browserOpen", false); }
+            Check("the instruments (Bass Lab first, then the VSTs) are the first group, together, then the Purphex VST effects", in9 >= 3 && pv9 > in9 && !cats9.Skip(pv9).Contains("Purphex VST") && !cats9.Skip(pv9).Contains("Instruments"), in9 + " instruments, then " + (pv9 - in9) + " Purphex VST, then " + third);
+            {   // PINNED: Purphex Pads and Key Map sit right under Bass Lab; PIN puts any VST up there too (kept after a restart), UNPIN takes it off
+                Func<List<string>> types = () => { SetF("blCache", null); var l = new List<string>(); foreach (var it in (System.Collections.IList)typeof(StudioForm).GetMethod("BrowserList", BF).Invoke(sf, null)) l.Add(((FxRegistry.Info)it).Type); return l; };
+                var t1 = types(); Check("Purphex Pads and Key Map are pinned right under Bass Lab", t1.Count > 3 && t1[0] == "synth" && t1[1] == "pxpads" && t1[2] == "pxkeymap", string.Join(",", t1.Take(4)));
+                sf.TogglePin("sampler"); SetF("pinnedVsts", null); var t2 = types(); Check("PIN puts a VST at the top too, and it stays pinned after a restart", t2.IndexOf("sampler") == 3, "at " + t2.IndexOf("sampler"));
+                sf.TogglePin("sampler"); sf.TogglePin("synth"); var t3 = types(); Check("UNPIN takes it off, and Bass Lab can't be unpinned", t3.IndexOf("sampler") > 3 && t3[0] == "synth", "at " + t3.IndexOf("sampler"));
+                sf.TogglePin("sampler"); { string sd = Environment.GetEnvironmentVariable("PADS_SHOT"); if (!string.IsNullOrEmpty(sd)) try { Shot(Path.Combine(sd, "vsts-pinned.png")); } catch { } } sf.TogglePin("sampler");
+                try { File.Delete(Path.Combine(StudioEnv.DataDir, "pinned_vsts.txt")); } catch { } SetF("pinnedVsts", null); SetF("blCache", null);
+            } if (outDir != null) Shot(Path.Combine(outDir, "add-effect-boxes2.png")); SetF("browserOpen", false); }
           { var fam0 = FontKit.Family; bool hc0 = FontKit.HardCurrent; FontKit.Family = new FontFamily("Georgia"); FontKit.HardCurrent = true; using (var small = FontKit.Make(14, false)) using (var big = FontKit.Make(30, false)) Check("a thin or hollow font writes big titles only: the small writing stays in the clear original font", small.FontFamily.Name == Win.UiFamily && big.FontFamily.Name == "Georgia", small.FontFamily.Name + " / " + big.FontFamily.Name); FontKit.Family = fam0; FontKit.HardCurrent = hc0; Check("a normal font (Segoe UI) is not counted as thin or hollow", !FontKit.IsHard(new FontFamily("Segoe UI"))); }
           // LOCK, FLEX and DEL ask which track (the tab of TRACK 1, 2, 3...) when there is more than one
           { sf.eng.Tracks.Clear(); for (int i = 0; i < 3; i++) { var cl = new float[44100]; sf.eng.Tracks.Add(StudioEngine.NewTrack("Q" + i, "audio", AudioClip.FromArrays(cl, (float[])cl.Clone(), "q" + i))); } SetF("tpOpen", false); typeof(StudioForm).GetMethod("TrackAction", BF).Invoke(sf, new object[] { 3, (Action)(() => { }) }); Check("FLEX with several tracks asks which track", F<bool>("tpOpen") && F<int>("tpMode") == 3); SetF("tpOpen", false);
@@ -794,9 +802,52 @@ static class NF
                 float top = (float)typeof(StudioForm).GetProperty("ArrTop", BF).GetValue(sf, null) + 28; var ld = typeof(StudioForm).GetMethod("LaneDown", BF); var ldr = typeof(StudioForm).GetMethod("LaneDrag", BF); var lup = typeof(StudioForm).GetMethod("MarqueeEnd", BF);
                 foreach (var rowT in new[] { ra, rb })
                 {
-                    int ri = sf.eng.Tracks.IndexOf(rowT); var lane = new RectangleF(372, top + ri * laneH, 1000, laneH); var p0 = new PointF(372 + 900, top + ri * laneH + laneH / 2);   // far right of the row: no audio there
-                    SetF("MousePos", p0); ld.Invoke(sf, new object[] { rowT, lane }); ldr.Invoke(sf, new object[] { rowT, new PointF(372 + 5, top + 4) }); bool on = F<bool>("marqueeOn"); var ms = (List<Track>)typeof(StudioForm).GetField("multiSel", BF).GetValue(sf); bool got = ms.Contains(ra); lup.Invoke(sf, null);
+                    int ri = sf.eng.Tracks.IndexOf(rowT); var lane = new RectangleF(388, top + ri * laneH, 1000, laneH); var p0 = new PointF(388 + 900, top + ri * laneH + laneH / 2);   // far right of the row: no audio there
+                    SetF("MousePos", p0); ld.Invoke(sf, new object[] { rowT, lane }); ldr.Invoke(sf, new object[] { rowT, new PointF(388 + 5, top + 4) }); bool on = F<bool>("marqueeOn"); var ms = (List<Track>)typeof(StudioForm).GetField("multiSel", BF).GetValue(sf); bool got = ms.Contains(ra); lup.Invoke(sf, null);
                     Check("hold and drag on empty space in " + (rowT == ra ? "the empty part of a row" : "an empty row") + " draws a box that selects the clips", on && got, "box " + on + ", clip picked " + got);
+                }
+                {   // the box stays on the same part of the song when you zoom (it grew huge on zooming out), and dragging it to the right edge scrolls the view
+                    int ri = sf.eng.Tracks.IndexOf(ra); var lane = new RectangleF(388, top + ri * laneH, 1000, laneH); var mb = typeof(StudioForm).GetMethod("MarqueeBox", BF); var mt = typeof(StudioForm).GetMethod("MarqueeTo", BF);
+                    SetF("MousePos", new PointF(388 + 900, top + ri * laneH + 4)); ld.Invoke(sf, new object[] { ra, lane }); var pB = new PointF(388 + 500, top + ri * laneH + laneH - 4); SetF("MousePos", pB); mt.Invoke(sf, new object[] { pB });
+                    float w1 = ((RectangleF)mb.Invoke(sf, null)).Width; SetF("spp", 200.0); float w2 = ((RectangleF)mb.Invoke(sf, null)).Width; SetF("spp", 100.0);
+                    Check("zooming out while a box is drawn: the box shrinks with the song instead of growing", w1 > 300 && Math.Abs(w2 - w1 / 2) < 3, w1.ToString("0") + " px, zoomed out " + w2.ToString("0") + " px");
+                    var tl = (RectangleF)typeof(StudioForm).GetMethod("TimelineRect", BF).Invoke(sf, null); long sc0 = F<long>("scroll"); var pE = new PointF(tl.Right - 2, pB.Y); for (int i = 0; i < 5; i++) mt.Invoke(sf, new object[] { pE });
+                    Check("a box dragged to the right edge scrolls the view along", F<long>("scroll") > sc0, sc0 + " to " + F<long>("scroll")); lup.Invoke(sf, null); SetF("scroll", 0L);
+                }
+                {   // a clip of a sound you own, trimmed, then right-click Add to MY SOUNDS: No keeps both (the edit right after the original as v2), Yes puts the edit in its place
+                    string vsrc = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "nf_vers_kick.wav"); var vl = new float[44100]; for (int i = 4410; i < vl.Length; i++) vl[i] = 0.5f * (float)Math.Sin(i * 0.05); WavIO.Write(vsrc, vl, vl, 44100, 24);
+                    { var t0w = DateTime.Now; while (!LibLoader.Ready && DateTime.Now - t0w < TimeSpan.FromSeconds(60)) Application.DoEvents(); }   // (the library loads on its own thread; it would replace the list under the test)
+                    SoundLibrary.ImportFiles(new[] { vsrc }, null); var up = SoundLibrary.Pack(SoundLibrary.UserPackId); var orig = SoundLibrary.ItemAtPath(System.IO.Path.Combine(up.Dir, "imports", "nf_vers_kick.wav"));
+                    Check("a sound in MY SOUNDS is found from its file", orig != null, "");
+                    if (orig != null)
+                    {
+                        var vt = StudioEngine.NewTrack("V", "other", AudioClip.FromArrays(vl, (float[])vl.Clone(), "v")); vt.Source = orig.Path; vt.ClipStart = 4400; vt.ClipFrames = 44100 - 4400; int cnt = up.Items.Count;
+                        sf.clipAsk = q => DialogResult.No; sf.AddClipToMySounds(vt); string toastNo = F<string>("toast"); up = SoundLibrary.Pack(SoundLibrary.UserPackId); orig = up.Items.Find(x => x.Id == orig.Id) ?? orig; int oi = up.Items.IndexOf(orig);
+                        var v2 = oi >= 0 && oi + 1 < up.Items.Count ? up.Items[oi + 1] : null;
+                        Check("No keeps both: the trimmed edit is a new version right after the original, and the original is untouched", v2 != null && v2.Name == "nf_vers_kick v2" && up.Items.Count == cnt + 1 && Math.Abs(v2.Dur - (44100 - 4400) / 44100.0) < 0.01 && Math.Abs(orig.Dur - 1) < 0.01, v2 == null ? "none after it (at " + oi + " of " + up.Items.Count + ", was " + cnt + "): " + toastNo : v2.Name + " " + v2.Dur.ToString("0.000") + " s");
+                        sf.clipAsk = q => DialogResult.Yes; sf.AddClipToMySounds(vt); up = SoundLibrary.Pack(SoundLibrary.UserPackId); orig = up.Items.Find(x => x.Id == orig.Id) ?? orig;
+                        Check("Yes replaces the original with the edit (same name, same file, no new sound)", up.Items.Count == cnt + 1 && up.Items.Contains(orig) && orig.Name == "nf_vers_kick" && Math.Abs(orig.Dur - (44100 - 4400) / 44100.0) < 0.01, orig.Name + " " + orig.Dur.ToString("0.000") + " s, " + up.Items.Count + " sounds");
+                        sf.clipAsk = null; typeof(StudioForm).GetMethod("CloseSounds", BF).Invoke(sf, null);
+                    }
+                    if (orig != null)
+                    {   // TRIM in MY SOUNDS: the part between the handles goes into the song (and to a pad as its own file); the sound file is not changed
+                        orig = SoundLibrary.Pack(SoundLibrary.UserPackId).Items.Find(x => x.Id == orig.Id) ?? orig; long flen = new FileInfo(orig.Path).Length; sf.SetSoundTrim(orig, 0.2f, 0.6f); int tc = sf.eng.Tracks.Count;
+                        typeof(StudioForm).GetMethod("AddSample", BF).Invoke(sf, new object[] { orig, 0L, sf.eng.Tracks.Count }); var nt = sf.eng.Tracks.Count > tc ? sf.eng.Tracks.Find(x => x.Clip != null && x.Clip.Path == orig.Path) : null; long cl = nt != null ? nt.Clip.Length : 0;
+                        Check("a trimmed sound goes into the song as just the part you kept", nt != null && Math.Abs(nt.ClipStart - cl * 0.2) < 50 && Math.Abs(nt.UsedLength - cl * 0.4) < 50, nt == null ? "no track" : nt.ClipStart + " / " + nt.UsedLength + " of " + cl);
+                        string tf = (string)typeof(StudioForm).GetMethod("TrimmedFile", BF).Invoke(sf, new object[] { orig, orig.Path }); float[] tl, tr2; int tsr; string tfm; bool rd = SoundIO.Read(tf, out tl, out tr2, out tsr, out tfm);
+                        Check("a pad gets the trimmed part as its own file, and the sound file itself is not changed", tf != orig.Path && rd && Math.Abs(tl.Length - cl * 0.4) < 100 && new FileInfo(orig.Path).Length == flen, (rd ? tl.Length.ToString() : "unreadable") + " frames");
+                        sf.SetSoundTrim(orig, 0, 1); Check("RESET uses the whole sound again", sf.SoundTrim(orig) == null, ""); if (nt != null) lock (sf.eng.Sync) sf.eng.Tracks.Remove(nt);
+                        // duplicates: the same sound under another name is not imported again; a different sound with the same name is kept as (2)
+                        string dupe = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "nf_dupe_copy.wav"); File.Copy(orig.Path, dupe, true); int nd = SoundLibrary.ImportFiles(new[] { dupe }, null);
+                        Check("importing the same sound again (even with another name) skips it as a duplicate", nd == 0 && SoundLibrary.LastDupes >= 1, nd + " imported, " + SoundLibrary.LastDupes + " duplicates");
+                        sf.NoteDupes(); sf.LocateDupe(); var selD = (SoundItem)typeof(StudioForm).GetField("sndSel", BF).GetValue(sf);
+                        Check("LOCATE shows the sound the duplicate was a copy of", selD != null && selD.Id == orig.Id, selD == null ? "none" : selD.Name); typeof(StudioForm).GetMethod("CloseSounds", BF).Invoke(sf, null);
+                        string other = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "sub_nf", "nf_vers_kick.wav"); Directory.CreateDirectory(System.IO.Path.GetDirectoryName(other)); var ol = new float[22050]; for (int i = 0; i < ol.Length; i++) ol[i] = 0.3f * (float)Math.Sin(i * 0.11); WavIO.Write(other, ol, ol, 44100, 24);
+                        int no = SoundLibrary.ImportFiles(new[] { other }, null); Check("a different sound with the same name is imported too (as \"(2)\")", no == 1 && SoundLibrary.Pack(SoundLibrary.UserPackId).Items.Exists(x => x.Name == "nf_vers_kick (2)"), no + "");
+                    }
+                    { var rm = Win.NewReadableMenu(); var it = rm.Items.Add("Save this clip as a WAV on my PC..."); Check("the right-click menu of a track keeps clear writing (not all capitals) in a bigger font", it.Text == "Save this clip as a WAV on my PC..." && rm.Font.Size >= 11, it.Text + " / " + rm.Font.Size); rm.Dispose(); }
+                    int lead = SamplerFx.LeadOf(vl, vl, 44100);
+                    Check("a pad skips the silence at the front of a sound, so a hit is not late", lead > 4300 && lead <= 4410, lead + " frames skipped");
                 }
                 {   // LOCK lists the tracks on the left only (a piece sharing a row is not a track of its own), numbered the same
                     var lp = StudioEngine.NewTrack("Clip row (2)", "vocal", AudioClip.FromArrays(new float[44100], new float[44100], "t")); lp.Host = ra; lp.Offset = 44100 * 3; lock (sf.eng.Sync) sf.eng.Tracks.Add(lp);
@@ -823,8 +874,8 @@ static class NF
                 }
                 {   // LOOP > Loop a section: drag across the timeline, it loops that part (and plays it straight away)
                     int ov = Prefs.OutVol; Prefs.OutVol = 0; SetF("scroll", 0L); SetF("spp", 100.0); sf.LoopPickStart(); paintS();
-                    float y0 = top + laneH / 2; var pr = (HitReg)typeof(StudioForm).GetMethod("TopRegion", BF).Invoke(sf, new object[] { new PointF(372 + 100, y0) });
-                    SetF("MousePos", new PointF(372 + 100, y0)); pr.OnDown(); pr.OnDrag(new PointF(372 + 400, y0)); pr.OnUp();
+                    float y0 = top + laneH / 2; var pr = (HitReg)typeof(StudioForm).GetMethod("TopRegion", BF).Invoke(sf, new object[] { new PointF(388 + 100, y0) });
+                    SetF("MousePos", new PointF(388 + 100, y0)); pr.OnDown(); pr.OnDrag(new PointF(388 + 400, y0)); pr.OnUp();
                     bool snapOff = !F<bool>("snapOn"); long wa = 100 * 100, wb = 400 * 100;
                     Check("LOOP a section: dragging across the tracks sets the section and it plays round from its start", sf.eng.LoopSection && !sf.loopPick && (snapOff ? sf.eng.LoopA == wa && sf.eng.LoopB == wb : sf.eng.LoopA <= wa && sf.eng.LoopB >= wb) && sf.eng.Playing, sf.eng.LoopA + " to " + sf.eng.LoopB + " playing " + sf.eng.Playing);
                     sf.eng.Pause(); sf.LoopWhole(); Check("LOOP the whole song clears the section", sf.eng.Loop && !sf.eng.LoopSection, "");
@@ -1203,7 +1254,7 @@ static class NF
             {   // dragging the needle to the left edge scrolls the timeline back with it (it never hides behind the track boxes)
                 sf.eng.Tracks.Clear(); sf.eng.Tracks.Add(StudioEngine.NewTrack("Long", "beat", AudioClip.FromArrays(new float[44100 * 60], new float[44100 * 60], "l"))); SetF("tab", 0); SetF("welcomeOn", false); SetF("autoFit", false); SetF("spp", 300.0); SetF("scroll", (long)(44100 * 30)); sf.ClientSize = new Size(1500, 860); Application.DoEvents();
                 var pmN = typeof(StudioForm).GetMethod("PaintAll", BF); Action paintN = () => { using (var bm = new Bitmap(1500, 860)) using (var gg = Graphics.FromImage(bm)) { var pe = new PaintEventArgs(gg, new Rectangle(Point.Empty, bm.Size)); pmN.Invoke(sf, new object[] { pe }); } };
-                paintN(); int hw = Convert.ToInt32(typeof(StudioForm).GetField("HeadFullW", BF | BindingFlags.Static).GetValue(null)), ry = 70 + 86 + 26 + 14;   // the ruler sits under the hint strip
+                paintN(); int hw = Convert.ToInt32(typeof(StudioForm).GetField("HeadFullW", BF | BindingFlags.Static).GetValue(null)) + StudioForm.VBarW, ry = 70 + 86 + 26 + 14;   // the ruler sits under the hint strip
                 Action<string, MouseButtons, int, int> ev = (m, b, x, y) => typeof(StudioForm).GetMethod(m, BF | BindingFlags.DeclaredOnly).Invoke(sf, new object[] { new MouseEventArgs(b, b == MouseButtons.None ? 0 : 1, x, y, 0) });
                 ev("OnMouseMove", MouseButtons.None, hw + 300, ry); ev("OnMouseDown", MouseButtons.Left, hw + 300, ry); ev("OnMouseMove", MouseButtons.Left, hw - 120, ry);
                 long sc0 = 44100 * 30; for (int i = 0; i < 25; i++) { paintN(); Pump(20); }
@@ -1216,7 +1267,7 @@ static class NF
                 sf.eng.Tracks.Clear(); var mv = StudioEngine.NewTrack("Move me", "vocal", AudioClip.FromArrays(new float[44100 * 4], new float[44100 * 4], "m")); mv.Offset = 44100 * 2; sf.eng.Tracks.Add(mv); sf.eng.Tracks.Add(StudioEngine.NewTrack("Other", "beat", AudioClip.FromArrays(new float[44100 * 20], new float[44100 * 20], "o")));
                 SetF("tab", 0); SetF("welcomeOn", false); SetF("autoFit", false); SetF("spp", 400.0); SetF("scroll", 0L); SetF("snapOn", true); SetF("selTrack", 0); sf.ClientSize = new Size(1500, 860); Application.DoEvents();
                 var pmM = typeof(StudioForm).GetMethod("PaintAll", BF); using (var bm = new Bitmap(1500, 860)) using (var gg = Graphics.FromImage(bm)) { var pe = new PaintEventArgs(gg, new Rectangle(Point.Empty, bm.Size)); pmM.Invoke(sf, new object[] { pe }); }
-                int hwM = Convert.ToInt32(typeof(StudioForm).GetField("HeadFullW", BF | BindingFlags.Static).GetValue(null)); float topM = (float)typeof(StudioForm).GetProperty("ArrTop", BF).GetValue(sf, null) + 28; float laneH = Convert.ToSingle(typeof(StudioForm).GetProperty("LaneH", BF) != null ? typeof(StudioForm).GetProperty("LaneH", BF).GetValue(sf, null) : typeof(StudioForm).GetField("LaneH", BF).GetValue(sf));
+                int hwM = Convert.ToInt32(typeof(StudioForm).GetField("HeadFullW", BF | BindingFlags.Static).GetValue(null)) + StudioForm.VBarW; float topM = (float)typeof(StudioForm).GetProperty("ArrTop", BF).GetValue(sf, null) + 28; float laneH = Convert.ToSingle(typeof(StudioForm).GetProperty("LaneH", BF) != null ? typeof(StudioForm).GetProperty("LaneH", BF).GetValue(sf, null) : typeof(StudioForm).GetField("LaneH", BF).GetValue(sf));
                 int cx = hwM + (int)(44100 * 4 / 400.0), cyM = (int)(topM + laneH / 2);
                 Action<string, MouseButtons, int, int> evM = (m, b, x, y) => typeof(StudioForm).GetMethod(m, BF | BindingFlags.DeclaredOnly).Invoke(sf, new object[] { new MouseEventArgs(b, b == MouseButtons.None ? 0 : 1, x, y, 0) });
                 long o0 = mv.Offset; evM("OnMouseMove", MouseButtons.None, cx, cyM); evM("OnMouseDown", MouseButtons.Left, cx, cyM); evM("OnMouseMove", MouseButtons.Left, cx + 7, cyM); if (outDir != null) { evM("OnMouseMove", MouseButtons.Left, cx + 60, cyM); using (var bm2 = new Bitmap(1500, 860)) using (var g2 = Graphics.FromImage(bm2)) { var pe2 = new PaintEventArgs(g2, new Rectangle(Point.Empty, bm2.Size)); for (int q = 0; q < 2; q++) pmM.Invoke(sf, new object[] { pe2 }); bm2.Save(Path.Combine(outDir, "drag-clip.png")); } evM("OnMouseMove", MouseButtons.Left, cx + 7, cyM); } evM("OnMouseUp", MouseButtons.Left, cx + 7, cyM);

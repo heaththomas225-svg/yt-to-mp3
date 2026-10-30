@@ -58,7 +58,7 @@ partial class StudioForm
         var slots = new List<PointF>(); bool mid = cols >= 4; RectangleF vizBox;
         if (mid) { vizBox = Rc(a.X + 6 + cw + 6, y0, cw * (cols - 2) - 12, 2 * KnobCellH - 6); slots.Add(new PointF(0, 0)); slots.Add(new PointF(cols - 1, 0)); slots.Add(new PointF(0, 1)); slots.Add(new PointF(cols - 1, 1)); for (int k = 4; k < nums.Count; k++) slots.Add(new PointF((k - 4) % cols, 2 + (k - 4) / cols)); }
         else { vizBox = Rc(a.X + 6, y0, a.Width - 12, VizBoxH); y0 += VizBoxH + 10; for (int k = 0; k < nums.Count; k++) slots.Add(new PointF(k % cols, k / cols)); }
-        long k0 = Prof.T(); PaintWindowFlare(g, a, vizBox.Y + vizBox.Height / 2 - 6); Prof.A("pk.flare", k0); k0 = Prof.T();   // the planet's light runs right across the window, behind the knobs
+        long k0 = Prof.T();
         PaintVizBox(g, vizBox, f); Prof.A("pk.viz", k0);
         int lastRow = 0;
         for (int i = 0; i < nums.Count; i++)
@@ -85,14 +85,7 @@ partial class StudioForm
     // the live picture of what the plugin is doing, in a glass box (in the middle of the knobs)
     void PaintVizBox(Graphics g, RectangleF b, Fx f)
     {
-        b = Rectangle.Round(b);
-        CachedLayer(g, "viz|" + f.Type, b, 10, gg =>
-        {   // the box, its galaxy and the planet: drawn once (the live picture goes on top every frame)
-            using (var p = RR(b, 12)) { using (var br = new LinearGradientBrush(b, Color.FromArgb(255, 6, 2, 18), Color.FromArgb(255, 18, 6, 40), 90f)) gg.FillPath(br, p); var gs0 = gg.Save(); gg.SetClip(p, CombineMode.Intersect); PaintGalaxy(gg, b, f.Type.GetHashCode() ^ 0x77, 1.3f); PaintOrb(gg, b, true); gg.Restore(gs0); }
-            Glow(gg, Color.FromArgb(255, 176, 92, 255), b, 12, 0.7f, 3); StrokeRR(gg, Color.FromArgb(220, 176, 92, 255), b, 12, 1.4f);
-        });
-        using (var p = RR(b, 12)) { var gs = g.Save(); g.SetClip(p, CombineMode.Intersect); PaintFxViz(g, Rc(b.X + 8, b.Y + 8, b.Width - 16, b.Height - 16), f, false); g.Restore(gs); }
-        if (!eng.Playing) Txt(g, "PRESS PLAY TO SEE WHAT " + f.Title.ToUpperInvariant() + " IS DOING", 9, DimC, Rc(b.X + 8, b.Bottom - 26, b.Width - 16, 18), StringAlignment.Center, true);
+        b = Rectangle.Round(b); PaintFxScope(g, b, f);   // what the effect really does, from its settings, with the live sound on top (Studio.FxScope.cs)
     }
 
     // a glowing planet with orbit rings and a little moon, in the middle of the display (it turns slowly while the song plays)

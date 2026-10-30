@@ -1,5 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
+using System.Collections.Generic; using System.IO;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Globalization;
@@ -45,6 +45,72 @@ partial class StudioForm
     long SplitPoint(long raw) { return Math.Max(0, raw); }   // a split goes exactly where the needle or the click is (no pull to the grid), as free as moving a piece
     // AUTO TRIM: the silence before the sound starts is taken off the start of a clip: the clip now starts where the sound starts, and the sound
     // stays at its place in the song (nothing moves in time). Below -54 dB counts as silence; 5 ms is left before the first sound so its attack is kept whole. Returns the frames trimmed.
+    // the sound of a clip as you hear it on its row: the part that plays, with its clip gain and fades (not the track's fader or plugins)
+    internal static void ClipAudio(Track t, out float[] L, out float[] R)
+    {
+        var c = t.Clip; long st = t.ClipStart, n = t.UsedLength; if (c == null || c.L == null || n <= 0) { L = R = new float[0]; return; }
+        var cl = c.L; var cr = c.R ?? c.L; n = Math.Min(n, cl.Length - st); L = new float[n]; R = new float[n];
+        float cg = DspMath.DbToLin(t.ClipGainDb); long fi = t.FadeIn, fo = t.FadeOut, fd = t.FadeInDelay, ft = t.FadeOutTail;
+        if (fi + fo + fd + ft > n && n > 0) { double kk = n / (double)(fi + fo + fd + ft); fi = (long)(fi * kk); fo = (long)(fo * kk); fd = (long)(fd * kk); ft = (long)(ft * kk); }
+        for (long i = 0; i < n; i++)
+        {
+            float g = cg; if (i < fd) g = 0; else if (fi > 0 && i < fd + fi) g *= Track.FadeCurve((i - fd) / (double)fi, t.FadeInBend);
+            if (i >= n - ft) g = 0; else if (fo > 0 && i >= n - ft - fo) g *= Track.FadeCurve((n - ft - i) / (double)fo, t.FadeOutBend);
+            L[i] = cl[st + i] * g; R[i] = cr[st + i] * g;
+        }
+    }
+    static string ClipFileName(Track t) { string nm = (t.SectionLabel.Length > 0 ? t.SectionLabel : t.Name).Trim(); foreach (char ch in Path.GetInvalidFileNameChars()) nm = nm.Replace(ch, ' '); return nm.Length == 0 ? "Clip" : nm; }
+    // right-click a clip: Save this clip as a WAV on my PC
+    internal void SaveClipToPc(Track t)
+    {
+        float[] L, R; ClipAudio(t, out L, out R); if (L.Length == 0) { Toast("That clip has no sound to save."); return; }
+        using (var d = new SaveFileDialog { Title = "Save the clip " + ClipFileName(t), FileName = ClipFileName(t) + ".wav", Filter = "WAV (best quality)|*.wav" })
+        {
+            if (d.ShowDialog(this) != DialogResult.OK) return;
+            try { WavIO.Write(d.FileName, L, R, StudioEngine.SR, 24); Toast("Saved " + Path.GetFileName(d.FileName) + " (" + (L.Length / (double)StudioEngine.SR).ToString("0.0") + " s)."); } catch (Exception ex) { Toast("Couldn't save the clip: " + ex.Message); }
+        }
+    }
+    // right-click a clip: Add this clip to MY SOUNDS (a copy in your library, there for good)
+    internal Func<string, DialogResult> clipAsk;   // a test answers for itself
+    internal string AddClipToMySounds(Track t)
+    {
+        float[] L, R; ClipAudio(t, out L, out R); if (L.Length == 0) { Toast("That clip has no sound to add."); return null; }
+        // a sound from the library: Replace the original, or keep both (the edit goes right next to it as "v2", and the list shows the two together)
+        var orig = SoundLibrary.ItemAtPath(t.Source) ?? (t.Clip != null ? SoundLibrary.ItemAtPath(t.Clip.Path) : null);
+        if (orig != null)
+        {
+            bool mine = orig.PackId == SoundLibrary.UserPackId, replace = false;
+            if (mine)
+            {
+                var a = (clipAsk ?? (q => MessageBox.Show(this, q, "Replace the original?", MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question, MessageBoxDefaultButton.Button2)))("Replace the original \"" + orig.Name + "\" in MY SOUNDS with this edit?\n\nYes: the edit takes its place (same name, and pads using it play the edit).\nNo: keep both. The edit goes right next to the original as a new version, so you can compare them.");
+                if (a == DialogResult.Cancel) return null; replace = a == DialogResult.Yes;
+            }
+            string dir = Path.Combine(Path.GetTempPath(), "purphex_clip_" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                Directory.CreateDirectory(dir); string f = Path.Combine(dir, "edit.wav"); WavIO.Write(f, L, R, StudioEngine.SR, 24); var it = SoundLibrary.AddVersion(orig, f, replace);
+                if (it == null) { Toast("Couldn't add the clip."); return null; }
+                if (replace) ReloadSample(it.Path);
+                ShowMySounds(); string bn = System.Text.RegularExpressions.Regex.Replace(orig.Name, @"\s+v\d+$", ""); if (soundBox != null) soundBox.Text = bn; sndFilter.Text = bn; sndDirty = true; sndSel = it;   // (the original and its versions, side by side)
+                Toast(replace ? orig.Name + " is replaced by the edit." : it.Name + " is next to " + orig.Name + " in MY SOUNDS" + (mine ? "" : " (the pack's own sound stays as it is)") + "."); return it.Path;
+            }
+            catch (Exception ex) { Toast("Couldn't add the clip: " + ex.Message); return null; }
+            finally { try { Directory.Delete(dir, true); } catch { } }
+        }
+        try
+        {
+            string dir = Path.Combine(Path.GetTempPath(), "purphex_clip_" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(dir); string f = Path.Combine(dir, ClipFileName(t) + ".wav");
+            WavIO.Write(f, L, R, StudioEngine.SR, 24); int n = SoundLibrary.ImportFiles(new[] { f }, null); try { Directory.Delete(dir, true); } catch { }
+            if (n == 0) { Toast("That clip is already in MY SOUNDS."); return null; }
+            ShowMySounds(); Toast(ClipFileName(t) + " is in MY SOUNDS now (kept in your library for good)."); return f;
+        }
+        catch (Exception ex) { Toast("Couldn't add the clip: " + ex.Message); return null; }
+    }
+    // a sound replaced in MY SOUNDS: every sampler and pad holding it plays the new one
+    void ReloadSample(string path)
+    {
+        foreach (var tr in eng.Tracks.ToArray()) foreach (var fx in tr.Fx.ToArray()) { var sm = fx as SamplerFx; if (sm == null) continue; foreach (var z in sm.ZonesCopy()) if (string.Equals(z.Path, path, StringComparison.OrdinalIgnoreCase)) SamplerFx.LoadInto(z); }
+    }
     internal static long LeadingSilence(Track t)
     {
         var c = t.Clip; if (c == null || c.L == null) return 0; var L = c.L; var R = c.R ?? c.L; long st = t.ClipStart, end = t.ClipFrames > 0 ? Math.Min(L.Length, st + t.ClipFrames) : L.Length; const float gate = 0.002f;
@@ -76,7 +142,7 @@ partial class StudioForm
         layers.Sort((a, b) => a.Offset.CompareTo(b.Offset)); var nx = layers[0]; PushUndo();
         lock (eng.Sync)
         {   // the row keeps its name, volume and plugins and takes over the next piece
-            t.Clip = nx.Clip; t.Source = nx.Source; t.Offset = nx.Offset; t.ClipStart = nx.ClipStart; t.ClipFrames = nx.ClipFrames; t.FadeIn = nx.FadeIn; t.FadeOut = nx.FadeOut; t.ClipGainDb = nx.ClipGainDb; t.SectionLabel = nx.SectionLabel; t.PieceMuted = nx.PieceMuted; t.FadeInDelay = nx.FadeInDelay; t.FadeOutTail = nx.FadeOutTail; ClampFades(t);   // the silence before/after belongs to the piece too, not to the one that was deleted
+            t.Clip = nx.Clip; t.Source = nx.Source; t.Offset = nx.Offset; t.ClipStart = nx.ClipStart; t.ClipFrames = nx.ClipFrames; t.FadeIn = nx.FadeIn; t.FadeOut = nx.FadeOut; t.FadeInBend = nx.FadeInBend; t.FadeOutBend = nx.FadeOutBend; t.ClipGainDb = nx.ClipGainDb; t.SectionLabel = nx.SectionLabel; t.PieceMuted = nx.PieceMuted; t.FadeInDelay = nx.FadeInDelay; t.FadeOutTail = nx.FadeOutTail; ClampFades(t);   // the silence before/after belongs to the piece too, not to the one that was deleted
             eng.Tracks.Remove(nx); retired.AddRange(nx.Fx);
         }
         toolsTrack = t; Toast("Piece deleted (Ctrl+Z brings it back)");
@@ -302,7 +368,7 @@ partial class StudioForm
             {
                 if (h.Host != null || h.IsBus || h.Instrument || h.Clip == null || h.UsedLength > 0) continue;
                 var layers = eng.Tracks.FindAll(x => x.Host == h && !x.Instrument && x.Clip != null); layers.Sort((p, q) => p.Offset.CompareTo(q.Offset));
-                if (layers.Count > 0) { var nx = layers[0]; h.Clip = nx.Clip; h.Source = nx.Source; h.Offset = nx.Offset; h.ClipStart = nx.ClipStart; h.ClipFrames = nx.ClipFrames; h.FadeIn = nx.FadeIn; h.FadeOut = nx.FadeOut; h.ClipGainDb = nx.ClipGainDb; h.SectionLabel = nx.SectionLabel; h.PieceMuted = nx.PieceMuted; h.FadeInDelay = nx.FadeInDelay; h.FadeOutTail = nx.FadeOutTail; ClampFades(h); eng.Tracks.Remove(nx); retired.AddRange(nx.Fx); }
+                if (layers.Count > 0) { var nx = layers[0]; h.Clip = nx.Clip; h.Source = nx.Source; h.Offset = nx.Offset; h.ClipStart = nx.ClipStart; h.ClipFrames = nx.ClipFrames; h.FadeIn = nx.FadeIn; h.FadeOut = nx.FadeOut; h.FadeInBend = nx.FadeInBend; h.FadeOutBend = nx.FadeOutBend; h.ClipGainDb = nx.ClipGainDb; h.SectionLabel = nx.SectionLabel; h.PieceMuted = nx.PieceMuted; h.FadeInDelay = nx.FadeInDelay; h.FadeOutTail = nx.FadeOutTail; ClampFades(h); eng.Tracks.Remove(nx); retired.AddRange(nx.Fx); }
                 else { h.Clip = null; h.Source = ""; h.ClipStart = 0; h.ClipFrames = -1; h.Offset = 0; h.FadeIn = 0; h.FadeOut = 0; h.FadeInDelay = 0; h.FadeOutTail = 0; }
             }
             // the automation stays where it is too: nothing on the timeline moves
@@ -326,13 +392,13 @@ partial class StudioForm
         float top = cr.Y, bot = cr.Bottom, hgt = bot - top;
         if (tr.FadeIn > 0)
         {
-            float fw = (float)(tr.FadeIn / spp), dl = (float)(tr.FadeInDelay / spp); var curve = new List<PointF>(); if (dl > 0.5f) curve.Add(new PointF(x0, bot)); for (int i = 0; i <= 24; i++) { double u = i / 24.0; curve.Add(new PointF(x0 + dl + (float)(u * fw), bot - Track.FadeCurve(u) * hgt)); }
+            float fw = (float)(tr.FadeIn / spp), dl = (float)(tr.FadeInDelay / spp); var curve = new List<PointF>(); if (dl > 0.5f) curve.Add(new PointF(x0, bot)); for (int i = 0; i <= 24; i++) { double u = i / 24.0; curve.Add(new PointF(x0 + dl + (float)(u * fw), bot - Track.FadeCurve(u, tr.FadeInBend) * hgt)); }
             var poly = new List<PointF>(curve); poly.Add(new PointF(x0 + dl + fw, top)); poly.Add(new PointF(x0, top));
             using (var b = new SolidBrush(TM.C(120, 6, 3, 16))) g.FillPolygon(b, poly.ToArray()); using (var pen = new Pen(TM.C(235, 0, 229, 255), 1.8f)) g.DrawLines(pen, curve.ToArray());
         }
         if (tr.FadeOut > 0)
         {
-            float fw = (float)(tr.FadeOut / spp), tl2 = (float)(tr.FadeOutTail / spp); var curve = new List<PointF>(); for (int i = 0; i <= 24; i++) { double u = i / 24.0; curve.Add(new PointF(x1 - tl2 - fw + (float)(u * fw), bot - Track.FadeCurve(1 - u) * hgt)); } if (tl2 > 0.5f) curve.Add(new PointF(x1, bot));
+            float fw = (float)(tr.FadeOut / spp), tl2 = (float)(tr.FadeOutTail / spp); var curve = new List<PointF>(); for (int i = 0; i <= 24; i++) { double u = i / 24.0; curve.Add(new PointF(x1 - tl2 - fw + (float)(u * fw), bot - Track.FadeCurve(1 - u, tr.FadeOutBend) * hgt)); } if (tl2 > 0.5f) curve.Add(new PointF(x1, bot));
             var poly = new List<PointF>(curve); poly.Add(new PointF(x1, top)); poly.Add(new PointF(x1 - tl2 - fw, top));
             using (var b = new SolidBrush(TM.C(120, 6, 3, 16))) g.FillPolygon(b, poly.ToArray()); using (var pen = new Pen(TM.C(235, 0, 229, 255), 1.8f)) g.DrawLines(pen, curve.ToArray());
         }

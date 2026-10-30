@@ -30,7 +30,7 @@ partial class StudioForm : Form
     void FrameStep()
     {
         SoundDrop.Hover = sndDragging && sndDrag != null && !extDrag && MouseButtons == MouseButtons.Left ? Cursor.Position : Point.Empty;
-        FadePluginWindows();   // Purphex Pads and Key Map light the pad or key a dragged sound would land on
+        FadePluginWindows(); if (marqueeOn && MouseButtons == MouseButtons.Left) MarqueeTo(MousePos);   // (a box held at an edge keeps scrolling)   // Purphex Pads and Key Map light the pad or key a dragged sound would land on
         if (moving) return; double now = studioClock.Elapsed.TotalMilliseconds; if (now - lastTickMs >= 15) { lastTickMs = now; Tick(); }
         if (NeedsFrame()) { double dt = (now - lastStepMs) / 1000.0; lastStepMs = now; if (dt > 0.1) dt = 0.033; if (dt < 0.001) dt = 0.001; t += (float)dt; Invalidate(); }
     }
@@ -207,14 +207,16 @@ partial class StudioForm : Form
     // ---------------- geometry ----------------
     const int ToolH = 70, HeadFullW = 372, RulerH = 28, HintStripH = 26;
     internal const int HeadTabW = 46;   // the track list tucked away: a thin strip (colour and number of each track)
-    int HeadW { get { return (int)Math.Round(HeadTabW + (HeadFullW - HeadTabW) * HeadOpenK()); } }
+    internal const int VBarW = 16;   // the up/down scroll bar of the tracks: always there, on the left, between the track list and the timeline
+    int HeadPanelW { get { return (int)Math.Round(HeadTabW + (HeadFullW - HeadTabW) * HeadOpenK()); } }   // the track list itself
+    int HeadW { get { return HeadPanelW + VBarW; } }   // where the timeline starts
     DateTime headAt = DateTime.MinValue;
     float HeadOpenK() { float target = Prefs.HeadHidden ? 0f : 1f; double t = (DateTime.Now - headAt).TotalMilliseconds / 180.0; if (t >= 1 || t < 0) return target; float e = (float)(1 - Math.Pow(1 - t, 3)); return (1 - target) + (target - (1 - target)) * e; }
     internal void ToggleHead() { Prefs.HeadHidden = !Prefs.HeadHidden; Prefs.Changed(); headAt = DateTime.Now; Invalidate(); }
     // the arrow on the edge of the track list: hide it for more room to edit, and bring it back
     void HeadHandle(Graphics g, float top)
     {   // it sits in the empty strip above the track list (level with the ruler), so it never covers a track's buttons
-        bool open = !Prefs.HeadHidden; var hr = open ? Rc(HeadW - 128, top + 3, 122, RulerH - 6) : Rc(4, top + 3, HeadW - 8, RulerH - 6); bool hot = Hot(hr);
+        bool open = !Prefs.HeadHidden; var hr = open ? Rc(HeadPanelW - 128, top + 3, 122, RulerH - 6) : Rc(4, top + 3, HeadPanelW - 8, RulerH - 6); bool hot = Hot(hr);
         var gs = g.Save(); g.ResetClip();
         FillRR(g, hot ? TM.C(250, 70, 34, 130) : TM.C(245, 30, 16, 60), hr, 7); if (hot) Glow(g, NeonCyan, hr, 7, 0.8f, 3); StrokeRR(g, Color.FromArgb(hot ? 255 : 200, NeonCyan), hr, 7, 1.4f);
         float d = open ? -1 : 1, cx = open ? hr.X + 16 : hr.X + hr.Width / 2, cy = hr.Y + hr.Height / 2;   // open: the arrows point left (the list goes away); tucked away: right (it comes back)
@@ -368,7 +370,7 @@ partial class StudioForm : Form
         { "^", "Move this effect up (it runs earlier)." }, { "v", "Move this effect down (it runs later)." },
         { "x", "Remove it." }, { "M", "Mute this track." }, { "S", "Solo: hear only this track." },
 
-        { "MIDI REC", "Record MIDI: switch it on (it turns red), press PLAY, then play your MIDI keyboard or the piano window. The notes are recorded onto the selected MIDI track. Press it again to switch it off." },
+        { "MIDI MAP", "MIDI mapping: set up your MIDI keyboard and controller (pads, knobs, MIDI Learn and profiles), and see what is coming in" }, { "MIDI REC", "Record MIDI: switch it on (it turns red), press PLAY, then play your MIDI keyboard or the piano window. The notes are recorded onto the selected MIDI track. Press it again to switch it off." },
         { "Piano", "Open the instrument window: its own controls plus a piano you can play." }, { "C", "Clear the recorded notes on this instrument track." },
         { "+ Effect", "Add an effect to this instrument track (EQ, reverb...)." },
         { "FLEX", "Flex Pitch: see every note of the selected recording and drag notes up or down to re-tune them, steady the pitch, take out vibrato, change volume and formants." },
@@ -761,7 +763,7 @@ partial class StudioForm : Form
         // the row is laid out around PLAY: the recording tools on the left, the transport in the middle with PLAY at its centre (|< and STOP before it,
         // PAUSE and LOOP after it, then the time), the master meter and the page tabs on the right. On a narrow window the middle slides so nothing overlaps.
 
-        float recW = 44 + 6 + 44 + 6 + 44 + 6 + 92 + 6 + (mic != null ? 128 : 60) + 6 + 28 + (W >= 1320 ? 69 : 0), leftEnd = x + recW + 12, tabsX = W - TabsW;   // MIDI REC and MIC (with its mode) go just left of the time
+        float recW = 44 + 6 + 44 + 6 + 44 + 6 + 92 + 6 + 84 + 6 + (mic != null ? 128 : 60) + 6 + 28 + (W >= 1320 ? 69 : 0), leftEnd = x + recW + 12, tabsX = W - TabsW;   // MIDI REC and MIC (with its mode) go just left of the time
         const float wHome = 50, wStop = 70, wPlay = 96, wPause = 76, wLoop = 68, gap = 6, leftHalf = wHome + gap + wStop + gap, rightHalf = gap + wPause + gap + wLoop;
         float timeW = 210, cx = W / 2;   // PLAY in the middle of the window when it fits; the time sits just before |<
         cx = Math.Min(cx, tabsX - 12 - (wPlay / 2 + rightHalf)); cx = Math.Max(cx, leftEnd + 14 + 130 + 12 + leftHalf + wPlay / 2);
@@ -772,6 +774,7 @@ partial class StudioForm : Form
         { var bk = Rc(x, y, 44, h); bool blIs = BlShown; Btn(g, bk, "", blIs ? 4 : 0, () => { if (blIs) { BlPlay(false); CloseInspector(); } else OpenBeatLab(); }, 10); PadsGlyph(g, bk); btnMap["BEAT LAB"] = bk; if (Hot(bk)) hintNow = "Beat Lab: 16 or 32 pads and a step sequencer inside the piano roll. Press again to close it."; Hint2(bk, "Beat Lab: tap pads, build a beat on the steps, make variations, drag it onto the song (click again to close)"); x += 50; }
         { var mk = Rc(x, y, 44, h); bool mxOn = InsShown && insTab == 1; Btn(g, mk, "", mxOn ? 4 : 0, () => { if (mxOn) CloseInspector(); else OpenInspector(1); }, 10); MixerGlyph(g, mk); btnMap["MIXER TOP"] = mk; if (Hot(mk)) hintNow = "Mixer: every track and bus as a strip with its plugins, sends, pan and fader. Press again to close it."; Hint2(mk, "Mixer: every track and bus as a strip with its plugins, sends, pan and fader (click again to close)"); x += 50; }
         Btn(g, Rc(x, y, 92, h), "MIDI REC", recOn ? 3 : 0, () => { if (!recOn && !AskYes("Would you like to record an instrument?\n\nYour MIDI keyboard (or the piano window) is recorded onto the selected MIDI track while the song plays. Press PLAY after you say Yes. If not, press No.", "MIDI recording")) return; recOn = !recOn; Toast(recOn ? "MIDI recording is on (the button is red): press PLAY, then play your MIDI keyboard or the piano window and the notes are recorded onto the selected MIDI track." : "MIDI recording is off."); }, 13); regs[regs.Count - 1].OnRight = () => MidiDeviceMenu(); PaintMidiLed(g, Rc(x, y, 92, h)); { var lr = Rc(x + 92 - 18, y, 18, 16); var lreg = Reg(lr, () => OpenMidiMap()); lreg.Button = true; Hint2(lr, MidiInHint + " Click the light for MIDI MAPPING."); } x += 98;
+        { var mmb = Rc(x, y, 84, h); Btn(g, mmb, "MIDI MAP", mmOpen ? 4 : 0, () => { if (mmOpen) mmOpen = false; else OpenMidiMap(); }, 12); btnMap["MIDI MAP"] = mmb; Hint2(mmb, "MIDI mapping: set up your MIDI keyboard and controller (pads, knobs, MIDI Learn and profiles), and see what is coming in"); x += 90; }
         { bool rec = mic != null; double el = rec ? (eng.CountBeat > 0 ? 0 : Math.Max(0, (DateTime.Now - micT0).TotalSeconds - micLead / (double)StudioEngine.SR)) : 0; bool armed = micArmed && !rec; var mr = Rc(x, y, rec ? 128 : 60, h); Btn(g, mr, (rec ? "* MIC  " + ((int)(el / 60)).ToString("00") + ":" + ((int)(el % 60)).ToString("00") : "MIC"), rec || armed ? 3 : 0, () => MicClick(), 13); if (armed) { double pl = 0.5 + 0.5 * Math.Sin(Environment.TickCount / 220.0); Glow(g, Color.FromArgb(255, 60, 90), mr, 8, 0.7f + 0.5f * (float)pl, 4); lastInput = DateTime.Now; } if (rec) HBar(g, Rc(mr.X + 6, mr.Bottom - 7, mr.Width - 12, 5), mic.Level); PaintMicDrop(g, Rc(mr.Right + 3, y, 24, h), rec); bool modeRoom = W >= 1320; if (modeRoom) PaintMicModeBox(g, Rc(mr.Right + 3 + 24 + 3, y + 5, 66, h - 10), rec); x += mr.Width + 6 + 28 + (modeRoom ? 69 : 0); }   /* the box that names the microphone mode is there when there is room for it */
         x = 0;
         { var hb = Rc(tx0, y, wHome, h); TransportBtn(g, hb, "|<", 0, false, () => { eng.Seek(0); scroll = 0; followPaused = false; }); Hint2(hb, "Jump back to the start"); }
@@ -842,7 +845,7 @@ partial class StudioForm : Form
         var rr = Reg(ruler, () => { needleDrag = true; followPaused = false; eng.Seek(scroll + (long)((MousePos.X - HeadW) * spp)); }); rr.OnDrag = pt => NeedleDragTo(pt.X, tl); rr.OnUp = () => needleDrag = false;
 
         if (needleDrag && dragReg != null) NeedleEdgeScroll(tl);   // the needle dragged to an edge: the timeline scrolls with it
-        regs.Add(new HitReg { R = Rc(0, top + RulerH, HeadW, Math.Max(0, MixH - top - RulerH)), OnWheel = d => { vscroll = Math.Max(0, vscroll - d * LaneH * 0.5f); Invalidate(); } });   // the wheel over the track headers scrolls the tracks up and down
+        regs.Add(new HitReg { R = Rc(0, top + RulerH, HeadW, Math.Max(0, MixH - top - RulerH)), OnWheel = d => ScrollTracks(-d * 40) });   // the wheel over the track headers scrolls the tracks up and down
         float y = top + RulerH - vscroll;
         g.SetClip(Rc(0, top + RulerH, ClientSize.Width - PanelW, MixH - top - RulerH - ArrGap));
         int regs0 = regs.Count;
@@ -856,8 +859,8 @@ partial class StudioForm : Form
             Prof.A("mix.wave", q0);
             var lr = LaneReg(lane, tr); int idx = i; RegGainTags(); RegMidiClips(tr, lane); foreach (var lay in eng.Tracks) if (lay.Host == tr && lay.Instrument) RegMidiClips(lay, lane);   // the MIDI clips take their clicks before the row   /* (the gain tags of this row sit above it) */
             /* an empty track is just an empty lane: no box to click (drag audio onto it, drop files, record with MIC, or right-click it for Add music) */   // the box of an empty track: click it to pick music for THIS track
-            q0 = Prof.T(); if (HeadW <= HeadTabW + 1) PaintHeaderMini(g, tr, i, Rc(0, ys, HeadW, LaneH), sel); else { var gsH = g.Save(); g.SetClip(Rc(0, ys, HeadW, LaneH), System.Drawing.Drawing2D.CombineMode.Intersect); PaintHeader(g, tr, i, Rc(HeadW - HeadFullW, ys, HeadFullW, LaneH), sel); g.Restore(gsH); } Prof.A("mix.header", q0);   // the list slides away to the left
-            q0 = Prof.T(); NeonLaneChrome(g, tr, Rc(0, ys, HeadW, LaneH), lane, sel); Prof.A("mix.neonchrome", q0);
+            q0 = Prof.T(); if (HeadPanelW <= HeadTabW + 1) PaintHeaderMini(g, tr, i, Rc(0, ys, HeadPanelW, LaneH), sel); else { var gsH = g.Save(); g.SetClip(Rc(0, ys, HeadPanelW, LaneH), System.Drawing.Drawing2D.CombineMode.Intersect); PaintHeader(g, tr, i, Rc(HeadPanelW - HeadFullW, ys, HeadFullW, LaneH), sel); g.Restore(gsH); } Prof.A("mix.header", q0);   // the list slides away to the left
+            q0 = Prof.T(); NeonLaneChrome(g, tr, Rc(0, ys, HeadPanelW, LaneH), lane, sel); Prof.A("mix.neonchrome", q0);
             if (sel && n > 1) { float rEnd = tl.Right - 6; if (!tr.Instrument && !tr.IsBus) { float mx = -1e9f, v; if (tr.Clip != null && clipRightX.TryGetValue(tr, out v)) mx = v; foreach (var lay2 in eng.Tracks) if (lay2.Host == tr && lay2.Clip != null && clipRightX.TryGetValue(lay2, out v)) mx = Math.Max(mx, v); if (mx > -1e8f) rEnd = mx <= HeadW + 2 ? HeadW : Math.Min(tl.Right - 6, mx + 3); } PaintPickedRow(g, tr, Rc(1, ys + 1, rEnd - 1, LaneH - 2)); }   /* audio that ends before the part you see: the outline goes round the track box on the left only (no stub into the timeline) */   /* the outline ends where the audio of the row ends: also a row made only of pieces (SPLIT, paste), and never past the timeline into the plugin panel */   // the outline ends where the audio ends
             using (var pen = new Pen(TM.C(70, 140, 85, 210))) g.DrawLine(pen, 0, ys + LaneH, tl.Right, ys + LaneH);
             PaintGhostSlot(g, tr, Rc(0, ys, tl.Right, LaneH));
@@ -891,7 +894,7 @@ partial class StudioForm : Form
         // playhead
         float px = HeadW + (float)((dispPos - scroll) / spp);
         if (px >= HeadW && px <= tl.Right) { q0 = Prof.T(); float nb = MixH - ArrGap; if (n > 0) nb = Math.Min(nb, Math.Max(top + RulerH + 8, y)); PaintNeedle(g, px, top, nb, RulerH);   /* the needle runs down to the bottom of the last track, never into the empty space or the bar under it */ Prof.A("mix.needle", q0); } else if (sparks.Count > 0) sparks.Clear();
-        if (contentH > viewH + 1) VScroll(g, Rc(tl.Right - 50, top + RulerH + 4, 42, viewH - 8), contentH, viewH, () => vscroll, v => vscroll = v);   // the logo scroll bar: hold the logo and drag, or use the arrows
+        TrackScrollBar(g, Rc(HeadPanelW, top + RulerH, VBarW, viewH), contentH, viewH);   // the up/down bar on the left, always there
         q0 = Prof.T(); PaintOverview(g, tl); Prof.A("mix.overview", q0);
         // wheel: scroll / zoom
         var wr = new HitReg { R = Rc(HeadW, top, tl.Width, MixH - top) };
@@ -901,9 +904,8 @@ partial class StudioForm : Form
             if ((ModifierKeys & Keys.Control) != 0 && (ModifierKeys & Keys.Shift) != 0) { }   // Ctrl + Shift + wheel does nothing (it used to resize the tracks by accident)
             else if ((ModifierKeys & Keys.Alt) != 0) { LaneH = Math.Max(64, Math.Min(420, LaneH + (d > 0 ? 16 : -16))); vscroll = Math.Max(0, Math.Min(vscroll, Math.Max(0, n * LaneH - (MixH - top - RulerH - 66)))); }
             else if ((ModifierKeys & Keys.Control) != 0) { double f = d > 0 ? 0.7 : 1.43; double cur = scroll + (MousePos.X - HeadW) * spp; spp = Math.Max(MinSpp, Math.Min(MaxSpp, spp * f)); scroll = Math.Max(0, (long)(cur - (MousePos.X - HeadW) * spp)); }
-            else if ((ModifierKeys & Keys.Shift) != 0) ScrollView(-d * 0.25);
-            else if (n * LaneH + 50 <= MixH - top - RulerH - 46 || MousePos.Y < top + RulerH) ScrollView(-d * 0.25);   // everything fits vertically: the wheel moves along the song (like BandLab)
-            else vscroll = Math.Max(0, Math.Min(Math.Max(0, n * LaneH + 50 - (MixH - top - RulerH - 46)), vscroll - d * 40));
+            else if ((ModifierKeys & Keys.Shift) != 0 || MousePos.Y < top + RulerH) ScrollView(-d * 0.25);   // Shift + wheel, or the wheel on the ruler: along the song
+            else ScrollTracks(-d * 40);   // the wheel scrolls the tracks up and down (it never shoots off sideways); Left / Right and the bar at the top go along the song
         };
         regs.Insert(0, wr);
         q0 = Prof.T(); PaintInspector(g); Prof.A("mix.inspector", q0);   // the bottom inspector, under the arrangement
@@ -1102,12 +1104,12 @@ partial class StudioForm : Form
         Hint2(fs.R, tk.Name + " volume: " + (tk.VolDb <= -47.9f ? "-inf" : tk.VolDb.ToString("+0.0;-0.0;0.0")) + " dB. Drag up or down (Shift: finer), double-click for 0 dB.");
         ValueBox(g, Rc(r.X + 80, r.Y + vy - 1, thin ? 64 : 80, 20), (tk.VolDb <= -47.9f ? "-inf" : tk.VolDb.ToString("+0.0;-0.0;0.0")) + " dB", tk.VolDb <= -47.9f ? "-inf" : Num(tk.VolDb), s => { float v; if (ParseNum(s, out v)) tk.VolDb = v <= -47.9f ? -48f : Math.Min(12f, v); });
         // pan
-        if (thin) { if (!tk.Instrument) Txt(g, "PAN", 10, DimC, Rc(r.X + 190, r.Y + vy, 38, 18), StringAlignment.Near, false); }   /* (the box was too narrow: it read "PA...") */ else Txt(g, "PAN", 10, DimC, Rc(r.X + 10, r.Y + py, 34, 18), StringAlignment.Near, false);
-        if (!thin) { var ps = KnobCtl(g, r.X + 56, r.Y + py + 9, kd, (tk.Pan + 1) / 2, f => tk.Pan = (float)Math.Round(f * 2 - 1, 2), NeonCyan, () => tk.Pan = 0); ps.OnWheel = null; LearnOn(ps, "pan|" + tk.Name, tk.Name + " pan"); Hint2(ps.R, tk.Name + " pan: " + (tk.Pan == 0 ? "centre" : (tk.Pan < 0 ? "left " : "right ") + (int)Math.Abs(tk.Pan * 100)) + ". Drag up or down, double-click for the centre."); }
-        if (!(thin && tk.Instrument)) ValueBox(g, thin ? Rc(r.X + 228, r.Y + vy - 1, 40, 20) : Rc(r.X + 80, r.Y + py - 1, 40, 20), tk.Pan == 0 ? "C" : (tk.Pan < 0 ? "L" + (int)(-tk.Pan * 100) : "R" + (int)(tk.Pan * 100)), Num(tk.Pan * 100), s => { string u = s.Trim().ToUpperInvariant(); float v; if (u.StartsWith("C")) tk.Pan = 0; else if (ParseNum(u, out v)) { if (u.StartsWith("L")) v = -Math.Abs(v); else if (u.StartsWith("R")) v = Math.Abs(v); tk.Pan = Math.Max(-1f, Math.Min(1f, v / 100f)); } });
+        if (thin) Txt(g, "PAN", 10, DimC, Rc(r.X + 150, r.Y + vy, 34, 18), StringAlignment.Near, false); else Txt(g, "PAN", 10, DimC, Rc(r.X + 10, r.Y + py, 34, 18), StringAlignment.Near, false);   // thin tracks have the pan knob too, on the volume row
+        { var ps = KnobCtl(g, thin ? r.X + 182 : r.X + 56, r.Y + (thin ? vy : py) + 9, kd, (tk.Pan + 1) / 2, f => tk.Pan = (float)Math.Round(f * 2 - 1, 2), NeonCyan, () => tk.Pan = 0); ps.OnWheel = null; LearnOn(ps, "pan|" + tk.Name, tk.Name + " pan"); Hint2(ps.R, tk.Name + " pan: " + (tk.Pan == 0 ? "centre" : (tk.Pan < 0 ? "left " : "right ") + (int)Math.Abs(tk.Pan * 100)) + ". Drag up or down, double-click for the centre."); }
+        if (!(thin && tk.Instrument)) ValueBox(g, thin ? Rc(r.X + 206, r.Y + vy - 1, 40, 20) : Rc(r.X + 80, r.Y + py - 1, 40, 20), tk.Pan == 0 ? "C" : (tk.Pan < 0 ? "L" + (int)(-tk.Pan * 100) : "R" + (int)(tk.Pan * 100)), Num(tk.Pan * 100), s => { string u = s.Trim().ToUpperInvariant(); float v; if (u.StartsWith("C")) tk.Pan = 0; else if (ParseNum(u, out v)) { if (u.StartsWith("L")) v = -Math.Abs(v); else if (u.StartsWith("R")) v = Math.Abs(v); tk.Pan = Math.Max(-1f, Math.Min(1f, v / 100f)); } });
         // right of the pan row: piano (instrument), arm (empty audio track), nudge (audio), nothing (bus)
         if (tk.Instrument)
-            Btn(g, thin ? Rc(r.X + 200, r.Y + vy - 2, 66, 22) : Rc(r.X + 220, r.Y + py - 3, 40, 24), "Piano", 1, () => { var vf = tk.Fx.Count > 0 ? tk.Fx[0] as InstrumentFx : null; if (vf != null) { vf.Owner = tk; vf.ShowWindow(this); } }, 11);
+            Btn(g, thin ? Rc(r.X + 204, r.Y + vy - 2, 62, 22) : Rc(r.X + 220, r.Y + py - 3, 40, 24), "Piano", 1, () => { var vf = tk.Fx.Count > 0 ? tk.Fx[0] as InstrumentFx : null; if (vf != null) { vf.Owner = tk; vf.ShowWindow(this); } }, 11);
         // meters (peak with hold)
         var h = Hold(tr); float[] pk = { tr.PeakL, tr.PeakR };
         for (int c = 0; c < 2; c++)
@@ -1511,25 +1513,32 @@ partial class StudioForm : Form
         if (browserVst) { var fb = Rc(x + 20, y + 94, 330, 26); var bt = browserTrack >= 0 && browserTrack < eng.Tracks.Count ? eng.Tracks[browserTrack] : null; Btn(g, fb, "FOR: " + (bt != null ? (browserTrack + 1) + ". " + bt.Name : "CHOOSE A TRACK") + "  v", bt != null ? 1 : 3, () => VstTrackMenu(), 12); Hint2(fb, "The track the VST goes on: pick one of your tracks or a new track"); Txt(g, list.Count + (list.Count == 1 ? " VST" : " VSTs"), 12, DimC, Rc(fb.Right + 12, y + 94, 160, 26), StringAlignment.Near, false); }
         else { var cb = Rc(x + 20, y + 94, 250, 26); Btn(g, cb, "Category: " + (browserCat.Length == 0 ? "All" : browserCat), browserCat.Length == 0 ? 0 : 4, () => CategoryMenu(), 12); Txt(g, list.Count + (list.Count == 1 ? " effect" : " effects"), 12, DimC, Rc(x + 280, y + 94, 200, 26), StringAlignment.Near, false); }
         float listTop = y + 128;
-        float listH = 0; { string lc = ""; foreach (var i2 in list) { if (i2.Category != lc) { lc = i2.Category; listH += 20; } listH += 88; } }
+        var pinSet = browserVst ? new HashSet<string>(PinnedVsts()) : new HashSet<string>(); Func<FxRegistry.Info, string> catOf = ci => pinSet.Contains(ci.Type) ? "Pinned" : ci.Category;   // pinned VSTs are a group of their own at the top
+        float listH = 0; { string lc = ""; foreach (var i2 in list) { if (catOf(i2) != lc) { lc = catOf(i2); listH += 20; } listH += 88; } }
         float browserMax = Math.Max(0, listH - (h - (listTop - y) - 40) + 8); browserMaxF = browserMax; browserScroll = Math.Max(0, Math.Min(browserMax, browserScroll));
         float ry = listTop - browserScroll; var clipR = Rc(x + 10, listTop - 4, w - 20, h - (listTop - y) - 36); g.SetClip(clipR);   // the list stops above the line over the hints
         string lastCat = "";
         for (int li = 0; li < list.Count; li++)
         {
             var info = list[li];
-            if (info.Category != lastCat)
+            if (catOf(info) != lastCat)
             {
-                lastCat = info.Category;
-                if (info.Category == "Purphex VST")   // our own plugins with their own window: first, in a box of their own
+                lastCat = catOf(info);
+                if (lastCat == "Pinned")   // pinned: always at the top, in a gold box
                 {
-                    int pc = 0; for (int q = li; q < list.Count && list[q].Category == "Purphex VST"; q++) pc++; var pbox = Rc(x + 12, ry - 3, w - 24 - (browserMax > 0 ? 56 : 0), 20 + pc * 88 + 2);
+                    int pc = 0; for (int q = li; q < list.Count && catOf(list[q]) == "Pinned"; q++) pc++; var pbox = Rc(x + 12, ry - 3, w - 24 - (browserMax > 0 ? 56 : 0), 20 + pc * 88 + 2); var gold = Color.FromArgb(255, 255, 200, 80);
+                    FillRR(g, Color.FromArgb(120, 60, 44, 8), pbox, 12); Glow(g, gold, pbox, 12, 0.55f, 3); StrokeRR(g, gold, pbox, 12, 1.5f);
+                    if (ry + 18 > clipR.Y && ry < clipR.Bottom) Txt(g, "PINNED  -  always at the top: Bass Lab, and any VST you PIN", 11, gold, Rc(x + 26, ry, w - 100, 18), StringAlignment.Near, true);
+                }
+                else if (info.Category == "Purphex VST")   // our own plugins with their own window: first, in a box of their own
+                {
+                    int pc = 0; for (int q = li; q < list.Count && catOf(list[q]) == "Purphex VST"; q++) pc++; var pbox = Rc(x + 12, ry - 3, w - 24 - (browserMax > 0 ? 56 : 0), 20 + pc * 88 + 2);
                     FillRR(g, Color.FromArgb(130, 40, 16, 70), pbox, 12); Glow(g, PxPurple, pbox, 12, 0.7f, 3); StrokeRR(g, PxPurple, pbox, 12, 1.6f);
                     if (ry + 18 > clipR.Y && ry < clipR.Bottom) Txt(g, "PURPHEX VST  -  built in: our own plugins, each with its own window", 11, PxPurple, Rc(x + 26, ry, w - 100, 18), StringAlignment.Near, true);
                 }
                 else if (info.Category == "Instruments")   // Bass Lab and the VSTs are not effects: they sit apart, in a box of their own
                 {
-                    int ic = 0; for (int q = li; q < list.Count && list[q].Category == "Instruments"; q++) ic++; var ibox = Rc(x + 12, ry - 3, w - 24 - (browserMax > 0 ? 56 : 0), 20 + ic * 88 + 2);
+                    int ic = 0; for (int q = li; q < list.Count && catOf(list[q]) == "Instruments"; q++) ic++; var ibox = Rc(x + 12, ry - 3, w - 24 - (browserMax > 0 ? 56 : 0), 20 + ic * 88 + 2);
                     FillRR(g, TM.C(120, 14, 24, 52), ibox, 12); Glow(g, NeonCyan, ibox, 12, 0.45f, 3); StrokeRR(g, Color.FromArgb(200, NeonCyan), ibox, 12, 1.3f);
                     if (ry + 18 > clipR.Y && ry < clipR.Bottom) Txt(g, "VST PLUGINS  -  they make the sound, they are not effects", 11, NeonCyan, Rc(x + 26, ry, w - 100, 18), StringAlignment.Near, true);
                 }
@@ -1545,6 +1554,7 @@ partial class StudioForm : Form
             using (var sfB = new StringFormat(StringFormatFlags.LineLimit) { Trimming = StringTrimming.EllipsisWord }) { using (var bb = new SolidBrush(Ink)) g.DrawString(what, GfxCache.Font(11.5f, false), bb, Rc(row.X + 14, row.Y + 23, row.Width - 120, 31), sfB); float wh = Math.Min(31, g.MeasureString(what, GfxCache.Font(11.5f, false), (int)(row.Width - 120), sfB).Height); if (use.Length > 0) using (var ub = new SolidBrush(DimC)) g.DrawString("Use it for: " + use, GfxCache.Font(11f, false), ub, Rc(row.X + 14, row.Y + 25 + wh, row.Width - 120, 29), sfB); }   // the second line right under the first
             if (browserVst && FreeStudio && !FreeVst(info.Type)) { var lk = Rc(row.Right - 196, row.Y + 4, 104, 18); FillRR(g, TM.C(200, 60, 40, 10), lk, 6); Edition.Padlock(g, new RectangleF(lk.X + 6, lk.Y + 3, 10, 14), Color.FromArgb(255, 255, 200, 90)); Txt(g, "SUPPORTER", 9, Color.FromArgb(255, 255, 210, 120), Rc(lk.X + 18, lk.Y, lk.Width - 20, lk.Height), StringAlignment.Center, true); }   // paid on the Free Edition
             string type = info.Type; if (vis.Width > 0 && vis.Height > 0) { Reg(vis, () => AddFx(type)); Hint2(vis, info.Name + ": " + what + (use.Length > 0 ? "  Use it for: " + use : "")); }   /* the whole row adds it; the Add button sits on top of the row */
+            if (browserVst && type != "synth" && row.Y + 4 >= clipR.Y && row.Y + 24 <= clipR.Bottom) { bool pinned = pinSet.Contains(type); var pb = Rc(row.Right - 86, row.Y + 4, 72, 20); Btn(g, pb, pinned ? "UNPIN" : "PIN", pinned ? 4 : 0, () => TogglePin(type), 9); Hint2(pb, pinned ? "Take " + info.Name + " off the top of VSTS" : "Pin " + info.Name + " to the top of VSTS, next to Bass Lab (it stays there)"); }
             if (row.Y + 28 >= clipR.Y && row.Y + 56 <= clipR.Bottom) Btn(g, Rc(row.Right - 86, row.Y + 28, 72, 28), "Add", 1, () => AddFx(type), 13); ry += 88;
         }
         if (list.Count == 0) Txt(g, "No plugin matches \"" + browserQuery + "\"", 14, DimC, Rc(x, y + 140, w, 30), StringAlignment.Center, false);
@@ -1567,7 +1577,26 @@ partial class StudioForm : Form
         var res = new List<FxRegistry.Info>(); foreach (var c in order) foreach (var i in list) if (i.Category == c) res.Add(i); var pv = res.FindAll(x => x.Category == "Purphex VST"); { res.RemoveAll(x => x.Category == "Purphex VST"); var inst = res.FindAll(x => x.Category == "Instruments"); if (inst.Count > 0) { res.RemoveAll(x => x.Category == "Instruments"); var bl = inst.Find(x => x.Type == "synth"); if (bl != null) { inst.Remove(bl); inst.Insert(0, bl); } res.InsertRange(0, inst); } }   // the instruments (Bass Lab first, then the VSTs) are together at the top, in one box that fits them exactly
         res.InsertRange(0, pv);
         { var ins2 = res.FindAll(x => x.Category == "Instruments"); res.RemoveAll(x => x.Category == "Instruments"); res.InsertRange(0, ins2); }   // the VSTs that make the sound on top, Bass Lab first of all (it makes all your sounds), then the Purphex VST effects
+        if (browserVst) { var pins = PinnedVsts(); var top = new List<FxRegistry.Info>(); foreach (var pt in pins) { var pi = res.Find(x => x.Type == pt); if (pi != null) { res.Remove(pi); top.Add(pi); } } res.InsertRange(0, top); }   // PINNED on top of everything: Bass Lab, then the ones you pinned (Purphex Pads and Key Map to start with)
         blCache = res; blKey = key; return res;
+    }
+    // the VSTs pinned to the top of VSTS: Bass Lab always, then Purphex Pads, Key Map and any you pin (kept in pinned_vsts.txt)
+    List<string> pinnedVsts;
+    static string PinFile { get { return System.IO.Path.Combine(StudioEnv.DataDir, "pinned_vsts.txt"); } }
+    internal List<string> PinnedVsts()
+    {
+        if (pinnedVsts == null)
+        {
+            pinnedVsts = new List<string>();
+            try { if (System.IO.File.Exists(PinFile)) foreach (var ln in System.IO.File.ReadAllLines(PinFile)) { string tt = ln.Trim(); if (tt.Length > 0 && !pinnedVsts.Contains(tt)) pinnedVsts.Add(tt); } else pinnedVsts.AddRange(new[] { "pxpads", "pxkeymap" }); } catch { pinnedVsts.AddRange(new[] { "pxpads", "pxkeymap" }); }
+            pinnedVsts.Remove("synth");
+        }
+        var l = new List<string> { "synth" }; l.AddRange(pinnedVsts); return l;
+    }
+    internal void TogglePin(string type)
+    {
+        if (type == "synth") return; PinnedVsts(); if (!pinnedVsts.Remove(type)) pinnedVsts.Add(type); blCache = null;
+        try { System.IO.Directory.CreateDirectory(StudioEnv.DataDir); System.IO.File.WriteAllLines(PinFile, pinnedVsts.ToArray()); } catch { }
     }
     void CategoryMenu()
     {
@@ -1662,6 +1691,8 @@ partial class StudioForm : Form
         if (k == Keys.Space && tab == 0 && soundsOpen && keysInSounds) { Auditioner.Toggle(); Invalidate(); return true; }   // in the sound packs: Space pauses and plays the sound you are hearing
         if (k == Keys.Space) { if (tab != 0) return base.ProcessCmdKey(ref msg, k); PlayToggle(); return true; }   // the space bar plays and pauses on the Mix page only: on any other page it leaves the mix alone
         if (k == Keys.Home) { eng.Seek(0); scroll = 0; followPaused = false; return true; }
+        if (tab == 0 && (k == Keys.Left || k == Keys.Right)) { ScrollView(k == Keys.Right ? 0.15 : -0.15); return true; }   // the arrow keys move around the song: Left / Right along it, Up / Down through the tracks
+        if (tab == 0 && (k == Keys.Up || k == Keys.Down)) { ScrollTracks(k == Keys.Down ? LaneH * 0.5f : -LaneH * 0.5f); return true; }
         if (k == (Keys.Control | Keys.Shift | Keys.S)) { SaveClick(true); return true; }
         if (k == Keys.F2 && tab == 0 && selTrack < eng.Tracks.Count) { RenameTrack(eng.Tracks[selTrack]); return true; }
         if (k == (Keys.Control | Keys.Z)) { DoUndo(); return true; }
