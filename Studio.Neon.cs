@@ -117,7 +117,7 @@ partial class StudioForm
 {
     // ---- moving around the song: an overview bar along the bottom, and the middle mouse button to drag the view ----
     bool panning; Point panStart; long panScroll; float panV; const double MinSpp = 4;
-    double MaxSpp { get { return Math.Max(2000.0, eng.EndFrame * 1.15 / Math.Max(300, TimelineRect().Width)); } }   // the most zoomed-out level is the whole song in the window
+    double MaxSpp { get { return Math.Max(MinSpp * 4, Math.Max(eng.EndFrame, StudioEngine.SR * 10L) * 1.08 / Math.Max(300, TimelineRect().Width)); } }   // the most zoomed-out level is the whole song filling the window (it went further, and a short song ended up tiny in a corner)
     double zoomAnchor;
 
     void Apply(float thumbLeft)

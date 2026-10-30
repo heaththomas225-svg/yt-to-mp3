@@ -261,7 +261,7 @@ static class SoundLibrary
     {
         if (up == null) return 0; var seen = new Dictionary<string, SoundItem>(); var gone = new List<SoundItem>();
         foreach (var s in up.Items) { string h = FileHash(s.Path); if (h == null) continue; SoundItem keep; if (seen.TryGetValue(h, out keep)) { gone.Add(s); if (!LastDupeItems.Contains(keep)) LastDupeItems.Add(keep); } else seen[h] = s; }
-        foreach (var s in gone) { up.Items.Remove(s); try { if (s.Path.StartsWith(up.Dir, StringComparison.OrdinalIgnoreCase) && !up.Items.Exists(x => string.Equals(x.Path, s.Path, StringComparison.OrdinalIgnoreCase))) File.Delete(s.Path); } catch { } }   // (only our own copy in My samples is deleted, never your original file)
+        foreach (var s in gone) up.Items.Remove(s);   // (taken off the list only: the file stays, so a pad or a project that uses it keeps working)
         return gone.Count;
     }
     public static int ImportFiles(string[] files, Action<string> progress)

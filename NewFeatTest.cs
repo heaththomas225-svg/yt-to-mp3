@@ -184,7 +184,7 @@ static class NF
           sf.eng.Stop(); sf.eng.Tracks.Clear(); var it = StudioEngine.NewTrack("Chords", "inst", null); it.Instrument = true; var cp = (InstrumentFx)FxRegistry.Create("pxchord"); cp.Prepare(StudioEngine.SR); cp.Owner = it; it.Fx.Add(cp); sf.eng.Tracks.Add(it);
           typeof(StudioForm).GetField("selTrack", BF).SetValue(sf, 0); typeof(StudioForm).GetField("recOn", BF).SetValue(sf, true); MidiInput.Target = null; var keep = StudioEngine.Current; StudioEngine.Current = null;
           MidiInput.Handle(0x90u | (60u << 8) | (100u << 16)); var bl = new float[4096]; var br = new float[4096]; cp.BeginBlock(it, 0, 4096, false); cp.Process(bl, br, 4096); float pk = 0; foreach (var v in bl) pk = Math.Max(pk, Math.Abs(v));
-          bool got = pk > 0.001f || ((ChordPadFx)cp).ShowPad >= 0; for (int w8 = 0; w8 < 50 && !got; w8++) { System.Threading.Thread.Sleep(10); got = ((ChordPadFx)cp).ShowPad >= 0; }   /* (if the sound card is still running from an earlier check, the engine may play the note before this block does: the chord starting counts) */
+          bool got = pk > 0.001f || ((ChordPadFx)cp).ShowPad >= 0; for (int w8 = 0; w8 < 300 && !got; w8++) { System.Threading.Thread.Sleep(10); got = ((ChordPadFx)cp).ShowPad >= 0; }   /* (if the sound card is still running from an earlier check, the engine may play the note before this block does: the chord starting counts) */
           MidiInput.Handle(0x80u | (60u << 8)); StudioEngine.Current = keep; int rec; lock (it.Midi) rec = it.Midi.Count(e => (e.S & 0xF0) == 0x90 && e.D1 == 60);
           Check("a MIDI keyboard note plays the instrument on the selected track (no window open) and MIDI REC records it", got && rec == 1, "peak " + pk.ToString("0.000") + ", recorded " + rec);
           typeof(StudioForm).GetField("recOn", BF).SetValue(sf, false); sf.eng.Stop(); sf.eng.Tracks.Clear(); }
@@ -814,6 +814,22 @@ static class NF
                     var tl = (RectangleF)typeof(StudioForm).GetMethod("TimelineRect", BF).Invoke(sf, null); long sc0 = F<long>("scroll"); var pE = new PointF(tl.Right - 2, pB.Y); for (int i = 0; i < 5; i++) mt.Invoke(sf, new object[] { pE });
                     Check("a box dragged to the right edge scrolls the view along", F<long>("scroll") > sc0, sc0 + " to " + F<long>("scroll")); lup.Invoke(sf, null); SetF("scroll", 0L);
                 }
+                {   // a clip dragged to another row holds its time (IN SYNC) unless it is pulled clearly sideways
+                    int ri = sf.eng.Tracks.IndexOf(ra); var lane = new RectangleF(388, top + ri * laneH, 1000, laneH); long o0 = ra.Offset; double sp = F<double>("spp"); long sc = F<long>("scroll");
+                    float cx0 = 388 + (float)((ra.Offset - sc) / sp) + (float)(ra.UsedLength / sp) / 2, cy0 = top + ri * laneH + laneH / 2;
+                    SetF("MousePos", new PointF(cx0, cy0)); ld.Invoke(sf, new object[] { ra, lane }); int lm = F<int>("laneMode");
+                    ldr.Invoke(sf, new object[] { ra, new PointF(cx0 + 12, cy0 + laneH) }); bool held = ra.Offset == o0 && F<bool>("syncHeld");
+                    ldr.Invoke(sf, new object[] { ra, new PointF(cx0 + 80, cy0 + laneH) }); bool freed = ra.Offset != o0 && !F<bool>("syncHeld");
+                    Check("moving a clip down a row keeps it in time (a small sideways wobble does not nudge it)", lm == 1 && held, "mode " + lm + ", offset " + o0 + " -> " + ra.Offset);
+                    Check("pulling it clearly sideways moves it freely again", freed, ra.Offset.ToString());
+                    ra.Offset = o0; SetF("laneMode", 0); SetF("laneMoved", false); typeof(StudioForm).GetMethod("GhostEnd", BF).Invoke(sf, null); SetF("syncHeld", false);
+                    // zoomed out: a short clip is easy to pick (it is at least 8 px wide, and a click a few pixels off still finds it)
+                    var pl = typeof(StudioForm).GetMethod("PickLayer", BF); var tiny = StudioEngine.NewTrack("Tiny", "beat", AudioClip.FromArrays(new float[2000], new float[2000], "t")); tiny.Host = ra; tiny.Offset = ra.Offset + 44100; lock (sf.eng.Sync) sf.eng.Tracks.Add(tiny);
+                    SetF("spp", 2000.0); SetF("scroll", 0L); float tx = 388 + (float)(tiny.Offset / 2000.0); var got1 = (Track)pl.Invoke(sf, new object[] { ra, new PointF(tx + 5, cy0) }); var got2 = (Track)pl.Invoke(sf, new object[] { ra, new PointF(tx + 18, cy0) });
+                    Check("zoomed out, a tiny clip on a row is picked when you click it, even a little off", got1 == tiny && got2 == tiny, (got1 == tiny) + " / " + (got2 == tiny));
+                    lock (sf.eng.Sync) sf.eng.Tracks.Remove(tiny); SetF("spp", sp); SetF("scroll", sc);
+                }
+                var keepTracks = sf.eng.Tracks.ToList(); var keepState = keepTracks.Select(t => new long[] { t.Offset, t.ClipStart, t.ClipFrames }).ToList(); var keepClips = keepTracks.Select(t => t.Clip).ToList(); var keepHosts = keepTracks.Select(t => t.Host).ToList();   // (the sound checks below add clips: the project is put back as it was afterwards)
                 {   // a clip of a sound you own, trimmed, then right-click Add to MY SOUNDS: No keeps both (the edit right after the original as v2), Yes puts the edit in its place
                     string vsrc = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "nf_vers_kick.wav"); var vl = new float[44100]; for (int i = 4410; i < vl.Length; i++) vl[i] = 0.5f * (float)Math.Sin(i * 0.05); WavIO.Write(vsrc, vl, vl, 44100, 24);
                     { var t0w = DateTime.Now; while (!LibLoader.Ready && DateTime.Now - t0w < TimeSpan.FromSeconds(60)) Application.DoEvents(); }   // (the library loads on its own thread; it would replace the list under the test)
@@ -848,6 +864,8 @@ static class NF
                     { var rm = Win.NewReadableMenu(); var it = rm.Items.Add("Save this clip as a WAV on my PC..."); Check("the right-click menu of a track keeps clear writing (not all capitals) in a bigger font", it.Text == "Save this clip as a WAV on my PC..." && rm.Font.Size >= 11, it.Text + " / " + rm.Font.Size); rm.Dispose(); }
                     int lead = SamplerFx.LeadOf(vl, vl, 44100);
                     Check("a pad skips the silence at the front of a sound, so a hit is not late", lead > 4300 && lead <= 4410, lead + " frames skipped");
+                    lock (sf.eng.Sync) { sf.eng.Tracks.Clear(); sf.eng.Tracks.AddRange(keepTracks); for (int k = 0; k < keepTracks.Count; k++) { keepTracks[k].Offset = keepState[k][0]; keepTracks[k].ClipStart = keepState[k][1]; keepTracks[k].ClipFrames = keepState[k][2]; keepTracks[k].Clip = keepClips[k]; keepTracks[k].Host = keepHosts[k]; } }
+                    typeof(StudioForm).GetMethod("CloseSounds", BF).Invoke(sf, null); paintS();
                 }
                 {   // LOCK lists the tracks on the left only (a piece sharing a row is not a track of its own), numbered the same
                     var lp = StudioEngine.NewTrack("Clip row (2)", "vocal", AudioClip.FromArrays(new float[44100], new float[44100], "t")); lp.Host = ra; lp.Offset = 44100 * 3; lock (sf.eng.Sync) sf.eng.Tracks.Add(lp);

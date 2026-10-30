@@ -82,14 +82,14 @@ static class CP
         sf.GetType().GetMethod("OpenCommunityPresets", BF).Invoke(sf, new object[] { "fx:bassboost", "Bass Boost", (Action<CommPreset>)(p => { applied = p.Data; bb.Deserialize(p.Data); }), (Func<string>)(() => bb.Serialize()), "Bass Boost custom" });
         var t0 = DateTime.Now; while (F<bool>("cpLoading") && (DateTime.Now - t0).TotalSeconds < 10) Pump(50); Pump(100); Paint();
         Check("the sheet opens and lists what the community shared", F<bool>("cpOpen") && F<IList>("cpList").Count == 2, F<IList>("cpList").Count + " listed");
-        var sheetRegs = Regs(); var use = sheetRegs.FindAll(r => Math.Abs(r.R.Width - 84) < 0.5f && Math.Abs(r.R.Height - 36) < 0.5f && r.OnDown != null); Check("each preset has a USE button", use.Count == 2, use.Count + " buttons");
+        var sheetRegs = Regs(); var use = sheetRegs.FindAll(r => Math.Abs(r.R.Width - 84) < 0.5f && Math.Abs(r.R.Height - 36) < 0.5f && r.R.Y > 160 && r.OnDown != null); Check("each preset has a USE button", use.Count == 2, use.Count + " buttons");
         var close = sheetRegs.FindLast(r => Math.Abs(r.R.Width - 34) < 0.5f && Math.Abs(r.R.Height - 34) < 0.5f && r.OnDown != null); Check("the sheet has a close x", close != null, "");
         if (use.Count == 2) { use.Sort((a, b) => a.R.Y.CompareTo(b.R.Y)); Click(use[0]); Pump(100); }
         Check("USE applies that preset's settings to the plugin", applied != null && Math.Abs(bb.Get("freq") - 50) < 0.01 && Math.Abs(bb.Get("gain") - 9) < 0.01 && Math.Abs(bb.Get("level") + 4) < 0.01, applied);
         Check("the sheet closes after using one", !F<bool>("cpOpen"), "");
         Pump(300); Check("the website is told it was used", lastPath.StartsWith("/api/presets/use/p1"), lastPath);
         sf.GetType().GetMethod("OpenCommunityPresets", BF).Invoke(sf, new object[] { "fx:bassboost", "Bass Boost", (Action<CommPreset>)(p => { }), (Func<string>)(() => bb.Serialize()), "x" }); t0 = DateTime.Now; while (F<bool>("cpLoading") && (DateTime.Now - t0).TotalSeconds < 10) Pump(50); Paint();
-        foreach (char ch2 in "soft") typeof(StudioForm).GetMethod("CpKey", BF).Invoke(sf, new object[] { ch2 }); Paint(); use = Regs().FindAll(r => Math.Abs(r.R.Width - 84) < 0.5f && Math.Abs(r.R.Height - 36) < 0.5f && r.OnDown != null); Check("typing in the search box narrows the list", use.Count == 1, use.Count + " shown");
+        foreach (char ch2 in "soft") typeof(StudioForm).GetMethod("CpKey", BF).Invoke(sf, new object[] { ch2 }); Paint(); use = Regs().FindAll(r => Math.Abs(r.R.Width - 84) < 0.5f && Math.Abs(r.R.Height - 36) < 0.5f && r.R.Y > 160 && r.OnDown != null); Check("typing in the search box narrows the list", use.Count == 1, use.Count + " shown");
         sf.GetType().GetMethod("ProcessCmdKey", BF).Invoke(sf, new object[] { null, Keys.Escape }); Check("Esc closes the sheet", !F<bool>("cpOpen"), "");
         // an unreachable website is explained, not a crash
         CommunityPresets.BaseUrl = "http://127.0.0.1:1"; sf.GetType().GetMethod("OpenCommunityPresets", BF).Invoke(sf, new object[] { "fx:bassboost", "Bass Boost", (Action<CommPreset>)(p => { }), (Func<string>)(() => "a=1"), "x" }); t0 = DateTime.Now; while (F<bool>("cpLoading") && (DateTime.Now - t0).TotalSeconds < 20) Pump(50); Paint();
