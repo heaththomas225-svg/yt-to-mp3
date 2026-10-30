@@ -142,6 +142,9 @@
     <Compile Include="../../Studio.FxHelp.cs" />
     <Compile Include="../../Plug.Pads.cs" />
     <Compile Include="../../Plug.KeyMap.cs" />
+    <Compile Include="../../MidiMap.cs" />
+    <Compile Include="../../Studio.MidiMap.cs" />
+    <Compile Include="../../Plug.PopOut.cs" />
     <Compile Include="../../Studio.MidiClips.cs" />
     <Compile Include="../../Studio.UI2.cs" />
     <Compile Include="../../Studio.8D.cs" />

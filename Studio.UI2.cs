@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -82,7 +82,7 @@ partial class StudioForm
             if (!ok || clip == null) { if (importQueue.Count > 0) { string nx = importQueue.Dequeue(); BeginInvoke(new Action(() => PromptImport(nx))); } return; }
             string nm = role == "vocal" ? "Vocals" : (role == "beat" ? "Instrumental" : clip.Name);
             if (fillT != null && fillT.Clip == null && !fillT.Instrument && !fillT.IsBus && eng.Tracks.Contains(fillT)) { PushUndo(); lock (eng.Sync) { fillT.Clip = clip; fillT.ClipStart = 0; fillT.ClipFrames = -1; fillT.Offset = 0; fillT.Armed = false; if (fillT.Name.StartsWith("Audio ", StringComparison.OrdinalIgnoreCase) || fillT.Name.StartsWith("Beat", StringComparison.OrdinalIgnoreCase)) fillT.Name = nm; } selTrack = eng.Tracks.IndexOf(fillT); Toast("Added " + nm + " to this track"); }
-            else { AddTrack(StudioEngine.NewTrack(nm, role, clip)); Toast("Added " + nm); }
+            else { var nt = StudioEngine.NewTrack(nm, role, clip); long cut = TrimLeadingSilence(nt); AddTrack(nt); Toast("Added " + nm + (cut > 0 ? " (its silent start, " + (cut / (double)StudioEngine.SR).ToString("0.00") + " s, was trimmed off)" : "")); }   // AUTO TRIM: the clip starts where the sound starts
             try { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); } catch { }   // the memory of the decoding is cleaned up now, while nothing is playing, not in the middle of the next play
             if (importQueue.Count > 0) { string nx = importQueue.Dequeue(); BeginInvoke(new Action(() => PromptImport(nx))); }
         });

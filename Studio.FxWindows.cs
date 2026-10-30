@@ -86,6 +86,7 @@ partial class StudioForm
         var tr2 = Reg(title, () => { fxWinDrag = w; fxWinResize = false; fxWinGrab = new PointF(MousePos.X - w.R.X, MousePos.Y - w.R.Y); }); tr2.OnDrag = pt => { if (fxWinDrag == w && !fxWinResize) w.R = new RectangleF(pt.X - fxWinGrab.X, pt.Y - fxWinGrab.Y, w.R.Width, w.R.Height); }; tr2.OnUp = () => fxWinDrag = null;
         { string ab = FxHelp.About(f); if (ab.Length > 0) Hint2(title, f.Title + ": " + ab); }   // point at the title: what this plugin does
         var cl = Rc(r.Right - 36, r.Y + 5, 26, 24); Btn(g, cl, "x", 3, () => CloseFxWindow(f), 12); Hint2(cl, "Close this window (the plugin keeps working)");
+        var po = Rc(cl.X - 72 - 84, r.Y + 5, 78, 24); Btn(g, po, "POP OUT", 1, () => PopOutFx(f), 10); Hint2(po, "Open " + f.Title + " in a window of its own: drag it to another monitor, out of the way of the studio (it opens there again next time)");
         var bp = Rc(cl.X - 72, r.Y + 5, 66, 24); Btn(g, bp, f.Bypass ? "BYPASSED" : "ON", f.Bypass ? 0 : 4, () => f.Bypass = !f.Bypass, 10); Hint2(bp, f.Bypass ? "Bypassed: the sound goes past this plugin. Click to switch it back on." : "On: click to bypass this plugin (it stays in the chain)");
         Prof.A("fw.header", q0); q0 = Prof.T();
         // toolbar: presets (previous / next / pick), reset
@@ -123,6 +124,13 @@ partial class StudioForm
     static bool KnobEditor(Fx f) { return !(f is InstrumentFx) && !PxPlugins.HasWindow(f) && !(f is ParametricEq); }
     internal static List<KeyValuePair<string, string>> FxPresetList(Fx f) { var l = new List<KeyValuePair<string, string>>(); try { l.AddRange(Presets.User(f.Type)); l.AddRange(Presets.For(f.Type)); } catch { } return l; }
     // SAVE: a plugin's settings as a preset of yours, under a name (a free name is offered; an existing one asks first). As many as you like.
+    // POP OUT: the plugin in a real window of its own (its own Purphex window when it has one), the window inside the studio closes
+    internal void PopOutFx(Fx f)
+    {
+        CloseFxWindow(f);
+        if (f is InstrumentFx) { ((InstrumentFx)f).ShowWindow(this); return; } if (PxPlugins.HasWindow(f)) { PxPlugins.Open(f, this); return; }
+        PxWindow.Show(f, this, () => new GenericFxWindow(f));
+    }
     internal void SaveFxPreset(Fx f)
     {
         string def = Presets.FreeName(f.Type, f.CurPreset.Length > 0 && Presets.User(f.Type).Exists(kv => kv.Key == f.CurPreset) ? f.CurPreset : f.Title.Replace("Purphex ", "") + " 1");

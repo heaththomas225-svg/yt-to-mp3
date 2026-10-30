@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -668,6 +668,7 @@ partial class StudioEngine
             for (int i = 0; i < n; i++) { oL[i] += dfL[i] * 0.85f; oR[i] += dfR[i] * 0.85f; }
         }
     }
+    readonly List<Track> liveInst = new List<Track>(), liveOnly = new List<Track>(); RenderOpts liveOptsC; RenderOpts liveOpts { get { return liveOptsC ?? (liveOptsC = new RenderOpts { Only = liveOnly, NoClips = true }); } }
     void RenderRealtime0(float[] oL, float[] oR, int n)
     {
         if (Rendering) { Array.Clear(oL, 0, n); Array.Clear(oR, 0, n); return; }
@@ -678,14 +679,15 @@ partial class StudioEngine
             {
                 if (unchecked(Environment.TickCount - LiveUntil) < 0)   // a note is being played on an instrument: only the instrument tracks sound
                 {
-                    var inst = new List<Track>();
+                    // (the lists and options are kept and reused: making new ones every block put garbage on the sound thread while you played)
+                    var inst = liveInst; inst.Clear();
                     foreach (var t in Tracks) { bool has = t.Instrument; if (!has) foreach (var f in t.Fx) { var ifx = f as InstrumentFx; if (ifx != null && ifx.IsInstrument && !f.Bypass) has = true; } if (has) inst.Add(t); }
                     if (inst.Count > 0)
                     {
                         // add each instrument's row and bus, so its mute/off/volume/pan and bus plugins apply just like in playback (NoClips keeps the audio files silent)
-                        var only = new List<Track>(inst);
+                        var only = liveOnly; only.Clear(); only.AddRange(inst);
                         foreach (var t in inst) { if (t.Host != null && !t.Host.IsBus && !only.Contains(t.Host)) only.Add(t.Host); if (t.Out != null && t.Out.IsBus && !only.Contains(t.Out)) only.Add(t.Out); }
-                        Mix(Pos, n, new RenderOpts { Only = only, NoClips = true }, oL, oR, true, 0); return;
+                        Mix(Pos, n, liveOpts, oL, oR, true, 0); return;
                     }
                 }
                 Array.Clear(oL, 0, n); Array.Clear(oR, 0, n); MasterPeakL = MasterPeakR = 0; foreach (var t in Tracks) { t.PeakL = t.PeakR = 0; } return;

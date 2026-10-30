@@ -187,6 +187,37 @@ static class NF
           MidiInput.Handle(0x80u | (60u << 8)); StudioEngine.Current = keep; int rec; lock (it.Midi) rec = it.Midi.Count(e => (e.S & 0xF0) == 0x90 && e.D1 == 60);
           Check("a MIDI keyboard note plays the instrument on the selected track (no window open) and MIDI REC records it", got && rec == 1, "peak " + pk.ToString("0.000") + ", recorded " + rec);
           typeof(StudioForm).GetField("recOn", BF).SetValue(sf, false); sf.eng.Stop(); sf.eng.Tracks.Clear(); }
+        { // MIDI mapping across the studio: learn, knobs on a track and a plugin, two pads at once, a key on PLAY, remove, profiles, the activity light
+          sf.eng.Stop(); sf.eng.Tracks.Clear(); MidiInput.Target = null; var keepE = StudioEngine.Current;
+          var drums = StudioEngine.NewTrack("Drums", "beat", AudioClip.FromArrays(new float[44100 * 4], new float[44100 * 4], "d")); sf.eng.Tracks.Add(drums);
+          var gainFx = FxRegistry.Create("gain"); gainFx.Prepare(44100); drums.Fx.Add(gainFx); var gp = gainFx.P.First(q => !q.IsChoice);
+          var padsT = StudioEngine.NewTrack("Pads", "inst", null); padsT.Instrument = true; var pads = (PadsFx)FxRegistry.Create("pxpads"); pads.Prepare(44100); pads.Owner = padsT; padsT.Fx.Add(pads); sf.eng.Tracks.Add(padsT);
+          string wv = Path.Combine(StudioEnv.DataDir, "hit.wav"); { var x = new float[22050]; for (int i = 0; i < x.Length; i++) x[i] = (float)(0.5 * Math.Sin(i * 0.07)); WavIO.Write(wv, x, x, 44100, 24); } pads.SetPad(0, wv, "A"); pads.SetPad(1, wv, "B");
+          MidiMap.Load("Test controller"); MidiMap.Clear(); int act0 = MidiMap.ActivityAt;
+          MidiMap.StartLearn("vol|Drums", "Drums volume"); MidiInput.Handle(0xB0u | (21u << 8) | (64u << 16)); bool learned = MidiMap.Learning == null && MidiMap.ForTarget("vol|Drums") != null && MidiMap.ForTarget("vol|Drums").Src == "cc:1:21";
+          MidiInput.Handle(0xB0u | (21u << 8) | (127u << 16)); Pump(150);
+          Check("MIDI Learn: right-click a control, turn a knob on the controller, and that knob now drives it (track volume to the top)", learned && Math.Abs(drums.VolDb - 6) < 0.2, "learned " + learned + ", volume " + drums.VolDb);
+          Check("the MIDI light sees every message, and says what it was", MidiMap.ActivityAt != act0 && MidiMap.LastIn.Contains("CC 21"), MidiMap.LastIn);
+          MidiMap.StartLearn(MidiMap.FxTarget(gainFx, gp.Id), "Gain: " + gp.Name); MidiInput.Handle(0xB0u | (22u << 8) | (10u << 16)); MidiInput.Handle(0xB0u | (22u << 8) | (0u << 16)); Pump(150);
+          Check("a plugin's knob takes a controller knob (all the way down here)", Math.Abs(gp.Val - gp.Min) < 0.01f * Math.Max(1, gp.Max - gp.Min), gp.Name + " = " + gp.Val);
+          MidiMap.StartLearn("pad|Pads|0", "Pad 1"); MidiInput.Handle(0x99u | (60u << 8) | (100u << 16)); MidiInput.Handle(0x89u | (60u << 8));
+          MidiMap.StartLearn("pad|Pads|1", "Pad 2"); MidiInput.Handle(0x99u | (62u << 8) | (100u << 16)); MidiInput.Handle(0x89u | (62u << 8));
+          StudioEngine.Current = null; pads.Reset(); pads.LastIn = -1; MidiInput.Handle(0x99u | (60u << 8) | (110u << 16)); MidiInput.Handle(0x99u | (62u << 8) | (110u << 16));
+          var pl = new float[2048]; var pr = new float[2048]; pads.BeginBlock(padsT, 0, 2048, false); pads.Process(pl, pr, 2048); double ppk = 0; foreach (var v in pl) ppk = Math.Max(ppk, Math.Abs(v)); int both = (unchecked(Environment.TickCount - pads.HitAt[pads.PadNote(0)]) < 2000 ? 1 : 0) + (unchecked(Environment.TickCount - pads.HitAt[pads.PadNote(1)]) < 2000 ? 1 : 0);
+          StudioEngine.Current = keepE;
+          Check("two pads mapped to two keys play their own sounds at the same time", both == 2 && ppk > 0.6, both + " pads hit, peak " + ppk.ToString("0.00"));
+          sf.eng.Stop(); for (int w8 = 0; w8 < 20 && sf.eng.Playing; w8++) Pump(50); bool playWas = sf.eng.Playing; MidiMap.StartLearn("transport|play", "PLAY"); MidiInput.Handle(0x90u | (48u << 8) | (100u << 16)); MidiInput.Handle(0x80u | (48u << 8)); MidiInput.Handle(0x90u | (48u << 8) | (100u << 16)); for (int w9 = 0; w9 < 30 && !sf.eng.Playing; w9++) Pump(50);   /* (the song counts as playing once the sound card has started) */
+          Check("a key mapped to PLAY starts the song (and plays no note)", !playWas && sf.eng.Playing, "was playing " + playWas + ", playing " + sf.eng.Playing + ", mapped " + (MidiMap.ForTarget("transport|play") != null ? MidiMap.ForTarget("transport|play").Src : "no") + ", mic armed " + F<bool>("micArmed") + ", tracks " + sf.eng.Tracks.Count + ", end " + sf.eng.EndFrame); sf.eng.Stop(); Pump(50);
+          MidiMap.Remove("transport|play"); Check("a mapping can be taken off (that key is free again)", MidiMap.ForTarget("transport|play") == null && !MidiMap.Handle(0x90, 48, 100), "");
+          int n0 = MidiMap.All.Count; MidiMap.NewProfile("Second pad set"); bool empty = MidiMap.All.Count == 0; MidiMap.Assign("cc:1:30", "pan|Drums", "Drums pan"); MidiMap.Load("Test controller"); bool back = MidiMap.All.Count == n0 && MidiMap.ForTarget("pan|Drums") == null; MidiMap.Load("Second pad set"); bool second = MidiMap.ForTarget("pan|Drums") != null;
+          Check("controller profiles: a new one starts empty, each keeps its own maps, and they are saved (switching loads them back)", empty && back && second && MidiMap.Profiles().Contains("Test controller") && MidiMap.Profiles().Contains("Second pad set"), "profiles " + string.Join(", ", MidiMap.Profiles()));
+          MidiMap.MakeMpkMini(); Check("an Akai MPK Mini profile: its 8 knobs (CC 70 to 77) turn the plugin in front", MidiMap.All.Count == 8 && MidiMap.All.All(m => m.Target.StartsWith("selfx|")), MidiMap.All.Count + " maps");
+          MidiMap.Clear(); sf.eng.Tracks.Clear(); }
+        { // AUTO TRIM: the silence before the sound starts is taken off the start of a clip, the clip stays where it is
+          var a0 = new float[44100 * 2]; for (int i = 22050; i < a0.Length; i++) a0[i] = (float)(0.4 * Math.Sin(i * 0.05)); var tt = StudioEngine.NewTrack("Late start", "audio", AudioClip.FromArrays(a0, a0, "late")); tt.Offset = 44100;
+          long cut = (long)typeof(StudioForm).GetMethod("TrimLeadingSilence", BF).Invoke(sf, new object[] { tt });
+          var quiet = StudioEngine.NewTrack("Silent", "audio", AudioClip.FromArrays(new float[44100], new float[44100], "s")); long cut2 = (long)typeof(StudioForm).GetMethod("TrimLeadingSilence", BF).Invoke(sf, new object[] { quiet });
+          Check("auto trim: a clip that starts with half a second of silence starts where the sound starts (5 ms kept before it), and stays where it was", Math.Abs(cut - (22050 - 220)) < 40 && tt.ClipStart == cut && tt.Offset == 44100 && cut2 == 0, "trimmed " + cut + " frames, silent clip " + cut2); }
         { // the list that asks which track: one button for a row that was split into pieces
           sf.eng.Tracks.Clear(); Func<int, AudioClip> mkc = sec => AudioClip.FromArrays(new float[44100 * sec], new float[44100 * sec], "t"); var row0 = StudioEngine.NewTrack("Row", "beat", mkc(2)); var pc1 = StudioEngine.NewTrack("Row piece", "beat", mkc(5)); var pc2 = StudioEngine.NewTrack("Row piece 2", "beat", mkc(1)); pc1.Host = row0; pc2.Host = row0; var other = StudioEngine.NewTrack("Other", "vocal", mkc(3));
           sf.eng.Tracks.Add(row0); sf.eng.Tracks.Add(pc1); sf.eng.Tracks.Add(pc2); sf.eng.Tracks.Add(other); var picked = new List<Track>();

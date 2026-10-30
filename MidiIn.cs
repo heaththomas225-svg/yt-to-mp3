@@ -55,6 +55,7 @@ static class MidiInput
     public static void Handle(uint m)
     {
         byte s = (byte)(m & 0xFF), d1 = (byte)((m >> 8) & 0xFF), d2 = (byte)((m >> 16) & 0xFF); if (s >= 0xF0) return;
+        if (MidiMap.Handle(s, d1, d2)) { Received++; return; }   // a mapped knob, key or pad (or a MIDI Learn) does its job and plays nothing else
         var bt = BareTrack; if (bt != null && bt(s, d1, d2)) { Received++; return; }   // the picked track is a MIDI track with no instrument: the notes go straight onto it
         var t = Target; if (t == null) return;
         Received++; t.Midi(s, d1, d2);

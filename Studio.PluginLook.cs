@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -66,8 +66,8 @@ partial class StudioForm
             var p = nums[i]; var pp = p; int cx0 = (int)slots[i].X, ry = (int)slots[i].Y; lastRow = Math.Max(lastRow, ry); var cell = Rc(a.X + 6 + cx0 * cw, y0 + ry * KnobCellH, cw, KnobCellH - 6);
             k0 = Prof.T(); string nm = Win.Up(p.Name); Txt(g, nm, 9, Color.FromArgb(255, 220, 210, 245), Rc(cell.X + 4, cell.Y + 3, cell.Width - 8, 14), StringAlignment.Center, true);
             Color col = KnobCols[i % KnobCols.Length];
-            Prof.A("pk.name", k0); k0 = Prof.T(); KnobCtl(g, cell.X + cell.Width / 2, cell.Y + 50, 46, PFrac(p), fr => f.Set(pp.Id, PFromFrac(pp, fr)), col, () => f.Set(pp.Id, pp.Def));
-            Hint2(Rc(cell.X, cell.Y, cell.Width, 80), nm + ": drag up or down to turn it (Shift for fine steps), double-click for the default, or type a value below");
+            Prof.A("pk.name", k0); k0 = Prof.T(); var kr = KnobCtl(g, cell.X + cell.Width / 2, cell.Y + 50, 46, PFrac(p), fr => f.Set(pp.Id, PFromFrac(pp, fr)), col, () => f.Set(pp.Id, pp.Def)); LearnOn(kr, MidiMap.FxTarget(f, pp.Id), f.Title + ": " + pp.Name);
+            Hint2(Rc(cell.X, cell.Y, cell.Width, 80), nm + ": drag up or down to turn it (Shift for fine steps), double-click for the default, type a value below, right-click for MIDI Learn");
             Prof.A("pk.knob", k0); k0 = Prof.T(); ValueBox(g, Rc(cell.X + 8, cell.Y + 84, cell.Width - 16 - (paramTrack != null ? 24 : 0), 24), p.Text, Num(p.Val), s => { float v; if (ParseNum(s, out v)) f.Set(pp.Id, v); });
             if (paramTrack != null) { var lane0 = FindLane(paramTrack, f, p.Id); var atr = paramTrack; Btn(g, Rc(cell.Right - 30, cell.Y + 84, 22, 24), "A", lane0 != null && lane0.On ? 4 : 0, () => OpenAuto(atr, f, pp), 10); } Prof.A("pk.value", k0);
         }

@@ -381,6 +381,9 @@ partial class StudioForm
     {
         var pad = blPads[i]; var m = Win.NewMenu();
         var tm = new ToolStripMenuItem("Use a track from this song"); BlTrackItems(tm.DropDownItems, i); m.Items.Add(tm);
+        { var ml = MidiMap.ForTarget("blpad|" + i); string nm = "Beat Lab row " + (i + 1) + (pad.Name.Length > 0 ? " (" + pad.Name + ")" : "");
+          m.Items.Add(ml == null ? "MIDI Learn this row (then hit a pad or key on your controller)" : "MIDI Learn this row again (now: " + MidiMap.SrcText(ml.Src) + ")").Click += (a, b) => MidiMap.StartLearn("blpad|" + i, nm);
+          if (ml != null) m.Items.Add("Remove this row's MIDI mapping").Click += (a, b) => MidiMap.Remove("blpad|" + i); }
         m.Items.Add(new ToolStripMenuItem("Load a sound from a file...", null, (a, b) => { using (var d = new OpenFileDialog { Filter = "Sounds|*.wav;*.mp3;*.flac;*.ogg;*.aif;*.aiff|All files|*.*" }) if (d.ShowDialog(this) == DialogResult.OK) BlSetPad(i, new SoundItem { Name = Path.GetFileNameWithoutExtension(d.FileName), Path = d.FileName, Kind = "one-shot", Rel = Path.GetFileName(d.FileName) }); }));
         if (pad.Sound != null)
         {

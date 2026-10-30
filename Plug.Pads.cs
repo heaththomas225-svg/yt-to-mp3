@@ -27,6 +27,8 @@ class PadsFx : SamplerFx
     // a sound onto a pad (it keeps its pitch, like a drum hit)
     public string SetPad(int pad, string path, string name) { return AddToKit(path, name, PadNote(pad)); }
     public void ClearPad(int pad) { RemoveKey(PadNote(pad)); }
+    // a pad's sound dragged onto another pad: the two swap their sounds and levels (each pad keeps the key that plays it)
+    public void SwapPads(int a, int b) { if (a == b) return; SwapKeys(PadNote(a), PadNote(b)); float ga = Get("g" + a); Set("g" + a, Get("g" + b)); Set("g" + b, ga); }
     // a pad takes another key; a pad that had that key gets this pad's old one, so no two pads share a key
     public void MovePad(int pad, int note)
     {
@@ -59,7 +61,7 @@ class PadsFx : SamplerFx
 #if !PURPHEX_CORE
 class PadsWindow : PxWindow, ISoundDrop
 {
-    readonly PadsFx e; int sel, held = -1;
+    readonly PadsFx e; int sel, held = -1, dragFrom = -1, dragTo = -1;   // dragFrom / dragTo: a pad being dragged onto another
     public PadsWindow(PadsFx f) : base(f, "Pads", new Size(1000, 660))
     {
         e = f; Accent = Pink; AllowDrop = true; MidiWindow.Hook(this, f);
@@ -80,7 +82,7 @@ class PadsWindow : PxWindow, ISoundDrop
     void Put(int pad, string path, string name)
     {
         Mark(); string err = e.SetPad(pad, path, name); sel = pad;
-        if (err != null) MessageBox.Show(this, err, Text); else { e.NoteOn(e.PadNote(pad), 105); var t = new Timer { Interval = 400 }; int n = e.PadNote(pad); t.Tick += (a, b) => { t.Stop(); t.Dispose(); e.NoteOff(n); }; t.Start(); }
+        if (err != null) MessageBox.Show(this, err, Text);   // (no preview: a pad only sounds when you hit it)
     }
 
     protected override void PaintBody(Graphics g, RectangleF a)
@@ -109,8 +111,10 @@ class PadsWindow : PxWindow, ISoundDrop
             Txt(g, "PAD " + (i + 1), 10, lit ? Color.Black : Dim, new RectangleF(r.X + 10, r.Y + 6, r.Width - 20, 14), StringAlignment.Near, true);
             Txt(g, has ? nm : "EMPTY", has ? 14 : 11, lit ? Color.Black : (has ? Ink : Dim), new RectangleF(r.X + 8, r.Y + r.Height / 2 - 16, r.Width - 16, 32), StringAlignment.Center, true);
             Txt(g, PadsFx.NoteName(note), 9.5f, lit ? Color.Black : Dim, new RectangleF(r.X + 10, r.Bottom - 20, r.Width - 20, 14), StringAlignment.Near, false);
-            int k = i; var h = Reg(r, () => { sel = k; held = k; e.NoteOn(e.PadNote(k), 110); }, (has ? nm + ": click to play it" : "Empty pad") + ", right-click to choose its sound"); h.DragAt = p => { };
-            h.Up = () => { if (held >= 0) e.NoteOff(e.PadNote(held)); held = -1; }; h.Right = () => { sel = k; SoundMenu(k); };
+            int k = i; var h = Reg(r, () => { sel = k; held = k; dragFrom = k; dragTo = -1; e.NoteOn(e.PadNote(k), 110); }, (has ? nm + ": click to play it, drag it onto another pad to move it" : "Empty pad") + ", right-click to choose its sound");
+            h.DragAt = p => { if (dragFrom < 0) return; int over = PadAt(Point.Round(p)); dragTo = over >= 0 && over != dragFrom && e.PadName(dragFrom).Length > 0 ? over : -1; };
+            h.Up = () => { if (held >= 0) e.NoteOff(e.PadNote(held)); held = -1; if (dragFrom >= 0 && dragTo >= 0) { Mark(); e.SwapPads(dragFrom, dragTo); sel = dragTo; } dragFrom = -1; dragTo = -1; }; h.Right = () => { sel = k; SoundMenu(k); };
+            if (dragTo == i) { Fill(g, Color.FromArgb(80, Cyan), r, 12); Stroke(g, Cyan, RectangleF.Inflate(r, 3, 3), 14, 2.6f); Txt(g, "MOVE HERE", 10, Cyan, new RectangleF(r.X, r.Bottom - 38, r.Width, 14), StringAlignment.Center, true); }
         }
         // the picked pad
         var side = new RectangleF(a.X + gw + 14, top.Bottom + 26, a.Right - a.X - gw - 14, gh); Panel(g, side, "PAD " + (sel + 1), Pink);
@@ -132,6 +136,9 @@ class PadsWindow : PxWindow, ISoundDrop
     {
         var m = Win.NewMenu(); m.Items.Add(new ToolStripMenuItem("PAD " + (pad + 1) + (e.PadName(pad).Length > 0 ? ": " + e.PadName(pad) : "")) { Enabled = false });
         SoundSources.Add(m.Items, this, (path, nm) => Put(pad, path, nm));
+        { var tr = e.Owner; string tgt = tr == null ? null : "pad|" + tr.Name + "|" + pad; var ml = tgt == null ? null : MidiMap.ForTarget(tgt);
+          var li = new ToolStripMenuItem(ml == null ? "MIDI Learn this pad (any pad, key or button of your controller)" : "MIDI Learn this pad again (now: " + MidiMap.SrcText(ml.Src) + ")") { Enabled = tgt != null }; li.Click += (a, b) => MidiMap.StartLearn(tgt, "Pad " + (pad + 1) + " of Purphex Pads on " + tr.Name); m.Items.Add(li);
+          if (ml != null) m.Items.Add("Remove this pad's MIDI mapping").Click += (a, b) => MidiMap.Remove(tgt); }
         m.Items.Add(new ToolStripSeparator());
         var cl = new ToolStripMenuItem("Clear this pad") { Enabled = e.PadName(pad).Length > 0 }; cl.Click += (a, b) => { Mark(); e.ClearPad(pad); }; m.Items.Add(cl);
         m.Show(this, PointToClient(Cursor.Position));
@@ -194,6 +201,8 @@ static class MidiWindow
     {
         w.Activated += (s, e) => { MidiInput.Target = fx; var se = StudioEngine.Current; if (se != null) se.EnsureAudio(); if (Prefs.MidiDev != MidiInput.OffName && MidiInput.OpenName.Length == 0) { var sf = w.Owner as StudioForm; if (sf != null) sf.MidiAutoConnect(); } };
         w.FormClosed += (s, e) => { if (MidiInput.Target == fx) MidiInput.Target = null; };
+        var awake = new Timer { Interval = 1000 }; awake.Tick += (s, e) => { if (w.Visible) StudioEngine.LiveUntil = Environment.TickCount + 3000; }; awake.Start(); w.FormClosed += (s, e) => { awake.Stop(); awake.Dispose(); };
+        w.Shown += (s, e) => { StudioEngine.LiveUntil = Environment.TickCount + 3000; var se = StudioEngine.Current; if (se != null) se.EnsureAudio(); };
     }
 }
 
