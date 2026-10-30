@@ -2,6 +2,10 @@
 
 What changed in each version of **Purphex**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.78.7  The PAN label reads PAN on thin tracks
+
+- FIXED: With THIN TRACKS on, the pan label of a track read PA... (its box was too narrow). It reads PAN again, and on a MIDI track it no longer sits under the Piano button.
+
 ## 3.78.6  Purphex Key Map, kits you save and name, SAVE on every plugin, drag sounds onto pads and keys, MY SOUNDS
 
 - NEW: Purphex Key Map (in the instruments): any sound on any key of your MIDI keyboard. Right-click a key (or drop a sound on it) and pick a sound from the library, a file on your PC or one of your tracks. PLAY IT ACROSS spreads a sound over the keys, pitched (an octave each side, or the whole keyboard), so one sound becomes an instrument. PICK BY PLAYING picks the key you press on your keyboard. Each sound has its own level and everything is saved with your project.

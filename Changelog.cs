@@ -7,10 +7,13 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.78.6";
+    public const string Latest = "3.78.7";
 
     public const string Text =
-@"3.78.6  Purphex Key Map, kits you save and name, SAVE on every plugin, drag sounds onto pads and keys, MY SOUNDS
+@"3.78.7  The PAN label reads PAN on thin tracks
+ + FIXED: With THIN TRACKS on, the pan label of a track read PA... (its box was too narrow). It reads PAN again, and on a MIDI track it no longer sits under the Piano button.
+
+3.78.6  Purphex Key Map, kits you save and name, SAVE on every plugin, drag sounds onto pads and keys, MY SOUNDS
  + NEW: Purphex Key Map (in the instruments): any sound on any key of your MIDI keyboard. Right-click a key (or drop a sound on it) and pick a sound from the library, a file on your PC or one of your tracks. PLAY IT ACROSS spreads a sound over the keys, pitched (an octave each side, or the whole keyboard), so one sound becomes an instrument. PICK BY PLAYING picks the key you press on your keyboard. Each sound has its own level and everything is saved with your project.
  + NEW: Drag any sound from SOUNDS or MY SOUNDS onto a pad of Purphex Pads or a key of Purphex Key Map: the pad or key under the mouse lights up and takes it. Sound files dragged from your folders work too.
  + NEW: MY SOUNDS, a tab beside SOUNDS and SOUND PACKS: every sound you imported, kept in your library for good, with how many there are. After you import, the panel opens on it.
