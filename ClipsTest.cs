@@ -124,6 +124,11 @@ static class K
                 tb.Locked = true; int nBefore = eng.Tracks.Count; var key = typeof(StudioForm).GetMethod("ProcessCmdKey", BF); key.Invoke(sf, new object[] { new Message(), Keys.Delete }); Paint();
                 Check("Delete removes the selected clips and leaves a locked track alone", eng.Tracks.Count == nBefore - 2 && eng.Tracks.Contains(tb), nBefore + " -> " + eng.Tracks.Count);
                 typeof(StudioForm).GetMethod("DoUndo", BF).Invoke(sf, null); Paint(); Check("one Ctrl+Z brings every deleted clip back", eng.Tracks.Count == nBefore && eng.Tracks.Contains(ta) && eng.Tracks.Contains(tc), eng.Tracks.Count + " tracks");
+                // a plain click on one of the selected clips (no drag) leaves just that clip: the others let go
+                ln = lanes(); sx = (int)(ln[0].R.X + 20); sy = (int)(ln[2].R.Bottom + 25); tx = sx + 260; ty = (int)(ln[0].R.Y + 30);
+                Ev("OnMouseMove", MouseButtons.None, 0, sx, sy); Ev("OnMouseDown", MouseButtons.Left, 1, sx, sy); for (int i = 1; i <= 8; i++) Ev("OnMouseMove", MouseButtons.Left, 0, sx + (tx - sx) * i / 8, sy + (ty - sy) * i / 8); Ev("OnMouseUp", MouseButtons.Left, 1, tx, ty); Paint();
+                int selN = F<List<Track>>("multiSel").Count; ln = lanes(); mx = (int)(ln[1].R.X + 200); my = (int)(ln[1].R.Y + laneH / 2); Ev("OnMouseMove", MouseButtons.None, 0, mx, my); Ev("OnMouseDown", MouseButtons.Left, 1, mx, my); Ev("OnMouseUp", MouseButtons.Left, 1, mx, my); Paint();
+                Check("clicking one of the selected clips (no drag) lets go of the others", selN >= 2 && F<List<Track>>("multiSel").Count == 0, selN + " selected -> " + F<List<Track>>("multiSel").Count);
                 // Esc lets go; a plain click on empty space lets go too
                 sx = (int)(ln[0].R.X + 20); sy = (int)(ln[2].R.Bottom + 25); Ev("OnMouseMove", MouseButtons.None, 0, sx, sy); Ev("OnMouseDown", MouseButtons.Left, 1, sx, sy); for (int i = 1; i <= 6; i++) Ev("OnMouseMove", MouseButtons.Left, 0, sx + 30 * i, sy - 60 * i); Ev("OnMouseUp", MouseButtons.Left, 1, sx + 180, sy - 360); Paint();
                 bool had = F<List<Track>>("multiSel").Count > 0; key.Invoke(sf, new object[] { new Message(), Keys.Escape }); Check("Esc lets go of the selection", had && F<List<Track>>("multiSel").Count == 0, "");

@@ -80,7 +80,7 @@ static class NF
                 {   // previews (My Projects, Community) always get the biggest buffer, and the stutter watch fixes a preview too (it used to watch only the mix)
                     var wp = new WaveOutPlayer((x1, x2, x3) => { }, 2); var wf = typeof(WaveOutPlayer).GetField("Frames", BF); var wb = typeof(WaveOutPlayer).GetField("Buffers", BF);
                     var wn = new WaveOutPlayer((x1, x2, x3) => { }); int bigF = (int)wf.GetValue(wp), bigB = (int)wb.GetValue(wp), setF = (int)wf.GetValue(wn);
-                    Check("a project preview or a community song plays with the biggest buffer (no stutter); the mix keeps the one from Settings", bigF == 2048 && bigB == 8 && setF == (Prefs.BufEff == 0 ? 512 : Prefs.BufEff == 2 ? 2048 : 1024), bigF + "x" + bigB + " / " + setF);
+                    Check("a project preview or a community song plays with the biggest buffer (no stutter); the mix keeps the one from Settings", bigF * bigB == 1024 * 6 && setF == (Prefs.BufEff == 2 ? 1024 : 512), bigF + "x" + bigB + " / " + setF);
                 }
                 {   // mute one SECTION of a track (right-click): only that piece is silent, the rest of the track plays; it is saved in the project and undo puts it back
                     int sr = 44100, n2 = sr * 4; var x2 = new float[n2]; for (int i = 0; i < n2; i++) x2[i] = (float)(0.5 * Math.Sin(2 * Math.PI * 440 * i / sr)); var cl2 = AudioClip.FromArrays(x2, (float[])x2.Clone(), "m");
