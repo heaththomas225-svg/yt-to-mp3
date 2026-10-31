@@ -428,9 +428,15 @@ partial class StudioForm
         }
     }
     // a trimmed sound plays only its trimmed part (from the start handle; at the end handle it stops, or goes round again with Loop)
+    readonly Dictionary<string, double> previewLead = new Dictionary<string, double>();   // where each previewed sound really starts (as part of its length)
     void SoundTrimPlayback(SoundItem s)
     {
-        var t = SoundTrim(s); if (t == null || !Auditioner.IsPlaying || Auditioner.Length <= 0) return; double f = Auditioner.Seconds / Auditioner.Length;
+        var t = SoundTrim(s); if (!Auditioner.IsPlaying || Auditioner.Length <= 0) return; double f = Auditioner.Seconds / Auditioner.Length;
+        if (t == null)
+        {   // no trim: a sound with silence at the front is heard from where it starts (like the pads), not after the gap
+            double lead; if (!previewLead.TryGetValue(s.Id, out lead)) { lead = 0; var L = Auditioner.LeftSamples; if (L != null && L.Length > 0) { int i = 0, lim = Math.Min(L.Length, 44100 * 2); while (i < lim && Math.Abs(L[i]) < 0.004f) i++; if (i < lim) lead = Math.Max(0, i - 44) / (double)L.Length; } if (previewLead.Count > 500) previewLead.Clear(); previewLead[s.Id] = lead; }
+            if (lead > 0.001 && f < lead - 0.0005) Auditioner.Seek(lead); return;
+        }
         if (f < t[0] - 0.002) Auditioner.Seek(t[0]); else if (f >= t[1]) { if (SoundLibrary.LoopPreview) Auditioner.Seek(t[0]); else { Auditioner.Pause(); Auditioner.Seek(t[0]); } }
     }
     // SAVE TRIMMED: the part between the handles becomes a sound of its own in MY SOUNDS, next to the original (which stays as it is)

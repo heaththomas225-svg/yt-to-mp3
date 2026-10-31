@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 
 // Tests the Bass Lab synthesizer and the Bass Boost effect.   csc /main:Y ... SynthTest.cs
@@ -127,6 +127,10 @@ static class Y
             Check("high notes are band-limited (no aliasing)", alias / fund < 0.01, "alias level " + (alias / fund).ToString("0.0000") + " of the fundamental");
             // drawn waveforms
             var sine = new short[256]; var saw = new short[256]; for (int i = 0; i < 256; i++) { sine[i] = (short)(Math.Sin(2 * Math.PI * i / 256.0) * 30000); saw[i] = (short)((2.0 * i / 256 - 1) * 30000); }
+            {   // MY SAMPLES: a sound of yours becomes a wavetable: 8 cycles, each one cycle of the sound (a 220 Hz tone: the frame is one sine cycle)
+                var smp = new float[44100]; for (int i = 0; i < smp.Length; i++) smp[i] = (float)(0.6 * Math.Sin(2 * Math.PI * 220 * i / 44100.0)); var frs = Wavetables.FramesFromSample(smp, 44100);
+                int zc = 0; for (int i = 1; i < 256; i++) if ((frs[3][i - 1] < 0) != (frs[3][i] < 0)) zc++;
+                Check("a sound of yours becomes 8 wavetable frames of one cycle each (MY SAMPLES in Bass Lab)", frs.Length == 8 && zc >= 1 && zc <= 3, frs.Length + " frames, " + zc + " zero crossings"); }
             var cw = clean(); Wavetables.SetCustom(0, new[] { sine, saw }); cw.Set("atbl", Wavetables.CustomBase); cw.Set("awt", 0); double c0 = H(cw, 45, 110, 2) / H(cw, 45, 110, 1); cw.Set("awt", 100); double c1 = H(cw, 45, 110, 2) / H(cw, 45, 110, 1);
             Check("a drawn wave plays: frame 1 (sine) is pure, frame 2 (saw) is rich", c0 < 0.02 && c1 > 0.4, "2nd harmonic " + c0.ToString("0.00") + " then " + c1.ToString("0.00"));
             string ser2 = cw.Serialize(); Wavetables.SetCustom(0, new[] { Wavetables.DefaultFrame() }); var cw2 = new SynthFx(); cw2.Prepare(44100); cw2.Deserialize(ser2); var back = Wavetables.GetCustom(0);

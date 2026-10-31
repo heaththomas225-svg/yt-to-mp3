@@ -60,6 +60,7 @@ static class FxHelp
         A("Purphex Prism", "Makes any sound ring at the notes or chord you pick, like it is played through tuned strings.", "turning drums or noise into musical, tuned textures.");
         A("Purphex Frost", "Freezes the sound into a held texture, with metallic ring, echoes and movement.", "ambient pads from any sound, frozen transitions.");
         A("Purphex Tape Dirt", "Makes the sound like it is playing from an old worn tape: warm, wobbly, with drop-outs.", "lo-fi beats, vintage vibes, dusty loops.");
+        A("Purphex Wobble LFO", "Makes any sound wobble: an LFO in time with your song opens and closes a filter (and the volume if you like), as slow or as fast and as deep as you want.", "wobble bass, dubstep and bassline wubs, rhythmic filter movement on synths and pads.");
         A("Purphex Constellation", "Breaks the sound into tiny grains and scatters them into a pitched cloud with reverb.", "ambient textures, dreamy pads, strange sound design.");
         A("Purphex Clipper", "Cuts the tops off the loudest peaks so the sound gets louder and punchier.", "loud drums and 808s, the master before the limiter.");
         A("Purphex Smack", "Turns up or down the hit (attack) and the tail (sustain) of every sound.", "punchier kicks and snares, or softer, rounder drums.");

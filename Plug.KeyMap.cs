@@ -154,12 +154,12 @@ class KeyMapWindow : PxWindow, ISoundDrop
         Button(g, new RectangleF(bx + 204, by, 186, 34), "A SOUND FILE ON MY PC...", false, Pink, () => { string f = SoundSources.PickFile(this, "A sound for " + KeyMapFx.NoteLabel(s0)); if (f != null) PutKey(s0, f, Path.GetFileNameWithoutExtension(f)); }, "Choose a WAV, MP3, FLAC, OGG, AIFF or M4A file", 10.5f);
         Button(g, new RectangleF(bx + 398, by, 140, 34), "CLEAR THIS KEY", false, Violet, () => { Mark(); e.ClearKey(s0); }, zs != null && zs.Lo != zs.Hi ? "Take this sound off all the keys it plays" : "Take the sound off this key", 10.5f);
         // play it across: this key only, an octave each side, the whole keyboard (pitched)
-        float sx = Math.Max(pk.X + pk.Width * 0.5f + 20, bx + 556);   /* (right of the three buttons, never over them) */ Txt(g, "PLAY IT ACROSS", 10, Dim, new RectangleF(sx, pk.Y + 26, 300, 14), StringAlignment.Near, true);
+        float sx = Math.Max(pk.X + pk.Width * 0.5f + 20, bx + 556);   /* (right of the three buttons, never over them) */ Txt(g, "PLAY IT ACROSS", 10, Dim, new RectangleF(sx, by - 18, 300, 14), StringAlignment.Near, true);   /* (lined up with the buttons on the left: same top, same height) */
         string[] spans = { "THIS KEY ONLY", "AN OCTAVE EACH SIDE", "THE WHOLE KEYBOARD" }; float sw = (a.Right - sx - 14 - 12) / 3;
         int span = zs == null ? -1 : (zs.Lo == zs.Hi ? 0 : (zs.Lo <= 0 && zs.Hi >= 127 ? 2 : 1));
         for (int i = 0; i < 3; i++)
         {
-            int ii = i; Button(g, new RectangleF(sx + i * (sw + 6), pk.Y + 44, sw, 34), spans[i], span == i, Gold, () =>
+            int ii = i; Button(g, new RectangleF(sx + i * (sw + 6), by, sw, 34), spans[i], span == i, Gold, () =>
             {
                 if (e.ZoneOf(s0) == null) { MessageBox.Show(this, "Give this key a sound first.", Text); return; } Mark(); var z0 = e.ZoneOf(s0); int root = z0.Lo == z0.Hi ? z0.Lo : z0.Root;
                 string err = ii == 0 ? e.Spread(s0, root, root) : (ii == 1 ? e.Spread(s0, root - 12, root + 12) : e.Spread(s0, 0, 127)); if (err != null) MessageBox.Show(this, err, Text); else { sel = root; Audition(root); }
@@ -169,12 +169,13 @@ class KeyMapWindow : PxWindow, ISoundDrop
         { float ly = pk.Y + 112; Txt(g, "LFO", 11, Gold, new RectangleF(bx, ly, 60, 16), StringAlignment.Near, true);
           Knob(g, bx + 36, ly + 50, 24, "lfor", "RATE", Gold); Knob(g, bx + 112, ly + 50, 24, "lfod", "DEPTH", Gold);
           Txt(g, "MOVES", 9, Dim, new RectangleF(bx + 160, ly + 16, 200, 12), StringAlignment.Near, true); Segments(g, new RectangleF(bx + 160, ly + 30, 240, 30), "lfot", Gold, 9.5f);
-          bool pf = e.Get("fill") >= 0.5f; Button(g, new RectangleF(bx + 410, ly + 30, 160, 30), pf ? "EMPTY KEYS: PIANO" : "EMPTY KEYS: SILENT", pf, Cyan, () => { Mark(); e.Set("fill", pf ? 0 : 1); }, pf ? "Keys with no sound of their own play the built-in piano. Press to make them silent" : "Keys with no sound are silent. Press to have them play the built-in piano", 9.5f); }
+          bool pf = e.Get("fill") >= 0.5f; Button(g, new RectangleF(bx + 410, ly + 30, Math.Min(150, sx - (bx + 410) - 12), 30), pf ? "EMPTY KEYS: PIANO" : "EMPTY KEYS: SILENT", pf, Cyan, () => { Mark(); e.Set("fill", pf ? 0 : 1); }, pf ? "Keys with no sound of their own play the built-in piano. Press to make them silent" : "Keys with no sound are silent. Press to have them play the built-in piano", 9.5f); }
         if (zs != null)
         {
-            Txt(g, "LEVEL  " + (zs.GainDb > 0 ? "+" : "") + zs.GainDb.ToString("0.#") + " dB", 11, Ink, new RectangleF(sx, pk.Y + 90, 160, 30), StringAlignment.Near, true);
-            Button(g, new RectangleF(sx + 170, pk.Y + 90, 44, 30), "−", false, Cyan, () => { Mark(); e.Nudge(s0, -1.5f); }, "Quieter", 14);
-            Button(g, new RectangleF(sx + 220, pk.Y + 90, 44, 30), "+", false, Cyan, () => { Mark(); e.Nudge(s0, 1.5f); }, "Louder", 14);
+            float lvy = pk.Y + 112 + 30;   // (on the line of the LFO buttons)
+            Txt(g, "LEVEL  " + (zs.GainDb > 0 ? "+" : "") + zs.GainDb.ToString("0.#") + " dB", 11, Ink, new RectangleF(sx, lvy, sw, 30), StringAlignment.Near, true);
+            Button(g, new RectangleF(sx + sw + 6, lvy, sw, 30), "−  QUIETER", false, Cyan, () => { Mark(); e.Nudge(s0, -1.5f); }, "Quieter", 10);
+            Button(g, new RectangleF(sx + 2 * (sw + 6), lvy, sw, 30), "+  LOUDER", false, Cyan, () => { Mark(); e.Nudge(s0, 1.5f); }, "Louder", 10);
         }
     }
     void KitsMenu(Point at)

@@ -130,7 +130,7 @@ class SamplerFx : InstrumentFx   // (Purphex Pads is a sampler with a window of 
         Voice v = null; foreach (var x in voices) if (!x.On) { v = x; break; }
         if (v == null) { foreach (var x in voices) if (x.Choked || x.Releasing) { if (v == null || x.Env < v.Env) v = x; } if (v == null) { v = voices[0]; foreach (var x in voices) if (x.Pos > v.Pos) v = x; } tailL += v.LastL; tailR += v.LastR; }
         double rate = z.Rate / (double)SR, pitch = z.Follow ? Math.Pow(2, (note - z.Root) / 12.0) : 1.0; double vs = Get("vel") / 100.0;
-        v.On = true; v.Releasing = false; v.Choked = false; v.LastL = v.LastR = 0; v.Z = z; v.Note = note; v.Pos = z.OneShot ? z.Lead : 0; v.Step = rate * pitch; v.Gain = ((1 - vs) + vs * vel / 127.0) * Math.Pow(10, z.GainDb / 20.0); v.Env = 1; v.Rel = 0;
+        v.On = true; v.Releasing = false; v.Choked = false; v.LastL = v.LastR = 0; v.Z = z; v.Note = note; v.Pos = z.Lead;   /* every sound starts where it starts: a gap at the front of the file made Key Map notes late too */ v.Step = rate * pitch; v.Gain = ((1 - vs) + vs * vel / 127.0) * Math.Pow(10, z.GainDb / 20.0); v.Env = 1; v.Rel = 0;
     }
     static double Soft(double x) { double a = Math.Abs(x); return Math.Sign(x) * (0.95 + 0.05 * Math.Tanh((a - 0.95) / 0.05)); }
     void Stop(int note) { foreach (var v in voices) if (v.On && v.Note == note && !v.Releasing && !v.Z.OneShot) v.Releasing = true; }
@@ -155,7 +155,7 @@ class SamplerFx : InstrumentFx   // (Purphex Pads is a sampler with a window of 
                 int p = (int)v.Pos; if (p >= L.Length - 1) { v.On = false; continue; } double fr = v.Pos - p;
                 double a = L[p] + (L[p + 1] - L[p]) * fr, b = R[p] + (R[p + 1] - R[p]) * fr;
                 if (v.Releasing) { v.Env *= v.Choked ? chokeK : relK; if (v.Env < 1e-4) { v.On = false; continue; } }
-                double att = !z.Follow || v.Pos * (1 / v.Step) > fadeIn ? 1 : v.Pos / v.Step / fadeIn;   // (a pitched sample starts with a tiny fade: no click when it starts mid-wave)
+                double att = !z.Follow || (v.Pos - z.Lead) * (1 / v.Step) > fadeIn ? 1 : (v.Pos - z.Lead) / v.Step / fadeIn;   // (a pitched sample starts with a tiny fade: no click when it starts mid-wave)
                 double g = v.Gain * v.Env * att; sl += a * g; sr += b * g; v.LastL = a * g; v.LastR = b * g; v.Pos += v.Step * pm;
                 int left = L.Length - 1 - (int)v.Pos; if (left < 64 && left >= 0) { double t = left / 64.0; sl -= a * g * (1 - t); sr -= b * g * (1 - t); }   // (the last 64 samples fade out: no click at the end)
             }
