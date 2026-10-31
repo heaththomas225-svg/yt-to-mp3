@@ -1,4 +1,4 @@
-3.80.1
+3.80.2
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Faster piano roll and mixer, arrow keys in the sound list
-sha256=a6eebbe21892751b8b3dc7fa4ed6d7ff71841178df1eb43652636f89db282f4c
+Wobble LFO, louder pads, Key Map fixed, MY SOUNDS editing
+sha256=9d1c103673b400c635503c61697480ca47b84414aeb63adfac8e1af0dc3961a9

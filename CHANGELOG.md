@@ -2,6 +2,38 @@
 
 What changed in each version of **Purphex**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.80.2  Wobble LFO, louder pads, Key Map fixed, MY SOUNDS editing
+
+- NEW: Purphex Wobble LFO, an effect for any track (made for bass). A tempo-synced LFO (1/1 to 1/32, triplets, dotted or free) opens and closes a filter as much as you like: sine, triangle, saw, square or random steps, resonance, volume wobble and mix. Its window shows the wobble moving. Find it in VSTS.
+
+- NEW: LFO knobs on Purphex Pads and Key Map: rate, depth, and what it moves (volume, pitch or filter).
+
+- FIXED: Key Map made no sound until you gave it sounds. Keys with no sound now play the built-in piano (EMPTY KEYS can be set to silent), and a sound you put on a key plays across the whole keyboard by default (NEW SOUND: ONE KEY at the top for one key only).
+
+- FIXED: The pads were quieter than everything else. They play 7 dB louder now, and loud hits together round off smoothly instead of crackling. Saved projects come up to the new level too.
+
+- NEW: SET UP MY 8 PADS: hit your keyboard's pads 1 to 8 in order and they go on boxes 1 to 8 (top left first), whatever notes your keyboard sends. The other 8 pads stay ready below.
+
+- FIXED: Your MIDI keyboard did nothing in the piano roll while a Pads or Key Map window was open. A click in the piano roll now gives it the keyboard.
+
+- FIXED: Bass Lab and VST windows keep your MIDI keyboard while they are open (a click in the studio took it away). The last window you used wins.
+
+- FIXED: A trimmed sound in MY SOUNDS played from the start. Play now plays just the trimmed part (and loops it with Loop).
+
+- NEW: Zoom into a sound's wave in MY SOUNDS (mouse wheel on the wave, or the - and + buttons) to set exact cut offs. FIT shows it all again.
+
+- NEW: SAVE TRIMMED keeps the trimmed part as a sound of its own, right next to the original.
+
+- NEW: DELETE takes a sound of yours out of MY SOUNDS (it asks first, in case it was a mistake).
+
+- NEW: Folders in MY SOUNDS: ADD TO FOLDER puts a sound in a folder of yours (Drill piano, Drill bass...), and FOLDERS at the top shows one.
+
+- FIXED: Every sound with silence at its start plays from where the sound starts: Key Map (on every key it covers), Pads, the Beat Lab, the piano roll's sampler, and the preview in MY SOUNDS.
+
+- NEW: MY SAMPLES in Bass Lab's sound browser: your imported sounds (grouped by your folders). Click one and it becomes the shape of oscillator A, 8 cycles from along the sound, so WT POSITION moves through it. It is kept with the Bass Lab sound.
+
+- FIXED: The Key Map buttons on the right line up with the buttons on the left.
+
 ## 3.80.1  Faster piano roll and mixer, arrow keys in the sound list
 
 - FASTER: The piano roll draws about a third faster (the other tracks' faint notes and the grid are no longer redrawn from scratch every frame).
