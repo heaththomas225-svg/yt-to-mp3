@@ -190,7 +190,7 @@ partial class StudioForm : Form
         if (mic != null && !eng.Playing) StopMic();
         if (mic != null && !micSilentWarned && mic.AllSilent) { micSilentWarned = true; Toast("Your microphone is sending NO sound (muted or switched off). On a headset: flip the mic down or press its mute button. Press MIC to stop."); }
         { string tt = "Purphex Music  -  " + projName + (Prefs.ShowFps ? "    " + (lastIdle ? "idle" : fpsc.Fps + " fps") : ""); if (Text != tt) Text = tt; }
-        if (eng.Playing || (previewEng != null && previewEng.Playing))
+        if (eng.Playing || (previewEng != null && previewEng.Playing) || unchecked(Environment.TickCount - StudioEngine.LiveUntil) < 0)   // (playing pads or keys live too)
         {
             AudioGlitchCheck(DateTime.Now);
         }
@@ -561,7 +561,10 @@ partial class StudioForm : Form
     int lastStalls; DateTime lastRefresh = DateTime.MinValue;
     internal bool AudioGlitchCheck(DateTime now)
     {
-        var ge = eng.Playing ? eng : (previewEng != null && previewEng.Playing ? previewEng : null);   // the engine you are hearing: the mix, or a preview (My Projects, Community). (Not live playing: restarting the output there made gaps and grew the buffer.)
+        var ge = eng.Playing ? eng : (previewEng != null && previewEng.Playing ? previewEng : null);   // the engine you are hearing: the mix, or a preview (My Projects, Community)
+        // playing pads, Key Map or a keyboard with the song stopped counts too: it only grew while the song played, so live hits crackled until you pressed PLAY.
+        // Live, the output is only refreshed to make the buffer bigger (one short gap, then clean); at the biggest it is left alone (refreshing again would only add gaps)
+        bool live = ge == null && unchecked(Environment.TickCount - StudioEngine.LiveUntil) < 0 && Prefs.BufEff < 2; if (live) ge = eng;
         if (ge == null) { lastUnder = WaveOutPlayer.Underruns; lastStalls = WaveOutPlayer.Stalls; underSince = now; return false; }
         int u = WaveOutPlayer.Underruns, st = WaveOutPlayer.Stalls; bool stalled = st != lastStalls, breaking = u - lastUnder >= 2 && (now - underSince).TotalSeconds <= 2;
         if ((now - underSince).TotalSeconds > 2) { underSince = now; lastUnder = u; }

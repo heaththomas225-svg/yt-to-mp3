@@ -892,6 +892,19 @@ static class NF
                         var km = (KeyMapFx)FxRegistry.Create("pxkeymap"); km.Prepare(44100); km.Reset(); km.Midi(0x90, 64, 110, false); var kl = new float[8192]; var kr2 = new float[8192]; km.BeginBlock(null, 0, 8192, false); km.Process(kl, kr2, 8192); double kp = 0; foreach (var v in kl) kp = Math.Max(kp, Math.Abs(v));
                         Check("Key Map: an empty Key Map still plays (the built-in piano on keys with no sound)", kp > 0.01, kp.ToString("0.000"));
                         Check("Key Map: a new sound goes across the whole keyboard unless you pick one key", km.Get("span") >= 0.5f, "");
+                        {   // loud hits and chords are turned down smoothly (the old ceiling flattened them: the crackle on pads and Key Map)
+                            var lp = (PadsFx)FxRegistry.Create("pxpads"); lp.Prepare(44100); var sq = new float[44100]; for (int i = 0; i < sq.Length; i++) sq[i] = 0.98f * (float)Math.Sin(i * 0.02); string sqf = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "nf_loud.wav"); WavIO.Write(sqf, sq, sq, 44100, 24);
+                            for (int i = 0; i < 4; i++) lp.SetPad(i, sqf, "Loud" + i); lp.Set("gain", 6); lp.Reset(); var ll = new float[22050]; var lr = new float[22050];
+                            for (int pblk = 0; pblk < 22050; pblk += 512) { int m = Math.Min(512, 22050 - pblk); if (pblk < 4096) for (int i = 0; i < 4; i++) lp.Midi(0x99, (byte)lp.PadNote(i), 127, false); var bl3 = new float[m]; var br3 = new float[m]; lp.BeginBlock(null, pblk, m, false); lp.Process(bl3, br3, m); Array.Copy(bl3, 0, ll, pblk, m); }
+                            double lpk = 0; int flatN = 0; for (int i = 1; i < ll.Length; i++) { lpk = Math.Max(lpk, Math.Abs(ll[i])); if (Math.Abs(ll[i]) > 0.899 && Math.Abs(ll[i] - ll[i - 1]) < 1e-6) flatN++; }
+                            Check("Pads: many loud hits at once are turned down smoothly, never flattened at the top (that was the crackle)", lpk <= 0.901 && lpk > 0.5 && flatN < 3, "peak " + lpk.ToString("0.000") + ", flat " + flatN);
+                        }
+                        {   // a sound dragged from the packs onto a Pads or Key Map track goes into it (it used to need a track of its own first)
+                            var tP = StudioEngine.NewTrack("PadsT", "inst", null); var pz = (PadsFx)FxRegistry.Create("pxpads"); pz.Prepare(44100); tP.Fx.Add(pz); var si = new SoundItem { Name = "Tone", Rel = "nf_tone.wav" }; si.Path = tf2;
+                            string mP = sf.SoundIntoInstrument(si, pz, tP); Check("dropping a pack sound on a Pads track puts it on the first empty pad", pz.ZoneAt(pz.PadNote(0)) != null && mP.Contains("pad 1"), mP);
+                            string mP2 = sf.SoundIntoInstrument(si, pz, tP); Check("and the next one on the next pad", pz.ZoneAt(pz.PadNote(1)) != null && mP2.Contains("pad 2"), mP2);
+                            var kz = (KeyMapFx)FxRegistry.Create("pxkeymap"); kz.Prepare(44100); string mK = sf.SoundIntoInstrument(si, kz, tP); Check("dropping it on a Key Map track spreads it across the keyboard", kz.ZoneFor(30) != null && kz.ZoneFor(100) != null, mK);
+                        }
                         { var gapS = new float[22050]; for (int i = 4410; i < gapS.Length; i++) gapS[i] = 0.5f * (float)Math.Sin(i * 0.05); string gf = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "nf_gap.wav"); WavIO.Write(gf, gapS, gapS, 44100, 24);
                           var km2 = (KeyMapFx)FxRegistry.Create("pxkeymap"); km2.Prepare(44100); km2.Set("fill", 0); km2.SetRange(0, 127, 60, gf, "Gap"); km2.Reset(); km2.Midi(0x90, 62, 110, false); var gl = new float[2048]; var gr = new float[2048]; km2.BeginBlock(null, 0, 2048, false); km2.Process(gl, gr, 2048);
                           int firstSound = -1; for (int i = 0; i < gl.Length; i++) if (Math.Abs(gl[i]) > 0.01f) { firstSound = i; break; }

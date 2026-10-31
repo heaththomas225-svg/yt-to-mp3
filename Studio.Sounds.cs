@@ -222,6 +222,29 @@ partial class StudioForm
         string path = s.Path; if (string.IsNullOrEmpty(path) || !File.Exists(path) || !SoundSources.IsAudio(path)) { Toast(s.Name + " is not a sound file a pad can play (MIDI and loops-to-be go on the song or the piano roll)."); return true; }
         path = TrimmedFile(s, path); w.DropSound(Cursor.Position, path, s.Name.Replace(s.PackName + " - ", "")); return true;
     }
+    // a sound of yours as a file with its trim (the plugins' My sounds menu)
+    internal string TrimmedPathOf(SoundItem s) { return TrimmedFile(s, s.Path); }
+    // the Purphex Pads or Key Map a track plays (null: neither)
+    static SamplerFx PadsOrKeys(Track t) { if (t == null) return null; foreach (var f in t.Fx) if ((f is PadsFx || f is KeyMapFx) && !f.Bypass) return (SamplerFx)f; return null; }
+    // a sound dropped on a Pads or Key Map track: Pads put it on the first empty pad, Key Map across the keyboard (or on the next empty key when it is set to one key)
+    internal string SoundIntoInstrument(SoundItem s, SamplerFx inst, Track t)
+    {
+        if (s.Instant || s.Spec.Length > 0) { string err = InstantLib.Ensure(s); if (err != null) return err; }
+        string path = s.Path; if (string.IsNullOrEmpty(path) || !File.Exists(path) || !SoundSources.IsAudio(path)) return s.Name + " is not a sound file a pad can play (MIDI and loops-to-be go on the song or the piano roll).";
+        path = TrimmedFile(s, path); string nm = s.Name.Replace(s.PackName + " - ", ""), err2;
+        var pads = inst as PadsFx;
+        if (pads != null)
+        {
+            int pad = -1; for (int i = 0; i < 16; i++) if (pads.ZoneAt(pads.PadNote(i)) == null) { pad = i; break; }
+            if (pad < 0) return "Every pad of Purphex Pads on " + t.Name + " has a sound: open it and drop the sound on the pad you want to change.";
+            err2 = pads.SetPad(pad, path, nm); return err2 ?? nm + " is on pad " + (pad + 1) + " of Purphex Pads on " + t.Name + ".";
+        }
+        var km = (KeyMapFx)inst;
+        if (km.Get("span") >= 0.5f) { err2 = km.SetWhole(path, nm); return err2 ?? nm + " plays across the whole keyboard of Key Map on " + t.Name + " (as recorded around middle C)."; }
+        int key = -1; for (int k = 60; k < 128 && key < 0; k++) if (!KeyMapWindow.Black[k % 12] && km.ZoneAt(k) == null && km.ZoneFor(k) == null) key = k;
+        if (key < 0) return "Key Map on " + t.Name + " has no empty white key above C4: open it and drop the sound on the key you want.";
+        err2 = km.SetKey(key, path, nm); return err2 ?? nm + " is on " + KeyMapFx.NoteLabel(key) + " of Key Map on " + t.Name + ".";
+    }
     // dropped from the browser onto the timeline
     void DropSampleAt(Point p)
     {
@@ -229,6 +252,8 @@ partial class StudioForm
         if (sndDrag != null && BlDrop(sndDrag, p)) { sndDrag = null; sndDragging = false; return; }   // on a Beat Lab pad: the pad plays it
         if (sndDrag != null && PrDrop(sndDrag, p)) return;   // on the piano roll: into the sampler (a kit's key, or its sample)
         var s = sndDrag; sndDrag = null; sndDragging = false; if (s == null) return; var tl = TimelineRect(); float top = ArrTop + RulerH;
+        { int dl = p.Y >= top && p.X <= tl.Right ? (int)((p.Y - top + vscroll) / LaneH) : -1; var it = dl >= 0 && dl < LaneCount ? PadsOrKeys(eng.Tracks[dl]) : null;   // on a track that plays Purphex Pads or Key Map (its name or its row): the sound goes into it
+          if (it != null && s.Kind != "midi" && s.Kind != "preset") { string m2 = SoundIntoInstrument(s, it, eng.Tracks[dl]); if (m2 != null) Toast(m2); return; } }
         if (p.X < HeadW || p.X > tl.Right || p.Y < top) { Toast("Drop it on the timeline (the area to the right of the track names)."); return; }
         long frame = DropFrame(p.X); int lane = (int)((p.Y - top + vscroll) / LaneH); int at = lane >= LaneCount ? LaneCount : lane + 1;
         dropHost = lane >= 0 && lane < LaneCount ? eng.Tracks[lane] : null;   // dropped on a row: it goes on that row (overlapping whatever is there)
@@ -696,7 +721,7 @@ partial class StudioForm
                 using (var pen = new Pen(Color.FromArgb(200, Color.White), 1.4f)) for (int b = 0; b < bars; b++) { float v = pk[Math.Min(pk.Length - 1, b * pk.Length / Math.Max(1, bars))] / 255f * amp; float bx = gr.X + 2 + b * (gw - 4) / bars; g.DrawLine(pen, bx, mid - v, bx, mid + v); }
             }
             using (var pen = new Pen(Color.FromArgb(240, NeonCyan), 1.8f) { DashStyle = System.Drawing.Drawing2D.DashStyle.Dash }) using (var p = RR(gr, 8)) g.DrawPath(pen, p);
-            string where = lane >= lanes ? "NEW TRACK" : eng.Tracks[lane].Name.ToUpperInvariant(); Txt(g, sndDrag.Name.Replace(sndDrag.PackName + " - ", "") + "  -  " + where, 10, Color.White, Rc(gr.X + 8, gr.Y + 3, Math.Max(40, gr.Width - 16), 16), StringAlignment.Near, true);
+            var pk2 = lane < lanes ? PadsOrKeys(eng.Tracks[lane]) : null; string where = lane >= lanes ? "NEW TRACK" : pk2 is PadsFx ? "INTO PURPHEX PADS ON " + eng.Tracks[lane].Name.ToUpperInvariant() : pk2 != null ? "INTO KEY MAP ON " + eng.Tracks[lane].Name.ToUpperInvariant() : eng.Tracks[lane].Name.ToUpperInvariant(); Txt(g, sndDrag.Name.Replace(sndDrag.PackName + " - ", "") + "  -  " + where, 10, Color.White, Rc(gr.X + 8, gr.Y + 3, Math.Max(40, gr.Width - 16), 16), StringAlignment.Near, true);
             using (var pen = new Pen(Color.FromArgb(220, NeonCyan), 2f)) g.DrawLine(pen, gx, top, gx, ClientSize.Height - 20);
             g.Restore(gs);
         }
