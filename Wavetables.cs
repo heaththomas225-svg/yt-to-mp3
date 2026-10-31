@@ -149,7 +149,7 @@ static class Wavetables
         return res.ToArray();
     }
     // the length of one cycle (20 Hz to 2 kHz) by autocorrelation; 0 when the sound has no clear pitch
-    static int FindPeriod(float[] x, int a, int b, int sr)
+    internal static int FindPeriod(float[] x, int a, int b, int sr)
     {
         int lo = Math.Max(2, sr / 2000), hi = Math.Min(sr / 20, (b - a) / 2); if (hi <= lo) return 0; int w = Math.Min(2048, b - a - hi); if (w < 64) return 0;
         double e0 = 0; for (int i = 0; i < w; i++) e0 += x[a + i] * x[a + i]; if (e0 < 1e-9) return 0;

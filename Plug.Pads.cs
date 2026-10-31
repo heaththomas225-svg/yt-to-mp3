@@ -215,9 +215,20 @@ static class SoundDrop
 {
     public static Point Hover = Point.Empty;   // the mouse on the screen while a sound is dragged from the studio (Empty: no drag)
     [System.Runtime.InteropServices.DllImport("user32.dll")] static extern IntPtr WindowFromPoint(Point p);
+    [System.Runtime.InteropServices.DllImport("user32.dll")] static extern IntPtr GetTopWindow(IntPtr h);
+    [System.Runtime.InteropServices.DllImport("user32.dll")] static extern IntPtr GetWindow(IntPtr h, uint cmd);
     public static ISoundDrop At(Point screen)
     {
-        try { var c = Control.FromChildHandle(WindowFromPoint(screen)); var f = c == null ? null : (c as Form ?? c.FindForm()); return f as ISoundDrop; } catch { return null; }
+        try { var c = Control.FromChildHandle(WindowFromPoint(screen)); var f = c == null ? null : (c as Form ?? c.FindForm()); if (f is ISoundDrop) return (ISoundDrop)f; } catch { }
+        // an invisible window of another program over the screen (a game or chat overlay) took the point: the Pads / Key Map window under the mouse is found from the top down
+        try
+        {
+            var ours = new System.Collections.Generic.Dictionary<IntPtr, Form>(); foreach (Form f in Application.OpenForms) if (f is ISoundDrop && f.Visible && !f.IsDisposed && f.WindowState != FormWindowState.Minimized && f.Bounds.Contains(screen)) ours[f.Handle] = f;
+            if (ours.Count == 0) return null; if (ours.Count == 1) foreach (var f in ours.Values) return (ISoundDrop)f;
+            for (IntPtr h = GetTopWindow(IntPtr.Zero); h != IntPtr.Zero; h = GetWindow(h, 2)) { Form f; if (ours.TryGetValue(h, out f)) return (ISoundDrop)f; }
+        }
+        catch { }
+        return null;
     }
 }
 
@@ -252,6 +263,16 @@ static class SoundSources
     }
     public static void Add(ToolStripItemCollection items, Form w, Action<string, string> put)
     {
+        // MY SOUNDS: the sounds you imported (by folder, then all of them), with the trim you set on them
+        var my = new ToolStripMenuItem("My sounds"); items.Add(my);
+        {
+            var up = SoundLibrary.Pack(SoundLibrary.UserPackId); var mine = up == null ? new List<SoundItem>() : up.Items.FindAll(it => it.IsAudio && it.Kind != "midi"); mine.Sort((p, q) => string.Compare(p.Name, q.Name, StringComparison.OrdinalIgnoreCase));
+            var sfm = w.Owner as StudioForm; Action<ToolStripMenuItem, SoundItem> addIt = (parent, it) => { var it2 = it; parent.DropDownItems.Add(it.Name).Click += (a, b) => { if (!File.Exists(it2.Path)) { MessageBox.Show(w, it2.Name + " is missing: " + it2.Path, w.Text); return; } put(sfm != null ? sfm.TrimmedPathOf(it2) : it2.Path, it2.Name); }; };
+            Dictionary<string, List<string>> cols; lock (SoundLibrary.Lock) cols = new Dictionary<string, List<string>>(SoundLibrary.Collections);
+            foreach (var kv in cols) { var inF = mine.FindAll(it => kv.Value.Contains(it.Id)); if (inF.Count == 0) continue; var fi = new ToolStripMenuItem("Folder: " + kv.Key); foreach (var it in inF) addIt(fi, it); my.DropDownItems.Add(fi); }
+            if (mine.Count > 0) { var all = new ToolStripMenuItem("All my sounds (" + mine.Count + ")"); foreach (var it in mine) addIt(all, it); my.DropDownItems.Add(all); }
+            else my.DropDownItems.Add(new ToolStripMenuItem("(none yet: import sounds in MY SOUNDS in the studio)") { Enabled = false });
+        }
         var file = new ToolStripMenuItem("A sound file on my PC..."); file.Click += (a, b) => { string f = PickFile(w, "Choose a sound"); if (f != null) put(f, Path.GetFileNameWithoutExtension(f)); }; items.Add(file);
         var lib = new ToolStripMenuItem("From the sound library"); items.Add(lib);
         foreach (var kd in Kinds)

@@ -218,7 +218,11 @@ static class PR
               WaveOutPlayer.Underruns += 1; bool did = go(); Check("two starved buffers refresh the sound output at once", did && eng.Reopens == r0 + 1, "reopens " + (eng.Reopens - r0));
               WaveOutPlayer.Underruns += 3; bool again = go(); Check("and it does not refresh again within a second and a half", !again && eng.Reopens == r0 + 1, "");
               System.Threading.Thread.Sleep(1600); WaveOutPlayer.Stalls += 1; did = go(); Check("a sound card that stops for a moment is refreshed too", did && eng.Reopens == r0 + 2, "reopens " + (eng.Reopens - r0));
-              eng.Playing = false; StudioEngine.LiveUntil = Environment.TickCount - 100000; WaveOutPlayer.Underruns += 5; Check("nothing is refreshed while nothing plays", !go() && eng.Reopens == r0 + 2, ""); Prefs.BufBoost = keepBoost; }
+              eng.Playing = false; StudioEngine.LiveUntil = Environment.TickCount - 100000; WaveOutPlayer.Underruns += 5; Check("nothing is refreshed while nothing plays", !go() && eng.Reopens == r0 + 2, "");
+              // playing pads or keys with the song stopped: the buffer grows too (it only grew while the song played, so live hits crackled until you pressed PLAY)
+              Prefs.BufBoost = 0; int bufWas = Prefs.BufEff; System.Threading.Thread.Sleep(1600); StudioEngine.LiveUntil = Environment.TickCount + 5000; go(); WaveOutPlayer.Underruns += 2; bool liveFix = go();
+              Check("crackle while playing live (song stopped) makes the buffer bigger at once", bufWas == 2 || (liveFix && Prefs.BufEff == bufWas + 1 && eng.Reopens == r0 + 3), "buffer " + bufWas + " -> " + Prefs.BufEff + ", reopens " + (eng.Reopens - r0));
+              StudioEngine.LiveUntil = Environment.TickCount - 1; eng.Shutdown(); Prefs.BufBoost = keepBoost; }
             SetF("tab", 0); eng.Tracks.Clear();
             foreach (var pp in ps) ProjectLibrary.Remove(pp); ProjectLibrary.Remove(p2);
 

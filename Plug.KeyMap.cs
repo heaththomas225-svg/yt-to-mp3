@@ -14,20 +14,42 @@ class KeyMapFx : SamplerFx
     public KeyMapFx()
     {
         Type = "pxkeymap"; Title = "Purphex Key Map"; Category = "Instruments"; Blurb = "Any sound on any key of your MIDI keyboard, on one key or played across a range of keys";
-        AddP("hv", "Headroom version", 0, 9, 2, "");
+        AddP("hv", "Headroom version", 0, 9, 3, "");
         AddC("fill", "Keys with no sound", new[] { "Silent", "Built-in piano" }, 1); AddC("span", "A new sound plays on", new[] { "One key", "The whole keyboard" }, 1); Hidden = "hv,fill,span"; var gp = Find("gain"); gp.Def = -5; Set("gain", -5);   // headroom: full-level sounds played as chords went far past full scale and the limiter crunched them
     }
     public override void Deserialize(string s)
     {   // older saves: before headroom (no hv) 5 dB down; with the 9 dB headroom (hv 1) 4 dB back up
-        base.Deserialize(s); if (s == null || s.IndexOf("gain=", StringComparison.Ordinal) < 0) { Set("hv", 2); return; }
+        base.Deserialize(s); if (s == null || s.IndexOf("gain=", StringComparison.Ordinal) < 0) { Set("hv", 3); return; }
         bool noHv = s.IndexOf("hv=", StringComparison.Ordinal) < 0; int hv = noHv ? 0 : (int)Math.Round(Get("hv"));
-        if (hv < 2) Set("gain", Math.Max(-24, Math.Min(12, Get("gain") + (noHv ? -5 : 4)))); Set("hv", 2);
+        if (hv < 2) Set("gain", Math.Max(-24, Math.Min(12, Get("gain") + (noHv ? -5 : 4))));
+        if (hv < 3) foreach (var z in ZonesCopy()) if (z.Lo <= 0 && z.Hi >= 127) z.Root = NaturalRoot(z);   // (3.80: a sound across the keyboard took the key it was dropped on as its own pitch: dropped low, every key you played squeaked octaves up)
+        Set("hv", 3);
     }
     // the sound a key plays (a range covering it counts), and the zone that gives it
     public Zone ZoneOf(int key) { return ZoneFor(key); }
     public string KeyName(int key) { var z = ZoneFor(key); return z == null ? "" : z.Name; }
     // a sound on this key only
     public string SetKey(int key, string path, string name) { CutRange(key, key); return AddToKit(path, name, key); }
+    // the key a sound across the whole keyboard plays as recorded: near middle C (where you play), on the sound's own note, so the keys are in tune
+    // (it took the key the sound was dropped on: a bass dropped on a low key squeaked octaves up on every key you played)
+    public static int NaturalRoot(Zone z)
+    {
+        int pc = 0;
+        try
+        {
+            var x = z.L; if (x != null && x.Length > 2048)
+            {
+                int st = z.Lead, len = Math.Min(x.Length - st, z.Rate); int per = Wavetables.FindPeriod(x, st + len / 8, Math.Min(x.Length, st + len / 8 + 8192), z.Rate);
+                if (per > 0) { double midi = 69 + 12 * Math.Log(z.Rate / (double)per / 440.0, 2); pc = ((int)Math.Round(midi) % 12 + 12) % 12; }
+            }
+        }
+        catch { }
+        return pc > 6 ? 48 + pc : 60 + pc;   // C4 for a sound in C, F#3..F4 around it for the others
+    }
+    // the whole keyboard, the sound at its own pitch near middle C
+    public string SetWhole(string path, string name) { var z = new Zone { Path = path, Name = name, Lo = 0, Hi = 127, Follow = true, OneShot = false }; string err = LoadInto(z); if (err != null) return err; z.Root = NaturalRoot(z); CutRange(0, 127); lock (zl) Zones.Add(z); return null; }
+    // the sound an octave lower or higher on the keys (the key that plays it as recorded moves up or down 12)
+    public void Octave(int key, int dir) { var z = ZoneFor(key); if (z == null || z.Lo == z.Hi) return; z.Root = Math.Max(-24, Math.Min(151, z.Root - 12 * dir)); }
     // a sound across lo..hi, pitched from root (the keys inside lose what they had)
     public string SetRange(int lo, int hi, int root, string path, string name)
     {
@@ -61,11 +83,12 @@ class KeyMapFx : SamplerFx
         piano.FeedEvents(pianoEv);
         base.OnEvents(ev);
     }
-    public override void Process(float[] l, float[] r, int n)
+    // the piano goes in before the sampler's limiter, so piano and sounds played together are turned down smoothly too
+    protected override void Extra(int n, out float[] xl, out float[] xr)
     {
-        base.Process(l, r, n); if (!pianoOn) return;
+        xl = xr = null; if (!pianoOn) return;
         if (piano.SR != SR) piano.Prepare(SR); if (pbL.Length < n) { pbL = new float[n]; pbR = new float[n]; } Array.Clear(pbL, 0, n); Array.Clear(pbR, 0, n);
-        piano.Process(pbL, pbR, n); float m = (float)Math.Pow(10, (Get("gain") + 5) / 20); for (int i = 0; i < n; i++) { l[i] += pbL[i] * m; r[i] += pbR[i] * m; }   // (the piano at its own level, moved with the Key Map's level)
+        piano.Process(pbL, pbR, n); float m = (float)Math.Pow(10, (Get("gain") + 5) / 20); for (int i = 0; i < n; i++) { pbL[i] *= m; pbR[i] *= m; } xl = pbL; xr = pbR;   // (the piano at its own level, moved with the Key Map's level)
     }
     public override bool HasWindow { get { return true; } }
     public override string WindowLabel { get { return "Open Purphex Key Map"; } }
@@ -81,7 +104,7 @@ class KeyMapFx : SamplerFx
 class KeyMapWindow : PxWindow, ISoundDrop
 {
     readonly KeyMapFx e; int sel = 60, held = -1, low = 36, lastSeen = -1; bool follow = true;   // low: the first key shown (5 octaves from there)
-    static readonly bool[] Black = { false, true, false, true, false, false, true, false, true, false, true, false };
+    internal static readonly bool[] Black = { false, true, false, true, false, false, true, false, true, false, true, false };
     readonly List<KeyValuePair<int, RectangleF>> keyRects = new List<KeyValuePair<int, RectangleF>>();
     public KeyMapWindow(KeyMapFx f) : base(f, "Key Map", new Size(1080, 660))
     {
@@ -101,7 +124,7 @@ class KeyMapWindow : PxWindow, ISoundDrop
     internal RectangleF KeyRect(int key) { foreach (var kv in keyRects) if (kv.Key == key) return kv.Value; return RectangleF.Empty; }
     int KeyAt(Point p) { for (int i = keyRects.Count - 1; i >= 0; i--) if (keyRects[i].Value.Contains(p)) return keyRects[i].Key; return -1; }   // (black keys are drawn last, so they win)
     bool WholeKeyboard { get { return e.Get("span") >= 0.5f; } }
-    void PutKey(int key, string path, string name, bool oneKey = false) { Mark(); string err = !oneKey && WholeKeyboard ? e.SetRange(0, 127, key, path, name) : e.SetKey(key, path, name); sel = key; if (err != null) MessageBox.Show(this, err, Text); }   // (across the whole keyboard it plays at its own pitch on this key, and higher or lower on the others)   // (no preview: a key only sounds when you play it)
+    void PutKey(int key, string path, string name, bool oneKey = false) { Mark(); string err = !oneKey && WholeKeyboard ? e.SetWhole(path, name) : e.SetKey(key, path, name); sel = key; if (err != null) MessageBox.Show(this, err, Text); }   // (across the whole keyboard it plays at its own pitch on this key, and higher or lower on the others)   // (no preview: a key only sounds when you play it)
     void Audition(int key) { e.NoteOn(key, 105); var t = new Timer { Interval = 450 }; t.Tick += (a, b) => { t.Stop(); t.Dispose(); e.NoteOff(key); }; t.Start(); }
     static Color ColourOf(string name) { int h = 0; foreach (char c in name) h = h * 31 + c; Color[] cs = { Pink, Cyan, Gold, Lime, Violet, Orange }; return cs[((h % cs.Length) + cs.Length) % cs.Length]; }
 
@@ -176,6 +199,12 @@ class KeyMapWindow : PxWindow, ISoundDrop
             Txt(g, "LEVEL  " + (zs.GainDb > 0 ? "+" : "") + zs.GainDb.ToString("0.#") + " dB", 11, Ink, new RectangleF(sx, lvy, sw, 30), StringAlignment.Near, true);
             Button(g, new RectangleF(sx + sw + 6, lvy, sw, 30), "−  QUIETER", false, Cyan, () => { Mark(); e.Nudge(s0, -1.5f); }, "Quieter", 10);
             Button(g, new RectangleF(sx + 2 * (sw + 6), lvy, sw, 30), "+  LOUDER", false, Cyan, () => { Mark(); e.Nudge(s0, 1.5f); }, "Louder", 10);
+            if (zs.Lo != zs.Hi)
+            {   // an octave down / up for a sound played across keys (and the key that plays it as recorded), in the columns of the LEVEL row
+                float oy = lvy + 38; Txt(g, "AS RECORDED ON " + KeyMapFx.NoteLabel(Math.Max(0, Math.Min(127, zs.Root))), 10, Ink, new RectangleF(sx, oy, sw, 30), StringAlignment.Near, true);
+                Button(g, new RectangleF(sx + sw + 6, oy, sw, 30), "OCTAVE DOWN", false, Cyan, () => { Mark(); e.Octave(s0, -1); Audition(s0); }, "Every key plays this sound an octave lower (deeper)", 10);
+                Button(g, new RectangleF(sx + 2 * (sw + 6), oy, sw, 30), "OCTAVE UP", false, Cyan, () => { Mark(); e.Octave(s0, 1); Audition(s0); }, "Every key plays this sound an octave higher", 10);
+            }
         }
     }
     void KitsMenu(Point at)
