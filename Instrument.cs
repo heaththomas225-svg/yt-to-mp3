@@ -59,6 +59,7 @@ abstract class InstrumentFx : Fx
 
     protected virtual void OnBlock(long pos, int n, bool transport) { }
     protected abstract void OnEvents(List<KeyValuePair<int, MidiEv>> events);
+    internal void FeedEvents(List<KeyValuePair<int, MidiEv>> events) { OnEvents(events); }   // another instrument hands this one its notes for the block (Key Map plays its empty keys on the built-in piano)
 
     // Called by the engine just before Process for this block.
     public override void BeginBlock(object track, long pos, int n, bool transport)

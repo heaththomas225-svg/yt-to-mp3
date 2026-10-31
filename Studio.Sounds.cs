@@ -194,7 +194,7 @@ partial class StudioForm
     }
     void PaintSoundTrim(Graphics g, RectangleF wf, SoundItem s)
     {
-        var t = SoundTrim(s); float a = t == null ? 0 : t[0], b = t == null ? 1 : t[1]; float xa = wf.X + a * wf.Width, xb = wf.X + b * wf.Width; var gold = Color.FromArgb(255, 255, 206, 84);
+        var t = SoundTrim(s); float a = t == null ? 0 : t[0], b = t == null ? 1 : t[1]; float xa = Math.Max(wf.X, Math.Min(wf.Right, SndX(a, wf))), xb = Math.Max(wf.X, Math.Min(wf.Right, SndX(b, wf))); bool showA = SndX(a, wf) >= wf.X - 1 && SndX(a, wf) <= wf.Right + 1, showB = SndX(b, wf) >= wf.X - 1 && SndX(b, wf) <= wf.Right + 1; var gold = Color.FromArgb(255, 255, 206, 84);
         using (var dim = new SolidBrush(Color.FromArgb(170, 6, 3, 16))) { if (xa > wf.X) g.FillRectangle(dim, wf.X, wf.Y, xa - wf.X, wf.Height); if (xb < wf.Right) g.FillRectangle(dim, xb, wf.Y, wf.Right - xb, wf.Height); }
         if (t != null) using (var pen = new Pen(Color.FromArgb(200, gold), 1.2f)) { g.DrawLine(pen, xa, wf.Y, xb, wf.Y); g.DrawLine(pen, xa, wf.Bottom - 1, xb, wf.Bottom - 1); }
         Action<float, bool> handle = (x, left) =>
@@ -202,10 +202,10 @@ partial class StudioForm
             using (var pen = new Pen(gold, 2f)) g.DrawLine(pen, x, wf.Y, x, wf.Bottom); var grip = Rc(left ? x : x - 9, wf.Y + wf.Height / 2 - 11, 9, 22); FillRR(g, gold, grip, 3);
             using (var pen = new Pen(Color.FromArgb(200, 60, 30, 0), 1f)) for (int k = -1; k <= 1; k++) g.DrawLine(pen, grip.X + 2, grip.Y + 11 + k * 4, grip.Right - 2, grip.Y + 11 + k * 4);
             var hr = Reg(Rc(x - 7, wf.Y, 14, wf.Height), () => { }); hr.Button = true;
-            hr.OnDrag = pt => { float f = (pt.X - wf.X) / wf.Width; var cur = SoundTrim(s); float ca = cur == null ? 0 : cur[0], cb = cur == null ? 1 : cur[1]; if (left) SetSoundTrim(s, Math.Min(f, cb - 0.01f), cb); else SetSoundTrim(s, ca, Math.Max(f, ca + 0.01f)); };
+            hr.OnDrag = pt => { float f = (float)SndF(pt.X, wf); var cur = SoundTrim(s); float ca = cur == null ? 0 : cur[0], cb = cur == null ? 1 : cur[1]; if (left) SetSoundTrim(s, Math.Min(f, cb - 0.01f), cb); else SetSoundTrim(s, ca, Math.Max(f, ca + 0.01f)); };
             Hint2(hr.R, left ? "TRIM: drag to where the part you want starts. Dragging the sound into the song, a pad or a key then uses only this part (the file is not changed)." : "TRIM: drag to where the part you want ends. The file itself is not changed.");
         };
-        handle(xa, true); handle(xb, false);
+        if (showA) handle(xa, true); if (showB) handle(xb, false);   // (zoomed in, a handle off the view is not drawn: zoom out or press FIT to reach it)
         if (t != null)
         {
             double len = s.Dur > 0 ? s.Dur : 0; Txt(g, "TRIMMED" + (len > 0 ? "  " + (a * len).ToString("0.00") + " - " + (b * len).ToString("0.00") + " s" : ""), 8, gold, Rc(wf.X + 6, wf.Y + 2, wf.Width - 70, 12), StringAlignment.Near, true);
@@ -292,7 +292,7 @@ partial class StudioForm
         float fy2 = fy + 30; bool tgt = InstantLib.TargetKey.Length > 0 || InstantLib.TargetBpm > 0;
         int moreOn = MoreCount(); var pk0 = F.Pack.Length > 0 ? SoundCatalog.Find(F.Pack) : null; string pkName = F.Pack.Length == 0 ? "" : (pk0 != null ? pk0.Name : (SoundLibrary.Pack(F.Pack) != null ? SoundLibrary.Pack(F.Pack).Name : F.Pack));
         Chip(g, Rc(x + 14, fy2, fw, 26), lab("Key", F.Key), F.Key.Length > 0, KeyMenu); Chip(g, Rc(x + 14 + (fw + 4), fy2, fw, 26), lab("BPM", bpmLabel), F.BpmMax > 0, BpmMenu); Chip(g, Rc(x + 14 + 2 * (fw + 4), fy2, fw, 26), lab("Pack", pkName), F.Pack.Length > 0, PackMenu); Chip(g, Rc(x + 14 + 3 * (fw + 4), fy2, fw, 26), moreOn > 0 ? "More (" + moreOn + ")" : "More", moreOn > 0 || tgt, MoreMenu); if (false) Chip(g, Rc(0, 0, 1, 1), "Toolkit", false, ToolkitMenu);
-        float ry = y + 150, rx = x + 14; float[] rw = { 92, 66, 100, 76, 84, 74, 62 }; string[] rn = { "Favourites", "Recent", "Collections", "One-shots", "Loops", "MIDI", "Clear" };
+        float ry = y + 150, rx = x + 14; float[] rw = { 92, 66, 100, 76, 84, 74, 62 }; string[] rn = { "Favourites", "Recent", "Folders", "One-shots", "Loops", "MIDI", "Clear" };
         for (int i = 0; i < rn.Length; i++)
         {
             var r = Rc(rx, ry, rw[i], 24); int k = i; bool on = (i == 0 && F.OnlyFav) || (i == 1 && F.OnlyRecent) || (i == 2 && F.Collection.Length > 0) || (i == 3 && F.Kind == "one-shot") || (i == 4 && F.Kind == "loop") || (i == 5 && F.Kind == "midi");
@@ -368,9 +368,11 @@ partial class StudioForm
         if (Auditioner.Loading && Auditioner.Current == s) Txt(g, "LOADING...", 12, DimC, wf, StringAlignment.Center, false);
         else if (s.Kind == "midi") DrawMidiPic(g, Rc(wf.X + 6, wf.Y + 4, wf.Width - 12, wf.Height - 8), s, Color.FromArgb(230, col), true);
         else if (s.Kind == "preset") Txt(g, s.Format == "Purphex Wobble preset" ? "A PURPHEX WOBBLE PRESET: PLAY IN A WOBBLE TRACK OPENS IT ON A NEW TRACK" : "A BASS LAB PRESET: ADD TO BASS LAB PUTS IT IN ITS PRESET BROWSER", 10, DimC, wf, StringAlignment.Center, true);
-        else if (s.Peaks != null && s.Peaks.Length > 0) using (var pen = new Pen(Color.FromArgb(220, col), 1.6f)) for (int i = 0; i < (int)wf.Width; i += 2) { float v = s.Peaks[Math.Min(s.Peaks.Length - 1, (int)(i / wf.Width * s.Peaks.Length))] / 255f * (wf.Height / 2 - 4); g.DrawLine(pen, wf.X + i, wf.Y + wf.Height / 2 - v, wf.X + i, wf.Y + wf.Height / 2 + v); }
-        if (cur && Auditioner.Length > 0) { float px = wf.X + (float)(Auditioner.Seconds / Auditioner.Length) * wf.Width; using (var pen = new Pen(Color.White, 1.5f)) g.DrawLine(pen, px, wf.Y + 2, px, wf.Bottom - 2); }
-        var wr = Reg(wf, () => { if (cur) Auditioner.Seek((MousePos.X - wf.X) / wf.Width); }); wr.OnDrag = pt => { if (cur) Auditioner.Seek((pt.X - wf.X) / wf.Width); };
+        else { if (sndZoomFor != s.Id) { sndZoomFor = s.Id; sndViewA = 0; sndViewB = 1; } PaintSoundWave(g, wf, s, col); }
+        if (cur && Auditioner.Length > 0) { float px = SndX(Auditioner.Seconds / Auditioner.Length, wf); if (px >= wf.X && px <= wf.Right) using (var pen = new Pen(Color.White, 1.5f)) g.DrawLine(pen, px, wf.Y + 2, px, wf.Bottom - 2); }
+        var wr = Reg(wf, () => { if (cur) Auditioner.Seek(SndF(MousePos.X, wf)); }); wr.OnDrag = pt => { if (cur) Auditioner.Seek(SndF(pt.X, wf)); };
+        if (s.IsAudio && s.Kind != "midi" && s.Kind != "preset") wr.OnWheel = d => SoundZoom(d > 0 ? 0.6 : 1 / 0.6, SndF(MousePos.X, wf));   // the wheel on the wave zooms in and out where the mouse is
+        if (cur) SoundTrimPlayback(s);
         if (s.IsAudio && s.Kind != "midi" && s.Kind != "preset") PaintSoundTrim(g, wf, s);
         float cy = r.Y + 92; bool playing = cur && Auditioner.IsPlaying;
         Btn(g, Rc(r.X + 12, cy, 66, 28), playing ? "Pause" : "Play", 1, () => { if (cur) { if (!playing && eng.Playing) PauseHere(); Auditioner.Toggle(); } else if (s.IsAudio || s.Kind == "midi") PreviewSound(s); }, 12); Btn(g, Rc(r.X + 82, cy, 50, 28), "Stop", 0, () => Auditioner.Stop(), 11);
@@ -378,10 +380,75 @@ partial class StudioForm
         Txt(g, "VOL", 10, DimC, Rc(r.X + 282, cy + 6, 24, 16), StringAlignment.Near, false); var vs = Slider(g, Rc(r.X + 306, cy + 5, r.Width - 306 - 16 + r.X - r.X, 18), SoundLibrary.AuditionVolume, f => { SoundLibrary.AuditionVolume = f; }, NeonCyan); vs.OnDouble = () => SoundLibrary.AuditionVolume = 0.8f;
         float by = cy + 34; bool preset = s.Kind == "preset", midi = s.Kind == "midi";
         Btn(g, Rc(r.X + 12, by, 168, 30), preset ? (s.Path.EndsWith(".purphexwobble", StringComparison.OrdinalIgnoreCase) ? "Play in a Wobble track" : "Add to Bass Lab") : (midi ? "Add to selected track" : "Add to timeline"), 2, () => { string m = midi ? DropMidi(s, Snap(DispPos), -1) : AddSample(s, Snap(DispPos), eng.Tracks.Count); if (m != null) Toast(m); }, 12);
-        bool fav = SoundLibrary.Favourites.Contains(s.Id); Chip(g, Rc(r.X + 184, by, 96, 30), fav ? "★ Favourite" : "☆ Favourite", fav, () => { SoundLibrary.ToggleFav(s); sndDirty = sndFilter.OnlyFav; }); Btn(g, Rc(r.X + 284, by, 104, 30), "Collection...", 0, () => SoundMenu(s), 11);
-        Btn(g, Rc(r.X + 392, by, 70, 30), "Folder", 0, () => { try { System.Diagnostics.Process.Start("explorer.exe", "/select,\"" + s.Path + "\""); } catch { } }, 11); Btn(g, Rc(r.X + 466, by, 80, 30), "Licence", 0, () => { var p = SoundLibrary.Pack(s.PackId); MessageBox.Show(this, (p != null ? p.Name + "\n\n" + p.License : (s.Instant ? s.PackName + "\n\n" + SoundLibrary.LicenceText : "No licence information.")), "Licence"); }, 11);
+        bool fav = SoundLibrary.Favourites.Contains(s.Id); Chip(g, Rc(r.X + 184, by, 96, 30), fav ? "★ Favourite" : "☆ Favourite", fav, () => { SoundLibrary.ToggleFav(s); sndDirty = sndFilter.OnlyFav; }); Btn(g, Rc(r.X + 284, by, 104, 30), "More...", 0, () => SoundMenu(s), 11);
+        Btn(g, Rc(r.X + 392, by, 70, 30), "Show file", 0, () => { try { System.Diagnostics.Process.Start("explorer.exe", "/select,\"" + s.Path + "\""); } catch { } }, 11); Btn(g, Rc(r.X + 466, by, 80, 30), "Licence", 0, () => { var p = SoundLibrary.Pack(s.PackId); MessageBox.Show(this, (p != null ? p.Name + "\n\n" + p.License : (s.Instant ? s.PackName + "\n\n" + SoundLibrary.LicenceText : "No licence information.")), "Licence"); }, 11);
         string info = (s.Format.Length > 0 ? s.Format : "") + (s.Rate > 0 && s.IsAudio ? "  ·  " + (s.Rate / 1000.0).ToString("0.#") + " kHz" : "") + (s.Dur > 0 ? "  ·  " + s.Dur.ToString("0.00") + " s" : "") + (s.Bpm > 0 ? "  ·  " + s.Bpm.ToString("0") + " BPM" : "") + (s.Key.Length > 0 ? "  ·  " + s.Key : "") + "  ·  " + s.PackName;
         Txt(g, info, 10, DimC, Rc(r.X + 12, by + 34, r.Width - 24, 16), StringAlignment.Near, false);
+        if (s.IsAudio && s.Kind != "midi" && s.Kind != "preset")
+        {   // zoom on the wave (for exact cut offs), keep the trimmed part as its own sound, delete a sound of yours
+            float ey = by + 54; bool zoomed = sndViewA > 0.0001 || sndViewB < 0.9999;
+            var zo = Rc(r.X + 12, ey, 34, 26); Btn(g, zo, "−", 0, () => SoundZoom(1 / 0.6, (sndViewA + sndViewB) / 2), 13); Hint2(zo, "Zoom out of the wave (or use the mouse wheel on it)");
+            var zi = Rc(r.X + 50, ey, 34, 26); Btn(g, zi, "+", 0, () => SoundZoom(0.6, (sndViewA + sndViewB) / 2), 13); Hint2(zi, "Zoom into the wave to set the cut offs exactly (or use the mouse wheel on it)");
+            var zf = Rc(r.X + 88, ey, 46, 26); Btn(g, zf, "FIT", zoomed ? 4 : 0, () => { sndViewA = 0; sndViewB = 1; }, 9); Hint2(zf, "See the whole sound again");
+            var tr0 = SoundTrim(s); var st = Rc(r.X + 142, ey, 140, 26); Btn(g, st, "SAVE TRIMMED", tr0 != null ? 2 : 0, () => SaveTrimmedSound(s), 9); Hint2(st, tr0 != null ? "Keep the trimmed part as a sound of its own in MY SOUNDS, right next to this one (this sound stays as it is). Play hears just the trimmed part first" : "Drag the gold handles on the wave first, then keep that part as a sound of its own");
+            bool mine = s.PackId == SoundLibrary.UserPackId; var dl = Rc(r.X + 290, ey, 90, 26); Btn(g, dl, "DELETE", mine ? 3 : 0, () => DeleteSound(s), 9); Hint2(dl, mine ? "Take this sound out of MY SOUNDS (it asks first)" : "A sound of a pack: remove the whole pack in SOUND PACKS instead");
+            var fo = Rc(r.X + 388, ey, 134, 26); Btn(g, fo, "ADD TO FOLDER", 0, () => SoundMenu(s), 9); Hint2(fo, "Put this sound in a folder of yours (Drill piano, Drill bass...) to keep MY SOUNDS neat. FOLDERS at the top shows one");
+        }
+    }
+    // ---- the wave of the picked sound, with zoom: the whole sound from its stored outline, a zoomed part in full detail from the sound itself ----
+    double sndViewA, sndViewB = 1; string sndZoomFor = ""; string sndWaveFor = ""; float[] sndWave; int sndWaveRate = 44100;
+    float SndX(double f, RectangleF wf) { return wf.X + (float)((f - sndViewA) / Math.Max(1e-6, sndViewB - sndViewA) * wf.Width); }
+    double SndF(float x, RectangleF wf) { return Math.Max(0, Math.Min(1, sndViewA + (x - wf.X) / wf.Width * (sndViewB - sndViewA))); }
+    void SoundZoom(double k, double at)
+    {
+        double w = Math.Max(0.002, Math.Min(1, (sndViewB - sndViewA) * k)); double a = at - (at - sndViewA) * (w / Math.Max(1e-6, sndViewB - sndViewA)); a = Math.Max(0, Math.Min(1 - w, a)); sndViewA = a; sndViewB = a + w; Invalidate();
+    }
+    void PaintSoundWave(Graphics g, RectangleF wf, SoundItem s, Color col)
+    {
+        bool zoomed = sndViewA > 0.0001 || sndViewB < 0.9999; float mid = wf.Y + wf.Height / 2, amp = wf.Height / 2 - 4;
+        if (zoomed && sndWaveFor != s.Id)
+        {   // the sound itself (as one channel), read once when you first zoom into it
+            sndWaveFor = s.Id; sndWave = null; float[] l, r2; int sr; string fmt;
+            try { if (s.Instant) InstantLib.Ensure(s); if (SoundIO.Read(s.Path, out l, out r2, out sr, out fmt) && l.Length > 0) { if (r2 != null && r2 != l) { var mono = new float[l.Length]; for (int i = 0; i < l.Length; i++) mono[i] = (l[i] + r2[i]) * 0.5f; l = mono; } sndWave = l; sndWaveRate = sr; } } catch { }
+        }
+        using (var pen = new Pen(Color.FromArgb(220, col), 1.4f))
+        {
+            if (zoomed && sndWave != null && sndWave.Length > 0)
+            {
+                int n = sndWave.Length; for (int i = 0; i < (int)wf.Width; i++)
+                {
+                    int a = (int)(SndF(wf.X + i, wf) * n), b = Math.Max(a + 1, (int)(SndF(wf.X + i + 1, wf) * n)); b = Math.Min(n, b); float mn = 0, mx = 0; int step = Math.Max(1, (b - a) / 64);
+                    for (int k = a; k < b; k += step) { float v = sndWave[k]; if (v < mn) mn = v; if (v > mx) mx = v; }
+                    g.DrawLine(pen, wf.X + i, mid - Math.Min(1, mx) * amp, wf.X + i, mid - Math.Max(-1, mn) * amp + 0.5f);
+                }
+                double secs = n / (double)sndWaveRate; Txt(g, (sndViewA * secs).ToString("0.000") + " s - " + (sndViewB * secs).ToString("0.000") + " s", 8, DimC, Rc(wf.Right - 150, wf.Bottom - 13, 146, 12), StringAlignment.Far, false);
+            }
+            else if (s.Peaks != null && s.Peaks.Length > 0)
+                for (int i = 0; i < (int)wf.Width; i += 2) { float v = s.Peaks[Math.Min(s.Peaks.Length - 1, (int)(SndF(wf.X + i, wf) * s.Peaks.Length))] / 255f * amp; g.DrawLine(pen, wf.X + i, mid - v, wf.X + i, mid + v); }
+        }
+    }
+    // a trimmed sound plays only its trimmed part (from the start handle; at the end handle it stops, or goes round again with Loop)
+    void SoundTrimPlayback(SoundItem s)
+    {
+        var t = SoundTrim(s); if (t == null || !Auditioner.IsPlaying || Auditioner.Length <= 0) return; double f = Auditioner.Seconds / Auditioner.Length;
+        if (f < t[0] - 0.002) Auditioner.Seek(t[0]); else if (f >= t[1]) { if (SoundLibrary.LoopPreview) Auditioner.Seek(t[0]); else { Auditioner.Pause(); Auditioner.Seek(t[0]); } }
+    }
+    // SAVE TRIMMED: the part between the handles becomes a sound of its own in MY SOUNDS, next to the original (which stays as it is)
+    internal SoundItem SaveTrimmedSound(SoundItem s)
+    {
+        if (SoundTrim(s) == null) { Toast("Drag the gold handles on the wave first: the part between them is what is kept."); return null; }
+        string f = TrimmedFile(s, s.Path); if (f == s.Path) { Toast("Couldn't make the trimmed sound."); return null; }
+        var it = SoundLibrary.AddVersion(s, f, false); if (it == null) { Toast("Couldn't keep the trimmed sound."); return null; }
+        ShowMySounds(); sndFilter.Text = it.Name; if (soundBox != null) soundBox.Text = it.Name; sndDirty = true; sndSel = it; Toast(it.Name + " is in MY SOUNDS: the trimmed part, as a sound of its own."); return it;
+    }
+    // DELETE: a sound of yours goes from MY SOUNDS (it asks first, in case it was a mistake)
+    internal Func<string, bool> deleteAsk;   // a test answers for itself
+    internal bool DeleteSound(SoundItem s)
+    {
+        if (s == null) return false; if (s.PackId != SoundLibrary.UserPackId) { Toast("That sound belongs to a pack: remove the whole pack in SOUND PACKS."); return false; }
+        string q = "Delete \"" + s.Name + "\" from MY SOUNDS?\n\nIts copy in your library goes too. A song or pad that uses it would lose it. (Your own original file, if you imported it from somewhere, is not touched.)";
+        if (!(deleteAsk != null ? deleteAsk(q) : AskYes(q, "Delete sound"))) return false;
+        if (Auditioner.Current == s) Auditioner.Stop(); bool ok = SoundLibrary.DeleteMine(s); if (sndSel == s) sndSel = null; sndDirty = true; Toast(ok ? s.Name + " was deleted from MY SOUNDS." : "Couldn't delete " + s.Name + "."); return ok;
     }
 
     // ---- menus ----
@@ -556,14 +623,14 @@ partial class StudioForm
     void CollectionsMenu()
     {
         var m = Win.NewMenu(); AddAny(m, "All sounds", () => sndFilter.Collection = ""); lock (SoundLibrary.Lock) foreach (var kv in SoundLibrary.Collections) { string n = kv.Key; AddItem(m, n + "  (" + kv.Value.Count + ")", sndFilter.Collection == n, () => sndFilter.Collection = n); }
-        if (SoundLibrary.Collections.Count == 0) m.Items.Add("(none yet: use Collection... on a sound)").Enabled = false; ShowFilterMenu(m);
+        if (SoundLibrary.Collections.Count == 0) m.Items.Add("(none yet: use ADD TO FOLDER on a sound)").Enabled = false; ShowFilterMenu(m);
     }
     void SoundMenu(SoundItem s)
     {
         var m = Win.NewMenu(); m.Items.Add("Add to timeline").Click += (a, b) => AddSampleAtNeedle(s);
         if (s.IsAudio) { m.Items.Add("Load it into the piano roll (play it from notes)").Click += (a, b) => SoundToSampler(s); if (PrShown && PrSampler != null) m.Items.Add("Put it on the piano roll's sampler (" + prTrack.Name + ")").Click += (a, b) => { PushUndo(); var sp = PrSampler; string e2 = sp.Zones.Count == 0 ? sp.SetSingle(s.Path, s.Name.Replace(s.PackName + " - ", ""), s.Type == "808" || s.Group == "Bass", 60) : sp.AddToKit(s.Path, s.Name.Replace(s.PackName + " - ", ""), 36 + sp.Zones.Count); Toast(e2 ?? "Done"); }; } m.Items.Add(SoundLibrary.Favourites.Contains(s.Id) ? "Remove from favourites" : "Add to favourites").Click += (a, b) => { SoundLibrary.ToggleFav(s); sndDirty = true; }; m.Items.Add(new ToolStripSeparator());
-        lock (SoundLibrary.Lock) foreach (var kv in SoundLibrary.Collections) { string n = kv.Key; bool inC = kv.Value.Contains(s.Id); m.Items.Add((inC ? "Remove from collection: " : "Add to collection: ") + n).Click += (a, b) => { if (inC) SoundLibrary.RemoveFromCollection(n, s); else SoundLibrary.AddToCollection(n, s); sndDirty = true; }; }
-        m.Items.Add("New collection with this sound...").Click += (a, b) => { string n = Ask("Collection name:", "My collection"); if (n != null) { SoundLibrary.AddToCollection(n.Trim().Replace("|", "/"), s); Toast("Added to " + n); } };
+        lock (SoundLibrary.Lock) foreach (var kv in SoundLibrary.Collections) { string n = kv.Key; bool inC = kv.Value.Contains(s.Id); m.Items.Add((inC ? "Take out of folder: " : "Add to folder: ") + n).Click += (a, b) => { if (inC) SoundLibrary.RemoveFromCollection(n, s); else SoundLibrary.AddToCollection(n, s); sndDirty = true; }; }
+        m.Items.Add("New folder with this sound...").Click += (a, b) => { string n = Ask("Folder name (for example: Drill piano, Drill bass):", "My folder"); if (n != null) { SoundLibrary.AddToCollection(n.Trim().Replace("|", "/"), s); Toast("Added to " + n); } };
         m.Items.Add(new ToolStripSeparator()); m.Items.Add("Show in folder").Click += (a, b) => { try { System.Diagnostics.Process.Start("explorer.exe", "/select,\"" + s.Path + "\""); } catch { } }; ShowFilterMenu(m);
     }
     void AddAny(ContextMenuStrip m, string text, Action a) { var it = new ToolStripMenuItem(text); it.Click += (x, y) => { a(); sndDirty = true; sndScroll = 0; }; m.Items.Add(it); m.Items.Add(new ToolStripSeparator()); }

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
@@ -355,8 +355,7 @@ class VstWindow : Form, IKeySink
         FormClosing += (s, e) => { if (idle != null) idle.Stop(); ReleaseAll(); try { fx.Plugin.CloseEditor(); } catch { } };
         VstPlugin.SizeWindowRequested += OnSizeRequest;
         FormClosed += (s, e) => VstPlugin.SizeWindowRequested -= OnSizeRequest;
-        Activated += (s, e) => { MidiInput.Target = fx; };
-        FormClosed += (s, e) => { if (MidiInput.Target == fx) MidiInput.Target = null; };
+        MidiWindow.Hook(this, fx);   // (your MIDI keyboard plays the VST while its window is open; the last window you used wins)
         Deactivate += (s, e) => ReleaseAll();
     }
 

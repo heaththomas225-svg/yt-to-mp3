@@ -340,7 +340,7 @@ static class PX
               for (int i = 0; i < 4; i++) ph.SetPad(i, full, "F" + i); for (int i = 0; i < 4; i++) ph.NoteOn(ph.PadNote(i), 127);
               var hl = new float[4096]; var hr = new float[4096]; ph.BeginBlock(th, 0, 4096, false); ph.Process(hl, hr, 4096); double hpk = 0; foreach (var v in hl) hpk = Math.Max(hpk, Math.Abs(v));
               var old = (PadsFx)FxRegistry.Create("pxpads"); old.Prepare(44100); old.Deserialize("gain=3;vel=70;rel=60"); var fresh = (PadsFx)FxRegistry.Create("pxpads"); fresh.Prepare(44100); fresh.Deserialize(ph.Serialize());
-              Check("Pads: four full-level hits together stay under full scale (12 dB of headroom), and a Pads saved before gets it too (its own level change kept)", hpk < 1.0 && Math.Abs(ph.Get("gain") + 12) < 0.01 && Math.Abs(old.Get("gain") + 9) < 0.01 && Math.Abs(fresh.Get("gain") + 12) < 0.01, "peak " + hpk.ToString("0.00") + ", old pads level " + old.Get("gain") + " dB"); }
+              Check("Pads: four full-level hits together round off smoothly at full scale (no crackle at -5 dB), and a Pads saved before comes to the new level (its own level change kept)", hpk <= 1.0 && Math.Abs(ph.Get("gain") + 5) < 0.01 && Math.Abs(old.Get("gain") + 2) < 0.01 && Math.Abs(fresh.Get("gain") + 5) < 0.01, "peak " + hpk.ToString("0.00") + ", old pads level " + old.Get("gain") + " dB"); }
             { var p3 = (PadsFx)FxRegistry.Create("pxpads"); p3.Prepare(44100); var t3 = StudioEngine.NewTrack("P3", "inst", null); t3.Instrument = true; p3.Owner = t3; t3.Fx.Add(p3);
               p3.NoteOn(40, 100); System.Threading.Thread.Sleep(650); p3.BeginBlock(t3, 0, 512, false); p3.Process(new float[512], new float[512], 512); bool stale = p3.LastIn == -1;
               p3.NoteOn(41, 100); p3.BeginBlock(t3, 0, 512, false); p3.Process(new float[512], new float[512], 512);
@@ -373,6 +373,7 @@ static class PX
             Func<int, float[]> play = note => { km.Reset(); km.NoteOn(note, 110); var l = new float[8192]; var r = new float[8192]; km.BeginBlock(kt, 0, 8192, false); km.Process(l, r, 8192); km.NoteOff(note); return l; };
             Func<float[], double> peak = x => { double p = 0; foreach (var v in x) p = Math.Max(p, Math.Abs(v)); return p; };
             Func<float[], double> freq = x => { int z = 0; for (int i = 2001; i < 8000; i++) if ((x[i - 1] < 0) != (x[i] < 0)) z++; return z / 2.0 / (6000 / 44100.0); };
+            km.Set("fill", 0);   // (empty keys silent: this checks the key map's own sounds; empty keys play the built-in piano otherwise)
             string a1 = km.SetKey(60, tone(300), "Bell"), a2 = km.SetKey(62, tone(500), "Pluck");
             Check("Key Map: a sound on a key plays from that key only, at its own pitch", a1 == null && peak(play(60)) > 0.1 && peak(play(61)) < 0.001 && Math.Abs(freq(play(60)) - 300) < 15 && km.KeyName(62) == "Pluck", "C4 " + freq(play(60)).ToString("0") + " Hz, C#4 " + peak(play(61)).ToString("0.000"));
             km.Spread(60, 48, 72); double up = freq(play(72)), at = freq(play(60));

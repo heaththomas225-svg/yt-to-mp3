@@ -290,6 +290,14 @@ static class SoundLibrary
     }
     static string DupeNote() { return LastDupes > 0 ? " (" + LastDupes + " duplicate" + (LastDupes == 1 ? "" : "s") + " skipped or removed)" : ""; }
     public static string DupeText { get { return DupeNote(); } }
+    // a sound of yours deleted from My samples: off the list, out of every folder, and its copy in the library removed (when no other sound uses that file)
+    public static bool DeleteMine(SoundItem s)
+    {
+        var up = Pack(UserPackId); if (up == null) return false; var cur = up.Items.Find(x => x.Id == s.Id) ?? s; if (!up.Items.Remove(cur)) return false;
+        lock (Lock) foreach (var kv in Collections) kv.Value.Remove(cur.Id); Favourites.Remove(cur.Id);
+        try { if (cur.Path.StartsWith(up.Dir, StringComparison.OrdinalIgnoreCase) && !up.Items.Exists(x => string.Equals(x.Path, cur.Path, StringComparison.OrdinalIgnoreCase)) && File.Exists(cur.Path)) File.Delete(cur.Path); } catch { }
+        WritePack(up); AddOrReplace(up); SaveUser(); return true;
+    }
     // the library sound a file is (by its path), so an edit of it can go back beside it
     public static SoundItem ItemAtPath(string path)
     {

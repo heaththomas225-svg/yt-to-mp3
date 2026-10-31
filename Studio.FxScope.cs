@@ -35,7 +35,8 @@ partial class StudioForm
         var plot = Rc(b.X + 12, b.Y + 22, b.Width - 24, b.Height - 22 - 18);
         string title, info;
         string ty = (f.Type + " " + f.Title).ToLowerInvariant();
-        if (ty.Contains("8d")) ScOrbit(g, plot, f, lvl, out title, out info);
+        if (f is WobbleLfoFx) ScWobble(g, plot, (WobbleLfoFx)f, lvl, out title, out info);
+        else if (ty.Contains("8d")) ScOrbit(g, plot, f, lvl, out title, out info);
         else if (ty.Contains("pitch corr") || ty.Contains("autotune") || ty.Contains("auto-tune") || f.Type == "pitch") ScSnap(g, plot, f, lvl, out title, out info);
         else if (ty.Contains("widen") || ty.Contains("imager") || ty.Contains("stereo")) ScField(g, plot, f, lvl, out title, out info);
         else if (ty.Contains("noise") || ty.Contains("denois")) ScNoise(g, plot, f, lvl, out title, out info);
@@ -187,6 +188,22 @@ partial class StudioForm
     }
 
     readonly Dictionary<Fx, float[]> scGr = new Dictionary<Fx, float[]>(); readonly Dictionary<Fx, int> scGrT = new Dictionary<Fx, int>();
+
+    // ---- Wobble LFO: the filter opening and closing over two wobbles, and where it is now ----
+    void ScWobble(Graphics g, RectangleF r, WobbleLfoFx f, float lvl, out string title, out string info)
+    {
+        int shape = (int)Math.Round(f.Get("shape")); double depth = f.Get("depth") / 100.0, lo = f.Get("low"), hi = Math.Max(lo + 10, f.Get("high")), vol = f.Get("vol") / 100.0;
+        Func<double, float> Y = hz => r.Bottom - (float)((Math.Log(hz) - Math.Log(30)) / (Math.Log(20000) - Math.Log(30)) * r.Height);
+        foreach (var hz in new[] { 100, 1000, 10000 }) ScHLine(g, r, Y(hz), hz >= 1000 ? (hz / 1000) + "k" : hz.ToString(), false);
+        for (int i = 1; i < 4; i++) ScVLine(g, r, r.X + r.Width * i / 4, null, i == 2);
+        using (var br = new SolidBrush(Color.FromArgb(26, ScGold))) g.FillRectangle(br, r.X, Y(hi), r.Width, Y(lo) - Y(hi));
+        var pts = new List<PointF>(); var vpts = new List<PointF>(); double off = f.Get("phase") / 360.0;
+        for (float x = 0; x <= r.Width; x += 2) { double p = x / r.Width * 2 + off; double u = shape == 5 ? 0.5 + 0.5 * Math.Sin(Math.Floor(p * 4) * 2.3) : f.ShapeAt(p, shape); double open = 1 - depth * (1 - u); pts.Add(new PointF(r.X + x, Y(lo * Math.Pow(hi / lo, open)))); vpts.Add(new PointF(r.X + x, r.Bottom - (float)((1 - vol * (1 - u)) * r.Height * 0.25))); }
+        ScFill(g, pts.ToArray(), r.Bottom, r, ScViolet, 70); ScGlow(g, pts.ToArray(), ScCyan, 2f); if (vol > 0.01) ScGlow(g, vpts.ToArray(), ScPink, 1.2f);
+        if (eng.Playing && lvl > 0.005f) { float sx = r.X + r.Width * f.Phase / 2; float sy = pts[Math.Max(0, Math.Min(pts.Count - 1, (int)((sx - r.X) / 2)))].Y; using (var pen = new Pen(Color.FromArgb(140, Color.White), 1f)) g.DrawLine(pen, sx, r.Y, sx, r.Bottom); using (var gl = new SolidBrush(Color.FromArgb(90, ScPink))) g.FillEllipse(gl, sx - 9, sy - 9, 18, 18); using (var dot = new SolidBrush(Color.White)) g.FillEllipse(dot, sx - 3.5f, sy - 3.5f, 7, 7); }
+        Txt(g, "FILTER", 7.5f, ScLabel, Rc(r.Right - 60, r.Y, 58, 11), StringAlignment.Far, true);
+        title = "WOBBLE  (2 CYCLES)"; info = "RATE " + f.RateText + "  \u00B7  " + WobbleLfoFx.Shapes[Math.Max(0, Math.Min(5, shape))].ToUpperInvariant() + "  \u00B7  DEPTH " + ScNum(depth * 100, "0") + "%";
+    }
 
     // ---- 8D: the sound going round your head ----
     void ScOrbit(Graphics g, RectangleF r, Fx f, float lvl, out string title, out string info)

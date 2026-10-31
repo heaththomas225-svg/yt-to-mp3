@@ -1757,6 +1757,7 @@ partial class StudioForm : Form
     {
         base.OnMouseDown(e); lastInput = DateTime.Now; if (ActiveControl is TextBoxBase && ActiveControl != editBox) ActiveControl = null; Focus(); MousePos = e.Location;   // clicking the studio takes the keys back from a search box (so Space plays again)
         keysInSounds = soundsOpen && tab == 0 && e.X >= ClientSize.Width - PanelW && e.Y >= ToolH + TransH;   // the last click was in the sound packs: Space plays and pauses the sound there
+        if (PrShown && prArea.Contains(e.Location)) PrTakeKeyboard();   // a click in the piano roll: your MIDI keyboard plays and records it (an open Key Map or Pads window held the keyboard, so the keys did nothing here)
         if (e.Button == MouseButtons.Middle && tab == 0 && TimelineRect().Contains(e.Location)) { MiddleDown(e.Location); return; }
         if (editBox != null && editBox.Visible) CommitEdit(true);   // clicking off a value box confirms what you typed
         if (tab == 3 && projSearchOn && !projSearchR.Contains(e.Location)) projSearchOn = false;
