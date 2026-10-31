@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 
 // Factory presets for Purphex VST batch 4 (Frost, Tape Dirt, Constellation).
@@ -50,6 +50,7 @@ static class PxPlugins4
     {
         FxRegistry.Register(new FxRegistry.Info("pxfrost", "Purphex Frost", "Purphex VST", "Spectral freeze with a ring modulator, a feedback delay and an LFO"), () => new FrostFx());
         FxRegistry.Register(new FxRegistry.Info("pxtape", "Purphex Tape Dirt", "Purphex VST", "Worn-out tape machine: drive, dirt (dull, flutter, drop-outs), VU meters"), () => new TapeDirtFx());
+        FxRegistry.Register(new FxRegistry.Info("pxwobblelfo", "Purphex Wobble LFO", "Purphex VST", "Makes any sound wobble (made for bass): a tempo-synced LFO opens and closes a filter, and the volume if you like"), () => new WobbleLfoFx());
         FxRegistry.Register(new FxRegistry.Info("pxconst", "Purphex Constellation", "Purphex VST", "Granular cloud on five pitched lanes with feedback and reverb"), () => new ConstellationFx());
         PresetsExtra.Data["pxfrost"] = Frost; PresetsExtra.Data["pxtape"] = Tape; PresetsExtra.Data["pxconst"] = Constellation;
     }

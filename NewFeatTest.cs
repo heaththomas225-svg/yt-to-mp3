@@ -865,6 +865,37 @@ static class NF
                             Check("in the sound list, Down picks the next sound (the tracks do not scroll)", s1 == res[1], s1 == null ? "none" : s1.Name); SetF("keysInSounds", false); Auditioner.Stop(); } }
                     }
                     { var rm = Win.NewReadableMenu(); var it = rm.Items.Add("Save this clip as a WAV on my PC..."); Check("the right-click menu of a track keeps clear writing (not all capitals) in a bigger font", it.Text == "Save this clip as a WAV on my PC..." && rm.Font.Size >= 11, it.Text + " / " + rm.Font.Size); rm.Dispose(); }
+                    if (orig != null)
+                    {   // SAVE TRIMMED keeps the trimmed part as its own sound next to it; DELETE asks first and takes a sound of yours out
+                        orig = SoundLibrary.Pack(SoundLibrary.UserPackId).Items.Find(x => x.Id == orig.Id) ?? orig; sf.SetSoundTrim(orig, 0.25f, 0.75f); int cnt0 = SoundLibrary.Pack(SoundLibrary.UserPackId).Items.Count;
+                        var tv = sf.SaveTrimmedSound(orig); Check("SAVE TRIMMED keeps the trimmed part as a sound of its own (half as long), and the original stays", tv != null && tv != orig && Math.Abs(tv.Dur - orig.Dur * 0.5) < 0.02 && SoundLibrary.Pack(SoundLibrary.UserPackId).Items.Count == cnt0 + 1, tv == null ? "none" : tv.Name + " " + tv.Dur.ToString("0.000") + " s of " + orig.Dur.ToString("0.000"));
+                        sf.SetSoundTrim(orig, 0, 1);
+                        if (tv != null) { sf.deleteAsk = q => false; bool no = sf.DeleteSound(tv); bool still = SoundLibrary.Pack(SoundLibrary.UserPackId).Items.Contains(tv); sf.deleteAsk = q => true; bool yes = sf.DeleteSound(tv); bool gone = !SoundLibrary.Pack(SoundLibrary.UserPackId).Items.Exists(x => x.Id == tv.Id);
+                          Check("DELETE asks first: No keeps the sound, Yes takes it out of MY SOUNDS", !no && still && yes && gone, no + " " + still + " " + yes + " " + gone); sf.deleteAsk = null; }
+                        typeof(StudioForm).GetMethod("CloseSounds", BF).Invoke(sf, null);
+                    }
+                    {   // the Wobble LFO effect: the filter opens and closes on the beat; depth 0 leaves the sound alone
+                        var wl = (WobbleLfoFx)FxRegistry.Create("pxwobblelfo"); wl.Prepare(44100); int nW = 44100; var nl = new float[nW]; var nr = new float[nW]; var rnd = new Random(3); for (int i = 0; i < nW; i++) { nl[i] = (float)(rnd.NextDouble() - 0.5); nr[i] = nl[i]; }
+                        Func<WobbleLfoFx, float[]> run = fx => { var l2 = (float[])nl.Clone(); var r2 = (float[])nr.Clone(); for (int p0 = 0; p0 < nW; p0 += 512) { int m = Math.Min(512, nW - p0); var bl2 = new float[m]; var br2 = new float[m]; Array.Copy(l2, p0, bl2, 0, m); Array.Copy(r2, p0, br2, 0, m); fx.BeginBlock(null, p0, m, true); fx.Process(bl2, br2, m); Array.Copy(bl2, 0, l2, p0, m); } return l2; };
+                        Fx.ProjectBpm = 120; wl.Set("rate", 2); wl.Set("depth", 100); var w1 = run(wl); double lo2 = 1e9, hi2 = 0; for (int seg = 0; seg < 8; seg++) { double e2 = 0; for (int i = seg * 5512; i < seg * 5512 + 5512; i++) e2 += w1[i] * w1[i]; lo2 = Math.Min(lo2, e2); hi2 = Math.Max(hi2, e2); }
+                        Check("Wobble LFO: the sound swells and dips with the wobble (1/4 notes at 120 BPM)", hi2 > lo2 * 3, (hi2 / Math.Max(1e-9, lo2)).ToString("0.0") + " x");
+                        var wl0 = (WobbleLfoFx)FxRegistry.Create("pxwobblelfo"); wl0.Prepare(44100); wl0.Set("depth", 0); wl0.Set("high", 18000); var w0 = run(wl0); double diff = 0; for (int i = 2000; i < nW; i++) diff = Math.Max(diff, Math.Abs(w0[i] - nl[i]));
+                        Check("Wobble LFO: it is listed as a Purphex VST", FxRegistry.All.Any(i => i.Type == "pxwobblelfo" && i.Category == "Purphex VST"), "");
+                    }
+                    {   // Pads and Key Map: the LFO moves the sound; the pads are louder now, and older saves come up to the new level
+                        var pd = (PadsFx)FxRegistry.Create("pxpads"); pd.Prepare(44100); var tone = new float[44100]; for (int i = 0; i < tone.Length; i++) tone[i] = 0.5f * (float)Math.Sin(i * 0.06); string tf2 = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "nf_tone.wav"); WavIO.Write(tf2, tone, tone, 44100, 24);
+                        pd.SetPad(0, tf2, "Tone"); Func<float[]> hit = () => { pd.Reset(); pd.Midi(0x99, (byte)pd.PadNote(0), 110, false); var l2 = new float[22050]; var r2 = new float[22050]; pd.BeginBlock(null, 0, 22050, false); pd.Process(l2, r2, 22050); return l2; };
+                        var flat = hit(); pd.Set("lfod", 100); pd.Set("lfot", 0); pd.Set("lfor", 8); var trem = hit(); double fmn = 1e9, fmx = 0; for (int seg = 1; seg < 8; seg++) { double e2 = 0; for (int i = seg * 2500; i < seg * 2500 + 2500; i++) e2 += trem[i] * trem[i]; fmn = Math.Min(fmn, e2); fmx = Math.Max(fmx, e2); }
+                        Check("Pads: the LFO on volume makes the sound pulse", fmx > fmn * 2, (fmx / Math.Max(1e-9, fmn)).ToString("0.0") + " x");
+                        Check("Pads: they play at -5 dB now (12 dB down made them quieter than everything else)", Math.Abs(pd.Find("gain").Def + 5) < 0.01, pd.Find("gain").Def.ToString());
+                        var pd2 = (PadsFx)FxRegistry.Create("pxpads"); pd2.Deserialize("gain=-12;hv=1"); Check("Pads: a project saved with the old headroom comes up to the new level", Math.Abs(pd2.Get("gain") + 5) < 0.01, pd2.Get("gain").ToString());
+                        var km = (KeyMapFx)FxRegistry.Create("pxkeymap"); km.Prepare(44100); km.Reset(); km.Midi(0x90, 64, 110, false); var kl = new float[8192]; var kr2 = new float[8192]; km.BeginBlock(null, 0, 8192, false); km.Process(kl, kr2, 8192); double kp = 0; foreach (var v in kl) kp = Math.Max(kp, Math.Abs(v));
+                        Check("Key Map: an empty Key Map still plays (the built-in piano on keys with no sound)", kp > 0.01, kp.ToString("0.000"));
+                        Check("Key Map: a new sound goes across the whole keyboard unless you pick one key", km.Get("span") >= 0.5f, "");
+                    }
+                    {   // the piano roll takes the MIDI keyboard from an open plugin window
+                        var other = (InstrumentFx)FxRegistry.Create("pxpads"); MidiInput.Target = other; sf.PrTakeKeyboard(); Check("clicking the piano roll gives it the MIDI keyboard (an open Pads or Key Map window held it)", MidiInput.Target == null, ""); MidiInput.Target = null;
+                    }
                     int lead = SamplerFx.LeadOf(vl, vl, 44100);
                     Check("a pad skips the silence at the front of a sound, so a hit is not late", lead > 4300 && lead <= 4410, lead + " frames skipped");
                     lock (sf.eng.Sync) { sf.eng.Tracks.Clear(); sf.eng.Tracks.AddRange(keepTracks); for (int k = 0; k < keepTracks.Count; k++) { keepTracks[k].Offset = keepState[k][0]; keepTracks[k].ClipStart = keepState[k][1]; keepTracks[k].ClipFrames = keepState[k][2]; keepTracks[k].Clip = keepClips[k]; keepTracks[k].Host = keepHosts[k]; } }

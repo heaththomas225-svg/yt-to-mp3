@@ -18,10 +18,10 @@ class PadsFx : SamplerFx
         Type = "pxpads"; Title = "Purphex Pads"; Category = "Instruments"; Blurb = "16 pads, any sound on each (library, your files or your tracks), played from your MIDI keyboard's pads";
         var hid = new List<string>();
         for (int i = 0; i < N; i++) { AddP("n" + i, "Pad " + (i + 1) + " note", 0, 127, 36 + i, ""); AddP("g" + i, "Pad " + (i + 1) + " level", -24, 12, 0, "dB"); AddP("c" + i, "Pad " + (i + 1) + " channel", 1, 16, 10, ""); hid.Add("n" + i); hid.Add("g" + i); hid.Add("c" + i); }
-        AddP("hv", "Headroom version", 0, 9, 1, ""); hid.Add("hv"); Hidden = string.Join(",", hid);
+        AddP("hv", "Headroom version", 0, 9, 2, ""); hid.Add("hv"); Hidden = string.Join(",", hid);
         // headroom: drum sounds come at full level, and a kick, an 808 and a clap together went to 4 times full scale: the limiter squashed that by 12 dB,
         // which is the crunchy crackle. The pads play 12 dB lower, so a whole kit fits (turn the track or the master up, cleanly)
-        var gp = Find("gain"); gp.Def = -12; Set("gain", -12);
+        var gp = Find("gain"); gp.Def = -5; Set("gain", -5);   // (now -5 dB: the sampler rounds off loud peaks smoothly, so the pads are no longer quieter than the rest of the song)
     }
     public int PadNote(int pad) { return (int)Math.Round(Get("n" + pad)); }
     public int PadChannel(int pad) { return (int)Math.Round(Get("c" + pad)); }
@@ -51,7 +51,12 @@ class PadsFx : SamplerFx
         SwapKeys(old, note); Set("n" + pad, note); if (other >= 0) Set("n" + other, old);
     }
     // a Purphex Pads saved before it had headroom gets it too (12 dB lower, its own level change kept)
-    public override void Deserialize(string s) { base.Deserialize(s); if (s != null && s.IndexOf("hv=", StringComparison.Ordinal) < 0 && s.IndexOf("gain=", StringComparison.Ordinal) >= 0) Set("gain", Math.Max(-24, Get("gain") - 12)); }
+    public override void Deserialize(string s)
+    {   // older saves: before headroom (no hv) the level goes 5 dB down; with the 12 dB headroom (hv 1) it comes 7 dB back up (the smooth ceiling does the job now)
+        base.Deserialize(s); if (s == null || s.IndexOf("gain=", StringComparison.Ordinal) < 0) { Set("hv", 2); return; }
+        bool noHv = s.IndexOf("hv=", StringComparison.Ordinal) < 0; int hv = noHv ? 0 : (int)Math.Round(Get("hv"));
+        if (hv < 2) Set("gain", Math.Max(-24, Math.Min(12, Get("gain") + (noHv ? -5 : 7)))); Set("hv", 2);
+    }
     protected override void OnEvents(List<KeyValuePair<int, MidiEv>> ev)
     {
         if (ev != null) foreach (var kv in ev) { var m = kv.Value; if ((m.S & 0xF0) == 0x90 && m.D2 > 0) { HitAt[m.D1 & 127] = Environment.TickCount; LastIn = m.D1; if (LearnPad >= 0) Learned = m.D1; } }
@@ -78,8 +83,9 @@ class PadsFx : SamplerFx
 #if !PURPHEX_CORE
 class PadsWindow : PxWindow, ISoundDrop
 {
+    bool setup;   // SET UP MY 8 PADS: learning pads 1 to 8 in order
     readonly PadsFx e; int sel, held = -1, dragFrom = -1, dragTo = -1;   // dragFrom / dragTo: a pad being dragged onto another
-    public PadsWindow(PadsFx f) : base(f, "Pads", new Size(1000, 660))
+    public PadsWindow(PadsFx f) : base(f, "Pads", new Size(1000, 760))
     {
         e = f; Accent = Pink; AllowDrop = true; MidiWindow.Hook(this, f);
         DragEnter += (s, a) => { a.Effect = SoundSources.AudioFiles(a.Data).Count > 0 ? DragDropEffects.Copy : DragDropEffects.None; };
@@ -104,7 +110,7 @@ class PadsWindow : PxWindow, ISoundDrop
 
     protected override void PaintBody(Graphics g, RectangleF a)
     {
-        if (e.LearnPad >= 0 && e.Learned >= 0) { Mark(); e.MovePad(e.LearnPad, e.Learned); e.Set("c" + e.LearnPad, e.LearnedCh); sel = e.LearnPad; e.LearnPad = -1; e.Learned = -1; }
+        if (e.LearnPad >= 0 && e.Learned >= 0) { Mark(); int done = e.LearnPad; e.MovePad(done, e.Learned); e.Set("c" + done, e.LearnedCh); sel = done; e.Learned = -1; e.LearnPad = setup && done < 7 ? done + 1 : -1; if (e.LearnPad < 0) setup = false; }   // SET UP MY 8 PADS goes on to the next pad
         // the top: a whole kit at once, LEARN, clear
         var top = new RectangleF(a.X, a.Y, a.Width, 56); Panel(g, top, "", Pink);
         Button(g, new RectangleF(top.X + 12, top.Y + 10, 230, 36), "KIT FROM A GENRE  ▾", false, Pink, () => KitMenu(new Point((int)top.X + 12, (int)top.Y + 46)), "Fill all 16 pads with a genre's drum kit from the sound library", 12);
@@ -112,7 +118,7 @@ class PadsWindow : PxWindow, ISoundDrop
         Button(g, new RectangleF(top.X + 442, top.Y + 10, 120, 36), "CLEAR ALL", false, Violet, () => { if (MessageBox.Show(this, "Take the sound off every pad?", Text, MessageBoxButtons.YesNo) != DialogResult.Yes) return; Mark(); for (int i = 0; i < PadsFx.N; i++) e.ClearPad(i); }, "Take the sounds off all the pads", 11);
         Button(g, new RectangleF((top.X + 572), top.Y + 10, 110, 36), "SAVE KIT", false, Lime, SaveMine, "Save these sounds as a kit of yours, with a name: its sounds are copied in, so it always works", 11);
         Button(g, new RectangleF((top.X + 572) + 118, top.Y + 10, 120, 36), "MY KITS  ▾", false, Lime, () => KitsMenu(new Point((int)((top.X + 572) + 118), (int)top.Y + 46)), "Your saved kits: pick one to load it (the arrows at the top step through them)", 11);
-        Txt(g, "Drop or right-click a pad", 10.5f, Dim, new RectangleF(top.X + 822, top.Y, top.Width - 834, top.Height), StringAlignment.Near, false);
+        Button(g, new RectangleF(top.X + 822, top.Y + 10, top.Width - 834, 36), setup ? "HIT PAD " + (e.LearnPad + 1) + " OF 8..." : "SET UP MY 8 PADS", setup, Gold, () => { if (setup) { setup = false; e.LearnPad = -1; return; } setup = true; e.LearnPad = 0; e.Learned = -1; sel = 0; }, setup ? "Hit your keyboard's pads in order, 1 to 8: each one goes on the next box (press again to stop)" : "Hit your keyboard's pads 1 to 8 in order and they go on boxes 1 to 8, whatever notes your keyboard sends", 10);
         // what comes in from your MIDI keyboard: connected or not, the last pad or key you hit, and whether a pad plays it
         bool ign = unchecked(Environment.TickCount - e.IgnoredAt) < 4000 && e.Ignored.Length > 0;
         int ln = e.LastIn; string inTxt = ign ? "NOT A PAD: " + e.Ignored + " (your keys play your instrument). If that was a pad, pick a pad, press LEARN and hit it" : MidiInput.OpenName.Length == 0 ? "MIDI KEYBOARD: NOT CONNECTED (right-click MIDI REC in the studio to pick it)" : ln < 0 ? "MIDI KEYBOARD: " + MidiInput.OpenName.ToUpperInvariant() + "  ·  hit a pad on it" : "LAST HIT: " + PadsFx.NoteName(ln) + (e.PadOf(ln) >= 0 ? "  ·  PAD " + (e.PadOf(ln) + 1) : "  ·  NO PAD PLAYS THIS NOTE: pick a pad, press LEARN, hit it again");
@@ -146,6 +152,10 @@ class PadsWindow : PxWindow, ISoundDrop
         Button(g, new RectangleF(side.X + 14, side.Y + 300, bw, 30), "−", false, Cyan, () => { Mark(); e.MovePad(s0, e.PadNote(s0) - 1); }, "One key lower", 14);
         Button(g, new RectangleF(side.X + 14 + bw + 6, side.Y + 300, bw, 30), "+", false, Cyan, () => { Mark(); e.MovePad(s0, e.PadNote(s0) + 1); }, "One key higher", 14);
         Button(g, new RectangleF(side.X + 14 + (bw + 6) * 2, side.Y + 300, bw, 30), "LEARN", e.LearnPad == sel, Gold, () => e.LearnPad = e.LearnPad == sel ? -1 : sel, "Then hit the pad or key on your MIDI keyboard that should play this pad", 10);
+        // the LFO: moves the volume, the pitch or a filter of every pad
+        { float ly = side.Y + 344; Txt(g, "LFO", 11, Gold, new RectangleF(side.X + 14, ly, 60, 16), StringAlignment.Near, true);
+          Knob(g, side.X + side.Width * 0.3f, ly + 46, 22, "lfor", "RATE", Gold); Knob(g, side.X + side.Width * 0.7f, ly + 46, 22, "lfod", "DEPTH", Gold);
+          Segments(g, new RectangleF(side.X + 14, ly + 96, side.Width - 28, 28), "lfot", Gold, 9); }
         Button(g, new RectangleF(side.X + 14, side.Bottom - 44, side.Width - 28, 30), "CLEAR THIS PAD", false, Violet, () => { Mark(); e.ClearPad(s0); }, "Take the sound off this pad", 10.5f);
     }
 

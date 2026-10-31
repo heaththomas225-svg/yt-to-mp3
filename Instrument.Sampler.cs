@@ -23,12 +23,14 @@ class SamplerFx : InstrumentFx   // (Purphex Pads is a sampler with a window of 
         public Zone Copy() { return new Zone { Path = Path, Name = Name, Lo = Lo, Hi = Hi, Root = Root, Follow = Follow, OneShot = OneShot, GainDb = GainDb, L = L, R = R, Rate = Rate, Missing = Missing, Lead = Lead }; }
     }
     class Voice { public bool On, Releasing, Choked; public Zone Z; public int Note; public double Pos, Step, Gain, Env, Rel, LastL, LastR; }
-    double tailL, tailR;   // what a voice taken for a new note was playing, fading away in 3 ms (cut in one sample it clicked)
+    double tailL, tailR, lfoPh, flL, flR;   // flL / flR: the LFO filter   // what a voice taken for a new note was playing, fading away in 3 ms (cut in one sample it clicked)
     public readonly List<Zone> Zones = new List<Zone>(); readonly Voice[] voices = new Voice[48]; List<KeyValuePair<int, MidiEv>> pending; protected readonly object zl = new object();   // (the audio thread reads the zones under it)
     public SamplerFx()
     {
         Type = "sampler"; Title = "Purphex Sampler"; Category = "Instruments"; Blurb = "Plays your samples from notes: one sample (kick, snare, 808...) or a kit mapped to keys, fixed pitch or following the notes";
         AddP("gain", "Level", -24, 12, 0, "dB"); AddP("rel", "Release", 5, 2000, 60, "ms"); AddP("vel", "Velocity", 0, 100, 70, "%");
+        // the LFO: it moves the level (tremolo), the pitch (vibrato) or a filter (wobble) at RATE, as much as DEPTH (0 = off, as before)
+        AddP("lfor", "LFO rate", 0.1f, 16, 3, "Hz"); AddP("lfod", "LFO depth", 0, 100, 0, "%"); AddC("lfot", "LFO moves", new[] { "Volume", "Pitch", "Filter" }, 2);
         for (int i = 0; i < voices.Length; i++) voices[i] = new Voice();
     }
     public override bool IsInstrument { get { return true; } }
@@ -130,12 +132,15 @@ class SamplerFx : InstrumentFx   // (Purphex Pads is a sampler with a window of 
         double rate = z.Rate / (double)SR, pitch = z.Follow ? Math.Pow(2, (note - z.Root) / 12.0) : 1.0; double vs = Get("vel") / 100.0;
         v.On = true; v.Releasing = false; v.Choked = false; v.LastL = v.LastR = 0; v.Z = z; v.Note = note; v.Pos = z.OneShot ? z.Lead : 0; v.Step = rate * pitch; v.Gain = ((1 - vs) + vs * vel / 127.0) * Math.Pow(10, z.GainDb / 20.0); v.Env = 1; v.Rel = 0;
     }
+    static double Soft(double x) { double a = Math.Abs(x); return Math.Sign(x) * (0.95 + 0.05 * Math.Tanh((a - 0.95) / 0.05)); }
     void Stop(int note) { foreach (var v in voices) if (v.On && v.Note == note && !v.Releasing && !v.Z.OneShot) v.Releasing = true; }
     public override void Process(float[] l, float[] r, int n)
     {
         var ev = pending; pending = null; int ei = 0; double relK = Math.Exp(-1.0 / (Math.Max(5, Get("rel")) / 1000.0 * SR)), master = Math.Pow(10, Get("gain") / 20.0); double fadeIn = SR * 0.0015, chokeK = Math.Exp(-1.0 / (0.010 * SR));
+        double lfoD = Get("lfod") / 100.0, lfoInc = Get("lfor") / SR; int lfoT = (int)Math.Round(Get("lfot")); bool lfoOn = lfoD > 0.001;
         for (int i = 0; i < n; i++)
         {
+            double lfoS = 0, pm = 1; if (lfoOn) { lfoPh += lfoInc; if (lfoPh >= 1) lfoPh -= 1; lfoS = Math.Sin(2 * Math.PI * lfoPh); if (lfoT == 1) pm = Math.Pow(2, lfoD * lfoS / 12.0); }   // (vibrato: up to a semitone each way)
             while (ev != null && ei < ev.Count && ev[ei].Key <= i)
             {
                 var m = ev[ei].Value; int kind = m.S & 0xF0; ei++;
@@ -151,10 +156,17 @@ class SamplerFx : InstrumentFx   // (Purphex Pads is a sampler with a window of 
                 double a = L[p] + (L[p + 1] - L[p]) * fr, b = R[p] + (R[p + 1] - R[p]) * fr;
                 if (v.Releasing) { v.Env *= v.Choked ? chokeK : relK; if (v.Env < 1e-4) { v.On = false; continue; } }
                 double att = !z.Follow || v.Pos * (1 / v.Step) > fadeIn ? 1 : v.Pos / v.Step / fadeIn;   // (a pitched sample starts with a tiny fade: no click when it starts mid-wave)
-                double g = v.Gain * v.Env * att; sl += a * g; sr += b * g; v.LastL = a * g; v.LastR = b * g; v.Pos += v.Step;
+                double g = v.Gain * v.Env * att; sl += a * g; sr += b * g; v.LastL = a * g; v.LastR = b * g; v.Pos += v.Step * pm;
                 int left = L.Length - 1 - (int)v.Pos; if (left < 64 && left >= 0) { double t = left / 64.0; sl -= a * g * (1 - t); sr -= b * g * (1 - t); }   // (the last 64 samples fade out: no click at the end)
             }
-            l[i] += (float)(sl * master); r[i] += (float)(sr * master);
+            if (lfoOn)
+            {
+                if (lfoT == 0) { double vg = 1 - lfoD * (0.5 - 0.5 * lfoS); sl *= vg; sr *= vg; }   // volume
+                else if (lfoT == 2) { double fc = 120 * Math.Pow(150, 1 - lfoD * (0.5 - 0.5 * lfoS)), fa = 1 - Math.Exp(-2 * Math.PI * Math.Min(fc, SR * 0.45) / SR); flL += (sl - flL) * fa; flR += (sr - flR) * fa; sl = flL; sr = flR; }   // filter (18 kHz open down to about 120 Hz)
+            }
+            double ol = sl * master, or = sr * master;
+            if (ol > 0.95 || ol < -0.95) ol = Soft(ol); if (or > 0.95 || or < -0.95) or = Soft(or);   // a smooth ceiling: several loud hits together round off instead of crackling
+            l[i] += (float)ol; r[i] += (float)or;
         }
     }
 }

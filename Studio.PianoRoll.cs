@@ -132,10 +132,15 @@ partial class StudioForm
     }
 
     // ---- opening ----
+    // the piano roll takes the MIDI keyboard from an open plugin window (Key Map, Pads...), unless that window is the piano roll's own instrument; clicking the window gives it back
+    internal void PrTakeKeyboard()
+    {
+        var tg = MidiInput.Target; if (tg == null) return; if (prTrack != null && (prTrack.Fx.Contains(tg) || tg.Owner == prTrack)) return; MidiInput.Target = null;
+    }
     internal void OpenPianoRoll(Track t)
     {
         if (t == null) { t = PrDefaultTrack(); }
-        if (t != null) PrSetTrack(t); OpenInspector(4); if (Prefs.InsH < 420) { Prefs.InsH = 420; Prefs.Changed(); }
+        if (t != null) PrSetTrack(t); OpenInspector(4); if (Prefs.InsH < 420) { Prefs.InsH = 420; Prefs.Changed(); } PrTakeKeyboard();
     }
     Track PrDefaultTrack() { var cur = eng.Tracks.Count > 0 ? eng.Tracks[Math.Max(0, Math.Min(selTrack, eng.Tracks.Count - 1))] : null; if (cur != null && !cur.IsBus) return cur;   /* the track you picked, whatever it is (no sound yet: choose one here) */ foreach (var x in eng.Tracks) if (PrCanEdit(x)) return x; return cur; }
     internal static bool PrCanEdit(Track t) { return t != null && !t.IsBus && t.Instrument; }
