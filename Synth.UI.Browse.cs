@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Windows.Forms;
@@ -32,12 +32,31 @@ partial class SynthCanvas
         Typing = true; try { return StudioDialogs.Ask(FindForm(), prompt, def); } finally { Typing = false; Poke(); }
     }
 
-    class SoundRow { public string Name, Head; public CommPreset Comm; }
+    class SoundRow { public string Name, Head; public CommPreset Comm; public SoundItem Sample; }
+    // a sound you imported becomes oscillator A's wavetable (Custom 1): 8 cycles from along the sound, so WT POSITION moves through it (kept with this Bass Lab sound)
+    internal string UseSampleAsWave(SoundItem s)
+    {
+        try
+        {
+            if (s.Instant) InstantLib.Ensure(s); float[] l, r; int sr; string fmt; if (!SoundIO.Read(s.Path, out l, out r, out sr, out fmt) || l.Length < 64) { browseMsg = "Couldn't read " + s.Name + "."; return browseMsg; }
+            if (r != null && r != l) { var m = new float[l.Length]; for (int i = 0; i < m.Length; i++) m[i] = (l[i] + r[i]) * 0.5f; l = m; }
+            Wavetables.SetCustom(0, Wavetables.FramesFromSample(l, sr)); fx.Set("aon", 1); fx.Set("asrc", 0); fx.Set("atbl", Wavetables.CustomBase); fx.Set("awt", 0); modified = true;
+            browseMsg = "Oscillator A now has the shape of " + s.Name + " (Custom 1). Turn WT POSITION to move through it, and SAVE CURRENT SOUND to keep it."; return browseMsg;
+        }
+        catch (Exception ex) { browseMsg = "Couldn't use " + s.Name + ": " + ex.Message; return browseMsg; }
+    }
     List<SoundRow> SoundRows()
     {
         var l = new List<SoundRow>();
         if (soundTab == 0) { foreach (var c in SynthPresets.Categories) { if (browseCat.Length > 0 && c != browseCat) continue; var n = SynthPresets.InCategory(c); if (n.Count == 0) continue; if (browseCat.Length == 0) l.Add(new SoundRow { Head = c.ToUpperInvariant() }); foreach (var s in n) l.Add(new SoundRow { Name = s }); } }
         else if (soundTab == 1) { foreach (var s in SynthPresets.UserNames()) l.Add(new SoundRow { Name = s }); }
+        else if (soundTab == 3)
+        {   // the sounds you imported into MY SOUNDS (in the studio's sound library): one click makes a sound the shape of oscillator A
+            var up = SoundLibrary.Pack(SoundLibrary.UserPackId); var items = up == null ? new List<SoundItem>() : up.Items.FindAll(it => it.IsAudio && it.Kind != "midi"); items.Sort((p, q) => string.Compare(p.Name, q.Name, StringComparison.OrdinalIgnoreCase));
+            Dictionary<string, List<string>> cols; lock (SoundLibrary.Lock) cols = new Dictionary<string, List<string>>(SoundLibrary.Collections);
+            foreach (var kv in cols) { var inF = items.FindAll(it => kv.Value.Contains(it.Id)); if (inF.Count == 0) continue; l.Add(new SoundRow { Head = "FOLDER: " + kv.Key.ToUpperInvariant() }); foreach (var it in inF) l.Add(new SoundRow { Name = it.Name, Sample = it }); }
+            if (items.Count > 0) l.Add(new SoundRow { Head = "ALL YOUR SAMPLES" }); foreach (var it in items) l.Add(new SoundRow { Name = it.Name, Sample = it });
+        }
         else if (commList != null) { foreach (var cp in commList) l.Add(new SoundRow { Name = cp.Name, Comm = cp }); }
         return l;
     }
@@ -58,13 +77,14 @@ partial class SynthCanvas
         Txt(g, "(drag n drop)   playing: " + (modified ? "* " : "") + fx.PresetName, 11, Dim, Rc(x0, pan.Y + 38, iw - 50, 18), StringAlignment.Near, false);
         var close = Rc(pan.Right - 62, pan.Y + 12, 44, 28); Fill(g, Hot(close) ? PanelHi : Panel, close, 6); Stroke(g, Edge, close, 6, 1); Txt(g, "X", 13, Ink, close, StringAlignment.Center, true); Add(close).Down = pt => CloseSounds();
         // the three tabs
-        string[] tn = { "BUILT-IN", "MY SOUNDS", "COMMUNITY" }; int[] tc = { SynthPresets.Names == null ? 0 : SynthPresets.Names.Length, SynthPresets.UserNames().Count, commList == null ? 0 : commList.Count };
-        float tw = (iw - 12) / 3f, ty = pan.Y + 64;
-        for (int i = 0; i < 3; i++)
+        var upS = SoundLibrary.Pack(SoundLibrary.UserPackId); int nSamples = upS == null ? 0 : upS.Items.FindAll(it => it.IsAudio && it.Kind != "midi").Count;
+        string[] tn = { "BUILT-IN", "MY SOUNDS", "COMMUNITY", "MY SAMPLES" }; int[] tc = { SynthPresets.Names == null ? 0 : SynthPresets.Names.Length, SynthPresets.UserNames().Count, commList == null ? 0 : commList.Count, nSamples };
+        float tw = (iw - 18) / 4f, ty = pan.Y + 64;
+        for (int i = 0; i < 4; i++)
         {
             int k = i; var r = Rc(x0 + i * (tw + 6), ty, tw, 32); bool sel = soundTab == i; Fill(g, sel ? PanelHi : Panel, r, 7); Stroke(g, sel ? Acc : Edge, r, 7, sel ? 2 : 1);
             Txt(g, tn[i] + (i == 2 && commList == null ? "" : "  " + tc[i]), 11, sel ? Ink : Dim, r, StringAlignment.Center, sel);
-            var rg = Add(r); rg.Tip = i == 0 ? "The sounds that come with the DAW" : (i == 1 ? "The sounds you saved: they stay until you delete them" : "Sounds other people published"); rg.Down = pt => { soundTab = k; browseScroll = 0; browseMsg = ""; if (k == 2 && commList == null && !commLoading) CommFetch(); else if (k == 2) CommFetch(); };
+            var rg = Add(r); rg.Tip = i == 0 ? "The sounds that come with the DAW" : (i == 1 ? "The sounds you saved: they stay until you delete them" : (i == 2 ? "Sounds other people published" : "The sounds you imported into MY SOUNDS: click one and it becomes the shape of oscillator A")); rg.Down = pt => { soundTab = k; browseScroll = 0; browseMsg = ""; if (k == 2 && commList == null && !commLoading) CommFetch(); else if (k == 2) CommFetch(); };
         }
         float cy = ty + 42;
         if (soundTab == 0)
@@ -84,7 +104,7 @@ partial class SynthCanvas
         var lw = Add(list); lw.Wheel = d => { browseScroll = Math.Max(0, Math.Min(maxScroll, browseScroll - d * 36)); };
         bool lbar = maxScroll > 0 && list.Height > 130; float rowW = list.Width - (lbar ? 62 : 16); var inner = Rc(list.X + 2, list.Y + 2, list.Width - 4, list.Height - 4);
         var gs = g.Save(); g.SetClip(inner, System.Drawing.Drawing2D.CombineMode.Intersect);
-        if (rows.Count == 0) Txt(g, soundTab == 2 ? (commLoading || commList == null ? "Loading the community..." : (commErr.Length > 0 ? commErr : "Nobody has published a Bass Lab sound yet. Be the first: press PUBLISH SOUNDS TO COMMUNITY.")) : (soundTab == 1 ? "You have not saved a sound yet. Make one, then press SAVE CURRENT SOUND. You can also drop a .bsound file anywhere on Bass Lab." : "Nothing here."), 12, Dim, Rc(list.X + 14, list.Y + 12, list.Width - 28, 80), StringAlignment.Near, false);
+        if (rows.Count == 0) Txt(g, soundTab == 3 ? "No samples yet: import sounds into MY SOUNDS in the studio (IMPORT AUDIO in the sounds panel), then they show up here." : soundTab == 2 ? (commLoading || commList == null ? "Loading the community..." : (commErr.Length > 0 ? commErr : "Nobody has published a Bass Lab sound yet. Be the first: press PUBLISH SOUNDS TO COMMUNITY.")) : (soundTab == 1 ? "You have not saved a sound yet. Make one, then press SAVE CURRENT SOUND. You can also drop a .bsound file anywhere on Bass Lab." : "Nothing here."), 12, Dim, Rc(list.X + 14, list.Y + 12, list.Width - 28, 80), StringAlignment.Near, false);
         float yy = list.Y + 6 - browseScroll;
         foreach (var row in rows)
         {
@@ -102,9 +122,11 @@ partial class SynthCanvas
                     if (!CommunityPresets.Safe("synth", rowC.Comm.Data)) { browseMsg = "That sound is not valid."; return; }
                     try { SynthPresets.ApplyData(fx, rowC.Comm.Name, rowC.Comm.Data); modified = false; browseMsg = "Loaded " + rowC.Comm.Name + " by " + rowC.Comm.Author + ". Press SAVE CURRENT SOUND to keep your own copy."; CommunityPresets.Tell("use", rowC.Comm.Id); } catch (Exception ex) { browseMsg = "Could not load it: " + ex.Message; }
                 }
+                else if (rowC.Sample != null) UseSampleAsWave(rowC.Sample);
                 else { SynthPresets.Apply(fx, n); modified = false; browseMsg = "Loaded " + n; }
             };
-            rg.Drag = (dx, dy) => { if (Math.Abs(dx) > 22 || Math.Abs(dy) > 22) DragOut(n, SoundData(rowC)); };   // drag the sound out of the window: it is saved as a file where it is dropped
+            if (rowC.Sample == null) rg.Drag = (dx, dy) => { if (Math.Abs(dx) > 22 || Math.Abs(dy) > 22) DragOut(n, SoundData(rowC)); };
+            else { rg.Tip = "Click: " + n + " becomes the shape of oscillator A (Custom 1). WT POSITION moves through the sound"; Txt(g, "USE AS OSC A", 9, Acc, Rc(r.Right - 120, r.Y, 110, r.Height), StringAlignment.Far, true); }   // drag the sound out of the window: it is saved as a file where it is dropped
             if (soundTab == 1)
             {
                 var del = Rc(r.Right - 30, r.Y + 5, 24, 22); if (RectangleF.Intersect(del, inner) == del) { Fill(g, Hot(del) ? TM.C(255, 190, 50, 80) : TM.C(255, 120, 30, 62), del, 5); Txt(g, "x", 12, Ink, del, StringAlignment.Center, true); var dg = Add(del); dg.Tip = "Delete " + n + " (only this sound)"; dg.Down = pt => DeleteSound(n); }

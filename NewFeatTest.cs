@@ -892,6 +892,10 @@ static class NF
                         var km = (KeyMapFx)FxRegistry.Create("pxkeymap"); km.Prepare(44100); km.Reset(); km.Midi(0x90, 64, 110, false); var kl = new float[8192]; var kr2 = new float[8192]; km.BeginBlock(null, 0, 8192, false); km.Process(kl, kr2, 8192); double kp = 0; foreach (var v in kl) kp = Math.Max(kp, Math.Abs(v));
                         Check("Key Map: an empty Key Map still plays (the built-in piano on keys with no sound)", kp > 0.01, kp.ToString("0.000"));
                         Check("Key Map: a new sound goes across the whole keyboard unless you pick one key", km.Get("span") >= 0.5f, "");
+                        { var gapS = new float[22050]; for (int i = 4410; i < gapS.Length; i++) gapS[i] = 0.5f * (float)Math.Sin(i * 0.05); string gf = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "nf_gap.wav"); WavIO.Write(gf, gapS, gapS, 44100, 24);
+                          var km2 = (KeyMapFx)FxRegistry.Create("pxkeymap"); km2.Prepare(44100); km2.Set("fill", 0); km2.SetRange(0, 127, 60, gf, "Gap"); km2.Reset(); km2.Midi(0x90, 62, 110, false); var gl = new float[2048]; var gr = new float[2048]; km2.BeginBlock(null, 0, 2048, false); km2.Process(gl, gr, 2048);
+                          int firstSound = -1; for (int i = 0; i < gl.Length; i++) if (Math.Abs(gl[i]) > 0.01f) { firstSound = i; break; }
+                          Check("Key Map: a sound with silence at its start plays straight away on every key (no delay)", firstSound >= 0 && firstSound < 200, "first sound at " + firstSound + " samples"); }
                     }
                     {   // the piano roll takes the MIDI keyboard from an open plugin window
                         var other = (InstrumentFx)FxRegistry.Create("pxpads"); MidiInput.Target = other; sf.PrTakeKeyboard(); Check("clicking the piano roll gives it the MIDI keyboard (an open Pads or Key Map window held it)", MidiInput.Target == null, ""); MidiInput.Target = null;

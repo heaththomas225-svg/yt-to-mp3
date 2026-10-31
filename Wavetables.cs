@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 
@@ -128,6 +128,39 @@ static class Wavetables
     static readonly Dictionary<int, WTable> customCache = new Dictionary<int, WTable>(); static readonly int[] customVer = new int[3];
     public static int CustomVersion(int slot) { return customVer[slot]; }
     public static short[][] GetCustom(int slot) { return Custom[slot]; }
+    // a sound of yours made into a wavetable: its pitch (one cycle) is found, and 8 cycles from along the sound (start to end) become the 8 frames,
+    // so WT POSITION moves through the sound's character as it changes. A sound with no clear pitch (noise, a hit) gives 8 short slices instead.
+    public static short[][] FramesFromSample(float[] x, int sr, int count = 8)
+    {
+        int n = x.Length; if (n < 64) return new[] { DefaultFrame() };
+        float pk = 0; foreach (var v in x) pk = Math.Max(pk, Math.Abs(v)); float th = Math.Max(1e-4f, pk * 0.05f);
+        int st = 0; while (st < n && Math.Abs(x[st]) < th) st++; int en = n; while (en > st && Math.Abs(x[en - 1]) < th) en--; if (en - st < 256) { st = 0; en = n; }
+        int per = FindPeriod(x, st + (en - st) / 8, Math.Min(en, st + (en - st) / 8 + 4096), sr); if (per <= 0) per = Math.Min(1024, Math.Max(64, (en - st) / count));
+        var res = new List<short[]>();
+        for (int f = 0; f < count; f++)
+        {
+            int pos = st + (int)((long)Math.Max(0, en - st - per - 2) * f / Math.Max(1, count - 1));
+            for (int k = 0; k < per && pos + 1 < en - per; k++, pos++) if (x[pos] <= 0 && x[pos + 1] > 0) break;   // start each cycle where the wave crosses upwards (no click in the loop)
+            var fr = new double[256]; double mean = 0, mx = 0;
+            for (int i = 0; i < 256; i++) { double p = pos + i * per / 256.0; int a = (int)p; double t = p - a; a = Math.Max(0, Math.Min(n - 2, a)); fr[i] = x[a] + (x[a + 1] - x[a]) * t; mean += fr[i]; }
+            mean /= 256; for (int i = 0; i < 256; i++) { fr[i] -= mean; mx = Math.Max(mx, Math.Abs(fr[i])); }
+            var s = new short[256]; double g = mx > 1e-6 ? 0.95 / mx : 0; for (int i = 0; i < 256; i++) s[i] = (short)Math.Round(Math.Max(-1, Math.Min(1, fr[i] * g)) * 32767); res.Add(s);
+        }
+        return res.ToArray();
+    }
+    // the length of one cycle (20 Hz to 2 kHz) by autocorrelation; 0 when the sound has no clear pitch
+    static int FindPeriod(float[] x, int a, int b, int sr)
+    {
+        int lo = Math.Max(2, sr / 2000), hi = Math.Min(sr / 20, (b - a) / 2); if (hi <= lo) return 0; int w = Math.Min(2048, b - a - hi); if (w < 64) return 0;
+        double e0 = 0; for (int i = 0; i < w; i++) e0 += x[a + i] * x[a + i]; if (e0 < 1e-9) return 0;
+        int best = 0; double bestC = 0; bool dipped = false;
+        for (int lag = lo; lag <= hi; lag++)
+        {
+            double c = 0, e1 = 0; for (int i = 0; i < w; i += 2) { c += x[a + i] * x[a + i + lag]; e1 += x[a + i + lag] * x[a + i + lag]; } c /= Math.Sqrt(e0 / 2 * e1 + 1e-12);
+            if (c < 0.3) dipped = true; if (dipped && c > bestC) { bestC = c; best = lag; } if (dipped && bestC > 0.9 && c < bestC - 0.2) break;
+        }
+        return bestC > 0.5 ? best : 0;
+    }
     public static void SetCustom(int slot, short[][] frames)
     {
         // the new table is built completely before it replaces the old one, so playing notes switch over without a hiccup
