@@ -15,14 +15,15 @@ class KeyMapFx : SamplerFx
     {
         Type = "pxkeymap"; Title = "Purphex Key Map"; Category = "Instruments"; Blurb = "Any sound on any key of your MIDI keyboard, on one key or played across a range of keys";
         AddP("hv", "Headroom version", 0, 9, 3, "");
-        AddC("fill", "Keys with no sound", new[] { "Silent", "Built-in piano" }, 1); AddC("span", "A new sound plays on", new[] { "One key", "The whole keyboard" }, 1); Hidden = "hv,fill,span"; var gp = Find("gain"); gp.Def = -5; Set("gain", -5);   // headroom: full-level sounds played as chords went far past full scale and the limiter crunched them
+        AddC("fill", "Keys with no sound", new[] { "Silent", "Built-in piano" }, 1); AddC("span", "A new sound plays on", new[] { "One key", "The whole keyboard" }, 1); AddC("hold", "Held keys", new[] { "Play out", "Keep playing while held" }, 1); Hidden = "hv,fill,span,hold"; var gp = Find("gain"); gp.Def = -5; Set("gain", -5);   // headroom: full-level sounds played as chords went far past full scale and the limiter crunched them
     }
     public override void Deserialize(string s)
     {   // older saves: before headroom (no hv) 5 dB down; with the 9 dB headroom (hv 1) 4 dB back up
-        base.Deserialize(s); if (s == null || s.IndexOf("gain=", StringComparison.Ordinal) < 0) { Set("hv", 3); return; }
+        base.Deserialize(s); if (s != null && s.IndexOf("hold=", StringComparison.Ordinal) < 0) Set("hold", 0);   // (a song saved before HOLD plays exactly as it did)
+        if (s == null || s.IndexOf("gain=", StringComparison.Ordinal) < 0) { Set("hv", 3); return; }
         bool noHv = s.IndexOf("hv=", StringComparison.Ordinal) < 0; int hv = noHv ? 0 : (int)Math.Round(Get("hv"));
         if (hv < 2) Set("gain", Math.Max(-24, Math.Min(12, Get("gain") + (noHv ? -5 : 4))));
-        if (hv < 3) foreach (var z in ZonesCopy()) if (z.Lo <= 0 && z.Hi >= 127) z.Root = NaturalRoot(z);   // (3.80: a sound across the keyboard took the key it was dropped on as its own pitch: dropped low, every key you played squeaked octaves up)
+        if (hv < 3) foreach (var z in ZonesCopy()) if (z.Lo <= 0 && z.Hi >= 127 && !z.Missing && z.L != null) z.Root = NaturalRoot(z);   // (3.80: a sound across the keyboard took the key it was dropped on as its own pitch: dropped low, every key you played squeaked octaves up)
         Set("hv", 3);
     }
     // the sound a key plays (a range covering it counts), and the zone that gives it
@@ -92,6 +93,7 @@ class KeyMapFx : SamplerFx
     }
     public override bool HasWindow { get { return true; } }
     public override string WindowLabel { get { return "Open Purphex Key Map"; } }
+    protected override bool HoldLoops { get { return Get("hold") >= 0.5f; } }
     public static string NoteLabel(int n) { return PadsFx.NoteName(n).Split(' ')[0]; }
 #if !PURPHEX_CORE
     public override void ShowWindow(IWin32Window owner) { PxWindow.Show(this, owner, () => new KeyMapWindow(this)); }
@@ -194,7 +196,8 @@ class KeyMapWindow : PxWindow, ISoundDrop
           Txt(g, "MOVES", 9, Dim, new RectangleF(bx + 160, ly + 16, 200, 12), StringAlignment.Near, true); Segments(g, new RectangleF(bx + 160, ly + 30, 240, 30), "lfot", Gold, 9.5f);
           bool pf = e.Get("fill") >= 0.5f; Button(g, new RectangleF(bx + 410, ly + 30, Math.Min(150, sx - (bx + 410) - 12), 30), pf ? "EMPTY KEYS: PIANO" : "EMPTY KEYS: SILENT", pf, Cyan, () => { Mark(); e.Set("fill", pf ? 0 : 1); }, pf ? "Keys with no sound of their own play the built-in piano. Press to make them silent" : "Keys with no sound are silent. Press to have them play the built-in piano", 9.5f); }
         // BASS: octave, sub, wobble (with its rate and resonance), drive: shape a bass in depth
-        { float qy = pk.Y + 226; Txt(g, "BASS", 11, Pink, new RectangleF(bx, qy, 60, 16), StringAlignment.Near, true);
+        { float qy = Math.Min(pk.Y + 226, pk.Bottom - 100); Txt(g, "BASS", 11, Pink, new RectangleF(bx, qy, 60, 16), StringAlignment.Near, true);
+          bool hd = e.Get("hold") >= 0.5f; Button(g, new RectangleF(bx + 60, qy - 4, 170, 22), hd ? "HOLD: KEEPS PLAYING" : "HOLD: PLAYS OUT", hd, Pink, () => { Mark(); e.Set("hold", hd ? 0 : 1); }, hd ? "A key you hold keeps playing past the end of its sound until you let go (a bass is extended). Press to make one-key sounds play out" : "One-key sounds play out whatever you do (sounds across the keyboard still sustain). Press to have held keys keep playing", 8.5f);
           string[] kn = { "oct", "sub", "wob", "wobq", "drive" }, kl = { "OCT", "SUB", "WOBBLE", "RES", "DRIVE" }; for (int i = 0; i < kn.Length; i++) Knob(g, bx + 36 + i * 76, qy + 50, 24, kn[i], kl[i], Pink);
           Txt(g, "WOBBLE RATE (IN TIME WITH THE SONG)", 9, Dim, new RectangleF(bx + 410, qy + 16, 400, 12), StringAlignment.Near, true); Segments(g, new RectangleF(bx + 410, qy + 30, a.Right - 14 - (bx + 410), 30), "wobr", Pink, 9.5f); }
         if (zs != null)

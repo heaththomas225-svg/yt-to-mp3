@@ -15,6 +15,14 @@ using System.Windows.Forms;
 abstract class PxWindow : Form
 {
     static readonly Dictionary<Fx, PxWindow> open = new Dictionary<Fx, PxWindow>();
+    internal static Action<Fx> RemoveHook;   // set by the studio: REMOVE takes this plugin off its track or the master
+    // a plugin taken off its track: its own window closes too (it stayed open and its knobs edited a plugin nobody could hear)
+    internal static void CloseFor(Fx f)
+    {
+        PxWindow w; if (f == null || !open.TryGetValue(f, out w) || w.IsDisposed) return;
+        var ww = w; if (ww.IsHandleCreated) ww.BeginInvoke(new Action(() => { if (!ww.IsDisposed) ww.Close(); })); else ww.Close();
+    }
+    bool CanRemove { get { return RemoveHook != null && !(fx is InstrumentFx); } }
     public static PxWindow Show(Fx fx, IWin32Window owner, Func<PxWindow> make)
     {
         PxWindow w; if (!open.TryGetValue(fx, out w) || w.IsDisposed) { w = make(); open[fx] = w; if (owner != null) w.Show(owner); else w.Show(); }
@@ -43,7 +51,7 @@ abstract class PxWindow : Form
 
     protected PxWindow(Fx f, string name, Size size)
     {
-        fx = f; brand = name; Text = "Purphex " + name; ClientSize = size; MinimumSize = new Size(size.Width + 16, size.Height + 39); BackColor = Bg1; KeyPreview = true; StartPosition = FormStartPosition.CenterParent;
+        fx = f; brand = name; Text = "Purphex " + name; Rectangle wa = Screen.FromPoint(Cursor.Position).WorkingArea; int cw = Math.Max(400, Math.Min(size.Width, wa.Width - 16)), ch = Math.Max(300, Math.Min(size.Height, wa.Height - 39)); ClientSize = new Size(cw, ch); MinimumSize = new Size(cw + 16, ch + 39);   /* (never taller than the screen: the bottom row went under the taskbar on a laptop) */ BackColor = Bg1; KeyPreview = true; StartPosition = FormStartPosition.CenterParent;
         SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.UserPaint | ControlStyles.ResizeRedraw, true);
         try { Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath); } catch { }
         tick = new Timer { Interval = 33 }; tick.Tick += (a, b) => { if (!Win.AnyMoving) Invalidate(); }; tick.Start();
@@ -155,7 +163,7 @@ abstract class PxWindow : Form
         Txt(g, "PURPHEX", 12, Violet, new RectangleF(16, 8, 140, 16), StringAlignment.Near, true); Txt(g, brand.ToUpperInvariant(), 24, Ink, new RectangleF(14, 22, 300, 30), StringAlignment.Near, true);
         if (SubTitle.Length > 0) Txt(g, SubTitle, 10, Dim, new RectangleF(16, 50, 300, 14), StringAlignment.Near, false);
         using (var pen = new Pen(Color.FromArgb(150, Accent), 2)) g.DrawLine(pen, 16, 66, 200, 66);
-        float pbX = Math.Max(230, W - 16 - 370 - 330 - 8), pbW = Math.Min(330, W - 16 - 370 - pbX - 8); var pb = new RectangleF(pbX, 16, pbW, 38);   /* the preset bar gets narrower in a small window */ Fill(g, PBar, pb, 10); Stroke(g, Edge, pb, 10, 1.2f);
+        float rw = CanRemove ? 430 : 370; float pbX = Math.Max(230, W - 16 - rw - 330 - 8), pbW = Math.Min(330, W - 16 - rw - pbX - 8); var pb = new RectangleF(pbX, 16, pbW, 38);   /* the preset bar gets narrower in a small window */ Fill(g, PBar, pb, 10); Stroke(g, Edge, pb, 10, 1.2f);
         Button(g, new RectangleF(pb.X + 5, pb.Y + 5, 28, 28), "‹", false, Violet, () => StepPreset(-1), "Previous preset", 16);
         Button(g, new RectangleF(pb.Right - 33, pb.Y + 5, 28, 28), "›", false, Violet, () => StepPreset(1), "Next preset", 16);
         Txt(g, PresetName, 13, Ink, new RectangleF(pb.X + 38, pb.Y, pb.Width - 76, pb.Height), StringAlignment.Center, true);
@@ -163,6 +171,7 @@ abstract class PxWindow : Form
         float x = pb.Right + 8; Button(g, new RectangleF(x, 16, 92, 38), "PRESETS", false, Violet, () => PresetMenu(new Point((int)x, 54)), "Factory presets, your own presets, save, rename and delete"); x += 100;
         Button(g, new RectangleF(x, 16, 72, 38), "SAVE", false, Lime, SaveMine, "Save these settings as a preset of your own, with a name (as many as you like)", 12); x += 80;
         Button(g, new RectangleF(x, 16, 92, 38), fx.Bypass ? "OFF" : "ON", !fx.Bypass, Gold, () => fx.Bypass = !fx.Bypass, fx.Bypass ? "Off: the sound passes untouched. Press to turn it on" : "On: press to turn it off", 13); x += 100;
+        if (CanRemove) { var rf = fx; Button(g, new RectangleF(x, 16, 54, 38), "REMOVE", false, Pink, () => { var h = RemoveHook; if (h != null) h(rf); }, "Take this plugin off its track (undo in the studio brings it back)", 9.5f); x += 60; }
         Button(g, new RectangleF(x, 16, 38, 38), "↶", false, Violet, Undo, "Undo (Ctrl+Z)", 16); Button(g, new RectangleF(x + 44, 16, 38, 38), "↷", false, Violet, Redo, "Redo (Ctrl+Y)", 16);
     }
     protected abstract void PaintBody(Graphics g, RectangleF area);

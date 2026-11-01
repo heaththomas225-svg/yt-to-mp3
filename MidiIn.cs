@@ -88,14 +88,23 @@ static class MidiInput
     }
 
     // One packed MIDI message: status | data1 << 8 | data2 << 16.
+    // the instrument window that got each held key's note-on (channel * 128 + key): its note-off goes there even after the keyboard moved to another window
+    // (a held sustaining note whose note-off went elsewhere played on forever)
+    static readonly InstrumentFx[] onTarget = new InstrumentFx[2048];
     public static void Handle(uint m)
     {
         byte s = (byte)(m & 0xFF), d1 = (byte)((m >> 8) & 0xFF), d2 = (byte)((m >> 16) & 0xFF); if (s >= 0xF0) return;
         if (MidiMap.Handle(s, d1, d2)) { Received++; return; }   // a mapped knob, key or pad (or a MIDI Learn) does its job and plays nothing else
-        var bt = BareTrack; if (bt != null && bt(s, d1, d2)) { Received++; return; }   // the studio plays it on a track (the picked one, else the first MIDI track)
+        int kd = s & 0xF0, ki = ((s & 15) << 7) | (d1 & 127);
+        if (kd == 0x80 || (kd == 0x90 && d2 == 0))
+        {
+            var o = onTarget[ki]; onTarget[ki] = null;
+            if (o != null) { Received++; o.Midi(s, d1, d2); var rc = InstrumentFx.Recorder; if (rc != null) rc(o.Owner, false, d1, 0); return; }
+        }
+        var bt = BareTrack; if (bt != null && bt(s, d1, d2)) { if (kd == 0x90 && d2 > 0) onTarget[ki] = null; Received++; return; }   // the studio plays it on a track (the picked one, else the first MIDI track)
         var t = Target; if (t == null) return; var tp = t as PadsFx; if (tp != null && !tp.Accepts(s, d1)) return;   // (a key that is not a pad: the studio played it on your instrument)
         if ((s & 0xF0) == 0x90 && d2 > 0) { var se = StudioEngine.Current; if (se != null) se.EnsureAudio(); }   // a key or pad hit wakes the sound card if it is off (it stays open once it is)
-        Received++; t.Midi(s, d1, d2);
+        Received++; t.Midi(s, d1, d2); if (kd == 0x90 && d2 > 0) onTarget[ki] = t;
         int kind = s & 0xF0; var rec = InstrumentFx.Recorder;
         if (rec != null && (kind == 0x90 || kind == 0x80)) { bool on = kind == 0x90 && d2 > 0; rec(t.Owner, on, d1, on ? d2 : 0); }
     }

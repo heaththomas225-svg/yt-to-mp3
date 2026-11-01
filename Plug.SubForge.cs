@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -202,7 +202,7 @@ class SubForgeWindow : PxWindow
             Fill(g, on ? Gold : Color.FromArgb(30, 22, 50), kr, 3); int nn = note; var h = Reg(kr, () => Play(nn), "Click to play"); h.Up = () => Stop(nn); h.DragAt = pt => { }; h.P = null;
         }
     }
-    void Play(int n) { if (down.Add(n)) sf.NoteOn(n, 100); }
-    void Stop(int n) { if (down.Remove(n)) sf.NoteOff(n); }
+    void Play(int n) { if (down.Add(n)) sf.HandOn(n, 100); }   // (clicked keys are recorded with MIDI REC)
+    void Stop(int n) { if (down.Remove(n)) sf.HandOff(n); }
 }
 #endif

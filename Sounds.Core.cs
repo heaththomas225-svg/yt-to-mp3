@@ -322,7 +322,10 @@ static class SoundLibrary
         if (replace && orig.PackId == UserPackId && up.Items.Contains(orig))
         {
             s = orig; string to = Path.GetExtension(orig.Path).ToLowerInvariant() == ".wav" ? orig.Path : Path.Combine(dest, Path.GetFileNameWithoutExtension(orig.Path) + ".wav");
-            if (!string.Equals(to, orig.Path, StringComparison.OrdinalIgnoreCase)) { if (File.Exists(to)) to = Path.Combine(dest, Path.GetFileNameWithoutExtension(orig.Path) + " " + Guid.NewGuid().ToString("N").Substring(0, 6) + ".wav"); File.Copy(wav, to); try { File.Delete(orig.Path); } catch { } s.Rel = "imports/" + Path.GetFileName(to); s.Path = to; }
+            if (!string.Equals(to, orig.Path, StringComparison.OrdinalIgnoreCase)) { if (File.Exists(to)) to = Path.Combine(dest, Path.GetFileNameWithoutExtension(orig.Path) + " " + Guid.NewGuid().ToString("N").Substring(0, 6) + ".wav"); File.Copy(wav, to);
+                string oldId = s.Id; s.Rel = "imports/" + Path.GetFileName(to); s.Path = to; s.Id = up.Id + "/" + s.Rel;   // (the original file stays: songs and kits that use it keep working)
+                lock (Lock) { if (Favourites.Remove(oldId)) Favourites.Add(s.Id); int ri = Recent.IndexOf(oldId); if (ri >= 0) Recent[ri] = s.Id; foreach (var c in Collections.Values) { int ci = c.IndexOf(oldId); if (ci >= 0) c[ci] = s.Id; } }
+                SaveUser(); }
             else File.Copy(wav, to, true);   // (the same file, so favourites and kits that point at it get the edit)
         }
         else

@@ -117,6 +117,7 @@ partial class StudioForm : Form
         SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw | ControlStyles.Selectable, true);
         studioLoop = new FrameLoop(this, FrameStep) { Slow = () => WindowState == FormWindowState.Minimized || moving || Win.AnyMoving };   /* while a window is being dragged around nothing needs painting often */ ApplyFps();
         InstrumentFx.Recorder = OnMidiNote; MidiInput.BareTrack = MidiToBareTrack; MidiMapInit();
+        PxWindow.RemoveHook = f => { if (IsDisposed) return; Track ow = null; lock (eng.Sync) ow = eng.Tracks.Find(t => t.Fx.Contains(f)); RemoveFxEverywhere(ow, f); Invalidate(); };   // REMOVE in a plugin's own window
         if (!StudioEnv.UnderTest) LibLoader.Start();   // your sounds are read in the background from the start, so MY SOUNDS is ready in Pads, Key Map and Bass Lab without opening SOUNDS first
         Activated += (s, e) => StudioActivatedMidi();
         Shown += (s, e) => { MidiAutoConnect(); if (!StudioEnv.UnderTest) { midiTimer = new System.Windows.Forms.Timer { Interval = 3000 }; midiTimer.Tick += (s2, e2) => MidiAutoConnect(); midiTimer.Start(); } };
@@ -199,7 +200,7 @@ partial class StudioForm : Form
         {   // PLAY never moves the view: it stays exactly where you left it (it used to jump to the needle, forwards or backwards); the view never moves by itself while it plays either
             followPaused = false;
         }
-        if (!eng.Playing && wasPlaying) RecStopped();
+        if (!eng.Playing && wasPlaying && !eng.StoppedAtEnd) RecStopped();   // (the song running out by itself 5 s after the last note is not you stopping: REC stays on)
         wasPlaying = eng.Playing;
         if (NeedsFrame0() && Environment.TickCount - eqPaintTick < 600) UpdateSpectrum();
     }
@@ -239,9 +240,14 @@ partial class StudioForm : Form
         var c = Neon(tr.Color); using (var br = new SolidBrush(sel ? TM.C(255, 40, 22, 74) : TM.C(255, 26, 15, 46))) g.FillRectangle(br, r);
         using (var br = new SolidBrush(Color.FromArgb(tr.Off ? 70 : 230, c))) g.FillRectangle(br, r.X + 3, r.Y + 4, 4, r.Height - 8);
         Txt(g, (i + 1).ToString(), 15, sel ? Color.White : Ink, Rc(r.X + 8, r.Y + 8, r.Width - 10, 22), StringAlignment.Center, true);
-        float live = Math.Min(1f, Math.Max(tr.PeakL, tr.PeakR)); var m = Rc(r.X + r.Width / 2 - 2, r.Y + 34, 6, Math.Max(10, r.Height - 44)); FillRR(g, TM.C(160, 10, 6, 20), m, 3);
-        if (live > 0.001f) { float mh = m.Height * live; FillRR(g, Color.FromArgb(230, c), Rc(m.X, m.Bottom - mh, m.Width, mh), 3); }
-        var trH = tr; Reg(r, () => { busEdit = null; selTrack = Math.Max(0, eng.Tracks.IndexOf(trH)); selFx = -1; toolsTrack = trH; }); Hint2(r, tr.Name + "  (the track list is tucked away: the arrow brings it back)");
+        float live = Math.Min(1f, Math.Max(tr.PeakL, tr.PeakR));
+        if (r.Height >= 54)
+        {   // the meter fits under the number only on rows at least 54 px tall (a FIT row can be as thin as 34)
+            var m = Rc(r.X + r.Width / 2 - 2, r.Y + 34, 6, r.Height - 44); FillRR(g, TM.C(160, 10, 6, 20), m, 3);
+            if (live > 0.001f) { float mh = m.Height * live; FillRR(g, Color.FromArgb(230, c), Rc(m.X, m.Bottom - mh, m.Width, mh), 3); }
+        }
+        else if (live > 0.001f) { using (var lb = new SolidBrush(Color.FromArgb((int)(60 + 170 * live), c))) g.FillRectangle(lb, r.Right - 6, r.Y + 4, 3, r.Height - 8); }   // thin rows: a small level light inside the row
+        var trH = tr; Reg(r, () => { if ((ModifierKeys & (Keys.Shift | Keys.Control)) == 0) multiSel.Clear(); busEdit = null; selTrack = Math.Max(0, eng.Tracks.IndexOf(trH)); selFx = -1; toolsTrack = trH; }); Hint2(r, tr.Name + "  (the track list is tucked away: the arrow brings it back)");
     }
     int TransH { get { return tab == 0 ? 86 + HintStripH : 86; } }   // on the studio page the transport area has the hint strip along its bottom edge
     int PanelW { get { if (soundsOpen && tab == 0) return sndFull ? Math.Max(640, ClientSize.Width) : 640; return (int)Math.Round(PanelTabW + (380 - PanelTabW) * PanelOpenK()); } }
@@ -566,14 +572,14 @@ partial class StudioForm : Form
         var ge = eng.Playing ? eng : (previewEng != null && previewEng.Playing ? previewEng : null);   // the engine you are hearing: the mix, or a preview (My Projects, Community)
         // playing pads, Key Map or a keyboard with the song stopped counts too: it only grew while the song played, so live hits crackled until you pressed PLAY.
         // Live, the output is only refreshed to make the buffer bigger (one short gap, then clean); at the biggest it is left alone (refreshing again would only add gaps)
-        bool live = ge == null && unchecked(Environment.TickCount - StudioEngine.LiveUntil) < 0 && Prefs.BufEff < 2; if (live) ge = eng;
+        bool live = ge == null && unchecked(Environment.TickCount - StudioEngine.LiveUntil) < 0 && unchecked(Environment.TickCount - StudioEngine.LastNoteAt) < 4000 && Prefs.BufEff < 2; if (live) ge = eng;   // (only while notes are really being played: an open Pads window or a plugged-in keyboard kept it 'live' all the time)
         if (ge == null) { lastUnder = WaveOutPlayer.Underruns; lastStalls = WaveOutPlayer.Stalls; underSince = now; return false; }
-        int u = WaveOutPlayer.Underruns, st = WaveOutPlayer.Stalls; bool stalled = st != lastStalls, breaking = u - lastUnder >= 2 && (now - underSince).TotalSeconds <= 2;
+        int u = WaveOutPlayer.Underruns, st = WaveOutPlayer.Stalls; bool stalled = !live && st != lastStalls, breaking = u - lastUnder >= 2 && (now - underSince).TotalSeconds <= 2;
         if ((now - underSince).TotalSeconds > 2) { underSince = now; lastUnder = u; }
         if (!stalled && !breaking) return false;
         lastUnder = u; lastStalls = st; underSince = now; if ((now - lastRefresh).TotalMilliseconds < 1500) return false; lastRefresh = now;
-        bool bigger = Prefs.BufEff < 2; if (bigger) { Prefs.BufBoost++; Prefs.Changed(); } ge.ReopenOutput();
-        Toast(bigger ? "The sound was breaking up, so I refreshed the audio and made the playback buffer bigger for now (your choice in Settings is kept)." : "The sound was breaking up, so I refreshed the audio.");
+        bool bigger = Prefs.BufEff < 2; if (bigger) { Prefs.BufBoost++; if (ge == eng) { Prefs.BufSaved = Math.Min(1, Prefs.BufBoost); Prefs.Changed(); } } ge.ReopenOutput();   // (kept for next time, one step at most, and not for a preview's stutter)
+        Toast(bigger ? "The sound was breaking up, so I refreshed the audio and made the playback buffer bigger (it stays bigger next time; pick a smaller one in Settings to change it back)." : "The sound was breaking up, so I refreshed the audio.");
         return true;
     }
     int paintErrors; double paintMs = 8; int lastUnder; DateTime underSince = DateTime.Now;
@@ -780,7 +786,7 @@ partial class StudioForm : Form
         { var pk = Rc(x, y, 44, h); bool prOn = InsShown && insTab == 4 && !blOn; Btn(g, pk, "", prOn ? 4 : 0, () => { if (prOn) CloseInspector(); else { if (blOn) { blOn = false; BlPlay(false); } OpenPianoRoll(null); } }, 10); PianoGlyph(g, pk); btnMap["PIANO ROLL"] = pk; if (Hot(pk)) hintNow = "Piano roll: click a track, choose its sound and write notes. Press again to close it."; Hint2(pk, "Piano roll: click a track, choose its sound, write notes (click again to close)"); x += 50; }
         { var bk = Rc(x, y, 44, h); bool blIs = BlShown; Btn(g, bk, "", blIs ? 4 : 0, () => { if (blIs) { BlPlay(false); CloseInspector(); } else OpenBeatLab(); }, 10); PadsGlyph(g, bk); btnMap["BEAT LAB"] = bk; if (Hot(bk)) hintNow = "Beat Lab: 16 or 32 pads and a step sequencer inside the piano roll. Press again to close it."; Hint2(bk, "Beat Lab: tap pads, build a beat on the steps, make variations, drag it onto the song (click again to close)"); x += 50; }
         { var mk = Rc(x, y, 44, h); bool mxOn = InsShown && insTab == 1; Btn(g, mk, "", mxOn ? 4 : 0, () => { if (mxOn) CloseInspector(); else OpenInspector(1); }, 10); MixerGlyph(g, mk); btnMap["MIXER TOP"] = mk; if (Hot(mk)) hintNow = "Mixer: every track and bus as a strip with its plugins, sends, pan and fader. Press again to close it."; Hint2(mk, "Mixer: every track and bus as a strip with its plugins, sends, pan and fader (click again to close)"); x += 50; }
-        Btn(g, Rc(x, y, 92, h), "MIDI REC", recOn ? 3 : 0, () => { if (!recOn && !AskYes("Would you like to record an instrument?\n\nYour MIDI keyboard (or the piano window) is recorded onto the selected MIDI track while the song plays. Press PLAY after you say Yes. If not, press No.", "MIDI recording")) return; recOn = !recOn; Toast(recOn ? "MIDI recording is on (the button is red): press PLAY, then play your MIDI keyboard or the piano window and the notes are recorded onto the selected MIDI track." : "MIDI recording is off."); }, 13); regs[regs.Count - 1].OnRight = () => MidiDeviceMenu(); PaintMidiLed(g, Rc(x, y, 92, h)); { var lr = Rc(x + 92 - 18, y, 18, 16); var lreg = Reg(lr, () => OpenMidiMap()); lreg.Button = true; Hint2(lr, MidiInHint + " Click the light for MIDI MAPPING."); } x += 98;
+        Btn(g, Rc(x, y, 92, h), "MIDI REC", recOn ? 3 : 0, () => { if (!recOn && !AskYes("Would you like to record an instrument?\n\nYour MIDI keyboard (or the piano window) is recorded onto the selected MIDI track while the song plays. Press PLAY after you say Yes. If not, press No.", "MIDI recording")) return; recGot = false; recOn = !recOn; Toast(recOn ? "MIDI recording is on (the button is red): press PLAY, then play your MIDI keyboard or the piano window and the notes are recorded onto the selected MIDI track." : "MIDI recording is off."); }, 13); regs[regs.Count - 1].OnRight = () => MidiDeviceMenu(); PaintMidiLed(g, Rc(x, y, 92, h)); { var lr = Rc(x + 92 - 18, y, 18, 16); var lreg = Reg(lr, () => OpenMidiMap()); lreg.Button = true; Hint2(lr, MidiInHint + " Click the light for MIDI MAPPING."); } x += 98;
         { var mmb = Rc(x, y, 84, h); Btn(g, mmb, "MIDI MAP", mmOpen ? 4 : 0, () => { if (mmOpen) mmOpen = false; else OpenMidiMap(); }, 12); btnMap["MIDI MAP"] = mmb; Hint2(mmb, "MIDI mapping: set up your MIDI keyboard and controller (pads, knobs, MIDI Learn and profiles), and see what is coming in"); x += 90; }
         { bool rec = mic != null; double el = rec ? (eng.CountBeat > 0 ? 0 : Math.Max(0, (DateTime.Now - micT0).TotalSeconds - micLead / (double)StudioEngine.SR)) : 0; bool armed = micArmed && !rec; var mr = Rc(x, y, rec ? 128 : 60, h); Btn(g, mr, (rec ? "* MIC  " + ((int)(el / 60)).ToString("00") + ":" + ((int)(el % 60)).ToString("00") : "MIC"), rec || armed ? 3 : 0, () => MicClick(), 13); if (armed) { double pl = 0.5 + 0.5 * Math.Sin(Environment.TickCount / 220.0); Glow(g, Color.FromArgb(255, 60, 90), mr, 8, 0.7f + 0.5f * (float)pl, 4); lastInput = DateTime.Now; } if (rec) HBar(g, Rc(mr.X + 6, mr.Bottom - 7, mr.Width - 12, 5), mic.Level); PaintMicDrop(g, Rc(mr.Right + 3, y, 24, h), rec); bool modeRoom = W >= 1320; if (modeRoom) PaintMicModeBox(g, Rc(mr.Right + 3 + 24 + 3, y + 5, 66, h - 10), rec); x += mr.Width + 6 + 28 + (modeRoom ? 69 : 0); }   /* the box that names the microphone mode is there when there is room for it */
         x = 0;
@@ -915,7 +921,7 @@ partial class StudioForm : Form
         {
             if ((ModifierKeys & Keys.Control) != 0 && (ModifierKeys & Keys.Alt) == 0 && (ModifierKeys & Keys.Shift) == 0) autoFit = false;
             if ((ModifierKeys & Keys.Control) != 0 && (ModifierKeys & Keys.Shift) != 0) { }   // Ctrl + Shift + wheel does nothing (it used to resize the tracks by accident)
-            else if ((ModifierKeys & Keys.Alt) != 0) { LaneH = Math.Max(MinLaneH, Math.Min(420, LaneH + (d > 0 ? (LaneH < 64 ? 8 : 16) : (LaneH <= 64 ? -8 : -16)))); vscroll = Math.Max(0, Math.Min(vscroll, Math.Max(0, n * LaneH - (MixH - top - RulerH - 66)))); }
+            else if ((ModifierKeys & Keys.Alt) != 0) { LaneH = SnapLaneH(Math.Max(MinLaneH, Math.Min(420, LaneH + (d > 0 ? (LaneH < 64 ? 8 : 16) : (LaneH <= 64 ? -8 : -16)))), d > 0); vscroll = Math.Max(0, Math.Min(vscroll, Math.Max(0, n * LaneH - (MixH - top - RulerH - 66)))); }
             else if ((ModifierKeys & (Keys.Control | Keys.Shift)) != 0 && MousePos.Y >= top + RulerH) ZoomAtCursor(d);   // Shift or Ctrl + wheel: zoom, held exactly on the point under the mouse
             else if (MousePos.Y < top + RulerH) ScrollView(-d * 0.25);   // the wheel on the ruler: along the song
             else ScrollTracks(-d * 40);   // the wheel scrolls the tracks up and down (it never shoots off sideways); Left / Right and the bar at the top go along the song
@@ -1057,7 +1063,8 @@ partial class StudioForm : Form
         if (tr.Clip == null) return;
         int px = (int)lane.Width;
         PeakCache pc; if (!peakCache.TryGetValue(tr, out pc)) { pc = new PeakCache(); peakCache[tr] = pc; }
-        bool dragWave = ghostOn && ghostKind == 0 && pc.Img != null && (ghostTrack == tr || (dragReg != null && laneMode == 1 && laneMoved && multiSel.Contains(tr)));   // (every clip of a dragged group slides its picture too: they all redrew their waves each frame, the lag dragging several)   // while this clip is being dragged its finished picture is kept and just slid along (redrawing it every frame was the lag)
+        bool wholeImg = pc.Img != null && pc.ImgVer == pc.Ver && pc.ImgX0 >= lane.X - 0.5f && pc.ImgX0 + (float)(tr.UsedLength / spp) <= lane.Right + 0.5f;   // (a picture cut at the view's edge would slide with a piece missing)
+        bool dragWave = ghostOn && ghostKind == 0 && pc.Img != null && (ghostTrack == tr || (wholeImg && dragReg != null && laneMode == 1 && laneMoved && multiSel.Contains(tr)));   // (every clip of a dragged group slides its picture too: they all redrew their waves each frame, the lag dragging several)   // while this clip is being dragged its finished picture is kept and just slid along (redrawing it every frame was the lag)
         if (!dragWave && (pc.Clip != tr.Clip || pc.Start != scroll - tr.Offset + tr.ClipStart || pc.Spp != spp || pc.Px != px || pc.Len != tr.UsedLength)) { if (pc.Mn == null || pc.Mn.Length < px) { pc.Mn = new float[px + 64]; pc.Mx = new float[px + 64]; } tr.Clip.GetPeaks(scroll - tr.Offset + tr.ClipStart, spp, px, pc.Mn, pc.Mx); pc.Clip = tr.Clip; pc.Start = scroll - tr.Offset + tr.ClipStart; pc.Spp = spp; pc.Px = px; pc.Len = tr.UsedLength; pc.Ver++; }
         var wmn = pc.Mn; var wmx = pc.Mx;
         Color c = Neon(tr.Color); bool audible = !tr.Mute && !tr.Off; float cy = lane.Y + lane.Height / 2, amp = lane.Height * 0.42f;
@@ -1095,9 +1102,9 @@ partial class StudioForm : Form
         bool thin = r.Height < 96, compact = r.Height < 112, bus = tr.IsBus; float by = thin ? 34 : (compact ? 36 : 44), vy = thin ? 60 : (compact ? 64 : 84), py = compact ? 86 : 110;
         using (var br = new SolidBrush(sel ? TM.C(255, 40, 22, 74) : TM.C(255, 26, 15, 46))) g.FillRectangle(br, r);
         using (var pen = new Pen(sel ? Color.FromArgb(200, Neon(tr.Color)) : Color.FromArgb(70, Neon(tr.Color)), sel ? 1.6f : 1f)) g.DrawRectangle(pen, r.X + 1, r.Y + 1, r.Width - 2, r.Height - 2);
-        { var trH = tr; Reg(r, () => { busEdit = null; selTrack = Math.Max(0, eng.Tracks.IndexOf(trH)); selFx = -1; toolsTrack = trH; }); }   // any empty part of the box picks this track (the buttons and sliders on top of it keep their own clicks)
-        if (r.Height < 60)
-        {   // zoomed right out (FIT with many tracks): one line per track, like a big session in Logic: its colour, its name, M and S. Nothing is squeezed on top of anything
+        { var trH = tr; Reg(r, () => { if ((ModifierKeys & (Keys.Shift | Keys.Control)) == 0) multiSel.Clear(); busEdit = null; selTrack = Math.Max(0, eng.Tracks.IndexOf(trH)); selFx = -1; toolsTrack = trH; }); }   // any empty part of the box picks this track (the buttons and sliders on top of it keep their own clicks)
+        if (r.Height < 84)
+        {   // zoomed right out (any row shorter than THIN TRACKS' 84: the thin layout's VOL/PAN row and MONO did not fit and spilled into the next track) (FIT with many tracks): one line per track, like a big session in Logic: its colour, its name, M and S. Nothing is squeezed on top of anything
             var tkm = tr; using (var cb = new SolidBrush(Neon(tr.Color))) g.FillRectangle(cb, r.X + 3, r.Y + 3, 5, r.Height - 6);
             float fsz = Math.Max(9, Math.Min(13, r.Height * 0.4f)), bhh = Math.Min(22, r.Height - 6);
             Txt(g, tr.Name, fsz, tr.Off ? DimC : Ink, Rc(r.X + 14, r.Y, r.Width - 110, r.Height), StringAlignment.Near, true);
@@ -1466,11 +1473,13 @@ partial class StudioForm : Form
     // id = one preset (its box); null = every preset. Your own plugins and the instrument stay.
     void RemovePreset(Track tr, string id = null)
     {
+        var gone = new List<Fx>();
         lock (eng.Sync)
         {
-            var gone = new List<Fx>(); foreach (var f in tr.Fx) if (!(f is InstrumentFx) && f.Preset.Length > 0 && (id == null || FxKey(f) == "P" + id)) gone.Add(f);
+            foreach (var f in tr.Fx) if (!(f is InstrumentFx) && f.Preset.Length > 0 && (id == null || FxKey(f) == "P" + id)) gone.Add(f);
             foreach (var f in gone) tr.Fx.Remove(f); tr.Auto.RemoveAll(al => gone.Contains(al.Fx));
         }
+        foreach (var f in gone) { CloseFxWindow(f); PxWindow.CloseFor(f); }   // (their windows stayed open)
     }
     // every plugin and preset off the track (RAW): the instrument stays, it is the sound
     // SAVE PRESET (the button under the effects, and the right-click menu): every plugin of the track with its settings, under a name you choose; it shows in PRESETS... on every track
@@ -1653,7 +1662,7 @@ partial class StudioForm : Form
         if (type == "duck") { var v = eng.VocalTrack(); if (v == null) Toast("The ducker listens to a vocal track; add or separate a vocal first."); }
         if (browserMaster) { lock (eng.Sync) eng.MasterFx.Add(f); selMaster = eng.MasterFx.Count - 1; }
         else if (browserVst && (browserTrack < 0 || browserTrack >= eng.Tracks.Count)) { Toast("Choose the track first: FOR at the top of the VSTS box (or a new track)."); return; }
-        else if (browserTrack >= 0 && browserTrack < eng.Tracks.Count) { var tr = eng.Tracks[browserTrack]; var vfx = f as InstrumentFx; if (vfx != null) vfx.Owner = tr; lock (eng.Sync) tr.Fx.Add(f); selTrack = browserTrack; selFx = tr.Fx.Count - 1; ShowPanel(); }
+        else if (browserTrack >= 0 && browserTrack < eng.Tracks.Count) { var tr = eng.Tracks[browserTrack]; var vfx = f as InstrumentFx; if (vfx != null) vfx.Owner = tr; lock (eng.Sync) tr.Fx.Add(f); eng.PrimeOne(tr, f); selTrack = browserTrack; selFx = tr.Fx.Count - 1; ShowPanel(); }
         browserOpen = false; Toast(f.Title + " added"); { var addedInst = f as InstrumentFx; if (addedInst != null && !browserMaster) addedInst.ShowWindow(this); }
         { if (PxPlugins.HasWindow(f)) PxPlugins.Open(f, this); else if (!browserMaster && insAddFor != null && browserTrack >= 0 && browserTrack < eng.Tracks.Count && eng.Tracks[browserTrack] == insAddFor && !(f is InstrumentFx)) OpenFxWindow(insAddFor, f); } insAddFor = null;
     }
@@ -1781,7 +1790,7 @@ partial class StudioForm : Form
         if (tab == 7 && artSearchOn && !artSearchR.Contains(e.Location)) artSearchOn = false;   // clicking anywhere else lets go of the search box
         FxWinMouseDown(e.Location);   // a click in a plugin window brings that window to the front
         blFocus = BlShown && prArea.Contains(e.Location);   // the Beat Lab keeps the keys (its pads) only while you click in it
-        prFocus = PrShown && (prGrid.Contains(e.Location) || prVel.Contains(e.Location) || prKeys.Contains(e.Location) || prRuler.Contains(e.Location));
+        prFocus = PrShown && (prGrid.Contains(e.Location) || prVel.Contains(e.Location) || prKeys.Contains(e.Location) || prRuler.Contains(e.Location) || prHBar.Contains(e.Location) || prVBar.Contains(e.Location));   // (a click on a scroll bar keeps Delete on your notes)
         var r = TopRegion(e.Location); if (r == null) return;
         if (Win.ClickClosedMenu(this, r.R)) return;   // the click that just closed a menu is not also a click on the button that opened it
         if (busy && !r.WhileBusy) return;   // while a job runs only the Cancel button works

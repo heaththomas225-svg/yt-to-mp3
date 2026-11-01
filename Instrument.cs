@@ -48,6 +48,7 @@ abstract class InstrumentFx : Fx
     public void Midi(byte status, byte d1, byte d2, bool keepAlive = true)
     {
         lock (q) { if (live.Count < 256) { live.Add(new MidiEv { S = status, D1 = d1, D2 = d2 }); liveAt.Add(Environment.TickCount); } }
+        if ((status & 0xF0) == 0x90 && d2 > 0) StudioEngine.LastNoteAt = Environment.TickCount;
         if (keepAlive) StudioEngine.LiveUntil = Environment.TickCount + (status == 0x80 ? 4000 : 8000);   // keep rendering while it rings out
     }
     public void NoteOn(int note, int vel) { var e = StudioEngine.Current; if (e != null) e.EnsureAudio(); Midi(0x90, (byte)note, (byte)vel); }

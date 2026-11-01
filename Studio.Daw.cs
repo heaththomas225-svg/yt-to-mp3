@@ -128,13 +128,18 @@ partial class StudioForm
         Toast(picks.Count == 1 ? "Copied. Ctrl+V pastes it at the needle on the picked track." : "Copied " + picks.Count + " sections. Ctrl+V pastes them at the needle, starting on the picked track (they keep their spacing).");
     }
     // Ctrl+C: the highlighted sections, or the picked piece
-    void CopyKey() { multiSel.RemoveAll(o => !eng.Tracks.Contains(o) || o.Clip == null); if (multiSel.Count > 0) { var f = multiSel.Find(o => o.Clip != null && !o.Instrument && eng.Tracks.Contains(o)); if (f != null) { CopyClip(f); return; } } CopyClip(CurClip()); }
+    // the piece you can see picked (the one you clicked, with its handles): copy and cut only ever use that or the highlight (they used the outlined row's piece, one you never picked)
+    Track PickedClip() { var t = toolsTrack; return t != null && eng.Tracks.Contains(t) && t.Clip != null && !t.Instrument && !t.IsBus ? t : null; }
+    void CopyKey() { multiSel.RemoveAll(o => !eng.Tracks.Contains(o) || o.Clip == null || o.Instrument); if (multiSel.Count > 0) { CopyClip(multiSel[0]); return; } CopyClip(PickedClip()); }
     // Ctrl+X: copy what is highlighted (or the picked piece), then take it off the timeline (Ctrl+V puts it back, Ctrl+Z undoes)
     internal void CutKey()
     {
+        multiSel.RemoveAll(o => !eng.Tracks.Contains(o) || o.Clip == null || o.Instrument);
+        if (multiSel.Count > 0) { var ok = multiSel.FindAll(o => !IsLocked(o)); if (ok.Count == 0) { Toast("Those sections are locked. Press UNLOCK first."); return; } multiSel.Clear(); multiSel.AddRange(ok); }   // (locked ones were copied, left in place and pasted again)
+        else { var lc = PickedClip(); if (lc != null && IsLocked(lc)) { Toast(FrozenWhy(lc, "Locked: press UNLOCK before cutting.")); return; } }
         var before = clipCopies.Count > 0 ? clipCopies[0].Copy : null; CopyKey();
         if (clipCopies.Count == 0 || clipCopies[0].Copy == before) return;   // nothing could be copied: nothing is deleted
-        int n = clipCopies.Count; if (multiSel.Count > 0) DeleteSelectedClips(); else { var c = CurClip() ?? Selected; if (c != null && c.Clip != null) DeleteClip(c); }
+        int n = clipCopies.Count; if (multiSel.Count > 0) DeleteSelectedClips(); else { var c = PickedClip(); if (c != null) DeleteClip(c); }
         Toast(n == 1 ? "Cut. Ctrl+V pastes it at the needle on the picked track." : "Cut " + n + " sections. Ctrl+V pastes them at the needle (they keep their spacing).");
     }
     // Ctrl+V: at the needle, on the picked track
@@ -211,7 +216,7 @@ partial class StudioForm
     {
         if (tr.Clip == null || tr.Instrument || !lane.Contains(p)) return 0;
         float x0 = lane.X + (float)((tr.Offset - scroll) / spp), x1 = x0 + (float)(tr.UsedLength / spp), w = x1 - x0;
-        if (w > 40 && toolsTrack == tr)   // the round fade handles of the clip you selected: the top end of each fade (its length) and the bottom end (where it starts or stops)
+        if (w > 40 && toolsTrack == tr && lane.Height >= FadeHandleMinLaneH)   // (short rows: no fade handles, they covered the whole clip and took over trimming) the round fade handles of the clip you selected: the top end of each fade (its length) and the bottom end (where it starts or stops)
         {
             float dIn = (float)(tr.FadeInDelay / spp), dOut = (float)(tr.FadeOutTail / spp), by = lane.Bottom - 12;
             if (Math.Abs(p.Y - (lane.Y + 12)) <= 11)
@@ -264,12 +269,13 @@ partial class StudioForm
         if (tr.Clip != null && !tr.Instrument)
         {
             laneMode = ZoneAt(tr, lane, MousePos); laneMoved = false; lockToldYou = false; laneLocked = IsLocked(tr) && laneMode >= 1 && laneMode <= 3;
-            if (laneLocked) return;   // clicking a locked clip selects it, but it will not move (a message tells you when you try)
+            if (laneLocked) { if (laneMode >= 2 || !multiSel.Contains(tr)) multiSel.Clear(); return; }   // clicking a locked clip selects it, but it will not move (a message tells you when you try); outside the highlight it lets the others go
             if (laneMode >= 2) multiSel.Clear();
             if (laneMode >= 4) { PushUndo(); laneMoved = true; return; }
             if (laneMode >= 2) { PushUndo(); laneMoved = true; l0Offset = tr.Offset; l0ClipStart = tr.ClipStart; l0ClipFrames = tr.ClipFrames; l0Used = tr.UsedLength; return; }
             if (laneMode == 1) { if (!multiSel.Contains(tr)) multiSel.Clear(); groupOrig.Clear(); if (InGroup(tr)) foreach (var o in multiSel) groupOrig[o] = o.Offset; GhostGrab(tr); l0Offset = tr.Offset; l0ClipStart = tr.ClipStart; l0ClipFrames = tr.ClipFrames; l0Used = tr.UsedLength; return; }   // clicking a clip selects it, dragging moves it: the needle stays where it is
         }
+        if (laneMode == 0) MarqueeBegin();   // an instrument or bus row, or the edge band of a clip: a click lets go of the highlight, a drag draws a box
     }
     void LaneDrag(Track tr, PointF pt)
     {
@@ -356,7 +362,7 @@ partial class StudioForm
         if (zone == 1) { using (var b = new SolidBrush(Color.FromArgb(34, 255, 255, 255))) g.FillRectangle(b, cr); StrokeRR(g, Color.FromArgb(230, 255, 255, 255), cr, 6, 1.6f); }
         float gh = Math.Min(46, cr.Height - 16), gy = cr.Y + (cr.Height - gh) / 2; bool leftEdge = cr.X > lane.X - 1, rightEdge = cr.Right < lane.Right - 1;
         bool lockedClip = IsLocked(tr); float gw = cr.Width < 24 ? 0f : Math.Min(9f, Math.Max(3f, cr.Width / 5f));   // a narrow clip gets thin grips (none when it is tiny): they never cover the clip
-        if (toolsTrack == tr && cr.Width > 40)
+        if (toolsTrack == tr && cr.Width > 40 && lane.Height >= FadeHandleMinLaneH)
         {   // the two round fade handles
             float hx0 = lane.X + (float)((tr.Offset - scroll) / spp), hx1 = hx0 + (float)(tr.UsedLength / spp), hy = lane.Y + 12, bhy = lane.Bottom - 12, dIn = (float)(tr.FadeInDelay / spp), dOut = (float)(tr.FadeOutTail / spp);
             foreach (var hz in new[] { 4, 5, 6, 7 })
@@ -483,7 +489,7 @@ partial class StudioForm
     }
     // dragging a track's header: see HeaderDrag / HeaderDrop
     bool headerUndo;
-    void HeaderDown(Track tr) { if ((ModifierKeys & (Keys.Shift | Keys.Control)) == 0) multiSel.Clear();   /* clicking a track's box lets go of highlighted clips (they stayed, and Ctrl+X then cut them all) */ selTrack = Math.Max(0, eng.Tracks.IndexOf(tr)); selFx = -1; headerUndo = false; toolsTrack = tr; hdMode = 0; lockToldYou = false; if (!IsLocked(tr)) GhostGrab(tr); }
+    void HeaderDown(Track tr) { if ((ModifierKeys & (Keys.Shift | Keys.Control)) == 0) { multiSel.Clear(); mcSel.Clear(); }   /* clicking a track's box lets go of highlighted clips (they stayed, and Ctrl+X then cut them all) */ selTrack = Math.Max(0, eng.Tracks.IndexOf(tr)); selFx = -1; headerUndo = false; toolsTrack = tr; hdMode = 0; lockToldYou = false; if (!IsLocked(tr)) GhostGrab(tr); }
     void HeaderDrag(Track tr, PointF pt)
     {
         if (IsLocked(tr)) { if (!lockToldYou) { lockToldYou = true; Toast(FrozenWhy(tr, "This track is locked in place. Press UNLOCK in the toolbar to move it.")); } return; }

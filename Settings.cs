@@ -86,7 +86,7 @@ class SettingsForm : Form
         y += 38;
         Add(new Label { Text = "Playback buffer", Left = 20, Top = y + 3, Width = 150, ForeColor = Ink });
         bufBox = Combo(180, y, 360, new[] { "Low latency (35 ms) - fastest response", "Normal (46 ms)", "Safe (139 ms) - for slow computers or heavy effects" });
-        bufBox.SelectedIndexChanged += (s, e) => { if (!setting) { Prefs.Buf = bufBox.SelectedIndex; Prefs.BufBoost = 0; Prefs.Changed(); app.StudioEng.ReopenOutput(); } };
+        bufBox.SelectedIndexChanged += (s, e) => { if (!setting) { Prefs.Buf = bufBox.SelectedIndex; Prefs.BufBoost = 0; Prefs.BufSaved = 0; Prefs.Changed(); app.StudioEng.ReopenOutput(); } };
         y += 38;
         Add(new Label { Text = "Recording input", Left = 20, Top = y + 3, Width = 150, ForeColor = Ink });
         inBox = Combo(180, y, 360, new string[0]); inBox.Items.Add("System default"); foreach (var n in AudioRecorder.Devices()) inBox.Items.Add(n);
@@ -252,7 +252,7 @@ class SettingsForm : Form
 
     void ResetAll()
     {
-        Prefs.BgLeaves = true; Prefs.ShareSaved = true; Prefs.SaveLyrics = true; Prefs.OutVol = 100; Prefs.OutDev = -1; Prefs.Buf = 1; Prefs.BufBoost = 0; Prefs.FpsCap = 60; Prefs.PerfMode = false;  Themes.Apply(0);
+        Prefs.BgLeaves = true; Prefs.ShareSaved = true; Prefs.SaveLyrics = true; Prefs.OutVol = 100; Prefs.OutDev = -1; Prefs.Buf = 1; Prefs.BufBoost = 0; Prefs.BufSaved = 0; Prefs.FpsCap = 60; Prefs.PerfMode = false;  Themes.Apply(0);
         Refresh2(); app.StudioEng.ReopenOutput(); Prefs.Changed();
     }
 
@@ -264,7 +264,7 @@ class SettingsForm : Form
         themeBox.SelectedIndex = Themes.Index; themeNote.Text = Themes.Current.Blurb + " It changes the glow, borders and buttons in Purphex Music, Mastering and Bass Lab.";
         fpsBox.SelectedIndex = Math.Max(0, Array.IndexOf(FpsChoices, Prefs.FpsCap)); perfChk.Checked = Prefs.PerfMode;
         { int ii = Prefs.InDev.Length == 0 ? 0 : inBox.Items.IndexOf(Prefs.InDev); inBox.SelectedIndex = Math.Max(0, ii); }
-        volBar.Value = Prefs.OutVol; volNum.Value = Prefs.OutVol; devBox.SelectedIndex = Math.Max(0, Math.Min(devBox.Items.Count - 1, Prefs.OutDev + 1)); bufBox.SelectedIndex = Prefs.Buf;
+        volBar.Value = Prefs.OutVol; volNum.Value = Prefs.OutVol; devBox.SelectedIndex = Math.Max(0, Math.Min(devBox.Items.Count - 1, Prefs.OutDev + 1)); bufBox.SelectedIndex = Prefs.BufEff;   /* (the buffer really in use: picking a smaller one changes it back) */
         setting = false;
     }
 }

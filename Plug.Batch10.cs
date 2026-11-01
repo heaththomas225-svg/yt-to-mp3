@@ -177,9 +177,9 @@ abstract class PxInstWindow : PxWindow
         Button(g, new RectangleF(bx, r.Y, 68, bh), "OCT +", false, Accent, () => octave = Math.Min(6, octave + 1), "Keyboard an octave higher", 10);
         Button(g, new RectangleF(bx, r.Y + bh + 8, 68, bh), "OCT -", false, Accent, () => octave = Math.Max(0, octave - 1), "Keyboard an octave lower", 10);
     }
-    void Play(int n) { if (down.Add(n)) inst.NoteOn(n, 100); }
-    void Stop(int n) { if (down.Remove(n)) inst.NoteOff(n); }
-    protected override void OnFormClosed(FormClosedEventArgs e) { foreach (var n in new List<int>(down)) inst.NoteOff(n); down.Clear(); base.OnFormClosed(e); }
+    void Play(int n) { if (down.Add(n)) inst.HandOn(n, 100); }   // (clicked keys are recorded with MIDI REC, like Pads and Key Map)
+    void Stop(int n) { if (down.Remove(n)) inst.HandOff(n); }
+    protected override void OnFormClosed(FormClosedEventArgs e) { foreach (var n in new List<int>(down)) inst.HandOff(n); down.Clear(); base.OnFormClosed(e); }
 }
 #endif
 

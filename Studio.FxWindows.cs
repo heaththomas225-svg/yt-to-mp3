@@ -64,8 +64,8 @@ partial class StudioForm
     // REMOVE in a plugin window: off its track (or the master) and the window closes
     internal void RemoveFxEverywhere(Track t, Fx f)
     {
-        if (t == null) { lock (eng.Sync) { int mi = eng.MasterFx.IndexOf(f); if (mi < 0) return; PushUndo(); eng.MasterFx.RemoveAt(mi); retired.Add(f); } CloseFxWindow(f); return; }
-        int ti; lock (eng.Sync) ti = t.Fx.IndexOf(f); if (ti >= 0) RemoveFxAt(t, ti); CloseFxWindow(f);
+        if (t == null) { lock (eng.Sync) { int mi = eng.MasterFx.IndexOf(f); if (mi >= 0) { PushUndo(); eng.MasterFx.RemoveAt(mi); retired.Add(f); } } CloseFxWindow(f); PxWindow.CloseFor(f); return; }
+        int ti; lock (eng.Sync) ti = t.Fx.IndexOf(f); if (ti >= 0) RemoveFxAt(t, ti); CloseFxWindow(f); PxWindow.CloseFor(f);
     }
     void PaintFxWindow(Graphics g, FxWin w)
     {

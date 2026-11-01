@@ -24,8 +24,18 @@ class SamplerFx : InstrumentFx   // (Purphex Pads is a sampler with a window of 
         public bool Plays(int note) { return note >= Lo && note <= Hi; }
         public Zone Copy() { return new Zone { Path = Path, Name = Name, Lo = Lo, Hi = Hi, Root = Root, Follow = Follow, OneShot = OneShot, GainDb = GainDb, L = L, R = R, ML = ML, MR = MR, Rate = Rate, Missing = Missing, Lead = Lead, LoopA = LoopA, LoopB = LoopB, Hz = Hz }; }
     }
-    class Voice { public bool On, Releasing, Choked, Held, Looped; public Zone Z; public int Note; public float[] BL, BR; public double Pos, Start, Step, Gain, Env, Rel, LastL, LastR, Scale = 1, SubPh, Fol; }
-    double tailL, tailR, lfoPh, flL, flR, wobPh, wbL1, wbL2, wbR1, wbR2;   // flL / flR: the LFO filter   // what a voice taken for a new note was playing, fading away in 3 ms (cut in one sample it clicked)
+    class Voice { public bool On, Releasing, Choked, Held, Looped, Xf; public Zone Z; public int Note; public float[] BL, BR; public double Pos, Start, Step, Gain, Env, Rel, LastL, LastR, Scale = 1, SubPh, Fol; }
+    double tailL, tailR, lfoPh, flL, flR, wobPh, wbL1, wbL2, wbR1, wbR2;
+    static readonly double[] WobBeats = { 4, 2, 1, 0.5, 0.25, 2 / 3.0, 1 / 3.0, 1 / 6.0 }; long songPos = -1, nextPos = -1;
+    // each block: where the song is (the wobble locks to it), and a jump in the song (a section loop wrapping) lets go of held notes, whose note-offs past the jump never arrive
+    protected override void OnBlock(long pos, int n, bool transport)
+    {
+        if (transport && nextPos >= 0 && pos != nextPos) foreach (var v in voices) if (v.On && v.Held) { v.Held = false; if (!v.Releasing && (!v.Z.OneShot || v.Looped)) v.Releasing = true; }
+        nextPos = transport ? pos + n : -1; songPos = transport ? pos : -1;
+    }
+    // the loop is used for a one-key sound or a pad too while held (Pads and Key Map: HOLD)
+    protected virtual bool HoldLoops { get { return false; } }
+    public override int Latency { get { return LA; } }   // (the limiter looks 3 ms ahead: the studio lines the track up for it)   // flL / flR: the LFO filter   // what a voice taken for a new note was playing, fading away in 3 ms (cut in one sample it clicked)
     public readonly List<Zone> Zones = new List<Zone>(); readonly Voice[] voices = new Voice[48]; List<KeyValuePair<int, MidiEv>> pending; protected readonly object zl = new object();   // (the audio thread reads the zones under it)
     public SamplerFx()
     {
@@ -47,7 +57,7 @@ class SamplerFx : InstrumentFx   // (Purphex Pads is a sampler with a window of 
     public override void ShowWindow(IWin32Window owner) { }
 #endif
     public override void CloseWindow() { }
-    public override void Reset() { base.Reset(); foreach (var v in voices) v.On = false; ResetLimiter(); }
+    public override void Reset() { base.Reset(); foreach (var v in voices) v.On = false; ResetLimiter(); nextPos = -1; wbL1 = wbL2 = wbR1 = wbR2 = 0; wobPh = 0; }
     protected override void OnEvents(List<KeyValuePair<int, MidiEv>> ev) { pending = ev; }
 
     // ---- zones ----
@@ -78,7 +88,10 @@ class SamplerFx : InstrumentFx   // (Purphex Pads is a sampler with a window of 
         try
         {
             var x = z.L; int n = x.Length, rate = z.Rate, len = n - z.Lead; if (len < rate / 5) return;
-            int a = z.Lead + Math.Min(rate * 15 / 100, len * 3 / 10); int per = Wavetables.FindPeriod(x, a, Math.Min(n, a + 8192), rate); if (per <= 0) return; z.Hz = rate / (double)per;
+            float pkA = 0; for (int i = z.Lead; i < n; i++) { float q = Math.Abs(x[i]); if (q > pkA) pkA = q; }
+            int endA = n - 1; for (int i = n - 1; i > z.Lead; i--) if (Math.Abs(x[i]) > pkA * 0.05f) { endA = i; break; }   // the end of the audible body (-26 dB under the peak)
+            int a = Math.Max(z.Lead + Math.Min(rate * 15 / 100, len * 3 / 10), endA - rate / 10 - 8192);   // the loop sits just before the sound dies away: a note shorter than the sound plays it unchanged, a held one carries on from there
+            int per = Wavetables.FindPeriod(x, a, Math.Min(n, a + 8192), rate); if (per <= 0) return; z.Hz = rate / (double)per;
             for (int k = 0; k < per && a + 1 < n; k++, a++) if (x[a] <= 0 && x[a + 1] > 0) break;
             int cycles = Math.Max(1, (int)Math.Round(rate * 0.05 / per)), b = a + cycles * per; if (b >= n - 64) return;
             z.LoopA = a; z.LoopB = b;
@@ -171,7 +184,7 @@ class SamplerFx : InstrumentFx   // (Purphex Pads is a sampler with a window of 
         double rate = z.Rate / (double)SR, pitch = z.Follow ? Math.Pow(2, (note - z.Root) / 12.0) : 1.0; double vs = Get("vel") / 100.0;
         double step = rate * pitch * Math.Pow(2, Math.Round(Get("oct"))); int lv = 0; while (lv < 3 && step / (1 << lv) > 1.3) lv++;   // a note well above the sound's pitch plays a smoothed half-length copy
         var zml = z.ML; var zmr = z.MR; if (zml == null || zmr == null) lv = 0; v.BL = lv == 0 ? z.L : zml[lv - 1]; v.BR = lv == 0 ? z.R : zmr[lv - 1];
-        v.On = true; v.Releasing = false; v.Choked = false; v.Held = true; v.Looped = false; v.Scale = 1 << lv; v.LastL = v.LastR = 0; v.Z = z; v.Note = note; v.Pos = v.Start = z.Lead / (double)(1 << lv);   /* every sound starts where it starts: a gap at the front of the file made Key Map notes late too */ v.Step = step / (1 << lv); v.Gain = ((1 - vs) + vs * vel / 127.0) * Math.Pow(10, z.GainDb / 20.0); v.Env = 1; v.Rel = 0;
+        v.On = true; v.Releasing = false; v.Choked = false; v.Held = true; v.Looped = false; v.Xf = false; v.SubPh = 0; v.Fol = 0; v.Scale = 1 << lv; v.LastL = v.LastR = 0; v.Z = z; v.Note = note; v.Pos = v.Start = z.Lead / (double)(1 << lv);   /* every sound starts where it starts: a gap at the front of the file made Key Map notes late too */ v.Step = step / (1 << lv); v.Gain = ((1 - vs) + vs * vel / 127.0) * Math.Pow(10, z.GainDb / 20.0); v.Env = 1; v.Rel = 0;
     }
     // ---- the limiter: loud hits and chords are turned down smoothly instead of being flattened at the top (flattening is what crackled) ----
     // it looks 3 ms ahead (the sound is that much later), so the level is already down when a peak arrives; it holds 30 ms (an 808's next
@@ -189,7 +202,9 @@ class SamplerFx : InstrumentFx   // (Purphex Pads is a sampler with a window of 
         var ev = pending; pending = null; int ei = 0; double relK = Math.Exp(-1.0 / (Math.Max(5, Get("rel")) / 1000.0 * SR)), master = Math.Pow(10, Get("gain") / 20.0); double fadeIn = SR * 0.0015, chokeK = Math.Exp(-1.0 / (0.010 * SR));
         double lfoD = Get("lfod") / 100.0, lfoInc = Get("lfor") / SR; int lfoT = (int)Math.Round(Get("lfot")); bool lfoOn = lfoD > 0.001;
         double subA = Get("sub") / 100.0, wobA = Get("wob") / 100.0, drv = Get("drive") / 100.0, folK = 1 - Math.Exp(-1.0 / (0.008 * SR)); bool subOn = subA > 0.001, wobOn = wobA > 0.001, drvOn = drv > 0.001;
-        double[] wobBeats = { 4, 2, 1, 0.5, 0.25, 2 / 3.0, 1 / 3.0, 1 / 6.0 }; double wobInc = Math.Max(30, Fx.ProjectBpm) / 60.0 / wobBeats[Math.Max(0, Math.Min(7, (int)Math.Round(Get("wobr"))))] / SR, wobQ = 0.5 + 9.5 * Math.Pow(Get("wobq") / 100.0, 2); double drvK = 1 + drv * 6, drvN = 1 / Math.Pow(drvK, 0.65);
+        double wobInc = Math.Max(30, Fx.Bpm) / 60.0 / WobBeats[Math.Max(0, Math.Min(7, (int)Math.Round(Get("wobr"))))] / SR, wobQ = 0.5 + 9.5 * Math.Pow(Get("wobq") / 100.0, 2); double drvK = 1 + drv * 6, drvN = 1 / Math.Pow(drvK, 0.65);
+        if (wobOn) { if (songPos >= 0) { double ph = songPos * wobInc; wobPh = ph - Math.Floor(ph); } } else { wbL1 = wbL2 = wbR1 = wbR2 = 0; }   // the wobble opens and closes on the beat of the song
+        bool holdLoops = HoldLoops;
         for (int i = 0; i < n; i++)
         {
             double lfoS = 0, pm = 1; if (lfoOn) { lfoPh += lfoInc; if (lfoPh >= 1) lfoPh -= 1; lfoS = Math.Sin(2 * Math.PI * lfoPh); if (lfoT == 1) pm = Math.Pow(2, lfoD * lfoS / 12.0); }   // (vibrato: up to a semitone each way)
@@ -206,12 +221,18 @@ class SamplerFx : InstrumentFx   // (Purphex Pads is a sampler with a window of 
                 var v = voices[k]; if (!v.On) continue; var z = v.Z; var L = v.BL; var R = v.BR; if (L == null) { v.On = false; continue; }
                 int p = (int)v.Pos; if (p >= L.Length - 1) { v.On = false; continue; } double fr = v.Pos - p;
                 double a = L[p] + (L[p + 1] - L[p]) * fr, b = R[p] + (R[p + 1] - R[p]) * fr;
+                bool loopOn = z.LoopB > 0 && (!z.OneShot || holdLoops) && (v.Held || (v.Releasing && (v.Looped || v.Xf))) && !v.Choked;
+                if (loopOn)
+                {   // the last few hundred samples before the loop end fade into the loop start, so the jump back is seamless (a hard jump clicked 20 times a second)
+                    double lenS = (z.LoopB - z.LoopA) / v.Scale, lb0 = z.LoopB / v.Scale, xf = Math.Min(lenS * 0.5, 256.0 / v.Scale);
+                    if (v.Pos > lb0 - xf) { v.Xf = true; double q = v.Pos - lenS; int pq = (int)q; if (pq >= 0 && pq + 1 < L.Length) { double fq = q - pq, t = (v.Pos - (lb0 - xf)) / xf; double a2 = L[pq] + (L[pq + 1] - L[pq]) * fq, b2 = R[pq] + (R[pq + 1] - R[pq]) * fq; a += (a2 - a) * t; b += (b2 - b) * t; } }
+                }
                 if (v.Releasing) { v.Env *= v.Choked ? chokeK : relK; if (v.Env < 1e-4) { v.On = false; continue; } }
                 double att = !z.Follow || (v.Pos - v.Start) * (1 / v.Step) > fadeIn ? 1 : (v.Pos - v.Start) / v.Step / fadeIn;   // (a pitched sample starts with a tiny fade: no click when it starts mid-wave)
                 double g = v.Gain * v.Env * att; sl += a * g; sr += b * g; v.LastL = a * g; v.LastR = b * g;
-                if (subOn && z.Hz > 0) { v.Fol += ((Math.Abs(a) + Math.Abs(b)) * 0.5 - v.Fol) * folK; double sf = z.Hz * v.Step * v.Scale * pm * SR / z.Rate * 0.5; v.SubPh += sf / SR; if (v.SubPh >= 1) v.SubPh -= 1; double sv = Math.Sin(2 * Math.PI * v.SubPh) * v.Fol * 1.6 * subA * g; sl += sv; sr += sv; v.LastL += sv; v.LastR += sv; }   // SUB: a sine an octave under the note, as loud as the sound is at that moment
+                if (subOn && z.Hz > 0) { v.Fol += ((Math.Abs(a) + Math.Abs(b)) * 0.5 - v.Fol) * folK; double sf = z.Hz * v.Step * v.Scale * pm * SR / z.Rate * 0.5; v.SubPh += sf / SR; if (v.SubPh >= 1) v.SubPh -= 1; int leftS = L.Length - 1 - (int)v.Pos; double ef = leftS < 64 && leftS >= 0 ? leftS / 64.0 : 1; double sv = Math.Sin(2 * Math.PI * v.SubPh) * v.Fol * 1.6 * subA * g * ef; sl += sv; sr += sv; v.LastL += sv; v.LastR += sv; }   // SUB: a sine an octave under the note, as loud as the sound is at that moment
                 v.Pos += v.Step * pm;
-                if (z.LoopB > 0 && !z.OneShot && (v.Held || (v.Releasing && v.Looped)) && !v.Choked) { double lb = z.LoopB / v.Scale; if (v.Pos >= lb) { v.Pos -= (z.LoopB - z.LoopA) / v.Scale; v.Looped = true; } }   // held: the sound goes round its loop until you let go
+                if (loopOn) { double lb = z.LoopB / v.Scale; if (v.Pos >= lb) { v.Pos -= (z.LoopB - z.LoopA) / v.Scale; v.Looped = true; v.Xf = false; } }   // held: the sound goes round its loop until you let go
                 int left = L.Length - 1 - (int)v.Pos; if (left < 64 && left >= 0) { double t = left / 64.0; sl -= a * g * (1 - t); sr -= b * g * (1 - t); }   // (the last 64 samples fade out: no click at the end)
             }
             if (lfoOn)
@@ -226,7 +247,7 @@ class SamplerFx : InstrumentFx   // (Purphex Pads is a sampler with a window of 
                 double v3 = sl - wbL2, v1 = a1 * wbL1 + a2 * v3, v2 = wbL2 + a2 * wbL1 + a3 * v3; wbL1 = 2 * v1 - wbL1; wbL2 = 2 * v2 - wbL2; sl = v2;
                 v3 = sr - wbR2; v1 = a1 * wbR1 + a2 * v3; v2 = wbR2 + a2 * wbR1 + a3 * v3; wbR1 = 2 * v1 - wbR1; wbR2 = 2 * v2 - wbR2; sr = v2;
             }
-            if (drvOn) { sl = Math.Tanh(sl * drvK) * drvN * 0.9; sr = Math.Tanh(sr * drvK) * drvN * 0.9; }   // DRIVE: grit (the level stays about the same)
+            if (drvOn) { double dw = Math.Min(1.0, drv * 5), dl2 = Math.Tanh(sl * drvK) * drvN * 0.9, dr2 = Math.Tanh(sr * drvK) * drvN * 0.9; sl += (dl2 - sl) * dw; sr += (dr2 - sr) * dw; }   // (faded in over the first fifth of the knob: switched straight on, 1% already dropped and squashed the sound)   // DRIVE: grit (the level stays about the same)
             double ol = sl * master, or = sr * master; if (xl != null) { ol += xl[i]; or += xr[i]; }
             // the limiter: the gain each sample needs, the lowest over the next 3 ms (held, then let back up), averaged over 3 ms so it glides
             double pk = Math.Max(Math.Abs(ol), Math.Abs(or)), req = pk > Thr ? Thr / pk : 1; limReq[limReqPos] = req; if (req < 1) limLow = 0; else if (limLow < int.MaxValue) limLow++;

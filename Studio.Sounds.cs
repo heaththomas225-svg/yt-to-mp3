@@ -185,7 +185,7 @@ partial class StudioForm
         try
         {
             string dir = Path.Combine(StudioEnv.DataDir, "trimmed"); Directory.CreateDirectory(dir); string nm = s.Name; foreach (char ch in Path.GetInvalidFileNameChars()) nm = nm.Replace(ch, ' ');
-            string f = Path.Combine(dir, nm + " (" + (int)(t[0] * 10000) + "-" + (int)(t[1] * 10000) + ").wav"); if (File.Exists(f)) return f;
+            string f = Path.Combine(dir, nm + " (" + (int)(t[0] * 10000) + "-" + (int)(t[1] * 10000) + ").wav"); if (File.Exists(f) && File.GetLastWriteTimeUtc(f) >= File.GetLastWriteTimeUtc(path)) return f;   // (an edited sound makes its slice again: the plugins got the old audio)
             float[] l, r; int sr; string fmt; if (!SoundIO.Read(path, out l, out r, out sr, out fmt)) return path; r = r ?? l; int a = (int)(t[0] * l.Length), n = Math.Max(64, (int)((t[1] - t[0]) * l.Length)); n = Math.Min(n, l.Length - a);
             var L = new float[n]; var R = new float[n]; Array.Copy(l, a, L, 0, n); Array.Copy(r, a, R, 0, n); int fd = Math.Min(n / 4, sr / 500); for (int i = 0; i < fd; i++) { float k = i / (float)fd; L[i] *= k; R[i] *= k; L[n - 1 - i] *= k; R[n - 1 - i] *= k; }   // (2 ms fades: no click at the cut)
             WavIO.Write(f, L, R, sr, 24); return f;
@@ -492,7 +492,13 @@ partial class StudioForm
             else { string q = "Replace " + s.Name + " with the version " + what + "? Yes: replace it.   No: keep both (the new one goes right under it).   Cancel: do nothing."; var dr = editAsk != null ? editAsk(q) : MessageBox.Show(this, q, "Edit sound", MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question); if (dr == DialogResult.Cancel) return null; rep = dr == DialogResult.Yes; }
             string dir = Path.Combine(StudioEnv.DataDir, "edited"); Directory.CreateDirectory(dir); string f = Path.Combine(dir, Guid.NewGuid().ToString("N").Substring(0, 10) + ".wav"); WavIO.Write(f, o[0], o[1], sr, 24);
             var it = SoundLibrary.AddVersion(s, f, rep); try { File.Delete(f); } catch { } if (it == null) { Toast("Couldn't save the edit."); return null; }
-            if (op == "keep" || op == "cut") SetSoundTrim(rep ? it : s, 0, 1); if (rep) { var p0 = Auditioner.Current; if (p0 == s) Auditioner.Stop(); }
+            if (op == "keep" || op == "cut") SetSoundTrim(rep ? it : s, 0, 1);
+            else if (rep && t != null)
+            {   // the trim follows the sound when it was reversed or its silence cut
+                if (op == "rev") SetSoundTrim(it, 1 - t[1], 1 - t[0]);
+                else if (op == "lead") { int ld = n - o[0].Length; float a2 = (t[0] * n - ld) / (float)(n - ld), b2 = (t[1] * n - ld) / (float)(n - ld); if (b2 <= 0.001f) SetSoundTrim(it, 0, 1); else SetSoundTrim(it, Math.Max(0f, a2), Math.Min(1f, b2)); }
+            }
+            if (rep) sndWaveFor = ""; if (rep) { var p0 = Auditioner.Current; if (p0 == s) Auditioner.Stop(); }
             sndDirty = true; sndSel = it; Toast(rep ? s.Name + " is now " + what + "." : it.Name + " (" + what + ") is under " + s.Name + " in MY SOUNDS."); return it;
         }
         catch (Exception ex) { Toast("Couldn't edit " + s.Name + ": " + ex.Message); return null; }

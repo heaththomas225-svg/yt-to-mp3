@@ -226,7 +226,7 @@ partial class StudioForm
     void PaintInsPlugins(Graphics g, RectangleF C, Track picked)
     {
         var strips = new List<Track>(); foreach (var q in eng.Tracks) if (!q.IsBus) strips.Add(q); foreach (var q in eng.Tracks) if (q.IsBus) strips.Add(q);
-        int maxFx = 0, maxSends = 0; foreach (var q in strips) { lock (eng.Sync) maxFx = Math.Max(maxFx, q.Fx.Count); if (!q.IsBus) maxSends = Math.Max(maxSends, q.Sends.Length); }
+        int maxFx = 0, maxSends = 0; foreach (var q in strips) { lock (eng.Sync) { var ks = new HashSet<string>(); foreach (var qf in q.Fx) { string k = PresetKeyOf(qf); if (k.Length > 0) ks.Add(k); } maxFx = Math.Max(maxFx, q.Fx.Count + ks.Count); } if (!q.IsBus) maxSends = Math.Max(maxSends, q.Sends.Length); }   // (each preset has its own header row too)
         // the shared rows: name, slots, sends, output, pan, fader, mute / solo (the slots and the fader share what is left)
         int sendRows = Math.Min(3, maxSends + 1); float fixedH = 26 + 6 + sendRows * (SlotH + SlotGap) + 6 + 26 + 26 + 20 + 36 + 26 + 20, faderMin = 70;   /* (+ the STEREO / PHASE / ON row and TRIM, from the old CHANNEL tab) */   /* (a row for PRESETS under the output) */
         int fit = Math.Max(1, (int)((C.Height - fixedH - faderMin) / (SlotH + SlotGap))); int slots = Math.Max(1, Math.Min(fit, Math.Max(3, maxFx + 1)));
@@ -387,7 +387,7 @@ partial class StudioForm
                 Txt(g, f.Title, 8.5f, Color.FromArgb(120, 0, 0, 0), Rc(row.X + 20, row.Y + 1, row.Width - 42, SlotH), StringAlignment.Near, true); Txt(g, f.Title, 8.5f, f.Bypass ? DimC : Ink, Rc(row.X + 19, row.Y, row.Width - 42, SlotH), StringAlignment.Near, true);   // (a soft shadow keeps the name readable over the picture)
                 var rg = Reg(Rc(row.X + 18, row.Y, row.Width - 40, SlotH), () => { OpenFxWindow(t, f); if (!master) PickStrip(t); }); rg.OnRight = () => SlotMenu(t, f);
                 Reg(Rc(row.X, row.Y, 18, SlotH), () => f.Bypass = !f.Bypass); Hint2(Rc(row.X, row.Y, 18, SlotH), f.Bypass ? "Turn " + f.Title + " back on" : "Turn " + f.Title + " off (it stays on the track)");
-                var xr = Rc(row.Right - 20, row.Y + 3, 18, 18); Btn(g, xr, "x", 3, () => { if (master) { lock (eng.Sync) { int mi = eng.MasterFx.IndexOf(f); if (mi >= 0) { PushUndo(); eng.MasterFx.RemoveAt(mi); retired.Add(f); } } CloseFxWindow(f); } else { int ti; lock (eng.Sync) ti = t.Fx.IndexOf(f); RemoveFxAt(t, ti); } }, 9); Hint2(xr, "Remove " + f.Title + (master ? " from the master" : " from " + t.Name));
+                var xr = Rc(row.Right - 20, row.Y + 3, 18, 18); Btn(g, xr, "x", 3, () => { if (master) { lock (eng.Sync) { int mi = eng.MasterFx.IndexOf(f); if (mi >= 0) { PushUndo(); eng.MasterFx.RemoveAt(mi); retired.Add(f); } } CloseFxWindow(f); PxWindow.CloseFor(f); } else { int ti; lock (eng.Sync) ti = t.Fx.IndexOf(f); RemoveFxAt(t, ti); } }, 9); Hint2(xr, "Remove " + f.Title + (master ? " from the master" : " from " + t.Name));
                 Hint2(row, f.Title + (f.Bypass ? " (off)" : "") + ": " + FxHelp.About(f) + "  Click to open its window, the dot turns it on or off, x removes it");
             }
             else if (i == room && room < nRows)
@@ -430,7 +430,7 @@ partial class StudioForm
     internal void RemoveFxAt(Track t, int fi)
     {
         if (fi < 0 || fi >= t.Fx.Count) return; PushUndo(); Fx rf; lock (eng.Sync) { rf = t.Fx[fi]; t.Fx.RemoveAt(fi); t.Auto.RemoveAll(al => al.Fx == rf); retired.Add(rf); }
-        var ic = rf as InstrumentFx; if (ic != null) ic.CloseWindow(); CloseFxWindow(rf); selFx = -1;
+        var ic = rf as InstrumentFx; if (ic != null) ic.CloseWindow(); CloseFxWindow(rf); PxWindow.CloseFor(rf); selFx = -1;
     }
     internal void DuplicateFx(Track t, int fi)
     {

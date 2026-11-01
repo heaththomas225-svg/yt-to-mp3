@@ -237,7 +237,7 @@ partial class StudioForm
         else Txt(g, kind, 9, DimC, Rc(bx, y, 190, 24), StringAlignment.Near, true);
         bx += 194;
         Func<float, string, bool, Action, string, RectangleF> chip = (cw, label, on, act, hint) => { var r = Rc(bx, y, cw, 24); Btn(g, r, label, on ? 4 : 0, act, 9); Hint2(r, hint); bx += cw + 4; return r; };
-        { var recR = chip(70, recOn ? "● REC" : "○ REC", recOn, () => { recOn = !recOn; Toast(recOn ? "Recording is on (red): play your MIDI keyboard and the notes go into " + (prTrack != null ? prTrack.Name : "this piano roll") + ", from the needle (the first note starts the song). Press REC again to stop." : "Recording is off."); }, "Record your MIDI keyboard into this piano roll (" + (prTrack != null ? prTrack.Name : "its track") + "), from the needle: the first note starts the song");
+        { var recR = chip(70, recOn ? "● REC" : "○ REC", recOn, () => { recGot = false; recOn = !recOn; Toast(recOn ? "Recording is on (red): play your MIDI keyboard and the notes go into " + (prTrack != null ? prTrack.Name : "this piano roll") + ", from the needle (the first note starts the song). Press REC again to stop." : "Recording is off."); }, "Record your MIDI keyboard into this piano roll (" + (prTrack != null ? prTrack.Name : "its track") + "), from the needle: the first note starts the song");
           if (recOn) using (var pen = new Pen(Color.FromArgb(220, 255, 70, 90), 2f)) using (var pth = RR(recR, 6)) g.DrawPath(pen, pth); }
         chip(122, "SNAP " + PrSnapShort(prSnap), false, () => PrSnapMenu(), "Where notes land: 1 bar down to 1/32, triplets, or no snap");
         chip(104, "LENGTH " + PrBeatsName(prLenBeats), false, () => PrLenMenu(), "The length of the next note you add (drag a note's right edge to change one)");
@@ -270,7 +270,7 @@ partial class StudioForm
         if (prScrollY < 0) { int mid = 60; if (prNotes.Count > 0) { int lo = 127, hi = 0; foreach (var n in prNotes) { lo = Math.Min(lo, n.Note); hi = Math.Max(hi, n.Note); } mid = (lo + hi) / 2; } prScrollY = (PrHigh - mid) * prRowH - prGrid.Height / 2; }
         prScrollY = Math.Max(0, Math.Min(maxY, prScrollY)); prScrollBeats = Math.Max(0, prScrollBeats);
         // follow the playhead
-        if (prFollow && eng.Playing && prMode == 0) { double pb = DispPos / PrBeatFrames, vis = prGrid.Width / prPpb; if (pb < prScrollBeats || pb > prScrollBeats + vis * 0.92) prScrollBeats = Math.Max(0, Math.Floor(pb / 4) * 4); }
+        if (!eng.Playing) prFollowHeld = false; if (prFollow && !prFollowHeld && eng.Playing && prMode == 0) { double pb = DispPos / PrBeatFrames, vis = prGrid.Width / prPpb; if (pb < prScrollBeats || pb > prScrollBeats + vis * 0.92) prScrollBeats = Math.Max(0, Math.Floor(pb / 4) * 4); }
         var gs = g.Save(); g.SetClip(prGrid, CombineMode.Intersect);
         {   // the rows and the beat grid are one picture, drawn again only when the view changes (scroll, zoom, scale, snap, size, theme): it was redrawn line by line every frame
             string gk = (int)prGrid.Width + "x" + (int)prGrid.Height + "|" + prScrollY.ToString("0.##") + "|" + prScrollBeats.ToString("0.####") + "|" + prPpb.ToString("0.###") + "|" + prRowH + "|" + prScale + "|" + prKeyRoot + "|" + prSnap + "|" + ThemeKeyNow();
@@ -367,20 +367,22 @@ partial class StudioForm
         // the arrangement link: where this view sits in the song
         { var mini = Rc(x, prVel.Bottom - 16, keyW - 6, 14); double songBeats = Math.Max(16, SongFrames() / PrBeatFrames); FillRR(g, TM.C(200, 8, 4, 18), mini, 3); float vx0 = (float)(prScrollBeats / songBeats), vw = (float)(prGrid.Width / prPpb / songBeats); FillRR(g, Color.FromArgb(160, NeonCyan), Rc(mini.X + mini.Width * Math.Min(1, vx0), mini.Y + 2, Math.Max(3, mini.Width * Math.Min(1, vw)), mini.Height - 4), 2); Reg(mini, () => { prScrollBeats = Math.Max(0, (MousePos.X - mini.X) / mini.Width * songBeats - prGrid.Width / prPpb / 2); }).OnDrag = pt => { prScrollBeats = Math.Max(0, (pt.X - mini.X) / mini.Width * songBeats - prGrid.Width / prPpb / 2); }; Hint2(mini, "Where you are in the song: drag to move along it"); }
     }
-    RectangleF prHBar, prVBar;
+    RectangleF prHBar, prVBar; bool prFollowHeld;   // prFollowHeld: you scrolled back while it plays, so the view stays put until the next PLAY (your FOLLOW setting is kept)
     // the piano roll's scroll bars: drag the bar (or click the track to jump there); the time bar covers the song, your notes and a bit more
     void PaintPrScrollBars(Graphics g)
     {
         double endB = Math.Max(16, SongFrames() / PrBeatFrames); foreach (var n in prNotes) endB = Math.Max(endB, (n.Start + n.Len) / PrBeatFrames);
         double vis = prGrid.Width / prPpb, total = Math.Max(endB + 8, prScrollBeats + vis);
-        { var r = prHBar; FillRR(g, TM.C(220, 10, 5, 24), r, 6); float tw = Math.Max(30, (float)(r.Width * vis / total)), tx = r.X + (float)((r.Width - tw) * Math.Min(1, prScrollBeats / Math.Max(1e-9, total - vis)));
+        { var r = prHBar; FillRR(g, TM.C(220, 10, 5, 24), r, 6); float tw = Math.Min(r.Width, Math.Max(Math.Min(30, r.Width), (float)(r.Width * vis / total))), tx = r.X + (float)((r.Width - tw) * Math.Min(1, prScrollBeats / Math.Max(1e-9, total - vis)));
           var th = Rc(tx, r.Y + 2, tw, r.Height - 4); FillRR(g, Hot(r) ? NeonCyan : Color.FromArgb(200, NeonCyan), th, 5);
-          float grab = 0; var rg = Reg(r, () => { grab = th.Contains(MousePos) ? MousePos.X - th.X : tw / 2; prFollow = false; prScrollBeats = Math.Max(0, (MousePos.X - grab - r.X) / Math.Max(1, r.Width - tw) * (total - vis)); });
-          rg.OnDrag = pt => { prScrollBeats = Math.Max(0, (pt.X - grab - r.X) / Math.Max(1, r.Width - tw) * (total - vis)); Invalidate(); }; Hint2(r, "Scroll along the piano roll: drag the bar (or Shift + mouse wheel)"); }
+          float grab = 0; var rg = Reg(r, () => { grab = th.Contains(MousePos) ? MousePos.X - th.X : tw / 2; prFollowHeld = true; prScrollBeats = Math.Max(0, (MousePos.X - grab - r.X) / Math.Max(1, r.Width - tw) * (total - vis)); });
+          rg.OnDrag = pt => { prScrollBeats = Math.Max(0, (pt.X - grab - r.X) / Math.Max(1, r.Width - tw) * (total - vis)); Invalidate(); };
+          rg.OnWheel = d => { prFollowHeld = true; prScrollBeats = Math.Max(0, prScrollBeats - d * 2); Invalidate(); }; Hint2(r, "Scroll along the piano roll: drag the bar (or Shift + mouse wheel)"); }
         { int rows = PrHigh - PrLow + 1; float full = rows * prRowH, maxY = Math.Max(0, full - prGrid.Height); var r = prVBar; FillRR(g, TM.C(220, 10, 5, 24), r, 6);
-          float th0 = Math.Max(30, r.Height * prGrid.Height / Math.Max(1, full)), ty = r.Y + (r.Height - th0) * (maxY <= 0 ? 0 : prScrollY / maxY); var th = Rc(r.X + 2, ty, r.Width - 4, th0); FillRR(g, Hot(r) ? NeonCyan : Color.FromArgb(200, NeonCyan), th, 5);
+          float th0 = Math.Min(r.Height, Math.Max(Math.Min(30, r.Height), r.Height * prGrid.Height / Math.Max(1, full))), ty = r.Y + (r.Height - th0) * (maxY <= 0 ? 0 : prScrollY / maxY); var th = Rc(r.X + 2, ty, r.Width - 4, th0); FillRR(g, Hot(r) ? NeonCyan : Color.FromArgb(200, NeonCyan), th, 5);
           float grab = 0; var rg = Reg(r, () => { grab = th.Contains(MousePos) ? MousePos.Y - th.Y : th0 / 2; prScrollY = Math.Max(0, Math.Min(maxY, (MousePos.Y - grab - r.Y) / Math.Max(1, r.Height - th0) * maxY)); });
-          rg.OnDrag = pt => { prScrollY = Math.Max(0, Math.Min(maxY, (pt.Y - grab - r.Y) / Math.Max(1, r.Height - th0) * maxY)); Invalidate(); }; Hint2(r, "Scroll up and down the notes: drag the bar (or the mouse wheel)"); }
+          rg.OnDrag = pt => { prScrollY = Math.Max(0, Math.Min(maxY, (pt.Y - grab - r.Y) / Math.Max(1, r.Height - th0) * maxY)); Invalidate(); };
+          rg.OnWheel = d => { prScrollY = Math.Max(0, Math.Min(maxY, prScrollY - d * prRowH * 3)); Invalidate(); }; Hint2(r, "Scroll up and down the notes: drag the bar (or the mouse wheel)"); }
     }
     long SongFrames() { long end = 0; lock (eng.Sync) foreach (var t in eng.Tracks) { if (t.Clip != null) end = Math.Max(end, t.Offset + t.Clip.Length); lock (t.Midi) if (t.Midi.Count > 0) end = Math.Max(end, t.Midi[t.Midi.Count - 1].Frame); } return end; }
     static string PrBeatsName(double b) { if (Math.Abs(b - 4) < 1e-6) return "1 BAR"; if (Math.Abs(b - 2) < 1e-6) return "1/2 BAR"; if (Math.Abs(b - 1) < 1e-6) return "1/4"; if (Math.Abs(b - 0.5) < 1e-6) return "1/8"; if (Math.Abs(b - 0.25) < 1e-6) return "1/16"; if (Math.Abs(b - 0.125) < 1e-6) return "1/32"; if (Math.Abs(b - 1 / 3.0) < 1e-6) return "1/8T"; if (Math.Abs(b - 1 / 6.0) < 1e-6) return "1/16T"; return b.ToString("0.##") + " BEATS"; }
@@ -441,8 +443,8 @@ partial class StudioForm
         var mk = ModifierKeys;
         if ((mk & Keys.Control) != 0) { double old = prPpb, at = (p.X - prGrid.X) / old + prScrollBeats; prPpb = Math.Max(8, Math.Min(480, prPpb * (d > 0 ? 1.2 : 1 / 1.2))); prScrollBeats = Math.Max(0, at - (p.X - prGrid.X) / prPpb); }
         else if ((mk & Keys.Alt) != 0) { float atN = (p.Y - prGrid.Y + prScrollY) / prRowH; prRowH = Math.Max(7, Math.Min(30, prRowH + (d > 0 ? 2 : -2))); prScrollY = atN * prRowH - (p.Y - prGrid.Y); }
-        else if ((mk & Keys.Shift) != 0) prScrollBeats = Math.Max(0, prScrollBeats - d / 120.0 * 2);
-        else prScrollY -= d / 120f * prRowH * 3;
+        else if ((mk & Keys.Shift) != 0) { prScrollBeats = Math.Max(0, prScrollBeats - d * 2); prFollowHeld = true; }   // (d is one notch, +1 or -1: divided by 120 the wheel barely moved)
+        else prScrollY -= d * prRowH * 3;
     }
     void PrVelAt(PointF p, bool first)
     {
