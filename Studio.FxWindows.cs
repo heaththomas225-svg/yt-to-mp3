@@ -48,11 +48,6 @@ partial class StudioForm
     void PaintFxWindows(Graphics g)
     {
         if (tab != 0) return; fxWins.RemoveAll(w => !FxWinAlive(w)); if (fxWins.Count == 0) return;
-        if (DragThrough)
-        {   // a clip or a sound is being dragged: the plugin windows step aside (a faint outline only, and the mouse goes through them), so you see where it lands
-            foreach (var w in fxWins) using (var pen = new Pen(Color.FromArgb(90, NeonCyan), 1.2f) { DashStyle = System.Drawing.Drawing2D.DashStyle.Dash }) using (var p = RR(w.R, 12)) g.DrawPath(pen, p);
-            return;
-        }
         var look = BeginBrand(); try { foreach (var w in fxWins.OrderBy(x => x.Seq)) { KeepFxWinOnScreen(w); var ww = w; float sy; fxWinScroll.TryGetValue(w.Fx, out sy);
               string sig = "fx|" + w.Fx.Serialize() + "|" + w.Fx.Bypass + "|" + w.Fx.CurPreset + "|" + (w.Seq == fxWinSeq) + "|" + sy + "|" + eqBand + "|" + eng.Playing + "|" + (w.Track != null ? w.Track.Auto.Count : -1);
               PaintCachedWin(g, w, w.R, sig, eng.Playing ? 150 : 1000, gg => PaintFxWindow(gg, ww)); } } finally { EndBrand(look); }
@@ -65,6 +60,12 @@ partial class StudioForm
         if (w.WantH <= 0) w.WantH = r.Height; float avail = ClientSize.Height - 6 - ToolH; r.Height = Math.Max(Math.Min(minH, avail), Math.Min(w.WantH, avail));   // its own height whenever it fits (it grows back after the studio was short)
         r.X = Math.Max(-r.Width + 120, Math.Min(ClientSize.Width - 120, r.X)); r.Y = Math.Max(ToolH, Math.Min(ClientSize.Height - 6 - r.Height, r.Y));   // dragged low, it stops at the bottom edge instead of getting shorter
         w.R = r;
+    }
+    // REMOVE in a plugin window: off its track (or the master) and the window closes
+    internal void RemoveFxEverywhere(Track t, Fx f)
+    {
+        if (t == null) { lock (eng.Sync) { int mi = eng.MasterFx.IndexOf(f); if (mi >= 0) { PushUndo(); eng.MasterFx.RemoveAt(mi); retired.Add(f); } } CloseFxWindow(f); PxWindow.CloseFor(f); return; }
+        int ti; lock (eng.Sync) ti = t.Fx.IndexOf(f); if (ti >= 0) RemoveFxAt(t, ti); CloseFxWindow(f); PxWindow.CloseFor(f);
     }
     void PaintFxWindow(Graphics g, FxWin w)
     {
@@ -86,11 +87,12 @@ partial class StudioForm
         Prof.A("fw.frame", q0); q0 = Prof.T();
         if (front && UiTokens.Shiny) PaintMaterial(g, Rc(r.X + 1, r.Y + 1, r.Width - 2, FwTitle), 11, acc, UiTokens.Finish, true);   // the accent's finish on the front window's header (its sheen moves unless motion is reduced)
         string trackName = w.Track == null ? "MASTER" : w.Track.Name; string cat = FxCategory(f);
-        { float mx = r.X + 12, my = r.Y + 1; CachedLayer(g, "mark|" + f.Title + "|" + acc.ToArgb(), Rc(mx, my, Math.Min(360, r.Width - 160), FwTitle - 2), 4, gg => PaintPurphexMark(gg, mx, my, 31, f.Title, acc)); }   // the logo and name in galaxy writing: drawn once
+        { float mx = r.X + 12, my = r.Y + 1; CachedLayer(g, "mark|" + f.Title + "|" + acc.ToArgb(), Rc(mx, my, Math.Min(360, r.Width - 300), FwTitle - 2), 4, gg => PaintPurphexMark(gg, mx, my, 31, f.Title, acc)); }   // the logo and name in galaxy writing: drawn once
         Txt(g, (cat + "  ·  " + trackName).ToUpperInvariant(), 9, Color.FromArgb(255, 200, 185, 240), Rc(r.Right - 250, r.Y + 32, 238, 14), StringAlignment.Far, true);
         var tr2 = Reg(title, () => { fxWinDrag = w; fxWinResize = false; fxWinGrab = new PointF(MousePos.X - w.R.X, MousePos.Y - w.R.Y); }); tr2.OnDrag = pt => { if (fxWinDrag == w && !fxWinResize) w.R = new RectangleF(pt.X - fxWinGrab.X, pt.Y - fxWinGrab.Y, w.R.Width, w.R.Height); }; tr2.OnUp = () => fxWinDrag = null;
         { string ab = FxHelp.About(f); if (ab.Length > 0) Hint2(title, f.Title + ": " + ab); }   // point at the title: what this plugin does
         var cl = Rc(r.Right - 36, r.Y + 5, 26, 24); Btn(g, cl, "x", 3, () => CloseFxWindow(f), 12); Hint2(cl, "Close this window (the plugin keeps working)");
+        var rmb = Rc(cl.X - 72 - 84 - 84, r.Y + 5, 78, 24); Btn(g, rmb, "REMOVE", 3, () => RemoveFxEverywhere(w.Track, f), 10); Hint2(rmb, "Take " + f.Title + " off " + (w.Track == null ? "the master" : w.Track.Name) + " (undo brings it back)");
         var po = Rc(cl.X - 72 - 84, r.Y + 5, 78, 24); Btn(g, po, "POP OUT", 1, () => PopOutFx(f), 10); Hint2(po, "Open " + f.Title + " in a window of its own: drag it to another monitor, out of the way of the studio (it opens there again next time)");
         var bp = Rc(cl.X - 72, r.Y + 5, 66, 24); Btn(g, bp, f.Bypass ? "BYPASSED" : "ON", f.Bypass ? 0 : 4, () => f.Bypass = !f.Bypass, 10); Hint2(bp, f.Bypass ? "Bypassed: the sound goes past this plugin. Click to switch it back on." : "On: click to bypass this plugin (it stays in the chain)");
         Prof.A("fw.header", q0); q0 = Prof.T();

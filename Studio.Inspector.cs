@@ -226,7 +226,7 @@ partial class StudioForm
     void PaintInsPlugins(Graphics g, RectangleF C, Track picked)
     {
         var strips = new List<Track>(); foreach (var q in eng.Tracks) if (!q.IsBus) strips.Add(q); foreach (var q in eng.Tracks) if (q.IsBus) strips.Add(q);
-        int maxFx = 0, maxSends = 0; foreach (var q in strips) { lock (eng.Sync) maxFx = Math.Max(maxFx, q.Fx.Count); if (!q.IsBus) maxSends = Math.Max(maxSends, q.Sends.Length); }
+        int maxFx = 0, maxSends = 0; foreach (var q in strips) { lock (eng.Sync) { var ks = new HashSet<string>(); foreach (var qf in q.Fx) { string k = PresetKeyOf(qf); if (k.Length > 0) ks.Add(k); } maxFx = Math.Max(maxFx, q.Fx.Count + ks.Count); } if (!q.IsBus) maxSends = Math.Max(maxSends, q.Sends.Length); }   // (each preset has its own header row too)
         // the shared rows: name, slots, sends, output, pan, fader, mute / solo (the slots and the fader share what is left)
         int sendRows = Math.Min(3, maxSends + 1); float fixedH = 26 + 6 + sendRows * (SlotH + SlotGap) + 6 + 26 + 26 + 20 + 36 + 26 + 20, faderMin = 70;   /* (+ the STEREO / PHASE / ON row and TRIM, from the old CHANNEL tab) */   /* (a row for PRESETS under the output) */
         int fit = Math.Max(1, (int)((C.Height - fixedH - faderMin) / (SlotH + SlotGap))); int slots = Math.Max(1, Math.Min(fit, Math.Max(3, maxFx + 1)));
@@ -357,25 +357,42 @@ partial class StudioForm
         int i = eng.Tracks.IndexOf(t); if (i >= 0) { selTrack = i; busEdit = null; insBus = null; selFx = -1; }
     }
     // the slots: each plugin in the order the sound goes through them, then an empty slot to add one; when they don't all fit the last slot lists the rest
-    void PaintSlots(Graphics g, float x, float y, float w, int slots, Fx[] fxs, Track t)
+    // a preset you added (a vocal preset, a chain): its plugins carry its name; the slots show a header row for it with on/off and remove for the whole preset
+    static string PresetKeyOf(Fx f) { return f is InstrumentFx || f.Preset.Length == 0 ? "" : (f.PresetId.Length > 0 ? f.PresetId : f.Preset); }
+    void PaintSlots(Graphics g, float x, float y, float w, int slots, Fx[] fxs0, Track t)
     {
-        bool master = t == null; int room = fxs.Length + 1 <= slots ? fxs.Length : slots - 1;
+        bool master = t == null;
+        // the rows: a preset's header goes before its first plugin (index -1-k points at the header of preset k)
+        var rowsIx = new List<int>(); var heads = new List<string>(); var headName = new List<string>();
+        for (int i = 0; i < fxs0.Length; i++) { string k = master ? "" : PresetKeyOf(fxs0[i]); if (k.Length > 0 && !heads.Contains(k)) { heads.Add(k); headName.Add(fxs0[i].Preset); rowsIx.Add(-1 - (heads.Count - 1)); } rowsIx.Add(i); }
+        int nRows = rowsIx.Count; int room = nRows + 1 <= slots ? nRows : slots - 1; var fxs = fxs0;
         for (int i = 0; i < slots; i++)
         {
             var row = Rc(x, y + i * (SlotH + SlotGap), w, SlotH);
+            if (i < room && rowsIx[i] < 0)
+            {   // a preset's header: its name, the dot turns all its plugins on or off, x takes the whole preset off
+                int hk = -1 - rowsIx[i]; string pid = heads[hk], pname = headName[hk]; var mine = Array.FindAll(fxs0, q => PresetKeyOf(q) == pid); bool allOff = Array.TrueForAll(mine, q => q.Bypass);
+                FillRR(g, TM.C(200, 46, 20, 70), row, 5); StrokeRR(g, Color.FromArgb(200, NeonPink), row, 5, 1f);
+                var dot = Rc(row.X + 5, row.Y + 6, 12, 12); using (var b = new SolidBrush(allOff ? TM.C(90, 90, 70, 110) : Good)) g.FillEllipse(b, dot);
+                Reg(Rc(row.X, row.Y, 20, SlotH), () => { bool to = !allOff; foreach (var q in mine) q.Bypass = to; }); Hint2(Rc(row.X, row.Y, 20, SlotH), allOff ? "Turn the whole " + pname + " preset back on" : "Turn the whole " + pname + " preset off (it stays on the track)");
+                Txt(g, "★ " + pname.ToUpperInvariant(), 8, allOff ? DimC : NeonPink, Rc(row.X + 20, row.Y, row.Width - 42, SlotH), StringAlignment.Near, true);
+                var xr = Rc(row.Right - 20, row.Y + 3, 18, 18); Btn(g, xr, "x", 3, () => { ChainApply(t, "Preset removed", () => RemovePreset(t, pid)); selFx = -1; }, 9); Hint2(xr, "Remove the whole " + pname + " preset from " + t.Name);
+                continue;
+            }
             if (i < room)
             {
-                var f = fxs[i]; int fi = i; bool open = FxWindowOf(f) != null; Color c = f.Bypass ? DimC : (open ? UiTokens.Sel(NeonCyan) : NeonViolet);
+                var f = fxs[rowsIx[i]]; int fi = rowsIx[i]; bool open = FxWindowOf(f) != null; Color c = f.Bypass ? DimC : (open ? UiTokens.Sel(NeonCyan) : NeonViolet);
                 PaintPxSlot(g, row, f, open); PaintFxViz(g, Rc(row.X + 3, row.Y + 2, row.Width - 6, row.Height - 4), f, false);   // the Purphex slot with its live picture of what the plugin is doing
                 var dot = Rc(row.X + 6, row.Y + 7, 10, 10); using (var b = new SolidBrush(f.Bypass ? TM.C(90, 90, 70, 110) : Good)) g.FillEllipse(b, dot);
-                Txt(g, f.Title, 8.5f, Color.FromArgb(120, 0, 0, 0), Rc(row.X + 20, row.Y + 1, row.Width - 22, SlotH), StringAlignment.Near, true); Txt(g, f.Title, 8.5f, f.Bypass ? DimC : Ink, Rc(row.X + 19, row.Y, row.Width - 22, SlotH), StringAlignment.Near, true);   // (a soft shadow keeps the name readable over the picture)
-                var rg = Reg(Rc(row.X + 16, row.Y, row.Width - 16, SlotH), () => { OpenFxWindow(t, f); if (!master) PickStrip(t); }); rg.OnRight = () => SlotMenu(t, f);
-                Reg(Rc(row.X, row.Y, 16, SlotH), () => f.Bypass = !f.Bypass);
-                Hint2(row, f.Title + (f.Bypass ? " (bypassed)" : "") + ": " + FxHelp.About(f) + "  Click to open its window, the dot turns it on or off, right-click for more");
+                Txt(g, f.Title, 8.5f, Color.FromArgb(120, 0, 0, 0), Rc(row.X + 20, row.Y + 1, row.Width - 42, SlotH), StringAlignment.Near, true); Txt(g, f.Title, 8.5f, f.Bypass ? DimC : Ink, Rc(row.X + 19, row.Y, row.Width - 42, SlotH), StringAlignment.Near, true);   // (a soft shadow keeps the name readable over the picture)
+                var rg = Reg(Rc(row.X + 18, row.Y, row.Width - 40, SlotH), () => { OpenFxWindow(t, f); if (!master) PickStrip(t); }); rg.OnRight = () => SlotMenu(t, f);
+                Reg(Rc(row.X, row.Y, 18, SlotH), () => f.Bypass = !f.Bypass); Hint2(Rc(row.X, row.Y, 18, SlotH), f.Bypass ? "Turn " + f.Title + " back on" : "Turn " + f.Title + " off (it stays on the track)");
+                var xr = Rc(row.Right - 20, row.Y + 3, 18, 18); Btn(g, xr, "x", 3, () => { if (master) { lock (eng.Sync) { int mi = eng.MasterFx.IndexOf(f); if (mi >= 0) { PushUndo(); eng.MasterFx.RemoveAt(mi); retired.Add(f); } } CloseFxWindow(f); PxWindow.CloseFor(f); } else { int ti; lock (eng.Sync) ti = t.Fx.IndexOf(f); RemoveFxAt(t, ti); } }, 9); Hint2(xr, "Remove " + f.Title + (master ? " from the master" : " from " + t.Name));
+                Hint2(row, f.Title + (f.Bypass ? " (off)" : "") + ": " + FxHelp.About(f) + "  Click to open its window, the dot turns it on or off, x removes it");
             }
-            else if (i == room && room < fxs.Length)
+            else if (i == room && room < nRows)
             {   // more plugins than slots: this one lists them all
-                Btn(g, row, "+" + (fxs.Length - room) + " MORE", 2, () => AllSlotsMenu(t, fxs), 8.5f); Hint2(row, "The rest of the plugins on this strip");
+                Btn(g, row, "+" + (nRows - room) + " MORE", 2, () => AllSlotsMenu(t, fxs), 8.5f); Hint2(row, "The rest of the plugins on this strip");
             }
             else if (i == room)
             {
@@ -413,7 +430,7 @@ partial class StudioForm
     internal void RemoveFxAt(Track t, int fi)
     {
         if (fi < 0 || fi >= t.Fx.Count) return; PushUndo(); Fx rf; lock (eng.Sync) { rf = t.Fx[fi]; t.Fx.RemoveAt(fi); t.Auto.RemoveAll(al => al.Fx == rf); retired.Add(rf); }
-        var ic = rf as InstrumentFx; if (ic != null) ic.CloseWindow(); CloseFxWindow(rf); selFx = -1;
+        var ic = rf as InstrumentFx; if (ic != null) ic.CloseWindow(); CloseFxWindow(rf); PxWindow.CloseFor(rf); selFx = -1;
     }
     internal void DuplicateFx(Track t, int fi)
     {

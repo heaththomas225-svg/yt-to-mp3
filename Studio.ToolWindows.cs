@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
@@ -24,6 +24,18 @@ partial class StudioForm
         if (toolWins.Count == 0 || tab != 0) return; TrimWinPics(new HashSet<object>(fxWins.Cast<object>().Concat(toolWins.Cast<object>())));
         foreach (var w in toolWins.OrderBy(x => x.Seq).ToList())
         {
+            if (DragThrough && w.Kind == TagKind)
+            {   // a sound is being dragged: only the producer tag window fades to a ghost (its last picture, faint) and lets the drop through, so you see the tracks behind it
+                WinPic p;
+                if (winPics.TryGetValue(w, out p) && p.Bmp != null)
+                    using (var ia = new System.Drawing.Imaging.ImageAttributes())
+                    {
+                        ia.SetColorMatrix(new System.Drawing.Imaging.ColorMatrix { Matrix33 = 0.22f });
+                        g.DrawImage(p.Bmp, new Rectangle((int)w.R.X - WinPicPad, (int)w.R.Y - WinPicPad, p.Bmp.Width, p.Bmp.Height), 0, 0, p.Bmp.Width, p.Bmp.Height, GraphicsUnit.Pixel, ia);
+                    }
+                using (var pen = new Pen(Color.FromArgb(110, NeonCyan), 1.2f) { DashStyle = System.Drawing.Drawing2D.DashStyle.Dash }) using (var pp = RR(w.R, 12)) g.DrawPath(pen, pp);
+                continue;
+            }
             if (w.Full) w.R = Rc(4, ToolH + 4, ClientSize.Width - 8, ClientSize.Height - ToolH - 8);
             var r = w.R; float mw = w.Kind == TagKind ? 820 : 520, mh = w.Kind == TagKind ? 640 : 360;   /* the smallest it can be made: the producer tag needs room for all of its rows */ r.Width = Math.Max(Math.Min(mw, ClientSize.Width - 8), Math.Min(ClientSize.Width - 8, r.Width)); r.Height = Math.Max(Math.Min(mh, ClientSize.Height - ToolH - 8), Math.Min(ClientSize.Height - ToolH - 8, r.Height)); r.X = Math.Max(-r.Width + 140, Math.Min(ClientSize.Width - 140, r.X)); r.Y = Math.Max(ToolH, Math.Min(ClientSize.Height - 50, r.Y)); w.R = r;   // drawn at the size it is shown at (dragged smaller than it can be, its contents were laid out for the smaller size and came out jumbled) w.R = r;
             var wq = w; PaintCachedWin(g, w, r, "tool|" + w.Kind + "|" + w.Full + "|" + (w.Seq == toolSeq) + "|" + selTrack + "|" + eng.Tracks.Count + "|" + eng.Playing + "|" + (toolDrag != null) + (w.Kind == TagKind ? "|" + TagWinSig() : ""), 250, gg => PaintToolWin(gg, wq));

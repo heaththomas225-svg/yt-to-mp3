@@ -17,7 +17,8 @@ static class Prefs
     public static int OutVol = 100;          // Purphex Music playback volume, percent (does not change exported files)
     public static int OutDev = -1;           // winmm device id (-1 = system default)
     public static int Buf = 1;               // playback buffer: 0 low latency, 1 normal, 2 safe (YOUR choice: it is saved and never changed behind your back)
-    public static int BufBoost = 0;          // extra size the studio adds for this session only when the sound breaks up (never saved)
+    public static int BufBoost = 0;          // extra size the studio adds when the sound breaks up; kept for next time too, so a PC that needs it starts clean (it crackled until PLAY grew it again each session)
+    public static int BufSaved;              // the part of BufBoost kept for next time (one step at most)
     public static int BufEff { get { return Math.Min(2, Buf + BufBoost); } }
     public static int FpsCap = 60;           // animation frame rate cap: 30, 60, 120, 144, 165 or 240
     public static bool PerfMode;             // PERFORMANCE MODE: almost no animation and 30 fps, for slow PCs
@@ -45,7 +46,7 @@ static class Prefs
     public static bool InsOpen; public static int InsH = 300;   // the bottom inspector: shown or not, and its height
     public static string[] Lines()
     {
-        return new[] { "proftheme=" + (ProfileTheme ? 1 : 0), "insopen=" + (InsOpen ? 1 : 0), "insh=" + InsH, "panelhid=" + (PanelHidden ? 1 : 0), "studioplace=" + StudioPlace, "thin=" + (ThinTracks ? 1 : 0), "vismotion=" + VisMotion, "headhid=" + (HeadHidden ? 1 : 0), "lyrsize=" + LyricSize.ToString(System.Globalization.CultureInfo.InvariantCulture), "bgpath=" + BgPath, "bgdim=" + BgDim, "bgleaves=" + BgLeaves, "bgstudio=" + BgStudio, "outvol=" + OutVol, "rbspeed=" + RainbowSpeed, "outdev=" + OutDev, "buf=" + Buf, "fpscap=" + FpsCap, "perfmode=" + PerfMode, "showfps=" + ShowFps, "savelyrics=" + SaveLyrics, "countuses=" + CountUses, "fantasythemev=" + FantasyThemeV, "fantasytheme=" + FantasyThemed, "midiin=" + MidiDev, "indev=" + InDev, "micmode=" + MicMode, "fontid=" + FontId, "sharesaved=" + ShareSaved, "theme=" + Theme };
+        return new[] { "bufauto=" + BufSaved, "proftheme=" + (ProfileTheme ? 1 : 0), "insopen=" + (InsOpen ? 1 : 0), "insh=" + InsH, "panelhid=" + (PanelHidden ? 1 : 0), "studioplace=" + StudioPlace, "thin=" + (ThinTracks ? 1 : 0), "vismotion=" + VisMotion, "headhid=" + (HeadHidden ? 1 : 0), "lyrsize=" + LyricSize.ToString(System.Globalization.CultureInfo.InvariantCulture), "bgpath=" + BgPath, "bgdim=" + BgDim, "bgleaves=" + BgLeaves, "bgstudio=" + BgStudio, "outvol=" + OutVol, "rbspeed=" + RainbowSpeed, "outdev=" + OutDev, "buf=" + Buf, "fpscap=" + FpsCap, "perfmode=" + PerfMode, "showfps=" + ShowFps, "savelyrics=" + SaveLyrics, "countuses=" + CountUses, "fantasythemev=" + FantasyThemeV, "fantasytheme=" + FantasyThemed, "midiin=" + MidiDev, "indev=" + InDev, "micmode=" + MicMode, "fontid=" + FontId, "sharesaved=" + ShareSaved, "theme=" + Theme };
     }
     public static bool Parse(string k, string v)
     {
@@ -63,6 +64,7 @@ static class Prefs
             case "rbspeed": if (int.TryParse(v, out n)) RainbowSpeed = Math.Max(0, Math.Min(100, n)); return true;
             case "outdev": if (int.TryParse(v, out n)) OutDev = n; return true;
             case "buf": if (int.TryParse(v, out n)) Buf = Math.Max(0, Math.Min(2, n)); return true;
+            case "bufauto": if (int.TryParse(v, out n)) { BufSaved = Math.Max(0, Math.Min(1, n)); BufBoost = BufSaved; } return true;
             case "fpscap": if (int.TryParse(v, out n)) FpsCap = n >= 240 ? 240 : (n >= 165 ? 165 : (n >= 144 ? 144 : (n >= 120 ? 120 : (n >= 60 ? 60 : 30)))); return true;
             case "perfmode": if (bool.TryParse(v, out b)) PerfMode = b; return true;
             case "showfps": if (bool.TryParse(v, out b)) ShowFps = b; return true;

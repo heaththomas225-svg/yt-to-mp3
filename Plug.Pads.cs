@@ -18,7 +18,7 @@ class PadsFx : SamplerFx
         Type = "pxpads"; Title = "Purphex Pads"; Category = "Instruments"; Blurb = "16 pads, any sound on each (library, your files or your tracks), played from your MIDI keyboard's pads";
         var hid = new List<string>();
         for (int i = 0; i < N; i++) { AddP("n" + i, "Pad " + (i + 1) + " note", 0, 127, 36 + i, ""); AddP("g" + i, "Pad " + (i + 1) + " level", -24, 12, 0, "dB"); AddP("c" + i, "Pad " + (i + 1) + " channel", 1, 16, 10, ""); hid.Add("n" + i); hid.Add("g" + i); hid.Add("c" + i); }
-        AddP("hv", "Headroom version", 0, 9, 2, ""); hid.Add("hv"); Hidden = string.Join(",", hid);
+        AddP("hv", "Headroom version", 0, 9, 2, ""); hid.Add("hv"); AddC("hold", "Held pads", new[] { "Play out", "Keep playing while held" }, 1); hid.Add("hold"); Hidden = string.Join(",", hid);
         // headroom: drum sounds come at full level, and a kick, an 808 and a clap together went to 4 times full scale: the limiter squashed that by 12 dB,
         // which is the crunchy crackle. The pads play 12 dB lower, so a whole kit fits (turn the track or the master up, cleanly)
         var gp = Find("gain"); gp.Def = -5; Set("gain", -5);   // (now -5 dB: the sampler rounds off loud peaks smoothly, so the pads are no longer quieter than the rest of the song)
@@ -40,6 +40,7 @@ class PadsFx : SamplerFx
     public Zone PadZone(int pad) { return ZoneAt(PadNote(pad)); }
     public string PadName(int pad) { var z = PadZone(pad); return z == null ? "" : z.Name; }
     // a sound onto a pad (it keeps its pitch, like a drum hit)
+    protected override bool HoldLoops { get { return Get("hold") >= 0.5f; } }   // HOLD: a pad held past its sound keeps going (a bass is extended until you let go)
     public string SetPad(int pad, string path, string name) { return AddToKit(path, name, PadNote(pad)); }
     public void ClearPad(int pad) { RemoveKey(PadNote(pad)); }
     // a pad's sound dragged onto another pad: the two swap their sounds and levels (each pad keeps the key that plays it)
@@ -53,7 +54,8 @@ class PadsFx : SamplerFx
     // a Purphex Pads saved before it had headroom gets it too (12 dB lower, its own level change kept)
     public override void Deserialize(string s)
     {   // older saves: before headroom (no hv) the level goes 5 dB down; with the 12 dB headroom (hv 1) it comes 7 dB back up (the smooth ceiling does the job now)
-        base.Deserialize(s); if (s == null || s.IndexOf("gain=", StringComparison.Ordinal) < 0) { Set("hv", 2); return; }
+        base.Deserialize(s); if (s != null && s.IndexOf("hold=", StringComparison.Ordinal) < 0) Set("hold", 0);   // (a song saved before HOLD plays exactly as it did)
+        if (s == null || s.IndexOf("gain=", StringComparison.Ordinal) < 0) { Set("hv", 2); return; }
         bool noHv = s.IndexOf("hv=", StringComparison.Ordinal) < 0; int hv = noHv ? 0 : (int)Math.Round(Get("hv"));
         if (hv < 2) Set("gain", Math.Max(-24, Math.Min(12, Get("gain") + (noHv ? -5 : 7)))); Set("hv", 2);
     }
@@ -85,7 +87,7 @@ class PadsWindow : PxWindow, ISoundDrop
 {
     bool setup;   // SET UP MY 8 PADS: learning pads 1 to 8 in order
     readonly PadsFx e; int sel, held = -1, dragFrom = -1, dragTo = -1;   // dragFrom / dragTo: a pad being dragged onto another
-    public PadsWindow(PadsFx f) : base(f, "Pads", new Size(1000, 760))
+    public PadsWindow(PadsFx f) : base(f, "Pads", new Size(1000, 850))
     {
         e = f; Accent = Pink; AllowDrop = true; MidiWindow.Hook(this, f);
         DragEnter += (s, a) => { a.Effect = SoundSources.AudioFiles(a.Data).Count > 0 ? DragDropEffects.Copy : DragDropEffects.None; };
@@ -135,15 +137,15 @@ class PadsWindow : PxWindow, ISoundDrop
             Txt(g, "PAD " + (i + 1), 10, lit ? Color.Black : Dim, new RectangleF(r.X + 10, r.Y + 6, r.Width - 20, 14), StringAlignment.Near, true);
             Txt(g, has ? nm : "EMPTY", has ? 14 : 11, lit ? Color.Black : (has ? Ink : Dim), new RectangleF(r.X + 8, r.Y + r.Height / 2 - 16, r.Width - 16, 32), StringAlignment.Center, true);
             Txt(g, PadsFx.NoteName(note), 9.5f, lit ? Color.Black : Dim, new RectangleF(r.X + 10, r.Bottom - 20, r.Width - 20, 14), StringAlignment.Near, false);
-            int k = i; var h = Reg(r, () => { sel = k; held = k; dragFrom = k; dragTo = -1; e.NoteOn(e.PadNote(k), 110); }, (has ? nm + ": click to play it, drag it onto another pad to move it" : "Empty pad") + ", right-click to choose its sound");
+            int k = i; var h = Reg(r, () => { sel = k; held = k; dragFrom = k; dragTo = -1; e.HandOn(e.PadNote(k), 110); }, (has ? nm + ": click to play it, drag it onto another pad to move it" : "Empty pad") + ", right-click to choose its sound");
             h.DragAt = p => { if (dragFrom < 0) return; int over = PadAt(Point.Round(p)); dragTo = over >= 0 && over != dragFrom && e.PadName(dragFrom).Length > 0 ? over : -1; };
-            h.Up = () => { if (held >= 0) e.NoteOff(e.PadNote(held)); held = -1; if (dragFrom >= 0 && dragTo >= 0) { Mark(); e.SwapPads(dragFrom, dragTo); sel = dragTo; } dragFrom = -1; dragTo = -1; }; h.Right = () => { sel = k; SoundMenu(k); };
+            h.Up = () => { if (held >= 0) e.HandOff(e.PadNote(held)); held = -1; if (dragFrom >= 0 && dragTo >= 0) { Mark(); e.SwapPads(dragFrom, dragTo); sel = dragTo; } dragFrom = -1; dragTo = -1; }; h.Right = () => { sel = k; SoundMenu(k); };
             if (dragTo == i) { Fill(g, Color.FromArgb(80, Cyan), r, 12); Stroke(g, Cyan, RectangleF.Inflate(r, 3, 3), 14, 2.6f); Txt(g, "MOVE HERE", 10, Cyan, new RectangleF(r.X, r.Bottom - 38, r.Width, 14), StringAlignment.Center, true); }
         }
         // the picked pad
         var side = new RectangleF(a.X + gw + 14, top.Bottom + 26, a.Right - a.X - gw - 14, gh); Panel(g, side, "PAD " + (sel + 1), Pink);
         string sn = e.PadName(sel); Txt(g, sn.Length > 0 ? sn : "No sound yet", 15, sn.Length > 0 ? Ink : Dim, new RectangleF(side.X + 14, side.Y + 28, side.Width - 28, 26), StringAlignment.Near, true);
-        Button(g, new RectangleF(side.X + 14, side.Y + 62, side.Width - 28, 34), "CHOOSE ITS SOUND  ▾", true, Pink, () => SoundMenu(sel), "A sound from the library, a file on your PC, or one of your song's tracks", 11.5f);
+        Button(g, new RectangleF(side.X + 14, side.Y + 62, side.Width - 28, 34), "PICK A SOUND  ▾", true, Pink, () => SoundMenu(sel), "A sound from the library, a file on your PC, or one of your song's tracks", 11.5f);
         Button(g, new RectangleF(side.X + 14, side.Y + 104, side.Width - 28, 30), "A SOUND FILE ON MY PC...", false, Cyan, () => PickFile(sel), "Choose a WAV, MP3, FLAC, OGG, AIFF or M4A file", 10.5f);
         Knob(g, side.X + side.Width / 2, side.Y + 186, 26, "g" + sel, "LEVEL", Pink);
         Txt(g, "PLAYS FROM", 10, Dim, new RectangleF(side.X + 14, side.Y + 256, side.Width - 28, 14), StringAlignment.Near, true);
@@ -156,6 +158,11 @@ class PadsWindow : PxWindow, ISoundDrop
         { float ly = side.Y + 344; Txt(g, "LFO", 11, Gold, new RectangleF(side.X + 14, ly, 60, 16), StringAlignment.Near, true);
           Knob(g, side.X + side.Width * 0.3f, ly + 46, 22, "lfor", "RATE", Gold); Knob(g, side.X + side.Width * 0.7f, ly + 46, 22, "lfod", "DEPTH", Gold);
           Segments(g, new RectangleF(side.X + 14, ly + 96, side.Width - 28, 28), "lfot", Gold, 9); }
+        // BASS: octave, sub, wobble (depth, resonance, rate), drive, and HOLD (for 808s and bass hits on the pads); it sits just above CLEAR THIS PAD and never over the LFO
+        { float qy = Math.Max(side.Y + 470, side.Bottom - 44 - 140); Txt(g, "BASS", 11, Gold, new RectangleF(side.X + 14, qy, 60, 16), StringAlignment.Near, true);
+          bool hd = e.Get("hold") >= 0.5f; Button(g, new RectangleF(side.Right - 14 - 150, qy - 4, 150, 22), hd ? "HOLD: KEEPS PLAYING" : "HOLD: PLAYS OUT", hd, Gold, () => { Mark(); e.Set("hold", hd ? 0 : 1); }, hd ? "A pad you hold keeps playing past the end of its sound until you let go (an 808 is extended). Press to make pads play out" : "A pad plays its sound out whatever you do. Press to have held pads keep playing", 8.5f);
+          string[] kn = { "oct", "sub", "wob", "wobq", "drive" }, kl = { "OCT", "SUB", "WOBBLE", "RES", "DRIVE" }; float kw = (side.Width - 28) / 5f; for (int i = 0; i < 5; i++) Knob(g, side.X + 14 + kw * (i + 0.5f), qy + 44, 15, kn[i], kl[i], Gold);
+          Segments(g, new RectangleF(side.X + 14, qy + 100, side.Width - 28, 26), "wobr", Gold, 8.5f); }
         Button(g, new RectangleF(side.X + 14, side.Bottom - 44, side.Width - 28, 30), "CLEAR THIS PAD", false, Violet, () => { Mark(); e.ClearPad(s0); }, "Take the sound off this pad", 10.5f);
     }
 
@@ -224,8 +231,13 @@ static class SoundDrop
         try
         {
             var ours = new System.Collections.Generic.Dictionary<IntPtr, Form>(); foreach (Form f in Application.OpenForms) if (f is ISoundDrop && f.Visible && !f.IsDisposed && f.WindowState != FormWindowState.Minimized && f.Bounds.Contains(screen)) ours[f.Handle] = f;
-            if (ours.Count == 0) return null; if (ours.Count == 1) foreach (var f in ours.Values) return (ISoundDrop)f;
-            for (IntPtr h = GetTopWindow(IntPtr.Zero); h != IntPtr.Zero; h = GetWindow(h, 2)) { Form f; if (ours.TryGetValue(h, out f)) return (ISoundDrop)f; }
+            if (ours.Count == 0) return null;
+            for (IntPtr h = GetTopWindow(IntPtr.Zero); h != IntPtr.Zero; h = GetWindow(h, 2))   // top down
+            {
+                Form f; if (ours.TryGetValue(h, out f)) return (ISoundDrop)f;
+                Form o = null; try { o = Control.FromHandle(h) as Form; } catch { }
+                if (o != null && o.Visible && !o.IsDisposed && o.WindowState != FormWindowState.Minimized && o.Opacity > 0.5 && o.Bounds.Contains(screen)) return null;   // another window of ours (Bass Lab, a VST...) is on top here: the Pads / Key Map under it is hidden (faded windows are see-through on purpose)
+            }
         }
         catch { }
         return null;
@@ -240,10 +252,16 @@ static class MidiWindow
     // to the Beat Lab's kit or the picked track's instrument (an empty pad seemed to play a sound); the last one you used wins
     static readonly List<InstrumentFx> open = new List<InstrumentFx>();
     public static bool Holds(InstrumentFx fx) { lock (open) return fx != null && open.Contains(fx); }
+    // the track the instrument is on (its notes are recorded there): found again if it was never set or the plugin moved
+    static void FixOwner(InstrumentFx fx)
+    {
+        try { var se = StudioEngine.Current; if (se == null) return; if (fx.Owner != null && fx.Owner.Fx.Contains(fx)) return; lock (se.Sync) foreach (var t in se.Tracks) if (t.Fx.Contains(fx)) { fx.Owner = t; return; } } catch { }
+    }
     public static void Hook(Form w, InstrumentFx fx)
     {
+        w.Activated += (s, e) => FixOwner(fx); w.Shown += (s, e) => FixOwner(fx);
         w.Shown += (s, e) => { lock (open) { open.Remove(fx); open.Add(fx); } MidiInput.Target = fx; };
-        w.FormClosed += (s, e) => { InstrumentFx next = null; lock (open) { open.Remove(fx); if (open.Count > 0) next = open[open.Count - 1]; } if (MidiInput.Target == fx || MidiInput.Target == null) MidiInput.Target = next; };
+        w.FormClosed += (s, e) => { fx.Midi(0xB0, 123, 0, false); InstrumentFx next = null; lock (open) { open.Remove(fx); if (open.Count > 0) next = open[open.Count - 1]; } if (MidiInput.Target == fx || MidiInput.Target == null) MidiInput.Target = next; };
         w.Activated += (s, e) => { lock (open) { open.Remove(fx); open.Add(fx); } MidiInput.Target = fx; var se = StudioEngine.Current; if (se != null) se.EnsureAudio(); if (Prefs.MidiDev != MidiInput.OffName && MidiInput.OpenName.Length == 0) { var sf = w.Owner as StudioForm; if (sf != null) sf.MidiAutoConnect(); } };
         var awake = new Timer { Interval = 1000 }; awake.Tick += (s, e) => { if (w.Visible) StudioEngine.LiveUntil = Environment.TickCount + 3000; }; awake.Start(); w.FormClosed += (s, e) => { awake.Stop(); awake.Dispose(); };
         w.Shown += (s, e) => { StudioEngine.LiveUntil = Environment.TickCount + 3000; var se = StudioEngine.Current; if (se != null) se.EnsureAudio(); };
@@ -264,13 +282,16 @@ static class SoundSources
     public static void Add(ToolStripItemCollection items, Form w, Action<string, string> put)
     {
         // MY SOUNDS: the sounds you imported (by folder, then all of them), with the trim you set on them
-        var my = new ToolStripMenuItem("My sounds"); items.Add(my);
-        {
+        var my = new ToolStripMenuItem("My sounds"); items.Add(my); LibLoader.Start();   // (the library is read in the background: MY SOUNDS was empty here until the sounds panel had been opened once)
+        if (!LibLoader.Ready) my.DropDownItems.Add(new ToolStripMenuItem("(your sounds are loading: open this menu again in a moment)") { Enabled = false });
+        else {
             var up = SoundLibrary.Pack(SoundLibrary.UserPackId); var mine = up == null ? new List<SoundItem>() : up.Items.FindAll(it => it.IsAudio && it.Kind != "midi"); mine.Sort((p, q) => string.Compare(p.Name, q.Name, StringComparison.OrdinalIgnoreCase));
             var sfm = w.Owner as StudioForm; Action<ToolStripMenuItem, SoundItem> addIt = (parent, it) => { var it2 = it; parent.DropDownItems.Add(it.Name).Click += (a, b) => { if (!File.Exists(it2.Path)) { MessageBox.Show(w, it2.Name + " is missing: " + it2.Path, w.Text); return; } put(sfm != null ? sfm.TrimmedPathOf(it2) : it2.Path, it2.Name); }; };
             Dictionary<string, List<string>> cols; lock (SoundLibrary.Lock) cols = new Dictionary<string, List<string>>(SoundLibrary.Collections);
-            foreach (var kv in cols) { var inF = mine.FindAll(it => kv.Value.Contains(it.Id)); if (inF.Count == 0) continue; var fi = new ToolStripMenuItem("Folder: " + kv.Key); foreach (var it in inF) addIt(fi, it); my.DropDownItems.Add(fi); }
-            if (mine.Count > 0) { var all = new ToolStripMenuItem("All my sounds (" + mine.Count + ")"); foreach (var it in mine) addIt(all, it); my.DropDownItems.Add(all); }
+            // each list is filled the first time it opens (thousands of sounds made the pad menu slow to appear)
+            Action<ToolStripMenuItem, List<SoundItem>> lazy = (parent, list) => { parent.DropDownItems.Add(new ToolStripMenuItem("...") { Enabled = false }); parent.DropDownOpening += (s0, a2) => { if (parent.Tag != null) return; parent.Tag = 1; parent.DropDown.SuspendLayout(); parent.DropDownItems.Clear(); foreach (var it in list) addIt(parent, it); parent.DropDown.ResumeLayout(); }; };
+            foreach (var kv in cols) { var ids = new HashSet<string>(kv.Value); var inF = mine.FindAll(it => ids.Contains(it.Id)); if (inF.Count == 0) continue; var fi = new ToolStripMenuItem("Folder: " + kv.Key + " (" + inF.Count + ")"); lazy(fi, inF); my.DropDownItems.Add(fi); }
+            if (mine.Count > 0) { var all = new ToolStripMenuItem("All my sounds (" + mine.Count + ")"); lazy(all, mine); my.DropDownItems.Add(all); }
             else my.DropDownItems.Add(new ToolStripMenuItem("(none yet: import sounds in MY SOUNDS in the studio)") { Enabled = false });
         }
         var file = new ToolStripMenuItem("A sound file on my PC..."); file.Click += (a, b) => { string f = PickFile(w, "Choose a sound"); if (f != null) put(f, Path.GetFileNameWithoutExtension(f)); }; items.Add(file);

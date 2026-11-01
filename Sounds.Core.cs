@@ -307,6 +307,12 @@ static class SoundLibrary
     }
     // an edited copy of a sound (a WAV): replace puts it in place of the original in My samples (same name; a sound in a pack is never changed),
     // otherwise it is kept as a new version, "Kick v2" (v3...), right after the original, so both are there to compare
+    // a new name for a sound of yours (the file and everything that uses it stay as they are)
+    public static bool RenameMine(SoundItem s, string name)
+    {
+        var up = Pack(UserPackId); if (up == null || s == null || string.IsNullOrWhiteSpace(name)) return false; var cur = up.Items.Find(x => x.Id == s.Id); if (cur == null) return false;
+        cur.Name = name.Trim(); if (cur != s) s.Name = cur.Name; WritePack(up); AddOrReplace(up); return true;
+    }
     public static SoundItem AddVersion(SoundItem orig, string wav, bool replace)
     {
         float[] l, r; int sr; string fmt; if (orig == null || !SoundIO.Read(wav, out l, out r, out sr, out fmt) || l.Length == 0) return null;
@@ -316,7 +322,10 @@ static class SoundLibrary
         if (replace && orig.PackId == UserPackId && up.Items.Contains(orig))
         {
             s = orig; string to = Path.GetExtension(orig.Path).ToLowerInvariant() == ".wav" ? orig.Path : Path.Combine(dest, Path.GetFileNameWithoutExtension(orig.Path) + ".wav");
-            if (!string.Equals(to, orig.Path, StringComparison.OrdinalIgnoreCase)) { if (File.Exists(to)) to = Path.Combine(dest, Path.GetFileNameWithoutExtension(orig.Path) + " " + Guid.NewGuid().ToString("N").Substring(0, 6) + ".wav"); File.Copy(wav, to); try { File.Delete(orig.Path); } catch { } s.Rel = "imports/" + Path.GetFileName(to); s.Path = to; }
+            if (!string.Equals(to, orig.Path, StringComparison.OrdinalIgnoreCase)) { if (File.Exists(to)) to = Path.Combine(dest, Path.GetFileNameWithoutExtension(orig.Path) + " " + Guid.NewGuid().ToString("N").Substring(0, 6) + ".wav"); File.Copy(wav, to);
+                string oldId = s.Id; s.Rel = "imports/" + Path.GetFileName(to); s.Path = to; s.Id = up.Id + "/" + s.Rel;   // (the original file stays: songs and kits that use it keep working)
+                lock (Lock) { if (Favourites.Remove(oldId)) Favourites.Add(s.Id); int ri = Recent.IndexOf(oldId); if (ri >= 0) Recent[ri] = s.Id; foreach (var c in Collections.Values) { int ci = c.IndexOf(oldId); if (ci >= 0) c[ci] = s.Id; } }
+                SaveUser(); }
             else File.Copy(wav, to, true);   // (the same file, so favourites and kits that point at it get the edit)
         }
         else

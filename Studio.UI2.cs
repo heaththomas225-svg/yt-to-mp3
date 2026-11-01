@@ -294,7 +294,7 @@ partial class StudioForm
     {
         if (busy) { Toast("Wait for the current job to finish"); return; }
         List<string> warn = null;
-        RunBusy("Opening project...", false, p => { warn = ProjectIO.Load(eng, path, s => busyText = s); }, ok =>
+        RunBusy("Opening project...", false, p => { warn = ProjectIO.Load(eng, path, s => busyText = s); busyText = "Warming up the plugins..."; eng.Prime(); }, ok =>
         {
             if (!ok) return; PrApplyPrefs(ProjectIO.Roll); bpmUserSet = true; projPath = path; projName = Path.GetFileNameWithoutExtension(path); selTrack = 0; selFx = -1; undo.Clear(); redo.Clear(); FitView(); NoteProject(path, false);
             if (warn != null && warn.Count > 0) MessageBox.Show(this, string.Join("\n", warn.ToArray()), "Some audio files are missing"); else Toast("Project opened");

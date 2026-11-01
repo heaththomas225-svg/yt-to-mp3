@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -98,7 +98,22 @@ partial class StudioForm
         if (t.Mono == mono) return; PushUndo(); t.Mono = mono;
         Toast(t.Name + " is now " + (mono ? "MONO: left and right play the same sound." : "STEREO: left and right are kept apart."));
     }
-    int normalLaneH = 132;
+    int normalLaneH = 132; const int MinLaneH = 34, FadeHandleMinLaneH = 84;
+    // FIT: the whole song across, and every track on screen top to bottom; with many tracks they thin right out to one line each (the name and the waveform as a strip)
+    // a row height whose header fits whole (between the layouts the PAN row or MONO was cut off): taller goes up to the next one that fits, shorter down
+    static int SnapLaneH(int h, bool up) { if (h >= 96 && h < 108) return up ? 108 : 95; if (h >= 112 && h < 132) return up ? 132 : 111; return h; }
+    internal void FitAll()
+    {
+        FitView(); int n = LaneCount; if (n == 0) return; float viewH = MixH - ArrTop - RulerH - ArrGap - 50;
+        int want = (int)Math.Floor(viewH / n);
+        if (want < LaneH)
+        {   // only heights whose header layout fits whole: normal (132+, the default height), compact (108..111), thin (84..95), else one line per track
+            if (LaneH >= 96) normalLaneH = LaneH;
+            int h = want >= 132 ? want : (want >= 108 ? Math.Min(want, 111) : (want >= 84 ? Math.Min(want, 95) : Math.Min(want, 83)));
+            LaneH = Math.Max(MinLaneH, h);
+        }
+        vscroll = 0; Toast(LaneH <= want ? "Fitted: the whole song and all " + n + " tracks are on screen." : "Fitted as far as it goes: " + n + " tracks, scroll for the rest.");
+    }
     void ToggleThinTracks() { if (LaneH < 96) LaneH = normalLaneH; else { normalLaneH = LaneH; LaneH = 84; } Prefs.ThinTracks = LaneH < 96; Prefs.Changed(); }   // remembered: the tracks open thin next time
     static int InitLaneH() { if (StudioEnv.UnderTest) { Prefs.ThinTracks = false; Prefs.HeadHidden = false; } return Prefs.ThinTracks ? 84 : 132; }   // (the tests always start from normal tracks and an open list)
 

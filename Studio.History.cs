@@ -61,7 +61,7 @@ partial class StudioForm
     {
         if (!AskYes("Put the whole project back as it was at " + e.At.ToString("ddd d MMM HH:mm") + "?\n\nThe state you have now stays in the history, so you can come back to it.", "Restore")) return;
         HistWrite(); string keepPath = projPath, keepName = projName; string file = e.File;
-        RunBusy("Restoring...", false, p => ProjectIO.Load(eng, file, s => busyText = s), ok => { projPath = keepPath; projName = keepName; undo.Clear(); redo.Clear(); editCount++; FitView(); Toast("The project is as it was at " + e.At.ToString("HH:mm") + ". Ctrl+Z will not undo this: the HISTORY page has the state before it."); });
+        RunBusy("Restoring...", false, p => { ProjectIO.Load(eng, file, s => busyText = s); busyText = "Warming up the plugins..."; eng.Prime(); }, ok => { projPath = keepPath; projName = keepName; undo.Clear(); redo.Clear(); editCount++; FitView(); Toast("The project is as it was at " + e.At.ToString("HH:mm") + ". Ctrl+Z will not undo this: the HISTORY page has the state before it."); });
     }
     // one track back as it was then, the rest stays as it is now
     void HistRestoreTrack(HistEntry e, string trackName)
@@ -141,8 +141,8 @@ partial class StudioForm
                 + (hasReal ? "NO: open your last save instead (" + File.GetLastWriteTime(real).ToString("ddd HH:mm") + ").\n" : "NO: start without it.\n")
                 + "CANCEL: start fresh.\n\nYour last save is never changed by this, so you can still open it later.";
             var a = (recoverAsk ?? (t => System.Windows.Forms.MessageBox.Show(this, t, "Pick up where you left off?", System.Windows.Forms.MessageBoxButtons.YesNoCancel, System.Windows.Forms.MessageBoxIcon.Question)))(q);
-            if (a == System.Windows.Forms.DialogResult.Yes) { string file = AutoFile; RunBusy("Bringing your work back...", false, p => ProjectIO.Load(eng, file, s => busyText = s), ok => { projPath = real; projName = name; editCount++; FitView(); Toast("You're back where you were. Press SAVE to keep it (your last save is untouched until then)."); }); }
-            else if (a == System.Windows.Forms.DialogResult.No && hasReal) { RunBusy("Opening your last save...", false, p => ProjectIO.Load(eng, real, s => busyText = s), ok => { projPath = real; projName = name; FitView(); Toast("Opened your last save of " + name + "."); }); }
+            if (a == System.Windows.Forms.DialogResult.Yes) { string file = AutoFile; RunBusy("Bringing your work back...", false, p => { ProjectIO.Load(eng, file, s => busyText = s); busyText = "Warming up the plugins..."; eng.Prime(); }, ok => { projPath = real; projName = name; editCount++; FitView(); Toast("You're back where you were. Press SAVE to keep it (your last save is untouched until then)."); }); }
+            else if (a == System.Windows.Forms.DialogResult.No && hasReal) { RunBusy("Opening your last save...", false, p => { ProjectIO.Load(eng, real, s => busyText = s); busyText = "Warming up the plugins..."; eng.Prime(); }, ok => { projPath = real; projName = name; FitView(); Toast("Opened your last save of " + name + "."); }); }
         }
         catch { }
     }

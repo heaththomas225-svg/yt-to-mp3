@@ -402,7 +402,7 @@ partial class StudioEngine
     public List<Track> Tracks = new List<Track>();
     public List<Fx> MasterFx = new List<Fx>();
     public float MasterVolDb; public bool MasterBypass; public float AbMatchDb;
-    public volatile bool Playing; public long Pos; public bool Loop;
+    public volatile bool Playing; public long Pos; public bool Loop; public volatile bool StoppedAtEnd;   // StoppedAtEnd: the song ran out by itself (not PAUSE/STOP): MIDI REC stays on
     public long LoopA = -1, LoopB = -1; float[] loopL, loopR;   // LOOP A SECTION: playback goes round from LoopB back to LoopA (-1 = loop the whole song)
     public bool LoopSection { get { return Loop && LoopA >= 0 && LoopB > LoopA + 2000; } }
     public LufsMeter Lufs = new LufsMeter(SR);
@@ -658,7 +658,7 @@ partial class StudioEngine
     public volatile bool CountIn; public long LastCountFrames; long countLeft;
     public int CountBeat { get { long cl = countLeft, tot = LastCountFrames; if (cl <= 0 || tot <= 0 || !Playing) return 0; int b = 1 + (int)((tot - cl) * 4 / tot); return Math.Max(1, Math.Min(4, b)); } }   // which beat of the count-in (1 to 4) is sounding, 0 = not counting   // Count In: one bar of clicks before playing or recording starts
     public volatile bool Metronome;   // click on every beat while the song plays
-    public static volatile int LiveUntil;   // Environment.TickCount until which instruments keep sounding even though the song is stopped
+    public static volatile int LiveUntil; public static volatile int LastNoteAt = Environment.TickCount - 100000;   // LastNoteAt: a real note was played live (LiveUntil is also kept alive by open windows and the keyboard check)   // Environment.TickCount until which instruments keep sounding even though the song is stopped
     static readonly RenderOpts Live = new RenderOpts();
 
     // Real-time callback used by the audio device
@@ -714,7 +714,7 @@ partial class StudioEngine
             Pos += n;
             if (LoopSection) return;
             long end = EndFrame + SR * 2;   // allow reverb / delay tails
-            if (Pos >= end) { if (Loop) { Pos = 0; ResetStates(); } else { Playing = false; Pos = EndFrame; } }   /* the tail is heard, but the needle parks exactly where the audio ends */
+            if (Pos >= end) { if (Loop) { Pos = 0; ResetStates(); } else { StoppedAtEnd = true; Playing = false; Pos = EndFrame; } }   /* the tail is heard, but the needle parks exactly where the audio ends */
         }
     }
 
@@ -741,7 +741,7 @@ partial class StudioEngine
     public void Play()
     {
         EnsurePlayer();
-        lock (Sync) { if (EndFrame > 0 && Pos >= EndFrame) Pos = 0; if (!Playing) { if (CountIn) { LastCountFrames = SR * 4; countLeft = LastCountFrames; /* always 4 clicks, one a second, whatever the tempo is */ } else { LastCountFrames = 0; countLeft = 0; } } Playing = true; }
+        lock (Sync) { StoppedAtEnd = false; if (EndFrame > 0 && Pos >= EndFrame) Pos = 0; if (!Playing) { if (CountIn) { LastCountFrames = SR * 4; countLeft = LastCountFrames; /* always 4 clicks, one a second, whatever the tempo is */ } else { LastCountFrames = 0; countLeft = 0; } } Playing = true; }
     }
     // the place in the song you are hearing right now: what has been made, minus what is still waiting in the sound card, minus the delay of the plugins (they all wait for the slowest one)
     public long HeardPos
@@ -791,6 +791,24 @@ partial class StudioEngine
         }) { IsBackground = true, Priority = ThreadPriority.BelowNormal, Name = "warm-up" }.Start();
     }
 
+    // every plugin of the song runs a few silent blocks as soon as a project opens (and the sound card is opened), so nothing is done for the first time
+    // while the song plays: the first PLAY crackled until the plugins and the buffer had warmed up
+    // one plugin just added to a track warms up in the background (its first notes crackled)
+    public void PrimeOne(Track t, Fx f)
+    {
+        if (StudioEnv.UnderTest || t == null || f == null) return;
+        System.Threading.ThreadPool.QueueUserWorkItem(delegate { try { var bl = new float[1024]; var br = new float[1024]; for (int k = 0; k < 4; k++) { Array.Clear(bl, 0, 1024); Array.Clear(br, 0, 1024); lock (Sync) { try { f.BeginBlock(t, 0, 1024, false); f.Process(bl, br, 1024); } catch { } } } } catch { } });
+    }
+    public void Prime()
+    {
+        try
+        {
+            if (StudioEnv.UnderTest) return; var bl = new float[1024]; var br = new float[1024]; Track[] ts; lock (Sync) ts = Tracks.ToArray();
+            foreach (var t in ts) { Fx[] fs; lock (Sync) fs = t.Fx.ToArray(); foreach (var f in fs) for (int k = 0; k < 4; k++) { Array.Clear(bl, 0, bl.Length); Array.Clear(br, 0, br.Length); lock (Sync) { try { f.BeginBlock(t, 0, bl.Length, false); f.Process(bl, br, bl.Length); } catch { } } } }
+            EnsureAudio(); LiveUntil = Environment.TickCount + 1500;
+        }
+        catch { }
+    }
     public int Reopens;   // how many times the sound output was refreshed (for the tests)
     // a fresh sound output (the sound was breaking up): it comes straight back when the song plays or an instrument is being played live
     // (it only came back for the song before: playing pads with the song stopped, the sound went away until something woke it, and the hits came out seconds late)

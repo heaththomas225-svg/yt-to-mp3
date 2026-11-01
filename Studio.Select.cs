@@ -19,7 +19,7 @@ partial class StudioForm
     float XAtFrame(double f) { return HeadW + (float)((f - scroll) / spp); }
     float RowsY(float y) { return y - (ArrTop + RulerH) + vscroll; }
     float ScreenY(float ry) { return ry + (ArrTop + RulerH) - vscroll; }
-    void MarqueeBegin() { multiSel.Clear(); marqueeOn = true; marqueeMoved = false; marqueeA = marqueeB = MousePos; mqFrA = mqFrB = MqFrameAtX(MousePos.X); mqYA = mqYB = RowsY(MousePos.Y); }
+    void MarqueeBegin() { mcSel.Clear(); multiSel.Clear(); marqueeOn = true; marqueeMoved = false; marqueeA = marqueeB = MousePos; mqFrA = mqFrB = MqFrameAtX(MousePos.X); mqYA = mqYB = RowsY(MousePos.Y); }
     void MarqueeTo(PointF p)
     {
         if (!marqueeOn) return;

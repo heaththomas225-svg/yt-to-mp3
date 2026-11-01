@@ -29,7 +29,7 @@ partial class StudioForm
     // notes from a MIDI keyboard when the picked track is a MIDI track with no instrument on it: they are recorded onto that track
     // back in the studio: the keyboard plays the picked track again, unless a Purphex Pads or Key Map window is open (it keeps the keyboard until it closes)
     internal void StudioActivatedMidi() { if (!MidiWindow.Holds(MidiInput.Target)) MidiInput.Target = null; }
-    volatile bool keysTrackAsked;
+    volatile bool keysTrackAsked; readonly InstrumentFx[] bareOn = new InstrumentFx[128]; readonly Track[] bareOnT = new Track[128];
     internal bool MidiToBareTrack(byte s, byte d1, byte d2)
     {
         try
@@ -52,7 +52,10 @@ partial class StudioForm
                 if (k == null) return true;
             }
             k.Owner = t;
-            int kind = s & 0xF0; if (kind == 0x90 && d2 > 0) k.NoteOn(d1, d2); else k.Midi(s, d1, d2);   // heard straight away
+            int kind = s & 0xF0; bool isOff = kind == 0x80 || (kind == 0x90 && d2 == 0);
+            if (isOff && bareOn[d1 & 127] != null && bareOn[d1 & 127] != k) { k = bareOn[d1 & 127]; t = bareOnT[d1 & 127] ?? t; }   // the note-off goes to the instrument that got the note-on (you changed track while holding the key: it played on forever)
+            if (kind == 0x90 && d2 > 0) { bareOn[d1 & 127] = k; bareOnT[d1 & 127] = t; } else if (isOff) { bareOn[d1 & 127] = null; bareOnT[d1 & 127] = null; }
+            if (kind == 0x90 && d2 > 0) k.NoteOn(d1, d2); else k.Midi(s, d1, d2);   // heard straight away
             if (kind == 0x90 || kind == 0x80) { bool on = kind == 0x90 && d2 > 0; OnMidiNote(t, on, d1, on ? d2 : 0); } return true;
         }
         catch { return false; }
@@ -98,19 +101,21 @@ partial class StudioForm
         {
             if (!ok || f == null) { Toast("That instrument couldn't be started."); return; }
             var t = StudioEngine.NewTrack(f.Title, "inst", null); t.Instrument = true; t.Color = unchecked((int)0xFFFFB84D); f.Owner = t;
-            lock (eng.Sync) t.Fx.Add(f); AddTrack(t); f.ShowWindow(this);
+            lock (eng.Sync) t.Fx.Add(f); eng.PrimeOne(t, f); AddTrack(t); f.ShowWindow(this);
             Toast("Instrument added. Play notes in its window. For recording: press REC, then PLAY.");
         });
     }
 
     // Notes played in an instrument window are recorded onto its track while the song plays and REC is armed.
-    Track recToastFor;
+    Track recToastFor; volatile bool recGot;   // recGot: notes were recorded since REC went on
+    // the song stopped after notes were recorded: MIDI REC turns itself off (left on, the next play recorded over your part by accident)
+    internal void RecStopped() { if (!recOn) { recGot = false; return; } if (!recGot) return; recOn = false; recGot = false; Toast("Recording finished: MIDI REC is off again (press it to record more)."); Invalidate(); }
     void OnMidiNote(Track t, bool on, int note, int vel)
     {
-        if (!recOn || t == null || !t.Instrument) return;
+        if (!recOn || t == null || !t.Instrument) return; recGot = true;
         if (on && recToastFor != t) { recToastFor = t; var tn = t.Name; try { BeginInvoke(new Action(() => Toast("Recording your MIDI keyboard onto " + tn + "."))); } catch { } }
         long frame;
-        if (!eng.Playing) { frame = eng.Pos; try { BeginInvoke(new Action(() => { if (!eng.Playing) PlayGuard(); })); } catch { } }   // the first note starts the song and is recorded at the needle
+        if (!eng.Playing) { frame = eng.Pos; try { BeginInvoke(new Action(() => { if (!eng.Playing) { bool ci = eng.CountIn; eng.CountIn = false; try { PlayGuard(); } finally { eng.CountIn = ci; } } }))   /* (no count-in: the notes played during it all landed on one frame) */; } catch { } }   // the first note starts the song and is recorded at the needle
         else frame = Math.Max(0, (long)dispPos);
         var ev = new MidiEv { Frame = frame, S = (byte)(on ? 0x90 : 0x80), D1 = (byte)note, D2 = (byte)(on ? vel : 0) };
         lock (t.Midi)

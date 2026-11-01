@@ -9,15 +9,18 @@ using System.Windows.Forms;
 partial class StudioForm
 {
     bool mmOpen; float mmScroll;
-    // while a clip or a sound is dragged the plugin windows get out of the way: those in the studio show only an outline, the separate ones fade almost
-    // away (Purphex Pads and Key Map stay when a sound from SOUNDS is dragged: they are where it can be dropped)
-    internal bool DragThrough { get { return (sndDragging && sndDrag != null) || (dragReg != null && laneMoved); } }   // (both end when the mouse is let go)
+    // only while a SOUND is dragged (from MY SOUNDS / the packs, or a file from Explorer) do the VST windows and the producer tag window fade, so you see where it lands
+    // (Purphex Pads and Key Map stay: they take the sound). Effect windows never fade, and dragging clips or turning a knob fades nothing: a lane drag left its flag on,
+    // so the next knob you turned made every effect window vanish
+    internal bool DragThrough { get { return sndDragging && sndDrag != null; } }
     internal void FadePluginWindows()
     {
         bool drag = DragThrough;
         foreach (Form f in Application.OpenForms)
         {
-            if (!(f is PxWindow) || f.IsDisposed) continue; double want = drag && !(sndDragging && f is ISoundDrop) ? 0.15 : 1.0;
+            if (f == null || f.IsDisposed) continue; PxWindow pw = f as PxWindow;
+            bool inst = (pw != null && pw.Plugin is InstrumentFx) || f is SynthWindow || f is VstWindow;   // instrument / VST windows only: effect windows never fade
+            if (!inst) continue; double want = drag && !(f is ISoundDrop) ? 0.15 : 1.0;
             if (Math.Abs(f.Opacity - want) > 0.01) try { f.Opacity = want; } catch { }
         }
     }
@@ -64,7 +67,7 @@ partial class StudioForm
             case "solo": if (t != null && MidiMap.Pressed(target, v, cc)) ToggleSolo(t); break;
             case "transport":
                 if (!MidiMap.Pressed(target, v, cc)) break;
-                if (p[1] == "play") { if (eng.Playing) PauseHere(); else PlayToggle(); } else if (p[1] == "stop") PauseHere(); else if (p[1] == "rec") { recOn = !recOn; Toast(recOn ? "MIDI REC on (from your controller)." : "MIDI REC off."); }
+                if (p[1] == "play") { if (eng.Playing) PauseHere(); else PlayToggle(); } else if (p[1] == "stop") PauseHere(); else if (p[1] == "rec") { recGot = false; recOn = !recOn; Toast(recOn ? "MIDI REC on (from your controller)." : "MIDI REC off."); }
                 break;
             case "fx":
                 {   // fx|track|place|type|param: that plugin's knob, wherever it sits now (by its place in the chain, else the first of its kind)

@@ -185,7 +185,7 @@ partial class StudioForm
         try
         {
             string dir = Path.Combine(StudioEnv.DataDir, "trimmed"); Directory.CreateDirectory(dir); string nm = s.Name; foreach (char ch in Path.GetInvalidFileNameChars()) nm = nm.Replace(ch, ' ');
-            string f = Path.Combine(dir, nm + " (" + (int)(t[0] * 10000) + "-" + (int)(t[1] * 10000) + ").wav"); if (File.Exists(f)) return f;
+            string f = Path.Combine(dir, nm + " (" + (int)(t[0] * 10000) + "-" + (int)(t[1] * 10000) + ").wav"); if (File.Exists(f) && File.GetLastWriteTimeUtc(f) >= File.GetLastWriteTimeUtc(path)) return f;   // (an edited sound makes its slice again: the plugins got the old audio)
             float[] l, r; int sr; string fmt; if (!SoundIO.Read(path, out l, out r, out sr, out fmt)) return path; r = r ?? l; int a = (int)(t[0] * l.Length), n = Math.Max(64, (int)((t[1] - t[0]) * l.Length)); n = Math.Min(n, l.Length - a);
             var L = new float[n]; var R = new float[n]; Array.Copy(l, a, L, 0, n); Array.Copy(r, a, R, 0, n); int fd = Math.Min(n / 4, sr / 500); for (int i = 0; i < fd; i++) { float k = i / (float)fd; L[i] *= k; R[i] *= k; L[n - 1 - i] *= k; R[n - 1 - i] *= k; }   // (2 ms fades: no click at the cut)
             WavIO.Write(f, L, R, sr, 24); return f;
@@ -368,7 +368,7 @@ partial class StudioForm
         var wr = Rc(r.X + dx + 304, r.Y + 10, 90, 30); if (s.Kind == "midi") DrawMidiPic(g, wr, s, Color.FromArgb(sel ? 235 : 170, Neon(GroupColour(s.Group))), false); else if (s.Kind == "preset") Txt(g, s.Format == "Purphex Wobble preset" ? "WOBBLE PRESET" : "BASS LAB PRESET", 8, DimC, wr, StringAlignment.Center, true); else if (s.Peaks != null && s.Peaks.Length > 0) { using (var pen = new Pen(Color.FromArgb(sel ? 230 : 150, Neon(GroupColour(s.Group))), 1f)) for (int i = 0; i < wr.Width; i += 2) { float v = s.Peaks[Math.Min(s.Peaks.Length - 1, (int)(i / wr.Width * s.Peaks.Length))] / 255f * wr.Height / 2; g.DrawLine(pen, wr.X + i, wr.Y + wr.Height / 2 - v, wr.X + i, wr.Y + wr.Height / 2 + v); } } else if (s.Instant) Txt(g, "PLAY TO MAKE", 9, DimC, wr, StringAlignment.Center, false);   /* an instant loop is made the first time it plays */
         Txt(g, s.Bpm > 0 ? s.Bpm.ToString("0") : "-", 11, s.Bpm > 0 ? Ink : DimC, Rc(r.X + dx + 400, r.Y, 40, r.Height), StringAlignment.Center, false); Txt(g, s.Key.Length > 0 ? s.Key : "-", 11, s.Key.Length > 0 ? Ink : DimC, Rc(r.X + dx + 440, r.Y, 62, r.Height), StringAlignment.Center, false); Txt(g, s.Dur > 0 ? s.Dur.ToString("0.0") + "s" : "", 10, DimC, Rc(r.X + dx + 502, r.Y, 46, r.Height), StringAlignment.Center, false);
         var star = Rc(r.Right - 30, r.Y + 12, 22, 24); bool fav = SoundLibrary.Favourites.Contains(s.Id); Txt(g, fav ? "★" : "☆", 16, fav ? Color.FromArgb(255, 210, 80) : DimC, star, StringAlignment.Center, false);
-        var rg = Reg(r, () => { SelectSound(s, true); sndDrag = s; sndDragFrom = MousePos; sndDragging = false; }); rg.OnDrag = pt => { if (sndDrag != null && !sndDragging && (Math.Abs(pt.X - sndDragFrom.X) + Math.Abs(pt.Y - sndDragFrom.Y)) > 8) sndDragging = true; }; rg.OnDouble = () => SelectSound(s, true);   // (drag it onto the timeline to use it: a double-click only plays it again) rg.OnRight = () => SoundMenu(s);
+        var rg = Reg(r, () => { SelectSound(s, true); sndDrag = s; sndDragFrom = MousePos; sndDragging = false; }); rg.OnDrag = pt => { if (sndDrag != null && !sndDragging && (Math.Abs(pt.X - sndDragFrom.X) + Math.Abs(pt.Y - sndDragFrom.Y)) > 8) sndDragging = true; }; rg.OnDouble = () => SelectSound(s, true); rg.OnRight = () => { SelectSound(s, false); SoundMenu(s); };   // (drag it onto the timeline to use it: a double-click only plays it again; right-click: rename, edit, folders) (the right-click was inside this comment: it never opened)
         var sr = Reg(star, () => { SoundLibrary.ToggleFav(s); sndDirty = sndFilter.OnlyFav; sndDrag = null; }); if (Hot(star)) { bubble = fav ? "Remove from favourites" : "Add to favourites"; bubblePt = MousePos; }
     }
 
@@ -463,6 +463,45 @@ partial class StudioForm
             if (lead > 0.001 && f < lead - 0.0005) Auditioner.Seek(lead); return;
         }
         if (f < t[0] - 0.002) Auditioner.Seek(t[0]); else if (f >= t[1]) { if (SoundLibrary.LoopPreview) Auditioner.Seek(t[0]); else { Auditioner.Pause(); Auditioner.Seek(t[0]); } }
+    }
+    // an edit of a sound of yours (trim, cut, fades, level, reverse): asks to replace the sound (Yes) or keep both (No); ask can be answered by a test
+    internal Func<string, DialogResult> editAsk;
+    internal SoundItem EditSound(SoundItem s, string op, bool? replace)
+    {
+        try
+        {
+            float[] l, r; int sr; string fmt; if (s.Instant) InstantLib.Ensure(s); if (!SoundIO.Read(s.Path, out l, out r, out sr, out fmt) || l.Length < 64) { Toast("Couldn't read " + s.Name + "."); return null; } r = r ?? l; if (r == l) r = (float[])l.Clone();
+            int n = l.Length; var t = SoundTrim(s); int ta = t == null ? 0 : (int)(t[0] * n), tb = t == null ? n : (int)(t[1] * n); string what;
+            Func<int, int, float[][]> slice = (a, b) => { var L = new float[b - a]; var R = new float[b - a]; Array.Copy(l, a, L, 0, b - a); Array.Copy(r, a, R, 0, b - a); return new[] { L, R }; };
+            float[][] o;
+            if (op == "keep") { if (t == null) { Toast("Drag the gold handles first."); return null; } o = slice(ta, tb); what = "trimmed"; }
+            else if (op == "cut") { if (t == null) { Toast("Drag the gold handles first."); return null; } var L = new float[n - (tb - ta)]; var R = new float[L.Length]; Array.Copy(l, 0, L, 0, ta); Array.Copy(r, 0, R, 0, ta); Array.Copy(l, tb, L, ta, n - tb); Array.Copy(r, tb, R, ta, n - tb); int x = Math.Min(sr / 200, Math.Min(ta, n - tb)); for (int i = 0; i < x; i++) { float k = i / (float)x; L[ta - 1 - i] *= k; R[ta - 1 - i] *= k; if (ta + i < L.Length) { L[ta + i] *= k; R[ta + i] *= k; } } o = new[] { L, R }; what = "with the part cut out"; }
+            else if (op == "lead") { int ld = SamplerFx.LeadOf(l, r, sr); if (ld <= 0) { Toast(s.Name + " has no silence at the start."); return null; } o = slice(ld, n); what = "without the silence at the start"; }
+            else if (op.StartsWith("fo") || op.StartsWith("fi"))
+            {
+                o = slice(0, n); bool fin = op.StartsWith("fi"); double sec; int len = op == "foall" ? n : (double.TryParse(op.Substring(2), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out sec) ? Math.Min(n, (int)(sec * sr)) : n);
+                for (int i = 0; i < len; i++) { float k = (float)Math.Pow(i / (double)len, 1.5); if (fin) { o[0][i] *= k; o[1][i] *= k; } else { o[0][n - 1 - i] *= k; o[1][n - 1 - i] *= k; } }
+                what = fin ? "with a fade in" : "with a fade out";
+            }
+            else if (op == "norm") { o = slice(0, n); float pk = 0; for (int i = 0; i < n; i++) pk = Math.Max(pk, Math.Max(Math.Abs(o[0][i]), Math.Abs(o[1][i]))); if (pk < 1e-5f) { Toast(s.Name + " is silent."); return null; } float g = 0.891f / pk; for (int i = 0; i < n; i++) { o[0][i] *= g; o[1][i] *= g; } what = "louder"; }
+            else if (op == "quiet") { o = slice(0, n); for (int i = 0; i < n; i++) { o[0][i] *= 0.708f; o[1][i] *= 0.708f; } what = "quieter"; }
+            else if (op == "rev") { o = slice(0, n); Array.Reverse(o[0]); Array.Reverse(o[1]); what = "reversed"; }
+            else return null;
+            bool rep;
+            if (replace.HasValue) rep = replace.Value;
+            else { string q = "Replace " + s.Name + " with the version " + what + "? Yes: replace it.   No: keep both (the new one goes right under it).   Cancel: do nothing."; var dr = editAsk != null ? editAsk(q) : MessageBox.Show(this, q, "Edit sound", MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question); if (dr == DialogResult.Cancel) return null; rep = dr == DialogResult.Yes; }
+            string dir = Path.Combine(StudioEnv.DataDir, "edited"); Directory.CreateDirectory(dir); string f = Path.Combine(dir, Guid.NewGuid().ToString("N").Substring(0, 10) + ".wav"); WavIO.Write(f, o[0], o[1], sr, 24);
+            var it = SoundLibrary.AddVersion(s, f, rep); try { File.Delete(f); } catch { } if (it == null) { Toast("Couldn't save the edit."); return null; }
+            if (op == "keep" || op == "cut") SetSoundTrim(rep ? it : s, 0, 1);
+            else if (rep && t != null)
+            {   // the trim follows the sound when it was reversed or its silence cut
+                if (op == "rev") SetSoundTrim(it, 1 - t[1], 1 - t[0]);
+                else if (op == "lead") { int ld = n - o[0].Length; float a2 = (t[0] * n - ld) / (float)(n - ld), b2 = (t[1] * n - ld) / (float)(n - ld); if (b2 <= 0.001f) SetSoundTrim(it, 0, 1); else SetSoundTrim(it, Math.Max(0f, a2), Math.Min(1f, b2)); }
+            }
+            if (rep) sndWaveFor = ""; if (rep) { var p0 = Auditioner.Current; if (p0 == s) Auditioner.Stop(); }
+            sndDirty = true; sndSel = it; Toast(rep ? s.Name + " is now " + what + "." : it.Name + " (" + what + ") is under " + s.Name + " in MY SOUNDS."); return it;
+        }
+        catch (Exception ex) { Toast("Couldn't edit " + s.Name + ": " + ex.Message); return null; }
     }
     // SAVE TRIMMED: the part between the handles becomes a sound of its own in MY SOUNDS, next to the original (which stays as it is)
     internal SoundItem SaveTrimmedSound(SoundItem s)
@@ -659,6 +698,23 @@ partial class StudioForm
     void SoundMenu(SoundItem s)
     {
         var m = Win.NewMenu(); m.Items.Add("Add to timeline").Click += (a, b) => AddSampleAtNeedle(s);
+        if (s.PackId == SoundLibrary.UserPackId && s.IsAudio)
+        {   // EDIT a sound of yours: each edit asks whether to replace the sound or keep both
+            m.Items.Add(new ToolStripSeparator());
+            m.Items.Add("Rename...").Click += (a, b) => { string n = Ask("A new name for " + s.Name + ":", s.Name); if (n != null && SoundLibrary.RenameMine(s, n)) { sndDirty = true; Toast("Renamed to " + n.Trim() + "."); } };
+            var edm = new ToolStripMenuItem("Edit"); m.Items.Add(edm);
+            Action<string, string> add = (txt, op) => edm.DropDownItems.Add(txt).Click += (a, b) => EditSound(s, op, null);
+            bool tr = SoundTrim(s) != null;
+            { var ti = new ToolStripMenuItem("Trim: keep only the part between the gold handles") { Enabled = tr }; ti.Click += (a, b) => EditSound(s, "keep", null); edm.DropDownItems.Add(ti); }
+            { var ci = new ToolStripMenuItem("Cut: take out the part between the gold handles") { Enabled = tr }; ci.Click += (a, b) => EditSound(s, "cut", null); edm.DropDownItems.Add(ci); }
+            add("Cut the silence at the start", "lead");
+            edm.DropDownItems.Add(new ToolStripSeparator());
+            add("Fade out (last half second)", "fo0.5"); add("Fade out (last second)", "fo1"); add("Fade out (last 2 seconds)", "fo2"); add("Fade out (the whole sound)", "foall");
+            add("Fade in (first 50 ms)", "fi0.05"); add("Fade in (first half second)", "fi0.5");
+            edm.DropDownItems.Add(new ToolStripSeparator());
+            add("Louder (as loud as it can go, no clipping)", "norm"); add("Quieter (3 dB down)", "quiet"); add("Reverse", "rev");
+            if (!tr) edm.DropDownItems.Add(new ToolStripMenuItem("(drag the gold handles on the wave to choose a part for Trim and Cut)") { Enabled = false });
+        }
         if (s.IsAudio) { m.Items.Add("Load it into the piano roll (play it from notes)").Click += (a, b) => SoundToSampler(s); if (PrShown && PrSampler != null) m.Items.Add("Put it on the piano roll's sampler (" + prTrack.Name + ")").Click += (a, b) => { PushUndo(); var sp = PrSampler; string e2 = sp.Zones.Count == 0 ? sp.SetSingle(s.Path, s.Name.Replace(s.PackName + " - ", ""), s.Type == "808" || s.Group == "Bass", 60) : sp.AddToKit(s.Path, s.Name.Replace(s.PackName + " - ", ""), 36 + sp.Zones.Count); Toast(e2 ?? "Done"); }; } m.Items.Add(SoundLibrary.Favourites.Contains(s.Id) ? "Remove from favourites" : "Add to favourites").Click += (a, b) => { SoundLibrary.ToggleFav(s); sndDirty = true; }; m.Items.Add(new ToolStripSeparator());
         lock (SoundLibrary.Lock) foreach (var kv in SoundLibrary.Collections) { string n = kv.Key; bool inC = kv.Value.Contains(s.Id); m.Items.Add((inC ? "Take out of folder: " : "Add to folder: ") + n).Click += (a, b) => { if (inC) SoundLibrary.RemoveFromCollection(n, s); else SoundLibrary.AddToCollection(n, s); sndDirty = true; }; }
         m.Items.Add("New folder with this sound...").Click += (a, b) => { string n = Ask("Folder name (for example: Drill piano, Drill bass):", "My folder"); if (n != null) { SoundLibrary.AddToCollection(n.Trim().Replace("|", "/"), s); Toast("Added to " + n); } };

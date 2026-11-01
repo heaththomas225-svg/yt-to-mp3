@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
@@ -190,6 +190,7 @@ partial class StudioForm
         if (code == Keys.Delete || code == Keys.Back) { McDelete(); return true; }
         if (ctrl && code == Keys.D) { McDuplicate(); return true; }
         if (code == Keys.Escape) { mcSel.Clear(); return true; }
+        if (ctrl && (code == Keys.C || code == Keys.X)) { Toast("Ctrl+C / Ctrl+X work on audio pieces. For MIDI clips: Ctrl+D duplicates, Delete removes, and the piano roll copies notes."); return true; }   // (they went to the audio path and copied or cut an audio piece you could not see picked)
         return false;
     }
 }
