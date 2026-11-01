@@ -791,6 +791,18 @@ partial class StudioEngine
         }) { IsBackground = true, Priority = ThreadPriority.BelowNormal, Name = "warm-up" }.Start();
     }
 
+    // every plugin of the song runs a few silent blocks as soon as a project opens (and the sound card is opened), so nothing is done for the first time
+    // while the song plays: the first PLAY crackled until the plugins and the buffer had warmed up
+    public void Prime()
+    {
+        try
+        {
+            if (StudioEnv.UnderTest) return; var bl = new float[1024]; var br = new float[1024]; Track[] ts; lock (Sync) ts = Tracks.ToArray();
+            foreach (var t in ts) { Fx[] fs; lock (Sync) fs = t.Fx.ToArray(); foreach (var f in fs) for (int k = 0; k < 4; k++) { Array.Clear(bl, 0, bl.Length); Array.Clear(br, 0, br.Length); lock (Sync) { try { f.BeginBlock(t, 0, bl.Length, false); f.Process(bl, br, bl.Length); } catch { } } } }
+            EnsureAudio(); LiveUntil = Environment.TickCount + 1500;
+        }
+        catch { }
+    }
     public int Reopens;   // how many times the sound output was refreshed (for the tests)
     // a fresh sound output (the sound was breaking up): it comes straight back when the song plays or an instrument is being played live
     // (it only came back for the song before: playing pads with the song stopped, the sound went away until something woke it, and the hits came out seconds late)

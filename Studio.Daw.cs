@@ -122,13 +122,13 @@ partial class StudioForm
         var picks = new List<Track>();
         if (piece != null && InGroup(piece)) { foreach (var o in multiSel) if (o.Clip != null && !o.Instrument && eng.Tracks.Contains(o)) picks.Add(o); }
         else if (piece != null && piece.Clip != null && !piece.Instrument) picks.Add(piece);
-        if (picks.Count == 0) { Toast("Copy works on a piece of audio: click the piece (or highlight several), then Ctrl+C."); return; }
+        if (picks.Count == 0) { clipCopies.Clear(); Toast("Copy works on a piece of audio: click the piece (or highlight several), then Ctrl+C."); return; }   // (the last copy is let go: Ctrl+V pasted the old one and it looked like the new copy had worked)
         long t0 = long.MaxValue; int r0 = int.MaxValue; foreach (var p in picks) { t0 = Math.Min(t0, p.Offset); r0 = Math.Min(r0, eng.Tracks.IndexOf(p.Host ?? p)); }
         clipCopies.Clear(); foreach (var p in picks) clipCopies.Add(new ClipCopyItem { Copy = CloneTrack(p, ""), Rel = p.Offset - t0, Row = eng.Tracks.IndexOf(p.Host ?? p) - r0 });
         Toast(picks.Count == 1 ? "Copied. Ctrl+V pastes it at the needle on the picked track." : "Copied " + picks.Count + " sections. Ctrl+V pastes them at the needle, starting on the picked track (they keep their spacing).");
     }
     // Ctrl+C: the highlighted sections, or the picked piece
-    void CopyKey() { if (multiSel.Count > 0) { var f = multiSel.Find(o => o.Clip != null && !o.Instrument && eng.Tracks.Contains(o)); if (f != null) { CopyClip(f); return; } } CopyClip(CurClip()); }
+    void CopyKey() { multiSel.RemoveAll(o => !eng.Tracks.Contains(o) || o.Clip == null); if (multiSel.Count > 0) { var f = multiSel.Find(o => o.Clip != null && !o.Instrument && eng.Tracks.Contains(o)); if (f != null) { CopyClip(f); return; } } CopyClip(CurClip()); }
     // Ctrl+X: copy what is highlighted (or the picked piece), then take it off the timeline (Ctrl+V puts it back, Ctrl+Z undoes)
     internal void CutKey()
     {
@@ -291,7 +291,7 @@ partial class StudioForm
             if (dxp >= SyncPullPx) syncFree = true;
             syncHeld = !syncFree && dyp > LaneH * 0.35f; if (syncHeld) delta = 0;
         }
-        if (laneMode == 1) { if (!laneMoved) { if (Math.Abs(pt.X - laneStart.X) < 2 && Math.Abs(pt.Y - laneStart.Y) < 2) return; PushUndo(); laneMoved = true; } bool grp = InGroup(tr); GhostStart(tr, 0);   /* the landing row shows for a group too */ long gd = delta; if (grp) { long minO = l0Offset; foreach (var o in multiSel) { long b1; if (o != tr && !IsLocked(o) && groupOrig.TryGetValue(o, out b1)) minO = Math.Min(minO, b1); } gd = Math.Max(delta, -minO); }   /* a group stops as a whole when its first clip reaches the start: the clips keep their spacing (each stopped on its own, they squashed together) */ tr.Offset = Math.Max(0, l0Offset + gd);   /* free: the clip goes exactly as far as you drag (no jumping to grid lines) */ if (grp) { long nd = tr.Offset - l0Offset; foreach (var o in multiSel) { long b0; if (o != tr && !IsLocked(o) && groupOrig.TryGetValue(o, out b0)) o.Offset = Math.Max(0, b0 + nd); } } return; }
+        if (laneMode == 1) { if (!laneMoved) { if (Math.Abs(pt.X - laneStart.X) < 5 && Math.Abs(pt.Y - laneStart.Y) < 5) return;   /* (2 px: a click with a shaky hand counted as a move, so clicking a highlighted clip never let the others go) */ PushUndo(); laneMoved = true; } bool grp = InGroup(tr); GhostStart(tr, 0);   /* the landing row shows for a group too */ long gd = delta; if (grp) { long minO = l0Offset; foreach (var o in multiSel) { long b1; if (o != tr && !IsLocked(o) && groupOrig.TryGetValue(o, out b1)) minO = Math.Min(minO, b1); } gd = Math.Max(delta, -minO); }   /* a group stops as a whole when its first clip reaches the start: the clips keep their spacing (each stopped on its own, they squashed together) */ tr.Offset = Math.Max(0, l0Offset + gd);   /* free: the clip goes exactly as far as you drag (no jumping to grid lines) */ if (grp) { long nd = tr.Offset - l0Offset; foreach (var o in multiSel) { long b0; if (o != tr && !IsLocked(o) && groupOrig.TryGetValue(o, out b0)) o.Offset = Math.Max(0, b0 + nd); } } return; }
         long avail = Math.Max(0, tr.Clip.Length - l0ClipStart);
         if (laneMode == 2)
         {
@@ -483,7 +483,7 @@ partial class StudioForm
     }
     // dragging a track's header: see HeaderDrag / HeaderDrop
     bool headerUndo;
-    void HeaderDown(Track tr) { selTrack = Math.Max(0, eng.Tracks.IndexOf(tr)); selFx = -1; headerUndo = false; toolsTrack = tr; hdMode = 0; lockToldYou = false; if (!IsLocked(tr)) GhostGrab(tr); }
+    void HeaderDown(Track tr) { if ((ModifierKeys & (Keys.Shift | Keys.Control)) == 0) multiSel.Clear();   /* clicking a track's box lets go of highlighted clips (they stayed, and Ctrl+X then cut them all) */ selTrack = Math.Max(0, eng.Tracks.IndexOf(tr)); selFx = -1; headerUndo = false; toolsTrack = tr; hdMode = 0; lockToldYou = false; if (!IsLocked(tr)) GhostGrab(tr); }
     void HeaderDrag(Track tr, PointF pt)
     {
         if (IsLocked(tr)) { if (!lockToldYou) { lockToldYou = true; Toast(FrozenWhy(tr, "This track is locked in place. Press UNLOCK in the toolbar to move it.")); } return; }
@@ -552,7 +552,7 @@ partial class StudioForm
         L.Add(new DawBtn { Text = "DEL", W = 40, Style = 3, Do = () => { if (multiSel.Count > 0) DeleteSelectedClips(); else TrackAction(4, () => DeleteClip(cc ?? Selected)); }, Hint = "Delete a piece: every clip lit by a selection box, or (with more than one track) the piece of the track you choose (TRACK 1, 2, 3...). Ctrl+Z brings them back." });
         L.Add(new DawBtn { Text = "UNDO", W = 48, Do = () => DoUndo() });
         L.Add(new DawBtn { Text = "REDO", W = 48, Do = () => DoRedo() });
-        L.Add(new DawBtn { Text = "FIT", W = 40, Do = () => FitView() });
+        L.Add(new DawBtn { Text = "FIT", W = 40, Do = () => FitAll() });
         L.Add(new DawBtn { Text = "NEW", W = 46, Do = () => { NewProject(); if (eng.Tracks.Count == 0) { tab = 0; welcomeOn = true; } } });   // a new project starts on the welcome page
         L.Add(new DawBtn { Text = Prefs.PerfMode ? "PERFORMANCE: ON" : "PERFORMANCE: OFF", W = 142, Px = 10, Style = Prefs.PerfMode ? 4 : 0, Do = () => { Prefs.PerfMode = !Prefs.PerfMode; Prefs.Changed(); Toast(Prefs.PerfMode ? "Performance mode is on: fewer effects and the highest frame rate your screen can show (up to 240), for a smoother DAW." : "Performance mode is off."); }, Hint = "PERFORMANCE MODE: ON turns off the glitch and glow effects and runs at the highest frame rate your screen can show (up to 240 frames a second), so the DAW runs smoother (it is also in the VIEW menu and in Settings)" });
         float need = 0; foreach (var it in L) need += it.W + it.Gap;

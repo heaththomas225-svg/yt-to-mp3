@@ -9,9 +9,10 @@ using System.Windows.Forms;
 partial class StudioForm
 {
     bool mmOpen; float mmScroll;
-    // while a clip or a sound is dragged the plugin windows get out of the way: those in the studio show only an outline, the separate ones fade almost
-    // away (Purphex Pads and Key Map stay when a sound from SOUNDS is dragged: they are where it can be dropped)
-    internal bool DragThrough { get { return (sndDragging && sndDrag != null) || (dragReg != null && laneMoved); } }   // (both end when the mouse is let go)
+    // only while a SOUND is dragged (from MY SOUNDS / the packs, or a file from Explorer) do the VST windows and the producer tag window fade, so you see where it lands
+    // (Purphex Pads and Key Map stay: they take the sound). Effect windows never fade, and dragging clips or turning a knob fades nothing: a lane drag left its flag on,
+    // so the next knob you turned made every effect window vanish
+    internal bool DragThrough { get { return sndDragging && sndDrag != null; } }
     internal void FadePluginWindows()
     {
         bool drag = DragThrough;

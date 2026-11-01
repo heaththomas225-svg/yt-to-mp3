@@ -117,6 +117,7 @@ partial class StudioForm : Form
         SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw | ControlStyles.Selectable, true);
         studioLoop = new FrameLoop(this, FrameStep) { Slow = () => WindowState == FormWindowState.Minimized || moving || Win.AnyMoving };   /* while a window is being dragged around nothing needs painting often */ ApplyFps();
         InstrumentFx.Recorder = OnMidiNote; MidiInput.BareTrack = MidiToBareTrack; MidiMapInit();
+        if (!StudioEnv.UnderTest) LibLoader.Start();   // your sounds are read in the background from the start, so MY SOUNDS is ready in Pads, Key Map and Bass Lab without opening SOUNDS first
         Activated += (s, e) => StudioActivatedMidi();
         Shown += (s, e) => { MidiAutoConnect(); if (!StudioEnv.UnderTest) { midiTimer = new System.Windows.Forms.Timer { Interval = 3000 }; midiTimer.Tick += (s2, e2) => MidiAutoConnect(); midiTimer.Start(); } };
         MinimumSize = new Size(1240, 640);
@@ -198,6 +199,7 @@ partial class StudioForm : Form
         {   // PLAY never moves the view: it stays exactly where you left it (it used to jump to the needle, forwards or backwards); the view never moves by itself while it plays either
             followPaused = false;
         }
+        if (!eng.Playing && wasPlaying) RecStopped();
         wasPlaying = eng.Playing;
         if (NeedsFrame0() && Environment.TickCount - eqPaintTick < 600) UpdateSpectrum();
     }
@@ -570,7 +572,7 @@ partial class StudioForm : Form
         if ((now - underSince).TotalSeconds > 2) { underSince = now; lastUnder = u; }
         if (!stalled && !breaking) return false;
         lastUnder = u; lastStalls = st; underSince = now; if ((now - lastRefresh).TotalMilliseconds < 1500) return false; lastRefresh = now;
-        bool bigger = Prefs.BufEff < 2; if (bigger) Prefs.BufBoost++; ge.ReopenOutput();
+        bool bigger = Prefs.BufEff < 2; if (bigger) { Prefs.BufBoost++; Prefs.Changed(); } ge.ReopenOutput();
         Toast(bigger ? "The sound was breaking up, so I refreshed the audio and made the playback buffer bigger for now (your choice in Settings is kept)." : "The sound was breaking up, so I refreshed the audio.");
         return true;
     }
@@ -913,7 +915,7 @@ partial class StudioForm : Form
         {
             if ((ModifierKeys & Keys.Control) != 0 && (ModifierKeys & Keys.Alt) == 0 && (ModifierKeys & Keys.Shift) == 0) autoFit = false;
             if ((ModifierKeys & Keys.Control) != 0 && (ModifierKeys & Keys.Shift) != 0) { }   // Ctrl + Shift + wheel does nothing (it used to resize the tracks by accident)
-            else if ((ModifierKeys & Keys.Alt) != 0) { LaneH = Math.Max(64, Math.Min(420, LaneH + (d > 0 ? 16 : -16))); vscroll = Math.Max(0, Math.Min(vscroll, Math.Max(0, n * LaneH - (MixH - top - RulerH - 66)))); }
+            else if ((ModifierKeys & Keys.Alt) != 0) { LaneH = Math.Max(MinLaneH, Math.Min(420, LaneH + (d > 0 ? (LaneH < 64 ? 8 : 16) : (LaneH <= 64 ? -8 : -16)))); vscroll = Math.Max(0, Math.Min(vscroll, Math.Max(0, n * LaneH - (MixH - top - RulerH - 66)))); }
             else if ((ModifierKeys & (Keys.Control | Keys.Shift)) != 0 && MousePos.Y >= top + RulerH) ZoomAtCursor(d);   // Shift or Ctrl + wheel: zoom, held exactly on the point under the mouse
             else if (MousePos.Y < top + RulerH) ScrollView(-d * 0.25);   // the wheel on the ruler: along the song
             else ScrollTracks(-d * 40);   // the wheel scrolls the tracks up and down (it never shoots off sideways); Left / Right and the bar at the top go along the song
@@ -1055,7 +1057,7 @@ partial class StudioForm : Form
         if (tr.Clip == null) return;
         int px = (int)lane.Width;
         PeakCache pc; if (!peakCache.TryGetValue(tr, out pc)) { pc = new PeakCache(); peakCache[tr] = pc; }
-        bool dragWave = ghostOn && ghostKind == 0 && ghostTrack == tr && pc.Img != null;   // while this clip is being dragged its finished picture is kept and just slid along (redrawing it every frame was the lag)
+        bool dragWave = ghostOn && ghostKind == 0 && pc.Img != null && (ghostTrack == tr || (dragReg != null && laneMode == 1 && laneMoved && multiSel.Contains(tr)));   // (every clip of a dragged group slides its picture too: they all redrew their waves each frame, the lag dragging several)   // while this clip is being dragged its finished picture is kept and just slid along (redrawing it every frame was the lag)
         if (!dragWave && (pc.Clip != tr.Clip || pc.Start != scroll - tr.Offset + tr.ClipStart || pc.Spp != spp || pc.Px != px || pc.Len != tr.UsedLength)) { if (pc.Mn == null || pc.Mn.Length < px) { pc.Mn = new float[px + 64]; pc.Mx = new float[px + 64]; } tr.Clip.GetPeaks(scroll - tr.Offset + tr.ClipStart, spp, px, pc.Mn, pc.Mx); pc.Clip = tr.Clip; pc.Start = scroll - tr.Offset + tr.ClipStart; pc.Spp = spp; pc.Px = px; pc.Len = tr.UsedLength; pc.Ver++; }
         var wmn = pc.Mn; var wmx = pc.Mx;
         Color c = Neon(tr.Color); bool audible = !tr.Mute && !tr.Off; float cy = lane.Y + lane.Height / 2, amp = lane.Height * 0.42f;
@@ -1094,6 +1096,17 @@ partial class StudioForm : Form
         using (var br = new SolidBrush(sel ? TM.C(255, 40, 22, 74) : TM.C(255, 26, 15, 46))) g.FillRectangle(br, r);
         using (var pen = new Pen(sel ? Color.FromArgb(200, Neon(tr.Color)) : Color.FromArgb(70, Neon(tr.Color)), sel ? 1.6f : 1f)) g.DrawRectangle(pen, r.X + 1, r.Y + 1, r.Width - 2, r.Height - 2);
         { var trH = tr; Reg(r, () => { busEdit = null; selTrack = Math.Max(0, eng.Tracks.IndexOf(trH)); selFx = -1; toolsTrack = trH; }); }   // any empty part of the box picks this track (the buttons and sliders on top of it keep their own clicks)
+        if (r.Height < 60)
+        {   // zoomed right out (FIT with many tracks): one line per track, like a big session in Logic: its colour, its name, M and S. Nothing is squeezed on top of anything
+            var tkm = tr; using (var cb = new SolidBrush(Neon(tr.Color))) g.FillRectangle(cb, r.X + 3, r.Y + 3, 5, r.Height - 6);
+            float fsz = Math.Max(9, Math.Min(13, r.Height * 0.4f)), bhh = Math.Min(22, r.Height - 6);
+            Txt(g, tr.Name, fsz, tr.Off ? DimC : Ink, Rc(r.X + 14, r.Y, r.Width - 110, r.Height), StringAlignment.Near, true);
+            var nr = Reg(Rc(r.X + 10, r.Y, r.Width - 110, r.Height), () => HeaderDown(tkm)); nr.OnDrag = pt => HeaderDrag(tkm, pt); nr.OnUp = () => { HeaderDrop(tkm); GhostEnd(); }; nr.OnDouble = () => RenameTrack(tkm);
+            LearnOn(Btn(g, Rc(r.Right - 94, r.Y + (r.Height - bhh) / 2, 28, bhh), "M", tkm.Mute ? 4 : 0, () => ToggleMute(tkm), 10), "mute|" + tkm.Name, tkm.Name + " mute");
+            LearnOn(Btn(g, Rc(r.Right - 62, r.Y + (r.Height - bhh) / 2, 28, bhh), "S", tkm.Solo ? 4 : 0, () => ToggleSolo(tkm), 10), "solo|" + tkm.Name, tkm.Name + " solo");
+            if (Hot(r)) hintNow = tr.Name + ": the tracks are zoomed right out. Alt + mouse wheel (or THIN TRACKS) makes them taller again.";
+            return;
+        }
         PaintPowerButton(g, tr, r.X + 20, r.Y + 17, Hot(Rc(r.X + 7, r.Y + 4, 26, 26)));   /* the power button of the track (press it: the track is off) */
         Txt(g, tr.Name, 15, Ink, Rc(r.X + 36, r.Y + 6, 142, 22), StringAlignment.Near, true);
         if (tr.Bpm > 0 && !bus) { var bt = thin ? Rc(r.X + 298, r.Y + 9, 40, 14) : Rc(r.X + 36, r.Y + 26, 120, 14); Txt(g, tr.Bpm.ToString("0.#") + (thin ? "" : " BPM"), 10, Math.Abs(tr.Bpm - Fx.ProjectBpm) < 0.6 ? Color.FromArgb(150, 255, 190) : DimC, bt, StringAlignment.Near, false); if (Hot(bt)) hintNow = "The tempo heard in this track" + (Math.Abs(tr.Bpm - Fx.ProjectBpm) < 0.6 ? ", the same as the project." : ". The project is at " + Fx.ProjectBpm.ToString("0.#") + " BPM: press DETECT to use this track's tempo."); }
@@ -1127,14 +1140,14 @@ partial class StudioForm : Form
         // a galaxy knob (drag up / down, double-click for 0 dB; the wheel scrolls the tracks) and the box to type the value
         float kd = thin || compact ? 16 : 22; var fs = KnobCtl(g, r.X + 56, r.Y + vy + 9, kd, frac, f => tk.VolDb = f < 0.003f ? -48f : (float)Math.Round(f * 54f - 48f, 1), Accent2, () => tk.VolDb = 0); fs.OnWheel = null; LearnOn(fs, "vol|" + tk.Name, tk.Name + " volume");   /* (the wheel scrolls the tracks, it never turns a knob by accident) */
         Hint2(fs.R, tk.Name + " volume: " + (tk.VolDb <= -47.9f ? "-inf" : tk.VolDb.ToString("+0.0;-0.0;0.0")) + " dB. Drag up or down (Shift: finer), double-click for 0 dB.");
-        ValueBox(g, Rc(r.X + 80, r.Y + vy - 1, thin ? 64 : 80, 20), (tk.VolDb <= -47.9f ? "-inf" : tk.VolDb.ToString("+0.0;-0.0;0.0")) + " dB", tk.VolDb <= -47.9f ? "-inf" : Num(tk.VolDb), s => { float v; if (ParseNum(s, out v)) tk.VolDb = v <= -47.9f ? -48f : Math.Min(12f, v); });
+        ValueBox(g, thin ? Rc(r.X + 70, r.Y + vy - 1, 50, 20) : Rc(r.X + 80, r.Y + vy - 1, 80, 20), (tk.VolDb <= -47.9f ? "-inf" : tk.VolDb.ToString("+0.0;-0.0;0.0")) + " dB", tk.VolDb <= -47.9f ? "-inf" : Num(tk.VolDb), s => { float v; if (ParseNum(s, out v)) tk.VolDb = v <= -47.9f ? -48f : Math.Min(12f, v); });
         // pan
-        if (thin) Txt(g, "PAN", 10, DimC, Rc(r.X + 150, r.Y + vy, 34, 18), StringAlignment.Near, false); else Txt(g, "PAN", 10, DimC, Rc(r.X + 10, r.Y + py, 34, 18), StringAlignment.Near, false);   // thin tracks have the pan knob too, on the volume row
-        { var ps = KnobCtl(g, thin ? r.X + 182 : r.X + 56, r.Y + (thin ? vy : py) + 9, kd, (tk.Pan + 1) / 2, f => tk.Pan = (float)Math.Round(f * 2 - 1, 2), NeonCyan, () => tk.Pan = 0); ps.OnWheel = null; LearnOn(ps, "pan|" + tk.Name, tk.Name + " pan"); Hint2(ps.R, tk.Name + " pan: " + (tk.Pan == 0 ? "centre" : (tk.Pan < 0 ? "left " : "right ") + (int)Math.Abs(tk.Pan * 100)) + ". Drag up or down, double-click for the centre."); }
-        if (!(thin && tk.Instrument)) ValueBox(g, thin ? Rc(r.X + 206, r.Y + vy - 1, 40, 20) : Rc(r.X + 80, r.Y + py - 1, 40, 20), tk.Pan == 0 ? "C" : (tk.Pan < 0 ? "L" + (int)(-tk.Pan * 100) : "R" + (int)(tk.Pan * 100)), Num(tk.Pan * 100), s => { string u = s.Trim().ToUpperInvariant(); float v; if (u.StartsWith("C")) tk.Pan = 0; else if (ParseNum(u, out v)) { if (u.StartsWith("L")) v = -Math.Abs(v); else if (u.StartsWith("R")) v = Math.Abs(v); tk.Pan = Math.Max(-1f, Math.Min(1f, v / 100f)); } });
+        if (thin) Txt(g, "PAN", 10, DimC, Rc(r.X + 124, r.Y + vy, 30, 18), StringAlignment.Near, false); else Txt(g, "PAN", 10, DimC, Rc(r.X + 10, r.Y + py, 34, 18), StringAlignment.Near, false);   // thin tracks have the pan knob too, on the volume row
+        { var ps = KnobCtl(g, thin ? r.X + 166 : r.X + 56, r.Y + (thin ? vy : py) + 9, kd, (tk.Pan + 1) / 2, f => tk.Pan = (float)Math.Round(f * 2 - 1, 2), NeonCyan, () => tk.Pan = 0); ps.OnWheel = null; LearnOn(ps, "pan|" + tk.Name, tk.Name + " pan"); Hint2(ps.R, tk.Name + " pan: " + (tk.Pan == 0 ? "centre" : (tk.Pan < 0 ? "left " : "right ") + (int)Math.Abs(tk.Pan * 100)) + ". Drag up or down, double-click for the centre."); }
+        if (!(thin && tk.Instrument)) ValueBox(g, thin ? Rc(r.X + 182, r.Y + vy - 1, 40, 20) : Rc(r.X + 80, r.Y + py - 1, 40, 20), tk.Pan == 0 ? "C" : (tk.Pan < 0 ? "L" + (int)(-tk.Pan * 100) : "R" + (int)(tk.Pan * 100)), Num(tk.Pan * 100), s => { string u = s.Trim().ToUpperInvariant(); float v; if (u.StartsWith("C")) tk.Pan = 0; else if (ParseNum(u, out v)) { if (u.StartsWith("L")) v = -Math.Abs(v); else if (u.StartsWith("R")) v = Math.Abs(v); tk.Pan = Math.Max(-1f, Math.Min(1f, v / 100f)); } });
         // right of the pan row: piano (instrument), arm (empty audio track), nudge (audio), nothing (bus)
         if (tk.Instrument)
-            Btn(g, thin ? Rc(r.X + 204, r.Y + vy - 2, 62, 22) : Rc(r.X + 220, r.Y + py - 3, 40, 24), "Piano", 1, () => { var vf = tk.Fx.Count > 0 ? tk.Fx[0] as InstrumentFx : null; if (vf != null) { vf.Owner = tk; vf.ShowWindow(this); } }, 11);
+            Btn(g, thin ? Rc(r.X + 182, r.Y + vy - 2, 60, 22) : Rc(r.X + 220, r.Y + py - 3, 40, 24), "Piano", 1, () => { var vf = tk.Fx.Count > 0 ? tk.Fx[0] as InstrumentFx : null; if (vf != null) { vf.Owner = tk; vf.ShowWindow(this); } }, 11);
         // meters (peak with hold)
         var h = Hold(tr); float[] pk = { tr.PeakL, tr.PeakR };
         for (int c = 0; c < 2; c++)

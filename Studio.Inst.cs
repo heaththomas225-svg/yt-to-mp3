@@ -104,10 +104,12 @@ partial class StudioForm
     }
 
     // Notes played in an instrument window are recorded onto its track while the song plays and REC is armed.
-    Track recToastFor;
+    Track recToastFor; volatile bool recGot;   // recGot: notes were recorded since REC went on
+    // the song stopped after notes were recorded: MIDI REC turns itself off (left on, the next play recorded over your part by accident)
+    internal void RecStopped() { if (!recOn || !recGot) return; recOn = false; recGot = false; Toast("Recording finished: MIDI REC is off again (press it to record more)."); Invalidate(); }
     void OnMidiNote(Track t, bool on, int note, int vel)
     {
-        if (!recOn || t == null || !t.Instrument) return;
+        if (!recOn || t == null || !t.Instrument) return; recGot = true;
         if (on && recToastFor != t) { recToastFor = t; var tn = t.Name; try { BeginInvoke(new Action(() => Toast("Recording your MIDI keyboard onto " + tn + "."))); } catch { } }
         long frame;
         if (!eng.Playing) { frame = eng.Pos; try { BeginInvoke(new Action(() => { if (!eng.Playing) PlayGuard(); })); } catch { } }   // the first note starts the song and is recorded at the needle

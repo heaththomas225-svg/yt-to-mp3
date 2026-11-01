@@ -85,7 +85,7 @@ partial class StudioForm
     // ---- choosing the sound of a track (any track: pick it, then choose what it plays) ----
     void PaintChooseSound(Graphics g, Track t, RectangleF msg)
     {
-        Txt(g, t == null ? "PICK A TRACK, THEN CHOOSE ITS SOUND" : "CHOOSE A SOUND FOR " + t.Name.ToUpperInvariant(), 14, Ink, Rc(msg.X, msg.Y + 12, msg.Width, 24), StringAlignment.Center, true);
+        Txt(g, t == null ? "PICK A TRACK, THEN PICK A SOUND" : "CHOOSE A SOUND FOR " + t.Name.ToUpperInvariant(), 14, Ink, Rc(msg.X, msg.Y + 12, msg.Width, 24), StringAlignment.Center, true);
         Txt(g, t == null ? "Click a track on the left, or make a new one here." : "Then write its notes in this piano roll, or play them on your keyboard.", 11, DimC, Rc(msg.X, msg.Y + 38, msg.Width, 20), StringAlignment.Center, false);
         var opts = new List<KeyValuePair<string, Action>> {
             new KeyValuePair<string, Action>("PIANO", () => PrUseSound(t, null, null)),
@@ -263,7 +263,9 @@ partial class StudioForm
         Prof.A("pr.bar", pq); pq = Prof.T();
         // the areas
         var sam = PrSampler; float keyW = sam != null && sam.IsKit ? 120 : 64, velH = Math.Min(70, Math.Max(40, h * 0.18f)), rulerH = 18;
-        prKeys = Rc(x, y + 30 + rulerH, keyW, h - 30 - rulerH - velH - 6); prRuler = Rc(x + keyW, y + 30, w - keyW, rulerH); prGrid = Rc(x + keyW, prKeys.Y, w - keyW, prKeys.Height); prVel = Rc(x + keyW, prGrid.Bottom + 6, w - keyW, velH);
+        const float SbW = 14;   // the scroll bars: along the bottom (time) and down the right side (notes), so you can get back to any note
+        prKeys = Rc(x, y + 30 + rulerH, keyW, h - 30 - rulerH - velH - 6 - SbW - 4); prRuler = Rc(x + keyW, y + 30, w - keyW - SbW - 2, rulerH); prGrid = Rc(x + keyW, prKeys.Y, w - keyW - SbW - 2, prKeys.Height); prVel = Rc(x + keyW, prGrid.Bottom + 6, w - keyW - SbW - 2, velH);
+        prHBar = Rc(prGrid.X, prVel.Bottom + 4, prGrid.Width, SbW); prVBar = Rc(prGrid.Right + 2, prGrid.Y, SbW, prGrid.Height);
         int rows = PrHigh - PrLow + 1; float maxY = Math.Max(0, rows * prRowH - prGrid.Height);
         if (prScrollY < 0) { int mid = 60; if (prNotes.Count > 0) { int lo = 127, hi = 0; foreach (var n in prNotes) { lo = Math.Min(lo, n.Note); hi = Math.Max(hi, n.Note); } mid = (lo + hi) / 2; } prScrollY = (PrHigh - mid) * prRowH - prGrid.Height / 2; }
         prScrollY = Math.Max(0, Math.Min(maxY, prScrollY)); prScrollBeats = Math.Max(0, prScrollBeats);
@@ -361,8 +363,24 @@ partial class StudioForm
         Prof.A("pr.vel", pq); pq = Prof.T();
         if (!prBoxDrag) PaintPatternBox(g, prGrid);
         if (!prDraftDrag) PaintDraftBox(g, prGrid); Prof.A("pr.boxes", pq);
+        PaintPrScrollBars(g);
         // the arrangement link: where this view sits in the song
         { var mini = Rc(x, prVel.Bottom - 16, keyW - 6, 14); double songBeats = Math.Max(16, SongFrames() / PrBeatFrames); FillRR(g, TM.C(200, 8, 4, 18), mini, 3); float vx0 = (float)(prScrollBeats / songBeats), vw = (float)(prGrid.Width / prPpb / songBeats); FillRR(g, Color.FromArgb(160, NeonCyan), Rc(mini.X + mini.Width * Math.Min(1, vx0), mini.Y + 2, Math.Max(3, mini.Width * Math.Min(1, vw)), mini.Height - 4), 2); Reg(mini, () => { prScrollBeats = Math.Max(0, (MousePos.X - mini.X) / mini.Width * songBeats - prGrid.Width / prPpb / 2); }).OnDrag = pt => { prScrollBeats = Math.Max(0, (pt.X - mini.X) / mini.Width * songBeats - prGrid.Width / prPpb / 2); }; Hint2(mini, "Where you are in the song: drag to move along it"); }
+    }
+    RectangleF prHBar, prVBar;
+    // the piano roll's scroll bars: drag the bar (or click the track to jump there); the time bar covers the song, your notes and a bit more
+    void PaintPrScrollBars(Graphics g)
+    {
+        double endB = Math.Max(16, SongFrames() / PrBeatFrames); foreach (var n in prNotes) endB = Math.Max(endB, (n.Start + n.Len) / PrBeatFrames);
+        double vis = prGrid.Width / prPpb, total = Math.Max(endB + 8, prScrollBeats + vis);
+        { var r = prHBar; FillRR(g, TM.C(220, 10, 5, 24), r, 6); float tw = Math.Max(30, (float)(r.Width * vis / total)), tx = r.X + (float)((r.Width - tw) * Math.Min(1, prScrollBeats / Math.Max(1e-9, total - vis)));
+          var th = Rc(tx, r.Y + 2, tw, r.Height - 4); FillRR(g, Hot(r) ? NeonCyan : Color.FromArgb(200, NeonCyan), th, 5);
+          float grab = 0; var rg = Reg(r, () => { grab = th.Contains(MousePos) ? MousePos.X - th.X : tw / 2; prFollow = false; prScrollBeats = Math.Max(0, (MousePos.X - grab - r.X) / Math.Max(1, r.Width - tw) * (total - vis)); });
+          rg.OnDrag = pt => { prScrollBeats = Math.Max(0, (pt.X - grab - r.X) / Math.Max(1, r.Width - tw) * (total - vis)); Invalidate(); }; Hint2(r, "Scroll along the piano roll: drag the bar (or Shift + mouse wheel)"); }
+        { int rows = PrHigh - PrLow + 1; float full = rows * prRowH, maxY = Math.Max(0, full - prGrid.Height); var r = prVBar; FillRR(g, TM.C(220, 10, 5, 24), r, 6);
+          float th0 = Math.Max(30, r.Height * prGrid.Height / Math.Max(1, full)), ty = r.Y + (r.Height - th0) * (maxY <= 0 ? 0 : prScrollY / maxY); var th = Rc(r.X + 2, ty, r.Width - 4, th0); FillRR(g, Hot(r) ? NeonCyan : Color.FromArgb(200, NeonCyan), th, 5);
+          float grab = 0; var rg = Reg(r, () => { grab = th.Contains(MousePos) ? MousePos.Y - th.Y : th0 / 2; prScrollY = Math.Max(0, Math.Min(maxY, (MousePos.Y - grab - r.Y) / Math.Max(1, r.Height - th0) * maxY)); });
+          rg.OnDrag = pt => { prScrollY = Math.Max(0, Math.Min(maxY, (pt.Y - grab - r.Y) / Math.Max(1, r.Height - th0) * maxY)); Invalidate(); }; Hint2(r, "Scroll up and down the notes: drag the bar (or the mouse wheel)"); }
     }
     long SongFrames() { long end = 0; lock (eng.Sync) foreach (var t in eng.Tracks) { if (t.Clip != null) end = Math.Max(end, t.Offset + t.Clip.Length); lock (t.Midi) if (t.Midi.Count > 0) end = Math.Max(end, t.Midi[t.Midi.Count - 1].Frame); } return end; }
     static string PrBeatsName(double b) { if (Math.Abs(b - 4) < 1e-6) return "1 BAR"; if (Math.Abs(b - 2) < 1e-6) return "1/2 BAR"; if (Math.Abs(b - 1) < 1e-6) return "1/4"; if (Math.Abs(b - 0.5) < 1e-6) return "1/8"; if (Math.Abs(b - 0.25) < 1e-6) return "1/16"; if (Math.Abs(b - 0.125) < 1e-6) return "1/32"; if (Math.Abs(b - 1 / 3.0) < 1e-6) return "1/8T"; if (Math.Abs(b - 1 / 6.0) < 1e-6) return "1/16T"; return b.ToString("0.##") + " BEATS"; }

@@ -52,6 +52,9 @@ abstract class InstrumentFx : Fx
     }
     public void NoteOn(int note, int vel) { var e = StudioEngine.Current; if (e != null) e.EnsureAudio(); Midi(0x90, (byte)note, (byte)vel); }
     public void NoteOff(int note) { Midi(0x80, (byte)note, 0); }
+    // a key or pad clicked in the instrument's own window: played and, with MIDI REC on, recorded onto its track like a MIDI keyboard (clicks were heard but never recorded)
+    public void HandOn(int note, int vel) { NoteOn(note, vel); var rec = Recorder; if (rec != null && Owner != null) rec(Owner, true, note, vel); }
+    public void HandOff(int note) { NoteOff(note); var rec = Recorder; if (rec != null && Owner != null) rec(Owner, false, note, 0); }
     public void AllNotesOff() { Midi(0xB0, 123, 0, false); Midi(0xB0, 120, 0, false); }
     // Panic: every note and every ringing tail stops at once.
     public void Panic() { Midi(0xB0, 123, 0, false); Midi(0xB0, 120, 0, false); Midi(0xB0, 64, 0, false); StudioEngine.LiveUntil = Environment.TickCount + 600; }

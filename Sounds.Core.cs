@@ -307,6 +307,12 @@ static class SoundLibrary
     }
     // an edited copy of a sound (a WAV): replace puts it in place of the original in My samples (same name; a sound in a pack is never changed),
     // otherwise it is kept as a new version, "Kick v2" (v3...), right after the original, so both are there to compare
+    // a new name for a sound of yours (the file and everything that uses it stay as they are)
+    public static bool RenameMine(SoundItem s, string name)
+    {
+        var up = Pack(UserPackId); if (up == null || s == null || string.IsNullOrWhiteSpace(name)) return false; var cur = up.Items.Find(x => x.Id == s.Id); if (cur == null) return false;
+        cur.Name = name.Trim(); if (cur != s) s.Name = cur.Name; WritePack(up); AddOrReplace(up); return true;
+    }
     public static SoundItem AddVersion(SoundItem orig, string wav, bool replace)
     {
         float[] l, r; int sr; string fmt; if (orig == null || !SoundIO.Read(wav, out l, out r, out sr, out fmt) || l.Length == 0) return null;

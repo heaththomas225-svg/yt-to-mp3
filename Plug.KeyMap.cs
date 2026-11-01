@@ -106,7 +106,7 @@ class KeyMapWindow : PxWindow, ISoundDrop
     readonly KeyMapFx e; int sel = 60, held = -1, low = 36, lastSeen = -1; bool follow = true;   // low: the first key shown (5 octaves from there)
     internal static readonly bool[] Black = { false, true, false, true, false, false, true, false, true, false, true, false };
     readonly List<KeyValuePair<int, RectangleF>> keyRects = new List<KeyValuePair<int, RectangleF>>();
-    public KeyMapWindow(KeyMapFx f) : base(f, "Key Map", new Size(1080, 660))
+    public KeyMapWindow(KeyMapFx f) : base(f, "Key Map", new Size(1080, 790))
     {
         e = f; Accent = Cyan; AllowDrop = true; MidiWindow.Hook(this, f);
         DragEnter += (s, a) => { a.Effect = SoundSources.AudioFiles(a.Data).Count > 0 ? DragDropEffects.Copy : DragDropEffects.None; };
@@ -165,15 +165,15 @@ class KeyMapWindow : PxWindow, ISoundDrop
                 if (me) Stroke(g, Cyan, RectangleF.Inflate(r, 2, 2), 5, 1.6f);
                 if (DragKey == n) { Fill(g, Color.FromArgb(150, Cyan), r, 4); Stroke(g, Cyan, RectangleF.Inflate(r, 3, 3), 6, 2.6f); }   // a sound dragged from the studio lands here
                 if (!blackPass && n % 12 == 0) Txt(g, KeyMapFx.NoteLabel(n), 9, Color.FromArgb(90, 70, 130), new RectangleF(r.X, r.Bottom - 18, r.Width, 14), StringAlignment.Center, true);
-                int k = n; keyRects.Add(new KeyValuePair<int, RectangleF>(n, r)); var h = Reg(r, () => { sel = k; held = k; e.NoteOn(k, 110); }, KeyMapFx.NoteLabel(n) + (z != null ? ": " + z.Name : ": no sound") + ". Click to play, right-click to choose its sound");
-                h.DragAt = p => { }; h.Up = () => { if (held >= 0) e.NoteOff(held); held = -1; }; h.Right = () => { sel = k; KeyMenu(k); };
+                int k = n; keyRects.Add(new KeyValuePair<int, RectangleF>(n, r)); var h = Reg(r, () => { sel = k; held = k; e.HandOn(k, 110); }, KeyMapFx.NoteLabel(n) + (z != null ? ": " + z.Name : ": no sound") + ". Click to play, right-click to choose its sound");
+                h.DragAt = p => { }; h.Up = () => { if (held >= 0) e.HandOff(held); held = -1; }; h.Right = () => { sel = k; KeyMenu(k); };
             }
         // the picked key
         var pk = new RectangleF(a.X, kb.Bottom + 12, a.Width, a.Bottom - kb.Bottom - 12); Panel(g, pk, "KEY " + KeyMapFx.NoteLabel(sel), Cyan);
         var zs = e.ZoneOf(sel); string sn = zs == null ? "No sound on this key yet" : zs.Name + (zs.Lo != zs.Hi ? "   (pitched, " + KeyMapFx.NoteLabel(zs.Lo) + " to " + KeyMapFx.NoteLabel(zs.Hi) + ")" : "");
         Txt(g, sn, 14, zs == null ? Dim : Ink, new RectangleF(pk.X + 14, pk.Y + 26, pk.Width * 0.45f, 24), StringAlignment.Near, true);
         int s0 = sel; float bx = pk.X + 14, by = pk.Y + 58;
-        Button(g, new RectangleF(bx, by, 196, 34), "CHOOSE ITS SOUND  ▾", true, Cyan, () => KeyMenu(s0), "A sound from the library, a file on your PC, or one of your song's tracks", 11.5f);
+        Button(g, new RectangleF(bx, by, 196, 34), "PICK A SOUND  ▾", true, Cyan, () => KeyMenu(s0), "A sound from the library, a file on your PC, or one of your song's tracks", 11.5f);
         Button(g, new RectangleF(bx + 204, by, 186, 34), "A SOUND FILE ON MY PC...", false, Pink, () => { string f = SoundSources.PickFile(this, "A sound for " + KeyMapFx.NoteLabel(s0)); if (f != null) PutKey(s0, f, Path.GetFileNameWithoutExtension(f)); }, "Choose a WAV, MP3, FLAC, OGG, AIFF or M4A file", 10.5f);
         Button(g, new RectangleF(bx + 398, by, 140, 34), "CLEAR THIS KEY", false, Violet, () => { Mark(); e.ClearKey(s0); }, zs != null && zs.Lo != zs.Hi ? "Take this sound off all the keys it plays" : "Take the sound off this key", 10.5f);
         // play it across: this key only, an octave each side, the whole keyboard (pitched)
@@ -193,6 +193,10 @@ class KeyMapWindow : PxWindow, ISoundDrop
           Knob(g, bx + 36, ly + 50, 24, "lfor", "RATE", Gold); Knob(g, bx + 112, ly + 50, 24, "lfod", "DEPTH", Gold);
           Txt(g, "MOVES", 9, Dim, new RectangleF(bx + 160, ly + 16, 200, 12), StringAlignment.Near, true); Segments(g, new RectangleF(bx + 160, ly + 30, 240, 30), "lfot", Gold, 9.5f);
           bool pf = e.Get("fill") >= 0.5f; Button(g, new RectangleF(bx + 410, ly + 30, Math.Min(150, sx - (bx + 410) - 12), 30), pf ? "EMPTY KEYS: PIANO" : "EMPTY KEYS: SILENT", pf, Cyan, () => { Mark(); e.Set("fill", pf ? 0 : 1); }, pf ? "Keys with no sound of their own play the built-in piano. Press to make them silent" : "Keys with no sound are silent. Press to have them play the built-in piano", 9.5f); }
+        // BASS: octave, sub, wobble (with its rate and resonance), drive: shape a bass in depth
+        { float qy = pk.Y + 226; Txt(g, "BASS", 11, Pink, new RectangleF(bx, qy, 60, 16), StringAlignment.Near, true);
+          string[] kn = { "oct", "sub", "wob", "wobq", "drive" }, kl = { "OCT", "SUB", "WOBBLE", "RES", "DRIVE" }; for (int i = 0; i < kn.Length; i++) Knob(g, bx + 36 + i * 76, qy + 50, 24, kn[i], kl[i], Pink);
+          Txt(g, "WOBBLE RATE (IN TIME WITH THE SONG)", 9, Dim, new RectangleF(bx + 410, qy + 16, 400, 12), StringAlignment.Near, true); Segments(g, new RectangleF(bx + 410, qy + 30, a.Right - 14 - (bx + 410), 30), "wobr", Pink, 9.5f); }
         if (zs != null)
         {
             float lvy = pk.Y + 112 + 30;   // (on the line of the LFO buttons)

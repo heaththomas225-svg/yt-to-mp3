@@ -51,7 +51,8 @@ partial class SynthCanvas
         if (soundTab == 0) { foreach (var c in SynthPresets.Categories) { if (browseCat.Length > 0 && c != browseCat) continue; var n = SynthPresets.InCategory(c); if (n.Count == 0) continue; if (browseCat.Length == 0) l.Add(new SoundRow { Head = c.ToUpperInvariant() }); foreach (var s in n) l.Add(new SoundRow { Name = s }); } }
         else if (soundTab == 1) { foreach (var s in SynthPresets.UserNames()) l.Add(new SoundRow { Name = s }); }
         else if (soundTab == 3)
-        {   // the sounds you imported into MY SOUNDS (in the studio's sound library): one click makes a sound the shape of oscillator A
+        {
+            LibLoader.Start(); if (!LibLoader.Ready) { l.Add(new SoundRow { Head = "YOUR SOUNDS ARE LOADING..." }); return l; }   // (MY SAMPLES was empty until the studio's sounds panel had been opened once)   // the sounds you imported into MY SOUNDS (in the studio's sound library): one click makes a sound the shape of oscillator A
             var up = SoundLibrary.Pack(SoundLibrary.UserPackId); var items = up == null ? new List<SoundItem>() : up.Items.FindAll(it => it.IsAudio && it.Kind != "midi"); items.Sort((p, q) => string.Compare(p.Name, q.Name, StringComparison.OrdinalIgnoreCase));
             Dictionary<string, List<string>> cols; lock (SoundLibrary.Lock) cols = new Dictionary<string, List<string>>(SoundLibrary.Collections);
             foreach (var kv in cols) { var inF = items.FindAll(it => kv.Value.Contains(it.Id)); if (inF.Count == 0) continue; l.Add(new SoundRow { Head = "FOLDER: " + kv.Key.ToUpperInvariant() }); foreach (var it in inF) l.Add(new SoundRow { Name = it.Name, Sample = it }); }

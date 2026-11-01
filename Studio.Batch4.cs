@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -98,7 +98,14 @@ partial class StudioForm
         if (t.Mono == mono) return; PushUndo(); t.Mono = mono;
         Toast(t.Name + " is now " + (mono ? "MONO: left and right play the same sound." : "STEREO: left and right are kept apart."));
     }
-    int normalLaneH = 132;
+    int normalLaneH = 132; const int MinLaneH = 34;
+    // FIT: the whole song across, and every track on screen top to bottom; with many tracks they thin right out to one line each (the name and the waveform as a strip)
+    internal void FitAll()
+    {
+        FitView(); int n = LaneCount; if (n == 0) return; float viewH = MixH - ArrTop - RulerH - ArrGap - 50;
+        int want = (int)Math.Floor(viewH / n); if (want < LaneH) { if (LaneH >= 96) normalLaneH = LaneH; LaneH = Math.Max(MinLaneH, want); }
+        vscroll = 0; Toast(LaneH <= want ? "Fitted: the whole song and all " + n + " tracks are on screen." : "Fitted as far as it goes: " + n + " tracks, scroll for the rest.");
+    }
     void ToggleThinTracks() { if (LaneH < 96) LaneH = normalLaneH; else { normalLaneH = LaneH; LaneH = 84; } Prefs.ThinTracks = LaneH < 96; Prefs.Changed(); }   // remembered: the tracks open thin next time
     static int InitLaneH() { if (StudioEnv.UnderTest) { Prefs.ThinTracks = false; Prefs.HeadHidden = false; } return Prefs.ThinTracks ? 84 : 132; }   // (the tests always start from normal tracks and an open list)
 
