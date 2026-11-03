@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Threading;
 
 // Where the studio's sound goes. The engine asks AudioOut.Create for a player and hands it a render callback;
@@ -10,6 +10,8 @@ abstract class AudioOut : IDisposable
     public abstract long PlayingSongPos();   // the place in the song being heard right now (-1 when it cannot tell)
     public abstract int Queued();            // frames handed to the device that it has not played yet
     public abstract void Dispose();
+    // PAUSE / STOP: the song audio already handed to the device and not playing yet fades out and goes silent (it played on after PAUSE: 0.14 s with the Safe buffer, then was heard twice)
+    public virtual void Silence(long at) { }
     public static volatile int QueuedFrames = 4096;   // audio waiting in the buffers: how far the sound lags behind the render position
     public static volatile int Underruns;       // times the device ran out of audio (heard as stutter)
     public static volatile int Stalls;          // times the device stopped taking audio for a moment

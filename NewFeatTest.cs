@@ -57,7 +57,21 @@ static class NF
     // a check that needs the real screen (a picture of it): it is skipped, and says so, when the PC is locked or cannot be captured
     static void CheckScreen(string n, bool ok, string d = "") { if (!ScreenWorks()) { Console.WriteLine("SKIP  " + n + "   (the screen cannot be captured right now: locked?)"); return; } Check(n, ok, d); }
     static bool Known0(string[] ks) { EmojiSprites.ForgetForTest(); foreach (var k in ks) if (EmojiSprites.Get(k) == null) return false; return true; }
-    static void Pump(int ms) { var end = DateTime.Now.AddMilliseconds(ms); while (DateTime.Now < end) { Application.DoEvents(); System.Threading.Thread.Sleep(15); } }
+    // messages are handled until the time is up, even if they never run out (DoEvents only returns when the queue is empty: busy windows kept it full and the test froze)
+    [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)] struct NMSG { public IntPtr hwnd; public uint message; public IntPtr wParam, lParam; public uint time; public int x, y; }
+    [System.Runtime.InteropServices.DllImport("user32.dll")] static extern bool PeekMessage(out NMSG m, IntPtr h, uint min, uint max, uint remove);
+    [System.Runtime.InteropServices.DllImport("user32.dll")] static extern bool TranslateMessage(ref NMSG m);
+    [System.Runtime.InteropServices.DllImport("user32.dll")] static extern IntPtr DispatchMessage(ref NMSG m);
+    static void Pump(int ms)
+    {
+        int end = Environment.TickCount + ms;
+        do
+        {
+            NMSG m; int n = 0;
+            while (n++ < 500 && unchecked(Environment.TickCount - end) < 0 && PeekMessage(out m, IntPtr.Zero, 0, 0, 1)) { TranslateMessage(ref m); DispatchMessage(ref m); }
+            System.Threading.Thread.Sleep(15);
+        } while (unchecked(Environment.TickCount - end) < 0);
+    }
     static void Shot(string path) { sf.Invalidate(); sf.Update(); Application.DoEvents(); var bmp = new Bitmap(sf.ClientSize.Width, sf.ClientSize.Height); using (var g = Graphics.FromImage(bmp)) { var pe = new PaintEventArgs(g, new Rectangle(Point.Empty, sf.ClientSize)); for (int i = 0; i < 3; i++) typeof(StudioForm).GetMethod("PaintAll", BF).Invoke(sf, new object[] { pe }); } bmp.Save(path, ImageFormat.Png); bmp.Dispose(); }
     static void FormShot(Form f, string path) { Pump(300); var bmp = new Bitmap(f.ClientSize.Width, f.ClientSize.Height); f.DrawToBitmap(bmp, new Rectangle(0, 0, bmp.Width, bmp.Height)); bmp.Save(path, ImageFormat.Png); bmp.Dispose(); }
 

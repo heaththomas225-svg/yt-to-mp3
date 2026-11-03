@@ -70,6 +70,19 @@ static class D
                 long at = ep.Pos; ep.Play(); System.Threading.Thread.Sleep(30); long back = ep.HeardPos; ep.Pause(); Check("PLAY after PAUSE carries on from that very spot", back >= at - 2000 && back <= at + 44100 / 10, (back - at) + " frames after the pause point"); ep.Shutdown();
             }
         }
+        // PAUSE with the biggest buffer (Safe, 6 x 1024): the sound stops there too, the audio already in the sound card fades out instead of playing on (and being heard twice after PLAY)
+        {
+            var eb = new StudioEngine { ListenOnly = true }; foreach (var mf in eb.MasterFx) mf.Bypass = true; eb.Tracks.Add(StudioEngine.NewTrack("Long", "beat", AudioClip.FromArrays(new float[44100 * 20], new float[44100 * 20], "l")));
+            string berr = null; try { eb.Play(); } catch (Exception ex) { berr = ex.Message; }
+            if (berr != null) Console.WriteLine("SKIP  big-buffer pause test: no sound card here (" + berr + ")");
+            else
+            {
+                var sw2 = System.Diagnostics.Stopwatch.StartNew(); while (sw2.ElapsedMilliseconds < 4000 && eb.HeardPos < 44100) System.Threading.Thread.Sleep(5);
+                eb.Pause(); long at2 = eb.Pos, most = at2; var sw3 = System.Diagnostics.Stopwatch.StartNew(); while (sw3.ElapsedMilliseconds < 300) { most = Math.Max(most, eb.HeardPos); System.Threading.Thread.Sleep(5); }
+                Check("PAUSE with the Safe buffer: the sound stops where you paused (the audio waiting in the sound card does not play on)", most - at2 <= 64, "played on " + ((most - at2) * 1000 / 44100) + " ms after the pause");
+                eb.Shutdown();
+            }
+        }
         // LOOP A SECTION: playback goes round from the end of the section to its start, exact to the sample, and never stops
         {
             int len = 44100 * 4; var ramp = new float[len]; for (int i = 0; i < len; i++) ramp[i] = 0.1f + i / (float)len * 0.5f;

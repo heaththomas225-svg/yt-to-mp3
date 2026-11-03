@@ -20,14 +20,42 @@ class WaveOutPlayer : AudioOut
     [StructLayout(LayoutKind.Sequential)] struct MMTIME { public uint wType; public uint u; public uint pad; }
     [DllImport("winmm.dll")] static extern int waveOutGetPosition(IntPtr h, ref MMTIME t, int size);
     long sent;   // frames handed to the sound card since it was opened
-    readonly long[] bSent = new long[64], bFrom = new long[64], bTo = new long[64]; readonly bool[] bPlay = new bool[64]; int bHead;   // the last blocks sent: where each starts in the sound card, which part of the song it holds
+    readonly long[] bSent = new long[64], bFrom = new long[64], bTo = new long[64]; readonly bool[] bPlay = new bool[64]; readonly int[] bBuf = new int[64]; int bHead;   // bBuf: which of the buffers holds that block
+    volatile bool silenceReq; long silenceAt; short[] silTmp;
+    public override void Silence(long at) { silenceAt = at; silenceReq = true; ev.Set(); }   // done on the audio thread
+    // the blocks the device has not started yet: the first fades out over 256 frames (it carries on from the one playing, so no click), the rest are zeroed;
+    // they are marked as silence at the pause point, so the needle does not run on while they play
+    void DoSilence()
+    {
+        silenceReq = false; if (PlayingNow != null && PlayingNow()) return;   // PLAY came straight back: nothing to cut
+        var t = new MMTIME { wType = 2 }; if (waveOutGetPosition(hwo, ref t, Marshal.SizeOf(typeof(MMTIME))) != 0 || t.wType != 2) return;
+        long s = Interlocked.Read(ref sent); long played = s - (long)unchecked((uint)((uint)s - t.u));
+        if (silTmp == null || silTmp.Length < Frames * 2) silTmp = new short[Frames * 2];
+        lock (bSent)
+        {
+            var upcoming = new List<int>(); for (int k = 0; k < 64; k++) if (bSent[k] > played && bSent[k] < s && bPlay[k]) upcoming.Add(k);
+            upcoming.Sort((x, y) => bSent[x].CompareTo(bSent[y]));
+            for (int j = 0; j < upcoming.Count; j++)
+            {
+                int k = upcoming[j], bi = bBuf[k]; if (bi < 0 || bi >= Buffers) continue;
+                if (j == 0) { Marshal.Copy(data[bi], silTmp, 0, Frames * 2); int fd = Math.Min(256, Frames); for (int f = 0; f < Frames; f++) { float g = f < fd ? 1f - f / (float)fd : 0f; silTmp[f * 2] = (short)(silTmp[f * 2] * g); silTmp[f * 2 + 1] = (short)(silTmp[f * 2 + 1] * g); } }
+                else Array.Clear(silTmp, 0, Frames * 2);
+                Marshal.Copy(silTmp, 0, data[bi], Frames * 2); bPlay[k] = false; bFrom[k] = bTo[k] = silenceAt;
+            }
+        }
+    }   // the last blocks sent: where each starts in the sound card, which part of the song it holds
     // the place in the song the sound card is playing right now (-1 when it cannot tell)
     public override long PlayingSongPos()
     {
         try
         {
-            if (hwo == IntPtr.Zero) return -1; var t = new MMTIME { wType = 2 }; if (waveOutGetPosition(hwo, ref t, Marshal.SizeOf(typeof(MMTIME))) != 0 || t.wType != 2) return -1; long played = t.u;
-            lock (bSent) for (int k = 0; k < 64; k++) { int i = (bHead - 1 - k + 64 * 2) % 64; if (bSent[i] <= played && played < bSent[i] + Frames) { long off = played - bSent[i]; if (!bPlay[i]) return bFrom[i]; if (bTo[i] >= bFrom[i]) return Math.Min(bTo[i], bFrom[i] + off); return bFrom[i] + off; } }
+            if (hwo == IntPtr.Zero) return -1; var t = new MMTIME { wType = 2 }; if (waveOutGetPosition(hwo, ref t, Marshal.SizeOf(typeof(MMTIME))) != 0 || t.wType != 2) return -1;
+            long s = Interlocked.Read(ref sent), played = s - (long)unchecked((uint)((uint)s - t.u));   // (the device counts in 32 bits: it wraps after 27 hours)
+            lock (bSent)
+            {
+                for (int k = 0; k < 64; k++) { int i = (bHead - 1 - k + 64 * 2) % 64; if (bSent[i] <= played && played < bSent[i] + Frames) { long off = played - bSent[i]; if (!bPlay[i]) return bFrom[i]; if (bTo[i] >= bFrom[i]) return Math.Min(bTo[i], bFrom[i] + off); return bFrom[i] + off; } }
+                int nw = (bHead + 63) % 64; if (played >= bSent[nw] + Frames && bSent[nw] + Frames > 0) return !bPlay[nw] ? bFrom[nw] : (bTo[nw] >= bFrom[nw] ? bTo[nw] : bFrom[nw] + Frames);   // run dry: the last thing heard is the end of the newest block (it jumped to everything made so far)
+            }
         }
         catch { }
         return -1;
@@ -35,8 +63,8 @@ class WaveOutPlayer : AudioOut
     // the frames sent to the sound card that it has not played yet: exactly how far what you hear is behind what has been made
     public override int Queued()
     {
-        try { if (hwo == IntPtr.Zero) return QueuedFrames; var t = new MMTIME { wType = 2 }; if (waveOutGetPosition(hwo, ref t, Marshal.SizeOf(typeof(MMTIME))) == 0 && t.wType == 2) { long q = Interlocked.Read(ref sent) - t.u; if (q >= 0 && q <= (long)Buffers * Frames) return (int)q; } } catch { }
-        return QueuedFrames;
+        try { if (hwo == IntPtr.Zero) return Buffers * Frames; var t = new MMTIME { wType = 2 }; if (waveOutGetPosition(hwo, ref t, Marshal.SizeOf(typeof(MMTIME))) == 0 && t.wType == 2) { long s = Interlocked.Read(ref sent), q = (long)unchecked((uint)((uint)s - t.u)); if (q >= 0 && q <= (long)Buffers * Frames) return (int)q; } } catch { }
+        return Buffers * Frames;   // (this player's own size: the shared number was set by whichever player opened last)
     }
     [DllImport("winmm.dll")] static extern int waveOutRestart(IntPtr h);
     [StructLayout(LayoutKind.Sequential)] struct POWER_THROTTLING { public uint Version, ControlMask, StateMask; }
@@ -100,7 +128,7 @@ class WaveOutPlayer : AudioOut
             tmp[k * 2] = (short)(a * 32767f); tmp[k * 2 + 1] = (short)(b * 32767f);
         }
         Marshal.Copy(tmp, 0, data[i], Frames * 2);
-        lock (bSent) { int b = bHead % 64; bSent[b] = Interlocked.Read(ref sent); bFrom[b] = from; bTo[b] = PosNow != null ? PosNow() : from; bPlay[b] = pl && bTo[b] != from; bHead = (bHead + 1) % 64; }
+        lock (bSent) { int b = bHead % 64; bSent[b] = Interlocked.Read(ref sent); bFrom[b] = from; bTo[b] = PosNow != null ? PosNow() : from; bPlay[b] = pl && bTo[b] != from; bBuf[b] = i; bHead = (bHead + 1) % 64; }
         Interlocked.Add(ref sent, Frames);
         var h = (WAVEHDR)Marshal.PtrToStructure(hdrs[i], typeof(WAVEHDR)); h.dwFlags &= ~(uint)WHDR_DONE; Marshal.StructureToPtr(h, hdrs[i], false);
         waveOutWrite(hwo, hdrs[i], Marshal.SizeOf(typeof(WAVEHDR)));
@@ -113,6 +141,7 @@ class WaveOutPlayer : AudioOut
         while (run)
         {
             ev.WaitOne(30); ev.Reset();
+            if (silenceReq && run) { try { DoSilence(); } catch { } }
             int ready = 0; for (int i = 0; i < Buffers; i++) { var hh = (WAVEHDR)Marshal.PtrToStructure(hdrs[i], typeof(WAVEHDR)); if ((hh.dwFlags & WHDR_DONE) != 0) ready++; }
             if (ready >= Buffers) Underruns++;   // every buffer had already been played: the sound card was starved
             if (ready > 0) lastDone = Environment.TickCount; else if (Environment.TickCount - lastDone > 350) { Stalls++; lastDone = Environment.TickCount; }   // nothing has finished for a third of a second: the device has stopped

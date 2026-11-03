@@ -99,6 +99,7 @@ static class GalaxyBg
                 bmp = new Bitmap(px, px, System.Drawing.Imaging.PixelFormat.Format32bppPArgb); using (var bg = Graphics.FromImage(bmp)) { bg.Clear(Color.Transparent); SphereFresh(bg, px / 2f, px / 2f, d * sc, hot); } spheres[key] = bmp;
             }
         }
+        if (Math.Abs(sc - 1) < 0.01f) { g.DrawImageUnscaled(bmp, (int)Math.Round(cx - px / 2f), (int)Math.Round(cy - px / 2f)); return; }   // (at normal size: stamped as it is, the smoothed scaling was the slow part of a window full of knobs)
         var im = g.InterpolationMode; g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBilinear; float lw = px / sc; g.DrawImage(bmp, new RectangleF(cx - lw / 2, cy - lw / 2, lw, lw)); g.InterpolationMode = im;
     }
     static void SphereFresh(Graphics g, float cx, float cy, float d, bool hot)
