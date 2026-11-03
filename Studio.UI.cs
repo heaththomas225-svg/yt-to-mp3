@@ -118,7 +118,7 @@ partial class StudioForm : Form
         studioLoop = new FrameLoop(this, FrameStep) { Slow = () => WindowState == FormWindowState.Minimized || moving || Win.AnyMoving };   /* while a window is being dragged around nothing needs painting often */ ApplyFps();
         InstrumentFx.Recorder = OnMidiNote; MidiInput.BareTrack = MidiToBareTrack; MidiMapInit();
         PxWindow.RemoveHook = f => { if (IsDisposed) return; Track ow = null; lock (eng.Sync) ow = eng.Tracks.Find(t => t.Fx.Contains(f)); RemoveFxEverywhere(ow, f); Invalidate(); };   // REMOVE in a plugin's own window
-        if (!StudioEnv.UnderTest) LibLoader.Start();   // your sounds are read in the background from the start, so MY SOUNDS is ready in Pads, Key Map and Bass Lab without opening SOUNDS first
+
         Activated += (s, e) => StudioActivatedMidi();
         Shown += (s, e) => { MidiAutoConnect(); if (!StudioEnv.UnderTest) { midiTimer = new System.Windows.Forms.Timer { Interval = 3000 }; midiTimer.Tick += (s2, e2) => MidiAutoConnect(); midiTimer.Start(); } };
         MinimumSize = new Size(1240, 640);
