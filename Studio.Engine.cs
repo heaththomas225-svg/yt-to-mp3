@@ -758,8 +758,8 @@ partial class StudioEngine
         }
     }
     // PAUSE stops exactly where you are listening: PLAY carries on from that very spot (it used to skip ahead by the audio still waiting in the sound card)
-    public void Pause() { if (!Playing) { countLeft = 0; return; } long h = HeardPos; Playing = false; lock (Sync) { Pos = h; countLeft = 0; ResetStates(); } }
-    public void Stop() { Playing = false; lock (Sync) { Pos = 0; countLeft = 0; ResetStates(); } }
+    public void Pause() { if (!Playing) { countLeft = 0; return; } long h = HeardPos; Playing = false; lock (Sync) { Pos = h; countLeft = 0; ResetStates(); } var p = player; if (p != null) p.Silence(h); }   // (the sound stops there too, not only the needle)
+    public void Stop() { bool was = Playing; Playing = false; lock (Sync) { Pos = 0; countLeft = 0; ResetStates(); } var p = player; if (was && p != null) p.Silence(0); }
 
     public bool ListenOnly;   // a project preview or a community song: nothing is played live on top, so it always gets the biggest playback buffer (no stutter)
     static bool gcTuned;
