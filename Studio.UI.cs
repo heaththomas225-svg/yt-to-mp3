@@ -831,7 +831,7 @@ partial class StudioForm : Form
     void PlayGuard()
     {
         Auditioner.Stop();   // the song starting stops a sound you were hearing in the sound packs
-        try { eng.Play(); } catch (Exception ex) { MessageBox.Show(this, ex.Message, "Playback"); }
+        try { eng.Play(); } catch (Exception ex) { if (StudioEnv.UnderTest) Toast("Playback: " + ex.Message); else MessageBox.Show(this, ex.Message, "Playback"); }
     }
 
     // dragging the needle: it never goes behind the track boxes or off the right side. At an edge the timeline scrolls along (faster the further past the edge you hold it), so you always see the audio under the needle

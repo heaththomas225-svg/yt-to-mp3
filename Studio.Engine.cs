@@ -815,10 +815,10 @@ partial class StudioEngine
     public void ReopenOutput()
     {
         Reopens++; bool was = Playing, live = unchecked(Environment.TickCount - LiveUntil) < 0;
-        lock (playerGate) { if (player != null) { player.Dispose(); player = null; } }
+        AudioOut old; lock (playerGate) { old = player; player = null; } if (old != null) old.Dispose();   // (closed outside the lock: the MIDI thread waiting on it froze while the audio thread finished)
         if (was || live) { try { EnsurePlayer(); } catch { Playing = false; } }
     }
-    public void Shutdown() { Playing = false; lock (playerGate) { if (player != null) { player.Dispose(); player = null; } } }
+    public void Shutdown() { Playing = false; AudioOut old; lock (playerGate) { old = player; player = null; } if (old != null) old.Dispose(); }
 
     // ---------------- offline render (export, analysis) ----------------
     public int RenderLatency(RenderOpts o)

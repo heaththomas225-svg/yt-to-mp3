@@ -65,6 +65,9 @@ static class NF
     static void Main(string[] args)
     {
         StartWatchdog();
+        Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException);   // an error inside a window prints a FAIL instead of a hidden dialog that waits forever
+        Application.ThreadException += (s, e) => { fails++; try { Console.WriteLine("FAIL  an exception inside a window event: " + e.Exception); Console.Out.Flush(); } catch { } };
+        AppDomain.CurrentDomain.UnhandledException += (s, e) => { try { Console.WriteLine("FATAL  " + e.ExceptionObject); Console.Out.Flush(); } catch { } Environment.Exit(3); };
         string outDir = args.Length > 0 ? args[0] : null; if (outDir != null) Directory.CreateDirectory(outDir);
         StudioEnv.DataDir = Path.Combine(Path.GetTempPath(), "purphex_nf_" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(StudioEnv.DataDir); Application.EnableVisualStyles();
         Edition.Override = Tier.Fantasy; BanChecks();

@@ -119,14 +119,15 @@ class WaveOutPlayer : AudioOut
             for (int i = 0; i < Buffers && run; i++)
             {
                 var h = (WAVEHDR)Marshal.PtrToStructure(hdrs[i], typeof(WAVEHDR));
-                if ((h.dwFlags & WHDR_DONE) != 0) Fill(i);
+                if (run && (h.dwFlags & WHDR_DONE) != 0) Fill(i);
             }
         }
     }
 
     public override void Dispose()
     {
-        run = false; ev.Set(); if (th != null) th.Join(500);
+        run = false; ev.Set();
+        if (th != null && th.IsAlive && !th.Join(2000)) { hwo = IntPtr.Zero; return; }   // the audio thread is still writing: leave the device be instead of freeing its buffers under it (that crashed or froze the app)
         if (hwo != IntPtr.Zero)
         {
             waveOutReset(hwo);
