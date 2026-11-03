@@ -7,10 +7,26 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.80.2";
+    public const string Latest = "3.80.3";
 
     public const string Text =
-@"3.80.2  Wobble LFO, louder pads, Key Map fixed, MY SOUNDS editing
+@"3.80.3  Bass, crackle, effects and MY SOUNDS fixes
+ + FIXED: Key Map bass squeaked like a chipmunk on every key. A sound across the whole keyboard now plays as recorded around C3, in tune with its own note. Key maps you already made are fixed when they open. OCTAVE DOWN and OCTAVE UP move it.
+ + FIXED: Crackle on Pads and Key Map. Loud hits and chords were flattened at the top; a smooth limiter now turns them down so they stay loud and clean.
+ + FIXED: Crackle while playing live with the song stopped, until you pressed PLAY. The sound buffer now grows for live playing too and is remembered for next time. Plugins warm up when a project opens or is restored, and when you add one.
+ + NEW: Hold a key (or a pad, with HOLD on) and the sound keeps going: a bass is extended until you let go, with no clicks.
+ + NEW: BASS knobs on Key Map and Pads: OCT, SUB (a deep sine under the note), WOBBLE with RES and a rate locked to the beat, and DRIVE.
+ + NEW: REMOVE and ON/OFF for every effect: an x and a dot on each mixer slot, REMOVE in every plugin window. Your vocal presets show as their own row in the mixer: turn the whole preset off or remove it in one click.
+ + FIXED: Effect windows went see-through while you turned their knobs or dragged clips. Only VST windows and the producer tag window fade, and only while you drag a sound from MY SOUNDS or Explorer.
+ + FIXED: Clicking a highlighted clip, a track or an empty row now lets the highlight go, so Ctrl+X only cuts what you can see picked. Ctrl+C copies what you picked, never an old copy.
+ + FIXED: Notes clicked in Key Map, Pads and the other instrument windows are recorded with MIDI REC. MIDI REC switches itself off when you stop after recording.
+ + NEW: Scroll bars in the piano roll (and the mouse wheel scrolls it properly now).
+ + NEW: FIT shows the whole song and every track: with many tracks they thin to one line each with the name, like a big session. VOL and PAN never overlap on thin tracks.
+ + FIXED: Dragging several clips at once lagged.
+ + NEW: MY SOUNDS right-click: Rename, and Edit (trim, cut, cut the silence at the start, fade in, fade out, louder, quieter, reverse); each edit asks to replace the sound or keep both.
+ + NEW: Your sounds in every VST: My sounds in the Pads and Key Map sound menus and MY SAMPLES in Bass Lab (your sounds load the first time you open them). Drop a sound on a Pads or Key Map track or window and it goes straight in.
+
+3.80.2  Wobble LFO, louder pads, Key Map fixed, MY SOUNDS editing
  + NEW: Purphex Wobble LFO, an effect for any track (made for bass). A tempo-synced LFO (1/1 to 1/32, triplets, dotted or free) opens and closes a filter as much as you like: sine, triangle, saw, square or random steps, resonance, volume wobble and mix. Its window shows the wobble moving. Find it in VSTS.
  + NEW: LFO knobs on Purphex Pads and Key Map: rate, depth, and what it moves (volume, pitch or filter).
  + FIXED: Key Map made no sound until you gave it sounds. Keys with no sound now play the built-in piano (EMPTY KEYS can be set to silent), and a sound you put on a key plays across the whole keyboard by default (NEW SOUND: ONE KEY at the top for one key only).

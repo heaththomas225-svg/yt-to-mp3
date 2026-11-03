@@ -1,4 +1,4 @@
-3.80.2
+3.80.3
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Wobble LFO, louder pads, Key Map fixed, MY SOUNDS editing
-sha256=9d1c103673b400c635503c61697480ca47b84414aeb63adfac8e1af0dc3961a9
+Bass, crackle, effects and MY SOUNDS fixes
+sha256=148ffaec37099c8d152a9b97b86913030c056c2053422de8ce767e58d518c1ec
