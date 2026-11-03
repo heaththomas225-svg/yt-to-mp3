@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -74,22 +74,24 @@ partial class StudioForm
 // size step and cut to size, then darkened with the window's own colour so everything on it still reads.
 static class GalaxyBg
 {
-    static readonly Dictionary<string, Bitmap> cache = new Dictionary<string, Bitmap>();
+    // each thread keeps its own pictures: shared, one thread threw a picture away (Dispose) while another was still drawing it, and the plugin windows froze
+    [ThreadStatic] static Dictionary<string, Bitmap> cacheT;
     public static void Paint(Graphics g, Rectangle r, int seed, float strength, Color dim, int dimAlpha)
     {
         if (r.Width < 2 || r.Height < 2) return; int bw = (r.Width + 127) / 128 * 128, bh = (r.Height + 127) / 128 * 128; string key = bw + "x" + bh + ":" + seed + ":" + strength.ToString("0.00");
-        Bitmap bmp; lock (cache) { if (!cache.TryGetValue(key, out bmp)) { if (cache.Count > 16) { foreach (var b in cache.Values) b.Dispose(); cache.Clear(); } bmp = StudioForm.MakeGalaxy(bw, bh, seed, strength); cache[key] = bmp; } }
+        var cache = cacheT ?? (cacheT = new Dictionary<string, Bitmap>()); Bitmap bmp;
+        if (!cache.TryGetValue(key, out bmp)) { if (cache.Count > 16) { foreach (var b in cache.Values) b.Dispose(); cache.Clear(); } bmp = StudioForm.MakeGalaxy(bw, bh, seed, strength); cache[key] = bmp; }
         g.DrawImage(bmp, r, new Rectangle(0, 0, r.Width, r.Height), GraphicsUnit.Pixel);
         if (dimAlpha > 0) using (var b = new SolidBrush(Color.FromArgb(dimAlpha, dim))) g.FillRectangle(b, r);
     }
     // a knob's body: a glossy glass sphere with a galaxy inside it, lit from the top left, with a purple rim (the plugin windows' knob)
     // a knob's glass sphere: drawn once per size (at the screen's real size, so it stays sharp when zoomed) and then stamped; drawing it fresh for every knob on every frame made the plugin windows lag
-    static readonly Dictionary<long, Bitmap> spheres = new Dictionary<long, Bitmap>();
+    [ThreadStatic] static Dictionary<long, Bitmap> spheresT;   // (per thread, like the galaxy pictures)
     public static void Sphere(Graphics g, float cx, float cy, float d, bool hot)
     {
         if (d < 6) return; float sc; using (var m = g.Transform) { var e = m.Elements; sc = (float)Math.Sqrt(Math.Abs(e[0] * e[3] - e[1] * e[2])); } if (sc <= 0.01f || sc > 8) { SphereFresh(g, cx, cy, d, hot); return; }
         int px = (int)Math.Ceiling(d * sc) + 6; long key = ((long)Math.Round(d * sc * 4) << 1) | (hot ? 1L : 0L); Bitmap bmp;
-        lock (spheres)
+        var spheres = spheresT ?? (spheresT = new Dictionary<long, Bitmap>());
         {
             if (!spheres.TryGetValue(key, out bmp))
             {
