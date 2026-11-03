@@ -255,7 +255,7 @@ static class MidiWindow
     // the track the instrument is on (its notes are recorded there): found again if it was never set or the plugin moved
     static void FixOwner(InstrumentFx fx)
     {
-        try { var se = StudioEngine.Current; if (se == null) return; if (fx.Owner != null && fx.Owner.Fx.Contains(fx)) return; lock (se.Sync) foreach (var t in se.Tracks) if (t.Fx.Contains(fx)) { fx.Owner = t; return; } } catch { }
+        try { var se = StudioEngine.Current; if (se == null) return; if (fx.Owner != null && fx.Owner.Fx.Contains(fx)) return; if (!System.Threading.Monitor.TryEnter(se.Sync, 50)) return; try { foreach (var t in se.Tracks) if (t.Fx.Contains(fx)) { fx.Owner = t; return; } } finally { System.Threading.Monitor.Exit(se.Sync); } } catch { }   // (never waits on the sound thread)
     }
     public static void Hook(Form w, InstrumentFx fx)
     {

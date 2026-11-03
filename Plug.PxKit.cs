@@ -54,7 +54,7 @@ abstract class PxWindow : Form
         fx = f; brand = name; Text = "Purphex " + name; Rectangle wa = Screen.FromPoint(Cursor.Position).WorkingArea; int cw = Math.Max(400, Math.Min(size.Width, wa.Width - 16)), ch = Math.Max(300, Math.Min(size.Height, wa.Height - 39)); ClientSize = new Size(cw, ch); MinimumSize = new Size(cw + 16, ch + 39);   /* (never taller than the screen: the bottom row went under the taskbar on a laptop) */ BackColor = Bg1; KeyPreview = true; StartPosition = FormStartPosition.CenterParent;
         SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.UserPaint | ControlStyles.ResizeRedraw, true);
         try { Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath); } catch { }
-        tick = new Timer { Interval = 33 }; tick.Tick += (a, b) => { if (!Win.AnyMoving) Invalidate(); }; tick.Start();
+        tick = new Timer { Interval = 33 }; tick.Tick += (a, b) => { if (Win.AnyMoving || Opacity < 0.5 || WindowState == FormWindowState.Minimized) return; if (unchecked(Environment.TickCount - paintEnd) < paintDur) return; Invalidate(); }; tick.Start();   /* (faded or minimised: nothing to animate; a slow paint gets its own time before the next: the redraws could pile up faster than they finished and the window froze) */
         FormClosed += (a, b) => { tick.Stop(); open.Remove(fx); };
         // it opens where it was left last time (another monitor too), and remembers where it is put
         { Point at; if (WindowPlaces.Get(fx.Type, Size, out at)) { StartPosition = FormStartPosition.Manual; Location = at; } }
@@ -178,12 +178,17 @@ abstract class PxWindow : Form
     readonly ResizeSnap snap = new ResizeSnap();
     protected override void WndProc(ref Message m) { Win.TrackMove(this, ref m); base.WndProc(ref m); }
     protected override void OnPaint(PaintEventArgs e) { snap.Paint(this, e.Graphics, PaintAll); }
+    int paintEnd, paintDur;   // when the last paint finished and how long it took
     void PaintAll(Graphics g)
+    {
+        int p0 = Environment.TickCount; try { PaintAll0(g); } finally { paintEnd = Environment.TickCount; paintDur = Math.Min(500, unchecked(paintEnd - p0)); }
+    }
+    void PaintAll0(Graphics g)
     {
         g.SmoothingMode = SmoothingMode.AntiAlias; g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit; hits.Clear();
         float W = ClientSize.Width, H = ClientSize.Height;
         using (var br = new LinearGradientBrush(new RectangleF(0, 0, W, H), Bg0, Bg1, 90f)) g.FillRectangle(br, 0, 0, W, H);
-        GalaxyBg.Paint(g, new Rectangle(0, 0, (int)W, (int)H), brand.GetHashCode(), 0.85f, Bg1, 80);   // the galaxy, like every Purphex window
+        if (Opacity < 0.5) using (var bb = new SolidBrush(Bg1)) g.FillRectangle(bb, 0, 0, W, H); else GalaxyBg.Paint(g, new Rectangle(0, 0, (int)W, (int)H), brand.GetHashCode(), 0.85f, Bg1, 80);   // (faded while a sound is dragged: a plain background, the galaxy is not worth its time behind 15% opacity)   // the galaxy, like every Purphex window
         PaintHeader(g, W); PaintBody(g, new RectangleF(16, 76, W - 32, H - 76 - 24));
         tip = ""; foreach (var h in hits) if (h.R.Contains(mouse) && h.Tip.Length > 0) tip = h.Tip;
         if (tip.Length > 0) Txt(g, tip, 11, Dim, new RectangleF(16, H - 20, W - 32, 18), StringAlignment.Near, false);
