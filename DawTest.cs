@@ -65,7 +65,7 @@ static class D
             else
             {
                 var sw = System.Diagnostics.Stopwatch.StartNew(); long firstHeard = -1; while (sw.ElapsedMilliseconds < 4000) { if (firstHeard < 0 && ep.HeardPos > 0) { firstHeard = 1; sw.Restart(); } System.Threading.Thread.Sleep(5); if (firstHeard > 0 && sw.ElapsedMilliseconds >= 2000) break; }
-                double heardS = sw.Elapsed.TotalSeconds; long made = ep.Pos; ep.Pause(); double posS = ep.Pos / 44100.0, aheadMs = (posS - heardS) * 1000;
+                long heardNow = ep.HeardPos; double heardS = heardNow / 44100.0; long made = ep.Pos; ep.Pause(); double posS = ep.Pos / 44100.0, aheadMs = (posS - heardS) * 1000;   // (compared with what the sound card says it has played, not a stopwatch: the card can take 0.4 s to start, which made this fail at random)
                 Check("PAUSE stops where you are listening, not ahead of it (the audio still in the sound card is not skipped)", Math.Abs(aheadMs) < 60 && ep.Pos < made, "stopped at " + posS.ToString("0.000") + " s after hearing " + heardS.ToString("0.000") + " s (" + aheadMs.ToString("+0;-0") + " ms), it had made up to " + (made / 44100.0).ToString("0.000") + " s");
                 long at = ep.Pos; ep.Play(); System.Threading.Thread.Sleep(30); long back = ep.HeardPos; ep.Pause(); Check("PLAY after PAUSE carries on from that very spot", back >= at - 2000 && back <= at + 44100 / 10, (back - at) + " frames after the pause point"); ep.Shutdown();
             }
