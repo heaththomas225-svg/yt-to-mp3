@@ -22,7 +22,30 @@ static class NF
         var b = PcBan.Parse("{\"ok\":true,\"banned\":false,\"reason\":\"\"}", out r); Check("a PC that is fine is read as fine", b == false);
         Check("no answer or an error is neither (a closed PC then stays closed from what it remembered)", PcBan.Parse(null, out r) == null && PcBan.Parse("{\"ok\":false,\"err\":\"slow\"}", out r) == null && PcBan.Parse("<html>", out r) == null);
     }
-    static void Check(string n, bool ok, string d = "") { if (!ok) fails++; Console.WriteLine((ok ? "PASS  " : "FAIL  ") + n + (d.Length > 0 ? "   " + d : "")); Console.Out.Flush(); }
+    static volatile int lastCheckAt = Environment.TickCount;
+    static void Check(string n, bool ok, string d = "") { lastCheckAt = Environment.TickCount; if (!ok) fails++; Console.WriteLine((ok ? "PASS  " : "FAIL  ") + n + (d.Length > 0 ? "   " + d : "")); Console.Out.Flush(); }
+    // a watchdog: if no check finishes for 90 s the test is stuck somewhere; print where the main thread is, so a hang names its line instead of being cut off by the timeout
+    static void StartWatchdog()
+    {
+        var main = System.Threading.Thread.CurrentThread;
+        new System.Threading.Thread(() =>
+        {
+            bool told = false;
+            while (true)
+            {
+                System.Threading.Thread.Sleep(5000);
+                if (told || unchecked(Environment.TickCount - lastCheckAt) < 90000) continue; told = true;
+                try
+                {
+#pragma warning disable 618
+                    main.Suspend(); var st = new System.Diagnostics.StackTrace(main, true); main.Resume();
+#pragma warning restore 618
+                    Console.WriteLine("STUCK  no check finished for 90 s; the main thread is at:"); Console.WriteLine(st.ToString()); Console.Out.Flush();
+                }
+                catch (Exception ex) { Console.WriteLine("STUCK  (could not read the stack: " + ex.Message + ")"); Console.Out.Flush(); }
+            }
+        }) { IsBackground = true, Name = "watchdog" }.Start();
+    }
     static void SetF(string n, object v) { typeof(StudioForm).GetField(n, BF).SetValue(sf, v); }
     static T F<T>(string n) { return (T)typeof(StudioForm).GetField(n, BF).GetValue(sf); }
     [System.Runtime.InteropServices.DllImport("user32.dll")] static extern IntPtr OpenInputDesktop(uint flags, bool inherit, uint access); [System.Runtime.InteropServices.DllImport("user32.dll")] static extern bool CloseDesktop(IntPtr h);
@@ -41,6 +64,7 @@ static class NF
     [STAThread]
     static void Main(string[] args)
     {
+        StartWatchdog();
         string outDir = args.Length > 0 ? args[0] : null; if (outDir != null) Directory.CreateDirectory(outDir);
         StudioEnv.DataDir = Path.Combine(Path.GetTempPath(), "purphex_nf_" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(StudioEnv.DataDir); Application.EnableVisualStyles();
         Edition.Override = Tier.Fantasy; BanChecks();
