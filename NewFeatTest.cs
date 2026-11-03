@@ -280,7 +280,7 @@ static class NF
           Check("previewing a sound in SOUNDS or the packs pauses the song", wasP && paused, "was playing " + wasP + ", paused " + paused); sf.eng.Tracks.Clear(); }
         { // dragging a clip or a sound: plugin windows step aside (fade), except Pads when a sound is dragged (it is a place to drop it); back when it ends
           var eqf = FxRegistry.Create("eq"); eqf.Prepare(44100); var gw = new GenericFxWindow(eqf); gw.Show(sf); var pdf = (PadsFx)FxRegistry.Create("pxpads"); pdf.Prepare(44100); var pw2 = new PadsWindow(pdf); pw2.Show(sf);
-          var sbf = (SubForgeFx)FxRegistry.Create("pxsubforge"); sbf.Prepare(44100); var iw = new SubForgeWindow(sbf); iw.Show(sf); Pump(100);
+          var smf = new SamplerFx(); smf.Prepare(44100); var iw = new FadeProbeWindow(smf); iw.Show(sf); Pump(100);   // (a small plain instrument window: the heavy SubForge window froze the test in full runs)
           typeof(StudioForm).GetField("sndDrag", BF).SetValue(sf, new SoundItem { Name = "x" }); typeof(StudioForm).GetField("sndDragging", BF).SetValue(sf, true); sf.FadePluginWindows();
           double gOp = gw.Opacity, pOp = pw2.Opacity, iOp = iw.Opacity; typeof(StudioForm).GetField("sndDragging", BF).SetValue(sf, false); typeof(StudioForm).GetField("sndDrag", BF).SetValue(sf, null); sf.FadePluginWindows(); double iBack = iw.Opacity;
           gw.Close(); pw2.Close(); iw.Close(); Pump(50);
@@ -1564,4 +1564,11 @@ static class NF
         Console.WriteLine(fails == 0 ? "=== new feature checks passed ===" : "=== " + fails + " FAILED ===");
         sf.Close(); Environment.Exit(fails == 0 ? 0 : 1);
     }
+}
+
+// a minimal instrument plugin window for the window-fade check (an instrument's window fades while a sound drags; an effect's does not)
+class FadeProbeWindow : PxWindow
+{
+    public FadeProbeWindow(Fx f) : base(f, "Fade probe", new System.Drawing.Size(420, 300)) { }
+    protected override void PaintBody(System.Drawing.Graphics g, System.Drawing.RectangleF area) { }
 }
