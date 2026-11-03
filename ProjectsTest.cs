@@ -222,7 +222,7 @@ static class PR
               // playing pads or keys with the song stopped: the buffer grows too (it only grew while the song played, so live hits crackled until you pressed PLAY)
               Prefs.BufBoost = 0; int bufWas = Prefs.BufEff; System.Threading.Thread.Sleep(1600); StudioEngine.LiveUntil = Environment.TickCount + 5000; StudioEngine.LastNoteAt = Environment.TickCount; go(); WaveOutPlayer.Underruns += 2; bool liveFix = go();
               Check("crackle while playing live (song stopped) makes the buffer bigger at once", bufWas == 2 || (liveFix && Prefs.BufEff == bufWas + 1 && eng.Reopens == r0 + 3), "buffer " + bufWas + " -> " + Prefs.BufEff + ", reopens " + (eng.Reopens - r0));
-              StudioEngine.LiveUntil = Environment.TickCount - 1; StudioEngine.LastNoteAt = Environment.TickCount - 100000; eng.Shutdown(); Prefs.BufBoost = keepBoost; }
+              StudioEngine.LiveUntil = Environment.TickCount - 1; StudioEngine.LastNoteAt = Environment.TickCount - 100000; eng.Shutdown(); Prefs.BufBoost = keepBoost; Prefs.BufSaved = 0; }
             SetF("tab", 0); eng.Tracks.Clear();
             foreach (var pp in ps) ProjectLibrary.Remove(pp); ProjectLibrary.Remove(p2);
 

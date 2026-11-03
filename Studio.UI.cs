@@ -578,7 +578,7 @@ partial class StudioForm : Form
         if ((now - underSince).TotalSeconds > 2) { underSince = now; lastUnder = u; }
         if (!stalled && !breaking) return false;
         lastUnder = u; lastStalls = st; underSince = now; if ((now - lastRefresh).TotalMilliseconds < 1500) return false; lastRefresh = now;
-        bool bigger = Prefs.BufEff < 2; if (bigger) { Prefs.BufBoost++; if (ge == eng) { Prefs.BufSaved = Math.Min(1, Prefs.BufBoost); Prefs.Changed(); } } ge.ReopenOutput();   // (kept for next time, one step at most, and not for a preview's stutter)
+        bool bigger = Prefs.BufEff < 2; if (bigger) { Prefs.BufBoost++; if (ge == eng && !StudioEnv.UnderTest) { Prefs.BufSaved = Math.Min(1, Prefs.BufBoost); Prefs.Changed(); } } ge.ReopenOutput();   // (a test never saves it: it leaked into the next test's settings) (kept for next time, one step at most, and not for a preview's stutter)
         Toast(bigger ? "The sound was breaking up, so I refreshed the audio and made the playback buffer bigger (it stays bigger next time; pick a smaller one in Settings to change it back)." : "The sound was breaking up, so I refreshed the audio.");
         return true;
     }
