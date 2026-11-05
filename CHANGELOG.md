@@ -2,6 +2,12 @@
 
 What changed in each version of **Purphex**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.80.4  PAUSE stops the sound, no window freeze
+
+- FIXED: PAUSE stops the sound where you paused. With the Safe playback buffer the sound played on for about a tenth of a second after PAUSE and that bit was heard again after PLAY. It now fades out in a few milliseconds (no click).
+
+- FIXED: Several big plugin windows open at once (SubForge, Pads, effects) could keep the screen so busy that the studio froze. They now share their redraws, and knobs draw faster.
+
 ## 3.80.3  Bass, crackle, effects and MY SOUNDS fixes
 
 - FIXED: Key Map bass squeaked like a chipmunk on every key. A sound across the whole keyboard now plays as recorded around C3, in tune with its own note. Key maps you already made are fixed when they open. OCTAVE DOWN and OCTAVE UP move it.

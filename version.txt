@@ -1,4 +1,4 @@
-3.80.3
+3.80.4
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Bass, crackle, effects and MY SOUNDS fixes
-sha256=148ffaec37099c8d152a9b97b86913030c056c2053422de8ce767e58d518c1ec
+PAUSE stops the sound, no window freeze
+sha256=670737a59064955b7b0ed9c99134c201b8048b6f01206c4e337d49f159c1f9ed

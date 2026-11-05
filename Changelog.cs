@@ -7,10 +7,14 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.80.3";
+    public const string Latest = "3.80.4";
 
     public const string Text =
-@"3.80.3  Bass, crackle, effects and MY SOUNDS fixes
+@"3.80.4  PAUSE stops the sound, no window freeze
+ + FIXED: PAUSE stops the sound where you paused. With the Safe playback buffer the sound played on for about a tenth of a second after PAUSE and that bit was heard again after PLAY. It now fades out in a few milliseconds (no click).
+ + FIXED: Several big plugin windows open at once (SubForge, Pads, effects) could keep the screen so busy that the studio froze. They now share their redraws, and knobs draw faster.
+
+3.80.3  Bass, crackle, effects and MY SOUNDS fixes
  + FIXED: Key Map bass squeaked like a chipmunk on every key. A sound across the whole keyboard now plays as recorded around C3, in tune with its own note. Key maps you already made are fixed when they open. OCTAVE DOWN and OCTAVE UP move it.
  + FIXED: Crackle on Pads and Key Map. Loud hits and chords were flattened at the top; a smooth limiter now turns them down so they stay loud and clean.
  + FIXED: Crackle while playing live with the song stopped, until you pressed PLAY. The sound buffer now grows for live playing too and is remembered for next time. Plugins warm up when a project opens or is restored, and when you add one.
