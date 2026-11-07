@@ -1,4 +1,4 @@
-3.80.5
+3.80.6
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Bug fixes: sound device, PAUSE, held notes, Key Map, clips
-sha256=1f1b93a45d9b4776df651519a9c282a8927ce02f07f092d45bf46cbb43920930
+VST3 pedal and pitch bend, safer recovery, loop and export fixes
+sha256=9b2a911eb694264062c03cee42861cd2af494995d5088349b2de5be1dbb6d4f4

@@ -7,10 +7,22 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.80.5";
+    public const string Latest = "3.80.6";
 
     public const string Text =
-@"3.80.5  Bug fixes: sound device, PAUSE, held notes, Key Map, clips
+@"3.80.6  VST3 pedal and pitch bend, safer recovery, loop and export fixes
+ + NEW: VST3 instruments now respond to the sustain pedal, pitch bend, mod wheel, aftertouch and the knobs on your MIDI keyboard. Stopping lets go of the pedal.
+ + FIXED: Automation and the host sliders always win over a VST plugin again, even after you changed the plugin in its own window.
+ + FIXED: Undo mix only undoes the Auto Mix of the project you have open, can itself be undone, and never breaks your plugins.
+ + FIXED: Crash recovery never offers work older than your last save, and keeps your piano roll settings.
+ + FIXED: Opening or restoring a project closes the old project's plugins properly. Untitled projects each get their own history.
+ + FIXED: Undo brings back a track you switched off or recoloured. RESTORE THIS TRACK no longer freezes the window.
+ + FIXED: Notes no longer hang when a section loop jumps back, and notes you play on your keyboard during an export stay out of the file.
+ + FIXED: Aux sends to a bus with plugin delay line up with the rest of the mix. Trimmed exports keep notes and reverb tails from before the trim.
+ + FIXED: Renaming a preset to change only its capital letters no longer deletes it. Keys like Delete do nothing while an export or load is running.
+ + FIXED: Bass Lab keeps animating after you cancel leaving the DAW. Knobs let go when the window loses the mouse. Dialogs and menus free their memory.
+
+3.80.5  Bug fixes: sound device, PAUSE, held notes, Key Map, clips
  + FIXED: If your sound device was off when Purphex opened it, PLAY stayed silent for the whole session. It now says why and tries again on the next PLAY.
  + FIXED: PAUSE and STOP never click, and PLAY fades in. Dragging the volume no longer crackles. PAUSE during the count-in stops the clicks too.
  + FIXED: A note held on your MIDI keyboard could stick on, or cut out at every loop point. Notes recorded across the loop end no longer hang.
