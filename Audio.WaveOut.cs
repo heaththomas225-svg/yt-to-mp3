@@ -35,18 +35,19 @@ class WaveOutPlayer : AudioOut
         {
             var upcoming = new List<int>(); for (int k = 0; k < 64; k++) if (bSent[k] > played && bSent[k] < s && (bPlay[k] || bAud[k])) upcoming.Add(k);
             upcoming.Sort((x, y) => bSent[x].CompareTo(bSent[y]));
-            int live = 0;
+            int live = 0, fk = -1;
             for (int j = 0; j < upcoming.Count; j++)
             {
                 int k = upcoming[j], bi = bBuf[k]; if (bi < 0 || bi >= Buffers) continue;
                 bool reused = false; for (int m2 = 0; m2 < upcoming.Count; m2++) { int k2 = upcoming[m2]; if (bBuf[k2] == bi && bSent[k2] > bSent[k]) { reused = true; break; } } if (reused) continue;   // this buffer already holds a newer block
                 var hh = (WAVEHDR)Marshal.PtrToStructure(hdrs[bi], typeof(WAVEHDR)); if ((hh.dwFlags & WHDR_DONE) != 0) continue;   // already taken by the device
-                if (live == 0) { live++; continue; }   // the next block may already be partly read by the device: it plays out, the fade starts on the one after (a fade it had half read clicked)
+                if (live == 0) { live++; fk = k; continue; }   // the next block may already be partly read by the device: it plays out, the fade starts on the one after (a fade it had half read clicked)
                 live++;
                 if (live == 2) { Marshal.Copy(data[bi], silTmp, 0, Frames * 2); int fd = Math.Min(256, Frames); for (int f = 0; f < Frames; f++) { float g = f < fd ? 1f - f / (float)fd : 0f; silTmp[f * 2] = (short)(silTmp[f * 2] * g); silTmp[f * 2 + 1] = (short)(silTmp[f * 2 + 1] * g); } }
                 else Array.Clear(silTmp, 0, Frames * 2);
                 Marshal.Copy(silTmp, 0, data[bi], Frames * 2); bPlay[k] = false; bAud[k] = false; bFrom[k] = bTo[k] = silenceAt;
             }
+            if (live == 1 && fk >= 0) { int b0 = bBuf[fk]; Marshal.Copy(data[b0], silTmp, 0, Frames * 2); int fd0 = Math.Min(256, Frames); for (int f = 0; f < Frames; f++) { float g = f < fd0 ? 1f - f / (float)fd0 : 0f; silTmp[f * 2] = (short)(silTmp[f * 2] * g); silTmp[f * 2 + 1] = (short)(silTmp[f * 2 + 1] * g); } Marshal.Copy(silTmp, 0, data[b0], Frames * 2); bPlay[fk] = false; bAud[fk] = false; bFrom[fk] = bTo[fk] = silenceAt; }   // only one block left: it fades itself (it played out and then cut)
         }
     }   // the last blocks sent: where each starts in the sound card, which part of the song it holds
     // the place in the song the sound card is playing right now (-1 when it cannot tell)

@@ -23,7 +23,7 @@ class KeyMapFx : SamplerFx
         if (s == null || s.IndexOf("gain=", StringComparison.Ordinal) < 0) { Set("hv", 3); return; }
         bool noHv = s.IndexOf("hv=", StringComparison.Ordinal) < 0; int hv = noHv ? 0 : (int)Math.Round(Get("hv"));
         if (hv < 2) Set("gain", Math.Max(-24, Math.Min(12, Get("gain") + (noHv ? -5 : 4))));
-        if (hv < 3) foreach (var z in ZonesCopy()) if (z.Lo <= 0 && z.Hi >= 127 && !z.Missing && z.L != null) z.Root = NaturalRoot(z);   // (3.80: a sound across the keyboard took the key it was dropped on as its own pitch: dropped low, every key you played squeaked octaves up)
+        // (older saves keep the root they were saved with: re-rooting them re-pitched melodies already recorded on them; OCTAVE DOWN / UP fixes one by hand)
         Set("hv", 3);
     }
     // the sound a key plays (a range covering it counts), and the zone that gives it

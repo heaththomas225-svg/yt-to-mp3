@@ -571,6 +571,7 @@ class Reverb : Fx
 // ======================================================================
 class Delay : Fx
 {
+    int syncSel; double lastBpm;
     public static readonly string[] Syncs = { "Free (ms)", "1/4", "1/8", "1/8 dotted", "1/8 triplet", "1/16" };
     static readonly double[] SyncBeats = { 0, 1, 0.5, 0.75, 1.0 / 3.0, 0.25 };
     float[] bl, br; int w; Biquad lc = new Biquad(), hc = new Biquad(); double fb, mix; int dl, dr; int mode;
@@ -584,7 +585,7 @@ class Delay : Fx
     protected override void Update()
     {
         int len = SR * 2 + 16; if (bl == null || bl.Length != len) { bl = new float[len]; br = new float[len]; }
-        int sy = (int)Get("sync"); double ms = Get("time");
+        int sy = (int)Get("sync"); double ms = Get("time"); syncSel = sy; lastBpm = Bpm;
         if (sy > 0) ms = 60000.0 / Bpm * SyncBeats[sy];
         dl = (int)Math.Max(1, Math.Min(len - 2, ms * 0.001 * SR));
         mode = (int)Get("mode"); dr = mode == 1 ? (int)(dl * 1.12) : dl;
@@ -594,6 +595,7 @@ class Delay : Fx
     public override void Reset() { base.Reset(); if (bl != null) { Array.Clear(bl, 0, bl.Length); Array.Clear(br, 0, br.Length); } lc.Reset(); hc.Reset(); }
     public override void Process(float[] l, float[] r, int n)
     {
+        if (syncSel > 0 && Math.Abs(Bpm - lastBpm) > 0.01) dirty = true;   // (a tempo change is followed)
         CheckDirty(); int len = bl.Length;
         for (int i = 0; i < n; i++)
         {

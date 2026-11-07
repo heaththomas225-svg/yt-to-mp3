@@ -1,15 +1,10 @@
-# Purphex on macOS and Linux: builds the shared core and the full desktop app on real Windows, macOS (Apple silicon and Intel) and Linux machines,
+﻿# Purphex on macOS and Linux: builds the shared core and the full desktop app on real Windows, macOS (Apple silicon and Intel) and Linux machines,
 # starts the app on each one and keeps a picture of its window, and packages it (macOS: Purphex.app in a zip; Linux: a tar.gz).
 # Pushing a tag named desktop-v* publishes the packages as a GitHub release (a beta).
 name: Cross-platform
 
+# Releases are built and packaged on the developer's PC now (nfout/rel/desktop_pkg.py); this only runs when started by hand.
 on:
-  push:
-    branches: [main]
-    tags: ['desktop-v*']
-    paths: ['*.cs', 'creative/**', 'logo.png', 'cross/**', '.github/workflows/cross-platform.yml']
-  pull_request:
-    paths: ['*.cs', 'cross/**', '.github/workflows/cross-platform.yml']
   workflow_dispatch:
 
 jobs:

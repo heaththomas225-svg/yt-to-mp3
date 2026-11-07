@@ -12,7 +12,6 @@ using System.Windows.Forms;
 //  rename, open in the piano roll, delete. Shift+click selects several; Ctrl+D duplicates, Delete deletes. Every change is one undo step.
 //  The notes stay in Track.Midi (the engine plays them as before): a clip is the part of the song its notes belong to.
 // =====================================================================================================
-class MidiClip { public long Start, Len; public string Name = ""; public MidiClip Copy() { return (MidiClip)MemberwiseClone(); } }
 
 partial class StudioForm
 {
@@ -95,20 +94,21 @@ partial class StudioForm
             if (Hot(r)) hintNow = "MIDI clip: drag to move the whole melody (onto another note track too)  •  bottom-right corner: trim or extend  •  top-right circle: loop it  •  right-click: duplicate, split, merge  •  double-click: piano roll";
         }
     }
-    bool mcLockTold;
+    bool mcLockTold; Snapshot mcBefore;   // the song before a clip drag: it becomes an undo step only if the clip really changes
     void McDown(Track t, MidiClip c, RectangleF r)
     {
         var p = MousePos; mcDown = p; bool shift = (ModifierKeys & Keys.Shift) != 0; if (shift) { if (!mcSel.Remove(c)) mcSel.Add(c); } else if (!mcSel.Contains(c)) { mcSel.Clear(); mcSel.Add(c); } multiSel.Clear();
         mcDrag = c; mcDragTrack = t; mcMoved = false; mcStart0 = c.Start; mcLen0 = c.Len; mcGrab = (long)((p.X - r.X) * spp);
         mcMode = r.Width > 30 && p.X > r.Right - 15 && p.Y < r.Y + 15 ? 4 : (r.Width > 30 && p.X > r.Right - 12 && p.Y > r.Bottom - 14 ? 2 : (r.Width > 30 && p.X < r.X + 7 ? 3 : 1));
-        if (IsLocked(t)) { mcDrag = null; mcDragTrack = t; mcLockTold = false; return; }   // a locked track's clips stay put (they could be moved, cut and deleted)
+        if (IsLocked(t)) { mcDrag = null; mcDragTrack = t; mcLockTold = false; return; }
+        mcBefore = TakeSnapshot();   // a locked track's clips stay put (they could be moved, cut and deleted)
         mcEvs = McEvents(t, c); mcFrames0 = mcEvs.Select(e => e.Frame).ToArray(); mcLoopSrc = mcMode == 4 ? mcEvs.Select(e => EvCopy(e, 0)).ToList() : null;   // (the undo step is made when the clip really moves: a click to pick it made an empty one)
     }
     void McDragTo(PointF pt)
     {
         var c = mcDrag; var t = mcDragTrack; if (t == null) return;
         if (c == null) { if (!mcLockTold && IsLocked(t) && Math.Abs(pt.X - mcDown.X) + Math.Abs(pt.Y - mcDown.Y) >= 4) { mcLockTold = true; Toast(FrozenWhy(t, "This track is locked. Press UNLOCK to move its clips.")); } return; }
-        if (!mcMoved && Math.Abs(pt.X - mcDown.X) + Math.Abs(pt.Y - mcDown.Y) < 4) return; if (!mcMoved) PushUndo(); mcMoved = true;
+        if (!mcMoved && Math.Abs(pt.X - mcDown.X) + Math.Abs(pt.Y - mcDown.Y) < 4) return; if (!mcMoved && mcBefore != null) { PushUndoWith(mcBefore); mcBefore = null; } mcMoved = true;
         long at = scroll + (long)((pt.X - HeadW) * spp);
         if (mcMode == 1)
         {
@@ -122,7 +122,8 @@ partial class StudioForm
     }
     void McUp()
     {
-        var c = mcDrag; var t = mcDragTrack; mcDrag = null; if (c == null || t == null || !mcMoved) { mcDragTrack = null; return; }
+        var c = mcDrag; var t = mcDragTrack; mcDrag = null; if (c == null || t == null || !mcMoved) { mcDragTrack = null; mcBefore = null; return; }
+        if (mcBefore != null) { PushUndoWith(mcBefore); mcBefore = null; }
         long end = c.Start + c.Len;
         if (mcMode == 1)
         {   // dropped on another note track: the clip and its notes go there
@@ -172,11 +173,13 @@ partial class StudioForm
     }
     internal void McSplit(Track t, MidiClip c, long at)
     {
+        if (IsLocked(t)) { Toast(FrozenWhy(t, "This track is locked. Press UNLOCK first.")); return; }
         if (at <= c.Start || at >= c.Start + c.Len) { Toast("Put the needle inside the clip to split it there."); return; }
         PushUndo(); var right = new MidiClip { Start = at, Len = c.Start + c.Len - at, Name = c.Name }; c.Len = at - c.Start; t.MClips.Add(right); t.MClips.Sort((a, b) => a.Start.CompareTo(b.Start)); mcStamp.Remove(t); mcSel.Clear(); mcSel.Add(right); Toast("Clip split in two at the needle.");
     }
     internal void McMerge(Track t, List<MidiClip> cl)
     {
+        if (IsLocked(t)) { Toast(FrozenWhy(t, "This track is locked. Press UNLOCK first.")); return; }
         if (cl.Count < 2) return; PushUndo(); long a = cl.Min(c => c.Start), b = cl.Max(c => c.Start + c.Len); var keep = cl.OrderBy(c => c.Start).First(); foreach (var c in cl) if (c != keep) t.MClips.Remove(c); keep.Start = a; keep.Len = b - a;
         t.MClips.RemoveAll(c => c != keep && c.Start >= a && c.Start + c.Len <= b); mcStamp.Remove(t); mcSel.Clear(); mcSel.Add(keep); Toast(cl.Count + " clips merged into one.");
     }

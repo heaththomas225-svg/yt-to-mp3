@@ -43,7 +43,7 @@ partial class SynthCanvas
             int slot = -1; for (int i = 0; i < 3; i++) if (Wavetables.CustomIsDefault(i)) { slot = i; break; }
             if (slot < 0) { if (MessageBox.Show(FindForm(), "Custom 1-3 already hold waves, and they are shared by every Bass Lab in this song. Replace Custom 1?", "Use sample", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes) { browseMsg = ""; return browseMsg; } slot = 0; }   // (a free slot first: it overwrote your drawn Custom 1 in every Bass Lab)
             Wavetables.SetCustom(slot, Wavetables.FramesFromSample(l, sr)); fx.Set("aon", 1); fx.Set("asrc", 0); fx.Set("atbl", Wavetables.CustomBase + slot); fx.Set("awt", 0); modified = true;
-            browseMsg = "Oscillator A now has the shape of " + s.Name + " (Custom 1). Turn WT POSITION to move through it, and SAVE CURRENT SOUND to keep it."; return browseMsg;
+            browseMsg = "Oscillator A now has the shape of " + s.Name + " (Custom " + (slot + 1) + "). Turn WT POSITION to move through it, and SAVE CURRENT SOUND to keep it."; return browseMsg;
         }
         catch (Exception ex) { browseMsg = "Couldn't use " + s.Name + ": " + ex.Message; return browseMsg; }
     }
@@ -129,7 +129,7 @@ partial class SynthCanvas
                 else { SynthPresets.Apply(fx, n); modified = false; browseMsg = "Loaded " + n; }
             };
             if (rowC.Sample == null) rg.Drag = (dx, dy) => { if (Math.Abs(dx) > 22 || Math.Abs(dy) > 22) DragOut(n, SoundData(rowC)); };
-            else { rg.Tip = "Click: " + n + " becomes the shape of oscillator A (Custom 1). WT POSITION moves through the sound"; Txt(g, "USE AS OSC A", 9, Acc, Rc(r.Right - 120, r.Y, 110, r.Height), StringAlignment.Far, true); }   // drag the sound out of the window: it is saved as a file where it is dropped
+            else { rg.Tip = "Click: " + n + " becomes the shape of oscillator A (the first free Custom slot). WT POSITION moves through the sound"; Txt(g, "USE AS OSC A", 9, Acc, Rc(r.Right - 120, r.Y, 110, r.Height), StringAlignment.Far, true); }   // drag the sound out of the window: it is saved as a file where it is dropped
             if (soundTab == 1)
             {
                 var del = Rc(r.Right - 30, r.Y + 5, 24, 22); if (RectangleF.Intersect(del, inner) == del) { Fill(g, Hot(del) ? TM.C(255, 190, 50, 80) : TM.C(255, 120, 30, 62), del, 5); Txt(g, "x", 12, Ink, del, StringAlignment.Center, true); var dg = Add(del); dg.Tip = "Delete " + n + " (only this sound)"; dg.Down = pt => DeleteSound(n); }
@@ -139,7 +139,7 @@ partial class SynthCanvas
         // the buttons
         float by = list.Bottom + 10, bx = x0; bool isUser = SynthPresets.UserNames().Contains(fx.PresetName);
         bx = Action(g, "SAVE CURRENT SOUND...", bx, by, 206, true, "Keep the sound you are playing under a name. It stays in MY SOUNDS until you delete it.", () => SaveCurrentSound());
-        bx = Action(g, "DUPLICATE", bx, by, 96, true, "Make a copy you can change.", () => { try { string n2 = SynthPresets.DuplicateUser(fx.PresetName); SynthPresets.Apply(fx, n2); modified = false; soundTab = 1; browseMsg = "Made " + n2; } catch (Exception ex) { browseMsg = ex.Message; } });
+        bx = Action(g, "DUPLICATE", bx, by, 96, true, "Make a copy you can change.", () => { try { string n2 = fx.PresetName + " copy"; int k2 = 2; while (SynthPresets.Exists(n2)) n2 = fx.PresetName + " copy " + (k2++); SynthPresets.SaveUser(fx, n2); modified = false; soundTab = 1; browseMsg = "Made " + fx.PresetName; } catch (Exception ex) { browseMsg = "Could not copy: " + ex.Message; } });   // (a copy of the sound as you hear it now, edits included)
         bx = Action(g, "RENAME", bx, by, 90, isUser, "Rename the sound you are playing (one of yours).", () => { string s = AskName("New name:", fx.PresetName); if (s == null) return; try { string old = fx.PresetName; SynthPresets.RenameUser(old, s); fx.PresetName = s.Trim(); browseMsg = "Renamed to " + s.Trim(); } catch (Exception ex) { browseMsg = ex.Message; } });
         by += 36; bx = x0;
         bx = Action(g, "START FROM SCRATCH", bx, by, 160, true, "Reset everything to a blank, plain sound to build your own from.", () => { SynthPresets.Initialise(fx); modified = false; browseMsg = "A blank sound: build yours from here."; });
@@ -160,7 +160,7 @@ partial class SynthCanvas
         string s = AskName("Name your sound:", SynthPresets.IsFactory(fx.PresetName) ? "My " + fx.PresetName : fx.PresetName); if (s == null) return;
         try
         {
-            if (SynthPresets.UserNames().Contains(s.Trim()) && MessageBox.Show(this, "\"" + s.Trim() + "\" exists. Replace it?", "Save sound", MessageBoxButtons.YesNo) != DialogResult.Yes) return;
+            string nmS = s.Trim(); if (!SynthPresets.IsFactory(nmS) && SynthPresets.Exists(nmS) && MessageBox.Show(this, "\"" + nmS + "\" exists. Replace it?", "Save sound", MessageBoxButtons.YesNo) != DialogResult.Yes) return;   // (the file system's own check: bass and Bass are the same file)
             SynthPresets.SaveUser(fx, s); modified = false; soundTab = 1; browseMsg = "Saved " + s.Trim() + ". It stays in MY SOUNDS until you delete it.";
             CommunityPresets.AutoShare("synth", s.Trim(), fx.Serialize(), ProjectLibrary.ProfileName, msg => { if (msg != null) { try { BeginInvoke(new Action(() => { browseMsg = msg; Poke(); })); } catch { } } });
         }

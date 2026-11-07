@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -175,16 +175,22 @@ partial class StudioForm
         // background: click = deselect / split tool, drag = marquee
         var bgReg = Reg(na, () => FlexBackgroundDown()); bgReg.OnDrag = pt => { flexNow = pt; flexMoved = true; }; bgReg.OnUp = () => FlexBackgroundUp(); bgReg.OnDouble = () => { };
         var ncl = g.Save(); g.SetClip(na); List<FlexNote> list; lock (flexLk) list = new List<FlexNote>(flexAna.Notes); int hop = flexAna.Hop; var ratio = flexRatio;
+        int visN = 0; foreach (var vq in list) { if (vq.Deleted) continue; float q0 = FlexX((double)(vq.Start + vq.Move) * hop), q1 = FlexX((double)(vq.End + vq.Move) * hop); if (q1 >= na.X - 4 && q0 <= na.Right + 4) visN++; }
+        bool lite = visN > 150;   // a whole dense take on screen: notes drawn plainly (each one made a gradient, paths and pens every frame)
         foreach (var n in list)
         {
             float x0 = FlexX((double)(n.Start + n.Move) * hop), x1 = FlexX((double)(n.End + n.Move) * hop); if (x1 < na.X - 4 || x0 > na.Right + 4) continue; if (x1 - x0 < 16) { float cxm = (x0 + x1) / 2f; x0 = cxm - 8; x1 = cxm + 8; } float yc = FlexY(n.Target, na); float bhh = Math.Max(FlexRowH * 0.84f, 22f); var blk = Rc(x0, yc - bhh / 2f, x1 - x0, bhh);   /* never smaller than 16 x 22: easy to grab without zooming in */ bool sel = flexSel.Contains(n);
             if (n.Deleted) { using (var pen = new Pen(TM.C(90, 160, 140, 200), 1f) { DashStyle = DashStyle.Dot }) g.DrawRectangle(pen, blk.X, blk.Y, blk.Width, blk.Height); continue; }
             if (n.Edited && Math.Abs(n.Target - n.OrigMidi) > 0.05) { float yo = FlexY(n.OrigMidi, na); using (var pen = new Pen(TM.C(110, 200, 190, 255), 1f) { DashStyle = DashStyle.Dash }) g.DrawRectangle(pen, x0, yo - FlexRowH * 0.42f, x1 - x0, FlexRowH * 0.84f); }
             Color baseC = n.Edited ? NeonCyan : NeonViolet; if (sel) Glow(g, baseC, blk, 4, 0.8f, 3);
+            if (lite && !sel) { using (var lb2 = new SolidBrush(Color.FromArgb(200, baseC))) g.FillRectangle(lb2, blk.X, blk.Y, blk.Width, blk.Height); }
+            else
+            {
             using (var lg = new LinearGradientBrush(blk, Color.FromArgb(sel ? 245 : 210, Math.Min(255, baseC.R + 30), Math.Min(255, baseC.G + 30), Math.Min(255, baseC.B + 30)), Color.FromArgb(sel ? 235 : 190, baseC.R / 2, baseC.G / 2, baseC.B / 2 + 40), 90f)) using (var path = RR(blk, 5)) g.FillPath(lg, path);
             StrokeRR(g, sel ? Color.White : Color.FromArgb(160, baseC), blk, 5, sel ? 2f : 1f);
+            }
             // the pitch line inside the note: what the voice actually does (drift, vibrato), after your edits
-            if (blk.Width > 8)
+            if (blk.Width > 8 && !(lite && blk.Width < 40))
             {
                 int step = Math.Max(1, (int)(2 * spp / hop)); var pts = new List<PointF>(); double lo = n.Target - 1.3, hi = n.Target + 1.3;   // the line stays near its own note (a jump of the pitch finder never draws a long line)
                 using (var pen = new Pen(Color.FromArgb(230, 255, 255, 255), 1.4f))

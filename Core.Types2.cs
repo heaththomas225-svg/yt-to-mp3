@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Text;
@@ -9,3 +9,4 @@ using System.Text;
 //  Each automated setting has a "lane": points of (song position, value) joined by straight lines (steps for a choice list).
 // ======================================================================
 class AutoPoint { public long Frame; public float Value; }
+class MidiClip { public long Start, Len; public string Name = ""; public MidiClip Copy() { return (MidiClip)MemberwiseClone(); } }

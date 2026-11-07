@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -40,7 +40,7 @@ partial class SynthCanvas
             Choose(g, s + "tbl", Rc(r.X + 102, r.Y + 118, 90, 20), wtMode ? Acc2 : TM.C(255, 90, 80, 120));
             Choose(g, s + "warp", Rc(r.X + 6, r.Y + 142, 82, 20), Acc2); NumBox(g, s + "oct", Rc(r.X + 92, r.Y + 142, 48, 20), "OCT"); NumBox(g, s + "sem", Rc(r.X + 142, r.Y + 142, 50, 20), "SEM");
             float kx = r.X + 28, dx = 47, ky = r.Y + 198;
-            Knob(g, s + "wt", kx, ky, wtMode ? "WAVE" : "(shape)", Acc, 15); Knob(g, s + "wamt", kx + dx, ky, "WARP", Acc2, 15); Knob(g, s + "uni", kx + dx * 2, ky, "UNISON", Acc, 15); Knob(g, s + "det", kx + dx * 3, ky, "DETUNE", Acc, 15);
+            if (wtMode) Knob(g, s + "wt", kx, ky, "WAVE", Acc, 15); else Txt(g, "FIXED", 9, Dim, Rc(kx - 20, ky - 6, 40, 12), StringAlignment.Center, false); Knob(g, s + "wamt", kx + dx, ky, "WARP", Acc2, 15); Knob(g, s + "uni", kx + dx * 2, ky, "UNISON", Acc, 15); Knob(g, s + "det", kx + dx * 3, ky, "DETUNE", Acc, 15);
             ky = r.Y + 252; Knob(g, s + "fin", kx, ky, "FINE", Acc, 13); Knob(g, s + "blend", kx + dx, ky, "BLEND", Acc, 13); Knob(g, s + "pan", kx + dx * 2, ky, "PAN", Acc, 13); Knob(g, s + "lvl", kx + dx * 3, ky, "LEVEL", Acc2, 13);
             string modName = "ABC"[(o + 1) % 3].ToString(); ky = r.Y + 303;
             Knob(g, s + "fm", kx - 4, ky, "FM " + modName, Acc2, 11); Knob(g, s + "rm", kx + 40, ky, "RING " + modName, Acc2, 11);
@@ -180,6 +180,7 @@ partial class SynthCanvas
     void OpenWaveEditor(string s)
     {
         int slot = 0; var tbl = P(s + "tbl"); if (tbl.Val >= Wavetables.CustomBase && tbl.Val < Wavetables.CustomBase + 3) slot = (int)tbl.Val - Wavetables.CustomBase; else { SetVal(tbl, Wavetables.CustomBase); }
+        SetVal(P(s + "on"), 1); SetVal(P(s + "mute"), 0);   // (B and C start off: the drawn wave was silent)
         SetVal(P(s + "src"), 0); var f = new WaveEditorForm(fx, slot, s); f.Show(FindForm()); Poke();
     }
 }

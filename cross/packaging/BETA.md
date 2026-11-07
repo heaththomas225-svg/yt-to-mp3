@@ -1,9 +1,9 @@
-**Purphex Music for macOS and Linux: beta.** This is the same Purphex as on Windows, built for your system. It is new, so some parts may not work yet. Please report anything that breaks in the Purphex Discord and say which system you use.
+﻿**Purphex Music for macOS and Linux: beta.** This is the same Purphex as on Windows, built for your system. It is new, so some parts may not work yet. Please report anything that breaks in the Purphex Discord and say which system you use.
 
 **macOS** (11 Big Sur or newer)
 1. Download `Purphex-macOS-AppleSilicon.zip` (M1, M2, M3, M4 Macs) or `Purphex-macOS-Intel.zip` (older Macs), and unzip it.
 2. Drag **Purphex** into Applications.
-3. The first time, right-click Purphex and choose **Open**, then **Open** again. (The beta is not notarised by Apple yet, so a double-click is blocked the first time.) If macOS says the app is damaged, open Terminal and run: `xattr -cr /Applications/Purphex.app`
+3. The first time, right-click Purphex and choose **Open**, then **Open** again. (The beta is not notarised by Apple yet, so a double-click is blocked the first time.) If macOS says the app is damaged, open Terminal and run: `xattr -cr /Applications/Purphex.app` (on an M1-M4 Mac, if it still will not open, also run: `codesign --force --deep -s - /Applications/Purphex.app`)
 
 **Linux** (64-bit, X11 or Wayland with XWayland)
 1. Download `Purphex-Linux-x64.tar.gz` and unpack it: `tar -xzf Purphex-Linux-x64.tar.gz`

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
@@ -193,6 +193,7 @@ partial class App : Form
         Application.EnableVisualStyles(); Win.WidenBuffers(); CrashGuard.Install(); NoValueWheel.Install();   // a problem is logged to crash.log, not shown as the grey .NET box
 #if PURPHEX_DESKTOP
         PlatformAudio.Install();   // macOS / Linux: sound through SDL
+        PlatformAudio.LevelNow = () => Prefs.BufEff;
 #endif
         Application.Run(new App());
     }

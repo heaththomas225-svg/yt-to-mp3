@@ -1,4 +1,4 @@
-// Purphex Forms: Control and Form on Avalonia. A Control is a WinForms-style object; on screen it is an Avalonia element:
+﻿// Purphex Forms: Control and Form on Avalonia. A Control is a WinForms-style object; on screen it is an Avalonia element:
 // custom-drawn controls (the studio, plugin windows...) paint through Purphex.Gfx on Skia inside PaintSurface, and standard controls
 // (TextBox, Button...) use Avalonia's own. A Form is an Avalonia window holding its controls.
 using System;
@@ -208,14 +208,14 @@ namespace System.Windows.Forms
         int clicks; DateTime lastClick; Point lastClickAt;
         void Hook(AC.Control n)
         {
-            n.PointerPressed += (s, e) => Guard(() => { var p = e.GetCurrentPoint(n); var pt = new Point((int)p.Position.X, (int)p.Position.Y); var b = Map.Btn(p.Properties); MouseButtons |= b; Mods(e.KeyModifiers); MousePosition = pt;
+            n.PointerPressed += (s, e) => Guard(() => { var p = e.GetCurrentPoint(n); var pt = new Point((int)p.Position.X, (int)p.Position.Y); var b = Map.Btn(p.Properties); MouseButtons |= b; Mods(e.KeyModifiers); MousePosition = PointToScreen(pt);
                 var now = DateTime.Now; clicks = (now - lastClick).TotalMilliseconds < SystemInformation.DoubleClickTime && Math.Abs(pt.X - lastClickAt.X) < 5 && Math.Abs(pt.Y - lastClickAt.Y) < 5 ? clicks + 1 : 1; lastClick = now; lastClickAt = pt;
                 if (n is PaintSurface) { n.Focus(); e.Pointer.Capture(n); }
                 var me = new MouseEventArgs(b, clicks, pt.X, pt.Y, 0); OnMouseDown(me); if (clicks == 2) { OnMouseDoubleClick(me); OnDoubleClick(EventArgs.Empty); } if (n is PaintSurface) e.Handled = true; });
             n.PointerReleased += (s, e) => Guard(() => { var p = e.GetCurrentPoint(n); var pt = new Point((int)p.Position.X, (int)p.Position.Y); var b = e.InitialPressMouseButton == Avalonia.Input.MouseButton.Right ? MouseButtons.Right : (e.InitialPressMouseButton == Avalonia.Input.MouseButton.Middle ? MouseButtons.Middle : MouseButtons.Left); MouseButtons &= ~b; Mods(e.KeyModifiers);
                 var me = new MouseEventArgs(b, clicks, pt.X, pt.Y, 0); OnMouseUp(me); if (new Rectangle(0, 0, w, h).Contains(pt)) { OnMouseClick(me); OnClick(EventArgs.Empty); }
                 if (b == MouseButtons.Right && ContextMenuStrip != null) ContextMenuStrip.Show(this, pt); if (n is PaintSurface) e.Handled = true; });
-            n.PointerMoved += (s, e) => Guard(() => { var p = e.GetCurrentPoint(n); var pt = new Point((int)p.Position.X, (int)p.Position.Y); MousePosition = pt; Mods(e.KeyModifiers); OnMouseMove(new MouseEventArgs(MouseButtons, 0, pt.X, pt.Y, 0)); });
+            n.PointerMoved += (s, e) => Guard(() => { var p = e.GetCurrentPoint(n); var pt = new Point((int)p.Position.X, (int)p.Position.Y); MousePosition = PointToScreen(pt); Mods(e.KeyModifiers); OnMouseMove(new MouseEventArgs(MouseButtons, 0, pt.X, pt.Y, 0)); });
             n.PointerWheelChanged += (s, e) => Guard(() => { var p = e.GetCurrentPoint(n); Mods(e.KeyModifiers); OnMouseWheel(new HandledMouseEventArgs(MouseButtons.None, 0, (int)p.Position.X, (int)p.Position.Y, (int)Math.Round(e.Delta.Y * 120))); if (n is PaintSurface) e.Handled = true; });
             n.PointerEntered += (s, e) => Guard(() => OnMouseEnter(EventArgs.Empty)); n.PointerExited += (s, e) => Guard(() => OnMouseLeave(EventArgs.Empty));
             n.GotFocus += (s, e) => Guard(() => { OnGotFocus(EventArgs.Empty); OnEnter(EventArgs.Empty); }); n.LostFocus += (s, e) => Guard(() => { OnLostFocus(EventArgs.Empty); OnLeave(EventArgs.Empty); });

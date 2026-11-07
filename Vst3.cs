@@ -277,7 +277,7 @@ class Vst3Plugin : IVstHosted
         try
         {
             if (controller == IntPtr.Zero || i < 0 || i >= paramIds.Count) return; v = Math.Max(0f, Math.Min(1f, v));
-            lock (callLock) { if (setParamFn == null) setParamFn = Vst3.Fn<D_IUD>(controller, 15); setParamFn(controller, paramIds[i], v); }
+            if (System.Threading.Monitor.TryEnter(callLock)) { try { if (setParamFn == null) setParamFn = Vst3.Fn<D_IUD>(controller, 15); setParamFn(controller, paramIds[i], v); } finally { System.Threading.Monitor.Exit(callLock); } }   // (never waits: the processor below still gets the value)
             lock (pending) { for (int k = 0; k < changeCount; k++) if (chId[k] == paramIds[i]) { chVal[k] = v; return; } if (changeCount < MaxChanges) { chId[changeCount] = paramIds[i]; chVal[changeCount] = v; changeCount++; } }
         }
         catch { }
@@ -305,15 +305,16 @@ class Vst3Plugin : IVstHosted
     // ---- audio ----
     public void SendMidi(List<KeyValuePair<int, MidiEv>> ev) { if (ev == null || ev.Count == 0 || disposed) return; lock (pending) pending.AddRange(ev); }
 
+    readonly List<KeyValuePair<int, MidiEv>> evWork = new List<KeyValuePair<int, MidiEv>>(); readonly List<int> evOffs = new List<int>();
     void WriteEvents(int n)
     {
-        evCount = 0; List<KeyValuePair<int, MidiEv>> list; lock (pending) { list = new List<KeyValuePair<int, MidiEv>>(pending); pending.Clear(); }
-        foreach (var kv in list)
+        evCount = 0; lock (pending) { evWork.Clear(); evWork.AddRange(pending); pending.Clear(); }   // (reused lists: no garbage on the sound thread)
+        foreach (var kv in evWork)
         {
             if (evCount >= MaxEvents - 16) break; var m = kv.Value; int st = m.S & 0xF0, ch = m.S & 0x0F;
             if (st == 0x90 && m.D2 > 0) { Emit(kv.Key, true, ch, m.D1, m.D2 / 127f); active.Add(m.D1); }
             else if (st == 0x80 || (st == 0x90 && m.D2 == 0)) { Emit(kv.Key, false, ch, m.D1, m.D2 / 127f); active.Remove(m.D1); }
-            else if (m.S == 0xB0 && (m.D1 == 123 || m.D1 == 120)) { foreach (var note in new List<int>(active)) if (evCount < MaxEvents) Emit(kv.Key, false, 0, note, 0f); active.Clear(); }
+            else if (m.S == 0xB0 && (m.D1 == 123 || m.D1 == 120)) { evOffs.Clear(); evOffs.AddRange(active); foreach (var note in evOffs) if (evCount < MaxEvents) Emit(kv.Key, false, 0, note, 0f); active.Clear(); }
         }
     }
     void Emit(int delta, bool on, int ch, int pitch, float vel)
@@ -354,7 +355,8 @@ class Vst3Plugin : IVstHosted
             else for (int i = 0; i < c; i++) { l[off + i] = scrL[i]; r[off + i] = scrR[i]; }
         }
     }
-    static void ZeroMem(IntPtr p, int frames) { int bytes = frames * 4; var z = new byte[Math.Min(bytes, 4096)]; for (int o = 0; o < bytes; o += z.Length) Marshal.Copy(z, 0, p + o, Math.Min(z.Length, bytes - o)); }
+    static readonly byte[] Zeros = new byte[4096];
+    static void ZeroMem(IntPtr p, int frames) { int bytes = frames * 4; var z = Zeros; for (int o = 0; o < bytes; o += z.Length) Marshal.Copy(z, 0, p + o, Math.Min(z.Length, bytes - o)); }
 
     // ---- editor window ----
     public Size GetEditorSize() { return editorSize; }

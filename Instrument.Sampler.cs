@@ -30,11 +30,13 @@ class SamplerFx : InstrumentFx   // (Purphex Pads is a sampler with a window of 
     // each block: where the song is (the wobble locks to it), and a jump in the song (a section loop wrapping) lets go of held notes, whose note-offs past the jump never arrive
     protected override void OnBlock(long pos, int n, bool transport)
     {
-        if (transport && nextPos >= 0 && pos != nextPos) foreach (var v in voices) if (v.On && v.Held && !v.Live) {   /* (keys you hold live keep sounding over the loop point) */ v.Held = false; if (!v.Releasing && (!v.Z.OneShot || v.Looped)) v.Releasing = true; }
+        if (!OneHit && transport && nextPos >= 0 && pos != nextPos) foreach (var v in voices) if (v.On && v.Held && !v.Live) {   /* (keys you hold live keep sounding over the loop point) */ v.Held = false; if (!v.Releasing && (!v.Z.OneShot || v.Looped)) v.Releasing = true; }
         nextPos = transport ? pos + n : -1; songPos = transport ? pos : -1;
     }
     // the loop is used for a one-key sound or a pad too while held (Pads and Key Map: HOLD)
     protected virtual bool HoldLoops { get { return false; } }
+    internal bool OneHit;   // Beat Lab pads: no note-off ever comes, so a hit plays to the end of its sound (no song-jump release, no hold loop)
+    public bool Busy { get { foreach (var v in voices) if (v.On) return true; return false; } }   // a voice is still sounding
     public override int Latency { get { return LA; } }   // (the limiter looks 3 ms ahead: the studio lines the track up for it)   // flL / flR: the LFO filter   // what a voice taken for a new note was playing, fading away in 3 ms (cut in one sample it clicked)
     public readonly List<Zone> Zones = new List<Zone>(); readonly Voice[] voices = new Voice[48]; List<KeyValuePair<int, MidiEv>> pending; protected readonly object zl = new object();   // (the audio thread reads the zones under it)
     public SamplerFx()
@@ -57,7 +59,7 @@ class SamplerFx : InstrumentFx   // (Purphex Pads is a sampler with a window of 
     public override void ShowWindow(IWin32Window owner) { }
 #endif
     public override void CloseWindow() { }
-    public override void Reset() { base.Reset(); foreach (var v in voices) v.On = false; ResetLimiter(); nextPos = -1; wbL1 = wbL2 = wbR1 = wbR2 = 0; wobPh = 0; }
+    public override void Reset() { base.Reset(); foreach (var v in voices) v.On = false; ResetLimiter(); nextPos = -1; wbL1 = wbL2 = wbR1 = wbR2 = 0; wobPh = 0; lfoPh = 0; flL = flR = 0; tailL = tailR = 0; }   /* (all of it: an export comes out the same every time) */
     protected override void OnEvents(List<KeyValuePair<int, MidiEv>> ev) { pending = ev; }
 
     // ---- zones ----
@@ -70,15 +72,7 @@ class SamplerFx : InstrumentFx   // (Purphex Pads is a sampler with a window of 
         if (!SoundIO.Read(z.Path, out l, out r, out sr, out fmt) || l.Length == 0) { z.Missing = true; z.L = z.R = null; return "The sample could not be read: " + z.Path; }
         z.L = l; z.R = r; z.Rate = sr > 0 ? sr : 44100; z.Lead = LeadOf(l, r, z.Rate); FindLoop(z);
         z.ML = z.MR = null;   // (made in the background: a long sound took a moment, and opening a project waited for it; until then notes play the full one)
-        System.Threading.ThreadPool.QueueUserWorkItem(_ =>
-        {
-            try
-            {
-                var ml = new float[3][]; var mr = new float[3][]; float[] pl = l, pr = r; for (int k = 0; k < 3; k++) { ml[k] = Half(pl); mr[k] = pr == pl ? ml[k] : (pr == null ? null : Half(pr)); pl = ml[k]; pr = mr[k]; }
-                if (z.L == l) { z.MR = mr; System.Threading.Thread.MemoryBarrier(); z.ML = ml; }
-            }
-            catch { }
-        });
+        System.Threading.ThreadPool.QueueUserWorkItem(_ => { try { MakeMips(z, l, r); } catch { } });
         return null;
     }
     // the sustain loop of a pitched sound: a few whole cycles about 0.15 s in (past the hit, while it is still full), starting where the wave crosses upwards
@@ -98,6 +92,14 @@ class SamplerFx : InstrumentFx   // (Purphex Pads is a sampler with a window of 
         }
         catch { z.LoopA = z.LoopB = 0; }
     }
+    static void MakeMips(Zone z, float[] l, float[] r)
+    {
+        if (l == null) return; var ml = new float[3][]; var mr = new float[3][]; float[] pl = l, pr = r;
+        for (int k = 0; k < 3; k++) { ml[k] = Half(pl); mr[k] = pr == pl ? ml[k] : (pr == null ? null : Half(pr)); pl = ml[k]; pr = mr[k]; }
+        if (z.L == l) { z.MR = mr; System.Threading.Thread.MemoryBarrier(); z.ML = ml; }
+    }
+    // an export waits for the smoothed copies (a pitched-up note could otherwise use the raw sample for the first seconds)
+    public override void PrepareOffline() { foreach (var z in ZonesCopy()) { var l = z.L; var r = z.R; if (l != null && z.ML == null) { try { MakeMips(z, l, r); } catch { } } } }
     // half the length with the top half of the sound taken off first (a windowed-sinc low-pass), so nothing folds back
     static float[] HalfK;
     static float[] Half(float[] x)
@@ -222,7 +224,7 @@ class SamplerFx : InstrumentFx   // (Purphex Pads is a sampler with a window of 
                 var v = voices[k]; if (!v.On) continue; var z = v.Z; var L = v.BL; var R = v.BR; if (L == null) { v.On = false; continue; }
                 int p = (int)v.Pos; if (p >= L.Length - 1) { v.On = false; continue; } double fr = v.Pos - p;
                 double a = L[p] + (L[p + 1] - L[p]) * fr, b = R[p] + (R[p + 1] - R[p]) * fr;
-                bool loopOn = z.LoopB > 0 && (!z.OneShot || holdLoops) && (v.Held || (v.Releasing && (v.Looped || v.Xf))) && !v.Choked;
+                bool loopOn = !OneHit && z.LoopB > 0 && (!z.OneShot || holdLoops) && (v.Held || (v.Releasing && (v.Looped || v.Xf))) && !v.Choked;
                 if (loopOn)
                 {   // the last few hundred samples before the loop end fade into the loop start, so the jump back is seamless (a hard jump clicked 20 times a second)
                     double lenS = (z.LoopB - z.LoopA) / v.Scale, lb0 = z.LoopB / v.Scale, xf = Math.Min(lenS * 0.5, 256.0 / v.Scale);

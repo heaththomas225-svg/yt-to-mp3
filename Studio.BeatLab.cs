@@ -42,7 +42,8 @@ partial class StudioForm
     static StudioForm BlForm;
     void BlRender(float[] oL, float[] oR, int n)
     {
-        bool playing = blPlaying; if (!playing && unchecked(Environment.TickCount - blRingUntil) > 0) { lock (blLock) if (blHits.Count == 0) return; }
+        bool playing = blPlaying;
+        if (!playing && unchecked(Environment.TickCount - blRingUntil) > 0) { bool busy = false; lock (blLock) { if (blHits.Count > 0) busy = true; else foreach (var bp in blPads) if (bp.Sound != null && bp.Sound.Busy) { busy = true; break; } } if (!busy) return; }   // (a long pad sound plays to its end: it froze after 4 s and came back later)
         lock (blLock)
         {
             if (blL == null || blL.Length < n) { blL = new float[n]; blR = new float[n]; blSumL = new float[n]; blSumR = new float[n]; } Array.Clear(blSumL, 0, n); Array.Clear(blSumR, 0, n);
@@ -61,7 +62,7 @@ partial class StudioForm
                     }
                 blTmp.Midi.Sort((a, b) => a.Frame.CompareTo(b.Frame));
                 Array.Clear(blL, 0, n); Array.Clear(blR, 0, n);
-                try { snd.BeginBlock(blTmp, 0, n, true); snd.Process(blL, blR, n); } catch { continue; }
+                snd.OneHit = true; try { snd.BeginBlock(blTmp, 0, n, true); snd.Process(blL, blR, n); } catch { continue; }   // (808 and bass pads play to the end of their sound: they were cut after one block)
                 if (pad.Mute || (anySolo && !pad.Solo)) continue; float gn = (float)Math.Pow(10, pad.VolDb / 20) * 0.6f;
                 for (int i = 0; i < n; i++) { blSumL[i] += blL[i] * gn; blSumR[i] += blR[i] * gn; }
             }
@@ -223,6 +224,9 @@ partial class StudioForm
     static string Un64(string s) { try { return Encoding.UTF8.GetString(Convert.FromBase64String(s)); } catch { return ""; } }
     internal void BlLoad(string text, bool fresh)
     {
+        // the pads' sounds are read before the lock (decoding 32 files under it stalled the sound thread when a project opened, and at every Beat Lab undo)
+        var pre = new Dictionary<int, SamplerFx>();
+        foreach (var line0 in (text ?? "").Split('\n')) { var f0 = line0.Split('|'); int i0; if (f0[0] == "pad" && f0.Length >= 8 && int.TryParse(f0[1], out i0) && i0 >= 0 && i0 < 32) { try { var s0 = new SamplerFx(); s0.Prepare(StudioEngine.SR); s0.Deserialize(Un64(f0[7])); pre[i0] = s0; } catch { } } }
         lock (blLock)
         {
             foreach (var p in blPads) { p.Sound = null; p.Name = ""; p.Job = 4; p.VolDb = 0; p.Mute = p.Solo = false; } blPats.Clear(); blCur = 0; blSteps = 16; blPadCount = 16; blSwing = 0.5f; blHuman = 0;
@@ -237,7 +241,7 @@ partial class StudioForm
                     else if (f[0] == "pad" && f.Length >= 8 && int.TryParse(f[1], out iv) && iv >= 0 && iv < 32)
                     {
                         var p = blPads[iv]; p.Name = Un64(f[2]); int.TryParse(f[3], out p.Job); float.TryParse(f[4], System.Globalization.NumberStyles.Float, ci, out p.VolDb); p.Mute = f[5] == "1"; p.Solo = f[6] == "1";
-                        var smp = new SamplerFx(); smp.Prepare(StudioEngine.SR); smp.Deserialize(Un64(f[7])); p.Sound = smp;
+                        SamplerFx smp; if (!pre.TryGetValue(iv, out smp)) { smp = new SamplerFx(); smp.Prepare(StudioEngine.SR); smp.Deserialize(Un64(f[7])); } p.Sound = smp;
                     }
                     else if (f[0] == "pat" && f.Length >= 34)
                     {
@@ -291,18 +295,19 @@ partial class StudioForm
         chip(62, "CLEAR", 0, () => { BlMark(); for (int i = 0; i < 32; i++) Array.Clear(pat.Vel[i], 0, 32); }, "Switch off every step in this slot");
         chip(30, "<", 0, () => BlUndoStep(true), "Undo in the Beat Lab"); chip(30, ">", 0, () => BlUndoStep(false), "Redo in the Beat Lab");
         // swing and humanise
-        float sx = bx + 6, sw = Math.Max(90, Math.Min(150, (x + w - 240 - sx) / 2 - 10));
+        bool two = bx + 430 > x + w; float y2 = two ? y + 30 : y;   // (not enough room after the chips: the knobs and song buttons get their own row, they sat on top of each other)
+        float sx = two ? x + 4 : bx + 6, sw = two ? 150 : Math.Max(90, Math.Min(150, (x + w - 240 - sx) / 2 - 10));
         // galaxy knobs: drag up / down, double-click for the default (the wheel scrolls)
-        var ss = KnobCtl(g, sx + 12, y + 12, 20, (blSwing - 0.5f) / 0.25f, v => blSwing = 0.5f + Math.Max(0, Math.Min(1, v)) * 0.25f, NeonCyan, () => blSwing = 0.5f); ss.OnWheel = null; Txt(g, "SWING " + (int)Math.Round(blSwing * 100) + "%", 9, DimC, Rc(sx + 28, y + 5, sw - 28, 14), StringAlignment.Near, true);
+        var ss = KnobCtl(g, sx + 12, y2 + 12, 20, (blSwing - 0.5f) / 0.25f, v => blSwing = 0.5f + Math.Max(0, Math.Min(1, v)) * 0.25f, NeonCyan, () => blSwing = 0.5f); ss.OnWheel = null; Txt(g, "SWING " + (int)Math.Round(blSwing * 100) + "%", 9, DimC, Rc(sx + 28, y2 + 5, sw - 28, 14), StringAlignment.Near, true);
         Hint2(ss.R, "Swing " + (int)Math.Round(blSwing * 100) + "%: pushes every second 16th later for a looser groove (50% = straight, double-click)");
-        sx += sw + 14; var hs = KnobCtl(g, sx + 12, y + 12, 20, blHuman, v => blHuman = Math.Max(0, Math.Min(1, v)), NeonPink, () => blHuman = 0); hs.OnWheel = null; Txt(g, "HUMANISE " + (int)Math.Round(blHuman * 100) + "%", 9, DimC, Rc(sx + 28, y + 5, sw - 28, 14), StringAlignment.Near, true);
+        sx += sw + 14; var hs = KnobCtl(g, sx + 12, y2 + 12, 20, blHuman, v => blHuman = Math.Max(0, Math.Min(1, v)), NeonPink, () => blHuman = 0); hs.OnWheel = null; Txt(g, "HUMANISE " + (int)Math.Round(blHuman * 100) + "%", 9, DimC, Rc(sx + 28, y2 + 5, sw - 28, 14), StringAlignment.Near, true);
         Hint2(hs.R, "Humanise " + (int)Math.Round(blHuman * 100) + "%: moves every hit a little in time and strength, like a drummer (0% = exact, double-click)");
         // onto the song
-        var add = Rc(x + w - 226, y, 110, 26); Btn(g, add, "ADD TO SONG", 2, () => Toast(BlAddToSong()), 9.5f); Hint2(add, "Put this beat into the song at the bar of the needle: a note track per pad, editable in the piano roll");
-        var drg = Rc(x + w - 110, y, 110, 26); var dr = Btn(g, drg, "DRAG TO SONG", 4, () => { var b = BlToBox(); if (b.Parts.Count == 0) { Toast("Switch on some steps first."); return; } prBox = b; prBoxDrag = true; prBoxAt = MousePos; }, 9.5f); Hint2(drg, "Hold and drag the beat onto a bar of the song (it goes in as one audio clip)");
+        var add = Rc(x + w - 226, y2, 110, 26); Btn(g, add, "ADD TO SONG", 2, () => Toast(BlAddToSong()), 9.5f); Hint2(add, "Put this beat into the song at the bar of the needle: a note track per pad, editable in the piano roll");
+        var drg = Rc(x + w - 110, y2, 110, 26); var dr = Btn(g, drg, "DRAG TO SONG", 4, () => { var b = BlToBox(); if (b.Parts.Count == 0) { Toast("Switch on some steps first."); return; } prBox = b; prBoxDrag = true; prBoxAt = MousePos; }, 9.5f); Hint2(drg, "Hold and drag the beat onto a bar of the song (it goes in as one audio clip)");
         { dr.OnDrag = pt => { if (prBox != null && prBoxDrag) { prBoxAt = pt; Invalidate(); } }; dr.OnUp = () => PrBoxDropped(); }
         if (prBoxDrag) PaintPatternBox(g, C);
-        y += 34;
+        y += two ? 64 : 34;
         // the slots: A, B, C... (VARIATION adds one)
         { float vx = x; Txt(g, "SLOTS", 9, DimC, Rc(vx, y + 4, 44, 16), StringAlignment.Near, true); vx += 46;
           for (int i = 0; i < blPats.Count; i++) { int k = i; var r = Rc(vx, y, 30, 22); var hr = Btn(g, r, blPats[i].Name, i == blCur ? 4 : 0, () => blCur = k, 10); Hint2(r, "Slot " + blPats[i].Name + ": click to hear and edit it"); hr.OnRight = () => { if (blPats.Count > 1) { BlMark(); blPats.RemoveAt(k); blCur = Math.Max(0, Math.Min(blCur, blPats.Count - 1)); Toast("Slot removed (the Beat Lab's undo brings it back)."); } }; vx += 34; }

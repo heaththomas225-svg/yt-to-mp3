@@ -46,6 +46,7 @@ partial class StudioForm
         return s;
     }
     static List<AutoLane> CloneLanes(List<AutoLane> l) { var r = new List<AutoLane>(); foreach (var x in l) r.Add(x.CloneFor(x.Fx)); return r; }
+    void PushUndoWith(Snapshot s) { editCount++; HistNote(); if (undoHold > 0) return; undo.Add(s); if (undo.Count > 60) undo.RemoveAt(0); redo.Clear(); }   // (a snapshot taken before the change, saved only once the change happens)
     void PushUndo() { editCount++; HistNote(); if (undoHold > 0) return; undo.Add(TakeSnapshot()); if (undo.Count > 60) undo.RemoveAt(0); redo.Clear(); }
     void Restore(Snapshot s)
     {
@@ -139,9 +140,23 @@ partial class StudioForm
         else { var lc = PickedClip(); if (lc != null && IsLocked(lc)) { Toast(FrozenWhy(lc, "Locked: press UNLOCK before cutting.")); return; } }
         var before = clipCopies.Count > 0 ? clipCopies[0].Copy : null; CopyKey();
         if (clipCopies.Count == 0 || clipCopies[0].Copy == before) return;   // nothing could be copied: nothing is deleted
-        int n = clipCopies.Count; if (multiSel.Count > 0) DeleteSelectedClips();
-        else { var c = PickedClip(); if (c != null) { if (c.Host == null && !eng.Tracks.Exists(x => x.Host == c && !x.Instrument && x.Clip != null)) { PushUndo(); lock (eng.Sync) { c.Clip = null; c.Offset = 0; c.ClipStart = 0; c.ClipFrames = -1; c.FadeIn = c.FadeOut = c.FadeInDelay = c.FadeOutTail = 0; c.ClipGainDb = 0; c.SectionLabel = ""; c.PieceMuted = false; } toolsTrack = null; selTrack = Math.Max(0, eng.Tracks.IndexOf(c)); } else DeleteClip(c); } }   // (the only piece of a row: the row stays, empty, with its plugins and levels; it deleted the whole track and Ctrl+V landed on another one)
+        int n = clipCopies.Count;
+        if (multiSel.Count > 0)
+        {   // every highlighted piece: a row's only piece leaves the row empty (with its plugins and levels), layers go; one undo step for all of it (whole rows were deleted)
+            var cut = multiSel.FindAll(o => eng.Tracks.Contains(o) && !IsLocked(o)); cut.Sort((a, b) => (b.Host != null ? 1 : 0).CompareTo(a.Host != null ? 1 : 0));
+            int top = int.MaxValue; foreach (var q in cut) { int ri = eng.Tracks.IndexOf(q.Host ?? q); if (ri >= 0) top = Math.Min(top, ri); }
+            PushUndo(); undoHold++; try { foreach (var t in cut) if (eng.Tracks.Contains(t) && !EmptyRowKeep(t)) DeleteClip(t); } finally { undoHold--; }
+            multiSel.Clear(); toolsTrack = null; if (top != int.MaxValue) selTrack = top;
+        }
+        else { var c = PickedClip(); if (c != null) { PushUndo(); undoHold++; try { if (!EmptyRowKeep(c)) DeleteClip(c); else { toolsTrack = null; selTrack = Math.Max(0, eng.Tracks.IndexOf(c)); } } finally { undoHold--; } } }
         Toast(n == 1 ? "Cut. Ctrl+V pastes it at the needle on the picked track." : "Cut " + n + " sections. Ctrl+V pastes them at the needle (they keep their spacing).");
+    }
+    // a row whose only piece is cut stays as an empty track (its plugins, levels and sends kept); false when it has layers or is not such a row
+    bool EmptyRowKeep(Track c)
+    {
+        if (c == null || c.Host != null || c.Instrument || c.IsBus || c.Clip == null || eng.Tracks.Exists(x => x.Host == c && !x.Instrument && x.Clip != null)) return false;
+        lock (eng.Sync) { c.Clip = null; c.Source = ""; c.Offset = 0; c.ClipStart = 0; c.ClipFrames = -1; c.FadeIn = c.FadeOut = c.FadeInDelay = c.FadeOutTail = 0; c.FadeInBend = c.FadeOutBend = 0; c.ClipGainDb = 0; c.SectionLabel = ""; c.PieceMuted = false; c.Bpm = 0; c.BpmChecked = false; }   // (Source too: the cut audio came back after saving and reopening)
+        return true;
     }
     // Ctrl+V: at the needle, on the picked track
     void PasteKey() { var row = Selected; PasteClip(row, Math.Max(0, (long)DispPos)); }
@@ -162,7 +177,7 @@ partial class StudioForm
             var n = CloneTrack(it.Copy, " (copy)"); n.Offset = Math.Max(0, at + it.Rel);
             if (rowT.Clip == null)
             {   // an empty track: the piece becomes its audio
-                rowT.Clip = n.Clip; rowT.Offset = n.Offset; rowT.ClipStart = n.ClipStart; rowT.ClipFrames = n.ClipFrames; rowT.ClipGainDb = n.ClipGainDb; rowT.SectionLabel = n.SectionLabel; rowT.PieceMuted = n.PieceMuted; rowT.FadeIn = n.FadeIn; rowT.FadeOut = n.FadeOut; rowT.FadeInDelay = n.FadeInDelay; rowT.FadeOutTail = n.FadeOutTail; rowT.Bpm = n.Bpm; rowT.BpmChecked = n.BpmChecked; if (rowT.Role == "audio" || rowT.Role == null || rowT.Role == "") rowT.Role = n.Role; toolsTrack = host;
+                rowT.Clip = n.Clip; rowT.Offset = n.Offset; rowT.ClipStart = n.ClipStart; rowT.ClipFrames = n.ClipFrames; rowT.ClipGainDb = n.ClipGainDb; rowT.SectionLabel = n.SectionLabel; rowT.PieceMuted = n.PieceMuted; rowT.FadeIn = n.FadeIn; rowT.FadeOut = n.FadeOut; rowT.FadeInDelay = n.FadeInDelay; rowT.FadeOutTail = n.FadeOutTail; rowT.Bpm = n.Bpm; rowT.BpmChecked = n.BpmChecked; rowT.FadeInBend = n.FadeInBend; rowT.FadeOutBend = n.FadeOutBend; if (rowT.Role == "audio" || rowT.Role == null || rowT.Role == "") rowT.Role = n.Role; toolsTrack = host;
                 made.Add(rowT);
             }
             else { n.Host = rowT; n.Out = rowT.Out; lock (eng.Sync) eng.Tracks.Insert(FirstBusIndex(), n); made.Add(n); }
