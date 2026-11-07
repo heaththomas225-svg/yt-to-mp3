@@ -13,7 +13,7 @@ class MockV3
 {
     public bool Effect, SideChainSynth; public ComObject Factory, Comp, Proc, Ctrl, View; public double Vol = 1.0; public static int SR = 44100;
     public double Freq, Phase, Amp; public byte[] GotState; public IntPtr Hwnd; public bool Removed, Attached, ControllerSetState; public IntPtr FramePtr; public List<string> Log = new List<string>(); public bool Active, Processing;
-    public IntPtr HandlerPtr, HostCtx;
+    public IntPtr HandlerPtr, HostCtx; public ComObject MidiMap; public Dictionary<uint, double> Got = new Dictionary<uint, double>();   // Got: every parameter change the processor received
     readonly byte[] cid = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16 };
 
     public MockV3(bool effect, bool sideChainSynth = false)
@@ -27,7 +27,9 @@ class MockV3
             new D_IUDP((s, id, v, str) => 1), new D_IPPP((s, a, b, c) => 1), new M_DUD((s, id, v) => v), new M_DUD((s, id, v) => v), new D_DU((s, id) => id == 100 ? Vol : 0.25), new D_IUD(SetNorm), new D_IP((s, h) => { HandlerPtr = h; return 0; }), new D_PP(CreateView));
         View = new ComObject(new[] { Vst3.IidPlugView }, new D_IP((s, t) => Vst3.Ansi(t, 0, 8) == "HWND" ? 0 : 1), new D_IPP(Attach), new D_I(s => { Removed = true; Attached = false; return 0; }), new D_IP((s, x) => 1), new D_IP((s, x) => 1), new D_IP((s, x) => 1),
             new D_IP((s, r) => { Marshal.WriteInt32(r, 0, 0); Marshal.WriteInt32(r, 4, 0); Marshal.WriteInt32(r, 8, 300); Marshal.WriteInt32(r, 12, 200); return 0; }), new D_IP((s, r) => 0), new D_IB((s, f) => 0), new D_IP((s, f) => { FramePtr = f; return 0; }), new D_I(s => 0), new D_IP((s, r) => 0));
-        Func<byte[], IntPtr> res = iid => Vst3.Same(iid, Vst3.IidComponent) ? Comp.Ptr : (Vst3.Same(iid, Vst3.IidAudioProcessor) ? Proc.Ptr : (Vst3.Same(iid, Vst3.IidEditController) ? Ctrl.Ptr : IntPtr.Zero));
+        // MIDI mapping: the sustain pedal (CC 64) drives parameter 200, pitch bend parameter 201, the mod wheel (CC 1) parameter 202 on channel 1
+        MidiMap = new ComObject(new[] { Vst3.IidMidiMapping }, new D_ISSP((s, bus, ch, c, id) => { uint v = c == 64 ? 200u : (c == 129 ? 201u : (c == 1 && ch == 0 ? 202u : 0u)); if (bus != 0 || v == 0) return 1; Marshal.WriteInt32(id, (int)v); return 0; }));
+        Func<byte[], IntPtr> res = iid => Vst3.Same(iid, Vst3.IidMidiMapping) ? MidiMap.Ptr : Vst3.Same(iid, Vst3.IidComponent) ? Comp.Ptr : (Vst3.Same(iid, Vst3.IidAudioProcessor) ? Proc.Ptr : (Vst3.Same(iid, Vst3.IidEditController) ? Ctrl.Ptr : IntPtr.Zero));
         Comp.Resolver = res; Proc.Resolver = res; Ctrl.Resolver = res;
         D_IPPP create = (s, c, iid, obj) => { var b = new byte[16]; Marshal.Copy(iid, b, 0, 16); IntPtr r = res(b); Marshal.WriteIntPtr(obj, r); return r != IntPtr.Zero ? 0 : -1; };
         D_IP finfo = (s, info) => { var b = Encoding.ASCII.GetBytes("MockCo\0"); Marshal.Copy(b, 0, info, b.Length); return 0; };
@@ -56,7 +58,7 @@ class MockV3
     {
         int n = Marshal.ReadInt32(data, 8); int numIn = Marshal.ReadInt32(data, 12), numOut = Marshal.ReadInt32(data, 16); IntPtr ins = Marshal.ReadIntPtr(data, 24), outs = Marshal.ReadIntPtr(data, 32);
         IntPtr chg = Marshal.ReadIntPtr(data, 40), evs = Marshal.ReadIntPtr(data, 56);
-        if (chg != IntPtr.Zero) { int pc = Vst3.Fn<D_I>(chg, 3)(chg); var gd = Vst3.Fn<D_PI>(chg, 4); for (int i = 0; i < pc; i++) { IntPtr q = gd(chg, i); uint id = Vst3.Fn<D_U>(q, 3)(q); IntPtr so = Marshal.AllocHGlobal(4), val = Marshal.AllocHGlobal(8); Vst3.Fn<D_IIPP>(q, 5)(q, 0, so, val); if (id == 100) Vol = BitConverter.Int64BitsToDouble(Marshal.ReadInt64(val)); Marshal.FreeHGlobal(so); Marshal.FreeHGlobal(val); } }
+        if (chg != IntPtr.Zero) { int pc = Vst3.Fn<D_I>(chg, 3)(chg); var gd = Vst3.Fn<D_PI>(chg, 4); for (int i = 0; i < pc; i++) { IntPtr q = gd(chg, i); uint id = Vst3.Fn<D_U>(q, 3)(q); IntPtr so = Marshal.AllocHGlobal(4), val = Marshal.AllocHGlobal(8); Vst3.Fn<D_IIPP>(q, 5)(q, 0, so, val); double gv = BitConverter.Int64BitsToDouble(Marshal.ReadInt64(val)); Got[id] = gv; if (id == 100) Vol = gv; Marshal.FreeHGlobal(so); Marshal.FreeHGlobal(val); } }
         int ec = evs == IntPtr.Zero ? 0 : Vst3.Fn<D_I>(evs, 3)(evs); var evl = new List<int[]>(); IntPtr eb = Marshal.AllocHGlobal(48);
         for (int i = 0; i < ec; i++) { Vst3.Fn<D_IIP>(evs, 4)(evs, i, eb); int off = Marshal.ReadInt32(eb, 4); int type = (ushort)Marshal.ReadInt16(eb, 18); int pitch = Marshal.ReadInt16(eb, 26); float vel = BitConverter.ToSingle(BitConverter.GetBytes(Marshal.ReadInt32(eb, type == 0 ? 32 : 28)), 0); evl.Add(new[] { off, type, pitch, (int)(vel * 127 + 0.5f) }); Log.Add("event type " + type + " at " + off + " pitch " + pitch); }
         Marshal.FreeHGlobal(eb);
@@ -104,6 +106,13 @@ static class W3
         p.SendMidi(new List<KeyValuePair<int, MidiEv>> { new KeyValuePair<int, MidiEv>(0, new MidiEv { S = 0x90, D1 = 69, D2 = 127 }) }); l = new float[2048]; r = new float[2048]; p.Process(l, r, 2048); double full = Peak(l, 500, 2048);
         p.SetParam(0, 0.5f); l = new float[2048]; r = new float[2048]; p.Process(l, r, 2048); double half = Peak(l, 500, 2048);
         Check("changing a parameter reaches the plugin's audio (volume halved)", half < full * 0.6 && half > full * 0.4 && Math.Abs(p.GetParam(0) - 0.5f) < 0.01, "full " + full.ToString("0.00") + ", half " + half.ToString("0.00"));
+        // MIDI controllers: VST 3 gets them as the parameters the plugin's MIDI mapping names
+        m.Got.Clear(); p.SendMidi(new List<KeyValuePair<int, MidiEv>> { new KeyValuePair<int, MidiEv>(0, new MidiEv { S = 0xB0, D1 = 64, D2 = 127 }), new KeyValuePair<int, MidiEv>(0, new MidiEv { S = 0xE0, D1 = 0x7F, D2 = 0x7F }), new KeyValuePair<int, MidiEv>(0, new MidiEv { S = 0xB0, D1 = 1, D2 = 64 }), new KeyValuePair<int, MidiEv>(0, new MidiEv { S = 0xB1, D1 = 1, D2 = 127 }) }); p.Process(new float[512], new float[512], 512);
+        double gs, gb, gm; m.Got.TryGetValue(200, out gs); m.Got.TryGetValue(201, out gb); m.Got.TryGetValue(202, out gm);
+        Check("the sustain pedal, pitch bend and mod wheel reach a VST3 instrument (as its mapped parameters)", m.Got.ContainsKey(200) && gs > 0.99 && gb > 0.99 && Math.Abs(gm - 64 / 127.0) < 0.01, "sustain " + gs.ToString("0.00") + ", bend " + gb.ToString("0.00") + ", mod " + gm.ToString("0.00"));
+        m.Got.Clear(); p.SendMidi(new List<KeyValuePair<int, MidiEv>> { new KeyValuePair<int, MidiEv>(0, new MidiEv { S = 0xB0, D1 = 123, D2 = 0 }) }); p.Process(new float[512], new float[512], 512);
+        Check("stopping lets go of the sustain pedal and centres the pitch bend", m.Got.ContainsKey(200) && m.Got[200] == 0 && m.Got.ContainsKey(201) && Math.Abs(m.Got[201] - 0.5) < 0.001, "");
+        p.SendMidi(new List<KeyValuePair<int, MidiEv>> { new KeyValuePair<int, MidiEv>(0, new MidiEv { S = 0x90, D1 = 69, D2 = 127 }) }); p.Process(new float[512], new float[512], 512);
         // state
         var chunk = p.GetChunk(); string cs = chunk == null ? "" : Encoding.ASCII.GetString(chunk);
         Check("the plugin's saved state can be read", cs.StartsWith("V3STATE-"), cs);

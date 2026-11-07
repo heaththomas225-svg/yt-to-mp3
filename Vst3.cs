@@ -37,6 +37,7 @@ static class VstLoader
 [UnmanagedFunctionPointer(CallingConvention.StdCall)] delegate int D_IPP(IntPtr self, IntPtr a, IntPtr b);
 [UnmanagedFunctionPointer(CallingConvention.StdCall)] delegate int D_IPPP(IntPtr self, IntPtr a, IntPtr b, IntPtr c);
 [UnmanagedFunctionPointer(CallingConvention.StdCall)] delegate int D_II(IntPtr self, int a);
+[UnmanagedFunctionPointer(CallingConvention.StdCall)] delegate int D_ISSP(IntPtr self, int bus, short ch, short ctrl, IntPtr id);
 [UnmanagedFunctionPointer(CallingConvention.StdCall)] delegate int D_IIP(IntPtr self, int a, IntPtr b);
 [UnmanagedFunctionPointer(CallingConvention.StdCall)] delegate int D_IIII(IntPtr self, int a, int b, int c);
 [UnmanagedFunctionPointer(CallingConvention.StdCall)] delegate int D_IIIIB(IntPtr self, int a, int b, int c, byte d);
@@ -86,7 +87,7 @@ static class Vst3
         IidAudioProcessor = Iid(0x42043F99, 0xB7DA453C, 0xA569E79D, 0x9AAEC33D), IidEditController = Iid(0xDCD7BBE3, 0x7742448D, 0xA874AACC, 0x979C759E), IidComponentHandler = Iid(0x93A0BEA3, 0x0BD045DB, 0x8E890B0C, 0xC1E46AC6),
         IidHostApplication = Iid(0x58E595CC, 0xDB2D4969, 0x8B6AAF8C, 0x36A664E5), IidConnectionPoint = Iid(0x70A4156F, 0x6E6E4026, 0x989148BF, 0xAA60D8D1), IidPlugView = Iid(0x5BC32507, 0xD06049EA, 0xA6151B52, 0x2B755B29),
         IidPlugFrame = Iid(0x367FAF01, 0xAFA94693, 0x8D4DA2A0, 0xED0882A3), IidEventList = Iid(0x3A2C4214, 0x346349FE, 0xB2C4F397, 0xB9695A44), IidParameterChanges = Iid(0xA4779663, 0x0BB64A56, 0xB44284A0, 0x1B1AA946),
-        IidParamValueQueue = Iid(0x01263A18, 0xED074F6F, 0x98C9D356, 0x4686F9BA), IidBStream = Iid(0xC3BF6EA2, 0x30994752, 0x9B6BF990, 0x1EE33E9B), IidPluginFactory2 = Iid(0x0007B650, 0xF24B4C0B, 0xA464EDB9, 0xF00B2ABB);
+        IidMidiMapping = Iid(0xDF0FF9F7, 0x49B74669, 0xB63AB733, 0x6A2A8C58), IidParamValueQueue = Iid(0x01263A18, 0xED074F6F, 0x98C9D356, 0x4686F9BA), IidBStream = Iid(0xC3BF6EA2, 0x30994752, 0x9B6BF990, 0x1EE33E9B), IidPluginFactory2 = Iid(0x0007B650, 0xF24B4C0B, 0xA464EDB9, 0xF00B2ABB);
     public static bool Same(byte[] a, byte[] b) { for (int i = 0; i < 16; i++) if (a[i] != b[i]) return false; return true; }
     public static T Fn<T>(IntPtr obj, int slot) where T : class { IntPtr vt = Marshal.ReadIntPtr(obj); return (T)(object)Marshal.GetDelegateForFunctionPointer(Marshal.ReadIntPtr(vt, slot * IntPtr.Size), typeof(T)); }
     public static void Release(IntPtr obj) { if (obj != IntPtr.Zero) try { Fn<ComRef>(obj, 2)(obj); } catch { } }
@@ -191,7 +192,7 @@ class Vst3Plugin : IVstHosted
             processFn = Vst3.Fn<D_IP>(processor, 9);
             try { latFn = Vst3.Fn<D_U>(processor, 6); } catch { latFn = null; }
             RefreshLatency();
-            BuildBuffers(); ReadParams(); ProbeEditor();
+            BuildBuffers(); ReadParams(); ReadMidiMap(); ProbeEditor();
             if (name.Length == 0) name = System.IO.Path.GetFileNameWithoutExtension(path);
         }
         finally { Marshal.FreeHGlobal(info); }
@@ -254,6 +255,29 @@ class Vst3Plugin : IVstHosted
         finally { Marshal.FreeHGlobal(info); }
     }
 
+    // which parameter each MIDI controller drives (VST 3 has no CC messages: sustain, mod wheel, pitch bend... are parameters the plugin names here)
+    const int MapCtrls = 130; uint[] ccMap; const uint NoParam = 0xFFFFFFFF;
+    void ReadMidiMap()
+    {
+        if (controller == IntPtr.Zero) return; IntPtr mm = Vst3.Query(controller, Vst3.IidMidiMapping); if (mm == IntPtr.Zero) return;
+        IntPtr idp = Marshal.AllocHGlobal(4); bool any = false; var map = new uint[16 * MapCtrls];
+        try
+        {
+            var get = Vst3.Fn<D_ISSP>(mm, 3);
+            for (int ch = 0; ch < 16; ch++) for (int c = 0; c < MapCtrls; c++) { Marshal.WriteInt32(idp, -1); uint id = NoParam; try { if (get(mm, 0, (short)ch, (short)c, idp) == 0) id = (uint)Marshal.ReadInt32(idp); } catch { } map[ch * MapCtrls + c] = id; if (id != NoParam) any = true; }
+        }
+        catch { any = false; }
+        finally { Marshal.FreeHGlobal(idp); Vst3.Release(mm); }
+        if (any) ccMap = map;
+    }
+    // a controller's value goes to the processor as a parameter change in this block (sound thread, no waiting on the window)
+    void CtrlChange(int ch, int ctrl, double v)
+    {
+        var map = ccMap; if (map == null || ctrl < 0 || ctrl >= MapCtrls) return; uint id = map[(ch & 15) * MapCtrls + ctrl]; if (id == NoParam) return;
+        v = Math.Max(0.0, Math.Min(1.0, v));
+        lock (pending) { for (int k = 0; k < changeCount; k++) if (chId[k] == id) { chVal[k] = v; return; } if (changeCount < MaxChanges) { chId[changeCount] = id; chVal[changeCount] = v; changeCount++; } }
+    }
+
     void ProbeEditor()
     {
         if (controller == IntPtr.Zero) return;
@@ -314,7 +338,10 @@ class Vst3Plugin : IVstHosted
             if (evCount >= MaxEvents - 16) break; var m = kv.Value; int st = m.S & 0xF0, ch = m.S & 0x0F;
             if (st == 0x90 && m.D2 > 0) { Emit(kv.Key, true, ch, m.D1, m.D2 / 127f); active.Add(m.D1); }
             else if (st == 0x80 || (st == 0x90 && m.D2 == 0)) { Emit(kv.Key, false, ch, m.D1, m.D2 / 127f); active.Remove(m.D1); }
-            else if (m.S == 0xB0 && (m.D1 == 123 || m.D1 == 120)) { evOffs.Clear(); evOffs.AddRange(active); foreach (var note in evOffs) if (evCount < MaxEvents) Emit(kv.Key, false, 0, note, 0f); active.Clear(); }
+            else if (m.S == 0xB0 && (m.D1 == 123 || m.D1 == 120)) { evOffs.Clear(); evOffs.AddRange(active); foreach (var note in evOffs) if (evCount < MaxEvents) Emit(kv.Key, false, 0, note, 0f); active.Clear(); CtrlChange(0, 64, 0); CtrlChange(0, 129, 0.5); }   // (stop: the pedal is let go and the pitch bend centred too)
+            else if (st == 0xB0) CtrlChange(ch, m.D1, m.D2 / 127.0);                        // sustain, mod wheel, any knob on the keyboard
+            else if (st == 0xE0) CtrlChange(ch, 129, ((m.D2 << 7) | m.D1) / 16383.0);       // pitch bend
+            else if (st == 0xD0) CtrlChange(ch, 128, m.D1 / 127.0);                         // channel pressure
         }
     }
     void Emit(int delta, bool on, int ch, int pitch, float vel)
