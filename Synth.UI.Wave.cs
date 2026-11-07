@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -29,7 +29,7 @@ class WaveEditorForm : Form
         bx = 14; by = 380;
         B("Hear it (C2)", 110, (s, e) => Hear()); B("Done", 80, (s, e) => Close());
         Controls.Add(new Label { Left = 14, Top = 420, Width = 732, Height = 44, ForeColor = TM.C(255, 150, 130, 190), Font = new Font("Segoe UI", 9f), Text = "Hold the mouse button and draw across the picture. Everything you draw is used by Oscillator " + osc.ToUpper() + " straight away (it is set to Custom " + (slot + 1) + "). With several frames, the WAVE knob (and any LFO or envelope on it) scans smoothly from one frame to the next. Your drawings are saved with the patch." });
-        FormClosed += (s, e) => { if (previewOff != null) previewOff.Stop(); fx.NoteOff(36); };
+        FormClosed += (s, e) => { Flush(); if (applyT != null) applyT.Dispose(); if (previewOff != null) previewOff.Stop(); fx.NoteOff(36); };
         Apply();
     }
 
@@ -37,7 +37,9 @@ class WaveEditorForm : Form
     Button B(string t, int w, EventHandler h) { var b = new PxButton { Text = t, Left = bx, Top = by, Width = w, Height = 28, FlatStyle = FlatStyle.Flat, BackColor = TM.C(255, 70, 40, 120), ForeColor = Color.White, Cursor = Cursors.Hand }; b.FlatAppearance.BorderColor = TM.C(255, 200, 150, 255); b.Click += h; Controls.Add(b); bx += w + 6; return b; }
     public short[] Current { get { return frames[cur]; } }
     void Info() { info.Text = "Frame " + (cur + 1) + " of " + frames.Count + "   (up to 8 frames; each frame is one cycle of the wave)"; }
-    public void Apply() { Wavetables.SetCustom(slot, frames.ToArray()); Info(); pad.Invalidate(); }
+    Timer applyT; bool applyDirty;   // the wavetable is rebuilt a few times a second while you draw (every mouse move rebuilt it, and drawing lagged)
+    public void Apply() { applyDirty = true; Info(); pad.Invalidate(); if (applyT == null) { applyT = new Timer(); applyT.Tick += (s, e) => Flush(); } if (!applyT.Enabled) { applyT.Interval = 40 + 20 * frames.Count; applyT.Start(); } }
+    public void Flush() { if (applyT != null) applyT.Stop(); if (applyDirty) { applyDirty = false; Wavetables.SetCustom(slot, frames.ToArray()); } }
     void Fill(string shape)
     {
         var f = frames[cur]; var rnd = new Random(11);
@@ -47,7 +49,7 @@ class WaveEditorForm : Form
     void Smooth() { var f = frames[cur]; var t = new short[256]; for (int i = 0; i < 256; i++) t[i] = (short)((f[(i + 255) % 256] + 2 * f[i] + f[(i + 1) % 256]) / 4); Array.Copy(t, f, 256); Apply(); }
     void Flip() { var f = frames[cur]; for (int i = 0; i < 256; i++) f[i] = (short)Math.Max(-32767, Math.Min(32767, -f[i])); Apply(); }
     void Normalize() { var f = frames[cur]; int pk = 1; for (int i = 0; i < 256; i++) pk = Math.Max(pk, Math.Abs((int)f[i])); double g = 30000.0 / pk; for (int i = 0; i < 256; i++) f[i] = (short)(f[i] * g); Apply(); }
-    void Hear() { fx.NoteOn(36, 100); if (previewOff == null) { previewOff = new Timer { Interval = 900 }; previewOff.Tick += (s, e) => { previewOff.Stop(); fx.NoteOff(36); }; } previewOff.Stop(); previewOff.Start(); }
+    void Hear() { Flush(); fx.NoteOn(36, 100); if (previewOff == null) { previewOff = new Timer { Interval = 900 }; previewOff.Tick += (s, e) => { previewOff.Stop(); fx.NoteOff(36); }; } previewOff.Stop(); previewOff.Start(); }
 
     class DrawPad : Control
     {
@@ -63,7 +65,7 @@ class WaveEditorForm : Form
         }
         protected override void OnMouseDown(MouseEventArgs e) { base.OnMouseDown(e); lastX = -1; Paint1(e.X, e.Y); }
         protected override void OnMouseMove(MouseEventArgs e) { base.OnMouseMove(e); if (e.Button == MouseButtons.Left) Paint1(e.X, e.Y); }
-        protected override void OnMouseUp(MouseEventArgs e) { base.OnMouseUp(e); lastX = -1; }
+        protected override void OnMouseUp(MouseEventArgs e) { base.OnMouseUp(e); lastX = -1; w.Flush(); }
         protected override void OnPaint(PaintEventArgs e)
         {
             var g = e.Graphics; g.Clear(BackColor); g.SmoothingMode = SmoothingMode.AntiAlias;

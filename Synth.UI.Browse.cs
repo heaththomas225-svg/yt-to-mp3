@@ -139,7 +139,7 @@ partial class SynthCanvas
         // the buttons
         float by = list.Bottom + 10, bx = x0; bool isUser = SynthPresets.UserNames().Contains(fx.PresetName);
         bx = Action(g, "SAVE CURRENT SOUND...", bx, by, 206, true, "Keep the sound you are playing under a name. It stays in MY SOUNDS until you delete it.", () => SaveCurrentSound());
-        bx = Action(g, "DUPLICATE", bx, by, 96, true, "Make a copy you can change.", () => { try { string n2 = SynthPresets.DuplicateUser(fx.PresetName); SynthPresets.Apply(fx, n2); modified = false; soundTab = 1; browseMsg = "Made " + n2; } catch (Exception ex) { browseMsg = ex.Message; } });
+        bx = Action(g, "DUPLICATE", bx, by, 96, true, "Make a copy you can change.", () => { try { string n2 = fx.PresetName + " copy"; int k2 = 2; while (SynthPresets.Exists(n2)) n2 = fx.PresetName + " copy " + (k2++); SynthPresets.SaveUser(fx, n2); modified = false; soundTab = 1; browseMsg = "Made " + fx.PresetName; } catch (Exception ex) { browseMsg = "Could not copy: " + ex.Message; } });   // (a copy of the sound as you hear it now, edits included)
         bx = Action(g, "RENAME", bx, by, 90, isUser, "Rename the sound you are playing (one of yours).", () => { string s = AskName("New name:", fx.PresetName); if (s == null) return; try { string old = fx.PresetName; SynthPresets.RenameUser(old, s); fx.PresetName = s.Trim(); browseMsg = "Renamed to " + s.Trim(); } catch (Exception ex) { browseMsg = ex.Message; } });
         by += 36; bx = x0;
         bx = Action(g, "START FROM SCRATCH", bx, by, 160, true, "Reset everything to a blank, plain sound to build your own from.", () => { SynthPresets.Initialise(fx); modified = false; browseMsg = "A blank sound: build yours from here."; });
@@ -160,7 +160,7 @@ partial class SynthCanvas
         string s = AskName("Name your sound:", SynthPresets.IsFactory(fx.PresetName) ? "My " + fx.PresetName : fx.PresetName); if (s == null) return;
         try
         {
-            if (SynthPresets.UserNames().Contains(s.Trim()) && MessageBox.Show(this, "\"" + s.Trim() + "\" exists. Replace it?", "Save sound", MessageBoxButtons.YesNo) != DialogResult.Yes) return;
+            string nmS = s.Trim(); if (!SynthPresets.IsFactory(nmS) && SynthPresets.Exists(nmS) && MessageBox.Show(this, "\"" + nmS + "\" exists. Replace it?", "Save sound", MessageBoxButtons.YesNo) != DialogResult.Yes) return;   // (the file system's own check: bass and Bass are the same file)
             SynthPresets.SaveUser(fx, s); modified = false; soundTab = 1; browseMsg = "Saved " + s.Trim() + ". It stays in MY SOUNDS until you delete it.";
             CommunityPresets.AutoShare("synth", s.Trim(), fx.Serialize(), ProjectLibrary.ProfileName, msg => { if (msg != null) { try { BeginInvoke(new Action(() => { browseMsg = msg; Poke(); })); } catch { } } });
         }

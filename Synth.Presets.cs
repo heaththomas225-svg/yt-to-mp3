@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
@@ -102,17 +102,18 @@ static class SynthPresets
     static string FileFor(string name) { foreach (char c in Path.GetInvalidFileNameChars()) name = name.Replace(c, '_'); return Path.Combine(Dir, name.Trim() + ".txt"); }
 
     // a clean slate first (knobs, LFO shapes, drawn waves), then the preset on top
+    static bool CarriesWaves(string data) { return data != null && data.IndexOf("wtc", StringComparison.Ordinal) >= 0; }
     public static void Apply(SynthFx fx, string name, bool resetWaves = true)
     {
-        fx.ResetAll(resetWaves);
         string d = Find(name);
+        if (d == null) { try { string f = FileFor(name); if (File.Exists(f)) d = File.ReadAllText(f); } catch { } }
+        fx.ResetAll(resetWaves && CarriesWaves(d));   // (a preset without its own drawn waves leaves them alone: the waves are shared by every Bass Lab, and loading a factory preset wiped the one drawn in another)
         if (d != null) fx.Deserialize(d);
-        else { try { string f = FileFor(name); if (File.Exists(f)) fx.Deserialize(File.ReadAllText(f)); } catch { } }
         fx.ApplyGlobals(); fx.PresetName = name; fx.MarkDirty(); fx.Reset();
     }
     // a sound that came from the community: the same clean slate first, then its settings
-    public static void ApplyData(SynthFx fx, string name, string data) { fx.ResetAll(true); fx.Deserialize(data); fx.ApplyGlobals(); fx.PresetName = name; fx.MarkDirty(); fx.Reset(); }
-    public static void Initialise(SynthFx fx) { Apply(fx, "Init"); }
+    public static void ApplyData(SynthFx fx, string name, string data) { fx.ResetAll(CarriesWaves(data)); fx.Deserialize(data); fx.ApplyGlobals(); fx.PresetName = name; fx.MarkDirty(); fx.Reset(); }
+    public static void Initialise(SynthFx fx) { fx.ResetAll(true); Apply(fx, "Init", false); }   // (START FROM SCRATCH really is a blank slate)
     public static bool IsFactory(string name) { return Find(name) != null; }
     public static bool Exists(string name) { return IsFactory(name) || File.Exists(FileFor(name)); }
     public static List<string> UserNames()

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Windows.Forms;
@@ -193,6 +193,7 @@ sealed class WobbleFx : InstrumentFx
         AddP("fm", "FM amount", 0, 8, 2, ""); AddP("detune", "Detune", 0, 50, 18, "ct"); AddP("sub", "Sub", 0, 100, 55, "%"); AddP("mid", "Mid", 0, 150, 130, "%");
         AddP("attack", "Attack", 1, 200, 4, "ms"); AddP("release", "Release", 5, 1000, 60, "ms"); AddP("glide", "Glide", 0, 300, 0, "ms"); AddP("width", "Width", 0, 100, 25, "%");
         AddC("vowels", "Vowels", Vowels, 0); AddC("ratio", "FM ratio", Ratios, 4); AddP("pw", "Pulse width", 8, 92, 50, "%");
+        AddC("retrig", "LFO start", new[] { "Free", "Retrigger" }, 1); AddP("pwmod", "Pulse width LFO", 0, 100, 0, "%"); AddP("envdecay", "Filter env decay", 10, 1000, 120, "ms"); AddP("pitchdecay", "Pitch drop time", 5, 500, 60, "ms"); AddP("pump", "Sidechain pump", 0, 100, 0, "%"); AddP("fmmod", "FM LFO", 0, 200, 80, "%");   // (saved with the sound: they were lost when a project was reopened)
         AddP("env", "Filter envelope", 0, 4, 0, "oct"); AddP("pitchenv", "Pitch drop", -12, 12, 0, "st"); AddP("level", "Level", -24, 12, 0, "dB");
     }
     public override bool IsInstrument { get { return true; } }
@@ -213,7 +214,7 @@ sealed class WobbleFx : InstrumentFx
     {
         int src = (int)Get("src"); patch.Saw = src == 0 || src == 4 || src == 5 ? 1 : 0; patch.Square = src == 1 || src == 4 ? 1 : 0; patch.Reese = src == 2 || src == 6 ? 1 : 0; patch.Fm = src == 3 || src == 5 || src == 6 ? 1 : 0;
         patch.Rates = RateCodes[Math.Max(0, Math.Min(RateCodes.Length - 1, (int)Get("rate")))]; patch.Shape = (int)Get("shape"); patch.Formant = Get("filter") >= 0.5f;
-        patch.Depth = Get("depth"); patch.Cutoff = Get("cutoff"); patch.Res = Get("res") / 100.0; patch.Drive = Get("grit") / 100.0; patch.Fold = Get("fold") / 100.0; patch.FmIndex = Get("fm"); patch.FmMod = 0.8; patch.Detune = Get("detune");
+        patch.Depth = Get("depth"); patch.Cutoff = Get("cutoff"); patch.Res = Get("res") / 100.0; patch.Drive = Get("grit") / 100.0; patch.Fold = Get("fold") / 100.0; patch.FmIndex = Get("fm"); patch.FmMod = Get("fmmod") / 100.0; patch.Retrig = Get("retrig") > 0.5f; patch.PwMod = Get("pwmod") / 100.0; patch.EnvDecay = Get("envdecay") / 1000.0; patch.PitchDecay = Get("pitchdecay") / 1000.0; patch.Pump = Get("pump") / 100.0; patch.Detune = Get("detune");
         patch.Sub = Get("sub") / 100.0; patch.Mid = Get("mid") / 100.0; patch.Attack = Get("attack") / 1000.0; patch.Release = Get("release") / 1000.0; patch.Glide = Get("glide") / 1000.0; patch.Width = Get("width") / 100.0;
         patch.EnvAmt = Get("env"); patch.PitchEnv = Get("pitchenv"); patch.Vowels = Vowels[Math.Max(0, Math.Min(Vowels.Length - 1, (int)Get("vowels")))]; patch.FmRatio = double.Parse(Ratios[Math.Max(0, Math.Min(Ratios.Length - 1, (int)Get("ratio")))], CultureInfo.InvariantCulture); patch.Pw = Get("pw") / 100.0;
         string s = patch.Rates + "|" + patch.Vowels; if (voice != null && s != sig) voice.Refresh(); sig = s;
@@ -225,7 +226,7 @@ sealed class WobbleFx : InstrumentFx
         Set("src", src); int ri = Array.IndexOf(RateCodes, p.Rates); Set("rate", ri >= 0 ? ri : 3); Set("shape", p.Shape); Set("filter", p.Formant ? 1 : 0);
         Set("depth", (float)p.Depth); Set("cutoff", (float)p.Cutoff); Set("res", (float)(p.Res * 100)); Set("grit", (float)(p.Drive * 100)); Set("fold", (float)(p.Fold * 100)); Set("fm", (float)p.FmIndex); Set("detune", (float)p.Detune);
         Set("sub", (float)(p.Sub * 100)); Set("mid", (float)(p.Mid * 100)); Set("attack", (float)(p.Attack * 1000)); Set("release", (float)(p.Release * 1000)); Set("glide", (float)(p.Glide * 1000)); Set("width", (float)(p.Width * 100));
-        Set("env", (float)p.EnvAmt); Set("pitchenv", (float)p.PitchEnv); int vi = Array.IndexOf(Vowels, p.Vowels); Set("vowels", vi >= 0 ? vi : 0); int fi = 0; double bd = 99; for (int k = 0; k < Ratios.Length; k++) { double d = Math.Abs(double.Parse(Ratios[k], CultureInfo.InvariantCulture) - p.FmRatio); if (d < bd) { bd = d; fi = k; } } Set("ratio", fi); Set("pw", (float)(p.Pw * 100)); patch.Vowels = p.Vowels; patch.Pw = p.Pw; patch.PwMod = p.PwMod; patch.FmRatio = p.FmRatio; patch.EnvDecay = p.EnvDecay; patch.PitchDecay = p.PitchDecay; patch.Retrig = p.Retrig; patch.Pump = p.Pump; patch.Tone = p.Tone;
+        Set("env", (float)p.EnvAmt); Set("pitchenv", (float)p.PitchEnv); int vi = Array.IndexOf(Vowels, p.Vowels); Set("vowels", vi >= 0 ? vi : 0); int fi = 0; double bd = 99; for (int k = 0; k < Ratios.Length; k++) { double d = Math.Abs(double.Parse(Ratios[k], CultureInfo.InvariantCulture) - p.FmRatio); if (d < bd) { bd = d; fi = k; } } Set("ratio", fi); Set("pw", (float)(p.Pw * 100)); patch.Vowels = p.Vowels; patch.Pw = p.Pw; patch.FmRatio = p.FmRatio; patch.Tone = p.Tone; Set("retrig", p.Retrig ? 1 : 0); Set("pwmod", (float)(p.PwMod * 100)); Set("envdecay", (float)(p.EnvDecay * 1000)); Set("pitchdecay", (float)(p.PitchDecay * 1000)); Set("pump", (float)(p.Pump * 100)); Set("fmmod", (float)(p.FmMod > 0 ? p.FmMod * 100 : 80));
     }
     void Set(string id, float v) { var p = Find(id); if (p != null) p.Val = Math.Max(p.Min, Math.Min(p.Max, v)); }
     public override void Process(float[] l, float[] r, int n)

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -180,6 +180,7 @@ partial class SynthCanvas
     void OpenWaveEditor(string s)
     {
         int slot = 0; var tbl = P(s + "tbl"); if (tbl.Val >= Wavetables.CustomBase && tbl.Val < Wavetables.CustomBase + 3) slot = (int)tbl.Val - Wavetables.CustomBase; else { SetVal(tbl, Wavetables.CustomBase); }
+        SetVal(P(s + "on"), 1); SetVal(P(s + "mute"), 0);   // (B and C start off: the drawn wave was silent)
         SetVal(P(s + "src"), 0); var f = new WaveEditorForm(fx, slot, s); f.Show(FindForm()); Poke();
     }
 }
