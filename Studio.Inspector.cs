@@ -117,7 +117,7 @@ partial class StudioForm
         // TRACK: name, colour, mute / solo / on, mono, phase
         var a = InsBox(g, Rc(x, y, 230, h), t.IsBus ? "BUS" : (t.Instrument ? "INSTRUMENT TRACK" : "AUDIO TRACK"), col);
         Btn(g, Rc(a.X, a.Y, a.Width - 34, 24), t.Name, 0, () => RenameTrack(t), 10); var sw = Rc(a.Right - 28, a.Y, 28, 24); using (var cb = new SolidBrush(col)) using (var p = RR(sw, 5)) g.FillPath(cb, p); Reg(sw, () => TrackColourMenu(t)); Hint2(sw, "Change the track colour");
-        float by = a.Y + 30; Btn(g, Rc(a.X, by, 46, 24), "M", t.Mute ? 3 : 0, () => { t.Mute = !t.Mute; }, 11); Btn(g, Rc(a.X + 50, by, 46, 24), "S", t.Solo ? 2 : 0, () => { t.Solo = !t.Solo; }, 11); Btn(g, Rc(a.X + 100, by, a.Width - 100, 24), t.Off ? "OFF" : "ON", t.Off ? 0 : 4, () => { t.Off = !t.Off; }, 10);
+        float by = a.Y + 30; Btn(g, Rc(a.X, by, 46, 24), "M", t.Mute ? 3 : 0, () => { t.Mute = !t.Mute; }, 11); Btn(g, Rc(a.X + 50, by, 46, 24), "S", t.Solo ? 2 : 0, () => { t.Solo = !t.Solo; }, 11); Btn(g, Rc(a.X + 100, by, a.Width - 100, 24), t.Off ? "OFF" : "ON", t.Off ? 0 : 4, () => { PushUndo(); t.Off = !t.Off; }, 10);
         by += 30; if (!t.IsBus) { Btn(g, Rc(a.X, by, (a.Width - 4) / 2, 24), t.Mono ? "MONO" : "STEREO", t.Mono ? 4 : 0, () => { PushUndo(); t.Mono = !t.Mono; }, 10); Btn(g, Rc(a.X + (a.Width + 4) / 2, by, (a.Width - 4) / 2, 24), "PHASE Ø", t.Invert ? 4 : 0, () => { PushUndo(); t.Invert = !t.Invert; }, 10); Hint2(Rc(a.X + (a.Width + 4) / 2, by, (a.Width - 4) / 2, 24), "Flip the phase (polarity) of this track"); by += 30; }
         int lanes = t.Auto.Count; Txt(g, lanes == 0 ? "AUTOMATION: NONE" : "AUTOMATION: " + lanes + " LANE" + (lanes == 1 ? "" : "S"), 9.5f, lanes > 0 ? NeonCyan : DimC, Rc(a.X, by, a.Width, 16), StringAlignment.Near, lanes > 0);
         x += 238;
@@ -317,7 +317,7 @@ partial class StudioForm
         y += 36;
         // stereo / mono, phase and on / off, then the input trim (they were on the CHANNEL tab)
         {
-            float bw3 = (w - 4) / 3; var onb = Rc(x + (bw3 + 2) * 2, y, bw3, 22); Btn(g, onb, t.Off ? "OFF" : "ON", t.Off ? 3 : 4, () => tt.Off = !tt.Off, 8.5f); Hint2(onb, t.Name + " is " + (t.Off ? "OFF: it makes no sound and is not processed. Click to switch it on." : "ON. Click to switch it off (no sound, no processing)."));
+            float bw3 = (w - 4) / 3; var onb = Rc(x + (bw3 + 2) * 2, y, bw3, 22); Btn(g, onb, t.Off ? "OFF" : "ON", t.Off ? 3 : 4, () => { PushUndo(); tt.Off = !tt.Off; }, 8.5f); Hint2(onb, t.Name + " is " + (t.Off ? "OFF: it makes no sound and is not processed. Click to switch it on." : "ON. Click to switch it off (no sound, no processing)."));
             if (!t.IsBus)
             {
                 var mb = Rc(x, y, bw3, 22); Btn(g, mb, t.Mono ? "MONO" : "ST", t.Mono ? 4 : 0, () => { PushUndo(); tt.Mono = !tt.Mono; }, 8.5f); Hint2(mb, t.Mono ? t.Name + " plays in mono. Click for stereo." : t.Name + " plays in stereo. Click for mono.");

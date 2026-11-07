@@ -24,7 +24,7 @@ partial class StudioForm
         g.SmoothingMode = sm;
     }
     bool AnyTrackOff() { foreach (var t in eng.Tracks.ToArray()) if (t.Off) return true; return false; }
-    void SetOff(Track tk, bool off) { foreach (var x in eng.Tracks.ToArray()) if (x == tk || x.Host == tk) x.Off = off; }
+    void SetOff(Track tk, bool off) { PushUndo(); foreach (var x in eng.Tracks.ToArray()) if (x == tk || x.Host == tk) x.Off = off; }
     // the light turns the whole row off (its own clip and every layer on it); an original that was unloaded after separation is read back first when it is turned on
     void ToggleOff(Track tk)
     {

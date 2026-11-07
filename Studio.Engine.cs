@@ -461,13 +461,21 @@ partial class StudioEngine
         gl = pan <= 0 ? 1f : (float)Math.Cos(pan * Math.PI / 2); gr = pan >= 0 ? 1f : (float)Math.Cos(-pan * Math.PI / 2); return 0;
     }
 
-    static int EffLat(Track t, List<Track> list) { return t.IsBus ? 0 : t.Latency() + (t.Out != null && t.Out != t && t.Out.IsBus && list.Contains(t.Out) ? t.Out.Latency() : 0); }   // a track sent to a bus is as late as its own plugins plus the bus plugins
+    // plugin delay compensation in two stages: every track reaches its buses at the slowest track's delay (trk), then every bus and every track going straight to the master reaches it bus frames later (the slowest bus anything goes into, by its output or an aux send)
+    // (one delay per track could not line up a track heard straight out AND sent to a bus with plugins: the send came out late)
+    static bool FeedsBus(Track t, Track b, List<Track> list) { if (t.IsBus || b == null || !b.IsBus || b == t || !list.Contains(b)) return false; if (t.Out == b) return true; var row = t.Host != null && list.Contains(t.Host) ? t.Host : t; var s = row.Sends; if (s != null) foreach (var sd in s) if (sd.Bus == b) return true; return false; }
+    static void LatParts(List<Track> list, RenderOpts o, out int trk, out int bus)
+    {
+        trk = 0; bus = 0; if (o.Dry) return;
+        foreach (var t in list) { if (t.IsBus || MergedPiece(t, list)) continue; trk = Math.Max(trk, t.Latency()); }
+        foreach (var b in list) { if (!b.IsBus) continue; int bl = b.Latency(); if (bl <= bus) continue; foreach (var t in list) if (FeedsBus(t, b, list) && !MergedPiece(t, list)) { bus = bl; break; } }
+    }
 
     // ---- one row = one track: the pieces on a row (made by SPLIT or by adding more audio to it) share the row's plugins, mute, solo, volume and pan ----
     static bool HasInstrFx(Track t) { foreach (var f in t.Fx) { var ifx = f as InstrumentFx; if (ifx != null && ifx.IsInstrument) return true; } return false; }
     // the audio piece that is played through the plugins of the row it sits on (its host): the host mixes it in before the plugins run
     // the delay every track is lined up to; Mix and RenderLatency both use this so they can never drift apart (merged pieces play through their host's plugins, so their own cloned chains do not count)
-    static int MixLatency(List<Track> list, RenderOpts o) { int maxLat = 0; foreach (var t in list) { if (MergedPiece(t, list)) continue; maxLat = Math.Max(maxLat, o.Dry ? 0 : EffLat(t, list)); } return maxLat; }
+    static int MixLatency(List<Track> list, RenderOpts o) { int trk, bus; LatParts(list, o, out trk, out bus); return trk + bus; }
     static bool MergedPiece(Track t, List<Track> list) { var h = t.Host; return h != null && !t.IsBus && !t.Instrument && t.Clip != null && !HasInstrFx(t) && !h.IsBus && !h.Instrument && !HasInstrFx(h) && list.Contains(h); }   // the row's own track may have no audio of its own (its clip was moved to another row): its plugins still play every piece on the row
     static bool HasPieces(Track h, List<Track> list) { foreach (var p in list) if (p.Host == h && MergedPiece(p, list)) return true; return false; }
     // the audio of one clip for this block (its own fades and gain), added to the buffers
@@ -503,7 +511,7 @@ partial class StudioEngine
         var list = o.Only ?? Tracks;
         // solo counts rows only (a piece merged onto another row can keep a hidden Solo flag); live playing while stopped looks at the whole project so it sounds like playback
         bool soloActive = false; if (o.MuteSolo) { var sl = o.NoClips ? Tracks : list; foreach (var t in sl) { if (t.IsBus) continue; var rw = t.Host != null && sl.Contains(t.Host) ? t.Host : t; if (rw.Solo && !rw.Off) soloActive = true; } }
-        int maxLat = MixLatency(list, o);
+        int trkLat, busLat; LatParts(list, o, out trkLat, out busLat); int maxLat = trkLat + busLat;   // (the same rule as MixLatency)
         var voc = VocalTrack();
 
         // vocal dry signal -> sidechain ring (time aligned on the timeline)
@@ -548,7 +556,7 @@ partial class StudioEngine
                 }
             }
             if (!t.IsBus && !t.Instrument && !o.NoClips) foreach (var pcs in list) if (pcs.Host == t && !pcs.Off && MergedPiece(pcs, list)) AddClipAudio(pcs, t.tl, t.tr, n, pos);   // the other pieces on this row go through the same plugins
-            if (!idle && t.fxIdle) { for (int f = 0; f < t.Fx.Count; f++) t.Fx[f].Reset(); Array.Clear(t.dlyL, 0, t.dlyL.Length); Array.Clear(t.dlyR, 0, t.dlyR.Length); t.fxIdle = false; }
+            if (!idle && t.fxIdle) { for (int f = 0; f < t.Fx.Count; f++) t.Fx[f].Reset(); if (t.DefaultKeys != null) t.DefaultKeys.Reset(); Array.Clear(t.dlyL, 0, t.dlyL.Length); Array.Clear(t.dlyR, 0, t.dlyR.Length); t.fxIdle = false; }
             if (t.Instrument && !t.IsBus && !idle && !o.Dry && !t.HasInstrumentFx) { var kf = t.Keys; kf.BeginBlock(t, pos, n, !meters || Playing); kf.Process(t.tl, t.tr, n); }   // a MIDI track with no instrument plays its notes with the built-in keys
             if (row.TrimDb != 0f && !t.IsBus) { float tg = DspMath.DbToLin(row.TrimDb); for (int i = 0; i < n; i++) { t.tl[i] *= tg; t.tr[i] *= tg; } }   // the input trim, before the plugins
             if (meters) PushTap(t.TapPre, t, false, t.tl, t.tr, n);
@@ -578,30 +586,33 @@ partial class StudioEngine
                     latSoFar += fx.Latency;
                     if (meters) MeasureFx(fx, t.tl, t.tr, n);
                 }
-            // plugin delay compensation
-            int d = o.Dry ? 0 : maxLat - EffLat(t, list); int mask = t.dlyL.Length - 1;
-            if (maxLat > 0 && !idle && !t.IsBus)
+            if (row.Mono && !idle) for (int i = 0; i < n; i++) { float mm = (t.tl[i] + t.tr[i]) * 0.5f; t.tl[i] = mm; t.tr[i] = mm; }   /* (mono and polarity come before the delay line now: the same sound, and both delay taps get them) */
+            if (row.Invert && !idle) for (int i = 0; i < n; i++) { t.tl[i] = -t.tl[i]; t.tr[i] = -t.tr[i]; }   // phase (polarity) flipped
+            Track dest = !t.IsBus && t.Out != null && t.Out.IsBus && t.Out != t && (o.Only == null || o.Only.Contains(t.Out)) ? t.Out : null;
+            var sends = t.IsBus ? null : row.Sends; bool sendsOut = false; if (sends != null) foreach (var sd in sends) { var sb = sd.Bus; if (sb != null && sb.IsBus && sb != t && list.Contains(sb)) sendsOut = true; }
+            // plugin delay compensation (two stages, see LatParts): a bus waits for the slowest bus; a track lines up at the buses, and what it plays straight into the master waits for the buses too
+            bool direct = !t.IsBus && dest == null; int d = o.Dry ? 0 : Math.Max(0, (t.IsBus ? busLat : trkLat) - t.Latency()), d2 = direct && !o.Dry ? d + busLat : d; int mask = t.dlyL.Length - 1; long w0 = t.dlyW;
+            bool split = d2 != d && sendsOut; int dt = split ? d : d2;   /* split: the sends take the earlier tap, the master hears the later one */
+            if (maxLat > 0 && !idle)
                 for (int i = 0; i < n; i++)
                 {
-                    long w = t.dlyW + i; t.dlyL[w & mask] = t.tl[i]; t.dlyR[w & mask] = t.tr[i];
-                    if (d > 0) { t.tl[i] = t.dlyL[(w - d) & mask]; t.tr[i] = t.dlyR[(w - d) & mask]; }
+                    long w = w0 + i; t.dlyL[w & mask] = t.tl[i]; t.dlyR[w & mask] = t.tr[i];
+                    if (dt > 0) { t.tl[i] = t.dlyL[(w - dt) & mask]; t.tr[i] = t.dlyR[(w - dt) & mask]; }
                 }
             t.dlyW += n;
-            if (row.Mono && !idle) for (int i = 0; i < n; i++) { float mm = (t.tl[i] + t.tr[i]) * 0.5f; t.tl[i] = mm; t.tr[i] = mm; }
-            if (row.Invert && !idle) for (int i = 0; i < n; i++) { t.tl[i] = -t.tl[i]; t.tr[i] = -t.tr[i]; }   // phase (polarity) flipped
             if (meters) PushTap(t.TapPost, t, true, t.tl, t.tr, n);
 
-            Track dest = !t.IsBus && t.Out != null && t.Out.IsBus && t.Out != t && (o.Only == null || o.Only.Contains(t.Out)) ? t.Out : null;
             float g = o.Fader ? DspMath.DbToLin(row.VolDb) : 1f, gl, gr; PanGains(o.Fader ? row.Pan : 0, out gl, out gr);
             double sl = 0, sr = 0; float pl = 0, pr = 0; bool clip = false;
+            if (split && (maxLat <= 0 || idle)) split = false;
             for (int i = 0; i < n; i++)
             {
-                float yl = t.tl[i] * g * gl, yr = t.tr[i] * g * gr;
+                float xl = t.tl[i], xr = t.tr[i]; if (split) { long w = w0 + i; xl = t.dlyL[(w - d2) & mask]; xr = t.dlyR[(w - d2) & mask]; }
+                float yl = xl * g * gl, yr = xr * g * gr;
                 float a = Math.Abs(yl), b = Math.Abs(yr); if (a > pl) pl = a; if (b > pr) pr = b; sl += yl * yl; sr += yr * yr;
                 if (a > 1f || b > 1f) clip = true;
                 if (audible) { if (dest != null) { dest.tl[i] += yl; dest.tr[i] += yr; } else { mixL[i] += yl; mixR[i] += yr; } }
             }
-            var sends = t.IsBus ? null : row.Sends;
             if (audible && sends != null && sends.Length > 0)
                 foreach (var sd in sends)
                 {
@@ -714,7 +725,7 @@ partial class StudioEngine
             if (LoopSection && Pos < LoopB && Pos + n > LoopB)
             {   // the end of the section falls inside this block: the first part plays up to the end, the rest carries on from the start of the section (exact to the sample, no gap)
                 int k = (int)(LoopB - Pos), m = n - k; if (loopL == null || loopL.Length < n) { loopL = new float[n]; loopR = new float[n]; }
-                Mix(Pos, k, Live, oL, oR, true, 0); if (Metronome) Click(Pos, k, oL, oR);
+                Mix(Pos, k, Live, oL, oR, true, 0); if (Metronome) Click(Pos, k, oL, oR); ReleaseAtLoopEnd(LoopB);
                 Array.Clear(loopL, 0, m); Array.Clear(loopR, 0, m); Mix(LoopA, m, Live, loopL, loopR, true, 0); if (Metronome) Click(LoopA, m, loopL, loopR);
                 Array.Copy(loopL, 0, oL, k, m); Array.Copy(loopR, 0, oR, k, m); ApplyResumeRamp(oL, oR, n); Pos = LoopA + m; return;
             }
@@ -739,9 +750,27 @@ partial class StudioEngine
         }
     }
 
+    // a section loop jumping back: every song note still held at the end of the section is let go right at the jump, on every instrument and the built-in keys
+    // (only the sampler noticed the jump; other instruments and VSTs kept those notes hanging, and a note ending exactly on the end was never let go)
+    readonly int[] loopHeld = new int[128];
+    void ReleaseAtLoopEnd(long end)
+    {
+        foreach (var t in Tracks)
+        {
+            if (t.Midi.Count == 0) continue; var h = loopHeld; Array.Clear(h, 0, 128); bool any = false;
+            lock (t.Midi) foreach (var m in t.Midi) { if (m.Frame >= end) break; int kind = m.S & 0xF0, nt = m.D1 & 127; if (kind == 0x90 && m.D2 > 0) h[nt]++; else if ((kind == 0x80 || kind == 0x90) && h[nt] > 0) h[nt]--; }
+            for (int nt = 0; nt < 128; nt++) if (h[nt] > 0) { any = true; break; } if (!any) continue;
+            for (int nt = 0; nt < 128; nt++) if (h[nt] > 0)
+            {   /* queued as a live note-off: it reaches each instrument first thing in the next part of the block, i.e. exactly at the wrap, before the notes at the start of the section */
+                foreach (var f in t.Fx) { var ifx = f as InstrumentFx; if (ifx != null) ifx.Midi(0x80, (byte)nt, 0, false); }
+                var dk = t.DefaultKeys; if (dk != null) dk.Midi(0x80, (byte)nt, 0, false);
+            }
+        }
+    }
+
     public void ResetStates()
     {
-        foreach (var t in Tracks) { foreach (var f in t.Fx) f.Reset(); Array.Clear(t.dlyL, 0, t.dlyL.Length); Array.Clear(t.dlyR, 0, t.dlyR.Length); t.dlyW = 0; }
+        foreach (var t in Tracks) { foreach (var f in t.Fx) f.Reset(); if (t.DefaultKeys != null) t.DefaultKeys.Reset(); /* (the built-in keys of a MIDI track with no instrument too: their notes rang on after a stop or seek) */ Array.Clear(t.dlyL, 0, t.dlyL.Length); Array.Clear(t.dlyR, 0, t.dlyR.Length); t.dlyW = 0; }
         foreach (var f in MasterFx) f.Reset();
         Array.Clear(scRL, 0, scRL.Length); Array.Clear(scRR, 0, scRR.Length); Lufs.Reset();
     }
@@ -860,6 +889,7 @@ partial class StudioEngine
         lock (renderGate)
         {
             Rendering = true;   // the live callback outputs silence meanwhile; Sync is only held per block so the UI and Cancel stay responsive
+            bool wasOff = OfflineThread; OfflineThread = true;   /* (instruments leave notes played live on a keyboard for the sound card: they are not baked into the export) */
             try
             {
                 int lat; lock (Sync) { ResetStates(); lat = RenderLatency(o); }
@@ -877,9 +907,10 @@ partial class StudioEngine
                 }
                 lock (Sync) { ResetStates(); Lufs.Reset(); }
             }
-            finally { Rendering = false; }
+            finally { Rendering = false; OfflineThread = wasOff; }
         }
         Playing = false;   // exporting / analysing always leaves the transport stopped
     }
+    [ThreadStatic] public static bool OfflineThread;   // this thread is rendering offline (an export or analysis), not feeding the sound card
 }
 // ---------------- winmm output ----------------

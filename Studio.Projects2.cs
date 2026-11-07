@@ -62,7 +62,7 @@ partial class StudioForm
             {
                 BeginInvoke(new Action(() =>
                 {
-                    if (!string.Equals(previewPath, path, StringComparison.OrdinalIgnoreCase) || err != null || pe == null || pe.EndFrame < 1000) { if (pe != null) { try { pe.Shutdown(); } catch { } } if (string.Equals(previewPath, path, StringComparison.OrdinalIgnoreCase)) { previewPath = ""; previewLoading = false; Toast(err != null ? "Could not open that project to preview it: " + err : "There is no audio in that project to preview."); } return; }
+                    if (!string.Equals(previewPath, path, StringComparison.OrdinalIgnoreCase) || err != null || pe == null || pe.EndFrame < 1000) { if (pe != null) { try { pe.Shutdown(); } catch { } DisposeEngineFx(pe); } if (string.Equals(previewPath, path, StringComparison.OrdinalIgnoreCase)) { previewPath = ""; previewLoading = false; Toast(err != null ? "Could not open that project to preview it: " + err : "There is no audio in that project to preview."); } return; }
                     previewEng = pe; previewLoading = false; try { if (previewPlayFn != null) previewPlayFn(pe); else pe.Play(); } catch (Exception ex2) { Toast("Could not play the preview: " + ex2.Message); StopPreview(); }
                 }));
             }
@@ -73,7 +73,7 @@ partial class StudioForm
     {
         StopVideoOverlay();
         var pe = previewEng; previewEng = null; previewPath = ""; previewName = ""; previewLoading = false; previewPaused = false; if (StudioEngine.Current == pe) StudioEngine.Current = eng;
-        if (pe != null) { try { pe.Stop(); } catch { } try { pe.Shutdown(); } catch { } }
+        if (pe != null) { try { pe.Stop(); } catch { } try { pe.Shutdown(); } catch { } DisposeEngineFx(pe); }   // the preview's own plugins go with it
     }
     void PreviewHousekeeping()
     {

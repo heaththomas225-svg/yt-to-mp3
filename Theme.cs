@@ -390,10 +390,14 @@ static class Win
         static readonly System.Collections.Generic.HashSet<ToolStrip> repaintPending = new System.Collections.Generic.HashSet<ToolStrip>(); static readonly System.Collections.Generic.HashSet<ToolStrip> emojiStrips = new System.Collections.Generic.HashSet<ToolStrip>(); static bool readyHooked;
         static void RepaintSoon(ToolStrip ts)
         {
-            if (ts == null || ts.IsDisposed) return; if (!readyHooked) { readyHooked = true; EmojiSprites.Ready += () => { foreach (var s in new System.Collections.Generic.List<ToolStrip>(emojiStrips)) { if (s.IsDisposed) emojiStrips.Remove(s); else if (s.Visible) s.Invalidate(); } }; } emojiStrips.Add(ts);   // new emoji pictures: every open menu with emoji paints again
+            if (ts == null || ts.IsDisposed) return; if (!readyHooked) { readyHooked = true; EmojiSprites.Ready += () => { foreach (var s in new System.Collections.Generic.List<ToolStrip>(emojiStrips)) { if (s.IsDisposed) emojiStrips.Remove(s); else if (s.Visible) s.Invalidate(); } }; } if (emojiStrips.Add(ts)) { ts.VisibleChanged -= ForgetHidden; ts.VisibleChanged += ForgetHidden; ts.Disposed -= ForgetGone; ts.Disposed += ForgetGone; }   // new emoji pictures: every open menu with emoji paints again
             if (!repaintPending.Add(ts)) return; int left = 6; var t = new Timer { Interval = 300 };
             t.Tick += (a, b) => { if (ts.IsDisposed || !ts.Visible || --left <= 0) { t.Stop(); t.Dispose(); repaintPending.Remove(ts); return; } ts.Invalidate(); }; t.Start();
         }
+        // a menu that closes or goes away leaves the list (it kept every menu ever shown alive); it is added again the next time it paints emoji
+        static void ForgetHidden(object s, EventArgs e) { var t = s as ToolStrip; if (t != null && (t.IsDisposed || !t.Visible)) Forget(t); }
+        static void ForgetGone(object s, EventArgs e) { var t = s as ToolStrip; if (t != null) Forget(t); }
+        static void Forget(ToolStrip t) { emojiStrips.Remove(t); t.VisibleChanged -= ForgetHidden; t.Disposed -= ForgetGone; }
         // the menus have neon borders like the rest of the program: a lit edge in the theme colours with a glow just inside it, a bright bar on the item you point at, and neon lines between the groups
         protected override void OnRenderToolStripBorder(ToolStripRenderEventArgs e)
         {

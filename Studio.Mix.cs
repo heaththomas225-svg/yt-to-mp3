@@ -120,6 +120,16 @@ static class Presets
     }
 
     public static void DeleteUser(string type, string name) { ForgetUser(); try { File.Delete(Path.Combine(Root, type, name + ".txt")); } catch { } try { string sd = Path.Combine(Root, type, name + " sounds"); if (Directory.Exists(sd)) Directory.Delete(sd, true); } catch { } }
+    // a rename that only changes upper/lower case ("trap" to "Trap"): the same file on Windows, so move it via a temporary name instead of save-then-delete
+    public static void RenameUserCase(string type, string from, string to)
+    {
+        ForgetUser(); string d = Path.Combine(Root, type), tmp = "~rename " + Guid.NewGuid().ToString("N"); from = SafeName(from); to = SafeName(to);
+        string a = Path.Combine(d, from + ".txt"), t = Path.Combine(d, tmp + ".txt");
+        try { if (File.Exists(a)) { File.Move(a, t); try { File.Move(t, Path.Combine(d, to + ".txt")); } catch { File.Move(t, a); } } } catch { }
+        a = Path.Combine(d, from + " sounds"); t = Path.Combine(d, tmp + " sounds");
+        try { if (Directory.Exists(a)) { Directory.Move(a, t); try { Directory.Move(t, Path.Combine(d, to + " sounds")); } catch { Directory.Move(t, a); } } } catch { }
+        ForgetUser();
+    }
 
     public static void Apply(Fx fx, string data) { var e = StudioEngine.Current; object gate = e != null ? e.Sync : new object(); lock (gate) { fx.ResetDefaults(); fx.Deserialize(data); fx.Reset(); } }
 
@@ -499,7 +509,9 @@ static class AutoMix
         return rep;
     }
 
-    public static void Undo(StudioEngine eng) { if (LastSnapshot != null) ProjectIO.RestoreMix(eng, LastSnapshot); }
+    public static void Undo(StudioEngine eng) { Undo(eng, null); }
+    // retire = where the replaced plugins go instead of being disposed (an undo snapshot can still hold them)
+    public static void Undo(StudioEngine eng, List<Fx> retire) { if (LastSnapshot != null) ProjectIO.RestoreMix(eng, LastSnapshot, null, retire, true); }
 }
 
 // ---------------- project files + mix snapshots ----------------
@@ -536,7 +548,9 @@ static class ProjectIO
     public static bool MasterPresetEdited(StudioEngine eng) { if (MasterPreset.Length == 0) return false; if (MasterPresetWasEdited) return true; var now = ChainOf(eng); var was = MasterPresetSnap; if (was == null || was.Length != now.Length) return was != null; for (int i = 0; i < now.Length; i++) if (now[i] != was[i]) return true; return false; }
     public static void RestoreMix(StudioEngine eng, string s) { RestoreMix(eng, s, null); }
     // order = the tracks in the order the saved lines number them (a project file numbers them as it wrote them, before they are put back into rows, pieces, buses)
-    public static void RestoreMix(StudioEngine eng, string s, Track[] order)
+    public static void RestoreMix(StudioEngine eng, string s, Track[] order) { RestoreMix(eng, s, order, null, true); }
+    // retire: the replaced plugins are handed back instead of disposed; openProject: false for a preview/background engine (the open project's mastering preset is left alone)
+    public static void RestoreMix(StudioEngine eng, string s, Track[] order, List<Fx> retire, bool openProject)
     {
         // build everything first (plugin loads can take seconds), then swap under the lock and dispose the old plugins afterwards
         Track[] trs; lock (eng.Sync) trs = order ?? eng.Tracks.ToArray();
@@ -572,7 +586,8 @@ static class ProjectIO
             if (eng.MasterFx.Count == 0) eng.InitMasterChain(); else if (mpreset == null) eng.CleanOldDefaultMaster();   // (the old default squashed every sound)
             eng.ResetStates();
         }
-        foreach (var of in old) if (of is IDisposable) { try { ((IDisposable)of).Dispose(); } catch { } }
+        if (retire != null) retire.AddRange(old); else foreach (var of in old) if (of is IDisposable) { try { ((IDisposable)of).Dispose(); } catch { } }
+        if (!openProject) return;   /* a preview or background load never changes the open project's mastering preset */
         MasterPreset = mpreset != null && mpreset.Length > 1 ? mpreset[1] : ""; MasterPresetSnap = MasterPreset.Length > 0 ? ChainOf(eng) : null; MasterPresetWasEdited = mpreset != null && mpreset.Length > 2 && mpreset[2].Trim() == "1";
     }
     static float F(string s) { float v; return float.TryParse(s, NumberStyles.Float, CI, out v) ? v : 0; }
@@ -654,7 +669,7 @@ static class ProjectIO
         if (meta != null) { meta.Bpm = m.Bpm; meta.Lyrics = m.Lyrics; meta.LyricsTitle = m.LyricsTitle; meta.Cover = m.Cover; }
         else { if (!double.IsNaN(m.Bpm)) Fx.ProjectBpm = m.Bpm; Lyrics = m.Lyrics; LyricsTitle = m.LyricsTitle; CoverBytes = m.Cover; }
         lock (eng.Sync) { eng.Tracks.Clear(); eng.Tracks.AddRange(tracks); }
-        RestoreMix(eng, mix.ToString(), fileOrder); eng.Seek(0);
+        RestoreMix(eng, mix.ToString(), fileOrder, null, meta == null); eng.Seek(0);
         foreach (var lt in eng.Tracks) foreach (var lf in lt.Fx) lf.AutoKeyPending = false;   // the plugins of a saved project keep the key that was saved
         if (meta == null) LyricsKept = Lyrics; return warn;
     }
@@ -707,6 +722,12 @@ static class Exporter
 
     static string Safe(string s) { foreach (char c in Path.GetInvalidFileNameChars()) s = s.Replace(c, '_'); return s; }
 
+    // a trimmed export starts playing up to 3 s before the trim start and drops that part: notes already held, reverb and delay tails and the compressors are right at the first sample (it started from silence)
+    static void RenderFrom(StudioEngine eng, long from, long frames, RenderOpts o, Action<float> prog, Action<float[], float[], int, int> sink, Func<bool> cancelled)
+    {
+        long pre = Math.Min(from, StudioEngine.SR * 3L), left = pre;
+        eng.RenderStream(from - pre, frames + pre, o, prog, (l, r, off, n) => { int sk = (int)Math.Min(n, left); left -= sk; if (n - sk > 0) sink(l, r, off + sk, n - sk); }, cancelled);
+    }
     // Renders one item straight to disk in small blocks, so memory stays flat and hour-long songs export fine.
     public static string Write(StudioEngine eng, ExportItem it, string dir, int fmt, Action<float> prog, Func<bool> cancelled = null, int rate = 44100, double trimA = 0, double trimB = 0)
     {
@@ -721,11 +742,11 @@ static class Exporter
             if (frames * rate / StudioEngine.SR * 2L * (bits / 8) > 4000000000L) throw new Exception("WAV files are limited to about 4 GB (about " + (int)(4000000000.0 / ((double)rate * 2 * (bits / 8) * 60)) + " minutes at this rate and depth). Choose a lower sample rate, or FLAC.");
             using (var ws = new WavStream(outp, rate, bits))
             {
-                if (rate == StudioEngine.SR) eng.RenderStream(from, frames, it.Opts, prog, (l, r, o, n) => ws.Write(l, r, o, n), cancelled);
+                if (rate == StudioEngine.SR) RenderFrom(eng, from, frames, it.Opts, prog, (l, r, o, n) => ws.Write(l, r, o, n), cancelled);
                 else
                 {   // the sound is converted to the chosen rate as it is made, block by block
                     var rs = new RatioResampler(StudioEngine.SR, rate); float[] oL = new float[1], oR = new float[1];
-                    eng.RenderStream(from, frames, it.Opts, prog, (l, r, o, n) => { int cap = (int)((long)n * rs.Up / rs.Down) + 16; if (oL.Length < cap) { oL = new float[cap]; oR = new float[cap]; } int c = rs.Process(l, r, o, n, oL, oR); ws.Write(oL, oR, 0, c); }, cancelled);
+                    RenderFrom(eng, from, frames, it.Opts, prog, (l, r, o, n) => { int cap = (int)((long)n * rs.Up / rs.Down) + 16; if (oL.Length < cap) { oL = new float[cap]; oR = new float[cap]; } int c = rs.Process(l, r, o, n, oL, oR); ws.Write(oL, oR, 0, c); }, cancelled);
                     int fc = 2 * 32 * rs.Up / rs.Down + 64; var fL = new float[fc]; var fR = new float[fc]; int c2 = rs.Flush(fL, fR); ws.Write(fL, fR, 0, c2);
                 }
             }
@@ -740,7 +761,7 @@ static class Exporter
         {
             int tbits = frames * 2L * 4 > 3900000000L ? 24 : 32;
             if (frames * 2L * (tbits / 8) > 4000000000L) throw new Exception("That is too long to export as one file (about 4 hours). Export in parts.");
-            using (var ws = new WavStream(tmp, StudioEngine.SR, tbits)) eng.RenderStream(from, frames, it.Opts, prog == null ? null : (Action<float>)(x => prog(x * 0.9f)), (l, r, o, n) => ws.Write(l, r, o, n), cancelled);
+            using (var ws = new WavStream(tmp, StudioEngine.SR, tbits)) RenderFrom(eng, from, frames, it.Opts, prog == null ? null : (Action<float>)(x => prog(x * 0.9f)), (l, r, o, n) => ws.Write(l, r, o, n), cancelled);
             if (cancelled != null && cancelled()) throw new Exception("Export cancelled.");
             int code; string o2;
             if (fmt == Mp4)

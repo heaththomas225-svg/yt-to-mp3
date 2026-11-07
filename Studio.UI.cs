@@ -738,7 +738,7 @@ partial class StudioForm : Form
         Btn(g, Rc(x, y, lw[1] * f, h), "SPLIT VOCALS + BEAT", 1, () => SeparateClick(), fs); x += lw[1] * f + gap;
         Btn(g, Rc(x, y, lw[2] * f, h), "AUTO MIX", 2, () => AutoMixClick(), fs); x += lw[2] * f + gap;
         Btn(g, Rc(x, y, lw[3] * f, h), "Detect Track key", 0, () => DetectTrackKey(), fs); x += lw[3] * f + gap;
-        Btn(g, Rc(x, y, lw[4] * f, h), "Undo mix", 0, () => { if (AutoMix.LastSnapshot != null) { AutoMix.Undo(eng); Toast("Auto Mix undone"); } }, fs); x += lw[4] * f + gap;
+        Btn(g, Rc(x, y, lw[4] * f, h), "Undo mix", 0, () => { if (AutoMix.LastSnapshot != null) { AutoMixUndo(true); Toast("Auto Mix undone"); } }, fs); x += lw[4] * f + gap;
         Btn(g, Rc(x, y, lw[5] * f, h), "THIN TRACKS", LaneH < 96 ? 4 : 0, () => ToggleThinTracks(), fs); x += lw[5] * f;
         float leftEnd = x; float rf = fs;   // (the right-hand buttons use the same size of writing as the left)
         Btn(g, Rc(rx - rw[0], y, rw[0], h), "EXPORT", 1, () => ExportClick(), rf); rx -= rw[0] + gap;
@@ -1704,10 +1704,10 @@ partial class StudioForm : Form
         if (ntOpen && k == Keys.Escape) { CloseNewTrackSheet(); return true; }
         if (menuOpen && k == Keys.Escape) { CloseMenu(); return true; }
         if ((menuOpen || busOpen || ntOpen || keyOn) && !flexOpen) return base.ProcessCmdKey(ref msg, k);   // while a menu or sheet is open the keys do not play, split or delete things behind it
-        if (flexOpen && !menuOpen && !browserOpen && FlexKey(k)) return true;
-        if (!menuOpen && !browserOpen && McKey(k)) return true;   // the selected MIDI clips: Delete, Ctrl+D
-        if (!menuOpen && !browserOpen && BlKey(k)) return true;   // the Beat Lab's pads (1234 / QWER / ASDF / ZXCV...)
-        if (!menuOpen && !browserOpen && PrKey(k)) return true;   // the piano roll's keys (when you last clicked in it)
+        if (flexOpen && (!busy || k == Keys.Escape) && !menuOpen && !browserOpen && FlexKey(k)) return true;   // while a job runs (busy) these keys may not delete, duplicate or edit clips and notes
+        if (!busy && !menuOpen && !browserOpen && McKey(k)) return true;   // the selected MIDI clips: Delete, Ctrl+D
+        if (!busy && !menuOpen && !browserOpen && BlKey(k)) return true;   // the Beat Lab's pads (1234 / QWER / ASDF / ZXCV...)
+        if (!busy && !menuOpen && !browserOpen && PrKey(k)) return true;   // the piano roll's keys (when you last clicked in it)
         if (autoOpen) { if (k == Keys.Escape) { CloseAuto(); return true; } return base.ProcessCmdKey(ref msg, k); }
         if (cpOpen) { if (k == Keys.Escape) { cpOpen = false; return true; } return base.ProcessCmdKey(ref msg, k); }
         if (themeOpen) { if (k == Keys.Escape) { themeOpen = false; return true; } return base.ProcessCmdKey(ref msg, k); }

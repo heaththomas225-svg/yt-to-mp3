@@ -46,6 +46,7 @@ class VstPlugin : IVstHosted
     public bool HasEditor { get { return (Flags & FlagHasEditor) != 0; } }
     public bool HasChunks { get { return (Flags & FlagProgramChunks) != 0; } }
     public bool EditorOpen;
+    public Action<int, float> Automated;   // the plugin changed one of its own parameters (its window, its own automation): index, new value. Can be called on any thread
 
     IntPtr[] inBuf, outBuf; IntPtr inArr, outArr, evBlock, evArr; const int MaxEvents = 512;
     float[] scrL, scrR;
@@ -215,6 +216,8 @@ class VstPlugin : IVstHosted
         {
             switch (op)
             {
+                case 0:                                           // audioMasterAutomate: the plugin changed a parameter itself, so the host's copy follows it
+                    { VstPlugin p; lock (byEffect) byEffect.TryGetValue(effect, out p); if (p != null) { var a = p.Automated; if (a != null) a(index, opt); } return IntPtr.Zero; }
                 case 1: return (IntPtr)2400;                      // audioMasterVersion: we speak VST 2.4
                 case 6: return (IntPtr)1;                         // audioMasterWantMidi
                 case 7: UpdateTimeStatic(); return timeInfo;      // audioMasterGetTime
@@ -269,9 +272,12 @@ class VstFx : InstrumentFx, IDisposable
         int n = Math.Min(p.NumParams, MaxParams);
         for (int i = 0; i < n; i++) { string nm = p.ParamName(i); if (nm.Length == 0) nm = "Parameter " + (i + 1); AddP("p" + i, nm, 0f, 1f, p.GetParam(i), ""); }
         sent = new float[P.Count]; for (int i = 0; i < P.Count; i++) sent[i] = P[i].Val;   // what the plugin has been told: only changes are pushed (the construction-time copies were pushed over its patch after every stop and seek)
+        for (int i = 0; i < P.Count; i++) P[i].Force = false;
         dirty = false;
+        var vp = p as VstPlugin; if (vp != null) vp.Automated = OnAutomated;
     }
     float[] sent;
+    void OnAutomated(int idx, float v) { var s = sent; if (idx < 0 || s == null || idx >= s.Length || idx >= P.Count || float.IsNaN(v)) return; v = Math.Max(0f, Math.Min(1f, v)); P[idx].Val = v; s[idx] = v; }   // (it is not pushed back, and a later stop or seek does not put the old value over it)
 
     public override bool IsInstrument { get { return Plugin.IsSynth; } }
     public override bool HasWindow { get { return Plugin.HasEditor; } }
@@ -281,7 +287,7 @@ class VstFx : InstrumentFx, IDisposable
 
     public override void Process(float[] l, float[] r, int n)
     {
-        if (dirty) { dirty = false; for (int i = 0; i < P.Count && i < sent.Length; i++) { if (P[i].Val == sent[i]) continue; int idx; if (P[i].Id.Length > 1 && int.TryParse(P[i].Id.Substring(1), out idx)) { Plugin.SetParam(idx, P[i].Val); sent[i] = P[i].Val; } } }
+        if (dirty) { dirty = false; for (int i = 0; i < P.Count && i < sent.Length; i++) { if (P[i].Val == sent[i] && !P[i].Force) continue; P[i].Force = false; int idx; if (P[i].Id.Length > 1 && int.TryParse(P[i].Id.Substring(1), out idx)) { Plugin.SetParam(idx, P[i].Val); sent[i] = P[i].Val; } } }
         Plugin.Process(l, r, n);
     }
 
@@ -293,7 +299,7 @@ class VstFx : InstrumentFx, IDisposable
     }
     public override void Deserialize(string s)
     {
-        if (s != null && s.StartsWith("chunk=")) { try { Plugin.SetChunk(Convert.FromBase64String(s.Substring(6))); for (int i = 0; i < P.Count && i < sent.Length; i++) { int idx; if (P[i].Id.Length > 1 && int.TryParse(P[i].Id.Substring(1), out idx)) P[i].Val = sent[i] = Plugin.GetParam(idx); } } catch { } return; }   // (the sliders show the restored patch, and it is not overwritten)
+        if (s != null && s.StartsWith("chunk=")) { try { Plugin.SetChunk(Convert.FromBase64String(s.Substring(6))); for (int i = 0; i < P.Count && i < sent.Length; i++) { int idx; if (P[i].Id.Length > 1 && int.TryParse(P[i].Id.Substring(1), out idx)) { P[i].Val = sent[i] = Plugin.GetParam(idx); P[i].Force = false; } } } catch { } return; }   // (the sliders show the restored patch, and it is not overwritten)
         base.Deserialize(s);
     }
 

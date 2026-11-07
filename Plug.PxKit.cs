@@ -220,7 +220,7 @@ abstract class PxWindow : Form
         m.Items.Add(new ToolStripSeparator());
         m.Items.Add("Save as my preset...").Click += (a, b) => { string nm = AskName("Name for your preset:", (PresetName.Contains(": ") ? PresetName.Substring(PresetName.IndexOf(": ") + 2) : PresetName) + " (mine)"); if (nm != null) { Presets.SaveUser(fx.Type, nm, fx); PresetName = nm; fx.CurPreset = nm; } };
         bool isMine = Presets.User(fx.Type).Any(kv => kv.Key == PresetName);
-        var ren = new ToolStripMenuItem("Rename this preset...") { Enabled = isMine }; ren.Click += (a, b) => { string nm = AskName("New name:", PresetName); if (nm != null && nm != PresetName) { Presets.SaveUser(fx.Type, nm, fx); Presets.DeleteUser(fx.Type, PresetName); PresetName = nm; fx.CurPreset = nm; } }; m.Items.Add(ren);
+        var ren = new ToolStripMenuItem("Rename this preset...") { Enabled = isMine }; ren.Click += (a, b) => { string nm = AskName("New name:", PresetName); if (nm == null || nm == PresetName) return; bool caseOnly = string.Equals(Presets.SafeName(nm), Presets.SafeName(PresetName), StringComparison.OrdinalIgnoreCase); /* a case-only change is the same file: move it, never save-then-delete */ if (!caseOnly && Presets.UserExists(fx.Type, nm) && MessageBox.Show(this, "You already have a preset called \"" + nm + "\". Replace it?", Text, MessageBoxButtons.YesNo) != DialogResult.Yes) return; Presets.SaveUser(fx.Type, nm, fx); if (caseOnly) Presets.RenameUserCase(fx.Type, PresetName, nm); else Presets.DeleteUser(fx.Type, PresetName); PresetName = nm; fx.CurPreset = nm; }; m.Items.Add(ren);
         var del = new ToolStripMenuItem("Delete this preset...") { Enabled = isMine }; del.Click += (a, b) => { if (MessageBox.Show(this, "Delete your preset \"" + PresetName + "\"?", Text, MessageBoxButtons.YesNo) == DialogResult.Yes) { Presets.DeleteUser(fx.Type, PresetName); PresetName = "(unsaved)"; } }; m.Items.Add(del);
         m.Show(this, at);
     }
@@ -246,6 +246,7 @@ abstract class PxWindow : Form
     protected override void OnMouseMove(MouseEventArgs e)
     {
         mouse = e.Location;
+        if (dragHit != null && e.Button == MouseButtons.None) { EndDrag(); return; } /* the button went up somewhere we never heard about: stop the drag */
         if (dragHit != null) { if (dragHit.DragAt != null) dragHit.DragAt(e.Location); else if (dragHit.Drag != null) { float sens = (ModifierKeys & Keys.Shift) != 0 ? 1500f : 220f; dragHit.Drag((dragY0 - e.Y) / sens); } }
     }
     protected Hit HitAt(Point p) { for (int i = hits.Count - 1; i >= 0; i--) if (hits[i].R.Contains(p)) return hits[i]; return null; }
@@ -256,7 +257,10 @@ abstract class PxWindow : Form
         if (h.Drag != null || h.DragAt != null) { Mark(); dragHit = h; dragY0 = e.Y; dragV0 = h.P != null ? Frac(h.P) : 0; Capture = true; if (h.DragAt != null) h.DragAt(e.Location); if (h.Click != null) h.Click(); return; }
         if (h.Click != null) h.Click();
     }
-    protected override void OnMouseUp(MouseEventArgs e) { if (dragHit != null && dragHit.Up != null) dragHit.Up(); dragHit = null; Capture = false; }
+    protected override void OnMouseUp(MouseEventArgs e) { EndDrag(); }
+    void EndDrag() { var h = dragHit; dragHit = null; if (h != null && h.Up != null) h.Up(); Capture = false; }
+    // the mouse was taken away mid-drag (a pop-up, Alt+Tab, a dialog): finish the drag as if the button went up, so knobs and held keys let go
+    protected override void OnMouseCaptureChanged(EventArgs e) { base.OnMouseCaptureChanged(e); if (dragHit != null && !Capture) EndDrag(); }
     protected override void OnMouseDoubleClick(MouseEventArgs e) { var h = HitAt(e.Location); if (h != null && h.Double != null) h.Double(); }
     protected override void OnMouseWheel(MouseEventArgs e) { var h = HitAt(e.Location); if (h != null && h.Wheel != null) h.Wheel(Math.Sign(e.Delta)); }
 

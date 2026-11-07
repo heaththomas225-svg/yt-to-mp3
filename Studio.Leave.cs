@@ -130,7 +130,7 @@ partial class StudioForm
             if (mic != null) StopMic(); eng.Stop(); FlexCommitIfOpen();
             lock (eng.Sync) { foreach (var t in eng.Tracks) retired.AddRange(t.Fx); eng.Tracks.Clear(); }
             foreach (var f in retired) { var ic = f as InstrumentFx; if (ic != null) ic.CloseWindow(); }
-            bpmUserSet = false; bpmAutoSet = false; ProjectIO.Lyrics = ""; ProjectIO.LyricsKept = ""; ProjectIO.LyricsTitle = ""; ProjectIO.CoverBytes = null; undo.Clear(); redo.Clear(); revertAction = null;
+            bpmUserSet = false; bpmAutoSet = false; ProjectIO.Lyrics = ""; ProjectIO.LyricsKept = ""; ProjectIO.LyricsTitle = ""; ProjectIO.CoverBytes = null; undo.Clear(); redo.Clear(); revertAction = null; AutoMix.LastSnapshot = null; histUntitled = Guid.NewGuid().ToString("N").Substring(0, 8);
             projPath = ""; projName = "Untitled project"; selTrack = 0; selFx = -1; scroll = 0; editCount = 0; savedEdit = 0; welcomeOn = true; tab = 0;
         }
         catch { }
@@ -164,7 +164,7 @@ partial class StudioForm
             try { Directory.CreateDirectory(ProjectLibrary.DefaultFolder); } catch { }
             path = Path.Combine(ProjectLibrary.DefaultFolder, nm + ".ytmproj"); int n = 2; while (File.Exists(path)) path = Path.Combine(ProjectLibrary.DefaultFolder, nm + " " + (n++) + ".ytmproj");
         }
-        try { ProjectIO.Roll = PrPrefsText(); ProjectIO.Save(eng, path); projPath = path; projName = Path.GetFileNameWithoutExtension(path); NoteProject(path, true); Toast("Project saved: " + projName + " (in My Projects)"); return true; }
+        try { ProjectIO.Roll = PrPrefsText(); ProjectIO.Save(eng, path); projPath = path; projName = Path.GetFileNameWithoutExtension(path); NoteProject(path, true); AutosaveClear(); Toast("Project saved: " + projName + " (in My Projects)"); return true; }
         catch (Exception ex) { MessageBox.Show(this, "Could not save the project: " + ex.Message, "Save"); return false; }
     }
 }

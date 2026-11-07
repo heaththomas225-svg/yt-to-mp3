@@ -51,7 +51,7 @@ class SynthWindow : Form, IKeySink
         MidiWindow.Hook(this, fx);   // like Pads and Key Map: while Bass Lab is open your MIDI keyboard plays it (a click in the studio took the keys away); the last window you used wins
         Shown += (s, e) => { if (Prefs.MidiDev.Length > 0 && Prefs.MidiDev != MidiInput.OffName && MidiInput.OpenName != Prefs.MidiDev) MidiInput.Open(Prefs.MidiDev); var se = StudioEngine.Current; if (se != null) se.EnsureAudio(); };
         tick = new Timer { Interval = 33 }; tick.Tick += (s, e) => { if (!Win.AnyMoving) canvas.Step(); }; tick.Start();
-        FormClosing += (s, e) => { tick.Stop(); ReleaseAll(); };
+        FormClosing += (s, e) => ReleaseAll(); FormClosed += (s, e) => { tick.Stop(); tick.Dispose(); };   // the animation stops only once really closed: a cancelled "Leaving the DAW?" question keeps it running
         Deactivate += (s, e) => ReleaseAll();
     }
 

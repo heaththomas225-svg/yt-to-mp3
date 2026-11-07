@@ -74,8 +74,17 @@ abstract class InstrumentFx : Fx
         lock (q)
         {   // a hit that waited more than half a second (the sound card was off) is dropped: it would come out late, out of nowhere. Note-offs always pass.
             int now = Environment.TickCount;
-            for (int i = 0; i < live.Count; i++) { var m = live[i]; if ((m.S & 0xF0) == 0x90 && m.D2 > 0 && unchecked(now - liveAt[i]) > 500) continue; ev.Add(new KeyValuePair<int, MidiEv>(0, m)); }
-            live.Clear(); liveAt.Clear();
+            if (StudioEngine.OfflineThread)
+            {   // an export: keys and pads played live meanwhile are not baked into it; they stay queued for the sound card. Only the engine's own all-notes-off / all-sound-off reset is taken here.
+                int kept = 0;
+                for (int i = 0; i < live.Count; i++) { var m = live[i]; if (m.S == 0xB0 && (m.D1 == 123 || m.D1 == 120)) { ev.Add(new KeyValuePair<int, MidiEv>(0, m)); continue; } live[kept] = m; liveAt[kept] = liveAt[i]; kept++; }
+                live.RemoveRange(kept, live.Count - kept); liveAt.RemoveRange(kept, liveAt.Count - kept);
+            }
+            else
+            {
+                for (int i = 0; i < live.Count; i++) { var m = live[i]; if ((m.S & 0xF0) == 0x90 && m.D2 > 0 && unchecked(now - liveAt[i]) > 500) continue; ev.Add(new KeyValuePair<int, MidiEv>(0, m)); }
+                live.Clear(); liveAt.Clear();
+            }
         }
         wasTransport = transport;
         if (transport && t != null && t.Midi.Count > 0)
