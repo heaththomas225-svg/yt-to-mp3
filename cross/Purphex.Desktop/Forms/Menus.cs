@@ -1,4 +1,4 @@
-// Purphex Forms: right-click and drop-down menus. The app builds ContextMenuStrip / ToolStripMenuItem trees exactly as on Windows;
+﻿// Purphex Forms: right-click and drop-down menus. The app builds ContextMenuStrip / ToolStripMenuItem trees exactly as on Windows;
 // when one is shown it becomes an Avalonia context menu (sub-menus, ticks, disabled items, colours, separators).
 using System;
 using System.Collections;
@@ -47,7 +47,7 @@ namespace System.Windows.Forms
     public class ToolStripDropDownItem : ToolStripItem
     {
         public ToolStripDropDownItem() { DropDownItems = new ToolStripItemCollection { Owner = this }; }
-        public ToolStripItemCollection DropDownItems { get; } public bool HasDropDownItems { get { return DropDownItems.Count > 0; } } public ToolStripDropDown DropDown { get { return null; } }
+        public ToolStripItemCollection DropDownItems { get; } public bool HasDropDownItems { get { return DropDownItems.Count > 0; } } ToolStripDropDown dd0; public ToolStripDropDown DropDown { get { return dd0 ?? (dd0 = new ToolStripDropDown()); } }
         public event EventHandler DropDownOpening, DropDownOpened, DropDownClosed; public void ShowDropDown() { } public void HideDropDown() { }
         internal void RaiseOpening() { DropDownOpening?.Invoke(this, EventArgs.Empty); DropDownOpened?.Invoke(this, EventArgs.Empty); }
     }
@@ -103,7 +103,7 @@ namespace System.Windows.Forms
                 if (tmi != null && tmi.Checked) mi.Icon = new AC.TextBlock { Text = "✓" };
                 if (tmi != null && !string.IsNullOrEmpty(tmi.ShortcutKeyDisplayString)) mi.InputGesture = null;
                 var dd = item as ToolStripDropDownItem;
-                if (dd != null && dd.DropDownItems.Count > 0) { var d0 = dd; mi.SubmenuOpened += (s, e) => d0.RaiseOpening(); foreach (var sub in Build(dd.DropDownItems)) mi.Items.Add(sub); }
+                if (dd != null && dd.DropDownItems.Count > 0) { var d0 = dd; var mi0 = mi; mi.SubmenuOpened += (s, e) => { int n0 = d0.DropDownItems.Count; var f0 = n0 > 0 ? d0.DropDownItems[0] : null; d0.RaiseOpening(); if (d0.DropDownItems.Count != n0 || (n0 > 0 && !ReferenceEquals(d0.DropDownItems[0], f0))) { mi0.Items.Clear(); foreach (var sub in Build(d0.DropDownItems)) mi0.Items.Add(sub); } };   /* (menus filled when opened now show their items) */ foreach (var sub in Build(dd.DropDownItems)) mi.Items.Add(sub); }
                 else { var it0 = item; mi.Click += (s, e) => Dispatcher.UIThread.Post(() => it0.PerformClick()); }
                 res.Add(mi);
             }

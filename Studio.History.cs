@@ -66,7 +66,7 @@ partial class StudioForm
     // one track back as it was then, the rest stays as it is now
     void HistRestoreTrack(HistEntry e, string trackName)
     {
-        StudioEngine te = null; try { te = new StudioEngine { ListenOnly = true }; StudioEngine.Current = eng; ProjectIO.Load(te, e.File, s => { }, new ProjectIO.ProjMeta()); } catch (Exception ex) { Toast("That state could not be opened: " + ex.Message); return; }
+        StudioEngine te = null; try { te = new StudioEngine { ListenOnly = true }; StudioEngine.Current = eng; var tm = new ProjectIO.ProjMeta(); ProjectIO.Load(te, e.File, s => { }, tm); if (!double.IsNaN(tm.Bpm) && tm.Bpm > 0) te.TempoOverride = tm.Bpm; } catch (Exception ex) { Toast("That state could not be opened: " + ex.Message); return; }
         var src = te.Tracks.FirstOrDefault(t => t.Name == trackName && t.Host == null); if (src == null) { Toast("That track is not in that state."); return; }
         PushUndo(); var dst = eng.Tracks.FirstOrDefault(t => t.Name == trackName && t.Host == null);
         lock (eng.Sync)
@@ -160,7 +160,7 @@ partial class StudioForm
             Directory.CreateDirectory(sandbox); rep = new RecoveryReport { Sandbox = sandbox }; string auto = Path.Combine(sandbox, "autosave.ytproj"), lockf = Path.Combine(sandbox, "session.open");
             ProjectIO.Save(eng, auto); File.WriteAllText(lockf, "open"); p(0.3f);   // 1. the autosave, written the same way as the real one; 2. the session marker: then the "crash" (nothing else is saved)
             bool sawCrash = File.Exists(lockf) && File.Exists(auto);   // 3. what the next start would see
-            var te = new StudioEngine { ListenOnly = true }; StudioEngine.Current = eng; var warn = ProjectIO.Load(te, auto, s => { }, new ProjectIO.ProjMeta()); p(0.7f);   // 4. the recovery, into a sandbox engine
+            var te = new StudioEngine { ListenOnly = true }; StudioEngine.Current = eng; var tm2 = new ProjectIO.ProjMeta(); var warn = ProjectIO.Load(te, auto, s => { }, tm2); if (!double.IsNaN(tm2.Bpm) && tm2.Bpm > 0) te.TempoOverride = tm2.Bpm; p(0.7f);   // 4. the recovery, into a sandbox engine
             var a = eng.Tracks.Where(t => !t.IsBus).ToList(); var b = te.Tracks.Where(t => !t.IsBus).ToList(); int diffs = 0;
             rep.Lines.Add(sawCrash ? "The crash was noticed (the session marker was still there)." : "The crash was NOT noticed."); if (!sawCrash) diffs++;
             if (a.Count != b.Count) { rep.Lines.Add("Tracks: " + a.Count + " now, " + b.Count + " recovered."); diffs++; } else rep.Lines.Add("All " + a.Count + " tracks came back.");

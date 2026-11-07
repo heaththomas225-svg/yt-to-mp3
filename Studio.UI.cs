@@ -115,18 +115,18 @@ partial class StudioForm : Form
         ClientSize = new Size(1360, 800); MinimumSize = new Size(1240, 680);
         DoubleBuffered = true; KeyPreview = true; FontKit.Restore(this);   /* AllowDrop is switched on in OnHandleCreated (Studio.Crash.cs) so a refused registration cannot crash */
         SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw | ControlStyles.Selectable, true);
-        studioLoop = new FrameLoop(this, FrameStep) { Slow = () => WindowState == FormWindowState.Minimized || moving || Win.AnyMoving };   /* while a window is being dragged around nothing needs painting often */ ApplyFps();
+        studioLoop = new FrameLoop(this, FrameStep) { Slow = () => WindowState == FormWindowState.Minimized || moving || Win.AnyMoving, Idle = () => lastIdle && !moving };   /* while a window is being dragged around nothing needs painting often */ ApplyFps();
         InstrumentFx.Recorder = OnMidiNote; MidiInput.BareTrack = MidiToBareTrack; MidiMapInit();
         PxWindow.AliveHook = f => { if (IsDisposed) return false; lock (eng.Sync) { if (eng.MasterFx.Contains(f)) return true; foreach (var t in eng.Tracks) if (t.Fx.Contains(f)) return true; } return false; };
         PxWindow.RemoveHook = f => { if (IsDisposed) return; Track ow = null; lock (eng.Sync) ow = eng.Tracks.Find(t => t.Fx.Contains(f)); RemoveFxEverywhere(ow, f); Invalidate(); };   // REMOVE in a plugin's own window
 
         Activated += (s, e) => StudioActivatedMidi();
-        Shown += (s, e) => { MidiAutoConnect(); if (!StudioEnv.UnderTest) { midiTimer = new System.Windows.Forms.Timer { Interval = 3000 }; midiTimer.Tick += (s2, e2) => MidiAutoConnect(); midiTimer.Start(); } };
+        Shown += (s, e) => { MidiAutoConnect(); if (!StudioEnv.UnderTest) { var mt = new System.Windows.Forms.Timer { Interval = 3000 }; mt.Tick += (s2, e2) => { if (IsDisposed) { mt.Stop(); return; } MidiAutoConnect(); }; midiTimer = mt; mt.Start(); } };
         MinimumSize = new Size(1240, 640);
         Load += (s, e) => RestorePlace(); FormClosing += (s, e) => { if (!e.Cancel) SavePlace(); };   // it reopens where it was
         FormClosed += (s, e) => { try { if (flexOpen) FlexClose(true); } catch { } flexOpen = false; DisposeRetired(); Auditioner.Shutdown(); };
         FormClosed += (s, e) => { if (backdrop != null) { backdrop.Dispose(); backdrop = null; } foreach (var pc0 in peakCache.Values) if (pc0.Img != null) pc0.Img.Dispose(); peakCache.Clear(); };
-        FormClosed += (s, e) => { timer.Stop(); if (studioLoop != null) studioLoop.Dispose(); eng.Pause(); };
+        FormClosed += (s, e) => { timer.Stop(); if (midiTimer != null) { midiTimer.Stop(); midiTimer.Dispose(); midiTimer = null; } if (studioLoop != null) studioLoop.Dispose(); eng.Pause(); };   // (the keyboard check kept a closed studio alive and polling)
         FormClosed += (s, e) => { try { if (histDue != DateTime.MinValue) HistWrite(); } catch { } SessionEnd(); };   // a proper close: no crash marker left
         Shown += (s, e) => BeginInvoke(new Action(SessionStart));   // a crash last time? offer the autosave back
         DragEnter += (s, e) => { if (e.Data.GetDataPresent(DataFormats.FileDrop)) { e.Effect = DragDropEffects.Copy; dragOver = true; ExtDragStart(e.Data.GetData(DataFormats.FileDrop) as string[]); Invalidate(); } };
@@ -146,10 +146,11 @@ partial class StudioForm : Form
         EnsureUseTimer(); var now = DateTime.Now;
         if (ClientSize.Width != lastW || ClientSize.Height != lastH) { lastW = ClientSize.Width; lastH = ClientSize.Height; lastFrame = now; return true; }
         if (eng.Playing) lastPlayAt = now;
-        bool vizPage = tab == 5 || (tab == 1 && visStageOn); bool anim = vizPage || eng.Playing || (tab == 0 && AnyTrackOff()) || busy || browserOpen || PanelAnimating || stylesOpen || aiOpen || autoOpen || dragReg != null || (now - lastInput).TotalMilliseconds < 600 || animOff.Count > 0 || ghostOn || btnAnim || (now - toastAt).TotalSeconds < ToastSecs + 0.2 || (now - lastPlayAt).TotalMilliseconds < 1500 || installing.Length > 0 || mic != null || Auditioner.IsPlaying;   // the 1.5 s after playback lets the meters settle
+        bool vizPage = tab == 5 || (tab == 1 && visStageOn); bool offOnly = tab == 0 && !Prefs.PerfMode && AnyTrackOff(); bool anim = vizPage || eng.Playing || offOnly || busy || browserOpen || PanelAnimating || stylesOpen || aiOpen || autoOpen || dragReg != null || (now - lastInput).TotalMilliseconds < 600 || animOff.Count > 0 || ghostOn || btnAnim || (now - toastAt).TotalSeconds < ToastSecs + 0.2 || (now - lastPlayAt).TotalMilliseconds < 1500 || installing.Length > 0 || mic != null || Auditioner.IsPlaying;   // the 1.5 s after playback lets the meters settle
         double gap = (now - lastFrame).TotalMilliseconds;
         // a slow computer redraws less often (paint time x3) so the window never starves the audio
-        lastIdle = !anim; if (!(anim ? gap >= Math.Max(vizPage && !eng.Playing ? 45 : FrameGapMs, Math.Min(250, paintMs * 1.5)) : gap >= 1000)) return false;
+        bool onlyOff = offOnly && !(vizPage || eng.Playing || busy || dragReg != null || (now - lastInput).TotalMilliseconds < 600);   // (a switched-off track's glitch alone needs only 15 frames a second: it kept the studio at full rate forever)
+        lastIdle = !anim; if (!(anim ? gap >= Math.Max(onlyOff ? 66 : (vizPage && !eng.Playing ? 45 : FrameGapMs), Math.Min(250, paintMs * 1.5)) : gap >= 1000)) return false;
         lastFrame = now; return true;
     }
     // Smooth playhead: the audio position moves in 23 ms blocks and runs ahead of what you hear, so the needle is a clock that follows it.
@@ -958,7 +959,12 @@ partial class StudioForm : Form
         gone = null;
         foreach (var k in hold.Keys) if (Array.IndexOf(cur, k) < 0) { if (gone == null) gone = new List<Track>(); gone.Add(k); }
         if (gone != null) foreach (var k in gone) hold.Remove(k);
+        DropGone(clipRightX, cur); DropGone(clipSeen, cur); DropGone(clipSeenTrim, cur); DropGone(emptyLanes, cur); DropGone(emptyLaneAt, cur); DropGone(mcStamp, cur);   // (deleted tracks and old projects kept their decoded audio here)
+        gone = null; foreach (var k in clipHist.Keys) if (Array.IndexOf(cur, k) < 0 && !InSnaps(undo, k) && !InSnaps(redo, k)) { if (gone == null) gone = new List<Track>(); gone.Add(k); }
+        if (gone != null) foreach (var k in gone) clipHist.Remove(k);   // (a track undo can still bring back keeps its history)
     }
+    static void DropGone<V>(Dictionary<Track, V> d, Track[] cur) { List<Track> gone = null; foreach (var k in d.Keys) if (Array.IndexOf(cur, k) < 0) { if (gone == null) gone = new List<Track>(); gone.Add(k); } if (gone != null) foreach (var k in gone) d.Remove(k); }
+    static bool InSnaps(List<Snapshot> l, Track t) { for (int i = 0; i < l.Count; i++) if (l[i].St.ContainsKey(t)) return true; return false; }
     // the clip picture (fill + heartbeat line) for one lane, drawn in song-area coordinates; PaintWave caches it in a bitmap
     // a clip's waveform: glowing bars on a little galaxy (a dark sky, soft nebula light and stars) in a framed box with cut corners,
     // in the colours of your theme (its cyan and violet, with the track colour in the middle). It is drawn once into the clip's picture.

@@ -1,4 +1,4 @@
-// Purphex Forms: Form (an Avalonia window), Application, Timer, MessageBox and the file dialogs, on Avalonia.
+﻿// Purphex Forms: Form (an Avalonia window), Application, Timer, MessageBox and the file dialogs, on Avalonia.
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -162,7 +162,7 @@ namespace System.Windows.Forms
     sealed class PurphexAvaloniaApp : Avalonia.Application
     {
         public override void Initialize() { Styles.Add(new Avalonia.Themes.Fluent.FluentTheme()); RequestedThemeVariant = Avalonia.Styling.ThemeVariant.Dark; Application.Init(this); }
-        public override void OnFrameworkInitializationCompleted() { base.OnFrameworkInitializationCompleted(); Clipboard.GetTextImpl = () => { var top = Application.MainWindow; return top?.Clipboard == null ? null : CommonDialog.Wait(top.Clipboard.GetTextAsync()); }; Clipboard.SetTextImpl = t => { var top = Application.MainWindow; if (top?.Clipboard != null) CommonDialog.Wait(top.Clipboard.SetTextAsync(t ?? "").ContinueWith(_ => true)); }; }
+        public override void OnFrameworkInitializationCompleted() { base.OnFrameworkInitializationCompleted(); Screen.Provider = () => { var w = Application.MainWindow; if (w == null || w.Screens == null) return null; var all = w.Screens.All; var res = new Screen[all.Count]; for (int i = 0; i < res.Length; i++) { var sc = all[i]; double k = sc.Scaling > 0 ? sc.Scaling : 1; res[i] = new Screen { Bounds = new Rectangle((int)(sc.Bounds.X / k), (int)(sc.Bounds.Y / k), (int)(sc.Bounds.Width / k), (int)(sc.Bounds.Height / k)), WorkingArea = new Rectangle((int)(sc.WorkingArea.X / k), (int)(sc.WorkingArea.Y / k), (int)(sc.WorkingArea.Width / k), (int)(sc.WorkingArea.Height / k)), Primary = sc.IsPrimary }; } return res; };   /* (the real screens: every fit-the-screen rule saw a fake 1920x1040) */ Clipboard.GetTextImpl = () => { var top = Application.MainWindow; return top?.Clipboard == null ? null : CommonDialog.Wait(top.Clipboard.GetTextAsync()); }; Clipboard.SetTextImpl = t => { var top = Application.MainWindow; if (top?.Clipboard != null) CommonDialog.Wait(top.Clipboard.SetTextAsync(t ?? "").ContinueWith(_ => true)); }; }
     }
 
     public class Timer : Component

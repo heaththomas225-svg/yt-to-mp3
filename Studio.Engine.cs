@@ -668,7 +668,14 @@ partial class StudioEngine
     public static Action<float[], float[], int> Extra;   // the Beat Lab: its pads and its own loop, heard on top (never in the song or an export)
     public Track Draft;   // the piano roll's pattern that is not on the song yet: it sounds when its notes are played, never in the song or an export
     float[] dfL, dfR;
+    public double TempoOverride;   // a preview engine plays at its own file's tempo (0 = follow the open project)
     public void RenderRealtime(float[] oL, float[] oR, int n)
+    {
+        double ov = TempoOverride; if (ov <= 0) { RenderRealtimeBody(oL, oR, n); return; }
+        double keep = Fx.RenderBpm; Fx.RenderBpm = ov;
+        try { RenderRealtimeBody(oL, oR, n); } finally { Fx.RenderBpm = keep; }
+    }
+    void RenderRealtimeBody(float[] oL, float[] oR, int n)
     {
         RenderRealtime0(oL, oR, n); { var x = Extra; if (x != null && !Rendering) try { x(oL, oR, n); } catch { } } var d = Draft; if (d == null || Rendering) return;
         lock (Sync)

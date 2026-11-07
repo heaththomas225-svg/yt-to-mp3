@@ -80,7 +80,16 @@ static class Presets
         return l;
     }
 
+    static readonly Dictionary<string, List<KeyValuePair<string, string>>> userCache = new Dictionary<string, List<KeyValuePair<string, string>>>(); static readonly Dictionary<string, int> userCacheAt = new Dictionary<string, int>();
+    public static void ForgetUser() { lock (userCache) { userCache.Clear(); userCacheAt.Clear(); } }
+    // your presets of a plugin, read from disk at most every 3 s (every repaint of a plugin window read every file)
     public static List<KeyValuePair<string, string>> User(string type)
+    {
+        string dk = Path.Combine(Root, type); int nowT = Environment.TickCount, at; List<KeyValuePair<string, string>> hit;
+        lock (userCache) { if (userCache.TryGetValue(dk, out hit) && userCacheAt.TryGetValue(dk, out at) && unchecked(nowT - at) < 3000) return new List<KeyValuePair<string, string>>(hit); }
+        var l = UserRead(type); lock (userCache) { userCache[dk] = new List<KeyValuePair<string, string>>(l); userCacheAt[dk] = nowT; } return l;
+    }
+    static List<KeyValuePair<string, string>> UserRead(string type)
     {
         var l = new List<KeyValuePair<string, string>>();
         try
@@ -99,7 +108,7 @@ static class Presets
         string d = Path.Combine(Root, type); Directory.CreateDirectory(d);
         name = SafeName(name);
         var sm = fx as SamplerFx; if (sm != null) sm.PackSounds(Path.Combine(d, name + " sounds"));
-        File.WriteAllText(Path.Combine(d, name + ".txt"), fx.Serialize());
+        File.WriteAllText(Path.Combine(d, name + ".txt"), fx.Serialize()); ForgetUser();
     }
     public static string SafeName(string name) { foreach (char c in Path.GetInvalidFileNameChars()) name = name.Replace(c, '_'); return name.Trim(); }
     public static bool UserExists(string type, string name) { return File.Exists(Path.Combine(Root, type, SafeName(name) + ".txt")); }
@@ -110,7 +119,7 @@ static class Presets
         string stem = System.Text.RegularExpressions.Regex.Replace(name, @"\s+\d+$", ""); for (int i = 2; ; i++) if (!UserExists(type, stem + " " + i)) return stem + " " + i;
     }
 
-    public static void DeleteUser(string type, string name) { try { File.Delete(Path.Combine(Root, type, name + ".txt")); } catch { } try { string sd = Path.Combine(Root, type, name + " sounds"); if (Directory.Exists(sd)) Directory.Delete(sd, true); } catch { } }
+    public static void DeleteUser(string type, string name) { ForgetUser(); try { File.Delete(Path.Combine(Root, type, name + ".txt")); } catch { } try { string sd = Path.Combine(Root, type, name + " sounds"); if (Directory.Exists(sd)) Directory.Delete(sd, true); } catch { } }
 
     public static void Apply(Fx fx, string data) { var e = StudioEngine.Current; object gate = e != null ? e.Sync : new object(); lock (gate) { fx.ResetDefaults(); fx.Deserialize(data); fx.Reset(); } }
 

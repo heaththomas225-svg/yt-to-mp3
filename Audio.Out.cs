@@ -24,6 +24,9 @@ abstract class AudioOut : IDisposable
 #if PURPHEX_CORE
         return new NullAudioOut(render);
 #else
+#if PURPHEX_DESKTOP
+        if (!OperatingSystem.IsWindows()) throw new InvalidOperationException("the sound system could not start (" + PlatformAudio.Status + ")");
+#endif
         return new WaveOutPlayer(render, level);
 #endif
     }

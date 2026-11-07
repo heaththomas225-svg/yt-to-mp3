@@ -224,9 +224,15 @@ static class SoundDrop
     [System.Runtime.InteropServices.DllImport("user32.dll")] static extern IntPtr WindowFromPoint(Point p);
     [System.Runtime.InteropServices.DllImport("user32.dll")] static extern IntPtr GetTopWindow(IntPtr h);
     [System.Runtime.InteropServices.DllImport("user32.dll")] static extern IntPtr GetWindow(IntPtr h, uint cmd);
+    static bool nativeOk = true;
     public static ISoundDrop At(Point screen)
     {
-        try { var c = Control.FromChildHandle(WindowFromPoint(screen)); var f = c == null ? null : (c as Form ?? c.FindForm()); if (f is ISoundDrop) return (ISoundDrop)f; } catch { }
+        if (nativeOk)
+        {
+            try { var c = Control.FromChildHandle(WindowFromPoint(screen)); var f = c == null ? null : (c as Form ?? c.FindForm()); if (f is ISoundDrop) return (ISoundDrop)f; }
+            catch (DllNotFoundException) { nativeOk = false; } catch (EntryPointNotFoundException) { nativeOk = false; } catch { }
+        }
+        if (!nativeOk) { ISoundDrop hit = null; foreach (Form g in Application.OpenForms) if (g is ISoundDrop && g.Visible && !g.IsDisposed && g.WindowState != FormWindowState.Minimized && g.Bounds.Contains(screen)) hit = (ISoundDrop)g; return hit; }   // (Mac / Linux: no Windows window lookup, the last opened window under the mouse)
         // an invisible window of another program over the screen (a game or chat overlay) took the point: the Pads / Key Map window under the mouse is found from the top down
         try
         {

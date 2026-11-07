@@ -520,7 +520,7 @@ class FrameLoop : IDisposable
         try { IntPtr dc = GetDC(IntPtr.Zero); int hz = GetDeviceCaps(dc, 116); ReleaseDC(IntPtr.Zero, dc); return hz > 30 && hz < 500 ? hz : 60; } catch { return 60; }
     }
 
-    public int TargetFps = 120; public Func<bool> Slow;
+    public int TargetFps = 120; public Func<bool> Slow; public Func<bool> Idle;   // Idle: nothing to draw, so no busy-waiting
     readonly Control owner; readonly Action tick; System.Threading.Thread th; volatile bool run = true, pending; volatile float lastTickMs;   // how long the last frame took
 
     public FrameLoop(Control owner, Action tick)
@@ -543,7 +543,7 @@ class FrameLoop : IDisposable
             }
             double wait = next - sw.Elapsed.TotalMilliseconds;
             if (wait > 2) System.Threading.Thread.Sleep((int)(wait - 1)); else if (wait < -100) next = sw.Elapsed.TotalMilliseconds;
-            if (TargetFps >= 120) { while (next - sw.Elapsed.TotalMilliseconds > 0.05) System.Threading.Thread.SpinWait(60); }   // fast screens: the last part of the wait is exact, so frames arrive evenly
+            if (TargetFps >= 120 && !(Slow != null && Slow())) { Func<bool> id = Idle; if (id == null || !id()) { while (next - sw.Elapsed.TotalMilliseconds > 0.05) System.Threading.Thread.SpinWait(60); } }   // (an idle or minimised studio just sleeps: it spun 15-30% of a core)   // fast screens: the last part of the wait is exact, so frames arrive evenly
         }
     }
 

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -55,7 +55,7 @@ partial class StudioForm
             try
             {   // the preview load gets its own ProjMeta, so your tempo, lyrics and picture are never touched (a save during a slow load used to write the wrong ones)
                 pe = new StudioEngine { ListenOnly = true }; StudioEngine.Current = eng;   /* the preview engine must not become the engine the instruments (the Bass Lab piano) play through */
-                ProjectIO.Load(pe, path, s => { }, new ProjectIO.ProjMeta());
+                var pmeta = new ProjectIO.ProjMeta(); ProjectIO.Load(pe, path, s => { }, pmeta); if (!double.IsNaN(pmeta.Bpm) && pmeta.Bpm > 0) pe.TempoOverride = pmeta.Bpm;   // (the preview plays at its own tempo, not the open project's)
             }
             catch (Exception ex) { err = ex.Message; }
             try

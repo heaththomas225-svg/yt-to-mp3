@@ -103,7 +103,8 @@ class VstPlugin : IVstHosted
         return p;
     }
 
-    static void ZeroMem(IntPtr p, int bytes) { var z = new byte[Math.Min(bytes, 4096)]; for (int o = 0; o < bytes; o += z.Length) Marshal.Copy(z, 0, p + o, Math.Min(z.Length, bytes - o)); }
+    static readonly byte[] Zeros = new byte[4096];   // (shared: a new array every block was garbage on the sound thread)
+    static void ZeroMem(IntPtr p, int bytes) { var z = Zeros; for (int o = 0; o < bytes; o += z.Length) Marshal.Copy(z, 0, p + o, Math.Min(z.Length, bytes - o)); }
 
     IntPtr Call(int op, int index, IntPtr value, IntPtr ptr, float opt) { if (freed) return IntPtr.Zero; lock (callLock) { return disp(eff, op, index, value, ptr, opt); } }
 
@@ -174,7 +175,7 @@ class VstPlugin : IVstHosted
         }
     }
 
-    static void ZeroSome(IntPtr p, int frames) { int bytes = frames * 4; var z = new byte[Math.Min(bytes, 4096)]; for (int o = 0; o < bytes; o += z.Length) Marshal.Copy(z, 0, p + o, Math.Min(z.Length, bytes - o)); }
+    static void ZeroSome(IntPtr p, int frames) { int bytes = frames * 4; var z = Zeros; for (int o = 0; o < bytes; o += z.Length) Marshal.Copy(z, 0, p + o, Math.Min(z.Length, bytes - o)); }
 
     void UpdateTime(int off)
     {

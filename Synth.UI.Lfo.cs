@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -108,7 +108,7 @@ partial class SynthCanvas
         };
 
         float x1 = pn.X + 464; float cw = 114, gap = 4;
-        Choose(g, "l" + k + "shape", Rc(x1, pn.Y + 14, cw, 22), Acc); Choose(g, "l" + k + "sync", Rc(x1 + (cw + gap), pn.Y + 14, cw, 22), Acc2); Choose(g, "l" + k + "retrig", Rc(x1 + 2 * (cw + gap), pn.Y + 14, cw, 22), Acc); Choose(g, "l" + k + "uni", Rc(x1 + 3 * (cw + gap), pn.Y + 14, cw, 22), Acc); Choose(g, "l" + k + "loop", Rc(x1 + 4 * (cw + gap), pn.Y + 14, 100, 22), Acc2);
+        Choose(g, "l" + k + "shape", Rc(x1, pn.Y + 14, cw, 22), Acc); Choose(g, "l" + k + "sync", Rc(x1 + (cw + gap), pn.Y + 14, cw, 22), Acc2); Choose(g, "l" + k + "retrig", Rc(x1 + 2 * (cw + gap), pn.Y + 14, cw, 22), Acc); Choose(g, "l" + k + "uni", Rc(x1 + 3 * (cw + gap), pn.Y + 14, cw, 22), Acc); if (P("l" + k + "retrig").Val > 0.5f) Choose(g, "l" + k + "loop", Rc(x1 + 4 * (cw + gap), pn.Y + 14, 100, 22), Acc2);   /* (LOOP only does something when the LFO restarts on each note) */
         var pb = Rc(x1, pn.Y + 42, 150, 24); bool hp = Hot(pb); Fill(g, hp ? PanelHi : TM.C(255, 18, 10, 34), pb, 5); Stroke(g, Acc, pb, 5, 1); Txt(g, "SHAPE PRESETS  V", 11, Ink, pb, StringAlignment.Center, true);
         var pr = Add(pb); pr.Tip = "Pick a ready-made shape: sine, saw, stepped, random, wobbles. You can then reshape it."; pr.Down = pt => { var m = Win.NewMenu(); foreach (var nm in LfoCurve.PresetNames) { string n2 = nm; var it = new ToolStripMenuItem(nm); it.Click += (s2, e2) => { fx.LfoCurves[k - 1].Load(n2); SetVal(P("l" + k + "shape"), 7); Poke(); }; m.Items.Add(it); } ShowMenu(m, new Point((int)(pb.X * scale + ox), (int)(pb.Bottom * scale + oy))); };
         var sb = Rc(x1 + 156, pn.Y + 42, 110, 24); Fill(g, lfoSnap ? Color.FromArgb(120, Acc2) : (Hot(sb) ? PanelHi : TM.C(255, 18, 10, 34)), sb, 5); Stroke(g, lfoSnap ? Acc2 : Edge, sb, 5, 1); Txt(g, lfoSnap ? "SNAP: ON" : "SNAP: OFF", 11, Ink, sb, StringAlignment.Center, lfoSnap);

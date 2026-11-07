@@ -1,4 +1,4 @@
-// Sound output for macOS and Linux (and Windows when the cross-platform build runs there), through SDL2.
+﻿// Sound output for macOS and Linux (and Windows when the cross-platform build runs there), through SDL2.
 // The engine's render callback fills blocks; a thread keeps the device's queue topped up a little ahead of what is heard,
 // so the song position (what you hear) is always known: the frames sent minus the frames still queued.
 using System;
@@ -9,6 +9,7 @@ using Silk.NET.SDL;
 static class PlatformAudio
 {
     static Sdl sdl; static bool ready; public static string Status = "not started";
+    public static Func<int> LevelNow;   // the Playback buffer setting (and its automatic growth) from the app
     // call once at start: every AudioOut the engine asks for from then on plays through SDL
     public static bool Install()
     {
@@ -52,7 +53,7 @@ sealed unsafe class SdlAudioOut : AudioOut
     readonly long[] marks = new long[256]; readonly long[] songAt = new long[256]; int head;   // which song position each block started at
     public SdlAudioOut(Sdl sdl, Action<float[], float[], int> render, int level)
     {
-        this.sdl = sdl; this.render = render; int lv = level < 0 ? 1 : Math.Min(2, level);
+        this.sdl = sdl; this.render = render; int lv = level < 0 ? (PlatformAudio.LevelNow != null ? Math.Max(0, Math.Min(2, PlatformAudio.LevelNow())) : 1) : Math.Min(2, level);   /* (the Playback buffer setting counts here too) */
         block = lv == 0 ? 512 : (lv == 1 ? 1024 : 2048); ahead = block * (lv == 0 ? 3 : 4);   // low latency, normal, safest
         l = new float[block]; r = new float[block]; inter = new float[block * 2];
     }
@@ -68,6 +69,7 @@ sealed unsafe class SdlAudioOut : AudioOut
     {
         while (run)
         {
+            if (silenceReq) { silenceReq = false; if (PlayingNow == null || !PlayingNow()) { int q = Queued(); sdl.ClearQueuedAudio(dev); sent -= q; } }   // PAUSE / STOP: the song audio still queued is dropped (it played on)
             int queued = (int)(sdl.GetQueuedAudioSize(dev) / 8);   // bytes / (2 channels * 4 bytes)
             if (queued >= ahead) { Thread.Sleep(2); continue; }
             if (queued == 0 && sent > 0 && PlayingNow != null && PlayingNow()) Underruns++;
@@ -80,6 +82,7 @@ sealed unsafe class SdlAudioOut : AudioOut
         }
     }
     // frames handed to the device that it has not played yet
+    volatile bool silenceReq; public override void Silence(long at) { silenceReq = true; }   // done on the sound thread
     public override int Queued() { return dev == 0 ? 0 : (int)(sdl.GetQueuedAudioSize(dev) / 8); }
     // the song position being heard: find the block that holds the frame playing now
     public override long PlayingSongPos()

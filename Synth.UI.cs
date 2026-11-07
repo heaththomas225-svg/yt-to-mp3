@@ -47,7 +47,7 @@ class SynthWindow : Form, IKeySink
         FormBorderStyle = FormBorderStyle.Sizable; MaximizeBox = true; MinimumSize = new Size(900, 700); Win.Dark(this);
         canvas = new SynthCanvas(fx, this) { Dock = DockStyle.Fill };
         piano = new PianoPanel(this, 49) { Dock = DockStyle.Bottom, Height = 124 };
-        Controls.Add(canvas); Controls.Add(piano); ClientSize = new Size(1240, 716 + 124);
+        Controls.Add(canvas); Controls.Add(piano); { var wa = Screen.FromPoint(Cursor.Position).WorkingArea; MinimumSize = new Size(900, 560); ClientSize = new Size(Math.Min(1240, wa.Width - 16), Math.Min(716 + 124, wa.Height - 48)); }   // (never taller than the screen: the keyboard was hidden on a laptop)
         MidiWindow.Hook(this, fx);   // like Pads and Key Map: while Bass Lab is open your MIDI keyboard plays it (a click in the studio took the keys away); the last window you used wins
         Shown += (s, e) => { if (Prefs.MidiDev.Length > 0 && Prefs.MidiDev != MidiInput.OffName && MidiInput.OpenName != Prefs.MidiDev) MidiInput.Open(Prefs.MidiDev); var se = StudioEngine.Current; if (se != null) se.EnsureAudio(); };
         tick = new Timer { Interval = 33 }; tick.Tick += (s, e) => { if (!Win.AnyMoving) canvas.Step(); }; tick.Start();

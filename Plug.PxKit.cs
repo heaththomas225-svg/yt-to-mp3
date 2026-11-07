@@ -55,7 +55,7 @@ abstract class PxWindow : Form
 
     protected PxWindow(Fx f, string name, Size size)
     {
-        fx = f; brand = name; Text = "Purphex " + name; Rectangle wa = Screen.FromPoint(Cursor.Position).WorkingArea; int extra = RemoveHook != null && !(f is InstrumentFx) ? 60 : 0; int cw = Math.Max(400, Math.Min(size.Width + extra, wa.Width - 16)), ch = Math.Max(300, Math.Min(size.Height, wa.Height - 39)); ClientSize = new Size(cw, ch); MinimumSize = new Size(cw + 16, ch + 39);   /* (never taller than the screen: the bottom row went under the taskbar on a laptop) */ BackColor = Bg1; KeyPreview = true; StartPosition = FormStartPosition.CenterParent;
+        fx = f; brand = name; Text = "Purphex " + name; Rectangle wa = Screen.FromPoint(Cursor.Position).WorkingArea; int extra = RemoveHook != null && !(f is InstrumentFx) ? 60 : 0; int cw = Math.Max(400, Math.Min(Math.Max(size.Width + extra, extra > 0 ? 940 : 0), wa.Width - 16)), ch = Math.Max(300, Math.Min(size.Height, wa.Height - 39)); ClientSize = new Size(cw, ch); MinimumSize = new Size(cw + 16, ch + 39);   /* (never taller than the screen: the bottom row went under the taskbar on a laptop) */ BackColor = Bg1; KeyPreview = true; StartPosition = FormStartPosition.CenterParent;
         SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.UserPaint | ControlStyles.ResizeRedraw, true);
         try { Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath); } catch { }
         tick = new Timer { Interval = 33 }; tick.Tick += (a, b) => { if (Win.AnyMoving || Opacity < 0.5 || WindowState == FormWindowState.Minimized) return; int now = Environment.TickCount; if (unchecked(now - paintStart) < Math.Max(paintDur * 2, 30)) return; if (unchecked(now - allPaintEnd) < allPaintDur && unchecked(now - paintEnd) < 250) return; Invalidate(); }; tick.Start();   /* (counted from the paint's start: from its end every second tick was skipped, 15 fps; a window kept waiting a quarter second paints anyway) */   /* (faded or minimised: nothing to animate; a slow paint gets its own time before the next: the redraws could pile up faster than they finished and the window froze) */
@@ -83,11 +83,14 @@ abstract class PxWindow : Form
     protected static GraphicsPath RR(RectangleF r, float rad) { var p = new GraphicsPath(); float d = Math.Max(1, rad * 2); p.AddArc(r.X, r.Y, d, d, 180, 90); p.AddArc(r.Right - d, r.Y, d, d, 270, 90); p.AddArc(r.Right - d, r.Bottom - d, d, d, 0, 90); p.AddArc(r.X, r.Bottom - d, d, d, 90, 90); p.CloseFigure(); return p; }
     protected static void Fill(Graphics g, Color c, RectangleF r, float rad) { using (var p = RR(r, rad)) using (var b = new SolidBrush(c)) g.FillPath(b, p); }
     protected static void Stroke(Graphics g, Color c, RectangleF r, float rad, float w) { if (rad >= 12) UiAudit.Box(r); using (var p = RR(r, rad)) using (var pen = new Pen(c, w)) g.DrawPath(pen, p); }
+    // fonts and formats made once and kept (every label made two fonts, a brush and a format on every paint)
+    static readonly Dictionary<long, Font> pxFonts = new Dictionary<long, Font>(); static readonly StringFormat[] pxFmts = new StringFormat[3];
+    internal static Font PxFont(float size, bool bold) { long k = (long)Math.Round(size * 20) * 2 + (bold ? 1 : 0); Font f; if (!pxFonts.TryGetValue(k, out f)) { if (pxFonts.Count > 300) pxFonts.Clear(); f = new Font("Segoe UI", size, bold ? FontStyle.Bold : FontStyle.Regular, GraphicsUnit.Pixel); pxFonts[k] = f; } return f; }
+    internal static StringFormat PxFmt(StringAlignment al) { int i = (int)al; if (pxFmts[i] == null) pxFmts[i] = new StringFormat { Alignment = al, LineAlignment = StringAlignment.Center, Trimming = StringTrimming.EllipsisCharacter, FormatFlags = StringFormatFlags.NoWrap }; return pxFmts[i]; }
     protected static void Txt(Graphics g, string s, float size, Color c, RectangleF r, StringAlignment al, bool bold)
     {
         size = UiAudit.Fit(g, s, size, bold, r);   // text that is too long for its box gets a little smaller instead of running out
-        using (var f = new Font("Segoe UI", size, bold ? FontStyle.Bold : FontStyle.Regular, GraphicsUnit.Pixel)) using (var b = new SolidBrush(c)) using (var sf = new StringFormat { Alignment = al, LineAlignment = StringAlignment.Center, Trimming = StringTrimming.EllipsisCharacter, FormatFlags = StringFormatFlags.NoWrap })
-        { UiAudit.Text(g, s, f, r, al); g.DrawString(s, f, b, r, sf); }
+        var f = PxFont(size, bold); using (var b = new SolidBrush(c)) { UiAudit.Text(g, s, f, r, al); g.DrawString(s, f, b, r, PxFmt(al)); }
     }
     protected void Panel(Graphics g, RectangleF r, string title, Color col)
     {
@@ -281,7 +284,7 @@ static class UiAudit
     public static float Fit(Graphics g, string s, float size, bool bold, RectangleF r)
     {
         if (string.IsNullOrEmpty(s) || r.Width <= 0) return size;
-        using (var f = new Font("Segoe UI", size, bold ? FontStyle.Bold : FontStyle.Regular, GraphicsUnit.Pixel)) { float w = g.MeasureString(s, f).Width; if (w <= r.Width - 2) return size; return Math.Max(size * 0.75f, size * (r.Width - 2) / w); }
+        float w = g.MeasureString(s, PxWindow.PxFont(size, bold)).Width; if (w <= r.Width - 2) return size; float ns = size * (r.Width - 2) / w; ns = (float)Math.Floor(ns * 4) / 4f; return Math.Max(size * 0.75f, ns);   // (cached fonts; sizes rounded so only a few are made)
     }
     public static void Text(Graphics g, string s, Font f, RectangleF r, StringAlignment al)
     {
