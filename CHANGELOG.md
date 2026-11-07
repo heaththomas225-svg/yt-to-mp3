@@ -2,6 +2,14 @@
 
 What changed in each version of **Purphex**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.80.7  VST plugin sliders follow the plugin, track restore, history
+
+- FIXED: When you change a setting inside a VST plugin's own window, or load one of its own presets, Purphex's sliders follow it and it is saved with your project. VST3 window edits always reach the sound too.
+
+- FIXED: RESTORE THIS TRACK brings back every piece that was on the track's row, not just the first.
+
+- FIXED: The history of an untitled project moves next to the project when you first save it, so HISTORY keeps everything.
+
 ## 3.80.6  VST3 pedal and pitch bend, safer recovery, loop and export fixes
 
 - NEW: VST3 instruments now respond to the sustain pedal, pitch bend, mod wheel, aftertouch and the knobs on your MIDI keyboard. Stopping lets go of the pedal.

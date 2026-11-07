@@ -7,10 +7,15 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.80.6";
+    public const string Latest = "3.80.7";
 
     public const string Text =
-@"3.80.6  VST3 pedal and pitch bend, safer recovery, loop and export fixes
+@"3.80.7  VST plugin sliders follow the plugin, track restore, history
+ + FIXED: When you change a setting inside a VST plugin's own window, or load one of its own presets, Purphex's sliders follow it and it is saved with your project. VST3 window edits always reach the sound too.
+ + FIXED: RESTORE THIS TRACK brings back every piece that was on the track's row, not just the first.
+ + FIXED: The history of an untitled project moves next to the project when you first save it, so HISTORY keeps everything.
+
+3.80.6  VST3 pedal and pitch bend, safer recovery, loop and export fixes
  + NEW: VST3 instruments now respond to the sustain pedal, pitch bend, mod wheel, aftertouch and the knobs on your MIDI keyboard. Stopping lets go of the pedal.
  + FIXED: Automation and the host sliders always win over a VST plugin again, even after you changed the plugin in its own window.
  + FIXED: Undo mix only undoes the Auto Mix of the project you have open, can itself be undone, and never breaks your plugins.

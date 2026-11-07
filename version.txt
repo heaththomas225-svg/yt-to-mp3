@@ -1,4 +1,4 @@
-3.80.6
+3.80.7
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-VST3 pedal and pitch bend, safer recovery, loop and export fixes
-sha256=9b2a911eb694264062c03cee42861cd2af494995d5088349b2de5be1dbb6d4f4
+VST plugin sliders follow the plugin, track restore, history
+sha256=5988b4d0dddaca280aa8bba84f6ae9547da731f07dc99c88c0cb570e63b6eaa4
