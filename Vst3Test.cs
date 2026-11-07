@@ -48,7 +48,8 @@ class MockV3
     {
         if (i > 1) return 1; Marshal.WriteInt32(info, 0, 100 + i); Vst3.PutWide(info + 4, i == 0 ? "Volume" : "Cutoff", 128); Marshal.WriteInt32(info, 772, 0); Marshal.WriteInt64(info, 776, BitConverter.DoubleToInt64Bits(0.5)); Marshal.WriteInt32(info, 784, 0); Marshal.WriteInt32(info, 788, 1); return 0;
     }
-    int SetNorm(IntPtr s, uint id, double v) { if (id == 100) Vol = v; return 0; }
+    public int SetNormCalls;
+    int SetNorm(IntPtr s, uint id, double v) { SetNormCalls++; if (id == 100) Vol = v; return 0; }
     IntPtr CreateView(IntPtr s, IntPtr name) { return Vst3.Ansi(name, 0, 8) == "editor" ? View.Ptr : IntPtr.Zero; }
     int Attach(IntPtr s, IntPtr parent, IntPtr type) { Hwnd = parent; Attached = true; return 0; }
     int GetState(IntPtr s, IntPtr stream) { var b = Encoding.ASCII.GetBytes("V3STATE-" + Vol.ToString("0.00")); IntPtr m = Marshal.AllocHGlobal(b.Length); Marshal.Copy(b, 0, m, b.Length); IntPtr w = Marshal.AllocHGlobal(4); var wr = Vst3.Fn<D_IPIP>(stream, 4); int r = wr(stream, m, b.Length, w); Marshal.FreeHGlobal(m); Marshal.FreeHGlobal(w); return r; }
@@ -106,6 +107,17 @@ static class W3
         p.SendMidi(new List<KeyValuePair<int, MidiEv>> { new KeyValuePair<int, MidiEv>(0, new MidiEv { S = 0x90, D1 = 69, D2 = 127 }) }); l = new float[2048]; r = new float[2048]; p.Process(l, r, 2048); double full = Peak(l, 500, 2048);
         p.SetParam(0, 0.5f); l = new float[2048]; r = new float[2048]; p.Process(l, r, 2048); double half = Peak(l, 500, 2048);
         Check("changing a parameter reaches the plugin's audio (volume halved)", half < full * 0.6 && half > full * 0.4 && Math.Abs(p.GetParam(0) - 0.5f) < 0.01, "full " + full.ToString("0.00") + ", half " + half.ToString("0.00"));
+        // the plugin's own window moves a control (IComponentHandler.performEdit): the host's value follows and the processor hears it, without it being sent back to the controller
+        var vfx = new VstFx(p, "mock.vst3"); float cut0 = vfx.P[1].Val;
+        m.Got.Clear(); m.SetNormCalls = 0; Vst3.Fn<D_IUD>(m.HandlerPtr, 4)(m.HandlerPtr, 101, 0.8);
+        float cutHost = vfx.P[1].Val; p.Process(new float[512], new float[512], 512); double gotCut; m.Got.TryGetValue(101, out gotCut);
+        Check("a control moved in a VST3's own window updates the host's slider and reaches the processor (not sent back to the controller)", m.HandlerPtr != IntPtr.Zero && Math.Abs(cut0 - 0.25f) < 0.01 && Math.Abs(cutHost - 0.8f) < 0.001 && m.Got.ContainsKey(101) && Math.Abs(gotCut - 0.8) < 0.001 && m.SetNormCalls == 0, "before " + cut0.ToString("0.00") + ", host " + cutHost.ToString("0.00") + ", processor " + (m.Got.ContainsKey(101) ? gotCut.ToString("0.00") : "none") + ", sent back " + m.SetNormCalls);
+        // the plugin loads a preset of its own and says its values changed (restartComponent(kParamValuesChanged)): the host reads them again
+        float vol0 = vfx.P[0].Val; m.Vol = 0.9; Vst3.Fn<D_II>(m.HandlerPtr, 6)(m.HandlerPtr, 1 << 2); float vol1 = vfx.P[0].Val;
+        Check("restartComponent(kParamValuesChanged) re-reads the VST3's values into the host's sliders", Math.Abs(vol0 - 0.5f) < 0.01 && Math.Abs(vol1 - 0.9f) < 0.001 && Math.Abs(p.GetParam(0) - 0.9f) < 0.001, "before " + vol0.ToString("0.00") + ", after " + vol1.ToString("0.00"));
+        m.Got.Clear(); p.Process(new float[512], new float[512], 512);
+        Check("a value the plugin re-read itself is not pushed back to its processor", !m.Got.ContainsKey(100), m.Got.ContainsKey(100) ? "sent " + m.Got[100].ToString("0.00") : "");
+        p.SetParam(0, 0.5f); p.Process(new float[512], new float[512], 512);   // (back to half volume for the checks below)
         // MIDI controllers: VST 3 gets them as the parameters the plugin's MIDI mapping names
         m.Got.Clear(); p.SendMidi(new List<KeyValuePair<int, MidiEv>> { new KeyValuePair<int, MidiEv>(0, new MidiEv { S = 0xB0, D1 = 64, D2 = 127 }), new KeyValuePair<int, MidiEv>(0, new MidiEv { S = 0xE0, D1 = 0x7F, D2 = 0x7F }), new KeyValuePair<int, MidiEv>(0, new MidiEv { S = 0xB0, D1 = 1, D2 = 64 }), new KeyValuePair<int, MidiEv>(0, new MidiEv { S = 0xB1, D1 = 1, D2 = 127 }) }); p.Process(new float[512], new float[512], 512);
         double gs, gb, gm; m.Got.TryGetValue(200, out gs); m.Got.TryGetValue(201, out gb); m.Got.TryGetValue(202, out gm);

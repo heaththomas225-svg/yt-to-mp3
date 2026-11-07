@@ -164,7 +164,8 @@ partial class StudioForm
             try { Directory.CreateDirectory(ProjectLibrary.DefaultFolder); } catch { }
             path = Path.Combine(ProjectLibrary.DefaultFolder, nm + ".ytmproj"); int n = 2; while (File.Exists(path)) path = Path.Combine(ProjectLibrary.DefaultFolder, nm + " " + (n++) + ".ytmproj");
         }
-        try { ProjectIO.Roll = PrPrefsText(); ProjectIO.Save(eng, path); projPath = path; projName = Path.GetFileNameWithoutExtension(path); NoteProject(path, true); AutosaveClear(); Toast("Project saved: " + projName + " (in My Projects)"); return true; }
+        bool firstSave = string.IsNullOrEmpty(projPath);   // an untitled project saved for the first time: its history moves next to the file
+        try { ProjectIO.Roll = PrPrefsText(); ProjectIO.Save(eng, path); projPath = path; projName = Path.GetFileNameWithoutExtension(path); NoteProject(path, true); AutosaveClear(); if (firstSave) HistAdoptUntitled(); Toast("Project saved: " + projName + " (in My Projects)"); return true; }
         catch (Exception ex) { MessageBox.Show(this, "Could not save the project: " + ex.Message, "Save"); return false; }
     }
 }

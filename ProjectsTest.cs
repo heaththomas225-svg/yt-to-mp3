@@ -474,6 +474,19 @@ static class PR
               Check("RAINBOW SPEED: slow is very gentle and every speed fades in small steps (never more than 4 colour changes a second)", slowDps <= 1 && slowStep <= 2 && fastDps >= 20 && fastStep <= 8 && fastDps / fastStep <= 4.01, slowDps + "/s step " + slowStep + ", fast " + fastDps + "/s step " + fastStep);
               Prefs.RainbowSpeed = 40; Check("the Rainbow speed is saved with the settings", Array.IndexOf(Prefs.Lines(), "rbspeed=40") >= 0, ""); Prefs.RainbowSpeed = keepSp; }
             foreach (var t in Themes.All) { Themes.Apply(Themes.All.IndexOf(t)); Paint(); } Themes.Apply(0); Check("every theme paints the studio without a problem", true, "");
+            {   // FIRST SAVE OF AN UNTITLED PROJECT: its history moves next to the project, merged after a history already there, audio paths rewritten
+                string keepPath = F<string>("projPath"); string uDir = Path.Combine(StudioEnv.DataDir, "history", "untitled-" + F<string>("histUntitled")), uAud = Path.Combine(uDir, "audio"); Directory.CreateDirectory(uAud);
+                string wav = Path.Combine(uAud, "clip 20260101-000000-000.wav"); File.WriteAllBytes(wav, new byte[] { 1, 2, 3 });
+                File.WriteAllText(Path.Combine(uDir, "00001.ytproj"), "YTMPROJ|1\ntrack|vox|v|0|" + wav + "|0|0|0\n"); File.WriteAllText(Path.Combine(uDir, "index.txt"), "1|" + DateTime.Now.Ticks + "|Start: 1 tracks|1|00001.ytproj\n");
+                string pf = Path.Combine(dir, "adopt.ytmproj"), hd = pf + ".history"; File.WriteAllText(pf, "YTMPROJ|1\ntrack|vox|v|0|" + wav + "|0|0|0\n");
+                Directory.CreateDirectory(hd); File.WriteAllText(Path.Combine(hd, "00001.ytproj"), "old"); File.WriteAllText(Path.Combine(hd, "index.txt"), "1|" + DateTime.Now.Ticks + "|Old|1|00001.ytproj\n");
+                SetF("projPath", pf); typeof(StudioForm).GetMethod("HistAdoptUntitled", BF).Invoke(sf, null);
+                string nw = Path.Combine(hd, "audio", Path.GetFileName(wav)); var idx = File.ReadAllLines(Path.Combine(hd, "index.txt"));
+                Check("the first save moves the untitled history next to the project (the old folder goes once empty)", !Directory.Exists(uDir) && File.Exists(nw) && File.Exists(Path.Combine(hd, "00002.ytproj")), Directory.Exists(uDir) + " " + File.Exists(nw));
+                Check("a history already there keeps its states and the moved ones come after them", idx.Length == 2 && idx[1].StartsWith("2|") && idx[1].EndsWith("|00002.ytproj") && File.ReadAllText(Path.Combine(hd, "00001.ytproj")) == "old", string.Join(" / ", idx));
+                Check("the moved states and the saved project point at the moved audio", File.ReadAllText(Path.Combine(hd, "00002.ytproj")).Contains(nw) && File.ReadAllText(pf).Contains(nw) && !File.ReadAllText(pf).Contains(wav), "");
+                SetF("projPath", keepPath); try { Directory.Delete(hd, true); File.Delete(pf); } catch { }
+            }
         }
         finally
         {

@@ -21,6 +21,8 @@ interface IVstHosted : IDisposable
     byte[] GetChunk(); void SetChunk(byte[] data); void SendMidi(List<KeyValuePair<int, MidiEv>> ev); void Process(float[] l, float[] r, int n);
     Size GetEditorSize(); void OpenEditor(IntPtr hwnd); void CloseEditor(); void EditorIdle();
     int Latency { get; }
+    Action<int, float> Automated { get; set; }   // the plugin changed one of its own parameters (its window, a preset it loaded): index, new value. Can be called on any thread
+    bool ParamsDirty { get; set; }   // the plugin said its values changed without saying which: the host re-reads them later on the window thread (never in the plugin's callback)
 }
 
 static class VstLoader
@@ -119,13 +121,17 @@ class Vst3Plugin : IVstHosted
     IntPtr lib, factory, component, processor, controller, view, connComp, connCtrl; bool disposed, controllerSeparate, exitDll;
     string name = "", vendor = "", path = "", subCats = ""; int numIn, numOut, sampleRate = 44100; bool synth, hasEditor;   /* subCats: what the plugin says it is ("Instrument|Synth", "Fx|Reverb"...) */ Size editorSize = new Size(640, 480);
     readonly List<uint> paramIds = new List<uint>(); readonly List<string> paramNames = new List<string>();
+    readonly Dictionary<uint, int> paramIndex = new Dictionary<uint, int>(); float[] known = new float[0];   /* paramIndex: ParamID -> index (filled once at load, only read after). known: the last value of each the host knows of, to tell which changed when the plugin re-reads */
     readonly object callLock = new object();
-    D_IP processFn; D_IUD setParamFn; D_U latFn; volatile int latency;
+    D_IP processFn; D_IUD setParamFn; D_DU getParamFn; D_U latFn; volatile int latency;
+    public Action<int, float> Automated { get; set; }
+    volatile bool paramsDirty; public bool ParamsDirty { get { return paramsDirty; } set { paramsDirty = value; } }
     public int Latency { get { return disposed ? 0 : latency; } }
     void RefreshLatency() { if (latFn == null) return; try { latency = (int)Math.Max(0u, Math.Min(latFn(processor), 1u << 16)); } catch { } }
     IntPtr[] inBuf = new IntPtr[2], outBuf = new IntPtr[2]; IntPtr inArr, outArr, inBus, outBus, procData, procCtx, evBuf, outEvBuf, setup;
     ComObject host, handler, frame, inEvents, outEvents, inChanges, outChanges; ComObject[] queues = new ComObject[MaxChanges]; readonly Dictionary<IntPtr, int> queueIndex = new Dictionary<IntPtr, int>();
     int evCount, changeCount; readonly uint[] chId = new uint[MaxChanges]; readonly double[] chVal = new double[MaxChanges];
+    int procCount; readonly uint[] pId = new uint[MaxChanges]; readonly double[] pVal = new double[MaxChanges];   // the changes this block hands the processor: a copy taken under the lock, so an edit made while the plugin processes is kept for the next block instead of being wiped
     readonly List<KeyValuePair<int, MidiEv>> pending = new List<KeyValuePair<int, MidiEv>>(); readonly HashSet<int> active = new HashSet<int>();
 
     public string Name { get { return name; } } public string Vendor { get { return vendor; } } public string Path { get { return path; } } public int NumParams { get { return paramIds.Count; } }
@@ -215,15 +221,20 @@ class Vst3Plugin : IVstHosted
         inEvents = new ComObject(new[] { Vst3.IidEventList }, new D_I(EvCount), new D_IIP(EvGet), new D_IP(EvAdd));
         outEvents = new ComObject(new[] { Vst3.IidEventList }, new D_I(s => 0), new D_IIP((s, i, e) => Vst3.False), new D_IP((s, e) => Vst3.Ok));
         for (int i = 0; i < MaxChanges; i++) { var q = new ComObject(new[] { Vst3.IidParamValueQueue }, new D_U(QId), new D_I(s => 1), new D_IIPP(QPoint), new D_IUDP((s, id, v, pidx) => Vst3.False)); queues[i] = q; queueIndex[q.Ptr] = i; }
-        inChanges = new ComObject(new[] { Vst3.IidParameterChanges }, new D_I(s => changeCount), new D_PI(ChGet), new D_PPP((s, id, idx) => IntPtr.Zero));
+        inChanges = new ComObject(new[] { Vst3.IidParameterChanges }, new D_I(s => procCount), new D_PI(ChGet), new D_PPP((s, id, idx) => IntPtr.Zero));
         outChanges = new ComObject(new[] { Vst3.IidParameterChanges }, new D_I(s => 0), new D_PI((s, i) => IntPtr.Zero), new D_PPP((s, id, idx) => IntPtr.Zero));
     }
     int EvCount(IntPtr s) { return evCount; }
     int EvGet(IntPtr s, int i, IntPtr e) { if (i < 0 || i >= evCount) return Vst3.False; for (int o = 0; o < 48; o += 8) Marshal.WriteInt64(e, o, Marshal.ReadInt64(evBuf, i * 48 + o)); return Vst3.Ok; }
     int EvAdd(IntPtr s, IntPtr e) { return Vst3.Ok; }
-    IntPtr ChGet(IntPtr s, int i) { return i >= 0 && i < changeCount ? queues[i].Ptr : IntPtr.Zero; }
-    uint QId(IntPtr s) { int i; return queueIndex.TryGetValue(s, out i) ? chId[i] : 0; }
-    int QPoint(IntPtr s, int idx, IntPtr sampleOffset, IntPtr value) { int i; if (!queueIndex.TryGetValue(s, out i) || idx != 0) return Vst3.False; Marshal.WriteInt32(sampleOffset, 0); Marshal.WriteInt64(value, BitConverter.DoubleToInt64Bits(chVal[i])); return Vst3.Ok; }
+    IntPtr ChGet(IntPtr s, int i) { return i >= 0 && i < procCount ? queues[i].Ptr : IntPtr.Zero; }
+    uint QId(IntPtr s) { int i; return queueIndex.TryGetValue(s, out i) ? pId[i] : 0; }
+    int QPoint(IntPtr s, int idx, IntPtr sampleOffset, IntPtr value) { int i; if (!queueIndex.TryGetValue(s, out i) || idx != 0) return Vst3.False; Marshal.WriteInt32(sampleOffset, 0); Marshal.WriteInt64(value, BitConverter.DoubleToInt64Bits(pVal[i])); return Vst3.Ok; }
+    // a value for the processor in the next block (latest wins for the same parameter). Short lock, no allocation
+    void QueueChange(uint id, double v)
+    {
+        lock (pending) { for (int k = 0; k < changeCount; k++) if (chId[k] == id) { chVal[k] = v; return; } if (changeCount < MaxChanges) { chId[changeCount] = id; chVal[changeCount] = v; changeCount++; } }
+    }
 
     ComObject MakeHost()
     {
@@ -231,7 +242,46 @@ class Vst3Plugin : IVstHosted
     }
     ComObject MakeHandler()
     {
-        return new ComObject(new[] { Vst3.IidComponentHandler }, new D_IU((s, id) => Vst3.Ok), new D_IUD((s, id, v) => Vst3.Ok), new D_IU((s, id) => Vst3.Ok), new D_II((s, f) => Vst3.Ok));
+        return new ComObject(new[] { Vst3.IidComponentHandler }, new D_IU((s, id) => Vst3.Ok), new D_IUD(PerformEdit), new D_IU((s, id) => Vst3.Ok), new D_II(RestartComponent));   // beginEdit, performEdit, endEdit, restartComponent
+    }
+    // the plugin's own window moved one of its controls: the processor hears it (in VST 3 the host carries it there) and the host's copy follows. Not sent back to the controller, which already has it
+    int PerformEdit(IntPtr s, uint id, double v)
+    {
+        try
+        {
+            if (disposed || double.IsNaN(v)) return Vst3.Ok; v = Math.Max(0.0, Math.Min(1.0, v));
+            QueueChange(id, v);
+            int i; if (paramIndex.TryGetValue(id, out i)) { var k = known; if (i < k.Length) k[i] = (float)v; var a = Automated; if (a != null) a(i, (float)v); }
+        }
+        catch { }
+        return Vst3.Ok;
+    }
+    // RestartFlags (VST 3 SDK ivsteditcontroller.h): kReloadComponent 1<<0, kIoChanged 1<<1, kParamValuesChanged 1<<2, kLatencyChanged 1<<3, kParamTitlesChanged 1<<4, kMidiCCAssignmentChanged 1<<5
+    const int kParamValuesChanged = 1 << 2, kLatencyChanged = 1 << 3, kMidiCCAssignmentChanged = 1 << 5;
+    int RestartComponent(IntPtr s, int flags)
+    {
+        try
+        {
+            if (disposed) return Vst3.Ok;
+            if ((flags & kLatencyChanged) != 0) RefreshLatency();
+            if ((flags & kMidiCCAssignmentChanged) != 0) ReadMidiMap();
+            if ((flags & kParamValuesChanged) != 0) ReReadParams();
+        }
+        catch { }
+        return Vst3.Ok;
+    }
+    // every value from the controller again (a preset the plugin loaded itself); the ones that changed go to whoever listens. Called from the plugin (normally its window thread), so no host lock is taken here
+    void ReReadParams()
+    {
+        if (controller == IntPtr.Zero || disposed) return;
+        if (getParamFn == null) getParamFn = Vst3.Fn<D_DU>(controller, 14);
+        var k = known; var a = Automated;
+        for (int i = 0; i < paramIds.Count && i < k.Length; i++)
+        {
+            double d; try { d = getParamFn(controller, paramIds[i]); } catch { continue; }
+            if (double.IsNaN(d)) continue; float v = (float)Math.Max(0.0, Math.Min(1.0, d));
+            if (v == k[i]) continue; k[i] = v; if (a != null) a(i, v);
+        }
     }
     ComObject MakeFrame()
     {
@@ -249,10 +299,14 @@ class Vst3Plugin : IVstHosted
             for (int i = 0; i < cap; i++)
             {
                 if (getInfo(controller, i, info) != 0) continue; int flags = Marshal.ReadInt32(info, 788); if ((flags & 16) != 0 || (flags & 2) != 0) continue;   // hidden or read-only
-                paramIds.Add((uint)Marshal.ReadInt32(info, 0)); paramNames.Add(Vst3.Wide(info, 4, 128));
+                uint pid = (uint)Marshal.ReadInt32(info, 0); if (paramIndex.ContainsKey(pid)) continue;
+                paramIndex[pid] = paramIds.Count; paramIds.Add(pid); paramNames.Add(Vst3.Wide(info, 4, 128));
             }
         }
         finally { Marshal.FreeHGlobal(info); }
+        var k = new float[paramIds.Count]; var get = Vst3.Fn<D_DU>(controller, 14);
+        for (int i = 0; i < k.Length; i++) { try { double d = get(controller, paramIds[i]); k[i] = double.IsNaN(d) ? 0f : (float)Math.Max(0.0, Math.Min(1.0, d)); } catch { } }
+        known = k;
     }
 
     // which parameter each MIDI controller drives (VST 3 has no CC messages: sustain, mod wheel, pitch bend... are parameters the plugin names here)
@@ -275,7 +329,7 @@ class Vst3Plugin : IVstHosted
     {
         var map = ccMap; if (map == null || ctrl < 0 || ctrl >= MapCtrls) return; uint id = map[(ch & 15) * MapCtrls + ctrl]; if (id == NoParam) return;
         v = Math.Max(0.0, Math.Min(1.0, v));
-        lock (pending) { for (int k = 0; k < changeCount; k++) if (chId[k] == id) { chVal[k] = v; return; } if (changeCount < MaxChanges) { chId[changeCount] = id; chVal[changeCount] = v; changeCount++; } }
+        QueueChange(id, v);
     }
 
     void ProbeEditor()
@@ -302,7 +356,8 @@ class Vst3Plugin : IVstHosted
         {
             if (controller == IntPtr.Zero || i < 0 || i >= paramIds.Count) return; v = Math.Max(0f, Math.Min(1f, v));
             if (System.Threading.Monitor.TryEnter(callLock)) { try { if (setParamFn == null) setParamFn = Vst3.Fn<D_IUD>(controller, 15); setParamFn(controller, paramIds[i], v); } finally { System.Threading.Monitor.Exit(callLock); } }   // (never waits: the processor below still gets the value)
-            lock (pending) { for (int k = 0; k < changeCount; k++) if (chId[k] == paramIds[i]) { chVal[k] = v; return; } if (changeCount < MaxChanges) { chId[changeCount] = paramIds[i]; chVal[changeCount] = v; changeCount++; } }
+            var kn = known; if (i < kn.Length) kn[i] = v;
+            QueueChange(paramIds[i], v);
         }
         catch { }
     }
@@ -369,13 +424,14 @@ class Vst3Plugin : IVstHosted
             Marshal.WriteInt64(procCtx, 40, BitConverter.DoubleToInt64Bits(sp / sr * tempo / 60.0)); Marshal.WriteInt64(procCtx, 72, BitConverter.DoubleToInt64Bits(tempo)); Marshal.WriteInt32(procCtx, 80, 4); Marshal.WriteInt32(procCtx, 84, 4);
             Marshal.WriteInt32(procData, 0, 0); Marshal.WriteInt32(procData, 4, 0); Marshal.WriteInt32(procData, 8, c); Marshal.WriteInt32(procData, 12, numIn > 0 ? 1 : 0); Marshal.WriteInt32(procData, 16, numOut > 0 ? 1 : 0);
             Marshal.WriteIntPtr(procData, 24, numIn > 0 ? inBus : IntPtr.Zero); Marshal.WriteIntPtr(procData, 32, numOut > 0 ? outBus : IntPtr.Zero);
-            lock (pending) { Marshal.WriteIntPtr(procData, 40, inChanges.Ptr); }
+            lock (pending) { procCount = changeCount; Array.Copy(chId, pId, changeCount); Array.Copy(chVal, pVal, changeCount); changeCount = 0; }   /* (taken now: an edit from the plugin's window during process waits for the next block) */
+            Marshal.WriteIntPtr(procData, 40, inChanges.Ptr);
             Marshal.WriteIntPtr(procData, 48, outChanges.Ptr); Marshal.WriteIntPtr(procData, 56, inEvents.Ptr); Marshal.WriteIntPtr(procData, 64, outEvents.Ptr); Marshal.WriteIntPtr(procData, 72, procCtx);
             Marshal.WriteInt32(outBus, 0, 2); Marshal.WriteInt64(outBus, 8, 0);
             for (int i = 0; i < 2; i++) ZeroMem(outBuf[i], c);
             processFn(processor, procData);
             RefreshLatency();
-            lock (pending) changeCount = 0;
+            procCount = 0;
             if (scrL == null) { scrL = new float[MaxBlock]; scrR = new float[MaxBlock]; }
             Marshal.Copy(outBuf[0], scrL, 0, c); Marshal.Copy(outBuf[1], scrR, 0, c);
             if (synth) for (int i = 0; i < c; i++) { l[off + i] += scrL[i]; r[off + i] += scrR[i]; }

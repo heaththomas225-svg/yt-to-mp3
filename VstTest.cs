@@ -14,6 +14,7 @@ static class V
     // ---- the stand-in plugin ----
     static IntPtr eff, rectMem, chunkMem; static VstDispatch dispD; static VstProcess procD; static VstSetParam setD; static VstGetParam getD; static VstEntry entryD;
     static double freq, phase, amp; static int sr = 44100; static IntPtr editorHwnd; static byte[] gotChunk; static float[] pars = { 0.25f, 0.5f };
+    static VstHostCb host;   // the host's callback, as the plugin got it
     static int pendingDelta = -1, pendingNote, pendingVel; static List<string> log = new List<string>(); static bool mainsOn, opened, closedFlag;
 
     static IntPtr Dispatch(IntPtr e, int op, int index, IntPtr value, IntPtr ptr, float opt)
@@ -77,7 +78,7 @@ static class V
         Marshal.WriteInt32(eff, 56, 1 | 16 | 32 | 256); Marshal.WriteInt32(eff, 112, 0x4D4F434B);
         Marshal.WriteIntPtr(eff, 120, Marshal.GetFunctionPointerForDelegate(procD));
         // call the host callback once the way a real plugin does (version query)
-        var hcb = (VstHostCb)Marshal.GetDelegateForFunctionPointer(hostCb, typeof(VstHostCb)); int ver = (int)hcb(eff, 1, 0, IntPtr.Zero, IntPtr.Zero, 0);
+        var hcb = (VstHostCb)Marshal.GetDelegateForFunctionPointer(hostCb, typeof(VstHostCb)); host = hcb; int ver = (int)hcb(eff, 1, 0, IntPtr.Zero, IntPtr.Zero, 0);
         log.Add("host version " + ver);
         return eff;
     }
@@ -115,6 +116,15 @@ static class V
         var fx = new VstFx(p, "MockSynth.dll"); string ser = fx.Serialize();
         Check("the plugin's own patch is saved with the project", ser.StartsWith("chunk=") && Encoding.ASCII.GetString(Convert.FromBase64String(ser.Substring(6))) == "PATCH-0.25", ser);
         fx.Deserialize(ser); Check("and given back when the project is opened", gotChunk != null && Encoding.ASCII.GetString(gotChunk) == "PATCH-0.25", gotChunk == null ? "none" : Encoding.ASCII.GetString(gotChunk));
+        // the plugin changes its own values: one at a time (audioMasterAutomate), or all at once after loading its own preset (audioMasterUpdateDisplay, read back later on the window thread)
+        { float keep0 = pars[0], keep1 = pars[1];
+          pars[1] = 0.33f; host(eff, 0, 1, IntPtr.Zero, IntPtr.Zero, 0.33f);
+          Check("a value the plugin automates itself moves the host's slider", Math.Abs(fx.P[1].Val - 0.33f) < 1e-4, fx.P[1].Val.ToString("0.00"));
+          pars[0] = 0.7f; host(eff, 42, 0, IntPtr.Zero, IntPtr.Zero, 0); float inCb = fx.P[0].Val; bool flagged = p.ParamsDirty;
+          fx.PullParams(true); float pulled = fx.P[0].Val;
+          Check("after the plugin says its display changed, the host re-reads its values later (not inside the plugin's call)", Math.Abs(inCb - 0.25f) < 1e-4 && flagged && Math.Abs(pulled - 0.7f) < 1e-4 && !p.ParamsDirty, "in the call " + inCb.ToString("0.00") + ", flagged " + flagged + ", after " + pulled.ToString("0.00"));
+          pars[0] = 0.1f; fx.PullParams(true); Check("with nothing announced the values are not re-read", Math.Abs(fx.P[0].Val - 0.7f) < 1e-4, fx.P[0].Val.ToString("0.00"));
+          pars[0] = keep0; pars[1] = keep1; fx.Deserialize(ser); }
 
         // the plugin's window
         var form = new Form { Width = 400, Height = 300 }; form.Show(); IntPtr hwnd = form.Handle;

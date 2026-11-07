@@ -47,6 +47,8 @@ class VstPlugin : IVstHosted
     public bool HasChunks { get { return (Flags & FlagProgramChunks) != 0; } }
     public bool EditorOpen;
     public Action<int, float> Automated;   // the plugin changed one of its own parameters (its window, its own automation): index, new value. Can be called on any thread
+    Action<int, float> IVstHosted.Automated { get { return Automated; } set { Automated = value; } }
+    volatile bool paramsDirty; public bool ParamsDirty { get { return paramsDirty; } set { paramsDirty = value; } }   // audioMasterUpdateDisplay arrived (it loaded one of its own presets): the values are re-read later on the window thread
 
     IntPtr[] inBuf, outBuf; IntPtr inArr, outArr, evBlock, evArr; const int MaxEvents = 512;
     float[] scrL, scrR;
@@ -232,6 +234,8 @@ class VstPlugin : IVstHosted
                 case 37:                                          // audioMasterCanDo
                     { string s = Marshal.PtrToStringAnsi(ptr) ?? ""; return (s == "sendVstEvents" || s == "sendVstMidiEvent" || s == "sizeWindow" || s == "supplyIdle" || s == "receiveVstTimeInfo") ? (IntPtr)1 : (IntPtr)(-1); }
                 case 38: return (IntPtr)1;                        // audioMasterGetLanguage: English
+                case 42:                                          // audioMasterUpdateDisplay: something changed (often after it loads its own preset; some plugins send it all the time). Only a flag here: no reading back inside the plugin's call
+                    { VstPlugin p; lock (byEffect) byEffect.TryGetValue(effect, out p); if (p != null) p.paramsDirty = true; return (IntPtr)1; }
                 case 43: case 44: return (IntPtr)1;               // begin / end edit
             }
         }
@@ -274,10 +278,26 @@ class VstFx : InstrumentFx, IDisposable
         sent = new float[P.Count]; for (int i = 0; i < P.Count; i++) sent[i] = P[i].Val;   // what the plugin has been told: only changes are pushed (the construction-time copies were pushed over its patch after every stop and seek)
         for (int i = 0; i < P.Count; i++) P[i].Force = false;
         dirty = false;
-        var vp = p as VstPlugin; if (vp != null) vp.Automated = OnAutomated;
+        p.ParamsDirty = false; p.Automated = OnAutomated;   // VST2 audioMasterAutomate and VST3 performEdit / restartComponent both land in OnAutomated
     }
     float[] sent;
     void OnAutomated(int idx, float v) { var s = sent; if (idx < 0 || s == null || idx >= s.Length || idx >= P.Count || float.IsNaN(v)) return; v = Math.Max(0f, Math.Min(1f, v)); P[idx].Val = v; s[idx] = v; }   // (it is not pushed back, and a later stop or seek does not put the old value over it)
+    int lastPull;
+    // the plugin said its values changed without saying which (VST2 audioMasterUpdateDisplay): read them all again and take the changed ones. Window thread only, at most every 250 ms unless now
+    public void PullParams(bool now)
+    {
+        if (Plugin == null || !Plugin.ParamsDirty) return;
+        int t = Environment.TickCount; if (!now && unchecked(t - lastPull) >= 0 && unchecked(t - lastPull) < 250) return;
+        lastPull = t; Plugin.ParamsDirty = false;   // cleared before reading, so a change made while reading is caught next time
+        var s = sent; if (s == null) return;
+        for (int i = 0; i < P.Count && i < s.Length; i++)
+        {
+            if (P[i].Force) continue;   /* a slider move not yet sent to the plugin wins */
+            float v = Plugin.GetParam(i); if (float.IsNaN(v)) continue;
+            if (v != s[i] || v != P[i].Val) OnAutomated(i, v);
+        }
+    }
+    public void EditorTick() { Plugin.EditorIdle(); PullParams(false); }   // the plugin window's timer
 
     public override bool IsInstrument { get { return Plugin.IsSynth; } }
     public override bool HasWindow { get { return Plugin.HasEditor; } }
@@ -294,6 +314,7 @@ class VstFx : InstrumentFx, IDisposable
     // The saved state is the plugin's own patch data (so a plugin preset survives saving the project).
     public override string Serialize()
     {
+        PullParams(true);   // (values the plugin changed on its own are saved, not the old ones)
         var c = Plugin.GetChunk(); if (c != null) return "chunk=" + Convert.ToBase64String(c);
         return base.Serialize();
     }
@@ -306,6 +327,7 @@ class VstFx : InstrumentFx, IDisposable
     // ---- editor window ----
     public override void ShowWindow(IWin32Window owner)
     {
+        PullParams(true);
         if (window != null && !window.IsDisposed) { window.Activate(); window.WindowState = FormWindowState.Normal; return; }
         window = new VstWindow(this, Owner); window.Show(owner);
     }
@@ -359,7 +381,7 @@ class VstWindow : Form, IKeySink
                     var s2 = fx.Plugin.GetEditorSize(); Resize2(s2.Width, s2.Height);
                 }
                 catch (Exception ex) { host.Controls.Add(new Label { Text = "Couldn't open the plugin window: " + ex.Message, Dock = DockStyle.Fill, ForeColor = Color.FromArgb(255, 160, 160), TextAlign = ContentAlignment.MiddleCenter }); }
-            idle = new Timer { Interval = 40 }; idle.Tick += (s3, e3) => fx.Plugin.EditorIdle(); idle.Start();
+            idle = new Timer { Interval = 40 }; idle.Tick += (s3, e3) => fx.EditorTick(); idle.Start();   // (its idle call, and the values it changed itself read back at most every 250 ms)
         };
         FormClosing += (s, e) => { if (idle != null) idle.Stop(); ReleaseAll(); try { fx.Plugin.CloseEditor(); } catch { } };
         VstPlugin.SizeWindowRequested += OnSizeRequest;
