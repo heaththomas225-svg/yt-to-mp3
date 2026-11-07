@@ -86,27 +86,86 @@ partial class StudioForm
         {
             if (!ok || te == null) { if (te != null) { try { te.Shutdown(); } catch { } DisposeEngineFx(te); } return; }
             var src = te.Tracks.FirstOrDefault(t => t.Name == trackName && t.Host == null); if (src == null) { try { te.Shutdown(); } catch { } DisposeEngineFx(te); Toast("That track is not in that state."); return; }
+            var srcPieces = te.Tracks.Where(t => t.Host == src && !t.IsBus).ToList();   // the other pieces that sat on that row then (SPLIT, layers): they come back with it
             PushUndo(); var dst = eng.Tracks.FirstOrDefault(t => t.Name == trackName && t.Host == null); List<Fx> oldFx = null;
+            // sends go to the buses of this project with the same name (a send to a bus this project does not have is dropped)
+            Func<Send[], Send[]> mapSends = ss => { var sends = new List<Send>(); foreach (var sd in ss) { var bn = sd.Bus != null ? sd.Bus.Name : null; var bus = bn == null ? null : eng.Tracks.FirstOrDefault(b => b.IsBus && b.Name == bn); if (bus != null && !sends.Exists(x => x.Bus == bus)) { sd.Bus = bus; sends.Add(sd); } } return sends.ToArray(); };
             lock (eng.Sync)
             {
-                te.Tracks.Remove(src); src.Host = null;
+                te.Tracks.Remove(src); foreach (var pc in srcPieces) te.Tracks.Remove(pc); src.Host = null;
                 if (dst == null)
                 {   // its output and sends go to the buses of this project with the same name, or to the master
                     var outName = src.Out != null ? src.Out.Name : null; src.Out = outName == null ? null : eng.Tracks.FirstOrDefault(b => b.IsBus && b.Name == outName);
-                    var sends = new List<Send>(); foreach (var sd in src.Sends) { var bn = sd.Bus != null ? sd.Bus.Name : null; var bus = bn == null ? null : eng.Tracks.FirstOrDefault(b => b.IsBus && b.Name == bn); if (bus != null && !sends.Exists(x => x.Bus == bus)) { sd.Bus = bus; sends.Add(sd); } } src.Sends = sends.ToArray();
+                    src.Sends = mapSends(src.Sends);
                     eng.Tracks.Insert(Math.Min(LaneCount, eng.Tracks.Count), src); foreach (var f in src.Fx) { var inf = f as InstrumentFx; if (inf != null) inf.Owner = src; }
                 }
                 else
                 {
                     oldFx = new List<Fx>(dst.Fx); dst.Clip = src.Clip; dst.Source = src.Source; dst.Offset = src.Offset; dst.ClipStart = src.ClipStart; dst.ClipFrames = src.ClipFrames; dst.VolDb = src.VolDb; dst.Pan = src.Pan; dst.Mute = src.Mute; dst.Instrument = src.Instrument; dst.Fx = src.Fx; foreach (var f in dst.Fx) { var inf = f as InstrumentFx; if (inf != null) inf.Owner = dst; } lock (dst.Midi) { dst.Midi.Clear(); dst.Midi.AddRange(src.Midi); } dst.Auto.Clear(); dst.Auto.AddRange(src.Auto);
                     dst.MClips = src.MClips; dst.FadeIn = src.FadeIn; dst.FadeOut = src.FadeOut; dst.FadeInDelay = src.FadeInDelay; dst.FadeOutTail = src.FadeOutTail; dst.FadeInBend = src.FadeInBend; dst.FadeOutBend = src.FadeOutBend; dst.ClipGainDb = src.ClipGainDb; dst.TrimDb = src.TrimDb; dst.Invert = src.Invert; dst.Mono = src.Mono; dst.Locked = src.Locked; dst.PieceLocked = src.PieceLocked; dst.PieceMuted = src.PieceMuted; dst.SectionLabel = src.SectionLabel;
+                    foreach (var old in eng.Tracks.Where(t => t.Host == dst).ToList()) { oldFx.AddRange(old.Fx); eng.Tracks.Remove(old); }   // the pieces on this row now make way for the ones it had then (their plugins are retired below)
                 }
+                var row = dst ?? src;
+                foreach (var pc in srcPieces)
+                {   /* each piece goes back on the row (pieces are kept after the rows, before the buses) */
+                    pc.Host = row; pc.Out = row.Out; pc.Solo = false; pc.Sends = mapSends(pc.Sends);
+                    eng.Tracks.Insert(FirstBusIndex(), pc); foreach (var f in pc.Fx) { var inf = f as InstrumentFx; if (inf != null) inf.Owner = pc; }
+                }
+                if (selTrack >= eng.Tracks.Count) selTrack = Math.Max(0, eng.Tracks.IndexOf(row));
             }
             if (oldFx != null) foreach (var f in oldFx) { if (dst.Fx.Contains(f)) continue; if (!retired.Contains(f)) retired.Add(f); var ic = f as InstrumentFx; if (ic != null) ic.CloseWindow(); }   // the replaced plugins stay alive for Ctrl+Z
             try { te.Shutdown(); } catch { } DisposeEngineFx(te);   /* the rest of that state goes (the restored track was taken out of it first) */
             Toast(trackName + " is as it was at " + e.At.ToString("HH:mm") + "; every other track stays as it is. Ctrl+Z undoes it.");
         });
     }
+    // FIRST SAVE OF AN UNTITLED PROJECT: its history (history/untitled-<id>) moves next to the saved project ("<project>.history"), so the
+    // states made before the first save stay on its HISTORY page. Called after the save succeeded. A destination that already has a history
+    // (a project saved over) gets these states added after its own, renumbered. Audio written into the history folder moves too, and every
+    // path to it (the history states, the project just saved, the clips in memory and in Ctrl+Z) is rewritten. Nothing that failed to move is
+    // deleted: a file that could not move stays where it was, and the paths to it are left pointing there.
+    internal void HistAdoptUntitled()
+    {
+        if (string.IsNullOrEmpty(projPath)) return;
+        string from = Path.Combine(StudioEnv.DataDir, "history", "untitled-" + histUntitled), to = projPath + ".history";
+        try
+        {
+            if (!Directory.Exists(from) || string.Equals(Path.GetFullPath(from).TrimEnd('\\'), Path.GetFullPath(to).TrimEnd('\\'), StringComparison.OrdinalIgnoreCase)) return;
+            Directory.CreateDirectory(to);
+            // 1. the audio files (names carry a time stamp, so a collision is rare: a file whose name is taken stays where it is)
+            var moved = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase); string fa = Path.Combine(from, "audio"), ta = Path.Combine(to, "audio");
+            if (Directory.Exists(fa)) foreach (var f in Directory.GetFiles(fa)) { string d = Path.Combine(ta, Path.GetFileName(f)); if (File.Exists(d)) continue; try { Directory.CreateDirectory(ta); File.Move(f, d); moved[f] = d; } catch { } }
+            Func<string, string> fix = s => { foreach (var kv in moved) s = s.Replace(EncPath(kv.Key), EncPath(kv.Value)); return s; };   // (paths are written escaped in project files)
+            // 2. the states, renumbered after the ones the destination already has; the index of both is merged
+            var lines = new List<string>(); int top = 0; string tIdx = Path.Combine(to, "index.txt"), fIdx = Path.Combine(from, "index.txt");
+            if (File.Exists(tIdx)) foreach (var l in File.ReadAllLines(tIdx)) { var p = l.Split('|'); int n; if (p.Length < 5 || !int.TryParse(p[0], out n)) continue; lines.Add(l); top = Math.Max(top, n); }
+            var leftLines = new List<string>();
+            if (File.Exists(fIdx)) foreach (var l in File.ReadAllLines(fIdx))
+                {
+                    var p = l.Split('|'); int n; if (p.Length < 5 || !int.TryParse(p[0], out n)) continue; string sf = Path.Combine(from, p[4]); if (!File.Exists(sf)) continue;
+                    int nn = top + 1; string name = nn.ToString("00000") + ".ytproj", df = Path.Combine(to, name); while (File.Exists(df)) { nn++; name = nn.ToString("00000") + ".ytproj"; df = Path.Combine(to, name); }
+                    try { File.WriteAllText(df, fix(File.ReadAllText(sf, System.Text.Encoding.UTF8)), System.Text.Encoding.UTF8); File.Delete(sf); top = nn; p[0] = nn.ToString(); p[4] = name; lines.Add(string.Join("|", p)); }
+                    catch { try { if (File.Exists(sf) && File.Exists(df)) File.Delete(df); } catch { } leftLines.Add(l); }   /* it stays in the old folder, listed there */
+                }
+            if (lines.Count > 0) File.WriteAllLines(tIdx, lines.ToArray());
+            if (File.Exists(fIdx)) { if (leftLines.Count > 0) File.WriteAllLines(fIdx, leftLines.ToArray()); else File.Delete(fIdx); }
+            // 3. the project just saved, and the clips in memory (the track list, the undo steps, the audio the history wrote) point at the new place
+            if (moved.Count > 0)
+            {
+                try { string txt = File.ReadAllText(projPath, System.Text.Encoding.UTF8), nt = fix(txt); if (nt != txt) Win.WriteAtomic(projPath, nt, System.Text.Encoding.UTF8); }
+                catch { foreach (var kv in moved) { try { if (!File.Exists(kv.Key)) { Directory.CreateDirectory(fa); File.Copy(kv.Value, kv.Key); } } catch { } } }   /* the project could not be rewritten: a copy goes back where the saved project looks for it */
+                var clips = new HashSet<AudioClip>(); foreach (var t in eng.Tracks.ToArray()) if (t.Clip != null) clips.Add(t.Clip);
+                foreach (var s in undo.Concat(redo)) foreach (var ts in s.St.Values) if (ts.Clip != null) clips.Add(ts.Clip);
+                foreach (var c in histAudio.Keys) clips.Add(c);
+                string np; foreach (var c in clips) if (c.Path != null && moved.TryGetValue(c.Path, out np)) c.Path = np;
+                foreach (var c in histAudio.Keys.ToList()) if (moved.TryGetValue(histAudio[c], out np)) histAudio[c] = np;
+            }
+            // 4. the old folder goes only when nothing is left in it
+            try { if (Directory.Exists(fa) && !Directory.EnumerateFileSystemEntries(fa).Any()) Directory.Delete(fa); if (!Directory.EnumerateFileSystemEntries(from).Any()) Directory.Delete(from); } catch { }
+        }
+        catch { }
+        histDir = "";   /* the HISTORY page reads the project's folder again */
+    }
+    static string EncPath(string s) { return s.Replace("%", "%25").Replace("|", "%7C"); }   // the same escaping ProjectIO uses for a path in a project file
     void HistPreview(HistEntry e) { PreviewToggle(new ProjectEntry { Path = e.File, Name = "History " + e.At.ToString("HH:mm:ss") }); }
 
     void PaintHistory(Graphics g) { PaintHistory(g, Rc(14, ToolH + 12, ClientSize.Width - 28, ClientSize.Height - ToolH - 26)); }

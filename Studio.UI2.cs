@@ -282,7 +282,8 @@ partial class StudioForm
                 if (d.ShowDialog(this) != DialogResult.OK) return; path = d.FileName;
             }
         }
-        try { ProjectIO.Roll = PrPrefsText(); ProjectIO.Save(eng, path); projPath = path; projName = Path.GetFileNameWithoutExtension(path); NoteProject(path, true); AutosaveClear(); Toast("Project saved"); { var pubE = ProjectLibrary.AllByEdited().Find(x => x.OnProfile && string.Equals(x.Path, path, StringComparison.OrdinalIgnoreCase)); if (pubE != null) SyncCommunitySongs(); } }   /* a published project: its song on the profile and the community page is updated right away */
+        bool firstSave = string.IsNullOrEmpty(projPath);   // an untitled project saved for the first time: its history moves next to the file
+        try { ProjectIO.Roll = PrPrefsText(); ProjectIO.Save(eng, path); projPath = path; projName = Path.GetFileNameWithoutExtension(path); NoteProject(path, true); AutosaveClear(); if (firstSave) HistAdoptUntitled(); Toast("Project saved"); { var pubE = ProjectLibrary.AllByEdited().Find(x => x.OnProfile && string.Equals(x.Path, path, StringComparison.OrdinalIgnoreCase)); if (pubE != null) SyncCommunitySongs(); } }   /* a published project: its song on the profile and the community page is updated right away */
         catch (Exception ex) { MessageBox.Show(this, ex.Message, "Save failed"); }
     }
 
