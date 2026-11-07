@@ -112,6 +112,11 @@ partial class StudioForm
             int h = want >= 132 ? want : (want >= 108 ? Math.Min(want, 111) : (want >= 84 ? Math.Min(want, 95) : Math.Min(want, 83)));
             LaneH = Math.Max(MinLaneH, h);
         }
+        else
+        {   // room again (fewer tracks, a smaller project): the rows grow back, never past your own height (thin stays thin)
+            int cap = Prefs.ThinTracks ? 84 : normalLaneH;
+            if (LaneH < cap) { int g = Math.Min(cap, want); g = g >= 132 ? g : (g >= 108 ? Math.Min(g, 111) : (g >= 84 ? Math.Min(g, 95) : Math.Min(g, 83))); LaneH = Math.Max(LaneH, Math.Max(MinLaneH, g)); }
+        }
         vscroll = 0; Toast(LaneH <= want ? "Fitted: the whole song and all " + n + " tracks are on screen." : "Fitted as far as it goes: " + n + " tracks, scroll for the rest.");
     }
     void ToggleThinTracks() { if (LaneH < 96) LaneH = normalLaneH; else { normalLaneH = LaneH; LaneH = 84; } Prefs.ThinTracks = LaneH < 96; Prefs.Changed(); }   // remembered: the tracks open thin next time

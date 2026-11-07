@@ -161,6 +161,8 @@ static class Wavetables
         }
         return bestC > 0.5 ? best : 0;
     }
+    // a custom slot still holding the plain default wave (nothing drawn or loaded into it)
+    public static bool CustomIsDefault(int slot) { var f = Custom[slot]; if (f == null || f.Length == 0) return true; if (f.Length != 1) return false; var d = DefaultFrame(); for (int i = 0; i < 256; i++) if (Math.Abs(f[0][i] - d[i]) > 2) return false; return true; }
     public static void SetCustom(int slot, short[][] frames)
     {
         // the new table is built completely before it replaces the old one, so playing notes switch over without a hiccup

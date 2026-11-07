@@ -387,12 +387,12 @@ partial class StudioForm
                 Txt(g, f.Title, 8.5f, Color.FromArgb(120, 0, 0, 0), Rc(row.X + 20, row.Y + 1, row.Width - 42, SlotH), StringAlignment.Near, true); Txt(g, f.Title, 8.5f, f.Bypass ? DimC : Ink, Rc(row.X + 19, row.Y, row.Width - 42, SlotH), StringAlignment.Near, true);   // (a soft shadow keeps the name readable over the picture)
                 var rg = Reg(Rc(row.X + 18, row.Y, row.Width - 40, SlotH), () => { OpenFxWindow(t, f); if (!master) PickStrip(t); }); rg.OnRight = () => SlotMenu(t, f);
                 Reg(Rc(row.X, row.Y, 18, SlotH), () => f.Bypass = !f.Bypass); Hint2(Rc(row.X, row.Y, 18, SlotH), f.Bypass ? "Turn " + f.Title + " back on" : "Turn " + f.Title + " off (it stays on the track)");
-                var xr = Rc(row.Right - 20, row.Y + 3, 18, 18); Btn(g, xr, "x", 3, () => { if (master) { lock (eng.Sync) { int mi = eng.MasterFx.IndexOf(f); if (mi >= 0) { PushUndo(); eng.MasterFx.RemoveAt(mi); retired.Add(f); } } CloseFxWindow(f); PxWindow.CloseFor(f); } else { int ti; lock (eng.Sync) ti = t.Fx.IndexOf(f); RemoveFxAt(t, ti); } }, 9); Hint2(xr, "Remove " + f.Title + (master ? " from the master" : " from " + t.Name));
+                var xr = Rc(row.Right - 20, row.Y + 3, 18, 18); Btn(g, xr, "x", 3, () => { if (master) RemoveMasterFx(f); else { int ti; lock (eng.Sync) ti = t.Fx.IndexOf(f); RemoveFxAt(t, ti); } }, 9); Hint2(xr, "Remove " + f.Title + (master ? " from the master" : " from " + t.Name));
                 Hint2(row, f.Title + (f.Bypass ? " (off)" : "") + ": " + FxHelp.About(f) + "  Click to open its window, the dot turns it on or off, x removes it");
             }
             else if (i == room && room < nRows)
             {   // more plugins than slots: this one lists them all
-                Btn(g, row, "+" + (nRows - room) + " MORE", 2, () => AllSlotsMenu(t, fxs), 8.5f); Hint2(row, "The rest of the plugins on this strip");
+                int hiddenN = 0; for (int k2 = room; k2 < nRows; k2++) if (rowsIx[k2] >= 0) hiddenN++; Btn(g, row, "+" + hiddenN + " MORE", 2, () => AllSlotsMenu(t, fxs), 8.5f); Hint2(row, "The rest of the plugins on this strip");
             }
             else if (i == room)
             {

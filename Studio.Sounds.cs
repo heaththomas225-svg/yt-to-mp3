@@ -240,7 +240,7 @@ partial class StudioForm
             err2 = pads.SetPad(pad, path, nm); return err2 ?? nm + " is on pad " + (pad + 1) + " of Purphex Pads on " + t.Name + ".";
         }
         var km = (KeyMapFx)inst;
-        if (km.Get("span") >= 0.5f) { err2 = km.SetWhole(path, nm); return err2 ?? nm + " plays across the whole keyboard of Key Map on " + t.Name + " (as recorded around middle C)."; }
+        if (km.Get("span") >= 0.5f && km.ZonesCopy().Count == 0) { err2 = km.SetWhole(path, nm);   /* (only an empty map takes it across the keyboard: one with sounds got wiped) */ return err2 ?? nm + " plays across the whole keyboard of Key Map on " + t.Name + " (as recorded around middle C)."; }
         int key = -1; for (int k = 60; k < 128 && key < 0; k++) if (!KeyMapWindow.Black[k % 12] && km.ZoneAt(k) == null && km.ZoneFor(k) == null) key = k;
         if (key < 0) return "Key Map on " + t.Name + " has no empty white key above C4: open it and drop the sound on the key you want.";
         err2 = km.SetKey(key, path, nm); return err2 ?? nm + " is on " + KeyMapFx.NoteLabel(key) + " of Key Map on " + t.Name + ".";
@@ -253,7 +253,7 @@ partial class StudioForm
         if (sndDrag != null && PrDrop(sndDrag, p)) return;   // on the piano roll: into the sampler (a kit's key, or its sample)
         var s = sndDrag; sndDrag = null; sndDragging = false; if (s == null) return; var tl = TimelineRect(); float top = ArrTop + RulerH;
         { int dl = p.Y >= top && p.X <= tl.Right ? (int)((p.Y - top + vscroll) / LaneH) : -1; var it = dl >= 0 && dl < LaneCount ? PadsOrKeys(eng.Tracks[dl]) : null;   // on a track that plays Purphex Pads or Key Map (its name or its row): the sound goes into it
-          if (it != null && s.Kind != "midi" && s.Kind != "preset") { string m2 = SoundIntoInstrument(s, it, eng.Tracks[dl]); if (m2 != null) Toast(m2); return; } }
+          if (it != null && s.Kind != "midi" && s.Kind != "preset") { PushUndo(); string m2 = SoundIntoInstrument(s, it, eng.Tracks[dl]); if (m2 != null) Toast(m2); return; } }
         if (p.X < HeadW || p.X > tl.Right || p.Y < top) { Toast("Drop it on the timeline (the area to the right of the track names)."); return; }
         long frame = DropFrame(p.X); int lane = (int)((p.Y - top + vscroll) / LaneH); int at = lane >= LaneCount ? LaneCount : lane + 1;
         dropHost = lane >= 0 && lane < LaneCount ? eng.Tracks[lane] : null;   // dropped on a row: it goes on that row (overlapping whatever is there)
@@ -380,7 +380,7 @@ partial class StudioForm
     }
 
     // a sound previewed in SOUNDS or the packs: the song pauses (at the needle), so you hear only the sound you are trying
-    internal void PreviewSound(SoundItem s) { if (eng.Playing) PauseHere(); Auditioner.Play(s, m => Toast(m)); }
+    internal void PreviewSound(SoundItem s) { if (eng.Playing) PauseHere(); var tr = SoundTrim(s); Auditioner.Play(s, m => Toast(m), tr == null ? 0f : tr[0], tr == null ? 1f : tr[1]); }   // (a trimmed sound starts at its trim from the first moment)
     void SelectSound(SoundItem s, bool play) { sndSel = s; if (play && SoundLibrary.AutoPlay && (s.IsAudio || s.Kind == "midi")) PreviewSound(s); }   // a MIDI file is heard through an instrument
 
     void PaintSoundPreview(Graphics g, RectangleF r)
@@ -393,7 +393,7 @@ partial class StudioForm
         if (Auditioner.Loading && Auditioner.Current == s) Txt(g, "LOADING...", 12, DimC, wf, StringAlignment.Center, false);
         else if (s.Kind == "midi") DrawMidiPic(g, Rc(wf.X + 6, wf.Y + 4, wf.Width - 12, wf.Height - 8), s, Color.FromArgb(230, col), true);
         else if (s.Kind == "preset") Txt(g, s.Format == "Purphex Wobble preset" ? "A PURPHEX WOBBLE PRESET: PLAY IN A WOBBLE TRACK OPENS IT ON A NEW TRACK" : "A BASS LAB PRESET: ADD TO BASS LAB PUTS IT IN ITS PRESET BROWSER", 10, DimC, wf, StringAlignment.Center, true);
-        else { if (sndZoomFor != s.Id) { sndZoomFor = s.Id; sndViewA = 0; sndViewB = 1; } PaintSoundWave(g, wf, s, col); }
+        else { if (sndZoomFor != s.Id) { sndZoomFor = s.Id; sndViewA = 0; sndViewB = 1; sndWave = null; sndWaveFor = ""; } PaintSoundWave(g, wf, s, col); }
         if (cur && Auditioner.Length > 0) { float px = SndX(Auditioner.Seconds / Auditioner.Length, wf); if (px >= wf.X && px <= wf.Right) using (var pen = new Pen(Color.White, 1.5f)) g.DrawLine(pen, px, wf.Y + 2, px, wf.Bottom - 2); }
         var wr = Reg(wf, () => { if (cur) Auditioner.Seek(SndF(MousePos.X, wf)); }); wr.OnDrag = pt => { if (cur) Auditioner.Seek(SndF(pt.X, wf)); };
         if (s.IsAudio && s.Kind != "midi" && s.Kind != "preset") wr.OnWheel = d => SoundZoom(d > 0 ? 0.6 : 1 / 0.6, SndF(MousePos.X, wf));   // the wheel on the wave zooms in and out where the mouse is
@@ -433,8 +433,9 @@ partial class StudioForm
         bool zoomed = sndViewA > 0.0001 || sndViewB < 0.9999; float mid = wf.Y + wf.Height / 2, amp = wf.Height / 2 - 4;
         if (zoomed && sndWaveFor != s.Id)
         {   // the sound itself (as one channel), read once when you first zoom into it
-            sndWaveFor = s.Id; sndWave = null; float[] l, r2; int sr; string fmt;
-            try { if (s.Instant) InstantLib.Ensure(s); if (SoundIO.Read(s.Path, out l, out r2, out sr, out fmt) && l.Length > 0) { if (r2 != null && r2 != l) { var mono = new float[l.Length]; for (int i = 0; i < l.Length; i++) mono[i] = (l[i] + r2[i]) * 0.5f; l = mono; } sndWave = l; sndWaveRate = sr; } } catch { }
+            sndWaveFor = s.Id; sndWave = null;
+            if (Auditioner.Current == s && Auditioner.LeftSamples != null) { sndWave = Auditioner.LeftSamples; sndWaveRate = 44100; }   // (the copy the preview already has)
+            else { var id = s.Id; var item = s; new System.Threading.Thread(() => { try { float[] l, r2; int sr; string fmt; if (item.Instant) InstantLib.Ensure(item); if (SoundIO.Read(item.Path, out l, out r2, out sr, out fmt) && l.Length > 0) BeginInvoke(new Action(() => { if (sndWaveFor == id) { sndWave = l; sndWaveRate = sr; Invalidate(); } })); } catch { } }) { IsBackground = true, Priority = System.Threading.ThreadPriority.BelowNormal }.Start(); }   // read in the background: a long sound froze the window on its first zoom
         }
         using (var pen = new Pen(Color.FromArgb(220, col), 1.4f))
         {
@@ -498,7 +499,7 @@ partial class StudioForm
                 if (op == "rev") SetSoundTrim(it, 1 - t[1], 1 - t[0]);
                 else if (op == "lead") { int ld = n - o[0].Length; float a2 = (t[0] * n - ld) / (float)(n - ld), b2 = (t[1] * n - ld) / (float)(n - ld); if (b2 <= 0.001f) SetSoundTrim(it, 0, 1); else SetSoundTrim(it, Math.Max(0f, a2), Math.Min(1f, b2)); }
             }
-            if (rep) sndWaveFor = ""; if (rep) { var p0 = Auditioner.Current; if (p0 == s) Auditioner.Stop(); }
+            if (rep) { sndWaveFor = ""; previewLead.Remove(s.Id); previewLead.Remove(it.Id); }   // (the new audio is measured again: the preview skipped its start) if (rep) { var p0 = Auditioner.Current; if (p0 == s) Auditioner.Stop(); }
             sndDirty = true; sndSel = it; Toast(rep ? s.Name + " is now " + what + "." : it.Name + " (" + what + ") is under " + s.Name + " in MY SOUNDS."); return it;
         }
         catch (Exception ex) { Toast("Couldn't edit " + s.Name + ": " + ex.Message); return null; }
@@ -777,7 +778,7 @@ partial class StudioForm
                 using (var pen = new Pen(Color.FromArgb(200, Color.White), 1.4f)) for (int b = 0; b < bars; b++) { float v = pk[Math.Min(pk.Length - 1, b * pk.Length / Math.Max(1, bars))] / 255f * amp; float bx = gr.X + 2 + b * (gw - 4) / bars; g.DrawLine(pen, bx, mid - v, bx, mid + v); }
             }
             using (var pen = new Pen(Color.FromArgb(240, NeonCyan), 1.8f) { DashStyle = System.Drawing.Drawing2D.DashStyle.Dash }) using (var p = RR(gr, 8)) g.DrawPath(pen, p);
-            var pk2 = lane < lanes ? PadsOrKeys(eng.Tracks[lane]) : null; string where = lane >= lanes ? "NEW TRACK" : pk2 is PadsFx ? "INTO PURPHEX PADS ON " + eng.Tracks[lane].Name.ToUpperInvariant() : pk2 != null ? "INTO KEY MAP ON " + eng.Tracks[lane].Name.ToUpperInvariant() : eng.Tracks[lane].Name.ToUpperInvariant(); Txt(g, sndDrag.Name.Replace(sndDrag.PackName + " - ", "") + "  -  " + where, 10, Color.White, Rc(gr.X + 8, gr.Y + 3, Math.Max(40, gr.Width - 16), 16), StringAlignment.Near, true);
+            var pk2 = lane < lanes && sndDrag.Kind != "midi" && sndDrag.Kind != "preset" ? PadsOrKeys(eng.Tracks[lane]) : null; string where = lane >= lanes ? "NEW TRACK" : pk2 is PadsFx ? "INTO PURPHEX PADS ON " + eng.Tracks[lane].Name.ToUpperInvariant() : pk2 != null ? "INTO KEY MAP ON " + eng.Tracks[lane].Name.ToUpperInvariant() : eng.Tracks[lane].Name.ToUpperInvariant(); Txt(g, sndDrag.Name.Replace(sndDrag.PackName + " - ", "") + "  -  " + where, 10, Color.White, Rc(gr.X + 8, gr.Y + 3, Math.Max(40, gr.Width - 16), 16), StringAlignment.Near, true);
             using (var pen = new Pen(Color.FromArgb(220, NeonCyan), 2f)) g.DrawLine(pen, gx, top, gx, ClientSize.Height - 20);
             g.Restore(gs);
         }

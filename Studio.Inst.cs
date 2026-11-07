@@ -34,6 +34,8 @@ partial class StudioForm
     {
         try
         {
+            { int kind0 = s & 0xF0; bool off0 = kind0 == 0x80 || (kind0 == 0x90 && d2 == 0);
+              if (off0 && bareOn[d1 & 127] != null) { var ob = bareOn[d1 & 127]; var obt = bareOnT[d1 & 127]; bareOn[d1 & 127] = null; bareOnT[d1 & 127] = null; ob.Midi(s, d1, d2); OnMidiNote(obt, false, d1, 0); return true; } }   // a key let go goes to the instrument that played it, even if a plugin window took the keyboard meanwhile (it stuck on)
             var tg = MidiInput.Target; var tgp = tg as PadsFx;
             if (tg != null && (tgp == null || tgp.Accepts(s, d1))) return false;   // an instrument's own window holds the keyboard (Pads, Key Map, Bass Lab, a VST); with Pads, only its pads: your keys still play your instrument
             if (BlMidi(s, d1, d2)) return true;   // the Beat Lab is open: the keyboard's pads play its pads
@@ -107,7 +109,7 @@ partial class StudioForm
     }
 
     // Notes played in an instrument window are recorded onto its track while the song plays and REC is armed.
-    Track recToastFor; volatile bool recGot;   // recGot: notes were recorded since REC went on
+    Track recToastFor; volatile bool recGot; readonly long[] recOnAt = new long[128];   // recGot: notes were recorded since REC went on
     // the song stopped after notes were recorded: MIDI REC turns itself off (left on, the next play recorded over your part by accident)
     internal void RecStopped() { if (!recOn) { recGot = false; return; } if (!recGot) return; recOn = false; recGot = false; Toast("Recording finished: MIDI REC is off again (press it to record more)."); Invalidate(); }
     void OnMidiNote(Track t, bool on, int note, int vel)
@@ -117,6 +119,7 @@ partial class StudioForm
         long frame;
         if (!eng.Playing) { frame = eng.Pos; try { BeginInvoke(new Action(() => { if (!eng.Playing) { bool ci = eng.CountIn; eng.CountIn = false; try { PlayGuard(); } finally { eng.CountIn = ci; } } }))   /* (no count-in: the notes played during it all landed on one frame) */; } catch { } }   // the first note starts the song and is recorded at the needle
         else frame = Math.Max(0, (long)dispPos);
+        { int nk = note & 127; if (on) recOnAt[nk] = frame; else if (frame <= recOnAt[nk]) frame = eng.LoopSection ? Math.Max(recOnAt[nk] + 1, eng.LoopB - 1) : recOnAt[nk] + StudioEngine.SR / 8; }   // a note held across the loop's end: its note-off stays after its note-on (it was recorded before it and hung)
         var ev = new MidiEv { Frame = frame, S = (byte)(on ? 0x90 : 0x80), D1 = (byte)note, D2 = (byte)(on ? vel : 0) };
         lock (t.Midi)
         {

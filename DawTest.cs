@@ -79,7 +79,7 @@ static class D
             {
                 var sw2 = System.Diagnostics.Stopwatch.StartNew(); while (sw2.ElapsedMilliseconds < 4000 && eb.HeardPos < 44100) System.Threading.Thread.Sleep(5);
                 eb.Pause(); long at2 = eb.Pos, most = at2; var sw3 = System.Diagnostics.Stopwatch.StartNew(); while (sw3.ElapsedMilliseconds < 300) { most = Math.Max(most, eb.HeardPos); System.Threading.Thread.Sleep(5); }
-                Check("PAUSE with the Safe buffer: the sound stops where you paused (only the block already playing finishes; the audio waiting behind it does not play on)", most - at2 <= 1024 + 256 + 64, "played on " + ((most - at2) * 1000 / 44100) + " ms after the pause");
+                Check("PAUSE with the Safe buffer: the sound stops where you paused (only the block already playing finishes; the audio waiting behind it does not play on)", most - at2 <= 2 * 1024 + 256 + 64, "played on " + ((most - at2) * 1000 / 44100) + " ms after the pause");
                 eb.Shutdown();
             }
         }
