@@ -1,4 +1,4 @@
-3.80.4
+3.80.5
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-PAUSE stops the sound, no window freeze
-sha256=670737a59064955b7b0ed9c99134c201b8048b6f01206c4e337d49f159c1f9ed
+Bug fixes: sound device, PAUSE, held notes, Key Map, clips
+sha256=1f1b93a45d9b4776df651519a9c282a8927ce02f07f092d45bf46cbb43920930

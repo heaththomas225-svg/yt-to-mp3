@@ -7,10 +7,33 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.80.4";
+    public const string Latest = "3.80.5";
 
     public const string Text =
-@"3.80.4  PAUSE stops the sound, no window freeze
+@"3.80.5  Bug fixes: sound device, PAUSE, held notes, Key Map, clips
+ + FIXED: If your sound device was off when Purphex opened it, PLAY stayed silent for the whole session. It now says why and tries again on the next PLAY.
+ + FIXED: PAUSE and STOP never click, and PLAY fades in. Dragging the volume no longer crackles. PAUSE during the count-in stops the clicks too.
+ + FIXED: A note held on your MIDI keyboard could stick on, or cut out at every loop point. Notes recorded across the loop end no longer hang.
+ + FIXED: Key Map THIS KEY ONLY and AN OCTAVE EACH SIDE really move the sound (it stayed on the other keys) and keep its level. Dropping a sound on a Key Map track no longer wipes your keyboard, and it can be undone.
+ + FIXED: Ctrl+X on the only piece of a track keeps the track (with its effects), so Ctrl+V puts it back in the same place.
+ + FIXED: Locked clips: their fades and MIDI clips can no longer be changed. Clicking a MIDI clip no longer adds an empty undo step.
+ + FIXED: FIT makes the tracks taller again when there is room.
+ + FIXED: Plugin windows animate smoothly again. REMOVE never squeezes the preset or plugin name. Removing a master plugin can be brought back with REVERT. A removed plugin always closes its window.
+ + FIXED: Wobble LFO: the moving dot is in the right place, and on the master it follows the beat.
+ + FIXED: MY SOUNDS: a trimmed sound plays from its trim at once, the preview never skips the start after an edit, names with odd characters can be saved, and zooming a long sound no longer freezes the window.
+ + FIXED: MY SAMPLES in Bass Lab uses a free custom wave instead of overwriting the one you drew.
+ + FIXED: Key Maps made in older versions keep their saved notes (3.80.3 moved some of them by mistake).
+ + FIXED: Previewing a project or a history save plays it at its own tempo, not the tempo of the project you have open.
+ + FIXED: VST plugins follow the song tempo, use less of your PC, and knob changes reach them reliably. VST3 instruments no longer stall the sound when you move a knob.
+ + FIXED: Undo after cutting several selected pieces brings all of them back in one step. Paste keeps fades.
+ + FIXED: Beat Lab: one-shot pads play to the end, loading a beat no longer freezes the window, and the top bar fits in small windows.
+ + FIXED: Bass Lab: presets no longer wipe your drawn waves, drawing a wave is smooth, DUPLICATE copies what you hear, and the window fits laptop screens.
+ + FIXED: A tempo-synced delay follows tempo changes. Latency on tracks sent to a bus is worked out correctly.
+ + FIXED: MY SOUNDS trims, previews and Key Map drops behave as expected.
+ + FASTER: the studio uses much less of your PC when idle or minimised, plugin windows draw faster, and memory from deleted tracks is freed.
+ + Mac and Linux beta: fixed sound pausing, real screen sizes, menus that fill when opened, and drag and drop of sounds.
+
+3.80.4  PAUSE stops the sound, no window freeze
  + FIXED: PAUSE stops the sound where you paused. With the Safe playback buffer the sound played on for about a tenth of a second after PAUSE and that bit was heard again after PLAY. It now fades out in a few milliseconds (no click).
  + FIXED: Several big plugin windows open at once (SubForge, Pads, effects) could keep the screen so busy that the studio froze. They now share their redraws, and knobs draw faster.
 
