@@ -176,13 +176,21 @@ partial class StudioForm
         bool hasSong = false; foreach (var t in eng.Tracks) if (t.Clip != null && !t.Instrument && (t.Role == "song" || t.Role == "other")) hasSong = true;
         if (!hasV && !hasB && !hasSong) { Toast("Add a song, a vocal or a beat first."); return; }
         if (!AskYes("Run Auto Mix?\n\nIt changes the volume, pan and effects of your tracks. UNDO MIX puts everything back, and you can cancel while it works.", "Auto Mix")) return;
-        List<string> rep = null; string style = amStyle; bool enh = amEnhance;
+        if (busy) { Toast("Wait for the current job to finish"); return; }
+        List<string> rep = null; string style = amStyle; bool enh = amEnhance; PushUndo();   /* Ctrl+Z can take Auto Mix back too */
         RunBusy("Auto Mix: analysing loudness, tone and clipping...", true, p => { rep = AutoMix.Run(eng, style, enh, s => busyText = "Auto Mix: " + s); }, ok =>
         {
-            if (cancelFlag && ok) { AutoMix.Undo(eng); Toast("Auto Mix cancelled: nothing was changed."); return; }
-            if (!ok || rep == null) return; selFx = -1;
-            StudioDialogs.Report(this, "Auto Mix: what changed", rep, () => { AutoMix.Undo(eng); Toast("Auto Mix undone"); });
+            if (cancelFlag && ok) { AutoMixUndo(false); Toast("Auto Mix cancelled: nothing was changed."); return; }
+            editCount++; HistNote(); if (!ok || rep == null) return; selFx = -1;
+            StudioDialogs.Report(this, "Auto Mix: what changed", rep, () => { AutoMixUndo(true); Toast("Auto Mix undone"); });
         });
+    }
+    // UNDO MIX: one more Ctrl+Z step; the plugins it replaces are retired, not disposed (an undo snapshot can still hold them)
+    void AutoMixUndo(bool push)
+    {
+        if (AutoMix.LastSnapshot == null) return; if (push) PushUndo(); var gone = new List<Fx>(); AutoMix.Undo(eng, gone);
+        foreach (var f in gone) { if (!retired.Contains(f)) retired.Add(f); var ic = f as InstrumentFx; if (ic != null) ic.CloseWindow(); }
+        editCount++; HistNote(); selFx = -1;
     }
 
     // ---------------- Export / Save / Open ----------------
@@ -274,7 +282,7 @@ partial class StudioForm
                 if (d.ShowDialog(this) != DialogResult.OK) return; path = d.FileName;
             }
         }
-        try { ProjectIO.Roll = PrPrefsText(); ProjectIO.Save(eng, path); projPath = path; projName = Path.GetFileNameWithoutExtension(path); NoteProject(path, true); Toast("Project saved"); { var pubE = ProjectLibrary.AllByEdited().Find(x => x.OnProfile && string.Equals(x.Path, path, StringComparison.OrdinalIgnoreCase)); if (pubE != null) SyncCommunitySongs(); } }   /* a published project: its song on the profile and the community page is updated right away */
+        try { ProjectIO.Roll = PrPrefsText(); ProjectIO.Save(eng, path); projPath = path; projName = Path.GetFileNameWithoutExtension(path); NoteProject(path, true); AutosaveClear(); Toast("Project saved"); { var pubE = ProjectLibrary.AllByEdited().Find(x => x.OnProfile && string.Equals(x.Path, path, StringComparison.OrdinalIgnoreCase)); if (pubE != null) SyncCommunitySongs(); } }   /* a published project: its song on the profile and the community page is updated right away */
         catch (Exception ex) { MessageBox.Show(this, ex.Message, "Save failed"); }
     }
 
@@ -293,10 +301,10 @@ partial class StudioForm
     internal void OpenProjectPath(string path)
     {
         if (busy) { Toast("Wait for the current job to finish"); return; }
-        List<string> warn = null;
+        List<string> warn = null; var oldFx = TrackFxNow();
         RunBusy("Opening project...", false, p => { warn = ProjectIO.Load(eng, path, s => busyText = s); busyText = "Warming up the plugins..."; eng.Prime(); }, ok =>
         {
-            if (!ok) return; PrApplyPrefs(ProjectIO.Roll); bpmUserSet = true; projPath = path; projName = Path.GetFileNameWithoutExtension(path); selTrack = 0; selFx = -1; undo.Clear(); redo.Clear(); FitView(); NoteProject(path, false);
+            RetireReplaced(oldFx); if (!ok) return; PrApplyPrefs(ProjectIO.Roll); bpmUserSet = true; projPath = path; projName = Path.GetFileNameWithoutExtension(path); selTrack = 0; selFx = -1; undo.Clear(); redo.Clear(); FitView(); NoteProject(path, false);
             if (warn != null && warn.Count > 0) MessageBox.Show(this, string.Join("\n", warn.ToArray()), "Some audio files are missing"); else Toast("Project opened");
         });
     }
@@ -379,7 +387,7 @@ static class StudioDialogs
         b1.Click += (s, e) => { result = 1; f.Close(); }; b2.Click += (s, e) => { result = 2; f.Close(); }; b3.Click += (s, e) => { result = 3; f.Close(); };
         f.Controls.AddRange(new Control[] { b1, b2, b3 }); f.Controls.Add(new Label { Text = "Your original file is never changed.", Left = 20, Top = 214, Width = 480, Height = 22, ForeColor = TM.C(255, 170, 150, 200) });
         var cancel = B("Cancel", 400, 246, 100, 30, TM.C(255, 60, 30, 90)); cancel.Click += (s, e) => f.Close(); f.Controls.Add(cancel);
-        f.ShowDialog(owner); return result;
+        f.ShowDialog(owner); f.Dispose(); return result;
     }
 
     static bool ParseClock(string t, out double sec)
@@ -427,7 +435,7 @@ static class StudioDialogs
         var b1 = B("Full song with music  (AI splits it into vocals + beat)", 20, 76, 480, 40, TM.C(255, 118, 52, 212)); var b2 = B("Vocals only  (acapella: the file has NO music)", 20, 122, 480, 40, TM.C(255, 150, 50, 160)); var b3 = B("Beat / instrumental", 20, 168, 480, 40, TM.C(255, 70, 40, 120));
         b1.Click += (s, e) => { result = "song"; f.Close(); }; b2.Click += (s, e) => { result = "vocal"; f.Close(); }; b3.Click += (s, e) => { result = "beat"; f.Close(); };
         f.Controls.AddRange(new Control[] { b1, b2, b3 }); f.Controls.Add(new Label { Text = "Your original file is never changed.", Left = 20, Top = 216, Width = 480, Height = 22, ForeColor = TM.C(255, 170, 150, 190) });
-        f.ShowDialog(owner); return result;
+        f.ShowDialog(owner); f.Dispose(); return result;
     }
 
     // A small neon box to type a number into, next to the mouse. Enter or clicking anywhere else confirms it, Esc cancels. (Used by the Bass Lab knobs.)
@@ -453,7 +461,7 @@ static class StudioDialogs
         var chk = new DarkCheck { Text = "Also delete the project file (it waits 30 days in the Recycling Bin)", Left = 20, Top = 120, Width = 520, Height = 28, ForeColor = Color.FromArgb(255, 170, 170), Enabled = fileExists }; f.Controls.Add(chk);
         f.Controls.Add(new Label { Text = fileExists ? path : "The file was not found on this computer, so there is nothing to delete.", Left = 20, Top = 154, Width = 520, Height = 36, ForeColor = TM.C(255, 150, 140, 190), Font = new Font("Segoe UI", 8.5f), AutoEllipsis = true });
         var ok = B("Remove", 330, 208, 100, 34, TM.C(255, 160, 40, 80)); var cancel = B("Cancel", 440, 208, 100, 34, TM.C(255, 70, 40, 120));
-        ok.Click += (s, e) => { result = chk.Checked ? 2 : 1; f.Close(); }; cancel.Click += (s, e) => f.Close(); f.CancelButton = cancel; f.Controls.AddRange(new Control[] { ok, cancel }); f.ShowDialog(owner); return result;
+        ok.Click += (s, e) => { result = chk.Checked ? 2 : 1; f.Close(); }; cancel.Click += (s, e) => f.Close(); f.CancelButton = cancel; f.Controls.AddRange(new Control[] { ok, cancel }); f.ShowDialog(owner); f.Dispose(); return result;
     }
 
     // a question with a long answer (a bio, a description): the box grows with every line that is written, so all of it is in view and easy to edit
@@ -470,7 +478,7 @@ static class StudioDialogs
         };
         tb.TextChanged += (s, e) => relayout(); f.Shown += (s, e) => { relayout(); tb.Focus(); tb.SelectionStart = tb.TextLength; }; relayout();
         emo.Click += (s, e) => EmojiPanel.Toggle(f, em => { int at = tb.SelectionStart; tb.Text = tb.Text.Substring(0, at) + em + tb.Text.Substring(Math.Min(tb.Text.Length, at + tb.SelectionLength)); tb.SelectionStart = at + em.Length; tb.Focus(); });
-        ok.Click += (s, e) => { result = tb.Text.Trim(); f.Close(); }; cancel.Click += (s, e) => f.Close(); f.CancelButton = cancel; f.ShowDialog(owner); return result;
+        ok.Click += (s, e) => { result = tb.Text.Trim(); f.Close(); }; cancel.Click += (s, e) => f.Close(); f.CancelButton = cancel; f.ShowDialog(owner); f.Dispose(); return result;
     }
     public static string Ask(IWin32Window owner, string prompt, string def) { return Ask(owner, prompt, def, false); }
     // allowBlank: OK with nothing typed gives "" (it is how a box is emptied, for example no nickname); Cancel still gives null
@@ -484,7 +492,7 @@ static class StudioDialogs
         var ok = B("OK", 230, 86 + dy, 90, 32, TM.C(255, 118, 52, 212)); var cancel = B("Cancel", 330, 86 + dy, 90, 32, TM.C(255, 70, 40, 120));
         var emo = B("EMOJIS", 16, 86 + dy, 110, 32, TM.C(255, 150, 70, 235)); emo.Click += (s, e) => EmojiPanel.Toggle(f, em => { int at = tb.SelectionStart; tb.Text = tb.Text.Substring(0, at) + em + tb.Text.Substring(Math.Min(tb.Text.Length, at + tb.SelectionLength)); tb.SelectionStart = at + em.Length; tb.Focus(); }); f.Controls.Add(emo);   // anywhere you write a name, a bio or a description
         ok.Click += (s, e) => { if (allowBlank || tb.Text.Trim().Length > 0) { result = tb.Text.Trim(); f.Close(); } }; cancel.Click += (s, e) => f.Close(); f.AcceptButton = ok; f.Controls.AddRange(new Control[] { ok, cancel });
-        f.ShowDialog(owner); return result;
+        f.ShowDialog(owner); f.Dispose(); return result;
     }
 
     // Genre tags: tick the ones you like and add your own (as many as you like, no swearing). Returns the tags (spaces between them) or null if cancelled.
@@ -513,7 +521,7 @@ static class StudioDialogs
         add.Click += (s, e) => doAdd(); own.KeyDown += (s, e) => { if (e.KeyCode == Keys.Enter) { e.SuppressKeyPress = true; doAdd(); } };
         hintLbl = new Label { Text = "Type a word (letters and numbers, up to 20) and press ADD MY OWN or Enter.", Left = 16, Top = 384, Width = 560, Height = 20, ForeColor = TM.C(255, 150, 140, 190) }; f.Controls.Add(hintLbl);
         var ok = B("SAVE TAGS", 360, 418, 120, 36, TM.C(255, 118, 52, 212)); var cancel = B("Cancel", 490, 418, 94, 36, TM.C(255, 70, 40, 120));
-        ok.Click += (s, e) => { result = string.Join(" ", sel.ToArray()); f.Close(); }; cancel.Click += (s, e) => f.Close(); f.CancelButton = cancel; f.Controls.AddRange(new Control[] { ok, cancel }); refresh(); f.ShowDialog(owner); return result;
+        ok.Click += (s, e) => { result = string.Join(" ", sel.ToArray()); f.Close(); }; cancel.Click += (s, e) => f.Close(); f.CancelButton = cancel; f.Controls.AddRange(new Control[] { ok, cancel }); refresh(); f.ShowDialog(owner); f.Dispose(); return result;
     }
 
     // "this artist name is taken": the same name written in other ways to pick from, or type your own
@@ -528,7 +536,7 @@ static class StudioDialogs
         f.Controls.Add(new Label { Text = "Names count as the same when only the capitals, spaces, dots or dashes differ.", Left = 16, Top = 304, Width = 488, Height = 22, ForeColor = TM.C(255, 160, 140, 190) });
         list.SelectedIndexChanged += (s, e) => { if (list.SelectedIndex >= 0 && list.SelectedIndex < suggestions.Count) tb.Text = suggestions[list.SelectedIndex]; };
         var ok = B("USE THIS NAME", 300, 356, 130, 36, TM.C(255, 118, 52, 212)); var cancel = B("Cancel", 440, 356, 64, 36, TM.C(255, 70, 40, 120));
-        ok.Click += (s, e) => { if (tb.Text.Trim().Length >= 2) { result = tb.Text.Trim(); f.Close(); } }; cancel.Click += (s, e) => f.Close(); f.AcceptButton = ok; f.CancelButton = cancel; f.Controls.AddRange(new Control[] { ok, cancel }); f.ShowDialog(owner); return result;
+        ok.Click += (s, e) => { if (tb.Text.Trim().Length >= 2) { result = tb.Text.Trim(); f.Close(); } }; cancel.Click += (s, e) => f.Close(); f.AcceptButton = ok; f.CancelButton = cancel; f.Controls.AddRange(new Control[] { ok, cancel }); f.ShowDialog(owner); f.Dispose(); return result;
     }
 
     // links: a box for the TITLE and a box for the ADDRESS on every row (up to 10). Only streaming services and social media are allowed; a row is ready when it has both, and the window does not save until every row is right.
@@ -567,7 +575,7 @@ static class StudioDialogs
         };
         foreach (var b in tt) b.TextChanged += (s, e) => check(); foreach (var b in uu) b.TextChanged += (s, e) => check(); check();
         var ok2 = B("SAVE LINKS", 440, 102 + N * 39 + 50, 120, 36, TM.C(255, 118, 52, 212)); var cancel = B("Cancel", 570, 102 + N * 39 + 50, 94, 36, TM.C(255, 70, 40, 120));
-        ok2.Click += (s, e) => { check(); if (!allGood) return; result = string.Join("\r\n", lines.ToArray()); f.Close(); }; cancel.Click += (s, e) => f.Close(); f.CancelButton = cancel; f.Controls.AddRange(new Control[] { ok2, cancel }); f.ShowDialog(owner); return result;
+        ok2.Click += (s, e) => { check(); if (!allGood) return; result = string.Join("\r\n", lines.ToArray()); f.Close(); }; cancel.Click += (s, e) => f.Close(); f.CancelButton = cancel; f.Controls.AddRange(new Control[] { ok2, cancel }); f.ShowDialog(owner); f.Dispose(); return result;
     }
 
     public static void Report(IWin32Window owner, string title, List<string> lines, Action undo)
@@ -577,7 +585,7 @@ static class StudioDialogs
         var sb = new StringBuilder(); foreach (var l in lines) sb.Append(" - ").Append(l).Append("\r\n\r\n"); tb.Text = sb.ToString(); f.Controls.Add(tb);
         var ok = B("Keep this mix", 590, 468, 154, 36, TM.C(255, 118, 52, 212)); var un = B("Undo Auto Mix", 424, 468, 154, 36, TM.C(255, 150, 40, 80));
         ok.Click += (s, e) => f.Close(); un.Click += (s, e) => { undo(); f.Close(); }; f.AcceptButton = ok; f.Controls.AddRange(new Control[] { ok, un });
-        f.ShowDialog(owner);
+        f.ShowDialog(owner); f.Dispose();
     }
 
         // "1:23", "83" or "83.5" -> seconds
@@ -667,6 +675,6 @@ static class StudioDialogs
         };
         cancel.Click += (s, e) => f.Close(); f.AcceptButton = ok; f.Controls.AddRange(new Control[] { ok, cancel });
         if (done != null) { f.FormClosed += (s, e) => done(result); var ow = owner as Form; if (ow != null) { f.StartPosition = FormStartPosition.Manual; f.Location = new Point(ow.Left + Math.Max(0, (ow.Width - f.Width) / 2), ow.Top + Math.Max(0, (ow.Height - f.Height) / 2)); } f.Show(owner); if (opened != null) opened(f); return null; }
-        f.ShowDialog(owner); return result;
+        f.ShowDialog(owner); f.Dispose(); return result;
     }
 }

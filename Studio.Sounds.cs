@@ -87,7 +87,7 @@ partial class StudioForm
         Track t = laneIndex >= 0 && laneIndex < eng.Tracks.Count ? eng.Tracks[laneIndex] : (laneIndex < 0 ? Selected : null);   // dropped below the last row: always a new track
         double bpm; var notes = SoundIO.ReadMidi(s.Path, out bpm); if (notes.Count == 0) return "That MIDI file has no notes.";
         if (t == null || !t.Instrument) return MidiToNewTrack(s, notes, bpm, frame); double spb = 60.0 / Fx.ProjectBpm * StudioEngine.SR; PushUndo();
-        lock (t.Midi) { foreach (var n in notes) { long on = frame + (long)(n[0] * spb), off = frame + (long)((n[0] + n[1]) * spb); t.Midi.Add(new MidiEv { Frame = on, S = 0x90, D1 = (byte)n[2], D2 = (byte)Math.Max(1, Math.Min(127, n[3])) }); t.Midi.Add(new MidiEv { Frame = Math.Max(on + 1, off), S = 0x80, D1 = (byte)n[2], D2 = 0 }); } t.Midi.Sort((a, b) => a.Frame.CompareTo(b.Frame)); }
+        lock (t.Midi) { foreach (var n in notes) { long on = frame + (long)(n[0] * spb), off = frame + (long)((n[0] + n[1]) * spb); t.Midi.Add(new MidiEv { Frame = on, S = 0x90, D1 = (byte)n[2], D2 = (byte)Math.Max(1, Math.Min(127, n[3])) }); t.Midi.Add(new MidiEv { Frame = Math.Max(on + 1, off), S = 0x80, D1 = (byte)n[2], D2 = 0 }); } t.Midi.Sort((a, b) => a.Frame != b.Frame ? a.Frame.CompareTo(b.Frame) : ((a.S & 0xF0) == 0x80 ? -1 : 1).CompareTo((b.S & 0xF0) == 0x80 ? -1 : 1)); /* (same time: the note-off first, like McSort) */ }
         selTrack = eng.Tracks.IndexOf(t); SoundLibrary.MarkUsed(s); Toast("Added " + notes.Count + " notes to " + t.Name); return null;
     }
     // MIDI dropped where there is no instrument track: drums become an audio track played with the pack's kit; a bassline, chords or a melody get a new Bass Lab track with a sound that suits them
@@ -107,7 +107,7 @@ partial class StudioForm
         else if (ty.Contains("chord")) { patch = Music.LeadPatch("Electric Keys"); label = "Keys"; }
         else { patch = Music.LeadPatch("Soft Pluck"); label = "Lead"; }
         fx.Deserialize(patch); var t = StudioEngine.NewTrack(label + ": " + s.Name.Replace(s.PackName + " - ", ""), "inst", null); t.Instrument = true; t.Color = unchecked((int)0xFFFFB84D); fx.Owner = t; lock (eng.Sync) t.Fx.Add(fx); AddTrack(t);
-        lock (t.Midi) { foreach (var n in notes) { long on = frame + (long)(n[0] * spb), off = frame + (long)((n[0] + n[1]) * spb); t.Midi.Add(new MidiEv { Frame = on, S = 0x90, D1 = (byte)n[2], D2 = (byte)Math.Max(1, Math.Min(127, n[3])) }); t.Midi.Add(new MidiEv { Frame = Math.Max(on + 1, off), S = 0x80, D1 = (byte)n[2], D2 = 0 }); } t.Midi.Sort((a, b) => a.Frame.CompareTo(b.Frame)); }
+        lock (t.Midi) { foreach (var n in notes) { long on = frame + (long)(n[0] * spb), off = frame + (long)((n[0] + n[1]) * spb); t.Midi.Add(new MidiEv { Frame = on, S = 0x90, D1 = (byte)n[2], D2 = (byte)Math.Max(1, Math.Min(127, n[3])) }); t.Midi.Add(new MidiEv { Frame = Math.Max(on + 1, off), S = 0x80, D1 = (byte)n[2], D2 = 0 }); } t.Midi.Sort((a, b) => a.Frame != b.Frame ? a.Frame.CompareTo(b.Frame) : ((a.S & 0xF0) == 0x80 ? -1 : 1).CompareTo((b.S & 0xF0) == 0x80 ? -1 : 1)); /* (same time: the note-off first, like McSort) */ }
         selTrack = eng.Tracks.IndexOf(t); SoundLibrary.MarkUsed(s); Toast("Added a Bass Lab track with the " + notes.Count + " notes (change its sound in Bass Lab)"); return null;
     }
     string InstallPreset(SoundItem s)

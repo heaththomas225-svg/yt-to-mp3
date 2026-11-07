@@ -92,6 +92,7 @@ public class Biquad
 public class Param
 {
     public string Id, Name, Unit = ""; public float Min, Max, Def, Val; public string[] Choices;
+    public bool Force;   // the host wrote this value (a slider, automation, a preset): a VST gets it even if it equals what it was last sent
     public Param(string id, string name, float min, float max, float def, string unit)
     { Id = id; Name = name; Min = min; Max = max; Def = def; Val = def; Unit = unit; }
     public static Param Choice(string id, string name, string[] choices, int def)
@@ -140,7 +141,7 @@ public abstract class Fx
     public void Set(string id, float v)
     {
         var p = Find(id); if (p == null) return;
-        p.Val = DspMath.Clamp(v, p.Min, p.Max); dirty = true;
+        p.Val = DspMath.Clamp(v, p.Min, p.Max); p.Force = true; dirty = true;
     }
     public void MarkDirty() { dirty = true; }
 
@@ -176,7 +177,7 @@ public abstract class Fx
         }
     }
 
-    public void ResetDefaults() { foreach (var p in P) p.Val = p.Def; dirty = true; }
+    public void ResetDefaults() { foreach (var p in P) { p.Val = p.Def; p.Force = true; } dirty = true; }
     public string Hidden = "";        // comma-separated parameter ids the editor does not show (they still work and are saved)
     // Built-in plugin variants: set the starting values and make them the defaults (double-click resets to them).
     public void SetPreset(string s) { Deserialize(s); foreach (var p in P) p.Def = p.Val; dirty = true; }

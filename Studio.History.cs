@@ -24,7 +24,20 @@ partial class StudioForm
     readonly Dictionary<AudioClip, string> histAudio = new Dictionary<AudioClip, string>();
     static readonly CultureInfo HCI = CultureInfo.InvariantCulture;
 
-    string HistDirNow() { return !string.IsNullOrEmpty(projPath) ? projPath + ".history" : Path.Combine(StudioEnv.DataDir, "history", "untitled"); }
+    string histUntitled = Guid.NewGuid().ToString("N").Substring(0, 8);   // each untitled project (this session, or after NEW PROJECT) keeps its own history folder
+    string HistDirNow() { return !string.IsNullOrEmpty(projPath) ? projPath + ".history" : Path.Combine(StudioEnv.DataDir, "history", "untitled-" + histUntitled); }
+    // ---- a project put in the place of the open one (open, restore, recovery) ----
+    List<Fx> TrackFxNow() { var l = new List<Fx>(); lock (eng.Sync) foreach (var t in eng.Tracks) l.AddRange(t.Fx); return l; }
+    // the old tracks' plugins are retired (not disposed: an undo snapshot may still hold them) and their windows closed, like NEW PROJECT
+    void RetireReplaced(List<Fx> oldFx) { var keep = new HashSet<Fx>(TrackFxNow()); foreach (var f in oldFx) { if (keep.Contains(f)) continue; if (!retired.Contains(f)) retired.Add(f); var ic = f as InstrumentFx; if (ic != null) ic.CloseWindow(); } AutoMix.LastSnapshot = null; }
+    // the loaded project's piano roll settings, its own tempo, and nothing selected from the old one (like opening a project)
+    void AfterProjectLoaded() { PrApplyPrefs(ProjectIO.Roll); bpmUserSet = true; selTrack = 0; selFx = -1; }
+    // a throwaway engine (preview, one-track restore, recovery test): its plugins are disposed once it has stopped
+    static void DisposeEngineFx(StudioEngine pe)
+    {
+        if (pe == null) return; var l = new List<Fx>(); lock (pe.Sync) { foreach (var t in pe.Tracks) l.AddRange(t.Fx); l.AddRange(pe.MasterFx); }
+        foreach (var f in l) { var d = f as IDisposable; if (d != null) { try { d.Dispose(); } catch { } } }
+    }
     // a change was made: the state is written a moment later (so a drag is one step, not hundreds)
     void HistNote() { histDue = DateTime.Now.AddSeconds(1.2); }
     void HistTick()
@@ -51,7 +64,7 @@ partial class StudioForm
         if (eng.Tracks.Count == 0) return; HistEnsureLoaded(); Directory.CreateDirectory(histDir); string adir = Path.Combine(histDir, "audio");
         // audio that only lives in memory gets a file once, so this state can be opened again later
         foreach (var t in eng.Tracks.ToArray()) { var c = t.Clip; if (c == null || !string.IsNullOrEmpty(c.Path) && File.Exists(c.Path)) continue; string p; if (!histAudio.TryGetValue(c, out p)) { Directory.CreateDirectory(adir); p = Path.Combine(adir, "clip " + DateTime.Now.ToString("yyyyMMdd-HHmmss-fff") + ".wav"); if (c.L != null) WavIO.Write(p, c.L, c.R ?? c.L, StudioEngine.SR, 24); histAudio[c] = p; } c.Path = p; }
-        int n = ++histN; string file = n.ToString("00000") + ".ytproj"; ProjectIO.Save(eng, Path.Combine(histDir, file));
+        int n = ++histN; string file = n.ToString("00000") + ".ytproj"; ProjectIO.Roll = PrPrefsText(); ProjectIO.Save(eng, Path.Combine(histDir, file));
         var e = new HistEntry { N = n, At = DateTime.Now, Label = HistLabel(), Tracks = eng.Tracks.Count(t => t.Host == null && !t.IsBus), File = Path.Combine(histDir, file) }; hist.Add(e);
         while (hist.Count > 300) { try { File.Delete(hist[0].File); } catch { } hist.RemoveAt(0); }   // the oldest go after 300 states
         File.WriteAllLines(Path.Combine(histDir, "index.txt"), hist.Select(h => h.N + "|" + h.At.Ticks + "|" + h.Label.Replace("|", "/") + "|" + h.Tracks + "|" + Path.GetFileName(h.File)).ToArray());
@@ -60,22 +73,39 @@ partial class StudioForm
     void HistRestoreAll(HistEntry e)
     {
         if (!AskYes("Put the whole project back as it was at " + e.At.ToString("ddd d MMM HH:mm") + "?\n\nThe state you have now stays in the history, so you can come back to it.", "Restore")) return;
-        HistWrite(); string keepPath = projPath, keepName = projName; string file = e.File;
-        RunBusy("Restoring...", false, p => { ProjectIO.Load(eng, file, s => busyText = s); busyText = "Warming up the plugins..."; eng.Prime(); }, ok => { projPath = keepPath; projName = keepName; undo.Clear(); redo.Clear(); editCount++; FitView(); Toast("The project is as it was at " + e.At.ToString("HH:mm") + ". Ctrl+Z will not undo this: the HISTORY page has the state before it."); });
+        if (busy) { Toast("Wait for the current job to finish"); return; }
+        HistWrite(); string keepPath = projPath, keepName = projName; string file = e.File; var oldFx = TrackFxNow();
+        RunBusy("Restoring...", false, p => { ProjectIO.Load(eng, file, s => busyText = s); busyText = "Warming up the plugins..."; eng.Prime(); }, ok => { RetireReplaced(oldFx); if (!ok) return; AfterProjectLoaded(); projPath = keepPath; projName = keepName; undo.Clear(); redo.Clear(); editCount++; FitView(); Toast("The project is as it was at " + e.At.ToString("HH:mm") + ". Ctrl+Z will not undo this: the HISTORY page has the state before it."); });
     }
     // one track back as it was then, the rest stays as it is now
     void HistRestoreTrack(HistEntry e, string trackName)
     {
-        StudioEngine te = null; try { te = new StudioEngine { ListenOnly = true }; StudioEngine.Current = eng; var tm = new ProjectIO.ProjMeta(); ProjectIO.Load(te, e.File, s => { }, tm); if (!double.IsNaN(tm.Bpm) && tm.Bpm > 0) te.TempoOverride = tm.Bpm; } catch (Exception ex) { Toast("That state could not be opened: " + ex.Message); return; }
-        var src = te.Tracks.FirstOrDefault(t => t.Name == trackName && t.Host == null); if (src == null) { Toast("That track is not in that state."); return; }
-        PushUndo(); var dst = eng.Tracks.FirstOrDefault(t => t.Name == trackName && t.Host == null);
-        lock (eng.Sync)
+        if (busy) { Toast("Wait for the current job to finish"); return; }
+        StudioEngine te = null; string file = e.File;   /* the state is read in the background (big audio files no longer freeze the window) */
+        RunBusy("Reading " + trackName + " from then...", false, p => { te = new StudioEngine { ListenOnly = true }; StudioEngine.Current = eng; var tm = new ProjectIO.ProjMeta(); ProjectIO.Load(te, file, s => busyText = s, tm); if (!double.IsNaN(tm.Bpm) && tm.Bpm > 0) te.TempoOverride = tm.Bpm; }, ok =>
         {
-            te.Tracks.Remove(src);
-            if (dst == null) { eng.Tracks.Insert(Math.Min(LaneCount, eng.Tracks.Count), src); foreach (var f in src.Fx) { var inf = f as InstrumentFx; if (inf != null) inf.Owner = src; } }
-            else { dst.Clip = src.Clip; dst.Offset = src.Offset; dst.ClipStart = src.ClipStart; dst.ClipFrames = src.ClipFrames; dst.VolDb = src.VolDb; dst.Pan = src.Pan; dst.Mute = src.Mute; dst.Instrument = src.Instrument; dst.Fx = src.Fx; foreach (var f in dst.Fx) { var inf = f as InstrumentFx; if (inf != null) inf.Owner = dst; } lock (dst.Midi) { dst.Midi.Clear(); dst.Midi.AddRange(src.Midi); } dst.Auto.Clear(); dst.Auto.AddRange(src.Auto); }
-        }
-        try { te.Shutdown(); } catch { } Toast(trackName + " is as it was at " + e.At.ToString("HH:mm") + "; every other track stays as it is. Ctrl+Z undoes it.");
+            if (!ok || te == null) { if (te != null) { try { te.Shutdown(); } catch { } DisposeEngineFx(te); } return; }
+            var src = te.Tracks.FirstOrDefault(t => t.Name == trackName && t.Host == null); if (src == null) { try { te.Shutdown(); } catch { } DisposeEngineFx(te); Toast("That track is not in that state."); return; }
+            PushUndo(); var dst = eng.Tracks.FirstOrDefault(t => t.Name == trackName && t.Host == null); List<Fx> oldFx = null;
+            lock (eng.Sync)
+            {
+                te.Tracks.Remove(src); src.Host = null;
+                if (dst == null)
+                {   // its output and sends go to the buses of this project with the same name, or to the master
+                    var outName = src.Out != null ? src.Out.Name : null; src.Out = outName == null ? null : eng.Tracks.FirstOrDefault(b => b.IsBus && b.Name == outName);
+                    var sends = new List<Send>(); foreach (var sd in src.Sends) { var bn = sd.Bus != null ? sd.Bus.Name : null; var bus = bn == null ? null : eng.Tracks.FirstOrDefault(b => b.IsBus && b.Name == bn); if (bus != null && !sends.Exists(x => x.Bus == bus)) { sd.Bus = bus; sends.Add(sd); } } src.Sends = sends.ToArray();
+                    eng.Tracks.Insert(Math.Min(LaneCount, eng.Tracks.Count), src); foreach (var f in src.Fx) { var inf = f as InstrumentFx; if (inf != null) inf.Owner = src; }
+                }
+                else
+                {
+                    oldFx = new List<Fx>(dst.Fx); dst.Clip = src.Clip; dst.Source = src.Source; dst.Offset = src.Offset; dst.ClipStart = src.ClipStart; dst.ClipFrames = src.ClipFrames; dst.VolDb = src.VolDb; dst.Pan = src.Pan; dst.Mute = src.Mute; dst.Instrument = src.Instrument; dst.Fx = src.Fx; foreach (var f in dst.Fx) { var inf = f as InstrumentFx; if (inf != null) inf.Owner = dst; } lock (dst.Midi) { dst.Midi.Clear(); dst.Midi.AddRange(src.Midi); } dst.Auto.Clear(); dst.Auto.AddRange(src.Auto);
+                    dst.MClips = src.MClips; dst.FadeIn = src.FadeIn; dst.FadeOut = src.FadeOut; dst.FadeInDelay = src.FadeInDelay; dst.FadeOutTail = src.FadeOutTail; dst.FadeInBend = src.FadeInBend; dst.FadeOutBend = src.FadeOutBend; dst.ClipGainDb = src.ClipGainDb; dst.TrimDb = src.TrimDb; dst.Invert = src.Invert; dst.Mono = src.Mono; dst.Locked = src.Locked; dst.PieceLocked = src.PieceLocked; dst.PieceMuted = src.PieceMuted; dst.SectionLabel = src.SectionLabel;
+                }
+            }
+            if (oldFx != null) foreach (var f in oldFx) { if (dst.Fx.Contains(f)) continue; if (!retired.Contains(f)) retired.Add(f); var ic = f as InstrumentFx; if (ic != null) ic.CloseWindow(); }   // the replaced plugins stay alive for Ctrl+Z
+            try { te.Shutdown(); } catch { } DisposeEngineFx(te);   /* the rest of that state goes (the restored track was taken out of it first) */
+            Toast(trackName + " is as it was at " + e.At.ToString("HH:mm") + "; every other track stays as it is. Ctrl+Z undoes it.");
+        });
     }
     void HistPreview(HistEntry e) { PreviewToggle(new ProjectEntry { Path = e.File, Name = "History " + e.At.ToString("HH:mm:ss") }); }
 
@@ -126,8 +156,10 @@ partial class StudioForm
     static string AutoDir { get { return Path.Combine(StudioEnv.DataDir, "autosave"); } }
     static string AutoFile { get { return Path.Combine(AutoDir, "autosave.ytproj"); } }
     static string LockFile { get { return Path.Combine(AutoDir, "session.open"); } }
-    void Autosave() { if (StudioEnv.UnderTest && !autoTest) return; if (!HasUnsaved || eng.Tracks.Count == 0 || busy) return; Directory.CreateDirectory(AutoDir); string tmp = AutoFile + ".tmp"; ProjectIO.Save(eng, tmp); if (File.Exists(AutoFile)) File.Delete(AutoFile); File.Move(tmp, AutoFile); File.WriteAllText(Path.Combine(AutoDir, "autosave.txt"), projPath + "\n" + projName + "\n" + DateTime.Now.Ticks); }
+    void Autosave() { if (StudioEnv.UnderTest && !autoTest) return; if (!HasUnsaved || eng.Tracks.Count == 0 || busy) return; Directory.CreateDirectory(AutoDir); string tmp = AutoFile + ".tmp"; ProjectIO.Roll = PrPrefsText(); ProjectIO.Save(eng, tmp); if (File.Exists(AutoFile)) File.Delete(AutoFile); File.Move(tmp, AutoFile); File.WriteAllText(Path.Combine(AutoDir, "autosave.txt"), projPath + "\n" + projName + "\n" + DateTime.Now.Ticks); }
     internal bool autoTest;   // a test switches autosave on
+    // the project was saved: the autosave is older than the save now, so it goes (a crash later never offers stale work back)
+    void AutosaveClear() { if (StudioEnv.UnderTest && !autoTest) return; try { if (File.Exists(AutoFile)) File.Delete(AutoFile); string inf = Path.Combine(AutoDir, "autosave.txt"); if (File.Exists(inf)) File.Delete(inf); } catch { } }
     // at start: a session that did not close properly leaves its marker; offer the autosave back
     internal void SessionStart()
     {
@@ -136,13 +168,15 @@ partial class StudioForm
             Directory.CreateDirectory(AutoDir); bool crashed = File.Exists(LockFile) && File.Exists(AutoFile); File.WriteAllText(LockFile, DateTime.Now.Ticks.ToString());
             if (!crashed || StudioEnv.UnderTest) return; var info = File.Exists(Path.Combine(AutoDir, "autosave.txt")) ? File.ReadAllLines(Path.Combine(AutoDir, "autosave.txt")) : new string[0]; string name = info.Length > 1 ? info[1] : "your project";
             string real = info.Length > 0 ? info[0] : ""; bool hasReal = real.Length > 0 && File.Exists(real);
+            if (hasReal && File.GetLastWriteTimeUtc(real) >= File.GetLastWriteTimeUtc(AutoFile)) { AutosaveClear(); return; }   // the project was saved after the autosave: nothing unsaved to offer
             string q = "Purphex closed unexpectedly last time (it crashed or the PC turned off) at " + File.GetLastWriteTime(AutoFile).ToString("ddd HH:mm") + ".\n\nYour work on \"" + name + "\" is still here, including what you had not saved.\n\n"
                 + "YES: carry on from where you were (like you never closed it). Nothing is saved until you press SAVE.\n"
                 + (hasReal ? "NO: open your last save instead (" + File.GetLastWriteTime(real).ToString("ddd HH:mm") + ").\n" : "NO: start without it.\n")
                 + "CANCEL: start fresh.\n\nYour last save is never changed by this, so you can still open it later.";
             var a = (recoverAsk ?? (t => System.Windows.Forms.MessageBox.Show(this, t, "Pick up where you left off?", System.Windows.Forms.MessageBoxButtons.YesNoCancel, System.Windows.Forms.MessageBoxIcon.Question)))(q);
-            if (a == System.Windows.Forms.DialogResult.Yes) { string file = AutoFile; RunBusy("Bringing your work back...", false, p => { ProjectIO.Load(eng, file, s => busyText = s); busyText = "Warming up the plugins..."; eng.Prime(); }, ok => { projPath = real; projName = name; editCount++; FitView(); Toast("You're back where you were. Press SAVE to keep it (your last save is untouched until then)."); }); }
-            else if (a == System.Windows.Forms.DialogResult.No && hasReal) { RunBusy("Opening your last save...", false, p => { ProjectIO.Load(eng, real, s => busyText = s); busyText = "Warming up the plugins..."; eng.Prime(); }, ok => { projPath = real; projName = name; FitView(); Toast("Opened your last save of " + name + "."); }); }
+            var oldFx = TrackFxNow();
+            if (a == System.Windows.Forms.DialogResult.Yes) { string file = AutoFile; RunBusy("Bringing your work back...", false, p => { ProjectIO.Load(eng, file, s => busyText = s); busyText = "Warming up the plugins..."; eng.Prime(); }, ok => { RetireReplaced(oldFx); if (!ok) return; AfterProjectLoaded(); undo.Clear(); redo.Clear(); projPath = real; projName = name; editCount++; FitView(); Toast("You're back where you were. Press SAVE to keep it (your last save is untouched until then)."); }); }
+            else if (a == System.Windows.Forms.DialogResult.No && hasReal) { RunBusy("Opening your last save...", false, p => { ProjectIO.Load(eng, real, s => busyText = s); busyText = "Warming up the plugins..."; eng.Prime(); }, ok => { RetireReplaced(oldFx); if (!ok) return; AfterProjectLoaded(); undo.Clear(); redo.Clear(); projPath = real; projName = name; FitView(); NoteProject(real, false); Toast("Opened your last save of " + name + "."); }); }
         }
         catch { }
     }
@@ -174,7 +208,7 @@ partial class StudioForm
             }
             if (warn != null) foreach (var w in warn) { rep.Lines.Add("Missing: " + w); diffs++; }
             int unsaved = a.Count(t => t.Clip != null && string.IsNullOrEmpty(t.Clip.Path)); if (unsaved > 0) rep.Lines.Add(unsaved + " clip(s) only exist in memory (not saved to a file yet): the real autosave keeps them through the HISTORY folder.");
-            try { te.Shutdown(); } catch { } rep.Ok = diffs == 0; p(1f);
+            try { te.Shutdown(); } catch { } DisposeEngineFx(te); rep.Ok = diffs == 0; p(1f);
         }, ok => { recReport = rep; try { Directory.Delete(sandbox, true); } catch { } Invalidate(); });
     }
     void PaintRecoveryReport(Graphics g)

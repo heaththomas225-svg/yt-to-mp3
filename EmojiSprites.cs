@@ -175,7 +175,7 @@ sealed class EmojiOverlay : NativeWindow
     {
         if (tb == null) return; lock (boxes) { if (boxes.Contains(tb)) return; boxes.Add(tb); }
         if (!hooked) { hooked = true; EmojiSprites.Ready += () => { TextBox[] all; lock (boxes) all = boxes.ToArray(); foreach (var b in all) { try { if (b.IsHandleCreated && !b.IsDisposed) b.Invalidate(); } catch { } } }; }
-        var o = new EmojiOverlay(tb); if (tb.IsHandleCreated) o.AssignHandle(tb.Handle); tb.HandleCreated += (s, e) => { if (o.Handle == IntPtr.Zero) o.AssignHandle(tb.Handle); }; tb.HandleDestroyed += (s, e) => o.ReleaseHandle(); tb.Disposed += (s, e) => { lock (boxes) boxes.Remove(tb); };
+        var o = new EmojiOverlay(tb); if (tb.IsHandleCreated) o.AssignHandle(tb.Handle); tb.HandleCreated += (s, e) => { if (o.Handle == IntPtr.Zero) o.AssignHandle(tb.Handle); lock (boxes) if (!boxes.Contains(tb)) boxes.Add(tb); }; tb.HandleDestroyed += (s, e) => { o.ReleaseHandle(); lock (boxes) boxes.Remove(tb); }; /* a closed window lets go of its boxes (the list kept every dialog alive); a new handle adds it back */ tb.Disposed += (s, e) => { lock (boxes) boxes.Remove(tb); };
     }
     protected override void WndProc(ref Message m)
     {
