@@ -43,7 +43,7 @@ partial class SynthCanvas
             int slot = -1; for (int i = 0; i < 3; i++) if (Wavetables.CustomIsDefault(i)) { slot = i; break; }
             if (slot < 0) { if (MessageBox.Show(FindForm(), "Custom 1-3 already hold waves, and they are shared by every Bass Lab in this song. Replace Custom 1?", "Use sample", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes) { browseMsg = ""; return browseMsg; } slot = 0; }   // (a free slot first: it overwrote your drawn Custom 1 in every Bass Lab)
             Wavetables.SetCustom(slot, Wavetables.FramesFromSample(l, sr)); fx.Set("aon", 1); fx.Set("asrc", 0); fx.Set("atbl", Wavetables.CustomBase + slot); fx.Set("awt", 0); modified = true;
-            browseMsg = "Oscillator A now has the shape of " + s.Name + " (Custom 1). Turn WT POSITION to move through it, and SAVE CURRENT SOUND to keep it."; return browseMsg;
+            browseMsg = "Oscillator A now has the shape of " + s.Name + " (Custom " + (slot + 1) + "). Turn WT POSITION to move through it, and SAVE CURRENT SOUND to keep it."; return browseMsg;
         }
         catch (Exception ex) { browseMsg = "Couldn't use " + s.Name + ": " + ex.Message; return browseMsg; }
     }
@@ -129,7 +129,7 @@ partial class SynthCanvas
                 else { SynthPresets.Apply(fx, n); modified = false; browseMsg = "Loaded " + n; }
             };
             if (rowC.Sample == null) rg.Drag = (dx, dy) => { if (Math.Abs(dx) > 22 || Math.Abs(dy) > 22) DragOut(n, SoundData(rowC)); };
-            else { rg.Tip = "Click: " + n + " becomes the shape of oscillator A (Custom 1). WT POSITION moves through the sound"; Txt(g, "USE AS OSC A", 9, Acc, Rc(r.Right - 120, r.Y, 110, r.Height), StringAlignment.Far, true); }   // drag the sound out of the window: it is saved as a file where it is dropped
+            else { rg.Tip = "Click: " + n + " becomes the shape of oscillator A (the first free Custom slot). WT POSITION moves through the sound"; Txt(g, "USE AS OSC A", 9, Acc, Rc(r.Right - 120, r.Y, 110, r.Height), StringAlignment.Far, true); }   // drag the sound out of the window: it is saved as a file where it is dropped
             if (soundTab == 1)
             {
                 var del = Rc(r.Right - 30, r.Y + 5, 24, 22); if (RectangleF.Intersect(del, inner) == del) { Fill(g, Hot(del) ? TM.C(255, 190, 50, 80) : TM.C(255, 120, 30, 62), del, 5); Txt(g, "x", 12, Ink, del, StringAlignment.Center, true); var dg = Add(del); dg.Tip = "Delete " + n + " (only this sound)"; dg.Down = pt => DeleteSound(n); }

@@ -461,13 +461,13 @@ partial class StudioEngine
         gl = pan <= 0 ? 1f : (float)Math.Cos(pan * Math.PI / 2); gr = pan >= 0 ? 1f : (float)Math.Cos(-pan * Math.PI / 2); return 0;
     }
 
-    static int EffLat(Track t) { return t.IsBus ? 0 : t.Latency() + (t.Out != null && t.Out.IsBus ? t.Out.Latency() : 0); }   // a track sent to a bus is as late as its own plugins plus the bus plugins
+    static int EffLat(Track t, List<Track> list) { return t.IsBus ? 0 : t.Latency() + (t.Out != null && t.Out != t && t.Out.IsBus && list.Contains(t.Out) ? t.Out.Latency() : 0); }   // a track sent to a bus is as late as its own plugins plus the bus plugins
 
     // ---- one row = one track: the pieces on a row (made by SPLIT or by adding more audio to it) share the row's plugins, mute, solo, volume and pan ----
     static bool HasInstrFx(Track t) { foreach (var f in t.Fx) { var ifx = f as InstrumentFx; if (ifx != null && ifx.IsInstrument) return true; } return false; }
     // the audio piece that is played through the plugins of the row it sits on (its host): the host mixes it in before the plugins run
     // the delay every track is lined up to; Mix and RenderLatency both use this so they can never drift apart (merged pieces play through their host's plugins, so their own cloned chains do not count)
-    static int MixLatency(List<Track> list, RenderOpts o) { int maxLat = 0; foreach (var t in list) { if (MergedPiece(t, list)) continue; maxLat = Math.Max(maxLat, o.Dry ? 0 : EffLat(t)); } return maxLat; }
+    static int MixLatency(List<Track> list, RenderOpts o) { int maxLat = 0; foreach (var t in list) { if (MergedPiece(t, list)) continue; maxLat = Math.Max(maxLat, o.Dry ? 0 : EffLat(t, list)); } return maxLat; }
     static bool MergedPiece(Track t, List<Track> list) { var h = t.Host; return h != null && !t.IsBus && !t.Instrument && t.Clip != null && !HasInstrFx(t) && !h.IsBus && !h.Instrument && !HasInstrFx(h) && list.Contains(h); }   // the row's own track may have no audio of its own (its clip was moved to another row): its plugins still play every piece on the row
     static bool HasPieces(Track h, List<Track> list) { foreach (var p in list) if (p.Host == h && MergedPiece(p, list)) return true; return false; }
     // the audio of one clip for this block (its own fades and gain), added to the buffers
@@ -579,7 +579,7 @@ partial class StudioEngine
                     if (meters) MeasureFx(fx, t.tl, t.tr, n);
                 }
             // plugin delay compensation
-            int d = o.Dry ? 0 : maxLat - EffLat(t); int mask = t.dlyL.Length - 1;
+            int d = o.Dry ? 0 : maxLat - EffLat(t, list); int mask = t.dlyL.Length - 1;
             if (maxLat > 0 && !idle && !t.IsBus)
                 for (int i = 0; i < n; i++)
                 {
@@ -620,14 +620,16 @@ partial class StudioEngine
         if (meters) { PushTapRaw(MasterTapPre, mixL, mixR, n, false); }
         float mg = DspMath.DbToLin(MasterVolDb);
         bool useMaster = o.Master && !MasterBypass;
-        float grMax = 0;
+        float grMax = 0; int mlat = maxLat;   // (what the mix entering the master is already delayed by: tempo-synced master effects line up with what you hear)
         if (o.Master)
         {
             if (useMaster)
                 for (int f = 0; f < MasterFx.Count; f++)
                 {
                     var fx = MasterFx[f]; if (fx.Bypass) continue; fx.ScL = null; fx.ScR = null;
-                    try { fx.BeginBlock(null, pos, n, !meters || Playing); fx.Process(mixL, mixR, n); } catch (Exception ex) { fx.Error = ex.Message; fx.Bypass = true; }   // (BeginBlock: tempo-synced effects on the master lock to the song too)
+                    long mp = pos - mlat; if (mp < 0) mp = 0;
+                    try { fx.BeginBlock(null, mp, n, !meters || Playing); fx.Process(mixL, mixR, n); } catch (Exception ex) { fx.Error = ex.Message; fx.Bypass = true; }   // (BeginBlock: tempo-synced effects on the master lock to the song too)
+                    if (!fx.Bypass) mlat += fx.Latency;
                     if (fx.GR > grMax) grMax = fx.GR;
                 }
             else if (meters && AbMatchDb != 0) { float am = DspMath.DbToLin(AbMatchDb); for (int i = 0; i < n; i++) { mixL[i] *= am; mixR[i] *= am; } }
@@ -710,8 +712,8 @@ partial class StudioEngine
                 Array.Copy(loopL, 0, oL, k, m); Array.Copy(loopR, 0, oR, k, m); ApplyResumeRamp(oL, oR, n); Pos = LoopA + m; return;
             }
             Mix(Pos, n, Live, oL, oR, true, 0);
-            if (Metronome) Click(Pos, n, oL, oR);
             ApplyResumeRamp(oL, oR, n);
+            if (Metronome) Click(Pos, n, oL, oR);
             Pos += n;
             if (LoopSection) return;
             long end = EndFrame + SR * 2;   // allow reverb / delay tails
@@ -737,15 +739,17 @@ partial class StudioEngine
         Array.Clear(scRL, 0, scRL.Length); Array.Clear(scRR, 0, scRR.Length); Lufs.Reset();
     }
 
-    public void Seek(long frame) { lock (Sync) { Pos = Math.Max(0, frame); ResetStates(); } }
+    public void Seek(long frame) { lock (Sync) { Pos = Math.Max(0, frame); ResetStates(); if (Playing && Pos > 0) resumeRamp = 256 + RampLead(); } }   // (a jump while playing fades in too)
 
     // PLAY after PAUSE (or from anywhere): the first 256 frames fade in, so starting mid-wave never clicks
     int resumeRamp;
-    void ApplyResumeRamp(float[] oL, float[] oR, int n) { if (resumeRamp <= 0) return; int m = Math.Min(n, resumeRamp); for (int i = 0; i < m; i++) { float g = 1f - (resumeRamp - i) / 256f; oL[i] *= g; oR[i] *= g; } resumeRamp -= m; }
+    void ApplyResumeRamp(float[] oL, float[] oR, int n) { if (resumeRamp <= 0) return; int m = Math.Min(n, resumeRamp); for (int i = 0; i < m; i++) { float g = 1f - (resumeRamp - i) / 256f; if (g < 0f) g = 0f; oL[i] *= g; oR[i] *= g; } resumeRamp -= m; }
+    // the plugins' delay: the first sound you hear after a start comes this many frames in (the fade starts there, not inside the silence)
+    int RampLead() { int lat = 0; try { lat = MixLatency(Tracks, Live); if (!MasterBypass) foreach (var f in MasterFx) if (!f.Bypass) lat += f.Latency; } catch { } return lat; }
     public void Play()
     {
         EnsurePlayer();
-        lock (Sync) { if (!Playing) resumeRamp = 256; StoppedAtEnd = false; if (EndFrame > 0 && Pos >= EndFrame) Pos = 0; if (!Playing) { if (CountIn) { LastCountFrames = SR * 4; countLeft = LastCountFrames; /* always 4 clicks, one a second, whatever the tempo is */ } else { LastCountFrames = 0; countLeft = 0; } } Playing = true; }
+        lock (Sync) { StoppedAtEnd = false; if (EndFrame > 0 && Pos >= EndFrame) Pos = 0; if (!Playing) resumeRamp = Pos > 0 ? 256 + RampLead() : 0;   /* (from the start the song's own first beat is left alone) */ if (!Playing) { if (CountIn) { LastCountFrames = SR * 4; countLeft = LastCountFrames; /* always 4 clicks, one a second, whatever the tempo is */ } else { LastCountFrames = 0; countLeft = 0; } } Playing = true; }
     }
     // the place in the song you are hearing right now: what has been made, minus what is still waiting in the sound card, minus the delay of the plugins (they all wait for the slowest one)
     public long HeardPos
@@ -778,8 +782,8 @@ partial class StudioEngine
     {
         if (!gcTuned) { gcTuned = true; try { System.Runtime.GCSettings.LatencyMode = System.Runtime.GCLatencyMode.SustainedLowLatency; } catch { } }   // a big memory clean-up never freezes the sound while it plays
         var p = AudioOut.Create(RenderRealtime, ListenOnly ? 2 : -1); p.PosNow = () => Interlocked.Read(ref Pos); p.PlayingNow = () => Playing && countLeft <= 0; p.SoundingNow = () => Playing;
-        try { p.Start(); } catch { try { p.Dispose(); } catch { } throw; }   // a device that would not open is not kept (PLAY stayed silent for the whole session; now each try opens it again and says why)
-        player = p;
+        try { p.Start(); } catch (Exception ex) { try { p.Dispose(); } catch { } AudioStatus = "Audio unavailable: " + ex.Message; throw; }   // a device that would not open is not kept (PLAY stayed silent for the whole session; now each try opens it again and says why)
+        player = p; AudioStatus = "Audio ready";
     }
     // the code that makes the sound is compiled by a background thread when the studio opens, so the FIRST time you press play nothing has to be compiled while the sound card is waiting (that was the crackle of a first launch)
     static bool warmed;

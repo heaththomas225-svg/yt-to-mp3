@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
   <!-- Purphex core: the audio engine, DSP, plugins and sound library for Windows, macOS and Linux (.NET 8).
        The .cs files are the same ones the Windows app builds (linked from the repo root); Platform/ holds the cross-platform stand-ins. -->
   <PropertyGroup>
@@ -88,6 +88,9 @@
     <Compile Include="../../Plug.TapeDirt.cs" />
     <Compile Include="../../Plug.Constellation.cs" />
     <Compile Include="../../Plug.PxPresets4.cs" />
+    <Compile Include="../../Plug.WobbleLfo.cs" />
+    <Compile Include="../../Plug.Pads.cs" />
+    <Compile Include="../../Plug.KeyMap.cs" />
     <Compile Include="../../Plug.Clipper.cs" />
     <Compile Include="../../Plug.VinylStop.cs" />
     <Compile Include="../../Plug.PxPresets5.cs" />

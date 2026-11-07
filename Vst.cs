@@ -151,7 +151,7 @@ class VstPlugin : IVstHosted
             Marshal.WriteIntPtr(evArr, 16 + i * IntPtr.Size, e);
         }
         Marshal.WriteInt32(evArr, 0, n); Marshal.WriteInt32(evArr, 4, 0); Marshal.WriteIntPtr(evArr, 8, IntPtr.Zero);
-        Call(effProcessEvents, 0, IntPtr.Zero, evArr, 0);
+        if (!freed) { try { disp(eff, effProcessEvents, 0, IntPtr.Zero, evArr, 0); } catch { } }   // (no lock: the editor timer and project saves held it and made the sound thread wait)
     }
 
     // Processes n frames. Effects: output replaces l / r. Instruments: output is added to l / r.
@@ -267,18 +267,20 @@ class VstFx : InstrumentFx, IDisposable
         Plugin = p; File = file; Type = "vst:" + System.IO.Path.GetFileName(file); Title = p.Name; Category = p.IsSynth ? "Instruments" : "Plugins"; Blurb = (p.IsSynth ? "VST instrument" : "VST effect") + (p.Vendor.Length > 0 ? " by " + p.Vendor : "");
         int n = Math.Min(p.NumParams, MaxParams);
         for (int i = 0; i < n; i++) { string nm = p.ParamName(i); if (nm.Length == 0) nm = "Parameter " + (i + 1); AddP("p" + i, nm, 0f, 1f, p.GetParam(i), ""); }
+        sent = new float[P.Count]; for (int i = 0; i < P.Count; i++) sent[i] = P[i].Val;   // what the plugin has been told: only changes are pushed (the construction-time copies were pushed over its patch after every stop and seek)
         dirty = false;
     }
+    float[] sent;
 
     public override bool IsInstrument { get { return Plugin.IsSynth; } }
     public override bool HasWindow { get { return Plugin.HasEditor; } }
     public override string WindowLabel { get { return Plugin.HasEditor ? "Open " + Title + " window" : "(this plugin has no window)"; } }
-    protected override void OnBlock(long pos, int n, bool transport) { VstPlugin.HostPos = pos; VstPlugin.HostPlaying = transport; VstPlugin.HostSampleRate = SR; }
+    protected override void OnBlock(long pos, int n, bool transport) { VstPlugin.HostPos = pos; VstPlugin.HostPlaying = transport; VstPlugin.HostSampleRate = SR; VstPlugin.HostBpm = Fx.Bpm; }   // (the project's tempo: plugins always saw 90)
     protected override void OnEvents(List<KeyValuePair<int, MidiEv>> events) { if (events.Count > 0) Plugin.SendMidi(events); }
 
     public override void Process(float[] l, float[] r, int n)
     {
-        if (dirty) { dirty = false; for (int i = 0; i < P.Count; i++) { int idx; if (P[i].Id.Length > 1 && int.TryParse(P[i].Id.Substring(1), out idx)) Plugin.SetParam(idx, P[i].Val); } }
+        if (dirty) { dirty = false; for (int i = 0; i < P.Count && i < sent.Length; i++) { if (P[i].Val == sent[i]) continue; int idx; if (P[i].Id.Length > 1 && int.TryParse(P[i].Id.Substring(1), out idx)) { Plugin.SetParam(idx, P[i].Val); sent[i] = P[i].Val; } } }
         Plugin.Process(l, r, n);
     }
 
@@ -290,7 +292,7 @@ class VstFx : InstrumentFx, IDisposable
     }
     public override void Deserialize(string s)
     {
-        if (s != null && s.StartsWith("chunk=")) { try { Plugin.SetChunk(Convert.FromBase64String(s.Substring(6))); } catch { } return; }
+        if (s != null && s.StartsWith("chunk=")) { try { Plugin.SetChunk(Convert.FromBase64String(s.Substring(6))); for (int i = 0; i < P.Count && i < sent.Length; i++) { int idx; if (P[i].Id.Length > 1 && int.TryParse(P[i].Id.Substring(1), out idx)) P[i].Val = sent[i] = Plugin.GetParam(idx); } } catch { } return; }   // (the sliders show the restored patch, and it is not overwritten)
         base.Deserialize(s);
     }
 

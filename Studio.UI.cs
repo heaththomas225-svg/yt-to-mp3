@@ -922,7 +922,7 @@ partial class StudioForm : Form
         {
             if ((ModifierKeys & Keys.Control) != 0 && (ModifierKeys & Keys.Alt) == 0 && (ModifierKeys & Keys.Shift) == 0) autoFit = false;
             if ((ModifierKeys & Keys.Control) != 0 && (ModifierKeys & Keys.Shift) != 0) { }   // Ctrl + Shift + wheel does nothing (it used to resize the tracks by accident)
-            else if ((ModifierKeys & Keys.Alt) != 0) { LaneH = SnapLaneH(Math.Max(MinLaneH, Math.Min(420, LaneH + (d > 0 ? (LaneH < 64 ? 8 : 16) : (LaneH <= 64 ? -8 : -16)))), d > 0); vscroll = Math.Max(0, Math.Min(vscroll, Math.Max(0, n * LaneH - (MixH - top - RulerH - 66)))); }
+            else if ((ModifierKeys & Keys.Alt) != 0) { LaneH = SnapLaneH(Math.Max(MinLaneH, Math.Min(420, LaneH + (d > 0 ? (LaneH < 64 ? 8 : 16) : (LaneH <= 64 ? -8 : -16)))), d > 0); vscroll = Math.Max(0, Math.Min(vscroll, Math.Max(0, n * LaneH - (MixH - top - RulerH - 66))));  userLaneH = LaneH; }
             else if ((ModifierKeys & (Keys.Control | Keys.Shift)) != 0 && MousePos.Y >= top + RulerH) ZoomAtCursor(d);   // Shift or Ctrl + wheel: zoom, held exactly on the point under the mouse
             else if (MousePos.Y < top + RulerH) ScrollView(-d * 0.25);   // the wheel on the ruler: along the song
             else ScrollTracks(-d * 40);   // the wheel scrolls the tracks up and down (it never shoots off sideways); Left / Right and the bar at the top go along the song
@@ -1736,7 +1736,7 @@ partial class StudioForm : Form
         if (MsgCmd(k)) return true; if (MsgTakesKey(k)) return base.ProcessCmdKey(ref msg, k);
         if (ArtSearchCmd(k)) return true; if (ArtSearchTakesKey(k)) return base.ProcessCmdKey(ref msg, k); if (FontSearchCmd(k)) return true; if (FontSearchTakesKey(k)) return base.ProcessCmdKey(ref msg, k);
         if (k == Keys.F1) { app.ShowHelp(null); return true; }
-        if (k == Keys.Space && tab == 0 && soundsOpen && keysInSounds) { Auditioner.Toggle(); Invalidate(); return true; }   // in the sound packs: Space pauses and plays the sound you are hearing
+        if (k == Keys.Space && tab == 0 && soundsOpen && keysInSounds) { if (Auditioner.Current == null && sndSel != null && (sndSel.IsAudio || sndSel.Kind == "midi")) PreviewSound(sndSel); else Auditioner.Toggle(); Invalidate(); return true; }   // in the sound packs: Space pauses and plays the sound you are hearing
         if (k == Keys.Space) { if (tab != 0) return base.ProcessCmdKey(ref msg, k); PlayToggle(); return true; }   // the space bar plays and pauses on the Mix page only: on any other page it leaves the mix alone
         if (k == Keys.Home) { eng.Seek(0); scroll = 0; followPaused = false; return true; }
         if (tab == 0 && (k == Keys.Left || k == Keys.Right)) { ScrollView(k == Keys.Right ? 0.15 : -0.15); return true; }   // the arrow keys move around the song: Left / Right along it, Up / Down through the tracks

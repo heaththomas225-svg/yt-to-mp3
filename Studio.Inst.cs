@@ -109,7 +109,7 @@ partial class StudioForm
     }
 
     // Notes played in an instrument window are recorded onto its track while the song plays and REC is armed.
-    Track recToastFor; volatile bool recGot; readonly long[] recOnAt = new long[128];   // recGot: notes were recorded since REC went on
+    Track recToastFor; volatile bool recGot; readonly long[] recOnAt = new long[128]; readonly double[] recOnMs = new double[128];   // recGot: notes were recorded since REC went on
     // the song stopped after notes were recorded: MIDI REC turns itself off (left on, the next play recorded over your part by accident)
     internal void RecStopped() { if (!recOn) { recGot = false; return; } if (!recGot) return; recOn = false; recGot = false; Toast("Recording finished: MIDI REC is off again (press it to record more)."); Invalidate(); }
     void OnMidiNote(Track t, bool on, int note, int vel)
@@ -119,7 +119,18 @@ partial class StudioForm
         long frame;
         if (!eng.Playing) { frame = eng.Pos; try { BeginInvoke(new Action(() => { if (!eng.Playing) { bool ci = eng.CountIn; eng.CountIn = false; try { PlayGuard(); } finally { eng.CountIn = ci; } } }))   /* (no count-in: the notes played during it all landed on one frame) */; } catch { } }   // the first note starts the song and is recorded at the needle
         else frame = Math.Max(0, (long)dispPos);
-        { int nk = note & 127; if (on) recOnAt[nk] = frame; else if (frame <= recOnAt[nk]) frame = eng.LoopSection ? Math.Max(recOnAt[nk] + 1, eng.LoopB - 1) : recOnAt[nk] + StudioEngine.SR / 8; }   // a note held across the loop's end: its note-off stays after its note-on (it was recorded before it and hung)
+        { int nk = note & 127; double nowMs = studioClock.Elapsed.TotalMilliseconds;
+          if (on) { recOnAt[nk] = frame; recOnMs[nk] = nowMs; }
+          else
+          {
+              if (frame <= recOnAt[nk])   // off not after on: a tap inside one needle tick, or a note held across the loop end; the clock says how long it was really held (a tap became a note to the loop's end)
+              {
+                  long held = Math.Max(1L, Math.Min((long)StudioEngine.SR * 30, (long)((nowMs - recOnMs[nk]) * StudioEngine.SR / 1000.0)));
+                  frame = recOnAt[nk] + held;
+                  if (eng.LoopSection && recOnAt[nk] < eng.LoopB && frame >= eng.LoopB) frame = Math.Max(recOnAt[nk] + 1, eng.LoopB - 1);
+              }
+              recOnAt[nk] = -1;
+          } }   // a note held across the loop's end: its note-off stays after its note-on (it was recorded before it and hung)
         var ev = new MidiEv { Frame = frame, S = (byte)(on ? 0x90 : 0x80), D1 = (byte)note, D2 = (byte)(on ? vel : 0) };
         lock (t.Midi)
         {

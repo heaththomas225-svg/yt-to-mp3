@@ -529,16 +529,28 @@ static class Auditioner
                     if (env < envTarget) env = Math.Min(envTarget, env + atk); else if (env > envTarget) env = Math.Max(envTarget, env - Rel);
                     float tail = loop ? 1f : Math.Min(1f, (len - pos) / 64f);   // the last 1.5 ms of a sound always ends at silence
                     float k = env * tail; vl += al[pos] * k; vr += ar[pos] * k; pos++;
-                    if (env <= 0 && envTarget <= 0) { playing = false; stoppedAt = DateTime.Now; if (resetOnStop) { pos = 0; resetOnStop = false; } }
+                    if (env <= 0 && envTarget <= 0) { playing = false; stoppedAt = DateTime.Now; if (resetOnStop) { pos = startAt; resetOnStop = false; } }
                 }
             }
             l[i] = vl * g; r[i] = vr * g;
         }
     }
     public static void Pause() { envTarget = 0; if (player == null) { playing = false; } stoppedAt = DateTime.Now; }
-    public static void Resume() { if (pl != null) { if (pos >= pl.Length) pos = 0; env = 0; atk = 1f / 66; envTarget = 1; resetOnStop = false; playing = true; Ensure(); } }
+    public static void Resume() { var a = pl; if (a != null && Current != null) { int le = endAt > 0 ? Math.Min(a.Length, endAt) : a.Length; if (pos >= le) pos = Math.Min(startAt, Math.Max(0, le - 1)); env = 0;   /* (from the trim start after it played to its end: Play did nothing) */ atk = 1f / 66; envTarget = 1; resetOnStop = false; playing = true; Ensure(); } }
+    // the trim handles moved while this sound plays: the new range applies at once
+    public static void SetRange(SoundItem s, float ta, float tb)
+    {
+        lock (lk)
+        {
+            var a = pl; if (a == null || Loading || Current != s) return;
+            int sa = Math.Max(0, Math.Min(a.Length - 1, (int)(ta * a.Length)));
+            int sb = tb < 1f ? Math.Max(sa + 64, Math.Min(a.Length, (int)(tb * a.Length))) : 0; if (sb > a.Length) sb = 0;
+            if (!SoundLibrary.LoopPreview && sb > 0 && pos >= sb) return;   // already past a narrowed end: the screen's pause (with its fade) handles it
+            startAt = sa; endAt = sb;
+        }
+    }
     public static void Toggle() { if (playing && envTarget > 0) Pause(); else Resume(); }
-    public static void Stop() { if (playing && player != null) { envTarget = 0; resetOnStop = true; } else { playing = false; pos = 0; } stoppedAt = DateTime.Now; }
+    public static void Stop() { if (playing && player != null) { envTarget = 0; resetOnStop = true; } else { playing = false; pos = startAt; } stoppedAt = DateTime.Now; }
     public static void Seek(double frac) { if (pl != null) lock (lk) { if (playing) { ol = pl; orr = pr; opos = pos; oenv = env; env = 0; atk = Rel; } pos = (int)Math.Max(0, Math.Min(pl.Length - 1, frac * pl.Length)); } }
     // closes the output a few seconds after the last sound so nothing keeps the sound card busy
     public static void Tick() { if (!playing && player != null && (DateTime.Now - stoppedAt).TotalSeconds > 4) { lock (lk) { try { player.Dispose(); } catch { } player = null; } } }

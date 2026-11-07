@@ -277,7 +277,7 @@ class Vst3Plugin : IVstHosted
         try
         {
             if (controller == IntPtr.Zero || i < 0 || i >= paramIds.Count) return; v = Math.Max(0f, Math.Min(1f, v));
-            lock (callLock) { if (setParamFn == null) setParamFn = Vst3.Fn<D_IUD>(controller, 15); setParamFn(controller, paramIds[i], v); }
+            if (System.Threading.Monitor.TryEnter(callLock)) { try { if (setParamFn == null) setParamFn = Vst3.Fn<D_IUD>(controller, 15); setParamFn(controller, paramIds[i], v); } finally { System.Threading.Monitor.Exit(callLock); } }   // (never waits: the processor below still gets the value)
             lock (pending) { for (int k = 0; k < changeCount; k++) if (chId[k] == paramIds[i]) { chVal[k] = v; return; } if (changeCount < MaxChanges) { chId[changeCount] = paramIds[i]; chVal[changeCount] = v; changeCount++; } }
         }
         catch { }

@@ -98,6 +98,7 @@ partial class StudioForm
         if (t.Mono == mono) return; PushUndo(); t.Mono = mono;
         Toast(t.Name + " is now " + (mono ? "MONO: left and right play the same sound." : "STEREO: left and right are kept apart."));
     }
+    int userLaneH = 0;   // the row height you chose last (Alt+wheel or THIN TRACKS); 0 = not chosen yet
     int normalLaneH = 132; const int MinLaneH = 34, FadeHandleMinLaneH = 84;
     // FIT: the whole song across, and every track on screen top to bottom; with many tracks they thin right out to one line each (the name and the waveform as a strip)
     // a row height whose header fits whole (between the layouts the PAN row or MONO was cut off): taller goes up to the next one that fits, shorter down
@@ -114,12 +115,12 @@ partial class StudioForm
         }
         else
         {   // room again (fewer tracks, a smaller project): the rows grow back, never past your own height (thin stays thin)
-            int cap = Prefs.ThinTracks ? 84 : normalLaneH;
+            int cap = userLaneH > 0 ? userLaneH : (Prefs.ThinTracks ? 84 : normalLaneH);   /* (FIT never grows past the height you chose) */
             if (LaneH < cap) { int g = Math.Min(cap, want); g = g >= 132 ? g : (g >= 108 ? Math.Min(g, 111) : (g >= 84 ? Math.Min(g, 95) : Math.Min(g, 83))); LaneH = Math.Max(LaneH, Math.Max(MinLaneH, g)); }
         }
         vscroll = 0; Toast(LaneH <= want ? "Fitted: the whole song and all " + n + " tracks are on screen." : "Fitted as far as it goes: " + n + " tracks, scroll for the rest.");
     }
-    void ToggleThinTracks() { if (LaneH < 96) LaneH = normalLaneH; else { normalLaneH = LaneH; LaneH = 84; } Prefs.ThinTracks = LaneH < 96; Prefs.Changed(); }   // remembered: the tracks open thin next time
+    void ToggleThinTracks() { if (LaneH < 96) LaneH = normalLaneH; else { normalLaneH = LaneH; LaneH = 84; } Prefs.ThinTracks = LaneH < 96; userLaneH = LaneH; Prefs.Changed(); }   // remembered: the tracks open thin next time
     static int InitLaneH() { if (StudioEnv.UnderTest) { Prefs.ThinTracks = false; Prefs.HeadHidden = false; } return Prefs.ThinTracks ? 84 : 132; }   // (the tests always start from normal tracks and an open list)
 
     // ---------- sparks flying off the button you point at ----------

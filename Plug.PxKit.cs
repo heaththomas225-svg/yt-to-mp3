@@ -59,7 +59,7 @@ abstract class PxWindow : Form
         SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.UserPaint | ControlStyles.ResizeRedraw, true);
         try { Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath); } catch { }
         tick = new Timer { Interval = 33 }; tick.Tick += (a, b) => { if (Win.AnyMoving || Opacity < 0.5 || WindowState == FormWindowState.Minimized) return; int now = Environment.TickCount; if (unchecked(now - paintStart) < Math.Max(paintDur * 2, 30)) return; if (unchecked(now - allPaintEnd) < allPaintDur && unchecked(now - paintEnd) < 250) return; Invalidate(); }; tick.Start();   /* (counted from the paint's start: from its end every second tick was skipped, 15 fps; a window kept waiting a quarter second paints anyway) */   /* (faded or minimised: nothing to animate; a slow paint gets its own time before the next: the redraws could pile up faster than they finished and the window froze) */
-        FormClosed += (a, b) => { tick.Stop(); open.Remove(fx); };
+        FormClosed += (a, b) => { tick.Stop(); open.Remove(fx); wasOn.Remove(fx); };   /* (a closed window lets its plugin go) */
         // it opens where it was left last time (another monitor too), and remembers where it is put
         { Point at; if (WindowPlaces.Get(fx.Type, Size, out at)) { StartPosition = FormStartPosition.Manual; Location = at; } }
         FormClosing += (a, b) => { if (WindowState == FormWindowState.Normal) WindowPlaces.Set(fx.Type, Location); };
