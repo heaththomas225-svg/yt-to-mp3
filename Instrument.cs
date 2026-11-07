@@ -47,7 +47,7 @@ abstract class InstrumentFx : Fx
     // ---- live MIDI (keyboard / piano) ----
     public void Midi(byte status, byte d1, byte d2, bool keepAlive = true)
     {
-        lock (q) { if (live.Count < 256) { live.Add(new MidiEv { S = status, D1 = d1, D2 = d2 }); liveAt.Add(Environment.TickCount); } }
+        lock (q) { if (live.Count < 256) { live.Add(new MidiEv { S = status, D1 = d1, D2 = d2, Frame = -1 });   /* (Frame -1: played live, not a note of the song) */ liveAt.Add(Environment.TickCount); } }
         if ((status & 0xF0) == 0x90 && d2 > 0) StudioEngine.LastNoteAt = Environment.TickCount;
         if (keepAlive) StudioEngine.LiveUntil = Environment.TickCount + (status == 0x80 ? 4000 : 8000);   // keep rendering while it rings out
     }

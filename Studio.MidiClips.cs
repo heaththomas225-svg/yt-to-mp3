@@ -95,17 +95,20 @@ partial class StudioForm
             if (Hot(r)) hintNow = "MIDI clip: drag to move the whole melody (onto another note track too)  •  bottom-right corner: trim or extend  •  top-right circle: loop it  •  right-click: duplicate, split, merge  •  double-click: piano roll";
         }
     }
+    bool mcLockTold;
     void McDown(Track t, MidiClip c, RectangleF r)
     {
         var p = MousePos; mcDown = p; bool shift = (ModifierKeys & Keys.Shift) != 0; if (shift) { if (!mcSel.Remove(c)) mcSel.Add(c); } else if (!mcSel.Contains(c)) { mcSel.Clear(); mcSel.Add(c); } multiSel.Clear();
         mcDrag = c; mcDragTrack = t; mcMoved = false; mcStart0 = c.Start; mcLen0 = c.Len; mcGrab = (long)((p.X - r.X) * spp);
         mcMode = r.Width > 30 && p.X > r.Right - 15 && p.Y < r.Y + 15 ? 4 : (r.Width > 30 && p.X > r.Right - 12 && p.Y > r.Bottom - 14 ? 2 : (r.Width > 30 && p.X < r.X + 7 ? 3 : 1));
-        mcEvs = McEvents(t, c); mcFrames0 = mcEvs.Select(e => e.Frame).ToArray(); mcLoopSrc = mcMode == 4 ? mcEvs.Select(e => EvCopy(e, 0)).ToList() : null;
-        PushUndo();
+        if (IsLocked(t)) { mcDrag = null; mcDragTrack = t; mcLockTold = false; return; }   // a locked track's clips stay put (they could be moved, cut and deleted)
+        mcEvs = McEvents(t, c); mcFrames0 = mcEvs.Select(e => e.Frame).ToArray(); mcLoopSrc = mcMode == 4 ? mcEvs.Select(e => EvCopy(e, 0)).ToList() : null;   // (the undo step is made when the clip really moves: a click to pick it made an empty one)
     }
     void McDragTo(PointF pt)
     {
-        var c = mcDrag; var t = mcDragTrack; if (c == null || t == null) return; if (!mcMoved && Math.Abs(pt.X - mcDown.X) + Math.Abs(pt.Y - mcDown.Y) < 4) return; mcMoved = true;
+        var c = mcDrag; var t = mcDragTrack; if (t == null) return;
+        if (c == null) { if (!mcLockTold && IsLocked(t) && Math.Abs(pt.X - mcDown.X) + Math.Abs(pt.Y - mcDown.Y) >= 4) { mcLockTold = true; Toast(FrozenWhy(t, "This track is locked. Press UNLOCK to move its clips.")); } return; }
+        if (!mcMoved && Math.Abs(pt.X - mcDown.X) + Math.Abs(pt.Y - mcDown.Y) < 4) return; if (!mcMoved) PushUndo(); mcMoved = true;
         long at = scroll + (long)((pt.X - HeadW) * spp);
         if (mcMode == 1)
         {
@@ -163,7 +166,7 @@ partial class StudioForm
     Track McTrackOf(MidiClip c) { return eng.Tracks.FirstOrDefault(t => t.MClips.Contains(c)); }
     internal void McDuplicate()
     {
-        var list = mcSel.Select(c => new KeyValuePair<Track, MidiClip>(McTrackOf(c), c)).Where(kv => kv.Key != null).ToList(); if (list.Count == 0) return; PushUndo(); var made = new List<MidiClip>();
+        var all = mcSel.Select(c => new KeyValuePair<Track, MidiClip>(McTrackOf(c), c)).Where(kv => kv.Key != null).ToList(); var list = all.Where(kv => !IsLocked(kv.Key)).ToList(); if (list.Count == 0) { if (all.Count > 0) Toast(FrozenWhy(all[0].Key, "This track is locked. Press UNLOCK first.")); return; } PushUndo(); var made = new List<MidiClip>();
         foreach (var kv in list) { var t = kv.Key; var c = kv.Value; var evs = McEvents(t, c).Select(e => EvCopy(e, c.Len)).ToList(); lock (t.Midi) t.Midi.AddRange(evs); var nc = new MidiClip { Start = c.Start + c.Len, Len = c.Len, Name = c.Name }; t.MClips.Add(nc); t.MClips.Sort((a, b) => a.Start.CompareTo(b.Start)); McSort(t); made.Add(nc); }
         mcSel.Clear(); foreach (var c in made) mcSel.Add(c); Toast(made.Count == 1 ? "Clip duplicated right after itself." : made.Count + " clips duplicated.");
     }
@@ -179,7 +182,7 @@ partial class StudioForm
     }
     internal void McDelete()
     {
-        var list = mcSel.Select(c => new KeyValuePair<Track, MidiClip>(McTrackOf(c), c)).Where(kv => kv.Key != null).ToList(); if (list.Count == 0) return; PushUndo();
+        var all = mcSel.Select(c => new KeyValuePair<Track, MidiClip>(McTrackOf(c), c)).Where(kv => kv.Key != null).ToList(); var list = all.Where(kv => !IsLocked(kv.Key)).ToList(); if (list.Count == 0) { if (all.Count > 0) Toast(FrozenWhy(all[0].Key, "This track is locked. Press UNLOCK first.")); return; } PushUndo();
         foreach (var kv in list) { var evs = new HashSet<MidiEv>(McEvents(kv.Key, kv.Value)); lock (kv.Key.Midi) kv.Key.Midi.RemoveAll(e => evs.Contains(e)); kv.Key.MClips.Remove(kv.Value); mcStamp.Remove(kv.Key); }
         mcSel.Clear(); Toast(list.Count == 1 ? "Clip deleted (Ctrl+Z brings it back)." : list.Count + " clips deleted.");
     }

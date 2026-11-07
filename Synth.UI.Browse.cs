@@ -40,7 +40,9 @@ partial class SynthCanvas
         {
             if (s.Instant) InstantLib.Ensure(s); float[] l, r; int sr; string fmt; if (!SoundIO.Read(s.Path, out l, out r, out sr, out fmt) || l.Length < 64) { browseMsg = "Couldn't read " + s.Name + "."; return browseMsg; }
             if (r != null && r != l) { var m = new float[l.Length]; for (int i = 0; i < m.Length; i++) m[i] = (l[i] + r[i]) * 0.5f; l = m; }
-            Wavetables.SetCustom(0, Wavetables.FramesFromSample(l, sr)); fx.Set("aon", 1); fx.Set("asrc", 0); fx.Set("atbl", Wavetables.CustomBase); fx.Set("awt", 0); modified = true;
+            int slot = -1; for (int i = 0; i < 3; i++) if (Wavetables.CustomIsDefault(i)) { slot = i; break; }
+            if (slot < 0) { if (MessageBox.Show(FindForm(), "Custom 1-3 already hold waves, and they are shared by every Bass Lab in this song. Replace Custom 1?", "Use sample", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes) { browseMsg = ""; return browseMsg; } slot = 0; }   // (a free slot first: it overwrote your drawn Custom 1 in every Bass Lab)
+            Wavetables.SetCustom(slot, Wavetables.FramesFromSample(l, sr)); fx.Set("aon", 1); fx.Set("asrc", 0); fx.Set("atbl", Wavetables.CustomBase + slot); fx.Set("awt", 0); modified = true;
             browseMsg = "Oscillator A now has the shape of " + s.Name + " (Custom 1). Turn WT POSITION to move through it, and SAVE CURRENT SOUND to keep it."; return browseMsg;
         }
         catch (Exception ex) { browseMsg = "Couldn't use " + s.Name + ": " + ex.Message; return browseMsg; }
@@ -55,7 +57,7 @@ partial class SynthCanvas
             LibLoader.Start(); if (!LibLoader.Ready) { l.Add(new SoundRow { Head = "YOUR SOUNDS ARE LOADING..." }); return l; }   // (MY SAMPLES was empty until the studio's sounds panel had been opened once)   // the sounds you imported into MY SOUNDS (in the studio's sound library): one click makes a sound the shape of oscillator A
             var up = SoundLibrary.Pack(SoundLibrary.UserPackId); var items = up == null ? new List<SoundItem>() : up.Items.FindAll(it => it.IsAudio && it.Kind != "midi"); items.Sort((p, q) => string.Compare(p.Name, q.Name, StringComparison.OrdinalIgnoreCase));
             Dictionary<string, List<string>> cols; lock (SoundLibrary.Lock) cols = new Dictionary<string, List<string>>(SoundLibrary.Collections);
-            foreach (var kv in cols) { var inF = items.FindAll(it => kv.Value.Contains(it.Id)); if (inF.Count == 0) continue; l.Add(new SoundRow { Head = "FOLDER: " + kv.Key.ToUpperInvariant() }); foreach (var it in inF) l.Add(new SoundRow { Name = it.Name, Sample = it }); }
+            foreach (var kv in cols) { var set = new HashSet<string>(kv.Value); var inF = items.FindAll(it => set.Contains(it.Id)); if (inF.Count == 0) continue; l.Add(new SoundRow { Head = "FOLDER: " + kv.Key.ToUpperInvariant() }); foreach (var it in inF) l.Add(new SoundRow { Name = it.Name, Sample = it }); }
             if (items.Count > 0) l.Add(new SoundRow { Head = "ALL YOUR SAMPLES" }); foreach (var it in items) l.Add(new SoundRow { Name = it.Name, Sample = it });
         }
         else if (commList != null) { foreach (var cp in commList) l.Add(new SoundRow { Name = cp.Name, Comm = cp }); }
@@ -78,7 +80,7 @@ partial class SynthCanvas
         Txt(g, "(drag n drop)   playing: " + (modified ? "* " : "") + fx.PresetName, 11, Dim, Rc(x0, pan.Y + 38, iw - 50, 18), StringAlignment.Near, false);
         var close = Rc(pan.Right - 62, pan.Y + 12, 44, 28); Fill(g, Hot(close) ? PanelHi : Panel, close, 6); Stroke(g, Edge, close, 6, 1); Txt(g, "X", 13, Ink, close, StringAlignment.Center, true); Add(close).Down = pt => CloseSounds();
         // the three tabs
-        var upS = SoundLibrary.Pack(SoundLibrary.UserPackId); int nSamples = upS == null ? 0 : upS.Items.FindAll(it => it.IsAudio && it.Kind != "midi").Count;
+        var upS = SoundLibrary.Pack(SoundLibrary.UserPackId); int nSamples = 0; if (upS != null) foreach (var it in upS.Items) if (it.IsAudio && it.Kind != "midi") nSamples++;
         string[] tn = { "BUILT-IN", "MY SOUNDS", "COMMUNITY", "MY SAMPLES" }; int[] tc = { SynthPresets.Names == null ? 0 : SynthPresets.Names.Length, SynthPresets.UserNames().Count, commList == null ? 0 : commList.Count, nSamples };
         float tw = (iw - 18) / 4f, ty = pan.Y + 64;
         for (int i = 0; i < 4; i++)
@@ -111,10 +113,10 @@ partial class SynthCanvas
         {
             if (row.Head != null) { if (yy + 24 > list.Y && yy < list.Bottom) Txt(g, row.Head, 10, Acc, Rc(list.X + 12, yy + 6, 300, 16), StringAlignment.Near, true); yy += 26; continue; }
             var r = Rc(list.X + 8, yy, rowW, 32); yy += 36; if (r.Bottom < list.Y || r.Y > list.Bottom) continue; var vis = RectangleF.Intersect(r, inner); if (vis.Width < 4 || vis.Height < 4) continue;
-            string n = row.Name; var rowC = row; bool cur = n == fx.PresetName && row.Comm == null, hot = Hot(vis);
+            string n = row.Name; var rowC = row; bool cur = n == fx.PresetName && row.Comm == null && row.Sample == null, hot = Hot(vis);
             Fill(g, cur ? TM.C(150, 90, 50, 170) : (hot ? TM.C(150, 60, 34, 110) : TM.C(120, 44, 24, 80)), r, 7); if (cur) Stroke(g, Acc2, r, 7, 1.5f);
             if (row.Comm != null) { Txt(g, n, 13, Ink, Rc(r.X + 12, r.Y, r.Width * 0.5f, r.Height), StringAlignment.Near, false); Txt(g, "BY " + row.Comm.Author + "   " + row.Comm.Uses + (row.Comm.Uses == 1 ? " use" : " uses"), 10, Dim, Rc(r.X + r.Width * 0.5f, r.Y, r.Width * 0.5f - 10, r.Height), StringAlignment.Far, false); }
-            else Txt(g, n, 13, Ink, Rc(r.X + 12, r.Y, r.Width - 24 - (soundTab == 1 ? 30 : 0), r.Height), StringAlignment.Near, cur);
+            else Txt(g, n, 13, Ink, Rc(r.X + 12, r.Y, r.Width - 24 - (soundTab == 1 ? 30 : soundTab == 3 ? 124 : 0), r.Height), StringAlignment.Near, cur);
             var rg = Add(vis); rg.Tip = row.Comm != null ? "Click to use " + n : "Click to load " + n;
             rg.Down = pt =>
             {

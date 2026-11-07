@@ -627,7 +627,7 @@ partial class StudioEngine
                 for (int f = 0; f < MasterFx.Count; f++)
                 {
                     var fx = MasterFx[f]; if (fx.Bypass) continue; fx.ScL = null; fx.ScR = null;
-                    try { fx.Process(mixL, mixR, n); } catch (Exception ex) { fx.Error = ex.Message; fx.Bypass = true; }
+                    try { fx.BeginBlock(null, pos, n, !meters || Playing); fx.Process(mixL, mixR, n); } catch (Exception ex) { fx.Error = ex.Message; fx.Bypass = true; }   // (BeginBlock: tempo-synced effects on the master lock to the song too)
                     if (fx.GR > grMax) grMax = fx.GR;
                 }
             else if (meters && AbMatchDb != 0) { float am = DspMath.DbToLin(AbMatchDb); for (int i = 0; i < n; i++) { mixL[i] *= am; mixR[i] *= am; } }
@@ -707,10 +707,11 @@ partial class StudioEngine
                 int k = (int)(LoopB - Pos), m = n - k; if (loopL == null || loopL.Length < n) { loopL = new float[n]; loopR = new float[n]; }
                 Mix(Pos, k, Live, oL, oR, true, 0); if (Metronome) Click(Pos, k, oL, oR);
                 Array.Clear(loopL, 0, m); Array.Clear(loopR, 0, m); Mix(LoopA, m, Live, loopL, loopR, true, 0); if (Metronome) Click(LoopA, m, loopL, loopR);
-                Array.Copy(loopL, 0, oL, k, m); Array.Copy(loopR, 0, oR, k, m); Pos = LoopA + m; return;
+                Array.Copy(loopL, 0, oL, k, m); Array.Copy(loopR, 0, oR, k, m); ApplyResumeRamp(oL, oR, n); Pos = LoopA + m; return;
             }
             Mix(Pos, n, Live, oL, oR, true, 0);
             if (Metronome) Click(Pos, n, oL, oR);
+            ApplyResumeRamp(oL, oR, n);
             Pos += n;
             if (LoopSection) return;
             long end = EndFrame + SR * 2;   // allow reverb / delay tails
@@ -738,10 +739,13 @@ partial class StudioEngine
 
     public void Seek(long frame) { lock (Sync) { Pos = Math.Max(0, frame); ResetStates(); } }
 
+    // PLAY after PAUSE (or from anywhere): the first 256 frames fade in, so starting mid-wave never clicks
+    int resumeRamp;
+    void ApplyResumeRamp(float[] oL, float[] oR, int n) { if (resumeRamp <= 0) return; int m = Math.Min(n, resumeRamp); for (int i = 0; i < m; i++) { float g = 1f - (resumeRamp - i) / 256f; oL[i] *= g; oR[i] *= g; } resumeRamp -= m; }
     public void Play()
     {
         EnsurePlayer();
-        lock (Sync) { StoppedAtEnd = false; if (EndFrame > 0 && Pos >= EndFrame) Pos = 0; if (!Playing) { if (CountIn) { LastCountFrames = SR * 4; countLeft = LastCountFrames; /* always 4 clicks, one a second, whatever the tempo is */ } else { LastCountFrames = 0; countLeft = 0; } } Playing = true; }
+        lock (Sync) { if (!Playing) resumeRamp = 256; StoppedAtEnd = false; if (EndFrame > 0 && Pos >= EndFrame) Pos = 0; if (!Playing) { if (CountIn) { LastCountFrames = SR * 4; countLeft = LastCountFrames; /* always 4 clicks, one a second, whatever the tempo is */ } else { LastCountFrames = 0; countLeft = 0; } } Playing = true; }
     }
     // the place in the song you are hearing right now: what has been made, minus what is still waiting in the sound card, minus the delay of the plugins (they all wait for the slowest one)
     public long HeardPos
@@ -749,7 +753,7 @@ partial class StudioEngine
         get
         {
             if (countLeft > 0) return Pos;   // the count-in: the song has not started yet
-            long lat = 0; try { lat = MixLatency(Tracks, Live); } catch { }
+            long lat = 0; try { lat = MixLatency(Tracks, Live); if (!MasterBypass) foreach (var f in MasterFx) if (!f.Bypass) lat += f.Latency; } catch { }   // (the master's own delay too: the needle ran ahead of the sound)
             long sp = player != null ? player.PlayingSongPos() : -1; long h;
             if (sp >= 0) h = sp - lat;   // the block the sound card is playing says exactly where in the song it is
             else { long q = player != null ? player.Queued() : 0; h = Pos - q - lat; }
@@ -773,7 +777,9 @@ partial class StudioEngine
     void OpenPlayer()
     {
         if (!gcTuned) { gcTuned = true; try { System.Runtime.GCSettings.LatencyMode = System.Runtime.GCLatencyMode.SustainedLowLatency; } catch { } }   // a big memory clean-up never freezes the sound while it plays
-        player = AudioOut.Create(RenderRealtime, ListenOnly ? 2 : -1); player.PosNow = () => Interlocked.Read(ref Pos); player.PlayingNow = () => Playing && countLeft <= 0; player.Start();
+        var p = AudioOut.Create(RenderRealtime, ListenOnly ? 2 : -1); p.PosNow = () => Interlocked.Read(ref Pos); p.PlayingNow = () => Playing && countLeft <= 0; p.SoundingNow = () => Playing;
+        try { p.Start(); } catch { try { p.Dispose(); } catch { } throw; }   // a device that would not open is not kept (PLAY stayed silent for the whole session; now each try opens it again and says why)
+        player = p;
     }
     // the code that makes the sound is compiled by a background thread when the studio opens, so the FIRST time you press play nothing has to be compiled while the sound card is waiting (that was the crackle of a first launch)
     static bool warmed;

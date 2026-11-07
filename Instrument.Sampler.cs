@@ -24,13 +24,13 @@ class SamplerFx : InstrumentFx   // (Purphex Pads is a sampler with a window of 
         public bool Plays(int note) { return note >= Lo && note <= Hi; }
         public Zone Copy() { return new Zone { Path = Path, Name = Name, Lo = Lo, Hi = Hi, Root = Root, Follow = Follow, OneShot = OneShot, GainDb = GainDb, L = L, R = R, ML = ML, MR = MR, Rate = Rate, Missing = Missing, Lead = Lead, LoopA = LoopA, LoopB = LoopB, Hz = Hz }; }
     }
-    class Voice { public bool On, Releasing, Choked, Held, Looped, Xf; public Zone Z; public int Note; public float[] BL, BR; public double Pos, Start, Step, Gain, Env, Rel, LastL, LastR, Scale = 1, SubPh, Fol; }
+    class Voice { public bool On, Releasing, Choked, Held, Looped, Xf, Live; /* Live: played on a keyboard or pad right now (not a note of the song) */ public Zone Z; public int Note; public float[] BL, BR; public double Pos, Start, Step, Gain, Env, Rel, LastL, LastR, Scale = 1, SubPh, Fol; }
     double tailL, tailR, lfoPh, flL, flR, wobPh, wbL1, wbL2, wbR1, wbR2;
     static readonly double[] WobBeats = { 4, 2, 1, 0.5, 0.25, 2 / 3.0, 1 / 3.0, 1 / 6.0 }; long songPos = -1, nextPos = -1;
     // each block: where the song is (the wobble locks to it), and a jump in the song (a section loop wrapping) lets go of held notes, whose note-offs past the jump never arrive
     protected override void OnBlock(long pos, int n, bool transport)
     {
-        if (transport && nextPos >= 0 && pos != nextPos) foreach (var v in voices) if (v.On && v.Held) { v.Held = false; if (!v.Releasing && (!v.Z.OneShot || v.Looped)) v.Releasing = true; }
+        if (transport && nextPos >= 0 && pos != nextPos) foreach (var v in voices) if (v.On && v.Held && !v.Live) {   /* (keys you hold live keep sounding over the loop point) */ v.Held = false; if (!v.Releasing && (!v.Z.OneShot || v.Looped)) v.Releasing = true; }
         nextPos = transport ? pos + n : -1; songPos = transport ? pos : -1;
     }
     // the loop is used for a one-key sound or a pad too while held (Pads and Key Map: HOLD)
@@ -114,6 +114,7 @@ class SamplerFx : InstrumentFx   // (Purphex Pads is a sampler with a window of 
         return i >= n ? 0 : Math.Max(0, i - sr / 1000);
     }
     public List<Zone> ZonesCopy() { lock (zl) return new List<Zone>(Zones); }
+    public void RemoveZone(Zone z) { lock (zl) Zones.Remove(z); }   // (under the lock the sound thread reads with)
     // one sample on every key (a drum hit keeps its pitch; an 808 or melodic sample follows the notes from its root note)
     public string SetSingle(string path, string name, bool follow, int root)
     {
@@ -174,7 +175,7 @@ class SamplerFx : InstrumentFx   // (Purphex Pads is a sampler with a window of 
     }
 
     // ---- playing ----
-    void Start(int note, int vel)
+    void Start(int note, int vel, bool live = false)
     {
         var z = ZoneFor(note); if (z == null || z.L == null) return;
         // a pad or key hit again plays over its last hits (they overlap, like hitting a drum again); past 6 copies of the same pad the oldest fades out in 10 ms, so they never pile up into a mess
@@ -184,7 +185,7 @@ class SamplerFx : InstrumentFx   // (Purphex Pads is a sampler with a window of 
         double rate = z.Rate / (double)SR, pitch = z.Follow ? Math.Pow(2, (note - z.Root) / 12.0) : 1.0; double vs = Get("vel") / 100.0;
         double step = rate * pitch * Math.Pow(2, Math.Round(Get("oct"))); int lv = 0; while (lv < 3 && step / (1 << lv) > 1.3) lv++;   // a note well above the sound's pitch plays a smoothed half-length copy
         var zml = z.ML; var zmr = z.MR; if (zml == null || zmr == null) lv = 0; v.BL = lv == 0 ? z.L : zml[lv - 1]; v.BR = lv == 0 ? z.R : zmr[lv - 1];
-        v.On = true; v.Releasing = false; v.Choked = false; v.Held = true; v.Looped = false; v.Xf = false; v.SubPh = 0; v.Fol = 0; v.Scale = 1 << lv; v.LastL = v.LastR = 0; v.Z = z; v.Note = note; v.Pos = v.Start = z.Lead / (double)(1 << lv);   /* every sound starts where it starts: a gap at the front of the file made Key Map notes late too */ v.Step = step / (1 << lv); v.Gain = ((1 - vs) + vs * vel / 127.0) * Math.Pow(10, z.GainDb / 20.0); v.Env = 1; v.Rel = 0;
+        v.On = true; v.Releasing = false; v.Choked = false; v.Held = true; v.Live = live; v.Looped = false; v.Xf = false; v.SubPh = 0; v.Fol = 0; v.Scale = 1 << lv; v.LastL = v.LastR = 0; v.Z = z; v.Note = note; v.Pos = v.Start = z.Lead / (double)(1 << lv);   /* every sound starts where it starts: a gap at the front of the file made Key Map notes late too */ v.Step = step / (1 << lv); v.Gain = ((1 - vs) + vs * vel / 127.0) * Math.Pow(10, z.GainDb / 20.0); v.Env = 1; v.Rel = 0;
     }
     // ---- the limiter: loud hits and chords are turned down smoothly instead of being flattened at the top (flattening is what crackled) ----
     // it looks 3 ms ahead (the sound is that much later), so the level is already down when a peak arrives; it holds 30 ms (an 808's next
@@ -211,7 +212,7 @@ class SamplerFx : InstrumentFx   // (Purphex Pads is a sampler with a window of 
             while (ev != null && ei < ev.Count && ev[ei].Key <= i)
             {
                 var m = ev[ei].Value; int kind = m.S & 0xF0; ei++;
-                if (kind == 0x90 && m.D2 > 0) Start(m.D1, m.D2);
+                if (kind == 0x90 && m.D2 > 0) Start(m.D1, m.D2, m.Frame < 0);
                 else if (kind == 0x80 || kind == 0x90) Stop(m.D1);
                 else if (kind == 0xB0 && (m.D1 == 123 || m.D1 == 120)) foreach (var v in voices) if (v.On) { v.Releasing = true; v.Held = false; if (m.D1 == 120) v.Choked = true; }
             }

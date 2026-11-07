@@ -5,7 +5,7 @@ using System.Threading;
 // Windows uses waveOut (Audio.WaveOut.cs), macOS and Linux use the backend the cross-platform host sets in AudioOut.Factory.
 abstract class AudioOut : IDisposable
 {
-    public Func<long> PosNow; public Func<bool> PlayingNow;   // the engine: where the song is, and whether it plays
+    public Func<long> PosNow; public Func<bool> PlayingNow; public Func<bool> SoundingNow;   // SoundingNow: the song or its count-in is sounding (PAUSE silences the clicks too)   // the engine: where the song is, and whether it plays
     public abstract void Start();
     public abstract long PlayingSongPos();   // the place in the song being heard right now (-1 when it cannot tell)
     public abstract int Queued();            // frames handed to the device that it has not played yet

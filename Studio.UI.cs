@@ -117,6 +117,7 @@ partial class StudioForm : Form
         SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw | ControlStyles.Selectable, true);
         studioLoop = new FrameLoop(this, FrameStep) { Slow = () => WindowState == FormWindowState.Minimized || moving || Win.AnyMoving };   /* while a window is being dragged around nothing needs painting often */ ApplyFps();
         InstrumentFx.Recorder = OnMidiNote; MidiInput.BareTrack = MidiToBareTrack; MidiMapInit();
+        PxWindow.AliveHook = f => { if (IsDisposed) return false; lock (eng.Sync) { if (eng.MasterFx.Contains(f)) return true; foreach (var t in eng.Tracks) if (t.Fx.Contains(f)) return true; } return false; };
         PxWindow.RemoveHook = f => { if (IsDisposed) return; Track ow = null; lock (eng.Sync) ow = eng.Tracks.Find(t => t.Fx.Contains(f)); RemoveFxEverywhere(ow, f); Invalidate(); };   // REMOVE in a plugin's own window
 
         Activated += (s, e) => StudioActivatedMidi();
@@ -578,7 +579,7 @@ partial class StudioForm : Form
         if ((now - underSince).TotalSeconds > 2) { underSince = now; lastUnder = u; }
         if (!stalled && !breaking) return false;
         lastUnder = u; lastStalls = st; underSince = now; if ((now - lastRefresh).TotalMilliseconds < 1500) return false; lastRefresh = now;
-        bool bigger = Prefs.BufEff < 2; if (bigger) { Prefs.BufBoost++; if (ge == eng && !StudioEnv.UnderTest) { Prefs.BufSaved = Math.Min(1, Prefs.BufBoost); Prefs.Changed(); } } ge.ReopenOutput();   // (a test never saves it: it leaked into the next test's settings) (kept for next time, one step at most, and not for a preview's stutter)
+        bool bigger = ge == eng && Prefs.BufEff < 2; if (bigger) { Prefs.BufBoost++; if (!StudioEnv.UnderTest) {   /* (a preview always plays at the biggest buffer: its stutter is only refreshed, the mix's buffer is left alone) */ Prefs.BufSaved = Math.Min(1, Prefs.BufBoost); Prefs.Changed(); } } ge.ReopenOutput();   // (a test never saves it: it leaked into the next test's settings) (kept for next time, one step at most, and not for a preview's stutter)
         Toast(bigger ? "The sound was breaking up, so I refreshed the audio and made the playback buffer bigger (it stays bigger next time; pick a smaller one in Settings to change it back)." : "The sound was breaking up, so I refreshed the audio.");
         return true;
     }

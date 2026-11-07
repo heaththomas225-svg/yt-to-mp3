@@ -313,6 +313,7 @@ static class SoundLibrary
         var up = Pack(UserPackId); if (up == null || s == null || string.IsNullOrWhiteSpace(name)) return false; var cur = up.Items.Find(x => x.Id == s.Id); if (cur == null) return false;
         cur.Name = name.Trim(); if (cur != s) s.Name = cur.Name; WritePack(up); AddOrReplace(up); return true;
     }
+    static string FileSafe(string n) { foreach (char ch in Path.GetInvalidFileNameChars()) n = n.Replace(ch, '_'); n = n.Replace(';', '_').Trim().TrimEnd('.'); return n.Length == 0 ? "sound" : n; }
     public static SoundItem AddVersion(SoundItem orig, string wav, bool replace)
     {
         float[] l, r; int sr; string fmt; if (orig == null || !SoundIO.Read(wav, out l, out r, out sr, out fmt) || l.Length == 0) return null;
@@ -331,9 +332,9 @@ static class SoundLibrary
         else
         {
             string bn = System.Text.RegularExpressions.Regex.Replace(orig.Name, @"\s+v\d+$", ""), nm; int v = 2;
-            while (up.Items.Exists(x => x.Name.Equals(bn + " v" + v, StringComparison.OrdinalIgnoreCase)) || File.Exists(Path.Combine(dest, bn + " v" + v + ".wav"))) v++;
-            nm = bn + " v" + v; string to = Path.Combine(dest, nm + ".wav"); File.Copy(wav, to);
-            s = new SoundItem { PackId = up.Id, PackName = up.Name, Rel = "imports/" + nm + ".wav", Path = to, Name = nm, Genre = orig.Genre.Length > 0 ? orig.Genre : "Any", Kind = orig.Kind, Group = "Yours", Type = orig.Type, Tags = (orig.Tags + " edit").Trim(), Key = orig.Key, Bpm = orig.Bpm, Mood = orig.Mood, Sub = orig.Sub };
+            while (up.Items.Exists(x => x.Name.Equals(bn + " v" + v, StringComparison.OrdinalIgnoreCase)) || File.Exists(Path.Combine(dest, FileSafe(bn + " v" + v) + ".wav"))) v++;
+            nm = bn + " v" + v; string fn = FileSafe(nm), to = Path.Combine(dest, fn + ".wav"); File.Copy(wav, to);   // (the file gets a safe name; the sound keeps its own: a name with / or ? made it fail)
+            s = new SoundItem { PackId = up.Id, PackName = up.Name, Rel = "imports/" + fn + ".wav", Path = to, Name = nm, Genre = orig.Genre.Length > 0 ? orig.Genre : "Any", Kind = orig.Kind, Group = "Yours", Type = orig.Type, Tags = (orig.Tags + " edit").Trim(), Key = orig.Key, Bpm = orig.Bpm, Mood = orig.Mood, Sub = orig.Sub };
             s.Id = up.Id + "/" + s.Rel; s.Instrument = orig.Instrument.Length > 0 ? orig.Instrument : InstrumentOf(s);
             var vre = new System.Text.RegularExpressions.Regex("^" + System.Text.RegularExpressions.Regex.Escape(bn) + @"\s+v\d+$", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
             int at = up.Items.IndexOf(orig); if (at >= 0) { while (at + 1 < up.Items.Count && vre.IsMatch(up.Items[at + 1].Name)) at++; up.Items.Insert(at + 1, s); } else up.Items.Add(s);
@@ -479,7 +480,8 @@ static class Auditioner
     public static double Length { get { return pl == null ? 0 : pl.Length / (double)srate; } }
     public static float[] LeftSamples { get { return pl; } }
 
-    public static void Play(SoundItem s, Action<string> onError)
+    static volatile int startAt, endAt;   // the trimmed range being previewed, in samples (endAt 0: to the end)
+    public static void Play(SoundItem s, Action<string> onError, float ta = 0f, float tb = 1f)
     {
         Error = "";
         if (s == null) return; if (!s.Instant && !s.Exists) { Error = "This file is missing: " + s.Rel + ". Reinstall the pack from the pack manager."; if (onError != null) onError(Error); return; }
@@ -496,7 +498,7 @@ static class Auditioner
             }
             if (sr != 44100 && sr > 0) { l = Resample(l, sr); r = Resample(r, sr); }
             if (Current != s) { Loading = false; return; }   // another sound was picked while this one loaded
-            lock (lk) { if (playing && pl != null) { ol = pl; orr = pr; opos = pos; oenv = env; } pl = l; pr = r; srate = 44100; pos = 0; env = 0; atk = 1f / 66; envTarget = 1; resetOnStop = false; playing = true; }   // the sound that was playing fades out under the new one
+            lock (lk) { if (playing && pl != null) { ol = pl; orr = pr; opos = pos; oenv = env; } pl = l; pr = r; srate = 44100; { int sa = Math.Max(0, Math.Min(l.Length - 1, (int)(ta * l.Length))); int sb = tb < 1f ? Math.Max(sa + 64, Math.Min(l.Length, (int)(tb * l.Length))) : 0; if (sb > l.Length) sb = 0; startAt = sa; endAt = sb; pos = sa; } env = 0; atk = 1f / 66; envTarget = 1; resetOnStop = false; playing = true; }   // the sound that was playing fades out under the new one
             Loading = false; Ensure();
         }) { IsBackground = true }.Start();
     }
@@ -515,12 +517,13 @@ static class Auditioner
         for (int i = 0; i < n; i++)
         {
             float vl = 0, vr = 0;
-            if (playing && al != null && loop && al.Length > LoopX * 8 && pos >= al.Length - LoopX && ol == null) { ol = al; orr = ar; opos = pos; oenv = env; pos = 0; env = 0; atk = Rel; }   // the loop point crossfades instead of jumping (started before the old sound is mixed, so no sample is missed)
+            int lenE = al == null ? 0 : (endAt > 0 ? Math.Min(al.Length, endAt) : al.Length), st = Math.Min(startAt, Math.Max(0, lenE - 1));
+            if (playing && al != null && loop && lenE - st > LoopX * 8 && pos >= lenE - LoopX && ol == null) { ol = al; orr = ar; opos = pos; oenv = env; pos = st; env = 0; atk = Rel; }   // the loop point crossfades instead of jumping (started before the old sound is mixed, so no sample is missed)
             var oa = ol; if (oa != null) { if (opos < oa.Length && oenv > 0) { vl += oa[opos] * oenv; vr += orr[opos] * oenv; opos++; oenv -= Rel; } else ol = null; }
             if (playing && al != null)
             {
-                int len = al.Length;
-                if (pos >= len) { if (loop) { pos = 0; } else { playing = false; stoppedAt = DateTime.Now; env = 0; } }
+                int len = lenE;
+                if (pos >= len) { if (loop) { pos = st; } else { playing = false; stoppedAt = DateTime.Now; env = 0; } }
                 if (playing)
                 {
                     if (env < envTarget) env = Math.Min(envTarget, env + atk); else if (env > envTarget) env = Math.Max(envTarget, env - Rel);

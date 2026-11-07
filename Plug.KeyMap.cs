@@ -58,7 +58,19 @@ class KeyMapFx : SamplerFx
         string err = LoadInto(z); if (err != null) return err; CutRange(lo, hi); lock (zl) Zones.Add(z); return null;
     }
     // what a key plays spread over lo..hi (or brought back to its key alone), the sound kept
-    public string Spread(int key, int lo, int hi) { var z = ZoneFor(key); if (z == null) return "That key has no sound yet."; int root = z.Lo == z.Hi ? z.Lo : z.Root; return lo == hi ? SetKey(lo, z.Path, z.Name) : SetRange(lo, hi, root, z.Path, z.Name); }
+    // the same sound (its loaded audio and its level kept) moved to lo..hi; the keys it covered outside that are emptied (THIS KEY ONLY left it on every other key)
+    public string Spread(int key, int lo, int hi)
+    {
+        var z = ZoneFor(key); if (z == null) return "That key has no sound yet.";
+        int root = z.Lo == z.Hi ? z.Lo : z.Root; lo = Math.Max(0, lo); hi = Math.Min(127, hi);
+        lock (zl)
+        {
+            Zones.Remove(z); CutRange(lo, hi); z.Lo = lo; z.Hi = hi;
+            if (lo == hi) { z.Root = lo; z.Follow = false; z.OneShot = true; } else { z.Root = root; z.Follow = true; z.OneShot = false; }
+            Zones.Add(z);
+        }
+        return null;
+    }
     public void ClearKey(int key) { var z = ZoneFor(key); if (z != null) lock (zl) Zones.Remove(z); }
     public void ClearAll() { lock (zl) Zones.Clear(); }
     public void Nudge(int key, float db) { var z = ZoneFor(key); if (z != null) z.GainDb = Math.Max(-24, Math.Min(12, z.GainDb + db)); }

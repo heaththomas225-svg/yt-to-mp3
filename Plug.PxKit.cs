@@ -22,7 +22,11 @@ abstract class PxWindow : Form
         PxWindow w; if (f == null || !open.TryGetValue(f, out w) || w.IsDisposed) return;
         var ww = w; if (ww.IsHandleCreated) ww.BeginInvoke(new Action(() => { if (!ww.IsDisposed) ww.Close(); })); else ww.Close();
     }
-    bool CanRemove { get { return RemoveHook != null && !(fx is InstrumentFx); } }
+    bool CanRemove { get { return RemoveHook != null && !(fx is InstrumentFx) && ClientSize.Width >= 820; } }   // (a window squeezed narrower by a small screen keeps its preset name and loses REMOVE: the slot x and right-click still remove it)
+    // closes every plugin window whose plugin has left all chains (any way of removing it, undo too)
+    internal static Func<Fx, bool> AliveHook;
+    static readonly HashSet<Fx> wasOn = new HashSet<Fx>();   // plugins seen on a track or the master (a window for one that never was, a preview or a test, is left alone)
+    internal static void CloseOrphans() { if (AliveHook == null) return; foreach (var kv in new List<KeyValuePair<Fx, PxWindow>>(open)) { if (kv.Value.IsDisposed || kv.Key is InstrumentFx) continue; if (AliveHook(kv.Key)) wasOn.Add(kv.Key); else if (wasOn.Remove(kv.Key)) CloseFor(kv.Key); } }
     public static PxWindow Show(Fx fx, IWin32Window owner, Func<PxWindow> make)
     {
         PxWindow w; if (!open.TryGetValue(fx, out w) || w.IsDisposed) { w = make(); open[fx] = w; if (owner != null) w.Show(owner); else w.Show(); }
@@ -51,10 +55,10 @@ abstract class PxWindow : Form
 
     protected PxWindow(Fx f, string name, Size size)
     {
-        fx = f; brand = name; Text = "Purphex " + name; Rectangle wa = Screen.FromPoint(Cursor.Position).WorkingArea; int cw = Math.Max(400, Math.Min(size.Width, wa.Width - 16)), ch = Math.Max(300, Math.Min(size.Height, wa.Height - 39)); ClientSize = new Size(cw, ch); MinimumSize = new Size(cw + 16, ch + 39);   /* (never taller than the screen: the bottom row went under the taskbar on a laptop) */ BackColor = Bg1; KeyPreview = true; StartPosition = FormStartPosition.CenterParent;
+        fx = f; brand = name; Text = "Purphex " + name; Rectangle wa = Screen.FromPoint(Cursor.Position).WorkingArea; int extra = RemoveHook != null && !(f is InstrumentFx) ? 60 : 0; int cw = Math.Max(400, Math.Min(size.Width + extra, wa.Width - 16)), ch = Math.Max(300, Math.Min(size.Height, wa.Height - 39)); ClientSize = new Size(cw, ch); MinimumSize = new Size(cw + 16, ch + 39);   /* (never taller than the screen: the bottom row went under the taskbar on a laptop) */ BackColor = Bg1; KeyPreview = true; StartPosition = FormStartPosition.CenterParent;
         SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.UserPaint | ControlStyles.ResizeRedraw, true);
         try { Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath); } catch { }
-        tick = new Timer { Interval = 33 }; tick.Tick += (a, b) => { if (Win.AnyMoving || Opacity < 0.5 || WindowState == FormWindowState.Minimized) return; if (unchecked(Environment.TickCount - paintEnd) < Math.Max(paintDur, 33)) return; if (unchecked(Environment.TickCount - allPaintEnd) < allPaintDur) return; Invalidate(); }; tick.Start();   /* (faded or minimised: nothing to animate; a slow paint gets its own time before the next: the redraws could pile up faster than they finished and the window froze) */
+        tick = new Timer { Interval = 33 }; tick.Tick += (a, b) => { if (Win.AnyMoving || Opacity < 0.5 || WindowState == FormWindowState.Minimized) return; int now = Environment.TickCount; if (unchecked(now - paintStart) < Math.Max(paintDur * 2, 30)) return; if (unchecked(now - allPaintEnd) < allPaintDur && unchecked(now - paintEnd) < 250) return; Invalidate(); }; tick.Start();   /* (counted from the paint's start: from its end every second tick was skipped, 15 fps; a window kept waiting a quarter second paints anyway) */   /* (faded or minimised: nothing to animate; a slow paint gets its own time before the next: the redraws could pile up faster than they finished and the window froze) */
         FormClosed += (a, b) => { tick.Stop(); open.Remove(fx); };
         // it opens where it was left last time (another monitor too), and remembers where it is put
         { Point at; if (WindowPlaces.Get(fx.Type, Size, out at)) { StartPosition = FormStartPosition.Manual; Location = at; } }
@@ -178,11 +182,11 @@ abstract class PxWindow : Form
     readonly ResizeSnap snap = new ResizeSnap();
     protected override void WndProc(ref Message m) { Win.TrackMove(this, ref m); base.WndProc(ref m); }
     protected override void OnPaint(PaintEventArgs e) { snap.Paint(this, e.Graphics, PaintAll); }
-    int paintEnd, paintDur;   // when the last paint finished and how long it took
+    int paintEnd, paintDur, paintStart;   // when the last paint started and finished, and how long it took
     static int allPaintEnd, allPaintDur;   // the same for any plugin window: together they wait their turn too (several heavy windows kept the screen thread 100% busy, and the studio froze)
     void PaintAll(Graphics g)
     {
-        int p0 = Environment.TickCount; try { PaintAll0(g); } finally { paintEnd = Environment.TickCount; paintDur = Math.Min(500, unchecked(paintEnd - p0)); allPaintEnd = paintEnd; allPaintDur = paintDur; }
+        int p0 = Environment.TickCount; paintStart = p0; try { PaintAll0(g); } finally { paintEnd = Environment.TickCount; paintDur = Math.Min(500, unchecked(paintEnd - p0)); allPaintEnd = paintEnd; allPaintDur = paintDur; }
     }
     void PaintAll0(Graphics g)
     {

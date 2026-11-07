@@ -20,8 +20,8 @@ class WaveOutPlayer : AudioOut
     [StructLayout(LayoutKind.Sequential)] struct MMTIME { public uint wType; public uint u; public uint pad; }
     [DllImport("winmm.dll")] static extern int waveOutGetPosition(IntPtr h, ref MMTIME t, int size);
     long sent;   // frames handed to the sound card since it was opened
-    readonly long[] bSent = new long[64], bFrom = new long[64], bTo = new long[64]; readonly bool[] bPlay = new bool[64]; readonly int[] bBuf = new int[64]; int bHead;   // bBuf: which of the buffers holds that block
-    volatile bool silenceReq; long silenceAt; short[] silTmp;
+    readonly long[] bSent = new long[64], bFrom = new long[64], bTo = new long[64]; readonly bool[] bPlay = new bool[64]; readonly int[] bBuf = new int[64]; readonly bool[] bAud = new bool[64]; int bHead;   // bBuf: which of the buffers holds that block
+    volatile bool silenceReq; long silenceAt; short[] silTmp; float lastGn = -1f;
     public override void Silence(long at) { silenceAt = at; silenceReq = true; ev.Set(); }   // done on the audio thread
     // the blocks the device has not started yet: the first fades out over 256 frames (it carries on from the one playing, so no click), the rest are zeroed;
     // they are marked as silence at the pause point, so the needle does not run on while they play
@@ -33,14 +33,19 @@ class WaveOutPlayer : AudioOut
         if (silTmp == null || silTmp.Length < Frames * 2) silTmp = new short[Frames * 2];
         lock (bSent)
         {
-            var upcoming = new List<int>(); for (int k = 0; k < 64; k++) if (bSent[k] > played && bSent[k] < s && bPlay[k]) upcoming.Add(k);
+            var upcoming = new List<int>(); for (int k = 0; k < 64; k++) if (bSent[k] > played && bSent[k] < s && (bPlay[k] || bAud[k])) upcoming.Add(k);
             upcoming.Sort((x, y) => bSent[x].CompareTo(bSent[y]));
+            int live = 0;
             for (int j = 0; j < upcoming.Count; j++)
             {
                 int k = upcoming[j], bi = bBuf[k]; if (bi < 0 || bi >= Buffers) continue;
-                if (j == 0) { Marshal.Copy(data[bi], silTmp, 0, Frames * 2); int fd = Math.Min(256, Frames); for (int f = 0; f < Frames; f++) { float g = f < fd ? 1f - f / (float)fd : 0f; silTmp[f * 2] = (short)(silTmp[f * 2] * g); silTmp[f * 2 + 1] = (short)(silTmp[f * 2 + 1] * g); } }
+                bool reused = false; for (int m2 = 0; m2 < upcoming.Count; m2++) { int k2 = upcoming[m2]; if (bBuf[k2] == bi && bSent[k2] > bSent[k]) { reused = true; break; } } if (reused) continue;   // this buffer already holds a newer block
+                var hh = (WAVEHDR)Marshal.PtrToStructure(hdrs[bi], typeof(WAVEHDR)); if ((hh.dwFlags & WHDR_DONE) != 0) continue;   // already taken by the device
+                if (live == 0) { live++; continue; }   // the next block may already be partly read by the device: it plays out, the fade starts on the one after (a fade it had half read clicked)
+                live++;
+                if (live == 2) { Marshal.Copy(data[bi], silTmp, 0, Frames * 2); int fd = Math.Min(256, Frames); for (int f = 0; f < Frames; f++) { float g = f < fd ? 1f - f / (float)fd : 0f; silTmp[f * 2] = (short)(silTmp[f * 2] * g); silTmp[f * 2 + 1] = (short)(silTmp[f * 2 + 1] * g); } }
                 else Array.Clear(silTmp, 0, Frames * 2);
-                Marshal.Copy(silTmp, 0, data[bi], Frames * 2); bPlay[k] = false; bFrom[k] = bTo[k] = silenceAt;
+                Marshal.Copy(silTmp, 0, data[bi], Frames * 2); bPlay[k] = false; bAud[k] = false; bFrom[k] = bTo[k] = silenceAt;
             }
         }
     }   // the last blocks sent: where each starts in the sound card, which part of the song it holds
@@ -118,9 +123,11 @@ class WaveOutPlayer : AudioOut
 
     void Fill(int i)
     {
-        long from = PosNow != null ? PosNow() : 0; bool pl = PlayingNow != null && PlayingNow();
+        long from = PosNow != null ? PosNow() : 0; bool pl = PlayingNow != null && PlayingNow(), aud = pl || (SoundingNow != null && SoundingNow());
         try { render(fl, fr, Frames); } catch { Array.Clear(fl, 0, Frames); Array.Clear(fr, 0, Frames); }
-        float gn = StudioEnv.UnderTest || MuteAll ? 0f : Math.Min(Gain, Prefs.OutVol / 100f); if (gn != 1f) for (int k = 0; k < Frames; k++) { fl[k] *= gn; fr[k] *= gn; }
+        float gn = StudioEnv.UnderTest || MuteAll ? 0f : Math.Min(Gain, Prefs.OutVol / 100f), g0 = lastGn < 0f ? gn : lastGn; lastGn = gn;
+        if (g0 == gn) { if (gn != 1f) for (int k = 0; k < Frames; k++) { fl[k] *= gn; fr[k] *= gn; } }
+        else { float step = (gn - g0) / Frames; for (int k = 0; k < Frames; k++) { float g = g0 + step * (k + 1); fl[k] *= g; fr[k] *= g; } }   // (a volume change glides over the block: dragging the volume made zipper clicks)
         safety.Process(fl, fr, Frames);   // a project that is too loud is brought down smoothly instead of being chopped off (chopped peaks are the crackle and fuzz you hear)
         for (int k = 0; k < Frames; k++)
         {
@@ -128,13 +135,26 @@ class WaveOutPlayer : AudioOut
             tmp[k * 2] = (short)(a * 32767f); tmp[k * 2 + 1] = (short)(b * 32767f);
         }
         Marshal.Copy(tmp, 0, data[i], Frames * 2);
-        lock (bSent) { int b = bHead % 64; bSent[b] = Interlocked.Read(ref sent); bFrom[b] = from; bTo[b] = PosNow != null ? PosNow() : from; bPlay[b] = pl && bTo[b] != from; bBuf[b] = i; bHead = (bHead + 1) % 64; }
+        lock (bSent) { int b = bHead % 64; bSent[b] = Interlocked.Read(ref sent); bFrom[b] = from; bTo[b] = PosNow != null ? PosNow() : from; bPlay[b] = pl && bTo[b] != from; bAud[b] = aud; bBuf[b] = i; bHead = (bHead + 1) % 64; }
         Interlocked.Add(ref sent, Frames);
         var h = (WAVEHDR)Marshal.PtrToStructure(hdrs[i], typeof(WAVEHDR)); h.dwFlags &= ~(uint)WHDR_DONE; Marshal.StructureToPtr(h, hdrs[i], false);
         waveOutWrite(hwo, hdrs[i], Marshal.SizeOf(typeof(WAVEHDR)));
     }
 
+    readonly object closeGate = new object(); bool exited, closeLate;   // a device the audio thread was still using when Dispose gave up is closed by that thread when it ends
+    void CloseDevice()
+    {
+        IntPtr h = hwo; hwo = IntPtr.Zero; if (h == IntPtr.Zero) return;
+        waveOutReset(h);
+        for (int i = 0; i < Buffers; i++) { if (hdrs[i] != IntPtr.Zero) { waveOutUnprepareHeader(h, hdrs[i], Marshal.SizeOf(typeof(WAVEHDR))); Marshal.FreeHGlobal(hdrs[i]); hdrs[i] = IntPtr.Zero; } if (data[i] != IntPtr.Zero) { Marshal.FreeHGlobal(data[i]); data[i] = IntPtr.Zero; } }
+        waveOutClose(h);
+    }
     void Loop()
+    {
+        try { Loop0(); }
+        finally { bool late; lock (closeGate) { exited = true; late = closeLate; } if (late) { try { CloseDevice(); } catch { } } }
+    }
+    void Loop0()
     {
         try { uint ix = 0; AvSetMmThreadCharacteristicsW("Pro Audio", ref ix); } catch { }
         try { var t = new POWER_THROTTLING { Version = 1, ControlMask = 1, StateMask = 0 }; SetThreadInformation(GetCurrentThread(), 3, ref t, Marshal.SizeOf(typeof(POWER_THROTTLING))); } catch { }   // and this thread never runs on the slow cores   // Windows treats this thread as pro audio: it gets the processor on time even when the computer is busy
@@ -156,12 +176,7 @@ class WaveOutPlayer : AudioOut
     public override void Dispose()
     {
         run = false; ev.Set();
-        if (th != null && th.IsAlive && !th.Join(2000)) { hwo = IntPtr.Zero; return; }   // the audio thread is still writing: leave the device be instead of freeing its buffers under it (that crashed or froze the app)
-        if (hwo != IntPtr.Zero)
-        {
-            waveOutReset(hwo);
-            for (int i = 0; i < Buffers; i++) { waveOutUnprepareHeader(hwo, hdrs[i], Marshal.SizeOf(typeof(WAVEHDR))); Marshal.FreeHGlobal(data[i]); Marshal.FreeHGlobal(hdrs[i]); }
-            waveOutClose(hwo); hwo = IntPtr.Zero;
-        }
+        if (th != null && th.IsAlive && !th.Join(2000)) { lock (closeGate) { if (!exited) { closeLate = true; return; } } }   // still busy: it closes the device itself when it ends (it was left open for good)
+        CloseDevice();
     }
 }

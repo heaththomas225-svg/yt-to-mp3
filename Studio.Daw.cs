@@ -139,7 +139,8 @@ partial class StudioForm
         else { var lc = PickedClip(); if (lc != null && IsLocked(lc)) { Toast(FrozenWhy(lc, "Locked: press UNLOCK before cutting.")); return; } }
         var before = clipCopies.Count > 0 ? clipCopies[0].Copy : null; CopyKey();
         if (clipCopies.Count == 0 || clipCopies[0].Copy == before) return;   // nothing could be copied: nothing is deleted
-        int n = clipCopies.Count; if (multiSel.Count > 0) DeleteSelectedClips(); else { var c = PickedClip(); if (c != null) DeleteClip(c); }
+        int n = clipCopies.Count; if (multiSel.Count > 0) DeleteSelectedClips();
+        else { var c = PickedClip(); if (c != null) { if (c.Host == null && !eng.Tracks.Exists(x => x.Host == c && !x.Instrument && x.Clip != null)) { PushUndo(); lock (eng.Sync) { c.Clip = null; c.Offset = 0; c.ClipStart = 0; c.ClipFrames = -1; c.FadeIn = c.FadeOut = c.FadeInDelay = c.FadeOutTail = 0; c.ClipGainDb = 0; c.SectionLabel = ""; c.PieceMuted = false; } toolsTrack = null; selTrack = Math.Max(0, eng.Tracks.IndexOf(c)); } else DeleteClip(c); } }   // (the only piece of a row: the row stays, empty, with its plugins and levels; it deleted the whole track and Ctrl+V landed on another one)
         Toast(n == 1 ? "Cut. Ctrl+V pastes it at the needle on the picked track." : "Cut " + n + " sections. Ctrl+V pastes them at the needle (they keep their spacing).");
     }
     // Ctrl+V: at the needle, on the picked track
@@ -216,7 +217,7 @@ partial class StudioForm
     {
         if (tr.Clip == null || tr.Instrument || !lane.Contains(p)) return 0;
         float x0 = lane.X + (float)((tr.Offset - scroll) / spp), x1 = x0 + (float)(tr.UsedLength / spp), w = x1 - x0;
-        if (w > 40 && toolsTrack == tr && lane.Height >= FadeHandleMinLaneH)   // (short rows: no fade handles, they covered the whole clip and took over trimming) the round fade handles of the clip you selected: the top end of each fade (its length) and the bottom end (where it starts or stops)
+        if (w > 40 && toolsTrack == tr && !IsLocked(tr) && lane.Height >= FadeHandleMinLaneH)   // (short rows: no fade handles, they covered the whole clip and took over trimming) the round fade handles of the clip you selected: the top end of each fade (its length) and the bottom end (where it starts or stops)
         {
             float dIn = (float)(tr.FadeInDelay / spp), dOut = (float)(tr.FadeOutTail / spp), by = lane.Bottom - 12;
             if (Math.Abs(p.Y - (lane.Y + 12)) <= 11)
@@ -268,7 +269,7 @@ partial class StudioForm
         if (tr.Clip == null && !tr.Instrument && !tr.IsBus) { laneLocked = false; toolsTrack = null; MarqueeBegin(); return; }   // an empty row: hold and drag a box to select clips, like any empty space
         if (tr.Clip != null && !tr.Instrument)
         {
-            laneMode = ZoneAt(tr, lane, MousePos); laneMoved = false; lockToldYou = false; laneLocked = IsLocked(tr) && laneMode >= 1 && laneMode <= 3;
+            laneMode = ZoneAt(tr, lane, MousePos); laneMoved = false; lockToldYou = false; laneLocked = IsLocked(tr) && laneMode >= 1;   /* (fade handles too) */
             if (laneLocked) { if (laneMode >= 2 || !multiSel.Contains(tr)) multiSel.Clear(); return; }   // clicking a locked clip selects it, but it will not move (a message tells you when you try); outside the highlight it lets the others go
             if (laneMode >= 2) multiSel.Clear();
             if (laneMode >= 4) { PushUndo(); laneMoved = true; return; }
@@ -362,7 +363,7 @@ partial class StudioForm
         if (zone == 1) { using (var b = new SolidBrush(Color.FromArgb(34, 255, 255, 255))) g.FillRectangle(b, cr); StrokeRR(g, Color.FromArgb(230, 255, 255, 255), cr, 6, 1.6f); }
         float gh = Math.Min(46, cr.Height - 16), gy = cr.Y + (cr.Height - gh) / 2; bool leftEdge = cr.X > lane.X - 1, rightEdge = cr.Right < lane.Right - 1;
         bool lockedClip = IsLocked(tr); float gw = cr.Width < 24 ? 0f : Math.Min(9f, Math.Max(3f, cr.Width / 5f));   // a narrow clip gets thin grips (none when it is tiny): they never cover the clip
-        if (toolsTrack == tr && cr.Width > 40 && lane.Height >= FadeHandleMinLaneH)
+        if (toolsTrack == tr && !lockedClip && cr.Width > 40 && lane.Height >= FadeHandleMinLaneH)
         {   // the two round fade handles
             float hx0 = lane.X + (float)((tr.Offset - scroll) / spp), hx1 = hx0 + (float)(tr.UsedLength / spp), hy = lane.Y + 12, bhy = lane.Bottom - 12, dIn = (float)(tr.FadeInDelay / spp), dOut = (float)(tr.FadeOutTail / spp);
             foreach (var hz in new[] { 4, 5, 6, 7 })
