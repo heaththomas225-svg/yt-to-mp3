@@ -49,6 +49,20 @@ static class PR
             Check("saying no keeps you on the projects page (you are not sent in blind)", F<int>("tab") == 3, "tab " + F<int>("tab"));
             answer = true; typeof(StudioForm).GetMethod("OpenProjectAsk", BF).Invoke(sf, new object[] { e1 }); Pump(300); Check("saying yes opens the project", asked.Count == 2 && F<int>("tab") == 0, "tab " + F<int>("tab"));
             SetF("confirmOpenHook", null);
+            // ---- lost songs are found again: project files deep in your folders, a deleted project rebuilt from its history, unsaved work in Purphex's history ----
+            {
+                string rr = Path.Combine(dir, "rescue"), deep = Path.Combine(rr, "Docs", "old", "beats"); Directory.CreateDirectory(deep); var re = new StudioEngine(); re.Tracks.Add(StudioEngine.NewTrack("Bass", "beat", null));
+                string pDeep = Path.Combine(deep, "Deep Song.ytmproj"); ProjectIO.Save(re, pDeep);
+                string hGone = Path.Combine(rr, "Gone Song.ytmproj.history"); Directory.CreateDirectory(hGone); ProjectIO.Save(re, Path.Combine(hGone, "00001.ytproj")); ProjectIO.Save(re, Path.Combine(hGone, "00002.ytproj")); File.WriteAllText(Path.Combine(hGone, "index.txt"), "1|0|Edit|1|00001.ytproj\n2|0|Edit|1|00002.ytproj\n");
+                string hu = Path.Combine(StudioEnv.DataDir, "history", "untitled-abcd1234"); Directory.CreateDirectory(hu); ProjectIO.Save(re, Path.Combine(hu, "00001.ytproj")); Directory.SetLastWriteTime(hu, DateTime.Now.AddDays(-3));
+                string tgt = Path.Combine(rr, "Recovered"); ProjectRescue.RootsOverride = new List<string> { rr }; ProjectRescue.TargetOverride = tgt;
+                int got = ProjectRescue.Run(); string gone = Path.Combine(rr, "Gone Song.ytmproj"); var recs = Directory.Exists(tgt) ? Directory.GetFiles(tgt, "*.ytmproj") : new string[0];
+                Check("a project file deep in your folders comes back on the Projects page", ProjectLibrary.Find(pDeep) != null, got + " found");
+                Check("a deleted project whose history is still there is rebuilt at its own place", File.Exists(gone) && ProjectLibrary.Find(gone) != null, "");
+                Check("a song that only lived in Purphex's history is put on your Projects as a recovered song", recs.Length == 1 && ProjectLibrary.Find(recs[0]) != null, recs.Length + " recovered");
+                Check("looking again finds nothing new (no copies of copies)", ProjectRescue.Run() == 0 && Directory.GetFiles(tgt, "*.ytmproj").Length == 1, "");
+                ProjectRescue.RootsOverride = null; ProjectRescue.TargetOverride = null;
+            }
             // ---- Purphex keeps its own copy: a project whose file, audio and even the list were lost comes back ----
             {
                 string vd = Path.Combine(dir, "vaulttest"); Directory.CreateDirectory(vd); string wav = Path.Combine(vd, "bassline.wav"); var tone = new float[StudioEngine.SR]; for (int i = 0; i < tone.Length; i++) tone[i] = (float)Math.Sin(i * 0.05) * 0.3f; WavIO.Write(wav, tone, tone, StudioEngine.SR, 24);

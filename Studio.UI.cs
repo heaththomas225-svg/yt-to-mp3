@@ -1258,7 +1258,7 @@ partial class StudioForm : Form
         foreach (char c in Path.GetInvalidFileNameChars()) nm = nm.Replace(c, '_'); nm = nm.Trim(); if (nm.Length == 0) return;
         if (!string.IsNullOrEmpty(projPath) && File.Exists(projPath))
         {
-            try { string np = Path.Combine(Path.GetDirectoryName(projPath), nm + ".ytmproj"); if (!File.Exists(np)) { File.Move(projPath, np); projPath = np; } else { Toast("A project with that name already exists here."); return; } }
+            try { string np = Path.Combine(Path.GetDirectoryName(projPath), nm + ".ytmproj"); if (!File.Exists(np)) { string old = projPath; File.Move(projPath, np); projPath = np; ProjectVault.MarkRemoved(old); }   /* the old name is never rebuilt from its history by the song finder */ else { Toast("A project with that name already exists here."); return; } }
             catch (Exception ex) { Toast("Couldn't rename the file: " + ex.Message); return; }
         }
         projName = nm; Toast("Project renamed to " + nm);

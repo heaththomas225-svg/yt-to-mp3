@@ -224,8 +224,9 @@ partial class StudioForm
     {
         try
         {
+            ProjectRescue.LiveHistory = () => string.IsNullOrEmpty(projPath) ? Path.Combine(StudioEnv.DataDir, "history", "untitled-" + histUntitled) : projPath + ".history";   /* the song finder never copies what is open */
             Directory.CreateDirectory(AutoDir); bool crashed = File.Exists(LockFile) && File.Exists(AutoFile); File.WriteAllText(LockFile, DateTime.Now.Ticks.ToString());
-            if (!crashed || StudioEnv.UnderTest) { if (!StudioEnv.UnderTest) HistPruneUntitled(); return; } var info = File.Exists(Path.Combine(AutoDir, "autosave.txt")) ? File.ReadAllLines(Path.Combine(AutoDir, "autosave.txt")) : new string[0]; string name = info.Length > 1 ? info[1] : "your project";
+            if (!crashed || StudioEnv.UnderTest) return;   /* histories are never cleared by themselves: they can hold the only copy of a song */ var info = File.Exists(Path.Combine(AutoDir, "autosave.txt")) ? File.ReadAllLines(Path.Combine(AutoDir, "autosave.txt")) : new string[0]; string name = info.Length > 1 ? info[1] : "your project";
             string real = info.Length > 0 ? info[0] : ""; bool hasReal = real.Length > 0 && File.Exists(real);
             /* (a save deletes the autosave, so one still here is newer than the last save: the file's own date is not trusted, a backup or sync tool can touch it) */
             string q = "Purphex closed unexpectedly last time (it crashed or the PC turned off) at " + File.GetLastWriteTime(AutoFile).ToString("ddd HH:mm") + ".\n\nYour work on \"" + name + "\" is still here, including what you had not saved.\n\n"
@@ -235,7 +236,7 @@ partial class StudioForm
             var oldFx = TrackFxNow();
             if (a == System.Windows.Forms.DialogResult.Yes && info.Length > 3 && System.Text.RegularExpressions.Regex.IsMatch(info[3], "^[0-9a-f]{8}$")) histUntitled = info[3];   // the recovered untitled project keeps its own history
             if (a == System.Windows.Forms.DialogResult.Yes) { string file = AutoFile; RunBusy("Bringing your work back...", false, p => { ProjectIO.Load(eng, file, s => busyText = s); busyText = "Warming up the plugins..."; eng.Prime(); }, ok => { RetireReplaced(oldFx); if (!ok) return; AfterProjectLoaded(); undo.Clear(); redo.Clear(); projPath = real; projName = name; editCount++; FitView(); Toast("You're back where you were. Press SAVE to keep it (your last save is untouched until then)."); }); }
-            else { string kept = KeepRecovered(name, real); if (kept != null) AutosaveClear(); GoTab(3); Toast(kept != null ? "Your unsaved work is kept on your Projects as \"" + Path.GetFileNameWithoutExtension(kept) + "\". Open a project or start fresh." : "Your unsaved work could not be copied to your Projects, so it is still kept and you will be asked again next time. Open a project or start fresh."); }   /* NO (or closing the question): the Projects page, and the crashed work is never thrown away */
+            else { string kept = KeepRecovered(name, real); if (kept != null) { if (info.Length > 3 && System.Text.RegularExpressions.Regex.IsMatch(info[3], "^[0-9a-f]{8}$")) ProjectRescue.MarkRescued(Path.Combine(StudioEnv.DataDir, "history", "untitled-" + info[3])); AutosaveClear(); } GoTab(3); Toast(kept != null ? "Your unsaved work is kept on your Projects as \"" + Path.GetFileNameWithoutExtension(kept) + "\". Open a project or start fresh." : "Your unsaved work could not be copied to your Projects, so it is still kept and you will be asked again next time. Open a project or start fresh."); }   /* NO (or closing the question): the Projects page, and the crashed work is never thrown away */
         }
         catch { }
     }
@@ -254,8 +255,6 @@ partial class StudioForm
         }
         catch { return null; }
     }
-    // untitled histories nobody can reach any more (their session is long gone) are cleared after 30 days
-    void HistPruneUntitled() { try { string root = Path.Combine(StudioEnv.DataDir, "history"); if (!Directory.Exists(root)) return; foreach (var d in Directory.GetDirectories(root, "untitled-*")) { if (Path.GetFileName(d) == "untitled-" + histUntitled) continue; if ((DateTime.Now - Directory.GetLastWriteTime(d)).TotalDays > 30) { try { Directory.Delete(d, true); } catch { } } } } catch { } }
     internal void SessionEnd() { try { if (File.Exists(LockFile)) File.Delete(LockFile); } catch { } }
 
     // ---------------- the session recovery test ----------------
