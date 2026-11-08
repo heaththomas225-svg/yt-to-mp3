@@ -7,10 +7,16 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.80.8";
+    public const string Latest = "3.80.9";
 
     public const string Text =
-@"3.80.8  Pedal, loop and recovery fixes
+@"3.80.9  Projects built in
+ + NEW: Your projects are built into Purphex. Every save keeps its own copy of the project and all its audio inside the app, so a project still opens and plays even if its file or audio is deleted or moved on your PC.
+ + NEW: If the project list is ever lost, every project Purphex kept comes straight back on your Projects page.
+ + FIXED: Crash prompt. YES takes you back into your project. NO takes you to your Projects page to open a project or start fresh, and the crashed work is kept there as a recovered project, so nothing is lost.
+ + FIXED: Opening a project whose file was deleted puts it back from Purphex's own copy instead of saying FILE NOT FOUND.
+
+3.80.8  Pedal, loop and recovery fixes
  + FIXED: VST3 instruments: lifting and pressing the sustain pedal quickly is never missed, so notes stop ringing when they should.
  + FIXED: Notes no longer hang when a section loop happens to end exactly at the edge of a sound block.
  + FIXED: The first key you play on a MIDI track that was off or muted no longer comes out as a blip.

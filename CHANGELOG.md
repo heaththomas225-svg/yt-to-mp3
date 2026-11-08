@@ -2,6 +2,16 @@
 
 What changed in each version of **Purphex**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.80.9  Projects built in
+
+- NEW: Your projects are built into Purphex. Every save keeps its own copy of the project and all its audio inside the app, so a project still opens and plays even if its file or audio is deleted or moved on your PC.
+
+- NEW: If the project list is ever lost, every project Purphex kept comes straight back on your Projects page.
+
+- FIXED: Crash prompt. YES takes you back into your project. NO takes you to your Projects page to open a project or start fresh, and the crashed work is kept there as a recovered project, so nothing is lost.
+
+- FIXED: Opening a project whose file was deleted puts it back from Purphex's own copy instead of saying FILE NOT FOUND.
+
 ## 3.80.8  Pedal, loop and recovery fixes
 
 - FIXED: VST3 instruments: lifting and pressing the sustain pedal quickly is never missed, so notes stop ringing when they should.

@@ -1,4 +1,4 @@
-3.80.8
+3.80.9
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Pedal, loop and recovery fixes
-sha256=805f89f634350149c2bcdcf1b197a7dd267fa08df8a723e4ebba0c46a1de0f15
+Projects built in
+sha256=9a958f9a229256d5ed0d6d747402fd5713acde3682db59ed8fc008fcd42964b9
