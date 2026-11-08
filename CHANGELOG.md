@@ -2,6 +2,16 @@
 
 What changed in each version of **Purphex**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.80.11  Cloud backup of songs and sounds
+
+- NEW: Cloud backup under your account. When this PC is linked to your Purphex account, every project you save, the audio it uses and the sounds you imported into My samples are backed up to purphexmusic.com.
+
+- NEW: Link another PC to the same account and its songs come over as their own copies, named Song (from PC name), and its sounds as a My samples (from PC name) pack. Nothing from one PC ever overwrites another.
+
+- NEW: A reinstalled or wiped PC gets its own songs and sounds back by itself. The cloud keeps every replaced version and every removed file for 30 days.
+
+- NEW: The Projects page shows how much is backed up, and says so when files are waiting for space.
+
 ## 3.80.10  Lost songs found again
 
 - NEW: Lost songs are found again. Opening your Projects searches your Music, Documents, Desktop, Downloads and OneDrive folders and puts every Purphex project it finds back on the list.

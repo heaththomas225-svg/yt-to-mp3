@@ -1,4 +1,4 @@
-3.80.10
+3.80.11
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Lost songs found again
-sha256=1f4f47f47dfc3bfa6eb1d47a3184ef51d06d4e5cd659c25b5754e642df67af48
+Cloud backup of songs and sounds
+sha256=aabb5f447189baa4a27e4736112686c2206957ebd4aeeacc2e100fe5b0831baa

@@ -7,10 +7,16 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.80.10";
+    public const string Latest = "3.80.11";
 
     public const string Text =
-@"3.80.10  Lost songs found again
+@"3.80.11  Cloud backup of songs and sounds
+ + NEW: Cloud backup under your account. When this PC is linked to your Purphex account, every project you save, the audio it uses and the sounds you imported into My samples are backed up to purphexmusic.com.
+ + NEW: Link another PC to the same account and its songs come over as their own copies, named Song (from PC name), and its sounds as a My samples (from PC name) pack. Nothing from one PC ever overwrites another.
+ + NEW: A reinstalled or wiped PC gets its own songs and sounds back by itself. The cloud keeps every replaced version and every removed file for 30 days.
+ + NEW: The Projects page shows how much is backed up, and says so when files are waiting for space.
+
+3.80.10  Lost songs found again
  + NEW: Lost songs are found again. Opening your Projects searches your Music, Documents, Desktop, Downloads and OneDrive folders and puts every Purphex project it finds back on the list.
  + NEW: A project whose file was deleted but whose history is still there is rebuilt from its newest state, at its own place.
  + NEW: Songs that only lived in Purphex's history (never saved) come back on your Projects as Recovered songs.
