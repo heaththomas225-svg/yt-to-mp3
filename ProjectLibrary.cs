@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -48,6 +48,13 @@ static class ProjectLibrary
             LoadBin(); PurgeBin(DateTime.Now);
             try { if (File.Exists(ProfileFile)) foreach (var line in File.ReadAllLines(ProfileFile, Encoding.UTF8)) { int i = line.IndexOf('='); if (i < 1) continue; string k = line.Substring(0, i), v = line.Substring(i + 1); if (k == "name" && v.Trim().Length > 0) ProfileName = v.Trim(); else if (k == "avatar") AvatarPath = v; } } catch { }
         }
+        RestoreGone();
+    }
+    // project files deleted on the PC are put back from Purphex's own copy, so the project is never lost
+    public static void RestoreGone()
+    {
+        List<ProjectEntry> all; lock (lk) all = new List<ProjectEntry>(Entries);
+        foreach (var e in all) { try { if (!File.Exists(e.Path) && ProjectVault.Has(e.Path)) { string why; EnsureFile(e, out why); } } catch { } }
     }
     public static void Save()
     {
@@ -123,7 +130,7 @@ static class ProjectLibrary
         var b = new BinItem { Id = Guid.NewGuid().ToString("N"), OrigPath = e.Path, Name = e.Name, Cover = e.Cover ?? "", Kind = e.Kind ?? "", Deleted = DateTime.Now, Tracks = e.Tracks, Bpm = e.Bpm, Seconds = e.Seconds, Fav = e.Fav, Finished = e.Finished };
         try { Directory.CreateDirectory(BinDir); File.Move(e.Path, BinPath(b)); } catch { return null; }
         lock (lk) { Bin.Add(b); Entries.RemoveAll(x => string.Equals(x.Path, e.Path, StringComparison.OrdinalIgnoreCase)); }
-        SaveBin(); Save(); return b;
+        ProjectVault.MarkRemoved(e.Path); SaveBin(); Save(); return b;
     }
     // puts a project back where it was (or beside it, under a new name, if that name is taken now); null + a reason if it cannot
     public static string Restore(BinItem b, out string error)
@@ -138,11 +145,12 @@ static class ProjectLibrary
         }
         catch (Exception ex) { error = ex.Message; return null; }
         lock (lk) { Bin.Remove(b); Entries.RemoveAll(x => string.Equals(x.Path, target, StringComparison.OrdinalIgnoreCase)); Entries.Add(new ProjectEntry { Path = target, Name = b.Name, Custom = true, Cover = b.Cover != null && b.Cover.Length > 0 && File.Exists(b.Cover) ? b.Cover : "", Tracks = b.Tracks, Bpm = b.Bpm, Seconds = b.Seconds, Fav = b.Fav, Finished = b.Finished, Kind = b.Kind, Updated = File.GetLastWriteTime(target), Opened = DateTime.Now }); }
-        SaveBin(); Save(); return target;
+        SaveBin(); Save(); ProjectVault.KeepAsync(target, b.Name); return target;
     }
     public static void DeleteForever(BinItem b)
     {
         try { string p = BinPath(b); if (File.Exists(p)) File.Delete(p); } catch { }
+        ProjectVault.Forget(b.OrigPath);   /* deleted for good means Purphex's own copy goes too */
         lock (lk) Bin.Remove(b);
         try { if (b.Cover != null && b.Cover.StartsWith(CoversDir, StringComparison.OrdinalIgnoreCase) && File.Exists(b.Cover) && !Entries.Exists(x => x.Cover == b.Cover) && !Bin.Exists(x => x.Cover == b.Cover)) File.Delete(b.Cover); } catch { }
         SaveBin();
@@ -187,7 +195,7 @@ static class ProjectLibrary
     {
         lock (lk)
         {
-            var e = Find(path); if (e == null) { e = new ProjectEntry { Path = path }; Entries.Add(e); }
+            var e = Find(path); if (e == null) { e = new ProjectEntry { Path = path }; Entries.Add(e); } ProjectVault.Unmark(path);   /* saved or opened again: back on the list for good */
             e.Recheck(); if (!e.Custom) e.Name = name; e.Bytes = -1; e.SizeAsked = false; e.Tracks = tracks; e.Bpm = bpm; e.Seconds = seconds; e.Opened = DateTime.Now; if (saved) e.Updated = DateTime.Now; else if (e.Updated.Ticks == 0) { try { e.Updated = File.GetLastWriteTime(path); } catch { } }
             if (coverJpeg != null && coverJpeg.Length > 0) { try { Directory.CreateDirectory(CoversDir); string cp = Path_(path); File.WriteAllBytes(cp, coverJpeg); e.Cover = cp; Forget(cp); } catch { } }
             else if (e.Cover.Length > 0 && !File.Exists(e.Cover)) e.Cover = "";
@@ -195,7 +203,7 @@ static class ProjectLibrary
         Save();
     }
     static string Path_(string projectPath) { using (var sha = SHA1.Create()) return Path.Combine(CoversDir, BitConverter.ToString(sha.ComputeHash(Encoding.UTF8.GetBytes(projectPath.ToLowerInvariant()))).Replace("-", "").Substring(0, 16) + ".jpg"); }
-    public static void Remove(string path) { lock (lk) Entries.RemoveAll(e => string.Equals(e.Path, path, StringComparison.OrdinalIgnoreCase)); Save(); }
+    public static void Remove(string path) { lock (lk) Entries.RemoveAll(e => string.Equals(e.Path, path, StringComparison.OrdinalIgnoreCase)); ProjectVault.MarkRemoved(path); Save(); }
     public static List<ProjectEntry> Recent(int n) { lock (lk) { var l = new List<ProjectEntry>(Entries); l.RemoveAll(e => e.Missing); l.Sort((a, b) => b.Opened.CompareTo(a.Opened)); if (l.Count > n) l.RemoveRange(n, l.Count - n); return l; } }
     public static List<ProjectEntry> AllByEdited() { lock (lk) { var l = new List<ProjectEntry>(Entries); l.Sort((a, b) => { int m = a.Missing.CompareTo(b.Missing); return m != 0 ? m : b.Updated.CompareTo(a.Updated); }); return l; } }
 
@@ -204,7 +212,7 @@ static class ProjectLibrary
     {
         try
         {
-            if (!Directory.Exists(DefaultFolder)) return; bool changed = false;
+            bool changed = false; if (Directory.Exists(DefaultFolder))
             foreach (var f in Directory.GetFiles(DefaultFolder, "*.ytmproj"))
             {
                 if (Find(f) != null) continue; int tracks = 0; double bpm = 0; byte[] cov = null;
@@ -214,6 +222,16 @@ static class ProjectLibrary
             if (changed) Save();
         }
         catch { }
+        // projects Purphex kept a copy of come back on the list even if the list or the file was lost
+        try { bool more = false; foreach (var k in ProjectVault.All()) { if (k.Removed || Find(k.Path) != null) continue; int tracks = 0; double bpm = 0; string kind = ""; try { var roles = new List<string>(); foreach (var line in File.ReadAllLines(ProjectVault.CopyFor(k.Path), Encoding.UTF8)) { if (line.StartsWith("track|")) { tracks++; var p = line.Split('|'); if (p.Length > 1) roles.Add(p[1]); } else if (line.StartsWith("bpm|")) double.TryParse(line.Substring(4), NumberStyles.Float, CI, out bpm); } kind = KindOfRoles(roles); } catch { } lock (lk) Entries.Add(new ProjectEntry { Path = k.Path, Name = k.Name, Tracks = tracks, Bpm = bpm, Kind = kind, Updated = k.Saved, Opened = k.Saved }); more = true; } if (more) { Save(); RestoreGone(); } } catch { }
+    }
+    // a project whose file was deleted on the PC is put back from Purphex's own copy first (false + a reason if there is none)
+    public static bool EnsureFile(ProjectEntry e, out string error)
+    {
+        error = null; if (e == null) { error = "No project."; return false; } if (File.Exists(e.Path)) return true;
+        string old = e.Path, now = ProjectVault.Bring(old, out error); if (now == null) return false;
+        if (!string.Equals(now, old, StringComparison.OrdinalIgnoreCase)) { lock (lk) e.Path = now; ProjectVault.MarkRemoved(old); ProjectVault.Unmark(now); Save(); ProjectVault.KeepAsync(now, e.Name); }   /* it lives at the new place now: the old place is not put back on the list */
+        e.Recheck(); return true;
     }
 
     // ---- pictures ----
@@ -469,5 +487,98 @@ static class ProjectLibrary
     public static string Ago(DateTime t)
     {
         var d = DateTime.Now - t; if (d.TotalMinutes < 2) return "just now"; if (d.TotalHours < 1) return (int)d.TotalMinutes + " min ago"; if (d.TotalDays < 1) return (int)d.TotalHours + " h ago"; if (d.TotalDays < 2) return "yesterday"; if (d.TotalDays < 30) return (int)d.TotalDays + " days ago"; return t.ToString("d MMM yyyy", CI);
+    }
+}
+
+// Every project is kept inside Purphex too: each save copies the project file and every audio file it uses into the app's own vault,
+// so a project still shows on the Projects page, opens, and plays its audio even if the file or its audio is deleted or moved on the PC.
+static class ProjectVault
+{
+    public static string Dir { get { return Path.Combine(StudioEnv.DataDir, "vault"); } }
+    static string AudioDir { get { return Path.Combine(Dir, "audio"); } }
+    static string ProjDir { get { return Path.Combine(Dir, "projects"); } }
+    static readonly object lk = new object();
+    static string Key(string s) { using (var sha = SHA1.Create()) return BitConverter.ToString(sha.ComputeHash(Encoding.UTF8.GetBytes((s ?? "").ToLowerInvariant()))).Replace("-", "").Substring(0, 16); }
+    static string U(string s) { return s.Replace("%0A", "\n").Replace("%7C", "|").Replace("%25", "%"); }
+    static string AudioFor(string src) { string ext = ""; try { ext = Path.GetExtension(src); } catch { } return Path.Combine(AudioDir, Key(src) + ext); }
+    public static string CopyFor(string projectPath) { return Path.Combine(ProjDir, Key(projectPath) + ".ytmproj"); }
+    static string InfoFor(string projectPath) { return Path.Combine(ProjDir, Key(projectPath) + ".txt"); }
+    static string RemovedFor(string projectPath) { return Path.Combine(ProjDir, Key(projectPath) + ".removed"); }
+    // the vault's copy of an audio file that is gone from the PC (null if it was never kept)
+    public static string FindAudio(string src) { try { if (string.IsNullOrEmpty(src)) return null; string p = AudioFor(src); return File.Exists(p) ? p : null; } catch { return null; } }
+    public static bool Has(string projectPath) { try { return !string.IsNullOrEmpty(projectPath) && File.Exists(CopyFor(projectPath)); } catch { return false; } }
+
+    public static void KeepAsync(string projectPath, string name)
+    {
+        if (string.IsNullOrEmpty(projectPath)) return;
+        var th = new System.Threading.Thread(() => Keep(projectPath, name)); th.IsBackground = true; th.Priority = System.Threading.ThreadPriority.BelowNormal; th.Start();
+    }
+    // copies the project and the audio it uses into the vault (audio already kept and unchanged is not copied again)
+    public static bool Keep(string projectPath, string name)
+    {
+        lock (lk)
+            try
+            {
+                if (string.IsNullOrEmpty(projectPath) || !File.Exists(projectPath)) return false;
+                byte[] bytes; using (var fs = new FileStream(projectPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete)) { var ms = new MemoryStream(); fs.CopyTo(ms); bytes = ms.ToArray(); }   /* never blocks a save of the same file */
+                var lines = Encoding.UTF8.GetString(bytes).Replace("\r", "").Split('\n'); Directory.CreateDirectory(AudioDir); Directory.CreateDirectory(ProjDir);
+                foreach (var line in lines)
+                {
+                    if (!line.StartsWith("track|")) continue; var p = line.Split('|'); if (p.Length < 5) continue; string src = U(p[4]);
+                    if (src.Length == 0 || src.StartsWith(Dir, StringComparison.OrdinalIgnoreCase) || !File.Exists(src)) continue;
+                    try
+                    {
+                        string dst = AudioFor(src); var si = new FileInfo(src);
+                        if (File.Exists(dst)) { var di = new FileInfo(dst); if (di.Length == si.Length && di.LastWriteTimeUtc == si.LastWriteTimeUtc) continue; }
+                        string tmp = dst + ".tmp"; File.Copy(src, tmp, true); if (File.Exists(dst)) File.Delete(dst); File.Move(tmp, dst);
+                    }
+                    catch { }
+                }
+                string copy = CopyFor(projectPath), tmpc = copy + ".tmp"; File.WriteAllBytes(tmpc, bytes); if (File.Exists(copy)) File.Delete(copy); File.Move(tmpc, copy);
+                File.WriteAllText(InfoFor(projectPath), projectPath + "\n" + (string.IsNullOrEmpty(name) ? Path.GetFileNameWithoutExtension(projectPath) : name) + "\n" + DateTime.Now.Ticks + "\n", Encoding.UTF8);
+                return true;
+            }
+            catch { return false; }
+    }
+    // taken off the list on purpose: the vault keeps the copy but does not put it back on the list by itself
+    public static void MarkRemoved(string projectPath) { try { if (string.IsNullOrEmpty(projectPath)) return; Directory.CreateDirectory(ProjDir); File.WriteAllText(RemovedFor(projectPath), projectPath); } catch { } }
+    public static void Unmark(string projectPath) { try { if (string.IsNullOrEmpty(projectPath)) return; string r = RemovedFor(projectPath); if (File.Exists(r)) File.Delete(r); } catch { } }
+    // a project deleted for good: its copy goes (audio other projects may share stays)
+    public static void Forget(string projectPath) { try { if (string.IsNullOrEmpty(projectPath)) return; foreach (var f in new[] { CopyFor(projectPath), InfoFor(projectPath) }) if (File.Exists(f)) File.Delete(f); MarkRemoved(projectPath); } catch { } }
+    public sealed class Kept { public string Path = "", Name = ""; public DateTime Saved; public bool Removed; }
+    public static List<Kept> All()
+    {
+        var r = new List<Kept>();
+        try
+        {
+            if (!Directory.Exists(ProjDir)) return r;
+            foreach (var inf in Directory.GetFiles(ProjDir, "*.txt"))
+            {
+                try
+                {
+                    var l = File.ReadAllLines(inf, Encoding.UTF8); if (l.Length < 1 || l[0].Trim().Length == 0) continue; if (!File.Exists(System.IO.Path.ChangeExtension(inf, ".ytmproj"))) continue;
+                    long t = 0; if (l.Length > 2) long.TryParse(l[2], out t);
+                    r.Add(new Kept { Path = l[0].Trim(), Name = l.Length > 1 && l[1].Trim().Length > 0 ? l[1].Trim() : System.IO.Path.GetFileNameWithoutExtension(l[0].Trim()), Saved = new DateTime(Math.Max(0, t)), Removed = File.Exists(System.IO.Path.ChangeExtension(inf, ".removed")) });
+                }
+                catch { }
+            }
+        }
+        catch { }
+        return r;
+    }
+    // puts a deleted project file back from the vault: where it was, or in the usual folder if that cannot be written (the path it is at now, or null)
+    public static string Bring(string projectPath, out string error)
+    {
+        error = null;
+        try
+        {
+            string copy = CopyFor(projectPath); if (!File.Exists(copy)) { error = "Purphex has no copy of this project."; return null; }
+            if (File.Exists(projectPath)) return projectPath;
+            try { string d = Path.GetDirectoryName(projectPath); if (!string.IsNullOrEmpty(d)) { Directory.CreateDirectory(d); File.Copy(copy, projectPath, false); return projectPath; } } catch { }
+            string dir = ProjectLibrary.DefaultFolder; Directory.CreateDirectory(dir); string stem = Path.GetFileNameWithoutExtension(projectPath), target = Path.Combine(dir, stem + ".ytmproj"); int n = 1;
+            while (File.Exists(target)) { target = Path.Combine(dir, stem + " (brought back" + (n > 1 ? " " + n : "") + ").ytmproj"); n++; }
+            File.Copy(copy, target, false); return target;
+        }
+        catch (Exception ex) { error = ex.Message; return null; }
     }
 }

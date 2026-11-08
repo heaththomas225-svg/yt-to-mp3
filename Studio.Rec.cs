@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
@@ -85,7 +85,7 @@ partial class StudioForm
     // Saves the take as a WAV file (so projects can reopen it) and adds it as a vocal track, shifted earlier to cancel the sound-card delay.
     internal Track AddRecording(float[] mono, int frames, long startPos)
     {
-        string dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyMusic), "yt2mp3", "Recordings"); Directory.CreateDirectory(dir);
+        string dir = StudioEnv.UnderTest ? Path.Combine(StudioEnv.DataDir, "recordings") : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyMusic), "yt2mp3", "Recordings"); Directory.CreateDirectory(dir);   /* a test never writes into (or cleans) your real Recordings folder */
         string path = Path.Combine(dir, "Recording " + DateTime.Now.ToString("yyyy-MM-dd HH-mm-ss") + ".wav");
         using (var w = new WavStream(path, StudioEngine.SR, 24)) w.Write(mono, mono, 0, frames);
         var l = new float[frames]; Array.Copy(mono, l, frames); var rr = (float[])l.Clone(); var clip = AudioClip.FromArrays(l, rr, "Recording"); clip.Path = path;

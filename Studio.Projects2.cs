@@ -23,7 +23,7 @@ partial class StudioForm
     // clicking a project asks first (it used to send you into the project without a word)
     void OpenProjectAsk(ProjectEntry e)
     {
-        if (e == null) return; if (e.Missing || !File.Exists(e.Path)) { Toast("That project file has moved or been deleted. Remove it from the list with the x."); return; }
+        if (e == null) return; string why; if (!ProjectLibrary.EnsureFile(e, out why)) { Toast("That project file has moved or been deleted, and Purphex has no copy of it. Remove it from the list with the x."); return; }   /* a deleted file is put back from Purphex's own copy */
         bool ok = confirmOpenHook != null ? confirmOpenHook(e) : MessageBox.Show(this, (eng.Tracks.Count > 0 ? OverwriteText(e.Name) : "Open \"" + e.Name + "\" now?"), "Open project", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes;
         if (!ok) return; StopPreview(); tab = 0; OpenProjectPath(e.Path);
     }

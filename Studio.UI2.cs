@@ -302,6 +302,7 @@ partial class StudioForm
     internal void OpenProjectPath(string path)
     {
         if (busy) { Toast("Wait for the current job to finish"); return; }
+        if (!File.Exists(path) && ProjectVault.Has(path)) { string why; var pe = ProjectLibrary.Find(path); if (pe != null) { if (ProjectLibrary.EnsureFile(pe, out why)) path = pe.Path; } else { string now = ProjectVault.Bring(path, out why); if (now != null) path = now; } }   /* a project file deleted on the PC is put back from Purphex's own copy */
         List<string> warn = null; var oldFx = TrackFxNow();
         RunBusy("Opening project...", false, p => { warn = ProjectIO.Load(eng, path, s => busyText = s); busyText = "Warming up the plugins..."; eng.Prime(); }, ok =>
         {

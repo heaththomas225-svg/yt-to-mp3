@@ -229,16 +229,30 @@ partial class StudioForm
             string real = info.Length > 0 ? info[0] : ""; bool hasReal = real.Length > 0 && File.Exists(real);
             /* (a save deletes the autosave, so one still here is newer than the last save: the file's own date is not trusted, a backup or sync tool can touch it) */
             string q = "Purphex closed unexpectedly last time (it crashed or the PC turned off) at " + File.GetLastWriteTime(AutoFile).ToString("ddd HH:mm") + ".\n\nYour work on \"" + name + "\" is still here, including what you had not saved.\n\n"
-                + "YES: carry on from where you were (like you never closed it). Nothing is saved until you press SAVE.\n"
-                + (hasReal ? "NO: open your last save instead (" + File.GetLastWriteTime(real).ToString("ddd HH:mm") + ").\n" : "NO: start without it.\n")
-                + "CANCEL: start fresh.\n\nYour last save is never changed by this, so you can still open it later.";
-            var a = (recoverAsk ?? (t => System.Windows.Forms.MessageBox.Show(this, t, "Pick up where you left off?", System.Windows.Forms.MessageBoxButtons.YesNoCancel, System.Windows.Forms.MessageBoxIcon.Question)))(q);
+                + "YES: bring it back and carry on from where you were. Nothing is saved until you press SAVE.\n"
+                + "NO: go to your Projects, to open a project or start fresh. This work is kept there too, as a recovered project, so nothing is lost.\n\nYour last save is never changed by this.";
+            var a = (recoverAsk ?? (t => System.Windows.Forms.MessageBox.Show(this, t, "Pick up where you left off?", System.Windows.Forms.MessageBoxButtons.YesNo, System.Windows.Forms.MessageBoxIcon.Question)))(q);
             var oldFx = TrackFxNow();
             if (a == System.Windows.Forms.DialogResult.Yes && info.Length > 3 && System.Text.RegularExpressions.Regex.IsMatch(info[3], "^[0-9a-f]{8}$")) histUntitled = info[3];   // the recovered untitled project keeps its own history
             if (a == System.Windows.Forms.DialogResult.Yes) { string file = AutoFile; RunBusy("Bringing your work back...", false, p => { ProjectIO.Load(eng, file, s => busyText = s); busyText = "Warming up the plugins..."; eng.Prime(); }, ok => { RetireReplaced(oldFx); if (!ok) return; AfterProjectLoaded(); undo.Clear(); redo.Clear(); projPath = real; projName = name; editCount++; FitView(); Toast("You're back where you were. Press SAVE to keep it (your last save is untouched until then)."); }); }
-            else if (a == System.Windows.Forms.DialogResult.No && hasReal) { RunBusy("Opening your last save...", false, p => { ProjectIO.Load(eng, real, s => busyText = s); busyText = "Warming up the plugins..."; eng.Prime(); }, ok => { RetireReplaced(oldFx); if (!ok) return; AfterProjectLoaded(); undo.Clear(); redo.Clear(); projPath = real; projName = name; FitView(); NoteProject(real, false); Toast("Opened your last save of " + name + "."); }); }
+            else { string kept = KeepRecovered(name, real); if (kept != null) AutosaveClear(); GoTab(3); Toast(kept != null ? "Your unsaved work is kept on your Projects as \"" + Path.GetFileNameWithoutExtension(kept) + "\". Open a project or start fresh." : "Your unsaved work could not be copied to your Projects, so it is still kept and you will be asked again next time. Open a project or start fresh."); }   /* NO (or closing the question): the Projects page, and the crashed work is never thrown away */
         }
         catch { }
+    }
+    // the crashed work, put on your Projects as its own project (with Purphex's own copy of its audio); its path, or null
+    string KeepRecovered(string name, string real)
+    {
+        try
+        {
+            if (!File.Exists(AutoFile)) return null; string dir = ProjectLibrary.DefaultFolder; Directory.CreateDirectory(dir);
+            string stem = string.Join("_", ((name ?? "").Trim().Length > 0 && name != "your project" ? name.Trim() : "Untitled").Split(Path.GetInvalidFileNameChars())) + " (recovered " + File.GetLastWriteTime(AutoFile).ToString("d MMM HH-mm") + ")";
+            string target = Path.Combine(dir, stem + ".ytmproj"); int n = 2; while (File.Exists(target)) target = Path.Combine(dir, stem + " " + n++ + ".ytmproj");
+            File.Copy(AutoFile, target, false); int tracks = 0; double bpm = 0;
+            foreach (var line in File.ReadAllLines(target)) { if (line.StartsWith("track|")) tracks++; else if (line.StartsWith("bpm|")) double.TryParse(line.Substring(4), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out bpm); }
+            ProjectLibrary.LoadOnce(); ProjectLibrary.Touch(target, Path.GetFileNameWithoutExtension(target), tracks, bpm, 0, true, null); ProjectVault.KeepAsync(target, Path.GetFileNameWithoutExtension(target));
+            return target;
+        }
+        catch { return null; }
     }
     // untitled histories nobody can reach any more (their session is long gone) are cleared after 30 days
     void HistPruneUntitled() { try { string root = Path.Combine(StudioEnv.DataDir, "history"); if (!Directory.Exists(root)) return; foreach (var d in Directory.GetDirectories(root, "untitled-*")) { if (Path.GetFileName(d) == "untitled-" + histUntitled) continue; if ((DateTime.Now - Directory.GetLastWriteTime(d)).TotalDays > 30) { try { Directory.Delete(d, true); } catch { } } } } catch { } }
