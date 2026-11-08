@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -83,7 +83,8 @@ partial class StudioForm
         Txt(g, projSearch.Length == 0 ? (blink ? "|  " : "   ") + "SEARCH PROJECTS" : projSearch + (blink ? "|" : ""), 13, projSearch.Length == 0 ? DimC : Ink, Rc(sb.X + 14, sb.Y, sb.Width - 54, sb.Height), StringAlignment.Near, projSearch.Length > 0);
         projSearchR = sb; Reg(sb, () => projSearchOn = true); Hint2(sb, "Search your projects by name, tag or type (song, beat, vocals). Just start typing.");
         if (projSearch.Length > 0) { var x = Rc(sb.Right - 34, sb.Y + 5, 24, 24); Btn(g, x, "x", 3, () => { projSearch = ""; projScroll = 0; }, 12); Hint2(x, "Clear the search"); }
-        float cx = sb.Right + 16, cw = bin.X - 10 - cx; if (cw > 110) Txt(g, (FiltersOn ? shown + " OF " + total : total.ToString()) + (total == 1 ? " PROJECT" : " PROJECTS"), 12, DimC, Rc(cx, y, cw, h), StringAlignment.Near, true);
+        float cx = sb.Right + 16, cw = bin.X - 10 - cx; if (cw > 110) { string cs = CloudBackup.Status; Txt(g, (FiltersOn ? shown + " OF " + total : total.ToString()) + (total == 1 ? " PROJECT" : " PROJECTS"), 12, DimC, Rc(cx, y, cw, cs.Length > 0 ? h / 2 + 2 : h), StringAlignment.Near, true);
+            if (cs.Length > 0) { var cr = Rc(cx, y + h / 2, cw, h / 2); Txt(g, (CloudBackup.Busy ? "BACKING UP...  " : "") + cs, 10, CloudBackup.Linked ? NeonCyan : DimC, cr, StringAlignment.Near, false); Hint2(cr, "Your projects, the audio they use and the sounds you imported are backed up to your Purphex account, and come back on any PC you link to it. " + cs); } }   /* the cloud backup line */
         Btn(g, bin, "RECYCLING BIN" + (bn > 0 ? "  (" + bn + ")" : ""), bn > 0 ? 1 : 0, () => { ProjectLibrary.PurgeBin(DateTime.Now); projBin = true; binScroll = 0; }, 13); Hint2(bin, "Removed projects wait here for 30 days. Restore one, or delete it for good.");
         y += h + 8; float x0 = 24;
         var sortB = Rc(x0, y, 262, 32); Btn(g, sortB, "SORT: " + SortNames[projSort].ToUpper(), 0, () => SortMenu(sortB), 12); Hint2(sortB, "Choose how the projects are ordered"); x0 = sortB.Right + 10;
