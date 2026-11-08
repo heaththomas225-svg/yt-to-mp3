@@ -1,4 +1,4 @@
-3.80.9
+3.80.10
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Projects built in
-sha256=9a958f9a229256d5ed0d6d747402fd5713acde3682db59ed8fc008fcd42964b9
+Lost songs found again
+sha256=1f4f47f47dfc3bfa6eb1d47a3184ef51d06d4e5cd659c25b5754e642df67af48

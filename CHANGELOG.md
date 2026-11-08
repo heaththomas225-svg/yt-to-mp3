@@ -2,6 +2,16 @@
 
 What changed in each version of **Purphex**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.80.10  Lost songs found again
+
+- NEW: Lost songs are found again. Opening your Projects searches your Music, Documents, Desktop, Downloads and OneDrive folders and puts every Purphex project it finds back on the list.
+
+- NEW: A project whose file was deleted but whose history is still there is rebuilt from its newest state, at its own place.
+
+- NEW: Songs that only lived in Purphex's history (never saved) come back on your Projects as Recovered songs.
+
+- FIXED: Untitled histories are never cleared by themselves any more, because they can hold the only copy of a song.
+
 ## 3.80.9  Projects built in
 
 - NEW: Your projects are built into Purphex. Every save keeps its own copy of the project and all its audio inside the app, so a project still opens and plays even if its file or audio is deleted or moved on your PC.
