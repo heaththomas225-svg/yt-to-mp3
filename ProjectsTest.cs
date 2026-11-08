@@ -49,6 +49,20 @@ static class PR
             Check("saying no keeps you on the projects page (you are not sent in blind)", F<int>("tab") == 3, "tab " + F<int>("tab"));
             answer = true; typeof(StudioForm).GetMethod("OpenProjectAsk", BF).Invoke(sf, new object[] { e1 }); Pump(300); Check("saying yes opens the project", asked.Count == 2 && F<int>("tab") == 0, "tab " + F<int>("tab"));
             SetF("confirmOpenHook", null);
+            // ---- Purphex keeps its own copy: a project whose file, audio and even the list were lost comes back ----
+            {
+                string vd = Path.Combine(dir, "vaulttest"); Directory.CreateDirectory(vd); string wav = Path.Combine(vd, "bassline.wav"); var tone = new float[StudioEngine.SR]; for (int i = 0; i < tone.Length; i++) tone[i] = (float)Math.Sin(i * 0.05) * 0.3f; WavIO.Write(wav, tone, tone, StudioEngine.SR, 24);
+                var ve = new StudioEngine(); var vt = StudioEngine.NewTrack("Bass", "beat", AudioClip.FromFile(wav)); vt.Source = wav; ve.Tracks.Add(vt); string vp = Path.Combine(vd, "Bassline Song.ytmproj"); ProjectIO.Save(ve, vp);
+                ProjectLibrary.Touch(vp, "Bassline Song", 1, 120, 1, true, null); bool kept = ProjectVault.Keep(vp, "Bassline Song");
+                File.Delete(vp); File.Delete(wav); ProjectLibrary.Load(); var ven = ProjectLibrary.Find(vp); if (ven != null) ven.Recheck();
+                Check("a saved project whose file and audio were deleted on the PC is put straight back (never FILE NOT FOUND)", kept && ven != null && !ven.Missing && File.Exists(vp), "kept " + kept);
+                File.Delete(vp);
+                lock (ProjectLibrary.Entries) ProjectLibrary.Entries.RemoveAll(x => string.Equals(x.Path, vp, StringComparison.OrdinalIgnoreCase)); ProjectLibrary.Save(); ProjectLibrary.Discover();
+                Check("if the project list itself is lost, the project comes back on the Projects page", ProjectLibrary.Find(vp) != null && ProjectLibrary.Find(vp).Name == "Bassline Song", "");
+                string why; bool okb = ProjectLibrary.EnsureFile(ProjectLibrary.Find(vp), out why); var le = new StudioEngine(); var warns = ProjectIO.Load(le, vp, s2 => { });
+                Check("opening it puts the file back and its audio plays from Purphex's own copy", okb && File.Exists(vp) && warns.Count == 0 && le.Tracks.Count == 1 && le.Tracks[0].Clip != null && le.Tracks[0].Clip.Length >= StudioEngine.SR - 2, (why ?? "") + " " + string.Join("; ", warns.ToArray()));
+                ProjectLibrary.Remove(vp); ProjectLibrary.Discover(); Check("a project you take off the list on purpose stays off it", ProjectLibrary.Find(vp) == null, "");
+            }
 
             // ---- removing a project ----
             int choice = 0; SetF("removeHook", (Func<ProjectEntry, int>)(en => choice));

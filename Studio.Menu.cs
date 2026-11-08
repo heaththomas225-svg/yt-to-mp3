@@ -48,7 +48,7 @@ partial class StudioForm
     // remember a project in the list (called on save and open)
     void NoteProject(string path, bool saved)
     {
-        savedEdit = editCount;
+        savedEdit = editCount; if (saved) ProjectVault.KeepAsync(path, projName);   /* Purphex keeps its own copy of the project and its audio */
         ProjectLibrary.Touch(path, projName, eng.Tracks.Count, Fx.ProjectBpm, eng.EndFrame / (double)StudioEngine.SR, saved, ProjectIO.CoverBytes); ProjectIO.CoverBytes = null; var e = ProjectLibrary.Find(path); if (e != null) { var roles = new List<string>(); foreach (var t in eng.Tracks) roles.Add(t.Instrument ? "inst" : (t.IsBus ? "bus" : t.Role)); e.Kind = ProjectLibrary.KindOfRoles(roles); } if (e != null && e.Cover.Length > 0) ProjectIO.CoverBytes = ProjectLibrary.MakeSquare(e.Cover, 256);
     }
 

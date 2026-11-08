@@ -641,7 +641,7 @@ static class ProjectIO
                 if (p.Length >= 8) { long cs, cf; if (long.TryParse(p[6], out cs)) t.ClipStart = cs; if (long.TryParse(p[7], out cf)) t.ClipFrames = cf; }
                 if (t.Instrument || t.IsBus || src.Length == 0) { }
                 else if (File.Exists(src)) { progress("Loading " + Path.GetFileName(src) + "..."); t.Clip = AudioClip.FromFile(src); }
-                else warn.Add("Missing audio file for \"" + name + "\": " + src);
+                else { string kept = ProjectVault.FindAudio(src); if (kept != null) { progress("Loading " + Path.GetFileName(src) + " (Purphex's own copy)..."); t.Clip = AudioClip.FromFile(kept); } else warn.Add("Missing audio file for \"" + name + "\": " + src); }   /* audio deleted on the PC plays from the copy Purphex kept when the project was saved */
                 tracks.Add(t);
             }
             else if (p[0] == "midi" && p.Length >= 3)
