@@ -215,7 +215,7 @@ partial class StudioForm
     static string AutoDir { get { return Path.Combine(StudioEnv.DataDir, "autosave"); } }
     static string AutoFile { get { return Path.Combine(AutoDir, "autosave.ytproj"); } }
     static string LockFile { get { return Path.Combine(AutoDir, "session.open"); } }
-    void Autosave() { if (StudioEnv.UnderTest && !autoTest) return; if (!HasUnsaved || eng.Tracks.Count == 0 || busy) return; Directory.CreateDirectory(AutoDir); string tmp = AutoFile + ".tmp"; ProjectIO.Roll = PrPrefsText(); ProjectIO.Save(eng, tmp); if (File.Exists(AutoFile)) File.Delete(AutoFile); File.Move(tmp, AutoFile); File.WriteAllText(Path.Combine(AutoDir, "autosave.txt"), projPath + "\n" + projName + "\n" + DateTime.Now.Ticks); }
+    void Autosave() { if (StudioEnv.UnderTest && !autoTest) return; if (!HasUnsaved || eng.Tracks.Count == 0 || busy) return; Directory.CreateDirectory(AutoDir); string tmp = AutoFile + ".tmp"; ProjectIO.Roll = PrPrefsText(); ProjectIO.Save(eng, tmp); if (File.Exists(AutoFile)) File.Delete(AutoFile); File.Move(tmp, AutoFile); File.WriteAllText(Path.Combine(AutoDir, "autosave.txt"), projPath + "\n" + projName + "\n" + DateTime.Now.Ticks + "\n" + histUntitled); }
     internal bool autoTest;   // a test switches autosave on
     // the project was saved: the autosave is older than the save now, so it goes (a crash later never offers stale work back)
     void AutosaveClear() { if (StudioEnv.UnderTest && !autoTest) return; try { if (File.Exists(AutoFile)) File.Delete(AutoFile); string inf = Path.Combine(AutoDir, "autosave.txt"); if (File.Exists(inf)) File.Delete(inf); } catch { } }
@@ -225,20 +225,23 @@ partial class StudioForm
         try
         {
             Directory.CreateDirectory(AutoDir); bool crashed = File.Exists(LockFile) && File.Exists(AutoFile); File.WriteAllText(LockFile, DateTime.Now.Ticks.ToString());
-            if (!crashed || StudioEnv.UnderTest) return; var info = File.Exists(Path.Combine(AutoDir, "autosave.txt")) ? File.ReadAllLines(Path.Combine(AutoDir, "autosave.txt")) : new string[0]; string name = info.Length > 1 ? info[1] : "your project";
+            if (!crashed || StudioEnv.UnderTest) { if (!StudioEnv.UnderTest) HistPruneUntitled(); return; } var info = File.Exists(Path.Combine(AutoDir, "autosave.txt")) ? File.ReadAllLines(Path.Combine(AutoDir, "autosave.txt")) : new string[0]; string name = info.Length > 1 ? info[1] : "your project";
             string real = info.Length > 0 ? info[0] : ""; bool hasReal = real.Length > 0 && File.Exists(real);
-            if (hasReal && File.GetLastWriteTimeUtc(real) >= File.GetLastWriteTimeUtc(AutoFile)) { AutosaveClear(); return; }   // the project was saved after the autosave: nothing unsaved to offer
+            /* (a save deletes the autosave, so one still here is newer than the last save: the file's own date is not trusted, a backup or sync tool can touch it) */
             string q = "Purphex closed unexpectedly last time (it crashed or the PC turned off) at " + File.GetLastWriteTime(AutoFile).ToString("ddd HH:mm") + ".\n\nYour work on \"" + name + "\" is still here, including what you had not saved.\n\n"
                 + "YES: carry on from where you were (like you never closed it). Nothing is saved until you press SAVE.\n"
                 + (hasReal ? "NO: open your last save instead (" + File.GetLastWriteTime(real).ToString("ddd HH:mm") + ").\n" : "NO: start without it.\n")
                 + "CANCEL: start fresh.\n\nYour last save is never changed by this, so you can still open it later.";
             var a = (recoverAsk ?? (t => System.Windows.Forms.MessageBox.Show(this, t, "Pick up where you left off?", System.Windows.Forms.MessageBoxButtons.YesNoCancel, System.Windows.Forms.MessageBoxIcon.Question)))(q);
             var oldFx = TrackFxNow();
+            if (a == System.Windows.Forms.DialogResult.Yes && info.Length > 3 && System.Text.RegularExpressions.Regex.IsMatch(info[3], "^[0-9a-f]{8}$")) histUntitled = info[3];   // the recovered untitled project keeps its own history
             if (a == System.Windows.Forms.DialogResult.Yes) { string file = AutoFile; RunBusy("Bringing your work back...", false, p => { ProjectIO.Load(eng, file, s => busyText = s); busyText = "Warming up the plugins..."; eng.Prime(); }, ok => { RetireReplaced(oldFx); if (!ok) return; AfterProjectLoaded(); undo.Clear(); redo.Clear(); projPath = real; projName = name; editCount++; FitView(); Toast("You're back where you were. Press SAVE to keep it (your last save is untouched until then)."); }); }
             else if (a == System.Windows.Forms.DialogResult.No && hasReal) { RunBusy("Opening your last save...", false, p => { ProjectIO.Load(eng, real, s => busyText = s); busyText = "Warming up the plugins..."; eng.Prime(); }, ok => { RetireReplaced(oldFx); if (!ok) return; AfterProjectLoaded(); undo.Clear(); redo.Clear(); projPath = real; projName = name; FitView(); NoteProject(real, false); Toast("Opened your last save of " + name + "."); }); }
         }
         catch { }
     }
+    // untitled histories nobody can reach any more (their session is long gone) are cleared after 30 days
+    void HistPruneUntitled() { try { string root = Path.Combine(StudioEnv.DataDir, "history"); if (!Directory.Exists(root)) return; foreach (var d in Directory.GetDirectories(root, "untitled-*")) { if (Path.GetFileName(d) == "untitled-" + histUntitled) continue; if ((DateTime.Now - Directory.GetLastWriteTime(d)).TotalDays > 30) { try { Directory.Delete(d, true); } catch { } } } } catch { } }
     internal void SessionEnd() { try { if (File.Exists(LockFile)) File.Delete(LockFile); } catch { } }
 
     // ---------------- the session recovery test ----------------

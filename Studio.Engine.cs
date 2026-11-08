@@ -721,7 +721,7 @@ partial class StudioEngine
                 Array.Clear(oL, 0, n); Array.Clear(oR, 0, n); MasterPeakL = MasterPeakR = 0; foreach (var t in Tracks) { t.PeakL = t.PeakR = 0; } return;
             }
             if (countLeft > 0) { Array.Clear(oL, 0, n); Array.Clear(oR, 0, n); Click(LastCountFrames - countLeft, n, oL, oR, LastCountFrames, LastCountFrames / 4.0); countLeft = Math.Max(0, countLeft - n); MasterPeakL = MasterPeakR = 0; return; }   // the count-in: only the clicks, the song waits
-            if (LoopSection && (Pos >= LoopB || Pos < 0)) Pos = LoopA;   // a section loop: the needle never runs past the end of the section
+            if (LoopSection && (Pos >= LoopB || Pos < 0)) { if (Pos >= LoopB && Pos < LoopB + n) ReleaseAtLoopEnd(LoopB); Pos = LoopA; }   // a section loop: the needle never runs past the end of the section (a block that ended right on the end lets its notes go here)
             if (LoopSection && Pos < LoopB && Pos + n > LoopB)
             {   // the end of the section falls inside this block: the first part plays up to the end, the rest carries on from the start of the section (exact to the sample, no gap)
                 int k = (int)(LoopB - Pos), m = n - k; if (loopL == null || loopL.Length < n) { loopL = new float[n]; loopR = new float[n]; }
