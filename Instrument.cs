@@ -59,7 +59,8 @@ abstract class InstrumentFx : Fx
     public void AllNotesOff() { Midi(0xB0, 123, 0, false); Midi(0xB0, 120, 0, false); }
     // Panic: every note and every ringing tail stops at once.
     public void Panic() { Midi(0xB0, 123, 0, false); Midi(0xB0, 120, 0, false); Midi(0xB0, 64, 0, false); StudioEngine.LiveUntil = Environment.TickCount + 600; }
-    public override void Reset() { base.Reset(); try { AllNotesOff(); } catch { } }
+    // a reset clears what was sounding: its all-notes-off goes AHEAD of keys already waiting, so a key that woke the track still plays (it was cut to a blip)
+    public override void Reset() { base.Reset(); try { lock (q) { int now = Environment.TickCount; live.Insert(0, new MidiEv { S = 0xB0, D1 = 120, D2 = 0, Frame = -1 }); liveAt.Insert(0, now); live.Insert(0, new MidiEv { S = 0xB0, D1 = 123, D2 = 0, Frame = -1 }); liveAt.Insert(0, now); if (live.Count > 258) { live.RemoveRange(258, live.Count - 258); liveAt.RemoveRange(258, liveAt.Count - 258); } } } catch { } }
 
     protected virtual void OnBlock(long pos, int n, bool transport) { }
     protected abstract void OnEvents(List<KeyValuePair<int, MidiEv>> events);
