@@ -2,6 +2,18 @@
 
 What changed in each version of **Purphex**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.80.8  Pedal, loop and recovery fixes
+
+- FIXED: VST3 instruments: lifting and pressing the sustain pedal quickly is never missed, so notes stop ringing when they should.
+
+- FIXED: Notes no longer hang when a section loop happens to end exactly at the edge of a sound block.
+
+- FIXED: The first key you play on a MIDI track that was off or muted no longer comes out as a blip.
+
+- FIXED: Crash recovery is always offered when you had unsaved work, and a recovered untitled project keeps its history. Old untitled histories are cleared after 30 days.
+
+- FIXED: Undo after RESTORE THIS TRACK puts everything back, including where the audio came from.
+
 ## 3.80.7  VST plugin sliders follow the plugin, track restore, history
 
 - FIXED: When you change a setting inside a VST plugin's own window, or load one of its own presets, Purphex's sliders follow it and it is saved with your project. VST3 window edits always reach the sound too.

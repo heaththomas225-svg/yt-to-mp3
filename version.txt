@@ -1,4 +1,4 @@
-3.80.7
+3.80.8
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-VST plugin sliders follow the plugin, track restore, history
-sha256=5988b4d0dddaca280aa8bba84f6ae9547da731f07dc99c88c0cb570e63b6eaa4
+Pedal, loop and recovery fixes
+sha256=805f89f634350149c2bcdcf1b197a7dd267fa08df8a723e4ebba0c46a1de0f15
