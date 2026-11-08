@@ -188,6 +188,7 @@ static class ProjectLibrary
     }
 
     public static void SetOnProfile(ProjectEntry e, bool on) { lock (lk) e.OnProfile = on; Save(); }
+    public static bool AddIfNew(ProjectEntry e) { lock (lk) { if (Find(e.Path) != null) return false; Entries.Add(e); return true; } }
     public static ProjectEntry Find(string path) { lock (lk) return Entries.Find(e => string.Equals(e.Path, path, StringComparison.OrdinalIgnoreCase)); }
 
     // called whenever a project is saved or opened
@@ -212,10 +213,10 @@ static class ProjectLibrary
     {
         try
         {
-            bool changed = false; if (Directory.Exists(DefaultFolder))
+            bool changed = false; if (!StudioEnv.UnderTest && Directory.Exists(DefaultFolder))   /* a test run never reads your real Music folder */
             foreach (var f in Directory.GetFiles(DefaultFolder, "*.ytmproj"))
             {
-                if (Find(f) != null) continue; int tracks = 0; double bpm = 0; byte[] cov = null;
+                if (Find(f) != null || ProjectVault.IsRemoved(f)) continue; int tracks = 0;   /* taken off the list on purpose: stays off */ double bpm = 0; byte[] cov = null;
                 try { foreach (var line in File.ReadAllLines(f, Encoding.UTF8)) { if (line.StartsWith("track|")) tracks++; else if (line.StartsWith("bpm|")) double.TryParse(line.Substring(4), NumberStyles.Float, CI, out bpm); else if (line.StartsWith("cover|")) { try { cov = Convert.FromBase64String(line.Substring(6)); } catch { } } } } catch { }
                 lock (lk) { var e = new ProjectEntry { Path = f, Name = System.IO.Path.GetFileNameWithoutExtension(f), Tracks = tracks, Bpm = bpm, Updated = File.GetLastWriteTime(f), Opened = File.GetLastWriteTime(f) }; if (cov != null) { try { Directory.CreateDirectory(CoversDir); File.WriteAllBytes(Path_(f), cov); e.Cover = Path_(f); } catch { } } Entries.Add(e); changed = true; }
             }
@@ -224,6 +225,7 @@ static class ProjectLibrary
         catch { }
         // projects Purphex kept a copy of come back on the list even if the list or the file was lost
         try { bool more = false; foreach (var k in ProjectVault.All()) { if (k.Removed || Find(k.Path) != null) continue; int tracks = 0; double bpm = 0; string kind = ""; try { var roles = new List<string>(); foreach (var line in File.ReadAllLines(ProjectVault.CopyFor(k.Path), Encoding.UTF8)) { if (line.StartsWith("track|")) { tracks++; var p = line.Split('|'); if (p.Length > 1) roles.Add(p[1]); } else if (line.StartsWith("bpm|")) double.TryParse(line.Substring(4), NumberStyles.Float, CI, out bpm); } kind = KindOfRoles(roles); } catch { } lock (lk) Entries.Add(new ProjectEntry { Path = k.Path, Name = k.Name, Tracks = tracks, Bpm = bpm, Kind = kind, Updated = k.Saved, Opened = k.Saved }); more = true; } if (more) { Save(); RestoreGone(); } } catch { }
+        ProjectRescue.StartOnce();   /* and your songs are looked for everywhere in your folders, once a session */
     }
     // a project whose file was deleted on the PC is put back from Purphex's own copy first (false + a reason if there is none)
     public static bool EnsureFile(ProjectEntry e, out string error)
@@ -526,6 +528,7 @@ static class ProjectVault
                 {
                     if (!line.StartsWith("track|")) continue; var p = line.Split('|'); if (p.Length < 5) continue; string src = U(p[4]);
                     if (src.Length == 0 || src.StartsWith(Dir, StringComparison.OrdinalIgnoreCase) || !File.Exists(src)) continue;
+                    if (((int)File.GetAttributes(src) & (0x1000 | 0x40000 | 0x400000)) != 0) continue;   /* a file that is only in the cloud (OneDrive) is never downloaded just to copy it */
                     try
                     {
                         string dst = AudioFor(src); var si = new FileInfo(src);
@@ -542,6 +545,7 @@ static class ProjectVault
     }
     // taken off the list on purpose: the vault keeps the copy but does not put it back on the list by itself
     public static void MarkRemoved(string projectPath) { try { if (string.IsNullOrEmpty(projectPath)) return; Directory.CreateDirectory(ProjDir); File.WriteAllText(RemovedFor(projectPath), projectPath); } catch { } }
+    public static bool IsRemoved(string projectPath) { try { return !string.IsNullOrEmpty(projectPath) && File.Exists(RemovedFor(projectPath)); } catch { return false; } }
     public static void Unmark(string projectPath) { try { if (string.IsNullOrEmpty(projectPath)) return; string r = RemovedFor(projectPath); if (File.Exists(r)) File.Delete(r); } catch { } }
     // a project deleted for good: its copy goes (audio other projects may share stays)
     public static void Forget(string projectPath) { try { if (string.IsNullOrEmpty(projectPath)) return; foreach (var f in new[] { CopyFor(projectPath), InfoFor(projectPath) }) if (File.Exists(f)) File.Delete(f); MarkRemoved(projectPath); } catch { } }
@@ -580,5 +584,120 @@ static class ProjectVault
             File.Copy(copy, target, false); return target;
         }
         catch (Exception ex) { error = ex.Message; return null; }
+    }
+}
+
+// Finds your songs again wherever they are: every project file in your own folders (Music, Documents, Desktop, Downloads, OneDrive...) comes back on the
+// Projects page, a project whose file was deleted but whose history is still there is rebuilt from its newest saved state, and work that only lives in
+// Purphex's history (never saved) is put on your Projects as a recovered song. Nothing is ever deleted or overwritten.
+static class ProjectRescue
+{
+    static int started; static readonly DateTime started_at = System.Diagnostics.Process.GetCurrentProcess().StartTime;   /* the history of what you are working on right now is left alone */
+    public static volatile int Found;   // how many songs came back this time
+    public static Func<string> LiveHistory;   // the history folder of what is open right now (left alone)
+    static readonly object rlk = new object();
+    // a history folder that is already on your Projects (the crash prompt kept it): never recovered a second time
+    public static void MarkRescued(string histDir) { if (string.IsNullOrEmpty(histDir)) return; lock (rlk) try { File.AppendAllText(RescuedFile, histDir + Environment.NewLine); } catch { } }
+    public static void StartOnce()
+    {
+        if ((StudioEnv.UnderTest || Environment.GetEnvironmentVariable("PURPHEX_TESTRUN") == "1") && RootsOverride == null) return;   /* a test run never scans or writes into your real folders */
+        if (System.Threading.Interlocked.Exchange(ref started, 1) == 1) return;
+        var th = new System.Threading.Thread(() => { try { Run(); } catch { } }); th.IsBackground = true; th.Priority = System.Threading.ThreadPriority.Lowest; th.Start();
+    }
+    static string RescuedFile { get { return Path.Combine(StudioEnv.DataDir, "rescued.txt"); } }
+    public static List<string> RootsOverride; public static string TargetOverride;   // a test points the search at its own folders
+    static string Target { get { return TargetOverride ?? ProjectLibrary.DefaultFolder; } }
+    static IEnumerable<string> Roots()
+    {
+        if (RootsOverride != null) return RootsOverride;
+        var l = new List<string>(); Func<Environment.SpecialFolder, string> sf = f => { try { return Environment.GetFolderPath(f); } catch { return ""; } };
+        foreach (var r in new[] { ProjectLibrary.DefaultFolder, sf(Environment.SpecialFolder.MyMusic), sf(Environment.SpecialFolder.MyDocuments), sf(Environment.SpecialFolder.DesktopDirectory), sf(Environment.SpecialFolder.MyVideos) }) if (!string.IsNullOrEmpty(r)) l.Add(r);
+        string home = sf(Environment.SpecialFolder.UserProfile);
+        if (home.Length > 0) { l.Add(Path.Combine(home, "Downloads")); try { foreach (var d in Directory.GetDirectories(home, "OneDrive*")) l.Add(d); } catch { } }
+        var full = new List<string>(); foreach (var r in l) { try { if (Directory.Exists(r)) { string f = Path.GetFullPath(r).TrimEnd('\\'); if (!full.Exists(x => string.Equals(x, f, StringComparison.OrdinalIgnoreCase))) full.Add(f); } } catch { } }
+        return full.FindAll(f => !full.Exists(o => !string.Equals(o, f, StringComparison.OrdinalIgnoreCase) && f.StartsWith(o + "\\", StringComparison.OrdinalIgnoreCase)));   /* a folder inside another one is searched once */
+    }
+    // every project file and project history folder under the root (a few levels deep, never into hidden or system folders)
+    static void Walk(string dir, int depth, List<string> projects, List<string> histories, ref int budget)
+    {
+        if (depth > 7 || budget-- <= 0) return;
+        try { foreach (var f in Directory.GetFiles(dir, "*.ytmproj")) projects.Add(f); } catch { return; }
+        string[] subs; try { subs = Directory.GetDirectories(dir); } catch { return; }
+        foreach (var s in subs)
+        {
+            try
+            {
+                var di = new DirectoryInfo(s); var at = di.Attributes; if ((at & (FileAttributes.Hidden | FileAttributes.System)) != 0) continue;
+                if ((at & FileAttributes.ReparsePoint) != 0 && s.IndexOf("\\OneDrive", StringComparison.OrdinalIgnoreCase) < 0) continue;   /* links and junctions are not followed; OneDrive folders are (only their names are read)*/
+                if (s.EndsWith(".ytmproj.history", StringComparison.OrdinalIgnoreCase)) { histories.Add(s); continue; }
+                string n = di.Name; if (n == "node_modules" || n.StartsWith(".")) continue;
+                Walk(s, depth + 1, projects, histories, ref budget);
+            }
+            catch { }
+        }
+    }
+    // the newest state in a history folder that still loads (null if none)
+    public static string NewestState(string histDir)
+    {
+        try
+        {
+            string idx = Path.Combine(histDir, "index.txt"); var cands = new List<KeyValuePair<int, string>>();
+            if (File.Exists(idx)) foreach (var line in File.ReadAllLines(idx)) { var p = line.Split('|'); int n; if (p.Length >= 5 && int.TryParse(p[0], out n)) { string f = Path.Combine(histDir, p[4]); if (File.Exists(f)) cands.Add(new KeyValuePair<int, string>(n, f)); } }
+            foreach (var f in Directory.GetFiles(histDir, "*.ytproj")) { int n; if (int.TryParse(Path.GetFileNameWithoutExtension(f), out n) && !cands.Exists(c => string.Equals(c.Value, f, StringComparison.OrdinalIgnoreCase))) cands.Add(new KeyValuePair<int, string>(n, f)); }
+            cands.Sort((a, b) => b.Key.CompareTo(a.Key));
+            foreach (var c in cands) { try { var l = File.ReadAllLines(c.Value); if (l.Length > 0 && l[0].StartsWith("YTMPROJ") && Array.Exists(l, x => x.StartsWith("track|"))) return c.Value; } catch { } }
+        }
+        catch { }
+        return null;
+    }
+    static void Add(string path, string name)
+    {
+        int tracks = 0; double bpm = 0; var roles = new List<string>();
+        try { foreach (var line in File.ReadAllLines(path, Encoding.UTF8)) { if (line.StartsWith("track|")) { tracks++; var p = line.Split('|'); if (p.Length > 1) roles.Add(p[1]); } else if (line.StartsWith("bpm|")) double.TryParse(line.Substring(4), NumberStyles.Float, CultureInfo.InvariantCulture, out bpm); } } catch { }
+        if (!ProjectLibrary.AddIfNew(new ProjectEntry { Path = path, Name = name, Tracks = tracks, Bpm = bpm, Kind = ProjectLibrary.KindOfRoles(roles), Updated = File.GetLastWriteTime(path), Opened = File.GetLastWriteTime(path) })) return;
+        ProjectVault.Keep(path, name); Found++;   /* one at a time, on this background thread */
+    }
+    static string FreeName(string dir, string stem) { stem = string.Join("_", stem.Split(Path.GetInvalidFileNameChars())); string t = Path.Combine(dir, stem + ".ytmproj"); int n = 2; while (File.Exists(t)) t = Path.Combine(dir, stem + " " + n++ + ".ytmproj"); return t; }
+    public static int Run()
+    {
+        ProjectLibrary.LoadOnce(); int before = Found;
+        var rescued = new HashSet<string>(StringComparer.OrdinalIgnoreCase); try { if (File.Exists(RescuedFile)) foreach (var l in File.ReadAllLines(RescuedFile)) if (l.Trim().Length > 0) rescued.Add(l.Trim()); } catch { }
+        var projects = new List<string>(); var histories = new List<string>();
+        int budget = 30000; foreach (var r in Roots()) Walk(r, 0, projects, histories, ref budget);
+        string live = null; try { if (LiveHistory != null) live = LiveHistory(); } catch { }
+        // 1. project files anywhere in your folders
+        foreach (var p in projects) { if (ProjectVault.IsRemoved(p)) continue; try { Add(p, Path.GetFileNameWithoutExtension(p)); } catch { } }
+        // 2. a project file that is gone but its history is still beside it: rebuilt from its newest state, at its own place
+        foreach (var h in histories)
+        {
+            try
+            {
+                string proj = h.Substring(0, h.Length - ".history".Length); if (File.Exists(proj) || ProjectVault.IsRemoved(proj) || rescued.Contains(h)) continue;
+                string st = NewestState(h); if (st == null) continue; File.Copy(st, proj, false); rescued.Add(h); MarkRescued(h); Add(proj, Path.GetFileNameWithoutExtension(proj));
+            }
+            catch { }
+        }
+        // 3. songs that only live in Purphex's history (never saved, or the history of a project that is gone): put on your Projects as recovered songs
+        try
+        {
+            string root = Path.Combine(StudioEnv.DataDir, "history");
+            if (Directory.Exists(root))
+                foreach (var h in Directory.GetDirectories(root))
+                {
+                    try
+                    {
+                        if (rescued.Contains(h) || Directory.GetLastWriteTime(h) >= started_at || (live != null && string.Equals(Path.GetFullPath(h).TrimEnd('\\'), Path.GetFullPath(live).TrimEnd('\\'), StringComparison.OrdinalIgnoreCase))) continue; string st = NewestState(h); if (st == null) continue;
+                        string dir = Target; Directory.CreateDirectory(dir);
+                        string stem = "Recovered song " + File.GetLastWriteTime(st).ToString("d MMM yyyy HH-mm"), same = Path.Combine(dir, stem + ".ytmproj");
+                        if (File.Exists(same) && new FileInfo(same).Length == new FileInfo(st).Length) { rescued.Add(h); MarkRescued(h); Add(same, stem); continue; }   /* already recovered once: never a second copy */
+                        string target = FreeName(dir, stem); File.Copy(st, target, false); rescued.Add(h); MarkRescued(h);
+                        Add(target, Path.GetFileNameWithoutExtension(target));
+                    }
+                    catch { }
+                }
+        }
+        catch { }
+        if (Found > before) { ProjectLibrary.Save(); ProjectLibrary.RestoreGone(); }
+        return Found - before;
     }
 }
