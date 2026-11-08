@@ -224,6 +224,7 @@ partial class StudioForm
     {
         try
         {
+            CloudBackup.OnUi = uiAct => { try { if (IsHandleCreated && !IsDisposed) BeginInvoke(uiAct); else uiAct(); } catch { } };   /* the cloud backup reloads sounds and projects on this thread */
             ProjectRescue.LiveHistory = () => string.IsNullOrEmpty(projPath) ? Path.Combine(StudioEnv.DataDir, "history", "untitled-" + histUntitled) : projPath + ".history";   /* the song finder never copies what is open */
             Directory.CreateDirectory(AutoDir); bool crashed = File.Exists(LockFile) && File.Exists(AutoFile); File.WriteAllText(LockFile, DateTime.Now.Ticks.ToString());
             if (!crashed || StudioEnv.UnderTest) return;   /* histories are never cleared by themselves: they can hold the only copy of a song */ var info = File.Exists(Path.Combine(AutoDir, "autosave.txt")) ? File.ReadAllLines(Path.Combine(AutoDir, "autosave.txt")) : new string[0]; string name = info.Length > 1 ? info[1] : "your project";

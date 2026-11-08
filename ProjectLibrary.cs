@@ -145,7 +145,7 @@ static class ProjectLibrary
         }
         catch (Exception ex) { error = ex.Message; return null; }
         lock (lk) { Bin.Remove(b); Entries.RemoveAll(x => string.Equals(x.Path, target, StringComparison.OrdinalIgnoreCase)); Entries.Add(new ProjectEntry { Path = target, Name = b.Name, Custom = true, Cover = b.Cover != null && b.Cover.Length > 0 && File.Exists(b.Cover) ? b.Cover : "", Tracks = b.Tracks, Bpm = b.Bpm, Seconds = b.Seconds, Fav = b.Fav, Finished = b.Finished, Kind = b.Kind, Updated = File.GetLastWriteTime(target), Opened = DateTime.Now }); }
-        SaveBin(); Save(); ProjectVault.KeepAsync(target, b.Name); return target;
+        SaveBin(); Save(); ProjectVault.Unmark(target); ProjectVault.Unmark(b.OrigPath); ProjectVault.KeepAsync(target, b.Name); return target;
     }
     public static void DeleteForever(BinItem b)
     {
@@ -224,8 +224,9 @@ static class ProjectLibrary
         }
         catch { }
         // projects Purphex kept a copy of come back on the list even if the list or the file was lost
-        try { bool more = false; foreach (var k in ProjectVault.All()) { if (k.Removed || Find(k.Path) != null) continue; int tracks = 0; double bpm = 0; string kind = ""; try { var roles = new List<string>(); foreach (var line in File.ReadAllLines(ProjectVault.CopyFor(k.Path), Encoding.UTF8)) { if (line.StartsWith("track|")) { tracks++; var p = line.Split('|'); if (p.Length > 1) roles.Add(p[1]); } else if (line.StartsWith("bpm|")) double.TryParse(line.Substring(4), NumberStyles.Float, CI, out bpm); } kind = KindOfRoles(roles); } catch { } lock (lk) Entries.Add(new ProjectEntry { Path = k.Path, Name = k.Name, Tracks = tracks, Bpm = bpm, Kind = kind, Updated = k.Saved, Opened = k.Saved }); more = true; } if (more) { Save(); RestoreGone(); } } catch { }
+        try { bool more = false; foreach (var k in ProjectVault.All()) { if (k.FromPc != null || k.Removed || Find(k.Path) != null) continue; int tracks = 0; double bpm = 0; string kind = ""; try { var roles = new List<string>(); foreach (var line in File.ReadAllLines((ProjectVault.CopyOf(k.Path) ?? ProjectVault.CopyFor(k.Path)), Encoding.UTF8)) { if (line.StartsWith("track|")) { tracks++; var p = line.Split('|'); if (p.Length > 1) roles.Add(p[1]); } else if (line.StartsWith("bpm|")) double.TryParse(line.Substring(4), NumberStyles.Float, CI, out bpm); } kind = KindOfRoles(roles); } catch { } lock (lk) Entries.Add(new ProjectEntry { Path = k.Path, Name = k.Name, Tracks = tracks, Bpm = bpm, Kind = kind, Updated = k.Saved, Opened = k.Saved }); more = true; } if (more) { Save(); RestoreGone(); } } catch { }
         ProjectRescue.StartOnce();   /* and your songs are looked for everywhere in your folders, once a session */
+        CloudBackup.Start();   /* and backed up to your account (and brought down from it on a new PC) */
     }
     // a project whose file was deleted on the PC is put back from Purphex's own copy first (false + a reason if there is none)
     public static bool EnsureFile(ProjectEntry e, out string error)
@@ -506,9 +507,20 @@ static class ProjectVault
     public static string CopyFor(string projectPath) { return Path.Combine(ProjDir, Key(projectPath) + ".ytmproj"); }
     static string InfoFor(string projectPath) { return Path.Combine(ProjDir, Key(projectPath) + ".txt"); }
     static string RemovedFor(string projectPath) { return Path.Combine(ProjDir, Key(projectPath) + ".removed"); }
-    // the vault's copy of an audio file that is gone from the PC (null if it was never kept)
+    // other PCs on your account (their vaults come down from the cloud backup into folders of their own)
+    static List<string> Others() { var l = new List<string>(); try { if (Directory.Exists(CloudBackup.OthersDir)) l.AddRange(Directory.GetDirectories(CloudBackup.OthersDir)); } catch { } return l; }
+    // the newest file with this name in this PC's vault folder or in one of the other PCs' (null if none)
+    static string FindIn(string sub, string name)
+    {
+        string best = null; DateTime bt = DateTime.MinValue;
+        try { string own = Path.Combine(Dir, sub, name); if (File.Exists(own)) return own; foreach (var o in Others()) { string p = Path.Combine(o, sub, name); if (File.Exists(p)) { var t = File.GetLastWriteTimeUtc(p); if (best == null || t > bt) { best = p; bt = t; } } } } catch { }
+        return best;
+    }
+    // the vault's copy of an audio file that is gone from the PC (null if it was never kept, here or on another PC of yours)
     public static string FindAudio(string src) { try { if (string.IsNullOrEmpty(src)) return null; string p = AudioFor(src); return File.Exists(p) ? p : null; } catch { return null; } }
-    public static bool Has(string projectPath) { try { return !string.IsNullOrEmpty(projectPath) && File.Exists(CopyFor(projectPath)); } catch { return false; } }
+    public static string CopyOf(string projectPath) { return FindCopy(projectPath); }
+    static string FindCopy(string projectPath) { try { if (string.IsNullOrEmpty(projectPath)) return null; string p = CopyFor(projectPath); return File.Exists(p) ? p : null; } catch { return null; } }
+    public static bool Has(string projectPath) { return FindCopy(projectPath) != null; }
 
     public static void KeepAsync(string projectPath, string name)
     {
@@ -516,7 +528,9 @@ static class ProjectVault
         var th = new System.Threading.Thread(() => Keep(projectPath, name)); th.IsBackground = true; th.Priority = System.Threading.ThreadPriority.BelowNormal; th.Start();
     }
     // copies the project and the audio it uses into the vault (audio already kept and unchanged is not copied again)
-    public static bool Keep(string projectPath, string name)
+    public static bool Keep(string projectPath, string name) { return Keep(projectPath, name, null); }
+    // origin: "<pc>|<path>" of a song that came from another PC (kept with every later save, so it is never brought over twice)
+    public static bool Keep(string projectPath, string name, string origin)
     {
         lock (lk)
             try
@@ -527,7 +541,7 @@ static class ProjectVault
                 foreach (var line in lines)
                 {
                     if (!line.StartsWith("track|")) continue; var p = line.Split('|'); if (p.Length < 5) continue; string src = U(p[4]);
-                    if (src.Length == 0 || src.StartsWith(Dir, StringComparison.OrdinalIgnoreCase) || !File.Exists(src)) continue;
+                    if (src.Length == 0 || src.StartsWith(Dir + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) || !File.Exists(src)) continue;
                     if (((int)File.GetAttributes(src) & (0x1000 | 0x40000 | 0x400000)) != 0) continue;   /* a file that is only in the cloud (OneDrive) is never downloaded just to copy it */
                     try
                     {
@@ -538,8 +552,9 @@ static class ProjectVault
                     catch { }
                 }
                 string copy = CopyFor(projectPath), tmpc = copy + ".tmp"; File.WriteAllBytes(tmpc, bytes); if (File.Exists(copy)) File.Delete(copy); File.Move(tmpc, copy);
-                File.WriteAllText(InfoFor(projectPath), projectPath + "\n" + (string.IsNullOrEmpty(name) ? Path.GetFileNameWithoutExtension(projectPath) : name) + "\n" + DateTime.Now.Ticks + "\n", Encoding.UTF8);
-                return true;
+                if (origin == null) try { var ol = File.ReadAllLines(InfoFor(projectPath), Encoding.UTF8); if (ol.Length > 3 && ol[3].Contains("|")) origin = ol[3].Trim(); } catch { }
+                File.WriteAllText(InfoFor(projectPath), projectPath + "\n" + (string.IsNullOrEmpty(name) ? Path.GetFileNameWithoutExtension(projectPath) : name) + "\n" + DateTime.Now.Ticks + "\n" + (origin ?? "") + "\n", Encoding.UTF8);
+                CloudBackup.Soon(); return true;
             }
             catch { return false; }
     }
@@ -548,21 +563,29 @@ static class ProjectVault
     public static bool IsRemoved(string projectPath) { try { return !string.IsNullOrEmpty(projectPath) && File.Exists(RemovedFor(projectPath)); } catch { return false; } }
     public static void Unmark(string projectPath) { try { if (string.IsNullOrEmpty(projectPath)) return; string r = RemovedFor(projectPath); if (File.Exists(r)) File.Delete(r); } catch { } }
     // a project deleted for good: its copy goes (audio other projects may share stays)
-    public static void Forget(string projectPath) { try { if (string.IsNullOrEmpty(projectPath)) return; foreach (var f in new[] { CopyFor(projectPath), InfoFor(projectPath) }) if (File.Exists(f)) File.Delete(f); MarkRemoved(projectPath); } catch { } }
-    public sealed class Kept { public string Path = "", Name = ""; public DateTime Saved; public bool Removed; }
+    static string ForgottenFile { get { return Path.Combine(ProjDir, "forgotten.txt"); } }
+    public static void Forget(string projectPath) { try { if (string.IsNullOrEmpty(projectPath)) return; try { string o = OriginOf(InfoFor(projectPath), CloudBackup.SavedPc, projectPath); Directory.CreateDirectory(ProjDir); File.AppendAllText(ForgottenFile, o + "\n", Encoding.UTF8); } catch { } foreach (var f in new[] { CopyFor(projectPath), InfoFor(projectPath) }) if (File.Exists(f)) File.Delete(f); MarkRemoved(projectPath); } catch { } }
+    public sealed class Kept { public string Path = "", Name = "", Copy = "", Origin = "", FromPc; public DateTime Saved; public bool Removed; }   // FromPc: the other PC's folder (null for this PC's own)
+    static string OriginOf(string info, string pc, string path) { try { var l = File.ReadAllLines(info, Encoding.UTF8); if (l.Length > 3 && l[3].Contains("|")) return l[3].Trim(); } catch { } return (pc ?? "") + "|" + (path ?? "").ToLowerInvariant(); }
     public static List<Kept> All()
     {
-        var r = new List<Kept>();
+        var r = new List<Kept>(); var dirs = new List<string> { ProjDir }; foreach (var o in Others()) dirs.Add(Path.Combine(o, "projects"));
+        var mine = new HashSet<string>(StringComparer.OrdinalIgnoreCase); try { if (File.Exists(ForgottenFile)) foreach (var x in File.ReadAllLines(ForgottenFile, Encoding.UTF8)) if (x.Trim().Length > 0) mine.Add(x.Trim()); } catch { }
+        foreach (var pd in dirs)
         try
         {
-            if (!Directory.Exists(ProjDir)) return r;
-            foreach (var inf in Directory.GetFiles(ProjDir, "*.txt"))
+            if (!Directory.Exists(pd)) continue;
+            foreach (var inf in Directory.GetFiles(pd, "*.txt"))
             {
                 try
                 {
                     var l = File.ReadAllLines(inf, Encoding.UTF8); if (l.Length < 1 || l[0].Trim().Length == 0) continue; if (!File.Exists(System.IO.Path.ChangeExtension(inf, ".ytmproj"))) continue;
                     long t = 0; if (l.Length > 2) long.TryParse(l[2], out t);
-                    r.Add(new Kept { Path = l[0].Trim(), Name = l.Length > 1 && l[1].Trim().Length > 0 ? l[1].Trim() : System.IO.Path.GetFileNameWithoutExtension(l[0].Trim()), Saved = new DateTime(Math.Max(0, t)), Removed = File.Exists(System.IO.Path.ChangeExtension(inf, ".removed")) });
+                    string kp = l[0].Trim(); bool own = pd == ProjDir; string from = own ? null : System.IO.Path.GetFileName(System.IO.Path.GetDirectoryName(pd));
+                    string origin = OriginOf(inf, own ? CloudBackup.SavedPc : from, kp);
+                    if (own) mine.Add(origin);
+                    else { if (mine.Contains(origin)) continue; int same = r.FindIndex(x => x.FromPc != null && string.Equals(x.Origin, origin, StringComparison.OrdinalIgnoreCase)); if (same >= 0) { if (r[same].Saved.Ticks >= t) continue; r.RemoveAt(same); } }   /* a song this PC already has (its own, or brought over before) is not brought over again; of two copies of one song the newest */
+                    r.Add(new Kept { Path = kp, Name = l.Length > 1 && l[1].Trim().Length > 0 ? l[1].Trim() : System.IO.Path.GetFileNameWithoutExtension(kp), Saved = new DateTime(Math.Max(0, t)), Removed = own && IsRemoved(kp), Copy = System.IO.Path.ChangeExtension(inf, ".ytmproj"), Origin = origin, FromPc = from });
                 }
                 catch { }
             }
@@ -570,16 +593,42 @@ static class ProjectVault
         catch { }
         return r;
     }
+    static string Home { get { return StudioEnv.UnderTest ? Path.Combine(StudioEnv.DataDir, "music") : ProjectLibrary.DefaultFolder; } }   // (a test never writes into your Music folder)
+    static string E(string s) { return s.Replace("%", "%25").Replace("|", "%7C").Replace("\n", "%0A"); }
+    // the songs of your other PCs that this PC does not have yet become songs of this PC: "<name> (from <PC>)" in the usual folder, using that
+    // PC's copies of their audio (never a file of this PC that happens to have the same path). Returns how many came over.
+    public static int AdoptOthers()
+    {
+        int n = 0;
+        foreach (var k in All())
+        {
+            if (k.FromPc == null) continue;
+            try
+            {
+                string od = Path.Combine(CloudBackup.OthersDir, k.FromPc), pcName = k.FromPc; try { string nf = Path.Combine(od, "pcname.txt"); if (File.Exists(nf)) pcName = File.ReadAllText(nf).Trim(); } catch { }
+                var lines = File.ReadAllText(k.Copy, Encoding.UTF8).Replace("\r", "").Split('\n');
+                for (int i = 0; i < lines.Length; i++) { if (!lines[i].StartsWith("track|")) continue; var p = lines[i].Split('|'); if (p.Length < 5) continue; string src = U(p[4]); if (src.Length == 0) continue; string ext = ""; try { ext = Path.GetExtension(src); } catch { } string theirs = Path.Combine(od, "audio", Key(src) + ext); if (File.Exists(theirs)) { p[4] = E(theirs); lines[i] = string.Join("|", p); } }
+                string dir = Home; Directory.CreateDirectory(dir); string stem = string.Join("_", (k.Name + " (from " + pcName + ")").Split(Path.GetInvalidFileNameChars())), target = Path.Combine(dir, stem + ".ytmproj");
+                for (int m = 2; File.Exists(target); m++) target = Path.Combine(dir, stem + " " + m + ".ytmproj");
+                File.WriteAllText(target, string.Join("\n", lines), Encoding.UTF8);
+                if (!Keep(target, k.Name + " (from " + pcName + ")", k.Origin)) { File.Delete(target); continue; }
+                ProjectLibrary.AddIfNew(new ProjectEntry { Path = target, Name = k.Name + " (from " + pcName + ")", Updated = k.Saved, Opened = k.Saved }); n++;
+            }
+            catch { }
+        }
+        if (n > 0) ProjectLibrary.Save();
+        return n;
+    }
     // puts a deleted project file back from the vault: where it was, or in the usual folder if that cannot be written (the path it is at now, or null)
     public static string Bring(string projectPath, out string error)
     {
         error = null;
         try
         {
-            string copy = CopyFor(projectPath); if (!File.Exists(copy)) { error = "Purphex has no copy of this project."; return null; }
+            string copy = FindCopy(projectPath); if (copy == null) { error = "Purphex has no copy of this project."; return null; }
             if (File.Exists(projectPath)) return projectPath;
             try { string d = Path.GetDirectoryName(projectPath); if (!string.IsNullOrEmpty(d)) { Directory.CreateDirectory(d); File.Copy(copy, projectPath, false); return projectPath; } } catch { }
-            string dir = ProjectLibrary.DefaultFolder; Directory.CreateDirectory(dir); string stem = Path.GetFileNameWithoutExtension(projectPath), target = Path.Combine(dir, stem + ".ytmproj"); int n = 1;
+            string dir = Home; Directory.CreateDirectory(dir); string stem = Path.GetFileNameWithoutExtension(projectPath), target = Path.Combine(dir, stem + ".ytmproj"); int n = 1;
             while (File.Exists(target)) { target = Path.Combine(dir, stem + " (brought back" + (n > 1 ? " " + n : "") + ").ytmproj"); n++; }
             File.Copy(copy, target, false); return target;
         }

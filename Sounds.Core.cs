@@ -112,6 +112,7 @@ static class SoundLibrary
 
     public static void WritePack(SoundPack p)
     {
+        if (p != null && p.Id == UserPackId) CloudBackup.Soon();   /* your imported sounds go to your account backup */
         Directory.CreateDirectory(p.Dir); string text = PackText(p);
         string tmp = Path.Combine(p.Dir, "pack.txt.tmp"); File.WriteAllText(tmp, text, Encoding.UTF8); string fin = Path.Combine(p.Dir, "pack.txt"); if (File.Exists(fin)) File.Delete(fin); File.Move(tmp, fin);
         File.WriteAllText(Path.Combine(p.Dir, "LICENCE.txt"), p.Name + "\r\n" + new string('-', p.Name.Length) + "\r\n" + p.License + "\r\n", Encoding.UTF8);
