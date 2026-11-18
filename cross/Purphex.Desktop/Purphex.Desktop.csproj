@@ -208,8 +208,6 @@
     <Compile Include="../../Hub.Web.cs" />
     <Compile Include="../../Hub.Core.cs" />
     <Compile Include="../../Studio.Hub.cs" />
-    <Compile Include="../../Creative.Core.cs" />
-    <Compile Include="../../Studio.Creative.cs" />
     <Compile Include="../../Plug.Variants.Gen.cs" />
     <Compile Include="../../Studio.BusPresets.cs" />
     <Compile Include="../../Studio.AiEffect.cs" />
@@ -265,24 +263,6 @@
     <Compile Include="../../Studio.FastAuto.cs" />
     <Compile Include="../../Studio.SiteTheme.cs" />
     <EmbeddedResource Include="../../logo.png" LogicalName="Purphex.logo.png" />
-    <EmbeddedResource Include="../../creative/index.html" LogicalName="Purphex.creative.index.html" />
-    <EmbeddedResource Include="../../creative/app.css" LogicalName="Purphex.creative.app.css" />
-    <EmbeddedResource Include="../../creative/engine.js" LogicalName="Purphex.creative.engine.js" />
-    <EmbeddedResource Include="../../creative/ui.js" LogicalName="Purphex.creative.ui.js" />
-    <EmbeddedResource Include="../../creative/cover.js" LogicalName="Purphex.creative.cover.js" />
-    <EmbeddedResource Include="../../creative/templates.js" LogicalName="Purphex.creative.templates.js" />
-    <EmbeddedResource Include="../../creative/photofx.js" LogicalName="Purphex.creative.photofx.js" />
-    <EmbeddedResource Include="../../creative/stickers.js" LogicalName="Purphex.creative.stickers.js" />
-    <EmbeddedResource Include="../../creative/easy.js" LogicalName="Purphex.creative.easy.js" />
-    <EmbeddedResource Include="../../creative/capcut.js" LogicalName="Purphex.creative.capcut.js" />
-    <EmbeddedResource Include="../../creative/toolbar.js" LogicalName="Purphex.creative.toolbar.js" />
-    <EmbeddedResource Include="../../creative/picstext.js" LogicalName="Purphex.creative.picstext.js" />
-    <EmbeddedResource Include="../../creative/vtoolbar.js" LogicalName="Purphex.creative.vtoolbar.js" />
-    <EmbeddedResource Include="../../creative/vpro.js" LogicalName="Purphex.creative.vpro.js" />
-    <EmbeddedResource Include="../../creative/pro.js" LogicalName="Purphex.creative.pro.js" />
-    <EmbeddedResource Include="../../creative/vidpro.js" LogicalName="Purphex.creative.vidpro.js" />
-    <EmbeddedResource Include="../../creative/suite.js" LogicalName="Purphex.creative.suite.js" />
-    <EmbeddedResource Include="../../creative/vtext.js" LogicalName="Purphex.creative.vtext.js" />
     <Compile Include="../Purphex.Platform/SdlAudioOut.cs" />
     <Compile Include="Forms/*.cs" />
   </ItemGroup>

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
@@ -99,7 +99,6 @@ static class ED
           Check("Free studio: the producer tag generator is locked", tryIt("OpenProducerTag", null) == "The producer tag generator");
           Check("Free studio: Auto Mix, Flex Pitch, the AI generators and AUTO MASTERING are locked", tryIt("AutoMixClick", null) == "Auto Mix" && tryIt("FlexOpen", null) == "Flex Pitch" && tryIt("OpenAiPreset", null) == "The AI generators" && tryIt("AutoMasterClick", null) == "Auto Master");
           Check("Free studio: Auto Loudness and Auto EQ are locked", tryIt("AutoLoudnessClick", null) == "Auto Loudness" && tryIt("AutoEqClick", new object[] { null, null }) == "Auto EQ");
-          Check("Free studio: the Video and Photo Editors are locked and not in the side panel", tryIt("OpenCreative", new object[] { "video" }) == "The Purphex Video Editor" && (bool)typeof(StudioForm).GetMethod("FreeHidden", BF | BindingFlags.Static).Invoke(null, new object[] { "Purphex Photo Editor" }));
           int loud = -1, gentle = -1; for (int q = 0; q < MasterPresets.All.Length; q++) { if (MasterPresets.All[q].Name.StartsWith("Loud")) loud = q; if (MasterPresets.All[q].Name.StartsWith("Gentle")) gentle = q; }
           Check("Free studio: only two master presets (Gentle and Clean & Transparent) can be used", StudioForm.FreeMasterPreset(gentle) && !StudioForm.FreeMasterPreset(loud) && tryIt("PresetUse", new object[] { loud }).StartsWith("Every master preset") && Enumerable.Range(0, MasterPresets.All.Length).Count(StudioForm.FreeMasterPreset) == 2);
           Check("Free studio: export as WAV (16, 24, 32-bit) or MP3 only", StudioForm.FreeFormat(0) && StudioForm.FreeFormat(1) && StudioForm.FreeFormat(2) && StudioForm.FreeFormat(4) && !StudioForm.FreeFormat(3) && !StudioForm.FreeFormat(5));
