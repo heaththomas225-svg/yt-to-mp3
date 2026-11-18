@@ -1,4 +1,4 @@
-3.80.11
+3.80.12
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Cloud backup of songs and sounds
-sha256=aabb5f447189baa4a27e4736112686c2206957ebd4aeeacc2e100fe5b0831baa
+Simpler thinner waveforms
+sha256=67c69fb0320a17d3e65ec94174170fbfa71437b8c5e2afac9648140a50acdd24

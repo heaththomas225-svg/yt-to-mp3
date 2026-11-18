@@ -7,10 +7,14 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.80.11";
+    public const string Latest = "3.80.12";
 
     public const string Text =
-@"3.80.11  Cloud backup of songs and sounds
+@"3.80.12  Simpler thinner waveforms
+ + NEW: A simpler, thinner waveform on every track, like Logic zoomed out: a flat dark region with a hairline border and the real wave drawn at every pixel. The whole song reads clearly zoomed right out, so selecting a part is easy, and quiet parts are lifted so you can see the detail without zooming right in.
+ + CHANGED: The Purphex Video Editor and Purphex Photo Editor are gone from the side panel. Your saved files stay on your PC.
+
+3.80.11  Cloud backup of songs and sounds
  + NEW: Cloud backup under your account. When this PC is linked to your Purphex account, every project you save, the audio it uses and the sounds you imported into My samples are backed up to purphexmusic.com.
  + NEW: Link another PC to the same account and its songs come over as their own copies, named Song (from PC name), and its sounds as a My samples (from PC name) pack. Nothing from one PC ever overwrites another.
  + NEW: A reinstalled or wiped PC gets its own songs and sounds back by itself. The cloud keeps every replaced version and every removed file for 30 days.

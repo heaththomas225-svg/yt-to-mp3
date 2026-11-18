@@ -2,6 +2,12 @@
 
 What changed in each version of **Purphex**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.80.12  Simpler thinner waveforms
+
+- NEW: A simpler, thinner waveform on every track, like Logic zoomed out: a flat dark region with a hairline border and the real wave drawn at every pixel. The whole song reads clearly zoomed right out, so selecting a part is easy, and quiet parts are lifted so you can see the detail without zooming right in.
+
+- CHANGED: The Purphex Video Editor and Purphex Photo Editor are gone from the side panel. Your saved files stay on your PC.
+
 ## 3.80.11  Cloud backup of songs and sounds
 
 - NEW: Cloud backup under your account. When this PC is linked to your Purphex account, every project you save, the audio it uses and the sounds you imported into My samples are backed up to purphexmusic.com.
