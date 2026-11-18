@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Drawing;
 using System.Windows.Forms;
 
@@ -9,7 +9,7 @@ using System.Windows.Forms;
 //  MP3 320 kbps at 44.1 kHz.
 //  Paid only (Supporter Edition and up): themes and fonts, the other VSTs (Purphex VSTs and your own: padlocked in VSTS), the producer tag generator, vocal presets, bus presets and community
 //  presets, the AI generators, Auto Mix, Flex Pitch, Auto EQ, Auto Loudness, AUTO MASTERING, the other master presets, the visualiser,
-//  FLAC and MP4 export and rates above 44.1 kHz, and the Video and Photo Editors (hidden from the side panel on the Free Edition).
+//  FLAC and MP4 export and rates above 44.1 kHz.
 //  Help shows only the guides for what the Free Edition has (Edition.FreeHelp).
 // =====================================================================================================
 partial class StudioForm
@@ -18,9 +18,8 @@ partial class StudioForm
     // true when the edition has it; otherwise the edition prompt opens and false
     internal bool Paid(string what) { return Edition.Gate(Tier.Supporter, what, this); }
     // side panel buttons the Free Edition does not show at all
-    static bool FreeHidden(string menuName) { return FreeStudio && (menuName == "Purphex Video Editor" || menuName == "Purphex Photo Editor"); }
     // a paid page reached some other way (an old link, a shortcut) goes back to the Mix page on the Free Edition
-    void FreePageGuard() { if (FreeStudio && (tab == 5 || tab == 8 || tab == 10 || tab >= 12)) tab = tab == 5 ? 1 : 0; if (FreeStudio && fontsWin) fontsWin = false; }
+    void FreePageGuard() { if (FreeStudio && (tab == 5 || tab == 8 || tab >= 12)) tab = tab == 5 ? 1 : 0; if (FreeStudio && fontsWin) fontsWin = false; }
     // the master presets the Free Edition can use
     internal static bool FreeMasterPreset(int i) { if (!FreeStudio) return true; if (i < 0 || i >= MasterPresets.All.Length) return false; string n = MasterPresets.All[i].Name; return n.StartsWith("Gentle (") || n.StartsWith("Clean & Transparent ("); }
     // the export formats the Free Edition can use: WAV (16, 24 or 32-bit) and MP3 320 kbps

@@ -69,7 +69,7 @@ Press Cancel at any time. Files already finished are kept."),
         new HelpTopic("editions", "Basics", "Editions, edition codes and linking this PC", false, @"
 ## The editions
 - Free: the MP3 and MP4 converter, the vocal remover and a limited studio, for everyone, for ever. The free studio has tracks and the mixer, every effect, the piano roll, sound packs, lyrics, your profile, the Music Hub, mastering with 2 presets (Gentle and Clean & Transparent) and export of the mix, the master or the stems as WAV (up to 32-bit) or MP3 320 kbps at 44.1 kHz.
-- Supporter (£7.99 a month or £69.99 a year): the whole studio: VSTS, vocal, bus and community presets, the AI generators, Auto Mix, Flex Pitch, Auto EQ, Auto Loudness, AUTO MASTERING and every master preset, the visualiser, themes and fonts, the Purphex Video and Photo Editors, and exports up to 192 kHz.
+- Supporter (£7.99 a month or £69.99 a year): the whole studio: VSTS, vocal, bus and community presets, the AI generators, Auto Mix, Flex Pitch, Auto EQ, Auto Loudness, AUTO MASTERING and every master preset, the visualiser, themes and fonts, and exports up to 192 kHz.
 - Fantasy (£399.99 once): everything, for life, with every future update and 384 kHz exports.
 Nothing is paid inside the app: you choose an edition on the website, and the app unlocks.
 ## Unlock this PC
@@ -609,47 +609,6 @@ PATTERN picks which repeats sound (constant, every other, last beat for fills, l
 Low-pass (with resonance), high-pass, telephone, rhythm gate, drive (soft, hard clip, bitcrush), width, modulation (pitch wobble, filter sweep or auto-pan), delay and reverb. Each has its own ON switch and works on the glitched sound; DRY/WET mixes it with the original, INPUT and OUTPUT set the levels. BYPASS lets the sound through untouched.
 ## Presets, undo and automation
 PRESETS has 55 factory presets (subtle, vocal, drum fills, build-ups, transitions, EDM, drum and bass, UK garage, trap, experimental, aggressive) and your own: save, rename and delete them there. The arrows step through them. Ctrl+Z and Ctrl+Y undo and redo in the window. Every setting is in the plugin panel too, with its A button for automation, and everything is saved with the project.
-"),
-        new HelpTopic("studio-creative", "Purphex Music", "Creative Studio: Purphex Video Editor and Purphex Photo Editor", false, @"
-## Where it is
-Side panel (the three lines at the top left): Purphex Video Editor or Purphex Photo Editor, under Music Hub. The two buttons at the top switch between them; BACK TO DAW returns to your song.
-## Your first video
-Press MAKE A VIDEO FROM MY SONG (or MY SONG in MEDIA): pick the song, a background picture or video, a visualiser, the artist and title and the colours, and it is all put on the timeline. Press PLAY to watch, then EXPORT.
-## Editing
-IMPORT (or drop files on MEDIA) adds video, audio, photos and PNG graphics. Drag them onto the timeline. Drag a clip to move it (also to another track), drag its edges to trim, press S to split at the playhead, Ctrl+D to duplicate, Delete to delete. Shift-click selects several. SNAP sticks clips to the playhead, clip edges and markers (M). Ctrl + wheel zooms the timeline. Tracks: rename by clicking the name, M mutes and S solos audio, SHOWN hides a video track, LOCK protects it, drag the bottom of a track to resize it.
-## The inspector
-Click a clip: CLIP (start, length, in point, speed), TRANSFORM (position, scale, rotation, opacity, crop, fit or fill; or drag the box on the monitor), AUDIO (volume, fades, normalise), EFFECTS (colour and looks, HOLD TO COMPARE), TRANSITION (at the start and at the end), TEXT and VISUALISER settings.
-## Titles, lyrics and visualisers
-TITLES adds text at the playhead (song title, artist name, lower third, lyric caption, karaoke, credits, promos). LYRICS: paste the words, press START TAPPING and press SPACE as each line starts; .srt and .lrc files can be imported and exported. Purphex does not hear the words by itself. VISUALS adds visualisers that move with the real audio of the timeline.
-## Export
-EXPORT: MP4 (H.264 or H.265), WebM or audio only, the size, frame rate, quality and range. Every frame is drawn with all effects, transitions and text, then encoded by ffmpeg (installed by the converter the first time you convert something). The finished file is checked.
-## Purphex Photo Editor
-A photo editor for covers, posts, stories, thumbnails and flyers. The tabs on the left: TEMPLATES (ready layouts with the right size), BACKGROUNDS (colours, gradients, patterns, textures, or a photo), TEXT (styles like neon, outline, 3D, glitch, gradient, curved, retro, boxed, and a list of every font on your PC shown in its own style), STICKERS (emoji and shapes), PHOTOS (add your own pictures; PNG transparency is kept), FILTERS (20 looks for the whole picture or one photo), ADJUST (brightness, contrast, saturation, hue, warmth, fade, grain, vignette, blur), DRAW (a brush with neon and an eraser, on its own layer) and FRAMES.
-## Editing on the canvas
-Click a layer to pick it; drag to move, drag a corner to resize, drag the dot above it to rotate (Shift snaps to the centre and to 15 degrees); the mouse wheel resizes too. Arrow keys nudge it. On the right: every setting of the layer (font, size, colours, outline, shadow, glow, 3D, curve, opacity, blend mode, crop and shape mask for photos, flip, duplicate). LAYERS: show or hide, lock, move up or down, delete. Ctrl+Z / Ctrl+Y undo and redo, Ctrl+D duplicates, Delete removes, V is move, B is the brush.
-## Titles
-Press + ADD TEXT in Text (or a title style) and type straight onto the video. Double-click a title on the video or the timeline to change its words. The bar over the video changes the font, size, bold, italic, capitals, alignment, colours, outline and the box behind the words.
-## Creative Suite
-SUITE (top left) has all your songs, designs and videos, shared media to move pictures between the editors, your edition and trial, help and settings.
-## Purphex Video Editor
-Transitions: 24 kinds, including push, iris, clock wipe, barn doors, heart, glitch, whip pan and pixelate. Colour: grading with lift, gamma and gain, saturation, temperature, a curve and .cube LUTs (copy the grade to every clip). Effects: RGB split, glitch, VHS, film grain, pixelate, posterize, scan lines, letterbox, mirror and kaleidoscope, plus keyframe easing and play backwards.
-Editing keys: I insert mode, O overwrite mode, Alt + Left / Right nudges a clip one frame, G goes to a time, ? shows all the shortcuts. The media bin has search, sorting and a not used yet filter.
-## Purphex Photo Editor
-Quick starts: when it opens, pick Single Cover, Album Cover (with a tracklist page), Artist Banner, YouTube Thumbnail, Promotional Post or Story, or start from scratch at any size with a see-through background.
-Pages: a design can hold several pages (the bar at the bottom left of the picture): add, duplicate, delete, double-click to rename. Export can write every page at once.
-Tools on the app bar: move, rectangle, ellipse and lasso selection, fill bucket, eyedropper, line, arrow, the fill colour and the rulers. Keys: V, M, E, L, G, I, U, A; Esc drops the selection. With a selection, keep the picked layer only inside it or cut it out (a mask you can feather, invert or remove later), fill it, or copy it to a new layer.
-Rulers and guides: drag from a ruler to make a guide; layers snap to guides; drag a guide off the picture to remove it.
-Adjust: pro adjust has levels, curves (all colours or red, green and blue alone), vibrance, temperature and tint, colour balance for shadows, midtones and highlights, selective colour for eight colour ranges, noise reduction and straighten, for the picked photo or the whole picture.
-Layer settings: layer effects (two outlines, glow, drop shadow, inner shadow, colour and gradient overlay, a worn distress look) and masks and clipping (clip to the layer below puts a photo inside text).
-Text: pro text styles (chrome, gold, glossy, metallic, embossed, distressed, neon, cinematic, minimal), warps (wave, rise, bulge, flag, a circle of text) and a second outline. Fonts: a library of free open-licence fonts by style, downloaded the first time you use one.
-Stickers: over 300 stickers drawn by Purphex in 25 categories, sharp at any size, in two colours you pick; search them, star favourites, and recent ones are kept. Backgrounds: 30 drawn backgrounds (bokeh, stars, clouds, concrete, fabric, paper, graffiti, studio light, cinematic) with your colours.
-Exports warn you when a format cannot be see-through (JPEG).
-## Templates
-The first time Purphex Photo Editor opens, WELCOME TO PURPHEX MUSIC PHOTO EDITOR shows 1,344 templates: search them or filter by size (album covers, stories, posts, thumbnails, flyers, banners) and style, then click one. START BLANK, OPEN PHOTO and MY DESIGNS are there too. TEMPLATES > BROWSE ALL opens it again.
-## Saving and using it
-SAVE keeps the design (every layer stays editable); LIBRARY opens, renames, duplicates and deletes your designs. EXPORT PNG / JPEG at full size, USE AS SONG COVER (the picture of your current song project) or SEND TO VIDEO EDITOR.
-## Safe projects
-SAVE (Ctrl+S) keeps the project; SAVE COPY makes another. Projects also autosave in the background and come back after a crash. Your media files stay where they are: a moved file is marked MISSING (right-click it to find it).
 "),
         new HelpTopic("studio-musichub", "Purphex Music", "Music Hub: listen to your streaming services inside Purphex", false, @"
 ## Where it is
