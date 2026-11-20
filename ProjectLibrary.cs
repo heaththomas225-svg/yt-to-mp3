@@ -188,6 +188,7 @@ static class ProjectLibrary
     }
 
     public static void SetOnProfile(ProjectEntry e, bool on) { lock (lk) e.OnProfile = on; Save(); }
+    public static List<ProjectEntry> Snapshot() { lock (lk) return new List<ProjectEntry>(Entries); }
     public static bool AddIfNew(ProjectEntry e) { lock (lk) { if (Find(e.Path) != null) return false; Entries.Add(e); return true; } }
     public static ProjectEntry Find(string path) { lock (lk) return Entries.Find(e => string.Equals(e.Path, path, StringComparison.OrdinalIgnoreCase)); }
 
@@ -225,6 +226,8 @@ static class ProjectLibrary
         catch { }
         // projects Purphex kept a copy of come back on the list even if the list or the file was lost
         try { bool more = false; foreach (var k in ProjectVault.All()) { if (k.FromPc != null || k.Removed || Find(k.Path) != null) continue; int tracks = 0; double bpm = 0; string kind = ""; try { var roles = new List<string>(); foreach (var line in File.ReadAllLines((ProjectVault.CopyOf(k.Path) ?? ProjectVault.CopyFor(k.Path)), Encoding.UTF8)) { if (line.StartsWith("track|")) { tracks++; var p = line.Split('|'); if (p.Length > 1) roles.Add(p[1]); } else if (line.StartsWith("bpm|")) double.TryParse(line.Substring(4), NumberStyles.Float, CI, out bpm); } kind = KindOfRoles(roles); } catch { } lock (lk) Entries.Add(new ProjectEntry { Path = k.Path, Name = k.Name, Tracks = tracks, Bpm = bpm, Kind = kind, Updated = k.Saved, Opened = k.Saved }); more = true; } if (more) { Save(); RestoreGone(); } } catch { }
+        try { RestoreGone(); } catch { }   /* any project whose file is gone but whose copy is here (the cloud backup brings copies back) is put back now */
+        ProjectVault.ProtectAllAsync();   /* and every project on the list that has no copy yet gets one (projects made before copies were kept) */
         ProjectRescue.StartOnce();   /* and your songs are looked for everywhere in your folders, once a session */
         CloudBackup.Start();   /* and backed up to your account (and brought down from it on a new PC) */
     }
@@ -522,6 +525,11 @@ static class ProjectVault
     static string FindCopy(string projectPath) { try { if (string.IsNullOrEmpty(projectPath)) return null; string p = CopyFor(projectPath); return File.Exists(p) ? p : null; } catch { return null; } }
     public static bool Has(string projectPath) { return FindCopy(projectPath) != null; }
 
+    // once a session: a copy of every project on the list that is still on this PC but has no copy yet (one at a time, in the background)
+    static int protecting;
+    public static void ProtectAllAsync() { if (StudioEnv.UnderTest && !ProtectInTests) return; if (System.Threading.Interlocked.Exchange(ref protecting, 1) == 1) return; var th = new System.Threading.Thread(() => { try { ProtectAll(); } catch { } }); th.IsBackground = true; th.Priority = System.Threading.ThreadPriority.Lowest; th.Start(); }
+    public static bool ProtectInTests;
+    public static int ProtectAll() { int n = 0; var all = ProjectLibrary.Snapshot(); foreach (var e in all) { try { if (File.Exists(e.Path) && !Has(e.Path) && Keep(e.Path, e.Name)) n++; } catch { } } return n; }
     public static void KeepAsync(string projectPath, string name)
     {
         if (string.IsNullOrEmpty(projectPath)) return;
