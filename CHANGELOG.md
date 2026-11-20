@@ -2,6 +2,14 @@
 
 What changed in each version of **Purphex**. The same notes are shown in the app (Menu > What's new) and in the update card.
 
+## 3.80.13  Projects always come back
+
+- FIXED: Projects no longer get stuck on FILE NOT FOUND. When Purphex has a copy of a deleted project (kept on this PC, or brought back by your account backup) it is put back straight away.
+
+- NEW: Every project on your list that had no copy yet (projects made before copies were kept) gets one in the background, so deleting it later loses nothing.
+
+- NEW: A project that truly has no copy says DELETED FROM THIS PC, with a FIND IT button to show Purphex where the file is now if you moved or renamed it.
+
 ## 3.80.12  Simpler thinner waveforms
 
 - NEW: A simpler, thinner waveform on every track, like Logic zoomed out: a flat dark region with a hairline border and the real wave drawn at every pixel. The whole song reads clearly zoomed right out, so selecting a part is easy, and quiet parts are lifted so you can see the detail without zooming right in.

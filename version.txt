@@ -1,4 +1,4 @@
-3.80.12
+3.80.13
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Simpler thinner waveforms
-sha256=67c69fb0320a17d3e65ec94174170fbfa71437b8c5e2afac9648140a50acdd24
+Projects always come back
+sha256=6969f4364c5e1d289bb27944c35a073b4430ebbd0c00d74d65df8de43bd8f1db

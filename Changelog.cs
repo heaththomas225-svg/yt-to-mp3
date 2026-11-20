@@ -7,10 +7,15 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.80.12";
+    public const string Latest = "3.80.13";
 
     public const string Text =
-@"3.80.12  Simpler thinner waveforms
+@"3.80.13  Projects always come back
+ + FIXED: Projects no longer get stuck on FILE NOT FOUND. When Purphex has a copy of a deleted project (kept on this PC, or brought back by your account backup) it is put back straight away.
+ + NEW: Every project on your list that had no copy yet (projects made before copies were kept) gets one in the background, so deleting it later loses nothing.
+ + NEW: A project that truly has no copy says DELETED FROM THIS PC, with a FIND IT button to show Purphex where the file is now if you moved or renamed it.
+
+3.80.12  Simpler thinner waveforms
  + NEW: A simpler, thinner waveform on every track, like Logic zoomed out: a flat dark region with a hairline border and the real wave drawn at every pixel. The whole song reads clearly zoomed right out, so selecting a part is easy, and quiet parts are lifted so you can see the detail without zooming right in.
  + CHANGED: The Purphex Video Editor and Purphex Photo Editor are gone from the side panel. Your saved files stay on your PC.
 
