@@ -44,7 +44,7 @@ partial class App : Form
     static string AppData = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "YtToMp3");
     static string Tools = Path.Combine(AppData, "tools");
-    static string SettingsFile = Path.Combine(AppData, "settings.txt");
+    static string SettingsFile { get { return StudioEnv.UnderTest ? Path.Combine(StudioEnv.DataDir, "settings.txt") : Path.Combine(AppData, "settings.txt"); } }   // (a test or the video recorder, with a data folder of its own, never writes your real settings)
 #if PURPHEX_DESKTOP
     internal static string YtDlp = Path.Combine(Tools, CrossTools.Exe("yt-dlp"));   // macOS / Linux: the same tools without .exe
     static string ExeName(string n) { return CrossTools.Exe(n); }
