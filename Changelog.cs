@@ -7,10 +7,15 @@ using System.Windows.Forms;
 // Keep CHANGELOG.md in the repo in sync with this text.
 static class Changelog
 {
-    public const string Latest = "3.80.13";
+    public const string Latest = "3.80.14";
 
     public const string Text =
-@"3.80.13  Projects always come back
+@"3.80.14  Free OneDrive backup of your songs
+ + NEW: Free backup of your songs and sounds through your own OneDrive (or Google Drive, or Dropbox). Purphex copies every project, the audio it uses and the sounds you imported into a Purphex Backup folder there, and Windows uploads it to your Microsoft account for free.
+ + NEW: On a new PC, or after Purphex or its data was deleted, sign in to OneDrive and your songs and sounds come back by themselves. Nothing is ever deleted from the backup, and your files are never overwritten.
+ + NEW: Songs and sounds from your other PCs on the same OneDrive come over as theirs. The Projects page shows that the backup is on.
+
+3.80.13  Projects always come back
  + FIXED: Projects no longer get stuck on FILE NOT FOUND. When Purphex has a copy of a deleted project (kept on this PC, or brought back by your account backup) it is put back straight away.
  + NEW: Every project on your list that had no copy yet (projects made before copies were kept) gets one in the background, so deleting it later loses nothing.
  + NEW: A project that truly has no copy says DELETED FROM THIS PC, with a FIND IT button to show Purphex where the file is now if you moved or renamed it.

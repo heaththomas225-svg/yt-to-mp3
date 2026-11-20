@@ -1,4 +1,4 @@
-3.80.13
+3.80.14
 https://github.com/heaththomas225-svg/yt-to-mp3/releases/latest/download/YtToMp3.exe
-Projects always come back
-sha256=6969f4364c5e1d289bb27944c35a073b4430ebbd0c00d74d65df8de43bd8f1db
+Free OneDrive backup of your songs
+sha256=40730f937ae544bdbc966c95a4def257634d3a8fcdda76503be8016099a05227
