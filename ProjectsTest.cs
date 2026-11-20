@@ -77,6 +77,17 @@ static class PR
                 Check("opening it puts the file back and its audio plays from Purphex's own copy", okb && File.Exists(vp) && warns.Count == 0 && le.Tracks.Count == 1 && le.Tracks[0].Clip != null && le.Tracks[0].Clip.Length >= StudioEngine.SR - 2, (why ?? "") + " " + string.Join("; ", warns.ToArray()));
                 ProjectLibrary.Remove(vp); ProjectLibrary.Discover(); Check("a project you take off the list on purpose stays off it", ProjectLibrary.Find(vp) == null, "");
             }
+            // ---- an older project (made before copies were kept) gets its copy; a copy that comes back later (the cloud backup) is put back at once ----
+            {
+                string od = Path.Combine(dir, "oldproj"); Directory.CreateDirectory(od); var oe = new StudioEngine(); string op = Path.Combine(od, "Old Song.ytmproj"); ProjectIO.Save(oe, op); ProjectLibrary.Touch(op, "Old Song", 0, 90, 0, true, null);
+                Check("an older project on the list has no copy yet", !ProjectVault.Has(op), "");
+                int made = ProjectVault.ProtectAll(); Check("every project on the list that has no copy gets one (so deleting it later loses nothing)", made >= 1 && ProjectVault.Has(op), made + " copies made");
+                string vcopy = ProjectVault.CopyOf(op), hold = vcopy + ".away"; File.Move(vcopy, hold); File.Delete(op); ProjectLibrary.Load(); var oen = ProjectLibrary.Find(op); if (oen != null) oen.Recheck();
+                Check("with no copy the card says the file is gone", oen != null && oen.Missing, "");
+                File.Move(hold, vcopy); ProjectLibrary.Discover(); if (oen != null) oen.Recheck();
+                Check("when its copy comes back (as the cloud backup does) the project is put back at once, not left as FILE NOT FOUND", oen != null && !oen.Missing && File.Exists(op), "");
+                ProjectLibrary.Remove(op);
+            }
 
             // ---- removing a project ----
             int choice = 0; SetF("removeHook", (Func<ProjectEntry, int>)(en => choice));

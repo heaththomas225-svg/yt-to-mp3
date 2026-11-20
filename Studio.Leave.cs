@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -46,7 +46,7 @@ partial class StudioForm
         {
             var e = list[i]; var card = Rc(box.X + 28 + i * (cw + gap) - welScroll, box.Y + 168, cw, cw + 56); if (card.Right < strip.X || card.X > strip.Right) continue; bool hot = Hot(RectangleF.Intersect(card, strip));
             FillRR(g, TM.C(205, 22, 12, 42), card, 12); Win.DrawNeonBox(g, card, hot); var pic = Rc(card.X + 8, card.Y + 8, cw - 16, cw - 16); DrawCover(g, pic, e); Win.DrawNeonBox(g, pic, false);
-            if (e.Missing) { using (var b = new SolidBrush(TM.C(170, 8, 4, 16))) g.FillRectangle(b, pic); Txt(g, "FILE NOT FOUND", 12, Color.FromArgb(255, 150, 150), pic, StringAlignment.Center, true); }
+            if (e.Missing) PaintMissingProject(g, pic, e);
             Txt(g, e.Name, 14, Ink, Rc(card.X + 10, card.Y + cw, cw - 20, 22), StringAlignment.Near, true);
             Txt(g, "EDITED " + ProjectLibrary.Ago(e.Updated), 10, DimC, Rc(card.X + 10, card.Y + cw + 22, cw - 20, 18), StringAlignment.Near, false);
             var vis = RectangleF.Intersect(card, strip); if (vis.Width > 8) { Reg(vis, () => { OpenProjectAsk(e); if (HasProject) welcomeOn = false; }); Hint2(vis, "Open this project"); }

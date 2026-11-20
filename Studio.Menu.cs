@@ -245,6 +245,31 @@ partial class StudioForm
         }
     }
 
+    // a project whose file is not on this PC any more: if Purphex has a copy (on this PC, or brought back by the cloud backup) it is put back at once;
+    // if not, the card says so plainly and FIND IT lets you show where the file is now (a moved or renamed file)
+    readonly HashSet<string> restoreTried = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+    void PaintMissingProject(Graphics g, RectangleF pic, ProjectEntry e)
+    {
+        using (var b = new SolidBrush(TM.C(185, 8, 4, 16))) g.FillRectangle(b, pic);
+        if (ProjectVault.Has(e.Path))
+        {
+            Txt(g, "BRINGING IT BACK...", 12, NeonCyan, pic, StringAlignment.Center, true);
+            if (restoreTried.Add(e.Path)) { var ee = e; BeginInvoke(new Action(() => { string why; if (ProjectLibrary.EnsureFile(ee, out why)) { ee.Recheck(); Toast(ee.Name + " is back, from Purphex's own copy."); } Invalidate(); })); }
+            return;
+        }
+        Txt(g, "DELETED FROM THIS PC", 12, Color.FromArgb(255, 150, 150), Rc(pic.X, pic.Y + pic.Height / 2 - 34, pic.Width, 22), StringAlignment.Center, true);
+        Txt(g, "Purphex has no copy of this one", 10, DimC, Rc(pic.X, pic.Y + pic.Height / 2 - 10, pic.Width, 18), StringAlignment.Center, false);
+        if (pic.Width >= 120) { var fb = Rc(pic.X + pic.Width / 2 - 52, pic.Y + pic.Height / 2 + 14, 104, 26); var ee = e; Btn(g, fb, "FIND IT", 1, () => LocateProject(ee), 11); Hint2(fb, "Moved or renamed it? Show Purphex where the project file is now"); }
+    }
+    void LocateProject(ProjectEntry e)
+    {
+        using (var d = new OpenFileDialog { Title = "Where is " + e.Name + " now?", Filter = "Purphex projects|*.ytmproj|All files|*.*", FileName = System.IO.Path.GetFileName(e.Path) })
+        {
+            if (d.ShowDialog(this) != DialogResult.OK) return; string now = d.FileName;
+            if (ProjectLibrary.Find(now) != null && !string.Equals(now, e.Path, StringComparison.OrdinalIgnoreCase)) { Toast("That project is already on your list."); return; }
+            ProjectVault.MarkRemoved(e.Path); e.Path = now; e.Recheck(); ProjectVault.Unmark(now); ProjectLibrary.Save(); ProjectVault.KeepAsync(now, e.Name); Toast(e.Name + " found. Purphex keeps a copy of it from now on."); Invalidate();
+        }
+    }
     // ---------------- My Projects ----------------
     void PaintProjects(Graphics g)
     {
@@ -264,7 +289,7 @@ partial class StudioForm
             }
             object it = i - 1 < projCardOrder.Count ? projCardOrder[i - 1] : null; if (it is Release) { PaintReleaseCard(g, card, (Release)it, i); continue; } var e = it as ProjectEntry; if (e == null) continue; string path = e.Path; bool hot = Hot(card); bool prev = string.Equals(previewPath, path, StringComparison.OrdinalIgnoreCase);
             FillRR(g, TM.C(205, 22, 12, 42), card, 14); Win.DrawNeonBox(g, card, hot || prev); if (card.Bottom > y0 && card.Y < H) AnimRing(g, card, i % 2 == 0 ? NeonCyan : NeonPink);   // the border runs with lights, like the picture on a profile
-            var pic = Rc(card.X + 8, card.Y + 8, cw - 16, cw - 16); DrawCover(g, pic, e); Win.DrawNeonBox(g, pic, false); if (e.Missing) { using (var b = new SolidBrush(TM.C(170, 8, 4, 16))) g.FillRectangle(b, pic); Txt(g, "FILE NOT FOUND", 13, Color.FromArgb(255, 150, 150), pic, StringAlignment.Center, true); }
+            var pic = Rc(card.X + 8, card.Y + 8, cw - 16, cw - 16); DrawCover(g, pic, e); Win.DrawNeonBox(g, pic, false); if (e.Missing) PaintMissingProject(g, pic, e);
             Txt(g, e.Name, 15, Ink, Rc(card.X + 12, card.Y + 228, cw - 24, 24), StringAlignment.Near, true);
             string meta = (e.Bpm > 0 ? e.Bpm.ToString("0") + " BPM" : "") + (e.Seconds > 1 ? "  " + ((int)(e.Seconds / 60)) + ":" + ((int)(e.Seconds % 60)).ToString("00") : ""); meta = meta.Trim(); Txt(g, meta, 11, DimC, Rc(card.X + 12, card.Y + 252, cw - 24, 18), StringAlignment.Near, false);
             ProjectLibrary.EnsureKind(e); Txt(g, "EDITED " + ProjectLibrary.Ago(e.Updated), 11, DimC, Rc(card.X + 12, card.Y + 270, cw - 24 - 62, 18), StringAlignment.Near, false); if (e.Kind.Length > 0 && e.Kind != "Empty") Txt(g, e.Kind, 11, NeonCyan, Rc(card.Right - 12 - 62, card.Y + 270, 62, 18), StringAlignment.Far, true);
