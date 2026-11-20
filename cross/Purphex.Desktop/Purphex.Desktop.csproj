@@ -100,6 +100,7 @@
     <Compile Include="../../Studio.Flex.cs" />
     <Compile Include="../../ProjectLibrary.cs" />
     <Compile Include="../../CloudBackup.cs" />
+    <Compile Include="../../FolderBackup.cs" />
     <Compile Include="../../AppLogo.cs" />
     <Compile Include="../../Sounds.Core.cs" />
     <Compile Include="../../Sounds.Gen.cs" />
