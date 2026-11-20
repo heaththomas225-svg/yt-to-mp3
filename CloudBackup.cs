@@ -26,9 +26,10 @@ static class CloudBackup
     public static long Used, Quota, Room = long.MaxValue, MaxFile = 1024L * 1024 * 1024; public static int Files, Sent, Got, Waiting, TooBig; public static string MyPc = "";
     public static int Failed;
     // this PC's part, remembered (the vault uses it to know which songs are its own)
-    public static string SavedPc { get { if (MyPc.Length == 15) return MyPc; try { string f = Path.Combine(StudioEnv.DataDir, "cloud", "pc.txt"); if (File.Exists(f)) { string v = File.ReadAllText(f).Trim(); if (v.Length == 15) return v; } } catch { } return ""; } }
+    public static string SavedPc { get { if (MyPc.Length == 15) return MyPc; try { string f = Path.Combine(StudioEnv.DataDir, "cloud", "pc.txt"); if (File.Exists(f)) { string v = File.ReadAllText(f).Trim(); if (v.Length == 15) return v; } } catch { } try { return FolderBackup.MyPc; } catch { return ""; } } }   /* (not linked: the same id the OneDrive backup uses) */
     // runs on the studio's own thread (set by the studio): reloading the sounds or the project list never races the screen
     public static Action<Action> OnUi;
+    internal static void RunOnUi(Action a) { Ui(a); }
     static void Ui(Action a) { var u = OnUi; if (u != null) { try { u(a); } catch { } } else try { a(); } catch { } }
     static readonly StringComparer Keys = Path.DirectorySeparatorChar == '\\' ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
     public static volatile bool Busy; static int loopOn; static readonly System.Threading.AutoResetEvent kick = new System.Threading.AutoResetEvent(false);
@@ -44,7 +45,7 @@ static class CloudBackup
         var th = new System.Threading.Thread(() =>
         {
             System.Threading.Thread.Sleep(8000);   /* the studio opens first */
-            while (true) { try { Sync(); } catch (Exception ex) { Status = "Backup paused: " + ex.Message; } kick.WaitOne(TimeSpan.FromMinutes(15)); System.Threading.Thread.Sleep(20000); }
+            while (true) { try { FolderBackup.Run(); } catch { } try { Sync(); } catch (Exception ex) { Status = "Backup paused: " + ex.Message; }   /* the free OneDrive backup first, then the account backup */ kick.WaitOne(TimeSpan.FromMinutes(15)); System.Threading.Thread.Sleep(20000); }
         });
         th.IsBackground = true; th.Priority = System.Threading.ThreadPriority.Lowest; th.Start();
     }
@@ -171,7 +172,7 @@ static class CloudBackup
         catch { return null; }
     }
     // another PC's sounds: the same list with the pack's own id and name, so it shows as "My samples (from <PC>)" and never mixes with yours
-    static void MakeOtherPack(string dev, string cloudList)
+    internal static void MakeOtherPack(string dev, string cloudList)
     {
         try
         {
